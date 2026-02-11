@@ -1,7 +1,8 @@
 import { useState, useRef, useCallback } from "react";
 import { usePartners, useCreatePartner, useUpdatePartner, useDeletePartner, usePartnerContracts, usePartnerContacts, usePartnerProducts, useCreatePartnerContract, useCreatePartnerContact, useCreatePartnerProduct, useContractAmendments, useCreateContractAmendment } from "@/hooks/use-partners";
 import { useMyCompanies } from "@/hooks/use-companies";
-import { Plus, Briefcase, Pencil, Trash2, Eye, Clock, FileText, Users, Package, Link2, X, Calendar, Archive, Download, Upload, ChevronDown, ChevronRight } from "lucide-react";
+import { useStates } from "@/hooks/use-hierarchy";
+import { Plus, Briefcase, Pencil, Trash2, Eye, Clock, FileText, Users, Package, Link2, X, Calendar, Archive, Download, Upload, ChevronDown, ChevronRight, MapPin } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -54,9 +55,22 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { RichTextEditor } from "@/components/rich-text-editor";
+import { WameSaveButton } from "@/components/wame-save-button";
+
+const specializationOptions = [
+  { value: "SFA", label: "SFA" },
+  { value: "Reality", label: "Reality" },
+  { value: "Prenajom", label: "Prenajom" },
+  { value: "Predaj zbrani", label: "Predaj zbrani" },
+  { value: "Obchod", label: "Obchod" },
+  { value: "Poistenie", label: "Poistenie" },
+  { value: "Dochodok", label: "Dochodok" },
+  { value: "Ine", label: "Ine" },
+];
 
 const partnerFormSchema = insertPartnerSchema.extend({
   name: z.string().min(1, "Nazov je povinny"),
+  collaborationDate: z.string().optional(),
 });
 
 type PartnerFormData = z.infer<typeof partnerFormSchema>;
@@ -73,6 +87,7 @@ function PartnerFormDialog({
   const createMutation = useCreatePartner();
   const updateMutation = useUpdatePartner();
   const { data: allPartners } = usePartners();
+  const { data: allStates } = useStates();
   const timerRef = useRef<number>(0);
   const [notesHtml, setNotesHtml] = useState("");
 
@@ -85,7 +100,19 @@ function PartnerFormDialog({
     defaultValues: {
       name: "",
       code: "",
+      specialization: "",
+      ico: "",
+      dic: "",
+      icDph: "",
+      street: "",
+      streetNumber: "",
+      orientNumber: "",
+      postalCode: "",
+      city: "",
+      stateId: undefined,
+      description: "",
       notes: "",
+      collaborationDate: undefined,
     },
   });
 
@@ -96,11 +123,39 @@ function PartnerFormDialog({
         form.reset({
           name: editingPartner.name,
           code: editingPartner.code || "",
+          specialization: editingPartner.specialization || "",
+          ico: editingPartner.ico || "",
+          dic: editingPartner.dic || "",
+          icDph: editingPartner.icDph || "",
+          street: editingPartner.street || "",
+          streetNumber: editingPartner.streetNumber || "",
+          orientNumber: editingPartner.orientNumber || "",
+          postalCode: editingPartner.postalCode || "",
+          city: editingPartner.city || "",
+          stateId: editingPartner.stateId || undefined,
+          description: editingPartner.description || "",
           notes: editingPartner.notes || "",
+          collaborationDate: editingPartner.collaborationDate ? new Date(editingPartner.collaborationDate).toISOString().split("T")[0] : "",
         });
         setNotesHtml(editingPartner.notes || "");
       } else {
-        form.reset({ name: "", code: "", notes: "" });
+        form.reset({
+          name: "",
+          code: "",
+          specialization: "",
+          ico: "",
+          dic: "",
+          icDph: "",
+          street: "",
+          streetNumber: "",
+          orientNumber: "",
+          postalCode: "",
+          city: "",
+          stateId: undefined,
+          description: "",
+          notes: "",
+          collaborationDate: undefined,
+        });
         setNotesHtml("");
       }
     }
@@ -108,7 +163,14 @@ function PartnerFormDialog({
   }, [editingPartner, form, onOpenChange]);
 
   function onSubmit(data: PartnerFormData) {
-    const payload = { ...data, notes: notesHtml };
+    const processingTimeSec = Math.round((performance.now() - timerRef.current) / 1000);
+    const { collaborationDate, ...rest } = data;
+    const payload: any = { 
+      ...rest, 
+      notes: notesHtml, 
+      processingTimeSec,
+      collaborationDate: collaborationDate ? new Date(collaborationDate) : null,
+    };
 
     if (editingPartner) {
       updateMutation.mutate(
@@ -126,47 +188,181 @@ function PartnerFormDialog({
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
+      <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle data-testid="text-partner-dialog-title">
             {editingPartner ? "Upravit partnera" : "Pridat noveho partnera"}
           </DialogTitle>
         </DialogHeader>
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-            <FormField control={form.control} name="name" render={({ field }) => (
-              <FormItem>
-                <FormLabel>Nazov partnera</FormLabel>
-                <FormControl><Input {...field} data-testid="input-partner-name" /></FormControl>
-                <FormMessage />
-              </FormItem>
-            )} />
+          <form onSubmit={form.handleSubmit(onSubmit)}>
+            <Tabs defaultValue="basic" className="w-full">
+              <TabsList className="w-full grid grid-cols-3">
+                <TabsTrigger value="basic" data-testid="partner-tab-zakladne">Zakladne udaje</TabsTrigger>
+                <TabsTrigger value="address" data-testid="partner-tab-adresa">Adresa</TabsTrigger>
+                <TabsTrigger value="notes" data-testid="partner-tab-poznamky">Poznamky</TabsTrigger>
+              </TabsList>
 
-            <FormField control={form.control} name="code" render={({ field }) => (
-              <FormItem>
-                <FormLabel>Kod partnera</FormLabel>
-                <FormControl><Input {...field} value={field.value || ""} maxLength={10} className="font-mono uppercase" data-testid="input-partner-code" /></FormControl>
-                <FormMessage />
-              </FormItem>
-            )} />
+              <TabsContent value="basic" className="space-y-4 mt-4">
+                <FormField control={form.control} name="name" render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Nazov partnera</FormLabel>
+                    <FormControl><Input {...field} data-testid="input-partner-name" /></FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )} />
+                <div className="grid grid-cols-2 gap-4">
+                  <FormField control={form.control} name="code" render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Kod partnera</FormLabel>
+                      <FormControl><Input {...field} value={field.value || ""} maxLength={10} className="font-mono uppercase" data-testid="input-partner-code" /></FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )} />
+                  <FormField control={form.control} name="specialization" render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Zameranie</FormLabel>
+                      <Select onValueChange={field.onChange} value={field.value || ""}>
+                        <FormControl>
+                          <SelectTrigger data-testid="select-partner-specialization">
+                            <SelectValue placeholder="Vyberte zameranie" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          {specializationOptions.map(opt => (
+                            <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )} />
+                </div>
+                <div className="grid grid-cols-3 gap-4">
+                  <FormField control={form.control} name="ico" render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>ICO</FormLabel>
+                      <FormControl><Input {...field} value={field.value || ""} data-testid="input-partner-ico" /></FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )} />
+                  <FormField control={form.control} name="dic" render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>DIC</FormLabel>
+                      <FormControl><Input {...field} value={field.value || ""} data-testid="input-partner-dic" /></FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )} />
+                  <FormField control={form.control} name="icDph" render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>IC DPH</FormLabel>
+                      <FormControl><Input {...field} value={field.value || ""} data-testid="input-partner-icdph" /></FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )} />
+                </div>
+                <FormField control={form.control} name="description" render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Charakteristika / popis cinnosti</FormLabel>
+                    <FormControl><Textarea {...field} value={field.value || ""} rows={4} data-testid="input-partner-description" /></FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )} />
+                <FormField control={form.control} name="collaborationDate" render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Datum zacatia spoluprace</FormLabel>
+                    <FormControl>
+                      <Input
+                        type="date"
+                        value={field.value ? (typeof field.value === 'string' ? field.value : new Date(field.value).toISOString().split("T")[0]) : ""}
+                        onChange={(e) => field.onChange(e.target.value || undefined)}
+                        data-testid="input-partner-collaboration-date"
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )} />
+              </TabsContent>
 
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Poznamky</label>
-              <RichTextEditor
-                content={notesHtml}
-                onChange={setNotesHtml}
-                placeholder="Zadajte poznamky k partnerovi..."
-              />
-            </div>
+              <TabsContent value="address" className="space-y-4 mt-4">
+                <FormField control={form.control} name="street" render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Ulica</FormLabel>
+                    <FormControl><Input {...field} value={field.value || ""} data-testid="input-partner-street" /></FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )} />
+                <div className="grid grid-cols-2 gap-4">
+                  <FormField control={form.control} name="streetNumber" render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Popisne cislo</FormLabel>
+                      <FormControl><Input {...field} value={field.value || ""} data-testid="input-partner-street-number" /></FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )} />
+                  <FormField control={form.control} name="orientNumber" render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Orientacne cislo</FormLabel>
+                      <FormControl><Input {...field} value={field.value || ""} data-testid="input-partner-orient-number" /></FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )} />
+                </div>
+                <div className="grid grid-cols-3 gap-4">
+                  <FormField control={form.control} name="postalCode" render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>PSC</FormLabel>
+                      <FormControl><Input {...field} value={field.value || ""} data-testid="input-partner-postal-code" /></FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )} />
+                  <FormField control={form.control} name="city" render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Mesto</FormLabel>
+                      <FormControl><Input {...field} value={field.value || ""} data-testid="input-partner-city" /></FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )} />
+                  <FormField control={form.control} name="stateId" render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Stat</FormLabel>
+                      <Select
+                        onValueChange={(val) => field.onChange(parseInt(val))}
+                        value={field.value?.toString() || ""}
+                      >
+                        <FormControl>
+                          <SelectTrigger data-testid="select-partner-state">
+                            <SelectValue placeholder="Vyberte stat" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          {allStates?.map(s => (
+                            <SelectItem key={s.id} value={s.id.toString()}>
+                              {s.name} ({s.code})
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )} />
+                </div>
+              </TabsContent>
 
-            <div className="flex items-center justify-end gap-2 mt-6">
-              <Button type="button" variant="outline" onClick={() => handleOpenChange(false)} data-testid="button-partner-cancel">
-                Zrusit
-              </Button>
-              <Button type="submit" disabled={isPending} data-testid="button-partner-save">
-                {isPending ? "Ukladam..." : "Ulozit"}
-              </Button>
-            </div>
+              <TabsContent value="notes" className="mt-4">
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Poznamkovy blok</label>
+                  <RichTextEditor
+                    content={notesHtml}
+                    onChange={setNotesHtml}
+                    placeholder="Zadajte poznamky k partnerovi..."
+                    data-testid="editor-partner-notes"
+                  />
+                </div>
+              </TabsContent>
+            </Tabs>
+
+            <WameSaveButton isPending={isPending} />
           </form>
         </Form>
       </DialogContent>
@@ -277,9 +473,11 @@ function ContractAmendmentsSection({ contractId }: { contractId: number }) {
 function PartnerDetailDialog({
   partner,
   onClose,
+  getStateName,
 }: {
   partner: Partner;
   onClose: () => void;
+  getStateName: (id: number | null) => string;
 }) {
   const { data: contracts } = usePartnerContracts(partner.id);
   const { data: pContacts } = usePartnerContacts(partner.id);
@@ -302,6 +500,17 @@ function PartnerDetailDialog({
   const [newProductName, setNewProductName] = useState("");
   const [newProductType, setNewProductType] = useState("Financny");
   const [newProductCode, setNewProductCode] = useState("");
+
+  const addressParts = [
+    partner.street,
+    partner.streetNumber ? `${partner.streetNumber}` : null,
+    partner.orientNumber ? `/ ${partner.orientNumber}` : null,
+  ].filter(Boolean).join(" ");
+
+  const cityLine = [
+    partner.postalCode,
+    partner.city,
+  ].filter(Boolean).join(" ");
 
   function handleAddContract() {
     if (!newContractCompanyId) return;
@@ -355,6 +564,7 @@ function PartnerDetailDialog({
               <DialogTitle data-testid="text-partner-detail-name">{partner.name}</DialogTitle>
               <div className="flex items-center gap-2 mt-1 flex-wrap">
                 {partner.code && <Badge variant="secondary" className="font-mono">{partner.code}</Badge>}
+                {partner.specialization && <Badge variant="outline">{partner.specialization}</Badge>}
                 {partner.uid && <span className="text-xs font-mono text-muted-foreground">{partner.uid}</span>}
               </div>
             </div>
@@ -381,9 +591,66 @@ function PartnerDetailDialog({
                 <p className="text-sm font-mono">{partner.code || "-"}</p>
               </div>
             </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <span className="text-xs text-muted-foreground">Zameranie</span>
+                <p className="text-sm">{partner.specialization || "-"}</p>
+              </div>
+              <div>
+                <span className="text-xs text-muted-foreground">Datum spoluprace</span>
+                <p className="text-sm">{partner.collaborationDate ? new Date(partner.collaborationDate).toLocaleDateString("sk-SK") : "-"}</p>
+              </div>
+            </div>
+            <Separator />
+            <div className="grid grid-cols-3 gap-4">
+              <div>
+                <span className="text-xs text-muted-foreground">ICO</span>
+                <p className="text-sm">{partner.ico || "-"}</p>
+              </div>
+              <div>
+                <span className="text-xs text-muted-foreground">DIC</span>
+                <p className="text-sm">{partner.dic || "-"}</p>
+              </div>
+              <div>
+                <span className="text-xs text-muted-foreground">IC DPH</span>
+                <p className="text-sm">{partner.icDph || "-"}</p>
+              </div>
+            </div>
+            {partner.description && (
+              <>
+                <Separator />
+                <div>
+                  <span className="text-xs text-muted-foreground">Charakteristika</span>
+                  <p className="text-sm mt-1">{partner.description}</p>
+                </div>
+              </>
+            )}
+            <Separator />
+            <div className="space-y-2">
+              <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                <MapPin className="w-3 h-3" />
+                <span>Adresa</span>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <span className="text-xs text-muted-foreground">Ulica</span>
+                  <p className="text-sm">{addressParts || "-"}</p>
+                </div>
+                <div>
+                  <span className="text-xs text-muted-foreground">Mesto</span>
+                  <p className="text-sm">{cityLine || "-"}</p>
+                </div>
+              </div>
+              <div>
+                <span className="text-xs text-muted-foreground">Stat</span>
+                <p className="text-sm">{getStateName(partner.stateId)}</p>
+              </div>
+            </div>
             <Separator />
             <div className="flex items-center gap-2 text-xs text-muted-foreground flex-wrap">
               <Clock className="w-3 h-3" />
+              <span>Cas spracovania: {partner.processingTimeSec || 0}s</span>
+              <span>|</span>
               <span>Vytvorene: {partner.createdAt ? new Date(partner.createdAt).toLocaleDateString("sk-SK") : "-"}</span>
               <span>|</span>
               <span>Aktualizovane: {partner.updatedAt ? new Date(partner.updatedAt).toLocaleDateString("sk-SK") : "-"}</span>
@@ -512,7 +779,7 @@ function PartnerDetailDialog({
                 <Input placeholder="Priezvisko" value={newContactLast} onChange={e => setNewContactLast(e.target.value)} data-testid="input-contact-last" />
                 <Input placeholder="Email" value={newContactEmail} onChange={e => setNewContactEmail(e.target.value)} data-testid="input-contact-email" />
                 <Input placeholder="Telefon" value={newContactPhone} onChange={e => setNewContactPhone(e.target.value)} data-testid="input-contact-phone" />
-                <Input placeholder="Pozicia" value={newContactPosition} onChange={e => setNewContactPosition(e.target.value)} className="col-span-2" data-testid="input-contact-position" />
+                <Input placeholder="Pozicia" value={newContactPosition} onChange={e => setNewContactPosition(e.target.value)} data-testid="input-contact-position" />
                 <div className="flex flex-col gap-1">
                   <label className="text-xs text-muted-foreground">Aktivny od</label>
                   <Input type="date" value={newContactValidFrom} onChange={e => setNewContactValidFrom(e.target.value)} data-testid="input-contact-valid-from" />
@@ -593,11 +860,18 @@ function PartnerDetailDialog({
 
 export default function Partners() {
   const { data: partners, isLoading } = usePartners();
+  const { data: allStates } = useStates();
   const deleteMutation = useDeletePartner();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingPartnerId, setEditingPartnerId] = useState<number | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Partner | null>(null);
   const [viewTarget, setViewTarget] = useState<Partner | null>(null);
+
+  function getStateName(stateId: number | null): string {
+    if (!stateId || !allStates) return "-";
+    const state = allStates.find(s => s.id === stateId);
+    return state ? `${state.name} (${state.code})` : "-";
+  }
 
   function openCreate() {
     setEditingPartnerId(null);
@@ -627,33 +901,41 @@ export default function Partners() {
           <Table>
             <TableHeader>
               <TableRow>
+                <TableHead>UID</TableHead>
                 <TableHead>Nazov</TableHead>
                 <TableHead>Kod</TableHead>
-                <TableHead>UID</TableHead>
-                <TableHead>Vytvorene</TableHead>
+                <TableHead>Zameranie</TableHead>
+                <TableHead>ICO</TableHead>
+                <TableHead>Mesto</TableHead>
+                <TableHead>Stat</TableHead>
+                <TableHead>Datum spoluprace</TableHead>
                 <TableHead className="w-[120px]">Akcie</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {isLoading && (
                 <TableRow>
-                  <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">Nacitavam...</TableCell>
+                  <TableCell colSpan={9} className="text-center py-8 text-muted-foreground">Nacitavam...</TableCell>
                 </TableRow>
               )}
               {!isLoading && (!partners || partners.length === 0) && (
                 <TableRow>
-                  <TableCell colSpan={5} className="text-center py-12 text-muted-foreground" data-testid="text-partners-empty">
+                  <TableCell colSpan={9} className="text-center py-12 text-muted-foreground" data-testid="text-partners-empty">
                     Ziadni partneri. Kliknite na "Pridat noveho partnera".
                   </TableCell>
                 </TableRow>
               )}
               {partners?.map(partner => (
                 <TableRow key={partner.id} data-testid={`row-partner-${partner.id}`}>
-                  <TableCell className="font-medium">{partner.name}</TableCell>
-                  <TableCell className="font-mono text-xs">{partner.code || "-"}</TableCell>
                   <TableCell className="font-mono text-xs text-muted-foreground">{partner.uid || "-"}</TableCell>
+                  <TableCell className="font-medium">{partner.name}</TableCell>
+                  <TableCell>{partner.code ? <Badge variant="secondary" className="font-mono">{partner.code}</Badge> : "-"}</TableCell>
+                  <TableCell className="text-sm">{partner.specialization || "-"}</TableCell>
+                  <TableCell className="text-sm">{partner.ico || "-"}</TableCell>
+                  <TableCell className="text-sm">{partner.city || "-"}</TableCell>
+                  <TableCell className="text-sm">{getStateName(partner.stateId)}</TableCell>
                   <TableCell className="text-xs text-muted-foreground">
-                    {partner.createdAt ? new Date(partner.createdAt).toLocaleDateString("sk-SK") : "-"}
+                    {partner.collaborationDate ? new Date(partner.collaborationDate).toLocaleDateString("sk-SK") : "-"}
                   </TableCell>
                   <TableCell>
                     <div className="flex items-center gap-1">
@@ -705,6 +987,7 @@ export default function Partners() {
         <PartnerDetailDialog
           partner={viewTarget}
           onClose={() => setViewTarget(null)}
+          getStateName={getStateName}
         />
       )}
     </div>
