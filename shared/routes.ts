@@ -6,28 +6,15 @@ import {
   insertContactSchema, 
   insertProductSchema, 
   insertCommissionSchemeSchema,
-  subjects, myCompanies, partners, contacts, products, commissionSchemes
+  subjects, myCompanies, partners, contacts, products, commissionSchemes, appUsers
 } from './schema';
 
-// ============================================
-// SHARED ERROR SCHEMAS
-// ============================================
 export const errorSchemas = {
-  validation: z.object({
-    message: z.string(),
-    field: z.string().optional(),
-  }),
-  notFound: z.object({
-    message: z.string(),
-  }),
-  internal: z.object({
-    message: z.string(),
-  }),
+  validation: z.object({ message: z.string(), field: z.string().optional() }),
+  notFound: z.object({ message: z.string() }),
+  internal: z.object({ message: z.string() }),
 };
 
-// ============================================
-// API CONTRACT
-// ============================================
 export const api = {
   subjects: {
     list: {
@@ -38,45 +25,30 @@ export const api = {
         type: z.enum(['person', 'company']).optional(),
         isActive: z.boolean().optional(),
       }).optional(),
-      responses: {
-        200: z.array(z.custom<typeof subjects.$inferSelect>()),
-      },
+      responses: { 200: z.array(z.custom<typeof subjects.$inferSelect>()) },
     },
     get: {
       method: 'GET' as const,
       path: '/api/subjects/:id' as const,
-      responses: {
-        200: z.custom<typeof subjects.$inferSelect>(),
-        404: errorSchemas.notFound,
-      },
+      responses: { 200: z.custom<typeof subjects.$inferSelect>(), 404: errorSchemas.notFound },
     },
     create: {
       method: 'POST' as const,
       path: '/api/subjects' as const,
       input: insertSubjectSchema,
-      responses: {
-        201: z.custom<typeof subjects.$inferSelect>(),
-        400: errorSchemas.validation,
-      },
+      responses: { 201: z.custom<typeof subjects.$inferSelect>(), 400: errorSchemas.validation },
     },
     update: {
       method: 'PUT' as const,
       path: '/api/subjects/:id' as const,
       input: insertSubjectSchema.partial().extend({ changeReason: z.string().optional() }),
-      responses: {
-        200: z.custom<typeof subjects.$inferSelect>(),
-        400: errorSchemas.validation,
-        404: errorSchemas.notFound,
-      },
+      responses: { 200: z.custom<typeof subjects.$inferSelect>(), 400: errorSchemas.validation, 404: errorSchemas.notFound },
     },
-    archive: { // Explicit archive action if needed, though update handles it
+    archive: {
       method: 'POST' as const,
       path: '/api/subjects/:id/archive' as const,
       input: z.object({ reason: z.string() }),
-      responses: {
-        200: z.object({ success: z.boolean() }),
-        404: errorSchemas.notFound,
-      },
+      responses: { 200: z.object({ success: z.boolean() }), 404: errorSchemas.notFound },
     },
   },
   
@@ -84,18 +56,29 @@ export const api = {
     list: {
       method: 'GET' as const,
       path: '/api/my-companies' as const,
-      responses: {
-        200: z.array(z.custom<typeof myCompanies.$inferSelect>()),
-      },
+      responses: { 200: z.array(z.custom<typeof myCompanies.$inferSelect>()) },
+    },
+    get: {
+      method: 'GET' as const,
+      path: '/api/my-companies/:id' as const,
+      responses: { 200: z.custom<typeof myCompanies.$inferSelect>(), 404: errorSchemas.notFound },
     },
     create: {
       method: 'POST' as const,
       path: '/api/my-companies' as const,
       input: insertMyCompanySchema,
-      responses: {
-        201: z.custom<typeof myCompanies.$inferSelect>(),
-        400: errorSchemas.validation,
-      },
+      responses: { 201: z.custom<typeof myCompanies.$inferSelect>(), 400: errorSchemas.validation },
+    },
+    update: {
+      method: 'PUT' as const,
+      path: '/api/my-companies/:id' as const,
+      input: insertMyCompanySchema.partial().extend({ changeReason: z.string().optional() }),
+      responses: { 200: z.custom<typeof myCompanies.$inferSelect>(), 400: errorSchemas.validation, 404: errorSchemas.notFound },
+    },
+    delete: {
+      method: 'DELETE' as const,
+      path: '/api/my-companies/:id' as const,
+      responses: { 200: z.object({ success: z.boolean() }), 404: errorSchemas.notFound },
     },
   },
 
@@ -103,18 +86,13 @@ export const api = {
     list: {
       method: 'GET' as const,
       path: '/api/partners' as const,
-      responses: {
-        200: z.array(z.custom<typeof partners.$inferSelect>()),
-      },
+      responses: { 200: z.array(z.custom<typeof partners.$inferSelect>()) },
     },
     create: {
       method: 'POST' as const,
       path: '/api/partners' as const,
       input: insertPartnerSchema,
-      responses: {
-        201: z.custom<typeof partners.$inferSelect>(),
-        400: errorSchemas.validation,
-      },
+      responses: { 201: z.custom<typeof partners.$inferSelect>(), 400: errorSchemas.validation },
     },
   },
 
@@ -122,18 +100,13 @@ export const api = {
     list: {
       method: 'GET' as const,
       path: '/api/products' as const,
-      responses: {
-        200: z.array(z.custom<typeof products.$inferSelect>()),
-      },
+      responses: { 200: z.array(z.custom<typeof products.$inferSelect>()) },
     },
     create: {
       method: 'POST' as const,
       path: '/api/products' as const,
       input: insertProductSchema,
-      responses: {
-        201: z.custom<typeof products.$inferSelect>(),
-        400: errorSchemas.validation,
-      },
+      responses: { 201: z.custom<typeof products.$inferSelect>(), 400: errorSchemas.validation },
     },
   },
 
@@ -142,18 +115,13 @@ export const api = {
       method: 'GET' as const,
       path: '/api/commissions' as const,
       input: z.object({ productId: z.number().optional() }).optional(),
-      responses: {
-        200: z.array(z.custom<typeof commissionSchemes.$inferSelect>()),
-      },
+      responses: { 200: z.array(z.custom<typeof commissionSchemes.$inferSelect>()) },
     },
     create: {
       method: 'POST' as const,
       path: '/api/commissions' as const,
       input: insertCommissionSchemeSchema,
-      responses: {
-        201: z.custom<typeof commissionSchemes.$inferSelect>(),
-        400: errorSchemas.validation,
-      },
+      responses: { 201: z.custom<typeof commissionSchemes.$inferSelect>(), 400: errorSchemas.validation },
     },
   },
   
@@ -161,24 +129,31 @@ export const api = {
     continents: {
       method: 'GET' as const,
       path: '/api/hierarchy/continents' as const,
-      responses: {
-        200: z.array(z.object({ id: z.number(), name: z.string(), code: z.string() })),
-      },
+      responses: { 200: z.array(z.object({ id: z.number(), name: z.string(), code: z.string() })) },
     },
     states: {
       method: 'GET' as const,
       path: '/api/hierarchy/states' as const,
       input: z.object({ continentId: z.string().optional() }).optional(),
-      responses: {
-        200: z.array(z.object({ id: z.number(), name: z.string(), code: z.string(), flagUrl: z.string().nullable() })),
-      },
+      responses: { 200: z.array(z.object({ id: z.number(), name: z.string(), code: z.string(), flagUrl: z.string().nullable(), continentId: z.number() })) },
     },
-  }
+  },
+
+  appUser: {
+    me: {
+      method: 'GET' as const,
+      path: '/api/app-user/me' as const,
+      responses: { 200: z.custom<typeof appUsers.$inferSelect>(), 404: errorSchemas.notFound },
+    },
+    setActive: {
+      method: 'PUT' as const,
+      path: '/api/app-user/active' as const,
+      input: z.object({ activeCompanyId: z.number().optional(), activeStateId: z.number().optional() }),
+      responses: { 200: z.custom<typeof appUsers.$inferSelect>() },
+    },
+  },
 };
 
-// ============================================
-// HELPER
-// ============================================
 export function buildUrl(path: string, params?: Record<string, string | number>): string {
   let url = path;
   if (params) {
@@ -191,9 +166,7 @@ export function buildUrl(path: string, params?: Record<string, string | number>)
   return url;
 }
 
-// ============================================
-// TYPES
-// ============================================
 export type SubjectInput = z.infer<typeof api.subjects.create.input>;
 export type SubjectResponse = z.infer<typeof api.subjects.create.responses[201]>;
 export type MyCompanyInput = z.infer<typeof api.myCompanies.create.input>;
+export type MyCompanyUpdateInput = z.infer<typeof api.myCompanies.update.input>;

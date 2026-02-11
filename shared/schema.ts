@@ -9,29 +9,46 @@ export * from "./models/auth";
 export const continents = pgTable("continents", {
   id: serial("id").primaryKey(),
   name: text("name").notNull(),
-  code: text("code").notNull().unique(), // e.g., "01"
+  code: text("code").notNull().unique(),
 });
 
 export const states = pgTable("states", {
   id: serial("id").primaryKey(),
   continentId: integer("continent_id").notNull(),
   name: text("name").notNull(),
-  code: text("code").notNull(), // e.g., "421"
+  code: text("code").notNull(),
   flagUrl: text("flag_url"),
 });
 
-// === MY FIRMS & PARTNERS ===
+// === MY FIRMS (expanded with full CRUD fields) ===
 export const myCompanies = pgTable("my_companies", {
   id: serial("id").primaryKey(),
   name: text("name").notNull(),
-  specialization: text("specialization").notNull(), // SFA, Reality, Weapons
-  code: text("code").notNull(), // e.g., "01" for UID generation
+  specialization: text("specialization").notNull(),
+  code: text("code").notNull(),
+  ico: text("ico"),
+  dic: text("dic"),
+  icDph: text("ic_dph"),
+  street: text("street"),
+  streetNumber: text("street_number"),
+  orientNumber: text("orient_number"),
+  postalCode: text("postal_code"),
+  city: text("city"),
+  stateId: integer("state_id"),
+  description: text("description"),
+  notes: text("notes"),
+  officialDocs: jsonb("official_docs").$type<{name: string, url: string, uploadedAt: string}[]>().default([]),
+  workDocs: jsonb("work_docs").$type<{name: string, url: string, uploadedAt: string}[]>().default([]),
+  processingTimeSec: integer("processing_time_sec").default(0),
+  isDeleted: boolean("is_deleted").default(false),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
 });
 
 export const partners = pgTable("partners", {
   id: serial("id").primaryKey(),
   name: text("name").notNull(),
-  contractFiles: jsonb("contract_files").$type<string[]>().default([]), // URLs to files
+  contractFiles: jsonb("contract_files").$type<string[]>().default([]),
 });
 
 // === COMMUNICATION MATRIX ===
@@ -39,8 +56,8 @@ export const contacts = pgTable("contacts", {
   id: serial("id").primaryKey(),
   partnerId: integer("partner_id").references(() => partners.id),
   name: text("name").notNull(),
-  type: text("type").notNull(), // 'internal', 'external'
-  securityLevel: integer("security_level").default(1), // 1-4
+  type: text("type").notNull(),
+  securityLevel: integer("security_level").default(1),
   validFrom: timestamp("valid_from").defaultNow(),
   validTo: timestamp("valid_to"),
   email: text("email"),
@@ -48,22 +65,17 @@ export const contacts = pgTable("contacts", {
 });
 
 // === SUBJECTS (CORE INTEGRITY) ===
-// Unique ID Format: 01-01-421-000 000 000 000
-// We store the components to generate it dynamically or store the string.
 export const subjects = pgTable("subjects", {
   id: serial("id").primaryKey(),
   uid: text("uid").notNull().unique(),
-  type: text("type").notNull(), // 'person', 'company'
+  type: text("type").notNull(),
   firstName: text("first_name"),
   lastName: text("last_name"),
   companyName: text("company_name"),
-  
-  // Hierarchy
   continentId: integer("continent_id").references(() => continents.id),
   stateId: integer("state_id").references(() => states.id),
   myCompanyId: integer("my_company_id").references(() => myCompanies.id),
-  
-  details: jsonb("details").default({}), // Address, IBAN, etc.
+  details: jsonb("details").default({}),
   processingTimeSec: integer("processing_time_sec").default(0),
   isActive: boolean("is_active").default(true),
   createdAt: timestamp("created_at").defaultNow(),
@@ -71,9 +83,18 @@ export const subjects = pgTable("subjects", {
 
 export const subjectArchive = pgTable("subject_archive", {
   id: serial("id").primaryKey(),
-  originalId: integer("original_id").notNull(), // Link to current subject
+  originalId: integer("original_id").notNull(),
   uid: text("uid").notNull(),
-  data: jsonb("data").notNull(), // Snapshot of the subject data before change
+  data: jsonb("data").notNull(),
+  archivedAt: timestamp("archived_at").defaultNow(),
+  reason: text("reason"),
+});
+
+// === COMPANY ARCHIVE ===
+export const companyArchive = pgTable("company_archive", {
+  id: serial("id").primaryKey(),
+  originalId: integer("original_id").notNull(),
+  data: jsonb("data").notNull(),
   archivedAt: timestamp("archived_at").defaultNow(),
   reason: text("reason"),
 });
@@ -85,7 +106,7 @@ export const products = pgTable("products", {
   stateId: integer("state_id").references(() => states.id),
   code: text("code").notNull(),
   name: text("name").notNull(),
-  allowedSpecialists: text("allowed_specialists").array(), // ['SDS', 'PaZ']
+  allowedSpecialists: text("allowed_specialists").array(),
 });
 
 export const commissionSchemes = pgTable("commission_schemes", {
@@ -93,30 +114,31 @@ export const commissionSchemes = pgTable("commission_schemes", {
   productId: integer("product_id").references(() => products.id),
   validFrom: timestamp("valid_from").notNull(),
   validTo: timestamp("valid_to"),
-  
-  type: text("type").notNull(), // 'points', 'percent', 'fix'
-  value: integer("value").notNull(), // Base value or percentage
-  coefficient: integer("coefficient"), // For points type
+  type: text("type").notNull(),
+  value: integer("value").notNull(),
+  coefficient: integer("coefficient"),
   currency: text("currency").default('EUR'),
 });
 
-// === USERS & SECURITY ===
-export const users = pgTable("users", {
+// === APP USERS & SECURITY (CRM-specific users, separate from Replit Auth users) ===
+export const appUsers = pgTable("app_users", {
   id: serial("id").primaryKey(),
-  replitId: text("replit_id").unique(), // For Replit Auth
+  replitId: text("replit_id").unique(),
   username: text("username").notNull().unique(),
-  password: text("password"), // Added for legacy/admin login
+  password: text("password"),
   firstName: text("first_name"),
   lastName: text("last_name"),
-  role: text("role").default('user'), // admin, manager, agent
+  role: text("role").default('user'),
   allowedCompanyIds: integer("allowed_company_ids").array(),
   securityLevel: integer("security_level").default(1),
-  adminCode: text("admin_code"), // 4-digit code for sensitive operations
+  adminCode: text("admin_code"),
+  activeCompanyId: integer("active_company_id"),
+  activeStateId: integer("active_state_id"),
   createdAt: timestamp("created_at").defaultNow(),
 });
 
 // === RELATIONS ===
-export const subjectsRelations = relations(subjects, ({ one, many }) => ({
+export const subjectsRelations = relations(subjects, ({ one }) => ({
   continent: one(continents, { fields: [subjects.continentId], references: [continents.id] }),
   state: one(states, { fields: [subjects.stateId], references: [states.id] }),
   company: one(myCompanies, { fields: [subjects.myCompanyId], references: [myCompanies.id] }),
@@ -129,7 +151,7 @@ export const productsRelations = relations(products, ({ one }) => ({
 
 // === ZOD SCHEMAS ===
 export const insertSubjectSchema = createInsertSchema(subjects).omit({ id: true, uid: true, createdAt: true });
-export const insertMyCompanySchema = createInsertSchema(myCompanies).omit({ id: true });
+export const insertMyCompanySchema = createInsertSchema(myCompanies).omit({ id: true, createdAt: true, updatedAt: true, isDeleted: true });
 export const insertPartnerSchema = createInsertSchema(partners).omit({ id: true });
 export const insertContactSchema = createInsertSchema(contacts).omit({ id: true });
 export const insertProductSchema = createInsertSchema(products).omit({ id: true });
@@ -139,10 +161,13 @@ export const insertCommissionSchemeSchema = createInsertSchema(commissionSchemes
 export type Subject = typeof subjects.$inferSelect;
 export type InsertSubject = z.infer<typeof insertSubjectSchema>;
 export type MyCompany = typeof myCompanies.$inferSelect;
+export type InsertMyCompany = z.infer<typeof insertMyCompanySchema>;
 export type Partner = typeof partners.$inferSelect;
 export type Product = typeof products.$inferSelect;
 export type CommissionScheme = typeof commissionSchemes.$inferSelect;
 export type Contact = typeof contacts.$inferSelect;
+export type AppUser = typeof appUsers.$inferSelect;
 
 export type CreateSubjectRequest = InsertSubject;
 export type UpdateSubjectRequest = Partial<InsertSubject> & { changeReason?: string };
+export type UpdateMyCompanyRequest = Partial<InsertMyCompany> & { changeReason?: string };

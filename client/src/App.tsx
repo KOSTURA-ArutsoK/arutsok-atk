@@ -3,6 +3,7 @@ import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { ThemeProvider } from "@/components/theme-provider";
 import { useAuth } from "@/hooks/use-auth";
 import { Loader2 } from "lucide-react";
 
@@ -12,6 +13,17 @@ import Dashboard from "@/pages/Dashboard";
 import Subjects from "@/pages/Subjects";
 import Companies from "@/pages/Companies";
 import { AppShell } from "@/components/layout/AppShell";
+
+function PlaceholderPage({ title }: { title: string }) {
+  return (
+    <div className="flex items-center justify-center h-full">
+      <div className="text-center space-y-2">
+        <h2 className="text-xl font-bold">{title}</h2>
+        <p className="text-sm text-muted-foreground">Tento modul bude dostupny v dalsej verzii.</p>
+      </div>
+    </div>
+  );
+}
 
 function PrivateRoute({ component: Component, ...rest }: any) {
   const { user, isLoading } = useAuth();
@@ -46,11 +58,11 @@ function Router() {
       <Route path="/" component={() => <PrivateRoute component={Dashboard} />} />
       <Route path="/subjects" component={() => <PrivateRoute component={Subjects} />} />
       <Route path="/companies" component={() => <PrivateRoute component={Companies} />} />
-      
-      {/* Placeholder for routes not yet implemented but in nav */}
-      <Route path="/partners" component={() => <PrivateRoute component={() => <div>Partners Module - Coming Soon</div>} />} />
-      <Route path="/hierarchy" component={() => <PrivateRoute component={() => <div>Hierarchy Module - Coming Soon</div>} />} />
-      <Route path="/settings" component={() => <PrivateRoute component={() => <div>System Settings - Coming Soon</div>} />} />
+      <Route path="/partners" component={() => <PrivateRoute component={() => <PlaceholderPage title="Partneri" />} />} />
+      <Route path="/products" component={() => <PrivateRoute component={() => <PlaceholderPage title="Produkty" />} />} />
+      <Route path="/commissions" component={() => <PrivateRoute component={() => <PlaceholderPage title="Provizie" />} />} />
+      <Route path="/settings" component={() => <PrivateRoute component={() => <PlaceholderPage title="Nastavenia" />} />} />
+      <Route path="/history" component={() => <PrivateRoute component={() => <PlaceholderPage title="Historia a logy" />} />} />
 
       <Route component={NotFound} />
     </Switch>
@@ -60,10 +72,12 @@ function Router() {
 function App() {
   return (
     <QueryClientProvider client={queryClient}>
-      <TooltipProvider>
-        <Toaster />
-        <Router />
-      </TooltipProvider>
+      <ThemeProvider>
+        <TooltipProvider>
+          <Toaster />
+          <Router />
+        </TooltipProvider>
+      </ThemeProvider>
     </QueryClientProvider>
   );
 }

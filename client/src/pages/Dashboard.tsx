@@ -1,166 +1,105 @@
-import { useSubjects } from "@/hooks/use-subjects";
 import { useMyCompanies } from "@/hooks/use-companies";
-import { ShieldAlert, Users, Building, TrendingUp } from "lucide-react";
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import { 
-  BarChart, 
-  Bar, 
-  XAxis, 
-  YAxis, 
-  Tooltip, 
-  ResponsiveContainer, 
-  CartesianGrid 
-} from 'recharts';
+import { useQuery } from "@tanstack/react-query";
+import { Users, Building2, ShieldAlert, TrendingUp } from "lucide-react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { useAppUser } from "@/hooks/use-app-user";
+import type { Subject } from "@shared/schema";
 
 export default function Dashboard() {
-  const { data: subjects } = useSubjects();
+  const { data: appUser } = useAppUser();
   const { data: companies } = useMyCompanies();
+  const { data: subjects } = useQuery<Subject[]>({
+    queryKey: ["/api/subjects"],
+    queryFn: async () => {
+      const res = await fetch("/api/subjects", { credentials: "include" });
+      if (!res.ok) throw new Error("Failed");
+      return res.json();
+    },
+  });
 
   const stats = [
-    {
-      title: "Total Subjects",
-      value: subjects?.length || 0,
-      icon: Users,
-      trend: "+2.5%",
-      color: "text-blue-500",
-      bg: "bg-blue-500/10"
-    },
-    {
-      title: "Active Companies",
-      value: companies?.length || 0,
-      icon: Building,
-      trend: "Stable",
-      color: "text-emerald-500",
-      bg: "bg-emerald-500/10"
-    },
-    {
-      title: "Security Alerts",
-      value: "0",
-      icon: ShieldAlert,
-      trend: "Clear",
-      color: "text-amber-500",
-      bg: "bg-amber-500/10"
-    },
-    {
-      title: "Commission Volume",
-      value: "€24.5k",
-      icon: TrendingUp,
-      trend: "+12%",
-      color: "text-purple-500",
-      bg: "bg-purple-500/10"
-    }
-  ];
-
-  const chartData = [
-    { name: 'Mon', value: 400 },
-    { name: 'Tue', value: 300 },
-    { name: 'Wed', value: 500 },
-    { name: 'Thu', value: 280 },
-    { name: 'Fri', value: 590 },
-    { name: 'Sat', value: 320 },
-    { name: 'Sun', value: 450 },
+    { title: "Subjekty", value: subjects?.length || 0, icon: Users, color: "text-blue-500", bg: "bg-blue-500/10" },
+    { title: "Spolocnosti", value: companies?.length || 0, icon: Building2, color: "text-emerald-500", bg: "bg-emerald-500/10" },
+    { title: "Bezpecnostne upozornenia", value: 0, icon: ShieldAlert, color: "text-amber-500", bg: "bg-amber-500/10" },
+    { title: "Provizie", value: "0 EUR", icon: TrendingUp, color: "text-purple-500", bg: "bg-purple-500/10" },
   ];
 
   return (
-    <div className="space-y-8 animate-in fade-in duration-500">
-      <div className="flex items-end justify-between">
-        <div>
-          <h2 className="text-3xl font-display font-bold">Mission Control</h2>
-          <p className="text-muted-foreground mt-1">System status and key metrics overview.</p>
-        </div>
-        <div className="flex items-center gap-2 text-xs font-mono text-muted-foreground bg-card px-3 py-1 rounded border border-border">
-          <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-          SYSTEM OPERATIONAL
-        </div>
+    <div className="space-y-6">
+      <div>
+        <h2 className="text-2xl font-bold" data-testid="text-dashboard-title">Prehlad</h2>
+        <p className="text-sm text-muted-foreground mt-1">
+          Vitajte, {appUser?.firstName || "Admin"}. Celkovy prehlad systemu.
+        </p>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        {stats.map((stat, index) => (
-          <Card key={index} className="dashboard-card border-l-4 border-l-primary/50">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium font-mono text-muted-foreground">
-                {stat.title}
-              </CardTitle>
+      <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
+        {stats.map((stat, i) => (
+          <Card key={i}>
+            <CardHeader className="flex flex-row items-center justify-between gap-2 space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium text-muted-foreground">{stat.title}</CardTitle>
               <div className={`p-2 rounded-md ${stat.bg} ${stat.color}`}>
                 <stat.icon className="h-4 w-4" />
               </div>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold font-display">{stat.value}</div>
-              <p className="text-xs text-muted-foreground mt-1 font-mono">
-                <span className={stat.color}>{stat.trend}</span> from last period
-              </p>
+              <div className="text-2xl font-bold" data-testid={`text-stat-${i}`}>{stat.value}</div>
             </CardContent>
           </Card>
         ))}
       </div>
 
-      <div className="grid gap-4 md:grid-cols-7">
-        <Card className="col-span-4 dashboard-card">
+      <div className="grid gap-4 lg:grid-cols-2">
+        <Card>
           <CardHeader>
-            <CardTitle>Activity Overview</CardTitle>
+            <CardTitle className="text-base">Posledne subjekty</CardTitle>
           </CardHeader>
-          <CardContent className="pl-2">
-            <div className="h-[300px] w-full">
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={chartData}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#334155" opacity={0.5} />
-                  <XAxis 
-                    dataKey="name" 
-                    stroke="#94a3b8" 
-                    fontSize={12} 
-                    tickLine={false} 
-                    axisLine={false} 
-                  />
-                  <YAxis 
-                    stroke="#94a3b8" 
-                    fontSize={12} 
-                    tickLine={false} 
-                    axisLine={false} 
-                    tickFormatter={(value) => `€${value}`} 
-                  />
-                  <Tooltip 
-                    contentStyle={{ backgroundColor: '#1e293b', borderColor: '#334155' }}
-                    itemStyle={{ color: '#e2e8f0' }}
-                  />
-                  <Bar dataKey="value" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
+          <CardContent>
+            {subjects && subjects.length > 0 ? (
+              <div className="space-y-3">
+                {subjects.slice(0, 5).map(s => (
+                  <div key={s.id} className="flex items-center gap-3 text-sm">
+                    <div className="w-7 h-7 rounded-md bg-primary/10 flex items-center justify-center text-primary text-xs font-bold">
+                      {s.type === "person" ? "O" : "F"}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="font-medium truncate">
+                        {s.type === "person" ? `${s.lastName}, ${s.firstName}` : s.companyName}
+                      </p>
+                      <p className="text-xs text-muted-foreground font-mono truncate">{s.uid}</p>
+                    </div>
+                    <div className={`w-2 h-2 rounded-full ${s.isActive ? "bg-emerald-500" : "bg-red-500"}`} />
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-sm text-muted-foreground py-6 text-center">Ziadne subjekty</p>
+            )}
           </CardContent>
         </Card>
 
-        <Card className="col-span-3 dashboard-card">
+        <Card>
           <CardHeader>
-            <CardTitle>Recent Subjects</CardTitle>
+            <CardTitle className="text-base">Moje spolocnosti</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="space-y-4">
-              {subjects?.slice(0, 5).map((subject) => (
-                <div key={subject.id} className="flex items-center gap-4 p-3 rounded-lg hover:bg-white/5 transition-colors border border-transparent hover:border-border/50">
-                  <div className="w-8 h-8 rounded bg-primary/20 flex items-center justify-center text-primary font-bold text-xs">
-                    {subject.type === 'person' ? 'P' : 'C'}
+            {companies && companies.length > 0 ? (
+              <div className="space-y-3">
+                {companies.map(c => (
+                  <div key={c.id} className="flex items-center gap-3 text-sm">
+                    <div className="w-7 h-7 rounded-md bg-emerald-500/10 flex items-center justify-center text-emerald-500 text-xs font-bold">
+                      <Building2 className="w-3.5 h-3.5" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="font-medium truncate">{c.name}</p>
+                      <p className="text-xs text-muted-foreground">{c.specialization} | Kod: {c.code}</p>
+                    </div>
                   </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium truncate">
-                      {subject.type === 'person' ? `${subject.lastName}, ${subject.firstName}` : subject.companyName}
-                    </p>
-                    <p className="text-xs text-muted-foreground font-mono truncate">{subject.uid}</p>
-                  </div>
-                  <div className={`w-2 h-2 rounded-full ${subject.isActive ? 'bg-emerald-500' : 'bg-red-500'}`} />
-                </div>
-              ))}
-              {!subjects?.length && (
-                <div className="text-center py-8 text-muted-foreground text-sm">
-                  No activity recorded
-                </div>
-              )}
-            </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-sm text-muted-foreground py-6 text-center">Ziadne spolocnosti</p>
+            )}
           </CardContent>
         </Card>
       </div>

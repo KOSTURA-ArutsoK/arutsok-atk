@@ -1,50 +1,49 @@
 import { db } from "./db";
 import { 
-  subjects, myCompanies, partners, contacts, products, commissionSchemes, continents, states, subjectArchive,
+  subjects, myCompanies, partners, contacts, products, commissionSchemes, continents, states, subjectArchive, companyArchive, appUsers,
   type Subject, type InsertSubject, 
-  type MyCompany, 
+  type MyCompany, type InsertMyCompany,
   type Partner, 
   type Contact, 
   type Product, 
   type CommissionScheme,
-  type CreateSubjectRequest, type UpdateSubjectRequest
+  type UpdateSubjectRequest, type UpdateMyCompanyRequest,
+  type AppUser
 } from "@shared/schema";
-import { eq, like, and, or } from "drizzle-orm";
+import { eq, like, and, or, ne } from "drizzle-orm";
 
 export interface IStorage {
-  // Hierarchy
   getContinents(): Promise<{ id: number; name: string; code: string }[]>;
-  getStates(continentId?: number): Promise<{ id: number; name: string; code: string; flagUrl: string | null }[]>;
+  getStates(continentId?: number): Promise<{ id: number; name: string; code: string; flagUrl: string | null; continentId: number }[]>;
   
-  // My Companies
   getMyCompanies(): Promise<MyCompany[]>;
-  createMyCompany(company: Omit<MyCompany, "id">): Promise<MyCompany>;
+  getMyCompany(id: number): Promise<MyCompany | undefined>;
+  createMyCompany(company: InsertMyCompany): Promise<MyCompany>;
+  updateMyCompany(id: number, updates: UpdateMyCompanyRequest): Promise<MyCompany>;
+  softDeleteMyCompany(id: number): Promise<void>;
   
-  // Partners
   getPartners(): Promise<Partner[]>;
   createPartner(partner: Omit<Partner, "id">): Promise<Partner>;
   
-  // Contacts
   getContacts(): Promise<Contact[]>;
   createContact(contact: Omit<Contact, "id">): Promise<Contact>;
   
-  // Subjects
   getSubjects(params?: { search?: string; type?: 'person' | 'company'; isActive?: boolean }): Promise<Subject[]>;
   getSubject(id: number): Promise<Subject | undefined>;
-  getSubjectByUid(uid: string): Promise<Subject | undefined>;
   createSubject(subject: InsertSubject): Promise<Subject>;
   updateSubject(id: number, updates: UpdateSubjectRequest): Promise<Subject>;
   archiveSubject(id: number, reason: string): Promise<void>;
   
-  // Products & Commissions
   getProducts(): Promise<Product[]>;
   createProduct(product: Omit<Product, "id">): Promise<Product>;
   getCommissions(productId?: number): Promise<CommissionScheme[]>;
   createCommission(commission: Omit<CommissionScheme, "id">): Promise<CommissionScheme>;
+
+  getAppUserByReplitId(replitId: string): Promise<AppUser | undefined>;
+  updateAppUser(id: number, data: Partial<AppUser>): Promise<AppUser>;
 }
 
 export class DatabaseStorage implements IStorage {
-  // Hierarchy
   async getContinents() {
     return await db.select().from(continents);
   }
@@ -56,17 +55,52 @@ export class DatabaseStorage implements IStorage {
     return await db.select().from(states);
   }
 
-  // My Companies
   async getMyCompanies() {
-    return await db.select().from(myCompanies);
+    return await db.select().from(myCompanies).where(eq(myCompanies.isDeleted, false));
   }
 
-  async createMyCompany(company: Omit<MyCompany, "id">) {
+  async getMyCompany(id: number) {
+    const [company] = await db.select().from(myCompanies).where(and(eq(myCompanies.id, id), eq(myCompanies.isDeleted, false)));
+    return company;
+  }
+
+  async createMyCompany(company: InsertMyCompany) {
     const [newCompany] = await db.insert(myCompanies).values(company).returning();
     return newCompany;
   }
 
-  // Partners
+  async updateMyCompany(id: number, updates: UpdateMyCompanyRequest) {
+    const original = await this.getMyCompany(id);
+    if (!original) throw new Error("Company not found");
+    
+    await db.insert(companyArchive).values({
+      originalId: id,
+      data: original as any,
+      reason: updates.changeReason || "Update",
+    });
+
+    const { changeReason, ...companyUpdates } = updates;
+    const [updated] = await db.update(myCompanies)
+      .set({ ...companyUpdates, updatedAt: new Date() })
+      .where(eq(myCompanies.id, id))
+      .returning();
+      
+    return updated;
+  }
+
+  async softDeleteMyCompany(id: number) {
+    const original = await this.getMyCompany(id);
+    if (!original) throw new Error("Company not found");
+    
+    await db.insert(companyArchive).values({
+      originalId: id,
+      data: original as any,
+      reason: "Soft Delete",
+    });
+    
+    await db.update(myCompanies).set({ isDeleted: true }).where(eq(myCompanies.id, id));
+  }
+
   async getPartners() {
     return await db.select().from(partners);
   }
@@ -76,7 +110,6 @@ export class DatabaseStorage implements IStorage {
     return newPartner;
   }
   
-  // Contacts
   async getContacts() {
     return await db.select().from(contacts);
   }
@@ -86,7 +119,6 @@ export class DatabaseStorage implements IStorage {
     return newContact;
   }
 
-  // Subjects
   async getSubjects(params?: { search?: string; type?: 'person' | 'company'; isActive?: boolean }) {
     let query = db.select().from(subjects);
     const conditions = [];
@@ -101,19 +133,10 @@ export class DatabaseStorage implements IStorage {
         )
       );
     }
+    if (params?.type) conditions.push(eq(subjects.type, params.type));
+    if (params?.isActive !== undefined) conditions.push(eq(subjects.isActive, params.isActive));
     
-    if (params?.type) {
-      conditions.push(eq(subjects.type, params.type));
-    }
-    
-    if (params?.isActive !== undefined) {
-      conditions.push(eq(subjects.isActive, params.isActive));
-    }
-    
-    if (conditions.length > 0) {
-      return await query.where(and(...conditions));
-    }
-    
+    if (conditions.length > 0) return await query.where(and(...conditions));
     return await query;
   }
 
@@ -122,19 +145,10 @@ export class DatabaseStorage implements IStorage {
     return subject;
   }
 
-  async getSubjectByUid(uid: string) {
-    const [subject] = await db.select().from(subjects).where(eq(subjects.uid, uid));
-    return subject;
-  }
-
   async createSubject(insertSubject: InsertSubject) {
-    // Generate UID Logic
-    // UID Format: [ContinentCode]-[MyCompanyCode]-[StateCode]-[RandomDigits]
-    // 01-01-421-000 000 000 000
-    // Fetch codes
-    const continent = await db.select().from(continents).where(eq(continents.id, insertSubject.continentId || 0)).then(res => res[0]);
-    const state = await db.select().from(states).where(eq(states.id, insertSubject.stateId || 0)).then(res => res[0]);
-    const company = await db.select().from(myCompanies).where(eq(myCompanies.id, insertSubject.myCompanyId || 0)).then(res => res[0]);
+    const continent = insertSubject.continentId ? await db.select().from(continents).where(eq(continents.id, insertSubject.continentId)).then(r => r[0]) : null;
+    const state = insertSubject.stateId ? await db.select().from(states).where(eq(states.id, insertSubject.stateId)).then(r => r[0]) : null;
+    const company = insertSubject.myCompanyId ? await db.select().from(myCompanies).where(eq(myCompanies.id, insertSubject.myCompanyId)).then(r => r[0]) : null;
     
     if (!continent || !state || !company) {
       throw new Error("Invalid hierarchy references for UID generation");
@@ -151,7 +165,6 @@ export class DatabaseStorage implements IStorage {
     const original = await this.getSubject(id);
     if (!original) throw new Error("Subject not found");
     
-    // Archive original
     await db.insert(subjectArchive).values({
       originalId: id,
       uid: original.uid,
@@ -159,13 +172,8 @@ export class DatabaseStorage implements IStorage {
       reason: updates.changeReason || "Update",
     });
 
-    // Update current
     const { changeReason, ...subjectUpdates } = updates;
-    const [updated] = await db.update(subjects)
-      .set({ ...subjectUpdates })
-      .where(eq(subjects.id, id))
-      .returning();
-      
+    const [updated] = await db.update(subjects).set(subjectUpdates).where(eq(subjects.id, id)).returning();
     return updated;
   }
   
@@ -179,11 +187,9 @@ export class DatabaseStorage implements IStorage {
       data: original as any,
       reason,
     });
-    
     await db.update(subjects).set({ isActive: false }).where(eq(subjects.id, id));
   }
 
-  // Products & Commissions
   async getProducts() {
     return await db.select().from(products);
   }
@@ -194,15 +200,23 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getCommissions(productId?: number) {
-    if (productId) {
-      return await db.select().from(commissionSchemes).where(eq(commissionSchemes.productId, productId));
-    }
+    if (productId) return await db.select().from(commissionSchemes).where(eq(commissionSchemes.productId, productId));
     return await db.select().from(commissionSchemes);
   }
 
   async createCommission(commission: Omit<CommissionScheme, "id">) {
     const [newCommission] = await db.insert(commissionSchemes).values(commission).returning();
     return newCommission;
+  }
+
+  async getAppUserByReplitId(replitId: string) {
+    const [user] = await db.select().from(appUsers).where(eq(appUsers.replitId, replitId));
+    return user;
+  }
+
+  async updateAppUser(id: number, data: Partial<AppUser>) {
+    const [updated] = await db.update(appUsers).set(data).where(eq(appUsers.id, id)).returning();
+    return updated;
   }
 }
 
