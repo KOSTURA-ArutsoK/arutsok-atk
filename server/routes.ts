@@ -1069,6 +1069,24 @@ export async function registerRoutes(
     }
   });
 
+  app.patch("/api/settings", isAuthenticated, async (req: any, res) => {
+    try {
+      const appUser = req.appUser;
+      if (!appUser || !["admin", "superadmin"].includes(appUser.role)) {
+        return res.status(403).json({ message: "Nedostatocne opravnenia" });
+      }
+      const { key, value } = req.body;
+      if (!key || typeof value !== "string") {
+        return res.status(400).json({ message: "Key and value required" });
+      }
+      const setting = await storage.setSystemSetting(key, value);
+      await logAudit(req, { action: "UPDATE", module: "nastavenia", entityName: `Setting: ${key}` });
+      res.json(setting);
+    } catch {
+      res.status(500).json({ message: "Failed to save setting" });
+    }
+  });
+
   // === CATEGORY TIMEOUTS ===
   app.get("/api/category-timeouts", isAuthenticated, async (_req, res) => {
     try {

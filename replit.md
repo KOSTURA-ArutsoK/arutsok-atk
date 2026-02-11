@@ -1,7 +1,7 @@
-# ArutsoK CRM
+# ArutsoK
 
 ## Overview
-ArutsoK CRM is a multi-tenant Customer Relationship Management and commission tracking system designed for industries such as financial services, real estate, and defense/weapons trade. It aims to provide robust client management, partner relationship tracking, and detailed commission calculations with a strong focus on data integrity, auditability, and temporal validity. The project's vision is to be a comprehensive and secure platform for managing complex business relationships and financial transactions.
+ArutsoK is a multi-tenant Customer Relationship Management and commission tracking system designed for industries such as financial services, real estate, and defense/weapons trade. It aims to provide robust client management, partner relationship tracking, and detailed commission calculations with a strong focus on data integrity, auditability, and temporal validity. The project's vision is to be a comprehensive and secure platform for managing complex business relationships and financial transactions.
 
 ## User Preferences
 - Dark mode default with military/security aesthetic

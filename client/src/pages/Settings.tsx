@@ -148,7 +148,7 @@ export default function Settings() {
       <div>
         <h2 className="text-2xl font-bold" data-testid="text-settings-title">Nastavenia</h2>
         <p className="text-sm text-muted-foreground mt-1">
-          Konfiguracny panel systemu ArutsoK CRM.
+          Konfiguracny panel systemu ArutsoK.
         </p>
       </div>
 
@@ -164,7 +164,7 @@ export default function Settings() {
             <div className="space-y-3">
               <div className="flex items-center justify-between gap-2 flex-wrap">
                 <span className="text-sm text-muted-foreground">Verzia aplikacie</span>
-                <span className="text-sm font-medium font-mono" data-testid="text-app-version">ArutsoK CRM v1.0</span>
+                <span className="text-sm font-medium font-mono" data-testid="text-app-version">ArutsoK v1.0</span>
               </div>
               <Separator />
               <div className="flex items-center justify-between gap-2 flex-wrap">

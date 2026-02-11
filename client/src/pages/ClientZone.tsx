@@ -13,7 +13,7 @@ export default function ClientZone() {
           </div>
           <div>
             <CardTitle className="text-lg" data-testid="text-client-zone-title">Osobna zona</CardTitle>
-            <p className="text-xs text-muted-foreground mt-0.5">ArutsoK CRM</p>
+            <p className="text-xs text-muted-foreground mt-0.5">ArutsoK</p>
           </div>
         </CardHeader>
         <CardContent className="space-y-4">

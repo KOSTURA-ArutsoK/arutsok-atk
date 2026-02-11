@@ -1,4 +1,5 @@
 import { useState, useRef } from "react";
+import { createPortal } from "react-dom";
 import { useIdleTimeout } from "@/hooks/use-idle-timeout";
 import { useGlobalClickLogger } from "@/hooks/use-global-click-logger";
 import { useAppUser, useSetActiveContext } from "@/hooks/use-app-user";
@@ -95,6 +96,26 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     "--sidebar-width": "16rem",
     "--sidebar-width-icon": "3rem",
   };
+
+  const warningOverlay = showWarning ? createPortal(
+    <div className="fixed inset-0 z-[9999] flex items-center justify-center" data-testid="idle-warning-overlay">
+      <div className="absolute inset-0 bg-background/80 backdrop-blur-md" />
+      <div className="relative z-10 flex flex-col items-center gap-4 p-8 rounded-md border border-destructive bg-card shadow-lg max-w-md text-center">
+        <AlertTriangle className="w-12 h-12 text-destructive" />
+        <h2 className="text-lg font-bold text-destructive" data-testid="text-idle-warning-title">Upozornenie na necinnost</h2>
+        <div className="text-4xl font-bold font-mono text-destructive" data-testid="text-idle-countdown">
+          {formatTime(timeLeft)}
+        </div>
+        <p className="text-sm text-muted-foreground">
+          Budete automaticky odhlaseny z dovodu necinnosti.
+        </p>
+        <Button variant="default" onClick={dismissWarning} data-testid="button-dismiss-idle-warning">
+          Pokracovat v praci
+        </Button>
+      </div>
+    </div>,
+    document.body
+  ) : null;
 
   return (
     <SidebarProvider style={sidebarStyle as React.CSSProperties}>
@@ -229,24 +250,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           </main>
         </div>
       </div>
-      {showWarning && (
-        <div className="fixed inset-0 z-[9999] flex items-center justify-center" data-testid="idle-warning-overlay">
-          <div className="absolute inset-0 bg-background/80 backdrop-blur-md" />
-          <div className="relative z-10 flex flex-col items-center gap-4 p-8 rounded-md border border-destructive bg-card shadow-lg max-w-md text-center">
-            <AlertTriangle className="w-12 h-12 text-destructive" />
-            <h2 className="text-lg font-bold text-destructive" data-testid="text-idle-warning-title">Upozornenie na necinnost</h2>
-            <div className="text-4xl font-bold font-mono text-destructive" data-testid="text-idle-countdown">
-              {formatTime(timeLeft)}
-            </div>
-            <p className="text-sm text-muted-foreground">
-              Budete automaticky odhlaseny z dovodu necinnosti.
-            </p>
-            <Button variant="default" onClick={dismissWarning} data-testid="button-dismiss-idle-warning">
-              Pokracovat v praci
-            </Button>
-          </div>
-        </div>
-      )}
+      {warningOverlay}
     </SidebarProvider>
   );
 }

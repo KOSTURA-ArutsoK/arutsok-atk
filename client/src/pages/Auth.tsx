@@ -35,7 +35,7 @@ export default function AuthPage() {
               <Shield className="w-8 h-8 text-primary" />
             </div>
             <div>
-              <h1 className="text-xl font-bold">ArutsoK CRM</h1>
+              <h1 className="text-xl font-bold">ArutsoK</h1>
               <p className="text-sm text-muted-foreground mt-1">Prihlaste sa pre pristup do systemu</p>
             </div>
           </div>
@@ -64,9 +64,6 @@ export default function AuthPage() {
             </Link>
           </div>
 
-          <p className="text-xs text-center text-muted-foreground">
-            Vsetky aktivity su monitorovane a logovane.
-          </p>
         </CardContent>
       </Card>
     </div>

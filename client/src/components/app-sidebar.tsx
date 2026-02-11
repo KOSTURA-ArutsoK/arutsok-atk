@@ -1,6 +1,7 @@
 import { Link, useLocation } from "wouter";
 import { useAuth } from "@/hooks/use-auth";
 import { useAppUser } from "@/hooks/use-app-user";
+import { useHelp } from "@/contexts/help-context";
 import {
   LayoutDashboard,
   Building2,
@@ -13,6 +14,7 @@ import {
   LogOut,
   Shield,
   Archive,
+  HelpCircle,
 } from "lucide-react";
 import {
   Sidebar,
@@ -51,6 +53,7 @@ export function AppSidebar() {
   const [location] = useLocation();
   const { user, logout } = useAuth();
   const { data: appUser } = useAppUser();
+  const { helpEnabled, toggleHelp } = useHelp();
 
   const displayName = appUser
     ? `${appUser.firstName || ""} ${appUser.lastName || ""}`.trim() || appUser.username
@@ -117,6 +120,24 @@ export function AppSidebar() {
                   </SidebarMenuButton>
                 </SidebarMenuItem>
               ))}
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
+        <SidebarGroup>
+          <SidebarGroupContent>
+            <SidebarMenu>
+              <SidebarMenuItem>
+                <SidebarMenuButton
+                  onClick={toggleHelp}
+                  data-testid="nav-pomoc"
+                >
+                  <HelpCircle className="w-4 h-4" />
+                  <span className="flex-1">Pomoc</span>
+                  <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded ${helpEnabled ? 'text-emerald-500' : 'text-destructive'}`}>
+                    {helpEnabled ? "Vysvetlivky - zapnute" : "Vysvetlivky - vypnute"}
+                  </span>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>

@@ -168,7 +168,7 @@ export default function RegisterPage() {
               {step === "full_verify" && "Rozsirene overenie"}
               {step === "welcome" && `Vitajte ${clientData?.firstName || ""}`}
             </CardTitle>
-            <p className="text-xs text-muted-foreground mt-0.5">ArutsoK CRM</p>
+            <p className="text-xs text-muted-foreground mt-0.5">ArutsoK</p>
           </div>
         </CardHeader>
         <CardContent className="space-y-4">

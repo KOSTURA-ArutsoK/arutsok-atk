@@ -13,12 +13,12 @@ export default function ForgotPassword() {
           </div>
           <div>
             <CardTitle className="text-lg">Zabudnute heslo</CardTitle>
-            <p className="text-xs text-muted-foreground mt-0.5">ArutsoK CRM</p>
+            <p className="text-xs text-muted-foreground mt-0.5">ArutsoK</p>
           </div>
         </CardHeader>
         <CardContent className="space-y-4">
           <p className="text-sm text-muted-foreground">
-            Prihlasenie do systemu ArutsoK CRM prebieha cez Replit autentifikaciu. Ak mate problemy s pristupom, kontaktujte vasho administratora.
+            Prihlasenie do systemu ArutsoK prebieha cez Replit autentifikaciu. Ak mate problemy s pristupom, kontaktujte vasho administratora.
           </p>
           <Link href="/">
             <Button variant="outline" className="w-full" data-testid="button-back-to-login">
