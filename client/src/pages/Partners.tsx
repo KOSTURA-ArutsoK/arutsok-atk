@@ -1,7 +1,7 @@
 import { useState, useRef, useCallback } from "react";
-import { usePartners, useCreatePartner, useUpdatePartner, useDeletePartner, usePartnerContracts, usePartnerContacts, usePartnerProducts, useCreatePartnerContract, useCreatePartnerContact, useCreatePartnerProduct } from "@/hooks/use-partners";
+import { usePartners, useCreatePartner, useUpdatePartner, useDeletePartner, usePartnerContracts, usePartnerContacts, usePartnerProducts, useCreatePartnerContract, useCreatePartnerContact, useCreatePartnerProduct, useContractAmendments, useCreateContractAmendment } from "@/hooks/use-partners";
 import { useMyCompanies } from "@/hooks/use-companies";
-import { Plus, Briefcase, Pencil, Trash2, Eye, Clock, FileText, Users, Package, Link2, X, Calendar, Archive } from "lucide-react";
+import { Plus, Briefcase, Pencil, Trash2, Eye, Clock, FileText, Users, Package, Link2, X, Calendar, Archive, Download, Upload, ChevronDown, ChevronRight } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -174,6 +174,106 @@ function PartnerFormDialog({
   );
 }
 
+function ContractAmendmentsSection({ contractId }: { contractId: number }) {
+  const { data: amendments, isLoading } = useContractAmendments(contractId);
+  const createAmendment = useCreateContractAmendment();
+  const [expanded, setExpanded] = useState(false);
+  const [showAddForm, setShowAddForm] = useState(false);
+  const [amendmentName, setAmendmentName] = useState("");
+  const [amendmentDate, setAmendmentDate] = useState(new Date().toISOString().split("T")[0]);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  function handleAddAmendment() {
+    if (!amendmentName || !amendmentDate) return;
+    const formData = new FormData();
+    formData.append("name", amendmentName);
+    formData.append("effectiveDate", new Date(amendmentDate).toISOString());
+    const fileInput = fileInputRef.current;
+    if (fileInput?.files?.[0]) {
+      formData.append("file", fileInput.files[0]);
+    }
+    createAmendment.mutate({ contractId, formData }, {
+      onSuccess: () => {
+        setAmendmentName("");
+        setAmendmentDate(new Date().toISOString().split("T")[0]);
+        if (fileInputRef.current) fileInputRef.current.value = "";
+        setShowAddForm(false);
+      },
+    });
+  }
+
+  const count = amendments?.length || 0;
+
+  return (
+    <div className="ml-6 mt-1">
+      <button
+        type="button"
+        onClick={() => setExpanded(!expanded)}
+        className="flex items-center gap-1 text-xs text-muted-foreground hover-elevate rounded-md px-1 py-0.5"
+        data-testid={`button-toggle-amendments-${contractId}`}
+      >
+        {expanded ? <ChevronDown className="w-3 h-3" /> : <ChevronRight className="w-3 h-3" />}
+        <span>Dodatky ({count})</span>
+      </button>
+      {expanded && (
+        <div className="mt-1 space-y-1">
+          {isLoading && <p className="text-xs text-muted-foreground">Nacitavam...</p>}
+          {amendments && amendments.length > 0 && amendments.map(a => (
+            <div key={a.id} className="flex items-center gap-2 text-xs p-1.5 rounded-md border border-border" data-testid={`amendment-${a.id}`}>
+              <FileText className="w-3 h-3 text-muted-foreground flex-shrink-0" />
+              <span className="flex-1 truncate">{a.name}</span>
+              <span className="text-muted-foreground">{a.effectiveDate ? new Date(a.effectiveDate).toLocaleDateString("sk-SK") : "-"}</span>
+              {a.file && (a.file as any).url && (
+                <a href={(a.file as any).url} download={(a.file as any).name} className="text-primary" data-testid={`link-download-amendment-${a.id}`}>
+                  <Download className="w-3 h-3" />
+                </a>
+              )}
+            </div>
+          ))}
+          {!showAddForm ? (
+            <Button type="button" variant="ghost" size="sm" onClick={() => setShowAddForm(true)} className="text-xs" data-testid={`button-show-add-amendment-${contractId}`}>
+              <Plus className="w-3 h-3 mr-1" /> Pridat dodatok
+            </Button>
+          ) : (
+            <div className="space-y-2 p-2 rounded-md border border-border">
+              <Input
+                placeholder="Nazov dodatku"
+                value={amendmentName}
+                onChange={e => setAmendmentName(e.target.value)}
+                className="text-xs"
+                data-testid={`input-amendment-name-${contractId}`}
+              />
+              <Input
+                type="date"
+                value={amendmentDate}
+                onChange={e => setAmendmentDate(e.target.value)}
+                className="text-xs"
+                data-testid={`input-amendment-date-${contractId}`}
+              />
+              <div className="flex items-center gap-2 flex-wrap">
+                <Input
+                  ref={fileInputRef}
+                  type="file"
+                  className="text-xs flex-1"
+                  data-testid={`input-amendment-file-${contractId}`}
+                />
+              </div>
+              <div className="flex items-center gap-2 flex-wrap">
+                <Button type="button" size="sm" onClick={handleAddAmendment} disabled={!amendmentName || createAmendment.isPending} data-testid={`button-add-amendment-${contractId}`}>
+                  <Plus className="w-3 h-3 mr-1" /> Ulozit
+                </Button>
+                <Button type="button" variant="ghost" size="sm" onClick={() => setShowAddForm(false)}>
+                  Zrusit
+                </Button>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function PartnerDetailDialog({
   partner,
   onClose,
@@ -297,12 +397,15 @@ function PartnerDetailDialog({
               <Badge variant="secondary" className="ml-auto">{contracts?.length || 0}</Badge>
             </div>
             {contracts && contracts.length > 0 ? (
-              <div className="space-y-2">
+              <div className="space-y-3">
                 {contracts.map(c => (
-                  <div key={c.id} className="flex items-center gap-2 p-2 rounded-md border border-border text-sm" data-testid={`contract-${c.id}`}>
-                    <FileText className="w-4 h-4 text-muted-foreground flex-shrink-0" />
-                    <span className="flex-1">{companies?.find(co => co.id === c.companyId)?.name || `ID: ${c.companyId}`}</span>
-                    {c.contractNumber && <span className="text-xs font-mono text-muted-foreground">{c.contractNumber}</span>}
+                  <div key={c.id} data-testid={`contract-${c.id}`}>
+                    <div className="flex items-center gap-2 p-2 rounded-md border border-border text-sm">
+                      <FileText className="w-4 h-4 text-muted-foreground flex-shrink-0" />
+                      <span className="flex-1">{companies?.find(co => co.id === c.companyId)?.name || `ID: ${c.companyId}`}</span>
+                      {c.contractNumber && <span className="text-xs font-mono text-muted-foreground">{c.contractNumber}</span>}
+                    </div>
+                    <ContractAmendmentsSection contractId={c.id} />
                   </div>
                 ))}
               </div>

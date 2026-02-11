@@ -11,8 +11,10 @@ import {
   insertPartnerProductSchema,
   insertPartnerContractSchema,
   insertCommunicationMatrixSchema,
+  insertContractAmendmentSchema,
   subjects, myCompanies, partners, contacts, products, commissionSchemes, appUsers,
   partnerContacts, partnerProducts, partnerContracts, communicationMatrix, companyOfficers,
+  contractAmendments, userProfiles,
 } from './schema';
 
 export const errorSchemas = {
@@ -153,6 +155,38 @@ export const api = {
       method: 'DELETE' as const,
       path: '/api/partner-contracts/:id' as const,
       responses: { 200: z.object({ success: z.boolean() }) },
+    },
+  },
+
+  contractAmendments: {
+    list: {
+      method: 'GET' as const,
+      path: '/api/partner-contracts/:contractId/amendments' as const,
+      responses: { 200: z.array(z.custom<typeof contractAmendments.$inferSelect>()) },
+    },
+    create: {
+      method: 'POST' as const,
+      path: '/api/partner-contracts/:contractId/amendments' as const,
+      input: insertContractAmendmentSchema,
+      responses: { 201: z.custom<typeof contractAmendments.$inferSelect>(), 400: errorSchemas.validation },
+    },
+    delete: {
+      method: 'DELETE' as const,
+      path: '/api/contract-amendments/:id' as const,
+      responses: { 200: z.object({ success: z.boolean() }) },
+    },
+  },
+
+  userProfiles: {
+    me: {
+      method: 'GET' as const,
+      path: '/api/user-profile/me' as const,
+      responses: { 200: z.custom<typeof userProfiles.$inferSelect>(), 404: errorSchemas.notFound },
+    },
+    upload: {
+      method: 'POST' as const,
+      path: '/api/user-profile/photo' as const,
+      responses: { 200: z.custom<typeof userProfiles.$inferSelect>() },
     },
   },
 

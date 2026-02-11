@@ -216,6 +216,27 @@ export const subjectArchive = pgTable("subject_archive", {
   reason: text("reason"),
 });
 
+// === CONTRACT AMENDMENTS (Dodatky k zmluvam) ===
+export const contractAmendments = pgTable("contract_amendments", {
+  id: serial("id").primaryKey(),
+  contractId: integer("contract_id").notNull().references(() => partnerContracts.id),
+  name: text("name").notNull(),
+  effectiveDate: timestamp("effective_date").notNull(),
+  file: jsonb("file").$type<DocEntry | null>(),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// === USER PROFILES ===
+export const userProfiles = pgTable("user_profiles", {
+  id: serial("id").primaryKey(),
+  appUserId: integer("app_user_id").references(() => appUsers.id),
+  subjectId: integer("subject_id"),
+  photoUrl: text("photo_url"),
+  photoOriginalName: text("photo_original_name"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
 // === COMPANY ARCHIVE ===
 export const companyArchive = pgTable("company_archive", {
   id: serial("id").primaryKey(),
@@ -300,6 +321,8 @@ export const insertPartnerProductSchema = createInsertSchema(partnerProducts).om
 export const insertPartnerContractSchema = createInsertSchema(partnerContracts).omit({ id: true, createdAt: true });
 export const insertCommunicationMatrixSchema = createInsertSchema(communicationMatrix).omit({ id: true, createdAt: true });
 export const insertCompanyContactSchema = createInsertSchema(companyContacts).omit({ id: true, createdAt: true });
+export const insertContractAmendmentSchema = createInsertSchema(contractAmendments).omit({ id: true, createdAt: true });
+export const insertUserProfileSchema = createInsertSchema(userProfiles).omit({ id: true, createdAt: true, updatedAt: true });
 
 // === EXPLICIT TYPES ===
 export type Subject = typeof subjects.$inferSelect;
@@ -322,6 +345,10 @@ export type PartnerContract = typeof partnerContracts.$inferSelect;
 export type InsertPartnerContract = z.infer<typeof insertPartnerContractSchema>;
 export type CommunicationMatrixEntry = typeof communicationMatrix.$inferSelect;
 export type CompanyContact = typeof companyContacts.$inferSelect;
+export type ContractAmendment = typeof contractAmendments.$inferSelect;
+export type InsertContractAmendment = z.infer<typeof insertContractAmendmentSchema>;
+export type UserProfile = typeof userProfiles.$inferSelect;
+export type InsertUserProfile = z.infer<typeof insertUserProfileSchema>;
 
 export type CreateSubjectRequest = InsertSubject;
 export type UpdateSubjectRequest = Partial<InsertSubject> & { changeReason?: string };

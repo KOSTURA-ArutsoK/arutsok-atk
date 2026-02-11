@@ -111,6 +111,23 @@ Multi-tenant CRM and commission tracking system for financial services, real est
 - **Date Format**: Slovak locale (sk-SK), validity ranges shown as "Od: DD.MM.YYYY → Do: DD.MM.YYYY" or "Neurcito"/"Sucasnost"
 - **Schema Changes**: Applied via direct SQL ALTER TABLE (drizzle-kit interactive prompt blocking automation)
 
+## Contract Amendments (Dodatky)
+- **Schema**: `contract_amendments` table with contractId, name, effectiveDate, file (JSONB DocEntry)
+- **File Storage**: Uploads to `uploads/amendments/`, metadata stored as JSONB `{ name, url, uploadedAt }`
+- **API**: GET/POST `/api/partner-contracts/:contractId/amendments`, DELETE `/api/contract-amendments/:id`
+- **UI**: Collapsible "Dodatky" section under each contract in Partner detail dialog, with inline add form (name + date + optional file)
+
+## User Profile Photos
+- **Schema**: `user_profiles` table with appUserId, subjectId, photoUrl, photoOriginalName
+- **File Storage**: Uploads to `uploads/profiles/`, .jpg/.png only
+- **API**: GET `/api/user-profile/me`, POST `/api/user-profile/photo` (multipart/form-data)
+- **UI**: Profile photo displayed in navbar avatar, upload via user dropdown menu
+
+## Navbar Layout
+- **Left**: Sidebar trigger + State switcher (Globe icon + dial code + state name)
+- **Center**: Company switcher (Building icon + company name)
+- **Right**: Theme toggle + User menu dropdown (name + avatar with profile photo, upload photo option, logout)
+
 ## Recent Changes (2026-02-11)
 - Added global_counters table for atomic UID generation
 - Expanded schema: company_officers, partner_contracts, partner_contacts, partner_products, contact_product_assignments, communication_matrix
@@ -130,3 +147,8 @@ Multi-tenant CRM and commission tracking system for financial services, real est
 - Enhanced partner contacts UI with active/archived sections, validity date display, and date inputs for new contacts
 - Added SubjectDetailDialog with "Historia kariery v systeme" timeline visualization
 - Added eye/view button on Subjects table for opening detail dialog
+- Added contract_amendments and user_profiles tables
+- Implemented amendments CRUD with file upload (Dodatky k zmluvam)
+- Added user profile photo upload/display in navbar
+- Redesigned navbar: state left, company center, user profile right with dropdown menu
+- Updated company specialization dropdown with full options (SFA, Reality, Prenajom, Predaj zbrani, Obchod, Poistenie, Dochodok, Ine)

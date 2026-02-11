@@ -364,12 +364,14 @@ function CompanyFormDialog({
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
-                          <SelectItem value="SFA">SFA (Financie)</SelectItem>
+                          <SelectItem value="SFA">SFA (Financne sprostredkovanie)</SelectItem>
                           <SelectItem value="Reality">Reality</SelectItem>
-                          <SelectItem value="Weapons">Obchod / Zbrane</SelectItem>
+                          <SelectItem value="Prenajom">Prenajom</SelectItem>
+                          <SelectItem value="Weapons">Predaj zbrani</SelectItem>
                           <SelectItem value="Obchod">Obchod</SelectItem>
                           <SelectItem value="Poistenie">Zdravotne poistenie</SelectItem>
                           <SelectItem value="Dochodok">Dochodkove sporenie</SelectItem>
+                          <SelectItem value="Ine">Ine</SelectItem>
                         </SelectContent>
                       </Select>
                       <FormMessage />

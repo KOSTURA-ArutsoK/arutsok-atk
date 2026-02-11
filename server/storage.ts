@@ -4,7 +4,7 @@ import {
   continents, states, subjectArchive, companyArchive, appUsers,
   companyOfficers, partnerContracts, partnerContacts, partnerProducts,
   contactProductAssignments, communicationMatrix, globalCounters,
-  companyContacts,
+  companyContacts, contractAmendments, userProfiles,
   type Subject, type InsertSubject, 
   type MyCompany, type InsertMyCompany,
   type Partner, type InsertPartner,
@@ -19,6 +19,8 @@ import {
   type PartnerContract, type InsertPartnerContract,
   type CommunicationMatrixEntry,
   type CompanyContact,
+  type ContractAmendment, type InsertContractAmendment,
+  type UserProfile, type InsertUserProfile,
 } from "@shared/schema";
 import { eq, and, or, ne, like, sql, lte } from "drizzle-orm";
 
@@ -90,6 +92,13 @@ export interface IStorage {
     validTo: Date | null;
     isActive: boolean;
   }[]>;
+
+  getContractAmendments(contractId: number): Promise<ContractAmendment[]>;
+  createContractAmendment(data: InsertContractAmendment): Promise<ContractAmendment>;
+  deleteContractAmendment(id: number): Promise<void>;
+
+  getUserProfile(appUserId: number): Promise<UserProfile | undefined>;
+  upsertUserProfile(data: InsertUserProfile): Promise<UserProfile>;
 
   getAppUserByReplitId(replitId: string): Promise<AppUser | undefined>;
   updateAppUser(id: number, data: Partial<AppUser>): Promise<AppUser>;
@@ -534,6 +543,39 @@ export class DatabaseStorage implements IStorage {
     });
 
     return history;
+  }
+
+  async getContractAmendments(contractId: number) {
+    return await db.select().from(contractAmendments).where(eq(contractAmendments.contractId, contractId));
+  }
+
+  async createContractAmendment(data: InsertContractAmendment) {
+    const [amendment] = await db.insert(contractAmendments).values(data).returning();
+    return amendment;
+  }
+
+  async deleteContractAmendment(id: number) {
+    await db.delete(contractAmendments).where(eq(contractAmendments.id, id));
+  }
+
+  async getUserProfile(appUserId: number) {
+    const [profile] = await db.select().from(userProfiles).where(eq(userProfiles.appUserId, appUserId));
+    return profile;
+  }
+
+  async upsertUserProfile(data: InsertUserProfile) {
+    if (data.appUserId) {
+      const existing = await this.getUserProfile(data.appUserId);
+      if (existing) {
+        const [updated] = await db.update(userProfiles)
+          .set({ ...data, updatedAt: new Date() })
+          .where(eq(userProfiles.id, existing.id))
+          .returning();
+        return updated;
+      }
+    }
+    const [created] = await db.insert(userProfiles).values(data).returning();
+    return created;
   }
 
   async getAppUserByReplitId(replitId: string) {

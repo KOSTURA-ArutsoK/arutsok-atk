@@ -15,16 +15,15 @@ const UPLOADS_DIR = path.join(process.cwd(), "uploads");
 fs.mkdirSync(path.join(UPLOADS_DIR, "official"), { recursive: true });
 fs.mkdirSync(path.join(UPLOADS_DIR, "work"), { recursive: true });
 fs.mkdirSync(path.join(UPLOADS_DIR, "logos"), { recursive: true });
+fs.mkdirSync(path.join(UPLOADS_DIR, "amendments"), { recursive: true });
+fs.mkdirSync(path.join(UPLOADS_DIR, "profiles"), { recursive: true });
 
 const uploadStorage = multer.diskStorage({
   destination: (req, _file, cb) => {
-    const section = (req.params as any).section;
-    if (section === "logos") {
-      cb(null, path.join(UPLOADS_DIR, "logos"));
-    } else {
-      const dir = section === "work" ? "work" : "official";
-      cb(null, path.join(UPLOADS_DIR, dir));
-    }
+    const section = (req.params as any).section || (req as any)._uploadSection;
+    const validDirs = ["official", "work", "logos", "amendments", "profiles"];
+    const dir = validDirs.includes(section) ? section : "official";
+    cb(null, path.join(UPLOADS_DIR, dir));
   },
   filename: (_req, file, cb) => {
     const uniqueSuffix = Date.now() + "-" + Math.round(Math.random() * 1e6);
@@ -288,6 +287,96 @@ export async function registerRoutes(
     }
   });
 
+  // === CONTRACT AMENDMENTS ===
+  app.get(api.contractAmendments.list.path, isAuthenticated, async (req, res) => {
+    res.json(await storage.getContractAmendments(Number(req.params.contractId)));
+  });
+
+  app.post(api.contractAmendments.create.path, isAuthenticated, (req, _res, next) => {
+    (req as any)._uploadSection = "amendments";
+    next();
+  }, upload.single("file"), async (req, res) => {
+    try {
+      const contractId = Number(req.params.contractId);
+      const { name, effectiveDate } = req.body;
+      if (!name || !effectiveDate) return res.status(400).json({ message: "Name and effectiveDate are required" });
+
+      let fileEntry = null;
+      if (req.file) {
+        fileEntry = {
+          name: req.file.originalname,
+          url: `/api/files/amendments/${req.file.filename}`,
+          uploadedAt: new Date().toISOString(),
+        };
+      }
+
+      const amendment = await storage.createContractAmendment({
+        contractId,
+        name,
+        effectiveDate: new Date(effectiveDate),
+        file: fileEntry,
+      });
+      res.status(201).json(amendment);
+    } catch (err) {
+      console.error("Create amendment error:", err);
+      res.status(500).json({ message: "Internal error" });
+    }
+  });
+
+  app.delete(api.contractAmendments.delete.path, isAuthenticated, async (req, res) => {
+    try {
+      await storage.deleteContractAmendment(Number(req.params.id));
+      res.json({ success: true });
+    } catch (err) {
+      throw err;
+    }
+  });
+
+  // === USER PROFILE ===
+  app.get(api.userProfiles.me.path, isAuthenticated, async (req: any, res) => {
+    try {
+      const replitUserId = req.user?.claims?.sub;
+      const appUser = await storage.getAppUserByReplitId(replitUserId);
+      if (!appUser) return res.status(404).json({ message: "App user not found" });
+      const profile = await storage.getUserProfile(appUser.id);
+      if (!profile) return res.status(404).json({ message: "Profile not found" });
+      res.json(profile);
+    } catch (err) {
+      res.status(500).json({ message: "Internal error" });
+    }
+  });
+
+  app.post(api.userProfiles.upload.path, isAuthenticated, (req, _res, next) => {
+    (req as any)._uploadSection = "profiles";
+    next();
+  }, upload.single("photo"), async (req: any, res) => {
+    try {
+      const replitUserId = req.user?.claims?.sub;
+      const appUser = await storage.getAppUserByReplitId(replitUserId);
+      if (!appUser) return res.status(404).json({ message: "App user not found" });
+
+      const file = req.file;
+      if (!file) return res.status(400).json({ message: "No photo uploaded" });
+
+      const ext = path.extname(file.originalname).toLowerCase();
+      if (!['.jpg', '.jpeg', '.png'].includes(ext)) {
+        fs.unlinkSync(file.path);
+        return res.status(400).json({ message: "Only .jpg and .png formats are allowed" });
+      }
+
+      const photoUrl = `/api/files/profiles/${file.filename}`;
+      const profile = await storage.upsertUserProfile({
+        appUserId: appUser.id,
+        photoUrl,
+        photoOriginalName: file.originalname,
+      });
+      res.json(profile);
+    } catch (err) {
+      console.error("Profile photo upload error:", err);
+      res.status(500).json({ message: "Upload failed" });
+    }
+  });
+
   // === PARTNER CONTACTS ===
   app.get(api.partnerContacts.list.path, isAuthenticated, async (req, res) => {
     const includeInactive = req.query.includeInactive === 'true';
@@ -532,7 +621,7 @@ export async function registerRoutes(
 
   app.get("/api/files/:section/:filename", isAuthenticated, (req, res) => {
     const { section, filename } = req.params;
-    if (!["official", "work", "logos"].includes(section)) return res.status(400).json({ message: "Invalid section" });
+    if (!["official", "work", "logos", "amendments", "profiles"].includes(section)) return res.status(400).json({ message: "Invalid section" });
     const filePath = path.join(UPLOADS_DIR, section, filename);
     if (!fs.existsSync(filePath)) return res.status(404).json({ message: "File not found" });
     res.sendFile(filePath);
