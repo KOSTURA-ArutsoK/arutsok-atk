@@ -6,7 +6,13 @@ import {
   insertContactSchema, 
   insertProductSchema, 
   insertCommissionSchemeSchema,
-  subjects, myCompanies, partners, contacts, products, commissionSchemes, appUsers
+  insertCompanyOfficerSchema,
+  insertPartnerContactSchema,
+  insertPartnerProductSchema,
+  insertPartnerContractSchema,
+  insertCommunicationMatrixSchema,
+  subjects, myCompanies, partners, contacts, products, commissionSchemes, appUsers,
+  partnerContacts, partnerProducts, partnerContracts, communicationMatrix, companyOfficers,
 } from './schema';
 
 export const errorSchemas = {
@@ -82,17 +88,148 @@ export const api = {
     },
   },
 
+  companyOfficers: {
+    list: {
+      method: 'GET' as const,
+      path: '/api/my-companies/:companyId/officers' as const,
+      responses: { 200: z.array(z.custom<typeof companyOfficers.$inferSelect>()) },
+    },
+    create: {
+      method: 'POST' as const,
+      path: '/api/my-companies/:companyId/officers' as const,
+      input: insertCompanyOfficerSchema,
+      responses: { 201: z.custom<typeof companyOfficers.$inferSelect>(), 400: errorSchemas.validation },
+    },
+    delete: {
+      method: 'DELETE' as const,
+      path: '/api/company-officers/:id' as const,
+      responses: { 200: z.object({ success: z.boolean() }) },
+    },
+  },
+
   partners: {
     list: {
       method: 'GET' as const,
       path: '/api/partners' as const,
       responses: { 200: z.array(z.custom<typeof partners.$inferSelect>()) },
     },
+    get: {
+      method: 'GET' as const,
+      path: '/api/partners/:id' as const,
+      responses: { 200: z.custom<typeof partners.$inferSelect>(), 404: errorSchemas.notFound },
+    },
     create: {
       method: 'POST' as const,
       path: '/api/partners' as const,
       input: insertPartnerSchema,
       responses: { 201: z.custom<typeof partners.$inferSelect>(), 400: errorSchemas.validation },
+    },
+    update: {
+      method: 'PUT' as const,
+      path: '/api/partners/:id' as const,
+      input: insertPartnerSchema.partial().extend({ changeReason: z.string().optional() }),
+      responses: { 200: z.custom<typeof partners.$inferSelect>(), 400: errorSchemas.validation, 404: errorSchemas.notFound },
+    },
+    delete: {
+      method: 'DELETE' as const,
+      path: '/api/partners/:id' as const,
+      responses: { 200: z.object({ success: z.boolean() }), 404: errorSchemas.notFound },
+    },
+  },
+
+  partnerContracts: {
+    list: {
+      method: 'GET' as const,
+      path: '/api/partners/:partnerId/contracts' as const,
+      responses: { 200: z.array(z.custom<typeof partnerContracts.$inferSelect>()) },
+    },
+    create: {
+      method: 'POST' as const,
+      path: '/api/partners/:partnerId/contracts' as const,
+      input: insertPartnerContractSchema,
+      responses: { 201: z.custom<typeof partnerContracts.$inferSelect>(), 400: errorSchemas.validation },
+    },
+    delete: {
+      method: 'DELETE' as const,
+      path: '/api/partner-contracts/:id' as const,
+      responses: { 200: z.object({ success: z.boolean() }) },
+    },
+  },
+
+  partnerContacts: {
+    list: {
+      method: 'GET' as const,
+      path: '/api/partners/:partnerId/contacts' as const,
+      responses: { 200: z.array(z.custom<typeof partnerContacts.$inferSelect>()) },
+    },
+    create: {
+      method: 'POST' as const,
+      path: '/api/partners/:partnerId/contacts' as const,
+      input: insertPartnerContactSchema,
+      responses: { 201: z.custom<typeof partnerContacts.$inferSelect>(), 400: errorSchemas.validation },
+    },
+    update: {
+      method: 'PUT' as const,
+      path: '/api/partner-contacts/:id' as const,
+      input: insertPartnerContactSchema.partial(),
+      responses: { 200: z.custom<typeof partnerContacts.$inferSelect>(), 404: errorSchemas.notFound },
+    },
+    delete: {
+      method: 'DELETE' as const,
+      path: '/api/partner-contacts/:id' as const,
+      responses: { 200: z.object({ success: z.boolean() }) },
+    },
+  },
+
+  partnerProducts: {
+    list: {
+      method: 'GET' as const,
+      path: '/api/partners/:partnerId/products' as const,
+      responses: { 200: z.array(z.custom<typeof partnerProducts.$inferSelect>()) },
+    },
+    create: {
+      method: 'POST' as const,
+      path: '/api/partners/:partnerId/products' as const,
+      input: insertPartnerProductSchema,
+      responses: { 201: z.custom<typeof partnerProducts.$inferSelect>(), 400: errorSchemas.validation },
+    },
+    delete: {
+      method: 'DELETE' as const,
+      path: '/api/partner-products/:id' as const,
+      responses: { 200: z.object({ success: z.boolean() }) },
+    },
+  },
+
+  contactProductAssignments: {
+    list: {
+      method: 'GET' as const,
+      path: '/api/partner-contacts/:contactId/products' as const,
+      responses: { 200: z.array(z.object({ id: z.number(), contactId: z.number(), productId: z.number() })) },
+    },
+    set: {
+      method: 'PUT' as const,
+      path: '/api/partner-contacts/:contactId/products' as const,
+      input: z.object({ productIds: z.array(z.number()) }),
+      responses: { 200: z.object({ success: z.boolean() }) },
+    },
+  },
+
+  communicationMatrix: {
+    list: {
+      method: 'GET' as const,
+      path: '/api/partners/:partnerId/matrix' as const,
+      responses: { 200: z.array(z.custom<typeof communicationMatrix.$inferSelect>()) },
+    },
+    create: {
+      method: 'POST' as const,
+      path: '/api/partners/:partnerId/matrix' as const,
+      input: insertCommunicationMatrixSchema,
+      responses: { 201: z.custom<typeof communicationMatrix.$inferSelect>(), 400: errorSchemas.validation },
+    },
+    delete: {
+      method: 'DELETE' as const,
+      path: '/api/communication-matrix/:id' as const,
+      responses: { 200: z.object({ success: z.boolean() }) },
     },
   },
 
@@ -136,6 +273,12 @@ export const api = {
       path: '/api/hierarchy/states' as const,
       input: z.object({ continentId: z.string().optional() }).optional(),
       responses: { 200: z.array(z.object({ id: z.number(), name: z.string(), code: z.string(), flagUrl: z.string().nullable(), continentId: z.number() })) },
+    },
+    createState: {
+      method: 'POST' as const,
+      path: '/api/hierarchy/states' as const,
+      input: z.object({ continentId: z.number(), name: z.string(), code: z.string(), flagUrl: z.string().optional() }),
+      responses: { 201: z.object({ id: z.number(), name: z.string(), code: z.string(), flagUrl: z.string().nullable(), continentId: z.number() }) },
     },
   },
 

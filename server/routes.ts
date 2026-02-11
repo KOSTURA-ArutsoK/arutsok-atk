@@ -14,11 +14,17 @@ import fs from "fs";
 const UPLOADS_DIR = path.join(process.cwd(), "uploads");
 fs.mkdirSync(path.join(UPLOADS_DIR, "official"), { recursive: true });
 fs.mkdirSync(path.join(UPLOADS_DIR, "work"), { recursive: true });
+fs.mkdirSync(path.join(UPLOADS_DIR, "logos"), { recursive: true });
 
 const uploadStorage = multer.diskStorage({
   destination: (req, _file, cb) => {
-    const section = (req.params as any).section === "work" ? "work" : "official";
-    cb(null, path.join(UPLOADS_DIR, section));
+    const section = (req.params as any).section;
+    if (section === "logos") {
+      cb(null, path.join(UPLOADS_DIR, "logos"));
+    } else {
+      const dir = section === "work" ? "work" : "official";
+      cb(null, path.join(UPLOADS_DIR, dir));
+    }
   },
   filename: (_req, file, cb) => {
     const uniqueSuffix = Date.now() + "-" + Math.round(Math.random() * 1e6);
@@ -40,7 +46,7 @@ export async function registerRoutes(
   await setupAuth(app);
   registerAuthRoutes(app);
 
-  // === APP USER (links Replit auth user to CRM user) ===
+  // === APP USER ===
   app.get(api.appUser.me.path, isAuthenticated, async (req: any, res) => {
     try {
       const replitUserId = req.user?.claims?.sub;
@@ -67,20 +73,25 @@ export async function registerRoutes(
 
   app.put(api.appUser.setActive.path, isAuthenticated, async (req: any, res) => {
     try {
+      const validated = api.appUser.setActive.input.parse(req.body);
       const replitUserId = req.user?.claims?.sub;
       const appUser = await storage.getAppUserByReplitId(replitUserId);
       if (!appUser) return res.status(404).json({ message: "User not found" });
       
-      const { activeCompanyId, activeStateId } = req.body;
-      const updated = await storage.updateAppUser(appUser.id, { activeCompanyId, activeStateId });
+      const updates: Record<string, any> = {};
+      if (validated.activeCompanyId !== undefined) updates.activeCompanyId = validated.activeCompanyId;
+      if (validated.activeStateId !== undefined) updates.activeStateId = validated.activeStateId;
+      
+      const updated = await storage.updateAppUser(appUser.id, updates);
       res.json(updated);
     } catch (err) {
+      if (err instanceof z.ZodError) return res.status(400).json({ message: err.errors[0].message });
       res.status(500).json({ message: "Internal error" });
     }
   });
 
   // === HIERARCHY ===
-  app.get(api.hierarchy.continents.path, async (req, res) => {
+  app.get(api.hierarchy.continents.path, async (_req, res) => {
     res.json(await storage.getContinents());
   });
 
@@ -89,9 +100,27 @@ export async function registerRoutes(
     res.json(await storage.getStates(continentId));
   });
 
+  app.post(api.hierarchy.createState.path, isAuthenticated, async (req, res) => {
+    try {
+      const input = api.hierarchy.createState.input.parse(req.body);
+      const created = await storage.createState(input);
+      res.status(201).json(created);
+    } catch (err) {
+      if (err instanceof z.ZodError) return res.status(400).json({ message: err.errors[0].message });
+      throw err;
+    }
+  });
+
   // === MY COMPANIES ===
-  app.get(api.myCompanies.list.path, isAuthenticated, async (req, res) => {
-    res.json(await storage.getMyCompanies());
+  app.get(api.myCompanies.list.path, isAuthenticated, async (req: any, res) => {
+    const includeDeleted = req.query.includeDeleted === 'true';
+    const stateId = req.query.stateId ? parseInt(req.query.stateId as string) : undefined;
+    const companies = await storage.getMyCompanies(includeDeleted);
+    if (stateId) {
+      res.json(companies.filter(c => c.stateId === stateId));
+    } else {
+      res.json(companies);
+    }
   });
 
   app.get(api.myCompanies.get.path, isAuthenticated, async (req, res) => {
@@ -138,7 +167,6 @@ export async function registerRoutes(
 
       if (!appUser) return res.status(404).json({ message: "User not found" });
 
-      // Audit trail and soft delete
       await storage.updateMyCompany(companyId, { 
         isDeleted: true,
         deletedBy: appUser.username,
@@ -154,17 +182,196 @@ export async function registerRoutes(
     }
   });
 
-  // === PARTNERS ===
-  app.get(api.partners.list.path, async (req, res) => {
-    res.json(await storage.getPartners());
+  // === COMPANY OFFICERS ===
+  app.get(api.companyOfficers.list.path, isAuthenticated, async (req, res) => {
+    res.json(await storage.getCompanyOfficers(Number(req.params.companyId)));
   });
-  
-  app.post(api.partners.create.path, async (req, res) => {
+
+  app.post(api.companyOfficers.create.path, isAuthenticated, async (req, res) => {
+    try {
+      const input = { ...api.companyOfficers.create.input.parse(req.body), companyId: Number(req.params.companyId) };
+      res.status(201).json(await storage.createCompanyOfficer(input));
+    } catch (err) {
+      if (err instanceof z.ZodError) return res.status(400).json({ message: err.errors[0].message });
+      throw err;
+    }
+  });
+
+  app.delete(api.companyOfficers.delete.path, isAuthenticated, async (req, res) => {
+    try {
+      await storage.deleteCompanyOfficer(Number(req.params.id));
+      res.json({ success: true });
+    } catch (err) {
+      throw err;
+    }
+  });
+
+  // === PARTNERS ===
+  app.get(api.partners.list.path, isAuthenticated, async (req: any, res) => {
+    const includeDeleted = req.query.includeDeleted === 'true';
+    res.json(await storage.getPartners(includeDeleted));
+  });
+
+  app.get(api.partners.get.path, isAuthenticated, async (req, res) => {
+    const partner = await storage.getPartner(Number(req.params.id));
+    if (!partner) return res.status(404).json({ message: "Partner not found" });
+    res.json(partner);
+  });
+
+  app.post(api.partners.create.path, isAuthenticated, async (req, res) => {
     try {
       const input = api.partners.create.input.parse(req.body);
       res.status(201).json(await storage.createPartner(input));
     } catch (err) {
       if (err instanceof z.ZodError) return res.status(400).json({ message: err.errors[0].message });
+      throw err;
+    }
+  });
+
+  app.put(api.partners.update.path, isAuthenticated, async (req, res) => {
+    try {
+      const input = api.partners.update.input.parse(req.body);
+      res.json(await storage.updatePartner(Number(req.params.id), input));
+    } catch (err) {
+      if (err instanceof z.ZodError) return res.status(400).json({ message: err.errors[0].message });
+      if (err instanceof Error && err.message === "Partner not found") return res.status(404).json({ message: err.message });
+      throw err;
+    }
+  });
+
+  app.delete(api.partners.delete.path, isAuthenticated, async (req: any, res) => {
+    try {
+      const replitUserId = req.user?.claims?.sub;
+      const appUser = await storage.getAppUserByReplitId(replitUserId);
+      const ip = req.ip || req.headers['x-forwarded-for'] || req.socket.remoteAddress;
+      if (!appUser) return res.status(404).json({ message: "User not found" });
+
+      await storage.softDeletePartner(Number(req.params.id), appUser.username, typeof ip === 'string' ? ip : '');
+      res.json({ success: true });
+    } catch (err) {
+      if (err instanceof Error && err.message === "Partner not found") return res.status(404).json({ message: err.message });
+      throw err;
+    }
+  });
+
+  // === PARTNER CONTRACTS ===
+  app.get(api.partnerContracts.list.path, isAuthenticated, async (req, res) => {
+    res.json(await storage.getPartnerContracts(Number(req.params.partnerId)));
+  });
+
+  app.post(api.partnerContracts.create.path, isAuthenticated, async (req, res) => {
+    try {
+      const input = { ...api.partnerContracts.create.input.parse(req.body), partnerId: Number(req.params.partnerId) };
+      res.status(201).json(await storage.createPartnerContract(input));
+    } catch (err) {
+      if (err instanceof z.ZodError) return res.status(400).json({ message: err.errors[0].message });
+      throw err;
+    }
+  });
+
+  app.delete(api.partnerContracts.delete.path, isAuthenticated, async (req, res) => {
+    try {
+      await storage.deletePartnerContract(Number(req.params.id));
+      res.json({ success: true });
+    } catch (err) {
+      throw err;
+    }
+  });
+
+  // === PARTNER CONTACTS ===
+  app.get(api.partnerContacts.list.path, isAuthenticated, async (req, res) => {
+    res.json(await storage.getPartnerContacts(Number(req.params.partnerId)));
+  });
+
+  app.post(api.partnerContacts.create.path, isAuthenticated, async (req, res) => {
+    try {
+      const input = { ...api.partnerContacts.create.input.parse(req.body), partnerId: Number(req.params.partnerId) };
+      res.status(201).json(await storage.createPartnerContact(input));
+    } catch (err) {
+      if (err instanceof z.ZodError) return res.status(400).json({ message: err.errors[0].message });
+      throw err;
+    }
+  });
+
+  app.put(api.partnerContacts.update.path, isAuthenticated, async (req, res) => {
+    try {
+      const input = api.partnerContacts.update.input.parse(req.body);
+      res.json(await storage.updatePartnerContact(Number(req.params.id), input));
+    } catch (err) {
+      if (err instanceof z.ZodError) return res.status(400).json({ message: err.errors[0].message });
+      throw err;
+    }
+  });
+
+  app.delete(api.partnerContacts.delete.path, isAuthenticated, async (req, res) => {
+    try {
+      await storage.deletePartnerContact(Number(req.params.id));
+      res.json({ success: true });
+    } catch (err) {
+      throw err;
+    }
+  });
+
+  // === PARTNER PRODUCTS ===
+  app.get(api.partnerProducts.list.path, isAuthenticated, async (req, res) => {
+    res.json(await storage.getPartnerProducts(Number(req.params.partnerId)));
+  });
+
+  app.post(api.partnerProducts.create.path, isAuthenticated, async (req, res) => {
+    try {
+      const input = { ...api.partnerProducts.create.input.parse(req.body), partnerId: Number(req.params.partnerId) };
+      res.status(201).json(await storage.createPartnerProduct(input));
+    } catch (err) {
+      if (err instanceof z.ZodError) return res.status(400).json({ message: err.errors[0].message });
+      throw err;
+    }
+  });
+
+  app.delete(api.partnerProducts.delete.path, isAuthenticated, async (req, res) => {
+    try {
+      await storage.deletePartnerProduct(Number(req.params.id));
+      res.json({ success: true });
+    } catch (err) {
+      throw err;
+    }
+  });
+
+  // === CONTACT-PRODUCT ASSIGNMENTS ===
+  app.get(api.contactProductAssignments.list.path, isAuthenticated, async (req, res) => {
+    res.json(await storage.getContactProductAssignments(Number(req.params.contactId)));
+  });
+
+  app.put(api.contactProductAssignments.set.path, isAuthenticated, async (req, res) => {
+    try {
+      const { productIds } = api.contactProductAssignments.set.input.parse(req.body);
+      await storage.setContactProductAssignments(Number(req.params.contactId), productIds);
+      res.json({ success: true });
+    } catch (err) {
+      if (err instanceof z.ZodError) return res.status(400).json({ message: err.errors[0].message });
+      throw err;
+    }
+  });
+
+  // === COMMUNICATION MATRIX ===
+  app.get(api.communicationMatrix.list.path, isAuthenticated, async (req, res) => {
+    res.json(await storage.getCommunicationMatrix(Number(req.params.partnerId)));
+  });
+
+  app.post(api.communicationMatrix.create.path, isAuthenticated, async (req, res) => {
+    try {
+      const input = { ...api.communicationMatrix.create.input.parse(req.body), partnerId: Number(req.params.partnerId) };
+      res.status(201).json(await storage.createMatrixEntry(input));
+    } catch (err) {
+      if (err instanceof z.ZodError) return res.status(400).json({ message: err.errors[0].message });
+      throw err;
+    }
+  });
+
+  app.delete(api.communicationMatrix.delete.path, isAuthenticated, async (req, res) => {
+    try {
+      await storage.deleteMatrixEntry(Number(req.params.id));
+      res.json({ success: true });
+    } catch (err) {
       throw err;
     }
   });
@@ -218,7 +425,7 @@ export async function registerRoutes(
   });
 
   // === PRODUCTS & COMMISSIONS ===
-  app.get(api.products.list.path, async (req, res) => { res.json(await storage.getProducts()); });
+  app.get(api.products.list.path, async (_req, res) => { res.json(await storage.getProducts()); });
   app.post(api.products.create.path, async (req, res) => {
     try {
       res.status(201).json(await storage.createProduct(api.products.create.input.parse(req.body)));
@@ -244,8 +451,8 @@ export async function registerRoutes(
   app.post("/api/my-companies/:companyId/files/:section", isAuthenticated, upload.single("file"), async (req, res) => {
     try {
       const companyId = Number(req.params.companyId);
-      const section = req.params.section as "official" | "work";
-      if (!["official", "work"].includes(section)) return res.status(400).json({ message: "Invalid section" });
+      const section = req.params.section as "official" | "work" | "logos";
+      if (!["official", "work", "logos"].includes(section)) return res.status(400).json({ message: "Invalid section" });
 
       const company = await storage.getMyCompany(companyId);
       if (!company) return res.status(404).json({ message: "Company not found" });
@@ -253,19 +460,35 @@ export async function registerRoutes(
       const file = req.file;
       if (!file) return res.status(400).json({ message: "No file uploaded" });
 
-      const docEntry = {
-        name: file.originalname,
-        url: `/api/files/${section}/${file.filename}`,
-        uploadedAt: new Date().toISOString(),
-      };
+      if (section === "logos") {
+        const logoEntry = {
+          name: file.originalname,
+          url: `/api/files/logos/${file.filename}`,
+          uploadedAt: new Date().toISOString(),
+          isPrimary: true,
+          isArchived: false,
+        };
 
-      const docsField = section === "official" ? "officialDocs" : "workDocs";
-      const currentDocs = (company[docsField] as any[]) || [];
-      const updatedDocs = [...currentDocs, docEntry];
+        const currentLogos = (company.logos as any[]) || [];
+        const archivedLogos = currentLogos.map((l: any) => ({ ...l, isPrimary: false, isArchived: l.isPrimary ? true : l.isArchived }));
+        const updatedLogos = [...archivedLogos, logoEntry];
 
-      await storage.updateMyCompany(companyId, { [docsField]: updatedDocs, changeReason: `File uploaded: ${file.originalname}` });
+        await storage.updateMyCompany(companyId, { logos: updatedLogos, changeReason: `Logo uploaded: ${file.originalname}` });
+        res.status(201).json(logoEntry);
+      } else {
+        const docEntry = {
+          name: file.originalname,
+          url: `/api/files/${section}/${file.filename}`,
+          uploadedAt: new Date().toISOString(),
+        };
 
-      res.status(201).json(docEntry);
+        const docsField = section === "official" ? "officialDocs" : "workDocs";
+        const currentDocs = (company[docsField] as any[]) || [];
+        const updatedDocs = [...currentDocs, docEntry];
+
+        await storage.updateMyCompany(companyId, { [docsField]: updatedDocs, changeReason: `File uploaded: ${file.originalname}` });
+        res.status(201).json(docEntry);
+      }
     } catch (err) {
       console.error("File upload error:", err);
       res.status(500).json({ message: "Upload failed" });
@@ -274,7 +497,7 @@ export async function registerRoutes(
 
   app.get("/api/files/:section/:filename", isAuthenticated, (req, res) => {
     const { section, filename } = req.params;
-    if (!["official", "work"].includes(section)) return res.status(400).json({ message: "Invalid section" });
+    if (!["official", "work", "logos"].includes(section)) return res.status(400).json({ message: "Invalid section" });
     const filePath = path.join(UPLOADS_DIR, section, filename);
     if (!fs.existsSync(filePath)) return res.status(404).json({ message: "File not found" });
     res.sendFile(filePath);
@@ -304,6 +527,28 @@ export async function registerRoutes(
     } catch (err) {
       console.error("File delete error:", err);
       res.status(500).json({ message: "Delete failed" });
+    }
+  });
+
+  // === LOGO MANAGEMENT (set primary / archive) ===
+  app.put("/api/my-companies/:companyId/logos/set-primary", isAuthenticated, async (req, res) => {
+    try {
+      const companyId = Number(req.params.companyId);
+      const { logoUrl } = req.body;
+      const company = await storage.getMyCompany(companyId);
+      if (!company) return res.status(404).json({ message: "Company not found" });
+
+      const currentLogos = (company.logos as any[]) || [];
+      const updatedLogos = currentLogos.map((l: any) => ({
+        ...l,
+        isPrimary: l.url === logoUrl,
+        isArchived: l.url === logoUrl ? false : (l.isPrimary ? true : l.isArchived),
+      }));
+
+      await storage.updateMyCompany(companyId, { logos: updatedLogos, changeReason: "Logo set as primary" });
+      res.json({ success: true });
+    } catch (err) {
+      res.status(500).json({ message: "Failed to set primary logo" });
     }
   });
 

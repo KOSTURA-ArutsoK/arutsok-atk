@@ -12,6 +12,7 @@ import AuthPage from "@/pages/Auth";
 import Dashboard from "@/pages/Dashboard";
 import Subjects from "@/pages/Subjects";
 import Companies from "@/pages/Companies";
+import Partners from "@/pages/Partners";
 import { AppShell } from "@/components/layout/AppShell";
 
 function PlaceholderPage({ title }: { title: string }) {
@@ -58,7 +59,7 @@ function Router() {
       <Route path="/" component={() => <PrivateRoute component={Dashboard} />} />
       <Route path="/subjects" component={() => <PrivateRoute component={Subjects} />} />
       <Route path="/companies" component={() => <PrivateRoute component={Companies} />} />
-      <Route path="/partners" component={() => <PrivateRoute component={() => <PlaceholderPage title="Partneri" />} />} />
+      <Route path="/partners" component={() => <PrivateRoute component={Partners} />} />
       <Route path="/products" component={() => <PrivateRoute component={() => <PlaceholderPage title="Produkty" />} />} />
       <Route path="/commissions" component={() => <PrivateRoute component={() => <PlaceholderPage title="Provizie" />} />} />
       <Route path="/settings" component={() => <PrivateRoute component={() => <PlaceholderPage title="Nastavenia" />} />} />

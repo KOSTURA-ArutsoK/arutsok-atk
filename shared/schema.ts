@@ -1,9 +1,19 @@
-import { pgTable, text, serial, integer, boolean, timestamp, jsonb, date } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, integer, boolean, timestamp, jsonb, bigint } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
 export * from "./models/auth";
+
+export type LogoEntry = { name: string; url: string; uploadedAt: string; isPrimary: boolean; isArchived: boolean };
+export type DocEntry = { name: string; url: string; uploadedAt: string };
+
+// === GLOBAL COUNTER (for 12-digit UID generation) ===
+export const globalCounters = pgTable("global_counters", {
+  id: serial("id").primaryKey(),
+  counterName: text("counter_name").notNull().unique(),
+  currentValue: bigint("current_value", { mode: "number" }).notNull().default(0),
+});
 
 // === GLOBAL HIERARCHY ===
 export const continents = pgTable("continents", {
@@ -20,16 +30,18 @@ export const states = pgTable("states", {
   flagUrl: text("flag_url"),
 });
 
-// === MY FIRMS (expanded with full CRUD fields) ===
+// === MY FIRMS ===
 export const myCompanies = pgTable("my_companies", {
   id: serial("id").primaryKey(),
+  uid: text("uid"),
   name: text("name").notNull(),
   specialization: text("specialization").notNull(),
   code: text("code").notNull(),
   ico: text("ico"),
   dic: text("dic"),
   icDph: text("ic_dph"),
-  logos: jsonb("logos").$type<{name: string, url: string, uploadedAt: string, isPrimary: boolean, isArchived: boolean}[]>().default([]),
+  logos: jsonb("logos").$type<LogoEntry[]>().default([]),
+  businessActivities: jsonb("business_activities").$type<string[]>().default([]),
   deletedBy: text("deleted_by"),
   deletedAt: timestamp("deleted_at"),
   deletedFromIp: text("deleted_from_ip"),
@@ -41,21 +53,122 @@ export const myCompanies = pgTable("my_companies", {
   stateId: integer("state_id"),
   description: text("description"),
   notes: text("notes"),
-  officialDocs: jsonb("official_docs").$type<{name: string, url: string, uploadedAt: string}[]>().default([]),
-  workDocs: jsonb("work_docs").$type<{name: string, url: string, uploadedAt: string}[]>().default([]),
+  officialDocs: jsonb("official_docs").$type<DocEntry[]>().default([]),
+  workDocs: jsonb("work_docs").$type<DocEntry[]>().default([]),
   processingTimeSec: integer("processing_time_sec").default(0),
   isDeleted: boolean("is_deleted").default(false),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
 
-export const partners = pgTable("partners", {
+// === COMPANY OFFICERS (Konatelia / Vlastnici) ===
+export const companyOfficers = pgTable("company_officers", {
   id: serial("id").primaryKey(),
-  name: text("name").notNull(),
-  contractFiles: jsonb("contract_files").$type<string[]>().default([]),
+  companyId: integer("company_id").notNull().references(() => myCompanies.id),
+  type: text("type").notNull(),
+  titleBefore: text("title_before"),
+  firstName: text("first_name"),
+  lastName: text("last_name"),
+  titleAfter: text("title_after"),
+  subjectId: integer("subject_id"),
+  ownerCompanyId: integer("owner_company_id"),
+  ownerCompanyName: text("owner_company_name"),
+  share: text("share"),
+  street: text("street"),
+  streetNumber: text("street_number"),
+  orientNumber: text("orient_number"),
+  postalCode: text("postal_code"),
+  city: text("city"),
+  stateId: integer("state_id"),
+  createdAt: timestamp("created_at").defaultNow(),
 });
 
-// === COMMUNICATION MATRIX ===
+// === PARTNERS (External business partners) ===
+export const partners = pgTable("partners", {
+  id: serial("id").primaryKey(),
+  uid: text("uid"),
+  name: text("name").notNull(),
+  code: text("code"),
+  collaborationDate: timestamp("collaboration_date"),
+  logos: jsonb("logos").$type<LogoEntry[]>().default([]),
+  notes: text("notes"),
+  isDeleted: boolean("is_deleted").default(false),
+  deletedBy: text("deleted_by"),
+  deletedAt: timestamp("deleted_at"),
+  deletedFromIp: text("deleted_from_ip"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// === PARTNER-COMPANY CONTRACTS ===
+export const partnerContracts = pgTable("partner_contracts", {
+  id: serial("id").primaryKey(),
+  partnerId: integer("partner_id").notNull().references(() => partners.id),
+  companyId: integer("company_id").notNull().references(() => myCompanies.id),
+  contractNumber: text("contract_number"),
+  signedDate: timestamp("signed_date"),
+  contractFile: jsonb("contract_file").$type<DocEntry | null>(),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// === PARTNER CONTACTS (External) ===
+export const partnerContacts = pgTable("partner_contacts", {
+  id: serial("id").primaryKey(),
+  partnerId: integer("partner_id").notNull().references(() => partners.id),
+  titleBefore: text("title_before"),
+  firstName: text("first_name").notNull(),
+  lastName: text("last_name").notNull(),
+  titleAfter: text("title_after"),
+  position: text("position"),
+  phone: text("phone"),
+  email: text("email"),
+  other: text("other"),
+  isPrimary: boolean("is_primary").default(false),
+  subjectId: integer("subject_id"),
+  securityLevel: integer("security_level").default(1),
+  allProducts: boolean("all_products").default(false),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// === PARTNER PRODUCTS ===
+export const partnerProducts = pgTable("partner_products", {
+  id: serial("id").primaryKey(),
+  partnerId: integer("partner_id").notNull().references(() => partners.id),
+  productType: text("product_type").notNull(),
+  name: text("name").notNull(),
+  code: text("code"),
+  note: text("note"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// === CONTACT-PRODUCT ASSIGNMENTS ===
+export const contactProductAssignments = pgTable("contact_product_assignments", {
+  id: serial("id").primaryKey(),
+  contactId: integer("contact_id").notNull().references(() => partnerContacts.id),
+  productId: integer("product_id").notNull().references(() => partnerProducts.id),
+});
+
+// === COMMUNICATION MATRIX (Partner <-> Company mapping) ===
+export const communicationMatrix = pgTable("communication_matrix", {
+  id: serial("id").primaryKey(),
+  partnerId: integer("partner_id").notNull().references(() => partners.id),
+  companyId: integer("company_id").notNull().references(() => myCompanies.id),
+  externalContactId: integer("external_contact_id").references(() => partnerContacts.id),
+  internalSubjectId: integer("internal_subject_id"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// === COMPANY INTERNAL CONTACTS ===
+export const companyContacts = pgTable("company_contacts", {
+  id: serial("id").primaryKey(),
+  companyId: integer("company_id").notNull().references(() => myCompanies.id),
+  subjectId: integer("subject_id"),
+  contactType: text("contact_type").notNull(),
+  securityLevel: integer("security_level").default(1),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// === LEGACY CONTACTS (keep for backward compat) ===
 export const contacts = pgTable("contacts", {
   id: serial("id").primaryKey(),
   partnerId: integer("partner_id").references(() => partners.id),
@@ -103,7 +216,7 @@ export const companyArchive = pgTable("company_archive", {
   reason: text("reason"),
 });
 
-// === PRODUCTS & COMMISSIONS ===
+// === PRODUCTS & COMMISSIONS (legacy, kept for backward compat) ===
 export const products = pgTable("products", {
   id: serial("id").primaryKey(),
   companyId: integer("company_id").references(() => myCompanies.id),
@@ -124,7 +237,7 @@ export const commissionSchemes = pgTable("commission_schemes", {
   currency: text("currency").default('EUR'),
 });
 
-// === APP USERS & SECURITY (CRM-specific users, separate from Replit Auth users) ===
+// === APP USERS & SECURITY ===
 export const appUsers = pgTable("app_users", {
   id: serial("id").primaryKey(),
   replitId: text("replit_id").unique(),
@@ -153,13 +266,31 @@ export const productsRelations = relations(products, ({ one }) => ({
   state: one(states, { fields: [products.stateId], references: [states.id] }),
 }));
 
+export const partnerContactsRelations = relations(partnerContacts, ({ one }) => ({
+  partner: one(partners, { fields: [partnerContacts.partnerId], references: [partners.id] }),
+}));
+
+export const partnerProductsRelations = relations(partnerProducts, ({ one }) => ({
+  partner: one(partners, { fields: [partnerProducts.partnerId], references: [partners.id] }),
+}));
+
+export const companyOfficersRelations = relations(companyOfficers, ({ one }) => ({
+  company: one(myCompanies, { fields: [companyOfficers.companyId], references: [myCompanies.id] }),
+}));
+
 // === ZOD SCHEMAS ===
 export const insertSubjectSchema = createInsertSchema(subjects).omit({ id: true, uid: true, createdAt: true });
-export const insertMyCompanySchema = createInsertSchema(myCompanies).omit({ id: true, createdAt: true, updatedAt: true, isDeleted: true });
-export const insertPartnerSchema = createInsertSchema(partners).omit({ id: true });
+export const insertMyCompanySchema = createInsertSchema(myCompanies).omit({ id: true, createdAt: true, updatedAt: true, isDeleted: true, uid: true, deletedBy: true, deletedAt: true, deletedFromIp: true });
+export const insertPartnerSchema = createInsertSchema(partners).omit({ id: true, createdAt: true, updatedAt: true, isDeleted: true, uid: true, deletedBy: true, deletedAt: true, deletedFromIp: true });
 export const insertContactSchema = createInsertSchema(contacts).omit({ id: true });
 export const insertProductSchema = createInsertSchema(products).omit({ id: true });
 export const insertCommissionSchemeSchema = createInsertSchema(commissionSchemes).omit({ id: true });
+export const insertCompanyOfficerSchema = createInsertSchema(companyOfficers).omit({ id: true, createdAt: true });
+export const insertPartnerContactSchema = createInsertSchema(partnerContacts).omit({ id: true, createdAt: true });
+export const insertPartnerProductSchema = createInsertSchema(partnerProducts).omit({ id: true, createdAt: true });
+export const insertPartnerContractSchema = createInsertSchema(partnerContracts).omit({ id: true, createdAt: true });
+export const insertCommunicationMatrixSchema = createInsertSchema(communicationMatrix).omit({ id: true, createdAt: true });
+export const insertCompanyContactSchema = createInsertSchema(companyContacts).omit({ id: true, createdAt: true });
 
 // === EXPLICIT TYPES ===
 export type Subject = typeof subjects.$inferSelect;
@@ -167,11 +298,23 @@ export type InsertSubject = z.infer<typeof insertSubjectSchema>;
 export type MyCompany = typeof myCompanies.$inferSelect;
 export type InsertMyCompany = z.infer<typeof insertMyCompanySchema>;
 export type Partner = typeof partners.$inferSelect;
+export type InsertPartner = z.infer<typeof insertPartnerSchema>;
 export type Product = typeof products.$inferSelect;
 export type CommissionScheme = typeof commissionSchemes.$inferSelect;
 export type Contact = typeof contacts.$inferSelect;
 export type AppUser = typeof appUsers.$inferSelect;
+export type CompanyOfficer = typeof companyOfficers.$inferSelect;
+export type InsertCompanyOfficer = z.infer<typeof insertCompanyOfficerSchema>;
+export type PartnerContact = typeof partnerContacts.$inferSelect;
+export type InsertPartnerContact = z.infer<typeof insertPartnerContactSchema>;
+export type PartnerProduct = typeof partnerProducts.$inferSelect;
+export type InsertPartnerProduct = z.infer<typeof insertPartnerProductSchema>;
+export type PartnerContract = typeof partnerContracts.$inferSelect;
+export type InsertPartnerContract = z.infer<typeof insertPartnerContractSchema>;
+export type CommunicationMatrixEntry = typeof communicationMatrix.$inferSelect;
+export type CompanyContact = typeof companyContacts.$inferSelect;
 
 export type CreateSubjectRequest = InsertSubject;
 export type UpdateSubjectRequest = Partial<InsertSubject> & { changeReason?: string };
 export type UpdateMyCompanyRequest = Partial<InsertMyCompany> & { changeReason?: string };
+export type UpdatePartnerRequest = Partial<InsertPartner> & { changeReason?: string };
