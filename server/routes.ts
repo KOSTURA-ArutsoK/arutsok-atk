@@ -4,7 +4,7 @@ import { storage } from "./storage";
 import { api } from "@shared/routes";
 import { setupAuth, registerAuthRoutes, isAuthenticated } from "./replit_integrations/auth";
 import { z } from "zod";
-import { continents, states, myCompanies, appUsers } from "@shared/schema";
+import { continents, states, myCompanies, appUsers, clientTypes } from "@shared/schema";
 import { db } from "./db";
 import { eq } from "drizzle-orm";
 import multer from "multer";
@@ -1185,6 +1185,187 @@ export async function registerRoutes(
     }
   });
 
+  // === CLIENT TYPES (Dynamic Parameter System) ===
+  app.get("/api/client-types", isAuthenticated, async (_req, res) => {
+    try {
+      const types = await storage.getClientTypes();
+      res.json(types);
+    } catch {
+      res.status(500).json({ message: "Failed to get client types" });
+    }
+  });
+
+  app.post("/api/client-types", isAuthenticated, async (req: any, res) => {
+    try {
+      const appUser = req.appUser;
+      if (!appUser || !["admin", "superadmin"].includes(appUser.role)) {
+        return res.status(403).json({ message: "Nedostatocne opravnenia" });
+      }
+      const created = await storage.createClientType(req.body);
+      await logAudit(req, { action: "CREATE", module: "client_types", entityId: created.id, entityName: created.name });
+      res.json(created);
+    } catch {
+      res.status(500).json({ message: "Failed to create client type" });
+    }
+  });
+
+  app.patch("/api/client-types/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const appUser = req.appUser;
+      if (!appUser || !["admin", "superadmin"].includes(appUser.role)) {
+        return res.status(403).json({ message: "Nedostatocne opravnenia" });
+      }
+      const updated = await storage.updateClientType(Number(req.params.id), req.body);
+      await logAudit(req, { action: "UPDATE", module: "client_types", entityId: updated.id, entityName: updated.name });
+      res.json(updated);
+    } catch {
+      res.status(500).json({ message: "Failed to update client type" });
+    }
+  });
+
+  app.delete("/api/client-types/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const appUser = req.appUser;
+      if (!appUser || !["admin", "superadmin"].includes(appUser.role)) {
+        return res.status(403).json({ message: "Nedostatocne opravnenia" });
+      }
+      await storage.deleteClientType(Number(req.params.id));
+      await logAudit(req, { action: "DELETE", module: "client_types", entityId: Number(req.params.id) });
+      res.json({ ok: true });
+    } catch {
+      res.status(500).json({ message: "Failed to delete client type" });
+    }
+  });
+
+  // === CLIENT TYPE SECTIONS ===
+  app.get("/api/client-types/:typeId/sections", isAuthenticated, async (req, res) => {
+    try {
+      const sections = await storage.getClientTypeSections(Number(req.params.typeId));
+      res.json(sections);
+    } catch {
+      res.status(500).json({ message: "Failed to get sections" });
+    }
+  });
+
+  app.post("/api/client-types/:typeId/sections", isAuthenticated, async (req: any, res) => {
+    try {
+      const appUser = req.appUser;
+      if (!appUser || !["admin", "superadmin"].includes(appUser.role)) {
+        return res.status(403).json({ message: "Nedostatocne opravnenia" });
+      }
+      const created = await storage.createClientTypeSection({
+        ...req.body,
+        clientTypeId: Number(req.params.typeId),
+      });
+      res.json(created);
+    } catch {
+      res.status(500).json({ message: "Failed to create section" });
+    }
+  });
+
+  app.patch("/api/client-type-sections/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const appUser = req.appUser;
+      if (!appUser || !["admin", "superadmin"].includes(appUser.role)) {
+        return res.status(403).json({ message: "Nedostatocne opravnenia" });
+      }
+      const updated = await storage.updateClientTypeSection(Number(req.params.id), req.body);
+      res.json(updated);
+    } catch {
+      res.status(500).json({ message: "Failed to update section" });
+    }
+  });
+
+  app.delete("/api/client-type-sections/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const appUser = req.appUser;
+      if (!appUser || !["admin", "superadmin"].includes(appUser.role)) {
+        return res.status(403).json({ message: "Nedostatocne opravnenia" });
+      }
+      await storage.deleteClientTypeSection(Number(req.params.id));
+      res.json({ ok: true });
+    } catch {
+      res.status(500).json({ message: "Failed to delete section" });
+    }
+  });
+
+  // === CLIENT TYPE FIELDS ===
+  app.get("/api/client-types/:typeId/fields", isAuthenticated, async (req, res) => {
+    try {
+      const fields = await storage.getClientTypeFields(Number(req.params.typeId));
+      res.json(fields);
+    } catch {
+      res.status(500).json({ message: "Failed to get fields" });
+    }
+  });
+
+  app.post("/api/client-types/:typeId/fields", isAuthenticated, async (req: any, res) => {
+    try {
+      const appUser = req.appUser;
+      if (!appUser || !["admin", "superadmin"].includes(appUser.role)) {
+        return res.status(403).json({ message: "Nedostatocne opravnenia" });
+      }
+      const created = await storage.createClientTypeField({
+        ...req.body,
+        clientTypeId: Number(req.params.typeId),
+      });
+      res.json(created);
+    } catch {
+      res.status(500).json({ message: "Failed to create field" });
+    }
+  });
+
+  app.patch("/api/client-type-fields/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const appUser = req.appUser;
+      if (!appUser || !["admin", "superadmin"].includes(appUser.role)) {
+        return res.status(403).json({ message: "Nedostatocne opravnenia" });
+      }
+      const updated = await storage.updateClientTypeField(Number(req.params.id), req.body);
+      res.json(updated);
+    } catch {
+      res.status(500).json({ message: "Failed to update field" });
+    }
+  });
+
+  app.delete("/api/client-type-fields/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const appUser = req.appUser;
+      if (!appUser || !["admin", "superadmin"].includes(appUser.role)) {
+        return res.status(403).json({ message: "Nedostatocne opravnenia" });
+      }
+      await storage.deleteClientTypeField(Number(req.params.id));
+      res.json({ ok: true });
+    } catch {
+      res.status(500).json({ message: "Failed to delete field" });
+    }
+  });
+
+  // === DUPLICATE CHECK ===
+  app.post("/api/subjects/check-duplicate", isAuthenticated, async (req, res) => {
+    try {
+      const { birthNumber, ico } = req.body;
+      const existing = await storage.checkDuplicateSubject({ birthNumber, ico });
+      if (existing) {
+        res.json({
+          isDuplicate: true,
+          subject: {
+            id: existing.id,
+            uid: existing.uid,
+            name: existing.type === 'person'
+              ? `${existing.firstName} ${existing.lastName}`
+              : existing.companyName,
+            type: existing.type,
+          },
+        });
+      } else {
+        res.json({ isDuplicate: false });
+      }
+    } catch {
+      res.status(500).json({ message: "Failed to check duplicate" });
+    }
+  });
+
   // === PUBLIC REGISTRATION ROUTES ===
   const registrationChallenges = new Map<string, { subjectId: number; positions: number[]; birthNumberLength: number }>();
 
@@ -1464,5 +1645,14 @@ async function seedDatabase() {
       isActive: true,
       details: { role: "SuperAdmin" },
     });
+  }
+
+  const existingTypes = await storage.getClientTypes();
+  if (existingTypes.length === 0) {
+    await db.insert(clientTypes).values([
+      { code: "FO", name: "Fyzicka osoba", baseParameter: "rc", isActive: true },
+      { code: "PO", name: "Pravnicka osoba", baseParameter: "ico", isActive: true },
+      { code: "SZCO", name: "Samostatne zamestnan\u00e1 osoba", baseParameter: "ico", isActive: true },
+    ]);
   }
 }

@@ -423,6 +423,42 @@ export const dashboardPreferences = pgTable("dashboard_preferences", {
   enabled: boolean("enabled").default(true),
 });
 
+// === CLIENT TYPES (Dynamic Parameter System) ===
+export const clientTypes = pgTable("client_types", {
+  id: serial("id").primaryKey(),
+  code: text("code").notNull().unique(),
+  name: text("name").notNull(),
+  baseParameter: text("base_parameter").notNull().default("rc"),
+  isActive: boolean("is_active").default(true),
+  sortOrder: integer("sort_order").default(0),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// === CLIENT TYPE SECTIONS (Layout grouping) ===
+export const clientTypeSections = pgTable("client_type_sections", {
+  id: serial("id").primaryKey(),
+  clientTypeId: integer("client_type_id").notNull().references(() => clientTypes.id),
+  name: text("name").notNull(),
+  sortOrder: integer("sort_order").default(0),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// === CLIENT TYPE FIELDS (Field definitions per type) ===
+export const clientTypeFields = pgTable("client_type_fields", {
+  id: serial("id").primaryKey(),
+  clientTypeId: integer("client_type_id").notNull().references(() => clientTypes.id),
+  sectionId: integer("section_id").references(() => clientTypeSections.id),
+  fieldKey: text("field_key").notNull(),
+  label: text("label").notNull(),
+  fieldType: text("field_type").notNull(),
+  isRequired: boolean("is_required").default(false),
+  options: jsonb("options").$type<string[]>().default([]),
+  defaultValue: text("default_value"),
+  visibilityRule: jsonb("visibility_rule").$type<{ dependsOn: string; value: string } | null>(),
+  sortOrder: integer("sort_order").default(0),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
 // === ZOD SCHEMAS ===
 export const insertSubjectSchema = createInsertSchema(subjects).omit({ id: true, uid: true, createdAt: true });
 export const insertMyCompanySchema = createInsertSchema(myCompanies).omit({ id: true, createdAt: true, updatedAt: true, isDeleted: true, uid: true, deletedBy: true, deletedAt: true, deletedFromIp: true });
@@ -446,6 +482,9 @@ export const insertSystemSettingSchema = createInsertSchema(systemSettings).omit
 export const insertVerificationCodeSchema = createInsertSchema(verificationCodes).omit({ id: true, createdAt: true });
 export const insertCategoryTimeoutSchema = createInsertSchema(categoryTimeouts).omit({ id: true, createdAt: true, updatedAt: true });
 export const insertDashboardPreferenceSchema = createInsertSchema(dashboardPreferences).omit({ id: true });
+export const insertClientTypeSchema = createInsertSchema(clientTypes).omit({ id: true, createdAt: true });
+export const insertClientTypeSectionSchema = createInsertSchema(clientTypeSections).omit({ id: true, createdAt: true });
+export const insertClientTypeFieldSchema = createInsertSchema(clientTypeFields).omit({ id: true, createdAt: true });
 
 // === EXPLICIT TYPES ===
 export type Subject = typeof subjects.$inferSelect;
@@ -489,6 +528,13 @@ export type CategoryTimeout = typeof categoryTimeouts.$inferSelect;
 export type InsertCategoryTimeout = z.infer<typeof insertCategoryTimeoutSchema>;
 export type DashboardPreference = typeof dashboardPreferences.$inferSelect;
 export type InsertDashboardPreference = z.infer<typeof insertDashboardPreferenceSchema>;
+
+export type ClientType = typeof clientTypes.$inferSelect;
+export type InsertClientType = z.infer<typeof insertClientTypeSchema>;
+export type ClientTypeSection = typeof clientTypeSections.$inferSelect;
+export type InsertClientTypeSection = z.infer<typeof insertClientTypeSectionSchema>;
+export type ClientTypeField = typeof clientTypeFields.$inferSelect;
+export type InsertClientTypeField = z.infer<typeof insertClientTypeFieldSchema>;
 
 export type CreateSubjectRequest = InsertSubject;
 export type UpdateSubjectRequest = Partial<InsertSubject> & { changeReason?: string };

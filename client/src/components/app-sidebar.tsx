@@ -15,6 +15,7 @@ import {
   Shield,
   Archive,
   HelpCircle,
+  Sliders,
 } from "lucide-react";
 import {
   Sidebar,
@@ -44,9 +45,10 @@ const navItems = [
 const systemItems = [
   { href: "/settings", icon: Settings, label: "Nastavenia" },
   { href: "/history", icon: History, label: "Historia a logy" },
-  { href: "/archive", icon: Archive, label: "Archiv" },
+  { href: "/archive", icon: Archive, label: "Kos" },
   { href: "/users", icon: Users, label: "Pouzivatelia" },
   { href: "/permission-groups", icon: Shield, label: "Skupiny pravomoci" },
+  { href: "/client-type-rules", icon: Sliders, label: "Typy klientov" },
 ];
 
 export function AppSidebar() {
@@ -72,7 +74,7 @@ export function AppSidebar() {
           </div>
           <div>
             <h1 className="text-sm font-bold tracking-tight">ArutsoK</h1>
-            <p className="text-[10px] text-sidebar-foreground/50 uppercase tracking-widest">CRM System</p>
+            <p className="text-[10px] text-sidebar-foreground/50 uppercase tracking-widest">Secure Platform</p>
           </div>
         </div>
       </SidebarHeader>

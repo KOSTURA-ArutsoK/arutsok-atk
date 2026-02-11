@@ -38,6 +38,9 @@ The system is built on a modern full-stack architecture:
 - **Category Timeouts**: `category_timeouts` table stores per-client-category logout durations in seconds. Admin-managed via Settings page. Default categories: Standardny (180s), VIP klient (300s), Bezpecnostny (120s).
 - **Dashboard Preferences**: `dashboard_preferences` table stores per-user widget visibility (widgetKey + enabled flag). Users can toggle widgets in Settings > "Nastavenie prehladov". Dashboard dynamically renders only enabled widgets.
 - **Status Indicators**: Active items consistently shown in Green, Inactive/Archived in Red across all modules (Subjects, Partners contacts, Dashboard, Commissions).
+- **Dynamic Client Type System**: `client_types`, `client_type_sections`, `client_type_fields` tables define per-type form structures. Base parameter determines RC vs ICO. Fields support 11 types (short_text, long_text, combobox, checkbox, switch, phone, email, number, file, date, iban). Conditional visibility via `visibilityRule` (dependsOn/value). Managed at `/client-type-rules`.
+- **Smart Subject Registration**: 2-step flow: initial modal (client type + state + RC/ICO) with duplicate check → full-page editor. Type is locked after initial selection. Duplicate check endpoint at `/api/subjects/check-duplicate`.
+- **Branding**: Sidebar shows "Secure Platform" (not "CRM System"). Archive renamed to "Kos" throughout.
 
 ## External Dependencies
 - **Replit OIDC Auth**: Used for user authentication and session management.

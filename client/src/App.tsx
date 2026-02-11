@@ -21,6 +21,7 @@ import History from "@/pages/History";
 import Commissions from "@/pages/Commissions";
 import Settings from "@/pages/Settings";
 import Archive from "@/pages/Archive";
+import ClientTypeRules from "@/pages/ClientTypeRules";
 import RegisterPage from "@/pages/Register";
 import ForgotPassword from "@/pages/ForgotPassword";
 import ClientZone from "@/pages/ClientZone";
@@ -71,6 +72,7 @@ function Router() {
       <Route path="/users" component={() => <PrivateRoute component={Users} />} />
       <Route path="/permission-groups" component={() => <PrivateRoute component={PermissionGroups} />} />
       <Route path="/archive" component={() => <PrivateRoute component={Archive} />} />
+      <Route path="/client-type-rules" component={() => <PrivateRoute component={ClientTypeRules} />} />
 
       <Route component={NotFound} />
     </Switch>

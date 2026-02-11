@@ -29,6 +29,10 @@ import {
   type SystemSetting, type VerificationCode,
   type CategoryTimeout, type InsertCategoryTimeout,
   type DashboardPreference, type InsertDashboardPreference,
+  type ClientType, type InsertClientType,
+  type ClientTypeSection, type InsertClientTypeSection,
+  type ClientTypeField, type InsertClientTypeField,
+  clientTypes, clientTypeSections, clientTypeFields,
 } from "@shared/schema";
 import { eq, and, or, ne, like, sql, lte, gte } from "drizzle-orm";
 
@@ -152,6 +156,24 @@ export interface IStorage {
   getDashboardPreferences(appUserId: number): Promise<DashboardPreference[]>;
   setDashboardPreference(appUserId: number, widgetKey: string, enabled: boolean): Promise<DashboardPreference>;
   bulkSetDashboardPreferences(appUserId: number, prefs: { widgetKey: string; enabled: boolean }[]): Promise<DashboardPreference[]>;
+
+  getClientTypes(): Promise<ClientType[]>;
+  getClientType(id: number): Promise<ClientType | undefined>;
+  createClientType(data: InsertClientType): Promise<ClientType>;
+  updateClientType(id: number, data: Partial<InsertClientType>): Promise<ClientType>;
+  deleteClientType(id: number): Promise<void>;
+
+  getClientTypeSections(clientTypeId: number): Promise<ClientTypeSection[]>;
+  createClientTypeSection(data: InsertClientTypeSection): Promise<ClientTypeSection>;
+  updateClientTypeSection(id: number, data: Partial<InsertClientTypeSection>): Promise<ClientTypeSection>;
+  deleteClientTypeSection(id: number): Promise<void>;
+
+  getClientTypeFields(clientTypeId: number): Promise<ClientTypeField[]>;
+  createClientTypeField(data: InsertClientTypeField): Promise<ClientTypeField>;
+  updateClientTypeField(id: number, data: Partial<InsertClientTypeField>): Promise<ClientTypeField>;
+  deleteClientTypeField(id: number): Promise<void>;
+
+  checkDuplicateSubject(params: { birthNumber?: string; ico?: string }): Promise<Subject | undefined>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -963,6 +985,86 @@ export class DatabaseStorage implements IStorage {
       results.push(result);
     }
     return results;
+  }
+
+  async getClientTypes(): Promise<ClientType[]> {
+    return await db.select().from(clientTypes).orderBy(clientTypes.sortOrder);
+  }
+
+  async getClientType(id: number): Promise<ClientType | undefined> {
+    const [ct] = await db.select().from(clientTypes).where(eq(clientTypes.id, id));
+    return ct;
+  }
+
+  async createClientType(data: InsertClientType): Promise<ClientType> {
+    const [created] = await db.insert(clientTypes).values(data).returning();
+    return created;
+  }
+
+  async updateClientType(id: number, data: Partial<InsertClientType>): Promise<ClientType> {
+    const [updated] = await db.update(clientTypes).set(data).where(eq(clientTypes.id, id)).returning();
+    return updated;
+  }
+
+  async deleteClientType(id: number): Promise<void> {
+    await db.delete(clientTypeFields).where(eq(clientTypeFields.clientTypeId, id));
+    await db.delete(clientTypeSections).where(eq(clientTypeSections.clientTypeId, id));
+    await db.delete(clientTypes).where(eq(clientTypes.id, id));
+  }
+
+  async getClientTypeSections(clientTypeId: number): Promise<ClientTypeSection[]> {
+    return await db.select().from(clientTypeSections)
+      .where(eq(clientTypeSections.clientTypeId, clientTypeId))
+      .orderBy(clientTypeSections.sortOrder);
+  }
+
+  async createClientTypeSection(data: InsertClientTypeSection): Promise<ClientTypeSection> {
+    const [created] = await db.insert(clientTypeSections).values(data).returning();
+    return created;
+  }
+
+  async updateClientTypeSection(id: number, data: Partial<InsertClientTypeSection>): Promise<ClientTypeSection> {
+    const [updated] = await db.update(clientTypeSections).set(data).where(eq(clientTypeSections.id, id)).returning();
+    return updated;
+  }
+
+  async deleteClientTypeSection(id: number): Promise<void> {
+    await db.update(clientTypeFields).set({ sectionId: null }).where(eq(clientTypeFields.sectionId, id));
+    await db.delete(clientTypeSections).where(eq(clientTypeSections.id, id));
+  }
+
+  async getClientTypeFields(clientTypeId: number): Promise<ClientTypeField[]> {
+    return await db.select().from(clientTypeFields)
+      .where(eq(clientTypeFields.clientTypeId, clientTypeId))
+      .orderBy(clientTypeFields.sortOrder);
+  }
+
+  async createClientTypeField(data: InsertClientTypeField): Promise<ClientTypeField> {
+    const [created] = await db.insert(clientTypeFields).values(data as any).returning();
+    return created;
+  }
+
+  async updateClientTypeField(id: number, data: Partial<InsertClientTypeField>): Promise<ClientTypeField> {
+    const [updated] = await db.update(clientTypeFields).set(data as any).where(eq(clientTypeFields.id, id)).returning();
+    return updated;
+  }
+
+  async deleteClientTypeField(id: number): Promise<void> {
+    await db.delete(clientTypeFields).where(eq(clientTypeFields.id, id));
+  }
+
+  async checkDuplicateSubject(params: { birthNumber?: string; ico?: string }): Promise<Subject | undefined> {
+    if (params.birthNumber) {
+      const [found] = await db.select().from(subjects)
+        .where(eq(subjects.birthNumber, params.birthNumber));
+      return found;
+    }
+    if (params.ico) {
+      const [found] = await db.select().from(subjects)
+        .where(sql`${subjects.details}->>'ico' = ${params.ico}`);
+      return found;
+    }
+    return undefined;
   }
 }
 

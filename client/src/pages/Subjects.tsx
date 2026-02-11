@@ -2,12 +2,16 @@ import { useState, useRef } from "react";
 import { useSubjects, useCreateSubject, useSubjectCareerHistory } from "@/hooks/use-subjects";
 import { useContinents, useStates } from "@/hooks/use-hierarchy";
 import { useMyCompanies } from "@/hooks/use-companies";
-import { Plus, Search, User, Building2, AlertTriangle, Eye, Calendar, Briefcase, ArrowRight } from "lucide-react";
+import { useAppUser } from "@/hooks/use-app-user";
+import { useQuery, useMutation } from "@tanstack/react-query";
+import { apiRequest } from "@/lib/queryClient";
+import { Plus, Search, User, Building2, AlertTriangle, Eye, Calendar, Briefcase, ArrowRight, ArrowLeft, ExternalLink } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
+import { Label } from "@/components/ui/label";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription,
 } from "@/components/ui/dialog";
@@ -20,7 +24,7 @@ import {
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { insertSubjectSchema } from "@shared/schema";
-import type { Subject } from "@shared/schema";
+import type { Subject, ClientType } from "@shared/schema";
 import { z } from "zod";
 import {
   Form, FormControl, FormField, FormItem, FormLabel, FormMessage,
@@ -44,7 +48,7 @@ function SubjectDetailDialog({ subject, onClose }: { subject: Subject; onClose: 
 
   return (
     <Dialog open onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-[800px] h-[600px] overflow-y-auto">
+      <DialogContent className="sm:max-w-[800px] h-[600px] overflow-y-auto flex flex-col items-stretch justify-start">
         <DialogHeader>
           <div className="flex items-center gap-3 flex-wrap">
             <div className="w-10 h-10 rounded-md bg-primary/10 flex items-center justify-center flex-shrink-0">
@@ -131,162 +135,402 @@ function SubjectDetailDialog({ subject, onClose }: { subject: Subject; onClose: 
   );
 }
 
-function CreateSubjectDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (open: boolean) => void }) {
-  const { mutate, isPending } = useCreateSubject();
-  const { data: allContinents } = useContinents();
-  const { data: companies } = useMyCompanies();
-  const timerRef = useRef<number>(0);
+function InitialRegistrationModal({
+  open,
+  onOpenChange,
+  onProceed,
+  onViewSubject,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  onProceed: (data: { clientTypeCode: string; stateId: number; baseValue: string }) => void;
+  onViewSubject: (id: number) => void;
+}) {
+  const { data: appUser } = useAppUser();
+  const { data: allStates } = useStates();
+  const { data: clientTypes } = useQuery<ClientType[]>({ queryKey: ["/api/client-types"] });
 
-  const form = useForm<z.infer<typeof createSchema>>({
-    resolver: zodResolver(createSchema),
-    defaultValues: {
-      type: "person",
-      isActive: true,
-      firstName: "",
-      lastName: "",
-      companyName: "",
-    },
-  });
+  const [selectedType, setSelectedType] = useState("");
+  const [selectedState, setSelectedState] = useState(appUser?.activeStateId?.toString() || "");
+  const [baseValue, setBaseValue] = useState("");
+  const [checking, setChecking] = useState(false);
+  const [duplicateInfo, setDuplicateInfo] = useState<{ name: string; uid: string; id: number } | null>(null);
 
-  const watchContinent = form.watch("continentId");
-  const watchType = form.watch("type");
-  const { data: filteredStates } = useStates(watchContinent);
+  const selectedClientType = clientTypes?.find(ct => ct.code === selectedType);
+  const baseParamLabel = selectedClientType?.baseParameter === "ico" ? "ICO" : "Rodne cislo (RC)";
 
-  function handleOpen(isOpen: boolean) {
-    if (isOpen) timerRef.current = performance.now();
-    onOpenChange(isOpen);
+  async function handleCheck() {
+    if (!baseValue.trim()) return;
+    setChecking(true);
+    setDuplicateInfo(null);
+    try {
+      const body = selectedClientType?.baseParameter === "ico"
+        ? { ico: baseValue.trim() }
+        : { birthNumber: baseValue.trim() };
+      const res = await apiRequest("POST", "/api/subjects/check-duplicate", body);
+      const data = await res.json();
+      if (data.isDuplicate) {
+        setDuplicateInfo({ name: data.subject.name, uid: data.subject.uid, id: data.subject.id });
+      } else {
+        onProceed({
+          clientTypeCode: selectedType,
+          stateId: Number(selectedState),
+          baseValue: baseValue.trim(),
+        });
+        setSelectedType("");
+        setBaseValue("");
+        setDuplicateInfo(null);
+      }
+    } catch {
+      setDuplicateInfo(null);
+    } finally {
+      setChecking(false);
+    }
   }
 
-  function onSubmit(data: z.infer<typeof createSchema>) {
-    const processingTimeSec = Math.round((performance.now() - timerRef.current) / 1000);
-    mutate({ ...data, processingTimeSec }, {
-      onSuccess: () => { handleOpen(false); form.reset(); },
-    });
-  }
+  const canProceed = selectedType && selectedState && baseValue.trim();
 
   return (
-    <Dialog open={open} onOpenChange={handleOpen}>
-      <DialogContent className="sm:max-w-[800px] h-[600px] overflow-y-auto">
+    <Dialog open={open} onOpenChange={(o) => {
+      if (!o) { setDuplicateInfo(null); setBaseValue(""); setSelectedType(""); }
+      onOpenChange(o);
+    }}>
+      <DialogContent className="sm:max-w-[500px] flex flex-col items-stretch justify-start">
         <DialogHeader>
-          <DialogTitle>Registracia noveho subjektu</DialogTitle>
+          <DialogTitle>Registracia noveho klienta</DialogTitle>
           <DialogDescription>
-            Vytvorenie novej entity v systeme. UID bude vygenerovane automaticky podla hierarchie.
+            Vyberte typ klienta, stat a zadajte zakladny identifikator.
           </DialogDescription>
         </DialogHeader>
 
-        <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-5 mt-4">
-            <div className="grid grid-cols-2 gap-4">
-              <FormField control={form.control} name="type" render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Typ entity</FormLabel>
-                  <Select onValueChange={field.onChange} defaultValue={field.value}>
-                    <FormControl><SelectTrigger data-testid="select-subject-type"><SelectValue /></SelectTrigger></FormControl>
-                    <SelectContent>
-                      <SelectItem value="person">Fyzicka osoba</SelectItem>
-                      <SelectItem value="company">Pravnicka osoba</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  <FormMessage />
-                </FormItem>
-              )} />
-              <FormField control={form.control} name="myCompanyId" render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Spravujuca firma</FormLabel>
-                  <Select onValueChange={field.onChange} value={field.value?.toString()}>
-                    <FormControl><SelectTrigger data-testid="select-managing-company"><SelectValue placeholder="Vyberte firmu" /></SelectTrigger></FormControl>
-                    <SelectContent>
-                      {companies?.map(c => (
-                        <SelectItem key={c.id} value={c.id.toString()}>{c.name}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <FormMessage />
-                </FormItem>
-              )} />
-            </div>
+        <div className="space-y-4 mt-2">
+          <div>
+            <Label className="text-xs">Typ klienta</Label>
+            <Select value={selectedType} onValueChange={(v) => { setSelectedType(v); setDuplicateInfo(null); }}>
+              <SelectTrigger data-testid="select-client-type">
+                <SelectValue placeholder="Vyberte typ" />
+              </SelectTrigger>
+              <SelectContent>
+                {clientTypes?.filter(ct => ct.isActive).map(ct => (
+                  <SelectItem key={ct.code} value={ct.code}>{ct.name} ({ct.code})</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
 
-            {watchType === 'person' ? (
-              <div className="grid grid-cols-2 gap-4">
-                <FormField control={form.control} name="firstName" render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Meno</FormLabel>
-                    <FormControl><Input {...field} value={field.value || ""} data-testid="input-subject-firstname" /></FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )} />
-                <FormField control={form.control} name="lastName" render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Priezvisko</FormLabel>
-                    <FormControl><Input {...field} value={field.value || ""} data-testid="input-subject-lastname" /></FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )} />
+          <div>
+            <Label className="text-xs">Stat</Label>
+            <Select value={selectedState} onValueChange={setSelectedState}>
+              <SelectTrigger data-testid="select-reg-state">
+                <SelectValue placeholder="Vyberte stat" />
+              </SelectTrigger>
+              <SelectContent>
+                {allStates?.map(s => (
+                  <SelectItem key={s.id} value={s.id.toString()}>
+                    {s.name} (+{s.code})
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          {selectedType && (
+            <div>
+              <Label className="text-xs">{baseParamLabel}</Label>
+              <Input
+                placeholder={selectedClientType?.baseParameter === "ico" ? "napr. 12345678" : "napr. 900101/1234"}
+                value={baseValue}
+                onChange={(e) => { setBaseValue(e.target.value); setDuplicateInfo(null); }}
+                data-testid="input-base-parameter"
+              />
+            </div>
+          )}
+
+          {duplicateInfo && (
+            <div className="bg-destructive/10 border border-destructive/30 rounded-md p-3 space-y-2">
+              <div className="flex items-center gap-2">
+                <AlertTriangle className="w-4 h-4 text-destructive flex-shrink-0" />
+                <span className="text-sm font-semibold text-destructive">Klient uz existuje</span>
               </div>
-            ) : (
-              <FormField control={form.control} name="companyName" render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Nazov spolocnosti</FormLabel>
-                  <FormControl><Input {...field} value={field.value || ""} data-testid="input-subject-companyname" /></FormControl>
-                  <FormMessage />
-                </FormItem>
-              )} />
-            )}
-
-            <div className="grid grid-cols-2 gap-4">
-              <FormField control={form.control} name="continentId" render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Kontinent</FormLabel>
-                  <Select onValueChange={(val) => { field.onChange(val); form.setValue("stateId", 0); }} value={field.value?.toString()}>
-                    <FormControl><SelectTrigger data-testid="select-continent"><SelectValue placeholder="Vyberte kontinent" /></SelectTrigger></FormControl>
-                    <SelectContent>
-                      {allContinents?.map(c => (<SelectItem key={c.id} value={c.id.toString()}>{c.name}</SelectItem>))}
-                    </SelectContent>
-                  </Select>
-                  <FormMessage />
-                </FormItem>
-              )} />
-              <FormField control={form.control} name="stateId" render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Stat</FormLabel>
-                  <Select onValueChange={field.onChange} value={field.value?.toString()} disabled={!watchContinent}>
-                    <FormControl><SelectTrigger data-testid="select-state"><SelectValue placeholder="Vyberte stat" /></SelectTrigger></FormControl>
-                    <SelectContent>
-                      {filteredStates?.map(s => (<SelectItem key={s.id} value={s.id.toString()}>{s.name}</SelectItem>))}
-                    </SelectContent>
-                  </Select>
-                  <FormMessage />
-                </FormItem>
-              )} />
-            </div>
-
-            <div className="bg-muted p-3 rounded-md text-xs text-muted-foreground flex items-start gap-2">
-              <AlertTriangle className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" />
-              <p>
-                <strong>Integritne upozornenie:</strong> Vytvorenie subjektu vygeneruje permanentny, nemenitelny
-                unikatny identifikator. Vsetky budu zmeny archivovane.
+              <p className="text-sm text-muted-foreground">
+                {duplicateInfo.name} <span className="font-mono text-xs">[ {duplicateInfo.uid} ]</span>
               </p>
-            </div>
-
-            <div className="flex justify-end gap-2">
-              <Button type="button" variant="outline" onClick={() => handleOpen(false)} data-testid="button-cancel-subject">Zrusit</Button>
-              <Button type="submit" disabled={isPending} data-testid="button-save-subject">
-                {isPending ? "Registrujem..." : "Registrovat subjekt"}
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  onOpenChange(false);
+                  onViewSubject(duplicateInfo.id);
+                }}
+                data-testid="button-go-to-client"
+              >
+                <ExternalLink className="w-3 h-3 mr-1" />
+                Prejst na kartu klienta
               </Button>
             </div>
-          </form>
-        </Form>
+          )}
+
+          <div className="flex justify-end gap-2 pt-2">
+            <Button variant="outline" onClick={() => onOpenChange(false)} data-testid="button-cancel-init-reg">
+              Zrusit
+            </Button>
+            <Button
+              onClick={handleCheck}
+              disabled={!canProceed || checking || !!duplicateInfo}
+              data-testid="button-continue-reg"
+            >
+              {checking ? "Overujem..." : "Pokracovat"}
+            </Button>
+          </div>
+        </div>
       </DialogContent>
     </Dialog>
   );
 }
 
+function FullPageEditor({
+  initialData,
+  onCancel,
+}: {
+  initialData: { clientTypeCode: string; stateId: number; baseValue: string };
+  onCancel: () => void;
+}) {
+  const { mutate, isPending } = useCreateSubject();
+  const { data: allContinents } = useContinents();
+  const { data: companies } = useMyCompanies();
+  const { data: allStates, isLoading: statesLoading } = useStates();
+  const { data: clientTypes, isLoading: typesLoading } = useQuery<ClientType[]>({ queryKey: ["/api/client-types"] });
+  const timerRef = useRef<number>(performance.now());
+
+  const clientType = clientTypes?.find(ct => ct.code === initialData.clientTypeCode);
+  const isPerson = clientType?.baseParameter === "rc";
+  const state = allStates?.find(s => s.id === initialData.stateId);
+
+  const form = useForm<z.infer<typeof createSchema>>({
+    resolver: zodResolver(createSchema),
+    defaultValues: {
+      type: isPerson ? "person" : "company",
+      isActive: true,
+      firstName: "",
+      lastName: "",
+      companyName: "",
+      stateId: initialData.stateId,
+      continentId: state?.continentId || 0,
+      birthNumber: isPerson ? initialData.baseValue : undefined,
+      details: !isPerson ? { ico: initialData.baseValue } : {},
+    },
+  });
+
+  const formResetDone = useRef(false);
+  if (!formResetDone.current && clientType && state) {
+    formResetDone.current = true;
+    form.reset({
+      type: isPerson ? "person" : "company",
+      isActive: true,
+      firstName: "",
+      lastName: "",
+      companyName: "",
+      stateId: initialData.stateId,
+      continentId: state.continentId,
+      birthNumber: isPerson ? initialData.baseValue : undefined,
+      details: !isPerson ? { ico: initialData.baseValue } : {},
+    });
+  }
+
+  if (statesLoading || typesLoading) {
+    return (
+      <div className="flex items-center justify-center py-12">
+        <p className="text-muted-foreground">Nacitavam udaje...</p>
+      </div>
+    );
+  }
+
+  const watchContinent = form.watch("continentId");
+  const { data: filteredStates } = useStates(watchContinent);
+
+  function onSubmit(data: z.infer<typeof createSchema>) {
+    const processingTimeSec = Math.round((performance.now() - timerRef.current) / 1000);
+    mutate({ ...data, processingTimeSec }, {
+      onSuccess: () => { onCancel(); },
+    });
+  }
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center gap-3 flex-wrap">
+        <Button variant="ghost" size="sm" onClick={onCancel} data-testid="button-back-to-list">
+          <ArrowLeft className="w-4 h-4 mr-1" />
+          Spat
+        </Button>
+        <div>
+          <h2 className="text-xl font-bold">Novy klient - {clientType?.name || initialData.clientTypeCode}</h2>
+          <p className="text-xs text-muted-foreground">
+            {isPerson ? `RC: ${initialData.baseValue}` : `ICO: ${initialData.baseValue}`}
+            {state ? ` | Stat: ${state.name}` : ""}
+          </p>
+        </div>
+      </div>
+
+      <Card>
+        <CardContent className="p-6">
+          <Form {...form}>
+            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-5">
+              <div className="grid grid-cols-2 gap-4">
+                <FormField control={form.control} name="type" render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Typ entity</FormLabel>
+                    <Input value={field.value === "person" ? "Fyzicka osoba" : "Pravnicka osoba"} disabled data-testid="input-subject-type-locked" />
+                    <FormMessage />
+                  </FormItem>
+                )} />
+                <FormField control={form.control} name="myCompanyId" render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Spravujuca firma</FormLabel>
+                    <Select onValueChange={field.onChange} value={field.value?.toString()}>
+                      <FormControl><SelectTrigger data-testid="select-managing-company"><SelectValue placeholder="Vyberte firmu" /></SelectTrigger></FormControl>
+                      <SelectContent>
+                        {companies?.map(c => (
+                          <SelectItem key={c.id} value={c.id.toString()}>{c.name}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )} />
+              </div>
+
+              {isPerson ? (
+                <div className="grid grid-cols-2 gap-4">
+                  <FormField control={form.control} name="firstName" render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Meno</FormLabel>
+                      <FormControl><Input {...field} value={field.value || ""} data-testid="input-subject-firstname" /></FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )} />
+                  <FormField control={form.control} name="lastName" render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Priezvisko</FormLabel>
+                      <FormControl><Input {...field} value={field.value || ""} data-testid="input-subject-lastname" /></FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )} />
+                </div>
+              ) : (
+                <FormField control={form.control} name="companyName" render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Nazov spolocnosti</FormLabel>
+                    <FormControl><Input {...field} value={field.value || ""} data-testid="input-subject-companyname" /></FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )} />
+              )}
+
+              <div className="grid grid-cols-2 gap-4">
+                <FormField control={form.control} name="email" render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Email</FormLabel>
+                    <FormControl><Input type="email" {...field} value={field.value || ""} data-testid="input-subject-email" /></FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )} />
+                <FormField control={form.control} name="phone" render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Telefon</FormLabel>
+                    <FormControl><Input type="tel" {...field} value={field.value || ""} data-testid="input-subject-phone" /></FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )} />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <FormField control={form.control} name="continentId" render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Kontinent</FormLabel>
+                    <Select onValueChange={(val) => { field.onChange(val); form.setValue("stateId", 0); }} value={field.value?.toString()}>
+                      <FormControl><SelectTrigger data-testid="select-continent"><SelectValue placeholder="Vyberte kontinent" /></SelectTrigger></FormControl>
+                      <SelectContent>
+                        {allContinents?.map(c => (<SelectItem key={c.id} value={c.id.toString()}>{c.name}</SelectItem>))}
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )} />
+                <FormField control={form.control} name="stateId" render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Stat</FormLabel>
+                    <Select onValueChange={field.onChange} value={field.value?.toString()} disabled={!watchContinent}>
+                      <FormControl><SelectTrigger data-testid="select-state"><SelectValue placeholder="Vyberte stat" /></SelectTrigger></FormControl>
+                      <SelectContent>
+                        {filteredStates?.map(s => (<SelectItem key={s.id} value={s.id.toString()}>{s.name}</SelectItem>))}
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )} />
+              </div>
+
+              {isPerson && (
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label className="text-xs text-muted-foreground">Rodne cislo</Label>
+                    <Input value={initialData.baseValue} disabled className="mt-1" data-testid="input-birth-number-locked" />
+                  </div>
+                  <FormField control={form.control} name="idCardNumber" render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Cislo OP</FormLabel>
+                      <FormControl><Input {...field} value={field.value || ""} data-testid="input-id-card" /></FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )} />
+                </div>
+              )}
+
+              {!isPerson && (
+                <div>
+                  <Label className="text-xs text-muted-foreground">ICO</Label>
+                  <Input value={initialData.baseValue} disabled className="mt-1" data-testid="input-ico-locked" />
+                </div>
+              )}
+
+              <div className="bg-muted p-3 rounded-md text-xs text-muted-foreground flex items-start gap-2">
+                <AlertTriangle className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" />
+                <p>
+                  <strong>Integritne upozornenie:</strong> Vytvorenie subjektu vygeneruje permanentny, nemenitelny
+                  unikatny identifikator. Vsetky budu zmeny archivovane.
+                </p>
+              </div>
+
+              <div className="flex justify-end gap-2 sticky bottom-0 bg-card pt-3 pb-1 border-t border-border">
+                <Button type="button" variant="outline" onClick={onCancel} data-testid="button-cancel-subject">Zrusit</Button>
+                <Button type="submit" disabled={isPending} data-testid="button-save-subject">
+                  {isPending ? "Registrujem..." : "Registrovat subjekt"}
+                </Button>
+              </div>
+            </form>
+          </Form>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
 export default function Subjects() {
   const [search, setSearch] = useState("");
-  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [isInitModalOpen, setIsInitModalOpen] = useState(false);
+  const [editData, setEditData] = useState<{ clientTypeCode: string; stateId: number; baseValue: string } | null>(null);
   const [viewTarget, setViewTarget] = useState<Subject | null>(null);
   const { data: subjects, isLoading } = useSubjects({ search: search || undefined });
   const { data: companies } = useMyCompanies();
+
+  if (editData) {
+    return (
+      <FullPageEditor
+        initialData={editData}
+        onCancel={() => setEditData(null)}
+      />
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -295,7 +539,7 @@ export default function Subjects() {
           <h2 className="text-2xl font-bold" data-testid="text-subjects-title">Register subjektov</h2>
           <p className="text-sm text-muted-foreground mt-1">Sprava entit a integritnych zaznamov.</p>
         </div>
-        <Button onClick={() => setIsDialogOpen(true)} data-testid="button-add-subject">
+        <Button onClick={() => setIsInitModalOpen(true)} data-testid="button-add-subject">
           <Plus className="w-4 h-4 mr-2" />
           Novy subjekt
         </Button>
@@ -368,7 +612,18 @@ export default function Subjects() {
         </CardContent>
       </Card>
 
-      <CreateSubjectDialog open={isDialogOpen} onOpenChange={setIsDialogOpen} />
+      <InitialRegistrationModal
+        open={isInitModalOpen}
+        onOpenChange={setIsInitModalOpen}
+        onProceed={(data) => {
+          setIsInitModalOpen(false);
+          setEditData(data);
+        }}
+        onViewSubject={(id) => {
+          const found = subjects?.find(s => s.id === id);
+          if (found) setViewTarget(found);
+        }}
+      />
       {viewTarget && <SubjectDetailDialog subject={viewTarget} onClose={() => setViewTarget(null)} />}
     </div>
   );

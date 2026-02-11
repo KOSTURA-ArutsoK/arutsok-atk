@@ -1,0 +1,45 @@
+Agent, implement the following architectural core (Block xxx0001). Stability and data integrity are top priorities:
+
+1. GLOBAL STATE & NAVIGATION:
+
+Top Bar Flag Picker: Add a country selector (🇸🇰 SVK, 🇨🇿 CZE, etc.) to the top bar.
+
+Dynamic ID Generation: Based on the flag, assign an ArutsoK ID.
+
+SVK = 421 000 000 000 000
+
+CZE = 420 000 000 000 000
+
+Branding: App name is strictly 'ArutsoK'. No 'WAME' or 'CRM'.
+
+2. SMART REGISTRATION FLOW:
+
+Initial Step (Modal): When adding a client, show a small modal asking for: Client Type (FO, PO, SZČO), State (from top bar), and the Base Parameter (RČ or IČO).
+
+Duplicate Check: Immediately check DB for the RČ/IČO. If exists, block 'Continue' and show: '⚠️ Client [Name/Company] already exists [ID]'. Add a button: 'Go to Client Card'.
+
+Main Step (Full Page): If no duplicate, open a full-page edit view (not a modal) for detailed data entry.
+
+3. DYNAMIC PARAMETER SYSTEM (Pravidlá typov klientov):
+
+Type Management: Table for FO, PO, SZČO with [+] button to add more.
+
+Parameter Library: Create a field builder with types: Short/Long Text, Combobox, Checkbox, Yes/No Switch, Phone, Email, Number, Photo/File, Date, IBAN.
+
+Show/Hide Logic: Implement conditional visibility. Example: If 'Korešpondenčná adresa' is 'Yes', show address fields; if 'No', hide them.
+
+Layout Builder: Ability to group parameters into named 'Sections' (Windows) and set their order via drag-and-drop.
+
+4. UI STANDARDS (No Shifting):
+
+Top Alignment: All content in modals and full-page views must be anchored to the top (justify-content: flex-start). No center-floating content.
+
+Fixed Modals: Standard modals must be exactly 800x600px. Use internal scrolling (overflow-y: auto) if content exceeds height.
+
+Action Panel: Save/Cancel buttons must remain visible (fixed) at the top or bottom of the view during scrolling.
+
+5. CORE FIXES:
+
+Kôš: Rename 'Archív' to 'Kôš'. Secure with Admin password for restore actions.
+
+Settings: Fix the 'Support Phone' saving bug and ensure 'Dashboard Preferences' (checkboxes) persist in the database.

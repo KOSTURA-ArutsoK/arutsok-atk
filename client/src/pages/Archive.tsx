@@ -91,7 +91,7 @@ export default function Archive() {
     <div className="space-y-6">
       <div className="flex items-center justify-between flex-wrap gap-2">
         <div>
-          <h1 className="text-2xl font-bold" data-testid="text-archive-title">Archiv</h1>
+          <h1 className="text-2xl font-bold" data-testid="text-archive-title">Kos</h1>
           <p className="text-sm text-muted-foreground" data-testid="text-archive-count">
             Celkovo {totalDeleted} vymazanych zaznamov
           </p>
