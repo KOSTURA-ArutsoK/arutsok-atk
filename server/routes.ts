@@ -181,16 +181,40 @@ export async function seedDatabase() {
     const [namerica] = await db.insert(continents).values({ name: "Severná Amerika", code: "02" }).returning();
     
     // States
-    await db.insert(states).values([
-      { continentId: europe.id, name: "Slovensko", code: "421", flagUrl: "" },
-      { continentId: europe.id, name: "Česko", code: "420", flagUrl: "" },
-      { continentId: namerica.id, name: "USA", code: "001", flagUrl: "" },
-    ]);
+    const [slovakia] = await db.insert(states).values([
+      { continentId: europe.id, name: "Slovensko", code: "421", flagUrl: "https://flagcdn.com/w40/sk.png" },
+      { continentId: europe.id, name: "Česko", code: "420", flagUrl: "https://flagcdn.com/w40/cz.png" },
+      { continentId: namerica.id, name: "USA", code: "001", flagUrl: "https://flagcdn.com/w40/us.png" },
+    ]).returning();
     
     // My Company
-    await db.insert(myCompanies).values([
+    const [company] = await db.insert(myCompanies).values([
       { name: "My Security Firm", specialization: "Weapons", code: "01" },
       { name: "My Reality Corp", specialization: "Reality", code: "02" },
-    ]);
+    ]).returning();
+
+    // SuperAdmin User
+    await db.insert(users).values({
+      username: "admin",
+      password: "password123", // Temporary password
+      firstName: "Super",
+      lastName: "Admin",
+      role: "admin",
+      securityLevel: 4,
+      adminCode: "1234",
+      allowedCompanyIds: [company.id]
+    });
+
+    // Create the SuperAdmin Subject
+    await storage.createSubject({
+      type: "person",
+      firstName: "Super",
+      lastName: "Admin",
+      continentId: europe.id,
+      stateId: slovakia.id,
+      myCompanyId: company.id,
+      isActive: true,
+      details: { role: "SuperAdmin" }
+    });
   }
 }

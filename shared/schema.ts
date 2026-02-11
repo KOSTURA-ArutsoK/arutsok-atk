@@ -104,10 +104,14 @@ export const commissionSchemes = pgTable("commission_schemes", {
 export const users = pgTable("users", {
   id: serial("id").primaryKey(),
   replitId: text("replit_id").unique(), // For Replit Auth
-  username: text("username").notNull(),
+  username: text("username").notNull().unique(),
+  password: text("password"), // Added for legacy/admin login
+  firstName: text("first_name"),
+  lastName: text("last_name"),
   role: text("role").default('user'), // admin, manager, agent
   allowedCompanyIds: integer("allowed_company_ids").array(),
   securityLevel: integer("security_level").default(1),
+  adminCode: text("admin_code"), // 4-digit code for sensitive operations
   createdAt: timestamp("created_at").defaultNow(),
 });
 
