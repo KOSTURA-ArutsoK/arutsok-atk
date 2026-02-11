@@ -7,7 +7,7 @@ import { useStates } from "@/hooks/use-hierarchy";
 import { useTheme } from "@/components/theme-provider";
 import { useAuth } from "@/hooks/use-auth";
 import { useQueryClient } from "@tanstack/react-query";
-import { Moon, Sun, ChevronDown, Globe, Building2, Check, Upload, LogOut, AlertTriangle } from "lucide-react";
+import { Moon, Sun, ChevronDown, Globe, Building2, Check, Upload, LogOut, AlertTriangle, Timer } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
@@ -36,8 +36,14 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const photoInputRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
 
-  const { showWarning, secondsLeft, dismissWarning } = useIdleTimeout();
+  const { timeLeft, showWarning, dismissWarning, isRed } = useIdleTimeout();
   useGlobalClickLogger();
+
+  const formatTime = (sec: number) => {
+    const m = Math.floor(sec / 60);
+    const s = sec % 60;
+    return `${m}:${s.toString().padStart(2, '0')}`;
+  };
 
   const activeCompany = companies?.find(c => c.id === appUser?.activeCompanyId);
   const activeState = allStates?.find(s => s.id === appUser?.activeStateId);
@@ -156,6 +162,14 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
             <div className="flex-1" />
 
+            <div
+              className={`flex items-center gap-1.5 px-2 py-1 rounded-md font-mono text-xs font-bold transition-colors ${isRed ? 'text-destructive' : 'text-emerald-500'}`}
+              data-testid="text-idle-timer"
+            >
+              <Timer className="w-3.5 h-3.5" />
+              {formatTime(timeLeft)}
+            </div>
+
             <Button
               size="icon"
               variant="ghost"
@@ -211,8 +225,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           <div className="relative z-10 flex flex-col items-center gap-4 p-8 rounded-md border border-destructive bg-card shadow-lg max-w-md text-center">
             <AlertTriangle className="w-12 h-12 text-destructive" />
             <h2 className="text-lg font-bold text-destructive" data-testid="text-idle-warning-title">Upozornenie na necinnost</h2>
+            <div className="text-4xl font-bold font-mono text-destructive" data-testid="text-idle-countdown">
+              {formatTime(timeLeft)}
+            </div>
             <p className="text-sm text-muted-foreground">
-              Budete automaticky odhlaseny za <span className="font-bold text-destructive text-base" data-testid="text-idle-countdown">{secondsLeft}</span> sekund z dovodu necinnosti.
+              Budete automaticky odhlaseny z dovodu necinnosti.
             </p>
             <Button variant="default" onClick={dismissWarning} data-testid="button-dismiss-idle-warning">
               Pokracovat v praci

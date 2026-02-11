@@ -6,6 +6,7 @@ import {
   contactProductAssignments, communicationMatrix, globalCounters,
   companyContacts, contractAmendments, userProfiles,
   permissionGroups, permissions, auditLogs,
+  systemSettings, verificationCodes,
   type Subject, type InsertSubject, 
   type MyCompany, type InsertMyCompany,
   type Partner, type InsertPartner,
@@ -25,8 +26,9 @@ import {
   type PermissionGroup, type InsertPermissionGroup,
   type Permission, type InsertPermission,
   type AuditLog, type InsertAuditLog,
+  type SystemSetting, type VerificationCode,
 } from "@shared/schema";
-import { eq, and, or, ne, like, sql, lte } from "drizzle-orm";
+import { eq, and, or, ne, like, sql, lte, gte } from "drizzle-orm";
 
 export interface IStorage {
   generateUID(stateCode: string, continentCode?: string): Promise<string>;
@@ -130,6 +132,15 @@ export interface IStorage {
   getAuditLogs(filters?: { userId?: number; module?: string; action?: string; dateFrom?: string; dateTo?: string; limit?: number; offset?: number }): Promise<AuditLog[]>;
   getAuditLogCount(filters?: { userId?: number; module?: string; action?: string; dateFrom?: string; dateTo?: string }): Promise<number>;
   createAuditLog(data: InsertAuditLog): Promise<AuditLog>;
+
+  getSystemSetting(key: string): Promise<string | null>;
+  setSystemSetting(key: string, value: string): Promise<SystemSetting>;
+  getAllSystemSettings(): Promise<SystemSetting[]>;
+
+  findClientByEmailPhone(email: string, phone: string): Promise<Subject | undefined>;
+  createVerificationCode(subjectId: number, channel: string, code: string, expiresAt: Date): Promise<VerificationCode>;
+  getValidVerificationCode(subjectId: number, channel: string, code: string): Promise<VerificationCode | undefined>;
+  markVerificationCodeUsed(id: number): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -824,6 +835,69 @@ export class DatabaseStorage implements IStorage {
   async createAuditLog(data: InsertAuditLog): Promise<AuditLog> {
     const [log] = await db.insert(auditLogs).values(data).returning();
     return log;
+  }
+
+  async getSystemSetting(key: string): Promise<string | null> {
+    const [row] = await db.select().from(systemSettings).where(eq(systemSettings.key, key));
+    return row?.value ?? null;
+  }
+
+  async setSystemSetting(key: string, value: string): Promise<SystemSetting> {
+    const existing = await db.select().from(systemSettings).where(eq(systemSettings.key, key));
+    if (existing.length > 0) {
+      const [updated] = await db.update(systemSettings)
+        .set({ value, updatedAt: new Date() })
+        .where(eq(systemSettings.key, key))
+        .returning();
+      return updated;
+    }
+    const [created] = await db.insert(systemSettings).values({ key, value }).returning();
+    return created;
+  }
+
+  async getAllSystemSettings(): Promise<SystemSetting[]> {
+    return await db.select().from(systemSettings);
+  }
+
+  async findClientByEmailPhone(email: string, phone: string): Promise<Subject | undefined> {
+    const [match] = await db.select().from(subjects).where(
+      and(
+        eq(subjects.type, "person"),
+        eq(subjects.isActive, true),
+        sql`LOWER(${subjects.email}) = LOWER(${email})`,
+        eq(subjects.phone, phone)
+      )
+    );
+    return match;
+  }
+
+  async createVerificationCode(subjectId: number, channel: string, code: string, expiresAt: Date): Promise<VerificationCode> {
+    const [vc] = await db.insert(verificationCodes).values({
+      subjectId,
+      channel,
+      code,
+      expiresAt,
+    }).returning();
+    return vc;
+  }
+
+  async getValidVerificationCode(subjectId: number, channel: string, code: string): Promise<VerificationCode | undefined> {
+    const [vc] = await db.select().from(verificationCodes).where(
+      and(
+        eq(verificationCodes.subjectId, subjectId),
+        eq(verificationCodes.channel, channel),
+        eq(verificationCodes.code, code),
+        sql`${verificationCodes.expiresAt} > NOW()`,
+        sql`${verificationCodes.usedAt} IS NULL`
+      )
+    );
+    return vc;
+  }
+
+  async markVerificationCodeUsed(id: number): Promise<void> {
+    await db.update(verificationCodes)
+      .set({ usedAt: new Date() })
+      .where(eq(verificationCodes.id, id));
   }
 }
 

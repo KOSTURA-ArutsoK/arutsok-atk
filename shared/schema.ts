@@ -213,6 +213,10 @@ export const subjects = pgTable("subjects", {
   continentId: integer("continent_id").references(() => continents.id),
   stateId: integer("state_id").references(() => states.id),
   myCompanyId: integer("my_company_id").references(() => myCompanies.id),
+  email: text("email"),
+  phone: text("phone"),
+  birthNumber: text("birth_number"),
+  idCardNumber: text("id_card_number"),
   details: jsonb("details").default({}),
   processingTimeSec: integer("processing_time_sec").default(0),
   isActive: boolean("is_active").default(true),
@@ -383,6 +387,25 @@ export const auditLogs = pgTable("audit_logs", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
+// === SYSTEM SETTINGS ===
+export const systemSettings = pgTable("system_settings", {
+  id: serial("id").primaryKey(),
+  key: text("key").notNull().unique(),
+  value: text("value").notNull(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// === VERIFICATION CODES (for registration MFA) ===
+export const verificationCodes = pgTable("verification_codes", {
+  id: serial("id").primaryKey(),
+  subjectId: integer("subject_id").notNull().references(() => subjects.id),
+  channel: text("channel").notNull(),
+  code: text("code").notNull(),
+  expiresAt: timestamp("expires_at").notNull(),
+  usedAt: timestamp("used_at"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
 // === ZOD SCHEMAS ===
 export const insertSubjectSchema = createInsertSchema(subjects).omit({ id: true, uid: true, createdAt: true });
 export const insertMyCompanySchema = createInsertSchema(myCompanies).omit({ id: true, createdAt: true, updatedAt: true, isDeleted: true, uid: true, deletedBy: true, deletedAt: true, deletedFromIp: true });
@@ -402,6 +425,8 @@ export const insertCompanyContactSchema = createInsertSchema(companyContacts).om
 export const insertContractAmendmentSchema = createInsertSchema(contractAmendments).omit({ id: true, createdAt: true });
 export const insertUserProfileSchema = createInsertSchema(userProfiles).omit({ id: true, createdAt: true, updatedAt: true });
 export const insertAuditLogSchema = createInsertSchema(auditLogs).omit({ id: true, createdAt: true });
+export const insertSystemSettingSchema = createInsertSchema(systemSettings).omit({ id: true, updatedAt: true });
+export const insertVerificationCodeSchema = createInsertSchema(verificationCodes).omit({ id: true, createdAt: true });
 
 // === EXPLICIT TYPES ===
 export type Subject = typeof subjects.$inferSelect;
@@ -438,6 +463,9 @@ export type InsertUserProfile = z.infer<typeof insertUserProfileSchema>;
 
 export type AuditLog = typeof auditLogs.$inferSelect;
 export type InsertAuditLog = z.infer<typeof insertAuditLogSchema>;
+
+export type SystemSetting = typeof systemSettings.$inferSelect;
+export type VerificationCode = typeof verificationCodes.$inferSelect;
 
 export type CreateSubjectRequest = InsertSubject;
 export type UpdateSubjectRequest = Partial<InsertSubject> & { changeReason?: string };

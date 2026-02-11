@@ -1,20 +1,55 @@
+import { useState } from "react";
 import { useAppUser } from "@/hooks/use-app-user";
 import { useMyCompanies } from "@/hooks/use-companies";
 import { useStates } from "@/hooks/use-hierarchy";
-import { Settings as SettingsIcon, Shield, Database, Info, Building2, Globe, Lock } from "lucide-react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { apiRequest } from "@/lib/queryClient";
+import { Settings as SettingsIcon, Shield, Database, Info, Building2, Globe, Lock, Phone, Save } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Button } from "@/components/ui/button";
+import { useToast } from "@/hooks/use-toast";
 
 export default function Settings() {
   const { data: appUser } = useAppUser();
   const { data: companies } = useMyCompanies();
   const { data: states } = useStates();
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+
+  const { data: supportPhoneData } = useQuery<{ value: string | null }>({
+    queryKey: ["/api/system-settings", "support_phone"],
+    queryFn: async () => {
+      const res = await fetch("/api/system-settings/support_phone");
+      return res.json();
+    },
+  });
+
+  const [supportPhone, setSupportPhone] = useState<string | null>(null);
+  const displayPhone = supportPhone ?? supportPhoneData?.value ?? "";
+
+  const savePhoneMutation = useMutation({
+    mutationFn: async (value: string) => {
+      await apiRequest("POST", "/api/system-settings", { key: "support_phone", value });
+    },
+    onSuccess: () => {
+      toast({ title: "Ulozene", description: "Telefonne cislo podpory bolo ulozene." });
+      queryClient.invalidateQueries({ queryKey: ["/api/system-settings", "support_phone"] });
+    },
+    onError: () => {
+      toast({ title: "Chyba", description: "Nepodarilo sa ulozit nastavenie.", variant: "destructive" });
+    },
+  });
 
   const activeCompany = companies?.find(c => c.id === appUser?.activeCompanyId);
   const activeState = states?.find(s => s.id === appUser?.activeStateId);
 
   const mfaLabel = appUser?.mfaType === "none" ? "Neaktivne" : appUser?.mfaType === "totp" ? "TOTP" : appUser?.mfaType || "Neaktivne";
+
+  const isAdmin = appUser?.role === "admin" || appUser?.role === "superadmin";
 
   return (
     <div className="space-y-6">
@@ -139,6 +174,45 @@ export default function Settings() {
             </div>
           </CardContent>
         </Card>
+
+        {isAdmin && (
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between gap-2 space-y-0 pb-2">
+              <CardTitle className="text-base">Podpora a registracia</CardTitle>
+              <div className="p-2 rounded-md bg-orange-500/10 text-orange-500">
+                <Phone className="h-4 w-4" />
+              </div>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="space-y-3">
+                <p className="text-xs text-muted-foreground">
+                  Telefonne cislo zobrazene klientom pri neuspesnej registracii.
+                </p>
+                <div>
+                  <Label htmlFor="support-phone" className="text-xs">Telefon podpory</Label>
+                  <div className="flex items-center gap-2 mt-1">
+                    <Input
+                      id="support-phone"
+                      type="tel"
+                      placeholder="+421 900 000 000"
+                      value={displayPhone}
+                      onChange={(e) => setSupportPhone(e.target.value)}
+                      data-testid="input-support-phone"
+                    />
+                    <Button
+                      size="icon"
+                      onClick={() => savePhoneMutation.mutate(supportPhone ?? displayPhone)}
+                      disabled={savePhoneMutation.isPending}
+                      data-testid="button-save-support-phone"
+                    >
+                      <Save className="w-4 h-4" />
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between gap-2 space-y-0 pb-2">

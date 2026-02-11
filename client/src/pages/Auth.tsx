@@ -1,7 +1,8 @@
 import { useState, useEffect } from "react";
-import { Shield, Lock, AlertTriangle } from "lucide-react";
+import { Shield, Lock, AlertTriangle, UserPlus, HelpCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { Link } from "wouter";
 
 export default function AuthPage() {
   const [idleMessage, setIdleMessage] = useState<string | null>(null);
@@ -47,6 +48,17 @@ export default function AuthPage() {
             <Lock className="w-4 h-4 mr-2" />
             Prihlasit sa cez Replit
           </Button>
+
+          <div className="flex flex-col items-center gap-2">
+            <Link href="/forgot-password" className="text-sm text-muted-foreground hover:text-foreground flex items-center gap-1.5 transition-colors" data-testid="link-forgot-password">
+              <HelpCircle className="w-3.5 h-3.5" />
+              Zabudli ste heslo?
+            </Link>
+            <Link href="/register" className="text-sm text-primary hover:text-primary/80 flex items-center gap-1.5 font-medium transition-colors" data-testid="link-register">
+              <UserPlus className="w-3.5 h-3.5" />
+              Registracia
+            </Link>
+          </div>
 
           <p className="text-xs text-center text-muted-foreground">
             Vsetky aktivity su monitorovane a logovane.

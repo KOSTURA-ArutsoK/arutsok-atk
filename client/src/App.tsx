@@ -20,6 +20,9 @@ import History from "@/pages/History";
 import Commissions from "@/pages/Commissions";
 import Settings from "@/pages/Settings";
 import Archive from "@/pages/Archive";
+import RegisterPage from "@/pages/Register";
+import ForgotPassword from "@/pages/ForgotPassword";
+import ClientZone from "@/pages/ClientZone";
 import { AppShell } from "@/components/layout/AppShell";
 
 function PrivateRoute({ component: Component, ...rest }: any) {
@@ -51,6 +54,10 @@ function Router() {
         window.location.href = "/api/login";
         return null;
       }} />
+
+      <Route path="/register" component={RegisterPage} />
+      <Route path="/forgot-password" component={ForgotPassword} />
+      <Route path="/client-zone" component={ClientZone} />
       
       <Route path="/" component={() => <PrivateRoute component={Dashboard} />} />
       <Route path="/subjects" component={() => <PrivateRoute component={Subjects} />} />

@@ -1032,6 +1032,276 @@ export async function registerRoutes(
     }
   });
 
+  // === SYSTEM SETTINGS (public read, authenticated write) ===
+  app.get("/api/system-settings/:key", async (_req, res) => {
+    try {
+      const value = await storage.getSystemSetting(_req.params.key);
+      res.json({ value });
+    } catch {
+      res.status(500).json({ message: "Failed to get setting" });
+    }
+  });
+
+  app.get("/api/system-settings", isAuthenticated, async (_req, res) => {
+    try {
+      const settings = await storage.getAllSystemSettings();
+      res.json(settings);
+    } catch {
+      res.status(500).json({ message: "Failed to get settings" });
+    }
+  });
+
+  app.post("/api/system-settings", isAuthenticated, async (req: any, res) => {
+    try {
+      const appUser = req.appUser;
+      if (!appUser || !["admin", "superadmin"].includes(appUser.role)) {
+        return res.status(403).json({ message: "Nedostatocne opravnenia" });
+      }
+      const { key, value } = req.body;
+      if (!key || typeof value !== "string") {
+        return res.status(400).json({ message: "Key and value required" });
+      }
+      const setting = await storage.setSystemSetting(key, value);
+      await logAudit(req, { action: "UPDATE", module: "nastavenia", entityName: `Setting: ${key}` });
+      res.json(setting);
+    } catch {
+      res.status(500).json({ message: "Failed to save setting" });
+    }
+  });
+
+  // === PUBLIC REGISTRATION ROUTES ===
+  const registrationChallenges = new Map<string, { subjectId: number; positions: number[]; birthNumberLength: number }>();
+
+  app.post("/api/public/register/initiate", async (req, res) => {
+    try {
+      const { email, phone } = req.body;
+      if (!email || !phone) {
+        return res.status(400).json({ message: "Email a telefon su povinne" });
+      }
+
+      const client = await storage.findClientByEmailPhone(email, phone);
+      if (!client || !client.myCompanyId) {
+        const supportPhone = await storage.getSystemSetting("support_phone") || "+421 900 000 000";
+        return res.status(404).json({
+          message: `Vase udaje neboli spravne, volajte ${supportPhone}`,
+        });
+      }
+
+      if (!client.birthNumber) {
+        const supportPhone = await storage.getSystemSetting("support_phone") || "+421 900 000 000";
+        return res.status(404).json({
+          message: `Vase udaje neboli spravne, volajte ${supportPhone}`,
+        });
+      }
+
+      const bn = client.birthNumber.replace(/\//g, "").replace(/\s/g, "");
+      const isNineDigit = bn.length === 9;
+      const isTenDigit = bn.length === 10;
+
+      if (!isNineDigit && !isTenDigit) {
+        const supportPhone = await storage.getSystemSetting("support_phone") || "+421 900 000 000";
+        return res.status(400).json({
+          message: `Vase udaje neboli spravne, volajte ${supportPhone}`,
+        });
+      }
+
+      const firstSixPositions = [0, 1, 2, 3, 4, 5];
+      const shuffledFirst = firstSixPositions.sort(() => Math.random() - 0.5);
+      const selectedFirst = shuffledFirst.slice(0, 2);
+
+      let selectedLast: number[] = [];
+      if (isTenDigit) {
+        const lastFourPositions = [6, 7, 8, 9];
+        const shuffledLast = lastFourPositions.sort(() => Math.random() - 0.5);
+        selectedLast = shuffledLast.slice(0, 2);
+      } else {
+        const lastThreePositions = [6, 7, 8];
+        const shuffledLast = lastThreePositions.sort(() => Math.random() - 0.5);
+        selectedLast = shuffledLast.slice(0, 1);
+      }
+
+      const allPositions = [...selectedFirst, ...selectedLast].sort((a, b) => a - b);
+
+      const challengeId = Math.random().toString(36).substring(2, 15) + Date.now().toString(36);
+      registrationChallenges.set(challengeId, {
+        subjectId: client.id,
+        positions: allPositions,
+        birthNumberLength: bn.length,
+      });
+
+      setTimeout(() => registrationChallenges.delete(challengeId), 10 * 60 * 1000);
+
+      res.json({
+        challengeId,
+        positions: allPositions,
+        birthNumberLength: bn.length,
+        clientName: `${client.firstName || ""} ${client.lastName || ""}`.trim(),
+      });
+    } catch (err) {
+      console.error("Registration initiate error:", err);
+      res.status(500).json({ message: "Chyba servera" });
+    }
+  });
+
+  app.post("/api/public/register/verify-birth", async (req, res) => {
+    try {
+      const { challengeId, digits } = req.body;
+      if (!challengeId || !digits) {
+        return res.status(400).json({ message: "Chybaju udaje" });
+      }
+
+      const challenge = registrationChallenges.get(challengeId);
+      if (!challenge) {
+        return res.status(400).json({ message: "Platnost vyzvy vyprsal, skuste znova" });
+      }
+
+      const client = await storage.getSubject(challenge.subjectId);
+      if (!client || !client.birthNumber) {
+        return res.status(400).json({ message: "Klient nebol najdeny" });
+      }
+
+      const bn = client.birthNumber.replace(/\//g, "").replace(/\s/g, "");
+      const expectedDigits = challenge.positions.map(pos => bn[pos]);
+
+      const providedDigits = Array.isArray(digits) ? digits : String(digits).split("");
+      const matches = expectedDigits.length === providedDigits.length &&
+        expectedDigits.every((d, i) => d === providedDigits[i]);
+
+      if (!matches) {
+        const supportPhone = await storage.getSystemSetting("support_phone") || "+421 900 000 000";
+        registrationChallenges.delete(challengeId);
+        return res.status(401).json({
+          message: `Vase udaje neboli spravne, volajte ${supportPhone}`,
+        });
+      }
+
+      const hasEmail = !!client.email;
+      const hasPhone = !!client.phone;
+
+      if (hasEmail && hasPhone) {
+        const smsCode = Math.floor(100000 + Math.random() * 900000).toString();
+        const emailCode = Math.floor(100000 + Math.random() * 900000).toString();
+        const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
+
+        await storage.createVerificationCode(client.id, "sms", smsCode, expiresAt);
+        await storage.createVerificationCode(client.id, "email", emailCode, expiresAt);
+
+        console.log(`[MFA] SMS code for subject ${client.id}: ${smsCode}`);
+        console.log(`[MFA] Email code for subject ${client.id}: ${emailCode}`);
+
+        const maskedPhone = client.phone!.replace(/(\d{3})\d+(\d{2})/, "$1****$2");
+        const maskedEmail = client.email!.replace(/(.{2}).+(@.+)/, "$1***$2");
+
+        res.json({
+          step: "mfa",
+          challengeId,
+          mfaType: "codes",
+          maskedPhone,
+          maskedEmail,
+          subjectId: client.id,
+        });
+      } else {
+        res.json({
+          step: "full_verification",
+          challengeId,
+          subjectId: client.id,
+          message: "Vase kontaktne udaje nie su kompletne v systeme. Zadajte cele rodne cislo a cislo obcianskeho preukazu.",
+        });
+      }
+    } catch (err) {
+      console.error("Verify birth error:", err);
+      res.status(500).json({ message: "Chyba servera" });
+    }
+  });
+
+  app.post("/api/public/register/mfa-verify", async (req, res) => {
+    try {
+      const { subjectId, smsCode, emailCode } = req.body;
+      if (!subjectId || !smsCode || !emailCode) {
+        return res.status(400).json({ message: "Vsetky kody su povinne" });
+      }
+
+      const smsValid = await storage.getValidVerificationCode(subjectId, "sms", smsCode);
+      const emailValid = await storage.getValidVerificationCode(subjectId, "email", emailCode);
+
+      if (!smsValid || !emailValid) {
+        const supportPhone = await storage.getSystemSetting("support_phone") || "+421 900 000 000";
+        return res.status(401).json({
+          message: `Vase udaje neboli spravne, volajte ${supportPhone}`,
+        });
+      }
+
+      await storage.markVerificationCodeUsed(smsValid.id);
+      await storage.markVerificationCodeUsed(emailValid.id);
+
+      const client = await storage.getSubject(subjectId);
+
+      res.json({
+        success: true,
+        client: client ? {
+          id: client.id,
+          firstName: client.firstName,
+          lastName: client.lastName,
+          email: client.email,
+          phone: client.phone,
+          companyName: client.companyName,
+        } : null,
+      });
+    } catch (err) {
+      console.error("MFA verify error:", err);
+      res.status(500).json({ message: "Chyba servera" });
+    }
+  });
+
+  app.post("/api/public/register/full-verify", async (req, res) => {
+    try {
+      const { subjectId, fullBirthNumber, idCardNumber } = req.body;
+      if (!subjectId || !fullBirthNumber || !idCardNumber) {
+        return res.status(400).json({ message: "Vsetky udaje su povinne" });
+      }
+
+      const client = await storage.getSubject(subjectId);
+      if (!client) {
+        return res.status(404).json({ message: "Klient nebol najdeny" });
+      }
+
+      const storedBN = (client.birthNumber || "").replace(/\//g, "").replace(/\s/g, "");
+      const providedBN = fullBirthNumber.replace(/\//g, "").replace(/\s/g, "");
+
+      if (storedBN !== providedBN) {
+        const supportPhone = await storage.getSystemSetting("support_phone") || "+421 900 000 000";
+        return res.status(401).json({
+          message: `Vase udaje neboli spravne, volajte ${supportPhone}`,
+        });
+      }
+
+      const storedID = (client.idCardNumber || "").replace(/\s/g, "").toUpperCase();
+      const providedID = idCardNumber.replace(/\s/g, "").toUpperCase();
+
+      if (storedID !== providedID) {
+        const supportPhone = await storage.getSystemSetting("support_phone") || "+421 900 000 000";
+        return res.status(401).json({
+          message: `Vase udaje neboli spravne, volajte ${supportPhone}`,
+        });
+      }
+
+      res.json({
+        success: true,
+        client: {
+          id: client.id,
+          firstName: client.firstName,
+          lastName: client.lastName,
+          email: client.email,
+          phone: client.phone,
+          companyName: client.companyName,
+        },
+      });
+    } catch (err) {
+      console.error("Full verify error:", err);
+      res.status(500).json({ message: "Chyba servera" });
+    }
+  });
+
   await seedDatabase();
   await storage.autoArchiveExpiredBindings();
   setInterval(() => storage.autoArchiveExpiredBindings(), 60 * 60 * 1000);
