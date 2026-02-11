@@ -87,6 +87,19 @@ export async function registerRoutes(
     next();
   });
 
+  app.use(async (req: any, _res, next) => {
+    try {
+      if (req.isAuthenticated && req.isAuthenticated() && req.user?.claims?.sub) {
+        const appUser = await storage.getAppUserByReplitId(req.user.claims.sub);
+        if (appUser) {
+          req.appUser = appUser;
+        }
+      }
+    } catch (err) {
+    }
+    next();
+  });
+
   // === GLOBAL CLICK LOG ===
   app.post("/api/click-log", isAuthenticated, async (req: any, res) => {
     try {
