@@ -6,7 +6,7 @@ import {
   contactProductAssignments, communicationMatrix, globalCounters,
   companyContacts, contractAmendments, userProfiles,
   permissionGroups, permissions, auditLogs,
-  systemSettings, verificationCodes,
+  systemSettings, verificationCodes, categoryTimeouts, dashboardPreferences,
   type Subject, type InsertSubject, 
   type MyCompany, type InsertMyCompany,
   type Partner, type InsertPartner,
@@ -27,6 +27,8 @@ import {
   type Permission, type InsertPermission,
   type AuditLog, type InsertAuditLog,
   type SystemSetting, type VerificationCode,
+  type CategoryTimeout, type InsertCategoryTimeout,
+  type DashboardPreference, type InsertDashboardPreference,
 } from "@shared/schema";
 import { eq, and, or, ne, like, sql, lte, gte } from "drizzle-orm";
 
@@ -141,6 +143,15 @@ export interface IStorage {
   createVerificationCode(subjectId: number, channel: string, code: string, expiresAt: Date): Promise<VerificationCode>;
   getValidVerificationCode(subjectId: number, channel: string, code: string): Promise<VerificationCode | undefined>;
   markVerificationCodeUsed(id: number): Promise<void>;
+
+  getCategoryTimeouts(): Promise<CategoryTimeout[]>;
+  createCategoryTimeout(data: InsertCategoryTimeout): Promise<CategoryTimeout>;
+  updateCategoryTimeout(id: number, data: Partial<InsertCategoryTimeout>): Promise<CategoryTimeout>;
+  deleteCategoryTimeout(id: number): Promise<void>;
+
+  getDashboardPreferences(appUserId: number): Promise<DashboardPreference[]>;
+  setDashboardPreference(appUserId: number, widgetKey: string, enabled: boolean): Promise<DashboardPreference>;
+  bulkSetDashboardPreferences(appUserId: number, prefs: { widgetKey: string; enabled: boolean }[]): Promise<DashboardPreference[]>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -898,6 +909,60 @@ export class DatabaseStorage implements IStorage {
     await db.update(verificationCodes)
       .set({ usedAt: new Date() })
       .where(eq(verificationCodes.id, id));
+  }
+
+  async getCategoryTimeouts(): Promise<CategoryTimeout[]> {
+    return await db.select().from(categoryTimeouts);
+  }
+
+  async createCategoryTimeout(data: InsertCategoryTimeout): Promise<CategoryTimeout> {
+    const [created] = await db.insert(categoryTimeouts).values(data).returning();
+    return created;
+  }
+
+  async updateCategoryTimeout(id: number, data: Partial<InsertCategoryTimeout>): Promise<CategoryTimeout> {
+    const [updated] = await db.update(categoryTimeouts)
+      .set({ ...data, updatedAt: new Date() })
+      .where(eq(categoryTimeouts.id, id))
+      .returning();
+    return updated;
+  }
+
+  async deleteCategoryTimeout(id: number): Promise<void> {
+    await db.delete(categoryTimeouts).where(eq(categoryTimeouts.id, id));
+  }
+
+  async getDashboardPreferences(appUserId: number): Promise<DashboardPreference[]> {
+    return await db.select().from(dashboardPreferences)
+      .where(eq(dashboardPreferences.appUserId, appUserId));
+  }
+
+  async setDashboardPreference(appUserId: number, widgetKey: string, enabled: boolean): Promise<DashboardPreference> {
+    const existing = await db.select().from(dashboardPreferences)
+      .where(and(
+        eq(dashboardPreferences.appUserId, appUserId),
+        eq(dashboardPreferences.widgetKey, widgetKey)
+      ));
+    if (existing.length > 0) {
+      const [updated] = await db.update(dashboardPreferences)
+        .set({ enabled })
+        .where(eq(dashboardPreferences.id, existing[0].id))
+        .returning();
+      return updated;
+    }
+    const [created] = await db.insert(dashboardPreferences)
+      .values({ appUserId, widgetKey, enabled })
+      .returning();
+    return created;
+  }
+
+  async bulkSetDashboardPreferences(appUserId: number, prefs: { widgetKey: string; enabled: boolean }[]): Promise<DashboardPreference[]> {
+    const results: DashboardPreference[] = [];
+    for (const p of prefs) {
+      const result = await this.setDashboardPreference(appUserId, p.widgetKey, p.enabled);
+      results.push(result);
+    }
+    return results;
   }
 }
 

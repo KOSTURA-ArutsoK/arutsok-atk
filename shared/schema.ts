@@ -406,6 +406,23 @@ export const verificationCodes = pgTable("verification_codes", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
+// === CATEGORY TIMEOUTS (per client category/group) ===
+export const categoryTimeouts = pgTable("category_timeouts", {
+  id: serial("id").primaryKey(),
+  categoryName: text("category_name").notNull().unique(),
+  timeoutSeconds: integer("timeout_seconds").notNull().default(180),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// === DASHBOARD PREFERENCES (per user) ===
+export const dashboardPreferences = pgTable("dashboard_preferences", {
+  id: serial("id").primaryKey(),
+  appUserId: integer("app_user_id").notNull().references(() => appUsers.id),
+  widgetKey: text("widget_key").notNull(),
+  enabled: boolean("enabled").default(true),
+});
+
 // === ZOD SCHEMAS ===
 export const insertSubjectSchema = createInsertSchema(subjects).omit({ id: true, uid: true, createdAt: true });
 export const insertMyCompanySchema = createInsertSchema(myCompanies).omit({ id: true, createdAt: true, updatedAt: true, isDeleted: true, uid: true, deletedBy: true, deletedAt: true, deletedFromIp: true });
@@ -427,6 +444,8 @@ export const insertUserProfileSchema = createInsertSchema(userProfiles).omit({ i
 export const insertAuditLogSchema = createInsertSchema(auditLogs).omit({ id: true, createdAt: true });
 export const insertSystemSettingSchema = createInsertSchema(systemSettings).omit({ id: true, updatedAt: true });
 export const insertVerificationCodeSchema = createInsertSchema(verificationCodes).omit({ id: true, createdAt: true });
+export const insertCategoryTimeoutSchema = createInsertSchema(categoryTimeouts).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertDashboardPreferenceSchema = createInsertSchema(dashboardPreferences).omit({ id: true });
 
 // === EXPLICIT TYPES ===
 export type Subject = typeof subjects.$inferSelect;
@@ -466,6 +485,10 @@ export type InsertAuditLog = z.infer<typeof insertAuditLogSchema>;
 
 export type SystemSetting = typeof systemSettings.$inferSelect;
 export type VerificationCode = typeof verificationCodes.$inferSelect;
+export type CategoryTimeout = typeof categoryTimeouts.$inferSelect;
+export type InsertCategoryTimeout = z.infer<typeof insertCategoryTimeoutSchema>;
+export type DashboardPreference = typeof dashboardPreferences.$inferSelect;
+export type InsertDashboardPreference = z.infer<typeof insertDashboardPreferenceSchema>;
 
 export type CreateSubjectRequest = InsertSubject;
 export type UpdateSubjectRequest = Partial<InsertSubject> & { changeReason?: string };

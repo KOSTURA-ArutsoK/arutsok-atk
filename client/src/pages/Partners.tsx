@@ -736,6 +736,7 @@ function PartnerDetailDialog({
                           </div>
                           {c.isPrimary && <Badge variant="secondary">Primarny</Badge>}
                           <Badge variant="outline">SL{c.securityLevel}</Badge>
+                          <div className="w-2 h-2 rounded-full bg-emerald-500 flex-shrink-0" />
                         </div>
                       ))}
                     </div>
@@ -766,7 +767,8 @@ function PartnerDetailDialog({
                               <span>Do: {c.validTo ? new Date(c.validTo).toLocaleDateString("sk-SK") : "-"}</span>
                             </div>
                           </div>
-                          <Badge variant="secondary">Archivovany</Badge>
+                          <Badge variant="destructive">Archivovany</Badge>
+                          <div className="w-2 h-2 rounded-full bg-red-500 flex-shrink-0" />
                         </div>
                       ))}
                     </div>

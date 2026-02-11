@@ -58,7 +58,7 @@ function SubjectDetailDialog({ subject, onClose }: { subject: Subject; onClose: 
               </DialogTitle>
               <div className="flex items-center gap-2 mt-1 flex-wrap">
                 <span className="text-xs font-mono text-muted-foreground">{subject.uid}</span>
-                <Badge variant={subject.isActive ? "default" : "secondary"}>
+                <Badge variant={subject.isActive ? "default" : "destructive"} className={subject.isActive ? "bg-emerald-600 text-white" : ""}>
                   {subject.isActive ? "Aktivny" : "Archivovany"}
                 </Badge>
               </div>
@@ -352,7 +352,7 @@ export default function Subjects() {
                     {companies?.find(c => c.id === subject.myCompanyId)?.name || `Firma #${subject.myCompanyId}`}
                   </TableCell>
                   <TableCell>
-                    <Badge variant={subject.isActive ? "default" : "secondary"}>
+                    <Badge variant={subject.isActive ? "default" : "destructive"} className={subject.isActive ? "bg-emerald-600 text-white" : ""}>
                       {subject.isActive ? 'Aktivny' : 'Archivovany'}
                     </Badge>
                   </TableCell>

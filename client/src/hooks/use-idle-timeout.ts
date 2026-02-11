@@ -1,19 +1,23 @@
 import { useEffect, useRef, useCallback, useState } from "react";
 
-const TOTAL_TIMEOUT_SEC = 180;
+const DEFAULT_TIMEOUT_SEC = 180;
 const WARNING_AT_SEC = 60;
 const RED_BEFORE_WARNING_SEC = 10;
 const BEEP_LAST_SEC = 10;
 const THROTTLE_MS = 1000;
 
-export function useIdleTimeout() {
-  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const lastActivityRef = useRef<number>(Date.now());
-  const [timeLeft, setTimeLeft] = useState(TOTAL_TIMEOUT_SEC);
+export function useIdleTimeout(totalTimeoutSec: number = DEFAULT_TIMEOUT_SEC) {
+  const [timeLeft, setTimeLeft] = useState(totalTimeoutSec);
   const [showWarning, setShowWarning] = useState(false);
+
+  const lastActivityRef = useRef<number>(Date.now());
+  const showWarningRef = useRef(false);
   const beepPlayedRef = useRef<Set<number>>(new Set());
   const warningBeepPlayedRef = useRef(false);
   const loggedOutRef = useRef(false);
+  const totalRef = useRef(totalTimeoutSec);
+
+  totalRef.current = totalTimeoutSec;
 
   const playBeep = useCallback((freq = 800, duration = 0.2) => {
     try {
@@ -30,25 +34,17 @@ export function useIdleTimeout() {
     } catch {}
   }, []);
 
-  const handleLogout = useCallback(() => {
-    if (loggedOutRef.current) return;
-    loggedOutRef.current = true;
-    if (intervalRef.current) clearInterval(intervalRef.current);
-    setShowWarning(false);
-    sessionStorage.setItem("idle_logout_message", "Boli ste odhlaseny z dovodu necinnosti");
-    window.location.href = "/api/logout";
-  }, []);
-
   const resetActivity = useCallback(() => {
     const now = Date.now();
     if (now - lastActivityRef.current < THROTTLE_MS) return;
-    if (showWarning) return;
+    if (showWarningRef.current) return;
     lastActivityRef.current = now;
     beepPlayedRef.current.clear();
     warningBeepPlayedRef.current = false;
-  }, [showWarning]);
+  }, []);
 
   const dismissWarning = useCallback(() => {
+    showWarningRef.current = false;
     setShowWarning(false);
     lastActivityRef.current = Date.now();
     beepPlayedRef.current.clear();
@@ -56,12 +52,15 @@ export function useIdleTimeout() {
   }, []);
 
   useEffect(() => {
-    intervalRef.current = setInterval(() => {
+    const intervalId = setInterval(() => {
+      if (loggedOutRef.current) return;
+
       const elapsed = Math.floor((Date.now() - lastActivityRef.current) / 1000);
-      const remaining = Math.max(0, TOTAL_TIMEOUT_SEC - elapsed);
+      const remaining = Math.max(0, totalRef.current - elapsed);
       setTimeLeft(remaining);
 
-      if (remaining <= WARNING_AT_SEC && !showWarning) {
+      if (remaining <= WARNING_AT_SEC && !showWarningRef.current) {
+        showWarningRef.current = true;
         setShowWarning(true);
         if (!warningBeepPlayedRef.current) {
           warningBeepPlayedRef.current = true;
@@ -69,7 +68,8 @@ export function useIdleTimeout() {
         }
       }
 
-      if (remaining > WARNING_AT_SEC && showWarning) {
+      if (remaining > WARNING_AT_SEC && showWarningRef.current) {
+        showWarningRef.current = false;
         setShowWarning(false);
       }
 
@@ -84,14 +84,17 @@ export function useIdleTimeout() {
       }
 
       if (remaining <= 0) {
-        handleLogout();
+        loggedOutRef.current = true;
+        clearInterval(intervalId);
+        showWarningRef.current = false;
+        setShowWarning(false);
+        sessionStorage.setItem("idle_logout_message", "Boli ste odhlaseny z dovodu necinnosti");
+        window.location.href = "/api/logout";
       }
     }, 1000);
 
-    return () => {
-      if (intervalRef.current) clearInterval(intervalRef.current);
-    };
-  }, [handleLogout, playBeep, showWarning]);
+    return () => clearInterval(intervalId);
+  }, [playBeep]);
 
   useEffect(() => {
     const events = ["mousemove", "keydown", "mousedown", "touchstart", "scroll"];

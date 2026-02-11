@@ -35,6 +35,9 @@ The system is built on a modern full-stack architecture:
 - **Client Registration**: Multi-step registration flow (`/register`) for clients linked to companies. Identity verification via partial rodne cislo (random 4 digits: 2 from first 6, 2 from last 4 for 10-digit / 1 from last 3 for 9-digit). MFA via SMS + email codes (simulated). Fallback to full birth number + ID card number. Public routes under `/api/public/register/*`. Challenge state stored server-side with 10-minute expiry.
 - **System Settings**: `system_settings` table (key-value store). Support phone number configurable in Settings page (admin-only). Used in registration error messages.
 - **Client Zone**: Post-registration welcome screen with data review. Entry to `/client-zone` personal area.
+- **Category Timeouts**: `category_timeouts` table stores per-client-category logout durations in seconds. Admin-managed via Settings page. Default categories: Standardny (180s), VIP klient (300s), Bezpecnostny (120s).
+- **Dashboard Preferences**: `dashboard_preferences` table stores per-user widget visibility (widgetKey + enabled flag). Users can toggle widgets in Settings > "Nastavenie prehladov". Dashboard dynamically renders only enabled widgets.
+- **Status Indicators**: Active items consistently shown in Green, Inactive/Archived in Red across all modules (Subjects, Partners contacts, Dashboard, Commissions).
 
 ## External Dependencies
 - **Replit OIDC Auth**: Used for user authentication and session management.

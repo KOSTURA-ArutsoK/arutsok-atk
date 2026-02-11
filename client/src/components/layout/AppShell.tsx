@@ -6,8 +6,9 @@ import { useMyCompanies } from "@/hooks/use-companies";
 import { useStates } from "@/hooks/use-hierarchy";
 import { useTheme } from "@/components/theme-provider";
 import { useAuth } from "@/hooks/use-auth";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Moon, Sun, ChevronDown, Globe, Building2, Check, Upload, LogOut, AlertTriangle, Timer } from "lucide-react";
+import type { CategoryTimeout } from "@shared/schema";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
@@ -36,7 +37,15 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const photoInputRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
 
-  const { timeLeft, showWarning, dismissWarning, isRed } = useIdleTimeout();
+  const { data: categoryTimeouts } = useQuery<CategoryTimeout[]>({
+    queryKey: ["/api/category-timeouts"],
+  });
+
+  const defaultTimeout = categoryTimeouts && categoryTimeouts.length > 0
+    ? categoryTimeouts[0].timeoutSeconds
+    : 180;
+
+  const { timeLeft, showWarning, dismissWarning, isRed } = useIdleTimeout(defaultTimeout);
   useGlobalClickLogger();
 
   const formatTime = (sec: number) => {
@@ -163,6 +172,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             <div className="flex-1" />
 
             <div
+              key="idle-timer"
               className={`flex items-center gap-1.5 px-2 py-1 rounded-md font-mono text-xs font-bold transition-colors ${isRed ? 'text-destructive' : 'text-emerald-500'}`}
               data-testid="text-idle-timer"
             >

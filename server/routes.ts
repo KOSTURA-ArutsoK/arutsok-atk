@@ -1069,6 +1069,91 @@ export async function registerRoutes(
     }
   });
 
+  // === CATEGORY TIMEOUTS ===
+  app.get("/api/category-timeouts", isAuthenticated, async (_req, res) => {
+    try {
+      const timeouts = await storage.getCategoryTimeouts();
+      res.json(timeouts);
+    } catch {
+      res.status(500).json({ message: "Failed to get category timeouts" });
+    }
+  });
+
+  app.post("/api/category-timeouts", isAuthenticated, async (req: any, res) => {
+    try {
+      const appUser = req.appUser;
+      if (!appUser || !["admin", "superadmin"].includes(appUser.role)) {
+        return res.status(403).json({ message: "Nedostatocne opravnenia" });
+      }
+      const { categoryName, timeoutSeconds } = req.body;
+      if (!categoryName || !timeoutSeconds) {
+        return res.status(400).json({ message: "Nazov kategorie a cas su povinne" });
+      }
+      const timeout = await storage.createCategoryTimeout({ categoryName, timeoutSeconds: Number(timeoutSeconds) });
+      await logAudit(req, { action: "CREATE", module: "nastavenia", entityName: `Timeout: ${categoryName}` });
+      res.json(timeout);
+    } catch {
+      res.status(500).json({ message: "Failed to create category timeout" });
+    }
+  });
+
+  app.patch("/api/category-timeouts/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const appUser = req.appUser;
+      if (!appUser || !["admin", "superadmin"].includes(appUser.role)) {
+        return res.status(403).json({ message: "Nedostatocne opravnenia" });
+      }
+      const id = parseInt(req.params.id);
+      const timeout = await storage.updateCategoryTimeout(id, req.body);
+      await logAudit(req, { action: "UPDATE", module: "nastavenia", entityId: id, entityName: "Timeout" });
+      res.json(timeout);
+    } catch {
+      res.status(500).json({ message: "Failed to update category timeout" });
+    }
+  });
+
+  app.delete("/api/category-timeouts/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const appUser = req.appUser;
+      if (!appUser || !["admin", "superadmin"].includes(appUser.role)) {
+        return res.status(403).json({ message: "Nedostatocne opravnenia" });
+      }
+      const id = parseInt(req.params.id);
+      await storage.deleteCategoryTimeout(id);
+      await logAudit(req, { action: "DELETE", module: "nastavenia", entityId: id, entityName: "Timeout" });
+      res.json({ success: true });
+    } catch {
+      res.status(500).json({ message: "Failed to delete category timeout" });
+    }
+  });
+
+  // === DASHBOARD PREFERENCES ===
+  app.get("/api/dashboard-preferences", isAuthenticated, async (req: any, res) => {
+    try {
+      const appUser = req.appUser;
+      if (!appUser) return res.status(401).json({ message: "Unauthorized" });
+      const prefs = await storage.getDashboardPreferences(appUser.id);
+      res.json(prefs);
+    } catch {
+      res.status(500).json({ message: "Failed to get dashboard preferences" });
+    }
+  });
+
+  app.post("/api/dashboard-preferences", isAuthenticated, async (req: any, res) => {
+    try {
+      const appUser = req.appUser;
+      if (!appUser) return res.status(401).json({ message: "Unauthorized" });
+      const { preferences } = req.body;
+      if (!Array.isArray(preferences)) {
+        return res.status(400).json({ message: "Preferences must be an array" });
+      }
+      const results = await storage.bulkSetDashboardPreferences(appUser.id, preferences);
+      res.json(results);
+    } catch {
+      res.status(500).json({ message: "Failed to save dashboard preferences" });
+    }
+  });
+
   // === PUBLIC REGISTRATION ROUTES ===
   const registrationChallenges = new Map<string, { subjectId: number; positions: number[]; birthNumberLength: number }>();
 

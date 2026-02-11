@@ -42,7 +42,7 @@ export default function AuthPage() {
 
           <Button
             onClick={handleLogin}
-            className="w-full"
+            className="w-full bg-emerald-600 text-white border-emerald-700"
             data-testid="button-login"
           >
             <Lock className="w-4 h-4 mr-2" />
@@ -50,13 +50,17 @@ export default function AuthPage() {
           </Button>
 
           <div className="flex flex-col items-center gap-2">
-            <Link href="/forgot-password" className="text-sm text-muted-foreground hover:text-foreground flex items-center gap-1.5 transition-colors" data-testid="link-forgot-password">
-              <HelpCircle className="w-3.5 h-3.5" />
-              Zabudli ste heslo?
+            <Link href="/forgot-password" data-testid="link-forgot-password">
+              <Button variant="ghost" size="sm" className="text-sky-400 hover:text-sky-300 gap-1.5">
+                <HelpCircle className="w-3.5 h-3.5" />
+                Zabudli ste heslo?
+              </Button>
             </Link>
-            <Link href="/register" className="text-sm text-primary hover:text-primary/80 flex items-center gap-1.5 font-medium transition-colors" data-testid="link-register">
-              <UserPlus className="w-3.5 h-3.5" />
-              Registracia
+            <Link href="/register" data-testid="link-register">
+              <Button variant="ghost" size="sm" className="text-muted-foreground gap-1.5">
+                <UserPlus className="w-3.5 h-3.5" />
+                Registracia
+              </Button>
             </Link>
           </div>
 
