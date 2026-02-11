@@ -64,7 +64,7 @@ export const subjects = pgTable("subjects", {
   myCompanyId: integer("my_company_id").references(() => myCompanies.id),
   
   details: jsonb("details").default({}), // Address, IBAN, etc.
-  
+  processingTimeSec: integer("processing_time_sec").default(0),
   isActive: boolean("is_active").default(true),
   createdAt: timestamp("created_at").defaultNow(),
 });

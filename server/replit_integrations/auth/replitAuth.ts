@@ -66,6 +66,12 @@ export async function setupAuth(app: Express) {
   app.use(passport.initialize());
   app.use(passport.session());
 
+  // Middleware to expose auth state for debugging/development if needed
+  app.use((req, res, next) => {
+    res.locals.user = req.user;
+    next();
+  });
+
   const config = await getOidcConfig();
 
   const verify: VerifyFunction = async (
