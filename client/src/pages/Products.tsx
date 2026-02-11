@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback } from "react";
+import { useState, useRef, useCallback, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { usePartners, usePartnerContracts } from "@/hooks/use-partners";
@@ -44,6 +44,13 @@ import { RichTextEditor } from "@/components/rich-text-editor";
 import { WameSaveButton } from "@/components/wame-save-button";
 
 const SPECIALIST_TYPES = ["NBS", "Zbrojny preukaz", "Reality", "Poistenie", "Dochodok", "Ine"];
+
+function formatProcessingTime(seconds: number): string {
+  const h = Math.floor(seconds / 3600);
+  const m = Math.floor((seconds % 3600) / 60);
+  const s = seconds % 60;
+  return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+}
 
 function useProducts() {
   return useQuery<Product[]>({
@@ -114,8 +121,8 @@ function ProductFormDialog({
     onError: () => toast({ title: "Chyba", description: "Nepodarilo sa aktualizovat produkt", variant: "destructive" }),
   });
 
-  const handleOpenChange = useCallback((isOpen: boolean) => {
-    if (isOpen) {
+  useEffect(() => {
+    if (open) {
       timerRef.current = performance.now();
       if (editingProduct) {
         setPartnerId(editingProduct.partnerId?.toString() || "");
@@ -137,8 +144,11 @@ function ProductFormDialog({
         setNotesHtml("");
       }
     }
+  }, [open, editingProduct]);
+
+  const handleOpenChange = useCallback((isOpen: boolean) => {
     onOpenChange(isOpen);
-  }, [editingProduct, onOpenChange]);
+  }, [onOpenChange]);
 
   function handleSubmit() {
     if (!code || !name) {
@@ -511,7 +521,7 @@ function ProductDetailDialog({
           )}
 
           <div className="flex items-center gap-4 text-xs text-muted-foreground flex-wrap">
-            <span>WAME: {product.processingTimeSec || 0}s</span>
+            <span>Cas spracovania: {formatProcessingTime(product.processingTimeSec || 0)}</span>
             <span>Vytvorene: {product.createdAt ? new Date(product.createdAt).toLocaleDateString("sk-SK") : "-"}</span>
           </div>
 

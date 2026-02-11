@@ -239,6 +239,12 @@
   list-style-type: decimal;
 }
 
+body[data-scroll-locked] main,
+body[style*="overflow: hidden"] main,
+body[style*="overflow:hidden"] main {
+  overflow: hidden !important;
+}
+
 .tiptap hr {
   border-color: hsl(var(--border));
   margin: 0.75rem 0;

@@ -24,7 +24,10 @@ The system is built on a modern full-stack architecture:
 - **Temporal Validity**: Many tables (`companyOfficers`, `partnerContacts`, `companyContacts`, `commission_schemes`) incorporate `validFrom`, `validTo`, and `isActive` fields for managing time-sensitive data. An hourly cron job automatically archives expired bindings.
 - **Audit Logging**: A comprehensive audit log (`audit_logs` table) tracks user actions, module, entity, data changes, processing time, and IP address for all mutating routes.
 - **Role-Based Access Control (RBAC)**: A granular RBAC system uses `permission_groups` and a `permissions` matrix (module x action) to control access to different parts of the application.
-- **Workflow Management**: The WAME protocol tracks form editing duration (`processingTimeSec`) for all create/edit forms.
+- **Processing Time Protocol**: Tracks form editing duration (`processingTimeSec`) for all create/edit forms, displayed as HH:MM:SS format ("Cas spracovania").
+- **Global Click Logging**: Every button click is captured and logged to `audit_logs` via `/api/click-log` endpoint with 500ms throttle. Visible in History as "Kliknutie" action type.
+- **Idle Timeout Security**: 180-second inactivity auto-logout with Slovak notification message. Tracks mousemove/keydown/scroll events with 10s throttle.
+- **Modal Scroll Lock**: CSS prevents background scrolling when dialogs are open via `body[data-scroll-locked]` targeting.
 
 ## External Dependencies
 - **Replit OIDC Auth**: Used for user authentication and session management.

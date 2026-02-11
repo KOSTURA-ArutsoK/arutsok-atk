@@ -87,6 +87,22 @@ export async function registerRoutes(
     next();
   });
 
+  // === GLOBAL CLICK LOG ===
+  app.post("/api/click-log", isAuthenticated, async (req: any, res) => {
+    try {
+      const { buttonLabel, module, timestamp } = req.body;
+      await logAudit(req, {
+        action: "CLICK",
+        module: module || "unknown",
+        entityName: buttonLabel || "unknown",
+      });
+      res.json({ ok: true });
+    } catch (err) {
+      console.error("Click log error:", err);
+      res.json({ ok: false });
+    }
+  });
+
   // === APP USER ===
   app.get(api.appUser.me.path, isAuthenticated, async (req: any, res) => {
     try {

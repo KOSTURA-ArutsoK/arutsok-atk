@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback } from "react";
+import { useState, useRef, useCallback, useEffect } from "react";
 import { usePartners, useCreatePartner, useUpdatePartner, useDeletePartner, usePartnerContracts, usePartnerContacts, usePartnerProducts, useCreatePartnerContract, useCreatePartnerContact, useCreatePartnerProduct, useContractAmendments, useCreateContractAmendment } from "@/hooks/use-partners";
 import { useMyCompanies } from "@/hooks/use-companies";
 import { useStates } from "@/hooks/use-hierarchy";
@@ -116,8 +116,8 @@ function PartnerFormDialog({
     },
   });
 
-  const handleOpenChange = useCallback((isOpen: boolean) => {
-    if (isOpen) {
+  useEffect(() => {
+    if (open) {
       timerRef.current = performance.now();
       if (editingPartner) {
         form.reset({
@@ -159,8 +159,11 @@ function PartnerFormDialog({
         setNotesHtml("");
       }
     }
+  }, [open, editingPartner, form]);
+
+  const handleOpenChange = useCallback((isOpen: boolean) => {
     onOpenChange(isOpen);
-  }, [editingPartner, form, onOpenChange]);
+  }, [onOpenChange]);
 
   function onSubmit(data: PartnerFormData) {
     const processingTimeSec = Math.round((performance.now() - timerRef.current) / 1000);

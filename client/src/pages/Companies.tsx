@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback } from "react";
+import { useState, useRef, useCallback, useEffect } from "react";
 import { useMyCompanies, useCreateMyCompany, useUpdateMyCompany, useDeleteMyCompany } from "@/hooks/use-companies";
 import { useStates } from "@/hooks/use-hierarchy";
 import { Plus, Building2, Pencil, Trash2, Eye, Upload, FileText, X, Download, Clock, MapPin, FileCheck } from "lucide-react";
@@ -76,6 +76,13 @@ const formSchema = insertMyCompanySchema.extend({
 type FormData = z.infer<typeof formSchema>;
 
 type DocEntry = { name: string; url: string; uploadedAt: string };
+
+function formatProcessingTime(seconds: number): string {
+  const h = Math.floor(seconds / 3600);
+  const m = Math.floor((seconds % 3600) / 60);
+  const s = seconds % 60;
+  return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+}
 
 function FileUploadSection({
   companyId,
@@ -263,8 +270,8 @@ function CompanyFormDialog({
     },
   });
 
-  const handleOpenChange = useCallback((isOpen: boolean) => {
-    if (isOpen) {
+  useEffect(() => {
+    if (open) {
       timerRef.current = performance.now();
       if (editingCompany) {
         form.reset({
@@ -304,8 +311,11 @@ function CompanyFormDialog({
         setNotesHtml("");
       }
     }
+  }, [open, editingCompany, form]);
+
+  const handleOpenChange = useCallback((isOpen: boolean) => {
     onOpenChange(isOpen);
-  }, [editingCompany, form, onOpenChange]);
+  }, [onOpenChange]);
 
   function onSubmit(data: FormData) {
     const processingTimeSec = Math.round((performance.now() - timerRef.current) / 1000);
@@ -517,7 +527,7 @@ function CompanyFormDialog({
               {editingCompany && (
                 <div className="flex items-center gap-1 text-xs text-muted-foreground">
                   <Clock className="w-3 h-3" />
-                  <span>WAME: {editingCompany.processingTimeSec || 0}s</span>
+                  <span>Cas spracovania: {formatProcessingTime(editingCompany.processingTimeSec || 0)}</span>
                 </div>
               )}
               <div className="flex gap-2 ml-auto">
@@ -605,7 +615,7 @@ function CompanyDetailDialog({
             <Separator />
             <div className="flex items-center gap-2 text-xs text-muted-foreground flex-wrap">
               <Clock className="w-3 h-3" />
-              <span>WAME cas: {company.processingTimeSec || 0}s</span>
+              <span>Cas spracovania: {formatProcessingTime(company.processingTimeSec || 0)}</span>
               <span>|</span>
               <span>Vytvorene: {company.createdAt ? new Date(company.createdAt).toLocaleDateString("sk-SK") : "-"}</span>
               <span>|</span>

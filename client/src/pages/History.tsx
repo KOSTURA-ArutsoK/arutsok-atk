@@ -47,6 +47,7 @@ const ACTION_LABELS: Record<string, string> = {
   DELETE: "Vymazanie",
   ARCHIVE: "Archivacia",
   SYNC: "Synchronizacia",
+  CLICK: "Kliknutie",
 };
 
 const ACTION_VARIANTS: Record<string, "default" | "secondary" | "destructive" | "outline"> = {
@@ -55,6 +56,7 @@ const ACTION_VARIANTS: Record<string, "default" | "secondary" | "destructive" | 
   DELETE: "destructive",
   ARCHIVE: "outline",
   SYNC: "outline",
+  CLICK: "outline",
 };
 
 const PAGE_SIZE = 25;
@@ -104,6 +106,13 @@ export default function History() {
       minute: "2-digit",
       second: "2-digit",
     });
+  }
+
+  function formatProcessingTime(seconds: number): string {
+    const h = Math.floor(seconds / 3600);
+    const m = Math.floor((seconds % 3600) / 60);
+    const s = seconds % 60;
+    return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
   }
 
   function resetFilters() {
@@ -277,7 +286,7 @@ export default function History() {
                     <TableHead className="w-[90px]">Akcia</TableHead>
                     <TableHead className="w-[120px]">Modul</TableHead>
                     <TableHead>Entita</TableHead>
-                    <TableHead className="w-[80px] text-right">WAME (s)</TableHead>
+                    <TableHead className="w-[100px] text-right">Cas spracovania</TableHead>
                     <TableHead className="w-[50px]" />
                   </TableRow>
                 </TableHeader>
@@ -303,7 +312,7 @@ export default function History() {
                       <TableCell className="text-right font-mono text-xs">
                         <span className="flex items-center justify-end gap-1">
                           <Clock className="w-3 h-3 text-muted-foreground" />
-                          {log.processingTimeSec ?? 0}
+                          {formatProcessingTime(log.processingTimeSec ?? 0)}
                         </span>
                       </TableCell>
                       <TableCell>
@@ -394,10 +403,10 @@ export default function History() {
                   <p className="text-sm">{detailLog.entityName || "-"} {detailLog.entityId ? `(ID: ${detailLog.entityId})` : ""}</p>
                 </div>
                 <div>
-                  <label className="text-xs text-muted-foreground">WAME cas spracovania</label>
+                  <label className="text-xs text-muted-foreground">Cas spracovania</label>
                   <p className="text-sm font-mono flex items-center gap-1">
                     <Clock className="w-3 h-3" />
-                    {detailLog.processingTimeSec ?? 0} sekund
+                    {formatProcessingTime(detailLog.processingTimeSec ?? 0)}
                   </p>
                 </div>
                 <div className="col-span-2">

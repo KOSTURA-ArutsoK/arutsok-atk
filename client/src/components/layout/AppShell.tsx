@@ -1,4 +1,6 @@
 import { useState, useRef } from "react";
+import { useIdleTimeout } from "@/hooks/use-idle-timeout";
+import { useGlobalClickLogger } from "@/hooks/use-global-click-logger";
 import { useAppUser, useSetActiveContext } from "@/hooks/use-app-user";
 import { useMyCompanies } from "@/hooks/use-companies";
 import { useStates } from "@/hooks/use-hierarchy";
@@ -33,6 +35,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const queryClient = useQueryClient();
   const photoInputRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
+
+  useIdleTimeout();
+  useGlobalClickLogger();
 
   const activeCompany = companies?.find(c => c.id === appUser?.activeCompanyId);
   const activeState = allStates?.find(s => s.id === appUser?.activeStateId);
