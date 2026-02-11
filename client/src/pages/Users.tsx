@@ -31,7 +31,7 @@ import {
 } from "@/components/ui/select";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import type { AppUser, PermissionGroup } from "@shared/schema";
-import { WameSaveButton } from "@/components/wame-save-button";
+import { ProcessingSaveButton } from "@/components/processing-save-button";
 
 const ROLES = ["superadmin", "admin", "backoffice", "manager", "user"] as const;
 
@@ -181,7 +181,7 @@ function UserFormDialog({
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent className="max-h-[85vh] overflow-y-auto">
+      <DialogContent className="sm:max-w-[800px] h-[600px] overflow-y-auto">
         <DialogHeader>
           <DialogTitle data-testid="text-user-dialog-title">
             {editingUser ? "Upravit pouzivatela" : "Pridat pouzivatela"}
@@ -323,7 +323,7 @@ function UserFormDialog({
             </Button>
           </div>
 
-          <WameSaveButton isPending={isPending} />
+          <ProcessingSaveButton isPending={isPending} />
         </form>
       </DialogContent>
     </Dialog>

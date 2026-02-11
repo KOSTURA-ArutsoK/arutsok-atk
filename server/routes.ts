@@ -27,9 +27,9 @@ async function logAudit(req: any, params: {
       appUser = await storage.getAppUserByReplitId(replitUserId);
     }
     const ip = req.ip || req.headers['x-forwarded-for'] || req.socket?.remoteAddress || '';
-    const clientWame = req.body?.processingTimeSec ? Number(req.body.processingTimeSec) : 0;
+    const clientProcessingTime = req.body?.processingTimeSec ? Number(req.body.processingTimeSec) : 0;
     const serverTimeSec = req._auditStartTime ? Math.round((performance.now() - req._auditStartTime) / 1000) : 0;
-    const wameTime = params.processingTimeSec || clientWame || serverTimeSec;
+    const processingTime = params.processingTimeSec || clientProcessingTime || serverTimeSec;
 
     await storage.createAuditLog({
       userId: appUser?.id || null,
@@ -40,7 +40,7 @@ async function logAudit(req: any, params: {
       entityName: params.entityName || null,
       oldData: params.oldData || null,
       newData: params.newData || null,
-      processingTimeSec: wameTime,
+      processingTimeSec: processingTime,
       ipAddress: typeof ip === 'string' ? ip : JSON.stringify(ip),
     });
   } catch (err) {
@@ -90,11 +90,13 @@ export async function registerRoutes(
   // === GLOBAL CLICK LOG ===
   app.post("/api/click-log", isAuthenticated, async (req: any, res) => {
     try {
-      const { buttonLabel, module, timestamp } = req.body;
+      const { buttonLabel, module } = req.body;
+      const label = buttonLabel || "unknown";
+      const mod = module || "unknown";
       await logAudit(req, {
         action: "CLICK",
-        module: module || "unknown",
-        entityName: buttonLabel || "unknown",
+        module: mod,
+        entityName: `Kliknutie na tlacidlo [${label}] v module [${mod}]`,
       });
       res.json({ ok: true });
     } catch (err) {
@@ -961,6 +963,72 @@ export async function registerRoutes(
       res.json({ success: true });
     } catch (err) {
       res.status(500).json({ message: "Failed to set primary logo" });
+    }
+  });
+
+  // === ARCHIVE MODULE ===
+  app.get("/api/archive/deleted", isAuthenticated, async (_req, res) => {
+    try {
+      const allCompanies = await storage.getMyCompanies(true);
+      const allPartners = await storage.getPartners(true);
+      const allProducts = await storage.getProducts(true);
+
+      const deletedCompanies = allCompanies.filter(c => c.isDeleted).map(c => ({
+        ...c, entityType: "company" as const,
+      }));
+      const deletedPartners = allPartners.filter(p => p.isDeleted).map(p => ({
+        ...p, entityType: "partner" as const,
+      }));
+      const deletedProducts = allProducts.filter(p => p.isDeleted).map(p => ({
+        ...p, entityType: "product" as const,
+      }));
+
+      res.json({ companies: deletedCompanies, partners: deletedPartners, products: deletedProducts });
+    } catch (err) {
+      res.status(500).json({ message: "Failed to load archive" });
+    }
+  });
+
+  app.post("/api/archive/restore/:entityType/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const { entityType, id } = req.params;
+      const { password } = req.body || {};
+      const numId = Number(id);
+      const appUser = req.appUser;
+
+      if (!appUser || !["admin", "superadmin"].includes(appUser.role)) {
+        return res.status(403).json({ message: "Nedostatocne opravnenia" });
+      }
+
+      const archivePassword = process.env.ARCHIVE_RESTORE_PASSWORD || "ArutsoK2025!Restore";
+      if (!password || password !== archivePassword) {
+        return res.status(401).json({ message: "Nespravne bezpecnostne heslo" });
+      }
+
+      switch (entityType) {
+        case "company":
+          await storage.restoreMyCompany(numId);
+          break;
+        case "partner":
+          await storage.restorePartner(numId);
+          break;
+        case "product":
+          await storage.restoreProduct(numId);
+          break;
+        default:
+          return res.status(400).json({ message: "Neznamy typ entity" });
+      }
+
+      await logAudit(req, {
+        action: "RESTORE",
+        module: "archiv",
+        entityId: numId,
+        entityName: `${entityType} #${numId}`,
+      });
+
+      res.json({ success: true });
+    } catch (err) {
+      res.status(500).json({ message: "Restore failed" });
     }
   });
 

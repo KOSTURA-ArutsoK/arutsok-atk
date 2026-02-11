@@ -7,7 +7,7 @@ import { useStates } from "@/hooks/use-hierarchy";
 import { useTheme } from "@/components/theme-provider";
 import { useAuth } from "@/hooks/use-auth";
 import { useQueryClient } from "@tanstack/react-query";
-import { Moon, Sun, ChevronDown, Globe, Building2, Check, Upload, LogOut } from "lucide-react";
+import { Moon, Sun, ChevronDown, Globe, Building2, Check, Upload, LogOut, AlertTriangle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
@@ -36,7 +36,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const photoInputRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
 
-  useIdleTimeout();
+  const { showWarning, secondsLeft, dismissWarning } = useIdleTimeout();
   useGlobalClickLogger();
 
   const activeCompany = companies?.find(c => c.id === appUser?.activeCompanyId);
@@ -205,6 +205,21 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           </main>
         </div>
       </div>
+      {showWarning && (
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center" data-testid="idle-warning-overlay">
+          <div className="absolute inset-0 bg-background/80 backdrop-blur-md" />
+          <div className="relative z-10 flex flex-col items-center gap-4 p-8 rounded-md border border-destructive bg-card shadow-lg max-w-md text-center">
+            <AlertTriangle className="w-12 h-12 text-destructive" />
+            <h2 className="text-lg font-bold text-destructive" data-testid="text-idle-warning-title">Upozornenie na necinnost</h2>
+            <p className="text-sm text-muted-foreground">
+              Budete automaticky odhlaseny za <span className="font-bold text-destructive text-base" data-testid="text-idle-countdown">{secondsLeft}</span> sekund z dovodu necinnosti.
+            </p>
+            <Button variant="default" onClick={dismissWarning} data-testid="button-dismiss-idle-warning">
+              Pokracovat v praci
+            </Button>
+          </div>
+        </div>
+      )}
     </SidebarProvider>
   );
 }

@@ -12,6 +12,7 @@ const MODULE_MAP: Record<string, string> = {
   "/history": "historia",
   "/users": "pouzivatelia",
   "/permission-groups": "skupiny_pravomoci",
+  "/archive": "archiv",
 };
 
 function getModuleFromPath(): string {

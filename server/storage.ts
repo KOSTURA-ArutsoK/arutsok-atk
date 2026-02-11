@@ -40,6 +40,7 @@ export interface IStorage {
   createMyCompany(company: InsertMyCompany): Promise<MyCompany>;
   updateMyCompany(id: number, updates: UpdateMyCompanyRequest): Promise<MyCompany>;
   softDeleteMyCompany(id: number, deletedBy: string, ip: string): Promise<void>;
+  restoreMyCompany(id: number): Promise<void>;
 
   getCompanyOfficers(companyId: number, includeInactive?: boolean): Promise<CompanyOfficer[]>;
   createCompanyOfficer(data: InsertCompanyOfficer): Promise<CompanyOfficer>;
@@ -52,6 +53,7 @@ export interface IStorage {
   createPartner(partner: InsertPartner): Promise<Partner>;
   updatePartner(id: number, updates: UpdatePartnerRequest): Promise<Partner>;
   softDeletePartner(id: number, deletedBy: string, ip: string): Promise<void>;
+  restorePartner(id: number): Promise<void>;
 
   getPartnerContracts(partnerId: number): Promise<PartnerContract[]>;
   createPartnerContract(data: InsertPartnerContract): Promise<PartnerContract>;
@@ -88,6 +90,7 @@ export interface IStorage {
   createProduct(product: InsertProduct): Promise<Product>;
   updateProduct(id: number, updates: Partial<InsertProduct>): Promise<Product>;
   softDeleteProduct(id: number, deletedBy: string, ip: string): Promise<void>;
+  restoreProduct(id: number): Promise<void>;
   getProductsByPartner(partnerId: number): Promise<Product[]>;
   getCommissions(productId?: number): Promise<CommissionScheme[]>;
   createCommission(commission: InsertCommissionScheme): Promise<CommissionScheme>;
@@ -217,6 +220,15 @@ export class DatabaseStorage implements IStorage {
     }).where(eq(myCompanies.id, id));
   }
 
+  async restoreMyCompany(id: number) {
+    await db.update(myCompanies).set({
+      isDeleted: false,
+      deletedBy: null,
+      deletedAt: null,
+      deletedFromIp: null,
+    }).where(eq(myCompanies.id, id));
+  }
+
   async getCompanyOfficers(companyId: number, includeInactive?: boolean) {
     if (includeInactive) {
       return await db.select().from(companyOfficers).where(eq(companyOfficers.companyId, companyId));
@@ -314,6 +326,15 @@ export class DatabaseStorage implements IStorage {
       deletedBy,
       deletedAt: new Date(),
       deletedFromIp: ip,
+    }).where(eq(partners.id, id));
+  }
+
+  async restorePartner(id: number) {
+    await db.update(partners).set({
+      isDeleted: false,
+      deletedBy: null,
+      deletedAt: null,
+      deletedFromIp: null,
     }).where(eq(partners.id, id));
   }
 
@@ -549,6 +570,15 @@ export class DatabaseStorage implements IStorage {
       deletedBy,
       deletedAt: new Date(),
       deletedFromIp: ip,
+    }).where(eq(products.id, id));
+  }
+
+  async restoreProduct(id: number) {
+    await db.update(products).set({
+      isDeleted: false,
+      deletedBy: null,
+      deletedAt: null,
+      deletedFromIp: null,
     }).where(eq(products.id, id));
   }
 

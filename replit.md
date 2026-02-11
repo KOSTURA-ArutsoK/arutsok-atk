@@ -26,8 +26,12 @@ The system is built on a modern full-stack architecture:
 - **Role-Based Access Control (RBAC)**: A granular RBAC system uses `permission_groups` and a `permissions` matrix (module x action) to control access to different parts of the application.
 - **Processing Time Protocol**: Tracks form editing duration (`processingTimeSec`) for all create/edit forms, displayed as HH:MM:SS format ("Cas spracovania").
 - **Global Click Logging**: Every button click is captured and logged to `audit_logs` via `/api/click-log` endpoint with 500ms throttle. Visible in History as "Kliknutie" action type.
-- **Idle Timeout Security**: 180-second inactivity auto-logout with Slovak notification message. Tracks mousemove/keydown/scroll events with 10s throttle.
+- **Idle Timeout Security**: Two-phase idle timeout system. Warning overlay with blur effect, audio beep, and 60s countdown at 120s of inactivity. Full auto-logout at 180s. Dismiss button resets timers. Tracks mousemove/keydown/mousedown/touchstart/scroll events with 10s throttle.
 - **Modal Scroll Lock**: CSS prevents background scrolling when dialogs are open via `body[data-scroll-locked]` targeting.
+- **Archive Module**: Dedicated `/archive` page showing all soft-deleted companies, partners, and products in tabbed view. Restore operations are password-protected (server-side validation via `ARCHIVE_RESTORE_PASSWORD` env var) and restricted to admin/superadmin roles.
+- **Dialog Sizing**: All application dialogs use fixed 800x600px dimensions (`sm:max-w-[800px] h-[600px] overflow-y-auto`).
+- **Click Log Format**: Click events logged in Slovak format: `Kliknutie na tlacidlo [X] v module [Y]`.
+- **Processing Save Button**: Formerly WameSaveButton, renamed to `ProcessingSaveButton` in `processing-save-button.tsx`.
 
 ## External Dependencies
 - **Replit OIDC Auth**: Used for user authentication and session management.

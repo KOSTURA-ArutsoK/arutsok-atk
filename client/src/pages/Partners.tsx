@@ -55,7 +55,7 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { RichTextEditor } from "@/components/rich-text-editor";
-import { WameSaveButton } from "@/components/wame-save-button";
+import { ProcessingSaveButton } from "@/components/processing-save-button";
 
 const specializationOptions = [
   { value: "SFA", label: "SFA" },
@@ -191,7 +191,7 @@ function PartnerFormDialog({
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent className="max-h-[85vh] overflow-y-auto">
+      <DialogContent className="sm:max-w-[800px] h-[600px] overflow-y-auto">
         <DialogHeader>
           <DialogTitle data-testid="text-partner-dialog-title">
             {editingPartner ? "Upravit partnera" : "Pridat noveho partnera"}
@@ -365,7 +365,7 @@ function PartnerFormDialog({
               </TabsContent>
             </Tabs>
 
-            <WameSaveButton isPending={isPending} />
+            <ProcessingSaveButton isPending={isPending} />
           </form>
         </Form>
       </DialogContent>
@@ -557,7 +557,7 @@ function PartnerDetailDialog({
 
   return (
     <Dialog open onOpenChange={onClose}>
-      <DialogContent className="max-h-[85vh] overflow-y-auto">
+      <DialogContent className="sm:max-w-[800px] h-[600px] overflow-y-auto">
         <DialogHeader>
           <div className="flex items-center gap-3 flex-wrap">
             <div className="w-10 h-10 rounded-md bg-primary/10 flex items-center justify-center flex-shrink-0">

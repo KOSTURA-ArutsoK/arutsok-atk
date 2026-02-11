@@ -1,7 +1,7 @@
 import { Save, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
-interface WameSaveButtonProps {
+interface ProcessingSaveButtonProps {
   isPending: boolean;
   onClick?: () => void;
   type?: "submit" | "button";
@@ -9,14 +9,14 @@ interface WameSaveButtonProps {
   className?: string;
 }
 
-export function WameSaveButton({ isPending, onClick, type = "submit", disabled, className }: WameSaveButtonProps) {
+export function ProcessingSaveButton({ isPending, onClick, type = "submit", disabled, className }: ProcessingSaveButtonProps) {
   return (
     <div className={`sticky bottom-0 z-50 bg-background/95 backdrop-blur border-t border-border p-3 flex justify-end ${className || ""}`}>
       <Button
         type={type}
         onClick={onClick}
         disabled={isPending || disabled}
-        data-testid="button-save-wame"
+        data-testid="button-save-processing"
       >
         {isPending ? (
           <>

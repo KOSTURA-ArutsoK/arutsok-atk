@@ -19,6 +19,7 @@ import PermissionGroups from "@/pages/PermissionGroups";
 import History from "@/pages/History";
 import Commissions from "@/pages/Commissions";
 import Settings from "@/pages/Settings";
+import Archive from "@/pages/Archive";
 import { AppShell } from "@/components/layout/AppShell";
 
 function PrivateRoute({ component: Component, ...rest }: any) {
@@ -61,6 +62,7 @@ function Router() {
       <Route path="/history" component={() => <PrivateRoute component={History} />} />
       <Route path="/users" component={() => <PrivateRoute component={Users} />} />
       <Route path="/permission-groups" component={() => <PrivateRoute component={PermissionGroups} />} />
+      <Route path="/archive" component={() => <PrivateRoute component={Archive} />} />
 
       <Route component={NotFound} />
     </Switch>

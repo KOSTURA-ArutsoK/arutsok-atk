@@ -34,7 +34,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import type { PermissionGroup, Permission } from "@shared/schema";
-import { WameSaveButton } from "@/components/wame-save-button";
+import { ProcessingSaveButton } from "@/components/processing-save-button";
 
 const MODULES = [
   { key: "dashboard", label: "Prehlad" },
@@ -129,7 +129,7 @@ function GroupFormDialog({
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent>
+      <DialogContent className="sm:max-w-[800px] h-[600px] overflow-y-auto">
         <DialogHeader>
           <DialogTitle data-testid="text-group-dialog-title">
             {editingGroup ? "Upravit skupinu" : "Pridat skupinu"}
@@ -158,7 +158,7 @@ function GroupFormDialog({
             </Button>
           </div>
 
-          <WameSaveButton isPending={isPending} />
+          <ProcessingSaveButton isPending={isPending} />
         </form>
       </DialogContent>
     </Dialog>

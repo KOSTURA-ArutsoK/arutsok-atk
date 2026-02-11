@@ -12,6 +12,7 @@ import {
   Briefcase,
   LogOut,
   Shield,
+  Archive,
 } from "lucide-react";
 import {
   Sidebar,
@@ -41,6 +42,7 @@ const navItems = [
 const systemItems = [
   { href: "/settings", icon: Settings, label: "Nastavenia" },
   { href: "/history", icon: History, label: "Historia a logy" },
+  { href: "/archive", icon: Archive, label: "Archiv" },
   { href: "/users", icon: Users, label: "Pouzivatelia" },
   { href: "/permission-groups", icon: Shield, label: "Skupiny pravomoci" },
 ];
