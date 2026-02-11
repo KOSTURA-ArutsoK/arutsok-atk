@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -69,6 +69,7 @@ function GroupFormDialog({
   const { toast } = useToast();
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
+  const timerRef = useRef<number>(0);
 
   const createMutation = useMutation({
     mutationFn: (data: any) => apiRequest("POST", "/api/permission-groups", data),
@@ -97,6 +98,7 @@ function GroupFormDialog({
 
   function handleOpenChange(isOpen: boolean) {
     if (isOpen) {
+      timerRef.current = performance.now();
       if (editingGroup) {
         setName(editingGroup.name);
         setDescription(editingGroup.description || "");
@@ -114,7 +116,8 @@ function GroupFormDialog({
       toast({ title: "Chyba", description: "Nazov je povinny", variant: "destructive" });
       return;
     }
-    const payload = { name, description: description || null };
+    const processingTimeSec = Math.round((performance.now() - timerRef.current) / 1000);
+    const payload = { name, description: description || null, processingTimeSec };
     if (editingGroup) {
       updateMutation.mutate({ id: editingGroup.id, data: payload });
     } else {
@@ -126,7 +129,7 @@ function GroupFormDialog({
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent className="max-w-md">
+      <DialogContent>
         <DialogHeader>
           <DialogTitle data-testid="text-group-dialog-title">
             {editingGroup ? "Upravit skupinu" : "Pridat skupinu"}

@@ -17,18 +17,9 @@ import Products from "@/pages/Products";
 import Users from "@/pages/Users";
 import PermissionGroups from "@/pages/PermissionGroups";
 import History from "@/pages/History";
+import Commissions from "@/pages/Commissions";
+import Settings from "@/pages/Settings";
 import { AppShell } from "@/components/layout/AppShell";
-
-function PlaceholderPage({ title }: { title: string }) {
-  return (
-    <div className="flex items-center justify-center h-full">
-      <div className="text-center space-y-2">
-        <h2 className="text-xl font-bold">{title}</h2>
-        <p className="text-sm text-muted-foreground">Tento modul bude dostupny v dalsej verzii.</p>
-      </div>
-    </div>
-  );
-}
 
 function PrivateRoute({ component: Component, ...rest }: any) {
   const { user, isLoading } = useAuth();
@@ -65,8 +56,8 @@ function Router() {
       <Route path="/companies" component={() => <PrivateRoute component={Companies} />} />
       <Route path="/partners" component={() => <PrivateRoute component={Partners} />} />
       <Route path="/products" component={() => <PrivateRoute component={Products} />} />
-      <Route path="/commissions" component={() => <PrivateRoute component={() => <PlaceholderPage title="Provizie" />} />} />
-      <Route path="/settings" component={() => <PrivateRoute component={() => <PlaceholderPage title="Nastavenia" />} />} />
+      <Route path="/commissions" component={() => <PrivateRoute component={Commissions} />} />
+      <Route path="/settings" component={() => <PrivateRoute component={Settings} />} />
       <Route path="/history" component={() => <PrivateRoute component={History} />} />
       <Route path="/users" component={() => <PrivateRoute component={Users} />} />
       <Route path="/permission-groups" component={() => <PrivateRoute component={PermissionGroups} />} />

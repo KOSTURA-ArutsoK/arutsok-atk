@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -94,6 +94,7 @@ function UserFormDialog({
 }) {
   const { toast } = useToast();
   const [form, setForm] = useState<UserFormData>(emptyForm);
+  const timerRef = useRef<number>(0);
 
   const { data: permGroups } = useQuery<PermissionGroup[]>({
     queryKey: ["/api/permission-groups"],
@@ -126,6 +127,7 @@ function UserFormDialog({
 
   function handleOpenChange(isOpen: boolean) {
     if (isOpen) {
+      timerRef.current = performance.now();
       if (editingUser) {
         setForm({
           username: editingUser.username,
@@ -152,6 +154,7 @@ function UserFormDialog({
       toast({ title: "Chyba", description: "Pouzivatelske meno je povinne", variant: "destructive" });
       return;
     }
+    const processingTimeSec = Math.round((performance.now() - timerRef.current) / 1000);
 
     const payload: any = {
       username: form.username,
@@ -164,6 +167,7 @@ function UserFormDialog({
       securityLevel: form.securityLevel,
       permissionGroupId: form.permissionGroupId,
       adminCode: form.adminCode || null,
+      processingTimeSec,
     };
 
     if (editingUser) {
@@ -177,7 +181,7 @@ function UserFormDialog({
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
+      <DialogContent className="max-h-[85vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle data-testid="text-user-dialog-title">
             {editingUser ? "Upravit pouzivatela" : "Pridat pouzivatela"}

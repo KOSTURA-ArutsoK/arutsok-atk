@@ -44,7 +44,7 @@ function SubjectDetailDialog({ subject, onClose }: { subject: Subject; onClose: 
 
   return (
     <Dialog open onOpenChange={onClose}>
-      <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
+      <DialogContent className="max-h-[85vh] overflow-y-auto">
         <DialogHeader>
           <div className="flex items-center gap-3 flex-wrap">
             <div className="w-10 h-10 rounded-md bg-primary/10 flex items-center justify-center flex-shrink-0">
@@ -166,7 +166,7 @@ function CreateSubjectDialog({ open, onOpenChange }: { open: boolean; onOpenChan
 
   return (
     <Dialog open={open} onOpenChange={handleOpen}>
-      <DialogContent className="max-w-2xl">
+      <DialogContent className="max-h-[85vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Registracia noveho subjektu</DialogTitle>
           <DialogDescription>
@@ -211,14 +211,14 @@ function CreateSubjectDialog({ open, onOpenChange }: { open: boolean; onOpenChan
                 <FormField control={form.control} name="firstName" render={({ field }) => (
                   <FormItem>
                     <FormLabel>Meno</FormLabel>
-                    <FormControl><Input {...field} data-testid="input-subject-firstname" /></FormControl>
+                    <FormControl><Input {...field} value={field.value || ""} data-testid="input-subject-firstname" /></FormControl>
                     <FormMessage />
                   </FormItem>
                 )} />
                 <FormField control={form.control} name="lastName" render={({ field }) => (
                   <FormItem>
                     <FormLabel>Priezvisko</FormLabel>
-                    <FormControl><Input {...field} data-testid="input-subject-lastname" /></FormControl>
+                    <FormControl><Input {...field} value={field.value || ""} data-testid="input-subject-lastname" /></FormControl>
                     <FormMessage />
                   </FormItem>
                 )} />
@@ -227,7 +227,7 @@ function CreateSubjectDialog({ open, onOpenChange }: { open: boolean; onOpenChan
               <FormField control={form.control} name="companyName" render={({ field }) => (
                 <FormItem>
                   <FormLabel>Nazov spolocnosti</FormLabel>
-                  <FormControl><Input {...field} data-testid="input-subject-companyname" /></FormControl>
+                  <FormControl><Input {...field} value={field.value || ""} data-testid="input-subject-companyname" /></FormControl>
                   <FormMessage />
                 </FormItem>
               )} />
