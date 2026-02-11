@@ -367,6 +367,22 @@ export const companyOfficersRelations = relations(companyOfficers, ({ one }) => 
   company: one(myCompanies, { fields: [companyOfficers.companyId], references: [myCompanies.id] }),
 }));
 
+// === AUDIT LOGS ===
+export const auditLogs = pgTable("audit_logs", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id"),
+  username: text("username"),
+  action: text("action").notNull(),
+  module: text("module").notNull(),
+  entityId: integer("entity_id"),
+  entityName: text("entity_name"),
+  oldData: jsonb("old_data"),
+  newData: jsonb("new_data"),
+  processingTimeSec: integer("processing_time_sec").default(0),
+  ipAddress: text("ip_address"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
 // === ZOD SCHEMAS ===
 export const insertSubjectSchema = createInsertSchema(subjects).omit({ id: true, uid: true, createdAt: true });
 export const insertMyCompanySchema = createInsertSchema(myCompanies).omit({ id: true, createdAt: true, updatedAt: true, isDeleted: true, uid: true, deletedBy: true, deletedAt: true, deletedFromIp: true });
@@ -385,6 +401,7 @@ export const insertCommunicationMatrixSchema = createInsertSchema(communicationM
 export const insertCompanyContactSchema = createInsertSchema(companyContacts).omit({ id: true, createdAt: true });
 export const insertContractAmendmentSchema = createInsertSchema(contractAmendments).omit({ id: true, createdAt: true });
 export const insertUserProfileSchema = createInsertSchema(userProfiles).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertAuditLogSchema = createInsertSchema(auditLogs).omit({ id: true, createdAt: true });
 
 // === EXPLICIT TYPES ===
 export type Subject = typeof subjects.$inferSelect;
@@ -418,6 +435,9 @@ export type ContractAmendment = typeof contractAmendments.$inferSelect;
 export type InsertContractAmendment = z.infer<typeof insertContractAmendmentSchema>;
 export type UserProfile = typeof userProfiles.$inferSelect;
 export type InsertUserProfile = z.infer<typeof insertUserProfileSchema>;
+
+export type AuditLog = typeof auditLogs.$inferSelect;
+export type InsertAuditLog = z.infer<typeof insertAuditLogSchema>;
 
 export type CreateSubjectRequest = InsertSubject;
 export type UpdateSubjectRequest = Partial<InsertSubject> & { changeReason?: string };
