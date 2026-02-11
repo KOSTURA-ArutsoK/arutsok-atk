@@ -7,6 +7,30 @@ import { z } from "zod";
 import { continents, states, myCompanies, appUsers } from "@shared/schema";
 import { db } from "./db";
 import { eq } from "drizzle-orm";
+import multer from "multer";
+import path from "path";
+import fs from "fs";
+
+const UPLOADS_DIR = path.join(process.cwd(), "uploads");
+fs.mkdirSync(path.join(UPLOADS_DIR, "official"), { recursive: true });
+fs.mkdirSync(path.join(UPLOADS_DIR, "work"), { recursive: true });
+
+const uploadStorage = multer.diskStorage({
+  destination: (req, _file, cb) => {
+    const section = (req.params as any).section === "work" ? "work" : "official";
+    cb(null, path.join(UPLOADS_DIR, section));
+  },
+  filename: (_req, file, cb) => {
+    const uniqueSuffix = Date.now() + "-" + Math.round(Math.random() * 1e6);
+    const ext = path.extname(file.originalname);
+    cb(null, uniqueSuffix + ext);
+  },
+});
+
+const upload = multer({
+  storage: uploadStorage,
+  limits: { fileSize: 20 * 1024 * 1024 },
+});
 
 export async function registerRoutes(
   httpServer: Server,
@@ -66,17 +90,17 @@ export async function registerRoutes(
   });
 
   // === MY COMPANIES ===
-  app.get(api.myCompanies.list.path, async (req, res) => {
+  app.get(api.myCompanies.list.path, isAuthenticated, async (req, res) => {
     res.json(await storage.getMyCompanies());
   });
 
-  app.get(api.myCompanies.get.path, async (req, res) => {
+  app.get(api.myCompanies.get.path, isAuthenticated, async (req, res) => {
     const company = await storage.getMyCompany(Number(req.params.id));
     if (!company) return res.status(404).json({ message: "Company not found" });
     res.json(company);
   });
 
-  app.post(api.myCompanies.create.path, async (req, res) => {
+  app.post(api.myCompanies.create.path, isAuthenticated, async (req, res) => {
     try {
       const input = api.myCompanies.create.input.parse(req.body);
       const created = await storage.createMyCompany(input);
@@ -87,7 +111,7 @@ export async function registerRoutes(
     }
   });
 
-  app.put(api.myCompanies.update.path, async (req, res) => {
+  app.put(api.myCompanies.update.path, isAuthenticated, async (req, res) => {
     try {
       const input = api.myCompanies.update.input.parse(req.body);
       const updated = await storage.updateMyCompany(Number(req.params.id), input);
@@ -99,7 +123,7 @@ export async function registerRoutes(
     }
   });
 
-  app.delete(api.myCompanies.delete.path, async (req, res) => {
+  app.delete(api.myCompanies.delete.path, isAuthenticated, async (req, res) => {
     try {
       await storage.softDeleteMyCompany(Number(req.params.id));
       res.json({ success: true });
@@ -192,6 +216,73 @@ export async function registerRoutes(
     } catch (err) {
       if (err instanceof z.ZodError) return res.status(400).json({ message: err.errors[0].message });
       throw err;
+    }
+  });
+
+  // === FILE UPLOAD / DOWNLOAD / DELETE ===
+  app.post("/api/my-companies/:companyId/files/:section", isAuthenticated, upload.single("file"), async (req, res) => {
+    try {
+      const companyId = Number(req.params.companyId);
+      const section = req.params.section as "official" | "work";
+      if (!["official", "work"].includes(section)) return res.status(400).json({ message: "Invalid section" });
+
+      const company = await storage.getMyCompany(companyId);
+      if (!company) return res.status(404).json({ message: "Company not found" });
+
+      const file = req.file;
+      if (!file) return res.status(400).json({ message: "No file uploaded" });
+
+      const docEntry = {
+        name: file.originalname,
+        url: `/api/files/${section}/${file.filename}`,
+        uploadedAt: new Date().toISOString(),
+      };
+
+      const docsField = section === "official" ? "officialDocs" : "workDocs";
+      const currentDocs = (company[docsField] as any[]) || [];
+      const updatedDocs = [...currentDocs, docEntry];
+
+      await storage.updateMyCompany(companyId, { [docsField]: updatedDocs, changeReason: `File uploaded: ${file.originalname}` });
+
+      res.status(201).json(docEntry);
+    } catch (err) {
+      console.error("File upload error:", err);
+      res.status(500).json({ message: "Upload failed" });
+    }
+  });
+
+  app.get("/api/files/:section/:filename", isAuthenticated, (req, res) => {
+    const { section, filename } = req.params;
+    if (!["official", "work"].includes(section)) return res.status(400).json({ message: "Invalid section" });
+    const filePath = path.join(UPLOADS_DIR, section, filename);
+    if (!fs.existsSync(filePath)) return res.status(404).json({ message: "File not found" });
+    res.sendFile(filePath);
+  });
+
+  app.delete("/api/my-companies/:companyId/files/:section", isAuthenticated, async (req, res) => {
+    try {
+      const companyId = Number(req.params.companyId);
+      const section = req.params.section as "official" | "work";
+      const { fileUrl } = req.body;
+
+      const company = await storage.getMyCompany(companyId);
+      if (!company) return res.status(404).json({ message: "Company not found" });
+
+      const docsField = section === "official" ? "officialDocs" : "workDocs";
+      const currentDocs = (company[docsField] as any[]) || [];
+      const updatedDocs = currentDocs.filter((d: any) => d.url !== fileUrl);
+
+      const filename = fileUrl.split("/").pop();
+      if (filename) {
+        const filePath = path.join(UPLOADS_DIR, section, filename);
+        if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
+      }
+
+      await storage.updateMyCompany(companyId, { [docsField]: updatedDocs, changeReason: `File deleted` });
+      res.json({ success: true });
+    } catch (err) {
+      console.error("File delete error:", err);
+      res.status(500).json({ message: "Delete failed" });
     }
   });
 
