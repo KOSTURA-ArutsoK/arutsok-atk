@@ -3,6 +3,15 @@ import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import type { Subject, InsertSubject } from "@shared/schema";
 
+export type CareerHistoryEntry = {
+  type: 'internal' | 'external';
+  entityName: string;
+  role: string;
+  validFrom: string | null;
+  validTo: string | null;
+  isActive: boolean;
+};
+
 export function useSubjects(filters?: { search?: string; type?: 'person' | 'company' }) {
   const params = new URLSearchParams();
   if (filters?.search) params.append("search", filters.search);
@@ -16,6 +25,18 @@ export function useSubjects(filters?: { search?: string; type?: 'person' | 'comp
       if (!res.ok) throw new Error("Failed to fetch subjects");
       return res.json();
     },
+  });
+}
+
+export function useSubjectCareerHistory(subjectId: number | null) {
+  return useQuery<CareerHistoryEntry[]>({
+    queryKey: ["/api/subjects", subjectId, "career-history"],
+    queryFn: async () => {
+      const res = await fetch(`/api/subjects/${subjectId}/career-history`, { credentials: "include" });
+      if (!res.ok) throw new Error("Failed to fetch career history");
+      return res.json();
+    },
+    enabled: !!subjectId,
   });
 }
 

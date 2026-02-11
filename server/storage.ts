@@ -4,6 +4,7 @@ import {
   continents, states, subjectArchive, companyArchive, appUsers,
   companyOfficers, partnerContracts, partnerContacts, partnerProducts,
   contactProductAssignments, communicationMatrix, globalCounters,
+  companyContacts,
   type Subject, type InsertSubject, 
   type MyCompany, type InsertMyCompany,
   type Partner, type InsertPartner,
@@ -17,8 +18,9 @@ import {
   type PartnerProduct, type InsertPartnerProduct,
   type PartnerContract, type InsertPartnerContract,
   type CommunicationMatrixEntry,
+  type CompanyContact,
 } from "@shared/schema";
-import { eq, and, or, ne, like, sql } from "drizzle-orm";
+import { eq, and, or, ne, like, sql, lte } from "drizzle-orm";
 
 export interface IStorage {
   generateUID(stateCode: string, continentCode?: string): Promise<string>;
@@ -33,9 +35,11 @@ export interface IStorage {
   updateMyCompany(id: number, updates: UpdateMyCompanyRequest): Promise<MyCompany>;
   softDeleteMyCompany(id: number): Promise<void>;
 
-  getCompanyOfficers(companyId: number): Promise<CompanyOfficer[]>;
+  getCompanyOfficers(companyId: number, includeInactive?: boolean): Promise<CompanyOfficer[]>;
   createCompanyOfficer(data: InsertCompanyOfficer): Promise<CompanyOfficer>;
+  updateCompanyOfficer(id: number, data: Partial<InsertCompanyOfficer>): Promise<CompanyOfficer>;
   deleteCompanyOfficer(id: number): Promise<void>;
+  autoArchiveExpiredBindings(): Promise<void>;
   
   getPartners(includeDeleted?: boolean): Promise<Partner[]>;
   getPartner(id: number): Promise<Partner | undefined>;
@@ -47,10 +51,11 @@ export interface IStorage {
   createPartnerContract(data: InsertPartnerContract): Promise<PartnerContract>;
   deletePartnerContract(id: number): Promise<void>;
 
-  getPartnerContacts(partnerId: number): Promise<PartnerContact[]>;
+  getPartnerContacts(partnerId: number, includeInactive?: boolean): Promise<PartnerContact[]>;
   createPartnerContact(data: InsertPartnerContact): Promise<PartnerContact>;
   updatePartnerContact(id: number, data: Partial<InsertPartnerContact>): Promise<PartnerContact>;
   deletePartnerContact(id: number): Promise<void>;
+  swapContactForProduct(oldContactId: number, newContactData: InsertPartnerContact, productId: number): Promise<PartnerContact>;
 
   getPartnerProducts(partnerId: number): Promise<PartnerProduct[]>;
   createPartnerProduct(data: InsertPartnerProduct): Promise<PartnerProduct>;
@@ -76,6 +81,15 @@ export interface IStorage {
   createProduct(product: Omit<Product, "id">): Promise<Product>;
   getCommissions(productId?: number): Promise<CommissionScheme[]>;
   createCommission(commission: Omit<CommissionScheme, "id">): Promise<CommissionScheme>;
+
+  getSubjectCareerHistory(subjectId: number): Promise<{
+    type: 'internal' | 'external';
+    entityName: string;
+    role: string;
+    validFrom: Date | null;
+    validTo: Date | null;
+    isActive: boolean;
+  }[]>;
 
   getAppUserByReplitId(replitId: string): Promise<AppUser | undefined>;
   updateAppUser(id: number, data: Partial<AppUser>): Promise<AppUser>;
@@ -164,8 +178,11 @@ export class DatabaseStorage implements IStorage {
     await db.update(myCompanies).set({ isDeleted: true }).where(eq(myCompanies.id, id));
   }
 
-  async getCompanyOfficers(companyId: number) {
-    return await db.select().from(companyOfficers).where(eq(companyOfficers.companyId, companyId));
+  async getCompanyOfficers(companyId: number, includeInactive?: boolean) {
+    if (includeInactive) {
+      return await db.select().from(companyOfficers).where(eq(companyOfficers.companyId, companyId));
+    }
+    return await db.select().from(companyOfficers).where(and(eq(companyOfficers.companyId, companyId), eq(companyOfficers.isActive, true)));
   }
 
   async createCompanyOfficer(data: InsertCompanyOfficer) {
@@ -173,8 +190,36 @@ export class DatabaseStorage implements IStorage {
     return officer;
   }
 
+  async updateCompanyOfficer(id: number, data: Partial<InsertCompanyOfficer>) {
+    const updateData: Record<string, any> = {};
+    for (const [key, value] of Object.entries(data)) {
+      if (value !== undefined) updateData[key] = value;
+    }
+    if (updateData.validTo) {
+      const validToDate = new Date(updateData.validTo);
+      if (validToDate <= new Date()) {
+        updateData.isActive = false;
+      }
+    }
+    const [updated] = await db.update(companyOfficers).set(updateData).where(eq(companyOfficers.id, id)).returning();
+    return updated;
+  }
+
   async deleteCompanyOfficer(id: number) {
     await db.delete(companyOfficers).where(eq(companyOfficers.id, id));
+  }
+
+  async autoArchiveExpiredBindings() {
+    const now = new Date();
+    await db.update(companyOfficers)
+      .set({ isActive: false })
+      .where(and(eq(companyOfficers.isActive, true), lte(companyOfficers.validTo, now)));
+    await db.update(partnerContacts)
+      .set({ isActive: false })
+      .where(and(eq(partnerContacts.isActive, true), lte(partnerContacts.validTo, now)));
+    await db.update(companyContacts)
+      .set({ isActive: false })
+      .where(and(eq(companyContacts.isActive, true), lte(companyContacts.validTo, now)));
   }
 
   async getPartners(includeDeleted?: boolean) {
@@ -246,23 +291,53 @@ export class DatabaseStorage implements IStorage {
     await db.delete(partnerContracts).where(eq(partnerContracts.id, id));
   }
 
-  async getPartnerContacts(partnerId: number) {
-    return await db.select().from(partnerContacts).where(eq(partnerContacts.partnerId, partnerId));
+  async getPartnerContacts(partnerId: number, includeInactive?: boolean) {
+    if (includeInactive) {
+      return await db.select().from(partnerContacts).where(eq(partnerContacts.partnerId, partnerId));
+    }
+    return await db.select().from(partnerContacts).where(and(eq(partnerContacts.partnerId, partnerId), eq(partnerContacts.isActive, true)));
   }
 
   async createPartnerContact(data: InsertPartnerContact) {
-    const [contact] = await db.insert(partnerContacts).values(data).returning();
+    const insertData: any = { ...data };
+    if (insertData.validTo) {
+      const validToDate = new Date(insertData.validTo);
+      if (validToDate <= new Date()) {
+        insertData.isActive = false;
+      }
+    }
+    const [contact] = await db.insert(partnerContacts).values(insertData).returning();
     return contact;
   }
 
   async updatePartnerContact(id: number, data: Partial<InsertPartnerContact>) {
-    const [updated] = await db.update(partnerContacts).set(data).where(eq(partnerContacts.id, id)).returning();
+    const updateData: Record<string, any> = {};
+    for (const [key, value] of Object.entries(data)) {
+      if (value !== undefined) updateData[key] = value;
+    }
+    if (updateData.validTo) {
+      const validToDate = new Date(updateData.validTo);
+      if (validToDate <= new Date()) {
+        updateData.isActive = false;
+      }
+    }
+    const [updated] = await db.update(partnerContacts).set(updateData).where(eq(partnerContacts.id, id)).returning();
     return updated;
   }
 
   async deletePartnerContact(id: number) {
     await db.delete(contactProductAssignments).where(eq(contactProductAssignments.contactId, id));
     await db.delete(partnerContacts).where(eq(partnerContacts.id, id));
+  }
+
+  async swapContactForProduct(oldContactId: number, newContactData: InsertPartnerContact, productId: number) {
+    await this.updatePartnerContact(oldContactId, { validTo: new Date() as any, isActive: false } as any);
+    await db.delete(contactProductAssignments).where(
+      and(eq(contactProductAssignments.contactId, oldContactId), eq(contactProductAssignments.productId, productId))
+    );
+    const newContact = await this.createPartnerContact(newContactData);
+    await db.insert(contactProductAssignments).values({ contactId: newContact.id, productId });
+    return newContact;
   }
 
   async getPartnerProducts(partnerId: number) {
@@ -401,6 +476,64 @@ export class DatabaseStorage implements IStorage {
   async createCommission(commission: Omit<CommissionScheme, "id">) {
     const [newCommission] = await db.insert(commissionSchemes).values(commission).returning();
     return newCommission;
+  }
+
+  async getSubjectCareerHistory(subjectId: number) {
+    const history: {
+      type: 'internal' | 'external';
+      entityName: string;
+      role: string;
+      validFrom: Date | null;
+      validTo: Date | null;
+      isActive: boolean;
+    }[] = [];
+
+    const officerRecords = await db.select().from(companyOfficers).where(eq(companyOfficers.subjectId, subjectId));
+    for (const o of officerRecords) {
+      const [company] = await db.select().from(myCompanies).where(eq(myCompanies.id, o.companyId));
+      history.push({
+        type: 'internal',
+        entityName: company?.name || `Firma #${o.companyId}`,
+        role: `Interny kontakt - ${o.type}`,
+        validFrom: o.validFrom,
+        validTo: o.validTo,
+        isActive: o.isActive ?? true,
+      });
+    }
+
+    const contactRecords = await db.select().from(partnerContacts).where(eq(partnerContacts.subjectId, subjectId));
+    for (const c of contactRecords) {
+      const [partner] = await db.select().from(partners).where(eq(partners.id, c.partnerId));
+      history.push({
+        type: 'external',
+        entityName: partner?.name || `Partner #${c.partnerId}`,
+        role: `Externy kontakt${c.position ? ` - ${c.position}` : ''}`,
+        validFrom: c.validFrom,
+        validTo: c.validTo,
+        isActive: c.isActive ?? true,
+      });
+    }
+
+    const internalContacts = await db.select().from(companyContacts).where(eq(companyContacts.subjectId, subjectId));
+    for (const ic of internalContacts) {
+      const [company] = await db.select().from(myCompanies).where(eq(myCompanies.id, ic.companyId));
+      history.push({
+        type: 'internal',
+        entityName: company?.name || `Firma #${ic.companyId}`,
+        role: `Interny kontakt - ${ic.contactType}`,
+        validFrom: ic.validFrom,
+        validTo: ic.validTo,
+        isActive: ic.isActive ?? true,
+      });
+    }
+
+    history.sort((a, b) => {
+      const aDate = a.validFrom ? new Date(a.validFrom).getTime() : 0;
+      const bDate = b.validFrom ? new Date(b.validFrom).getTime() : 0;
+      return bDate - aDate;
+    });
+
+    return history;
   }
 
   async getAppUserByReplitId(replitId: string) {

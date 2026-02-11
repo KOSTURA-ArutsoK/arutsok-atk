@@ -102,6 +102,15 @@ Multi-tenant CRM and commission tracking system for financial services, real est
 - Slovak language throughout the application
 - Sharp borders, small border radius
 
+## Temporal Validity System
+- **Validity Period**: companyOfficers, partnerContacts, companyContacts tables have `validFrom` (defaults NOW()), `validTo` (nullable = indefinite), and `isActive` fields
+- **Auto-Archive**: Hourly cron job (setInterval 1hr) marks expired bindings (validTo <= now) as `isActive=false`
+- **Contact Swap**: PUT `/api/partner-contacts/:id/swap` auto-terminates old contact (sets validTo=today), creates new contact with product assignments
+- **Career History**: GET `/api/subjects/:id/career-history` aggregates all role assignments from companyOfficers, partnerContacts, companyContacts sorted by validFrom desc
+- **UI Pattern**: Active contacts shown by default, archived contacts in collapsible section with toggle button showing count
+- **Date Format**: Slovak locale (sk-SK), validity ranges shown as "Od: DD.MM.YYYY → Do: DD.MM.YYYY" or "Neurcito"/"Sucasnost"
+- **Schema Changes**: Applied via direct SQL ALTER TABLE (drizzle-kit interactive prompt blocking automation)
+
 ## Recent Changes (2026-02-11)
 - Added global_counters table for atomic UID generation
 - Expanded schema: company_officers, partner_contracts, partner_contacts, partner_products, contact_product_assignments, communication_matrix
@@ -114,3 +123,10 @@ Multi-tenant CRM and commission tracking system for financial services, real est
 - Added Admin/SuperAdmin role protection for company creation
 - Added support for logo management (schema fields: logos, primary, archive)
 - Dialog uses live query data for document list refresh after uploads
+- Added validFrom/validTo/isActive to companyOfficers, partnerContacts, companyContacts
+- Implemented hourly auto-archive cron job for expired temporal bindings
+- Added contact swap endpoint with automatic old contact termination
+- Built subject career history API aggregating all role assignments chronologically
+- Enhanced partner contacts UI with active/archived sections, validity date display, and date inputs for new contacts
+- Added SubjectDetailDialog with "Historia kariery v systeme" timeline visualization
+- Added eye/view button on Subjects table for opening detail dialog

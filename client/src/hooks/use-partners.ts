@@ -104,11 +104,14 @@ export function useCreatePartnerContract() {
   });
 }
 
-export function usePartnerContacts(partnerId: number | null) {
+export function usePartnerContacts(partnerId: number | null, includeInactive: boolean = true) {
   return useQuery<PartnerContact[]>({
-    queryKey: ["/api/partners", partnerId, "contacts"],
+    queryKey: ["/api/partners", partnerId, "contacts", includeInactive],
     queryFn: async () => {
-      const res = await fetch(`/api/partners/${partnerId}/contacts`, { credentials: "include" });
+      const url = includeInactive 
+        ? `/api/partners/${partnerId}/contacts?includeInactive=true`
+        : `/api/partners/${partnerId}/contacts`;
+      const res = await fetch(url, { credentials: "include" });
       if (!res.ok) throw new Error("Failed");
       return res.json();
     },

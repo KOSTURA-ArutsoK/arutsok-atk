@@ -184,7 +184,8 @@ export async function registerRoutes(
 
   // === COMPANY OFFICERS ===
   app.get(api.companyOfficers.list.path, isAuthenticated, async (req, res) => {
-    res.json(await storage.getCompanyOfficers(Number(req.params.companyId)));
+    const includeInactive = req.query.includeInactive === 'true';
+    res.json(await storage.getCompanyOfficers(Number(req.params.companyId), includeInactive));
   });
 
   app.post(api.companyOfficers.create.path, isAuthenticated, async (req, res) => {
@@ -194,6 +195,15 @@ export async function registerRoutes(
     } catch (err) {
       if (err instanceof z.ZodError) return res.status(400).json({ message: err.errors[0].message });
       throw err;
+    }
+  });
+
+  app.put("/api/company-officers/:id", isAuthenticated, async (req, res) => {
+    try {
+      const updated = await storage.updateCompanyOfficer(Number(req.params.id), req.body);
+      res.json(updated);
+    } catch (err) {
+      res.status(500).json({ message: "Internal error" });
     }
   });
 
@@ -280,7 +290,8 @@ export async function registerRoutes(
 
   // === PARTNER CONTACTS ===
   app.get(api.partnerContacts.list.path, isAuthenticated, async (req, res) => {
-    res.json(await storage.getPartnerContacts(Number(req.params.partnerId)));
+    const includeInactive = req.query.includeInactive === 'true';
+    res.json(await storage.getPartnerContacts(Number(req.params.partnerId), includeInactive));
   });
 
   app.post(api.partnerContacts.create.path, isAuthenticated, async (req, res) => {
@@ -373,6 +384,30 @@ export async function registerRoutes(
       res.json({ success: true });
     } catch (err) {
       throw err;
+    }
+  });
+
+  // === CONTACT SWAP (replace contact for product) ===
+  app.post("/api/partner-contacts/:oldContactId/swap", isAuthenticated, async (req, res) => {
+    try {
+      const { newContactData, productId } = req.body;
+      if (!newContactData || !productId) return res.status(400).json({ message: "Missing newContactData or productId" });
+      const newContact = await storage.swapContactForProduct(Number(req.params.oldContactId), newContactData, productId);
+      res.status(201).json(newContact);
+    } catch (err) {
+      console.error("Swap contact error:", err);
+      res.status(500).json({ message: "Internal error" });
+    }
+  });
+
+  // === SUBJECT CAREER HISTORY ===
+  app.get("/api/subjects/:id/career-history", isAuthenticated, async (req, res) => {
+    try {
+      const history = await storage.getSubjectCareerHistory(Number(req.params.id));
+      res.json(history);
+    } catch (err) {
+      console.error("Career history error:", err);
+      res.status(500).json({ message: "Internal error" });
     }
   });
 
@@ -553,6 +588,8 @@ export async function registerRoutes(
   });
 
   await seedDatabase();
+  await storage.autoArchiveExpiredBindings();
+  setInterval(() => storage.autoArchiveExpiredBindings(), 60 * 60 * 1000);
   return httpServer;
 }
 

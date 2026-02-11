@@ -1,7 +1,7 @@
 import { useState, useRef, useCallback } from "react";
 import { usePartners, useCreatePartner, useUpdatePartner, useDeletePartner, usePartnerContracts, usePartnerContacts, usePartnerProducts, useCreatePartnerContract, useCreatePartnerContact, useCreatePartnerProduct } from "@/hooks/use-partners";
 import { useMyCompanies } from "@/hooks/use-companies";
-import { Plus, Briefcase, Pencil, Trash2, Eye, Clock, FileText, Users, Package, Link2, X } from "lucide-react";
+import { Plus, Briefcase, Pencil, Trash2, Eye, Clock, FileText, Users, Package, Link2, X, Calendar, Archive } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -196,6 +196,9 @@ function PartnerDetailDialog({
   const [newContactEmail, setNewContactEmail] = useState("");
   const [newContactPhone, setNewContactPhone] = useState("");
   const [newContactPosition, setNewContactPosition] = useState("");
+  const [newContactValidFrom, setNewContactValidFrom] = useState(new Date().toISOString().split("T")[0]);
+  const [newContactValidTo, setNewContactValidTo] = useState("");
+  const [showArchivedContacts, setShowArchivedContacts] = useState(false);
   const [newProductName, setNewProductName] = useState("");
   const [newProductType, setNewProductType] = useState("Financny");
   const [newProductCode, setNewProductCode] = useState("");
@@ -212,15 +215,22 @@ function PartnerDetailDialog({
 
   function handleAddContact() {
     if (!newContactFirst || !newContactLast) return;
-    createContact.mutate({
-      partnerId: partner.id,
-      data: { firstName: newContactFirst, lastName: newContactLast, email: newContactEmail, phone: newContactPhone, position: newContactPosition, partnerId: partner.id },
-    });
+    const contactData: any = { 
+      firstName: newContactFirst, lastName: newContactLast, email: newContactEmail, 
+      phone: newContactPhone, position: newContactPosition, partnerId: partner.id,
+      validFrom: newContactValidFrom ? new Date(newContactValidFrom).toISOString() : new Date().toISOString(),
+    };
+    if (newContactValidTo) {
+      contactData.validTo = new Date(newContactValidTo).toISOString();
+    }
+    createContact.mutate({ partnerId: partner.id, data: contactData });
     setNewContactFirst("");
     setNewContactLast("");
     setNewContactEmail("");
     setNewContactPhone("");
     setNewContactPosition("");
+    setNewContactValidFrom(new Date().toISOString().split("T")[0]);
+    setNewContactValidTo("");
   }
 
   function handleAddProduct() {
@@ -330,25 +340,67 @@ function PartnerDetailDialog({
             <div className="flex items-center gap-2 flex-wrap">
               <Users className="w-4 h-4 text-muted-foreground" />
               <h4 className="text-sm font-medium">Externy kontakty partnera</h4>
-              <Badge variant="secondary" className="ml-auto">{pContacts?.length || 0}</Badge>
+              <Badge variant="secondary" className="ml-auto">{pContacts?.filter(c => c.isActive !== false).length || 0} aktivnych</Badge>
             </div>
-            {pContacts && pContacts.length > 0 ? (
-              <div className="space-y-2">
-                {pContacts.map(c => (
-                  <div key={c.id} className="flex items-center gap-2 p-2 rounded-md border border-border text-sm" data-testid={`pcontact-${c.id}`}>
-                    <Users className="w-4 h-4 text-muted-foreground flex-shrink-0" />
-                    <div className="flex-1 min-w-0">
-                      <p className="font-medium truncate">{c.titleBefore ? `${c.titleBefore} ` : ""}{c.firstName} {c.lastName}{c.titleAfter ? `, ${c.titleAfter}` : ""}</p>
-                      <p className="text-xs text-muted-foreground">{c.position || ""} {c.email ? `| ${c.email}` : ""} {c.phone ? `| ${c.phone}` : ""}</p>
+            {(() => {
+              const activeContacts = pContacts?.filter(c => c.isActive !== false) || [];
+              const archivedContacts = pContacts?.filter(c => c.isActive === false) || [];
+              return (
+                <>
+                  {activeContacts.length > 0 ? (
+                    <div className="space-y-2">
+                      {activeContacts.map(c => (
+                        <div key={c.id} className="flex items-center gap-2 p-2 rounded-md border border-border text-sm" data-testid={`pcontact-${c.id}`}>
+                          <Users className="w-4 h-4 text-muted-foreground flex-shrink-0" />
+                          <div className="flex-1 min-w-0">
+                            <p className="font-medium truncate">{c.titleBefore ? `${c.titleBefore} ` : ""}{c.firstName} {c.lastName}{c.titleAfter ? `, ${c.titleAfter}` : ""}</p>
+                            <p className="text-xs text-muted-foreground">{c.position || ""} {c.email ? `| ${c.email}` : ""} {c.phone ? `| ${c.phone}` : ""}</p>
+                            <div className="flex items-center gap-1 mt-1 text-xs text-muted-foreground">
+                              <Calendar className="w-3 h-3" />
+                              <span>Od: {c.validFrom ? new Date(c.validFrom).toLocaleDateString("sk-SK") : "-"}</span>
+                              <span>Do: {c.validTo ? new Date(c.validTo).toLocaleDateString("sk-SK") : "Neurcito"}</span>
+                            </div>
+                          </div>
+                          {c.isPrimary && <Badge variant="secondary">Primarny</Badge>}
+                          <Badge variant="outline">SL{c.securityLevel}</Badge>
+                        </div>
+                      ))}
                     </div>
-                    {c.isPrimary && <Badge variant="secondary">Primarny</Badge>}
-                    <Badge variant="outline">SL{c.securityLevel}</Badge>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <p className="text-sm text-muted-foreground text-center py-4">Ziadne kontakty</p>
-            )}
+                  ) : (
+                    <p className="text-sm text-muted-foreground text-center py-4">Ziadne aktivne kontakty</p>
+                  )}
+                  {archivedContacts.length > 0 && (
+                    <div className="space-y-2">
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setShowArchivedContacts(!showArchivedContacts)}
+                        data-testid="button-toggle-archived-contacts"
+                      >
+                        <Archive className="w-4 h-4 mr-1" />
+                        {showArchivedContacts ? "Skryt archiv" : `Zobrazit archiv (${archivedContacts.length})`}
+                      </Button>
+                      {showArchivedContacts && archivedContacts.map(c => (
+                        <div key={c.id} className="flex items-center gap-2 p-2 rounded-md border border-border/50 text-sm opacity-60" data-testid={`pcontact-archived-${c.id}`}>
+                          <Users className="w-4 h-4 text-muted-foreground flex-shrink-0" />
+                          <div className="flex-1 min-w-0">
+                            <p className="font-medium truncate">{c.titleBefore ? `${c.titleBefore} ` : ""}{c.firstName} {c.lastName}{c.titleAfter ? `, ${c.titleAfter}` : ""}</p>
+                            <p className="text-xs text-muted-foreground">{c.position || ""} {c.email ? `| ${c.email}` : ""} {c.phone ? `| ${c.phone}` : ""}</p>
+                            <div className="flex items-center gap-1 mt-1 text-xs text-muted-foreground">
+                              <Calendar className="w-3 h-3" />
+                              <span>Od: {c.validFrom ? new Date(c.validFrom).toLocaleDateString("sk-SK") : "-"}</span>
+                              <span>Do: {c.validTo ? new Date(c.validTo).toLocaleDateString("sk-SK") : "-"}</span>
+                            </div>
+                          </div>
+                          <Badge variant="secondary">Archivovany</Badge>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </>
+              );
+            })()}
             <Separator />
             <div className="space-y-3">
               <h4 className="text-sm font-medium">Pridat kontakt</h4>
@@ -358,6 +410,14 @@ function PartnerDetailDialog({
                 <Input placeholder="Email" value={newContactEmail} onChange={e => setNewContactEmail(e.target.value)} data-testid="input-contact-email" />
                 <Input placeholder="Telefon" value={newContactPhone} onChange={e => setNewContactPhone(e.target.value)} data-testid="input-contact-phone" />
                 <Input placeholder="Pozicia" value={newContactPosition} onChange={e => setNewContactPosition(e.target.value)} className="col-span-2" data-testid="input-contact-position" />
+                <div className="flex flex-col gap-1">
+                  <label className="text-xs text-muted-foreground">Aktivny od</label>
+                  <Input type="date" value={newContactValidFrom} onChange={e => setNewContactValidFrom(e.target.value)} data-testid="input-contact-valid-from" />
+                </div>
+                <div className="flex flex-col gap-1">
+                  <label className="text-xs text-muted-foreground">Aktivny do (prazdne = neurcito)</label>
+                  <Input type="date" value={newContactValidTo} onChange={e => setNewContactValidTo(e.target.value)} data-testid="input-contact-valid-to" />
+                </div>
               </div>
               <Button type="button" size="sm" onClick={handleAddContact} disabled={!newContactFirst || !newContactLast} data-testid="button-add-contact">
                 <Plus className="w-4 h-4 mr-1" /> Pridat kontakt

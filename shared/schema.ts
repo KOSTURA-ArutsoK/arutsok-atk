@@ -80,6 +80,9 @@ export const companyOfficers = pgTable("company_officers", {
   postalCode: text("postal_code"),
   city: text("city"),
   stateId: integer("state_id"),
+  validFrom: timestamp("valid_from").defaultNow(),
+  validTo: timestamp("valid_to"),
+  isActive: boolean("is_active").default(true),
   createdAt: timestamp("created_at").defaultNow(),
 });
 
@@ -127,6 +130,9 @@ export const partnerContacts = pgTable("partner_contacts", {
   subjectId: integer("subject_id"),
   securityLevel: integer("security_level").default(1),
   allProducts: boolean("all_products").default(false),
+  validFrom: timestamp("valid_from").defaultNow(),
+  validTo: timestamp("valid_to"),
+  isActive: boolean("is_active").default(true),
   createdAt: timestamp("created_at").defaultNow(),
 });
 
@@ -165,6 +171,9 @@ export const companyContacts = pgTable("company_contacts", {
   subjectId: integer("subject_id"),
   contactType: text("contact_type").notNull(),
   securityLevel: integer("security_level").default(1),
+  validFrom: timestamp("valid_from").defaultNow(),
+  validTo: timestamp("valid_to"),
+  isActive: boolean("is_active").default(true),
   createdAt: timestamp("created_at").defaultNow(),
 });
 

@@ -1,12 +1,13 @@
 import { useState, useRef } from "react";
-import { useSubjects, useCreateSubject } from "@/hooks/use-subjects";
+import { useSubjects, useCreateSubject, useSubjectCareerHistory } from "@/hooks/use-subjects";
 import { useContinents, useStates } from "@/hooks/use-hierarchy";
 import { useMyCompanies } from "@/hooks/use-companies";
-import { Plus, Search, User, Building2, AlertTriangle } from "lucide-react";
+import { Plus, Search, User, Building2, AlertTriangle, Eye, Calendar, Briefcase, ArrowRight } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
+import { Separator } from "@/components/ui/separator";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription,
 } from "@/components/ui/dialog";
@@ -19,6 +20,7 @@ import {
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { insertSubjectSchema } from "@shared/schema";
+import type { Subject } from "@shared/schema";
 import { z } from "zod";
 import {
   Form, FormControl, FormField, FormItem, FormLabel, FormMessage,
@@ -29,6 +31,105 @@ const createSchema = insertSubjectSchema.extend({
   stateId: z.coerce.number().min(1, "Povinne"),
   myCompanyId: z.coerce.number().min(1, "Povinne"),
 });
+
+function SubjectDetailDialog({ subject, onClose }: { subject: Subject; onClose: () => void }) {
+  const { data: careerHistory, isLoading } = useSubjectCareerHistory(subject.id);
+  const { data: companies } = useMyCompanies();
+  const managingCompany = companies?.find(c => c.id === subject.myCompanyId);
+
+  function formatDate(d: string | null) {
+    if (!d) return null;
+    return new Date(d).toLocaleDateString("sk-SK");
+  }
+
+  return (
+    <Dialog open onOpenChange={onClose}>
+      <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
+        <DialogHeader>
+          <div className="flex items-center gap-3 flex-wrap">
+            <div className="w-10 h-10 rounded-md bg-primary/10 flex items-center justify-center flex-shrink-0">
+              {subject.type === 'person' ? <User className="w-5 h-5 text-primary" /> : <Building2 className="w-5 h-5 text-primary" />}
+            </div>
+            <div className="min-w-0">
+              <DialogTitle data-testid="text-subject-detail-name">
+                {subject.type === 'person'
+                  ? `${subject.lastName}, ${subject.firstName}`
+                  : subject.companyName}
+              </DialogTitle>
+              <div className="flex items-center gap-2 mt-1 flex-wrap">
+                <span className="text-xs font-mono text-muted-foreground">{subject.uid}</span>
+                <Badge variant={subject.isActive ? "default" : "secondary"}>
+                  {subject.isActive ? "Aktivny" : "Archivovany"}
+                </Badge>
+              </div>
+            </div>
+          </div>
+        </DialogHeader>
+
+        <div className="space-y-4 mt-2">
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <span className="text-xs text-muted-foreground">Typ entity</span>
+              <p className="text-sm">{subject.type === 'person' ? 'Fyzicka osoba' : 'Pravnicka osoba'}</p>
+            </div>
+            <div>
+              <span className="text-xs text-muted-foreground">Spravujuca firma</span>
+              <p className="text-sm">{managingCompany?.name || `Firma #${subject.myCompanyId}`}</p>
+            </div>
+          </div>
+
+          <Separator />
+
+          <div>
+            <div className="flex items-center gap-2 mb-3 flex-wrap">
+              <Briefcase className="w-4 h-4 text-primary" />
+              <h3 className="text-sm font-semibold">Historia kariery v systeme</h3>
+            </div>
+
+            {isLoading ? (
+              <p className="text-sm text-muted-foreground text-center py-4">Nacitavam historiu...</p>
+            ) : !careerHistory || careerHistory.length === 0 ? (
+              <p className="text-sm text-muted-foreground text-center py-4" data-testid="text-no-career-history">
+                Ziadna historia vazby v systeme
+              </p>
+            ) : (
+              <div className="relative space-y-0">
+                <div className="absolute left-4 top-3 bottom-3 w-px bg-border" />
+                {careerHistory.map((entry, idx) => (
+                  <div key={idx} className="relative pl-10 py-3" data-testid={`career-entry-${idx}`}>
+                    <div className={`absolute left-2.5 top-4 w-3 h-3 rounded-full border-2 ${
+                      entry.isActive 
+                        ? 'bg-primary border-primary' 
+                        : 'bg-muted border-muted-foreground/40'
+                    }`} />
+                    <div className="flex items-start gap-2 flex-wrap">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="text-sm font-medium">{entry.entityName}</span>
+                          <Badge variant={entry.type === 'internal' ? 'default' : 'outline'}>
+                            {entry.type === 'internal' ? 'Interny' : 'Externy'}
+                          </Badge>
+                          {entry.isActive && <Badge variant="secondary">Aktivny</Badge>}
+                        </div>
+                        <p className="text-xs text-muted-foreground mt-0.5">{entry.role}</p>
+                        <div className="flex items-center gap-1 mt-1 text-xs text-muted-foreground">
+                          <Calendar className="w-3 h-3" />
+                          <span>{formatDate(entry.validFrom) || "-"}</span>
+                          <ArrowRight className="w-3 h-3" />
+                          <span>{entry.isActive && !entry.validTo ? "Sucasnost" : (formatDate(entry.validTo) || "-")}</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
 
 function CreateSubjectDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (open: boolean) => void }) {
   const { mutate, isPending } = useCreateSubject();
@@ -183,7 +284,9 @@ function CreateSubjectDialog({ open, onOpenChange }: { open: boolean; onOpenChan
 export default function Subjects() {
   const [search, setSearch] = useState("");
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [viewTarget, setViewTarget] = useState<Subject | null>(null);
   const { data: subjects, isLoading } = useSubjects({ search: search || undefined });
+  const { data: companies } = useMyCompanies();
 
   return (
     <div className="space-y-6">
@@ -221,14 +324,15 @@ export default function Subjects() {
                 <TableHead>Typ</TableHead>
                 <TableHead>Spravujuca firma</TableHead>
                 <TableHead>Status</TableHead>
+                <TableHead className="w-[60px]">Akcie</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {isLoading && (
-                <TableRow><TableCell colSpan={5} className="text-center py-8 text-muted-foreground">Nacitavam...</TableCell></TableRow>
+                <TableRow><TableCell colSpan={6} className="text-center py-8 text-muted-foreground">Nacitavam...</TableCell></TableRow>
               )}
               {!isLoading && (!subjects || subjects.length === 0) && (
-                <TableRow><TableCell colSpan={5} className="text-center py-12 text-muted-foreground" data-testid="text-empty-subjects">Ziadne subjekty nenajdene</TableCell></TableRow>
+                <TableRow><TableCell colSpan={6} className="text-center py-12 text-muted-foreground" data-testid="text-empty-subjects">Ziadne subjekty nenajdene</TableCell></TableRow>
               )}
               {subjects?.map((subject) => (
                 <TableRow key={subject.id} data-testid={`row-subject-${subject.id}`}>
@@ -245,12 +349,17 @@ export default function Subjects() {
                     </div>
                   </TableCell>
                   <TableCell className="text-muted-foreground text-sm">
-                    Firma #{subject.myCompanyId}
+                    {companies?.find(c => c.id === subject.myCompanyId)?.name || `Firma #${subject.myCompanyId}`}
                   </TableCell>
                   <TableCell>
                     <Badge variant={subject.isActive ? "default" : "secondary"}>
                       {subject.isActive ? 'Aktivny' : 'Archivovany'}
                     </Badge>
+                  </TableCell>
+                  <TableCell>
+                    <Button size="icon" variant="ghost" onClick={() => setViewTarget(subject)} data-testid={`button-view-subject-${subject.id}`}>
+                      <Eye className="w-4 h-4" />
+                    </Button>
                   </TableCell>
                 </TableRow>
               ))}
@@ -260,6 +369,7 @@ export default function Subjects() {
       </Card>
 
       <CreateSubjectDialog open={isDialogOpen} onOpenChange={setIsDialogOpen} />
+      {viewTarget && <SubjectDetailDialog subject={viewTarget} onClose={() => setViewTarget(null)} />}
     </div>
   );
 }
