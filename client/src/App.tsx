@@ -13,6 +13,9 @@ import Dashboard from "@/pages/Dashboard";
 import Subjects from "@/pages/Subjects";
 import Companies from "@/pages/Companies";
 import Partners from "@/pages/Partners";
+import Products from "@/pages/Products";
+import Users from "@/pages/Users";
+import PermissionGroups from "@/pages/PermissionGroups";
 import { AppShell } from "@/components/layout/AppShell";
 
 function PlaceholderPage({ title }: { title: string }) {
@@ -60,10 +63,12 @@ function Router() {
       <Route path="/subjects" component={() => <PrivateRoute component={Subjects} />} />
       <Route path="/companies" component={() => <PrivateRoute component={Companies} />} />
       <Route path="/partners" component={() => <PrivateRoute component={Partners} />} />
-      <Route path="/products" component={() => <PrivateRoute component={() => <PlaceholderPage title="Produkty" />} />} />
+      <Route path="/products" component={() => <PrivateRoute component={Products} />} />
       <Route path="/commissions" component={() => <PrivateRoute component={() => <PlaceholderPage title="Provizie" />} />} />
       <Route path="/settings" component={() => <PrivateRoute component={() => <PlaceholderPage title="Nastavenia" />} />} />
       <Route path="/history" component={() => <PrivateRoute component={() => <PlaceholderPage title="Historia a logy" />} />} />
+      <Route path="/users" component={() => <PrivateRoute component={Users} />} />
+      <Route path="/permission-groups" component={() => <PrivateRoute component={PermissionGroups} />} />
 
       <Route component={NotFound} />
     </Switch>

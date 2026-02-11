@@ -41,6 +41,8 @@ const navItems = [
 const systemItems = [
   { href: "/settings", icon: Settings, label: "Nastavenia" },
   { href: "/history", icon: History, label: "Historia" },
+  { href: "/users", icon: Users, label: "Pouzivatelia" },
+  { href: "/permission-groups", icon: Shield, label: "Skupiny pravomoci" },
 ];
 
 export function AppSidebar() {

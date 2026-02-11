@@ -1,0 +1,758 @@
+import { useState, useRef, useCallback } from "react";
+import { useQuery, useMutation } from "@tanstack/react-query";
+import { apiRequest, queryClient } from "@/lib/queryClient";
+import { usePartners, usePartnerContracts } from "@/hooks/use-partners";
+import { useMyCompanies } from "@/hooks/use-companies";
+import { useStates } from "@/hooks/use-hierarchy";
+import { useToast } from "@/hooks/use-toast";
+import type { Product, CommissionScheme, Partner, MyCompany } from "@shared/schema";
+import { Plus, Pencil, Trash2, Eye, Package, Loader2 } from "lucide-react";
+import { Card, CardContent } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Checkbox } from "@/components/ui/checkbox";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion";
+import { RichTextEditor } from "@/components/rich-text-editor";
+import { WameSaveButton } from "@/components/wame-save-button";
+
+const SPECIALIST_TYPES = ["NBS", "Zbrojny preukaz", "Reality", "Poistenie", "Dochodok", "Ine"];
+
+function useProducts() {
+  return useQuery<Product[]>({
+    queryKey: ["/api/products"],
+  });
+}
+
+function useCommissions(productId: number | null) {
+  return useQuery<CommissionScheme[]>({
+    queryKey: ["/api/commissions", { productId }],
+    queryFn: async () => {
+      const res = await fetch(`/api/commissions?productId=${productId}`, { credentials: "include" });
+      if (!res.ok) throw new Error("Failed");
+      return res.json();
+    },
+    enabled: !!productId,
+  });
+}
+
+function ProductFormDialog({
+  open,
+  onOpenChange,
+  editingProduct,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  editingProduct: Product | null;
+}) {
+  const { toast } = useToast();
+  const { data: partners } = usePartners();
+  const { data: companies } = useMyCompanies();
+  const { data: allStates } = useStates();
+  const timerRef = useRef<number>(0);
+
+  const [partnerId, setPartnerId] = useState<string>("");
+  const [companyId, setCompanyId] = useState<string>("");
+  const [stateId, setStateId] = useState<string>("");
+  const [code, setCode] = useState("");
+  const [name, setName] = useState("");
+  const [description, setDescription] = useState("");
+  const [allowedSpecialists, setAllowedSpecialists] = useState<string[]>([]);
+  const [notesHtml, setNotesHtml] = useState("");
+
+  const { data: contracts } = usePartnerContracts(partnerId ? parseInt(partnerId) : null);
+
+  const filteredCompanies = companies?.filter(c => {
+    if (!partnerId || !contracts) return false;
+    return contracts.some(ct => ct.companyId === c.id) && !c.isDeleted;
+  }) || [];
+
+  const createMutation = useMutation({
+    mutationFn: (data: any) => apiRequest("POST", "/api/products", data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/products"] });
+      toast({ title: "Uspech", description: "Produkt vytvoreny" });
+      onOpenChange(false);
+    },
+    onError: () => toast({ title: "Chyba", description: "Nepodarilo sa vytvorit produkt", variant: "destructive" }),
+  });
+
+  const updateMutation = useMutation({
+    mutationFn: (data: any) => apiRequest("PUT", `/api/products/${editingProduct?.id}`, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/products"] });
+      toast({ title: "Uspech", description: "Produkt aktualizovany" });
+      onOpenChange(false);
+    },
+    onError: () => toast({ title: "Chyba", description: "Nepodarilo sa aktualizovat produkt", variant: "destructive" }),
+  });
+
+  const handleOpenChange = useCallback((isOpen: boolean) => {
+    if (isOpen) {
+      timerRef.current = performance.now();
+      if (editingProduct) {
+        setPartnerId(editingProduct.partnerId?.toString() || "");
+        setCompanyId(editingProduct.companyId?.toString() || "");
+        setStateId(editingProduct.stateId?.toString() || "");
+        setCode(editingProduct.code || "");
+        setName(editingProduct.name || "");
+        setDescription(editingProduct.description || "");
+        setAllowedSpecialists(editingProduct.allowedSpecialists || []);
+        setNotesHtml(editingProduct.notes || "");
+      } else {
+        setPartnerId("");
+        setCompanyId("");
+        setStateId("");
+        setCode("");
+        setName("");
+        setDescription("");
+        setAllowedSpecialists([]);
+        setNotesHtml("");
+      }
+    }
+    onOpenChange(isOpen);
+  }, [editingProduct, onOpenChange]);
+
+  function handleSubmit() {
+    if (!code || !name) {
+      toast({ title: "Chyba", description: "Kod a nazov su povinne", variant: "destructive" });
+      return;
+    }
+    const processingTimeSec = Math.round((performance.now() - timerRef.current) / 1000);
+    const payload = {
+      partnerId: partnerId ? parseInt(partnerId) : null,
+      companyId: companyId ? parseInt(companyId) : null,
+      stateId: stateId ? parseInt(stateId) : null,
+      code,
+      name,
+      description,
+      allowedSpecialists,
+      notes: notesHtml,
+      processingTimeSec,
+    };
+
+    if (editingProduct) {
+      updateMutation.mutate(payload);
+    } else {
+      createMutation.mutate(payload);
+    }
+  }
+
+  const isPending = createMutation.isPending || updateMutation.isPending;
+
+  return (
+    <Dialog open={open} onOpenChange={handleOpenChange}>
+      <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle data-testid="text-product-dialog-title">
+            {editingProduct ? "Upravit produkt" : "Pridat produkt"}
+          </DialogTitle>
+        </DialogHeader>
+        <div className="space-y-4">
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Partner</label>
+              <Select value={partnerId} onValueChange={(val) => { setPartnerId(val); setCompanyId(""); }}>
+                <SelectTrigger data-testid="select-product-partner">
+                  <SelectValue placeholder="Vyberte partnera" />
+                </SelectTrigger>
+                <SelectContent>
+                  {partners?.filter(p => !p.isDeleted).map(p => (
+                    <SelectItem key={p.id} value={p.id.toString()}>{p.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Spolocnost</label>
+              <Select value={companyId} onValueChange={setCompanyId} disabled={!partnerId}>
+                <SelectTrigger data-testid="select-product-company">
+                  <SelectValue placeholder={partnerId ? "Vyberte spolocnost" : "Najprv vyberte partnera"} />
+                </SelectTrigger>
+                <SelectContent>
+                  {filteredCompanies.map(c => (
+                    <SelectItem key={c.id} value={c.id.toString()}>{c.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-3 gap-4">
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Stat</label>
+              <Select value={stateId} onValueChange={setStateId}>
+                <SelectTrigger data-testid="select-product-state">
+                  <SelectValue placeholder="Vyberte stat" />
+                </SelectTrigger>
+                <SelectContent>
+                  {allStates?.map(s => (
+                    <SelectItem key={s.id} value={s.id.toString()}>{s.name} ({s.code})</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Kod *</label>
+              <Input value={code} onChange={e => setCode(e.target.value)} className="font-mono uppercase" data-testid="input-product-code" />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Nazov *</label>
+              <Input value={name} onChange={e => setName(e.target.value)} data-testid="input-product-name" />
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <label className="text-sm font-medium">Popis</label>
+            <Textarea value={description} onChange={e => setDescription(e.target.value)} rows={3} data-testid="input-product-description" />
+          </div>
+
+          <div className="space-y-2">
+            <label className="text-sm font-medium">Povoleni specialisti</label>
+            <div className="grid grid-cols-3 gap-2">
+              {SPECIALIST_TYPES.map(type => (
+                <label key={type} className="flex items-center gap-2 text-sm cursor-pointer">
+                  <Checkbox
+                    checked={allowedSpecialists.includes(type)}
+                    onCheckedChange={(checked) => {
+                      if (checked) {
+                        setAllowedSpecialists(prev => [...prev, type]);
+                      } else {
+                        setAllowedSpecialists(prev => prev.filter(t => t !== type));
+                      }
+                    }}
+                    data-testid={`checkbox-specialist-${type.toLowerCase().replace(/\s+/g, "-")}`}
+                  />
+                  {type}
+                </label>
+              ))}
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <label className="text-sm font-medium">Poznamky</label>
+            <RichTextEditor
+              content={notesHtml}
+              onChange={setNotesHtml}
+              placeholder="Zadajte poznamky k produktu..."
+              data-testid="editor-product-notes"
+            />
+          </div>
+
+          <div className="flex items-center justify-end mt-6">
+            <Button type="button" variant="outline" onClick={() => handleOpenChange(false)} data-testid="button-product-cancel">
+              Zrusit
+            </Button>
+          </div>
+        </div>
+        <WameSaveButton isPending={isPending} onClick={handleSubmit} type="button" />
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function CommissionSection({ productId }: { productId: number }) {
+  const { toast } = useToast();
+  const { data: commissions, isLoading } = useCommissions(productId);
+  const [showAdd, setShowAdd] = useState(false);
+  const [validFrom, setValidFrom] = useState(new Date().toISOString().split("T")[0]);
+  const [validTo, setValidTo] = useState("");
+  const [type, setType] = useState("Body");
+  const [value, setValue] = useState("");
+  const [coefficient, setCoefficient] = useState("");
+  const [currency, setCurrency] = useState("EUR");
+
+  const createMutation = useMutation({
+    mutationFn: (data: any) => apiRequest("POST", "/api/commissions", data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/commissions", { productId }] });
+      toast({ title: "Uspech", description: "Sadzba pridana" });
+      setShowAdd(false);
+      setValidFrom(new Date().toISOString().split("T")[0]);
+      setValidTo("");
+      setType("Body");
+      setValue("");
+      setCoefficient("");
+      setCurrency("EUR");
+    },
+    onError: () => toast({ title: "Chyba", description: "Nepodarilo sa pridat sadzbu", variant: "destructive" }),
+  });
+
+  function handleAddRate() {
+    if (!value || !validFrom) {
+      toast({ title: "Chyba", description: "Hodnota a datum od su povinne", variant: "destructive" });
+      return;
+    }
+    createMutation.mutate({
+      productId,
+      validFrom: new Date(validFrom).toISOString(),
+      validTo: validTo ? new Date(validTo).toISOString() : null,
+      type,
+      value: parseInt(value),
+      coefficient: coefficient ? parseInt(coefficient) : null,
+      currency,
+    });
+  }
+
+  return (
+    <Accordion type="single" collapsible className="w-full">
+      <AccordionItem value="commissions" className="border-border">
+        <AccordionTrigger data-testid="accordion-commissions" className="text-sm font-medium">
+          Sadzobnik (Provizie)
+        </AccordionTrigger>
+        <AccordionContent>
+          <div className="space-y-3">
+            {isLoading && (
+              <div className="flex items-center justify-center py-4">
+                <Loader2 className="w-4 h-4 animate-spin" />
+              </div>
+            )}
+            {commissions && commissions.length > 0 ? (
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Platnost od</TableHead>
+                    <TableHead>Platnost do</TableHead>
+                    <TableHead>Typ</TableHead>
+                    <TableHead>Hodnota</TableHead>
+                    <TableHead>Koeficient</TableHead>
+                    <TableHead>Mena</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {commissions.map(c => (
+                    <TableRow key={c.id} data-testid={`row-commission-${c.id}`}>
+                      <TableCell className="text-xs">{c.validFrom ? new Date(c.validFrom).toLocaleDateString("sk-SK") : "-"}</TableCell>
+                      <TableCell className="text-xs">{c.validTo ? new Date(c.validTo).toLocaleDateString("sk-SK") : "-"}</TableCell>
+                      <TableCell>
+                        <Badge variant="secondary">{c.type}</Badge>
+                      </TableCell>
+                      <TableCell className="font-mono">{c.value}</TableCell>
+                      <TableCell className="font-mono">{c.coefficient ?? "-"}</TableCell>
+                      <TableCell>{c.currency}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            ) : (
+              !isLoading && <p className="text-sm text-muted-foreground text-center py-4" data-testid="text-no-commissions">Ziadne sadzby</p>
+            )}
+
+            {!showAdd ? (
+              <Button type="button" variant="outline" size="sm" onClick={() => setShowAdd(true)} data-testid="button-show-add-commission">
+                <Plus className="w-4 h-4 mr-1" /> Pridat sadzbu
+              </Button>
+            ) : (
+              <div className="space-y-3 p-3 rounded-md border border-border">
+                <div className="grid grid-cols-3 gap-2">
+                  <div className="space-y-1">
+                    <label className="text-xs text-muted-foreground">Platnost od *</label>
+                    <Input type="date" value={validFrom} onChange={e => setValidFrom(e.target.value)} className="text-xs" data-testid="input-commission-valid-from" />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-xs text-muted-foreground">Platnost do</label>
+                    <Input type="date" value={validTo} onChange={e => setValidTo(e.target.value)} className="text-xs" data-testid="input-commission-valid-to" />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-xs text-muted-foreground">Typ</label>
+                    <Select value={type} onValueChange={setType}>
+                      <SelectTrigger data-testid="select-commission-type" className="text-xs">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="Body">Body (body x koeficient)</SelectItem>
+                        <SelectItem value="Percenta">Percenta (%)</SelectItem>
+                        <SelectItem value="Fixna">Fixna (EUR)</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+                <div className="grid grid-cols-3 gap-2">
+                  <div className="space-y-1">
+                    <label className="text-xs text-muted-foreground">Hodnota *</label>
+                    <Input type="number" value={value} onChange={e => setValue(e.target.value)} className="text-xs font-mono" data-testid="input-commission-value" />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-xs text-muted-foreground">Koeficient</label>
+                    <Input type="number" value={coefficient} onChange={e => setCoefficient(e.target.value)} className="text-xs font-mono" disabled={type !== "Body"} data-testid="input-commission-coefficient" />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-xs text-muted-foreground">Mena</label>
+                    <Select value={currency} onValueChange={setCurrency}>
+                      <SelectTrigger data-testid="select-commission-currency" className="text-xs">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="EUR">EUR</SelectItem>
+                        <SelectItem value="CZK">CZK</SelectItem>
+                        <SelectItem value="USD">USD</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <Button type="button" size="sm" onClick={handleAddRate} disabled={createMutation.isPending} data-testid="button-add-commission">
+                    {createMutation.isPending ? "Ukladam..." : "Pridat sadzbu"}
+                  </Button>
+                  <Button type="button" variant="ghost" size="sm" onClick={() => setShowAdd(false)} data-testid="button-cancel-commission">
+                    Zrusit
+                  </Button>
+                </div>
+              </div>
+            )}
+          </div>
+        </AccordionContent>
+      </AccordionItem>
+    </Accordion>
+  );
+}
+
+function ProductDetailDialog({
+  product,
+  onClose,
+  partners,
+  companies,
+  states,
+}: {
+  product: Product;
+  onClose: () => void;
+  partners: Partner[];
+  companies: MyCompany[];
+  states: { id: number; name: string; code: string }[];
+}) {
+  const partnerName = partners?.find(p => p.id === product.partnerId)?.name || "-";
+  const companyName = companies?.find(c => c.id === product.companyId)?.name || "-";
+  const stateName = states?.find(s => s.id === product.stateId)?.name || "-";
+
+  return (
+    <Dialog open onOpenChange={onClose}>
+      <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
+        <DialogHeader>
+          <div className="flex items-center gap-3 flex-wrap">
+            <div className="w-10 h-10 rounded-md bg-primary/10 flex items-center justify-center flex-shrink-0">
+              <Package className="w-5 h-5 text-primary" />
+            </div>
+            <div className="min-w-0">
+              <DialogTitle data-testid="text-product-detail-name">{product.name}</DialogTitle>
+              <div className="flex items-center gap-2 mt-1 flex-wrap">
+                {product.code && <Badge variant="secondary" className="font-mono">{product.code}</Badge>}
+                {product.displayName && <span className="text-xs text-muted-foreground">{product.displayName}</span>}
+              </div>
+            </div>
+          </div>
+        </DialogHeader>
+
+        <div className="space-y-4 mt-2">
+          <div className="grid grid-cols-3 gap-4">
+            <div>
+              <span className="text-xs text-muted-foreground">Partner</span>
+              <p className="text-sm" data-testid="text-detail-partner">{partnerName}</p>
+            </div>
+            <div>
+              <span className="text-xs text-muted-foreground">Spolocnost</span>
+              <p className="text-sm" data-testid="text-detail-company">{companyName}</p>
+            </div>
+            <div>
+              <span className="text-xs text-muted-foreground">Stat</span>
+              <p className="text-sm" data-testid="text-detail-state">{stateName}</p>
+            </div>
+          </div>
+
+          {product.description && (
+            <div>
+              <span className="text-xs text-muted-foreground">Popis</span>
+              <p className="text-sm" data-testid="text-detail-description">{product.description}</p>
+            </div>
+          )}
+
+          {product.allowedSpecialists && product.allowedSpecialists.length > 0 && (
+            <div>
+              <span className="text-xs text-muted-foreground">Povoleni specialisti</span>
+              <div className="flex items-center gap-1 mt-1 flex-wrap">
+                {product.allowedSpecialists.map(s => (
+                  <Badge key={s} variant="outline">{s}</Badge>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {product.notes && (
+            <div>
+              <span className="text-xs text-muted-foreground">Poznamky</span>
+              <div className="text-sm mt-1 prose prose-sm dark:prose-invert max-w-none" dangerouslySetInnerHTML={{ __html: product.notes }} data-testid="text-detail-notes" />
+            </div>
+          )}
+
+          <div className="flex items-center gap-4 text-xs text-muted-foreground flex-wrap">
+            <span>WAME: {product.processingTimeSec || 0}s</span>
+            <span>Vytvorene: {product.createdAt ? new Date(product.createdAt).toLocaleDateString("sk-SK") : "-"}</span>
+          </div>
+
+          <CommissionSection productId={product.id} />
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function DeleteProductDialog({
+  product,
+  open,
+  onOpenChange,
+}: {
+  product: Product;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+}) {
+  const { toast } = useToast();
+  const [step, setStep] = useState<1 | 2 | 3>(1);
+  const [adminCode, setAdminCode] = useState("");
+
+  const deleteMutation = useMutation({
+    mutationFn: () => apiRequest("DELETE", `/api/products/${product.id}`, { adminCode }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/products"] });
+      toast({ title: "Uspech", description: "Produkt vymazany" });
+      onOpenChange(false);
+    },
+    onError: () => toast({ title: "Chyba", description: "Nepodarilo sa vymazat produkt", variant: "destructive" }),
+  });
+
+  const handleOpenChange = useCallback((isOpen: boolean) => {
+    if (!isOpen) {
+      setStep(1);
+      setAdminCode("");
+    }
+    onOpenChange(isOpen);
+  }, [onOpenChange]);
+
+  return (
+    <Dialog open={open} onOpenChange={handleOpenChange}>
+      <DialogContent className="max-w-md">
+        <DialogHeader>
+          <DialogTitle data-testid="text-delete-dialog-title">Vymazat produkt</DialogTitle>
+        </DialogHeader>
+
+        {step === 1 && (
+          <div className="space-y-4">
+            <p className="text-sm text-muted-foreground">
+              Pre vymazanie produktu <span className="font-medium text-foreground">{product.name}</span> zadajte admin kod.
+            </p>
+            <Input
+              type="password"
+              placeholder="Admin kod"
+              value={adminCode}
+              onChange={e => setAdminCode(e.target.value)}
+              data-testid="input-delete-admin-code"
+            />
+            <div className="flex items-center justify-end gap-2">
+              <Button type="button" variant="outline" onClick={() => handleOpenChange(false)} data-testid="button-delete-cancel">
+                Zrusit
+              </Button>
+              <Button type="button" variant="destructive" onClick={() => { if (adminCode) setStep(2); }} disabled={!adminCode} data-testid="button-delete-next">
+                Dalej
+              </Button>
+            </div>
+          </div>
+        )}
+
+        {step === 2 && (
+          <div className="space-y-4">
+            <div className="p-4 rounded-md border border-destructive/50 bg-destructive/10">
+              <p className="text-sm font-medium text-destructive">Naozaj vymazat?</p>
+              <p className="text-xs text-muted-foreground mt-1">
+                Produkt <span className="font-medium">{product.name}</span> ({product.code}) bude oznaceny ako vymazany. Tuto akciu nie je mozne vratit.
+              </p>
+            </div>
+            <div className="flex items-center justify-end gap-2">
+              <Button type="button" variant="outline" onClick={() => setStep(1)} data-testid="button-delete-back">
+                Spat
+              </Button>
+              <Button type="button" variant="destructive" onClick={() => deleteMutation.mutate()} disabled={deleteMutation.isPending} data-testid="button-delete-confirm">
+                {deleteMutation.isPending ? "Mazem..." : "Vymazat"}
+              </Button>
+            </div>
+          </div>
+        )}
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+export default function Products() {
+  const { data: products, isLoading } = useProducts();
+  const { data: partners } = usePartners();
+  const { data: companies } = useMyCompanies();
+  const { data: allStates } = useStates();
+
+  const [formOpen, setFormOpen] = useState(false);
+  const [editingProduct, setEditingProduct] = useState<Product | null>(null);
+  const [detailProduct, setDetailProduct] = useState<Product | null>(null);
+  const [deleteProduct, setDeleteProduct] = useState<Product | null>(null);
+  const [deleteOpen, setDeleteOpen] = useState(false);
+
+  const activeProducts = products?.filter(p => !p.isDeleted) || [];
+
+  function getPartnerName(id: number | null) {
+    if (!id || !partners) return "-";
+    return partners.find(p => p.id === id)?.name || "-";
+  }
+
+  function getCompanyName(id: number | null) {
+    if (!id || !companies) return "-";
+    return companies.find(c => c.id === id)?.name || "-";
+  }
+
+  function getStateName(id: number | null) {
+    if (!id || !allStates) return "-";
+    return allStates.find(s => s.id === id)?.name || "-";
+  }
+
+  function handleEdit(product: Product) {
+    setEditingProduct(product);
+    setFormOpen(true);
+  }
+
+  function handleAdd() {
+    setEditingProduct(null);
+    setFormOpen(true);
+  }
+
+  function handleDelete(product: Product) {
+    setDeleteProduct(product);
+    setDeleteOpen(true);
+  }
+
+  return (
+    <div className="p-4 space-y-4">
+      <div className="flex items-center justify-between gap-2 flex-wrap">
+        <div className="flex items-center gap-2 flex-wrap">
+          <Package className="w-5 h-5 text-primary" />
+          <h1 className="text-lg font-bold" data-testid="text-page-title">Globalny katalog produktov</h1>
+          <Badge variant="secondary">{activeProducts.length}</Badge>
+        </div>
+        <Button onClick={handleAdd} data-testid="button-add-product">
+          <Plus className="w-4 h-4 mr-1" /> Pridat produkt
+        </Button>
+      </div>
+
+      <Card>
+        <CardContent className="p-0">
+          {isLoading ? (
+            <div className="flex items-center justify-center py-12">
+              <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+            </div>
+          ) : activeProducts.length === 0 ? (
+            <div className="text-center py-12 text-sm text-muted-foreground" data-testid="text-no-products">
+              Ziadne produkty. Kliknite na "Pridat produkt".
+            </div>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Kod</TableHead>
+                  <TableHead>Nazov</TableHead>
+                  <TableHead>Zobrazovaci nazov</TableHead>
+                  <TableHead>Partner</TableHead>
+                  <TableHead>Spolocnost</TableHead>
+                  <TableHead>Stat</TableHead>
+                  <TableHead>Povoleni specialisti</TableHead>
+                  <TableHead className="text-right">Akcie</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {activeProducts.map(product => (
+                  <TableRow key={product.id} data-testid={`row-product-${product.id}`}>
+                    <TableCell className="font-mono text-xs">{product.code}</TableCell>
+                    <TableCell className="font-medium">{product.name}</TableCell>
+                    <TableCell className="text-sm text-muted-foreground">{product.displayName || "-"}</TableCell>
+                    <TableCell className="text-sm">{getPartnerName(product.partnerId)}</TableCell>
+                    <TableCell className="text-sm">{getCompanyName(product.companyId)}</TableCell>
+                    <TableCell className="text-sm">{getStateName(product.stateId)}</TableCell>
+                    <TableCell>
+                      <div className="flex items-center gap-1 flex-wrap">
+                        {product.allowedSpecialists && product.allowedSpecialists.length > 0
+                          ? product.allowedSpecialists.map(s => (
+                              <Badge key={s} variant="outline" className="text-xs">{s}</Badge>
+                            ))
+                          : <span className="text-xs text-muted-foreground">-</span>
+                        }
+                      </div>
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <div className="flex items-center justify-end gap-1">
+                        <Button size="icon" variant="ghost" onClick={() => setDetailProduct(product)} data-testid={`button-view-product-${product.id}`}>
+                          <Eye className="w-4 h-4" />
+                        </Button>
+                        <Button size="icon" variant="ghost" onClick={() => handleEdit(product)} data-testid={`button-edit-product-${product.id}`}>
+                          <Pencil className="w-4 h-4" />
+                        </Button>
+                        <Button size="icon" variant="ghost" onClick={() => handleDelete(product)} data-testid={`button-delete-product-${product.id}`}>
+                          <Trash2 className="w-4 h-4 text-destructive" />
+                        </Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
+        </CardContent>
+      </Card>
+
+      <ProductFormDialog
+        open={formOpen}
+        onOpenChange={setFormOpen}
+        editingProduct={editingProduct}
+      />
+
+      {detailProduct && (
+        <ProductDetailDialog
+          product={detailProduct}
+          onClose={() => setDetailProduct(null)}
+          partners={partners || []}
+          companies={companies || []}
+          states={allStates || []}
+        />
+      )}
+
+      {deleteProduct && (
+        <DeleteProductDialog
+          product={deleteProduct}
+          open={deleteOpen}
+          onOpenChange={(open) => {
+            setDeleteOpen(open);
+            if (!open) setDeleteProduct(null);
+          }}
+        />
+      )}
+    </div>
+  );
+}

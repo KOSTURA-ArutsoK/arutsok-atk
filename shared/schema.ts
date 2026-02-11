@@ -246,16 +246,28 @@ export const companyArchive = pgTable("company_archive", {
   reason: text("reason"),
 });
 
-// === PRODUCTS & COMMISSIONS (legacy, kept for backward compat) ===
+// === GLOBAL PRODUCT CATALOG ===
 export const products = pgTable("products", {
   id: serial("id").primaryKey(),
+  partnerId: integer("partner_id").references(() => partners.id),
   companyId: integer("company_id").references(() => myCompanies.id),
   stateId: integer("state_id").references(() => states.id),
   code: text("code").notNull(),
   name: text("name").notNull(),
+  displayName: text("display_name"),
+  description: text("description"),
   allowedSpecialists: text("allowed_specialists").array(),
+  notes: text("notes"),
+  isDeleted: boolean("is_deleted").default(false),
+  deletedBy: text("deleted_by"),
+  deletedAt: timestamp("deleted_at"),
+  deletedFromIp: text("deleted_from_ip"),
+  processingTimeSec: integer("processing_time_sec").default(0),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
 });
 
+// === COMMISSION RATES (Sadzobnik - pricing history, append-only) ===
 export const commissionSchemes = pgTable("commission_schemes", {
   id: serial("id").primaryKey(),
   productId: integer("product_id").references(() => products.id),
@@ -265,6 +277,27 @@ export const commissionSchemes = pgTable("commission_schemes", {
   value: integer("value").notNull(),
   coefficient: integer("coefficient"),
   currency: text("currency").default('EUR'),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// === RBAC: PERMISSION GROUPS ===
+export const permissionGroups = pgTable("permission_groups", {
+  id: serial("id").primaryKey(),
+  name: text("name").notNull().unique(),
+  description: text("description"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// === RBAC: PERMISSIONS MATRIX ===
+export const permissions = pgTable("permissions", {
+  id: serial("id").primaryKey(),
+  groupId: integer("group_id").notNull().references(() => permissionGroups.id),
+  module: text("module").notNull(),
+  canRead: boolean("can_read").default(false),
+  canCreate: boolean("can_create").default(false),
+  canEdit: boolean("can_edit").default(false),
+  canPublish: boolean("can_publish").default(false),
+  canDelete: boolean("can_delete").default(false),
 });
 
 // === APP USERS & SECURITY ===
@@ -275,13 +308,26 @@ export const appUsers = pgTable("app_users", {
   password: text("password"),
   firstName: text("first_name"),
   lastName: text("last_name"),
+  email: text("email"),
+  phone: text("phone"),
   role: text("role").default('user'),
+  permissionGroupId: integer("permission_group_id"),
+  mfaType: text("mfa_type").default('none'),
   allowedCompanyIds: integer("allowed_company_ids").array(),
   securityLevel: integer("security_level").default(1),
   adminCode: text("admin_code"),
   activeCompanyId: integer("active_company_id"),
   activeStateId: integer("active_state_id"),
   createdAt: timestamp("created_at").defaultNow(),
+});
+
+// === APP USER ARCHIVE (immutable history) ===
+export const appUserArchive = pgTable("app_user_archive", {
+  id: serial("id").primaryKey(),
+  originalId: integer("original_id").notNull(),
+  data: jsonb("data").notNull(),
+  archivedAt: timestamp("archived_at").defaultNow(),
+  reason: text("reason"),
 });
 
 // === RELATIONS ===
@@ -292,6 +338,7 @@ export const subjectsRelations = relations(subjects, ({ one }) => ({
 }));
 
 export const productsRelations = relations(products, ({ one }) => ({
+  partner: one(partners, { fields: [products.partnerId], references: [partners.id] }),
   company: one(myCompanies, { fields: [products.companyId], references: [myCompanies.id] }),
   state: one(states, { fields: [products.stateId], references: [states.id] }),
 }));
@@ -313,8 +360,11 @@ export const insertSubjectSchema = createInsertSchema(subjects).omit({ id: true,
 export const insertMyCompanySchema = createInsertSchema(myCompanies).omit({ id: true, createdAt: true, updatedAt: true, isDeleted: true, uid: true, deletedBy: true, deletedAt: true, deletedFromIp: true });
 export const insertPartnerSchema = createInsertSchema(partners).omit({ id: true, createdAt: true, updatedAt: true, isDeleted: true, uid: true, deletedBy: true, deletedAt: true, deletedFromIp: true });
 export const insertContactSchema = createInsertSchema(contacts).omit({ id: true });
-export const insertProductSchema = createInsertSchema(products).omit({ id: true });
-export const insertCommissionSchemeSchema = createInsertSchema(commissionSchemes).omit({ id: true });
+export const insertProductSchema = createInsertSchema(products).omit({ id: true, createdAt: true, updatedAt: true, isDeleted: true, deletedBy: true, deletedAt: true, deletedFromIp: true, displayName: true });
+export const insertCommissionSchemeSchema = createInsertSchema(commissionSchemes).omit({ id: true, createdAt: true });
+export const insertPermissionGroupSchema = createInsertSchema(permissionGroups).omit({ id: true, createdAt: true });
+export const insertPermissionSchema = createInsertSchema(permissions).omit({ id: true });
+export const insertAppUserSchema = createInsertSchema(appUsers).omit({ id: true, createdAt: true });
 export const insertCompanyOfficerSchema = createInsertSchema(companyOfficers).omit({ id: true, createdAt: true });
 export const insertPartnerContactSchema = createInsertSchema(partnerContacts).omit({ id: true, createdAt: true });
 export const insertPartnerProductSchema = createInsertSchema(partnerProducts).omit({ id: true, createdAt: true });
@@ -332,9 +382,16 @@ export type InsertMyCompany = z.infer<typeof insertMyCompanySchema>;
 export type Partner = typeof partners.$inferSelect;
 export type InsertPartner = z.infer<typeof insertPartnerSchema>;
 export type Product = typeof products.$inferSelect;
+export type InsertProduct = z.infer<typeof insertProductSchema>;
 export type CommissionScheme = typeof commissionSchemes.$inferSelect;
+export type InsertCommissionScheme = z.infer<typeof insertCommissionSchemeSchema>;
 export type Contact = typeof contacts.$inferSelect;
 export type AppUser = typeof appUsers.$inferSelect;
+export type InsertAppUser = z.infer<typeof insertAppUserSchema>;
+export type PermissionGroup = typeof permissionGroups.$inferSelect;
+export type InsertPermissionGroup = z.infer<typeof insertPermissionGroupSchema>;
+export type Permission = typeof permissions.$inferSelect;
+export type InsertPermission = z.infer<typeof insertPermissionSchema>;
 export type CompanyOfficer = typeof companyOfficers.$inferSelect;
 export type InsertCompanyOfficer = z.infer<typeof insertCompanyOfficerSchema>;
 export type PartnerContact = typeof partnerContacts.$inferSelect;

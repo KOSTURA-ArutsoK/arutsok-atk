@@ -166,13 +166,7 @@ export async function registerRoutes(
 
       if (!appUser) return res.status(404).json({ message: "User not found" });
 
-      await storage.updateMyCompany(companyId, { 
-        isDeleted: true,
-        deletedBy: appUser.username,
-        deletedAt: new Date(),
-        deletedFromIp: typeof ip === 'string' ? ip : JSON.stringify(ip),
-        changeReason: "Soft Delete with Audit" 
-      });
+      await storage.softDeleteMyCompany(companyId, appUser.username, typeof ip === 'string' ? ip : JSON.stringify(ip));
 
       res.json({ success: true });
     } catch (err) {
@@ -459,7 +453,13 @@ export async function registerRoutes(
 
   app.post(api.communicationMatrix.create.path, isAuthenticated, async (req, res) => {
     try {
-      const input = { ...api.communicationMatrix.create.input.parse(req.body), partnerId: Number(req.params.partnerId) };
+      const parsed = api.communicationMatrix.create.input.parse(req.body);
+      const input = {
+        partnerId: Number(req.params.partnerId),
+        companyId: parsed.companyId,
+        externalContactId: parsed.externalContactId ?? null,
+        internalSubjectId: parsed.internalSubjectId ?? null,
+      };
       res.status(201).json(await storage.createMatrixEntry(input));
     } catch (err) {
       if (err instanceof z.ZodError) return res.status(400).json({ message: err.errors[0].message });
@@ -548,25 +548,169 @@ export async function registerRoutes(
     }
   });
 
-  // === PRODUCTS & COMMISSIONS ===
-  app.get(api.products.list.path, async (_req, res) => { res.json(await storage.getProducts()); });
-  app.post(api.products.create.path, async (req, res) => {
+  // === GLOBAL PRODUCT CATALOG ===
+  app.get(api.products.list.path, isAuthenticated, async (req: any, res) => {
+    const includeDeleted = req.query.includeDeleted === 'true';
+    res.json(await storage.getProducts(includeDeleted));
+  });
+
+  app.get(api.products.get.path, isAuthenticated, async (req, res) => {
+    const product = await storage.getProduct(Number(req.params.id));
+    if (!product) return res.status(404).json({ message: "Product not found" });
+    res.json(product);
+  });
+
+  app.post(api.products.create.path, isAuthenticated, async (req, res) => {
     try {
-      res.status(201).json(await storage.createProduct(api.products.create.input.parse(req.body)));
+      const input = api.products.create.input.parse(req.body);
+
+      if (input.partnerId && input.companyId) {
+        const contracts = await storage.getPartnerContracts(input.partnerId);
+        const hasContract = contracts.some(c => c.companyId === input.companyId);
+        if (!hasContract) {
+          return res.status(400).json({ message: "Spolocnost nema aktivnu zmluvu s tymto partnerom" });
+        }
+      }
+
+      res.status(201).json(await storage.createProduct(input));
     } catch (err) {
       if (err instanceof z.ZodError) return res.status(400).json({ message: err.errors[0].message });
       throw err;
     }
   });
-  app.get(api.commissions.list.path, async (req, res) => {
+
+  app.put(api.products.update.path, isAuthenticated, async (req, res) => {
+    try {
+      const input = api.products.update.input.parse(req.body);
+      res.json(await storage.updateProduct(Number(req.params.id), input));
+    } catch (err) {
+      if (err instanceof z.ZodError) return res.status(400).json({ message: err.errors[0].message });
+      if (err instanceof Error && err.message === "Product not found") return res.status(404).json({ message: err.message });
+      throw err;
+    }
+  });
+
+  app.delete(api.products.delete.path, isAuthenticated, async (req: any, res) => {
+    try {
+      const replitUserId = req.user?.claims?.sub;
+      const appUser = await storage.getAppUserByReplitId(replitUserId);
+      const ip = req.ip || req.headers['x-forwarded-for'] || req.socket.remoteAddress;
+      if (!appUser) return res.status(404).json({ message: "User not found" });
+
+      const { adminCode, superAdminCode } = req.body || {};
+      if (!adminCode) return res.status(400).json({ message: "Admin code required" });
+
+      if (appUser.role !== 'admin' && appUser.role !== 'superadmin') {
+        return res.status(403).json({ message: "Only admins can delete products" });
+      }
+
+      await storage.softDeleteProduct(Number(req.params.id), appUser.username, typeof ip === 'string' ? ip : '');
+      res.json({ success: true });
+    } catch (err) {
+      if (err instanceof Error && err.message === "Product not found") return res.status(404).json({ message: err.message });
+      throw err;
+    }
+  });
+
+  app.get(api.products.byPartner.path, isAuthenticated, async (req, res) => {
+    res.json(await storage.getProductsByPartner(Number(req.params.partnerId)));
+  });
+
+  // === COMMISSIONS ===
+  app.get(api.commissions.list.path, isAuthenticated, async (req, res) => {
     const productId = req.query.productId ? parseInt(req.query.productId as string) : undefined;
     res.json(await storage.getCommissions(productId));
   });
-  app.post(api.commissions.create.path, async (req, res) => {
+
+  app.post(api.commissions.create.path, isAuthenticated, async (req, res) => {
     try {
       res.status(201).json(await storage.createCommission(api.commissions.create.input.parse(req.body)));
     } catch (err) {
       if (err instanceof z.ZodError) return res.status(400).json({ message: err.errors[0].message });
+      throw err;
+    }
+  });
+
+  // === PERMISSION GROUPS ===
+  app.get(api.permissionGroups.list.path, isAuthenticated, async (_req, res) => {
+    res.json(await storage.getPermissionGroups());
+  });
+
+  app.post(api.permissionGroups.create.path, isAuthenticated, async (req, res) => {
+    try {
+      const input = api.permissionGroups.create.input.parse(req.body);
+      res.status(201).json(await storage.createPermissionGroup(input));
+    } catch (err) {
+      if (err instanceof z.ZodError) return res.status(400).json({ message: err.errors[0].message });
+      throw err;
+    }
+  });
+
+  app.put(api.permissionGroups.update.path, isAuthenticated, async (req, res) => {
+    try {
+      const input = api.permissionGroups.update.input.parse(req.body);
+      res.json(await storage.updatePermissionGroup(Number(req.params.id), input));
+    } catch (err) {
+      if (err instanceof z.ZodError) return res.status(400).json({ message: err.errors[0].message });
+      throw err;
+    }
+  });
+
+  app.delete(api.permissionGroups.delete.path, isAuthenticated, async (req, res) => {
+    try {
+      await storage.deletePermissionGroup(Number(req.params.id));
+      res.json({ success: true });
+    } catch (err) {
+      throw err;
+    }
+  });
+
+  // === PERMISSIONS MATRIX ===
+  app.get(api.permissionsMatrix.list.path, isAuthenticated, async (_req, res) => {
+    res.json(await storage.getAllPermissions());
+  });
+
+  app.get(api.permissionsMatrix.byGroup.path, isAuthenticated, async (req, res) => {
+    res.json(await storage.getPermissions(Number(req.params.groupId)));
+  });
+
+  app.put(api.permissionsMatrix.set.path, isAuthenticated, async (req, res) => {
+    try {
+      const input = api.permissionsMatrix.set.input.parse(req.body);
+      res.json(await storage.setPermission(input));
+    } catch (err) {
+      if (err instanceof z.ZodError) return res.status(400).json({ message: err.errors[0].message });
+      throw err;
+    }
+  });
+
+  app.post(api.permissionsMatrix.sync.path, isAuthenticated, async (_req, res) => {
+    await storage.syncPermissionsTable();
+    res.json({ success: true });
+  });
+
+  // === USER MANAGEMENT (Admin) ===
+  app.get(api.appUserAdmin.list.path, isAuthenticated, async (_req, res) => {
+    res.json(await storage.getAppUsers());
+  });
+
+  app.post(api.appUserAdmin.create.path, isAuthenticated, async (req, res) => {
+    try {
+      const input = api.appUserAdmin.create.input.parse(req.body);
+      res.status(201).json(await storage.createAppUser(input));
+    } catch (err) {
+      if (err instanceof z.ZodError) return res.status(400).json({ message: err.errors[0].message });
+      throw err;
+    }
+  });
+
+  app.put(api.appUserAdmin.update.path, isAuthenticated, async (req, res) => {
+    try {
+      const input = api.appUserAdmin.update.input.parse(req.body);
+      res.json(await storage.updateAppUserWithArchive(Number(req.params.id), input, "User profile update"));
+    } catch (err) {
+      if (err instanceof z.ZodError) return res.status(400).json({ message: err.errors[0].message });
+      if (err instanceof Error && err.message === "App user not found") return res.status(404).json({ message: err.message });
       throw err;
     }
   });
@@ -620,7 +764,8 @@ export async function registerRoutes(
   });
 
   app.get("/api/files/:section/:filename", isAuthenticated, (req, res) => {
-    const { section, filename } = req.params;
+    const section = req.params.section as string;
+    const filename = req.params.filename as string;
     if (!["official", "work", "logos", "amendments", "profiles"].includes(section)) return res.status(400).json({ message: "Invalid section" });
     const filePath = path.join(UPLOADS_DIR, section, filename);
     if (!fs.existsSync(filePath)) return res.status(404).json({ message: "File not found" });

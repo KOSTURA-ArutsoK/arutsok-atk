@@ -12,9 +12,12 @@ import {
   insertPartnerContractSchema,
   insertCommunicationMatrixSchema,
   insertContractAmendmentSchema,
+  insertPermissionGroupSchema,
+  insertPermissionSchema,
+  insertAppUserSchema,
   subjects, myCompanies, partners, contacts, products, commissionSchemes, appUsers,
   partnerContacts, partnerProducts, partnerContracts, communicationMatrix, companyOfficers,
-  contractAmendments, userProfiles,
+  contractAmendments, userProfiles, permissionGroups, permissions,
 } from './schema';
 
 export const errorSchemas = {
@@ -273,11 +276,32 @@ export const api = {
       path: '/api/products' as const,
       responses: { 200: z.array(z.custom<typeof products.$inferSelect>()) },
     },
+    get: {
+      method: 'GET' as const,
+      path: '/api/products/:id' as const,
+      responses: { 200: z.custom<typeof products.$inferSelect>(), 404: errorSchemas.notFound },
+    },
     create: {
       method: 'POST' as const,
       path: '/api/products' as const,
       input: insertProductSchema,
       responses: { 201: z.custom<typeof products.$inferSelect>(), 400: errorSchemas.validation },
+    },
+    update: {
+      method: 'PUT' as const,
+      path: '/api/products/:id' as const,
+      input: insertProductSchema.partial(),
+      responses: { 200: z.custom<typeof products.$inferSelect>(), 400: errorSchemas.validation, 404: errorSchemas.notFound },
+    },
+    delete: {
+      method: 'DELETE' as const,
+      path: '/api/products/:id' as const,
+      responses: { 200: z.object({ success: z.boolean() }), 404: errorSchemas.notFound },
+    },
+    byPartner: {
+      method: 'GET' as const,
+      path: '/api/partners/:partnerId/catalog-products' as const,
+      responses: { 200: z.array(z.custom<typeof products.$inferSelect>()) },
     },
   },
 
@@ -293,6 +317,75 @@ export const api = {
       path: '/api/commissions' as const,
       input: insertCommissionSchemeSchema,
       responses: { 201: z.custom<typeof commissionSchemes.$inferSelect>(), 400: errorSchemas.validation },
+    },
+  },
+
+  permissionGroups: {
+    list: {
+      method: 'GET' as const,
+      path: '/api/permission-groups' as const,
+      responses: { 200: z.array(z.custom<typeof permissionGroups.$inferSelect>()) },
+    },
+    create: {
+      method: 'POST' as const,
+      path: '/api/permission-groups' as const,
+      input: insertPermissionGroupSchema,
+      responses: { 201: z.custom<typeof permissionGroups.$inferSelect>(), 400: errorSchemas.validation },
+    },
+    update: {
+      method: 'PUT' as const,
+      path: '/api/permission-groups/:id' as const,
+      input: insertPermissionGroupSchema.partial(),
+      responses: { 200: z.custom<typeof permissionGroups.$inferSelect>() },
+    },
+    delete: {
+      method: 'DELETE' as const,
+      path: '/api/permission-groups/:id' as const,
+      responses: { 200: z.object({ success: z.boolean() }) },
+    },
+  },
+
+  permissionsMatrix: {
+    list: {
+      method: 'GET' as const,
+      path: '/api/permissions' as const,
+      responses: { 200: z.array(z.custom<typeof permissions.$inferSelect>()) },
+    },
+    byGroup: {
+      method: 'GET' as const,
+      path: '/api/permission-groups/:groupId/permissions' as const,
+      responses: { 200: z.array(z.custom<typeof permissions.$inferSelect>()) },
+    },
+    set: {
+      method: 'PUT' as const,
+      path: '/api/permissions' as const,
+      input: insertPermissionSchema,
+      responses: { 200: z.custom<typeof permissions.$inferSelect>() },
+    },
+    sync: {
+      method: 'POST' as const,
+      path: '/api/permissions/sync' as const,
+      responses: { 200: z.object({ success: z.boolean() }) },
+    },
+  },
+
+  appUserAdmin: {
+    list: {
+      method: 'GET' as const,
+      path: '/api/app-users' as const,
+      responses: { 200: z.array(z.custom<typeof appUsers.$inferSelect>()) },
+    },
+    create: {
+      method: 'POST' as const,
+      path: '/api/app-users' as const,
+      input: insertAppUserSchema,
+      responses: { 201: z.custom<typeof appUsers.$inferSelect>(), 400: errorSchemas.validation },
+    },
+    update: {
+      method: 'PUT' as const,
+      path: '/api/app-users/:id' as const,
+      input: insertAppUserSchema.partial(),
+      responses: { 200: z.custom<typeof appUsers.$inferSelect>() },
     },
   },
   

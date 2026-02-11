@@ -128,6 +128,40 @@ Multi-tenant CRM and commission tracking system for financial services, real est
 - **Center**: Company switcher (Building icon + company name)
 - **Right**: Theme toggle + User menu dropdown (name + avatar with profile photo, upload photo option, logout)
 
+## Global Product Catalog
+- **Schema**: `products` table with partnerId, companyId, stateId, displayName (auto-generated: [CompanyCode]-[StateCode]-[ProductCode])
+- **Cross-validation**: Only companies with active partner contracts can be selected for a product
+- **Soft delete**: Products support isDeleted with audit trail (deletedBy, deletedAt, deletedFromIp)
+- **API**: GET/POST `/api/products`, GET/PUT/DELETE `/api/products/:id`
+- **UI**: Products.tsx with cascading partner→company→state selectors, commission accordion
+
+## Commission Pricing History (Sadzobnik)
+- **Schema**: `commission_schemes` table with productId, append-only temporal pricing
+- **Types**: Body (points × coefficient), Percenta (%), Fixna (EUR fixed amount)
+- **Temporal validity**: validFrom/validTo for historical pricing, indefinite if no validTo
+- **API**: GET/POST `/api/products/:productId/commissions`
+- **UI**: Collapsible accordion per product showing pricing history timeline
+
+## RBAC System
+- **Schema**: `permission_groups` (name, description) + `permissions` (module × action matrix)
+- **Default groups**: SuperAdmin, Admin, Backoffice, Manager, User (auto-seeded)
+- **Modules**: dashboard, spolocnosti, partneri, produkty, provizie, subjekty, nastavenia, historia, pouzivatelia, skupiny_pravomoci
+- **Actions per module**: canRead, canCreate, canEdit, canPublish, canDelete
+- **Sync**: POST `/api/permissions/sync` auto-seeds missing module entries
+- **API**: GET/POST/PUT/DELETE `/api/permission-groups`, GET/PUT `/api/permission-groups/:id/permissions`
+- **UI**: PermissionGroups.tsx with interactive checkbox matrix grid
+
+## User Management
+- **Schema**: `app_users` extended with email, phone, permissionGroupId, mfaType (none/email/mobile/both)
+- **Archive**: `app_user_archive` for immutable change history
+- **API**: GET/POST `/api/app-users`, PUT `/api/app-users/:id`
+- **UI**: Users.tsx with full CRUD, MFA radio buttons, permission group assignment
+
+## WAME Protocol
+- **WameSaveButton**: Reusable sticky save component (`client/src/components/wame-save-button.tsx`)
+- **Timer**: `performance.now()` tracks editing duration on all create/edit forms
+- **Loading states**: "Ukladam..." with spinner during save operations
+
 ## Recent Changes (2026-02-11)
 - Added global_counters table for atomic UID generation
 - Expanded schema: company_officers, partner_contracts, partner_contacts, partner_products, contact_product_assignments, communication_matrix
@@ -152,3 +186,11 @@ Multi-tenant CRM and commission tracking system for financial services, real est
 - Added user profile photo upload/display in navbar
 - Redesigned navbar: state left, company center, user profile right with dropdown menu
 - Updated company specialization dropdown with full options (SFA, Reality, Prenajom, Predaj zbrani, Obchod, Poistenie, Dochodok, Ine)
+- Built Global Product Catalog with partner/company cross-validation and displayName format
+- Added commission pricing history (Sadzobnik) with temporal validity and 3 types
+- Implemented RBAC system with permission groups and dynamic permission matrix
+- Enhanced user management with MFA options and immutable history archive
+- Created WameSaveButton reusable component with sticky positioning
+- Added Users.tsx, PermissionGroups.tsx, Products.tsx pages with full CRUD
+- Updated sidebar: Produkty, Pouzivatelia, Skupiny pravomoci navigation items
+- Fixed all TypeScript LSP errors in server/routes.ts and server/storage.ts

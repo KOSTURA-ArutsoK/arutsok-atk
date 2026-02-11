@@ -1,18 +1,19 @@
 import { db } from "./db";
 import { 
   subjects, myCompanies, partners, contacts, products, commissionSchemes, 
-  continents, states, subjectArchive, companyArchive, appUsers,
+  continents, states, subjectArchive, companyArchive, appUsers, appUserArchive,
   companyOfficers, partnerContracts, partnerContacts, partnerProducts,
   contactProductAssignments, communicationMatrix, globalCounters,
   companyContacts, contractAmendments, userProfiles,
+  permissionGroups, permissions,
   type Subject, type InsertSubject, 
   type MyCompany, type InsertMyCompany,
   type Partner, type InsertPartner,
   type Contact, 
-  type Product, 
-  type CommissionScheme,
+  type Product, type InsertProduct,
+  type CommissionScheme, type InsertCommissionScheme,
   type UpdateSubjectRequest, type UpdateMyCompanyRequest, type UpdatePartnerRequest,
-  type AppUser,
+  type AppUser, type InsertAppUser,
   type CompanyOfficer, type InsertCompanyOfficer,
   type PartnerContact, type InsertPartnerContact,
   type PartnerProduct, type InsertPartnerProduct,
@@ -21,6 +22,8 @@ import {
   type CompanyContact,
   type ContractAmendment, type InsertContractAmendment,
   type UserProfile, type InsertUserProfile,
+  type PermissionGroup, type InsertPermissionGroup,
+  type Permission, type InsertPermission,
 } from "@shared/schema";
 import { eq, and, or, ne, like, sql, lte } from "drizzle-orm";
 
@@ -35,7 +38,7 @@ export interface IStorage {
   getMyCompany(id: number): Promise<MyCompany | undefined>;
   createMyCompany(company: InsertMyCompany): Promise<MyCompany>;
   updateMyCompany(id: number, updates: UpdateMyCompanyRequest): Promise<MyCompany>;
-  softDeleteMyCompany(id: number): Promise<void>;
+  softDeleteMyCompany(id: number, deletedBy: string, ip: string): Promise<void>;
 
   getCompanyOfficers(companyId: number, includeInactive?: boolean): Promise<CompanyOfficer[]>;
   createCompanyOfficer(data: InsertCompanyOfficer): Promise<CompanyOfficer>;
@@ -79,10 +82,14 @@ export interface IStorage {
   updateSubject(id: number, updates: UpdateSubjectRequest): Promise<Subject>;
   archiveSubject(id: number, reason: string): Promise<void>;
   
-  getProducts(): Promise<Product[]>;
-  createProduct(product: Omit<Product, "id">): Promise<Product>;
+  getProducts(includeDeleted?: boolean): Promise<Product[]>;
+  getProduct(id: number): Promise<Product | undefined>;
+  createProduct(product: InsertProduct): Promise<Product>;
+  updateProduct(id: number, updates: Partial<InsertProduct>): Promise<Product>;
+  softDeleteProduct(id: number, deletedBy: string, ip: string): Promise<void>;
+  getProductsByPartner(partnerId: number): Promise<Product[]>;
   getCommissions(productId?: number): Promise<CommissionScheme[]>;
-  createCommission(commission: Omit<CommissionScheme, "id">): Promise<CommissionScheme>;
+  createCommission(commission: InsertCommissionScheme): Promise<CommissionScheme>;
 
   getSubjectCareerHistory(subjectId: number): Promise<{
     type: 'internal' | 'external';
@@ -101,7 +108,20 @@ export interface IStorage {
   upsertUserProfile(data: InsertUserProfile): Promise<UserProfile>;
 
   getAppUserByReplitId(replitId: string): Promise<AppUser | undefined>;
+  getAppUsers(): Promise<AppUser[]>;
+  createAppUser(data: InsertAppUser): Promise<AppUser>;
   updateAppUser(id: number, data: Partial<AppUser>): Promise<AppUser>;
+  updateAppUserWithArchive(id: number, data: Partial<AppUser>, reason: string): Promise<AppUser>;
+
+  getPermissionGroups(): Promise<PermissionGroup[]>;
+  createPermissionGroup(data: InsertPermissionGroup): Promise<PermissionGroup>;
+  updatePermissionGroup(id: number, data: Partial<InsertPermissionGroup>): Promise<PermissionGroup>;
+  deletePermissionGroup(id: number): Promise<void>;
+
+  getPermissions(groupId: number): Promise<Permission[]>;
+  getAllPermissions(): Promise<Permission[]>;
+  setPermission(data: InsertPermission): Promise<Permission>;
+  syncPermissionsTable(): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -151,7 +171,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createMyCompany(company: InsertMyCompany) {
-    const [newCompany] = await db.insert(myCompanies).values(company).returning();
+    const [newCompany] = await db.insert(myCompanies).values(company as any).returning();
     return newCompany;
   }
 
@@ -167,14 +187,14 @@ export class DatabaseStorage implements IStorage {
 
     const { changeReason, ...companyUpdates } = updates;
     const [updated] = await db.update(myCompanies)
-      .set({ ...companyUpdates, updatedAt: new Date() })
+      .set({ ...companyUpdates, updatedAt: new Date() } as any)
       .where(eq(myCompanies.id, id))
       .returning();
       
     return updated;
   }
 
-  async softDeleteMyCompany(id: number) {
+  async softDeleteMyCompany(id: number, deletedBy: string, ip: string) {
     const original = await this.getMyCompany(id);
     if (!original) throw new Error("Company not found");
     
@@ -184,7 +204,12 @@ export class DatabaseStorage implements IStorage {
       reason: "Soft Delete",
     });
     
-    await db.update(myCompanies).set({ isDeleted: true }).where(eq(myCompanies.id, id));
+    await db.update(myCompanies).set({ 
+      isDeleted: true,
+      deletedBy,
+      deletedAt: new Date(),
+      deletedFromIp: ip,
+    }).where(eq(myCompanies.id, id));
   }
 
   async getCompanyOfficers(companyId: number, includeInactive?: boolean) {
@@ -246,7 +271,7 @@ export class DatabaseStorage implements IStorage {
   async createPartner(partner: InsertPartner) {
     const stateCode = partner.code || '000';
     const uid = await this.generateUID(stateCode);
-    const [newPartner] = await db.insert(partners).values({ ...partner, uid }).returning();
+    const [newPartner] = await db.insert(partners).values({ ...partner, uid } as any).returning();
     return newPartner;
   }
 
@@ -262,7 +287,7 @@ export class DatabaseStorage implements IStorage {
 
     const { changeReason, ...partnerUpdates } = updates;
     const [updated] = await db.update(partners)
-      .set({ ...partnerUpdates, updatedAt: new Date() })
+      .set({ ...partnerUpdates, updatedAt: new Date() } as any)
       .where(eq(partners.id, id))
       .returning();
 
@@ -292,7 +317,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createPartnerContract(data: InsertPartnerContract) {
-    const [contract] = await db.insert(partnerContracts).values(data).returning();
+    const [contract] = await db.insert(partnerContracts).values(data as any).returning();
     return contract;
   }
 
@@ -468,13 +493,62 @@ export class DatabaseStorage implements IStorage {
     await db.update(subjects).set({ isActive: false }).where(eq(subjects.id, id));
   }
 
-  async getProducts() {
-    return await db.select().from(products);
+  async getProducts(includeDeleted?: boolean) {
+    if (includeDeleted) return await db.select().from(products);
+    return await db.select().from(products).where(eq(products.isDeleted, false));
   }
 
-  async createProduct(product: Omit<Product, "id">) {
-    const [newProduct] = await db.insert(products).values(product).returning();
+  async getProduct(id: number) {
+    const [product] = await db.select().from(products).where(eq(products.id, id));
+    return product;
+  }
+
+  async createProduct(product: InsertProduct) {
+    const company = product.companyId ? await this.getMyCompany(product.companyId) : null;
+    const state = product.stateId ? await db.select().from(states).where(eq(states.id, product.stateId)).then(r => r[0]) : null;
+    const displayName = `${company?.code || '???'} - ${state?.code || '???'} - ${product.code}`;
+    const [newProduct] = await db.insert(products).values({ ...product, displayName }).returning();
     return newProduct;
+  }
+
+  async updateProduct(id: number, updates: Partial<InsertProduct>) {
+    const original = await this.getProduct(id);
+    if (!original) throw new Error("Product not found");
+    await db.insert(companyArchive).values({
+      originalId: id,
+      data: original as any,
+      reason: "Product Update",
+    });
+    if (updates.companyId || updates.stateId || updates.code) {
+      const companyId = updates.companyId || original.companyId;
+      const stateId = updates.stateId || original.stateId;
+      const code = updates.code || original.code;
+      const company = companyId ? await this.getMyCompany(companyId) : null;
+      const state = stateId ? await db.select().from(states).where(eq(states.id, stateId)).then(r => r[0]) : null;
+      (updates as any).displayName = `${company?.code || '???'} - ${state?.code || '???'} - ${code}`;
+    }
+    const [updated] = await db.update(products).set({ ...updates, updatedAt: new Date() } as any).where(eq(products.id, id)).returning();
+    return updated;
+  }
+
+  async softDeleteProduct(id: number, deletedBy: string, ip: string) {
+    const original = await this.getProduct(id);
+    if (!original) throw new Error("Product not found");
+    await db.insert(companyArchive).values({
+      originalId: id,
+      data: original as any,
+      reason: "Soft Delete Product",
+    });
+    await db.update(products).set({
+      isDeleted: true,
+      deletedBy,
+      deletedAt: new Date(),
+      deletedFromIp: ip,
+    }).where(eq(products.id, id));
+  }
+
+  async getProductsByPartner(partnerId: number) {
+    return await db.select().from(products).where(and(eq(products.partnerId, partnerId), eq(products.isDeleted, false)));
   }
 
   async getCommissions(productId?: number) {
@@ -482,7 +556,7 @@ export class DatabaseStorage implements IStorage {
     return await db.select().from(commissionSchemes);
   }
 
-  async createCommission(commission: Omit<CommissionScheme, "id">) {
+  async createCommission(commission: InsertCommissionScheme) {
     const [newCommission] = await db.insert(commissionSchemes).values(commission).returning();
     return newCommission;
   }
@@ -550,7 +624,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createContractAmendment(data: InsertContractAmendment) {
-    const [amendment] = await db.insert(contractAmendments).values(data).returning();
+    const [amendment] = await db.insert(contractAmendments).values(data as any).returning();
     return amendment;
   }
 
@@ -583,6 +657,15 @@ export class DatabaseStorage implements IStorage {
     return user;
   }
 
+  async getAppUsers() {
+    return await db.select().from(appUsers);
+  }
+
+  async createAppUser(data: InsertAppUser) {
+    const [user] = await db.insert(appUsers).values(data).returning();
+    return user;
+  }
+
   async updateAppUser(id: number, data: Partial<AppUser>) {
     const filtered: Record<string, any> = {};
     for (const [key, value] of Object.entries(data)) {
@@ -592,6 +675,84 @@ export class DatabaseStorage implements IStorage {
     }
     const [updated] = await db.update(appUsers).set(filtered).where(eq(appUsers.id, id)).returning();
     return updated;
+  }
+
+  async updateAppUserWithArchive(id: number, data: Partial<AppUser>, reason: string) {
+    const [original] = await db.select().from(appUsers).where(eq(appUsers.id, id));
+    if (!original) throw new Error("App user not found");
+    await db.insert(appUserArchive).values({
+      originalId: id,
+      data: original as any,
+      reason,
+    });
+    return await this.updateAppUser(id, data);
+  }
+
+  async getPermissionGroups() {
+    return await db.select().from(permissionGroups);
+  }
+
+  async createPermissionGroup(data: InsertPermissionGroup) {
+    const [group] = await db.insert(permissionGroups).values(data).returning();
+    await this.syncPermissionsTable();
+    return group;
+  }
+
+  async updatePermissionGroup(id: number, data: Partial<InsertPermissionGroup>) {
+    const [updated] = await db.update(permissionGroups).set(data).where(eq(permissionGroups.id, id)).returning();
+    return updated;
+  }
+
+  async deletePermissionGroup(id: number) {
+    await db.delete(permissions).where(eq(permissions.groupId, id));
+    await db.delete(permissionGroups).where(eq(permissionGroups.id, id));
+  }
+
+  async getPermissions(groupId: number) {
+    return await db.select().from(permissions).where(eq(permissions.groupId, groupId));
+  }
+
+  async getAllPermissions() {
+    return await db.select().from(permissions);
+  }
+
+  async setPermission(data: InsertPermission) {
+    const existing = await db.select().from(permissions)
+      .where(and(eq(permissions.groupId, data.groupId), eq(permissions.module, data.module)));
+    if (existing.length > 0) {
+      const [updated] = await db.update(permissions)
+        .set(data)
+        .where(eq(permissions.id, existing[0].id))
+        .returning();
+      return updated;
+    }
+    const [created] = await db.insert(permissions).values(data).returning();
+    return created;
+  }
+
+  async syncPermissionsTable() {
+    const MODULES = [
+      'dashboard', 'spolocnosti', 'partneri', 'produkty',
+      'provizie', 'subjekty', 'nastavenia', 'historia',
+      'pouzivatelia', 'skupiny_pravomoci'
+    ];
+    const groups = await this.getPermissionGroups();
+    for (const group of groups) {
+      const existing = await this.getPermissions(group.id);
+      const existingModules = existing.map(p => p.module);
+      const missing = MODULES.filter(m => !existingModules.includes(m));
+      for (const module of missing) {
+        await db.insert(permissions).values({
+          groupId: group.id,
+          module,
+          canRead: false,
+          canCreate: false,
+          canEdit: false,
+          canPublish: false,
+          canDelete: false,
+        });
+      }
+    }
   }
 }
 

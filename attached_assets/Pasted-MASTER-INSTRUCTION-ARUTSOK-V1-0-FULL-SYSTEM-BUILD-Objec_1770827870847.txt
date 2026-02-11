@@ -1,0 +1,31 @@
+MASTER INSTRUCTION: ARUTSOK V1.0 FULL SYSTEM BUILD
+Objective: Implement Modules 18-26 into the existing infrastructure. Maintain the WAME Protocol, 12-digit ID logic, and "No-Overwrite" (Archiving) policy throughout the build.
+1. CORE ARCHITECTURE & NAVIGATION (UI/UX)
+•	Global Navbar Upgrade: Implement a header with 3 sections:
+o	Left: Country Flag 🇸🇰, prefix (+421), and Country Name.
+o	Center: Current Active Company Name (Dynamic).
+o	Right: Authenticated User (Full Name + Avatar).
+•	User Profiles: Add User_Profiles table linked to Subject ID. Support .jpg/.png avatar uploads.
+•	Menu (Left Panel): Add "Produkty" (Products), "Provízie" (Commissions - placeholder), and "Nastavenia -> Používatelia/Skupiny právomocí".
+2. GLOBAL PRODUCT CATALOG (Tasks 18-22)
+•	Product Schema: Create products table. Primary Key is system-generated, but Display Name format is: [MyCompany] - [CountryCode] - [ProductCode].
+•	Logic:
+o	Cross-Validation: Only show "My Companies" that have an active contract with the selected Partner.
+o	Authorization: Implement "Allow Specialist Types" field. Match Product requirements with User licenses (e.g., NBS, Firearms License).
+o	Commission Settings (Accordion): Options for Points (Points × Coeff), Percentage (%), or Fixed (EUR).
+o	Pricing History (Sadzobník): Time-conditioned pricing table (Valid From/To). No data overwriting – only new version entries.
+•	Security: Implement the 3-Step Deletion Protocol for Products: Admin Code -> Warning -> SuperAdmin Code -> Soft Delete.
+3. SECURITY & ACCESS CONTROL (RBAC) (Tasks 23-25)
+•	User Management:
+o	Support MFA options (None, Email, Mobile, Both) via Radio buttons.
+o	Immutable History: Any change to user data (email/phone) creates a new record; old data moves to Archive.
+•	Permissions Matrix:
+o	Table 1 (Groups): Defined groups (SuperAdmin, Backoffice, etc.).
+o	Table 2 (Matrix): Dynamic grid showing every module as a row and actions (Read, Create, Edit, Publish, Delete) as checkboxes.
+•	Dynamic Sync: Implement syncPermissionsTable(). New modules added to code must automatically appear in the Matrix for all groups with all permissions set to False by default.
+4. DATA INTEGRITY & WAME PROTOCOL (Task 26)
+•	Smart Save Button: Sticky "Uložiť" button with loading state ("Ukladám...").
+•	Validation: Verify 12-digit ID format, unique email, and mandatory fields.
+•	WAME Integration: Every save action must calculate processing_time_sec (Open to Save) and record it in the Audit Log along with the User ID.
+•	Toasts: Success (Green) / Error (Red) notifications for all database operations.
+Technical Requirement: Use db:push for schema changes. Ensure all labels and UI elements are in Slovak. Start the autonomous build now.
