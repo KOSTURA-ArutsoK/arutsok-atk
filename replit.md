@@ -63,8 +63,8 @@ Multi-tenant CRM and commission tracking system for financial services, real est
 - Sharp borders, small border radius
 
 ## Recent Changes (2026-02-11)
-- Enhanced Companies CRUD with full field set (ICO, DIC, IC DPH, address fields)
-- Added dual document management system with file upload/download/delete
-- Added Tiptap rich text editor for company notes
-- Added isAuthenticated middleware to all company and file routes
+- Enhanced Companies CRUD with strict validation (ICO, DIC, IC DPH, full address, description required)
+- Implemented soft delete with Audit Trail (tracking user, time, and IP)
+- Added Admin/SuperAdmin role protection for company creation
+- Added support for logo management (schema fields: logos, primary, archive)
 - Dialog uses live query data for document list refresh after uploads

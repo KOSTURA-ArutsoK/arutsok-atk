@@ -59,6 +59,16 @@ import { useQueryClient } from "@tanstack/react-query";
 
 const formSchema = insertMyCompanySchema.extend({
   name: z.string().min(1, "Nazov je povinny"),
+  ico: z.string().min(1, "ICO je povinne"),
+  dic: z.string().min(1, "DIC je povinne"),
+  icDph: z.string().min(1, "IC DPH je povinne"),
+  street: z.string().min(1, "Ulica je povinna"),
+  streetNumber: z.string().min(1, "Popisne cislo je povinne"),
+  orientNumber: z.string().min(1, "Orientacne cislo je povinne"),
+  postalCode: z.string().min(1, "PSC je povinne"),
+  city: z.string().min(1, "Mesto je povinne"),
+  stateId: z.number({ required_error: "Stat je povinny" }),
+  description: z.string().min(1, "Charakteristika je povinna"),
   specialization: z.string().min(1, "Zameranie je povinne"),
   code: z.string().min(1, "Kod je povinny").max(4, "Max 4 znaky"),
 });
@@ -376,27 +386,31 @@ function CompanyFormDialog({
                 <div className="grid grid-cols-3 gap-4">
                   <FormField control={form.control} name="ico" render={({ field }) => (
                     <FormItem>
-                      <FormLabel>ICO</FormLabel>
+                      <FormLabel>ICO *</FormLabel>
                       <FormControl><Input {...field} value={field.value || ""} data-testid="input-ico" /></FormControl>
+                      <FormMessage />
                     </FormItem>
                   )} />
                   <FormField control={form.control} name="dic" render={({ field }) => (
                     <FormItem>
-                      <FormLabel>DIC</FormLabel>
+                      <FormLabel>DIC *</FormLabel>
                       <FormControl><Input {...field} value={field.value || ""} data-testid="input-dic" /></FormControl>
+                      <FormMessage />
                     </FormItem>
                   )} />
                   <FormField control={form.control} name="icDph" render={({ field }) => (
                     <FormItem>
-                      <FormLabel>IC DPH</FormLabel>
+                      <FormLabel>IC DPH *</FormLabel>
                       <FormControl><Input {...field} value={field.value || ""} data-testid="input-icdph" /></FormControl>
+                      <FormMessage />
                     </FormItem>
                   )} />
                 </div>
                 <FormField control={form.control} name="description" render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Cim sa firma zaobera</FormLabel>
+                    <FormLabel>Charakteristika (Cim sa firma zaobera) *</FormLabel>
                     <FormControl><Textarea {...field} value={field.value || ""} rows={4} data-testid="input-description" /></FormControl>
+                    <FormMessage />
                   </FormItem>
                 )} />
               </TabsContent>
@@ -404,40 +418,45 @@ function CompanyFormDialog({
               <TabsContent value="address" className="space-y-4 mt-4">
                 <FormField control={form.control} name="street" render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Ulica</FormLabel>
+                    <FormLabel>Ulica *</FormLabel>
                     <FormControl><Input {...field} value={field.value || ""} data-testid="input-street" /></FormControl>
+                    <FormMessage />
                   </FormItem>
                 )} />
                 <div className="grid grid-cols-2 gap-4">
                   <FormField control={form.control} name="streetNumber" render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Popisne cislo</FormLabel>
+                      <FormLabel>Popisne cislo *</FormLabel>
                       <FormControl><Input {...field} value={field.value || ""} data-testid="input-street-number" /></FormControl>
+                      <FormMessage />
                     </FormItem>
                   )} />
                   <FormField control={form.control} name="orientNumber" render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Orientacne cislo</FormLabel>
+                      <FormLabel>Orientacne cislo *</FormLabel>
                       <FormControl><Input {...field} value={field.value || ""} data-testid="input-orient-number" /></FormControl>
+                      <FormMessage />
                     </FormItem>
                   )} />
                 </div>
                 <div className="grid grid-cols-3 gap-4">
                   <FormField control={form.control} name="postalCode" render={({ field }) => (
                     <FormItem>
-                      <FormLabel>PSC</FormLabel>
+                      <FormLabel>PSC *</FormLabel>
                       <FormControl><Input {...field} value={field.value || ""} data-testid="input-postal-code" /></FormControl>
+                      <FormMessage />
                     </FormItem>
                   )} />
                   <FormField control={form.control} name="city" render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Mesto / Obec</FormLabel>
+                      <FormLabel>Mesto / Obec *</FormLabel>
                       <FormControl><Input {...field} value={field.value || ""} data-testid="input-city" /></FormControl>
+                      <FormMessage />
                     </FormItem>
                   )} />
                   <FormField control={form.control} name="stateId" render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Stat</FormLabel>
+                      <FormLabel>Stat *</FormLabel>
                       <Select
                         onValueChange={(val) => field.onChange(parseInt(val))}
                         value={field.value?.toString() || ""}
@@ -455,6 +474,7 @@ function CompanyFormDialog({
                           ))}
                         </SelectContent>
                       </Select>
+                      <FormMessage />
                     </FormItem>
                   )} />
                 </div>

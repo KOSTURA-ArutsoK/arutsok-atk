@@ -100,8 +100,14 @@ export async function registerRoutes(
     res.json(company);
   });
 
-  app.post(api.myCompanies.create.path, isAuthenticated, async (req, res) => {
+  app.post(api.myCompanies.create.path, isAuthenticated, async (req: any, res) => {
     try {
+      const replitUserId = req.user?.claims?.sub;
+      const appUser = await storage.getAppUserByReplitId(replitUserId);
+      if (!appUser || (appUser.role !== 'admin' && appUser.role !== 'superadmin')) {
+        return res.status(403).json({ message: "Only admins can create companies" });
+      }
+
       const input = api.myCompanies.create.input.parse(req.body);
       const created = await storage.createMyCompany(input);
       res.status(201).json(created);
@@ -123,9 +129,24 @@ export async function registerRoutes(
     }
   });
 
-  app.delete(api.myCompanies.delete.path, isAuthenticated, async (req, res) => {
+  app.delete(api.myCompanies.delete.path, isAuthenticated, async (req: any, res) => {
     try {
-      await storage.softDeleteMyCompany(Number(req.params.id));
+      const companyId = Number(req.params.id);
+      const replitUserId = req.user?.claims?.sub;
+      const appUser = await storage.getAppUserByReplitId(replitUserId);
+      const ip = req.ip || req.headers['x-forwarded-for'] || req.socket.remoteAddress;
+
+      if (!appUser) return res.status(404).json({ message: "User not found" });
+
+      // Audit trail and soft delete
+      await storage.updateMyCompany(companyId, { 
+        isDeleted: true,
+        deletedBy: appUser.username,
+        deletedAt: new Date(),
+        deletedFromIp: typeof ip === 'string' ? ip : JSON.stringify(ip),
+        changeReason: "Soft Delete with Audit" 
+      });
+
       res.json({ success: true });
     } catch (err) {
       if (err instanceof Error && err.message === "Company not found") return res.status(404).json({ message: err.message });
