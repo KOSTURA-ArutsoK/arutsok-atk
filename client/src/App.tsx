@@ -16,6 +16,7 @@ import Partners from "@/pages/Partners";
 import Products from "@/pages/Products";
 import Users from "@/pages/Users";
 import PermissionGroups from "@/pages/PermissionGroups";
+import History from "@/pages/History";
 import { AppShell } from "@/components/layout/AppShell";
 
 function PlaceholderPage({ title }: { title: string }) {
@@ -66,7 +67,7 @@ function Router() {
       <Route path="/products" component={() => <PrivateRoute component={Products} />} />
       <Route path="/commissions" component={() => <PrivateRoute component={() => <PlaceholderPage title="Provizie" />} />} />
       <Route path="/settings" component={() => <PrivateRoute component={() => <PlaceholderPage title="Nastavenia" />} />} />
-      <Route path="/history" component={() => <PrivateRoute component={() => <PlaceholderPage title="Historia a logy" />} />} />
+      <Route path="/history" component={() => <PrivateRoute component={History} />} />
       <Route path="/users" component={() => <PrivateRoute component={Users} />} />
       <Route path="/permission-groups" component={() => <PrivateRoute component={PermissionGroups} />} />
 

@@ -5,7 +5,7 @@ import {
   companyOfficers, partnerContracts, partnerContacts, partnerProducts,
   contactProductAssignments, communicationMatrix, globalCounters,
   companyContacts, contractAmendments, userProfiles,
-  permissionGroups, permissions,
+  permissionGroups, permissions, auditLogs,
   type Subject, type InsertSubject, 
   type MyCompany, type InsertMyCompany,
   type Partner, type InsertPartner,
@@ -24,6 +24,7 @@ import {
   type UserProfile, type InsertUserProfile,
   type PermissionGroup, type InsertPermissionGroup,
   type Permission, type InsertPermission,
+  type AuditLog, type InsertAuditLog,
 } from "@shared/schema";
 import { eq, and, or, ne, like, sql, lte } from "drizzle-orm";
 
@@ -122,6 +123,10 @@ export interface IStorage {
   getAllPermissions(): Promise<Permission[]>;
   setPermission(data: InsertPermission): Promise<Permission>;
   syncPermissionsTable(): Promise<void>;
+
+  getAuditLogs(filters?: { userId?: number; module?: string; action?: string; dateFrom?: string; dateTo?: string; limit?: number; offset?: number }): Promise<AuditLog[]>;
+  getAuditLogCount(filters?: { userId?: number; module?: string; action?: string; dateFrom?: string; dateTo?: string }): Promise<number>;
+  createAuditLog(data: InsertAuditLog): Promise<AuditLog>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -753,6 +758,42 @@ export class DatabaseStorage implements IStorage {
         });
       }
     }
+  }
+
+  async getAuditLogs(filters?: { userId?: number; module?: string; action?: string; dateFrom?: string; dateTo?: string; limit?: number; offset?: number }): Promise<AuditLog[]> {
+    const conditions: any[] = [];
+    if (filters?.userId) conditions.push(eq(auditLogs.userId, filters.userId));
+    if (filters?.module) conditions.push(eq(auditLogs.module, filters.module));
+    if (filters?.action) conditions.push(eq(auditLogs.action, filters.action));
+    if (filters?.dateFrom) conditions.push(sql`${auditLogs.createdAt} >= ${filters.dateFrom}::timestamp`);
+    if (filters?.dateTo) conditions.push(sql`${auditLogs.createdAt} <= ${filters.dateTo}::timestamp + interval '1 day'`);
+
+    const limit = filters?.limit || 50;
+    const offset = filters?.offset || 0;
+
+    if (conditions.length === 0) {
+      return await db.select().from(auditLogs).orderBy(sql`${auditLogs.createdAt} DESC`).limit(limit).offset(offset);
+    }
+    return await db.select().from(auditLogs).where(and(...conditions)).orderBy(sql`${auditLogs.createdAt} DESC`).limit(limit).offset(offset);
+  }
+
+  async getAuditLogCount(filters?: { userId?: number; module?: string; action?: string; dateFrom?: string; dateTo?: string }): Promise<number> {
+    const conditions: any[] = [];
+    if (filters?.userId) conditions.push(eq(auditLogs.userId, filters.userId));
+    if (filters?.module) conditions.push(eq(auditLogs.module, filters.module));
+    if (filters?.action) conditions.push(eq(auditLogs.action, filters.action));
+    if (filters?.dateFrom) conditions.push(sql`${auditLogs.createdAt} >= ${filters.dateFrom}::timestamp`);
+    if (filters?.dateTo) conditions.push(sql`${auditLogs.createdAt} <= ${filters.dateTo}::timestamp + interval '1 day'`);
+
+    const result = conditions.length === 0
+      ? await db.select({ count: sql<number>`count(*)::int` }).from(auditLogs)
+      : await db.select({ count: sql<number>`count(*)::int` }).from(auditLogs).where(and(...conditions));
+    return result[0]?.count || 0;
+  }
+
+  async createAuditLog(data: InsertAuditLog): Promise<AuditLog> {
+    const [log] = await db.insert(auditLogs).values(data).returning();
+    return log;
   }
 }
 

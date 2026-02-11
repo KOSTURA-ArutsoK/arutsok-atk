@@ -17,7 +17,7 @@ import {
   insertAppUserSchema,
   subjects, myCompanies, partners, contacts, products, commissionSchemes, appUsers,
   partnerContacts, partnerProducts, partnerContracts, communicationMatrix, companyOfficers,
-  contractAmendments, userProfiles, permissionGroups, permissions,
+  contractAmendments, userProfiles, permissionGroups, permissions, auditLogs,
 } from './schema';
 
 export const errorSchemas = {
@@ -406,6 +406,14 @@ export const api = {
       path: '/api/hierarchy/states' as const,
       input: z.object({ continentId: z.number(), name: z.string(), code: z.string(), flagUrl: z.string().optional() }),
       responses: { 201: z.object({ id: z.number(), name: z.string(), code: z.string(), flagUrl: z.string().nullable(), continentId: z.number() }) },
+    },
+  },
+
+  auditLogs: {
+    list: {
+      method: 'GET' as const,
+      path: '/api/audit-logs' as const,
+      responses: { 200: z.object({ logs: z.array(z.custom<typeof auditLogs.$inferSelect>()), total: z.number() }) },
     },
   },
 

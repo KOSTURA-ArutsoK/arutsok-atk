@@ -1,4 +1,4 @@
-import type { Express } from "express";
+import type { Express, Request } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { api } from "@shared/routes";
@@ -10,6 +10,43 @@ import { eq } from "drizzle-orm";
 import multer from "multer";
 import path from "path";
 import fs from "fs";
+
+async function logAudit(req: any, params: {
+  action: string;
+  module: string;
+  entityId?: number;
+  entityName?: string;
+  oldData?: any;
+  newData?: any;
+  processingTimeSec?: number;
+}) {
+  try {
+    const replitUserId = req.user?.claims?.sub;
+    let appUser: any = null;
+    if (replitUserId) {
+      appUser = await storage.getAppUserByReplitId(replitUserId);
+    }
+    const ip = req.ip || req.headers['x-forwarded-for'] || req.socket?.remoteAddress || '';
+    const clientWame = req.body?.processingTimeSec ? Number(req.body.processingTimeSec) : 0;
+    const serverTimeSec = req._auditStartTime ? Math.round((performance.now() - req._auditStartTime) / 1000) : 0;
+    const wameTime = params.processingTimeSec || clientWame || serverTimeSec;
+
+    await storage.createAuditLog({
+      userId: appUser?.id || null,
+      username: appUser?.username || req.user?.claims?.email || 'system',
+      action: params.action,
+      module: params.module,
+      entityId: params.entityId || null,
+      entityName: params.entityName || null,
+      oldData: params.oldData || null,
+      newData: params.newData || null,
+      processingTimeSec: wameTime,
+      ipAddress: typeof ip === 'string' ? ip : JSON.stringify(ip),
+    });
+  } catch (err) {
+    console.error("Audit log error:", err);
+  }
+}
 
 const UPLOADS_DIR = path.join(process.cwd(), "uploads");
 fs.mkdirSync(path.join(UPLOADS_DIR, "official"), { recursive: true });
@@ -44,6 +81,11 @@ export async function registerRoutes(
   
   await setupAuth(app);
   registerAuthRoutes(app);
+
+  app.use((req: any, _res, next) => {
+    req._auditStartTime = performance.now();
+    next();
+  });
 
   // === APP USER ===
   app.get(api.appUser.me.path, isAuthenticated, async (req: any, res) => {
@@ -81,7 +123,9 @@ export async function registerRoutes(
       if (validated.activeCompanyId !== undefined) updates.activeCompanyId = validated.activeCompanyId;
       if (validated.activeStateId !== undefined) updates.activeStateId = validated.activeStateId;
       
+      const oldData = { activeCompanyId: appUser.activeCompanyId, activeStateId: appUser.activeStateId };
       const updated = await storage.updateAppUser(appUser.id, updates);
+      await logAudit(req, { action: "UPDATE", module: "nastavenia", entityId: appUser.id, entityName: appUser.username, oldData, newData: updates });
       res.json(updated);
     } catch (err) {
       if (err instanceof z.ZodError) return res.status(400).json({ message: err.errors[0].message });
@@ -103,10 +147,43 @@ export async function registerRoutes(
     try {
       const input = api.hierarchy.createState.input.parse(req.body);
       const created = await storage.createState(input);
+      await logAudit(req, { action: "CREATE", module: "nastavenia", entityId: created.id, entityName: created.name, newData: input });
       res.status(201).json(created);
     } catch (err) {
       if (err instanceof z.ZodError) return res.status(400).json({ message: err.errors[0].message });
       throw err;
+    }
+  });
+
+  // === AUDIT LOGS ===
+  app.get(api.auditLogs.list.path, isAuthenticated, async (req: any, res) => {
+    try {
+      const filters = {
+        userId: req.query.userId ? parseInt(req.query.userId as string) : undefined,
+        module: req.query.module as string || undefined,
+        action: req.query.action as string || undefined,
+        dateFrom: req.query.dateFrom as string || undefined,
+        dateTo: req.query.dateTo as string || undefined,
+        limit: req.query.limit ? parseInt(req.query.limit as string) : 50,
+        offset: req.query.offset ? parseInt(req.query.offset as string) : 0,
+      };
+      const [logs, total] = await Promise.all([
+        storage.getAuditLogs(filters),
+        storage.getAuditLogCount(filters),
+      ]);
+      res.json({ logs, total });
+    } catch (err) {
+      console.error("Audit logs error:", err);
+      res.status(500).json({ message: "Internal error" });
+    }
+  });
+
+  app.get("/api/audit-logs/users", isAuthenticated, async (_req, res) => {
+    try {
+      const users = await storage.getAppUsers();
+      res.json(users.map(u => ({ id: u.id, username: u.username, firstName: u.firstName, lastName: u.lastName })));
+    } catch (err) {
+      res.status(500).json({ message: "Internal error" });
     }
   });
 
@@ -138,6 +215,7 @@ export async function registerRoutes(
 
       const input = api.myCompanies.create.input.parse(req.body);
       const created = await storage.createMyCompany(input);
+      await logAudit(req, { action: "CREATE", module: "spolocnosti", entityId: created.id, entityName: created.name, newData: input });
       res.status(201).json(created);
     } catch (err) {
       if (err instanceof z.ZodError) return res.status(400).json({ message: err.errors[0].message });
@@ -148,7 +226,9 @@ export async function registerRoutes(
   app.put(api.myCompanies.update.path, isAuthenticated, async (req, res) => {
     try {
       const input = api.myCompanies.update.input.parse(req.body);
+      const oldCompany = await storage.getMyCompany(Number(req.params.id));
       const updated = await storage.updateMyCompany(Number(req.params.id), input);
+      await logAudit(req, { action: "UPDATE", module: "spolocnosti", entityId: Number(req.params.id), entityName: updated.name, oldData: oldCompany, newData: input });
       res.json(updated);
     } catch (err) {
       if (err instanceof z.ZodError) return res.status(400).json({ message: err.errors[0].message });
@@ -167,7 +247,7 @@ export async function registerRoutes(
       if (!appUser) return res.status(404).json({ message: "User not found" });
 
       await storage.softDeleteMyCompany(companyId, appUser.username, typeof ip === 'string' ? ip : JSON.stringify(ip));
-
+      await logAudit(req, { action: "DELETE", module: "spolocnosti", entityId: companyId });
       res.json({ success: true });
     } catch (err) {
       if (err instanceof Error && err.message === "Company not found") return res.status(404).json({ message: err.message });
@@ -184,7 +264,9 @@ export async function registerRoutes(
   app.post(api.companyOfficers.create.path, isAuthenticated, async (req, res) => {
     try {
       const input = { ...api.companyOfficers.create.input.parse(req.body), companyId: Number(req.params.companyId) };
-      res.status(201).json(await storage.createCompanyOfficer(input));
+      const created = await storage.createCompanyOfficer(input);
+      await logAudit(req, { action: "CREATE", module: "spolocnosti", entityName: "officer" });
+      res.status(201).json(created);
     } catch (err) {
       if (err instanceof z.ZodError) return res.status(400).json({ message: err.errors[0].message });
       throw err;
@@ -203,6 +285,7 @@ export async function registerRoutes(
   app.delete(api.companyOfficers.delete.path, isAuthenticated, async (req, res) => {
     try {
       await storage.deleteCompanyOfficer(Number(req.params.id));
+      await logAudit(req, { action: "DELETE", module: "spolocnosti", entityId: Number(req.params.id) });
       res.json({ success: true });
     } catch (err) {
       throw err;
@@ -224,7 +307,9 @@ export async function registerRoutes(
   app.post(api.partners.create.path, isAuthenticated, async (req, res) => {
     try {
       const input = api.partners.create.input.parse(req.body);
-      res.status(201).json(await storage.createPartner(input));
+      const created = await storage.createPartner(input);
+      await logAudit(req, { action: "CREATE", module: "partneri", entityId: created.id, entityName: created.name, newData: input });
+      res.status(201).json(created);
     } catch (err) {
       if (err instanceof z.ZodError) return res.status(400).json({ message: err.errors[0].message });
       throw err;
@@ -234,7 +319,10 @@ export async function registerRoutes(
   app.put(api.partners.update.path, isAuthenticated, async (req, res) => {
     try {
       const input = api.partners.update.input.parse(req.body);
-      res.json(await storage.updatePartner(Number(req.params.id), input));
+      const oldPartner = await storage.getPartner(Number(req.params.id));
+      const updated = await storage.updatePartner(Number(req.params.id), input);
+      await logAudit(req, { action: "UPDATE", module: "partneri", entityId: Number(req.params.id), oldData: oldPartner, newData: input });
+      res.json(updated);
     } catch (err) {
       if (err instanceof z.ZodError) return res.status(400).json({ message: err.errors[0].message });
       if (err instanceof Error && err.message === "Partner not found") return res.status(404).json({ message: err.message });
@@ -250,6 +338,7 @@ export async function registerRoutes(
       if (!appUser) return res.status(404).json({ message: "User not found" });
 
       await storage.softDeletePartner(Number(req.params.id), appUser.username, typeof ip === 'string' ? ip : '');
+      await logAudit(req, { action: "DELETE", module: "partneri", entityId: Number(req.params.id) });
       res.json({ success: true });
     } catch (err) {
       if (err instanceof Error && err.message === "Partner not found") return res.status(404).json({ message: err.message });
@@ -265,7 +354,9 @@ export async function registerRoutes(
   app.post(api.partnerContracts.create.path, isAuthenticated, async (req, res) => {
     try {
       const input = { ...api.partnerContracts.create.input.parse(req.body), partnerId: Number(req.params.partnerId) };
-      res.status(201).json(await storage.createPartnerContract(input));
+      const created = await storage.createPartnerContract(input);
+      await logAudit(req, { action: "CREATE", module: "partneri", entityName: "zmluva" });
+      res.status(201).json(created);
     } catch (err) {
       if (err instanceof z.ZodError) return res.status(400).json({ message: err.errors[0].message });
       throw err;
@@ -275,6 +366,7 @@ export async function registerRoutes(
   app.delete(api.partnerContracts.delete.path, isAuthenticated, async (req, res) => {
     try {
       await storage.deletePartnerContract(Number(req.params.id));
+      await logAudit(req, { action: "DELETE", module: "partneri", entityId: Number(req.params.id), entityName: "zmluva" });
       res.json({ success: true });
     } catch (err) {
       throw err;
@@ -310,6 +402,7 @@ export async function registerRoutes(
         effectiveDate: new Date(effectiveDate),
         file: fileEntry,
       });
+      await logAudit(req, { action: "CREATE", module: "partneri", entityName: "dodatok" });
       res.status(201).json(amendment);
     } catch (err) {
       console.error("Create amendment error:", err);
@@ -320,6 +413,7 @@ export async function registerRoutes(
   app.delete(api.contractAmendments.delete.path, isAuthenticated, async (req, res) => {
     try {
       await storage.deleteContractAmendment(Number(req.params.id));
+      await logAudit(req, { action: "DELETE", module: "partneri", entityId: Number(req.params.id), entityName: "dodatok" });
       res.json({ success: true });
     } catch (err) {
       throw err;
@@ -380,7 +474,9 @@ export async function registerRoutes(
   app.post(api.partnerContacts.create.path, isAuthenticated, async (req, res) => {
     try {
       const input = { ...api.partnerContacts.create.input.parse(req.body), partnerId: Number(req.params.partnerId) };
-      res.status(201).json(await storage.createPartnerContact(input));
+      const created = await storage.createPartnerContact(input);
+      await logAudit(req, { action: "CREATE", module: "partneri", entityName: "kontakt" });
+      res.status(201).json(created);
     } catch (err) {
       if (err instanceof z.ZodError) return res.status(400).json({ message: err.errors[0].message });
       throw err;
@@ -390,7 +486,9 @@ export async function registerRoutes(
   app.put(api.partnerContacts.update.path, isAuthenticated, async (req, res) => {
     try {
       const input = api.partnerContacts.update.input.parse(req.body);
-      res.json(await storage.updatePartnerContact(Number(req.params.id), input));
+      const updated = await storage.updatePartnerContact(Number(req.params.id), input);
+      await logAudit(req, { action: "UPDATE", module: "partneri", entityId: Number(req.params.id), entityName: "kontakt" });
+      res.json(updated);
     } catch (err) {
       if (err instanceof z.ZodError) return res.status(400).json({ message: err.errors[0].message });
       throw err;
@@ -400,6 +498,7 @@ export async function registerRoutes(
   app.delete(api.partnerContacts.delete.path, isAuthenticated, async (req, res) => {
     try {
       await storage.deletePartnerContact(Number(req.params.id));
+      await logAudit(req, { action: "DELETE", module: "partneri", entityId: Number(req.params.id), entityName: "kontakt" });
       res.json({ success: true });
     } catch (err) {
       throw err;
@@ -414,7 +513,9 @@ export async function registerRoutes(
   app.post(api.partnerProducts.create.path, isAuthenticated, async (req, res) => {
     try {
       const input = { ...api.partnerProducts.create.input.parse(req.body), partnerId: Number(req.params.partnerId) };
-      res.status(201).json(await storage.createPartnerProduct(input));
+      const created = await storage.createPartnerProduct(input);
+      await logAudit(req, { action: "CREATE", module: "partneri", entityName: "produkt" });
+      res.status(201).json(created);
     } catch (err) {
       if (err instanceof z.ZodError) return res.status(400).json({ message: err.errors[0].message });
       throw err;
@@ -424,6 +525,7 @@ export async function registerRoutes(
   app.delete(api.partnerProducts.delete.path, isAuthenticated, async (req, res) => {
     try {
       await storage.deletePartnerProduct(Number(req.params.id));
+      await logAudit(req, { action: "DELETE", module: "partneri", entityId: Number(req.params.id), entityName: "produkt" });
       res.json({ success: true });
     } catch (err) {
       throw err;
@@ -519,7 +621,9 @@ export async function registerRoutes(
   app.post(api.subjects.create.path, async (req, res) => {
     try {
       const input = api.subjects.create.input.parse(req.body);
-      res.status(201).json(await storage.createSubject(input));
+      const created = await storage.createSubject(input);
+      await logAudit(req, { action: "CREATE", module: "subjekty", entityId: created.id, entityName: (created.firstName ? created.firstName + ' ' + created.lastName : created.companyName) || undefined, newData: input });
+      res.status(201).json(created);
     } catch (err) {
       if (err instanceof z.ZodError) return res.status(400).json({ message: err.errors[0].message });
       if (err instanceof Error && err.message.includes("hierarchy")) return res.status(400).json({ message: err.message });
@@ -530,7 +634,9 @@ export async function registerRoutes(
   app.put(api.subjects.update.path, async (req, res) => {
     try {
       const input = api.subjects.update.input.parse(req.body);
-      res.json(await storage.updateSubject(Number(req.params.id), input));
+      const updated = await storage.updateSubject(Number(req.params.id), input);
+      await logAudit(req, { action: "UPDATE", module: "subjekty", entityId: Number(req.params.id), newData: input });
+      res.json(updated);
     } catch (err) {
       if (err instanceof z.ZodError) return res.status(400).json({ message: err.errors[0].message });
       if (err instanceof Error && err.message === "Subject not found") return res.status(404).json({ message: err.message });
@@ -541,6 +647,7 @@ export async function registerRoutes(
   app.post(api.subjects.archive.path, async (req, res) => {
     try {
       await storage.archiveSubject(Number(req.params.id), req.body.reason);
+      await logAudit(req, { action: "ARCHIVE", module: "subjekty", entityId: Number(req.params.id) });
       res.json({ success: true });
     } catch (err) {
       if (err instanceof Error && err.message === "Subject not found") return res.status(404).json({ message: err.message });
@@ -572,7 +679,9 @@ export async function registerRoutes(
         }
       }
 
-      res.status(201).json(await storage.createProduct(input));
+      const created = await storage.createProduct(input);
+      await logAudit(req, { action: "CREATE", module: "produkty", newData: input });
+      res.status(201).json(created);
     } catch (err) {
       if (err instanceof z.ZodError) return res.status(400).json({ message: err.errors[0].message });
       throw err;
@@ -582,7 +691,9 @@ export async function registerRoutes(
   app.put(api.products.update.path, isAuthenticated, async (req, res) => {
     try {
       const input = api.products.update.input.parse(req.body);
-      res.json(await storage.updateProduct(Number(req.params.id), input));
+      const updated = await storage.updateProduct(Number(req.params.id), input);
+      await logAudit(req, { action: "UPDATE", module: "produkty", entityId: Number(req.params.id), newData: input });
+      res.json(updated);
     } catch (err) {
       if (err instanceof z.ZodError) return res.status(400).json({ message: err.errors[0].message });
       if (err instanceof Error && err.message === "Product not found") return res.status(404).json({ message: err.message });
@@ -605,6 +716,7 @@ export async function registerRoutes(
       }
 
       await storage.softDeleteProduct(Number(req.params.id), appUser.username, typeof ip === 'string' ? ip : '');
+      await logAudit(req, { action: "DELETE", module: "produkty", entityId: Number(req.params.id) });
       res.json({ success: true });
     } catch (err) {
       if (err instanceof Error && err.message === "Product not found") return res.status(404).json({ message: err.message });
@@ -624,7 +736,10 @@ export async function registerRoutes(
 
   app.post(api.commissions.create.path, isAuthenticated, async (req, res) => {
     try {
-      res.status(201).json(await storage.createCommission(api.commissions.create.input.parse(req.body)));
+      const parsed = api.commissions.create.input.parse(req.body);
+      const created = await storage.createCommission(parsed);
+      await logAudit(req, { action: "CREATE", module: "provizie", newData: parsed });
+      res.status(201).json(created);
     } catch (err) {
       if (err instanceof z.ZodError) return res.status(400).json({ message: err.errors[0].message });
       throw err;
@@ -639,7 +754,9 @@ export async function registerRoutes(
   app.post(api.permissionGroups.create.path, isAuthenticated, async (req, res) => {
     try {
       const input = api.permissionGroups.create.input.parse(req.body);
-      res.status(201).json(await storage.createPermissionGroup(input));
+      const created = await storage.createPermissionGroup(input);
+      await logAudit(req, { action: "CREATE", module: "skupiny_pravomoci", entityName: input.name, newData: input });
+      res.status(201).json(created);
     } catch (err) {
       if (err instanceof z.ZodError) return res.status(400).json({ message: err.errors[0].message });
       throw err;
@@ -649,7 +766,9 @@ export async function registerRoutes(
   app.put(api.permissionGroups.update.path, isAuthenticated, async (req, res) => {
     try {
       const input = api.permissionGroups.update.input.parse(req.body);
-      res.json(await storage.updatePermissionGroup(Number(req.params.id), input));
+      const updated = await storage.updatePermissionGroup(Number(req.params.id), input);
+      await logAudit(req, { action: "UPDATE", module: "skupiny_pravomoci", entityId: Number(req.params.id) });
+      res.json(updated);
     } catch (err) {
       if (err instanceof z.ZodError) return res.status(400).json({ message: err.errors[0].message });
       throw err;
@@ -659,6 +778,7 @@ export async function registerRoutes(
   app.delete(api.permissionGroups.delete.path, isAuthenticated, async (req, res) => {
     try {
       await storage.deletePermissionGroup(Number(req.params.id));
+      await logAudit(req, { action: "DELETE", module: "skupiny_pravomoci", entityId: Number(req.params.id) });
       res.json({ success: true });
     } catch (err) {
       throw err;
@@ -677,7 +797,9 @@ export async function registerRoutes(
   app.put(api.permissionsMatrix.set.path, isAuthenticated, async (req, res) => {
     try {
       const input = api.permissionsMatrix.set.input.parse(req.body);
-      res.json(await storage.setPermission(input));
+      const result = await storage.setPermission(input);
+      await logAudit(req, { action: "UPDATE", module: "skupiny_pravomoci", entityName: "permission" });
+      res.json(result);
     } catch (err) {
       if (err instanceof z.ZodError) return res.status(400).json({ message: err.errors[0].message });
       throw err;
@@ -686,6 +808,7 @@ export async function registerRoutes(
 
   app.post(api.permissionsMatrix.sync.path, isAuthenticated, async (_req, res) => {
     await storage.syncPermissionsTable();
+    await logAudit(_req, { action: "SYNC", module: "skupiny_pravomoci" });
     res.json({ success: true });
   });
 
@@ -697,7 +820,9 @@ export async function registerRoutes(
   app.post(api.appUserAdmin.create.path, isAuthenticated, async (req, res) => {
     try {
       const input = api.appUserAdmin.create.input.parse(req.body);
-      res.status(201).json(await storage.createAppUser(input));
+      const created = await storage.createAppUser(input);
+      await logAudit(req, { action: "CREATE", module: "pouzivatelia", entityName: input.username });
+      res.status(201).json(created);
     } catch (err) {
       if (err instanceof z.ZodError) return res.status(400).json({ message: err.errors[0].message });
       throw err;
@@ -707,7 +832,9 @@ export async function registerRoutes(
   app.put(api.appUserAdmin.update.path, isAuthenticated, async (req, res) => {
     try {
       const input = api.appUserAdmin.update.input.parse(req.body);
-      res.json(await storage.updateAppUserWithArchive(Number(req.params.id), input, "User profile update"));
+      const updated = await storage.updateAppUserWithArchive(Number(req.params.id), input, "User profile update");
+      await logAudit(req, { action: "UPDATE", module: "pouzivatelia", entityId: Number(req.params.id) });
+      res.json(updated);
     } catch (err) {
       if (err instanceof z.ZodError) return res.status(400).json({ message: err.errors[0].message });
       if (err instanceof Error && err.message === "App user not found") return res.status(404).json({ message: err.message });
