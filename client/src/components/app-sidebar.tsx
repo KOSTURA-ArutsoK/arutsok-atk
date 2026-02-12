@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { Link, useLocation } from "wouter";
 import { useAuth } from "@/hooks/use-auth";
 import { useAppUser } from "@/hooks/use-app-user";
@@ -16,6 +17,19 @@ import {
   Archive,
   HelpCircle,
   Sliders,
+  ChevronRight,
+  FileText,
+  FileCog,
+  FileStack,
+  ListChecks,
+  ClipboardList,
+  Trash2,
+  UserCog,
+  ShieldCheck,
+  Phone,
+  Timer,
+  Eye,
+  UsersRound,
 } from "lucide-react";
 import {
   Sidebar,
@@ -28,28 +42,104 @@ import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
+  SidebarMenuSub,
+  SidebarMenuSubButton,
+  SidebarMenuSubItem,
   SidebarSeparator,
 } from "@/components/ui/sidebar";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 
-const navItems = [
+const topItems = [
   { href: "/", icon: LayoutDashboard, label: "Prehlad" },
   { href: "/companies", icon: Building2, label: "Spolocnosti" },
   { href: "/partners", icon: Briefcase, label: "Partneri" },
   { href: "/products", icon: Package, label: "Produkty" },
   { href: "/commissions", icon: Percent, label: "Provizie" },
-  { href: "/subjects", icon: Users, label: "Subjekty" },
 ];
 
-const systemItems = [
-  { href: "/settings", icon: Settings, label: "Nastavenia" },
-  { href: "/history", icon: History, label: "Historia a logy" },
-  { href: "/archive", icon: Archive, label: "Kos" },
-  { href: "/users", icon: Users, label: "Pouzivatelia" },
-  { href: "/permission-groups", icon: Shield, label: "Skupiny pravomoci" },
-  { href: "/client-type-rules", icon: Sliders, label: "Typy klientov" },
+const klientiItems = [
+  { href: "/subjects", icon: Users, label: "Zoznam klientov" },
+  { href: "/client-type-rules", icon: Sliders, label: "Pravidla typov klientov" },
+  { href: "/client-groups", icon: UsersRound, label: "Skupiny klientov" },
 ];
+
+const zmluvyItems = [
+  { href: "/contracts", icon: FileText, label: "Zmluvy" },
+  { href: "/contract-template-settings", icon: FileCog, label: "Nastavenia sablon" },
+  { href: "/contract-template-management", icon: FileStack, label: "Sprava sablon" },
+  { href: "/contract-statuses", icon: ListChecks, label: "Stavy zmluv" },
+  { href: "/contract-inventories", icon: ClipboardList, label: "Zoznam supisiek" },
+];
+
+const nastavenieItems = [
+  { href: "/archive", icon: Trash2, label: "Kos" },
+  { href: "/history", icon: History, label: "Logy" },
+  { href: "/users", icon: UserCog, label: "Pouzivatelia" },
+  { href: "/permission-groups", icon: ShieldCheck, label: "Pravomoci skupiny" },
+  { href: "/support", icon: Phone, label: "Podpora a registracia" },
+  { href: "/settings", icon: Timer, label: "Doba prihlasenia" },
+  { href: "/dashboard-settings", icon: Eye, label: "Nastavenie prehladov" },
+];
+
+function CollapsibleMenu({
+  label,
+  icon: Icon,
+  items,
+  location,
+  defaultOpen,
+  testId,
+}: {
+  label: string;
+  icon: React.ElementType;
+  items: { href: string; icon: React.ElementType; label: string }[];
+  location: string;
+  defaultOpen?: boolean;
+  testId: string;
+}) {
+  const isAnyActive = items.some(item => location === item.href);
+  const [open, setOpen] = useState(defaultOpen || isAnyActive);
+
+  return (
+    <Collapsible open={open} onOpenChange={setOpen} className="group/collapsible">
+      <SidebarMenuItem>
+        <CollapsibleTrigger asChild>
+          <SidebarMenuButton
+            data-testid={testId}
+            className={isAnyActive ? "text-sidebar-accent-foreground font-medium" : ""}
+          >
+            <Icon className="w-4 h-4" />
+            <span className="flex-1">{label}</span>
+            <ChevronRight className={`w-3.5 h-3.5 text-muted-foreground transition-transform duration-200 ${open ? "rotate-90" : ""}`} />
+          </SidebarMenuButton>
+        </CollapsibleTrigger>
+        <CollapsibleContent>
+          <SidebarMenuSub>
+            {items.map(item => (
+              <SidebarMenuSubItem key={item.href}>
+                <SidebarMenuSubButton
+                  asChild
+                  isActive={location === item.href}
+                  data-testid={`nav-${item.label.toLowerCase().replace(/\s/g, '-')}`}
+                >
+                  <Link href={item.href}>
+                    <item.icon className="w-3.5 h-3.5" />
+                    <span>{item.label}</span>
+                  </Link>
+                </SidebarMenuSubButton>
+              </SidebarMenuSubItem>
+            ))}
+          </SidebarMenuSub>
+        </CollapsibleContent>
+      </SidebarMenuItem>
+    </Collapsible>
+  );
+}
 
 export function AppSidebar() {
   const [location] = useLocation();
@@ -86,7 +176,7 @@ export function AppSidebar() {
           <SidebarGroupLabel>Moduly</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
-              {navItems.map(item => (
+              {topItems.map(item => (
                 <SidebarMenuItem key={item.href}>
                   <SidebarMenuButton
                     asChild
@@ -105,26 +195,33 @@ export function AppSidebar() {
         </SidebarGroup>
 
         <SidebarGroup>
-          <SidebarGroupLabel>System</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
-              {systemItems.map(item => (
-                <SidebarMenuItem key={item.href}>
-                  <SidebarMenuButton
-                    asChild
-                    isActive={location === item.href}
-                    data-testid={`nav-${item.label.toLowerCase().replace(/\s/g, '-')}`}
-                  >
-                    <Link href={item.href}>
-                      <item.icon className="w-4 h-4" />
-                      <span>{item.label}</span>
-                    </Link>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              ))}
+              <CollapsibleMenu
+                label="Klienti"
+                icon={Users}
+                items={klientiItems}
+                location={location}
+                testId="nav-menu-klienti"
+              />
+              <CollapsibleMenu
+                label="Zmluvy"
+                icon={FileText}
+                items={zmluvyItems}
+                location={location}
+                testId="nav-menu-zmluvy"
+              />
+              <CollapsibleMenu
+                label="Nastavenia"
+                icon={Settings}
+                items={nastavenieItems}
+                location={location}
+                testId="nav-menu-nastavenia"
+              />
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
+
         <SidebarGroup>
           <SidebarGroupContent>
             <SidebarMenu>

@@ -135,8 +135,8 @@ export interface IStorage {
   setPermission(data: InsertPermission): Promise<Permission>;
   syncPermissionsTable(): Promise<void>;
 
-  getAuditLogs(filters?: { userId?: number; module?: string; action?: string; dateFrom?: string; dateTo?: string; limit?: number; offset?: number }): Promise<AuditLog[]>;
-  getAuditLogCount(filters?: { userId?: number; module?: string; action?: string; dateFrom?: string; dateTo?: string }): Promise<number>;
+  getAuditLogs(filters?: { userId?: number; module?: string; action?: string; dateFrom?: string; dateTo?: string; entityId?: number; limit?: number; offset?: number }): Promise<AuditLog[]>;
+  getAuditLogCount(filters?: { userId?: number; module?: string; action?: string; dateFrom?: string; dateTo?: string; entityId?: number }): Promise<number>;
   createAuditLog(data: InsertAuditLog): Promise<AuditLog>;
 
   getSystemSetting(key: string): Promise<string | null>;
@@ -834,11 +834,12 @@ export class DatabaseStorage implements IStorage {
     }
   }
 
-  async getAuditLogs(filters?: { userId?: number; module?: string; action?: string; dateFrom?: string; dateTo?: string; limit?: number; offset?: number }): Promise<AuditLog[]> {
+  async getAuditLogs(filters?: { userId?: number; module?: string; action?: string; dateFrom?: string; dateTo?: string; entityId?: number; limit?: number; offset?: number }): Promise<AuditLog[]> {
     const conditions: any[] = [];
     if (filters?.userId) conditions.push(eq(auditLogs.userId, filters.userId));
     if (filters?.module) conditions.push(eq(auditLogs.module, filters.module));
     if (filters?.action) conditions.push(eq(auditLogs.action, filters.action));
+    if (filters?.entityId) conditions.push(eq(auditLogs.entityId, filters.entityId));
     if (filters?.dateFrom) conditions.push(sql`${auditLogs.createdAt} >= ${filters.dateFrom}::timestamp`);
     if (filters?.dateTo) conditions.push(sql`${auditLogs.createdAt} <= ${filters.dateTo}::timestamp + interval '1 day'`);
 
@@ -851,11 +852,12 @@ export class DatabaseStorage implements IStorage {
     return await db.select().from(auditLogs).where(and(...conditions)).orderBy(sql`${auditLogs.createdAt} DESC`).limit(limit).offset(offset);
   }
 
-  async getAuditLogCount(filters?: { userId?: number; module?: string; action?: string; dateFrom?: string; dateTo?: string }): Promise<number> {
+  async getAuditLogCount(filters?: { userId?: number; module?: string; action?: string; dateFrom?: string; dateTo?: string; entityId?: number }): Promise<number> {
     const conditions: any[] = [];
     if (filters?.userId) conditions.push(eq(auditLogs.userId, filters.userId));
     if (filters?.module) conditions.push(eq(auditLogs.module, filters.module));
     if (filters?.action) conditions.push(eq(auditLogs.action, filters.action));
+    if (filters?.entityId) conditions.push(eq(auditLogs.entityId, filters.entityId));
     if (filters?.dateFrom) conditions.push(sql`${auditLogs.createdAt} >= ${filters.dateFrom}::timestamp`);
     if (filters?.dateTo) conditions.push(sql`${auditLogs.createdAt} <= ${filters.dateTo}::timestamp + interval '1 day'`);
 

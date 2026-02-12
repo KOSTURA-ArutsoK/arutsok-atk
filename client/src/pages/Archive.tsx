@@ -255,24 +255,33 @@ export default function Archive() {
       </Tabs>
 
       <Dialog open={!!restoreTarget} onOpenChange={(open) => { if (!open) { setRestoreTarget(null); setPassword(""); } }}>
-        <DialogContent className="sm:max-w-[400px]">
+        <DialogContent className="sm:max-w-[800px] h-[600px] overflow-y-auto flex flex-col items-start justify-start">
           <DialogHeader>
-            <DialogTitle>Potvrdenie obnovy</DialogTitle>
+            <DialogTitle className="flex items-center gap-2">
+              <Lock className="w-5 h-5 text-destructive" />
+              Autorizacia administratorom
+            </DialogTitle>
           </DialogHeader>
-          <div className="space-y-4 py-4">
+          <div className="space-y-4 py-4 w-full">
             <p className="text-sm text-muted-foreground">
-              Pre obnovenie zaznamu <span className="font-semibold text-foreground">{restoreTarget?.name}</span> zadajte bezpecnostne heslo:
+              Pre obnovenie zaznamu <span className="font-semibold text-foreground">{restoreTarget?.name}</span> je potrebna autorizacia administratorom alebo superadminom.
             </p>
-            <Input
-              type="password"
-              placeholder="Bezpecnostne heslo"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && handleRestoreConfirm()}
-              data-testid="input-restore-password"
-            />
+            <div className="space-y-2">
+              <label className="text-xs font-medium text-muted-foreground">Bezpecnostne heslo administratora</label>
+              <Input
+                type="password"
+                placeholder="Zadajte heslo administratora"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && handleRestoreConfirm()}
+                data-testid="input-restore-password"
+              />
+            </div>
+            <p className="text-[11px] text-muted-foreground">
+              Kazda operacia obnovy je zaznamenana v audit logu spolu s ID autorizujuceho administratora.
+            </p>
           </div>
-          <DialogFooter className="gap-2">
+          <DialogFooter className="gap-2 w-full">
             <Button variant="outline" onClick={() => { setRestoreTarget(null); setPassword(""); }} data-testid="button-cancel-restore">
               Zrusit
             </Button>

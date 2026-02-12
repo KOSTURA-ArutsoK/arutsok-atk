@@ -5,13 +5,14 @@ import { useMyCompanies } from "@/hooks/use-companies";
 import { useAppUser } from "@/hooks/use-app-user";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
-import { Plus, Search, User, Building2, AlertTriangle, Eye, Calendar, Briefcase, ArrowRight, ArrowLeft, ExternalLink } from "lucide-react";
+import { Plus, Search, User, Building2, AlertTriangle, Eye, Calendar, Briefcase, ArrowRight, ArrowLeft, ExternalLink, History, Clock } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { Label } from "@/components/ui/label";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription,
 } from "@/components/ui/dialog";
@@ -24,7 +25,7 @@ import {
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { insertSubjectSchema } from "@shared/schema";
-import type { Subject, ClientType } from "@shared/schema";
+import type { Subject, ClientType, AuditLog } from "@shared/schema";
 import { z } from "zod";
 import {
   Form, FormControl, FormField, FormItem, FormLabel, FormMessage,
@@ -35,6 +36,85 @@ const createSchema = insertSubjectSchema.extend({
   stateId: z.coerce.number().min(1, "Povinne"),
   myCompanyId: z.coerce.number().min(1, "Povinne"),
 });
+
+const ACTION_LABELS: Record<string, string> = {
+  CREATE: "Vytvorenie",
+  UPDATE: "Uprava",
+  DELETE: "Vymazanie",
+  ARCHIVE: "Archivacia",
+  RESTORE: "Obnovenie",
+  CLICK: "Kliknutie",
+};
+
+const ACTION_VARIANTS: Record<string, "default" | "secondary" | "destructive" | "outline"> = {
+  CREATE: "default",
+  UPDATE: "secondary",
+  DELETE: "destructive",
+  ARCHIVE: "outline",
+  RESTORE: "default",
+  CLICK: "outline",
+};
+
+function SubjectHistoryTab({ subjectId }: { subjectId: number }) {
+  const { data, isLoading } = useQuery<{ logs: AuditLog[]; total: number }>({
+    queryKey: ["/api/audit-logs", "entity", subjectId],
+    queryFn: async () => {
+      const res = await fetch(`/api/audit-logs?entityId=${subjectId}&module=subjekty&limit=50`, { credentials: "include" });
+      if (!res.ok) throw new Error("Failed");
+      return res.json();
+    },
+  });
+
+  function formatDate(d: string | Date | null) {
+    if (!d) return "-";
+    return new Date(d).toLocaleString("sk-SK", {
+      day: "2-digit", month: "2-digit", year: "numeric",
+      hour: "2-digit", minute: "2-digit", second: "2-digit",
+    });
+  }
+
+  function formatProcessingTime(seconds: number): string {
+    const h = Math.floor(seconds / 3600);
+    const m = Math.floor((seconds % 3600) / 60);
+    const s = seconds % 60;
+    return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+  }
+
+  const logs = data?.logs || [];
+
+  if (isLoading) {
+    return <p className="text-sm text-muted-foreground text-center py-4">Nacitavam historiu...</p>;
+  }
+
+  if (logs.length === 0) {
+    return <p className="text-sm text-muted-foreground text-center py-8" data-testid="text-no-entity-history">Ziadne zaznamy pre tento subjekt</p>;
+  }
+
+  return (
+    <div className="space-y-2">
+      {logs.map(log => (
+        <div key={log.id} className="flex items-start gap-3 py-2 px-3 rounded-md border border-border" data-testid={`entity-log-${log.id}`}>
+          <div className="flex-1 min-w-0 space-y-1">
+            <div className="flex items-center gap-2 flex-wrap">
+              <Badge variant={ACTION_VARIANTS[log.action] || "outline"} className="text-[10px]">
+                {ACTION_LABELS[log.action] || log.action}
+              </Badge>
+              <span className="text-xs text-muted-foreground">{log.username || "-"}</span>
+              <span className="text-xs text-muted-foreground">{formatDate(log.createdAt)}</span>
+            </div>
+            <div className="flex items-center gap-2 text-xs text-muted-foreground flex-wrap">
+              <span className="flex items-center gap-1">
+                <Clock className="w-3 h-3" />
+                T_idle: {formatProcessingTime(log.processingTimeSec ?? 0)}
+              </span>
+              {log.ipAddress && <span className="font-mono">{log.ipAddress}</span>}
+            </div>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
 
 function SubjectDetailDialog({ subject, onClose }: { subject: Subject; onClose: () => void }) {
   const { data: careerHistory, isLoading } = useSubjectCareerHistory(subject.id);
@@ -70,66 +150,85 @@ function SubjectDetailDialog({ subject, onClose }: { subject: Subject; onClose: 
           </div>
         </DialogHeader>
 
-        <div className="space-y-4 mt-2">
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <span className="text-xs text-muted-foreground">Typ entity</span>
-              <p className="text-sm">{subject.type === 'person' ? 'Fyzicka osoba' : 'Pravnicka osoba'}</p>
-            </div>
-            <div>
-              <span className="text-xs text-muted-foreground">Spravujuca firma</span>
-              <p className="text-sm">{managingCompany?.name || `Firma #${subject.myCompanyId}`}</p>
-            </div>
-          </div>
+        <Tabs defaultValue="detail" className="flex-1">
+          <TabsList data-testid="tabs-subject-detail">
+            <TabsTrigger value="detail" data-testid="tab-subject-info">
+              <User className="w-3.5 h-3.5 mr-1" />
+              Detail
+            </TabsTrigger>
+            <TabsTrigger value="historia" data-testid="tab-subject-historia">
+              <History className="w-3.5 h-3.5 mr-1" />
+              Historia
+            </TabsTrigger>
+          </TabsList>
 
-          <Separator />
+          <TabsContent value="detail" className="mt-3">
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <span className="text-xs text-muted-foreground">Typ entity</span>
+                  <p className="text-sm">{subject.type === 'person' ? 'Fyzicka osoba' : 'Pravnicka osoba'}</p>
+                </div>
+                <div>
+                  <span className="text-xs text-muted-foreground">Spravujuca firma</span>
+                  <p className="text-sm">{managingCompany?.name || `Firma #${subject.myCompanyId}`}</p>
+                </div>
+              </div>
 
-          <div>
-            <div className="flex items-center gap-2 mb-3 flex-wrap">
-              <Briefcase className="w-4 h-4 text-primary" />
-              <h3 className="text-sm font-semibold">Historia kariery v systeme</h3>
-            </div>
+              <Separator />
 
-            {isLoading ? (
-              <p className="text-sm text-muted-foreground text-center py-4">Nacitavam historiu...</p>
-            ) : !careerHistory || careerHistory.length === 0 ? (
-              <p className="text-sm text-muted-foreground text-center py-4" data-testid="text-no-career-history">
-                Ziadna historia vazby v systeme
-              </p>
-            ) : (
-              <div className="relative space-y-0">
-                <div className="absolute left-4 top-3 bottom-3 w-px bg-border" />
-                {careerHistory.map((entry, idx) => (
-                  <div key={idx} className="relative pl-10 py-3" data-testid={`career-entry-${idx}`}>
-                    <div className={`absolute left-2.5 top-4 w-3 h-3 rounded-full border-2 ${
-                      entry.isActive 
-                        ? 'bg-primary border-primary' 
-                        : 'bg-muted border-muted-foreground/40'
-                    }`} />
-                    <div className="flex items-start gap-2 flex-wrap">
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <span className="text-sm font-medium">{entry.entityName}</span>
-                          <Badge variant={entry.type === 'internal' ? 'default' : 'outline'}>
-                            {entry.type === 'internal' ? 'Interny' : 'Externy'}
-                          </Badge>
-                          {entry.isActive && <Badge variant="secondary">Aktivny</Badge>}
-                        </div>
-                        <p className="text-xs text-muted-foreground mt-0.5">{entry.role}</p>
-                        <div className="flex items-center gap-1 mt-1 text-xs text-muted-foreground">
-                          <Calendar className="w-3 h-3" />
-                          <span>{formatDate(entry.validFrom) || "-"}</span>
-                          <ArrowRight className="w-3 h-3" />
-                          <span>{entry.isActive && !entry.validTo ? "Sucasnost" : (formatDate(entry.validTo) || "-")}</span>
+              <div>
+                <div className="flex items-center gap-2 mb-3 flex-wrap">
+                  <Briefcase className="w-4 h-4 text-primary" />
+                  <h3 className="text-sm font-semibold">Historia kariery v systeme</h3>
+                </div>
+
+                {isLoading ? (
+                  <p className="text-sm text-muted-foreground text-center py-4">Nacitavam historiu...</p>
+                ) : !careerHistory || careerHistory.length === 0 ? (
+                  <p className="text-sm text-muted-foreground text-center py-4" data-testid="text-no-career-history">
+                    Ziadna historia vazby v systeme
+                  </p>
+                ) : (
+                  <div className="relative space-y-0">
+                    <div className="absolute left-4 top-3 bottom-3 w-px bg-border" />
+                    {careerHistory.map((entry, idx) => (
+                      <div key={idx} className="relative pl-10 py-3" data-testid={`career-entry-${idx}`}>
+                        <div className={`absolute left-2.5 top-4 w-3 h-3 rounded-full border-2 ${
+                          entry.isActive 
+                            ? 'bg-primary border-primary' 
+                            : 'bg-muted border-muted-foreground/40'
+                        }`} />
+                        <div className="flex items-start gap-2 flex-wrap">
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <span className="text-sm font-medium">{entry.entityName}</span>
+                              <Badge variant={entry.type === 'internal' ? 'default' : 'outline'}>
+                                {entry.type === 'internal' ? 'Interny' : 'Externy'}
+                              </Badge>
+                              {entry.isActive && <Badge variant="secondary">Aktivny</Badge>}
+                            </div>
+                            <p className="text-xs text-muted-foreground mt-0.5">{entry.role}</p>
+                            <div className="flex items-center gap-1 mt-1 text-xs text-muted-foreground">
+                              <Calendar className="w-3 h-3" />
+                              <span>{formatDate(entry.validFrom) || "-"}</span>
+                              <ArrowRight className="w-3 h-3" />
+                              <span>{entry.isActive && !entry.validTo ? "Sucasnost" : (formatDate(entry.validTo) || "-")}</span>
+                            </div>
+                          </div>
                         </div>
                       </div>
-                    </div>
+                    ))}
                   </div>
-                ))}
+                )}
               </div>
-            )}
-          </div>
-        </div>
+            </div>
+          </TabsContent>
+
+          <TabsContent value="historia" className="mt-3">
+            <SubjectHistoryTab subjectId={subject.id} />
+          </TabsContent>
+        </Tabs>
       </DialogContent>
     </Dialog>
   );

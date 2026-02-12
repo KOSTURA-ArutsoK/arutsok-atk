@@ -81,7 +81,7 @@ export default function Settings() {
       await apiRequest("POST", "/api/category-timeouts", data);
     },
     onSuccess: () => {
-      toast({ title: "Ulozene", description: "Timeout kategoria bola vytvorena." });
+      toast({ title: "Ulozene", description: "Doba prihlasenia bola vytvorena." });
       queryClient.invalidateQueries({ queryKey: ["/api/category-timeouts"] });
       setNewCatName("");
       setNewCatSeconds("180");
@@ -96,7 +96,7 @@ export default function Settings() {
       await apiRequest("PATCH", `/api/category-timeouts/${id}`, { timeoutSeconds });
     },
     onSuccess: () => {
-      toast({ title: "Ulozene", description: "Timeout bol aktualizovany." });
+      toast({ title: "Ulozene", description: "Doba prihlasenia bola aktualizovana." });
       queryClient.invalidateQueries({ queryKey: ["/api/category-timeouts"] });
     },
     onError: () => {
@@ -305,7 +305,7 @@ export default function Settings() {
         {isAdmin && (
           <Card>
             <CardHeader className="flex flex-row items-center justify-between gap-2 space-y-0 pb-2">
-              <CardTitle className="text-base">Timeout nastavenia</CardTitle>
+              <CardTitle className="text-base">Doba prihlasenia</CardTitle>
               <div className="p-2 rounded-md bg-cyan-500/10 text-cyan-500">
                 <Clock className="h-4 w-4" />
               </div>

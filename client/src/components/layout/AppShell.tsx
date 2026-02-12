@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { createPortal } from "react-dom";
 import { useIdleTimeout } from "@/hooks/use-idle-timeout";
 import { useGlobalClickLogger } from "@/hooks/use-global-click-logger";
@@ -7,8 +7,9 @@ import { useMyCompanies } from "@/hooks/use-companies";
 import { useStates } from "@/hooks/use-hierarchy";
 import { useTheme } from "@/components/theme-provider";
 import { useAuth } from "@/hooks/use-auth";
+import { useTTSContext } from "@/contexts/tts-context";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Moon, Sun, ChevronDown, Globe, Building2, Check, Upload, LogOut, AlertTriangle, Timer } from "lucide-react";
+import { Moon, Sun, ChevronDown, Globe, Building2, Check, Upload, LogOut, AlertTriangle, Timer, Volume2, VolumeX } from "lucide-react";
 import type { CategoryTimeout } from "@shared/schema";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -32,6 +33,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const { data: allStates } = useStates();
   const { data: userProfile } = useUserProfile();
   const { theme, toggleTheme } = useTheme();
+  const tts = useTTSContext();
   const setActive = useSetActiveContext();
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -48,6 +50,27 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
   const { timeLeft, showWarning, dismissWarning, isRed } = useIdleTimeout(defaultTimeout);
   useGlobalClickLogger();
+
+  useEffect(() => {
+    if (displayName && displayName !== "Pouzivatel") {
+      const firstName = appUser?.firstName || user?.firstName || displayName.split(" ")[0];
+      tts.speak(
+        `Vitaj, ${firstName}. Prajem ti uspesny pracovny den.`,
+        "welcome_" + (appUser?.id || "user")
+      );
+    }
+  }, [appUser?.id]);
+
+  const securityWarningSpokenRef = useRef(false);
+  useEffect(() => {
+    if (timeLeft <= 10 && timeLeft > 0 && showWarning && !securityWarningSpokenRef.current) {
+      securityWarningSpokenRef.current = true;
+      tts.speak("System bude o chvilu uzamknuty. Prosim, ulozte si pracu.");
+    }
+    if (timeLeft > 10) {
+      securityWarningSpokenRef.current = false;
+    }
+  }, [timeLeft, showWarning, tts]);
 
   const formatTime = (sec: number) => {
     const m = Math.floor(sec / 60);
@@ -200,6 +223,15 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               <Timer className="w-3.5 h-3.5" />
               {formatTime(timeLeft)}
             </div>
+
+            <Button
+              size="icon"
+              variant="ghost"
+              onClick={tts.toggle}
+              data-testid="button-tts-toggle"
+            >
+              {tts.enabled ? <Volume2 className="w-4 h-4" /> : <VolumeX className="w-4 h-4 text-muted-foreground" />}
+            </Button>
 
             <Button
               size="icon"

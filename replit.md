@@ -41,6 +41,11 @@ The system is built on a modern full-stack architecture:
 - **Dynamic Client Type System**: `client_types`, `client_type_sections`, `client_type_fields` tables define per-type form structures. Base parameter determines RC vs ICO. Fields support 11 types (short_text, long_text, combobox, checkbox, switch, phone, email, number, file, date, iban). Conditional visibility via `visibilityRule` (dependsOn/value). Managed at `/client-type-rules`.
 - **Smart Subject Registration**: 2-step flow: initial modal (client type + state + RC/ICO) with duplicate check → full-page editor. Type is locked after initial selection. Duplicate check endpoint at `/api/subjects/check-duplicate`.
 - **Branding**: Sidebar shows "Secure Platform" (not "CRM System"). Archive renamed to "Kos" throughout.
+- **Collapsible Sidebar**: Three collapsible menu groups: Klienti (Zoznam klientov, Pravidla typov klientov, Skupiny klientov), Zmluvy (Zmluvy, Nastavenia sablon, Sprava sablon, Stavy zmluv, Zoznam supisiek), Nastavenia (Kos, Logy, Pouzivatelia, Pravomoci skupiny, Podpora a registracia, Doba prihlasenia, Nastavenie prehladov). Uses Collapsible + SidebarMenuSub components.
+- **Enhanced Kôš Security**: Restore modal is 800x600px with admin password verification. Audit log records authorizedByAdminId, authorizedByUsername, authorizedByRole for every restore operation.
+- **Subject-Specific History**: História tab on subject detail dialog shows entity-specific audit logs filtered by entityId + module. Displays T_idle (processing time) per entry.
+- **Voice Assistance (TTS)**: Web Speech API with sk-SK language. Welcome message on login ("Vitaj, [Meno]. Prajem ti uspesny pracovny den."). Security warning at 10s before auto-logout ("System bude o chvilu uzamknuty. Prosim, ulozte si pracu."). Speaker icon (Volume2/VolumeX) in top bar with localStorage persistence via `arutsok_tts_enabled` key.
+- **Doba prihlasenia**: Settings section renamed from "Timeout nastavenia" to "Doba prihlasenia".
 
 ## External Dependencies
 - **Replit OIDC Auth**: Used for user authentication and session management.

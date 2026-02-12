@@ -193,6 +193,7 @@ export async function registerRoutes(
         userId: req.query.userId ? parseInt(req.query.userId as string) : undefined,
         module: req.query.module as string || undefined,
         action: req.query.action as string || undefined,
+        entityId: req.query.entityId ? parseInt(req.query.entityId as string) : undefined,
         dateFrom: req.query.dateFrom as string || undefined,
         dateTo: req.query.dateTo as string || undefined,
         limit: req.query.limit ? parseInt(req.query.limit as string) : 50,
@@ -1034,9 +1035,15 @@ export async function registerRoutes(
 
       await logAudit(req, {
         action: "RESTORE",
-        module: "archiv",
+        module: "kos",
         entityId: numId,
         entityName: `${entityType} #${numId}`,
+        newData: {
+          authorizedByAdminId: appUser.id,
+          authorizedByUsername: appUser.username,
+          authorizedByRole: appUser.role,
+          restoredEntityType: entityType,
+        },
       });
 
       res.json({ success: true });

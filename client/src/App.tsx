@@ -5,6 +5,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { ThemeProvider } from "@/components/theme-provider";
 import { HelpProvider } from "@/contexts/help-context";
+import { TTSProvider } from "@/contexts/tts-context";
 import { useAuth } from "@/hooks/use-auth";
 import { Loader2 } from "lucide-react";
 
@@ -84,10 +85,12 @@ function App() {
     <QueryClientProvider client={queryClient}>
       <ThemeProvider>
         <HelpProvider>
-          <TooltipProvider>
-            <Toaster />
-            <Router />
-          </TooltipProvider>
+          <TTSProvider>
+            <TooltipProvider>
+              <Toaster />
+              <Router />
+            </TooltipProvider>
+          </TTSProvider>
         </HelpProvider>
       </ThemeProvider>
     </QueryClientProvider>

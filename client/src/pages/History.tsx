@@ -39,6 +39,8 @@ const MODULE_LABELS: Record<string, string> = {
   nastavenia: "Nastavenia",
   dashboard: "Prehlad",
   historia: "Historia",
+  kos: "Kos",
+  client_types: "Typy klientov",
 };
 
 const ACTION_LABELS: Record<string, string> = {
@@ -46,6 +48,7 @@ const ACTION_LABELS: Record<string, string> = {
   UPDATE: "Uprava",
   DELETE: "Vymazanie",
   ARCHIVE: "Archivacia",
+  RESTORE: "Obnovenie",
   SYNC: "Synchronizacia",
   CLICK: "Kliknutie",
 };
@@ -55,6 +58,7 @@ const ACTION_VARIANTS: Record<string, "default" | "secondary" | "destructive" | 
   UPDATE: "secondary",
   DELETE: "destructive",
   ARCHIVE: "outline",
+  RESTORE: "default",
   SYNC: "outline",
   CLICK: "outline",
 };
