@@ -19,10 +19,14 @@ import {
   insertContractTemplateSchema,
   insertContractInventorySchema,
   insertContractSchema,
+  insertClientGroupSchema,
+  insertClientSubGroupSchema,
+  insertClientGroupMemberSchema,
   subjects, myCompanies, partners, contacts, products, commissionSchemes, appUsers,
   partnerContacts, partnerProducts, partnerContracts, communicationMatrix, companyOfficers,
   contractAmendments, userProfiles, permissionGroups, permissions, auditLogs,
   contractStatuses, contractTemplates, contractInventories, contracts,
+  clientGroups, clientSubGroups, clientGroupMembers,
 } from './schema';
 
 export const errorSchemas = {
@@ -535,6 +539,86 @@ export const api = {
     delete: {
       method: 'DELETE' as const,
       path: '/api/contracts/:id' as const,
+      responses: { 200: z.object({ success: z.boolean() }) },
+    },
+  },
+
+  clientGroupsApi: {
+    list: {
+      method: 'GET' as const,
+      path: '/api/client-groups' as const,
+      responses: { 200: z.array(z.custom<typeof clientGroups.$inferSelect>()) },
+    },
+    get: {
+      method: 'GET' as const,
+      path: '/api/client-groups/:id' as const,
+      responses: { 200: z.custom<typeof clientGroups.$inferSelect>(), 404: errorSchemas.notFound },
+    },
+    create: {
+      method: 'POST' as const,
+      path: '/api/client-groups' as const,
+      input: insertClientGroupSchema,
+      responses: { 201: z.custom<typeof clientGroups.$inferSelect>() },
+    },
+    update: {
+      method: 'PUT' as const,
+      path: '/api/client-groups/:id' as const,
+      input: insertClientGroupSchema.partial(),
+      responses: { 200: z.custom<typeof clientGroups.$inferSelect>() },
+    },
+    delete: {
+      method: 'DELETE' as const,
+      path: '/api/client-groups/:id' as const,
+      responses: { 200: z.object({ success: z.boolean() }) },
+    },
+    reorder: {
+      method: 'PUT' as const,
+      path: '/api/client-groups/reorder' as const,
+      input: z.object({ items: z.array(z.object({ id: z.number(), sortOrder: z.number() })) }),
+      responses: { 200: z.object({ success: z.boolean() }) },
+    },
+  },
+
+  clientSubGroupsApi: {
+    list: {
+      method: 'GET' as const,
+      path: '/api/client-groups/:groupId/sub-groups' as const,
+      responses: { 200: z.array(z.custom<typeof clientSubGroups.$inferSelect>()) },
+    },
+    create: {
+      method: 'POST' as const,
+      path: '/api/client-groups/:groupId/sub-groups' as const,
+      input: insertClientSubGroupSchema,
+      responses: { 201: z.custom<typeof clientSubGroups.$inferSelect>() },
+    },
+    delete: {
+      method: 'DELETE' as const,
+      path: '/api/client-sub-groups/:id' as const,
+      responses: { 200: z.object({ success: z.boolean() }) },
+    },
+    reorder: {
+      method: 'PUT' as const,
+      path: '/api/client-sub-groups/reorder' as const,
+      input: z.object({ items: z.array(z.object({ id: z.number(), sortOrder: z.number() })) }),
+      responses: { 200: z.object({ success: z.boolean() }) },
+    },
+  },
+
+  clientGroupMembersApi: {
+    list: {
+      method: 'GET' as const,
+      path: '/api/client-groups/:groupId/members' as const,
+      responses: { 200: z.array(z.any()) },
+    },
+    add: {
+      method: 'POST' as const,
+      path: '/api/client-groups/:groupId/members' as const,
+      input: insertClientGroupMemberSchema,
+      responses: { 201: z.custom<typeof clientGroupMembers.$inferSelect>() },
+    },
+    remove: {
+      method: 'DELETE' as const,
+      path: '/api/client-group-members/:id' as const,
       responses: { 200: z.object({ success: z.boolean() }) },
     },
   },

@@ -4,7 +4,7 @@ import { storage } from "./storage";
 import { api } from "@shared/routes";
 import { setupAuth, registerAuthRoutes, isAuthenticated } from "./replit_integrations/auth";
 import { z } from "zod";
-import { continents, states, myCompanies, appUsers, clientTypes } from "@shared/schema";
+import { continents, states, myCompanies, appUsers, clientTypes, clientSubGroups, clientGroupMembers } from "@shared/schema";
 import { db } from "./db";
 import { eq } from "drizzle-orm";
 import multer from "multer";
@@ -1236,6 +1236,228 @@ export async function registerRoutes(
     }
   });
 
+  // === CLIENT GROUPS ===
+  app.get(api.clientGroupsApi.list.path, isAuthenticated, async (req: any, res) => {
+    const groups = await storage.getClientGroups(getEnforcedStateId(req));
+    const result = await Promise.all(groups.map(async (g) => ({
+      ...g,
+      memberCount: await storage.getClientGroupMemberCount(g.id),
+    })));
+    res.json(result);
+  });
+
+  app.get("/api/client-groups/:id", isAuthenticated, async (req: any, res) => {
+    const group = await storage.getClientGroup(Number(req.params.id));
+    if (!group) return res.status(404).json({ message: "Skupina nenajdena" });
+    const enforcedState = getEnforcedStateId(req);
+    if (enforcedState && group.stateId !== enforcedState) {
+      return res.status(403).json({ message: "Pristup zamietnuty" });
+    }
+    res.json(group);
+  });
+
+  app.post(api.clientGroupsApi.create.path, isAuthenticated, async (req: any, res) => {
+    try {
+      const input = api.clientGroupsApi.create.input.parse(req.body);
+      const created = await storage.createClientGroup(input);
+      await logAudit(req, { action: "CREATE", module: "skupiny_klientov", entityId: created.id, entityName: created.name, newData: input });
+      res.status(201).json(created);
+    } catch (err) {
+      if (err instanceof z.ZodError) return res.status(400).json({ message: err.errors[0].message });
+      res.status(500).json({ message: "Internal error" });
+    }
+  });
+
+  app.put("/api/client-groups/reorder", isAuthenticated, async (req: any, res) => {
+    try {
+      const { items } = req.body;
+      const enforcedState = getEnforcedStateId(req);
+      if (enforcedState && items && items.length > 0) {
+        const firstGroup = await storage.getClientGroup(items[0].id);
+        if (firstGroup && firstGroup.stateId !== enforcedState) {
+          return res.status(403).json({ message: "Pristup zamietnuty" });
+        }
+      }
+      await storage.reorderClientGroups(items);
+      await logAudit(req, { action: "UPDATE", module: "skupiny_klientov", entityName: "reorder" });
+      res.json({ success: true });
+    } catch (err) {
+      res.status(500).json({ message: "Internal error" });
+    }
+  });
+
+  app.put("/api/client-groups/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const existing = await storage.getClientGroup(Number(req.params.id));
+      if (!existing) return res.status(404).json({ message: "Skupina nenajdena" });
+      const enforcedState = getEnforcedStateId(req);
+      if (enforcedState && existing.stateId !== enforcedState) {
+        return res.status(403).json({ message: "Pristup zamietnuty" });
+      }
+      const input = api.clientGroupsApi.update.input.parse(req.body);
+      const updated = await storage.updateClientGroup(Number(req.params.id), input);
+      await logAudit(req, { action: "UPDATE", module: "skupiny_klientov", entityId: Number(req.params.id), entityName: updated.name, newData: input });
+      res.json(updated);
+    } catch (err) {
+      if (err instanceof z.ZodError) return res.status(400).json({ message: err.errors[0].message });
+      res.status(500).json({ message: "Internal error" });
+    }
+  });
+
+  app.delete("/api/client-groups/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const existing = await storage.getClientGroup(Number(req.params.id));
+      if (!existing) return res.status(404).json({ message: "Skupina nenajdena" });
+      const enforcedState = getEnforcedStateId(req);
+      if (enforcedState && existing.stateId !== enforcedState) {
+        return res.status(403).json({ message: "Pristup zamietnuty" });
+      }
+      await storage.deleteClientGroup(Number(req.params.id));
+      await logAudit(req, { action: "DELETE", module: "skupiny_klientov", entityId: Number(req.params.id) });
+      res.json({ success: true });
+    } catch (err) {
+      res.status(500).json({ message: "Internal error" });
+    }
+  });
+
+  // === CLIENT SUB-GROUPS ===
+  app.get("/api/client-groups/:groupId/sub-groups", isAuthenticated, async (req: any, res) => {
+    const group = await storage.getClientGroup(Number(req.params.groupId));
+    if (!group) return res.status(404).json({ message: "Skupina nenajdena" });
+    const enforcedState = getEnforcedStateId(req);
+    if (enforcedState && group.stateId !== enforcedState) {
+      return res.status(403).json({ message: "Pristup zamietnuty" });
+    }
+    const subGroups = await storage.getClientSubGroups(Number(req.params.groupId));
+    const result = await Promise.all(subGroups.map(async (sg) => ({
+      ...sg,
+      memberCount: await storage.getClientSubGroupMemberCount(sg.id),
+    })));
+    res.json(result);
+  });
+
+  app.post("/api/client-groups/:groupId/sub-groups", isAuthenticated, async (req: any, res) => {
+    try {
+      const group = await storage.getClientGroup(Number(req.params.groupId));
+      if (!group) return res.status(404).json({ message: "Skupina nenajdena" });
+      const enforcedState = getEnforcedStateId(req);
+      if (enforcedState && group.stateId !== enforcedState) {
+        return res.status(403).json({ message: "Pristup zamietnuty" });
+      }
+      const data = { ...req.body, groupId: Number(req.params.groupId) };
+      const created = await storage.createClientSubGroup(data);
+      await logAudit(req, { action: "CREATE", module: "podskupiny_klientov", entityId: created.id, entityName: created.name });
+      res.status(201).json(created);
+    } catch (err) {
+      res.status(500).json({ message: "Internal error" });
+    }
+  });
+
+  app.delete("/api/client-sub-groups/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const subGroup = await db.select().from(clientSubGroups).where(eq(clientSubGroups.id, Number(req.params.id))).then(r => r[0]);
+      if (!subGroup) return res.status(404).json({ message: "Podskupina nenajdena" });
+      const group = await storage.getClientGroup(subGroup.groupId);
+      if (!group) return res.status(404).json({ message: "Skupina nenajdena" });
+      const enforcedState = getEnforcedStateId(req);
+      if (enforcedState && group.stateId !== enforcedState) {
+        return res.status(403).json({ message: "Pristup zamietnuty" });
+      }
+      await storage.deleteClientSubGroup(Number(req.params.id));
+      await logAudit(req, { action: "DELETE", module: "podskupiny_klientov", entityId: Number(req.params.id) });
+      res.json({ success: true });
+    } catch (err) {
+      res.status(500).json({ message: "Internal error" });
+    }
+  });
+
+  app.put("/api/client-sub-groups/reorder", isAuthenticated, async (req: any, res) => {
+    try {
+      const { items } = req.body;
+      if (items && items.length > 0) {
+        const firstSg = await db.select().from(clientSubGroups).where(eq(clientSubGroups.id, items[0].id)).then(r => r[0]);
+        if (firstSg) {
+          const group = await storage.getClientGroup(firstSg.groupId);
+          const enforcedState = getEnforcedStateId(req);
+          if (enforcedState && group && group.stateId !== enforcedState) {
+            return res.status(403).json({ message: "Pristup zamietnuty" });
+          }
+        }
+      }
+      await storage.reorderClientSubGroups(items);
+      res.json({ success: true });
+    } catch (err) {
+      res.status(500).json({ message: "Internal error" });
+    }
+  });
+
+  // === CLIENT GROUP MEMBERS ===
+  app.get("/api/client-groups/:groupId/members", isAuthenticated, async (req: any, res) => {
+    const group = await storage.getClientGroup(Number(req.params.groupId));
+    if (!group) return res.status(404).json({ message: "Skupina nenajdena" });
+    const enforcedState = getEnforcedStateId(req);
+    if (enforcedState && group.stateId !== enforcedState) {
+      return res.status(403).json({ message: "Pristup zamietnuty" });
+    }
+    const members = await storage.getClientGroupMembers(Number(req.params.groupId));
+    res.json(members);
+  });
+
+  app.post("/api/client-groups/:groupId/members", isAuthenticated, async (req: any, res) => {
+    try {
+      const group = await storage.getClientGroup(Number(req.params.groupId));
+      if (!group) return res.status(404).json({ message: "Skupina nenajdena" });
+      const enforcedState = getEnforcedStateId(req);
+      if (enforcedState && group.stateId !== enforcedState) {
+        return res.status(403).json({ message: "Pristup zamietnuty" });
+      }
+      const data = { ...req.body, groupId: Number(req.params.groupId) };
+      const created = await storage.addClientGroupMember(data);
+      await logAudit(req, { action: "CREATE", module: "clenovia_skupiny", entityId: created.id });
+      res.status(201).json(created);
+    } catch (err) {
+      res.status(500).json({ message: "Internal error" });
+    }
+  });
+
+  app.delete("/api/client-group-members/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const member = await db.select().from(clientGroupMembers).where(eq(clientGroupMembers.id, Number(req.params.id))).then(r => r[0]);
+      if (!member) return res.status(404).json({ message: "Clen nenajdeny" });
+      const group = await storage.getClientGroup(member.groupId);
+      if (!group) return res.status(404).json({ message: "Skupina nenajdena" });
+      const enforcedState = getEnforcedStateId(req);
+      if (enforcedState && group.stateId !== enforcedState) {
+        return res.status(403).json({ message: "Pristup zamietnuty" });
+      }
+      await storage.removeClientGroupMember(Number(req.params.id));
+      await logAudit(req, { action: "DELETE", module: "clenovia_skupiny", entityId: Number(req.params.id) });
+      res.json({ success: true });
+    } catch (err) {
+      res.status(500).json({ message: "Internal error" });
+    }
+  });
+
+  // === SEARCH SUBJECTS (for member search) ===
+  app.get("/api/subjects/search", isAuthenticated, async (req: any, res) => {
+    try {
+      const q = (req.query.q as string || "").toLowerCase();
+      if (!q || q.length < 2) return res.json([]);
+      const enforcedState = getEnforcedStateId(req);
+      const allSubjects = await storage.getSubjects();
+      const filtered = allSubjects
+        .filter(s => {
+          if (enforcedState && s.stateId !== enforcedState) return false;
+          const fullName = `${s.firstName || ""} ${s.lastName || ""} ${s.companyName || ""} ${s.uid || ""}`.toLowerCase();
+          return fullName.includes(q);
+        })
+        .slice(0, 20);
+      res.json(filtered);
+    } catch (err) {
+      res.status(500).json({ message: "Internal error" });
+    }
+  });
+
   // === ARCHIVE MODULE ===
   app.get("/api/archive/deleted", isAuthenticated, async (_req, res) => {
     try {
@@ -1651,6 +1873,14 @@ export async function registerRoutes(
         const supportPhone = await storage.getSystemSetting("support_phone") || "+421 900 000 000";
         return res.status(404).json({
           message: `Vase udaje neboli spravne, volajte ${supportPhone}`,
+        });
+      }
+
+      const loginAllowed = await storage.isSubjectLoginAllowed(client.id);
+      if (!loginAllowed) {
+        const supportPhone = await storage.getSystemSetting("support_phone") || "+421 900 000 000";
+        return res.status(403).json({
+          message: `Prihlasenie nie je povolene pre vas ucet. Kontaktujte ${supportPhone}`,
         });
       }
 

@@ -459,6 +459,36 @@ export const clientTypeFields = pgTable("client_type_fields", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
+// === CLIENT GROUPS (Skupiny klientov) ===
+export const clientGroups = pgTable("client_groups", {
+  id: serial("id").primaryKey(),
+  name: text("name").notNull(),
+  allowLogin: boolean("allow_login").default(true),
+  allowCalculators: boolean("allow_calculators").default(true),
+  sortOrder: integer("sort_order").default(0),
+  stateId: integer("state_id").references(() => states.id),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// === CLIENT SUB-GROUPS (Podskupiny) ===
+export const clientSubGroups = pgTable("client_sub_groups", {
+  id: serial("id").primaryKey(),
+  groupId: integer("group_id").notNull().references(() => clientGroups.id),
+  name: text("name").notNull(),
+  sortOrder: integer("sort_order").default(0),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// === CLIENT GROUP MEMBERS (Group <-> Subject assignment) ===
+export const clientGroupMembers = pgTable("client_group_members", {
+  id: serial("id").primaryKey(),
+  groupId: integer("group_id").notNull().references(() => clientGroups.id),
+  subGroupId: integer("sub_group_id").references(() => clientSubGroups.id),
+  subjectId: integer("subject_id").notNull().references(() => subjects.id),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
 // === CONTRACT STATUSES (Stavy zmluv) ===
 export const contractStatuses = pgTable("contract_statuses", {
   id: serial("id").primaryKey(),
@@ -563,6 +593,9 @@ export const insertDashboardPreferenceSchema = createInsertSchema(dashboardPrefe
 export const insertClientTypeSchema = createInsertSchema(clientTypes).omit({ id: true, createdAt: true });
 export const insertClientTypeSectionSchema = createInsertSchema(clientTypeSections).omit({ id: true, createdAt: true });
 export const insertClientTypeFieldSchema = createInsertSchema(clientTypeFields).omit({ id: true, createdAt: true });
+export const insertClientGroupSchema = createInsertSchema(clientGroups).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertClientSubGroupSchema = createInsertSchema(clientSubGroups).omit({ id: true, createdAt: true });
+export const insertClientGroupMemberSchema = createInsertSchema(clientGroupMembers).omit({ id: true, createdAt: true });
 export const insertContractStatusSchema = createInsertSchema(contractStatuses).omit({ id: true, createdAt: true });
 export const insertContractTemplateSchema = createInsertSchema(contractTemplates).omit({ id: true, createdAt: true, updatedAt: true });
 export const insertContractInventorySchema = createInsertSchema(contractInventories).omit({ id: true, createdAt: true, updatedAt: true });
@@ -617,6 +650,13 @@ export type ClientTypeSection = typeof clientTypeSections.$inferSelect;
 export type InsertClientTypeSection = z.infer<typeof insertClientTypeSectionSchema>;
 export type ClientTypeField = typeof clientTypeFields.$inferSelect;
 export type InsertClientTypeField = z.infer<typeof insertClientTypeFieldSchema>;
+
+export type ClientGroup = typeof clientGroups.$inferSelect;
+export type InsertClientGroup = z.infer<typeof insertClientGroupSchema>;
+export type ClientSubGroup = typeof clientSubGroups.$inferSelect;
+export type InsertClientSubGroup = z.infer<typeof insertClientSubGroupSchema>;
+export type ClientGroupMember = typeof clientGroupMembers.$inferSelect;
+export type InsertClientGroupMember = z.infer<typeof insertClientGroupMemberSchema>;
 
 export type ContractStatus = typeof contractStatuses.$inferSelect;
 export type InsertContractStatus = z.infer<typeof insertContractStatusSchema>;

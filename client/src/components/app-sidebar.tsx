@@ -30,6 +30,7 @@ import {
   Timer,
   Eye,
   UsersRound,
+  Contact,
 } from "lucide-react";
 import {
   Sidebar,
@@ -58,9 +59,13 @@ import { Button } from "@/components/ui/button";
 const topItems = [
   { href: "/", icon: LayoutDashboard, label: "Prehlad" },
   { href: "/companies", icon: Building2, label: "Spolocnosti" },
-  { href: "/partners", icon: Briefcase, label: "Partneri" },
-  { href: "/products", icon: Package, label: "Produkty" },
   { href: "/commissions", icon: Percent, label: "Provizie" },
+];
+
+const partneriProduktyItems = [
+  { href: "/partners", icon: Briefcase, label: "Zoznam partnerov" },
+  { href: "/products", icon: Package, label: "Katalog produktov" },
+  { href: "/partner-contacts", icon: Contact, label: "Kontaktne osoby" },
 ];
 
 const klientiItems = [
@@ -197,6 +202,13 @@ export function AppSidebar() {
         <SidebarGroup>
           <SidebarGroupContent>
             <SidebarMenu>
+              <CollapsibleMenu
+                label="Partneri a produkty"
+                icon={Briefcase}
+                items={partneriProduktyItems}
+                location={location}
+                testId="nav-menu-partneri-produkty"
+              />
               <CollapsibleMenu
                 label="Klienti"
                 icon={Users}

@@ -38,6 +38,10 @@ import {
   type ContractTemplate, type InsertContractTemplate,
   type ContractInventory, type InsertContractInventory,
   type Contract, type InsertContract,
+  clientGroups, clientSubGroups, clientGroupMembers,
+  type ClientGroup, type InsertClientGroup,
+  type ClientSubGroup, type InsertClientSubGroup,
+  type ClientGroupMember, type InsertClientGroupMember,
 } from "@shared/schema";
 import { eq, and, or, ne, like, sql, lte, gte } from "drizzle-orm";
 
@@ -207,6 +211,28 @@ export interface IStorage {
   updateContract(id: number, data: Partial<InsertContract>): Promise<Contract>;
   softDeleteContract(id: number, deletedBy: string, ip: string): Promise<void>;
   restoreContract(id: number): Promise<void>;
+
+  // Client Groups
+  getClientGroups(stateId?: number): Promise<ClientGroup[]>;
+  getClientGroup(id: number): Promise<ClientGroup | undefined>;
+  createClientGroup(data: InsertClientGroup): Promise<ClientGroup>;
+  updateClientGroup(id: number, data: Partial<InsertClientGroup>): Promise<ClientGroup>;
+  deleteClientGroup(id: number): Promise<void>;
+  reorderClientGroups(items: { id: number; sortOrder: number }[]): Promise<void>;
+
+  // Client Sub-Groups
+  getClientSubGroups(groupId: number): Promise<ClientSubGroup[]>;
+  createClientSubGroup(data: InsertClientSubGroup): Promise<ClientSubGroup>;
+  deleteClientSubGroup(id: number): Promise<void>;
+  reorderClientSubGroups(items: { id: number; sortOrder: number }[]): Promise<void>;
+
+  // Client Group Members
+  getClientGroupMembers(groupId: number): Promise<(ClientGroupMember & { subject?: Subject })[]>;
+  addClientGroupMember(data: InsertClientGroupMember): Promise<ClientGroupMember>;
+  removeClientGroupMember(id: number): Promise<void>;
+  getClientGroupMemberCount(groupId: number): Promise<number>;
+  getClientSubGroupMemberCount(subGroupId: number): Promise<number>;
+  isSubjectLoginAllowed(subjectId: number): Promise<boolean>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -1242,6 +1268,122 @@ export class DatabaseStorage implements IStorage {
       deletedAt: null,
       deletedFromIp: null,
     }).where(eq(contracts.id, id));
+  }
+
+  // === CLIENT GROUPS ===
+  async getClientGroups(stateId?: number): Promise<ClientGroup[]> {
+    if (stateId) {
+      return await db.select().from(clientGroups)
+        .where(eq(clientGroups.stateId, stateId))
+        .orderBy(clientGroups.sortOrder);
+    }
+    return await db.select().from(clientGroups).orderBy(clientGroups.sortOrder);
+  }
+
+  async getClientGroup(id: number): Promise<ClientGroup | undefined> {
+    const [group] = await db.select().from(clientGroups).where(eq(clientGroups.id, id));
+    return group;
+  }
+
+  async createClientGroup(data: InsertClientGroup): Promise<ClientGroup> {
+    const [created] = await db.insert(clientGroups).values(data as any).returning();
+    return created;
+  }
+
+  async updateClientGroup(id: number, data: Partial<InsertClientGroup>): Promise<ClientGroup> {
+    const [updated] = await db.update(clientGroups)
+      .set({ ...data, updatedAt: new Date() } as any)
+      .where(eq(clientGroups.id, id)).returning();
+    return updated;
+  }
+
+  async deleteClientGroup(id: number): Promise<void> {
+    await db.delete(clientGroupMembers).where(eq(clientGroupMembers.groupId, id));
+    await db.delete(clientSubGroups).where(eq(clientSubGroups.groupId, id));
+    await db.delete(clientGroups).where(eq(clientGroups.id, id));
+  }
+
+  async reorderClientGroups(items: { id: number; sortOrder: number }[]): Promise<void> {
+    for (const item of items) {
+      await db.update(clientGroups).set({ sortOrder: item.sortOrder }).where(eq(clientGroups.id, item.id));
+    }
+  }
+
+  // === CLIENT SUB-GROUPS ===
+  async getClientSubGroups(groupId: number): Promise<ClientSubGroup[]> {
+    return await db.select().from(clientSubGroups)
+      .where(eq(clientSubGroups.groupId, groupId))
+      .orderBy(clientSubGroups.sortOrder);
+  }
+
+  async createClientSubGroup(data: InsertClientSubGroup): Promise<ClientSubGroup> {
+    const [created] = await db.insert(clientSubGroups).values(data as any).returning();
+    return created;
+  }
+
+  async deleteClientSubGroup(id: number): Promise<void> {
+    await db.update(clientGroupMembers)
+      .set({ subGroupId: null })
+      .where(eq(clientGroupMembers.subGroupId, id));
+    await db.delete(clientSubGroups).where(eq(clientSubGroups.id, id));
+  }
+
+  async reorderClientSubGroups(items: { id: number; sortOrder: number }[]): Promise<void> {
+    for (const item of items) {
+      await db.update(clientSubGroups).set({ sortOrder: item.sortOrder }).where(eq(clientSubGroups.id, item.id));
+    }
+  }
+
+  // === CLIENT GROUP MEMBERS ===
+  async getClientGroupMembers(groupId: number): Promise<(ClientGroupMember & { subject?: Subject })[]> {
+    const members = await db.select().from(clientGroupMembers)
+      .where(eq(clientGroupMembers.groupId, groupId));
+    const result: (ClientGroupMember & { subject?: Subject })[] = [];
+    for (const member of members) {
+      const [subject] = await db.select().from(subjects).where(eq(subjects.id, member.subjectId));
+      result.push({ ...member, subject });
+    }
+    return result;
+  }
+
+  async addClientGroupMember(data: InsertClientGroupMember): Promise<ClientGroupMember> {
+    const [created] = await db.insert(clientGroupMembers).values(data as any).returning();
+    return created;
+  }
+
+  async removeClientGroupMember(id: number): Promise<void> {
+    await db.delete(clientGroupMembers).where(eq(clientGroupMembers.id, id));
+  }
+
+  async getClientGroupMemberCount(groupId: number): Promise<number> {
+    const result = await db.select({ count: sql<number>`count(*)::int` })
+      .from(clientGroupMembers)
+      .where(eq(clientGroupMembers.groupId, groupId));
+    return result[0]?.count || 0;
+  }
+
+  async getClientSubGroupMemberCount(subGroupId: number): Promise<number> {
+    const result = await db.select({ count: sql<number>`count(*)::int` })
+      .from(clientGroupMembers)
+      .where(eq(clientGroupMembers.subGroupId, subGroupId));
+    return result[0]?.count || 0;
+  }
+
+  async isSubjectLoginAllowed(subjectId: number): Promise<boolean> {
+    const memberships = await db.select({
+      allowLogin: clientGroups.allowLogin,
+    })
+      .from(clientGroupMembers)
+      .innerJoin(clientGroups, eq(clientGroupMembers.groupId, clientGroups.id))
+      .where(
+        and(
+          eq(clientGroupMembers.subjectId, subjectId),
+          eq(clientGroups.isDeleted, false)
+        )
+      );
+    if (memberships.length === 0) return true;
+    const blocked = memberships.some(m => m.allowLogin === false);
+    return !blocked;
   }
 }
 
