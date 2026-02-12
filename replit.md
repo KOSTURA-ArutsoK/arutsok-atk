@@ -46,7 +46,7 @@ The system is built on a modern full-stack architecture:
 - **Bulk Client Assignment**: Checkbox selection in Subjects table with "Priradit do skupiny" bulk action. POST `/api/client-groups/:groupId/bulk-assign` with duplicate-skipping logic.
 - **Subject Finance Tab**: SubjectDetailDialog includes Financie tab with KIK ID, IBAN, SWIFT/BIC, commission level fields. PUT `/api/subjects/:id/finance` endpoint.
 - **Branding**: Sidebar shows "Secure Platform" (not "CRM System"). Archive renamed to "Kos" throughout.
-- **Collapsible Sidebar**: Four collapsible menu groups: Klienti (Zoznam klientov, Pravidla typov klientov, Skupiny klientov), Partneri a produkty (Zoznam partnerov, Katalog produktov, Kontaktne osoby), Zmluvy (Zmluvy, Nastavenia sablon, Sprava sablon, Stavy zmluv, Zoznam supisiek), Nastavenia (Kos, Logy, Pouzivatelia, Pravomoci skupiny, Podpora a registracia, Doba prihlasenia, Nastavenie prehladov). Uses Collapsible + SidebarMenuSub components.
+- **Collapsible Sidebar**: Five collapsible menu groups: Financie (Provizie, Odmeny, Sadzby), Klienti (Zoznam klientov, Pravidla typov klientov, Skupiny klientov), Partneri a produkty (Zoznam partnerov, Katalog produktov, Kontaktne osoby), Zmluvy (Zmluvy, Nastavenia sablon, Sprava sablon, Stavy zmluv, Zoznam supisiek), Nastavenia (Kos, Logy, Pouzivatelia, Pravomoci skupiny, Podpora a registracia, Doba prihlasenia, Nastavenie prehladov). Uses Collapsible + SidebarMenuSub components.
 - **Client Groups**: `client_groups`, `client_sub_groups`, `client_group_members` tables. 3-tab dialog: Vseobecne (name, allowLogin, allowCalculators), Podskupiny (sub-groups with drag&drop), Zoznam klientov (member search & assignment). Drag&drop reorder on main list. State-filtered via `getEnforcedStateId()`. Login blocking enforced in registration flow (`/api/public/register/initiate`).
 - **Partner Contacts Overview**: `/partner-contacts` page aggregates contacts across all active partners with search and active/inactive filtering.
 - **Enhanced Kôš Security**: Restore modal is 800x600px with admin password verification. Audit log records authorizedByAdminId, authorizedByUsername, authorizedByRole for every restore operation.
@@ -68,6 +68,18 @@ The system is built on a modern full-stack architecture:
 - **ExcelJS**: Spreadsheet generation for settlement sheet exports.
 
 ## Recent Changes
+- **2026-02-12 - Block xxx0011: Commission Brain & Calculation Engine**
+  - Added `commission_rates` table for partner+product rate matrix (Sadzby) with rateType (percent/fixed), rateValue, pointsFactor, currency, temporal validity.
+  - Added `commission_calculation_logs` table for full audit trail of calculations with actorId, actorUsername, inputSnapshot, processingTimeSec.
+  - Added `commissionLevel` (1-10) and `managerId` fields to `app_users` for agent hierarchy.
+  - Commission calculation engine: baseCommission = premium * rateValue (percent) or rateValue (fixed); differentialCommission = baseCommission * (managerLevel - agentLevel) * 0.1.
+  - Sadzby page (`/commissions`): Commission rates matrix CRUD with Partner+Product mapping, filters by partner/type/status, processing time tracking on forms.
+  - Provizie page (`/provizie`): Incoming commissions from partners, green emerald accent, search/filter by partner, Intelligent Help with 2s delay.
+  - Odmeny page (`/odmeny`): Outgoing payments to agents, orange/red accent for differential, search/filter by agent, Intelligent Help with 2s delay.
+  - Sidebar updated: New "Financie" collapsible menu group with Provizie, Odmeny, Sadzby items (replaces old top-level Provizie link).
+  - API endpoints: GET/POST/PUT/DELETE `/api/commission-rates`, GET `/api/provizie`, GET `/api/odmeny`, POST `/api/commission-calculate`, GET `/api/commission-calculation-logs`.
+  - All mutations audit-logged with actor_id and processing time.
+
 - **2026-02-12 - Block xxx0008: Supisky (Settlement Sheets) Module**
   - Added `supisky` and `supiska_contracts` tables for settlement sheet management.
   - Added contract locking fields (`isLocked`, `lockedBy`, `lockedAt`, `lockedBySupiskaId`) to `contracts` table.

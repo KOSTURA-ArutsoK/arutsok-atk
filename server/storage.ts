@@ -7,12 +7,15 @@ import {
   companyContacts, contractAmendments, userProfiles,
   permissionGroups, permissions, auditLogs,
   systemSettings, verificationCodes, categoryTimeouts, dashboardPreferences,
+  commissionRates, commissionCalculationLogs,
   type Subject, type InsertSubject, 
   type MyCompany, type InsertMyCompany,
   type Partner, type InsertPartner,
   type Contact, 
   type Product, type InsertProduct,
   type CommissionScheme, type InsertCommissionScheme,
+  type CommissionRate, type InsertCommissionRate,
+  type CommissionCalculationLog, type InsertCommissionCalculationLog,
   type UpdateSubjectRequest, type UpdateMyCompanyRequest, type UpdatePartnerRequest,
   type AppUser, type InsertAppUser,
   type CompanyOfficer, type InsertCompanyOfficer,
@@ -46,7 +49,7 @@ import {
   type Supiska, type InsertSupiska,
   type SupiskaContract, type InsertSupiskaContract,
 } from "@shared/schema";
-import { eq, and, or, ne, like, sql, lte, gte } from "drizzle-orm";
+import { eq, and, or, ne, like, sql, lte, gte, desc } from "drizzle-orm";
 
 export interface IStorage {
   generateUID(stateCode: string, continentCode?: string): Promise<string>;
@@ -250,6 +253,22 @@ export interface IStorage {
   removeContractFromSupiska(supiskaId: number, contractId: number): Promise<void>;
   lockContractsBySupiska(supiskaId: number, lockedBy: string): Promise<void>;
   unlockContractsBySupiska(supiskaId: number): Promise<void>;
+
+  // Commission Rates (Sadzby)
+  getCommissionRates(filters?: { partnerId?: number; productId?: number; stateId?: number; isActive?: boolean }): Promise<CommissionRate[]>;
+  getCommissionRate(id: number): Promise<CommissionRate | undefined>;
+  createCommissionRate(data: InsertCommissionRate): Promise<CommissionRate>;
+  updateCommissionRate(id: number, data: Partial<InsertCommissionRate>): Promise<CommissionRate>;
+  deleteCommissionRate(id: number): Promise<void>;
+
+  // Commission Calculation Logs
+  getCommissionCalculationLogs(filters?: { contractId?: number; agentId?: number; managerId?: number; limit?: number }): Promise<CommissionCalculationLog[]>;
+  createCommissionCalculationLog(data: InsertCommissionCalculationLog): Promise<CommissionCalculationLog>;
+
+  // Provzie data (incoming from partners)
+  getProvizieData(stateId?: number): Promise<any[]>;
+  // Odmeny data (outgoing to agents)
+  getOdmenyData(stateId?: number): Promise<any[]>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -1504,6 +1523,130 @@ export class DatabaseStorage implements IStorage {
         .set({ isLocked: false, lockedBy: null, lockedAt: null, lockedBySupiskaId: null })
         .where(eq(contracts.id, cId));
     }
+  }
+
+  // === Commission Rates (Sadzby) ===
+  async getCommissionRates(filters?: { partnerId?: number; productId?: number; stateId?: number; isActive?: boolean }): Promise<CommissionRate[]> {
+    const conditions: any[] = [];
+    if (filters?.partnerId) conditions.push(eq(commissionRates.partnerId, filters.partnerId));
+    if (filters?.productId) conditions.push(eq(commissionRates.productId, filters.productId));
+    if (filters?.stateId) conditions.push(eq(commissionRates.stateId, filters.stateId));
+    if (filters?.isActive !== undefined) conditions.push(eq(commissionRates.isActive, filters.isActive));
+    if (conditions.length > 0) {
+      return db.select().from(commissionRates).where(and(...conditions)).orderBy(commissionRates.createdAt);
+    }
+    return db.select().from(commissionRates).orderBy(commissionRates.createdAt);
+  }
+
+  async getCommissionRate(id: number): Promise<CommissionRate | undefined> {
+    const [rate] = await db.select().from(commissionRates).where(eq(commissionRates.id, id));
+    return rate;
+  }
+
+  async createCommissionRate(data: InsertCommissionRate): Promise<CommissionRate> {
+    const [rate] = await db.insert(commissionRates).values(data).returning();
+    return rate;
+  }
+
+  async updateCommissionRate(id: number, data: Partial<InsertCommissionRate>): Promise<CommissionRate> {
+    const [rate] = await db.update(commissionRates).set({ ...data, updatedAt: new Date() }).where(eq(commissionRates.id, id)).returning();
+    return rate;
+  }
+
+  async deleteCommissionRate(id: number): Promise<void> {
+    await db.delete(commissionRates).where(eq(commissionRates.id, id));
+  }
+
+  // === Commission Calculation Logs ===
+  async getCommissionCalculationLogs(filters?: { contractId?: number; agentId?: number; managerId?: number; limit?: number }): Promise<CommissionCalculationLog[]> {
+    const conditions: any[] = [];
+    if (filters?.contractId) conditions.push(eq(commissionCalculationLogs.contractId, filters.contractId));
+    if (filters?.agentId) conditions.push(eq(commissionCalculationLogs.agentId, filters.agentId));
+    if (filters?.managerId) conditions.push(eq(commissionCalculationLogs.managerId, filters.managerId));
+    const query = conditions.length > 0
+      ? db.select().from(commissionCalculationLogs).where(and(...conditions)).orderBy(desc(commissionCalculationLogs.createdAt))
+      : db.select().from(commissionCalculationLogs).orderBy(desc(commissionCalculationLogs.createdAt));
+    if (filters?.limit) return query.limit(filters.limit);
+    return query;
+  }
+
+  async createCommissionCalculationLog(data: InsertCommissionCalculationLog): Promise<CommissionCalculationLog> {
+    const [log] = await db.insert(commissionCalculationLogs).values(data).returning();
+    return log;
+  }
+
+  // === Provzie Data (incoming from partners) ===
+  async getProvizieData(stateId?: number): Promise<any[]> {
+    const result = await db.execute(sql`
+      SELECT 
+        c.id as contract_id,
+        c.contract_number,
+        c.premium_amount,
+        c.commission_amount,
+        c.signed_date,
+        c.state_id,
+        s.first_name || ' ' || s.last_name as client_name,
+        s.kik_id,
+        p.name as partner_name,
+        pr.name as product_name,
+        cr.rate_type,
+        cr.rate_value,
+        cr.points_factor,
+        CASE 
+          WHEN cr.rate_type = 'percent' THEN ROUND(COALESCE(c.premium_amount, 0) * COALESCE(cr.rate_value::numeric, 0) / 100, 2)
+          WHEN cr.rate_type = 'fixed' THEN COALESCE(cr.rate_value::numeric, 0)
+          ELSE 0
+        END as calculated_commission,
+        ROUND(COALESCE(c.premium_amount, 0) * COALESCE(cr.points_factor::numeric, 0) / 100, 4) as points_earned
+      FROM contracts c
+      LEFT JOIN subjects s ON c.subject_id = s.id
+      LEFT JOIN partners p ON c.partner_id = p.id
+      LEFT JOIN products pr ON c.product_id = pr.id
+      LEFT JOIN commission_rates cr ON cr.partner_id = c.partner_id AND cr.product_id = c.product_id AND cr.is_active = true
+      WHERE c.is_deleted = false
+      ${stateId ? sql`AND c.state_id = ${stateId}` : sql``}
+      ORDER BY c.created_at DESC
+    `);
+    return result.rows as any[];
+  }
+
+  // === Odmeny Data (outgoing to agents) ===
+  async getOdmenyData(stateId?: number): Promise<any[]> {
+    const result = await db.execute(sql`
+      SELECT
+        ccl.id,
+        ccl.contract_number,
+        ccl.premium_amount,
+        ccl.rate_type,
+        ccl.rate_value,
+        ccl.base_commission,
+        ccl.differential_commission,
+        ccl.total_commission,
+        ccl.points_earned,
+        ccl.agent_level,
+        ccl.manager_level,
+        ccl.created_at,
+        agent.username as agent_name,
+        agent.first_name as agent_first_name,
+        agent.last_name as agent_last_name,
+        mgr.username as manager_name,
+        mgr.first_name as manager_first_name,
+        mgr.last_name as manager_last_name,
+        c.contract_number as cn,
+        p.name as partner_name,
+        pr.name as product_name,
+        s.first_name || ' ' || s.last_name as client_name
+      FROM commission_calculation_logs ccl
+      LEFT JOIN app_users agent ON ccl.agent_id = agent.id
+      LEFT JOIN app_users mgr ON ccl.manager_id = mgr.id
+      LEFT JOIN contracts c ON ccl.contract_id = c.id
+      LEFT JOIN partners p ON c.partner_id = p.id
+      LEFT JOIN products pr ON c.product_id = pr.id
+      LEFT JOIN subjects s ON c.subject_id = s.id
+      ${stateId ? sql`WHERE c.state_id = ${stateId}` : sql``}
+      ORDER BY ccl.created_at DESC
+    `);
+    return result.rows as any[];
   }
 }
 

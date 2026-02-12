@@ -6,6 +6,7 @@ import {
   insertContactSchema, 
   insertProductSchema, 
   insertCommissionSchemeSchema,
+  insertCommissionRateSchema,
   insertCompanyOfficerSchema,
   insertPartnerContactSchema,
   insertPartnerProductSchema,
@@ -22,7 +23,7 @@ import {
   insertClientGroupSchema,
   insertClientSubGroupSchema,
   insertClientGroupMemberSchema,
-  subjects, myCompanies, partners, contacts, products, commissionSchemes, appUsers,
+  subjects, myCompanies, partners, contacts, products, commissionSchemes, commissionRates, appUsers,
   partnerContacts, partnerProducts, partnerContracts, communicationMatrix, companyOfficers,
   contractAmendments, userProfiles, permissionGroups, permissions, auditLogs,
   contractStatuses, contractTemplates, contractInventories, contracts,
@@ -326,6 +327,36 @@ export const api = {
       path: '/api/commissions' as const,
       input: insertCommissionSchemeSchema,
       responses: { 201: z.custom<typeof commissionSchemes.$inferSelect>(), 400: errorSchemas.validation },
+    },
+  },
+
+  commissionRatesApi: {
+    list: {
+      method: 'GET' as const,
+      path: '/api/commission-rates' as const,
+      responses: { 200: z.array(z.custom<typeof commissionRates.$inferSelect>()) },
+    },
+    get: {
+      method: 'GET' as const,
+      path: '/api/commission-rates/:id' as const,
+      responses: { 200: z.custom<typeof commissionRates.$inferSelect>(), 404: errorSchemas.notFound },
+    },
+    create: {
+      method: 'POST' as const,
+      path: '/api/commission-rates' as const,
+      input: insertCommissionRateSchema,
+      responses: { 201: z.custom<typeof commissionRates.$inferSelect>(), 400: errorSchemas.validation },
+    },
+    update: {
+      method: 'PUT' as const,
+      path: '/api/commission-rates/:id' as const,
+      input: insertCommissionRateSchema.partial(),
+      responses: { 200: z.custom<typeof commissionRates.$inferSelect>() },
+    },
+    delete: {
+      method: 'DELETE' as const,
+      path: '/api/commission-rates/:id' as const,
+      responses: { 200: z.object({ success: z.boolean() }) },
     },
   },
 

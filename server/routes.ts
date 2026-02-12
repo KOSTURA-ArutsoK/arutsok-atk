@@ -779,6 +779,172 @@ export async function registerRoutes(
     }
   });
 
+  // === COMMISSION RATES (Sadzby) ===
+  app.get(api.commissionRatesApi.list.path, isAuthenticated, async (req: any, res) => {
+    const partnerId = req.query.partnerId ? parseInt(req.query.partnerId as string) : undefined;
+    const productId = req.query.productId ? parseInt(req.query.productId as string) : undefined;
+    const stateId = getEnforcedStateId(req);
+    const isActive = req.query.isActive !== undefined ? req.query.isActive === 'true' : undefined;
+    res.json(await storage.getCommissionRates({ partnerId, productId, stateId, isActive }));
+  });
+
+  app.get(api.commissionRatesApi.get.path, isAuthenticated, async (req, res) => {
+    const rate = await storage.getCommissionRate(Number(req.params.id));
+    if (!rate) return res.status(404).json({ message: "Sadzba nenajdena" });
+    res.json(rate);
+  });
+
+  app.post(api.commissionRatesApi.create.path, isAuthenticated, async (req: any, res) => {
+    try {
+      const appUser = req.appUser;
+      const enforcedState = getEnforcedStateId(req);
+      const data = {
+        ...req.body,
+        stateId: enforcedState || req.body.stateId,
+        companyId: appUser?.activeCompanyId || req.body.companyId,
+        createdBy: appUser?.username || "system",
+      };
+      const created = await storage.createCommissionRate(data);
+      await logAudit(req, { action: "CREATE", module: "sadzby", entityId: created.id, newData: data });
+      res.status(201).json(created);
+    } catch (err) {
+      if (err instanceof z.ZodError) return res.status(400).json({ message: err.errors[0].message });
+      throw err;
+    }
+  });
+
+  app.put(api.commissionRatesApi.update.path, isAuthenticated, async (req: any, res) => {
+    try {
+      const id = Number(req.params.id);
+      const old = await storage.getCommissionRate(id);
+      if (!old) return res.status(404).json({ message: "Sadzba nenajdena" });
+      const updated = await storage.updateCommissionRate(id, req.body);
+      await logAudit(req, { action: "UPDATE", module: "sadzby", entityId: id, oldData: old, newData: req.body });
+      res.json(updated);
+    } catch (err) {
+      if (err instanceof z.ZodError) return res.status(400).json({ message: err.errors[0].message });
+      throw err;
+    }
+  });
+
+  app.delete(api.commissionRatesApi.delete.path, isAuthenticated, async (req: any, res) => {
+    const id = Number(req.params.id);
+    const old = await storage.getCommissionRate(id);
+    if (!old) return res.status(404).json({ message: "Sadzba nenajdena" });
+    await storage.deleteCommissionRate(id);
+    await logAudit(req, { action: "DELETE", module: "sadzby", entityId: id, oldData: old });
+    res.json({ success: true });
+  });
+
+  // === PROVZIE (Incoming commissions from partners) ===
+  app.get("/api/provizie", isAuthenticated, async (req: any, res) => {
+    const stateId = getEnforcedStateId(req);
+    res.json(await storage.getProvizieData(stateId));
+  });
+
+  // === ODMENY (Outgoing payments to agents) ===
+  app.get("/api/odmeny", isAuthenticated, async (req: any, res) => {
+    const stateId = getEnforcedStateId(req);
+    res.json(await storage.getOdmenyData(stateId));
+  });
+
+  // === COMMISSION CALCULATION ===
+  app.post("/api/commission-calculate", isAuthenticated, async (req: any, res) => {
+    try {
+      const { contractId, agentId, processingTimeSec } = req.body;
+      const appUser = req.appUser;
+
+      const contract = await storage.getContract(contractId);
+      if (!contract) return res.status(404).json({ message: "Zmluva nenajdena" });
+
+      const rates = await storage.getCommissionRates({
+        partnerId: contract.partnerId || undefined,
+        productId: contract.productId || undefined,
+        isActive: true
+      });
+
+      if (rates.length === 0) return res.status(400).json({ message: "Ziadna aktivna sadzba pre tuto kombinaciu partnera a produktu" });
+      const rate = rates[0];
+
+      const agent = agentId ? (await storage.getAppUsers()).find(u => u.id === agentId) : null;
+      const agentLevel = agent?.commissionLevel || 1;
+
+      let managerId: number | null = null;
+      let managerLevel: number | null = null;
+      if (agent?.managerId) {
+        const manager = (await storage.getAppUsers()).find(u => u.id === agent.managerId);
+        if (manager) {
+          managerId = manager.id;
+          managerLevel = manager.commissionLevel || 1;
+        }
+      }
+
+      const premium = contract.premiumAmount || 0;
+      const rateValue = parseFloat(rate.rateValue);
+      let baseCommission = 0;
+
+      if (rate.rateType === 'percent') {
+        baseCommission = Math.round(premium * rateValue / 100 * 100) / 100;
+      } else if (rate.rateType === 'fixed') {
+        baseCommission = rateValue;
+      }
+
+      let differentialCommission = 0;
+      if (managerId && managerLevel && managerLevel > agentLevel) {
+        const levelDiff = managerLevel - agentLevel;
+        differentialCommission = Math.round(baseCommission * levelDiff * 0.1 * 100) / 100;
+      }
+
+      const pointsFactor = parseFloat(rate.pointsFactor || "1");
+      const pointsEarned = Math.round(premium * pointsFactor / 100 * 10000) / 10000;
+
+      const logData = {
+        contractId,
+        contractNumber: contract.contractNumber,
+        rateId: rate.id,
+        agentId: agentId || null,
+        agentLevel,
+        managerId,
+        managerLevel,
+        premiumAmount: String(premium),
+        rateType: rate.rateType,
+        rateValue: rate.rateValue,
+        baseCommission: String(baseCommission),
+        differentialCommission: String(differentialCommission),
+        totalCommission: String(baseCommission + differentialCommission),
+        pointsEarned: String(pointsEarned),
+        actorId: appUser?.id || null,
+        actorUsername: appUser?.username || "system",
+        processingTimeSec: processingTimeSec ? Math.round(processingTimeSec) : 0,
+        inputSnapshot: { contractId, agentId, rateId: rate.id, premium, rateValue, agentLevel, managerLevel },
+      };
+
+      const calcLog = await storage.createCommissionCalculationLog(logData);
+      await logAudit(req, { action: "CALCULATE", module: "provizie", entityId: contractId, newData: logData });
+
+      res.json({
+        success: true,
+        calculation: calcLog,
+        baseCommission,
+        differentialCommission,
+        totalCommission: baseCommission + differentialCommission,
+        pointsEarned,
+      });
+    } catch (err: any) {
+      console.error("Commission calculation error:", err);
+      res.status(500).json({ message: err.message || "Chyba pri vypocte provizie" });
+    }
+  });
+
+  // === COMMISSION CALCULATION LOGS ===
+  app.get("/api/commission-calculation-logs", isAuthenticated, async (req: any, res) => {
+    const contractId = req.query.contractId ? parseInt(req.query.contractId as string) : undefined;
+    const agentId = req.query.agentId ? parseInt(req.query.agentId as string) : undefined;
+    const managerId = req.query.managerId ? parseInt(req.query.managerId as string) : undefined;
+    const limit = req.query.limit ? parseInt(req.query.limit as string) : undefined;
+    res.json(await storage.getCommissionCalculationLogs({ contractId, agentId, managerId, limit }));
+  });
+
   // === PERMISSION GROUPS ===
   app.get(api.permissionGroups.list.path, isAuthenticated, async (_req, res) => {
     res.json(await storage.getPermissionGroups());

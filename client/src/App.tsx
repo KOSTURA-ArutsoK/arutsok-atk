@@ -20,6 +20,8 @@ import Users from "@/pages/Users";
 import PermissionGroups from "@/pages/PermissionGroups";
 import History from "@/pages/History";
 import Commissions from "@/pages/Commissions";
+import Provizie from "@/pages/Provizie";
+import Odmeny from "@/pages/Odmeny";
 import Settings from "@/pages/Settings";
 import Archive from "@/pages/Archive";
 import ClientTypeRules from "@/pages/ClientTypeRules";
@@ -75,6 +77,8 @@ function Router() {
       <Route path="/partners" component={() => <PrivateRoute component={Partners} />} />
       <Route path="/products" component={() => <PrivateRoute component={Products} />} />
       <Route path="/commissions" component={() => <PrivateRoute component={Commissions} />} />
+      <Route path="/provizie" component={() => <PrivateRoute component={Provizie} />} />
+      <Route path="/odmeny" component={() => <PrivateRoute component={Odmeny} />} />
       <Route path="/settings" component={() => <PrivateRoute component={Settings} />} />
       <Route path="/history" component={() => <PrivateRoute component={History} />} />
       <Route path="/users" component={() => <PrivateRoute component={Users} />} />

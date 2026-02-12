@@ -1,4 +1,4 @@
-import { pgTable, text, serial, integer, boolean, timestamp, jsonb, bigint } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, integer, boolean, timestamp, jsonb, bigint, numeric } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
@@ -338,6 +338,8 @@ export const appUsers = pgTable("app_users", {
   adminCode: text("admin_code"),
   activeCompanyId: integer("active_company_id"),
   activeStateId: integer("active_state_id"),
+  commissionLevel: integer("commission_level").default(1),
+  managerId: integer("manager_id"),
   createdAt: timestamp("created_at").defaultNow(),
 });
 
@@ -590,6 +592,58 @@ export const supiskaContracts = pgTable("supiska_contracts", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
+// === COMMISSION RATES MATRIX (Sadzby - Partner+Product mapping) ===
+export const commissionRates = pgTable("commission_rates", {
+  id: serial("id").primaryKey(),
+  partnerId: integer("partner_id").notNull().references(() => partners.id),
+  productId: integer("product_id").notNull().references(() => products.id),
+  companyId: integer("company_id").references(() => myCompanies.id),
+  stateId: integer("state_id").references(() => states.id),
+  rateType: text("rate_type").notNull().default("percent"),
+  rateValue: numeric("rate_value", { precision: 10, scale: 4 }).notNull().default("0"),
+  pointsFactor: numeric("points_factor", { precision: 10, scale: 4 }).default("1"),
+  currency: text("currency").default("EUR"),
+  validFrom: timestamp("valid_from").defaultNow(),
+  validTo: timestamp("valid_to"),
+  isActive: boolean("is_active").default(true),
+  notes: text("notes"),
+  processingTimeSec: integer("processing_time_sec").default(0),
+  createdBy: text("created_by"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// === COMMISSION CALCULATION LOGS (Audit trail for calculations) ===
+export const commissionCalculationLogs = pgTable("commission_calculation_logs", {
+  id: serial("id").primaryKey(),
+  contractId: integer("contract_id").references(() => contracts.id),
+  contractNumber: text("contract_number"),
+  rateId: integer("rate_id").references(() => commissionRates.id),
+  agentId: integer("agent_id").references(() => appUsers.id),
+  agentLevel: integer("agent_level"),
+  managerId: integer("manager_id").references(() => appUsers.id),
+  managerLevel: integer("manager_level"),
+  premiumAmount: numeric("premium_amount", { precision: 12, scale: 2 }).default("0"),
+  rateType: text("rate_type"),
+  rateValue: numeric("rate_value", { precision: 10, scale: 4 }).default("0"),
+  baseCommission: numeric("base_commission", { precision: 12, scale: 2 }).default("0"),
+  differentialCommission: numeric("differential_commission", { precision: 12, scale: 2 }).default("0"),
+  totalCommission: numeric("total_commission", { precision: 12, scale: 2 }).default("0"),
+  pointsEarned: numeric("points_earned", { precision: 10, scale: 4 }).default("0"),
+  actorId: integer("actor_id").references(() => appUsers.id),
+  actorUsername: text("actor_username"),
+  processingTimeSec: integer("processing_time_sec").default(0),
+  inputSnapshot: jsonb("input_snapshot").default({}),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const commissionRatesRelations = relations(commissionRates, ({ one }) => ({
+  partner: one(partners, { fields: [commissionRates.partnerId], references: [partners.id] }),
+  product: one(products, { fields: [commissionRates.productId], references: [products.id] }),
+  company: one(myCompanies, { fields: [commissionRates.companyId], references: [myCompanies.id] }),
+  state: one(states, { fields: [commissionRates.stateId], references: [states.id] }),
+}));
+
 export const contractsRelations = relations(contracts, ({ one }) => ({
   subject: one(subjects, { fields: [contracts.subjectId], references: [subjects.id] }),
   partner: one(partners, { fields: [contracts.partnerId], references: [partners.id] }),
@@ -636,6 +690,8 @@ export const insertContractInventorySchema = createInsertSchema(contractInventor
 export const insertContractSchema = createInsertSchema(contracts).omit({ id: true, createdAt: true, updatedAt: true, isDeleted: true, deletedBy: true, deletedAt: true, deletedFromIp: true, uid: true, isLocked: true, lockedBy: true, lockedAt: true, lockedBySupiskaId: true });
 export const insertSupiskaSchema = createInsertSchema(supisky).omit({ id: true, createdAt: true, updatedAt: true });
 export const insertSupiskaContractSchema = createInsertSchema(supiskaContracts).omit({ id: true, createdAt: true });
+export const insertCommissionRateSchema = createInsertSchema(commissionRates).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertCommissionCalculationLogSchema = createInsertSchema(commissionCalculationLogs).omit({ id: true, createdAt: true });
 
 // === EXPLICIT TYPES ===
 export type Subject = typeof subjects.$inferSelect;
@@ -707,6 +763,11 @@ export type Supiska = typeof supisky.$inferSelect;
 export type InsertSupiska = z.infer<typeof insertSupiskaSchema>;
 export type SupiskaContract = typeof supiskaContracts.$inferSelect;
 export type InsertSupiskaContract = z.infer<typeof insertSupiskaContractSchema>;
+
+export type CommissionRate = typeof commissionRates.$inferSelect;
+export type InsertCommissionRate = z.infer<typeof insertCommissionRateSchema>;
+export type CommissionCalculationLog = typeof commissionCalculationLogs.$inferSelect;
+export type InsertCommissionCalculationLog = z.infer<typeof insertCommissionCalculationLogSchema>;
 
 export type CreateSubjectRequest = InsertSubject;
 export type UpdateSubjectRequest = Partial<InsertSubject> & { changeReason?: string };

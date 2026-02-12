@@ -31,6 +31,9 @@ import {
   Eye,
   UsersRound,
   Contact,
+  ArrowDownLeft,
+  ArrowUpRight,
+  Coins,
 } from "lucide-react";
 import {
   Sidebar,
@@ -59,7 +62,12 @@ import { Button } from "@/components/ui/button";
 const topItems = [
   { href: "/", icon: LayoutDashboard, label: "Prehlad" },
   { href: "/companies", icon: Building2, label: "Spolocnosti" },
-  { href: "/commissions", icon: Percent, label: "Provizie" },
+];
+
+const financieItems = [
+  { href: "/provizie", icon: ArrowDownLeft, label: "Provizie" },
+  { href: "/odmeny", icon: ArrowUpRight, label: "Odmeny" },
+  { href: "/commissions", icon: Percent, label: "Sadzby" },
 ];
 
 const partneriProduktyItems = [
@@ -203,6 +211,13 @@ export function AppSidebar() {
         <SidebarGroup>
           <SidebarGroupContent>
             <SidebarMenu>
+              <CollapsibleMenu
+                label="Financie"
+                icon={Coins}
+                items={financieItems}
+                location={location}
+                testId="nav-menu-financie"
+              />
               <CollapsibleMenu
                 label="Partneri a produkty"
                 icon={Briefcase}
