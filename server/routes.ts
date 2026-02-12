@@ -980,12 +980,269 @@ export async function registerRoutes(
     }
   });
 
+  // === STATE ISOLATION HELPER ===
+  function getEnforcedStateId(req: any): number | undefined {
+    const queryStateId = req.query.stateId ? parseInt(req.query.stateId as string) : undefined;
+    const appUser = req.appUser;
+    if (appUser?.role === 'superadmin') return queryStateId;
+    return queryStateId || appUser?.activeStateId || undefined;
+  }
+
+  // === CONTRACT STATUSES ===
+  app.get(api.contractStatusesApi.list.path, isAuthenticated, async (req: any, res) => {
+    res.json(await storage.getContractStatuses(getEnforcedStateId(req)));
+  });
+
+  app.post(api.contractStatusesApi.create.path, isAuthenticated, async (req: any, res) => {
+    try {
+      const input = api.contractStatusesApi.create.input.parse(req.body);
+      const created = await storage.createContractStatus(input);
+      await logAudit(req, { action: "CREATE", module: "stavy_zmluv", entityId: created.id, entityName: created.name, newData: input });
+      res.status(201).json(created);
+    } catch (err) {
+      if (err instanceof z.ZodError) return res.status(400).json({ message: err.errors[0].message });
+      res.status(500).json({ message: "Internal error" });
+    }
+  });
+
+  app.put("/api/contract-statuses/reorder", isAuthenticated, async (req: any, res) => {
+    try {
+      const { items } = req.body;
+      await storage.reorderContractStatuses(items);
+      await logAudit(req, { action: "UPDATE", module: "stavy_zmluv", entityName: "reorder" });
+      res.json({ success: true });
+    } catch (err) {
+      res.status(500).json({ message: "Internal error" });
+    }
+  });
+
+  app.put(api.contractStatusesApi.update.path, isAuthenticated, async (req: any, res) => {
+    try {
+      const input = api.contractStatusesApi.update.input.parse(req.body);
+      const updated = await storage.updateContractStatus(Number(req.params.id), input);
+      await logAudit(req, { action: "UPDATE", module: "stavy_zmluv", entityId: Number(req.params.id), newData: input });
+      res.json(updated);
+    } catch (err) {
+      if (err instanceof z.ZodError) return res.status(400).json({ message: err.errors[0].message });
+      res.status(500).json({ message: "Internal error" });
+    }
+  });
+
+  app.delete(api.contractStatusesApi.delete.path, isAuthenticated, async (req: any, res) => {
+    try {
+      await storage.deleteContractStatus(Number(req.params.id));
+      await logAudit(req, { action: "DELETE", module: "stavy_zmluv", entityId: Number(req.params.id) });
+      res.json({ success: true });
+    } catch (err) {
+      res.status(500).json({ message: "Internal error" });
+    }
+  });
+
+  // === CONTRACT TEMPLATES ===
+  app.get(api.contractTemplatesApi.list.path, isAuthenticated, async (req: any, res) => {
+    res.json(await storage.getContractTemplates(getEnforcedStateId(req)));
+  });
+
+  app.post(api.contractTemplatesApi.create.path, isAuthenticated, async (req: any, res) => {
+    try {
+      const input = api.contractTemplatesApi.create.input.parse(req.body);
+      const created = await storage.createContractTemplate(input);
+      await logAudit(req, { action: "CREATE", module: "sablony_zmluv", entityId: created.id, entityName: created.name, newData: input });
+      res.status(201).json(created);
+    } catch (err) {
+      if (err instanceof z.ZodError) return res.status(400).json({ message: err.errors[0].message });
+      res.status(500).json({ message: "Internal error" });
+    }
+  });
+
+  app.put(api.contractTemplatesApi.update.path, isAuthenticated, async (req: any, res) => {
+    try {
+      const input = api.contractTemplatesApi.update.input.parse(req.body);
+      const updated = await storage.updateContractTemplate(Number(req.params.id), input);
+      await logAudit(req, { action: "UPDATE", module: "sablony_zmluv", entityId: Number(req.params.id), newData: input });
+      res.json(updated);
+    } catch (err) {
+      if (err instanceof z.ZodError) return res.status(400).json({ message: err.errors[0].message });
+      res.status(500).json({ message: "Internal error" });
+    }
+  });
+
+  app.delete(api.contractTemplatesApi.delete.path, isAuthenticated, async (req: any, res) => {
+    try {
+      await storage.deleteContractTemplate(Number(req.params.id));
+      await logAudit(req, { action: "DELETE", module: "sablony_zmluv", entityId: Number(req.params.id) });
+      res.json({ success: true });
+    } catch (err) {
+      res.status(500).json({ message: "Internal error" });
+    }
+  });
+
+  app.post("/api/contract-templates/:id/upload", isAuthenticated, (req, _res, next) => {
+    (req as any)._uploadSection = "official";
+    next();
+  }, upload.single("file"), async (req: any, res) => {
+    try {
+      const file = req.file;
+      if (!file) return res.status(400).json({ message: "No file uploaded" });
+      const fileUrl = `/api/files/official/${file.filename}`;
+      const updated = await storage.updateContractTemplate(Number(req.params.id), {
+        fileUrl,
+        fileOriginalName: file.originalname,
+      });
+      await logAudit(req, { action: "UPDATE", module: "sablony_zmluv", entityId: Number(req.params.id), entityName: "template upload" });
+      res.json(updated);
+    } catch (err) {
+      res.status(500).json({ message: "Upload failed" });
+    }
+  });
+
+  // === CONTRACT INVENTORIES ===
+  app.get(api.contractInventoriesApi.list.path, isAuthenticated, async (req: any, res) => {
+    res.json(await storage.getContractInventories(getEnforcedStateId(req)));
+  });
+
+  app.post(api.contractInventoriesApi.create.path, isAuthenticated, async (req: any, res) => {
+    try {
+      const input = api.contractInventoriesApi.create.input.parse(req.body);
+      const created = await storage.createContractInventory(input);
+      await logAudit(req, { action: "CREATE", module: "supisky", entityId: created.id, entityName: created.name, newData: input });
+      res.status(201).json(created);
+    } catch (err) {
+      if (err instanceof z.ZodError) return res.status(400).json({ message: err.errors[0].message });
+      res.status(500).json({ message: "Internal error" });
+    }
+  });
+
+  app.put("/api/contract-inventories/reorder", isAuthenticated, async (req: any, res) => {
+    try {
+      const { items } = req.body;
+      await storage.reorderContractInventories(items);
+      await logAudit(req, { action: "UPDATE", module: "supisky", entityName: "reorder" });
+      res.json({ success: true });
+    } catch (err) {
+      res.status(500).json({ message: "Internal error" });
+    }
+  });
+
+  app.put(api.contractInventoriesApi.update.path, isAuthenticated, async (req: any, res) => {
+    try {
+      const input = api.contractInventoriesApi.update.input.parse(req.body);
+      const updated = await storage.updateContractInventory(Number(req.params.id), input);
+      await logAudit(req, { action: "UPDATE", module: "supisky", entityId: Number(req.params.id), newData: input });
+      res.json(updated);
+    } catch (err) {
+      if (err instanceof z.ZodError) return res.status(400).json({ message: err.errors[0].message });
+      res.status(500).json({ message: "Internal error" });
+    }
+  });
+
+  app.delete(api.contractInventoriesApi.delete.path, isAuthenticated, async (req: any, res) => {
+    try {
+      await storage.deleteContractInventory(Number(req.params.id));
+      await logAudit(req, { action: "DELETE", module: "supisky", entityId: Number(req.params.id) });
+      res.json({ success: true });
+    } catch (err) {
+      res.status(500).json({ message: "Internal error" });
+    }
+  });
+
+  // === CONTRACTS (Main) ===
+  app.get(api.contractsApi.list.path, isAuthenticated, async (req: any, res) => {
+    const filters = {
+      stateId: getEnforcedStateId(req),
+      statusId: req.query.statusId ? parseInt(req.query.statusId as string) : undefined,
+      inventoryId: req.query.inventoryId ? parseInt(req.query.inventoryId as string) : undefined,
+      includeDeleted: req.query.includeDeleted === 'true',
+    };
+    res.json(await storage.getContracts(filters));
+  });
+
+  app.get(api.contractsApi.get.path, isAuthenticated, async (req: any, res) => {
+    const contract = await storage.getContract(Number(req.params.id));
+    if (!contract) return res.status(404).json({ message: "Contract not found" });
+    const appUser = req.appUser;
+    if (appUser && appUser.activeStateId && contract.stateId && contract.stateId !== appUser.activeStateId && appUser.role !== 'superadmin') {
+      return res.status(403).json({ message: "Pristup k zmluve z ineho statu nie je povoleny" });
+    }
+    res.json(contract);
+  });
+
+  app.post(api.contractsApi.create.path, isAuthenticated, async (req: any, res) => {
+    try {
+      const input = api.contractsApi.create.input.parse(req.body);
+      const appUser = req.appUser;
+      if (appUser && appUser.activeStateId && input.stateId && input.stateId !== appUser.activeStateId) {
+        if (appUser.role !== 'superadmin') {
+          return res.status(400).json({ message: "Zmluva musi patrit do aktivneho statu" });
+        }
+      }
+      const created = await storage.createContract(input);
+      await logAudit(req, { action: "CREATE", module: "zmluvy", entityId: created.id, entityName: created.contractNumber || `Zmluva #${created.id}`, newData: input });
+      res.status(201).json(created);
+    } catch (err) {
+      if (err instanceof z.ZodError) return res.status(400).json({ message: err.errors[0].message });
+      res.status(500).json({ message: "Internal error" });
+    }
+  });
+
+  app.put(api.contractsApi.update.path, isAuthenticated, async (req: any, res) => {
+    try {
+      const input = api.contractsApi.update.input.parse(req.body);
+      const old = await storage.getContract(Number(req.params.id));
+      if (!old) return res.status(404).json({ message: "Contract not found" });
+      const appUser = req.appUser;
+      if (appUser && appUser.activeStateId && old.stateId && old.stateId !== appUser.activeStateId && appUser.role !== 'superadmin') {
+        return res.status(403).json({ message: "Uprava zmluvy z ineho statu nie je povolena" });
+      }
+      const updated = await storage.updateContract(Number(req.params.id), input);
+      await logAudit(req, { action: "UPDATE", module: "zmluvy", entityId: Number(req.params.id), oldData: old, newData: input });
+      res.json(updated);
+    } catch (err) {
+      if (err instanceof z.ZodError) return res.status(400).json({ message: err.errors[0].message });
+      res.status(500).json({ message: "Internal error" });
+    }
+  });
+
+  app.delete(api.contractsApi.delete.path, isAuthenticated, async (req: any, res) => {
+    try {
+      const appUser = req.appUser;
+      if (!appUser) return res.status(404).json({ message: "User not found" });
+      const contract = await storage.getContract(Number(req.params.id));
+      if (!contract) return res.status(404).json({ message: "Contract not found" });
+      if (appUser.activeStateId && contract.stateId && contract.stateId !== appUser.activeStateId && appUser.role !== 'superadmin') {
+        return res.status(403).json({ message: "Vymazanie zmluvy z ineho statu nie je povolene" });
+      }
+      const ip = req.ip || req.headers['x-forwarded-for'] || req.socket.remoteAddress;
+      await storage.softDeleteContract(Number(req.params.id), appUser.username, typeof ip === 'string' ? ip : '');
+      await logAudit(req, { action: "DELETE", module: "zmluvy", entityId: Number(req.params.id) });
+      res.json({ success: true });
+    } catch (err) {
+      res.status(500).json({ message: "Internal error" });
+    }
+  });
+
+  // === CLIENT TYPE REORDER ===
+  app.put("/api/client-types/reorder", isAuthenticated, async (req: any, res) => {
+    try {
+      const { items } = req.body;
+      if (!Array.isArray(items)) return res.status(400).json({ message: "Items array required" });
+      for (const item of items) {
+        await storage.updateClientType(item.id, { sortOrder: item.sortOrder });
+      }
+      await logAudit(req, { action: "UPDATE", module: "pravidla_typov", entityName: "reorder" });
+      res.json({ success: true });
+    } catch (err) {
+      res.status(500).json({ message: "Internal error" });
+    }
+  });
+
   // === ARCHIVE MODULE ===
   app.get("/api/archive/deleted", isAuthenticated, async (_req, res) => {
     try {
       const allCompanies = await storage.getMyCompanies(true);
       const allPartners = await storage.getPartners(true);
       const allProducts = await storage.getProducts(true);
+      const allContracts = await storage.getContracts({ includeDeleted: true });
 
       const deletedCompanies = allCompanies.filter(c => c.isDeleted).map(c => ({
         ...c, entityType: "company" as const,
@@ -996,8 +1253,11 @@ export async function registerRoutes(
       const deletedProducts = allProducts.filter(p => p.isDeleted).map(p => ({
         ...p, entityType: "product" as const,
       }));
+      const deletedContracts = allContracts.filter(c => c.isDeleted).map(c => ({
+        ...c, entityType: "contract" as const,
+      }));
 
-      res.json({ companies: deletedCompanies, partners: deletedPartners, products: deletedProducts });
+      res.json({ companies: deletedCompanies, partners: deletedPartners, products: deletedProducts, contracts: deletedContracts });
     } catch (err) {
       res.status(500).json({ message: "Failed to load archive" });
     }
@@ -1028,6 +1288,9 @@ export async function registerRoutes(
           break;
         case "product":
           await storage.restoreProduct(numId);
+          break;
+        case "contract":
+          await storage.restoreContract(numId);
           break;
         default:
           return res.status(400).json({ message: "Neznamy typ entity" });

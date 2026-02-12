@@ -15,9 +15,14 @@ import {
   insertPermissionGroupSchema,
   insertPermissionSchema,
   insertAppUserSchema,
+  insertContractStatusSchema,
+  insertContractTemplateSchema,
+  insertContractInventorySchema,
+  insertContractSchema,
   subjects, myCompanies, partners, contacts, products, commissionSchemes, appUsers,
   partnerContacts, partnerProducts, partnerContracts, communicationMatrix, companyOfficers,
   contractAmendments, userProfiles, permissionGroups, permissions, auditLogs,
+  contractStatuses, contractTemplates, contractInventories, contracts,
 } from './schema';
 
 export const errorSchemas = {
@@ -414,6 +419,123 @@ export const api = {
       method: 'GET' as const,
       path: '/api/audit-logs' as const,
       responses: { 200: z.object({ logs: z.array(z.custom<typeof auditLogs.$inferSelect>()), total: z.number() }) },
+    },
+  },
+
+  contractStatusesApi: {
+    list: {
+      method: 'GET' as const,
+      path: '/api/contract-statuses' as const,
+      responses: { 200: z.array(z.custom<typeof contractStatuses.$inferSelect>()) },
+    },
+    create: {
+      method: 'POST' as const,
+      path: '/api/contract-statuses' as const,
+      input: insertContractStatusSchema,
+      responses: { 201: z.custom<typeof contractStatuses.$inferSelect>() },
+    },
+    update: {
+      method: 'PUT' as const,
+      path: '/api/contract-statuses/:id' as const,
+      input: insertContractStatusSchema.partial(),
+      responses: { 200: z.custom<typeof contractStatuses.$inferSelect>() },
+    },
+    delete: {
+      method: 'DELETE' as const,
+      path: '/api/contract-statuses/:id' as const,
+      responses: { 200: z.object({ success: z.boolean() }) },
+    },
+    reorder: {
+      method: 'PUT' as const,
+      path: '/api/contract-statuses/reorder' as const,
+      input: z.object({ items: z.array(z.object({ id: z.number(), sortOrder: z.number() })) }),
+      responses: { 200: z.object({ success: z.boolean() }) },
+    },
+  },
+
+  contractTemplatesApi: {
+    list: {
+      method: 'GET' as const,
+      path: '/api/contract-templates' as const,
+      responses: { 200: z.array(z.custom<typeof contractTemplates.$inferSelect>()) },
+    },
+    create: {
+      method: 'POST' as const,
+      path: '/api/contract-templates' as const,
+      input: insertContractTemplateSchema,
+      responses: { 201: z.custom<typeof contractTemplates.$inferSelect>() },
+    },
+    update: {
+      method: 'PUT' as const,
+      path: '/api/contract-templates/:id' as const,
+      input: insertContractTemplateSchema.partial(),
+      responses: { 200: z.custom<typeof contractTemplates.$inferSelect>() },
+    },
+    delete: {
+      method: 'DELETE' as const,
+      path: '/api/contract-templates/:id' as const,
+      responses: { 200: z.object({ success: z.boolean() }) },
+    },
+  },
+
+  contractInventoriesApi: {
+    list: {
+      method: 'GET' as const,
+      path: '/api/contract-inventories' as const,
+      responses: { 200: z.array(z.custom<typeof contractInventories.$inferSelect>()) },
+    },
+    create: {
+      method: 'POST' as const,
+      path: '/api/contract-inventories' as const,
+      input: insertContractInventorySchema,
+      responses: { 200: z.custom<typeof contractInventories.$inferSelect>() },
+    },
+    update: {
+      method: 'PUT' as const,
+      path: '/api/contract-inventories/:id' as const,
+      input: insertContractInventorySchema.partial(),
+      responses: { 200: z.custom<typeof contractInventories.$inferSelect>() },
+    },
+    delete: {
+      method: 'DELETE' as const,
+      path: '/api/contract-inventories/:id' as const,
+      responses: { 200: z.object({ success: z.boolean() }) },
+    },
+    reorder: {
+      method: 'PUT' as const,
+      path: '/api/contract-inventories/reorder' as const,
+      input: z.object({ items: z.array(z.object({ id: z.number(), sortOrder: z.number() })) }),
+      responses: { 200: z.object({ success: z.boolean() }) },
+    },
+  },
+
+  contractsApi: {
+    list: {
+      method: 'GET' as const,
+      path: '/api/contracts' as const,
+      responses: { 200: z.array(z.custom<typeof contracts.$inferSelect>()) },
+    },
+    get: {
+      method: 'GET' as const,
+      path: '/api/contracts/:id' as const,
+      responses: { 200: z.custom<typeof contracts.$inferSelect>(), 404: errorSchemas.notFound },
+    },
+    create: {
+      method: 'POST' as const,
+      path: '/api/contracts' as const,
+      input: insertContractSchema,
+      responses: { 201: z.custom<typeof contracts.$inferSelect>() },
+    },
+    update: {
+      method: 'PUT' as const,
+      path: '/api/contracts/:id' as const,
+      input: insertContractSchema.partial(),
+      responses: { 200: z.custom<typeof contracts.$inferSelect>() },
+    },
+    delete: {
+      method: 'DELETE' as const,
+      path: '/api/contracts/:id' as const,
+      responses: { 200: z.object({ success: z.boolean() }) },
     },
   },
 

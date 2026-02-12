@@ -26,6 +26,10 @@ import ClientTypeRules from "@/pages/ClientTypeRules";
 import RegisterPage from "@/pages/Register";
 import ForgotPassword from "@/pages/ForgotPassword";
 import ClientZone from "@/pages/ClientZone";
+import Contracts from "@/pages/Contracts";
+import ContractStatuses from "@/pages/ContractStatuses";
+import ContractTemplates from "@/pages/ContractTemplates";
+import ContractInventories from "@/pages/ContractInventories";
 import { AppShell } from "@/components/layout/AppShell";
 
 function PrivateRoute({ component: Component, ...rest }: any) {
@@ -74,6 +78,11 @@ function Router() {
       <Route path="/permission-groups" component={() => <PrivateRoute component={PermissionGroups} />} />
       <Route path="/archive" component={() => <PrivateRoute component={Archive} />} />
       <Route path="/client-type-rules" component={() => <PrivateRoute component={ClientTypeRules} />} />
+      <Route path="/contracts" component={() => <PrivateRoute component={Contracts} />} />
+      <Route path="/contract-statuses" component={() => <PrivateRoute component={ContractStatuses} />} />
+      <Route path="/contract-template-settings" component={() => <PrivateRoute component={ContractTemplates} />} />
+      <Route path="/contract-template-management" component={() => <PrivateRoute component={ContractTemplates} />} />
+      <Route path="/contract-inventories" component={() => <PrivateRoute component={ContractInventories} />} />
 
       <Route component={NotFound} />
     </Switch>

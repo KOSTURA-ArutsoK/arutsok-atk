@@ -459,6 +459,84 @@ export const clientTypeFields = pgTable("client_type_fields", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
+// === CONTRACT STATUSES (Stavy zmluv) ===
+export const contractStatuses = pgTable("contract_statuses", {
+  id: serial("id").primaryKey(),
+  name: text("name").notNull(),
+  color: text("color").notNull().default("#3b82f6"),
+  sortOrder: integer("sort_order").default(0),
+  stateId: integer("state_id").references(() => states.id),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// === CONTRACT TEMPLATES (Sablony zmluv) ===
+export const contractTemplates = pgTable("contract_templates", {
+  id: serial("id").primaryKey(),
+  name: text("name").notNull(),
+  description: text("description"),
+  content: text("content"),
+  fileUrl: text("file_url"),
+  fileOriginalName: text("file_original_name"),
+  productType: text("product_type"),
+  stateId: integer("state_id").references(() => states.id),
+  isActive: boolean("is_active").default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// === CONTRACT INVENTORIES (Supisky - batches) ===
+export const contractInventories = pgTable("contract_inventories", {
+  id: serial("id").primaryKey(),
+  name: text("name").notNull(),
+  description: text("description"),
+  sortOrder: integer("sort_order").default(0),
+  stateId: integer("state_id").references(() => states.id),
+  isClosed: boolean("is_closed").default(false),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// === CONTRACTS (Zmluvy - main) ===
+export const contracts = pgTable("contracts", {
+  id: serial("id").primaryKey(),
+  uid: text("uid"),
+  contractNumber: text("contract_number"),
+  subjectId: integer("subject_id").references(() => subjects.id),
+  partnerId: integer("partner_id").references(() => partners.id),
+  productId: integer("product_id").references(() => products.id),
+  statusId: integer("status_id").references(() => contractStatuses.id),
+  templateId: integer("template_id").references(() => contractTemplates.id),
+  inventoryId: integer("inventory_id").references(() => contractInventories.id),
+  stateId: integer("state_id").references(() => states.id),
+  companyId: integer("company_id").references(() => myCompanies.id),
+  signedDate: timestamp("signed_date"),
+  effectiveDate: timestamp("effective_date"),
+  expiryDate: timestamp("expiry_date"),
+  premiumAmount: integer("premium_amount"),
+  commissionAmount: integer("commission_amount"),
+  currency: text("currency").default("EUR"),
+  notes: text("notes"),
+  documents: jsonb("documents").$type<DocEntry[]>().default([]),
+  processingTimeSec: integer("processing_time_sec").default(0),
+  isDeleted: boolean("is_deleted").default(false),
+  deletedBy: text("deleted_by"),
+  deletedAt: timestamp("deleted_at"),
+  deletedFromIp: text("deleted_from_ip"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const contractsRelations = relations(contracts, ({ one }) => ({
+  subject: one(subjects, { fields: [contracts.subjectId], references: [subjects.id] }),
+  partner: one(partners, { fields: [contracts.partnerId], references: [partners.id] }),
+  product: one(products, { fields: [contracts.productId], references: [products.id] }),
+  status: one(contractStatuses, { fields: [contracts.statusId], references: [contractStatuses.id] }),
+  template: one(contractTemplates, { fields: [contracts.templateId], references: [contractTemplates.id] }),
+  inventory: one(contractInventories, { fields: [contracts.inventoryId], references: [contractInventories.id] }),
+  state: one(states, { fields: [contracts.stateId], references: [states.id] }),
+  company: one(myCompanies, { fields: [contracts.companyId], references: [myCompanies.id] }),
+}));
+
 // === ZOD SCHEMAS ===
 export const insertSubjectSchema = createInsertSchema(subjects).omit({ id: true, uid: true, createdAt: true });
 export const insertMyCompanySchema = createInsertSchema(myCompanies).omit({ id: true, createdAt: true, updatedAt: true, isDeleted: true, uid: true, deletedBy: true, deletedAt: true, deletedFromIp: true });
@@ -485,6 +563,10 @@ export const insertDashboardPreferenceSchema = createInsertSchema(dashboardPrefe
 export const insertClientTypeSchema = createInsertSchema(clientTypes).omit({ id: true, createdAt: true });
 export const insertClientTypeSectionSchema = createInsertSchema(clientTypeSections).omit({ id: true, createdAt: true });
 export const insertClientTypeFieldSchema = createInsertSchema(clientTypeFields).omit({ id: true, createdAt: true });
+export const insertContractStatusSchema = createInsertSchema(contractStatuses).omit({ id: true, createdAt: true });
+export const insertContractTemplateSchema = createInsertSchema(contractTemplates).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertContractInventorySchema = createInsertSchema(contractInventories).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertContractSchema = createInsertSchema(contracts).omit({ id: true, createdAt: true, updatedAt: true, isDeleted: true, deletedBy: true, deletedAt: true, deletedFromIp: true, uid: true });
 
 // === EXPLICIT TYPES ===
 export type Subject = typeof subjects.$inferSelect;
@@ -535,6 +617,15 @@ export type ClientTypeSection = typeof clientTypeSections.$inferSelect;
 export type InsertClientTypeSection = z.infer<typeof insertClientTypeSectionSchema>;
 export type ClientTypeField = typeof clientTypeFields.$inferSelect;
 export type InsertClientTypeField = z.infer<typeof insertClientTypeFieldSchema>;
+
+export type ContractStatus = typeof contractStatuses.$inferSelect;
+export type InsertContractStatus = z.infer<typeof insertContractStatusSchema>;
+export type ContractTemplate = typeof contractTemplates.$inferSelect;
+export type InsertContractTemplate = z.infer<typeof insertContractTemplateSchema>;
+export type ContractInventory = typeof contractInventories.$inferSelect;
+export type InsertContractInventory = z.infer<typeof insertContractInventorySchema>;
+export type Contract = typeof contracts.$inferSelect;
+export type InsertContract = z.infer<typeof insertContractSchema>;
 
 export type CreateSubjectRequest = InsertSubject;
 export type UpdateSubjectRequest = Partial<InsertSubject> & { changeReason?: string };

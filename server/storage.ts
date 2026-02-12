@@ -33,6 +33,11 @@ import {
   type ClientTypeSection, type InsertClientTypeSection,
   type ClientTypeField, type InsertClientTypeField,
   clientTypes, clientTypeSections, clientTypeFields,
+  contractStatuses, contractTemplates, contractInventories, contracts,
+  type ContractStatus, type InsertContractStatus,
+  type ContractTemplate, type InsertContractTemplate,
+  type ContractInventory, type InsertContractInventory,
+  type Contract, type InsertContract,
 } from "@shared/schema";
 import { eq, and, or, ne, like, sql, lte, gte } from "drizzle-orm";
 
@@ -174,6 +179,34 @@ export interface IStorage {
   deleteClientTypeField(id: number): Promise<void>;
 
   checkDuplicateSubject(params: { birthNumber?: string; ico?: string }): Promise<Subject | undefined>;
+
+  // Contract Statuses
+  getContractStatuses(stateId?: number): Promise<ContractStatus[]>;
+  createContractStatus(data: InsertContractStatus): Promise<ContractStatus>;
+  updateContractStatus(id: number, data: Partial<InsertContractStatus>): Promise<ContractStatus>;
+  deleteContractStatus(id: number): Promise<void>;
+  reorderContractStatuses(items: { id: number; sortOrder: number }[]): Promise<void>;
+
+  // Contract Templates
+  getContractTemplates(stateId?: number): Promise<ContractTemplate[]>;
+  createContractTemplate(data: InsertContractTemplate): Promise<ContractTemplate>;
+  updateContractTemplate(id: number, data: Partial<InsertContractTemplate>): Promise<ContractTemplate>;
+  deleteContractTemplate(id: number): Promise<void>;
+
+  // Contract Inventories
+  getContractInventories(stateId?: number): Promise<ContractInventory[]>;
+  createContractInventory(data: InsertContractInventory): Promise<ContractInventory>;
+  updateContractInventory(id: number, data: Partial<InsertContractInventory>): Promise<ContractInventory>;
+  deleteContractInventory(id: number): Promise<void>;
+  reorderContractInventories(items: { id: number; sortOrder: number }[]): Promise<void>;
+
+  // Contracts
+  getContracts(filters?: { stateId?: number; statusId?: number; inventoryId?: number; includeDeleted?: boolean }): Promise<Contract[]>;
+  getContract(id: number): Promise<Contract | undefined>;
+  createContract(data: InsertContract): Promise<Contract>;
+  updateContract(id: number, data: Partial<InsertContract>): Promise<Contract>;
+  softDeleteContract(id: number, deletedBy: string, ip: string): Promise<void>;
+  restoreContract(id: number): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -1067,6 +1100,148 @@ export class DatabaseStorage implements IStorage {
       return found;
     }
     return undefined;
+  }
+
+  // === Contract Statuses ===
+
+  async getContractStatuses(stateId?: number): Promise<ContractStatus[]> {
+    if (stateId) {
+      return await db.select().from(contractStatuses)
+        .where(eq(contractStatuses.stateId, stateId))
+        .orderBy(contractStatuses.sortOrder);
+    }
+    return await db.select().from(contractStatuses).orderBy(contractStatuses.sortOrder);
+  }
+
+  async createContractStatus(data: InsertContractStatus): Promise<ContractStatus> {
+    const [created] = await db.insert(contractStatuses).values(data).returning();
+    return created;
+  }
+
+  async updateContractStatus(id: number, data: Partial<InsertContractStatus>): Promise<ContractStatus> {
+    const [updated] = await db.update(contractStatuses).set(data).where(eq(contractStatuses.id, id)).returning();
+    return updated;
+  }
+
+  async deleteContractStatus(id: number): Promise<void> {
+    await db.delete(contractStatuses).where(eq(contractStatuses.id, id));
+  }
+
+  async reorderContractStatuses(items: { id: number; sortOrder: number }[]): Promise<void> {
+    for (const item of items) {
+      await db.update(contractStatuses).set({ sortOrder: item.sortOrder }).where(eq(contractStatuses.id, item.id));
+    }
+  }
+
+  // === Contract Templates ===
+
+  async getContractTemplates(stateId?: number): Promise<ContractTemplate[]> {
+    if (stateId) {
+      return await db.select().from(contractTemplates)
+        .where(eq(contractTemplates.stateId, stateId))
+        .orderBy(contractTemplates.name);
+    }
+    return await db.select().from(contractTemplates).orderBy(contractTemplates.name);
+  }
+
+  async createContractTemplate(data: InsertContractTemplate): Promise<ContractTemplate> {
+    const [created] = await db.insert(contractTemplates).values(data).returning();
+    return created;
+  }
+
+  async updateContractTemplate(id: number, data: Partial<InsertContractTemplate>): Promise<ContractTemplate> {
+    const [updated] = await db.update(contractTemplates).set({ ...data, updatedAt: new Date() }).where(eq(contractTemplates.id, id)).returning();
+    return updated;
+  }
+
+  async deleteContractTemplate(id: number): Promise<void> {
+    await db.delete(contractTemplates).where(eq(contractTemplates.id, id));
+  }
+
+  // === Contract Inventories ===
+
+  async getContractInventories(stateId?: number): Promise<ContractInventory[]> {
+    if (stateId) {
+      return await db.select().from(contractInventories)
+        .where(eq(contractInventories.stateId, stateId))
+        .orderBy(contractInventories.sortOrder);
+    }
+    return await db.select().from(contractInventories).orderBy(contractInventories.sortOrder);
+  }
+
+  async createContractInventory(data: InsertContractInventory): Promise<ContractInventory> {
+    const [created] = await db.insert(contractInventories).values(data).returning();
+    return created;
+  }
+
+  async updateContractInventory(id: number, data: Partial<InsertContractInventory>): Promise<ContractInventory> {
+    const [updated] = await db.update(contractInventories).set({ ...data, updatedAt: new Date() }).where(eq(contractInventories.id, id)).returning();
+    return updated;
+  }
+
+  async deleteContractInventory(id: number): Promise<void> {
+    await db.delete(contractInventories).where(eq(contractInventories.id, id));
+  }
+
+  async reorderContractInventories(items: { id: number; sortOrder: number }[]): Promise<void> {
+    for (const item of items) {
+      await db.update(contractInventories).set({ sortOrder: item.sortOrder }).where(eq(contractInventories.id, item.id));
+    }
+  }
+
+  // === Contracts ===
+
+  async getContracts(filters?: { stateId?: number; statusId?: number; inventoryId?: number; includeDeleted?: boolean }): Promise<Contract[]> {
+    const conditions = [];
+    if (!filters?.includeDeleted) {
+      conditions.push(eq(contracts.isDeleted, false));
+    }
+    if (filters?.stateId) {
+      conditions.push(eq(contracts.stateId, filters.stateId));
+    }
+    if (filters?.statusId) {
+      conditions.push(eq(contracts.statusId, filters.statusId));
+    }
+    if (filters?.inventoryId) {
+      conditions.push(eq(contracts.inventoryId, filters.inventoryId));
+    }
+    if (conditions.length > 0) {
+      return await db.select().from(contracts).where(and(...conditions)).orderBy(sql`${contracts.createdAt} DESC`);
+    }
+    return await db.select().from(contracts).orderBy(sql`${contracts.createdAt} DESC`);
+  }
+
+  async getContract(id: number): Promise<Contract | undefined> {
+    const [contract] = await db.select().from(contracts).where(eq(contracts.id, id));
+    return contract;
+  }
+
+  async createContract(data: InsertContract): Promise<Contract> {
+    const [created] = await db.insert(contracts).values(data as any).returning();
+    return created;
+  }
+
+  async updateContract(id: number, data: Partial<InsertContract>): Promise<Contract> {
+    const [updated] = await db.update(contracts).set({ ...data, updatedAt: new Date() } as any).where(eq(contracts.id, id)).returning();
+    return updated;
+  }
+
+  async softDeleteContract(id: number, deletedBy: string, ip: string): Promise<void> {
+    await db.update(contracts).set({
+      isDeleted: true,
+      deletedBy,
+      deletedAt: new Date(),
+      deletedFromIp: ip,
+    }).where(eq(contracts.id, id));
+  }
+
+  async restoreContract(id: number): Promise<void> {
+    await db.update(contracts).set({
+      isDeleted: false,
+      deletedBy: null,
+      deletedAt: null,
+      deletedFromIp: null,
+    }).where(eq(contracts.id, id));
   }
 }
 
