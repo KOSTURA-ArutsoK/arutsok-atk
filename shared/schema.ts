@@ -769,6 +769,74 @@ export type InsertCommissionRate = z.infer<typeof insertCommissionRateSchema>;
 export type CommissionCalculationLog = typeof commissionCalculationLogs.$inferSelect;
 export type InsertCommissionCalculationLog = z.infer<typeof insertCommissionCalculationLogSchema>;
 
+// === SECTORS ===
+export const sectors = pgTable("sectors", {
+  id: serial("id").primaryKey(),
+  name: text("name").notNull(),
+  description: text("description").default(""),
+  sectorType: text("sector_type").notNull().default("general"),
+  sortOrder: integer("sort_order").default(0),
+  isActive: boolean("is_active").default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertSectorSchema = createInsertSchema(sectors).omit({ id: true, createdAt: true });
+
+// === PARAMETERS ===
+export const parameters = pgTable("parameters", {
+  id: serial("id").primaryKey(),
+  name: text("name").notNull(),
+  paramType: text("param_type").notNull().default("text"),
+  helpText: text("help_text").default(""),
+  options: text("options").array().default([]),
+  isRequired: boolean("is_required").default(false),
+  defaultValue: text("default_value").default(""),
+  sortOrder: integer("sort_order").default(0),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertParameterSchema = createInsertSchema(parameters).omit({ id: true, createdAt: true });
+
+// === SECTOR_PARAMETERS (many-to-many) ===
+export const sectorParameters = pgTable("sector_parameters", {
+  id: serial("id").primaryKey(),
+  sectorId: integer("sector_id").notNull(),
+  parameterId: integer("parameter_id").notNull(),
+});
+
+export const insertSectorParameterSchema = createInsertSchema(sectorParameters).omit({ id: true });
+
+// === PRODUCT_SECTORS (many-to-many) ===
+export const productSectors = pgTable("product_sectors", {
+  id: serial("id").primaryKey(),
+  productId: integer("product_id").notNull(),
+  sectorId: integer("sector_id").notNull(),
+});
+
+export const insertProductSectorSchema = createInsertSchema(productSectors).omit({ id: true });
+
+// === PRODUCT_PARAMETERS (many-to-many) ===
+export const productParameters = pgTable("product_parameters", {
+  id: serial("id").primaryKey(),
+  productId: integer("product_id").notNull(),
+  parameterId: integer("parameter_id").notNull(),
+  overrideRequired: boolean("override_required"),
+  overrideHelpText: text("override_help_text"),
+});
+
+export const insertProductParameterSchema = createInsertSchema(productParameters).omit({ id: true });
+
+export type Sector = typeof sectors.$inferSelect;
+export type InsertSector = z.infer<typeof insertSectorSchema>;
+export type Parameter = typeof parameters.$inferSelect;
+export type InsertParameter = z.infer<typeof insertParameterSchema>;
+export type SectorParameter = typeof sectorParameters.$inferSelect;
+export type InsertSectorParameter = z.infer<typeof insertSectorParameterSchema>;
+export type ProductSector = typeof productSectors.$inferSelect;
+export type InsertProductSector = z.infer<typeof insertProductSectorSchema>;
+export type ProductParameter = typeof productParameters.$inferSelect;
+export type InsertProductParameter = z.infer<typeof insertProductParameterSchema>;
+
 export type CreateSubjectRequest = InsertSubject;
 export type UpdateSubjectRequest = Partial<InsertSubject> & { changeReason?: string };
 export type UpdateMyCompanyRequest = Partial<InsertMyCompany> & { changeReason?: string };
