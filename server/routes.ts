@@ -1273,9 +1273,11 @@ export async function registerRoutes(
       const { items } = req.body;
       const enforcedState = getEnforcedStateId(req);
       if (enforcedState && items && items.length > 0) {
-        const firstGroup = await storage.getClientGroup(items[0].id);
-        if (firstGroup && firstGroup.stateId !== enforcedState) {
-          return res.status(403).json({ message: "Pristup zamietnuty" });
+        for (const item of items) {
+          const group = await storage.getClientGroup(item.id);
+          if (!group || group.stateId !== enforcedState) {
+            return res.status(403).json({ message: "Pristup zamietnuty" });
+          }
         }
       }
       await storage.reorderClientGroups(items);
@@ -1374,12 +1376,13 @@ export async function registerRoutes(
   app.put("/api/client-sub-groups/reorder", isAuthenticated, async (req: any, res) => {
     try {
       const { items } = req.body;
-      if (items && items.length > 0) {
-        const firstSg = await db.select().from(clientSubGroups).where(eq(clientSubGroups.id, items[0].id)).then(r => r[0]);
-        if (firstSg) {
-          const group = await storage.getClientGroup(firstSg.groupId);
-          const enforcedState = getEnforcedStateId(req);
-          if (enforcedState && group && group.stateId !== enforcedState) {
+      const enforcedState = getEnforcedStateId(req);
+      if (enforcedState && items && items.length > 0) {
+        for (const item of items) {
+          const sg = await db.select().from(clientSubGroups).where(eq(clientSubGroups.id, item.id)).then(r => r[0]);
+          if (!sg) return res.status(404).json({ message: "Podskupina nenajdena" });
+          const group = await storage.getClientGroup(sg.groupId);
+          if (!group || group.stateId !== enforcedState) {
             return res.status(403).json({ message: "Pristup zamietnuty" });
           }
         }
