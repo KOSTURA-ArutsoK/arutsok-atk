@@ -1222,6 +1222,34 @@ export async function registerRoutes(
   });
 
   // === CLIENT TYPE REORDER ===
+  app.put("/api/client-types/:typeId/fields/reorder", isAuthenticated, async (req: any, res) => {
+    try {
+      const { items } = req.body;
+      if (!Array.isArray(items)) return res.status(400).json({ message: "Items array required" });
+      for (const item of items) {
+        await storage.updateClientTypeField(item.id, { sortOrder: item.sortOrder });
+      }
+      await logAudit(req, { action: "UPDATE", module: "pravidla_typov", entityName: "reorder fields" });
+      res.json({ success: true });
+    } catch (err) {
+      res.status(500).json({ message: "Internal error" });
+    }
+  });
+
+  app.put("/api/client-types/:typeId/sections/reorder", isAuthenticated, async (req: any, res) => {
+    try {
+      const { items } = req.body;
+      if (!Array.isArray(items)) return res.status(400).json({ message: "Items array required" });
+      for (const item of items) {
+        await storage.updateClientTypeSection(item.id, { sortOrder: item.sortOrder });
+      }
+      await logAudit(req, { action: "UPDATE", module: "pravidla_typov", entityName: "reorder sections" });
+      res.json({ success: true });
+    } catch (err) {
+      res.status(500).json({ message: "Internal error" });
+    }
+  });
+
   app.put("/api/client-types/reorder", isAuthenticated, async (req: any, res) => {
     try {
       const { items } = req.body;
@@ -1436,6 +1464,41 @@ export async function registerRoutes(
       await storage.removeClientGroupMember(Number(req.params.id));
       await logAudit(req, { action: "DELETE", module: "clenovia_skupiny", entityId: Number(req.params.id) });
       res.json({ success: true });
+    } catch (err) {
+      res.status(500).json({ message: "Internal error" });
+    }
+  });
+
+  // === BULK GROUP ASSIGNMENT ===
+  app.post("/api/client-groups/:groupId/bulk-assign", isAuthenticated, async (req: any, res) => {
+    try {
+      const group = await storage.getClientGroup(Number(req.params.groupId));
+      if (!group) return res.status(404).json({ message: "Skupina nenajdena" });
+      const enforcedState = getEnforcedStateId(req);
+      if (enforcedState && group.stateId !== enforcedState) {
+        return res.status(403).json({ message: "Pristup zamietnuty" });
+      }
+      const { subjectIds } = req.body;
+      if (!Array.isArray(subjectIds) || subjectIds.length === 0) {
+        return res.status(400).json({ message: "Ziadni klienti na priradenie" });
+      }
+      const added = await storage.bulkAddClientGroupMembers(Number(req.params.groupId), subjectIds);
+      await logAudit(req, { action: "CREATE", module: "clenovia_skupiny", entityName: `Hromadne priradenie ${added} klientov` });
+      res.json({ success: true, added });
+    } catch (err) {
+      res.status(500).json({ message: "Internal error" });
+    }
+  });
+
+  // === SUBJECT FINANCE UPDATE ===
+  app.put("/api/subjects/:id/finance", isAuthenticated, async (req: any, res) => {
+    try {
+      const subject = await storage.getSubject(Number(req.params.id));
+      if (!subject) return res.status(404).json({ message: "Subjekt nenajdeny" });
+      const { kikId, iban, swift, commissionLevel } = req.body;
+      const updated = await storage.updateSubject(Number(req.params.id), { kikId, iban, swift, commissionLevel });
+      await logAudit(req, { action: "UPDATE", module: "subjekty", entityId: subject.id, entityName: `Financie: ${subject.firstName || ''} ${subject.lastName || ''}` });
+      res.json(updated);
     } catch (err) {
       res.status(500).json({ message: "Internal error" });
     }

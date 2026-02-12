@@ -1,11 +1,11 @@
-import { useState, useCallback, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useAppUser } from "@/hooks/use-app-user";
 import { useStates } from "@/hooks/use-hierarchy";
 import { useToast } from "@/hooks/use-toast";
 import type { ContractStatus } from "@shared/schema";
-import { Plus, Pencil, Trash2, GripVertical, Loader2 } from "lucide-react";
+import { Plus, Pencil, Trash2, Loader2 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -32,6 +32,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { ProcessingSaveButton } from "@/components/processing-save-button";
+import { SortableTableRow, SortableContext_Wrapper } from "@/components/sortable-list";
 
 function StatusFormDialog({
   open,
@@ -88,10 +89,6 @@ function StatusFormDialog({
     }
   }, [open, editingStatus, activeStateId]);
 
-  const handleOpenChange = useCallback((isOpen: boolean) => {
-    onOpenChange(isOpen);
-  }, [onOpenChange]);
-
   function handleSubmit() {
     if (!name) {
       toast({ title: "Chyba", description: "Nazov je povinny", variant: "destructive" });
@@ -114,7 +111,7 @@ function StatusFormDialog({
   const isPending = createMutation.isPending || updateMutation.isPending;
 
   return (
-    <Dialog open={open} onOpenChange={handleOpenChange}>
+    <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[800px] h-[600px] overflow-y-auto">
         <DialogHeader>
           <DialogTitle data-testid="text-status-dialog-title">
@@ -178,7 +175,7 @@ function StatusFormDialog({
           </div>
 
           <div className="flex items-center justify-end mt-6">
-            <Button type="button" variant="outline" onClick={() => handleOpenChange(false)} data-testid="button-status-cancel">
+            <Button type="button" variant="outline" onClick={() => onOpenChange(false)} data-testid="button-status-cancel">
               Zrusit
             </Button>
           </div>
@@ -257,10 +254,6 @@ export default function ContractStatuses() {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [deletingStatus, setDeletingStatus] = useState<ContractStatus | null>(null);
 
-  const dragItemRef = useRef<number | null>(null);
-  const dragOverItemRef = useRef<number | null>(null);
-  const [draggedId, setDraggedId] = useState<number | null>(null);
-
   const { data: statuses, isLoading } = useQuery<ContractStatus[]>({
     queryKey: ["/api/contract-statuses"],
   });
@@ -276,41 +269,9 @@ export default function ContractStatuses() {
 
   const sorted = statuses ? [...statuses].sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0)) : [];
 
-  function handleDragStart(id: number, index: number) {
-    dragItemRef.current = index;
-    setDraggedId(id);
-  }
-
-  function handleDragOver(e: React.DragEvent, index: number) {
-    e.preventDefault();
-    dragOverItemRef.current = index;
-  }
-
-  function handleDrop() {
-    if (dragItemRef.current === null || dragOverItemRef.current === null) return;
-    if (dragItemRef.current === dragOverItemRef.current) return;
-
-    const reordered = [...sorted];
-    const [removed] = reordered.splice(dragItemRef.current, 1);
-    reordered.splice(dragOverItemRef.current, 0, removed);
-
-    const items = reordered.map((item, idx) => ({
-      id: item.id,
-      sortOrder: idx,
-    }));
-
-    reorderMutation.mutate(items);
-
-    dragItemRef.current = null;
-    dragOverItemRef.current = null;
-    setDraggedId(null);
-  }
-
-  function handleDragEnd() {
-    dragItemRef.current = null;
-    dragOverItemRef.current = null;
-    setDraggedId(null);
-  }
+  const handleReorder = (items: { id: number | string; sortOrder: number }[]) => {
+    reorderMutation.mutate(items.map(i => ({ id: Number(i.id), sortOrder: i.sortOrder })));
+  };
 
   function openCreate() {
     setEditingStatus(null);
@@ -351,77 +312,68 @@ export default function ContractStatuses() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead className="w-12"></TableHead>
+                  <TableHead className="w-10"></TableHead>
                   <TableHead className="w-20">Poradie</TableHead>
                   <TableHead>Nazov</TableHead>
                   <TableHead className="w-32">Farba</TableHead>
                   <TableHead className="w-32 text-right">Akcie</TableHead>
                 </TableRow>
               </TableHeader>
-              <TableBody>
-                {sorted.map((status, index) => (
-                  <TableRow
-                    key={status.id}
-                    draggable
-                    onDragStart={() => handleDragStart(status.id, index)}
-                    onDragOver={(e) => handleDragOver(e, index)}
-                    onDrop={handleDrop}
-                    onDragEnd={handleDragEnd}
-                    className={`${draggedId === status.id ? "opacity-50" : ""}`}
-                    data-testid={`row-status-${status.id}`}
-                  >
-                    <TableCell>
-                      <GripVertical
-                        className="w-4 h-4 text-muted-foreground cursor-grab"
-                        data-testid={`drag-handle-${status.id}`}
-                      />
-                    </TableCell>
-                    <TableCell className="font-mono text-sm" data-testid={`text-sort-order-${status.id}`}>
-                      {status.sortOrder}
-                    </TableCell>
-                    <TableCell data-testid={`text-status-name-${status.id}`}>
-                      <Badge
-                        variant="outline"
-                        style={{ borderColor: status.color, color: status.color }}
-                      >
-                        {status.name}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <div
-                          className="w-6 h-6 rounded-md border border-border"
-                          style={{ backgroundColor: status.color }}
-                          data-testid={`color-swatch-${status.id}`}
-                        />
-                        <span className="text-xs font-mono text-muted-foreground" data-testid={`text-color-hex-${status.id}`}>
-                          {status.color}
-                        </span>
-                      </div>
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <div className="flex items-center justify-end gap-1 flex-wrap">
-                        <Button
-                          size="icon"
-                          variant="ghost"
-                          onClick={() => openEdit(status)}
-                          data-testid={`button-edit-status-${status.id}`}
+              <SortableContext_Wrapper items={sorted} onReorder={handleReorder}>
+                <TableBody>
+                  {sorted.map((status) => (
+                    <SortableTableRow
+                      key={status.id}
+                      id={status.id}
+                      data-testid={`row-status-${status.id}`}
+                    >
+                      <TableCell className="font-mono text-sm" data-testid={`text-sort-order-${status.id}`}>
+                        {status.sortOrder}
+                      </TableCell>
+                      <TableCell data-testid={`text-status-name-${status.id}`}>
+                        <Badge
+                          variant="outline"
+                          style={{ borderColor: status.color, color: status.color }}
                         >
-                          <Pencil className="w-4 h-4" />
-                        </Button>
-                        <Button
-                          size="icon"
-                          variant="ghost"
-                          onClick={() => openDelete(status)}
-                          data-testid={`button-delete-status-${status.id}`}
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </Button>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
+                          {status.name}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <div
+                            className="w-6 h-6 rounded-md border border-border"
+                            style={{ backgroundColor: status.color }}
+                            data-testid={`color-swatch-${status.id}`}
+                          />
+                          <span className="text-xs font-mono text-muted-foreground" data-testid={`text-color-hex-${status.id}`}>
+                            {status.color}
+                          </span>
+                        </div>
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <div className="flex items-center justify-end gap-1 flex-wrap">
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            onClick={() => openEdit(status)}
+                            data-testid={`button-edit-status-${status.id}`}
+                          >
+                            <Pencil className="w-4 h-4" />
+                          </Button>
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            onClick={() => openDelete(status)}
+                            data-testid={`button-delete-status-${status.id}`}
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </SortableTableRow>
+                  ))}
+                </TableBody>
+              </SortableContext_Wrapper>
             </Table>
           )}
         </CardContent>

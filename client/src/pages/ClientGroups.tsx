@@ -1,12 +1,15 @@
-import { useState, useRef, useCallback, useEffect } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import { useAppUser } from "@/hooks/use-app-user";
+import { useMyCompanies } from "@/hooks/use-companies";
 import type { ClientGroup, Subject } from "@shared/schema";
 import {
-  Plus, Pencil, Trash2, GripVertical, Loader2, Check, X,
-  Calculator, LogIn, UserPlus, UserMinus, Search, ChevronRight,
+  Plus, Pencil, Trash2, Loader2, Check, X,
+  Calculator, LogIn, UserPlus, UserMinus, Search, ChevronRight, Building2,
 } from "lucide-react";
+import { SortableTableRow, SortableContext_Wrapper } from "@/components/sortable-list";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -160,18 +163,6 @@ function GroupDetailDialog({
     },
   });
 
-  const sgDragItem = useRef<number | null>(null);
-  const sgDragOver = useRef<number | null>(null);
-
-  const handleSGDragStart = useCallback((index: number) => {
-    sgDragItem.current = index;
-  }, []);
-
-  const handleSGDragOver = useCallback((e: React.DragEvent, index: number) => {
-    e.preventDefault();
-    sgDragOver.current = index;
-  }, []);
-
   const reorderSubGroupsMutation = useMutation({
     mutationFn: (items: { id: number; sortOrder: number }[]) =>
       apiRequest("PUT", "/api/client-sub-groups/reorder", { items }),
@@ -179,17 +170,6 @@ function GroupDetailDialog({
       queryClient.invalidateQueries({ queryKey: ["/api/client-groups", group?.id, "sub-groups"] });
     },
   });
-
-  const handleSGDragEnd = useCallback(() => {
-    if (sgDragItem.current === null || sgDragOver.current === null || !subGroups) return;
-    const items = [...subGroups];
-    const draggedItem = items.splice(sgDragItem.current, 1)[0];
-    items.splice(sgDragOver.current, 0, draggedItem);
-    const reorderItems = items.map((item, index) => ({ id: item.id, sortOrder: index }));
-    reorderSubGroupsMutation.mutate(reorderItems);
-    sgDragItem.current = null;
-    sgDragOver.current = null;
-  }, [subGroups, reorderSubGroupsMutation]);
 
   const handleSave = () => {
     const processingTimeSec = Math.floor((Date.now() - startTimeRef.current) / 1000);
@@ -313,43 +293,42 @@ function GroupDetailDialog({
                     <TableHead className="w-16"></TableHead>
                   </TableRow>
                 </TableHeader>
-                <TableBody>
-                  {(subGroups || []).map((sg, index) => (
-                    <TableRow
-                      key={sg.id}
-                      draggable
-                      onDragStart={() => handleSGDragStart(index)}
-                      onDragOver={(e) => handleSGDragOver(e, index)}
-                      onDragEnd={handleSGDragEnd}
-                      data-testid={`row-subgroup-${sg.id}`}
-                    >
-                      <TableCell className="cursor-grab">
-                        <GripVertical className="w-4 h-4 text-muted-foreground" />
-                      </TableCell>
-                      <TableCell className="font-medium">{sg.name}</TableCell>
-                      <TableCell className="text-center">
-                        <Badge variant="secondary">{sg.memberCount}</Badge>
-                      </TableCell>
-                      <TableCell>
-                        <Button
-                          size="icon"
-                          variant="ghost"
-                          onClick={() => deleteSubGroupMutation.mutate(sg.id)}
-                          data-testid={`button-delete-subgroup-${sg.id}`}
-                        >
-                          <Trash2 className="w-4 h-4 text-destructive" />
-                        </Button>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                  {(!subGroups || subGroups.length === 0) && (
-                    <TableRow>
-                      <TableCell colSpan={4} className="text-center text-muted-foreground py-8">
-                        Ziadne podskupiny
-                      </TableCell>
-                    </TableRow>
-                  )}
-                </TableBody>
+                <SortableContext_Wrapper
+                  items={subGroups || []}
+                  onReorder={(items) => reorderSubGroupsMutation.mutate(items.map(i => ({ id: Number(i.id), sortOrder: i.sortOrder })))}
+                >
+                  <TableBody>
+                    {(subGroups || []).map((sg) => (
+                      <SortableTableRow
+                        key={sg.id}
+                        id={sg.id}
+                        data-testid={`row-subgroup-${sg.id}`}
+                      >
+                        <TableCell className="font-medium">{sg.name}</TableCell>
+                        <TableCell className="text-center">
+                          <Badge variant="secondary">{sg.memberCount}</Badge>
+                        </TableCell>
+                        <TableCell>
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            onClick={() => deleteSubGroupMutation.mutate(sg.id)}
+                            data-testid={`button-delete-subgroup-${sg.id}`}
+                          >
+                            <Trash2 className="w-4 h-4 text-destructive" />
+                          </Button>
+                        </TableCell>
+                      </SortableTableRow>
+                    ))}
+                    {(!subGroups || subGroups.length === 0) && (
+                      <TableRow>
+                        <TableCell colSpan={4} className="text-center text-muted-foreground py-8">
+                          Ziadne podskupiny
+                        </TableCell>
+                      </TableRow>
+                    )}
+                  </TableBody>
+                </SortableContext_Wrapper>
               </Table>
             )}
           </TabsContent>
@@ -446,9 +425,8 @@ export default function ClientGroups() {
   const [editingGroup, setEditingGroup] = useState<ClientGroupWithCount | null>(null);
   const [deletingGroup, setDeletingGroup] = useState<ClientGroupWithCount | null>(null);
 
-  const dragItemRef = useRef<number | null>(null);
-  const dragOverItemRef = useRef<number | null>(null);
-  const [draggedId, setDraggedId] = useState<number | null>(null);
+  const { data: appUser } = useAppUser();
+  const { data: companies } = useMyCompanies();
 
   const { data: groups, isLoading } = useQuery<ClientGroupWithCount[]>({
     queryKey: ["/api/client-groups"],
@@ -472,27 +450,10 @@ export default function ClientGroups() {
     onError: () => toast({ title: "Chyba", description: "Nepodarilo sa vymazat skupinu", variant: "destructive" }),
   });
 
-  const handleDragStart = useCallback((index: number, id: number) => {
-    dragItemRef.current = index;
-    setDraggedId(id);
-  }, []);
-
-  const handleDragOver = useCallback((e: React.DragEvent, index: number) => {
-    e.preventDefault();
-    dragOverItemRef.current = index;
-  }, []);
-
-  const handleDragEnd = useCallback(() => {
-    if (dragItemRef.current === null || dragOverItemRef.current === null || !groups) return;
-    const items = [...groups];
-    const draggedItem = items.splice(dragItemRef.current, 1)[0];
-    items.splice(dragOverItemRef.current, 0, draggedItem);
-    const reorderItems = items.map((item, index) => ({ id: item.id, sortOrder: index }));
-    reorderMutation.mutate(reorderItems);
-    dragItemRef.current = null;
-    dragOverItemRef.current = null;
-    setDraggedId(null);
-  }, [groups, reorderMutation]);
+  // Find the active company name
+  const activeCompanyName = appUser?.activeCompanyId
+    ? companies?.find(c => c.id === appUser.activeCompanyId)?.name
+    : undefined;
 
   return (
     <div className="p-6 space-y-6">
@@ -506,6 +467,14 @@ export default function ClientGroups() {
           Pridat skupinu
         </Button>
       </div>
+
+      {activeCompanyName && (
+        <div className="flex items-center gap-2 px-4 py-2 bg-muted/50 rounded-md border border-border" data-testid="header-active-company">
+          <Building2 className="w-4 h-4 text-muted-foreground" />
+          <span className="text-xs text-muted-foreground">Filtrovane podla firmy:</span>
+          <span className="text-sm font-medium" data-testid="text-active-company-name">{activeCompanyName}</span>
+        </div>
+      )}
 
       <Card>
         <CardContent className="p-0">
@@ -523,73 +492,71 @@ export default function ClientGroups() {
                   <TableHead className="w-24"></TableHead>
                 </TableRow>
               </TableHeader>
-              <TableBody>
-                {(groups || []).map((group, index) => (
-                  <TableRow
-                    key={group.id}
-                    draggable
-                    onDragStart={() => handleDragStart(index, group.id)}
-                    onDragOver={(e) => handleDragOver(e, index)}
-                    onDragEnd={handleDragEnd}
-                    className={draggedId === group.id ? "opacity-50" : ""}
-                    data-testid={`row-group-${group.id}`}
-                  >
-                    <TableCell className="cursor-grab">
-                      <GripVertical className="w-4 h-4 text-muted-foreground" />
-                    </TableCell>
-                    <TableCell
-                      className="font-medium cursor-pointer hover-elevate"
-                      onClick={() => { setEditingGroup(group); setDialogOpen(true); }}
+              <SortableContext_Wrapper
+                items={groups || []}
+                onReorder={(items) => reorderMutation.mutate(items.map(i => ({ id: Number(i.id), sortOrder: i.sortOrder })))}
+              >
+                <TableBody>
+                  {(groups || []).map((group) => (
+                    <SortableTableRow
+                      key={group.id}
+                      id={group.id}
+                      data-testid={`row-group-${group.id}`}
                     >
-                      {group.name}
-                    </TableCell>
-                    <TableCell className="text-center">
-                      {group.allowLogin ? (
-                        <Check className="w-4 h-4 text-emerald-500 mx-auto" data-testid={`icon-login-${group.id}`} />
-                      ) : (
-                        <X className="w-4 h-4 text-destructive mx-auto" data-testid={`icon-login-${group.id}`} />
-                      )}
-                    </TableCell>
-                    <TableCell className="text-center">
-                      {group.allowCalculators ? (
-                        <Check className="w-4 h-4 text-emerald-500 mx-auto" data-testid={`icon-calc-${group.id}`} />
-                      ) : (
-                        <X className="w-4 h-4 text-destructive mx-auto" data-testid={`icon-calc-${group.id}`} />
-                      )}
-                    </TableCell>
-                    <TableCell className="text-center">
-                      <Badge variant="secondary" data-testid={`badge-count-${group.id}`}>{group.memberCount}</Badge>
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex items-center gap-1">
-                        <Button
-                          size="icon"
-                          variant="ghost"
-                          onClick={() => { setEditingGroup(group); setDialogOpen(true); }}
-                          data-testid={`button-edit-group-${group.id}`}
-                        >
-                          <Pencil className="w-4 h-4" />
-                        </Button>
-                        <Button
-                          size="icon"
-                          variant="ghost"
-                          onClick={() => setDeletingGroup(group)}
-                          data-testid={`button-delete-group-${group.id}`}
-                        >
-                          <Trash2 className="w-4 h-4 text-destructive" />
-                        </Button>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))}
-                {(!groups || groups.length === 0) && (
-                  <TableRow>
-                    <TableCell colSpan={6} className="text-center text-muted-foreground py-12">
-                      Ziadne skupiny klientov
-                    </TableCell>
-                  </TableRow>
-                )}
-              </TableBody>
+                      <TableCell
+                        className="font-medium cursor-pointer hover-elevate"
+                        onClick={() => { setEditingGroup(group); setDialogOpen(true); }}
+                      >
+                        {group.name}
+                      </TableCell>
+                      <TableCell className="text-center">
+                        {group.allowLogin ? (
+                          <Check className="w-4 h-4 text-emerald-500 mx-auto" data-testid={`icon-login-${group.id}`} />
+                        ) : (
+                          <X className="w-4 h-4 text-destructive mx-auto" data-testid={`icon-login-${group.id}`} />
+                        )}
+                      </TableCell>
+                      <TableCell className="text-center">
+                        {group.allowCalculators ? (
+                          <Check className="w-4 h-4 text-emerald-500 mx-auto" data-testid={`icon-calc-${group.id}`} />
+                        ) : (
+                          <X className="w-4 h-4 text-destructive mx-auto" data-testid={`icon-calc-${group.id}`} />
+                        )}
+                      </TableCell>
+                      <TableCell className="text-center">
+                        <Badge variant="secondary" data-testid={`badge-count-${group.id}`}>{group.memberCount}</Badge>
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-1">
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            onClick={() => { setEditingGroup(group); setDialogOpen(true); }}
+                            data-testid={`button-edit-group-${group.id}`}
+                          >
+                            <Pencil className="w-4 h-4" />
+                          </Button>
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            onClick={() => setDeletingGroup(group)}
+                            data-testid={`button-delete-group-${group.id}`}
+                          >
+                            <Trash2 className="w-4 h-4 text-destructive" />
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </SortableTableRow>
+                  ))}
+                  {(!groups || groups.length === 0) && (
+                    <TableRow>
+                      <TableCell colSpan={6} className="text-center text-muted-foreground py-12">
+                        Ziadne skupiny klientov
+                      </TableCell>
+                    </TableRow>
+                  )}
+                </TableBody>
+              </SortableContext_Wrapper>
             </Table>
           )}
         </CardContent>

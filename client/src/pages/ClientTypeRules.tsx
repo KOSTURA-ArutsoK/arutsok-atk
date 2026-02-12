@@ -4,6 +4,9 @@ import { apiRequest } from "@/lib/queryClient";
 import { useAppUser } from "@/hooks/use-app-user";
 import { useToast } from "@/hooks/use-toast";
 import type { ClientType, ClientTypeSection, ClientTypeField } from "@shared/schema";
+import { DndContext, closestCenter, PointerSensor, KeyboardSensor, useSensor, useSensors, type DragEndEvent } from "@dnd-kit/core";
+import { SortableContext, useSortable, verticalListSortingStrategy, arrayMove } from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -243,6 +246,28 @@ function AddFieldDialog({
   );
 }
 
+function SortableFieldRow({ id, children }: { id: number; children: React.ReactNode }) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id });
+  const style = { transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.5 : 1 };
+  return (
+    <TableRow ref={setNodeRef} style={style}>
+      <TableCell className="cursor-grab"><span {...attributes} {...listeners}><GripVertical className="w-3 h-3 text-muted-foreground" /></span></TableCell>
+      {children}
+    </TableRow>
+  );
+}
+
+function SortableSectionItem({ id, children }: { id: number; children: React.ReactNode }) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id });
+  const style = { transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.5 : 1 };
+  return (
+    <div ref={setNodeRef} style={style} className="flex items-center gap-2">
+      <span {...attributes} {...listeners} className="cursor-grab"><GripVertical className="w-3 h-3 text-muted-foreground flex-shrink-0" /></span>
+      {children}
+    </div>
+  );
+}
+
 function TypeDetailView({ clientType, onBack }: { clientType: ClientType; onBack: () => void }) {
   const queryClient = useQueryClient();
   const { toast } = useToast();
@@ -303,6 +328,50 @@ function TypeDetailView({ clientType, onBack }: { clientType: ClientType; onBack
     onError: () => { toast({ title: "Chyba", variant: "destructive" }); },
   });
 
+  const reorderFieldsMutation = useMutation({
+    mutationFn: async (items: { id: number; sortOrder: number }[]) => {
+      await apiRequest("PUT", `/api/client-types/${clientType.id}/fields/reorder`, { items });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/client-types", clientType.id, "fields"] });
+    },
+    onError: () => { toast({ title: "Chyba pri radeni", variant: "destructive" }); },
+  });
+
+  const reorderSectionsMutation = useMutation({
+    mutationFn: async (items: { id: number; sortOrder: number }[]) => {
+      await apiRequest("PUT", `/api/client-types/${clientType.id}/sections/reorder`, { items });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/client-types", clientType.id, "sections"] });
+    },
+    onError: () => { toast({ title: "Chyba pri radeni", variant: "destructive" }); },
+  });
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
+    useSensor(KeyboardSensor)
+  );
+
+  const handleFieldDragEnd = (fieldsList: ClientTypeField[]) => (event: DragEndEvent) => {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+    const oldIndex = fieldsList.findIndex((f) => f.id === active.id);
+    const newIndex = fieldsList.findIndex((f) => f.id === over.id);
+    const reordered = arrayMove(fieldsList, oldIndex, newIndex);
+    reorderFieldsMutation.mutate(reordered.map((f, i) => ({ id: f.id, sortOrder: i })));
+  };
+
+  const handleSectionDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+    const sortedSecs = [...sections].sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0));
+    const oldIndex = sortedSecs.findIndex((s) => s.id === active.id);
+    const newIndex = sortedSecs.findIndex((s) => s.id === over.id);
+    const reordered = arrayMove(sortedSecs, oldIndex, newIndex);
+    reorderSectionsMutation.mutate(reordered.map((s, i) => ({ id: s.id, sortOrder: i })));
+  };
+
   const groupedFields: Record<string, ClientTypeField[]> = {};
   const unsectionedFields: ClientTypeField[] = [];
   fields.forEach(f => {
@@ -342,15 +411,18 @@ function TypeDetailView({ clientType, onBack }: { clientType: ClientType; onBack
             <Layers className="w-4 h-4 text-muted-foreground" />
           </CardHeader>
           <CardContent className="space-y-3">
-            {sections.map(s => (
-              <div key={s.id} className="flex items-center gap-2" data-testid={`section-row-${s.id}`}>
-                <GripVertical className="w-3 h-3 text-muted-foreground flex-shrink-0" />
-                <span className="text-sm flex-1 truncate">{s.name}</span>
-                <Button size="icon" variant="ghost" onClick={() => deleteSectionMutation.mutate(s.id)} data-testid={`button-delete-section-${s.id}`}>
-                  <Trash2 className="w-3 h-3 text-destructive" />
-                </Button>
-              </div>
-            ))}
+            <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleSectionDragEnd}>
+              <SortableContext items={[...sections].sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0)).map(s => s.id)} strategy={verticalListSortingStrategy}>
+                {[...sections].sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0)).map(s => (
+                  <SortableSectionItem key={s.id} id={s.id}>
+                    <span className="text-sm flex-1 truncate" data-testid={`section-row-${s.id}`}>{s.name}</span>
+                    <Button size="icon" variant="ghost" onClick={() => deleteSectionMutation.mutate(s.id)} data-testid={`button-delete-section-${s.id}`}>
+                      <Trash2 className="w-3 h-3 text-destructive" />
+                    </Button>
+                  </SortableSectionItem>
+                ))}
+              </SortableContext>
+            </DndContext>
             {sections.length === 0 && (
               <p className="text-xs text-muted-foreground text-center py-2">Ziadne sekcie</p>
             )}
@@ -388,63 +460,69 @@ function TypeDetailView({ clientType, onBack }: { clientType: ClientType; onBack
               <p className="text-sm text-muted-foreground text-center py-8">Ziadne polia definovane</p>
             ) : (
               <div className="space-y-4">
-                {unsectionedFields.length > 0 && (
-                  <div>
-                    <p className="text-xs font-semibold text-muted-foreground mb-2">Bez sekcie</p>
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead className="w-8"></TableHead>
-                          <TableHead>Pole</TableHead>
-                          <TableHead>Typ</TableHead>
-                          <TableHead>Povinne</TableHead>
-                          <TableHead>Podmienka</TableHead>
-                          <TableHead className="w-10"></TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {unsectionedFields.map(f => {
-                          const Icon = fieldTypeIcon(f.fieldType);
-                          return (
-                            <TableRow key={f.id} data-testid={`field-row-${f.id}`}>
-                              <TableCell><GripVertical className="w-3 h-3 text-muted-foreground" /></TableCell>
-                              <TableCell>
-                                <div>
-                                  <span className="text-sm font-medium">{f.label}</span>
-                                  <span className="text-xs text-muted-foreground ml-1 font-mono">({f.fieldKey})</span>
-                                </div>
-                              </TableCell>
-                              <TableCell>
-                                <div className="flex items-center gap-1">
-                                  <Icon className="w-3 h-3 text-muted-foreground" />
-                                  <span className="text-xs">{FIELD_TYPES.find(t => t.value === f.fieldType)?.label || f.fieldType}</span>
-                                </div>
-                              </TableCell>
-                              <TableCell>
-                                {f.isRequired ? <Badge variant="default" className="bg-emerald-600 text-white">Ano</Badge> : <Badge variant="outline">Nie</Badge>}
-                              </TableCell>
-                              <TableCell>
-                                {f.visibilityRule ? (
-                                  <span className="text-xs text-muted-foreground">
-                                    {(f.visibilityRule as any).dependsOn} = {(f.visibilityRule as any).value}
-                                  </span>
-                                ) : <span className="text-xs text-muted-foreground">-</span>}
-                              </TableCell>
-                              <TableCell>
-                                <Button size="icon" variant="ghost" onClick={() => deleteFieldMutation.mutate(f.id)} data-testid={`button-delete-field-${f.id}`}>
-                                  <Trash2 className="w-3 h-3 text-destructive" />
-                                </Button>
-                              </TableCell>
-                            </TableRow>
-                          );
-                        })}
-                      </TableBody>
-                    </Table>
-                  </div>
-                )}
+                {unsectionedFields.length > 0 && (() => {
+                  const sortedUnsectioned = [...unsectionedFields].sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0));
+                  return (
+                    <div>
+                      <p className="text-xs font-semibold text-muted-foreground mb-2">Bez sekcie</p>
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead className="w-8"></TableHead>
+                            <TableHead>Pole</TableHead>
+                            <TableHead>Typ</TableHead>
+                            <TableHead>Povinne</TableHead>
+                            <TableHead>Podmienka</TableHead>
+                            <TableHead className="w-10"></TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleFieldDragEnd(sortedUnsectioned)}>
+                          <SortableContext items={sortedUnsectioned.map(f => f.id)} strategy={verticalListSortingStrategy}>
+                            <TableBody>
+                              {sortedUnsectioned.map(f => {
+                                const Icon = fieldTypeIcon(f.fieldType);
+                                return (
+                                  <SortableFieldRow key={f.id} id={f.id}>
+                                    <TableCell>
+                                      <div>
+                                        <span className="text-sm font-medium">{f.label}</span>
+                                        <span className="text-xs text-muted-foreground ml-1 font-mono">({f.fieldKey})</span>
+                                      </div>
+                                    </TableCell>
+                                    <TableCell>
+                                      <div className="flex items-center gap-1">
+                                        <Icon className="w-3 h-3 text-muted-foreground" />
+                                        <span className="text-xs">{FIELD_TYPES.find(t => t.value === f.fieldType)?.label || f.fieldType}</span>
+                                      </div>
+                                    </TableCell>
+                                    <TableCell>
+                                      {f.isRequired ? <Badge variant="default" className="bg-emerald-600 text-white">Ano</Badge> : <Badge variant="outline">Nie</Badge>}
+                                    </TableCell>
+                                    <TableCell>
+                                      {f.visibilityRule ? (
+                                        <span className="text-xs text-muted-foreground">
+                                          {(f.visibilityRule as any).dependsOn} = {(f.visibilityRule as any).value}
+                                        </span>
+                                      ) : <span className="text-xs text-muted-foreground">-</span>}
+                                    </TableCell>
+                                    <TableCell>
+                                      <Button size="icon" variant="ghost" onClick={() => deleteFieldMutation.mutate(f.id)} data-testid={`button-delete-field-${f.id}`}>
+                                        <Trash2 className="w-3 h-3 text-destructive" />
+                                      </Button>
+                                    </TableCell>
+                                  </SortableFieldRow>
+                                );
+                              })}
+                            </TableBody>
+                          </SortableContext>
+                        </DndContext>
+                      </Table>
+                    </div>
+                  );
+                })()}
 
                 {sections.map(s => {
-                  const sectionFields = groupedFields[s.id.toString()] || [];
+                  const sectionFields = [...(groupedFields[s.id.toString()] || [])].sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0));
                   return (
                     <div key={s.id}>
                       <p className="text-xs font-semibold text-muted-foreground mb-2">{s.name}</p>
@@ -462,43 +540,46 @@ function TypeDetailView({ clientType, onBack }: { clientType: ClientType; onBack
                               <TableHead className="w-10"></TableHead>
                             </TableRow>
                           </TableHeader>
-                          <TableBody>
-                            {sectionFields.map(f => {
-                              const Icon = fieldTypeIcon(f.fieldType);
-                              return (
-                                <TableRow key={f.id} data-testid={`field-row-${f.id}`}>
-                                  <TableCell><GripVertical className="w-3 h-3 text-muted-foreground" /></TableCell>
-                                  <TableCell>
-                                    <div>
-                                      <span className="text-sm font-medium">{f.label}</span>
-                                      <span className="text-xs text-muted-foreground ml-1 font-mono">({f.fieldKey})</span>
-                                    </div>
-                                  </TableCell>
-                                  <TableCell>
-                                    <div className="flex items-center gap-1">
-                                      <Icon className="w-3 h-3 text-muted-foreground" />
-                                      <span className="text-xs">{FIELD_TYPES.find(t => t.value === f.fieldType)?.label || f.fieldType}</span>
-                                    </div>
-                                  </TableCell>
-                                  <TableCell>
-                                    {f.isRequired ? <Badge variant="default" className="bg-emerald-600 text-white">Ano</Badge> : <Badge variant="outline">Nie</Badge>}
-                                  </TableCell>
-                                  <TableCell>
-                                    {f.visibilityRule ? (
-                                      <span className="text-xs text-muted-foreground">
-                                        {(f.visibilityRule as any).dependsOn} = {(f.visibilityRule as any).value}
-                                      </span>
-                                    ) : <span className="text-xs text-muted-foreground">-</span>}
-                                  </TableCell>
-                                  <TableCell>
-                                    <Button size="icon" variant="ghost" onClick={() => deleteFieldMutation.mutate(f.id)} data-testid={`button-delete-field-${f.id}`}>
-                                      <Trash2 className="w-3 h-3 text-destructive" />
-                                    </Button>
-                                  </TableCell>
-                                </TableRow>
-                              );
-                            })}
-                          </TableBody>
+                          <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleFieldDragEnd(sectionFields)}>
+                            <SortableContext items={sectionFields.map(f => f.id)} strategy={verticalListSortingStrategy}>
+                              <TableBody>
+                                {sectionFields.map(f => {
+                                  const Icon = fieldTypeIcon(f.fieldType);
+                                  return (
+                                    <SortableFieldRow key={f.id} id={f.id}>
+                                      <TableCell>
+                                        <div>
+                                          <span className="text-sm font-medium">{f.label}</span>
+                                          <span className="text-xs text-muted-foreground ml-1 font-mono">({f.fieldKey})</span>
+                                        </div>
+                                      </TableCell>
+                                      <TableCell>
+                                        <div className="flex items-center gap-1">
+                                          <Icon className="w-3 h-3 text-muted-foreground" />
+                                          <span className="text-xs">{FIELD_TYPES.find(t => t.value === f.fieldType)?.label || f.fieldType}</span>
+                                        </div>
+                                      </TableCell>
+                                      <TableCell>
+                                        {f.isRequired ? <Badge variant="default" className="bg-emerald-600 text-white">Ano</Badge> : <Badge variant="outline">Nie</Badge>}
+                                      </TableCell>
+                                      <TableCell>
+                                        {f.visibilityRule ? (
+                                          <span className="text-xs text-muted-foreground">
+                                            {(f.visibilityRule as any).dependsOn} = {(f.visibilityRule as any).value}
+                                          </span>
+                                        ) : <span className="text-xs text-muted-foreground">-</span>}
+                                      </TableCell>
+                                      <TableCell>
+                                        <Button size="icon" variant="ghost" onClick={() => deleteFieldMutation.mutate(f.id)} data-testid={`button-delete-field-${f.id}`}>
+                                          <Trash2 className="w-3 h-3 text-destructive" />
+                                        </Button>
+                                      </TableCell>
+                                    </SortableFieldRow>
+                                  );
+                                })}
+                              </TableBody>
+                            </SortableContext>
+                          </DndContext>
                         </Table>
                       )}
                     </div>

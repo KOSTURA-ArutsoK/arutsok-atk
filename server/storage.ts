@@ -229,6 +229,7 @@ export interface IStorage {
   // Client Group Members
   getClientGroupMembers(groupId: number): Promise<(ClientGroupMember & { subject?: Subject })[]>;
   addClientGroupMember(data: InsertClientGroupMember): Promise<ClientGroupMember>;
+  bulkAddClientGroupMembers(groupId: number, subjectIds: number[]): Promise<number>;
   removeClientGroupMember(id: number): Promise<void>;
   getClientGroupMemberCount(groupId: number): Promise<number>;
   getClientSubGroupMemberCount(subGroupId: number): Promise<number>;
@@ -1349,6 +1350,20 @@ export class DatabaseStorage implements IStorage {
   async addClientGroupMember(data: InsertClientGroupMember): Promise<ClientGroupMember> {
     const [created] = await db.insert(clientGroupMembers).values(data as any).returning();
     return created;
+  }
+
+  async bulkAddClientGroupMembers(groupId: number, subjectIds: number[]): Promise<number> {
+    let added = 0;
+    for (const subjectId of subjectIds) {
+      const existing = await db.select().from(clientGroupMembers)
+        .where(and(eq(clientGroupMembers.groupId, groupId), eq(clientGroupMembers.subjectId, subjectId)))
+        .then(r => r[0]);
+      if (!existing) {
+        await db.insert(clientGroupMembers).values({ groupId, subjectId } as any);
+        added++;
+      }
+    }
+    return added;
   }
 
   async removeClientGroupMember(id: number): Promise<void> {

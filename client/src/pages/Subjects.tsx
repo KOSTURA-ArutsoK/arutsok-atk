@@ -4,8 +4,9 @@ import { useContinents, useStates } from "@/hooks/use-hierarchy";
 import { useMyCompanies } from "@/hooks/use-companies";
 import { useAppUser } from "@/hooks/use-app-user";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { apiRequest } from "@/lib/queryClient";
-import { Plus, Search, User, Building2, AlertTriangle, Eye, Calendar, Briefcase, ArrowRight, ArrowLeft, ExternalLink, History, Clock } from "lucide-react";
+import { apiRequest, queryClient } from "@/lib/queryClient";
+import { useToast } from "@/hooks/use-toast";
+import { Plus, Search, User, Building2, AlertTriangle, Eye, Calendar, Briefcase, ArrowRight, ArrowLeft, ExternalLink, History, Clock, Wallet } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -116,6 +117,63 @@ function SubjectHistoryTab({ subjectId }: { subjectId: number }) {
   );
 }
 
+function SubjectFinanceTab({ subject }: { subject: Subject }) {
+  const { toast } = useToast();
+  const [kikId, setKikId] = useState(subject.kikId || "");
+  const [iban, setIban] = useState(subject.iban || "");
+  const [swift, setSwift] = useState(subject.swift || "");
+  const [commissionLevel, setCommissionLevel] = useState(subject.commissionLevel?.toString() || "");
+
+  const updateMutation = useMutation({
+    mutationFn: async () => {
+      await apiRequest("PUT", `/api/subjects/${subject.id}/finance`, {
+        kikId: kikId || null,
+        iban: iban || null,
+        swift: swift || null,
+        commissionLevel: commissionLevel ? Number(commissionLevel) : null,
+      });
+    },
+    onSuccess: () => {
+      toast({ title: "Financne udaje ulozene" });
+      queryClient.invalidateQueries({ queryKey: ["/api/subjects"] });
+    },
+    onError: () => {
+      toast({ title: "Chyba pri ukladani", variant: "destructive" });
+    },
+  });
+
+  return (
+    <div className="space-y-4">
+      <div className="grid grid-cols-2 gap-4">
+        <div>
+          <Label className="text-xs">KIK ID</Label>
+          <Input value={kikId} onChange={(e) => setKikId(e.target.value)} placeholder="napr. KIK-001234" data-testid="input-kik-id" className="mt-1" />
+        </div>
+        <div>
+          <Label className="text-xs">Uroven provizii</Label>
+          <Input type="number" value={commissionLevel} onChange={(e) => setCommissionLevel(e.target.value)} placeholder="1-10" data-testid="input-commission-level" className="mt-1" />
+        </div>
+      </div>
+      <div className="grid grid-cols-2 gap-4">
+        <div>
+          <Label className="text-xs">IBAN</Label>
+          <Input value={iban} onChange={(e) => setIban(e.target.value)} placeholder="SK00 0000 0000 0000 0000 0000" data-testid="input-iban" className="mt-1" />
+        </div>
+        <div>
+          <Label className="text-xs">SWIFT/BIC</Label>
+          <Input value={swift} onChange={(e) => setSwift(e.target.value)} placeholder="napr. TATRSKBX" data-testid="input-swift" className="mt-1" />
+        </div>
+      </div>
+      <Separator />
+      <div className="flex justify-end">
+        <Button onClick={() => updateMutation.mutate()} disabled={updateMutation.isPending} data-testid="button-save-finance">
+          {updateMutation.isPending ? "Ukladam..." : "Ulozit financne udaje"}
+        </Button>
+      </div>
+    </div>
+  );
+}
+
 function SubjectDetailDialog({ subject, onClose }: { subject: Subject; onClose: () => void }) {
   const { data: careerHistory, isLoading } = useSubjectCareerHistory(subject.id);
   const { data: companies } = useMyCompanies();
@@ -142,9 +200,15 @@ function SubjectDetailDialog({ subject, onClose }: { subject: Subject; onClose: 
               </DialogTitle>
               <div className="flex items-center gap-2 mt-1 flex-wrap">
                 <span className="text-xs font-mono text-muted-foreground">{subject.uid}</span>
-                <Badge variant={subject.isActive ? "default" : "destructive"} className={subject.isActive ? "bg-emerald-600 text-white" : ""}>
-                  {subject.isActive ? "Aktivny" : "Archivovany"}
-                </Badge>
+                {(() => {
+                  const status = getSubjectStatus(subject);
+                  return (
+                    <div className="flex items-center gap-1.5" data-testid={`status-dialog-subject-${subject.id}`}>
+                      <span className={`w-2.5 h-2.5 rounded-full ${status.color} flex-shrink-0`} />
+                      <span className="text-xs font-medium">{status.label}</span>
+                    </div>
+                  );
+                })()}
               </div>
             </div>
           </div>
@@ -159,6 +223,10 @@ function SubjectDetailDialog({ subject, onClose }: { subject: Subject; onClose: 
             <TabsTrigger value="historia" data-testid="tab-subject-historia">
               <History className="w-3.5 h-3.5 mr-1" />
               Historia
+            </TabsTrigger>
+            <TabsTrigger value="financie" data-testid="tab-subject-financie">
+              <Wallet className="w-3.5 h-3.5 mr-1" />
+              Financie
             </TabsTrigger>
           </TabsList>
 
@@ -228,6 +296,10 @@ function SubjectDetailDialog({ subject, onClose }: { subject: Subject; onClose: 
           <TabsContent value="historia" className="mt-3">
             <SubjectHistoryTab subjectId={subject.id} />
           </TabsContent>
+
+          <TabsContent value="financie" className="mt-3">
+            <SubjectFinanceTab subject={subject} />
+          </TabsContent>
         </Tabs>
       </DialogContent>
     </Dialog>
@@ -246,11 +318,9 @@ function InitialRegistrationModal({
   onViewSubject: (id: number) => void;
 }) {
   const { data: appUser } = useAppUser();
-  const { data: allStates } = useStates();
   const { data: clientTypes } = useQuery<ClientType[]>({ queryKey: ["/api/client-types"] });
 
   const [selectedType, setSelectedType] = useState("");
-  const [selectedState, setSelectedState] = useState(appUser?.activeStateId?.toString() || "");
   const [baseValue, setBaseValue] = useState("");
   const [checking, setChecking] = useState(false);
   const [duplicateInfo, setDuplicateInfo] = useState<{ name: string; uid: string; id: number } | null>(null);
@@ -273,7 +343,7 @@ function InitialRegistrationModal({
       } else {
         onProceed({
           clientTypeCode: selectedType,
-          stateId: Number(selectedState),
+          stateId: appUser?.activeStateId || 0,
           baseValue: baseValue.trim(),
         });
         setSelectedType("");
@@ -287,7 +357,7 @@ function InitialRegistrationModal({
     }
   }
 
-  const canProceed = selectedType && selectedState && baseValue.trim();
+  const canProceed = selectedType && appUser?.activeStateId && baseValue.trim();
 
   return (
     <Dialog open={open} onOpenChange={(o) => {
@@ -312,22 +382,6 @@ function InitialRegistrationModal({
               <SelectContent>
                 {clientTypes?.filter(ct => ct.isActive).map(ct => (
                   <SelectItem key={ct.code} value={ct.code}>{ct.name} ({ct.code})</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div>
-            <Label className="text-xs">Stat</Label>
-            <Select value={selectedState} onValueChange={setSelectedState}>
-              <SelectTrigger data-testid="select-reg-state">
-                <SelectValue placeholder="Vyberte stat" />
-              </SelectTrigger>
-              <SelectContent>
-                {allStates?.map(s => (
-                  <SelectItem key={s.id} value={s.id.toString()}>
-                    {s.name} (+{s.code})
-                  </SelectItem>
                 ))}
               </SelectContent>
             </Select>
@@ -614,13 +668,80 @@ function FullPageEditor({
   );
 }
 
+function getSubjectStatus(subject: Subject): { color: string; label: string } {
+  if (subject.isDeleted) return { color: "bg-gray-400", label: "Vymazany" };
+  if (!subject.isActive) return { color: "bg-red-500", label: "Neaktivny" };
+  if (subject.kikId) return { color: "bg-blue-500", label: "KIK" };
+  if (subject.iban) return { color: "bg-emerald-500", label: "Overeny" };
+  return { color: "bg-amber-500", label: "Aktivny" };
+}
+
+function BulkAssignDialog({ selectedIds, onClose, groups }: { selectedIds: Set<number>; onClose: () => void; groups: any[] }) {
+  const [selectedGroup, setSelectedGroup] = useState("");
+  const { toast } = useToast();
+  
+  const assignMutation = useMutation({
+    mutationFn: async () => {
+      await apiRequest("POST", `/api/client-groups/${selectedGroup}/bulk-assign`, {
+        subjectIds: Array.from(selectedIds),
+      });
+    },
+    onSuccess: () => {
+      toast({ title: "Klienti priradeni do skupiny" });
+      queryClient.invalidateQueries({ queryKey: ["/api/client-groups"] });
+      onClose();
+    },
+    onError: () => {
+      toast({ title: "Chyba pri priradovani", variant: "destructive" });
+    },
+  });
+
+  return (
+    <Dialog open onOpenChange={() => onClose()}>
+      <DialogContent className="sm:max-w-[500px]">
+        <DialogHeader>
+          <DialogTitle>Priradit do skupiny</DialogTitle>
+          <DialogDescription>
+            Vyberte skupinu pre {selectedIds.size} vybranych klientov.
+          </DialogDescription>
+        </DialogHeader>
+        <div className="space-y-4 mt-2">
+          <Select value={selectedGroup} onValueChange={setSelectedGroup}>
+            <SelectTrigger data-testid="select-bulk-group">
+              <SelectValue placeholder="Vyberte skupinu" />
+            </SelectTrigger>
+            <SelectContent>
+              {groups.map((g: any) => (
+                <SelectItem key={g.id} value={g.id.toString()}>{g.name}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <div className="flex justify-end gap-2">
+            <Button variant="outline" onClick={onClose} data-testid="button-cancel-bulk">Zrusit</Button>
+            <Button 
+              onClick={() => assignMutation.mutate()} 
+              disabled={!selectedGroup || assignMutation.isPending}
+              data-testid="button-confirm-bulk"
+            >
+              {assignMutation.isPending ? "Priradujem..." : "Priradit"}
+            </Button>
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 export default function Subjects() {
   const [search, setSearch] = useState("");
   const [isInitModalOpen, setIsInitModalOpen] = useState(false);
   const [editData, setEditData] = useState<{ clientTypeCode: string; stateId: number; baseValue: string } | null>(null);
   const [viewTarget, setViewTarget] = useState<Subject | null>(null);
+  const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
+  const [bulkAssignOpen, setBulkAssignOpen] = useState(false);
   const { data: subjects, isLoading } = useSubjects({ search: search || undefined });
   const { data: companies } = useMyCompanies();
+  const { data: clientGroups } = useQuery<any[]>({ queryKey: ["/api/client-groups"] });
 
   if (editData) {
     return (
@@ -657,11 +778,37 @@ export default function Subjects() {
         </div>
       </div>
 
+      {selectedIds.size > 0 && (
+        <div className="flex items-center gap-3 px-4 py-2 bg-primary/10 border border-primary/20 rounded-md">
+          <span className="text-sm font-medium">{selectedIds.size} vybranych</span>
+          <Button size="sm" onClick={() => setBulkAssignOpen(true)} data-testid="button-bulk-assign">
+            Priradit do skupiny
+          </Button>
+          <Button size="sm" variant="outline" onClick={() => setSelectedIds(new Set())} data-testid="button-clear-selection">
+            Zrusit vyber
+          </Button>
+        </div>
+      )}
+
       <Card>
         <CardContent className="p-0">
           <Table>
             <TableHeader>
               <TableRow>
+                <TableHead className="w-10">
+                  <input type="checkbox" 
+                    checked={subjects?.length > 0 && selectedIds.size === subjects.length}
+                    onChange={(e) => {
+                      if (e.target.checked && subjects) {
+                        setSelectedIds(new Set(subjects.map(s => s.id)));
+                      } else {
+                        setSelectedIds(new Set());
+                      }
+                    }}
+                    data-testid="checkbox-select-all"
+                    className="accent-primary"
+                  />
+                </TableHead>
                 <TableHead>UID</TableHead>
                 <TableHead>Meno entity</TableHead>
                 <TableHead>Typ</TableHead>
@@ -672,13 +819,25 @@ export default function Subjects() {
             </TableHeader>
             <TableBody>
               {isLoading && (
-                <TableRow><TableCell colSpan={6} className="text-center py-8 text-muted-foreground">Nacitavam...</TableCell></TableRow>
+                <TableRow><TableCell colSpan={7} className="text-center py-8 text-muted-foreground">Nacitavam...</TableCell></TableRow>
               )}
               {!isLoading && (!subjects || subjects.length === 0) && (
-                <TableRow><TableCell colSpan={6} className="text-center py-12 text-muted-foreground" data-testid="text-empty-subjects">Ziadne subjekty nenajdene</TableCell></TableRow>
+                <TableRow><TableCell colSpan={7} className="text-center py-12 text-muted-foreground" data-testid="text-empty-subjects">Ziadne subjekty nenajdene</TableCell></TableRow>
               )}
               {subjects?.map((subject) => (
                 <TableRow key={subject.id} data-testid={`row-subject-${subject.id}`}>
+                  <TableCell>
+                    <input type="checkbox" 
+                      checked={selectedIds.has(subject.id)}
+                      onChange={(e) => {
+                        const next = new Set(selectedIds);
+                        if (e.target.checked) next.add(subject.id); else next.delete(subject.id);
+                        setSelectedIds(next);
+                      }}
+                      data-testid={`checkbox-subject-${subject.id}`}
+                      className="accent-primary"
+                    />
+                  </TableCell>
                   <TableCell className="font-mono text-xs">{subject.uid}</TableCell>
                   <TableCell className="font-medium">
                     {subject.type === 'person'
@@ -695,9 +854,15 @@ export default function Subjects() {
                     {companies?.find(c => c.id === subject.myCompanyId)?.name || `Firma #${subject.myCompanyId}`}
                   </TableCell>
                   <TableCell>
-                    <Badge variant={subject.isActive ? "default" : "destructive"} className={subject.isActive ? "bg-emerald-600 text-white" : ""}>
-                      {subject.isActive ? 'Aktivny' : 'Archivovany'}
-                    </Badge>
+                    {(() => {
+                      const status = getSubjectStatus(subject);
+                      return (
+                        <div className="flex items-center gap-2" data-testid={`status-subject-${subject.id}`}>
+                          <span className={`w-2.5 h-2.5 rounded-full ${status.color} flex-shrink-0`} />
+                          <span className="text-xs">{status.label}</span>
+                        </div>
+                      );
+                    })()}
                   </TableCell>
                   <TableCell>
                     <Button size="icon" variant="ghost" onClick={() => setViewTarget(subject)} data-testid={`button-view-subject-${subject.id}`}>
@@ -723,6 +888,13 @@ export default function Subjects() {
           if (found) setViewTarget(found);
         }}
       />
+      {bulkAssignOpen && (
+        <BulkAssignDialog 
+          selectedIds={selectedIds}
+          onClose={() => { setBulkAssignOpen(false); setSelectedIds(new Set()); }}
+          groups={clientGroups || []}
+        />
+      )}
       {viewTarget && <SubjectDetailDialog subject={viewTarget} onClose={() => setViewTarget(null)} />}
     </div>
   );

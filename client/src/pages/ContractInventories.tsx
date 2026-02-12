@@ -1,11 +1,11 @@
-import { useState, useCallback, useEffect, useRef } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useAppUser } from "@/hooks/use-app-user";
 import { useStates } from "@/hooks/use-hierarchy";
 import { useToast } from "@/hooks/use-toast";
 import type { ContractInventory } from "@shared/schema";
-import { Plus, Pencil, Trash2, GripVertical, Loader2 } from "lucide-react";
+import { Plus, Pencil, Trash2, Loader2 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -34,6 +34,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { ProcessingSaveButton } from "@/components/processing-save-button";
+import { SortableTableRow, SortableContext_Wrapper } from "@/components/sortable-list";
 
 function InventoryFormDialog({
   open,
@@ -265,10 +266,6 @@ export default function ContractInventories() {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [deletingInventory, setDeletingInventory] = useState<ContractInventory | null>(null);
 
-  const dragItemRef = useRef<number | null>(null);
-  const dragOverItemRef = useRef<number | null>(null);
-  const [draggedId, setDraggedId] = useState<number | null>(null);
-
   const { data: inventories, isLoading } = useQuery<ContractInventory[]>({
     queryKey: ["/api/contract-inventories"],
   });
@@ -284,41 +281,9 @@ export default function ContractInventories() {
 
   const sorted = inventories ? [...inventories].sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0)) : [];
 
-  function handleDragStart(id: number, index: number) {
-    dragItemRef.current = index;
-    setDraggedId(id);
-  }
-
-  function handleDragOver(e: React.DragEvent, index: number) {
-    e.preventDefault();
-    dragOverItemRef.current = index;
-  }
-
-  function handleDrop() {
-    if (dragItemRef.current === null || dragOverItemRef.current === null) return;
-    if (dragItemRef.current === dragOverItemRef.current) return;
-
-    const reordered = [...sorted];
-    const [removed] = reordered.splice(dragItemRef.current, 1);
-    reordered.splice(dragOverItemRef.current, 0, removed);
-
-    const items = reordered.map((item, idx) => ({
-      id: item.id,
-      sortOrder: idx,
-    }));
-
-    reorderMutation.mutate(items);
-
-    dragItemRef.current = null;
-    dragOverItemRef.current = null;
-    setDraggedId(null);
-  }
-
-  function handleDragEnd() {
-    dragItemRef.current = null;
-    dragOverItemRef.current = null;
-    setDraggedId(null);
-  }
+  const handleReorder = (items: { id: number | string; sortOrder: number }[]) => {
+    reorderMutation.mutate(items.map(i => ({ id: Number(i.id), sortOrder: i.sortOrder })));
+  };
 
   function openCreate() {
     setEditingInventory(null);
@@ -359,7 +324,7 @@ export default function ContractInventories() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead className="w-12"></TableHead>
+                  <TableHead className="w-10"></TableHead>
                   <TableHead className="w-20">Poradie</TableHead>
                   <TableHead>Nazov</TableHead>
                   <TableHead>Popis</TableHead>
@@ -367,63 +332,54 @@ export default function ContractInventories() {
                   <TableHead className="w-32 text-right">Akcie</TableHead>
                 </TableRow>
               </TableHeader>
-              <TableBody>
-                {sorted.map((inventory, index) => (
-                  <TableRow
-                    key={inventory.id}
-                    draggable
-                    onDragStart={() => handleDragStart(inventory.id, index)}
-                    onDragOver={(e) => handleDragOver(e, index)}
-                    onDrop={handleDrop}
-                    onDragEnd={handleDragEnd}
-                    className={`${draggedId === inventory.id ? "opacity-50" : ""}`}
-                    data-testid={`row-inventory-${inventory.id}`}
-                  >
-                    <TableCell>
-                      <GripVertical
-                        className="w-4 h-4 text-muted-foreground cursor-grab"
-                        data-testid={`drag-handle-${inventory.id}`}
-                      />
-                    </TableCell>
-                    <TableCell className="font-mono text-sm" data-testid={`text-sort-order-${inventory.id}`}>
-                      {inventory.sortOrder}
-                    </TableCell>
-                    <TableCell data-testid={`text-inventory-name-${inventory.id}`}>
-                      {inventory.name}
-                    </TableCell>
-                    <TableCell className="text-sm text-muted-foreground" data-testid={`text-inventory-description-${inventory.id}`}>
-                      {inventory.description || "—"}
-                    </TableCell>
-                    <TableCell data-testid={`badge-inventory-status-${inventory.id}`}>
-                      {inventory.isClosed ? (
-                        <Badge variant="destructive" className="text-xs">Uzavreta</Badge>
-                      ) : (
-                        <Badge className="bg-green-600 text-white text-xs">Otvorena</Badge>
-                      )}
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <div className="flex items-center justify-end gap-1 flex-wrap">
-                        <Button
-                          size="icon"
-                          variant="ghost"
-                          onClick={() => openEdit(inventory)}
-                          data-testid={`button-edit-inventory-${inventory.id}`}
-                        >
-                          <Pencil className="w-4 h-4" />
-                        </Button>
-                        <Button
-                          size="icon"
-                          variant="ghost"
-                          onClick={() => openDelete(inventory)}
-                          data-testid={`button-delete-inventory-${inventory.id}`}
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </Button>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
+              <SortableContext_Wrapper items={sorted} onReorder={handleReorder}>
+                <TableBody>
+                  {sorted.map((inventory) => (
+                    <SortableTableRow
+                      key={inventory.id}
+                      id={inventory.id}
+                      data-testid={`row-inventory-${inventory.id}`}
+                    >
+                      <TableCell className="font-mono text-sm" data-testid={`text-sort-order-${inventory.id}`}>
+                        {inventory.sortOrder}
+                      </TableCell>
+                      <TableCell data-testid={`text-inventory-name-${inventory.id}`}>
+                        {inventory.name}
+                      </TableCell>
+                      <TableCell className="text-sm text-muted-foreground" data-testid={`text-inventory-description-${inventory.id}`}>
+                        {inventory.description || "—"}
+                      </TableCell>
+                      <TableCell data-testid={`badge-inventory-status-${inventory.id}`}>
+                        {inventory.isClosed ? (
+                          <Badge variant="destructive" className="text-xs">Uzavreta</Badge>
+                        ) : (
+                          <Badge className="bg-green-600 text-white text-xs">Otvorena</Badge>
+                        )}
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <div className="flex items-center justify-end gap-1 flex-wrap">
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            onClick={() => openEdit(inventory)}
+                            data-testid={`button-edit-inventory-${inventory.id}`}
+                          >
+                            <Pencil className="w-4 h-4" />
+                          </Button>
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            onClick={() => openDelete(inventory)}
+                            data-testid={`button-delete-inventory-${inventory.id}`}
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </SortableTableRow>
+                  ))}
+                </TableBody>
+              </SortableContext_Wrapper>
             </Table>
           )}
         </CardContent>
