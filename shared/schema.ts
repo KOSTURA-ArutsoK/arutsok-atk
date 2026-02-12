@@ -552,12 +552,42 @@ export const contracts = pgTable("contracts", {
   notes: text("notes"),
   documents: jsonb("documents").$type<DocEntry[]>().default([]),
   processingTimeSec: integer("processing_time_sec").default(0),
+  isLocked: boolean("is_locked").default(false),
+  lockedBy: text("locked_by"),
+  lockedAt: timestamp("locked_at"),
+  lockedBySupiskaId: integer("locked_by_supiska_id"),
   isDeleted: boolean("is_deleted").default(false),
   deletedBy: text("deleted_by"),
   deletedAt: timestamp("deleted_at"),
   deletedFromIp: text("deleted_from_ip"),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// === SUPISKY (Settlement Sheets) ===
+export const supisky = pgTable("supisky", {
+  id: serial("id").primaryKey(),
+  supId: text("sup_id").notNull().unique(),
+  name: text("name").notNull(),
+  status: text("status").notNull().default("Nova"),
+  stateId: integer("state_id").references(() => states.id),
+  companyId: integer("company_id").references(() => myCompanies.id),
+  createdBy: text("created_by"),
+  createdByUserId: integer("created_by_user_id"),
+  sentAt: timestamp("sent_at"),
+  sentBy: text("sent_by"),
+  notes: text("notes"),
+  processingTimeSec: integer("processing_time_sec").default(0),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// === SUPISKA-CONTRACT JUNCTION ===
+export const supiskaContracts = pgTable("supiska_contracts", {
+  id: serial("id").primaryKey(),
+  supiskaId: integer("supiska_id").notNull().references(() => supisky.id),
+  contractId: integer("contract_id").notNull().references(() => contracts.id),
+  createdAt: timestamp("created_at").defaultNow(),
 });
 
 export const contractsRelations = relations(contracts, ({ one }) => ({
@@ -603,7 +633,9 @@ export const insertClientGroupMemberSchema = createInsertSchema(clientGroupMembe
 export const insertContractStatusSchema = createInsertSchema(contractStatuses).omit({ id: true, createdAt: true });
 export const insertContractTemplateSchema = createInsertSchema(contractTemplates).omit({ id: true, createdAt: true, updatedAt: true });
 export const insertContractInventorySchema = createInsertSchema(contractInventories).omit({ id: true, createdAt: true, updatedAt: true });
-export const insertContractSchema = createInsertSchema(contracts).omit({ id: true, createdAt: true, updatedAt: true, isDeleted: true, deletedBy: true, deletedAt: true, deletedFromIp: true, uid: true });
+export const insertContractSchema = createInsertSchema(contracts).omit({ id: true, createdAt: true, updatedAt: true, isDeleted: true, deletedBy: true, deletedAt: true, deletedFromIp: true, uid: true, isLocked: true, lockedBy: true, lockedAt: true, lockedBySupiskaId: true });
+export const insertSupiskaSchema = createInsertSchema(supisky).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertSupiskaContractSchema = createInsertSchema(supiskaContracts).omit({ id: true, createdAt: true });
 
 // === EXPLICIT TYPES ===
 export type Subject = typeof subjects.$inferSelect;
@@ -670,6 +702,11 @@ export type ContractInventory = typeof contractInventories.$inferSelect;
 export type InsertContractInventory = z.infer<typeof insertContractInventorySchema>;
 export type Contract = typeof contracts.$inferSelect;
 export type InsertContract = z.infer<typeof insertContractSchema>;
+
+export type Supiska = typeof supisky.$inferSelect;
+export type InsertSupiska = z.infer<typeof insertSupiskaSchema>;
+export type SupiskaContract = typeof supiskaContracts.$inferSelect;
+export type InsertSupiskaContract = z.infer<typeof insertSupiskaContractSchema>;
 
 export type CreateSubjectRequest = InsertSubject;
 export type UpdateSubjectRequest = Partial<InsertSubject> & { changeReason?: string };

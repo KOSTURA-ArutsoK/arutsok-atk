@@ -42,6 +42,9 @@ import {
   type ClientGroup, type InsertClientGroup,
   type ClientSubGroup, type InsertClientSubGroup,
   type ClientGroupMember, type InsertClientGroupMember,
+  supisky, supiskaContracts,
+  type Supiska, type InsertSupiska,
+  type SupiskaContract, type InsertSupiskaContract,
 } from "@shared/schema";
 import { eq, and, or, ne, like, sql, lte, gte } from "drizzle-orm";
 
@@ -234,6 +237,19 @@ export interface IStorage {
   getClientGroupMemberCount(groupId: number): Promise<number>;
   getClientSubGroupMemberCount(subGroupId: number): Promise<number>;
   isSubjectLoginAllowed(subjectId: number): Promise<boolean>;
+
+  // Supisky
+  getSupisky(filters?: { stateId?: number; companyId?: number }): Promise<Supiska[]>;
+  getSupiska(id: number): Promise<Supiska | undefined>;
+  createSupiska(data: InsertSupiska): Promise<Supiska>;
+  updateSupiska(id: number, data: Partial<InsertSupiska>): Promise<Supiska>;
+  deleteSupiska(id: number): Promise<void>;
+  generateSupiskaId(): Promise<string>;
+  getSupiskaContracts(supiskaId: number): Promise<SupiskaContract[]>;
+  addContractsToSupiska(supiskaId: number, contractIds: number[]): Promise<number>;
+  removeContractFromSupiska(supiskaId: number, contractId: number): Promise<void>;
+  lockContractsBySupiska(supiskaId: number, lockedBy: string): Promise<void>;
+  unlockContractsBySupiska(supiskaId: number): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -1399,6 +1415,95 @@ export class DatabaseStorage implements IStorage {
     if (memberships.length === 0) return true;
     const blocked = memberships.some(m => m.allowLogin === false);
     return !blocked;
+  }
+
+  async getSupisky(filters?: { stateId?: number; companyId?: number }): Promise<Supiska[]> {
+    const conditions: any[] = [];
+    if (filters?.stateId) conditions.push(eq(supisky.stateId, filters.stateId));
+    if (filters?.companyId) conditions.push(eq(supisky.companyId, filters.companyId));
+    if (conditions.length > 0) {
+      return db.select().from(supisky).where(and(...conditions)).orderBy(sql`${supisky.createdAt} DESC`);
+    }
+    return db.select().from(supisky).orderBy(sql`${supisky.createdAt} DESC`);
+  }
+
+  async getSupiska(id: number): Promise<Supiska | undefined> {
+    const [result] = await db.select().from(supisky).where(eq(supisky.id, id));
+    return result;
+  }
+
+  async createSupiska(data: InsertSupiska): Promise<Supiska> {
+    const [result] = await db.insert(supisky).values(data).returning();
+    return result;
+  }
+
+  async updateSupiska(id: number, data: Partial<InsertSupiska>): Promise<Supiska> {
+    const [result] = await db.update(supisky)
+      .set({ ...data, updatedAt: new Date() })
+      .where(eq(supisky.id, id))
+      .returning();
+    return result;
+  }
+
+  async deleteSupiska(id: number): Promise<void> {
+    await db.delete(supiskaContracts).where(eq(supiskaContracts.supiskaId, id));
+    await db.delete(supisky).where(eq(supisky.id, id));
+  }
+
+  async generateSupiskaId(): Promise<string> {
+    const year = new Date().getFullYear();
+    const result = await db.execute(sql`
+      SELECT COUNT(*)::int as cnt FROM supisky WHERE EXTRACT(YEAR FROM created_at) = ${year}
+    `);
+    const count = Number(result.rows[0]?.cnt ?? 0) + 1;
+    return `SUP-${year}-${String(count).padStart(4, '0')}`;
+  }
+
+  async getSupiskaContracts(supiskaId: number): Promise<SupiskaContract[]> {
+    return db.select().from(supiskaContracts).where(eq(supiskaContracts.supiskaId, supiskaId));
+  }
+
+  async addContractsToSupiska(supiskaId: number, contractIds: number[]): Promise<number> {
+    let added = 0;
+    for (const contractId of contractIds) {
+      const existing = await db.select().from(supiskaContracts)
+        .where(and(eq(supiskaContracts.supiskaId, supiskaId), eq(supiskaContracts.contractId, contractId)));
+      if (existing.length === 0) {
+        await db.insert(supiskaContracts).values({ supiskaId, contractId });
+        added++;
+      }
+    }
+    return added;
+  }
+
+  async removeContractFromSupiska(supiskaId: number, contractId: number): Promise<void> {
+    await db.delete(supiskaContracts)
+      .where(and(eq(supiskaContracts.supiskaId, supiskaId), eq(supiskaContracts.contractId, contractId)));
+    await db.update(contracts)
+      .set({ isLocked: false, lockedBy: null, lockedAt: null, lockedBySupiskaId: null })
+      .where(eq(contracts.id, contractId));
+  }
+
+  async lockContractsBySupiska(supiskaId: number, lockedBy: string): Promise<void> {
+    const links = await this.getSupiskaContracts(supiskaId);
+    const contractIds = links.map(l => l.contractId);
+    if (contractIds.length === 0) return;
+    for (const cId of contractIds) {
+      await db.update(contracts)
+        .set({ isLocked: true, lockedBy, lockedAt: new Date(), lockedBySupiskaId: supiskaId })
+        .where(eq(contracts.id, cId));
+    }
+  }
+
+  async unlockContractsBySupiska(supiskaId: number): Promise<void> {
+    const links = await this.getSupiskaContracts(supiskaId);
+    const contractIds = links.map(l => l.contractId);
+    if (contractIds.length === 0) return;
+    for (const cId of contractIds) {
+      await db.update(contracts)
+        .set({ isLocked: false, lockedBy: null, lockedAt: null, lockedBySupiskaId: null })
+        .where(eq(contracts.id, cId));
+    }
   }
 }
 

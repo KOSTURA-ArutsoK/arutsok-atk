@@ -80,6 +80,7 @@ const zmluvyItems = [
   { href: "/contract-template-management", icon: FileStack, label: "Sprava sablon" },
   { href: "/contract-statuses", icon: ListChecks, label: "Stavy zmluv" },
   { href: "/contract-inventories", icon: ClipboardList, label: "Zoznam supisiek" },
+  { href: "/supisky", icon: ClipboardList, label: "Supisky" },
 ];
 
 const nastavenieItems = [

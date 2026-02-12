@@ -65,3 +65,17 @@ The system is built on a modern full-stack architecture:
 - **wouter**: Client-side routing library.
 - **Tiptap**: Rich text editor.
 - **Multer**: Node.js middleware for handling multipart/form-data, primarily used for file uploads.
+- **ExcelJS**: Spreadsheet generation for settlement sheet exports.
+
+## Recent Changes
+- **2026-02-12 - Block xxx0008: Supisky (Settlement Sheets) Module**
+  - Added `supisky` and `supiska_contracts` tables for settlement sheet management.
+  - Added contract locking fields (`isLocked`, `lockedBy`, `lockedAt`, `lockedBySupiskaId`) to `contracts` table.
+  - Settlement sheets generate unique SUP-YYYY-NNNN IDs.
+  - Status workflow: Nova → Pripravena → Odoslana. Setting "Odoslana" auto-locks all linked contracts; reverting unlocks them.
+  - Only "Podpísaná" (signed) and unlocked contracts are eligible for settlement sheets.
+  - Non-admin users cannot edit locked contracts (server-side enforced in PUT /api/contracts/:id).
+  - Lock icon indicator shown in Contracts table for locked contracts.
+  - Export routes: `/api/supisky/:id/export/excel` (XLSX) and `/api/supisky/:id/export/csv` (CSV) with columns: KIK ID, Meno klienta, Partner, Produkt, Cislo zmluvy, Suma poistneho, Datum podpisu.
+  - Supisky page at `/supisky` with list view, create/edit dialog, detail dialog with contract management.
+  - Sidebar item added under Zmluvy group.

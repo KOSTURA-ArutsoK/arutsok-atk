@@ -30,6 +30,7 @@ import Contracts from "@/pages/Contracts";
 import ContractStatuses from "@/pages/ContractStatuses";
 import ContractTemplates from "@/pages/ContractTemplates";
 import ContractInventories from "@/pages/ContractInventories";
+import SupiskyPage from "@/pages/Supisky";
 import ClientGroups from "@/pages/ClientGroups";
 import PartnerContacts from "@/pages/PartnerContacts";
 import { AppShell } from "@/components/layout/AppShell";
@@ -85,6 +86,7 @@ function Router() {
       <Route path="/contract-template-settings" component={() => <PrivateRoute component={ContractTemplates} />} />
       <Route path="/contract-template-management" component={() => <PrivateRoute component={ContractTemplates} />} />
       <Route path="/contract-inventories" component={() => <PrivateRoute component={ContractInventories} />} />
+      <Route path="/supisky" component={() => <PrivateRoute component={SupiskyPage} />} />
       <Route path="/client-groups" component={() => <PrivateRoute component={ClientGroups} />} />
       <Route path="/partner-contacts" component={() => <PrivateRoute component={PartnerContacts} />} />
 

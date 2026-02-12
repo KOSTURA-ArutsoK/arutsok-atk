@@ -5,7 +5,7 @@ import { useAppUser } from "@/hooks/use-app-user";
 import { useStates } from "@/hooks/use-hierarchy";
 import { useToast } from "@/hooks/use-toast";
 import type { Contract, ContractStatus, ContractTemplate, ContractInventory, Subject, Partner, Product, MyCompany } from "@shared/schema";
-import { Plus, Pencil, Trash2, Eye, FileText, Loader2 } from "lucide-react";
+import { Plus, Pencil, Trash2, Eye, FileText, Loader2, Lock } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -213,6 +213,12 @@ function ContractFormDialog({
           <DialogTitle data-testid="text-contract-dialog-title">
             {editingContract ? "Upravit zmluvu" : "Pridat zmluvu"}
           </DialogTitle>
+          {editingContract?.isLocked && (
+            <div className="flex items-center gap-2 text-amber-500 text-sm mt-1">
+              <Lock className="w-4 h-4" />
+              <span>Zmluva je zamknuta v supiske. Iba admin moze upravovat.</span>
+            </div>
+          )}
         </DialogHeader>
         <div className="space-y-4">
           <div className="grid grid-cols-2 gap-4">
@@ -747,7 +753,10 @@ export default function Contracts() {
                   return (
                     <TableRow key={contract.id} data-testid={`row-contract-${contract.id}`}>
                       <TableCell className="font-mono text-sm" data-testid={`text-contract-number-${contract.id}`}>
-                        {contract.contractNumber || "-"}
+                        <span className="flex items-center gap-1">
+                          {contract.isLocked && <Lock className="w-3 h-3 text-amber-500 shrink-0" />}
+                          {contract.contractNumber || "-"}
+                        </span>
                       </TableCell>
                       <TableCell className="text-sm" data-testid={`text-contract-subject-${contract.id}`}>
                         {getSubjectDisplay(contract.subjectId)}

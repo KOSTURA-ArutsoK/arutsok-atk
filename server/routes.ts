@@ -8,6 +8,7 @@ import { continents, states, myCompanies, appUsers, clientTypes, clientSubGroups
 import { db } from "./db";
 import { eq } from "drizzle-orm";
 import multer from "multer";
+import ExcelJS from "exceljs";
 import path from "path";
 import fs from "fs";
 
@@ -1194,6 +1195,9 @@ export async function registerRoutes(
       if (appUser && appUser.activeStateId && old.stateId && old.stateId !== appUser.activeStateId && appUser.role !== 'superadmin') {
         return res.status(403).json({ message: "Uprava zmluvy z ineho statu nie je povolena" });
       }
+      if (old.isLocked && appUser && appUser.role !== 'admin' && appUser.role !== 'superadmin') {
+        return res.status(403).json({ message: "Zmluva je zamknuta v supiske. Iba admin moze upravovat zamknute zmluvy." });
+      }
       const updated = await storage.updateContract(Number(req.params.id), input);
       await logAudit(req, { action: "UPDATE", module: "zmluvy", entityId: Number(req.params.id), oldData: old, newData: input });
       res.json(updated);
@@ -1259,6 +1263,252 @@ export async function registerRoutes(
       }
       await logAudit(req, { action: "UPDATE", module: "pravidla_typov", entityName: "reorder" });
       res.json({ success: true });
+    } catch (err) {
+      res.status(500).json({ message: "Internal error" });
+    }
+  });
+
+  // === SUPISKY (Settlement Sheets) ===
+  app.get("/api/supisky", isAuthenticated, async (req: any, res) => {
+    try {
+      const enforcedState = getEnforcedStateId(req);
+      const filters: any = {};
+      if (enforcedState) filters.stateId = enforcedState;
+      if (req.query.companyId) filters.companyId = Number(req.query.companyId);
+      const items = await storage.getSupisky(filters);
+      res.json(items);
+    } catch (err) {
+      res.status(500).json({ message: "Internal error" });
+    }
+  });
+
+  app.get("/api/supisky/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const item = await storage.getSupiska(Number(req.params.id));
+      if (!item) return res.status(404).json({ message: "Supiska not found" });
+      res.json(item);
+    } catch (err) {
+      res.status(500).json({ message: "Internal error" });
+    }
+  });
+
+  app.post("/api/supisky", isAuthenticated, async (req: any, res) => {
+    try {
+      const appUser = req.appUser;
+      const enforcedState = getEnforcedStateId(req);
+      const supId = await storage.generateSupiskaId();
+      const data = {
+        ...req.body,
+        supId,
+        stateId: enforcedState || req.body.stateId,
+        companyId: appUser?.activeCompanyId || req.body.companyId,
+        createdBy: appUser?.username || "system",
+        createdByUserId: appUser?.id,
+      };
+      const item = await storage.createSupiska(data);
+      await logAudit(req, { action: "CREATE", module: "supisky", entityId: item.id, entityName: item.name });
+      res.json(item);
+    } catch (err: any) {
+      console.error("Supisky create error:", err);
+      res.status(500).json({ message: err?.message || "Internal error" });
+    }
+  });
+
+  app.put("/api/supisky/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const old = await storage.getSupiska(Number(req.params.id));
+      if (!old) return res.status(404).json({ message: "Supiska not found" });
+      const appUser = req.appUser;
+      const input = req.body;
+
+      const allowedTransitions: Record<string, string[]> = {
+        "Nova": ["Pripravena", "Odoslana"],
+        "Pripravena": ["Nova", "Odoslana"],
+        "Odoslana": ["Pripravena"],
+      };
+      if (input.status && input.status !== old.status) {
+        const allowed = allowedTransitions[old.status] || [];
+        if (!allowed.includes(input.status)) {
+          return res.status(400).json({ message: `Neplatny prechod stavu z ${old.status} na ${input.status}` });
+        }
+      }
+
+      if (input.status === "Odoslana" && old.status !== "Odoslana") {
+        await storage.lockContractsBySupiska(old.id, appUser?.username || "system");
+        input.sentAt = new Date();
+        input.sentBy = appUser?.username || "system";
+      }
+      if (old.status === "Odoslana" && input.status && input.status !== "Odoslana") {
+        await storage.unlockContractsBySupiska(old.id);
+        input.sentAt = null;
+        input.sentBy = null;
+      }
+
+      const updated = await storage.updateSupiska(Number(req.params.id), input);
+      await logAudit(req, { action: "UPDATE", module: "supisky", entityId: updated.id, oldData: old, newData: input });
+      res.json(updated);
+    } catch (err) {
+      res.status(500).json({ message: "Internal error" });
+    }
+  });
+
+  app.delete("/api/supisky/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const old = await storage.getSupiska(Number(req.params.id));
+      if (!old) return res.status(404).json({ message: "Supiska not found" });
+      if (old.status === "Odoslana") {
+        await storage.unlockContractsBySupiska(old.id);
+      }
+      await storage.deleteSupiska(Number(req.params.id));
+      await logAudit(req, { action: "DELETE", module: "supisky", entityId: Number(req.params.id), entityName: old.name });
+      res.json({ success: true });
+    } catch (err) {
+      res.status(500).json({ message: "Internal error" });
+    }
+  });
+
+  app.get("/api/supisky/:id/contracts", isAuthenticated, async (req: any, res) => {
+    try {
+      const links = await storage.getSupiskaContracts(Number(req.params.id));
+      const contractIds = links.map(l => l.contractId);
+      if (contractIds.length === 0) return res.json([]);
+      const allContracts = await storage.getContracts();
+      const enriched = allContracts.filter(c => contractIds.includes(c.id));
+      res.json(enriched);
+    } catch (err) {
+      res.status(500).json({ message: "Internal error" });
+    }
+  });
+
+  app.post("/api/supisky/:id/contracts", isAuthenticated, async (req: any, res) => {
+    try {
+      const supiska = await storage.getSupiska(Number(req.params.id));
+      if (!supiska) return res.status(404).json({ message: "Supiska not found" });
+      if (supiska.status === "Odoslana") return res.status(400).json({ message: "Supiska je odoslana, nelze pridavat zmluvy" });
+      const { contractIds } = req.body;
+      if (!Array.isArray(contractIds)) return res.status(400).json({ message: "contractIds array required" });
+      const added = await storage.addContractsToSupiska(Number(req.params.id), contractIds);
+      await logAudit(req, { action: "UPDATE", module: "supisky", entityId: Number(req.params.id), entityName: `Added ${added} contracts` });
+      res.json({ added });
+    } catch (err) {
+      res.status(500).json({ message: "Internal error" });
+    }
+  });
+
+  app.delete("/api/supisky/:id/contracts/:contractId", isAuthenticated, async (req: any, res) => {
+    try {
+      const supiska = await storage.getSupiska(Number(req.params.id));
+      if (!supiska) return res.status(404).json({ message: "Supiska not found" });
+      if (supiska.status === "Odoslana") return res.status(400).json({ message: "Supiska je odoslana, nelze odoberať zmluvy" });
+      await storage.removeContractFromSupiska(Number(req.params.id), Number(req.params.contractId));
+      await logAudit(req, { action: "UPDATE", module: "supisky", entityId: Number(req.params.id), entityName: `Removed contract ${req.params.contractId}` });
+      res.json({ success: true });
+    } catch (err) {
+      res.status(500).json({ message: "Internal error" });
+    }
+  });
+
+  app.get("/api/supisky/:id/eligible-contracts", isAuthenticated, async (req: any, res) => {
+    try {
+      const enforcedState = getEnforcedStateId(req);
+      const allContracts = await storage.getContracts();
+      const statuses = await storage.getContractStatuses();
+      const signedStatus = statuses.find(s => s.name === "Podpísaná" || s.name === "Podpisana");
+      if (!signedStatus) return res.json([]);
+      const eligible = allContracts.filter(c =>
+        c.statusId === signedStatus.id &&
+        !c.isDeleted &&
+        !c.isLocked &&
+        (!enforcedState || c.stateId === enforcedState)
+      );
+      res.json(eligible);
+    } catch (err) {
+      res.status(500).json({ message: "Internal error" });
+    }
+  });
+
+  app.get("/api/supisky/:id/export/excel", isAuthenticated, async (req: any, res) => {
+    try {
+      const supiska = await storage.getSupiska(Number(req.params.id));
+      if (!supiska) return res.status(404).json({ message: "Supiska not found" });
+      const links = await storage.getSupiskaContracts(supiska.id);
+      const contractIds = links.map(l => l.contractId);
+      const allContracts = await storage.getContracts();
+      const contractList = allContracts.filter(c => contractIds.includes(c.id));
+      const subjects = await storage.getSubjects();
+      const partnersData = await storage.getPartners();
+      const productsData = await storage.getProducts();
+
+      const workbook = new ExcelJS.Workbook();
+      const sheet = workbook.addWorksheet("Supiska");
+      sheet.columns = [
+        { header: "KIK ID", key: "kikId", width: 18 },
+        { header: "Meno klienta", key: "clientName", width: 25 },
+        { header: "Partner", key: "partner", width: 25 },
+        { header: "Produkt", key: "product", width: 25 },
+        { header: "Cislo zmluvy", key: "contractNumber", width: 20 },
+        { header: "Suma poistneho", key: "premiumAmount", width: 18 },
+        { header: "Datum podpisu", key: "signatureDate", width: 18 },
+      ];
+      sheet.getRow(1).font = { bold: true };
+
+      for (const c of contractList) {
+        const subject = subjects.find(s => s.id === c.subjectId);
+        const partner = partnersData.find(p => p.id === c.partnerId);
+        const product = productsData.find(p => p.id === c.productId);
+        sheet.addRow({
+          kikId: (c as any).uid || c.id.toString(),
+          clientName: subject ? `${subject.firstName || ""} ${subject.lastName || ""}`.trim() : "",
+          partner: partner?.name || "",
+          product: product?.name || "",
+          contractNumber: (c as any).contractNumber || (c as any).uid || "",
+          premiumAmount: (c as any).premiumAmount || (c as any).amount || "",
+          signatureDate: (c as any).signedDate ? new Date((c as any).signedDate).toLocaleDateString("sk-SK") : "",
+        });
+      }
+
+      res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+      res.setHeader("Content-Disposition", `attachment; filename="${supiska.supId}.xlsx"`);
+      await workbook.xlsx.write(res);
+      res.end();
+    } catch (err) {
+      console.error("Excel export error:", err);
+      res.status(500).json({ message: "Internal error" });
+    }
+  });
+
+  app.get("/api/supisky/:id/export/csv", isAuthenticated, async (req: any, res) => {
+    try {
+      const supiska = await storage.getSupiska(Number(req.params.id));
+      if (!supiska) return res.status(404).json({ message: "Supiska not found" });
+      const links = await storage.getSupiskaContracts(supiska.id);
+      const contractIds = links.map(l => l.contractId);
+      const allContracts = await storage.getContracts();
+      const contractList = allContracts.filter(c => contractIds.includes(c.id));
+      const subjects = await storage.getSubjects();
+      const partnersData = await storage.getPartners();
+      const productsData = await storage.getProducts();
+
+      const headers = ["KIK ID", "Meno klienta", "Partner", "Produkt", "Cislo zmluvy", "Suma poistneho", "Datum podpisu"];
+      const rows = contractList.map(c => {
+        const subject = subjects.find(s => s.id === c.subjectId);
+        const partner = partnersData.find(p => p.id === c.partnerId);
+        const product = productsData.find(p => p.id === c.productId);
+        return [
+          (c as any).uid || c.id.toString(),
+          subject ? `${subject.firstName || ""} ${subject.lastName || ""}`.trim() : "",
+          partner?.name || "",
+          product?.name || "",
+          (c as any).contractNumber || (c as any).uid || "",
+          (c as any).premiumAmount || (c as any).amount || "",
+          (c as any).signedDate ? new Date((c as any).signedDate).toLocaleDateString("sk-SK") : "",
+        ].map(v => `"${String(v).replace(/"/g, '""')}"`).join(",");
+      });
+
+      const csv = [headers.join(","), ...rows].join("\n");
+      res.setHeader("Content-Type", "text/csv; charset=utf-8");
+      res.setHeader("Content-Disposition", `attachment; filename="${supiska.supId}.csv"`);
+      res.send("\uFEFF" + csv);
     } catch (err) {
       res.status(500).json({ message: "Internal error" });
     }
