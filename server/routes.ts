@@ -2465,8 +2465,6 @@ export async function registerRoutes(
         await storage.createVerificationCode(client.id, "sms", smsCode, expiresAt);
         await storage.createVerificationCode(client.id, "email", emailCode, expiresAt);
 
-        console.log(`[MFA] SMS code for subject ${client.id}: ${smsCode}`);
-        console.log(`[MFA] Email code for subject ${client.id}: ${emailCode}`);
 
         const maskedPhone = client.phone!.replace(/(\d{3})\d+(\d{2})/, "$1****$2");
         const maskedEmail = client.email!.replace(/(.{2}).+(@.+)/, "$1***$2");
