@@ -2747,6 +2747,71 @@ export async function registerRoutes(
     }
   });
 
+  // === CALENDAR EVENTS ===
+  app.get("/api/calendar-events", isAuthenticated, async (_req, res) => {
+    try {
+      const events = await storage.getCalendarEvents();
+      res.json(events);
+    } catch (err) {
+      console.error("Get calendar events error:", err);
+      res.status(500).json({ message: "Internal error" });
+    }
+  });
+
+  app.get("/api/calendar-events/upcoming", isAuthenticated, async (req, res) => {
+    try {
+      const limit = Number(req.query.limit) || 5;
+      const events = await storage.getUpcomingEvents(limit);
+      res.json(events);
+    } catch (err) {
+      console.error("Get upcoming events error:", err);
+      res.status(500).json({ message: "Internal error" });
+    }
+  });
+
+  app.post("/api/calendar-events", isAuthenticated, async (req: any, res) => {
+    try {
+      const data = { ...req.body };
+      if (data.startDate) data.startDate = new Date(data.startDate);
+      if (data.endDate) data.endDate = new Date(data.endDate);
+      const created = await storage.createCalendarEvent(data);
+      await logAudit(req, { action: "Vytvorenie", module: "Kalendar", entityId: created.id, entityName: created.title, newData: req.body });
+      res.status(201).json(created);
+    } catch (err) {
+      console.error("Create calendar event error:", err);
+      res.status(500).json({ message: "Internal error" });
+    }
+  });
+
+  app.put("/api/calendar-events/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const id = Number(req.params.id);
+      const oldEvent = await storage.getCalendarEvent(id);
+      const data = { ...req.body };
+      if (data.startDate) data.startDate = new Date(data.startDate);
+      if (data.endDate) data.endDate = new Date(data.endDate);
+      const updated = await storage.updateCalendarEvent(id, data);
+      await logAudit(req, { action: "Uprava", module: "Kalendar", entityId: id, entityName: updated.title, oldData: oldEvent, newData: req.body });
+      res.json(updated);
+    } catch (err) {
+      console.error("Update calendar event error:", err);
+      res.status(500).json({ message: "Internal error" });
+    }
+  });
+
+  app.delete("/api/calendar-events/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const id = Number(req.params.id);
+      const oldEvent = await storage.getCalendarEvent(id);
+      await storage.deleteCalendarEvent(id);
+      await logAudit(req, { action: "Vymazanie", module: "Kalendar", entityId: id, entityName: oldEvent?.title });
+      res.json({ success: true });
+    } catch (err) {
+      console.error("Delete calendar event error:", err);
+      res.status(500).json({ message: "Internal error" });
+    }
+  });
+
   await seedDatabase();
   await storage.autoArchiveExpiredBindings();
   setInterval(() => storage.autoArchiveExpiredBindings(), 60 * 60 * 1000);

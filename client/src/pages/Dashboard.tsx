@@ -1,11 +1,12 @@
 import { useMyCompanies } from "@/hooks/use-companies";
 import { useQuery } from "@tanstack/react-query";
-import { Users, Building2, ShieldAlert, TrendingUp, Briefcase, Package, History } from "lucide-react";
+import { Users, Building2, ShieldAlert, TrendingUp, Briefcase, Package, History, Calendar, Clock } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useAppUser } from "@/hooks/use-app-user";
-import type { Subject, Partner, Product, AuditLog, DashboardPreference } from "@shared/schema";
+import type { Subject, Partner, Product, AuditLog, DashboardPreference, CalendarEvent } from "@shared/schema";
+import { Badge } from "@/components/ui/badge";
 
-const WIDGET_KEYS = ["stats", "recent_subjects", "my_companies", "recent_partners", "recent_products", "audit_activity"];
+const WIDGET_KEYS = ["stats", "recent_subjects", "my_companies", "recent_partners", "recent_products", "audit_activity", "upcoming_events"];
 
 export default function Dashboard() {
   const { data: appUser } = useAppUser();
@@ -23,6 +24,9 @@ export default function Dashboard() {
     queryKey: ["/api/audit-logs"],
   });
   const auditLogs = auditLogsData?.logs || [];
+  const { data: upcomingEvents } = useQuery<CalendarEvent[]>({
+    queryKey: ["/api/calendar-events/upcoming"],
+  });
   const { data: dashboardPrefs } = useQuery<DashboardPreference[]>({
     queryKey: ["/api/dashboard-preferences"],
   });
@@ -209,6 +213,41 @@ export default function Dashboard() {
                 </div>
               ) : (
                 <p className="text-sm text-muted-foreground py-6 text-center">Ziadna aktivita</p>
+              )}
+            </CardContent>
+          </Card>
+        )}
+
+        {isVisible("upcoming_events") && (
+          <Card data-testid="widget-upcoming-events">
+            <CardHeader className="flex flex-row items-center justify-between gap-2 space-y-0">
+              <CardTitle className="text-base">Nadchadzajuce udalosti</CardTitle>
+              <Calendar className="w-4 h-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              {upcomingEvents && upcomingEvents.length > 0 ? (
+                <div className="space-y-3">
+                  {upcomingEvents.slice(0, 5).map(ev => {
+                    const sd = new Date(ev.startDate);
+                    const dayStr = `${sd.getDate()}.${sd.getMonth() + 1}.${sd.getFullYear()}`;
+                    const timeStr = ev.allDay ? "Celodenni" : `${String(sd.getHours()).padStart(2, "0")}:${String(sd.getMinutes()).padStart(2, "0")}`;
+                    return (
+                      <div key={ev.id} className="flex items-center gap-3 text-sm" data-testid={`upcoming-event-${ev.id}`}>
+                        <div className="w-3 h-8 rounded-sm flex-shrink-0" style={{ backgroundColor: ev.color || "#3b82f6" }} />
+                        <div className="flex-1 min-w-0">
+                          <p className="font-medium truncate">{ev.title}</p>
+                          <p className="text-xs text-muted-foreground flex items-center gap-1">
+                            <Clock className="w-3 h-3" />
+                            {dayStr} {timeStr}
+                          </p>
+                        </div>
+                        {ev.allDay && <Badge variant="secondary" className="text-[10px]">Celodenni</Badge>}
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : (
+                <p className="text-sm text-muted-foreground py-6 text-center" data-testid="text-no-upcoming">Ziadne nadchadzajuce udalosti</p>
               )}
             </CardContent>
           </Card>

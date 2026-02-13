@@ -52,6 +52,8 @@ import {
   type Sector, type InsertSector,
   type Parameter, type InsertParameter,
   type SectorParameter, type ProductSector, type ProductParameter,
+  calendarEvents,
+  type CalendarEvent, type InsertCalendarEvent,
 } from "@shared/schema";
 import { eq, and, or, ne, like, sql, lte, gte, desc } from "drizzle-orm";
 
@@ -299,6 +301,14 @@ export interface IStorage {
   // Product-Parameter assignments
   getProductParameters(productId: number): Promise<ProductParameter[]>;
   setProductParameters(productId: number, params: { parameterId: number; overrideRequired?: boolean; overrideHelpText?: string }[]): Promise<void>;
+
+  // Calendar Events
+  getCalendarEvents(): Promise<CalendarEvent[]>;
+  getCalendarEvent(id: number): Promise<CalendarEvent | undefined>;
+  createCalendarEvent(data: InsertCalendarEvent): Promise<CalendarEvent>;
+  updateCalendarEvent(id: number, data: Partial<InsertCalendarEvent>): Promise<CalendarEvent>;
+  deleteCalendarEvent(id: number): Promise<void>;
+  getUpcomingEvents(limit?: number): Promise<CalendarEvent[]>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -1774,6 +1784,39 @@ export class DatabaseStorage implements IStorage {
         }))
       );
     }
+  }
+
+  // === CALENDAR EVENTS ===
+  async getCalendarEvents(): Promise<CalendarEvent[]> {
+    return await db.select().from(calendarEvents).orderBy(calendarEvents.startDate);
+  }
+
+  async getCalendarEvent(id: number): Promise<CalendarEvent | undefined> {
+    const [event] = await db.select().from(calendarEvents).where(eq(calendarEvents.id, id));
+    return event;
+  }
+
+  async createCalendarEvent(data: InsertCalendarEvent): Promise<CalendarEvent> {
+    const [event] = await db.insert(calendarEvents).values(data).returning();
+    return event;
+  }
+
+  async updateCalendarEvent(id: number, data: Partial<InsertCalendarEvent>): Promise<CalendarEvent> {
+    const [event] = await db.update(calendarEvents).set({ ...data, updatedAt: new Date() }).where(eq(calendarEvents.id, id)).returning();
+    return event;
+  }
+
+  async deleteCalendarEvent(id: number): Promise<void> {
+    await db.delete(calendarEvents).where(eq(calendarEvents.id, id));
+  }
+
+  async getUpcomingEvents(limit: number = 5): Promise<CalendarEvent[]> {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    return await db.select().from(calendarEvents)
+      .where(gte(calendarEvents.startDate, today))
+      .orderBy(calendarEvents.startDate)
+      .limit(limit);
   }
 }
 
