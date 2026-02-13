@@ -70,7 +70,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     if (timeLeft > 10) {
       securityWarningSpokenRef.current = false;
     }
-  }, [timeLeft, showWarning, tts]);
+  }, [timeLeft, showWarning]);
 
   const formatTime = (sec: number) => {
     const m = Math.floor(sec / 60);

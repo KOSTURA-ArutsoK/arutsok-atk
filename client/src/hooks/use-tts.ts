@@ -12,6 +12,9 @@ export function useTTS() {
     }
   });
 
+  const enabledRef = useRef(enabled);
+  enabledRef.current = enabled;
+
   const spokenRef = useRef<Set<string>>(new Set());
 
   useEffect(() => {
@@ -21,7 +24,7 @@ export function useTTS() {
   }, [enabled]);
 
   const speak = useCallback((text: string, key?: string) => {
-    if (!enabled) return;
+    if (!enabledRef.current) return;
     if (key && spokenRef.current.has(key)) return;
     if (key) spokenRef.current.add(key);
 
@@ -40,7 +43,7 @@ export function useTTS() {
 
       window.speechSynthesis.speak(utterance);
     } catch {}
-  }, [enabled]);
+  }, []);
 
   const toggle = useCallback(() => {
     setEnabled(prev => {
