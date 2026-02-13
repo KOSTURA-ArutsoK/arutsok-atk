@@ -6,9 +6,9 @@ export function useTTS() {
   const [enabled, setEnabled] = useState(() => {
     try {
       const stored = localStorage.getItem(TTS_STORAGE_KEY);
-      return stored === null ? true : stored === "true";
+      return stored === null ? false : stored === "true";
     } catch {
-      return true;
+      return false;
     }
   });
 

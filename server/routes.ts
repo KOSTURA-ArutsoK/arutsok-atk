@@ -2579,6 +2579,174 @@ export async function registerRoutes(
     }
   });
 
+  // === SECTORS CRUD ===
+  app.get("/api/sectors", isAuthenticated, async (_req, res) => {
+    try {
+      const sectors = await storage.getSectors();
+      res.json(sectors);
+    } catch (err) {
+      console.error("Get sectors error:", err);
+      res.status(500).json({ message: "Internal error" });
+    }
+  });
+
+  app.post("/api/sectors", isAuthenticated, async (req: any, res) => {
+    try {
+      const created = await storage.createSector(req.body);
+      await logAudit(req, { action: "Vytvorenie", module: "Sektory", entityId: created.id, entityName: created.name, newData: req.body });
+      res.status(201).json(created);
+    } catch (err) {
+      console.error("Create sector error:", err);
+      res.status(500).json({ message: "Internal error" });
+    }
+  });
+
+  app.put("/api/sectors/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const id = Number(req.params.id);
+      const oldSector = await storage.getSector(id);
+      const updated = await storage.updateSector(id, req.body);
+      await logAudit(req, { action: "Uprava", module: "Sektory", entityId: id, entityName: updated.name, oldData: oldSector, newData: req.body });
+      res.json(updated);
+    } catch (err) {
+      console.error("Update sector error:", err);
+      res.status(500).json({ message: "Internal error" });
+    }
+  });
+
+  app.delete("/api/sectors/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const id = Number(req.params.id);
+      const oldSector = await storage.getSector(id);
+      await storage.deleteSector(id);
+      await logAudit(req, { action: "Vymazanie", module: "Sektory", entityId: id, entityName: oldSector?.name });
+      res.json({ success: true });
+    } catch (err) {
+      console.error("Delete sector error:", err);
+      res.status(500).json({ message: "Internal error" });
+    }
+  });
+
+  // === PARAMETERS CRUD ===
+  app.get("/api/parameters", isAuthenticated, async (_req, res) => {
+    try {
+      const parameters = await storage.getParameters();
+      res.json(parameters);
+    } catch (err) {
+      console.error("Get parameters error:", err);
+      res.status(500).json({ message: "Internal error" });
+    }
+  });
+
+  app.post("/api/parameters", isAuthenticated, async (req: any, res) => {
+    try {
+      const created = await storage.createParameter(req.body);
+      await logAudit(req, { action: "Vytvorenie", module: "Parametre", entityId: created.id, entityName: created.name, newData: req.body });
+      res.status(201).json(created);
+    } catch (err) {
+      console.error("Create parameter error:", err);
+      res.status(500).json({ message: "Internal error" });
+    }
+  });
+
+  app.put("/api/parameters/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const id = Number(req.params.id);
+      const oldParameter = await storage.getParameter(id);
+      const updated = await storage.updateParameter(id, req.body);
+      await logAudit(req, { action: "Uprava", module: "Parametre", entityId: id, entityName: updated.name, oldData: oldParameter, newData: req.body });
+      res.json(updated);
+    } catch (err) {
+      console.error("Update parameter error:", err);
+      res.status(500).json({ message: "Internal error" });
+    }
+  });
+
+  app.delete("/api/parameters/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const id = Number(req.params.id);
+      const oldParameter = await storage.getParameter(id);
+      await storage.deleteParameter(id);
+      await logAudit(req, { action: "Vymazanie", module: "Parametre", entityId: id, entityName: oldParameter?.name });
+      res.json({ success: true });
+    } catch (err) {
+      console.error("Delete parameter error:", err);
+      res.status(500).json({ message: "Internal error" });
+    }
+  });
+
+  // === SECTOR-PARAMETER ASSIGNMENTS ===
+  app.get("/api/sectors/:id/parameters", isAuthenticated, async (req, res) => {
+    try {
+      const id = Number(req.params.id);
+      const params = await storage.getSectorParameters(id);
+      res.json(params);
+    } catch (err) {
+      console.error("Get sector parameters error:", err);
+      res.status(500).json({ message: "Internal error" });
+    }
+  });
+
+  app.put("/api/sectors/:id/parameters", isAuthenticated, async (req: any, res) => {
+    try {
+      const id = Number(req.params.id);
+      await storage.setSectorParameters(id, req.body.parameterIds);
+      await logAudit(req, { action: "Uprava", module: "Sektory", entityId: id, entityName: "Priradenie parametrov" });
+      res.json({ success: true });
+    } catch (err) {
+      console.error("Set sector parameters error:", err);
+      res.status(500).json({ message: "Internal error" });
+    }
+  });
+
+  // === PRODUCT-SECTOR ASSIGNMENTS ===
+  app.get("/api/products/:id/sectors", isAuthenticated, async (req, res) => {
+    try {
+      const id = Number(req.params.id);
+      const sectorsList = await storage.getProductSectors(id);
+      res.json(sectorsList);
+    } catch (err) {
+      console.error("Get product sectors error:", err);
+      res.status(500).json({ message: "Internal error" });
+    }
+  });
+
+  app.put("/api/products/:id/sectors", isAuthenticated, async (req: any, res) => {
+    try {
+      const id = Number(req.params.id);
+      await storage.setProductSectors(id, req.body.sectorIds);
+      await logAudit(req, { action: "Uprava", module: "Produkty", entityId: id, entityName: "Priradenie sektorov" });
+      res.json({ success: true });
+    } catch (err) {
+      console.error("Set product sectors error:", err);
+      res.status(500).json({ message: "Internal error" });
+    }
+  });
+
+  // === PRODUCT-PARAMETER ASSIGNMENTS ===
+  app.get("/api/products/:id/parameters", isAuthenticated, async (req, res) => {
+    try {
+      const id = Number(req.params.id);
+      const params = await storage.getProductParameters(id);
+      res.json(params);
+    } catch (err) {
+      console.error("Get product parameters error:", err);
+      res.status(500).json({ message: "Internal error" });
+    }
+  });
+
+  app.put("/api/products/:id/parameters", isAuthenticated, async (req: any, res) => {
+    try {
+      const id = Number(req.params.id);
+      await storage.setProductParameters(id, req.body.parameters);
+      await logAudit(req, { action: "Uprava", module: "Produkty", entityId: id, entityName: "Priradenie parametrov" });
+      res.json({ success: true });
+    } catch (err) {
+      console.error("Set product parameters error:", err);
+      res.status(500).json({ message: "Internal error" });
+    }
+  });
+
   await seedDatabase();
   await storage.autoArchiveExpiredBindings();
   setInterval(() => storage.autoArchiveExpiredBindings(), 60 * 60 * 1000);

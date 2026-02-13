@@ -35,6 +35,7 @@ import ContractInventories from "@/pages/ContractInventories";
 import SupiskyPage from "@/pages/Supisky";
 import ClientGroups from "@/pages/ClientGroups";
 import PartnerContacts from "@/pages/PartnerContacts";
+import Sectors from "@/pages/Sectors";
 import { AppShell } from "@/components/layout/AppShell";
 
 function PrivateRoute({ component: Component, ...rest }: any) {
@@ -93,6 +94,7 @@ function Router() {
       <Route path="/supisky" component={() => <PrivateRoute component={SupiskyPage} />} />
       <Route path="/client-groups" component={() => <PrivateRoute component={ClientGroups} />} />
       <Route path="/partner-contacts" component={() => <PrivateRoute component={PartnerContacts} />} />
+      <Route path="/sectors" component={() => <PrivateRoute component={Sectors} />} />
 
       <Route component={NotFound} />
     </Switch>

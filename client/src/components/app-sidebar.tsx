@@ -34,6 +34,7 @@ import {
   ArrowDownLeft,
   ArrowUpRight,
   Coins,
+  Layers,
 } from "lucide-react";
 import {
   Sidebar,
@@ -61,7 +62,6 @@ import { Button } from "@/components/ui/button";
 
 const topItems = [
   { href: "/", icon: LayoutDashboard, label: "Prehlad" },
-  { href: "/companies", icon: Building2, label: "Spolocnosti" },
 ];
 
 const financieItems = [
@@ -204,20 +204,34 @@ export function AppSidebar() {
                   </SidebarMenuButton>
                 </SidebarMenuItem>
               ))}
+              <CollapsibleMenu
+                label="Nastavenia"
+                icon={Settings}
+                items={nastavenieItems}
+                location={location}
+                testId="nav-menu-nastavenia"
+              />
+              <SidebarMenuItem>
+                <SidebarMenuButton
+                  asChild
+                  isActive={location === "/sectors"}
+                  data-testid="nav-sektory"
+                >
+                  <Link href="/sectors">
+                    <Layers className="w-4 h-4" />
+                    <span>Sektory</span>
+                  </Link>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
 
+        <SidebarSeparator />
+
         <SidebarGroup>
           <SidebarGroupContent>
             <SidebarMenu>
-              <CollapsibleMenu
-                label="Financie"
-                icon={Coins}
-                items={financieItems}
-                location={location}
-                testId="nav-menu-financie"
-              />
               <CollapsibleMenu
                 label="Partneri a produkty"
                 icon={Briefcase}
@@ -240,11 +254,11 @@ export function AppSidebar() {
                 testId="nav-menu-zmluvy"
               />
               <CollapsibleMenu
-                label="Nastavenia"
-                icon={Settings}
-                items={nastavenieItems}
+                label="Financie"
+                icon={Coins}
+                items={financieItems}
                 location={location}
-                testId="nav-menu-nastavenia"
+                testId="nav-menu-financie"
               />
             </SidebarMenu>
           </SidebarGroupContent>

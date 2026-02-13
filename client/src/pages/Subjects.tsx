@@ -26,7 +26,12 @@ import {
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { insertSubjectSchema } from "@shared/schema";
-import type { Subject, ClientType, AuditLog } from "@shared/schema";
+import type { Subject, ClientType, ClientTypeField, ClientTypeSection, AuditLog } from "@shared/schema";
+import { Textarea } from "@/components/ui/textarea";
+import { Switch } from "@/components/ui/switch";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { HelpCircle } from "lucide-react";
 import { z } from "zod";
 import {
   Form, FormControl, FormField, FormItem, FormLabel, FormMessage,
@@ -458,6 +463,37 @@ function FullPageEditor({
   const clientType = clientTypes?.find(ct => ct.code === initialData.clientTypeCode);
   const isPerson = clientType?.baseParameter === "rc";
   const state = allStates?.find(s => s.id === initialData.stateId);
+  const [dynamicValues, setDynamicValues] = useState<Record<string, string>>({});
+
+  const { data: typeFields } = useQuery<ClientTypeField[]>({
+    queryKey: ["/api/client-types", clientType?.id, "fields"],
+    queryFn: async () => {
+      const res = await fetch(`/api/client-types/${clientType!.id}/fields`, { credentials: "include" });
+      if (!res.ok) throw new Error("Failed");
+      return res.json();
+    },
+    enabled: !!clientType?.id,
+  });
+
+  const { data: typeSections } = useQuery<ClientTypeSection[]>({
+    queryKey: ["/api/client-types", clientType?.id, "sections"],
+    queryFn: async () => {
+      const res = await fetch(`/api/client-types/${clientType!.id}/sections`, { credentials: "include" });
+      if (!res.ok) throw new Error("Failed");
+      return res.json();
+    },
+    enabled: !!clientType?.id,
+  });
+
+  function isFieldVisible(field: ClientTypeField): boolean {
+    if (!field.visibilityRule) return true;
+    const rule = field.visibilityRule as { dependsOn: string; value: string };
+    if (!rule.dependsOn || !rule.value) return true;
+    const depField = typeFields?.find(f => f.fieldKey === rule.dependsOn);
+    if (!depField) return true;
+    const depValue = dynamicValues[depField.fieldKey] || "";
+    return depValue === rule.value;
+  }
 
   const form = useForm<z.infer<typeof createSchema>>({
     resolver: zodResolver(createSchema),
@@ -503,7 +539,11 @@ function FullPageEditor({
 
   function onSubmit(data: z.infer<typeof createSchema>) {
     const processingTimeSec = Math.round((performance.now() - timerRef.current) / 1000);
-    mutate({ ...data, processingTimeSec }, {
+    const existingDetails = data.details || {};
+    const mergedDetails = Object.keys(dynamicValues).length > 0
+      ? { ...existingDetails, dynamicFields: dynamicValues }
+      : existingDetails;
+    mutate({ ...data, details: mergedDetails, processingTimeSec }, {
       onSuccess: () => { onCancel(); },
     });
   }
@@ -643,6 +683,118 @@ function FullPageEditor({
                 <div>
                   <Label className="text-xs text-muted-foreground">ICO</Label>
                   <Input value={initialData.baseValue} disabled className="mt-1" data-testid="input-ico-locked" />
+                </div>
+              )}
+
+              {typeFields && typeFields.length > 0 && (
+                <div className="space-y-4 pt-2">
+                  <Separator />
+                  <h3 className="text-sm font-semibold text-muted-foreground">Doplnkove udaje ({clientType?.name})</h3>
+                  {(typeSections || [{ id: 0, name: "Vseobecne", sortOrder: 0 }] as any[]).map((section: any) => {
+                    const sectionFields = typeFields
+                      .filter(f => (f.sectionId || 0) === (section.id || 0))
+                      .filter(f => isFieldVisible(f))
+                      .sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0));
+                    if (sectionFields.length === 0) return null;
+                    return (
+                      <div key={section.id} className="space-y-3">
+                        {(typeSections || []).length > 1 && (
+                          <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">{section.name}</p>
+                        )}
+                        <div className="grid grid-cols-2 gap-3">
+                          {sectionFields.map((field: ClientTypeField) => (
+                            <div key={field.id} className="space-y-1">
+                              <div className="flex items-center gap-1">
+                                <Label className="text-xs">{field.label || field.fieldKey}{field.isRequired ? " *" : ""}</Label>
+                              </div>
+                              {field.fieldType === "long_text" ? (
+                                <Textarea
+                                  value={dynamicValues[field.fieldKey] || ""}
+                                  onChange={e => setDynamicValues(prev => ({ ...prev, [field.fieldKey]: e.target.value }))}
+                                  rows={2}
+                                  data-testid={`input-dynamic-${field.fieldKey}`}
+                                />
+                              ) : field.fieldType === "combobox" ? (
+                                <Select
+                                  value={dynamicValues[field.fieldKey] || ""}
+                                  onValueChange={val => setDynamicValues(prev => ({ ...prev, [field.fieldKey]: val }))}
+                                >
+                                  <SelectTrigger data-testid={`select-dynamic-${field.fieldKey}`}>
+                                    <SelectValue placeholder="Vyberte..." />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    {(field.options || []).map((opt: string) => (
+                                      <SelectItem key={opt} value={opt}>{opt}</SelectItem>
+                                    ))}
+                                  </SelectContent>
+                                </Select>
+                              ) : field.fieldType === "switch" ? (
+                                <div className="flex items-center gap-2 pt-1">
+                                  <Switch
+                                    checked={dynamicValues[field.fieldKey] === "true"}
+                                    onCheckedChange={checked => setDynamicValues(prev => ({ ...prev, [field.fieldKey]: String(checked) }))}
+                                    data-testid={`switch-dynamic-${field.fieldKey}`}
+                                  />
+                                  <span className="text-xs text-muted-foreground">{dynamicValues[field.fieldKey] === "true" ? "Ano" : "Nie"}</span>
+                                </div>
+                              ) : field.fieldType === "checkbox" ? (
+                                <div className="flex items-center gap-2 pt-1">
+                                  <Checkbox
+                                    checked={dynamicValues[field.fieldKey] === "true"}
+                                    onCheckedChange={checked => setDynamicValues(prev => ({ ...prev, [field.fieldKey]: String(!!checked) }))}
+                                    data-testid={`checkbox-dynamic-${field.fieldKey}`}
+                                  />
+                                  <span className="text-xs text-muted-foreground">{dynamicValues[field.fieldKey] === "true" ? "Ano" : "Nie"}</span>
+                                </div>
+                              ) : field.fieldType === "date" ? (
+                                <Input
+                                  type="date"
+                                  value={dynamicValues[field.fieldKey] || ""}
+                                  onChange={e => setDynamicValues(prev => ({ ...prev, [field.fieldKey]: e.target.value }))}
+                                  data-testid={`input-dynamic-${field.fieldKey}`}
+                                />
+                              ) : field.fieldType === "number" ? (
+                                <Input
+                                  type="number"
+                                  value={dynamicValues[field.fieldKey] || ""}
+                                  onChange={e => setDynamicValues(prev => ({ ...prev, [field.fieldKey]: e.target.value }))}
+                                  data-testid={`input-dynamic-${field.fieldKey}`}
+                                />
+                              ) : field.fieldType === "email" ? (
+                                <Input
+                                  type="email"
+                                  value={dynamicValues[field.fieldKey] || ""}
+                                  onChange={e => setDynamicValues(prev => ({ ...prev, [field.fieldKey]: e.target.value }))}
+                                  data-testid={`input-dynamic-${field.fieldKey}`}
+                                />
+                              ) : field.fieldType === "phone" ? (
+                                <Input
+                                  type="tel"
+                                  value={dynamicValues[field.fieldKey] || ""}
+                                  onChange={e => setDynamicValues(prev => ({ ...prev, [field.fieldKey]: e.target.value }))}
+                                  data-testid={`input-dynamic-${field.fieldKey}`}
+                                />
+                              ) : field.fieldType === "iban" ? (
+                                <Input
+                                  value={dynamicValues[field.fieldKey] || ""}
+                                  onChange={e => setDynamicValues(prev => ({ ...prev, [field.fieldKey]: e.target.value.toUpperCase() }))}
+                                  placeholder="SK00 0000 0000 0000 0000 0000"
+                                  className="font-mono"
+                                  data-testid={`input-dynamic-${field.fieldKey}`}
+                                />
+                              ) : (
+                                <Input
+                                  value={dynamicValues[field.fieldKey] || ""}
+                                  onChange={e => setDynamicValues(prev => ({ ...prev, [field.fieldKey]: e.target.value }))}
+                                  data-testid={`input-dynamic-${field.fieldKey}`}
+                                />
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
               )}
 

@@ -48,6 +48,10 @@ import {
   supisky, supiskaContracts,
   type Supiska, type InsertSupiska,
   type SupiskaContract, type InsertSupiskaContract,
+  sectors, parameters, sectorParameters, productSectors, productParameters,
+  type Sector, type InsertSector,
+  type Parameter, type InsertParameter,
+  type SectorParameter, type ProductSector, type ProductParameter,
 } from "@shared/schema";
 import { eq, and, or, ne, like, sql, lte, gte, desc } from "drizzle-orm";
 
@@ -269,6 +273,32 @@ export interface IStorage {
   getProvizieData(stateId?: number): Promise<any[]>;
   // Odmeny data (outgoing to agents)
   getOdmenyData(stateId?: number): Promise<any[]>;
+
+  // Sectors
+  getSectors(): Promise<Sector[]>;
+  getSector(id: number): Promise<Sector | undefined>;
+  createSector(data: InsertSector): Promise<Sector>;
+  updateSector(id: number, data: Partial<InsertSector>): Promise<Sector>;
+  deleteSector(id: number): Promise<void>;
+
+  // Parameters
+  getParameters(): Promise<Parameter[]>;
+  getParameter(id: number): Promise<Parameter | undefined>;
+  createParameter(data: InsertParameter): Promise<Parameter>;
+  updateParameter(id: number, data: Partial<InsertParameter>): Promise<Parameter>;
+  deleteParameter(id: number): Promise<void>;
+
+  // Sector-Parameter assignments
+  getSectorParameters(sectorId: number): Promise<SectorParameter[]>;
+  setSectorParameters(sectorId: number, parameterIds: number[]): Promise<void>;
+
+  // Product-Sector assignments
+  getProductSectors(productId: number): Promise<ProductSector[]>;
+  setProductSectors(productId: number, sectorIds: number[]): Promise<void>;
+
+  // Product-Parameter assignments
+  getProductParameters(productId: number): Promise<ProductParameter[]>;
+  setProductParameters(productId: number, params: { parameterId: number; overrideRequired?: boolean; overrideHelpText?: string }[]): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -1647,6 +1677,103 @@ export class DatabaseStorage implements IStorage {
       ORDER BY ccl.created_at DESC
     `);
     return result.rows as any[];
+  }
+  // === Sectors CRUD ===
+  async getSectors(): Promise<Sector[]> {
+    return await db.select().from(sectors).orderBy(sectors.sortOrder);
+  }
+
+  async getSector(id: number): Promise<Sector | undefined> {
+    const [sector] = await db.select().from(sectors).where(eq(sectors.id, id));
+    return sector;
+  }
+
+  async createSector(data: InsertSector): Promise<Sector> {
+    const [sector] = await db.insert(sectors).values(data).returning();
+    return sector;
+  }
+
+  async updateSector(id: number, data: Partial<InsertSector>): Promise<Sector> {
+    const [sector] = await db.update(sectors).set(data).where(eq(sectors.id, id)).returning();
+    return sector;
+  }
+
+  async deleteSector(id: number): Promise<void> {
+    await db.delete(sectorParameters).where(eq(sectorParameters.sectorId, id));
+    await db.delete(sectors).where(eq(sectors.id, id));
+  }
+
+  // === Parameters CRUD ===
+  async getParameters(): Promise<Parameter[]> {
+    return await db.select().from(parameters).orderBy(parameters.sortOrder);
+  }
+
+  async getParameter(id: number): Promise<Parameter | undefined> {
+    const [parameter] = await db.select().from(parameters).where(eq(parameters.id, id));
+    return parameter;
+  }
+
+  async createParameter(data: InsertParameter): Promise<Parameter> {
+    const [parameter] = await db.insert(parameters).values(data).returning();
+    return parameter;
+  }
+
+  async updateParameter(id: number, data: Partial<InsertParameter>): Promise<Parameter> {
+    const [parameter] = await db.update(parameters).set(data).where(eq(parameters.id, id)).returning();
+    return parameter;
+  }
+
+  async deleteParameter(id: number): Promise<void> {
+    await db.delete(sectorParameters).where(eq(sectorParameters.parameterId, id));
+    await db.delete(productParameters).where(eq(productParameters.parameterId, id));
+    await db.delete(parameters).where(eq(parameters.id, id));
+  }
+
+  // === Sector-Parameter assignments ===
+  async getSectorParameters(sectorId: number): Promise<SectorParameter[]> {
+    return await db.select().from(sectorParameters).where(eq(sectorParameters.sectorId, sectorId));
+  }
+
+  async setSectorParameters(sectorId: number, parameterIds: number[]): Promise<void> {
+    await db.delete(sectorParameters).where(eq(sectorParameters.sectorId, sectorId));
+    if (parameterIds.length > 0) {
+      await db.insert(sectorParameters).values(
+        parameterIds.map(parameterId => ({ sectorId, parameterId }))
+      );
+    }
+  }
+
+  // === Product-Sector assignments ===
+  async getProductSectors(productId: number): Promise<ProductSector[]> {
+    return await db.select().from(productSectors).where(eq(productSectors.productId, productId));
+  }
+
+  async setProductSectors(productId: number, sectorIds: number[]): Promise<void> {
+    await db.delete(productSectors).where(eq(productSectors.productId, productId));
+    if (sectorIds.length > 0) {
+      await db.insert(productSectors).values(
+        sectorIds.map(sectorId => ({ productId, sectorId }))
+      );
+    }
+  }
+
+  // === Product-Parameter assignments ===
+  async getProductParameters(productId: number): Promise<ProductParameter[]> {
+    return await db.select().from(productParameters).where(eq(productParameters.productId, productId));
+  }
+
+  async setProductParameters(productId: number, params: { parameterId: number; overrideRequired?: boolean; overrideHelpText?: string }[]): Promise<void> {
+    await db.delete(productParameters).where(eq(productParameters.productId, productId));
+    if (params.length > 0) {
+      await db.insert(productParameters).values(
+        params.map(p => ({
+          productId,
+          parameterId: p.parameterId,
+          overrideRequired: p.overrideRequired,
+          overrideHelpText: p.overrideHelpText,
+        }))
+      );
+    }
   }
 }
 

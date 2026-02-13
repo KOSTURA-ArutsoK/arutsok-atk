@@ -5,8 +5,10 @@ import { usePartners, usePartnerContracts } from "@/hooks/use-partners";
 import { useMyCompanies } from "@/hooks/use-companies";
 import { useStates } from "@/hooks/use-hierarchy";
 import { useToast } from "@/hooks/use-toast";
-import type { Product, CommissionScheme, Partner, MyCompany } from "@shared/schema";
-import { Plus, Pencil, Trash2, Eye, Package, Loader2 } from "lucide-react";
+import type { Product, CommissionScheme, Partner, MyCompany, Parameter, ProductParameter } from "@shared/schema";
+import { Plus, Pencil, Trash2, Eye, Package, Loader2, HelpCircle } from "lucide-react";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { Switch } from "@/components/ui/switch";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -93,6 +95,25 @@ function ProductFormDialog({
   const [description, setDescription] = useState("");
   const [allowedSpecialists, setAllowedSpecialists] = useState<string[]>([]);
   const [notesHtml, setNotesHtml] = useState("");
+  const [paramValues, setParamValues] = useState<Record<number, string>>({});
+
+  const { data: allParameters } = useQuery<Parameter[]>({
+    queryKey: ["/api/parameters"],
+  });
+  const { data: productParams } = useQuery<ProductParameter[]>({
+    queryKey: ["/api/products", editingProduct?.id, "parameters"],
+    queryFn: async () => {
+      const res = await fetch(`/api/products/${editingProduct!.id}/parameters`, { credentials: "include" });
+      if (!res.ok) throw new Error("Failed");
+      return res.json();
+    },
+    enabled: !!editingProduct?.id,
+  });
+
+  const assignedParams = (productParams || []).map(pp => {
+    const param = allParameters?.find(p => p.id === pp.parameterId);
+    return param ? { ...param, overrideRequired: pp.overrideRequired, overrideHelpText: pp.overrideHelpText } : null;
+  }).filter(Boolean) as (Parameter & { overrideRequired?: boolean | null; overrideHelpText?: string | null })[];
 
   const { data: contracts } = usePartnerContracts(partnerId ? parseInt(partnerId) : null);
 
@@ -166,6 +187,7 @@ function ProductFormDialog({
       allowedSpecialists,
       notes: notesHtml,
       processingTimeSec,
+      dynamicParams: Object.keys(paramValues).length > 0 ? paramValues : undefined,
     };
 
     if (editingProduct) {
@@ -265,6 +287,88 @@ function ProductFormDialog({
               ))}
             </div>
           </div>
+
+          {assignedParams.length > 0 && (
+            <div className="space-y-3">
+              <label className="text-sm font-medium">Dynamicke parametre</label>
+              <div className="grid grid-cols-2 gap-3">
+                {assignedParams.map(param => {
+                  const helpText = param.overrideHelpText || param.helpText;
+                  const isReq = param.overrideRequired ?? param.isRequired;
+                  return (
+                    <div key={param.id} className="space-y-1">
+                      <div className="flex items-center gap-1.5">
+                        <label className="text-sm font-medium">
+                          {param.name}{isReq ? " *" : ""}
+                        </label>
+                        {helpText && (
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <HelpCircle className="w-3.5 h-3.5 text-muted-foreground cursor-help" />
+                            </TooltipTrigger>
+                            <TooltipContent side="top" data-testid={`tooltip-param-${param.id}`}>
+                              <p className="text-xs">{helpText}</p>
+                            </TooltipContent>
+                          </Tooltip>
+                        )}
+                      </div>
+                      {param.paramType === "textarea" ? (
+                        <Textarea
+                          value={paramValues[param.id] || ""}
+                          onChange={e => setParamValues(prev => ({ ...prev, [param.id]: e.target.value }))}
+                          rows={2}
+                          data-testid={`input-param-${param.id}`}
+                        />
+                      ) : param.paramType === "combobox" ? (
+                        <Select
+                          value={paramValues[param.id] || ""}
+                          onValueChange={val => setParamValues(prev => ({ ...prev, [param.id]: val }))}
+                        >
+                          <SelectTrigger data-testid={`select-param-${param.id}`}>
+                            <SelectValue placeholder="Vyberte..." />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {(param.options || []).map(opt => (
+                              <SelectItem key={opt} value={opt}>{opt}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      ) : param.paramType === "boolean" ? (
+                        <div className="flex items-center gap-2 pt-1">
+                          <Switch
+                            checked={paramValues[param.id] === "true"}
+                            onCheckedChange={checked => setParamValues(prev => ({ ...prev, [param.id]: String(checked) }))}
+                            data-testid={`switch-param-${param.id}`}
+                          />
+                          <span className="text-sm text-muted-foreground">{paramValues[param.id] === "true" ? "Ano" : "Nie"}</span>
+                        </div>
+                      ) : param.paramType === "date" ? (
+                        <Input
+                          type="date"
+                          value={paramValues[param.id] || ""}
+                          onChange={e => setParamValues(prev => ({ ...prev, [param.id]: e.target.value }))}
+                          data-testid={`input-param-${param.id}`}
+                        />
+                      ) : param.paramType === "number" ? (
+                        <Input
+                          type="number"
+                          value={paramValues[param.id] || ""}
+                          onChange={e => setParamValues(prev => ({ ...prev, [param.id]: e.target.value }))}
+                          data-testid={`input-param-${param.id}`}
+                        />
+                      ) : (
+                        <Input
+                          value={paramValues[param.id] || ""}
+                          onChange={e => setParamValues(prev => ({ ...prev, [param.id]: e.target.value }))}
+                          data-testid={`input-param-${param.id}`}
+                        />
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
 
           <div className="space-y-2">
             <label className="text-sm font-medium">Poznamky</label>

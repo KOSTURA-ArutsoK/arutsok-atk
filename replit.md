@@ -1,7 +1,7 @@
 # ArutsoK
 
 ## Overview
-ArutsoK is a multi-tenant Customer Relationship Management and commission tracking system designed for industries such as financial services, real estate, and defense/weapons trade. It aims to provide robust client management, partner relationship tracking, and detailed commission calculations with a strong focus on data integrity, auditability, and temporal validity. The project's vision is to be a comprehensive and secure platform for managing complex business relationships and financial transactions.
+ArutsoK is a multi-tenant CRM and commission tracking system for industries like financial services and real estate. It provides robust client and partner management, detailed commission calculations, and emphasizes data integrity, auditability, and temporal validity. The project aims to be a comprehensive and secure platform for managing complex business relationships and financial transactions.
 
 ## User Preferences
 - Dark mode default with military/security aesthetic
@@ -9,85 +9,70 @@ ArutsoK is a multi-tenant Customer Relationship Management and commission tracki
 - Sharp borders, small border radius
 
 ## System Architecture
-The system is built on a modern full-stack architecture:
-- **Frontend**: React with Vite, styled using Tailwind CSS and `shadcn/ui` components for a consistent UI. `wouter` is used for client-side routing.
-- **Backend**: Express.js handles API requests, serving both frontend assets and API endpoints.
-- **Database**: PostgreSQL with Drizzle ORM for type-safe database interactions, hosted on Neon.
-- **Authentication**: Replit OIDC Auth integration, maintaining separate user tables for authentication (`users`) and application-specific roles/permissions (`app_users`).
-- **Deployment**: Frontend and Backend are served together on port 5000.
-- **Data Integrity**: A core principle is "no overwriting"; all updates archive original records, creating an immutable history.
-- **Unique Identifiers**: A 12-digit UID (`01-CC-SSS-NNN NNN NNN NNN`) is generated atomically using a `global_counters` table.
-- **Soft Deletion**: Entities like Companies and Partners are soft-deleted using an `isDeleted` flag, accompanied by an audit trail (deletedBy, deletedAt, deletedFromIp).
-- **Rich Text Editing**: Tiptap editor is integrated for rich text notes, storing content as HTML.
-- **Document Management**: A dual document system (official and work documents) allows file uploads to local storage (`uploads/`) with metadata stored in the database. Logo management includes primary/archived states.
-- **Context Switching**: The application supports switching between active states (e.g., geographic regions) and companies, persisted per `app_user`.
-- **Temporal Validity**: Many tables (`companyOfficers`, `partnerContacts`, `companyContacts`, `commission_schemes`) incorporate `validFrom`, `validTo`, and `isActive` fields for managing time-sensitive data. An hourly cron job automatically archives expired bindings.
-- **Audit Logging**: A comprehensive audit log (`audit_logs` table) tracks user actions, module, entity, data changes, processing time, and IP address for all mutating routes.
-- **Role-Based Access Control (RBAC)**: A granular RBAC system uses `permission_groups` and a `permissions` matrix (module x action) to control access to different parts of the application.
-- **Processing Time Protocol**: Tracks form editing duration (`processingTimeSec`) for all create/edit forms, displayed as HH:MM:SS format ("Cas spracovania").
-- **Global Click Logging**: Every button click is captured and logged to `audit_logs` via `/api/click-log` endpoint with 500ms throttle. Visible in History as "Kliknutie" action type.
-- **Idle Timeout Security**: Two-phase idle timeout system. Warning overlay with blur effect, audio beep, and 60s countdown at 120s of inactivity. Full auto-logout at 180s. Dismiss button resets timers. Tracks mousemove/keydown/mousedown/touchstart/scroll events with 1s interval. Visual countdown timer in header bar (green->red at 10s before warning). 3 beeps during final 10 seconds. Centered timer display during blur overlay.
-- **Modal Scroll Lock**: CSS prevents background scrolling when dialogs are open via `body[data-scroll-locked]` targeting.
-- **Archive Module**: Dedicated `/archive` page showing all soft-deleted companies, partners, products, and contracts in tabbed view. Restore operations are password-protected (server-side validation via `ARCHIVE_RESTORE_PASSWORD` env var) and restricted to admin/superadmin roles.
-- **Contracts Module**: Full contracts management with 4 sub-modules: Contract Statuses (`/contract-statuses`) with color coding and drag&drop reorder, Contract Templates (`/contract-template-management`) with file upload support, Contract Inventories (`/contract-inventories`) with drag&drop reorder and open/closed states, and main Contracts page (`/contracts`) linking subjects, partners, products, statuses, templates, and inventories. Processing time tracking on contract forms.
-- **Regional Data Isolation**: Server-side `getEnforcedStateId()` helper enforces `activeStateId` filtering on all contract module endpoints. Non-superadmin users can only access data within their active state. Cross-state entity linking blocked on contract creation. State validation on contract get/update/delete with superadmin bypass.
-- **Drag & Drop Reordering**: @dnd-kit library (`@dnd-kit/core`, `@dnd-kit/sortable`, `@dnd-kit/utilities`) with reusable `SortableTableRow` and `SortableContext_Wrapper` components in `sortable-list.tsx`. Used in contract statuses, contract inventories, client types, client groups (main + sub-groups), and client type rules (fields + sections). Reorder endpoints: `PUT /api/contract-statuses/reorder`, `PUT /api/contract-inventories/reorder`, `PUT /api/client-types/reorder`, `PUT /api/client-types/:typeId/fields/reorder`, `PUT /api/client-types/:typeId/sections/reorder`.
-- **Dialog Sizing**: All application dialogs use fixed 800x600px dimensions (`sm:max-w-[800px] h-[600px] overflow-y-auto`).
-- **Click Log Format**: Click events logged in Slovak format: `Kliknutie na tlacidlo [X] v module [Y]`.
-- **Processing Save Button**: Formerly WameSaveButton, renamed to `ProcessingSaveButton` in `processing-save-button.tsx`.
-- **Client Registration**: Multi-step registration flow (`/register`) for clients linked to companies. Identity verification via partial rodne cislo (random 4 digits: 2 from first 6, 2 from last 4 for 10-digit / 1 from last 3 for 9-digit). MFA via SMS + email codes (simulated). Fallback to full birth number + ID card number. Public routes under `/api/public/register/*`. Challenge state stored server-side with 10-minute expiry.
-- **System Settings**: `system_settings` table (key-value store). Support phone number configurable in Settings page (admin-only). Used in registration error messages.
-- **Client Zone**: Post-registration welcome screen with data review. Entry to `/client-zone` personal area.
-- **Category Timeouts**: `category_timeouts` table stores per-client-category logout durations in seconds. Admin-managed via Settings page. Default categories: Standardny (180s), VIP klient (300s), Bezpecnostny (120s).
-- **Dashboard Preferences**: `dashboard_preferences` table stores per-user widget visibility (widgetKey + enabled flag). Users can toggle widgets in Settings > "Nastavenie prehladov". Dashboard dynamically renders only enabled widgets.
-- **Status Indicators**: 5-color status dots for Subjects (gray=Vymazany, red=Neaktivny, blue=KIK, emerald=Overeny, amber=Aktivny). Active items consistently shown in Green, Inactive/Archived in Red across other modules (Partners contacts, Dashboard, Commissions).
-- **Dynamic Client Type System**: `client_types`, `client_type_sections`, `client_type_fields` tables define per-type form structures. Base parameter determines RC vs ICO. Fields support 11 types (short_text, long_text, combobox, checkbox, switch, phone, email, number, file, date, iban). Conditional visibility via `visibilityRule` (dependsOn/value). Managed at `/client-type-rules`.
-- **Smart Subject Registration**: 2-step flow: initial modal (client type + RC/ICO, state auto-assigned from activeStateId) with duplicate check → full-page editor. Type is locked after initial selection. Duplicate check endpoint at `/api/subjects/check-duplicate`.
-- **Bulk Client Assignment**: Checkbox selection in Subjects table with "Priradit do skupiny" bulk action. POST `/api/client-groups/:groupId/bulk-assign` with duplicate-skipping logic.
-- **Subject Finance Tab**: SubjectDetailDialog includes Financie tab with KIK ID, IBAN, SWIFT/BIC, commission level fields. PUT `/api/subjects/:id/finance` endpoint.
-- **Branding**: Sidebar shows "Secure Platform" (not "CRM System"). Archive renamed to "Kos" throughout.
-- **Collapsible Sidebar**: Five collapsible menu groups: Financie (Provizie, Odmeny, Sadzby), Klienti (Zoznam klientov, Pravidla typov klientov, Skupiny klientov), Partneri a produkty (Zoznam partnerov, Katalog produktov, Kontaktne osoby), Zmluvy (Zmluvy, Nastavenia sablon, Sprava sablon, Stavy zmluv, Zoznam supisiek), Nastavenia (Kos, Logy, Pouzivatelia, Pravomoci skupiny, Podpora a registracia, Doba prihlasenia, Nastavenie prehladov). Uses Collapsible + SidebarMenuSub components.
-- **Client Groups**: `client_groups`, `client_sub_groups`, `client_group_members` tables. 3-tab dialog: Vseobecne (name, allowLogin, allowCalculators), Podskupiny (sub-groups with drag&drop), Zoznam klientov (member search & assignment). Drag&drop reorder on main list. State-filtered via `getEnforcedStateId()`. Login blocking enforced in registration flow (`/api/public/register/initiate`).
-- **Partner Contacts Overview**: `/partner-contacts` page aggregates contacts across all active partners with search and active/inactive filtering.
-- **Enhanced Kôš Security**: Restore modal is 800x600px with admin password verification. Audit log records authorizedByAdminId, authorizedByUsername, authorizedByRole for every restore operation.
-- **Subject-Specific History**: História tab on subject detail dialog shows entity-specific audit logs filtered by entityId + module. Displays T_idle (processing time) per entry.
-- **Voice Assistance (TTS)**: Web Speech API with sk-SK language. Welcome message on login ("Vitaj, [Meno]. Prajem ti uspesny pracovny den."). Security warning at 10s before auto-logout ("System bude o chvilu uzamknuty. Prosim, ulozte si pracu."). Speaker icon (Volume2/VolumeX) in top bar with localStorage persistence via `arutsok_tts_enabled` key.
-- **Doba prihlasenia**: Settings section renamed from "Timeout nastavenia" to "Doba prihlasenia".
+The system employs a modern full-stack architecture with a focus on data integrity, security, and audibility.
+
+**Core Technologies:**
+- **Frontend**: React with Vite, Tailwind CSS, `shadcn/ui` for UI, `wouter` for routing.
+- **Backend**: Express.js.
+- **Database**: PostgreSQL (Neon) with Drizzle ORM.
+- **Authentication**: Replit OIDC Auth with separate `users` (auth) and `app_users` (application-specific roles) tables.
+
+**Key Architectural Decisions & Features:**
+- **Deployment**: Frontend and Backend served together on port 5000.
+- **Data Integrity & Auditability**:
+    - **No Overwriting**: All updates archive original records, creating an immutable history.
+    - **Soft Deletion**: Entities are soft-deleted with an `isDeleted` flag and audit trail.
+    - **Audit Logging**: Comprehensive `audit_logs` track user actions, data changes, and processing times for all mutating routes.
+    - **Global Click Logging**: All button clicks are logged to `audit_logs` via a throttled endpoint.
+    - **Subject-Specific History**: Audit logs are viewable per entity.
+- **Unique Identifiers**: Atomic 12-digit UIDs generated via a `global_counters` table.
+- **Temporal Validity**: Many tables include `validFrom`, `validTo`, and `isActive` fields; an hourly cron job archives expired bindings.
+- **Role-Based Access Control (RBAC)**: Granular permissions system using `permission_groups` and a permissions matrix.
+- **UI/UX & Interaction**:
+    - **Dark Mode**: Default with military/security aesthetic.
+    - **Slovak Language**: Default language for the application.
+    - **Design**: Sharp borders, small border radius, fixed 800x600px dialogs.
+    - **Context Switching**: Supports switching active states (e.g., geographic regions) and companies per `app_user`.
+    - **Rich Text Editing**: Tiptap editor for notes.
+    - **Document Management**: Dual document system (official/work) with file uploads to local storage and database metadata.
+    - **Drag & Drop Reordering**: Uses `@dnd-kit` for reordering elements in various modules (contract statuses, client types, etc.).
+    - **Status Indicators**: 5-color status dots for Subjects and consistent green/red for active/inactive items.
+    - **Voice Assistance (TTS)**: Web Speech API for notifications and welcome messages, with user-controlled muting.
+- **Security & Workflow**:
+    - **Idle Timeout Security**: Two-phase system with warning, audio cues, and auto-logout.
+    - **Modal Scroll Lock**: Prevents background scrolling when dialogs are open.
+    - **Archive Module**: Dedicated `/archive` page for soft-deleted entities with password-protected restore functionality (admin/superadmin only).
+    - **Processing Time Protocol**: Tracks form editing duration (`processingTimeSec`) for all create/edit forms.
+- **Module-Specific Features**:
+    - **Contracts Module**: Manages contract statuses, templates, inventories, and main contracts. Includes regional data isolation based on `activeStateId`.
+    - **Client Registration**: Multi-step flow with identity verification, simulated MFA, and public API endpoints.
+    - **Client Zone**: Post-registration area for data review.
+    - **Dynamic Client Type System**: Defines per-type form structures with conditional field visibility and 11 field types.
+    - **Smart Subject Registration**: Two-step flow with duplicate checks and initial type selection.
+    - **Bulk Client Assignment**: Feature for assigning multiple clients to groups.
+    - **Client Groups**: Manages client groups and sub-groups with login blocking capabilities.
+    - **Commission Brain & Calculation Engine**:
+        - Manages `commission_rates` (partner+product rate matrix) with temporal validity.
+        - `commission_calculation_logs` for audit trail of calculations.
+        - Supports base and differential commission calculations based on agent hierarchy.
+        - Dedicated pages for managing rates, incoming commissions (`Provizie`), and outgoing payments (`Odmeny`).
+    - **Settlement Sheets (Supisky) Module**:
+        - Manages `supisky` and `supiska_contracts`.
+        - Implements contract locking mechanism during settlement sheet processing.
+        - Status workflow (Nova → Pripravena → Odoslana) with auto-locking/unlocking of contracts.
+        - Export functionality to Excel/CSV.
+    - **Dynamic Parameter System**: `sectors`, `parameters`, `sector_parameters`, `product_sectors`, `product_parameters` tables for dynamic product parameterization.
+    - **System Settings**: Key-value store for application configurations (e.g., support phone number, category timeouts, dashboard preferences).
 
 ## External Dependencies
-- **Replit OIDC Auth**: Used for user authentication and session management.
-- **PostgreSQL (Neon)**: The primary relational database.
-- **Drizzle ORM**: Used for database interactions.
+- **Replit OIDC Auth**: For user authentication.
+- **PostgreSQL (Neon)**: Primary database.
+- **Drizzle ORM**: Database interactions.
 - **Vite**: Frontend build tool.
-- **Express.js**: Backend web framework.
-- **Tailwind CSS**: Utility-first CSS framework.
-- **shadcn/ui**: UI component library.
-- **wouter**: Client-side routing library.
+- **Express.js**: Backend framework.
+- **Tailwind CSS**: Styling.
+- **shadcn/ui**: UI components.
+- **wouter**: Client-side routing.
 - **Tiptap**: Rich text editor.
-- **Multer**: Node.js middleware for handling multipart/form-data, primarily used for file uploads.
-- **ExcelJS**: Spreadsheet generation for settlement sheet exports.
-
-## Recent Changes
-- **2026-02-12 - Block xxx0011: Commission Brain & Calculation Engine**
-  - Added `commission_rates` table for partner+product rate matrix (Sadzby) with rateType (percent/fixed), rateValue, pointsFactor, currency, temporal validity.
-  - Added `commission_calculation_logs` table for full audit trail of calculations with actorId, actorUsername, inputSnapshot, processingTimeSec.
-  - Added `commissionLevel` (1-10) and `managerId` fields to `app_users` for agent hierarchy.
-  - Commission calculation engine: baseCommission = premium * rateValue (percent) or rateValue (fixed); differentialCommission = baseCommission * (managerLevel - agentLevel) * 0.1.
-  - Sadzby page (`/commissions`): Commission rates matrix CRUD with Partner+Product mapping, filters by partner/type/status, processing time tracking on forms.
-  - Provizie page (`/provizie`): Incoming commissions from partners, green emerald accent, search/filter by partner, Intelligent Help with 2s delay.
-  - Odmeny page (`/odmeny`): Outgoing payments to agents, orange/red accent for differential, search/filter by agent, Intelligent Help with 2s delay.
-  - Sidebar updated: New "Financie" collapsible menu group with Provizie, Odmeny, Sadzby items (replaces old top-level Provizie link).
-  - API endpoints: GET/POST/PUT/DELETE `/api/commission-rates`, GET `/api/provizie`, GET `/api/odmeny`, POST `/api/commission-calculate`, GET `/api/commission-calculation-logs`.
-  - All mutations audit-logged with actor_id and processing time.
-
-- **2026-02-12 - Block xxx0008: Supisky (Settlement Sheets) Module**
-  - Added `supisky` and `supiska_contracts` tables for settlement sheet management.
-  - Added contract locking fields (`isLocked`, `lockedBy`, `lockedAt`, `lockedBySupiskaId`) to `contracts` table.
-  - Settlement sheets generate unique SUP-YYYY-NNNN IDs.
-  - Status workflow: Nova → Pripravena → Odoslana. Setting "Odoslana" auto-locks all linked contracts; reverting unlocks them.
-  - Only "Podpísaná" (signed) and unlocked contracts are eligible for settlement sheets.
-  - Non-admin users cannot edit locked contracts (server-side enforced in PUT /api/contracts/:id).
-  - Lock icon indicator shown in Contracts table for locked contracts.
-  - Export routes: `/api/supisky/:id/export/excel` (XLSX) and `/api/supisky/:id/export/csv` (CSV) with columns: KIK ID, Meno klienta, Partner, Produkt, Cislo zmluvy, Suma poistneho, Datum podpisu.
-  - Supisky page at `/supisky` with list view, create/edit dialog, detail dialog with contract management.
-  - Sidebar item added under Zmluvy group.
+- **Multer**: File uploads.
+- **ExcelJS**: Spreadsheet generation.

@@ -9,7 +9,7 @@ interface TTSContextType {
 }
 
 const TTSContext = createContext<TTSContextType>({
-  enabled: true,
+  enabled: false,
   toggle: () => {},
   speak: () => {},
   resetSpoken: () => {},
