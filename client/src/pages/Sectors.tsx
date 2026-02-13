@@ -2,14 +2,16 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
-import type { Sector, Parameter, SectorParameter } from "@shared/schema";
-import { Plus, Pencil, Trash2, Loader2, Search, Layers, Settings2, ChevronsUpDown, X, Check, FolderOpen, List } from "lucide-react";
+import { usePartners } from "@/hooks/use-partners";
+import type { Sector, Parameter, SectorProduct, SectorProductParameter } from "@shared/schema";
+import { Plus, Pencil, Trash2, Loader2, Search, Layers, Settings2, ChevronsUpDown, X, Check, FolderOpen, List, Package, Info } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import {
   Dialog,
   DialogContent,
@@ -57,6 +59,39 @@ function getParamTypeLabel(value: string): string {
   return PARAM_TYPES.find(t => t.value === value)?.label || value;
 }
 
+function DeleteConfirmDialog({
+  open,
+  onOpenChange,
+  title,
+  onConfirm,
+  isPending,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  title: string;
+  onConfirm: () => void;
+  isPending: boolean;
+}) {
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-[400px]">
+        <DialogHeader>
+          <DialogTitle data-testid="text-delete-dialog-title">Potvrdit vymazanie</DialogTitle>
+        </DialogHeader>
+        <p className="text-sm text-muted-foreground">{title}</p>
+        <div className="flex items-center justify-end gap-2 mt-4 flex-wrap">
+          <Button type="button" variant="outline" onClick={() => onOpenChange(false)} data-testid="button-delete-cancel">
+            Zrusit
+          </Button>
+          <Button type="button" variant="destructive" onClick={onConfirm} disabled={isPending} data-testid="button-delete-confirm">
+            {isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : "Vymazat"}
+          </Button>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 function SectorFormDialog({
   open,
   onOpenChange,
@@ -68,37 +103,20 @@ function SectorFormDialog({
 }) {
   const { toast } = useToast();
   const timerRef = useRef<number>(0);
+  const { data: partners } = usePartners();
 
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [sectorType, setSectorType] = useState("general");
-  const [selectedParameterIds, setSelectedParameterIds] = useState<number[]>([]);
-
-  const { data: allParameters } = useQuery<Parameter[]>({
-    queryKey: ["/api/parameters"],
-  });
-
-  const { data: sectorParams } = useQuery<SectorParameter[]>({
-    queryKey: ["/api/sectors", editingSector?.id, "parameters"],
-    queryFn: async () => {
-      const res = await fetch(`/api/sectors/${editingSector!.id}/parameters`, { credentials: "include" });
-      if (!res.ok) throw new Error("Failed");
-      return res.json();
-    },
-    enabled: !!editingSector?.id,
-  });
+  const [selectedPartnerIds, setSelectedPartnerIds] = useState<number[]>([]);
 
   const createMutation = useMutation({
     mutationFn: async (data: any) => {
       const res = await apiRequest("POST", "/api/sectors", data);
       return res.json();
     },
-    onSuccess: async (created: Sector) => {
-      if (selectedParameterIds.length > 0) {
-        await apiRequest("PUT", `/api/sectors/${created.id}/parameters`, { parameterIds: selectedParameterIds });
-      }
+    onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/sectors"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/sectors/all-parameters"] });
       toast({ title: "Uspech", description: "Sektor vytvoreny" });
       onOpenChange(false);
     },
@@ -108,12 +126,9 @@ function SectorFormDialog({
   const updateMutation = useMutation({
     mutationFn: async (data: any) => {
       await apiRequest("PUT", `/api/sectors/${editingSector!.id}`, data);
-      await apiRequest("PUT", `/api/sectors/${editingSector!.id}/parameters`, { parameterIds: selectedParameterIds });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/sectors"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/sectors", editingSector?.id, "parameters"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/sectors/all-parameters"] });
       toast({ title: "Uspech", description: "Sektor aktualizovany" });
       onOpenChange(false);
     },
@@ -127,20 +142,15 @@ function SectorFormDialog({
         setName(editingSector.name || "");
         setDescription(editingSector.description || "");
         setSectorType(editingSector.sectorType || "general");
+        setSelectedPartnerIds(editingSector.partnerIds || []);
       } else {
         setName("");
         setDescription("");
         setSectorType("general");
-        setSelectedParameterIds([]);
+        setSelectedPartnerIds([]);
       }
     }
   }, [open, editingSector]);
-
-  useEffect(() => {
-    if (sectorParams) {
-      setSelectedParameterIds(sectorParams.map(sp => sp.parameterId));
-    }
-  }, [sectorParams]);
 
   const handleOpenChange = useCallback((isOpen: boolean) => {
     onOpenChange(isOpen);
@@ -151,7 +161,7 @@ function SectorFormDialog({
       toast({ title: "Chyba", description: "Nazov je povinny", variant: "destructive" });
       return;
     }
-    const payload = { name, description, sectorType };
+    const payload = { name, description, sectorType, partnerIds: selectedPartnerIds };
     if (editingSector) {
       updateMutation.mutate(payload);
     } else {
@@ -160,6 +170,7 @@ function SectorFormDialog({
   }
 
   const isPending = createMutation.isPending || updateMutation.isPending;
+  const activePartners = partners?.filter(p => !p.isDeleted) || [];
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
@@ -171,7 +182,7 @@ function SectorFormDialog({
         </DialogHeader>
         <div className="space-y-4">
           <div className="space-y-2">
-            <label className="text-sm font-medium">Nazov *</label>
+            <label className="text-sm font-medium">Nazov sektoru *</label>
             <Input value={name} onChange={e => setName(e.target.value)} data-testid="input-sector-name" />
           </div>
           <div className="space-y-2">
@@ -189,6 +200,221 @@ function SectorFormDialog({
                 <SelectItem value="params">Parametricky</SelectItem>
               </SelectContent>
             </Select>
+          </div>
+          <div className="space-y-2">
+            <label className="text-sm font-medium">Firmy posobiace v sektore</label>
+            {selectedPartnerIds.length > 0 && (
+              <div className="flex flex-wrap gap-1.5 mb-2">
+                {selectedPartnerIds.map(pid => {
+                  const p = activePartners.find(x => x.id === pid);
+                  return p ? (
+                    <Badge key={pid} variant="secondary" className="gap-1">
+                      {p.name}
+                      <button
+                        type="button"
+                        className="ml-0.5 rounded-full hover-elevate"
+                        onClick={() => setSelectedPartnerIds(prev => prev.filter(id => id !== pid))}
+                        data-testid={`badge-remove-partner-${pid}`}
+                      >
+                        <X className="w-3 h-3" />
+                      </button>
+                    </Badge>
+                  ) : null;
+                })}
+              </div>
+            )}
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button variant="outline" className="w-full justify-between" data-testid="button-select-partners">
+                  <span className="text-muted-foreground">
+                    {selectedPartnerIds.length > 0 ? `${selectedPartnerIds.length} vybranych` : "Vyberte firmy..."}
+                  </span>
+                  <ChevronsUpDown className="w-4 h-4 text-muted-foreground" />
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-[400px] p-0" align="start">
+                <Command>
+                  <CommandInput placeholder="Hladat firmy..." data-testid="input-search-partner-combobox" />
+                  <CommandList>
+                    <CommandEmpty>Ziadne firmy</CommandEmpty>
+                    <CommandGroup>
+                      {activePartners.map(partner => {
+                        const isSelected = selectedPartnerIds.includes(partner.id);
+                        return (
+                          <CommandItem
+                            key={partner.id}
+                            value={partner.name}
+                            onSelect={() => {
+                              if (isSelected) {
+                                setSelectedPartnerIds(prev => prev.filter(id => id !== partner.id));
+                              } else {
+                                setSelectedPartnerIds(prev => [...prev, partner.id]);
+                              }
+                            }}
+                            data-testid={`combobox-partner-${partner.id}`}
+                          >
+                            <Check className={`w-4 h-4 mr-2 ${isSelected ? "opacity-100" : "opacity-0"}`} />
+                            <span className="flex-1">{partner.name}</span>
+                          </CommandItem>
+                        );
+                      })}
+                    </CommandGroup>
+                  </CommandList>
+                </Command>
+              </PopoverContent>
+            </Popover>
+          </div>
+          <div className="flex items-center justify-end mt-6">
+            <Button type="button" variant="outline" onClick={() => handleOpenChange(false)} data-testid="button-sector-cancel">
+              Zrusit
+            </Button>
+          </div>
+        </div>
+        <ProcessingSaveButton isPending={isPending} onClick={handleSubmit} type="button" />
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function SectorProductFormDialog({
+  open,
+  onOpenChange,
+  editingProduct,
+  sectors,
+  preSelectedSectorId,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  editingProduct: SectorProduct | null;
+  sectors: Sector[];
+  preSelectedSectorId?: number;
+}) {
+  const { toast } = useToast();
+  const timerRef = useRef<number>(0);
+
+  const [sectorId, setSectorId] = useState<string>("");
+  const [name, setName] = useState("");
+  const [abbreviation, setAbbreviation] = useState("");
+  const [selectedParameterIds, setSelectedParameterIds] = useState<number[]>([]);
+
+  const { data: allParameters } = useQuery<Parameter[]>({
+    queryKey: ["/api/parameters"],
+  });
+
+  const { data: productParams } = useQuery<SectorProductParameter[]>({
+    queryKey: ["/api/sector-products", editingProduct?.id, "parameters"],
+    queryFn: async () => {
+      const res = await fetch(`/api/sector-products/${editingProduct!.id}/parameters`, { credentials: "include" });
+      if (!res.ok) throw new Error("Failed");
+      return res.json();
+    },
+    enabled: !!editingProduct?.id,
+  });
+
+  const createMutation = useMutation({
+    mutationFn: async (data: any) => {
+      const res = await apiRequest("POST", "/api/sector-products", data);
+      return res.json();
+    },
+    onSuccess: async (created: SectorProduct) => {
+      if (selectedParameterIds.length > 0) {
+        await apiRequest("PUT", `/api/sector-products/${created.id}/parameters`, { parameterIds: selectedParameterIds });
+      }
+      queryClient.invalidateQueries({ queryKey: ["/api/sector-products"] });
+      toast({ title: "Uspech", description: "Produkt vytvoreny" });
+      onOpenChange(false);
+    },
+    onError: () => toast({ title: "Chyba", description: "Nepodarilo sa vytvorit produkt", variant: "destructive" }),
+  });
+
+  const updateMutation = useMutation({
+    mutationFn: async (data: any) => {
+      await apiRequest("PUT", `/api/sector-products/${editingProduct!.id}`, data);
+      await apiRequest("PUT", `/api/sector-products/${editingProduct!.id}/parameters`, { parameterIds: selectedParameterIds });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/sector-products"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/sector-products", editingProduct?.id, "parameters"] });
+      toast({ title: "Uspech", description: "Produkt aktualizovany" });
+      onOpenChange(false);
+    },
+    onError: () => toast({ title: "Chyba", description: "Nepodarilo sa aktualizovat produkt", variant: "destructive" }),
+  });
+
+  useEffect(() => {
+    if (open) {
+      timerRef.current = performance.now();
+      if (editingProduct) {
+        setSectorId(editingProduct.sectorId.toString());
+        setName(editingProduct.name || "");
+        setAbbreviation(editingProduct.abbreviation || "");
+      } else {
+        setSectorId(preSelectedSectorId?.toString() || "");
+        setName("");
+        setAbbreviation("");
+        setSelectedParameterIds([]);
+      }
+    }
+  }, [open, editingProduct, preSelectedSectorId]);
+
+  useEffect(() => {
+    if (productParams) {
+      setSelectedParameterIds(productParams.map(pp => pp.parameterId));
+    }
+  }, [productParams]);
+
+  const handleOpenChange = useCallback((isOpen: boolean) => {
+    onOpenChange(isOpen);
+  }, [onOpenChange]);
+
+  function handleSubmit() {
+    if (!name.trim()) {
+      toast({ title: "Chyba", description: "Nazov je povinny", variant: "destructive" });
+      return;
+    }
+    if (!sectorId) {
+      toast({ title: "Chyba", description: "Vyberte sektor", variant: "destructive" });
+      return;
+    }
+    const payload = { sectorId: parseInt(sectorId), name, abbreviation };
+    if (editingProduct) {
+      updateMutation.mutate(payload);
+    } else {
+      createMutation.mutate(payload);
+    }
+  }
+
+  const isPending = createMutation.isPending || updateMutation.isPending;
+
+  return (
+    <Dialog open={open} onOpenChange={handleOpenChange}>
+      <DialogContent className="sm:max-w-[800px] h-[600px] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle data-testid="text-sector-product-dialog-title">
+            {editingProduct ? "Upravit produkt" : "Pridat produkt"}
+          </DialogTitle>
+        </DialogHeader>
+        <div className="space-y-4">
+          <div className="space-y-2">
+            <label className="text-sm font-medium">Sektor *</label>
+            <Select value={sectorId} onValueChange={setSectorId}>
+              <SelectTrigger data-testid="select-sector-product-sector">
+                <SelectValue placeholder="Vyberte sektor" />
+              </SelectTrigger>
+              <SelectContent>
+                {sectors.map(s => (
+                  <SelectItem key={s.id} value={s.id.toString()}>{s.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-2">
+            <label className="text-sm font-medium">Nazov produktu *</label>
+            <Input value={name} onChange={e => setName(e.target.value)} data-testid="input-sector-product-name" />
+          </div>
+          <div className="space-y-2">
+            <label className="text-sm font-medium">Skratka produktu</label>
+            <Input value={abbreviation} onChange={e => setAbbreviation(e.target.value)} className="font-mono uppercase" data-testid="input-sector-product-abbreviation" />
           </div>
           <div className="space-y-2">
             <label className="text-sm font-medium">Parametre</label>
@@ -255,7 +481,7 @@ function SectorFormDialog({
             </Popover>
           </div>
           <div className="flex items-center justify-end mt-6">
-            <Button type="button" variant="outline" onClick={() => handleOpenChange(false)} data-testid="button-sector-cancel">
+            <Button type="button" variant="outline" onClick={() => handleOpenChange(false)} data-testid="button-sector-product-cancel">
               Zrusit
             </Button>
           </div>
@@ -514,7 +740,17 @@ function ParameterFormDialog({
             <Switch checked={isRequired} onCheckedChange={setIsRequired} data-testid="switch-parameter-required" />
           </div>
           <div className="space-y-2">
-            <label className="text-sm font-medium">Predvolena hodnota</label>
+            <div className="flex items-center gap-2">
+              <label className="text-sm font-medium">Predvolena hodnota k danemu parametru</label>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Info className="w-4 h-4 text-muted-foreground cursor-help" data-testid="icon-default-value-info" />
+                </TooltipTrigger>
+                <TooltipContent side="top" className="max-w-[300px]" data-testid="tooltip-default-value-info">
+                  <p className="text-xs">Hodnota, ktoru tu zadate, sa automaticky predvyplni pri vytvarani novej zmluvy v tomto sektore. Pouzivatel ju moze v pripade potreby zmenit.</p>
+                </TooltipContent>
+              </Tooltip>
+            </div>
             <Input value={defaultValue} onChange={e => setDefaultValue(e.target.value)} data-testid="input-parameter-default" />
           </div>
           <div className={`rounded-md border border-border p-4 space-y-3 ${paramType !== "combobox" ? "opacity-50" : ""}`}>
@@ -567,81 +803,33 @@ function ParameterFormDialog({
   );
 }
 
-function DeleteConfirmDialog({
-  open,
-  onOpenChange,
-  title,
-  onConfirm,
-  isPending,
-}: {
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-  title: string;
-  onConfirm: () => void;
-  isPending: boolean;
-}) {
-  return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[400px]">
-        <DialogHeader>
-          <DialogTitle data-testid="text-delete-dialog-title">Potvrdit vymazanie</DialogTitle>
-        </DialogHeader>
-        <p className="text-sm text-muted-foreground">{title}</p>
-        <div className="flex items-center justify-end gap-2 mt-4 flex-wrap">
-          <Button type="button" variant="outline" onClick={() => onOpenChange(false)} data-testid="button-delete-cancel">
-            Zrusit
-          </Button>
-          <Button type="button" variant="destructive" onClick={onConfirm} disabled={isPending} data-testid="button-delete-confirm">
-            {isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : "Vymazat"}
-          </Button>
-        </div>
-      </DialogContent>
-    </Dialog>
-  );
-}
-
 function SectorsTab() {
   const { toast } = useToast();
   const [search, setSearch] = useState("");
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingSector, setEditingSector] = useState<Sector | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Sector | null>(null);
+  const { data: partners } = usePartners();
 
   const { data: sectors, isLoading } = useQuery<Sector[]>({
     queryKey: ["/api/sectors"],
-  });
-
-  const { data: allParameters } = useQuery<Parameter[]>({
-    queryKey: ["/api/parameters"],
-  });
-
-  const sectorParamQueries = useQuery<Record<number, SectorParameter[]>>({
-    queryKey: ["/api/sectors/all-parameters", sectors?.map(s => s.id).join(",")],
-    queryFn: async () => {
-      if (!sectors || sectors.length === 0) return {};
-      const result: Record<number, SectorParameter[]> = {};
-      await Promise.all(
-        sectors.map(async (s) => {
-          const res = await fetch(`/api/sectors/${s.id}/parameters`, { credentials: "include" });
-          if (res.ok) {
-            result[s.id] = await res.json();
-          }
-        })
-      );
-      return result;
-    },
-    enabled: !!sectors && sectors.length > 0,
   });
 
   const deleteMutation = useMutation({
     mutationFn: () => apiRequest("DELETE", `/api/sectors/${deleteTarget!.id}`),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/sectors"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/sector-products"] });
       toast({ title: "Uspech", description: "Sektor vymazany" });
       setDeleteTarget(null);
     },
     onError: () => toast({ title: "Chyba", description: "Nepodarilo sa vymazat sektor", variant: "destructive" }),
   });
+
+  function getPartnerNames(ids: number[] | null): string {
+    if (!ids || ids.length === 0 || !partners) return "-";
+    return ids.map(id => partners.find(p => p.id === id)?.name || `#${id}`).join(", ");
+  }
 
   const filtered = sectors?.filter(s =>
     s.name.toLowerCase().includes(search.toLowerCase()) ||
@@ -676,10 +864,10 @@ function SectorsTab() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Nazov</TableHead>
+                  <TableHead>Nazov sektoru</TableHead>
                   <TableHead>Typ</TableHead>
+                  <TableHead>Firmy posobiace v sektore</TableHead>
                   <TableHead>Popis</TableHead>
-                  <TableHead>Parametre</TableHead>
                   <TableHead>Akcie</TableHead>
                 </TableRow>
               </TableHeader>
@@ -691,43 +879,40 @@ function SectorsTab() {
                     </TableCell>
                   </TableRow>
                 ) : (
-                  filtered.map(sector => {
-                    const paramCount = sectorParamQueries.data?.[sector.id]?.length || 0;
-                    return (
-                      <TableRow key={sector.id} data-testid={`row-sector-${sector.id}`}>
-                        <TableCell className="font-medium">{sector.name}</TableCell>
-                        <TableCell>
-                          <Badge variant="outline">{sector.sectorType}</Badge>
-                        </TableCell>
-                        <TableCell className="text-sm text-muted-foreground max-w-[200px] truncate">
-                          {sector.description || "-"}
-                        </TableCell>
-                        <TableCell>
-                          <Badge variant="secondary">{paramCount}</Badge>
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex items-center gap-1">
-                            <Button
-                              size="icon"
-                              variant="ghost"
-                              onClick={() => { setEditingSector(sector); setDialogOpen(true); }}
-                              data-testid={`button-edit-sector-${sector.id}`}
-                            >
-                              <Pencil className="w-4 h-4" />
-                            </Button>
-                            <Button
-                              size="icon"
-                              variant="ghost"
-                              onClick={() => setDeleteTarget(sector)}
-                              data-testid={`button-delete-sector-${sector.id}`}
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </Button>
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                    );
-                  })
+                  filtered.map(sector => (
+                    <TableRow key={sector.id} data-testid={`row-sector-${sector.id}`}>
+                      <TableCell className="font-medium">{sector.name}</TableCell>
+                      <TableCell>
+                        <Badge variant="outline">{sector.sectorType}</Badge>
+                      </TableCell>
+                      <TableCell className="text-sm text-muted-foreground max-w-[250px] truncate">
+                        {getPartnerNames(sector.partnerIds)}
+                      </TableCell>
+                      <TableCell className="text-sm text-muted-foreground max-w-[200px] truncate">
+                        {sector.description || "-"}
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-1">
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            onClick={() => { setEditingSector(sector); setDialogOpen(true); }}
+                            data-testid={`button-edit-sector-${sector.id}`}
+                          >
+                            <Pencil className="w-4 h-4" />
+                          </Button>
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            onClick={() => setDeleteTarget(sector)}
+                            data-testid={`button-delete-sector-${sector.id}`}
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))
                 )}
               </TableBody>
             </Table>
@@ -745,6 +930,151 @@ function SectorsTab() {
         open={!!deleteTarget}
         onOpenChange={(isOpen) => { if (!isOpen) setDeleteTarget(null); }}
         title={`Naozaj chcete vymazat sektor "${deleteTarget?.name}"?`}
+        onConfirm={() => deleteMutation.mutate()}
+        isPending={deleteMutation.isPending}
+      />
+    </div>
+  );
+}
+
+function ProductsTab() {
+  const { toast } = useToast();
+  const [search, setSearch] = useState("");
+  const [filterSectorId, setFilterSectorId] = useState<string>("all");
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [editingProduct, setEditingProduct] = useState<SectorProduct | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<SectorProduct | null>(null);
+
+  const { data: sectors } = useQuery<Sector[]>({
+    queryKey: ["/api/sectors"],
+  });
+
+  const { data: sectorProds, isLoading } = useQuery<SectorProduct[]>({
+    queryKey: ["/api/sector-products"],
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: () => apiRequest("DELETE", `/api/sector-products/${deleteTarget!.id}`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/sector-products"] });
+      toast({ title: "Uspech", description: "Produkt vymazany" });
+      setDeleteTarget(null);
+    },
+    onError: () => toast({ title: "Chyba", description: "Nepodarilo sa vymazat produkt", variant: "destructive" }),
+  });
+
+  function getSectorName(sectorId: number): string {
+    return sectors?.find(s => s.id === sectorId)?.name || `#${sectorId}`;
+  }
+
+  const filtered = (sectorProds || []).filter(p => {
+    if (filterSectorId !== "all" && p.sectorId !== parseInt(filterSectorId)) return false;
+    const searchLower = search.toLowerCase();
+    return p.name.toLowerCase().includes(searchLower) ||
+      (p.abbreviation || "").toLowerCase().includes(searchLower);
+  });
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center gap-3 flex-wrap">
+        <div className="relative flex-1 min-w-[200px]">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+          <Input
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            placeholder="Hladat produkty..."
+            className="pl-9"
+            data-testid="input-search-sector-products"
+          />
+        </div>
+        <Select value={filterSectorId} onValueChange={setFilterSectorId}>
+          <SelectTrigger className="w-[200px]" data-testid="select-filter-sector">
+            <SelectValue placeholder="Vsetky sektory" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Vsetky sektory</SelectItem>
+            {sectors?.map(s => (
+              <SelectItem key={s.id} value={s.id.toString()}>{s.name}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <Button onClick={() => { setEditingProduct(null); setDialogOpen(true); }} data-testid="button-add-sector-product">
+          <Plus className="w-4 h-4 mr-2" /> Pridat produkt
+        </Button>
+      </div>
+
+      {isLoading ? (
+        <div className="flex items-center justify-center py-12">
+          <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+        </div>
+      ) : (
+        <Card>
+          <CardContent className="p-0">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Nazov produktu</TableHead>
+                  <TableHead>Skratka produktu</TableHead>
+                  <TableHead>Sektor</TableHead>
+                  <TableHead>Akcie</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {filtered.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={4} className="text-center text-muted-foreground py-8" data-testid="text-no-sector-products">
+                      Ziadne produkty
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  filtered.map(product => (
+                    <TableRow key={product.id} data-testid={`row-sector-product-${product.id}`}>
+                      <TableCell className="font-medium">{product.name}</TableCell>
+                      <TableCell className="font-mono text-sm">{product.abbreviation || "-"}</TableCell>
+                      <TableCell>
+                        <Badge variant="outline">{getSectorName(product.sectorId)}</Badge>
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-1">
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            onClick={() => { setEditingProduct(product); setDialogOpen(true); }}
+                            data-testid={`button-edit-sector-product-${product.id}`}
+                          >
+                            <Pencil className="w-4 h-4" />
+                          </Button>
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            onClick={() => setDeleteTarget(product)}
+                            data-testid={`button-delete-sector-product-${product.id}`}
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))
+                )}
+              </TableBody>
+            </Table>
+          </CardContent>
+        </Card>
+      )}
+
+      <SectorProductFormDialog
+        open={dialogOpen}
+        onOpenChange={(isOpen) => { setDialogOpen(isOpen); if (!isOpen) setEditingProduct(null); }}
+        editingProduct={editingProduct}
+        sectors={sectors || []}
+        preSelectedSectorId={filterSectorId !== "all" ? parseInt(filterSectorId) : undefined}
+      />
+
+      <DeleteConfirmDialog
+        open={!!deleteTarget}
+        onOpenChange={(isOpen) => { if (!isOpen) setDeleteTarget(null); }}
+        title={`Naozaj chcete vymazat produkt "${deleteTarget?.name}"?`}
         onConfirm={() => deleteMutation.mutate()}
         isPending={deleteMutation.isPending}
       />
@@ -809,6 +1139,7 @@ function ParametersTab() {
                   <TableHead>Nazov</TableHead>
                   <TableHead>Typ</TableHead>
                   <TableHead>Povinny udaj</TableHead>
+                  <TableHead>Predvolena hodnota k danemu parametru</TableHead>
                   <TableHead>Napoveda</TableHead>
                   <TableHead>Akcie</TableHead>
                 </TableRow>
@@ -816,7 +1147,7 @@ function ParametersTab() {
               <TableBody>
                 {filtered.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={5} className="text-center text-muted-foreground py-8" data-testid="text-no-parameters">
+                    <TableCell colSpan={6} className="text-center text-muted-foreground py-8" data-testid="text-no-parameters">
                       Ziadne parametre
                     </TableCell>
                   </TableRow>
@@ -833,6 +1164,9 @@ function ParametersTab() {
                         ) : (
                           <span className="text-sm text-muted-foreground">Nie</span>
                         )}
+                      </TableCell>
+                      <TableCell className="text-sm text-muted-foreground">
+                        {param.defaultValue || "-"}
                       </TableCell>
                       <TableCell className="text-sm text-muted-foreground">
                         {param.helpText || "-"}
@@ -888,14 +1222,18 @@ export default function Sectors() {
     <div className="p-6 space-y-6">
       <div className="flex items-center gap-3">
         <Layers className="w-6 h-6 text-primary" />
-        <h1 className="text-2xl font-bold" data-testid="text-page-title">Sektory a parametre</h1>
+        <h1 className="text-2xl font-bold" data-testid="text-page-title">Sektory, produkty a parametre</h1>
       </div>
 
       <Tabs defaultValue="sectors">
-        <TabsList data-testid="tabs-sectors-parameters">
+        <TabsList data-testid="tabs-sectors-products-parameters">
           <TabsTrigger value="sectors" data-testid="tab-sectors">
             <Layers className="w-4 h-4 mr-2" />
             Sektory
+          </TabsTrigger>
+          <TabsTrigger value="products" data-testid="tab-products">
+            <Package className="w-4 h-4 mr-2" />
+            Produkty
           </TabsTrigger>
           <TabsTrigger value="parameters" data-testid="tab-parameters">
             <Settings2 className="w-4 h-4 mr-2" />
@@ -904,6 +1242,9 @@ export default function Sectors() {
         </TabsList>
         <TabsContent value="sectors">
           <SectorsTab />
+        </TabsContent>
+        <TabsContent value="products">
+          <ProductsTab />
         </TabsContent>
         <TabsContent value="parameters">
           <ParametersTab />

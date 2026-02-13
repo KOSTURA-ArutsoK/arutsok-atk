@@ -787,12 +787,25 @@ export const sectors = pgTable("sectors", {
   name: text("name").notNull(),
   description: text("description").default(""),
   sectorType: text("sector_type").notNull().default("general"),
+  partnerIds: integer("partner_ids").array().default([]),
   sortOrder: integer("sort_order").default(0),
   isActive: boolean("is_active").default(true),
   createdAt: timestamp("created_at").defaultNow(),
 });
 
 export const insertSectorSchema = createInsertSchema(sectors).omit({ id: true, createdAt: true });
+
+// === SECTOR PRODUCTS (ArutsoK 25 - products within a sector) ===
+export const sectorProducts = pgTable("sector_products", {
+  id: serial("id").primaryKey(),
+  sectorId: integer("sector_id").notNull(),
+  name: text("name").notNull(),
+  abbreviation: text("abbreviation").default(""),
+  sortOrder: integer("sort_order").default(0),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertSectorProductSchema = createInsertSchema(sectorProducts).omit({ id: true, createdAt: true });
 
 // === PARAMETERS ===
 export const parameters = pgTable("parameters", {
@@ -809,7 +822,7 @@ export const parameters = pgTable("parameters", {
 
 export const insertParameterSchema = createInsertSchema(parameters).omit({ id: true, createdAt: true });
 
-// === SECTOR_PARAMETERS (many-to-many) ===
+// === SECTOR_PARAMETERS (legacy, kept for backward compat) ===
 export const sectorParameters = pgTable("sector_parameters", {
   id: serial("id").primaryKey(),
   sectorId: integer("sector_id").notNull(),
@@ -817,6 +830,15 @@ export const sectorParameters = pgTable("sector_parameters", {
 });
 
 export const insertSectorParameterSchema = createInsertSchema(sectorParameters).omit({ id: true });
+
+// === SECTOR_PRODUCT_PARAMETERS (ArutsoK 25 - parameters linked to sector products) ===
+export const sectorProductParameters = pgTable("sector_product_parameters", {
+  id: serial("id").primaryKey(),
+  sectorProductId: integer("sector_product_id").notNull(),
+  parameterId: integer("parameter_id").notNull(),
+});
+
+export const insertSectorProductParameterSchema = createInsertSchema(sectorProductParameters).omit({ id: true });
 
 // === PRODUCT_SECTORS (many-to-many) ===
 export const productSectors = pgTable("product_sectors", {
@@ -840,10 +862,14 @@ export const insertProductParameterSchema = createInsertSchema(productParameters
 
 export type Sector = typeof sectors.$inferSelect;
 export type InsertSector = z.infer<typeof insertSectorSchema>;
+export type SectorProduct = typeof sectorProducts.$inferSelect;
+export type InsertSectorProduct = z.infer<typeof insertSectorProductSchema>;
 export type Parameter = typeof parameters.$inferSelect;
 export type InsertParameter = z.infer<typeof insertParameterSchema>;
 export type SectorParameter = typeof sectorParameters.$inferSelect;
 export type InsertSectorParameter = z.infer<typeof insertSectorParameterSchema>;
+export type SectorProductParameter = typeof sectorProductParameters.$inferSelect;
+export type InsertSectorProductParameter = z.infer<typeof insertSectorProductParameterSchema>;
 export type ProductSector = typeof productSectors.$inferSelect;
 export type InsertProductSector = z.infer<typeof insertProductSectorSchema>;
 export type ProductParameter = typeof productParameters.$inferSelect;

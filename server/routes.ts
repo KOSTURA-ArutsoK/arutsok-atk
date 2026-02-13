@@ -2713,7 +2713,80 @@ export async function registerRoutes(
     }
   });
 
-  // === SECTOR-PARAMETER ASSIGNMENTS ===
+  // === SECTOR PRODUCTS CRUD (ArutsoK 25) ===
+  app.get("/api/sector-products", isAuthenticated, async (req, res) => {
+    try {
+      const sectorId = req.query.sectorId ? Number(req.query.sectorId) : undefined;
+      const sectorProducts = await storage.getSectorProducts(sectorId);
+      res.json(sectorProducts);
+    } catch (err) {
+      console.error("Get sector products error:", err);
+      res.status(500).json({ message: "Internal error" });
+    }
+  });
+
+  app.post("/api/sector-products", isAuthenticated, async (req: any, res) => {
+    try {
+      const created = await storage.createSectorProduct(req.body);
+      await logAudit(req, { action: "Vytvorenie", module: "SektoroveProdukty", entityId: created.id, entityName: created.name, newData: req.body });
+      res.status(201).json(created);
+    } catch (err) {
+      console.error("Create sector product error:", err);
+      res.status(500).json({ message: "Internal error" });
+    }
+  });
+
+  app.put("/api/sector-products/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const id = Number(req.params.id);
+      const old = await storage.getSectorProduct(id);
+      const updated = await storage.updateSectorProduct(id, req.body);
+      await logAudit(req, { action: "Uprava", module: "SektoroveProdukty", entityId: id, entityName: updated.name, oldData: old, newData: req.body });
+      res.json(updated);
+    } catch (err) {
+      console.error("Update sector product error:", err);
+      res.status(500).json({ message: "Internal error" });
+    }
+  });
+
+  app.delete("/api/sector-products/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const id = Number(req.params.id);
+      const old = await storage.getSectorProduct(id);
+      await storage.deleteSectorProduct(id);
+      await logAudit(req, { action: "Vymazanie", module: "SektoroveProdukty", entityId: id, entityName: old?.name });
+      res.json({ success: true });
+    } catch (err) {
+      console.error("Delete sector product error:", err);
+      res.status(500).json({ message: "Internal error" });
+    }
+  });
+
+  // === SECTOR-PRODUCT-PARAMETER ASSIGNMENTS (ArutsoK 25) ===
+  app.get("/api/sector-products/:id/parameters", isAuthenticated, async (req, res) => {
+    try {
+      const id = Number(req.params.id);
+      const params = await storage.getSectorProductParameters(id);
+      res.json(params);
+    } catch (err) {
+      console.error("Get sector product parameters error:", err);
+      res.status(500).json({ message: "Internal error" });
+    }
+  });
+
+  app.put("/api/sector-products/:id/parameters", isAuthenticated, async (req: any, res) => {
+    try {
+      const id = Number(req.params.id);
+      await storage.setSectorProductParameters(id, req.body.parameterIds);
+      await logAudit(req, { action: "Uprava", module: "SektoroveProdukty", entityId: id, entityName: "Priradenie parametrov" });
+      res.json({ success: true });
+    } catch (err) {
+      console.error("Set sector product parameters error:", err);
+      res.status(500).json({ message: "Internal error" });
+    }
+  });
+
+  // === SECTOR-PARAMETER ASSIGNMENTS (legacy) ===
   app.get("/api/sectors/:id/parameters", isAuthenticated, async (req, res) => {
     try {
       const id = Number(req.params.id);

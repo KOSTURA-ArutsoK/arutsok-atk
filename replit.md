@@ -61,7 +61,7 @@ The system employs a modern full-stack architecture with a focus on data integri
         - Implements contract locking mechanism during settlement sheet processing.
         - Status workflow (Nova → Pripravena → Odoslana) with auto-locking/unlocking of contracts.
         - Export functionality to Excel/CSV.
-    - **Dynamic Parameter System**: `sectors`, `parameters`, `sector_parameters`, `product_sectors`, `product_parameters` tables for dynamic product parameterization.
+    - **Dynamic Parameter System (ArutsoK 24-25)**: 3-level hierarchy: Sektory → Produkty → Parametre. `sectors` (with `partnerIds` for multi-company assignment), `sector_products` (name, abbreviation, sectorId), `sector_product_parameters` bridge table. Legacy `sector_parameters`, `product_sectors`, `product_parameters` kept for compatibility. Sectors.tsx has 3-tab UI with partner multi-select combobox, sector-filtered product list, and parameter CRUD with renamed "Predvolena hodnota k danemu parametru" field + info tooltip. All management tables default to descending sort (newest first).
     - **System Settings**: Key-value store for application configurations (e.g., support phone number, category timeouts, dashboard preferences).
     - **Calendar Module**: `calendar_events` table with full CRUD, month grid view, event chips, day panel, create/edit/delete dialogs, color coding, all-day events. Dashboard widget for upcoming events.
     - **Settings Reorganization (ArutsoK 19)**: Sidebar 'Nastavenia' split into nested 'Sprava pristupov' sub-group (Pouzivatelia, Pravomoci skupiny, Doba prihlasenia) and direct items (Logy, Podpora a registracia, Nastavenie prehladov, Kos). Each settings concern has its own dedicated page.

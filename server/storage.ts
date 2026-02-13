@@ -50,9 +50,12 @@ import {
   type Supiska, type InsertSupiska,
   type SupiskaContract, type InsertSupiskaContract,
   sectors, parameters, sectorParameters, productSectors, productParameters,
+  sectorProducts, sectorProductParameters,
   type Sector, type InsertSector,
+  type SectorProduct, type InsertSectorProduct,
   type Parameter, type InsertParameter,
   type SectorParameter, type ProductSector, type ProductParameter,
+  type SectorProductParameter,
   calendarEvents,
   type CalendarEvent, type InsertCalendarEvent,
 } from "@shared/schema";
@@ -294,7 +297,18 @@ export interface IStorage {
   updateParameter(id: number, data: Partial<InsertParameter>): Promise<Parameter>;
   deleteParameter(id: number): Promise<void>;
 
-  // Sector-Parameter assignments
+  // Sector Products (ArutsoK 25)
+  getSectorProducts(sectorId?: number): Promise<SectorProduct[]>;
+  getSectorProduct(id: number): Promise<SectorProduct | undefined>;
+  createSectorProduct(data: InsertSectorProduct): Promise<SectorProduct>;
+  updateSectorProduct(id: number, data: Partial<InsertSectorProduct>): Promise<SectorProduct>;
+  deleteSectorProduct(id: number): Promise<void>;
+
+  // Sector-Product-Parameter assignments (ArutsoK 25)
+  getSectorProductParameters(sectorProductId: number): Promise<SectorProductParameter[]>;
+  setSectorProductParameters(sectorProductId: number, parameterIds: number[]): Promise<void>;
+
+  // Sector-Parameter assignments (legacy)
   getSectorParameters(sectorId: number): Promise<SectorParameter[]>;
   setSectorParameters(sectorId: number, parameterIds: number[]): Promise<void>;
 
@@ -1714,9 +1728,9 @@ export class DatabaseStorage implements IStorage {
     `);
     return result.rows as any[];
   }
-  // === Sectors CRUD ===
+  // === Sectors CRUD (ArutsoK 25: descending sort) ===
   async getSectors(): Promise<Sector[]> {
-    return await db.select().from(sectors).orderBy(sectors.sortOrder);
+    return await db.select().from(sectors).orderBy(desc(sectors.id));
   }
 
   async getSector(id: number): Promise<Sector | undefined> {
@@ -1735,13 +1749,60 @@ export class DatabaseStorage implements IStorage {
   }
 
   async deleteSector(id: number): Promise<void> {
+    const sps = await db.select().from(sectorProducts).where(eq(sectorProducts.sectorId, id));
+    for (const sp of sps) {
+      await db.delete(sectorProductParameters).where(eq(sectorProductParameters.sectorProductId, sp.id));
+    }
+    await db.delete(sectorProducts).where(eq(sectorProducts.sectorId, id));
     await db.delete(sectorParameters).where(eq(sectorParameters.sectorId, id));
     await db.delete(sectors).where(eq(sectors.id, id));
   }
 
-  // === Parameters CRUD ===
+  // === Sector Products CRUD (ArutsoK 25) ===
+  async getSectorProducts(sectorId?: number): Promise<SectorProduct[]> {
+    if (sectorId !== undefined) {
+      return await db.select().from(sectorProducts).where(eq(sectorProducts.sectorId, sectorId)).orderBy(desc(sectorProducts.id));
+    }
+    return await db.select().from(sectorProducts).orderBy(desc(sectorProducts.id));
+  }
+
+  async getSectorProduct(id: number): Promise<SectorProduct | undefined> {
+    const [sp] = await db.select().from(sectorProducts).where(eq(sectorProducts.id, id));
+    return sp;
+  }
+
+  async createSectorProduct(data: InsertSectorProduct): Promise<SectorProduct> {
+    const [sp] = await db.insert(sectorProducts).values(data).returning();
+    return sp;
+  }
+
+  async updateSectorProduct(id: number, data: Partial<InsertSectorProduct>): Promise<SectorProduct> {
+    const [sp] = await db.update(sectorProducts).set(data).where(eq(sectorProducts.id, id)).returning();
+    return sp;
+  }
+
+  async deleteSectorProduct(id: number): Promise<void> {
+    await db.delete(sectorProductParameters).where(eq(sectorProductParameters.sectorProductId, id));
+    await db.delete(sectorProducts).where(eq(sectorProducts.id, id));
+  }
+
+  // === Sector-Product-Parameter assignments (ArutsoK 25) ===
+  async getSectorProductParameters(sectorProductId: number): Promise<SectorProductParameter[]> {
+    return await db.select().from(sectorProductParameters).where(eq(sectorProductParameters.sectorProductId, sectorProductId));
+  }
+
+  async setSectorProductParameters(sectorProductId: number, parameterIds: number[]): Promise<void> {
+    await db.delete(sectorProductParameters).where(eq(sectorProductParameters.sectorProductId, sectorProductId));
+    if (parameterIds.length > 0) {
+      await db.insert(sectorProductParameters).values(
+        parameterIds.map(parameterId => ({ sectorProductId, parameterId }))
+      );
+    }
+  }
+
+  // === Parameters CRUD (ArutsoK 25: descending sort) ===
   async getParameters(): Promise<Parameter[]> {
-    return await db.select().from(parameters).orderBy(parameters.sortOrder);
+    return await db.select().from(parameters).orderBy(desc(parameters.id));
   }
 
   async getParameter(id: number): Promise<Parameter | undefined> {
@@ -1761,6 +1822,7 @@ export class DatabaseStorage implements IStorage {
 
   async deleteParameter(id: number): Promise<void> {
     await db.delete(sectorParameters).where(eq(sectorParameters.parameterId, id));
+    await db.delete(sectorProductParameters).where(eq(sectorProductParameters.parameterId, id));
     await db.delete(productParameters).where(eq(productParameters.parameterId, id));
     await db.delete(parameters).where(eq(parameters.id, id));
   }
