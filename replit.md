@@ -37,7 +37,7 @@ The system employs a modern full-stack architecture with a focus on data integri
     - **Document Management**: Dual document system (official/work) with file uploads to local storage and database metadata.
     - **Drag & Drop Reordering**: Uses `@dnd-kit` for reordering elements in various modules (contract statuses, client types, etc.).
     - **Status Indicators**: 5-color status dots for Subjects and consistent green/red for active/inactive items.
-    - **Voice Assistance (TTS)**: Web Speech API for notifications and welcome messages, with user-controlled muting.
+    - **Voice Assistance (TTS)**: Web Speech API for notifications and welcome messages, with user-controlled muting via global `window.ARUTSOK_AUDIO_ENABLED` hardware-style switch persisted in localStorage.
 - **Security & Workflow**:
     - **Idle Timeout Security**: Two-phase system with warning, audio cues, and auto-logout.
     - **Modal Scroll Lock**: Prevents background scrolling when dialogs are open.
