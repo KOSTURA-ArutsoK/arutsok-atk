@@ -517,35 +517,37 @@ function ParameterFormDialog({
             <label className="text-sm font-medium">Predvolena hodnota</label>
             <Input value={defaultValue} onChange={e => setDefaultValue(e.target.value)} data-testid="input-parameter-default" />
           </div>
-          {paramType === "combobox" && (
-            <div className="rounded-md border border-border p-4 space-y-3">
-              <div className="flex items-center gap-2">
-                <FolderOpen className="w-4 h-4 text-muted-foreground" />
-                <span className="text-sm font-semibold">Moznosti vyberu</span>
-              </div>
-              {choiceOptions.length > 0 && (
-                <div className="flex flex-wrap gap-1.5">
-                  {choiceOptions.sort((a, b) => a.order - b.order).map((opt, i) => (
-                    <Badge key={i} variant="secondary">
-                      {opt.order}. {opt.name}
-                    </Badge>
-                  ))}
-                </div>
+          <div className={`rounded-md border border-border p-4 space-y-3 ${paramType !== "combobox" ? "opacity-50" : ""}`}>
+            <div className="flex items-center gap-2">
+              <FolderOpen className="w-4 h-4 text-muted-foreground" />
+              <span className="text-sm font-semibold">Moznosti vyberu</span>
+              {paramType !== "combobox" && (
+                <span className="text-xs text-muted-foreground ml-auto">Dostupne len pre typ &quot;Vyber zo zoznamu&quot;</span>
               )}
-              {choiceOptions.length === 0 && (
-                <p className="text-xs text-muted-foreground">Ziadne moznosti definovane</p>
-              )}
-              <Button
-                type="button"
-                variant="default"
-                onClick={() => setOptionsModalOpen(true)}
-                data-testid="button-manage-options"
-              >
-                <List className="w-4 h-4 mr-1" />
-                Spravovat moznosti
-              </Button>
             </div>
-          )}
+            {paramType === "combobox" && choiceOptions.length > 0 && (
+              <div className="flex flex-wrap gap-1.5">
+                {choiceOptions.sort((a, b) => a.order - b.order).map((opt, i) => (
+                  <Badge key={i} variant="secondary">
+                    {opt.order}. {opt.name}
+                  </Badge>
+                ))}
+              </div>
+            )}
+            {paramType === "combobox" && choiceOptions.length === 0 && (
+              <p className="text-xs text-muted-foreground">Ziadne moznosti definovane</p>
+            )}
+            <Button
+              type="button"
+              variant="default"
+              disabled={paramType !== "combobox"}
+              onClick={() => setOptionsModalOpen(true)}
+              data-testid="button-manage-options"
+            >
+              <List className="w-4 h-4 mr-1" />
+              Spravovat moznosti
+            </Button>
+          </div>
           <div className="flex items-center justify-end mt-6">
             <Button type="button" variant="outline" onClick={() => handleOpenChange(false)} data-testid="button-parameter-cancel">
               Zrusit
