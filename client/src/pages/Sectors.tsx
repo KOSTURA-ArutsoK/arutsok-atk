@@ -537,7 +537,7 @@ function ParameterFormDialog({
               )}
               <Button
                 type="button"
-                variant="outline"
+                variant="default"
                 onClick={() => setOptionsModalOpen(true)}
                 data-testid="button-manage-options"
               >
