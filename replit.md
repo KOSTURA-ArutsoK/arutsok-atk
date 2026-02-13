@@ -63,6 +63,8 @@ The system employs a modern full-stack architecture with a focus on data integri
         - Export functionality to Excel/CSV.
     - **Dynamic Parameter System**: `sectors`, `parameters`, `sector_parameters`, `product_sectors`, `product_parameters` tables for dynamic product parameterization.
     - **System Settings**: Key-value store for application configurations (e.g., support phone number, category timeouts, dashboard preferences).
+    - **Calendar Module**: `calendar_events` table with full CRUD, month grid view, event chips, day panel, create/edit/delete dialogs, color coding, all-day events. Dashboard widget for upcoming events.
+    - **Settings Reorganization (ArutsoK 19)**: Sidebar 'Nastavenia' split into nested 'Sprava pristupov' sub-group (Pouzivatelia, Pravomoci skupiny, Doba prihlasenia) and direct items (Logy, Podpora a registracia, Nastavenie prehladov, Kos). Each settings concern has its own dedicated page.
 
 ## External Dependencies
 - **Replit OIDC Auth**: For user authentication.

@@ -40,6 +40,7 @@ import {
   FileDown,
   ExternalLink,
   Calendar,
+  KeyRound,
 } from "lucide-react";
 import {
   Sidebar,
@@ -103,14 +104,22 @@ const zmluvyItems = [
   { href: "/supisky", icon: ClipboardList, label: "Supisky" },
 ];
 
-const nastavenieItems = [
-  { href: "/archive", icon: Trash2, label: "Kos" },
-  { href: "/history", icon: History, label: "Logy" },
+const spravaPristupovItems = [
   { href: "/users", icon: UserCog, label: "Pouzivatelia" },
   { href: "/permission-groups", icon: ShieldCheck, label: "Pravomoci skupiny" },
+  { href: "/doba-prihlasenia", icon: Timer, label: "Doba prihlasenia" },
+];
+
+const nastavenieDirectItems = [
+  { href: "/history", icon: History, label: "Logy" },
   { href: "/support", icon: Phone, label: "Podpora a registracia" },
-  { href: "/settings", icon: Timer, label: "Doba prihlasenia" },
   { href: "/dashboard-settings", icon: Eye, label: "Nastavenie prehladov" },
+  { href: "/archive", icon: Trash2, label: "Kos" },
+];
+
+const allNastavenieHrefs = [
+  ...spravaPristupovItems.map(i => i.href),
+  ...nastavenieDirectItems.map(i => i.href),
 ];
 
 function CollapsibleMenu({
@@ -182,7 +191,8 @@ export function AppSidebar() {
   const { helpEnabled, toggleHelp } = useHelp();
 
   const allMenus = [
-    { id: "nastavenia", items: nastavenieItems },
+    { id: "nastavenia", items: [...spravaPristupovItems, ...nastavenieDirectItems] },
+    { id: "sprava-pristupov", items: spravaPristupovItems },
     { id: "partneri", items: partneriProduktyItems },
     { id: "klienti", items: klientiItems },
     { id: "zmluvy", items: zmluvyItems },
@@ -191,6 +201,12 @@ export function AppSidebar() {
   ];
   const activeMenuId = allMenus.find(m => m.items.some(i => i.href === location))?.id || null;
   const [openMenuId, setOpenMenuId] = useState<string | null>(activeMenuId);
+
+  const isNastavenieActive = allNastavenieHrefs.includes(location);
+  const isNastavenieOpen = openMenuId === "nastavenia";
+  const [spravaPristupovExpanded, setSpravaPristupovExpanded] = useState(
+    spravaPristupovItems.some(i => i.href === location)
+  );
 
   const displayName = appUser
     ? `${appUser.firstName || ""} ${appUser.lastName || ""}`.trim() || appUser.username
@@ -235,16 +251,80 @@ export function AppSidebar() {
                   </SidebarMenuButton>
                 </SidebarMenuItem>
               ))}
-              <CollapsibleMenu
-                label="Nastavenia"
-                icon={Settings}
-                items={nastavenieItems}
-                location={location}
-                testId="nav-menu-nastavenia"
-                menuId="nastavenia"
-                openMenuId={openMenuId}
-                setOpenMenuId={setOpenMenuId}
-              />
+
+              <Collapsible
+                open={isNastavenieOpen}
+                onOpenChange={(val) => setOpenMenuId(val ? "nastavenia" : null)}
+                className="group/collapsible"
+              >
+                <SidebarMenuItem>
+                  <CollapsibleTrigger asChild>
+                    <SidebarMenuButton
+                      data-testid="nav-menu-nastavenia"
+                      className={isNastavenieActive ? "text-sidebar-accent-foreground font-medium" : ""}
+                    >
+                      <Settings className="w-4 h-4" />
+                      <span className="flex-1">Nastavenia</span>
+                      <ChevronRight className={`w-3.5 h-3.5 text-muted-foreground transition-transform duration-200 ${isNastavenieOpen ? "rotate-90" : ""}`} />
+                    </SidebarMenuButton>
+                  </CollapsibleTrigger>
+                  <CollapsibleContent>
+                    <SidebarMenuSub>
+                      <SidebarMenuSubItem>
+                        <Collapsible
+                          open={spravaPristupovExpanded}
+                          onOpenChange={setSpravaPristupovExpanded}
+                        >
+                          <CollapsibleTrigger asChild>
+                            <SidebarMenuSubButton
+                              data-testid="nav-submenu-sprava-pristupov"
+                              className={`cursor-pointer ${spravaPristupovItems.some(i => i.href === location) ? "text-sidebar-accent-foreground font-medium" : ""}`}
+                            >
+                              <KeyRound className="w-3.5 h-3.5" />
+                              <span className="flex-1">Sprava pristupov</span>
+                              <ChevronRight className={`w-3 h-3 text-muted-foreground transition-transform duration-200 ${spravaPristupovExpanded ? "rotate-90" : ""}`} />
+                            </SidebarMenuSubButton>
+                          </CollapsibleTrigger>
+                          <CollapsibleContent>
+                            <div className="ml-3 border-l border-border pl-2 mt-1 space-y-0.5">
+                              {spravaPristupovItems.map(item => (
+                                <SidebarMenuSubItem key={item.href}>
+                                  <SidebarMenuSubButton
+                                    asChild
+                                    isActive={location === item.href}
+                                    data-testid={`nav-${item.label.toLowerCase().replace(/\s/g, '-')}`}
+                                  >
+                                    <Link href={item.href}>
+                                      <item.icon className="w-3.5 h-3.5" />
+                                      <span>{item.label}</span>
+                                    </Link>
+                                  </SidebarMenuSubButton>
+                                </SidebarMenuSubItem>
+                              ))}
+                            </div>
+                          </CollapsibleContent>
+                        </Collapsible>
+                      </SidebarMenuSubItem>
+
+                      {nastavenieDirectItems.map(item => (
+                        <SidebarMenuSubItem key={item.href}>
+                          <SidebarMenuSubButton
+                            asChild
+                            isActive={location === item.href}
+                            data-testid={`nav-${item.label.toLowerCase().replace(/\s/g, '-')}`}
+                          >
+                            <Link href={item.href}>
+                              <item.icon className="w-3.5 h-3.5" />
+                              <span>{item.label}</span>
+                            </Link>
+                          </SidebarMenuSubButton>
+                        </SidebarMenuSubItem>
+                      ))}
+                    </SidebarMenuSub>
+                  </CollapsibleContent>
+                </SidebarMenuItem>
+              </Collapsible>
+
               <SidebarMenuItem>
                 <SidebarMenuButton
                   asChild

@@ -40,6 +40,9 @@ import Novinky from "@/pages/Novinky";
 import DokumentyNaStiahnutie from "@/pages/DokumentyNaStiahnutie";
 import ExternePristupy from "@/pages/ExternePristupy";
 import Kalendar from "@/pages/Kalendar";
+import DobaPrihlasenia from "@/pages/DobaPrihlasenia";
+import PodporaRegistracia from "@/pages/PodporaRegistracia";
+import NastaveniePrehladov from "@/pages/NastaveniePrehladov";
 import { AppShell } from "@/components/layout/AppShell";
 
 function PrivateRoute({ component: Component, ...rest }: any) {
@@ -103,6 +106,9 @@ function Router() {
       <Route path="/dokumenty-na-stiahnutie" component={() => <PrivateRoute component={DokumentyNaStiahnutie} />} />
       <Route path="/externe-pristupy" component={() => <PrivateRoute component={ExternePristupy} />} />
       <Route path="/kalendar" component={() => <PrivateRoute component={Kalendar} />} />
+      <Route path="/doba-prihlasenia" component={() => <PrivateRoute component={DobaPrihlasenia} />} />
+      <Route path="/support" component={() => <PrivateRoute component={PodporaRegistracia} />} />
+      <Route path="/dashboard-settings" component={() => <PrivateRoute component={NastaveniePrehladov} />} />
 
       <Route component={NotFound} />
     </Switch>
