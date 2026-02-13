@@ -48,7 +48,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     ? categoryTimeouts[0].timeoutSeconds
     : 180;
 
-  const { timeLeft, showWarning, dismissWarning, isRed } = useIdleTimeout(defaultTimeout, tts.enabledRef);
+  const { timeLeft, showWarning, dismissWarning, isRed } = useIdleTimeout(defaultTimeout);
   useGlobalClickLogger();
 
   useEffect(() => {

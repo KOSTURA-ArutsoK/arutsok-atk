@@ -1,30 +1,30 @@
-import { useState, useCallback, useEffect, useRef } from "react";
+import { useState, useCallback, useRef } from "react";
 
 const TTS_STORAGE_KEY = "arutsok_tts_enabled";
 
+declare global {
+  interface Window {
+    ARUTSOK_AUDIO_ENABLED: boolean;
+  }
+}
+
+const storedValue = (() => {
+  try {
+    const stored = localStorage.getItem(TTS_STORAGE_KEY);
+    return stored === null ? false : stored === "true";
+  } catch {
+    return false;
+  }
+})();
+
+window.ARUTSOK_AUDIO_ENABLED = storedValue;
+
 export function useTTS() {
-  const [enabled, setEnabled] = useState(() => {
-    try {
-      const stored = localStorage.getItem(TTS_STORAGE_KEY);
-      return stored === null ? false : stored === "true";
-    } catch {
-      return false;
-    }
-  });
-
-  const enabledRef = useRef(enabled);
-  enabledRef.current = enabled;
-
+  const [enabled, setEnabled] = useState(window.ARUTSOK_AUDIO_ENABLED);
   const spokenRef = useRef<Set<string>>(new Set());
 
-  useEffect(() => {
-    try {
-      localStorage.setItem(TTS_STORAGE_KEY, String(enabled));
-    } catch {}
-  }, [enabled]);
-
   const speak = useCallback((text: string, key?: string) => {
-    if (!enabledRef.current) return;
+    if (!window.ARUTSOK_AUDIO_ENABLED) return;
     if (key && spokenRef.current.has(key)) return;
     if (key) spokenRef.current.add(key);
 
@@ -46,8 +46,9 @@ export function useTTS() {
   }, []);
 
   const toggle = useCallback(() => {
-    const next = !enabledRef.current;
-    enabledRef.current = next;
+    const next = !window.ARUTSOK_AUDIO_ENABLED;
+    window.ARUTSOK_AUDIO_ENABLED = next;
+    try { localStorage.setItem(TTS_STORAGE_KEY, String(next)); } catch {}
     if (!next) {
       try { window.speechSynthesis?.cancel(); } catch {}
     }
@@ -58,5 +59,5 @@ export function useTTS() {
     spokenRef.current.delete(key);
   }, []);
 
-  return { enabled, toggle, speak, resetSpoken, enabledRef };
+  return { enabled, toggle, speak, resetSpoken };
 }

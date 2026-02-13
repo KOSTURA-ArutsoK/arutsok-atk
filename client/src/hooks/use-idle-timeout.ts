@@ -1,5 +1,4 @@
 import { useEffect, useRef, useCallback, useState } from "react";
-import type { MutableRefObject } from "react";
 
 const DEFAULT_TIMEOUT_SEC = 180;
 const WARNING_AT_SEC = 60;
@@ -7,10 +6,7 @@ const RED_BEFORE_WARNING_SEC = 10;
 const BEEP_LAST_SEC = 10;
 const THROTTLE_MS = 1000;
 
-export function useIdleTimeout(
-  totalTimeoutSec: number = DEFAULT_TIMEOUT_SEC,
-  audioEnabledRef: MutableRefObject<boolean>
-) {
+export function useIdleTimeout(totalTimeoutSec: number = DEFAULT_TIMEOUT_SEC) {
   const [timeLeft, setTimeLeft] = useState(totalTimeoutSec);
   const [showWarning, setShowWarning] = useState(false);
 
@@ -24,7 +20,7 @@ export function useIdleTimeout(
   totalRef.current = totalTimeoutSec;
 
   const playBeep = useCallback((freq = 800, duration = 0.2) => {
-    if (!audioEnabledRef.current) return;
+    if (!window.ARUTSOK_AUDIO_ENABLED) return;
     try {
       const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
       const oscillator = audioCtx.createOscillator();
@@ -37,7 +33,7 @@ export function useIdleTimeout(
       oscillator.start();
       oscillator.stop(audioCtx.currentTime + duration);
     } catch {}
-  }, [audioEnabledRef]);
+  }, []);
 
   const resetActivity = useCallback(() => {
     const now = Date.now();
