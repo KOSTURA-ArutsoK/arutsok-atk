@@ -48,14 +48,14 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     ? categoryTimeouts[0].timeoutSeconds
     : 180;
 
-  const { timeLeft, showWarning, dismissWarning, isRed } = useIdleTimeout(defaultTimeout);
+  const { timeLeft, showWarning, dismissWarning, isRed } = useIdleTimeout(defaultTimeout, tts.enabled);
   useGlobalClickLogger();
 
   useEffect(() => {
     if (displayName && displayName !== "Pouzivatel") {
       const firstName = appUser?.firstName || user?.firstName || displayName.split(" ")[0];
       tts.speak(
-        `Vitaj, ${firstName}. Prajem ti uspesny pracovny den.`,
+        `Vitaj v systeme Arutsok ${firstName}`,
         "welcome_" + (appUser?.id || "user")
       );
     }

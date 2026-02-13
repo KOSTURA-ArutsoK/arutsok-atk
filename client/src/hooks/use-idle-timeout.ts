@@ -6,7 +6,7 @@ const RED_BEFORE_WARNING_SEC = 10;
 const BEEP_LAST_SEC = 10;
 const THROTTLE_MS = 1000;
 
-export function useIdleTimeout(totalTimeoutSec: number = DEFAULT_TIMEOUT_SEC) {
+export function useIdleTimeout(totalTimeoutSec: number = DEFAULT_TIMEOUT_SEC, audioEnabled: boolean = true) {
   const [timeLeft, setTimeLeft] = useState(totalTimeoutSec);
   const [showWarning, setShowWarning] = useState(false);
 
@@ -19,7 +19,11 @@ export function useIdleTimeout(totalTimeoutSec: number = DEFAULT_TIMEOUT_SEC) {
 
   totalRef.current = totalTimeoutSec;
 
+  const audioEnabledRef = useRef(audioEnabled);
+  audioEnabledRef.current = audioEnabled;
+
   const playBeep = useCallback((freq = 800, duration = 0.2) => {
+    if (!audioEnabledRef.current) return;
     try {
       const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
       const oscillator = audioCtx.createOscillator();

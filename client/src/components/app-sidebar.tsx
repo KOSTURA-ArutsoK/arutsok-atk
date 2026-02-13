@@ -106,21 +106,29 @@ function CollapsibleMenu({
   icon: Icon,
   items,
   location,
-  defaultOpen,
   testId,
+  menuId,
+  openMenuId,
+  setOpenMenuId,
 }: {
   label: string;
   icon: React.ElementType;
   items: { href: string; icon: React.ElementType; label: string }[];
   location: string;
-  defaultOpen?: boolean;
   testId: string;
+  menuId: string;
+  openMenuId: string | null;
+  setOpenMenuId: (id: string | null) => void;
 }) {
   const isAnyActive = items.some(item => location === item.href);
-  const [open, setOpen] = useState(defaultOpen || isAnyActive);
+  const isOpen = openMenuId === menuId;
 
   return (
-    <Collapsible open={open} onOpenChange={setOpen} className="group/collapsible">
+    <Collapsible
+      open={isOpen}
+      onOpenChange={(val) => setOpenMenuId(val ? menuId : null)}
+      className="group/collapsible"
+    >
       <SidebarMenuItem>
         <CollapsibleTrigger asChild>
           <SidebarMenuButton
@@ -129,7 +137,7 @@ function CollapsibleMenu({
           >
             <Icon className="w-4 h-4" />
             <span className="flex-1">{label}</span>
-            <ChevronRight className={`w-3.5 h-3.5 text-muted-foreground transition-transform duration-200 ${open ? "rotate-90" : ""}`} />
+            <ChevronRight className={`w-3.5 h-3.5 text-muted-foreground transition-transform duration-200 ${isOpen ? "rotate-90" : ""}`} />
           </SidebarMenuButton>
         </CollapsibleTrigger>
         <CollapsibleContent>
@@ -160,6 +168,16 @@ export function AppSidebar() {
   const { user, logout } = useAuth();
   const { data: appUser } = useAppUser();
   const { helpEnabled, toggleHelp } = useHelp();
+
+  const allMenus = [
+    { id: "nastavenia", items: nastavenieItems },
+    { id: "partneri", items: partneriProduktyItems },
+    { id: "klienti", items: klientiItems },
+    { id: "zmluvy", items: zmluvyItems },
+    { id: "financie", items: financieItems },
+  ];
+  const activeMenuId = allMenus.find(m => m.items.some(i => i.href === location))?.id || null;
+  const [openMenuId, setOpenMenuId] = useState<string | null>(activeMenuId);
 
   const displayName = appUser
     ? `${appUser.firstName || ""} ${appUser.lastName || ""}`.trim() || appUser.username
@@ -210,6 +228,9 @@ export function AppSidebar() {
                 items={nastavenieItems}
                 location={location}
                 testId="nav-menu-nastavenia"
+                menuId="nastavenia"
+                openMenuId={openMenuId}
+                setOpenMenuId={setOpenMenuId}
               />
               <SidebarMenuItem>
                 <SidebarMenuButton
@@ -238,6 +259,9 @@ export function AppSidebar() {
                 items={partneriProduktyItems}
                 location={location}
                 testId="nav-menu-partneri-produkty"
+                menuId="partneri"
+                openMenuId={openMenuId}
+                setOpenMenuId={setOpenMenuId}
               />
               <CollapsibleMenu
                 label="Klienti"
@@ -245,6 +269,9 @@ export function AppSidebar() {
                 items={klientiItems}
                 location={location}
                 testId="nav-menu-klienti"
+                menuId="klienti"
+                openMenuId={openMenuId}
+                setOpenMenuId={setOpenMenuId}
               />
               <CollapsibleMenu
                 label="Zmluvy"
@@ -252,6 +279,9 @@ export function AppSidebar() {
                 items={zmluvyItems}
                 location={location}
                 testId="nav-menu-zmluvy"
+                menuId="zmluvy"
+                openMenuId={openMenuId}
+                setOpenMenuId={setOpenMenuId}
               />
               <CollapsibleMenu
                 label="Financie"
@@ -259,6 +289,9 @@ export function AppSidebar() {
                 items={financieItems}
                 location={location}
                 testId="nav-menu-financie"
+                menuId="financie"
+                openMenuId={openMenuId}
+                setOpenMenuId={setOpenMenuId}
               />
             </SidebarMenu>
           </SidebarGroupContent>

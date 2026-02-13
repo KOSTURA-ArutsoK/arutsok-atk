@@ -3,13 +3,12 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import type { Sector, Parameter, SectorParameter } from "@shared/schema";
-import { Plus, Pencil, Trash2, Loader2, Search, Layers, Settings2 } from "lucide-react";
+import { Plus, Pencil, Trash2, Loader2, Search, Layers, Settings2, ChevronsUpDown, X, Check } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Checkbox } from "@/components/ui/checkbox";
 import { Switch } from "@/components/ui/switch";
 import {
   Dialog,
@@ -33,7 +32,30 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { ProcessingSaveButton } from "@/components/processing-save-button";
+
+const PARAM_TYPES = [
+  { value: "text", label: "Text" },
+  { value: "textarea", label: "Dlhy text" },
+  { value: "number", label: "Cislo" },
+  { value: "currency", label: "Mena \u20ac" },
+  { value: "percent", label: "Percento %" },
+  { value: "date", label: "Datum" },
+  { value: "datetime", label: "Datum a cas" },
+  { value: "boolean", label: "Ano/Nie" },
+  { value: "combobox", label: "Vyber zo zoznamu" },
+  { value: "email", label: "E-mail" },
+  { value: "phone", label: "Telefon" },
+  { value: "url", label: "URL adresa" },
+  { value: "file", label: "Subor / priloha" },
+  { value: "iban", label: "IBAN" },
+] as const;
+
+function getParamTypeLabel(value: string): string {
+  return PARAM_TYPES.find(t => t.value === value)?.label || value;
+}
 
 function SectorFormDialog({
   open,
@@ -161,36 +183,74 @@ function SectorFormDialog({
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="general">general</SelectItem>
-                <SelectItem value="params">params</SelectItem>
+                <SelectItem value="general">Vseobecny</SelectItem>
+                <SelectItem value="params">Parametricky</SelectItem>
               </SelectContent>
             </Select>
           </div>
           <div className="space-y-2">
             <label className="text-sm font-medium">Parametre</label>
-            <div className="grid grid-cols-2 gap-2 max-h-[200px] overflow-y-auto border border-border rounded-md p-3">
-              {allParameters && allParameters.length > 0 ? (
-                allParameters.map(param => (
-                  <label key={param.id} className="flex items-center gap-2 text-sm cursor-pointer">
-                    <Checkbox
-                      checked={selectedParameterIds.includes(param.id)}
-                      onCheckedChange={(checked) => {
-                        if (checked) {
-                          setSelectedParameterIds(prev => [...prev, param.id]);
-                        } else {
-                          setSelectedParameterIds(prev => prev.filter(id => id !== param.id));
-                        }
-                      }}
-                      data-testid={`checkbox-param-${param.id}`}
-                    />
-                    <span>{param.name}</span>
-                    <Badge variant="outline" className="text-xs">{param.paramType}</Badge>
-                  </label>
-                ))
-              ) : (
-                <p className="text-sm text-muted-foreground col-span-2">Ziadne parametre</p>
-              )}
-            </div>
+            {selectedParameterIds.length > 0 && (
+              <div className="flex flex-wrap gap-1.5 mb-2">
+                {selectedParameterIds.map(pid => {
+                  const p = allParameters?.find(x => x.id === pid);
+                  return p ? (
+                    <Badge key={pid} variant="secondary" className="gap-1">
+                      {p.name}
+                      <button
+                        type="button"
+                        className="ml-0.5 rounded-full hover:bg-muted-foreground/20"
+                        onClick={() => setSelectedParameterIds(prev => prev.filter(id => id !== pid))}
+                        data-testid={`badge-remove-param-${pid}`}
+                      >
+                        <X className="w-3 h-3" />
+                      </button>
+                    </Badge>
+                  ) : null;
+                })}
+              </div>
+            )}
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button variant="outline" className="w-full justify-between" data-testid="button-select-parameters">
+                  <span className="text-muted-foreground">
+                    {selectedParameterIds.length > 0 ? `${selectedParameterIds.length} vybranych` : "Vyberte parametre..."}
+                  </span>
+                  <ChevronsUpDown className="w-4 h-4 text-muted-foreground" />
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-[400px] p-0" align="start">
+                <Command>
+                  <CommandInput placeholder="Hladat parametre..." data-testid="input-search-param-combobox" />
+                  <CommandList>
+                    <CommandEmpty>Ziadne parametre</CommandEmpty>
+                    <CommandGroup>
+                      {allParameters?.map(param => {
+                        const isSelected = selectedParameterIds.includes(param.id);
+                        return (
+                          <CommandItem
+                            key={param.id}
+                            value={param.name}
+                            onSelect={() => {
+                              if (isSelected) {
+                                setSelectedParameterIds(prev => prev.filter(id => id !== param.id));
+                              } else {
+                                setSelectedParameterIds(prev => [...prev, param.id]);
+                              }
+                            }}
+                            data-testid={`combobox-param-${param.id}`}
+                          >
+                            <Check className={`w-4 h-4 mr-2 ${isSelected ? "opacity-100" : "opacity-0"}`} />
+                            <span className="flex-1">{param.name}</span>
+                            <Badge variant="outline" className="text-xs ml-2">{getParamTypeLabel(param.paramType)}</Badge>
+                          </CommandItem>
+                        );
+                      })}
+                    </CommandGroup>
+                  </CommandList>
+                </Command>
+              </PopoverContent>
+            </Popover>
           </div>
           <div className="flex items-center justify-end mt-6">
             <Button type="button" variant="outline" onClick={() => handleOpenChange(false)} data-testid="button-sector-cancel">
@@ -300,18 +360,15 @@ function ParameterFormDialog({
             <Input value={name} onChange={e => setName(e.target.value)} data-testid="input-parameter-name" />
           </div>
           <div className="space-y-2">
-            <label className="text-sm font-medium">Typ parametra</label>
+            <label className="text-sm font-medium">Typ</label>
             <Select value={paramType} onValueChange={setParamType}>
               <SelectTrigger data-testid="select-parameter-type">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="text">text</SelectItem>
-                <SelectItem value="textarea">textarea</SelectItem>
-                <SelectItem value="combobox">combobox</SelectItem>
-                <SelectItem value="number">number</SelectItem>
-                <SelectItem value="date">date</SelectItem>
-                <SelectItem value="boolean">boolean</SelectItem>
+                {PARAM_TYPES.map(pt => (
+                  <SelectItem key={pt.value} value={pt.value}>{pt.label}</SelectItem>
+                ))}
               </SelectContent>
             </Select>
           </div>
@@ -320,7 +377,7 @@ function ParameterFormDialog({
             <Input value={helpText} onChange={e => setHelpText(e.target.value)} placeholder="napr. TP riadok 30" data-testid="input-parameter-helptext" />
           </div>
           <div className="flex items-center gap-3">
-            <label className="text-sm font-medium">Povinny</label>
+            <label className="text-sm font-medium">Povinny udaj</label>
             <Switch checked={isRequired} onCheckedChange={setIsRequired} data-testid="switch-parameter-required" />
           </div>
           <div className="space-y-2">
@@ -586,7 +643,7 @@ function ParametersTab() {
                 <TableRow>
                   <TableHead>Nazov</TableHead>
                   <TableHead>Typ</TableHead>
-                  <TableHead>Povinny</TableHead>
+                  <TableHead>Povinny udaj</TableHead>
                   <TableHead>Napoveda</TableHead>
                   <TableHead>Akcie</TableHead>
                 </TableRow>
@@ -603,7 +660,7 @@ function ParametersTab() {
                     <TableRow key={param.id} data-testid={`row-parameter-${param.id}`}>
                       <TableCell className="font-medium">{param.name}</TableCell>
                       <TableCell>
-                        <Badge variant="outline">{param.paramType}</Badge>
+                        <Badge variant="outline">{getParamTypeLabel(param.paramType)}</Badge>
                       </TableCell>
                       <TableCell>
                         {param.isRequired ? (
