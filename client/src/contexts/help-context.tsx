@@ -164,17 +164,19 @@ export function HelpProvider({ children }: { children: React.ReactNode }) {
     };
   }, [helpEnabled]);
 
-  const tooltipPortal = tooltip ? createPortal(
-    <div
-      className="fixed z-[10000] max-w-xs p-3 rounded-md border border-border bg-card shadow-lg text-sm"
-      style={{ left: tooltip.x + 8, top: tooltip.y + 8 }}
-      data-testid="help-tooltip"
-    >
-      <p className="text-foreground">{tooltip.text}</p>
-      <p className="text-[10px] text-muted-foreground mt-1 italic">Pravym kliknutim na pole zobrazite napovedu</p>
-    </div>,
+  const tooltipPortal = createPortal(
+    tooltip ? (
+      <div
+        className="fixed z-[10000] max-w-xs p-3 rounded-md border border-border bg-card shadow-lg text-sm"
+        style={{ left: tooltip.x + 8, top: tooltip.y + 8 }}
+        data-testid="help-tooltip"
+      >
+        <p className="text-foreground">{tooltip.text}</p>
+        <p className="text-[10px] text-muted-foreground mt-1 italic">Pravym kliknutim na pole zobrazite napovedu</p>
+      </div>
+    ) : null,
     document.body
-  ) : null;
+  );
 
   return (
     <HelpContext.Provider value={{ helpEnabled, toggleHelp }}>

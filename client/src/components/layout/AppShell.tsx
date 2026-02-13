@@ -125,25 +125,27 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     dismissWarning();
   }, [dismissWarning]);
 
-  const warningOverlay = showWarning ? createPortal(
-    <div className="fixed inset-0 z-[9999] flex items-center justify-center" data-testid="idle-warning-overlay">
-      <div className="absolute inset-0 bg-background/80 backdrop-blur-md" />
-      <div className="relative z-10 flex flex-col items-center gap-4 p-8 rounded-md border border-destructive bg-card shadow-lg max-w-md text-center">
-        <AlertTriangle className="w-12 h-12 text-destructive" />
-        <h2 className="text-lg font-bold text-destructive" data-testid="text-idle-warning-title">Upozornenie na necinnost</h2>
-        <div className="text-4xl font-bold font-mono text-destructive" data-testid="text-idle-countdown">
-          {formatTime(timeLeft)}
+  const warningOverlay = createPortal(
+    showWarning ? (
+      <div className="fixed inset-0 z-[9999] flex items-center justify-center" data-testid="idle-warning-overlay">
+        <div className="absolute inset-0 bg-background/80 backdrop-blur-md" />
+        <div className="relative z-10 flex flex-col items-center gap-4 p-8 rounded-md border border-destructive bg-card shadow-lg max-w-md text-center">
+          <AlertTriangle className="w-12 h-12 text-destructive" />
+          <h2 className="text-lg font-bold text-destructive" data-testid="text-idle-warning-title">Upozornenie na necinnost</h2>
+          <div className="text-4xl font-bold font-mono text-destructive" data-testid="text-idle-countdown">
+            {formatTime(timeLeft)}
+          </div>
+          <p className="text-sm text-muted-foreground">
+            Budete automaticky odhlaseny z dovodu necinnosti.
+          </p>
+          <Button variant="default" onClick={handleDismissWarning} data-testid="button-dismiss-idle-warning">
+            Zostat prihlaseny
+          </Button>
         </div>
-        <p className="text-sm text-muted-foreground">
-          Budete automaticky odhlaseny z dovodu necinnosti.
-        </p>
-        <Button variant="default" onClick={handleDismissWarning} data-testid="button-dismiss-idle-warning">
-          Zostat prihlaseny
-        </Button>
       </div>
-    </div>,
+    ) : null,
     document.body
-  ) : null;
+  );
 
   return (
     <SidebarProvider style={sidebarStyle as React.CSSProperties}>
