@@ -9,7 +9,7 @@ import { useTheme } from "@/components/theme-provider";
 import { useAuth } from "@/hooks/use-auth";
 import { useTTSContext } from "@/contexts/tts-context";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Moon, Sun, ChevronDown, Globe, Building2, Check, Upload, LogOut, AlertTriangle, Timer, Volume2, VolumeX } from "lucide-react";
+import { Moon, Sun, ChevronDown, Globe, Building2, Upload, LogOut, AlertTriangle, Timer, Volume2, VolumeX } from "lucide-react";
 import type { PermissionGroup } from "@shared/schema";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -17,6 +17,7 @@ import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/app-sidebar";
 import { useToast } from "@/hooks/use-toast";
 import { useUserProfile } from "@/hooks/use-user-profile";
+import { ContextSelectorOverlay } from "@/components/context-selector-overlay";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -39,6 +40,62 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const queryClient = useQueryClient();
   const photoInputRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
+  const [contextOverlayOpen, setContextOverlayOpen] = useState(false);
+  const [contextStep, setContextStep] = useState<"state" | "company">("state");
+  const [pendingStateId, setPendingStateId] = useState<number | null>(null);
+  const contextInitRef = useRef(false);
+
+  useEffect(() => {
+    if (appUser && !contextInitRef.current) {
+      contextInitRef.current = true;
+      if (!appUser.activeStateId || !appUser.activeCompanyId) {
+        setPendingStateId(appUser.activeStateId || null);
+        setContextStep(appUser.activeStateId ? "company" : "state");
+        setContextOverlayOpen(true);
+      }
+    }
+  }, [appUser]);
+
+  const handleContextSelectState = useCallback((stateId: number) => {
+    setPendingStateId(stateId);
+    setActive.mutate({ activeStateId: stateId, activeCompanyId: null }, {
+      onSuccess: () => {
+        setContextStep("company");
+      },
+      onError: () => {
+        setPendingStateId(null);
+      }
+    });
+  }, [setActive]);
+
+  const handleContextSelectCompany = useCallback((companyId: number) => {
+    setActive.mutate({ activeCompanyId: companyId }, {
+      onSuccess: () => {
+        setContextOverlayOpen(false);
+      }
+    });
+  }, [setActive]);
+
+  const handleContextBack = useCallback(() => {
+    setContextStep("state");
+    setPendingStateId(null);
+  }, []);
+
+  const openStateSelector = useCallback(() => {
+    setPendingStateId(null);
+    setContextStep("state");
+    setContextOverlayOpen(true);
+  }, []);
+
+  const openCompanySelector = useCallback(() => {
+    if (!appUser?.activeStateId) {
+      openStateSelector();
+      return;
+    }
+    setPendingStateId(appUser.activeStateId);
+    setContextStep("company");
+    setContextOverlayOpen(true);
+  }, [appUser?.activeStateId, openStateSelector]);
 
   const { data: permGroups } = useQuery<PermissionGroup[]>({
     queryKey: ["/api/permission-groups"],
@@ -126,7 +183,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   }, [dismissWarning]);
 
   const warningOverlay = createPortal(
-    showWarning ? (
+    showWarning && !contextOverlayOpen ? (
       <div className="fixed inset-0 z-[9999] flex items-center justify-center" data-testid="idle-warning-overlay">
         <div className="absolute inset-0 bg-background/80 backdrop-blur-md" />
         <div className="relative z-10 flex flex-col items-center gap-4 p-8 rounded-md border border-destructive bg-card shadow-lg max-w-md text-center">
@@ -155,70 +212,27 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           <header className="h-14 border-b border-border bg-card flex items-center px-3 gap-2 flex-shrink-0">
             <SidebarTrigger data-testid="button-sidebar-toggle" />
 
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="sm" className="gap-1.5" data-testid="button-state-switcher">
-                  {activeState?.flagUrl ? (
-                    <img src={activeState.flagUrl} alt={activeState.name} className="w-5 h-3.5 object-cover rounded-sm" />
-                  ) : (
-                    <Globe className="w-4 h-4 text-muted-foreground" />
-                  )}
-                  <span className="text-sm font-medium hidden sm:inline">
-                    {activeState ? `+${activeState.code} ${activeState.name}` : "Stat"}
-                  </span>
-                  <ChevronDown className="w-3 h-3 text-muted-foreground" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="start" className="w-56">
-                <DropdownMenuLabel>Aktivny stat</DropdownMenuLabel>
-                <DropdownMenuSeparator />
-                {allStates?.map(s => (
-                  <DropdownMenuItem
-                    key={s.id}
-                    onClick={() => setActive.mutate({ activeStateId: s.id })}
-                    data-testid={`menu-state-${s.id}`}
-                  >
-                    {s.flagUrl && <img src={s.flagUrl} alt={s.name} className="w-5 h-3.5 object-cover rounded-sm flex-shrink-0" />}
-                    <span className="flex-1">+{s.code} {s.name}</span>
-                    {appUser?.activeStateId === s.id && <Check className="w-4 h-4 text-primary" />}
-                  </DropdownMenuItem>
-                ))}
-              </DropdownMenuContent>
-            </DropdownMenu>
+            <Button variant="ghost" size="sm" className="gap-1.5" onClick={openStateSelector} data-testid="button-state-switcher">
+              {activeState?.flagUrl ? (
+                <img src={activeState.flagUrl} alt={activeState.name} className="w-5 h-3.5 object-cover rounded-sm" />
+              ) : (
+                <Globe className="w-4 h-4 text-muted-foreground" />
+              )}
+              <span className="text-sm font-medium hidden sm:inline">
+                {activeState ? `+${activeState.code} ${activeState.name}` : "Stat"}
+              </span>
+              <ChevronDown className="w-3 h-3 text-muted-foreground" />
+            </Button>
 
             <div className="flex-1" />
 
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="sm" className="gap-1.5" data-testid="button-company-switcher">
-                  <Building2 className="w-4 h-4 text-muted-foreground" />
-                  <span className="text-sm font-medium truncate max-w-[200px]">
-                    {activeCompany?.name || "Ziadna firma"}
-                  </span>
-                  <ChevronDown className="w-3 h-3 text-muted-foreground" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="center" className="w-64">
-                <DropdownMenuLabel>Aktivna spolocnost</DropdownMenuLabel>
-                <DropdownMenuSeparator />
-                {companies?.filter(c => !c.isDeleted).map(c => (
-                  <DropdownMenuItem
-                    key={c.id}
-                    onClick={() => setActive.mutate({ activeCompanyId: c.id })}
-                    data-testid={`menu-company-${c.id}`}
-                  >
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm truncate">{c.name}</p>
-                      <p className="text-xs text-muted-foreground">{c.specialization} | {c.code}</p>
-                    </div>
-                    {appUser?.activeCompanyId === c.id && <Check className="w-4 h-4 text-primary flex-shrink-0" />}
-                  </DropdownMenuItem>
-                ))}
-                {(!companies || companies.filter(c => !c.isDeleted).length === 0) && (
-                  <DropdownMenuItem disabled>Ziadne spolocnosti</DropdownMenuItem>
-                )}
-              </DropdownMenuContent>
-            </DropdownMenu>
+            <Button variant="ghost" size="sm" className="gap-1.5" onClick={openCompanySelector} data-testid="button-company-switcher">
+              <Building2 className="w-4 h-4 text-muted-foreground" />
+              <span className="text-sm font-medium truncate max-w-[200px]">
+                {activeCompany?.name || "Ziadna firma"}
+              </span>
+              <ChevronDown className="w-3 h-3 text-muted-foreground" />
+            </Button>
 
             <div className="flex-1" />
 
@@ -289,6 +303,16 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           </main>
         </div>
       </div>
+      <ContextSelectorOverlay
+        open={contextOverlayOpen}
+        step={contextStep}
+        states={allStates || []}
+        companies={companies || []}
+        currentStateId={pendingStateId}
+        onSelectState={handleContextSelectState}
+        onSelectCompany={handleContextSelectCompany}
+        onBack={handleContextBack}
+      />
       {warningOverlay}
     </SidebarProvider>
   );

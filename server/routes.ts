@@ -154,6 +154,7 @@ export async function registerRoutes(
       const updates: Record<string, any> = {};
       if (validated.activeCompanyId !== undefined) updates.activeCompanyId = validated.activeCompanyId;
       if (validated.activeStateId !== undefined) updates.activeStateId = validated.activeStateId;
+      if (validated.activeCompanyId === null) updates.activeCompanyId = null;
       
       const oldData = { activeCompanyId: appUser.activeCompanyId, activeStateId: appUser.activeStateId };
       const updated = await storage.updateAppUser(appUser.id, updates);

@@ -32,7 +32,7 @@ The system employs a modern full-stack architecture with a focus on data integri
     - **Dark Mode**: Default with military/security aesthetic.
     - **Slovak Language**: Default language for the application.
     - **Design**: Sharp borders, small border radius, fixed 800x600px dialogs.
-    - **Context Switching**: Supports switching active states (e.g., geographic regions) and companies per `app_user`.
+    - **Context Switching (ArutsoK 29)**: Visual Context Selector overlay with frosted glass backdrop-blur. Two-step forced selection: State (circular flag buttons) → Company (rectangular cards filtered by stateId). Blocks all app interaction until both are selected. Top bar State button reopens from Step 1 (clears company), Company button reopens Step 2 for current state. Auto-shows after login if context is missing. `ContextSelectorOverlay` component in `client/src/components/context-selector-overlay.tsx`. `setActive` API accepts `activeCompanyId: null` to clear company on state change.
     - **Rich Text Editing**: Tiptap editor for notes.
     - **Document Management**: Dual document system (official/work) with file uploads to local storage and database metadata.
     - **Drag & Drop Reordering**: Uses `@dnd-kit` for reordering elements in various modules (contract statuses, client types, etc.).
