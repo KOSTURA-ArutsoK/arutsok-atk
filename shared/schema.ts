@@ -305,6 +305,7 @@ export const permissionGroups = pgTable("permission_groups", {
   id: serial("id").primaryKey(),
   name: text("name").notNull().unique(),
   description: text("description"),
+  sessionTimeoutSeconds: integer("session_timeout_seconds").notNull().default(180),
   createdAt: timestamp("created_at").defaultNow(),
 });
 

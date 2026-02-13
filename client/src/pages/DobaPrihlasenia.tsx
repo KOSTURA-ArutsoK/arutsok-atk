@@ -1,15 +1,19 @@
-import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
-import { Timer, Plus, Trash2, Loader2 } from "lucide-react";
+import { Timer, Loader2 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Separator } from "@/components/ui/separator";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { useAppUser } from "@/hooks/use-app-user";
-import type { CategoryTimeout } from "@shared/schema";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import type { PermissionGroup } from "@shared/schema";
 
 export default function DobaPrihlasenia() {
   const { data: appUser } = useAppUser();
@@ -17,53 +21,28 @@ export default function DobaPrihlasenia() {
   const queryClient = useQueryClient();
   const isAdmin = appUser?.role === "admin" || appUser?.role === "superadmin";
 
-  const { data: categoryTimeouts, isLoading } = useQuery<CategoryTimeout[]>({
-    queryKey: ["/api/category-timeouts"],
-  });
-
-  const [newCatName, setNewCatName] = useState("");
-  const [newCatSeconds, setNewCatSeconds] = useState("180");
-
-  const createTimeoutMutation = useMutation({
-    mutationFn: async (data: { categoryName: string; timeoutSeconds: number }) => {
-      await apiRequest("POST", "/api/category-timeouts", data);
-    },
-    onSuccess: () => {
-      toast({ title: "Ulozene", description: "Doba prihlasenia bola vytvorena." });
-      queryClient.invalidateQueries({ queryKey: ["/api/category-timeouts"] });
-      setNewCatName("");
-      setNewCatSeconds("180");
-    },
-    onError: () => {
-      toast({ title: "Chyba", description: "Nepodarilo sa vytvorit timeout.", variant: "destructive" });
-    },
+  const { data: groups, isLoading } = useQuery<PermissionGroup[]>({
+    queryKey: ["/api/permission-groups"],
   });
 
   const updateTimeoutMutation = useMutation({
-    mutationFn: async ({ id, timeoutSeconds }: { id: number; timeoutSeconds: number }) => {
-      await apiRequest("PATCH", `/api/category-timeouts/${id}`, { timeoutSeconds });
+    mutationFn: async ({ id, sessionTimeoutSeconds }: { id: number; sessionTimeoutSeconds: number }) => {
+      await apiRequest("PUT", `/api/permission-groups/${id}`, { sessionTimeoutSeconds });
     },
     onSuccess: () => {
       toast({ title: "Ulozene", description: "Doba prihlasenia bola aktualizovana." });
-      queryClient.invalidateQueries({ queryKey: ["/api/category-timeouts"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/permission-groups"] });
     },
     onError: () => {
-      toast({ title: "Chyba", variant: "destructive" });
+      toast({ title: "Chyba", description: "Nepodarilo sa aktualizovat dobu prihlasenia.", variant: "destructive" });
     },
   });
 
-  const deleteTimeoutMutation = useMutation({
-    mutationFn: async (id: number) => {
-      await apiRequest("DELETE", `/api/category-timeouts/${id}`);
-    },
-    onSuccess: () => {
-      toast({ title: "Odstranene" });
-      queryClient.invalidateQueries({ queryKey: ["/api/category-timeouts"] });
-    },
-    onError: () => {
-      toast({ title: "Chyba", variant: "destructive" });
-    },
-  });
+  const formatTime = (sec: number) => {
+    const m = Math.floor(sec / 60);
+    const s = sec % 60;
+    return `${m} min ${s} sek`;
+  };
 
   return (
     <div className="p-4 space-y-4">
@@ -85,85 +64,64 @@ export default function DobaPrihlasenia() {
       ) : (
         <Card>
           <CardHeader className="flex flex-row items-center justify-between gap-2 space-y-0 pb-2">
-            <CardTitle className="text-base">Nastavenie doby prihlasenia</CardTitle>
+            <CardTitle className="text-base">Nastavenie doby prihlasenia podla skupin</CardTitle>
             <div className="p-2 rounded-md bg-cyan-500/10 text-cyan-500">
               <Timer className="h-4 w-4" />
             </div>
           </CardHeader>
           <CardContent className="space-y-4">
             <p className="text-xs text-muted-foreground">
-              Nastavte cas automatickeho odhlasenia (v sekundach) pre kazdu kategoriu klientov.
+              Nastavte cas automatickeho odhlasenia (v sekundach) pre kazdu skupinu pravomoci. Zmeny sa prejavuju na oboch miestach (tu aj v Pravomoci skupiny).
             </p>
 
-            <div className="space-y-2">
-              {categoryTimeouts?.map(ct => (
-                <div key={ct.id} className="flex items-center gap-2" data-testid={`timeout-row-${ct.id}`}>
-                  <span className="text-sm flex-1 truncate">{ct.categoryName}</span>
-                  <Input
-                    type="number"
-                    className="w-24"
-                    defaultValue={ct.timeoutSeconds}
-                    onBlur={(e) => {
-                      const val = parseInt(e.target.value);
-                      if (val && val !== ct.timeoutSeconds) {
-                        updateTimeoutMutation.mutate({ id: ct.id, timeoutSeconds: val });
-                      }
-                    }}
-                    data-testid={`input-timeout-${ct.id}`}
-                  />
-                  <span className="text-xs text-muted-foreground w-6">sek</span>
-                  <Button
-                    size="icon"
-                    variant="ghost"
-                    onClick={() => deleteTimeoutMutation.mutate(ct.id)}
-                    data-testid={`button-delete-timeout-${ct.id}`}
-                  >
-                    <Trash2 className="w-3.5 h-3.5 text-destructive" />
-                  </Button>
-                </div>
-              ))}
-              {(!categoryTimeouts || categoryTimeouts.length === 0) && (
-                <p className="text-sm text-muted-foreground text-center py-4">Ziadne kategorie nastavene.</p>
-              )}
-            </div>
-
-            <Separator />
-
-            <div className="space-y-2">
-              <Label className="text-xs">Pridat novu kategoriu</Label>
-              <div className="flex items-center gap-2">
-                <Input
-                  placeholder="Nazov kategorie"
-                  value={newCatName}
-                  onChange={(e) => setNewCatName(e.target.value)}
-                  className="flex-1"
-                  data-testid="input-new-timeout-name"
-                />
-                <Input
-                  type="number"
-                  placeholder="180"
-                  value={newCatSeconds}
-                  onChange={(e) => setNewCatSeconds(e.target.value)}
-                  className="w-24"
-                  data-testid="input-new-timeout-seconds"
-                />
-                <Button
-                  size="icon"
-                  onClick={() => {
-                    if (newCatName.trim()) {
-                      createTimeoutMutation.mutate({
-                        categoryName: newCatName.trim(),
-                        timeoutSeconds: parseInt(newCatSeconds) || 180,
-                      });
-                    }
-                  }}
-                  disabled={createTimeoutMutation.isPending || !newCatName.trim()}
-                  data-testid="button-add-timeout"
-                >
-                  <Plus className="w-4 h-4" />
-                </Button>
-              </div>
-            </div>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Skupina</TableHead>
+                  <TableHead>Popis</TableHead>
+                  <TableHead className="w-36">Timeout (sek)</TableHead>
+                  <TableHead className="w-32">Cas</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {groups && groups.length > 0 ? (
+                  groups.map(group => (
+                    <TableRow key={group.id} data-testid={`timeout-row-${group.id}`}>
+                      <TableCell className="font-medium" data-testid={`text-group-name-${group.id}`}>
+                        {group.name}
+                      </TableCell>
+                      <TableCell className="text-muted-foreground text-sm">
+                        {group.description || "-"}
+                      </TableCell>
+                      <TableCell>
+                        <Input
+                          type="number"
+                          min={30}
+                          className="w-28"
+                          defaultValue={group.sessionTimeoutSeconds ?? 180}
+                          onBlur={(e) => {
+                            const val = parseInt(e.target.value);
+                            if (val && val >= 30 && val !== (group.sessionTimeoutSeconds ?? 180)) {
+                              updateTimeoutMutation.mutate({ id: group.id, sessionTimeoutSeconds: val });
+                            }
+                          }}
+                          data-testid={`input-timeout-${group.id}`}
+                        />
+                      </TableCell>
+                      <TableCell className="text-sm text-muted-foreground" data-testid={`text-timeout-display-${group.id}`}>
+                        {formatTime(group.sessionTimeoutSeconds ?? 180)}
+                      </TableCell>
+                    </TableRow>
+                  ))
+                ) : (
+                  <TableRow>
+                    <TableCell colSpan={4} className="text-center py-8 text-muted-foreground">
+                      Ziadne skupiny pravomoci. Vytvorte ich v sekcii Pravomoci skupiny.
+                    </TableCell>
+                  </TableRow>
+                )}
+              </TableBody>
+            </Table>
           </CardContent>
         </Card>
       )}

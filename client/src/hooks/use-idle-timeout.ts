@@ -50,6 +50,8 @@ export function useIdleTimeout(totalTimeoutSec: number = DEFAULT_TIMEOUT_SEC) {
     lastActivityRef.current = Date.now();
     beepPlayedRef.current.clear();
     warningBeepPlayedRef.current = false;
+    loggedOutRef.current = false;
+    setTimeLeft(totalRef.current);
   }, []);
 
   useEffect(() => {

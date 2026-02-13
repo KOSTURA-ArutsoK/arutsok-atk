@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -125,8 +125,8 @@ function UserFormDialog({
     },
   });
 
-  function handleOpenChange(isOpen: boolean) {
-    if (isOpen) {
+  useEffect(() => {
+    if (open) {
       timerRef.current = performance.now();
       if (editingUser) {
         setForm({
@@ -145,8 +145,7 @@ function UserFormDialog({
         setForm({ ...emptyForm });
       }
     }
-    onOpenChange(isOpen);
-  }
+  }, [open, editingUser]);
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -180,7 +179,7 @@ function UserFormDialog({
   const isPending = createMutation.isPending || updateMutation.isPending;
 
   return (
-    <Dialog open={open} onOpenChange={handleOpenChange}>
+    <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[800px] h-[600px] overflow-y-auto">
         <DialogHeader>
           <DialogTitle data-testid="text-user-dialog-title">
@@ -318,7 +317,7 @@ function UserFormDialog({
           </p>
 
           <div className="flex items-center justify-end">
-            <Button type="button" variant="outline" onClick={() => handleOpenChange(false)} data-testid="button-user-cancel">
+            <Button type="button" variant="outline" onClick={() => onOpenChange(false)} data-testid="button-user-cancel">
               Zrusit
             </Button>
           </div>

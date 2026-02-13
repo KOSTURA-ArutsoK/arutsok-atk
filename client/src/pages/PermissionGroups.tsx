@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -69,7 +69,23 @@ function GroupFormDialog({
   const { toast } = useToast();
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
+  const [sessionTimeoutSeconds, setSessionTimeoutSeconds] = useState(180);
   const timerRef = useRef<number>(0);
+
+  useEffect(() => {
+    if (open) {
+      timerRef.current = performance.now();
+      if (editingGroup) {
+        setName(editingGroup.name);
+        setDescription(editingGroup.description || "");
+        setSessionTimeoutSeconds(editingGroup.sessionTimeoutSeconds ?? 180);
+      } else {
+        setName("");
+        setDescription("");
+        setSessionTimeoutSeconds(180);
+      }
+    }
+  }, [open, editingGroup]);
 
   const createMutation = useMutation({
     mutationFn: (data: any) => apiRequest("POST", "/api/permission-groups", data),
@@ -96,20 +112,6 @@ function GroupFormDialog({
     },
   });
 
-  function handleOpenChange(isOpen: boolean) {
-    if (isOpen) {
-      timerRef.current = performance.now();
-      if (editingGroup) {
-        setName(editingGroup.name);
-        setDescription(editingGroup.description || "");
-      } else {
-        setName("");
-        setDescription("");
-      }
-    }
-    onOpenChange(isOpen);
-  }
-
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!name.trim()) {
@@ -117,7 +119,7 @@ function GroupFormDialog({
       return;
     }
     const processingTimeSec = Math.round((performance.now() - timerRef.current) / 1000);
-    const payload = { name, description: description || null, processingTimeSec };
+    const payload = { name, description: description || null, sessionTimeoutSeconds, processingTimeSec };
     if (editingGroup) {
       updateMutation.mutate({ id: editingGroup.id, data: payload });
     } else {
@@ -128,7 +130,7 @@ function GroupFormDialog({
   const isPending = createMutation.isPending || updateMutation.isPending;
 
   return (
-    <Dialog open={open} onOpenChange={handleOpenChange}>
+    <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[800px] h-[600px] overflow-y-auto">
         <DialogHeader>
           <DialogTitle data-testid="text-group-dialog-title">
@@ -152,8 +154,21 @@ function GroupFormDialog({
               data-testid="input-group-description"
             />
           </div>
+          <div className="space-y-2">
+            <Label>Doba prihlasenia (sekundy)</Label>
+            <Input
+              type="number"
+              min={30}
+              value={sessionTimeoutSeconds}
+              onChange={e => setSessionTimeoutSeconds(parseInt(e.target.value) || 180)}
+              data-testid="input-group-timeout"
+            />
+            <p className="text-xs text-muted-foreground">
+              Cas automatickeho odhlasenia pre pouzivatelov v tejto skupine ({Math.floor(sessionTimeoutSeconds / 60)} min {sessionTimeoutSeconds % 60} sek)
+            </p>
+          </div>
           <div className="flex items-center justify-end">
-            <Button type="button" variant="outline" onClick={() => handleOpenChange(false)} data-testid="button-group-cancel">
+            <Button type="button" variant="outline" onClick={() => onOpenChange(false)} data-testid="button-group-cancel">
               Zrusit
             </Button>
           </div>
@@ -359,8 +374,11 @@ export default function PermissionGroupsPage() {
                     <p className="text-sm text-muted-foreground mt-1 line-clamp-2" data-testid={`text-group-desc-${group.id}`}>
                       {group.description || "Bez popisu"}
                     </p>
+                    <Badge variant="outline" className="mt-2" data-testid={`badge-group-timeout-${group.id}`}>
+                      {Math.floor((group.sessionTimeoutSeconds ?? 180) / 60)} min {(group.sessionTimeoutSeconds ?? 180) % 60} sek
+                    </Badge>
                     {selectedGroupId === group.id && (
-                      <Badge variant="secondary" className="mt-2">Vybrana</Badge>
+                      <Badge variant="secondary" className="mt-2 ml-2">Vybrana</Badge>
                     )}
                   </div>
                   <div className="flex items-center gap-1 flex-shrink-0">

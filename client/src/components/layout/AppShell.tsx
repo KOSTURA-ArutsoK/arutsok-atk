@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { createPortal } from "react-dom";
 import { useIdleTimeout } from "@/hooks/use-idle-timeout";
 import { useGlobalClickLogger } from "@/hooks/use-global-click-logger";
@@ -10,7 +10,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { useTTSContext } from "@/contexts/tts-context";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Moon, Sun, ChevronDown, Globe, Building2, Check, Upload, LogOut, AlertTriangle, Timer, Volume2, VolumeX } from "lucide-react";
-import type { CategoryTimeout } from "@shared/schema";
+import type { PermissionGroup } from "@shared/schema";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
@@ -40,13 +40,12 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const photoInputRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
 
-  const { data: categoryTimeouts } = useQuery<CategoryTimeout[]>({
-    queryKey: ["/api/category-timeouts"],
+  const { data: permGroups } = useQuery<PermissionGroup[]>({
+    queryKey: ["/api/permission-groups"],
   });
 
-  const defaultTimeout = categoryTimeouts && categoryTimeouts.length > 0
-    ? categoryTimeouts[0].timeoutSeconds
-    : 180;
+  const userGroup = permGroups?.find(g => g.id === appUser?.permissionGroupId);
+  const defaultTimeout = userGroup?.sessionTimeoutSeconds ?? 180;
 
   const { timeLeft, showWarning, dismissWarning, isRed } = useIdleTimeout(defaultTimeout);
   useGlobalClickLogger();
@@ -120,6 +119,12 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     "--sidebar-width-icon": "3rem",
   };
 
+  const handleDismissWarning = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    dismissWarning();
+  }, [dismissWarning]);
+
   const warningOverlay = showWarning ? createPortal(
     <div className="fixed inset-0 z-[9999] flex items-center justify-center" data-testid="idle-warning-overlay">
       <div className="absolute inset-0 bg-background/80 backdrop-blur-md" />
@@ -132,8 +137,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         <p className="text-sm text-muted-foreground">
           Budete automaticky odhlaseny z dovodu necinnosti.
         </p>
-        <Button variant="default" onClick={dismissWarning} data-testid="button-dismiss-idle-warning">
-          Pokracovat v praci
+        <Button variant="default" onClick={handleDismissWarning} data-testid="button-dismiss-idle-warning">
+          Zostat prihlaseny
         </Button>
       </div>
     </div>,

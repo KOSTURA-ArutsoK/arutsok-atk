@@ -65,6 +65,7 @@ The system employs a modern full-stack architecture with a focus on data integri
     - **System Settings**: Key-value store for application configurations (e.g., support phone number, category timeouts, dashboard preferences).
     - **Calendar Module**: `calendar_events` table with full CRUD, month grid view, event chips, day panel, create/edit/delete dialogs, color coding, all-day events. Dashboard widget for upcoming events.
     - **Settings Reorganization (ArutsoK 19)**: Sidebar 'Nastavenia' split into nested 'Sprava pristupov' sub-group (Pouzivatelia, Pravomoci skupiny, Doba prihlasenia) and direct items (Logy, Podpora a registracia, Nastavenie prehladov, Kos). Each settings concern has its own dedicated page.
+    - **Session Management (ArutsoK 20)**: `permission_groups.sessionTimeoutSeconds` links session timeout to user groups. Two-way editing: editable in both Pravomoci skupiny dialog and Doba prihlasenia master table. AppShell derives timeout from user's permission group. Idle timeout modal "Zostat prihlaseny" button properly resets session.
 
 ## External Dependencies
 - **Replit OIDC Auth**: For user authentication.
