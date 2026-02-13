@@ -33,8 +33,13 @@ import {
   Contact,
   ArrowDownLeft,
   ArrowUpRight,
-  Coins,
+  Banknote,
   Layers,
+  Info,
+  Newspaper,
+  FileDown,
+  ExternalLink,
+  Calendar,
 } from "lucide-react";
 import {
   Sidebar,
@@ -68,6 +73,13 @@ const financieItems = [
   { href: "/provizie", icon: ArrowDownLeft, label: "Provizie" },
   { href: "/odmeny", icon: ArrowUpRight, label: "Odmeny" },
   { href: "/commissions", icon: Percent, label: "Sadzby" },
+];
+
+const informacieItems = [
+  { href: "/novinky", icon: Newspaper, label: "Novinky" },
+  { href: "/dokumenty-na-stiahnutie", icon: FileDown, label: "Dokumenty na stiahnutie" },
+  { href: "/externe-pristupy", icon: ExternalLink, label: "Externe pristupy" },
+  { href: "/kalendar", icon: Calendar, label: "Kalendar" },
 ];
 
 const partneriProduktyItems = [
@@ -175,6 +187,7 @@ export function AppSidebar() {
     { id: "klienti", items: klientiItems },
     { id: "zmluvy", items: zmluvyItems },
     { id: "financie", items: financieItems },
+    { id: "informacie", items: informacieItems },
   ];
   const activeMenuId = allMenus.find(m => m.items.some(i => i.href === location))?.id || null;
   const [openMenuId, setOpenMenuId] = useState<string | null>(activeMenuId);
@@ -285,11 +298,21 @@ export function AppSidebar() {
               />
               <CollapsibleMenu
                 label="Financie"
-                icon={Coins}
+                icon={Banknote}
                 items={financieItems}
                 location={location}
                 testId="nav-menu-financie"
                 menuId="financie"
+                openMenuId={openMenuId}
+                setOpenMenuId={setOpenMenuId}
+              />
+              <CollapsibleMenu
+                label="Informacie"
+                icon={Info}
+                items={informacieItems}
+                location={location}
+                testId="nav-menu-informacie"
+                menuId="informacie"
                 openMenuId={openMenuId}
                 setOpenMenuId={setOpenMenuId}
               />

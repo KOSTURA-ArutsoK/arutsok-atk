@@ -36,6 +36,10 @@ import SupiskyPage from "@/pages/Supisky";
 import ClientGroups from "@/pages/ClientGroups";
 import PartnerContacts from "@/pages/PartnerContacts";
 import Sectors from "@/pages/Sectors";
+import Novinky from "@/pages/Novinky";
+import DokumentyNaStiahnutie from "@/pages/DokumentyNaStiahnutie";
+import ExternePristupy from "@/pages/ExternePristupy";
+import Kalendar from "@/pages/Kalendar";
 import { AppShell } from "@/components/layout/AppShell";
 
 function PrivateRoute({ component: Component, ...rest }: any) {
@@ -95,6 +99,10 @@ function Router() {
       <Route path="/client-groups" component={() => <PrivateRoute component={ClientGroups} />} />
       <Route path="/partner-contacts" component={() => <PrivateRoute component={PartnerContacts} />} />
       <Route path="/sectors" component={() => <PrivateRoute component={Sectors} />} />
+      <Route path="/novinky" component={() => <PrivateRoute component={Novinky} />} />
+      <Route path="/dokumenty-na-stiahnutie" component={() => <PrivateRoute component={DokumentyNaStiahnutie} />} />
+      <Route path="/externe-pristupy" component={() => <PrivateRoute component={ExternePristupy} />} />
+      <Route path="/kalendar" component={() => <PrivateRoute component={Kalendar} />} />
 
       <Route component={NotFound} />
     </Switch>
