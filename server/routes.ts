@@ -2665,6 +2665,55 @@ export async function registerRoutes(
     }
   });
 
+  // === SECTIONS CRUD (ArutsoK 28) ===
+  app.get("/api/sections", isAuthenticated, async (req, res) => {
+    try {
+      const sectorId = req.query.sectorId ? Number(req.query.sectorId) : undefined;
+      const sectionsList = await storage.getSections(sectorId);
+      res.json(sectionsList);
+    } catch (err) {
+      console.error("Get sections error:", err);
+      res.status(500).json({ message: "Internal error" });
+    }
+  });
+
+  app.post("/api/sections", isAuthenticated, async (req: any, res) => {
+    try {
+      const created = await storage.createSection(req.body);
+      await logAudit(req, { action: "Vytvorenie", module: "Sekcie", entityId: created.id, entityName: created.name, newData: req.body });
+      res.status(201).json(created);
+    } catch (err) {
+      console.error("Create section error:", err);
+      res.status(500).json({ message: "Internal error" });
+    }
+  });
+
+  app.put("/api/sections/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const id = Number(req.params.id);
+      const oldSection = await storage.getSection(id);
+      const updated = await storage.updateSection(id, req.body);
+      await logAudit(req, { action: "Uprava", module: "Sekcie", entityId: id, entityName: updated.name, oldData: oldSection, newData: req.body });
+      res.json(updated);
+    } catch (err) {
+      console.error("Update section error:", err);
+      res.status(500).json({ message: "Internal error" });
+    }
+  });
+
+  app.delete("/api/sections/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const id = Number(req.params.id);
+      const oldSection = await storage.getSection(id);
+      await storage.deleteSection(id);
+      await logAudit(req, { action: "Vymazanie", module: "Sekcie", entityId: id, entityName: oldSection?.name });
+      res.json({ success: true });
+    } catch (err) {
+      console.error("Delete section error:", err);
+      res.status(500).json({ message: "Internal error" });
+    }
+  });
+
   // === PARAMETERS CRUD ===
   app.get("/api/parameters", isAuthenticated, async (_req, res) => {
     try {
@@ -2716,8 +2765,8 @@ export async function registerRoutes(
   // === SECTOR PRODUCTS CRUD (ArutsoK 25) ===
   app.get("/api/sector-products", isAuthenticated, async (req, res) => {
     try {
-      const sectorId = req.query.sectorId ? Number(req.query.sectorId) : undefined;
-      const sectorProducts = await storage.getSectorProducts(sectorId);
+      const sectionId = req.query.sectionId ? Number(req.query.sectionId) : undefined;
+      const sectorProducts = await storage.getSectorProducts(sectionId);
       res.json(sectorProducts);
     } catch (err) {
       console.error("Get sector products error:", err);
@@ -2985,20 +3034,23 @@ export async function registerRoutes(
       const seenPanelIds = new Set<number>();
 
       for (const ps of productSectorAssignments) {
-        const sectorProds = await storage.getSectorProducts(ps.sectorId);
-        for (const sp of sectorProds) {
-          const prodPanels = await storage.getProductPanels(sp.id);
-          for (const pp of prodPanels) {
-            if (seenPanelIds.has(pp.panelId)) continue;
-            seenPanelIds.add(pp.panelId);
-            const panel = allPanels.find(p => p.id === pp.panelId);
-            if (!panel) continue;
-            const panelParams = await storage.getPanelParameters(panel.id);
-            const parametersWithDetails = panelParams.map(pparam => {
-              const param = allParams.find(p => p.id === pparam.parameterId);
-              return param ? { ...param, panelSortOrder: pparam.sortOrder } : null;
-            }).filter(Boolean);
-            resultPanels.push({ ...panel, parameters: parametersWithDetails, productSortOrder: pp.sortOrder });
+        const sectorSections = await storage.getSections(ps.sectorId);
+        for (const sec of sectorSections) {
+          const sectorProds = await storage.getSectorProducts(sec.id);
+          for (const sp of sectorProds) {
+            const prodPanels = await storage.getProductPanels(sp.id);
+            for (const pp of prodPanels) {
+              if (seenPanelIds.has(pp.panelId)) continue;
+              seenPanelIds.add(pp.panelId);
+              const panel = allPanels.find(p => p.id === pp.panelId);
+              if (!panel) continue;
+              const panelParams = await storage.getPanelParameters(panel.id);
+              const parametersWithDetails = panelParams.map(pparam => {
+                const param = allParams.find(p => p.id === pparam.parameterId);
+                return param ? { ...param, panelSortOrder: pparam.sortOrder } : null;
+              }).filter(Boolean);
+              resultPanels.push({ ...panel, parameters: parametersWithDetails, productSortOrder: pp.sortOrder });
+            }
           }
         }
       }

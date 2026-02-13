@@ -4,7 +4,7 @@ import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useAppUser } from "@/hooks/use-app-user";
 import { useStates } from "@/hooks/use-hierarchy";
 import { useToast } from "@/hooks/use-toast";
-import type { Contract, ContractStatus, ContractTemplate, ContractInventory, Subject, Partner, Product, MyCompany } from "@shared/schema";
+import type { Contract, ContractStatus, ContractTemplate, ContractInventory, Subject, Partner, Product, MyCompany, Sector, Section, SectorProduct } from "@shared/schema";
 import { Plus, Pencil, Trash2, Eye, FileText, Loader2, Lock, LayoutGrid } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -88,16 +88,60 @@ function ContractFormDialog({
   const { data: inventories } = useQuery<ContractInventory[]>({
     queryKey: ["/api/contract-inventories"],
   });
+  const { data: allSPForEdit } = useQuery<SectorProduct[]>({
+    queryKey: ["/api/sector-products"],
+  });
+  const { data: allSectionsForEdit } = useQuery<Section[]>({
+    queryKey: ["/api/sections"],
+    queryFn: async () => {
+      const res = await fetch("/api/sections", { credentials: "include" });
+      if (!res.ok) throw new Error("Failed");
+      return res.json();
+    },
+  });
 
+  const [contractSectorId, setContractSectorId] = useState<string>("");
+  const [contractSectionId, setContractSectionId] = useState<string>("");
   const [contractNumber, setContractNumber] = useState("");
   const [subjectId, setSubjectId] = useState<string>("");
   const [partnerId, setPartnerId] = useState<string>("");
-  const [productId, setProductIdRaw] = useState<string>("");
+  const [sectorProductId, setSectorProductIdRaw] = useState<string>("");
   const [panelValues, setPanelValues] = useState<Record<string, string>>({});
-  const setProductId = useCallback((val: string) => {
-    setProductIdRaw(val);
+  const setSectorProductId = useCallback((val: string) => {
+    setSectorProductIdRaw(val);
     setPanelValues({});
   }, []);
+
+  const setContractSectorIdCascade = useCallback((val: string) => {
+    setContractSectorId(val);
+    setContractSectionId("");
+    setSectorProductId("");
+  }, [setSectorProductId]);
+
+  const setContractSectionIdCascade = useCallback((val: string) => {
+    setContractSectionId(val);
+    setSectorProductId("");
+  }, [setSectorProductId]);
+
+  const { data: contractSectors } = useQuery<Sector[]>({ queryKey: ["/api/sectors"] });
+  const { data: contractSections } = useQuery<Section[]>({
+    queryKey: ["/api/sections", { sectorId: contractSectorId }],
+    queryFn: async () => {
+      const res = await fetch(`/api/sections?sectorId=${contractSectorId}`, { credentials: "include" });
+      if (!res.ok) throw new Error("Failed");
+      return res.json();
+    },
+    enabled: !!contractSectorId,
+  });
+  const { data: contractSectorProducts } = useQuery<SectorProduct[]>({
+    queryKey: ["/api/sector-products", { sectionId: contractSectionId }],
+    queryFn: async () => {
+      const res = await fetch(`/api/sector-products?sectionId=${contractSectionId}`, { credentials: "include" });
+      if (!res.ok) throw new Error("Failed");
+      return res.json();
+    },
+    enabled: !!contractSectionId,
+  });
   const [statusId, setStatusId] = useState<string>("");
   const [templateId, setTemplateId] = useState<string>("");
   const [inventoryId, setInventoryId] = useState<string>("");
@@ -127,13 +171,13 @@ function ContractFormDialog({
   };
 
   const { data: productPanels, isLoading: panelsLoading } = useQuery<PanelWithParams[]>({
-    queryKey: ["/api/products", productId, "panels-with-parameters"],
+    queryKey: ["/api/sector-products", sectorProductId, "panels-with-parameters"],
     queryFn: async () => {
-      const res = await fetch(`/api/products/${productId}/panels-with-parameters`, { credentials: "include" });
+      const res = await fetch(`/api/sector-products/${sectorProductId}/panels-with-parameters`, { credentials: "include" });
       if (!res.ok) throw new Error("Failed");
       return res.json();
     },
-    enabled: !!productId,
+    enabled: !!sectorProductId,
   });
 
   const createMutation = useMutation({
@@ -163,8 +207,9 @@ function ContractFormDialog({
         setContractNumber(editingContract.contractNumber || "");
         setSubjectId(editingContract.subjectId?.toString() || "");
         setPartnerId(editingContract.partnerId?.toString() || "");
-        setProductIdRaw(editingContract.productId?.toString() || "");
-        setPanelValues((editingContract as any).dynamicPanelValues || {});
+        const spId = editingContract.sectorProductId;
+        setSectorProductIdRaw(spId?.toString() || "");
+        setPanelValues(editingContract.dynamicPanelValues || {});
         setStatusId(editingContract.statusId?.toString() || "");
         setTemplateId(editingContract.templateId?.toString() || "");
         setInventoryId(editingContract.inventoryId?.toString() || "");
@@ -177,11 +222,24 @@ function ContractFormDialog({
         setCommissionAmount(editingContract.commissionAmount?.toString() || "");
         setCurrency(editingContract.currency || "EUR");
         setNotes(editingContract.notes || "");
+        if (spId && allSPForEdit && allSectionsForEdit) {
+          const sp = allSPForEdit.find(p => p.id === spId);
+          if (sp) {
+            const sec = allSectionsForEdit.find(s => s.id === sp.sectionId);
+            if (sec) {
+              setContractSectorId(sec.sectorId.toString());
+              setContractSectionId(sec.id.toString());
+            }
+          }
+        } else {
+          setContractSectorId("");
+          setContractSectionId("");
+        }
       } else {
         setContractNumber("");
         setSubjectId("");
         setPartnerId("");
-        setProductId("");
+        setSectorProductId("");
         setPanelValues({});
         setStatusId("");
         setTemplateId("");
@@ -195,9 +253,11 @@ function ContractFormDialog({
         setCommissionAmount("");
         setCurrency("EUR");
         setNotes("");
+        setContractSectorId("");
+        setContractSectionId("");
       }
     }
-  }, [open, editingContract, activeStateId]);
+  }, [open, editingContract, activeStateId, allSPForEdit, allSectionsForEdit]);
 
   const handleOpenChange = useCallback((isOpen: boolean) => {
     onOpenChange(isOpen);
@@ -213,7 +273,8 @@ function ContractFormDialog({
       contractNumber,
       subjectId: subjectId ? parseInt(subjectId) : null,
       partnerId: partnerId ? parseInt(partnerId) : null,
-      productId: productId ? parseInt(productId) : null,
+      productId: null,
+      sectorProductId: sectorProductId ? parseInt(sectorProductId) : null,
       statusId: statusId ? parseInt(statusId) : null,
       templateId: templateId ? parseInt(templateId) : null,
       inventoryId: inventoryId ? parseInt(inventoryId) : null,
@@ -290,22 +351,51 @@ function ContractFormDialog({
                 </SelectContent>
               </Select>
             </div>
+          </div>
+
+          <div className="grid grid-cols-3 gap-4">
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Sektor</label>
+              <Select value={contractSectorId} onValueChange={setContractSectorIdCascade}>
+                <SelectTrigger data-testid="select-contract-sector">
+                  <SelectValue placeholder="Vyberte sektor" />
+                </SelectTrigger>
+                <SelectContent>
+                  {contractSectors?.map(s => (
+                    <SelectItem key={s.id} value={s.id.toString()}>{s.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Sekcia</label>
+              <Select value={contractSectionId} onValueChange={setContractSectionIdCascade} disabled={!contractSectorId}>
+                <SelectTrigger data-testid="select-contract-section">
+                  <SelectValue placeholder="Vyberte sekciu" />
+                </SelectTrigger>
+                <SelectContent>
+                  {contractSections?.map(s => (
+                    <SelectItem key={s.id} value={s.id.toString()}>{s.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
             <div className="space-y-2">
               <label className="text-sm font-medium">Produkt</label>
-              <Select value={productId} onValueChange={setProductId}>
+              <Select value={sectorProductId} onValueChange={setSectorProductId} disabled={!contractSectionId}>
                 <SelectTrigger data-testid="select-contract-product">
                   <SelectValue placeholder="Vyberte produkt" />
                 </SelectTrigger>
                 <SelectContent>
-                  {products?.filter(p => !p.isDeleted).map(p => (
-                    <SelectItem key={p.id} value={p.id.toString()}>{p.name} ({p.code})</SelectItem>
+                  {contractSectorProducts?.map(p => (
+                    <SelectItem key={p.id} value={p.id.toString()}>{p.name} {p.abbreviation ? `(${p.abbreviation})` : ''}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
             </div>
           </div>
 
-          {productId && productPanels && productPanels.length > 0 && (
+          {sectorProductId && productPanels && productPanels.length > 0 && (
             <div className="space-y-3 border rounded-md p-4" data-testid="section-contract-panels">
               <div className="flex items-center gap-2 mb-2">
                 <LayoutGrid className="w-4 h-4 text-primary" />
@@ -382,7 +472,7 @@ function ContractFormDialog({
               ))}
             </div>
           )}
-          {productId && panelsLoading && (
+          {sectorProductId && panelsLoading && (
             <div className="flex items-center gap-2 p-3 text-sm text-muted-foreground">
               <Loader2 className="w-4 h-4 animate-spin" />
               Nacitavam panely...
@@ -517,7 +607,7 @@ function ContractDetailDialog({
   onClose,
   subjects,
   partners,
-  products,
+  sectorProducts,
   statuses,
   templates,
   inventories,
@@ -528,7 +618,7 @@ function ContractDetailDialog({
   onClose: () => void;
   subjects: Subject[];
   partners: Partner[];
-  products: Product[];
+  sectorProducts: SectorProduct[];
   statuses: ContractStatus[];
   templates: ContractTemplate[];
   inventories: ContractInventory[];
@@ -537,7 +627,7 @@ function ContractDetailDialog({
 }) {
   const subjectName = subjects?.find(s => s.id === contract.subjectId);
   const partnerName = partners?.find(p => p.id === contract.partnerId)?.name || "-";
-  const productName = products?.find(p => p.id === contract.productId);
+  const sectorProduct = sectorProducts?.find(p => p.id === contract.sectorProductId);
   const status = statuses?.find(s => s.id === contract.statusId);
   const templateName = templates?.find(t => t.id === contract.templateId)?.name || "-";
   const inventoryName = inventories?.find(i => i.id === contract.inventoryId)?.name || "-";
@@ -586,7 +676,7 @@ function ContractDetailDialog({
           <div className="grid grid-cols-3 gap-4">
             <div>
               <span className="text-xs text-muted-foreground">Produkt</span>
-              <p className="text-sm" data-testid="text-detail-product">{productName ? `${productName.name} (${productName.code})` : "-"}</p>
+              <p className="text-sm" data-testid="text-detail-product">{sectorProduct ? `${sectorProduct.name}${sectorProduct.abbreviation ? ` (${sectorProduct.abbreviation})` : ''}` : "-"}</p>
             </div>
             <div>
               <span className="text-xs text-muted-foreground">Sablona</span>
@@ -755,6 +845,7 @@ export default function Contracts() {
   const { data: subjects } = useQuery<Subject[]>({ queryKey: ["/api/subjects"] });
   const { data: partners } = useQuery<Partner[]>({ queryKey: ["/api/partners"] });
   const { data: products } = useQuery<Product[]>({ queryKey: ["/api/products"] });
+  const { data: allSectorProducts } = useQuery<SectorProduct[]>({ queryKey: ["/api/sector-products"] });
   const { data: companies } = useQuery<MyCompany[]>({ queryKey: ["/api/my-companies"] });
   const { data: templates } = useQuery<ContractTemplate[]>({
     queryKey: ["/api/contract-templates"],
@@ -864,7 +955,8 @@ export default function Contracts() {
                 {activeContracts.map(contract => {
                   const status = statuses?.find(s => s.id === contract.statusId);
                   const inventoryName = inventories?.find(i => i.id === contract.inventoryId)?.name || "-";
-                  const productName = products?.find(p => p.id === contract.productId)?.name || "-";
+                  const spMatch = allSectorProducts?.find(p => p.id === contract.sectorProductId);
+                  const productName = spMatch ? `${spMatch.name}${spMatch.abbreviation ? ` (${spMatch.abbreviation})` : ''}` : "-";
                   const partnerName = partners?.find(p => p.id === contract.partnerId)?.name || "-";
 
                   return (
@@ -964,7 +1056,7 @@ export default function Contracts() {
           onClose={() => setViewingContract(null)}
           subjects={subjects || []}
           partners={partners || []}
-          products={products || []}
+          sectorProducts={allSectorProducts || []}
           statuses={statuses || []}
           templates={templates || []}
           inventories={inventories || []}

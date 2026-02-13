@@ -3,7 +3,7 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { usePartners } from "@/hooks/use-partners";
-import type { Sector, Parameter, SectorProduct, SectorProductParameter, Panel, PanelParameter, ProductPanel } from "@shared/schema";
+import type { Sector, Parameter, SectorProduct, SectorProductParameter, Panel, PanelParameter, ProductPanel, Section } from "@shared/schema";
 import { Plus, Pencil, Trash2, Loader2, Search, Layers, Settings2, ChevronsUpDown, X, Check, FolderOpen, List, Package, Info, LayoutGrid } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -280,19 +280,19 @@ function SectorProductFormDialog({
   open,
   onOpenChange,
   editingProduct,
-  sectors,
-  preSelectedSectorId,
+  sections,
+  preSelectedSectionId,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   editingProduct: SectorProduct | null;
-  sectors: Sector[];
-  preSelectedSectorId?: number;
+  sections: Section[];
+  preSelectedSectionId?: number;
 }) {
   const { toast } = useToast();
   const timerRef = useRef<number>(0);
 
-  const [sectorId, setSectorId] = useState<string>("");
+  const [sectionId, setSectionId] = useState<string>("");
   const [name, setName] = useState("");
   const [abbreviation, setAbbreviation] = useState("");
   const [selectedParameterIds, setSelectedParameterIds] = useState<number[]>([]);
@@ -345,17 +345,17 @@ function SectorProductFormDialog({
     if (open) {
       timerRef.current = performance.now();
       if (editingProduct) {
-        setSectorId(editingProduct.sectorId.toString());
+        setSectionId(editingProduct.sectionId.toString());
         setName(editingProduct.name || "");
         setAbbreviation(editingProduct.abbreviation || "");
       } else {
-        setSectorId(preSelectedSectorId?.toString() || "");
+        setSectionId(preSelectedSectionId?.toString() || "");
         setName("");
         setAbbreviation("");
         setSelectedParameterIds([]);
       }
     }
-  }, [open, editingProduct, preSelectedSectorId]);
+  }, [open, editingProduct, preSelectedSectionId]);
 
   useEffect(() => {
     if (productParams) {
@@ -372,11 +372,11 @@ function SectorProductFormDialog({
       toast({ title: "Chyba", description: "Nazov je povinny", variant: "destructive" });
       return;
     }
-    if (!sectorId) {
-      toast({ title: "Chyba", description: "Vyberte sektor", variant: "destructive" });
+    if (!sectionId) {
+      toast({ title: "Chyba", description: "Vyberte sekciu", variant: "destructive" });
       return;
     }
-    const payload = { sectorId: parseInt(sectorId), name, abbreviation };
+    const payload = { sectionId: parseInt(sectionId), name, abbreviation };
     if (editingProduct) {
       updateMutation.mutate(payload);
     } else {
@@ -396,13 +396,13 @@ function SectorProductFormDialog({
         </DialogHeader>
         <div className="space-y-4">
           <div className="space-y-2">
-            <label className="text-sm font-medium">Sektor *</label>
-            <Select value={sectorId} onValueChange={setSectorId}>
-              <SelectTrigger data-testid="select-sector-product-sector">
-                <SelectValue placeholder="Vyberte sektor" />
+            <label className="text-sm font-medium">Sekcia *</label>
+            <Select value={sectionId} onValueChange={setSectionId}>
+              <SelectTrigger data-testid="select-sector-product-section">
+                <SelectValue placeholder="Vyberte sekciu" />
               </SelectTrigger>
               <SelectContent>
-                {sectors.map(s => (
+                {sections.map(s => (
                   <SelectItem key={s.id} value={s.id.toString()}>{s.name}</SelectItem>
                 ))}
               </SelectContent>
@@ -803,6 +803,277 @@ function ParameterFormDialog({
   );
 }
 
+function SectionFormDialog({
+  open,
+  onOpenChange,
+  editingSection,
+  sectors,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  editingSection: Section | null;
+  sectors: Sector[];
+}) {
+  const { toast } = useToast();
+  const timerRef = useRef<number>(0);
+
+  const [name, setName] = useState("");
+  const [description, setDescription] = useState("");
+  const [sectorId, setSectorId] = useState<string>("");
+
+  const createMutation = useMutation({
+    mutationFn: async (data: any) => {
+      const res = await apiRequest("POST", "/api/sections", data);
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/sections"] });
+      toast({ title: "Uspech", description: "Sekcia vytvorena" });
+      onOpenChange(false);
+    },
+    onError: () => toast({ title: "Chyba", description: "Nepodarilo sa vytvorit sekciu", variant: "destructive" }),
+  });
+
+  const updateMutation = useMutation({
+    mutationFn: async (data: any) => {
+      await apiRequest("PUT", `/api/sections/${editingSection!.id}`, data);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/sections"] });
+      toast({ title: "Uspech", description: "Sekcia aktualizovana" });
+      onOpenChange(false);
+    },
+    onError: () => toast({ title: "Chyba", description: "Nepodarilo sa aktualizovat sekciu", variant: "destructive" }),
+  });
+
+  useEffect(() => {
+    if (open) {
+      timerRef.current = performance.now();
+      if (editingSection) {
+        setName(editingSection.name || "");
+        setDescription(editingSection.description || "");
+        setSectorId(editingSection.sectorId?.toString() || "");
+      } else {
+        setName("");
+        setDescription("");
+        setSectorId("");
+      }
+    }
+  }, [open, editingSection]);
+
+  const handleOpenChange = useCallback((isOpen: boolean) => {
+    onOpenChange(isOpen);
+  }, [onOpenChange]);
+
+  function handleSubmit() {
+    if (!name.trim()) {
+      toast({ title: "Chyba", description: "Nazov je povinny", variant: "destructive" });
+      return;
+    }
+    if (!sectorId) {
+      toast({ title: "Chyba", description: "Vyberte sektor", variant: "destructive" });
+      return;
+    }
+    const payload = { name, description, sectorId: parseInt(sectorId) };
+    if (editingSection) {
+      updateMutation.mutate(payload);
+    } else {
+      createMutation.mutate(payload);
+    }
+  }
+
+  const isPending = createMutation.isPending || updateMutation.isPending;
+
+  return (
+    <Dialog open={open} onOpenChange={handleOpenChange}>
+      <DialogContent className="sm:max-w-[800px] h-[600px] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle data-testid="text-section-dialog-title">
+            {editingSection ? "Upravit sekciu" : "Pridat sekciu"}
+          </DialogTitle>
+        </DialogHeader>
+        <div className="space-y-4">
+          <div className="space-y-2">
+            <label className="text-sm font-medium">Nazov sekcie *</label>
+            <Input value={name} onChange={e => setName(e.target.value)} data-testid="input-section-name" />
+          </div>
+          <div className="space-y-2">
+            <label className="text-sm font-medium">Popis</label>
+            <Textarea value={description} onChange={e => setDescription(e.target.value)} rows={3} data-testid="input-section-description" />
+          </div>
+          <div className="space-y-2">
+            <label className="text-sm font-medium">Sektor *</label>
+            <Select value={sectorId} onValueChange={setSectorId}>
+              <SelectTrigger data-testid="select-section-sector">
+                <SelectValue placeholder="Vyberte sektor" />
+              </SelectTrigger>
+              <SelectContent>
+                {sectors.map(s => (
+                  <SelectItem key={s.id} value={s.id.toString()}>{s.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="flex items-center justify-end mt-6">
+            <Button type="button" variant="outline" onClick={() => handleOpenChange(false)} data-testid="button-section-cancel">
+              Zrusit
+            </Button>
+          </div>
+        </div>
+        <ProcessingSaveButton isPending={isPending} onClick={handleSubmit} type="button" />
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function SectionsTab() {
+  const { toast } = useToast();
+  const [search, setSearch] = useState("");
+  const [filterSectorId, setFilterSectorId] = useState<string>("all");
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [editingSection, setEditingSection] = useState<Section | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<Section | null>(null);
+
+  const { data: sectors } = useQuery<Sector[]>({
+    queryKey: ["/api/sectors"],
+  });
+
+  const { data: sections, isLoading } = useQuery<Section[]>({
+    queryKey: ["/api/sections"],
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: () => apiRequest("DELETE", `/api/sections/${deleteTarget!.id}`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/sections"] });
+      toast({ title: "Uspech", description: "Sekcia vymazana" });
+      setDeleteTarget(null);
+    },
+    onError: () => toast({ title: "Chyba", description: "Nepodarilo sa vymazat sekciu", variant: "destructive" }),
+  });
+
+  function getSectorName(sectorId: number): string {
+    return sectors?.find(s => s.id === sectorId)?.name || `#${sectorId}`;
+  }
+
+  const sorted = [...(sections || [])].sort((a, b) => b.id - a.id);
+
+  const filtered = sorted.filter(sec => {
+    if (filterSectorId !== "all" && sec.sectorId !== parseInt(filterSectorId)) return false;
+    const searchLower = search.toLowerCase();
+    return sec.name.toLowerCase().includes(searchLower) ||
+      (sec.description || "").toLowerCase().includes(searchLower);
+  });
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center gap-3 flex-wrap">
+        <div className="relative flex-1 min-w-[200px]">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+          <Input
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            placeholder="Hladat sekcie..."
+            className="pl-9"
+            data-testid="input-search-sections"
+          />
+        </div>
+        <Select value={filterSectorId} onValueChange={setFilterSectorId}>
+          <SelectTrigger className="w-[200px]" data-testid="select-filter-sector-for-sections">
+            <SelectValue placeholder="Vsetky sektory" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Vsetky sektory</SelectItem>
+            {sectors?.map(s => (
+              <SelectItem key={s.id} value={s.id.toString()}>{s.name}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <Button onClick={() => { setEditingSection(null); setDialogOpen(true); }} data-testid="button-add-section">
+          <Plus className="w-4 h-4 mr-2" /> Pridat sekciu
+        </Button>
+      </div>
+
+      {isLoading ? (
+        <div className="flex items-center justify-center py-12">
+          <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+        </div>
+      ) : (
+        <Card>
+          <CardContent className="p-0">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Nazov sekcie</TableHead>
+                  <TableHead>Sektor</TableHead>
+                  <TableHead>Popis</TableHead>
+                  <TableHead>Akcie</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {filtered.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={4} className="text-center text-muted-foreground py-8" data-testid="text-no-sections">
+                      Ziadne sekcie
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  filtered.map(section => (
+                    <TableRow key={section.id} data-testid={`row-section-${section.id}`}>
+                      <TableCell className="font-medium">{section.name}</TableCell>
+                      <TableCell>
+                        <Badge variant="outline">{getSectorName(section.sectorId)}</Badge>
+                      </TableCell>
+                      <TableCell className="text-sm text-muted-foreground max-w-[200px] truncate">
+                        {section.description || "-"}
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-1">
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            onClick={() => { setEditingSection(section); setDialogOpen(true); }}
+                            data-testid={`button-edit-section-${section.id}`}
+                          >
+                            <Pencil className="w-4 h-4" />
+                          </Button>
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            onClick={() => setDeleteTarget(section)}
+                            data-testid={`button-delete-section-${section.id}`}
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))
+                )}
+              </TableBody>
+            </Table>
+          </CardContent>
+        </Card>
+      )}
+
+      <SectionFormDialog
+        open={dialogOpen}
+        onOpenChange={(isOpen) => { setDialogOpen(isOpen); if (!isOpen) setEditingSection(null); }}
+        editingSection={editingSection}
+        sectors={sectors || []}
+      />
+
+      <DeleteConfirmDialog
+        open={!!deleteTarget}
+        onOpenChange={(isOpen) => { if (!isOpen) setDeleteTarget(null); }}
+        title={`Naozaj chcete vymazat sekciu "${deleteTarget?.name}"?`}
+        onConfirm={() => deleteMutation.mutate()}
+        isPending={deleteMutation.isPending}
+      />
+    </div>
+  );
+}
+
 function SectorsTab() {
   const { toast } = useToast();
   const [search, setSearch] = useState("");
@@ -940,14 +1211,14 @@ function SectorsTab() {
 function ProductsTab() {
   const { toast } = useToast();
   const [search, setSearch] = useState("");
-  const [filterSectorId, setFilterSectorId] = useState<string>("all");
+  const [filterSectionId, setFilterSectionId] = useState<string>("all");
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState<SectorProduct | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<SectorProduct | null>(null);
   const [panelAssignProduct, setPanelAssignProduct] = useState<SectorProduct | null>(null);
 
-  const { data: sectors } = useQuery<Sector[]>({
-    queryKey: ["/api/sectors"],
+  const { data: sections } = useQuery<Section[]>({
+    queryKey: ["/api/sections"],
   });
 
   const { data: sectorProds, isLoading } = useQuery<SectorProduct[]>({
@@ -964,12 +1235,12 @@ function ProductsTab() {
     onError: () => toast({ title: "Chyba", description: "Nepodarilo sa vymazat produkt", variant: "destructive" }),
   });
 
-  function getSectorName(sectorId: number): string {
-    return sectors?.find(s => s.id === sectorId)?.name || `#${sectorId}`;
+  function getSectionName(sectionId: number): string {
+    return sections?.find(s => s.id === sectionId)?.name || `#${sectionId}`;
   }
 
   const filtered = (sectorProds || []).filter(p => {
-    if (filterSectorId !== "all" && p.sectorId !== parseInt(filterSectorId)) return false;
+    if (filterSectionId !== "all" && p.sectionId !== parseInt(filterSectionId)) return false;
     const searchLower = search.toLowerCase();
     return p.name.toLowerCase().includes(searchLower) ||
       (p.abbreviation || "").toLowerCase().includes(searchLower);
@@ -988,13 +1259,13 @@ function ProductsTab() {
             data-testid="input-search-sector-products"
           />
         </div>
-        <Select value={filterSectorId} onValueChange={setFilterSectorId}>
-          <SelectTrigger className="w-[200px]" data-testid="select-filter-sector">
-            <SelectValue placeholder="Vsetky sektory" />
+        <Select value={filterSectionId} onValueChange={setFilterSectionId}>
+          <SelectTrigger className="w-[200px]" data-testid="select-filter-section">
+            <SelectValue placeholder="Vsetky sekcie" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">Vsetky sektory</SelectItem>
-            {sectors?.map(s => (
+            <SelectItem value="all">Vsetky sekcie</SelectItem>
+            {sections?.map(s => (
               <SelectItem key={s.id} value={s.id.toString()}>{s.name}</SelectItem>
             ))}
           </SelectContent>
@@ -1016,7 +1287,7 @@ function ProductsTab() {
                 <TableRow>
                   <TableHead>Nazov produktu</TableHead>
                   <TableHead>Skratka produktu</TableHead>
-                  <TableHead>Sektor</TableHead>
+                  <TableHead>Sekcia</TableHead>
                   <TableHead>Panely</TableHead>
                   <TableHead>Akcie</TableHead>
                 </TableRow>
@@ -1033,7 +1304,7 @@ function ProductsTab() {
                     <ProductTableRow
                       key={product.id}
                       product={product}
-                      sectorName={getSectorName(product.sectorId)}
+                      sectionName={getSectionName(product.sectionId)}
                       onEdit={() => { setEditingProduct(product); setDialogOpen(true); }}
                       onDelete={() => setDeleteTarget(product)}
                       onManagePanels={() => setPanelAssignProduct(product)}
@@ -1050,8 +1321,8 @@ function ProductsTab() {
         open={dialogOpen}
         onOpenChange={(isOpen) => { setDialogOpen(isOpen); if (!isOpen) setEditingProduct(null); }}
         editingProduct={editingProduct}
-        sectors={sectors || []}
-        preSelectedSectorId={filterSectorId !== "all" ? parseInt(filterSectorId) : undefined}
+        sections={sections || []}
+        preSelectedSectionId={filterSectionId !== "all" ? parseInt(filterSectionId) : undefined}
       />
 
       <ProductPanelAssignDialog
@@ -1073,13 +1344,13 @@ function ProductsTab() {
 
 function ProductTableRow({
   product,
-  sectorName,
+  sectionName,
   onEdit,
   onDelete,
   onManagePanels,
 }: {
   product: SectorProduct;
-  sectorName: string;
+  sectionName: string;
   onEdit: () => void;
   onDelete: () => void;
   onManagePanels: () => void;
@@ -1098,7 +1369,7 @@ function ProductTableRow({
       <TableCell className="font-medium">{product.name}</TableCell>
       <TableCell className="font-mono text-sm">{product.abbreviation || "-"}</TableCell>
       <TableCell>
-        <Badge variant="outline">{sectorName}</Badge>
+        <Badge variant="outline">{sectionName}</Badge>
       </TableCell>
       <TableCell>
         <Button
@@ -1697,7 +1968,7 @@ export default function Sectors() {
     <div className="p-6 space-y-6">
       <div className="flex items-center gap-3">
         <Layers className="w-6 h-6 text-primary" />
-        <h1 className="text-2xl font-bold" data-testid="text-page-title">Sektory, produkty a parametre</h1>
+        <h1 className="text-2xl font-bold" data-testid="text-page-title">Sektory, sekcie, produkty a parametre</h1>
       </div>
 
       <Tabs defaultValue="sectors">
@@ -1705,6 +1976,10 @@ export default function Sectors() {
           <TabsTrigger value="sectors" data-testid="tab-sectors">
             <Layers className="w-4 h-4 mr-2" />
             Sektory
+          </TabsTrigger>
+          <TabsTrigger value="sections" data-testid="tab-sections">
+            <FolderOpen className="w-4 h-4 mr-2" />
+            Sekcie
           </TabsTrigger>
           <TabsTrigger value="products" data-testid="tab-products">
             <Package className="w-4 h-4 mr-2" />
@@ -1721,6 +1996,9 @@ export default function Sectors() {
         </TabsList>
         <TabsContent value="sectors">
           <SectorsTab />
+        </TabsContent>
+        <TabsContent value="sections">
+          <SectionsTab />
         </TabsContent>
         <TabsContent value="products">
           <ProductsTab />

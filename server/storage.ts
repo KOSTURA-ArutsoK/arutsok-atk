@@ -49,9 +49,10 @@ import {
   supisky, supiskaContracts,
   type Supiska, type InsertSupiska,
   type SupiskaContract, type InsertSupiskaContract,
-  sectors, parameters, sectorParameters, productSectors, productParameters,
+  sectors, sections, parameters, sectorParameters, productSectors, productParameters,
   sectorProducts, sectorProductParameters,
   type Sector, type InsertSector,
+  type Section, type InsertSection,
   type SectorProduct, type InsertSectorProduct,
   type Parameter, type InsertParameter,
   type SectorParameter, type ProductSector, type ProductParameter,
@@ -294,6 +295,13 @@ export interface IStorage {
   updateSector(id: number, data: Partial<InsertSector>): Promise<Sector>;
   deleteSector(id: number): Promise<void>;
 
+  // Sections (ArutsoK 28)
+  getSections(sectorId?: number): Promise<Section[]>;
+  getSection(id: number): Promise<Section | undefined>;
+  createSection(data: InsertSection): Promise<Section>;
+  updateSection(id: number, data: Partial<InsertSection>): Promise<Section>;
+  deleteSection(id: number): Promise<void>;
+
   // Parameters
   getParameters(): Promise<Parameter[]>;
   getParameter(id: number): Promise<Parameter | undefined>;
@@ -301,8 +309,8 @@ export interface IStorage {
   updateParameter(id: number, data: Partial<InsertParameter>): Promise<Parameter>;
   deleteParameter(id: number): Promise<void>;
 
-  // Sector Products (ArutsoK 25)
-  getSectorProducts(sectorId?: number): Promise<SectorProduct[]>;
+  // Sector Products (ArutsoK 28 - now linked via sectionId)
+  getSectorProducts(sectionId?: number): Promise<SectorProduct[]>;
   getSectorProduct(id: number): Promise<SectorProduct | undefined>;
   createSectorProduct(data: InsertSectorProduct): Promise<SectorProduct>;
   updateSectorProduct(id: number, data: Partial<InsertSectorProduct>): Promise<SectorProduct>;
@@ -1768,19 +1776,57 @@ export class DatabaseStorage implements IStorage {
   }
 
   async deleteSector(id: number): Promise<void> {
-    const sps = await db.select().from(sectorProducts).where(eq(sectorProducts.sectorId, id));
-    for (const sp of sps) {
-      await db.delete(sectorProductParameters).where(eq(sectorProductParameters.sectorProductId, sp.id));
+    const secs = await db.select().from(sections).where(eq(sections.sectorId, id));
+    for (const sec of secs) {
+      const sps = await db.select().from(sectorProducts).where(eq(sectorProducts.sectionId, sec.id));
+      for (const sp of sps) {
+        await db.delete(sectorProductParameters).where(eq(sectorProductParameters.sectorProductId, sp.id));
+        await db.delete(productPanels).where(eq(productPanels.sectorProductId, sp.id));
+      }
+      await db.delete(sectorProducts).where(eq(sectorProducts.sectionId, sec.id));
     }
-    await db.delete(sectorProducts).where(eq(sectorProducts.sectorId, id));
+    await db.delete(sections).where(eq(sections.sectorId, id));
     await db.delete(sectorParameters).where(eq(sectorParameters.sectorId, id));
     await db.delete(sectors).where(eq(sectors.id, id));
   }
 
-  // === Sector Products CRUD (ArutsoK 25) ===
-  async getSectorProducts(sectorId?: number): Promise<SectorProduct[]> {
+  // === Sections CRUD (ArutsoK 28) ===
+  async getSections(sectorId?: number): Promise<Section[]> {
     if (sectorId !== undefined) {
-      return await db.select().from(sectorProducts).where(eq(sectorProducts.sectorId, sectorId)).orderBy(desc(sectorProducts.id));
+      return await db.select().from(sections).where(eq(sections.sectorId, sectorId)).orderBy(desc(sections.id));
+    }
+    return await db.select().from(sections).orderBy(desc(sections.id));
+  }
+
+  async getSection(id: number): Promise<Section | undefined> {
+    const [section] = await db.select().from(sections).where(eq(sections.id, id));
+    return section;
+  }
+
+  async createSection(data: InsertSection): Promise<Section> {
+    const [section] = await db.insert(sections).values(data).returning();
+    return section;
+  }
+
+  async updateSection(id: number, data: Partial<InsertSection>): Promise<Section> {
+    const [section] = await db.update(sections).set(data).where(eq(sections.id, id)).returning();
+    return section;
+  }
+
+  async deleteSection(id: number): Promise<void> {
+    const sps = await db.select().from(sectorProducts).where(eq(sectorProducts.sectionId, id));
+    for (const sp of sps) {
+      await db.delete(sectorProductParameters).where(eq(sectorProductParameters.sectorProductId, sp.id));
+      await db.delete(productPanels).where(eq(productPanels.sectorProductId, sp.id));
+    }
+    await db.delete(sectorProducts).where(eq(sectorProducts.sectionId, id));
+    await db.delete(sections).where(eq(sections.id, id));
+  }
+
+  // === Sector Products CRUD (ArutsoK 28 - now linked via sectionId) ===
+  async getSectorProducts(sectionId?: number): Promise<SectorProduct[]> {
+    if (sectionId !== undefined) {
+      return await db.select().from(sectorProducts).where(eq(sectorProducts.sectionId, sectionId)).orderBy(desc(sectorProducts.id));
     }
     return await db.select().from(sectorProducts).orderBy(desc(sectorProducts.id));
   }

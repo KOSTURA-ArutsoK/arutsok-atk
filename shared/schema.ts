@@ -549,6 +549,7 @@ export const contracts = pgTable("contracts", {
   subjectId: integer("subject_id").references(() => subjects.id),
   partnerId: integer("partner_id").references(() => partners.id),
   productId: integer("product_id").references(() => products.id),
+  sectorProductId: integer("sector_product_id").references(() => sectorProducts.id),
   statusId: integer("status_id").references(() => contractStatuses.id),
   templateId: integer("template_id").references(() => contractTemplates.id),
   inventoryId: integer("inventory_id").references(() => contractInventories.id),
@@ -658,6 +659,7 @@ export const contractsRelations = relations(contracts, ({ one }) => ({
   subject: one(subjects, { fields: [contracts.subjectId], references: [subjects.id] }),
   partner: one(partners, { fields: [contracts.partnerId], references: [partners.id] }),
   product: one(products, { fields: [contracts.productId], references: [products.id] }),
+  sectorProduct: one(sectorProducts, { fields: [contracts.sectorProductId], references: [sectorProducts.id] }),
   status: one(contractStatuses, { fields: [contracts.statusId], references: [contractStatuses.id] }),
   template: one(contractTemplates, { fields: [contracts.templateId], references: [contractTemplates.id] }),
   inventory: one(contractInventories, { fields: [contracts.inventoryId], references: [contractInventories.id] }),
@@ -796,10 +798,23 @@ export const sectors = pgTable("sectors", {
 
 export const insertSectorSchema = createInsertSchema(sectors).omit({ id: true, createdAt: true });
 
-// === SECTOR PRODUCTS (ArutsoK 25 - products within a sector) ===
-export const sectorProducts = pgTable("sector_products", {
+// === SECTIONS (ArutsoK 28 - level between sectors and products) ===
+export const sections = pgTable("sections", {
   id: serial("id").primaryKey(),
   sectorId: integer("sector_id").notNull(),
+  name: text("name").notNull(),
+  description: text("description").default(""),
+  sortOrder: integer("sort_order").default(0),
+  isActive: boolean("is_active").default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertSectionSchema = createInsertSchema(sections).omit({ id: true, createdAt: true });
+
+// === SECTOR PRODUCTS (ArutsoK 28 - products within a section) ===
+export const sectorProducts = pgTable("sector_products", {
+  id: serial("id").primaryKey(),
+  sectionId: integer("section_id").notNull(),
   name: text("name").notNull(),
   abbreviation: text("abbreviation").default(""),
   sortOrder: integer("sort_order").default(0),
@@ -863,6 +878,8 @@ export const insertProductParameterSchema = createInsertSchema(productParameters
 
 export type Sector = typeof sectors.$inferSelect;
 export type InsertSector = z.infer<typeof insertSectorSchema>;
+export type Section = typeof sections.$inferSelect;
+export type InsertSection = z.infer<typeof insertSectionSchema>;
 export type SectorProduct = typeof sectorProducts.$inferSelect;
 export type InsertSectorProduct = z.infer<typeof insertSectorProductSchema>;
 export type Parameter = typeof parameters.$inferSelect;
