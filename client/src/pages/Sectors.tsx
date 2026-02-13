@@ -3,7 +3,7 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import type { Sector, Parameter, SectorParameter } from "@shared/schema";
-import { Plus, Pencil, Trash2, Loader2, Search, Layers, Settings2, ChevronsUpDown, X, Check } from "lucide-react";
+import { Plus, Pencil, Trash2, Loader2, Search, Layers, Settings2, ChevronsUpDown, X, Check, FolderOpen, List } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -201,7 +201,7 @@ function SectorFormDialog({
                       {p.name}
                       <button
                         type="button"
-                        className="ml-0.5 rounded-full hover:bg-muted-foreground/20"
+                        className="ml-0.5 rounded-full hover-elevate"
                         onClick={() => setSelectedParameterIds(prev => prev.filter(id => id !== pid))}
                         data-testid={`badge-remove-param-${pid}`}
                       >
@@ -266,6 +266,137 @@ function SectorFormDialog({
   );
 }
 
+interface ChoiceOption {
+  order: number;
+  name: string;
+}
+
+function parseOptions(raw: string[] | null | undefined): ChoiceOption[] {
+  if (!raw || raw.length === 0) return [];
+  return raw.map((item, idx) => ({ order: idx + 1, name: item }));
+}
+
+function serializeOptions(opts: ChoiceOption[]): string[] {
+  return opts
+    .sort((a, b) => a.order - b.order)
+    .map(o => o.name);
+}
+
+function ChoiceOptionsModal({
+  open,
+  onOpenChange,
+  options,
+  onSave,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  options: ChoiceOption[];
+  onSave: (opts: ChoiceOption[]) => void;
+}) {
+  const [rows, setRows] = useState<ChoiceOption[]>([]);
+
+  useEffect(() => {
+    if (open) {
+      setRows(options.length > 0 ? [...options] : []);
+    }
+  }, [open, options]);
+
+  function addRow() {
+    const nextOrder = rows.length > 0 ? Math.max(...rows.map(r => r.order)) + 1 : 1;
+    setRows(prev => [...prev, { order: nextOrder, name: "" }]);
+  }
+
+  function updateRow(idx: number, field: "order" | "name", value: string | number) {
+    setRows(prev => prev.map((r, i) => i === idx ? { ...r, [field]: value } : r));
+  }
+
+  function deleteRow(idx: number) {
+    setRows(prev => prev.filter((_, i) => i !== idx));
+  }
+
+  function handleSave() {
+    const cleaned = rows.filter(r => r.name.trim() !== "");
+    onSave(cleaned);
+    onOpenChange(false);
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-[600px] max-h-[500px] flex flex-col z-[60]">
+        <DialogHeader>
+          <DialogTitle data-testid="text-choice-options-title">Moznosti vyberu</DialogTitle>
+        </DialogHeader>
+        <div className="flex-1 overflow-y-auto">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead className="w-[120px]">Poradove cislo</TableHead>
+                <TableHead>Nazov moznosti</TableHead>
+                <TableHead className="w-[60px]">Akcie</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {rows.length === 0 && (
+                <TableRow>
+                  <TableCell colSpan={3} className="text-center text-muted-foreground py-6">
+                    Ziadne moznosti. Kliknite na tlacidlo nizsie.
+                  </TableCell>
+                </TableRow>
+              )}
+              {rows.map((row, idx) => (
+                <TableRow key={idx}>
+                  <TableCell>
+                    <Input
+                      type="number"
+                      min={1}
+                      value={row.order}
+                      onChange={e => updateRow(idx, "order", parseInt(e.target.value) || 1)}
+                      className="w-20"
+                      data-testid={`input-option-order-${idx}`}
+                    />
+                  </TableCell>
+                  <TableCell>
+                    <Input
+                      value={row.name}
+                      onChange={e => updateRow(idx, "name", e.target.value)}
+                      placeholder="napr. Skoda, BMW..."
+                      data-testid={`input-option-name-${idx}`}
+                    />
+                  </TableCell>
+                  <TableCell>
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      onClick={() => deleteRow(idx)}
+                      data-testid={`button-delete-option-${idx}`}
+                    >
+                      <Trash2 className="w-4 h-4 text-destructive" />
+                    </Button>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
+        <div className="flex items-center justify-between gap-2 pt-3 border-t flex-wrap">
+          <Button variant="outline" onClick={addRow} data-testid="button-add-option">
+            <Plus className="w-4 h-4 mr-1" />
+            Pridat moznost
+          </Button>
+          <div className="flex items-center gap-2 flex-wrap">
+            <Button variant="outline" onClick={() => onOpenChange(false)} data-testid="button-options-cancel">
+              Zrusit
+            </Button>
+            <Button onClick={handleSave} data-testid="button-options-save">
+              Ulozit moznosti
+            </Button>
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 function ParameterFormDialog({
   open,
   onOpenChange,
@@ -283,7 +414,8 @@ function ParameterFormDialog({
   const [helpText, setHelpText] = useState("");
   const [isRequired, setIsRequired] = useState(false);
   const [defaultValue, setDefaultValue] = useState("");
-  const [optionsStr, setOptionsStr] = useState("");
+  const [choiceOptions, setChoiceOptions] = useState<ChoiceOption[]>([]);
+  const [optionsModalOpen, setOptionsModalOpen] = useState(false);
 
   const createMutation = useMutation({
     mutationFn: (data: any) => apiRequest("POST", "/api/parameters", data),
@@ -314,14 +446,14 @@ function ParameterFormDialog({
         setHelpText(editingParameter.helpText || "");
         setIsRequired(editingParameter.isRequired || false);
         setDefaultValue(editingParameter.defaultValue || "");
-        setOptionsStr((editingParameter.options || []).join(", "));
+        setChoiceOptions(parseOptions(editingParameter.options));
       } else {
         setName("");
         setParamType("text");
         setHelpText("");
         setIsRequired(false);
         setDefaultValue("");
-        setOptionsStr("");
+        setChoiceOptions([]);
       }
     }
   }, [open, editingParameter]);
@@ -335,9 +467,7 @@ function ParameterFormDialog({
       toast({ title: "Chyba", description: "Nazov je povinny", variant: "destructive" });
       return;
     }
-    const options = paramType === "combobox"
-      ? optionsStr.split(",").map(s => s.trim()).filter(Boolean)
-      : [];
+    const options = paramType === "combobox" ? serializeOptions(choiceOptions) : [];
     const payload = { name, paramType, helpText, isRequired, defaultValue, options };
     if (editingParameter) {
       updateMutation.mutate(payload);
@@ -349,6 +479,7 @@ function ParameterFormDialog({
   const isPending = createMutation.isPending || updateMutation.isPending;
 
   return (
+    <>
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent className="sm:max-w-[800px] h-[600px] overflow-y-auto">
         <DialogHeader>
@@ -387,9 +518,32 @@ function ParameterFormDialog({
             <Input value={defaultValue} onChange={e => setDefaultValue(e.target.value)} data-testid="input-parameter-default" />
           </div>
           {paramType === "combobox" && (
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Moznosti (oddelene ciarkou)</label>
-              <Input value={optionsStr} onChange={e => setOptionsStr(e.target.value)} placeholder="moznost1, moznost2, moznost3" data-testid="input-parameter-options" />
+            <div className="rounded-md border border-border p-4 space-y-3">
+              <div className="flex items-center gap-2">
+                <FolderOpen className="w-4 h-4 text-muted-foreground" />
+                <span className="text-sm font-semibold">Moznosti vyberu</span>
+              </div>
+              {choiceOptions.length > 0 && (
+                <div className="flex flex-wrap gap-1.5">
+                  {choiceOptions.sort((a, b) => a.order - b.order).map((opt, i) => (
+                    <Badge key={i} variant="secondary">
+                      {opt.order}. {opt.name}
+                    </Badge>
+                  ))}
+                </div>
+              )}
+              {choiceOptions.length === 0 && (
+                <p className="text-xs text-muted-foreground">Ziadne moznosti definovane</p>
+              )}
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setOptionsModalOpen(true)}
+                data-testid="button-manage-options"
+              >
+                <List className="w-4 h-4 mr-1" />
+                Spravovat moznosti
+              </Button>
             </div>
           )}
           <div className="flex items-center justify-end mt-6">
@@ -401,6 +555,13 @@ function ParameterFormDialog({
         <ProcessingSaveButton isPending={isPending} onClick={handleSubmit} type="button" />
       </DialogContent>
     </Dialog>
+    <ChoiceOptionsModal
+      open={optionsModalOpen}
+      onOpenChange={setOptionsModalOpen}
+      options={choiceOptions}
+      onSave={setChoiceOptions}
+    />
+    </>
   );
 }
 
