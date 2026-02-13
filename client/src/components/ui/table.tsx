@@ -1,4 +1,5 @@
 import * as React from "react"
+import { useState, useCallback, useRef } from "react"
 
 import { cn } from "@/lib/utils"
 
@@ -66,19 +67,94 @@ const TableRow = React.forwardRef<
 ))
 TableRow.displayName = "TableRow"
 
-const TableHead = React.forwardRef<
-  HTMLTableCellElement,
-  React.ThHTMLAttributes<HTMLTableCellElement>
->(({ className, ...props }, ref) => (
-  <th
-    ref={ref}
-    className={cn(
-      "h-12 px-4 text-left align-middle font-medium text-muted-foreground [&:has([role=checkbox])]:pr-0",
-      className
-    )}
-    {...props}
-  />
-))
+interface TableHeadProps extends React.ThHTMLAttributes<HTMLTableCellElement> {
+  resizable?: boolean;
+}
+
+const TableHead = React.forwardRef<HTMLTableCellElement, TableHeadProps>(
+  ({ className, resizable = true, children, style, ...props }, ref) => {
+    const thRef = useRef<HTMLTableCellElement | null>(null);
+    const [dragging, setDragging] = useState(false);
+
+    const setRefs = useCallback((node: HTMLTableCellElement | null) => {
+      thRef.current = node;
+      if (typeof ref === "function") ref(node);
+      else if (ref) (ref as React.MutableRefObject<HTMLTableCellElement | null>).current = node;
+    }, [ref]);
+
+    const handleMouseDown = useCallback((e: React.MouseEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+      if (!thRef.current) return;
+
+      const th = thRef.current;
+      const startX = e.clientX;
+      const startWidth = th.getBoundingClientRect().width;
+
+      const table = th.closest("table");
+      if (table && table.style.tableLayout !== "fixed") {
+        const headerCells = table.querySelectorAll("thead > tr:first-child > th");
+        headerCells.forEach((cell) => {
+          const w = cell.getBoundingClientRect().width;
+          (cell as HTMLElement).style.width = `${w}px`;
+        });
+        table.style.tableLayout = "fixed";
+      }
+
+      setDragging(true);
+      document.body.style.cursor = "col-resize";
+      table?.classList.add("select-none");
+
+      const handleMouseMove = (ev: MouseEvent) => {
+        const diff = ev.clientX - startX;
+        const newWidth = Math.max(40, startWidth + diff);
+        th.style.width = `${newWidth}px`;
+      };
+
+      const handleMouseUp = () => {
+        setDragging(false);
+        document.body.style.cursor = "";
+        table?.classList.remove("select-none");
+        document.removeEventListener("mousemove", handleMouseMove);
+        document.removeEventListener("mouseup", handleMouseUp);
+      };
+
+      document.addEventListener("mousemove", handleMouseMove);
+      document.addEventListener("mouseup", handleMouseUp);
+    }, []);
+
+    const hasColSpan = props.colSpan && props.colSpan > 1;
+    const showHandle = resizable && !hasColSpan;
+
+    return (
+      <th
+        ref={setRefs}
+        className={cn(
+          "h-12 px-4 text-left align-middle font-medium text-muted-foreground [&:has([role=checkbox])]:pr-0",
+          showHandle && "relative",
+          className
+        )}
+        style={style}
+        {...props}
+      >
+        {children}
+        {showHandle && (
+          <div
+            onMouseDown={handleMouseDown}
+            className={cn(
+              "absolute top-0 right-0 w-[5px] h-full cursor-col-resize z-10",
+              "after:absolute after:top-0 after:right-[2px] after:w-[1px] after:h-full after:transition-colors after:duration-150",
+              dragging
+                ? "after:bg-primary"
+                : "after:bg-transparent hover:after:bg-muted-foreground/40"
+            )}
+            data-testid="resize-handle"
+          />
+        )}
+      </th>
+    );
+  }
+)
 TableHead.displayName = "TableHead"
 
 const TableCell = React.forwardRef<
@@ -87,7 +163,7 @@ const TableCell = React.forwardRef<
 >(({ className, ...props }, ref) => (
   <td
     ref={ref}
-    className={cn("p-4 align-middle [&:has([role=checkbox])]:pr-0", className)}
+    className={cn("p-4 align-middle [&:has([role=checkbox])]:pr-0 overflow-hidden text-ellipsis", className)}
     {...props}
   />
 ))
