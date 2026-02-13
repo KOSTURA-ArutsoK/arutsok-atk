@@ -562,6 +562,7 @@ export const contracts = pgTable("contracts", {
   currency: text("currency").default("EUR"),
   notes: text("notes"),
   documents: jsonb("documents").$type<DocEntry[]>().default([]),
+  dynamicPanelValues: jsonb("dynamic_panel_values").$type<Record<string, string>>().default({}),
   processingTimeSec: integer("processing_time_sec").default(0),
   isLocked: boolean("is_locked").default(false),
   lockedBy: text("locked_by"),
@@ -874,6 +875,44 @@ export type ProductSector = typeof productSectors.$inferSelect;
 export type InsertProductSector = z.infer<typeof insertProductSectorSchema>;
 export type ProductParameter = typeof productParameters.$inferSelect;
 export type InsertProductParameter = z.infer<typeof insertProductParameterSchema>;
+
+// === PANELS (ArutsoK 27 - visual containers for parameters) ===
+export const panels = pgTable("panels", {
+  id: serial("id").primaryKey(),
+  name: text("name").notNull(),
+  description: text("description").default(""),
+  sortOrder: integer("sort_order").default(0),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertPanelSchema = createInsertSchema(panels).omit({ id: true, createdAt: true });
+
+// === PANEL_PARAMETERS (ArutsoK 27 - parameters assigned to panels) ===
+export const panelParameters = pgTable("panel_parameters", {
+  id: serial("id").primaryKey(),
+  panelId: integer("panel_id").notNull(),
+  parameterId: integer("parameter_id").notNull(),
+  sortOrder: integer("sort_order").default(0),
+});
+
+export const insertPanelParameterSchema = createInsertSchema(panelParameters).omit({ id: true });
+
+// === PRODUCT_PANELS (ArutsoK 27 - panels assigned to sector_products) ===
+export const productPanels = pgTable("product_panels", {
+  id: serial("id").primaryKey(),
+  sectorProductId: integer("sector_product_id").notNull(),
+  panelId: integer("panel_id").notNull(),
+  sortOrder: integer("sort_order").default(0),
+});
+
+export const insertProductPanelSchema = createInsertSchema(productPanels).omit({ id: true });
+
+export type Panel = typeof panels.$inferSelect;
+export type InsertPanel = z.infer<typeof insertPanelSchema>;
+export type PanelParameter = typeof panelParameters.$inferSelect;
+export type InsertPanelParameter = z.infer<typeof insertPanelParameterSchema>;
+export type ProductPanel = typeof productPanels.$inferSelect;
+export type InsertProductPanel = z.infer<typeof insertProductPanelSchema>;
 
 // === CALENDAR EVENTS ===
 export const calendarEvents = pgTable("calendar_events", {

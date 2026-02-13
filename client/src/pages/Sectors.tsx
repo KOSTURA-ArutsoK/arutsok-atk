@@ -3,8 +3,8 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { usePartners } from "@/hooks/use-partners";
-import type { Sector, Parameter, SectorProduct, SectorProductParameter } from "@shared/schema";
-import { Plus, Pencil, Trash2, Loader2, Search, Layers, Settings2, ChevronsUpDown, X, Check, FolderOpen, List, Package, Info } from "lucide-react";
+import type { Sector, Parameter, SectorProduct, SectorProductParameter, Panel, PanelParameter, ProductPanel } from "@shared/schema";
+import { Plus, Pencil, Trash2, Loader2, Search, Layers, Settings2, ChevronsUpDown, X, Check, FolderOpen, List, Package, Info, LayoutGrid } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -944,6 +944,7 @@ function ProductsTab() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState<SectorProduct | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<SectorProduct | null>(null);
+  const [panelAssignProduct, setPanelAssignProduct] = useState<SectorProduct | null>(null);
 
   const { data: sectors } = useQuery<Sector[]>({
     queryKey: ["/api/sectors"],
@@ -1016,45 +1017,27 @@ function ProductsTab() {
                   <TableHead>Nazov produktu</TableHead>
                   <TableHead>Skratka produktu</TableHead>
                   <TableHead>Sektor</TableHead>
+                  <TableHead>Panely</TableHead>
                   <TableHead>Akcie</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {filtered.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={4} className="text-center text-muted-foreground py-8" data-testid="text-no-sector-products">
+                    <TableCell colSpan={5} className="text-center text-muted-foreground py-8" data-testid="text-no-sector-products">
                       Ziadne produkty
                     </TableCell>
                   </TableRow>
                 ) : (
                   filtered.map(product => (
-                    <TableRow key={product.id} data-testid={`row-sector-product-${product.id}`}>
-                      <TableCell className="font-medium">{product.name}</TableCell>
-                      <TableCell className="font-mono text-sm">{product.abbreviation || "-"}</TableCell>
-                      <TableCell>
-                        <Badge variant="outline">{getSectorName(product.sectorId)}</Badge>
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex items-center gap-1">
-                          <Button
-                            size="icon"
-                            variant="ghost"
-                            onClick={() => { setEditingProduct(product); setDialogOpen(true); }}
-                            data-testid={`button-edit-sector-product-${product.id}`}
-                          >
-                            <Pencil className="w-4 h-4" />
-                          </Button>
-                          <Button
-                            size="icon"
-                            variant="ghost"
-                            onClick={() => setDeleteTarget(product)}
-                            data-testid={`button-delete-sector-product-${product.id}`}
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </Button>
-                        </div>
-                      </TableCell>
-                    </TableRow>
+                    <ProductTableRow
+                      key={product.id}
+                      product={product}
+                      sectorName={getSectorName(product.sectorId)}
+                      onEdit={() => { setEditingProduct(product); setDialogOpen(true); }}
+                      onDelete={() => setDeleteTarget(product)}
+                      onManagePanels={() => setPanelAssignProduct(product)}
+                    />
                   ))
                 )}
               </TableBody>
@@ -1071,6 +1054,12 @@ function ProductsTab() {
         preSelectedSectorId={filterSectorId !== "all" ? parseInt(filterSectorId) : undefined}
       />
 
+      <ProductPanelAssignDialog
+        open={!!panelAssignProduct}
+        onOpenChange={(isOpen) => { if (!isOpen) setPanelAssignProduct(null); }}
+        sectorProduct={panelAssignProduct}
+      />
+
       <DeleteConfirmDialog
         open={!!deleteTarget}
         onOpenChange={(isOpen) => { if (!isOpen) setDeleteTarget(null); }}
@@ -1079,6 +1068,70 @@ function ProductsTab() {
         isPending={deleteMutation.isPending}
       />
     </div>
+  );
+}
+
+function ProductTableRow({
+  product,
+  sectorName,
+  onEdit,
+  onDelete,
+  onManagePanels,
+}: {
+  product: SectorProduct;
+  sectorName: string;
+  onEdit: () => void;
+  onDelete: () => void;
+  onManagePanels: () => void;
+}) {
+  const { data: productPanels } = useQuery<ProductPanel[]>({
+    queryKey: ["/api/sector-products", product.id, "panels"],
+    queryFn: async () => {
+      const res = await fetch(`/api/sector-products/${product.id}/panels`, { credentials: "include" });
+      if (!res.ok) throw new Error("Failed");
+      return res.json();
+    },
+  });
+
+  return (
+    <TableRow data-testid={`row-sector-product-${product.id}`}>
+      <TableCell className="font-medium">{product.name}</TableCell>
+      <TableCell className="font-mono text-sm">{product.abbreviation || "-"}</TableCell>
+      <TableCell>
+        <Badge variant="outline">{sectorName}</Badge>
+      </TableCell>
+      <TableCell>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={onManagePanels}
+          data-testid={`button-manage-panels-${product.id}`}
+        >
+          <LayoutGrid className="w-3 h-3 mr-1" />
+          {productPanels?.length ?? 0}
+        </Button>
+      </TableCell>
+      <TableCell>
+        <div className="flex items-center gap-1">
+          <Button
+            size="icon"
+            variant="ghost"
+            onClick={onEdit}
+            data-testid={`button-edit-sector-product-${product.id}`}
+          >
+            <Pencil className="w-4 h-4" />
+          </Button>
+          <Button
+            size="icon"
+            variant="ghost"
+            onClick={onDelete}
+            data-testid={`button-delete-sector-product-${product.id}`}
+          >
+            <Trash2 className="w-4 h-4" />
+          </Button>
+        </div>
+      </TableCell>
+    </TableRow>
   );
 }
 
@@ -1217,6 +1270,428 @@ function ParametersTab() {
   );
 }
 
+function PanelFormDialog({
+  open,
+  onOpenChange,
+  editingPanel,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  editingPanel: Panel | null;
+}) {
+  const { toast } = useToast();
+  const timerRef = useRef<number>(0);
+
+  const [name, setName] = useState("");
+  const [description, setDescription] = useState("");
+  const [selectedParameterIds, setSelectedParameterIds] = useState<number[]>([]);
+
+  const { data: allParameters } = useQuery<Parameter[]>({
+    queryKey: ["/api/parameters"],
+  });
+
+  const { data: panelParams } = useQuery<PanelParameter[]>({
+    queryKey: ["/api/panels", editingPanel?.id, "parameters"],
+    queryFn: async () => {
+      const res = await fetch(`/api/panels/${editingPanel!.id}/parameters`, { credentials: "include" });
+      if (!res.ok) throw new Error("Failed");
+      return res.json();
+    },
+    enabled: !!editingPanel?.id,
+  });
+
+  const createMutation = useMutation({
+    mutationFn: async (data: any) => {
+      const res = await apiRequest("POST", "/api/panels", data);
+      return res.json();
+    },
+    onSuccess: async (created: Panel) => {
+      if (selectedParameterIds.length > 0) {
+        await apiRequest("PUT", `/api/panels/${created.id}/parameters`, { parameterIds: selectedParameterIds });
+      }
+      queryClient.invalidateQueries({ queryKey: ["/api/panels"] });
+      toast({ title: "Uspech", description: "Panel vytvoreny" });
+      onOpenChange(false);
+    },
+    onError: () => toast({ title: "Chyba", description: "Nepodarilo sa vytvorit panel", variant: "destructive" }),
+  });
+
+  const updateMutation = useMutation({
+    mutationFn: async (data: any) => {
+      await apiRequest("PUT", `/api/panels/${editingPanel!.id}`, data);
+      await apiRequest("PUT", `/api/panels/${editingPanel!.id}/parameters`, { parameterIds: selectedParameterIds });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/panels"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/panels", editingPanel?.id, "parameters"] });
+      toast({ title: "Uspech", description: "Panel aktualizovany" });
+      onOpenChange(false);
+    },
+    onError: () => toast({ title: "Chyba", description: "Nepodarilo sa aktualizovat panel", variant: "destructive" }),
+  });
+
+  useEffect(() => {
+    if (open) {
+      timerRef.current = performance.now();
+      if (editingPanel) {
+        setName(editingPanel.name || "");
+        setDescription(editingPanel.description || "");
+      } else {
+        setName("");
+        setDescription("");
+        setSelectedParameterIds([]);
+      }
+    }
+  }, [open, editingPanel]);
+
+  useEffect(() => {
+    if (panelParams) {
+      setSelectedParameterIds(panelParams.map(pp => pp.parameterId));
+    }
+  }, [panelParams]);
+
+  const handleOpenChange = useCallback((isOpen: boolean) => {
+    onOpenChange(isOpen);
+  }, [onOpenChange]);
+
+  function handleSubmit() {
+    if (!name.trim()) {
+      toast({ title: "Chyba", description: "Nazov je povinny", variant: "destructive" });
+      return;
+    }
+    const payload = { name, description };
+    if (editingPanel) {
+      updateMutation.mutate(payload);
+    } else {
+      createMutation.mutate(payload);
+    }
+  }
+
+  const isPending = createMutation.isPending || updateMutation.isPending;
+  const [paramSearch, setParamSearch] = useState("");
+  const filteredParams = allParameters?.filter(p =>
+    p.name.toLowerCase().includes(paramSearch.toLowerCase())
+  ) || [];
+
+  return (
+    <Dialog open={open} onOpenChange={handleOpenChange}>
+      <DialogContent className="sm:max-w-[800px] h-[600px] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle data-testid="text-panel-dialog-title">
+            {editingPanel ? "Upravit panel" : "Pridat panel"}
+          </DialogTitle>
+        </DialogHeader>
+        <div className="space-y-4">
+          <div className="space-y-2">
+            <label className="text-sm font-medium">Nazov panelu *</label>
+            <Input value={name} onChange={e => setName(e.target.value)} data-testid="input-panel-name" />
+          </div>
+          <div className="space-y-2">
+            <label className="text-sm font-medium">Popis</label>
+            <Textarea value={description} onChange={e => setDescription(e.target.value)} rows={3} data-testid="input-panel-description" />
+          </div>
+          <div className="space-y-2">
+            <label className="text-sm font-medium">Priradene parametre</label>
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+              <Input
+                value={paramSearch}
+                onChange={e => setParamSearch(e.target.value)}
+                placeholder="Hladat parametre..."
+                className="pl-9"
+                data-testid="input-panel-param-search"
+              />
+            </div>
+            <div className="border rounded-md max-h-[220px] overflow-y-auto">
+              {filteredParams.length === 0 ? (
+                <div className="text-center text-muted-foreground py-4 text-sm">Ziadne parametre</div>
+              ) : (
+                filteredParams.map(param => {
+                  const isChecked = selectedParameterIds.includes(param.id);
+                  return (
+                    <div
+                      key={param.id}
+                      className="flex items-center justify-between px-3 py-2 border-b last:border-b-0"
+                      data-testid={`panel-param-row-${param.id}`}
+                    >
+                      <div className="flex items-center gap-2 flex-1 min-w-0">
+                        <span className="text-sm truncate">{param.name}</span>
+                        <Badge variant="outline" className="text-xs shrink-0">{getParamTypeLabel(param.paramType)}</Badge>
+                      </div>
+                      <Switch
+                        checked={isChecked}
+                        onCheckedChange={(checked) => {
+                          if (checked) {
+                            setSelectedParameterIds(prev => [...prev, param.id]);
+                          } else {
+                            setSelectedParameterIds(prev => prev.filter(id => id !== param.id));
+                          }
+                        }}
+                        data-testid={`switch-panel-param-${param.id}`}
+                      />
+                    </div>
+                  );
+                })
+              )}
+            </div>
+            {selectedParameterIds.length > 0 && (
+              <p className="text-xs text-muted-foreground">{selectedParameterIds.length} parametrov prirade&shy;nych</p>
+            )}
+          </div>
+          <div className="flex items-center justify-end mt-6">
+            <Button type="button" variant="outline" onClick={() => handleOpenChange(false)} data-testid="button-panel-cancel">
+              Zrusit
+            </Button>
+          </div>
+        </div>
+        <ProcessingSaveButton isPending={isPending} onClick={handleSubmit} type="button" />
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function PanelsTab() {
+  const { toast } = useToast();
+  const [search, setSearch] = useState("");
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [editingPanel, setEditingPanel] = useState<Panel | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<Panel | null>(null);
+
+  const { data: panels, isLoading } = useQuery<Panel[]>({
+    queryKey: ["/api/panels"],
+  });
+
+  const { data: allParameters } = useQuery<Parameter[]>({
+    queryKey: ["/api/parameters"],
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: () => apiRequest("DELETE", `/api/panels/${deleteTarget!.id}`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/panels"] });
+      toast({ title: "Uspech", description: "Panel vymazany" });
+      setDeleteTarget(null);
+    },
+    onError: () => toast({ title: "Chyba", description: "Nepodarilo sa vymazat panel", variant: "destructive" }),
+  });
+
+  const filtered = panels?.filter(p =>
+    p.name.toLowerCase().includes(search.toLowerCase()) ||
+    (p.description || "").toLowerCase().includes(search.toLowerCase())
+  ) || [];
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center gap-3 flex-wrap">
+        <div className="relative flex-1 min-w-[200px]">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+          <Input
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            placeholder="Hladat panely..."
+            className="pl-9"
+            data-testid="input-search-panels"
+          />
+        </div>
+        <Button onClick={() => { setEditingPanel(null); setDialogOpen(true); }} data-testid="button-add-panel">
+          <Plus className="w-4 h-4 mr-2" /> Pridat panel
+        </Button>
+      </div>
+
+      {isLoading ? (
+        <div className="flex items-center justify-center py-12">
+          <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+        </div>
+      ) : (
+        <Card>
+          <CardContent className="p-0">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="w-[60px]">ID</TableHead>
+                  <TableHead>Nazov</TableHead>
+                  <TableHead>Popis</TableHead>
+                  <TableHead>Parametre</TableHead>
+                  <TableHead>Akcie</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {filtered.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={5} className="text-center text-muted-foreground py-8" data-testid="text-no-panels">
+                      Ziadne panely
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  filtered.map(panel => (
+                    <PanelTableRow key={panel.id} panel={panel} onEdit={() => { setEditingPanel(panel); setDialogOpen(true); }} onDelete={() => setDeleteTarget(panel)} />
+                  ))
+                )}
+              </TableBody>
+            </Table>
+          </CardContent>
+        </Card>
+      )}
+
+      <PanelFormDialog
+        open={dialogOpen}
+        onOpenChange={(isOpen) => { setDialogOpen(isOpen); if (!isOpen) setEditingPanel(null); }}
+        editingPanel={editingPanel}
+      />
+
+      <DeleteConfirmDialog
+        open={!!deleteTarget}
+        onOpenChange={(isOpen) => { if (!isOpen) setDeleteTarget(null); }}
+        title={`Naozaj chcete vymazat panel "${deleteTarget?.name}"?`}
+        onConfirm={() => deleteMutation.mutate()}
+        isPending={deleteMutation.isPending}
+      />
+    </div>
+  );
+}
+
+function PanelTableRow({ panel, onEdit, onDelete }: { panel: Panel; onEdit: () => void; onDelete: () => void }) {
+  const { data: panelParams } = useQuery<PanelParameter[]>({
+    queryKey: ["/api/panels", panel.id, "parameters"],
+    queryFn: async () => {
+      const res = await fetch(`/api/panels/${panel.id}/parameters`, { credentials: "include" });
+      if (!res.ok) throw new Error("Failed");
+      return res.json();
+    },
+  });
+
+  return (
+    <TableRow data-testid={`row-panel-${panel.id}`}>
+      <TableCell className="font-mono text-sm text-muted-foreground">{panel.id}</TableCell>
+      <TableCell className="font-medium">{panel.name}</TableCell>
+      <TableCell className="text-sm text-muted-foreground">{panel.description || "-"}</TableCell>
+      <TableCell>
+        <Badge variant="outline">{panelParams?.length ?? 0}</Badge>
+      </TableCell>
+      <TableCell>
+        <div className="flex items-center gap-1">
+          <Button
+            size="icon"
+            variant="ghost"
+            onClick={onEdit}
+            data-testid={`button-edit-panel-${panel.id}`}
+          >
+            <Pencil className="w-4 h-4" />
+          </Button>
+          <Button
+            size="icon"
+            variant="ghost"
+            onClick={onDelete}
+            data-testid={`button-delete-panel-${panel.id}`}
+          >
+            <Trash2 className="w-4 h-4" />
+          </Button>
+        </div>
+      </TableCell>
+    </TableRow>
+  );
+}
+
+function ProductPanelAssignDialog({
+  open,
+  onOpenChange,
+  sectorProduct,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  sectorProduct: SectorProduct | null;
+}) {
+  const { toast } = useToast();
+  const [selectedPanelIds, setSelectedPanelIds] = useState<number[]>([]);
+
+  const { data: allPanels } = useQuery<Panel[]>({
+    queryKey: ["/api/panels"],
+  });
+
+  const { data: productPanels } = useQuery<ProductPanel[]>({
+    queryKey: ["/api/sector-products", sectorProduct?.id, "panels"],
+    queryFn: async () => {
+      const res = await fetch(`/api/sector-products/${sectorProduct!.id}/panels`, { credentials: "include" });
+      if (!res.ok) throw new Error("Failed");
+      return res.json();
+    },
+    enabled: !!sectorProduct?.id,
+  });
+
+  useEffect(() => {
+    if (productPanels) {
+      setSelectedPanelIds(productPanels.map(pp => pp.panelId));
+    }
+  }, [productPanels]);
+
+  useEffect(() => {
+    if (open && !sectorProduct) {
+      setSelectedPanelIds([]);
+    }
+  }, [open, sectorProduct]);
+
+  const saveMutation = useMutation({
+    mutationFn: async () => {
+      await apiRequest("PUT", `/api/sector-products/${sectorProduct!.id}/panels`, { panelIds: selectedPanelIds });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/sector-products", sectorProduct?.id, "panels"] });
+      toast({ title: "Uspech", description: "Panely priradene" });
+      onOpenChange(false);
+    },
+    onError: () => toast({ title: "Chyba", description: "Nepodarilo sa priradit panely", variant: "destructive" }),
+  });
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-[500px] max-h-[500px] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle data-testid="text-product-panels-dialog-title">
+            Panely - {sectorProduct?.name}
+          </DialogTitle>
+        </DialogHeader>
+        <div className="space-y-3">
+          {(!allPanels || allPanels.length === 0) ? (
+            <div className="text-center text-muted-foreground py-4 text-sm">Ziadne panely k dispozicii</div>
+          ) : (
+            <div className="border rounded-md max-h-[300px] overflow-y-auto">
+              {allPanels.map(panel => {
+                const isChecked = selectedPanelIds.includes(panel.id);
+                return (
+                  <div
+                    key={panel.id}
+                    className="flex items-center justify-between px-3 py-2 border-b last:border-b-0"
+                    data-testid={`product-panel-row-${panel.id}`}
+                  >
+                    <span className="text-sm">{panel.name}</span>
+                    <Switch
+                      checked={isChecked}
+                      onCheckedChange={(checked) => {
+                        if (checked) {
+                          setSelectedPanelIds(prev => [...prev, panel.id]);
+                        } else {
+                          setSelectedPanelIds(prev => prev.filter(id => id !== panel.id));
+                        }
+                      }}
+                      data-testid={`switch-product-panel-${panel.id}`}
+                    />
+                  </div>
+                );
+              })}
+            </div>
+          )}
+          <div className="flex items-center justify-end gap-2 flex-wrap">
+            <Button type="button" variant="outline" onClick={() => onOpenChange(false)} data-testid="button-product-panels-cancel">
+              Zrusit
+            </Button>
+            <ProcessingSaveButton isPending={saveMutation.isPending} onClick={() => saveMutation.mutate()} type="button" />
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 export default function Sectors() {
   return (
     <div className="p-6 space-y-6">
@@ -1235,6 +1710,10 @@ export default function Sectors() {
             <Package className="w-4 h-4 mr-2" />
             Produkty
           </TabsTrigger>
+          <TabsTrigger value="panels" data-testid="tab-panels">
+            <LayoutGrid className="w-4 h-4 mr-2" />
+            Panely
+          </TabsTrigger>
           <TabsTrigger value="parameters" data-testid="tab-parameters">
             <Settings2 className="w-4 h-4 mr-2" />
             Parametre
@@ -1245,6 +1724,9 @@ export default function Sectors() {
         </TabsContent>
         <TabsContent value="products">
           <ProductsTab />
+        </TabsContent>
+        <TabsContent value="panels">
+          <PanelsTab />
         </TabsContent>
         <TabsContent value="parameters">
           <ParametersTab />

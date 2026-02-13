@@ -1,11 +1,10 @@
 import { useState, useRef, useCallback, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import { usePartners, usePartnerContracts } from "@/hooks/use-partners";
-import { useMyCompanies } from "@/hooks/use-companies";
-import { useStates } from "@/hooks/use-hierarchy";
+import { usePartners } from "@/hooks/use-partners";
+import { useAppUser } from "@/hooks/use-app-user";
 import { useToast } from "@/hooks/use-toast";
-import type { Product, CommissionScheme, Partner, MyCompany, Parameter, ProductParameter } from "@shared/schema";
+import type { Product, CommissionScheme, Partner, Parameter, ProductParameter } from "@shared/schema";
 import { Plus, Pencil, Trash2, Eye, Package, Loader2, HelpCircle } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { Switch } from "@/components/ui/switch";
@@ -83,13 +82,10 @@ function ProductFormDialog({
 }) {
   const { toast } = useToast();
   const { data: partners } = usePartners();
-  const { data: companies } = useMyCompanies();
-  const { data: allStates } = useStates();
+  const { data: appUser } = useAppUser();
   const timerRef = useRef<number>(0);
 
   const [partnerId, setPartnerId] = useState<string>("");
-  const [companyId, setCompanyId] = useState<string>("");
-  const [stateId, setStateId] = useState<string>("");
   const [code, setCode] = useState("");
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
@@ -114,13 +110,6 @@ function ProductFormDialog({
     const param = allParameters?.find(p => p.id === pp.parameterId);
     return param ? { ...param, overrideRequired: pp.overrideRequired, overrideHelpText: pp.overrideHelpText } : null;
   }).filter(Boolean) as (Parameter & { overrideRequired?: boolean | null; overrideHelpText?: string | null })[];
-
-  const { data: contracts } = usePartnerContracts(partnerId ? parseInt(partnerId) : null);
-
-  const filteredCompanies = companies?.filter(c => {
-    if (!partnerId || !contracts) return false;
-    return contracts.some(ct => ct.companyId === c.id) && !c.isDeleted;
-  }) || [];
 
   const createMutation = useMutation({
     mutationFn: (data: any) => apiRequest("POST", "/api/products", data),
@@ -147,8 +136,6 @@ function ProductFormDialog({
       timerRef.current = performance.now();
       if (editingProduct) {
         setPartnerId(editingProduct.partnerId?.toString() || "");
-        setCompanyId(editingProduct.companyId?.toString() || "");
-        setStateId(editingProduct.stateId?.toString() || "");
         setCode(editingProduct.code || "");
         setName(editingProduct.name || "");
         setDescription(editingProduct.description || "");
@@ -156,8 +143,6 @@ function ProductFormDialog({
         setNotesHtml(editingProduct.notes || "");
       } else {
         setPartnerId("");
-        setCompanyId("");
-        setStateId("");
         setCode("");
         setName("");
         setDescription("");
@@ -179,8 +164,8 @@ function ProductFormDialog({
     const processingTimeSec = Math.round((performance.now() - timerRef.current) / 1000);
     const payload = {
       partnerId: partnerId ? parseInt(partnerId) : null,
-      companyId: companyId ? parseInt(companyId) : null,
-      stateId: stateId ? parseInt(stateId) : null,
+      companyId: appUser?.activeCompanyId || null,
+      stateId: appUser?.activeStateId || null,
       code,
       name,
       description,
@@ -208,55 +193,27 @@ function ProductFormDialog({
           </DialogTitle>
         </DialogHeader>
         <div className="space-y-4">
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Partner</label>
-              <Select value={partnerId} onValueChange={(val) => { setPartnerId(val); setCompanyId(""); }}>
-                <SelectTrigger data-testid="select-product-partner">
-                  <SelectValue placeholder="Vyberte partnera" />
-                </SelectTrigger>
-                <SelectContent>
-                  {partners?.filter(p => !p.isDeleted).map(p => (
-                    <SelectItem key={p.id} value={p.id.toString()}>{p.name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Spolocnost</label>
-              <Select value={companyId} onValueChange={setCompanyId} disabled={!partnerId}>
-                <SelectTrigger data-testid="select-product-company">
-                  <SelectValue placeholder={partnerId ? "Vyberte spolocnost" : "Najprv vyberte partnera"} />
-                </SelectTrigger>
-                <SelectContent>
-                  {filteredCompanies.map(c => (
-                    <SelectItem key={c.id} value={c.id.toString()}>{c.name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+          <div className="space-y-2">
+            <label className="text-sm font-medium">Partner</label>
+            <Select value={partnerId} onValueChange={setPartnerId}>
+              <SelectTrigger data-testid="select-product-partner">
+                <SelectValue placeholder="Vyberte partnera" />
+              </SelectTrigger>
+              <SelectContent>
+                {partners?.filter(p => !p.isDeleted).map(p => (
+                  <SelectItem key={p.id} value={p.id.toString()}>{p.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
 
-          <div className="grid grid-cols-3 gap-4">
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Stat</label>
-              <Select value={stateId} onValueChange={setStateId}>
-                <SelectTrigger data-testid="select-product-state">
-                  <SelectValue placeholder="Vyberte stat" />
-                </SelectTrigger>
-                <SelectContent>
-                  {allStates?.map(s => (
-                    <SelectItem key={s.id} value={s.id.toString()}>{s.name} ({s.code})</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+          <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <label className="text-sm font-medium">Kod *</label>
               <Input value={code} onChange={e => setCode(e.target.value)} className="font-mono uppercase" data-testid="input-product-code" />
             </div>
             <div className="space-y-2">
-              <label className="text-sm font-medium">Nazov *</label>
+              <label className="text-sm font-medium">Nazov produktu *</label>
               <Input value={name} onChange={e => setName(e.target.value)} data-testid="input-product-name" />
             </div>
           </div>

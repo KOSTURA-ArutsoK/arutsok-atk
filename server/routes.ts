@@ -2858,6 +2858,158 @@ export async function registerRoutes(
     }
   });
 
+  // === PANELS (ArutsoK 27) ===
+  app.get("/api/panels", isAuthenticated, async (_req, res) => {
+    try {
+      const allPanels = await storage.getPanels();
+      res.json(allPanels);
+    } catch (err) {
+      console.error("Get panels error:", err);
+      res.status(500).json({ message: "Internal error" });
+    }
+  });
+
+  app.post("/api/panels", isAuthenticated, async (req: any, res) => {
+    try {
+      const panel = await storage.createPanel(req.body);
+      await logAudit(req, { action: "Vytvorenie", module: "Panely", entityId: panel.id, entityName: panel.name });
+      res.json(panel);
+    } catch (err) {
+      console.error("Create panel error:", err);
+      res.status(500).json({ message: "Internal error" });
+    }
+  });
+
+  app.put("/api/panels/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const id = Number(req.params.id);
+      const panel = await storage.updatePanel(id, req.body);
+      await logAudit(req, { action: "Uprava", module: "Panely", entityId: id, entityName: panel.name });
+      res.json(panel);
+    } catch (err) {
+      console.error("Update panel error:", err);
+      res.status(500).json({ message: "Internal error" });
+    }
+  });
+
+  app.delete("/api/panels/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const id = Number(req.params.id);
+      const panel = await storage.getPanel(id);
+      await storage.deletePanel(id);
+      await logAudit(req, { action: "Vymazanie", module: "Panely", entityId: id, entityName: panel?.name || "" });
+      res.json({ success: true });
+    } catch (err) {
+      console.error("Delete panel error:", err);
+      res.status(500).json({ message: "Internal error" });
+    }
+  });
+
+  app.get("/api/panels/:id/parameters", isAuthenticated, async (req, res) => {
+    try {
+      const id = Number(req.params.id);
+      const params = await storage.getPanelParameters(id);
+      res.json(params);
+    } catch (err) {
+      console.error("Get panel parameters error:", err);
+      res.status(500).json({ message: "Internal error" });
+    }
+  });
+
+  app.put("/api/panels/:id/parameters", isAuthenticated, async (req: any, res) => {
+    try {
+      const id = Number(req.params.id);
+      await storage.setPanelParameters(id, req.body.parameterIds);
+      await logAudit(req, { action: "Uprava", module: "Panely", entityId: id, entityName: "Priradenie parametrov" });
+      res.json({ success: true });
+    } catch (err) {
+      console.error("Set panel parameters error:", err);
+      res.status(500).json({ message: "Internal error" });
+    }
+  });
+
+  app.get("/api/sector-products/:id/panels", isAuthenticated, async (req, res) => {
+    try {
+      const id = Number(req.params.id);
+      const pp = await storage.getProductPanels(id);
+      res.json(pp);
+    } catch (err) {
+      console.error("Get product panels error:", err);
+      res.status(500).json({ message: "Internal error" });
+    }
+  });
+
+  app.put("/api/sector-products/:id/panels", isAuthenticated, async (req: any, res) => {
+    try {
+      const id = Number(req.params.id);
+      await storage.setProductPanels(id, req.body.panelIds);
+      await logAudit(req, { action: "Uprava", module: "Produkty", entityId: id, entityName: "Priradenie panelov" });
+      res.json({ success: true });
+    } catch (err) {
+      console.error("Set product panels error:", err);
+      res.status(500).json({ message: "Internal error" });
+    }
+  });
+
+  app.get("/api/sector-products/:id/panels-with-parameters", isAuthenticated, async (req, res) => {
+    try {
+      const id = Number(req.params.id);
+      const pp = await storage.getProductPanels(id);
+      const allPanels = await storage.getPanels();
+      const allParams = await storage.getParameters();
+      const result = [];
+      for (const assignment of pp) {
+        const panel = allPanels.find(p => p.id === assignment.panelId);
+        if (!panel) continue;
+        const panelParams = await storage.getPanelParameters(panel.id);
+        const parametersWithDetails = panelParams.map(pp => {
+          const param = allParams.find(p => p.id === pp.parameterId);
+          return param ? { ...param, panelSortOrder: pp.sortOrder } : null;
+        }).filter(Boolean);
+        result.push({ ...panel, parameters: parametersWithDetails });
+      }
+      res.json(result);
+    } catch (err) {
+      console.error("Get product panels with parameters error:", err);
+      res.status(500).json({ message: "Internal error" });
+    }
+  });
+
+  app.get("/api/products/:id/panels-with-parameters", isAuthenticated, async (req, res) => {
+    try {
+      const productId = Number(req.params.id);
+      const productSectorAssignments = await storage.getProductSectors(productId);
+      const allPanels = await storage.getPanels();
+      const allParams = await storage.getParameters();
+      const resultPanels: any[] = [];
+      const seenPanelIds = new Set<number>();
+
+      for (const ps of productSectorAssignments) {
+        const sectorProds = await storage.getSectorProducts(ps.sectorId);
+        for (const sp of sectorProds) {
+          const prodPanels = await storage.getProductPanels(sp.id);
+          for (const pp of prodPanels) {
+            if (seenPanelIds.has(pp.panelId)) continue;
+            seenPanelIds.add(pp.panelId);
+            const panel = allPanels.find(p => p.id === pp.panelId);
+            if (!panel) continue;
+            const panelParams = await storage.getPanelParameters(panel.id);
+            const parametersWithDetails = panelParams.map(pparam => {
+              const param = allParams.find(p => p.id === pparam.parameterId);
+              return param ? { ...param, panelSortOrder: pparam.sortOrder } : null;
+            }).filter(Boolean);
+            resultPanels.push({ ...panel, parameters: parametersWithDetails, productSortOrder: pp.sortOrder });
+          }
+        }
+      }
+      resultPanels.sort((a, b) => (a.productSortOrder || 0) - (b.productSortOrder || 0));
+      res.json(resultPanels);
+    } catch (err) {
+      console.error("Get product panels with parameters error:", err);
+      res.status(500).json({ message: "Internal error" });
+    }
+  });
+
   // === CALENDAR EVENTS ===
   app.get("/api/calendar-events", isAuthenticated, async (_req, res) => {
     try {

@@ -58,6 +58,10 @@ import {
   type SectorProductParameter,
   calendarEvents,
   type CalendarEvent, type InsertCalendarEvent,
+  panels, panelParameters, productPanels,
+  type Panel, type InsertPanel,
+  type PanelParameter, type InsertPanelParameter,
+  type ProductPanel, type InsertProductPanel,
 } from "@shared/schema";
 import { eq, and, or, ne, like, sql, lte, gte, desc } from "drizzle-orm";
 
@@ -319,6 +323,21 @@ export interface IStorage {
   // Product-Parameter assignments
   getProductParameters(productId: number): Promise<ProductParameter[]>;
   setProductParameters(productId: number, params: { parameterId: number; overrideRequired?: boolean; overrideHelpText?: string }[]): Promise<void>;
+
+  // Panels (ArutsoK 27)
+  getPanels(): Promise<Panel[]>;
+  getPanel(id: number): Promise<Panel | undefined>;
+  createPanel(data: InsertPanel): Promise<Panel>;
+  updatePanel(id: number, data: Partial<InsertPanel>): Promise<Panel>;
+  deletePanel(id: number): Promise<void>;
+
+  // Panel-Parameter assignments (ArutsoK 27)
+  getPanelParameters(panelId: number): Promise<PanelParameter[]>;
+  setPanelParameters(panelId: number, parameterIds: number[]): Promise<void>;
+
+  // Product-Panel assignments (ArutsoK 27)
+  getProductPanels(sectorProductId: number): Promise<ProductPanel[]>;
+  setProductPanels(sectorProductId: number, panelIds: number[]): Promise<void>;
 
   // Calendar Events
   getCalendarEvents(): Promise<CalendarEvent[]>;
@@ -1905,6 +1924,72 @@ export class DatabaseStorage implements IStorage {
       .where(gte(calendarEvents.startDate, today))
       .orderBy(calendarEvents.startDate)
       .limit(limit);
+  }
+
+  // === PANELS CRUD (ArutsoK 27) ===
+  async getPanels(): Promise<Panel[]> {
+    return await db.select().from(panels).orderBy(desc(panels.id));
+  }
+
+  async getPanel(id: number): Promise<Panel | undefined> {
+    const [panel] = await db.select().from(panels).where(eq(panels.id, id));
+    return panel;
+  }
+
+  async createPanel(data: InsertPanel): Promise<Panel> {
+    const [panel] = await db.insert(panels).values(data).returning();
+    return panel;
+  }
+
+  async updatePanel(id: number, data: Partial<InsertPanel>): Promise<Panel> {
+    const [panel] = await db.update(panels).set(data).where(eq(panels.id, id)).returning();
+    return panel;
+  }
+
+  async deletePanel(id: number): Promise<void> {
+    await db.delete(panelParameters).where(eq(panelParameters.panelId, id));
+    await db.delete(productPanels).where(eq(productPanels.panelId, id));
+    await db.delete(panels).where(eq(panels.id, id));
+  }
+
+  // === Panel-Parameter assignments (ArutsoK 27) ===
+  async getPanelParameters(panelId: number): Promise<PanelParameter[]> {
+    return await db.select().from(panelParameters)
+      .where(eq(panelParameters.panelId, panelId))
+      .orderBy(panelParameters.sortOrder);
+  }
+
+  async setPanelParameters(panelId: number, parameterIds: number[]): Promise<void> {
+    await db.delete(panelParameters).where(eq(panelParameters.panelId, panelId));
+    if (parameterIds.length > 0) {
+      await db.insert(panelParameters).values(
+        parameterIds.map((parameterId, index) => ({
+          panelId,
+          parameterId,
+          sortOrder: index,
+        }))
+      );
+    }
+  }
+
+  // === Product-Panel assignments (ArutsoK 27) ===
+  async getProductPanels(sectorProductId: number): Promise<ProductPanel[]> {
+    return await db.select().from(productPanels)
+      .where(eq(productPanels.sectorProductId, sectorProductId))
+      .orderBy(productPanels.sortOrder);
+  }
+
+  async setProductPanels(sectorProductId: number, panelIds: number[]): Promise<void> {
+    await db.delete(productPanels).where(eq(productPanels.sectorProductId, sectorProductId));
+    if (panelIds.length > 0) {
+      await db.insert(productPanels).values(
+        panelIds.map((panelId, index) => ({
+          sectorProductId,
+          panelId,
+          sortOrder: index,
+        }))
+      );
+    }
   }
 }
 
