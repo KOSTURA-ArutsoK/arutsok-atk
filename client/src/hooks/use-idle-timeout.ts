@@ -1,13 +1,17 @@
 import { useEffect, useRef, useCallback, useState } from "react";
 
 const DEFAULT_TIMEOUT_SEC = 180;
-const WARNING_AT_SEC = 60;
-const RED_BEFORE_WARNING_SEC = 10;
 const BEEP_LAST_SEC = 10;
 const THROTTLE_MS = 1000;
 
+function getWarningAtSec(totalSec: number): number {
+  if (totalSec > 300) return 120;
+  return Math.floor(totalSec * 0.5);
+}
+
 export function useIdleTimeout(totalTimeoutSec: number = DEFAULT_TIMEOUT_SEC) {
-  const [timeLeft, setTimeLeft] = useState(totalTimeoutSec);
+  const safeTotalSec = Math.max(60, totalTimeoutSec);
+  const [timeLeft, setTimeLeft] = useState(safeTotalSec);
   const [showWarning, setShowWarning] = useState(false);
 
   const lastActivityRef = useRef<number>(Date.now());
@@ -15,9 +19,9 @@ export function useIdleTimeout(totalTimeoutSec: number = DEFAULT_TIMEOUT_SEC) {
   const beepPlayedRef = useRef<Set<number>>(new Set());
   const warningBeepPlayedRef = useRef(false);
   const loggedOutRef = useRef(false);
-  const totalRef = useRef(totalTimeoutSec);
+  const totalRef = useRef(safeTotalSec);
 
-  totalRef.current = totalTimeoutSec;
+  totalRef.current = safeTotalSec;
 
   const playBeep = useCallback((freq = 800, duration = 0.2) => {
     if (!window.ARUTSOK_AUDIO_ENABLED) return;
@@ -62,7 +66,9 @@ export function useIdleTimeout(totalTimeoutSec: number = DEFAULT_TIMEOUT_SEC) {
       const remaining = Math.max(0, totalRef.current - elapsed);
       setTimeLeft(remaining);
 
-      if (remaining <= WARNING_AT_SEC && !showWarningRef.current) {
+      const warningThreshold = getWarningAtSec(totalRef.current);
+
+      if (remaining <= warningThreshold && !showWarningRef.current) {
         showWarningRef.current = true;
         setShowWarning(true);
         if (!warningBeepPlayedRef.current) {
@@ -71,7 +77,7 @@ export function useIdleTimeout(totalTimeoutSec: number = DEFAULT_TIMEOUT_SEC) {
         }
       }
 
-      if (remaining > WARNING_AT_SEC && showWarningRef.current) {
+      if (remaining > warningThreshold && showWarningRef.current) {
         showWarningRef.current = false;
         setShowWarning(false);
       }
@@ -107,7 +113,8 @@ export function useIdleTimeout(totalTimeoutSec: number = DEFAULT_TIMEOUT_SEC) {
     };
   }, [resetActivity]);
 
-  const isRed = timeLeft <= (WARNING_AT_SEC + RED_BEFORE_WARNING_SEC);
+  const warningThreshold = getWarningAtSec(safeTotalSec);
+  const isRed = timeLeft <= (warningThreshold + 10);
 
   return { timeLeft, showWarning, dismissWarning, isRed };
 }

@@ -953,6 +953,9 @@ export async function registerRoutes(
   app.post(api.permissionGroups.create.path, isAuthenticated, async (req, res) => {
     try {
       const input = api.permissionGroups.create.input.parse(req.body);
+      if (input.sessionTimeoutSeconds !== undefined && input.sessionTimeoutSeconds < 60) {
+        return res.status(400).json({ message: "Minimalna doba prihlasenia je 60 sekund" });
+      }
       const created = await storage.createPermissionGroup(input);
       await logAudit(req, { action: "CREATE", module: "skupiny_pravomoci", entityName: input.name, newData: input });
       res.status(201).json(created);
@@ -965,6 +968,9 @@ export async function registerRoutes(
   app.put(api.permissionGroups.update.path, isAuthenticated, async (req, res) => {
     try {
       const input = api.permissionGroups.update.input.parse(req.body);
+      if (input.sessionTimeoutSeconds !== undefined && input.sessionTimeoutSeconds < 60) {
+        return res.status(400).json({ message: "Minimalna doba prihlasenia je 60 sekund" });
+      }
       const updated = await storage.updatePermissionGroup(Number(req.params.id), input);
       await logAudit(req, { action: "UPDATE", module: "skupiny_pravomoci", entityId: Number(req.params.id) });
       res.json(updated);

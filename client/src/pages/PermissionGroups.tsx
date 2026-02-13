@@ -118,6 +118,10 @@ function GroupFormDialog({
       toast({ title: "Chyba", description: "Nazov je povinny", variant: "destructive" });
       return;
     }
+    if (sessionTimeoutSeconds < 60) {
+      toast({ title: "Chyba", description: "Minimalna doba prihlasenia je 60 sekund.", variant: "destructive" });
+      return;
+    }
     const processingTimeSec = Math.round((performance.now() - timerRef.current) / 1000);
     const payload = { name, description: description || null, sessionTimeoutSeconds, processingTimeSec };
     if (editingGroup) {
@@ -158,13 +162,16 @@ function GroupFormDialog({
             <Label>Doba prihlasenia (sekundy)</Label>
             <Input
               type="number"
-              min={30}
+              min={60}
               value={sessionTimeoutSeconds}
-              onChange={e => setSessionTimeoutSeconds(parseInt(e.target.value) || 180)}
+              onChange={e => {
+                const v = parseInt(e.target.value);
+                setSessionTimeoutSeconds(isNaN(v) ? 60 : v);
+              }}
               data-testid="input-group-timeout"
             />
             <p className="text-xs text-muted-foreground">
-              Cas automatickeho odhlasenia pre pouzivatelov v tejto skupine ({Math.floor(sessionTimeoutSeconds / 60)} min {sessionTimeoutSeconds % 60} sek)
+              Cas automatickeho odhlasenia pre pouzivatelov v tejto skupine ({Math.floor(sessionTimeoutSeconds / 60)} min {sessionTimeoutSeconds % 60} sek). Minimum: 60 sek.
             </p>
           </div>
           <div className="flex items-center justify-end">

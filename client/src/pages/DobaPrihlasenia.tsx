@@ -71,7 +71,7 @@ export default function DobaPrihlasenia() {
           </CardHeader>
           <CardContent className="space-y-4">
             <p className="text-xs text-muted-foreground">
-              Nastavte cas automatickeho odhlasenia (v sekundach) pre kazdu skupinu pravomoci. Zmeny sa prejavuju na oboch miestach (tu aj v Pravomoci skupiny).
+              Nastavte cas automatickeho odhlasenia (v sekundach) pre kazdu skupinu pravomoci. Minimalna hodnota je 60 sekund. Zmeny sa prejavuju na oboch miestach (tu aj v Pravomoci skupiny).
             </p>
 
             <Table>
@@ -96,12 +96,17 @@ export default function DobaPrihlasenia() {
                       <TableCell>
                         <Input
                           type="number"
-                          min={30}
+                          min={60}
                           className="w-28"
                           defaultValue={group.sessionTimeoutSeconds ?? 180}
                           onBlur={(e) => {
                             const val = parseInt(e.target.value);
-                            if (val && val >= 30 && val !== (group.sessionTimeoutSeconds ?? 180)) {
+                            if (!val || val < 60) {
+                              e.target.value = String(group.sessionTimeoutSeconds ?? 180);
+                              toast({ title: "Chyba", description: "Minimalna doba prihlasenia je 60 sekund.", variant: "destructive" });
+                              return;
+                            }
+                            if (val !== (group.sessionTimeoutSeconds ?? 180)) {
                               updateTimeoutMutation.mutate({ id: group.id, sessionTimeoutSeconds: val });
                             }
                           }}
