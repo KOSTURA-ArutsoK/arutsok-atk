@@ -6,7 +6,7 @@ import {
   contactProductAssignments, communicationMatrix, globalCounters,
   companyContacts, contractAmendments, userProfiles,
   permissionGroups, permissions, auditLogs,
-  systemSettings, verificationCodes, categoryTimeouts, dashboardPreferences,
+  systemSettings, verificationCodes, categoryTimeouts, dashboardPreferences, userDashboardLayouts,
   commissionRates, commissionCalculationLogs,
   type Subject, type InsertSubject, 
   type MyCompany, type InsertMyCompany,
@@ -32,6 +32,7 @@ import {
   type SystemSetting, type VerificationCode,
   type CategoryTimeout, type InsertCategoryTimeout,
   type DashboardPreference, type InsertDashboardPreference,
+  type UserDashboardLayout,
   type ClientType, type InsertClientType,
   type ClientTypeSection, type InsertClientTypeSection,
   type ClientTypeField, type InsertClientTypeField,
@@ -177,6 +178,9 @@ export interface IStorage {
   getDashboardPreferences(appUserId: number): Promise<DashboardPreference[]>;
   setDashboardPreference(appUserId: number, widgetKey: string, enabled: boolean): Promise<DashboardPreference>;
   bulkSetDashboardPreferences(appUserId: number, prefs: { widgetKey: string; enabled: boolean }[]): Promise<DashboardPreference[]>;
+
+  getDashboardLayout(appUserId: number): Promise<UserDashboardLayout | undefined>;
+  saveDashboardLayout(appUserId: number, widgetOrder: string[]): Promise<UserDashboardLayout>;
 
   getClientTypes(): Promise<ClientType[]>;
   getClientType(id: number): Promise<ClientType | undefined>;
@@ -1122,6 +1126,28 @@ export class DatabaseStorage implements IStorage {
       results.push(result);
     }
     return results;
+  }
+
+  async getDashboardLayout(appUserId: number): Promise<UserDashboardLayout | undefined> {
+    const rows = await db.select().from(userDashboardLayouts)
+      .where(eq(userDashboardLayouts.appUserId, appUserId))
+      .limit(1);
+    return rows[0];
+  }
+
+  async saveDashboardLayout(appUserId: number, widgetOrder: string[]): Promise<UserDashboardLayout> {
+    const existing = await this.getDashboardLayout(appUserId);
+    if (existing) {
+      const [updated] = await db.update(userDashboardLayouts)
+        .set({ widgetOrder, updatedAt: new Date() })
+        .where(eq(userDashboardLayouts.id, existing.id))
+        .returning();
+      return updated;
+    }
+    const [created] = await db.insert(userDashboardLayouts)
+      .values({ appUserId, widgetOrder })
+      .returning();
+    return created;
   }
 
   async getClientTypes(): Promise<ClientType[]> {

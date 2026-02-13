@@ -2159,6 +2159,38 @@ export async function registerRoutes(
     }
   });
 
+  // === DASHBOARD LAYOUTS (ArutsoK 22) ===
+  app.get("/api/dashboard-layout", isAuthenticated, async (req: any, res) => {
+    try {
+      const appUser = req.appUser;
+      if (!appUser) return res.status(401).json({ message: "Unauthorized" });
+      const layout = await storage.getDashboardLayout(appUser.id);
+      res.json(layout || null);
+    } catch {
+      res.status(500).json({ message: "Failed to get dashboard layout" });
+    }
+  });
+
+  app.post("/api/dashboard-layout", isAuthenticated, async (req: any, res) => {
+    try {
+      const appUser = req.appUser;
+      if (!appUser) return res.status(401).json({ message: "Unauthorized" });
+      const { widgetOrder } = req.body;
+      if (!Array.isArray(widgetOrder) || widgetOrder.length === 0) {
+        return res.status(400).json({ message: "widgetOrder must be a non-empty array of strings" });
+      }
+      const validKeys = ["stats", "recent_subjects", "my_companies", "recent_partners", "recent_products", "audit_activity", "upcoming_events"];
+      const allValid = widgetOrder.every((k: any) => typeof k === "string" && validKeys.includes(k));
+      if (!allValid) {
+        return res.status(400).json({ message: "widgetOrder contains invalid widget keys" });
+      }
+      const layout = await storage.saveDashboardLayout(appUser.id, widgetOrder);
+      res.json(layout);
+    } catch {
+      res.status(500).json({ message: "Failed to save dashboard layout" });
+    }
+  });
+
   // === CLIENT TYPES (Dynamic Parameter System) ===
   app.get("/api/client-types", isAuthenticated, async (_req, res) => {
     try {

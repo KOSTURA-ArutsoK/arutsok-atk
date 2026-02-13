@@ -430,6 +430,14 @@ export const dashboardPreferences = pgTable("dashboard_preferences", {
   enabled: boolean("enabled").default(true),
 });
 
+// === DASHBOARD LAYOUTS (per user widget order - ArutsoK 22) ===
+export const userDashboardLayouts = pgTable("user_dashboard_layouts", {
+  id: serial("id").primaryKey(),
+  appUserId: integer("app_user_id").notNull().references(() => appUsers.id),
+  widgetOrder: text("widget_order").array().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
 // === CLIENT TYPES (Dynamic Parameter System) ===
 export const clientTypes = pgTable("client_types", {
   id: serial("id").primaryKey(),
@@ -679,6 +687,7 @@ export const insertSystemSettingSchema = createInsertSchema(systemSettings).omit
 export const insertVerificationCodeSchema = createInsertSchema(verificationCodes).omit({ id: true, createdAt: true });
 export const insertCategoryTimeoutSchema = createInsertSchema(categoryTimeouts).omit({ id: true, createdAt: true, updatedAt: true });
 export const insertDashboardPreferenceSchema = createInsertSchema(dashboardPreferences).omit({ id: true });
+export const insertUserDashboardLayoutSchema = createInsertSchema(userDashboardLayouts).omit({ id: true, updatedAt: true });
 export const insertClientTypeSchema = createInsertSchema(clientTypes).omit({ id: true, createdAt: true });
 export const insertClientTypeSectionSchema = createInsertSchema(clientTypeSections).omit({ id: true, createdAt: true });
 export const insertClientTypeFieldSchema = createInsertSchema(clientTypeFields).omit({ id: true, createdAt: true });
@@ -736,6 +745,8 @@ export type CategoryTimeout = typeof categoryTimeouts.$inferSelect;
 export type InsertCategoryTimeout = z.infer<typeof insertCategoryTimeoutSchema>;
 export type DashboardPreference = typeof dashboardPreferences.$inferSelect;
 export type InsertDashboardPreference = z.infer<typeof insertDashboardPreferenceSchema>;
+export type UserDashboardLayout = typeof userDashboardLayouts.$inferSelect;
+export type InsertUserDashboardLayout = z.infer<typeof insertUserDashboardLayoutSchema>;
 
 export type ClientType = typeof clientTypes.$inferSelect;
 export type InsertClientType = z.infer<typeof insertClientTypeSchema>;
