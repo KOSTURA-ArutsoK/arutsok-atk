@@ -98,6 +98,7 @@ function SectorFormDialog({
         await apiRequest("PUT", `/api/sectors/${created.id}/parameters`, { parameterIds: selectedParameterIds });
       }
       queryClient.invalidateQueries({ queryKey: ["/api/sectors"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/sectors/all-parameters"] });
       toast({ title: "Uspech", description: "Sektor vytvoreny" });
       onOpenChange(false);
     },
@@ -112,6 +113,7 @@ function SectorFormDialog({
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/sectors"] });
       queryClient.invalidateQueries({ queryKey: ["/api/sectors", editingSector?.id, "parameters"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/sectors/all-parameters"] });
       toast({ title: "Uspech", description: "Sektor aktualizovany" });
       onOpenChange(false);
     },

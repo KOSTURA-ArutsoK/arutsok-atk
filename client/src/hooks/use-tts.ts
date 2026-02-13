@@ -46,18 +46,17 @@ export function useTTS() {
   }, []);
 
   const toggle = useCallback(() => {
-    setEnabled(prev => {
-      const next = !prev;
-      if (!next) {
-        try { window.speechSynthesis?.cancel(); } catch {}
-      }
-      return next;
-    });
+    const next = !enabledRef.current;
+    enabledRef.current = next;
+    if (!next) {
+      try { window.speechSynthesis?.cancel(); } catch {}
+    }
+    setEnabled(next);
   }, []);
 
   const resetSpoken = useCallback((key: string) => {
     spokenRef.current.delete(key);
   }, []);
 
-  return { enabled, toggle, speak, resetSpoken };
+  return { enabled, toggle, speak, resetSpoken, enabledRef };
 }
