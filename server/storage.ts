@@ -63,6 +63,9 @@ import {
   type Panel, type InsertPanel,
   type PanelParameter, type InsertPanelParameter,
   type ProductPanel, type InsertProductPanel,
+  stateFlagHistory, companyLogoHistory,
+  type StateFlagHistory, type CompanyLogoHistory,
+  type State, type InsertState,
 } from "@shared/schema";
 import { eq, and, or, ne, like, sql, lte, gte, desc } from "drizzle-orm";
 
@@ -70,8 +73,15 @@ export interface IStorage {
   generateUID(stateCode: string, continentCode?: string): Promise<string>;
 
   getContinents(): Promise<{ id: number; name: string; code: string }[]>;
-  getStates(continentId?: number): Promise<{ id: number; name: string; code: string; flagUrl: string | null; continentId: number }[]>;
-  createState(data: { continentId: number; name: string; code: string; flagUrl?: string }): Promise<{ id: number; name: string; code: string; flagUrl: string | null; continentId: number }>;
+  getStates(continentId?: number): Promise<State[]>;
+  getState(id: number): Promise<State | undefined>;
+  createState(data: InsertState): Promise<State>;
+  updateState(id: number, data: Partial<InsertState>): Promise<State>;
+  deleteState(id: number): Promise<void>;
+  getStateFlagHistory(stateId: number): Promise<StateFlagHistory[]>;
+  addStateFlagHistory(stateId: number, flagUrl: string): Promise<StateFlagHistory>;
+  getCompanyLogoHistory(companyId: number): Promise<CompanyLogoHistory[]>;
+  addCompanyLogoHistory(companyId: number, logoUrl: string, originalName?: string): Promise<CompanyLogoHistory>;
   
   getMyCompanies(includeDeleted?: boolean): Promise<MyCompany[]>;
   getMyCompany(id: number): Promise<MyCompany | undefined>;
@@ -373,21 +383,48 @@ export class DatabaseStorage implements IStorage {
     return await db.select().from(continents);
   }
   
-  async getStates(continentId?: number) {
+  async getStates(continentId?: number): Promise<State[]> {
     if (continentId) {
-      return await db.select().from(states).where(eq(states.continentId, continentId));
+      return await db.select().from(states).where(eq(states.continentId, continentId)).orderBy(desc(states.id));
     }
-    return await db.select().from(states);
+    return await db.select().from(states).orderBy(desc(states.id));
   }
 
-  async createState(data: { continentId: number; name: string; code: string; flagUrl?: string }) {
-    const [newState] = await db.insert(states).values({
-      continentId: data.continentId,
-      name: data.name,
-      code: data.code,
-      flagUrl: data.flagUrl || null,
-    }).returning();
+  async getState(id: number): Promise<State | undefined> {
+    const [state] = await db.select().from(states).where(eq(states.id, id));
+    return state;
+  }
+
+  async createState(data: InsertState): Promise<State> {
+    const [newState] = await db.insert(states).values(data).returning();
     return newState;
+  }
+
+  async updateState(id: number, data: Partial<InsertState>): Promise<State> {
+    const [updated] = await db.update(states).set(data).where(eq(states.id, id)).returning();
+    return updated;
+  }
+
+  async deleteState(id: number): Promise<void> {
+    await db.delete(states).where(eq(states.id, id));
+  }
+
+  async getStateFlagHistory(stateId: number): Promise<StateFlagHistory[]> {
+    return await db.select().from(stateFlagHistory).where(eq(stateFlagHistory.stateId, stateId)).orderBy(desc(stateFlagHistory.replacedAt));
+  }
+
+  async addStateFlagHistory(stateId: number, flagUrl: string): Promise<StateFlagHistory> {
+    const [entry] = await db.insert(stateFlagHistory).values({ stateId, flagUrl }).returning();
+    return entry;
+  }
+
+  async getCompanyLogoHistory(companyId: number): Promise<CompanyLogoHistory[]> {
+    return await db.select().from(companyLogoHistory).where(eq(companyLogoHistory.companyId, companyId)).orderBy(desc(companyLogoHistory.replacedAt));
+  }
+
+  async addCompanyLogoHistory(companyId: number, logoUrl: string, originalName?: string): Promise<CompanyLogoHistory> {
+    const [entry] = await db.insert(companyLogoHistory).values({ companyId, logoUrl, originalName: originalName || null }).returning();
+    return entry;
   }
 
   async getMyCompanies(includeDeleted?: boolean) {

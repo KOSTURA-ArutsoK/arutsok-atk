@@ -43,6 +43,7 @@ import Kalendar from "@/pages/Kalendar";
 import DobaPrihlasenia from "@/pages/DobaPrihlasenia";
 import PodporaRegistracia from "@/pages/PodporaRegistracia";
 import NastaveniePrehladov from "@/pages/NastaveniePrehladov";
+import SettingsStates from "@/pages/SettingsStates";
 import { AppShell } from "@/components/layout/AppShell";
 
 function PrivateRoute({ component: Component, ...rest }: any) {
@@ -109,6 +110,8 @@ function Router() {
       <Route path="/doba-prihlasenia" component={() => <PrivateRoute component={DobaPrihlasenia} />} />
       <Route path="/support" component={() => <PrivateRoute component={PodporaRegistracia} />} />
       <Route path="/dashboard-settings" component={() => <PrivateRoute component={NastaveniePrehladov} />} />
+      <Route path="/settings-states" component={() => <PrivateRoute component={SettingsStates} />} />
+      <Route path="/settings-companies" component={() => <PrivateRoute component={Companies} />} />
 
       <Route component={NotFound} />
     </Switch>

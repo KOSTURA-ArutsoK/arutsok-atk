@@ -41,6 +41,8 @@ import {
   ExternalLink,
   Calendar,
   KeyRound,
+  Globe,
+  Building,
 } from "lucide-react";
 import {
   Sidebar,
@@ -110,6 +112,11 @@ const spravaPristupovItems = [
   { href: "/doba-prihlasenia", icon: Timer, label: "Doba prihlasenia" },
 ];
 
+const specifikacieItems = [
+  { href: "/settings-states", icon: Globe, label: "Staty" },
+  { href: "/settings-companies", icon: Building, label: "Spolocnosti" },
+];
+
 const nastavenieDirectItems = [
   { href: "/history", icon: History, label: "Logy" },
   { href: "/support", icon: Phone, label: "Podpora a registracia" },
@@ -119,6 +126,7 @@ const nastavenieDirectItems = [
 
 const allNastavenieHrefs = [
   ...spravaPristupovItems.map(i => i.href),
+  ...specifikacieItems.map(i => i.href),
   ...nastavenieDirectItems.map(i => i.href),
 ];
 
@@ -191,8 +199,9 @@ export function AppSidebar() {
   const { helpEnabled, toggleHelp } = useHelp();
 
   const allMenus = [
-    { id: "nastavenia", items: [...spravaPristupovItems, ...nastavenieDirectItems] },
+    { id: "nastavenia", items: [...spravaPristupovItems, ...specifikacieItems, ...nastavenieDirectItems] },
     { id: "sprava-pristupov", items: spravaPristupovItems },
+    { id: "specifikacie", items: specifikacieItems },
     { id: "partneri", items: partneriProduktyItems },
     { id: "klienti", items: klientiItems },
     { id: "zmluvy", items: zmluvyItems },
@@ -206,6 +215,9 @@ export function AppSidebar() {
   const isNastavenieOpen = openMenuId === "nastavenia";
   const [spravaPristupovExpanded, setSpravaPristupovExpanded] = useState(
     spravaPristupovItems.some(i => i.href === location)
+  );
+  const [specifikacieExpanded, setSpecifikacieExpanded] = useState(
+    specifikacieItems.some(i => i.href === location)
   );
 
   const displayName = appUser
@@ -288,6 +300,42 @@ export function AppSidebar() {
                           <CollapsibleContent>
                             <div className="ml-3 border-l border-border pl-2 mt-1 space-y-0.5">
                               {spravaPristupovItems.map(item => (
+                                <SidebarMenuSubItem key={item.href}>
+                                  <SidebarMenuSubButton
+                                    asChild
+                                    isActive={location === item.href}
+                                    data-testid={`nav-${item.label.toLowerCase().replace(/\s/g, '-')}`}
+                                  >
+                                    <Link href={item.href}>
+                                      <item.icon className="w-3.5 h-3.5" />
+                                      <span>{item.label}</span>
+                                    </Link>
+                                  </SidebarMenuSubButton>
+                                </SidebarMenuSubItem>
+                              ))}
+                            </div>
+                          </CollapsibleContent>
+                        </Collapsible>
+                      </SidebarMenuSubItem>
+
+                      <SidebarMenuSubItem>
+                        <Collapsible
+                          open={specifikacieExpanded}
+                          onOpenChange={setSpecifikacieExpanded}
+                        >
+                          <CollapsibleTrigger asChild>
+                            <SidebarMenuSubButton
+                              data-testid="nav-submenu-specifikacie"
+                              className={`cursor-pointer ${specifikacieItems.some(i => i.href === location) ? "text-sidebar-accent-foreground font-medium" : ""}`}
+                            >
+                              <Layers className="w-3.5 h-3.5" />
+                              <span className="flex-1">Specifikacie</span>
+                              <ChevronRight className={`w-3 h-3 text-muted-foreground transition-transform duration-200 ${specifikacieExpanded ? "rotate-90" : ""}`} />
+                            </SidebarMenuSubButton>
+                          </CollapsibleTrigger>
+                          <CollapsibleContent>
+                            <div className="ml-3 border-l border-border pl-2 mt-1 space-y-0.5">
+                              {specifikacieItems.map(item => (
                                 <SidebarMenuSubItem key={item.href}>
                                   <SidebarMenuSubButton
                                     asChild

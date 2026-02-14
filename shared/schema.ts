@@ -949,6 +949,31 @@ export const insertCalendarEventSchema = createInsertSchema(calendarEvents).omit
 export type CalendarEvent = typeof calendarEvents.$inferSelect;
 export type InsertCalendarEvent = z.infer<typeof insertCalendarEventSchema>;
 
+// === STATE FLAG HISTORY (ArutsoK 31) ===
+export const stateFlagHistory = pgTable("state_flag_history", {
+  id: serial("id").primaryKey(),
+  stateId: integer("state_id").notNull().references(() => states.id),
+  flagUrl: text("flag_url").notNull(),
+  replacedAt: timestamp("replaced_at").defaultNow(),
+});
+
+export type StateFlagHistory = typeof stateFlagHistory.$inferSelect;
+
+// === COMPANY LOGO HISTORY (ArutsoK 31) ===
+export const companyLogoHistory = pgTable("company_logo_history", {
+  id: serial("id").primaryKey(),
+  companyId: integer("company_id").notNull().references(() => myCompanies.id),
+  logoUrl: text("logo_url").notNull(),
+  originalName: text("original_name"),
+  replacedAt: timestamp("replaced_at").defaultNow(),
+});
+
+export type CompanyLogoHistory = typeof companyLogoHistory.$inferSelect;
+
+export const insertStateSchema = createInsertSchema(states).omit({ id: true });
+export type State = typeof states.$inferSelect;
+export type InsertState = z.infer<typeof insertStateSchema>;
+
 export type CreateSubjectRequest = InsertSubject;
 export type UpdateSubjectRequest = Partial<InsertSubject> & { changeReason?: string };
 export type UpdateMyCompanyRequest = Partial<InsertMyCompany> & { changeReason?: string };

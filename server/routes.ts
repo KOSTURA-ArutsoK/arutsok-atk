@@ -55,11 +55,12 @@ fs.mkdirSync(path.join(UPLOADS_DIR, "work"), { recursive: true });
 fs.mkdirSync(path.join(UPLOADS_DIR, "logos"), { recursive: true });
 fs.mkdirSync(path.join(UPLOADS_DIR, "amendments"), { recursive: true });
 fs.mkdirSync(path.join(UPLOADS_DIR, "profiles"), { recursive: true });
+fs.mkdirSync(path.join(UPLOADS_DIR, "flags"), { recursive: true });
 
 const uploadStorage = multer.diskStorage({
   destination: (req, _file, cb) => {
     const section = (req.params as any).section || (req as any)._uploadSection;
-    const validDirs = ["official", "work", "logos", "amendments", "profiles"];
+    const validDirs = ["official", "work", "logos", "amendments", "profiles", "flags"];
     const dir = validDirs.includes(section) ? section : "official";
     cb(null, path.join(UPLOADS_DIR, dir));
   },
@@ -186,6 +187,106 @@ export async function registerRoutes(
       if (err instanceof z.ZodError) return res.status(400).json({ message: err.errors[0].message });
       throw err;
     }
+  });
+
+  // === HIERARCHY ENDPOINTS (ArutsoK 31) ===
+  app.get("/api/hierarchy/continents", isAuthenticated, async (_req, res) => {
+    try {
+      const result = await storage.getContinents();
+      res.json(result);
+    } catch (err) {
+      console.error("Get continents error:", err);
+      res.status(500).json({ message: "Internal error" });
+    }
+  });
+
+  app.get("/api/hierarchy/states", isAuthenticated, async (req, res) => {
+    try {
+      const continentId = req.query.continentId ? Number(req.query.continentId) : undefined;
+      const result = await storage.getStates(continentId);
+      res.json(result);
+    } catch (err) {
+      console.error("Get states error:", err);
+      res.status(500).json({ message: "Internal error" });
+    }
+  });
+
+  app.post("/api/hierarchy/states", isAuthenticated, async (req: any, res) => {
+    try {
+      const created = await storage.createState(req.body);
+      await logAudit(req, { action: "CREATE", module: "Staty", entityId: created.id, entityName: created.name, newData: req.body });
+      res.status(201).json(created);
+    } catch (err) {
+      console.error("Create state error:", err);
+      res.status(500).json({ message: "Internal error" });
+    }
+  });
+
+  // === STATES CRUD (ArutsoK 31) ===
+  app.get("/api/states/:id", isAuthenticated, async (req, res) => {
+    const state = await storage.getState(Number(req.params.id));
+    if (!state) return res.status(404).json({ message: "State not found" });
+    res.json(state);
+  });
+
+  app.put("/api/states/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const id = Number(req.params.id);
+      const old = await storage.getState(id);
+      if (!old) return res.status(404).json({ message: "State not found" });
+      const updated = await storage.updateState(id, req.body);
+      await logAudit(req, { action: "UPDATE", module: "Staty", entityId: id, entityName: updated.name, oldData: old, newData: req.body });
+      res.json(updated);
+    } catch (err) {
+      console.error("Update state error:", err);
+      res.status(500).json({ message: "Internal error" });
+    }
+  });
+
+  app.delete("/api/states/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const id = Number(req.params.id);
+      const old = await storage.getState(id);
+      if (!old) return res.status(404).json({ message: "State not found" });
+      await storage.deleteState(id);
+      await logAudit(req, { action: "DELETE", module: "Staty", entityId: id, entityName: old.name });
+      res.json({ success: true });
+    } catch (err) {
+      console.error("Delete state error:", err);
+      res.status(500).json({ message: "Internal error" });
+    }
+  });
+
+  app.post("/api/states/:id/flag", isAuthenticated, (req: any, _res: any, next: any) => {
+    (req as any)._uploadSection = "flags";
+    next();
+  }, upload.single("file"), async (req: any, res) => {
+    try {
+      const id = Number(req.params.id);
+      const state = await storage.getState(id);
+      if (!state) return res.status(404).json({ message: "State not found" });
+      const file = req.file;
+      if (!file) return res.status(400).json({ message: "No file uploaded" });
+      if (state.flagUrl) {
+        await storage.addStateFlagHistory(id, state.flagUrl);
+      }
+      const flagUrl = `/api/files/flags/${file.filename}`;
+      const updated = await storage.updateState(id, { flagUrl });
+      await logAudit(req, { action: "UPDATE", module: "Staty", entityId: id, entityName: state.name, oldData: { flagUrl: state.flagUrl }, newData: { flagUrl } });
+      res.json(updated);
+    } catch (err) {
+      console.error("Upload flag error:", err);
+      res.status(500).json({ message: "Internal error" });
+    }
+  });
+
+  app.get("/api/states/:id/flag-history", isAuthenticated, async (req, res) => {
+    res.json(await storage.getStateFlagHistory(Number(req.params.id)));
+  });
+
+  // === COMPANY LOGO HISTORY (ArutsoK 31) ===
+  app.get("/api/my-companies/:id/logo-history", isAuthenticated, async (req, res) => {
+    res.json(await storage.getCompanyLogoHistory(Number(req.params.id)));
   });
 
   // === AUDIT LOGS ===
@@ -1071,6 +1172,10 @@ export async function registerRoutes(
         };
 
         const currentLogos = (company.logos as any[]) || [];
+        const primaryLogo = currentLogos.find((l: any) => l.isPrimary && !l.isArchived);
+        if (primaryLogo) {
+          await storage.addCompanyLogoHistory(companyId, primaryLogo.url, primaryLogo.name);
+        }
         const archivedLogos = currentLogos.map((l: any) => ({ ...l, isPrimary: false, isArchived: l.isPrimary ? true : l.isArchived }));
         const updatedLogos = [...archivedLogos, logoEntry];
 

@@ -1,7 +1,10 @@
 import { useState, useRef, useCallback, useEffect } from "react";
 import { useMyCompanies, useCreateMyCompany, useUpdateMyCompany, useDeleteMyCompany } from "@/hooks/use-companies";
 import { useStates } from "@/hooks/use-hierarchy";
-import { Plus, Building2, Pencil, Trash2, Eye, Upload, FileText, X, Download, Clock, MapPin, FileCheck } from "lucide-react";
+import { Plus, Building2, Pencil, Trash2, Eye, Upload, FileText, X, Download, Clock, MapPin, FileCheck, Image } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
+import type { CompanyLogoHistory } from "@shared/schema";
+
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -56,6 +59,7 @@ import {
 import { RichTextEditor } from "@/components/rich-text-editor";
 import { useToast } from "@/hooks/use-toast";
 import { useQueryClient } from "@tanstack/react-query";
+
 
 const formSchema = insertMyCompanySchema.extend({
   name: z.string().min(1, "Nazov je povinny"),
@@ -703,6 +707,67 @@ function CompanyDetailDialog({
   );
 }
 
+function LogoHistoryDialog({
+  company,
+  onClose,
+}: {
+  company: MyCompany | null;
+  onClose: () => void;
+}) {
+  const { data: history } = useQuery<CompanyLogoHistory[]>({
+    queryKey: ["/api/my-companies", company?.id, "logo-history"],
+    queryFn: async () => {
+      const res = await fetch(`/api/my-companies/${company!.id}/logo-history`, { credentials: "include" });
+      if (!res.ok) throw new Error("Failed");
+      return res.json();
+    },
+    enabled: !!company,
+  });
+
+  if (!company) return null;
+
+  return (
+    <Dialog open={!!company} onOpenChange={() => onClose()}>
+      <DialogContent className="max-w-[600px]">
+        <DialogHeader>
+          <DialogTitle data-testid="text-logo-history-title">Historia log - {company.name}</DialogTitle>
+        </DialogHeader>
+        <div className="space-y-3 max-h-[400px] overflow-y-auto">
+          {!history || history.length === 0 ? (
+            <p className="text-sm text-muted-foreground text-center py-6" data-testid="text-no-logo-history">Ziadna historia log</p>
+          ) : (
+            history.map((entry) => (
+              <div key={entry.id} className="flex items-center gap-3 p-3 border border-border rounded-md" data-testid={`logo-history-entry-${entry.id}`}>
+                <div className="w-12 h-12 rounded-md border border-border overflow-hidden flex-shrink-0 bg-muted flex items-center justify-center">
+                  {entry.logoUrl ? (
+                    <img src={entry.logoUrl} alt="Logo" className="w-full h-full object-contain" />
+                  ) : (
+                    <Image className="w-5 h-5 text-muted-foreground" />
+                  )}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm truncate">{entry.originalName || "Logo"}</p>
+                  <p className="text-xs text-muted-foreground">
+                    Nahradene: {entry.replacedAt ? new Date(entry.replacedAt).toLocaleString("sk-SK") : "-"}
+                  </p>
+                </div>
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  onClick={() => window.open(entry.logoUrl, "_blank")}
+                  data-testid={`button-view-old-logo-${entry.id}`}
+                >
+                  <Eye className="w-4 h-4" />
+                </Button>
+              </div>
+            ))
+          )}
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 function InfoRow({ label, value, mono, testId }: { label: string; value: string | null | undefined; mono?: boolean; testId?: string }) {
   return (
     <div>
@@ -720,6 +785,7 @@ export default function Companies() {
   const [editingCompanyId, setEditingCompanyId] = useState<number | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<MyCompany | null>(null);
   const [viewTarget, setViewTarget] = useState<MyCompany | null>(null);
+  const [logoHistoryTarget, setLogoHistoryTarget] = useState<MyCompany | null>(null);
 
   function openCreate() {
     setEditingCompanyId(null);
@@ -759,7 +825,7 @@ export default function Companies() {
                 <TableHead>Zameranie</TableHead>
                 <TableHead>Mesto</TableHead>
                 <TableHead>Stat</TableHead>
-                <TableHead className="w-[120px]">Akcie</TableHead>
+                <TableHead className="w-[160px]">Akcie</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -788,6 +854,9 @@ export default function Companies() {
                     <div className="flex items-center gap-1">
                       <Button size="icon" variant="ghost" onClick={() => setViewTarget(company)} data-testid={`button-view-${company.id}`}>
                         <Eye className="w-4 h-4" />
+                      </Button>
+                      <Button size="icon" variant="ghost" onClick={() => setLogoHistoryTarget(company)} data-testid={`button-logo-history-${company.id}`} title="Historia log">
+                        <Image className="w-4 h-4" />
                       </Button>
                       <Button size="icon" variant="ghost" onClick={() => openEdit(company)} data-testid={`button-edit-${company.id}`}>
                         <Pencil className="w-4 h-4" />
@@ -837,6 +906,11 @@ export default function Companies() {
           getStateName={getStateName}
         />
       )}
+
+      <LogoHistoryDialog
+        company={logoHistoryTarget}
+        onClose={() => setLogoHistoryTarget(null)}
+      />
     </div>
   );
 }
