@@ -6,6 +6,31 @@ import type { MyCompany, LogoEntry } from "@shared/schema";
 
 type StateItem = { id: number; name: string; code: string; flagUrl: string | null; continentId: number };
 
+function StateFlagImage({ src, alt, code, className }: { src: string | null | undefined; alt: string; code?: string; className?: string }) {
+  const [failed, setFailed] = useState(false);
+
+  if (!src || failed) {
+    return (
+      <div
+        className={`flex items-center justify-center rounded-full bg-muted border border-border ${className || "w-16 h-12"}`}
+        title={alt}
+        data-testid={`flag-fallback-${code || "unknown"}`}
+      >
+        <span className="text-xs font-bold text-muted-foreground uppercase">{code || "?"}</span>
+      </div>
+    );
+  }
+
+  return (
+    <img
+      src={src}
+      alt={alt}
+      className={className || "w-16 h-12 object-cover rounded-sm"}
+      onError={() => setFailed(true)}
+    />
+  );
+}
+
 interface ContextSelectorOverlayProps {
   open: boolean;
   step: "state" | "company";
@@ -78,11 +103,7 @@ export function ContextSelectorOverlay({
                   data-testid={`context-state-${s.id}`}
                 >
                   <div className="w-24 h-24 rounded-full border-2 border-border bg-card flex items-center justify-center overflow-hidden transition-all duration-200 group-hover:border-primary group-hover:shadow-lg group-hover:shadow-primary/20 group-hover:scale-105">
-                    {s.flagUrl ? (
-                      <img src={s.flagUrl} alt={s.name} className="w-16 h-12 object-cover rounded-sm" />
-                    ) : (
-                      <Globe className="w-10 h-10 text-muted-foreground" />
-                    )}
+                    <StateFlagImage src={s.flagUrl} alt={s.name} code={s.code} className="w-16 h-12 object-cover rounded-sm" />
                   </div>
                   <span className="text-sm font-medium text-foreground group-hover:text-primary transition-colors">
                     {s.name}
@@ -113,7 +134,7 @@ export function ContextSelectorOverlay({
             <p className="text-sm text-muted-foreground">
               {selectedState ? (
                 <span className="flex items-center gap-1.5">
-                  {selectedState.flagUrl && <img src={selectedState.flagUrl} alt="" className="w-4 h-3 object-cover rounded-sm inline" />}
+                  <StateFlagImage src={selectedState.flagUrl} alt="" code={selectedState.code} className="w-4 h-3 object-cover rounded-sm inline" />
                   {selectedState.name} &mdash; zvolte spolocnost
                 </span>
               ) : "Zvolte spolocnost pre vasu pracovnu relaciu"}

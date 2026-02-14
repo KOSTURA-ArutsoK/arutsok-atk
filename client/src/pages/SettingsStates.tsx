@@ -2,7 +2,7 @@ import { useState, useRef, useCallback, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, Pencil, Trash2, Clock, Upload, Image } from "lucide-react";
+import { Plus, Pencil, Trash2, Clock, Upload, Image, Globe } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -39,6 +39,41 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import type { State, StateFlagHistory } from "@shared/schema";
+
+function FlagImage({
+  src,
+  alt,
+  code,
+  className,
+}: {
+  src: string | null | undefined;
+  alt: string;
+  code?: string;
+  className?: string;
+}) {
+  const [failed, setFailed] = useState(false);
+
+  if (!src || failed) {
+    return (
+      <div
+        className={`flex items-center justify-center rounded-full bg-muted border border-border ${className || "w-6 h-6"}`}
+        title={alt}
+        data-testid={`flag-fallback-${code || "unknown"}`}
+      >
+        <span className="text-[10px] font-bold text-muted-foreground uppercase">{code || "?"}</span>
+      </div>
+    );
+  }
+
+  return (
+    <img
+      src={src}
+      alt={alt}
+      className={className || "h-6 object-contain"}
+      onError={() => setFailed(true)}
+    />
+  );
+}
 
 function StateFormDialog({
   open,
@@ -223,14 +258,12 @@ function FlagUploadDialog({
           <DialogTitle data-testid="text-flag-upload-title">Nahrat vlajku - {state.name}</DialogTitle>
         </DialogHeader>
         <div className="space-y-4">
-          {state.flagUrl && (
-            <div className="space-y-2">
-              <label className="text-sm font-medium text-muted-foreground">Aktualna vlajka</label>
-              <div className="flex items-center justify-center p-4 border rounded-md">
-                <img src={state.flagUrl} alt={state.name} className="max-h-24 object-contain" />
-              </div>
+          <div className="space-y-2">
+            <label className="text-sm font-medium text-muted-foreground">Aktualna vlajka</label>
+            <div className="flex items-center justify-center p-4 border rounded-md">
+              <FlagImage src={state.flagUrl} alt={state.name} code={state.code} className="max-h-24 object-contain" />
             </div>
-          )}
+          </div>
           <div className="space-y-2">
             <label className="text-sm font-medium">Vyberte novu vlajku</label>
             <input
@@ -302,11 +335,7 @@ function FlagHistoryDialog({
               {history.map(entry => (
                 <TableRow key={entry.id}>
                   <TableCell>
-                    {entry.flagUrl ? (
-                      <img src={entry.flagUrl} alt="Stara vlajka" className="max-h-12 object-contain" />
-                    ) : (
-                      <span className="text-muted-foreground">-</span>
-                    )}
+                    <FlagImage src={entry.flagUrl} alt="Stara vlajka" code={state?.code} className="max-h-12 object-contain" />
                   </TableCell>
                   <TableCell>
                     {entry.replacedAt
@@ -401,11 +430,7 @@ export default function SettingsStates() {
                     </TableCell>
                     <TableCell>{getContinentName(state.continentId)}</TableCell>
                     <TableCell>
-                      {state.flagUrl ? (
-                        <img src={state.flagUrl} alt={state.name} className="h-6 object-contain" />
-                      ) : (
-                        <span className="text-muted-foreground text-xs">Bez vlajky</span>
-                      )}
+                      <FlagImage src={state.flagUrl} alt={state.name} code={state.code} className="h-6 object-contain" />
                     </TableCell>
                     <TableCell className="text-right">
                       <div className="flex items-center justify-end gap-1">
