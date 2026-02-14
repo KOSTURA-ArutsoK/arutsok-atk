@@ -1437,13 +1437,42 @@ export async function registerRoutes(
     }
   });
 
-  // ArutsoK 43 - Process contracts via sprievodka (assign status + move to Zmluvy)
-  app.post("/api/contract-inventories/:id/process", isAuthenticated, async (req: any, res) => {
+  // ArutsoK 45 - Phase 1: Dispatch contracts (PFA sends to Central Office)
+  app.post("/api/contract-inventories/:id/dispatch", isAuthenticated, async (req: any, res) => {
     try {
       const inventoryId = Number(req.params.id);
       const { contractIds } = req.body;
       if (!Array.isArray(contractIds) || contractIds.length === 0) {
-        return res.status(400).json({ message: "Ziadne zmluvy na spracovanie" });
+        return res.status(400).json({ message: "Ziadne zmluvy na odoslanie" });
+      }
+      const inventory = await storage.getContractInventories();
+      const target = inventory.find(i => i.id === inventoryId);
+      if (!target) {
+        return res.status(404).json({ message: "Sprievodka nenajdena" });
+      }
+      for (const contractId of contractIds) {
+        await storage.updateContract(Number(contractId), { inventoryId });
+      }
+      await logAudit(req, {
+        action: "CREATE",
+        module: "sprievodka_dispatch",
+        entityId: inventoryId,
+        entityName: target.name,
+        newData: { contractIds },
+      });
+      res.json({ success: true, dispatchedCount: contractIds.length });
+    } catch (err) {
+      res.status(500).json({ message: "Internal error" });
+    }
+  });
+
+  // ArutsoK 45 - Phase 2: Accept contracts (Central Office verifies and accepts)
+  app.post("/api/contract-inventories/:id/accept", isAuthenticated, async (req: any, res) => {
+    try {
+      const inventoryId = Number(req.params.id);
+      const { contractIds } = req.body;
+      if (!Array.isArray(contractIds) || contractIds.length === 0) {
+        return res.status(400).json({ message: "Ziadne zmluvy na prijatie" });
       }
       const inventory = await storage.getContractInventories();
       const target = inventory.find(i => i.id === inventoryId);
@@ -1455,19 +1484,33 @@ export async function registerRoutes(
         return res.status(500).json({ message: "Systemovy stav 'Nahrata do systemu' neexistuje" });
       }
       for (const contractId of contractIds) {
-        await storage.updateContract(Number(contractId), {
-          inventoryId,
-          statusId: systemStatus.id,
-        });
+        await storage.updateContract(Number(contractId), { statusId: systemStatus.id });
+      }
+      const allContractsInInventory = await storage.getContracts({ inventoryId });
+      const allAccepted = allContractsInInventory.every(c => 
+        contractIds.includes(c.id) || c.statusId === systemStatus.id
+      );
+      if (allAccepted) {
+        await storage.updateContractInventory(inventoryId, { isAccepted: true } as any);
       }
       await logAudit(req, {
-        action: "CREATE",
-        module: "sprievodka_process",
+        action: "UPDATE",
+        module: "sprievodka_accept",
         entityId: inventoryId,
         entityName: target.name,
-        newData: { contractIds, statusId: systemStatus.id },
+        newData: { contractIds, statusId: systemStatus.id, allAccepted },
       });
-      res.json({ success: true, processedCount: contractIds.length });
+      res.json({ success: true, acceptedCount: contractIds.length, allAccepted });
+    } catch (err) {
+      res.status(500).json({ message: "Internal error" });
+    }
+  });
+
+  // ArutsoK 45 - Get dispatched contracts (pending acceptance)
+  app.get("/api/contracts/dispatched", isAuthenticated, async (_req: any, res) => {
+    try {
+      const dispatched = await storage.getDispatchedContracts();
+      res.json(dispatched);
     } catch (err) {
       res.status(500).json({ message: "Internal error" });
     }

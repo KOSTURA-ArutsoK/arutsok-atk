@@ -6,7 +6,7 @@ import { useStates } from "@/hooks/use-hierarchy";
 import { useToast } from "@/hooks/use-toast";
 import { useLocation } from "wouter";
 import type { Contract, ContractStatus, ContractTemplate, ContractInventory, Subject, Partner, Product, MyCompany, Sector, Section, SectorProduct } from "@shared/schema";
-import { Plus, Pencil, Trash2, Eye, FileText, Loader2, Lock, LayoutGrid, Send } from "lucide-react";
+import { Plus, Pencil, Trash2, Eye, FileText, Loader2, Lock, LayoutGrid, Send, Upload, Inbox, CheckCircle2, ChevronDown, ChevronRight } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -821,10 +821,12 @@ export default function Contracts() {
   const [filterStatusId, setFilterStatusId] = useState<string>("all");
   const [filterInventoryId, setFilterInventoryId] = useState<string>("all");
 
-  // ArutsoK 43 - Bulk selection for Evidencia mode
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
   const [sprievodkaDialogOpen, setSprievodkaDialogOpen] = useState(false);
   const [sprievodkaName, setSprievodkaName] = useState("");
+
+  const [acceptedSprievodkaIds, setAcceptedSprievodkaIds] = useState<Record<number, Set<number>>>({});
+  const [expandedSprievodky, setExpandedSprievodky] = useState<Set<number>>(new Set());
 
   const { data: statuses } = useQuery<ContractStatus[]>({
     queryKey: ["/api/contract-statuses"],
@@ -856,6 +858,11 @@ export default function Contracts() {
     },
   });
 
+  const { data: dispatchedContracts, isLoading: isLoadingDispatched } = useQuery<Contract[]>({
+    queryKey: ["/api/contracts/dispatched"],
+    enabled: isEvidencia,
+  });
+
   const { data: subjects } = useQuery<Subject[]>({ queryKey: ["/api/subjects"] });
   const { data: partners } = useQuery<Partner[]>({ queryKey: ["/api/partners"] });
   const { data: products } = useQuery<Product[]>({ queryKey: ["/api/products"] });
@@ -867,13 +874,34 @@ export default function Contracts() {
   const { data: allStates } = useStates();
 
   const activeContracts = contracts?.filter(c => !c.isDeleted) || [];
+  const activeDispatched = dispatchedContracts?.filter(c => !c.isDeleted) || [];
+
+  const dispatchedBySprievodka = (() => {
+    const groups: Record<number, { inventory: ContractInventory | undefined; contracts: Contract[] }> = {};
+    for (const c of activeDispatched) {
+      if (!c.inventoryId) continue;
+      if (!groups[c.inventoryId]) {
+        groups[c.inventoryId] = {
+          inventory: inventories?.find(i => i.id === c.inventoryId),
+          contracts: [],
+        };
+      }
+      groups[c.inventoryId].contracts.push(c);
+    }
+    return Object.entries(groups).map(([key, val]) => ({
+      inventoryId: Number(key),
+      inventory: val.inventory,
+      contracts: val.contracts,
+    }));
+  })();
 
   function invalidateContractCaches() {
     queryClient.invalidateQueries({ queryKey: ["/api/contracts"] });
+    queryClient.invalidateQueries({ queryKey: ["/api/contracts/dispatched"] });
     queryClient.invalidateQueries({ queryKey: ["/api/contract-inventories"] });
   }
 
-  const createInventoryAndProcessMutation = useMutation({
+  const dispatchMutation = useMutation({
     mutationFn: async ({ name, contractIds }: { name: string; contractIds: number[] }) => {
       const inventoryRes = await apiRequest("POST", "/api/contract-inventories", {
         name,
@@ -883,21 +911,33 @@ export default function Contracts() {
       });
       const inventoryData = await inventoryRes.json();
       try {
-        await apiRequest("POST", `/api/contract-inventories/${inventoryData.id}/process`, { contractIds });
-      } catch (processErr) {
+        await apiRequest("POST", `/api/contract-inventories/${inventoryData.id}/dispatch`, { contractIds });
+      } catch (dispatchErr) {
         try { await apiRequest("DELETE", `/api/contract-inventories/${inventoryData.id}`); } catch {}
-        throw processErr;
+        throw dispatchErr;
       }
       return inventoryData;
     },
     onSuccess: () => {
       invalidateContractCaches();
-      toast({ title: "Uspech", description: "Sprievodka vytvorena a zmluvy spracovane" });
+      toast({ title: "Uspech", description: "Zmluvy odoslane na schvalenie" });
       setSelectedIds(new Set());
       setSprievodkaDialogOpen(false);
       setSprievodkaName("");
     },
-    onError: () => toast({ title: "Chyba", description: "Nepodarilo sa vytvorit sprievodku", variant: "destructive" }),
+    onError: () => toast({ title: "Chyba", description: "Nepodarilo sa odoslat zmluvy", variant: "destructive" }),
+  });
+
+  const acceptMutation = useMutation({
+    mutationFn: async ({ inventoryId, contractIds }: { inventoryId: number; contractIds: number[] }) => {
+      await apiRequest("POST", `/api/contract-inventories/${inventoryId}/accept`, { contractIds });
+    },
+    onSuccess: () => {
+      invalidateContractCaches();
+      toast({ title: "Uspech", description: "Zmluvy schvalene a prijate do systemu" });
+      setAcceptedSprievodkaIds({});
+    },
+    onError: () => toast({ title: "Chyba", description: "Nepodarilo sa schvalit zmluvy", variant: "destructive" }),
   });
 
   function toggleSelect(id: number) {
@@ -917,15 +957,52 @@ export default function Contracts() {
     }
   }
 
-  function handleCreateSprievodka() {
+  function toggleAcceptContract(inventoryId: number, contractId: number) {
+    setAcceptedSprievodkaIds(prev => {
+      const set = new Set(prev[inventoryId] || []);
+      if (set.has(contractId)) set.delete(contractId);
+      else set.add(contractId);
+      return { ...prev, [inventoryId]: set };
+    });
+  }
+
+  function toggleAcceptAll(inventoryId: number, contractsInGroup: Contract[]) {
+    setAcceptedSprievodkaIds(prev => {
+      const current = prev[inventoryId] || new Set();
+      if (current.size === contractsInGroup.length) {
+        return { ...prev, [inventoryId]: new Set() };
+      }
+      return { ...prev, [inventoryId]: new Set(contractsInGroup.map(c => c.id)) };
+    });
+  }
+
+  function toggleSprievodkaExpanded(id: number) {
+    setExpandedSprievodky(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
+  function handleDispatch() {
     if (!sprievodkaName.trim()) {
       toast({ title: "Chyba", description: "Nazov sprievodky je povinny", variant: "destructive" });
       return;
     }
-    createInventoryAndProcessMutation.mutate({
+    dispatchMutation.mutate({
       name: sprievodkaName.trim(),
       contractIds: Array.from(selectedIds),
     });
+  }
+
+  function handleAccept(inventoryId: number) {
+    const ids = acceptedSprievodkaIds[inventoryId];
+    if (!ids || ids.size === 0) {
+      toast({ title: "Chyba", description: "Vyberte zmluvy na schvalenie", variant: "destructive" });
+      return;
+    }
+    acceptMutation.mutate({ inventoryId, contractIds: Array.from(ids) });
   }
 
   function getSubjectDisplay(subjectId: number | null) {
@@ -952,74 +1029,367 @@ export default function Contracts() {
     setViewingContract(contract);
   }
 
-  const isProcessing = createInventoryAndProcessMutation.isPending;
+  function getProductName(contract: Contract) {
+    const spMatch = allSectorProducts?.find(p => p.id === contract.sectorProductId);
+    return spMatch ? `${spMatch.name}${spMatch.abbreviation ? ` (${spMatch.abbreviation})` : ''}` : "-";
+  }
 
-  return (
-    <div className="p-6 space-y-6">
-      <div className="flex items-center justify-between gap-4 flex-wrap">
-        <h1 className="text-2xl font-bold" data-testid="text-page-title">
-          {isEvidencia ? "Evidencia zmluv" : "Zmluvy"}
-        </h1>
-        <div className="flex items-center gap-2 flex-wrap">
-          {isEvidencia && selectedIds.size > 0 && (
-            <Button
-              onClick={() => setSprievodkaDialogOpen(true)}
-              data-testid="button-create-sprievodka"
-            >
-              <Send className="w-4 h-4 mr-2" />
-              Vytvorit sprievodku ({selectedIds.size})
-            </Button>
-          )}
+  function getPartnerName(contract: Contract) {
+    return partners?.find(p => p.id === contract.partnerId)?.name || "-";
+  }
+
+  const isDispatching = dispatchMutation.isPending;
+  const isAccepting = acceptMutation.isPending;
+
+  if (isEvidencia) {
+    return (
+      <div className="p-6 space-y-6">
+        <div className="flex items-center justify-between gap-4 flex-wrap">
+          <h1 className="text-2xl font-bold" data-testid="text-page-title">Evidencia zmluv</h1>
           <Button onClick={openCreate} data-testid="button-create-contract">
             <Plus className="w-4 h-4 mr-2" />
             Pridat zmluvu
           </Button>
         </div>
+
+        <Card data-testid="folder-nahravanie">
+          <div className="flex items-center gap-3 p-4 border-b">
+            <div className="w-8 h-8 rounded-md bg-blue-500/15 flex items-center justify-center">
+              <Upload className="w-4 h-4 text-blue-500" />
+            </div>
+            <div className="flex-1">
+              <h2 className="text-sm font-semibold" data-testid="text-folder-nahravanie-title">Nahravanie zmluv</h2>
+              <p className="text-xs text-muted-foreground">Pracovny priestor PFA - vyberte zmluvy a odoslite na schvalenie</p>
+            </div>
+            <Badge variant="outline" data-testid="badge-nahravanie-count">{activeContracts.length}</Badge>
+          </div>
+          <CardContent className="p-0">
+            {isLoading ? (
+              <div className="flex items-center justify-center py-8">
+                <Loader2 className="w-5 h-5 animate-spin" />
+              </div>
+            ) : activeContracts.length === 0 ? (
+              <p className="text-sm text-muted-foreground text-center py-8" data-testid="text-no-nahravanie">
+                Ziadne zmluvy na nahravanie
+              </p>
+            ) : (
+              <>
+                {selectedIds.size > 0 && (
+                  <div className="flex items-center gap-3 p-3 border-b bg-muted/30 flex-wrap">
+                    <span className="text-sm text-muted-foreground">Vybranych: <span className="font-semibold text-foreground">{selectedIds.size}</span></span>
+                    <Button
+                      size="sm"
+                      onClick={() => setSprievodkaDialogOpen(true)}
+                      data-testid="button-dispatch"
+                    >
+                      <Send className="w-3.5 h-3.5 mr-1.5" />
+                      Odoslat
+                    </Button>
+                  </div>
+                )}
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="w-[40px]">
+                        <Checkbox
+                          checked={selectedIds.size === activeContracts.length && activeContracts.length > 0}
+                          onCheckedChange={toggleSelectAll}
+                          data-testid="checkbox-select-all"
+                        />
+                      </TableHead>
+                      <TableHead>Cislo zmluvy</TableHead>
+                      <TableHead>Klient</TableHead>
+                      <TableHead>Partner</TableHead>
+                      <TableHead>Produkt</TableHead>
+                      <TableHead>Suma</TableHead>
+                      <TableHead>Datum podpisu</TableHead>
+                      <TableHead className="text-right">Akcie</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {activeContracts.map(contract => (
+                      <TableRow key={contract.id} data-testid={`row-nahravanie-${contract.id}`}>
+                        <TableCell>
+                          <Checkbox
+                            checked={selectedIds.has(contract.id)}
+                            onCheckedChange={() => toggleSelect(contract.id)}
+                            data-testid={`checkbox-contract-${contract.id}`}
+                          />
+                        </TableCell>
+                        <TableCell className="font-mono text-sm" data-testid={`text-contract-number-${contract.id}`}>
+                          <span className="flex items-center gap-1">
+                            {contract.isLocked && <Lock className="w-3 h-3 text-amber-500 shrink-0" />}
+                            {contract.contractNumber || "-"}
+                          </span>
+                        </TableCell>
+                        <TableCell className="text-sm">{getSubjectDisplay(contract.subjectId)}</TableCell>
+                        <TableCell className="text-sm">{getPartnerName(contract)}</TableCell>
+                        <TableCell className="text-sm">{getProductName(contract)}</TableCell>
+                        <TableCell className="text-sm font-mono">{formatAmount(contract.premiumAmount, contract.currency)}</TableCell>
+                        <TableCell className="text-sm">{formatDate(contract.signedDate)}</TableCell>
+                        <TableCell className="text-right">
+                          <div className="flex items-center justify-end gap-1 flex-wrap">
+                            <Button size="icon" variant="ghost" onClick={() => openView(contract)} data-testid={`button-view-contract-${contract.id}`}>
+                              <Eye className="w-4 h-4" />
+                            </Button>
+                            <Button size="icon" variant="ghost" onClick={() => openEdit(contract)} data-testid={`button-edit-contract-${contract.id}`}>
+                              <Pencil className="w-4 h-4" />
+                            </Button>
+                            <Button size="icon" variant="ghost" onClick={() => openDelete(contract)} data-testid={`button-delete-contract-${contract.id}`}>
+                              <Trash2 className="w-4 h-4" />
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card data-testid="folder-cakajuce">
+          <div className="flex items-center gap-3 p-4 border-b">
+            <div className="w-8 h-8 rounded-md bg-amber-500/15 flex items-center justify-center">
+              <Inbox className="w-4 h-4 text-amber-500" />
+            </div>
+            <div className="flex-1">
+              <h2 className="text-sm font-semibold" data-testid="text-folder-cakajuce-title">Zmluvy cakajuce na prijatie</h2>
+              <p className="text-xs text-muted-foreground">Prichadzajuca fronta pre Centralnu kancelariu - overenie a schvalenie</p>
+            </div>
+            <Badge variant="outline" data-testid="badge-cakajuce-count">{activeDispatched.length}</Badge>
+          </div>
+          <CardContent className="p-0">
+            {isLoadingDispatched ? (
+              <div className="flex items-center justify-center py-8">
+                <Loader2 className="w-5 h-5 animate-spin" />
+              </div>
+            ) : dispatchedBySprievodka.length === 0 ? (
+              <p className="text-sm text-muted-foreground text-center py-8" data-testid="text-no-cakajuce">
+                Ziadne zmluvy cakajuce na prijatie
+              </p>
+            ) : (
+              <div className="divide-y">
+                {dispatchedBySprievodka.map(group => {
+                  const isExpanded = expandedSprievodky.has(group.inventoryId);
+                  const checkedIds = acceptedSprievodkaIds[group.inventoryId] || new Set();
+                  const allChecked = checkedIds.size === group.contracts.length && group.contracts.length > 0;
+
+                  return (
+                    <div key={group.inventoryId} data-testid={`sprievodka-group-${group.inventoryId}`}>
+                      <div
+                        className="flex items-center gap-3 p-3 cursor-pointer hover-elevate"
+                        onClick={() => toggleSprievodkaExpanded(group.inventoryId)}
+                        data-testid={`button-toggle-sprievodka-${group.inventoryId}`}
+                      >
+                        {isExpanded ? (
+                          <ChevronDown className="w-4 h-4 text-muted-foreground shrink-0" />
+                        ) : (
+                          <ChevronRight className="w-4 h-4 text-muted-foreground shrink-0" />
+                        )}
+                        <FileText className="w-4 h-4 text-amber-500 shrink-0" />
+                        <span className="text-sm font-medium flex-1" data-testid={`text-sprievodka-name-${group.inventoryId}`}>
+                          {group.inventory?.name || `Sprievodka #${group.inventoryId}`}
+                        </span>
+                        <Badge variant="outline" data-testid={`badge-sprievodka-count-${group.inventoryId}`}>
+                          {group.contracts.length} {group.contracts.length === 1 ? "zmluva" : group.contracts.length < 5 ? "zmluvy" : "zmluv"}
+                        </Badge>
+                        {checkedIds.size > 0 && (
+                          <Button
+                            size="sm"
+                            onClick={(e) => { e.stopPropagation(); handleAccept(group.inventoryId); }}
+                            disabled={isAccepting}
+                            data-testid={`button-accept-${group.inventoryId}`}
+                          >
+                            {isAccepting ? (
+                              <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" />
+                            ) : (
+                              <CheckCircle2 className="w-3.5 h-3.5 mr-1.5" />
+                            )}
+                            Schvalit a prijat ({checkedIds.size})
+                          </Button>
+                        )}
+                      </div>
+                      {isExpanded && (
+                        <div className="border-t">
+                          <Table>
+                            <TableHeader>
+                              <TableRow>
+                                <TableHead className="w-[40px]">
+                                  <Checkbox
+                                    checked={allChecked}
+                                    onCheckedChange={() => toggleAcceptAll(group.inventoryId, group.contracts)}
+                                    data-testid={`checkbox-accept-all-${group.inventoryId}`}
+                                  />
+                                </TableHead>
+                                <TableHead>Cislo zmluvy</TableHead>
+                                <TableHead>Klient</TableHead>
+                                <TableHead>Partner</TableHead>
+                                <TableHead>Produkt</TableHead>
+                                <TableHead>Suma</TableHead>
+                                <TableHead>Datum podpisu</TableHead>
+                                <TableHead className="text-right">Akcie</TableHead>
+                              </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                              {group.contracts.map(contract => (
+                                <TableRow key={contract.id} data-testid={`row-cakajuce-${contract.id}`}>
+                                  <TableCell>
+                                    <Checkbox
+                                      checked={checkedIds.has(contract.id)}
+                                      onCheckedChange={() => toggleAcceptContract(group.inventoryId, contract.id)}
+                                      data-testid={`checkbox-accept-${contract.id}`}
+                                    />
+                                  </TableCell>
+                                  <TableCell className="font-mono text-sm" data-testid={`text-dispatched-number-${contract.id}`}>
+                                    <span className="flex items-center gap-1">
+                                      {contract.isLocked && <Lock className="w-3 h-3 text-amber-500 shrink-0" />}
+                                      {contract.contractNumber || "-"}
+                                    </span>
+                                  </TableCell>
+                                  <TableCell className="text-sm">{getSubjectDisplay(contract.subjectId)}</TableCell>
+                                  <TableCell className="text-sm">{getPartnerName(contract)}</TableCell>
+                                  <TableCell className="text-sm">{getProductName(contract)}</TableCell>
+                                  <TableCell className="text-sm font-mono">{formatAmount(contract.premiumAmount, contract.currency)}</TableCell>
+                                  <TableCell className="text-sm">{formatDate(contract.signedDate)}</TableCell>
+                                  <TableCell className="text-right">
+                                    <Button size="icon" variant="ghost" onClick={() => openView(contract)} data-testid={`button-view-dispatched-${contract.id}`}>
+                                      <Eye className="w-4 h-4" />
+                                    </Button>
+                                  </TableCell>
+                                </TableRow>
+                              ))}
+                            </TableBody>
+                          </Table>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        <Dialog open={sprievodkaDialogOpen} onOpenChange={setSprievodkaDialogOpen}>
+          <DialogContent className="sm:max-w-[500px]">
+            <DialogHeader>
+              <DialogTitle data-testid="text-sprievodka-dialog-title">Odoslat zmluvy</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4">
+              <p className="text-sm text-muted-foreground">
+                Vybranych zmluv: <span className="font-semibold text-foreground">{selectedIds.size}</span>. Zmluvy budu odoslane na schvalenie Centralnej kancelarii cez novu sprievodku.
+              </p>
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Nazov sprievodky *</label>
+                <Input
+                  value={sprievodkaName}
+                  onChange={e => setSprievodkaName(e.target.value)}
+                  placeholder="Napr. Sprievodka 2026-02"
+                  data-testid="input-sprievodka-name"
+                />
+              </div>
+              <div className="flex items-center justify-end gap-3 flex-wrap">
+                <Button variant="outline" onClick={() => setSprievodkaDialogOpen(false)} data-testid="button-sprievodka-cancel">
+                  Zrusit
+                </Button>
+                <Button
+                  onClick={handleDispatch}
+                  disabled={isDispatching}
+                  data-testid="button-sprievodka-confirm"
+                >
+                  {isDispatching ? (
+                    <>
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      Odosielam...
+                    </>
+                  ) : (
+                    <>
+                      <Send className="w-4 h-4 mr-2" />
+                      Odoslat
+                    </>
+                  )}
+                </Button>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
+
+        {deletingContract && (
+          <DeleteContractDialog
+            contract={deletingContract}
+            open={deleteDialogOpen}
+            onOpenChange={(isOpen) => {
+              setDeleteDialogOpen(isOpen);
+              if (!isOpen) setDeletingContract(null);
+            }}
+          />
+        )}
+
+        {viewingContract && (
+          <ContractDetailDialog
+            contract={viewingContract}
+            onClose={() => setViewingContract(null)}
+            subjects={subjects || []}
+            partners={partners || []}
+            sectorProducts={allSectorProducts || []}
+            statuses={statuses || []}
+            templates={templates || []}
+            inventories={inventories || []}
+            companies={companies || []}
+            states={allStates || []}
+          />
+        )}
+      </div>
+    );
+  }
+
+  return (
+    <div className="p-6 space-y-6">
+      <div className="flex items-center justify-between gap-4 flex-wrap">
+        <h1 className="text-2xl font-bold" data-testid="text-page-title">Zmluvy</h1>
+        <Button onClick={openCreate} data-testid="button-create-contract">
+          <Plus className="w-4 h-4 mr-2" />
+          Pridat zmluvu
+        </Button>
       </div>
 
-      {!isEvidencia && (
-        <div className="flex items-center gap-4 flex-wrap">
-          <div className="space-y-1">
-            <label className="text-xs text-muted-foreground">Stav</label>
-            <Select value={filterStatusId} onValueChange={setFilterStatusId}>
-              <SelectTrigger className="w-[200px]" data-testid="select-filter-status">
-                <SelectValue placeholder="Vsetky stavy" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Vsetky stavy</SelectItem>
-                {statuses?.map(s => (
-                  <SelectItem key={s.id} value={s.id.toString()}>
-                    <div className="flex items-center gap-2">
-                      <div className="w-3 h-3 rounded-full" style={{ backgroundColor: s.color }} />
-                      {s.name}
-                    </div>
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="space-y-1">
-            <label className="text-xs text-muted-foreground">Supiska</label>
-            <Select value={filterInventoryId} onValueChange={setFilterInventoryId}>
-              <SelectTrigger className="w-[200px]" data-testid="select-filter-inventory">
-                <SelectValue placeholder="Vsetky supisky" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Vsetky supisky</SelectItem>
-                {inventories?.map(i => (
-                  <SelectItem key={i.id} value={i.id.toString()}>{i.name}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
+      <div className="flex items-center gap-4 flex-wrap">
+        <div className="space-y-1">
+          <label className="text-xs text-muted-foreground">Stav</label>
+          <Select value={filterStatusId} onValueChange={setFilterStatusId}>
+            <SelectTrigger className="w-[200px]" data-testid="select-filter-status">
+              <SelectValue placeholder="Vsetky stavy" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Vsetky stavy</SelectItem>
+              {statuses?.map(s => (
+                <SelectItem key={s.id} value={s.id.toString()}>
+                  <div className="flex items-center gap-2">
+                    <div className="w-3 h-3 rounded-full" style={{ backgroundColor: s.color }} />
+                    {s.name}
+                  </div>
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
-      )}
-
-      {isEvidencia && activeContracts.length > 0 && (
-        <p className="text-sm text-muted-foreground" data-testid="text-evidencia-info">
-          Zobrazene su len zmluvy, ktore este neboli odoslane na ziadnu sprievodku. Vyberte zmluvy a vytvorte sprievodku na ich spracovanie.
-        </p>
-      )}
+        <div className="space-y-1">
+          <label className="text-xs text-muted-foreground">Supiska</label>
+          <Select value={filterInventoryId} onValueChange={setFilterInventoryId}>
+            <SelectTrigger className="w-[200px]" data-testid="select-filter-inventory">
+              <SelectValue placeholder="Vsetky supisky" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Vsetky supisky</SelectItem>
+              {inventories?.map(i => (
+                <SelectItem key={i.id} value={i.id.toString()}>{i.name}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+      </div>
 
       <Card>
         <CardContent className="p-0">
@@ -1029,27 +1399,18 @@ export default function Contracts() {
             </div>
           ) : activeContracts.length === 0 ? (
             <p className="text-sm text-muted-foreground text-center py-12" data-testid="text-no-contracts">
-              {isEvidencia ? "Ziadne nespracovane zmluvy" : "Ziadne zmluvy"}
+              Ziadne zmluvy
             </p>
           ) : (
             <Table>
               <TableHeader>
                 <TableRow>
-                  {isEvidencia && (
-                    <TableHead className="w-[40px]">
-                      <Checkbox
-                        checked={selectedIds.size === activeContracts.length && activeContracts.length > 0}
-                        onCheckedChange={toggleSelectAll}
-                        data-testid="checkbox-select-all"
-                      />
-                    </TableHead>
-                  )}
                   <TableHead>Cislo zmluvy</TableHead>
                   <TableHead>Klient</TableHead>
                   <TableHead>Partner</TableHead>
                   <TableHead>Produkt</TableHead>
-                  {!isEvidencia && <TableHead>Stav</TableHead>}
-                  {!isEvidencia && <TableHead>Supiska</TableHead>}
+                  <TableHead>Stav</TableHead>
+                  <TableHead>Supiska</TableHead>
                   <TableHead>Suma</TableHead>
                   <TableHead>Datum podpisu</TableHead>
                   <TableHead className="text-right">Akcie</TableHead>
@@ -1059,21 +1420,9 @@ export default function Contracts() {
                 {activeContracts.map(contract => {
                   const status = statuses?.find(s => s.id === contract.statusId);
                   const inventoryName = inventories?.find(i => i.id === contract.inventoryId)?.name || "-";
-                  const spMatch = allSectorProducts?.find(p => p.id === contract.sectorProductId);
-                  const productName = spMatch ? `${spMatch.name}${spMatch.abbreviation ? ` (${spMatch.abbreviation})` : ''}` : "-";
-                  const partnerName = partners?.find(p => p.id === contract.partnerId)?.name || "-";
 
                   return (
                     <TableRow key={contract.id} data-testid={`row-contract-${contract.id}`}>
-                      {isEvidencia && (
-                        <TableCell>
-                          <Checkbox
-                            checked={selectedIds.has(contract.id)}
-                            onCheckedChange={() => toggleSelect(contract.id)}
-                            data-testid={`checkbox-contract-${contract.id}`}
-                          />
-                        </TableCell>
-                      )}
                       <TableCell className="font-mono text-sm" data-testid={`text-contract-number-${contract.id}`}>
                         <span className="flex items-center gap-1">
                           {contract.isLocked && <Lock className="w-3 h-3 text-amber-500 shrink-0" />}
@@ -1084,28 +1433,24 @@ export default function Contracts() {
                         {getSubjectDisplay(contract.subjectId)}
                       </TableCell>
                       <TableCell className="text-sm" data-testid={`text-contract-partner-${contract.id}`}>
-                        {partnerName}
+                        {getPartnerName(contract)}
                       </TableCell>
                       <TableCell className="text-sm" data-testid={`text-contract-product-${contract.id}`}>
-                        {productName}
+                        {getProductName(contract)}
                       </TableCell>
-                      {!isEvidencia && (
-                        <TableCell data-testid={`text-contract-status-${contract.id}`}>
-                          {status ? (
-                            <Badge
-                              variant="outline"
-                              style={{ borderColor: status.color, color: status.color }}
-                            >
-                              {status.name}
-                            </Badge>
-                          ) : "-"}
-                        </TableCell>
-                      )}
-                      {!isEvidencia && (
-                        <TableCell className="text-sm" data-testid={`text-contract-inventory-${contract.id}`}>
-                          {inventoryName}
-                        </TableCell>
-                      )}
+                      <TableCell data-testid={`text-contract-status-${contract.id}`}>
+                        {status ? (
+                          <Badge
+                            variant="outline"
+                            style={{ borderColor: status.color, color: status.color }}
+                          >
+                            {status.name}
+                          </Badge>
+                        ) : "-"}
+                      </TableCell>
+                      <TableCell className="text-sm" data-testid={`text-contract-inventory-${contract.id}`}>
+                        {inventoryName}
+                      </TableCell>
                       <TableCell className="text-sm font-mono" data-testid={`text-contract-amount-${contract.id}`}>
                         {formatAmount(contract.premiumAmount, contract.currency)}
                       </TableCell>
@@ -1114,28 +1459,13 @@ export default function Contracts() {
                       </TableCell>
                       <TableCell className="text-right">
                         <div className="flex items-center justify-end gap-1 flex-wrap">
-                          <Button
-                            size="icon"
-                            variant="ghost"
-                            onClick={() => openView(contract)}
-                            data-testid={`button-view-contract-${contract.id}`}
-                          >
+                          <Button size="icon" variant="ghost" onClick={() => openView(contract)} data-testid={`button-view-contract-${contract.id}`}>
                             <Eye className="w-4 h-4" />
                           </Button>
-                          <Button
-                            size="icon"
-                            variant="ghost"
-                            onClick={() => openEdit(contract)}
-                            data-testid={`button-edit-contract-${contract.id}`}
-                          >
+                          <Button size="icon" variant="ghost" onClick={() => openEdit(contract)} data-testid={`button-edit-contract-${contract.id}`}>
                             <Pencil className="w-4 h-4" />
                           </Button>
-                          <Button
-                            size="icon"
-                            variant="ghost"
-                            onClick={() => openDelete(contract)}
-                            data-testid={`button-delete-contract-${contract.id}`}
-                          >
+                          <Button size="icon" variant="ghost" onClick={() => openDelete(contract)} data-testid={`button-delete-contract-${contract.id}`}>
                             <Trash2 className="w-4 h-4" />
                           </Button>
                         </div>
@@ -1148,51 +1478,6 @@ export default function Contracts() {
           )}
         </CardContent>
       </Card>
-
-      {/* ArutsoK 43 - Sprievodka creation dialog */}
-      <Dialog open={sprievodkaDialogOpen} onOpenChange={setSprievodkaDialogOpen}>
-        <DialogContent className="sm:max-w-[500px]">
-          <DialogHeader>
-            <DialogTitle data-testid="text-sprievodka-dialog-title">Vytvorit sprievodku</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4">
-            <p className="text-sm text-muted-foreground">
-              Vybranych zmluv: <span className="font-semibold text-foreground">{selectedIds.size}</span>. Po vytvoreni sprievodky budu zmluvy oznacene stavom "Nahrata do systemu" a presunte do zoznamu Zmluvy.
-            </p>
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Nazov sprievodky *</label>
-              <Input
-                value={sprievodkaName}
-                onChange={e => setSprievodkaName(e.target.value)}
-                placeholder="Napr. Sprievodka 2026-02"
-                data-testid="input-sprievodka-name"
-              />
-            </div>
-            <div className="flex items-center justify-end gap-3 flex-wrap">
-              <Button variant="outline" onClick={() => setSprievodkaDialogOpen(false)} data-testid="button-sprievodka-cancel">
-                Zrusit
-              </Button>
-              <Button
-                onClick={handleCreateSprievodka}
-                disabled={isProcessing}
-                data-testid="button-sprievodka-confirm"
-              >
-                {isProcessing ? (
-                  <>
-                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                    Spracovavam...
-                  </>
-                ) : (
-                  <>
-                    <Send className="w-4 h-4 mr-2" />
-                    Vytvorit a spracovat
-                  </>
-                )}
-              </Button>
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
 
       {deletingContract && (
         <DeleteContractDialog

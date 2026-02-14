@@ -538,6 +538,7 @@ export const contractInventories = pgTable("contract_inventories", {
   sortOrder: integer("sort_order").default(0),
   stateId: integer("state_id").references(() => states.id),
   isClosed: boolean("is_closed").default(false),
+  isAccepted: boolean("is_accepted").default(false),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
