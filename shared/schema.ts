@@ -846,6 +846,7 @@ export const sectorProducts = pgTable("sector_products", {
   sectionId: integer("section_id").notNull(),
   name: text("name").notNull(),
   abbreviation: text("abbreviation").default(""),
+  partnerId: integer("partner_id"),
   sortOrder: integer("sort_order").default(0),
   createdAt: timestamp("created_at").defaultNow(),
 });
@@ -1028,6 +1029,29 @@ export type CompanyLogoHistory = typeof companyLogoHistory.$inferSelect;
 export const insertStateSchema = createInsertSchema(states).omit({ id: true });
 export type State = typeof states.$inferSelect;
 export type InsertState = z.infer<typeof insertStateSchema>;
+
+// === PRODUCT FOLDER ASSIGNMENTS (ArutsoK 38 - folders assigned to products with sort_order) ===
+export const productFolderAssignments = pgTable("product_folder_assignments", {
+  id: serial("id").primaryKey(),
+  productId: integer("product_id").notNull(),
+  folderId: integer("folder_id").notNull(),
+  sortOrder: integer("sort_order").default(0),
+});
+
+export const insertProductFolderAssignmentSchema = createInsertSchema(productFolderAssignments).omit({ id: true });
+export type ProductFolderAssignment = typeof productFolderAssignments.$inferSelect;
+export type InsertProductFolderAssignment = z.infer<typeof insertProductFolderAssignmentSchema>;
+
+// === CONTRACT FIELD SETTINGS (ArutsoK 38 - PFA required field toggles) ===
+export const contractFieldSettings = pgTable("contract_field_settings", {
+  id: serial("id").primaryKey(),
+  fieldKey: text("field_key").notNull().unique(),
+  requiredForPfa: boolean("required_for_pfa").default(false),
+});
+
+export const insertContractFieldSettingSchema = createInsertSchema(contractFieldSettings).omit({ id: true });
+export type ContractFieldSetting = typeof contractFieldSettings.$inferSelect;
+export type InsertContractFieldSetting = z.infer<typeof insertContractFieldSettingSchema>;
 
 export type CreateSubjectRequest = InsertSubject;
 export type UpdateSubjectRequest = Partial<InsertSubject> & { changeReason?: string };
