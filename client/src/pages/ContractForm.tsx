@@ -5,7 +5,7 @@ import { useAppUser } from "@/hooks/use-app-user";
 import { useStates } from "@/hooks/use-hierarchy";
 import { useToast } from "@/hooks/use-toast";
 import { useLocation, useParams } from "wouter";
-import type { Contract, ContractStatus, ContractTemplate, ContractInventory, Subject, Partner, MyCompany, Sector, Section, SectorProduct, ContractPassword } from "@shared/schema";
+import type { Contract, ContractStatus, ContractTemplate, ContractInventory, Subject, Partner, MyCompany, Sector, Section, SectorProduct, ContractPassword, ContractParameterValue } from "@shared/schema";
 import { ArrowLeft, Save, Loader2, LayoutGrid, KeyRound, Plus, Trash2, FileText, Users, ClipboardList, FolderOpen, DollarSign, BarChart3, ListChecks, PieChart } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -283,6 +283,16 @@ export default function ContractForm() {
     enabled: isEditing,
   });
 
+  const { data: savedParamValues } = useQuery<ContractParameterValue[]>({
+    queryKey: ["/api/contracts", contractId, "parameter-values"],
+    queryFn: async () => {
+      const res = await fetch(`/api/contracts/${contractId}/parameter-values`, { credentials: "include" });
+      if (!res.ok) throw new Error("Failed");
+      return res.json();
+    },
+    enabled: isEditing,
+  });
+
   const { data: allStates } = useStates();
   const { data: subjects } = useQuery<Subject[]>({ queryKey: ["/api/subjects"] });
   const { data: partners } = useQuery<Partner[]>({ queryKey: ["/api/partners"] });
@@ -344,7 +354,6 @@ export default function ContractForm() {
       setSubjectId(existingContract.subjectId?.toString() || "");
       setPartnerId(existingContract.partnerId?.toString() || "");
       setSectorProductIdRaw(existingContract.sectorProductId?.toString() || "");
-      setPanelValues(existingContract.dynamicPanelValues || {});
       setStatusId(existingContract.statusId?.toString() || "");
       setTemplateId(existingContract.templateId?.toString() || "");
       setInventoryId(existingContract.inventoryId?.toString() || "");
@@ -377,15 +386,46 @@ export default function ContractForm() {
   }, [existingContract, allSPForEdit, allSectionsForEdit]);
 
   useEffect(() => {
+    if (savedParamValues && savedParamValues.length > 0 && productPanels) {
+      const restored: Record<string, string> = {};
+      for (const pv of savedParamValues) {
+        for (const panel of productPanels) {
+          const param = panel.parameters.find(p => p.id === pv.parameterId);
+          if (param) {
+            restored[`${panel.id}_${param.id}`] = pv.value || "";
+            break;
+          }
+        }
+      }
+      if (Object.keys(restored).length > 0) {
+        setPanelValues(prev => {
+          if (Object.keys(prev).length === 0) return restored;
+          return prev;
+        });
+      }
+    }
+  }, [savedParamValues, productPanels]);
+
+  useEffect(() => {
     if (!isEditing && appUser) {
       setStateId(appUser.activeStateId?.toString() || "");
       setCompanyId(appUser.activeCompanyId?.toString() || "");
     }
   }, [isEditing, appUser]);
 
+  const saveParamValuesMutation = useMutation({
+    mutationFn: (data: { contractId: number; values: { parameterId: number; value: string }[] }) =>
+      apiRequest("POST", `/api/contracts/${data.contractId}/parameter-values`, { values: data.values }),
+  });
+
   const createMutation = useMutation({
     mutationFn: (data: any) => apiRequest("POST", "/api/contracts", data),
-    onSuccess: () => {
+    onSuccess: async (res: any) => {
+      const created = await res.json();
+      if (created?.id) {
+        const paramEntries = buildParamEntries();
+        await saveParamValuesMutation.mutateAsync({ contractId: created.id, values: paramEntries });
+      }
       queryClient.invalidateQueries({ queryKey: ["/api/contracts"] });
       toast({ title: "Uspech", description: "Zmluva vytvorena" });
       navigate("/contracts");
@@ -395,13 +435,32 @@ export default function ContractForm() {
 
   const updateMutation = useMutation({
     mutationFn: (data: any) => apiRequest("PUT", `/api/contracts/${contractId}`, data),
-    onSuccess: () => {
+    onSuccess: async () => {
+      if (contractId) {
+        const paramEntries = buildParamEntries();
+        await saveParamValuesMutation.mutateAsync({ contractId, values: paramEntries });
+      }
       queryClient.invalidateQueries({ queryKey: ["/api/contracts"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/contracts", contractId, "parameter-values"] });
       toast({ title: "Uspech", description: "Zmluva aktualizovana" });
       navigate("/contracts");
     },
     onError: () => toast({ title: "Chyba", description: "Nepodarilo sa aktualizovat zmluvu", variant: "destructive" }),
   });
+
+  function buildParamEntries(): { parameterId: number; value: string }[] {
+    const entries: { parameterId: number; value: string }[] = [];
+    for (const [key, value] of Object.entries(panelValues)) {
+      const parts = key.split("_");
+      if (parts.length === 2) {
+        const parameterId = parseInt(parts[1]);
+        if (!isNaN(parameterId) && value !== "") {
+          entries.push({ parameterId, value });
+        }
+      }
+    }
+    return entries;
+  }
 
   function handleSubmit() {
     const processingTimeSec = Math.round((performance.now() - timerRef.current) / 1000);
@@ -453,17 +512,18 @@ export default function ContractForm() {
   const currentCompany = companies?.find(c => c.id === (companyId ? parseInt(companyId) : appUser?.activeCompanyId));
 
   return (
-    <div className="flex flex-col h-full">
-      <div className="flex items-center gap-4 p-4 border-b border-border flex-wrap">
+    <div className="flex flex-col h-full overflow-hidden" data-testid="contract-form-root">
+      <div className="flex-none flex items-center gap-3 px-3 py-2 border-b border-border flex-wrap">
         <Button
           variant="ghost"
+          size="sm"
           onClick={() => navigate("/contracts")}
           data-testid="button-back-to-list"
         >
-          <ArrowLeft className="w-4 h-4 mr-2" />
+          <ArrowLeft className="w-4 h-4 mr-1" />
           Spat na zoznam
         </Button>
-        <h1 className="text-xl font-bold" data-testid="text-form-title">
+        <h1 className="text-lg font-bold" data-testid="text-form-title">
           {isEditing ? "Upravit zmluvu" : "Nova zmluva"}
         </h1>
         {existingContract?.uid && (
@@ -471,22 +531,22 @@ export default function ContractForm() {
         )}
       </div>
 
-      <div className="border-b border-border bg-card/50">
-        <div className="flex items-center gap-1 px-4 overflow-x-auto">
+      <div className="flex-none border-b border-border bg-card/50">
+        <div className="flex items-center gap-0.5 px-2 overflow-x-auto">
           {TABS.map(tab => {
             const Icon = tab.icon;
             return (
               <button
                 key={tab.key}
                 onClick={() => setActiveTab(tab.key)}
-                className={`flex items-center gap-2 px-4 py-3 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${
+                className={`flex items-center gap-1.5 px-3 py-2 text-xs font-medium border-b-2 transition-colors whitespace-nowrap ${
                   activeTab === tab.key
                     ? "border-primary text-primary"
                     : "border-transparent text-muted-foreground hover:text-foreground"
                 }`}
                 data-testid={`tab-${tab.key}`}
               >
-                <Icon className="w-4 h-4" />
+                <Icon className="w-3.5 h-3.5" />
                 {tab.label}
               </button>
             );
@@ -494,98 +554,404 @@ export default function ContractForm() {
         </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto p-6">
-        {activeTab === "vseobecne" && (
-          <div className="max-w-4xl space-y-4" data-testid="section-vseobecne">
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Spolocnost</label>
-                <Input
-                  value={currentCompany?.name || ""}
-                  disabled
-                  className="bg-muted"
-                  data-testid="input-company-context"
-                />
+      <div className="flex-1 overflow-hidden">
+        <div className="h-full overflow-y-auto p-3">
+          {activeTab === "vseobecne" && (
+            <div className="max-w-5xl space-y-[clamp(0.35rem,0.8vh,0.75rem)]" data-testid="section-vseobecne">
+
+              <div className="grid grid-cols-2 gap-[clamp(0.5rem,1vw,1rem)]">
+                <CompactField label="Spolocnost">
+                  <Input
+                    value={currentCompany?.name || ""}
+                    disabled
+                    className="bg-muted"
+                    data-testid="input-company-context"
+                  />
+                </CompactField>
+                <CompactField label="Supiska">
+                  <Select value={inventoryId} onValueChange={setInventoryId}>
+                    <SelectTrigger data-testid="select-contract-inventory">
+                      <SelectValue placeholder="Vyberte supisku" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {inventories?.filter(i => !i.isClosed).map(i => (
+                        <SelectItem key={i.id} value={i.id.toString()}>{i.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </CompactField>
               </div>
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Supiska</label>
-                <Select value={inventoryId} onValueChange={setInventoryId}>
-                  <SelectTrigger data-testid="select-contract-inventory">
-                    <SelectValue placeholder="Vyberte supisku" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {inventories?.filter(i => !i.isClosed).map(i => (
-                      <SelectItem key={i.id} value={i.id.toString()}>{i.name}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+
+              <div className="grid grid-cols-2 gap-[clamp(0.5rem,1vw,1rem)]">
+                <CompactField label="Kalkulacka">
+                  <Select value="" onValueChange={() => {}}>
+                    <SelectTrigger data-testid="select-contract-calculator">
+                      <SelectValue placeholder="Vyberte kalkulacku" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">Ziadna</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </CompactField>
+                <CompactField label="Sablona zmluvy">
+                  <Select value={templateId} onValueChange={setTemplateId}>
+                    <SelectTrigger data-testid="select-contract-template">
+                      <SelectValue placeholder="Vyberte sablonu" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {templates?.filter(t => t.isActive).map(t => (
+                        <SelectItem key={t.id} value={t.id.toString()}>{t.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </CompactField>
+              </div>
+
+              <div className="grid grid-cols-3 gap-[clamp(0.5rem,1vw,1rem)]">
+                <CompactField label="KIK">
+                  <Input value={kik} onChange={e => setKik(e.target.value)} data-testid="input-contract-kik" />
+                </CompactField>
+                <CompactField label="Cislo navrhu">
+                  <Input value={proposalNumber} onChange={e => setProposalNumber(e.target.value)} data-testid="input-contract-proposal" />
+                </CompactField>
+                <CompactField label="Cislo zmluvy">
+                  <Input value={contractNumber} onChange={e => setContractNumber(e.target.value)} data-testid="input-contract-number" />
+                </CompactField>
+              </div>
+
+              <div className="grid grid-cols-3 gap-[clamp(0.5rem,1vw,1rem)]">
+                <CompactField label="Miesto podpisu *">
+                  <Input value={signingPlace} onChange={e => setSigningPlace(e.target.value)} data-testid="input-signing-place" />
+                </CompactField>
+                <CompactField label="Typ zmluvy *">
+                  <Select value={contractType} onValueChange={setContractType}>
+                    <SelectTrigger data-testid="select-contract-type">
+                      <SelectValue placeholder="Vyberte typ" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {CONTRACT_TYPES.map(t => (
+                        <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </CompactField>
+                <CompactField label="Stav zmluvy">
+                  <Select value={statusId} onValueChange={setStatusId}>
+                    <SelectTrigger data-testid="select-contract-status">
+                      <SelectValue placeholder="Vyberte stav" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {statuses?.map(s => (
+                        <SelectItem key={s.id} value={s.id.toString()}>
+                          <div className="flex items-center gap-2">
+                            <div className="w-3 h-3 rounded-full" style={{ backgroundColor: s.color }} />
+                            {s.name}
+                          </div>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </CompactField>
+              </div>
+
+              <div className="grid grid-cols-3 gap-[clamp(0.5rem,1vw,1rem)]">
+                <CompactField label="Datum podpisu *">
+                  <Input type="date" value={signedDate} onChange={e => setSignedDate(e.target.value)} data-testid="input-signed-date" />
+                </CompactField>
+                <CompactField label="Ucinnost od *">
+                  <Input type="date" value={effectiveDate} onChange={e => setEffectiveDate(e.target.value)} data-testid="input-effective-date" />
+                </CompactField>
+                <CompactField label="Koniec zmluvy">
+                  <Input type="date" value={expiryDate} onChange={e => setExpiryDate(e.target.value)} data-testid="input-expiry-date" />
+                </CompactField>
+              </div>
+
+              <div className="grid grid-cols-3 gap-[clamp(0.5rem,1vw,1rem)]">
+                <CompactField label="Frekvencia platenia *">
+                  <Select value={paymentFrequency} onValueChange={setPaymentFrequency}>
+                    <SelectTrigger data-testid="select-payment-frequency">
+                      <SelectValue placeholder="Vyberte frekvenciu" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {PAYMENT_FREQUENCIES.map(f => (
+                        <SelectItem key={f.value} value={f.value}>{f.label}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </CompactField>
+                <CompactField label="Lehotne poistne *">
+                  <Input type="number" value={premiumAmount} onChange={e => setPremiumAmount(e.target.value)} className="font-mono" data-testid="input-premium-amount" />
+                </CompactField>
+                <CompactField label="Rocne poistne">
+                  <Input type="number" value={annualPremium} onChange={e => setAnnualPremium(e.target.value)} className="font-mono" data-testid="input-annual-premium" />
+                </CompactField>
+              </div>
+
+              <div className="flex items-center gap-[clamp(0.5rem,1vw,1rem)]">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    if (isEditing) {
+                      setPasswordsOpen(true);
+                    } else {
+                      toast({ title: "Info", description: "Najprv ulozte zmluvu, potom mozete pridat hesla" });
+                    }
+                  }}
+                  data-testid="button-contract-passwords"
+                >
+                  <KeyRound className="w-4 h-4 mr-1" />
+                  Hesla k zmluve
+                </Button>
               </div>
             </div>
+          )}
 
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Kalkulacka</label>
-                <Select value="" onValueChange={() => {}}>
-                  <SelectTrigger data-testid="select-contract-calculator">
-                    <SelectValue placeholder="Vyberte kalkulacku" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="none">Ziadna</SelectItem>
-                  </SelectContent>
-                </Select>
+          {activeTab === "udaje-klient" && (
+            <div className="max-w-4xl space-y-3" data-testid="section-udaje-klient">
+              <h2 className="text-base font-semibold">Udaje o klientovi</h2>
+              <div className="grid grid-cols-2 gap-3">
+                <CompactField label="Klient">
+                  <Select value={subjectId} onValueChange={setSubjectId}>
+                    <SelectTrigger data-testid="select-contract-subject">
+                      <SelectValue placeholder="Vyberte klienta" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {subjects?.filter(s => s.isActive).map(s => (
+                        <SelectItem key={s.id} value={s.id.toString()}>
+                          {s.type === "person" ? `${s.firstName} ${s.lastName}` : s.companyName} ({s.uid})
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </CompactField>
+                <CompactField label="Partner">
+                  <Select value={partnerId} onValueChange={setPartnerId}>
+                    <SelectTrigger data-testid="select-contract-partner">
+                      <SelectValue placeholder="Vyberte partnera" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {partners?.filter(p => !p.isDeleted).map(p => (
+                        <SelectItem key={p.id} value={p.id.toString()}>{p.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </CompactField>
               </div>
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Sablona zmluvy</label>
-                <Select value={templateId} onValueChange={setTemplateId}>
-                  <SelectTrigger data-testid="select-contract-template">
-                    <SelectValue placeholder="Vyberte sablonu" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {templates?.filter(t => t.isActive).map(t => (
-                      <SelectItem key={t.id} value={t.id.toString()}>{t.name}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
+
+              {subjectId && (() => {
+                const selectedSubject = subjects?.find(s => s.id === parseInt(subjectId));
+                if (!selectedSubject) return null;
+                return (
+                  <Card>
+                    <CardContent className="p-3 space-y-2">
+                      <h3 className="text-sm font-semibold">Detail klienta</h3>
+                      <div className="grid grid-cols-2 gap-2 text-sm">
+                        <div>
+                          <span className="text-muted-foreground">Meno: </span>
+                          <span data-testid="text-subject-name">
+                            {selectedSubject.type === "person"
+                              ? `${selectedSubject.firstName} ${selectedSubject.lastName}`
+                              : selectedSubject.companyName}
+                          </span>
+                        </div>
+                        <div>
+                          <span className="text-muted-foreground">UID: </span>
+                          <span className="font-mono" data-testid="text-subject-uid">{selectedSubject.uid}</span>
+                        </div>
+                        {selectedSubject.email && (
+                          <div>
+                            <span className="text-muted-foreground">Email: </span>
+                            <span>{selectedSubject.email}</span>
+                          </div>
+                        )}
+                        {selectedSubject.phone && (
+                          <div>
+                            <span className="text-muted-foreground">Telefon: </span>
+                            <span>{selectedSubject.phone}</span>
+                          </div>
+                        )}
+                      </div>
+                    </CardContent>
+                  </Card>
+                );
+              })()}
             </div>
+          )}
 
-            <div className="grid grid-cols-3 gap-4">
-              <div className="space-y-2">
-                <label className="text-sm font-medium">KIK</label>
-                <Input value={kik} onChange={e => setKik(e.target.value)} data-testid="input-contract-kik" />
+          {activeTab === "udaje-zmluva" && (
+            <div className="max-w-4xl space-y-3" data-testid="section-udaje-zmluva">
+              <h2 className="text-base font-semibold">Udaje o zmluve - Produkt a parametre</h2>
+
+              <div className="grid grid-cols-3 gap-3">
+                <CompactField label="Sektor">
+                  <Select value={contractSectorId} onValueChange={setContractSectorIdCascade}>
+                    <SelectTrigger data-testid="select-contract-sector">
+                      <SelectValue placeholder="Vyberte sektor" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {contractSectors?.map(s => (
+                        <SelectItem key={s.id} value={s.id.toString()}>{s.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </CompactField>
+                <CompactField label="Sekcia">
+                  <Select value={contractSectionId} onValueChange={setContractSectionIdCascade} disabled={!contractSectorId}>
+                    <SelectTrigger data-testid="select-contract-section">
+                      <SelectValue placeholder="Vyberte sekciu" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {contractSections?.map(s => (
+                        <SelectItem key={s.id} value={s.id.toString()}>{s.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </CompactField>
+                <CompactField label="Produkt">
+                  <Select value={sectorProductId} onValueChange={setSectorProductId} disabled={!contractSectionId}>
+                    <SelectTrigger data-testid="select-contract-product">
+                      <SelectValue placeholder="Vyberte produkt" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {contractSectorProducts?.map(p => (
+                        <SelectItem key={p.id} value={p.id.toString()}>{p.name} {p.abbreviation ? `(${p.abbreviation})` : ''}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </CompactField>
               </div>
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Cislo navrhu</label>
-                <Input value={proposalNumber} onChange={e => setProposalNumber(e.target.value)} data-testid="input-contract-proposal" />
-              </div>
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Cislo zmluvy</label>
-                <Input value={contractNumber} onChange={e => setContractNumber(e.target.value)} data-testid="input-contract-number" />
-              </div>
+
+              {sectorProductId && panelsLoading && (
+                <div className="flex items-center gap-2 p-2 text-sm text-muted-foreground">
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  Nacitavam panely...
+                </div>
+              )}
+
+              {sectorProductId && productPanels && productPanels.length > 0 && (
+                <div className="space-y-2" data-testid="section-contract-panels">
+                  <div className="flex items-center gap-2 mb-1">
+                    <LayoutGrid className="w-4 h-4 text-primary" />
+                    <span className="text-sm font-semibold">Parametre produktu</span>
+                  </div>
+                  {productPanels.map(panel => (
+                    <Card key={panel.id} className="p-2" data-testid={`panel-section-${panel.id}`}>
+                      <div className="flex items-center gap-2 mb-1">
+                        <span className="text-sm font-semibold">{panel.name}</span>
+                        {panel.description && (
+                          <span className="text-xs text-muted-foreground">({panel.description})</span>
+                        )}
+                      </div>
+                      {panel.parameters.length > 0 ? (
+                        <div className="grid grid-cols-2 gap-2">
+                          {panel.parameters.map(param => (
+                            <div key={param.id} className="space-y-0.5">
+                              <label className="text-xs font-medium">
+                                {param.name}
+                                {param.isRequired && <span className="text-destructive ml-1">*</span>}
+                              </label>
+                              {param.paramType === "textarea" ? (
+                                <Textarea
+                                  value={panelValues[`${panel.id}_${param.id}`] || param.defaultValue || ""}
+                                  onChange={e => setPanelValues(prev => ({ ...prev, [`${panel.id}_${param.id}`]: e.target.value }))}
+                                  rows={2}
+                                  data-testid={`input-panel-param-${panel.id}-${param.id}`}
+                                />
+                              ) : param.paramType === "boolean" ? (
+                                <Select
+                                  value={panelValues[`${panel.id}_${param.id}`] || param.defaultValue || ""}
+                                  onValueChange={val => setPanelValues(prev => ({ ...prev, [`${panel.id}_${param.id}`]: val }))}
+                                >
+                                  <SelectTrigger data-testid={`select-panel-param-${panel.id}-${param.id}`}>
+                                    <SelectValue placeholder="Vyberte" />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    <SelectItem value="ano">Ano</SelectItem>
+                                    <SelectItem value="nie">Nie</SelectItem>
+                                  </SelectContent>
+                                </Select>
+                              ) : param.paramType === "combobox" && param.options?.length > 0 ? (
+                                <Select
+                                  value={panelValues[`${panel.id}_${param.id}`] || param.defaultValue || ""}
+                                  onValueChange={val => setPanelValues(prev => ({ ...prev, [`${panel.id}_${param.id}`]: val }))}
+                                >
+                                  <SelectTrigger data-testid={`select-panel-param-${panel.id}-${param.id}`}>
+                                    <SelectValue placeholder="Vyberte" />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    {param.options.map(opt => (
+                                      <SelectItem key={opt} value={opt}>{opt}</SelectItem>
+                                    ))}
+                                  </SelectContent>
+                                </Select>
+                              ) : (
+                                <Input
+                                  type={param.paramType === "number" || param.paramType === "currency" || param.paramType === "percent" ? "number" : param.paramType === "date" ? "date" : param.paramType === "datetime" ? "datetime-local" : param.paramType === "email" ? "email" : param.paramType === "url" ? "url" : "text"}
+                                  value={panelValues[`${panel.id}_${param.id}`] || param.defaultValue || ""}
+                                  onChange={e => setPanelValues(prev => ({ ...prev, [`${panel.id}_${param.id}`]: e.target.value }))}
+                                  data-testid={`input-panel-param-${panel.id}-${param.id}`}
+                                />
+                              )}
+                              {param.helpText && (
+                                <p className="text-xs text-muted-foreground">{param.helpText}</p>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <p className="text-xs text-muted-foreground">Ziadne parametre</p>
+                      )}
+                    </Card>
+                  ))}
+                </div>
+              )}
+
+              {sectorProductId && productPanels && productPanels.length === 0 && (
+                <p className="text-sm text-muted-foreground" data-testid="text-no-panels">
+                  Vybrany produkt nema priradene panely s parametrami.
+                </p>
+              )}
             </div>
+          )}
 
-            <div className="grid grid-cols-3 gap-4">
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Miesto podpisu *</label>
-                <Input value={signingPlace} onChange={e => setSigningPlace(e.target.value)} data-testid="input-signing-place" />
+          {activeTab === "dokumenty" && (
+            <div className="max-w-4xl space-y-3" data-testid="section-dokumenty">
+              <h2 className="text-base font-semibold">Dokumenty</h2>
+              <Card>
+                <CardContent className="p-4 text-center">
+                  <FolderOpen className="w-10 h-10 text-muted-foreground mx-auto mb-2" />
+                  <p className="text-sm text-muted-foreground" data-testid="text-dokumenty-placeholder">
+                    Modul dokumentov bude dostupny v dalsej verzii.
+                  </p>
+                </CardContent>
+              </Card>
+            </div>
+          )}
+
+          {activeTab === "odmeny" && (
+            <div className="max-w-4xl space-y-3" data-testid="section-odmeny">
+              <h2 className="text-base font-semibold">Odmeny</h2>
+              <div className="grid grid-cols-3 gap-3">
+                <CompactField label="Suma provizie">
+                  <Input type="number" value={commissionAmount} onChange={e => setCommissionAmount(e.target.value)} className="font-mono" data-testid="input-commission-amount" />
+                </CompactField>
+                <CompactField label="Mena">
+                  <Input value={currency} onChange={e => setCurrency(e.target.value)} data-testid="input-currency" />
+                </CompactField>
               </div>
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Typ zmluvy *</label>
-                <Select value={contractType} onValueChange={setContractType}>
-                  <SelectTrigger data-testid="select-contract-type">
-                    <SelectValue placeholder="Vyberte typ" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {CONTRACT_TYPES.map(t => (
-                      <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Stav zmluvy</label>
+              <CompactField label="Poznamky">
+                <Textarea value={notes} onChange={e => setNotes(e.target.value)} rows={3} data-testid="input-notes" />
+              </CompactField>
+            </div>
+          )}
+
+          {activeTab === "stavy" && (
+            <div className="max-w-4xl space-y-3" data-testid="section-stavy">
+              <h2 className="text-base font-semibold">Stavy zmluv</h2>
+              <CompactField label="Aktualny stav">
                 <Select value={statusId} onValueChange={setStatusId}>
-                  <SelectTrigger data-testid="select-contract-status">
+                  <SelectTrigger data-testid="select-status-section">
                     <SelectValue placeholder="Vyberte stav" />
                   </SelectTrigger>
                   <SelectContent>
@@ -599,428 +965,99 @@ export default function ContractForm() {
                     ))}
                   </SelectContent>
                 </Select>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-3 gap-4">
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Datum podpisu *</label>
-                <Input type="date" value={signedDate} onChange={e => setSignedDate(e.target.value)} data-testid="input-signed-date" />
-              </div>
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Ucinnost od *</label>
-                <Input type="date" value={effectiveDate} onChange={e => setEffectiveDate(e.target.value)} data-testid="input-effective-date" />
-              </div>
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Koniec zmluvy</label>
-                <Input type="date" value={expiryDate} onChange={e => setExpiryDate(e.target.value)} data-testid="input-expiry-date" />
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 gap-4">
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Frekvencia platenia *</label>
-                <Select value={paymentFrequency} onValueChange={setPaymentFrequency}>
-                  <SelectTrigger data-testid="select-payment-frequency">
-                    <SelectValue placeholder="Vyberte frekvenciu" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {PAYMENT_FREQUENCIES.map(f => (
-                      <SelectItem key={f.value} value={f.value}>{f.label}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-3 gap-4">
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Lehotne poistne *</label>
-                <Input type="number" value={premiumAmount} onChange={e => setPremiumAmount(e.target.value)} className="font-mono" data-testid="input-premium-amount" />
-              </div>
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Rocne poistne</label>
-                <Input type="number" value={annualPremium} onChange={e => setAnnualPremium(e.target.value)} className="font-mono" data-testid="input-annual-premium" />
-              </div>
-              <div className="space-y-2 flex flex-col justify-end">
-                <Button
-                  variant="outline"
-                  onClick={() => {
-                    if (isEditing) {
-                      setPasswordsOpen(true);
-                    } else {
-                      toast({ title: "Info", description: "Najprv ulozte zmluvu, potom mozete pridat hesla" });
-                    }
-                  }}
-                  data-testid="button-contract-passwords"
-                >
-                  <KeyRound className="w-4 h-4 mr-2" />
-                  Hesla k zmluve
-                </Button>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {activeTab === "udaje-klient" && (
-          <div className="max-w-4xl space-y-4" data-testid="section-udaje-klient">
-            <h2 className="text-lg font-semibold">Udaje o klientovi</h2>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Klient</label>
-                <Select value={subjectId} onValueChange={setSubjectId}>
-                  <SelectTrigger data-testid="select-contract-subject">
-                    <SelectValue placeholder="Vyberte klienta" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {subjects?.filter(s => s.isActive).map(s => (
-                      <SelectItem key={s.id} value={s.id.toString()}>
-                        {s.type === "person" ? `${s.firstName} ${s.lastName}` : s.companyName} ({s.uid})
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Partner</label>
-                <Select value={partnerId} onValueChange={setPartnerId}>
-                  <SelectTrigger data-testid="select-contract-partner">
-                    <SelectValue placeholder="Vyberte partnera" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {partners?.filter(p => !p.isDeleted).map(p => (
-                      <SelectItem key={p.id} value={p.id.toString()}>{p.name}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-
-            {subjectId && (() => {
-              const selectedSubject = subjects?.find(s => s.id === parseInt(subjectId));
-              if (!selectedSubject) return null;
-              return (
+              </CompactField>
+              {statuses && statuses.length > 0 && (
                 <Card>
-                  <CardContent className="p-4 space-y-2">
-                    <h3 className="text-sm font-semibold">Detail klienta</h3>
-                    <div className="grid grid-cols-2 gap-3 text-sm">
-                      <div>
-                        <span className="text-muted-foreground">Meno: </span>
-                        <span data-testid="text-subject-name">
-                          {selectedSubject.type === "person"
-                            ? `${selectedSubject.firstName} ${selectedSubject.lastName}`
-                            : selectedSubject.companyName}
-                        </span>
-                      </div>
-                      <div>
-                        <span className="text-muted-foreground">UID: </span>
-                        <span className="font-mono" data-testid="text-subject-uid">{selectedSubject.uid}</span>
-                      </div>
-                      {selectedSubject.email && (
-                        <div>
-                          <span className="text-muted-foreground">Email: </span>
-                          <span>{selectedSubject.email}</span>
-                        </div>
-                      )}
-                      {selectedSubject.phone && (
-                        <div>
-                          <span className="text-muted-foreground">Telefon: </span>
-                          <span>{selectedSubject.phone}</span>
-                        </div>
-                      )}
+                  <CardContent className="p-3">
+                    <h3 className="text-sm font-semibold mb-2">Dostupne stavy</h3>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      {statuses.map(s => (
+                        <Badge
+                          key={s.id}
+                          variant={statusId === s.id.toString() ? "default" : "outline"}
+                          style={statusId === s.id.toString() ? { backgroundColor: s.color } : { borderColor: s.color, color: s.color }}
+                          className="cursor-pointer"
+                          onClick={() => setStatusId(s.id.toString())}
+                          data-testid={`badge-status-${s.id}`}
+                        >
+                          {s.name}
+                        </Badge>
+                      ))}
                     </div>
                   </CardContent>
                 </Card>
-              );
-            })()}
-          </div>
-        )}
-
-        {activeTab === "udaje-zmluva" && (
-          <div className="max-w-4xl space-y-4" data-testid="section-udaje-zmluva">
-            <h2 className="text-lg font-semibold">Udaje o zmluve - Produkt a parametre</h2>
-
-            <div className="grid grid-cols-3 gap-4">
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Sektor</label>
-                <Select value={contractSectorId} onValueChange={setContractSectorIdCascade}>
-                  <SelectTrigger data-testid="select-contract-sector">
-                    <SelectValue placeholder="Vyberte sektor" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {contractSectors?.map(s => (
-                      <SelectItem key={s.id} value={s.id.toString()}>{s.name}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Sekcia</label>
-                <Select value={contractSectionId} onValueChange={setContractSectionIdCascade} disabled={!contractSectorId}>
-                  <SelectTrigger data-testid="select-contract-section">
-                    <SelectValue placeholder="Vyberte sekciu" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {contractSections?.map(s => (
-                      <SelectItem key={s.id} value={s.id.toString()}>{s.name}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Produkt</label>
-                <Select value={sectorProductId} onValueChange={setSectorProductId} disabled={!contractSectionId}>
-                  <SelectTrigger data-testid="select-contract-product">
-                    <SelectValue placeholder="Vyberte produkt" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {contractSectorProducts?.map(p => (
-                      <SelectItem key={p.id} value={p.id.toString()}>{p.name} {p.abbreviation ? `(${p.abbreviation})` : ''}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
+              )}
             </div>
+          )}
 
-            {sectorProductId && panelsLoading && (
-              <div className="flex items-center gap-2 p-3 text-sm text-muted-foreground">
-                <Loader2 className="w-4 h-4 animate-spin" />
-                Nacitavam panely...
-              </div>
-            )}
-
-            {sectorProductId && productPanels && productPanels.length > 0 && (
-              <div className="space-y-3" data-testid="section-contract-panels">
-                <div className="flex items-center gap-2 mb-2">
-                  <LayoutGrid className="w-4 h-4 text-primary" />
-                  <span className="text-sm font-semibold">Parametre produktu</span>
-                </div>
-                {productPanels.map(panel => (
-                  <Card key={panel.id} className="p-3" data-testid={`panel-section-${panel.id}`}>
-                    <div className="flex items-center gap-2 mb-2">
-                      <span className="text-sm font-semibold">{panel.name}</span>
-                      {panel.description && (
-                        <span className="text-xs text-muted-foreground">({panel.description})</span>
-                      )}
-                    </div>
-                    {panel.parameters.length > 0 ? (
-                      <div className="grid grid-cols-2 gap-3">
-                        {panel.parameters.map(param => (
-                          <div key={param.id} className="space-y-1">
-                            <label className="text-xs font-medium">
-                              {param.name}
-                              {param.isRequired && <span className="text-destructive ml-1">*</span>}
-                            </label>
-                            {param.paramType === "textarea" ? (
-                              <Textarea
-                                value={panelValues[`${panel.id}_${param.id}`] || param.defaultValue || ""}
-                                onChange={e => setPanelValues(prev => ({ ...prev, [`${panel.id}_${param.id}`]: e.target.value }))}
-                                rows={2}
-                                data-testid={`input-panel-param-${panel.id}-${param.id}`}
-                              />
-                            ) : param.paramType === "boolean" ? (
-                              <Select
-                                value={panelValues[`${panel.id}_${param.id}`] || param.defaultValue || ""}
-                                onValueChange={val => setPanelValues(prev => ({ ...prev, [`${panel.id}_${param.id}`]: val }))}
-                              >
-                                <SelectTrigger data-testid={`select-panel-param-${panel.id}-${param.id}`}>
-                                  <SelectValue placeholder="Vyberte" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                  <SelectItem value="ano">Ano</SelectItem>
-                                  <SelectItem value="nie">Nie</SelectItem>
-                                </SelectContent>
-                              </Select>
-                            ) : param.paramType === "combobox" && param.options?.length > 0 ? (
-                              <Select
-                                value={panelValues[`${panel.id}_${param.id}`] || param.defaultValue || ""}
-                                onValueChange={val => setPanelValues(prev => ({ ...prev, [`${panel.id}_${param.id}`]: val }))}
-                              >
-                                <SelectTrigger data-testid={`select-panel-param-${panel.id}-${param.id}`}>
-                                  <SelectValue placeholder="Vyberte" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                  {param.options.map(opt => (
-                                    <SelectItem key={opt} value={opt}>{opt}</SelectItem>
-                                  ))}
-                                </SelectContent>
-                              </Select>
-                            ) : (
-                              <Input
-                                type={param.paramType === "number" || param.paramType === "currency" || param.paramType === "percent" ? "number" : param.paramType === "date" ? "date" : param.paramType === "datetime" ? "datetime-local" : param.paramType === "email" ? "email" : param.paramType === "url" ? "url" : "text"}
-                                value={panelValues[`${panel.id}_${param.id}`] || param.defaultValue || ""}
-                                onChange={e => setPanelValues(prev => ({ ...prev, [`${panel.id}_${param.id}`]: e.target.value }))}
-                                data-testid={`input-panel-param-${panel.id}-${param.id}`}
-                              />
-                            )}
-                            {param.helpText && (
-                              <p className="text-xs text-muted-foreground">{param.helpText}</p>
-                            )}
-                          </div>
-                        ))}
-                      </div>
-                    ) : (
-                      <p className="text-xs text-muted-foreground">Ziadne parametre</p>
-                    )}
-                  </Card>
-                ))}
-              </div>
-            )}
-
-            {sectorProductId && productPanels && productPanels.length === 0 && (
-              <p className="text-sm text-muted-foreground" data-testid="text-no-panels">
-                Vybrany produkt nema priradene panely s parametrami.
-              </p>
-            )}
-          </div>
-        )}
-
-        {activeTab === "dokumenty" && (
-          <div className="max-w-4xl space-y-4" data-testid="section-dokumenty">
-            <h2 className="text-lg font-semibold">Dokumenty</h2>
-            <Card>
-              <CardContent className="p-6 text-center">
-                <FolderOpen className="w-12 h-12 text-muted-foreground mx-auto mb-3" />
-                <p className="text-sm text-muted-foreground" data-testid="text-dokumenty-placeholder">
-                  Modul dokumentov bude dostupny v dalsej verzii.
-                </p>
-              </CardContent>
-            </Card>
-          </div>
-        )}
-
-        {activeTab === "odmeny" && (
-          <div className="max-w-4xl space-y-4" data-testid="section-odmeny">
-            <h2 className="text-lg font-semibold">Odmeny</h2>
-            <div className="grid grid-cols-3 gap-4">
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Suma provizie</label>
-                <Input type="number" value={commissionAmount} onChange={e => setCommissionAmount(e.target.value)} className="font-mono" data-testid="input-commission-amount" />
-              </div>
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Mena</label>
-                <Input value={currency} onChange={e => setCurrency(e.target.value)} data-testid="input-currency" />
-              </div>
-            </div>
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Poznamky</label>
-              <Textarea value={notes} onChange={e => setNotes(e.target.value)} rows={4} data-testid="input-notes" />
-            </div>
-          </div>
-        )}
-
-        {activeTab === "stavy" && (
-          <div className="max-w-4xl space-y-4" data-testid="section-stavy">
-            <h2 className="text-lg font-semibold">Stavy zmluv</h2>
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Aktualny stav</label>
-              <Select value={statusId} onValueChange={setStatusId}>
-                <SelectTrigger data-testid="select-status-section">
-                  <SelectValue placeholder="Vyberte stav" />
-                </SelectTrigger>
-                <SelectContent>
-                  {statuses?.map(s => (
-                    <SelectItem key={s.id} value={s.id.toString()}>
-                      <div className="flex items-center gap-2">
-                        <div className="w-3 h-3 rounded-full" style={{ backgroundColor: s.color }} />
-                        {s.name}
-                      </div>
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            {statuses && statuses.length > 0 && (
+          {activeTab === "zhrnutie" && (
+            <div className="max-w-4xl space-y-3" data-testid="section-zhrnutie">
+              <h2 className="text-base font-semibold">Zhrnutie zmluvy</h2>
               <Card>
-                <CardContent className="p-4">
-                  <h3 className="text-sm font-semibold mb-3">Dostupne stavy</h3>
-                  <div className="flex items-center gap-3 flex-wrap">
-                    {statuses.map(s => (
-                      <Badge
-                        key={s.id}
-                        variant={statusId === s.id.toString() ? "default" : "outline"}
-                        style={statusId === s.id.toString() ? { backgroundColor: s.color } : { borderColor: s.color, color: s.color }}
-                        className="cursor-pointer"
-                        onClick={() => setStatusId(s.id.toString())}
-                        data-testid={`badge-status-${s.id}`}
-                      >
-                        {s.name}
-                      </Badge>
-                    ))}
+                <CardContent className="p-3 space-y-2">
+                  <div className="grid grid-cols-2 gap-3">
+                    <SummaryField label="Cislo zmluvy" value={contractNumber || "-"} testId="summary-contract-number" />
+                    <SummaryField label="Cislo navrhu" value={proposalNumber || "-"} testId="summary-proposal" />
+                    <SummaryField label="KIK" value={kik || "-"} testId="summary-kik" />
+                    <SummaryField label="Typ zmluvy" value={contractType || "-"} testId="summary-type" />
+                    <SummaryField label="Miesto podpisu" value={signingPlace || "-"} testId="summary-signing-place" />
+                    <SummaryField label="Klient" value={(() => {
+                      const s = subjects?.find(sub => sub.id === (subjectId ? parseInt(subjectId) : -1));
+                      if (!s) return "-";
+                      return s.type === "person" ? `${s.firstName} ${s.lastName}` : (s.companyName || "-");
+                    })()} testId="summary-subject" />
+                    <SummaryField label="Partner" value={partners?.find(p => p.id === (partnerId ? parseInt(partnerId) : -1))?.name || "-"} testId="summary-partner" />
+                    <SummaryField label="Produkt" value={(() => {
+                      const sp = allSPForEdit?.find(p => p.id === (sectorProductId ? parseInt(sectorProductId) : -1));
+                      return sp ? `${sp.name}${sp.abbreviation ? ` (${sp.abbreviation})` : ''}` : "-";
+                    })()} testId="summary-product" />
+                    <SummaryField label="Stav" value={statuses?.find(s => s.id === (statusId ? parseInt(statusId) : -1))?.name || "-"} testId="summary-status" />
+                    <SummaryField label="Sablona" value={templates?.find(t => t.id === (templateId ? parseInt(templateId) : -1))?.name || "-"} testId="summary-template" />
+                    <SummaryField label="Frekvencia platenia" value={PAYMENT_FREQUENCIES.find(f => f.value === paymentFrequency)?.label || "-"} testId="summary-frequency" />
+                    <SummaryField label="Lehotne poistne" value={premiumAmount ? `${premiumAmount} ${currency}` : "-"} testId="summary-premium" mono />
+                    <SummaryField label="Rocne poistne" value={annualPremium ? `${annualPremium} ${currency}` : "-"} testId="summary-annual" mono />
+                    <SummaryField label="Suma provizie" value={commissionAmount ? `${commissionAmount} ${currency}` : "-"} testId="summary-commission" mono />
+                    <SummaryField label="Datum podpisu" value={signedDate || "-"} testId="summary-signed" />
+                    <SummaryField label="Ucinnost od" value={effectiveDate || "-"} testId="summary-effective" />
+                    <SummaryField label="Koniec zmluvy" value={expiryDate || "-"} testId="summary-expiry" />
+                    <SummaryField label="Spolocnost" value={currentCompany?.name || "-"} testId="summary-company" />
+                    <SummaryField label="Stat" value={allStates?.find(s => s.id === (stateId ? parseInt(stateId) : -1))?.name || "-"} testId="summary-state" />
                   </div>
                 </CardContent>
               </Card>
-            )}
-          </div>
-        )}
+            </div>
+          )}
 
-        {activeTab === "zhrnutie" && (
-          <div className="max-w-4xl space-y-4" data-testid="section-zhrnutie">
-            <h2 className="text-lg font-semibold">Zhrnutie zmluvy</h2>
-            <Card>
-              <CardContent className="p-4 space-y-3">
-                <div className="grid grid-cols-2 gap-4">
-                  <SummaryField label="Cislo zmluvy" value={contractNumber || "-"} testId="summary-contract-number" />
-                  <SummaryField label="Cislo navrhu" value={proposalNumber || "-"} testId="summary-proposal" />
-                  <SummaryField label="KIK" value={kik || "-"} testId="summary-kik" />
-                  <SummaryField label="Typ zmluvy" value={contractType || "-"} testId="summary-type" />
-                  <SummaryField label="Miesto podpisu" value={signingPlace || "-"} testId="summary-signing-place" />
-                  <SummaryField label="Klient" value={(() => {
-                    const s = subjects?.find(sub => sub.id === (subjectId ? parseInt(subjectId) : -1));
-                    if (!s) return "-";
-                    return s.type === "person" ? `${s.firstName} ${s.lastName}` : (s.companyName || "-");
-                  })()} testId="summary-subject" />
-                  <SummaryField label="Partner" value={partners?.find(p => p.id === (partnerId ? parseInt(partnerId) : -1))?.name || "-"} testId="summary-partner" />
-                  <SummaryField label="Produkt" value={(() => {
-                    const sp = allSPForEdit?.find(p => p.id === (sectorProductId ? parseInt(sectorProductId) : -1));
-                    return sp ? `${sp.name}${sp.abbreviation ? ` (${sp.abbreviation})` : ''}` : "-";
-                  })()} testId="summary-product" />
-                  <SummaryField label="Stav" value={statuses?.find(s => s.id === (statusId ? parseInt(statusId) : -1))?.name || "-"} testId="summary-status" />
-                  <SummaryField label="Sablona" value={templates?.find(t => t.id === (templateId ? parseInt(templateId) : -1))?.name || "-"} testId="summary-template" />
-                  <SummaryField label="Frekvencia platenia" value={PAYMENT_FREQUENCIES.find(f => f.value === paymentFrequency)?.label || "-"} testId="summary-frequency" />
-                  <SummaryField label="Lehotne poistne" value={premiumAmount ? `${premiumAmount} ${currency}` : "-"} testId="summary-premium" mono />
-                  <SummaryField label="Rocne poistne" value={annualPremium ? `${annualPremium} ${currency}` : "-"} testId="summary-annual" mono />
-                  <SummaryField label="Suma provizie" value={commissionAmount ? `${commissionAmount} ${currency}` : "-"} testId="summary-commission" mono />
-                  <SummaryField label="Datum podpisu" value={signedDate || "-"} testId="summary-signed" />
-                  <SummaryField label="Ucinnost od" value={effectiveDate || "-"} testId="summary-effective" />
-                  <SummaryField label="Koniec zmluvy" value={expiryDate || "-"} testId="summary-expiry" />
-                  <SummaryField label="Spolocnost" value={currentCompany?.name || "-"} testId="summary-company" />
-                  <SummaryField label="Stat" value={allStates?.find(s => s.id === (stateId ? parseInt(stateId) : -1))?.name || "-"} testId="summary-state" />
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-        )}
-
-        {activeTab === "provizne" && (
-          <div className="max-w-4xl space-y-4" data-testid="section-provizne">
-            <h2 className="text-lg font-semibold">Provizne zostavy</h2>
-            <Card>
-              <CardContent className="p-6 text-center">
-                <PieChart className="w-12 h-12 text-muted-foreground mx-auto mb-3" />
-                <p className="text-sm text-muted-foreground" data-testid="text-provizne-placeholder">
-                  Provizne zostavy budu dostupne v dalsej verzii.
-                </p>
-              </CardContent>
-            </Card>
-          </div>
-        )}
+          {activeTab === "provizne" && (
+            <div className="max-w-4xl space-y-3" data-testid="section-provizne">
+              <h2 className="text-base font-semibold">Provizne zostavy</h2>
+              <Card>
+                <CardContent className="p-4 text-center">
+                  <PieChart className="w-10 h-10 text-muted-foreground mx-auto mb-2" />
+                  <p className="text-sm text-muted-foreground" data-testid="text-provizne-placeholder">
+                    Provizne zostavy budu dostupne v dalsej verzii.
+                  </p>
+                </CardContent>
+              </Card>
+            </div>
+          )}
+        </div>
       </div>
 
-      <div className="sticky bottom-0 z-50 bg-background/95 backdrop-blur border-t border-border p-3 flex items-center justify-between gap-4 flex-wrap">
-        <Button variant="ghost" onClick={() => navigate("/contracts")} data-testid="button-footer-back">
-          <ArrowLeft className="w-4 h-4 mr-2" />
+      <div className="flex-none z-50 bg-background border-t border-border px-3 py-2 flex items-center justify-between gap-3 flex-wrap">
+        <Button variant="ghost" size="sm" onClick={() => navigate("/contracts")} data-testid="button-footer-back">
+          <ArrowLeft className="w-4 h-4 mr-1" />
           Spat na zoznam
         </Button>
-        <Button onClick={handleSubmit} disabled={isPending} data-testid="button-save-contract">
+        <Button size="sm" onClick={handleSubmit} disabled={isPending} data-testid="button-save-contract">
           {isPending ? (
             <>
-              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+              <Loader2 className="w-4 h-4 mr-1 animate-spin" />
               Ukladam...
             </>
           ) : (
             <>
-              <Save className="w-4 h-4 mr-2" />
+              <Save className="w-4 h-4 mr-1" />
               Ulozit zmeny
             </>
           )}
@@ -1034,6 +1071,15 @@ export default function ContractForm() {
           contractId={contractId}
         />
       )}
+    </div>
+  );
+}
+
+function CompactField({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div className="space-y-0.5">
+      <label className="text-xs font-medium text-muted-foreground">{label}</label>
+      {children}
     </div>
   );
 }

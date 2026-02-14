@@ -592,6 +592,14 @@ export const contractPasswords = pgTable("contract_passwords", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
+// === CONTRACT PARAMETER VALUES ===
+export const contractParameterValues = pgTable("contract_parameter_values", {
+  id: serial("id").primaryKey(),
+  contractId: integer("contract_id").notNull().references(() => contracts.id),
+  parameterId: integer("parameter_id").notNull(),
+  value: text("value").default(""),
+});
+
 // === SUPISKY (Settlement Sheets) ===
 export const supisky = pgTable("supisky", {
   id: serial("id").primaryKey(),
@@ -717,6 +725,7 @@ export const insertContractTemplateSchema = createInsertSchema(contractTemplates
 export const insertContractInventorySchema = createInsertSchema(contractInventories).omit({ id: true, createdAt: true, updatedAt: true });
 export const insertContractSchema = createInsertSchema(contracts).omit({ id: true, createdAt: true, updatedAt: true, isDeleted: true, deletedBy: true, deletedAt: true, deletedFromIp: true, uid: true, isLocked: true, lockedBy: true, lockedAt: true, lockedBySupiskaId: true });
 export const insertContractPasswordSchema = createInsertSchema(contractPasswords).omit({ id: true, createdAt: true });
+export const insertContractParameterValueSchema = createInsertSchema(contractParameterValues).omit({ id: true });
 export const insertSupiskaSchema = createInsertSchema(supisky).omit({ id: true, createdAt: true, updatedAt: true });
 export const insertSupiskaContractSchema = createInsertSchema(supiskaContracts).omit({ id: true, createdAt: true });
 export const insertCommissionRateSchema = createInsertSchema(commissionRates).omit({ id: true, createdAt: true, updatedAt: true });
@@ -791,6 +800,8 @@ export type Contract = typeof contracts.$inferSelect;
 export type InsertContract = z.infer<typeof insertContractSchema>;
 export type ContractPassword = typeof contractPasswords.$inferSelect;
 export type InsertContractPassword = z.infer<typeof insertContractPasswordSchema>;
+export type ContractParameterValue = typeof contractParameterValues.$inferSelect;
+export type InsertContractParameterValue = z.infer<typeof insertContractParameterValueSchema>;
 
 export type Supiska = typeof supisky.$inferSelect;
 export type InsertSupiska = z.infer<typeof insertSupiskaSchema>;

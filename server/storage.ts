@@ -37,12 +37,13 @@ import {
   type ClientTypeSection, type InsertClientTypeSection,
   type ClientTypeField, type InsertClientTypeField,
   clientTypes, clientTypeSections, clientTypeFields,
-  contractStatuses, contractTemplates, contractInventories, contracts, contractPasswords,
+  contractStatuses, contractTemplates, contractInventories, contracts, contractPasswords, contractParameterValues,
   type ContractStatus, type InsertContractStatus,
   type ContractTemplate, type InsertContractTemplate,
   type ContractInventory, type InsertContractInventory,
   type Contract, type InsertContract,
   type ContractPassword, type InsertContractPassword,
+  type ContractParameterValue, type InsertContractParameterValue,
   clientGroups, clientSubGroups, clientGroupMembers,
   type ClientGroup, type InsertClientGroup,
   type ClientSubGroup, type InsertClientSubGroup,
@@ -250,6 +251,9 @@ export interface IStorage {
   getContractPasswords(contractId: number): Promise<ContractPassword[]>;
   createContractPassword(data: InsertContractPassword): Promise<ContractPassword>;
   deleteContractPassword(id: number): Promise<void>;
+
+  getContractParameterValues(contractId: number): Promise<ContractParameterValue[]>;
+  saveContractParameterValues(contractId: number, values: { parameterId: number; value: string }[]): Promise<void>;
 
   // Client Groups
   getClientGroups(stateId?: number): Promise<ClientGroup[]>;
@@ -1468,6 +1472,20 @@ export class DatabaseStorage implements IStorage {
 
   async deleteContractPassword(id: number): Promise<void> {
     await db.delete(contractPasswords).where(eq(contractPasswords.id, id));
+  }
+
+  async getContractParameterValues(contractId: number): Promise<ContractParameterValue[]> {
+    return await db.select().from(contractParameterValues)
+      .where(eq(contractParameterValues.contractId, contractId));
+  }
+
+  async saveContractParameterValues(contractId: number, values: { parameterId: number; value: string }[]): Promise<void> {
+    await db.delete(contractParameterValues).where(eq(contractParameterValues.contractId, contractId));
+    if (values.length > 0) {
+      await db.insert(contractParameterValues).values(
+        values.map(v => ({ contractId, parameterId: v.parameterId, value: v.value }))
+      );
+    }
   }
 
   // === CLIENT GROUPS ===

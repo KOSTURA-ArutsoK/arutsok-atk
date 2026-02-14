@@ -1538,6 +1538,28 @@ export async function registerRoutes(
     }
   });
 
+  // === CONTRACT PARAMETER VALUES ===
+  app.get("/api/contracts/:contractId/parameter-values", isAuthenticated, async (req: any, res) => {
+    try {
+      const values = await storage.getContractParameterValues(Number(req.params.contractId));
+      res.json(values);
+    } catch (err) {
+      res.status(500).json({ message: "Internal error" });
+    }
+  });
+
+  app.post("/api/contracts/:contractId/parameter-values", isAuthenticated, async (req: any, res) => {
+    try {
+      const { values } = req.body;
+      if (!Array.isArray(values)) return res.status(400).json({ message: "Values array required" });
+      await storage.saveContractParameterValues(Number(req.params.contractId), values);
+      await logAudit(req, { action: "UPDATE", module: "contract_parameter_values", entityId: Number(req.params.contractId), entityName: "parameter values saved" });
+      res.json({ success: true });
+    } catch (err) {
+      res.status(500).json({ message: "Internal error" });
+    }
+  });
+
   // === CLIENT TYPE REORDER ===
   app.put("/api/client-types/:typeId/fields/reorder", isAuthenticated, async (req: any, res) => {
     try {
