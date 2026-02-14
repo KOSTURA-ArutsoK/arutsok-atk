@@ -96,6 +96,7 @@ function Router() {
       <Route path="/archive" component={() => <PrivateRoute component={Archive} />} />
       <Route path="/client-type-rules" component={() => <PrivateRoute component={ClientTypeRules} />} />
       <Route path="/contracts" component={() => <PrivateRoute component={Contracts} />} />
+      <Route path="/evidencia-zmluv" component={() => <PrivateRoute component={Contracts} />} />
       <Route path="/contracts/new" component={() => <PrivateRoute component={ContractForm} />} />
       <Route path="/contracts/:id/edit" component={() => <PrivateRoute component={ContractForm} />} />
       <Route path="/contract-statuses" component={() => <PrivateRoute component={ContractStatuses} />} />

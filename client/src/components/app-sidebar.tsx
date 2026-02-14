@@ -97,21 +97,25 @@ const klientiItems = [
   { href: "/client-groups", icon: UsersRound, label: "Skupiny klientov" },
 ];
 
-const evidenciaZmluvItems = [
+const zmluvyFlatItems = [
   { href: "/contracts", icon: FileText, label: "Zmluvy" },
+  { href: "/evidencia-zmluv", icon: ClipboardList, label: "Evidencia zmluv" },
 ];
 
-const zmluvyDirectItems = [
-  { href: "/contract-template-settings", icon: FileCog, label: "Nastavenia sablon" },
+const nastaveniaSablonChildren = [
   { href: "/contract-template-management", icon: FileStack, label: "Sprava sablon" },
   { href: "/contract-statuses", icon: ListChecks, label: "Stavy zmluv" },
+];
+
+const supiskyItems = [
   { href: "/contract-inventories", icon: ClipboardList, label: "Zoznam supisiek" },
   { href: "/supisky", icon: ClipboardList, label: "Supisky" },
 ];
 
 const allZmluvyHrefs = [
-  ...evidenciaZmluvItems.map(i => i.href),
-  ...zmluvyDirectItems.map(i => i.href),
+  ...zmluvyFlatItems.map(i => i.href),
+  ...nastaveniaSablonChildren.map(i => i.href),
+  ...supiskyItems.map(i => i.href),
 ];
 
 const spravaPristupovItems = [
@@ -212,7 +216,7 @@ export function AppSidebar() {
     { id: "specifikacie", items: specifikacieItems },
     { id: "partneri", items: partneriProduktyItems },
     { id: "klienti", items: klientiItems },
-    { id: "zmluvy", items: [...evidenciaZmluvItems, ...zmluvyDirectItems] },
+    { id: "zmluvy", items: [...zmluvyFlatItems, ...nastaveniaSablonChildren, ...supiskyItems] },
     { id: "financie", items: financieItems },
     { id: "informacie", items: informacieItems },
   ];
@@ -230,8 +234,8 @@ export function AppSidebar() {
 
   const isZmluvyActive = allZmluvyHrefs.includes(location);
   const isZmluvyOpen = openMenuId === "zmluvy";
-  const [evidenciaZmluvExpanded, setEvidenciaZmluvExpanded] = useState(
-    evidenciaZmluvItems.some(i => i.href === location)
+  const [nastaveniaSablonExpanded, setNastaveniaSablonExpanded] = useState(
+    nastaveniaSablonChildren.some(i => i.href === location)
   );
 
   const displayName = appUser
@@ -446,24 +450,39 @@ export function AppSidebar() {
                   </CollapsibleTrigger>
                   <CollapsibleContent>
                     <SidebarMenuSub>
+                      {zmluvyFlatItems.map(item => (
+                        <SidebarMenuSubItem key={item.href}>
+                          <SidebarMenuSubButton
+                            asChild
+                            isActive={location === item.href}
+                            data-testid={`nav-${item.label.toLowerCase().replace(/\s/g, '-')}`}
+                          >
+                            <Link href={item.href}>
+                              <item.icon className="w-3.5 h-3.5" />
+                              <span>{item.label}</span>
+                            </Link>
+                          </SidebarMenuSubButton>
+                        </SidebarMenuSubItem>
+                      ))}
+
                       <SidebarMenuSubItem>
                         <Collapsible
-                          open={evidenciaZmluvExpanded}
-                          onOpenChange={setEvidenciaZmluvExpanded}
+                          open={nastaveniaSablonExpanded}
+                          onOpenChange={setNastaveniaSablonExpanded}
                         >
                           <CollapsibleTrigger asChild>
                             <SidebarMenuSubButton
-                              data-testid="nav-submenu-evidencia-zmluv"
-                              className={`cursor-pointer ${evidenciaZmluvItems.some(i => i.href === location) ? "text-sidebar-accent-foreground font-medium" : ""}`}
+                              data-testid="nav-submenu-nastavenia-sablon"
+                              className={`cursor-pointer ${nastaveniaSablonChildren.some(i => i.href === location) ? "text-sidebar-accent-foreground font-medium" : ""}`}
                             >
-                              <ClipboardList className="w-3.5 h-3.5" />
-                              <span className="flex-1">Evidencia zmluv</span>
-                              <ChevronRight className={`w-3 h-3 text-muted-foreground transition-transform duration-200 ${evidenciaZmluvExpanded ? "rotate-90" : ""}`} />
+                              <FileCog className="w-3.5 h-3.5" />
+                              <span className="flex-1">Nastavenia sablon</span>
+                              <ChevronRight className={`w-3 h-3 text-muted-foreground transition-transform duration-200 ${nastaveniaSablonExpanded ? "rotate-90" : ""}`} />
                             </SidebarMenuSubButton>
                           </CollapsibleTrigger>
                           <CollapsibleContent>
                             <div className="ml-3 border-l border-border pl-2 mt-1 space-y-0.5">
-                              {evidenciaZmluvItems.map(item => (
+                              {nastaveniaSablonChildren.map(item => (
                                 <SidebarMenuSubItem key={item.href}>
                                   <SidebarMenuSubButton
                                     asChild
@@ -482,7 +501,7 @@ export function AppSidebar() {
                         </Collapsible>
                       </SidebarMenuSubItem>
 
-                      {zmluvyDirectItems.map(item => (
+                      {supiskyItems.map(item => (
                         <SidebarMenuSubItem key={item.href}>
                           <SidebarMenuSubButton
                             asChild

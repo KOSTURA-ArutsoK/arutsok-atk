@@ -47,6 +47,7 @@ The system utilizes a modern full-stack architecture prioritizing data integrity
     - **Global Table Resizing**: All tables support column resizing with persistence.
     - **State and Company Management**: Dedicated pages for CRUD operations on states (with flag uploads) and companies (with logo history).
     - **Contract Folders System**: Organizes panels visually into folders within the contract form, enabling flexible grid-based layouts.
+    - **Sidebar Navigation (ArutsoK 36)**: Zmluvy section restructured: "Zmluvy" (/contracts) and "Evidencia zmluv" (/evidencia-zmluv) are flat siblings. "Nastavenia sablon" is a sub-collapsible parent containing "Sprava sablon" and "Stavy zmluv" as children. Supisky section (Zoznam supisiek, Supisky) unchanged.
 
 ## External Dependencies
 - **Replit OIDC Auth**: User authentication.
