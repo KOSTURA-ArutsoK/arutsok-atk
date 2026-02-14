@@ -55,6 +55,7 @@ The system utilizes a modern full-stack architecture prioritizing data integrity
     - **Contract Form Folder Ordering (ArutsoK 38-40)**: Contract form now uses `product_folder_assignments` sort_order to render folders in product-specific order instead of global folder order.
     - **Protocol Validation (ArutsoK 41)**: Supisky enforce max 25 contracts and same-product constraint. Sprievodky remain flexible with no limits.
     - **Hierarchy Count Badges (ArutsoK 41)**: API endpoint `/api/hierarchy/counts` returns child-item counts. Tables display Badge counts: Sectors→Products, Sections→Products, Products→Folders, Folders→Panels, Panels→Parameters.
+    - **UI Consistency & Naming (ArutsoK 42)**: Sidebar label "Sprava pristupov" renamed to "Sprava prihlasenia". Product form folder DnD list unified to use Card+CardContent+TableHeader matching Sectors module style. Drag handles visually integrated via SortableTableRow first-column GripVertical.
 
 ## External Dependencies
 - **Replit OIDC Auth**: User authentication.

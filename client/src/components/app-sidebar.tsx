@@ -315,7 +315,7 @@ export function AppSidebar() {
                               className={`cursor-pointer ${spravaPristupovItems.some(i => i.href === location) ? "text-sidebar-accent-foreground font-medium" : ""}`}
                             >
                               <KeyRound className="w-3.5 h-3.5" />
-                              <span className="flex-1">Sprava pristupov</span>
+                              <span className="flex-1">Sprava prihlasenia</span>
                               <ChevronRight className={`w-3 h-3 text-muted-foreground transition-transform duration-200 ${spravaPristupovExpanded ? "rotate-90" : ""}`} />
                             </SidebarMenuSubButton>
                           </CollapsibleTrigger>

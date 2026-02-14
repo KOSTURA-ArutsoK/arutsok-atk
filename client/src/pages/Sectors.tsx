@@ -459,36 +459,45 @@ function SectorProductFormDialog({
             {selectedFolderIds.length === 0 ? (
               <p className="text-sm text-muted-foreground py-2 text-center" data-testid="text-no-product-folders">Žiadne priečinky priradené</p>
             ) : (
-              <div className="border rounded-md">
-                <SortableContext_Wrapper
-                  items={selectedFolderIds.map(id => ({ id }))}
-                  onReorder={(reordered) => setSelectedFolderIds(reordered.map(r => Number(r.id)))}
-                >
-                  <Table>
-                    <TableBody>
-                      {selectedFolderIds.map((fid, idx) => {
-                        const folder = allFolders?.find(f => f.id === fid);
-                        return (
-                          <SortableTableRow key={fid} id={fid} data-testid={`row-product-folder-${fid}`}>
-                            <TableCell className="flex-1">{folder?.name || `Folder ${fid}`}</TableCell>
-                            <TableCell className="w-10">
-                              <Button
-                                type="button"
-                                size="icon"
-                                variant="ghost"
-                                onClick={() => setSelectedFolderIds(prev => prev.filter(id => id !== fid))}
-                                data-testid={`button-remove-folder-${fid}`}
-                              >
-                                <X className="w-3 h-3" />
-                              </Button>
-                            </TableCell>
-                          </SortableTableRow>
-                        );
-                      })}
-                    </TableBody>
-                  </Table>
-                </SortableContext_Wrapper>
-              </div>
+              <Card>
+                <CardContent className="p-0">
+                  <SortableContext_Wrapper
+                    items={selectedFolderIds.map(id => ({ id }))}
+                    onReorder={(reordered) => setSelectedFolderIds(reordered.map(r => Number(r.id)))}
+                  >
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead className="w-[40px]"></TableHead>
+                          <TableHead>Nazov</TableHead>
+                          <TableHead className="w-[60px]">Akcie</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {selectedFolderIds.map((fid, idx) => {
+                          const folder = allFolders?.find(f => f.id === fid);
+                          return (
+                            <SortableTableRow key={fid} id={fid} data-testid={`row-product-folder-${fid}`}>
+                              <TableCell className="font-medium">{folder?.name || `Folder ${fid}`}</TableCell>
+                              <TableCell className="w-[60px]">
+                                <Button
+                                  type="button"
+                                  size="icon"
+                                  variant="ghost"
+                                  onClick={() => setSelectedFolderIds(prev => prev.filter(id => id !== fid))}
+                                  data-testid={`button-remove-folder-${fid}`}
+                                >
+                                  <X className="w-3 h-3" />
+                                </Button>
+                              </TableCell>
+                            </SortableTableRow>
+                          );
+                        })}
+                      </TableBody>
+                    </Table>
+                  </SortableContext_Wrapper>
+                </CardContent>
+              </Card>
             )}
             <Popover>
               <PopoverTrigger asChild>
