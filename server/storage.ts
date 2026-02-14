@@ -71,6 +71,10 @@ import {
   contractFolders, folderPanels,
   type ContractFolder, type InsertContractFolder,
   type FolderPanel, type InsertFolderPanel,
+  productFolderAssignments,
+  type ProductFolderAssignment,
+  contractFieldSettings,
+  type ContractFieldSetting,
 } from "@shared/schema";
 import { eq, and, or, ne, like, sql, lte, gte, desc } from "drizzle-orm";
 
@@ -256,7 +260,7 @@ export interface IStorage {
   deleteContractPassword(id: number): Promise<void>;
 
   getContractParameterValues(contractId: number): Promise<ContractParameterValue[]>;
-  saveContractParameterValues(contractId: number, values: { parameterId: number; value: string }[]): Promise<void>;
+  saveContractParameterValues(contractId: number, values: { parameterId: number; value: string; snapshotLabel?: string; snapshotType?: string; snapshotOptions?: string[]; snapshotHelpText?: string }[]): Promise<void>;
 
   // Client Groups
   getClientGroups(stateId?: number): Promise<ClientGroup[]>;
@@ -377,6 +381,14 @@ export interface IStorage {
   deleteContractFolder(id: number): Promise<void>;
   getFolderPanels(folderId: number): Promise<FolderPanel[]>;
   setFolderPanels(folderId: number, assignments: { panelId: number; gridColumns: number }[]): Promise<void>;
+
+  // Product Folder Assignments (ArutsoK 38)
+  getProductFolderAssignments(productId: number): Promise<ProductFolderAssignment[]>;
+  setProductFolderAssignments(productId: number, assignments: { folderId: number; sortOrder: number }[]): Promise<void>;
+
+  // Contract Field Settings (ArutsoK 38)
+  getContractFieldSettings(): Promise<ContractFieldSetting[]>;
+  upsertContractFieldSetting(fieldKey: string, requiredForPfa: boolean): Promise<ContractFieldSetting>;
 
   // Calendar Events
   getCalendarEvents(): Promise<CalendarEvent[]>;
@@ -1491,11 +1503,19 @@ export class DatabaseStorage implements IStorage {
       .where(eq(contractParameterValues.contractId, contractId));
   }
 
-  async saveContractParameterValues(contractId: number, values: { parameterId: number; value: string }[]): Promise<void> {
+  async saveContractParameterValues(contractId: number, values: { parameterId: number; value: string; snapshotLabel?: string; snapshotType?: string; snapshotOptions?: string[]; snapshotHelpText?: string }[]): Promise<void> {
     await db.delete(contractParameterValues).where(eq(contractParameterValues.contractId, contractId));
     if (values.length > 0) {
       await db.insert(contractParameterValues).values(
-        values.map(v => ({ contractId, parameterId: v.parameterId, value: v.value }))
+        values.map(v => ({
+          contractId,
+          parameterId: v.parameterId,
+          value: v.value,
+          snapshotLabel: v.snapshotLabel || null,
+          snapshotType: v.snapshotType || null,
+          snapshotOptions: v.snapshotOptions || [],
+          snapshotHelpText: v.snapshotHelpText || null,
+        }))
       );
     }
   }
@@ -2165,6 +2185,44 @@ export class DatabaseStorage implements IStorage {
         }))
       );
     }
+  }
+
+  // Product Folder Assignments (ArutsoK 38)
+  async getProductFolderAssignments(productId: number): Promise<ProductFolderAssignment[]> {
+    return await db.select().from(productFolderAssignments)
+      .where(eq(productFolderAssignments.productId, productId))
+      .orderBy(productFolderAssignments.sortOrder);
+  }
+
+  async setProductFolderAssignments(productId: number, assignments: { folderId: number; sortOrder: number }[]): Promise<void> {
+    await db.delete(productFolderAssignments).where(eq(productFolderAssignments.productId, productId));
+    if (assignments.length > 0) {
+      await db.insert(productFolderAssignments).values(
+        assignments.map(a => ({
+          productId,
+          folderId: a.folderId,
+          sortOrder: a.sortOrder,
+        }))
+      );
+    }
+  }
+
+  // Contract Field Settings (ArutsoK 38)
+  async getContractFieldSettings(): Promise<ContractFieldSetting[]> {
+    return await db.select().from(contractFieldSettings);
+  }
+
+  async upsertContractFieldSetting(fieldKey: string, requiredForPfa: boolean): Promise<ContractFieldSetting> {
+    const existing = await db.select().from(contractFieldSettings).where(eq(contractFieldSettings.fieldKey, fieldKey));
+    if (existing.length > 0) {
+      const [updated] = await db.update(contractFieldSettings)
+        .set({ requiredForPfa })
+        .where(eq(contractFieldSettings.fieldKey, fieldKey))
+        .returning();
+      return updated;
+    }
+    const [created] = await db.insert(contractFieldSettings).values({ fieldKey, requiredForPfa }).returning();
+    return created;
   }
 }
 

@@ -45,6 +45,7 @@ import PodporaRegistracia from "@/pages/PodporaRegistracia";
 import NastaveniePrehladov from "@/pages/NastaveniePrehladov";
 import SettingsStates from "@/pages/SettingsStates";
 import ContractForm from "@/pages/ContractForm";
+import ContractFieldSettings from "@/pages/ContractFieldSettings";
 import { AppShell } from "@/components/layout/AppShell";
 
 function PrivateRoute({ component: Component, ...rest }: any) {
@@ -102,6 +103,7 @@ function Router() {
       <Route path="/contract-statuses" component={() => <PrivateRoute component={ContractStatuses} />} />
       <Route path="/contract-template-settings" component={() => <PrivateRoute component={ContractTemplates} />} />
       <Route path="/contract-template-management" component={() => <PrivateRoute component={ContractTemplates} />} />
+      <Route path="/contract-field-settings" component={() => <PrivateRoute component={ContractFieldSettings} />} />
       <Route path="/contract-inventories" component={() => <PrivateRoute component={ContractInventories} />} />
       <Route path="/supisky" component={() => <PrivateRoute component={SupiskyPage} />} />
       <Route path="/client-groups" component={() => <PrivateRoute component={ClientGroups} />} />

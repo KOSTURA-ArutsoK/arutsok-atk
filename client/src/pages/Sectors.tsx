@@ -37,6 +37,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { ProcessingSaveButton } from "@/components/processing-save-button";
+import { SortableTableRow, SortableContext_Wrapper } from "@/components/sortable-list";
 
 const PARAM_TYPES = [
   { value: "text", label: "Text" },
@@ -292,19 +293,22 @@ function SectorProductFormDialog({
   const { toast } = useToast();
   const timerRef = useRef<number>(0);
 
+  const { data: partners } = usePartners();
+
   const [sectionId, setSectionId] = useState<string>("");
   const [name, setName] = useState("");
   const [abbreviation, setAbbreviation] = useState("");
-  const [selectedParameterIds, setSelectedParameterIds] = useState<number[]>([]);
+  const [partnerId, setPartnerId] = useState<string>("");
+  const [selectedFolderIds, setSelectedFolderIds] = useState<number[]>([]);
 
-  const { data: allParameters } = useQuery<Parameter[]>({
-    queryKey: ["/api/parameters"],
+  const { data: allFolders } = useQuery<ContractFolder[]>({
+    queryKey: ["/api/contract-folders"],
   });
 
-  const { data: productParams } = useQuery<SectorProductParameter[]>({
-    queryKey: ["/api/sector-products", editingProduct?.id, "parameters"],
+  const { data: productFolders } = useQuery<any[]>({
+    queryKey: ["/api/sector-products", editingProduct?.id, "folders"],
     queryFn: async () => {
-      const res = await fetch(`/api/sector-products/${editingProduct!.id}/parameters`, { credentials: "include" });
+      const res = await fetch(`/api/sector-products/${editingProduct!.id}/folders`, { credentials: "include" });
       if (!res.ok) throw new Error("Failed");
       return res.json();
     },
@@ -317,8 +321,10 @@ function SectorProductFormDialog({
       return res.json();
     },
     onSuccess: async (created: SectorProduct) => {
-      if (selectedParameterIds.length > 0) {
-        await apiRequest("PUT", `/api/sector-products/${created.id}/parameters`, { parameterIds: selectedParameterIds });
+      if (selectedFolderIds.length > 0) {
+        await apiRequest("PUT", `/api/sector-products/${created.id}/folders`, {
+          assignments: selectedFolderIds.map((fid, idx) => ({ folderId: fid, sortOrder: idx }))
+        });
       }
       queryClient.invalidateQueries({ queryKey: ["/api/sector-products"] });
       toast({ title: "Uspech", description: "Produkt vytvoreny" });
@@ -330,11 +336,13 @@ function SectorProductFormDialog({
   const updateMutation = useMutation({
     mutationFn: async (data: any) => {
       await apiRequest("PUT", `/api/sector-products/${editingProduct!.id}`, data);
-      await apiRequest("PUT", `/api/sector-products/${editingProduct!.id}/parameters`, { parameterIds: selectedParameterIds });
+      await apiRequest("PUT", `/api/sector-products/${editingProduct!.id}/folders`, {
+        assignments: selectedFolderIds.map((fid, idx) => ({ folderId: fid, sortOrder: idx }))
+      });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/sector-products"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/sector-products", editingProduct?.id, "parameters"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/sector-products", editingProduct?.id, "folders"] });
       toast({ title: "Uspech", description: "Produkt aktualizovany" });
       onOpenChange(false);
     },
@@ -348,20 +356,22 @@ function SectorProductFormDialog({
         setSectionId(editingProduct.sectionId.toString());
         setName(editingProduct.name || "");
         setAbbreviation(editingProduct.abbreviation || "");
+        setPartnerId(editingProduct.partnerId?.toString() || "");
       } else {
         setSectionId(preSelectedSectionId?.toString() || "");
         setName("");
         setAbbreviation("");
-        setSelectedParameterIds([]);
+        setPartnerId("");
+        setSelectedFolderIds([]);
       }
     }
   }, [open, editingProduct, preSelectedSectionId]);
 
   useEffect(() => {
-    if (productParams) {
-      setSelectedParameterIds(productParams.map(pp => pp.parameterId));
+    if (productFolders) {
+      setSelectedFolderIds([...productFolders].sort((a: any, b: any) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0)).map((pf: any) => pf.folderId));
     }
-  }, [productParams]);
+  }, [productFolders]);
 
   const handleOpenChange = useCallback((isOpen: boolean) => {
     onOpenChange(isOpen);
@@ -376,7 +386,7 @@ function SectorProductFormDialog({
       toast({ title: "Chyba", description: "Vyberte sekciu", variant: "destructive" });
       return;
     }
-    const payload = { sectionId: parseInt(sectionId), name, abbreviation };
+    const payload = { sectionId: parseInt(sectionId), name, abbreviation, partnerId: partnerId ? parseInt(partnerId) : null };
     if (editingProduct) {
       updateMutation.mutate(payload);
     } else {
@@ -417,63 +427,81 @@ function SectorProductFormDialog({
             <Input value={abbreviation} onChange={e => setAbbreviation(e.target.value)} className="font-mono uppercase" data-testid="input-sector-product-abbreviation" />
           </div>
           <div className="space-y-2">
-            <label className="text-sm font-medium">Parametre</label>
-            {selectedParameterIds.length > 0 && (
-              <div className="flex flex-wrap gap-1.5 mb-2">
-                {selectedParameterIds.map(pid => {
-                  const p = allParameters?.find(x => x.id === pid);
-                  return p ? (
-                    <Badge key={pid} variant="secondary" className="gap-1">
-                      {p.name}
-                      <button
-                        type="button"
-                        className="ml-0.5 rounded-full hover-elevate"
-                        onClick={() => setSelectedParameterIds(prev => prev.filter(id => id !== pid))}
-                        data-testid={`badge-remove-param-${pid}`}
-                      >
-                        <X className="w-3 h-3" />
-                      </button>
-                    </Badge>
-                  ) : null;
-                })}
+            <label className="text-sm font-medium">Obchodný partner</label>
+            <Select value={partnerId} onValueChange={(val) => setPartnerId(val === "__clear__" ? "" : val)}>
+              <SelectTrigger data-testid="select-product-partner">
+                <SelectValue placeholder="Vyberte partnera" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="__clear__">— Žiadny —</SelectItem>
+                {partners?.filter(p => !p.isDeleted).map(p => (
+                  <SelectItem key={p.id} value={p.id.toString()}>{p.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-2">
+            <label className="text-sm font-medium">Priečinky</label>
+            {selectedFolderIds.length === 0 ? (
+              <p className="text-sm text-muted-foreground py-2 text-center" data-testid="text-no-product-folders">Žiadne priečinky priradené</p>
+            ) : (
+              <div className="border rounded-md">
+                <SortableContext_Wrapper
+                  items={selectedFolderIds.map(id => ({ id }))}
+                  onReorder={(reordered) => setSelectedFolderIds(reordered.map(r => Number(r.id)))}
+                >
+                  <Table>
+                    <TableBody>
+                      {selectedFolderIds.map((fid, idx) => {
+                        const folder = allFolders?.find(f => f.id === fid);
+                        return (
+                          <SortableTableRow key={fid} id={fid} data-testid={`row-product-folder-${fid}`}>
+                            <TableCell className="flex-1">{folder?.name || `Folder ${fid}`}</TableCell>
+                            <TableCell className="w-10">
+                              <Button
+                                type="button"
+                                size="icon"
+                                variant="ghost"
+                                onClick={() => setSelectedFolderIds(prev => prev.filter(id => id !== fid))}
+                                data-testid={`button-remove-folder-${fid}`}
+                              >
+                                <X className="w-3 h-3" />
+                              </Button>
+                            </TableCell>
+                          </SortableTableRow>
+                        );
+                      })}
+                    </TableBody>
+                  </Table>
+                </SortableContext_Wrapper>
               </div>
             )}
             <Popover>
               <PopoverTrigger asChild>
-                <Button variant="outline" className="w-full justify-between" data-testid="button-select-parameters">
+                <Button variant="outline" className="w-full justify-between" data-testid="button-select-folders">
                   <span className="text-muted-foreground">
-                    {selectedParameterIds.length > 0 ? `${selectedParameterIds.length} vybranych` : "Vyberte parametre..."}
+                    {selectedFolderIds.length > 0 ? `${selectedFolderIds.length} vybraných` : "Pridať priečinky..."}
                   </span>
                   <ChevronsUpDown className="w-4 h-4 text-muted-foreground" />
                 </Button>
               </PopoverTrigger>
               <PopoverContent className="w-[400px] p-0" align="start">
                 <Command>
-                  <CommandInput placeholder="Hladat parametre..." data-testid="input-search-param-combobox" />
+                  <CommandInput placeholder="Hladať priečinky..." data-testid="input-search-folder-combobox" />
                   <CommandList>
-                    <CommandEmpty>Ziadne parametre</CommandEmpty>
+                    <CommandEmpty>Žiadne priečinky</CommandEmpty>
                     <CommandGroup>
-                      {allParameters?.map(param => {
-                        const isSelected = selectedParameterIds.includes(param.id);
-                        return (
-                          <CommandItem
-                            key={param.id}
-                            value={param.name}
-                            onSelect={() => {
-                              if (isSelected) {
-                                setSelectedParameterIds(prev => prev.filter(id => id !== param.id));
-                              } else {
-                                setSelectedParameterIds(prev => [...prev, param.id]);
-                              }
-                            }}
-                            data-testid={`combobox-param-${param.id}`}
-                          >
-                            <Check className={`w-4 h-4 mr-2 ${isSelected ? "opacity-100" : "opacity-0"}`} />
-                            <span className="flex-1">{param.name}</span>
-                            <Badge variant="outline" className="text-xs ml-2">{getParamTypeLabel(param.paramType)}</Badge>
-                          </CommandItem>
-                        );
-                      })}
+                      {allFolders?.filter(f => !selectedFolderIds.includes(f.id)).map(folder => (
+                        <CommandItem
+                          key={folder.id}
+                          value={folder.name}
+                          onSelect={() => setSelectedFolderIds(prev => [...prev, folder.id])}
+                          data-testid={`combobox-folder-${folder.id}`}
+                        >
+                          <FolderClosed className="w-4 h-4 mr-2" />
+                          <span>{folder.name}</span>
+                        </CommandItem>
+                      ))}
                     </CommandGroup>
                   </CommandList>
                 </Command>
@@ -1288,14 +1316,13 @@ function ProductsTab() {
                   <TableHead>Nazov produktu</TableHead>
                   <TableHead>Skratka produktu</TableHead>
                   <TableHead>Sekcia</TableHead>
-                  <TableHead>Panely</TableHead>
                   <TableHead>Akcie</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {filtered.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={5} className="text-center text-muted-foreground py-8" data-testid="text-no-sector-products">
+                    <TableCell colSpan={4} className="text-center text-muted-foreground py-8" data-testid="text-no-sector-products">
                       Ziadne produkty
                     </TableCell>
                   </TableRow>
@@ -1307,7 +1334,6 @@ function ProductsTab() {
                       sectionName={getSectionName(product.sectionId)}
                       onEdit={() => { setEditingProduct(product); setDialogOpen(true); }}
                       onDelete={() => setDeleteTarget(product)}
-                      onManagePanels={() => setPanelAssignProduct(product)}
                     />
                   ))
                 )}
@@ -1347,40 +1373,18 @@ function ProductTableRow({
   sectionName,
   onEdit,
   onDelete,
-  onManagePanels,
 }: {
   product: SectorProduct;
   sectionName: string;
   onEdit: () => void;
   onDelete: () => void;
-  onManagePanels: () => void;
 }) {
-  const { data: productPanels } = useQuery<ProductPanel[]>({
-    queryKey: ["/api/sector-products", product.id, "panels"],
-    queryFn: async () => {
-      const res = await fetch(`/api/sector-products/${product.id}/panels`, { credentials: "include" });
-      if (!res.ok) throw new Error("Failed");
-      return res.json();
-    },
-  });
-
   return (
     <TableRow data-testid={`row-sector-product-${product.id}`}>
       <TableCell className="font-medium">{product.name}</TableCell>
       <TableCell className="font-mono text-sm">{product.abbreviation || "-"}</TableCell>
       <TableCell>
         <Badge variant="outline">{sectionName}</Badge>
-      </TableCell>
-      <TableCell>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={onManagePanels}
-          data-testid={`button-manage-panels-${product.id}`}
-        >
-          <LayoutGrid className="w-3 h-3 mr-1" />
-          {productPanels?.length ?? 0}
-        </Button>
       </TableCell>
       <TableCell>
         <div className="flex items-center gap-1">

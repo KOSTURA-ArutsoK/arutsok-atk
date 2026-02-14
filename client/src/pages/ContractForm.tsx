@@ -5,7 +5,7 @@ import { useAppUser } from "@/hooks/use-app-user";
 import { useStates } from "@/hooks/use-hierarchy";
 import { useToast } from "@/hooks/use-toast";
 import { useLocation, useParams } from "wouter";
-import type { Contract, ContractStatus, ContractTemplate, ContractInventory, Subject, Partner, MyCompany, Sector, Section, SectorProduct, ContractPassword, ContractParameterValue } from "@shared/schema";
+import type { Contract, ContractStatus, ContractTemplate, ContractInventory, Subject, Partner, MyCompany, Sector, Section, SectorProduct, ContractPassword, ContractParameterValue, ContractFieldSetting } from "@shared/schema";
 import { ArrowLeft, Save, Loader2, LayoutGrid, KeyRound, Plus, Trash2, FileText, Users, ClipboardList, FolderOpen, FolderClosed, DollarSign, BarChart3, ListChecks, PieChart, ChevronLeft, ChevronRight } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -372,6 +372,20 @@ export default function ContractForm() {
     queryKey: ["/api/contract-folders-with-panels"],
   });
 
+  const { data: productFolderAssignments } = useQuery<{ id: number; productId: number; folderId: number; sortOrder: number }[]>({
+    queryKey: ["/api/sector-products", sectorProductId, "folders"],
+    queryFn: async () => {
+      const res = await fetch(`/api/sector-products/${sectorProductId}/folders`, { credentials: "include" });
+      if (!res.ok) throw new Error("Failed");
+      return res.json();
+    },
+    enabled: !!sectorProductId,
+  });
+
+  const { data: fieldSettings } = useQuery<ContractFieldSetting[]>({
+    queryKey: ["/api/contract-field-settings"],
+  });
+
   useEffect(() => {
     timerRef.current = performance.now();
   }, []);
@@ -450,7 +464,7 @@ export default function ContractForm() {
   }, [existingPasswords]);
 
   const saveParamValuesMutation = useMutation({
-    mutationFn: (data: { contractId: number; values: { parameterId: number; value: string }[] }) =>
+    mutationFn: (data: { contractId: number; values: { parameterId: number; value: string; snapshotLabel?: string; snapshotType?: string; snapshotOptions?: string[]; snapshotHelpText?: string }[] }) =>
       apiRequest("POST", `/api/contracts/${data.contractId}/parameter-values`, { values: data.values }),
   });
 
@@ -487,14 +501,29 @@ export default function ContractForm() {
     onError: () => toast({ title: "Chyba", description: "Nepodarilo sa aktualizovat zmluvu", variant: "destructive" }),
   });
 
-  function buildParamEntries(): { parameterId: number; value: string }[] {
-    const entries: { parameterId: number; value: string }[] = [];
+  function buildParamEntries(): { parameterId: number; value: string; snapshotLabel?: string; snapshotType?: string; snapshotOptions?: string[]; snapshotHelpText?: string }[] {
+    const entries: { parameterId: number; value: string; snapshotLabel?: string; snapshotType?: string; snapshotOptions?: string[]; snapshotHelpText?: string }[] = [];
     for (const [key, value] of Object.entries(panelValues)) {
       const parts = key.split("_");
       if (parts.length === 2) {
         const parameterId = parseInt(parts[1]);
         if (!isNaN(parameterId) && value !== "") {
-          entries.push({ parameterId, value });
+          let snapshot: { snapshotLabel?: string; snapshotType?: string; snapshotOptions?: string[]; snapshotHelpText?: string } = {};
+          if (productPanels) {
+            for (const panel of productPanels) {
+              const param = panel.parameters.find(p => p.id === parameterId);
+              if (param) {
+                snapshot = {
+                  snapshotLabel: param.name,
+                  snapshotType: param.paramType,
+                  snapshotOptions: param.options || [],
+                  snapshotHelpText: param.helpText || "",
+                };
+                break;
+              }
+            }
+          }
+          entries.push({ parameterId, value, ...snapshot });
         }
       }
     }
@@ -546,6 +575,10 @@ export default function ContractForm() {
         <Loader2 className="w-8 h-8 animate-spin text-primary" />
       </div>
     );
+  }
+
+  function isFieldRequired(fieldKey: string): boolean {
+    return fieldSettings?.find(s => s.fieldKey === fieldKey)?.requiredForPfa ?? false;
   }
 
   const currentCompany = companies?.find(c => c.id === (companyId ? parseInt(companyId) : appUser?.activeCompanyId));
@@ -647,10 +680,10 @@ export default function ContractForm() {
               </div>
 
               <div className="grid grid-cols-3 gap-[clamp(0.5rem,1vw,1rem)]">
-                <CompactField label="KIK">
+                <CompactField label={`KIK${isFieldRequired("kik") ? " *" : ""}`}>
                   <Input value={kik} onChange={e => setKik(e.target.value)} data-testid="input-contract-kik" />
                 </CompactField>
-                <CompactField label="Cislo navrhu">
+                <CompactField label={`Cislo navrhu${isFieldRequired("proposalNumber") ? " *" : ""}`}>
                   <Input value={proposalNumber} onChange={e => setProposalNumber(e.target.value)} data-testid="input-contract-proposal" />
                 </CompactField>
                 <CompactField label="Cislo zmluvy">
@@ -659,10 +692,10 @@ export default function ContractForm() {
               </div>
 
               <div className="grid grid-cols-3 gap-[clamp(0.5rem,1vw,1rem)]">
-                <CompactField label="Miesto podpisu *">
+                <CompactField label={`Miesto podpisu${isFieldRequired("signingPlace") ? " *" : ""}`}>
                   <Input value={signingPlace} onChange={e => setSigningPlace(e.target.value)} data-testid="input-signing-place" />
                 </CompactField>
-                <CompactField label="Typ zmluvy *">
+                <CompactField label={`Typ zmluvy${isFieldRequired("contractType") ? " *" : ""}`}>
                   <Select value={contractType} onValueChange={setContractType}>
                     <SelectTrigger data-testid="select-contract-type">
                       <SelectValue placeholder="Vyberte typ" />
@@ -709,7 +742,7 @@ export default function ContractForm() {
               </div>
 
               <div className="grid grid-cols-4 gap-[clamp(0.5rem,1vw,1rem)]">
-                <CompactField label="Frekvencia platenia *">
+                <CompactField label={`Frekvencia platenia${isFieldRequired("paymentFrequency") ? " *" : ""}`}>
                   <Select value={paymentFrequency} onValueChange={setPaymentFrequency}>
                     <SelectTrigger data-testid="select-payment-frequency">
                       <SelectValue placeholder="Vyberte frekvenciu" />
@@ -721,7 +754,7 @@ export default function ContractForm() {
                     </SelectContent>
                   </Select>
                 </CompactField>
-                <CompactField label="Rocne poistne">
+                <CompactField label={`Rocne poistne${isFieldRequired("annualPremium") ? " *" : ""}`}>
                   <Input type="number" value={annualPremium} onChange={e => setAnnualPremium(e.target.value)} className="font-mono" data-testid="input-annual-premium" />
                 </CompactField>
                 <div className="col-span-2">
@@ -879,7 +912,15 @@ export default function ContractForm() {
               {sectorProductId && productPanels && productPanels.length > 0 && (() => {
                 const productPanelIds = new Set(productPanels.map(p => p.id));
                 const assignedPanelIds = new Set<number>();
-                const foldersWithMatchingPanels = (contractFolders || [])
+                const assignedFolderIds = productFolderAssignments
+                  ? [...productFolderAssignments].sort((a, b) => a.sortOrder - b.sortOrder).map(pfa => pfa.folderId)
+                  : [];
+                const orderedFolders = assignedFolderIds.length > 0
+                  ? assignedFolderIds
+                    .map(fid => (contractFolders || []).find(f => f.id === fid))
+                    .filter(Boolean) as FolderWithPanels[]
+                  : (contractFolders || []);
+                const foldersWithMatchingPanels = orderedFolders
                   .map(folder => {
                     const matchingPanels = folder.panels
                       .filter(fp => productPanelIds.has(fp.panelId))

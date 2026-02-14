@@ -105,6 +105,7 @@ const zmluvyFlatItems = [
 const nastaveniaSablonChildren = [
   { href: "/contract-template-management", icon: FileStack, label: "Sprava sablon" },
   { href: "/contract-statuses", icon: ListChecks, label: "Stavy zmluv" },
+  { href: "/contract-field-settings", icon: Sliders, label: "Nastavenie evidencie" },
 ];
 
 const supiskyItems = [

@@ -3314,6 +3314,72 @@ export async function registerRoutes(
     }
   });
 
+  // === PRODUCT FOLDER ASSIGNMENTS (ArutsoK 38) ===
+  app.get("/api/sector-products/:id/folders", isAuthenticated, async (req, res) => {
+    try {
+      const id = Number(req.params.id);
+      const assignments = await storage.getProductFolderAssignments(id);
+      res.json(assignments);
+    } catch (err) {
+      console.error("Get product folder assignments error:", err);
+      res.status(500).json({ message: "Internal error" });
+    }
+  });
+
+  app.put("/api/sector-products/:id/folders", isAuthenticated, async (req: any, res) => {
+    try {
+      const id = Number(req.params.id);
+      const assignments = (req.body.assignments || []).map((a: any, idx: number) => ({
+        folderId: Number(a.folderId),
+        sortOrder: typeof a.sortOrder === "number" ? a.sortOrder : idx,
+      }));
+      await storage.setProductFolderAssignments(id, assignments);
+      res.json({ success: true });
+    } catch (err) {
+      console.error("Set product folder assignments error:", err);
+      res.status(500).json({ message: "Internal error" });
+    }
+  });
+
+  // === CONTRACT FIELD SETTINGS (ArutsoK 38) ===
+  app.get("/api/contract-field-settings", isAuthenticated, async (_req, res) => {
+    try {
+      const settings = await storage.getContractFieldSettings();
+      res.json(settings);
+    } catch (err) {
+      console.error("Get contract field settings error:", err);
+      res.status(500).json({ message: "Internal error" });
+    }
+  });
+
+  app.put("/api/contract-field-settings", isAuthenticated, async (req: any, res) => {
+    try {
+      const { fieldKey, requiredForPfa } = req.body;
+      if (!fieldKey) return res.status(400).json({ message: "fieldKey is required" });
+      const setting = await storage.upsertContractFieldSetting(fieldKey, !!requiredForPfa);
+      res.json(setting);
+    } catch (err) {
+      console.error("Upsert contract field setting error:", err);
+      res.status(500).json({ message: "Internal error" });
+    }
+  });
+
+  app.put("/api/contract-field-settings/bulk", isAuthenticated, async (req: any, res) => {
+    try {
+      const { settings } = req.body;
+      if (!Array.isArray(settings)) return res.status(400).json({ message: "settings array is required" });
+      const results = [];
+      for (const s of settings) {
+        const result = await storage.upsertContractFieldSetting(s.fieldKey, !!s.requiredForPfa);
+        results.push(result);
+      }
+      res.json(results);
+    } catch (err) {
+      console.error("Bulk upsert contract field settings error:", err);
+      res.status(500).json({ message: "Internal error" });
+    }
+  });
+
   // === CALENDAR EVENTS ===
   app.get("/api/calendar-events", isAuthenticated, async (_req, res) => {
     try {

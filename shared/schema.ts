@@ -598,6 +598,10 @@ export const contractParameterValues = pgTable("contract_parameter_values", {
   contractId: integer("contract_id").notNull().references(() => contracts.id),
   parameterId: integer("parameter_id").notNull(),
   value: text("value").default(""),
+  snapshotLabel: text("snapshot_label"),
+  snapshotType: text("snapshot_type"),
+  snapshotOptions: text("snapshot_options").array().default([]),
+  snapshotHelpText: text("snapshot_help_text"),
 });
 
 // === SUPISKY (Settlement Sheets) ===
