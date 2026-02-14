@@ -1298,6 +1298,12 @@ export async function registerRoutes(
   app.put(api.contractStatusesApi.update.path, isAuthenticated, async (req: any, res) => {
     try {
       const input = api.contractStatusesApi.update.input.parse(req.body);
+      // ArutsoK 43 - Protect system status name from being changed
+      const statuses = await storage.getContractStatuses();
+      const target = statuses.find(s => s.id === Number(req.params.id));
+      if (target?.isSystem && input.name && input.name !== target.name) {
+        return res.status(400).json({ message: "Nazov systemoveho stavu nie je mozne zmenit" });
+      }
       const updated = await storage.updateContractStatus(Number(req.params.id), input);
       await logAudit(req, { action: "UPDATE", module: "stavy_zmluv", entityId: Number(req.params.id), newData: input });
       res.json(updated);
