@@ -2,6 +2,7 @@ import { useState, useRef, useCallback, useEffect } from "react";
 import { usePartners, useCreatePartner, useUpdatePartner, useDeletePartner, usePartnerContracts, usePartnerContacts, usePartnerProducts, useCreatePartnerContract, useCreatePartnerContact, useCreatePartnerProduct, useContractAmendments, useCreateContractAmendment } from "@/hooks/use-partners";
 import { useMyCompanies } from "@/hooks/use-companies";
 import { useStates } from "@/hooks/use-hierarchy";
+import { useAppUser } from "@/hooks/use-app-user";
 import { Plus, Briefcase, Pencil, Trash2, Eye, Clock, FileText, Users, Package, Link2, X, Calendar, Archive, Download, Upload, ChevronDown, ChevronRight, MapPin } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -88,6 +89,7 @@ function PartnerFormDialog({
   const updateMutation = useUpdatePartner();
   const { data: allPartners } = usePartners();
   const { data: allStates } = useStates();
+  const { data: appUser } = useAppUser();
   const timerRef = useRef<number>(0);
   const [notesHtml, setNotesHtml] = useState("");
 
@@ -151,7 +153,7 @@ function PartnerFormDialog({
           orientNumber: "",
           postalCode: "",
           city: "",
-          stateId: undefined,
+          stateId: appUser?.activeStateId || undefined,
           description: "",
           notes: "",
           collaborationDate: undefined,
@@ -159,7 +161,7 @@ function PartnerFormDialog({
         setNotesHtml("");
       }
     }
-  }, [open, editingPartner, form]);
+  }, [open, editingPartner, form, appUser?.activeStateId]);
 
   const handleOpenChange = useCallback((isOpen: boolean) => {
     onOpenChange(isOpen);

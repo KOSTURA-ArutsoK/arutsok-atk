@@ -1533,10 +1533,7 @@ export class DatabaseStorage implements IStorage {
       .from(clientGroupMembers)
       .innerJoin(clientGroups, eq(clientGroupMembers.groupId, clientGroups.id))
       .where(
-        and(
-          eq(clientGroupMembers.subjectId, subjectId),
-          eq(clientGroups.isDeleted, false)
-        )
+        eq(clientGroupMembers.subjectId, subjectId)
       );
     if (memberships.length === 0) return true;
     const blocked = memberships.some(m => m.allowLogin === false);
