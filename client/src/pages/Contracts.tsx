@@ -6,7 +6,7 @@ import { useStates } from "@/hooks/use-hierarchy";
 import { useToast } from "@/hooks/use-toast";
 import { useLocation } from "wouter";
 import type { Contract, ContractStatus, ContractTemplate, ContractInventory, Subject, Partner, Product, MyCompany, Sector, Section, SectorProduct } from "@shared/schema";
-import { Plus, Pencil, Trash2, Eye, FileText, Loader2, Lock, LayoutGrid, Send, Upload, Inbox, CheckCircle2, ChevronDown, ChevronRight } from "lucide-react";
+import { Plus, Pencil, Trash2, Eye, FileText, Loader2, Lock, LayoutGrid, Send, Upload, Inbox, CheckCircle2, ChevronDown, ChevronRight, Printer } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -821,7 +821,7 @@ export default function Contracts() {
   const [filterStatusId, setFilterStatusId] = useState<string>("all");
   const [filterInventoryId, setFilterInventoryId] = useState<string>("all");
 
-  const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
+  const [selectedIds, setSelectedIds] = useState<number[]>([]);
   const [sprievodkaDialogOpen, setSprievodkaDialogOpen] = useState(false);
   const [sprievodkaName, setSprievodkaName] = useState("");
 
@@ -921,7 +921,7 @@ export default function Contracts() {
     onSuccess: () => {
       invalidateContractCaches();
       toast({ title: "Uspech", description: "Zmluvy odoslane na schvalenie" });
-      setSelectedIds(new Set());
+      setSelectedIds([]);
       setSprievodkaDialogOpen(false);
       setSprievodkaName("");
     },
@@ -942,18 +942,16 @@ export default function Contracts() {
 
   function toggleSelect(id: number) {
     setSelectedIds(prev => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
+      if (prev.includes(id)) return prev.filter(x => x !== id);
+      return [...prev, id];
     });
   }
 
   function toggleSelectAll() {
-    if (selectedIds.size === activeContracts.length) {
-      setSelectedIds(new Set());
+    if (selectedIds.length === activeContracts.length) {
+      setSelectedIds([]);
     } else {
-      setSelectedIds(new Set(activeContracts.map(c => c.id)));
+      setSelectedIds(activeContracts.map(c => c.id));
     }
   }
 
@@ -992,7 +990,7 @@ export default function Contracts() {
     }
     dispatchMutation.mutate({
       name: sprievodkaName.trim(),
-      contractIds: Array.from(selectedIds),
+      contractIds: selectedIds,
     });
   }
 
@@ -1060,6 +1058,7 @@ export default function Contracts() {
             <div className="flex-1">
               <h2 className="text-sm font-semibold" data-testid="text-folder-nahravanie-title">Nahravanie zmluv</h2>
               <p className="text-xs text-muted-foreground">Pracovny priestor PFA - vyberte zmluvy a odoslite na schvalenie</p>
+              <p className="text-xs text-muted-foreground mt-0.5 italic" data-testid="text-ordering-note">Poznamka: Zmluvy budu na sprievodke zoradene podla poradia, v akom ich oznacite.</p>
             </div>
             <Badge variant="outline" data-testid="badge-nahravanie-count">{activeContracts.length}</Badge>
           </div>
@@ -1074,9 +1073,9 @@ export default function Contracts() {
               </p>
             ) : (
               <>
-                {selectedIds.size > 0 && (
+                {selectedIds.length > 0 && (
                   <div className="flex items-center gap-3 p-3 border-b bg-muted/30 flex-wrap">
-                    <span className="text-sm text-muted-foreground">Vybranych: <span className="font-semibold text-foreground">{selectedIds.size}</span></span>
+                    <span className="text-sm text-muted-foreground">Vybranych: <span className="font-semibold text-foreground">{selectedIds.length}</span></span>
                     <Button
                       size="sm"
                       onClick={() => setSprievodkaDialogOpen(true)}
@@ -1092,11 +1091,12 @@ export default function Contracts() {
                     <TableRow>
                       <TableHead className="w-[40px]">
                         <Checkbox
-                          checked={selectedIds.size === activeContracts.length && activeContracts.length > 0}
+                          checked={selectedIds.length === activeContracts.length && activeContracts.length > 0}
                           onCheckedChange={toggleSelectAll}
                           data-testid="checkbox-select-all"
                         />
                       </TableHead>
+                      <TableHead className="w-[40px] text-center">#</TableHead>
                       <TableHead>Cislo zmluvy</TableHead>
                       <TableHead>Klient</TableHead>
                       <TableHead>Partner</TableHead>
@@ -1111,10 +1111,13 @@ export default function Contracts() {
                       <TableRow key={contract.id} data-testid={`row-nahravanie-${contract.id}`}>
                         <TableCell>
                           <Checkbox
-                            checked={selectedIds.has(contract.id)}
+                            checked={selectedIds.includes(contract.id)}
                             onCheckedChange={() => toggleSelect(contract.id)}
                             data-testid={`checkbox-contract-${contract.id}`}
                           />
+                        </TableCell>
+                        <TableCell className="text-center text-xs text-muted-foreground" data-testid={`text-selection-order-${contract.id}`}>
+                          {selectedIds.includes(contract.id) ? selectedIds.indexOf(contract.id) + 1 : ""}
                         </TableCell>
                         <TableCell className="font-mono text-sm" data-testid={`text-contract-number-${contract.id}`}>
                           <span className="flex items-center gap-1">
@@ -1195,6 +1198,15 @@ export default function Contracts() {
                         <Badge variant="outline" data-testid={`badge-sprievodka-count-${group.inventoryId}`}>
                           {group.contracts.length} {group.contracts.length === 1 ? "zmluva" : group.contracts.length < 5 ? "zmluvy" : "zmluv"}
                         </Badge>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={(e) => { e.stopPropagation(); }}
+                          data-testid={`button-print-sprievodka-${group.inventoryId}`}
+                        >
+                          <Printer className="w-3.5 h-3.5 mr-1.5" />
+                          Tlacit sprievodku
+                        </Button>
                         {checkedIds.size > 0 && (
                           <Button
                             size="sm"
@@ -1223,6 +1235,7 @@ export default function Contracts() {
                                     data-testid={`checkbox-accept-all-${group.inventoryId}`}
                                   />
                                 </TableHead>
+                                <TableHead className="w-[40px] text-center">#</TableHead>
                                 <TableHead>Cislo zmluvy</TableHead>
                                 <TableHead>Klient</TableHead>
                                 <TableHead>Partner</TableHead>
@@ -1241,6 +1254,9 @@ export default function Contracts() {
                                       onCheckedChange={() => toggleAcceptContract(group.inventoryId, contract.id)}
                                       data-testid={`checkbox-accept-${contract.id}`}
                                     />
+                                  </TableCell>
+                                  <TableCell className="text-center text-xs text-muted-foreground">
+                                    {contract.sortOrderInInventory || "-"}
                                   </TableCell>
                                   <TableCell className="font-mono text-sm" data-testid={`text-dispatched-number-${contract.id}`}>
                                     <span className="flex items-center gap-1">
@@ -1279,7 +1295,7 @@ export default function Contracts() {
             </DialogHeader>
             <div className="space-y-4">
               <p className="text-sm text-muted-foreground">
-                Vybranych zmluv: <span className="font-semibold text-foreground">{selectedIds.size}</span>. Zmluvy budu odoslane na schvalenie Centralnej kancelarii cez novu sprievodku.
+                Vybranych zmluv: <span className="font-semibold text-foreground">{selectedIds.length}</span>. Zmluvy budu odoslane na schvalenie Centralnej kancelarii cez novu sprievodku.
               </p>
               <div className="space-y-2">
                 <label className="text-sm font-medium">Nazov sprievodky *</label>
@@ -1406,11 +1422,12 @@ export default function Contracts() {
               <TableHeader>
                 <TableRow>
                   <TableHead>Cislo zmluvy</TableHead>
+                  <TableHead>Registracne cislo</TableHead>
                   <TableHead>Klient</TableHead>
                   <TableHead>Partner</TableHead>
                   <TableHead>Produkt</TableHead>
                   <TableHead>Stav</TableHead>
-                  <TableHead>Supiska</TableHead>
+                  <TableHead>Sprievodka</TableHead>
                   <TableHead>Suma</TableHead>
                   <TableHead>Datum podpisu</TableHead>
                   <TableHead className="text-right">Akcie</TableHead>
@@ -1428,6 +1445,9 @@ export default function Contracts() {
                           {contract.isLocked && <Lock className="w-3 h-3 text-amber-500 shrink-0" />}
                           {contract.contractNumber || "-"}
                         </span>
+                      </TableCell>
+                      <TableCell className="font-mono text-sm" data-testid={`text-contract-registration-${contract.id}`}>
+                        {contract.registrationNumber || "-"}
                       </TableCell>
                       <TableCell className="text-sm" data-testid={`text-contract-subject-${contract.id}`}>
                         {getSubjectDisplay(contract.subjectId)}

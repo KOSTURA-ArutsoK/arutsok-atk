@@ -327,6 +327,7 @@ export default function ContractInventories() {
                   <TableHead className="w-10"></TableHead>
                   <TableHead className="w-20">Poradie</TableHead>
                   <TableHead>Nazov</TableHead>
+                  <TableHead>Cislo</TableHead>
                   <TableHead>Popis</TableHead>
                   <TableHead className="w-32">Stav</TableHead>
                   <TableHead className="w-32 text-right">Akcie</TableHead>
@@ -346,15 +347,26 @@ export default function ContractInventories() {
                       <TableCell data-testid={`text-inventory-name-${inventory.id}`}>
                         {inventory.name}
                       </TableCell>
+                      <TableCell className="font-mono text-sm" data-testid={`text-inventory-seq-${inventory.id}`}>
+                        {inventory.sequenceNumber ? `c. ${inventory.sequenceNumber}` : "-"}
+                      </TableCell>
                       <TableCell className="text-sm text-muted-foreground" data-testid={`text-inventory-description-${inventory.id}`}>
                         {inventory.description || "—"}
                       </TableCell>
                       <TableCell data-testid={`badge-inventory-status-${inventory.id}`}>
-                        {inventory.isClosed ? (
-                          <Badge variant="destructive" className="text-xs">Uzavreta</Badge>
-                        ) : (
-                          <Badge className="bg-green-600 text-white text-xs">Otvorena</Badge>
-                        )}
+                        <div className="flex items-center gap-1 flex-wrap">
+                          {inventory.isClosed ? (
+                            <Badge variant="destructive" className="text-xs">Uzavreta</Badge>
+                          ) : (
+                            <Badge className="bg-green-600 text-white text-xs">Otvorena</Badge>
+                          )}
+                          {inventory.isAccepted && (
+                            <Badge variant="outline" className="text-xs border-blue-500 text-blue-500">Prijata</Badge>
+                          )}
+                          {inventory.isDispatched && !inventory.isAccepted && (
+                            <Badge variant="outline" className="text-xs border-amber-500 text-amber-500">Odoslana</Badge>
+                          )}
+                        </div>
                       </TableCell>
                       <TableCell className="text-right">
                         <div className="flex items-center justify-end gap-1 flex-wrap">

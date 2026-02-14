@@ -240,6 +240,9 @@ export interface IStorage {
   updateContractTemplate(id: number, data: Partial<InsertContractTemplate>): Promise<ContractTemplate>;
   deleteContractTemplate(id: number): Promise<void>;
 
+  // Counters
+  getNextCounterValue(counterName: string): Promise<number>;
+
   // Contract Inventories
   getContractInventories(stateId?: number): Promise<ContractInventory[]>;
   createContractInventory(data: InsertContractInventory): Promise<ContractInventory>;
@@ -1399,6 +1402,17 @@ export class DatabaseStorage implements IStorage {
     await db.delete(contractTemplates).where(eq(contractTemplates.id, id));
   }
 
+  // === Counters ===
+
+  async getNextCounterValue(counterName: string): Promise<number> {
+    const [result] = await db
+      .update(globalCounters)
+      .set({ currentValue: sql`${globalCounters.currentValue} + 1` })
+      .where(eq(globalCounters.counterName, counterName))
+      .returning();
+    return result.currentValue;
+  }
+
   // === Contract Inventories ===
 
   async getContractInventories(stateId?: number): Promise<ContractInventory[]> {
@@ -1462,9 +1476,10 @@ export class DatabaseStorage implements IStorage {
       .where(and(
         eq(contracts.isDeleted, false),
         isNotNull(contracts.inventoryId),
-        eq(contractInventories.isAccepted, false)
+        eq(contractInventories.isAccepted, false),
+        eq(contractInventories.isDispatched, true)
       ))
-      .orderBy(sql`${contracts.createdAt} DESC`)
+      .orderBy(contracts.inventoryId, contracts.sortOrderInInventory)
       .then(rows => rows.map(r => r.contract));
   }
 

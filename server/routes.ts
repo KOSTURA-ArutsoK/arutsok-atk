@@ -1437,7 +1437,7 @@ export async function registerRoutes(
     }
   });
 
-  // ArutsoK 45 - Phase 1: Dispatch contracts (PFA sends to Central Office)
+  // ArutsoK 46 - Phase 1: Dispatch contracts (PFA sends to Central Office)
   app.post("/api/contract-inventories/:id/dispatch", isAuthenticated, async (req: any, res) => {
     try {
       const inventoryId = Number(req.params.id);
@@ -1450,23 +1450,32 @@ export async function registerRoutes(
       if (!target) {
         return res.status(404).json({ message: "Sprievodka nenajdena" });
       }
-      for (const contractId of contractIds) {
-        await storage.updateContract(Number(contractId), { inventoryId });
+      const seqNum = await storage.getNextCounterValue("sprievodka_sequence");
+      await storage.updateContractInventory(inventoryId, { 
+        sequenceNumber: seqNum, 
+        name: `Sprievodka c. ${seqNum}`,
+        isDispatched: true 
+      } as any);
+      for (let i = 0; i < contractIds.length; i++) {
+        await storage.updateContract(Number(contractIds[i]), { 
+          inventoryId, 
+          sortOrderInInventory: i + 1 
+        } as any);
       }
       await logAudit(req, {
         action: "CREATE",
         module: "sprievodka_dispatch",
         entityId: inventoryId,
-        entityName: target.name,
-        newData: { contractIds },
+        entityName: `Sprievodka c. ${seqNum}`,
+        newData: { contractIds, sequenceNumber: seqNum },
       });
-      res.json({ success: true, dispatchedCount: contractIds.length });
+      res.json({ success: true, dispatchedCount: contractIds.length, sequenceNumber: seqNum });
     } catch (err) {
       res.status(500).json({ message: "Internal error" });
     }
   });
 
-  // ArutsoK 45 - Phase 2: Accept contracts (Central Office verifies and accepts)
+  // ArutsoK 46 - Phase 2: Accept contracts (Central Office verifies and accepts)
   app.post("/api/contract-inventories/:id/accept", isAuthenticated, async (req: any, res) => {
     try {
       const inventoryId = Number(req.params.id);
@@ -1483,8 +1492,21 @@ export async function registerRoutes(
       if (!systemStatus) {
         return res.status(500).json({ message: "Systemovy stav 'Nahrata do systemu' neexistuje" });
       }
+      const registrationNumbers: Record<number, string> = {};
       for (const contractId of contractIds) {
-        await storage.updateContract(Number(contractId), { statusId: systemStatus.id });
+        const contract = await storage.getContract(Number(contractId));
+        if (!contract) continue;
+        const stateCode = contract.stateId 
+          ? (await db.select().from(states).where(eq(states.id, contract.stateId)).limit(1))?.[0]?.code || "000"
+          : "000";
+        const regSeq = await storage.getNextCounterValue("contract_registration");
+        const paddedSeq = regSeq.toString().padStart(12, "0");
+        const formatted = `${stateCode} ${paddedSeq.replace(/(\d{3})(?=\d)/g, "$1 ")}`;
+        registrationNumbers[Number(contractId)] = formatted;
+        await storage.updateContract(Number(contractId), { 
+          statusId: systemStatus.id,
+          registrationNumber: formatted 
+        } as any);
       }
       const allContractsInInventory = await storage.getContracts({ inventoryId });
       const allAccepted = allContractsInInventory.every(c => 
@@ -1498,10 +1520,11 @@ export async function registerRoutes(
         module: "sprievodka_accept",
         entityId: inventoryId,
         entityName: target.name,
-        newData: { contractIds, statusId: systemStatus.id, allAccepted },
+        newData: { contractIds, statusId: systemStatus.id, allAccepted, registrationNumbers },
       });
-      res.json({ success: true, acceptedCount: contractIds.length, allAccepted });
+      res.json({ success: true, acceptedCount: contractIds.length, allAccepted, registrationNumbers });
     } catch (err) {
+      console.error("Accept error:", err);
       res.status(500).json({ message: "Internal error" });
     }
   });

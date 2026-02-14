@@ -533,12 +533,14 @@ export const contractTemplates = pgTable("contract_templates", {
 // === CONTRACT INVENTORIES (Supisky - batches) ===
 export const contractInventories = pgTable("contract_inventories", {
   id: serial("id").primaryKey(),
+  sequenceNumber: integer("sequence_number"),
   name: text("name").notNull(),
   description: text("description"),
   sortOrder: integer("sort_order").default(0),
   stateId: integer("state_id").references(() => states.id),
   isClosed: boolean("is_closed").default(false),
   isAccepted: boolean("is_accepted").default(false),
+  isDispatched: boolean("is_dispatched").default(false),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
@@ -572,6 +574,8 @@ export const contracts = pgTable("contracts", {
   notes: text("notes"),
   documents: jsonb("documents").$type<DocEntry[]>().default([]),
   dynamicPanelValues: jsonb("dynamic_panel_values").$type<Record<string, string>>().default({}),
+  sortOrderInInventory: integer("sort_order_in_inventory"),
+  registrationNumber: text("registration_number"),
   processingTimeSec: integer("processing_time_sec").default(0),
   isLocked: boolean("is_locked").default(false),
   lockedBy: text("locked_by"),
