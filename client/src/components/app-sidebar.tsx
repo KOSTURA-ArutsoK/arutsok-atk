@@ -98,8 +98,8 @@ const klientiItems = [
 ];
 
 const zmluvyFlatItems = [
-  { href: "/contracts", icon: FileText, label: "Zmluvy" },
   { href: "/evidencia-zmluv", icon: ClipboardList, label: "Evidencia zmluv" },
+  { href: "/contracts", icon: FileText, label: "Zmluvy" },
 ];
 
 const nastaveniaSablonChildren = [
@@ -108,15 +108,15 @@ const nastaveniaSablonChildren = [
   { href: "/contract-field-settings", icon: Sliders, label: "Nastavenie evidencie" },
 ];
 
-const supiskyItems = [
-  { href: "/contract-inventories", icon: ClipboardList, label: "Zoznam supisiek" },
+const protokolyChildren = [
+  { href: "/contract-inventories", icon: FileStack, label: "Sprievodky" },
   { href: "/supisky", icon: ClipboardList, label: "Supisky" },
 ];
 
 const allZmluvyHrefs = [
   ...zmluvyFlatItems.map(i => i.href),
   ...nastaveniaSablonChildren.map(i => i.href),
-  ...supiskyItems.map(i => i.href),
+  ...protokolyChildren.map(i => i.href),
 ];
 
 const spravaPristupovItems = [
@@ -217,7 +217,7 @@ export function AppSidebar() {
     { id: "specifikacie", items: specifikacieItems },
     { id: "partneri", items: partneriProduktyItems },
     { id: "klienti", items: klientiItems },
-    { id: "zmluvy", items: [...zmluvyFlatItems, ...nastaveniaSablonChildren, ...supiskyItems] },
+    { id: "zmluvy", items: [...zmluvyFlatItems, ...nastaveniaSablonChildren, ...protokolyChildren] },
     { id: "financie", items: financieItems },
     { id: "informacie", items: informacieItems },
   ];
@@ -237,6 +237,9 @@ export function AppSidebar() {
   const isZmluvyOpen = openMenuId === "zmluvy";
   const [nastaveniaSablonExpanded, setNastaveniaSablonExpanded] = useState(
     nastaveniaSablonChildren.some(i => i.href === location)
+  );
+  const [protokolyExpanded, setProtokolyExpanded] = useState(
+    protokolyChildren.some(i => i.href === location)
   );
 
   const displayName = appUser
@@ -502,20 +505,41 @@ export function AppSidebar() {
                         </Collapsible>
                       </SidebarMenuSubItem>
 
-                      {supiskyItems.map(item => (
-                        <SidebarMenuSubItem key={item.href}>
-                          <SidebarMenuSubButton
-                            asChild
-                            isActive={location === item.href}
-                            data-testid={`nav-${item.label.toLowerCase().replace(/\s/g, '-')}`}
-                          >
-                            <Link href={item.href}>
-                              <item.icon className="w-3.5 h-3.5" />
-                              <span>{item.label}</span>
-                            </Link>
-                          </SidebarMenuSubButton>
-                        </SidebarMenuSubItem>
-                      ))}
+                      <SidebarMenuSubItem>
+                        <Collapsible
+                          open={protokolyExpanded}
+                          onOpenChange={setProtokolyExpanded}
+                        >
+                          <CollapsibleTrigger asChild>
+                            <SidebarMenuSubButton
+                              data-testid="nav-submenu-zoznam-protokolov"
+                              className={`cursor-pointer ${protokolyChildren.some(i => i.href === location) ? "text-sidebar-accent-foreground font-medium" : ""}`}
+                            >
+                              <FileStack className="w-3.5 h-3.5" />
+                              <span className="flex-1">Zoznam protokolov</span>
+                              <ChevronRight className={`w-3 h-3 text-muted-foreground transition-transform duration-200 ${protokolyExpanded ? "rotate-90" : ""}`} />
+                            </SidebarMenuSubButton>
+                          </CollapsibleTrigger>
+                          <CollapsibleContent>
+                            <div className="ml-3 border-l border-border pl-2 mt-1 space-y-0.5">
+                              {protokolyChildren.map(item => (
+                                <SidebarMenuSubItem key={item.href}>
+                                  <SidebarMenuSubButton
+                                    asChild
+                                    isActive={location === item.href}
+                                    data-testid={`nav-${item.label.toLowerCase().replace(/\s/g, '-')}`}
+                                  >
+                                    <Link href={item.href}>
+                                      <item.icon className="w-3.5 h-3.5" />
+                                      <span>{item.label}</span>
+                                    </Link>
+                                  </SidebarMenuSubButton>
+                                </SidebarMenuSubItem>
+                              ))}
+                            </div>
+                          </CollapsibleContent>
+                        </Collapsible>
+                      </SidebarMenuSubItem>
                     </SidebarMenuSub>
                   </CollapsibleContent>
                 </SidebarMenuItem>

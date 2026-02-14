@@ -4,7 +4,7 @@ import { storage } from "./storage";
 import { api } from "@shared/routes";
 import { setupAuth, registerAuthRoutes, isAuthenticated } from "./replit_integrations/auth";
 import { z } from "zod";
-import { continents, states, myCompanies, appUsers, clientTypes, clientSubGroups, clientGroupMembers } from "@shared/schema";
+import { continents, states, myCompanies, appUsers, clientTypes, clientSubGroups, clientGroupMembers, productFolderAssignments, folderPanels, panelParameters } from "@shared/schema";
 import { db } from "./db";
 import { eq } from "drizzle-orm";
 import multer from "multer";
@@ -1717,13 +1717,35 @@ export async function registerRoutes(
 
   app.post("/api/supisky/:id/contracts", isAuthenticated, async (req: any, res) => {
     try {
-      const supiska = await storage.getSupiska(Number(req.params.id));
+      const supiskaId = Number(req.params.id);
+      const supiska = await storage.getSupiska(supiskaId);
       if (!supiska) return res.status(404).json({ message: "Supiska not found" });
       if (supiska.status === "Odoslana") return res.status(400).json({ message: "Supiska je odoslana, nelze pridavat zmluvy" });
       const { contractIds } = req.body;
       if (!Array.isArray(contractIds)) return res.status(400).json({ message: "contractIds array required" });
-      const added = await storage.addContractsToSupiska(Number(req.params.id), contractIds);
-      await logAudit(req, { action: "UPDATE", module: "supisky", entityId: Number(req.params.id), entityName: `Added ${added} contracts` });
+
+      // ArutsoK 41 - Supiska validation: max 25 contracts, same productId
+      const existingLinks = await storage.getSupiskaContracts(supiskaId);
+      const totalAfter = existingLinks.length + contractIds.length;
+      if (totalAfter > 25) {
+        return res.status(400).json({ message: `Supiska moze obsahovat maximalne 25 zmluv. Aktualne: ${existingLinks.length}, pridavate: ${contractIds.length}.` });
+      }
+
+      const allContracts = await storage.getContracts();
+      const contractMap = new Map(allContracts.map(c => [c.id, c]));
+      const existingContractIds = existingLinks.map(l => l.contractId);
+      const allRelevantIds = [...existingContractIds, ...contractIds];
+      const productIds = new Set<number>();
+      for (const cId of allRelevantIds) {
+        const contract = contractMap.get(cId);
+        if (contract?.sectorProductId) productIds.add(contract.sectorProductId);
+      }
+      if (productIds.size > 1) {
+        return res.status(400).json({ message: "Vsetky zmluvy v supiske musia mat rovnaky produkt." });
+      }
+
+      const added = await storage.addContractsToSupiska(supiskaId, contractIds);
+      await logAudit(req, { action: "UPDATE", module: "supisky", entityId: supiskaId, entityName: `Added ${added} contracts` });
       res.json({ added });
     } catch (err) {
       res.status(500).json({ message: "Internal error" });
@@ -2781,6 +2803,59 @@ export async function registerRoutes(
   });
 
   // === SECTORS CRUD ===
+  // ArutsoK 41 - Hierarchy counts for table badges
+  app.get("/api/hierarchy/counts", isAuthenticated, async (_req, res) => {
+    try {
+      const [sectorProducts, allSections, allProducts, allFolderAssignments, allFolderPanelsData, allPanelParams] = await Promise.all([
+        storage.getSectorProducts(),
+        storage.getSections(),
+        storage.getSectorProducts(),
+        db.select().from(productFolderAssignments),
+        db.select().from(folderPanels),
+        db.select().from(panelParameters),
+      ]);
+
+      const sectorProductCounts: Record<number, number> = {};
+      for (const sp of sectorProducts) {
+        const section = allSections.find(s => s.id === sp.sectionId);
+        if (section) {
+          sectorProductCounts[section.sectorId] = (sectorProductCounts[section.sectorId] || 0) + 1;
+        }
+      }
+
+      const sectionProductCounts: Record<number, number> = {};
+      for (const sp of allProducts) {
+        sectionProductCounts[sp.sectionId] = (sectionProductCounts[sp.sectionId] || 0) + 1;
+      }
+
+      const productFolderCounts: Record<number, number> = {};
+      for (const pfa of allFolderAssignments) {
+        productFolderCounts[pfa.productId] = (productFolderCounts[pfa.productId] || 0) + 1;
+      }
+
+      const folderPanelCounts: Record<number, number> = {};
+      for (const fp of allFolderPanelsData) {
+        folderPanelCounts[fp.folderId] = (folderPanelCounts[fp.folderId] || 0) + 1;
+      }
+
+      const panelParameterCounts: Record<number, number> = {};
+      for (const pp of allPanelParams) {
+        panelParameterCounts[pp.panelId] = (panelParameterCounts[pp.panelId] || 0) + 1;
+      }
+
+      res.json({
+        sectorProducts: sectorProductCounts,
+        sectionProducts: sectionProductCounts,
+        productFolders: productFolderCounts,
+        folderPanels: folderPanelCounts,
+        panelParameters: panelParameterCounts,
+      });
+    } catch (err) {
+      console.error("Hierarchy counts error:", err);
+      res.status(500).json({ message: "Internal error" });
+    }
+  });
+
   app.get("/api/sectors", isAuthenticated, async (_req, res) => {
     try {
       const sectors = await storage.getSectors();

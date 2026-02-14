@@ -47,12 +47,14 @@ The system utilizes a modern full-stack architecture prioritizing data integrity
     - **Global Table Resizing**: All tables support column resizing with persistence.
     - **State and Company Management**: Dedicated pages for CRUD operations on states (with flag uploads) and companies (with logo history).
     - **Contract Folders System**: Organizes panels visually into folders within the contract form, enabling flexible grid-based layouts.
-    - **Sidebar Navigation (ArutsoK 36)**: Zmluvy section restructured: "Zmluvy" (/contracts) and "Evidencia zmluv" (/evidencia-zmluv) are flat siblings. "Nastavenia sablon" is a sub-collapsible parent containing "Sprava sablon" and "Stavy zmluv" as children. Supisky section (Zoznam supisiek, Supisky) unchanged.
+    - **Sidebar Navigation (ArutsoK 36, updated ArutsoK 41)**: Zmluvy section restructured: "Evidencia zmluv" (position 1), "Zmluvy" (position 2) as flat siblings. "Nastavenia sablon" is a sub-collapsible parent containing "Sprava sablon", "Stavy zmluv", and "Nastavenie evidencie". "Zoznam protokolov" is a sub-collapsible containing "Sprievodky" (renamed from "Zoznam supisiek") and "Supisky".
     - **Contract Form Navigation (ArutsoK 37)**: "Ulozit zmluvu" button only appears on Folder 8 (Provizne zostavy, last tab) on the right side. Folders 1-7 show only "Predchadzajuci krok" + "Pokracovat". "Predchadzajuci krok" navigates back to previous folder. Tab order: Pokracovat(1) → Predchadzajuci(2) → Ulozit(3).
     - **Product Folder Assignments (ArutsoK 38-40)**: Products now have folder assignments via `product_folder_assignments` table with sort_order for rendering order in contract forms. Product form dialog replaces Parameters multi-select with sortable Folders DnD list. Partner dropdown added to product form. Panely column removed from products table.
     - **Contract Field Settings (ArutsoK 38-40)**: `contract_field_settings` table with `field_key` and `required_for_pfa` boolean. "Nastavenie evidencie" page under sidebar "Nastavenia sablon" section for toggling PFA-required fields. Route: /contract-field-settings.
     - **Parameter Snapshots (ArutsoK 38-40)**: `contract_parameter_values` stores `snapshot_label`, `snapshot_type`, `snapshot_options`, `snapshot_help_text` to preserve parameter metadata at contract save time, preventing future master parameter edits from affecting existing contracts.
     - **Contract Form Folder Ordering (ArutsoK 38-40)**: Contract form now uses `product_folder_assignments` sort_order to render folders in product-specific order instead of global folder order.
+    - **Protocol Validation (ArutsoK 41)**: Supisky enforce max 25 contracts and same-product constraint. Sprievodky remain flexible with no limits.
+    - **Hierarchy Count Badges (ArutsoK 41)**: API endpoint `/api/hierarchy/counts` returns child-item counts. Tables display Badge counts: Sectors→Products, Sections→Products, Products→Folders, Folders→Panels, Panels→Parameters.
 
 ## External Dependencies
 - **Replit OIDC Auth**: User authentication.

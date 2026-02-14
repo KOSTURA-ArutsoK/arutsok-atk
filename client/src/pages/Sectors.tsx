@@ -39,6 +39,20 @@ import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, Command
 import { ProcessingSaveButton } from "@/components/processing-save-button";
 import { SortableTableRow, SortableContext_Wrapper } from "@/components/sortable-list";
 
+type HierarchyCounts = {
+  sectorProducts: Record<number, number>;
+  sectionProducts: Record<number, number>;
+  productFolders: Record<number, number>;
+  folderPanels: Record<number, number>;
+  panelParameters: Record<number, number>;
+};
+
+function useHierarchyCounts() {
+  return useQuery<HierarchyCounts>({
+    queryKey: ["/api/hierarchy/counts"],
+  });
+}
+
 const PARAM_TYPES = [
   { value: "text", label: "Text" },
   { value: "textarea", label: "Dlhy text" },
@@ -961,6 +975,7 @@ function SectionsTab() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingSection, setEditingSection] = useState<Section | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Section | null>(null);
+  const { data: hierarchyCounts } = useHierarchyCounts();
 
   const { data: sectors } = useQuery<Sector[]>({
     queryKey: ["/api/sectors"],
@@ -1034,6 +1049,7 @@ function SectionsTab() {
                 <TableRow>
                   <TableHead>Nazov sekcie</TableHead>
                   <TableHead>Sektor</TableHead>
+                  <TableHead>Produkty</TableHead>
                   <TableHead>Popis</TableHead>
                   <TableHead>Akcie</TableHead>
                 </TableRow>
@@ -1041,7 +1057,7 @@ function SectionsTab() {
               <TableBody>
                 {filtered.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={4} className="text-center text-muted-foreground py-8" data-testid="text-no-sections">
+                    <TableCell colSpan={5} className="text-center text-muted-foreground py-8" data-testid="text-no-sections">
                       Ziadne sekcie
                     </TableCell>
                   </TableRow>
@@ -1051,6 +1067,9 @@ function SectionsTab() {
                       <TableCell className="font-medium">{section.name}</TableCell>
                       <TableCell>
                         <Badge variant="outline">{getSectorName(section.sectorId)}</Badge>
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant="secondary" data-testid={`badge-section-product-count-${section.id}`}>{hierarchyCounts?.sectionProducts?.[section.id] ?? 0}</Badge>
                       </TableCell>
                       <TableCell className="text-sm text-muted-foreground max-w-[200px] truncate">
                         {section.description || "-"}
@@ -1109,6 +1128,7 @@ function SectorsTab() {
   const [editingSector, setEditingSector] = useState<Sector | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Sector | null>(null);
   const { data: partners } = usePartners();
+  const { data: hierarchyCounts } = useHierarchyCounts();
 
   const { data: sectors, isLoading } = useQuery<Sector[]>({
     queryKey: ["/api/sectors"],
@@ -1165,6 +1185,7 @@ function SectorsTab() {
                 <TableRow>
                   <TableHead>Nazov sektoru</TableHead>
                   <TableHead>Typ</TableHead>
+                  <TableHead>Produkty</TableHead>
                   <TableHead>Firmy posobiace v sektore</TableHead>
                   <TableHead>Popis</TableHead>
                   <TableHead>Akcie</TableHead>
@@ -1173,7 +1194,7 @@ function SectorsTab() {
               <TableBody>
                 {filtered.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={5} className="text-center text-muted-foreground py-8" data-testid="text-no-sectors">
+                    <TableCell colSpan={6} className="text-center text-muted-foreground py-8" data-testid="text-no-sectors">
                       Ziadne sektory
                     </TableCell>
                   </TableRow>
@@ -1183,6 +1204,9 @@ function SectorsTab() {
                       <TableCell className="font-medium">{sector.name}</TableCell>
                       <TableCell>
                         <Badge variant="outline">{sector.sectorType}</Badge>
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant="secondary" data-testid={`badge-sector-product-count-${sector.id}`}>{hierarchyCounts?.sectorProducts?.[sector.id] ?? 0}</Badge>
                       </TableCell>
                       <TableCell className="text-sm text-muted-foreground max-w-[250px] truncate">
                         {getPartnerNames(sector.partnerIds)}
@@ -1244,6 +1268,7 @@ function ProductsTab() {
   const [editingProduct, setEditingProduct] = useState<SectorProduct | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<SectorProduct | null>(null);
   const [panelAssignProduct, setPanelAssignProduct] = useState<SectorProduct | null>(null);
+  const { data: hierarchyCounts } = useHierarchyCounts();
 
   const { data: sections } = useQuery<Section[]>({
     queryKey: ["/api/sections"],
@@ -1316,13 +1341,14 @@ function ProductsTab() {
                   <TableHead>Nazov produktu</TableHead>
                   <TableHead>Skratka produktu</TableHead>
                   <TableHead>Sekcia</TableHead>
+                  <TableHead>Priecinky</TableHead>
                   <TableHead>Akcie</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {filtered.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={4} className="text-center text-muted-foreground py-8" data-testid="text-no-sector-products">
+                    <TableCell colSpan={5} className="text-center text-muted-foreground py-8" data-testid="text-no-sector-products">
                       Ziadne produkty
                     </TableCell>
                   </TableRow>
@@ -1332,6 +1358,7 @@ function ProductsTab() {
                       key={product.id}
                       product={product}
                       sectionName={getSectionName(product.sectionId)}
+                      folderCount={hierarchyCounts?.productFolders?.[product.id] ?? 0}
                       onEdit={() => { setEditingProduct(product); setDialogOpen(true); }}
                       onDelete={() => setDeleteTarget(product)}
                     />
@@ -1371,11 +1398,13 @@ function ProductsTab() {
 function ProductTableRow({
   product,
   sectionName,
+  folderCount,
   onEdit,
   onDelete,
 }: {
   product: SectorProduct;
   sectionName: string;
+  folderCount: number;
   onEdit: () => void;
   onDelete: () => void;
 }) {
@@ -1385,6 +1414,9 @@ function ProductTableRow({
       <TableCell className="font-mono text-sm">{product.abbreviation || "-"}</TableCell>
       <TableCell>
         <Badge variant="outline">{sectionName}</Badge>
+      </TableCell>
+      <TableCell>
+        <Badge variant="secondary" data-testid={`badge-product-folder-count-${product.id}`}>{folderCount}</Badge>
       </TableCell>
       <TableCell>
         <div className="flex items-center gap-1">
@@ -1841,7 +1873,7 @@ function PanelTableRow({ panel, onEdit, onDelete }: { panel: Panel; onEdit: () =
       <TableCell className="font-medium">{panel.name}</TableCell>
       <TableCell className="text-sm text-muted-foreground">{panel.description || "-"}</TableCell>
       <TableCell>
-        <Badge variant="outline">{panelParams?.length ?? 0}</Badge>
+        <Badge variant="secondary" data-testid={`badge-panel-param-count-${panel.id}`}>{panelParams?.length ?? 0}</Badge>
       </TableCell>
       <TableCell>
         <div className="flex items-center gap-1">
@@ -2159,6 +2191,7 @@ function FoldersTab() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingFolder, setEditingFolder] = useState<ContractFolder | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<ContractFolder | null>(null);
+  const { data: hierarchyCounts } = useHierarchyCounts();
 
   const { data: folders, isLoading } = useQuery<ContractFolder[]>({
     queryKey: ["/api/contract-folders"],
@@ -2208,6 +2241,7 @@ function FoldersTab() {
                 <TableRow>
                   <TableHead className="w-[60px]">ID</TableHead>
                   <TableHead>Nazov</TableHead>
+                  <TableHead>Panely</TableHead>
                   <TableHead className="w-[80px]">Poradie</TableHead>
                   <TableHead className="w-[100px]">Akcie</TableHead>
                 </TableRow>
@@ -2215,7 +2249,7 @@ function FoldersTab() {
               <TableBody>
                 {filtered.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={4} className="text-center text-muted-foreground py-8" data-testid="text-no-folders">
+                    <TableCell colSpan={5} className="text-center text-muted-foreground py-8" data-testid="text-no-folders">
                       Ziadne priecinky
                     </TableCell>
                   </TableRow>
@@ -2224,6 +2258,9 @@ function FoldersTab() {
                     <TableRow key={folder.id} data-testid={`row-folder-${folder.id}`}>
                       <TableCell className="font-mono text-xs">{folder.id}</TableCell>
                       <TableCell className="font-medium">{folder.name}</TableCell>
+                      <TableCell>
+                        <Badge variant="secondary" data-testid={`badge-folder-panel-count-${folder.id}`}>{hierarchyCounts?.folderPanels?.[folder.id] ?? 0}</Badge>
+                      </TableCell>
                       <TableCell>{folder.sortOrder}</TableCell>
                       <TableCell>
                         <div className="flex items-center gap-1">
