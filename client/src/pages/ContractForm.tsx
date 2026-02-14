@@ -6,7 +6,7 @@ import { useStates } from "@/hooks/use-hierarchy";
 import { useToast } from "@/hooks/use-toast";
 import { useLocation, useParams } from "wouter";
 import type { Contract, ContractStatus, ContractTemplate, ContractInventory, Subject, Partner, MyCompany, Sector, Section, SectorProduct, ContractPassword, ContractParameterValue } from "@shared/schema";
-import { ArrowLeft, Save, Loader2, LayoutGrid, KeyRound, Plus, Trash2, FileText, Users, ClipboardList, FolderOpen, DollarSign, BarChart3, ListChecks, PieChart } from "lucide-react";
+import { ArrowLeft, Save, Loader2, LayoutGrid, KeyRound, Plus, Trash2, FileText, Users, ClipboardList, FolderOpen, DollarSign, BarChart3, ListChecks, PieChart, ChevronLeft, ChevronRight } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -251,6 +251,7 @@ export default function ContractForm() {
   const [commissionAmount, setCommissionAmount] = useState("");
   const [currency, setCurrency] = useState("EUR");
   const [notes, setNotes] = useState("");
+  const [contractPassword, setContractPassword] = useState("");
 
   const [contractSectorId, setContractSectorId] = useState<string>("");
   const [contractSectionId, setContractSectionId] = useState<string>("");
@@ -287,6 +288,16 @@ export default function ContractForm() {
     queryKey: ["/api/contracts", contractId, "parameter-values"],
     queryFn: async () => {
       const res = await fetch(`/api/contracts/${contractId}/parameter-values`, { credentials: "include" });
+      if (!res.ok) throw new Error("Failed");
+      return res.json();
+    },
+    enabled: isEditing,
+  });
+
+  const { data: existingPasswords } = useQuery<ContractPassword[]>({
+    queryKey: ["/api/contracts", contractId, "passwords"],
+    queryFn: async () => {
+      const res = await fetch(`/api/contracts/${contractId}/passwords`, { credentials: "include" });
       if (!res.ok) throw new Error("Failed");
       return res.json();
     },
@@ -413,6 +424,12 @@ export default function ContractForm() {
     }
   }, [isEditing, appUser]);
 
+  useEffect(() => {
+    if (existingPasswords && existingPasswords.length > 0 && !contractPassword) {
+      setContractPassword(existingPasswords[0].password || "");
+    }
+  }, [existingPasswords]);
+
   const saveParamValuesMutation = useMutation({
     mutationFn: (data: { contractId: number; values: { parameterId: number; value: string }[] }) =>
       apiRequest("POST", `/api/contracts/${data.contractId}/parameter-values`, { values: data.values }),
@@ -425,6 +442,9 @@ export default function ContractForm() {
       if (created?.id) {
         const paramEntries = buildParamEntries();
         await saveParamValuesMutation.mutateAsync({ contractId: created.id, values: paramEntries });
+        if (contractPassword.trim()) {
+          await apiRequest("POST", `/api/contracts/${created.id}/passwords`, { password: contractPassword.trim(), note: "" });
+        }
       }
       queryClient.invalidateQueries({ queryKey: ["/api/contracts"] });
       toast({ title: "Uspech", description: "Zmluva vytvorena" });
@@ -654,7 +674,7 @@ export default function ContractForm() {
                 </CompactField>
               </div>
 
-              <div className="grid grid-cols-3 gap-[clamp(0.5rem,1vw,1rem)]">
+              <div className="grid grid-cols-4 gap-[clamp(0.5rem,1vw,1rem)]">
                 <CompactField label="Datum podpisu *">
                   <Input type="date" value={signedDate} onChange={e => setSignedDate(e.target.value)} data-testid="input-signed-date" />
                 </CompactField>
@@ -664,9 +684,12 @@ export default function ContractForm() {
                 <CompactField label="Koniec zmluvy">
                   <Input type="date" value={expiryDate} onChange={e => setExpiryDate(e.target.value)} data-testid="input-expiry-date" />
                 </CompactField>
+                <CompactField label="Lehotne poistne *">
+                  <Input type="number" value={premiumAmount} onChange={e => setPremiumAmount(e.target.value)} className="font-mono" data-testid="input-premium-amount" />
+                </CompactField>
               </div>
 
-              <div className="grid grid-cols-3 gap-[clamp(0.5rem,1vw,1rem)]">
+              <div className="grid grid-cols-4 gap-[clamp(0.5rem,1vw,1rem)]">
                 <CompactField label="Frekvencia platenia *">
                   <Select value={paymentFrequency} onValueChange={setPaymentFrequency}>
                     <SelectTrigger data-testid="select-payment-frequency">
@@ -679,30 +702,35 @@ export default function ContractForm() {
                     </SelectContent>
                   </Select>
                 </CompactField>
-                <CompactField label="Lehotne poistne *">
-                  <Input type="number" value={premiumAmount} onChange={e => setPremiumAmount(e.target.value)} className="font-mono" data-testid="input-premium-amount" />
-                </CompactField>
                 <CompactField label="Rocne poistne">
                   <Input type="number" value={annualPremium} onChange={e => setAnnualPremium(e.target.value)} className="font-mono" data-testid="input-annual-premium" />
                 </CompactField>
-              </div>
-
-              <div className="flex items-center gap-[clamp(0.5rem,1vw,1rem)]">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => {
-                    if (isEditing) {
-                      setPasswordsOpen(true);
-                    } else {
-                      toast({ title: "Info", description: "Najprv ulozte zmluvu, potom mozete pridat hesla" });
-                    }
-                  }}
-                  data-testid="button-contract-passwords"
-                >
-                  <KeyRound className="w-4 h-4 mr-1" />
-                  Hesla k zmluve
-                </Button>
+                <div className="col-span-2">
+                  <CompactField label="Heslo k zmluve">
+                    <div className="flex items-center gap-2">
+                      <Input
+                        value={contractPassword}
+                        onChange={e => setContractPassword(e.target.value)}
+                        placeholder="Zadajte heslo k zmluve"
+                        data-testid="input-contract-password"
+                      />
+                      <Button
+                        variant="outline"
+                        size="icon"
+                        onClick={() => {
+                          if (isEditing) {
+                            setPasswordsOpen(true);
+                          } else {
+                            toast({ title: "Info", description: "Najprv ulozte zmluvu, potom mozete spravovat hesla" });
+                          }
+                        }}
+                        data-testid="button-contract-passwords"
+                      >
+                        <KeyRound className="w-4 h-4" />
+                      </Button>
+                    </div>
+                  </CompactField>
+                </div>
               </div>
             </div>
           )}
@@ -1045,11 +1073,14 @@ export default function ContractForm() {
       </div>
 
       <div className="flex-none z-50 bg-background border-t border-border px-3 py-2 flex items-center justify-between gap-3 flex-wrap">
-        <Button variant="ghost" size="sm" onClick={() => navigate("/contracts")} data-testid="button-footer-back">
-          <ArrowLeft className="w-4 h-4 mr-1" />
-          Spat na zoznam
-        </Button>
-        <Button size="sm" onClick={handleSubmit} disabled={isPending} data-testid="button-save-contract">
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={handleSubmit}
+          disabled={isPending}
+          tabIndex={3}
+          data-testid="button-save-contract"
+        >
           {isPending ? (
             <>
               <Loader2 className="w-4 h-4 mr-1 animate-spin" />
@@ -1058,10 +1089,62 @@ export default function ContractForm() {
           ) : (
             <>
               <Save className="w-4 h-4 mr-1" />
-              Ulozit zmeny
+              Ulozit zmluvu
             </>
           )}
         </Button>
+
+        <div className="flex items-center gap-2">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => {
+              const idx = TABS.findIndex(t => t.key === activeTab);
+              if (idx > 0) setActiveTab(TABS[idx - 1].key);
+            }}
+            disabled={activeTab === TABS[0].key}
+            tabIndex={2}
+            data-testid="button-prev-step"
+          >
+            <ChevronLeft className="w-4 h-4 mr-1" />
+            Predchadzajuci krok
+          </Button>
+
+          {activeTab === TABS[TABS.length - 1].key ? (
+            <Button
+              size="sm"
+              onClick={handleSubmit}
+              disabled={isPending}
+              tabIndex={1}
+              data-testid="button-next-step"
+            >
+              {isPending ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-1 animate-spin" />
+                  Ukladam...
+                </>
+              ) : (
+                <>
+                  <Save className="w-4 h-4 mr-1" />
+                  Ulozit zmluvu
+                </>
+              )}
+            </Button>
+          ) : (
+            <Button
+              size="sm"
+              onClick={() => {
+                const idx = TABS.findIndex(t => t.key === activeTab);
+                if (idx < TABS.length - 1) setActiveTab(TABS[idx + 1].key);
+              }}
+              tabIndex={1}
+              data-testid="button-next-step"
+            >
+              Pokracovat
+              <ChevronRight className="w-4 h-4 ml-1" />
+            </Button>
+          )}
+        </div>
       </div>
 
       {isEditing && (

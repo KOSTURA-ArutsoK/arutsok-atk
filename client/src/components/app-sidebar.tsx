@@ -97,13 +97,21 @@ const klientiItems = [
   { href: "/client-groups", icon: UsersRound, label: "Skupiny klientov" },
 ];
 
-const zmluvyItems = [
+const evidenciaZmluvItems = [
   { href: "/contracts", icon: FileText, label: "Zmluvy" },
+];
+
+const zmluvyDirectItems = [
   { href: "/contract-template-settings", icon: FileCog, label: "Nastavenia sablon" },
   { href: "/contract-template-management", icon: FileStack, label: "Sprava sablon" },
   { href: "/contract-statuses", icon: ListChecks, label: "Stavy zmluv" },
   { href: "/contract-inventories", icon: ClipboardList, label: "Zoznam supisiek" },
   { href: "/supisky", icon: ClipboardList, label: "Supisky" },
+];
+
+const allZmluvyHrefs = [
+  ...evidenciaZmluvItems.map(i => i.href),
+  ...zmluvyDirectItems.map(i => i.href),
 ];
 
 const spravaPristupovItems = [
@@ -204,7 +212,7 @@ export function AppSidebar() {
     { id: "specifikacie", items: specifikacieItems },
     { id: "partneri", items: partneriProduktyItems },
     { id: "klienti", items: klientiItems },
-    { id: "zmluvy", items: zmluvyItems },
+    { id: "zmluvy", items: [...evidenciaZmluvItems, ...zmluvyDirectItems] },
     { id: "financie", items: financieItems },
     { id: "informacie", items: informacieItems },
   ];
@@ -218,6 +226,12 @@ export function AppSidebar() {
   );
   const [specifikacieExpanded, setSpecifikacieExpanded] = useState(
     specifikacieItems.some(i => i.href === location)
+  );
+
+  const isZmluvyActive = allZmluvyHrefs.includes(location);
+  const isZmluvyOpen = openMenuId === "zmluvy";
+  const [evidenciaZmluvExpanded, setEvidenciaZmluvExpanded] = useState(
+    evidenciaZmluvItems.some(i => i.href === location)
   );
 
   const displayName = appUser
@@ -414,16 +428,78 @@ export function AppSidebar() {
                 openMenuId={openMenuId}
                 setOpenMenuId={setOpenMenuId}
               />
-              <CollapsibleMenu
-                label="Zmluvy"
-                icon={FileText}
-                items={zmluvyItems}
-                location={location}
-                testId="nav-menu-zmluvy"
-                menuId="zmluvy"
-                openMenuId={openMenuId}
-                setOpenMenuId={setOpenMenuId}
-              />
+              <Collapsible
+                open={isZmluvyOpen}
+                onOpenChange={(val) => setOpenMenuId(val ? "zmluvy" : null)}
+                className="group/collapsible"
+              >
+                <SidebarMenuItem>
+                  <CollapsibleTrigger asChild>
+                    <SidebarMenuButton
+                      data-testid="nav-menu-zmluvy"
+                      className={isZmluvyActive ? "text-sidebar-accent-foreground font-medium" : ""}
+                    >
+                      <FileText className="w-4 h-4" />
+                      <span className="flex-1">Zmluvy</span>
+                      <ChevronRight className={`w-3.5 h-3.5 text-muted-foreground transition-transform duration-200 ${isZmluvyOpen ? "rotate-90" : ""}`} />
+                    </SidebarMenuButton>
+                  </CollapsibleTrigger>
+                  <CollapsibleContent>
+                    <SidebarMenuSub>
+                      <SidebarMenuSubItem>
+                        <Collapsible
+                          open={evidenciaZmluvExpanded}
+                          onOpenChange={setEvidenciaZmluvExpanded}
+                        >
+                          <CollapsibleTrigger asChild>
+                            <SidebarMenuSubButton
+                              data-testid="nav-submenu-evidencia-zmluv"
+                              className={`cursor-pointer ${evidenciaZmluvItems.some(i => i.href === location) ? "text-sidebar-accent-foreground font-medium" : ""}`}
+                            >
+                              <ClipboardList className="w-3.5 h-3.5" />
+                              <span className="flex-1">Evidencia zmluv</span>
+                              <ChevronRight className={`w-3 h-3 text-muted-foreground transition-transform duration-200 ${evidenciaZmluvExpanded ? "rotate-90" : ""}`} />
+                            </SidebarMenuSubButton>
+                          </CollapsibleTrigger>
+                          <CollapsibleContent>
+                            <div className="ml-3 border-l border-border pl-2 mt-1 space-y-0.5">
+                              {evidenciaZmluvItems.map(item => (
+                                <SidebarMenuSubItem key={item.href}>
+                                  <SidebarMenuSubButton
+                                    asChild
+                                    isActive={location === item.href}
+                                    data-testid={`nav-${item.label.toLowerCase().replace(/\s/g, '-')}`}
+                                  >
+                                    <Link href={item.href}>
+                                      <item.icon className="w-3.5 h-3.5" />
+                                      <span>{item.label}</span>
+                                    </Link>
+                                  </SidebarMenuSubButton>
+                                </SidebarMenuSubItem>
+                              ))}
+                            </div>
+                          </CollapsibleContent>
+                        </Collapsible>
+                      </SidebarMenuSubItem>
+
+                      {zmluvyDirectItems.map(item => (
+                        <SidebarMenuSubItem key={item.href}>
+                          <SidebarMenuSubButton
+                            asChild
+                            isActive={location === item.href}
+                            data-testid={`nav-${item.label.toLowerCase().replace(/\s/g, '-')}`}
+                          >
+                            <Link href={item.href}>
+                              <item.icon className="w-3.5 h-3.5" />
+                              <span>{item.label}</span>
+                            </Link>
+                          </SidebarMenuSubButton>
+                        </SidebarMenuSubItem>
+                      ))}
+                    </SidebarMenuSub>
+                  </CollapsibleContent>
+                </SidebarMenuItem>
+              </Collapsible>
               <CollapsibleMenu
                 label="Financie"
                 icon={Banknote}
