@@ -6,7 +6,8 @@ import { useStates } from "@/hooks/use-hierarchy";
 import { useToast } from "@/hooks/use-toast";
 import { useLocation } from "wouter";
 import type { Contract, ContractStatus, ContractTemplate, ContractInventory, Subject, Partner, Product, MyCompany, Sector, Section, SectorProduct } from "@shared/schema";
-import { Plus, Pencil, Trash2, Eye, FileText, Loader2, Lock, LayoutGrid } from "lucide-react";
+import { Plus, Pencil, Trash2, Eye, FileText, Loader2, Lock, LayoutGrid, Send } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -808,7 +809,10 @@ function DeleteContractDialog({
 export default function Contracts() {
   const { data: appUser } = useAppUser();
   const activeStateId = appUser?.activeStateId ?? null;
-  const [, navigate] = useLocation();
+  const [location, navigate] = useLocation();
+  const { toast } = useToast();
+
+  const isEvidencia = location === "/evidencia-zmluv";
 
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [deletingContract, setDeletingContract] = useState<Contract | null>(null);
@@ -816,6 +820,11 @@ export default function Contracts() {
 
   const [filterStatusId, setFilterStatusId] = useState<string>("all");
   const [filterInventoryId, setFilterInventoryId] = useState<string>("all");
+
+  // ArutsoK 43 - Bulk selection for Evidencia mode
+  const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
+  const [sprievodkaDialogOpen, setSprievodkaDialogOpen] = useState(false);
+  const [sprievodkaName, setSprievodkaName] = useState("");
 
   const { data: statuses } = useQuery<ContractStatus[]>({
     queryKey: ["/api/contract-statuses"],
@@ -825,18 +834,23 @@ export default function Contracts() {
     queryKey: ["/api/contract-inventories"],
   });
 
-  const contractsUrl = (() => {
-    const params = new URLSearchParams();
-    if (filterStatusId && filterStatusId !== "all") params.append("statusId", filterStatusId);
-    if (filterInventoryId && filterInventoryId !== "all") params.append("inventoryId", filterInventoryId);
-    const qs = params.toString();
-    return `/api/contracts${qs ? `?${qs}` : ""}`;
+  const contractsParams = (() => {
+    if (isEvidencia) {
+      return { unprocessed: "true" } as Record<string, string>;
+    }
+    const p: Record<string, string> = {};
+    if (filterStatusId && filterStatusId !== "all") p.statusId = filterStatusId;
+    if (filterInventoryId && filterInventoryId !== "all") p.inventoryId = filterInventoryId;
+    return p;
   })();
 
+  const contractsQueryKey = ["/api/contracts", contractsParams];
+
   const { data: contracts, isLoading } = useQuery<Contract[]>({
-    queryKey: ["/api/contracts", filterStatusId, filterInventoryId],
+    queryKey: contractsQueryKey,
     queryFn: async () => {
-      const res = await fetch(contractsUrl, { credentials: "include" });
+      const qs = new URLSearchParams(contractsParams).toString();
+      const res = await fetch(`/api/contracts${qs ? `?${qs}` : ""}`, { credentials: "include" });
       if (!res.ok) throw new Error("Failed");
       return res.json();
     },
@@ -853,6 +867,66 @@ export default function Contracts() {
   const { data: allStates } = useStates();
 
   const activeContracts = contracts?.filter(c => !c.isDeleted) || [];
+
+  function invalidateContractCaches() {
+    queryClient.invalidateQueries({ queryKey: ["/api/contracts"] });
+    queryClient.invalidateQueries({ queryKey: ["/api/contract-inventories"] });
+  }
+
+  const createInventoryAndProcessMutation = useMutation({
+    mutationFn: async ({ name, contractIds }: { name: string; contractIds: number[] }) => {
+      const inventoryRes = await apiRequest("POST", "/api/contract-inventories", {
+        name,
+        stateId: activeStateId,
+        sortOrder: 0,
+        isClosed: false,
+      });
+      const inventoryData = await inventoryRes.json();
+      try {
+        await apiRequest("POST", `/api/contract-inventories/${inventoryData.id}/process`, { contractIds });
+      } catch (processErr) {
+        try { await apiRequest("DELETE", `/api/contract-inventories/${inventoryData.id}`); } catch {}
+        throw processErr;
+      }
+      return inventoryData;
+    },
+    onSuccess: () => {
+      invalidateContractCaches();
+      toast({ title: "Uspech", description: "Sprievodka vytvorena a zmluvy spracovane" });
+      setSelectedIds(new Set());
+      setSprievodkaDialogOpen(false);
+      setSprievodkaName("");
+    },
+    onError: () => toast({ title: "Chyba", description: "Nepodarilo sa vytvorit sprievodku", variant: "destructive" }),
+  });
+
+  function toggleSelect(id: number) {
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
+  function toggleSelectAll() {
+    if (selectedIds.size === activeContracts.length) {
+      setSelectedIds(new Set());
+    } else {
+      setSelectedIds(new Set(activeContracts.map(c => c.id)));
+    }
+  }
+
+  function handleCreateSprievodka() {
+    if (!sprievodkaName.trim()) {
+      toast({ title: "Chyba", description: "Nazov sprievodky je povinny", variant: "destructive" });
+      return;
+    }
+    createInventoryAndProcessMutation.mutate({
+      name: sprievodkaName.trim(),
+      contractIds: Array.from(selectedIds),
+    });
+  }
 
   function getSubjectDisplay(subjectId: number | null) {
     if (!subjectId) return "-";
@@ -878,51 +952,74 @@ export default function Contracts() {
     setViewingContract(contract);
   }
 
+  const isProcessing = createInventoryAndProcessMutation.isPending;
+
   return (
     <div className="p-6 space-y-6">
       <div className="flex items-center justify-between gap-4 flex-wrap">
-        <h1 className="text-2xl font-bold" data-testid="text-page-title">Zmluvy</h1>
-        <Button onClick={openCreate} data-testid="button-create-contract">
-          <Plus className="w-4 h-4 mr-2" />
-          Pridat zmluvu
-        </Button>
+        <h1 className="text-2xl font-bold" data-testid="text-page-title">
+          {isEvidencia ? "Evidencia zmluv" : "Zmluvy"}
+        </h1>
+        <div className="flex items-center gap-2 flex-wrap">
+          {isEvidencia && selectedIds.size > 0 && (
+            <Button
+              onClick={() => setSprievodkaDialogOpen(true)}
+              data-testid="button-create-sprievodka"
+            >
+              <Send className="w-4 h-4 mr-2" />
+              Vytvorit sprievodku ({selectedIds.size})
+            </Button>
+          )}
+          <Button onClick={openCreate} data-testid="button-create-contract">
+            <Plus className="w-4 h-4 mr-2" />
+            Pridat zmluvu
+          </Button>
+        </div>
       </div>
 
-      <div className="flex items-center gap-4 flex-wrap">
-        <div className="space-y-1">
-          <label className="text-xs text-muted-foreground">Stav</label>
-          <Select value={filterStatusId} onValueChange={setFilterStatusId}>
-            <SelectTrigger className="w-[200px]" data-testid="select-filter-status">
-              <SelectValue placeholder="Vsetky stavy" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Vsetky stavy</SelectItem>
-              {statuses?.map(s => (
-                <SelectItem key={s.id} value={s.id.toString()}>
-                  <div className="flex items-center gap-2">
-                    <div className="w-3 h-3 rounded-full" style={{ backgroundColor: s.color }} />
-                    {s.name}
-                  </div>
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+      {!isEvidencia && (
+        <div className="flex items-center gap-4 flex-wrap">
+          <div className="space-y-1">
+            <label className="text-xs text-muted-foreground">Stav</label>
+            <Select value={filterStatusId} onValueChange={setFilterStatusId}>
+              <SelectTrigger className="w-[200px]" data-testid="select-filter-status">
+                <SelectValue placeholder="Vsetky stavy" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Vsetky stavy</SelectItem>
+                {statuses?.map(s => (
+                  <SelectItem key={s.id} value={s.id.toString()}>
+                    <div className="flex items-center gap-2">
+                      <div className="w-3 h-3 rounded-full" style={{ backgroundColor: s.color }} />
+                      {s.name}
+                    </div>
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-1">
+            <label className="text-xs text-muted-foreground">Supiska</label>
+            <Select value={filterInventoryId} onValueChange={setFilterInventoryId}>
+              <SelectTrigger className="w-[200px]" data-testid="select-filter-inventory">
+                <SelectValue placeholder="Vsetky supisky" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Vsetky supisky</SelectItem>
+                {inventories?.map(i => (
+                  <SelectItem key={i.id} value={i.id.toString()}>{i.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
         </div>
-        <div className="space-y-1">
-          <label className="text-xs text-muted-foreground">Supiska</label>
-          <Select value={filterInventoryId} onValueChange={setFilterInventoryId}>
-            <SelectTrigger className="w-[200px]" data-testid="select-filter-inventory">
-              <SelectValue placeholder="Vsetky supisky" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Vsetky supisky</SelectItem>
-              {inventories?.map(i => (
-                <SelectItem key={i.id} value={i.id.toString()}>{i.name}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-      </div>
+      )}
+
+      {isEvidencia && activeContracts.length > 0 && (
+        <p className="text-sm text-muted-foreground" data-testid="text-evidencia-info">
+          Zobrazene su len zmluvy, ktore este neboli odoslane na ziadnu sprievodku. Vyberte zmluvy a vytvorte sprievodku na ich spracovanie.
+        </p>
+      )}
 
       <Card>
         <CardContent className="p-0">
@@ -932,18 +1029,27 @@ export default function Contracts() {
             </div>
           ) : activeContracts.length === 0 ? (
             <p className="text-sm text-muted-foreground text-center py-12" data-testid="text-no-contracts">
-              Ziadne zmluvy
+              {isEvidencia ? "Ziadne nespracovane zmluvy" : "Ziadne zmluvy"}
             </p>
           ) : (
             <Table>
               <TableHeader>
                 <TableRow>
+                  {isEvidencia && (
+                    <TableHead className="w-[40px]">
+                      <Checkbox
+                        checked={selectedIds.size === activeContracts.length && activeContracts.length > 0}
+                        onCheckedChange={toggleSelectAll}
+                        data-testid="checkbox-select-all"
+                      />
+                    </TableHead>
+                  )}
                   <TableHead>Cislo zmluvy</TableHead>
                   <TableHead>Klient</TableHead>
                   <TableHead>Partner</TableHead>
                   <TableHead>Produkt</TableHead>
-                  <TableHead>Stav</TableHead>
-                  <TableHead>Supiska</TableHead>
+                  {!isEvidencia && <TableHead>Stav</TableHead>}
+                  {!isEvidencia && <TableHead>Supiska</TableHead>}
                   <TableHead>Suma</TableHead>
                   <TableHead>Datum podpisu</TableHead>
                   <TableHead className="text-right">Akcie</TableHead>
@@ -959,6 +1065,15 @@ export default function Contracts() {
 
                   return (
                     <TableRow key={contract.id} data-testid={`row-contract-${contract.id}`}>
+                      {isEvidencia && (
+                        <TableCell>
+                          <Checkbox
+                            checked={selectedIds.has(contract.id)}
+                            onCheckedChange={() => toggleSelect(contract.id)}
+                            data-testid={`checkbox-contract-${contract.id}`}
+                          />
+                        </TableCell>
+                      )}
                       <TableCell className="font-mono text-sm" data-testid={`text-contract-number-${contract.id}`}>
                         <span className="flex items-center gap-1">
                           {contract.isLocked && <Lock className="w-3 h-3 text-amber-500 shrink-0" />}
@@ -974,19 +1089,23 @@ export default function Contracts() {
                       <TableCell className="text-sm" data-testid={`text-contract-product-${contract.id}`}>
                         {productName}
                       </TableCell>
-                      <TableCell data-testid={`text-contract-status-${contract.id}`}>
-                        {status ? (
-                          <Badge
-                            variant="outline"
-                            style={{ borderColor: status.color, color: status.color }}
-                          >
-                            {status.name}
-                          </Badge>
-                        ) : "-"}
-                      </TableCell>
-                      <TableCell className="text-sm" data-testid={`text-contract-inventory-${contract.id}`}>
-                        {inventoryName}
-                      </TableCell>
+                      {!isEvidencia && (
+                        <TableCell data-testid={`text-contract-status-${contract.id}`}>
+                          {status ? (
+                            <Badge
+                              variant="outline"
+                              style={{ borderColor: status.color, color: status.color }}
+                            >
+                              {status.name}
+                            </Badge>
+                          ) : "-"}
+                        </TableCell>
+                      )}
+                      {!isEvidencia && (
+                        <TableCell className="text-sm" data-testid={`text-contract-inventory-${contract.id}`}>
+                          {inventoryName}
+                        </TableCell>
+                      )}
                       <TableCell className="text-sm font-mono" data-testid={`text-contract-amount-${contract.id}`}>
                         {formatAmount(contract.premiumAmount, contract.currency)}
                       </TableCell>
@@ -1029,6 +1148,51 @@ export default function Contracts() {
           )}
         </CardContent>
       </Card>
+
+      {/* ArutsoK 43 - Sprievodka creation dialog */}
+      <Dialog open={sprievodkaDialogOpen} onOpenChange={setSprievodkaDialogOpen}>
+        <DialogContent className="sm:max-w-[500px]">
+          <DialogHeader>
+            <DialogTitle data-testid="text-sprievodka-dialog-title">Vytvorit sprievodku</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <p className="text-sm text-muted-foreground">
+              Vybranych zmluv: <span className="font-semibold text-foreground">{selectedIds.size}</span>. Po vytvoreni sprievodky budu zmluvy oznacene stavom "Nahrata do systemu" a presunte do zoznamu Zmluvy.
+            </p>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Nazov sprievodky *</label>
+              <Input
+                value={sprievodkaName}
+                onChange={e => setSprievodkaName(e.target.value)}
+                placeholder="Napr. Sprievodka 2026-02"
+                data-testid="input-sprievodka-name"
+              />
+            </div>
+            <div className="flex items-center justify-end gap-3 flex-wrap">
+              <Button variant="outline" onClick={() => setSprievodkaDialogOpen(false)} data-testid="button-sprievodka-cancel">
+                Zrusit
+              </Button>
+              <Button
+                onClick={handleCreateSprievodka}
+                disabled={isProcessing}
+                data-testid="button-sprievodka-confirm"
+              >
+                {isProcessing ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    Spracovavam...
+                  </>
+                ) : (
+                  <>
+                    <Send className="w-4 h-4 mr-2" />
+                    Vytvorit a spracovat
+                  </>
+                )}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {deletingContract && (
         <DeleteContractDialog

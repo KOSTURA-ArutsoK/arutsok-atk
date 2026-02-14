@@ -1309,6 +1309,12 @@ export async function registerRoutes(
 
   app.delete(api.contractStatusesApi.delete.path, isAuthenticated, async (req: any, res) => {
     try {
+      // ArutsoK 43 - Protect system statuses from deletion
+      const statuses = await storage.getContractStatuses();
+      const target = statuses.find(s => s.id === Number(req.params.id));
+      if (target?.isSystem) {
+        return res.status(400).json({ message: "Systemovy stav nie je mozne vymazat" });
+      }
       await storage.deleteContractStatus(Number(req.params.id));
       await logAudit(req, { action: "DELETE", module: "stavy_zmluv", entityId: Number(req.params.id) });
       res.json({ success: true });
@@ -1425,6 +1431,48 @@ export async function registerRoutes(
     }
   });
 
+  // ArutsoK 43 - Process contracts via sprievodka (assign status + move to Zmluvy)
+  app.post("/api/contract-inventories/:id/process", isAuthenticated, async (req: any, res) => {
+    try {
+      const inventoryId = Number(req.params.id);
+      const { contractIds } = req.body;
+      if (!Array.isArray(contractIds) || contractIds.length === 0) {
+        return res.status(400).json({ message: "Ziadne zmluvy na spracovanie" });
+      }
+      const inventory = await storage.getContractInventories();
+      const target = inventory.find(i => i.id === inventoryId);
+      if (!target) {
+        return res.status(404).json({ message: "Sprievodka nenajdena" });
+      }
+      const systemStatus = await storage.getSystemContractStatus();
+      if (!systemStatus) {
+        return res.status(500).json({ message: "Systemovy stav 'Nahrata do systemu' neexistuje" });
+      }
+      for (const contractId of contractIds) {
+        await storage.updateContract(Number(contractId), {
+          inventoryId,
+          statusId: systemStatus.id,
+        });
+      }
+      await logAudit(req, {
+        action: "CREATE",
+        module: "sprievodka_process",
+        entityId: inventoryId,
+        entityName: target.name,
+        newData: { contractIds, statusId: systemStatus.id },
+      });
+      res.json({ success: true, processedCount: contractIds.length });
+    } catch (err) {
+      res.status(500).json({ message: "Internal error" });
+    }
+  });
+
+  // ArutsoK 43 - Get system contract status
+  app.get("/api/contract-statuses/system", isAuthenticated, async (_req: any, res) => {
+    const status = await storage.getSystemContractStatus();
+    res.json(status || null);
+  });
+
   // === CONTRACTS (Main) ===
   app.get(api.contractsApi.list.path, isAuthenticated, async (req: any, res) => {
     const filters = {
@@ -1432,6 +1480,8 @@ export async function registerRoutes(
       statusId: req.query.statusId ? parseInt(req.query.statusId as string) : undefined,
       inventoryId: req.query.inventoryId ? parseInt(req.query.inventoryId as string) : undefined,
       includeDeleted: req.query.includeDeleted === 'true',
+      // ArutsoK 43 - Filter for unprocessed contracts (Evidencia zmluv)
+      unprocessed: req.query.unprocessed === 'true',
     };
     res.json(await storage.getContracts(filters));
   });

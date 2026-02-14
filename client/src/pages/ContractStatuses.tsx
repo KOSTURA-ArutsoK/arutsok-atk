@@ -125,8 +125,12 @@ function StatusFormDialog({
               value={name}
               onChange={e => setName(e.target.value)}
               placeholder="Nazov stavu"
+              disabled={editingStatus?.isSystem === true}
               data-testid="input-status-name"
             />
+            {editingStatus?.isSystem && (
+              <p className="text-xs text-muted-foreground">Systemovy stav - nazov nie je mozne zmenit</p>
+            )}
           </div>
 
           <div className="space-y-2">
@@ -352,6 +356,9 @@ export default function ContractStatuses() {
                       </TableCell>
                       <TableCell className="text-right">
                         <div className="flex items-center justify-end gap-1 flex-wrap">
+                          {status.isSystem && (
+                            <Badge variant="secondary" className="text-xs mr-1" data-testid={`badge-system-status-${status.id}`}>System</Badge>
+                          )}
                           <Button
                             size="icon"
                             variant="ghost"
@@ -360,14 +367,16 @@ export default function ContractStatuses() {
                           >
                             <Pencil className="w-4 h-4" />
                           </Button>
-                          <Button
-                            size="icon"
-                            variant="ghost"
-                            onClick={() => openDelete(status)}
-                            data-testid={`button-delete-status-${status.id}`}
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </Button>
+                          {!status.isSystem && (
+                            <Button
+                              size="icon"
+                              variant="ghost"
+                              onClick={() => openDelete(status)}
+                              data-testid={`button-delete-status-${status.id}`}
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </Button>
+                          )}
                         </div>
                       </TableCell>
                     </SortableTableRow>

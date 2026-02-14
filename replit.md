@@ -56,6 +56,7 @@ The system utilizes a modern full-stack architecture prioritizing data integrity
     - **Protocol Validation (ArutsoK 41)**: Supisky enforce max 25 contracts and same-product constraint. Sprievodky remain flexible with no limits.
     - **Hierarchy Count Badges (ArutsoK 41)**: API endpoint `/api/hierarchy/counts` returns child-item counts. Tables display Badge counts: Sectors→Products, Sections→Products, Products→Folders, Folders→Panels, Panels→Parameters.
     - **UI Consistency & Naming (ArutsoK 42)**: Sidebar label "Sprava pristupov" renamed to "Sprava prihlasenia". Product form folder DnD list unified to use Card+CardContent+TableHeader matching Sectors module style. Drag handles visually integrated via SortableTableRow first-column GripVertical.
+    - **Contract Flow & Evidencia (ArutsoK 43)**: Added `isSystem` boolean to `contract_statuses` with seeded system status "Nahrata do systemu". Evidencia zmluv page (`/evidencia-zmluv`) filters unprocessed contracts (inventoryId IS NULL) with bulk checkbox selection and "Vytvorit sprievodku" dialog. Processing creates a new sprievodka (contract inventory), assigns system status, and sets inventoryId on selected contracts. System statuses are protected: cannot be deleted, name is read-only. API: POST `/api/contract-inventories/:id/process`, GET `/api/contracts?unprocessed=true`.
 
 ## External Dependencies
 - **Replit OIDC Auth**: User authentication.

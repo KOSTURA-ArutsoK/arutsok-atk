@@ -510,6 +510,7 @@ export const contractStatuses = pgTable("contract_statuses", {
   name: text("name").notNull(),
   color: text("color").notNull().default("#3b82f6"),
   sortOrder: integer("sort_order").default(0),
+  isSystem: boolean("is_system").default(false),
   stateId: integer("state_id").references(() => states.id),
   createdAt: timestamp("created_at").defaultNow(),
 });

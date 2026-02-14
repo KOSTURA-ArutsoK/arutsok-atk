@@ -76,7 +76,7 @@ import {
   contractFieldSettings,
   type ContractFieldSetting,
 } from "@shared/schema";
-import { eq, and, or, ne, like, sql, lte, gte, desc } from "drizzle-orm";
+import { eq, and, or, ne, like, sql, lte, gte, desc, isNull, inArray } from "drizzle-orm";
 
 export interface IStorage {
   generateUID(stateCode: string, continentCode?: string): Promise<string>;
@@ -248,7 +248,8 @@ export interface IStorage {
   reorderContractInventories(items: { id: number; sortOrder: number }[]): Promise<void>;
 
   // Contracts
-  getContracts(filters?: { stateId?: number; statusId?: number; inventoryId?: number; includeDeleted?: boolean }): Promise<Contract[]>;
+  getContracts(filters?: { stateId?: number; statusId?: number; inventoryId?: number; includeDeleted?: boolean; unprocessed?: boolean }): Promise<Contract[]>;
+  getSystemContractStatus(): Promise<ContractStatus | undefined>;
   getContract(id: number): Promise<Contract | undefined>;
   createContract(data: InsertContract): Promise<Contract>;
   updateContract(id: number, data: Partial<InsertContract>): Promise<Contract>;
@@ -1430,7 +1431,7 @@ export class DatabaseStorage implements IStorage {
 
   // === Contracts ===
 
-  async getContracts(filters?: { stateId?: number; statusId?: number; inventoryId?: number; includeDeleted?: boolean }): Promise<Contract[]> {
+  async getContracts(filters?: { stateId?: number; statusId?: number; inventoryId?: number; includeDeleted?: boolean; unprocessed?: boolean }): Promise<Contract[]> {
     const conditions = [];
     if (!filters?.includeDeleted) {
       conditions.push(eq(contracts.isDeleted, false));
@@ -1444,10 +1445,18 @@ export class DatabaseStorage implements IStorage {
     if (filters?.inventoryId) {
       conditions.push(eq(contracts.inventoryId, filters.inventoryId));
     }
+    if (filters?.unprocessed) {
+      conditions.push(isNull(contracts.inventoryId));
+    }
     if (conditions.length > 0) {
       return await db.select().from(contracts).where(and(...conditions)).orderBy(sql`${contracts.createdAt} DESC`);
     }
     return await db.select().from(contracts).orderBy(sql`${contracts.createdAt} DESC`);
+  }
+
+  async getSystemContractStatus(): Promise<ContractStatus | undefined> {
+    const [status] = await db.select().from(contractStatuses).where(eq(contractStatuses.isSystem, true)).limit(1);
+    return status;
   }
 
   async getContract(id: number): Promise<Contract | undefined> {
