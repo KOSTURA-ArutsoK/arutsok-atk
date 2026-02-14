@@ -48,6 +48,7 @@ The system utilizes a modern full-stack architecture prioritizing data integrity
     - **State and Company Management**: Dedicated pages for CRUD operations on states (with flag uploads) and companies (with logo history).
     - **Contract Folders System**: Organizes panels visually into folders within the contract form, enabling flexible grid-based layouts.
     - **Sidebar Navigation (ArutsoK 36)**: Zmluvy section restructured: "Zmluvy" (/contracts) and "Evidencia zmluv" (/evidencia-zmluv) are flat siblings. "Nastavenia sablon" is a sub-collapsible parent containing "Sprava sablon" and "Stavy zmluv" as children. Supisky section (Zoznam supisiek, Supisky) unchanged.
+    - **Contract Form Navigation (ArutsoK 37)**: "Ulozit zmluvu" button only appears on Folder 8 (Provizne zostavy, last tab) on the right side. Folders 1-7 show only "Predchadzajuci krok" + "Pokracovat". "Predchadzajuci krok" navigates back to previous folder. Tab order: Pokracovat(1) → Predchadzajuci(2) → Ulozit(3).
 
 ## External Dependencies
 - **Replit OIDC Auth**: User authentication.

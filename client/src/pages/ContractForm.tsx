@@ -1134,79 +1134,56 @@ export default function ContractForm() {
         </div>
       </div>
 
-      <div className="flex-none z-50 bg-background border-t border-border px-3 py-2 flex items-center justify-between gap-3 flex-wrap">
+      <div className="flex-none z-50 bg-background border-t border-border px-3 py-2 flex items-center justify-end gap-2 flex-wrap">
         <Button
-          variant="outline"
+          variant="ghost"
           size="sm"
-          onClick={handleSubmit}
-          disabled={isPending}
-          tabIndex={3}
-          data-testid="button-save-contract"
+          onClick={() => {
+            const idx = TABS.findIndex(t => t.key === activeTab);
+            if (idx > 0) setActiveTab(TABS[idx - 1].key);
+          }}
+          disabled={activeTab === TABS[0].key}
+          tabIndex={2}
+          data-testid="button-prev-step"
         >
-          {isPending ? (
-            <>
-              <Loader2 className="w-4 h-4 mr-1 animate-spin" />
-              Ukladam...
-            </>
-          ) : (
-            <>
-              <Save className="w-4 h-4 mr-1" />
-              Ulozit zmluvu
-            </>
-          )}
+          <ChevronLeft className="w-4 h-4 mr-1" />
+          Predchadzajuci krok
         </Button>
 
-        <div className="flex items-center gap-2">
+        {activeTab === TABS[TABS.length - 1].key ? (
           <Button
-            variant="ghost"
+            size="sm"
+            onClick={handleSubmit}
+            disabled={isPending}
+            tabIndex={1}
+            data-testid="button-save-contract"
+          >
+            {isPending ? (
+              <>
+                <Loader2 className="w-4 h-4 mr-1 animate-spin" />
+                Ukladam...
+              </>
+            ) : (
+              <>
+                <Save className="w-4 h-4 mr-1" />
+                Ulozit zmluvu
+              </>
+            )}
+          </Button>
+        ) : (
+          <Button
             size="sm"
             onClick={() => {
               const idx = TABS.findIndex(t => t.key === activeTab);
-              if (idx > 0) setActiveTab(TABS[idx - 1].key);
+              if (idx < TABS.length - 1) setActiveTab(TABS[idx + 1].key);
             }}
-            disabled={activeTab === TABS[0].key}
-            tabIndex={2}
-            data-testid="button-prev-step"
+            tabIndex={1}
+            data-testid="button-next-step"
           >
-            <ChevronLeft className="w-4 h-4 mr-1" />
-            Predchadzajuci krok
+            Pokracovat
+            <ChevronRight className="w-4 h-4 ml-1" />
           </Button>
-
-          {activeTab === TABS[TABS.length - 1].key ? (
-            <Button
-              size="sm"
-              onClick={handleSubmit}
-              disabled={isPending}
-              tabIndex={1}
-              data-testid="button-next-step"
-            >
-              {isPending ? (
-                <>
-                  <Loader2 className="w-4 h-4 mr-1 animate-spin" />
-                  Ukladam...
-                </>
-              ) : (
-                <>
-                  <Save className="w-4 h-4 mr-1" />
-                  Ulozit zmluvu
-                </>
-              )}
-            </Button>
-          ) : (
-            <Button
-              size="sm"
-              onClick={() => {
-                const idx = TABS.findIndex(t => t.key === activeTab);
-                if (idx < TABS.length - 1) setActiveTab(TABS[idx + 1].key);
-              }}
-              tabIndex={1}
-              data-testid="button-next-step"
-            >
-              Pokracovat
-              <ChevronRight className="w-4 h-4 ml-1" />
-            </Button>
-          )}
-        </div>
+        )}
       </div>
 
       {isEditing && (
