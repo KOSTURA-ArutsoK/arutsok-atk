@@ -3,8 +3,8 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { usePartners } from "@/hooks/use-partners";
-import type { Sector, Parameter, SectorProduct, SectorProductParameter, Panel, PanelParameter, ProductPanel, Section } from "@shared/schema";
-import { Plus, Pencil, Trash2, Loader2, Search, Layers, Settings2, ChevronsUpDown, X, Check, FolderOpen, List, Package, Info, LayoutGrid } from "lucide-react";
+import type { Sector, Parameter, SectorProduct, SectorProductParameter, Panel, PanelParameter, ProductPanel, Section, ContractFolder, FolderPanel } from "@shared/schema";
+import { Plus, Pencil, Trash2, Loader2, Search, Layers, Settings2, ChevronsUpDown, X, Check, FolderOpen, List, Package, Info, LayoutGrid, FolderClosed } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -1963,6 +1963,308 @@ function ProductPanelAssignDialog({
   );
 }
 
+function FolderFormDialog({
+  open,
+  onOpenChange,
+  editingFolder,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  editingFolder: ContractFolder | null;
+}) {
+  const { toast } = useToast();
+  const [name, setName] = useState("");
+  const [sortOrder, setSortOrder] = useState("0");
+  const timerRef = useRef(performance.now());
+
+  const { data: allPanels } = useQuery<Panel[]>({ queryKey: ["/api/panels"] });
+  const { data: existingFP } = useQuery<FolderPanel[]>({
+    queryKey: ["/api/contract-folders", editingFolder?.id, "panels"],
+    queryFn: async () => {
+      const res = await fetch(`/api/contract-folders/${editingFolder!.id}/panels`, { credentials: "include" });
+      if (!res.ok) throw new Error("Failed");
+      return res.json();
+    },
+    enabled: !!editingFolder,
+  });
+
+  const [assignments, setAssignments] = useState<{ panelId: number; gridColumns: number }[]>([]);
+
+  useEffect(() => {
+    if (editingFolder) {
+      setName(editingFolder.name);
+      setSortOrder(editingFolder.sortOrder?.toString() || "0");
+    } else {
+      setName("");
+      setSortOrder("0");
+    }
+    timerRef.current = performance.now();
+  }, [editingFolder, open]);
+
+  useEffect(() => {
+    if (existingFP) {
+      setAssignments(existingFP.map(fp => ({ panelId: fp.panelId, gridColumns: fp.gridColumns })));
+    }
+  }, [existingFP]);
+
+  const createMutation = useMutation({
+    mutationFn: (data: any) => apiRequest("POST", "/api/contract-folders", data),
+    onSuccess: async (res: any) => {
+      const created = await res.json();
+      if (assignments.length > 0 && created?.id) {
+        await apiRequest("PUT", `/api/contract-folders/${created.id}/panels`, { assignments });
+      }
+      queryClient.invalidateQueries({ queryKey: ["/api/contract-folders"] });
+      toast({ title: "Uspech", description: "Priecinok vytvoreny" });
+      onOpenChange(false);
+    },
+    onError: () => toast({ title: "Chyba", description: "Nepodarilo sa vytvorit priecinok", variant: "destructive" }),
+  });
+
+  const updateMutation = useMutation({
+    mutationFn: (data: any) => apiRequest("PUT", `/api/contract-folders/${editingFolder!.id}`, data),
+    onSuccess: async () => {
+      await apiRequest("PUT", `/api/contract-folders/${editingFolder!.id}/panels`, { assignments });
+      queryClient.invalidateQueries({ queryKey: ["/api/contract-folders"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/contract-folders", editingFolder!.id, "panels"] });
+      toast({ title: "Uspech", description: "Priecinok aktualizovany" });
+      onOpenChange(false);
+    },
+    onError: () => toast({ title: "Chyba", description: "Nepodarilo sa aktualizovat priecinok", variant: "destructive" }),
+  });
+
+  const isPending = createMutation.isPending || updateMutation.isPending;
+
+  const handleSubmit = () => {
+    if (!name.trim()) {
+      toast({ title: "Chyba", description: "Nazov je povinny", variant: "destructive" });
+      return;
+    }
+    const payload = { name: name.trim(), sortOrder: parseInt(sortOrder) || 0 };
+    if (editingFolder) {
+      updateMutation.mutate(payload);
+    } else {
+      createMutation.mutate(payload);
+    }
+  };
+
+  const addPanel = () => {
+    setAssignments(prev => [...prev, { panelId: 0, gridColumns: 1 }]);
+  };
+
+  const removePanel = (index: number) => {
+    setAssignments(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const updateAssignment = (index: number, field: "panelId" | "gridColumns", value: number) => {
+    setAssignments(prev => prev.map((a, i) => i === index ? { ...a, [field]: value } : a));
+  };
+
+  const handleOpenChange = (val: boolean) => {
+    if (!val) {
+      setAssignments([]);
+    }
+    onOpenChange(val);
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={handleOpenChange}>
+      <DialogContent className="w-[800px] max-w-[800px] h-[600px] max-h-[600px] flex flex-col overflow-hidden" data-testid="dialog-folder">
+        <DialogHeader>
+          <DialogTitle>{editingFolder ? "Upravit priecinok" : "Novy priecinok"}</DialogTitle>
+        </DialogHeader>
+        <div className="flex-1 overflow-y-auto space-y-4 px-1">
+          <div className="grid grid-cols-4 gap-3">
+            <div className="col-span-3">
+              <label className="text-sm font-medium">Nazov</label>
+              <Input value={name} onChange={e => setName(e.target.value)} data-testid="input-folder-name" />
+            </div>
+            <div>
+              <label className="text-sm font-medium">Poradie</label>
+              <Input type="number" value={sortOrder} onChange={e => setSortOrder(e.target.value)} data-testid="input-folder-sort" />
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <label className="text-sm font-medium">Priradene panely</label>
+              <Button size="sm" variant="outline" onClick={addPanel} data-testid="button-add-folder-panel">
+                <Plus className="w-3 h-3 mr-1" /> Pridat panel
+              </Button>
+            </div>
+            {assignments.length === 0 ? (
+              <p className="text-sm text-muted-foreground py-4 text-center" data-testid="text-no-folder-panels">Ziadne panely priradene</p>
+            ) : (
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Panel</TableHead>
+                    <TableHead className="w-[150px]">Sirka (stlpce)</TableHead>
+                    <TableHead className="w-[60px]">Akcie</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {assignments.map((a, index) => (
+                    <TableRow key={index}>
+                      <TableCell>
+                        <Select value={a.panelId ? a.panelId.toString() : ""} onValueChange={val => updateAssignment(index, "panelId", parseInt(val))}>
+                          <SelectTrigger data-testid={`select-folder-panel-${index}`}>
+                            <SelectValue placeholder="Vyberte panel" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {allPanels?.map(p => (
+                              <SelectItem key={p.id} value={p.id.toString()}>{p.name}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </TableCell>
+                      <TableCell>
+                        <Select value={a.gridColumns.toString()} onValueChange={val => updateAssignment(index, "gridColumns", parseInt(val))}>
+                          <SelectTrigger data-testid={`select-folder-grid-${index}`}>
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="1">1 (100%)</SelectItem>
+                            <SelectItem value="2">2 (50%)</SelectItem>
+                            <SelectItem value="3">3 (33%)</SelectItem>
+                            <SelectItem value="4">4 (25%)</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </TableCell>
+                      <TableCell>
+                        <Button size="icon" variant="ghost" onClick={() => removePanel(index)} data-testid={`button-remove-folder-panel-${index}`}>
+                          <Trash2 className="w-4 h-4 text-destructive" />
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            )}
+          </div>
+        </div>
+        <ProcessingSaveButton isPending={isPending} onClick={handleSubmit} type="button" />
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function FoldersTab() {
+  const { toast } = useToast();
+  const [search, setSearch] = useState("");
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [editingFolder, setEditingFolder] = useState<ContractFolder | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<ContractFolder | null>(null);
+
+  const { data: folders, isLoading } = useQuery<ContractFolder[]>({
+    queryKey: ["/api/contract-folders"],
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: () => apiRequest("DELETE", `/api/contract-folders/${deleteTarget!.id}`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/contract-folders"] });
+      toast({ title: "Uspech", description: "Priecinok vymazany" });
+      setDeleteTarget(null);
+    },
+    onError: () => toast({ title: "Chyba", description: "Nepodarilo sa vymazat priecinok", variant: "destructive" }),
+  });
+
+  const filtered = folders?.filter(f =>
+    f.name.toLowerCase().includes(search.toLowerCase())
+  ) || [];
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center gap-3 flex-wrap">
+        <div className="relative flex-1 min-w-[200px]">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+          <Input
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            placeholder="Hladat priecinky..."
+            className="pl-9"
+            data-testid="input-search-folders"
+          />
+        </div>
+        <Button onClick={() => { setEditingFolder(null); setDialogOpen(true); }} data-testid="button-add-folder">
+          <Plus className="w-4 h-4 mr-2" /> Pridat priecinok
+        </Button>
+      </div>
+
+      {isLoading ? (
+        <div className="flex items-center justify-center py-12">
+          <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+        </div>
+      ) : (
+        <Card>
+          <CardContent className="p-0">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="w-[60px]">ID</TableHead>
+                  <TableHead>Nazov</TableHead>
+                  <TableHead className="w-[80px]">Poradie</TableHead>
+                  <TableHead className="w-[100px]">Akcie</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {filtered.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={4} className="text-center text-muted-foreground py-8" data-testid="text-no-folders">
+                      Ziadne priecinky
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  filtered.map(folder => (
+                    <TableRow key={folder.id} data-testid={`row-folder-${folder.id}`}>
+                      <TableCell className="font-mono text-xs">{folder.id}</TableCell>
+                      <TableCell className="font-medium">{folder.name}</TableCell>
+                      <TableCell>{folder.sortOrder}</TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-1">
+                          <Button size="icon" variant="ghost" onClick={() => { setEditingFolder(folder); setDialogOpen(true); }} data-testid={`button-edit-folder-${folder.id}`}>
+                            <Pencil className="w-4 h-4" />
+                          </Button>
+                          <Button size="icon" variant="ghost" onClick={() => setDeleteTarget(folder)} data-testid={`button-delete-folder-${folder.id}`}>
+                            <Trash2 className="w-4 h-4 text-destructive" />
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))
+                )}
+              </TableBody>
+            </Table>
+          </CardContent>
+        </Card>
+      )}
+
+      <FolderFormDialog
+        open={dialogOpen}
+        onOpenChange={setDialogOpen}
+        editingFolder={editingFolder}
+      />
+
+      <Dialog open={!!deleteTarget} onOpenChange={(open) => !open && setDeleteTarget(null)}>
+        <DialogContent data-testid="dialog-delete-folder">
+          <DialogHeader>
+            <DialogTitle>Vymazat priecinok</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground">Naozaj chcete vymazat priecinok "{deleteTarget?.name}"?</p>
+          <div className="flex items-center justify-end gap-2 mt-4">
+            <Button variant="outline" onClick={() => setDeleteTarget(null)} data-testid="button-cancel-delete-folder">Zrusit</Button>
+            <Button variant="destructive" onClick={() => deleteMutation.mutate()} disabled={deleteMutation.isPending} data-testid="button-confirm-delete-folder">
+              {deleteMutation.isPending && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+              Vymazat
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}
+
 export default function Sectors() {
   return (
     <div className="p-6 space-y-6">
@@ -1985,6 +2287,10 @@ export default function Sectors() {
             <Package className="w-4 h-4 mr-2" />
             Produkty
           </TabsTrigger>
+          <TabsTrigger value="folders" data-testid="tab-folders">
+            <FolderClosed className="w-4 h-4 mr-2" />
+            Priecinky
+          </TabsTrigger>
           <TabsTrigger value="panels" data-testid="tab-panels">
             <LayoutGrid className="w-4 h-4 mr-2" />
             Panely
@@ -2002,6 +2308,9 @@ export default function Sectors() {
         </TabsContent>
         <TabsContent value="products">
           <ProductsTab />
+        </TabsContent>
+        <TabsContent value="folders">
+          <FoldersTab />
         </TabsContent>
         <TabsContent value="panels">
           <PanelsTab />

@@ -68,6 +68,9 @@ import {
   stateFlagHistory, companyLogoHistory,
   type StateFlagHistory, type CompanyLogoHistory,
   type State, type InsertState,
+  contractFolders, folderPanels,
+  type ContractFolder, type InsertContractFolder,
+  type FolderPanel, type InsertFolderPanel,
 } from "@shared/schema";
 import { eq, and, or, ne, like, sql, lte, gte, desc } from "drizzle-orm";
 
@@ -365,6 +368,15 @@ export interface IStorage {
   // Product-Panel assignments (ArutsoK 27)
   getProductPanels(sectorProductId: number): Promise<ProductPanel[]>;
   setProductPanels(sectorProductId: number, panelIds: number[]): Promise<void>;
+
+  // Contract Folders (ArutsoK 35)
+  getContractFolders(): Promise<ContractFolder[]>;
+  getContractFolder(id: number): Promise<ContractFolder | undefined>;
+  createContractFolder(data: InsertContractFolder): Promise<ContractFolder>;
+  updateContractFolder(id: number, data: Partial<InsertContractFolder>): Promise<ContractFolder>;
+  deleteContractFolder(id: number): Promise<void>;
+  getFolderPanels(folderId: number): Promise<FolderPanel[]>;
+  setFolderPanels(folderId: number, assignments: { panelId: number; gridColumns: number }[]): Promise<void>;
 
   // Calendar Events
   getCalendarEvents(): Promise<CalendarEvent[]>;
@@ -2104,6 +2116,51 @@ export class DatabaseStorage implements IStorage {
         panelIds.map((panelId, index) => ({
           sectorProductId,
           panelId,
+          sortOrder: index,
+        }))
+      );
+    }
+  }
+
+  // === Contract Folders (ArutsoK 35) ===
+  async getContractFolders(): Promise<ContractFolder[]> {
+    return await db.select().from(contractFolders).orderBy(contractFolders.sortOrder);
+  }
+
+  async getContractFolder(id: number): Promise<ContractFolder | undefined> {
+    const [folder] = await db.select().from(contractFolders).where(eq(contractFolders.id, id));
+    return folder;
+  }
+
+  async createContractFolder(data: InsertContractFolder): Promise<ContractFolder> {
+    const [folder] = await db.insert(contractFolders).values(data).returning();
+    return folder;
+  }
+
+  async updateContractFolder(id: number, data: Partial<InsertContractFolder>): Promise<ContractFolder> {
+    const [folder] = await db.update(contractFolders).set(data).where(eq(contractFolders.id, id)).returning();
+    return folder;
+  }
+
+  async deleteContractFolder(id: number): Promise<void> {
+    await db.delete(folderPanels).where(eq(folderPanels.folderId, id));
+    await db.delete(contractFolders).where(eq(contractFolders.id, id));
+  }
+
+  async getFolderPanels(folderId: number): Promise<FolderPanel[]> {
+    return await db.select().from(folderPanels)
+      .where(eq(folderPanels.folderId, folderId))
+      .orderBy(folderPanels.sortOrder);
+  }
+
+  async setFolderPanels(folderId: number, assignments: { panelId: number; gridColumns: number }[]): Promise<void> {
+    await db.delete(folderPanels).where(eq(folderPanels.folderId, folderId));
+    if (assignments.length > 0) {
+      await db.insert(folderPanels).values(
+        assignments.map((a, index) => ({
+          folderId,
+          panelId: a.panelId,
+          gridColumns: a.gridColumns,
           sortOrder: index,
         }))
       );

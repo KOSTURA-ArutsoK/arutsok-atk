@@ -3225,6 +3225,95 @@ export async function registerRoutes(
     }
   });
 
+  // === CONTRACT FOLDERS (ArutsoK 35) ===
+  app.get("/api/contract-folders", isAuthenticated, async (_req, res) => {
+    try {
+      const folders = await storage.getContractFolders();
+      res.json(folders);
+    } catch (err) {
+      console.error("Get contract folders error:", err);
+      res.status(500).json({ message: "Internal error" });
+    }
+  });
+
+  app.post("/api/contract-folders", isAuthenticated, async (req: any, res) => {
+    try {
+      const folder = await storage.createContractFolder(req.body);
+      res.json(folder);
+    } catch (err) {
+      console.error("Create contract folder error:", err);
+      res.status(500).json({ message: "Internal error" });
+    }
+  });
+
+  app.put("/api/contract-folders/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const id = Number(req.params.id);
+      const folder = await storage.updateContractFolder(id, req.body);
+      res.json(folder);
+    } catch (err) {
+      console.error("Update contract folder error:", err);
+      res.status(500).json({ message: "Internal error" });
+    }
+  });
+
+  app.delete("/api/contract-folders/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const id = Number(req.params.id);
+      await storage.deleteContractFolder(id);
+      res.json({ success: true });
+    } catch (err) {
+      console.error("Delete contract folder error:", err);
+      res.status(500).json({ message: "Internal error" });
+    }
+  });
+
+  app.get("/api/contract-folders/:id/panels", isAuthenticated, async (req, res) => {
+    try {
+      const id = Number(req.params.id);
+      const fp = await storage.getFolderPanels(id);
+      res.json(fp);
+    } catch (err) {
+      console.error("Get folder panels error:", err);
+      res.status(500).json({ message: "Internal error" });
+    }
+  });
+
+  app.put("/api/contract-folders/:id/panels", isAuthenticated, async (req: any, res) => {
+    try {
+      const id = Number(req.params.id);
+      const assignments = (req.body.assignments || []).map((a: any) => ({
+        panelId: Number(a.panelId),
+        gridColumns: Math.min(4, Math.max(1, Number(a.gridColumns) || 1)),
+      }));
+      await storage.setFolderPanels(id, assignments);
+      res.json({ success: true });
+    } catch (err) {
+      console.error("Set folder panels error:", err);
+      res.status(500).json({ message: "Internal error" });
+    }
+  });
+
+  app.get("/api/contract-folders-with-panels", isAuthenticated, async (_req, res) => {
+    try {
+      const folders = await storage.getContractFolders();
+      const allPanels = await storage.getPanels();
+      const result = [];
+      for (const folder of folders) {
+        const fp = await storage.getFolderPanels(folder.id);
+        const panelsWithDetails = fp.map(f => {
+          const panel = allPanels.find(p => p.id === f.panelId);
+          return panel ? { ...f, panelName: panel.name, panelDescription: panel.description } : null;
+        }).filter(Boolean);
+        result.push({ ...folder, panels: panelsWithDetails });
+      }
+      res.json(result);
+    } catch (err) {
+      console.error("Get contract folders with panels error:", err);
+      res.status(500).json({ message: "Internal error" });
+    }
+  });
+
   // === CALENDAR EVENTS ===
   app.get("/api/calendar-events", isAuthenticated, async (_req, res) => {
     try {

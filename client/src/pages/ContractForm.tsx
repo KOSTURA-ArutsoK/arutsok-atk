@@ -6,7 +6,7 @@ import { useStates } from "@/hooks/use-hierarchy";
 import { useToast } from "@/hooks/use-toast";
 import { useLocation, useParams } from "wouter";
 import type { Contract, ContractStatus, ContractTemplate, ContractInventory, Subject, Partner, MyCompany, Sector, Section, SectorProduct, ContractPassword, ContractParameterValue } from "@shared/schema";
-import { ArrowLeft, Save, Loader2, LayoutGrid, KeyRound, Plus, Trash2, FileText, Users, ClipboardList, FolderOpen, DollarSign, BarChart3, ListChecks, PieChart, ChevronLeft, ChevronRight } from "lucide-react";
+import { ArrowLeft, Save, Loader2, LayoutGrid, KeyRound, Plus, Trash2, FileText, Users, ClipboardList, FolderOpen, FolderClosed, DollarSign, BarChart3, ListChecks, PieChart, ChevronLeft, ChevronRight } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -46,6 +46,21 @@ type PanelWithParams = {
     options: string[];
     isRequired: boolean;
     defaultValue: string;
+  }>;
+};
+
+type FolderWithPanels = {
+  id: number;
+  name: string;
+  sortOrder: number;
+  panels: Array<{
+    id: number;
+    folderId: number;
+    panelId: number;
+    gridColumns: number;
+    sortOrder: number;
+    panelName: string;
+    panelDescription: string;
   }>;
 };
 
@@ -351,6 +366,10 @@ export default function ContractForm() {
       return res.json();
     },
     enabled: !!sectorProductId,
+  });
+
+  const { data: contractFolders } = useQuery<FolderWithPanels[]>({
+    queryKey: ["/api/contract-folders-with-panels"],
   });
 
   useEffect(() => {
@@ -857,83 +876,126 @@ export default function ContractForm() {
                 </div>
               )}
 
-              {sectorProductId && productPanels && productPanels.length > 0 && (
-                <div className="space-y-2" data-testid="section-contract-panels">
-                  <div className="flex items-center gap-2 mb-1">
-                    <LayoutGrid className="w-4 h-4 text-primary" />
-                    <span className="text-sm font-semibold">Parametre produktu</span>
-                  </div>
-                  {productPanels.map(panel => (
-                    <Card key={panel.id} className="p-2" data-testid={`panel-section-${panel.id}`}>
-                      <div className="flex items-center gap-2 mb-1">
-                        <span className="text-sm font-semibold">{panel.name}</span>
-                        {panel.description && (
-                          <span className="text-xs text-muted-foreground">({panel.description})</span>
-                        )}
-                      </div>
-                      {panel.parameters.length > 0 ? (
-                        <div className="grid grid-cols-2 gap-2">
-                          {panel.parameters.map(param => (
-                            <div key={param.id} className="space-y-0.5">
-                              <label className="text-xs font-medium">
-                                {param.name}
-                                {param.isRequired && <span className="text-destructive ml-1">*</span>}
-                              </label>
-                              {param.paramType === "textarea" ? (
-                                <Textarea
-                                  value={panelValues[`${panel.id}_${param.id}`] || param.defaultValue || ""}
-                                  onChange={e => setPanelValues(prev => ({ ...prev, [`${panel.id}_${param.id}`]: e.target.value }))}
-                                  rows={2}
-                                  data-testid={`input-panel-param-${panel.id}-${param.id}`}
-                                />
-                              ) : param.paramType === "boolean" ? (
-                                <Select
-                                  value={panelValues[`${panel.id}_${param.id}`] || param.defaultValue || ""}
-                                  onValueChange={val => setPanelValues(prev => ({ ...prev, [`${panel.id}_${param.id}`]: val }))}
-                                >
-                                  <SelectTrigger data-testid={`select-panel-param-${panel.id}-${param.id}`}>
-                                    <SelectValue placeholder="Vyberte" />
-                                  </SelectTrigger>
-                                  <SelectContent>
-                                    <SelectItem value="ano">Ano</SelectItem>
-                                    <SelectItem value="nie">Nie</SelectItem>
-                                  </SelectContent>
-                                </Select>
-                              ) : param.paramType === "combobox" && param.options?.length > 0 ? (
-                                <Select
-                                  value={panelValues[`${panel.id}_${param.id}`] || param.defaultValue || ""}
-                                  onValueChange={val => setPanelValues(prev => ({ ...prev, [`${panel.id}_${param.id}`]: val }))}
-                                >
-                                  <SelectTrigger data-testid={`select-panel-param-${panel.id}-${param.id}`}>
-                                    <SelectValue placeholder="Vyberte" />
-                                  </SelectTrigger>
-                                  <SelectContent>
-                                    {param.options.map(opt => (
-                                      <SelectItem key={opt} value={opt}>{opt}</SelectItem>
-                                    ))}
-                                  </SelectContent>
-                                </Select>
-                              ) : (
-                                <Input
-                                  type={param.paramType === "number" || param.paramType === "currency" || param.paramType === "percent" ? "number" : param.paramType === "date" ? "date" : param.paramType === "datetime" ? "datetime-local" : param.paramType === "email" ? "email" : param.paramType === "url" ? "url" : "text"}
-                                  value={panelValues[`${panel.id}_${param.id}`] || param.defaultValue || ""}
-                                  onChange={e => setPanelValues(prev => ({ ...prev, [`${panel.id}_${param.id}`]: e.target.value }))}
-                                  data-testid={`input-panel-param-${panel.id}-${param.id}`}
-                                />
-                              )}
-                              {param.helpText && (
-                                <p className="text-xs text-muted-foreground">{param.helpText}</p>
-                              )}
-                            </div>
-                          ))}
-                        </div>
-                      ) : (
-                        <p className="text-xs text-muted-foreground">Ziadne parametre</p>
+              {sectorProductId && productPanels && productPanels.length > 0 && (() => {
+                const productPanelIds = new Set(productPanels.map(p => p.id));
+                const assignedPanelIds = new Set<number>();
+                const foldersWithMatchingPanels = (contractFolders || [])
+                  .map(folder => {
+                    const matchingPanels = folder.panels
+                      .filter(fp => productPanelIds.has(fp.panelId))
+                      .map(fp => {
+                        assignedPanelIds.add(fp.panelId);
+                        return { ...fp, panelData: productPanels.find(p => p.id === fp.panelId)! };
+                      })
+                      .filter(fp => fp.panelData);
+                    return { ...folder, matchingPanels };
+                  })
+                  .filter(f => f.matchingPanels.length > 0);
+                const ungroupedPanels = productPanels.filter(p => !assignedPanelIds.has(p.id));
+
+                const renderPanelCard = (panel: PanelWithParams) => (
+                  <Card key={panel.id} className="p-2" data-testid={`panel-section-${panel.id}`}>
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className="text-sm font-semibold">{panel.name}</span>
+                      {panel.description && (
+                        <span className="text-xs text-muted-foreground">({panel.description})</span>
                       )}
-                    </Card>
-                  ))}
-                </div>
-              )}
+                    </div>
+                    {panel.parameters.length > 0 ? (
+                      <div className="grid grid-cols-2 gap-2">
+                        {panel.parameters.map(param => (
+                          <div key={param.id} className="space-y-0.5">
+                            <label className="text-xs font-medium">
+                              {param.name}
+                              {param.isRequired && <span className="text-destructive ml-1">*</span>}
+                            </label>
+                            {param.paramType === "textarea" ? (
+                              <Textarea
+                                value={panelValues[`${panel.id}_${param.id}`] || param.defaultValue || ""}
+                                onChange={e => setPanelValues(prev => ({ ...prev, [`${panel.id}_${param.id}`]: e.target.value }))}
+                                rows={2}
+                                data-testid={`input-panel-param-${panel.id}-${param.id}`}
+                              />
+                            ) : param.paramType === "boolean" ? (
+                              <Select
+                                value={panelValues[`${panel.id}_${param.id}`] || param.defaultValue || ""}
+                                onValueChange={val => setPanelValues(prev => ({ ...prev, [`${panel.id}_${param.id}`]: val }))}
+                              >
+                                <SelectTrigger data-testid={`select-panel-param-${panel.id}-${param.id}`}>
+                                  <SelectValue placeholder="Vyberte" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="ano">Ano</SelectItem>
+                                  <SelectItem value="nie">Nie</SelectItem>
+                                </SelectContent>
+                              </Select>
+                            ) : param.paramType === "combobox" && param.options?.length > 0 ? (
+                              <Select
+                                value={panelValues[`${panel.id}_${param.id}`] || param.defaultValue || ""}
+                                onValueChange={val => setPanelValues(prev => ({ ...prev, [`${panel.id}_${param.id}`]: val }))}
+                              >
+                                <SelectTrigger data-testid={`select-panel-param-${panel.id}-${param.id}`}>
+                                  <SelectValue placeholder="Vyberte" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {param.options.map(opt => (
+                                    <SelectItem key={opt} value={opt}>{opt}</SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                            ) : (
+                              <Input
+                                type={param.paramType === "number" || param.paramType === "currency" || param.paramType === "percent" ? "number" : param.paramType === "date" ? "date" : param.paramType === "datetime" ? "datetime-local" : param.paramType === "email" ? "email" : param.paramType === "url" ? "url" : "text"}
+                                value={panelValues[`${panel.id}_${param.id}`] || param.defaultValue || ""}
+                                onChange={e => setPanelValues(prev => ({ ...prev, [`${panel.id}_${param.id}`]: e.target.value }))}
+                                data-testid={`input-panel-param-${panel.id}-${param.id}`}
+                              />
+                            )}
+                            {param.helpText && (
+                              <p className="text-xs text-muted-foreground">{param.helpText}</p>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-xs text-muted-foreground">Ziadne parametre</p>
+                    )}
+                  </Card>
+                );
+
+                return (
+                  <div className="space-y-3" data-testid="section-contract-panels">
+                    <div className="flex items-center gap-2 mb-1">
+                      <LayoutGrid className="w-4 h-4 text-primary" />
+                      <span className="text-sm font-semibold">Parametre produktu</span>
+                    </div>
+                    {foldersWithMatchingPanels.map(folder => (
+                      <Card key={`folder-${folder.id}`} className="p-3" data-testid={`folder-section-${folder.id}`}>
+                        <div className="flex items-center gap-2 mb-2">
+                          <FolderClosed className="w-4 h-4 text-primary" />
+                          <span className="text-sm font-bold">{folder.name}</span>
+                        </div>
+                        <div className="grid grid-cols-12 gap-2">
+                          {folder.matchingPanels.map(fp => {
+                            const spanCols = fp.gridColumns === 4 ? 3 : fp.gridColumns === 3 ? 4 : fp.gridColumns === 2 ? 6 : 12;
+                            const spanClass = spanCols === 3 ? "col-span-3" : spanCols === 4 ? "col-span-4" : spanCols === 6 ? "col-span-6" : "col-span-12";
+                            return (
+                              <div key={fp.panelId} className={spanClass} data-testid={`folder-panel-${folder.id}-${fp.panelId}`}>
+                                {renderPanelCard(fp.panelData)}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </Card>
+                    ))}
+                    {ungroupedPanels.length > 0 && (
+                      <div className="space-y-2">
+                        {ungroupedPanels.map(panel => renderPanelCard(panel))}
+                      </div>
+                    )}
+                  </div>
+                );
+              })()}
 
               {sectorProductId && productPanels && productPanels.length === 0 && (
                 <p className="text-sm text-muted-foreground" data-testid="text-no-panels">

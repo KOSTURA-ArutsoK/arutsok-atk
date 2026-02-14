@@ -1,7 +1,7 @@
 # ArutsoK
 
 ## Overview
-ArutsoK is a multi-tenant CRM and commission tracking system for industries like financial services and real estate. It provides robust client and partner management, detailed commission calculations, and emphasizes data integrity, auditability, and temporal validity. The project aims to be a comprehensive and secure platform for managing complex business relationships and financial transactions.
+ArutsoK is a multi-tenant CRM and commission tracking system designed for financial services and real estate industries. It provides comprehensive client and partner management, precise commission calculations, and emphasizes data integrity, auditability, and temporal validity. The platform aims to be a secure and robust solution for managing complex business relationships and financial transactions.
 
 ## User Preferences
 - Dark mode default with military/security aesthetic
@@ -9,84 +9,54 @@ ArutsoK is a multi-tenant CRM and commission tracking system for industries like
 - Sharp borders, small border radius
 
 ## System Architecture
-The system employs a modern full-stack architecture with a focus on data integrity, security, and audibility.
+The system utilizes a modern full-stack architecture prioritizing data integrity, security, and auditability.
 
 **Core Technologies:**
-- **Frontend**: React with Vite, Tailwind CSS, `shadcn/ui` for UI, `wouter` for routing.
+- **Frontend**: React with Vite, Tailwind CSS, `shadcn/ui`, `wouter`.
 - **Backend**: Express.js.
 - **Database**: PostgreSQL (Neon) with Drizzle ORM.
-- **Authentication**: Replit OIDC Auth with separate `users` (auth) and `app_users` (application-specific roles) tables.
+- **Authentication**: Replit OIDC Auth.
 
 **Key Architectural Decisions & Features:**
-- **Deployment**: Frontend and Backend served together on port 5000.
-- **Data Integrity & Auditability**:
-    - **No Overwriting**: All updates archive original records, creating an immutable history.
-    - **Soft Deletion**: Entities are soft-deleted with an `isDeleted` flag and audit trail.
-    - **Audit Logging**: Comprehensive `audit_logs` track user actions, data changes, and processing times for all mutating routes.
-    - **Global Click Logging**: All button clicks are logged to `audit_logs` via a throttled endpoint.
-    - **Subject-Specific History**: Audit logs are viewable per entity.
-- **Unique Identifiers**: Atomic 12-digit UIDs generated via a `global_counters` table.
-- **Temporal Validity**: Many tables include `validFrom`, `validTo`, and `isActive` fields; an hourly cron job archives expired bindings.
-- **Role-Based Access Control (RBAC)**: Granular permissions system using `permission_groups` and a permissions matrix.
+- **Data Integrity & Auditability**: Implemented through immutable historical records (no overwriting), soft deletion with audit trails, comprehensive `audit_logs` for all mutating routes and button clicks, and subject-specific history views.
+- **Temporal Validity**: Extensive use of `validFrom`, `validTo`, and `isActive` fields, with an hourly cron job for archiving expired bindings.
+- **Role-Based Access Control (RBAC)**: Granular permissions managed via `permission_groups`.
+- **Unique Identifiers**: Atomic 12-digit UIDs generated from a `global_counters` table.
 - **UI/UX & Interaction**:
-    - **Dark Mode**: Default with military/security aesthetic.
-    - **Slovak Language**: Default language for the application.
-    - **Design**: Sharp borders, small border radius, fixed 800x600px dialogs.
-    - **Context Switching (ArutsoK 29)**: Visual Context Selector overlay with frosted glass backdrop-blur. Two-step forced selection: State (circular flag buttons) → Company (rectangular cards filtered by stateId). Blocks all app interaction until both are selected. Top bar State button reopens from Step 1 (clears company), Company button reopens Step 2 for current state. Auto-shows after login if context is missing. `ContextSelectorOverlay` component in `client/src/components/context-selector-overlay.tsx`. `setActive` API accepts `activeCompanyId: null` to clear company on state change.
-    - **Rich Text Editing**: Tiptap editor for notes.
-    - **Document Management**: Dual document system (official/work) with file uploads to local storage and database metadata.
-    - **Drag & Drop Reordering**: Uses `@dnd-kit` for reordering elements in various modules (contract statuses, client types, etc.).
-    - **Status Indicators**: 5-color status dots for Subjects and consistent green/red for active/inactive items.
-    - **Voice Assistance (TTS)**: Web Speech API for notifications and welcome messages, with user-controlled muting via global `window.ARUTSOK_AUDIO_ENABLED` hardware-style switch persisted in localStorage.
+    - **Context Switching**: A forced two-step context selector (State → Company) with a visual overlay, blocking app interaction until selection.
+    - **Design**: Dark mode, Slovak language, sharp borders, small border radius, fixed dialog sizes.
+    - **Rich Text Editing**: Integrated Tiptap editor for notes.
+    - **Document Management**: Supports dual document systems (official/work) with file uploads and database metadata.
+    - **Drag & Drop Reordering**: Used for various elements via `@dnd-kit`.
+    - **Status Indicators**: Consistent 5-color status dots and green/red for active/inactive states.
+    - **Voice Assistance (TTS)**: Web Speech API for notifications, user-controlled.
 - **Security & Workflow**:
-    - **Idle Timeout Security**: Two-phase system with warning, audio cues, and auto-logout.
-    - **Modal Scroll Lock**: Prevents background scrolling when dialogs are open.
-    - **Archive Module**: Dedicated `/archive` page for soft-deleted entities with password-protected restore functionality (admin/superadmin only).
-    - **Processing Time Protocol**: Tracks form editing duration (`processingTimeSec`) for all create/edit forms.
+    - **Idle Timeout**: Two-phase system with warnings and auto-logout.
+    - **Archive Module**: Dedicated page for soft-deleted entities with password-protected restore.
+    - **Processing Time Protocol**: Tracks form editing duration.
 - **Module-Specific Features**:
-    - **Contracts Module**: Manages contract statuses, templates, inventories, and main contracts. Includes regional data isolation based on `activeStateId`.
-    - **Client Registration**: Multi-step flow with identity verification, simulated MFA, and public API endpoints.
-    - **Client Zone**: Post-registration area for data review.
-    - **Dynamic Client Type System**: Defines per-type form structures with conditional field visibility and 11 field types.
-    - **Smart Subject Registration**: Two-step flow with duplicate checks and initial type selection.
-    - **Bulk Client Assignment**: Feature for assigning multiple clients to groups.
-    - **Client Groups**: Manages client groups and sub-groups with login blocking capabilities.
-    - **Commission Brain & Calculation Engine**:
-        - Manages `commission_rates` (partner+product rate matrix) with temporal validity.
-        - `commission_calculation_logs` for audit trail of calculations.
-        - Supports base and differential commission calculations based on agent hierarchy.
-        - Dedicated pages for managing rates, incoming commissions (`Provizie`), and outgoing payments (`Odmeny`).
-    - **Settlement Sheets (Supisky) Module**:
-        - Manages `supisky` and `supiska_contracts`.
-        - Implements contract locking mechanism during settlement sheet processing.
-        - Status workflow (Nova → Pripravena → Odoslana) with auto-locking/unlocking of contracts.
-        - Export functionality to Excel/CSV.
-    - **Dynamic Parameter System (ArutsoK 24-25, 28)**: 4-level hierarchy: Sektory → Sekcie → Produkty → Parametre. `sectors` (with `partnerIds` for multi-company assignment), `sections` (name, sectorId), `sector_products` (name, abbreviation, sectionId), `sector_product_parameters` bridge table. Legacy `sector_parameters`, `product_sectors`, `product_parameters` kept for compatibility. Sectors.tsx has 5-tab UI (Sektory, Sekcie, Produkty, Panely, Parametre) with cascading filters and partner multi-select combobox. All management tables default to descending sort (newest first).
-    - **4-Level Hierarchy (ArutsoK 28)**: Added `sections` table between `sectors` and `sector_products`. Schema: `sections` (id, name, sectorId, isDeleted, createdAt). Changed `sector_products.sectorId` → `sector_products.sectionId`. Sectors.tsx Sekcie tab with full CRUD. Contracts.tsx uses cascading Sektor → Sekcia → Produkt dropdowns for product selection. Panels-with-parameters endpoint traverses full hierarchy.
-    - **Product Form Cleanup (ArutsoK 26)**: Removed State (Stat) and Company (Spolocnost) fields from ProductFormDialog. These values auto-assign from app_user's `activeStateId` and `activeCompanyId` global context filter, simplifying the product creation flow.
-    - **Dynamic Panels System (ArutsoK 27)**: Panels (Panely) wrap parameters into visual containers. Schema: `panels` table (name, description, sortOrder), `panel_parameters` bridge (panelId, parameterId, sortOrder), `product_panels` bridge (sectorProductId, panelId, sortOrder). 4th tab "Panely" added to Sectors.tsx for panel CRUD with parameter assignment. ProductsTab has panel assignment per sector product. Contract form dynamically renders panel sections with parameter inputs when a product is selected (via `/api/sector-products/:id/panels-with-parameters`). Supports all parameter types (text, textarea, number, currency, percent, date, boolean, combobox, etc.).
-    - **System Settings**: Key-value store for application configurations (e.g., support phone number, category timeouts, dashboard preferences).
-    - **Calendar Module**: `calendar_events` table with full CRUD, month grid view, event chips, day panel, create/edit/delete dialogs, color coding, all-day events. Dashboard widget for upcoming events.
-    - **Settings Reorganization (ArutsoK 19)**: Sidebar 'Nastavenia' split into nested 'Sprava pristupov' sub-group (Pouzivatelia, Pravomoci skupiny, Doba prihlasenia) and direct items (Logy, Podpora a registracia, Nastavenie prehladov, Kos). Each settings concern has its own dedicated page.
-    - **Session Management (ArutsoK 20)**: `permission_groups.sessionTimeoutSeconds` links session timeout to user groups. Two-way editing: editable in both Pravomoci skupiny dialog and Doba prihlasenia master table. AppShell derives timeout from user's permission group. Idle timeout modal "Zostat prihlaseny" button properly resets session.
-    - **Global Table Resizing (ArutsoK 21)**: All tables support column resizing via drag handles on header boundaries. Built into the base `Table`/`TableHead` shadcn components (`client/src/components/ui/table.tsx`). On first resize, captures all column widths and switches to fixed layout. Visual indicators: hover shows subtle line, drag shows primary-colored line. Minimum column width 40px.
-    - **Dashboard Customization (ArutsoK 22)**: Drag-and-drop widget reordering on Dashboard using `@dnd-kit`. `user_dashboard_layouts` table stores widget order per user (text array). Edit mode toggle "Upravit rozlozenie" shows dashed borders and GripVertical drag handles. Save/Cancel buttons persist layout via `/api/dashboard-layout`. Responsive grid (1-col mobile, 2-col desktop). Stats widget spans full width.
-    - **Session Timeout Safeguards (ArutsoK 23)**: Minimum 60s for `sessionTimeoutSeconds` enforced on frontend (both Doba prihlasenia and Pravomoci skupiny) and server-side. Dynamic warning timing: timeout >5m warns at 2m remaining; timeout <=5m warns at 50% of duration. Anti-lockout via safe minimum ensures users always have enough time to interact with settings.
-    - **Form Context Auto-Defaults (ArutsoK 30)**: Partner form auto-sets `stateId` from `appUser.activeStateId`. Product form auto-sets both `stateId` and `companyId` from active context. `sector_products.sector_id` made nullable (legacy column), `section_id` enforced as NOT NULL (primary hierarchy key). Fixed `client_groups.isDeleted` reference in storage (column doesn't exist). Zod's `createInsertSchema` strips unknown keys safely (e.g., `dynamicParams` in product payload).
-    - **Specifikacie Settings Sub-Group (ArutsoK 31)**: Added `Specifikacie` nested sub-group under `Nastavenia` sidebar alongside `Sprava pristupov`. Contains `Staty` (/settings-states) and `Spolocnosti` (/settings-companies) management pages. `SettingsStates.tsx` with full CRUD for states (name, code, continentId), flag upload to `uploads/flags/`, flag version history via `state_flag_history` table. Companies page enhanced with logo history dialog via `company_logo_history` table. Both history tables track `replacedAt`, `originalName`. Context Selector overlay feeds from `/api/states` endpoint. Multer config extended with "flags" upload section.
-    - **Full-Page Contract Management (ArutsoK 32)**: Replaced dialog-based contract editing with full-page form at `/contracts/new` and `/contracts/:id/edit`. 8-section top-tab navigation: Vseobecne, Udaje o klientovi, Udaje o zmluve, Dokumenty, Odmeny, Stavy zmluv, Zhrnutie, Provizne zostavy. Vseobecne has 7-row grid: R1 company+supiska, R2 calculator+template, R3 KIK+proposal+contract number, R4 signing place+type+status, R5 dates, R6 payment frequency, R7 premium+annual+passwords button. New contract fields: `proposalNumber`, `kik`, `signingPlace`, `contractType` (Nova/Prestupova/Zmenova), `paymentFrequency` (8 options), `annualPremium`. `contract_passwords` table (id, contractId, password, note) with CRUD API at `/api/contracts/:id/passwords`. Password modal accessible only on existing contracts. Dynamic panels load in "Udaje o zmluve" tab via cascading Sektor→Sekcia→Produkt selects. Sticky footer with "Ulozit zmeny" and "Spat na zoznam" navigation. `ContractForm.tsx` page component. Contracts list buttons navigate to routes instead of opening dialogs.
-    - **Data Persistence & Auto-Scaling UI (ArutsoK 33)**: `contract_parameter_values` table (id, contract_id, parameter_id, value) for persisting dynamic panel field values per contract. Storage uses delete-then-insert pattern for save. API: GET/POST `/api/contracts/:contractId/parameter-values`. ContractForm loads saved values on edit and saves on both create/update (always calls save, even for empty arrays to clear old values). Auto-scaling layout: `overflow-hidden` on main container, `flex-none` header/tabs/footer, `flex-1 overflow-hidden` content region with inner `overflow-y-auto`. Compact spacing using `clamp()` for responsive gaps. `CompactField` component for consistent label styling. Footer is part of flex flow (not sticky) to prevent overlap.
-    - **Sidebar & Contract Navigation (ArutsoK 34)**: Sidebar Zmluvy restructured to nested hierarchy: Zmluvy → Evidencia zmluv → Zmluvy (sub-item), with other items (Nastavenia sablon, Sprava sablon, Stavy zmluv, Zoznam supisiek, Supisky) as direct children. Vseobecne tab row rearranged: dates row expanded to 4-col with Lehotne poistne; new row with Frekvencia platenia (25%), Rocne poistne (25%), Heslo k zmluve input (50%). Footer replaced with 3-button stepper: [Ulozit zmluvu (Left, variant=outline)] [Predchadzajuci krok (Middle)] [Pokracovat (Right)]. On last tab, Pokracovat becomes Ulozit zmluvu. tabIndex order: 1=Pokracovat, 2=Predchadzajuci krok, 3=Ulozit zmluvu.
+    - **Dynamic Parameter System**: A 4-level hierarchy (Sectors → Sections → Products → Parameters) for dynamic configuration and form generation.
+    - **Dynamic Panels System**: Panels wrap parameters into visual containers within forms, allowing for flexible layout with customizable grid columns.
+    - **Contracts Module**: Full-page contract management with multi-tab navigation, custom fields (`proposalNumber`, `kik`, `signingPlace`, `contractType`, `paymentFrequency`, `annualPremium`), and password management. Supports dynamic panel loading and value persistence.
+    - **Commission Brain & Calculation Engine**: Manages `commission_rates` with temporal validity, supports base and differential calculations, and maintains `commission_calculation_logs`.
+    - **Settlement Sheets (Supisky) Module**: Manages settlement sheets and contracts, including a contract locking mechanism and status workflow.
+    - **Calendar Module**: Provides full CRUD for `calendar_events` with various views and dashboard integration.
+    - **Client Registration**: Multi-step flow including identity verification and simulated MFA.
+    - **System Settings**: Key-value store for application configurations.
+    - **Dashboard Customization**: Drag-and-drop widget reordering with user-specific layout persistence.
+    - **Global Table Resizing**: All tables support column resizing with persistence.
+    - **State and Company Management**: Dedicated pages for CRUD operations on states (with flag uploads) and companies (with logo history).
+    - **Contract Folders System**: Organizes panels visually into folders within the contract form, enabling flexible grid-based layouts.
 
 ## External Dependencies
-- **Replit OIDC Auth**: For user authentication.
-- **PostgreSQL (Neon)**: Primary database.
-- **Drizzle ORM**: Database interactions.
+- **Replit OIDC Auth**: User authentication.
+- **PostgreSQL (Neon)**: Database service.
+- **Drizzle ORM**: Database abstraction.
 - **Vite**: Frontend build tool.
 - **Express.js**: Backend framework.
-- **Tailwind CSS**: Styling.
-- **shadcn/ui**: UI components.
+- **Tailwind CSS**: Utility-first CSS framework.
+- **shadcn/ui**: UI component library.
 - **wouter**: Client-side routing.
 - **Tiptap**: Rich text editor.
-- **Multer**: File uploads.
-- **ExcelJS**: Spreadsheet generation.
+- **Multer**: Handling `multipart/form-data` for file uploads.
+- **ExcelJS**: Generating Excel spreadsheets.

@@ -960,6 +960,32 @@ export type InsertPanelParameter = z.infer<typeof insertPanelParameterSchema>;
 export type ProductPanel = typeof productPanels.$inferSelect;
 export type InsertProductPanel = z.infer<typeof insertProductPanelSchema>;
 
+// === CONTRACT FOLDERS (ArutsoK 35 - visual containers for grouping panels in contract form) ===
+export const contractFolders = pgTable("contract_folders", {
+  id: serial("id").primaryKey(),
+  name: text("name").notNull(),
+  sortOrder: integer("sort_order").default(0),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertContractFolderSchema = createInsertSchema(contractFolders).omit({ id: true, createdAt: true });
+
+// === FOLDER_PANELS (ArutsoK 35 - panels assigned to folders with grid layout) ===
+export const folderPanels = pgTable("folder_panels", {
+  id: serial("id").primaryKey(),
+  folderId: integer("folder_id").notNull(),
+  panelId: integer("panel_id").notNull(),
+  gridColumns: integer("grid_columns").notNull().default(1),
+  sortOrder: integer("sort_order").default(0),
+});
+
+export const insertFolderPanelSchema = createInsertSchema(folderPanels).omit({ id: true });
+
+export type ContractFolder = typeof contractFolders.$inferSelect;
+export type InsertContractFolder = z.infer<typeof insertContractFolderSchema>;
+export type FolderPanel = typeof folderPanels.$inferSelect;
+export type InsertFolderPanel = z.infer<typeof insertFolderPanelSchema>;
+
 // === CALENDAR EVENTS ===
 export const calendarEvents = pgTable("calendar_events", {
   id: serial("id").primaryKey(),
