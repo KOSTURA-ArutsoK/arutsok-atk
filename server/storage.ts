@@ -37,11 +37,12 @@ import {
   type ClientTypeSection, type InsertClientTypeSection,
   type ClientTypeField, type InsertClientTypeField,
   clientTypes, clientTypeSections, clientTypeFields,
-  contractStatuses, contractTemplates, contractInventories, contracts,
+  contractStatuses, contractTemplates, contractInventories, contracts, contractPasswords,
   type ContractStatus, type InsertContractStatus,
   type ContractTemplate, type InsertContractTemplate,
   type ContractInventory, type InsertContractInventory,
   type Contract, type InsertContract,
+  type ContractPassword, type InsertContractPassword,
   clientGroups, clientSubGroups, clientGroupMembers,
   type ClientGroup, type InsertClientGroup,
   type ClientSubGroup, type InsertClientSubGroup,
@@ -245,6 +246,10 @@ export interface IStorage {
   updateContract(id: number, data: Partial<InsertContract>): Promise<Contract>;
   softDeleteContract(id: number, deletedBy: string, ip: string): Promise<void>;
   restoreContract(id: number): Promise<void>;
+
+  getContractPasswords(contractId: number): Promise<ContractPassword[]>;
+  createContractPassword(data: InsertContractPassword): Promise<ContractPassword>;
+  deleteContractPassword(id: number): Promise<void>;
 
   // Client Groups
   getClientGroups(stateId?: number): Promise<ClientGroup[]>;
@@ -1448,6 +1453,21 @@ export class DatabaseStorage implements IStorage {
       deletedAt: null,
       deletedFromIp: null,
     }).where(eq(contracts.id, id));
+  }
+
+  async getContractPasswords(contractId: number): Promise<ContractPassword[]> {
+    return await db.select().from(contractPasswords)
+      .where(eq(contractPasswords.contractId, contractId))
+      .orderBy(desc(contractPasswords.createdAt));
+  }
+
+  async createContractPassword(data: InsertContractPassword): Promise<ContractPassword> {
+    const [created] = await db.insert(contractPasswords).values(data as any).returning();
+    return created;
+  }
+
+  async deleteContractPassword(id: number): Promise<void> {
+    await db.delete(contractPasswords).where(eq(contractPasswords.id, id));
   }
 
   // === CLIENT GROUPS ===

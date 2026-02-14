@@ -44,6 +44,7 @@ import DobaPrihlasenia from "@/pages/DobaPrihlasenia";
 import PodporaRegistracia from "@/pages/PodporaRegistracia";
 import NastaveniePrehladov from "@/pages/NastaveniePrehladov";
 import SettingsStates from "@/pages/SettingsStates";
+import ContractForm from "@/pages/ContractForm";
 import { AppShell } from "@/components/layout/AppShell";
 
 function PrivateRoute({ component: Component, ...rest }: any) {
@@ -95,6 +96,8 @@ function Router() {
       <Route path="/archive" component={() => <PrivateRoute component={Archive} />} />
       <Route path="/client-type-rules" component={() => <PrivateRoute component={ClientTypeRules} />} />
       <Route path="/contracts" component={() => <PrivateRoute component={Contracts} />} />
+      <Route path="/contracts/new" component={() => <PrivateRoute component={ContractForm} />} />
+      <Route path="/contracts/:id/edit" component={() => <PrivateRoute component={ContractForm} />} />
       <Route path="/contract-statuses" component={() => <PrivateRoute component={ContractStatuses} />} />
       <Route path="/contract-template-settings" component={() => <PrivateRoute component={ContractTemplates} />} />
       <Route path="/contract-template-management" component={() => <PrivateRoute component={ContractTemplates} />} />

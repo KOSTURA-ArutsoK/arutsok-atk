@@ -1503,6 +1503,41 @@ export async function registerRoutes(
     }
   });
 
+  // === CONTRACT PASSWORDS (ArutsoK 32) ===
+  app.get("/api/contracts/:contractId/passwords", isAuthenticated, async (req: any, res) => {
+    try {
+      res.json(await storage.getContractPasswords(Number(req.params.contractId)));
+    } catch (err) {
+      res.status(500).json({ message: "Internal error" });
+    }
+  });
+
+  app.post("/api/contracts/:contractId/passwords", isAuthenticated, async (req: any, res) => {
+    try {
+      const { password, note } = req.body;
+      if (!password) return res.status(400).json({ message: "Heslo je povinne" });
+      const created = await storage.createContractPassword({
+        contractId: Number(req.params.contractId),
+        password,
+        note: note || null,
+      });
+      await logAudit(req, { action: "CREATE", module: "contract_passwords", entityId: created.id, entityName: `Password for contract ${req.params.contractId}` });
+      res.json(created);
+    } catch (err) {
+      res.status(500).json({ message: "Internal error" });
+    }
+  });
+
+  app.delete("/api/contract-passwords/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      await storage.deleteContractPassword(Number(req.params.id));
+      await logAudit(req, { action: "DELETE", module: "contract_passwords", entityId: Number(req.params.id) });
+      res.json({ success: true });
+    } catch (err) {
+      res.status(500).json({ message: "Internal error" });
+    }
+  });
+
   // === CLIENT TYPE REORDER ===
   app.put("/api/client-types/:typeId/fields/reorder", isAuthenticated, async (req: any, res) => {
     try {

@@ -4,6 +4,7 @@ import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useAppUser } from "@/hooks/use-app-user";
 import { useStates } from "@/hooks/use-hierarchy";
 import { useToast } from "@/hooks/use-toast";
+import { useLocation } from "wouter";
 import type { Contract, ContractStatus, ContractTemplate, ContractInventory, Subject, Partner, Product, MyCompany, Sector, Section, SectorProduct } from "@shared/schema";
 import { Plus, Pencil, Trash2, Eye, FileText, Loader2, Lock, LayoutGrid } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
@@ -807,9 +808,8 @@ function DeleteContractDialog({
 export default function Contracts() {
   const { data: appUser } = useAppUser();
   const activeStateId = appUser?.activeStateId ?? null;
+  const [, navigate] = useLocation();
 
-  const [dialogOpen, setDialogOpen] = useState(false);
-  const [editingContract, setEditingContract] = useState<Contract | null>(null);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [deletingContract, setDeletingContract] = useState<Contract | null>(null);
   const [viewingContract, setViewingContract] = useState<Contract | null>(null);
@@ -862,13 +862,11 @@ export default function Contracts() {
   }
 
   function openCreate() {
-    setEditingContract(null);
-    setDialogOpen(true);
+    navigate("/contracts/new");
   }
 
   function openEdit(contract: Contract) {
-    setEditingContract(contract);
-    setDialogOpen(true);
+    navigate(`/contracts/${contract.id}/edit`);
   }
 
   function openDelete(contract: Contract) {
@@ -1031,13 +1029,6 @@ export default function Contracts() {
           )}
         </CardContent>
       </Card>
-
-      <ContractFormDialog
-        open={dialogOpen}
-        onOpenChange={setDialogOpen}
-        editingContract={editingContract}
-        activeStateId={activeStateId}
-      />
 
       {deletingContract && (
         <DeleteContractDialog
