@@ -172,7 +172,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   }
 
   const sidebarStyle = {
-    "--sidebar-width": "18rem",
+    "--sidebar-width": "280px",
     "--sidebar-width-icon": "3rem",
   };
 
