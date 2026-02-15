@@ -548,7 +548,7 @@ export const contractStatusParameters = pgTable("contract_status_parameters", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
-// === CONTRACT STATUS CHANGE LOG (ArutsoK 49, extended ArutsoK 51) ===
+// === CONTRACT STATUS CHANGE LOG (ArutsoK 49, extended ArutsoK 51, ArutsoK 52) ===
 export const contractStatusChangeLogs = pgTable("contract_status_change_logs", {
   id: serial("id").primaryKey(),
   contractId: integer("contract_id").notNull().references(() => contracts.id),
@@ -560,6 +560,7 @@ export const contractStatusChangeLogs = pgTable("contract_status_change_logs", {
   visibleToClient: boolean("visible_to_client").default(false),
   statusNote: text("status_note"),
   statusChangeDocuments: jsonb("status_change_documents").$type<DocEntry[]>().default([]),
+  statusIteration: integer("status_iteration").default(1),
   createdAt: timestamp("created_at").defaultNow(),
 });
 

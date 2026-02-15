@@ -1481,7 +1481,16 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createContractStatusChangeLog(data: InsertContractStatusChangeLog): Promise<ContractStatusChangeLog> {
-    const [created] = await db.insert(contractStatusChangeLogs).values(data as any).returning();
+    const existingCount = await db.select({ count: sql<number>`count(*)::int` })
+      .from(contractStatusChangeLogs)
+      .where(and(
+        eq(contractStatusChangeLogs.contractId, data.contractId),
+        eq(contractStatusChangeLogs.newStatusId, data.newStatusId),
+      ));
+    const iteration = (existingCount[0]?.count || 0) + 1;
+    const [created] = await db.insert(contractStatusChangeLogs)
+      .values({ ...data, statusIteration: iteration } as any)
+      .returning();
     return created;
   }
 

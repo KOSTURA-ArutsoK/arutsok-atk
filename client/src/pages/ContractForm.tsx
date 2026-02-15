@@ -5,8 +5,8 @@ import { useAppUser } from "@/hooks/use-app-user";
 import { useStates } from "@/hooks/use-hierarchy";
 import { useToast } from "@/hooks/use-toast";
 import { useLocation, useParams } from "wouter";
-import type { Contract, ContractStatus, ContractTemplate, ContractInventory, Subject, Partner, MyCompany, Sector, Section, SectorProduct, ContractPassword, ContractParameterValue, ContractFieldSetting } from "@shared/schema";
-import { ArrowLeft, Save, Loader2, LayoutGrid, KeyRound, Plus, Trash2, FileText, Users, ClipboardList, FolderOpen, FolderClosed, DollarSign, BarChart3, ListChecks, PieChart, ChevronLeft, ChevronRight, RefreshCw } from "lucide-react";
+import type { Contract, ContractStatus, ContractStatusChangeLog, ContractTemplate, ContractInventory, Subject, Partner, MyCompany, Sector, Section, SectorProduct, ContractPassword, ContractParameterValue, ContractFieldSetting } from "@shared/schema";
+import { ArrowLeft, Save, Loader2, LayoutGrid, KeyRound, Plus, Trash2, FileText, Users, ClipboardList, FolderOpen, FolderClosed, DollarSign, BarChart3, ListChecks, PieChart, ChevronLeft, ChevronRight, RefreshCw, MessageSquare, Paperclip } from "lucide-react";
 import { StatusChangeModal } from "@/components/status-change-modal";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -328,6 +328,10 @@ export default function ContractForm() {
   const { data: statuses } = useQuery<ContractStatus[]>({ queryKey: ["/api/contract-statuses"] });
   const { data: statusVisibilityMap } = useQuery<Record<number, { companies: number[]; visibility: { entityType: string; entityId: number }[] }>>({
     queryKey: ["/api/contract-statuses/all-visibility"],
+  });
+  const { data: statusChangeLogs } = useQuery<ContractStatusChangeLog[]>({
+    queryKey: ["/api/contracts", contractId, "status-change-logs"],
+    enabled: !!contractId,
   });
   const { data: templates } = useQuery<ContractTemplate[]>({ queryKey: ["/api/contract-templates"] });
   const { data: inventories } = useQuery<ContractInventory[]>({ queryKey: ["/api/contract-inventories"] });
@@ -1170,6 +1174,58 @@ export default function ContractForm() {
                     queryClient.invalidateQueries({ queryKey: ["/api/contracts", contractId] });
                   }}
                 />
+              )}
+              {contractId && statusChangeLogs && statusChangeLogs.length > 0 && (
+                <Card>
+                  <CardContent className="p-3 space-y-2">
+                    <h3 className="text-sm font-semibold">Historia zmien stavov</h3>
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Poradie</TableHead>
+                          <TableHead>Stav</TableHead>
+                          <TableHead>Datum zmeny</TableHead>
+                          <TableHead>Info</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {statusChangeLogs.map(log => {
+                          const logStatus = statuses?.find(s => s.id === log.newStatusId);
+                          const statusName = logStatus?.name || `Stav #${log.newStatusId}`;
+                          const iteration = log.statusIteration || 1;
+                          return (
+                            <TableRow key={log.id} data-testid={`row-status-log-${log.id}`}>
+                              <TableCell className="text-sm font-mono" data-testid={`text-iteration-${log.id}`}>
+                                {iteration}
+                              </TableCell>
+                              <TableCell data-testid={`text-status-name-${log.id}`}>
+                                <div className="flex items-center gap-2">
+                                  {logStatus && (
+                                    <div className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: logStatus.color }} />
+                                  )}
+                                  <span className="text-sm">{statusName} {iteration}</span>
+                                </div>
+                              </TableCell>
+                              <TableCell className="text-sm text-muted-foreground" data-testid={`text-changed-at-${log.id}`}>
+                                {log.changedAt ? new Date(log.changedAt).toLocaleString("sk-SK") : "-"}
+                              </TableCell>
+                              <TableCell>
+                                <div className="flex items-center gap-1.5">
+                                  {log.statusNote && (
+                                    <MessageSquare className="w-3.5 h-3.5 text-blue-400" data-testid={`icon-log-note-${log.id}`} />
+                                  )}
+                                  {Array.isArray(log.statusChangeDocuments) && (log.statusChangeDocuments as any[]).length > 0 && (
+                                    <Paperclip className="w-3.5 h-3.5 text-amber-400" data-testid={`icon-log-docs-${log.id}`} />
+                                  )}
+                                </div>
+                              </TableCell>
+                            </TableRow>
+                          );
+                        })}
+                      </TableBody>
+                    </Table>
+                  </CardContent>
+                </Card>
               )}
             </div>
           )}
