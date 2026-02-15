@@ -1725,29 +1725,20 @@ export async function registerRoutes(
         });
       }
       const allContractsInInventory = await storage.getContracts({ inventoryId });
-      const rejectedContractIds: number[] = [];
-      for (const c of allContractsInInventory) {
-        if (!acceptedContractIds.includes(c.id) && c.statusId !== acceptedStatus.id && c.statusId !== rejectedStatus.id) {
-          await storage.updateContract(c.id, { statusId: rejectedStatus.id });
-          await storage.createContractStatusChangeLog({
-            contractId: c.id,
-            oldStatusId: c.statusId,
-            newStatusId: rejectedStatus.id,
-            changedByUserId: req.appUser?.id || null,
-            parameterValues: {},
-          });
-          rejectedContractIds.push(c.id);
-        }
+      const allAccepted = allContractsInInventory.every(c => 
+        acceptedContractIds.includes(c.id) || c.statusId === acceptedStatus.id
+      );
+      if (allAccepted) {
+        await storage.updateContractInventory(inventoryId, { isAccepted: true } as any);
       }
-      await storage.updateContractInventory(inventoryId, { isAccepted: true } as any);
       await logAudit(req, {
         action: "UPDATE",
         module: "sprievodka_accept",
         entityId: inventoryId,
         entityName: target.name,
-        newData: { contractIds: acceptedContractIds, rejectedContractIds, statusId: acceptedStatus.id, rejectedStatusId: rejectedStatus.id, globalNumbers },
+        newData: { contractIds: acceptedContractIds, statusId: acceptedStatus.id, globalNumbers },
       });
-      res.json({ success: true, acceptedCount: acceptedContractIds.length, rejectedCount: rejectedContractIds.length, globalNumbers });
+      res.json({ success: true, acceptedCount: acceptedContractIds.length, globalNumbers });
     } catch (err) {
       console.error("Accept error:", err);
       res.status(500).json({ message: "Internal error" });

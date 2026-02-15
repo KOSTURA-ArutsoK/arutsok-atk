@@ -1114,10 +1114,10 @@ export default function Contracts() {
   const activeRejected = rejectedContracts?.filter(c => !c.isDeleted) || [];
 
   const folderDefs = [
-    { id: 1, label: "Nahravanie zmluv", icon: Upload, color: "text-blue-500", bgColor: "bg-blue-500/15", count: activeContracts.length },
-    { id: 2, label: "Cakajuce na prijatie", icon: Inbox, color: "text-amber-500", bgColor: "bg-amber-500/15", count: activeDispatched.length },
-    { id: 3, label: "Neprijat\u00e9 zmluvy \u2013 v\u00fdhrady", icon: XCircle, color: "text-red-500", bgColor: "bg-red-500/15", count: activeRejected.length },
-    { id: 4, label: "Archív zmlúv (neprijaté zmluvy)", icon: Archive, color: "text-muted-foreground", bgColor: "bg-muted/30", count: activeArchived.length },
+    { id: 1, label: "Čakajúce na prijatie", icon: Inbox, color: "text-amber-500", bgColor: "bg-amber-500/15", count: activeContracts.length },
+    { id: 2, label: "Odoslané na sprievodke", icon: Send, color: "text-blue-500", bgColor: "bg-blue-500/15", count: activeDispatched.length },
+    { id: 3, label: "Prijaté zmluvy", icon: CheckCircle2, color: "text-green-500", bgColor: "bg-green-500/15", count: activeAccepted.length },
+    { id: 4, label: "Archív zmlúv (neprijaté zmluvy)", icon: Archive, color: "text-muted-foreground", bgColor: "bg-muted/30", count: activeRejected.length + activeArchived.length },
   ];
 
   function filterBySearch(list: Contract[]) {
@@ -1244,7 +1244,7 @@ export default function Contracts() {
     return (
       <div className="p-6 space-y-4">
         <div className="flex items-center justify-between gap-4 flex-wrap">
-          <h1 className="text-2xl font-bold" data-testid="text-page-title">Evidencia zmluv</h1>
+          <h1 className="text-2xl font-bold" data-testid="text-page-title">Spracovanie zmlúv</h1>
           <Button onClick={openCreate} data-testid="button-create-contract">
             <Plus className="w-4 h-4 mr-2" />
             Pridat zmluvu
@@ -1410,17 +1410,17 @@ export default function Contracts() {
         ) : null}</div>
 
         <div id="folder-3-wrapper">{activeFolder === 3 ? (
-          <Card data-testid="folder-neprijate">
+          <Card data-testid="folder-prijate">
             <div className="flex items-center gap-3 p-3 border-b">
-              <XCircle className="w-4 h-4 text-red-500 shrink-0" />
-              <p className="text-xs text-muted-foreground">Zmluvy, ktore neboli schvalene pocas prijatia sprievodky. Tieto zmluvy neziskaju globalne poradove cislo.</p>
+              <CheckCircle2 className="w-4 h-4 text-green-500 shrink-0" />
+              <p className="text-xs text-muted-foreground">Zmluvy, ktore boli schvalene a prijate do systemu.</p>
             </div>
             <CardContent className="p-0">
-              {isLoadingRejected ? (
+              {isLoadingAccepted ? (
                 <div className="flex items-center justify-center py-8"><Loader2 className="w-5 h-5 animate-spin" /></div>
-              ) : filteredRejected.length === 0 ? (
-                <p className="text-sm text-muted-foreground text-center py-8" data-testid="text-no-neprijate">Ziadne neprijate zmluvy</p>
-              ) : renderContractTable(filteredRejected, { showStatus: true, showRegistration: false, showActions: true })}
+              ) : filterBySearch(activeAccepted).length === 0 ? (
+                <p className="text-sm text-muted-foreground text-center py-8" data-testid="text-no-prijate">Ziadne prijate zmluvy</p>
+              ) : renderContractTable(filterBySearch(activeAccepted), { showStatus: true, showRegistration: true, showActions: true })}
             </CardContent>
           </Card>
         ) : null}</div>
@@ -1428,15 +1428,15 @@ export default function Contracts() {
         <div id="folder-4-wrapper">{activeFolder === 4 ? (
           <Card data-testid="folder-archiv">
             <div className="flex items-center gap-3 p-3 border-b">
-              <AlertTriangle className="w-4 h-4 text-red-500 shrink-0" />
-              <p className="text-xs text-muted-foreground">Zmluvy starsie ako 1 rok su automaticky presunuty do archivu</p>
+              <Archive className="w-4 h-4 text-muted-foreground shrink-0" />
+              <p className="text-xs text-muted-foreground">Neprijate zmluvy a zmluvy starsie ako 1 rok.</p>
             </div>
             <CardContent className="p-0">
-              {isLoadingArchived ? (
+              {(isLoadingRejected || isLoadingArchived) ? (
                 <div className="flex items-center justify-center py-8"><Loader2 className="w-5 h-5 animate-spin" /></div>
-              ) : filteredArchived.length === 0 ? (
+              ) : filterBySearch([...activeRejected, ...activeArchived]).length === 0 ? (
                 <p className="text-sm text-muted-foreground text-center py-8" data-testid="text-no-archiv">Ziadne archivovane zmluvy</p>
-              ) : renderContractTable(filteredArchived, { showStatus: true, showRegistration: true, showActions: false })}
+              ) : renderContractTable(filterBySearch([...activeRejected, ...activeArchived]), { showStatus: true, showRegistration: true, showActions: false })}
             </CardContent>
           </Card>
         ) : null}</div>

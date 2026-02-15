@@ -98,7 +98,7 @@ const klientiItems = [
 ];
 
 const zmluvyFlatItems = [
-  { href: "/evidencia-zmluv", icon: ClipboardList, label: "Evidencia zmluv" },
+  { href: "/evidencia-zmluv", icon: ClipboardList, label: "Spracovanie zmlúv" },
   { href: "/contracts", icon: FileText, label: "Evidencia zmlúv" },
 ];
 
@@ -448,7 +448,7 @@ export function AppSidebar() {
                       className={isZmluvyActive ? "text-sidebar-accent-foreground font-medium" : ""}
                     >
                       <FileText className="w-4 h-4" />
-                      <span className="flex-1">Zmluvy</span>
+                      <span className="flex-1">Evidencia zmlúv</span>
                       <ChevronRight className={`w-3.5 h-3.5 text-muted-foreground transition-transform duration-200 ${isZmluvyOpen ? "rotate-90" : ""}`} />
                     </SidebarMenuButton>
                   </CollapsibleTrigger>
