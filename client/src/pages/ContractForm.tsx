@@ -944,8 +944,8 @@ export default function ContractForm() {
         }
       }
       invalidateAllContractQueries();
-      toast({ title: "Uspech", description: "Zmluva vytvorena" });
-      navigate(`/contracts/${created.id}/edit`);
+      toast({ title: "Uspech", description: "Zmluva uspesne zaevidovana" });
+      navigate("/evidencia-zmluv");
     },
     onError: () => toast({ title: "Chyba", description: "Nepodarilo sa vytvorit zmluvu", variant: "destructive" }),
   });
@@ -959,8 +959,8 @@ export default function ContractForm() {
       }
       invalidateAllContractQueries();
       queryClient.invalidateQueries({ queryKey: ["/api/contracts", contractId, "parameter-values"] });
-      toast({ title: "Uspech", description: "Zmluva aktualizovana" });
-      navigate(`/contracts/${contractId}/edit`);
+      toast({ title: "Uspech", description: "Zmluva uspesne aktualizovana" });
+      navigate("/evidencia-zmluv");
     },
     onError: () => toast({ title: "Chyba", description: "Nepodarilo sa aktualizovat zmluvu", variant: "destructive" }),
   });
