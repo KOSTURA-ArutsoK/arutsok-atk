@@ -56,11 +56,12 @@ fs.mkdirSync(path.join(UPLOADS_DIR, "logos"), { recursive: true });
 fs.mkdirSync(path.join(UPLOADS_DIR, "amendments"), { recursive: true });
 fs.mkdirSync(path.join(UPLOADS_DIR, "profiles"), { recursive: true });
 fs.mkdirSync(path.join(UPLOADS_DIR, "flags"), { recursive: true });
+fs.mkdirSync(path.join(UPLOADS_DIR, "status-change-docs"), { recursive: true });
 
 const uploadStorage = multer.diskStorage({
   destination: (req, _file, cb) => {
     const section = (req.params as any).section || (req as any)._uploadSection;
-    const validDirs = ["official", "work", "logos", "amendments", "profiles", "flags"];
+    const validDirs = ["official", "work", "logos", "amendments", "profiles", "flags", "status-change-docs"];
     const dir = validDirs.includes(section) ? section : "official";
     cb(null, path.join(UPLOADS_DIR, dir));
   },
@@ -1405,6 +1406,91 @@ export async function registerRoutes(
   app.get("/api/contracts/:id/status-change-logs", isAuthenticated, async (req: any, res) => {
     try {
       res.json(await storage.getContractStatusChangeLogs(Number(req.params.id)));
+    } catch (err) { res.status(500).json({ message: "Internal error" }); }
+  });
+
+  // === STATUS CHANGE MODAL (ArutsoK 51 - full status change with tabs data) ===
+  app.post("/api/contracts/:id/status-change", isAuthenticated, (req, _res, next) => {
+    (req as any)._uploadSection = "status-change-docs";
+    next();
+  }, upload.array("documents", 10), async (req: any, res) => {
+    try {
+      const appUser = req.appUser;
+      const contractId = Number(req.params.id);
+      const contract = await storage.getContract(contractId);
+      if (!contract) return res.status(404).json({ message: "Zmluva nenajdena" });
+
+      const { newStatusId, changedAt, visibleToClient, statusNote, parameterValues } = req.body;
+      if (!newStatusId) return res.status(400).json({ message: "Novy stav je povinny" });
+
+      const statusParams = await storage.getContractStatusParameters(Number(newStatusId));
+      const parsedParams = parameterValues ? (typeof parameterValues === "string" ? JSON.parse(parameterValues) : parameterValues) : {};
+      for (const sp of statusParams) {
+        if (sp.isRequired) {
+          const val = parsedParams[sp.id.toString()];
+          if (val === undefined || val === null || (typeof val === "string" && val.trim() === "")) {
+            return res.status(400).json({ message: `Parameter '${sp.name}' je povinny` });
+          }
+        }
+      }
+
+      const docs: any[] = [];
+      if (req.files && Array.isArray(req.files)) {
+        for (const file of req.files) {
+          docs.push({
+            id: Date.now().toString() + "-" + Math.random().toString(36).slice(2, 8),
+            name: file.originalname,
+            url: `/api/files/status-change-docs/${file.filename}`,
+            uploadedAt: new Date().toISOString(),
+          });
+        }
+      }
+
+      const changeLog = await storage.createContractStatusChangeLog({
+        contractId,
+        oldStatusId: contract.statusId,
+        newStatusId: Number(newStatusId),
+        changedByUserId: appUser?.id || null,
+        changedAt: changedAt ? new Date(changedAt) : new Date(),
+        parameterValues: parsedParams,
+        visibleToClient: visibleToClient === "true" || visibleToClient === true,
+        statusNote: statusNote || null,
+        statusChangeDocuments: docs,
+      });
+
+      await storage.updateContract(contractId, {
+        statusId: Number(newStatusId),
+        lastStatusUpdate: new Date(),
+      } as any);
+
+      const status = await storage.getContractStatus(Number(newStatusId));
+      if (status?.assignsNumber && !contract.globalNumber) {
+        const counter = await storage.getNextCounterValue("global_contract_number");
+        await storage.updateContract(contractId, { globalNumber: counter } as any);
+      }
+
+      await logAudit(req, {
+        action: "STATUS_CHANGE",
+        module: "zmluvy",
+        entityId: contractId,
+        entityName: `Zmena stavu zmluvy #${contractId}`,
+        oldData: { statusId: contract.statusId },
+        newData: { statusId: Number(newStatusId), logId: changeLog.id },
+      });
+      res.status(201).json(changeLog);
+    } catch (err) {
+      console.error("Status change error:", err);
+      res.status(500).json({ message: "Chyba pri zmene stavu" });
+    }
+  });
+
+  // === STATUS CHANGE META (ArutsoK 51 - UI indicators for notes/docs) ===
+  app.post("/api/contracts/status-change-meta", isAuthenticated, async (req: any, res) => {
+    try {
+      const { contractIds } = req.body;
+      if (!contractIds || !Array.isArray(contractIds)) return res.json({});
+      const meta = await storage.getLatestStatusChangeLogsForContracts(contractIds);
+      res.json(meta);
     } catch (err) { res.status(500).json({ message: "Internal error" }); }
   });
 

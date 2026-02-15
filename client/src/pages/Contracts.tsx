@@ -6,7 +6,7 @@ import { useStates } from "@/hooks/use-hierarchy";
 import { useToast } from "@/hooks/use-toast";
 import { useLocation } from "wouter";
 import type { Contract, ContractStatus, ContractTemplate, ContractInventory, Subject, Partner, Product, MyCompany, Sector, Section, SectorProduct } from "@shared/schema";
-import { Plus, Pencil, Trash2, Eye, FileText, Loader2, Lock, LayoutGrid, Send, Upload, Inbox, CheckCircle2, ChevronDown, ChevronRight, Printer, Search, Archive, AlertTriangle, Calendar, XCircle } from "lucide-react";
+import { Plus, Pencil, Trash2, Eye, FileText, Loader2, Lock, LayoutGrid, Send, Upload, Inbox, CheckCircle2, ChevronDown, ChevronRight, Printer, Search, Archive, AlertTriangle, Calendar, XCircle, MessageSquare, Paperclip } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -912,6 +912,30 @@ export default function Contracts() {
   });
   const { data: allStates } = useStates();
 
+  const allContractIds = [
+    ...(contracts?.map(c => c.id) || []),
+    ...(dispatchedContracts?.map(c => c.id) || []),
+    ...(acceptedContracts?.map(c => c.id) || []),
+    ...(archivedContracts?.map(c => c.id) || []),
+    ...(rejectedContracts?.map(c => c.id) || []),
+  ];
+
+  const { data: statusChangeMeta } = useQuery<Record<number, { hasNote: boolean; hasDocs: boolean }>>({
+    queryKey: ["/api/contracts/status-change-meta", allContractIds.join(",")],
+    queryFn: async () => {
+      if (allContractIds.length === 0) return {};
+      const res = await fetch("/api/contracts/status-change-meta", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ contractIds: allContractIds }),
+        credentials: "include",
+      });
+      if (!res.ok) return {};
+      return res.json();
+    },
+    enabled: allContractIds.length > 0,
+  });
+
   const activeContracts = contracts?.filter(c => !c.isDeleted) || [];
   const activeDispatched = dispatchedContracts?.filter(c => !c.isDeleted) || [];
 
@@ -1169,9 +1193,17 @@ export default function Contracts() {
                 <TableCell className="text-sm">{getProductName(contract)}</TableCell>
                 {showStatus && (
                   <TableCell data-testid={`text-contract-status-${contract.id}`}>
-                    {status ? (
-                      <Badge variant="outline" style={{ borderColor: status.color, color: status.color }}>{status.name}</Badge>
-                    ) : "-"}
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      {status ? (
+                        <Badge variant="outline" style={{ borderColor: status.color, color: status.color }}>{status.name}</Badge>
+                      ) : "-"}
+                      {statusChangeMeta?.[contract.id]?.hasNote && (
+                        <MessageSquare className="w-3.5 h-3.5 text-blue-400 shrink-0" data-testid={`icon-note-${contract.id}`} />
+                      )}
+                      {statusChangeMeta?.[contract.id]?.hasDocs && (
+                        <Paperclip className="w-3.5 h-3.5 text-amber-400 shrink-0" data-testid={`icon-docs-${contract.id}`} />
+                      )}
+                    </div>
                   </TableCell>
                 )}
                 <TableCell className="text-sm font-mono">{formatAmount(contract.premiumAmount, contract.currency)}</TableCell>

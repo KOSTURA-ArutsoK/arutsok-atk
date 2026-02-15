@@ -6,7 +6,8 @@ import { useStates } from "@/hooks/use-hierarchy";
 import { useToast } from "@/hooks/use-toast";
 import { useLocation, useParams } from "wouter";
 import type { Contract, ContractStatus, ContractTemplate, ContractInventory, Subject, Partner, MyCompany, Sector, Section, SectorProduct, ContractPassword, ContractParameterValue, ContractFieldSetting } from "@shared/schema";
-import { ArrowLeft, Save, Loader2, LayoutGrid, KeyRound, Plus, Trash2, FileText, Users, ClipboardList, FolderOpen, FolderClosed, DollarSign, BarChart3, ListChecks, PieChart, ChevronLeft, ChevronRight } from "lucide-react";
+import { ArrowLeft, Save, Loader2, LayoutGrid, KeyRound, Plus, Trash2, FileText, Users, ClipboardList, FolderOpen, FolderClosed, DollarSign, BarChart3, ListChecks, PieChart, ChevronLeft, ChevronRight, RefreshCw } from "lucide-react";
+import { StatusChangeModal } from "@/components/status-change-modal";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -251,6 +252,7 @@ export default function ContractForm() {
   const [subjectId, setSubjectId] = useState<string>("");
   const [partnerId, setPartnerId] = useState<string>("");
   const [statusId, setStatusId] = useState<string>("");
+  const [statusChangeModalOpen, setStatusChangeModalOpen] = useState(false);
   const [templateId, setTemplateId] = useState<string>("");
   const [inventoryId, setInventoryId] = useState<string>("");
   const [stateId, setStateId] = useState<string>("");
@@ -1106,7 +1108,19 @@ export default function ContractForm() {
 
           {activeTab === "stavy" && (
             <div className="max-w-4xl space-y-3" data-testid="section-stavy">
-              <h2 className="text-base font-semibold">Stavy zmluv</h2>
+              <div className="flex items-center justify-between gap-2 flex-wrap">
+                <h2 className="text-base font-semibold">Stavy zmluv</h2>
+                {contractId && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setStatusChangeModalOpen(true)}
+                    data-testid="button-open-status-change"
+                  >
+                    <RefreshCw className="w-3.5 h-3.5 mr-1" /> Zmenit stav
+                  </Button>
+                )}
+              </div>
               <CompactField label="Aktualny stav">
                 <Select value={statusId} onValueChange={setStatusId}>
                   <SelectTrigger data-testid="select-status-section">
@@ -1144,6 +1158,18 @@ export default function ContractForm() {
                     </div>
                   </CardContent>
                 </Card>
+              )}
+              {contractId && (
+                <StatusChangeModal
+                  open={statusChangeModalOpen}
+                  onOpenChange={setStatusChangeModalOpen}
+                  contractId={contractId}
+                  currentStatusId={statusId ? parseInt(statusId) : null}
+                  statuses={filteredStatuses}
+                  onSuccess={() => {
+                    queryClient.invalidateQueries({ queryKey: ["/api/contracts", contractId] });
+                  }}
+                />
               )}
             </div>
           )}

@@ -548,14 +548,18 @@ export const contractStatusParameters = pgTable("contract_status_parameters", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
-// === CONTRACT STATUS CHANGE LOG (ArutsoK 49 - all status changes logged) ===
+// === CONTRACT STATUS CHANGE LOG (ArutsoK 49, extended ArutsoK 51) ===
 export const contractStatusChangeLogs = pgTable("contract_status_change_logs", {
   id: serial("id").primaryKey(),
   contractId: integer("contract_id").notNull().references(() => contracts.id),
   oldStatusId: integer("old_status_id").references(() => contractStatuses.id),
   newStatusId: integer("new_status_id").notNull().references(() => contractStatuses.id),
   changedByUserId: integer("changed_by_user_id").references(() => appUsers.id),
+  changedAt: timestamp("changed_at").defaultNow(),
   parameterValues: jsonb("parameter_values").$type<Record<string, string>>().default({}),
+  visibleToClient: boolean("visible_to_client").default(false),
+  statusNote: text("status_note"),
+  statusChangeDocuments: jsonb("status_change_documents").$type<DocEntry[]>().default([]),
   createdAt: timestamp("created_at").defaultNow(),
 });
 
@@ -624,6 +628,7 @@ export const contracts = pgTable("contracts", {
   uploadedByUserId: integer("uploaded_by_user_id").references(() => appUsers.id),
   dispatchedAt: timestamp("dispatched_at"),
   acceptedAt: timestamp("accepted_at"),
+  lastStatusUpdate: timestamp("last_status_update"),
   processingTimeSec: integer("processing_time_sec").default(0),
   isLocked: boolean("is_locked").default(false),
   lockedBy: text("locked_by"),

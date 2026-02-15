@@ -1485,6 +1485,22 @@ export class DatabaseStorage implements IStorage {
     return created;
   }
 
+  async getLatestStatusChangeLogsForContracts(contractIds: number[]): Promise<Record<number, { hasNote: boolean; hasDocs: boolean }>> {
+    if (contractIds.length === 0) return {};
+    const logs = await db.select().from(contractStatusChangeLogs)
+      .where(inArray(contractStatusChangeLogs.contractId, contractIds))
+      .orderBy(desc(contractStatusChangeLogs.changedAt));
+    const result: Record<number, { hasNote: boolean; hasDocs: boolean }> = {};
+    for (const log of logs) {
+      if (result[log.contractId]) continue;
+      result[log.contractId] = {
+        hasNote: !!log.statusNote && log.statusNote.trim().length > 0,
+        hasDocs: Array.isArray(log.statusChangeDocuments) && (log.statusChangeDocuments as any[]).length > 0,
+      };
+    }
+    return result;
+  }
+
   // === Rejected Contracts (ArutsoK 49) ===
 
   async getRejectedContracts(): Promise<Contract[]> {
