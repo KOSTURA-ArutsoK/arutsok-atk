@@ -6,13 +6,15 @@ import { useStates } from "@/hooks/use-hierarchy";
 import { useToast } from "@/hooks/use-toast";
 import { useLocation, useParams } from "wouter";
 import type { Contract, ContractStatus, ContractStatusChangeLog, ContractTemplate, ContractInventory, Subject, Partner, MyCompany, Sector, Section, SectorProduct, ContractPassword, ContractParameterValue, ContractFieldSetting } from "@shared/schema";
-import { ArrowLeft, Save, Loader2, LayoutGrid, KeyRound, Plus, Trash2, FileText, Users, ClipboardList, FolderOpen, FolderClosed, DollarSign, BarChart3, ListChecks, PieChart, ChevronLeft, ChevronRight, MessageSquare, Paperclip } from "lucide-react";
-import { StatusChangeModal } from "@/components/status-change-modal";
+import { ArrowLeft, Save, Loader2, LayoutGrid, KeyRound, Plus, Trash2, FileText, Users, ClipboardList, FolderOpen, FolderClosed, DollarSign, BarChart3, ListChecks, PieChart, ChevronLeft, ChevronRight, MessageSquare, Paperclip, Upload, X, Eye, Settings2, Calendar } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
 import {
   Dialog,
   DialogContent,
@@ -252,7 +254,14 @@ export default function ContractForm() {
   const [subjectId, setSubjectId] = useState<string>("");
   const [partnerId, setPartnerId] = useState<string>("");
   const [statusId, setStatusId] = useState<string>("");
-  const [statusChangeModalOpen, setStatusChangeModalOpen] = useState(false);
+  const [statusFormTab, setStatusFormTab] = useState("vseobecne");
+  const [statusFormStatusId, setStatusFormStatusId] = useState<string>("");
+  const [statusFormChangedAt, setStatusFormChangedAt] = useState(() => new Date().toISOString().slice(0, 16));
+  const [statusFormVisibleToClient, setStatusFormVisibleToClient] = useState(false);
+  const [statusFormNote, setStatusFormNote] = useState("");
+  const [statusFormParamValues, setStatusFormParamValues] = useState<Record<string, string>>({});
+  const [statusFormFiles, setStatusFormFiles] = useState<File[]>([]);
+  const statusFormFileRef = useRef<HTMLInputElement>(null);
   const [templateId, setTemplateId] = useState<string>("");
   const [inventoryId, setInventoryId] = useState<string>("");
   const [stateId, setStateId] = useState<string>("");
@@ -332,6 +341,52 @@ export default function ContractForm() {
   const { data: statusChangeLogs } = useQuery<ContractStatusChangeLog[]>({
     queryKey: ["/api/contracts", contractId, "status-change-logs"],
     enabled: !!contractId,
+  });
+  const { data: statusFormParams, isLoading: statusFormParamsLoading } = useQuery<any[]>({
+    queryKey: ["/api/contract-statuses", statusFormStatusId, "parameters"],
+    enabled: !!statusFormStatusId,
+  });
+  const statusFormSubmit = useMutation({
+    mutationFn: async () => {
+      const formData = new FormData();
+      formData.append("newStatusId", statusFormStatusId);
+      formData.append("changedAt", statusFormChangedAt);
+      formData.append("visibleToClient", statusFormVisibleToClient.toString());
+      if (statusFormNote.trim()) formData.append("statusNote", statusFormNote);
+      formData.append("parameterValues", JSON.stringify(statusFormParamValues));
+      for (const file of statusFormFiles) {
+        formData.append("documents", file);
+      }
+      const res = await fetch(`/api/contracts/${contractId}/status-change`, {
+        method: "POST",
+        body: formData,
+        credentials: "include",
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.message || "Chyba pri zmene stavu");
+      }
+      return res.json();
+    },
+    onSuccess: () => {
+      const newId = parseInt(statusFormStatusId);
+      toast({ title: "Stav zmluvy bol uspesne zmeneny" });
+      setStatusId(newId.toString());
+      setStatusFormStatusId("");
+      setStatusFormChangedAt(new Date().toISOString().slice(0, 16));
+      setStatusFormVisibleToClient(false);
+      setStatusFormNote("");
+      setStatusFormParamValues({});
+      setStatusFormFiles([]);
+      setStatusFormTab("vseobecne");
+      queryClient.invalidateQueries({ queryKey: ["/api/contracts", contractId] });
+      queryClient.invalidateQueries({ queryKey: ["/api/contracts", contractId, "status-change-logs"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/contracts"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/contracts/status-change-meta"] });
+    },
+    onError: (err: Error) => {
+      toast({ title: "Chyba", description: err.message, variant: "destructive" });
+    },
   });
   const { data: templates } = useQuery<ContractTemplate[]>({ queryKey: ["/api/contract-templates"] });
   const { data: inventories } = useQuery<ContractInventory[]>({ queryKey: ["/api/contract-inventories"] });
@@ -1134,125 +1189,346 @@ export default function ContractForm() {
           )}
 
           {activeTab === "stavy" && (
-            <div className="max-w-4xl space-y-3" data-testid="section-stavy">
-              <h2 className="text-base font-semibold">Stavy zmluv</h2>
+            <div className="max-w-4xl space-y-4" data-testid="section-stavy">
               {(() => {
                 const currentStatus = statuses?.find(s => s.id === (statusId ? parseInt(statusId) : -1));
+                const newStatus = filteredStatuses.find(s => s.id === parseInt(statusFormStatusId));
+                const requiredParams = (statusFormParams || []).filter((p: any) => p.isRequired);
+                const hasRequiredMissing = requiredParams.some((p: any) => !statusFormParamValues[p.id.toString()]?.trim());
+                const filledParamCount = Object.keys(statusFormParamValues).filter(k => statusFormParamValues[k]?.trim()).length;
+                const totalParamCount = statusFormParams?.length || 0;
+                const canSubmit = !!statusFormStatusId && !hasRequiredMissing && !statusFormSubmit.isPending && !!contractId;
+
                 return (
-                  <Card>
-                    <CardContent className="p-3 space-y-3">
-                      <div className="flex items-center justify-between gap-2 flex-wrap">
-                        <div className="space-y-1">
-                          <span className="text-xs text-muted-foreground font-medium">Aktualny stav</span>
-                          {currentStatus ? (
-                            <div className="flex items-center gap-2 flex-wrap">
-                              <div className="w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: currentStatus.color }} />
-                              <span className="text-sm font-semibold" data-testid="text-current-status">{currentStatus.name}</span>
-                              {currentStatus.isCommissionable && <Badge variant="outline" className="text-xs">Provizna</Badge>}
-                              {currentStatus.isFinal && <Badge variant="outline" className="text-xs">Finalna</Badge>}
-                            </div>
-                          ) : (
-                            <span className="text-sm text-muted-foreground" data-testid="text-current-status">Bez stavu</span>
-                          )}
-                        </div>
-                        {contractId && (
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => setStatusChangeModalOpen(true)}
-                            disabled={filteredStatuses.length === 0}
-                            data-testid="button-change-status"
-                          >
-                            Zmenit stav
-                          </Button>
-                        )}
+                  <>
+                    {currentStatus && (
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="text-sm text-muted-foreground">Aktualny stav:</span>
+                        <div className="w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: currentStatus.color }} />
+                        <span className="text-sm font-semibold" data-testid="text-current-status">{currentStatus.name}</span>
+                        {currentStatus.isCommissionable && <Badge variant="outline" className="text-xs">Provizna</Badge>}
+                        {currentStatus.isFinal && <Badge variant="outline" className="text-xs">Finalna</Badge>}
                       </div>
-                      {filteredStatuses.length === 0 && contractId && (
-                        <p className="text-xs text-muted-foreground border-t pt-2">
-                          {!contractSectorId && !contractSectionId && !sectorProductId
-                            ? "Nastavte sektor, sekciu a produkt pre zobrazenie dostupnych stavov."
-                            : "Ziadne stavy nie su dostupne pre aktualnu konfiguraciu zmluvy."}
-                        </p>
-                      )}
-                    </CardContent>
-                  </Card>
+                    )}
+
+                    {contractId && (
+                      <Card>
+                        <CardContent className="p-0">
+                          <Tabs value={statusFormTab} onValueChange={setStatusFormTab}>
+                            <TabsList className="w-full rounded-b-none" data-testid="tabs-status-form">
+                              <TabsTrigger value="vseobecne" className="flex-1 gap-1.5" data-testid="tab-vseobecne">
+                                <Settings2 className="w-3.5 h-3.5" />
+                                <span>Vseobecne</span>
+                              </TabsTrigger>
+                              <TabsTrigger value="povolenia" className="flex-1 gap-1.5" data-testid="tab-povolenia">
+                                <Eye className="w-3.5 h-3.5" />
+                                <span>Povolenia</span>
+                              </TabsTrigger>
+                              <TabsTrigger value="parametre" className="flex-1 gap-1.5" data-testid="tab-parametre">
+                                <FileText className="w-3.5 h-3.5" />
+                                <span>Parametre</span>
+                                {totalParamCount > 0 && (
+                                  <span className="text-[10px] tabular-nums">{filledParamCount}/{totalParamCount}</span>
+                                )}
+                              </TabsTrigger>
+                              <TabsTrigger value="dokumenty" className="flex-1 gap-1.5" data-testid="tab-dokumenty">
+                                <Upload className="w-3.5 h-3.5" />
+                                <span>Dokumenty</span>
+                                {statusFormFiles.length > 0 && (
+                                  <span className="text-[10px] tabular-nums">{statusFormFiles.length}</span>
+                                )}
+                              </TabsTrigger>
+                            </TabsList>
+
+                            <div className="p-4">
+                              <TabsContent value="vseobecne" className="mt-0 space-y-4" data-testid="content-vseobecne">
+                                <div className="space-y-1.5">
+                                  <Label htmlFor="sf-new-status" data-testid="label-new-status">Novy stav zmluvy *</Label>
+                                  {filteredStatuses.filter(s => s.id !== (statusId ? parseInt(statusId) : -1)).length === 0 ? (
+                                    <div className="p-3 border rounded-md text-center" data-testid="text-no-statuses">
+                                      <p className="text-sm text-muted-foreground">Ziadne stavy nie su k dispozicii.</p>
+                                      {!contractSectorId && !contractSectionId && !sectorProductId && (
+                                        <p className="text-xs text-muted-foreground mt-1">Nastavte sektor, sekciu a produkt v karte "Udaje o zmluve".</p>
+                                      )}
+                                    </div>
+                                  ) : (
+                                    <Select value={statusFormStatusId} onValueChange={setStatusFormStatusId}>
+                                      <SelectTrigger id="sf-new-status" data-testid="select-new-status">
+                                        <SelectValue placeholder="Vyberte novy stav" />
+                                      </SelectTrigger>
+                                      <SelectContent>
+                                        {filteredStatuses.filter(s => s.id !== (statusId ? parseInt(statusId) : -1)).map(s => (
+                                          <SelectItem key={s.id} value={s.id.toString()} data-testid={`option-status-${s.id}`}>
+                                            <div className="flex items-center gap-2">
+                                              <div className="w-3 h-3 rounded-full" style={{ backgroundColor: s.color }} />
+                                              {s.name}
+                                            </div>
+                                          </SelectItem>
+                                        ))}
+                                      </SelectContent>
+                                    </Select>
+                                  )}
+                                </div>
+
+                                {newStatus && (
+                                  <div className="flex items-center gap-2 flex-wrap">
+                                    {newStatus.isCommissionable && <Badge variant="outline" className="text-xs">Provizna</Badge>}
+                                    {newStatus.isFinal && <Badge variant="outline" className="text-xs">Finalna</Badge>}
+                                    {newStatus.assignsNumber && <Badge variant="outline" className="text-xs">Prideluje cislo</Badge>}
+                                    {newStatus.definesContractEnd && <Badge variant="outline" className="text-xs">Ukoncenie zmluvy</Badge>}
+                                  </div>
+                                )}
+
+                                <div className="space-y-1.5">
+                                  <Label htmlFor="sf-changed-at" data-testid="label-changed-at">
+                                    <Calendar className="w-3.5 h-3.5 inline mr-1" />
+                                    Datum a cas zmeny
+                                  </Label>
+                                  <Input
+                                    id="sf-changed-at"
+                                    type="datetime-local"
+                                    value={statusFormChangedAt}
+                                    onChange={e => setStatusFormChangedAt(e.target.value)}
+                                    data-testid="input-changed-at"
+                                  />
+                                </div>
+                              </TabsContent>
+
+                              <TabsContent value="povolenia" className="mt-0 space-y-4" data-testid="content-povolenia">
+                                <div className="flex items-center justify-between gap-4">
+                                  <div className="space-y-0.5">
+                                    <Label data-testid="label-visible-client">Viditelne pre klienta</Label>
+                                    <p className="text-xs text-muted-foreground">Ak je zapnute, klient uvidi tuto zmenu stavu</p>
+                                  </div>
+                                  <Switch
+                                    checked={statusFormVisibleToClient}
+                                    onCheckedChange={setStatusFormVisibleToClient}
+                                    data-testid="switch-visible-client"
+                                  />
+                                </div>
+                                <div className="space-y-1.5">
+                                  <Label htmlFor="sf-note" data-testid="label-status-note">
+                                    <MessageSquare className="w-3.5 h-3.5 inline mr-1" />
+                                    Poznamka k zmene stavu
+                                  </Label>
+                                  <Textarea
+                                    id="sf-note"
+                                    value={statusFormNote}
+                                    onChange={e => setStatusFormNote(e.target.value)}
+                                    placeholder="Napisat poznamku k tejto zmene stavu..."
+                                    className="resize-none min-h-[100px]"
+                                    data-testid="textarea-status-note"
+                                  />
+                                </div>
+                              </TabsContent>
+
+                              <TabsContent value="parametre" className="mt-0 space-y-4" data-testid="content-parametre">
+                                {!statusFormStatusId ? (
+                                  <p className="text-sm text-muted-foreground text-center py-6">
+                                    Najprv vyberte novy stav na karte "Vseobecne"
+                                  </p>
+                                ) : statusFormParamsLoading ? (
+                                  <div className="flex items-center justify-center py-6">
+                                    <Loader2 className="w-5 h-5 animate-spin" />
+                                  </div>
+                                ) : !statusFormParams || statusFormParams.length === 0 ? (
+                                  <p className="text-sm text-muted-foreground text-center py-6">
+                                    Tento stav nema ziadne doplnkove parametre
+                                  </p>
+                                ) : (
+                                  statusFormParams
+                                    .sort((a: any, b: any) => (a.sortOrder || 0) - (b.sortOrder || 0))
+                                    .map((param: any) => (
+                                      <div key={param.id} className="space-y-1.5">
+                                        <Label data-testid={`label-param-${param.id}`}>
+                                          {param.name}
+                                          {param.isRequired && <span className="text-destructive ml-1">*</span>}
+                                        </Label>
+                                        {param.helpText && (
+                                          <p className="text-xs text-muted-foreground">{param.helpText}</p>
+                                        )}
+                                        {param.paramType === "textarea" ? (
+                                          <Textarea
+                                            value={statusFormParamValues[param.id.toString()] || param.defaultValue || ""}
+                                            onChange={e => setStatusFormParamValues(prev => ({ ...prev, [param.id.toString()]: e.target.value }))}
+                                            className="resize-none min-h-[80px]"
+                                            data-testid={`param-input-${param.id}`}
+                                          />
+                                        ) : param.paramType === "number" ? (
+                                          <Input
+                                            type="number"
+                                            value={statusFormParamValues[param.id.toString()] || param.defaultValue || ""}
+                                            onChange={e => setStatusFormParamValues(prev => ({ ...prev, [param.id.toString()]: e.target.value }))}
+                                            data-testid={`param-input-${param.id}`}
+                                          />
+                                        ) : param.paramType === "date" ? (
+                                          <Input
+                                            type="date"
+                                            value={statusFormParamValues[param.id.toString()] || param.defaultValue || ""}
+                                            onChange={e => setStatusFormParamValues(prev => ({ ...prev, [param.id.toString()]: e.target.value }))}
+                                            data-testid={`param-input-${param.id}`}
+                                          />
+                                        ) : param.paramType === "boolean" ? (
+                                          <div className="flex items-center gap-2">
+                                            <Switch
+                                              checked={(statusFormParamValues[param.id.toString()] || param.defaultValue || "") === "true"}
+                                              onCheckedChange={v => setStatusFormParamValues(prev => ({ ...prev, [param.id.toString()]: v ? "true" : "false" }))}
+                                              data-testid={`param-input-${param.id}`}
+                                            />
+                                            <span className="text-sm text-muted-foreground">
+                                              {(statusFormParamValues[param.id.toString()] || param.defaultValue || "") === "true" ? "Ano" : "Nie"}
+                                            </span>
+                                          </div>
+                                        ) : param.paramType === "select" ? (
+                                          <Select
+                                            value={statusFormParamValues[param.id.toString()] || param.defaultValue || ""}
+                                            onValueChange={v => setStatusFormParamValues(prev => ({ ...prev, [param.id.toString()]: v }))}
+                                          >
+                                            <SelectTrigger data-testid={`param-input-${param.id}`}>
+                                              <SelectValue placeholder="Vyberte..." />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                              {(param.options || []).map((opt: string) => (
+                                                <SelectItem key={opt} value={opt}>{opt}</SelectItem>
+                                              ))}
+                                            </SelectContent>
+                                          </Select>
+                                        ) : (
+                                          <Input
+                                            value={statusFormParamValues[param.id.toString()] || param.defaultValue || ""}
+                                            onChange={e => setStatusFormParamValues(prev => ({ ...prev, [param.id.toString()]: e.target.value }))}
+                                            data-testid={`param-input-${param.id}`}
+                                          />
+                                        )}
+                                      </div>
+                                    ))
+                                )}
+                              </TabsContent>
+
+                              <TabsContent value="dokumenty" className="mt-0 space-y-4" data-testid="content-dokumenty">
+                                <div className="flex items-center justify-between gap-2 flex-wrap">
+                                  <Label data-testid="label-documents">Dokumenty k zmene stavu</Label>
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => statusFormFileRef.current?.click()}
+                                    data-testid="button-add-document"
+                                  >
+                                    <Upload className="w-3.5 h-3.5 mr-1" /> Pridat subor
+                                  </Button>
+                                  <input
+                                    ref={statusFormFileRef}
+                                    type="file"
+                                    multiple
+                                    className="hidden"
+                                    onChange={e => {
+                                      if (e.target.files) setStatusFormFiles(prev => [...prev, ...Array.from(e.target.files!)]);
+                                      if (statusFormFileRef.current) statusFormFileRef.current.value = "";
+                                    }}
+                                    accept="*/*"
+                                  />
+                                </div>
+                                {statusFormFiles.length === 0 ? (
+                                  <p className="text-sm text-muted-foreground text-center py-6">
+                                    Ziadne dokumenty neboli pridane
+                                  </p>
+                                ) : (
+                                  <div className="space-y-2">
+                                    {statusFormFiles.map((file, idx) => (
+                                      <div key={idx} className="flex items-center justify-between gap-2 p-2 border rounded-md" data-testid={`file-item-${idx}`}>
+                                        <div className="flex items-center gap-2 min-w-0">
+                                          <FileText className="w-4 h-4 shrink-0 text-muted-foreground" />
+                                          <span className="text-sm truncate">{file.name}</span>
+                                          <span className="text-xs text-muted-foreground shrink-0">({(file.size / 1024).toFixed(1)} KB)</span>
+                                        </div>
+                                        <Button variant="ghost" size="icon" onClick={() => setStatusFormFiles(prev => prev.filter((_, i) => i !== idx))} data-testid={`button-remove-file-${idx}`}>
+                                          <X className="w-4 h-4" />
+                                        </Button>
+                                      </div>
+                                    ))}
+                                  </div>
+                                )}
+                              </TabsContent>
+                            </div>
+                          </Tabs>
+
+                          <div className="flex items-center justify-end gap-2 p-3 border-t">
+                            <Button
+                              disabled={!canSubmit}
+                              onClick={() => statusFormSubmit.mutate()}
+                              data-testid="button-save-status-change"
+                            >
+                              {statusFormSubmit.isPending && <Loader2 className="w-4 h-4 mr-1 animate-spin" />}
+                              <Save className="w-4 h-4 mr-1" />
+                              Ulozit zmenu stavu
+                            </Button>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    )}
+
+                    {contractId && statusChangeLogs && statusChangeLogs.length > 0 && (
+                      <Card>
+                        <CardContent className="p-3 space-y-2">
+                          <h3 className="text-sm font-semibold">Historia zmien stavov ({statusChangeLogs.length})</h3>
+                          <Table>
+                            <TableHeader>
+                              <TableRow>
+                                <TableHead>Stav</TableHead>
+                                <TableHead>Datum zmeny</TableHead>
+                                <TableHead>Detaily</TableHead>
+                              </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                              {statusChangeLogs.map(log => {
+                                const logStatus = statuses?.find(s => s.id === log.newStatusId);
+                                const statusName = logStatus?.name || `Stav #${log.newStatusId}`;
+                                const iteration = log.statusIteration || 1;
+                                const paramCount = log.parameterValues ? Object.keys(log.parameterValues).filter(k => (log.parameterValues as Record<string, string>)[k]?.trim()).length : 0;
+                                const docCount = Array.isArray(log.statusChangeDocuments) ? (log.statusChangeDocuments as any[]).length : 0;
+                                return (
+                                  <TableRow key={log.id} data-testid={`row-status-log-${log.id}`}>
+                                    <TableCell data-testid={`text-status-name-${log.id}`}>
+                                      <div className="flex items-center gap-2">
+                                        {logStatus && (
+                                          <div className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: logStatus.color }} />
+                                        )}
+                                        <span className="text-sm font-medium">{statusName} {iteration}</span>
+                                      </div>
+                                    </TableCell>
+                                    <TableCell className="text-sm text-muted-foreground" data-testid={`text-changed-at-${log.id}`}>
+                                      {log.changedAt ? new Date(log.changedAt).toLocaleString("sk-SK") : "-"}
+                                    </TableCell>
+                                    <TableCell>
+                                      <div className="flex items-center gap-1.5">
+                                        {paramCount > 0 && (
+                                          <Badge variant="outline" className="text-xs">{paramCount} param.</Badge>
+                                        )}
+                                        {log.statusNote && (
+                                          <MessageSquare className="w-3.5 h-3.5 text-blue-400" data-testid={`icon-log-note-${log.id}`} />
+                                        )}
+                                        {docCount > 0 && (
+                                          <div className="flex items-center gap-0.5">
+                                            <Paperclip className="w-3.5 h-3.5 text-amber-400" data-testid={`icon-log-docs-${log.id}`} />
+                                            <span className="text-xs text-muted-foreground">{docCount}</span>
+                                          </div>
+                                        )}
+                                        {log.visibleToClient && (
+                                          <Badge variant="outline" className="text-xs text-green-500 border-green-500/30" data-testid={`badge-visible-${log.id}`}>K</Badge>
+                                        )}
+                                      </div>
+                                    </TableCell>
+                                  </TableRow>
+                                );
+                              })}
+                            </TableBody>
+                          </Table>
+                        </CardContent>
+                      </Card>
+                    )}
+                  </>
                 );
               })()}
-              {contractId && (
-                <StatusChangeModal
-                  open={statusChangeModalOpen}
-                  onOpenChange={setStatusChangeModalOpen}
-                  contractId={contractId}
-                  currentStatusId={statusId ? parseInt(statusId) : null}
-                  statuses={filteredStatuses}
-                  onSuccess={(newStatusId) => {
-                    setStatusId(newStatusId.toString());
-                    queryClient.invalidateQueries({ queryKey: ["/api/contracts", contractId] });
-                    queryClient.invalidateQueries({ queryKey: ["/api/contracts", contractId, "status-change-logs"] });
-                    queryClient.invalidateQueries({ queryKey: ["/api/contracts"] });
-                    queryClient.invalidateQueries({ queryKey: ["/api/contracts/status-change-meta"] });
-                  }}
-                />
-              )}
-              {contractId && statusChangeLogs && statusChangeLogs.length > 0 && (
-                <Card>
-                  <CardContent className="p-3 space-y-2">
-                    <h3 className="text-sm font-semibold">Historia zmien stavov ({statusChangeLogs.length})</h3>
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead>Stav</TableHead>
-                          <TableHead>Datum zmeny</TableHead>
-                          <TableHead>Detaily</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {statusChangeLogs.map(log => {
-                          const logStatus = statuses?.find(s => s.id === log.newStatusId);
-                          const statusName = logStatus?.name || `Stav #${log.newStatusId}`;
-                          const iteration = log.statusIteration || 1;
-                          const paramCount = log.parameterValues ? Object.keys(log.parameterValues).filter(k => (log.parameterValues as Record<string, string>)[k]?.trim()).length : 0;
-                          const docCount = Array.isArray(log.statusChangeDocuments) ? (log.statusChangeDocuments as any[]).length : 0;
-                          return (
-                            <TableRow key={log.id} data-testid={`row-status-log-${log.id}`}>
-                              <TableCell data-testid={`text-status-name-${log.id}`}>
-                                <div className="flex items-center gap-2">
-                                  {logStatus && (
-                                    <div className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: logStatus.color }} />
-                                  )}
-                                  <span className="text-sm font-medium">{statusName} {iteration}</span>
-                                </div>
-                              </TableCell>
-                              <TableCell className="text-sm text-muted-foreground" data-testid={`text-changed-at-${log.id}`}>
-                                {log.changedAt ? new Date(log.changedAt).toLocaleString("sk-SK") : "-"}
-                              </TableCell>
-                              <TableCell>
-                                <div className="flex items-center gap-1.5">
-                                  {paramCount > 0 && (
-                                    <Badge variant="outline" className="text-xs">{paramCount} param.</Badge>
-                                  )}
-                                  {log.statusNote && (
-                                    <MessageSquare className="w-3.5 h-3.5 text-blue-400" data-testid={`icon-log-note-${log.id}`} />
-                                  )}
-                                  {docCount > 0 && (
-                                    <div className="flex items-center gap-0.5">
-                                      <Paperclip className="w-3.5 h-3.5 text-amber-400" data-testid={`icon-log-docs-${log.id}`} />
-                                      <span className="text-xs text-muted-foreground">{docCount}</span>
-                                    </div>
-                                  )}
-                                  {log.visibleToClient && (
-                                    <Badge variant="outline" className="text-xs text-green-500 border-green-500/30" data-testid={`badge-visible-${log.id}`}>K</Badge>
-                                  )}
-                                </div>
-                              </TableCell>
-                            </TableRow>
-                          );
-                        })}
-                      </TableBody>
-                    </Table>
-                  </CardContent>
-                </Card>
-              )}
             </div>
           )}
 
