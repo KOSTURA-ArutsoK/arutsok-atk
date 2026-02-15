@@ -594,6 +594,7 @@ export default function ContractForm() {
 
   const filteredStatuses = (() => {
     if (!statuses) return [];
+    if (!statusVisibilityMap) return [];
     const cId = companyId ? parseInt(companyId) : null;
     const spId = sectorProductId ? parseInt(sectorProductId) : null;
     const secId = contractSectionId ? parseInt(contractSectionId) : null;
@@ -603,20 +604,21 @@ export default function ContractForm() {
     return statuses.filter(s => {
       if (s.stateId && activeStateId && s.stateId !== activeStateId) return false;
 
-      if (statusVisibilityMap) {
-        const meta = statusVisibilityMap[s.id];
-        if (meta) {
-          if (meta.companies.length > 0) {
-            if (!cId || !meta.companies.includes(cId)) return false;
-          }
-          if (meta.visibility.length > 0) {
-            const matchesSector = sId && meta.visibility.some(v => v.entityType === "sector" && v.entityId === sId);
-            const matchesSection = secId && meta.visibility.some(v => v.entityType === "section" && v.entityId === secId);
-            const matchesProduct = spId && meta.visibility.some(v => v.entityType === "product" && v.entityId === spId);
-            if (!matchesSector && !matchesSection && !matchesProduct) return false;
-          }
-        }
+      const meta = statusVisibilityMap[s.id];
+      if (!meta) return true;
+
+      if (meta.companies.length > 0) {
+        if (!cId || !meta.companies.includes(cId)) return false;
       }
+
+      if (meta.visibility.length > 0) {
+        if (!sId && !secId && !spId) return false;
+        const matchesSector = sId && meta.visibility.some(v => v.entityType === "sector" && v.entityId === sId);
+        const matchesSection = secId && meta.visibility.some(v => v.entityType === "section" && v.entityId === secId);
+        const matchesProduct = spId && meta.visibility.some(v => v.entityType === "product" && v.entityId === spId);
+        if (!matchesSector && !matchesSection && !matchesProduct) return false;
+      }
+
       return true;
     });
   })();
@@ -1212,7 +1214,15 @@ export default function ContractForm() {
                         </div>
                       )}
                       {filteredStatuses.length === 0 && (
-                        <p className="text-xs text-muted-foreground border-t pt-2">Ziadne stavy nie su dostupne pre aktualnu konfiguraciu zmluvy</p>
+                        <div className="border-t pt-2 space-y-1">
+                          <p className="text-xs text-muted-foreground">Ziadne stavy nie su dostupne pre aktualnu konfiguraciu zmluvy.</p>
+                          {!contractSectorId && !contractSectionId && !sectorProductId && (
+                            <p className="text-xs text-muted-foreground">Nastavte sektor, sekciu a produkt v karte "Udaje o zmluve" pre zobrazenie dostupnych stavov.</p>
+                          )}
+                          {!companyId && (
+                            <p className="text-xs text-muted-foreground">Nastavte spolocnost pre zobrazenie stavov viazanych na spolocnosti.</p>
+                          )}
+                        </div>
                       )}
                     </CardContent>
                   </Card>

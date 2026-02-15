@@ -163,22 +163,32 @@ export function StatusChangeModal({ open, onOpenChange, contractId, currentStatu
                 )}
 
                 <div className="space-y-1.5">
-                  <Label htmlFor="new-status" data-testid="label-new-status">Novy stav zmluvy *</Label>
-                  <Select value={selectedStatusId} onValueChange={setSelectedStatusId}>
-                    <SelectTrigger id="new-status" data-testid="select-new-status">
-                      <SelectValue placeholder="Vyberte novy stav" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {statuses.filter(s => s.id !== currentStatusId).map(s => (
-                        <SelectItem key={s.id} value={s.id.toString()} data-testid={`option-status-${s.id}`}>
-                          <div className="flex items-center gap-2">
-                            <div className="w-3 h-3 rounded-full" style={{ backgroundColor: s.color }} />
-                            {s.name}
-                          </div>
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <Label htmlFor="new-status" data-testid="label-new-status">Nazov stavu zmluvy *</Label>
+                  {statuses.filter(s => s.id !== currentStatusId).length === 0 ? (
+                    <div className="p-3 border rounded-md bg-muted/30 text-center" data-testid="text-no-statuses">
+                      <p className="text-sm text-muted-foreground">Ziadne stavy nie su k dispozicii</p>
+                      <p className="text-xs text-muted-foreground mt-1">Stavy su filtrovane podla sektora, sekcie a produktu zmluvy zo Spravy sablon.</p>
+                    </div>
+                  ) : (
+                    <Select value={selectedStatusId} onValueChange={setSelectedStatusId}>
+                      <SelectTrigger id="new-status" data-testid="select-new-status">
+                        <SelectValue placeholder="Vyberte novy stav" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {statuses.filter(s => s.id !== currentStatusId).map(s => (
+                          <SelectItem key={s.id} value={s.id.toString()} data-testid={`option-status-${s.id}`}>
+                            <div className="flex items-center gap-2">
+                              <div className="w-3 h-3 rounded-full" style={{ backgroundColor: s.color }} />
+                              {s.name}
+                            </div>
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  )}
+                  <p className="text-xs text-muted-foreground" data-testid="text-filter-hint">
+                    Zobrazuju sa iba stavy priradene k sektoru, sekcii alebo produktu tejto zmluvy zo Spravy sablon.
+                  </p>
                 </div>
 
                 {newStatus && (
