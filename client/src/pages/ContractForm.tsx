@@ -1274,9 +1274,6 @@ export default function ContractForm() {
               </div>
 
               <div className="grid grid-cols-4 gap-[clamp(0.5rem,1vw,1rem)]">
-                <CompactField label="Lehotne poistne *">
-                  <Input type="number" value={premiumAmount} onChange={e => setPremiumAmount(e.target.value)} className="font-mono" data-testid="input-premium-amount" />
-                </CompactField>
                 <CompactField label={`Frekvencia platenia${isFieldRequired("paymentFrequency") ? " *" : ""}`}>
                   <Select value={paymentFrequency} onValueChange={setPaymentFrequency}>
                     <SelectTrigger data-testid="select-payment-frequency">
@@ -1288,6 +1285,9 @@ export default function ContractForm() {
                       ))}
                     </SelectContent>
                   </Select>
+                </CompactField>
+                <CompactField label="Lehotne poistne *">
+                  <Input type="number" value={premiumAmount} onChange={e => setPremiumAmount(e.target.value)} className="font-mono" data-testid="input-premium-amount" />
                 </CompactField>
                 <CompactField label={`Rocne poistne${isFieldRequired("annualPremium") ? " *" : ""}`}>
                   <Input type="number" value={annualPremium} onChange={e => setAnnualPremium(e.target.value)} className="font-mono" data-testid="input-annual-premium" />
