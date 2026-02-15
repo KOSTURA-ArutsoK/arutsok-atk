@@ -1114,7 +1114,7 @@ export default function Contracts() {
   const activeRejected = rejectedContracts?.filter(c => !c.isDeleted) || [];
 
   const folderDefs = [
-    { id: 1, label: "Čakajúce na prijatie", icon: Inbox, color: "text-amber-500", bgColor: "bg-amber-500/15", count: activeContracts.length },
+    { id: 1, label: "Čakajúce na odoslanie", icon: Inbox, color: "text-amber-500", bgColor: "bg-amber-500/15", count: activeContracts.length },
     { id: 2, label: "Odoslané na sprievodke", icon: Send, color: "text-blue-500", bgColor: "bg-blue-500/15", count: activeDispatched.length },
     { id: 3, label: "Prijaté zmluvy", icon: CheckCircle2, color: "text-green-500", bgColor: "bg-green-500/15", count: activeAccepted.length },
     { id: 4, label: "Archív zmlúv (neprijaté zmluvy)", icon: Archive, color: "text-muted-foreground", bgColor: "bg-muted/30", count: activeRejected.length + activeArchived.length },
