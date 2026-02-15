@@ -674,6 +674,7 @@ export default function ContractForm() {
   const [currency, setCurrency] = useState("EUR");
   const [notes, setNotes] = useState("");
   const [contractPassword, setContractPassword] = useState("");
+  const [requiredPermissionLevel, setRequiredPermissionLevel] = useState("1");
 
   const [contractSectorId, setContractSectorId] = useState<string>("");
   const [contractSectionId, setContractSectionId] = useState<string>("");
@@ -881,6 +882,7 @@ export default function ContractForm() {
       setCommissionAmount(existingContract.commissionAmount?.toString() || "");
       setCurrency(existingContract.currency || "EUR");
       setNotes(existingContract.notes || "");
+      setRequiredPermissionLevel(String(existingContract.requiredPermissionLevel || 1));
 
       const spId = existingContract.sectorProductId;
       if (spId) {
@@ -1043,6 +1045,7 @@ export default function ContractForm() {
       commissionAmount: commissionAmount ? parseInt(commissionAmount) : null,
       currency,
       notes: notes || null,
+      requiredPermissionLevel: parseInt(requiredPermissionLevel),
       processingTimeSec,
       dynamicPanelValues: Object.keys(panelValues).length > 0 ? panelValues : undefined,
     };
@@ -1287,7 +1290,7 @@ export default function ContractForm() {
                 </CompactField>
               </div>
 
-              <div className="grid grid-cols-4 gap-[clamp(0.5rem,1vw,1rem)]">
+              <div className="grid grid-cols-5 gap-[clamp(0.5rem,1vw,1rem)]">
                 <CompactField label={`Frekvencia platenia${isFieldRequired("paymentFrequency") ? " *" : ""}`}>
                   <Select value={paymentFrequency} onValueChange={v => { setAnnualPremiumUserEdited(true); setPaymentFrequency(v); }}>
                     <SelectTrigger data-testid="select-payment-frequency">
@@ -1305,6 +1308,20 @@ export default function ContractForm() {
                 </CompactField>
                 <CompactField label={`Rocne poistne${isFieldRequired("annualPremium") ? " *" : ""}`}>
                   <Input type="number" value={annualPremium} readOnly className="font-mono bg-muted/50" data-testid="input-annual-premium" />
+                </CompactField>
+                <CompactField label="Min. uroven pristupu">
+                  <Select value={requiredPermissionLevel} onValueChange={setRequiredPermissionLevel}>
+                    <SelectTrigger data-testid="select-required-permission-level">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="1">L1 - Klient</SelectItem>
+                      <SelectItem value="2">L2 - Spracovatel</SelectItem>
+                      <SelectItem value="3">L3 - Manazer</SelectItem>
+                      <SelectItem value="4">L4 - Riaditel</SelectItem>
+                      <SelectItem value="5">L5 - Admin</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </CompactField>
                 <div className="flex items-end">
                   <Button

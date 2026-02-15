@@ -480,6 +480,7 @@ export const clientGroups = pgTable("client_groups", {
   name: text("name").notNull(),
   allowLogin: boolean("allow_login").default(true),
   allowCalculators: boolean("allow_calculators").default(true),
+  permissionLevel: integer("permission_level").notNull().default(1),
   sortOrder: integer("sort_order").default(0),
   stateId: integer("state_id").references(() => states.id),
   createdAt: timestamp("created_at").defaultNow(),
@@ -501,6 +502,14 @@ export const clientGroupMembers = pgTable("client_group_members", {
   groupId: integer("group_id").notNull().references(() => clientGroups.id),
   subGroupId: integer("sub_group_id").references(() => clientSubGroups.id),
   subjectId: integer("subject_id").notNull().references(() => subjects.id),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// === USER CLIENT GROUP MEMBERSHIPS (User <-> ClientGroup multi-assignment) ===
+export const userClientGroupMemberships = pgTable("user_client_group_memberships", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").notNull().references(() => appUsers.id),
+  groupId: integer("group_id").notNull().references(() => clientGroups.id),
   createdAt: timestamp("created_at").defaultNow(),
 });
 
@@ -630,6 +639,7 @@ export const contracts = pgTable("contracts", {
   dispatchedAt: timestamp("dispatched_at"),
   acceptedAt: timestamp("accepted_at"),
   lastStatusUpdate: timestamp("last_status_update"),
+  requiredPermissionLevel: integer("required_permission_level").default(1),
   processingTimeSec: integer("processing_time_sec").default(0),
   isLocked: boolean("is_locked").default(false),
   lockedBy: text("locked_by"),
@@ -792,6 +802,7 @@ export const insertClientTypeFieldSchema = createInsertSchema(clientTypeFields).
 export const insertClientGroupSchema = createInsertSchema(clientGroups).omit({ id: true, createdAt: true, updatedAt: true });
 export const insertClientSubGroupSchema = createInsertSchema(clientSubGroups).omit({ id: true, createdAt: true });
 export const insertClientGroupMemberSchema = createInsertSchema(clientGroupMembers).omit({ id: true, createdAt: true });
+export const insertUserClientGroupMembershipSchema = createInsertSchema(userClientGroupMemberships).omit({ id: true, createdAt: true });
 export const insertContractStatusSchema = createInsertSchema(contractStatuses).omit({ id: true, createdAt: true });
 export const insertContractStatusCompanySchema = createInsertSchema(contractStatusCompanies).omit({ id: true });
 export const insertContractStatusVisibilitySchema = createInsertSchema(contractStatusVisibility).omit({ id: true });
@@ -866,6 +877,8 @@ export type ClientSubGroup = typeof clientSubGroups.$inferSelect;
 export type InsertClientSubGroup = z.infer<typeof insertClientSubGroupSchema>;
 export type ClientGroupMember = typeof clientGroupMembers.$inferSelect;
 export type InsertClientGroupMember = z.infer<typeof insertClientGroupMemberSchema>;
+export type UserClientGroupMembership = typeof userClientGroupMemberships.$inferSelect;
+export type InsertUserClientGroupMembership = z.infer<typeof insertUserClientGroupMembershipSchema>;
 
 export type ContractStatus = typeof contractStatuses.$inferSelect;
 export type ContractStatusCompany = typeof contractStatusCompanies.$inferSelect;

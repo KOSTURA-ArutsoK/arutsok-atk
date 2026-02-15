@@ -44,10 +44,11 @@ import {
   type Contract, type InsertContract,
   type ContractPassword, type InsertContractPassword,
   type ContractParameterValue, type InsertContractParameterValue,
-  clientGroups, clientSubGroups, clientGroupMembers,
+  clientGroups, clientSubGroups, clientGroupMembers, userClientGroupMemberships,
   type ClientGroup, type InsertClientGroup,
   type ClientSubGroup, type InsertClientSubGroup,
   type ClientGroupMember, type InsertClientGroupMember,
+  type UserClientGroupMembership,
   supisky, supiskaContracts,
   type Supiska, type InsertSupiska,
   type SupiskaContract, type InsertSupiskaContract,
@@ -328,6 +329,13 @@ export interface IStorage {
   getClientGroupMemberCount(groupId: number): Promise<number>;
   getClientSubGroupMemberCount(subGroupId: number): Promise<number>;
   isSubjectLoginAllowed(subjectId: number): Promise<boolean>;
+
+  // User Client Group Memberships
+  getUserClientGroupMemberships(userId: number): Promise<(UserClientGroupMembership & { group?: ClientGroup })[]>;
+  addUserClientGroupMembership(userId: number, groupId: number): Promise<UserClientGroupMembership>;
+  removeUserClientGroupMembership(userId: number, groupId: number): Promise<void>;
+  setUserClientGroupMemberships(userId: number, groupIds: number[]): Promise<void>;
+  getUserEffectivePermissionLevel(userId: number): Promise<number>;
 
   // Supisky
   getSupisky(filters?: { stateId?: number; companyId?: number }): Promise<Supiska[]>;
@@ -1916,6 +1924,46 @@ export class DatabaseStorage implements IStorage {
     if (memberships.length === 0) return true;
     const blocked = memberships.some(m => m.allowLogin === false);
     return !blocked;
+  }
+
+  async getUserClientGroupMemberships(userId: number): Promise<(UserClientGroupMembership & { group?: ClientGroup })[]> {
+    const rows = await db.select()
+      .from(userClientGroupMemberships)
+      .leftJoin(clientGroups, eq(userClientGroupMemberships.groupId, clientGroups.id))
+      .where(eq(userClientGroupMemberships.userId, userId));
+    return rows.map(r => ({
+      ...r.user_client_group_memberships,
+      group: r.client_groups || undefined,
+    }));
+  }
+
+  async addUserClientGroupMembership(userId: number, groupId: number): Promise<UserClientGroupMembership> {
+    const existing = await db.select().from(userClientGroupMemberships)
+      .where(and(eq(userClientGroupMemberships.userId, userId), eq(userClientGroupMemberships.groupId, groupId)));
+    if (existing.length > 0) return existing[0];
+    const [row] = await db.insert(userClientGroupMemberships).values({ userId, groupId }).returning();
+    return row;
+  }
+
+  async removeUserClientGroupMembership(userId: number, groupId: number): Promise<void> {
+    await db.delete(userClientGroupMemberships)
+      .where(and(eq(userClientGroupMemberships.userId, userId), eq(userClientGroupMemberships.groupId, groupId)));
+  }
+
+  async setUserClientGroupMemberships(userId: number, groupIds: number[]): Promise<void> {
+    await db.delete(userClientGroupMemberships).where(eq(userClientGroupMemberships.userId, userId));
+    if (groupIds.length > 0) {
+      await db.insert(userClientGroupMemberships).values(groupIds.map(groupId => ({ userId, groupId })));
+    }
+  }
+
+  async getUserEffectivePermissionLevel(userId: number): Promise<number> {
+    const rows = await db.select({ permissionLevel: clientGroups.permissionLevel })
+      .from(userClientGroupMemberships)
+      .innerJoin(clientGroups, eq(userClientGroupMemberships.groupId, clientGroups.id))
+      .where(eq(userClientGroupMemberships.userId, userId));
+    if (rows.length === 0) return 1;
+    return Math.max(...rows.map(r => r.permissionLevel));
   }
 
   async getSupisky(filters?: { stateId?: number; companyId?: number }): Promise<Supiska[]> {

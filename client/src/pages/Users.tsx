@@ -30,8 +30,17 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import type { AppUser, PermissionGroup } from "@shared/schema";
+import { Checkbox } from "@/components/ui/checkbox";
+import type { AppUser, PermissionGroup, ClientGroup } from "@shared/schema";
 import { ProcessingSaveButton } from "@/components/processing-save-button";
+
+const PERMISSION_LEVEL_LABELS: Record<number, string> = {
+  1: "L1 Klient",
+  2: "L2 Spracovatel",
+  3: "L3 Manazer",
+  4: "L4 Riaditel",
+  5: "L5 Admin",
+};
 
 const ROLES = ["superadmin", "admin", "backoffice", "manager", "user"] as const;
 
@@ -98,6 +107,39 @@ function UserFormDialog({
 
   const { data: permGroups } = useQuery<PermissionGroup[]>({
     queryKey: ["/api/permission-groups"],
+  });
+
+  const { data: allClientGroups } = useQuery<ClientGroup[]>({
+    queryKey: ["/api/client-groups"],
+  });
+
+  const { data: userGroupMemberships } = useQuery<{ id: number; groupId: number; group?: ClientGroup }[]>({
+    queryKey: ["/api/users", editingUser?.id, "client-groups"],
+    queryFn: async () => {
+      if (!editingUser?.id) return [];
+      const res = await fetch(`/api/users/${editingUser.id}/client-groups`, { credentials: "include" });
+      if (!res.ok) throw new Error("Failed");
+      return res.json();
+    },
+    enabled: !!editingUser?.id && open,
+  });
+
+  const [selectedGroupIds, setSelectedGroupIds] = useState<number[]>([]);
+
+  useEffect(() => {
+    if (userGroupMemberships) {
+      setSelectedGroupIds(userGroupMemberships.map(m => m.groupId));
+    } else {
+      setSelectedGroupIds([]);
+    }
+  }, [userGroupMemberships]);
+
+  const saveGroupsMutation = useMutation({
+    mutationFn: (data: { userId: number; groupIds: number[] }) =>
+      apiRequest("PUT", `/api/users/${data.userId}/client-groups`, { groupIds: data.groupIds }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/users", editingUser?.id, "client-groups"] });
+    },
   });
 
   const createMutation = useMutation({
@@ -171,6 +213,7 @@ function UserFormDialog({
 
     if (editingUser) {
       updateMutation.mutate({ id: editingUser.id, data: { ...payload, changeReason: "User edit" } });
+      saveGroupsMutation.mutate({ userId: editingUser.id, groupIds: selectedGroupIds });
     } else {
       createMutation.mutate(payload);
     }
@@ -310,6 +353,46 @@ function UserFormDialog({
               onChange={e => setForm(f => ({ ...f, adminCode: e.target.value }))}
               data-testid="input-user-admin-code"
             />
+          </div>
+
+          <div className="space-y-2" style={{ display: editingUser ? 'block' : 'none' }}>
+            <Label>Skupiny klientov (multi-priradenie)</Label>
+            <div className="border rounded-md p-3 space-y-2 max-h-[200px] overflow-y-auto" data-testid="section-user-client-groups">
+              {allClientGroups && allClientGroups.length > 0 ? (
+                allClientGroups.map(g => (
+                  <div key={g.id} className="flex items-center gap-3">
+                    <Checkbox
+                      id={`ucg-${g.id}`}
+                      checked={selectedGroupIds.includes(g.id)}
+                      onCheckedChange={(checked) => {
+                        if (checked) {
+                          setSelectedGroupIds(prev => [...prev, g.id]);
+                        } else {
+                          setSelectedGroupIds(prev => prev.filter(id => id !== g.id));
+                        }
+                      }}
+                      data-testid={`checkbox-group-${g.id}`}
+                    />
+                    <Label htmlFor={`ucg-${g.id}`} className="cursor-pointer text-sm flex items-center gap-2 flex-wrap">
+                      {g.name}
+                      <Badge variant="outline" className="text-xs">
+                        {PERMISSION_LEVEL_LABELS[g.permissionLevel] || `L${g.permissionLevel}`}
+                      </Badge>
+                    </Label>
+                  </div>
+                ))
+              ) : (
+                <p className="text-xs text-muted-foreground">Ziadne skupiny klientov</p>
+              )}
+            </div>
+            <div style={{ display: selectedGroupIds.length > 0 ? 'flex' : 'none' }} className="items-center gap-2 flex-wrap">
+              <span className="text-xs text-muted-foreground">Efektivny level:</span>
+              <Badge variant="secondary" data-testid="badge-effective-level">
+                {PERMISSION_LEVEL_LABELS[
+                  Math.max(...(selectedGroupIds.map(id => allClientGroups?.find(g => g.id === id)?.permissionLevel || 1)))
+                ] || "L1 Klient"}
+              </Badge>
+            </div>
           </div>
 
           <p className="text-xs text-muted-foreground">

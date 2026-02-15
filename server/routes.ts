@@ -1852,10 +1852,16 @@ export async function registerRoutes(
       statusId: req.query.statusId ? parseInt(req.query.statusId as string) : undefined,
       inventoryId: req.query.inventoryId ? parseInt(req.query.inventoryId as string) : undefined,
       includeDeleted: req.query.includeDeleted === 'true',
-      // ArutsoK 43 - Filter for unprocessed contracts (Evidencia zmluv)
       unprocessed: req.query.unprocessed === 'true',
     };
-    res.json(await storage.getContracts(filters));
+    const allContracts = await storage.getContracts(filters);
+    const appUser = req.appUser;
+    if (appUser) {
+      const effectiveLevel = await storage.getUserEffectivePermissionLevel(appUser.id);
+      const filtered = allContracts.filter(c => (c.requiredPermissionLevel || 1) <= effectiveLevel);
+      return res.json(filtered);
+    }
+    res.json(allContracts);
   });
 
   app.get(api.contractsApi.get.path, isAuthenticated, async (req: any, res) => {
@@ -1864,6 +1870,12 @@ export async function registerRoutes(
     const appUser = req.appUser;
     if (appUser && appUser.activeStateId && contract.stateId && contract.stateId !== appUser.activeStateId && appUser.role !== 'superadmin') {
       return res.status(403).json({ message: "Pristup k zmluve z ineho statu nie je povoleny" });
+    }
+    if (appUser && contract.requiredPermissionLevel && contract.requiredPermissionLevel > 1) {
+      const effectiveLevel = await storage.getUserEffectivePermissionLevel(appUser.id);
+      if (effectiveLevel < contract.requiredPermissionLevel) {
+        return res.status(403).json({ message: "Nedostatocna uroven pravomoci pre zobrazenie tejto zmluvy" });
+      }
     }
     res.json(contract);
   });
@@ -2545,6 +2557,63 @@ export async function registerRoutes(
       const added = await storage.bulkAddClientGroupMembers(Number(req.params.groupId), subjectIds);
       await logAudit(req, { action: "CREATE", module: "clenovia_skupiny", entityName: `Hromadne priradenie ${added} klientov` });
       res.json({ success: true, added });
+    } catch (err) {
+      res.status(500).json({ message: "Internal error" });
+    }
+  });
+
+  // === USER CLIENT GROUP MEMBERSHIPS ===
+  app.get("/api/users/:userId/client-groups", isAuthenticated, async (req: any, res) => {
+    try {
+      const appUser = req.appUser;
+      const targetId = Number(req.params.userId);
+      if (!appUser || (appUser.id !== targetId && !['admin', 'superadmin'].includes(appUser.role))) {
+        return res.status(403).json({ message: "Pristup zamietnuty" });
+      }
+      const memberships = await storage.getUserClientGroupMemberships(targetId);
+      res.json(memberships);
+    } catch (err) {
+      res.status(500).json({ message: "Internal error" });
+    }
+  });
+
+  app.put("/api/users/:userId/client-groups", isAuthenticated, async (req: any, res) => {
+    try {
+      const appUser = req.appUser;
+      if (!appUser || !['admin', 'superadmin'].includes(appUser.role)) {
+        return res.status(403).json({ message: "Pristup zamietnuty - iba admin moze menit skupiny" });
+      }
+      const { groupIds } = req.body;
+      if (!Array.isArray(groupIds)) return res.status(400).json({ message: "groupIds must be an array" });
+      await storage.setUserClientGroupMemberships(Number(req.params.userId), groupIds);
+      await logAudit(req, { action: "UPDATE", module: "user_client_groups", entityId: Number(req.params.userId), entityName: `Skupiny: ${groupIds.join(",")}` });
+      const memberships = await storage.getUserClientGroupMemberships(Number(req.params.userId));
+      res.json(memberships);
+    } catch (err) {
+      res.status(500).json({ message: "Internal error" });
+    }
+  });
+
+  app.get("/api/users/:userId/effective-level", isAuthenticated, async (req: any, res) => {
+    try {
+      const appUser = req.appUser;
+      const targetId = Number(req.params.userId);
+      if (!appUser || (appUser.id !== targetId && !['admin', 'superadmin'].includes(appUser.role))) {
+        return res.status(403).json({ message: "Pristup zamietnuty" });
+      }
+      const level = await storage.getUserEffectivePermissionLevel(targetId);
+      res.json({ level });
+    } catch (err) {
+      res.status(500).json({ message: "Internal error" });
+    }
+  });
+
+  app.get("/api/my-effective-level", isAuthenticated, async (req: any, res) => {
+    try {
+      const appUser = req.appUser;
+      if (!appUser) return res.json({ level: 1 });
+      const level = await storage.getUserEffectivePermissionLevel(appUser.id);
+      res.json({ level });
     } catch (err) {
       res.status(500).json({ message: "Internal error" });
     }
