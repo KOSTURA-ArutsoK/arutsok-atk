@@ -6,7 +6,7 @@ import { useStates } from "@/hooks/use-hierarchy";
 import { useToast } from "@/hooks/use-toast";
 import { useLocation } from "wouter";
 import type { Contract, ContractStatus, ContractTemplate, ContractInventory, Subject, Partner, Product, MyCompany, Sector, Section, SectorProduct } from "@shared/schema";
-import { Plus, Pencil, Trash2, Eye, FileText, Loader2, Lock, LayoutGrid, Send, Upload, Inbox, CheckCircle2, ChevronDown, ChevronRight, Printer } from "lucide-react";
+import { Plus, Pencil, Trash2, Eye, FileText, Loader2, Lock, LayoutGrid, Send, Upload, Inbox, CheckCircle2, ChevronDown, ChevronRight, Printer, Search, Archive, AlertTriangle, Calendar } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -156,6 +156,7 @@ function ContractFormDialog({
   const [commissionAmount, setCommissionAmount] = useState("");
   const [currency, setCurrency] = useState("EUR");
   const [notes, setNotes] = useState("");
+  const [duplicateWarning, setDuplicateWarning] = useState<string | null>(null);
 
   type PanelWithParams = {
     id: number;
@@ -320,7 +321,27 @@ function ContractFormDialog({
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <label className="text-sm font-medium">Cislo zmluvy *</label>
-              <Input value={contractNumber} onChange={e => setContractNumber(e.target.value)} data-testid="input-contract-number" />
+              <Input
+                value={contractNumber}
+                onChange={e => { setContractNumber(e.target.value); setDuplicateWarning(null); }}
+                onBlur={async () => {
+                  if (!contractNumber.trim() || editingContract) return;
+                  try {
+                    const res = await fetch(`/api/contracts/check-duplicate?contractNumber=${encodeURIComponent(contractNumber.trim())}`, { credentials: "include" });
+                    const data = await res.json();
+                    if (data.exists) {
+                      setDuplicateWarning(data.subjectName ? `Zmluva s tymto cislom uz existuje pre klienta ${data.subjectName}` : "Zmluva s tymto cislom uz existuje");
+                    }
+                  } catch {}
+                }}
+                data-testid="input-contract-number"
+              />
+              {duplicateWarning && (
+                <div className="flex items-center gap-2 p-2 rounded-md bg-amber-500/10 mt-1" data-testid="text-duplicate-warning">
+                  <AlertTriangle className="w-4 h-4 text-amber-500 shrink-0" />
+                  <p className="text-xs text-amber-700 dark:text-amber-400">{duplicateWarning}</p>
+                </div>
+              )}
             </div>
             <div className="space-y-2">
               <label className="text-sm font-medium">Klient</label>
@@ -827,6 +848,9 @@ export default function Contracts() {
 
   const [acceptedSprievodkaIds, setAcceptedSprievodkaIds] = useState<Record<number, Set<number>>>({});
   const [expandedSprievodky, setExpandedSprievodky] = useState<Set<number>>(new Set());
+  const [activeFolder, setActiveFolder] = useState<number>(1);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [duplicateModal, setDuplicateModal] = useState<{ open: boolean; subjectName?: string }>({ open: false });
 
   const { data: statuses } = useQuery<ContractStatus[]>({
     queryKey: ["/api/contract-statuses"],
@@ -860,6 +884,16 @@ export default function Contracts() {
 
   const { data: dispatchedContracts, isLoading: isLoadingDispatched } = useQuery<Contract[]>({
     queryKey: ["/api/contracts/dispatched"],
+    enabled: isEvidencia,
+  });
+
+  const { data: acceptedContracts, isLoading: isLoadingAccepted } = useQuery<Contract[]>({
+    queryKey: ["/api/contracts/accepted"],
+    enabled: isEvidencia,
+  });
+
+  const { data: archivedContracts, isLoading: isLoadingArchived } = useQuery<Contract[]>({
+    queryKey: ["/api/contracts/archived"],
     enabled: isEvidencia,
   });
 
@@ -898,6 +932,8 @@ export default function Contracts() {
   function invalidateContractCaches() {
     queryClient.invalidateQueries({ queryKey: ["/api/contracts"] });
     queryClient.invalidateQueries({ queryKey: ["/api/contracts/dispatched"] });
+    queryClient.invalidateQueries({ queryKey: ["/api/contracts/accepted"] });
+    queryClient.invalidateQueries({ queryKey: ["/api/contracts/archived"] });
     queryClient.invalidateQueries({ queryKey: ["/api/contract-inventories"] });
   }
 
@@ -1039,9 +1075,127 @@ export default function Contracts() {
   const isDispatching = dispatchMutation.isPending;
   const isAccepting = acceptMutation.isPending;
 
-  if (isEvidencia) {
+  const activeAccepted = acceptedContracts?.filter(c => !c.isDeleted) || [];
+  const activeArchived = archivedContracts?.filter(c => !c.isDeleted) || [];
+
+  const folderDefs = [
+    { id: 1, label: "Nahravanie zmluv", icon: Upload, color: "text-blue-500", bgColor: "bg-blue-500/15", count: activeContracts.length },
+    { id: 2, label: "Cakajuce na prijatie", icon: Inbox, color: "text-amber-500", bgColor: "bg-amber-500/15", count: activeDispatched.length },
+    { id: 3, label: "Prijate zmluvy", icon: CheckCircle2, color: "text-green-500", bgColor: "bg-green-500/15", count: activeAccepted.length },
+    { id: 4, label: "Archiv s vyhradami", icon: Archive, color: "text-red-500", bgColor: "bg-red-500/15", count: activeArchived.length },
+  ];
+
+  function filterBySearch(list: Contract[]) {
+    if (!searchQuery.trim()) return list;
+    const q = searchQuery.toLowerCase();
+    return list.filter(c =>
+      (c.contractNumber || "").toLowerCase().includes(q) ||
+      (c.registrationNumber || "").toLowerCase().includes(q) ||
+      getSubjectDisplay(c.subjectId).toLowerCase().includes(q) ||
+      getPartnerName(c).toLowerCase().includes(q) ||
+      getProductName(c).toLowerCase().includes(q)
+    );
+  }
+
+  function renderContractTable(list: Contract[], options?: { showCheckbox?: boolean; showOrder?: boolean; showStatus?: boolean; showRegistration?: boolean; showActions?: boolean }) {
+    const { showCheckbox, showOrder, showStatus, showRegistration, showActions = true } = options || {};
     return (
-      <div className="p-6 space-y-6">
+      <Table>
+        <TableHeader>
+          <TableRow>
+            {showCheckbox && (
+              <TableHead className="w-[40px]">
+                <Checkbox
+                  checked={selectedIds.length === list.length && list.length > 0}
+                  onCheckedChange={toggleSelectAll}
+                  data-testid="checkbox-select-all"
+                />
+              </TableHead>
+            )}
+            {showOrder && <TableHead className="w-[40px] text-center">#</TableHead>}
+            <TableHead>Cislo zmluvy</TableHead>
+            {showRegistration && <TableHead>Registracne cislo</TableHead>}
+            <TableHead>Klient</TableHead>
+            <TableHead>Partner</TableHead>
+            <TableHead>Produkt</TableHead>
+            {showStatus && <TableHead>Stav</TableHead>}
+            <TableHead>Suma</TableHead>
+            <TableHead>Datum podpisu</TableHead>
+            {showActions && <TableHead className="text-right">Akcie</TableHead>}
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {list.map(contract => {
+            const status = statuses?.find(s => s.id === contract.statusId);
+            return (
+              <TableRow key={contract.id} data-testid={`row-evidencia-${contract.id}`}>
+                {showCheckbox && (
+                  <TableCell>
+                    <Checkbox
+                      checked={selectedIds.includes(contract.id)}
+                      onCheckedChange={() => toggleSelect(contract.id)}
+                      data-testid={`checkbox-contract-${contract.id}`}
+                    />
+                  </TableCell>
+                )}
+                {showOrder && (
+                  <TableCell className="text-center text-xs text-muted-foreground" data-testid={`text-selection-order-${contract.id}`}>
+                    {selectedIds.includes(contract.id) ? selectedIds.indexOf(contract.id) + 1 : ""}
+                  </TableCell>
+                )}
+                <TableCell className="font-mono text-sm" data-testid={`text-contract-number-${contract.id}`}>
+                  <span className="flex items-center gap-1">
+                    {contract.isLocked && <Lock className="w-3 h-3 text-amber-500 shrink-0" />}
+                    {contract.contractNumber || "-"}
+                  </span>
+                </TableCell>
+                {showRegistration && (
+                  <TableCell className="font-mono text-sm" data-testid={`text-contract-registration-${contract.id}`}>
+                    {contract.registrationNumber || "-"}
+                  </TableCell>
+                )}
+                <TableCell className="text-sm">{getSubjectDisplay(contract.subjectId)}</TableCell>
+                <TableCell className="text-sm">{getPartnerName(contract)}</TableCell>
+                <TableCell className="text-sm">{getProductName(contract)}</TableCell>
+                {showStatus && (
+                  <TableCell data-testid={`text-contract-status-${contract.id}`}>
+                    {status ? (
+                      <Badge variant="outline" style={{ borderColor: status.color, color: status.color }}>{status.name}</Badge>
+                    ) : "-"}
+                  </TableCell>
+                )}
+                <TableCell className="text-sm font-mono">{formatAmount(contract.premiumAmount, contract.currency)}</TableCell>
+                <TableCell className="text-sm">{formatDate(contract.signedDate)}</TableCell>
+                {showActions && (
+                  <TableCell className="text-right">
+                    <div className="flex items-center justify-end gap-1 flex-wrap">
+                      <Button size="icon" variant="ghost" onClick={() => openView(contract)} data-testid={`button-view-contract-${contract.id}`}>
+                        <Eye className="w-4 h-4" />
+                      </Button>
+                      <Button size="icon" variant="ghost" onClick={() => openEdit(contract)} data-testid={`button-edit-contract-${contract.id}`}>
+                        <Pencil className="w-4 h-4" />
+                      </Button>
+                      <Button size="icon" variant="ghost" onClick={() => openDelete(contract)} data-testid={`button-delete-contract-${contract.id}`}>
+                        <Trash2 className="w-4 h-4" />
+                      </Button>
+                    </div>
+                  </TableCell>
+                )}
+              </TableRow>
+            );
+          })}
+        </TableBody>
+      </Table>
+    );
+  }
+
+  if (isEvidencia) {
+    const filteredNahravanie = filterBySearch(activeContracts);
+    const filteredAccepted = filterBySearch(activeAccepted);
+    const filteredArchived = filterBySearch(activeArchived);
+
+    return (
+      <div className="p-6 space-y-4">
         <div className="flex items-center justify-between gap-4 flex-wrap">
           <h1 className="text-2xl font-bold" data-testid="text-page-title">Evidencia zmluv</h1>
           <Button onClick={openCreate} data-testid="button-create-contract">
@@ -1050,243 +1204,191 @@ export default function Contracts() {
           </Button>
         </div>
 
-        <Card data-testid="folder-nahravanie">
-          <div className="flex items-center gap-3 p-4 border-b">
-            <div className="w-8 h-8 rounded-md bg-blue-500/15 flex items-center justify-center">
-              <Upload className="w-4 h-4 text-blue-500" />
-            </div>
-            <div className="flex-1">
-              <h2 className="text-sm font-semibold" data-testid="text-folder-nahravanie-title">Nahravanie zmluv</h2>
-              <p className="text-xs text-muted-foreground">Pracovny priestor PFA - vyberte zmluvy a odoslite na schvalenie</p>
-              <p className="text-xs text-muted-foreground mt-0.5 italic" data-testid="text-ordering-note">Poznamka: Zmluvy budu na sprievodke zoradene podla poradia, v akom ich oznacite.</p>
-            </div>
-            <Badge variant="outline" data-testid="badge-nahravanie-count">{activeContracts.length}</Badge>
-          </div>
-          <CardContent className="p-0">
-            {isLoading ? (
-              <div className="flex items-center justify-center py-8">
-                <Loader2 className="w-5 h-5 animate-spin" />
-              </div>
-            ) : activeContracts.length === 0 ? (
-              <p className="text-sm text-muted-foreground text-center py-8" data-testid="text-no-nahravanie">
-                Ziadne zmluvy na nahravanie
-              </p>
-            ) : (
-              <>
-                {selectedIds.length > 0 && (
-                  <div className="flex items-center gap-3 p-3 border-b bg-muted/30 flex-wrap">
-                    <span className="text-sm text-muted-foreground">Vybranych: <span className="font-semibold text-foreground">{selectedIds.length}</span></span>
-                    <Button
-                      size="sm"
-                      onClick={() => setSprievodkaDialogOpen(true)}
-                      data-testid="button-dispatch"
-                    >
-                      <Send className="w-3.5 h-3.5 mr-1.5" />
-                      Odoslat
-                    </Button>
+        <div className="grid grid-cols-4 gap-3" data-testid="folder-tabs">
+          {folderDefs.map(f => {
+            const FIcon = f.icon;
+            const isActive = activeFolder === f.id;
+            return (
+              <Card
+                key={f.id}
+                className={`cursor-pointer transition-colors ${isActive ? "border-primary" : ""}`}
+                onClick={() => setActiveFolder(f.id)}
+                data-testid={`folder-tab-${f.id}`}
+              >
+                <div className="flex items-center gap-3 p-3">
+                  <div className={`w-8 h-8 rounded-md ${f.bgColor} flex items-center justify-center shrink-0`}>
+                    <FIcon className={`w-4 h-4 ${f.color}`} />
                   </div>
-                )}
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead className="w-[40px]">
-                        <Checkbox
-                          checked={selectedIds.length === activeContracts.length && activeContracts.length > 0}
-                          onCheckedChange={toggleSelectAll}
-                          data-testid="checkbox-select-all"
-                        />
-                      </TableHead>
-                      <TableHead className="w-[40px] text-center">#</TableHead>
-                      <TableHead>Cislo zmluvy</TableHead>
-                      <TableHead>Klient</TableHead>
-                      <TableHead>Partner</TableHead>
-                      <TableHead>Produkt</TableHead>
-                      <TableHead>Suma</TableHead>
-                      <TableHead>Datum podpisu</TableHead>
-                      <TableHead className="text-right">Akcie</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {activeContracts.map(contract => (
-                      <TableRow key={contract.id} data-testid={`row-nahravanie-${contract.id}`}>
-                        <TableCell>
-                          <Checkbox
-                            checked={selectedIds.includes(contract.id)}
-                            onCheckedChange={() => toggleSelect(contract.id)}
-                            data-testid={`checkbox-contract-${contract.id}`}
-                          />
-                        </TableCell>
-                        <TableCell className="text-center text-xs text-muted-foreground" data-testid={`text-selection-order-${contract.id}`}>
-                          {selectedIds.includes(contract.id) ? selectedIds.indexOf(contract.id) + 1 : ""}
-                        </TableCell>
-                        <TableCell className="font-mono text-sm" data-testid={`text-contract-number-${contract.id}`}>
-                          <span className="flex items-center gap-1">
-                            {contract.isLocked && <Lock className="w-3 h-3 text-amber-500 shrink-0" />}
-                            {contract.contractNumber || "-"}
-                          </span>
-                        </TableCell>
-                        <TableCell className="text-sm">{getSubjectDisplay(contract.subjectId)}</TableCell>
-                        <TableCell className="text-sm">{getPartnerName(contract)}</TableCell>
-                        <TableCell className="text-sm">{getProductName(contract)}</TableCell>
-                        <TableCell className="text-sm font-mono">{formatAmount(contract.premiumAmount, contract.currency)}</TableCell>
-                        <TableCell className="text-sm">{formatDate(contract.signedDate)}</TableCell>
-                        <TableCell className="text-right">
-                          <div className="flex items-center justify-end gap-1 flex-wrap">
-                            <Button size="icon" variant="ghost" onClick={() => openView(contract)} data-testid={`button-view-contract-${contract.id}`}>
-                              <Eye className="w-4 h-4" />
-                            </Button>
-                            <Button size="icon" variant="ghost" onClick={() => openEdit(contract)} data-testid={`button-edit-contract-${contract.id}`}>
-                              <Pencil className="w-4 h-4" />
-                            </Button>
-                            <Button size="icon" variant="ghost" onClick={() => openDelete(contract)} data-testid={`button-delete-contract-${contract.id}`}>
-                              <Trash2 className="w-4 h-4" />
-                            </Button>
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </>
-            )}
-          </CardContent>
-        </Card>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs font-semibold truncate">{f.label}</p>
+                    <p className="text-lg font-bold">{f.count}</p>
+                  </div>
+                </div>
+              </Card>
+            );
+          })}
+        </div>
 
-        <Card data-testid="folder-cakajuce">
-          <div className="flex items-center gap-3 p-4 border-b">
-            <div className="w-8 h-8 rounded-md bg-amber-500/15 flex items-center justify-center">
-              <Inbox className="w-4 h-4 text-amber-500" />
-            </div>
-            <div className="flex-1">
-              <h2 className="text-sm font-semibold" data-testid="text-folder-cakajuce-title">Zmluvy cakajuce na prijatie</h2>
-              <p className="text-xs text-muted-foreground">Prichadzajuca fronta pre Centralnu kancelariu - overenie a schvalenie</p>
-            </div>
-            <Badge variant="outline" data-testid="badge-cakajuce-count">{activeDispatched.length}</Badge>
-          </div>
-          <CardContent className="p-0">
-            {isLoadingDispatched ? (
-              <div className="flex items-center justify-center py-8">
-                <Loader2 className="w-5 h-5 animate-spin" />
+        <div className="relative" data-testid="search-bar">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+          <Input
+            value={searchQuery}
+            onChange={e => setSearchQuery(e.target.value)}
+            placeholder="Hladat zmluvy (cislo, klient, partner, produkt...)"
+            className="pl-9"
+            data-testid="input-search-contracts"
+          />
+        </div>
+
+        {activeFolder === 1 && (
+          <Card data-testid="folder-nahravanie">
+            <div className="flex items-center gap-3 p-3 border-b flex-wrap">
+              <div className="flex-1">
+                <p className="text-xs text-muted-foreground italic" data-testid="text-ordering-note">Poznamka: Zmluvy budu na sprievodke zoradene podla poradia, v akom ich oznacite.</p>
               </div>
-            ) : dispatchedBySprievodka.length === 0 ? (
-              <p className="text-sm text-muted-foreground text-center py-8" data-testid="text-no-cakajuce">
-                Ziadne zmluvy cakajuce na prijatie
-              </p>
-            ) : (
-              <div className="divide-y">
-                {dispatchedBySprievodka.map(group => {
-                  const isExpanded = expandedSprievodky.has(group.inventoryId);
-                  const checkedIds = acceptedSprievodkaIds[group.inventoryId] || new Set();
-                  const allChecked = checkedIds.size === group.contracts.length && group.contracts.length > 0;
+              {selectedIds.length > 0 && (
+                <div className="flex items-center gap-3 flex-wrap">
+                  <span className="text-sm text-muted-foreground">Vybranych: <span className="font-semibold text-foreground">{selectedIds.length}</span></span>
+                  <Button size="sm" onClick={() => setSprievodkaDialogOpen(true)} data-testid="button-dispatch">
+                    <Send className="w-3.5 h-3.5 mr-1.5" />
+                    Odoslat
+                  </Button>
+                </div>
+              )}
+            </div>
+            <CardContent className="p-0">
+              {isLoading ? (
+                <div className="flex items-center justify-center py-8"><Loader2 className="w-5 h-5 animate-spin" /></div>
+              ) : filteredNahravanie.length === 0 ? (
+                <p className="text-sm text-muted-foreground text-center py-8" data-testid="text-no-nahravanie">Ziadne zmluvy na nahravanie</p>
+              ) : renderContractTable(filteredNahravanie, { showCheckbox: true, showOrder: true })}
+            </CardContent>
+          </Card>
+        )}
 
-                  return (
-                    <div key={group.inventoryId} data-testid={`sprievodka-group-${group.inventoryId}`}>
-                      <div
-                        className="flex items-center gap-3 p-3 cursor-pointer hover-elevate"
-                        onClick={() => toggleSprievodkaExpanded(group.inventoryId)}
-                        data-testid={`button-toggle-sprievodka-${group.inventoryId}`}
-                      >
-                        {isExpanded ? (
-                          <ChevronDown className="w-4 h-4 text-muted-foreground shrink-0" />
-                        ) : (
-                          <ChevronRight className="w-4 h-4 text-muted-foreground shrink-0" />
-                        )}
-                        <FileText className="w-4 h-4 text-amber-500 shrink-0" />
-                        <span className="text-sm font-medium flex-1" data-testid={`text-sprievodka-name-${group.inventoryId}`}>
-                          {group.inventory?.name || `Sprievodka #${group.inventoryId}`}
-                        </span>
-                        <Badge variant="outline" data-testid={`badge-sprievodka-count-${group.inventoryId}`}>
-                          {group.contracts.length} {group.contracts.length === 1 ? "zmluva" : group.contracts.length < 5 ? "zmluvy" : "zmluv"}
-                        </Badge>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={(e) => { e.stopPropagation(); }}
-                          data-testid={`button-print-sprievodka-${group.inventoryId}`}
+        {activeFolder === 2 && (
+          <Card data-testid="folder-cakajuce">
+            <CardContent className="p-0">
+              {isLoadingDispatched ? (
+                <div className="flex items-center justify-center py-8"><Loader2 className="w-5 h-5 animate-spin" /></div>
+              ) : dispatchedBySprievodka.length === 0 ? (
+                <p className="text-sm text-muted-foreground text-center py-8" data-testid="text-no-cakajuce">Ziadne zmluvy cakajuce na prijatie</p>
+              ) : (
+                <div className="divide-y">
+                  {dispatchedBySprievodka.map(group => {
+                    const isExpanded = expandedSprievodky.has(group.inventoryId);
+                    const checkedIds = acceptedSprievodkaIds[group.inventoryId] || new Set();
+                    const allChecked = checkedIds.size === group.contracts.length && group.contracts.length > 0;
+
+                    return (
+                      <div key={group.inventoryId} data-testid={`sprievodka-group-${group.inventoryId}`}>
+                        <div
+                          className="flex items-center gap-3 p-3 cursor-pointer hover-elevate flex-wrap"
+                          onClick={() => toggleSprievodkaExpanded(group.inventoryId)}
+                          data-testid={`button-toggle-sprievodka-${group.inventoryId}`}
                         >
-                          <Printer className="w-3.5 h-3.5 mr-1.5" />
-                          Tlacit sprievodku
-                        </Button>
-                        {checkedIds.size > 0 && (
-                          <Button
-                            size="sm"
-                            onClick={(e) => { e.stopPropagation(); handleAccept(group.inventoryId); }}
-                            disabled={isAccepting}
-                            data-testid={`button-accept-${group.inventoryId}`}
-                          >
-                            {isAccepting ? (
-                              <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" />
-                            ) : (
-                              <CheckCircle2 className="w-3.5 h-3.5 mr-1.5" />
-                            )}
-                            Schvalit a prijat ({checkedIds.size})
+                          {isExpanded ? <ChevronDown className="w-4 h-4 text-muted-foreground shrink-0" /> : <ChevronRight className="w-4 h-4 text-muted-foreground shrink-0" />}
+                          <FileText className="w-4 h-4 text-amber-500 shrink-0" />
+                          <span className="text-sm font-medium flex-1" data-testid={`text-sprievodka-name-${group.inventoryId}`}>
+                            {group.inventory?.name || `Sprievodka #${group.inventoryId}`}
+                          </span>
+                          <Badge variant="outline" data-testid={`badge-sprievodka-count-${group.inventoryId}`}>
+                            {group.contracts.length} {group.contracts.length === 1 ? "zmluva" : group.contracts.length < 5 ? "zmluvy" : "zmluv"}
+                          </Badge>
+                          <Button size="sm" variant="outline" onClick={(e) => { e.stopPropagation(); }} data-testid={`button-print-sprievodka-${group.inventoryId}`}>
+                            <Printer className="w-3.5 h-3.5 mr-1.5" />
+                            Tlacit sprievodku
                           </Button>
+                          {checkedIds.size > 0 && (
+                            <Button size="sm" onClick={(e) => { e.stopPropagation(); handleAccept(group.inventoryId); }} disabled={isAccepting} data-testid={`button-accept-${group.inventoryId}`}>
+                              {isAccepting ? <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" /> : <CheckCircle2 className="w-3.5 h-3.5 mr-1.5" />}
+                              Schvalit a prijat ({checkedIds.size})
+                            </Button>
+                          )}
+                        </div>
+                        {isExpanded && (
+                          <div className="border-t">
+                            <Table>
+                              <TableHeader>
+                                <TableRow>
+                                  <TableHead className="w-[40px]">
+                                    <Checkbox checked={allChecked} onCheckedChange={() => toggleAcceptAll(group.inventoryId, group.contracts)} data-testid={`checkbox-accept-all-${group.inventoryId}`} />
+                                  </TableHead>
+                                  <TableHead className="w-[40px] text-center">#</TableHead>
+                                  <TableHead>Cislo zmluvy</TableHead>
+                                  <TableHead>Klient</TableHead>
+                                  <TableHead>Partner</TableHead>
+                                  <TableHead>Produkt</TableHead>
+                                  <TableHead>Suma</TableHead>
+                                  <TableHead>Datum podpisu</TableHead>
+                                  <TableHead className="text-right">Akcie</TableHead>
+                                </TableRow>
+                              </TableHeader>
+                              <TableBody>
+                                {group.contracts.map(contract => (
+                                  <TableRow key={contract.id} data-testid={`row-cakajuce-${contract.id}`}>
+                                    <TableCell>
+                                      <Checkbox checked={checkedIds.has(contract.id)} onCheckedChange={() => toggleAcceptContract(group.inventoryId, contract.id)} data-testid={`checkbox-accept-${contract.id}`} />
+                                    </TableCell>
+                                    <TableCell className="text-center text-xs text-muted-foreground">{contract.sortOrderInInventory || "-"}</TableCell>
+                                    <TableCell className="font-mono text-sm" data-testid={`text-dispatched-number-${contract.id}`}>
+                                      <span className="flex items-center gap-1">
+                                        {contract.isLocked && <Lock className="w-3 h-3 text-amber-500 shrink-0" />}
+                                        {contract.contractNumber || "-"}
+                                      </span>
+                                    </TableCell>
+                                    <TableCell className="text-sm">{getSubjectDisplay(contract.subjectId)}</TableCell>
+                                    <TableCell className="text-sm">{getPartnerName(contract)}</TableCell>
+                                    <TableCell className="text-sm">{getProductName(contract)}</TableCell>
+                                    <TableCell className="text-sm font-mono">{formatAmount(contract.premiumAmount, contract.currency)}</TableCell>
+                                    <TableCell className="text-sm">{formatDate(contract.signedDate)}</TableCell>
+                                    <TableCell className="text-right">
+                                      <Button size="icon" variant="ghost" onClick={() => openView(contract)} data-testid={`button-view-dispatched-${contract.id}`}>
+                                        <Eye className="w-4 h-4" />
+                                      </Button>
+                                    </TableCell>
+                                  </TableRow>
+                                ))}
+                              </TableBody>
+                            </Table>
+                          </div>
                         )}
                       </div>
-                      {isExpanded && (
-                        <div className="border-t">
-                          <Table>
-                            <TableHeader>
-                              <TableRow>
-                                <TableHead className="w-[40px]">
-                                  <Checkbox
-                                    checked={allChecked}
-                                    onCheckedChange={() => toggleAcceptAll(group.inventoryId, group.contracts)}
-                                    data-testid={`checkbox-accept-all-${group.inventoryId}`}
-                                  />
-                                </TableHead>
-                                <TableHead className="w-[40px] text-center">#</TableHead>
-                                <TableHead>Cislo zmluvy</TableHead>
-                                <TableHead>Klient</TableHead>
-                                <TableHead>Partner</TableHead>
-                                <TableHead>Produkt</TableHead>
-                                <TableHead>Suma</TableHead>
-                                <TableHead>Datum podpisu</TableHead>
-                                <TableHead className="text-right">Akcie</TableHead>
-                              </TableRow>
-                            </TableHeader>
-                            <TableBody>
-                              {group.contracts.map(contract => (
-                                <TableRow key={contract.id} data-testid={`row-cakajuce-${contract.id}`}>
-                                  <TableCell>
-                                    <Checkbox
-                                      checked={checkedIds.has(contract.id)}
-                                      onCheckedChange={() => toggleAcceptContract(group.inventoryId, contract.id)}
-                                      data-testid={`checkbox-accept-${contract.id}`}
-                                    />
-                                  </TableCell>
-                                  <TableCell className="text-center text-xs text-muted-foreground">
-                                    {contract.sortOrderInInventory || "-"}
-                                  </TableCell>
-                                  <TableCell className="font-mono text-sm" data-testid={`text-dispatched-number-${contract.id}`}>
-                                    <span className="flex items-center gap-1">
-                                      {contract.isLocked && <Lock className="w-3 h-3 text-amber-500 shrink-0" />}
-                                      {contract.contractNumber || "-"}
-                                    </span>
-                                  </TableCell>
-                                  <TableCell className="text-sm">{getSubjectDisplay(contract.subjectId)}</TableCell>
-                                  <TableCell className="text-sm">{getPartnerName(contract)}</TableCell>
-                                  <TableCell className="text-sm">{getProductName(contract)}</TableCell>
-                                  <TableCell className="text-sm font-mono">{formatAmount(contract.premiumAmount, contract.currency)}</TableCell>
-                                  <TableCell className="text-sm">{formatDate(contract.signedDate)}</TableCell>
-                                  <TableCell className="text-right">
-                                    <Button size="icon" variant="ghost" onClick={() => openView(contract)} data-testid={`button-view-dispatched-${contract.id}`}>
-                                      <Eye className="w-4 h-4" />
-                                    </Button>
-                                  </TableCell>
-                                </TableRow>
-                              ))}
-                            </TableBody>
-                          </Table>
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </CardContent>
-        </Card>
+                    );
+                  })}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        )}
+
+        {activeFolder === 3 && (
+          <Card data-testid="folder-prijate">
+            <CardContent className="p-0">
+              {isLoadingAccepted ? (
+                <div className="flex items-center justify-center py-8"><Loader2 className="w-5 h-5 animate-spin" /></div>
+              ) : filteredAccepted.length === 0 ? (
+                <p className="text-sm text-muted-foreground text-center py-8" data-testid="text-no-prijate">Ziadne prijate zmluvy</p>
+              ) : renderContractTable(filteredAccepted, { showStatus: true, showRegistration: true, showActions: false })}
+            </CardContent>
+          </Card>
+        )}
+
+        {activeFolder === 4 && (
+          <Card data-testid="folder-archiv">
+            <div className="flex items-center gap-3 p-3 border-b">
+              <AlertTriangle className="w-4 h-4 text-red-500 shrink-0" />
+              <p className="text-xs text-muted-foreground">Zmluvy starsie ako 1 rok su automaticky presunuty do archivu</p>
+            </div>
+            <CardContent className="p-0">
+              {isLoadingArchived ? (
+                <div className="flex items-center justify-center py-8"><Loader2 className="w-5 h-5 animate-spin" /></div>
+              ) : filteredArchived.length === 0 ? (
+                <p className="text-sm text-muted-foreground text-center py-8" data-testid="text-no-archiv">Ziadne archivovane zmluvy</p>
+              ) : renderContractTable(filteredArchived, { showStatus: true, showRegistration: true, showActions: false })}
+            </CardContent>
+          </Card>
+        )}
 
         <Dialog open={sprievodkaDialogOpen} onOpenChange={setSprievodkaDialogOpen}>
           <DialogContent className="sm:max-w-[500px]">
@@ -1310,22 +1412,29 @@ export default function Contracts() {
                 <Button variant="outline" onClick={() => setSprievodkaDialogOpen(false)} data-testid="button-sprievodka-cancel">
                   Zrusit
                 </Button>
-                <Button
-                  onClick={handleDispatch}
-                  disabled={isDispatching}
-                  data-testid="button-sprievodka-confirm"
-                >
-                  {isDispatching ? (
-                    <>
-                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                      Odosielam...
-                    </>
-                  ) : (
-                    <>
-                      <Send className="w-4 h-4 mr-2" />
-                      Odoslat
-                    </>
-                  )}
+                <Button onClick={handleDispatch} disabled={isDispatching} data-testid="button-sprievodka-confirm">
+                  {isDispatching ? (<><Loader2 className="w-4 h-4 mr-2 animate-spin" />Odosielam...</>) : (<><Send className="w-4 h-4 mr-2" />Odoslat</>)}
+                </Button>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
+
+        <Dialog open={duplicateModal.open} onOpenChange={(o) => setDuplicateModal({ open: o })}>
+          <DialogContent className="sm:max-w-[450px]">
+            <DialogHeader>
+              <DialogTitle data-testid="text-duplicate-title">Duplicitna zmluva</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-3">
+              <div className="flex items-center gap-3 p-3 rounded-md bg-amber-500/10">
+                <AlertTriangle className="w-5 h-5 text-amber-500 shrink-0" />
+                <p className="text-sm" data-testid="text-duplicate-message">
+                  Zmluva s tymto cislom uz existuje{duplicateModal.subjectName ? ` pre klienta ${duplicateModal.subjectName}` : ""}.
+                </p>
+              </div>
+              <div className="flex justify-end">
+                <Button variant="outline" onClick={() => setDuplicateModal({ open: false })} data-testid="button-duplicate-close">
+                  Zavriet
                 </Button>
               </div>
             </div>

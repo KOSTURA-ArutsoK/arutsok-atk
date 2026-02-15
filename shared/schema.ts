@@ -576,6 +576,9 @@ export const contracts = pgTable("contracts", {
   dynamicPanelValues: jsonb("dynamic_panel_values").$type<Record<string, string>>().default({}),
   sortOrderInInventory: integer("sort_order_in_inventory"),
   registrationNumber: text("registration_number"),
+  uploadedByUserId: integer("uploaded_by_user_id").references(() => appUsers.id),
+  dispatchedAt: timestamp("dispatched_at"),
+  acceptedAt: timestamp("accepted_at"),
   processingTimeSec: integer("processing_time_sec").default(0),
   isLocked: boolean("is_locked").default(false),
   lockedBy: text("locked_by"),
@@ -587,6 +590,14 @@ export const contracts = pgTable("contracts", {
   deletedFromIp: text("deleted_from_ip"),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// === CONTRACT ACQUIRERS (Ziskatelov k zmluve) - ArutsoK 47 ===
+export const contractAcquirers = pgTable("contract_acquirers", {
+  id: serial("id").primaryKey(),
+  contractId: integer("contract_id").notNull().references(() => contracts.id),
+  userId: integer("user_id").notNull().references(() => appUsers.id),
+  createdAt: timestamp("created_at").defaultNow(),
 });
 
 // === CONTRACT PASSWORDS (Hesla k zmluve) - ArutsoK 32 ===
@@ -734,6 +745,7 @@ export const insertContractStatusSchema = createInsertSchema(contractStatuses).o
 export const insertContractTemplateSchema = createInsertSchema(contractTemplates).omit({ id: true, createdAt: true, updatedAt: true });
 export const insertContractInventorySchema = createInsertSchema(contractInventories).omit({ id: true, createdAt: true, updatedAt: true });
 export const insertContractSchema = createInsertSchema(contracts).omit({ id: true, createdAt: true, updatedAt: true, isDeleted: true, deletedBy: true, deletedAt: true, deletedFromIp: true, uid: true, isLocked: true, lockedBy: true, lockedAt: true, lockedBySupiskaId: true });
+export const insertContractAcquirerSchema = createInsertSchema(contractAcquirers).omit({ id: true, createdAt: true });
 export const insertContractPasswordSchema = createInsertSchema(contractPasswords).omit({ id: true, createdAt: true });
 export const insertContractParameterValueSchema = createInsertSchema(contractParameterValues).omit({ id: true });
 export const insertSupiskaSchema = createInsertSchema(supisky).omit({ id: true, createdAt: true, updatedAt: true });
@@ -808,6 +820,8 @@ export type ContractInventory = typeof contractInventories.$inferSelect;
 export type InsertContractInventory = z.infer<typeof insertContractInventorySchema>;
 export type Contract = typeof contracts.$inferSelect;
 export type InsertContract = z.infer<typeof insertContractSchema>;
+export type ContractAcquirer = typeof contractAcquirers.$inferSelect;
+export type InsertContractAcquirer = z.infer<typeof insertContractAcquirerSchema>;
 export type ContractPassword = typeof contractPasswords.$inferSelect;
 export type InsertContractPassword = z.infer<typeof insertContractPasswordSchema>;
 export type ContractParameterValue = typeof contractParameterValues.$inferSelect;

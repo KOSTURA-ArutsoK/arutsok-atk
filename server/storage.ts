@@ -75,6 +75,8 @@ import {
   type ProductFolderAssignment,
   contractFieldSettings,
   type ContractFieldSetting,
+  contractAcquirers,
+  type ContractAcquirer, type InsertContractAcquirer,
 } from "@shared/schema";
 import { eq, and, or, ne, like, sql, lte, gte, desc, isNull, isNotNull, inArray } from "drizzle-orm";
 
@@ -259,6 +261,16 @@ export interface IStorage {
   updateContract(id: number, data: Partial<InsertContract>): Promise<Contract>;
   softDeleteContract(id: number, deletedBy: string, ip: string): Promise<void>;
   restoreContract(id: number): Promise<void>;
+
+  // Contract Acquirers (ArutsoK 47)
+  getContractAcquirers(contractId: number): Promise<ContractAcquirer[]>;
+  addContractAcquirer(data: InsertContractAcquirer): Promise<ContractAcquirer>;
+  removeContractAcquirer(id: number): Promise<void>;
+  getContractsByAcquirer(userId: number): Promise<Contract[]>;
+  checkContractDuplicate(contractNumber: string): Promise<{ exists: boolean; contract?: Contract; subjectName?: string }>;
+  getSystemContractStatusByName(name: string): Promise<ContractStatus | undefined>;
+  getAcceptedContracts(): Promise<Contract[]>;
+  getArchivedContracts(): Promise<Contract[]>;
 
   getContractPasswords(contractId: number): Promise<ContractPassword[]>;
   createContractPassword(data: InsertContractPassword): Promise<ContractPassword>;
@@ -1519,6 +1531,87 @@ export class DatabaseStorage implements IStorage {
       deletedAt: null,
       deletedFromIp: null,
     }).where(eq(contracts.id, id));
+  }
+
+  // === CONTRACT ACQUIRERS (ArutsoK 47) ===
+  async getContractAcquirers(contractId: number): Promise<ContractAcquirer[]> {
+    return await db.select().from(contractAcquirers)
+      .where(eq(contractAcquirers.contractId, contractId))
+      .orderBy(contractAcquirers.createdAt);
+  }
+
+  async addContractAcquirer(data: InsertContractAcquirer): Promise<ContractAcquirer> {
+    const [created] = await db.insert(contractAcquirers).values(data as any).returning();
+    return created;
+  }
+
+  async removeContractAcquirer(id: number): Promise<void> {
+    await db.delete(contractAcquirers).where(eq(contractAcquirers.id, id));
+  }
+
+  async getContractsByAcquirer(userId: number): Promise<Contract[]> {
+    const rows = await db.select({ contract: contracts })
+      .from(contractAcquirers)
+      .innerJoin(contracts, eq(contractAcquirers.contractId, contracts.id))
+      .where(and(
+        eq(contractAcquirers.userId, userId),
+        eq(contracts.isDeleted, false)
+      ));
+    return rows.map(r => r.contract);
+  }
+
+  async checkContractDuplicate(contractNumber: string): Promise<{ exists: boolean; contract?: Contract; subjectName?: string }> {
+    if (!contractNumber || !contractNumber.trim()) return { exists: false };
+    const [found] = await db.select().from(contracts)
+      .where(and(
+        eq(contracts.contractNumber, contractNumber.trim()),
+        eq(contracts.isDeleted, false)
+      ))
+      .limit(1);
+    if (!found) return { exists: false };
+    let subjectName: string | undefined;
+    if (found.subjectId) {
+      const [subj] = await db.select().from(subjects).where(eq(subjects.id, found.subjectId)).limit(1);
+      if (subj) {
+        subjectName = subj.type === "person" ? `${subj.firstName} ${subj.lastName}` : (subj.companyName || undefined);
+      }
+    }
+    return { exists: true, contract: found, subjectName };
+  }
+
+  async getSystemContractStatusByName(name: string): Promise<ContractStatus | undefined> {
+    const [status] = await db.select().from(contractStatuses)
+      .where(and(eq(contractStatuses.name, name), eq(contractStatuses.isSystem, true)))
+      .limit(1);
+    return status;
+  }
+
+  async getAcceptedContracts(): Promise<Contract[]> {
+    const acceptedStatus = await this.getSystemContractStatusByName("Prijata centrom - OK");
+    if (!acceptedStatus) return [];
+    const oneYearAgo = new Date();
+    oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1);
+    return await db.select().from(contracts)
+      .where(and(
+        eq(contracts.isDeleted, false),
+        eq(contracts.statusId, acceptedStatus.id),
+        gte(contracts.acceptedAt, oneYearAgo)
+      ))
+      .orderBy(sql`${contracts.acceptedAt} DESC`);
+  }
+
+  async getArchivedContracts(): Promise<Contract[]> {
+    const acceptedStatus = await this.getSystemContractStatusByName("Prijata centrom - OK");
+    if (!acceptedStatus) return [];
+    const oneYearAgo = new Date();
+    oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1);
+    return await db.select().from(contracts)
+      .where(and(
+        eq(contracts.isDeleted, false),
+        eq(contracts.statusId, acceptedStatus.id),
+        lte(contracts.acceptedAt, oneYearAgo)
+      ))
+      .orderBy(sql`${contracts.acceptedAt} DESC`);
   }
 
   async getContractPasswords(contractId: number): Promise<ContractPassword[]> {

@@ -1456,11 +1456,15 @@ export async function registerRoutes(
         name: `Sprievodka c. ${seqNum}`,
         isDispatched: true 
       } as any);
+      const dispatchStatus = await storage.getSystemContractStatusByName("Odoslana na sprievodke");
       for (let i = 0; i < contractIds.length; i++) {
-        await storage.updateContract(Number(contractIds[i]), { 
+        const updateData: any = { 
           inventoryId, 
-          sortOrderInInventory: i + 1 
-        } as any);
+          sortOrderInInventory: i + 1,
+          dispatchedAt: new Date(),
+        };
+        if (dispatchStatus) updateData.statusId = dispatchStatus.id;
+        await storage.updateContract(Number(contractIds[i]), updateData);
       }
       await logAudit(req, {
         action: "CREATE",
@@ -1488,9 +1492,9 @@ export async function registerRoutes(
       if (!target) {
         return res.status(404).json({ message: "Sprievodka nenajdena" });
       }
-      const systemStatus = await storage.getSystemContractStatus();
-      if (!systemStatus) {
-        return res.status(500).json({ message: "Systemovy stav 'Nahrata do systemu' neexistuje" });
+      const acceptedStatus = await storage.getSystemContractStatusByName("Prijata centrom - OK");
+      if (!acceptedStatus) {
+        return res.status(500).json({ message: "Systemovy stav 'Prijata centrom - OK' neexistuje" });
       }
       const registrationNumbers: Record<number, string> = {};
       for (const contractId of contractIds) {
@@ -1504,13 +1508,14 @@ export async function registerRoutes(
         const formatted = `${stateCode} ${paddedSeq.replace(/(\d{3})(?=\d)/g, "$1 ")}`;
         registrationNumbers[Number(contractId)] = formatted;
         await storage.updateContract(Number(contractId), { 
-          statusId: systemStatus.id,
-          registrationNumber: formatted 
+          statusId: acceptedStatus.id,
+          registrationNumber: formatted,
+          acceptedAt: new Date(),
         } as any);
       }
       const allContractsInInventory = await storage.getContracts({ inventoryId });
       const allAccepted = allContractsInInventory.every(c => 
-        contractIds.includes(c.id) || c.statusId === systemStatus.id
+        contractIds.includes(c.id) || c.statusId === acceptedStatus.id
       );
       if (allAccepted) {
         await storage.updateContractInventory(inventoryId, { isAccepted: true } as any);
@@ -1520,7 +1525,7 @@ export async function registerRoutes(
         module: "sprievodka_accept",
         entityId: inventoryId,
         entityName: target.name,
-        newData: { contractIds, statusId: systemStatus.id, allAccepted, registrationNumbers },
+        newData: { contractIds, statusId: acceptedStatus.id, allAccepted, registrationNumbers },
       });
       res.json({ success: true, acceptedCount: contractIds.length, allAccepted, registrationNumbers });
     } catch (err) {
@@ -1534,6 +1539,79 @@ export async function registerRoutes(
     try {
       const dispatched = await storage.getDispatchedContracts();
       res.json(dispatched);
+    } catch (err) {
+      res.status(500).json({ message: "Internal error" });
+    }
+  });
+
+  // ArutsoK 47 - Check contract number duplicate
+  app.get("/api/contracts/check-duplicate", isAuthenticated, async (req: any, res) => {
+    try {
+      const contractNumber = req.query.contractNumber as string;
+      if (!contractNumber) return res.json({ exists: false });
+      const result = await storage.checkContractDuplicate(contractNumber);
+      const appUser = req.appUser;
+      if (result.exists && result.contract) {
+        const hasAccess = !appUser || appUser.role === 'admin' || appUser.role === 'superadmin' 
+          || result.contract.uploadedByUserId === appUser.id;
+        if (!hasAccess) {
+          const acquirers = await storage.getContractAcquirers(result.contract.id);
+          const isAcquirer = acquirers.some(a => a.userId === appUser?.id);
+          if (!isAcquirer) {
+            return res.json({ exists: true, subjectName: undefined });
+          }
+        }
+      }
+      res.json({ exists: result.exists, subjectName: result.subjectName });
+    } catch (err) {
+      res.status(500).json({ message: "Internal error" });
+    }
+  });
+
+  // ArutsoK 47 - Get accepted contracts (folder 3)
+  app.get("/api/contracts/accepted", isAuthenticated, async (_req: any, res) => {
+    try {
+      res.json(await storage.getAcceptedContracts());
+    } catch (err) {
+      res.status(500).json({ message: "Internal error" });
+    }
+  });
+
+  // ArutsoK 47 - Get archived contracts (folder 4, older than 1 year)
+  app.get("/api/contracts/archived", isAuthenticated, async (_req: any, res) => {
+    try {
+      res.json(await storage.getArchivedContracts());
+    } catch (err) {
+      res.status(500).json({ message: "Internal error" });
+    }
+  });
+
+  // ArutsoK 47 - Contract acquirers CRUD
+  app.get("/api/contracts/:contractId/acquirers", isAuthenticated, async (req: any, res) => {
+    try {
+      res.json(await storage.getContractAcquirers(Number(req.params.contractId)));
+    } catch (err) {
+      res.status(500).json({ message: "Internal error" });
+    }
+  });
+
+  app.post("/api/contracts/:contractId/acquirers", isAuthenticated, async (req: any, res) => {
+    try {
+      const { userId } = req.body;
+      if (!userId) return res.status(400).json({ message: "userId is required" });
+      const created = await storage.addContractAcquirer({ contractId: Number(req.params.contractId), userId });
+      await logAudit(req, { action: "CREATE", module: "contract_acquirers", entityId: created.id, newData: { contractId: Number(req.params.contractId), userId } });
+      res.status(201).json(created);
+    } catch (err) {
+      res.status(500).json({ message: "Internal error" });
+    }
+  });
+
+  app.delete("/api/contract-acquirers/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      await storage.removeContractAcquirer(Number(req.params.id));
+      await logAudit(req, { action: "DELETE", module: "contract_acquirers", entityId: Number(req.params.id) });
+      res.json({ success: true });
     } catch (err) {
       res.status(500).json({ message: "Internal error" });
     }
@@ -1577,7 +1655,8 @@ export async function registerRoutes(
           return res.status(400).json({ message: "Zmluva musi patrit do aktivneho statu" });
         }
       }
-      const created = await storage.createContract(input);
+      const createData = { ...input, uploadedByUserId: appUser?.id || null };
+      const created = await storage.createContract(createData as any);
       await logAudit(req, { action: "CREATE", module: "zmluvy", entityId: created.id, entityName: created.contractNumber || `Zmluva #${created.id}`, newData: input });
       res.status(201).json(created);
     } catch (err) {
