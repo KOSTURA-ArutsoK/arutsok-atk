@@ -1211,16 +1211,20 @@ export default function ContractForm() {
                 const canSubmit = !!statusFormStatusId && !hasRequiredMissing && !statusFormSubmit.isPending && !!contractId;
 
                 return (
-                  <>
-                    {currentStatus && (
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <span className="text-sm text-muted-foreground">Aktualny stav:</span>
-                        <div className="w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: currentStatus.color }} />
-                        <span className="text-sm font-semibold" data-testid="text-current-status">{currentStatus.name}</span>
-                        {currentStatus.isCommissionable && <Badge variant="outline" className="text-xs">Provizna</Badge>}
-                        {currentStatus.isFinal && <Badge variant="outline" className="text-xs">Finalna</Badge>}
-                      </div>
-                    )}
+                  <div className="space-y-4">
+                    <div className="flex items-center gap-2 flex-wrap" data-testid="current-status-display">
+                      {currentStatus ? (
+                        <>
+                          <span className="text-sm text-muted-foreground">Aktualny stav:</span>
+                          <div className="w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: currentStatus.color }} />
+                          <span className="text-sm font-semibold" data-testid="text-current-status">{currentStatus.name}</span>
+                          {currentStatus.isCommissionable && <Badge variant="outline" className="text-xs">Provizna</Badge>}
+                          {currentStatus.isFinal && <Badge variant="outline" className="text-xs">Finalna</Badge>}
+                        </>
+                      ) : (
+                        <span className="text-sm text-muted-foreground" data-testid="text-no-current-status">Bez aktualneho stavu</span>
+                      )}
+                    </div>
 
                     {contractId && (
                       <Card>
@@ -1256,14 +1260,16 @@ export default function ContractForm() {
                                 </Select>
                               )}
                             </div>
-                            {newStatus && (
-                              <div className="flex items-center gap-2 flex-wrap">
-                                {newStatus.isCommissionable && <Badge variant="outline" className="text-xs">Provizna</Badge>}
-                                {newStatus.isFinal && <Badge variant="outline" className="text-xs">Finalna</Badge>}
-                                {newStatus.assignsNumber && <Badge variant="outline" className="text-xs">Prideluje cislo</Badge>}
-                                {newStatus.definesContractEnd && <Badge variant="outline" className="text-xs">Ukoncenie zmluvy</Badge>}
-                              </div>
-                            )}
+                            <div className="flex items-center gap-2 flex-wrap min-h-0" data-testid="new-status-badges">
+                              {newStatus && (
+                                <>
+                                  {newStatus.isCommissionable && <Badge variant="outline" className="text-xs">Provizna</Badge>}
+                                  {newStatus.isFinal && <Badge variant="outline" className="text-xs">Finalna</Badge>}
+                                  {newStatus.assignsNumber && <Badge variant="outline" className="text-xs">Prideluje cislo</Badge>}
+                                  {newStatus.definesContractEnd && <Badge variant="outline" className="text-xs">Ukoncenie zmluvy</Badge>}
+                                </>
+                              )}
+                            </div>
                             <div className="space-y-1.5">
                               <Label htmlFor="sf-changed-at" data-testid="label-changed-at">
                                 <Calendar className="w-3.5 h-3.5 inline mr-1" />
@@ -1440,7 +1446,7 @@ export default function ContractForm() {
                             ) : (
                               <div className="space-y-2">
                                 {statusFormFiles.map((file, idx) => (
-                                  <div key={idx} className="flex items-center justify-between gap-2 p-2 border rounded-md" data-testid={`file-item-${idx}`}>
+                                  <div key={`${file.name}-${file.size}-${file.lastModified}`} className="flex items-center justify-between gap-2 p-2 border rounded-md" data-testid={`file-item-${idx}`}>
                                     <div className="flex items-center gap-2 min-w-0">
                                       <FileText className="w-4 h-4 shrink-0 text-muted-foreground" />
                                       <span className="text-sm truncate">{file.name}</span>
@@ -1470,66 +1476,68 @@ export default function ContractForm() {
                       </Card>
                     )}
 
-                    {contractId && statusChangeLogs && statusChangeLogs.length > 0 && (
-                      <Card>
-                        <CardContent className="p-3 space-y-2">
-                          <h3 className="text-sm font-semibold">Historia zmien stavov ({statusChangeLogs.length})</h3>
-                          <Table>
-                            <TableHeader>
-                              <TableRow>
-                                <TableHead>Stav</TableHead>
-                                <TableHead>Datum zmeny</TableHead>
-                                <TableHead>Detaily</TableHead>
-                              </TableRow>
-                            </TableHeader>
-                            <TableBody>
-                              {statusChangeLogs.map(log => {
-                                const logStatus = statuses?.find(s => s.id === log.newStatusId);
-                                const statusName = logStatus?.name || `Stav #${log.newStatusId}`;
-                                const iteration = log.statusIteration || 1;
-                                const paramCount = log.parameterValues ? Object.keys(log.parameterValues).filter(k => (log.parameterValues as Record<string, string>)[k]?.trim()).length : 0;
-                                const docCount = Array.isArray(log.statusChangeDocuments) ? (log.statusChangeDocuments as any[]).length : 0;
-                                return (
-                                  <TableRow key={log.id} data-testid={`row-status-log-${log.id}`}>
-                                    <TableCell data-testid={`text-status-name-${log.id}`}>
-                                      <div className="flex items-center gap-2">
-                                        {logStatus && (
-                                          <div className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: logStatus.color }} />
-                                        )}
-                                        <span className="text-sm font-medium">{statusName} {iteration}</span>
-                                      </div>
-                                    </TableCell>
-                                    <TableCell className="text-sm text-muted-foreground" data-testid={`text-changed-at-${log.id}`}>
-                                      {log.changedAt ? new Date(log.changedAt).toLocaleString("sk-SK") : "-"}
-                                    </TableCell>
-                                    <TableCell>
-                                      <div className="flex items-center gap-1.5">
-                                        {paramCount > 0 && (
-                                          <Badge variant="outline" className="text-xs">{paramCount} param.</Badge>
-                                        )}
-                                        {log.statusNote && (
-                                          <MessageSquare className="w-3.5 h-3.5 text-blue-400" data-testid={`icon-log-note-${log.id}`} />
-                                        )}
-                                        {docCount > 0 && (
-                                          <div className="flex items-center gap-0.5">
-                                            <Paperclip className="w-3.5 h-3.5 text-amber-400" data-testid={`icon-log-docs-${log.id}`} />
-                                            <span className="text-xs text-muted-foreground">{docCount}</span>
-                                          </div>
-                                        )}
-                                        {log.visibleToClient && (
-                                          <Badge variant="outline" className="text-xs text-green-500 border-green-500/30" data-testid={`badge-visible-${log.id}`}>K</Badge>
-                                        )}
-                                      </div>
-                                    </TableCell>
-                                  </TableRow>
-                                );
-                              })}
-                            </TableBody>
-                          </Table>
-                        </CardContent>
-                      </Card>
-                    )}
-                  </>
+                    <div data-testid="status-history-container">
+                      {contractId && statusChangeLogs && statusChangeLogs.length > 0 ? (
+                        <Card>
+                          <CardContent className="p-3 space-y-2">
+                            <h3 className="text-sm font-semibold">Historia zmien stavov ({statusChangeLogs.length})</h3>
+                            <Table>
+                              <TableHeader>
+                                <TableRow>
+                                  <TableHead>Stav</TableHead>
+                                  <TableHead>Datum zmeny</TableHead>
+                                  <TableHead>Detaily</TableHead>
+                                </TableRow>
+                              </TableHeader>
+                              <TableBody>
+                                {statusChangeLogs.map(log => {
+                                  const logStatus = statuses?.find(s => s.id === log.newStatusId);
+                                  const statusName = logStatus?.name || `Stav #${log.newStatusId}`;
+                                  const iteration = log.statusIteration || 1;
+                                  const paramCount = log.parameterValues ? Object.keys(log.parameterValues).filter(k => (log.parameterValues as Record<string, string>)[k]?.trim()).length : 0;
+                                  const docCount = Array.isArray(log.statusChangeDocuments) ? (log.statusChangeDocuments as any[]).length : 0;
+                                  return (
+                                    <TableRow key={log.id} data-testid={`row-status-log-${log.id}`}>
+                                      <TableCell data-testid={`text-status-name-${log.id}`}>
+                                        <div className="flex items-center gap-2">
+                                          <div className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: logStatus?.color || "transparent" }} />
+                                          <span className="text-sm font-medium">{statusName} {iteration}</span>
+                                        </div>
+                                      </TableCell>
+                                      <TableCell className="text-sm text-muted-foreground" data-testid={`text-changed-at-${log.id}`}>
+                                        {log.changedAt ? new Date(log.changedAt).toLocaleString("sk-SK") : "-"}
+                                      </TableCell>
+                                      <TableCell>
+                                        <div className="flex items-center gap-1.5">
+                                          {paramCount > 0 && (
+                                            <Badge variant="outline" className="text-xs">{paramCount} param.</Badge>
+                                          )}
+                                          {log.statusNote && (
+                                            <MessageSquare className="w-3.5 h-3.5 text-blue-400" data-testid={`icon-log-note-${log.id}`} />
+                                          )}
+                                          {docCount > 0 && (
+                                            <div className="flex items-center gap-0.5">
+                                              <Paperclip className="w-3.5 h-3.5 text-amber-400" data-testid={`icon-log-docs-${log.id}`} />
+                                              <span className="text-xs text-muted-foreground">{docCount}</span>
+                                            </div>
+                                          )}
+                                          {log.visibleToClient && (
+                                            <Badge variant="outline" className="text-xs text-green-500 border-green-500/30" data-testid={`badge-visible-${log.id}`}>K</Badge>
+                                          )}
+                                        </div>
+                                      </TableCell>
+                                    </TableRow>
+                                  );
+                                })}
+                              </TableBody>
+                            </Table>
+                          </CardContent>
+                        </Card>
+                      ) : (
+                        <div />
+                      )}
+                    </div>
+                  </div>
                 );
               })()}
             </div>
