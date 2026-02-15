@@ -233,7 +233,7 @@ function StatusFormDialog({
 
   function handleSubmit() {
     if (!name) {
-      toast({ title: "Chyba", description: "Nazov je povinny", variant: "destructive" });
+      toast({ title: "Chyba", description: "Nazov stavu zmluvy je povinny", variant: "destructive" });
       return;
     }
     const payload = {
@@ -337,43 +337,84 @@ function StatusFormDialog({
           </TabsList>
 
           <TabsContent value="vseobecne" className="space-y-4 mt-4">
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Nazov stavu *</label>
-              <Input
-                value={name}
-                onChange={e => setName(e.target.value)}
-                placeholder="Nazov stavu"
-                disabled={editingStatus?.isSystem === true}
-                data-testid="input-status-name"
-              />
-              {editingStatus?.isSystem && (
-                <p className="text-xs text-muted-foreground">Systemovy stav - nazov nie je mozne zmenit</p>
-              )}
-            </div>
+            <Card>
+              <CardContent className="p-4 space-y-4">
+                <p className="text-sm font-semibold text-muted-foreground" data-testid="text-folder1-heading">Priecinok 1: Vseobecne udaje o stave zmluvy</p>
 
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Farba</label>
-              <div className="flex items-center gap-3 flex-wrap">
-                <input
-                  type="color"
-                  value={color}
-                  onChange={e => setColor(e.target.value)}
-                  className="w-10 h-10 rounded-md border border-border cursor-pointer"
-                  data-testid="input-status-color-picker"
-                />
-                <Input
-                  value={color}
-                  onChange={e => setColor(e.target.value)}
-                  placeholder="#3b82f6"
-                  className="font-mono flex-1"
-                  data-testid="input-status-color-hex"
-                />
-              </div>
-            </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Nazov stavu zmluvy *</label>
+                  <Input
+                    value={name}
+                    onChange={e => setName(e.target.value)}
+                    placeholder="Zadajte nazov stavu zmluvy"
+                    disabled={editingStatus?.isSystem === true}
+                    data-testid="input-status-name"
+                  />
+                  {editingStatus?.isSystem && (
+                    <p className="text-xs text-muted-foreground">Systemovy stav zmluvy - nazov nie je mozne zmenit</p>
+                  )}
+                  <p className="text-xs text-muted-foreground">Definuje, ako sa bude tento konkretny stav zmluvy volat v systeme.</p>
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Farba stavu zmluvy</label>
+                  <div className="flex items-center gap-3 flex-wrap">
+                    <input
+                      type="color"
+                      value={color}
+                      onChange={e => setColor(e.target.value)}
+                      className="w-10 h-10 rounded-md border border-border cursor-pointer"
+                      data-testid="input-status-color-picker"
+                    />
+                    <Input
+                      value={color}
+                      onChange={e => setColor(e.target.value)}
+                      placeholder="#3b82f6"
+                      className="font-mono flex-1"
+                      data-testid="input-status-color-hex"
+                    />
+                  </div>
+                  <p className="text-xs text-muted-foreground">Farba sa viaze vylucne k tomuto stavu zmluvy a zobrazuje sa pri zmluvach v zoznamoch.</p>
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Priradene spolocnosti k stavu zmluvy</label>
+                  <Card>
+                    <CardContent className="p-3 max-h-[150px] overflow-y-auto">
+                      {companies && companies.length > 0 ? (
+                        <div className="space-y-2">
+                          {companies.filter(c => !c.isDeleted).map(company => (
+                            <div key={company.id} className="flex items-center gap-2">
+                              <Checkbox
+                                checked={selectedCompanyIds.includes(company.id)}
+                                onCheckedChange={() => toggleCompany(company.id)}
+                                data-testid={`checkbox-company-${company.id}`}
+                              />
+                              <span className="text-sm">{company.name}</span>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <p className="text-xs text-muted-foreground">Ziadne spolocnosti k dispozicii</p>
+                      )}
+                    </CardContent>
+                  </Card>
+                  <p className="text-xs text-muted-foreground">Urcuje, pre ktore spolocnosti bude tento stav zmluvy dostupny.</p>
+                </div>
+
+                <div className="flex items-center justify-between gap-4 pt-3 border-t border-border">
+                  <div>
+                    <p className="text-sm font-medium">Stav definuje ukoncenie zmluvy</p>
+                    <p className="text-xs text-muted-foreground">Ak je zapnuty, system identifikuje tento stav ako konecnu fazu zivotneho cyklu zmluvy.</p>
+                  </div>
+                  <Switch checked={definesContractEnd} onCheckedChange={setDefinesContractEnd} data-testid="switch-defines-contract-end" />
+                </div>
+              </CardContent>
+            </Card>
 
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <label className="text-sm font-medium">Stat</label>
+                <label className="text-sm font-medium">Stat stavu zmluvy</label>
                 <Select value={stateId} onValueChange={setStateId}>
                   <SelectTrigger data-testid="select-status-state">
                     <SelectValue placeholder="Vyberte stat" />
@@ -386,7 +427,7 @@ function StatusFormDialog({
                 </Select>
               </div>
               <div className="space-y-2">
-                <label className="text-sm font-medium">Poradie</label>
+                <label className="text-sm font-medium">Poradie stavu zmluvy</label>
                 <Input
                   type="number"
                   value={sortOrder}
@@ -397,65 +438,34 @@ function StatusFormDialog({
               </div>
             </div>
 
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Spolocnosti</label>
-              <Card>
-                <CardContent className="p-3 max-h-[150px] overflow-y-auto">
-                  {companies && companies.length > 0 ? (
-                    <div className="space-y-2">
-                      {companies.filter(c => !c.isDeleted).map(company => (
-                        <div key={company.id} className="flex items-center gap-2">
-                          <Checkbox
-                            checked={selectedCompanyIds.includes(company.id)}
-                            onCheckedChange={() => toggleCompany(company.id)}
-                            data-testid={`checkbox-company-${company.id}`}
-                          />
-                          <span className="text-sm">{company.name}</span>
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <p className="text-xs text-muted-foreground">Ziadne spolocnosti</p>
-                  )}
-                </CardContent>
-              </Card>
-            </div>
-
             <div className="space-y-4 pt-4 border-t border-border">
-              <p className="text-sm font-medium text-muted-foreground">Vlastnosti stavu</p>
-              <div className="flex items-center justify-between gap-4">
-                <div>
-                  <p className="text-sm font-medium">Stav definuje ukoncenie zmluvy</p>
-                  <p className="text-xs text-muted-foreground">Zmluva bude v UI oznacena ako ukoncena</p>
-                </div>
-                <Switch checked={definesContractEnd} onCheckedChange={setDefinesContractEnd} data-testid="switch-defines-contract-end" />
-              </div>
+              <p className="text-sm font-medium text-muted-foreground">Dalsie vlastnosti stavu zmluvy</p>
               <div className="flex items-center justify-between gap-4">
                 <div>
                   <p className="text-sm font-medium">Provizna</p>
-                  <p className="text-xs text-muted-foreground">Stav spusta vypocet provizii</p>
+                  <p className="text-xs text-muted-foreground">Stav zmluvy spusta vypocet provizii</p>
                 </div>
                 <Switch checked={isCommissionable} onCheckedChange={setIsCommissionable} data-testid="switch-is-commissionable" />
               </div>
               <div className="flex items-center justify-between gap-4">
                 <div>
-                  <p className="text-sm font-medium">Finalny stav</p>
+                  <p className="text-sm font-medium">Finalny stav zmluvy</p>
                   <p className="text-xs text-muted-foreground">Zmluva sa stane iba na citanie (zamknuta)</p>
                 </div>
                 <Switch checked={isFinal} onCheckedChange={setIsFinal} data-testid="switch-is-final" />
               </div>
               <div className="flex items-center justify-between gap-4">
                 <div>
-                  <p className="text-sm font-medium">Prideluje cislo</p>
-                  <p className="text-xs text-muted-foreground">Pri dosiahnu tohto stavu sa prideli globalne poradove cislo</p>
+                  <p className="text-sm font-medium">Prideluje cislo zmluvy</p>
+                  <p className="text-xs text-muted-foreground">Pri dosiahnuti tohto stavu sa prideli globalne poradove cislo zmluvy</p>
                 </div>
                 <Switch checked={assignsNumber} onCheckedChange={setAssignsNumber} data-testid="switch-assigns-number" />
               </div>
             </div>
 
             <div className="space-y-2 pt-4 border-t border-border">
-              <label className="text-sm font-medium">Dostupne pre (Filter viditelnosti)</label>
-              <p className="text-xs text-muted-foreground mb-2">Prepojte stav na konkretne Sektory, Sekcie alebo Produkty. Stav sa zobrazi len pri zmluvach s danym produktom.</p>
+              <label className="text-sm font-medium">Dostupnost stavu zmluvy (Filter viditelnosti)</label>
+              <p className="text-xs text-muted-foreground mb-2">Prepojte stav zmluvy na konkretne Sektory, Sekcie alebo Produkty. Stav zmluvy sa zobrazi len pri zmluvach s danym produktom.</p>
               <Card>
                 <CardContent className="p-3 max-h-[200px] overflow-y-auto space-y-3">
                   {sectors && sectors.length > 0 ? sectors.map(sector => (
@@ -657,7 +667,7 @@ function DeleteStatusDialog({
         </DialogHeader>
         <div className="space-y-4">
           <p className="text-sm text-muted-foreground" data-testid="text-delete-confirmation">
-            Naozaj chcete vymazat stav zmluvy <span className="font-semibold text-foreground">{status.name}</span>? Tuto akciu nie je mozne vratit.
+            Naozaj chcete vymazat stav zmluvy s nazvom <span className="font-semibold text-foreground">{status.name}</span>? Tuto akciu nie je mozne vratit.
           </p>
           <div className="flex items-center justify-end gap-3 flex-wrap">
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)} data-testid="button-delete-cancel">
@@ -733,10 +743,10 @@ export default function ContractStatuses() {
   return (
     <div className="p-6 space-y-6">
       <div className="flex items-center justify-between gap-4 flex-wrap">
-        <h1 className="text-2xl font-bold" data-testid="text-page-title">Stavy zmluv</h1>
+        <h1 className="text-2xl font-bold" data-testid="text-page-title">Nastavenia stavov zmluv</h1>
         <Button onClick={openCreate} data-testid="button-create-status">
           <Plus className="w-4 h-4 mr-2" />
-          Pridat stav
+          Pridat stav zmluvy
         </Button>
       </div>
 
@@ -748,7 +758,7 @@ export default function ContractStatuses() {
             </div>
           ) : sorted.length === 0 ? (
             <p className="text-sm text-muted-foreground text-center py-12" data-testid="text-no-statuses">
-              Ziadne stavy zmluv
+              Ziadne stavy zmluv. Pridajte prvy stav zmluvy tlacidlom vyssie.
             </p>
           ) : (
             <Table>
@@ -756,9 +766,9 @@ export default function ContractStatuses() {
                 <TableRow>
                   <TableHead className="w-10"></TableHead>
                   <TableHead className="w-20">Poradie</TableHead>
-                  <TableHead>Nazov</TableHead>
-                  <TableHead className="w-32">Farba</TableHead>
-                  <TableHead>Vlastnosti</TableHead>
+                  <TableHead>Nazov stavu zmluvy</TableHead>
+                  <TableHead className="w-32">Farba stavu zmluvy</TableHead>
+                  <TableHead>Vlastnosti stavu zmluvy</TableHead>
                   <TableHead className="w-32 text-right">Akcie</TableHead>
                 </TableRow>
               </TableHeader>
