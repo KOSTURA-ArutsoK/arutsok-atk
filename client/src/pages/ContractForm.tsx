@@ -185,17 +185,19 @@ function PasswordsModal({
                   disabled={createMutation.isPending}
                   data-testid="button-add-password"
                 >
-                  {createMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
+                  <span style={{ display: createMutation.isPending ? 'inline' : 'none' }}><Loader2 className="w-4 h-4 animate-spin" /></span>
+                  <span style={{ display: createMutation.isPending ? 'none' : 'inline' }}><Plus className="w-4 h-4" /></span>
                 </Button>
               </div>
             </div>
           </div>
 
-          {isLoading ? (
+          <div style={{ display: isLoading ? 'block' : 'none' }}>
             <div className="flex items-center justify-center py-6">
               <Loader2 className="w-5 h-5 animate-spin" />
             </div>
-          ) : passwords && passwords.length > 0 ? (
+          </div>
+          <div style={{ display: !isLoading && passwords && passwords.length > 0 ? 'block' : 'none' }}>
             <Table>
               <TableHeader>
                 <TableRow>
@@ -205,7 +207,7 @@ function PasswordsModal({
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {passwords.map(pw => (
+                {(passwords || []).map(pw => (
                   <TableRow key={pw.id} data-testid={`row-password-${pw.id}`}>
                     <TableCell className="font-mono text-sm" data-testid={`text-password-${pw.id}`}>{pw.password}</TableCell>
                     <TableCell className="text-sm text-muted-foreground">{pw.note || "-"}</TableCell>
@@ -224,11 +226,12 @@ function PasswordsModal({
                 ))}
               </TableBody>
             </Table>
-          ) : (
+          </div>
+          <div style={{ display: !isLoading && (!passwords || passwords.length === 0) ? 'block' : 'none' }}>
             <p className="text-sm text-muted-foreground text-center py-4" data-testid="text-no-passwords">
               Ziadne hesla k zmluve
             </p>
-          )}
+          </div>
         </div>
       </DialogContent>
     </Dialog>
@@ -290,30 +293,26 @@ function StatusTabContent(props: StatusTabContentProps) {
     <div id="status-tab-root" className="space-y-4" data-testid="section-stavy">
       <div id="status-current-display" data-testid="current-status-display">
         <div id="status-current-inner" className="flex items-center gap-2 flex-wrap">
-          {currentStatus ? (
-            <>
-              <span className="text-sm text-muted-foreground">Aktualny stav:</span>
-              <div className="w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: currentStatus.color }} />
-              <span className="text-sm font-semibold" data-testid="text-current-status">{currentStatus.name}</span>
-              <span id="status-badge-commissionable" style={{ display: currentStatus.isCommissionable ? 'inline' : 'none' }}><Badge variant="outline" className="text-xs">Provizna</Badge></span>
-              <span id="status-badge-final" style={{ display: currentStatus.isFinal ? 'inline' : 'none' }}><Badge variant="outline" className="text-xs">Finalna</Badge></span>
-            </>
-          ) : !contractId && !statuses ? (
-            <>
-              <Loader2 className="w-4 h-4 animate-spin" />
-              <span className="text-sm text-muted-foreground">Nacitavam stavy...</span>
-            </>
-          ) : (
-            <>
-              <span className="text-sm text-muted-foreground">Aktualny stav:</span>
-              <span className="text-sm font-semibold" data-testid="text-current-status">Nahratá do systému</span>
-            </>
-          )}
+          <div style={{ display: currentStatus ? 'contents' : 'none' }}>
+            <span className="text-sm text-muted-foreground">Aktualny stav:</span>
+            <div className="w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: currentStatus?.color }} />
+            <span className="text-sm font-semibold" data-testid="text-current-status">{currentStatus?.name}</span>
+            <span id="status-badge-commissionable" style={{ display: currentStatus?.isCommissionable ? 'inline' : 'none' }}><Badge variant="outline" className="text-xs">Provizna</Badge></span>
+            <span id="status-badge-final" style={{ display: currentStatus?.isFinal ? 'inline' : 'none' }}><Badge variant="outline" className="text-xs">Finalna</Badge></span>
+          </div>
+          <div style={{ display: !currentStatus && !contractId && !statuses ? 'contents' : 'none' }}>
+            <Loader2 className="w-4 h-4 animate-spin" />
+            <span className="text-sm text-muted-foreground">Nacitavam stavy...</span>
+          </div>
+          <div style={{ display: !currentStatus && (!!contractId || !!statuses) ? 'contents' : 'none' }}>
+            <span className="text-sm text-muted-foreground">Aktualny stav:</span>
+            <span className="text-sm font-semibold" data-testid="text-current-status">Nahratá do systému</span>
+          </div>
         </div>
       </div>
 
       <div id="status-change-form-wrapper" data-testid="status-change-form-container">
-        {contractId ? (
+        <div style={{ display: contractId ? 'block' : 'none' }}>
           <Card>
             <CardContent className="p-4 space-y-0">
               <div id="status-form-general" className="space-y-4" data-testid="section-status-vseobecne">
@@ -323,16 +322,17 @@ function StatusTabContent(props: StatusTabContentProps) {
                 <div id="status-select-wrapper" className="space-y-1.5">
                   <Label htmlFor="sf-new-status" data-testid="label-new-status">Novy stav zmluvy *</Label>
                   <div id="status-select-content">
-                    {availableStatuses.length === 0 ? (
+                    <div style={{ display: availableStatuses.length === 0 ? 'block' : 'none' }}>
                       <div className="p-3 border rounded-md text-center" data-testid="text-no-statuses">
                         <p className="text-sm text-muted-foreground">Ziadne stavy nie su k dispozicii.</p>
                         <div id="status-hint-hierarchy" data-testid="hint-set-hierarchy">
-                          {!contractSectorId && !contractSectionId && !sectorProductId ? (
+                          <div style={{ display: !contractSectorId && !contractSectionId && !sectorProductId ? 'block' : 'none' }}>
                             <p className="text-xs text-muted-foreground mt-1">Nastavte sektor, sekciu a produkt v karte "Udaje o zmluve".</p>
-                          ) : null}
+                          </div>
                         </div>
                       </div>
-                    ) : (
+                    </div>
+                    <div style={{ display: availableStatuses.length > 0 ? 'block' : 'none' }}>
                       <Select value={statusFormStatusId} onValueChange={setStatusFormStatusId}>
                         <SelectTrigger id="sf-new-status" data-testid="select-new-status">
                           <SelectValue placeholder="Vyberte novy stav" />
@@ -348,7 +348,7 @@ function StatusTabContent(props: StatusTabContentProps) {
                           ))}
                         </SelectContent>
                       </Select>
-                    )}
+                    </div>
                   </div>
                 </div>
                 <div id="status-new-badges" className="flex items-center gap-2 flex-wrap min-h-0" data-testid="new-status-badges">
@@ -416,49 +416,55 @@ function StatusTabContent(props: StatusTabContentProps) {
                   <span id="param-count-display" style={{ display: totalParamCount > 0 ? 'inline' : 'none' }}><span className="text-[10px] tabular-nums font-normal">({filledParamCount}/{totalParamCount})</span></span>
                 </h3>
                 <div id="status-params-content">
-                  {!statusFormStatusId ? (
+                  <div style={{ display: !statusFormStatusId ? 'block' : 'none' }}>
                     <p className="text-sm text-muted-foreground py-2">Najprv vyberte novy stav vyssie</p>
-                  ) : statusFormParamsLoading ? (
+                  </div>
+                  <div style={{ display: !!statusFormStatusId && statusFormParamsLoading ? 'block' : 'none' }}>
                     <div className="flex items-center justify-center py-4">
                       <Loader2 className="w-5 h-5 animate-spin" />
                     </div>
-                  ) : !statusFormParams || statusFormParams.length === 0 ? (
+                  </div>
+                  <div style={{ display: !!statusFormStatusId && !statusFormParamsLoading && (!statusFormParams || statusFormParams.length === 0) ? 'block' : 'none' }}>
                     <p className="text-sm text-muted-foreground py-2">Tento stav nema ziadne doplnkove parametre</p>
-                  ) : (
+                  </div>
+                  <div style={{ display: !!statusFormStatusId && !statusFormParamsLoading && statusFormParams && statusFormParams.length > 0 ? 'block' : 'none' }}>
                     <div id="status-params-list" className="space-y-4">
-                      {statusFormParams
+                      {(statusFormParams || [])
                         .sort((a: any, b: any) => (a.sortOrder || 0) - (b.sortOrder || 0))
                         .map((param: any) => (
                           <div key={`param-${param.id}`} className="space-y-1.5">
                             <Label data-testid={`label-param-${param.id}`}>
                               {param.name}
-                              <span>{param.isRequired ? <span className="text-destructive ml-1">*</span> : null}</span>
+                              <span style={{ display: param.isRequired ? 'inline' : 'none' }}><span className="text-destructive ml-1">*</span></span>
                             </Label>
                             <div id={`param-help-${param.id}`}>
-                              {param.helpText ? <p className="text-xs text-muted-foreground">{param.helpText}</p> : null}
+                              <div style={{ display: param.helpText ? 'block' : 'none' }}><p className="text-xs text-muted-foreground">{param.helpText}</p></div>
                             </div>
-                            {param.paramType === "textarea" ? (
+                            <div style={{ display: param.paramType === "textarea" ? 'block' : 'none' }}>
                               <Textarea
                                 value={statusFormParamValues[param.id.toString()] || param.defaultValue || ""}
                                 onChange={e => setStatusFormParamValues(prev => ({ ...prev, [param.id.toString()]: e.target.value }))}
                                 className="resize-none min-h-[80px]"
                                 data-testid={`param-input-${param.id}`}
                               />
-                            ) : param.paramType === "number" ? (
+                            </div>
+                            <div style={{ display: param.paramType === "number" ? 'block' : 'none' }}>
                               <Input
                                 type="number"
                                 value={statusFormParamValues[param.id.toString()] || param.defaultValue || ""}
                                 onChange={e => setStatusFormParamValues(prev => ({ ...prev, [param.id.toString()]: e.target.value }))}
                                 data-testid={`param-input-${param.id}`}
                               />
-                            ) : param.paramType === "date" ? (
+                            </div>
+                            <div style={{ display: param.paramType === "date" ? 'block' : 'none' }}>
                               <Input
                                 type="date"
                                 value={statusFormParamValues[param.id.toString()] || param.defaultValue || ""}
                                 onChange={e => setStatusFormParamValues(prev => ({ ...prev, [param.id.toString()]: e.target.value }))}
                                 data-testid={`param-input-${param.id}`}
                               />
-                            ) : param.paramType === "boolean" ? (
+                            </div>
+                            <div style={{ display: param.paramType === "boolean" ? 'block' : 'none' }}>
                               <div className="flex items-center gap-2">
                                 <Switch
                                   checked={(statusFormParamValues[param.id.toString()] || param.defaultValue || "") === "true"}
@@ -469,7 +475,8 @@ function StatusTabContent(props: StatusTabContentProps) {
                                   {(statusFormParamValues[param.id.toString()] || param.defaultValue || "") === "true" ? "Ano" : "Nie"}
                                 </span>
                               </div>
-                            ) : param.paramType === "select" ? (
+                            </div>
+                            <div style={{ display: param.paramType === "select" ? 'block' : 'none' }}>
                               <Select
                                 value={statusFormParamValues[param.id.toString()] || param.defaultValue || ""}
                                 onValueChange={v => setStatusFormParamValues(prev => ({ ...prev, [param.id.toString()]: v }))}
@@ -483,17 +490,18 @@ function StatusTabContent(props: StatusTabContentProps) {
                                   ))}
                                 </SelectContent>
                               </Select>
-                            ) : (
+                            </div>
+                            <div style={{ display: param.paramType !== "textarea" && param.paramType !== "number" && param.paramType !== "date" && param.paramType !== "boolean" && param.paramType !== "select" ? 'block' : 'none' }}>
                               <Input
                                 value={statusFormParamValues[param.id.toString()] || param.defaultValue || ""}
                                 onChange={e => setStatusFormParamValues(prev => ({ ...prev, [param.id.toString()]: e.target.value }))}
                                 data-testid={`param-input-${param.id}`}
                               />
-                            )}
+                            </div>
                           </div>
                         ))}
                     </div>
-                  )}
+                  </div>
                 </div>
               </div>
 
@@ -526,9 +534,10 @@ function StatusTabContent(props: StatusTabContentProps) {
                   />
                 </div>
                 <div id="status-files-content">
-                  {statusFormFiles.length === 0 ? (
+                  <div style={{ display: statusFormFiles.length === 0 ? 'block' : 'none' }}>
                     <p className="text-sm text-muted-foreground py-2">Ziadne dokumenty neboli pridane</p>
-                  ) : (
+                  </div>
+                  <div style={{ display: statusFormFiles.length > 0 ? 'block' : 'none' }}>
                     <div id="status-files-list" className="space-y-2">
                       {statusFormFiles.map((file, idx) => (
                         <div key={`sf-${file.name}-${file.size}-${file.lastModified}`} className="flex items-center justify-between gap-2 p-2 border rounded-md" data-testid={`file-item-${idx}`}>
@@ -543,7 +552,7 @@ function StatusTabContent(props: StatusTabContentProps) {
                         </div>
                       ))}
                     </div>
-                  )}
+                  </div>
                 </div>
               </div>
 
@@ -560,16 +569,17 @@ function StatusTabContent(props: StatusTabContentProps) {
               </div>
             </CardContent>
           </Card>
-        ) : (
+        </div>
+        <div style={{ display: !contractId ? 'block' : 'none' }}>
           <p className="text-sm text-muted-foreground py-2" data-testid="text-save-first">Najprv ulozte zmluvu pre zmenu stavu.</p>
-        )}
+        </div>
       </div>
 
       <div id="status-history-wrapper" data-testid="status-history-container">
-        {contractId && statusChangeLogs && statusChangeLogs.length > 0 ? (
+        <div style={{ display: contractId && statusChangeLogs && statusChangeLogs.length > 0 ? 'block' : 'none' }}>
           <Card>
             <CardContent className="p-3 space-y-2">
-              <h3 className="text-sm font-semibold">Historia zmien stavov ({statusChangeLogs.length})</h3>
+              <h3 className="text-sm font-semibold">Historia zmien stavov ({(statusChangeLogs || []).length})</h3>
               <Table>
                 <TableHeader>
                   <TableRow>
@@ -579,7 +589,7 @@ function StatusTabContent(props: StatusTabContentProps) {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {statusChangeLogs.map(log => {
+                  {(statusChangeLogs || []).map(log => {
                     const logStatus = statuses?.find(s => s.id === log.newStatusId);
                     const statusName = logStatus?.name || `Stav #${log.newStatusId}`;
                     const iteration = log.statusIteration || 1;
@@ -616,9 +626,8 @@ function StatusTabContent(props: StatusTabContentProps) {
               </Table>
             </CardContent>
           </Card>
-        ) : (
-          <div id="status-history-empty" />
-        )}
+        </div>
+        <div id="status-history-empty" style={{ display: !(contractId && statusChangeLogs && statusChangeLogs.length > 0) ? 'block' : 'none' }} />
       </div>
     </div>
   );
@@ -1111,9 +1120,9 @@ export default function ContractForm() {
           {isEditing ? "Upravit zmluvu" : "Nova zmluva"}
         </h1>
         <div data-testid="badge-uid-container">
-          {existingContract?.uid ? (
-            <Badge variant="outline" data-testid="badge-contract-uid">{existingContract.uid}</Badge>
-          ) : null}
+          <span style={{ display: existingContract?.uid ? 'inline' : 'none' }}>
+            <Badge variant="outline" data-testid="badge-contract-uid">{existingContract?.uid}</Badge>
+          </span>
         </div>
       </div>
 
@@ -1222,18 +1231,20 @@ export default function ContractForm() {
                   </Select>
                 </CompactField>
                 <CompactField label="Stav zmluvy">
-                  {isEditing ? (
+                  <div style={{ display: isEditing ? 'block' : 'none' }}>
                     <div id="contract-status-display" className="flex items-center gap-2 h-9 px-3 border rounded-md bg-muted/30" data-testid="display-contract-status">
-                      {statuses?.find(s => s.id === (statusId ? parseInt(statusId) : -1)) ? (
+                      <div style={{ display: statuses?.find(s => s.id === (statusId ? parseInt(statusId) : -1)) ? 'contents' : 'none' }}>
                         <div className="flex items-center gap-2">
-                          <div className="w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: statuses.find(s => s.id === parseInt(statusId))?.color }} />
-                          <span className="text-sm">{statuses.find(s => s.id === parseInt(statusId))?.name}</span>
+                          <div className="w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: statuses?.find(s => s.id === (statusId ? parseInt(statusId) : -1))?.color }} />
+                          <span className="text-sm">{statuses?.find(s => s.id === (statusId ? parseInt(statusId) : -1))?.name}</span>
                         </div>
-                      ) : (
+                      </div>
+                      <div style={{ display: !statuses?.find(s => s.id === (statusId ? parseInt(statusId) : -1)) ? 'contents' : 'none' }}>
                         <span className="text-sm text-muted-foreground">Bez stavu</span>
-                      )}
+                      </div>
                     </div>
-                  ) : (
+                  </div>
+                  <div style={{ display: !isEditing ? 'block' : 'none' }}>
                     <Select value={statusId} onValueChange={setStatusId}>
                       <SelectTrigger data-testid="select-contract-status">
                         <SelectValue placeholder="Vyberte stav" />
@@ -1249,7 +1260,7 @@ export default function ContractForm() {
                         ))}
                       </SelectContent>
                     </Select>
-                  )}
+                  </div>
                 </CompactField>
               </div>
 
@@ -1346,43 +1357,43 @@ export default function ContractForm() {
                 </CompactField>
               </div>
 
-              {subjectId && (() => {
-                const selectedSubject = subjects?.find(s => s.id === parseInt(subjectId));
-                if (!selectedSubject) return null;
-                return (
-                  <Card>
-                    <CardContent className="p-3 space-y-2">
-                      <h3 className="text-sm font-semibold">Detail klienta</h3>
-                      <div className="grid grid-cols-2 gap-2 text-sm">
-                        <div>
-                          <span className="text-muted-foreground">Meno: </span>
-                          <span data-testid="text-subject-name">
-                            {selectedSubject.type === "person"
+              <div style={{ display: subjectId && subjects?.find(s => s.id === parseInt(subjectId)) ? 'block' : 'none' }}>
+                <Card>
+                  <CardContent className="p-3 space-y-2">
+                    <h3 className="text-sm font-semibold">Detail klienta</h3>
+                    <div className="grid grid-cols-2 gap-2 text-sm">
+                      <div>
+                        <span className="text-muted-foreground">Meno: </span>
+                        <span data-testid="text-subject-name">
+                          {(() => {
+                            const selectedSubject = subjects?.find(s => s.id === (subjectId ? parseInt(subjectId) : -1));
+                            if (!selectedSubject) return "";
+                            return selectedSubject.type === "person"
                               ? `${selectedSubject.firstName} ${selectedSubject.lastName}`
-                              : selectedSubject.companyName}
-                          </span>
-                        </div>
+                              : selectedSubject.companyName;
+                          })()}
+                        </span>
+                      </div>
+                      <div>
+                        <span className="text-muted-foreground">UID: </span>
+                        <span className="font-mono" data-testid="text-subject-uid">{subjects?.find(s => s.id === (subjectId ? parseInt(subjectId) : -1))?.uid}</span>
+                      </div>
+                      <div id="subject-email-wrapper" style={{ display: subjects?.find(s => s.id === (subjectId ? parseInt(subjectId) : -1))?.email ? 'block' : 'none' }}>
                         <div>
-                          <span className="text-muted-foreground">UID: </span>
-                          <span className="font-mono" data-testid="text-subject-uid">{selectedSubject.uid}</span>
-                        </div>
-                        <div id="subject-email-wrapper" style={{ display: selectedSubject.email ? 'block' : 'none' }}>
-                          <div>
-                            <span className="text-muted-foreground">Email: </span>
-                            <span>{selectedSubject.email}</span>
-                          </div>
-                        </div>
-                        <div id="subject-phone-wrapper" style={{ display: selectedSubject.phone ? 'block' : 'none' }}>
-                          <div>
-                            <span className="text-muted-foreground">Telefon: </span>
-                            <span>{selectedSubject.phone}</span>
-                          </div>
+                          <span className="text-muted-foreground">Email: </span>
+                          <span>{subjects?.find(s => s.id === (subjectId ? parseInt(subjectId) : -1))?.email}</span>
                         </div>
                       </div>
-                    </CardContent>
-                  </Card>
-                );
-              })()}
+                      <div id="subject-phone-wrapper" style={{ display: subjects?.find(s => s.id === (subjectId ? parseInt(subjectId) : -1))?.phone ? 'block' : 'none' }}>
+                        <div>
+                          <span className="text-muted-foreground">Telefon: </span>
+                          <span>{subjects?.find(s => s.id === (subjectId ? parseInt(subjectId) : -1))?.phone}</span>
+                        </div>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
             </div>
           </div>
 
@@ -1430,16 +1441,17 @@ export default function ContractForm() {
               </div>
 
               <div data-testid="panels-loading-container">
-                {sectorProductId && panelsLoading ? (
+                <div style={{ display: sectorProductId && panelsLoading ? 'block' : 'none' }}>
                   <div className="flex items-center gap-2 p-2 text-sm text-muted-foreground">
                     <Loader2 className="w-4 h-4 animate-spin" />
                     Nacitavam panely...
                   </div>
-                ) : null}
+                </div>
               </div>
 
-              <div id="panels-content-wrapper" style={{ display: sectorProductId && productPanels && productPanels.length > 0 ? 'block' : 'none' }}>{sectorProductId && productPanels && productPanels.length > 0 ? (() => {
-                const productPanelIds = new Set(productPanels.map(p => p.id));
+              <div id="panels-content-wrapper" style={{ display: sectorProductId && productPanels && productPanels.length > 0 ? 'block' : 'none' }}>{(() => {
+                const safePanels = productPanels || [];
+                const productPanelIds = new Set(safePanels.map(p => p.id));
                 const assignedPanelIds = new Set<number>();
                 const assignedFolderIds = productFolderAssignments
                   ? [...productFolderAssignments].sort((a, b) => a.sortOrder - b.sortOrder).map(pfa => pfa.folderId)
@@ -1455,36 +1467,37 @@ export default function ContractForm() {
                       .filter(fp => productPanelIds.has(fp.panelId))
                       .map(fp => {
                         assignedPanelIds.add(fp.panelId);
-                        return { ...fp, panelData: productPanels.find(p => p.id === fp.panelId)! };
+                        return { ...fp, panelData: safePanels.find(p => p.id === fp.panelId)! };
                       })
                       .filter(fp => fp.panelData);
                     return { ...folder, matchingPanels };
                   })
                   .filter(f => f.matchingPanels.length > 0);
-                const ungroupedPanels = productPanels.filter(p => !assignedPanelIds.has(p.id));
+                const ungroupedPanels = safePanels.filter(p => !assignedPanelIds.has(p.id));
 
                 const renderPanelCard = (panel: PanelWithParams) => (
                   <Card key={panel.id} className="p-2" data-testid={`panel-section-${panel.id}`}>
                     <div className="flex items-center gap-2 mb-1">
                       <span className="text-sm font-semibold">{panel.name}</span>
-                      <span>{panel.description ? <span className="text-xs text-muted-foreground">({panel.description})</span> : null}</span>
+                      <span style={{ display: panel.description ? 'inline' : 'none' }}><span className="text-xs text-muted-foreground">({panel.description})</span></span>
                     </div>
-                    {panel.parameters.length > 0 ? (
+                    <div style={{ display: panel.parameters.length > 0 ? 'block' : 'none' }}>
                       <div className="grid grid-cols-2 gap-2">
                         {panel.parameters.map(param => (
                           <div key={param.id} className="space-y-0.5">
                             <label className="text-xs font-medium">
                               {param.name}
-                              <span>{param.isRequired ? <span className="text-destructive ml-1">*</span> : null}</span>
+                              <span style={{ display: param.isRequired ? 'inline' : 'none' }}><span className="text-destructive ml-1">*</span></span>
                             </label>
-                            {param.paramType === "textarea" ? (
+                            <div style={{ display: param.paramType === "textarea" ? 'block' : 'none' }}>
                               <Textarea
                                 value={panelValues[`${panel.id}_${param.id}`] || param.defaultValue || ""}
                                 onChange={e => setPanelValues(prev => ({ ...prev, [`${panel.id}_${param.id}`]: e.target.value }))}
                                 rows={2}
                                 data-testid={`input-panel-param-${panel.id}-${param.id}`}
                               />
-                            ) : param.paramType === "boolean" ? (
+                            </div>
+                            <div style={{ display: param.paramType === "boolean" ? 'block' : 'none' }}>
                               <Select
                                 value={panelValues[`${panel.id}_${param.id}`] || param.defaultValue || ""}
                                 onValueChange={val => setPanelValues(prev => ({ ...prev, [`${panel.id}_${param.id}`]: val }))}
@@ -1497,7 +1510,8 @@ export default function ContractForm() {
                                   <SelectItem value="nie">Nie</SelectItem>
                                 </SelectContent>
                               </Select>
-                            ) : param.paramType === "combobox" && param.options?.length > 0 ? (
+                            </div>
+                            <div style={{ display: param.paramType === "combobox" && param.options?.length > 0 ? 'block' : 'none' }}>
                               <Select
                                 value={panelValues[`${panel.id}_${param.id}`] || param.defaultValue || ""}
                                 onValueChange={val => setPanelValues(prev => ({ ...prev, [`${panel.id}_${param.id}`]: val }))}
@@ -1506,26 +1520,28 @@ export default function ContractForm() {
                                   <SelectValue placeholder="Vyberte" />
                                 </SelectTrigger>
                                 <SelectContent>
-                                  {param.options.map(opt => (
+                                  {(param.options || []).map(opt => (
                                     <SelectItem key={opt} value={opt}>{opt}</SelectItem>
                                   ))}
                                 </SelectContent>
                               </Select>
-                            ) : (
+                            </div>
+                            <div style={{ display: param.paramType !== "textarea" && param.paramType !== "boolean" && !(param.paramType === "combobox" && param.options?.length > 0) ? 'block' : 'none' }}>
                               <Input
                                 type={param.paramType === "number" || param.paramType === "currency" || param.paramType === "percent" ? "number" : param.paramType === "date" ? "date" : param.paramType === "datetime" ? "datetime-local" : param.paramType === "email" ? "email" : param.paramType === "url" ? "url" : "text"}
                                 value={panelValues[`${panel.id}_${param.id}`] || param.defaultValue || ""}
                                 onChange={e => setPanelValues(prev => ({ ...prev, [`${panel.id}_${param.id}`]: e.target.value }))}
                                 data-testid={`input-panel-param-${panel.id}-${param.id}`}
                               />
-                            )}
-                            <div>{param.helpText ? <p className="text-xs text-muted-foreground">{param.helpText}</p> : null}</div>
+                            </div>
+                            <div style={{ display: param.helpText ? 'block' : 'none' }}><p className="text-xs text-muted-foreground">{param.helpText}</p></div>
                           </div>
                         ))}
                       </div>
-                    ) : (
+                    </div>
+                    <div style={{ display: panel.parameters.length === 0 ? 'block' : 'none' }}>
                       <p className="text-xs text-muted-foreground">Ziadne parametre</p>
-                    )}
+                    </div>
                   </Card>
                 );
 
@@ -1561,14 +1577,14 @@ export default function ContractForm() {
                     </div>
                   </div>
                 );
-              })() : null}</div>
+              })()}</div>
 
               <div data-testid="no-panels-container">
-                {sectorProductId && productPanels && productPanels.length === 0 ? (
+                <div style={{ display: sectorProductId && productPanels && productPanels.length === 0 ? 'block' : 'none' }}>
                   <p className="text-sm text-muted-foreground" data-testid="text-no-panels">
                     Vybrany produkt nema priradene panely s parametrami.
                   </p>
-                ) : null}
+                </div>
               </div>
             </div>
           </div>
@@ -1710,17 +1726,14 @@ export default function ContractForm() {
           tabIndex={1}
           data-testid="button-save-contract"
         >
-          {isPending ? (
-            <>
-              <Loader2 className="w-4 h-4 mr-1 animate-spin" />
-              Ukladam...
-            </>
-          ) : (
-            <>
-              <Save className="w-4 h-4 mr-1" />
-              Ulozit zmluvu
-            </>
-          )}
+          <span style={{ display: isPending ? 'inline' : 'none' }}>
+            <Loader2 className="w-4 h-4 mr-1 animate-spin" />
+            Ukladam...
+          </span>
+          <span style={{ display: !isPending ? 'inline' : 'none' }}>
+            <Save className="w-4 h-4 mr-1" />
+            Ulozit zmluvu
+          </span>
         </Button>
 
         <span id="next-step-wrapper" style={{ display: activeTab !== TABS[TABS.length - 1].key ? 'inline' : 'none' }}>
