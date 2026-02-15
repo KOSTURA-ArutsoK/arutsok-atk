@@ -1096,7 +1096,7 @@ export default function ContractForm() {
   })();
 
   return (
-    <div className="flex flex-col h-full overflow-hidden" data-testid="contract-form-root">
+    <div className="flex flex-col h-full overflow-y-auto" data-testid="contract-form-root">
       <div className="flex-none flex items-center gap-3 px-3 py-2 border-b border-border flex-wrap">
         <Button
           variant="ghost"
@@ -1140,8 +1140,8 @@ export default function ContractForm() {
         </div>
       </div>
 
-      <div className="flex-1 overflow-hidden">
-        <div className="h-full overflow-y-auto p-3">
+      <div className="flex-1">
+        <div className="p-3">
           <div style={{ display: activeTab === "vseobecne" ? 'block' : 'none' }}>
             <div className="space-y-[clamp(0.35rem,0.8vh,0.75rem)]" data-testid="section-vseobecne">
 
