@@ -1090,7 +1090,7 @@ export default function Contracts() {
     const q = searchQuery.toLowerCase();
     return list.filter(c =>
       (c.contractNumber || "").toLowerCase().includes(q) ||
-      (c.registrationNumber || "").toLowerCase().includes(q) ||
+      (c.globalNumber ? String(c.globalNumber) : "").includes(q) ||
       getSubjectDisplay(c.subjectId).toLowerCase().includes(q) ||
       getPartnerName(c).toLowerCase().includes(q) ||
       getProductName(c).toLowerCase().includes(q)
@@ -1114,7 +1114,7 @@ export default function Contracts() {
             )}
             {showOrder && <TableHead className="w-[40px] text-center">#</TableHead>}
             <TableHead>Cislo zmluvy</TableHead>
-            {showRegistration && <TableHead>Registracne cislo</TableHead>}
+            {showRegistration && <TableHead>Poradove cislo</TableHead>}
             <TableHead>Klient</TableHead>
             <TableHead>Partner</TableHead>
             <TableHead>Produkt</TableHead>
@@ -1151,7 +1151,11 @@ export default function Contracts() {
                 </TableCell>
                 {showRegistration && (
                   <TableCell className="font-mono text-sm" data-testid={`text-contract-registration-${contract.id}`}>
-                    {contract.registrationNumber || "-"}
+                    {contract.globalNumber ? (
+                      <span className="font-semibold">{contract.globalNumber}</span>
+                    ) : (
+                      <Badge variant="outline" className="text-xs text-amber-500 border-amber-500/50">V procese</Badge>
+                    )}
                   </TableCell>
                 )}
                 <TableCell className="text-sm">{getSubjectDisplay(contract.subjectId)}</TableCell>
@@ -1531,7 +1535,7 @@ export default function Contracts() {
               <TableHeader>
                 <TableRow>
                   <TableHead>Cislo zmluvy</TableHead>
-                  <TableHead>Registracne cislo</TableHead>
+                  <TableHead>Poradove cislo</TableHead>
                   <TableHead>Klient</TableHead>
                   <TableHead>Partner</TableHead>
                   <TableHead>Produkt</TableHead>
@@ -1556,7 +1560,11 @@ export default function Contracts() {
                         </span>
                       </TableCell>
                       <TableCell className="font-mono text-sm" data-testid={`text-contract-registration-${contract.id}`}>
-                        {contract.registrationNumber || "-"}
+                        {contract.globalNumber ? (
+                          <span className="font-semibold">{contract.globalNumber}</span>
+                        ) : (
+                          <Badge variant="outline" className="text-xs text-amber-500 border-amber-500/50">V procese</Badge>
+                        )}
                       </TableCell>
                       <TableCell className="text-sm" data-testid={`text-contract-subject-${contract.id}`}>
                         {getSubjectDisplay(contract.subjectId)}

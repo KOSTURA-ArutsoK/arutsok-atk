@@ -511,6 +511,9 @@ export const contractStatuses = pgTable("contract_statuses", {
   color: text("color").notNull().default("#3b82f6"),
   sortOrder: integer("sort_order").default(0),
   isSystem: boolean("is_system").default(false),
+  isCommissionable: boolean("is_commissionable").default(false),
+  isFinal: boolean("is_final").default(false),
+  assignsNumber: boolean("assigns_number").default(false),
   stateId: integer("state_id").references(() => states.id),
   createdAt: timestamp("created_at").defaultNow(),
 });
@@ -576,6 +579,7 @@ export const contracts = pgTable("contracts", {
   dynamicPanelValues: jsonb("dynamic_panel_values").$type<Record<string, string>>().default({}),
   sortOrderInInventory: integer("sort_order_in_inventory"),
   registrationNumber: text("registration_number"),
+  globalNumber: integer("global_number"),
   uploadedByUserId: integer("uploaded_by_user_id").references(() => appUsers.id),
   dispatchedAt: timestamp("dispatched_at"),
   acceptedAt: timestamp("accepted_at"),

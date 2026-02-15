@@ -10,6 +10,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
+import { Switch } from "@/components/ui/switch";
 import {
   Dialog,
   DialogContent,
@@ -52,6 +53,9 @@ function StatusFormDialog({
   const [color, setColor] = useState("#3b82f6");
   const [stateId, setStateId] = useState<string>("");
   const [sortOrder, setSortOrder] = useState("0");
+  const [isCommissionable, setIsCommissionable] = useState(false);
+  const [isFinal, setIsFinal] = useState(false);
+  const [assignsNumber, setAssignsNumber] = useState(false);
 
   const createMutation = useMutation({
     mutationFn: (data: any) => apiRequest("POST", "/api/contract-statuses", data),
@@ -80,11 +84,17 @@ function StatusFormDialog({
         setColor(editingStatus.color || "#3b82f6");
         setStateId(editingStatus.stateId?.toString() || "");
         setSortOrder(editingStatus.sortOrder?.toString() || "0");
+        setIsCommissionable(editingStatus.isCommissionable ?? false);
+        setIsFinal(editingStatus.isFinal ?? false);
+        setAssignsNumber(editingStatus.assignsNumber ?? false);
       } else {
         setName("");
         setColor("#3b82f6");
         setStateId(activeStateId?.toString() || "");
         setSortOrder("0");
+        setIsCommissionable(false);
+        setIsFinal(false);
+        setAssignsNumber(false);
       }
     }
   }, [open, editingStatus, activeStateId]);
@@ -99,6 +109,9 @@ function StatusFormDialog({
       color,
       stateId: stateId ? parseInt(stateId) : null,
       sortOrder: parseInt(sortOrder) || 0,
+      isCommissionable,
+      isFinal,
+      assignsNumber,
     };
 
     if (editingStatus) {
@@ -176,6 +189,31 @@ function StatusFormDialog({
               placeholder="0"
               data-testid="input-status-sort-order"
             />
+          </div>
+
+          <div className="space-y-4 pt-4 border-t border-border">
+            <p className="text-sm font-medium text-muted-foreground">Vlastnosti stavu</p>
+            <div className="flex items-center justify-between gap-4">
+              <div>
+                <p className="text-sm font-medium">Provizna</p>
+                <p className="text-xs text-muted-foreground">Stav spusta vypocet provizii</p>
+              </div>
+              <Switch checked={isCommissionable} onCheckedChange={setIsCommissionable} data-testid="switch-is-commissionable" />
+            </div>
+            <div className="flex items-center justify-between gap-4">
+              <div>
+                <p className="text-sm font-medium">Finalny stav</p>
+                <p className="text-xs text-muted-foreground">Zmluva sa stane iba na citanie (zamknuta)</p>
+              </div>
+              <Switch checked={isFinal} onCheckedChange={setIsFinal} data-testid="switch-is-final" />
+            </div>
+            <div className="flex items-center justify-between gap-4">
+              <div>
+                <p className="text-sm font-medium">Prideluje cislo</p>
+                <p className="text-xs text-muted-foreground">Pri dosiahnu tohto stavu sa prideli globalne poradove cislo</p>
+              </div>
+              <Switch checked={assignsNumber} onCheckedChange={setAssignsNumber} data-testid="switch-assigns-number" />
+            </div>
           </div>
 
           <div className="flex items-center justify-end mt-6">
@@ -320,6 +358,7 @@ export default function ContractStatuses() {
                   <TableHead className="w-20">Poradie</TableHead>
                   <TableHead>Nazov</TableHead>
                   <TableHead className="w-32">Farba</TableHead>
+                  <TableHead>Vlastnosti</TableHead>
                   <TableHead className="w-32 text-right">Akcie</TableHead>
                 </TableRow>
               </TableHeader>
@@ -352,6 +391,13 @@ export default function ContractStatuses() {
                           <span className="text-xs font-mono text-muted-foreground" data-testid={`text-color-hex-${status.id}`}>
                             {status.color}
                           </span>
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-1 flex-wrap">
+                          {status.isCommissionable && <Badge variant="secondary" className="text-xs" data-testid={`badge-commissionable-${status.id}`}>Provizna</Badge>}
+                          {status.isFinal && <Badge variant="secondary" className="text-xs" data-testid={`badge-final-${status.id}`}>Finalny</Badge>}
+                          {status.assignsNumber && <Badge variant="secondary" className="text-xs" data-testid={`badge-assigns-number-${status.id}`}>Cislo</Badge>}
                         </div>
                       </TableCell>
                       <TableCell className="text-right">

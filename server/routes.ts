@@ -1479,7 +1479,7 @@ export async function registerRoutes(
     }
   });
 
-  // ArutsoK 46 - Phase 2: Accept contracts (Central Office verifies and accepts)
+  // ArutsoK 48 - Phase 2: Accept contracts (Central Office verifies and accepts)
   app.post("/api/contract-inventories/:id/accept", isAuthenticated, async (req: any, res) => {
     try {
       const inventoryId = Number(req.params.id);
@@ -1496,22 +1496,21 @@ export async function registerRoutes(
       if (!acceptedStatus) {
         return res.status(500).json({ message: "Systemovy stav 'Prijata centrom - OK' neexistuje" });
       }
-      const registrationNumbers: Record<number, string> = {};
+      const globalNumbers: Record<number, number> = {};
       for (const contractId of contractIds) {
         const contract = await storage.getContract(Number(contractId));
         if (!contract) continue;
-        const stateCode = contract.stateId 
-          ? (await db.select().from(states).where(eq(states.id, contract.stateId)).limit(1))?.[0]?.code || "000"
-          : "000";
-        const regSeq = await storage.getNextCounterValue("contract_registration");
-        const paddedSeq = regSeq.toString().padStart(12, "0");
-        const formatted = `${stateCode} ${paddedSeq.replace(/(\d{3})(?=\d)/g, "$1 ")}`;
-        registrationNumbers[Number(contractId)] = formatted;
-        await storage.updateContract(Number(contractId), { 
+        if (contract.globalNumber) continue;
+        const updateData: any = {
           statusId: acceptedStatus.id,
-          registrationNumber: formatted,
           acceptedAt: new Date(),
-        } as any);
+        };
+        if (acceptedStatus.assignsNumber) {
+          const globalNum = await storage.getNextCounterValue("global_contract_number");
+          updateData.globalNumber = globalNum;
+          globalNumbers[Number(contractId)] = globalNum;
+        }
+        await storage.updateContract(Number(contractId), updateData);
       }
       const allContractsInInventory = await storage.getContracts({ inventoryId });
       const allAccepted = allContractsInInventory.every(c => 
@@ -1525,9 +1524,9 @@ export async function registerRoutes(
         module: "sprievodka_accept",
         entityId: inventoryId,
         entityName: target.name,
-        newData: { contractIds, statusId: acceptedStatus.id, allAccepted, registrationNumbers },
+        newData: { contractIds, statusId: acceptedStatus.id, allAccepted, globalNumbers },
       });
-      res.json({ success: true, acceptedCount: contractIds.length, allAccepted, registrationNumbers });
+      res.json({ success: true, acceptedCount: contractIds.length, allAccepted, globalNumbers });
     } catch (err) {
       console.error("Accept error:", err);
       res.status(500).json({ message: "Internal error" });
@@ -1677,6 +1676,10 @@ export async function registerRoutes(
       if (old.isLocked && appUser && appUser.role !== 'admin' && appUser.role !== 'superadmin') {
         return res.status(403).json({ message: "Zmluva je zamknuta v supiske. Iba admin moze upravovat zamknute zmluvy." });
       }
+      if (old.globalNumber && input.globalNumber && input.globalNumber !== old.globalNumber) {
+        return res.status(400).json({ message: "Globalne poradove cislo zmluvy nie je mozne zmenit" });
+      }
+      delete input.globalNumber;
       const updated = await storage.updateContract(Number(req.params.id), input);
       await logAudit(req, { action: "UPDATE", module: "zmluvy", entityId: Number(req.params.id), oldData: old, newData: input });
       res.json(updated);
