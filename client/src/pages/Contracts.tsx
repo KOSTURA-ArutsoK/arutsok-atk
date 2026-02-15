@@ -1667,31 +1667,35 @@ export default function Contracts() {
         </CardContent>
       </Card>
 
-      {deletingContract && (
-        <DeleteContractDialog
-          contract={deletingContract}
-          open={deleteDialogOpen}
-          onOpenChange={(isOpen) => {
-            setDeleteDialogOpen(isOpen);
-            if (!isOpen) setDeletingContract(null);
-          }}
-        />
-      )}
+      <div id="folder3-delete-dialog-wrapper" style={{ display: deletingContract ? 'block' : 'none' }}>
+        {deletingContract && (
+          <DeleteContractDialog
+            contract={deletingContract}
+            open={deleteDialogOpen}
+            onOpenChange={(isOpen) => {
+              setDeleteDialogOpen(isOpen);
+              if (!isOpen) setDeletingContract(null);
+            }}
+          />
+        )}
+      </div>
 
-      {viewingContract && (
-        <ContractDetailDialog
-          contract={viewingContract}
-          onClose={() => setViewingContract(null)}
-          subjects={subjects || []}
-          partners={partners || []}
-          sectorProducts={allSectorProducts || []}
-          statuses={statuses || []}
-          templates={templates || []}
-          inventories={inventories || []}
-          companies={companies || []}
-          states={allStates || []}
-        />
-      )}
+      <div id="folder3-view-dialog-wrapper" style={{ display: viewingContract ? 'block' : 'none' }}>
+        {viewingContract && (
+          <ContractDetailDialog
+            contract={viewingContract}
+            onClose={() => setViewingContract(null)}
+            subjects={subjects || []}
+            partners={partners || []}
+            sectorProducts={allSectorProducts || []}
+            statuses={statuses || []}
+            templates={templates || []}
+            inventories={inventories || []}
+            companies={companies || []}
+            states={allStates || []}
+          />
+        )}
+      </div>
     </div>
   );
 }

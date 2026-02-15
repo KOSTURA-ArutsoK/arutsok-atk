@@ -1141,8 +1141,8 @@ export default function ContractForm() {
       </div>
 
       <div className="flex-1 overflow-hidden">
-        <div className="h-full overflow-y-auto p-3" key={`tab-content-${activeTab}`}>
-          {activeTab === "vseobecne" && (
+        <div className="h-full overflow-y-auto p-3">
+          <div style={{ display: activeTab === "vseobecne" ? 'block' : 'none' }}>
             <div className="space-y-[clamp(0.35rem,0.8vh,0.75rem)]" data-testid="section-vseobecne">
 
               <div className="grid grid-cols-2 gap-[clamp(0.5rem,1vw,1rem)]">
@@ -1312,9 +1312,9 @@ export default function ContractForm() {
                 </div>
               </div>
             </div>
-          )}
+          </div>
 
-          {activeTab === "udaje-klient" && (
+          <div style={{ display: activeTab === "udaje-klient" ? 'block' : 'none' }}>
             <div className="space-y-3" data-testid="section-udaje-klient">
               <h2 className="text-base font-semibold">Udaje o klientovi</h2>
               <div className="grid grid-cols-2 gap-3">
@@ -1384,9 +1384,9 @@ export default function ContractForm() {
                 );
               })()}
             </div>
-          )}
+          </div>
 
-          {activeTab === "udaje-zmluva" && (
+          <div style={{ display: activeTab === "udaje-zmluva" ? 'block' : 'none' }}>
             <div className="space-y-3" data-testid="section-udaje-zmluva">
               <h2 className="text-base font-semibold">Udaje o zmluve - Produkt a parametre</h2>
 
@@ -1571,9 +1571,9 @@ export default function ContractForm() {
                 ) : null}
               </div>
             </div>
-          )}
+          </div>
 
-          {activeTab === "dokumenty" && (
+          <div style={{ display: activeTab === "dokumenty" ? 'block' : 'none' }}>
             <div className="space-y-3" data-testid="section-dokumenty">
               <h2 className="text-base font-semibold">Dokumenty</h2>
               <Card>
@@ -1585,9 +1585,9 @@ export default function ContractForm() {
                 </CardContent>
               </Card>
             </div>
-          )}
+          </div>
 
-          {activeTab === "odmeny" && (
+          <div style={{ display: activeTab === "odmeny" ? 'block' : 'none' }}>
             <div className="space-y-3" data-testid="section-odmeny">
               <h2 className="text-base font-semibold">Odmeny</h2>
               <div className="grid grid-cols-3 gap-3">
@@ -1602,9 +1602,9 @@ export default function ContractForm() {
                 <Textarea value={notes} onChange={e => setNotes(e.target.value)} rows={3} data-testid="input-notes" />
               </CompactField>
             </div>
-          )}
+          </div>
 
-          {activeTab === "stavy" && (
+          <div style={{ display: activeTab === "stavy" ? 'block' : 'none' }}>
             <StatusTabContent
               statuses={statuses}
               statusId={statusId}
@@ -1631,9 +1631,9 @@ export default function ContractForm() {
               sectorProductId={sectorProductId}
               statusChangeLogs={statusChangeLogs}
             />
-          )}
+          </div>
 
-          {activeTab === "zhrnutie" && (
+          <div style={{ display: activeTab === "zhrnutie" ? 'block' : 'none' }}>
             <div className="space-y-3" data-testid="section-zhrnutie">
               <h2 className="text-base font-semibold">Zhrnutie zmluvy</h2>
               <Card>
@@ -1669,9 +1669,9 @@ export default function ContractForm() {
                 </CardContent>
               </Card>
             </div>
-          )}
+          </div>
 
-          {activeTab === "provizne" && (
+          <div style={{ display: activeTab === "provizne" ? 'block' : 'none' }}>
             <div className="space-y-3" data-testid="section-provizne">
               <h2 className="text-base font-semibold">Provizne zostavy</h2>
               <Card>
@@ -1683,7 +1683,7 @@ export default function ContractForm() {
                 </CardContent>
               </Card>
             </div>
-          )}
+          </div>
         </div>
       </div>
 
@@ -1741,13 +1741,13 @@ export default function ContractForm() {
       </div>
 
       <div id="passwords-modal-wrapper" style={{ display: isEditing ? 'block' : 'none' }}>
-        {isEditing && (
+        <div style={{ display: isEditing ? 'block' : 'none' }}>
           <PasswordsModal
             open={passwordsOpen}
             onOpenChange={setPasswordsOpen}
             contractId={contractId}
           />
-        )}
+        </div>
       </div>
     </div>
   );
