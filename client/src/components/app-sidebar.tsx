@@ -303,7 +303,7 @@ export function AppSidebar() {
                     </SidebarMenuButton>
                   </CollapsibleTrigger>
                   <CollapsibleContent>
-                    <SidebarMenuSub>
+                    <SidebarMenuSub className="mx-2 px-2">
                       <SidebarMenuSubItem>
                         <Collapsible
                           open={spravaPristupovExpanded}
@@ -320,7 +320,7 @@ export function AppSidebar() {
                             </SidebarMenuSubButton>
                           </CollapsibleTrigger>
                           <CollapsibleContent>
-                            <div className="ml-3 border-l border-border pl-2 mt-1 space-y-0.5">
+                            <div className="ml-2 border-l border-border pl-1.5 mt-1 space-y-0.5">
                               {spravaPristupovItems.map(item => (
                                 <SidebarMenuSubItem key={item.href}>
                                   <SidebarMenuSubButton
@@ -329,7 +329,7 @@ export function AppSidebar() {
                                     data-testid={`nav-${item.label.toLowerCase().replace(/\s/g, '-')}`}
                                   >
                                     <Link href={item.href}>
-                                      <item.icon className="w-3.5 h-3.5" />
+                                      <item.icon className="w-3.5 h-3.5 shrink-0" />
                                       <span>{item.label}</span>
                                     </Link>
                                   </SidebarMenuSubButton>
@@ -356,7 +356,7 @@ export function AppSidebar() {
                             </SidebarMenuSubButton>
                           </CollapsibleTrigger>
                           <CollapsibleContent>
-                            <div className="ml-3 border-l border-border pl-2 mt-1 space-y-0.5">
+                            <div className="ml-2 border-l border-border pl-1.5 mt-1 space-y-0.5">
                               {specifikacieItems.map(item => (
                                 <SidebarMenuSubItem key={item.href}>
                                   <SidebarMenuSubButton
@@ -453,7 +453,7 @@ export function AppSidebar() {
                     </SidebarMenuButton>
                   </CollapsibleTrigger>
                   <CollapsibleContent>
-                    <SidebarMenuSub>
+                    <SidebarMenuSub className="mx-2 px-2">
                       {zmluvyFlatItems.map(item => (
                         <SidebarMenuSubItem key={item.href}>
                           <SidebarMenuSubButton
@@ -485,7 +485,7 @@ export function AppSidebar() {
                             </SidebarMenuSubButton>
                           </CollapsibleTrigger>
                           <CollapsibleContent>
-                            <div className="ml-3 border-l border-border pl-2 mt-1 space-y-0.5">
+                            <div className="ml-2 border-l border-border pl-1.5 mt-1 space-y-0.5">
                               {nastaveniaSablonChildren.map(item => (
                                 <SidebarMenuSubItem key={item.href}>
                                   <SidebarMenuSubButton
@@ -521,7 +521,7 @@ export function AppSidebar() {
                             </SidebarMenuSubButton>
                           </CollapsibleTrigger>
                           <CollapsibleContent>
-                            <div className="ml-3 border-l border-border pl-2 mt-1 space-y-0.5">
+                            <div className="ml-2 border-l border-border pl-1.5 mt-1 space-y-0.5">
                               {protokolyChildren.map(item => (
                                 <SidebarMenuSubItem key={item.href}>
                                   <SidebarMenuSubButton

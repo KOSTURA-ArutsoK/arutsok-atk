@@ -452,6 +452,15 @@ export default function ContractForm() {
   }, []);
 
   useEffect(() => {
+    if (!isEditing && statuses && statuses.length > 0 && !statusId) {
+      const defaultStatus = statuses.find(s => s.name === "Nahrata do systemu" && s.isSystem);
+      if (defaultStatus) {
+        setStatusId(defaultStatus.id.toString());
+      }
+    }
+  }, [isEditing, statuses, statusId]);
+
+  useEffect(() => {
     if (existingContract && allSPForEdit && allSectionsForEdit) {
       setContractNumber(existingContract.contractNumber || "");
       setProposalNumber(existingContract.proposalNumber || "");

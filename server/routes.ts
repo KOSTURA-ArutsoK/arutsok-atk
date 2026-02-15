@@ -1876,7 +1876,22 @@ export async function registerRoutes(
         }
       }
       const createData = { ...input, uploadedByUserId: appUser?.id || null };
+      if (!createData.statusId) {
+        const defaultStatus = await storage.getSystemContractStatusByName("Nahrata do systemu");
+        if (defaultStatus) {
+          createData.statusId = defaultStatus.id;
+        }
+      }
       const created = await storage.createContract(createData as any);
+      if (created.statusId) {
+        await storage.createContractStatusChangeLog({
+          contractId: created.id,
+          oldStatusId: null,
+          newStatusId: created.statusId,
+          changedByUserId: appUser?.id || null,
+          parameterValues: {},
+        });
+      }
       await logAudit(req, { action: "CREATE", module: "zmluvy", entityId: created.id, entityName: created.contractNumber || `Zmluva #${created.id}`, newData: input });
       res.status(201).json(created);
     } catch (err) {
