@@ -303,13 +303,11 @@ function StatusTabContent(props: StatusTabContentProps) {
               <Loader2 className="w-4 h-4 animate-spin" />
               <span className="text-sm text-muted-foreground">Nacitavam stavy...</span>
             </>
-          ) : !contractId ? (
+          ) : (
             <>
               <span className="text-sm text-muted-foreground">Aktualny stav:</span>
               <span className="text-sm font-semibold" data-testid="text-current-status">Nahratá do systému</span>
             </>
-          ) : (
-            <span className="text-sm text-muted-foreground" data-testid="text-no-current-status">Bez aktualneho stavu</span>
           )}
         </div>
       </div>

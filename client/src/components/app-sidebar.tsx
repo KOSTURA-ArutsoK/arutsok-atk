@@ -99,7 +99,7 @@ const klientiItems = [
 
 const zmluvyFlatItems = [
   { href: "/evidencia-zmluv", icon: ClipboardList, label: "Evidencia zmluv" },
-  { href: "/contracts", icon: FileText, label: "Zmluvy" },
+  { href: "/contracts", icon: FileText, label: "Evidencia zmlúv" },
 ];
 
 const nastaveniaSablonChildren = [

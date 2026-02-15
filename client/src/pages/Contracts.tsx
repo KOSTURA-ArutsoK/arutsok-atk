@@ -936,7 +936,12 @@ export default function Contracts() {
     enabled: allContractIds.length > 0,
   });
 
-  const activeContracts = contracts?.filter(c => !c.isDeleted) || [];
+  const nahratadoSystemuStatusId = statuses?.find(s => s.name === "Nahrata do systemu" || s.name === "Nahratá do systému")?.id;
+  const activeContracts = contracts?.filter(c => {
+    if (c.isDeleted) return false;
+    if (!isEvidencia && nahratadoSystemuStatusId && c.statusId === nahratadoSystemuStatusId) return false;
+    return true;
+  }) || [];
   const activeDispatched = dispatchedContracts?.filter(c => !c.isDeleted) || [];
 
   const dispatchedBySprievodka = (() => {
@@ -1519,7 +1524,7 @@ export default function Contracts() {
   return (
     <div className="p-6 space-y-6">
       <div className="flex items-center justify-between gap-4 flex-wrap">
-        <h1 className="text-2xl font-bold" data-testid="text-page-title">Zmluvy</h1>
+        <h1 className="text-2xl font-bold" data-testid="text-page-title">Evidencia zmlúv</h1>
         <Button onClick={() => navigate("/evidencia-zmluv")} data-testid="button-create-contract">
           <Plus className="w-4 h-4 mr-2" />
           Evidovat zmluvu
