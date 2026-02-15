@@ -12,7 +12,6 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import {
@@ -254,7 +253,6 @@ export default function ContractForm() {
   const [subjectId, setSubjectId] = useState<string>("");
   const [partnerId, setPartnerId] = useState<string>("");
   const [statusId, setStatusId] = useState<string>("");
-  const [statusFormTab, setStatusFormTab] = useState("vseobecne");
   const [statusFormStatusId, setStatusFormStatusId] = useState<string>("");
   const [statusFormChangedAt, setStatusFormChangedAt] = useState(() => new Date().toISOString().slice(0, 16));
   const [statusFormVisibleToClient, setStatusFormVisibleToClient] = useState(false);
@@ -378,7 +376,6 @@ export default function ContractForm() {
       setStatusFormNote("");
       setStatusFormParamValues({});
       setStatusFormFiles([]);
-      setStatusFormTab("vseobecne");
       queryClient.invalidateQueries({ queryKey: ["/api/contracts", contractId] });
       queryClient.invalidateQueries({ queryKey: ["/api/contracts", contractId, "status-change-logs"] });
       queryClient.invalidateQueries({ queryKey: ["/api/contracts"] });
@@ -1213,246 +1210,238 @@ export default function ContractForm() {
 
                     {contractId && (
                       <Card>
-                        <CardContent className="p-0">
-                          <Tabs value={statusFormTab} onValueChange={setStatusFormTab}>
-                            <TabsList className="w-full rounded-b-none" data-testid="tabs-status-form">
-                              <TabsTrigger value="vseobecne" className="flex-1 gap-1.5" data-testid="tab-vseobecne">
-                                <Settings2 className="w-3.5 h-3.5" />
-                                <span>Vseobecne</span>
-                              </TabsTrigger>
-                              <TabsTrigger value="povolenia" className="flex-1 gap-1.5" data-testid="tab-povolenia">
-                                <Eye className="w-3.5 h-3.5" />
-                                <span>Povolenia</span>
-                              </TabsTrigger>
-                              <TabsTrigger value="parametre" className="flex-1 gap-1.5" data-testid="tab-parametre">
-                                <FileText className="w-3.5 h-3.5" />
-                                <span>Parametre</span>
-                                {totalParamCount > 0 && (
-                                  <span className="text-[10px] tabular-nums">{filledParamCount}/{totalParamCount}</span>
-                                )}
-                              </TabsTrigger>
-                              <TabsTrigger value="dokumenty" className="flex-1 gap-1.5" data-testid="tab-dokumenty">
-                                <Upload className="w-3.5 h-3.5" />
-                                <span>Dokumenty</span>
-                                {statusFormFiles.length > 0 && (
-                                  <span className="text-[10px] tabular-nums">{statusFormFiles.length}</span>
-                                )}
-                              </TabsTrigger>
-                            </TabsList>
-
-                            <div className="p-4">
-                              <TabsContent value="vseobecne" className="mt-0 space-y-4" data-testid="content-vseobecne">
-                                <div className="space-y-1.5">
-                                  <Label htmlFor="sf-new-status" data-testid="label-new-status">Novy stav zmluvy *</Label>
-                                  {filteredStatuses.filter(s => s.id !== (statusId ? parseInt(statusId) : -1)).length === 0 ? (
-                                    <div className="p-3 border rounded-md text-center" data-testid="text-no-statuses">
-                                      <p className="text-sm text-muted-foreground">Ziadne stavy nie su k dispozicii.</p>
-                                      {!contractSectorId && !contractSectionId && !sectorProductId && (
-                                        <p className="text-xs text-muted-foreground mt-1">Nastavte sektor, sekciu a produkt v karte "Udaje o zmluve".</p>
-                                      )}
-                                    </div>
-                                  ) : (
-                                    <Select value={statusFormStatusId} onValueChange={setStatusFormStatusId}>
-                                      <SelectTrigger id="sf-new-status" data-testid="select-new-status">
-                                        <SelectValue placeholder="Vyberte novy stav" />
-                                      </SelectTrigger>
-                                      <SelectContent>
-                                        {filteredStatuses.filter(s => s.id !== (statusId ? parseInt(statusId) : -1)).map(s => (
-                                          <SelectItem key={s.id} value={s.id.toString()} data-testid={`option-status-${s.id}`}>
-                                            <div className="flex items-center gap-2">
-                                              <div className="w-3 h-3 rounded-full" style={{ backgroundColor: s.color }} />
-                                              {s.name}
-                                            </div>
-                                          </SelectItem>
-                                        ))}
-                                      </SelectContent>
-                                    </Select>
+                        <CardContent className="p-4 space-y-0">
+                          <div className="space-y-4" data-testid="section-status-vseobecne">
+                            <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+                              <Settings2 className="w-3.5 h-3.5" /> Vseobecne udaje
+                            </h3>
+                            <div className="space-y-1.5">
+                              <Label htmlFor="sf-new-status" data-testid="label-new-status">Novy stav zmluvy *</Label>
+                              {filteredStatuses.filter(s => s.id !== (statusId ? parseInt(statusId) : -1)).length === 0 ? (
+                                <div className="p-3 border rounded-md text-center" data-testid="text-no-statuses">
+                                  <p className="text-sm text-muted-foreground">Ziadne stavy nie su k dispozicii.</p>
+                                  {!contractSectorId && !contractSectionId && !sectorProductId && (
+                                    <p className="text-xs text-muted-foreground mt-1">Nastavte sektor, sekciu a produkt v karte "Udaje o zmluve".</p>
                                   )}
                                 </div>
-
-                                {newStatus && (
-                                  <div className="flex items-center gap-2 flex-wrap">
-                                    {newStatus.isCommissionable && <Badge variant="outline" className="text-xs">Provizna</Badge>}
-                                    {newStatus.isFinal && <Badge variant="outline" className="text-xs">Finalna</Badge>}
-                                    {newStatus.assignsNumber && <Badge variant="outline" className="text-xs">Prideluje cislo</Badge>}
-                                    {newStatus.definesContractEnd && <Badge variant="outline" className="text-xs">Ukoncenie zmluvy</Badge>}
-                                  </div>
-                                )}
-
-                                <div className="space-y-1.5">
-                                  <Label htmlFor="sf-changed-at" data-testid="label-changed-at">
-                                    <Calendar className="w-3.5 h-3.5 inline mr-1" />
-                                    Datum a cas zmeny
-                                  </Label>
-                                  <Input
-                                    id="sf-changed-at"
-                                    type="datetime-local"
-                                    value={statusFormChangedAt}
-                                    onChange={e => setStatusFormChangedAt(e.target.value)}
-                                    data-testid="input-changed-at"
-                                  />
-                                </div>
-                              </TabsContent>
-
-                              <TabsContent value="povolenia" className="mt-0 space-y-4" data-testid="content-povolenia">
-                                <div className="flex items-center justify-between gap-4">
-                                  <div className="space-y-0.5">
-                                    <Label data-testid="label-visible-client">Viditelne pre klienta</Label>
-                                    <p className="text-xs text-muted-foreground">Ak je zapnute, klient uvidi tuto zmenu stavu</p>
-                                  </div>
-                                  <Switch
-                                    checked={statusFormVisibleToClient}
-                                    onCheckedChange={setStatusFormVisibleToClient}
-                                    data-testid="switch-visible-client"
-                                  />
-                                </div>
-                                <div className="space-y-1.5">
-                                  <Label htmlFor="sf-note" data-testid="label-status-note">
-                                    <MessageSquare className="w-3.5 h-3.5 inline mr-1" />
-                                    Poznamka k zmene stavu
-                                  </Label>
-                                  <Textarea
-                                    id="sf-note"
-                                    value={statusFormNote}
-                                    onChange={e => setStatusFormNote(e.target.value)}
-                                    placeholder="Napisat poznamku k tejto zmene stavu..."
-                                    className="resize-none min-h-[100px]"
-                                    data-testid="textarea-status-note"
-                                  />
-                                </div>
-                              </TabsContent>
-
-                              <TabsContent value="parametre" className="mt-0 space-y-4" data-testid="content-parametre">
-                                {!statusFormStatusId ? (
-                                  <p className="text-sm text-muted-foreground text-center py-6">
-                                    Najprv vyberte novy stav na karte "Vseobecne"
-                                  </p>
-                                ) : statusFormParamsLoading ? (
-                                  <div className="flex items-center justify-center py-6">
-                                    <Loader2 className="w-5 h-5 animate-spin" />
-                                  </div>
-                                ) : !statusFormParams || statusFormParams.length === 0 ? (
-                                  <p className="text-sm text-muted-foreground text-center py-6">
-                                    Tento stav nema ziadne doplnkove parametre
-                                  </p>
-                                ) : (
-                                  statusFormParams
-                                    .sort((a: any, b: any) => (a.sortOrder || 0) - (b.sortOrder || 0))
-                                    .map((param: any) => (
-                                      <div key={param.id} className="space-y-1.5">
-                                        <Label data-testid={`label-param-${param.id}`}>
-                                          {param.name}
-                                          {param.isRequired && <span className="text-destructive ml-1">*</span>}
-                                        </Label>
-                                        {param.helpText && (
-                                          <p className="text-xs text-muted-foreground">{param.helpText}</p>
-                                        )}
-                                        {param.paramType === "textarea" ? (
-                                          <Textarea
-                                            value={statusFormParamValues[param.id.toString()] || param.defaultValue || ""}
-                                            onChange={e => setStatusFormParamValues(prev => ({ ...prev, [param.id.toString()]: e.target.value }))}
-                                            className="resize-none min-h-[80px]"
-                                            data-testid={`param-input-${param.id}`}
-                                          />
-                                        ) : param.paramType === "number" ? (
-                                          <Input
-                                            type="number"
-                                            value={statusFormParamValues[param.id.toString()] || param.defaultValue || ""}
-                                            onChange={e => setStatusFormParamValues(prev => ({ ...prev, [param.id.toString()]: e.target.value }))}
-                                            data-testid={`param-input-${param.id}`}
-                                          />
-                                        ) : param.paramType === "date" ? (
-                                          <Input
-                                            type="date"
-                                            value={statusFormParamValues[param.id.toString()] || param.defaultValue || ""}
-                                            onChange={e => setStatusFormParamValues(prev => ({ ...prev, [param.id.toString()]: e.target.value }))}
-                                            data-testid={`param-input-${param.id}`}
-                                          />
-                                        ) : param.paramType === "boolean" ? (
-                                          <div className="flex items-center gap-2">
-                                            <Switch
-                                              checked={(statusFormParamValues[param.id.toString()] || param.defaultValue || "") === "true"}
-                                              onCheckedChange={v => setStatusFormParamValues(prev => ({ ...prev, [param.id.toString()]: v ? "true" : "false" }))}
-                                              data-testid={`param-input-${param.id}`}
-                                            />
-                                            <span className="text-sm text-muted-foreground">
-                                              {(statusFormParamValues[param.id.toString()] || param.defaultValue || "") === "true" ? "Ano" : "Nie"}
-                                            </span>
-                                          </div>
-                                        ) : param.paramType === "select" ? (
-                                          <Select
-                                            value={statusFormParamValues[param.id.toString()] || param.defaultValue || ""}
-                                            onValueChange={v => setStatusFormParamValues(prev => ({ ...prev, [param.id.toString()]: v }))}
-                                          >
-                                            <SelectTrigger data-testid={`param-input-${param.id}`}>
-                                              <SelectValue placeholder="Vyberte..." />
-                                            </SelectTrigger>
-                                            <SelectContent>
-                                              {(param.options || []).map((opt: string) => (
-                                                <SelectItem key={opt} value={opt}>{opt}</SelectItem>
-                                              ))}
-                                            </SelectContent>
-                                          </Select>
-                                        ) : (
-                                          <Input
-                                            value={statusFormParamValues[param.id.toString()] || param.defaultValue || ""}
-                                            onChange={e => setStatusFormParamValues(prev => ({ ...prev, [param.id.toString()]: e.target.value }))}
-                                            data-testid={`param-input-${param.id}`}
-                                          />
-                                        )}
-                                      </div>
-                                    ))
-                                )}
-                              </TabsContent>
-
-                              <TabsContent value="dokumenty" className="mt-0 space-y-4" data-testid="content-dokumenty">
-                                <div className="flex items-center justify-between gap-2 flex-wrap">
-                                  <Label data-testid="label-documents">Dokumenty k zmene stavu</Label>
-                                  <Button
-                                    variant="outline"
-                                    size="sm"
-                                    onClick={() => statusFormFileRef.current?.click()}
-                                    data-testid="button-add-document"
-                                  >
-                                    <Upload className="w-3.5 h-3.5 mr-1" /> Pridat subor
-                                  </Button>
-                                  <input
-                                    ref={statusFormFileRef}
-                                    type="file"
-                                    multiple
-                                    className="hidden"
-                                    onChange={e => {
-                                      if (e.target.files) setStatusFormFiles(prev => [...prev, ...Array.from(e.target.files!)]);
-                                      if (statusFormFileRef.current) statusFormFileRef.current.value = "";
-                                    }}
-                                    accept="*/*"
-                                  />
-                                </div>
-                                {statusFormFiles.length === 0 ? (
-                                  <p className="text-sm text-muted-foreground text-center py-6">
-                                    Ziadne dokumenty neboli pridane
-                                  </p>
-                                ) : (
-                                  <div className="space-y-2">
-                                    {statusFormFiles.map((file, idx) => (
-                                      <div key={idx} className="flex items-center justify-between gap-2 p-2 border rounded-md" data-testid={`file-item-${idx}`}>
-                                        <div className="flex items-center gap-2 min-w-0">
-                                          <FileText className="w-4 h-4 shrink-0 text-muted-foreground" />
-                                          <span className="text-sm truncate">{file.name}</span>
-                                          <span className="text-xs text-muted-foreground shrink-0">({(file.size / 1024).toFixed(1)} KB)</span>
+                              ) : (
+                                <Select value={statusFormStatusId} onValueChange={setStatusFormStatusId}>
+                                  <SelectTrigger id="sf-new-status" data-testid="select-new-status">
+                                    <SelectValue placeholder="Vyberte novy stav" />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    {filteredStatuses.filter(s => s.id !== (statusId ? parseInt(statusId) : -1)).map(s => (
+                                      <SelectItem key={s.id} value={s.id.toString()} data-testid={`option-status-${s.id}`}>
+                                        <div className="flex items-center gap-2">
+                                          <div className="w-3 h-3 rounded-full" style={{ backgroundColor: s.color }} />
+                                          {s.name}
                                         </div>
-                                        <Button variant="ghost" size="icon" onClick={() => setStatusFormFiles(prev => prev.filter((_, i) => i !== idx))} data-testid={`button-remove-file-${idx}`}>
-                                          <X className="w-4 h-4" />
-                                        </Button>
-                                      </div>
+                                      </SelectItem>
                                     ))}
-                                  </div>
-                                )}
-                              </TabsContent>
+                                  </SelectContent>
+                                </Select>
+                              )}
                             </div>
-                          </Tabs>
+                            {newStatus && (
+                              <div className="flex items-center gap-2 flex-wrap">
+                                {newStatus.isCommissionable && <Badge variant="outline" className="text-xs">Provizna</Badge>}
+                                {newStatus.isFinal && <Badge variant="outline" className="text-xs">Finalna</Badge>}
+                                {newStatus.assignsNumber && <Badge variant="outline" className="text-xs">Prideluje cislo</Badge>}
+                                {newStatus.definesContractEnd && <Badge variant="outline" className="text-xs">Ukoncenie zmluvy</Badge>}
+                              </div>
+                            )}
+                            <div className="space-y-1.5">
+                              <Label htmlFor="sf-changed-at" data-testid="label-changed-at">
+                                <Calendar className="w-3.5 h-3.5 inline mr-1" />
+                                Datum a cas zmeny
+                              </Label>
+                              <Input
+                                id="sf-changed-at"
+                                type="datetime-local"
+                                value={statusFormChangedAt}
+                                onChange={e => setStatusFormChangedAt(e.target.value)}
+                                data-testid="input-changed-at"
+                              />
+                            </div>
+                          </div>
 
-                          <div className="flex items-center justify-end gap-2 p-3 border-t">
+                          <hr className="my-4 border-border/50" />
+
+                          <div className="space-y-4" data-testid="section-status-povolenia">
+                            <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+                              <Eye className="w-3.5 h-3.5" /> Povolenia a poznamka
+                            </h3>
+                            <div className="flex items-center justify-between gap-4">
+                              <div className="space-y-0.5">
+                                <Label data-testid="label-visible-client">Viditelne pre klienta</Label>
+                                <p className="text-xs text-muted-foreground">Ak je zapnute, klient uvidi tuto zmenu stavu</p>
+                              </div>
+                              <Switch
+                                checked={statusFormVisibleToClient}
+                                onCheckedChange={setStatusFormVisibleToClient}
+                                data-testid="switch-visible-client"
+                              />
+                            </div>
+                            <div className="space-y-1.5">
+                              <Label htmlFor="sf-note" data-testid="label-status-note">
+                                <MessageSquare className="w-3.5 h-3.5 inline mr-1" />
+                                Poznamka k zmene stavu
+                              </Label>
+                              <Textarea
+                                id="sf-note"
+                                value={statusFormNote}
+                                onChange={e => setStatusFormNote(e.target.value)}
+                                placeholder="Napisat poznamku k tejto zmene stavu..."
+                                className="resize-none min-h-[100px]"
+                                data-testid="textarea-status-note"
+                              />
+                            </div>
+                          </div>
+
+                          <hr className="my-4 border-border/50" />
+
+                          <div className="space-y-4" data-testid="section-status-parametre">
+                            <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+                              <FileText className="w-3.5 h-3.5" /> Doplnkove parametre
+                              {totalParamCount > 0 && (
+                                <span className="text-[10px] tabular-nums font-normal">({filledParamCount}/{totalParamCount})</span>
+                              )}
+                            </h3>
+                            {!statusFormStatusId ? (
+                              <p className="text-sm text-muted-foreground py-2">
+                                Najprv vyberte novy stav vyssie
+                              </p>
+                            ) : statusFormParamsLoading ? (
+                              <div className="flex items-center justify-center py-4">
+                                <Loader2 className="w-5 h-5 animate-spin" />
+                              </div>
+                            ) : !statusFormParams || statusFormParams.length === 0 ? (
+                              <p className="text-sm text-muted-foreground py-2">
+                                Tento stav nema ziadne doplnkove parametre
+                              </p>
+                            ) : (
+                              statusFormParams
+                                .sort((a: any, b: any) => (a.sortOrder || 0) - (b.sortOrder || 0))
+                                .map((param: any) => (
+                                  <div key={param.id} className="space-y-1.5">
+                                    <Label data-testid={`label-param-${param.id}`}>
+                                      {param.name}
+                                      {param.isRequired && <span className="text-destructive ml-1">*</span>}
+                                    </Label>
+                                    {param.helpText && (
+                                      <p className="text-xs text-muted-foreground">{param.helpText}</p>
+                                    )}
+                                    {param.paramType === "textarea" ? (
+                                      <Textarea
+                                        value={statusFormParamValues[param.id.toString()] || param.defaultValue || ""}
+                                        onChange={e => setStatusFormParamValues(prev => ({ ...prev, [param.id.toString()]: e.target.value }))}
+                                        className="resize-none min-h-[80px]"
+                                        data-testid={`param-input-${param.id}`}
+                                      />
+                                    ) : param.paramType === "number" ? (
+                                      <Input
+                                        type="number"
+                                        value={statusFormParamValues[param.id.toString()] || param.defaultValue || ""}
+                                        onChange={e => setStatusFormParamValues(prev => ({ ...prev, [param.id.toString()]: e.target.value }))}
+                                        data-testid={`param-input-${param.id}`}
+                                      />
+                                    ) : param.paramType === "date" ? (
+                                      <Input
+                                        type="date"
+                                        value={statusFormParamValues[param.id.toString()] || param.defaultValue || ""}
+                                        onChange={e => setStatusFormParamValues(prev => ({ ...prev, [param.id.toString()]: e.target.value }))}
+                                        data-testid={`param-input-${param.id}`}
+                                      />
+                                    ) : param.paramType === "boolean" ? (
+                                      <div className="flex items-center gap-2">
+                                        <Switch
+                                          checked={(statusFormParamValues[param.id.toString()] || param.defaultValue || "") === "true"}
+                                          onCheckedChange={v => setStatusFormParamValues(prev => ({ ...prev, [param.id.toString()]: v ? "true" : "false" }))}
+                                          data-testid={`param-input-${param.id}`}
+                                        />
+                                        <span className="text-sm text-muted-foreground">
+                                          {(statusFormParamValues[param.id.toString()] || param.defaultValue || "") === "true" ? "Ano" : "Nie"}
+                                        </span>
+                                      </div>
+                                    ) : param.paramType === "select" ? (
+                                      <Select
+                                        value={statusFormParamValues[param.id.toString()] || param.defaultValue || ""}
+                                        onValueChange={v => setStatusFormParamValues(prev => ({ ...prev, [param.id.toString()]: v }))}
+                                      >
+                                        <SelectTrigger data-testid={`param-input-${param.id}`}>
+                                          <SelectValue placeholder="Vyberte..." />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                          {(param.options || []).map((opt: string) => (
+                                            <SelectItem key={opt} value={opt}>{opt}</SelectItem>
+                                          ))}
+                                        </SelectContent>
+                                      </Select>
+                                    ) : (
+                                      <Input
+                                        value={statusFormParamValues[param.id.toString()] || param.defaultValue || ""}
+                                        onChange={e => setStatusFormParamValues(prev => ({ ...prev, [param.id.toString()]: e.target.value }))}
+                                        data-testid={`param-input-${param.id}`}
+                                      />
+                                    )}
+                                  </div>
+                                ))
+                            )}
+                          </div>
+
+                          <hr className="my-4 border-border/50" />
+
+                          <div className="space-y-4" data-testid="section-status-dokumenty">
+                            <div className="flex items-center justify-between gap-2 flex-wrap">
+                              <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+                                <Upload className="w-3.5 h-3.5" /> Dokumenty ku stavu
+                                {statusFormFiles.length > 0 && (
+                                  <span className="text-[10px] tabular-nums font-normal">({statusFormFiles.length})</span>
+                                )}
+                              </h3>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => statusFormFileRef.current?.click()}
+                                data-testid="button-add-document"
+                              >
+                                <Upload className="w-3.5 h-3.5 mr-1" /> Pridat subor
+                              </Button>
+                              <input
+                                ref={statusFormFileRef}
+                                type="file"
+                                multiple
+                                className="hidden"
+                                onChange={e => {
+                                  if (e.target.files) setStatusFormFiles(prev => [...prev, ...Array.from(e.target.files!)]);
+                                  if (statusFormFileRef.current) statusFormFileRef.current.value = "";
+                                }}
+                                accept="*/*"
+                              />
+                            </div>
+                            {statusFormFiles.length === 0 ? (
+                              <p className="text-sm text-muted-foreground py-2">
+                                Ziadne dokumenty neboli pridane
+                              </p>
+                            ) : (
+                              <div className="space-y-2">
+                                {statusFormFiles.map((file, idx) => (
+                                  <div key={idx} className="flex items-center justify-between gap-2 p-2 border rounded-md" data-testid={`file-item-${idx}`}>
+                                    <div className="flex items-center gap-2 min-w-0">
+                                      <FileText className="w-4 h-4 shrink-0 text-muted-foreground" />
+                                      <span className="text-sm truncate">{file.name}</span>
+                                      <span className="text-xs text-muted-foreground shrink-0">({(file.size / 1024).toFixed(1)} KB)</span>
+                                    </div>
+                                    <Button variant="ghost" size="icon" onClick={() => setStatusFormFiles(prev => prev.filter((_, i) => i !== idx))} data-testid={`button-remove-file-${idx}`}>
+                                      <X className="w-4 h-4" />
+                                    </Button>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+
+                          <div className="flex items-center justify-end gap-2 pt-4 mt-4 border-t">
                             <Button
                               disabled={!canSubmit}
                               onClick={() => statusFormSubmit.mutate()}
