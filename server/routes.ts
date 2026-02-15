@@ -1725,12 +1725,23 @@ export async function registerRoutes(
         });
       }
       const allContractsInInventory = await storage.getContracts({ inventoryId });
-      const allAccepted = allContractsInInventory.every(c => 
-        acceptedContractIds.includes(c.id) || c.statusId === acceptedStatus.id
-      );
-      if (allAccepted) {
-        await storage.updateContractInventory(inventoryId, { isAccepted: true } as any);
+      const rejectedContractIds: number[] = [];
+      for (const c of allContractsInInventory) {
+        if (!acceptedContractIds.includes(c.id) && c.statusId !== acceptedStatus.id && c.statusId !== rejectedStatus.id) {
+          await storage.updateContract(c.id, {
+            statusId: rejectedStatus.id,
+          } as any);
+          await storage.createContractStatusChangeLog({
+            contractId: c.id,
+            oldStatusId: c.statusId,
+            newStatusId: rejectedStatus.id,
+            changedByUserId: req.appUser?.id || null,
+            parameterValues: {},
+          });
+          rejectedContractIds.push(c.id);
+        }
       }
+      await storage.updateContractInventory(inventoryId, { isAccepted: true } as any);
       await logAudit(req, {
         action: "UPDATE",
         module: "sprievodka_accept",
