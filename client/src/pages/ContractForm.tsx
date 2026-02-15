@@ -297,6 +297,16 @@ function StatusTabContent(props: StatusTabContentProps) {
             {currentStatus.isCommissionable && <Badge variant="outline" className="text-xs">Provizna</Badge>}
             {currentStatus.isFinal && <Badge variant="outline" className="text-xs">Finalna</Badge>}
           </div>
+        ) : !contractId && !statuses ? (
+          <div id="status-current-loading" className="flex items-center gap-2">
+            <Loader2 className="w-4 h-4 animate-spin" />
+            <span className="text-sm text-muted-foreground">Nacitavam stavy...</span>
+          </div>
+        ) : !contractId ? (
+          <div id="status-current-default" className="flex items-center gap-2 flex-wrap">
+            <span className="text-sm text-muted-foreground">Aktualny stav:</span>
+            <span className="text-sm font-semibold" data-testid="text-current-status">Nahratá do systému</span>
+          </div>
         ) : (
           <span className="text-sm text-muted-foreground" data-testid="text-no-current-status">Bez aktualneho stavu</span>
         )}
