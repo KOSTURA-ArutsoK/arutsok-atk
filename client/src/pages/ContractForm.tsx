@@ -1096,7 +1096,7 @@ export default function ContractForm() {
   })();
 
   return (
-    <div className="flex flex-col h-full overflow-y-auto" data-testid="contract-form-root">
+    <div className="flex flex-col" data-testid="contract-form-root">
       <div className="flex-none flex items-center gap-3 px-3 py-2 border-b border-border flex-wrap">
         <Button
           variant="ghost"
