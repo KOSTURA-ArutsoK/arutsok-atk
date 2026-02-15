@@ -704,9 +704,11 @@ export default function ContractForm() {
         <h1 className="text-lg font-bold" data-testid="text-form-title">
           {isEditing ? "Upravit zmluvu" : "Nova zmluva"}
         </h1>
-        {existingContract?.uid && (
-          <Badge variant="outline" data-testid="badge-contract-uid">{existingContract.uid}</Badge>
-        )}
+        <div data-testid="badge-uid-container">
+          {existingContract?.uid && (
+            <Badge variant="outline" data-testid="badge-contract-uid">{existingContract.uid}</Badge>
+          )}
+        </div>
       </div>
 
       <div className="flex-none border-b border-border bg-card/50">
@@ -733,7 +735,7 @@ export default function ContractForm() {
       </div>
 
       <div className="flex-1 overflow-hidden">
-        <div className="h-full overflow-y-auto p-3">
+        <div className="h-full overflow-y-auto p-3" key={`tab-content-${activeTab}`}>
           {activeTab === "vseobecne" && (
             <div className="max-w-5xl space-y-[clamp(0.35rem,0.8vh,0.75rem)]" data-testid="section-vseobecne">
 
@@ -1024,12 +1026,14 @@ export default function ContractForm() {
                 </CompactField>
               </div>
 
-              {sectorProductId && panelsLoading && (
-                <div className="flex items-center gap-2 p-2 text-sm text-muted-foreground">
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                  Nacitavam panely...
-                </div>
-              )}
+              <div data-testid="panels-loading-container">
+                {sectorProductId && panelsLoading && (
+                  <div className="flex items-center gap-2 p-2 text-sm text-muted-foreground">
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    Nacitavam panely...
+                  </div>
+                )}
+              </div>
 
               {sectorProductId && productPanels && productPanels.length > 0 && (() => {
                 const productPanelIds = new Set(productPanels.map(p => p.id));
@@ -1160,11 +1164,13 @@ export default function ContractForm() {
                 );
               })()}
 
-              {sectorProductId && productPanels && productPanels.length === 0 && (
-                <p className="text-sm text-muted-foreground" data-testid="text-no-panels">
-                  Vybrany produkt nema priradene panely s parametrami.
-                </p>
-              )}
+              <div data-testid="no-panels-container">
+                {sectorProductId && productPanels && productPanels.length === 0 && (
+                  <p className="text-sm text-muted-foreground" data-testid="text-no-panels">
+                    Vybrany produkt nema priradene panely s parametrami.
+                  </p>
+                )}
+              </div>
             </div>
           )}
 
@@ -1226,7 +1232,8 @@ export default function ContractForm() {
                       )}
                     </div>
 
-                    {contractId && (
+                    <div data-testid="status-change-form-container">
+                      {contractId ? (
                       <Card>
                         <CardContent className="p-4 space-y-0">
                           <div className="space-y-4" data-testid="section-status-vseobecne">
@@ -1238,9 +1245,11 @@ export default function ContractForm() {
                               {filteredStatuses.filter(s => s.id !== (statusId ? parseInt(statusId) : -1)).length === 0 ? (
                                 <div className="p-3 border rounded-md text-center" data-testid="text-no-statuses">
                                   <p className="text-sm text-muted-foreground">Ziadne stavy nie su k dispozicii.</p>
-                                  {!contractSectorId && !contractSectionId && !sectorProductId && (
-                                    <p className="text-xs text-muted-foreground mt-1">Nastavte sektor, sekciu a produkt v karte "Udaje o zmluve".</p>
-                                  )}
+                                  <div data-testid="hint-set-hierarchy">
+                                    {!contractSectorId && !contractSectionId && !sectorProductId && (
+                                      <p className="text-xs text-muted-foreground mt-1">Nastavte sektor, sekciu a produkt v karte "Udaje o zmluve".</p>
+                                    )}
+                                  </div>
                                 </div>
                               ) : (
                                 <Select value={statusFormStatusId} onValueChange={setStatusFormStatusId}>
@@ -1474,7 +1483,10 @@ export default function ContractForm() {
                           </div>
                         </CardContent>
                       </Card>
-                    )}
+                      ) : (
+                        <p className="text-sm text-muted-foreground py-2" data-testid="text-save-first">Najprv ulozte zmluvu pre zmenu stavu.</p>
+                      )}
+                    </div>
 
                     <div data-testid="status-history-container">
                       {contractId && statusChangeLogs && statusChangeLogs.length > 0 ? (
