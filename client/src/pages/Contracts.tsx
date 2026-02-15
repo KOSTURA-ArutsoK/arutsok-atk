@@ -1117,7 +1117,7 @@ export default function Contracts() {
     { id: 1, label: "Čakajúce na odoslanie", icon: Inbox, color: "text-amber-500", bgColor: "bg-amber-500/15", count: activeContracts.length },
     { id: 2, label: "Odoslané na sprievodke", icon: Send, color: "text-blue-500", bgColor: "bg-blue-500/15", count: activeDispatched.length },
     { id: 3, label: "Neprijaté zmluvy – výhrady", icon: CheckCircle2, color: "text-red-500", bgColor: "bg-red-500/15", count: activeRejected.length },
-    { id: 4, label: "Archív zmlúv", icon: Archive, color: "text-muted-foreground", bgColor: "bg-muted/30", count: activeAccepted.length + activeArchived.length },
+    { id: 4, label: "Archív zmlúv", icon: Archive, color: "text-muted-foreground", bgColor: "bg-muted/30", count: activeArchived.length },
   ];
 
   function filterBySearch(list: Contract[]) {
@@ -1429,14 +1429,14 @@ export default function Contracts() {
           <Card data-testid="folder-archiv">
             <div className="flex items-center gap-3 p-3 border-b">
               <Archive className="w-4 h-4 text-muted-foreground shrink-0" />
-              <p className="text-xs text-muted-foreground">Prijate zmluvy a zmluvy starsie ako 1 rok.</p>
+              <p className="text-xs text-muted-foreground">Neprijate zmluvy starsie ako 100 dni.</p>
             </div>
             <CardContent className="p-0">
-              {(isLoadingAccepted || isLoadingArchived) ? (
+              {isLoadingArchived ? (
                 <div className="flex items-center justify-center py-8"><Loader2 className="w-5 h-5 animate-spin" /></div>
-              ) : filterBySearch([...activeAccepted, ...activeArchived]).length === 0 ? (
+              ) : filterBySearch(activeArchived).length === 0 ? (
                 <p className="text-sm text-muted-foreground text-center py-8" data-testid="text-no-archiv">Ziadne archivovane zmluvy</p>
-              ) : renderContractTable(filterBySearch([...activeAccepted, ...activeArchived]), { showStatus: true, showRegistration: true, showActions: false })}
+              ) : renderContractTable(filterBySearch(activeArchived), { showStatus: true, showRegistration: true, showActions: false })}
             </CardContent>
           </Card>
         </div>

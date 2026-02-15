@@ -83,7 +83,7 @@ import {
   type ContractStatusParameter, type InsertContractStatusParameter,
   type ContractStatusChangeLog, type InsertContractStatusChangeLog,
 } from "@shared/schema";
-import { eq, and, or, ne, like, sql, lte, gte, desc, isNull, isNotNull, inArray } from "drizzle-orm";
+import { eq, and, or, ne, like, sql, lte, gte, gt, desc, isNull, isNotNull, inArray } from "drizzle-orm";
 
 export interface IStorage {
   generateUID(stateCode: string, continentCode?: string): Promise<string>;
@@ -1515,12 +1515,15 @@ export class DatabaseStorage implements IStorage {
   async getRejectedContracts(): Promise<Contract[]> {
     const rejectedStatus = await this.getSystemContractStatusByName("Neprijata - vyhrady");
     if (!rejectedStatus) return [];
+    const hundredDaysAgo = new Date();
+    hundredDaysAgo.setDate(hundredDaysAgo.getDate() - 100);
     return await db.select().from(contracts)
       .where(and(
         eq(contracts.isDeleted, false),
-        eq(contracts.statusId, rejectedStatus.id)
+        eq(contracts.statusId, rejectedStatus.id),
+        gt(contracts.updatedAt, hundredDaysAgo)
       ))
-      .orderBy(sql`${contracts.dispatchedAt} DESC`);
+      .orderBy(sql`${contracts.updatedAt} DESC`);
   }
 
   // === Contract Templates ===
@@ -1735,17 +1738,17 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getArchivedContracts(): Promise<Contract[]> {
-    const acceptedStatus = await this.getSystemContractStatusByName("Prijata centrom - OK");
-    if (!acceptedStatus) return [];
-    const oneYearAgo = new Date();
-    oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1);
+    const rejectedStatus = await this.getSystemContractStatusByName("Neprijata - vyhrady");
+    if (!rejectedStatus) return [];
+    const hundredDaysAgo = new Date();
+    hundredDaysAgo.setDate(hundredDaysAgo.getDate() - 100);
     return await db.select().from(contracts)
       .where(and(
         eq(contracts.isDeleted, false),
-        eq(contracts.statusId, acceptedStatus.id),
-        lte(contracts.acceptedAt, oneYearAgo)
+        eq(contracts.statusId, rejectedStatus.id),
+        lte(contracts.updatedAt, hundredDaysAgo)
       ))
-      .orderBy(sql`${contracts.acceptedAt} DESC`);
+      .orderBy(sql`${contracts.updatedAt} DESC`);
   }
 
   async getContractPasswords(contractId: number): Promise<ContractPassword[]> {
