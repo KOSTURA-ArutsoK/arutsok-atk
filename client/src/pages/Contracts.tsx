@@ -1112,7 +1112,7 @@ export default function Contracts() {
     { id: 1, label: "Nahravanie zmluv", icon: Upload, color: "text-blue-500", bgColor: "bg-blue-500/15", count: activeContracts.length },
     { id: 2, label: "Cakajuce na prijatie", icon: Inbox, color: "text-amber-500", bgColor: "bg-amber-500/15", count: activeDispatched.length },
     { id: 3, label: "Neprijate zmluvy \u2013 vyhrady", icon: XCircle, color: "text-red-500", bgColor: "bg-red-500/15", count: activeRejected.length },
-    { id: 4, label: "Archiv zmluv", icon: Archive, color: "text-muted-foreground", bgColor: "bg-muted/30", count: activeArchived.length },
+    { id: 4, label: "Archiv zmluv z neprijatymi zmluvami - vyhrady", icon: Archive, color: "text-muted-foreground", bgColor: "bg-muted/30", count: activeArchived.length },
   ];
 
   function filterBySearch(list: Contract[]) {

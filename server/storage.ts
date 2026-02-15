@@ -1513,19 +1513,14 @@ export class DatabaseStorage implements IStorage {
   // === Rejected Contracts (ArutsoK 49) ===
 
   async getRejectedContracts(): Promise<Contract[]> {
-    const acceptedStatus = await this.getSystemContractStatusByName("Prijata centrom - OK");
-    if (!acceptedStatus) return [];
-    return await db.select({ contract: contracts }).from(contracts)
-      .innerJoin(contractInventories, eq(contracts.inventoryId, contractInventories.id))
+    const rejectedStatus = await this.getSystemContractStatusByName("Neprijata - vyhrady");
+    if (!rejectedStatus) return [];
+    return await db.select().from(contracts)
       .where(and(
         eq(contracts.isDeleted, false),
-        isNotNull(contracts.inventoryId),
-        isNotNull(contracts.dispatchedAt),
-        isNull(contracts.acceptedAt),
-        eq(contractInventories.isAccepted, true)
+        eq(contracts.statusId, rejectedStatus.id)
       ))
-      .orderBy(sql`${contracts.dispatchedAt} DESC`)
-      .then(rows => rows.map(r => r.contract));
+      .orderBy(sql`${contracts.dispatchedAt} DESC`);
   }
 
   // === Contract Templates ===

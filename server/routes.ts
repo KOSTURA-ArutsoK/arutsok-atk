@@ -1686,23 +1686,38 @@ export async function registerRoutes(
       if (!acceptedStatus) {
         return res.status(500).json({ message: "Systemovy stav 'Prijata centrom - OK' neexistuje" });
       }
+      let rejectedStatus = await storage.getSystemContractStatusByName("Neprijata - vyhrady");
+      if (!rejectedStatus) {
+        rejectedStatus = await storage.createContractStatus({
+          name: "Neprijata - vyhrady",
+          color: "#ef4444",
+          sortOrder: 999,
+          isCommissionable: false,
+          isFinal: false,
+          assignsNumber: false,
+          definesContractEnd: false,
+          isActive: true,
+          isSystem: true,
+        } as any);
+      }
       const globalNumbers: Record<number, number> = {};
-      for (const contractId of contractIds) {
-        const contract = await storage.getContract(Number(contractId));
+      const acceptedContractIds = contractIds.map(Number);
+      for (const cId of acceptedContractIds) {
+        const contract = await storage.getContract(cId);
         if (!contract) continue;
-        if (contract.globalNumber) continue;
+        if (contract.statusId === acceptedStatus.id) continue;
         const updateData: any = {
           statusId: acceptedStatus.id,
           acceptedAt: new Date(),
         };
-        if (acceptedStatus.assignsNumber) {
+        if (acceptedStatus.assignsNumber && !contract.globalNumber) {
           const globalNum = await storage.getNextCounterValue("global_contract_number");
           updateData.globalNumber = globalNum;
-          globalNumbers[Number(contractId)] = globalNum;
+          globalNumbers[cId] = globalNum;
         }
-        await storage.updateContract(Number(contractId), updateData);
+        await storage.updateContract(cId, updateData);
         await storage.createContractStatusChangeLog({
-          contractId: Number(contractId),
+          contractId: cId,
           oldStatusId: contract.statusId,
           newStatusId: acceptedStatus.id,
           changedByUserId: req.appUser?.id || null,
@@ -1710,20 +1725,29 @@ export async function registerRoutes(
         });
       }
       const allContractsInInventory = await storage.getContracts({ inventoryId });
-      const allAccepted = allContractsInInventory.every(c => 
-        contractIds.includes(c.id) || c.statusId === acceptedStatus.id
-      );
-      if (allAccepted) {
-        await storage.updateContractInventory(inventoryId, { isAccepted: true } as any);
+      const rejectedContractIds: number[] = [];
+      for (const c of allContractsInInventory) {
+        if (!acceptedContractIds.includes(c.id) && c.statusId !== acceptedStatus.id && c.statusId !== rejectedStatus.id) {
+          await storage.updateContract(c.id, { statusId: rejectedStatus.id });
+          await storage.createContractStatusChangeLog({
+            contractId: c.id,
+            oldStatusId: c.statusId,
+            newStatusId: rejectedStatus.id,
+            changedByUserId: req.appUser?.id || null,
+            parameterValues: {},
+          });
+          rejectedContractIds.push(c.id);
+        }
       }
+      await storage.updateContractInventory(inventoryId, { isAccepted: true } as any);
       await logAudit(req, {
         action: "UPDATE",
         module: "sprievodka_accept",
         entityId: inventoryId,
         entityName: target.name,
-        newData: { contractIds, statusId: acceptedStatus.id, allAccepted, globalNumbers },
+        newData: { contractIds: acceptedContractIds, rejectedContractIds, statusId: acceptedStatus.id, rejectedStatusId: rejectedStatus.id, globalNumbers },
       });
-      res.json({ success: true, acceptedCount: contractIds.length, allAccepted, globalNumbers });
+      res.json({ success: true, acceptedCount: acceptedContractIds.length, rejectedCount: rejectedContractIds.length, globalNumbers });
     } catch (err) {
       console.error("Accept error:", err);
       res.status(500).json({ message: "Internal error" });
