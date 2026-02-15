@@ -1149,13 +1149,15 @@ export default function Contracts() {
             )}
             {showOrder && <TableHead className="w-[40px] text-center">#</TableHead>}
             <TableHead>Cislo zmluvy</TableHead>
+            <TableHead>Cislo navrhu</TableHead>
             {showRegistration && <TableHead>Poradove cislo</TableHead>}
             <TableHead>Klient</TableHead>
             <TableHead>Partner</TableHead>
             <TableHead>Produkt</TableHead>
             {showStatus && <TableHead>Stav</TableHead>}
-            <TableHead>Suma</TableHead>
-            <TableHead>Datum podpisu</TableHead>
+            <TableHead>Lehotne poistne</TableHead>
+            <TableHead>Rocne poistne</TableHead>
+            <TableHead>Vytvorenie zmluvy</TableHead>
             {showActions && <TableHead className="text-right">Akcie</TableHead>}
           </TableRow>
         </TableHeader>
@@ -1184,6 +1186,7 @@ export default function Contracts() {
                     {contract.contractNumber || "-"}
                   </span>
                 </TableCell>
+                <TableCell className="text-sm font-mono" data-testid={`text-contract-proposal-${contract.id}`}>{contract.proposalNumber || "-"}</TableCell>
                 {showRegistration && (
                   <TableCell className="font-mono text-sm" data-testid={`text-contract-registration-${contract.id}`}>
                     {contract.globalNumber ? (
@@ -1212,6 +1215,7 @@ export default function Contracts() {
                   </TableCell>
                 )}
                 <TableCell className="text-sm font-mono">{formatAmount(contract.premiumAmount, contract.currency)}</TableCell>
+                <TableCell className="text-sm font-mono">{formatAmount(contract.annualPremium, contract.currency)}</TableCell>
                 <TableCell className="text-sm">{formatDate(contract.signedDate)}</TableCell>
                 {showActions && (
                   <TableCell className="text-right">
@@ -1363,11 +1367,13 @@ export default function Contracts() {
                                   </TableHead>
                                   <TableHead className="w-[40px] text-center">#</TableHead>
                                   <TableHead>Cislo zmluvy</TableHead>
+                                  <TableHead>Cislo navrhu</TableHead>
                                   <TableHead>Klient</TableHead>
                                   <TableHead>Partner</TableHead>
                                   <TableHead>Produkt</TableHead>
-                                  <TableHead>Suma</TableHead>
-                                  <TableHead>Datum podpisu</TableHead>
+                                  <TableHead>Lehotne poistne</TableHead>
+                                  <TableHead>Rocne poistne</TableHead>
+                                  <TableHead>Vytvorenie zmluvy</TableHead>
                                   <TableHead className="text-right">Akcie</TableHead>
                                 </TableRow>
                               </TableHeader>
@@ -1384,10 +1390,12 @@ export default function Contracts() {
                                         {contract.contractNumber || "-"}
                                       </span>
                                     </TableCell>
+                                    <TableCell className="text-sm font-mono">{contract.proposalNumber || "-"}</TableCell>
                                     <TableCell className="text-sm">{getSubjectDisplay(contract.subjectId)}</TableCell>
                                     <TableCell className="text-sm">{getPartnerName(contract)}</TableCell>
                                     <TableCell className="text-sm">{getProductName(contract)}</TableCell>
                                     <TableCell className="text-sm font-mono">{formatAmount(contract.premiumAmount, contract.currency)}</TableCell>
+                                    <TableCell className="text-sm font-mono">{formatAmount(contract.annualPremium, contract.currency)}</TableCell>
                                     <TableCell className="text-sm">{formatDate(contract.signedDate)}</TableCell>
                                     <TableCell className="text-right">
                                       <Button size="icon" variant="ghost" onClick={() => openView(contract)} data-testid={`button-view-dispatched-${contract.id}`}>
@@ -1586,14 +1594,16 @@ export default function Contracts() {
               <TableHeader>
                 <TableRow>
                   <TableHead>Cislo zmluvy</TableHead>
+                  <TableHead>Cislo navrhu</TableHead>
                   <TableHead>Poradove cislo</TableHead>
                   <TableHead>Klient</TableHead>
                   <TableHead>Partner</TableHead>
                   <TableHead>Produkt</TableHead>
                   <TableHead>Stav</TableHead>
                   <TableHead>Sprievodka</TableHead>
-                  <TableHead>Suma</TableHead>
-                  <TableHead>Datum podpisu</TableHead>
+                  <TableHead>Lehotne poistne</TableHead>
+                  <TableHead>Rocne poistne</TableHead>
+                  <TableHead>Vytvorenie zmluvy</TableHead>
                   <TableHead className="text-right">Akcie</TableHead>
                 </TableRow>
               </TableHeader>
@@ -1610,6 +1620,7 @@ export default function Contracts() {
                           {contract.contractNumber || "-"}
                         </span>
                       </TableCell>
+                      <TableCell className="text-sm font-mono" data-testid={`text-contract-proposal-${contract.id}`}>{contract.proposalNumber || "-"}</TableCell>
                       <TableCell className="font-mono text-sm" data-testid={`text-contract-registration-${contract.id}`}>
                         {contract.globalNumber ? (
                           <span className="font-semibold">{contract.globalNumber}</span>
@@ -1641,6 +1652,9 @@ export default function Contracts() {
                       </TableCell>
                       <TableCell className="text-sm font-mono" data-testid={`text-contract-amount-${contract.id}`}>
                         {formatAmount(contract.premiumAmount, contract.currency)}
+                      </TableCell>
+                      <TableCell className="text-sm font-mono" data-testid={`text-contract-annual-${contract.id}`}>
+                        {formatAmount(contract.annualPremium, contract.currency)}
                       </TableCell>
                       <TableCell className="text-sm" data-testid={`text-contract-date-${contract.id}`}>
                         {formatDate(contract.signedDate)}
