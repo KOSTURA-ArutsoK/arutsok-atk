@@ -80,14 +80,14 @@ const TABS = [
 type TabKey = typeof TABS[number]["key"];
 
 const PAYMENT_FREQUENCIES = [
-  { value: "mesacne", label: "Mesacne" },
-  { value: "stvrtrocne", label: "Stvrtrocne" },
-  { value: "polrocne", label: "Polrocne" },
-  { value: "rocne", label: "Rocne" },
-  { value: "dvojrocne", label: "Dvojrocne" },
-  { value: "trojrocne", label: "Trojrocne" },
-  { value: "jednorazove", label: "Jednorazove" },
-  { value: "bez-platobneho-obdobia", label: "Bez platobneho obdobia" },
+  { value: "mesacne", label: "Mesacne", multiplier: 12 },
+  { value: "stvrtrocne", label: "Stvrtrocne", multiplier: 4 },
+  { value: "polrocne", label: "Polrocne", multiplier: 2 },
+  { value: "rocne", label: "Rocne", multiplier: 1 },
+  { value: "dvojrocne", label: "Dvojrocne", multiplier: 0.5 },
+  { value: "trojrocne", label: "Trojrocne", multiplier: 1 / 3 },
+  { value: "jednorazove", label: "Jednorazove", multiplier: 1 },
+  { value: "bez-platobneho-obdobia", label: "Bez platobneho obdobia", multiplier: 1 },
 ];
 
 const CONTRACT_TYPES = [
@@ -669,6 +669,7 @@ export default function ContractForm() {
   const [expiryDate, setExpiryDate] = useState("");
   const [premiumAmount, setPremiumAmount] = useState("");
   const [annualPremium, setAnnualPremium] = useState("");
+  const [annualPremiumUserEdited, setAnnualPremiumUserEdited] = useState(!contractId);
   const [commissionAmount, setCommissionAmount] = useState("");
   const [currency, setCurrency] = useState("EUR");
   const [notes, setNotes] = useState("");
@@ -894,6 +895,19 @@ export default function ContractForm() {
       }
     }
   }, [existingContract, allSPForEdit, allSectionsForEdit]);
+
+  useEffect(() => {
+    if (!annualPremiumUserEdited) return;
+    const premium = parseFloat(premiumAmount);
+    if (!isNaN(premium) && premium > 0) {
+      const freq = PAYMENT_FREQUENCIES.find(f => f.value === paymentFrequency);
+      const multiplier = freq ? freq.multiplier : 1;
+      const annual = Math.round(premium * multiplier * 100) / 100;
+      setAnnualPremium(annual.toString());
+    } else {
+      setAnnualPremium("");
+    }
+  }, [premiumAmount, paymentFrequency, annualPremiumUserEdited]);
 
   useEffect(() => {
     if (savedParamValues && savedParamValues.length > 0 && productPanels) {
@@ -1275,7 +1289,7 @@ export default function ContractForm() {
 
               <div className="grid grid-cols-4 gap-[clamp(0.5rem,1vw,1rem)]">
                 <CompactField label={`Frekvencia platenia${isFieldRequired("paymentFrequency") ? " *" : ""}`}>
-                  <Select value={paymentFrequency} onValueChange={setPaymentFrequency}>
+                  <Select value={paymentFrequency} onValueChange={v => { setAnnualPremiumUserEdited(true); setPaymentFrequency(v); }}>
                     <SelectTrigger data-testid="select-payment-frequency">
                       <SelectValue placeholder="Vyberte frekvenciu" />
                     </SelectTrigger>
@@ -1287,10 +1301,10 @@ export default function ContractForm() {
                   </Select>
                 </CompactField>
                 <CompactField label="Lehotne poistne *">
-                  <Input type="number" value={premiumAmount} onChange={e => setPremiumAmount(e.target.value)} className="font-mono" data-testid="input-premium-amount" />
+                  <Input type="number" value={premiumAmount} onChange={e => { setAnnualPremiumUserEdited(true); setPremiumAmount(e.target.value); }} className="font-mono" data-testid="input-premium-amount" />
                 </CompactField>
                 <CompactField label={`Rocne poistne${isFieldRequired("annualPremium") ? " *" : ""}`}>
-                  <Input type="number" value={annualPremium} onChange={e => setAnnualPremium(e.target.value)} className="font-mono" data-testid="input-annual-premium" />
+                  <Input type="number" value={annualPremium} readOnly className="font-mono bg-muted/50" data-testid="input-annual-premium" />
                 </CompactField>
                 <div className="flex items-end">
                   <Button
