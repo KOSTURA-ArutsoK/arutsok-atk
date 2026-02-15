@@ -1261,7 +1261,7 @@ export default function ContractForm() {
                 </CompactField>
               </div>
 
-              <div className="grid grid-cols-4 gap-[clamp(0.5rem,1vw,1rem)]">
+              <div className="grid grid-cols-3 gap-[clamp(0.5rem,1vw,1rem)]">
                 <CompactField label="Datum podpisu *">
                   <Input type="date" value={signedDate} onChange={e => setSignedDate(e.target.value)} data-testid="input-signed-date" />
                 </CompactField>
@@ -1271,12 +1271,12 @@ export default function ContractForm() {
                 <CompactField label="Koniec zmluvy">
                   <Input type="date" value={expiryDate} onChange={e => setExpiryDate(e.target.value)} data-testid="input-expiry-date" />
                 </CompactField>
+              </div>
+
+              <div className="grid grid-cols-4 gap-[clamp(0.5rem,1vw,1rem)]">
                 <CompactField label="Lehotne poistne *">
                   <Input type="number" value={premiumAmount} onChange={e => setPremiumAmount(e.target.value)} className="font-mono" data-testid="input-premium-amount" />
                 </CompactField>
-              </div>
-
-              <div className="grid grid-cols-3 gap-[clamp(0.5rem,1vw,1rem)]">
                 <CompactField label={`Frekvencia platenia${isFieldRequired("paymentFrequency") ? " *" : ""}`}>
                   <Select value={paymentFrequency} onValueChange={setPaymentFrequency}>
                     <SelectTrigger data-testid="select-payment-frequency">
