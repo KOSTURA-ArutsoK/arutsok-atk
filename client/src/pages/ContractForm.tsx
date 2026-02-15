@@ -924,6 +924,14 @@ export default function ContractForm() {
       apiRequest("POST", `/api/contracts/${data.contractId}/parameter-values`, { values: data.values }),
   });
 
+  function invalidateAllContractQueries() {
+    queryClient.invalidateQueries({ queryKey: ["/api/contracts"] });
+    queryClient.invalidateQueries({ queryKey: ["/api/contracts/dispatched"] });
+    queryClient.invalidateQueries({ queryKey: ["/api/contracts/accepted"] });
+    queryClient.invalidateQueries({ queryKey: ["/api/contracts/rejected"] });
+    queryClient.invalidateQueries({ queryKey: ["/api/contracts/archived"] });
+  }
+
   const createMutation = useMutation({
     mutationFn: (data: any) => apiRequest("POST", "/api/contracts", data),
     onSuccess: async (res: any) => {
@@ -935,7 +943,7 @@ export default function ContractForm() {
           await apiRequest("POST", `/api/contracts/${created.id}/passwords`, { password: contractPassword.trim(), note: "" });
         }
       }
-      queryClient.invalidateQueries({ queryKey: ["/api/contracts"] });
+      invalidateAllContractQueries();
       toast({ title: "Uspech", description: "Zmluva vytvorena" });
       navigate(`/contracts/${created.id}/edit`);
     },
@@ -949,10 +957,10 @@ export default function ContractForm() {
         const paramEntries = buildParamEntries();
         await saveParamValuesMutation.mutateAsync({ contractId, values: paramEntries });
       }
-      queryClient.invalidateQueries({ queryKey: ["/api/contracts"] });
+      invalidateAllContractQueries();
       queryClient.invalidateQueries({ queryKey: ["/api/contracts", contractId, "parameter-values"] });
       toast({ title: "Uspech", description: "Zmluva aktualizovana" });
-      navigate("/contracts");
+      navigate(`/contracts/${contractId}/edit`);
     },
     onError: () => toast({ title: "Chyba", description: "Nepodarilo sa aktualizovat zmluvu", variant: "destructive" }),
   });
@@ -1090,11 +1098,11 @@ export default function ContractForm() {
         <Button
           variant="ghost"
           size="sm"
-          onClick={() => navigate("/contracts")}
+          onClick={() => navigate("/evidencia-zmluv")}
           data-testid="button-back-to-list"
         >
           <ArrowLeft className="w-4 h-4 mr-1" />
-          Spat na zoznam
+          Spat na evidenciu
         </Button>
         <h1 className="text-lg font-bold" data-testid="text-form-title">
           {isEditing ? "Upravit zmluvu" : "Nova zmluva"}
@@ -1696,34 +1704,35 @@ export default function ContractForm() {
           Predchadzajuci krok
         </Button>
 
-        {activeTab === TABS[TABS.length - 1].key ? (
+        <Button
+          size="sm"
+          onClick={handleSubmit}
+          disabled={isPending}
+          tabIndex={1}
+          data-testid="button-save-contract"
+        >
+          {isPending ? (
+            <>
+              <Loader2 className="w-4 h-4 mr-1 animate-spin" />
+              Ukladam...
+            </>
+          ) : (
+            <>
+              <Save className="w-4 h-4 mr-1" />
+              Ulozit zmluvu
+            </>
+          )}
+        </Button>
+
+        {activeTab !== TABS[TABS.length - 1].key && (
           <Button
             size="sm"
-            onClick={handleSubmit}
-            disabled={isPending}
-            tabIndex={1}
-            data-testid="button-save-contract"
-          >
-            {isPending ? (
-              <>
-                <Loader2 className="w-4 h-4 mr-1 animate-spin" />
-                Ukladam...
-              </>
-            ) : (
-              <>
-                <Save className="w-4 h-4 mr-1" />
-                Ulozit zmluvu
-              </>
-            )}
-          </Button>
-        ) : (
-          <Button
-            size="sm"
+            variant="outline"
             onClick={() => {
               const idx = TABS.findIndex(t => t.key === activeTab);
               if (idx < TABS.length - 1) setActiveTab(TABS[idx + 1].key);
             }}
-            tabIndex={1}
+            tabIndex={2}
             data-testid="button-next-step"
           >
             Pokracovat
