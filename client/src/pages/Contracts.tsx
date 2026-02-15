@@ -1111,7 +1111,7 @@ export default function Contracts() {
   const folderDefs = [
     { id: 1, label: "Nahravanie zmluv", icon: Upload, color: "text-blue-500", bgColor: "bg-blue-500/15", count: activeContracts.length },
     { id: 2, label: "Cakajuce na prijatie", icon: Inbox, color: "text-amber-500", bgColor: "bg-amber-500/15", count: activeDispatched.length },
-    { id: 3, label: "Neprijate zmluvy \u2013 vyhrady", icon: XCircle, color: "text-red-500", bgColor: "bg-red-500/15", count: activeRejected.length },
+    { id: 3, label: "Neprijat\u00e9 zmluvy \u2013 v\u00fdhrady", icon: XCircle, color: "text-red-500", bgColor: "bg-red-500/15", count: activeRejected.length },
     { id: 4, label: "Archiv zmluv (neprijate zmluvy)", icon: Archive, color: "text-muted-foreground", bgColor: "bg-muted/30", count: activeArchived.length },
   ];
 
@@ -1415,7 +1415,7 @@ export default function Contracts() {
                 <div className="flex items-center justify-center py-8"><Loader2 className="w-5 h-5 animate-spin" /></div>
               ) : filteredRejected.length === 0 ? (
                 <p className="text-sm text-muted-foreground text-center py-8" data-testid="text-no-neprijate">Ziadne neprijate zmluvy</p>
-              ) : renderContractTable(filteredRejected, { showStatus: true, showRegistration: false, showActions: false })}
+              ) : renderContractTable(filteredRejected, { showStatus: true, showRegistration: false, showActions: true })}
             </CardContent>
           </Card>
         )}
