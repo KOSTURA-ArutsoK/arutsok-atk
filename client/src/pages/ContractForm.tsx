@@ -288,28 +288,30 @@ function StatusTabContent(props: StatusTabContentProps) {
 
   return (
     <div id="status-tab-root" className="space-y-4" data-testid="section-stavy">
-      <div id="status-current-display" className="flex items-center gap-2 flex-wrap" data-testid="current-status-display">
-        {currentStatus ? (
-          <div id="status-current-info" className="flex items-center gap-2 flex-wrap">
-            <span className="text-sm text-muted-foreground">Aktualny stav:</span>
-            <div className="w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: currentStatus.color }} />
-            <span className="text-sm font-semibold" data-testid="text-current-status">{currentStatus.name}</span>
-            {currentStatus.isCommissionable && <Badge variant="outline" className="text-xs">Provizna</Badge>}
-            {currentStatus.isFinal && <Badge variant="outline" className="text-xs">Finalna</Badge>}
-          </div>
-        ) : !contractId && !statuses ? (
-          <div id="status-current-loading" className="flex items-center gap-2">
-            <Loader2 className="w-4 h-4 animate-spin" />
-            <span className="text-sm text-muted-foreground">Nacitavam stavy...</span>
-          </div>
-        ) : !contractId ? (
-          <div id="status-current-default" className="flex items-center gap-2 flex-wrap">
-            <span className="text-sm text-muted-foreground">Aktualny stav:</span>
-            <span className="text-sm font-semibold" data-testid="text-current-status">Nahratá do systému</span>
-          </div>
-        ) : (
-          <span className="text-sm text-muted-foreground" data-testid="text-no-current-status">Bez aktualneho stavu</span>
-        )}
+      <div id="status-current-display" data-testid="current-status-display">
+        <div id="status-current-inner" className="flex items-center gap-2 flex-wrap">
+          {currentStatus ? (
+            <>
+              <span className="text-sm text-muted-foreground">Aktualny stav:</span>
+              <div className="w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: currentStatus.color }} />
+              <span className="text-sm font-semibold" data-testid="text-current-status">{currentStatus.name}</span>
+              <span id="status-badge-commissionable">{currentStatus.isCommissionable ? <Badge variant="outline" className="text-xs">Provizna</Badge> : null}</span>
+              <span id="status-badge-final">{currentStatus.isFinal ? <Badge variant="outline" className="text-xs">Finalna</Badge> : null}</span>
+            </>
+          ) : !contractId && !statuses ? (
+            <>
+              <Loader2 className="w-4 h-4 animate-spin" />
+              <span className="text-sm text-muted-foreground">Nacitavam stavy...</span>
+            </>
+          ) : !contractId ? (
+            <>
+              <span className="text-sm text-muted-foreground">Aktualny stav:</span>
+              <span className="text-sm font-semibold" data-testid="text-current-status">Nahratá do systému</span>
+            </>
+          ) : (
+            <span className="text-sm text-muted-foreground" data-testid="text-no-current-status">Bez aktualneho stavu</span>
+          )}
+        </div>
       </div>
 
       <div id="status-change-form-wrapper" data-testid="status-change-form-container">
@@ -320,42 +322,44 @@ function StatusTabContent(props: StatusTabContentProps) {
                 <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
                   <Settings2 className="w-3.5 h-3.5" /> Vseobecne udaje
                 </h3>
-                <div className="space-y-1.5">
+                <div id="status-select-wrapper" className="space-y-1.5">
                   <Label htmlFor="sf-new-status" data-testid="label-new-status">Novy stav zmluvy *</Label>
-                  {availableStatuses.length === 0 ? (
-                    <div className="p-3 border rounded-md text-center" data-testid="text-no-statuses">
-                      <p className="text-sm text-muted-foreground">Ziadne stavy nie su k dispozicii.</p>
-                      <div data-testid="hint-set-hierarchy">
-                        {!contractSectorId && !contractSectionId && !sectorProductId && (
-                          <p className="text-xs text-muted-foreground mt-1">Nastavte sektor, sekciu a produkt v karte "Udaje o zmluve".</p>
-                        )}
+                  <div id="status-select-content">
+                    {availableStatuses.length === 0 ? (
+                      <div className="p-3 border rounded-md text-center" data-testid="text-no-statuses">
+                        <p className="text-sm text-muted-foreground">Ziadne stavy nie su k dispozicii.</p>
+                        <div id="status-hint-hierarchy" data-testid="hint-set-hierarchy">
+                          {!contractSectorId && !contractSectionId && !sectorProductId ? (
+                            <p className="text-xs text-muted-foreground mt-1">Nastavte sektor, sekciu a produkt v karte "Udaje o zmluve".</p>
+                          ) : null}
+                        </div>
                       </div>
-                    </div>
-                  ) : (
-                    <Select value={statusFormStatusId} onValueChange={setStatusFormStatusId}>
-                      <SelectTrigger id="sf-new-status" data-testid="select-new-status">
-                        <SelectValue placeholder="Vyberte novy stav" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {availableStatuses.map(s => (
-                          <SelectItem key={s.id} value={s.id.toString()} data-testid={`option-status-${s.id}`}>
-                            <div className="flex items-center gap-2">
-                              <div className="w-3 h-3 rounded-full" style={{ backgroundColor: s.color }} />
-                              {s.name}
-                            </div>
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  )}
+                    ) : (
+                      <Select value={statusFormStatusId} onValueChange={setStatusFormStatusId}>
+                        <SelectTrigger id="sf-new-status" data-testid="select-new-status">
+                          <SelectValue placeholder="Vyberte novy stav" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {availableStatuses.map(s => (
+                            <SelectItem key={s.id} value={s.id.toString()} data-testid={`option-status-${s.id}`}>
+                              <div className="flex items-center gap-2">
+                                <div className="w-3 h-3 rounded-full" style={{ backgroundColor: s.color }} />
+                                {s.name}
+                              </div>
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    )}
+                  </div>
                 </div>
                 <div id="status-new-badges" className="flex items-center gap-2 flex-wrap min-h-0" data-testid="new-status-badges">
                   {newStatus ? (
-                    <div className="flex items-center gap-2 flex-wrap">
-                      {newStatus.isCommissionable && <Badge variant="outline" className="text-xs">Provizna</Badge>}
-                      {newStatus.isFinal && <Badge variant="outline" className="text-xs">Finalna</Badge>}
-                      {newStatus.assignsNumber && <Badge variant="outline" className="text-xs">Prideluje cislo</Badge>}
-                      {newStatus.definesContractEnd && <Badge variant="outline" className="text-xs">Ukoncenie zmluvy</Badge>}
+                    <div id="status-new-badges-inner" className="flex items-center gap-2 flex-wrap">
+                      <span id="badge-new-commissionable">{newStatus.isCommissionable ? <Badge variant="outline" className="text-xs">Provizna</Badge> : null}</span>
+                      <span id="badge-new-final">{newStatus.isFinal ? <Badge variant="outline" className="text-xs">Finalna</Badge> : null}</span>
+                      <span id="badge-new-assigns">{newStatus.assignsNumber ? <Badge variant="outline" className="text-xs">Prideluje cislo</Badge> : null}</span>
+                      <span id="badge-new-end">{newStatus.definesContractEnd ? <Badge variant="outline" className="text-xs">Ukoncenie zmluvy</Badge> : null}</span>
                     </div>
                   ) : (
                     <span className="invisible text-xs">-</span>
@@ -414,88 +418,88 @@ function StatusTabContent(props: StatusTabContentProps) {
               <div id="status-form-params" className="space-y-4" data-testid="section-status-parametre">
                 <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
                   <FileText className="w-3.5 h-3.5" /> Doplnkove parametre
-                  {totalParamCount > 0 && (
-                    <span className="text-[10px] tabular-nums font-normal">({filledParamCount}/{totalParamCount})</span>
-                  )}
+                  <span id="param-count-display">{totalParamCount > 0 ? <span className="text-[10px] tabular-nums font-normal">({filledParamCount}/{totalParamCount})</span> : null}</span>
                 </h3>
-                {!statusFormStatusId ? (
-                  <p className="text-sm text-muted-foreground py-2">Najprv vyberte novy stav vyssie</p>
-                ) : statusFormParamsLoading ? (
-                  <div className="flex items-center justify-center py-4">
-                    <Loader2 className="w-5 h-5 animate-spin" />
-                  </div>
-                ) : !statusFormParams || statusFormParams.length === 0 ? (
-                  <p className="text-sm text-muted-foreground py-2">Tento stav nema ziadne doplnkove parametre</p>
-                ) : (
-                  <div id="status-params-list" className="space-y-4">
-                    {statusFormParams
-                      .sort((a: any, b: any) => (a.sortOrder || 0) - (b.sortOrder || 0))
-                      .map((param: any) => (
-                        <div key={`param-${param.id}`} className="space-y-1.5">
-                          <Label data-testid={`label-param-${param.id}`}>
-                            {param.name}
-                            {param.isRequired && <span className="text-destructive ml-1">*</span>}
-                          </Label>
-                          {param.helpText && (
-                            <p className="text-xs text-muted-foreground">{param.helpText}</p>
-                          )}
-                          {param.paramType === "textarea" ? (
-                            <Textarea
-                              value={statusFormParamValues[param.id.toString()] || param.defaultValue || ""}
-                              onChange={e => setStatusFormParamValues(prev => ({ ...prev, [param.id.toString()]: e.target.value }))}
-                              className="resize-none min-h-[80px]"
-                              data-testid={`param-input-${param.id}`}
-                            />
-                          ) : param.paramType === "number" ? (
-                            <Input
-                              type="number"
-                              value={statusFormParamValues[param.id.toString()] || param.defaultValue || ""}
-                              onChange={e => setStatusFormParamValues(prev => ({ ...prev, [param.id.toString()]: e.target.value }))}
-                              data-testid={`param-input-${param.id}`}
-                            />
-                          ) : param.paramType === "date" ? (
-                            <Input
-                              type="date"
-                              value={statusFormParamValues[param.id.toString()] || param.defaultValue || ""}
-                              onChange={e => setStatusFormParamValues(prev => ({ ...prev, [param.id.toString()]: e.target.value }))}
-                              data-testid={`param-input-${param.id}`}
-                            />
-                          ) : param.paramType === "boolean" ? (
-                            <div className="flex items-center gap-2">
-                              <Switch
-                                checked={(statusFormParamValues[param.id.toString()] || param.defaultValue || "") === "true"}
-                                onCheckedChange={v => setStatusFormParamValues(prev => ({ ...prev, [param.id.toString()]: v ? "true" : "false" }))}
+                <div id="status-params-content">
+                  {!statusFormStatusId ? (
+                    <p className="text-sm text-muted-foreground py-2">Najprv vyberte novy stav vyssie</p>
+                  ) : statusFormParamsLoading ? (
+                    <div className="flex items-center justify-center py-4">
+                      <Loader2 className="w-5 h-5 animate-spin" />
+                    </div>
+                  ) : !statusFormParams || statusFormParams.length === 0 ? (
+                    <p className="text-sm text-muted-foreground py-2">Tento stav nema ziadne doplnkove parametre</p>
+                  ) : (
+                    <div id="status-params-list" className="space-y-4">
+                      {statusFormParams
+                        .sort((a: any, b: any) => (a.sortOrder || 0) - (b.sortOrder || 0))
+                        .map((param: any) => (
+                          <div key={`param-${param.id}`} className="space-y-1.5">
+                            <Label data-testid={`label-param-${param.id}`}>
+                              {param.name}
+                              <span>{param.isRequired ? <span className="text-destructive ml-1">*</span> : null}</span>
+                            </Label>
+                            <div id={`param-help-${param.id}`}>
+                              {param.helpText ? <p className="text-xs text-muted-foreground">{param.helpText}</p> : null}
+                            </div>
+                            {param.paramType === "textarea" ? (
+                              <Textarea
+                                value={statusFormParamValues[param.id.toString()] || param.defaultValue || ""}
+                                onChange={e => setStatusFormParamValues(prev => ({ ...prev, [param.id.toString()]: e.target.value }))}
+                                className="resize-none min-h-[80px]"
                                 data-testid={`param-input-${param.id}`}
                               />
-                              <span className="text-sm text-muted-foreground">
-                                {(statusFormParamValues[param.id.toString()] || param.defaultValue || "") === "true" ? "Ano" : "Nie"}
-                              </span>
-                            </div>
-                          ) : param.paramType === "select" ? (
-                            <Select
-                              value={statusFormParamValues[param.id.toString()] || param.defaultValue || ""}
-                              onValueChange={v => setStatusFormParamValues(prev => ({ ...prev, [param.id.toString()]: v }))}
-                            >
-                              <SelectTrigger data-testid={`param-input-${param.id}`}>
-                                <SelectValue placeholder="Vyberte..." />
-                              </SelectTrigger>
-                              <SelectContent>
-                                {(param.options || []).map((opt: string) => (
-                                  <SelectItem key={opt} value={opt}>{opt}</SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                          ) : (
-                            <Input
-                              value={statusFormParamValues[param.id.toString()] || param.defaultValue || ""}
-                              onChange={e => setStatusFormParamValues(prev => ({ ...prev, [param.id.toString()]: e.target.value }))}
-                              data-testid={`param-input-${param.id}`}
-                            />
-                          )}
-                        </div>
-                      ))}
-                  </div>
-                )}
+                            ) : param.paramType === "number" ? (
+                              <Input
+                                type="number"
+                                value={statusFormParamValues[param.id.toString()] || param.defaultValue || ""}
+                                onChange={e => setStatusFormParamValues(prev => ({ ...prev, [param.id.toString()]: e.target.value }))}
+                                data-testid={`param-input-${param.id}`}
+                              />
+                            ) : param.paramType === "date" ? (
+                              <Input
+                                type="date"
+                                value={statusFormParamValues[param.id.toString()] || param.defaultValue || ""}
+                                onChange={e => setStatusFormParamValues(prev => ({ ...prev, [param.id.toString()]: e.target.value }))}
+                                data-testid={`param-input-${param.id}`}
+                              />
+                            ) : param.paramType === "boolean" ? (
+                              <div className="flex items-center gap-2">
+                                <Switch
+                                  checked={(statusFormParamValues[param.id.toString()] || param.defaultValue || "") === "true"}
+                                  onCheckedChange={v => setStatusFormParamValues(prev => ({ ...prev, [param.id.toString()]: v ? "true" : "false" }))}
+                                  data-testid={`param-input-${param.id}`}
+                                />
+                                <span className="text-sm text-muted-foreground">
+                                  {(statusFormParamValues[param.id.toString()] || param.defaultValue || "") === "true" ? "Ano" : "Nie"}
+                                </span>
+                              </div>
+                            ) : param.paramType === "select" ? (
+                              <Select
+                                value={statusFormParamValues[param.id.toString()] || param.defaultValue || ""}
+                                onValueChange={v => setStatusFormParamValues(prev => ({ ...prev, [param.id.toString()]: v }))}
+                              >
+                                <SelectTrigger data-testid={`param-input-${param.id}`}>
+                                  <SelectValue placeholder="Vyberte..." />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {(param.options || []).map((opt: string) => (
+                                    <SelectItem key={opt} value={opt}>{opt}</SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                            ) : (
+                              <Input
+                                value={statusFormParamValues[param.id.toString()] || param.defaultValue || ""}
+                                onChange={e => setStatusFormParamValues(prev => ({ ...prev, [param.id.toString()]: e.target.value }))}
+                                data-testid={`param-input-${param.id}`}
+                              />
+                            )}
+                          </div>
+                        ))}
+                    </div>
+                  )}
+                </div>
               </div>
 
               <hr className="my-4 border-border/50" />
@@ -504,9 +508,7 @@ function StatusTabContent(props: StatusTabContentProps) {
                 <div className="flex items-center justify-between gap-2 flex-wrap">
                   <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
                     <Upload className="w-3.5 h-3.5" /> Dokumenty ku stavu
-                    {statusFormFiles.length > 0 && (
-                      <span className="text-[10px] tabular-nums font-normal">({statusFormFiles.length})</span>
-                    )}
+                    <span id="docs-count-display">{statusFormFiles.length > 0 ? <span className="text-[10px] tabular-nums font-normal">({statusFormFiles.length})</span> : null}</span>
                   </h3>
                   <Button
                     variant="outline"
@@ -528,33 +530,35 @@ function StatusTabContent(props: StatusTabContentProps) {
                     accept="*/*"
                   />
                 </div>
-                {statusFormFiles.length === 0 ? (
-                  <p className="text-sm text-muted-foreground py-2">Ziadne dokumenty neboli pridane</p>
-                ) : (
-                  <div id="status-files-list" className="space-y-2">
-                    {statusFormFiles.map((file, idx) => (
-                      <div key={`sf-${file.name}-${file.size}-${file.lastModified}`} className="flex items-center justify-between gap-2 p-2 border rounded-md" data-testid={`file-item-${idx}`}>
-                        <div className="flex items-center gap-2 min-w-0">
-                          <FileText className="w-4 h-4 shrink-0 text-muted-foreground" />
-                          <span className="text-sm truncate">{file.name}</span>
-                          <span className="text-xs text-muted-foreground shrink-0">({(file.size / 1024).toFixed(1)} KB)</span>
+                <div id="status-files-content">
+                  {statusFormFiles.length === 0 ? (
+                    <p className="text-sm text-muted-foreground py-2">Ziadne dokumenty neboli pridane</p>
+                  ) : (
+                    <div id="status-files-list" className="space-y-2">
+                      {statusFormFiles.map((file, idx) => (
+                        <div key={`sf-${file.name}-${file.size}-${file.lastModified}`} className="flex items-center justify-between gap-2 p-2 border rounded-md" data-testid={`file-item-${idx}`}>
+                          <div className="flex items-center gap-2 min-w-0">
+                            <FileText className="w-4 h-4 shrink-0 text-muted-foreground" />
+                            <span className="text-sm truncate">{file.name}</span>
+                            <span className="text-xs text-muted-foreground shrink-0">({(file.size / 1024).toFixed(1)} KB)</span>
+                          </div>
+                          <Button variant="ghost" size="icon" onClick={() => setStatusFormFiles(prev => prev.filter((_, i) => i !== idx))} data-testid={`button-remove-file-${idx}`}>
+                            <X className="w-4 h-4" />
+                          </Button>
                         </div>
-                        <Button variant="ghost" size="icon" onClick={() => setStatusFormFiles(prev => prev.filter((_, i) => i !== idx))} data-testid={`button-remove-file-${idx}`}>
-                          <X className="w-4 h-4" />
-                        </Button>
-                      </div>
-                    ))}
-                  </div>
-                )}
+                      ))}
+                    </div>
+                  )}
+                </div>
               </div>
 
-              <div className="flex items-center justify-end gap-2 pt-4 mt-4 border-t">
+              <div id="status-submit-wrapper" className="flex items-center justify-end gap-2 pt-4 mt-4 border-t">
                 <Button
                   disabled={!canSubmit}
                   onClick={() => statusFormSubmit.mutate()}
                   data-testid="button-save-status-change"
                 >
-                  {statusFormSubmit.isPending && <Loader2 className="w-4 h-4 mr-1 animate-spin" />}
+                  <span id="status-submit-spinner">{statusFormSubmit.isPending ? <Loader2 className="w-4 h-4 mr-1 animate-spin" /> : null}</span>
                   <Save className="w-4 h-4 mr-1" />
                   Ulozit zmenu stavu
                 </Button>
@@ -598,22 +602,16 @@ function StatusTabContent(props: StatusTabContentProps) {
                           {log.changedAt ? new Date(log.changedAt).toLocaleString("sk-SK") : "-"}
                         </TableCell>
                         <TableCell>
-                          <div className="flex items-center gap-1.5">
-                            {paramCount > 0 && (
-                              <Badge variant="outline" className="text-xs">{paramCount} param.</Badge>
-                            )}
-                            {log.statusNote && (
-                              <MessageSquare className="w-3.5 h-3.5 text-blue-400" data-testid={`icon-log-note-${log.id}`} />
-                            )}
-                            {docCount > 0 && (
-                              <div className="flex items-center gap-0.5">
+                          <div id={`log-details-${log.id}`} className="flex items-center gap-1.5">
+                            <span id={`log-params-${log.id}`}>{paramCount > 0 ? <Badge variant="outline" className="text-xs">{paramCount} param.</Badge> : null}</span>
+                            <span id={`log-note-${log.id}`}>{log.statusNote ? <MessageSquare className="w-3.5 h-3.5 text-blue-400" data-testid={`icon-log-note-${log.id}`} /> : null}</span>
+                            <span id={`log-docs-${log.id}`}>{docCount > 0 ? (
+                              <span className="inline-flex items-center gap-0.5">
                                 <Paperclip className="w-3.5 h-3.5 text-amber-400" data-testid={`icon-log-docs-${log.id}`} />
                                 <span className="text-xs text-muted-foreground">{docCount}</span>
-                              </div>
-                            )}
-                            {log.visibleToClient && (
-                              <Badge variant="outline" className="text-xs text-green-500 border-green-500/30" data-testid={`badge-visible-${log.id}`}>K</Badge>
-                            )}
+                              </span>
+                            ) : null}</span>
+                            <span id={`log-visible-${log.id}`}>{log.visibleToClient ? <Badge variant="outline" className="text-xs text-green-500 border-green-500/30" data-testid={`badge-visible-${log.id}`}>K</Badge> : null}</span>
                           </div>
                         </TableCell>
                       </TableRow>
@@ -1118,9 +1116,9 @@ export default function ContractForm() {
           {isEditing ? "Upravit zmluvu" : "Nova zmluva"}
         </h1>
         <div data-testid="badge-uid-container">
-          {existingContract?.uid && (
+          {existingContract?.uid ? (
             <Badge variant="outline" data-testid="badge-contract-uid">{existingContract.uid}</Badge>
-          )}
+          ) : null}
         </div>
       </div>
 
@@ -1373,18 +1371,18 @@ export default function ContractForm() {
                           <span className="text-muted-foreground">UID: </span>
                           <span className="font-mono" data-testid="text-subject-uid">{selectedSubject.uid}</span>
                         </div>
-                        {selectedSubject.email && (
+                        <div id="subject-email-wrapper">{selectedSubject.email ? (
                           <div>
                             <span className="text-muted-foreground">Email: </span>
                             <span>{selectedSubject.email}</span>
                           </div>
-                        )}
-                        {selectedSubject.phone && (
+                        ) : null}</div>
+                        <div id="subject-phone-wrapper">{selectedSubject.phone ? (
                           <div>
                             <span className="text-muted-foreground">Telefon: </span>
                             <span>{selectedSubject.phone}</span>
                           </div>
-                        )}
+                        ) : null}</div>
                       </div>
                     </CardContent>
                   </Card>
@@ -1437,15 +1435,15 @@ export default function ContractForm() {
               </div>
 
               <div data-testid="panels-loading-container">
-                {sectorProductId && panelsLoading && (
+                {sectorProductId && panelsLoading ? (
                   <div className="flex items-center gap-2 p-2 text-sm text-muted-foreground">
                     <Loader2 className="w-4 h-4 animate-spin" />
                     Nacitavam panely...
                   </div>
-                )}
+                ) : null}
               </div>
 
-              {sectorProductId && productPanels && productPanels.length > 0 && (() => {
+              <div id="panels-content-wrapper">{sectorProductId && productPanels && productPanels.length > 0 ? (() => {
                 const productPanelIds = new Set(productPanels.map(p => p.id));
                 const assignedPanelIds = new Set<number>();
                 const assignedFolderIds = productFolderAssignments
@@ -1474,9 +1472,7 @@ export default function ContractForm() {
                   <Card key={panel.id} className="p-2" data-testid={`panel-section-${panel.id}`}>
                     <div className="flex items-center gap-2 mb-1">
                       <span className="text-sm font-semibold">{panel.name}</span>
-                      {panel.description && (
-                        <span className="text-xs text-muted-foreground">({panel.description})</span>
-                      )}
+                      <span>{panel.description ? <span className="text-xs text-muted-foreground">({panel.description})</span> : null}</span>
                     </div>
                     {panel.parameters.length > 0 ? (
                       <div className="grid grid-cols-2 gap-2">
@@ -1484,7 +1480,7 @@ export default function ContractForm() {
                           <div key={param.id} className="space-y-0.5">
                             <label className="text-xs font-medium">
                               {param.name}
-                              {param.isRequired && <span className="text-destructive ml-1">*</span>}
+                              <span>{param.isRequired ? <span className="text-destructive ml-1">*</span> : null}</span>
                             </label>
                             {param.paramType === "textarea" ? (
                               <Textarea
@@ -1528,9 +1524,7 @@ export default function ContractForm() {
                                 data-testid={`input-panel-param-${panel.id}-${param.id}`}
                               />
                             )}
-                            {param.helpText && (
-                              <p className="text-xs text-muted-foreground">{param.helpText}</p>
-                            )}
+                            <div>{param.helpText ? <p className="text-xs text-muted-foreground">{param.helpText}</p> : null}</div>
                           </div>
                         ))}
                       </div>
@@ -1565,21 +1559,21 @@ export default function ContractForm() {
                         </div>
                       </Card>
                     ))}
-                    {ungroupedPanels.length > 0 && (
+                    <div id="ungrouped-panels-wrapper">{ungroupedPanels.length > 0 ? (
                       <div className="space-y-2">
                         {ungroupedPanels.map(panel => renderPanelCard(panel))}
                       </div>
-                    )}
+                    ) : null}</div>
                   </div>
                 );
-              })()}
+              })() : null}</div>
 
               <div data-testid="no-panels-container">
-                {sectorProductId && productPanels && productPanels.length === 0 && (
+                {sectorProductId && productPanels && productPanels.length === 0 ? (
                   <p className="text-sm text-muted-foreground" data-testid="text-no-panels">
                     Vybrany produkt nema priradene panely s parametrami.
                   </p>
-                )}
+                ) : null}
               </div>
             </div>
           )}
@@ -1734,7 +1728,7 @@ export default function ContractForm() {
           )}
         </Button>
 
-        {activeTab !== TABS[TABS.length - 1].key && (
+        <span id="next-step-wrapper">{activeTab !== TABS[TABS.length - 1].key ? (
           <Button
             size="sm"
             variant="outline"
@@ -1748,16 +1742,16 @@ export default function ContractForm() {
             Pokracovat
             <ChevronRight className="w-4 h-4 ml-1" />
           </Button>
-        )}
+        ) : null}</span>
       </div>
 
-      {isEditing && (
+      <div id="passwords-modal-wrapper">{isEditing ? (
         <PasswordsModal
           open={passwordsOpen}
           onOpenChange={setPasswordsOpen}
           contractId={contractId}
         />
-      )}
+      ) : null}</div>
     </div>
   );
 }

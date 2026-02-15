@@ -1282,13 +1282,13 @@ export default function Contracts() {
           />
         </div>
 
-        {activeFolder === 1 && (
+        <div id="folder-1-wrapper">{activeFolder === 1 ? (
           <Card data-testid="folder-nahravanie">
             <div className="flex items-center gap-3 p-3 border-b flex-wrap">
               <div className="flex-1">
                 <p className="text-xs text-muted-foreground italic" data-testid="text-ordering-note">Poznamka: Zmluvy budu na sprievodke zoradene podla poradia, v akom ich oznacite.</p>
               </div>
-              {selectedIds.length > 0 && (
+              <span id="selected-dispatch-wrapper">{selectedIds.length > 0 ? (
                 <div className="flex items-center gap-3 flex-wrap">
                   <span className="text-sm text-muted-foreground">Vybranych: <span className="font-semibold text-foreground">{selectedIds.length}</span></span>
                   <Button size="sm" onClick={() => setSprievodkaDialogOpen(true)} data-testid="button-dispatch">
@@ -1296,7 +1296,7 @@ export default function Contracts() {
                     Odoslat
                   </Button>
                 </div>
-              )}
+              ) : null}</span>
             </div>
             <CardContent className="p-0">
               {isLoading ? (
@@ -1306,9 +1306,9 @@ export default function Contracts() {
               ) : renderContractTable(filteredNahravanie, { showCheckbox: true, showOrder: true })}
             </CardContent>
           </Card>
-        )}
+        ) : null}</div>
 
-        {activeFolder === 2 && (
+        <div id="folder-2-wrapper">{activeFolder === 2 ? (
           <Card data-testid="folder-cakajuce">
             <CardContent className="p-0">
               {isLoadingDispatched ? (
@@ -1341,14 +1341,14 @@ export default function Contracts() {
                             <Printer className="w-3.5 h-3.5 mr-1.5" />
                             Tlacit sprievodku
                           </Button>
-                          {checkedIds.size > 0 && (
+                          <span id={`accept-btn-wrapper-${group.inventoryId}`}>{checkedIds.size > 0 ? (
                             <Button size="sm" onClick={(e) => { e.stopPropagation(); handleAccept(group.inventoryId); }} disabled={isAccepting} data-testid={`button-accept-${group.inventoryId}`}>
                               {isAccepting ? <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" /> : <CheckCircle2 className="w-3.5 h-3.5 mr-1.5" />}
                               Schvalit a prijat ({checkedIds.size})
                             </Button>
-                          )}
+                          ) : null}</span>
                         </div>
-                        {isExpanded && (
+                        <div id={`expanded-wrapper-${group.inventoryId}`}>{isExpanded ? (
                           <div className="border-t">
                             <Table>
                               <TableHeader>
@@ -1394,7 +1394,7 @@ export default function Contracts() {
                               </TableBody>
                             </Table>
                           </div>
-                        )}
+                        ) : null}</div>
                       </div>
                     );
                   })}
@@ -1402,9 +1402,9 @@ export default function Contracts() {
               )}
             </CardContent>
           </Card>
-        )}
+        ) : null}</div>
 
-        {activeFolder === 3 && (
+        <div id="folder-3-wrapper">{activeFolder === 3 ? (
           <Card data-testid="folder-neprijate">
             <div className="flex items-center gap-3 p-3 border-b">
               <XCircle className="w-4 h-4 text-red-500 shrink-0" />
@@ -1418,9 +1418,9 @@ export default function Contracts() {
               ) : renderContractTable(filteredRejected, { showStatus: true, showRegistration: false, showActions: true })}
             </CardContent>
           </Card>
-        )}
+        ) : null}</div>
 
-        {activeFolder === 4 && (
+        <div id="folder-4-wrapper">{activeFolder === 4 ? (
           <Card data-testid="folder-archiv">
             <div className="flex items-center gap-3 p-3 border-b">
               <AlertTriangle className="w-4 h-4 text-red-500 shrink-0" />
@@ -1434,7 +1434,7 @@ export default function Contracts() {
               ) : renderContractTable(filteredArchived, { showStatus: true, showRegistration: true, showActions: false })}
             </CardContent>
           </Card>
-        )}
+        ) : null}</div>
 
         <Dialog open={sprievodkaDialogOpen} onOpenChange={setSprievodkaDialogOpen}>
           <DialogContent className="sm:max-w-[500px]">
@@ -1487,7 +1487,7 @@ export default function Contracts() {
           </DialogContent>
         </Dialog>
 
-        {deletingContract && (
+        <div id="delete-dialog-wrapper">{deletingContract ? (
           <DeleteContractDialog
             contract={deletingContract}
             open={deleteDialogOpen}
@@ -1496,9 +1496,9 @@ export default function Contracts() {
               if (!isOpen) setDeletingContract(null);
             }}
           />
-        )}
+        ) : null}</div>
 
-        {viewingContract && (
+        <div id="view-dialog-wrapper">{viewingContract ? (
           <ContractDetailDialog
             contract={viewingContract}
             onClose={() => setViewingContract(null)}
@@ -1511,7 +1511,7 @@ export default function Contracts() {
             companies={companies || []}
             states={allStates || []}
           />
-        )}
+        ) : null}</div>
       </div>
     );
   }
