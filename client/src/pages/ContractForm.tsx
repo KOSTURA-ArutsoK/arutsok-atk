@@ -1118,14 +1118,14 @@ export default function ContractForm() {
       </div>
 
       <div className="flex-none border-b border-border bg-card/50">
-        <div className="flex items-center gap-0.5 px-2 overflow-x-auto">
+        <div className="flex items-center gap-0.5 px-2 flex-wrap">
           {TABS.map(tab => {
             const Icon = tab.icon;
             return (
               <button
                 key={tab.key}
                 onClick={() => setActiveTab(tab.key)}
-                className={`flex items-center gap-1.5 px-3 py-2 text-xs font-medium border-b-2 transition-colors whitespace-nowrap ${
+                className={`flex items-center justify-center gap-1.5 px-3 py-2 text-xs font-medium border-b-2 transition-colors whitespace-nowrap flex-1 min-w-[130px] ${
                   activeTab === tab.key
                     ? "border-primary text-primary"
                     : "border-transparent text-muted-foreground hover:text-foreground"
