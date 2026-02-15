@@ -6,7 +6,7 @@ import { useStates } from "@/hooks/use-hierarchy";
 import { useToast } from "@/hooks/use-toast";
 import { useLocation, useParams } from "wouter";
 import type { Contract, ContractStatus, ContractStatusChangeLog, ContractTemplate, ContractInventory, Subject, Partner, MyCompany, Sector, Section, SectorProduct, ContractPassword, ContractParameterValue, ContractFieldSetting } from "@shared/schema";
-import { ArrowLeft, Save, Loader2, LayoutGrid, KeyRound, Plus, Trash2, FileText, Users, ClipboardList, FolderOpen, FolderClosed, DollarSign, BarChart3, ListChecks, PieChart, ChevronLeft, ChevronRight, RefreshCw, MessageSquare, Paperclip } from "lucide-react";
+import { ArrowLeft, Save, Loader2, LayoutGrid, KeyRound, Plus, Trash2, FileText, Users, ClipboardList, FolderOpen, FolderClosed, DollarSign, BarChart3, ListChecks, PieChart, ChevronLeft, ChevronRight, MessageSquare, Paperclip } from "lucide-react";
 import { StatusChangeModal } from "@/components/status-change-modal";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -1135,94 +1135,44 @@ export default function ContractForm() {
 
           {activeTab === "stavy" && (
             <div className="max-w-4xl space-y-3" data-testid="section-stavy">
-              <div className="flex items-center justify-between gap-2 flex-wrap">
-                <h2 className="text-base font-semibold">Stavy zmluv</h2>
-                {contractId && (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setStatusChangeModalOpen(true)}
-                    data-testid="button-open-status-change"
-                  >
-                    <RefreshCw className="w-3.5 h-3.5 mr-1" /> Zmenit stav
-                  </Button>
-                )}
-              </div>
+              <h2 className="text-base font-semibold">Stavy zmluv</h2>
               {(() => {
                 const currentStatus = statuses?.find(s => s.id === (statusId ? parseInt(statusId) : -1));
-                const activeSector = contractSectors?.find(sec => sec.id === (contractSectorId ? parseInt(contractSectorId) : -1));
-                const activeSection = allSectionsForEdit?.find(sec => sec.id === (contractSectionId ? parseInt(contractSectionId) : -1));
-                const activeProduct = allSPForEdit?.find(p => p.id === (sectorProductId ? parseInt(sectorProductId) : -1));
-                const hasTemplateFilter = !!(contractSectorId || contractSectionId || sectorProductId);
                 return (
                   <Card>
                     <CardContent className="p-3 space-y-3">
-                      <div className="space-y-1">
-                        <span className="text-xs text-muted-foreground font-medium">Aktualny stav</span>
-                        {currentStatus ? (
-                          <div className="flex items-center gap-2 flex-wrap">
-                            <div className="w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: currentStatus.color }} />
-                            <span className="text-sm font-semibold" data-testid="text-current-status">{currentStatus.name}</span>
-                            {currentStatus.isCommissionable && <Badge variant="outline" className="text-xs">Provizna</Badge>}
-                            {currentStatus.isFinal && <Badge variant="outline" className="text-xs">Finalna</Badge>}
-                            {currentStatus.assignsNumber && <Badge variant="outline" className="text-xs">Prideluje cislo</Badge>}
-                            {currentStatus.definesContractEnd && <Badge variant="outline" className="text-xs">Ukoncenie</Badge>}
-                          </div>
-                        ) : (
-                          <span className="text-sm text-muted-foreground" data-testid="text-current-status">Bez stavu</span>
+                      <div className="flex items-center justify-between gap-2 flex-wrap">
+                        <div className="space-y-1">
+                          <span className="text-xs text-muted-foreground font-medium">Aktualny stav</span>
+                          {currentStatus ? (
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <div className="w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: currentStatus.color }} />
+                              <span className="text-sm font-semibold" data-testid="text-current-status">{currentStatus.name}</span>
+                              {currentStatus.isCommissionable && <Badge variant="outline" className="text-xs">Provizna</Badge>}
+                              {currentStatus.isFinal && <Badge variant="outline" className="text-xs">Finalna</Badge>}
+                            </div>
+                          ) : (
+                            <span className="text-sm text-muted-foreground" data-testid="text-current-status">Bez stavu</span>
+                          )}
+                        </div>
+                        {contractId && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setStatusChangeModalOpen(true)}
+                            disabled={filteredStatuses.length === 0}
+                            data-testid="button-change-status"
+                          >
+                            Zmenit stav
+                          </Button>
                         )}
                       </div>
-
-                      {hasTemplateFilter && (
-                        <div className="space-y-1 border-t pt-2">
-                          <span className="text-xs text-muted-foreground font-medium">Filtrovanie podla sablon</span>
-                          <div className="flex items-center gap-1.5 flex-wrap text-xs text-muted-foreground">
-                            {activeSector && (
-                              <Badge variant="outline" className="text-xs" data-testid="badge-filter-sector">
-                                Sektor: {activeSector.name}
-                              </Badge>
-                            )}
-                            {activeSection && (
-                              <Badge variant="outline" className="text-xs" data-testid="badge-filter-section">
-                                Sekcia: {activeSection.name}
-                              </Badge>
-                            )}
-                            {activeProduct && (
-                              <Badge variant="outline" className="text-xs" data-testid="badge-filter-product">
-                                Produkt: {activeProduct.name}
-                              </Badge>
-                            )}
-                          </div>
-                        </div>
-                      )}
-
-                      {filteredStatuses.length > 0 && (
-                        <div className="space-y-1 border-t pt-2">
-                          <span className="text-xs text-muted-foreground font-medium">Dostupne stavy ({filteredStatuses.length})</span>
-                          <div className="flex items-center gap-1.5 flex-wrap">
-                            {filteredStatuses.map(s => (
-                              <Badge
-                                key={s.id}
-                                variant={statusId === s.id.toString() ? "default" : "outline"}
-                                style={statusId === s.id.toString() ? { backgroundColor: s.color } : { borderColor: s.color, color: s.color }}
-                                data-testid={`badge-status-${s.id}`}
-                              >
-                                {s.name}
-                              </Badge>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-                      {filteredStatuses.length === 0 && (
-                        <div className="border-t pt-2 space-y-1">
-                          <p className="text-xs text-muted-foreground">Ziadne stavy nie su dostupne pre aktualnu konfiguraciu zmluvy.</p>
-                          {!contractSectorId && !contractSectionId && !sectorProductId && (
-                            <p className="text-xs text-muted-foreground">Nastavte sektor, sekciu a produkt v karte "Udaje o zmluve" pre zobrazenie dostupnych stavov.</p>
-                          )}
-                          {!companyId && (
-                            <p className="text-xs text-muted-foreground">Nastavte spolocnost pre zobrazenie stavov viazanych na spolocnosti.</p>
-                          )}
-                        </div>
+                      {filteredStatuses.length === 0 && contractId && (
+                        <p className="text-xs text-muted-foreground border-t pt-2">
+                          {!contractSectorId && !contractSectionId && !sectorProductId
+                            ? "Nastavte sektor, sekciu a produkt pre zobrazenie dostupnych stavov."
+                            : "Ziadne stavy nie su dostupne pre aktualnu konfiguraciu zmluvy."}
+                        </p>
                       )}
                     </CardContent>
                   </Card>
@@ -1247,15 +1197,13 @@ export default function ContractForm() {
               {contractId && statusChangeLogs && statusChangeLogs.length > 0 && (
                 <Card>
                   <CardContent className="p-3 space-y-2">
-                    <h3 className="text-sm font-semibold">Historia zmien stavov</h3>
+                    <h3 className="text-sm font-semibold">Historia zmien stavov ({statusChangeLogs.length})</h3>
                     <Table>
                       <TableHeader>
                         <TableRow>
-                          <TableHead>Poradie</TableHead>
                           <TableHead>Stav</TableHead>
                           <TableHead>Datum zmeny</TableHead>
-                          <TableHead>Parametre</TableHead>
-                          <TableHead>Info</TableHead>
+                          <TableHead>Detaily</TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
@@ -1267,29 +1215,22 @@ export default function ContractForm() {
                           const docCount = Array.isArray(log.statusChangeDocuments) ? (log.statusChangeDocuments as any[]).length : 0;
                           return (
                             <TableRow key={log.id} data-testid={`row-status-log-${log.id}`}>
-                              <TableCell className="text-sm font-mono" data-testid={`text-iteration-${log.id}`}>
-                                {iteration}
-                              </TableCell>
                               <TableCell data-testid={`text-status-name-${log.id}`}>
                                 <div className="flex items-center gap-2">
                                   {logStatus && (
                                     <div className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: logStatus.color }} />
                                   )}
-                                  <span className="text-sm">{statusName} {iteration}</span>
+                                  <span className="text-sm font-medium">{statusName} {iteration}</span>
                                 </div>
                               </TableCell>
                               <TableCell className="text-sm text-muted-foreground" data-testid={`text-changed-at-${log.id}`}>
                                 {log.changedAt ? new Date(log.changedAt).toLocaleString("sk-SK") : "-"}
                               </TableCell>
-                              <TableCell data-testid={`text-params-${log.id}`}>
-                                {paramCount > 0 ? (
-                                  <Badge variant="outline" className="text-xs">{paramCount} param.</Badge>
-                                ) : (
-                                  <span className="text-xs text-muted-foreground">-</span>
-                                )}
-                              </TableCell>
                               <TableCell>
                                 <div className="flex items-center gap-1.5">
+                                  {paramCount > 0 && (
+                                    <Badge variant="outline" className="text-xs">{paramCount} param.</Badge>
+                                  )}
                                   {log.statusNote && (
                                     <MessageSquare className="w-3.5 h-3.5 text-blue-400" data-testid={`icon-log-note-${log.id}`} />
                                   )}
