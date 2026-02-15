@@ -4,13 +4,15 @@ import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useAppUser } from "@/hooks/use-app-user";
 import { useStates } from "@/hooks/use-hierarchy";
 import { useToast } from "@/hooks/use-toast";
-import type { ContractStatus } from "@shared/schema";
-import { Plus, Pencil, Trash2, Loader2 } from "lucide-react";
+import type { ContractStatus, ContractStatusParameter, MyCompany, Sector, Section, SectorProduct } from "@shared/schema";
+import { Plus, Pencil, Trash2, Loader2, GripVertical } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Dialog,
   DialogContent,
@@ -35,6 +37,8 @@ import {
 import { ProcessingSaveButton } from "@/components/processing-save-button";
 import { SortableTableRow, SortableContext_Wrapper } from "@/components/sortable-list";
 
+type VisibilityItem = { entityType: string; entityId: number };
+
 function StatusFormDialog({
   open,
   onOpenChange,
@@ -48,6 +52,17 @@ function StatusFormDialog({
 }) {
   const { toast } = useToast();
   const { data: allStates } = useStates();
+  const { data: companies } = useQuery<MyCompany[]>({ queryKey: ["/api/my-companies"] });
+  const { data: sectors } = useQuery<Sector[]>({ queryKey: ["/api/sectors"] });
+  const { data: sections } = useQuery<Section[]>({
+    queryKey: ["/api/sections"],
+    queryFn: async () => {
+      const res = await fetch("/api/sections", { credentials: "include" });
+      if (!res.ok) throw new Error("Failed");
+      return res.json();
+    },
+  });
+  const { data: sectorProducts } = useQuery<SectorProduct[]>({ queryKey: ["/api/sector-products"] });
 
   const [name, setName] = useState("");
   const [color, setColor] = useState("#3b82f6");
@@ -56,11 +71,61 @@ function StatusFormDialog({
   const [isCommissionable, setIsCommissionable] = useState(false);
   const [isFinal, setIsFinal] = useState(false);
   const [assignsNumber, setAssignsNumber] = useState(false);
+  const [definesContractEnd, setDefinesContractEnd] = useState(false);
+
+  const [selectedCompanyIds, setSelectedCompanyIds] = useState<number[]>([]);
+  const [visibilityItems, setVisibilityItems] = useState<VisibilityItem[]>([]);
+
+  const [statusParams, setStatusParams] = useState<ContractStatusParameter[]>([]);
+  const [newParamName, setNewParamName] = useState("");
+  const [newParamType, setNewParamType] = useState("text");
+  const [newParamHelpText, setNewParamHelpText] = useState("");
+  const [newParamOptions, setNewParamOptions] = useState("");
+  const [newParamRequired, setNewParamRequired] = useState(false);
+  const [newParamDefaultValue, setNewParamDefaultValue] = useState("");
+  const [editingParam, setEditingParam] = useState<ContractStatusParameter | null>(null);
+
+  const { data: existingCompanies } = useQuery<{ statusId: number; companyId: number }[]>({
+    queryKey: ["/api/contract-statuses", editingStatus?.id, "companies"],
+    queryFn: async () => {
+      const res = await fetch(`/api/contract-statuses/${editingStatus!.id}/companies`, { credentials: "include" });
+      if (!res.ok) throw new Error("Failed");
+      return res.json();
+    },
+    enabled: !!editingStatus,
+  });
+
+  const { data: existingVisibility } = useQuery<VisibilityItem[]>({
+    queryKey: ["/api/contract-statuses", editingStatus?.id, "visibility"],
+    queryFn: async () => {
+      const res = await fetch(`/api/contract-statuses/${editingStatus!.id}/visibility`, { credentials: "include" });
+      if (!res.ok) throw new Error("Failed");
+      return res.json();
+    },
+    enabled: !!editingStatus,
+  });
+
+  const { data: existingParams } = useQuery<ContractStatusParameter[]>({
+    queryKey: ["/api/contract-statuses", editingStatus?.id, "parameters"],
+    queryFn: async () => {
+      const res = await fetch(`/api/contract-statuses/${editingStatus!.id}/parameters`, { credentials: "include" });
+      if (!res.ok) throw new Error("Failed");
+      return res.json();
+    },
+    enabled: !!editingStatus,
+  });
 
   const createMutation = useMutation({
-    mutationFn: (data: any) => apiRequest("POST", "/api/contract-statuses", data),
+    mutationFn: async (data: any) => {
+      const res = await apiRequest("POST", "/api/contract-statuses", data.status);
+      const created = await res.json();
+      await apiRequest("PUT", `/api/contract-statuses/${created.id}/companies`, { companyIds: data.companyIds });
+      await apiRequest("PUT", `/api/contract-statuses/${created.id}/visibility`, { items: data.visibility });
+      return created;
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/contract-statuses"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/contract-statuses/all-visibility"] });
       toast({ title: "Uspech", description: "Stav zmluvy vytvoreny" });
       onOpenChange(false);
     },
@@ -68,14 +133,58 @@ function StatusFormDialog({
   });
 
   const updateMutation = useMutation({
-    mutationFn: (data: any) => apiRequest("PUT", `/api/contract-statuses/${editingStatus?.id}`, data),
+    mutationFn: async (data: any) => {
+      await apiRequest("PUT", `/api/contract-statuses/${editingStatus!.id}`, data.status);
+      await apiRequest("PUT", `/api/contract-statuses/${editingStatus!.id}/companies`, { companyIds: data.companyIds });
+      await apiRequest("PUT", `/api/contract-statuses/${editingStatus!.id}/visibility`, { items: data.visibility });
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/contract-statuses"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/contract-statuses/all-visibility"] });
       toast({ title: "Uspech", description: "Stav zmluvy aktualizovany" });
       onOpenChange(false);
     },
     onError: () => toast({ title: "Chyba", description: "Nepodarilo sa aktualizovat stav zmluvy", variant: "destructive" }),
   });
+
+  const createParamMutation = useMutation({
+    mutationFn: (data: any) => apiRequest("POST", `/api/contract-statuses/${editingStatus!.id}/parameters`, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/contract-statuses", editingStatus?.id, "parameters"] });
+      toast({ title: "Uspech", description: "Parameter pridany" });
+      resetParamForm();
+    },
+    onError: () => toast({ title: "Chyba", description: "Nepodarilo sa pridat parameter", variant: "destructive" }),
+  });
+
+  const updateParamMutation = useMutation({
+    mutationFn: (data: any) => apiRequest("PUT", `/api/contract-status-parameters/${data.id}`, data.body),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/contract-statuses", editingStatus?.id, "parameters"] });
+      toast({ title: "Uspech", description: "Parameter aktualizovany" });
+      resetParamForm();
+    },
+    onError: () => toast({ title: "Chyba", description: "Nepodarilo sa aktualizovat parameter", variant: "destructive" }),
+  });
+
+  const deleteParamMutation = useMutation({
+    mutationFn: (id: number) => apiRequest("DELETE", `/api/contract-status-parameters/${id}`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/contract-statuses", editingStatus?.id, "parameters"] });
+      toast({ title: "Uspech", description: "Parameter vymazany" });
+    },
+    onError: () => toast({ title: "Chyba", description: "Nepodarilo sa vymazat parameter", variant: "destructive" }),
+  });
+
+  function resetParamForm() {
+    setEditingParam(null);
+    setNewParamName("");
+    setNewParamType("text");
+    setNewParamHelpText("");
+    setNewParamOptions("");
+    setNewParamRequired(false);
+    setNewParamDefaultValue("");
+  }
 
   useEffect(() => {
     if (open) {
@@ -87,6 +196,7 @@ function StatusFormDialog({
         setIsCommissionable(editingStatus.isCommissionable ?? false);
         setIsFinal(editingStatus.isFinal ?? false);
         setAssignsNumber(editingStatus.assignsNumber ?? false);
+        setDefinesContractEnd(editingStatus.definesContractEnd ?? false);
       } else {
         setName("");
         setColor("#3b82f6");
@@ -95,9 +205,31 @@ function StatusFormDialog({
         setIsCommissionable(false);
         setIsFinal(false);
         setAssignsNumber(false);
+        setDefinesContractEnd(false);
+        setSelectedCompanyIds([]);
+        setVisibilityItems([]);
       }
+      resetParamForm();
     }
   }, [open, editingStatus, activeStateId]);
+
+  useEffect(() => {
+    if (existingCompanies) {
+      setSelectedCompanyIds(existingCompanies.map((c: any) => c.companyId));
+    }
+  }, [existingCompanies]);
+
+  useEffect(() => {
+    if (existingVisibility) {
+      setVisibilityItems(existingVisibility.map((v: any) => ({ entityType: v.entityType, entityId: v.entityId })));
+    }
+  }, [existingVisibility]);
+
+  useEffect(() => {
+    if (existingParams) {
+      setStatusParams(existingParams);
+    }
+  }, [existingParams]);
 
   function handleSubmit() {
     if (!name) {
@@ -105,13 +237,18 @@ function StatusFormDialog({
       return;
     }
     const payload = {
-      name,
-      color,
-      stateId: stateId ? parseInt(stateId) : null,
-      sortOrder: parseInt(sortOrder) || 0,
-      isCommissionable,
-      isFinal,
-      assignsNumber,
+      status: {
+        name,
+        color,
+        stateId: stateId ? parseInt(stateId) : null,
+        sortOrder: parseInt(sortOrder) || 0,
+        isCommissionable,
+        isFinal,
+        assignsNumber,
+        definesContractEnd,
+      },
+      companyIds: selectedCompanyIds,
+      visibility: visibilityItems,
     };
 
     if (editingStatus) {
@@ -121,108 +258,371 @@ function StatusFormDialog({
     }
   }
 
+  function toggleCompany(companyId: number) {
+    setSelectedCompanyIds(prev =>
+      prev.includes(companyId) ? prev.filter(id => id !== companyId) : [...prev, companyId]
+    );
+  }
+
+  function toggleVisibility(entityType: string, entityId: number) {
+    setVisibilityItems(prev => {
+      const exists = prev.some(v => v.entityType === entityType && v.entityId === entityId);
+      if (exists) return prev.filter(v => !(v.entityType === entityType && v.entityId === entityId));
+      return [...prev, { entityType, entityId }];
+    });
+  }
+
+  function isVisibilitySelected(entityType: string, entityId: number) {
+    return visibilityItems.some(v => v.entityType === entityType && v.entityId === entityId);
+  }
+
+  function handleParamSubmit() {
+    if (!newParamName) {
+      toast({ title: "Chyba", description: "Nazov parametra je povinny", variant: "destructive" });
+      return;
+    }
+    const paramData = {
+      name: newParamName,
+      paramType: newParamType,
+      helpText: newParamHelpText,
+      options: newParamType === "select" || newParamType === "multiselect"
+        ? newParamOptions.split(",").map(o => o.trim()).filter(Boolean)
+        : [],
+      isRequired: newParamRequired,
+      defaultValue: newParamDefaultValue,
+      sortOrder: (existingParams?.length || 0),
+    };
+
+    if (editingParam) {
+      updateParamMutation.mutate({ id: editingParam.id, body: paramData });
+    } else {
+      createParamMutation.mutate(paramData);
+    }
+  }
+
+  function startEditParam(param: ContractStatusParameter) {
+    setEditingParam(param);
+    setNewParamName(param.name);
+    setNewParamType(param.paramType);
+    setNewParamHelpText(param.helpText || "");
+    setNewParamOptions(param.options?.join(", ") || "");
+    setNewParamRequired(param.isRequired ?? false);
+    setNewParamDefaultValue(param.defaultValue || "");
+  }
+
   const isPending = createMutation.isPending || updateMutation.isPending;
+
+  const PARAM_TYPES = [
+    { value: "text", label: "Text" },
+    { value: "number", label: "Cislo" },
+    { value: "date", label: "Datum" },
+    { value: "select", label: "Vyber" },
+    { value: "multiselect", label: "Viacnasobny vyber" },
+    { value: "boolean", label: "Ano/Nie" },
+    { value: "textarea", label: "Dlhy text" },
+  ];
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[800px] h-[600px] overflow-y-auto">
+      <DialogContent className="sm:max-w-[900px] h-[700px] overflow-y-auto">
         <DialogHeader>
           <DialogTitle data-testid="text-status-dialog-title">
             {editingStatus ? "Upravit stav zmluvy" : "Pridat stav zmluvy"}
           </DialogTitle>
         </DialogHeader>
-        <div className="space-y-4">
-          <div className="space-y-2">
-            <label className="text-sm font-medium">Nazov *</label>
-            <Input
-              value={name}
-              onChange={e => setName(e.target.value)}
-              placeholder="Nazov stavu"
-              disabled={editingStatus?.isSystem === true}
-              data-testid="input-status-name"
-            />
-            {editingStatus?.isSystem && (
-              <p className="text-xs text-muted-foreground">Systemovy stav - nazov nie je mozne zmenit</p>
-            )}
-          </div>
+        <Tabs defaultValue="vseobecne" className="w-full">
+          <TabsList className="w-full">
+            <TabsTrigger value="vseobecne" data-testid="tab-vseobecne" className="flex-1">Vseobecne udaje</TabsTrigger>
+            <TabsTrigger value="parametre" data-testid="tab-parametre" className="flex-1" disabled={!editingStatus}>Parametre</TabsTrigger>
+          </TabsList>
 
-          <div className="space-y-2">
-            <label className="text-sm font-medium">Farba</label>
-            <div className="flex items-center gap-3 flex-wrap">
-              <input
-                type="color"
-                value={color}
-                onChange={e => setColor(e.target.value)}
-                className="w-10 h-10 rounded-md border border-border cursor-pointer"
-                data-testid="input-status-color-picker"
-              />
+          <TabsContent value="vseobecne" className="space-y-4 mt-4">
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Nazov stavu *</label>
               <Input
-                value={color}
-                onChange={e => setColor(e.target.value)}
-                placeholder="#3b82f6"
-                className="font-mono flex-1"
-                data-testid="input-status-color-hex"
+                value={name}
+                onChange={e => setName(e.target.value)}
+                placeholder="Nazov stavu"
+                disabled={editingStatus?.isSystem === true}
+                data-testid="input-status-name"
               />
+              {editingStatus?.isSystem && (
+                <p className="text-xs text-muted-foreground">Systemovy stav - nazov nie je mozne zmenit</p>
+              )}
             </div>
-          </div>
 
-          <div className="space-y-2">
-            <label className="text-sm font-medium">Stat</label>
-            <Select value={stateId} onValueChange={setStateId}>
-              <SelectTrigger data-testid="select-status-state">
-                <SelectValue placeholder="Vyberte stat" />
-              </SelectTrigger>
-              <SelectContent>
-                {allStates?.map(s => (
-                  <SelectItem key={s.id} value={s.id.toString()}>{s.name} ({s.code})</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div className="space-y-2">
-            <label className="text-sm font-medium">Poradie</label>
-            <Input
-              type="number"
-              value={sortOrder}
-              onChange={e => setSortOrder(e.target.value)}
-              placeholder="0"
-              data-testid="input-status-sort-order"
-            />
-          </div>
-
-          <div className="space-y-4 pt-4 border-t border-border">
-            <p className="text-sm font-medium text-muted-foreground">Vlastnosti stavu</p>
-            <div className="flex items-center justify-between gap-4">
-              <div>
-                <p className="text-sm font-medium">Provizna</p>
-                <p className="text-xs text-muted-foreground">Stav spusta vypocet provizii</p>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Farba</label>
+              <div className="flex items-center gap-3 flex-wrap">
+                <input
+                  type="color"
+                  value={color}
+                  onChange={e => setColor(e.target.value)}
+                  className="w-10 h-10 rounded-md border border-border cursor-pointer"
+                  data-testid="input-status-color-picker"
+                />
+                <Input
+                  value={color}
+                  onChange={e => setColor(e.target.value)}
+                  placeholder="#3b82f6"
+                  className="font-mono flex-1"
+                  data-testid="input-status-color-hex"
+                />
               </div>
-              <Switch checked={isCommissionable} onCheckedChange={setIsCommissionable} data-testid="switch-is-commissionable" />
             </div>
-            <div className="flex items-center justify-between gap-4">
-              <div>
-                <p className="text-sm font-medium">Finalny stav</p>
-                <p className="text-xs text-muted-foreground">Zmluva sa stane iba na citanie (zamknuta)</p>
-              </div>
-              <Switch checked={isFinal} onCheckedChange={setIsFinal} data-testid="switch-is-final" />
-            </div>
-            <div className="flex items-center justify-between gap-4">
-              <div>
-                <p className="text-sm font-medium">Prideluje cislo</p>
-                <p className="text-xs text-muted-foreground">Pri dosiahnu tohto stavu sa prideli globalne poradove cislo</p>
-              </div>
-              <Switch checked={assignsNumber} onCheckedChange={setAssignsNumber} data-testid="switch-assigns-number" />
-            </div>
-          </div>
 
-          <div className="flex items-center justify-end mt-6">
-            <Button type="button" variant="outline" onClick={() => onOpenChange(false)} data-testid="button-status-cancel">
-              Zrusit
-            </Button>
-          </div>
-        </div>
-        <ProcessingSaveButton isPending={isPending} onClick={handleSubmit} type="button" />
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Stat</label>
+                <Select value={stateId} onValueChange={setStateId}>
+                  <SelectTrigger data-testid="select-status-state">
+                    <SelectValue placeholder="Vyberte stat" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {allStates?.map(s => (
+                      <SelectItem key={s.id} value={s.id.toString()}>{s.name} ({s.code})</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Poradie</label>
+                <Input
+                  type="number"
+                  value={sortOrder}
+                  onChange={e => setSortOrder(e.target.value)}
+                  placeholder="0"
+                  data-testid="input-status-sort-order"
+                />
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Spolocnosti</label>
+              <Card>
+                <CardContent className="p-3 max-h-[150px] overflow-y-auto">
+                  {companies && companies.length > 0 ? (
+                    <div className="space-y-2">
+                      {companies.filter(c => !c.isDeleted).map(company => (
+                        <div key={company.id} className="flex items-center gap-2">
+                          <Checkbox
+                            checked={selectedCompanyIds.includes(company.id)}
+                            onCheckedChange={() => toggleCompany(company.id)}
+                            data-testid={`checkbox-company-${company.id}`}
+                          />
+                          <span className="text-sm">{company.name}</span>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-xs text-muted-foreground">Ziadne spolocnosti</p>
+                  )}
+                </CardContent>
+              </Card>
+            </div>
+
+            <div className="space-y-4 pt-4 border-t border-border">
+              <p className="text-sm font-medium text-muted-foreground">Vlastnosti stavu</p>
+              <div className="flex items-center justify-between gap-4">
+                <div>
+                  <p className="text-sm font-medium">Stav definuje ukoncenie zmluvy</p>
+                  <p className="text-xs text-muted-foreground">Zmluva bude v UI oznacena ako ukoncena</p>
+                </div>
+                <Switch checked={definesContractEnd} onCheckedChange={setDefinesContractEnd} data-testid="switch-defines-contract-end" />
+              </div>
+              <div className="flex items-center justify-between gap-4">
+                <div>
+                  <p className="text-sm font-medium">Provizna</p>
+                  <p className="text-xs text-muted-foreground">Stav spusta vypocet provizii</p>
+                </div>
+                <Switch checked={isCommissionable} onCheckedChange={setIsCommissionable} data-testid="switch-is-commissionable" />
+              </div>
+              <div className="flex items-center justify-between gap-4">
+                <div>
+                  <p className="text-sm font-medium">Finalny stav</p>
+                  <p className="text-xs text-muted-foreground">Zmluva sa stane iba na citanie (zamknuta)</p>
+                </div>
+                <Switch checked={isFinal} onCheckedChange={setIsFinal} data-testid="switch-is-final" />
+              </div>
+              <div className="flex items-center justify-between gap-4">
+                <div>
+                  <p className="text-sm font-medium">Prideluje cislo</p>
+                  <p className="text-xs text-muted-foreground">Pri dosiahnu tohto stavu sa prideli globalne poradove cislo</p>
+                </div>
+                <Switch checked={assignsNumber} onCheckedChange={setAssignsNumber} data-testid="switch-assigns-number" />
+              </div>
+            </div>
+
+            <div className="space-y-2 pt-4 border-t border-border">
+              <label className="text-sm font-medium">Dostupne pre (Filter viditelnosti)</label>
+              <p className="text-xs text-muted-foreground mb-2">Prepojte stav na konkretne Sektory, Sekcie alebo Produkty. Stav sa zobrazi len pri zmluvach s danym produktom.</p>
+              <Card>
+                <CardContent className="p-3 max-h-[200px] overflow-y-auto space-y-3">
+                  {sectors && sectors.length > 0 ? sectors.map(sector => (
+                    <div key={`sector-${sector.id}`} className="space-y-1">
+                      <div className="flex items-center gap-2">
+                        <Checkbox
+                          checked={isVisibilitySelected("sector", sector.id)}
+                          onCheckedChange={() => toggleVisibility("sector", sector.id)}
+                          data-testid={`checkbox-visibility-sector-${sector.id}`}
+                        />
+                        <span className="text-sm font-medium">{sector.name}</span>
+                        <Badge variant="secondary" className="text-xs">Sektor</Badge>
+                      </div>
+                      {sections?.filter(sec => sec.sectorId === sector.id).map(section => (
+                        <div key={`section-${section.id}`} className="ml-6 space-y-1">
+                          <div className="flex items-center gap-2">
+                            <Checkbox
+                              checked={isVisibilitySelected("section", section.id)}
+                              onCheckedChange={() => toggleVisibility("section", section.id)}
+                              data-testid={`checkbox-visibility-section-${section.id}`}
+                            />
+                            <span className="text-sm">{section.name}</span>
+                            <Badge variant="secondary" className="text-xs">Sekcia</Badge>
+                          </div>
+                          {sectorProducts?.filter(sp => sp.sectionId === section.id).map(product => (
+                            <div key={`product-${product.id}`} className="ml-6 flex items-center gap-2">
+                              <Checkbox
+                                checked={isVisibilitySelected("product", product.id)}
+                                onCheckedChange={() => toggleVisibility("product", product.id)}
+                                data-testid={`checkbox-visibility-product-${product.id}`}
+                              />
+                              <span className="text-sm">{product.name}</span>
+                              <Badge variant="secondary" className="text-xs">Produkt</Badge>
+                            </div>
+                          ))}
+                        </div>
+                      ))}
+                    </div>
+                  )) : (
+                    <p className="text-xs text-muted-foreground">Ziadne sektory</p>
+                  )}
+                </CardContent>
+              </Card>
+            </div>
+
+            <div className="flex items-center justify-end gap-3 mt-6 flex-wrap">
+              <Button type="button" variant="outline" onClick={() => onOpenChange(false)} data-testid="button-status-cancel">
+                Zrusit
+              </Button>
+              <ProcessingSaveButton isPending={isPending} onClick={handleSubmit} type="button" />
+            </div>
+          </TabsContent>
+
+          <TabsContent value="parametre" className="space-y-4 mt-4">
+            {!editingStatus ? (
+              <p className="text-sm text-muted-foreground text-center py-8">Najprv uloz stav zmluvy, potom pridaj parametre</p>
+            ) : (
+              <>
+                <Card>
+                  <CardContent className="p-3 space-y-3">
+                    <p className="text-sm font-medium">
+                      {editingParam ? "Upravit parameter" : "Pridat parameter"}
+                    </p>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="space-y-1">
+                        <label className="text-xs text-muted-foreground">Nazov *</label>
+                        <Input value={newParamName} onChange={e => setNewParamName(e.target.value)} placeholder="Nazov parametra" data-testid="input-param-name" />
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-xs text-muted-foreground">Typ</label>
+                        <Select value={newParamType} onValueChange={setNewParamType}>
+                          <SelectTrigger data-testid="select-param-type">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {PARAM_TYPES.map(t => (
+                              <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="space-y-1">
+                        <label className="text-xs text-muted-foreground">Pomocny text</label>
+                        <Input value={newParamHelpText} onChange={e => setNewParamHelpText(e.target.value)} placeholder="Pomocny text" data-testid="input-param-help" />
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-xs text-muted-foreground">Predvolena hodnota</label>
+                        <Input value={newParamDefaultValue} onChange={e => setNewParamDefaultValue(e.target.value)} placeholder="Predvolena hodnota" data-testid="input-param-default" />
+                      </div>
+                    </div>
+                    {(newParamType === "select" || newParamType === "multiselect") && (
+                      <div className="space-y-1">
+                        <label className="text-xs text-muted-foreground">Moznosti (oddelene ciarkami)</label>
+                        <Input value={newParamOptions} onChange={e => setNewParamOptions(e.target.value)} placeholder="Moznost 1, Moznost 2, Moznost 3" data-testid="input-param-options" />
+                      </div>
+                    )}
+                    <div className="flex items-center justify-between gap-4 flex-wrap">
+                      <div className="flex items-center gap-2">
+                        <Checkbox checked={newParamRequired} onCheckedChange={(v) => setNewParamRequired(!!v)} data-testid="checkbox-param-required" />
+                        <span className="text-sm">Povinny parameter</span>
+                      </div>
+                      <div className="flex items-center gap-2 flex-wrap">
+                        {editingParam && (
+                          <Button variant="outline" onClick={resetParamForm} data-testid="button-cancel-edit-param">Zrusit upravu</Button>
+                        )}
+                        <Button
+                          onClick={handleParamSubmit}
+                          disabled={createParamMutation.isPending || updateParamMutation.isPending}
+                          data-testid="button-save-param"
+                        >
+                          {(createParamMutation.isPending || updateParamMutation.isPending) && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+                          {editingParam ? "Ulozit zmeny" : "Pridat parameter"}
+                        </Button>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                <Card>
+                  <CardContent className="p-0">
+                    {existingParams && existingParams.length > 0 ? (
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead>Nazov</TableHead>
+                            <TableHead>Typ</TableHead>
+                            <TableHead>Povinny</TableHead>
+                            <TableHead>Pomocny text</TableHead>
+                            <TableHead className="text-right">Akcie</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {existingParams.map(param => (
+                            <TableRow key={param.id} data-testid={`row-param-${param.id}`}>
+                              <TableCell className="font-medium text-sm" data-testid={`text-param-name-${param.id}`}>{param.name}</TableCell>
+                              <TableCell>
+                                <Badge variant="secondary" className="text-xs">{PARAM_TYPES.find(t => t.value === param.paramType)?.label || param.paramType}</Badge>
+                              </TableCell>
+                              <TableCell>
+                                {param.isRequired ? <Badge variant="default" className="text-xs">Povinny</Badge> : <span className="text-xs text-muted-foreground">Nie</span>}
+                              </TableCell>
+                              <TableCell className="text-sm text-muted-foreground">{param.helpText || "-"}</TableCell>
+                              <TableCell className="text-right">
+                                <div className="flex items-center justify-end gap-1 flex-wrap">
+                                  <Button size="icon" variant="ghost" onClick={() => startEditParam(param)} data-testid={`button-edit-param-${param.id}`}>
+                                    <Pencil className="w-4 h-4" />
+                                  </Button>
+                                  <Button size="icon" variant="ghost" onClick={() => deleteParamMutation.mutate(param.id)} disabled={deleteParamMutation.isPending} data-testid={`button-delete-param-${param.id}`}>
+                                    <Trash2 className="w-4 h-4" />
+                                  </Button>
+                                </div>
+                              </TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    ) : (
+                      <p className="text-sm text-muted-foreground text-center py-8" data-testid="text-no-params">Ziadne parametre pre tento stav</p>
+                    )}
+                  </CardContent>
+                </Card>
+              </>
+            )}
+          </TabsContent>
+        </Tabs>
       </DialogContent>
     </Dialog>
   );
@@ -398,6 +798,7 @@ export default function ContractStatuses() {
                           {status.isCommissionable && <Badge variant="secondary" className="text-xs" data-testid={`badge-commissionable-${status.id}`}>Provizna</Badge>}
                           {status.isFinal && <Badge variant="secondary" className="text-xs" data-testid={`badge-final-${status.id}`}>Finalny</Badge>}
                           {status.assignsNumber && <Badge variant="secondary" className="text-xs" data-testid={`badge-assigns-number-${status.id}`}>Cislo</Badge>}
+                          {status.definesContractEnd && <Badge variant="secondary" className="text-xs" data-testid={`badge-defines-end-${status.id}`}>Ukoncenie</Badge>}
                         </div>
                       </TableCell>
                       <TableCell className="text-right">

@@ -6,7 +6,7 @@ import { useStates } from "@/hooks/use-hierarchy";
 import { useToast } from "@/hooks/use-toast";
 import { useLocation } from "wouter";
 import type { Contract, ContractStatus, ContractTemplate, ContractInventory, Subject, Partner, Product, MyCompany, Sector, Section, SectorProduct } from "@shared/schema";
-import { Plus, Pencil, Trash2, Eye, FileText, Loader2, Lock, LayoutGrid, Send, Upload, Inbox, CheckCircle2, ChevronDown, ChevronRight, Printer, Search, Archive, AlertTriangle, Calendar } from "lucide-react";
+import { Plus, Pencil, Trash2, Eye, FileText, Loader2, Lock, LayoutGrid, Send, Upload, Inbox, CheckCircle2, ChevronDown, ChevronRight, Printer, Search, Archive, AlertTriangle, Calendar, XCircle } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -897,6 +897,11 @@ export default function Contracts() {
     enabled: isEvidencia,
   });
 
+  const { data: rejectedContracts, isLoading: isLoadingRejected } = useQuery<Contract[]>({
+    queryKey: ["/api/contracts/rejected"],
+    enabled: isEvidencia,
+  });
+
   const { data: subjects } = useQuery<Subject[]>({ queryKey: ["/api/subjects"] });
   const { data: partners } = useQuery<Partner[]>({ queryKey: ["/api/partners"] });
   const { data: products } = useQuery<Product[]>({ queryKey: ["/api/products"] });
@@ -1077,12 +1082,13 @@ export default function Contracts() {
 
   const activeAccepted = acceptedContracts?.filter(c => !c.isDeleted) || [];
   const activeArchived = archivedContracts?.filter(c => !c.isDeleted) || [];
+  const activeRejected = rejectedContracts?.filter(c => !c.isDeleted) || [];
 
   const folderDefs = [
     { id: 1, label: "Nahravanie zmluv", icon: Upload, color: "text-blue-500", bgColor: "bg-blue-500/15", count: activeContracts.length },
     { id: 2, label: "Cakajuce na prijatie", icon: Inbox, color: "text-amber-500", bgColor: "bg-amber-500/15", count: activeDispatched.length },
-    { id: 3, label: "Prijate zmluvy", icon: CheckCircle2, color: "text-green-500", bgColor: "bg-green-500/15", count: activeAccepted.length },
-    { id: 4, label: "Archiv s vyhradami", icon: Archive, color: "text-red-500", bgColor: "bg-red-500/15", count: activeArchived.length },
+    { id: 3, label: "Neprijate zmluvy \u2013 vyhrady", icon: XCircle, color: "text-red-500", bgColor: "bg-red-500/15", count: activeRejected.length },
+    { id: 4, label: "Archiv zmluv", icon: Archive, color: "text-muted-foreground", bgColor: "bg-muted/30", count: activeArchived.length },
   ];
 
   function filterBySearch(list: Contract[]) {
@@ -1195,7 +1201,7 @@ export default function Contracts() {
 
   if (isEvidencia) {
     const filteredNahravanie = filterBySearch(activeContracts);
-    const filteredAccepted = filterBySearch(activeAccepted);
+    const filteredRejected = filterBySearch(activeRejected);
     const filteredArchived = filterBySearch(activeArchived);
 
     return (
@@ -1367,13 +1373,17 @@ export default function Contracts() {
         )}
 
         {activeFolder === 3 && (
-          <Card data-testid="folder-prijate">
+          <Card data-testid="folder-neprijate">
+            <div className="flex items-center gap-3 p-3 border-b">
+              <XCircle className="w-4 h-4 text-red-500 shrink-0" />
+              <p className="text-xs text-muted-foreground">Zmluvy, ktore neboli schvalene pocas prijatia sprievodky. Tieto zmluvy neziskaju globalne poradove cislo.</p>
+            </div>
             <CardContent className="p-0">
-              {isLoadingAccepted ? (
+              {isLoadingRejected ? (
                 <div className="flex items-center justify-center py-8"><Loader2 className="w-5 h-5 animate-spin" /></div>
-              ) : filteredAccepted.length === 0 ? (
-                <p className="text-sm text-muted-foreground text-center py-8" data-testid="text-no-prijate">Ziadne prijate zmluvy</p>
-              ) : renderContractTable(filteredAccepted, { showStatus: true, showRegistration: true, showActions: false })}
+              ) : filteredRejected.length === 0 ? (
+                <p className="text-sm text-muted-foreground text-center py-8" data-testid="text-no-neprijate">Ziadne neprijate zmluvy</p>
+              ) : renderContractTable(filteredRejected, { showStatus: true, showRegistration: false, showActions: false })}
             </CardContent>
           </Card>
         )}

@@ -324,6 +324,9 @@ export default function ContractForm() {
   const { data: partners } = useQuery<Partner[]>({ queryKey: ["/api/partners"] });
   const { data: companies } = useQuery<MyCompany[]>({ queryKey: ["/api/my-companies"] });
   const { data: statuses } = useQuery<ContractStatus[]>({ queryKey: ["/api/contract-statuses"] });
+  const { data: statusVisibilityMap } = useQuery<Record<number, { companies: number[]; visibility: { entityType: string; entityId: number }[] }>>({
+    queryKey: ["/api/contract-statuses/all-visibility"],
+  });
   const { data: templates } = useQuery<ContractTemplate[]>({ queryKey: ["/api/contract-templates"] });
   const { data: inventories } = useQuery<ContractInventory[]>({ queryKey: ["/api/contract-inventories"] });
   const { data: contractSectors } = useQuery<Sector[]>({ queryKey: ["/api/sectors"] });
@@ -583,6 +586,30 @@ export default function ContractForm() {
 
   const currentCompany = companies?.find(c => c.id === (companyId ? parseInt(companyId) : appUser?.activeCompanyId));
 
+  const filteredStatuses = (() => {
+    if (!statuses) return [];
+    if (!statusVisibilityMap) return statuses;
+    const cId = companyId ? parseInt(companyId) : null;
+    const spId = sectorProductId ? parseInt(sectorProductId) : null;
+    const secId = contractSectionId ? parseInt(contractSectionId) : null;
+    const sectorId = contractSectorId ? parseInt(contractSectorId) : null;
+
+    return statuses.filter(s => {
+      const meta = statusVisibilityMap[s.id];
+      if (!meta) return true;
+      if (meta.companies.length > 0) {
+        if (!cId || !meta.companies.includes(cId)) return false;
+      }
+      if (meta.visibility.length > 0) {
+        const matchesSector = sectorId && meta.visibility.some(v => v.entityType === "sector" && v.entityId === sectorId);
+        const matchesSection = secId && meta.visibility.some(v => v.entityType === "section" && v.entityId === secId);
+        const matchesProduct = spId && meta.visibility.some(v => v.entityType === "product" && v.entityId === spId);
+        if (!matchesSector && !matchesSection && !matchesProduct) return false;
+      }
+      return true;
+    });
+  })();
+
   return (
     <div className="flex flex-col h-full overflow-hidden" data-testid="contract-form-root">
       <div className="flex-none flex items-center gap-3 px-3 py-2 border-b border-border flex-wrap">
@@ -713,7 +740,7 @@ export default function ContractForm() {
                       <SelectValue placeholder="Vyberte stav" />
                     </SelectTrigger>
                     <SelectContent>
-                      {statuses?.map(s => (
+                      {filteredStatuses.map(s => (
                         <SelectItem key={s.id} value={s.id.toString()}>
                           <div className="flex items-center gap-2">
                             <div className="w-3 h-3 rounded-full" style={{ backgroundColor: s.color }} />
@@ -1086,7 +1113,7 @@ export default function ContractForm() {
                     <SelectValue placeholder="Vyberte stav" />
                   </SelectTrigger>
                   <SelectContent>
-                    {statuses?.map(s => (
+                    {filteredStatuses.map(s => (
                       <SelectItem key={s.id} value={s.id.toString()}>
                         <div className="flex items-center gap-2">
                           <div className="w-3 h-3 rounded-full" style={{ backgroundColor: s.color }} />
@@ -1097,12 +1124,12 @@ export default function ContractForm() {
                   </SelectContent>
                 </Select>
               </CompactField>
-              {statuses && statuses.length > 0 && (
+              {filteredStatuses.length > 0 && (
                 <Card>
                   <CardContent className="p-3">
                     <h3 className="text-sm font-semibold mb-2">Dostupne stavy</h3>
                     <div className="flex items-center gap-2 flex-wrap">
-                      {statuses.map(s => (
+                      {filteredStatuses.map(s => (
                         <Badge
                           key={s.id}
                           variant={statusId === s.id.toString() ? "default" : "outline"}

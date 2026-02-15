@@ -514,7 +514,48 @@ export const contractStatuses = pgTable("contract_statuses", {
   isCommissionable: boolean("is_commissionable").default(false),
   isFinal: boolean("is_final").default(false),
   assignsNumber: boolean("assigns_number").default(false),
+  definesContractEnd: boolean("defines_contract_end").default(false),
   stateId: integer("state_id").references(() => states.id),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// === CONTRACT STATUS COMPANIES (ArutsoK 49 - statuses linked to companies) ===
+export const contractStatusCompanies = pgTable("contract_status_companies", {
+  id: serial("id").primaryKey(),
+  statusId: integer("status_id").notNull().references(() => contractStatuses.id, { onDelete: "cascade" }),
+  companyId: integer("company_id").notNull().references(() => myCompanies.id, { onDelete: "cascade" }),
+});
+
+// === CONTRACT STATUS VISIBILITY (ArutsoK 49 - statuses linked to sectors/sections/products) ===
+export const contractStatusVisibility = pgTable("contract_status_visibility", {
+  id: serial("id").primaryKey(),
+  statusId: integer("status_id").notNull().references(() => contractStatuses.id, { onDelete: "cascade" }),
+  entityType: text("entity_type").notNull(),
+  entityId: integer("entity_id").notNull(),
+});
+
+// === CONTRACT STATUS PARAMETERS (ArutsoK 49 - independent parameter sub-system for statuses) ===
+export const contractStatusParameters = pgTable("contract_status_parameters", {
+  id: serial("id").primaryKey(),
+  statusId: integer("status_id").notNull().references(() => contractStatuses.id, { onDelete: "cascade" }),
+  name: text("name").notNull(),
+  paramType: text("param_type").notNull().default("text"),
+  helpText: text("help_text").default(""),
+  options: text("options").array().default([]),
+  isRequired: boolean("is_required").default(false),
+  defaultValue: text("default_value").default(""),
+  sortOrder: integer("sort_order").default(0),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// === CONTRACT STATUS CHANGE LOG (ArutsoK 49 - all status changes logged) ===
+export const contractStatusChangeLogs = pgTable("contract_status_change_logs", {
+  id: serial("id").primaryKey(),
+  contractId: integer("contract_id").notNull().references(() => contracts.id),
+  oldStatusId: integer("old_status_id").references(() => contractStatuses.id),
+  newStatusId: integer("new_status_id").notNull().references(() => contractStatuses.id),
+  changedByUserId: integer("changed_by_user_id").references(() => appUsers.id),
+  parameterValues: jsonb("parameter_values").$type<Record<string, string>>().default({}),
   createdAt: timestamp("created_at").defaultNow(),
 });
 
@@ -746,6 +787,10 @@ export const insertClientGroupSchema = createInsertSchema(clientGroups).omit({ i
 export const insertClientSubGroupSchema = createInsertSchema(clientSubGroups).omit({ id: true, createdAt: true });
 export const insertClientGroupMemberSchema = createInsertSchema(clientGroupMembers).omit({ id: true, createdAt: true });
 export const insertContractStatusSchema = createInsertSchema(contractStatuses).omit({ id: true, createdAt: true });
+export const insertContractStatusCompanySchema = createInsertSchema(contractStatusCompanies).omit({ id: true });
+export const insertContractStatusVisibilitySchema = createInsertSchema(contractStatusVisibility).omit({ id: true });
+export const insertContractStatusParameterSchema = createInsertSchema(contractStatusParameters).omit({ id: true, createdAt: true });
+export const insertContractStatusChangeLogSchema = createInsertSchema(contractStatusChangeLogs).omit({ id: true, createdAt: true });
 export const insertContractTemplateSchema = createInsertSchema(contractTemplates).omit({ id: true, createdAt: true, updatedAt: true });
 export const insertContractInventorySchema = createInsertSchema(contractInventories).omit({ id: true, createdAt: true, updatedAt: true });
 export const insertContractSchema = createInsertSchema(contracts).omit({ id: true, createdAt: true, updatedAt: true, isDeleted: true, deletedBy: true, deletedAt: true, deletedFromIp: true, uid: true, isLocked: true, lockedBy: true, lockedAt: true, lockedBySupiskaId: true });
@@ -817,6 +862,14 @@ export type ClientGroupMember = typeof clientGroupMembers.$inferSelect;
 export type InsertClientGroupMember = z.infer<typeof insertClientGroupMemberSchema>;
 
 export type ContractStatus = typeof contractStatuses.$inferSelect;
+export type ContractStatusCompany = typeof contractStatusCompanies.$inferSelect;
+export type InsertContractStatusCompany = z.infer<typeof insertContractStatusCompanySchema>;
+export type ContractStatusVisibility = typeof contractStatusVisibility.$inferSelect;
+export type InsertContractStatusVisibility = z.infer<typeof insertContractStatusVisibilitySchema>;
+export type ContractStatusParameter = typeof contractStatusParameters.$inferSelect;
+export type InsertContractStatusParameter = z.infer<typeof insertContractStatusParameterSchema>;
+export type ContractStatusChangeLog = typeof contractStatusChangeLogs.$inferSelect;
+export type InsertContractStatusChangeLog = z.infer<typeof insertContractStatusChangeLogSchema>;
 export type InsertContractStatus = z.infer<typeof insertContractStatusSchema>;
 export type ContractTemplate = typeof contractTemplates.$inferSelect;
 export type InsertContractTemplate = z.infer<typeof insertContractTemplateSchema>;

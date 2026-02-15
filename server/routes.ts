@@ -1329,6 +1329,109 @@ export async function registerRoutes(
     }
   });
 
+  // === CONTRACT STATUS COMPANIES (ArutsoK 49) ===
+  app.get("/api/contract-statuses/:id/companies", isAuthenticated, async (req: any, res) => {
+    try {
+      res.json(await storage.getContractStatusCompanies(Number(req.params.id)));
+    } catch (err) { res.status(500).json({ message: "Internal error" }); }
+  });
+
+  app.put("/api/contract-statuses/:id/companies", isAuthenticated, async (req: any, res) => {
+    try {
+      const { companyIds } = req.body;
+      await storage.setContractStatusCompanies(Number(req.params.id), companyIds || []);
+      await logAudit(req, { action: "UPDATE", module: "stavy_zmluv_companies", entityId: Number(req.params.id), newData: { companyIds } });
+      res.json({ success: true });
+    } catch (err) { res.status(500).json({ message: "Internal error" }); }
+  });
+
+  // === CONTRACT STATUS VISIBILITY (ArutsoK 49) ===
+  app.get("/api/contract-statuses/:id/visibility", isAuthenticated, async (req: any, res) => {
+    try {
+      res.json(await storage.getContractStatusVisibility(Number(req.params.id)));
+    } catch (err) { res.status(500).json({ message: "Internal error" }); }
+  });
+
+  app.put("/api/contract-statuses/:id/visibility", isAuthenticated, async (req: any, res) => {
+    try {
+      const { items } = req.body;
+      await storage.setContractStatusVisibility(Number(req.params.id), items || []);
+      await logAudit(req, { action: "UPDATE", module: "stavy_zmluv_visibility", entityId: Number(req.params.id), newData: { items } });
+      res.json({ success: true });
+    } catch (err) { res.status(500).json({ message: "Internal error" }); }
+  });
+
+  // === CONTRACT STATUS PARAMETERS (ArutsoK 49) ===
+  app.get("/api/contract-statuses/:id/parameters", isAuthenticated, async (req: any, res) => {
+    try {
+      res.json(await storage.getContractStatusParameters(Number(req.params.id)));
+    } catch (err) { res.status(500).json({ message: "Internal error" }); }
+  });
+
+  app.post("/api/contract-statuses/:id/parameters", isAuthenticated, async (req: any, res) => {
+    try {
+      const data = { ...req.body, statusId: Number(req.params.id) };
+      const created = await storage.createContractStatusParameter(data);
+      await logAudit(req, { action: "CREATE", module: "stavy_zmluv_parameters", entityId: created.id, newData: data });
+      res.status(201).json(created);
+    } catch (err) { res.status(500).json({ message: "Internal error" }); }
+  });
+
+  app.put("/api/contract-status-parameters/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const updated = await storage.updateContractStatusParameter(Number(req.params.id), req.body);
+      await logAudit(req, { action: "UPDATE", module: "stavy_zmluv_parameters", entityId: Number(req.params.id), newData: req.body });
+      res.json(updated);
+    } catch (err) { res.status(500).json({ message: "Internal error" }); }
+  });
+
+  app.delete("/api/contract-status-parameters/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      await storage.deleteContractStatusParameter(Number(req.params.id));
+      await logAudit(req, { action: "DELETE", module: "stavy_zmluv_parameters", entityId: Number(req.params.id) });
+      res.json({ success: true });
+    } catch (err) { res.status(500).json({ message: "Internal error" }); }
+  });
+
+  app.put("/api/contract-status-parameters/reorder", isAuthenticated, async (req: any, res) => {
+    try {
+      const { items } = req.body;
+      await storage.reorderContractStatusParameters(items);
+      res.json({ success: true });
+    } catch (err) { res.status(500).json({ message: "Internal error" }); }
+  });
+
+  // === CONTRACT STATUS CHANGE LOGS (ArutsoK 49) ===
+  app.get("/api/contracts/:id/status-change-logs", isAuthenticated, async (req: any, res) => {
+    try {
+      res.json(await storage.getContractStatusChangeLogs(Number(req.params.id)));
+    } catch (err) { res.status(500).json({ message: "Internal error" }); }
+  });
+
+  // === REJECTED CONTRACTS (ArutsoK 49) ===
+  app.get("/api/contracts/rejected", isAuthenticated, async (_req: any, res) => {
+    try {
+      res.json(await storage.getRejectedContracts());
+    } catch (err) { res.status(500).json({ message: "Internal error" }); }
+  });
+
+  // === ALL STATUS VISIBILITY DATA (ArutsoK 49 - bulk load for filtering) ===
+  app.get("/api/contract-statuses/all-visibility", isAuthenticated, async (_req: any, res) => {
+    try {
+      const statuses = await storage.getContractStatuses();
+      const result: Record<number, { companies: number[]; visibility: { entityType: string; entityId: number }[] }> = {};
+      for (const s of statuses) {
+        const companies = await storage.getContractStatusCompanies(s.id);
+        const visibility = await storage.getContractStatusVisibility(s.id);
+        result[s.id] = {
+          companies: companies.map(c => c.companyId),
+          visibility: visibility.map(v => ({ entityType: v.entityType, entityId: v.entityId })),
+        };
+      }
+      res.json(result);
+    } catch (err) { res.status(500).json({ message: "Internal error" }); }
+  });
+
   // === CONTRACT TEMPLATES ===
   app.get(api.contractTemplatesApi.list.path, isAuthenticated, async (req: any, res) => {
     res.json(await storage.getContractTemplates(getEnforcedStateId(req)));
@@ -1511,6 +1614,13 @@ export async function registerRoutes(
           globalNumbers[Number(contractId)] = globalNum;
         }
         await storage.updateContract(Number(contractId), updateData);
+        await storage.createContractStatusChangeLog({
+          contractId: Number(contractId),
+          oldStatusId: contract.statusId,
+          newStatusId: acceptedStatus.id,
+          changedByUserId: req.appUser?.id || null,
+          parameterValues: {},
+        });
       }
       const allContractsInInventory = await storage.getContracts({ inventoryId });
       const allAccepted = allContractsInInventory.every(c => 
@@ -1681,6 +1791,15 @@ export async function registerRoutes(
       }
       delete input.globalNumber;
       const updated = await storage.updateContract(Number(req.params.id), input);
+      if (input.statusId && input.statusId !== old.statusId) {
+        await storage.createContractStatusChangeLog({
+          contractId: Number(req.params.id),
+          oldStatusId: old.statusId,
+          newStatusId: input.statusId,
+          changedByUserId: appUser?.id || null,
+          parameterValues: {},
+        });
+      }
       await logAudit(req, { action: "UPDATE", module: "zmluvy", entityId: Number(req.params.id), oldData: old, newData: input });
       res.json(updated);
     } catch (err) {

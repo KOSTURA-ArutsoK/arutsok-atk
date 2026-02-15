@@ -77,6 +77,11 @@ import {
   type ContractFieldSetting,
   contractAcquirers,
   type ContractAcquirer, type InsertContractAcquirer,
+  contractStatusCompanies, contractStatusVisibility, contractStatusParameters, contractStatusChangeLogs,
+  type ContractStatusCompany, type InsertContractStatusCompany,
+  type ContractStatusVisibility, type InsertContractStatusVisibility,
+  type ContractStatusParameter, type InsertContractStatusParameter,
+  type ContractStatusChangeLog, type InsertContractStatusChangeLog,
 } from "@shared/schema";
 import { eq, and, or, ne, like, sql, lte, gte, desc, isNull, isNotNull, inArray } from "drizzle-orm";
 
@@ -235,6 +240,28 @@ export interface IStorage {
   updateContractStatus(id: number, data: Partial<InsertContractStatus>): Promise<ContractStatus>;
   deleteContractStatus(id: number): Promise<void>;
   reorderContractStatuses(items: { id: number; sortOrder: number }[]): Promise<void>;
+
+  // Contract Status Companies (ArutsoK 49)
+  getContractStatusCompanies(statusId: number): Promise<ContractStatusCompany[]>;
+  setContractStatusCompanies(statusId: number, companyIds: number[]): Promise<void>;
+
+  // Contract Status Visibility (ArutsoK 49)
+  getContractStatusVisibility(statusId: number): Promise<ContractStatusVisibility[]>;
+  setContractStatusVisibility(statusId: number, items: { entityType: string; entityId: number }[]): Promise<void>;
+
+  // Contract Status Parameters (ArutsoK 49)
+  getContractStatusParameters(statusId: number): Promise<ContractStatusParameter[]>;
+  createContractStatusParameter(data: InsertContractStatusParameter): Promise<ContractStatusParameter>;
+  updateContractStatusParameter(id: number, data: Partial<InsertContractStatusParameter>): Promise<ContractStatusParameter>;
+  deleteContractStatusParameter(id: number): Promise<void>;
+  reorderContractStatusParameters(items: { id: number; sortOrder: number }[]): Promise<void>;
+
+  // Contract Status Change Logs (ArutsoK 49)
+  getContractStatusChangeLogs(contractId: number): Promise<ContractStatusChangeLog[]>;
+  createContractStatusChangeLog(data: InsertContractStatusChangeLog): Promise<ContractStatusChangeLog>;
+
+  // Rejected contracts (ArutsoK 49)
+  getRejectedContracts(): Promise<Contract[]>;
 
   // Contract Templates
   getContractTemplates(stateId?: number): Promise<ContractTemplate[]>;
@@ -1387,6 +1414,93 @@ export class DatabaseStorage implements IStorage {
     for (const item of items) {
       await db.update(contractStatuses).set({ sortOrder: item.sortOrder }).where(eq(contractStatuses.id, item.id));
     }
+  }
+
+  // === Contract Status Companies (ArutsoK 49) ===
+
+  async getContractStatusCompanies(statusId: number): Promise<ContractStatusCompany[]> {
+    return await db.select().from(contractStatusCompanies)
+      .where(eq(contractStatusCompanies.statusId, statusId));
+  }
+
+  async setContractStatusCompanies(statusId: number, companyIds: number[]): Promise<void> {
+    await db.delete(contractStatusCompanies).where(eq(contractStatusCompanies.statusId, statusId));
+    if (companyIds.length > 0) {
+      await db.insert(contractStatusCompanies).values(companyIds.map(companyId => ({ statusId, companyId })));
+    }
+  }
+
+  // === Contract Status Visibility (ArutsoK 49) ===
+
+  async getContractStatusVisibility(statusId: number): Promise<ContractStatusVisibility[]> {
+    return await db.select().from(contractStatusVisibility)
+      .where(eq(contractStatusVisibility.statusId, statusId));
+  }
+
+  async setContractStatusVisibility(statusId: number, items: { entityType: string; entityId: number }[]): Promise<void> {
+    await db.delete(contractStatusVisibility).where(eq(contractStatusVisibility.statusId, statusId));
+    if (items.length > 0) {
+      await db.insert(contractStatusVisibility).values(items.map(i => ({ statusId, entityType: i.entityType, entityId: i.entityId })));
+    }
+  }
+
+  // === Contract Status Parameters (ArutsoK 49) ===
+
+  async getContractStatusParameters(statusId: number): Promise<ContractStatusParameter[]> {
+    return await db.select().from(contractStatusParameters)
+      .where(eq(contractStatusParameters.statusId, statusId))
+      .orderBy(contractStatusParameters.sortOrder);
+  }
+
+  async createContractStatusParameter(data: InsertContractStatusParameter): Promise<ContractStatusParameter> {
+    const [created] = await db.insert(contractStatusParameters).values(data as any).returning();
+    return created;
+  }
+
+  async updateContractStatusParameter(id: number, data: Partial<InsertContractStatusParameter>): Promise<ContractStatusParameter> {
+    const [updated] = await db.update(contractStatusParameters).set(data).where(eq(contractStatusParameters.id, id)).returning();
+    return updated;
+  }
+
+  async deleteContractStatusParameter(id: number): Promise<void> {
+    await db.delete(contractStatusParameters).where(eq(contractStatusParameters.id, id));
+  }
+
+  async reorderContractStatusParameters(items: { id: number; sortOrder: number }[]): Promise<void> {
+    for (const item of items) {
+      await db.update(contractStatusParameters).set({ sortOrder: item.sortOrder }).where(eq(contractStatusParameters.id, item.id));
+    }
+  }
+
+  // === Contract Status Change Logs (ArutsoK 49) ===
+
+  async getContractStatusChangeLogs(contractId: number): Promise<ContractStatusChangeLog[]> {
+    return await db.select().from(contractStatusChangeLogs)
+      .where(eq(contractStatusChangeLogs.contractId, contractId))
+      .orderBy(desc(contractStatusChangeLogs.createdAt));
+  }
+
+  async createContractStatusChangeLog(data: InsertContractStatusChangeLog): Promise<ContractStatusChangeLog> {
+    const [created] = await db.insert(contractStatusChangeLogs).values(data as any).returning();
+    return created;
+  }
+
+  // === Rejected Contracts (ArutsoK 49) ===
+
+  async getRejectedContracts(): Promise<Contract[]> {
+    const acceptedStatus = await this.getSystemContractStatusByName("Prijata centrom - OK");
+    if (!acceptedStatus) return [];
+    return await db.select({ contract: contracts }).from(contracts)
+      .innerJoin(contractInventories, eq(contracts.inventoryId, contractInventories.id))
+      .where(and(
+        eq(contracts.isDeleted, false),
+        isNotNull(contracts.inventoryId),
+        isNotNull(contracts.dispatchedAt),
+        isNull(contracts.acceptedAt),
+        eq(contractInventories.isAccepted, true)
+      ))
+      .orderBy(sql`${contracts.dispatchedAt} DESC`)
+      .then(rows => rows.map(r => r.contract));
   }
 
   // === Contract Templates ===
