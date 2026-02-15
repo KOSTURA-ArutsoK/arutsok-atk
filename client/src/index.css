@@ -253,3 +253,21 @@ body[style*="overflow:hidden"] main {
 .tiptap p {
   margin: 0.125rem 0;
 }
+
+[data-sidebar="sidebar"] ::-webkit-scrollbar {
+  width: 4px;
+}
+[data-sidebar="sidebar"] ::-webkit-scrollbar-track {
+  background: transparent;
+}
+[data-sidebar="sidebar"] ::-webkit-scrollbar-thumb {
+  background: hsl(var(--muted-foreground) / 0.25);
+  border-radius: 9999px;
+}
+[data-sidebar="sidebar"] ::-webkit-scrollbar-thumb:hover {
+  background: hsl(var(--muted-foreground) / 0.45);
+}
+[data-sidebar="sidebar"] {
+  scrollbar-width: thin;
+  scrollbar-color: hsl(var(--muted-foreground) / 0.25) transparent;
+}
