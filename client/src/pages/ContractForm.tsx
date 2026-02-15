@@ -937,7 +937,7 @@ export default function ContractForm() {
       }
       queryClient.invalidateQueries({ queryKey: ["/api/contracts"] });
       toast({ title: "Uspech", description: "Zmluva vytvorena" });
-      navigate("/contracts");
+      navigate(`/contracts/${created.id}/edit`);
     },
     onError: () => toast({ title: "Chyba", description: "Nepodarilo sa vytvorit zmluvu", variant: "destructive" }),
   });
