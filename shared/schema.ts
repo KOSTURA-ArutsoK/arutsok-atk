@@ -481,6 +481,7 @@ export const clientGroups = pgTable("client_groups", {
   allowLogin: boolean("allow_login").default(true),
   allowCalculators: boolean("allow_calculators").default(true),
   permissionLevel: integer("permission_level").notNull().default(1),
+  permissionGroupId: integer("permission_group_id").references(() => permissionGroups.id),
   sortOrder: integer("sort_order").default(0),
   stateId: integer("state_id").references(() => states.id),
   createdAt: timestamp("created_at").defaultNow(),

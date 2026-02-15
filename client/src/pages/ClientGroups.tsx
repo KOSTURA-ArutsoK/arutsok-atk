@@ -4,10 +4,10 @@ import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { useAppUser } from "@/hooks/use-app-user";
 import { useMyCompanies } from "@/hooks/use-companies";
-import type { ClientGroup, Subject } from "@shared/schema";
+import type { ClientGroup, Subject, PermissionGroup } from "@shared/schema";
 import {
   Plus, Pencil, Trash2, Loader2, Check, X,
-  Calculator, LogIn, UserPlus, UserMinus, Search, ChevronRight, Building2,
+  Calculator, LogIn, UserPlus, UserMinus, Search, ChevronRight, Building2, Shield,
 } from "lucide-react";
 import { SortableTableRow, SortableContext_Wrapper } from "@/components/sortable-list";
 import { Card, CardContent } from "@/components/ui/card";
@@ -32,13 +32,6 @@ import {
 } from "@/components/ui/select";
 import { ProcessingSaveButton } from "@/components/processing-save-button";
 
-const PERMISSION_LEVELS = [
-  { value: "1", label: "Level 1 - Klient" },
-  { value: "2", label: "Level 2 - Spracovatel" },
-  { value: "3", label: "Level 3 - Manazer" },
-  { value: "4", label: "Level 4 - Riaditel" },
-  { value: "5", label: "Level 5 - Administrator" },
-];
 
 type ClientGroupWithCount = ClientGroup & { memberCount: number };
 type SubGroupWithCount = { id: number; groupId: number; name: string; sortOrder: number; createdAt: string | null; memberCount: number };
@@ -58,7 +51,7 @@ function GroupDetailDialog({
   const [name, setName] = useState("");
   const [allowLogin, setAllowLogin] = useState(true);
   const [allowCalculators, setAllowCalculators] = useState(true);
-  const [permissionLevel, setPermissionLevel] = useState("1");
+  const [permissionGroupId, setPermissionGroupId] = useState("");
   const [subGroupName, setSubGroupName] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
   const timerRef = useRef<number>(0);
@@ -72,12 +65,12 @@ function GroupDetailDialog({
         setName(group.name || "");
         setAllowLogin(group.allowLogin ?? true);
         setAllowCalculators(group.allowCalculators ?? true);
-        setPermissionLevel(String(group.permissionLevel ?? 1));
+        setPermissionGroupId(group.permissionGroupId ? String(group.permissionGroupId) : "");
       } else {
         setName("");
         setAllowLogin(true);
         setAllowCalculators(true);
-        setPermissionLevel("1");
+        setPermissionGroupId("");
       }
       setActiveTab("vseobecne");
       setSubGroupName("");
@@ -106,6 +99,11 @@ function GroupDetailDialog({
       return res.json();
     },
     enabled: !!group?.id && open,
+  });
+
+  const { data: permissionGroups } = useQuery<PermissionGroup[]>({
+    queryKey: ["/api/permission-groups"],
+    enabled: open,
   });
 
   const { data: searchResults } = useQuery<Subject[]>({
@@ -187,7 +185,7 @@ function GroupDetailDialog({
 
   const handleSave = () => {
     const processingTimeSec = Math.floor((Date.now() - startTimeRef.current) / 1000);
-    const data: any = { name, allowLogin, allowCalculators, permissionLevel: parseInt(permissionLevel) };
+    const data: any = { name, allowLogin, allowCalculators, permissionGroupId: permissionGroupId ? parseInt(permissionGroupId) : null };
     if (isEditing) {
       updateMutation.mutate(data);
     } else {
@@ -253,14 +251,14 @@ function GroupDetailDialog({
             </div>
 
             <div className="space-y-2">
-              <Label>Uroven pravomoci</Label>
-              <Select value={permissionLevel} onValueChange={setPermissionLevel}>
-                <SelectTrigger data-testid="select-permission-level">
-                  <SelectValue placeholder="Vyberte uroven" />
+              <Label>Skupina pravomoci</Label>
+              <Select value={permissionGroupId} onValueChange={setPermissionGroupId}>
+                <SelectTrigger data-testid="select-permission-group">
+                  <SelectValue placeholder="Vyberte skupinu pravomoci" />
                 </SelectTrigger>
                 <SelectContent>
-                  {PERMISSION_LEVELS.map(l => (
-                    <SelectItem key={l.value} value={l.value}>{l.label}</SelectItem>
+                  {(permissionGroups || []).map(pg => (
+                    <SelectItem key={pg.id} value={String(pg.id)}>{pg.name}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
@@ -460,6 +458,10 @@ export default function ClientGroups() {
     queryKey: ["/api/client-groups"],
   });
 
+  const { data: permGroupsData } = useQuery<PermissionGroup[]>({
+    queryKey: ["/api/permission-groups"],
+  });
+
   const reorderMutation = useMutation({
     mutationFn: (items: { id: number; sortOrder: number }[]) =>
       apiRequest("PUT", "/api/client-groups/reorder", { items }),
@@ -514,7 +516,7 @@ export default function ClientGroups() {
                 <TableRow>
                   <TableHead className="w-10"></TableHead>
                   <TableHead>Nazov skupiny</TableHead>
-                  <TableHead className="w-36 text-center">Uroven pravomoci</TableHead>
+                  <TableHead className="w-36 text-center">Skupina pravomoci</TableHead>
                   <TableHead className="w-32 text-center">Povolenie prihlasenia</TableHead>
                   <TableHead className="w-32 text-center">Povolene kalkulacky</TableHead>
                   <TableHead className="w-32 text-center">Pocet klientov</TableHead>
@@ -540,7 +542,9 @@ export default function ClientGroups() {
                       </TableCell>
                       <TableCell className="text-center">
                         <Badge variant="outline" data-testid={`badge-level-${group.id}`}>
-                          {PERMISSION_LEVELS.find(l => l.value === String(group.permissionLevel))?.label || `Level ${group.permissionLevel}`}
+                          {group.permissionGroupId
+                            ? (permGroupsData || []).find(pg => pg.id === group.permissionGroupId)?.name || "—"
+                            : "—"}
                         </Badge>
                       </TableCell>
                       <TableCell className="text-center">

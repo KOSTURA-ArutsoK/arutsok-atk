@@ -34,13 +34,6 @@ import { Checkbox } from "@/components/ui/checkbox";
 import type { AppUser, PermissionGroup, ClientGroup } from "@shared/schema";
 import { ProcessingSaveButton } from "@/components/processing-save-button";
 
-const PERMISSION_LEVEL_LABELS: Record<number, string> = {
-  1: "L1 Klient",
-  2: "L2 Spracovatel",
-  3: "L3 Manazer",
-  4: "L4 Riaditel",
-  5: "L5 Admin",
-};
 
 const ROLES = ["superadmin", "admin", "backoffice", "manager", "user"] as const;
 
@@ -376,7 +369,9 @@ function UserFormDialog({
                     <Label htmlFor={`ucg-${g.id}`} className="cursor-pointer text-sm flex items-center gap-2 flex-wrap">
                       {g.name}
                       <Badge variant="outline" className="text-xs">
-                        {PERMISSION_LEVEL_LABELS[g.permissionLevel] || `L${g.permissionLevel}`}
+                        {g.permissionGroupId
+                          ? permGroups?.find(pg => pg.id === g.permissionGroupId)?.name || "—"
+                          : "—"}
                       </Badge>
                     </Label>
                   </div>
@@ -386,12 +381,18 @@ function UserFormDialog({
               )}
             </div>
             <div style={{ display: selectedGroupIds.length > 0 ? 'flex' : 'none' }} className="items-center gap-2 flex-wrap">
-              <span className="text-xs text-muted-foreground">Efektivny level:</span>
-              <Badge variant="secondary" data-testid="badge-effective-level">
-                {PERMISSION_LEVEL_LABELS[
-                  Math.max(...(selectedGroupIds.map(id => allClientGroups?.find(g => g.id === id)?.permissionLevel || 1)))
-                ] || "L1 Klient"}
-              </Badge>
+              <span className="text-xs text-muted-foreground">Skupiny pravomoci:</span>
+              {(() => {
+                const linkedPgIds = new Set<number>();
+                selectedGroupIds.forEach(id => {
+                  const cg = allClientGroups?.find(g => g.id === id);
+                  if (cg?.permissionGroupId) linkedPgIds.add(cg.permissionGroupId);
+                });
+                const pgNames = Array.from(linkedPgIds).map(pgId => permGroups?.find(pg => pg.id === pgId)?.name).filter(Boolean);
+                return pgNames.length > 0 ? pgNames.map((n, i) => (
+                  <Badge key={i} variant="secondary" data-testid={`badge-perm-group-${i}`}>{n}</Badge>
+                )) : <Badge variant="secondary" data-testid="badge-effective-level">—</Badge>;
+              })()}
             </div>
           </div>
 

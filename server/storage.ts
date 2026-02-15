@@ -336,6 +336,7 @@ export interface IStorage {
   removeUserClientGroupMembership(userId: number, groupId: number): Promise<void>;
   setUserClientGroupMemberships(userId: number, groupIds: number[]): Promise<void>;
   getUserEffectivePermissionLevel(userId: number): Promise<number>;
+  getUserEffectivePermissionGroupIds(userId: number): Promise<number[]>;
 
   // Supisky
   getSupisky(filters?: { stateId?: number; companyId?: number }): Promise<Supiska[]>;
@@ -1964,6 +1965,17 @@ export class DatabaseStorage implements IStorage {
       .where(eq(userClientGroupMemberships.userId, userId));
     if (rows.length === 0) return 1;
     return Math.max(...rows.map(r => r.permissionLevel));
+  }
+
+  async getUserEffectivePermissionGroupIds(userId: number): Promise<number[]> {
+    const rows = await db.select({ permissionGroupId: clientGroups.permissionGroupId })
+      .from(userClientGroupMemberships)
+      .innerJoin(clientGroups, eq(userClientGroupMemberships.groupId, clientGroups.id))
+      .where(eq(userClientGroupMemberships.userId, userId));
+    const ids = rows
+      .map(r => r.permissionGroupId)
+      .filter((id): id is number => id !== null);
+    return Array.from(new Set(ids));
   }
 
   async getSupisky(filters?: { stateId?: number; companyId?: number }): Promise<Supiska[]> {
