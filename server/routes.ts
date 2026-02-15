@@ -1463,7 +1463,8 @@ export async function registerRoutes(
         lastStatusUpdate: new Date(),
       } as any);
 
-      const status = await storage.getContractStatus(Number(newStatusId));
+      const allStatuses = await storage.getContractStatuses();
+      const status = allStatuses.find(s => s.id === Number(newStatusId));
       if (status?.assignsNumber && !contract.globalNumber) {
         const counter = await storage.getNextCounterValue("global_contract_number");
         await storage.updateContract(contractId, { globalNumber: counter } as any);

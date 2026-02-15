@@ -21,7 +21,7 @@ interface StatusChangeModalProps {
   contractId: number;
   currentStatusId: number | null;
   statuses: ContractStatus[];
-  onSuccess?: () => void;
+  onSuccess?: (newStatusId: number) => void;
 }
 
 export function StatusChangeModal({ open, onOpenChange, contractId, currentStatusId, statuses, onSuccess }: StatusChangeModalProps) {
@@ -66,12 +66,14 @@ export function StatusChangeModal({ open, onOpenChange, contractId, currentStatu
       return res.json();
     },
     onSuccess: () => {
+      const newId = parseInt(selectedStatusId);
       toast({ title: "Stav zmluvy bol uspesne zmeneny" });
       queryClient.invalidateQueries({ queryKey: ["/api/contracts"] });
       queryClient.invalidateQueries({ queryKey: ["/api/contracts", contractId, "status-change-logs"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/contracts/status-change-meta"] });
       resetForm();
       onOpenChange(false);
-      onSuccess?.();
+      onSuccess?.(newId);
     },
     onError: (err: Error) => {
       toast({ title: "Chyba", description: err.message, variant: "destructive" });

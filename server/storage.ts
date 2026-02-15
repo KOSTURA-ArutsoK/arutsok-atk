@@ -1390,7 +1390,7 @@ export class DatabaseStorage implements IStorage {
   async getContractStatuses(stateId?: number): Promise<ContractStatus[]> {
     if (stateId) {
       return await db.select().from(contractStatuses)
-        .where(eq(contractStatuses.stateId, stateId))
+        .where(or(eq(contractStatuses.stateId, stateId), isNull(contractStatuses.stateId)))
         .orderBy(contractStatuses.sortOrder);
     }
     return await db.select().from(contractStatuses).orderBy(contractStatuses.sortOrder);

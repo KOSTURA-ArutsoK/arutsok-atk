@@ -741,21 +741,37 @@ export default function ContractForm() {
                   </Select>
                 </CompactField>
                 <CompactField label="Stav zmluvy">
-                  <Select value={statusId} onValueChange={setStatusId}>
-                    <SelectTrigger data-testid="select-contract-status">
-                      <SelectValue placeholder="Vyberte stav" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {filteredStatuses.map(s => (
-                        <SelectItem key={s.id} value={s.id.toString()}>
-                          <div className="flex items-center gap-2">
-                            <div className="w-3 h-3 rounded-full" style={{ backgroundColor: s.color }} />
-                            {s.name}
-                          </div>
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  {isEditing ? (
+                    <div className="flex items-center gap-2 h-9 px-3 border rounded-md bg-muted/30" data-testid="display-contract-status">
+                      {(() => {
+                        const cs = statuses?.find(s => s.id === (statusId ? parseInt(statusId) : -1));
+                        return cs ? (
+                          <>
+                            <div className="w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: cs.color }} />
+                            <span className="text-sm">{cs.name}</span>
+                          </>
+                        ) : (
+                          <span className="text-sm text-muted-foreground">Bez stavu</span>
+                        );
+                      })()}
+                    </div>
+                  ) : (
+                    <Select value={statusId} onValueChange={setStatusId}>
+                      <SelectTrigger data-testid="select-contract-status">
+                        <SelectValue placeholder="Vyberte stav" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {filteredStatuses.map(s => (
+                          <SelectItem key={s.id} value={s.id.toString()}>
+                            <div className="flex items-center gap-2">
+                              <div className="w-3 h-3 rounded-full" style={{ backgroundColor: s.color }} />
+                              {s.name}
+                            </div>
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  )}
                 </CompactField>
               </div>
 
@@ -1125,44 +1141,55 @@ export default function ContractForm() {
                   </Button>
                 )}
               </div>
-              <CompactField label="Aktualny stav">
-                <Select value={statusId} onValueChange={setStatusId}>
-                  <SelectTrigger data-testid="select-status-section">
-                    <SelectValue placeholder="Vyberte stav" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {filteredStatuses.map(s => (
-                      <SelectItem key={s.id} value={s.id.toString()}>
-                        <div className="flex items-center gap-2">
-                          <div className="w-3 h-3 rounded-full" style={{ backgroundColor: s.color }} />
-                          {s.name}
+              {(() => {
+                const currentStatus = statuses?.find(s => s.id === (statusId ? parseInt(statusId) : -1));
+                return (
+                  <Card>
+                    <CardContent className="p-3 space-y-3">
+                      <div className="space-y-1">
+                        <span className="text-xs text-muted-foreground font-medium">Aktualny stav</span>
+                        {currentStatus ? (
+                          <div className="flex items-center gap-2">
+                            <div className="w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: currentStatus.color }} />
+                            <span className="text-sm font-semibold" data-testid="text-current-status">{currentStatus.name}</span>
+                            {currentStatus.isCommissionable && <Badge variant="outline" className="text-xs">Provizna</Badge>}
+                            {currentStatus.isFinal && <Badge variant="outline" className="text-xs">Finalna</Badge>}
+                            {currentStatus.assignsNumber && <Badge variant="outline" className="text-xs">Prideluje cislo</Badge>}
+                            {currentStatus.definesContractEnd && <Badge variant="outline" className="text-xs">Ukoncenie</Badge>}
+                          </div>
+                        ) : (
+                          <span className="text-sm text-muted-foreground" data-testid="text-current-status">Bez stavu</span>
+                        )}
+                      </div>
+                      {filteredStatuses.length > 0 && (
+                        <div className="space-y-1">
+                          <span className="text-xs text-muted-foreground font-medium">Dostupne stavy pre tuto zmluvu ({filteredStatuses.length})</span>
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            {filteredStatuses.map(s => (
+                              <Badge
+                                key={s.id}
+                                variant={statusId === s.id.toString() ? "default" : "outline"}
+                                style={statusId === s.id.toString() ? { backgroundColor: s.color } : { borderColor: s.color, color: s.color }}
+                                data-testid={`badge-status-${s.id}`}
+                              >
+                                {s.name}
+                              </Badge>
+                            ))}
+                          </div>
+                          {(contractSectorId || contractSectionId || sectorProductId) && (
+                            <p className="text-xs text-muted-foreground mt-1">
+                              Stavy su filtrovane podla sektora, sekcie a produktu tejto zmluvy
+                            </p>
+                          )}
                         </div>
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </CompactField>
-              {filteredStatuses.length > 0 && (
-                <Card>
-                  <CardContent className="p-3">
-                    <h3 className="text-sm font-semibold mb-2">Dostupne stavy</h3>
-                    <div className="flex items-center gap-2 flex-wrap">
-                      {filteredStatuses.map(s => (
-                        <Badge
-                          key={s.id}
-                          variant={statusId === s.id.toString() ? "default" : "outline"}
-                          style={statusId === s.id.toString() ? { backgroundColor: s.color } : { borderColor: s.color, color: s.color }}
-                          className="cursor-pointer"
-                          onClick={() => setStatusId(s.id.toString())}
-                          data-testid={`badge-status-${s.id}`}
-                        >
-                          {s.name}
-                        </Badge>
-                      ))}
-                    </div>
-                  </CardContent>
-                </Card>
-              )}
+                      )}
+                      {filteredStatuses.length === 0 && (
+                        <p className="text-xs text-muted-foreground">Ziadne stavy nie su dostupne pre aktualnu konfiguraciu zmluvy</p>
+                      )}
+                    </CardContent>
+                  </Card>
+                );
+              })()}
               {contractId && (
                 <StatusChangeModal
                   open={statusChangeModalOpen}
@@ -1170,8 +1197,12 @@ export default function ContractForm() {
                   contractId={contractId}
                   currentStatusId={statusId ? parseInt(statusId) : null}
                   statuses={filteredStatuses}
-                  onSuccess={() => {
+                  onSuccess={(newStatusId) => {
+                    setStatusId(newStatusId.toString());
                     queryClient.invalidateQueries({ queryKey: ["/api/contracts", contractId] });
+                    queryClient.invalidateQueries({ queryKey: ["/api/contracts", contractId, "status-change-logs"] });
+                    queryClient.invalidateQueries({ queryKey: ["/api/contracts"] });
+                    queryClient.invalidateQueries({ queryKey: ["/api/contracts/status-change-meta"] });
                   }}
                 />
               )}
