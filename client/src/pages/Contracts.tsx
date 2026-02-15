@@ -376,7 +376,7 @@ function ContractFormDialog({
             </div>
           </div>
 
-          <div className="grid grid-cols-3 gap-4">
+          <div className="grid grid-cols-4 gap-4">
             <div className="space-y-2">
               <label className="text-sm font-medium">Sektor</label>
               <Select value={contractSectorId} onValueChange={setContractSectorIdCascade}>
@@ -502,7 +502,7 @@ function ContractFormDialog({
             </div>
           )}
 
-          <div className="grid grid-cols-3 gap-4">
+          <div className="grid grid-cols-4 gap-4">
             <div className="space-y-2">
               <label className="text-sm font-medium">Stav zmluvy</label>
               <Select value={statusId} onValueChange={setStatusId}>
@@ -578,7 +578,7 @@ function ContractFormDialog({
             </div>
           </div>
 
-          <div className="grid grid-cols-3 gap-4">
+          <div className="grid grid-cols-4 gap-4">
             <div className="space-y-2">
               <label className="text-sm font-medium">Datum podpisu</label>
               <Input type="date" value={signedDate} onChange={e => setSignedDate(e.target.value)} data-testid="input-contract-signed-date" />
@@ -593,7 +593,7 @@ function ContractFormDialog({
             </div>
           </div>
 
-          <div className="grid grid-cols-3 gap-4">
+          <div className="grid grid-cols-4 gap-4">
             <div className="space-y-2">
               <label className="text-sm font-medium">Suma poistneho</label>
               <Input type="number" value={premiumAmount} onChange={e => setPremiumAmount(e.target.value)} className="font-mono" data-testid="input-contract-premium" />
@@ -679,7 +679,7 @@ function ContractDetailDialog({
         </DialogHeader>
 
         <div className="space-y-4 mt-2">
-          <div className="grid grid-cols-3 gap-4">
+          <div className="grid grid-cols-4 gap-4">
             <div>
               <span className="text-xs text-muted-foreground">Cislo zmluvy</span>
               <p className="text-sm" data-testid="text-detail-contract-number">{contract.contractNumber || "-"}</p>
@@ -696,7 +696,7 @@ function ContractDetailDialog({
             </div>
           </div>
 
-          <div className="grid grid-cols-3 gap-4">
+          <div className="grid grid-cols-4 gap-4">
             <div>
               <span className="text-xs text-muted-foreground">Produkt</span>
               <p className="text-sm" data-testid="text-detail-product">{sectorProduct ? `${sectorProduct.name}${sectorProduct.abbreviation ? ` (${sectorProduct.abbreviation})` : ''}` : "-"}</p>
@@ -711,7 +711,7 @@ function ContractDetailDialog({
             </div>
           </div>
 
-          <div className="grid grid-cols-3 gap-4">
+          <div className="grid grid-cols-4 gap-4">
             <div>
               <span className="text-xs text-muted-foreground">Spolocnost</span>
               <p className="text-sm" data-testid="text-detail-company">{companyName}</p>
@@ -726,7 +726,7 @@ function ContractDetailDialog({
             </div>
           </div>
 
-          <div className="grid grid-cols-3 gap-4">
+          <div className="grid grid-cols-4 gap-4">
             <div>
               <span className="text-xs text-muted-foreground">Datum podpisu</span>
               <p className="text-sm" data-testid="text-detail-signed-date">{formatDate(contract.signedDate)}</p>
@@ -1155,9 +1155,9 @@ export default function Contracts() {
             <TableHead>Partner</TableHead>
             <TableHead>Produkt</TableHead>
             {showStatus && <TableHead>Stav</TableHead>}
-            <TableHead>Lehotne poistne</TableHead>
             <TableHead>Rocne poistne</TableHead>
             <TableHead>Vytvorenie zmluvy</TableHead>
+            <TableHead>Lehotne poistne</TableHead>
             {showActions && <TableHead className="text-right">Akcie</TableHead>}
           </TableRow>
         </TableHeader>
@@ -1214,9 +1214,9 @@ export default function Contracts() {
                     </div>
                   </TableCell>
                 )}
-                <TableCell className="text-sm font-mono">{formatAmount(contract.premiumAmount, contract.currency)}</TableCell>
                 <TableCell className="text-sm font-mono">{formatAmount(contract.annualPremium, contract.currency)}</TableCell>
                 <TableCell className="text-sm">{formatDate(contract.signedDate)}</TableCell>
+                <TableCell className="text-sm font-mono">{formatAmount(contract.premiumAmount, contract.currency)}</TableCell>
                 {showActions && (
                   <TableCell className="text-right">
                     <div className="flex items-center justify-end gap-1 flex-wrap">
@@ -1371,9 +1371,9 @@ export default function Contracts() {
                                   <TableHead>Klient</TableHead>
                                   <TableHead>Partner</TableHead>
                                   <TableHead>Produkt</TableHead>
-                                  <TableHead>Lehotne poistne</TableHead>
                                   <TableHead>Rocne poistne</TableHead>
                                   <TableHead>Vytvorenie zmluvy</TableHead>
+                                  <TableHead>Lehotne poistne</TableHead>
                                   <TableHead className="text-right">Akcie</TableHead>
                                 </TableRow>
                               </TableHeader>
@@ -1394,9 +1394,9 @@ export default function Contracts() {
                                     <TableCell className="text-sm">{getSubjectDisplay(contract.subjectId)}</TableCell>
                                     <TableCell className="text-sm">{getPartnerName(contract)}</TableCell>
                                     <TableCell className="text-sm">{getProductName(contract)}</TableCell>
-                                    <TableCell className="text-sm font-mono">{formatAmount(contract.premiumAmount, contract.currency)}</TableCell>
                                     <TableCell className="text-sm font-mono">{formatAmount(contract.annualPremium, contract.currency)}</TableCell>
                                     <TableCell className="text-sm">{formatDate(contract.signedDate)}</TableCell>
+                                    <TableCell className="text-sm font-mono">{formatAmount(contract.premiumAmount, contract.currency)}</TableCell>
                                     <TableCell className="text-right">
                                       <Button size="icon" variant="ghost" onClick={() => openView(contract)} data-testid={`button-view-dispatched-${contract.id}`}>
                                         <Eye className="w-4 h-4" />
@@ -1601,9 +1601,9 @@ export default function Contracts() {
                   <TableHead>Produkt</TableHead>
                   <TableHead>Stav</TableHead>
                   <TableHead>Sprievodka</TableHead>
-                  <TableHead>Lehotne poistne</TableHead>
                   <TableHead>Rocne poistne</TableHead>
                   <TableHead>Vytvorenie zmluvy</TableHead>
+                  <TableHead>Lehotne poistne</TableHead>
                   <TableHead className="text-right">Akcie</TableHead>
                 </TableRow>
               </TableHeader>
@@ -1650,14 +1650,14 @@ export default function Contracts() {
                       <TableCell className="text-sm" data-testid={`text-contract-inventory-${contract.id}`}>
                         {inventoryName}
                       </TableCell>
-                      <TableCell className="text-sm font-mono" data-testid={`text-contract-amount-${contract.id}`}>
-                        {formatAmount(contract.premiumAmount, contract.currency)}
-                      </TableCell>
                       <TableCell className="text-sm font-mono" data-testid={`text-contract-annual-${contract.id}`}>
                         {formatAmount(contract.annualPremium, contract.currency)}
                       </TableCell>
                       <TableCell className="text-sm" data-testid={`text-contract-date-${contract.id}`}>
                         {formatDate(contract.signedDate)}
+                      </TableCell>
+                      <TableCell className="text-sm font-mono" data-testid={`text-contract-amount-${contract.id}`}>
+                        {formatAmount(contract.premiumAmount, contract.currency)}
                       </TableCell>
                       <TableCell className="text-right">
                         <div className="flex items-center justify-end gap-1 flex-wrap">
