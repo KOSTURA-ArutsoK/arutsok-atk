@@ -295,8 +295,8 @@ function StatusTabContent(props: StatusTabContentProps) {
               <span className="text-sm text-muted-foreground">Aktualny stav:</span>
               <div className="w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: currentStatus.color }} />
               <span className="text-sm font-semibold" data-testid="text-current-status">{currentStatus.name}</span>
-              <span id="status-badge-commissionable">{currentStatus.isCommissionable ? <Badge variant="outline" className="text-xs">Provizna</Badge> : null}</span>
-              <span id="status-badge-final">{currentStatus.isFinal ? <Badge variant="outline" className="text-xs">Finalna</Badge> : null}</span>
+              <span id="status-badge-commissionable" style={{ display: currentStatus.isCommissionable ? 'inline' : 'none' }}><Badge variant="outline" className="text-xs">Provizna</Badge></span>
+              <span id="status-badge-final" style={{ display: currentStatus.isFinal ? 'inline' : 'none' }}><Badge variant="outline" className="text-xs">Finalna</Badge></span>
             </>
           ) : !contractId && !statuses ? (
             <>
@@ -352,16 +352,13 @@ function StatusTabContent(props: StatusTabContentProps) {
                   </div>
                 </div>
                 <div id="status-new-badges" className="flex items-center gap-2 flex-wrap min-h-0" data-testid="new-status-badges">
-                  {newStatus ? (
-                    <div id="status-new-badges-inner" className="flex items-center gap-2 flex-wrap">
-                      <span id="badge-new-commissionable">{newStatus.isCommissionable ? <Badge variant="outline" className="text-xs">Provizna</Badge> : null}</span>
-                      <span id="badge-new-final">{newStatus.isFinal ? <Badge variant="outline" className="text-xs">Finalna</Badge> : null}</span>
-                      <span id="badge-new-assigns">{newStatus.assignsNumber ? <Badge variant="outline" className="text-xs">Prideluje cislo</Badge> : null}</span>
-                      <span id="badge-new-end">{newStatus.definesContractEnd ? <Badge variant="outline" className="text-xs">Ukoncenie zmluvy</Badge> : null}</span>
-                    </div>
-                  ) : (
-                    <span className="invisible text-xs">-</span>
-                  )}
+                  <div id="status-new-badges-inner" className="flex items-center gap-2 flex-wrap" style={{ display: newStatus ? 'flex' : 'none' }}>
+                    <span id="badge-new-commissionable" style={{ display: newStatus?.isCommissionable ? 'inline' : 'none' }}><Badge variant="outline" className="text-xs">Provizna</Badge></span>
+                    <span id="badge-new-final" style={{ display: newStatus?.isFinal ? 'inline' : 'none' }}><Badge variant="outline" className="text-xs">Finalna</Badge></span>
+                    <span id="badge-new-assigns" style={{ display: newStatus?.assignsNumber ? 'inline' : 'none' }}><Badge variant="outline" className="text-xs">Prideluje cislo</Badge></span>
+                    <span id="badge-new-end" style={{ display: newStatus?.definesContractEnd ? 'inline' : 'none' }}><Badge variant="outline" className="text-xs">Ukoncenie zmluvy</Badge></span>
+                  </div>
+                  <span className="invisible text-xs" style={{ display: newStatus ? 'none' : 'inline' }}>-</span>
                 </div>
                 <div className="space-y-1.5">
                   <Label htmlFor="sf-changed-at" data-testid="label-changed-at">
@@ -416,7 +413,7 @@ function StatusTabContent(props: StatusTabContentProps) {
               <div id="status-form-params" className="space-y-4" data-testid="section-status-parametre">
                 <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
                   <FileText className="w-3.5 h-3.5" /> Doplnkove parametre
-                  <span id="param-count-display">{totalParamCount > 0 ? <span className="text-[10px] tabular-nums font-normal">({filledParamCount}/{totalParamCount})</span> : null}</span>
+                  <span id="param-count-display" style={{ display: totalParamCount > 0 ? 'inline' : 'none' }}><span className="text-[10px] tabular-nums font-normal">({filledParamCount}/{totalParamCount})</span></span>
                 </h3>
                 <div id="status-params-content">
                   {!statusFormStatusId ? (
@@ -506,7 +503,7 @@ function StatusTabContent(props: StatusTabContentProps) {
                 <div className="flex items-center justify-between gap-2 flex-wrap">
                   <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
                     <Upload className="w-3.5 h-3.5" /> Dokumenty ku stavu
-                    <span id="docs-count-display">{statusFormFiles.length > 0 ? <span className="text-[10px] tabular-nums font-normal">({statusFormFiles.length})</span> : null}</span>
+                    <span id="docs-count-display" style={{ display: statusFormFiles.length > 0 ? 'inline' : 'none' }}><span className="text-[10px] tabular-nums font-normal">({statusFormFiles.length})</span></span>
                   </h3>
                   <Button
                     variant="outline"
@@ -556,7 +553,7 @@ function StatusTabContent(props: StatusTabContentProps) {
                   onClick={() => statusFormSubmit.mutate()}
                   data-testid="button-save-status-change"
                 >
-                  <span id="status-submit-spinner">{statusFormSubmit.isPending ? <Loader2 className="w-4 h-4 mr-1 animate-spin" /> : null}</span>
+                  <span id="status-submit-spinner" style={{ display: statusFormSubmit.isPending ? 'inline' : 'none' }}><Loader2 className="w-4 h-4 mr-1 animate-spin" /></span>
                   <Save className="w-4 h-4 mr-1" />
                   Ulozit zmenu stavu
                 </Button>
@@ -601,15 +598,15 @@ function StatusTabContent(props: StatusTabContentProps) {
                         </TableCell>
                         <TableCell>
                           <div id={`log-details-${log.id}`} className="flex items-center gap-1.5">
-                            <span id={`log-params-${log.id}`}>{paramCount > 0 ? <Badge variant="outline" className="text-xs">{paramCount} param.</Badge> : null}</span>
-                            <span id={`log-note-${log.id}`}>{log.statusNote ? <MessageSquare className="w-3.5 h-3.5 text-blue-400" data-testid={`icon-log-note-${log.id}`} /> : null}</span>
-                            <span id={`log-docs-${log.id}`}>{docCount > 0 ? (
+                            <span id={`log-params-${log.id}`} style={{ display: paramCount > 0 ? 'inline' : 'none' }}><Badge variant="outline" className="text-xs">{paramCount} param.</Badge></span>
+                            <span id={`log-note-${log.id}`} style={{ display: log.statusNote ? 'inline' : 'none' }}><MessageSquare className="w-3.5 h-3.5 text-blue-400" data-testid={`icon-log-note-${log.id}`} /></span>
+                            <span id={`log-docs-${log.id}`} style={{ display: docCount > 0 ? 'inline' : 'none' }}>
                               <span className="inline-flex items-center gap-0.5">
                                 <Paperclip className="w-3.5 h-3.5 text-amber-400" data-testid={`icon-log-docs-${log.id}`} />
                                 <span className="text-xs text-muted-foreground">{docCount}</span>
                               </span>
-                            ) : null}</span>
-                            <span id={`log-visible-${log.id}`}>{log.visibleToClient ? <Badge variant="outline" className="text-xs text-green-500 border-green-500/30" data-testid={`badge-visible-${log.id}`}>K</Badge> : null}</span>
+                            </span>
+                            <span id={`log-visible-${log.id}`} style={{ display: log.visibleToClient ? 'inline' : 'none' }}><Badge variant="outline" className="text-xs text-green-500 border-green-500/30" data-testid={`badge-visible-${log.id}`}>K</Badge></span>
                           </div>
                         </TableCell>
                       </TableRow>
@@ -1369,18 +1366,18 @@ export default function ContractForm() {
                           <span className="text-muted-foreground">UID: </span>
                           <span className="font-mono" data-testid="text-subject-uid">{selectedSubject.uid}</span>
                         </div>
-                        <div id="subject-email-wrapper">{selectedSubject.email ? (
+                        <div id="subject-email-wrapper" style={{ display: selectedSubject.email ? 'block' : 'none' }}>
                           <div>
                             <span className="text-muted-foreground">Email: </span>
                             <span>{selectedSubject.email}</span>
                           </div>
-                        ) : null}</div>
-                        <div id="subject-phone-wrapper">{selectedSubject.phone ? (
+                        </div>
+                        <div id="subject-phone-wrapper" style={{ display: selectedSubject.phone ? 'block' : 'none' }}>
                           <div>
                             <span className="text-muted-foreground">Telefon: </span>
                             <span>{selectedSubject.phone}</span>
                           </div>
-                        ) : null}</div>
+                        </div>
                       </div>
                     </CardContent>
                   </Card>
@@ -1441,7 +1438,7 @@ export default function ContractForm() {
                 ) : null}
               </div>
 
-              <div id="panels-content-wrapper">{sectorProductId && productPanels && productPanels.length > 0 ? (() => {
+              <div id="panels-content-wrapper" style={{ display: sectorProductId && productPanels && productPanels.length > 0 ? 'block' : 'none' }}>{sectorProductId && productPanels && productPanels.length > 0 ? (() => {
                 const productPanelIds = new Set(productPanels.map(p => p.id));
                 const assignedPanelIds = new Set<number>();
                 const assignedFolderIds = productFolderAssignments
@@ -1557,11 +1554,11 @@ export default function ContractForm() {
                         </div>
                       </Card>
                     ))}
-                    <div id="ungrouped-panels-wrapper">{ungroupedPanels.length > 0 ? (
+                    <div id="ungrouped-panels-wrapper" style={{ display: ungroupedPanels.length > 0 ? 'block' : 'none' }}>
                       <div className="space-y-2">
                         {ungroupedPanels.map(panel => renderPanelCard(panel))}
                       </div>
-                    ) : null}</div>
+                    </div>
                   </div>
                 );
               })() : null}</div>
@@ -1726,7 +1723,7 @@ export default function ContractForm() {
           )}
         </Button>
 
-        <span id="next-step-wrapper">{activeTab !== TABS[TABS.length - 1].key ? (
+        <span id="next-step-wrapper" style={{ display: activeTab !== TABS[TABS.length - 1].key ? 'inline' : 'none' }}>
           <Button
             size="sm"
             variant="outline"
@@ -1740,16 +1737,18 @@ export default function ContractForm() {
             Pokracovat
             <ChevronRight className="w-4 h-4 ml-1" />
           </Button>
-        ) : null}</span>
+        </span>
       </div>
 
-      <div id="passwords-modal-wrapper">{isEditing ? (
-        <PasswordsModal
-          open={passwordsOpen}
-          onOpenChange={setPasswordsOpen}
-          contractId={contractId}
-        />
-      ) : null}</div>
+      <div id="passwords-modal-wrapper" style={{ display: isEditing ? 'block' : 'none' }}>
+        {isEditing && (
+          <PasswordsModal
+            open={passwordsOpen}
+            onOpenChange={setPasswordsOpen}
+            contractId={contractId}
+          />
+        )}
+      </div>
     </div>
   );
 }
