@@ -1279,7 +1279,7 @@ export default function ContractForm() {
                 </CompactField>
               </div>
 
-              <div className="grid grid-cols-4 gap-[clamp(0.5rem,1vw,1rem)]">
+              <div className="grid grid-cols-3 gap-[clamp(0.5rem,1vw,1rem)]">
                 <CompactField label={`Frekvencia platenia${isFieldRequired("paymentFrequency") ? " *" : ""}`}>
                   <Select value={paymentFrequency} onValueChange={setPaymentFrequency}>
                     <SelectTrigger data-testid="select-payment-frequency">
@@ -1298,6 +1298,7 @@ export default function ContractForm() {
                 <div className="flex items-end">
                   <Button
                     variant="outline"
+                    className="w-full"
                     onClick={() => {
                       if (isEditing) {
                         setPasswordsOpen(true);
