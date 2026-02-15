@@ -1295,32 +1295,6 @@ export default function ContractForm() {
                 <CompactField label={`Rocne poistne${isFieldRequired("annualPremium") ? " *" : ""}`}>
                   <Input type="number" value={annualPremium} onChange={e => setAnnualPremium(e.target.value)} className="font-mono" data-testid="input-annual-premium" />
                 </CompactField>
-                <div className="col-span-2">
-                  <CompactField label="Heslo k zmluve">
-                    <div className="flex items-center gap-2">
-                      <Input
-                        value={contractPassword}
-                        onChange={e => setContractPassword(e.target.value)}
-                        placeholder="Zadajte heslo k zmluve"
-                        data-testid="input-contract-password"
-                      />
-                      <Button
-                        variant="outline"
-                        size="icon"
-                        onClick={() => {
-                          if (isEditing) {
-                            setPasswordsOpen(true);
-                          } else {
-                            toast({ title: "Info", description: "Najprv ulozte zmluvu, potom mozete spravovat hesla" });
-                          }
-                        }}
-                        data-testid="button-contract-passwords"
-                      >
-                        <KeyRound className="w-4 h-4" />
-                      </Button>
-                    </div>
-                  </CompactField>
-                </div>
               </div>
             </div>
           </div>
