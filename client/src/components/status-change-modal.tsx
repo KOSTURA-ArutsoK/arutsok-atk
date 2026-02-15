@@ -109,6 +109,8 @@ export function StatusChangeModal({ open, onOpenChange, contractId, currentStatu
   const newStatus = statuses.find(s => s.id === parseInt(selectedStatusId));
   const requiredParams = (statusParams || []).filter(p => p.isRequired);
   const hasRequiredMissing = requiredParams.some(p => !paramValues[p.id.toString()]?.trim());
+  const filledParamCount = Object.keys(paramValues).filter(k => paramValues[k]?.trim()).length;
+  const totalParamCount = statusParams?.length || 0;
   const canSubmit = !!selectedStatusId && !hasRequiredMissing && !submitMutation.isPending;
 
   return (
@@ -122,15 +124,28 @@ export function StatusChangeModal({ open, onOpenChange, contractId, currentStatu
           <TabsList className="w-full" data-testid="tabs-status-change">
             <TabsTrigger value="vseobecne" className="flex-1 gap-1" data-testid="tab-vseobecne">
               <Settings2 className="w-3.5 h-3.5" /> Vseobecne
+              {selectedStatusId && <div className="w-1.5 h-1.5 rounded-full bg-green-500" />}
             </TabsTrigger>
             <TabsTrigger value="povolenia" className="flex-1 gap-1" data-testid="tab-povolenia">
               <Eye className="w-3.5 h-3.5" /> Povolenia
+              {(visibleToClient || statusNote.trim()) && <div className="w-1.5 h-1.5 rounded-full bg-blue-500" />}
             </TabsTrigger>
             <TabsTrigger value="parametre" className="flex-1 gap-1" data-testid="tab-parametre">
               <FileText className="w-3.5 h-3.5" /> Parametre
+              {totalParamCount > 0 && (
+                <span className="text-[10px] tabular-nums ml-0.5" data-testid="badge-param-count">
+                  {filledParamCount}/{totalParamCount}
+                </span>
+              )}
+              {hasRequiredMissing && <div className="w-1.5 h-1.5 rounded-full bg-destructive" />}
             </TabsTrigger>
             <TabsTrigger value="dokumenty" className="flex-1 gap-1" data-testid="tab-dokumenty">
               <Upload className="w-3.5 h-3.5" /> Dokumenty
+              {files.length > 0 && (
+                <span className="text-[10px] tabular-nums ml-0.5" data-testid="badge-doc-count">
+                  {files.length}
+                </span>
+              )}
             </TabsTrigger>
           </TabsList>
 
@@ -279,7 +294,7 @@ export function StatusChangeModal({ open, onOpenChange, contractId, currentStatu
                     multiple
                     className="hidden"
                     onChange={handleFileAdd}
-                    accept=".pdf,.doc,.docx,.xls,.xlsx,.jpg,.jpeg,.png,.gif,.txt,.csv"
+                    accept="*/*"
                   />
                 </div>
 

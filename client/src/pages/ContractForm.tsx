@@ -594,23 +594,28 @@ export default function ContractForm() {
 
   const filteredStatuses = (() => {
     if (!statuses) return [];
-    if (!statusVisibilityMap) return statuses;
     const cId = companyId ? parseInt(companyId) : null;
     const spId = sectorProductId ? parseInt(sectorProductId) : null;
     const secId = contractSectionId ? parseInt(contractSectionId) : null;
-    const sectorId = contractSectorId ? parseInt(contractSectorId) : null;
+    const sId = contractSectorId ? parseInt(contractSectorId) : null;
+    const activeStateId = stateId ? parseInt(stateId) : (appUser?.activeStateId || null);
 
     return statuses.filter(s => {
-      const meta = statusVisibilityMap[s.id];
-      if (!meta) return true;
-      if (meta.companies.length > 0) {
-        if (!cId || !meta.companies.includes(cId)) return false;
-      }
-      if (meta.visibility.length > 0) {
-        const matchesSector = sectorId && meta.visibility.some(v => v.entityType === "sector" && v.entityId === sectorId);
-        const matchesSection = secId && meta.visibility.some(v => v.entityType === "section" && v.entityId === secId);
-        const matchesProduct = spId && meta.visibility.some(v => v.entityType === "product" && v.entityId === spId);
-        if (!matchesSector && !matchesSection && !matchesProduct) return false;
+      if (s.stateId && activeStateId && s.stateId !== activeStateId) return false;
+
+      if (statusVisibilityMap) {
+        const meta = statusVisibilityMap[s.id];
+        if (meta) {
+          if (meta.companies.length > 0) {
+            if (!cId || !meta.companies.includes(cId)) return false;
+          }
+          if (meta.visibility.length > 0) {
+            const matchesSector = sId && meta.visibility.some(v => v.entityType === "sector" && v.entityId === sId);
+            const matchesSection = secId && meta.visibility.some(v => v.entityType === "section" && v.entityId === secId);
+            const matchesProduct = spId && meta.visibility.some(v => v.entityType === "product" && v.entityId === spId);
+            if (!matchesSector && !matchesSection && !matchesProduct) return false;
+          }
+        }
       }
       return true;
     });
@@ -1143,13 +1148,17 @@ export default function ContractForm() {
               </div>
               {(() => {
                 const currentStatus = statuses?.find(s => s.id === (statusId ? parseInt(statusId) : -1));
+                const activeSector = contractSectors?.find(sec => sec.id === (contractSectorId ? parseInt(contractSectorId) : -1));
+                const activeSection = allSectionsForEdit?.find(sec => sec.id === (contractSectionId ? parseInt(contractSectionId) : -1));
+                const activeProduct = allSPForEdit?.find(p => p.id === (sectorProductId ? parseInt(sectorProductId) : -1));
+                const hasTemplateFilter = !!(contractSectorId || contractSectionId || sectorProductId);
                 return (
                   <Card>
                     <CardContent className="p-3 space-y-3">
                       <div className="space-y-1">
                         <span className="text-xs text-muted-foreground font-medium">Aktualny stav</span>
                         {currentStatus ? (
-                          <div className="flex items-center gap-2">
+                          <div className="flex items-center gap-2 flex-wrap">
                             <div className="w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: currentStatus.color }} />
                             <span className="text-sm font-semibold" data-testid="text-current-status">{currentStatus.name}</span>
                             {currentStatus.isCommissionable && <Badge variant="outline" className="text-xs">Provizna</Badge>}
@@ -1161,9 +1170,33 @@ export default function ContractForm() {
                           <span className="text-sm text-muted-foreground" data-testid="text-current-status">Bez stavu</span>
                         )}
                       </div>
+
+                      {hasTemplateFilter && (
+                        <div className="space-y-1 border-t pt-2">
+                          <span className="text-xs text-muted-foreground font-medium">Filtrovanie podla sablon</span>
+                          <div className="flex items-center gap-1.5 flex-wrap text-xs text-muted-foreground">
+                            {activeSector && (
+                              <Badge variant="outline" className="text-xs" data-testid="badge-filter-sector">
+                                Sektor: {activeSector.name}
+                              </Badge>
+                            )}
+                            {activeSection && (
+                              <Badge variant="outline" className="text-xs" data-testid="badge-filter-section">
+                                Sekcia: {activeSection.name}
+                              </Badge>
+                            )}
+                            {activeProduct && (
+                              <Badge variant="outline" className="text-xs" data-testid="badge-filter-product">
+                                Produkt: {activeProduct.name}
+                              </Badge>
+                            )}
+                          </div>
+                        </div>
+                      )}
+
                       {filteredStatuses.length > 0 && (
-                        <div className="space-y-1">
-                          <span className="text-xs text-muted-foreground font-medium">Dostupne stavy pre tuto zmluvu ({filteredStatuses.length})</span>
+                        <div className="space-y-1 border-t pt-2">
+                          <span className="text-xs text-muted-foreground font-medium">Dostupne stavy ({filteredStatuses.length})</span>
                           <div className="flex items-center gap-1.5 flex-wrap">
                             {filteredStatuses.map(s => (
                               <Badge
@@ -1176,15 +1209,10 @@ export default function ContractForm() {
                               </Badge>
                             ))}
                           </div>
-                          {(contractSectorId || contractSectionId || sectorProductId) && (
-                            <p className="text-xs text-muted-foreground mt-1">
-                              Stavy su filtrovane podla sektora, sekcie a produktu tejto zmluvy
-                            </p>
-                          )}
                         </div>
                       )}
                       {filteredStatuses.length === 0 && (
-                        <p className="text-xs text-muted-foreground">Ziadne stavy nie su dostupne pre aktualnu konfiguraciu zmluvy</p>
+                        <p className="text-xs text-muted-foreground border-t pt-2">Ziadne stavy nie su dostupne pre aktualnu konfiguraciu zmluvy</p>
                       )}
                     </CardContent>
                   </Card>
@@ -1216,6 +1244,7 @@ export default function ContractForm() {
                           <TableHead>Poradie</TableHead>
                           <TableHead>Stav</TableHead>
                           <TableHead>Datum zmeny</TableHead>
+                          <TableHead>Parametre</TableHead>
                           <TableHead>Info</TableHead>
                         </TableRow>
                       </TableHeader>
@@ -1224,6 +1253,8 @@ export default function ContractForm() {
                           const logStatus = statuses?.find(s => s.id === log.newStatusId);
                           const statusName = logStatus?.name || `Stav #${log.newStatusId}`;
                           const iteration = log.statusIteration || 1;
+                          const paramCount = log.parameterValues ? Object.keys(log.parameterValues).filter(k => (log.parameterValues as Record<string, string>)[k]?.trim()).length : 0;
+                          const docCount = Array.isArray(log.statusChangeDocuments) ? (log.statusChangeDocuments as any[]).length : 0;
                           return (
                             <TableRow key={log.id} data-testid={`row-status-log-${log.id}`}>
                               <TableCell className="text-sm font-mono" data-testid={`text-iteration-${log.id}`}>
@@ -1240,13 +1271,26 @@ export default function ContractForm() {
                               <TableCell className="text-sm text-muted-foreground" data-testid={`text-changed-at-${log.id}`}>
                                 {log.changedAt ? new Date(log.changedAt).toLocaleString("sk-SK") : "-"}
                               </TableCell>
+                              <TableCell data-testid={`text-params-${log.id}`}>
+                                {paramCount > 0 ? (
+                                  <Badge variant="outline" className="text-xs">{paramCount} param.</Badge>
+                                ) : (
+                                  <span className="text-xs text-muted-foreground">-</span>
+                                )}
+                              </TableCell>
                               <TableCell>
                                 <div className="flex items-center gap-1.5">
                                   {log.statusNote && (
                                     <MessageSquare className="w-3.5 h-3.5 text-blue-400" data-testid={`icon-log-note-${log.id}`} />
                                   )}
-                                  {Array.isArray(log.statusChangeDocuments) && (log.statusChangeDocuments as any[]).length > 0 && (
-                                    <Paperclip className="w-3.5 h-3.5 text-amber-400" data-testid={`icon-log-docs-${log.id}`} />
+                                  {docCount > 0 && (
+                                    <div className="flex items-center gap-0.5">
+                                      <Paperclip className="w-3.5 h-3.5 text-amber-400" data-testid={`icon-log-docs-${log.id}`} />
+                                      <span className="text-xs text-muted-foreground">{docCount}</span>
+                                    </div>
+                                  )}
+                                  {log.visibleToClient && (
+                                    <Badge variant="outline" className="text-xs text-green-500 border-green-500/30" data-testid={`badge-visible-${log.id}`}>K</Badge>
                                   )}
                                 </div>
                               </TableCell>
