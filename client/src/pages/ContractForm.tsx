@@ -1693,24 +1693,10 @@ export default function ContractForm() {
         </div>
       </div>
 
-      <div className="flex-none z-50 bg-background border-t border-border px-3 py-2 flex items-center justify-end gap-2 flex-wrap">
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => {
-            const idx = TABS.findIndex(t => t.key === activeTab);
-            if (idx > 0) setActiveTab(TABS[idx - 1].key);
-          }}
-          disabled={activeTab === TABS[0].key}
-          tabIndex={2}
-          data-testid="button-prev-step"
-        >
-          <ChevronLeft className="w-4 h-4 mr-1" />
-          Predchadzajuci krok
-        </Button>
-
+      <div className="flex-none z-50 bg-background border-t border-border px-3 py-2 flex items-center gap-2 flex-wrap">
         <Button
           size="sm"
+          className="bg-emerald-600 hover:bg-emerald-700 text-white"
           onClick={handleSubmit}
           disabled={isPending}
           tabIndex={1}
@@ -1724,6 +1710,23 @@ export default function ContractForm() {
             <Save className="w-4 h-4 mr-1" />
             Ulozit zmluvu
           </span>
+        </Button>
+
+        <div className="flex-1" />
+
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => {
+            const idx = TABS.findIndex(t => t.key === activeTab);
+            if (idx > 0) setActiveTab(TABS[idx - 1].key);
+          }}
+          disabled={activeTab === TABS[0].key}
+          tabIndex={2}
+          data-testid="button-prev-step"
+        >
+          <ChevronLeft className="w-4 h-4 mr-1" />
+          Predchadzajuci krok
         </Button>
 
         <span id="next-step-wrapper" style={{ display: activeTab !== TABS[TABS.length - 1].key ? 'inline' : 'none' }}>
