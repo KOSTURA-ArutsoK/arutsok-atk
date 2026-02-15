@@ -446,14 +446,12 @@ export interface IStorage {
 export class DatabaseStorage implements IStorage {
 
   async generateUID(stateCode: string, continentCode?: string): Promise<string> {
-    const result = await db.execute(
-      sql`UPDATE global_counters SET current_value = current_value + 1 WHERE counter_name = 'entity_sequence' RETURNING current_value`
-    );
-    const currentValue = Number(result.rows[0].current_value);
-    const padded = currentValue.toString().padStart(12, '0');
+    const code = stateCode && /^\d+$/.test(stateCode) ? stateCode : '000';
+    const counterName = `uid_state_${code}`;
+    const nextValue = await this.getNextCounterValue(counterName);
+    const padded = nextValue.toString().padStart(12, '0');
     const formatted = padded.match(/.{1,3}/g)!.join(' ');
-    const continent = continentCode || '01';
-    return `01-${continent}-${stateCode}-${formatted}`;
+    return `${code} ${formatted}`;
   }
 
   async getContinents() {
