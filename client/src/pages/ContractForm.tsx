@@ -653,24 +653,38 @@ export default function ContractForm() {
     const sId = contractSectorId ? parseInt(contractSectorId) : null;
     const activeStateId = stateId ? parseInt(stateId) : (appUser?.activeStateId || null);
 
+    console.log("[ArutsoK Status Filter] Input:", { cId, sId, secId, spId, activeStateId, totalStatuses: statuses.length });
+
     return statuses.filter(s => {
-      if (s.stateId && activeStateId && s.stateId !== activeStateId) return false;
+      if (s.stateId && activeStateId && s.stateId !== activeStateId) {
+        console.log(`[ArutsoK Status Filter] '${s.name}' (id=${s.id}) hidden: State mismatch (status.stateId=${s.stateId} vs active=${activeStateId})`);
+        return false;
+      }
 
       const meta = statusVisibilityMap[s.id];
-      if (!meta) return true;
+      if (!meta) {
+        console.log(`[ArutsoK Status Filter] '${s.name}' (id=${s.id}) shown: No visibility meta`);
+        return true;
+      }
 
-      if (meta.companies.length > 0) {
-        if (!cId || !meta.companies.includes(cId)) return false;
+      if (meta.companies.length > 0 && cId) {
+        if (!meta.companies.includes(cId)) {
+          console.log(`[ArutsoK Status Filter] '${s.name}' (id=${s.id}) hidden: Company mismatch (contract company=${cId}, allowed=${meta.companies.join(",")})`);
+          return false;
+        }
       }
 
       if (meta.visibility.length > 0) {
-        if (!sId && !secId && !spId) return false;
         const matchesSector = sId && meta.visibility.some(v => v.entityType === "sector" && v.entityId === sId);
         const matchesSection = secId && meta.visibility.some(v => v.entityType === "section" && v.entityId === secId);
         const matchesProduct = spId && meta.visibility.some(v => v.entityType === "product" && v.entityId === spId);
-        if (!matchesSector && !matchesSection && !matchesProduct) return false;
+        if (!matchesSector && !matchesSection && !matchesProduct) {
+          console.log(`[ArutsoK Status Filter] '${s.name}' (id=${s.id}) hidden: Sector/Section/Product mismatch (contract: s=${sId},sec=${secId},sp=${spId}; rules=${JSON.stringify(meta.visibility)})`);
+          return false;
+        }
       }
 
+      console.log(`[ArutsoK Status Filter] '${s.name}' (id=${s.id}) shown: Passed all checks`);
       return true;
     });
   })();
