@@ -647,7 +647,6 @@ export default function ContractForm() {
 
   const [contractNumber, setContractNumber] = useState("");
   const [proposalNumber, setProposalNumber] = useState("");
-  const [kik, setKik] = useState("");
   const [subjectId, setSubjectId] = useState<string>("");
   const [partnerId, setPartnerId] = useState<string>("");
   const [statusId, setStatusId] = useState<string>("");
@@ -862,7 +861,6 @@ export default function ContractForm() {
     if (existingContract && allSPForEdit && allSectionsForEdit) {
       setContractNumber(existingContract.contractNumber || "");
       setProposalNumber(existingContract.proposalNumber || "");
-      setKik(existingContract.kik || "");
       setSubjectId(existingContract.subjectId?.toString() || "");
       setPartnerId(existingContract.partnerId?.toString() || "");
       setSectorProductIdRaw(existingContract.sectorProductId?.toString() || "");
@@ -1011,7 +1009,6 @@ export default function ContractForm() {
     const payload = {
       contractNumber: contractNumber || null,
       proposalNumber: proposalNumber || null,
-      kik: kik || null,
       subjectId: subjectId ? parseInt(subjectId) : null,
       partnerId: partnerId ? parseInt(partnerId) : null,
       productId: null,
@@ -1203,8 +1200,8 @@ export default function ContractForm() {
               </div>
 
               <div className="grid grid-cols-3 gap-[clamp(0.5rem,1vw,1rem)]">
-                <CompactField label={`KIK${isFieldRequired("kik") ? " *" : ""}`}>
-                  <Input value={kik} onChange={e => setKik(e.target.value)} data-testid="input-contract-kik" />
+                <CompactField label="Cislo kontraktu">
+                  <Input value={existingContract?.globalNumber?.toString() || "Pridelene pri ulozeni"} readOnly className="bg-muted/50 cursor-default" data-testid="input-contract-global-number" />
                 </CompactField>
                 <CompactField label={`Cislo navrhu${isFieldRequired("proposalNumber") ? " *" : ""}`}>
                   <Input value={proposalNumber} onChange={e => setProposalNumber(e.target.value)} data-testid="input-contract-proposal" />
@@ -1647,7 +1644,7 @@ export default function ContractForm() {
                   <div className="grid grid-cols-2 gap-3">
                     <SummaryField label="Cislo zmluvy" value={contractNumber || "-"} testId="summary-contract-number" />
                     <SummaryField label="Cislo navrhu" value={proposalNumber || "-"} testId="summary-proposal" />
-                    <SummaryField label="KIK" value={kik || "-"} testId="summary-kik" />
+                    <SummaryField label="Cislo kontraktu" value={existingContract?.globalNumber?.toString() || "Pridelene pri ulozeni"} testId="summary-global-number" />
                     <SummaryField label="Typ zmluvy" value={contractType || "-"} testId="summary-type" />
                     <SummaryField label="Miesto podpisu" value={signingPlace || "-"} testId="summary-signing-place" />
                     <SummaryField label="Klient" value={(() => {

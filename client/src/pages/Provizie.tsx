@@ -179,7 +179,7 @@ export default function Provizie() {
               <TableHeader>
                 <TableRow>
                   <TableHead>Cislo zmluvy</TableHead>
-                  <TableHead>KIK ID</TableHead>
+                  <TableHead>Cislo kontraktu</TableHead>
                   <TableHead>Klient</TableHead>
                   <TableHead>Partner</TableHead>
                   <TableHead>Produkt</TableHead>
@@ -195,7 +195,7 @@ export default function Provizie() {
                 {filtered.map((r: any, idx: number) => (
                   <TableRow key={r.contract_id || idx} data-testid={`row-provzia-${r.contract_id || idx}`}>
                     <TableCell className="font-mono text-xs">{r.contract_number || "-"}</TableCell>
-                    <TableCell className="text-xs">{r.kik_id || "-"}</TableCell>
+                    <TableCell className="text-xs">{r.global_number || "-"}</TableCell>
                     <TableCell>{r.client_name || "-"}</TableCell>
                     <TableCell>{r.partner_name || "-"}</TableCell>
                     <TableCell>{r.product_name || "-"}</TableCell>

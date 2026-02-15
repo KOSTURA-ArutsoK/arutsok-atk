@@ -1559,7 +1559,12 @@ export class DatabaseStorage implements IStorage {
       .set({ currentValue: sql`${globalCounters.currentValue} + 1` })
       .where(eq(globalCounters.counterName, counterName))
       .returning();
-    return result.currentValue;
+    if (result) return result.currentValue;
+    const [created] = await db
+      .insert(globalCounters)
+      .values({ counterName, currentValue: 1 })
+      .returning();
+    return created.currentValue;
   }
 
   // === Contract Inventories ===
@@ -2065,7 +2070,7 @@ export class DatabaseStorage implements IStorage {
         c.signed_date,
         c.state_id,
         s.first_name || ' ' || s.last_name as client_name,
-        s.kik_id,
+        c.global_number,
         p.name as partner_name,
         pr.name as product_name,
         cr.rate_type,

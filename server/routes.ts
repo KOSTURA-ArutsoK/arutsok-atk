@@ -1884,6 +1884,8 @@ export async function registerRoutes(
           createData.statusId = defaultStatus.id;
         }
       }
+      const nextGlobalNumber = await storage.getNextCounterValue("contract_global_number");
+      (createData as any).globalNumber = nextGlobalNumber;
       const created = await storage.createContract(createData as any);
       if (created.statusId) {
         await storage.createContractStatusChangeLog({
@@ -2250,7 +2252,7 @@ export async function registerRoutes(
       const workbook = new ExcelJS.Workbook();
       const sheet = workbook.addWorksheet("Supiska");
       sheet.columns = [
-        { header: "KIK ID", key: "kikId", width: 18 },
+        { header: "Cislo kontraktu", key: "globalNumber", width: 18 },
         { header: "Meno klienta", key: "clientName", width: 25 },
         { header: "Partner", key: "partner", width: 25 },
         { header: "Produkt", key: "product", width: 25 },
@@ -2265,7 +2267,7 @@ export async function registerRoutes(
         const partner = partnersData.find(p => p.id === c.partnerId);
         const product = productsData.find(p => p.id === c.productId);
         sheet.addRow({
-          kikId: (c as any).uid || c.id.toString(),
+          globalNumber: (c as any).globalNumber || c.id.toString(),
           clientName: subject ? `${subject.firstName || ""} ${subject.lastName || ""}`.trim() : "",
           partner: partner?.name || "",
           product: product?.name || "",
@@ -2297,13 +2299,13 @@ export async function registerRoutes(
       const partnersData = await storage.getPartners();
       const productsData = await storage.getProducts();
 
-      const headers = ["KIK ID", "Meno klienta", "Partner", "Produkt", "Cislo zmluvy", "Suma poistneho", "Datum podpisu"];
+      const headers = ["Cislo kontraktu", "Meno klienta", "Partner", "Produkt", "Cislo zmluvy", "Suma poistneho", "Datum podpisu"];
       const rows = contractList.map(c => {
         const subject = subjects.find(s => s.id === c.subjectId);
         const partner = partnersData.find(p => p.id === c.partnerId);
         const product = productsData.find(p => p.id === c.productId);
         return [
-          (c as any).uid || c.id.toString(),
+          (c as any).globalNumber?.toString() || c.id.toString(),
           subject ? `${subject.firstName || ""} ${subject.lastName || ""}`.trim() : "",
           partner?.name || "",
           product?.name || "",

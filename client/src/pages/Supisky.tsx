@@ -309,7 +309,7 @@ function SupiskaDetailDialog({
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>KIK ID</TableHead>
+                    <TableHead>Cislo kontraktu</TableHead>
                     <TableHead>Klient</TableHead>
                     <TableHead>Partner</TableHead>
                     <TableHead>Produkt</TableHead>
@@ -333,7 +333,7 @@ function SupiskaDetailDialog({
                   ) : (
                     linkedContracts.map((c: any) => (
                       <TableRow key={c.id} data-testid={`row-contract-${c.id}`}>
-                        <TableCell className="font-mono text-sm">{c.uid || c.id}</TableCell>
+                        <TableCell className="font-mono text-sm">{c.globalNumber || c.id}</TableCell>
                         <TableCell>{getSubjectName(c.subjectId)}</TableCell>
                         <TableCell>{getPartnerName(c.partnerId)}</TableCell>
                         <TableCell>{getProductName(c.productId)}</TableCell>
@@ -462,7 +462,7 @@ function AddContractsDialog({
                       data-testid="checkbox-select-all"
                     />
                   </TableHead>
-                  <TableHead>KIK ID</TableHead>
+                  <TableHead>Cislo kontraktu</TableHead>
                   <TableHead>Klient</TableHead>
                   <TableHead>Partner</TableHead>
                 </TableRow>
@@ -493,7 +493,7 @@ function AddContractsDialog({
                             data-testid={`checkbox-contract-${c.id}`}
                           />
                         </TableCell>
-                        <TableCell className="font-mono text-sm">{c.uid || c.id}</TableCell>
+                        <TableCell className="font-mono text-sm">{c.globalNumber || c.id}</TableCell>
                         <TableCell>
                           {subject ? `${subject.firstName || ""} ${subject.lastName || ""}`.trim() : ""}
                         </TableCell>

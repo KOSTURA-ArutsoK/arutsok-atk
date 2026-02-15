@@ -17,7 +17,7 @@ import {
 
 const CONTRACT_FIELDS = [
   { key: "proposalNumber", label: "Cislo navrhu" },
-  { key: "kik", label: "KIK" },
+  { key: "globalNumber", label: "Cislo kontraktu" },
   { key: "signingPlace", label: "Miesto podpisu" },
   { key: "contractType", label: "Typ zmluvy" },
   { key: "paymentFrequency", label: "Frekvencia platby" },
