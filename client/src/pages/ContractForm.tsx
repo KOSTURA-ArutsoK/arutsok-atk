@@ -1696,7 +1696,7 @@ export default function ContractForm() {
       <div className="flex-none z-50 bg-background border-t border-border px-3 py-2 flex items-center gap-2 flex-wrap">
         <Button
           size="sm"
-          className="bg-emerald-600 hover:bg-emerald-700 text-white"
+          variant="default"
           onClick={handleSubmit}
           disabled={isPending}
           tabIndex={1}
@@ -1732,7 +1732,7 @@ export default function ContractForm() {
         <span id="next-step-wrapper" style={{ display: activeTab !== TABS[TABS.length - 1].key ? 'inline' : 'none' }}>
           <Button
             size="sm"
-            variant="outline"
+            className="bg-emerald-600 hover:bg-emerald-700 text-white"
             onClick={() => {
               const idx = TABS.findIndex(t => t.key === activeTab);
               if (idx < TABS.length - 1) setActiveTab(TABS[idx + 1].key);
