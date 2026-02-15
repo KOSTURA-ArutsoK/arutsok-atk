@@ -59,16 +59,15 @@ function SortableWidget({ id, isEditing, children }: { id: string; isEditing: bo
       )}
       data-testid={`sortable-widget-${id}`}
     >
-      {isEditing && (
-        <div
-          {...attributes}
-          {...listeners}
-          className="absolute top-2 left-2 z-20 cursor-grab active:cursor-grabbing p-1 rounded-md bg-muted/80"
-          data-testid={`drag-handle-${id}`}
-        >
-          <GripVertical className="w-4 h-4 text-muted-foreground" />
-        </div>
-      )}
+      <div
+        {...attributes}
+        {...listeners}
+        className="absolute top-2 left-2 z-20 cursor-grab active:cursor-grabbing p-1 rounded-md bg-muted/80"
+        style={{ display: isEditing ? 'block' : 'none' }}
+        data-testid={`drag-handle-${id}`}
+      >
+        <GripVertical className="w-4 h-4 text-muted-foreground" />
+      </div>
       {children}
     </div>
   );
@@ -187,9 +186,9 @@ export default function Dashboard() {
           <CardTitle className="text-base">Posledne subjekty</CardTitle>
         </CardHeader>
         <CardContent>
-          {subjects && subjects.length > 0 ? (
+          <div style={{ display: subjects && subjects.length > 0 ? 'block' : 'none' }}>
             <div className="space-y-3">
-              {subjects.slice(0, 5).map(s => (
+              {(subjects || []).slice(0, 5).map(s => (
                 <div key={s.id} className="flex items-center gap-3 text-sm">
                   <div className="w-7 h-7 rounded-md bg-primary/10 flex items-center justify-center text-primary text-xs font-bold">
                     {s.type === "person" ? "O" : "F"}
@@ -204,9 +203,8 @@ export default function Dashboard() {
                 </div>
               ))}
             </div>
-          ) : (
-            <p className="text-sm text-muted-foreground py-6 text-center">Ziadne subjekty</p>
-          )}
+          </div>
+          <p className="text-sm text-muted-foreground py-6 text-center" style={{ display: subjects && subjects.length > 0 ? 'none' : 'block' }}>Ziadne subjekty</p>
         </CardContent>
       </Card>
     ),
@@ -216,9 +214,9 @@ export default function Dashboard() {
           <CardTitle className="text-base">Moje spolocnosti</CardTitle>
         </CardHeader>
         <CardContent>
-          {companies && companies.length > 0 ? (
+          <div style={{ display: companies && companies.length > 0 ? 'block' : 'none' }}>
             <div className="space-y-3">
-              {companies.map(c => (
+              {(companies || []).map(c => (
                 <div key={c.id} className="flex items-center gap-3 text-sm">
                   <div className="w-7 h-7 rounded-md bg-emerald-500/10 flex items-center justify-center text-emerald-500 text-xs font-bold">
                     <Building2 className="w-3.5 h-3.5" />
@@ -231,9 +229,8 @@ export default function Dashboard() {
                 </div>
               ))}
             </div>
-          ) : (
-            <p className="text-sm text-muted-foreground py-6 text-center">Ziadne spolocnosti</p>
-          )}
+          </div>
+          <p className="text-sm text-muted-foreground py-6 text-center" style={{ display: companies && companies.length > 0 ? 'none' : 'block' }}>Ziadne spolocnosti</p>
         </CardContent>
       </Card>
     ),
@@ -243,9 +240,9 @@ export default function Dashboard() {
           <CardTitle className="text-base">Posledni partneri</CardTitle>
         </CardHeader>
         <CardContent>
-          {partners && partners.length > 0 ? (
+          <div style={{ display: partners && partners.length > 0 ? 'block' : 'none' }}>
             <div className="space-y-3">
-              {partners.filter(p => !p.isDeleted).slice(0, 5).map(p => (
+              {(partners || []).filter(p => !p.isDeleted).slice(0, 5).map(p => (
                 <div key={p.id} className="flex items-center gap-3 text-sm">
                   <div className="w-7 h-7 rounded-md bg-orange-500/10 flex items-center justify-center text-orange-500 text-xs font-bold">
                     <Briefcase className="w-3.5 h-3.5" />
@@ -258,9 +255,8 @@ export default function Dashboard() {
                 </div>
               ))}
             </div>
-          ) : (
-            <p className="text-sm text-muted-foreground py-6 text-center">Ziadni partneri</p>
-          )}
+          </div>
+          <p className="text-sm text-muted-foreground py-6 text-center" style={{ display: partners && partners.length > 0 ? 'none' : 'block' }}>Ziadni partneri</p>
         </CardContent>
       </Card>
     ),
@@ -270,9 +266,9 @@ export default function Dashboard() {
           <CardTitle className="text-base">Posledne produkty</CardTitle>
         </CardHeader>
         <CardContent>
-          {products && products.length > 0 ? (
+          <div style={{ display: products && products.length > 0 ? 'block' : 'none' }}>
             <div className="space-y-3">
-              {products.filter(p => !p.isDeleted).slice(0, 5).map(p => (
+              {(products || []).filter(p => !p.isDeleted).slice(0, 5).map(p => (
                 <div key={p.id} className="flex items-center gap-3 text-sm">
                   <div className="w-7 h-7 rounded-md bg-violet-500/10 flex items-center justify-center text-violet-500 text-xs font-bold">
                     <Package className="w-3.5 h-3.5" />
@@ -285,9 +281,8 @@ export default function Dashboard() {
                 </div>
               ))}
             </div>
-          ) : (
-            <p className="text-sm text-muted-foreground py-6 text-center">Ziadne produkty</p>
-          )}
+          </div>
+          <p className="text-sm text-muted-foreground py-6 text-center" style={{ display: products && products.length > 0 ? 'none' : 'block' }}>Ziadne produkty</p>
         </CardContent>
       </Card>
     ),
@@ -297,7 +292,7 @@ export default function Dashboard() {
           <CardTitle className="text-base">Posledna aktivita</CardTitle>
         </CardHeader>
         <CardContent>
-          {recentLogs.length > 0 ? (
+          <div style={{ display: recentLogs.length > 0 ? 'block' : 'none' }}>
             <div className="space-y-3">
               {recentLogs.map(log => (
                 <div key={log.id} className="flex items-center gap-3 text-sm">
@@ -311,9 +306,8 @@ export default function Dashboard() {
                 </div>
               ))}
             </div>
-          ) : (
-            <p className="text-sm text-muted-foreground py-6 text-center">Ziadna aktivita</p>
-          )}
+          </div>
+          <p className="text-sm text-muted-foreground py-6 text-center" style={{ display: recentLogs.length > 0 ? 'none' : 'block' }}>Ziadna aktivita</p>
         </CardContent>
       </Card>
     ),
@@ -324,9 +318,9 @@ export default function Dashboard() {
           <Calendar className="w-4 h-4 text-muted-foreground" />
         </CardHeader>
         <CardContent>
-          {upcomingEvents && upcomingEvents.length > 0 ? (
+          <div style={{ display: upcomingEvents && upcomingEvents.length > 0 ? 'block' : 'none' }}>
             <div className="space-y-3">
-              {upcomingEvents.slice(0, 5).map(ev => {
+              {(upcomingEvents || []).slice(0, 5).map(ev => {
                 const sd = new Date(ev.startDate);
                 const dayStr = `${sd.getDate()}.${sd.getMonth() + 1}.${sd.getFullYear()}`;
                 const timeStr = ev.allDay ? "Celodenni" : `${String(sd.getHours()).padStart(2, "0")}:${String(sd.getMinutes()).padStart(2, "0")}`;
@@ -340,14 +334,13 @@ export default function Dashboard() {
                         {dayStr} {timeStr}
                       </p>
                     </div>
-                    {ev.allDay && <Badge variant="secondary" className="text-[10px]">Celodenni</Badge>}
+                    <span style={{ display: ev.allDay ? 'inline' : 'none' }}><Badge variant="secondary" className="text-[10px]">Celodenni</Badge></span>
                   </div>
                 );
               })}
             </div>
-          ) : (
-            <p className="text-sm text-muted-foreground py-6 text-center" data-testid="text-no-upcoming">Ziadne nadchadzajuce udalosti</p>
-          )}
+          </div>
+          <p className="text-sm text-muted-foreground py-6 text-center" style={{ display: upcomingEvents && upcomingEvents.length > 0 ? 'none' : 'block' }} data-testid="text-no-upcoming">Ziadne nadchadzajuce udalosti</p>
         </CardContent>
       </Card>
     ),
@@ -363,23 +356,22 @@ export default function Dashboard() {
           </p>
         </div>
         <div className="flex items-center gap-2">
-          {isEditing ? (
-            <>
-              <Button variant="outline" onClick={handleCancel} data-testid="button-cancel-layout">
-                <X className="w-4 h-4 mr-1" />
-                Zrusit upravy
-              </Button>
-              <Button onClick={handleSave} disabled={saveLayoutMutation.isPending} data-testid="button-save-layout">
-                <Save className="w-4 h-4 mr-1" />
-                Ulozit rozlozenie
-              </Button>
-            </>
-          ) : (
+          <div style={{ display: isEditing ? 'contents' : 'none' }}>
+            <Button variant="outline" onClick={handleCancel} data-testid="button-cancel-layout">
+              <X className="w-4 h-4 mr-1" />
+              Zrusit upravy
+            </Button>
+            <Button onClick={handleSave} disabled={saveLayoutMutation.isPending} data-testid="button-save-layout">
+              <Save className="w-4 h-4 mr-1" />
+              Ulozit rozlozenie
+            </Button>
+          </div>
+          <div style={{ display: isEditing ? 'none' : 'contents' }}>
             <Button variant="outline" onClick={handleStartEdit} data-testid="button-edit-layout">
               <Pencil className="w-4 h-4 mr-1" />
               Upravit rozlozenie
             </Button>
-          )}
+          </div>
         </div>
       </div>
 
