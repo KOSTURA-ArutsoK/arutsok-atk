@@ -50,7 +50,7 @@ export default function ContractFieldSettings() {
   }
 
   return (
-    <div className="p-6 space-y-4 max-w-3xl">
+    <div className="p-6 space-y-4">
       <div className="flex items-center gap-3">
         <Settings2 className="w-5 h-5 text-muted-foreground" />
         <h1 className="text-xl font-bold" data-testid="text-page-title">Nastavenie evidencie zmluv</h1>

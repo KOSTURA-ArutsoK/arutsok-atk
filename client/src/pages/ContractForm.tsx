@@ -287,7 +287,7 @@ function StatusTabContent(props: StatusTabContentProps) {
   const availableStatuses = filteredStatuses.filter(s => s.id !== (statusId ? parseInt(statusId) : -1));
 
   return (
-    <div id="status-tab-root" className="max-w-4xl space-y-4" data-testid="section-stavy">
+    <div id="status-tab-root" className="space-y-4" data-testid="section-stavy">
       <div id="status-current-display" className="flex items-center gap-2 flex-wrap" data-testid="current-status-display">
         {currentStatus ? (
           <div id="status-current-info" className="flex items-center gap-2 flex-wrap">
@@ -1132,7 +1132,7 @@ export default function ContractForm() {
       <div className="flex-1 overflow-hidden">
         <div className="h-full overflow-y-auto p-3" key={`tab-content-${activeTab}`}>
           {activeTab === "vseobecne" && (
-            <div className="max-w-5xl space-y-[clamp(0.35rem,0.8vh,0.75rem)]" data-testid="section-vseobecne">
+            <div className="space-y-[clamp(0.35rem,0.8vh,0.75rem)]" data-testid="section-vseobecne">
 
               <div className="grid grid-cols-2 gap-[clamp(0.5rem,1vw,1rem)]">
                 <CompactField label="Spolocnost">
@@ -1304,7 +1304,7 @@ export default function ContractForm() {
           )}
 
           {activeTab === "udaje-klient" && (
-            <div className="max-w-4xl space-y-3" data-testid="section-udaje-klient">
+            <div className="space-y-3" data-testid="section-udaje-klient">
               <h2 className="text-base font-semibold">Udaje o klientovi</h2>
               <div className="grid grid-cols-2 gap-3">
                 <CompactField label="Klient">
@@ -1376,7 +1376,7 @@ export default function ContractForm() {
           )}
 
           {activeTab === "udaje-zmluva" && (
-            <div className="max-w-4xl space-y-3" data-testid="section-udaje-zmluva">
+            <div className="space-y-3" data-testid="section-udaje-zmluva">
               <h2 className="text-base font-semibold">Udaje o zmluve - Produkt a parametre</h2>
 
               <div className="grid grid-cols-3 gap-3">
@@ -1567,7 +1567,7 @@ export default function ContractForm() {
           )}
 
           {activeTab === "dokumenty" && (
-            <div className="max-w-4xl space-y-3" data-testid="section-dokumenty">
+            <div className="space-y-3" data-testid="section-dokumenty">
               <h2 className="text-base font-semibold">Dokumenty</h2>
               <Card>
                 <CardContent className="p-4 text-center">
@@ -1581,7 +1581,7 @@ export default function ContractForm() {
           )}
 
           {activeTab === "odmeny" && (
-            <div className="max-w-4xl space-y-3" data-testid="section-odmeny">
+            <div className="space-y-3" data-testid="section-odmeny">
               <h2 className="text-base font-semibold">Odmeny</h2>
               <div className="grid grid-cols-3 gap-3">
                 <CompactField label="Suma provizie">
@@ -1627,7 +1627,7 @@ export default function ContractForm() {
           )}
 
           {activeTab === "zhrnutie" && (
-            <div className="max-w-4xl space-y-3" data-testid="section-zhrnutie">
+            <div className="space-y-3" data-testid="section-zhrnutie">
               <h2 className="text-base font-semibold">Zhrnutie zmluvy</h2>
               <Card>
                 <CardContent className="p-3 space-y-2">
@@ -1665,7 +1665,7 @@ export default function ContractForm() {
           )}
 
           {activeTab === "provizne" && (
-            <div className="max-w-4xl space-y-3" data-testid="section-provizne">
+            <div className="space-y-3" data-testid="section-provizne">
               <h2 className="text-base font-semibold">Provizne zostavy</h2>
               <Card>
                 <CardContent className="p-4 text-center">
