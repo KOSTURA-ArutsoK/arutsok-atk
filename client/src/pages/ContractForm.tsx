@@ -5,8 +5,8 @@ import { useAppUser } from "@/hooks/use-app-user";
 import { useStates } from "@/hooks/use-hierarchy";
 import { useToast } from "@/hooks/use-toast";
 import { useLocation, useParams } from "wouter";
-import type { Contract, ContractStatus, ContractStatusChangeLog, ContractTemplate, ContractInventory, Subject, Partner, MyCompany, Sector, Section, SectorProduct, ContractPassword, ContractParameterValue, ContractFieldSetting, ClientGroup } from "@shared/schema";
-import { ArrowLeft, Save, Loader2, LayoutGrid, KeyRound, Plus, Trash2, FileText, Users, ClipboardList, FolderOpen, FolderClosed, DollarSign, BarChart3, ListChecks, PieChart, ChevronLeft, ChevronRight, MessageSquare, Paperclip, Upload, X, Eye, Settings2, Calendar, AlertTriangle } from "lucide-react";
+import type { Contract, ContractStatus, ContractStatusChangeLog, ContractTemplate, ContractInventory, Subject, Partner, MyCompany, Sector, Section, SectorProduct, ContractPassword, ContractParameterValue, ContractFieldSetting } from "@shared/schema";
+import { ArrowLeft, Save, Loader2, LayoutGrid, KeyRound, Plus, Trash2, FileText, Users, ClipboardList, FolderOpen, FolderClosed, DollarSign, BarChart3, ListChecks, PieChart, ChevronLeft, ChevronRight, MessageSquare, Paperclip, Upload, X, Eye, Settings2, Calendar } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -646,10 +646,6 @@ export default function ContractForm() {
   const timerRef = useRef<number>(0);
 
   const [contractNumber, setContractNumber] = useState("");
-  const [clientGroupId, setClientGroupId] = useState<string>("");
-  const [identifierType, setIdentifierType] = useState<string>("");
-  const [identifierValue, setIdentifierValue] = useState<string>("");
-  const [identifierWarning, setIdentifierWarning] = useState<string | null>(null);
   const [proposalNumber, setProposalNumber] = useState("");
   const [subjectId, setSubjectId] = useState<string>("");
   const [partnerId, setPartnerId] = useState<string>("");
@@ -848,10 +844,6 @@ export default function ContractForm() {
     queryKey: ["/api/contract-field-settings"],
   });
 
-  const { data: clientGroups } = useQuery<ClientGroup[]>({
-    queryKey: ["/api/client-groups"],
-  });
-
   useEffect(() => {
     timerRef.current = performance.now();
   }, []);
@@ -887,11 +879,6 @@ export default function ContractForm() {
       setCommissionAmount(existingContract.commissionAmount?.toString() || "");
       setCurrency(existingContract.currency || "EUR");
       setNotes(existingContract.notes || "");
-      setClientGroupId((existingContract as any).clientGroupId?.toString() || "");
-      setIdentifierType((existingContract as any).identifierType || "");
-      setIdentifierValue((existingContract as any).identifierValue || "");
-      setIdentifierWarning(null);
-
       const spId = existingContract.sectorProductId;
       if (spId) {
         const sp = allSPForEdit.find(p => p.id === spId);
@@ -1028,16 +1015,9 @@ export default function ContractForm() {
   }
 
   function handleSubmit() {
-    if (!clientGroupId) {
-      toast({ title: "Chyba", description: "Typ osoby je povinny", variant: "destructive" });
-      return;
-    }
     const processingTimeSec = Math.round((performance.now() - timerRef.current) / 1000);
     const payload = {
       contractNumber: contractNumber || null,
-      clientGroupId: clientGroupId ? parseInt(clientGroupId) : null,
-      identifierType: identifierType || null,
-      identifierValue: identifierValue || null,
       proposalNumber: proposalNumber || null,
       subjectId: subjectId ? parseInt(subjectId) : null,
       partnerId: partnerId ? parseInt(partnerId) : null,
@@ -1226,59 +1206,6 @@ export default function ContractForm() {
                       ))}
                     </SelectContent>
                   </Select>
-                </CompactField>
-              </div>
-
-              <div className="grid grid-cols-2 gap-[clamp(0.5rem,1vw,1rem)]">
-                <CompactField label="Typ osoby *">
-                  <Select value={clientGroupId} onValueChange={setClientGroupId}>
-                    <SelectTrigger data-testid="select-cf-client-group">
-                      <SelectValue placeholder="Vyberte typ osoby" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {clientGroups?.map(g => (
-                        <SelectItem key={g.id} value={g.id.toString()}>{g.name}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </CompactField>
-                <CompactField label={`Zakladny identifikator (${identifierType === "ico" ? "ICO" : "Rodne cislo"})`}>
-                  <div className="flex gap-2">
-                    <Select value={identifierType} onValueChange={(val) => { setIdentifierType(val); setIdentifierValue(""); setIdentifierWarning(null); }}>
-                      <SelectTrigger className="w-[160px]" data-testid="select-cf-identifier-type">
-                        <SelectValue placeholder="Typ" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="ico">ICO</SelectItem>
-                        <SelectItem value="rodne_cislo">Rodne cislo</SelectItem>
-                      </SelectContent>
-                    </Select>
-                    <Input
-                      value={identifierValue}
-                      onChange={e => { setIdentifierValue(e.target.value); setIdentifierWarning(null); }}
-                      onBlur={async () => {
-                        if (!identifierValue.trim() || !identifierType) return;
-                        const stId = appUser?.activeStateId;
-                        if (!stId) return;
-                        try {
-                          const res = await fetch(`/api/subjects/check-identifier?type=${identifierType}&value=${encodeURIComponent(identifierValue.trim())}&stateId=${stId}`, { credentials: "include" });
-                          const data = await res.json();
-                          if (data.exists) {
-                            setIdentifierWarning(`Osoba s tymto ${identifierType === "ico" ? "ICO" : "rodnym cislom"} uz existuje v zozname klientov: ${data.subjectName} (${data.subjectUid})`);
-                          }
-                        } catch {}
-                      }}
-                      placeholder={identifierType === "ico" ? "Zadajte ICO" : identifierType === "rodne_cislo" ? "Zadajte rodne cislo" : "Najprv vyberte typ"}
-                      disabled={!identifierType}
-                      data-testid="input-cf-identifier-value"
-                    />
-                  </div>
-                  <div style={{ display: identifierWarning ? 'block' : 'none' }}>
-                    <div className="flex items-center gap-2 p-2 rounded-md bg-amber-500/10 mt-1" data-testid="text-cf-identifier-warning">
-                      <AlertTriangle className="w-4 h-4 text-amber-500 shrink-0" />
-                      <p className="text-xs text-amber-700 dark:text-amber-400">{identifierWarning || ""}</p>
-                    </div>
-                  </div>
                 </CompactField>
               </div>
 
@@ -1725,8 +1652,6 @@ export default function ContractForm() {
               <Card>
                 <CardContent className="p-3 space-y-2">
                   <div className="grid grid-cols-2 gap-3">
-                    <SummaryField label="Typ osoby" value={clientGroups?.find(g => g.id.toString() === clientGroupId)?.name || "-"} testId="summary-client-group" />
-                    <SummaryField label="Identifikator" value={identifierValue ? `${identifierType === "ico" ? "ICO" : "Rodne cislo"}: ${identifierValue}` : "-"} testId="summary-identifier" />
                     <SummaryField label="Cislo zmluvy" value={contractNumber || "-"} testId="summary-contract-number" />
                     <SummaryField label="Cislo navrhu" value={proposalNumber || "-"} testId="summary-proposal" />
                     <SummaryField label="Cislo kontraktu" value={existingContract?.globalNumber?.toString() || "Pridelene pri ulozeni"} testId="summary-global-number" />
