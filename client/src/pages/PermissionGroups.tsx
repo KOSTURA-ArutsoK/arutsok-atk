@@ -2,11 +2,11 @@ import { useState, useRef, useEffect, Fragment } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, Plus, Pencil, Trash2, ShieldCheck, RefreshCw } from "lucide-react";
+import { Loader2, Plus, Pencil, ShieldCheck, RefreshCw } from "lucide-react";
+import { ConditionalDelete } from "@/components/conditional-delete";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -524,20 +524,8 @@ export default function PermissionGroupsPage() {
                     >
                       <Pencil className="w-4 h-4" />
                     </Button>
-                    <div style={{ visibility: userCountForGroup > 0 ? 'hidden' : 'visible' }}>
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <Button
-                            size="icon"
-                            variant="ghost"
-                            onClick={e => { e.stopPropagation(); setDeleteGroupId(group.id); }}
-                            data-testid={`button-delete-group-${group.id}`}
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </Button>
-                        </TooltipTrigger>
-                        <TooltipContent>Zmazať prázdny záznam</TooltipContent>
-                      </Tooltip>
+                    <div onClick={e => e.stopPropagation()}>
+                      <ConditionalDelete canDelete={userCountForGroup === 0} onClick={() => setDeleteGroupId(group.id)} testId={`button-delete-group-${group.id}`} />
                     </div>
                   </div>
                 </div>

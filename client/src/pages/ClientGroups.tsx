@@ -6,14 +6,14 @@ import { useAppUser } from "@/hooks/use-app-user";
 import { useMyCompanies } from "@/hooks/use-companies";
 import type { ClientGroup, Subject, PermissionGroup } from "@shared/schema";
 import {
-  Plus, Pencil, Trash2, Loader2, Check, X,
+  Plus, Pencil, Loader2, Check, X,
   Calculator, LogIn, UserPlus, UserMinus, Search, ChevronRight, Building2, Shield,
 } from "lucide-react";
+import { ConditionalDelete } from "@/components/conditional-delete";
 import { SortableTableRow, SortableContext_Wrapper } from "@/components/sortable-list";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
@@ -352,14 +352,7 @@ function GroupDetailDialog({
                           <Badge variant="secondary">{sg.memberCount}</Badge>
                         </TableCell>
                         <TableCell>
-                          <Button
-                            size="icon"
-                            variant="ghost"
-                            onClick={() => deleteSubGroupMutation.mutate(sg.id)}
-                            data-testid={`button-delete-subgroup-${sg.id}`}
-                          >
-                            <Trash2 className="w-4 h-4 text-destructive" />
-                          </Button>
+                          <ConditionalDelete canDelete={sg.memberCount === 0} onClick={() => deleteSubGroupMutation.mutate(sg.id)} testId={`button-delete-subgroup-${sg.id}`} />
                         </TableCell>
                       </SortableTableRow>
                     ))}
@@ -591,21 +584,7 @@ export default function ClientGroups() {
                           >
                             <Pencil className="w-4 h-4" />
                           </Button>
-                          <div style={{ visibility: group.memberCount > 0 ? 'hidden' : 'visible' }}>
-                            <Tooltip>
-                              <TooltipTrigger asChild>
-                                <Button
-                                  size="icon"
-                                  variant="ghost"
-                                  onClick={() => setDeletingGroup(group)}
-                                  data-testid={`button-delete-group-${group.id}`}
-                                >
-                                  <Trash2 className="w-4 h-4 text-destructive" />
-                                </Button>
-                              </TooltipTrigger>
-                              <TooltipContent>Zmazať prázdny záznam</TooltipContent>
-                            </Tooltip>
-                          </div>
+                          <ConditionalDelete canDelete={group.memberCount === 0} onClick={() => setDeletingGroup(group)} testId={`button-delete-group-${group.id}`} />
                         </div>
                       </TableCell>
                     </SortableTableRow>

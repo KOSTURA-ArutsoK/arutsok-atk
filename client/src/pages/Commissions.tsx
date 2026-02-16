@@ -2,7 +2,8 @@ import { useState, useMemo, useRef, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import type { CommissionRate, Partner, Product } from "@shared/schema";
-import { Percent, Filter, Loader2, Search, Plus, Pencil, Trash2 } from "lucide-react";
+import { Percent, Filter, Loader2, Search, Plus, Pencil } from "lucide-react";
+import { ConditionalDelete } from "@/components/conditional-delete";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -32,7 +33,6 @@ import {
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { HelpIcon, AdminNote } from "@/components/help-icon";
 
 function ProcessingTimer({ startTime }: { startTime: number }) {
@@ -359,14 +359,7 @@ export default function Commissions() {
                           <Button size="icon" variant="ghost" onClick={() => openEdit(r)} data-testid={`button-edit-rate-${r.id}`}>
                             <Pencil className="w-3.5 h-3.5" />
                           </Button>
-                          <Tooltip>
-                            <TooltipTrigger asChild>
-                              <Button size="icon" variant="ghost" onClick={() => { if (confirm("Naozaj vymazat sadzbu?")) deleteMutation.mutate(r.id); }} data-testid={`button-delete-rate-${r.id}`}>
-                                <Trash2 className="w-3.5 h-3.5 text-destructive" />
-                              </Button>
-                            </TooltipTrigger>
-                            <TooltipContent>Zmazať prázdny záznam</TooltipContent>
-                          </Tooltip>
+                          <ConditionalDelete canDelete={true} onClick={() => { if (confirm("Naozaj vymazat sadzbu?")) deleteMutation.mutate(r.id); }} testId={`button-delete-rate-${r.id}`} />
                         </div>
                       </TableCell>
                     </TableRow>

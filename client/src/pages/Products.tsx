@@ -7,7 +7,8 @@ import { useToast } from "@/hooks/use-toast";
 import { useMyCompanies } from "@/hooks/use-companies";
 import { useStates } from "@/hooks/use-hierarchy";
 import type { Product, CommissionScheme, Partner, Parameter, ProductParameter, MyCompany } from "@shared/schema";
-import { Plus, Pencil, Trash2, Eye, Package, Loader2, HelpCircle } from "lucide-react";
+import { Plus, Pencil, Eye, Package, Loader2, HelpCircle } from "lucide-react";
+import { ConditionalDelete } from "@/components/conditional-delete";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { Switch } from "@/components/ui/switch";
 import { Card, CardContent } from "@/components/ui/card";
@@ -799,14 +800,7 @@ export default function Products() {
                         <Button size="icon" variant="ghost" onClick={() => handleEdit(product)} data-testid={`button-edit-product-${product.id}`}>
                           <Pencil className="w-4 h-4" />
                         </Button>
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <Button size="icon" variant="ghost" onClick={() => handleDelete(product)} data-testid={`button-delete-product-${product.id}`}>
-                              <Trash2 className="w-4 h-4 text-destructive" />
-                            </Button>
-                          </TooltipTrigger>
-                          <TooltipContent>Zmazať prázdny záznam</TooltipContent>
-                        </Tooltip>
+                        <ConditionalDelete canDelete={true} onClick={() => handleDelete(product)} testId={`button-delete-product-${product.id}`} />
                       </div>
                     </TableCell>
                   </TableRow>

@@ -4,7 +4,7 @@ import { storage } from "./storage";
 import { api } from "@shared/routes";
 import { setupAuth, registerAuthRoutes, isAuthenticated } from "./replit_integrations/auth";
 import { z } from "zod";
-import { continents, states, myCompanies, appUsers, clientTypes, clientSubGroups, clientGroupMembers, productFolderAssignments, folderPanels, panelParameters } from "@shared/schema";
+import { continents, states, myCompanies, appUsers, clientTypes, clientSubGroups, clientGroupMembers, productFolderAssignments, folderPanels, panelParameters, clientTypeSections, clientTypeFields } from "@shared/schema";
 import { db } from "./db";
 import { eq } from "drizzle-orm";
 import multer from "multer";
@@ -3198,7 +3198,21 @@ export async function registerRoutes(
   app.get("/api/client-types", isAuthenticated, async (_req, res) => {
     try {
       const types = await storage.getClientTypes();
-      res.json(types);
+      const allSections = await db.select().from(clientTypeSections);
+      const allFields = await db.select().from(clientTypeFields);
+      const sectionCountByType: Record<number, number> = {};
+      const fieldCountByType: Record<number, number> = {};
+      for (const s of allSections) {
+        sectionCountByType[s.clientTypeId] = (sectionCountByType[s.clientTypeId] || 0) + 1;
+      }
+      for (const f of allFields) {
+        fieldCountByType[f.clientTypeId] = (fieldCountByType[f.clientTypeId] || 0) + 1;
+      }
+      const typesWithCounts = types.map(t => ({
+        ...t,
+        childCount: (sectionCountByType[t.id] || 0) + (fieldCountByType[t.id] || 0),
+      }));
+      res.json(typesWithCounts);
     } catch {
       res.status(500).json({ message: "Failed to get client types" });
     }

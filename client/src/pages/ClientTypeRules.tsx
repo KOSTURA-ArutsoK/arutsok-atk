@@ -23,8 +23,9 @@ import {
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
+import { ConditionalDelete } from "@/components/conditional-delete";
 import {
-  Plus, Trash2, Settings2, Layers, ArrowLeft, Pencil,
+  Plus, Settings2, Layers, ArrowLeft, Pencil,
   Type, AlignLeft, List, CheckSquare, ToggleLeft, Phone, Mail,
   Hash, Image, Calendar, CreditCard, Search, Loader2,
   FolderOpen, LayoutGrid, GripVertical, HelpCircle, X, Info,
@@ -797,20 +798,11 @@ function FoldersTab({ clientTypeId }: { clientTypeId: number }) {
                               <Button size="icon" variant="ghost" onClick={() => { setEditingFolder(folder); setDialogOpen(true); }} data-testid={`button-edit-folder-${folder.id}`}>
                                 <Pencil className="w-4 h-4" />
                               </Button>
-                              <div style={{ visibility: getPanelCount(folder.id) > 0 ? 'hidden' : 'visible' }}>
-                                <Tooltip>
-                                  <TooltipTrigger asChild>
-                                    <Button
-                                      size="icon" variant="ghost"
-                                      onClick={() => setDeleteTarget(folder)}
-                                      data-testid={`button-delete-folder-${folder.id}`}
-                                    >
-                                      <Trash2 className="w-4 h-4" />
-                                    </Button>
-                                  </TooltipTrigger>
-                                  <TooltipContent>Zmazať prázdny záznam</TooltipContent>
-                                </Tooltip>
-                              </div>
+                              <ConditionalDelete
+                                canDelete={getPanelCount(folder.id) === 0}
+                                onClick={() => setDeleteTarget(folder)}
+                                testId={`button-delete-folder-${folder.id}`}
+                              />
                             </div>
                           </TableCell>
                         </SortableRow>
@@ -962,20 +954,11 @@ function PanelsTab({ clientTypeId }: { clientTypeId: number }) {
                           <Button size="icon" variant="ghost" onClick={() => { setEditingPanel(panel); setDialogOpen(true); }} data-testid={`button-edit-panel-${panel.id}`}>
                             <Pencil className="w-4 h-4" />
                           </Button>
-                          <div style={{ visibility: getFieldCount(panel.id) > 0 ? 'hidden' : 'visible' }}>
-                            <Tooltip>
-                              <TooltipTrigger asChild>
-                                <Button
-                                  size="icon" variant="ghost"
-                                  onClick={() => setDeleteTarget(panel)}
-                                  data-testid={`button-delete-panel-${panel.id}`}
-                                >
-                                  <Trash2 className="w-4 h-4" />
-                                </Button>
-                              </TooltipTrigger>
-                              <TooltipContent>Zmazať prázdny záznam</TooltipContent>
-                            </Tooltip>
-                          </div>
+                          <ConditionalDelete
+                            canDelete={getFieldCount(panel.id) === 0}
+                            onClick={() => setDeleteTarget(panel)}
+                            testId={`button-delete-panel-${panel.id}`}
+                          />
                         </div>
                       </TableCell>
                     </TableRow>
@@ -1134,14 +1117,11 @@ function ParametersTab({ clientTypeId }: { clientTypeId: number }) {
                             <Button size="icon" variant="ghost" onClick={() => { setEditingField(field); setDialogOpen(true); }} data-testid={`button-edit-parameter-${field.id}`}>
                               <Pencil className="w-4 h-4" />
                             </Button>
-                            <Tooltip>
-                              <TooltipTrigger asChild>
-                                <Button size="icon" variant="ghost" onClick={() => setDeleteTarget(field)} data-testid={`button-delete-parameter-${field.id}`}>
-                                  <Trash2 className="w-4 h-4" />
-                                </Button>
-                              </TooltipTrigger>
-                              <TooltipContent>Zmazať prázdny záznam</TooltipContent>
-                            </Tooltip>
+                            <ConditionalDelete
+                              canDelete={true}
+                              onClick={() => setDeleteTarget(field)}
+                              testId={`button-delete-parameter-${field.id}`}
+                            />
                           </div>
                         </TableCell>
                       </TableRow>
@@ -1330,14 +1310,11 @@ export default function ClientTypeRules() {
                             Konfigurovat
                           </Button>
                           <div style={{ display: isAdmin ? 'inline' : 'none' }}>
-                            <Tooltip>
-                              <TooltipTrigger asChild>
-                                <Button size="icon" variant="ghost" onClick={() => deleteTypeMutation.mutate(ct.id)} data-testid={`button-delete-type-${ct.id}`}>
-                                  <Trash2 className="w-3 h-3 text-destructive" />
-                                </Button>
-                              </TooltipTrigger>
-                              <TooltipContent>Zmazať prázdny záznam</TooltipContent>
-                            </Tooltip>
+                            <ConditionalDelete
+                              canDelete={((ct as any).childCount ?? 0) === 0}
+                              onClick={() => deleteTypeMutation.mutate(ct.id)}
+                              testId={`button-delete-type-${ct.id}`}
+                            />
                           </div>
                         </div>
                       </TableCell>

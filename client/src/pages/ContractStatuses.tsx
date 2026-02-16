@@ -5,11 +5,11 @@ import { useAppUser } from "@/hooks/use-app-user";
 import { useStates } from "@/hooks/use-hierarchy";
 import { useToast } from "@/hooks/use-toast";
 import type { ContractStatus, ContractStatusParameter, MyCompany, Sector, Section, SectorProduct } from "@shared/schema";
-import { Plus, Pencil, Trash2, Loader2, GripVertical } from "lucide-react";
+import { Plus, Pencil, Loader2, GripVertical } from "lucide-react";
+import { ConditionalDelete } from "@/components/conditional-delete";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -618,9 +618,7 @@ function StatusFormDialog({
                                   <Button size="icon" variant="ghost" onClick={() => startEditParam(param)} data-testid={`button-edit-param-${param.id}`}>
                                     <Pencil className="w-4 h-4" />
                                   </Button>
-                                  <Button size="icon" variant="ghost" onClick={() => deleteParamMutation.mutate(param.id)} disabled={deleteParamMutation.isPending} data-testid={`button-delete-param-${param.id}`}>
-                                    <Trash2 className="w-4 h-4" />
-                                  </Button>
+                                  <ConditionalDelete canDelete={true} onClick={() => deleteParamMutation.mutate(param.id)} disabled={deleteParamMutation.isPending} testId={`button-delete-param-${param.id}`} />
                                 </div>
                               </TableCell>
                             </TableRow>
@@ -834,21 +832,7 @@ export default function ContractStatuses() {
                             <Pencil className="w-4 h-4" />
                           </Button>
                           {!status.isSystem && (
-                            <div style={{ visibility: contractCountForStatus > 0 ? 'hidden' : 'visible' }}>
-                              <Tooltip>
-                                <TooltipTrigger asChild>
-                                  <Button
-                                    size="icon"
-                                    variant="ghost"
-                                    onClick={() => openDelete(status)}
-                                    data-testid={`button-delete-status-${status.id}`}
-                                  >
-                                    <Trash2 className="w-4 h-4" />
-                                  </Button>
-                                </TooltipTrigger>
-                                <TooltipContent>Zmazať prázdny záznam</TooltipContent>
-                              </Tooltip>
-                            </div>
+                            <ConditionalDelete canDelete={contractCountForStatus === 0} onClick={() => openDelete(status)} testId={`button-delete-status-${status.id}`} />
                           )}
                         </div>
                       </TableCell>

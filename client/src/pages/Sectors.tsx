@@ -5,6 +5,7 @@ import { useToast } from "@/hooks/use-toast";
 import { usePartners } from "@/hooks/use-partners";
 import type { Sector, Parameter, SectorProduct, SectorProductParameter, Panel, PanelParameter, ProductPanel, Section, ContractFolder, FolderPanel } from "@shared/schema";
 import { Plus, Pencil, Trash2, Loader2, Search, Layers, Settings2, ChevronsUpDown, X, Check, FolderOpen, List, Package, Info, LayoutGrid, FolderClosed, Hash } from "lucide-react";
+import { ConditionalDelete } from "@/components/conditional-delete";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -1157,21 +1158,11 @@ function SectionsTab() {
                           >
                             <Pencil className="w-4 h-4" />
                           </Button>
-                          <div style={{ visibility: (hierarchyCounts?.sectionProducts?.[section.id] ?? 0) > 0 ? 'hidden' : 'visible' }}>
-                            <Tooltip>
-                              <TooltipTrigger asChild>
-                                <Button
-                                  size="icon"
-                                  variant="ghost"
-                                  onClick={() => setDeleteTarget(section)}
-                                  data-testid={`button-delete-section-${section.id}`}
-                                >
-                                  <Trash2 className="w-4 h-4" />
-                                </Button>
-                              </TooltipTrigger>
-                              <TooltipContent>Zmazať prázdny záznam</TooltipContent>
-                            </Tooltip>
-                          </div>
+                          <ConditionalDelete
+                            canDelete={(hierarchyCounts?.sectionProducts?.[section.id] ?? 0) === 0}
+                            onClick={() => setDeleteTarget(section)}
+                            testId={`button-delete-section-${section.id}`}
+                          />
                         </div>
                       </TableCell>
                     </TableRow>
@@ -1304,21 +1295,11 @@ function SectorsTab() {
                           >
                             <Pencil className="w-4 h-4" />
                           </Button>
-                          <div style={{ visibility: (hierarchyCounts?.sectorSections?.[sector.id] ?? 0) > 0 ? 'hidden' : 'visible' }}>
-                            <Tooltip>
-                              <TooltipTrigger asChild>
-                                <Button
-                                  size="icon"
-                                  variant="ghost"
-                                  onClick={() => setDeleteTarget(sector)}
-                                  data-testid={`button-delete-sector-${sector.id}`}
-                                >
-                                  <Trash2 className="w-4 h-4" />
-                                </Button>
-                              </TooltipTrigger>
-                              <TooltipContent>Zmazať prázdny záznam</TooltipContent>
-                            </Tooltip>
-                          </div>
+                          <ConditionalDelete
+                            canDelete={(hierarchyCounts?.sectorSections?.[sector.id] ?? 0) === 0}
+                            onClick={() => setDeleteTarget(sector)}
+                            testId={`button-delete-sector-${sector.id}`}
+                          />
                         </div>
                       </TableCell>
                     </TableRow>
@@ -1515,21 +1496,11 @@ function ProductTableRow({
           >
             <Pencil className="w-4 h-4" />
           </Button>
-          <div style={{ visibility: folderCount > 0 ? 'hidden' : 'visible' }}>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  size="icon"
-                  variant="ghost"
-                  onClick={onDelete}
-                  data-testid={`button-delete-sector-product-${product.id}`}
-                >
-                  <Trash2 className="w-4 h-4" />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>Zmazať prázdny záznam</TooltipContent>
-            </Tooltip>
-          </div>
+          <ConditionalDelete
+            canDelete={folderCount === 0}
+            onClick={onDelete}
+            testId={`button-delete-sector-product-${product.id}`}
+          />
         </div>
       </TableCell>
     </TableRow>
@@ -1988,21 +1959,11 @@ function PanelTableRow({ panel, onEdit, onDelete }: { panel: Panel; onEdit: () =
           >
             <Pencil className="w-4 h-4" />
           </Button>
-          <div style={{ visibility: (panelParams?.length ?? 0) > 0 ? 'hidden' : 'visible' }}>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  size="icon"
-                  variant="ghost"
-                  onClick={onDelete}
-                  data-testid={`button-delete-panel-${panel.id}`}
-                >
-                  <Trash2 className="w-4 h-4" />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>Zmazať prázdny záznam</TooltipContent>
-            </Tooltip>
-          </div>
+          <ConditionalDelete
+            canDelete={(panelParams?.length ?? 0) === 0}
+            onClick={onDelete}
+            testId={`button-delete-panel-${panel.id}`}
+          />
         </div>
       </TableCell>
     </TableRow>
@@ -2377,16 +2338,11 @@ function FoldersTab() {
                           <Button size="icon" variant="ghost" onClick={() => { setEditingFolder(folder); setDialogOpen(true); }} data-testid={`button-edit-folder-${folder.id}`}>
                             <Pencil className="w-4 h-4" />
                           </Button>
-                          <div style={{ visibility: (hierarchyCounts?.folderPanels?.[folder.id] ?? 0) > 0 ? 'hidden' : 'visible' }}>
-                            <Tooltip>
-                              <TooltipTrigger asChild>
-                                <Button size="icon" variant="ghost" onClick={() => setDeleteTarget(folder)} data-testid={`button-delete-folder-${folder.id}`}>
-                                  <Trash2 className="w-4 h-4 text-destructive" />
-                                </Button>
-                              </TooltipTrigger>
-                              <TooltipContent>Zmazať prázdny záznam</TooltipContent>
-                            </Tooltip>
-                          </div>
+                          <ConditionalDelete
+                            canDelete={(hierarchyCounts?.folderPanels?.[folder.id] ?? 0) === 0}
+                            onClick={() => setDeleteTarget(folder)}
+                            testId={`button-delete-folder-${folder.id}`}
+                          />
                         </div>
                       </TableCell>
                     </TableRow>

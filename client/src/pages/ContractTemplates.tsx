@@ -5,11 +5,11 @@ import { useAppUser } from "@/hooks/use-app-user";
 import { useStates } from "@/hooks/use-hierarchy";
 import { useToast } from "@/hooks/use-toast";
 import type { ContractTemplate } from "@shared/schema";
-import { Plus, Pencil, Trash2, Upload, FileText, Loader2, ExternalLink } from "lucide-react";
+import { Plus, Pencil, Upload, FileText, Loader2, ExternalLink } from "lucide-react";
+import { ConditionalDelete } from "@/components/conditional-delete";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -427,21 +427,7 @@ export default function ContractTemplates() {
                         >
                           <Pencil className="w-4 h-4" />
                         </Button>
-                        <div style={{ visibility: contractCountForTemplate > 0 ? 'hidden' : 'visible' }}>
-                          <Tooltip>
-                            <TooltipTrigger asChild>
-                              <Button
-                                size="icon"
-                                variant="ghost"
-                                onClick={() => openDelete(template)}
-                                data-testid={`button-delete-template-${template.id}`}
-                              >
-                                <Trash2 className="w-4 h-4" />
-                              </Button>
-                            </TooltipTrigger>
-                            <TooltipContent>Zmazať prázdny záznam</TooltipContent>
-                          </Tooltip>
-                        </div>
+                        <ConditionalDelete canDelete={contractCountForTemplate === 0} onClick={() => openDelete(template)} testId={`button-delete-template-${template.id}`} />
                       </div>
                     </TableCell>
                   </TableRow>
