@@ -1850,7 +1850,7 @@ export async function registerRoutes(
     if (!userUid) return 'full';
     if (userRole === 'superadmin' || userRole === 'admin') return 'full';
     if (contract.ziskatelUid === userUid || contract.specialistaUid === userUid) return 'full';
-    if (contract.klientUid === userUid) return 'klient';
+    if (contract.klientUid === userUid || contract.zakonnyZastupcaUid === userUid) return 'klient';
     return 'full';
   }
 

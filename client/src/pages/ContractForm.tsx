@@ -677,6 +677,7 @@ export default function ContractForm() {
   const [klientUid, setKlientUid] = useState("");
   const [ziskatelUid, setZiskatelUid] = useState("");
   const [specialistaUid, setSpecialistaUid] = useState("");
+  const [zakonnyZastupcaUid, setZakonnyZastupcaUid] = useState("");
 
   const [contractSectorId, setContractSectorId] = useState<string>("");
   const [contractSectionId, setContractSectionId] = useState<string>("");
@@ -887,6 +888,7 @@ export default function ContractForm() {
       setKlientUid(existingContract.klientUid || "");
       setZiskatelUid(existingContract.ziskatelUid || "");
       setSpecialistaUid(existingContract.specialistaUid || "");
+      setZakonnyZastupcaUid((existingContract as any).zakonnyZastupcaUid || "");
 
       const spId = existingContract.sectorProductId;
       if (spId) {
@@ -1052,6 +1054,7 @@ export default function ContractForm() {
       klientUid: klientUid && klientUid !== "__none__" ? klientUid : null,
       ziskatelUid: ziskatelUid && ziskatelUid !== "__none__" ? ziskatelUid : null,
       specialistaUid: specialistaUid && specialistaUid !== "__none__" ? specialistaUid : null,
+      zakonnyZastupcaUid: zakonnyZastupcaUid && zakonnyZastupcaUid !== "__none__" ? zakonnyZastupcaUid : null,
       processingTimeSec,
       dynamicPanelValues: Object.keys(panelValues).length > 0 ? panelValues : undefined,
     };
@@ -1349,6 +1352,19 @@ export default function ContractForm() {
                   <Select value={specialistaUid} onValueChange={setSpecialistaUid}>
                     <SelectTrigger data-testid="select-specialista-uid">
                       <SelectValue placeholder="Vyber specialistu..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="__none__">-- Ziadny --</SelectItem>
+                      {subjects?.filter(s => s.isActive && s.uid).map(s => (
+                        <SelectItem key={s.uid} value={s.uid!}>{s.uid} - {s.firstName || ''} {s.lastName || ''}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </CompactField>
+                <CompactField label="Zakonny zastupca (UID)">
+                  <Select value={zakonnyZastupcaUid} onValueChange={setZakonnyZastupcaUid}>
+                    <SelectTrigger data-testid="select-zakonny-zastupca-uid">
+                      <SelectValue placeholder="Vyber zakonneho zastupcu..." />
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="__none__">-- Ziadny --</SelectItem>
