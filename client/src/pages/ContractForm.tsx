@@ -1113,7 +1113,7 @@ export default function ContractForm() {
   })();
 
   return (
-    <div className="flex flex-col" data-testid="contract-form-root">
+    <div className="flex flex-col min-h-full" data-testid="contract-form-root">
       <div className="flex-none flex items-center gap-3 px-3 py-2 border-b border-border flex-wrap">
         <Button
           variant="ghost"
@@ -1701,7 +1701,7 @@ export default function ContractForm() {
         </div>
       </div>
 
-      <div className="flex-none z-50 bg-background border-t border-border px-3 py-2 flex items-center gap-2 flex-wrap">
+      <div className="flex-none z-50 bg-background border-t border-border px-3 py-2 flex items-center gap-2 flex-wrap mt-auto">
         <span style={{ display: activeTab !== "zhrnutie" ? 'inline' : 'none' }}>
           <Button
             size="sm"
