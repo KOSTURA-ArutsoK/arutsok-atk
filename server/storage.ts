@@ -1390,6 +1390,9 @@ export class DatabaseStorage implements IStorage {
         if (decrypted) {
           const normalizedStored = decrypted.replace(/[\s\/\-]/g, "");
           if (normalizedStored === normalizedInput) return s;
+        } else {
+          const normalizedStored = s.birthNumber.replace(/[\s\/\-]/g, "");
+          if (normalizedStored === normalizedInput) return s;
         }
       }
       return undefined;
