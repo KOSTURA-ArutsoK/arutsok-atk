@@ -660,7 +660,6 @@ export default function ContractForm() {
   const [templateId, setTemplateId] = useState<string>("");
   const [inventoryId, setInventoryId] = useState<string>("");
   const [stateId, setStateId] = useState<string>("");
-  const [companyId, setCompanyId] = useState<string>("");
   const [signingPlace, setSigningPlace] = useState("");
   const [contractType, setContractType] = useState("Nova");
   const [paymentFrequency, setPaymentFrequency] = useState<string>("");
@@ -674,7 +673,6 @@ export default function ContractForm() {
   const [currency, setCurrency] = useState("EUR");
   const [notes, setNotes] = useState("");
   const [contractPassword, setContractPassword] = useState("");
-  const [klientUid, setKlientUid] = useState("");
 
   const [contractSectorId, setContractSectorId] = useState<string>("");
   const [contractSectionId, setContractSectionId] = useState<string>("");
@@ -870,7 +868,6 @@ export default function ContractForm() {
       setTemplateId(existingContract.templateId?.toString() || "");
       setInventoryId(existingContract.inventoryId?.toString() || "");
       setStateId(existingContract.stateId?.toString() || "");
-      setCompanyId(existingContract.companyId?.toString() || "");
       setSigningPlace(existingContract.signingPlace || "");
       setContractType(existingContract.contractType || "Nova");
       setPaymentFrequency(existingContract.paymentFrequency || "");
@@ -882,7 +879,6 @@ export default function ContractForm() {
       setCommissionAmount(existingContract.commissionAmount?.toString() || "");
       setCurrency(existingContract.currency || "EUR");
       setNotes(existingContract.notes || "");
-      setKlientUid(existingContract.klientUid || "");
 
       const spId = existingContract.sectorProductId;
       if (spId) {
@@ -935,7 +931,6 @@ export default function ContractForm() {
   useEffect(() => {
     if (!isEditing && appUser) {
       setStateId(appUser.activeStateId?.toString() || "");
-      setCompanyId(appUser.activeCompanyId?.toString() || "");
     }
   }, [isEditing, appUser]);
 
@@ -1033,7 +1028,7 @@ export default function ContractForm() {
       templateId: templateId ? parseInt(templateId) : null,
       inventoryId: inventoryId ? parseInt(inventoryId) : null,
       stateId: stateId ? parseInt(stateId) : null,
-      companyId: companyId ? parseInt(companyId) : null,
+      companyId: appUser?.activeCompanyId || null,
       signingPlace: signingPlace || null,
       contractType: contractType || "Nova",
       paymentFrequency: paymentFrequency || null,
@@ -1045,7 +1040,6 @@ export default function ContractForm() {
       commissionAmount: commissionAmount ? parseInt(commissionAmount) : null,
       currency,
       notes: notes || null,
-      klientUid: klientUid && klientUid !== "__none__" ? klientUid : null,
       processingTimeSec,
       dynamicPanelValues: Object.keys(panelValues).length > 0 ? panelValues : undefined,
     };
@@ -1071,12 +1065,12 @@ export default function ContractForm() {
     return fieldSettings?.find(s => s.fieldKey === fieldKey)?.requiredForPfa ?? false;
   }
 
-  const currentCompany = companies?.find(c => c.id === (companyId ? parseInt(companyId) : appUser?.activeCompanyId));
+  const currentCompany = companies?.find(c => c.id === appUser?.activeCompanyId);
 
   const filteredStatuses = (() => {
     if (!statuses) return [];
     if (!statusVisibilityMap) return [];
-    const cId = companyId ? parseInt(companyId) : null;
+    const cId = appUser?.activeCompanyId || null;
     const spId = sectorProductId ? parseInt(sectorProductId) : null;
     const secId = contractSectionId ? parseInt(contractSectionId) : null;
     const sId = contractSectorId ? parseInt(contractSectorId) : null;
@@ -1172,19 +1166,11 @@ export default function ContractForm() {
           <div style={{ display: activeTab === "vseobecne" ? 'block' : 'none' }}>
             <div className="space-y-[clamp(0.35rem,0.8vh,0.75rem)]" data-testid="section-vseobecne">
 
-              <div className="grid grid-cols-2 gap-[clamp(0.5rem,1vw,1rem)]">
-                <CompactField label="Spolocnost">
-                  <Input
-                    value={currentCompany?.name || ""}
-                    disabled
-                    className="bg-muted"
-                    data-testid="input-company-context"
-                  />
-                </CompactField>
-                <CompactField label="Supiska">
+              <div className="grid grid-cols-3 gap-[clamp(0.5rem,1vw,1rem)]">
+                <CompactField label="Sprievodka">
                   <Select value={inventoryId} onValueChange={setInventoryId}>
                     <SelectTrigger data-testid="select-contract-inventory">
-                      <SelectValue placeholder="Vyberte supisku" />
+                      <SelectValue placeholder="Vyberte sprievodku" />
                     </SelectTrigger>
                     <SelectContent>
                       {inventories?.filter(i => !i.isClosed).map(i => (
@@ -1192,6 +1178,22 @@ export default function ContractForm() {
                       ))}
                     </SelectContent>
                   </Select>
+                </CompactField>
+                <CompactField label="Cislo sprievodky">
+                  <Input
+                    value={inventoryId ? (inventories?.find(i => i.id.toString() === inventoryId)?.sequenceNumber?.toString() || "Pridelene pri ulozeni") : ""}
+                    readOnly
+                    className="bg-muted/50 cursor-default font-mono"
+                    data-testid="input-inventory-number"
+                  />
+                </CompactField>
+                <CompactField label="Supiska">
+                  <Input
+                    value={inventoryId ? (inventories?.find(i => i.id.toString() === inventoryId)?.name || "") : ""}
+                    readOnly
+                    className="bg-muted/50 cursor-default"
+                    data-testid="input-supiska-name"
+                  />
                 </CompactField>
               </div>
 
@@ -1294,7 +1296,7 @@ export default function ContractForm() {
                 </CompactField>
               </div>
 
-              <div className="grid grid-cols-5 gap-[clamp(0.5rem,1vw,1rem)]">
+              <div className="grid grid-cols-4 gap-[clamp(0.5rem,1vw,1rem)]">
                 <CompactField label={`Frekvencia platenia${isFieldRequired("paymentFrequency") ? " *" : ""}`}>
                   <Select value={paymentFrequency} onValueChange={v => { setAnnualPremiumUserEdited(true); setPaymentFrequency(v); }}>
                     <SelectTrigger data-testid="select-payment-frequency">
@@ -1312,19 +1314,6 @@ export default function ContractForm() {
                 </CompactField>
                 <CompactField label={`Rocne poistne${isFieldRequired("annualPremium") ? " *" : ""}`}>
                   <Input type="number" value={annualPremium} readOnly className="font-mono bg-muted/50" data-testid="input-annual-premium" />
-                </CompactField>
-                <CompactField label="Klient (UID)">
-                  <Select value={klientUid} onValueChange={setKlientUid}>
-                    <SelectTrigger data-testid="select-klient-uid">
-                      <SelectValue placeholder="Vyber klienta..." />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="__none__">-- Ziadny --</SelectItem>
-                      {subjects?.filter(s => s.isActive && s.uid).map(s => (
-                        <SelectItem key={s.uid} value={s.uid!}>{s.uid} - {s.firstName || ''} {s.lastName || ''}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
                 </CompactField>
                 <div className="flex items-end">
                   <Button
