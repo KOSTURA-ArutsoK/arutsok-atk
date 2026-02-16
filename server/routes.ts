@@ -11,6 +11,7 @@ import multer from "multer";
 import ExcelJS from "exceljs";
 import path from "path";
 import fs from "fs";
+import { encryptField, decryptField } from "./crypto";
 
 async function logAudit(req: any, params: {
   action: string;
@@ -739,27 +740,49 @@ export async function registerRoutes(
   });
 
   // === SUBJECTS ===
-  app.get(api.subjects.list.path, async (req, res) => {
+  app.get(api.subjects.list.path, async (req: any, res) => {
     const params = {
       search: req.query.search as string,
       type: req.query.type as 'person' | 'company',
       isActive: req.query.isActive === 'true' ? true : req.query.isActive === 'false' ? false : undefined,
     };
-    res.json(await storage.getSubjects(params));
+    const subjects = await storage.getSubjects(params);
+    res.json(subjects.map((s: any) => maskSubjectBirthNumber(s, req.appUser)));
   });
 
-  app.get(api.subjects.get.path, async (req, res) => {
+  app.get(api.subjects.get.path, async (req: any, res) => {
     const subject = await storage.getSubject(Number(req.params.id));
     if (!subject) return res.status(404).json({ message: "Subject not found" });
-    res.json(subject);
+    res.json(maskSubjectBirthNumber(subject, req.appUser));
   });
 
-  app.post(api.subjects.create.path, async (req, res) => {
+  function canViewBirthNumber(appUser: any): boolean {
+    if (!appUser) return false;
+    return appUser.role === 'superadmin' || appUser.role === 'prezident';
+  }
+
+  function maskSubjectBirthNumber(subject: any, appUser: any): any {
+    if (!subject || !subject.birthNumber) return subject;
+    if (canViewBirthNumber(appUser)) {
+      const decrypted = decryptField(subject.birthNumber);
+      return { ...subject, birthNumber: decrypted || "***" };
+    }
+    if (appUser?.subjectId && subject.id === appUser.subjectId) {
+      const decrypted = decryptField(subject.birthNumber);
+      return { ...subject, birthNumber: decrypted || "***" };
+    }
+    return { ...subject, birthNumber: "***" };
+  }
+
+  app.post(api.subjects.create.path, async (req: any, res) => {
     try {
       const input = api.subjects.create.input.parse(req.body);
+      if (input.birthNumber) {
+        input.birthNumber = encryptField(input.birthNumber);
+      }
       const created = await storage.createSubject(input);
-      await logAudit(req, { action: "CREATE", module: "subjekty", entityId: created.id, entityName: (created.firstName ? created.firstName + ' ' + created.lastName : created.companyName) || undefined, newData: input });
-      res.status(201).json(created);
+      await logAudit(req, { action: "CREATE", module: "subjekty", entityId: created.id, entityName: (created.firstName ? created.firstName + ' ' + created.lastName : created.companyName) || undefined, newData: { ...input, birthNumber: input.birthNumber ? '***' : undefined } });
+      res.status(201).json(maskSubjectBirthNumber(created, req.appUser));
     } catch (err) {
       if (err instanceof z.ZodError) return res.status(400).json({ message: err.errors[0].message });
       if (err instanceof Error && err.message.includes("hierarchy")) return res.status(400).json({ message: err.message });
@@ -767,12 +790,15 @@ export async function registerRoutes(
     }
   });
 
-  app.put(api.subjects.update.path, async (req, res) => {
+  app.put(api.subjects.update.path, async (req: any, res) => {
     try {
       const input = api.subjects.update.input.parse(req.body);
+      if (input.birthNumber) {
+        input.birthNumber = encryptField(input.birthNumber);
+      }
       const updated = await storage.updateSubject(Number(req.params.id), input);
-      await logAudit(req, { action: "UPDATE", module: "subjekty", entityId: Number(req.params.id), newData: input });
-      res.json(updated);
+      await logAudit(req, { action: "UPDATE", module: "subjekty", entityId: Number(req.params.id), newData: { ...input, birthNumber: input.birthNumber ? '***' : undefined } });
+      res.json(maskSubjectBirthNumber(updated, req.appUser));
     } catch (err) {
       if (err instanceof z.ZodError) return res.status(400).json({ message: err.errors[0].message });
       if (err instanceof Error && err.message === "Subject not found") return res.status(404).json({ message: err.message });
@@ -1846,11 +1872,18 @@ export async function registerRoutes(
   });
 
   // === CONTRACTS (Main) ===
-  function getContractAccessRole(contract: any, userUid: string | null | undefined, userRole: string | null | undefined): string {
+  function getContractAccessRole(contract: any, userUid: string | null | undefined, userRole: string | null | undefined, userIco?: string | null, userBirthNumber?: string | null): string {
     if (!userUid) return 'full';
     if (userRole === 'superadmin' || userRole === 'admin') return 'full';
     if (contract.ziskatelUid === userUid || contract.specialistaUid === userUid) return 'full';
     if (contract.klientUid === userUid || contract.zakonnyZastupcaUid === userUid || contract.konatelUid === userUid || contract.szcoUid === userUid) return 'klient';
+    if (userIco && contract.szcoIco && contract.szcoIco === userIco) return 'klient';
+    if (userBirthNumber && contract.szcoRodneCislo) {
+      try {
+        const decryptedRc = decryptField(contract.szcoRodneCislo);
+        if (decryptedRc === userBirthNumber) return 'klient';
+      } catch {}
+    }
     return 'full';
   }
 
@@ -1866,9 +1899,22 @@ export async function registerRoutes(
     const appUser = req.appUser;
     if (appUser) {
       const userUid = appUser.uid;
+      let userIco: string | null = null;
+      let userBirthNumber: string | null = null;
+      if (userUid) {
+        const allSubjects = await storage.getSubjects();
+        const userSubject = allSubjects.find((s: any) => s.uid === userUid);
+        if (userSubject) {
+          const details = userSubject.details as any;
+          userIco = details?.ico || null;
+          if (userSubject.birthNumber) {
+            userBirthNumber = decryptField(userSubject.birthNumber);
+          }
+        }
+      }
       const contractsWithAccess = allContracts.map(c => ({
         ...c,
-        accessRole: getContractAccessRole(c, userUid, appUser.role),
+        accessRole: getContractAccessRole(c, userUid, appUser.role, userIco, userBirthNumber),
       }));
       return res.json(contractsWithAccess);
     }
@@ -1882,7 +1928,20 @@ export async function registerRoutes(
     if (appUser && appUser.activeStateId && contract.stateId && contract.stateId !== appUser.activeStateId && appUser.role !== 'superadmin') {
       return res.status(403).json({ message: "Pristup k zmluve z ineho statu nie je povoleny" });
     }
-    const accessRole = getContractAccessRole(contract, appUser?.uid, appUser?.role);
+    let userIco: string | null = null;
+    let userBirthNumber: string | null = null;
+    if (appUser?.uid) {
+      const allSubjects = await storage.getSubjects();
+      const userSubject = allSubjects.find((s: any) => s.uid === appUser.uid);
+      if (userSubject) {
+        const details = userSubject.details as any;
+        userIco = details?.ico || null;
+        if (userSubject.birthNumber) {
+          userBirthNumber = decryptField(userSubject.birthNumber);
+        }
+      }
+    }
+    const accessRole = getContractAccessRole(contract, appUser?.uid, appUser?.role, userIco, userBirthNumber);
     res.json({ ...contract, accessRole });
   });
 
@@ -1919,6 +1978,37 @@ export async function registerRoutes(
     } catch (err) {
       if (err instanceof z.ZodError) return res.status(400).json({ message: err.errors[0].message });
       res.status(500).json({ message: "Internal error" });
+    }
+  });
+
+  app.get("/api/contracts/needs-verification", isAuthenticated, async (req: any, res) => {
+    try {
+      const appUser = req.appUser;
+      if (!appUser || (appUser.role !== 'superadmin' && appUser.role !== 'admin' && appUser.role !== 'prezident')) {
+        return res.status(403).json({ message: "Nemáte oprávnenie" });
+      }
+      const allContracts = await storage.getContracts({ stateId: appUser.activeStateId || undefined });
+      const needsVerification = allContracts.filter((c: any) => c.needsManualVerification === true);
+      res.json(needsVerification);
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  app.patch("/api/contracts/:id/verify", isAuthenticated, async (req: any, res) => {
+    try {
+      const appUser = req.appUser;
+      if (!appUser || (appUser.role !== 'superadmin' && appUser.role !== 'admin' && appUser.role !== 'prezident')) {
+        return res.status(403).json({ message: "Nemáte oprávnenie" });
+      }
+      const contractId = Number(req.params.id);
+      const contract = await storage.getContract(contractId);
+      if (!contract) return res.status(404).json({ message: "Zmluva nenájdená" });
+      const updated = await storage.updateContract(contractId, { needsManualVerification: false } as any);
+      await logAudit(req, { action: "VERIFY", module: "zmluvy", entityId: contractId, entityName: contract.contractNumber || `Zmluva #${contractId}` });
+      res.json(updated);
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
     }
   });
 
@@ -1962,10 +2052,45 @@ export async function registerRoutes(
           const zakonnyZastupcaUidVal = rowData["zakonny_zastupca_uid"] || rowData["zakonny_zastupca_id"] || rowData["zastupca"] || rowData["zastupca_id"] || null;
           const konatelUidVal = rowData["konatel_uid"] || rowData["konateluid"] || rowData["konatel"] || rowData["konatel_id"] || null;
           const szcoUidVal = rowData["szco_uid"] || rowData["szcouid"] || rowData["szco"] || rowData["szco_id"] || null;
+          const szcoIcoVal = rowData["szco_ico"] || rowData["ico"] || rowData["szco_ico_number"] || null;
+          const szcoRcVal = rowData["szco_rc"] || rowData["szco_rodne_cislo"] || rowData["szco_rodnecislo"] || null;
 
           let subjectId: number | null = null;
+          let needsManualVerification = false;
           if (klientUidVal && uidMap.has(klientUidVal)) {
             subjectId = uidMap.get(klientUidVal)!.id;
+          }
+
+          let resolvedSzcoUid = szcoUidVal;
+          if (!szcoUidVal && (szcoIcoVal || szcoRcVal)) {
+            let szcoSubject: typeof allSubjects[0] | undefined;
+            if (szcoIcoVal) {
+              szcoSubject = allSubjects.find(s => {
+                const details = s.details as any;
+                return details?.ico === szcoIcoVal;
+              });
+            }
+            if (!szcoSubject && szcoRcVal) {
+              szcoSubject = allSubjects.find(s => {
+                if (!s.birthNumber) return false;
+                const decrypted = decryptField(s.birthNumber);
+                return decrypted !== null && decrypted === szcoRcVal;
+              });
+            }
+            if (!szcoSubject) {
+              const szcoName = rowData["szco_meno"] || rowData["szco_name"] || null;
+              const szcoCity = rowData["szco_mesto"] || rowData["szco_city"] || null;
+              if (szcoName && szcoCity) {
+                szcoSubject = allSubjects.find(s => {
+                  const fullName = `${s.firstName || ''} ${s.lastName || ''}`.trim().toLowerCase();
+                  return fullName === szcoName.toLowerCase() && (s.city || '').toLowerCase() === szcoCity.toLowerCase();
+                });
+                if (szcoSubject) needsManualVerification = true;
+              }
+            }
+            if (szcoSubject) {
+              resolvedSzcoUid = szcoSubject.uid;
+            }
           }
 
           const nextGlobalNumber = await storage.getNextCounterValue("contract_global_number");
@@ -1980,7 +2105,10 @@ export async function registerRoutes(
             specialistaUid: specialistaUidVal,
             zakonnyZastupcaUid: zakonnyZastupcaUidVal,
             konatelUid: konatelUidVal,
-            szcoUid: szcoUidVal,
+            szcoUid: resolvedSzcoUid,
+            szcoRodneCislo: szcoRcVal ? encryptField(szcoRcVal) : null,
+            szcoIco: szcoIcoVal,
+            needsManualVerification,
             premiumAmount: rowData["lehotne_poistne"] || rowData["premium"] ? parseInt(rowData["lehotne_poistne"] || rowData["premium"]) : null,
             paymentFrequency: rowData["frekvencia"] || rowData["payment_frequency"] || null,
             currency: rowData["mena"] || rowData["currency"] || "EUR",
