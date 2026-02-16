@@ -973,15 +973,17 @@ export default function ContractForm() {
       }
     }
 
-    const existingDynamic = existingContract.dynamicPanelValues || {};
-    const ctValues: Record<string, string> = {};
-    for (const [key, value] of Object.entries(existingDynamic)) {
-      if (key.startsWith("ct_")) {
-        ctValues[key.slice(3)] = value;
+    if (existingContract) {
+      const existingDynamic = existingContract.dynamicPanelValues || {};
+      const ctValues: Record<string, string> = {};
+      for (const [key, value] of Object.entries(existingDynamic)) {
+        if (key.startsWith("ct_")) {
+          ctValues[key.slice(3)] = value;
+        }
       }
-    }
-    if (Object.keys(ctValues).length > 0) {
-      setClientTypeFieldValues(ctValues);
+      if (Object.keys(ctValues).length > 0) {
+        setClientTypeFieldValues(ctValues);
+      }
     }
   }, [existingContract, allSPForEdit, allSectionsForEdit]);
 
