@@ -5,7 +5,7 @@ import { useAppUser } from "@/hooks/use-app-user";
 import { useStates } from "@/hooks/use-hierarchy";
 import { useToast } from "@/hooks/use-toast";
 import { useLocation } from "wouter";
-import type { Contract, ContractStatus, ContractTemplate, ContractInventory, Subject, Partner, Product, MyCompany, Sector, Section, SectorProduct } from "@shared/schema";
+import type { Contract, ContractStatus, ContractTemplate, ContractInventory, Subject, Partner, Product, MyCompany, Sector, Section, SectorProduct, ClientGroup } from "@shared/schema";
 import { Plus, Pencil, Trash2, Eye, FileText, Loader2, Lock, LayoutGrid, Send, Upload, Inbox, CheckCircle2, ChevronDown, ChevronRight, Printer, Search, Archive, AlertTriangle, Calendar, XCircle, MessageSquare, Paperclip } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Card, CardContent } from "@/components/ui/card";
@@ -91,6 +91,9 @@ function ContractFormDialog({
   const { data: inventories } = useQuery<ContractInventory[]>({
     queryKey: ["/api/contract-inventories"],
   });
+  const { data: clientGroups } = useQuery<ClientGroup[]>({
+    queryKey: ["/api/client-groups"],
+  });
   const { data: allSPForEdit } = useQuery<SectorProduct[]>({
     queryKey: ["/api/sector-products"],
   });
@@ -103,6 +106,10 @@ function ContractFormDialog({
     },
   });
 
+  const [clientGroupId, setClientGroupId] = useState<string>("");
+  const [identifierType, setIdentifierType] = useState<string>("");
+  const [identifierValue, setIdentifierValue] = useState<string>("");
+  const [identifierWarning, setIdentifierWarning] = useState<string | null>(null);
   const [contractSectorId, setContractSectorId] = useState<string>("");
   const [contractSectionId, setContractSectionId] = useState<string>("");
   const [contractNumber, setContractNumber] = useState("");
@@ -226,6 +233,10 @@ function ContractFormDialog({
         setCommissionAmount(editingContract.commissionAmount?.toString() || "");
         setCurrency(editingContract.currency || "EUR");
         setNotes(editingContract.notes || "");
+        setClientGroupId((editingContract as any).clientGroupId?.toString() || "");
+        setIdentifierType((editingContract as any).identifierType || "");
+        setIdentifierValue((editingContract as any).identifierValue || "");
+        setIdentifierWarning(null);
         if (spId && allSPForEdit && allSectionsForEdit) {
           const sp = allSPForEdit.find(p => p.id === spId);
           if (sp) {
@@ -257,6 +268,10 @@ function ContractFormDialog({
         setCommissionAmount("");
         setCurrency("EUR");
         setNotes("");
+        setClientGroupId("");
+        setIdentifierType("");
+        setIdentifierValue("");
+        setIdentifierWarning(null);
         setContractSectorId("");
         setContractSectionId("");
       }
@@ -273,8 +288,15 @@ function ContractFormDialog({
       return;
     }
     const processingTimeSec = Math.round((performance.now() - timerRef.current) / 1000);
+    if (!clientGroupId) {
+      toast({ title: "Chyba", description: "Typ osoby je povinny", variant: "destructive" });
+      return;
+    }
     const payload = {
       contractNumber,
+      clientGroupId: clientGroupId ? parseInt(clientGroupId) : null,
+      identifierType: identifierType || null,
+      identifierValue: identifierValue || null,
       subjectId: subjectId ? parseInt(subjectId) : null,
       partnerId: partnerId ? parseInt(partnerId) : null,
       productId: null,
@@ -319,6 +341,59 @@ function ContractFormDialog({
           )}
         </DialogHeader>
         <div className="space-y-4">
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Typ osoby *</label>
+              <Select value={clientGroupId} onValueChange={setClientGroupId}>
+                <SelectTrigger data-testid="select-contract-client-group">
+                  <SelectValue placeholder="Vyberte typ osoby" />
+                </SelectTrigger>
+                <SelectContent>
+                  {clientGroups?.map(g => (
+                    <SelectItem key={g.id} value={g.id.toString()}>{g.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Zakladny identifikator</label>
+              <div className="flex gap-2">
+                <Select value={identifierType} onValueChange={(val) => { setIdentifierType(val); setIdentifierValue(""); setIdentifierWarning(null); }}>
+                  <SelectTrigger className="w-[160px]" data-testid="select-identifier-type">
+                    <SelectValue placeholder="Typ" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="ico">ICO</SelectItem>
+                    <SelectItem value="rodne_cislo">Rodne cislo</SelectItem>
+                  </SelectContent>
+                </Select>
+                <Input
+                  value={identifierValue}
+                  onChange={e => { setIdentifierValue(e.target.value); setIdentifierWarning(null); }}
+                  onBlur={async () => {
+                    if (!identifierValue.trim() || !identifierType || !activeStateId) return;
+                    try {
+                      const res = await fetch(`/api/subjects/check-identifier?type=${identifierType}&value=${encodeURIComponent(identifierValue.trim())}&stateId=${activeStateId}`, { credentials: "include" });
+                      const data = await res.json();
+                      if (data.exists) {
+                        setIdentifierWarning(`Osoba s tymto ${identifierType === "ico" ? "ICO" : "rodnym cislom"} uz existuje v zozname klientov: ${data.subjectName} (${data.subjectUid})`);
+                      }
+                    } catch {}
+                  }}
+                  placeholder={identifierType === "ico" ? "Zadajte ICO" : identifierType === "rodne_cislo" ? "Zadajte rodne cislo" : "Najprv vyberte typ"}
+                  disabled={!identifierType}
+                  data-testid="input-identifier-value"
+                />
+              </div>
+              {identifierWarning && (
+                <div className="flex items-center gap-2 p-2 rounded-md bg-amber-500/10 mt-1" data-testid="text-identifier-warning">
+                  <AlertTriangle className="w-4 h-4 text-amber-500 shrink-0" />
+                  <p className="text-xs text-amber-700 dark:text-amber-400">{identifierWarning}</p>
+                </div>
+              )}
+            </div>
+          </div>
+
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <label className="text-sm font-medium">Cislo zmluvy *</label>

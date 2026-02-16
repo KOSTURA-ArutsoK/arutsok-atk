@@ -1998,6 +1998,38 @@ export async function registerRoutes(
     }
   });
 
+  app.get("/api/subjects/check-identifier", isAuthenticated, async (req: any, res) => {
+    try {
+      const { type, value, stateId } = req.query;
+      if (!type || !value || !stateId) {
+        return res.status(400).json({ message: "type, value a stateId su povinne" });
+      }
+      const allSubjects = await storage.getSubjects();
+      const stateIdNum = parseInt(stateId as string);
+      const val = (value as string).trim();
+      let found = null;
+      if (type === "rodne_cislo") {
+        found = allSubjects.find((s: any) => s.stateId === stateIdNum && s.birthNumber === val && s.isActive);
+      } else if (type === "ico") {
+        found = allSubjects.find((s: any) => {
+          if (s.stateId !== stateIdNum || !s.isActive) return false;
+          const details = s.details as any;
+          return details?.ico === val;
+        });
+      }
+      if (found) {
+        const name = found.type === "person"
+          ? `${found.firstName || ""} ${found.lastName || ""}`.trim()
+          : (found.companyName || "");
+        res.json({ exists: true, subjectName: name, subjectUid: found.uid });
+      } else {
+        res.json({ exists: false });
+      }
+    } catch (err) {
+      res.status(500).json({ message: "Internal error" });
+    }
+  });
+
   app.get("/api/contracts/needs-verification", isAuthenticated, async (req: any, res) => {
     try {
       const appUser = req.appUser;
