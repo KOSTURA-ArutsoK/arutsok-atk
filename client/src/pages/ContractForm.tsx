@@ -675,11 +675,6 @@ export default function ContractForm() {
   const [notes, setNotes] = useState("");
   const [contractPassword, setContractPassword] = useState("");
   const [klientUid, setKlientUid] = useState("");
-  const [ziskatelUid, setZiskatelUid] = useState("");
-  const [specialistaUid, setSpecialistaUid] = useState("");
-  const [zakonnyZastupcaUid, setZakonnyZastupcaUid] = useState("");
-  const [konatelUid, setKonatelUid] = useState("");
-  const [szcoUid, setSzcoUid] = useState("");
 
   const [contractSectorId, setContractSectorId] = useState<string>("");
   const [contractSectionId, setContractSectionId] = useState<string>("");
@@ -888,11 +883,6 @@ export default function ContractForm() {
       setCurrency(existingContract.currency || "EUR");
       setNotes(existingContract.notes || "");
       setKlientUid(existingContract.klientUid || "");
-      setZiskatelUid(existingContract.ziskatelUid || "");
-      setSpecialistaUid(existingContract.specialistaUid || "");
-      setZakonnyZastupcaUid((existingContract as any).zakonnyZastupcaUid || "");
-      setKonatelUid((existingContract as any).konatelUid || "");
-      setSzcoUid((existingContract as any).szcoUid || "");
 
       const spId = existingContract.sectorProductId;
       if (spId) {
@@ -1056,11 +1046,6 @@ export default function ContractForm() {
       currency,
       notes: notes || null,
       klientUid: klientUid && klientUid !== "__none__" ? klientUid : null,
-      ziskatelUid: ziskatelUid && ziskatelUid !== "__none__" ? ziskatelUid : null,
-      specialistaUid: specialistaUid && specialistaUid !== "__none__" ? specialistaUid : null,
-      zakonnyZastupcaUid: zakonnyZastupcaUid && zakonnyZastupcaUid !== "__none__" ? zakonnyZastupcaUid : null,
-      konatelUid: konatelUid && konatelUid !== "__none__" ? konatelUid : null,
-      szcoUid: szcoUid && szcoUid !== "__none__" ? szcoUid : null,
       processingTimeSec,
       dynamicPanelValues: Object.keys(panelValues).length > 0 ? panelValues : undefined,
     };
@@ -1337,71 +1322,6 @@ export default function ContractForm() {
                       <SelectItem value="__none__">-- Ziadny --</SelectItem>
                       {subjects?.filter(s => s.isActive && s.uid).map(s => (
                         <SelectItem key={s.uid} value={s.uid!}>{s.uid} - {s.firstName || ''} {s.lastName || ''}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </CompactField>
-                <CompactField label="Ziskatel (UID)">
-                  <Select value={ziskatelUid} onValueChange={setZiskatelUid}>
-                    <SelectTrigger data-testid="select-ziskatel-uid">
-                      <SelectValue placeholder="Vyber ziskatela..." />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="__none__">-- Ziadny --</SelectItem>
-                      {subjects?.filter(s => s.isActive && s.uid).map(s => (
-                        <SelectItem key={s.uid} value={s.uid!}>{s.uid} - {s.firstName || ''} {s.lastName || ''}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </CompactField>
-                <CompactField label="Specialista (UID)">
-                  <Select value={specialistaUid} onValueChange={setSpecialistaUid}>
-                    <SelectTrigger data-testid="select-specialista-uid">
-                      <SelectValue placeholder="Vyber specialistu..." />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="__none__">-- Ziadny --</SelectItem>
-                      {subjects?.filter(s => s.isActive && s.uid).map(s => (
-                        <SelectItem key={s.uid} value={s.uid!}>{s.uid} - {s.firstName || ''} {s.lastName || ''}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </CompactField>
-                <CompactField label="Zakonny zastupca (UID)">
-                  <Select value={zakonnyZastupcaUid} onValueChange={setZakonnyZastupcaUid}>
-                    <SelectTrigger data-testid="select-zakonny-zastupca-uid">
-                      <SelectValue placeholder="Vyber zakonneho zastupcu..." />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="__none__">-- Ziadny --</SelectItem>
-                      {subjects?.filter(s => s.isActive && s.uid).map(s => (
-                        <SelectItem key={s.uid} value={s.uid!}>{s.uid} - {s.firstName || ''} {s.lastName || ''}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </CompactField>
-                <CompactField label="Konatel (UID)">
-                  <Select value={konatelUid} onValueChange={setKonatelUid}>
-                    <SelectTrigger data-testid="select-konatel-uid">
-                      <SelectValue placeholder="Vyber konatela..." />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="__none__">-- Ziadny --</SelectItem>
-                      {subjects?.filter(s => s.isActive && s.uid).map(s => (
-                        <SelectItem key={s.uid} value={s.uid!}>{s.uid} - {s.firstName || ''} {s.lastName || ''}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </CompactField>
-                <CompactField label="SZCO (UID)">
-                  <Select value={szcoUid} onValueChange={setSzcoUid}>
-                    <SelectTrigger data-testid="select-szco-uid">
-                      <SelectValue placeholder="Vyber SZCO..." />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="__none__">-- Ziadny --</SelectItem>
-                      {subjects?.filter(s => s.isActive && s.uid).map(s => (
-                        <SelectItem key={s.uid} value={s.uid!}>{s.uid} - {s.firstName || ''} {s.lastName || ''}{s.companyName ? ` (${s.companyName})` : ''}</SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
