@@ -1715,7 +1715,6 @@ export default function ContractForm() {
             Ukladam...
           </span>
           <span style={{ display: !isPending ? 'inline' : 'none' }}>
-            <Save className="w-4 h-4 mr-1" />
             Ulozit zmluvu
           </span>
         </Button>
