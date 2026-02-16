@@ -226,21 +226,15 @@ export function AppSidebar() {
 
   const isNastavenieActive = allNastavenieHrefs.includes(location);
   const isNastavenieOpen = openMenuId === "nastavenia";
-  const [spravaPristupovExpanded, setSpravaPristupovExpanded] = useState(
-    spravaPristupovItems.some(i => i.href === location)
-  );
-  const [specifikacieExpanded, setSpecifikacieExpanded] = useState(
-    specifikacieItems.some(i => i.href === location)
-  );
+  const nastavenieInitialSub = spravaPristupovItems.some(i => i.href === location) ? "sprava-pristupov"
+    : specifikacieItems.some(i => i.href === location) ? "specifikacie" : null;
+  const [nastavenieSubId, setNastavenieSubId] = useState<string | null>(nastavenieInitialSub);
 
   const isZmluvyActive = allZmluvyHrefs.includes(location);
   const isZmluvyOpen = openMenuId === "zmluvy";
-  const [nastaveniaSablonExpanded, setNastaveniaSablonExpanded] = useState(
-    nastaveniaSablonChildren.some(i => i.href === location)
-  );
-  const [protokolyExpanded, setProtokolyExpanded] = useState(
-    protokolyChildren.some(i => i.href === location)
-  );
+  const zmluvyInitialSub = nastaveniaSablonChildren.some(i => i.href === location) ? "sablony"
+    : protokolyChildren.some(i => i.href === location) ? "protokoly" : null;
+  const [zmluvySubId, setZmluvySubId] = useState<string | null>(zmluvyInitialSub);
 
   const displayName = appUser
     ? `${appUser.firstName || ""} ${appUser.lastName || ""}`.trim() || appUser.username
@@ -306,8 +300,8 @@ export function AppSidebar() {
                     <SidebarMenuSub className="mx-2 px-2">
                       <SidebarMenuSubItem>
                         <Collapsible
-                          open={spravaPristupovExpanded}
-                          onOpenChange={setSpravaPristupovExpanded}
+                          open={nastavenieSubId === "sprava-pristupov"}
+                          onOpenChange={(val) => setNastavenieSubId(val ? "sprava-pristupov" : null)}
                         >
                           <CollapsibleTrigger asChild>
                             <SidebarMenuSubButton
@@ -316,7 +310,7 @@ export function AppSidebar() {
                             >
                               <KeyRound className="w-3.5 h-3.5" />
                               <span className="flex-1">Sprava prihlasenia</span>
-                              <ChevronRight className={`w-3 h-3 text-muted-foreground transition-transform duration-200 ${spravaPristupovExpanded ? "rotate-90" : ""}`} />
+                              <ChevronRight className={`w-3 h-3 text-muted-foreground transition-transform duration-200 ${nastavenieSubId === "sprava-pristupov" ? "rotate-90" : ""}`} />
                             </SidebarMenuSubButton>
                           </CollapsibleTrigger>
                           <CollapsibleContent>
@@ -342,8 +336,8 @@ export function AppSidebar() {
 
                       <SidebarMenuSubItem>
                         <Collapsible
-                          open={specifikacieExpanded}
-                          onOpenChange={setSpecifikacieExpanded}
+                          open={nastavenieSubId === "specifikacie"}
+                          onOpenChange={(val) => setNastavenieSubId(val ? "specifikacie" : null)}
                         >
                           <CollapsibleTrigger asChild>
                             <SidebarMenuSubButton
@@ -352,7 +346,7 @@ export function AppSidebar() {
                             >
                               <Layers className="w-3.5 h-3.5" />
                               <span className="flex-1">Specifikacie</span>
-                              <ChevronRight className={`w-3 h-3 text-muted-foreground transition-transform duration-200 ${specifikacieExpanded ? "rotate-90" : ""}`} />
+                              <ChevronRight className={`w-3 h-3 text-muted-foreground transition-transform duration-200 ${nastavenieSubId === "specifikacie" ? "rotate-90" : ""}`} />
                             </SidebarMenuSubButton>
                           </CollapsibleTrigger>
                           <CollapsibleContent>
@@ -471,8 +465,8 @@ export function AppSidebar() {
 
                       <SidebarMenuSubItem>
                         <Collapsible
-                          open={nastaveniaSablonExpanded}
-                          onOpenChange={setNastaveniaSablonExpanded}
+                          open={zmluvySubId === "sablony"}
+                          onOpenChange={(val) => setZmluvySubId(val ? "sablony" : null)}
                         >
                           <CollapsibleTrigger asChild>
                             <SidebarMenuSubButton
@@ -481,7 +475,7 @@ export function AppSidebar() {
                             >
                               <FileCog className="w-3.5 h-3.5" />
                               <span className="flex-1">Nastavenia sablon</span>
-                              <ChevronRight className={`w-3 h-3 text-muted-foreground transition-transform duration-200 ${nastaveniaSablonExpanded ? "rotate-90" : ""}`} />
+                              <ChevronRight className={`w-3 h-3 text-muted-foreground transition-transform duration-200 ${zmluvySubId === "sablony" ? "rotate-90" : ""}`} />
                             </SidebarMenuSubButton>
                           </CollapsibleTrigger>
                           <CollapsibleContent>
@@ -507,8 +501,8 @@ export function AppSidebar() {
 
                       <SidebarMenuSubItem>
                         <Collapsible
-                          open={protokolyExpanded}
-                          onOpenChange={setProtokolyExpanded}
+                          open={zmluvySubId === "protokoly"}
+                          onOpenChange={(val) => setZmluvySubId(val ? "protokoly" : null)}
                         >
                           <CollapsibleTrigger asChild>
                             <SidebarMenuSubButton
@@ -517,7 +511,7 @@ export function AppSidebar() {
                             >
                               <FileStack className="w-3.5 h-3.5" />
                               <span className="flex-1">Zoznam protokolov</span>
-                              <ChevronRight className={`w-3 h-3 text-muted-foreground transition-transform duration-200 ${protokolyExpanded ? "rotate-90" : ""}`} />
+                              <ChevronRight className={`w-3 h-3 text-muted-foreground transition-transform duration-200 ${zmluvySubId === "protokoly" ? "rotate-90" : ""}`} />
                             </SidebarMenuSubButton>
                           </CollapsibleTrigger>
                           <CollapsibleContent>
