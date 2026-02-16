@@ -1740,7 +1740,7 @@ export default function ContractForm() {
           </Button>
         </span>
 
-        <span id="next-step-wrapper" style={{ display: activeTab !== TABS[TABS.length - 1].key ? 'inline' : 'none' }}>
+        <span id="next-step-wrapper" style={{ display: (activeTab !== TABS[TABS.length - 1].key && activeTab !== "zhrnutie") ? 'inline' : 'none' }}>
           <Button
             size="sm"
             className="bg-emerald-600 hover:bg-emerald-700 text-white"
