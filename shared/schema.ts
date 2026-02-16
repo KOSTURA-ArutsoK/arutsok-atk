@@ -224,6 +224,7 @@ export const subjects = pgTable("subjects", {
   details: jsonb("details").default({}),
   processingTimeSec: integer("processing_time_sec").default(0),
   isActive: boolean("is_active").default(true),
+  isDeceased: boolean("is_deceased").default(false),
   createdAt: timestamp("created_at").defaultNow(),
 });
 
