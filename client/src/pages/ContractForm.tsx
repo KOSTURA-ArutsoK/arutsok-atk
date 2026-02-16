@@ -1186,7 +1186,7 @@ export default function ContractForm() {
               </div>
 
               <div className="grid grid-cols-2 gap-[clamp(0.5rem,1vw,1rem)]">
-                <CompactField label="Kalkulacka">
+                <CompactField label="Pôvod zmluvy">
                   <Select value="" onValueChange={() => {}}>
                     <SelectTrigger data-testid="select-contract-calculator">
                       <SelectValue placeholder="Vyberte kalkulacku" />
