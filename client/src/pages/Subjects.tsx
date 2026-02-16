@@ -42,6 +42,7 @@ const createSchema = insertSubjectSchema.extend({
   continentId: z.coerce.number().min(1, "Povinne"),
   stateId: z.coerce.number().min(1, "Povinne"),
   myCompanyId: z.coerce.number().min(1, "Povinne"),
+  clientGroupId: z.coerce.number().optional().nullable(),
 });
 
 const ACTION_LABELS: Record<string, string> = {
@@ -317,16 +318,19 @@ function InitialRegistrationModal({
   onOpenChange,
   onProceed,
   onViewSubject,
+  clientGroups,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onProceed: (data: { clientTypeCode: string; stateId: number; baseValue: string }) => void;
+  onProceed: (data: { clientTypeCode: string; stateId: number; baseValue: string; clientGroupId: number }) => void;
   onViewSubject: (id: number) => void;
+  clientGroups: any[];
 }) {
   const { data: appUser } = useAppUser();
   const { data: clientTypes } = useQuery<ClientType[]>({ queryKey: ["/api/client-types"] });
 
   const [selectedType, setSelectedType] = useState("");
+  const [selectedGroupId, setSelectedGroupId] = useState("");
   const [baseValue, setBaseValue] = useState("");
   const [checking, setChecking] = useState(false);
   const [duplicateInfo, setDuplicateInfo] = useState<{ name: string; uid: string; id: number } | null>(null);
@@ -351,8 +355,10 @@ function InitialRegistrationModal({
           clientTypeCode: selectedType,
           stateId: appUser?.activeStateId || 0,
           baseValue: baseValue.trim(),
+          clientGroupId: parseInt(selectedGroupId),
         });
         setSelectedType("");
+        setSelectedGroupId("");
         setBaseValue("");
         setDuplicateInfo(null);
       }
@@ -363,11 +369,11 @@ function InitialRegistrationModal({
     }
   }
 
-  const canProceed = selectedType && appUser?.activeStateId && baseValue.trim();
+  const canProceed = selectedType && selectedGroupId && appUser?.activeStateId && baseValue.trim();
 
   return (
     <Dialog open={open} onOpenChange={(o) => {
-      if (!o) { setDuplicateInfo(null); setBaseValue(""); setSelectedType(""); }
+      if (!o) { setDuplicateInfo(null); setBaseValue(""); setSelectedType(""); setSelectedGroupId(""); }
       onOpenChange(o);
     }}>
       <DialogContent className="sm:max-w-[500px] flex flex-col items-stretch justify-start">
@@ -388,6 +394,20 @@ function InitialRegistrationModal({
               <SelectContent>
                 {clientTypes?.filter(ct => ct.isActive).map(ct => (
                   <SelectItem key={ct.code} value={ct.code}>{ct.name} ({ct.code})</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div>
+            <Label className="text-xs">Skupina klientov</Label>
+            <Select value={selectedGroupId} onValueChange={(v) => { setSelectedGroupId(v); }}>
+              <SelectTrigger data-testid="select-client-group">
+                <SelectValue placeholder="Vyberte skupinu klientov" />
+              </SelectTrigger>
+              <SelectContent>
+                {clientGroups?.map((g: any) => (
+                  <SelectItem key={g.id} value={g.id.toString()} data-testid={`option-client-group-${g.id}`}>{g.name}</SelectItem>
                 ))}
               </SelectContent>
             </Select>
@@ -451,7 +471,7 @@ function FullPageEditor({
   initialData,
   onCancel,
 }: {
-  initialData: { clientTypeCode: string; stateId: number; baseValue: string };
+  initialData: { clientTypeCode: string; stateId: number; baseValue: string; clientGroupId: number };
   onCancel: () => void;
 }) {
   const { mutate, isPending } = useCreateSubject();
@@ -459,11 +479,13 @@ function FullPageEditor({
   const { data: companies } = useMyCompanies();
   const { data: allStates, isLoading: statesLoading } = useStates();
   const { data: clientTypes, isLoading: typesLoading } = useQuery<ClientType[]>({ queryKey: ["/api/client-types"] });
+  const { data: clientGroups } = useQuery<any[]>({ queryKey: ["/api/client-groups"] });
   const timerRef = useRef<number>(performance.now());
 
   const clientType = clientTypes?.find(ct => ct.code === initialData.clientTypeCode);
   const isPerson = clientType?.baseParameter === "rc";
   const state = allStates?.find(s => s.id === initialData.stateId);
+  const clientGroup = clientGroups?.find((g: any) => g.id === initialData.clientGroupId);
   const [dynamicValues, setDynamicValues] = useState<Record<string, string>>({});
 
   const { data: typeFields } = useQuery<ClientTypeField[]>({
@@ -508,6 +530,7 @@ function FullPageEditor({
       continentId: state?.continentId || 0,
       birthNumber: isPerson ? initialData.baseValue : undefined,
       details: !isPerson ? { ico: initialData.baseValue } : {},
+      clientGroupId: initialData.clientGroupId,
     },
   });
 
@@ -524,6 +547,7 @@ function FullPageEditor({
       continentId: state.continentId,
       birthNumber: isPerson ? initialData.baseValue : undefined,
       details: !isPerson ? { ico: initialData.baseValue } : {},
+      clientGroupId: initialData.clientGroupId,
     });
   }
 
@@ -561,6 +585,7 @@ function FullPageEditor({
           <p className="text-xs text-muted-foreground">
             {isPerson ? `RC: ${initialData.baseValue}` : `ICO: ${initialData.baseValue}`}
             {state ? ` | Stat: ${state.name}` : ""}
+            {clientGroup ? ` | Skupina: ${clientGroup.name}` : ""}
           </p>
         </div>
       </div>
@@ -569,7 +594,7 @@ function FullPageEditor({
         <CardContent className="p-6">
           <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-5">
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-3 gap-4">
                 <FormField control={form.control} name="type" render={({ field }) => (
                   <FormItem>
                     <FormLabel>Typ entity</FormLabel>
@@ -577,6 +602,10 @@ function FullPageEditor({
                     <FormMessage />
                   </FormItem>
                 )} />
+                <FormItem>
+                  <FormLabel>Skupina klientov</FormLabel>
+                  <Input value={clientGroup?.name || ""} disabled data-testid="input-subject-client-group-locked" />
+                </FormItem>
                 <FormField control={form.control} name="myCompanyId" render={({ field }) => (
                   <FormItem>
                     <FormLabel>Spravujuca firma</FormLabel>
@@ -888,7 +917,7 @@ function BulkAssignDialog({ selectedIds, onClose, groups }: { selectedIds: Set<n
 export default function Subjects() {
   const [search, setSearch] = useState("");
   const [isInitModalOpen, setIsInitModalOpen] = useState(false);
-  const [editData, setEditData] = useState<{ clientTypeCode: string; stateId: number; baseValue: string } | null>(null);
+  const [editData, setEditData] = useState<{ clientTypeCode: string; stateId: number; baseValue: string; clientGroupId: number } | null>(null);
   const [viewTarget, setViewTarget] = useState<Subject | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
   const [bulkAssignOpen, setBulkAssignOpen] = useState(false);
@@ -1043,6 +1072,7 @@ export default function Subjects() {
           const found = subjects?.find(s => s.id === id);
           if (found) setViewTarget(found);
         }}
+        clientGroups={clientGroups || []}
       />
       {bulkAssignOpen && (
         <BulkAssignDialog 

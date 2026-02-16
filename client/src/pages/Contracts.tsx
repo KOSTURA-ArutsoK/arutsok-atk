@@ -932,21 +932,12 @@ export default function Contracts() {
   const [importLoading, setImportLoading] = useState(false);
   const importFileRef = useRef<HTMLInputElement>(null);
 
-  const [preDialogOpen, setPreDialogOpen] = useState(false);
-  const [preClientGroupId, setPreClientGroupId] = useState<string>("");
-  const [preIdentifierValue, setPreIdentifierValue] = useState<string>("");
-  const [preIdentifierWarning, setPreIdentifierWarning] = useState<string | null>(null);
-  const [preIdentifierChecking, setPreIdentifierChecking] = useState(false);
-
   const { data: statuses } = useQuery<ContractStatus[]>({
     queryKey: ["/api/contract-statuses"],
   });
 
   const { data: inventories } = useQuery<ContractInventory[]>({
     queryKey: ["/api/contract-inventories"],
-  });
-  const { data: clientGroups } = useQuery<ClientGroup[]>({
-    queryKey: ["/api/client-groups"],
   });
 
   const contractsParams = (() => {
@@ -1194,53 +1185,6 @@ export default function Contracts() {
     setImportLoading(false);
   }
 
-  function openCreate() {
-    setPreClientGroupId("");
-    setPreIdentifierValue("");
-    setPreIdentifierWarning(null);
-    setPreIdentifierChecking(false);
-    setPreDialogOpen(true);
-  }
-
-  function getPreIdentifierType(): string {
-    if (!preClientGroupId || !clientGroups) return "";
-    const group = clientGroups.find(g => g.id.toString() === preClientGroupId);
-    if (!group) return "";
-    return (group as any).entityType === "pravnicka_osoba" ? "ico" : "rodne_cislo";
-  }
-
-  async function checkPreIdentifier() {
-    const idType = getPreIdentifierType();
-    if (!preIdentifierValue.trim() || !idType || !activeStateId) return;
-    setPreIdentifierChecking(true);
-    try {
-      const res = await fetch(`/api/subjects/check-identifier?type=${idType}&value=${encodeURIComponent(preIdentifierValue.trim())}&stateId=${activeStateId}`, { credentials: "include" });
-      const data = await res.json();
-      if (data.exists) {
-        setPreIdentifierWarning(`Osoba s tymto ${idType === "ico" ? "ICO" : "rodnym cislom"} uz existuje v zozname klientov: ${data.subjectName} (${data.subjectUid})`);
-      } else {
-        setPreIdentifierWarning(null);
-      }
-    } catch {
-      setPreIdentifierWarning(null);
-    }
-    setPreIdentifierChecking(false);
-  }
-
-  function confirmPreDialog() {
-    if (!preClientGroupId) {
-      toast({ title: "Chyba", description: "Vyberte typ klienta", variant: "destructive" });
-      return;
-    }
-    const idType = getPreIdentifierType();
-    const params = new URLSearchParams();
-    params.set("clientGroupId", preClientGroupId);
-    if (idType) params.set("identifierType", idType);
-    if (preIdentifierValue.trim()) params.set("identifierValue", preIdentifierValue.trim());
-    navigate(`/contracts/new?${params.toString()}`);
-    setPreDialogOpen(false);
-  }
-
   function openEdit(contract: Contract) {
     navigate(`/contracts/${contract.id}/edit`);
   }
@@ -1397,61 +1341,6 @@ export default function Contracts() {
     );
   }
 
-  const preDialog = (
-    <Dialog open={preDialogOpen} onOpenChange={setPreDialogOpen}>
-      <DialogContent className="sm:max-w-[480px]" data-testid="dialog-pre-contract">
-        <DialogHeader>
-          <DialogTitle data-testid="text-pre-dialog-title">Nova zmluva - zakladne udaje</DialogTitle>
-        </DialogHeader>
-        <div className="space-y-4 pt-2">
-          <div className="space-y-2">
-            <label className="text-sm font-medium">Typ klienta *</label>
-            <Select value={preClientGroupId} onValueChange={(val) => { setPreClientGroupId(val); setPreIdentifierValue(""); setPreIdentifierWarning(null); }}>
-              <SelectTrigger data-testid="select-pre-client-group">
-                <SelectValue placeholder="Vyberte typ klienta" />
-              </SelectTrigger>
-              <SelectContent>
-                {clientGroups?.map(g => (
-                  <SelectItem key={g.id} value={g.id.toString()} data-testid={`option-pre-client-group-${g.id}`}>{g.name}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div style={{ display: preClientGroupId ? 'block' : 'none' }}>
-            <div className="space-y-2">
-              <label className="text-sm font-medium">
-                {getPreIdentifierType() === "ico" ? "ICO" : "Rodne cislo"}
-              </label>
-              <Input
-                value={preIdentifierValue}
-                onChange={e => { setPreIdentifierValue(e.target.value); setPreIdentifierWarning(null); }}
-                onBlur={checkPreIdentifier}
-                placeholder={getPreIdentifierType() === "ico" ? "Zadajte ICO" : "Zadajte rodne cislo"}
-                data-testid="input-pre-identifier-value"
-              />
-            </div>
-            <div style={{ display: preIdentifierWarning ? 'block' : 'none' }}>
-              <div className="flex items-center gap-2 p-2 rounded-md bg-amber-500/10 mt-2" data-testid="text-pre-identifier-warning">
-                <AlertTriangle className="w-4 h-4 text-amber-500 shrink-0" />
-                <p className="text-xs text-amber-700 dark:text-amber-400">{preIdentifierWarning}</p>
-              </div>
-            </div>
-          </div>
-
-          <div className="flex justify-end gap-2 pt-2">
-            <Button variant="outline" onClick={() => setPreDialogOpen(false)} data-testid="button-pre-cancel">
-              Zrusit
-            </Button>
-            <Button onClick={confirmPreDialog} data-testid="button-pre-confirm">
-              Pokracovat
-            </Button>
-          </div>
-        </div>
-      </DialogContent>
-    </Dialog>
-  );
-
   const importDialog = (
     <Dialog open={importDialogOpen} onOpenChange={setImportDialogOpen}>
       <DialogContent className="sm:max-w-[500px]">
@@ -1531,7 +1420,7 @@ export default function Contracts() {
               <Upload className="w-4 h-4 mr-2" />
               Import z Excelu
             </Button>
-            <Button onClick={openCreate} data-testid="button-create-contract">
+            <Button onClick={() => navigate("/contracts/new")} data-testid="button-create-contract">
               <Plus className="w-4 h-4 mr-2" />
               Pridat zmluvu
             </Button>
@@ -1804,7 +1693,6 @@ export default function Contracts() {
           )}
         </div>
         {importDialog}
-        {preDialog}
       </div>
     );
   }
@@ -1990,7 +1878,6 @@ export default function Contracts() {
         )}
       </div>
       {importDialog}
-      {preDialog}
     </div>
   );
 }
