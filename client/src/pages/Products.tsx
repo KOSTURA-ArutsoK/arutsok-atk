@@ -46,6 +46,7 @@ import {
 import { RichTextEditor } from "@/components/rich-text-editor";
 import { ProcessingSaveButton } from "@/components/processing-save-button";
 import { HelpIcon } from "@/components/help-icon";
+import { MultiSelectCheckboxes } from "@/components/multi-select-checkboxes";
 
 const SPECIALIST_TYPES = ["NBS", "Zbrojny preukaz", "Reality", "Poistenie", "Dochodok", "Ine"];
 
@@ -279,7 +280,7 @@ function ProductFormDialog({
                           rows={2}
                           data-testid={`input-param-${param.id}`}
                         />
-                      ) : param.paramType === "combobox" ? (
+                      ) : param.paramType === "combobox" || param.paramType === "jedna_moznost" ? (
                         <Select
                           value={paramValues[param.id] || ""}
                           onValueChange={val => setParamValues(prev => ({ ...prev, [param.id]: val }))}
@@ -293,6 +294,13 @@ function ProductFormDialog({
                             ))}
                           </SelectContent>
                         </Select>
+                      ) : param.paramType === "viac_moznosti" ? (
+                        <MultiSelectCheckboxes
+                          paramId={param.id}
+                          options={param.options || []}
+                          value={paramValues[param.id] || ""}
+                          onChange={(val) => setParamValues(prev => ({ ...prev, [param.id]: val }))}
+                        />
                       ) : param.paramType === "boolean" ? (
                         <div className="flex items-center gap-2 pt-1">
                           <Switch

@@ -23,10 +23,13 @@ import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
 import {
+  Tooltip, TooltipTrigger, TooltipContent,
+} from "@/components/ui/tooltip";
+import {
   Plus, Trash2, Settings2, Layers, ArrowLeft, Pencil,
   Type, AlignLeft, List, CheckSquare, ToggleLeft, Phone, Mail,
   Hash, Image, Calendar, CreditCard, Search, Loader2,
-  FolderOpen, LayoutGrid, GripVertical,
+  FolderOpen, LayoutGrid, GripVertical, HelpCircle, X,
 } from "lucide-react";
 import { DndContext, closestCenter, PointerSensor, KeyboardSensor, useSensor, useSensors, type DragEndEvent } from "@dnd-kit/core";
 import { SortableContext, useSortable, verticalListSortingStrategy, arrayMove } from "@dnd-kit/sortable";
@@ -36,6 +39,8 @@ const FIELD_TYPES = [
   { value: "short_text", label: "Kratky text", icon: Type },
   { value: "long_text", label: "Dlhy text", icon: AlignLeft },
   { value: "combobox", label: "Combobox", icon: List },
+  { value: "jedna_moznost", label: "Jedna moznost (Single Select)", icon: List },
+  { value: "viac_moznosti", label: "Viac moznosti (Multi-select)", icon: CheckSquare },
   { value: "checkbox", label: "Checkbox", icon: CheckSquare },
   { value: "switch", label: "Ano/Nie", icon: ToggleLeft },
   { value: "phone", label: "Telefon", icon: Phone },
@@ -45,6 +50,10 @@ const FIELD_TYPES = [
   { value: "date", label: "Datum", icon: Calendar },
   { value: "iban", label: "IBAN", icon: CreditCard },
 ];
+
+function isSelectFieldType(t: string): boolean {
+  return ["combobox", "jedna_moznost", "viac_moznosti"].includes(t);
+}
 
 function SortableRow({ id, children }: { id: number; children: React.ReactNode }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id });
@@ -457,7 +466,8 @@ function FieldFormDialog({
   });
 
   const isPending = createMutation.isPending || updateMutation.isPending;
-  const showOptions = fieldType === "combobox";
+  const showOptions = isSelectFieldType(fieldType);
+  const [newOptionText, setNewOptionText] = useState("");
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -501,9 +511,77 @@ function FieldFormDialog({
             </div>
           </div>
 
-          <div style={{ display: showOptions ? 'block' : 'none' }}>
-            <Label className="text-xs">Moznosti (oddelene ciarkou)</Label>
-            <Input value={options} onChange={(e) => setOptions(e.target.value)} placeholder="Moznost 1, Moznost 2, Moznost 3" data-testid="input-field-options" />
+          <div className={`rounded-md border border-border p-4 space-y-3 ${!showOptions ? "opacity-50" : ""}`} style={{ display: showOptions || fieldType === "combobox" ? 'block' : 'block' }}>
+            <div className="flex items-center gap-2 flex-wrap">
+              <List className="w-4 h-4 text-muted-foreground" />
+              <span className="text-sm font-semibold">Moznosti vyberu</span>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <span className="cursor-help" data-testid="icon-field-options-info">
+                    <HelpCircle className="w-4 h-4 text-muted-foreground" />
+                  </span>
+                </TooltipTrigger>
+                <TooltipContent side="top" className="max-w-[300px]" data-testid="tooltip-field-options-info">
+                  <p className="text-xs">Pouzite pre pevne definovane zoznamy (ciselniky), aby sa predislo preklepom pri rucnom pisani.</p>
+                </TooltipContent>
+              </Tooltip>
+              <span style={{ display: !showOptions ? 'inline' : 'none' }} className="text-xs text-muted-foreground ml-auto">Dostupne len pre typy s vyberom moznosti</span>
+            </div>
+            <div style={{ display: showOptions ? 'block' : 'none' }}>
+              <div style={{ display: options ? 'block' : 'none' }}>
+                <div className="flex flex-wrap gap-1.5 mb-2">
+                  {options.split(",").map(o => o.trim()).filter(Boolean).map((opt, i) => (
+                    <Badge key={i} variant="secondary" className="flex items-center gap-1">
+                      {opt}
+                      <button
+                        type="button"
+                        className="ml-1 hover:text-destructive"
+                        onClick={() => {
+                          const arr = options.split(",").map(o => o.trim()).filter(Boolean);
+                          arr.splice(i, 1);
+                          setOptions(arr.join(", "));
+                        }}
+                        data-testid={`button-remove-option-${i}`}
+                      >
+                        <X className="w-3 h-3" />
+                      </button>
+                    </Badge>
+                  ))}
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <Input
+                  value={newOptionText}
+                  onChange={(e) => setNewOptionText(e.target.value)}
+                  placeholder="Pridaj moznost..."
+                  className="flex-1"
+                  data-testid="input-add-option"
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && newOptionText.trim()) {
+                      e.preventDefault();
+                      const existing = options ? options.split(",").map(o => o.trim()).filter(Boolean) : [];
+                      existing.push(newOptionText.trim());
+                      setOptions(existing.join(", "));
+                      setNewOptionText("");
+                    }
+                  }}
+                />
+                <Button
+                  type="button"
+                  size="sm"
+                  disabled={!newOptionText.trim()}
+                  onClick={() => {
+                    const existing = options ? options.split(",").map(o => o.trim()).filter(Boolean) : [];
+                    existing.push(newOptionText.trim());
+                    setOptions(existing.join(", "));
+                    setNewOptionText("");
+                  }}
+                  data-testid="button-add-option"
+                >
+                  <Plus className="w-4 h-4 mr-1" /> Pridat
+                </Button>
+              </div>
+            </div>
           </div>
 
           <div className="flex items-center gap-3">

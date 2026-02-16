@@ -14,6 +14,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
+import { MultiSelectCheckboxes } from "@/components/multi-select-checkboxes";
 import {
   Dialog,
   DialogContent,
@@ -476,7 +477,7 @@ function StatusTabContent(props: StatusTabContentProps) {
                                 </span>
                               </div>
                             </div>
-                            <div style={{ display: param.paramType === "select" ? 'block' : 'none' }}>
+                            <div style={{ display: param.paramType === "select" || param.paramType === "jedna_moznost" ? 'block' : 'none' }}>
                               <Select
                                 value={statusFormParamValues[param.id.toString()] || param.defaultValue || ""}
                                 onValueChange={v => setStatusFormParamValues(prev => ({ ...prev, [param.id.toString()]: v }))}
@@ -491,7 +492,15 @@ function StatusTabContent(props: StatusTabContentProps) {
                                 </SelectContent>
                               </Select>
                             </div>
-                            <div style={{ display: param.paramType !== "textarea" && param.paramType !== "number" && param.paramType !== "date" && param.paramType !== "boolean" && param.paramType !== "select" ? 'block' : 'none' }}>
+                            <div style={{ display: param.paramType === "viac_moznosti" ? 'block' : 'none' }}>
+                              <MultiSelectCheckboxes
+                                paramId={param.id}
+                                options={param.options || []}
+                                value={statusFormParamValues[param.id.toString()] || param.defaultValue || ""}
+                                onChange={(val) => setStatusFormParamValues(prev => ({ ...prev, [param.id.toString()]: val }))}
+                              />
+                            </div>
+                            <div style={{ display: param.paramType !== "textarea" && param.paramType !== "number" && param.paramType !== "date" && param.paramType !== "boolean" && param.paramType !== "select" && param.paramType !== "jedna_moznost" && param.paramType !== "viac_moznosti" ? 'block' : 'none' }}>
                               <Input
                                 value={statusFormParamValues[param.id.toString()] || param.defaultValue || ""}
                                 onChange={e => setStatusFormParamValues(prev => ({ ...prev, [param.id.toString()]: e.target.value }))}
@@ -1508,7 +1517,7 @@ export default function ContractForm() {
                                 </SelectContent>
                               </Select>
                             </div>
-                            <div style={{ display: param.paramType === "combobox" && param.options?.length > 0 ? 'block' : 'none' }}>
+                            <div style={{ display: (param.paramType === "combobox" || param.paramType === "jedna_moznost") && param.options?.length > 0 ? 'block' : 'none' }}>
                               <Select
                                 value={panelValues[`${panel.id}_${param.id}`] || param.defaultValue || ""}
                                 onValueChange={val => setPanelValues(prev => ({ ...prev, [`${panel.id}_${param.id}`]: val }))}
@@ -1523,7 +1532,15 @@ export default function ContractForm() {
                                 </SelectContent>
                               </Select>
                             </div>
-                            <div style={{ display: param.paramType !== "textarea" && param.paramType !== "boolean" && !(param.paramType === "combobox" && param.options?.length > 0) ? 'block' : 'none' }}>
+                            <div style={{ display: param.paramType === "viac_moznosti" && param.options?.length > 0 ? 'block' : 'none' }}>
+                              <MultiSelectCheckboxes
+                                paramId={`${panel.id}_${param.id}`}
+                                options={param.options || []}
+                                value={panelValues[`${panel.id}_${param.id}`] || param.defaultValue || ""}
+                                onChange={(val) => setPanelValues(prev => ({ ...prev, [`${panel.id}_${param.id}`]: val }))}
+                              />
+                            </div>
+                            <div style={{ display: param.paramType !== "textarea" && param.paramType !== "boolean" && !((param.paramType === "combobox" || param.paramType === "jedna_moznost") && param.options?.length > 0) && param.paramType !== "viac_moznosti" ? 'block' : 'none' }}>
                               <Input
                                 type={param.paramType === "number" || param.paramType === "currency" || param.paramType === "percent" ? "number" : param.paramType === "date" ? "date" : param.paramType === "datetime" ? "datetime-local" : param.paramType === "email" ? "email" : param.paramType === "url" ? "url" : "text"}
                                 value={panelValues[`${panel.id}_${param.id}`] || param.defaultValue || ""}

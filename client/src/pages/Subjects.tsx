@@ -13,6 +13,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { Label } from "@/components/ui/label";
+import { MultiSelectCheckboxes } from "@/components/multi-select-checkboxes";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription,
@@ -751,7 +752,7 @@ function FullPageEditor({
                                   rows={2}
                                   data-testid={`input-dynamic-${field.fieldKey}`}
                                 />
-                              ) : field.fieldType === "combobox" ? (
+                              ) : field.fieldType === "combobox" || field.fieldType === "jedna_moznost" ? (
                                 <Select
                                   value={dynamicValues[field.fieldKey] || ""}
                                   onValueChange={val => setDynamicValues(prev => ({ ...prev, [field.fieldKey]: val }))}
@@ -765,6 +766,13 @@ function FullPageEditor({
                                     ))}
                                   </SelectContent>
                                 </Select>
+                              ) : field.fieldType === "viac_moznosti" ? (
+                                <MultiSelectCheckboxes
+                                  paramId={field.fieldKey}
+                                  options={field.options || []}
+                                  value={dynamicValues[field.fieldKey] || ""}
+                                  onChange={(val) => setDynamicValues(prev => ({ ...prev, [field.fieldKey]: val }))}
+                                />
                               ) : field.fieldType === "switch" ? (
                                 <div className="flex items-center gap-2 pt-1">
                                   <Switch

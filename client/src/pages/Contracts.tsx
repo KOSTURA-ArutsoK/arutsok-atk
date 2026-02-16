@@ -8,6 +8,7 @@ import { useLocation } from "wouter";
 import type { Contract, ContractStatus, ContractTemplate, ContractInventory, Subject, Partner, Product, MyCompany, Sector, Section, SectorProduct, ClientGroup } from "@shared/schema";
 import { Plus, Pencil, Trash2, Eye, FileText, Loader2, Lock, LayoutGrid, Send, Upload, Inbox, CheckCircle2, ChevronDown, ChevronRight, Printer, Search, Archive, AlertTriangle, Calendar, XCircle, MessageSquare, Paperclip } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
+import { MultiSelectCheckboxes } from "@/components/multi-select-checkboxes";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -536,7 +537,7 @@ function ContractFormDialog({
                                 <SelectItem value="nie">Nie</SelectItem>
                               </SelectContent>
                             </Select>
-                          ) : param.paramType === "combobox" && param.options?.length > 0 ? (
+                          ) : (param.paramType === "combobox" || param.paramType === "jedna_moznost") && param.options?.length > 0 ? (
                             <Select
                               value={panelValues[`${panel.id}_${param.id}`] || param.defaultValue || ""}
                               onValueChange={val => setPanelValues(prev => ({ ...prev, [`${panel.id}_${param.id}`]: val }))}
@@ -550,6 +551,13 @@ function ContractFormDialog({
                                 ))}
                               </SelectContent>
                             </Select>
+                          ) : param.paramType === "viac_moznosti" && param.options?.length > 0 ? (
+                            <MultiSelectCheckboxes
+                              paramId={`${panel.id}_${param.id}`}
+                              options={param.options || []}
+                              value={panelValues[`${panel.id}_${param.id}`] || param.defaultValue || ""}
+                              onChange={(val) => setPanelValues(prev => ({ ...prev, [`${panel.id}_${param.id}`]: val }))}
+                            />
                           ) : (
                             <Input
                               type={param.paramType === "number" || param.paramType === "currency" || param.paramType === "percent" ? "number" : param.paramType === "date" ? "date" : param.paramType === "datetime" ? "datetime-local" : param.paramType === "email" ? "email" : param.paramType === "url" ? "url" : "text"}

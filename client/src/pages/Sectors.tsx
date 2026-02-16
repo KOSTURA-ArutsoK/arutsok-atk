@@ -64,12 +64,17 @@ const PARAM_TYPES = [
   { value: "datetime", label: "Datum a cas" },
   { value: "boolean", label: "Ano/Nie" },
   { value: "combobox", label: "Vyber zo zoznamu" },
+  { value: "jedna_moznost", label: "Jedna moznost (Single Select)" },
+  { value: "viac_moznosti", label: "Viac moznosti (Multi-select)" },
   { value: "email", label: "E-mail" },
   { value: "phone", label: "Telefon" },
   { value: "url", label: "URL adresa" },
   { value: "file", label: "Subor / priloha" },
   { value: "iban", label: "IBAN" },
 ] as const;
+
+const SELECT_TYPES = ["combobox", "jedna_moznost", "viac_moznosti"] as const;
+function isSelectType(t: string): boolean { return (SELECT_TYPES as readonly string[]).includes(t); }
 
 function getParamTypeLabel(value: string): string {
   return PARAM_TYPES.find(t => t.value === value)?.label || value;
@@ -745,7 +750,7 @@ function ParameterFormDialog({
       toast({ title: "Chyba", description: "Nazov je povinny", variant: "destructive" });
       return;
     }
-    const options = paramType === "combobox" ? serializeOptions(choiceOptions) : [];
+    const options = isSelectType(paramType) ? serializeOptions(choiceOptions) : [];
     const payload = { name, paramType, helpText, isRequired, defaultValue, options };
     if (editingParameter) {
       updateMutation.mutate(payload);
@@ -805,15 +810,21 @@ function ParameterFormDialog({
             </div>
             <Input value={defaultValue} onChange={e => setDefaultValue(e.target.value)} data-testid="input-parameter-default" />
           </div>
-          <div className={`rounded-md border border-border p-4 space-y-3 ${paramType !== "combobox" ? "opacity-50" : ""}`}>
+          <div className={`rounded-md border border-border p-4 space-y-3 ${!isSelectType(paramType) ? "opacity-50" : ""}`}>
             <div className="flex items-center gap-2">
               <FolderOpen className="w-4 h-4 text-muted-foreground" />
               <span className="text-sm font-semibold">Moznosti vyberu</span>
-              {paramType !== "combobox" && (
-                <span className="text-xs text-muted-foreground ml-auto">Dostupne len pre typ &quot;Vyber zo zoznamu&quot;</span>
-              )}
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Info className="w-4 h-4 text-muted-foreground cursor-help" data-testid="icon-select-options-info" />
+                </TooltipTrigger>
+                <TooltipContent side="top" className="max-w-[300px]" data-testid="tooltip-select-options-info">
+                  <p className="text-xs">Pouzite pre pevne definovane zoznamy (ciselniky), aby sa predislo preklepom pri rucnom pisani.</p>
+                </TooltipContent>
+              </Tooltip>
+              <span style={{ display: !isSelectType(paramType) ? 'inline' : 'none' }} className="text-xs text-muted-foreground ml-auto">Dostupne len pre typy s vyberom moznosti</span>
             </div>
-            {paramType === "combobox" && choiceOptions.length > 0 && (
+            <div style={{ display: isSelectType(paramType) && choiceOptions.length > 0 ? 'block' : 'none' }}>
               <div className="flex flex-wrap gap-1.5">
                 {choiceOptions.sort((a, b) => a.order - b.order).map((opt, i) => (
                   <Badge key={i} variant="secondary">
@@ -821,14 +832,14 @@ function ParameterFormDialog({
                   </Badge>
                 ))}
               </div>
-            )}
-            {paramType === "combobox" && choiceOptions.length === 0 && (
+            </div>
+            <div style={{ display: isSelectType(paramType) && choiceOptions.length === 0 ? 'block' : 'none' }}>
               <p className="text-xs text-muted-foreground">Ziadne moznosti definovane</p>
-            )}
+            </div>
             <Button
               type="button"
               variant="default"
-              disabled={paramType !== "combobox"}
+              disabled={!isSelectType(paramType)}
               onClick={() => setOptionsModalOpen(true)}
               data-testid="button-manage-options"
             >

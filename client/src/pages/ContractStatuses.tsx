@@ -318,6 +318,8 @@ function StatusFormDialog({
     { value: "date", label: "Datum" },
     { value: "select", label: "Vyber" },
     { value: "multiselect", label: "Viacnasobny vyber" },
+    { value: "jedna_moznost", label: "Jedna moznost (Single Select)" },
+    { value: "viac_moznosti", label: "Viac moznosti (Multi-select)" },
     { value: "boolean", label: "Ano/Nie" },
     { value: "textarea", label: "Dlhy text" },
   ];
