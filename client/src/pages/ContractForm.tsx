@@ -1723,7 +1723,7 @@ export default function ContractForm() {
 
         <div className="flex-1" />
 
-        <span style={{ display: activeTab !== "zhrnutie" ? 'inline' : 'none' }}>
+        <span style={{ display: (activeTab !== "zhrnutie" && activeTab !== "provizne") ? 'inline' : 'none' }}>
           <Button
             variant="ghost"
             size="sm"
