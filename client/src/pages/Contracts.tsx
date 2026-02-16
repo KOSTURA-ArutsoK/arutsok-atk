@@ -851,6 +851,11 @@ export default function Contracts() {
   const [activeFolder, setActiveFolder] = useState<number>(1);
   const [searchQuery, setSearchQuery] = useState("");
   const [duplicateModal, setDuplicateModal] = useState<{ open: boolean; subjectName?: string }>({ open: false });
+  const [importDialogOpen, setImportDialogOpen] = useState(false);
+  const [importFile, setImportFile] = useState<File | null>(null);
+  const [importResult, setImportResult] = useState<{ total: number; success: number; errors: number; details: any[] } | null>(null);
+  const [importLoading, setImportLoading] = useState(false);
+  const importFileRef = useRef<HTMLInputElement>(null);
 
   const { data: statuses } = useQuery<ContractStatus[]>({
     queryKey: ["/api/contract-statuses"],
@@ -1080,6 +1085,35 @@ export default function Contracts() {
     return s.type === "person" ? `${s.firstName} ${s.lastName}` : (s.companyName || "-");
   }
 
+  async function handleExcelImport() {
+    if (!importFile) return;
+    setImportLoading(true);
+    try {
+      const formData = new FormData();
+      formData.append("file", importFile);
+      const res = await fetch("/api/contracts/import-excel", {
+        method: "POST",
+        body: formData,
+        credentials: "include",
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        toast({ title: "Chyba", description: data.message || "Chyba pri importe", variant: "destructive" });
+        setImportLoading(false);
+        return;
+      }
+      setImportResult(data);
+      queryClient.invalidateQueries({ queryKey: ["/api/contracts"] });
+      toast({
+        title: "Import dokonceny",
+        description: `Uspesne: ${data.success} z ${data.total}`,
+      });
+    } catch (err: any) {
+      toast({ title: "Chyba", description: err.message || "Neznama chyba", variant: "destructive" });
+    }
+    setImportLoading(false);
+  }
+
   function openCreate() {
     navigate("/contracts/new");
   }
@@ -1240,6 +1274,68 @@ export default function Contracts() {
     );
   }
 
+  const importDialog = (
+    <Dialog open={importDialogOpen} onOpenChange={setImportDialogOpen}>
+      <DialogContent className="sm:max-w-[500px]">
+        <DialogHeader>
+          <DialogTitle data-testid="text-import-title">Import zmlúv z Excelu</DialogTitle>
+        </DialogHeader>
+        <div className="space-y-4">
+          <div className="space-y-2">
+            <p className="text-sm text-muted-foreground">
+              Nahrajte Excel subor (.xlsx) s udajmi o zmluvach. Subor musi obsahovat stlpce: cislo zmluvy, klient UID (421...), ziskatel UID, specialista UID.
+            </p>
+            <input
+              ref={importFileRef}
+              type="file"
+              accept=".xlsx,.xls"
+              className="hidden"
+              data-testid="input-import-file"
+              onChange={(e) => {
+                const f = e.target.files?.[0];
+                if (f) setImportFile(f);
+              }}
+            />
+            <div className="flex items-center gap-2">
+              <Button variant="outline" onClick={() => importFileRef.current?.click()} data-testid="button-choose-file">
+                Vybrat subor
+              </Button>
+              <span className="text-sm text-muted-foreground truncate max-w-[250px]" data-testid="text-selected-file">
+                {importFile ? importFile.name : "Ziadny subor"}
+              </span>
+            </div>
+          </div>
+          <div style={{ display: importResult ? 'block' : 'none' }}>
+            {importResult && (
+              <div className="space-y-2 p-3 rounded-md border">
+                <p className="text-sm font-medium" data-testid="text-import-summary">
+                  Vysledok: {importResult.success} uspesnych z {importResult.total} riadkov
+                </p>
+                <div style={{ display: importResult.errors > 0 ? 'block' : 'none' }}>
+                  <p className="text-sm text-destructive">Chyby: {importResult.errors}</p>
+                  <div className="max-h-[150px] overflow-y-auto text-xs space-y-1 mt-1">
+                    {importResult.details?.filter((d: any) => d.error).map((d: any, i: number) => (
+                      <p key={i} className="text-destructive">Riadok {d.row}: {d.error}</p>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+          <div className="flex justify-end gap-2">
+            <Button variant="outline" onClick={() => setImportDialogOpen(false)} data-testid="button-import-cancel">
+              Zavriet
+            </Button>
+            <Button onClick={handleExcelImport} disabled={!importFile || importLoading} data-testid="button-import-submit">
+              {importLoading && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+              Importovat
+            </Button>
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+
   if (isEvidencia) {
     const filteredNahravanie = filterBySearch(activeContracts);
     const filteredRejected = filterBySearch(activeRejected);
@@ -1249,10 +1345,16 @@ export default function Contracts() {
       <div className="p-6 space-y-4">
         <div className="flex items-center justify-between gap-4 flex-wrap">
           <h1 className="text-2xl font-bold" data-testid="text-page-title">Spracovanie zmlúv</h1>
-          <Button onClick={openCreate} data-testid="button-create-contract">
-            <Plus className="w-4 h-4 mr-2" />
-            Pridat zmluvu
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button variant="outline" onClick={() => { setImportFile(null); setImportResult(null); setImportDialogOpen(true); }} data-testid="button-import-excel">
+              <Upload className="w-4 h-4 mr-2" />
+              Import z Excelu
+            </Button>
+            <Button onClick={openCreate} data-testid="button-create-contract">
+              <Plus className="w-4 h-4 mr-2" />
+              Pridat zmluvu
+            </Button>
+          </div>
         </div>
 
         <div className="grid grid-cols-4 gap-3" data-testid="folder-tabs">
@@ -1529,6 +1631,7 @@ export default function Contracts() {
             />
           )}
         </div>
+        {importDialog}
       </div>
     );
   }
@@ -1710,6 +1813,7 @@ export default function Contracts() {
           />
         )}
       </div>
+      {importDialog}
     </div>
   );
 }

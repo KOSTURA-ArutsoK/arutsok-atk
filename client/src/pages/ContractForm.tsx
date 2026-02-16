@@ -674,7 +674,9 @@ export default function ContractForm() {
   const [currency, setCurrency] = useState("EUR");
   const [notes, setNotes] = useState("");
   const [contractPassword, setContractPassword] = useState("");
-  const [requiredPermissionLevel, setRequiredPermissionLevel] = useState("1");
+  const [klientUid, setKlientUid] = useState("");
+  const [ziskatelUid, setZiskatelUid] = useState("");
+  const [specialistaUid, setSpecialistaUid] = useState("");
 
   const [contractSectorId, setContractSectorId] = useState<string>("");
   const [contractSectionId, setContractSectionId] = useState<string>("");
@@ -882,7 +884,9 @@ export default function ContractForm() {
       setCommissionAmount(existingContract.commissionAmount?.toString() || "");
       setCurrency(existingContract.currency || "EUR");
       setNotes(existingContract.notes || "");
-      setRequiredPermissionLevel(String(existingContract.requiredPermissionLevel || 1));
+      setKlientUid(existingContract.klientUid || "");
+      setZiskatelUid(existingContract.ziskatelUid || "");
+      setSpecialistaUid(existingContract.specialistaUid || "");
 
       const spId = existingContract.sectorProductId;
       if (spId) {
@@ -1045,7 +1049,9 @@ export default function ContractForm() {
       commissionAmount: commissionAmount ? parseInt(commissionAmount) : null,
       currency,
       notes: notes || null,
-      requiredPermissionLevel: parseInt(requiredPermissionLevel),
+      klientUid: klientUid && klientUid !== "__none__" ? klientUid : null,
+      ziskatelUid: ziskatelUid && ziskatelUid !== "__none__" ? ziskatelUid : null,
+      specialistaUid: specialistaUid && specialistaUid !== "__none__" ? specialistaUid : null,
       processingTimeSec,
       dynamicPanelValues: Object.keys(panelValues).length > 0 ? panelValues : undefined,
     };
@@ -1142,7 +1148,11 @@ export default function ContractForm() {
 
       <div className="flex-none border-b border-border bg-card/50">
         <div className="flex items-center gap-0.5 px-2 flex-wrap">
-          {TABS.map(tab => {
+          {TABS.filter(tab => {
+            const accessRole = (existingContract as any)?.accessRole;
+            if (accessRole === 'klient' && (tab.key === 'odmeny' || tab.key === 'provizne')) return false;
+            return true;
+          }).map(tab => {
             const Icon = tab.icon;
             return (
               <button
@@ -1309,17 +1319,42 @@ export default function ContractForm() {
                 <CompactField label={`Rocne poistne${isFieldRequired("annualPremium") ? " *" : ""}`}>
                   <Input type="number" value={annualPremium} readOnly className="font-mono bg-muted/50" data-testid="input-annual-premium" />
                 </CompactField>
-                <CompactField label="Min. uroven pristupu">
-                  <Select value={requiredPermissionLevel} onValueChange={setRequiredPermissionLevel}>
-                    <SelectTrigger data-testid="select-required-permission-level">
-                      <SelectValue />
+                <CompactField label="Klient (UID)">
+                  <Select value={klientUid} onValueChange={setKlientUid}>
+                    <SelectTrigger data-testid="select-klient-uid">
+                      <SelectValue placeholder="Vyber klienta..." />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="1">L1 - Klient</SelectItem>
-                      <SelectItem value="2">L2 - Spracovatel</SelectItem>
-                      <SelectItem value="3">L3 - Manazer</SelectItem>
-                      <SelectItem value="4">L4 - Riaditel</SelectItem>
-                      <SelectItem value="5">L5 - Admin</SelectItem>
+                      <SelectItem value="__none__">-- Ziadny --</SelectItem>
+                      {subjects?.filter(s => s.isActive && s.uid).map(s => (
+                        <SelectItem key={s.uid} value={s.uid!}>{s.uid} - {s.firstName || ''} {s.lastName || ''}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </CompactField>
+                <CompactField label="Ziskatel (UID)">
+                  <Select value={ziskatelUid} onValueChange={setZiskatelUid}>
+                    <SelectTrigger data-testid="select-ziskatel-uid">
+                      <SelectValue placeholder="Vyber ziskatela..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="__none__">-- Ziadny --</SelectItem>
+                      {subjects?.filter(s => s.isActive && s.uid).map(s => (
+                        <SelectItem key={s.uid} value={s.uid!}>{s.uid} - {s.firstName || ''} {s.lastName || ''}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </CompactField>
+                <CompactField label="Specialista (UID)">
+                  <Select value={specialistaUid} onValueChange={setSpecialistaUid}>
+                    <SelectTrigger data-testid="select-specialista-uid">
+                      <SelectValue placeholder="Vyber specialistu..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="__none__">-- Ziadny --</SelectItem>
+                      {subjects?.filter(s => s.isActive && s.uid).map(s => (
+                        <SelectItem key={s.uid} value={s.uid!}>{s.uid} - {s.firstName || ''} {s.lastName || ''}</SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
                 </CompactField>
@@ -1621,7 +1656,7 @@ export default function ContractForm() {
             </div>
           </div>
 
-          <div style={{ display: activeTab === "odmeny" ? 'block' : 'none' }}>
+          <div style={{ display: activeTab === "odmeny" && (existingContract as any)?.accessRole !== 'klient' ? 'block' : 'none' }}>
             <div className="space-y-3" data-testid="section-odmeny">
               <h2 className="text-base font-semibold">Odmeny</h2>
               <div className="grid grid-cols-3 gap-3">
@@ -1693,7 +1728,7 @@ export default function ContractForm() {
                     <SummaryField label="Frekvencia platenia" value={PAYMENT_FREQUENCIES.find(f => f.value === paymentFrequency)?.label || "-"} testId="summary-frequency" />
                     <SummaryField label="Lehotne poistne" value={premiumAmount ? `${premiumAmount} ${currency}` : "-"} testId="summary-premium" mono />
                     <SummaryField label="Rocne poistne" value={annualPremium ? `${annualPremium} ${currency}` : "-"} testId="summary-annual" mono />
-                    <SummaryField label="Suma provizie" value={commissionAmount ? `${commissionAmount} ${currency}` : "-"} testId="summary-commission" mono />
+                    <span style={{ display: (existingContract as any)?.accessRole !== 'klient' ? 'contents' : 'none' }}><SummaryField label="Suma provizie" value={commissionAmount ? `${commissionAmount} ${currency}` : "-"} testId="summary-commission" mono /></span>
                     <SummaryField label="Datum podpisu" value={signedDate || "-"} testId="summary-signed" />
                     <SummaryField label="Ucinnost od" value={effectiveDate || "-"} testId="summary-effective" />
                     <SummaryField label="Koniec zmluvy" value={expiryDate || "-"} testId="summary-expiry" />
@@ -1705,7 +1740,7 @@ export default function ContractForm() {
             </div>
           </div>
 
-          <div style={{ display: activeTab === "provizne" ? 'block' : 'none' }}>
+          <div style={{ display: activeTab === "provizne" && (existingContract as any)?.accessRole !== 'klient' ? 'block' : 'none' }}>
             <div className="space-y-3" data-testid="section-provizne">
               <h2 className="text-base font-semibold">Provizne zostavy</h2>
               <Card>

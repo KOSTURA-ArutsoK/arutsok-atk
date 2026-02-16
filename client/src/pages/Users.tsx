@@ -61,6 +61,7 @@ const MFA_LABELS: Record<string, string> = {
 
 interface UserFormData {
   username: string;
+  uid: string;
   firstName: string;
   lastName: string;
   email: string;
@@ -74,6 +75,7 @@ interface UserFormData {
 
 const emptyForm: UserFormData = {
   username: "",
+  uid: "",
   firstName: "",
   lastName: "",
   email: "",
@@ -166,6 +168,7 @@ function UserFormDialog({
       if (editingUser) {
         setForm({
           username: editingUser.username,
+          uid: editingUser.uid || "",
           firstName: editingUser.firstName || "",
           lastName: editingUser.lastName || "",
           email: editingUser.email || "",
@@ -192,6 +195,7 @@ function UserFormDialog({
 
     const payload: any = {
       username: form.username,
+      uid: form.uid || null,
       firstName: form.firstName || null,
       lastName: form.lastName || null,
       email: form.email || null,
@@ -223,13 +227,25 @@ function UserFormDialog({
           </DialogTitle>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="space-y-2">
-            <Label>Pouzivatelske meno *</Label>
-            <Input
-              value={form.username}
-              onChange={e => setForm(f => ({ ...f, username: e.target.value }))}
-              data-testid="input-user-username"
-            />
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label>Pouzivatelske meno *</Label>
+              <Input
+                value={form.username}
+                onChange={e => setForm(f => ({ ...f, username: e.target.value }))}
+                data-testid="input-user-username"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>UID (421...)</Label>
+              <Input
+                value={form.uid}
+                onChange={e => setForm(f => ({ ...f, uid: e.target.value }))}
+                placeholder="01-KFS-421-..."
+                className="font-mono"
+                data-testid="input-user-uid"
+              />
+            </div>
           </div>
 
           <div className="grid grid-cols-2 gap-4">
@@ -474,6 +490,7 @@ export default function UsersPage() {
               <TableRow>
                 <TableHead>Meno</TableHead>
                 <TableHead>Priezvisko</TableHead>
+                <TableHead>UID</TableHead>
                 <TableHead>Email</TableHead>
                 <TableHead>Telefon</TableHead>
                 <TableHead>Rola</TableHead>
@@ -492,6 +509,9 @@ export default function UsersPage() {
                     </TableCell>
                     <TableCell data-testid={`text-user-lastname-${user.id}`}>
                       {user.lastName || "-"}
+                    </TableCell>
+                    <TableCell data-testid={`text-user-uid-${user.id}`}>
+                      <span className="font-mono text-xs">{user.uid || "-"}</span>
                     </TableCell>
                     <TableCell data-testid={`text-user-email-${user.id}`}>
                       {user.email || "-"}

@@ -325,6 +325,7 @@ export const permissions = pgTable("permissions", {
 export const appUsers = pgTable("app_users", {
   id: serial("id").primaryKey(),
   replitId: text("replit_id").unique(),
+  uid: text("uid"),
   username: text("username").notNull().unique(),
   password: text("password"),
   firstName: text("first_name"),
@@ -640,6 +641,9 @@ export const contracts = pgTable("contracts", {
   dispatchedAt: timestamp("dispatched_at"),
   acceptedAt: timestamp("accepted_at"),
   lastStatusUpdate: timestamp("last_status_update"),
+  klientUid: text("klient_uid"),
+  ziskatelUid: text("ziskatel_uid"),
+  specialistaUid: text("specialista_uid"),
   requiredPermissionLevel: integer("required_permission_level").default(1),
   processingTimeSec: integer("processing_time_sec").default(0),
   isLocked: boolean("is_locked").default(false),

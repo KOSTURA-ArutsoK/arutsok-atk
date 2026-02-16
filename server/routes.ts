@@ -1846,6 +1846,14 @@ export async function registerRoutes(
   });
 
   // === CONTRACTS (Main) ===
+  function getContractAccessRole(contract: any, userUid: string | null | undefined, userRole: string | null | undefined): string {
+    if (!userUid) return 'full';
+    if (userRole === 'superadmin' || userRole === 'admin') return 'full';
+    if (contract.ziskatelUid === userUid || contract.specialistaUid === userUid) return 'full';
+    if (contract.klientUid === userUid) return 'klient';
+    return 'full';
+  }
+
   app.get(api.contractsApi.list.path, isAuthenticated, async (req: any, res) => {
     const filters = {
       stateId: getEnforcedStateId(req),
@@ -1857,9 +1865,12 @@ export async function registerRoutes(
     const allContracts = await storage.getContracts(filters);
     const appUser = req.appUser;
     if (appUser) {
-      const effectiveLevel = await storage.getUserEffectivePermissionLevel(appUser.id);
-      const filtered = allContracts.filter(c => (c.requiredPermissionLevel || 1) <= effectiveLevel);
-      return res.json(filtered);
+      const userUid = appUser.uid;
+      const contractsWithAccess = allContracts.map(c => ({
+        ...c,
+        accessRole: getContractAccessRole(c, userUid, appUser.role),
+      }));
+      return res.json(contractsWithAccess);
     }
     res.json(allContracts);
   });
@@ -1871,13 +1882,8 @@ export async function registerRoutes(
     if (appUser && appUser.activeStateId && contract.stateId && contract.stateId !== appUser.activeStateId && appUser.role !== 'superadmin') {
       return res.status(403).json({ message: "Pristup k zmluve z ineho statu nie je povoleny" });
     }
-    if (appUser && contract.requiredPermissionLevel && contract.requiredPermissionLevel > 1) {
-      const effectiveLevel = await storage.getUserEffectivePermissionLevel(appUser.id);
-      if (effectiveLevel < contract.requiredPermissionLevel) {
-        return res.status(403).json({ message: "Nedostatocna uroven pravomoci pre zobrazenie tejto zmluvy" });
-      }
-    }
-    res.json(contract);
+    const accessRole = getContractAccessRole(contract, appUser?.uid, appUser?.role);
+    res.json({ ...contract, accessRole });
   });
 
   app.post(api.contractsApi.create.path, isAuthenticated, async (req: any, res) => {
@@ -1913,6 +1919,100 @@ export async function registerRoutes(
     } catch (err) {
       if (err instanceof z.ZodError) return res.status(400).json({ message: err.errors[0].message });
       res.status(500).json({ message: "Internal error" });
+    }
+  });
+
+  app.post("/api/contracts/import-excel", isAuthenticated, upload.single("file"), async (req: any, res) => {
+    try {
+      const file = req.file;
+      if (!file) return res.status(400).json({ message: "Nebol nahratý žiadny súbor" });
+
+      const workbook = new ExcelJS.Workbook();
+      await workbook.xlsx.readFile(file.path);
+      const sheet = workbook.worksheets[0];
+      if (!sheet) return res.status(400).json({ message: "Excel neobsahuje žiadny hárok" });
+
+      const allSubjects = await storage.getSubjects();
+      const uidMap = new Map<string, typeof allSubjects[0]>();
+      for (const s of allSubjects) {
+        if (s.uid) uidMap.set(s.uid, s);
+      }
+
+      const headers: string[] = [];
+      sheet.getRow(1).eachCell((cell, colNumber) => {
+        headers[colNumber] = String(cell.value || "").trim().toLowerCase();
+      });
+
+      const results: { row: number; status: string; contractId?: number; error?: string }[] = [];
+      const appUser = req.appUser;
+      const defaultStatus = await storage.getSystemContractStatusByName("Nahrata do systemu");
+
+      for (let rowNum = 2; rowNum <= sheet.rowCount; rowNum++) {
+        const row = sheet.getRow(rowNum);
+        const rowData: Record<string, string> = {};
+        row.eachCell((cell, colNumber) => {
+          const header = headers[colNumber];
+          if (header) rowData[header] = String(cell.value || "").trim();
+        });
+
+        try {
+          const klientUidVal = rowData["klient_uid"] || rowData["klientuid"] || rowData["klient"] || null;
+          const ziskatelUidVal = rowData["ziskatel_uid"] || rowData["ziskateluid"] || rowData["ziskatel"] || null;
+          const specialistaUidVal = rowData["specialista_uid"] || rowData["specialistauid"] || rowData["specialista"] || null;
+
+          let subjectId: number | null = null;
+          if (klientUidVal && uidMap.has(klientUidVal)) {
+            subjectId = uidMap.get(klientUidVal)!.id;
+          }
+
+          const nextGlobalNumber = await storage.getNextCounterValue("contract_global_number");
+
+          const contractData: any = {
+            contractNumber: rowData["cislo_zmluvy"] || rowData["contract_number"] || null,
+            proposalNumber: rowData["cislo_navrhu"] || rowData["proposal_number"] || null,
+            kik: rowData["kik"] || null,
+            subjectId,
+            klientUid: klientUidVal,
+            ziskatelUid: ziskatelUidVal,
+            specialistaUid: specialistaUidVal,
+            premiumAmount: rowData["lehotne_poistne"] || rowData["premium"] ? parseInt(rowData["lehotne_poistne"] || rowData["premium"]) : null,
+            paymentFrequency: rowData["frekvencia"] || rowData["payment_frequency"] || null,
+            currency: rowData["mena"] || rowData["currency"] || "EUR",
+            notes: rowData["poznamky"] || rowData["notes"] || null,
+            stateId: appUser?.activeStateId || null,
+            companyId: appUser?.activeCompanyId || null,
+            statusId: defaultStatus?.id || null,
+            globalNumber: nextGlobalNumber,
+            uploadedByUserId: appUser?.id || null,
+          };
+
+          const created = await storage.createContract(contractData);
+          if (created.statusId) {
+            await storage.createContractStatusChangeLog({
+              contractId: created.id,
+              oldStatusId: null,
+              newStatusId: created.statusId,
+              changedByUserId: appUser?.id || null,
+              parameterValues: {},
+            });
+          }
+          results.push({ row: rowNum, status: "ok", contractId: created.id });
+        } catch (rowErr: any) {
+          results.push({ row: rowNum, status: "error", error: rowErr.message || "Neznáma chyba" });
+        }
+      }
+
+      await logAudit(req, { action: "IMPORT", module: "zmluvy", entityName: `Excel import: ${results.filter(r => r.status === 'ok').length} úspešných z ${results.length}` });
+
+      res.json({
+        total: results.length,
+        success: results.filter(r => r.status === "ok").length,
+        errors: results.filter(r => r.status === "error").length,
+        details: results,
+      });
+    } catch (err: any) {
+      console.error("Excel import error:", err);
+      res.status(500).json({ message: "Chyba pri importe: " + (err.message || "Neznáma chyba") });
     }
   });
 
