@@ -845,7 +845,6 @@ export default function Contracts() {
 
   const [selectedIds, setSelectedIds] = useState<number[]>([]);
   const [sprievodkaDialogOpen, setSprievodkaDialogOpen] = useState(false);
-  const [sprievodkaName, setSprievodkaName] = useState("");
 
   const [acceptedSprievodkaIds, setAcceptedSprievodkaIds] = useState<Record<number, Set<number>>>({});
   const [expandedSprievodky, setExpandedSprievodky] = useState<Set<number>>(new Set());
@@ -999,7 +998,6 @@ export default function Contracts() {
       toast({ title: "Uspech", description: "Zmluvy odoslane na schvalenie" });
       setSelectedIds([]);
       setSprievodkaDialogOpen(false);
-      setSprievodkaName("");
     },
     onError: () => toast({ title: "Chyba", description: "Nepodarilo sa odoslat zmluvy", variant: "destructive" }),
   });
@@ -1060,12 +1058,9 @@ export default function Contracts() {
   }
 
   function handleDispatch() {
-    if (!sprievodkaName.trim()) {
-      toast({ title: "Chyba", description: "Nazov sprievodky je povinny", variant: "destructive" });
-      return;
-    }
+    const autoName = `Sprievodka ${new Date().toISOString().slice(0, 10)}`;
     dispatchMutation.mutate({
-      name: sprievodkaName.trim(),
+      name: autoName,
       contractIds: selectedIds,
     });
   }
@@ -1564,15 +1559,6 @@ export default function Contracts() {
               <p className="text-sm text-muted-foreground">
                 Vybranych zmluv: <span className="font-semibold text-foreground">{selectedIds.length}</span>. Zmluvy budu odoslane na schvalenie Centralnej kancelarii cez novu sprievodku.
               </p>
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Nazov sprievodky *</label>
-                <Input
-                  value={sprievodkaName}
-                  onChange={e => setSprievodkaName(e.target.value)}
-                  placeholder="Napr. Sprievodka 2026-02"
-                  data-testid="input-sprievodka-name"
-                />
-              </div>
               <div className="flex items-center justify-end gap-3 flex-wrap">
                 <Button variant="outline" onClick={() => setSprievodkaDialogOpen(false)} data-testid="button-sprievodka-cancel">
                   Zrusit
