@@ -851,7 +851,8 @@ export async function registerRoutes(
 
   app.post(api.products.create.path, isAuthenticated, async (req, res) => {
     try {
-      const input = api.products.create.input.parse(req.body);
+      const { dynamicParams, ...body } = req.body;
+      const input = api.products.create.input.parse(body);
 
       if (input.partnerId && input.companyId) {
         const contracts = await storage.getPartnerContracts(input.partnerId);
@@ -872,7 +873,8 @@ export async function registerRoutes(
 
   app.put(api.products.update.path, isAuthenticated, async (req, res) => {
     try {
-      const input = api.products.update.input.parse(req.body);
+      const { dynamicParams, ...updateBody } = req.body;
+      const input = api.products.update.input.parse(updateBody);
       const updated = await storage.updateProduct(Number(req.params.id), input);
       await logAudit(req, { action: "UPDATE", module: "produkty", entityId: Number(req.params.id), newData: input });
       res.json(updated);
