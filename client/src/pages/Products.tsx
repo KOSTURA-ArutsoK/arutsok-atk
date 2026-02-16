@@ -799,9 +799,14 @@ export default function Products() {
                         <Button size="icon" variant="ghost" onClick={() => handleEdit(product)} data-testid={`button-edit-product-${product.id}`}>
                           <Pencil className="w-4 h-4" />
                         </Button>
-                        <Button size="icon" variant="ghost" onClick={() => handleDelete(product)} data-testid={`button-delete-product-${product.id}`}>
-                          <Trash2 className="w-4 h-4 text-destructive" />
-                        </Button>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Button size="icon" variant="ghost" onClick={() => handleDelete(product)} data-testid={`button-delete-product-${product.id}`}>
+                              <Trash2 className="w-4 h-4 text-destructive" />
+                            </Button>
+                          </TooltipTrigger>
+                          <TooltipContent>Zmazať prázdny záznam</TooltipContent>
+                        </Tooltip>
                       </div>
                     </TableCell>
                   </TableRow>

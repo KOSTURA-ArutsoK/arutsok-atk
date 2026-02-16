@@ -31,6 +31,7 @@ import {
   Clock,
   Loader2,
 } from "lucide-react";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import type { CalendarEvent } from "@shared/schema";
 
 const COLORS = [
@@ -373,9 +374,14 @@ export default function Kalendar() {
                         <Button size="icon" variant="ghost" onClick={() => openEdit(e)} data-testid={`button-edit-event-${e.id}`}>
                           <Pencil className="w-3.5 h-3.5" />
                         </Button>
-                        <Button size="icon" variant="ghost" onClick={() => setDeleteConfirmId(e.id)} data-testid={`button-delete-event-${e.id}`}>
-                          <Trash2 className="w-3.5 h-3.5 text-destructive" />
-                        </Button>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Button size="icon" variant="ghost" onClick={() => setDeleteConfirmId(e.id)} data-testid={`button-delete-event-${e.id}`}>
+                              <Trash2 className="w-3.5 h-3.5 text-destructive" />
+                            </Button>
+                          </TooltipTrigger>
+                          <TooltipContent>Zmazať prázdny záznam</TooltipContent>
+                        </Tooltip>
                       </div>
                     </div>
                   );

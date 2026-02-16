@@ -36,6 +36,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 
 type PanelWithParams = {
   id: number;
@@ -213,15 +214,20 @@ function PasswordsModal({
                     <TableCell className="font-mono text-sm" data-testid={`text-password-${pw.id}`}>{pw.password}</TableCell>
                     <TableCell className="text-sm text-muted-foreground">{pw.note || "-"}</TableCell>
                     <TableCell className="text-right">
-                      <Button
-                        size="icon"
-                        variant="ghost"
-                        onClick={() => deleteMutation.mutate(pw.id)}
-                        disabled={deleteMutation.isPending}
-                        data-testid={`button-delete-password-${pw.id}`}
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </Button>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            onClick={() => deleteMutation.mutate(pw.id)}
+                            disabled={deleteMutation.isPending}
+                            data-testid={`button-delete-password-${pw.id}`}
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent>Zmazať prázdny záznam</TooltipContent>
+                      </Tooltip>
                     </TableCell>
                   </TableRow>
                 ))}

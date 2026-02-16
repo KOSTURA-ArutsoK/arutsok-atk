@@ -9,6 +9,7 @@ import { Plus, Pencil, Trash2, Upload, FileText, Loader2, ExternalLink } from "l
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -426,16 +427,21 @@ export default function ContractTemplates() {
                         >
                           <Pencil className="w-4 h-4" />
                         </Button>
-                        <Button
-                          size="icon"
-                          variant="ghost"
-                          onClick={() => openDelete(template)}
-                          disabled={contractCountForTemplate > 0}
-                          title={contractCountForTemplate > 0 ? "Nie je mozne vymazat, sablona obsahuje zmluvy" : undefined}
-                          data-testid={`button-delete-template-${template.id}`}
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </Button>
+                        <div style={{ visibility: contractCountForTemplate > 0 ? 'hidden' : 'visible' }}>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Button
+                                size="icon"
+                                variant="ghost"
+                                onClick={() => openDelete(template)}
+                                data-testid={`button-delete-template-${template.id}`}
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </Button>
+                            </TooltipTrigger>
+                            <TooltipContent>Zmazať prázdny záznam</TooltipContent>
+                          </Tooltip>
+                        </div>
                       </div>
                     </TableCell>
                   </TableRow>

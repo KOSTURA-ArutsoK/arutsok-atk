@@ -38,6 +38,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import type { State, StateFlagHistory } from "@shared/schema";
 
 function FlagImage({
@@ -460,14 +461,19 @@ export default function SettingsStates() {
                         >
                           <Pencil className="w-4 h-4" />
                         </Button>
-                        <Button
-                          size="icon"
-                          variant="ghost"
-                          onClick={() => setDeleteState(state)}
-                          data-testid={`button-delete-state-${state.id}`}
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </Button>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Button
+                              size="icon"
+                              variant="ghost"
+                              onClick={() => setDeleteState(state)}
+                              data-testid={`button-delete-state-${state.id}`}
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </Button>
+                          </TooltipTrigger>
+                          <TooltipContent>Zmazať prázdny záznam</TooltipContent>
+                        </Tooltip>
                       </div>
                     </TableCell>
                   </TableRow>

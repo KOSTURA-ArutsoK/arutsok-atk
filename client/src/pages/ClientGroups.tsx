@@ -13,6 +13,7 @@ import { SortableTableRow, SortableContext_Wrapper } from "@/components/sortable
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
@@ -590,16 +591,21 @@ export default function ClientGroups() {
                           >
                             <Pencil className="w-4 h-4" />
                           </Button>
-                          <Button
-                            size="icon"
-                            variant="ghost"
-                            onClick={() => setDeletingGroup(group)}
-                            disabled={group.memberCount > 0}
-                            title={group.memberCount > 0 ? "Nie je mozne vymazat, skupina obsahuje clenov" : undefined}
-                            data-testid={`button-delete-group-${group.id}`}
-                          >
-                            <Trash2 className="w-4 h-4 text-destructive" />
-                          </Button>
+                          <div style={{ visibility: group.memberCount > 0 ? 'hidden' : 'visible' }}>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Button
+                                  size="icon"
+                                  variant="ghost"
+                                  onClick={() => setDeletingGroup(group)}
+                                  data-testid={`button-delete-group-${group.id}`}
+                                >
+                                  <Trash2 className="w-4 h-4 text-destructive" />
+                                </Button>
+                              </TooltipTrigger>
+                              <TooltipContent>Zmazať prázdny záznam</TooltipContent>
+                            </Tooltip>
+                          </div>
                         </div>
                       </TableCell>
                     </SortableTableRow>

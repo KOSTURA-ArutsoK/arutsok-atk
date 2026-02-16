@@ -32,6 +32,7 @@ import {
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { HelpIcon, AdminNote } from "@/components/help-icon";
 
 function ProcessingTimer({ startTime }: { startTime: number }) {
@@ -358,9 +359,14 @@ export default function Commissions() {
                           <Button size="icon" variant="ghost" onClick={() => openEdit(r)} data-testid={`button-edit-rate-${r.id}`}>
                             <Pencil className="w-3.5 h-3.5" />
                           </Button>
-                          <Button size="icon" variant="ghost" onClick={() => { if (confirm("Naozaj vymazat sadzbu?")) deleteMutation.mutate(r.id); }} data-testid={`button-delete-rate-${r.id}`}>
-                            <Trash2 className="w-3.5 h-3.5 text-destructive" />
-                          </Button>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Button size="icon" variant="ghost" onClick={() => { if (confirm("Naozaj vymazat sadzbu?")) deleteMutation.mutate(r.id); }} data-testid={`button-delete-rate-${r.id}`}>
+                                <Trash2 className="w-3.5 h-3.5 text-destructive" />
+                              </Button>
+                            </TooltipTrigger>
+                            <TooltipContent>Zmazať prázdny záznam</TooltipContent>
+                          </Tooltip>
                         </div>
                       </TableCell>
                     </TableRow>

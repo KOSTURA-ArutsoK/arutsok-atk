@@ -9,6 +9,7 @@ import { Plus, Pencil, Trash2, Loader2, GripVertical } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -833,16 +834,21 @@ export default function ContractStatuses() {
                             <Pencil className="w-4 h-4" />
                           </Button>
                           {!status.isSystem && (
-                            <Button
-                              size="icon"
-                              variant="ghost"
-                              onClick={() => openDelete(status)}
-                              disabled={contractCountForStatus > 0}
-                              title={contractCountForStatus > 0 ? "Nie je mozne vymazat, stav obsahuje zmluvy" : undefined}
-                              data-testid={`button-delete-status-${status.id}`}
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </Button>
+                            <div style={{ visibility: contractCountForStatus > 0 ? 'hidden' : 'visible' }}>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <Button
+                                    size="icon"
+                                    variant="ghost"
+                                    onClick={() => openDelete(status)}
+                                    data-testid={`button-delete-status-${status.id}`}
+                                  >
+                                    <Trash2 className="w-4 h-4" />
+                                  </Button>
+                                </TooltipTrigger>
+                                <TooltipContent>Zmazať prázdny záznam</TooltipContent>
+                              </Tooltip>
+                            </div>
                           )}
                         </div>
                       </TableCell>

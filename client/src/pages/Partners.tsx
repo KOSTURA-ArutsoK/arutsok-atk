@@ -55,6 +55,7 @@ import {
   FormLabel,
   FormMessage,
 } from "@/components/ui/form";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { RichTextEditor } from "@/components/rich-text-editor";
 import { ProcessingSaveButton } from "@/components/processing-save-button";
 
@@ -952,9 +953,14 @@ export default function Partners() {
                       <Button size="icon" variant="ghost" onClick={() => openEdit(partner)} data-testid={`button-edit-partner-${partner.id}`}>
                         <Pencil className="w-4 h-4" />
                       </Button>
-                      <Button size="icon" variant="ghost" onClick={() => setDeleteTarget(partner)} data-testid={`button-delete-partner-${partner.id}`}>
-                        <Trash2 className="w-4 h-4 text-destructive" />
-                      </Button>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Button size="icon" variant="ghost" onClick={() => setDeleteTarget(partner)} data-testid={`button-delete-partner-${partner.id}`}>
+                            <Trash2 className="w-4 h-4 text-destructive" />
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent>Zmazať prázdny záznam</TooltipContent>
+                      </Tooltip>
                     </div>
                   </TableCell>
                 </TableRow>

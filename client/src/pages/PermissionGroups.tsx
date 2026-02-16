@@ -6,6 +6,7 @@ import { Loader2, Plus, Pencil, Trash2, ShieldCheck, RefreshCw } from "lucide-re
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -523,16 +524,21 @@ export default function PermissionGroupsPage() {
                     >
                       <Pencil className="w-4 h-4" />
                     </Button>
-                    <Button
-                      size="icon"
-                      variant="ghost"
-                      onClick={e => { e.stopPropagation(); setDeleteGroupId(group.id); }}
-                      disabled={userCountForGroup > 0}
-                      title={userCountForGroup > 0 ? "Nie je mozne vymazat, skupina obsahuje pouzivatelov" : undefined}
-                      data-testid={`button-delete-group-${group.id}`}
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </Button>
+                    <div style={{ visibility: userCountForGroup > 0 ? 'hidden' : 'visible' }}>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            onClick={e => { e.stopPropagation(); setDeleteGroupId(group.id); }}
+                            data-testid={`button-delete-group-${group.id}`}
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent>Zmazať prázdny záznam</TooltipContent>
+                      </Tooltip>
+                    </div>
                   </div>
                 </div>
               </CardContent>

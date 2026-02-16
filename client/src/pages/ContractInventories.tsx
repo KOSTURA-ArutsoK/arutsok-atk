@@ -33,6 +33,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { ProcessingSaveButton } from "@/components/processing-save-button";
 import { SortableTableRow, SortableContext_Wrapper } from "@/components/sortable-list";
 
@@ -378,14 +379,19 @@ export default function ContractInventories() {
                           >
                             <Pencil className="w-4 h-4" />
                           </Button>
-                          <Button
-                            size="icon"
-                            variant="ghost"
-                            onClick={() => openDelete(inventory)}
-                            data-testid={`button-delete-inventory-${inventory.id}`}
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </Button>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Button
+                                size="icon"
+                                variant="ghost"
+                                onClick={() => openDelete(inventory)}
+                                data-testid={`button-delete-inventory-${inventory.id}`}
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </Button>
+                            </TooltipTrigger>
+                            <TooltipContent>Zmazať prázdny záznam</TooltipContent>
+                          </Tooltip>
                         </div>
                       </TableCell>
                     </SortableTableRow>

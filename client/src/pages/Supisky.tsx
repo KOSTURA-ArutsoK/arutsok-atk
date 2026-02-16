@@ -25,6 +25,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { ProcessingSaveButton } from "@/components/processing-save-button";
 
 const STATUSES = ["Nova", "Pripravena", "Odoslana"] as const;
@@ -634,19 +635,24 @@ export default function SupiskyPage() {
                         >
                           <Pencil className="w-4 h-4" />
                         </Button>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            if (confirm("Naozaj chcete vymazat tuto supisku?")) {
-                              deleteMutation.mutate(s.id);
-                            }
-                          }}
-                          data-testid={`button-delete-${s.id}`}
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </Button>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                if (confirm("Naozaj chcete vymazat tuto supisku?")) {
+                                  deleteMutation.mutate(s.id);
+                                }
+                              }}
+                              data-testid={`button-delete-${s.id}`}
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </Button>
+                          </TooltipTrigger>
+                          <TooltipContent>Zmazať prázdny záznam</TooltipContent>
+                        </Tooltip>
                       </div>
                     </TableCell>
                   </TableRow>

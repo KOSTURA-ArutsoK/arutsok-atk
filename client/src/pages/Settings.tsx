@@ -15,6 +15,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { useToast } from "@/hooks/use-toast";
 import type { CategoryTimeout, DashboardPreference } from "@shared/schema";
 
@@ -332,14 +333,19 @@ export default function Settings() {
                       data-testid={`input-timeout-${ct.id}`}
                     />
                     <span className="text-xs text-muted-foreground w-6">sek</span>
-                    <Button
-                      size="icon"
-                      variant="ghost"
-                      onClick={() => deleteTimeoutMutation.mutate(ct.id)}
-                      data-testid={`button-delete-timeout-${ct.id}`}
-                    >
-                      <Trash2 className="w-3.5 h-3.5 text-destructive" />
-                    </Button>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          onClick={() => deleteTimeoutMutation.mutate(ct.id)}
+                          data-testid={`button-delete-timeout-${ct.id}`}
+                        >
+                          <Trash2 className="w-3.5 h-3.5 text-destructive" />
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent>Zmazať prázdny záznam</TooltipContent>
+                    </Tooltip>
                   </div>
                 ))}
               </div>
