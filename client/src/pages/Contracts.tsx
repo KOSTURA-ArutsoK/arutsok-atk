@@ -955,8 +955,11 @@ export default function Contracts() {
   const [searchQuery, setSearchQuery] = useState("");
   const [duplicateModal, setDuplicateModal] = useState<{ open: boolean; subjectName?: string }>({ open: false });
   const [preSelectOpen, setPreSelectOpen] = useState(false);
+  const [preSelectStep, setPreSelectStep] = useState<1 | 2>(1);
   const [preSelectPartnerId, setPreSelectPartnerId] = useState<string>("");
   const [preSelectProductId, setPreSelectProductId] = useState<string>("");
+  const [preSelectSubjectSearch, setPreSelectSubjectSearch] = useState("");
+  const [preSelectSubjectId, setPreSelectSubjectId] = useState<string>("");
   const [importDialogOpen, setImportDialogOpen] = useState(false);
   const [importFile, setImportFile] = useState<File | null>(null);
   const [importResult, setImportResult] = useState<{ total: number; success: number; errors: number; details: any[] } | null>(null);
@@ -1445,68 +1448,185 @@ export default function Contracts() {
     return products.filter(p => !p.isDeleted && p.partnerId === parseInt(preSelectPartnerId));
   })();
 
+  const handlePreSelectStep1Next = () => {
+    setPreSelectStep(2);
+    setPreSelectSubjectSearch("");
+    setPreSelectSubjectId("");
+  };
+
+  const handlePreSelectStep2Back = () => {
+    setPreSelectStep(1);
+    setPreSelectSubjectSearch("");
+    setPreSelectSubjectId("");
+  };
+
   const handlePreSelectConfirm = () => {
+    if (!preSelectSubjectId) return;
     const params = new URLSearchParams();
     if (preSelectPartnerId) params.set("partnerId", preSelectPartnerId);
     if (preSelectProductId) params.set("productId", preSelectProductId);
+    params.set("subjectId", preSelectSubjectId);
     const qs = params.toString();
     navigate(`/contracts/new${qs ? `?${qs}` : ""}`);
     setPreSelectOpen(false);
+    setPreSelectStep(1);
     setPreSelectPartnerId("");
     setPreSelectProductId("");
+    setPreSelectSubjectSearch("");
+    setPreSelectSubjectId("");
   };
 
   const handleOpenPreSelect = () => {
+    setPreSelectStep(1);
     setPreSelectPartnerId("");
     setPreSelectProductId("");
+    setPreSelectSubjectSearch("");
+    setPreSelectSubjectId("");
     setPreSelectOpen(true);
   };
 
+  const preSelectFilteredSubjects = (() => {
+    if (!subjects) return [];
+    const active = subjects;
+    if (!preSelectSubjectSearch.trim()) return active;
+    const q = preSelectSubjectSearch.toLowerCase().trim();
+    return active.filter(s => {
+      const fullName = s.type === "company"
+        ? (s.companyName || "")
+        : `${s.firstName || ""} ${s.lastName || ""}`.trim();
+      const birthNum = s.birthNumber || "";
+      const ico = (s as any).ico || "";
+      return fullName.toLowerCase().includes(q) || birthNum.includes(q) || ico.includes(q) || (s.uid || "").toLowerCase().includes(q);
+    });
+  })();
+
   const preSelectDialog = (
-    <Dialog open={preSelectOpen} onOpenChange={setPreSelectOpen}>
-      <DialogContent className="max-w-[500px]" data-testid="dialog-pre-select-contract">
+    <Dialog open={preSelectOpen} onOpenChange={(open) => { setPreSelectOpen(open); if (!open) { setPreSelectStep(1); } }}>
+      <DialogContent className="max-w-[600px]" data-testid="dialog-pre-select-contract">
         <DialogHeader>
-          <DialogTitle data-testid="text-preselect-title">Nova zmluva - vyber partnera a produktu</DialogTitle>
+          <DialogTitle data-testid="text-preselect-title">
+            {preSelectStep === 1 ? "Krok 1: Vyber partnera a produktu" : "Krok 2: Vyber klienta (subjektu)"}
+          </DialogTitle>
         </DialogHeader>
-        <div className="space-y-4">
-          <p className="text-sm text-muted-foreground">
-            Vyberte partnera a produkt pre predvyplnenie zmluvy.
-          </p>
 
-          <div className="space-y-1">
-            <label className="text-xs font-medium">Partner</label>
-            <Select value={preSelectPartnerId} onValueChange={(v) => { setPreSelectPartnerId(v); setPreSelectProductId(""); }}>
-              <SelectTrigger data-testid="select-preselect-partner">
-                <SelectValue placeholder="Vyberte partnera (volitelne)" />
-              </SelectTrigger>
-              <SelectContent>
-                {partners?.filter(p => !p.isDeleted).map(p => (
-                  <SelectItem key={p.id} value={p.id.toString()} data-testid={`option-preselect-partner-${p.id}`}>{p.name}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+        <div className="flex items-center gap-2 mb-2">
+          <div className={`flex items-center justify-center w-7 h-7 rounded-full text-xs font-bold ${preSelectStep === 1 ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"}`} data-testid="step-indicator-1">1</div>
+          <div className="flex-1 h-px bg-border" />
+          <div className={`flex items-center justify-center w-7 h-7 rounded-full text-xs font-bold ${preSelectStep === 2 ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"}`} data-testid="step-indicator-2">2</div>
+        </div>
+
+        <div style={{ display: preSelectStep === 1 ? 'block' : 'none' }}>
+          <div className="space-y-4">
+            <p className="text-sm text-muted-foreground">
+              Vyberte partnera a produkt pre predvyplnenie zmluvy.
+            </p>
+
+            <div className="space-y-1">
+              <label className="text-xs font-medium">Partner</label>
+              <Select value={preSelectPartnerId} onValueChange={(v) => { setPreSelectPartnerId(v); setPreSelectProductId(""); }}>
+                <SelectTrigger data-testid="select-preselect-partner">
+                  <SelectValue placeholder="Vyberte partnera" />
+                </SelectTrigger>
+                <SelectContent>
+                  {partners?.filter(p => !p.isDeleted).map(p => (
+                    <SelectItem key={p.id} value={p.id.toString()} data-testid={`option-preselect-partner-${p.id}`}>{p.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-1">
+              <label className="text-xs font-medium">Produkt z katalogu</label>
+              <Select value={preSelectProductId} onValueChange={setPreSelectProductId} disabled={!preSelectPartnerId}>
+                <SelectTrigger data-testid="select-preselect-product">
+                  <SelectValue placeholder={preSelectPartnerId ? "Vyberte produkt (volitelne)" : "Najprv vyberte partnera"} />
+                </SelectTrigger>
+                <SelectContent>
+                  {preSelectFilteredProducts.map(p => (
+                    <SelectItem key={p.id} value={p.id.toString()} data-testid={`option-preselect-product-${p.id}`}>
+                      {p.name} {p.code ? `(${p.code})` : ""}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="flex justify-end gap-2">
+              <Button onClick={handlePreSelectStep1Next} disabled={!preSelectPartnerId} data-testid="button-preselect-next">
+                Dalej
+              </Button>
+            </div>
           </div>
+        </div>
 
-          <div className="space-y-1">
-            <label className="text-xs font-medium">Produkt z katalogu</label>
-            <Select value={preSelectProductId} onValueChange={setPreSelectProductId} disabled={!preSelectPartnerId}>
-              <SelectTrigger data-testid="select-preselect-product">
-                <SelectValue placeholder={preSelectPartnerId ? "Vyberte produkt (volitelne)" : "Najprv vyberte partnera"} />
-              </SelectTrigger>
-              <SelectContent>
-                {preSelectFilteredProducts.map(p => (
-                  <SelectItem key={p.id} value={p.id.toString()} data-testid={`option-preselect-product-${p.id}`}>
-                    {p.name} {p.code ? `(${p.code})` : ""}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
+        <div style={{ display: preSelectStep === 2 ? 'block' : 'none' }}>
+          <div className="space-y-4">
+            <p className="text-sm text-muted-foreground">
+              Vyhladajte a vyberte klienta podla rodneho cisla, ICO alebo mena.
+            </p>
 
-          <div className="flex justify-end gap-2">
-            <Button onClick={handlePreSelectConfirm} data-testid="button-preselect-confirm">
-              Pokracovat
-            </Button>
+            <div className="space-y-1">
+              <label className="text-xs font-medium">Vyhladavanie</label>
+              <div className="relative">
+                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder="Rodne cislo / ICO / Meno..."
+                  value={preSelectSubjectSearch}
+                  onChange={(e) => setPreSelectSubjectSearch(e.target.value)}
+                  className="pl-9"
+                  data-testid="input-preselect-subject-search"
+                  autoFocus
+                />
+              </div>
+            </div>
+
+            <div className="border rounded-md max-h-[300px] overflow-y-auto" data-testid="list-preselect-subjects">
+              {preSelectFilteredSubjects.length === 0 ? (
+                <div className="p-4 text-center text-sm text-muted-foreground" data-testid="text-no-subjects">
+                  {preSelectSubjectSearch.trim() ? "Ziadny klient nenajdeny" : "Zadajte hladany vyraz"}
+                </div>
+              ) : (
+                preSelectFilteredSubjects.map(s => {
+                  const displayName = s.type === "company"
+                    ? (s.companyName || "Bez nazvu")
+                    : `${s.firstName || ""} ${s.lastName || ""}`.trim() || "Bez mena";
+                  const typeLabel = s.type === "person" ? "FO" : s.type === "company" ? "PO" : s.type === "szco" ? "SZCO" : s.type;
+                  const identifier = s.type === "company" ? ((s as any).ico || "") : (s.birthNumber || "");
+                  const isSelected = preSelectSubjectId === s.id.toString();
+                  return (
+                    <div
+                      key={s.id}
+                      className={`flex items-center gap-3 px-3 py-2 cursor-pointer border-b last:border-b-0 hover-elevate ${isSelected ? "bg-primary/10" : ""}`}
+                      onClick={() => setPreSelectSubjectId(s.id.toString())}
+                      data-testid={`row-preselect-subject-${s.id}`}
+                    >
+                      <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center flex-shrink-0 ${isSelected ? "border-primary" : "border-muted-foreground/40"}`}>
+                        <div style={{ display: isSelected ? 'block' : 'none' }} className="w-2 h-2 rounded-full bg-primary" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2">
+                          <span className="font-medium text-sm truncate" data-testid={`text-preselect-subject-name-${s.id}`}>{displayName}</span>
+                          <Badge variant="outline" className="text-[10px] px-1.5 flex-shrink-0" data-testid={`badge-preselect-subject-type-${s.id}`}>{typeLabel}</Badge>
+                        </div>
+                        <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                          <span className="font-mono">{s.uid}</span>
+                          <span style={{ display: identifier ? 'inline' : 'none' }}>{s.type === "company" ? "ICO" : "RC"}: {identifier}</span>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+
+            <div className="flex justify-between gap-2">
+              <Button variant="outline" onClick={handlePreSelectStep2Back} data-testid="button-preselect-back">
+                Spat
+              </Button>
+              <Button onClick={handlePreSelectConfirm} disabled={!preSelectSubjectId} data-testid="button-preselect-confirm">
+                Otvorit zmluvu
+              </Button>
+            </div>
           </div>
         </div>
       </DialogContent>

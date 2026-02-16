@@ -929,6 +929,7 @@ export default function ContractForm() {
   const urlQueryParams = typeof window !== "undefined" ? new URLSearchParams(window.location.search) : new URLSearchParams();
   const urlPartnerId = urlQueryParams.get("partnerId") || "";
   const urlProductId = urlQueryParams.get("productId") || "";
+  const urlSubjectId = urlQueryParams.get("subjectId") || "";
   const [preSelectApplied, setPreSelectApplied] = useState(false);
 
   const { data: catalogProducts } = useQuery<Product[]>({
@@ -938,15 +939,21 @@ export default function ContractForm() {
 
   useEffect(() => {
     if (preSelectApplied || isEditing) return;
-    if (!urlPartnerId && !urlProductId) return;
-    if (!allSPForEdit || !allSectionsForEdit) return;
+    if (!urlPartnerId && !urlProductId && !urlSubjectId) return;
+
+    const needsSectorData = !!urlProductId;
+    if (needsSectorData && (!allSPForEdit || !allSectionsForEdit)) return;
     if (urlProductId && !catalogProducts) return;
 
     if (urlPartnerId) {
       setPartnerId(urlPartnerId);
     }
 
-    if (urlProductId && catalogProducts) {
+    if (urlSubjectId) {
+      setSubjectId(urlSubjectId);
+    }
+
+    if (urlProductId && catalogProducts && allSPForEdit && allSectionsForEdit) {
       const catProduct = catalogProducts.find(p => p.id === parseInt(urlProductId));
       if (catProduct) {
         const matchingSP = allSPForEdit.find(sp =>
@@ -967,10 +974,10 @@ export default function ContractForm() {
     }
 
     setPreSelectApplied(true);
-    if (urlPartnerId || urlProductId) {
+    if (urlPartnerId || urlProductId || urlSubjectId) {
       setActiveTab("udaje-klient");
     }
-  }, [isEditing, urlPartnerId, urlProductId, allSPForEdit, allSectionsForEdit, catalogProducts, preSelectApplied]);
+  }, [isEditing, urlPartnerId, urlProductId, urlSubjectId, allSPForEdit, allSectionsForEdit, catalogProducts, preSelectApplied]);
 
   useEffect(() => {
     timerRef.current = performance.now();
