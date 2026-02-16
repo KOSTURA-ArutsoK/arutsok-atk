@@ -854,14 +854,6 @@ export async function registerRoutes(
       const { dynamicParams, ...body } = req.body;
       const input = api.products.create.input.parse(body);
 
-      if (input.partnerId && input.companyId) {
-        const contracts = await storage.getPartnerContracts(input.partnerId);
-        const hasContract = contracts.some(c => c.companyId === input.companyId);
-        if (!hasContract) {
-          return res.status(400).json({ message: "Spolocnost nema aktivnu zmluvu s tymto partnerom" });
-        }
-      }
-
       const created = await storage.createProduct(input);
       await logAudit(req, { action: "CREATE", module: "produkty", newData: input });
       res.status(201).json(created);
