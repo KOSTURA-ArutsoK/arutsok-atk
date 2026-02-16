@@ -1166,19 +1166,7 @@ export default function ContractForm() {
           <div style={{ display: activeTab === "vseobecne" ? 'block' : 'none' }}>
             <div className="space-y-[clamp(0.35rem,0.8vh,0.75rem)]" data-testid="section-vseobecne">
 
-              <div className="grid grid-cols-3 gap-[clamp(0.5rem,1vw,1rem)]">
-                <CompactField label="Sprievodka">
-                  <Select value={inventoryId} onValueChange={setInventoryId}>
-                    <SelectTrigger data-testid="select-contract-inventory">
-                      <SelectValue placeholder="Vyberte sprievodku" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {inventories?.filter(i => !i.isClosed).map(i => (
-                        <SelectItem key={i.id} value={i.id.toString()}>{i.name}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </CompactField>
+              <div className="grid grid-cols-2 gap-[clamp(0.5rem,1vw,1rem)]">
                 <CompactField label="Cislo sprievodky">
                   <Input
                     value={inventoryId ? (inventories?.find(i => i.id.toString() === inventoryId)?.sequenceNumber?.toString() || "Pridelene pri ulozeni") : ""}
