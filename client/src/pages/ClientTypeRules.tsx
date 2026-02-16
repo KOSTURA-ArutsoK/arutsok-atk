@@ -309,7 +309,7 @@ function TypeDetailView({ clientType, onBack }: { clientType: ClientType; onBack
     mutationFn: async (name: string) => {
       await apiRequest("POST", `/api/client-types/${clientType.id}/sections`, {
         name,
-        sortOrder: sections.length,
+        sortOrder: (sections || []).length,
       });
     },
     onSuccess: () => {
@@ -380,7 +380,7 @@ function TypeDetailView({ clientType, onBack }: { clientType: ClientType; onBack
   const handleSectionDragEnd = (event: DragEndEvent) => {
     const { active, over } = event;
     if (!over || active.id === over.id) return;
-    const sortedSecs = [...sections].sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0));
+    const sortedSecs = [...(sections || [])].sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0));
     const oldIndex = sortedSecs.findIndex((s) => s.id === active.id);
     const newIndex = sortedSecs.findIndex((s) => s.id === over.id);
     const reordered = arrayMove(sortedSecs, oldIndex, newIndex);
@@ -427,8 +427,8 @@ function TypeDetailView({ clientType, onBack }: { clientType: ClientType; onBack
           </CardHeader>
           <CardContent className="space-y-3">
             <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleSectionDragEnd}>
-              <SortableContext items={[...sections].sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0)).map(s => s.id)} strategy={verticalListSortingStrategy}>
-                {[...sections].sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0)).map(s => (
+              <SortableContext items={[...(sections || [])].sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0)).map(s => s.id)} strategy={verticalListSortingStrategy}>
+                {[...(sections || [])].sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0)).map(s => (
                   <SortableSectionItem key={s.id} id={s.id}>
                     <span className="text-sm flex-1 truncate" data-testid={`section-row-${s.id}`}>{s.name}</span>
                     <Button size="icon" variant="ghost" onClick={() => deleteSectionMutation.mutate(s.id)} data-testid={`button-delete-section-${s.id}`}>
@@ -438,7 +438,7 @@ function TypeDetailView({ clientType, onBack }: { clientType: ClientType; onBack
                 ))}
               </SortableContext>
             </DndContext>
-            {sections.length === 0 && (
+            {(sections || []).length === 0 && (
               <p className="text-xs text-muted-foreground text-center py-2">Ziadne sekcie</p>
             )}
             <Separator />
@@ -536,7 +536,7 @@ function TypeDetailView({ clientType, onBack }: { clientType: ClientType; onBack
                   );
                 })()}
 
-                {sections.map(s => {
+                {(sections || []).map(s => {
                   const sectionFields = [...(groupedFields[s.id.toString()] || [])].sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0));
                   return (
                     <div key={s.id}>
@@ -610,8 +610,8 @@ function TypeDetailView({ clientType, onBack }: { clientType: ClientType; onBack
         open={addFieldOpen}
         onOpenChange={setAddFieldOpen}
         clientTypeId={clientType.id}
-        sections={sections}
-        existingFields={fields}
+        sections={sections || []}
+        existingFields={fields || []}
       />
     </div>
   );

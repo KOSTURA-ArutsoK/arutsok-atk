@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, Fragment } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -38,16 +38,28 @@ import { ProcessingSaveButton } from "@/components/processing-save-button";
 import { HelpIcon, AdminNote } from "@/components/help-icon";
 
 const MODULES = [
-  { key: "dashboard", label: "Prehlad" },
-  { key: "spolocnosti", label: "Spolocnosti" },
-  { key: "partneri", label: "Partneri" },
-  { key: "produkty", label: "Produkty" },
-  { key: "provizie", label: "Provizie" },
-  { key: "subjekty", label: "Subjekty" },
-  { key: "nastavenia", label: "Nastavenia" },
-  { key: "historia", label: "Historia" },
-  { key: "pouzivatelia", label: "Pouzivatelia" },
-  { key: "skupiny_pravomoci", label: "Skupiny pravomoci" },
+  { key: "dashboard", label: "Prehlad", group: "Zakladne" },
+  { key: "spolocnosti", label: "Spolocnosti", group: "Zakladne" },
+  { key: "staty", label: "Staty", group: "Zakladne" },
+  { key: "partneri", label: "Partneri", group: "Obchod" },
+  { key: "produkty", label: "Produkty", group: "Obchod" },
+  { key: "subjekty", label: "Subjekty / Klienti", group: "Obchod" },
+  { key: "zmluvy", label: "Zmluvy", group: "Obchod" },
+  { key: "evidencia_zmluv", label: "Evidencia zmluv", group: "Obchod" },
+  { key: "supisky", label: "Supisky", group: "Obchod" },
+  { key: "sektory", label: "Sektory / Parametre", group: "Obchod" },
+  { key: "provizie", label: "Provizie", group: "Financie" },
+  { key: "odmeny", label: "Odmeny", group: "Financie" },
+  { key: "sadzby", label: "Sadzby provizii", group: "Financie" },
+  { key: "kalendar", label: "Kalendar", group: "Informacie" },
+  { key: "novinky", label: "Novinky", group: "Informacie" },
+  { key: "dokumenty", label: "Dokumenty na stiahnutie", group: "Informacie" },
+  { key: "nastavenia", label: "Nastavenia", group: "Administracia" },
+  { key: "historia", label: "Historia / Audit", group: "Administracia" },
+  { key: "pouzivatelia", label: "Pouzivatelia", group: "Administracia" },
+  { key: "skupiny_pravomoci", label: "Skupiny pravomoci", group: "Administracia" },
+  { key: "archiv", label: "Archiv", group: "Administracia" },
+  { key: "pravidla_typov", label: "Pravidla typov klientov", group: "Administracia" },
 ];
 
 const ACTION_COLUMNS = [
@@ -191,6 +203,8 @@ function GroupFormDialog({
   );
 }
 
+const MODULE_GROUPS = Array.from(new Set(MODULES.map(m => m.group)));
+
 function PermissionMatrix({ groupId }: { groupId: number }) {
   const { toast } = useToast();
 
@@ -202,7 +216,6 @@ function PermissionMatrix({ groupId }: { groupId: number }) {
     mutationFn: (data: any) => apiRequest("PUT", "/api/permissions", data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/permission-groups", groupId, "permissions"] });
-      toast({ title: "Uspech", description: "Opravnenie aktualizovane" });
     },
     onError: (err: Error) => {
       toast({ title: "Chyba", description: err.message, variant: "destructive" });
@@ -239,6 +252,50 @@ function PermissionMatrix({ groupId }: { groupId: number }) {
     updateMutation.mutate(payload);
   }
 
+  function handleToggleRow(moduleKey: string) {
+    const perm = getPermission(moduleKey);
+    const allChecked = ACTION_COLUMNS.every(col => perm ? !!(perm as any)[col.key] : false);
+    const newVal = !allChecked;
+    const payload: any = { groupId, module: moduleKey };
+    ACTION_COLUMNS.forEach(col => { payload[col.key] = newVal; });
+    updateMutation.mutate(payload);
+  }
+
+  function handleToggleColumn(actionKey: string) {
+    const allChecked = MODULES.every(mod => {
+      const perm = getPermission(mod.key);
+      return perm ? !!(perm as any)[actionKey] : false;
+    });
+    const newVal = !allChecked;
+    MODULES.forEach(mod => {
+      const perm = getPermission(mod.key);
+      const payload: any = {
+        groupId,
+        module: mod.key,
+        canRead: perm?.canRead || false,
+        canCreate: perm?.canCreate || false,
+        canEdit: perm?.canEdit || false,
+        canPublish: perm?.canPublish || false,
+        canDelete: perm?.canDelete || false,
+      };
+      payload[actionKey] = newVal;
+      updateMutation.mutate(payload);
+    });
+  }
+
+  function handleToggleAll() {
+    const allChecked = MODULES.every(mod => {
+      const perm = getPermission(mod.key);
+      return ACTION_COLUMNS.every(col => perm ? !!(perm as any)[col.key] : false);
+    });
+    const newVal = !allChecked;
+    MODULES.forEach(mod => {
+      const payload: any = { groupId, module: mod.key };
+      ACTION_COLUMNS.forEach(col => { payload[col.key] = newVal; });
+      updateMutation.mutate(payload);
+    });
+  }
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center py-8">
@@ -247,55 +304,111 @@ function PermissionMatrix({ groupId }: { groupId: number }) {
     );
   }
 
+  const allGlobalChecked = MODULES.every(mod => {
+    const perm = getPermission(mod.key);
+    return ACTION_COLUMNS.every(col => perm ? !!(perm as any)[col.key] : false);
+  });
+
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between gap-4 flex-wrap">
         <h3 className="text-sm font-semibold" data-testid="text-matrix-title">Matica opravneni</h3>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => syncMutation.mutate()}
-          disabled={syncMutation.isPending}
-          data-testid="button-sync-permissions"
-        >
-          <RefreshCw className={`w-4 h-4 mr-2 ${syncMutation.isPending ? "animate-spin" : ""}`} />
-          Synchronizovat
-        </Button>
+        <div className="flex items-center gap-2 flex-wrap">
+          <Button
+            variant={allGlobalChecked ? "destructive" : "default"}
+            size="sm"
+            onClick={handleToggleAll}
+            disabled={updateMutation.isPending}
+            data-testid="button-toggle-all"
+          >
+            {allGlobalChecked ? "Odznacit vsetko" : "Oznacit vsetko"}
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => syncMutation.mutate()}
+            disabled={syncMutation.isPending}
+            data-testid="button-sync-permissions"
+          >
+            <RefreshCw className={`w-4 h-4 mr-2 ${syncMutation.isPending ? "animate-spin" : ""}`} />
+            Synchronizovat
+          </Button>
+        </div>
       </div>
 
       <Card>
-        <CardContent className="p-0">
+        <CardContent className="p-0 overflow-x-auto">
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Modul</TableHead>
-                {ACTION_COLUMNS.map(col => (
-                  <TableHead key={col.key} className="text-center">{col.label}</TableHead>
-                ))}
+                <TableHead className="min-w-[200px]">Modul</TableHead>
+                {ACTION_COLUMNS.map(col => {
+                  const colAllChecked = MODULES.every(mod => {
+                    const perm = getPermission(mod.key);
+                    return perm ? !!(perm as any)[col.key] : false;
+                  });
+                  return (
+                    <TableHead key={col.key} className="text-center">
+                      <div className="flex flex-col items-center gap-1">
+                        <span>{col.label}</span>
+                        <Checkbox
+                          checked={colAllChecked}
+                          onCheckedChange={() => handleToggleColumn(col.key)}
+                          disabled={updateMutation.isPending}
+                          data-testid={`checkbox-col-all-${col.key}`}
+                        />
+                      </div>
+                    </TableHead>
+                  );
+                })}
+                <TableHead className="text-center w-[80px]">Vsetko</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {MODULES.map(mod => {
-                const perm = getPermission(mod.key);
+              {MODULE_GROUPS.map(group => {
+                const groupModules = MODULES.filter(m => m.group === group);
                 return (
-                  <TableRow key={mod.key} data-testid={`row-perm-${mod.key}`}>
-                    <TableCell className="font-medium" data-testid={`text-module-${mod.key}`}>
-                      {mod.label}
-                    </TableCell>
-                    {ACTION_COLUMNS.map(col => {
-                      const val = perm ? !!(perm as any)[col.key] : false;
+                  <Fragment key={`group-${group}`}>
+                    <TableRow className="bg-muted/40">
+                      <TableCell colSpan={ACTION_COLUMNS.length + 2} className="py-1.5">
+                        <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground" data-testid={`text-group-header-${group}`}>
+                          {group}
+                        </span>
+                      </TableCell>
+                    </TableRow>
+                    {groupModules.map(mod => {
+                      const perm = getPermission(mod.key);
+                      const rowAllChecked = ACTION_COLUMNS.every(col => perm ? !!(perm as any)[col.key] : false);
                       return (
-                        <TableCell key={col.key} className="text-center">
-                          <Checkbox
-                            checked={val}
-                            onCheckedChange={() => handleToggle(mod.key, col.key, val)}
-                            disabled={updateMutation.isPending}
-                            data-testid={`checkbox-${mod.key}-${col.key}`}
-                          />
-                        </TableCell>
+                        <TableRow key={mod.key} data-testid={`row-perm-${mod.key}`}>
+                          <TableCell className="font-medium" data-testid={`text-module-${mod.key}`}>
+                            {mod.label}
+                          </TableCell>
+                          {ACTION_COLUMNS.map(col => {
+                            const val = perm ? !!(perm as any)[col.key] : false;
+                            return (
+                              <TableCell key={col.key} className="text-center">
+                                <Checkbox
+                                  checked={val}
+                                  onCheckedChange={() => handleToggle(mod.key, col.key, val)}
+                                  disabled={updateMutation.isPending}
+                                  data-testid={`checkbox-${mod.key}-${col.key}`}
+                                />
+                              </TableCell>
+                            );
+                          })}
+                          <TableCell className="text-center">
+                            <Checkbox
+                              checked={rowAllChecked}
+                              onCheckedChange={() => handleToggleRow(mod.key)}
+                              disabled={updateMutation.isPending}
+                              data-testid={`checkbox-row-all-${mod.key}`}
+                            />
+                          </TableCell>
+                        </TableRow>
                       );
                     })}
-                  </TableRow>
+                  </Fragment>
                 );
               })}
             </TableBody>

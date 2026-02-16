@@ -1113,9 +1113,12 @@ export class DatabaseStorage implements IStorage {
 
   async syncPermissionsTable() {
     const MODULES = [
-      'dashboard', 'spolocnosti', 'partneri', 'produkty',
-      'provizie', 'subjekty', 'nastavenia', 'historia',
-      'pouzivatelia', 'skupiny_pravomoci'
+      'dashboard', 'spolocnosti', 'staty', 'partneri', 'produkty',
+      'subjekty', 'zmluvy', 'evidencia_zmluv', 'supisky', 'sektory',
+      'provizie', 'odmeny', 'sadzby',
+      'kalendar', 'novinky', 'dokumenty',
+      'nastavenia', 'historia', 'pouzivatelia', 'skupiny_pravomoci',
+      'archiv', 'pravidla_typov'
     ];
     const groups = await this.getPermissionGroups();
     for (const group of groups) {
