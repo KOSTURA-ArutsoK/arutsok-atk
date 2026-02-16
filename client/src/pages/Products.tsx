@@ -123,7 +123,16 @@ function ProductFormDialog({
       toast({ title: "Uspech", description: "Produkt vytvoreny" });
       onOpenChange(false);
     },
-    onError: () => toast({ title: "Chyba", description: "Nepodarilo sa vytvorit produkt", variant: "destructive" }),
+    onError: (err: any) => {
+      let msg = "Nepodarilo sa vytvorit produkt";
+      try {
+        const text = err?.message || "";
+        const jsonPart = text.replace(/^\d+:\s*/, "");
+        const data = JSON.parse(jsonPart);
+        if (data?.message) msg = data.message;
+      } catch {}
+      toast({ title: "Chyba", description: msg, variant: "destructive" });
+    },
   });
 
   const updateMutation = useMutation({
