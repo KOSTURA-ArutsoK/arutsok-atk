@@ -935,6 +935,9 @@ export default function Contracts() {
   const [activeFolder, setActiveFolder] = useState<number>(1);
   const [searchQuery, setSearchQuery] = useState("");
   const [duplicateModal, setDuplicateModal] = useState<{ open: boolean; subjectName?: string }>({ open: false });
+  const [preSelectOpen, setPreSelectOpen] = useState(false);
+  const [preSelectPartnerId, setPreSelectPartnerId] = useState<string>("");
+  const [preSelectProductId, setPreSelectProductId] = useState<string>("");
   const [importDialogOpen, setImportDialogOpen] = useState(false);
   const [importFile, setImportFile] = useState<File | null>(null);
   const [importResult, setImportResult] = useState<{ total: number; success: number; errors: number; details: any[] } | null>(null);
@@ -1417,6 +1420,83 @@ export default function Contracts() {
     </Dialog>
   );
 
+  const preSelectFilteredProducts = (() => {
+    if (!products) return [];
+    if (!preSelectPartnerId) return products.filter(p => !p.isDeleted);
+    return products.filter(p => !p.isDeleted && p.partnerId === parseInt(preSelectPartnerId));
+  })();
+
+  const handlePreSelectConfirm = () => {
+    const params = new URLSearchParams();
+    if (preSelectPartnerId) params.set("partnerId", preSelectPartnerId);
+    if (preSelectProductId) params.set("productId", preSelectProductId);
+    const qs = params.toString();
+    navigate(`/contracts/new${qs ? `?${qs}` : ""}`);
+    setPreSelectOpen(false);
+    setPreSelectPartnerId("");
+    setPreSelectProductId("");
+  };
+
+  const handleOpenPreSelect = () => {
+    setPreSelectPartnerId("");
+    setPreSelectProductId("");
+    setPreSelectOpen(true);
+  };
+
+  const preSelectDialog = (
+    <Dialog open={preSelectOpen} onOpenChange={setPreSelectOpen}>
+      <DialogContent className="max-w-[500px]" data-testid="dialog-pre-select-contract">
+        <DialogHeader>
+          <DialogTitle data-testid="text-preselect-title">Nova zmluva - vyber partnera a produktu</DialogTitle>
+        </DialogHeader>
+        <div className="space-y-4">
+          <p className="text-sm text-muted-foreground">
+            Vyberte partnera a produkt pre rychle predvyplnenie zmluvy. Mozete tiez preskocit a vyplnit rucne.
+          </p>
+
+          <div className="space-y-1">
+            <label className="text-xs font-medium">Partner</label>
+            <Select value={preSelectPartnerId} onValueChange={(v) => { setPreSelectPartnerId(v); setPreSelectProductId(""); }}>
+              <SelectTrigger data-testid="select-preselect-partner">
+                <SelectValue placeholder="Vyberte partnera (volitelne)" />
+              </SelectTrigger>
+              <SelectContent>
+                {partners?.filter(p => !p.isDeleted).map(p => (
+                  <SelectItem key={p.id} value={p.id.toString()} data-testid={`option-preselect-partner-${p.id}`}>{p.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="space-y-1">
+            <label className="text-xs font-medium">Produkt z katalogu</label>
+            <Select value={preSelectProductId} onValueChange={setPreSelectProductId} disabled={!preSelectPartnerId}>
+              <SelectTrigger data-testid="select-preselect-product">
+                <SelectValue placeholder={preSelectPartnerId ? "Vyberte produkt (volitelne)" : "Najprv vyberte partnera"} />
+              </SelectTrigger>
+              <SelectContent>
+                {preSelectFilteredProducts.map(p => (
+                  <SelectItem key={p.id} value={p.id.toString()} data-testid={`option-preselect-product-${p.id}`}>
+                    {p.name} {p.code ? `(${p.code})` : ""}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="flex justify-end gap-2">
+            <Button variant="outline" onClick={() => { navigate("/contracts/new"); setPreSelectOpen(false); }} data-testid="button-preselect-skip">
+              Preskocit
+            </Button>
+            <Button onClick={handlePreSelectConfirm} data-testid="button-preselect-confirm">
+              Pokracovat
+            </Button>
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+
   if (isEvidencia) {
     const filteredNahravanie = filterBySearch(activeContracts);
     const filteredRejected = filterBySearch(activeRejected);
@@ -1424,6 +1504,7 @@ export default function Contracts() {
 
     return (
       <div className="p-6 space-y-4">
+        {preSelectDialog}
         <div className="flex items-center justify-between gap-4 flex-wrap">
           <div className="flex items-center gap-1.5">
             <h1 className="text-2xl font-bold" data-testid="text-page-title">Spracovanie zmlúv</h1>
@@ -1434,7 +1515,7 @@ export default function Contracts() {
               <Upload className="w-4 h-4 mr-2" />
               Import z Excelu
             </Button>
-            <Button onClick={() => navigate("/contracts/new")} data-testid="button-create-contract">
+            <Button onClick={handleOpenPreSelect} data-testid="button-create-contract">
               <Plus className="w-4 h-4 mr-2" />
               Pridat zmluvu
             </Button>
@@ -1713,6 +1794,7 @@ export default function Contracts() {
 
   return (
     <div className="p-6 space-y-6">
+      {preSelectDialog}
       <div className="flex items-center justify-between gap-4 flex-wrap">
         <div className="flex items-center gap-1.5">
           <h1 className="text-2xl font-bold" data-testid="text-page-title">Evidencia zmlúv</h1>

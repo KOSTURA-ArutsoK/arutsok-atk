@@ -5,7 +5,7 @@ import { useAppUser } from "@/hooks/use-app-user";
 import { useStates } from "@/hooks/use-hierarchy";
 import { useToast } from "@/hooks/use-toast";
 import { useLocation, useParams } from "wouter";
-import type { Contract, ContractStatus, ContractStatusChangeLog, ContractTemplate, ContractInventory, Subject, Partner, MyCompany, Sector, Section, SectorProduct, ContractPassword, ContractParameterValue, ContractFieldSetting } from "@shared/schema";
+import type { Contract, ContractStatus, ContractStatusChangeLog, ContractTemplate, ContractInventory, Subject, Partner, Product, MyCompany, Sector, Section, SectorProduct, ContractPassword, ContractParameterValue, ContractFieldSetting, ClientType, ClientTypeField } from "@shared/schema";
 import { ArrowLeft, Save, Loader2, LayoutGrid, KeyRound, Plus, Trash2, FileText, Users, ClipboardList, FolderOpen, FolderClosed, DollarSign, BarChart3, ListChecks, PieChart, ChevronLeft, ChevronRight, MessageSquare, Paperclip, Upload, X, Eye, Settings2, Calendar } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -693,6 +693,7 @@ export default function ContractForm() {
   const [contractSectionId, setContractSectionId] = useState<string>("");
   const [sectorProductId, setSectorProductIdRaw] = useState<string>("");
   const [panelValues, setPanelValues] = useState<Record<string, string>>({});
+  const [clientTypeFieldValues, setClientTypeFieldValues] = useState<Record<string, string>>({});
 
   const setSectorProductId = useCallback((val: string) => {
     setSectorProductIdRaw(val);
@@ -859,6 +860,71 @@ export default function ContractForm() {
     queryKey: ["/api/contract-field-settings"],
   });
 
+  const { data: clientTypes } = useQuery<ClientType[]>({
+    queryKey: ["/api/client-types"],
+  });
+
+  const selectedSubject = subjects?.find(s => s.id === (subjectId ? parseInt(subjectId) : -1));
+  const subjectTypeToClientCode: Record<string, string> = { person: "FO", company: "PO", szco: "SZCO" };
+  const matchedClientTypeCode = selectedSubject?.type ? subjectTypeToClientCode[selectedSubject.type] || null : null;
+  const matchedClientType = matchedClientTypeCode ? clientTypes?.find(ct => ct.code === matchedClientTypeCode) : null;
+
+  const { data: clientTypeFields } = useQuery<ClientTypeField[]>({
+    queryKey: ["/api/client-types", matchedClientType?.id, "fields"],
+    queryFn: async () => {
+      const res = await fetch(`/api/client-types/${matchedClientType!.id}/fields`, { credentials: "include" });
+      if (!res.ok) throw new Error("Failed");
+      return res.json();
+    },
+    enabled: !!matchedClientType?.id,
+  });
+
+  const urlQueryParams = typeof window !== "undefined" ? new URLSearchParams(window.location.search) : new URLSearchParams();
+  const urlPartnerId = urlQueryParams.get("partnerId") || "";
+  const urlProductId = urlQueryParams.get("productId") || "";
+  const [preSelectApplied, setPreSelectApplied] = useState(false);
+
+  const { data: catalogProducts } = useQuery<Product[]>({
+    queryKey: ["/api/products"],
+    enabled: !!urlProductId,
+  });
+
+  useEffect(() => {
+    if (preSelectApplied || isEditing) return;
+    if (!urlPartnerId && !urlProductId) return;
+    if (!allSPForEdit || !allSectionsForEdit) return;
+    if (urlProductId && !catalogProducts) return;
+
+    if (urlPartnerId) {
+      setPartnerId(urlPartnerId);
+    }
+
+    if (urlProductId && catalogProducts) {
+      const catProduct = catalogProducts.find(p => p.id === parseInt(urlProductId));
+      if (catProduct) {
+        const matchingSP = allSPForEdit.find(sp =>
+          sp.partnerId === catProduct.partnerId && sp.name === catProduct.name
+        ) || allSPForEdit.find(sp =>
+          sp.partnerId === parseInt(urlPartnerId)
+        );
+
+        if (matchingSP) {
+          const sec = allSectionsForEdit.find(s => s.id === matchingSP.sectionId);
+          if (sec) {
+            setContractSectorId(sec.sectorId.toString());
+            setContractSectionId(sec.id.toString());
+            setSectorProductIdRaw(matchingSP.id.toString());
+          }
+        }
+      }
+    }
+
+    setPreSelectApplied(true);
+    if (urlPartnerId || urlProductId) {
+      setActiveTab("udaje-klient");
+    }
+  }, [isEditing, urlPartnerId, urlProductId, allSPForEdit, allSectionsForEdit, catalogProducts, preSelectApplied]);
+
   useEffect(() => {
     timerRef.current = performance.now();
   }, []);
@@ -905,6 +971,17 @@ export default function ContractForm() {
           }
         }
       }
+    }
+
+    const existingDynamic = existingContract.dynamicPanelValues || {};
+    const ctValues: Record<string, string> = {};
+    for (const [key, value] of Object.entries(existingDynamic)) {
+      if (key.startsWith("ct_")) {
+        ctValues[key.slice(3)] = value;
+      }
+    }
+    if (Object.keys(ctValues).length > 0) {
+      setClientTypeFieldValues(ctValues);
     }
   }, [existingContract, allSPForEdit, allSectionsForEdit]);
 
@@ -1036,7 +1113,7 @@ export default function ContractForm() {
       proposalNumber: proposalNumber || null,
       subjectId: subjectId ? parseInt(subjectId) : null,
       partnerId: partnerId ? parseInt(partnerId) : null,
-      productId: null,
+      productId: urlProductId ? parseInt(urlProductId) : null,
       sectorProductId: sectorProductId ? parseInt(sectorProductId) : null,
       statusId: statusId ? parseInt(statusId) : null,
       templateId: templateId ? parseInt(templateId) : null,
@@ -1055,7 +1132,9 @@ export default function ContractForm() {
       currency,
       notes: notes || null,
       processingTimeSec,
-      dynamicPanelValues: Object.keys(panelValues).length > 0 ? panelValues : undefined,
+      dynamicPanelValues: Object.keys(panelValues).length > 0 || Object.keys(clientTypeFieldValues).length > 0
+        ? { ...panelValues, ...Object.fromEntries(Object.entries(clientTypeFieldValues).map(([k, v]) => [`ct_${k}`, v])) }
+        : undefined,
     };
 
     if (isEditing) {
@@ -1402,6 +1481,75 @@ export default function ContractForm() {
                           <span>{subjects?.find(s => s.id === (subjectId ? parseInt(subjectId) : -1))?.phone}</span>
                         </div>
                       </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+
+              <div style={{ display: subjectId && matchedClientType && clientTypeFields && clientTypeFields.length > 0 ? 'block' : 'none' }}>
+                <Card className="mt-3">
+                  <CardContent className="p-3 space-y-2">
+                    <div className="flex items-center gap-2">
+                      <Settings2 className="w-4 h-4 text-primary" />
+                      <h3 className="text-sm font-semibold" data-testid="text-client-type-rules-title">
+                        Dynamicke polia ({matchedClientType?.name || ""})
+                      </h3>
+                      <Badge variant="outline" className="text-xs" data-testid="badge-client-type">{matchedClientType?.code}</Badge>
+                    </div>
+                    <div className="grid grid-cols-2 gap-2">
+                      {(clientTypeFields || []).map(field => (
+                        <div key={field.id} className="space-y-0.5" data-testid={`client-type-field-${field.id}`}>
+                          <label className="text-xs font-medium">
+                            {field.label}
+                            <span style={{ display: field.isRequired ? 'inline' : 'none' }}><span className="text-destructive ml-1">*</span></span>
+                          </label>
+                          <div style={{ display: field.fieldType === "textarea" ? 'block' : 'none' }}>
+                            <Textarea
+                              value={clientTypeFieldValues[field.fieldKey] || field.defaultValue || ""}
+                              onChange={e => setClientTypeFieldValues(prev => ({ ...prev, [field.fieldKey]: e.target.value }))}
+                              rows={2}
+                              data-testid={`input-ct-field-${field.fieldKey}`}
+                            />
+                          </div>
+                          <div style={{ display: field.fieldType === "boolean" ? 'block' : 'none' }}>
+                            <Select
+                              value={clientTypeFieldValues[field.fieldKey] || field.defaultValue || ""}
+                              onValueChange={val => setClientTypeFieldValues(prev => ({ ...prev, [field.fieldKey]: val }))}
+                            >
+                              <SelectTrigger data-testid={`select-ct-field-${field.fieldKey}`}>
+                                <SelectValue placeholder="Vyberte" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="ano">Ano</SelectItem>
+                                <SelectItem value="nie">Nie</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+                          <div style={{ display: (field.fieldType === "combobox" || field.fieldType === "jedna_moznost") && (field.options as string[] || []).length > 0 ? 'block' : 'none' }}>
+                            <Select
+                              value={clientTypeFieldValues[field.fieldKey] || field.defaultValue || ""}
+                              onValueChange={val => setClientTypeFieldValues(prev => ({ ...prev, [field.fieldKey]: val }))}
+                            >
+                              <SelectTrigger data-testid={`select-ct-field-${field.fieldKey}`}>
+                                <SelectValue placeholder="Vyberte" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {((field.options as string[]) || []).map(opt => (
+                                  <SelectItem key={opt} value={opt}>{opt}</SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+                          <div style={{ display: field.fieldType !== "textarea" && field.fieldType !== "boolean" && !((field.fieldType === "combobox" || field.fieldType === "jedna_moznost") && (field.options as string[] || []).length > 0) ? 'block' : 'none' }}>
+                            <Input
+                              type={field.fieldType === "number" || field.fieldType === "currency" || field.fieldType === "percent" ? "number" : field.fieldType === "date" ? "date" : field.fieldType === "email" ? "email" : "text"}
+                              value={clientTypeFieldValues[field.fieldKey] || field.defaultValue || ""}
+                              onChange={e => setClientTypeFieldValues(prev => ({ ...prev, [field.fieldKey]: e.target.value }))}
+                              data-testid={`input-ct-field-${field.fieldKey}`}
+                            />
+                          </div>
+                        </div>
+                      ))}
                     </div>
                   </CardContent>
                 </Card>
