@@ -679,6 +679,7 @@ export default function ContractForm() {
   const [specialistaUid, setSpecialistaUid] = useState("");
   const [zakonnyZastupcaUid, setZakonnyZastupcaUid] = useState("");
   const [konatelUid, setKonatelUid] = useState("");
+  const [szcoUid, setSzcoUid] = useState("");
 
   const [contractSectorId, setContractSectorId] = useState<string>("");
   const [contractSectionId, setContractSectionId] = useState<string>("");
@@ -891,6 +892,7 @@ export default function ContractForm() {
       setSpecialistaUid(existingContract.specialistaUid || "");
       setZakonnyZastupcaUid((existingContract as any).zakonnyZastupcaUid || "");
       setKonatelUid((existingContract as any).konatelUid || "");
+      setSzcoUid((existingContract as any).szcoUid || "");
 
       const spId = existingContract.sectorProductId;
       if (spId) {
@@ -1058,6 +1060,7 @@ export default function ContractForm() {
       specialistaUid: specialistaUid && specialistaUid !== "__none__" ? specialistaUid : null,
       zakonnyZastupcaUid: zakonnyZastupcaUid && zakonnyZastupcaUid !== "__none__" ? zakonnyZastupcaUid : null,
       konatelUid: konatelUid && konatelUid !== "__none__" ? konatelUid : null,
+      szcoUid: szcoUid && szcoUid !== "__none__" ? szcoUid : null,
       processingTimeSec,
       dynamicPanelValues: Object.keys(panelValues).length > 0 ? panelValues : undefined,
     };
@@ -1386,6 +1389,19 @@ export default function ContractForm() {
                       <SelectItem value="__none__">-- Ziadny --</SelectItem>
                       {subjects?.filter(s => s.isActive && s.uid).map(s => (
                         <SelectItem key={s.uid} value={s.uid!}>{s.uid} - {s.firstName || ''} {s.lastName || ''}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </CompactField>
+                <CompactField label="SZCO (UID)">
+                  <Select value={szcoUid} onValueChange={setSzcoUid}>
+                    <SelectTrigger data-testid="select-szco-uid">
+                      <SelectValue placeholder="Vyber SZCO..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="__none__">-- Ziadny --</SelectItem>
+                      {subjects?.filter(s => s.isActive && s.uid).map(s => (
+                        <SelectItem key={s.uid} value={s.uid!}>{s.uid} - {s.firstName || ''} {s.lastName || ''}{s.companyName ? ` (${s.companyName})` : ''}</SelectItem>
                       ))}
                     </SelectContent>
                   </Select>

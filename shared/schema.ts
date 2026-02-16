@@ -646,6 +646,7 @@ export const contracts = pgTable("contracts", {
   specialistaUid: text("specialista_uid"),
   zakonnyZastupcaUid: text("zakonny_zastupca_uid"),
   konatelUid: text("konatel_uid"),
+  szcoUid: text("szco_uid"),
   requiredPermissionLevel: integer("required_permission_level").default(1),
   processingTimeSec: integer("processing_time_sec").default(0),
   isLocked: boolean("is_locked").default(false),

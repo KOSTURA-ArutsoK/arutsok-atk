@@ -1850,7 +1850,7 @@ export async function registerRoutes(
     if (!userUid) return 'full';
     if (userRole === 'superadmin' || userRole === 'admin') return 'full';
     if (contract.ziskatelUid === userUid || contract.specialistaUid === userUid) return 'full';
-    if (contract.klientUid === userUid || contract.zakonnyZastupcaUid === userUid || contract.konatelUid === userUid) return 'klient';
+    if (contract.klientUid === userUid || contract.zakonnyZastupcaUid === userUid || contract.konatelUid === userUid || contract.szcoUid === userUid) return 'klient';
     return 'full';
   }
 
@@ -1961,6 +1961,7 @@ export async function registerRoutes(
           const specialistaUidVal = rowData["specialista_uid"] || rowData["specialistauid"] || rowData["specialista"] || rowData["specialista_id"] || null;
           const zakonnyZastupcaUidVal = rowData["zakonny_zastupca_uid"] || rowData["zakonny_zastupca_id"] || rowData["zastupca"] || rowData["zastupca_id"] || null;
           const konatelUidVal = rowData["konatel_uid"] || rowData["konateluid"] || rowData["konatel"] || rowData["konatel_id"] || null;
+          const szcoUidVal = rowData["szco_uid"] || rowData["szcouid"] || rowData["szco"] || rowData["szco_id"] || null;
 
           let subjectId: number | null = null;
           if (klientUidVal && uidMap.has(klientUidVal)) {
@@ -1979,6 +1980,7 @@ export async function registerRoutes(
             specialistaUid: specialistaUidVal,
             zakonnyZastupcaUid: zakonnyZastupcaUidVal,
             konatelUid: konatelUidVal,
+            szcoUid: szcoUidVal,
             premiumAmount: rowData["lehotne_poistne"] || rowData["premium"] ? parseInt(rowData["lehotne_poistne"] || rowData["premium"]) : null,
             paymentFrequency: rowData["frekvencia"] || rowData["payment_frequency"] || null,
             currency: rowData["mena"] || rowData["currency"] || "EUR",
