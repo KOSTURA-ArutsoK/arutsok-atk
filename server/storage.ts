@@ -802,9 +802,9 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getSubjects(params?: { search?: string; type?: 'person' | 'company'; isActive?: boolean }) {
-    let query = db.select().from(subjects);
+    const contractCountSub = sql<number>`(SELECT COUNT(*)::int FROM contracts WHERE contracts.subject_id = subjects.id)`;
     const conditions = [];
-    
+
     if (params?.search) {
       conditions.push(
         or(
@@ -817,9 +817,17 @@ export class DatabaseStorage implements IStorage {
     }
     if (params?.type) conditions.push(eq(subjects.type, params.type));
     if (params?.isActive !== undefined) conditions.push(eq(subjects.isActive, params.isActive));
-    
-    if (conditions.length > 0) return await query.where(and(...conditions));
-    return await query;
+
+    const query = db.select({
+      subject: subjects,
+      contractCount: contractCountSub,
+    }).from(subjects);
+
+    const rows = conditions.length > 0
+      ? await query.where(and(...conditions))
+      : await query;
+
+    return rows.map(r => ({ ...r.subject, contractCount: r.contractCount ?? 0 }));
   }
 
   async getSubject(id: number) {

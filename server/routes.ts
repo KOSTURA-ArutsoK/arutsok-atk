@@ -746,9 +746,29 @@ export async function registerRoutes(
       type: req.query.type as 'person' | 'company',
       isActive: req.query.isActive === 'true' ? true : req.query.isActive === 'false' ? false : undefined,
     };
-    const subjects = await storage.getSubjects(params);
-    res.json(subjects.map((s: any) => maskSubjectBirthNumber(s, req.appUser)));
+    let allSubjects = await storage.getSubjects(params);
+
+    const statusFiltersRaw = req.query.statusFilters as string | undefined;
+    const activeCompanyId = req.query.activeCompanyId ? Number(req.query.activeCompanyId) : undefined;
+
+    if (statusFiltersRaw) {
+      const filters = statusFiltersRaw.split(",").map((f: string) => f.trim());
+      allSubjects = allSubjects.filter((s: any) => {
+        const status = getSubjectStatusCategory(s, activeCompanyId);
+        return filters.includes(status);
+      });
+    }
+
+    res.json(allSubjects.map((s: any) => maskSubjectBirthNumber(s, req.appUser)));
   });
+
+  function getSubjectStatusCategory(subject: any, activeCompanyId?: number): string {
+    if (subject.isDeceased) return "deceased";
+    if (!subject.isActive) return "inactive";
+    if (activeCompanyId && subject.myCompanyId !== activeCompanyId) return "other_company";
+    if ((subject.contractCount ?? 0) === 0) return "no_contract";
+    return "active";
+  }
 
   app.get(api.subjects.get.path, async (req: any, res) => {
     const subject = await storage.getSubject(Number(req.params.id));

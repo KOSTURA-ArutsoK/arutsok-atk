@@ -12,13 +12,17 @@ export type CareerHistoryEntry = {
   isActive: boolean;
 };
 
-export function useSubjects(filters?: { search?: string; type?: 'person' | 'company' }) {
+export function useSubjects(filters?: { search?: string; type?: 'person' | 'company'; statusFilters?: string[]; activeCompanyId?: number }) {
   const params = new URLSearchParams();
   if (filters?.search) params.append("search", filters.search);
   if (filters?.type) params.append("type", filters.type);
+  if (filters?.statusFilters && filters.statusFilters.length > 0) {
+    params.append("statusFilters", filters.statusFilters.join(","));
+  }
+  if (filters?.activeCompanyId) params.append("activeCompanyId", String(filters.activeCompanyId));
   const qs = params.toString();
 
-  return useQuery<Subject[]>({
+  return useQuery<(Subject & { contractCount: number })[]>({
     queryKey: ["/api/subjects", filters],
     queryFn: async () => {
       const res = await fetch(`/api/subjects${qs ? `?${qs}` : ""}`, { credentials: "include" });

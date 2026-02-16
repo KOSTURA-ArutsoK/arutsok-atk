@@ -865,12 +865,28 @@ function FullPageEditor({
   );
 }
 
-function getSubjectStatus(subject: Subject): { color: string; label: string } {
-  if (subject.isDeleted) return { color: "bg-gray-400", label: "Vymazany" };
-  if (!subject.isActive) return { color: "bg-red-500", label: "Neaktivny" };
-  if (subject.kikId) return { color: "bg-blue-500", label: "KIK" };
-  if (subject.iban) return { color: "bg-emerald-500", label: "Overeny" };
-  return { color: "bg-amber-500", label: "Aktivny" };
+type SubjectStatusCategory = "other_company" | "deceased" | "no_contract" | "active" | "inactive";
+
+const STATUS_CONFIG: Record<SubjectStatusCategory, { color: string; bgColor: string; borderColor: string; shadowColor: string; label: string }> = {
+  other_company: { color: "bg-gray-400", bgColor: "bg-gray-500/20", borderColor: "border-gray-400", shadowColor: "shadow-gray-400/40", label: "Ina spolocnost" },
+  deceased: { color: "bg-black dark:bg-gray-200", bgColor: "bg-black/20 dark:bg-gray-200/20", borderColor: "border-black dark:border-gray-200", shadowColor: "shadow-black/40 dark:shadow-gray-200/40", label: "Zosnuly" },
+  no_contract: { color: "bg-blue-500", bgColor: "bg-blue-500/20", borderColor: "border-blue-500", shadowColor: "shadow-blue-500/40", label: "Bez zmluvy" },
+  active: { color: "bg-emerald-500", bgColor: "bg-emerald-500/20", borderColor: "border-emerald-500", shadowColor: "shadow-emerald-500/40", label: "Aktivny" },
+  inactive: { color: "bg-red-500", bgColor: "bg-red-500/20", borderColor: "border-red-500", shadowColor: "shadow-red-500/40", label: "Neaktivny" },
+};
+
+function getSubjectStatusCategory(subject: any, activeCompanyId?: number): SubjectStatusCategory {
+  if ((subject as any).isDeceased) return "deceased";
+  if (!subject.isActive) return "inactive";
+  if (activeCompanyId && subject.myCompanyId !== activeCompanyId) return "other_company";
+  if ((subject.contractCount ?? 0) === 0) return "no_contract";
+  return "active";
+}
+
+function getSubjectStatus(subject: any, activeCompanyId?: number): { color: string; label: string; category: SubjectStatusCategory } {
+  const category = getSubjectStatusCategory(subject, activeCompanyId);
+  const config = STATUS_CONFIG[category];
+  return { color: config.color, label: config.label, category };
 }
 
 function BulkAssignDialog({ selectedIds, onClose, groups }: { selectedIds: Set<number>; onClose: () => void; groups: any[] }) {
@@ -929,6 +945,8 @@ function BulkAssignDialog({ selectedIds, onClose, groups }: { selectedIds: Set<n
   );
 }
 
+const FILTER_ORDER: SubjectStatusCategory[] = ["other_company", "deceased", "no_contract", "active", "inactive"];
+
 export default function Subjects() {
   const [search, setSearch] = useState("");
   const [isInitModalOpen, setIsInitModalOpen] = useState(false);
@@ -936,9 +954,29 @@ export default function Subjects() {
   const [viewTarget, setViewTarget] = useState<Subject | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
   const [bulkAssignOpen, setBulkAssignOpen] = useState(false);
-  const { data: subjects, isLoading } = useSubjects({ search: search || undefined });
+  const [activeFilters, setActiveFilters] = useState<Set<SubjectStatusCategory>>(new Set());
+  const { data: appUser } = useAppUser();
+  const activeCompanyId = appUser?.activeCompanyId ?? undefined;
+
+  const { data: subjects, isLoading } = useSubjects({
+    search: search || undefined,
+    statusFilters: activeFilters.size > 0 ? Array.from(activeFilters) : undefined,
+    activeCompanyId,
+  });
   const { data: companies } = useMyCompanies();
   const { data: clientGroups } = useQuery<any[]>({ queryKey: ["/api/client-groups"] });
+
+  function toggleFilter(category: SubjectStatusCategory) {
+    setActiveFilters(prev => {
+      const next = new Set(prev);
+      if (next.has(category)) {
+        next.delete(category);
+      } else {
+        next.add(category);
+      }
+      return next;
+    });
+  }
 
   if (editData) {
     return (
@@ -965,7 +1003,33 @@ export default function Subjects() {
         </Button>
       </div>
 
-      <div className="flex gap-4 items-center">
+      <div className="flex flex-col gap-4">
+        <div className="flex items-center gap-2 flex-wrap" data-testid="panel-status-filters">
+          {FILTER_ORDER.map(category => {
+            const config = STATUS_CONFIG[category];
+            const isActive = activeFilters.has(category);
+            return (
+              <button
+                key={category}
+                type="button"
+                onClick={() => toggleFilter(category)}
+                aria-pressed={isActive}
+                className={`
+                  flex items-center gap-2 px-3 py-1.5 rounded-md border-2 text-xs font-medium transition-all duration-200 cursor-pointer select-none
+                  ${isActive
+                    ? `${config.borderColor} ${config.bgColor} ${config.shadowColor} shadow-md`
+                    : "border-border/40 bg-muted/30 opacity-60 hover:opacity-80"
+                  }
+                `}
+                data-testid={`button-filter-${category}`}
+                data-active={isActive}
+              >
+                <span className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${config.color}`} />
+                <span>{config.label}</span>
+              </button>
+            );
+          })}
+        </div>
         <div className="relative flex-1 max-w-md">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
           <Input
@@ -997,7 +1061,7 @@ export default function Subjects() {
               <TableRow>
                 <TableHead className="w-10">
                   <input type="checkbox" 
-                    checked={subjects?.length > 0 && selectedIds.size === subjects.length}
+                    checked={(subjects?.length ?? 0) > 0 && selectedIds.size === (subjects?.length ?? 0)}
                     onChange={(e) => {
                       if (e.target.checked && subjects) {
                         setSelectedIds(new Set(subjects.map(s => s.id)));
@@ -1055,7 +1119,7 @@ export default function Subjects() {
                   </TableCell>
                   <TableCell>
                     {(() => {
-                      const status = getSubjectStatus(subject);
+                      const status = getSubjectStatus(subject, activeCompanyId);
                       return (
                         <div className="flex items-center gap-2" data-testid={`status-subject-${subject.id}`}>
                           <span className={`w-2.5 h-2.5 rounded-full ${status.color} flex-shrink-0`} />
