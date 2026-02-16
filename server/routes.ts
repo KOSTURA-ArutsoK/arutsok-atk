@@ -2004,8 +2004,11 @@ export async function registerRoutes(
       if (!type || !value || !stateId) {
         return res.status(400).json({ message: "type, value a stateId su povinne" });
       }
-      const allSubjects = await storage.getSubjects();
       const stateIdNum = parseInt(stateId as string);
+      if (isNaN(stateIdNum)) {
+        return res.status(400).json({ message: "Neplatne stateId" });
+      }
+      const allSubjects = await storage.getSubjects();
       const val = (value as string).trim();
       let found = null;
       if (type === "rodne_cislo") {

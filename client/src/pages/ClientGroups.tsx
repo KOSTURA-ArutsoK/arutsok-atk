@@ -49,6 +49,7 @@ function GroupDetailDialog({
   const { toast } = useToast();
   const [activeTab, setActiveTab] = useState("vseobecne");
   const [name, setName] = useState("");
+  const [entityType, setEntityType] = useState("fyzicka_osoba");
   const [allowLogin, setAllowLogin] = useState(true);
   const [allowCalculators, setAllowCalculators] = useState(true);
   const [permissionGroupId, setPermissionGroupId] = useState("");
@@ -63,11 +64,13 @@ function GroupDetailDialog({
     if (open) {
       if (group) {
         setName(group.name || "");
+        setEntityType((group as any).entityType || "fyzicka_osoba");
         setAllowLogin(group.allowLogin ?? true);
         setAllowCalculators(group.allowCalculators ?? true);
         setPermissionGroupId(group.permissionGroupId ? String(group.permissionGroupId) : "");
       } else {
         setName("");
+        setEntityType("fyzicka_osoba");
         setAllowLogin(true);
         setAllowCalculators(true);
         setPermissionGroupId("");
@@ -185,7 +188,7 @@ function GroupDetailDialog({
 
   const handleSave = () => {
     const processingTimeSec = Math.floor((Date.now() - startTimeRef.current) / 1000);
-    const data: any = { name, allowLogin, allowCalculators, permissionGroupId: permissionGroupId ? parseInt(permissionGroupId) : null };
+    const data: any = { name, entityType, allowLogin, allowCalculators, permissionGroupId: permissionGroupId ? parseInt(permissionGroupId) : null };
     if (isEditing) {
       updateMutation.mutate(data);
     } else {
@@ -222,6 +225,19 @@ function GroupDetailDialog({
                 placeholder="Zadajte nazov skupiny"
                 data-testid="input-group-name"
               />
+            </div>
+
+            <div className="space-y-2">
+              <Label>Typ subjektu</Label>
+              <Select value={entityType} onValueChange={setEntityType}>
+                <SelectTrigger data-testid="select-entity-type">
+                  <SelectValue placeholder="Vyberte typ subjektu" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="fyzicka_osoba">Fyzicka osoba</SelectItem>
+                  <SelectItem value="pravnicka_osoba">Pravnicka osoba / SZCO</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
 
             <div className="flex items-center justify-between gap-4 p-3 rounded-md border">

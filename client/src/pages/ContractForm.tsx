@@ -641,14 +641,19 @@ export default function ContractForm() {
   const contractId = params?.id ? parseInt(params.id) : null;
   const isEditing = !!contractId;
 
+  const queryParams = new URLSearchParams(window.location.search);
+  const qClientGroupId = queryParams.get("clientGroupId") || "";
+  const qIdentifierType = queryParams.get("identifierType") || "";
+  const qIdentifierValue = queryParams.get("identifierValue") || "";
+
   const [activeTab, setActiveTab] = useState<TabKey>("vseobecne");
   const [passwordsOpen, setPasswordsOpen] = useState(false);
   const timerRef = useRef<number>(0);
 
   const [contractNumber, setContractNumber] = useState("");
-  const [clientGroupId, setClientGroupId] = useState<string>("");
-  const [identifierType, setIdentifierType] = useState<string>("");
-  const [identifierValue, setIdentifierValue] = useState<string>("");
+  const [clientGroupId, setClientGroupId] = useState<string>(qClientGroupId);
+  const [identifierType, setIdentifierType] = useState<string>(qIdentifierType);
+  const [identifierValue, setIdentifierValue] = useState<string>(qIdentifierValue);
   const [identifierWarning, setIdentifierWarning] = useState<string | null>(null);
   const [proposalNumber, setProposalNumber] = useState("");
   const [subjectId, setSubjectId] = useState<string>("");
@@ -1231,54 +1236,74 @@ export default function ContractForm() {
 
               <div className="grid grid-cols-2 gap-[clamp(0.5rem,1vw,1rem)]">
                 <CompactField label="Typ osoby *">
-                  <Select value={clientGroupId} onValueChange={setClientGroupId}>
-                    <SelectTrigger data-testid="select-cf-client-group">
-                      <SelectValue placeholder="Vyberte typ osoby" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {clientGroups?.map(g => (
-                        <SelectItem key={g.id} value={g.id.toString()}>{g.name}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </CompactField>
-                <CompactField label="Zakladny identifikator">
-                  <div className="flex gap-2">
-                    <Select value={identifierType} onValueChange={(val) => { setIdentifierType(val); setIdentifierValue(""); setIdentifierWarning(null); }}>
-                      <SelectTrigger className="w-[160px]" data-testid="select-cf-identifier-type">
-                        <SelectValue placeholder="Typ" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="ico">ICO</SelectItem>
-                        <SelectItem value="rodne_cislo">Rodne cislo</SelectItem>
-                      </SelectContent>
-                    </Select>
+                  <div style={{ display: !isEditing && qClientGroupId ? 'block' : 'none' }}>
                     <Input
-                      value={identifierValue}
-                      onChange={e => { setIdentifierValue(e.target.value); setIdentifierWarning(null); }}
-                      onBlur={async () => {
-                        if (!identifierValue.trim() || !identifierType) return;
-                        const stId = appUser?.activeStateId;
-                        if (!stId) return;
-                        try {
-                          const res = await fetch(`/api/subjects/check-identifier?type=${identifierType}&value=${encodeURIComponent(identifierValue.trim())}&stateId=${stId}`, { credentials: "include" });
-                          const data = await res.json();
-                          if (data.exists) {
-                            setIdentifierWarning(`Osoba s tymto ${identifierType === "ico" ? "ICO" : "rodnym cislom"} uz existuje v zozname klientov: ${data.subjectName} (${data.subjectUid})`);
-                          }
-                        } catch {}
-                      }}
-                      placeholder={identifierType === "ico" ? "Zadajte ICO" : identifierType === "rodne_cislo" ? "Zadajte rodne cislo" : "Najprv vyberte typ"}
-                      disabled={!identifierType}
-                      data-testid="input-cf-identifier-value"
+                      value={clientGroups?.find(g => g.id.toString() === clientGroupId)?.name || ""}
+                      readOnly
+                      className="bg-muted/50 cursor-default"
+                      data-testid="input-cf-client-group-readonly"
                     />
                   </div>
-                  {identifierWarning && (
-                    <div className="flex items-center gap-2 p-2 rounded-md bg-amber-500/10 mt-1" data-testid="text-cf-identifier-warning">
-                      <AlertTriangle className="w-4 h-4 text-amber-500 shrink-0" />
-                      <p className="text-xs text-amber-700 dark:text-amber-400">{identifierWarning}</p>
+                  <div style={{ display: !isEditing && qClientGroupId ? 'none' : 'block' }}>
+                    <Select value={clientGroupId} onValueChange={setClientGroupId}>
+                      <SelectTrigger data-testid="select-cf-client-group">
+                        <SelectValue placeholder="Vyberte typ osoby" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {clientGroups?.map(g => (
+                          <SelectItem key={g.id} value={g.id.toString()}>{g.name}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </CompactField>
+                <CompactField label={`Zakladny identifikator (${identifierType === "ico" ? "ICO" : "Rodne cislo"})`}>
+                  <div style={{ display: !isEditing && qClientGroupId ? 'block' : 'none' }}>
+                    <Input
+                      value={identifierValue}
+                      readOnly
+                      className="bg-muted/50 cursor-default"
+                      data-testid="input-cf-identifier-readonly"
+                    />
+                  </div>
+                  <div style={{ display: !isEditing && qClientGroupId ? 'none' : 'block' }}>
+                    <div className="flex gap-2">
+                      <Select value={identifierType} onValueChange={(val) => { setIdentifierType(val); setIdentifierValue(""); setIdentifierWarning(null); }}>
+                        <SelectTrigger className="w-[160px]" data-testid="select-cf-identifier-type">
+                          <SelectValue placeholder="Typ" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="ico">ICO</SelectItem>
+                          <SelectItem value="rodne_cislo">Rodne cislo</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <Input
+                        value={identifierValue}
+                        onChange={e => { setIdentifierValue(e.target.value); setIdentifierWarning(null); }}
+                        onBlur={async () => {
+                          if (!identifierValue.trim() || !identifierType) return;
+                          const stId = appUser?.activeStateId;
+                          if (!stId) return;
+                          try {
+                            const res = await fetch(`/api/subjects/check-identifier?type=${identifierType}&value=${encodeURIComponent(identifierValue.trim())}&stateId=${stId}`, { credentials: "include" });
+                            const data = await res.json();
+                            if (data.exists) {
+                              setIdentifierWarning(`Osoba s tymto ${identifierType === "ico" ? "ICO" : "rodnym cislom"} uz existuje v zozname klientov: ${data.subjectName} (${data.subjectUid})`);
+                            }
+                          } catch {}
+                        }}
+                        placeholder={identifierType === "ico" ? "Zadajte ICO" : identifierType === "rodne_cislo" ? "Zadajte rodne cislo" : "Najprv vyberte typ"}
+                        disabled={!identifierType}
+                        data-testid="input-cf-identifier-value"
+                      />
                     </div>
-                  )}
+                    <div style={{ display: identifierWarning ? 'block' : 'none' }}>
+                      <div className="flex items-center gap-2 p-2 rounded-md bg-amber-500/10 mt-1" data-testid="text-cf-identifier-warning">
+                        <AlertTriangle className="w-4 h-4 text-amber-500 shrink-0" />
+                        <p className="text-xs text-amber-700 dark:text-amber-400">{identifierWarning || ""}</p>
+                      </div>
+                    </div>
+                  </div>
                 </CompactField>
               </div>
 

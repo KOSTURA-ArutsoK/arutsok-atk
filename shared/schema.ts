@@ -479,6 +479,7 @@ export const clientTypeFields = pgTable("client_type_fields", {
 export const clientGroups = pgTable("client_groups", {
   id: serial("id").primaryKey(),
   name: text("name").notNull(),
+  entityType: text("entity_type").notNull().default("fyzicka_osoba"),
   allowLogin: boolean("allow_login").default(true),
   allowCalculators: boolean("allow_calculators").default(true),
   permissionLevel: integer("permission_level").notNull().default(1),
