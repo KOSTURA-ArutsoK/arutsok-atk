@@ -86,7 +86,7 @@ import {
   type ContractStatusParameter, type InsertContractStatusParameter,
   type ContractStatusChangeLog, type InsertContractStatusChangeLog,
 } from "@shared/schema";
-import { eq, and, or, ne, like, sql, lte, gte, gt, desc, isNull, isNotNull, inArray } from "drizzle-orm";
+import { eq, and, or, ne, like, sql, lte, gte, gt, desc, asc, isNull, isNotNull, inArray } from "drizzle-orm";
 
 export interface IStorage {
   generateUID(stateCode: string, continentCode?: string): Promise<string>;
@@ -627,9 +627,9 @@ export class DatabaseStorage implements IStorage {
 
   async getPartners(includeDeleted?: boolean) {
     if (includeDeleted) {
-      return await db.select().from(partners);
+      return await db.select().from(partners).orderBy(asc(partners.name));
     }
-    return await db.select().from(partners).where(eq(partners.isDeleted, false));
+    return await db.select().from(partners).where(eq(partners.isDeleted, false)).orderBy(asc(partners.name));
   }
 
   async getPartner(id: number) {
