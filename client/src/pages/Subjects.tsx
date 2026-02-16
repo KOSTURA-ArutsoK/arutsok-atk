@@ -329,14 +329,14 @@ function InitialRegistrationModal({
   const [selectedType, setSelectedType] = useState("");
   const [baseValue, setBaseValue] = useState("");
   const [checking, setChecking] = useState(false);
-  const [duplicateInfo, setDuplicateInfo] = useState<{ name: string; uid: string; id: number } | null>(null);
+  const [duplicateInfo, setDuplicateInfo] = useState<{ name: string; uid: string; id: number; matchedField?: string } | null>(null);
   const [duplicateChecked, setDuplicateChecked] = useState(false);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const selectedClientType = clientTypes?.find(ct => ct.code === selectedType);
   const baseParamLabel = selectedClientType?.baseParameter === "ico" ? "ICO" : "Rodne cislo (RC)";
 
-  const performDuplicateCheck = useCallback(async (value: string, paramType: string | undefined) => {
+  const performDuplicateCheck = useCallback(async (value: string, _paramType: string | undefined) => {
     if (!value.trim()) {
       setDuplicateInfo(null);
       setDuplicateChecked(false);
@@ -344,13 +344,12 @@ function InitialRegistrationModal({
     }
     setChecking(true);
     try {
-      const body = paramType === "ico"
-        ? { ico: value.trim() }
-        : { birthNumber: value.trim() };
+      const trimmed = value.trim();
+      const body = { birthNumber: trimmed, ico: trimmed };
       const res = await apiRequest("POST", "/api/subjects/check-duplicate", body);
       const data = await res.json();
       if (data.isDuplicate) {
-        setDuplicateInfo({ name: data.subject.name, uid: data.subject.uid, id: data.subject.id });
+        setDuplicateInfo({ name: data.subject.name, uid: data.subject.uid, id: data.subject.id, matchedField: data.subject.matchedField });
       } else {
         setDuplicateInfo(null);
       }
@@ -446,6 +445,7 @@ function InitialRegistrationModal({
               </div>
               <p className="text-sm text-muted-foreground">
                 {duplicateInfo?.name} <span className="font-mono text-xs">[ {duplicateInfo?.uid} ]</span>
+                <span style={{ display: duplicateInfo?.matchedField ? 'inline' : 'none' }} className="text-xs ml-1">(zhoda: {duplicateInfo?.matchedField})</span>
               </p>
               <Button
                 variant="outline"

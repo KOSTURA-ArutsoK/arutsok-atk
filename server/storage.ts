@@ -234,7 +234,7 @@ export interface IStorage {
   updateClientTypeField(id: number, data: Partial<InsertClientTypeField>): Promise<ClientTypeField>;
   deleteClientTypeField(id: number): Promise<void>;
 
-  checkDuplicateSubject(params: { birthNumber?: string; ico?: string }): Promise<{ id: number; uid: string; name: string; type: string } | undefined>;
+  checkDuplicateSubject(params: { birthNumber?: string; ico?: string }): Promise<{ id: number; uid: string; name: string; type: string; matchedField: string } | undefined>;
 
   // Contract Statuses
   getContractStatuses(stateId?: number): Promise<ContractStatus[]>;
@@ -1379,7 +1379,11 @@ export class DatabaseStorage implements IStorage {
     await db.delete(clientTypeFields).where(eq(clientTypeFields.id, id));
   }
 
-  async checkDuplicateSubject(params: { birthNumber?: string; ico?: string }): Promise<{ id: number; uid: string; name: string; type: string } | undefined> {
+  async checkDuplicateSubject(params: { birthNumber?: string; ico?: string }): Promise<{ id: number; uid: string; name: string; type: string; matchedField: string } | undefined> {
+    const makeResult = (id: number, uid: string, name: string, type: string, matchedField: string) => ({ id, uid, name, type, matchedField });
+    const subjectName = (s: { type: string; firstName: string | null; lastName: string | null; companyName: string | null }) =>
+      s.type === "person" ? `${s.firstName || ""} ${s.lastName || ""}`.trim() : s.companyName || "";
+
     if (params.birthNumber) {
       const normalizedInput = params.birthNumber.replace(/[\s\/\-]/g, "");
       const allWithBn = await db.select().from(subjects)
@@ -1387,12 +1391,9 @@ export class DatabaseStorage implements IStorage {
       for (const s of allWithBn) {
         if (!s.birthNumber) continue;
         const decrypted = decryptField(s.birthNumber);
-        if (decrypted) {
-          const normalizedStored = decrypted.replace(/[\s\/\-]/g, "");
-          if (normalizedStored === normalizedInput) return { id: s.id, uid: s.uid || "", name: s.type === "person" ? `${s.firstName || ""} ${s.lastName || ""}`.trim() : s.companyName || "", type: s.type };
-        } else {
-          const normalizedStored = s.birthNumber.replace(/[\s\/\-]/g, "");
-          if (normalizedStored === normalizedInput) return { id: s.id, uid: s.uid || "", name: s.type === "person" ? `${s.firstName || ""} ${s.lastName || ""}`.trim() : s.companyName || "", type: s.type };
+        const stored = decrypted || s.birthNumber;
+        if (stored.replace(/[\s\/\-]/g, "") === normalizedInput) {
+          return makeResult(s.id, s.uid || "", subjectName(s), s.type, "RC");
         }
       }
       const archivedSubjects = await db.select().from(subjectArchive);
@@ -1400,41 +1401,37 @@ export class DatabaseStorage implements IStorage {
         const data = a.data as any;
         if (!data?.birthNumber) continue;
         const decrypted = decryptField(data.birthNumber);
-        if (decrypted) {
-          const normalizedStored = decrypted.replace(/[\s\/\-]/g, "");
-          if (normalizedStored === normalizedInput) return { id: a.originalId, uid: a.uid, name: data.type === "person" ? `${data.firstName || ""} ${data.lastName || ""}`.trim() : data.companyName || "", type: data.type || "person" };
-        } else {
-          const normalizedStored = data.birthNumber.replace(/[\s\/\-]/g, "");
-          if (normalizedStored === normalizedInput) return { id: a.originalId, uid: a.uid, name: data.type === "person" ? `${data.firstName || ""} ${data.lastName || ""}`.trim() : data.companyName || "", type: data.type || "person" };
+        const stored = decrypted || data.birthNumber;
+        if (stored.replace(/[\s\/\-]/g, "") === normalizedInput) {
+          return makeResult(a.originalId, a.uid, data.type === "person" ? `${data.firstName || ""} ${data.lastName || ""}`.trim() : data.companyName || "", data.type || "person", "RC");
         }
       }
-      return undefined;
     }
+
     if (params.ico) {
       const normalizedIco = params.ico.replace(/\s/g, "");
       const [foundSubject] = await db.select().from(subjects)
         .where(sql`REPLACE(${subjects.details}->>'ico', ' ', '') = ${normalizedIco}`);
-      if (foundSubject) return { id: foundSubject.id, uid: foundSubject.uid || "", name: foundSubject.companyName || `${foundSubject.firstName || ""} ${foundSubject.lastName || ""}`.trim(), type: foundSubject.type };
+      if (foundSubject) return makeResult(foundSubject.id, foundSubject.uid || "", foundSubject.companyName || `${foundSubject.firstName || ""} ${foundSubject.lastName || ""}`.trim(), foundSubject.type, "IČO");
 
       const archivedSubjects = await db.select().from(subjectArchive);
       for (const a of archivedSubjects) {
         const data = a.data as any;
         const archivedIco = data?.details?.ico || data?.ico;
         if (archivedIco && archivedIco.replace(/\s/g, "") === normalizedIco) {
-          return { id: a.originalId, uid: a.uid, name: data.companyName || `${data.firstName || ""} ${data.lastName || ""}`.trim(), type: data.type || "company" };
+          return makeResult(a.originalId, a.uid, data.companyName || `${data.firstName || ""} ${data.lastName || ""}`.trim(), data.type || "company", "IČO");
         }
       }
 
       const [foundCompany] = await db.select().from(myCompanies)
         .where(sql`REPLACE(${myCompanies.ico}, ' ', '') = ${normalizedIco}`);
-      if (foundCompany) return { id: foundCompany.id, uid: foundCompany.uid || "", name: foundCompany.name, type: "company" };
+      if (foundCompany) return makeResult(foundCompany.id, foundCompany.uid || "", foundCompany.name, "company", "IČO");
 
       const [foundPartner] = await db.select().from(partners)
         .where(sql`REPLACE(${partners.ico}, ' ', '') = ${normalizedIco}`);
-      if (foundPartner) return { id: foundPartner.id, uid: foundPartner.uid || "", name: foundPartner.name, type: "company" };
-
-      return undefined;
+      if (foundPartner) return makeResult(foundPartner.id, foundPartner.uid || "", foundPartner.name, "company", "IČO");
     }
+
     return undefined;
   }
 

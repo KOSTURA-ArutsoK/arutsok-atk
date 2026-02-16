@@ -3363,6 +3363,7 @@ export async function registerRoutes(
             uid: existing.uid,
             name: existing.name,
             type: existing.type,
+            matchedField: existing.matchedField,
           },
         });
       } else {
