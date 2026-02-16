@@ -1,9 +1,8 @@
 import { useState, useRef, useCallback, useEffect } from "react";
-import { usePartners, useCreatePartner, useUpdatePartner, useDeletePartner, usePartnerContracts, usePartnerContacts, usePartnerProducts, useCreatePartnerContract, useCreatePartnerContact, useCreatePartnerProduct, useContractAmendments, useCreateContractAmendment } from "@/hooks/use-partners";
-import { useMyCompanies } from "@/hooks/use-companies";
+import { usePartners, useCreatePartner, useUpdatePartner, useDeletePartner, usePartnerContacts, usePartnerProducts, useCreatePartnerContact, useCreatePartnerProduct } from "@/hooks/use-partners";
 import { useStates } from "@/hooks/use-hierarchy";
 import { useAppUser } from "@/hooks/use-app-user";
-import { Plus, Briefcase, Pencil, Trash2, Clock, FileText, Users, Package, Calendar, Archive, Download, ChevronDown, ChevronRight, MapPin } from "lucide-react";
+import { Plus, Briefcase, Pencil, Trash2, Clock, Users, Package, Calendar, Archive, MapPin } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -77,106 +76,6 @@ const partnerFormSchema = insertPartnerSchema.extend({
 
 type PartnerFormData = z.infer<typeof partnerFormSchema>;
 
-function ContractAmendmentsSection({ contractId }: { contractId: number }) {
-  const { data: amendments, isLoading } = useContractAmendments(contractId);
-  const createAmendment = useCreateContractAmendment();
-  const [expanded, setExpanded] = useState(false);
-  const [showAddForm, setShowAddForm] = useState(false);
-  const [amendmentName, setAmendmentName] = useState("");
-  const [amendmentDate, setAmendmentDate] = useState(new Date().toISOString().split("T")[0]);
-  const fileInputRef = useRef<HTMLInputElement>(null);
-
-  function handleAddAmendment() {
-    if (!amendmentName || !amendmentDate) return;
-    const formData = new FormData();
-    formData.append("name", amendmentName);
-    formData.append("effectiveDate", new Date(amendmentDate).toISOString());
-    const fileInput = fileInputRef.current;
-    if (fileInput?.files?.[0]) {
-      formData.append("file", fileInput.files[0]);
-    }
-    createAmendment.mutate({ contractId, formData }, {
-      onSuccess: () => {
-        setAmendmentName("");
-        setAmendmentDate(new Date().toISOString().split("T")[0]);
-        if (fileInputRef.current) fileInputRef.current.value = "";
-        setShowAddForm(false);
-      },
-    });
-  }
-
-  const count = amendments?.length || 0;
-
-  return (
-    <div className="ml-6 mt-1">
-      <button
-        type="button"
-        onClick={() => setExpanded(!expanded)}
-        className="flex items-center gap-1 text-xs text-muted-foreground hover-elevate rounded-md px-1 py-0.5"
-        data-testid={`button-toggle-amendments-${contractId}`}
-      >
-        {expanded ? <ChevronDown className="w-3 h-3" /> : <ChevronRight className="w-3 h-3" />}
-        <span>Dodatky ({count})</span>
-      </button>
-      {expanded && (
-        <div className="mt-1 space-y-1">
-          {isLoading && <p className="text-xs text-muted-foreground">Nacitavam...</p>}
-          {amendments && amendments.length > 0 && amendments.map(a => (
-            <div key={a.id} className="flex items-center gap-2 text-xs p-1.5 rounded-md border border-border" data-testid={`amendment-${a.id}`}>
-              <FileText className="w-3 h-3 text-muted-foreground flex-shrink-0" />
-              <span className="flex-1 truncate">{a.name}</span>
-              <span className="text-muted-foreground">{a.effectiveDate ? new Date(a.effectiveDate).toLocaleDateString("sk-SK") : "-"}</span>
-              {a.file && (a.file as any).url && (
-                <a href={(a.file as any).url} download={(a.file as any).name} className="text-primary" data-testid={`link-download-amendment-${a.id}`}>
-                  <Download className="w-3 h-3" />
-                </a>
-              )}
-            </div>
-          ))}
-          {!showAddForm ? (
-            <Button type="button" variant="ghost" size="sm" onClick={() => setShowAddForm(true)} className="text-xs" data-testid={`button-show-add-amendment-${contractId}`}>
-              <Plus className="w-3 h-3 mr-1" /> Pridat dodatok
-            </Button>
-          ) : (
-            <div className="space-y-2 p-2 rounded-md border border-border">
-              <Input
-                placeholder="Nazov dodatku"
-                value={amendmentName}
-                onChange={e => setAmendmentName(e.target.value)}
-                className="text-xs"
-                data-testid={`input-amendment-name-${contractId}`}
-              />
-              <Input
-                type="date"
-                value={amendmentDate}
-                onChange={e => setAmendmentDate(e.target.value)}
-                className="text-xs"
-                data-testid={`input-amendment-date-${contractId}`}
-              />
-              <div className="flex items-center gap-2 flex-wrap">
-                <Input
-                  ref={fileInputRef}
-                  type="file"
-                  className="text-xs flex-1"
-                  data-testid={`input-amendment-file-${contractId}`}
-                />
-              </div>
-              <div className="flex items-center gap-2 flex-wrap">
-                <Button type="button" size="sm" onClick={handleAddAmendment} disabled={!amendmentName || createAmendment.isPending} data-testid={`button-add-amendment-${contractId}`}>
-                  <Plus className="w-3 h-3 mr-1" /> Ulozit
-                </Button>
-                <Button type="button" variant="ghost" size="sm" onClick={() => setShowAddForm(false)}>
-                  Zrusit
-                </Button>
-              </div>
-            </div>
-          )}
-        </div>
-      )}
-    </div>
-  );
-}
-
 function PartnerUnifiedDialog({
   open,
   onOpenChange,
@@ -193,7 +92,6 @@ function PartnerUnifiedDialog({
   const { data: allPartners } = usePartners();
   const { data: allStates } = useStates();
   const { data: appUser } = useAppUser();
-  const { data: companies } = useMyCompanies();
   const timerRef = useRef<number>(0);
   const [notesHtml, setNotesHtml] = useState("");
   const [activeTab, setActiveTab] = useState("info");
@@ -204,15 +102,11 @@ function PartnerUnifiedDialog({
 
   const isEditing = !!editingPartner;
 
-  const { data: contracts } = usePartnerContracts(isEditing ? partnerId : null);
   const { data: pContacts } = usePartnerContacts(isEditing ? partnerId : null);
   const { data: pProducts } = usePartnerProducts(isEditing ? partnerId : null);
-  const createContract = useCreatePartnerContract();
   const createContact = useCreatePartnerContact();
   const createProduct = useCreatePartnerProduct();
 
-  const [newContractCompanyId, setNewContractCompanyId] = useState<string>("");
-  const [newContractNumber, setNewContractNumber] = useState("");
   const [newContactFirst, setNewContactFirst] = useState("");
   const [newContactLast, setNewContactLast] = useState("");
   const [newContactEmail, setNewContactEmail] = useState("");
@@ -288,8 +182,6 @@ function PartnerUnifiedDialog({
         });
         setNotesHtml("");
       }
-      setNewContractCompanyId("");
-      setNewContractNumber("");
       setNewContactFirst("");
       setNewContactLast("");
       setNewContactEmail("");
@@ -328,16 +220,6 @@ function PartnerUnifiedDialog({
         onSuccess: () => handleOpenChange(false),
       });
     }
-  }
-
-  function handleAddContract() {
-    if (!newContractCompanyId || !partnerId) return;
-    createContract.mutate({
-      partnerId,
-      data: { companyId: parseInt(newContractCompanyId), contractNumber: newContractNumber, partnerId },
-    });
-    setNewContractCompanyId("");
-    setNewContractNumber("");
   }
 
   function handleAddContact() {
@@ -396,9 +278,8 @@ function PartnerUnifiedDialog({
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)}>
             <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full mt-2">
-              <TabsList className="w-full grid" style={{ gridTemplateColumns: isEditing ? 'repeat(5, 1fr)' : 'repeat(2, 1fr)' }}>
+              <TabsList className="w-full grid" style={{ gridTemplateColumns: isEditing ? 'repeat(4, 1fr)' : 'repeat(2, 1fr)' }}>
                 <TabsTrigger value="info" data-testid="partner-tab-info">Info</TabsTrigger>
-                <TabsTrigger value="contracts" data-testid="partner-tab-contracts" disabled={!isEditing} style={{ display: isEditing ? undefined : 'none' }}>Zmluvy</TabsTrigger>
                 <TabsTrigger value="contacts" data-testid="partner-tab-contacts" disabled={!isEditing} style={{ display: isEditing ? undefined : 'none' }}>Kontakty</TabsTrigger>
                 <TabsTrigger value="products" data-testid="partner-tab-products" disabled={!isEditing} style={{ display: isEditing ? undefined : 'none' }}>Produkty</TabsTrigger>
                 <TabsTrigger value="notes" data-testid="partner-tab-notes">Poznamky</TabsTrigger>
@@ -563,55 +444,6 @@ function PartnerUnifiedDialog({
                     <span>|</span>
                     <span>Aktualizovane: {editingPartner?.updatedAt ? new Date(editingPartner.updatedAt).toLocaleDateString("sk-SK") : "-"}</span>
                   </div>
-                </div>
-              </TabsContent>
-
-              <TabsContent value="contracts" className="mt-4 space-y-4">
-                <div className="flex items-center gap-2 flex-wrap">
-                  <FileText className="w-4 h-4 text-muted-foreground" />
-                  <h4 className="text-sm font-medium">Zmluvy s mojimi spolocnostami</h4>
-                  <Badge variant="secondary" className="ml-auto">{contracts?.length || 0}</Badge>
-                </div>
-                {contracts && contracts.length > 0 ? (
-                  <div className="space-y-3">
-                    {contracts.map(c => (
-                      <div key={c.id} data-testid={`contract-${c.id}`}>
-                        <div className="flex items-center gap-2 p-2 rounded-md border border-border text-sm">
-                          <FileText className="w-4 h-4 text-muted-foreground flex-shrink-0" />
-                          <span className="flex-1">{companies?.find(co => co.id === c.companyId)?.name || `ID: ${c.companyId}`}</span>
-                          {c.contractNumber && <span className="text-xs font-mono text-muted-foreground">{c.contractNumber}</span>}
-                        </div>
-                        <ContractAmendmentsSection contractId={c.id} />
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <p className="text-sm text-muted-foreground text-center py-4">Ziadne zmluvy</p>
-                )}
-                <Separator />
-                <div className="space-y-3">
-                  <h4 className="text-sm font-medium">Pridat zmluvu</h4>
-                  <div className="grid grid-cols-2 gap-2">
-                    <Select value={newContractCompanyId} onValueChange={setNewContractCompanyId}>
-                      <SelectTrigger data-testid="select-contract-company">
-                        <SelectValue placeholder="Vyberte spolocnost" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {companies?.filter(c => !c.isDeleted).map(c => (
-                          <SelectItem key={c.id} value={c.id.toString()}>{c.name}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <Input
-                      placeholder="Cislo zmluvy"
-                      value={newContractNumber}
-                      onChange={e => setNewContractNumber(e.target.value)}
-                      data-testid="input-contract-number"
-                    />
-                  </div>
-                  <Button type="button" size="sm" onClick={handleAddContract} disabled={!newContractCompanyId} data-testid="button-add-contract">
-                    <Plus className="w-4 h-4 mr-1" /> Pridat zmluvu
-                  </Button>
                 </div>
               </TabsContent>
 

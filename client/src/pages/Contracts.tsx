@@ -1470,7 +1470,7 @@ export default function Contracts() {
         </DialogHeader>
         <div className="space-y-4">
           <p className="text-sm text-muted-foreground">
-            Vyberte partnera a produkt pre rychle predvyplnenie zmluvy. Mozete tiez preskocit a vyplnit rucne.
+            Vyberte partnera a produkt pre predvyplnenie zmluvy.
           </p>
 
           <div className="space-y-1">
@@ -1504,9 +1504,6 @@ export default function Contracts() {
           </div>
 
           <div className="flex justify-end gap-2">
-            <Button variant="outline" onClick={() => { navigate("/contracts/new"); setPreSelectOpen(false); }} data-testid="button-preselect-skip">
-              Preskocit
-            </Button>
             <Button onClick={handlePreSelectConfirm} data-testid="button-preselect-confirm">
               Pokracovat
             </Button>

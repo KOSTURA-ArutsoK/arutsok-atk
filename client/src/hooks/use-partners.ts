@@ -1,7 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
-import type { Partner, InsertPartner, UpdatePartnerRequest, PartnerContract, PartnerContact, PartnerProduct, CommunicationMatrixEntry, ContractAmendment } from "@shared/schema";
+import type { Partner, InsertPartner, UpdatePartnerRequest, PartnerContact, PartnerProduct, CommunicationMatrixEntry } from "@shared/schema";
 
 export function usePartners() {
   return useQuery<Partner[]>({
@@ -77,33 +77,6 @@ export function useDeletePartner() {
   });
 }
 
-export function usePartnerContracts(partnerId: number | null) {
-  return useQuery<PartnerContract[]>({
-    queryKey: ["/api/partners", partnerId, "contracts"],
-    queryFn: async () => {
-      const res = await fetch(`/api/partners/${partnerId}/contracts`, { credentials: "include" });
-      if (!res.ok) throw new Error("Failed");
-      return res.json();
-    },
-    enabled: !!partnerId,
-  });
-}
-
-export function useCreatePartnerContract() {
-  const queryClient = useQueryClient();
-  const { toast } = useToast();
-  return useMutation({
-    mutationFn: async ({ partnerId, data }: { partnerId: number; data: any }) => {
-      const res = await apiRequest("POST", `/api/partners/${partnerId}/contracts`, data);
-      return res.json();
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/partners"] });
-      toast({ title: "Zmluva pridana" });
-    },
-  });
-}
-
 export function usePartnerContacts(partnerId: number | null, includeInactive: boolean = true) {
   return useQuery<PartnerContact[]>({
     queryKey: ["/api/partners", partnerId, "contacts", includeInactive],
@@ -157,41 +130,6 @@ export function useCreatePartnerProduct() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/partners"] });
       toast({ title: "Produkt pridany" });
-    },
-  });
-}
-
-export function useContractAmendments(contractId: number | null) {
-  return useQuery<ContractAmendment[]>({
-    queryKey: ["/api/partner-contracts", contractId, "amendments"],
-    queryFn: async () => {
-      const res = await fetch(`/api/partner-contracts/${contractId}/amendments`, { credentials: "include" });
-      if (!res.ok) throw new Error("Failed");
-      return res.json();
-    },
-    enabled: !!contractId,
-  });
-}
-
-export function useCreateContractAmendment() {
-  const queryClient = useQueryClient();
-  const { toast } = useToast();
-  return useMutation({
-    mutationFn: async ({ contractId, formData }: { contractId: number; formData: FormData }) => {
-      const res = await fetch(`/api/partner-contracts/${contractId}/amendments`, {
-        method: "POST",
-        body: formData,
-        credentials: "include",
-      });
-      if (!res.ok) throw new Error("Failed");
-      return res.json();
-    },
-    onSuccess: (_data, variables) => {
-      queryClient.invalidateQueries({ queryKey: ["/api/partner-contracts", variables.contractId, "amendments"] });
-      toast({ title: "Dodatok pridany" });
-    },
-    onError: () => {
-      toast({ title: "Chyba", description: "Nepodarilo sa pridat dodatok.", variant: "destructive" });
     },
   });
 }
