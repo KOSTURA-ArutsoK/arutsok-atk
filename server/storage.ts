@@ -1,4 +1,5 @@
 import { db } from "./db";
+import { decryptField } from "./crypto";
 import { 
   subjects, myCompanies, partners, contacts, products, commissionSchemes, 
   continents, states, subjectArchive, companyArchive, appUsers, appUserArchive,
@@ -1380,13 +1381,23 @@ export class DatabaseStorage implements IStorage {
 
   async checkDuplicateSubject(params: { birthNumber?: string; ico?: string }): Promise<Subject | undefined> {
     if (params.birthNumber) {
-      const [found] = await db.select().from(subjects)
-        .where(eq(subjects.birthNumber, params.birthNumber));
-      return found;
+      const normalizedInput = params.birthNumber.replace(/[\s\/\-]/g, "");
+      const allWithBn = await db.select().from(subjects)
+        .where(isNotNull(subjects.birthNumber));
+      for (const s of allWithBn) {
+        if (!s.birthNumber) continue;
+        const decrypted = decryptField(s.birthNumber);
+        if (decrypted) {
+          const normalizedStored = decrypted.replace(/[\s\/\-]/g, "");
+          if (normalizedStored === normalizedInput) return s;
+        }
+      }
+      return undefined;
     }
     if (params.ico) {
+      const normalizedIco = params.ico.replace(/\s/g, "");
       const [found] = await db.select().from(subjects)
-        .where(sql`${subjects.details}->>'ico' = ${params.ico}`);
+        .where(sql`REPLACE(${subjects.details}->>'ico', ' ', '') = ${normalizedIco}`);
       return found;
     }
     return undefined;

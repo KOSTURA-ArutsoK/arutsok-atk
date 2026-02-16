@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { useSubjects, useCreateSubject, useSubjectCareerHistory } from "@/hooks/use-subjects";
 import { useContinents, useStates } from "@/hooks/use-hierarchy";
 import { useMyCompanies } from "@/hooks/use-companies";
@@ -6,7 +6,7 @@ import { useAppUser } from "@/hooks/use-app-user";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, Search, User, Building2, AlertTriangle, Eye, Calendar, Briefcase, ArrowRight, ArrowLeft, ExternalLink, History, Clock, Wallet } from "lucide-react";
+import { Plus, Search, User, Building2, AlertTriangle, Eye, Calendar, Briefcase, ArrowRight, ArrowLeft, ExternalLink, History, Clock, Wallet, Loader2, CheckCircle2 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -334,46 +334,73 @@ function InitialRegistrationModal({
   const [baseValue, setBaseValue] = useState("");
   const [checking, setChecking] = useState(false);
   const [duplicateInfo, setDuplicateInfo] = useState<{ name: string; uid: string; id: number } | null>(null);
+  const [duplicateChecked, setDuplicateChecked] = useState(false);
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const selectedClientType = clientTypes?.find(ct => ct.code === selectedType);
   const baseParamLabel = selectedClientType?.baseParameter === "ico" ? "ICO" : "Rodne cislo (RC)";
 
-  async function handleCheck() {
-    if (!baseValue.trim()) return;
+  const performDuplicateCheck = useCallback(async (value: string, paramType: string | undefined) => {
+    if (!value.trim()) {
+      setDuplicateInfo(null);
+      setDuplicateChecked(false);
+      return;
+    }
     setChecking(true);
-    setDuplicateInfo(null);
     try {
-      const body = selectedClientType?.baseParameter === "ico"
-        ? { ico: baseValue.trim() }
-        : { birthNumber: baseValue.trim() };
+      const body = paramType === "ico"
+        ? { ico: value.trim() }
+        : { birthNumber: value.trim() };
       const res = await apiRequest("POST", "/api/subjects/check-duplicate", body);
       const data = await res.json();
       if (data.isDuplicate) {
         setDuplicateInfo({ name: data.subject.name, uid: data.subject.uid, id: data.subject.id });
       } else {
-        onProceed({
-          clientTypeCode: selectedType,
-          stateId: appUser?.activeStateId || 0,
-          baseValue: baseValue.trim(),
-          clientGroupId: parseInt(selectedGroupId),
-        });
-        setSelectedType("");
-        setSelectedGroupId("");
-        setBaseValue("");
         setDuplicateInfo(null);
       }
+      setDuplicateChecked(true);
     } catch {
       setDuplicateInfo(null);
+      setDuplicateChecked(true);
     } finally {
       setChecking(false);
     }
+  }, []);
+
+  useEffect(() => {
+    if (!baseValue.trim() || !selectedType) {
+      setDuplicateInfo(null);
+      setDuplicateChecked(false);
+      return;
+    }
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    setDuplicateChecked(false);
+    debounceRef.current = setTimeout(() => {
+      performDuplicateCheck(baseValue, selectedClientType?.baseParameter);
+    }, 500);
+    return () => { if (debounceRef.current) clearTimeout(debounceRef.current); };
+  }, [baseValue, selectedType, selectedClientType?.baseParameter, performDuplicateCheck]);
+
+  function handleProceed() {
+    if (duplicateInfo) return;
+    onProceed({
+      clientTypeCode: selectedType,
+      stateId: appUser?.activeStateId || 0,
+      baseValue: baseValue.trim(),
+      clientGroupId: parseInt(selectedGroupId),
+    });
+    setSelectedType("");
+    setSelectedGroupId("");
+    setBaseValue("");
+    setDuplicateInfo(null);
+    setDuplicateChecked(false);
   }
 
-  const canProceed = selectedType && selectedGroupId && appUser?.activeStateId && baseValue.trim();
+  const canProceed = selectedType && selectedGroupId && appUser?.activeStateId && baseValue.trim() && duplicateChecked && !duplicateInfo;
 
   return (
     <Dialog open={open} onOpenChange={(o) => {
-      if (!o) { setDuplicateInfo(null); setBaseValue(""); setSelectedType(""); setSelectedGroupId(""); }
+      if (!o) { setDuplicateInfo(null); setDuplicateChecked(false); setBaseValue(""); setSelectedType(""); setSelectedGroupId(""); }
       onOpenChange(o);
     }}>
       <DialogContent className="sm:max-w-[500px] flex flex-col items-stretch justify-start">
@@ -413,33 +440,41 @@ function InitialRegistrationModal({
             </Select>
           </div>
 
-          {selectedType && (
-            <div>
-              <Label className="text-xs">{baseParamLabel}</Label>
+          <div style={{ display: selectedType ? 'block' : 'none' }}>
+            <Label className="text-xs">{baseParamLabel}</Label>
+            <div className="relative">
               <Input
                 placeholder={selectedClientType?.baseParameter === "ico" ? "napr. 12345678" : "napr. 900101/1234"}
                 value={baseValue}
-                onChange={(e) => { setBaseValue(e.target.value); setDuplicateInfo(null); }}
+                onChange={(e) => { setBaseValue(e.target.value); }}
                 data-testid="input-base-parameter"
               />
+              <div className="absolute right-2 top-1/2 -translate-y-1/2" style={{ display: checking ? 'block' : 'none' }}>
+                <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />
+              </div>
+              <div className="absolute right-2 top-1/2 -translate-y-1/2" style={{ display: (!checking && duplicateChecked && !duplicateInfo && baseValue.trim()) ? 'block' : 'none' }}>
+                <CheckCircle2 className="w-4 h-4 text-green-500" />
+              </div>
             </div>
-          )}
+          </div>
 
-          {duplicateInfo && (
+          <div style={{ display: duplicateInfo ? 'block' : 'none' }}>
             <div className="bg-destructive/10 border border-destructive/30 rounded-md p-3 space-y-2">
               <div className="flex items-center gap-2">
                 <AlertTriangle className="w-4 h-4 text-destructive flex-shrink-0" />
                 <span className="text-sm font-semibold text-destructive">Klient uz existuje</span>
               </div>
               <p className="text-sm text-muted-foreground">
-                {duplicateInfo.name} <span className="font-mono text-xs">[ {duplicateInfo.uid} ]</span>
+                {duplicateInfo?.name} <span className="font-mono text-xs">[ {duplicateInfo?.uid} ]</span>
               </p>
               <Button
                 variant="outline"
                 size="sm"
                 onClick={() => {
-                  onOpenChange(false);
-                  onViewSubject(duplicateInfo.id);
+                  if (duplicateInfo) {
+                    onOpenChange(false);
+                    onViewSubject(duplicateInfo.id);
+                  }
                 }}
                 data-testid="button-go-to-client"
               >
@@ -447,15 +482,15 @@ function InitialRegistrationModal({
                 Prejst na kartu klienta
               </Button>
             </div>
-          )}
+          </div>
 
           <div className="flex justify-end gap-2 pt-2">
             <Button variant="outline" onClick={() => onOpenChange(false)} data-testid="button-cancel-init-reg">
               Zrusit
             </Button>
             <Button
-              onClick={handleCheck}
-              disabled={!canProceed || checking || !!duplicateInfo}
+              onClick={handleProceed}
+              disabled={!canProceed || checking}
               data-testid="button-continue-reg"
             >
               {checking ? "Overujem..." : "Pokracovat"}
