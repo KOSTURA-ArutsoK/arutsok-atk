@@ -3298,6 +3298,70 @@ export async function registerRoutes(
     }
   });
 
+  // === CLIENT TYPE PANELS ===
+  app.get("/api/client-types/:typeId/panels", isAuthenticated, async (req, res) => {
+    try {
+      const panels = await storage.getClientTypePanels(Number(req.params.typeId));
+      res.json(panels);
+    } catch {
+      res.status(500).json({ message: "Failed to get panels" });
+    }
+  });
+
+  app.post("/api/client-types/:typeId/panels", isAuthenticated, async (req: any, res) => {
+    try {
+      const appUser = req.appUser;
+      if (!appUser || !["admin", "superadmin"].includes(appUser.role)) {
+        return res.status(403).json({ message: "Nedostatocne opravnenia" });
+      }
+      const created = await storage.createClientTypePanel({
+        ...req.body,
+        clientTypeId: Number(req.params.typeId),
+      });
+      res.json(created);
+    } catch {
+      res.status(500).json({ message: "Failed to create panel" });
+    }
+  });
+
+  app.patch("/api/client-type-panels/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const appUser = req.appUser;
+      if (!appUser || !["admin", "superadmin"].includes(appUser.role)) {
+        return res.status(403).json({ message: "Nedostatocne opravnenia" });
+      }
+      const updated = await storage.updateClientTypePanel(Number(req.params.id), req.body);
+      res.json(updated);
+    } catch {
+      res.status(500).json({ message: "Failed to update panel" });
+    }
+  });
+
+  app.delete("/api/client-type-panels/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const appUser = req.appUser;
+      if (!appUser || !["admin", "superadmin"].includes(appUser.role)) {
+        return res.status(403).json({ message: "Nedostatocne opravnenia" });
+      }
+      await storage.deleteClientTypePanel(Number(req.params.id));
+      res.json({ ok: true });
+    } catch {
+      res.status(500).json({ message: "Failed to delete panel" });
+    }
+  });
+
+  app.put("/api/client-types/:typeId/panels/reorder", isAuthenticated, async (req: any, res) => {
+    try {
+      const items: { id: number; sortOrder: number }[] = req.body.items;
+      for (const item of items) {
+        await storage.updateClientTypePanel(item.id, { sortOrder: item.sortOrder });
+      }
+      res.json({ ok: true });
+    } catch {
+      res.status(500).json({ message: "Failed to reorder panels" });
+    }
+  });
+
   // === CLIENT TYPE FIELDS ===
   app.get("/api/client-types/:typeId/fields", isAuthenticated, async (req, res) => {
     try {

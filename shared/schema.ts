@@ -459,11 +459,23 @@ export const clientTypeSections = pgTable("client_type_sections", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
+// === CLIENT TYPE PANELS (Panel grouping within folders) ===
+export const clientTypePanels = pgTable("client_type_panels", {
+  id: serial("id").primaryKey(),
+  clientTypeId: integer("client_type_id").notNull().references(() => clientTypes.id),
+  sectionId: integer("section_id").references(() => clientTypeSections.id),
+  name: text("name").notNull(),
+  gridColumns: integer("grid_columns").default(2),
+  sortOrder: integer("sort_order").default(0),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
 // === CLIENT TYPE FIELDS (Field definitions per type) ===
 export const clientTypeFields = pgTable("client_type_fields", {
   id: serial("id").primaryKey(),
   clientTypeId: integer("client_type_id").notNull().references(() => clientTypes.id),
   sectionId: integer("section_id").references(() => clientTypeSections.id),
+  panelId: integer("panel_id").references(() => clientTypePanels.id),
   fieldKey: text("field_key").notNull(),
   label: text("label").notNull(),
   fieldType: text("field_type").notNull(),
@@ -813,6 +825,7 @@ export const insertDashboardPreferenceSchema = createInsertSchema(dashboardPrefe
 export const insertUserDashboardLayoutSchema = createInsertSchema(userDashboardLayouts).omit({ id: true, updatedAt: true });
 export const insertClientTypeSchema = createInsertSchema(clientTypes).omit({ id: true, createdAt: true });
 export const insertClientTypeSectionSchema = createInsertSchema(clientTypeSections).omit({ id: true, createdAt: true });
+export const insertClientTypePanelSchema = createInsertSchema(clientTypePanels).omit({ id: true, createdAt: true });
 export const insertClientTypeFieldSchema = createInsertSchema(clientTypeFields).omit({ id: true, createdAt: true });
 export const insertClientGroupSchema = createInsertSchema(clientGroups).omit({ id: true, createdAt: true, updatedAt: true });
 export const insertClientSubGroupSchema = createInsertSchema(clientSubGroups).omit({ id: true, createdAt: true });
@@ -883,6 +896,8 @@ export type ClientType = typeof clientTypes.$inferSelect;
 export type InsertClientType = z.infer<typeof insertClientTypeSchema>;
 export type ClientTypeSection = typeof clientTypeSections.$inferSelect;
 export type InsertClientTypeSection = z.infer<typeof insertClientTypeSectionSchema>;
+export type ClientTypePanel = typeof clientTypePanels.$inferSelect;
+export type InsertClientTypePanel = z.infer<typeof insertClientTypePanelSchema>;
 export type ClientTypeField = typeof clientTypeFields.$inferSelect;
 export type InsertClientTypeField = z.infer<typeof insertClientTypeFieldSchema>;
 

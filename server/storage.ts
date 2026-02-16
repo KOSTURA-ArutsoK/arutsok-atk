@@ -36,8 +36,9 @@ import {
   type UserDashboardLayout,
   type ClientType, type InsertClientType,
   type ClientTypeSection, type InsertClientTypeSection,
+  type ClientTypePanel, type InsertClientTypePanel,
   type ClientTypeField, type InsertClientTypeField,
-  clientTypes, clientTypeSections, clientTypeFields,
+  clientTypes, clientTypeSections, clientTypePanels, clientTypeFields,
   contractStatuses, contractTemplates, contractInventories, contracts, contractPasswords, contractParameterValues,
   type ContractStatus, type InsertContractStatus,
   type ContractTemplate, type InsertContractTemplate,
@@ -228,6 +229,11 @@ export interface IStorage {
   createClientTypeSection(data: InsertClientTypeSection): Promise<ClientTypeSection>;
   updateClientTypeSection(id: number, data: Partial<InsertClientTypeSection>): Promise<ClientTypeSection>;
   deleteClientTypeSection(id: number): Promise<void>;
+
+  getClientTypePanels(clientTypeId: number): Promise<ClientTypePanel[]>;
+  createClientTypePanel(data: InsertClientTypePanel): Promise<ClientTypePanel>;
+  updateClientTypePanel(id: number, data: Partial<InsertClientTypePanel>): Promise<ClientTypePanel>;
+  deleteClientTypePanel(id: number): Promise<void>;
 
   getClientTypeFields(clientTypeId: number): Promise<ClientTypeField[]>;
   createClientTypeField(data: InsertClientTypeField): Promise<ClientTypeField>;
@@ -1337,6 +1343,7 @@ export class DatabaseStorage implements IStorage {
 
   async deleteClientType(id: number): Promise<void> {
     await db.delete(clientTypeFields).where(eq(clientTypeFields.clientTypeId, id));
+    await db.delete(clientTypePanels).where(eq(clientTypePanels.clientTypeId, id));
     await db.delete(clientTypeSections).where(eq(clientTypeSections.clientTypeId, id));
     await db.delete(clientTypes).where(eq(clientTypes.id, id));
   }
@@ -1358,8 +1365,34 @@ export class DatabaseStorage implements IStorage {
   }
 
   async deleteClientTypeSection(id: number): Promise<void> {
+    const panelsInSection = await db.select().from(clientTypePanels).where(eq(clientTypePanels.sectionId, id));
+    for (const panel of panelsInSection) {
+      await db.update(clientTypeFields).set({ panelId: null }).where(eq(clientTypeFields.panelId, panel.id));
+    }
+    await db.delete(clientTypePanels).where(eq(clientTypePanels.sectionId, id));
     await db.update(clientTypeFields).set({ sectionId: null }).where(eq(clientTypeFields.sectionId, id));
     await db.delete(clientTypeSections).where(eq(clientTypeSections.id, id));
+  }
+
+  async getClientTypePanels(clientTypeId: number): Promise<ClientTypePanel[]> {
+    return await db.select().from(clientTypePanels)
+      .where(eq(clientTypePanels.clientTypeId, clientTypeId))
+      .orderBy(clientTypePanels.sortOrder);
+  }
+
+  async createClientTypePanel(data: InsertClientTypePanel): Promise<ClientTypePanel> {
+    const [created] = await db.insert(clientTypePanels).values(data as any).returning();
+    return created;
+  }
+
+  async updateClientTypePanel(id: number, data: Partial<InsertClientTypePanel>): Promise<ClientTypePanel> {
+    const [updated] = await db.update(clientTypePanels).set(data as any).where(eq(clientTypePanels.id, id)).returning();
+    return updated;
+  }
+
+  async deleteClientTypePanel(id: number): Promise<void> {
+    await db.update(clientTypeFields).set({ panelId: null }).where(eq(clientTypeFields.panelId, id));
+    await db.delete(clientTypePanels).where(eq(clientTypePanels.id, id));
   }
 
   async getClientTypeFields(clientTypeId: number): Promise<ClientTypeField[]> {

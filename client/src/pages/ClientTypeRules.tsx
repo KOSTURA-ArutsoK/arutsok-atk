@@ -1,13 +1,10 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { useAppUser } from "@/hooks/use-app-user";
 import { useToast } from "@/hooks/use-toast";
-import type { ClientType, ClientTypeSection, ClientTypeField } from "@shared/schema";
-import { DndContext, closestCenter, PointerSensor, KeyboardSensor, useSensor, useSensors, type DragEndEvent } from "@dnd-kit/core";
-import { SortableContext, useSortable, verticalListSortingStrategy, arrayMove } from "@dnd-kit/sortable";
-import { CSS } from "@dnd-kit/utilities";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import type { ClientType, ClientTypeSection, ClientTypePanel, ClientTypeField } from "@shared/schema";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -15,6 +12,7 @@ import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { Switch } from "@/components/ui/switch";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from "@/components/ui/dialog";
@@ -25,10 +23,14 @@ import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
 import {
-  Plus, Trash2, Settings2, Layers, ArrowLeft, GripVertical,
+  Plus, Trash2, Settings2, Layers, ArrowLeft, Pencil,
   Type, AlignLeft, List, CheckSquare, ToggleLeft, Phone, Mail,
-  Hash, Image, Calendar, CreditCard, Pencil, ChevronRight,
+  Hash, Image, Calendar, CreditCard, Search, Loader2,
+  FolderOpen, LayoutGrid, GripVertical,
 } from "lucide-react";
+import { DndContext, closestCenter, PointerSensor, KeyboardSensor, useSensor, useSensors, type DragEndEvent } from "@dnd-kit/core";
+import { SortableContext, useSortable, verticalListSortingStrategy, arrayMove } from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
 
 const FIELD_TYPES = [
   { value: "short_text", label: "Kratky text", icon: Type },
@@ -43,6 +45,54 @@ const FIELD_TYPES = [
   { value: "date", label: "Datum", icon: Calendar },
   { value: "iban", label: "IBAN", icon: CreditCard },
 ];
+
+function SortableRow({ id, children }: { id: number; children: React.ReactNode }) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id });
+  const style = { transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.5 : 1 };
+  return (
+    <TableRow ref={setNodeRef} style={style} data-testid={`row-sortable-${id}`}>
+      <TableCell className="w-8 cursor-grab">
+        <span {...attributes} {...listeners} data-testid={`handle-sortable-${id}`}>
+          <GripVertical className="w-4 h-4 text-muted-foreground" />
+        </span>
+      </TableCell>
+      {children}
+    </TableRow>
+  );
+}
+
+function DeleteConfirmDialog({
+  open,
+  onOpenChange,
+  title,
+  onConfirm,
+  isPending,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  title: string;
+  onConfirm: () => void;
+  isPending: boolean;
+}) {
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-[400px]">
+        <DialogHeader>
+          <DialogTitle data-testid="text-delete-dialog-title">Potvrdit vymazanie</DialogTitle>
+        </DialogHeader>
+        <p className="text-sm text-muted-foreground">{title}</p>
+        <div className="flex items-center justify-end gap-2 mt-4 flex-wrap">
+          <Button type="button" variant="outline" onClick={() => onOpenChange(false)} data-testid="button-delete-cancel">
+            Zrusit
+          </Button>
+          <Button type="button" variant="destructive" onClick={onConfirm} disabled={isPending} data-testid="button-delete-confirm">
+            {isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : "Vymazat"}
+          </Button>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
 
 function AddTypeDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (o: boolean) => void }) {
   const queryClient = useQueryClient();
@@ -99,17 +149,228 @@ function AddTypeDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (o
   );
 }
 
-function AddFieldDialog({
+function FolderFormDialog({
   open,
   onOpenChange,
+  editingFolder,
   clientTypeId,
-  sections,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  editingFolder: ClientTypeSection | null;
+  clientTypeId: number;
+}) {
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+  const [name, setName] = useState("");
+
+  useEffect(() => {
+    if (open) {
+      if (editingFolder) setName(editingFolder.name);
+      else setName("");
+    }
+  }, [open, editingFolder]);
+
+  const createMutation = useMutation({
+    mutationFn: async (data: { name: string }) => {
+      const res = await apiRequest("POST", `/api/client-types/${clientTypeId}/sections`, {
+        name: data.name,
+        sortOrder: 0,
+      });
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/client-types", clientTypeId, "sections"] });
+      toast({ title: "Uspech", description: "Priecinok vytvoreny" });
+      onOpenChange(false);
+    },
+    onError: () => toast({ title: "Chyba", description: "Nepodarilo sa vytvorit priecinok", variant: "destructive" }),
+  });
+
+  const updateMutation = useMutation({
+    mutationFn: async (data: { name: string }) => {
+      await apiRequest("PATCH", `/api/client-type-sections/${editingFolder!.id}`, data);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/client-types", clientTypeId, "sections"] });
+      toast({ title: "Uspech", description: "Priecinok aktualizovany" });
+      onOpenChange(false);
+    },
+    onError: () => toast({ title: "Chyba", description: "Nepodarilo sa aktualizovat priecinok", variant: "destructive" }),
+  });
+
+  const isPending = createMutation.isPending || updateMutation.isPending;
+
+  return (
+    <Dialog open={open} onOpenChange={(isOpen) => { onOpenChange(isOpen); if (!isOpen) setName(""); }}>
+      <DialogContent className="sm:max-w-[400px]">
+        <DialogHeader>
+          <DialogTitle data-testid="text-folder-dialog-title">{editingFolder ? "Upravit priecinok" : "Pridat priecinok"}</DialogTitle>
+        </DialogHeader>
+        <div className="space-y-3 mt-2">
+          <div>
+            <Label className="text-xs">Nazov priecinku *</Label>
+            <Input
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="napr. Osobne udaje"
+              data-testid="input-folder-name"
+              autoFocus
+            />
+          </div>
+        </div>
+        <DialogFooter className="mt-4 gap-2">
+          <Button variant="outline" onClick={() => onOpenChange(false)}>Zrusit</Button>
+          <Button
+            onClick={() => {
+              if (!name.trim()) return;
+              if (editingFolder) updateMutation.mutate({ name: name.trim() });
+              else createMutation.mutate({ name: name.trim() });
+            }}
+            disabled={!name.trim() || isPending}
+            data-testid="button-save-folder"
+          >
+            {isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : editingFolder ? "Ulozit" : "Vytvorit"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function PanelFormDialog({
+  open,
+  onOpenChange,
+  editingPanel,
+  clientTypeId,
+  folders,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  editingPanel: ClientTypePanel | null;
+  clientTypeId: number;
+  folders: ClientTypeSection[];
+}) {
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+  const [name, setName] = useState("");
+  const [sectionId, setSectionId] = useState("");
+  const [gridColumns, setGridColumns] = useState("2");
+
+  useEffect(() => {
+    if (open) {
+      if (editingPanel) {
+        setName(editingPanel.name);
+        setSectionId(editingPanel.sectionId?.toString() || "");
+        setGridColumns((editingPanel.gridColumns || 2).toString());
+      } else {
+        setName("");
+        setSectionId("");
+        setGridColumns("2");
+      }
+    }
+  }, [open, editingPanel]);
+
+  const createMutation = useMutation({
+    mutationFn: async (data: any) => {
+      const res = await apiRequest("POST", `/api/client-types/${clientTypeId}/panels`, data);
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/client-types", clientTypeId, "panels"] });
+      toast({ title: "Uspech", description: "Panel vytvoreny" });
+      onOpenChange(false);
+    },
+    onError: () => toast({ title: "Chyba", description: "Nepodarilo sa vytvorit panel", variant: "destructive" }),
+  });
+
+  const updateMutation = useMutation({
+    mutationFn: async (data: any) => {
+      await apiRequest("PATCH", `/api/client-type-panels/${editingPanel!.id}`, data);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/client-types", clientTypeId, "panels"] });
+      toast({ title: "Uspech", description: "Panel aktualizovany" });
+      onOpenChange(false);
+    },
+    onError: () => toast({ title: "Chyba", description: "Nepodarilo sa aktualizovat panel", variant: "destructive" }),
+  });
+
+  const isPending = createMutation.isPending || updateMutation.isPending;
+
+  function handleSubmit() {
+    if (!name.trim()) return;
+    const normalizedSectionId = sectionId && sectionId !== "none" ? parseInt(sectionId) : null;
+    const payload = {
+      name: name.trim(),
+      sectionId: normalizedSectionId,
+      gridColumns: parseInt(gridColumns),
+      sortOrder: 0,
+    };
+    if (editingPanel) updateMutation.mutate(payload);
+    else createMutation.mutate(payload);
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={(isOpen) => { onOpenChange(isOpen); if (!isOpen) { setName(""); setSectionId(""); setGridColumns("2"); } }}>
+      <DialogContent className="sm:max-w-[500px]">
+        <DialogHeader>
+          <DialogTitle data-testid="text-panel-dialog-title">{editingPanel ? "Upravit panel" : "Pridat panel"}</DialogTitle>
+        </DialogHeader>
+        <div className="space-y-3 mt-2">
+          <div>
+            <Label className="text-xs">Nazov panelu *</Label>
+            <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="napr. Kontaktne udaje" data-testid="input-panel-name" autoFocus />
+          </div>
+          <div>
+            <Label className="text-xs">Priecinok</Label>
+            <Select value={sectionId} onValueChange={setSectionId}>
+              <SelectTrigger data-testid="select-panel-folder"><SelectValue placeholder="Bez priecinku" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="none">Bez priecinku</SelectItem>
+                {folders.map(f => (
+                  <SelectItem key={f.id} value={f.id.toString()}>{f.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div>
+            <Label className="text-xs">Pocet stlpcov v gridu</Label>
+            <Select value={gridColumns} onValueChange={setGridColumns}>
+              <SelectTrigger data-testid="select-panel-grid-columns"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="1">1 stlpec</SelectItem>
+                <SelectItem value="2">2 stlpce</SelectItem>
+                <SelectItem value="3">3 stlpce</SelectItem>
+                <SelectItem value="4">4 stlpce</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+        <DialogFooter className="mt-4 gap-2">
+          <Button variant="outline" onClick={() => onOpenChange(false)}>Zrusit</Button>
+          <Button onClick={handleSubmit} disabled={!name.trim() || isPending} data-testid="button-save-panel">
+            {isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : editingPanel ? "Ulozit" : "Vytvorit"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function FieldFormDialog({
+  open,
+  onOpenChange,
+  editingField,
+  clientTypeId,
+  panels,
   existingFields,
 }: {
   open: boolean;
   onOpenChange: (o: boolean) => void;
+  editingField: ClientTypeField | null;
   clientTypeId: number;
-  sections: ClientTypeSection[];
+  panels: ClientTypePanel[];
   existingFields: ClientTypeField[];
 }) {
   const queryClient = useQueryClient();
@@ -117,22 +378,49 @@ function AddFieldDialog({
   const [fieldKey, setFieldKey] = useState("");
   const [label, setLabel] = useState("");
   const [fieldType, setFieldType] = useState("short_text");
-  const [sectionId, setSectionId] = useState("");
+  const [panelId, setPanelId] = useState("");
   const [isRequired, setIsRequired] = useState(false);
   const [options, setOptions] = useState("");
   const [dependsOn, setDependsOn] = useState("");
   const [dependsValue, setDependsValue] = useState("");
 
-  const mutation = useMutation({
+  useEffect(() => {
+    if (open) {
+      if (editingField) {
+        setFieldKey(editingField.fieldKey);
+        setLabel(editingField.label);
+        setFieldType(editingField.fieldType);
+        setPanelId(editingField.panelId?.toString() || "");
+        setIsRequired(editingField.isRequired || false);
+        setOptions(editingField.options?.join(", ") || "");
+        const vr = editingField.visibilityRule as any;
+        setDependsOn(vr?.dependsOn || "");
+        setDependsValue(vr?.value || "");
+      } else {
+        setFieldKey(""); setLabel(""); setFieldType("short_text"); setPanelId("");
+        setIsRequired(false); setOptions(""); setDependsOn(""); setDependsValue("");
+      }
+    }
+  }, [open, editingField]);
+
+  function buildPayload() {
+    const normalizedDependsOn = dependsOn && dependsOn !== "none" ? dependsOn : "";
+    const visibilityRule = normalizedDependsOn && dependsValue
+      ? { dependsOn: normalizedDependsOn, value: dependsValue }
+      : null;
+    const normalizedPanelId = panelId && panelId !== "none" ? Number(panelId) : null;
+    return { visibilityRule, normalizedPanelId };
+  }
+
+  const createMutation = useMutation({
     mutationFn: async () => {
-      const visibilityRule = dependsOn && dependsValue
-        ? { dependsOn, value: dependsValue }
-        : null;
+      const { visibilityRule, normalizedPanelId } = buildPayload();
       await apiRequest("POST", `/api/client-types/${clientTypeId}/fields`, {
         fieldKey: fieldKey.trim(),
         label: label.trim(),
         fieldType,
-        sectionId: sectionId ? Number(sectionId) : null,
+        panelId: normalizedPanelId,
+        sectionId: null,
         isRequired,
         options: options ? options.split(",").map(o => o.trim()).filter(Boolean) : [],
         visibilityRule,
@@ -140,25 +428,45 @@ function AddFieldDialog({
       });
     },
     onSuccess: () => {
-      toast({ title: "Pole vytvorene" });
+      toast({ title: "Parameter vytvoreny" });
       queryClient.invalidateQueries({ queryKey: ["/api/client-types", clientTypeId, "fields"] });
       onOpenChange(false);
-      setFieldKey(""); setLabel(""); setFieldType("short_text"); setSectionId("");
-      setIsRequired(false); setOptions(""); setDependsOn(""); setDependsValue("");
     },
     onError: () => { toast({ title: "Chyba", variant: "destructive" }); },
   });
 
+  const updateMutation = useMutation({
+    mutationFn: async () => {
+      const { visibilityRule, normalizedPanelId } = buildPayload();
+      await apiRequest("PATCH", `/api/client-type-fields/${editingField!.id}`, {
+        fieldKey: fieldKey.trim(),
+        label: label.trim(),
+        fieldType,
+        panelId: normalizedPanelId,
+        isRequired,
+        options: options ? options.split(",").map(o => o.trim()).filter(Boolean) : [],
+        visibilityRule,
+      });
+    },
+    onSuccess: () => {
+      toast({ title: "Parameter aktualizovany" });
+      queryClient.invalidateQueries({ queryKey: ["/api/client-types", clientTypeId, "fields"] });
+      onOpenChange(false);
+    },
+    onError: () => { toast({ title: "Chyba", variant: "destructive" }); },
+  });
+
+  const isPending = createMutation.isPending || updateMutation.isPending;
   const showOptions = fieldType === "combobox";
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[800px] h-[600px] overflow-y-auto flex flex-col items-stretch justify-start">
-        <DialogHeader><DialogTitle>Nove pole</DialogTitle></DialogHeader>
+        <DialogHeader><DialogTitle>{editingField ? "Upravit parameter" : "Novy parameter"}</DialogTitle></DialogHeader>
         <div className="space-y-4 mt-2">
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <Label className="text-xs">Kluc pola</Label>
+              <Label className="text-xs">Kluc parametra</Label>
               <Input value={fieldKey} onChange={(e) => setFieldKey(e.target.value)} placeholder="napr. korespondencna_adresa" data-testid="input-field-key" />
             </div>
             <div>
@@ -169,7 +477,7 @@ function AddFieldDialog({
 
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <Label className="text-xs">Typ pola</Label>
+              <Label className="text-xs">Typ parametra</Label>
               <Select value={fieldType} onValueChange={setFieldType}>
                 <SelectTrigger data-testid="select-field-type"><SelectValue /></SelectTrigger>
                 <SelectContent>
@@ -180,25 +488,23 @@ function AddFieldDialog({
               </Select>
             </div>
             <div>
-              <Label className="text-xs">Sekcia</Label>
-              <Select value={sectionId} onValueChange={setSectionId}>
-                <SelectTrigger data-testid="select-field-section"><SelectValue placeholder="Bez sekcie" /></SelectTrigger>
+              <Label className="text-xs">Panel</Label>
+              <Select value={panelId} onValueChange={setPanelId}>
+                <SelectTrigger data-testid="select-field-panel"><SelectValue placeholder="Bez panelu" /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="none">Bez sekcie</SelectItem>
-                  {sections.map(s => (
-                    <SelectItem key={s.id} value={s.id.toString()}>{s.name}</SelectItem>
+                  <SelectItem value="none">Bez panelu</SelectItem>
+                  {panels.map(p => (
+                    <SelectItem key={p.id} value={p.id.toString()}>{p.name}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
             </div>
           </div>
 
-          {showOptions && (
-            <div>
-              <Label className="text-xs">Moznosti (oddelene ciarkou)</Label>
-              <Input value={options} onChange={(e) => setOptions(e.target.value)} placeholder="Moznost 1, Moznost 2, Moznost 3" data-testid="input-field-options" />
-            </div>
-          )}
+          <div style={{ display: showOptions ? 'block' : 'none' }}>
+            <Label className="text-xs">Moznosti (oddelene ciarkou)</Label>
+            <Input value={options} onChange={(e) => setOptions(e.target.value)} placeholder="Moznost 1, Moznost 2, Moznost 3" data-testid="input-field-options" />
+          </div>
 
           <div className="flex items-center gap-3">
             <Checkbox
@@ -222,7 +528,7 @@ function AddFieldDialog({
                   <SelectTrigger data-testid="select-depends-on"><SelectValue placeholder="Ziadne" /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="none">Ziadne</SelectItem>
-                    {existingFields.map(f => (
+                    {existingFields.filter(f => f.id !== editingField?.id).map(f => (
                       <SelectItem key={f.fieldKey} value={f.fieldKey}>{f.label}</SelectItem>
                     ))}
                   </SelectContent>
@@ -237,8 +543,15 @@ function AddFieldDialog({
         </div>
         <DialogFooter className="mt-4 gap-2">
           <Button variant="outline" onClick={() => onOpenChange(false)}>Zrusit</Button>
-          <Button onClick={() => mutation.mutate()} disabled={!fieldKey.trim() || !label.trim() || mutation.isPending} data-testid="button-save-field">
-            Vytvorit pole
+          <Button
+            onClick={() => {
+              if (editingField) updateMutation.mutate();
+              else createMutation.mutate();
+            }}
+            disabled={!fieldKey.trim() || !label.trim() || isPending}
+            data-testid="button-save-field"
+          >
+            {isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : editingField ? "Ulozit" : "Vytvorit"}
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -246,121 +559,41 @@ function AddFieldDialog({
   );
 }
 
-function SortableFieldRow({ id, children }: { id: number; children: React.ReactNode }) {
-  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id });
-  const style = { transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.5 : 1 };
-  return (
-    <TableRow ref={setNodeRef} style={style}>
-      <TableCell className="cursor-grab"><span {...attributes} {...listeners}><GripVertical className="w-3 h-3 text-muted-foreground" /></span></TableCell>
-      {children}
-    </TableRow>
-  );
-}
-
-function SortableSectionItem({ id, children }: { id: number; children: React.ReactNode }) {
-  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id });
-  const style = { transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.5 : 1 };
-  return (
-    <div ref={setNodeRef} style={style} className="flex items-center gap-2">
-      <span {...attributes} {...listeners} className="cursor-grab"><GripVertical className="w-3 h-3 text-muted-foreground flex-shrink-0" /></span>
-      {children}
-    </div>
-  );
-}
-
-function SortableClientTypeRow({ id, children }: { id: number; children: React.ReactNode }) {
-  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id });
-  const style = { transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.5 : 1 };
-  return (
-    <TableRow ref={setNodeRef} style={style} data-testid={`row-client-type-${id}`}>
-      <TableCell className="w-8 cursor-grab">
-        <span {...attributes} {...listeners} data-testid={`handle-client-type-${id}`}>
-          <GripVertical className="w-4 h-4 text-muted-foreground" />
-        </span>
-      </TableCell>
-      {children}
-    </TableRow>
-  );
-}
-
-function TypeDetailView({ clientType, onBack }: { clientType: ClientType; onBack: () => void }) {
-  const queryClient = useQueryClient();
+function FoldersTab({ clientTypeId }: { clientTypeId: number }) {
   const { toast } = useToast();
-  const [addSectionName, setAddSectionName] = useState("");
-  const [addFieldOpen, setAddFieldOpen] = useState(false);
+  const queryClient = useQueryClient();
+  const [search, setSearch] = useState("");
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [editingFolder, setEditingFolder] = useState<ClientTypeSection | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<ClientTypeSection | null>(null);
 
-  const { data: sections = [] } = useQuery<ClientTypeSection[]>({
-    queryKey: ["/api/client-types", clientType.id, "sections"],
+  const { data: folders = [], isLoading } = useQuery<ClientTypeSection[]>({
+    queryKey: ["/api/client-types", clientTypeId, "sections"],
     queryFn: async () => {
-      const res = await fetch(`/api/client-types/${clientType.id}/sections`, { credentials: "include" });
+      const res = await fetch(`/api/client-types/${clientTypeId}/sections`, { credentials: "include" });
       return res.json();
     },
   });
 
-  const { data: fields = [] } = useQuery<ClientTypeField[]>({
-    queryKey: ["/api/client-types", clientType.id, "fields"],
+  const { data: panels = [] } = useQuery<ClientTypePanel[]>({
+    queryKey: ["/api/client-types", clientTypeId, "panels"],
     queryFn: async () => {
-      const res = await fetch(`/api/client-types/${clientType.id}/fields`, { credentials: "include" });
+      const res = await fetch(`/api/client-types/${clientTypeId}/panels`, { credentials: "include" });
       return res.json();
     },
   });
 
-  const addSectionMutation = useMutation({
-    mutationFn: async (name: string) => {
-      await apiRequest("POST", `/api/client-types/${clientType.id}/sections`, {
-        name,
-        sortOrder: (sections || []).length,
-      });
+  const deleteMutation = useMutation({
+    mutationFn: async () => {
+      await apiRequest("DELETE", `/api/client-type-sections/${deleteTarget!.id}`);
     },
     onSuccess: () => {
-      toast({ title: "Sekcia vytvorena" });
-      queryClient.invalidateQueries({ queryKey: ["/api/client-types", clientType.id, "sections"] });
-      setAddSectionName("");
+      queryClient.invalidateQueries({ queryKey: ["/api/client-types", clientTypeId, "sections"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/client-types", clientTypeId, "panels"] });
+      toast({ title: "Uspech", description: "Priecinok vymazany" });
+      setDeleteTarget(null);
     },
-    onError: () => { toast({ title: "Chyba", variant: "destructive" }); },
-  });
-
-  const deleteSectionMutation = useMutation({
-    mutationFn: async (id: number) => {
-      await apiRequest("DELETE", `/api/client-type-sections/${id}`);
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/client-types", clientType.id, "sections"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/client-types", clientType.id, "fields"] });
-      toast({ title: "Sekcia odstranena" });
-    },
-    onError: () => { toast({ title: "Chyba", variant: "destructive" }); },
-  });
-
-  const deleteFieldMutation = useMutation({
-    mutationFn: async (id: number) => {
-      await apiRequest("DELETE", `/api/client-type-fields/${id}`);
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/client-types", clientType.id, "fields"] });
-      toast({ title: "Pole odstranene" });
-    },
-    onError: () => { toast({ title: "Chyba", variant: "destructive" }); },
-  });
-
-  const reorderFieldsMutation = useMutation({
-    mutationFn: async (items: { id: number; sortOrder: number }[]) => {
-      await apiRequest("PUT", `/api/client-types/${clientType.id}/fields/reorder`, { items });
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/client-types", clientType.id, "fields"] });
-    },
-    onError: () => { toast({ title: "Chyba pri radeni", variant: "destructive" }); },
-  });
-
-  const reorderSectionsMutation = useMutation({
-    mutationFn: async (items: { id: number; sortOrder: number }[]) => {
-      await apiRequest("PUT", `/api/client-types/${clientType.id}/sections/reorder`, { items });
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/client-types", clientType.id, "sections"] });
-    },
-    onError: () => { toast({ title: "Chyba pri radeni", variant: "destructive" }); },
+    onError: () => toast({ title: "Chyba", description: "Nepodarilo sa vymazat priecinok", variant: "destructive" }),
   });
 
   const sensors = useSensors(
@@ -368,42 +601,438 @@ function TypeDetailView({ clientType, onBack }: { clientType: ClientType; onBack
     useSensor(KeyboardSensor)
   );
 
-  const handleFieldDragEnd = (fieldsList: ClientTypeField[]) => (event: DragEndEvent) => {
-    const { active, over } = event;
-    if (!over || active.id === over.id) return;
-    const oldIndex = fieldsList.findIndex((f) => f.id === active.id);
-    const newIndex = fieldsList.findIndex((f) => f.id === over.id);
-    const reordered = arrayMove(fieldsList, oldIndex, newIndex);
-    reorderFieldsMutation.mutate(reordered.map((f, i) => ({ id: f.id, sortOrder: i })));
-  };
-
-  const handleSectionDragEnd = (event: DragEndEvent) => {
-    const { active, over } = event;
-    if (!over || active.id === over.id) return;
-    const sortedSecs = [...(sections || [])].sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0));
-    const oldIndex = sortedSecs.findIndex((s) => s.id === active.id);
-    const newIndex = sortedSecs.findIndex((s) => s.id === over.id);
-    const reordered = arrayMove(sortedSecs, oldIndex, newIndex);
-    reorderSectionsMutation.mutate(reordered.map((s, i) => ({ id: s.id, sortOrder: i })));
-  };
-
-  const groupedFields: Record<string, ClientTypeField[]> = {};
-  const unsectionedFields: ClientTypeField[] = [];
-  fields.forEach(f => {
-    if (f.sectionId) {
-      const key = f.sectionId.toString();
-      if (!groupedFields[key]) groupedFields[key] = [];
-      groupedFields[key].push(f);
-    } else {
-      unsectionedFields.push(f);
-    }
+  const reorderMutation = useMutation({
+    mutationFn: async (items: { id: number; sortOrder: number }[]) => {
+      await apiRequest("PUT", `/api/client-types/${clientTypeId}/sections/reorder`, { items });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/client-types", clientTypeId, "sections"] });
+    },
   });
 
-  const fieldTypeIcon = (ft: string) => {
-    const found = FIELD_TYPES.find(t => t.value === ft);
-    return found ? found.icon : Type;
-  };
+  function handleDragEnd(event: DragEndEvent) {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+    const sorted = [...folders].sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0));
+    const oldIndex = sorted.findIndex(f => f.id === active.id);
+    const newIndex = sorted.findIndex(f => f.id === over.id);
+    const reordered = arrayMove(sorted, oldIndex, newIndex);
+    reorderMutation.mutate(reordered.map((f, i) => ({ id: f.id, sortOrder: i })));
+  }
 
+  function getPanelCount(folderId: number): number {
+    return panels.filter(p => p.sectionId === folderId).length;
+  }
+
+  const sorted = [...folders].sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0));
+  const filtered = sorted.filter(f => f.name.toLowerCase().includes(search.toLowerCase()));
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center gap-3 flex-wrap">
+        <div className="relative flex-1 min-w-[200px]">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+          <Input value={search} onChange={e => setSearch(e.target.value)} placeholder="Hladat priecinky..." className="pl-9" data-testid="input-search-folders" />
+        </div>
+        <Button onClick={() => { setEditingFolder(null); setDialogOpen(true); }} data-testid="button-add-folder">
+          <Plus className="w-4 h-4 mr-2" /> Pridat priecinok
+        </Button>
+      </div>
+
+      {isLoading ? (
+        <div className="flex items-center justify-center py-12"><Loader2 className="w-6 h-6 animate-spin text-muted-foreground" /></div>
+      ) : (
+        <Card>
+          <CardContent className="p-0">
+            <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="w-8"></TableHead>
+                    <TableHead>Nazov priecinku</TableHead>
+                    <TableHead>Panely</TableHead>
+                    <TableHead>Akcie</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <SortableContext items={filtered.map(f => f.id)} strategy={verticalListSortingStrategy}>
+                  <TableBody>
+                    {filtered.length === 0 ? (
+                      <TableRow>
+                        <TableCell colSpan={4} className="text-center text-muted-foreground py-8" data-testid="text-no-folders">Ziadne priecinky</TableCell>
+                      </TableRow>
+                    ) : (
+                      filtered.map(folder => (
+                        <SortableRow key={folder.id} id={folder.id}>
+                          <TableCell className="font-medium">{folder.name}</TableCell>
+                          <TableCell>
+                            <Badge variant="secondary" data-testid={`badge-folder-panel-count-${folder.id}`}>{getPanelCount(folder.id)}</Badge>
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex items-center gap-1">
+                              <Button size="icon" variant="ghost" onClick={() => { setEditingFolder(folder); setDialogOpen(true); }} data-testid={`button-edit-folder-${folder.id}`}>
+                                <Pencil className="w-4 h-4" />
+                              </Button>
+                              <Button
+                                size="icon" variant="ghost"
+                                onClick={() => setDeleteTarget(folder)}
+                                disabled={getPanelCount(folder.id) > 0}
+                                title={getPanelCount(folder.id) > 0 ? "Nie je mozne vymazat, obsahuje panely" : undefined}
+                                data-testid={`button-delete-folder-${folder.id}`}
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </Button>
+                            </div>
+                          </TableCell>
+                        </SortableRow>
+                      ))
+                    )}
+                  </TableBody>
+                </SortableContext>
+              </Table>
+            </DndContext>
+          </CardContent>
+        </Card>
+      )}
+
+      <FolderFormDialog
+        open={dialogOpen}
+        onOpenChange={(isOpen) => { setDialogOpen(isOpen); if (!isOpen) setEditingFolder(null); }}
+        editingFolder={editingFolder}
+        clientTypeId={clientTypeId}
+      />
+
+      <DeleteConfirmDialog
+        open={!!deleteTarget}
+        onOpenChange={(isOpen) => { if (!isOpen) setDeleteTarget(null); }}
+        title={`Naozaj chcete vymazat priecinok "${deleteTarget?.name}"?`}
+        onConfirm={() => deleteMutation.mutate()}
+        isPending={deleteMutation.isPending}
+      />
+    </div>
+  );
+}
+
+function PanelsTab({ clientTypeId }: { clientTypeId: number }) {
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+  const [search, setSearch] = useState("");
+  const [filterFolderId, setFilterFolderId] = useState("all");
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [editingPanel, setEditingPanel] = useState<ClientTypePanel | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<ClientTypePanel | null>(null);
+
+  const { data: panels = [], isLoading } = useQuery<ClientTypePanel[]>({
+    queryKey: ["/api/client-types", clientTypeId, "panels"],
+    queryFn: async () => {
+      const res = await fetch(`/api/client-types/${clientTypeId}/panels`, { credentials: "include" });
+      return res.json();
+    },
+  });
+
+  const { data: folders = [] } = useQuery<ClientTypeSection[]>({
+    queryKey: ["/api/client-types", clientTypeId, "sections"],
+    queryFn: async () => {
+      const res = await fetch(`/api/client-types/${clientTypeId}/sections`, { credentials: "include" });
+      return res.json();
+    },
+  });
+
+  const { data: fields = [] } = useQuery<ClientTypeField[]>({
+    queryKey: ["/api/client-types", clientTypeId, "fields"],
+    queryFn: async () => {
+      const res = await fetch(`/api/client-types/${clientTypeId}/fields`, { credentials: "include" });
+      return res.json();
+    },
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: async () => {
+      await apiRequest("DELETE", `/api/client-type-panels/${deleteTarget!.id}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/client-types", clientTypeId, "panels"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/client-types", clientTypeId, "fields"] });
+      toast({ title: "Uspech", description: "Panel vymazany" });
+      setDeleteTarget(null);
+    },
+    onError: () => toast({ title: "Chyba", description: "Nepodarilo sa vymazat panel", variant: "destructive" }),
+  });
+
+  function getFolderName(sectionId: number | null): string {
+    if (!sectionId) return "Bez priecinku";
+    return folders.find(f => f.id === sectionId)?.name || `#${sectionId}`;
+  }
+
+  function getFieldCount(panelId: number): number {
+    return fields.filter(f => f.panelId === panelId).length;
+  }
+
+  const sorted = [...panels].sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0));
+  const filtered = sorted.filter(p => {
+    if (filterFolderId !== "all" && p.sectionId !== parseInt(filterFolderId)) return false;
+    return p.name.toLowerCase().includes(search.toLowerCase());
+  });
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center gap-3 flex-wrap">
+        <div className="relative flex-1 min-w-[200px]">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+          <Input value={search} onChange={e => setSearch(e.target.value)} placeholder="Hladat panely..." className="pl-9" data-testid="input-search-panels" />
+        </div>
+        <Select value={filterFolderId} onValueChange={setFilterFolderId}>
+          <SelectTrigger className="w-[200px]" data-testid="select-filter-folder"><SelectValue placeholder="Vsetky priecinky" /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Vsetky priecinky</SelectItem>
+            {folders.map(f => (
+              <SelectItem key={f.id} value={f.id.toString()}>{f.name}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <Button onClick={() => { setEditingPanel(null); setDialogOpen(true); }} data-testid="button-add-panel">
+          <Plus className="w-4 h-4 mr-2" /> Pridat panel
+        </Button>
+      </div>
+
+      {isLoading ? (
+        <div className="flex items-center justify-center py-12"><Loader2 className="w-6 h-6 animate-spin text-muted-foreground" /></div>
+      ) : (
+        <Card>
+          <CardContent className="p-0">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Nazov panelu</TableHead>
+                  <TableHead>Priecinok</TableHead>
+                  <TableHead>Grid stlpce</TableHead>
+                  <TableHead>Parametre</TableHead>
+                  <TableHead>Akcie</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {filtered.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={5} className="text-center text-muted-foreground py-8" data-testid="text-no-panels">Ziadne panely</TableCell>
+                  </TableRow>
+                ) : (
+                  filtered.map(panel => (
+                    <TableRow key={panel.id} data-testid={`row-panel-${panel.id}`}>
+                      <TableCell className="font-medium">{panel.name}</TableCell>
+                      <TableCell>
+                        <Badge variant="outline">{getFolderName(panel.sectionId)}</Badge>
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant="secondary">{panel.gridColumns || 2}</Badge>
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant="secondary" data-testid={`badge-panel-field-count-${panel.id}`}>{getFieldCount(panel.id)}</Badge>
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-1">
+                          <Button size="icon" variant="ghost" onClick={() => { setEditingPanel(panel); setDialogOpen(true); }} data-testid={`button-edit-panel-${panel.id}`}>
+                            <Pencil className="w-4 h-4" />
+                          </Button>
+                          <Button
+                            size="icon" variant="ghost"
+                            onClick={() => setDeleteTarget(panel)}
+                            disabled={getFieldCount(panel.id) > 0}
+                            title={getFieldCount(panel.id) > 0 ? "Nie je mozne vymazat, obsahuje parametre" : undefined}
+                            data-testid={`button-delete-panel-${panel.id}`}
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))
+                )}
+              </TableBody>
+            </Table>
+          </CardContent>
+        </Card>
+      )}
+
+      <PanelFormDialog
+        open={dialogOpen}
+        onOpenChange={(isOpen) => { setDialogOpen(isOpen); if (!isOpen) setEditingPanel(null); }}
+        editingPanel={editingPanel}
+        clientTypeId={clientTypeId}
+        folders={folders}
+      />
+
+      <DeleteConfirmDialog
+        open={!!deleteTarget}
+        onOpenChange={(isOpen) => { if (!isOpen) setDeleteTarget(null); }}
+        title={`Naozaj chcete vymazat panel "${deleteTarget?.name}"?`}
+        onConfirm={() => deleteMutation.mutate()}
+        isPending={deleteMutation.isPending}
+      />
+    </div>
+  );
+}
+
+function ParametersTab({ clientTypeId }: { clientTypeId: number }) {
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+  const [search, setSearch] = useState("");
+  const [filterPanelId, setFilterPanelId] = useState("all");
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [editingField, setEditingField] = useState<ClientTypeField | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<ClientTypeField | null>(null);
+
+  const { data: fields = [], isLoading } = useQuery<ClientTypeField[]>({
+    queryKey: ["/api/client-types", clientTypeId, "fields"],
+    queryFn: async () => {
+      const res = await fetch(`/api/client-types/${clientTypeId}/fields`, { credentials: "include" });
+      return res.json();
+    },
+  });
+
+  const { data: panels = [] } = useQuery<ClientTypePanel[]>({
+    queryKey: ["/api/client-types", clientTypeId, "panels"],
+    queryFn: async () => {
+      const res = await fetch(`/api/client-types/${clientTypeId}/panels`, { credentials: "include" });
+      return res.json();
+    },
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: async () => {
+      await apiRequest("DELETE", `/api/client-type-fields/${deleteTarget!.id}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/client-types", clientTypeId, "fields"] });
+      toast({ title: "Uspech", description: "Parameter vymazany" });
+      setDeleteTarget(null);
+    },
+    onError: () => toast({ title: "Chyba", description: "Nepodarilo sa vymazat parameter", variant: "destructive" }),
+  });
+
+  function getPanelName(panelId: number | null): string {
+    if (!panelId) return "Bez panelu";
+    return panels.find(p => p.id === panelId)?.name || `#${panelId}`;
+  }
+
+  const sorted = [...fields].sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0));
+  const filtered = sorted.filter(f => {
+    if (filterPanelId !== "all" && f.panelId !== parseInt(filterPanelId)) return false;
+    const searchLower = search.toLowerCase();
+    return f.label.toLowerCase().includes(searchLower) || f.fieldKey.toLowerCase().includes(searchLower);
+  });
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center gap-3 flex-wrap">
+        <div className="relative flex-1 min-w-[200px]">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+          <Input value={search} onChange={e => setSearch(e.target.value)} placeholder="Hladat parametre..." className="pl-9" data-testid="input-search-parameters" />
+        </div>
+        <Select value={filterPanelId} onValueChange={setFilterPanelId}>
+          <SelectTrigger className="w-[200px]" data-testid="select-filter-panel"><SelectValue placeholder="Vsetky panely" /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Vsetky panely</SelectItem>
+            {panels.map(p => (
+              <SelectItem key={p.id} value={p.id.toString()}>{p.name}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <Button onClick={() => { setEditingField(null); setDialogOpen(true); }} data-testid="button-add-parameter">
+          <Plus className="w-4 h-4 mr-2" /> Pridat parameter
+        </Button>
+      </div>
+
+      {isLoading ? (
+        <div className="flex items-center justify-center py-12"><Loader2 className="w-6 h-6 animate-spin text-muted-foreground" /></div>
+      ) : (
+        <Card>
+          <CardContent className="p-0">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Nazov parametra</TableHead>
+                  <TableHead>Kluc</TableHead>
+                  <TableHead>Typ</TableHead>
+                  <TableHead>Panel</TableHead>
+                  <TableHead>Povinne</TableHead>
+                  <TableHead>Podmienka</TableHead>
+                  <TableHead>Akcie</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {filtered.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={7} className="text-center text-muted-foreground py-8" data-testid="text-no-parameters">Ziadne parametre</TableCell>
+                  </TableRow>
+                ) : (
+                  filtered.map(field => {
+                    const ftDef = FIELD_TYPES.find(t => t.value === field.fieldType);
+                    const Icon = ftDef?.icon || Type;
+                    return (
+                      <TableRow key={field.id} data-testid={`row-parameter-${field.id}`}>
+                        <TableCell className="font-medium">{field.label}</TableCell>
+                        <TableCell className="font-mono text-sm text-muted-foreground">{field.fieldKey}</TableCell>
+                        <TableCell>
+                          <div className="flex items-center gap-1">
+                            <Icon className="w-3 h-3 text-muted-foreground" />
+                            <span className="text-xs">{ftDef?.label || field.fieldType}</span>
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant="outline">{getPanelName(field.panelId)}</Badge>
+                        </TableCell>
+                        <TableCell>
+                          {field.isRequired
+                            ? <Badge variant="default" className="bg-emerald-600 text-white">Ano</Badge>
+                            : <Badge variant="outline">Nie</Badge>}
+                        </TableCell>
+                        <TableCell>
+                          {field.visibilityRule ? (
+                            <span className="text-xs text-muted-foreground">
+                              {(field.visibilityRule as any).dependsOn} = {(field.visibilityRule as any).value}
+                            </span>
+                          ) : <span className="text-xs text-muted-foreground">-</span>}
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex items-center gap-1">
+                            <Button size="icon" variant="ghost" onClick={() => { setEditingField(field); setDialogOpen(true); }} data-testid={`button-edit-parameter-${field.id}`}>
+                              <Pencil className="w-4 h-4" />
+                            </Button>
+                            <Button size="icon" variant="ghost" onClick={() => setDeleteTarget(field)} data-testid={`button-delete-parameter-${field.id}`}>
+                              <Trash2 className="w-4 h-4" />
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })
+                )}
+              </TableBody>
+            </Table>
+          </CardContent>
+        </Card>
+      )}
+
+      <FieldFormDialog
+        open={dialogOpen}
+        onOpenChange={(isOpen) => { setDialogOpen(isOpen); if (!isOpen) setEditingField(null); }}
+        editingField={editingField}
+        clientTypeId={clientTypeId}
+        panels={panels}
+        existingFields={fields}
+      />
+
+      <DeleteConfirmDialog
+        open={!!deleteTarget}
+        onOpenChange={(isOpen) => { if (!isOpen) setDeleteTarget(null); }}
+        title={`Naozaj chcete vymazat parameter "${deleteTarget?.label}"?`}
+        onConfirm={() => deleteMutation.mutate()}
+        isPending={deleteMutation.isPending}
+      />
+    </div>
+  );
+}
+
+function TypeDetailView({ clientType, onBack }: { clientType: ClientType; onBack: () => void }) {
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-3 flex-wrap">
@@ -419,200 +1048,31 @@ function TypeDetailView({ clientType, onBack }: { clientType: ClientType; onBack
         </div>
       </div>
 
-      <div className="grid gap-4 lg:grid-cols-3">
-        <Card className="lg:col-span-1">
-          <CardHeader className="flex flex-row items-center justify-between gap-2 space-y-0 pb-2">
-            <CardTitle className="text-base">Sekcie</CardTitle>
-            <Layers className="w-4 h-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent className="space-y-3">
-            <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleSectionDragEnd}>
-              <SortableContext items={[...(sections || [])].sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0)).map(s => s.id)} strategy={verticalListSortingStrategy}>
-                {[...(sections || [])].sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0)).map(s => (
-                  <SortableSectionItem key={s.id} id={s.id}>
-                    <span className="text-sm flex-1 truncate" data-testid={`section-row-${s.id}`}>{s.name}</span>
-                    <Button size="icon" variant="ghost" onClick={() => deleteSectionMutation.mutate(s.id)} data-testid={`button-delete-section-${s.id}`}>
-                      <Trash2 className="w-3 h-3 text-destructive" />
-                    </Button>
-                  </SortableSectionItem>
-                ))}
-              </SortableContext>
-            </DndContext>
-            {(sections || []).length === 0 && (
-              <p className="text-xs text-muted-foreground text-center py-2">Ziadne sekcie</p>
-            )}
-            <Separator />
-            <div className="flex items-center gap-2">
-              <Input
-                placeholder="Nazov sekcie"
-                value={addSectionName}
-                onChange={(e) => setAddSectionName(e.target.value)}
-                className="flex-1"
-                data-testid="input-new-section-name"
-              />
-              <Button
-                size="icon"
-                onClick={() => { if (addSectionName.trim()) addSectionMutation.mutate(addSectionName.trim()); }}
-                disabled={!addSectionName.trim() || addSectionMutation.isPending}
-                data-testid="button-add-section"
-              >
-                <Plus className="w-4 h-4" />
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="lg:col-span-2">
-          <CardHeader className="flex flex-row items-center justify-between gap-2 space-y-0 pb-2">
-            <CardTitle className="text-base">Polia</CardTitle>
-            <Button size="sm" onClick={() => setAddFieldOpen(true)} data-testid="button-add-field">
-              <Plus className="w-3 h-3 mr-1" />
-              Pridat pole
-            </Button>
-          </CardHeader>
-          <CardContent>
-            {fields.length === 0 ? (
-              <p className="text-sm text-muted-foreground text-center py-8">Ziadne polia definovane</p>
-            ) : (
-              <div className="space-y-4">
-                {unsectionedFields.length > 0 && (() => {
-                  const sortedUnsectioned = [...unsectionedFields].sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0));
-                  return (
-                    <div>
-                      <p className="text-xs font-semibold text-muted-foreground mb-2">Bez sekcie</p>
-                      <Table>
-                        <TableHeader>
-                          <TableRow>
-                            <TableHead className="w-8"></TableHead>
-                            <TableHead>Pole</TableHead>
-                            <TableHead>Typ</TableHead>
-                            <TableHead>Povinne</TableHead>
-                            <TableHead>Podmienka</TableHead>
-                            <TableHead className="w-10"></TableHead>
-                          </TableRow>
-                        </TableHeader>
-                        <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleFieldDragEnd(sortedUnsectioned)}>
-                          <SortableContext items={sortedUnsectioned.map(f => f.id)} strategy={verticalListSortingStrategy}>
-                            <TableBody>
-                              {sortedUnsectioned.map(f => {
-                                const Icon = fieldTypeIcon(f.fieldType);
-                                return (
-                                  <SortableFieldRow key={f.id} id={f.id}>
-                                    <TableCell>
-                                      <div>
-                                        <span className="text-sm font-medium">{f.label}</span>
-                                        <span className="text-xs text-muted-foreground ml-1 font-mono">({f.fieldKey})</span>
-                                      </div>
-                                    </TableCell>
-                                    <TableCell>
-                                      <div className="flex items-center gap-1">
-                                        <Icon className="w-3 h-3 text-muted-foreground" />
-                                        <span className="text-xs">{FIELD_TYPES.find(t => t.value === f.fieldType)?.label || f.fieldType}</span>
-                                      </div>
-                                    </TableCell>
-                                    <TableCell>
-                                      {f.isRequired ? <Badge variant="default" className="bg-emerald-600 text-white">Ano</Badge> : <Badge variant="outline">Nie</Badge>}
-                                    </TableCell>
-                                    <TableCell>
-                                      {f.visibilityRule ? (
-                                        <span className="text-xs text-muted-foreground">
-                                          {(f.visibilityRule as any).dependsOn} = {(f.visibilityRule as any).value}
-                                        </span>
-                                      ) : <span className="text-xs text-muted-foreground">-</span>}
-                                    </TableCell>
-                                    <TableCell>
-                                      <Button size="icon" variant="ghost" onClick={() => deleteFieldMutation.mutate(f.id)} data-testid={`button-delete-field-${f.id}`}>
-                                        <Trash2 className="w-3 h-3 text-destructive" />
-                                      </Button>
-                                    </TableCell>
-                                  </SortableFieldRow>
-                                );
-                              })}
-                            </TableBody>
-                          </SortableContext>
-                        </DndContext>
-                      </Table>
-                    </div>
-                  );
-                })()}
-
-                {(sections || []).map(s => {
-                  const sectionFields = [...(groupedFields[s.id.toString()] || [])].sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0));
-                  return (
-                    <div key={s.id}>
-                      <p className="text-xs font-semibold text-muted-foreground mb-2">{s.name}</p>
-                      {sectionFields.length === 0 ? (
-                        <p className="text-xs text-muted-foreground py-2 text-center">Ziadne polia v tejto sekcii</p>
-                      ) : (
-                        <Table>
-                          <TableHeader>
-                            <TableRow>
-                              <TableHead className="w-8"></TableHead>
-                              <TableHead>Pole</TableHead>
-                              <TableHead>Typ</TableHead>
-                              <TableHead>Povinne</TableHead>
-                              <TableHead>Podmienka</TableHead>
-                              <TableHead className="w-10"></TableHead>
-                            </TableRow>
-                          </TableHeader>
-                          <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleFieldDragEnd(sectionFields)}>
-                            <SortableContext items={sectionFields.map(f => f.id)} strategy={verticalListSortingStrategy}>
-                              <TableBody>
-                                {sectionFields.map(f => {
-                                  const Icon = fieldTypeIcon(f.fieldType);
-                                  return (
-                                    <SortableFieldRow key={f.id} id={f.id}>
-                                      <TableCell>
-                                        <div>
-                                          <span className="text-sm font-medium">{f.label}</span>
-                                          <span className="text-xs text-muted-foreground ml-1 font-mono">({f.fieldKey})</span>
-                                        </div>
-                                      </TableCell>
-                                      <TableCell>
-                                        <div className="flex items-center gap-1">
-                                          <Icon className="w-3 h-3 text-muted-foreground" />
-                                          <span className="text-xs">{FIELD_TYPES.find(t => t.value === f.fieldType)?.label || f.fieldType}</span>
-                                        </div>
-                                      </TableCell>
-                                      <TableCell>
-                                        {f.isRequired ? <Badge variant="default" className="bg-emerald-600 text-white">Ano</Badge> : <Badge variant="outline">Nie</Badge>}
-                                      </TableCell>
-                                      <TableCell>
-                                        {f.visibilityRule ? (
-                                          <span className="text-xs text-muted-foreground">
-                                            {(f.visibilityRule as any).dependsOn} = {(f.visibilityRule as any).value}
-                                          </span>
-                                        ) : <span className="text-xs text-muted-foreground">-</span>}
-                                      </TableCell>
-                                      <TableCell>
-                                        <Button size="icon" variant="ghost" onClick={() => deleteFieldMutation.mutate(f.id)} data-testid={`button-delete-field-${f.id}`}>
-                                          <Trash2 className="w-3 h-3 text-destructive" />
-                                        </Button>
-                                      </TableCell>
-                                    </SortableFieldRow>
-                                  );
-                                })}
-                              </TableBody>
-                            </SortableContext>
-                          </DndContext>
-                        </Table>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </CardContent>
-        </Card>
-      </div>
-
-      <AddFieldDialog
-        open={addFieldOpen}
-        onOpenChange={setAddFieldOpen}
-        clientTypeId={clientType.id}
-        sections={sections || []}
-        existingFields={fields || []}
-      />
+      <Tabs defaultValue="folders">
+        <TabsList data-testid="tabs-client-type-detail">
+          <TabsTrigger value="folders" data-testid="tab-folders">
+            <FolderOpen className="w-4 h-4 mr-2" />
+            Priecinky
+          </TabsTrigger>
+          <TabsTrigger value="panels" data-testid="tab-panels">
+            <LayoutGrid className="w-4 h-4 mr-2" />
+            Panely
+          </TabsTrigger>
+          <TabsTrigger value="parameters" data-testid="tab-parameters">
+            <Settings2 className="w-4 h-4 mr-2" />
+            Parametre
+          </TabsTrigger>
+        </TabsList>
+        <TabsContent value="folders">
+          <FoldersTab clientTypeId={clientType.id} />
+        </TabsContent>
+        <TabsContent value="panels">
+          <PanelsTab clientTypeId={clientType.id} />
+        </TabsContent>
+        <TabsContent value="parameters">
+          <ParametersTab clientTypeId={clientType.id} />
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }
@@ -676,15 +1136,15 @@ export default function ClientTypeRules() {
         <div>
           <h2 className="text-2xl font-bold" data-testid="text-client-types-title">Pravidla typov klientov</h2>
           <p className="text-sm text-muted-foreground mt-1">
-            Sprava typov klientov, ich poli a sekcii formulara.
+            Sprava typov klientov, priecinkov, panelov a parametrov formulara.
           </p>
         </div>
-        {isAdmin && (
+        <div style={{ display: isAdmin ? 'inline' : 'none' }}>
           <Button onClick={() => setAddTypeOpen(true)} data-testid="button-add-client-type">
             <Plus className="w-4 h-4 mr-2" />
             Novy typ
           </Button>
-        )}
+        </div>
       </div>
 
       <Card>
@@ -710,7 +1170,7 @@ export default function ClientTypeRules() {
                     <TableRow><TableCell colSpan={6} className="text-center py-12 text-muted-foreground">Ziadne typy klientov</TableCell></TableRow>
                   )}
                   {clientTypes.map(ct => (
-                    <SortableClientTypeRow key={ct.id} id={ct.id}>
+                    <SortableRow key={ct.id} id={ct.id}>
                       <TableCell className="font-mono font-bold">{ct.code}</TableCell>
                       <TableCell className="font-medium">{ct.name}</TableCell>
                       <TableCell>
@@ -725,7 +1185,7 @@ export default function ClientTypeRules() {
                         <div className="flex items-center gap-1 justify-end">
                           <Button size="sm" variant="outline" onClick={() => setSelectedType(ct)} data-testid={`button-edit-type-${ct.id}`}>
                             <Settings2 className="w-3 h-3 mr-1" />
-                            Upravit polia
+                            Konfigurovat
                           </Button>
                           <div style={{ display: isAdmin ? 'inline' : 'none' }}>
                             <Button size="icon" variant="ghost" onClick={() => deleteTypeMutation.mutate(ct.id)} data-testid={`button-delete-type-${ct.id}`}>
@@ -734,7 +1194,7 @@ export default function ClientTypeRules() {
                           </div>
                         </div>
                       </TableCell>
-                    </SortableClientTypeRow>
+                    </SortableRow>
                   ))}
                 </TableBody>
               </SortableContext>
