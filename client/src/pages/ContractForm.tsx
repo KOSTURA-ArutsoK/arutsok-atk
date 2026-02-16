@@ -1702,39 +1702,43 @@ export default function ContractForm() {
       </div>
 
       <div className="flex-none z-50 bg-background border-t border-border px-3 py-2 flex items-center gap-2 flex-wrap">
-        <Button
-          size="sm"
-          variant="default"
-          onClick={handleSubmit}
-          disabled={isPending}
-          tabIndex={1}
-          data-testid="button-save-contract"
-        >
-          <span style={{ display: isPending ? 'inline' : 'none' }}>
-            <Loader2 className="w-4 h-4 mr-1 animate-spin" />
-            Ukladam...
-          </span>
-          <span style={{ display: !isPending ? 'inline' : 'none' }}>
-            Ulozit zmluvu
-          </span>
-        </Button>
+        <span style={{ display: activeTab !== "zhrnutie" ? 'inline' : 'none' }}>
+          <Button
+            size="sm"
+            variant="default"
+            onClick={handleSubmit}
+            disabled={isPending}
+            tabIndex={1}
+            data-testid="button-save-contract"
+          >
+            <span style={{ display: isPending ? 'inline' : 'none' }}>
+              <Loader2 className="w-4 h-4 mr-1 animate-spin" />
+              Ukladam...
+            </span>
+            <span style={{ display: !isPending ? 'inline' : 'none' }}>
+              Ulozit zmluvu
+            </span>
+          </Button>
+        </span>
 
         <div className="flex-1" />
 
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => {
-            const idx = TABS.findIndex(t => t.key === activeTab);
-            if (idx > 0) setActiveTab(TABS[idx - 1].key);
-          }}
-          disabled={activeTab === TABS[0].key}
-          tabIndex={2}
-          data-testid="button-prev-step"
-        >
-          <ChevronLeft className="w-4 h-4 mr-1" />
-          Predchadzajuci krok
-        </Button>
+        <span style={{ display: activeTab !== "zhrnutie" ? 'inline' : 'none' }}>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => {
+              const idx = TABS.findIndex(t => t.key === activeTab);
+              if (idx > 0) setActiveTab(TABS[idx - 1].key);
+            }}
+            disabled={activeTab === TABS[0].key}
+            tabIndex={2}
+            data-testid="button-prev-step"
+          >
+            <ChevronLeft className="w-4 h-4 mr-1" />
+            Predchadzajuci krok
+          </Button>
+        </span>
 
         <span id="next-step-wrapper" style={{ display: activeTab !== TABS[TABS.length - 1].key ? 'inline' : 'none' }}>
           <Button
@@ -1749,6 +1753,25 @@ export default function ContractForm() {
           >
             Pokracovat
             <ChevronRight className="w-4 h-4 ml-1" />
+          </Button>
+        </span>
+
+        <span style={{ display: activeTab === "zhrnutie" ? 'inline' : 'none' }}>
+          <Button
+            size="sm"
+            variant="default"
+            onClick={handleSubmit}
+            disabled={isPending}
+            tabIndex={1}
+            data-testid="button-save-contract-summary"
+          >
+            <span style={{ display: isPending ? 'inline' : 'none' }}>
+              <Loader2 className="w-4 h-4 mr-1 animate-spin" />
+              Ukladam...
+            </span>
+            <span style={{ display: !isPending ? 'inline' : 'none' }}>
+              Ulozit zmluvu
+            </span>
           </Button>
         </span>
       </div>
