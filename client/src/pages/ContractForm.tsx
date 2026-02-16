@@ -678,6 +678,7 @@ export default function ContractForm() {
   const [ziskatelUid, setZiskatelUid] = useState("");
   const [specialistaUid, setSpecialistaUid] = useState("");
   const [zakonnyZastupcaUid, setZakonnyZastupcaUid] = useState("");
+  const [konatelUid, setKonatelUid] = useState("");
 
   const [contractSectorId, setContractSectorId] = useState<string>("");
   const [contractSectionId, setContractSectionId] = useState<string>("");
@@ -889,6 +890,7 @@ export default function ContractForm() {
       setZiskatelUid(existingContract.ziskatelUid || "");
       setSpecialistaUid(existingContract.specialistaUid || "");
       setZakonnyZastupcaUid((existingContract as any).zakonnyZastupcaUid || "");
+      setKonatelUid((existingContract as any).konatelUid || "");
 
       const spId = existingContract.sectorProductId;
       if (spId) {
@@ -1055,6 +1057,7 @@ export default function ContractForm() {
       ziskatelUid: ziskatelUid && ziskatelUid !== "__none__" ? ziskatelUid : null,
       specialistaUid: specialistaUid && specialistaUid !== "__none__" ? specialistaUid : null,
       zakonnyZastupcaUid: zakonnyZastupcaUid && zakonnyZastupcaUid !== "__none__" ? zakonnyZastupcaUid : null,
+      konatelUid: konatelUid && konatelUid !== "__none__" ? konatelUid : null,
       processingTimeSec,
       dynamicPanelValues: Object.keys(panelValues).length > 0 ? panelValues : undefined,
     };
@@ -1365,6 +1368,19 @@ export default function ContractForm() {
                   <Select value={zakonnyZastupcaUid} onValueChange={setZakonnyZastupcaUid}>
                     <SelectTrigger data-testid="select-zakonny-zastupca-uid">
                       <SelectValue placeholder="Vyber zakonneho zastupcu..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="__none__">-- Ziadny --</SelectItem>
+                      {subjects?.filter(s => s.isActive && s.uid).map(s => (
+                        <SelectItem key={s.uid} value={s.uid!}>{s.uid} - {s.firstName || ''} {s.lastName || ''}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </CompactField>
+                <CompactField label="Konatel (UID)">
+                  <Select value={konatelUid} onValueChange={setKonatelUid}>
+                    <SelectTrigger data-testid="select-konatel-uid">
+                      <SelectValue placeholder="Vyber konatela..." />
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="__none__">-- Ziadny --</SelectItem>

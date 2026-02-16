@@ -1850,7 +1850,7 @@ export async function registerRoutes(
     if (!userUid) return 'full';
     if (userRole === 'superadmin' || userRole === 'admin') return 'full';
     if (contract.ziskatelUid === userUid || contract.specialistaUid === userUid) return 'full';
-    if (contract.klientUid === userUid || contract.zakonnyZastupcaUid === userUid) return 'klient';
+    if (contract.klientUid === userUid || contract.zakonnyZastupcaUid === userUid || contract.konatelUid === userUid) return 'klient';
     return 'full';
   }
 
@@ -1956,9 +1956,11 @@ export async function registerRoutes(
         });
 
         try {
-          const klientUidVal = rowData["klient_uid"] || rowData["klientuid"] || rowData["klient"] || null;
-          const ziskatelUidVal = rowData["ziskatel_uid"] || rowData["ziskateluid"] || rowData["ziskatel"] || null;
-          const specialistaUidVal = rowData["specialista_uid"] || rowData["specialistauid"] || rowData["specialista"] || null;
+          const klientUidVal = rowData["klient_uid"] || rowData["klientuid"] || rowData["klient"] || rowData["klient_id"] || null;
+          const ziskatelUidVal = rowData["ziskatel_uid"] || rowData["ziskateluid"] || rowData["ziskatel"] || rowData["ziskatel_id"] || null;
+          const specialistaUidVal = rowData["specialista_uid"] || rowData["specialistauid"] || rowData["specialista"] || rowData["specialista_id"] || null;
+          const zakonnyZastupcaUidVal = rowData["zakonny_zastupca_uid"] || rowData["zakonny_zastupca_id"] || rowData["zastupca"] || rowData["zastupca_id"] || null;
+          const konatelUidVal = rowData["konatel_uid"] || rowData["konateluid"] || rowData["konatel"] || rowData["konatel_id"] || null;
 
           let subjectId: number | null = null;
           if (klientUidVal && uidMap.has(klientUidVal)) {
@@ -1975,6 +1977,8 @@ export async function registerRoutes(
             klientUid: klientUidVal,
             ziskatelUid: ziskatelUidVal,
             specialistaUid: specialistaUidVal,
+            zakonnyZastupcaUid: zakonnyZastupcaUidVal,
+            konatelUid: konatelUidVal,
             premiumAmount: rowData["lehotne_poistne"] || rowData["premium"] ? parseInt(rowData["lehotne_poistne"] || rowData["premium"]) : null,
             paymentFrequency: rowData["frekvencia"] || rowData["payment_frequency"] || null,
             currency: rowData["mena"] || rowData["currency"] || "EUR",
