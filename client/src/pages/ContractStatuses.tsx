@@ -710,6 +710,10 @@ export default function ContractStatuses() {
     queryKey: ["/api/contract-statuses"],
   });
 
+  const { data: allContracts } = useQuery<any[]>({
+    queryKey: ["/api/contracts"],
+  });
+
   const reorderMutation = useMutation({
     mutationFn: (items: { id: number; sortOrder: number }[]) =>
       apiRequest("PUT", "/api/contract-statuses/reorder", { items }),
@@ -774,7 +778,9 @@ export default function ContractStatuses() {
               </TableHeader>
               <SortableContext_Wrapper items={sorted} onReorder={handleReorder}>
                 <TableBody>
-                  {sorted.map((status) => (
+                  {sorted.map((status) => {
+                    const contractCountForStatus = (allContracts || []).filter((c: any) => c.statusId === status.id).length;
+                    return (
                     <SortableTableRow
                       key={status.id}
                       id={status.id}
@@ -829,6 +835,8 @@ export default function ContractStatuses() {
                               size="icon"
                               variant="ghost"
                               onClick={() => openDelete(status)}
+                              disabled={contractCountForStatus > 0}
+                              title={contractCountForStatus > 0 ? "Nie je mozne vymazat, stav obsahuje zmluvy" : undefined}
                               data-testid={`button-delete-status-${status.id}`}
                             >
                               <Trash2 className="w-4 h-4" />
@@ -837,7 +845,8 @@ export default function ContractStatuses() {
                         </div>
                       </TableCell>
                     </SortableTableRow>
-                  ))}
+                    );
+                  })}
                 </TableBody>
               </SortableContext_Wrapper>
             </Table>

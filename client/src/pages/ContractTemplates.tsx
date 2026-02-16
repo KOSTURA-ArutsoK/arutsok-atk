@@ -284,6 +284,10 @@ export default function ContractTemplates() {
     queryKey: ["/api/contract-templates"],
   });
 
+  const { data: allContracts } = useQuery<any[]>({
+    queryKey: ["/api/contracts"],
+  });
+
   const uploadMutation = useMutation({
     mutationFn: async ({ id, file }: { id: number; file: File }) => {
       const formData = new FormData();
@@ -354,7 +358,9 @@ export default function ContractTemplates() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {templates.map((template) => (
+                {templates.map((template) => {
+                  const contractCountForTemplate = (allContracts || []).filter((c: any) => c.templateId === template.id).length;
+                  return (
                   <TableRow key={template.id} data-testid={`row-template-${template.id}`}>
                     <TableCell data-testid={`text-template-name-${template.id}`}>
                       {template.name}
@@ -424,6 +430,8 @@ export default function ContractTemplates() {
                           size="icon"
                           variant="ghost"
                           onClick={() => openDelete(template)}
+                          disabled={contractCountForTemplate > 0}
+                          title={contractCountForTemplate > 0 ? "Nie je mozne vymazat, sablona obsahuje zmluvy" : undefined}
                           data-testid={`button-delete-template-${template.id}`}
                         >
                           <Trash2 className="w-4 h-4" />
@@ -431,7 +439,8 @@ export default function ContractTemplates() {
                       </div>
                     </TableCell>
                   </TableRow>
-                ))}
+                  );
+                })}
               </TableBody>
             </Table>
           )}

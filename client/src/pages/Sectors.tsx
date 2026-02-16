@@ -40,6 +40,7 @@ import { ProcessingSaveButton } from "@/components/processing-save-button";
 import { SortableTableRow, SortableContext_Wrapper } from "@/components/sortable-list";
 
 type HierarchyCounts = {
+  sectorSections: Record<number, number>;
   sectorProducts: Record<number, number>;
   sectionProducts: Record<number, number>;
   productFolders: Record<number, number>;
@@ -1097,6 +1098,8 @@ function SectionsTab() {
                             size="icon"
                             variant="ghost"
                             onClick={() => setDeleteTarget(section)}
+                            disabled={(hierarchyCounts?.sectionProducts?.[section.id] ?? 0) > 0}
+                            title={(hierarchyCounts?.sectionProducts?.[section.id] ?? 0) > 0 ? "Nie je mozne vymazat, obsahuje potomkov" : undefined}
                             data-testid={`button-delete-section-${section.id}`}
                           >
                             <Trash2 className="w-4 h-4" />
@@ -1237,6 +1240,8 @@ function SectorsTab() {
                             size="icon"
                             variant="ghost"
                             onClick={() => setDeleteTarget(sector)}
+                            disabled={(hierarchyCounts?.sectorSections?.[sector.id] ?? 0) > 0}
+                            title={(hierarchyCounts?.sectorSections?.[sector.id] ?? 0) > 0 ? "Nie je mozne vymazat, obsahuje sekcie" : undefined}
                             data-testid={`button-delete-sector-${sector.id}`}
                           >
                             <Trash2 className="w-4 h-4" />
@@ -1441,6 +1446,8 @@ function ProductTableRow({
             size="icon"
             variant="ghost"
             onClick={onDelete}
+            disabled={folderCount > 0}
+            title={folderCount > 0 ? "Nie je mozne vymazat, obsahuje potomkov" : undefined}
             data-testid={`button-delete-sector-product-${product.id}`}
           >
             <Trash2 className="w-4 h-4" />
@@ -1898,6 +1905,8 @@ function PanelTableRow({ panel, onEdit, onDelete }: { panel: Panel; onEdit: () =
             size="icon"
             variant="ghost"
             onClick={onDelete}
+            disabled={(panelParams?.length ?? 0) > 0}
+            title={(panelParams?.length ?? 0) > 0 ? "Nie je mozne vymazat, obsahuje potomkov" : undefined}
             data-testid={`button-delete-panel-${panel.id}`}
           >
             <Trash2 className="w-4 h-4" />
@@ -2276,7 +2285,7 @@ function FoldersTab() {
                           <Button size="icon" variant="ghost" onClick={() => { setEditingFolder(folder); setDialogOpen(true); }} data-testid={`button-edit-folder-${folder.id}`}>
                             <Pencil className="w-4 h-4" />
                           </Button>
-                          <Button size="icon" variant="ghost" onClick={() => setDeleteTarget(folder)} data-testid={`button-delete-folder-${folder.id}`}>
+                          <Button size="icon" variant="ghost" onClick={() => setDeleteTarget(folder)} disabled={(hierarchyCounts?.folderPanels?.[folder.id] ?? 0) > 0} title={(hierarchyCounts?.folderPanels?.[folder.id] ?? 0) > 0 ? "Nie je mozne vymazat, obsahuje potomkov" : undefined} data-testid={`button-delete-folder-${folder.id}`}>
                             <Trash2 className="w-4 h-4 text-destructive" />
                           </Button>
                         </div>

@@ -312,6 +312,10 @@ export default function PermissionGroupsPage() {
     queryKey: ["/api/permission-groups"],
   });
 
+  const { data: appUsers } = useQuery<any[]>({
+    queryKey: ["/api/app-users"],
+  });
+
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingGroup, setEditingGroup] = useState<PermissionGroup | null>(null);
   const [selectedGroupId, setSelectedGroupId] = useState<number | null>(null);
@@ -372,7 +376,9 @@ export default function PermissionGroupsPage() {
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {groups && groups.length > 0 ? (
-          groups.map(group => (
+          groups.map(group => {
+            const userCountForGroup = (appUsers || []).filter((u: any) => u.permissionGroupId === group.id).length;
+            return (
             <Card
               key={group.id}
               className={`cursor-pointer transition-colors ${selectedGroupId === group.id ? "ring-2 ring-primary" : ""}`}
@@ -408,6 +414,8 @@ export default function PermissionGroupsPage() {
                       size="icon"
                       variant="ghost"
                       onClick={e => { e.stopPropagation(); setDeleteGroupId(group.id); }}
+                      disabled={userCountForGroup > 0}
+                      title={userCountForGroup > 0 ? "Nie je mozne vymazat, skupina obsahuje pouzivatelov" : undefined}
                       data-testid={`button-delete-group-${group.id}`}
                     >
                       <Trash2 className="w-4 h-4" />
@@ -416,7 +424,8 @@ export default function PermissionGroupsPage() {
                 </div>
               </CardContent>
             </Card>
-          ))
+            );
+          })
         ) : (
           <div className="col-span-full text-center py-8 text-muted-foreground">
             Ziadne skupiny pravomoci

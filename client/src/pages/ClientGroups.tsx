@@ -578,6 +578,8 @@ export default function ClientGroups() {
                             size="icon"
                             variant="ghost"
                             onClick={() => setDeletingGroup(group)}
+                            disabled={group.memberCount > 0}
+                            title={group.memberCount > 0 ? "Nie je mozne vymazat, skupina obsahuje clenov" : undefined}
                             data-testid={`button-delete-group-${group.id}`}
                           >
                             <Trash2 className="w-4 h-4 text-destructive" />

@@ -1111,8 +1111,14 @@ export async function registerRoutes(
 
   app.delete(api.permissionGroups.delete.path, isAuthenticated, async (req, res) => {
     try {
-      await storage.deletePermissionGroup(Number(req.params.id));
-      await logAudit(req, { action: "DELETE", module: "skupiny_pravomoci", entityId: Number(req.params.id) });
+      const groupId = Number(req.params.id);
+      const allUsers = await storage.getAppUsers();
+      const usersInGroup = allUsers.filter(u => u.permissionGroupId === groupId);
+      if (usersInGroup.length > 0) {
+        return res.status(400).json({ message: `Skupinu pravomoci nie je mozne vymazat, obsahuje ${usersInGroup.length} pouzivatelov` });
+      }
+      await storage.deletePermissionGroup(groupId);
+      await logAudit(req, { action: "DELETE", module: "skupiny_pravomoci", entityId: groupId });
       res.json({ success: true });
     } catch (err) {
       throw err;
@@ -1342,14 +1348,19 @@ export async function registerRoutes(
 
   app.delete(api.contractStatusesApi.delete.path, isAuthenticated, async (req: any, res) => {
     try {
-      // ArutsoK 43 - Protect system statuses from deletion
+      const statusId = Number(req.params.id);
       const statuses = await storage.getContractStatuses();
-      const target = statuses.find(s => s.id === Number(req.params.id));
+      const target = statuses.find(s => s.id === statusId);
       if (target?.isSystem) {
         return res.status(400).json({ message: "Systemovy stav nie je mozne vymazat" });
       }
-      await storage.deleteContractStatus(Number(req.params.id));
-      await logAudit(req, { action: "DELETE", module: "stavy_zmluv", entityId: Number(req.params.id) });
+      const allContracts = await storage.getContracts();
+      const contractsWithStatus = allContracts.filter(c => c.statusId === statusId);
+      if (contractsWithStatus.length > 0) {
+        return res.status(400).json({ message: `Stav zmluvy nie je mozne vymazat, pouziva ho ${contractsWithStatus.length} zmluv` });
+      }
+      await storage.deleteContractStatus(statusId);
+      await logAudit(req, { action: "DELETE", module: "stavy_zmluv", entityId: statusId });
       res.json({ success: true });
     } catch (err) {
       res.status(500).json({ message: "Internal error" });
@@ -1576,8 +1587,14 @@ export async function registerRoutes(
 
   app.delete(api.contractTemplatesApi.delete.path, isAuthenticated, async (req: any, res) => {
     try {
-      await storage.deleteContractTemplate(Number(req.params.id));
-      await logAudit(req, { action: "DELETE", module: "sablony_zmluv", entityId: Number(req.params.id) });
+      const templateId = Number(req.params.id);
+      const allContracts = await storage.getContracts();
+      const contractsWithTemplate = allContracts.filter(c => c.templateId === templateId);
+      if (contractsWithTemplate.length > 0) {
+        return res.status(400).json({ message: `Sablonu nie je mozne vymazat, pouziva ju ${contractsWithTemplate.length} zmluv` });
+      }
+      await storage.deleteContractTemplate(templateId);
+      await logAudit(req, { action: "DELETE", module: "sablony_zmluv", entityId: templateId });
       res.json({ success: true });
     } catch (err) {
       res.status(500).json({ message: "Internal error" });
@@ -2648,6 +2665,10 @@ export async function registerRoutes(
       if (enforcedState && existing.stateId !== enforcedState) {
         return res.status(403).json({ message: "Pristup zamietnuty" });
       }
+      const members = await storage.getClientGroupMembers(Number(req.params.id));
+      if (members.length > 0) {
+        return res.status(400).json({ message: `Skupinu nie je mozne vymazat, obsahuje ${members.length} clenov` });
+      }
       await storage.deleteClientGroup(Number(req.params.id));
       await logAudit(req, { action: "DELETE", module: "skupiny_klientov", entityId: Number(req.params.id) });
       res.json({ success: true });
@@ -3571,6 +3592,11 @@ export async function registerRoutes(
         db.select().from(panelParameters),
       ]);
 
+      const sectorSectionCounts: Record<number, number> = {};
+      for (const sec of allSections) {
+        sectorSectionCounts[sec.sectorId] = (sectorSectionCounts[sec.sectorId] || 0) + 1;
+      }
+
       const sectorProductCounts: Record<number, number> = {};
       for (const sp of sectorProducts) {
         const section = allSections.find(s => s.id === sp.sectionId);
@@ -3600,6 +3626,7 @@ export async function registerRoutes(
       }
 
       res.json({
+        sectorSections: sectorSectionCounts,
         sectorProducts: sectorProductCounts,
         sectionProducts: sectionProductCounts,
         productFolders: productFolderCounts,
@@ -3650,6 +3677,10 @@ export async function registerRoutes(
     try {
       const id = Number(req.params.id);
       const oldSector = await storage.getSector(id);
+      const sectorSections = await storage.getSections(id);
+      if (sectorSections.length > 0) {
+        return res.status(400).json({ message: `Sektor nie je mozne vymazat, obsahuje ${sectorSections.length} sekcii` });
+      }
       await storage.deleteSector(id);
       await logAudit(req, { action: "Vymazanie", module: "Sektory", entityId: id, entityName: oldSector?.name });
       res.json({ success: true });
@@ -3699,6 +3730,10 @@ export async function registerRoutes(
     try {
       const id = Number(req.params.id);
       const oldSection = await storage.getSection(id);
+      const products = await storage.getSectorProducts(id);
+      if (products.length > 0) {
+        return res.status(400).json({ message: `Sekciu nie je mozne vymazat, obsahuje ${products.length} produktov` });
+      }
       await storage.deleteSection(id);
       await logAudit(req, { action: "Vymazanie", module: "Sekcie", entityId: id, entityName: oldSection?.name });
       res.json({ success: true });
@@ -3796,6 +3831,10 @@ export async function registerRoutes(
     try {
       const id = Number(req.params.id);
       const old = await storage.getSectorProduct(id);
+      const panels = await storage.getProductPanels(id);
+      if (panels.length > 0) {
+        return res.status(400).json({ message: `Produkt nie je mozne vymazat, obsahuje ${panels.length} panelov` });
+      }
       await storage.deleteSectorProduct(id);
       await logAudit(req, { action: "Vymazanie", module: "SektoroveProdukty", entityId: id, entityName: old?.name });
       res.json({ success: true });
@@ -3939,6 +3978,10 @@ export async function registerRoutes(
     try {
       const id = Number(req.params.id);
       const panel = await storage.getPanel(id);
+      const params = await storage.getPanelParameters(id);
+      if (params.length > 0) {
+        return res.status(400).json({ message: `Panel nie je mozne vymazat, obsahuje ${params.length} parametrov` });
+      }
       await storage.deletePanel(id);
       await logAudit(req, { action: "Vymazanie", module: "Panely", entityId: id, entityName: panel?.name || "" });
       res.json({ success: true });
