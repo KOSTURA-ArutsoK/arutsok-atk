@@ -3361,9 +3361,7 @@ export async function registerRoutes(
           subject: {
             id: existing.id,
             uid: existing.uid,
-            name: existing.type === 'person'
-              ? `${existing.firstName} ${existing.lastName}`
-              : existing.companyName,
+            name: existing.name,
             type: existing.type,
           },
         });
