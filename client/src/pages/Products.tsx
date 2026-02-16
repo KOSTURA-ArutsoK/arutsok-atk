@@ -7,7 +7,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useMyCompanies } from "@/hooks/use-companies";
 import { useStates } from "@/hooks/use-hierarchy";
 import type { Product, CommissionScheme, Partner, Parameter, ProductParameter, MyCompany } from "@shared/schema";
-import { Plus, Pencil, Eye, Package, Loader2, HelpCircle } from "lucide-react";
+import { Plus, Pencil, Eye, Package, Loader2, HelpCircle, Trash2, FileText } from "lucide-react";
 import { ConditionalDelete } from "@/components/conditional-delete";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { Switch } from "@/components/ui/switch";
@@ -97,6 +97,9 @@ function ProductFormDialog({
   const [allowedSpecialists, setAllowedSpecialists] = useState<string[]>([]);
   const [notesHtml, setNotesHtml] = useState("");
   const [paramValues, setParamValues] = useState<Record<number, string>>({});
+  const [activeTab, setActiveTab] = useState<"info" | "dokumentacia">("info");
+  const [requiredDocuments, setRequiredDocuments] = useState<string[]>([]);
+  const [newDocName, setNewDocName] = useState("");
 
   const { data: allParameters } = useQuery<Parameter[]>({
     queryKey: ["/api/parameters"],
@@ -148,6 +151,8 @@ function ProductFormDialog({
   useEffect(() => {
     if (open) {
       timerRef.current = performance.now();
+      setActiveTab("info");
+      setNewDocName("");
       if (editingProduct) {
         setPartnerId(editingProduct.partnerId?.toString() || "");
         setCode(editingProduct.code || "");
@@ -155,6 +160,7 @@ function ProductFormDialog({
         setDescription(editingProduct.description || "");
         setAllowedSpecialists(editingProduct.allowedSpecialists || []);
         setNotesHtml(editingProduct.notes || "");
+        setRequiredDocuments((editingProduct as any).requiredDocuments || []);
       } else {
         setPartnerId("");
         setCode("");
@@ -162,6 +168,7 @@ function ProductFormDialog({
         setDescription("");
         setAllowedSpecialists([]);
         setNotesHtml("");
+        setRequiredDocuments([]);
       }
     }
   }, [open, editingProduct]);
@@ -185,6 +192,7 @@ function ProductFormDialog({
       description,
       allowedSpecialists,
       notes: notesHtml,
+      requiredDocuments,
       processingTimeSec,
       dynamicParams: Object.keys(paramValues).length > 0 ? paramValues : undefined,
     };
@@ -206,162 +214,251 @@ function ProductFormDialog({
             {editingProduct ? "Upravit produkt" : "Pridat produkt"}
           </DialogTitle>
         </DialogHeader>
-        <div className="space-y-4">
-          <div className="space-y-2">
-            <label className="text-sm font-medium">Partner</label>
-            <Select value={partnerId} onValueChange={setPartnerId}>
-              <SelectTrigger data-testid="select-product-partner">
-                <SelectValue placeholder="Vyberte partnera" />
-              </SelectTrigger>
-              <SelectContent>
-                {partners?.filter(p => !p.isDeleted).map(p => (
-                  <SelectItem key={p.id} value={p.id.toString()}>{p.name}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
+        <div className="flex gap-1 border-b mb-3">
+          <button
+            className={`px-3 py-1.5 text-sm font-medium border-b-2 transition-colors ${activeTab === "info" ? "border-primary text-primary" : "border-transparent text-muted-foreground"}`}
+            onClick={() => setActiveTab("info")}
+            data-testid="tab-product-info"
+          >
+            Informacie
+          </button>
+          <button
+            className={`px-3 py-1.5 text-sm font-medium border-b-2 transition-colors flex items-center gap-1.5 ${activeTab === "dokumentacia" ? "border-primary text-primary" : "border-transparent text-muted-foreground"}`}
+            onClick={() => setActiveTab("dokumentacia")}
+            data-testid="tab-product-dokumentacia"
+          >
+            <FileText className="w-3.5 h-3.5" />
+            Dokumentacia
+            <span style={{ display: requiredDocuments.length > 0 ? 'inline' : 'none' }}>
+              <Badge variant="secondary" className="text-[10px] px-1.5 ml-0.5">{requiredDocuments.length}</Badge>
+            </span>
+          </button>
+        </div>
 
-          <div className="grid grid-cols-2 gap-4">
+        <div style={{ display: activeTab === "info" ? 'block' : 'none' }}>
+          <div className="space-y-4">
             <div className="space-y-2">
-              <label className="text-sm font-medium">Kod *</label>
-              <Input value={code} onChange={e => setCode(e.target.value)} className="font-mono uppercase" data-testid="input-product-code" />
+              <label className="text-sm font-medium">Partner</label>
+              <Select value={partnerId} onValueChange={setPartnerId}>
+                <SelectTrigger data-testid="select-product-partner">
+                  <SelectValue placeholder="Vyberte partnera" />
+                </SelectTrigger>
+                <SelectContent>
+                  {partners?.filter(p => !p.isDeleted).map(p => (
+                    <SelectItem key={p.id} value={p.id.toString()}>{p.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Nazov produktu *</label>
-              <Input value={name} onChange={e => setName(e.target.value)} data-testid="input-product-name" />
-            </div>
-          </div>
 
-          <div className="space-y-2">
-            <label className="text-sm font-medium">Popis</label>
-            <Textarea value={description} onChange={e => setDescription(e.target.value)} rows={3} data-testid="input-product-description" />
-          </div>
-
-          <div className="space-y-2">
-            <label className="text-sm font-medium">Povoleni specialisti</label>
-            <div className="grid grid-cols-3 gap-2">
-              {SPECIALIST_TYPES.map(type => (
-                <label key={type} className="flex items-center gap-2 text-sm cursor-pointer">
-                  <Checkbox
-                    checked={allowedSpecialists.includes(type)}
-                    onCheckedChange={(checked) => {
-                      if (checked) {
-                        setAllowedSpecialists(prev => [...prev, type]);
-                      } else {
-                        setAllowedSpecialists(prev => prev.filter(t => t !== type));
-                      }
-                    }}
-                    data-testid={`checkbox-specialist-${type.toLowerCase().replace(/\s+/g, "-")}`}
-                  />
-                  {type}
-                </label>
-              ))}
-            </div>
-          </div>
-
-          {assignedParams.length > 0 && (
-            <div className="space-y-3">
-              <label className="text-sm font-medium">Dynamicke parametre</label>
-              <div className="grid grid-cols-2 gap-3">
-                {assignedParams.map(param => {
-                  const helpText = param.overrideHelpText || param.helpText;
-                  const isReq = param.overrideRequired ?? param.isRequired;
-                  return (
-                    <div key={param.id} className="space-y-1">
-                      <div className="flex items-center gap-1.5">
-                        <label className="text-sm font-medium">
-                          {param.name}{isReq ? " *" : ""}
-                        </label>
-                        {helpText && (
-                          <Tooltip>
-                            <TooltipTrigger asChild>
-                              <HelpCircle className="w-3.5 h-3.5 text-muted-foreground cursor-help" />
-                            </TooltipTrigger>
-                            <TooltipContent side="top" data-testid={`tooltip-param-${param.id}`}>
-                              <p className="text-xs">{helpText}</p>
-                            </TooltipContent>
-                          </Tooltip>
-                        )}
-                      </div>
-                      {param.paramType === "textarea" ? (
-                        <Textarea
-                          value={paramValues[param.id] || ""}
-                          onChange={e => setParamValues(prev => ({ ...prev, [param.id]: e.target.value }))}
-                          rows={2}
-                          data-testid={`input-param-${param.id}`}
-                        />
-                      ) : param.paramType === "combobox" || param.paramType === "jedna_moznost" ? (
-                        <Select
-                          value={paramValues[param.id] || ""}
-                          onValueChange={val => setParamValues(prev => ({ ...prev, [param.id]: val }))}
-                        >
-                          <SelectTrigger data-testid={`select-param-${param.id}`}>
-                            <SelectValue placeholder="Vyberte..." />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {(param.options || []).map(opt => (
-                              <SelectItem key={opt} value={opt}>{opt}</SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      ) : param.paramType === "viac_moznosti" ? (
-                        <MultiSelectCheckboxes
-                          paramId={param.id}
-                          options={param.options || []}
-                          value={paramValues[param.id] || ""}
-                          onChange={(val) => setParamValues(prev => ({ ...prev, [param.id]: val }))}
-                        />
-                      ) : param.paramType === "boolean" ? (
-                        <div className="flex items-center gap-2 pt-1">
-                          <Switch
-                            checked={paramValues[param.id] === "true"}
-                            onCheckedChange={checked => setParamValues(prev => ({ ...prev, [param.id]: String(checked) }))}
-                            data-testid={`switch-param-${param.id}`}
-                          />
-                          <span className="text-sm text-muted-foreground">{paramValues[param.id] === "true" ? "Ano" : "Nie"}</span>
-                        </div>
-                      ) : param.paramType === "date" ? (
-                        <Input
-                          type="date"
-                          value={paramValues[param.id] || ""}
-                          onChange={e => setParamValues(prev => ({ ...prev, [param.id]: e.target.value }))}
-                          data-testid={`input-param-${param.id}`}
-                        />
-                      ) : param.paramType === "number" ? (
-                        <Input
-                          type="number"
-                          value={paramValues[param.id] || ""}
-                          onChange={e => setParamValues(prev => ({ ...prev, [param.id]: e.target.value }))}
-                          data-testid={`input-param-${param.id}`}
-                        />
-                      ) : (
-                        <Input
-                          value={paramValues[param.id] || ""}
-                          onChange={e => setParamValues(prev => ({ ...prev, [param.id]: e.target.value }))}
-                          data-testid={`input-param-${param.id}`}
-                        />
-                      )}
-                    </div>
-                  );
-                })}
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Kod *</label>
+                <Input value={code} onChange={e => setCode(e.target.value)} className="font-mono uppercase" data-testid="input-product-code" />
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Nazov produktu *</label>
+                <Input value={name} onChange={e => setName(e.target.value)} data-testid="input-product-name" />
               </div>
             </div>
-          )}
 
-          <div className="space-y-2">
-            <label className="text-sm font-medium">Poznamky</label>
-            <RichTextEditor
-              content={notesHtml}
-              onChange={setNotesHtml}
-              placeholder="Zadajte poznamky k produktu..."
-              data-testid="editor-product-notes"
-            />
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Popis</label>
+              <Textarea value={description} onChange={e => setDescription(e.target.value)} rows={3} data-testid="input-product-description" />
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Povoleni specialisti</label>
+              <div className="grid grid-cols-3 gap-2">
+                {SPECIALIST_TYPES.map(type => (
+                  <label key={type} className="flex items-center gap-2 text-sm cursor-pointer">
+                    <Checkbox
+                      checked={allowedSpecialists.includes(type)}
+                      onCheckedChange={(checked) => {
+                        if (checked) {
+                          setAllowedSpecialists(prev => [...prev, type]);
+                        } else {
+                          setAllowedSpecialists(prev => prev.filter(t => t !== type));
+                        }
+                      }}
+                      data-testid={`checkbox-specialist-${type.toLowerCase().replace(/\s+/g, "-")}`}
+                    />
+                    {type}
+                  </label>
+                ))}
+              </div>
+            </div>
+
+            {assignedParams.length > 0 && (
+              <div className="space-y-3">
+                <label className="text-sm font-medium">Dynamicke parametre</label>
+                <div className="grid grid-cols-2 gap-3">
+                  {assignedParams.map(param => {
+                    const helpText = param.overrideHelpText || param.helpText;
+                    const isReq = param.overrideRequired ?? param.isRequired;
+                    return (
+                      <div key={param.id} className="space-y-1">
+                        <div className="flex items-center gap-1.5">
+                          <label className="text-sm font-medium">
+                            {param.name}{isReq ? " *" : ""}
+                          </label>
+                          {helpText && (
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <HelpCircle className="w-3.5 h-3.5 text-muted-foreground cursor-help" />
+                              </TooltipTrigger>
+                              <TooltipContent side="top" data-testid={`tooltip-param-${param.id}`}>
+                                <p className="text-xs">{helpText}</p>
+                              </TooltipContent>
+                            </Tooltip>
+                          )}
+                        </div>
+                        {param.paramType === "textarea" ? (
+                          <Textarea
+                            value={paramValues[param.id] || ""}
+                            onChange={e => setParamValues(prev => ({ ...prev, [param.id]: e.target.value }))}
+                            rows={2}
+                            data-testid={`input-param-${param.id}`}
+                          />
+                        ) : param.paramType === "combobox" || param.paramType === "jedna_moznost" ? (
+                          <Select
+                            value={paramValues[param.id] || ""}
+                            onValueChange={val => setParamValues(prev => ({ ...prev, [param.id]: val }))}
+                          >
+                            <SelectTrigger data-testid={`select-param-${param.id}`}>
+                              <SelectValue placeholder="Vyberte..." />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {(param.options || []).map(opt => (
+                                <SelectItem key={opt} value={opt}>{opt}</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        ) : param.paramType === "viac_moznosti" ? (
+                          <MultiSelectCheckboxes
+                            paramId={param.id}
+                            options={param.options || []}
+                            value={paramValues[param.id] || ""}
+                            onChange={(val) => setParamValues(prev => ({ ...prev, [param.id]: val }))}
+                          />
+                        ) : param.paramType === "boolean" ? (
+                          <div className="flex items-center gap-2 pt-1">
+                            <Switch
+                              checked={paramValues[param.id] === "true"}
+                              onCheckedChange={checked => setParamValues(prev => ({ ...prev, [param.id]: String(checked) }))}
+                              data-testid={`switch-param-${param.id}`}
+                            />
+                            <span className="text-sm text-muted-foreground">{paramValues[param.id] === "true" ? "Ano" : "Nie"}</span>
+                          </div>
+                        ) : param.paramType === "date" ? (
+                          <Input
+                            type="date"
+                            value={paramValues[param.id] || ""}
+                            onChange={e => setParamValues(prev => ({ ...prev, [param.id]: e.target.value }))}
+                            data-testid={`input-param-${param.id}`}
+                          />
+                        ) : param.paramType === "number" ? (
+                          <Input
+                            type="number"
+                            value={paramValues[param.id] || ""}
+                            onChange={e => setParamValues(prev => ({ ...prev, [param.id]: e.target.value }))}
+                            data-testid={`input-param-${param.id}`}
+                          />
+                        ) : (
+                          <Input
+                            value={paramValues[param.id] || ""}
+                            onChange={e => setParamValues(prev => ({ ...prev, [param.id]: e.target.value }))}
+                            data-testid={`input-param-${param.id}`}
+                          />
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Poznamky</label>
+              <RichTextEditor
+                content={notesHtml}
+                onChange={setNotesHtml}
+                placeholder="Zadajte poznamky k produktu..."
+                data-testid="editor-product-notes"
+              />
+            </div>
+
+            <div className="flex items-center justify-end mt-6">
+              <Button type="button" variant="outline" onClick={() => handleOpenChange(false)} data-testid="button-product-cancel">
+                Zrusit
+              </Button>
+            </div>
           </div>
+        </div>
 
-          <div className="flex items-center justify-end mt-6">
-            <Button type="button" variant="outline" onClick={() => handleOpenChange(false)} data-testid="button-product-cancel">
-              Zrusit
-            </Button>
+        <div style={{ display: activeTab === "dokumentacia" ? 'block' : 'none' }}>
+          <div className="space-y-4">
+            <p className="text-sm text-muted-foreground">
+              Definujte povinne dokumenty, ktore musi PFA odovzdat pri vytvoreni zmluvy s tymto produktom.
+            </p>
+
+            <div className="flex gap-2">
+              <Input
+                value={newDocName}
+                onChange={e => setNewDocName(e.target.value)}
+                placeholder="Nazov dokumentu (napr. Kopia OP)"
+                onKeyDown={e => {
+                  if (e.key === "Enter" && newDocName.trim()) {
+                    setRequiredDocuments(prev => [...prev, newDocName.trim()]);
+                    setNewDocName("");
+                  }
+                }}
+                data-testid="input-new-document-name"
+              />
+              <Button
+                size="sm"
+                onClick={() => {
+                  if (newDocName.trim()) {
+                    setRequiredDocuments(prev => [...prev, newDocName.trim()]);
+                    setNewDocName("");
+                  }
+                }}
+                disabled={!newDocName.trim()}
+                data-testid="button-add-document"
+              >
+                <Plus className="w-4 h-4 mr-1" />
+                Pridat
+              </Button>
+            </div>
+
+            <div style={{ display: requiredDocuments.length > 0 ? 'block' : 'none' }}>
+              <div className="border rounded-md divide-y">
+                {requiredDocuments.map((doc, idx) => (
+                  <div key={idx} className="flex items-center justify-between gap-3 px-3 py-2">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <FileText className="w-4 h-4 text-muted-foreground flex-shrink-0" />
+                      <span className="text-sm truncate" data-testid={`text-document-name-${idx}`}>{doc}</span>
+                    </div>
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      onClick={() => setRequiredDocuments(prev => prev.filter((_, i) => i !== idx))}
+                      data-testid={`button-remove-document-${idx}`}
+                    >
+                      <Trash2 className="w-3.5 h-3.5 text-destructive" />
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div style={{ display: requiredDocuments.length === 0 ? 'block' : 'none' }}>
+              <div className="border rounded-md p-6 text-center">
+                <FileText className="w-8 h-8 text-muted-foreground mx-auto mb-2" />
+                <p className="text-sm text-muted-foreground">Zatial neboli definovane ziadne povinne dokumenty.</p>
+                <p className="text-xs text-muted-foreground mt-1">Pridajte nazvy dokumentov pomocou pola vyssie.</p>
+              </div>
+            </div>
           </div>
         </div>
         <ProcessingSaveButton isPending={isPending} onClick={handleSubmit} type="button" />
