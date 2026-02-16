@@ -1167,7 +1167,7 @@ export default function ContractForm() {
             <div className="space-y-[clamp(0.35rem,0.8vh,0.75rem)]" data-testid="section-vseobecne">
 
               <div className="grid grid-cols-2 gap-[clamp(0.5rem,1vw,1rem)]">
-                <CompactField label="Cislo sprievodky">
+                <CompactField label="Sprievodka - Preberací protokol">
                   <Input
                     value={inventoryId ? (inventories?.find(i => i.id.toString() === inventoryId)?.sequenceNumber?.toString() || "Pridelene pri ulozeni") : ""}
                     readOnly
@@ -1175,7 +1175,7 @@ export default function ContractForm() {
                     data-testid="input-inventory-number"
                   />
                 </CompactField>
-                <CompactField label="Supiska">
+                <CompactField label="Súpiska - Odovzdávací protokol">
                   <Input
                     value={inventoryId ? (inventories?.find(i => i.id.toString() === inventoryId)?.name || "") : ""}
                     readOnly
