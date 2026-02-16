@@ -268,6 +268,21 @@ function SortableSectionItem({ id, children }: { id: number; children: React.Rea
   );
 }
 
+function SortableClientTypeRow({ id, children }: { id: number; children: React.ReactNode }) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id });
+  const style = { transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.5 : 1 };
+  return (
+    <TableRow ref={setNodeRef} style={style} data-testid={`row-client-type-${id}`}>
+      <TableCell className="w-8 cursor-grab">
+        <span {...attributes} {...listeners} data-testid={`handle-client-type-${id}`}>
+          <GripVertical className="w-4 h-4 text-muted-foreground" />
+        </span>
+      </TableCell>
+      {children}
+    </TableRow>
+  );
+}
+
 function TypeDetailView({ clientType, onBack }: { clientType: ClientType; onBack: () => void }) {
   const queryClient = useQueryClient();
   const { toast } = useToast();
@@ -615,6 +630,11 @@ export default function ClientTypeRules() {
   const [addTypeOpen, setAddTypeOpen] = useState(false);
   const [selectedType, setSelectedType] = useState<ClientType | null>(null);
 
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
+    useSensor(KeyboardSensor)
+  );
+
   const deleteTypeMutation = useMutation({
     mutationFn: async (id: number) => {
       await apiRequest("DELETE", `/api/client-types/${id}`);
@@ -625,6 +645,26 @@ export default function ClientTypeRules() {
     },
     onError: () => { toast({ title: "Chyba", variant: "destructive" }); },
   });
+
+  const reorderMutation = useMutation({
+    mutationFn: async (items: Array<{ id: number; sortOrder: number }>) => {
+      await apiRequest("PUT", "/api/client-types/reorder", { items });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/client-types"] });
+    },
+  });
+
+  function handleDragEnd(event: DragEndEvent) {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+    const oldIndex = clientTypes.findIndex(ct => ct.id === active.id);
+    const newIndex = clientTypes.findIndex(ct => ct.id === over.id);
+    if (oldIndex === -1 || newIndex === -1) return;
+    const reordered = arrayMove([...clientTypes], oldIndex, newIndex);
+    const items = reordered.map((ct, i) => ({ id: ct.id, sortOrder: i }));
+    reorderMutation.mutate(items);
+  }
 
   if (selectedType) {
     return <TypeDetailView clientType={selectedType} onBack={() => setSelectedType(null)} />;
@@ -649,52 +689,57 @@ export default function ClientTypeRules() {
 
       <Card>
         <CardContent className="p-0">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Kod</TableHead>
-                <TableHead>Nazov</TableHead>
-                <TableHead>Zakladny parameter</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead className="text-right">Akcie</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {isLoading && (
-                <TableRow><TableCell colSpan={5} className="text-center py-8 text-muted-foreground">Nacitavam...</TableCell></TableRow>
-              )}
-              {!isLoading && clientTypes.length === 0 && (
-                <TableRow><TableCell colSpan={5} className="text-center py-12 text-muted-foreground">Ziadne typy klientov</TableCell></TableRow>
-              )}
-              {clientTypes.map(ct => (
-                <TableRow key={ct.id} data-testid={`row-client-type-${ct.id}`}>
-                  <TableCell className="font-mono font-bold">{ct.code}</TableCell>
-                  <TableCell className="font-medium">{ct.name}</TableCell>
-                  <TableCell>
-                    <Badge variant="outline">{ct.baseParameter === "ico" ? "ICO" : "Rodne cislo"}</Badge>
-                  </TableCell>
-                  <TableCell>
-                    <Badge variant={ct.isActive ? "default" : "destructive"} className={ct.isActive ? "bg-emerald-600 text-white" : ""}>
-                      {ct.isActive ? "Aktivny" : "Neaktivny"}
-                    </Badge>
-                  </TableCell>
-                  <TableCell className="text-right">
-                    <div className="flex items-center gap-1 justify-end">
-                      <Button size="sm" variant="outline" onClick={() => setSelectedType(ct)} data-testid={`button-edit-type-${ct.id}`}>
-                        <Settings2 className="w-3 h-3 mr-1" />
-                        Upravit polia
-                      </Button>
-                      {isAdmin && (
-                        <Button size="icon" variant="ghost" onClick={() => deleteTypeMutation.mutate(ct.id)} data-testid={`button-delete-type-${ct.id}`}>
-                          <Trash2 className="w-3 h-3 text-destructive" />
-                        </Button>
-                      )}
-                    </div>
-                  </TableCell>
+          <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="w-8"></TableHead>
+                  <TableHead>Kod</TableHead>
+                  <TableHead>Nazov</TableHead>
+                  <TableHead>Zakladny parameter</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead className="text-right">Akcie</TableHead>
                 </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+              </TableHeader>
+              <SortableContext items={clientTypes.map(ct => ct.id)} strategy={verticalListSortingStrategy}>
+                <TableBody>
+                  {isLoading && (
+                    <TableRow><TableCell colSpan={6} className="text-center py-8 text-muted-foreground">Nacitavam...</TableCell></TableRow>
+                  )}
+                  {!isLoading && clientTypes.length === 0 && (
+                    <TableRow><TableCell colSpan={6} className="text-center py-12 text-muted-foreground">Ziadne typy klientov</TableCell></TableRow>
+                  )}
+                  {clientTypes.map(ct => (
+                    <SortableClientTypeRow key={ct.id} id={ct.id}>
+                      <TableCell className="font-mono font-bold">{ct.code}</TableCell>
+                      <TableCell className="font-medium">{ct.name}</TableCell>
+                      <TableCell>
+                        <Badge variant="outline">{ct.baseParameter === "ico" ? "ICO" : "Rodne cislo"}</Badge>
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant={ct.isActive ? "default" : "destructive"} className={ct.isActive ? "bg-emerald-600 text-white" : ""}>
+                          {ct.isActive ? "Aktivny" : "Neaktivny"}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <div className="flex items-center gap-1 justify-end">
+                          <Button size="sm" variant="outline" onClick={() => setSelectedType(ct)} data-testid={`button-edit-type-${ct.id}`}>
+                            <Settings2 className="w-3 h-3 mr-1" />
+                            Upravit polia
+                          </Button>
+                          <div style={{ display: isAdmin ? 'inline' : 'none' }}>
+                            <Button size="icon" variant="ghost" onClick={() => deleteTypeMutation.mutate(ct.id)} data-testid={`button-delete-type-${ct.id}`}>
+                              <Trash2 className="w-3 h-3 text-destructive" />
+                            </Button>
+                          </div>
+                        </div>
+                      </TableCell>
+                    </SortableClientTypeRow>
+                  ))}
+                </TableBody>
+              </SortableContext>
+            </Table>
+          </DndContext>
         </CardContent>
       </Card>
 
