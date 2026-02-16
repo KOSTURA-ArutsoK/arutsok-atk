@@ -483,6 +483,8 @@ export const clientTypeFields = pgTable("client_type_fields", {
   options: jsonb("options").$type<string[]>().default([]),
   defaultValue: text("default_value"),
   visibilityRule: jsonb("visibility_rule").$type<{ dependsOn: string; value: string } | null>(),
+  unit: text("unit"),
+  decimalPlaces: integer("decimal_places").default(2),
   sortOrder: integer("sort_order").default(0),
   createdAt: timestamp("created_at").defaultNow(),
 });
@@ -992,6 +994,8 @@ export const parameters = pgTable("parameters", {
   options: text("options").array().default([]),
   isRequired: boolean("is_required").default(false),
   defaultValue: text("default_value").default(""),
+  unit: text("unit"),
+  decimalPlaces: integer("decimal_places").default(2),
   sortOrder: integer("sort_order").default(0),
   createdAt: timestamp("created_at").defaultNow(),
 });

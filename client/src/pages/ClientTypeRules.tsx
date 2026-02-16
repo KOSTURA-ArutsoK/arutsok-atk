@@ -27,7 +27,7 @@ import {
   Plus, Trash2, Settings2, Layers, ArrowLeft, Pencil,
   Type, AlignLeft, List, CheckSquare, ToggleLeft, Phone, Mail,
   Hash, Image, Calendar, CreditCard, Search, Loader2,
-  FolderOpen, LayoutGrid, GripVertical, HelpCircle, X,
+  FolderOpen, LayoutGrid, GripVertical, HelpCircle, X, Info,
 } from "lucide-react";
 import { DndContext, closestCenter, PointerSensor, KeyboardSensor, useSensor, useSensors, type DragEndEvent } from "@dnd-kit/core";
 import { SortableContext, useSortable, verticalListSortingStrategy, arrayMove } from "@dnd-kit/sortable";
@@ -47,6 +47,7 @@ const FIELD_TYPES = [
   { value: "file", label: "Foto/Subor", icon: Image },
   { value: "date", label: "Datum", icon: Calendar },
   { value: "iban", label: "IBAN", icon: CreditCard },
+  { value: "decimal", label: "Desatinne cislo", icon: Hash },
 ];
 
 function isSelectFieldType(t: string): boolean {
@@ -390,6 +391,8 @@ function FieldFormDialog({
   const [options, setOptions] = useState("");
   const [dependsOn, setDependsOn] = useState("");
   const [dependsValue, setDependsValue] = useState("");
+  const [unit, setUnit] = useState("");
+  const [decimalPlaces, setDecimalPlaces] = useState(2);
 
   useEffect(() => {
     if (open) {
@@ -403,9 +406,12 @@ function FieldFormDialog({
         const vr = editingField.visibilityRule as any;
         setDependsOn(vr?.dependsOn || "");
         setDependsValue(vr?.value || "");
+        setUnit((editingField as any).unit || "");
+        setDecimalPlaces((editingField as any).decimalPlaces ?? 2);
       } else {
         setFieldKey(""); setLabel(""); setFieldType("short_text"); setPanelId("");
         setIsRequired(false); setOptions(""); setDependsOn(""); setDependsValue("");
+        setUnit(""); setDecimalPlaces(2);
       }
     }
   }, [open, editingField]);
@@ -432,6 +438,8 @@ function FieldFormDialog({
         options: options ? options.split(",").map(o => o.trim()).filter(Boolean) : [],
         visibilityRule,
         sortOrder: existingFields.length,
+        unit: fieldType === "decimal" ? (unit || null) : null,
+        decimalPlaces: fieldType === "decimal" ? decimalPlaces : null,
       });
     },
     onSuccess: () => {
@@ -453,6 +461,8 @@ function FieldFormDialog({
         isRequired,
         options: options ? options.split(",").map(o => o.trim()).filter(Boolean) : [],
         visibilityRule,
+        unit: fieldType === "decimal" ? (unit || null) : null,
+        decimalPlaces: fieldType === "decimal" ? decimalPlaces : null,
       });
     },
     onSuccess: () => {
@@ -506,6 +516,45 @@ function FieldFormDialog({
                   ))}
                 </SelectContent>
               </Select>
+            </div>
+          </div>
+
+          <div style={{ display: fieldType === "decimal" ? 'block' : 'none' }} className="rounded-md border border-border p-4 space-y-3">
+            <div className="flex items-center gap-2">
+              <Hash className="w-4 h-4 text-muted-foreground" />
+              <span className="text-sm font-semibold">Nastavenia desatinneho cisla</span>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Info className="w-4 h-4 text-muted-foreground cursor-help" data-testid="icon-ct-decimal-info" />
+                </TooltipTrigger>
+                <TooltipContent side="top" className="max-w-[300px]" data-testid="tooltip-ct-decimal-info">
+                  <p className="text-xs">Pouzite pre sumy, percenta alebo kryptomeny. Podporuje presnost az na 8 desatinnych miest.</p>
+                </TooltipContent>
+              </Tooltip>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <label className="text-xs font-medium">Jednotka (Suffix)</label>
+                <Input
+                  value={unit}
+                  onChange={e => setUnit(e.target.value)}
+                  placeholder="napr. €, %, BTC, ETH"
+                  data-testid="input-ct-field-unit"
+                />
+              </div>
+              <div className="space-y-1">
+                <label className="text-xs font-medium">Pocet desatinnych miest</label>
+                <Select value={decimalPlaces.toString()} onValueChange={v => setDecimalPlaces(parseInt(v))}>
+                  <SelectTrigger data-testid="select-ct-field-decimal-places">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {[0,1,2,3,4,5,6,7,8].map(n => (
+                      <SelectItem key={n} value={n.toString()}>{n}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
           </div>
 
@@ -1058,9 +1107,11 @@ function ParametersTab({ clientTypeId }: { clientTypeId: number }) {
                         <TableCell className="font-medium">{field.label}</TableCell>
                         <TableCell className="font-mono text-sm text-muted-foreground">{field.fieldKey}</TableCell>
                         <TableCell>
-                          <div className="flex items-center gap-1">
+                          <div className="flex items-center gap-1 flex-wrap">
                             <Icon className="w-3 h-3 text-muted-foreground" />
                             <span className="text-xs">{ftDef?.label || field.fieldType}</span>
+                            <span style={{ display: field.fieldType === "decimal" && (field as any).unit ? 'inline' : 'none' }} className="text-xs text-muted-foreground">{(field as any).unit}</span>
+                            <span style={{ display: field.fieldType === "decimal" ? 'inline' : 'none' }} className="text-xs text-muted-foreground">({(field as any).decimalPlaces ?? 2} des.)</span>
                           </div>
                         </TableCell>
                         <TableCell>

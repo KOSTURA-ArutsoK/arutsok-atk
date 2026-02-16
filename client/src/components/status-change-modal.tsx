@@ -392,6 +392,28 @@ function renderParamInput(
           data-testid={testId}
         />
       );
+    case "decimal": {
+      const dp = (param as any).decimalPlaces ?? 2;
+      const decRegex = dp > 0 ? new RegExp(`^\\d*\\.?\\d{0,${dp}}$`) : /^\d*$/;
+      return (
+        <div className="flex items-center gap-1.5">
+          <Input
+            type="text"
+            inputMode="decimal"
+            value={value}
+            onChange={e => {
+              const raw = e.target.value.replace(/,/g, ".");
+              if (raw === "" || raw === "." || decRegex.test(raw)) {
+                onChange(raw);
+              }
+            }}
+            data-testid={testId}
+            className="flex-1"
+          />
+          <span style={{ display: (param as any).unit ? 'inline' : 'none' }} className="text-sm text-muted-foreground font-medium whitespace-nowrap">{(param as any).unit}</span>
+        </div>
+      );
+    }
     case "date":
       return (
         <Input

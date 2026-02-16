@@ -559,6 +559,25 @@ function ContractFormDialog({
                               value={panelValues[`${panel.id}_${param.id}`] || param.defaultValue || ""}
                               onChange={(val) => setPanelValues(prev => ({ ...prev, [`${panel.id}_${param.id}`]: val }))}
                             />
+                          ) : param.paramType === "decimal" ? (
+                            <div className="flex items-center gap-1.5">
+                              <Input
+                                type="text"
+                                inputMode="decimal"
+                                value={panelValues[`${panel.id}_${param.id}`] || param.defaultValue || ""}
+                                onChange={e => {
+                                  const raw = e.target.value.replace(/,/g, ".");
+                                  const dp = (param as any).decimalPlaces ?? 2;
+                                  const regex = dp > 0 ? new RegExp(`^\\d*\\.?\\d{0,${dp}}$`) : /^\d*$/;
+                                  if (raw === "" || raw === "." || regex.test(raw)) {
+                                    setPanelValues(prev => ({ ...prev, [`${panel.id}_${param.id}`]: raw }));
+                                  }
+                                }}
+                                data-testid={`input-panel-param-${panel.id}-${param.id}`}
+                                className="flex-1"
+                              />
+                              <span style={{ display: (param as any).unit ? 'inline' : 'none' }} className="text-sm text-muted-foreground font-medium whitespace-nowrap">{(param as any).unit}</span>
+                            </div>
                           ) : (
                             <Input
                               type={param.paramType === "number" || param.paramType === "currency" || param.paramType === "percent" ? "number" : param.paramType === "date" ? "date" : param.paramType === "datetime" ? "datetime-local" : param.paramType === "email" ? "email" : param.paramType === "url" ? "url" : "text"}

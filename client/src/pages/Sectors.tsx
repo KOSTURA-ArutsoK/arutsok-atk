@@ -4,7 +4,7 @@ import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { usePartners } from "@/hooks/use-partners";
 import type { Sector, Parameter, SectorProduct, SectorProductParameter, Panel, PanelParameter, ProductPanel, Section, ContractFolder, FolderPanel } from "@shared/schema";
-import { Plus, Pencil, Trash2, Loader2, Search, Layers, Settings2, ChevronsUpDown, X, Check, FolderOpen, List, Package, Info, LayoutGrid, FolderClosed } from "lucide-react";
+import { Plus, Pencil, Trash2, Loader2, Search, Layers, Settings2, ChevronsUpDown, X, Check, FolderOpen, List, Package, Info, LayoutGrid, FolderClosed, Hash } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -71,6 +71,7 @@ const PARAM_TYPES = [
   { value: "url", label: "URL adresa" },
   { value: "file", label: "Subor / priloha" },
   { value: "iban", label: "IBAN" },
+  { value: "decimal", label: "Desatinne cislo" },
 ] as const;
 
 const SELECT_TYPES = ["combobox", "jedna_moznost", "viac_moznosti"] as const;
@@ -699,6 +700,8 @@ function ParameterFormDialog({
   const [defaultValue, setDefaultValue] = useState("");
   const [choiceOptions, setChoiceOptions] = useState<ChoiceOption[]>([]);
   const [optionsModalOpen, setOptionsModalOpen] = useState(false);
+  const [unit, setUnit] = useState("");
+  const [decimalPlaces, setDecimalPlaces] = useState(2);
 
   const createMutation = useMutation({
     mutationFn: (data: any) => apiRequest("POST", "/api/parameters", data),
@@ -730,6 +733,8 @@ function ParameterFormDialog({
         setIsRequired(editingParameter.isRequired || false);
         setDefaultValue(editingParameter.defaultValue || "");
         setChoiceOptions(parseOptions(editingParameter.options));
+        setUnit((editingParameter as any).unit || "");
+        setDecimalPlaces((editingParameter as any).decimalPlaces ?? 2);
       } else {
         setName("");
         setParamType("text");
@@ -737,6 +742,8 @@ function ParameterFormDialog({
         setIsRequired(false);
         setDefaultValue("");
         setChoiceOptions([]);
+        setUnit("");
+        setDecimalPlaces(2);
       }
     }
   }, [open, editingParameter]);
@@ -751,7 +758,14 @@ function ParameterFormDialog({
       return;
     }
     const options = isSelectType(paramType) ? serializeOptions(choiceOptions) : [];
-    const payload = { name, paramType, helpText, isRequired, defaultValue, options };
+    const payload: any = { name, paramType, helpText, isRequired, defaultValue, options };
+    if (paramType === "decimal") {
+      payload.unit = unit || null;
+      payload.decimalPlaces = decimalPlaces;
+    } else {
+      payload.unit = null;
+      payload.decimalPlaces = null;
+    }
     if (editingParameter) {
       updateMutation.mutate(payload);
     } else {
@@ -787,6 +801,44 @@ function ParameterFormDialog({
                 ))}
               </SelectContent>
             </Select>
+          </div>
+          <div style={{ display: paramType === "decimal" ? 'block' : 'none' }} className="rounded-md border border-border p-4 space-y-3">
+            <div className="flex items-center gap-2">
+              <Hash className="w-4 h-4 text-muted-foreground" />
+              <span className="text-sm font-semibold">Nastavenia desatinneho cisla</span>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Info className="w-4 h-4 text-muted-foreground cursor-help" data-testid="icon-decimal-info" />
+                </TooltipTrigger>
+                <TooltipContent side="top" className="max-w-[300px]" data-testid="tooltip-decimal-info">
+                  <p className="text-xs">Pouzite pre sumy, percenta alebo kryptomeny. Podporuje presnost az na 8 desatinnych miest.</p>
+                </TooltipContent>
+              </Tooltip>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <label className="text-xs font-medium">Jednotka (Suffix)</label>
+                <Input
+                  value={unit}
+                  onChange={e => setUnit(e.target.value)}
+                  placeholder="napr. €, %, BTC, ETH"
+                  data-testid="input-parameter-unit"
+                />
+              </div>
+              <div className="space-y-1">
+                <label className="text-xs font-medium">Pocet desatinnych miest</label>
+                <Select value={decimalPlaces.toString()} onValueChange={v => setDecimalPlaces(parseInt(v))}>
+                  <SelectTrigger data-testid="select-parameter-decimal-places">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {[0,1,2,3,4,5,6,7,8].map(n => (
+                      <SelectItem key={n} value={n.toString()}>{n}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
           </div>
           <div className="space-y-2">
             <label className="text-sm font-medium">Napoveda</label>
@@ -1558,7 +1610,11 @@ function ParametersTab() {
                     <TableRow key={param.id} data-testid={`row-parameter-${param.id}`}>
                       <TableCell className="font-medium">{param.name}</TableCell>
                       <TableCell>
-                        <Badge variant="outline">{getParamTypeLabel(param.paramType)}</Badge>
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <Badge variant="outline">{getParamTypeLabel(param.paramType)}</Badge>
+                          <span style={{ display: param.paramType === "decimal" && (param as any).unit ? 'inline' : 'none' }} className="text-xs text-muted-foreground">{(param as any).unit}</span>
+                          <span style={{ display: param.paramType === "decimal" ? 'inline' : 'none' }} className="text-xs text-muted-foreground">({(param as any).decimalPlaces ?? 2} des. miest)</span>
+                        </div>
                       </TableCell>
                       <TableCell>
                         {param.isRequired ? (

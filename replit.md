@@ -50,6 +50,7 @@ The system uses a modern full-stack architecture, emphasizing data integrity, se
     - **Contract Processing Workflow**: Features a multi-phase system for contract submission, dispatch, and acceptance (`Evidencia zmluv` module), including auto-numbering for `Sprievodka` and contract registration.
     - **Contract Status Management**: Customizable `contract_statuses` with properties like `isCommissionable`, `isFinal`, `assignsNumber`, and status-specific parameters. Supports tracking status change history and documents.
     - **Hierarchy Count Badges**: Displays child-item counts in various hierarchical tables.
+    - **Decimal Parameter Type (DESATINNE_CISLO)**: Global parameter type across all modules (Sectors, ClientTypeRules) supporting comma/dot input, configurable unit suffix (€, %, BTC, ETH), and dynamic precision (0-8 decimal places). Stored with `unit` and `decimal_places` metadata columns.
 
 ## External Dependencies
 - **Replit OIDC Auth**: User authentication.

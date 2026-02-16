@@ -50,6 +50,8 @@ type PanelWithParams = {
     options: string[];
     isRequired: boolean;
     defaultValue: string;
+    unit?: string | null;
+    decimalPlaces?: number | null;
   }>;
 };
 
@@ -80,6 +82,42 @@ const TABS = [
 ] as const;
 
 type TabKey = typeof TABS[number]["key"];
+
+function normalizeDecimalInput(value: string): string {
+  return value.replace(/,/g, ".");
+}
+
+function DecimalInput({ value, onChange, unit, decimalPlaces, testId }: {
+  value: string;
+  onChange: (val: string) => void;
+  unit?: string | null;
+  decimalPlaces?: number | null;
+  testId?: string;
+}) {
+  const dp = decimalPlaces ?? 2;
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const raw = e.target.value;
+    const normalized = normalizeDecimalInput(raw);
+    const regex = dp > 0 ? new RegExp(`^-?\\d*\\.?\\d{0,${dp}}$`) : /^-?\d*$/;
+    if (normalized === "" || normalized === "-" || normalized === "." || regex.test(normalized)) {
+      onChange(normalized);
+    }
+  };
+  return (
+    <div className="flex items-center gap-1.5">
+      <Input
+        type="text"
+        inputMode="decimal"
+        value={value}
+        onChange={handleChange}
+        placeholder={`0.${"0".repeat(dp)}`}
+        data-testid={testId}
+        className="flex-1"
+      />
+      <span style={{ display: unit ? 'inline' : 'none' }} className="text-sm text-muted-foreground font-medium whitespace-nowrap">{unit}</span>
+    </div>
+  );
+}
 
 const PAYMENT_FREQUENCIES = [
   { value: "mesacne", label: "Mesacne", multiplier: 12 },
@@ -463,6 +501,15 @@ function StatusTabContent(props: StatusTabContentProps) {
                                 data-testid={`param-input-${param.id}`}
                               />
                             </div>
+                            <div style={{ display: param.paramType === "decimal" ? 'block' : 'none' }}>
+                              <DecimalInput
+                                value={statusFormParamValues[param.id.toString()] || param.defaultValue || ""}
+                                onChange={val => setStatusFormParamValues(prev => ({ ...prev, [param.id.toString()]: val }))}
+                                unit={(param as any).unit}
+                                decimalPlaces={(param as any).decimalPlaces}
+                                testId={`param-input-${param.id}`}
+                              />
+                            </div>
                             <div style={{ display: param.paramType === "date" ? 'block' : 'none' }}>
                               <Input
                                 type="date"
@@ -506,7 +553,7 @@ function StatusTabContent(props: StatusTabContentProps) {
                                 onChange={(val) => setStatusFormParamValues(prev => ({ ...prev, [param.id.toString()]: val }))}
                               />
                             </div>
-                            <div style={{ display: param.paramType !== "textarea" && param.paramType !== "number" && param.paramType !== "date" && param.paramType !== "boolean" && param.paramType !== "select" && param.paramType !== "jedna_moznost" && param.paramType !== "viac_moznosti" ? 'block' : 'none' }}>
+                            <div style={{ display: param.paramType !== "textarea" && param.paramType !== "number" && param.paramType !== "decimal" && param.paramType !== "date" && param.paramType !== "boolean" && param.paramType !== "select" && param.paramType !== "jedna_moznost" && param.paramType !== "viac_moznosti" ? 'block' : 'none' }}>
                               <Input
                                 value={statusFormParamValues[param.id.toString()] || param.defaultValue || ""}
                                 onChange={e => setStatusFormParamValues(prev => ({ ...prev, [param.id.toString()]: e.target.value }))}
@@ -1542,7 +1589,16 @@ export default function ContractForm() {
                               </SelectContent>
                             </Select>
                           </div>
-                          <div style={{ display: field.fieldType !== "textarea" && field.fieldType !== "boolean" && !((field.fieldType === "combobox" || field.fieldType === "jedna_moznost") && (field.options as string[] || []).length > 0) ? 'block' : 'none' }}>
+                          <div style={{ display: field.fieldType === "decimal" ? 'block' : 'none' }}>
+                            <DecimalInput
+                              value={clientTypeFieldValues[field.fieldKey] || field.defaultValue || ""}
+                              onChange={val => setClientTypeFieldValues(prev => ({ ...prev, [field.fieldKey]: val }))}
+                              unit={(field as any).unit}
+                              decimalPlaces={(field as any).decimalPlaces}
+                              testId={`input-ct-field-${field.fieldKey}`}
+                            />
+                          </div>
+                          <div style={{ display: field.fieldType !== "textarea" && field.fieldType !== "boolean" && field.fieldType !== "decimal" && !((field.fieldType === "combobox" || field.fieldType === "jedna_moznost") && (field.options as string[] || []).length > 0) ? 'block' : 'none' }}>
                             <Input
                               type={field.fieldType === "number" || field.fieldType === "currency" || field.fieldType === "percent" ? "number" : field.fieldType === "date" ? "date" : field.fieldType === "email" ? "email" : "text"}
                               value={clientTypeFieldValues[field.fieldKey] || field.defaultValue || ""}
@@ -1696,7 +1752,16 @@ export default function ContractForm() {
                                 onChange={(val) => setPanelValues(prev => ({ ...prev, [`${panel.id}_${param.id}`]: val }))}
                               />
                             </div>
-                            <div style={{ display: param.paramType !== "textarea" && param.paramType !== "boolean" && !((param.paramType === "combobox" || param.paramType === "jedna_moznost") && param.options?.length > 0) && param.paramType !== "viac_moznosti" ? 'block' : 'none' }}>
+                            <div style={{ display: param.paramType === "decimal" ? 'block' : 'none' }}>
+                              <DecimalInput
+                                value={panelValues[`${panel.id}_${param.id}`] || param.defaultValue || ""}
+                                onChange={val => setPanelValues(prev => ({ ...prev, [`${panel.id}_${param.id}`]: val }))}
+                                unit={param.unit}
+                                decimalPlaces={param.decimalPlaces}
+                                testId={`input-panel-param-${panel.id}-${param.id}`}
+                              />
+                            </div>
+                            <div style={{ display: param.paramType !== "textarea" && param.paramType !== "boolean" && param.paramType !== "decimal" && !((param.paramType === "combobox" || param.paramType === "jedna_moznost") && param.options?.length > 0) && param.paramType !== "viac_moznosti" ? 'block' : 'none' }}>
                               <Input
                                 type={param.paramType === "number" || param.paramType === "currency" || param.paramType === "percent" ? "number" : param.paramType === "date" ? "date" : param.paramType === "datetime" ? "datetime-local" : param.paramType === "email" ? "email" : param.paramType === "url" ? "url" : "text"}
                                 value={panelValues[`${panel.id}_${param.id}`] || param.defaultValue || ""}
