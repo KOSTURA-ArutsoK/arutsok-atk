@@ -33,6 +33,7 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Checkbox } from "@/components/ui/checkbox";
 import type { AppUser, PermissionGroup, ClientGroup } from "@shared/schema";
 import { ProcessingSaveButton } from "@/components/processing-save-button";
+import { HelpIcon } from "@/components/help-icon";
 
 
 const ROLES = ["superadmin", "admin", "backoffice", "manager", "user"] as const;
@@ -473,7 +474,10 @@ export default function UsersPage() {
             <UsersIcon className="w-5 h-5 text-primary" />
           </div>
           <div>
-            <h1 className="text-xl font-bold" data-testid="text-users-title">Pouzivatelia</h1>
+            <div className="flex items-center gap-1.5">
+              <h1 className="text-xl font-bold" data-testid="text-users-title">Pouzivatelia</h1>
+              <HelpIcon text="Sprava pouzivatelov systemu. Priradenie roli, pristupovych prav a aktivneho kontextu." side="right" />
+            </div>
             <p className="text-sm text-muted-foreground">Sprava pouzivatelov systemu</p>
           </div>
         </div>

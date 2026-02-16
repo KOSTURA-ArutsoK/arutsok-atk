@@ -1,7 +1,7 @@
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { useHelp } from "@/contexts/help-context";
-import { ArrowUpRight, Filter, Loader2, Search, Info } from "lucide-react";
+import { ArrowUpRight, Filter, Loader2, Search } from "lucide-react";
+import { HelpIcon } from "@/components/help-icon";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -23,23 +23,12 @@ import {
 } from "@/components/ui/select";
 
 export default function Odmeny() {
-  const { helpEnabled } = useHelp();
-  const [showHelp, setShowHelp] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [filterAgent, setFilterAgent] = useState<string>("all");
 
   const { data: odmenyData, isLoading } = useQuery<any[]>({
     queryKey: ["/api/odmeny"],
   });
-
-  useEffect(() => {
-    if (helpEnabled) {
-      const timer = setTimeout(() => setShowHelp(true), 2000);
-      return () => clearTimeout(timer);
-    } else {
-      setShowHelp(false);
-    }
-  }, [helpEnabled]);
 
   const agents = useMemo(() => {
     if (!odmenyData) return [];
@@ -103,9 +92,9 @@ export default function Odmeny() {
       <div className="flex items-center justify-between gap-4 flex-wrap">
         <div className="flex items-center gap-3">
           <ArrowUpRight className="w-6 h-6 text-orange-500" />
-          <div>
+          <div className="flex items-center gap-1.5">
             <h1 className="text-xl font-bold" data-testid="text-page-title">Odmeny</h1>
-            <p className="text-xs text-muted-foreground">Prehled vyplatenych odmien spolupracovnikom</p>
+            <HelpIcon text="Peniaze vyplacane spolupracovnikom. Zobrazuje prehled vsetkych odmien, ktore su vyplacane agentom a manazerom na zaklade ich proviznej triedy a rozdielovej provizie." side="right" />
           </div>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
@@ -122,17 +111,6 @@ export default function Odmeny() {
           </Badge>
         </div>
       </div>
-
-      {showHelp && (
-        <Card className="border-orange-500/30 bg-orange-500/5" data-testid="help-odmeny">
-          <CardContent className="p-3 flex items-start gap-2">
-            <Info className="w-4 h-4 text-orange-500 mt-0.5 shrink-0" />
-            <p className="text-sm text-muted-foreground">
-              Peniaze vyplacane spolupracovnikom. Tato stranka zobrazuje prehled vsetkych odmien, ktore su vyplacane agentom a manazerom na zaklade ich proviznej triedy a rozdielovej provizie.
-            </p>
-          </CardContent>
-        </Card>
-      )}
 
       <Card className="border-orange-500/10">
         <CardHeader className="pb-3">

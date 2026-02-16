@@ -32,6 +32,7 @@ import { Switch } from "@/components/ui/switch";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { HelpCircle } from "lucide-react";
+import { HelpIcon } from "@/components/help-icon";
 import { z } from "zod";
 import {
   Form, FormControl, FormField, FormItem, FormLabel, FormMessage,
@@ -908,7 +909,10 @@ export default function Subjects() {
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
-          <h2 className="text-2xl font-bold" data-testid="text-subjects-title">Register subjektov</h2>
+          <div className="flex items-center gap-1.5">
+            <h2 className="text-2xl font-bold" data-testid="text-subjects-title">Register subjektov</h2>
+            <HelpIcon text="Zoznam vsetkych klientov a subjektov v systeme. Klientov mozete pridavat, upravovat a archivovat." side="right" />
+          </div>
           <p className="text-sm text-muted-foreground mt-1">Sprava entit a integritnych zaznamov.</p>
         </div>
         <Button onClick={() => setIsInitModalOpen(true)} data-testid="button-add-subject">

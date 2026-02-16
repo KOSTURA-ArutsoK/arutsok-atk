@@ -35,6 +35,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import type { PermissionGroup, Permission } from "@shared/schema";
 import { ProcessingSaveButton } from "@/components/processing-save-button";
+import { HelpIcon, AdminNote } from "@/components/help-icon";
 
 const MODULES = [
   { key: "dashboard", label: "Prehlad" },
@@ -151,7 +152,10 @@ function GroupFormDialog({
             />
           </div>
           <div className="space-y-2">
-            <Label>Popis</Label>
+            <div className="flex items-center gap-1.5">
+              <Label>Popis</Label>
+              <AdminNote text="Skupina opravneni definuje casovy limit session a pristupove urovne. Zmenou ovplyvnite pristup vsetkych pouzivatelov v skupine." isAdmin={true} side="right" />
+            </div>
             <Input
               value={description}
               onChange={e => setDescription(e.target.value)}
@@ -353,7 +357,10 @@ export default function PermissionGroupsPage() {
             <ShieldCheck className="w-5 h-5 text-primary" />
           </div>
           <div>
-            <h1 className="text-xl font-bold" data-testid="text-groups-title">Skupiny pravomoci</h1>
+            <div className="flex items-center gap-1.5">
+              <h1 className="text-xl font-bold" data-testid="text-groups-title">Skupiny pravomoci</h1>
+              <HelpIcon text="Nastavenie skupin opravneni pre rozne urovne pristupu." side="right" />
+            </div>
             <p className="text-sm text-muted-foreground">Sprava skupin opravneni a matica pristupov</p>
           </div>
         </div>

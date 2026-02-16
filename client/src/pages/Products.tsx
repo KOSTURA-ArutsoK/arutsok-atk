@@ -45,6 +45,7 @@ import {
 } from "@/components/ui/accordion";
 import { RichTextEditor } from "@/components/rich-text-editor";
 import { ProcessingSaveButton } from "@/components/processing-save-button";
+import { HelpIcon } from "@/components/help-icon";
 
 const SPECIALIST_TYPES = ["NBS", "Zbrojny preukaz", "Reality", "Poistenie", "Dochodok", "Ine"];
 
@@ -728,7 +729,10 @@ export default function Products() {
       <div className="flex items-center justify-between gap-2 flex-wrap">
         <div className="flex items-center gap-2 flex-wrap">
           <Package className="w-5 h-5 text-primary" />
-          <h1 className="text-lg font-bold" data-testid="text-page-title">Globalny katalog produktov</h1>
+          <div className="flex items-center gap-1.5">
+            <h1 className="text-lg font-bold" data-testid="text-page-title">Globalny katalog produktov</h1>
+            <HelpIcon text="Katalog produktov v hierarchii Sektor > Sekcia > Produkt. Produkty obsahuju panely s parametrami." side="right" />
+          </div>
           <Badge variant="secondary">{activeProducts.length}</Badge>
         </div>
         <Button onClick={handleAdd} data-testid="button-add-product">

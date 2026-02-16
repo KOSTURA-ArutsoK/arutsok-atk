@@ -35,6 +35,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { ProcessingSaveButton } from "@/components/processing-save-button";
+import { HelpIcon } from "@/components/help-icon";
 
 function formatProcessingTime(seconds: number): string {
   const h = Math.floor(seconds / 3600);
@@ -1344,7 +1345,10 @@ export default function Contracts() {
     return (
       <div className="p-6 space-y-4">
         <div className="flex items-center justify-between gap-4 flex-wrap">
-          <h1 className="text-2xl font-bold" data-testid="text-page-title">Spracovanie zmlúv</h1>
+          <div className="flex items-center gap-1.5">
+            <h1 className="text-2xl font-bold" data-testid="text-page-title">Spracovanie zmlúv</h1>
+            <HelpIcon text="Prehled vsetkych zmluv v systeme. Zmluvy sa viazu na klientov, produkty a partnerov." side="right" />
+          </div>
           <div className="flex items-center gap-2">
             <Button variant="outline" onClick={() => { setImportFile(null); setImportResult(null); setImportDialogOpen(true); }} data-testid="button-import-excel">
               <Upload className="w-4 h-4 mr-2" />
@@ -1639,7 +1643,10 @@ export default function Contracts() {
   return (
     <div className="p-6 space-y-6">
       <div className="flex items-center justify-between gap-4 flex-wrap">
-        <h1 className="text-2xl font-bold" data-testid="text-page-title">Evidencia zmlúv</h1>
+        <div className="flex items-center gap-1.5">
+          <h1 className="text-2xl font-bold" data-testid="text-page-title">Evidencia zmlúv</h1>
+          <HelpIcon text="Prehled vsetkych zmluv v systeme. Zmluvy sa viazu na klientov, produkty a partnerov." side="right" />
+        </div>
         <Button onClick={() => navigate("/evidencia-zmluv")} data-testid="button-create-contract">
           <Plus className="w-4 h-4 mr-2" />
           Evidovat zmluvu

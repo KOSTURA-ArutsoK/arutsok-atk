@@ -32,6 +32,7 @@ import {
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
+import { HelpIcon, AdminNote } from "@/components/help-icon";
 
 function ProcessingTimer({ startTime }: { startTime: number }) {
   const [now, setNow] = useState(Date.now());
@@ -219,7 +220,10 @@ export default function Commissions() {
         <div className="flex items-center gap-3">
           <Percent className="w-6 h-6 text-primary" />
           <div>
-            <h1 className="text-xl font-bold" data-testid="text-page-title">Sadzby (Matica provizii)</h1>
+            <div className="flex items-center gap-1.5">
+              <h1 className="text-xl font-bold" data-testid="text-page-title">Sadzby (Matica provizii)</h1>
+              <HelpIcon text="Nastavenie proviznych sadzieb pre jednotlive produkty a urovne spolupracovnikov." side="right" />
+            </div>
             <p className="text-xs text-muted-foreground">Mapovanie Partner + Produkt na provizne sadzby a body</p>
           </div>
         </div>
@@ -420,7 +424,10 @@ export default function Commissions() {
                 </Select>
               </div>
               <div>
-                <Label className="text-xs">Hodnota sadzby *</Label>
+                <div className="flex items-center gap-1.5">
+                  <Label className="text-xs">Hodnota sadzby *</Label>
+                  <AdminNote text="Zmena sadzby ovplyvni vypocet provizii pre vsetky nove zmluvy. Existujuce zmluvy nie su ovplyvnene." isAdmin={true} side="right" />
+                </div>
                 <Input type="number" step="0.01" value={formRateValue} onChange={e => setFormRateValue(e.target.value)} placeholder={formRateType === "percent" ? "napr. 15.5" : "napr. 250"} data-testid="input-rate-value" />
               </div>
               <div>

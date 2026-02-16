@@ -1,7 +1,7 @@
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { useHelp } from "@/contexts/help-context";
-import { ArrowDownLeft, Filter, Loader2, Search, Info } from "lucide-react";
+import { ArrowDownLeft, Filter, Loader2, Search } from "lucide-react";
+import { HelpIcon } from "@/components/help-icon";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -23,23 +23,12 @@ import {
 } from "@/components/ui/select";
 
 export default function Provizie() {
-  const { helpEnabled } = useHelp();
-  const [showHelp, setShowHelp] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [filterPartner, setFilterPartner] = useState<string>("all");
 
   const { data: provizieData, isLoading } = useQuery<any[]>({
     queryKey: ["/api/provizie"],
   });
-
-  useEffect(() => {
-    if (helpEnabled) {
-      const timer = setTimeout(() => setShowHelp(true), 2000);
-      return () => clearTimeout(timer);
-    } else {
-      setShowHelp(false);
-    }
-  }, [helpEnabled]);
 
   const partners = useMemo(() => {
     if (!provizieData) return [];
@@ -88,9 +77,9 @@ export default function Provizie() {
       <div className="flex items-center justify-between gap-4 flex-wrap">
         <div className="flex items-center gap-3">
           <ArrowDownLeft className="w-6 h-6 text-emerald-500" />
-          <div>
+          <div className="flex items-center gap-1.5">
             <h1 className="text-xl font-bold" data-testid="text-page-title">Provizie</h1>
-            <p className="text-xs text-muted-foreground">Prehled prijatych provizii od partnerov</p>
+            <HelpIcon text="Peniaze prijate od partnerov. Zobrazuje prehled vsetkych provizii, ktore spolocnost prijima od obchodnych partnerov na zaklade uzatvorenych zmluv a nastavenych sadzieb." side="right" />
           </div>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
@@ -105,17 +94,6 @@ export default function Provizie() {
           </Badge>
         </div>
       </div>
-
-      {showHelp && (
-        <Card className="border-emerald-500/30 bg-emerald-500/5" data-testid="help-provizie">
-          <CardContent className="p-3 flex items-start gap-2">
-            <Info className="w-4 h-4 text-emerald-500 mt-0.5 shrink-0" />
-            <p className="text-sm text-muted-foreground">
-              Peniaze prijate od partnerov. Tato stranka zobrazuje prehled vsetkych provizii, ktore spolocnost prijima od obchodnych partnerov na zaklade uzatvorenych zmluv a nastavenych sadzieb.
-            </p>
-          </CardContent>
-        </Card>
-      )}
 
       <Card>
         <CardHeader className="pb-3">
