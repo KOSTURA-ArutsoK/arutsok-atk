@@ -394,10 +394,12 @@ function SubjectDetailDialog({ subject, onClose }: { subject: Subject; onClose: 
                 {(() => {
                   const status = getSubjectStatus(subject);
                   return (
-                    <div className="flex items-center gap-1.5" data-testid={`status-dialog-subject-${subject.id}`}>
-                      <span className={`w-2.5 h-2.5 rounded-full ${status.color} flex-shrink-0`} />
-                      <span className="text-xs font-medium">{status.label}</span>
-                    </div>
+                    <span
+                      className={`inline-flex items-center px-2 py-0.5 rounded-full border text-[11px] font-medium ${status.bgColor} ${status.borderColor} ${status.textColor}`}
+                      data-testid={`status-dialog-subject-${subject.id}`}
+                    >
+                      {status.label}
+                    </span>
                   );
                 })()}
               </div>
@@ -1097,12 +1099,12 @@ function FullPageEditor({
 
 type SubjectStatusCategory = "other_company" | "deceased" | "no_contract" | "active" | "inactive";
 
-const STATUS_CONFIG: Record<SubjectStatusCategory, { color: string; bgColor: string; borderColor: string; shadowColor: string; label: string }> = {
-  other_company: { color: "bg-gray-400", bgColor: "bg-gray-500/20", borderColor: "border-gray-400", shadowColor: "shadow-gray-400/40", label: "Ina spolocnost" },
-  deceased: { color: "bg-black dark:bg-gray-200", bgColor: "bg-black/20 dark:bg-gray-200/20", borderColor: "border-black dark:border-gray-200", shadowColor: "shadow-black/40 dark:shadow-gray-200/40", label: "Zosnuly" },
-  no_contract: { color: "bg-blue-500", bgColor: "bg-blue-500/20", borderColor: "border-blue-500", shadowColor: "shadow-blue-500/40", label: "Bez zmluvy" },
-  active: { color: "bg-emerald-500", bgColor: "bg-emerald-500/20", borderColor: "border-emerald-500", shadowColor: "shadow-emerald-500/40", label: "Aktivny" },
-  inactive: { color: "bg-red-500", bgColor: "bg-red-500/20", borderColor: "border-red-500", shadowColor: "shadow-red-500/40", label: "Neaktivny" },
+const STATUS_CONFIG: Record<SubjectStatusCategory, { color: string; bgColor: string; borderColor: string; shadowColor: string; textColor: string; label: string }> = {
+  other_company: { color: "bg-gray-400", bgColor: "bg-gray-500/10", borderColor: "border-gray-400", shadowColor: "shadow-gray-400/40", textColor: "text-gray-600 dark:text-gray-300", label: "Ina spolocnost" },
+  deceased: { color: "bg-black dark:bg-gray-200", bgColor: "bg-black/10 dark:bg-gray-200/10", borderColor: "border-black dark:border-gray-200", shadowColor: "shadow-black/40 dark:shadow-gray-200/40", textColor: "text-black dark:text-gray-200", label: "Zosnuly" },
+  no_contract: { color: "bg-blue-500", bgColor: "bg-blue-500/10", borderColor: "border-blue-500", shadowColor: "shadow-blue-500/40", textColor: "text-blue-700 dark:text-blue-300", label: "Bez zmluvy" },
+  active: { color: "bg-emerald-500", bgColor: "bg-emerald-500/10", borderColor: "border-emerald-500", shadowColor: "shadow-emerald-500/40", textColor: "text-emerald-700 dark:text-emerald-300", label: "Aktivny" },
+  inactive: { color: "bg-red-500", bgColor: "bg-red-500/10", borderColor: "border-red-500", shadowColor: "shadow-red-500/40", textColor: "text-red-700 dark:text-red-300", label: "Neaktivny" },
 };
 
 function getSubjectStatusCategory(subject: any, activeCompanyId?: number): SubjectStatusCategory {
@@ -1113,10 +1115,10 @@ function getSubjectStatusCategory(subject: any, activeCompanyId?: number): Subje
   return "active";
 }
 
-function getSubjectStatus(subject: any, activeCompanyId?: number): { color: string; label: string; category: SubjectStatusCategory } {
+function getSubjectStatus(subject: any, activeCompanyId?: number): { color: string; bgColor: string; borderColor: string; textColor: string; label: string; category: SubjectStatusCategory } {
   const category = getSubjectStatusCategory(subject, activeCompanyId);
   const config = STATUS_CONFIG[category];
-  return { color: config.color, label: config.label, category };
+  return { color: config.color, bgColor: config.bgColor, borderColor: config.borderColor, textColor: config.textColor, label: config.label, category };
 }
 
 function SubjectEditModal({ subject, onClose }: { subject: Subject & { isOwner?: boolean }; onClose: () => void }) {
@@ -1741,10 +1743,13 @@ export default function Subjects() {
                       {(() => {
                         const status = getSubjectStatus(subject, activeCompanyId);
                         return (
-                          <div className="flex items-start gap-2" data-testid={`status-subject-${subject.id}`}>
-                            <span className={`w-2.5 h-2.5 rounded-full ${status.color} flex-shrink-0 mt-0.5`} />
-                            <span className="text-xs">{status.label}</span>
-                          </div>
+                          <span
+                            className={`inline-flex items-center px-2 py-0.5 rounded-full border text-[11px] font-medium leading-snug ${status.bgColor} ${status.borderColor} ${status.textColor}`}
+                            style={{ whiteSpace: 'normal', wordBreak: 'break-word' }}
+                            data-testid={`status-subject-${subject.id}`}
+                          >
+                            {status.label}
+                          </span>
                         );
                       })()}
                     </TableCell>

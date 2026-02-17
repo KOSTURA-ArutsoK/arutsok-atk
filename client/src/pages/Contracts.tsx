@@ -800,9 +800,13 @@ function ContractDetailDialog({
               <DialogTitle data-testid="text-contract-detail-title">Zmluva {contract.contractNumber || contract.uid}</DialogTitle>
               <div className="flex items-center gap-2 mt-1 flex-wrap">
                 {status && (
-                  <Badge variant="outline" style={{ borderColor: status.color, color: status.color }} data-testid="badge-detail-status">
+                  <span
+                    className="inline-flex items-center px-2 py-0.5 rounded-full border text-[11px] font-medium"
+                    style={{ borderColor: status.color, color: status.color, backgroundColor: `${status.color}15` }}
+                    data-testid="badge-detail-status"
+                  >
                     {status.name}
-                  </Badge>
+                  </span>
                 )}
               </div>
             </div>
@@ -1416,7 +1420,10 @@ export default function Contracts() {
                   <TableCell data-testid={`text-contract-status-${contract.id}`}>
                     <div className="flex items-center gap-1.5 flex-wrap">
                       {status ? (
-                        <Badge variant="outline" style={{ borderColor: status.color, color: status.color }}>{status.name}</Badge>
+                        <span
+                          className="inline-flex items-center px-2 py-0.5 rounded-full border text-[11px] font-medium leading-snug"
+                          style={{ borderColor: status.color, color: status.color, backgroundColor: `${status.color}15`, whiteSpace: 'normal', wordBreak: 'break-word' }}
+                        >{status.name}</span>
                       ) : "-"}
                       {statusChangeMeta?.[contract.id]?.hasNote && (
                         <MessageSquare className="w-3.5 h-3.5 text-blue-400 shrink-0" data-testid={`icon-note-${contract.id}`} />
@@ -2411,14 +2418,15 @@ export default function Contracts() {
                       <TableCell className="text-sm" data-testid={`text-contract-product-${contract.id}`}>
                         {getProductName(contract)}
                       </TableCell>
-                      <TableCell data-testid={`text-contract-status-${contract.id}`}>
+                      <TableCell data-testid={`text-contract-status-${contract.id}`} style={{ maxWidth: '150px', whiteSpace: 'normal', wordBreak: 'break-word' }}>
                         {status ? (
-                          <Badge
-                            variant="outline"
-                            style={{ borderColor: status.color, color: status.color }}
+                          <span
+                            className="inline-flex items-center px-2 py-0.5 rounded-full border text-[11px] font-medium leading-snug"
+                            style={{ borderColor: status.color, color: status.color, backgroundColor: `${status.color}15`, whiteSpace: 'normal', wordBreak: 'break-word' }}
+                            data-testid={`badge-contract-status-${contract.id}`}
                           >
                             {status.name}
-                          </Badge>
+                          </span>
                         ) : "-"}
                       </TableCell>
                       <TableCell className="text-sm" data-testid={`text-contract-inventory-${contract.id}`}>

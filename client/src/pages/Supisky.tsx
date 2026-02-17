@@ -30,12 +30,12 @@ import { ProcessingSaveButton } from "@/components/processing-save-button";
 
 const STATUSES = ["Nova", "Pripravena", "Odoslana"] as const;
 
-function statusColor(status: string) {
+function statusBadgeClasses(status: string): string {
   switch (status) {
-    case "Nova": return "bg-blue-600 text-white";
-    case "Pripravena": return "bg-amber-500 text-white";
-    case "Odoslana": return "bg-emerald-600 text-white";
-    default: return "bg-muted text-muted-foreground";
+    case "Nova": return "border-blue-500 bg-blue-500/10 text-blue-700 dark:text-blue-300";
+    case "Pripravena": return "border-amber-500 bg-amber-500/10 text-amber-700 dark:text-amber-300";
+    case "Odoslana": return "border-emerald-500 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300";
+    default: return "border-muted-foreground bg-muted text-muted-foreground";
   }
 }
 
@@ -217,7 +217,7 @@ function SupiskaDetailDialog({
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 flex-wrap">
               <span>{supiska.name}</span>
-              <Badge className={statusColor(supiska.status)}>{supiska.status}</Badge>
+              <span className={`inline-flex items-center px-2 py-0.5 rounded-full border text-[11px] font-medium ${statusBadgeClasses(supiska.status)}`}>{supiska.status}</span>
               <span className="text-sm text-muted-foreground">{supiska.supId}</span>
             </DialogTitle>
           </DialogHeader>
@@ -618,7 +618,7 @@ export default function SupiskyPage() {
                     <TableCell className="font-mono text-sm">{s.supId}</TableCell>
                     <TableCell>{s.name}</TableCell>
                     <TableCell>
-                      <Badge className={statusColor(s.status)}>{s.status}</Badge>
+                      <span className={`inline-flex items-center px-2 py-0.5 rounded-full border text-[11px] font-medium ${statusBadgeClasses(s.status)}`}>{s.status}</span>
                     </TableCell>
                     <TableCell className="text-sm text-muted-foreground">
                       {s.createdAt ? new Date(s.createdAt).toLocaleDateString("sk-SK") : ""}
