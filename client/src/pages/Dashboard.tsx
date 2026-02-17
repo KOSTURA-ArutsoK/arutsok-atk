@@ -189,9 +189,9 @@ export default function Dashboard() {
       onClick: () => {
         const ids = contractStats?.activeStatusIds;
         if (ids && ids.length > 0) {
-          navigate(`/zmluvy?statusIds=${ids.join(",")}`);
+          navigate(`/contracts?statusIds=${ids.join(",")}`);
         } else {
-          navigate("/zmluvy");
+          navigate("/contracts");
         }
       },
     },
@@ -205,9 +205,9 @@ export default function Dashboard() {
       onClick: () => {
         const ids = contractStats?.interventionStatusIds;
         if (ids && ids.length > 0) {
-          navigate(`/zmluvy?statusIds=${ids.join(",")}`);
+          navigate(`/contracts?statusIds=${ids.join(",")}`);
         } else {
-          navigate("/zmluvy");
+          navigate("/contracts");
         }
       },
     },

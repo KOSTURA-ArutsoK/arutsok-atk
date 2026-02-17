@@ -611,18 +611,11 @@ function FullPageEditor({
         <CardContent className="p-6">
           <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-5">
-              <div className="grid grid-cols-3 gap-4">
+              <div className="max-w-xs">
                 <FormField control={form.control} name="type" render={({ field }) => (
                   <FormItem>
                     <FormLabel>Typ entity</FormLabel>
                     <Input value={field.value === "person" ? "Fyzicka osoba" : "Pravnicka osoba"} disabled data-testid="input-subject-type-locked" />
-                    <FormMessage />
-                  </FormItem>
-                )} />
-                <FormField control={form.control} name="myCompanyId" render={() => (
-                  <FormItem>
-                    <FormLabel>Spravujuca firma</FormLabel>
-                    <Input value={activeCompanyName} disabled data-testid="input-managing-company-locked" />
                     <FormMessage />
                   </FormItem>
                 )} />
