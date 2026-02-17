@@ -18,6 +18,7 @@ import {
 } from "@/components/ui/dialog";
 import { Plus, Pencil, Trash2, TrendingUp, Award, Loader2 } from "lucide-react";
 import { HelpIcon } from "@/components/help-icon";
+import { RankBadge } from "@/components/rank-badge";
 
 function formatDecimalN(value: string | number | null | undefined, places: number): string {
   const num = parseFloat(String(value || '0').replace(',', '.'));
@@ -389,7 +390,7 @@ export default function Body() {
                     style={{ backgroundColor: 'hsl(217, 91%, 40%)' }}
                     resizable={false}
                   >
-                    Koeficient
+                    Hodnosť
                   </TableHead>
                   <TableHead className="w-[80px]" resizable={false} style={{ visibility: isAdmin ? 'visible' : 'hidden' }}>Akcie</TableHead>
                 </TableRow>
@@ -429,10 +430,15 @@ export default function Body() {
                         {formatDecimal6(level.rewardPercent)} %
                       </TableCell>
                       <TableCell
-                        className="text-center font-bold text-white"
+                        className="text-center"
                         style={{ backgroundColor: 'hsl(217, 91%, 35%)' }}
                       >
-                        {formatDecimal8(level.coefficient)}
+                        <div className="flex items-center justify-center">
+                          <RankBadge
+                            frameType={level.frameType || 'none'}
+                            circleConfig={level.circleConfig as CircleConfig[]}
+                          />
+                        </div>
                       </TableCell>
                       <TableCell style={{ visibility: isAdmin ? 'visible' : 'hidden' }}>
                         <div className="flex items-center gap-1">

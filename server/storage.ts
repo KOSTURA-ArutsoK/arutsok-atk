@@ -2798,7 +2798,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getCareerLevels(): Promise<CareerLevel[]> {
-    return db.select().from(careerLevels).orderBy(asc(careerLevels.sortOrder));
+    return db.select().from(careerLevels).orderBy(desc(careerLevels.sortOrder));
   }
 
   async createCareerLevel(data: InsertCareerLevel): Promise<CareerLevel> {
