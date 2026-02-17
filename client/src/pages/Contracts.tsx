@@ -1674,7 +1674,7 @@ export default function Contracts() {
 
   const preSelectDialog = (
     <Dialog open={preSelectOpen} onOpenChange={(open) => { setPreSelectOpen(open); if (!open) { setPreSelectStep(1); setShowInlineCreate(false); setPreSelectClientTypeId(""); } }}>
-      <DialogContent className="w-[90vw] max-w-[1100px] max-h-[90vh] overflow-y-auto" data-testid="dialog-pre-select-contract">
+      <DialogContent className="w-[90vw] max-w-[1400px] max-h-[90vh] overflow-y-auto" data-testid="dialog-pre-select-contract">
         <DialogHeader>
           <DialogTitle data-testid="text-preselect-title">
             {preSelectStep === 1 ? "Krok 1: Vyber partnera a produktu" : showInlineCreate ? `Krok 2: Novy klient (${inlineClientType === "szco" ? "SZČO" : inlineClientType === "po" ? "PO" : "FO"})` : "Krok 2: Vyber klienta (subjektu)"}
