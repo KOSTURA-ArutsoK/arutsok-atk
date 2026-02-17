@@ -2393,6 +2393,29 @@ export async function registerRoutes(
     }
   });
 
+  // === CONTRACT REWARD DISTRIBUTIONS ===
+  app.get("/api/contracts/:contractId/reward-distributions", isAuthenticated, async (req: any, res) => {
+    try {
+      res.json(await storage.getContractRewardDistributions(Number(req.params.contractId)));
+    } catch (err) {
+      res.status(500).json({ message: "Internal error" });
+    }
+  });
+
+  app.post("/api/contracts/:contractId/reward-distributions", isAuthenticated, async (req: any, res) => {
+    try {
+      const { distributions } = req.body;
+      if (!Array.isArray(distributions)) return res.status(400).json({ message: "Distributions array required" });
+      const totalPct = distributions.reduce((sum: number, d: any) => sum + (parseFloat(d.percentage) || 0), 0);
+      if (totalPct > 100) return res.status(400).json({ message: "Celkovy sucet nesmie presiahnuť 100 %" });
+      const saved = await storage.saveContractRewardDistributions(Number(req.params.contractId), distributions);
+      await logAudit(req, { action: "UPDATE", module: "contract_reward_distributions", entityId: Number(req.params.contractId), entityName: "reward distributions saved" });
+      res.json(saved);
+    } catch (err) {
+      res.status(500).json({ message: "Internal error" });
+    }
+  });
+
   // === CLIENT TYPE REORDER ===
   app.put("/api/client-types/:typeId/fields/reorder", isAuthenticated, async (req: any, res) => {
     try {
