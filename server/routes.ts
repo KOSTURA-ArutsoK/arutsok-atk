@@ -3461,6 +3461,14 @@ export async function registerRoutes(
         return res.status(403).json({ message: "Nedostatocne opravnenia" });
       }
       const created = await storage.createClientType(req.body);
+      const defaultSections = [
+        { clientTypeId: created.id, name: "POVINNÉ ÚDAJE", folderCategory: "povinne", sortOrder: 0 },
+        { clientTypeId: created.id, name: "DOPLNKOVÉ ÚDAJE", folderCategory: "doplnkove", sortOrder: 1 },
+        { clientTypeId: created.id, name: "VOLITEĽNÉ ÚDAJE", folderCategory: "volitelne", sortOrder: 2 },
+      ];
+      for (const sec of defaultSections) {
+        await storage.createClientTypeSection(sec);
+      }
       await logAudit(req, { action: "CREATE", module: "client_types", entityId: created.id, entityName: created.name });
       res.json(created);
     } catch {

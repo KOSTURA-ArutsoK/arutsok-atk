@@ -13,7 +13,6 @@ import { Separator } from "@/components/ui/separator";
 import { Switch } from "@/components/ui/switch";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from "@/components/ui/dialog";
@@ -28,7 +27,7 @@ import {
   Plus, Settings2, Layers, ArrowLeft, Pencil,
   Type, AlignLeft, List, CheckSquare, ToggleLeft, Phone, Mail,
   Hash, Image, Calendar, CreditCard, Search, Loader2,
-  FolderOpen, LayoutGrid, GripVertical, HelpCircle, X, Info,
+  FolderOpen, GripVertical, HelpCircle, X, Info,
 } from "lucide-react";
 import { DndContext, closestCenter, PointerSensor, KeyboardSensor, useSensor, useSensors, type DragEndEvent } from "@dnd-kit/core";
 import { SortableContext, useSortable, verticalListSortingStrategy, arrayMove } from "@dnd-kit/sortable";
@@ -158,231 +157,6 @@ function AddTypeDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (o
   );
 }
 
-function FolderFormDialog({
-  open,
-  onOpenChange,
-  editingFolder,
-  clientTypeId,
-  activeCategory,
-}: {
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-  editingFolder: ClientTypeSection | null;
-  clientTypeId: number;
-  activeCategory: string;
-}) {
-  const queryClient = useQueryClient();
-  const { toast } = useToast();
-  const [name, setName] = useState("");
-
-  useEffect(() => {
-    if (open) {
-      if (editingFolder) {
-        setName(editingFolder.name);
-      } else {
-        setName("");
-      }
-    }
-  }, [open, editingFolder]);
-
-  const folderCategory = editingFolder ? ((editingFolder as any).folderCategory || "povinne") : activeCategory;
-
-  const createMutation = useMutation({
-    mutationFn: async (data: { name: string; folderCategory: string }) => {
-      const res = await apiRequest("POST", `/api/client-types/${clientTypeId}/sections`, {
-        name: data.name,
-        folderCategory: data.folderCategory,
-        sortOrder: 0,
-      });
-      return res.json();
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/client-types", clientTypeId, "sections"] });
-      toast({ title: "Uspech", description: "Priecinok vytvoreny" });
-      onOpenChange(false);
-    },
-    onError: () => toast({ title: "Chyba", description: "Nepodarilo sa vytvorit priecinok", variant: "destructive" }),
-  });
-
-  const updateMutation = useMutation({
-    mutationFn: async (data: { name: string; folderCategory: string }) => {
-      await apiRequest("PATCH", `/api/client-type-sections/${editingFolder!.id}`, data);
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/client-types", clientTypeId, "sections"] });
-      toast({ title: "Uspech", description: "Priecinok aktualizovany" });
-      onOpenChange(false);
-    },
-    onError: () => toast({ title: "Chyba", description: "Nepodarilo sa aktualizovat priecinok", variant: "destructive" }),
-  });
-
-  const isPending = createMutation.isPending || updateMutation.isPending;
-  const categoryLabel = folderCategory === 'povinne' ? 'POVINNE UDAJE' : folderCategory === 'doplnkove' ? 'DOPLNKOVE UDAJE' : 'VOLITELNE UDAJE';
-
-  return (
-    <Dialog open={open} onOpenChange={(isOpen) => { onOpenChange(isOpen); if (!isOpen) { setName(""); } }}>
-      <DialogContent className="sm:max-w-[400px]">
-        <DialogHeader>
-          <DialogTitle data-testid="text-folder-dialog-title">{editingFolder ? "Upravit priecinok" : "Pridat priecinok"}</DialogTitle>
-        </DialogHeader>
-        <div className="space-y-3 mt-2">
-          <div>
-            <Label className="text-xs">Nazov priecinku *</Label>
-            <Input
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder="napr. Osobne udaje"
-              data-testid="input-folder-name"
-              autoFocus
-            />
-          </div>
-          <div>
-            <Label className="text-xs">Kategoria</Label>
-            <div className="mt-1">
-              <Badge variant="outline" data-testid="badge-folder-category-info">{categoryLabel}</Badge>
-            </div>
-            <p className="text-[10px] text-muted-foreground mt-1">Kategoria je urcena aktivnym prepinacov vyssie.</p>
-          </div>
-        </div>
-        <DialogFooter className="mt-4 gap-2">
-          <Button variant="outline" onClick={() => onOpenChange(false)}>Zrusit</Button>
-          <Button
-            onClick={() => {
-              if (!name.trim()) return;
-              if (editingFolder) updateMutation.mutate({ name: name.trim(), folderCategory });
-              else createMutation.mutate({ name: name.trim(), folderCategory });
-            }}
-            disabled={!name.trim() || isPending}
-            data-testid="button-save-folder"
-          >
-            {isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : editingFolder ? "Ulozit" : "Vytvorit"}
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
-  );
-}
-
-function PanelFormDialog({
-  open,
-  onOpenChange,
-  editingPanel,
-  clientTypeId,
-  folders,
-}: {
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-  editingPanel: ClientTypePanel | null;
-  clientTypeId: number;
-  folders: ClientTypeSection[];
-}) {
-  const queryClient = useQueryClient();
-  const { toast } = useToast();
-  const [name, setName] = useState("");
-  const [sectionId, setSectionId] = useState("");
-  const [gridColumns, setGridColumns] = useState("2");
-
-  useEffect(() => {
-    if (open) {
-      if (editingPanel) {
-        setName(editingPanel.name);
-        setSectionId(editingPanel.sectionId?.toString() || "");
-        setGridColumns((editingPanel.gridColumns || 2).toString());
-      } else {
-        setName("");
-        setSectionId("");
-        setGridColumns("2");
-      }
-    }
-  }, [open, editingPanel]);
-
-  const createMutation = useMutation({
-    mutationFn: async (data: any) => {
-      const res = await apiRequest("POST", `/api/client-types/${clientTypeId}/panels`, data);
-      return res.json();
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/client-types", clientTypeId, "panels"] });
-      toast({ title: "Uspech", description: "Panel vytvoreny" });
-      onOpenChange(false);
-    },
-    onError: () => toast({ title: "Chyba", description: "Nepodarilo sa vytvorit panel", variant: "destructive" }),
-  });
-
-  const updateMutation = useMutation({
-    mutationFn: async (data: any) => {
-      await apiRequest("PATCH", `/api/client-type-panels/${editingPanel!.id}`, data);
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/client-types", clientTypeId, "panels"] });
-      toast({ title: "Uspech", description: "Panel aktualizovany" });
-      onOpenChange(false);
-    },
-    onError: () => toast({ title: "Chyba", description: "Nepodarilo sa aktualizovat panel", variant: "destructive" }),
-  });
-
-  const isPending = createMutation.isPending || updateMutation.isPending;
-
-  function handleSubmit() {
-    if (!name.trim()) return;
-    const normalizedSectionId = sectionId && sectionId !== "none" ? parseInt(sectionId) : null;
-    const payload = {
-      name: name.trim(),
-      sectionId: normalizedSectionId,
-      gridColumns: parseInt(gridColumns),
-      sortOrder: 0,
-    };
-    if (editingPanel) updateMutation.mutate(payload);
-    else createMutation.mutate(payload);
-  }
-
-  return (
-    <Dialog open={open} onOpenChange={(isOpen) => { onOpenChange(isOpen); if (!isOpen) { setName(""); setSectionId(""); setGridColumns("2"); } }}>
-      <DialogContent className="sm:max-w-[500px]">
-        <DialogHeader>
-          <DialogTitle data-testid="text-panel-dialog-title">{editingPanel ? "Upravit panel" : "Pridat panel"}</DialogTitle>
-        </DialogHeader>
-        <div className="space-y-3 mt-2">
-          <div>
-            <Label className="text-xs">Nazov panelu *</Label>
-            <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="napr. Kontaktne udaje" data-testid="input-panel-name" autoFocus />
-          </div>
-          <div>
-            <Label className="text-xs">Priecinok</Label>
-            <Select value={sectionId} onValueChange={setSectionId}>
-              <SelectTrigger data-testid="select-panel-folder"><SelectValue placeholder="Bez priecinku" /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="none">Bez priecinku</SelectItem>
-                {folders.map(f => (
-                  <SelectItem key={f.id} value={f.id.toString()}>{f.name}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          <div>
-            <Label className="text-xs">Pocet stlpcov v gridu</Label>
-            <Select value={gridColumns} onValueChange={setGridColumns}>
-              <SelectTrigger data-testid="select-panel-grid-columns"><SelectValue /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="1">1 stlpec</SelectItem>
-                <SelectItem value="2">2 stlpce</SelectItem>
-                <SelectItem value="3">3 stlpce</SelectItem>
-                <SelectItem value="4">4 stlpce</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-        </div>
-        <DialogFooter className="mt-4 gap-2">
-          <Button variant="outline" onClick={() => onOpenChange(false)}>Zrusit</Button>
-          <Button onClick={handleSubmit} disabled={!name.trim() || isPending} data-testid="button-save-panel">
-            {isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : editingPanel ? "Ulozit" : "Vytvorit"}
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
-  );
-}
-
 function FieldFormDialog({
   open,
   onOpenChange,
@@ -390,6 +164,7 @@ function FieldFormDialog({
   clientTypeId,
   panels,
   existingFields,
+  sectionId,
   defaultCategory,
 }: {
   open: boolean;
@@ -398,6 +173,7 @@ function FieldFormDialog({
   clientTypeId: number;
   panels: ClientTypePanel[];
   existingFields: ClientTypeField[];
+  sectionId: number | null;
   defaultCategory?: string;
 }) {
   const queryClient = useQueryClient();
@@ -453,7 +229,7 @@ function FieldFormDialog({
         label: label.trim(),
         fieldType,
         panelId: normalizedPanelId,
-        sectionId: null,
+        sectionId: sectionId,
         isRequired,
         options: options ? options.split(",").map(o => o.trim()).filter(Boolean) : [],
         visibilityRule,
@@ -714,474 +490,27 @@ function FieldFormDialog({
   );
 }
 
-function SortableFolderCard({
-  folder,
-  panelCount,
-  onEdit,
-  onDelete,
-}: {
-  folder: ClientTypeSection;
-  panelCount: number;
-  onEdit: () => void;
-  onDelete: () => void;
-}) {
-  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: folder.id });
-  const style = { transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.5 : 1 };
-
-  return (
-    <div ref={setNodeRef} style={style} data-testid={`folder-card-${folder.id}`}>
-      <Card className={isDragging ? "ring-1 ring-primary" : ""}>
-        <CardContent className="p-4">
-          <div className="flex items-center gap-3 flex-wrap">
-            <div
-              className="flex flex-col items-center justify-center cursor-grab touch-none shrink-0 gap-[2px]"
-              {...attributes}
-              {...listeners}
-              data-testid={`handle-folder-${folder.id}`}
-            >
-              <div className="flex gap-[3px]"><div className="w-[5px] h-[5px] rounded-full bg-muted-foreground/50" /><div className="w-[5px] h-[5px] rounded-full bg-muted-foreground/50" /></div>
-              <div className="flex gap-[3px]"><div className="w-[5px] h-[5px] rounded-full bg-muted-foreground/50" /><div className="w-[5px] h-[5px] rounded-full bg-muted-foreground/50" /></div>
-              <div className="flex gap-[3px]"><div className="w-[5px] h-[5px] rounded-full bg-muted-foreground/50" /><div className="w-[5px] h-[5px] rounded-full bg-muted-foreground/50" /></div>
-            </div>
-
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-2 flex-wrap">
-                <FolderOpen className="w-4 h-4 text-muted-foreground shrink-0" />
-                <span className="font-semibold text-sm truncate" data-testid={`text-folder-name-${folder.id}`}>
-                  {folder.name}
-                </span>
-                <Badge variant="secondary" data-testid={`badge-folder-panel-count-${folder.id}`}>
-                  {panelCount} {panelCount === 1 ? 'panel' : 'panelov'}
-                </Badge>
-              </div>
-            </div>
-
-            <div className="flex items-center gap-1 shrink-0">
-              <Button size="icon" variant="ghost" onClick={onEdit} data-testid={`button-edit-folder-${folder.id}`}>
-                <Pencil className="w-4 h-4" />
-              </Button>
-              <ConditionalDelete
-                canDelete={panelCount === 0}
-                onClick={onDelete}
-                testId={`button-delete-folder-${folder.id}`}
-              />
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-    </div>
-  );
-}
-
-function FoldersTab({ clientTypeId, activeCategory }: { clientTypeId: number; activeCategory: string }) {
-  const { toast } = useToast();
-  const queryClient = useQueryClient();
-  const [search, setSearch] = useState("");
-  const [dialogOpen, setDialogOpen] = useState(false);
-  const [editingFolder, setEditingFolder] = useState<ClientTypeSection | null>(null);
-  const [deleteTarget, setDeleteTarget] = useState<ClientTypeSection | null>(null);
-
-  const { data: folders = [], isLoading } = useQuery<ClientTypeSection[]>({
-    queryKey: ["/api/client-types", clientTypeId, "sections"],
-    queryFn: async () => {
-      const res = await fetch(`/api/client-types/${clientTypeId}/sections`, { credentials: "include" });
-      return res.json();
-    },
-  });
-
-  const { data: panels = [] } = useQuery<ClientTypePanel[]>({
-    queryKey: ["/api/client-types", clientTypeId, "panels"],
-    queryFn: async () => {
-      const res = await fetch(`/api/client-types/${clientTypeId}/panels`, { credentials: "include" });
-      return res.json();
-    },
-  });
-
-  const deleteMutation = useMutation({
-    mutationFn: async () => {
-      await apiRequest("DELETE", `/api/client-type-sections/${deleteTarget!.id}`);
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/client-types", clientTypeId, "sections"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/client-types", clientTypeId, "panels"] });
-      toast({ title: "Uspech", description: "Priecinok vymazany" });
-      setDeleteTarget(null);
-    },
-    onError: () => toast({ title: "Chyba", description: "Nepodarilo sa vymazat priecinok", variant: "destructive" }),
-  });
-
-  const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
-    useSensor(KeyboardSensor)
-  );
-
-  const reorderMutation = useMutation({
-    mutationFn: async (items: { id: number; sortOrder: number }[]) => {
-      await apiRequest("PUT", `/api/client-types/${clientTypeId}/sections/reorder`, { items });
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/client-types", clientTypeId, "sections"] });
-    },
-  });
-
-  function handleDragEnd(event: DragEndEvent) {
-    const { active, over } = event;
-    if (!over || active.id === over.id) return;
-    const sorted = [...folders].sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0));
-    const oldIndex = sorted.findIndex(f => f.id === active.id);
-    const newIndex = sorted.findIndex(f => f.id === over.id);
-    const reordered = arrayMove(sorted, oldIndex, newIndex);
-    reorderMutation.mutate(reordered.map((f, i) => ({ id: f.id, sortOrder: i })));
-  }
-
-  function getPanelCount(folderId: number): number {
-    return panels.filter(p => p.sectionId === folderId).length;
-  }
-
-  const sorted = [...folders].sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0));
-  const categoryFiltered = sorted.filter(f => ((f as any).folderCategory || "povinne") === activeCategory);
-  const filtered = categoryFiltered.filter(f => f.name.toLowerCase().includes(search.toLowerCase()));
-
-  return (
-    <div className="space-y-4">
-      <div className="flex items-center gap-3 flex-wrap">
-        <div className="relative flex-1 min-w-[200px]">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-          <Input value={search} onChange={e => setSearch(e.target.value)} placeholder="Hladat priecinky..." className="pl-9" data-testid="input-search-folders" />
-        </div>
-        <Button onClick={() => { setEditingFolder(null); setDialogOpen(true); }} data-testid="button-add-folder">
-          <Plus className="w-4 h-4 mr-2" /> Pridat priecinok
-        </Button>
-      </div>
-
-      {isLoading ? (
-        <div className="flex items-center justify-center py-12"><Loader2 className="w-6 h-6 animate-spin text-muted-foreground" /></div>
-      ) : filtered.length === 0 ? (
-        <Card>
-          <CardContent className="flex items-center justify-center py-12">
-            <p className="text-muted-foreground text-sm" data-testid="text-no-folders">Ziadne priecinky</p>
-          </CardContent>
-        </Card>
-      ) : (
-        <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
-          <SortableContext items={filtered.map(f => f.id)} strategy={verticalListSortingStrategy}>
-            <div className="space-y-2">
-              {filtered.map(folder => (
-                <SortableFolderCard
-                  key={folder.id}
-                  folder={folder}
-                  panelCount={getPanelCount(folder.id)}
-                  onEdit={() => { setEditingFolder(folder); setDialogOpen(true); }}
-                  onDelete={() => setDeleteTarget(folder)}
-                />
-              ))}
-            </div>
-          </SortableContext>
-        </DndContext>
-      )}
-
-      <FolderFormDialog
-        open={dialogOpen}
-        onOpenChange={(isOpen) => { setDialogOpen(isOpen); if (!isOpen) setEditingFolder(null); }}
-        editingFolder={editingFolder}
-        clientTypeId={clientTypeId}
-        activeCategory={activeCategory}
-      />
-
-      <DeleteConfirmDialog
-        open={!!deleteTarget}
-        onOpenChange={(isOpen) => { if (!isOpen) setDeleteTarget(null); }}
-        title={`Naozaj chcete vymazat priecinok "${deleteTarget?.name}"?`}
-        onConfirm={() => deleteMutation.mutate()}
-        isPending={deleteMutation.isPending}
-      />
-    </div>
-  );
-}
-
-function PanelsTab({ clientTypeId, activeCategory }: { clientTypeId: number; activeCategory: string }) {
-  const { toast } = useToast();
-  const queryClient = useQueryClient();
-  const [search, setSearch] = useState("");
-  const [filterFolderId, setFilterFolderId] = useState("all");
-  const [dialogOpen, setDialogOpen] = useState(false);
-  const [editingPanel, setEditingPanel] = useState<ClientTypePanel | null>(null);
-  const [deleteTarget, setDeleteTarget] = useState<ClientTypePanel | null>(null);
-
-  const { data: panels = [], isLoading } = useQuery<ClientTypePanel[]>({
-    queryKey: ["/api/client-types", clientTypeId, "panels"],
-    queryFn: async () => {
-      const res = await fetch(`/api/client-types/${clientTypeId}/panels`, { credentials: "include" });
-      return res.json();
-    },
-  });
-
-  const { data: folders = [] } = useQuery<ClientTypeSection[]>({
-    queryKey: ["/api/client-types", clientTypeId, "sections"],
-    queryFn: async () => {
-      const res = await fetch(`/api/client-types/${clientTypeId}/sections`, { credentials: "include" });
-      return res.json();
-    },
-  });
-
-  const { data: fields = [] } = useQuery<ClientTypeField[]>({
-    queryKey: ["/api/client-types", clientTypeId, "fields"],
-    queryFn: async () => {
-      const res = await fetch(`/api/client-types/${clientTypeId}/fields`, { credentials: "include" });
-      return res.json();
-    },
-  });
-
-  const deleteMutation = useMutation({
-    mutationFn: async () => {
-      await apiRequest("DELETE", `/api/client-type-panels/${deleteTarget!.id}`);
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/client-types", clientTypeId, "panels"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/client-types", clientTypeId, "fields"] });
-      toast({ title: "Uspech", description: "Panel vymazany" });
-      setDeleteTarget(null);
-    },
-    onError: () => toast({ title: "Chyba", description: "Nepodarilo sa vymazat panel", variant: "destructive" }),
-  });
-
-  function getFolderName(sectionId: number | null): string {
-    if (!sectionId) return "Bez priecinku";
-    return folders.find(f => f.id === sectionId)?.name || `#${sectionId}`;
-  }
-
-  function getFieldCount(panelId: number): number {
-    return fields.filter(f => f.panelId === panelId).length;
-  }
-
-  const categoryFolderIds = new Set(folders.filter(f => ((f as any).folderCategory || "povinne") === activeCategory).map(f => f.id));
-  const categoryFolders = folders.filter(f => ((f as any).folderCategory || "povinne") === activeCategory);
-  const sorted = [...panels].sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0));
-  const categoryPanels = sorted.filter(p => !p.sectionId || categoryFolderIds.has(p.sectionId));
-  const filtered = categoryPanels.filter(p => {
-    if (filterFolderId !== "all" && p.sectionId !== parseInt(filterFolderId)) return false;
-    return p.name.toLowerCase().includes(search.toLowerCase());
-  });
-
-  return (
-    <div className="space-y-4">
-      <div className="flex items-center gap-3 flex-wrap">
-        <div className="relative flex-1 min-w-[200px]">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-          <Input value={search} onChange={e => setSearch(e.target.value)} placeholder="Hladat panely..." className="pl-9" data-testid="input-search-panels" />
-        </div>
-        <Select value={filterFolderId} onValueChange={setFilterFolderId}>
-          <SelectTrigger className="w-[200px]" data-testid="select-filter-folder"><SelectValue placeholder="Vsetky priecinky" /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">Vsetky priecinky</SelectItem>
-            {categoryFolders.map(f => (
-              <SelectItem key={f.id} value={f.id.toString()}>{f.name}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        <Button onClick={() => { setEditingPanel(null); setDialogOpen(true); }} data-testid="button-add-panel">
-          <Plus className="w-4 h-4 mr-2" /> Pridat panel
-        </Button>
-      </div>
-
-      {isLoading ? (
-        <div className="flex items-center justify-center py-12"><Loader2 className="w-6 h-6 animate-spin text-muted-foreground" /></div>
-      ) : (
-        <Card>
-          <CardContent className="p-0">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Nazov panelu</TableHead>
-                  <TableHead>Priecinok</TableHead>
-                  <TableHead>Grid stlpce</TableHead>
-                  <TableHead>Parametre</TableHead>
-                  <TableHead>Akcie</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filtered.length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={5} className="text-center text-muted-foreground py-8" data-testid="text-no-panels">Ziadne panely</TableCell>
-                  </TableRow>
-                ) : (
-                  filtered.map(panel => (
-                    <TableRow key={panel.id} data-testid={`row-panel-${panel.id}`}>
-                      <TableCell className="font-medium">{panel.name}</TableCell>
-                      <TableCell>
-                        <Badge variant="outline">{getFolderName(panel.sectionId)}</Badge>
-                      </TableCell>
-                      <TableCell>
-                        <Badge variant="secondary">{panel.gridColumns || 2}</Badge>
-                      </TableCell>
-                      <TableCell>
-                        <Badge variant="secondary" data-testid={`badge-panel-field-count-${panel.id}`}>{getFieldCount(panel.id)}</Badge>
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex items-center gap-1">
-                          <Button size="icon" variant="ghost" onClick={() => { setEditingPanel(panel); setDialogOpen(true); }} data-testid={`button-edit-panel-${panel.id}`}>
-                            <Pencil className="w-4 h-4" />
-                          </Button>
-                          <ConditionalDelete
-                            canDelete={getFieldCount(panel.id) === 0}
-                            onClick={() => setDeleteTarget(panel)}
-                            testId={`button-delete-panel-${panel.id}`}
-                          />
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  ))
-                )}
-              </TableBody>
-            </Table>
-          </CardContent>
-        </Card>
-      )}
-
-      <PanelFormDialog
-        open={dialogOpen}
-        onOpenChange={(isOpen) => { setDialogOpen(isOpen); if (!isOpen) setEditingPanel(null); }}
-        editingPanel={editingPanel}
-        clientTypeId={clientTypeId}
-        folders={categoryFolders}
-      />
-
-      <DeleteConfirmDialog
-        open={!!deleteTarget}
-        onOpenChange={(isOpen) => { if (!isOpen) setDeleteTarget(null); }}
-        title={`Naozaj chcete vymazat panel "${deleteTarget?.name}"?`}
-        onConfirm={() => deleteMutation.mutate()}
-        isPending={deleteMutation.isPending}
-      />
-    </div>
-  );
-}
-
-function ParameterCategoryTable({
+function FolderSection({
+  section,
   fields,
   panels,
-  category,
-  onEdit,
-  onDelete,
+  allFields,
+  clientTypeId,
 }: {
+  section: ClientTypeSection;
   fields: ClientTypeField[];
   panels: ClientTypePanel[];
-  category: string;
-  onEdit: (field: ClientTypeField) => void;
-  onDelete: (field: ClientTypeField) => void;
+  allFields: ClientTypeField[];
+  clientTypeId: number;
 }) {
-  function getPanelName(panelId: number | null): string {
-    if (!panelId) return "Bez panelu";
-    return panels.find(p => p.id === panelId)?.name || `#${panelId}`;
-  }
-
-  return (
-    <Card>
-      <CardContent className="p-0">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Nazov parametra</TableHead>
-              <TableHead>Kluc</TableHead>
-              <TableHead>Typ</TableHead>
-              <TableHead>Panel</TableHead>
-              <TableHead>Povinne</TableHead>
-              <TableHead>Podmienka</TableHead>
-              <TableHead>Akcie</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {fields.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={7} className="text-center text-muted-foreground py-8" data-testid={`text-no-parameters-${category}`}>
-                  Ziadne parametre v tejto kategorii
-                </TableCell>
-              </TableRow>
-            ) : (
-              fields.map(field => {
-                const ftDef = FIELD_TYPES.find(t => t.value === field.fieldType);
-                const Icon = ftDef?.icon || Type;
-                return (
-                  <TableRow key={field.id} data-testid={`row-parameter-${field.id}`}>
-                    <TableCell className="font-medium">{field.label}</TableCell>
-                    <TableCell className="font-mono text-sm text-muted-foreground">{field.fieldKey}</TableCell>
-                    <TableCell>
-                      <div className="flex items-center gap-1 flex-wrap">
-                        <Icon className="w-3 h-3 text-muted-foreground" />
-                        <span className="text-xs">{ftDef?.label || field.fieldType}</span>
-                        <span style={{ display: field.fieldType === "decimal" && (field as any).unit ? 'inline' : 'none' }} className="text-xs text-muted-foreground">{(field as any).unit}</span>
-                        <span style={{ display: field.fieldType === "decimal" ? 'inline' : 'none' }} className="text-xs text-muted-foreground">({(field as any).decimalPlaces ?? 2} des.)</span>
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant="outline">{getPanelName(field.panelId)}</Badge>
-                    </TableCell>
-                    <TableCell>
-                      {field.isRequired
-                        ? <Badge variant="default" className="bg-emerald-600 text-white">Ano</Badge>
-                        : <Badge variant="outline">Nie</Badge>}
-                    </TableCell>
-                    <TableCell>
-                      {field.visibilityRule ? (
-                        <span className="text-xs text-muted-foreground">
-                          {(field.visibilityRule as any).dependsOn} = {(field.visibilityRule as any).value}
-                        </span>
-                      ) : <span className="text-xs text-muted-foreground">-</span>}
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex items-center gap-1">
-                        <Button size="icon" variant="ghost" onClick={() => onEdit(field)} data-testid={`button-edit-parameter-${field.id}`}>
-                          <Pencil className="w-4 h-4" />
-                        </Button>
-                        <ConditionalDelete
-                          canDelete={true}
-                          onClick={() => onDelete(field)}
-                          testId={`button-delete-parameter-${field.id}`}
-                        />
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                );
-              })
-            )}
-          </TableBody>
-        </Table>
-      </CardContent>
-    </Card>
-  );
-}
-
-function ParametersTab({ clientTypeId, activeCategory }: { clientTypeId: number; activeCategory: string }) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  const [search, setSearch] = useState("");
+  const [expanded, setExpanded] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingField, setEditingField] = useState<ClientTypeField | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<ClientTypeField | null>(null);
 
-  const { data: fields = [], isLoading } = useQuery<ClientTypeField[]>({
-    queryKey: ["/api/client-types", clientTypeId, "fields"],
-    queryFn: async () => {
-      const res = await fetch(`/api/client-types/${clientTypeId}/fields`, { credentials: "include" });
-      return res.json();
-    },
-  });
-
-  const { data: panels = [] } = useQuery<ClientTypePanel[]>({
-    queryKey: ["/api/client-types", clientTypeId, "panels"],
-    queryFn: async () => {
-      const res = await fetch(`/api/client-types/${clientTypeId}/panels`, { credentials: "include" });
-      return res.json();
-    },
-  });
-
-  const { data: folders = [] } = useQuery<ClientTypeSection[]>({
-    queryKey: ["/api/client-types", clientTypeId, "sections"],
-    queryFn: async () => {
-      const res = await fetch(`/api/client-types/${clientTypeId}/sections`, { credentials: "include" });
-      return res.json();
-    },
-  });
+  const folderCategory = (section as any).folderCategory || "povinne";
 
   const deleteMutation = useMutation({
     mutationFn: async () => {
@@ -1195,48 +524,108 @@ function ParametersTab({ clientTypeId, activeCategory }: { clientTypeId: number;
     onError: () => toast({ title: "Chyba", description: "Nepodarilo sa vymazat parameter", variant: "destructive" }),
   });
 
-  const categoryFolderIds = new Set(folders.filter(f => ((f as any).folderCategory || "povinne") === activeCategory).map(f => f.id));
-  const categoryPanels = panels.filter(p => !p.sectionId || categoryFolderIds.has(p.sectionId));
-
   const sorted = [...fields].sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0));
-  const filtered = sorted.filter(f => {
-    if (!((f as any).fieldCategory === activeCategory || (!(f as any).fieldCategory && activeCategory === "povinne"))) return false;
-    const searchLower = search.toLowerCase();
-    return f.label.toLowerCase().includes(searchLower) || f.fieldKey.toLowerCase().includes(searchLower);
-  });
+
+  function getPanelName(panelId: number | null): string {
+    if (!panelId) return "Bez panelu";
+    return panels.find(p => p.id === panelId)?.name || `#${panelId}`;
+  }
 
   return (
-    <div className="space-y-4">
-      <div className="flex items-center gap-3 flex-wrap">
-        <div className="relative flex-1 min-w-[200px]">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-          <Input value={search} onChange={e => setSearch(e.target.value)} placeholder="Hladat parametre..." className="pl-9" data-testid="input-search-parameters" />
-        </div>
-        <Button onClick={() => { setEditingField(null); setDialogOpen(true); }} data-testid="button-add-parameter">
-          <Plus className="w-4 h-4 mr-2" /> Pridat parameter
-        </Button>
+    <Card data-testid={`folder-section-${section.id}`}>
+      <div
+        className="flex items-center gap-3 p-4 cursor-pointer select-none flex-wrap"
+        onClick={() => setExpanded(!expanded)}
+        data-testid={`folder-header-${section.id}`}
+      >
+        <FolderOpen className="w-5 h-5 text-muted-foreground shrink-0" />
+        <span className="font-semibold text-sm flex-1" data-testid={`text-folder-name-${section.id}`}>
+          {section.name}
+        </span>
+        <Badge variant="secondary" data-testid={`badge-folder-field-count-${section.id}`}>
+          {fields.length} {fields.length === 1 ? 'parameter' : 'parametrov'}
+        </Badge>
+        <Layers className={`w-4 h-4 text-muted-foreground transition-transform ${expanded ? 'rotate-0' : '-rotate-90'}`} />
       </div>
+      <div style={{ display: expanded ? 'block' : 'none' }}>
+        <Separator />
+        <CardContent className="p-4 space-y-3">
+          <div className="flex items-center justify-end">
+            <Button size="sm" onClick={() => { setEditingField(null); setDialogOpen(true); }} data-testid={`button-add-parameter-${section.id}`}>
+              <Plus className="w-4 h-4 mr-2" /> Pridat parameter
+            </Button>
+          </div>
 
-      {isLoading ? (
-        <div className="flex items-center justify-center py-12"><Loader2 className="w-6 h-6 animate-spin text-muted-foreground" /></div>
-      ) : (
-        <ParameterCategoryTable
-          fields={filtered}
-          panels={categoryPanels}
-          category={activeCategory}
-          onEdit={(field) => { setEditingField(field); setDialogOpen(true); }}
-          onDelete={(field) => setDeleteTarget(field)}
-        />
-      )}
+          {sorted.length === 0 ? (
+            <p className="text-sm text-muted-foreground text-center py-6" data-testid={`text-no-parameters-${section.id}`}>
+              Ziadne parametre v tomto priecinku
+            </p>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Nazov</TableHead>
+                  <TableHead>Kluc</TableHead>
+                  <TableHead>Typ</TableHead>
+                  <TableHead>Panel</TableHead>
+                  <TableHead>Povinne</TableHead>
+                  <TableHead>Akcie</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {sorted.map(field => {
+                  const ftDef = FIELD_TYPES.find(t => t.value === field.fieldType);
+                  const Icon = ftDef?.icon || Type;
+                  return (
+                    <TableRow key={field.id} data-testid={`row-parameter-${field.id}`}>
+                      <TableCell className="font-medium">{field.label}</TableCell>
+                      <TableCell className="font-mono text-sm text-muted-foreground">{field.fieldKey}</TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-1 flex-wrap">
+                          <Icon className="w-3 h-3 text-muted-foreground" />
+                          <span className="text-xs">{ftDef?.label || field.fieldType}</span>
+                          <span style={{ display: field.fieldType === "decimal" && (field as any).unit ? 'inline' : 'none' }} className="text-xs text-muted-foreground">{(field as any).unit}</span>
+                          <span style={{ display: field.fieldType === "decimal" ? 'inline' : 'none' }} className="text-xs text-muted-foreground">({(field as any).decimalPlaces ?? 2} des.)</span>
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant="outline">{getPanelName(field.panelId)}</Badge>
+                      </TableCell>
+                      <TableCell>
+                        {field.isRequired
+                          ? <Badge variant="default" className="bg-emerald-600 text-white">Ano</Badge>
+                          : <Badge variant="outline">Nie</Badge>}
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-1">
+                          <Button size="icon" variant="ghost" onClick={() => { setEditingField(field); setDialogOpen(true); }} data-testid={`button-edit-parameter-${field.id}`}>
+                            <Pencil className="w-4 h-4" />
+                          </Button>
+                          <ConditionalDelete
+                            canDelete={true}
+                            onClick={() => setDeleteTarget(field)}
+                            testId={`button-delete-parameter-${field.id}`}
+                          />
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
+            </Table>
+          )}
+        </CardContent>
+      </div>
 
       <FieldFormDialog
         open={dialogOpen}
         onOpenChange={(isOpen) => { setDialogOpen(isOpen); if (!isOpen) setEditingField(null); }}
         editingField={editingField}
         clientTypeId={clientTypeId}
-        panels={categoryPanels}
-        existingFields={fields}
-        defaultCategory={activeCategory}
+        panels={panels.filter(p => p.sectionId === section.id || !p.sectionId)}
+        existingFields={allFields}
+        sectionId={section.id}
+        defaultCategory={folderCategory}
       />
 
       <DeleteConfirmDialog
@@ -1246,13 +635,42 @@ function ParametersTab({ clientTypeId, activeCategory }: { clientTypeId: number;
         onConfirm={() => deleteMutation.mutate()}
         isPending={deleteMutation.isPending}
       />
-    </div>
+    </Card>
   );
 }
 
 function TypeDetailView({ clientType, onBack }: { clientType: ClientType; onBack: () => void }) {
-  const [activeCategory, setActiveCategory] = useState("povinne");
-  const [activeSubTab, setActiveSubTab] = useState("folders");
+  const { data: sections = [], isLoading: sectionsLoading } = useQuery<ClientTypeSection[]>({
+    queryKey: ["/api/client-types", clientType.id, "sections"],
+    queryFn: async () => {
+      const res = await fetch(`/api/client-types/${clientType.id}/sections`, { credentials: "include" });
+      return res.json();
+    },
+  });
+
+  const { data: fields = [], isLoading: fieldsLoading } = useQuery<ClientTypeField[]>({
+    queryKey: ["/api/client-types", clientType.id, "fields"],
+    queryFn: async () => {
+      const res = await fetch(`/api/client-types/${clientType.id}/fields`, { credentials: "include" });
+      return res.json();
+    },
+  });
+
+  const { data: panels = [] } = useQuery<ClientTypePanel[]>({
+    queryKey: ["/api/client-types", clientType.id, "panels"],
+    queryFn: async () => {
+      const res = await fetch(`/api/client-types/${clientType.id}/panels`, { credentials: "include" });
+      return res.json();
+    },
+  });
+
+  const isLoading = sectionsLoading || fieldsLoading;
+
+  const orderedSections = [...sections].sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0));
+
+  function getFieldsForSection(sectionId: number): ClientTypeField[] {
+    return fields.filter(f => f.sectionId === sectionId);
+  }
 
   return (
     <div className="space-y-6">
@@ -1269,49 +687,29 @@ function TypeDetailView({ clientType, onBack }: { clientType: ClientType; onBack
         </div>
       </div>
 
-      <Tabs value={activeCategory} onValueChange={setActiveCategory}>
-        <TabsList data-testid="tabs-root-categories">
-          <TabsTrigger value="povinne" data-testid="tab-category-povinne">
-            POVINNE UDAJE
-          </TabsTrigger>
-          <TabsTrigger value="doplnkove" data-testid="tab-category-doplnkove">
-            DOPLNKOVE UDAJE
-          </TabsTrigger>
-          <TabsTrigger value="volitelne" data-testid="tab-category-volitelne">
-            VOLITELNE UDAJE
-          </TabsTrigger>
-        </TabsList>
-
-        <TabsContent value={activeCategory} forceMount>
-          <div className="mt-4">
-            <Tabs value={activeSubTab} onValueChange={setActiveSubTab}>
-              <TabsList data-testid="tabs-client-type-detail">
-                <TabsTrigger value="folders" data-testid="tab-folders">
-                  <FolderOpen className="w-4 h-4 mr-2" />
-                  Priecinky
-                </TabsTrigger>
-                <TabsTrigger value="panels" data-testid="tab-panels">
-                  <LayoutGrid className="w-4 h-4 mr-2" />
-                  Panely
-                </TabsTrigger>
-                <TabsTrigger value="parameters" data-testid="tab-parameters">
-                  <Settings2 className="w-4 h-4 mr-2" />
-                  Parametre
-                </TabsTrigger>
-              </TabsList>
-              <TabsContent value="folders">
-                <FoldersTab clientTypeId={clientType.id} activeCategory={activeCategory} />
-              </TabsContent>
-              <TabsContent value="panels">
-                <PanelsTab clientTypeId={clientType.id} activeCategory={activeCategory} />
-              </TabsContent>
-              <TabsContent value="parameters">
-                <ParametersTab clientTypeId={clientType.id} activeCategory={activeCategory} />
-              </TabsContent>
-            </Tabs>
+      {isLoading ? (
+        <div className="flex items-center justify-center py-12"><Loader2 className="w-6 h-6 animate-spin text-muted-foreground" /></div>
+      ) : (
+        <div className="space-y-4">
+          {orderedSections.map(section => (
+            <FolderSection
+              key={section.id}
+              section={section}
+              fields={getFieldsForSection(section.id)}
+              panels={panels}
+              allFields={fields}
+              clientTypeId={clientType.id}
+            />
+          ))}
+          <div style={{ display: orderedSections.length === 0 ? 'block' : 'none' }}>
+            <Card>
+              <CardContent className="flex items-center justify-center py-12">
+                <p className="text-muted-foreground text-sm" data-testid="text-no-sections">Ziadne priecinky. Kontaktujte administratora.</p>
+              </CardContent>
+            </Card>
           </div>
-        </TabsContent>
-      </Tabs>
+        </div>
+      )}
     </div>
   );
 }
