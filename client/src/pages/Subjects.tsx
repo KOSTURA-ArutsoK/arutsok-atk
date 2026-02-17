@@ -2007,7 +2007,7 @@ export default function Subjects() {
                         <Button size="icon" variant="ghost" onClick={() => setViewTarget(subject)} data-testid={`button-view-subject-${subject.id}`}>
                           <Eye className="w-4 h-4" />
                         </Button>
-                        <div style={{ visibility: ((subject as any).isOwner || appUser?.role === 'admin' || appUser?.role === 'superadmin' || appUser?.role === 'prezident') ? 'visible' : 'hidden' }}>
+                        <div style={{ visibility: ((subject as any).isOwner || appUser?.role === 'admin' || appUser?.role === 'superadmin' || appUser?.role === 'prezident' || !!(appUser as any)?.permissionGroupId) ? 'visible' : 'hidden' }}>
                           <Button
                             size="icon"
                             variant="ghost"
