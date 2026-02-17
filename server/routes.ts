@@ -1814,7 +1814,6 @@ export async function registerRoutes(
           isFinal: false,
           assignsNumber: false,
           definesContractEnd: false,
-          isActive: true,
           isSystem: true,
         } as any);
       }
@@ -1868,9 +1867,9 @@ export async function registerRoutes(
         newData: { contractIds: acceptedContractIds, statusId: acceptedStatus.id, globalNumbers },
       });
       res.json({ success: true, acceptedCount: acceptedContractIds.length, globalNumbers });
-    } catch (err) {
-      console.error("Accept error:", err);
-      res.status(500).json({ message: "Internal error" });
+    } catch (err: any) {
+      console.error("Accept error:", err?.message || err, err?.stack);
+      res.status(500).json({ message: err?.message || "Internal error" });
     }
   });
 
