@@ -1029,12 +1029,10 @@ export default function Contracts() {
   const activePanelsRaw = inlineClientType === "szco" ? szcoPanels : inlineClientType === "po" ? poPanels : foPanels;
   const activeFieldsRaw = inlineClientType === "szco" ? szcoAllFields : inlineClientType === "po" ? poAllFields : foAllFields;
 
-  const povinneSection = activeSections?.find(s => s.name === "POVINNÉ ÚDAJE");
-  const inlineFields = activeFieldsRaw?.filter(f => povinneSection ? f.sectionId === povinneSection.id : true) || [];
-  const inlinePanelsFiltered = activePanelsRaw?.filter(p => povinneSection ? p.sectionId === povinneSection.id : true) || [];
+  const inlineFields = activeFieldsRaw || [];
+  const inlinePanelsFiltered = activePanelsRaw || [];
 
-  const szcoPanelFirma = inlinePanelsFiltered.filter(p => p.name === "Subjekt SZČO" || p.name === "Sídlo spoločnosti");
-  const szcoPanelOsoba = inlinePanelsFiltered.filter(p => !szcoPanelFirma.some(fp => fp.id === p.id));
+  const sortedSections = (activeSections || []).slice().sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0));
 
   const contractsParams = (() => {
     if (isEvidencia) {
@@ -1560,10 +1558,8 @@ export default function Contracts() {
     setShowInlineCreate(true);
     setPreSelectSubjectId("");
     const defaults: Record<string, string> = {};
-    const targetSections = type === "szco" ? szcoSections : type === "po" ? poSections : foSections;
     const targetFields = type === "szco" ? szcoAllFields : type === "po" ? poAllFields : foAllFields;
-    const povSection = targetSections?.find(s => s.name === "POVINNÉ ÚDAJE");
-    const fields = targetFields?.filter(f => povSection ? f.sectionId === povSection.id : true) || [];
+    const fields = targetFields || [];
     fields.forEach(f => {
       if (f.defaultValue) defaults[f.fieldKey] = f.defaultValue;
     });
@@ -2077,13 +2073,70 @@ export default function Contracts() {
                 );
               });
 
+              const FOLDER_LABELS: Record<string, string> = {
+                povinne: "POVINNÉ ÚDAJE",
+                doplnkove: "DOPLNKOVÉ ÚDAJE",
+                volitelne: "VOLITEĽNÉ ÚDAJE",
+              };
+              const FOLDER_TEXT_COLORS: Record<string, string> = {
+                povinne: "text-red-400",
+                doplnkove: "text-amber-400",
+                volitelne: "text-blue-400",
+              };
+              const FOLDER_BORDER_COLORS: Record<string, string> = {
+                povinne: "border-red-400/30",
+                doplnkove: "border-amber-400/30",
+                volitelne: "border-blue-400/30",
+              };
+
+              const renderSectionHeader = (section: ClientTypeSection) => {
+                const sectionFields = inlineFields.filter(f => f.sectionId === section.id);
+                const cat = section.folderCategory || "povinne";
+                const textColor = FOLDER_TEXT_COLORS[cat] || FOLDER_TEXT_COLORS.povinne;
+                const borderColor = FOLDER_BORDER_COLORS[cat] || FOLDER_BORDER_COLORS.povinne;
+                return (
+                  <div className="flex items-center gap-2 pt-3">
+                    <span className={`text-[10px] font-bold uppercase tracking-widest ${textColor}`}>
+                      {FOLDER_LABELS[cat] || section.name}
+                    </span>
+                    <div className={`flex-1 border-t ${borderColor}`} style={{ borderTopStyle: "dashed" }} />
+                    <span className="text-[10px] text-muted-foreground">
+                      {sectionFields.length} {sectionFields.length === 1 ? "pole" : sectionFields.length < 5 ? "polia" : "polí"}
+                    </span>
+                  </div>
+                );
+              };
+
+              const renderSectionWithPanels = (section: ClientTypeSection) => {
+                const sectionPanels = inlinePanelsFiltered.filter(p => p.sectionId === section.id);
+                return (
+                  <div key={section.id} className="space-y-3" data-testid={`section-inline-${section.id}`}>
+                    {renderSectionHeader(section)}
+                    <div style={{ display: sectionPanels.length > 0 ? 'block' : 'none' }}>
+                      {renderPanels(sectionPanels)}
+                    </div>
+                    <div className="text-xs text-muted-foreground italic px-2" style={{ display: sectionPanels.length === 0 ? 'block' : 'none' }}>
+                      Ziadne panely v tejto sekcii. Pridajte ich cez Pravidla typov klientov.
+                    </div>
+                  </div>
+                );
+              };
+
+              const renderSectionedPanels = () => sortedSections.map(section => renderSectionWithPanels(section));
+
               if (inlineClientType === "fo" || inlineClientType === "po") {
-                return renderPanels(inlinePanelsFiltered);
+                return renderSectionedPanels();
               }
+
+              const szcoPovinneSection = sortedSections.find(s => s.folderCategory === "povinne" || s.name === "POVINNÉ ÚDAJE");
+              const szcoExtraSections = sortedSections.filter(s => s.id !== szcoPovinneSection?.id);
+              const szcoPovinePanelFirma = inlinePanelsFiltered.filter(p => p.sectionId === szcoPovinneSection?.id && (p.name === "Subjekt SZČO" || p.name === "Sídlo spoločnosti"));
+              const szcoPovinePanelOsoba = inlinePanelsFiltered.filter(p => p.sectionId === szcoPovinneSection?.id && !szcoPovinePanelFirma.some(fp => fp.id === p.id));
 
               return (
                 <>
-                  {renderPanels(szcoPanelFirma)}
+                  {szcoPovinneSection && renderSectionHeader(szcoPovinneSection)}
+                  {renderPanels(szcoPovinePanelFirma)}
 
                   <div style={{ display: szcoPhase === 1 ? 'block' : 'none' }}>
                     <div className="flex justify-between gap-2 pt-2 border-t">
@@ -2091,7 +2144,7 @@ export default function Contracts() {
                         Spat na vyhladavanie
                       </Button>
                       <Button onClick={() => {
-                        const firmFields = inlineFields.filter(f => szcoPanelFirma.some(p => p.id === f.panelId));
+                        const firmFields = inlineFields.filter(f => szcoPovinePanelFirma.some(p => p.id === f.panelId));
                         const missingFirm = firmFields.filter(f => {
                           if (!f.isRequired) return false;
                           const rule = f.visibilityRule as { dependsOn: string; value: string } | null;
@@ -2116,7 +2169,9 @@ export default function Contracts() {
                         <span className="text-xs font-semibold uppercase tracking-wider text-primary">Faza 2: Osobne udaje majitela</span>
                         <div className="h-px flex-1 bg-primary/30" />
                       </div>
-                      {renderPanels(szcoPanelOsoba)}
+                      {renderPanels(szcoPovinePanelOsoba)}
+
+                      {szcoExtraSections.map(section => renderSectionWithPanels(section))}
                     </div>
                   </div>
                 </>
