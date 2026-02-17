@@ -936,7 +936,8 @@ function FullPageEditor({
               {isPerson ? (() => {
                 const FO_POVINNE_ROWS: { keys: string[]; cols: string }[] = [
                   { keys: ["titul_pred", "meno", "priezvisko", "titul_za"], cols: "grid-cols-4" },
-                  { keys: ["rodne_priezvisko", "datum_narodenia", "miesto_narodenia", "vek", "pohlavie"], cols: "grid-cols-5" },
+                  { keys: ["rodne_priezvisko", "datum_narodenia", "pohlavie"], cols: "grid-cols-3" },
+                  { keys: ["miesto_narodenia", "vek"], cols: "grid-cols-2" },
                   { keys: ["typ_dokladu", "cislo_dokladu", "platnost_dokladu"], cols: "grid-cols-3" },
                 ];
 
@@ -1017,7 +1018,9 @@ function FullPageEditor({
                             return (
                               <div key={rowIdx} className={`grid ${row.cols} gap-3`} data-testid={`row-povinne-${rowIdx + 3}`}>
                                 {rowFields.map(field => (
-                                  <DynamicFieldInput key={field.id} field={field} dynamicValues={dynamicValues} setDynamicValues={setDynamicValues} />
+                                  <div key={field.id} className="min-w-0">
+                                    <DynamicFieldInput field={field} dynamicValues={dynamicValues} setDynamicValues={setDynamicValues} />
+                                  </div>
                                 ))}
                               </div>
                             );
