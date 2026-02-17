@@ -5,8 +5,8 @@ import { useAppUser } from "@/hooks/use-app-user";
 import { useStates } from "@/hooks/use-hierarchy";
 import { useToast } from "@/hooks/use-toast";
 import { useLocation, useParams } from "wouter";
-import type { Contract, ContractStatus, ContractStatusChangeLog, ContractTemplate, ContractInventory, Subject, Partner, Product, MyCompany, Sector, Section, SectorProduct, ContractPassword, ContractParameterValue, ContractFieldSetting, ClientType, ClientTypeField } from "@shared/schema";
-import { ArrowLeft, Save, Loader2, LayoutGrid, KeyRound, Plus, Trash2, FileText, Users, ClipboardList, FolderOpen, FolderClosed, DollarSign, BarChart3, ListChecks, PieChart, ChevronLeft, ChevronRight, MessageSquare, Paperclip, Upload, X, Eye, Settings2, Calendar } from "lucide-react";
+import type { Contract, ContractStatus, ContractStatusChangeLog, ContractTemplate, ContractInventory, Subject, Partner, Product, MyCompany, Sector, Section, SectorProduct, ContractPassword, ContractParameterValue, ContractFieldSetting, ClientType, ClientTypeField, ContractAcquirer, AppUser } from "@shared/schema";
+import { ArrowLeft, Save, Loader2, LayoutGrid, KeyRound, Plus, Trash2, FileText, Users, ClipboardList, FolderOpen, FolderClosed, DollarSign, BarChart3, ListChecks, PieChart, ChevronLeft, ChevronRight, MessageSquare, Paperclip, Upload, X, Eye, Settings2, Calendar, UserCheck } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -75,9 +75,10 @@ const TABS = [
   { key: "udaje-klient", label: "Udaje o klientovi", icon: Users },
   { key: "udaje-zmluva", label: "Udaje o zmluve", icon: ClipboardList },
   { key: "dokumenty", label: "Dokumenty", icon: FolderOpen },
-  { key: "odmeny", label: "Odmeny", icon: DollarSign },
+  { key: "ziskatelia", label: "Ziskatelia", icon: UserCheck },
   { key: "stavy", label: "Stavy zmluv", icon: BarChart3 },
   { key: "zhrnutie", label: "Zhrnutie", icon: ListChecks },
+  { key: "odmeny", label: "Odmeny", icon: DollarSign },
   { key: "provizne", label: "Provizne zostavy", icon: PieChart },
 ] as const;
 
@@ -788,6 +789,25 @@ export default function ContractForm() {
     enabled: isEditing,
   });
 
+  const { data: acquirers, isLoading: acquirersLoading } = useQuery<ContractAcquirer[]>({
+    queryKey: ["/api/contracts", contractId, "acquirers"],
+    queryFn: async () => {
+      const res = await fetch(`/api/contracts/${contractId}/acquirers`, { credentials: "include" });
+      if (!res.ok) throw new Error("Failed");
+      return res.json();
+    },
+    enabled: isEditing,
+  });
+
+  const { data: allAppUsers } = useQuery<AppUser[]>({
+    queryKey: ["/api/app-users"],
+    queryFn: async () => {
+      const res = await fetch(`/api/app-users`, { credentials: "include" });
+      if (!res.ok) throw new Error("Failed");
+      return res.json();
+    },
+  });
+
   const { data: allStates } = useStates();
   const { data: subjects } = useQuery<Subject[]>({ queryKey: ["/api/subjects"] });
   const { data: partners } = useQuery<Partner[]>({ queryKey: ["/api/partners"] });
@@ -1287,7 +1307,7 @@ export default function ContractForm() {
         <div className="flex items-center gap-0.5 px-2 flex-wrap">
           {TABS.filter(tab => {
             const accessRole = (existingContract as any)?.accessRole;
-            if (accessRole === 'klient' && (tab.key === 'odmeny' || tab.key === 'provizne')) return false;
+            if (accessRole === 'klient' && (tab.key === 'odmeny' || tab.key === 'provizne' || tab.key === 'ziskatelia')) return false;
             return true;
           }).map(tab => {
             const Icon = tab.icon;
@@ -1842,6 +1862,106 @@ export default function ContractForm() {
                   </p>
                 </CardContent>
               </Card>
+            </div>
+          </div>
+
+          <div style={{ display: activeTab === "ziskatelia" && (existingContract as any)?.accessRole !== 'klient' ? 'block' : 'none' }}>
+            <div className="space-y-3" data-testid="section-ziskatelia">
+              <h2 className="text-base font-semibold">Ziskatelia</h2>
+              {isEditing ? (
+                <>
+                  <Card>
+                    <CardContent className="p-4 space-y-3">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <Select
+                          value=""
+                          onValueChange={async (userId) => {
+                            if (!userId || !contractId) return;
+                            const existing = acquirers?.find(a => a.userId === Number(userId));
+                            if (existing) {
+                              toast({ title: "Uz priradeny", description: "Tento pouzivatel je uz priradeny ako ziskatel.", variant: "destructive" });
+                              return;
+                            }
+                            try {
+                              await apiRequest("POST", `/api/contracts/${contractId}/acquirers`, { userId: Number(userId) });
+                              queryClient.invalidateQueries({ queryKey: ["/api/contracts", contractId, "acquirers"] });
+                              toast({ title: "Ziskatel pridany" });
+                            } catch (err: any) {
+                              toast({ title: "Chyba", description: err.message, variant: "destructive" });
+                            }
+                          }}
+                        >
+                          <SelectTrigger className="max-w-xs" data-testid="select-add-acquirer">
+                            <SelectValue placeholder="Pridat ziskatela..." />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {allAppUsers?.filter(u => !acquirers?.some(a => a.userId === u.id)).map(u => (
+                              <SelectItem key={u.id} value={u.id.toString()} data-testid={`option-acquirer-${u.id}`}>
+                                {u.firstName} {u.lastName} ({u.username || u.email})
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+
+                      <div style={{ display: acquirersLoading ? 'block' : 'none' }}>
+                        <div className="flex items-center gap-2 py-4 justify-center">
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                          <span className="text-sm text-muted-foreground">Nacitavam...</span>
+                        </div>
+                      </div>
+
+                      <div style={{ display: !acquirersLoading && (!acquirers || acquirers.length === 0) ? 'block' : 'none' }}>
+                        <p className="text-sm text-muted-foreground text-center py-4" data-testid="text-no-acquirers">
+                          Ziadni ziskatelia neboli priradeni k tejto zmluve.
+                        </p>
+                      </div>
+
+                      <div style={{ display: !acquirersLoading && acquirers && acquirers.length > 0 ? 'block' : 'none' }}>
+                        <div className="space-y-2">
+                          {acquirers?.map(acq => {
+                            const user = allAppUsers?.find(u => u.id === acq.userId);
+                            return (
+                              <div key={acq.id} className="flex items-center justify-between gap-2 p-2 rounded-md border" data-testid={`acquirer-row-${acq.id}`}>
+                                <div className="flex items-center gap-2">
+                                  <UserCheck className="w-4 h-4 text-muted-foreground" />
+                                  <span className="text-sm font-medium">{user ? `${user.firstName} ${user.lastName}` : `Pouzivatel #${acq.userId}`}</span>
+                                  <span className="text-xs text-muted-foreground">{user?.email || ""}</span>
+                                </div>
+                                <Button
+                                  size="icon"
+                                  variant="ghost"
+                                  onClick={async () => {
+                                    try {
+                                      await apiRequest("DELETE", `/api/contract-acquirers/${acq.id}`);
+                                      queryClient.invalidateQueries({ queryKey: ["/api/contracts", contractId, "acquirers"] });
+                                      toast({ title: "Ziskatel odobrany" });
+                                    } catch (err: any) {
+                                      toast({ title: "Chyba", description: err.message, variant: "destructive" });
+                                    }
+                                  }}
+                                  data-testid={`button-remove-acquirer-${acq.id}`}
+                                >
+                                  <Trash2 className="w-4 h-4" />
+                                </Button>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </>
+              ) : (
+                <Card>
+                  <CardContent className="p-4 text-center">
+                    <UserCheck className="w-10 h-10 text-muted-foreground mx-auto mb-2" />
+                    <p className="text-sm text-muted-foreground" data-testid="text-ziskatelia-save-first">
+                      Najprv ulozte zmluvu, potom mozete priradit ziskatelov.
+                    </p>
+                  </CardContent>
+                </Card>
+              )}
             </div>
           </div>
 
