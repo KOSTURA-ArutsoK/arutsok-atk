@@ -934,9 +934,9 @@ function FullPageEditor({
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-5">
 
               {isPerson ? (() => {
-                const FO_POVINNE_ROWS: { keys: string[]; cols: string }[] = [
-                  { keys: ["titul_pred", "meno", "priezvisko", "titul_za"], cols: "grid-cols-4" },
-                  { keys: ["rodne_priezvisko", "datum_narodenia", "pohlavie"], cols: "grid-cols-3" },
+                const FO_POVINNE_ROWS: { keys: string[]; cols: string; customCols?: string }[] = [
+                  { keys: ["titul_pred", "meno", "druhe_meno", "priezvisko", "titul_za"], cols: "grid-cols-5", customCols: "grid-cols-[1fr_2fr_2fr_2fr_1fr]" },
+                  { keys: ["pohlavie", "datum_narodenia", "rodne_priezvisko"], cols: "grid-cols-3", customCols: "grid-cols-[1fr_2fr_2fr]" },
                   { keys: ["miesto_narodenia", "vek"], cols: "grid-cols-2" },
                   { keys: ["typ_dokladu", "cislo_dokladu", "platnost_dokladu"], cols: "grid-cols-3" },
                 ];
@@ -1013,13 +1013,22 @@ function FullPageEditor({
                           </div>
 
                           {FO_POVINNE_ROWS.map((row, rowIdx) => {
-                            const rowFields = row.keys.map(k => povinneFields.find(f => f.fieldKey === k)).filter(Boolean) as ClientTypeField[];
-                            if (rowFields.length === 0) return null;
+                            const rowEntries = row.keys.map(k => ({ key: k, field: povinneFields.find(f => f.fieldKey === k) }));
+                            const hasAny = rowEntries.some(e => e.field);
+                            if (!hasAny) return null;
+                            const gridClass = row.customCols || row.cols;
                             return (
-                              <div key={rowIdx} className={`grid ${row.cols} gap-3`} data-testid={`row-povinne-${rowIdx + 3}`}>
-                                {rowFields.map(field => (
-                                  <div key={field.id} className="min-w-0">
+                              <div key={rowIdx} className={`grid ${gridClass} gap-3`} data-testid={`row-povinne-${rowIdx + 3}`}>
+                                {rowEntries.map(({ key, field }) => field ? (
+                                  <div key={key} className="min-w-0">
                                     <DynamicFieldInput field={field} dynamicValues={dynamicValues} setDynamicValues={setDynamicValues} />
+                                  </div>
+                                ) : (
+                                  <div key={key} className="min-w-0">
+                                    <div className="space-y-1">
+                                      <Label className="text-xs text-muted-foreground">{key === "druhe_meno" ? "Druhé meno/priezvisko" : key}</Label>
+                                      <Input value={dynamicValues[key] || ""} onChange={e => setDynamicValues(prev => ({ ...prev, [key]: e.target.value }))} data-testid={`input-${key}`} />
+                                    </div>
                                   </div>
                                 ))}
                               </div>

@@ -2079,12 +2079,15 @@ export default function Contracts() {
                       <div className="h-px flex-1 bg-border" />
                     </div>
 
-                    <div className="grid gap-3" style={{ gridTemplateColumns: `repeat(${panel.gridColumns || 2}, 1fr)` }}>
-                      {nonAddrFields.map(field => {
+                    {(() => {
+                      const isFoOsobne = panel.name === "Osobné údaje" && inlineClientType === "fo";
+                      const FO_OSOBNE_ROW_KEYS = ["titul_pred", "meno", "druhe_meno", "priezvisko", "titul_za"];
+                      const FO_ROW2_KEYS = ["pohlavie", "datum_narodenia", "rodne_priezvisko"];
+
+                      const renderField = (field: any) => {
                         const rule = field.visibilityRule as { dependsOn: string; value: string } | null;
                         const isVisible = !rule || inlineFormValues[rule.dependsOn] === rule.value;
                         const isRow0Field = inlineClientType === "fo" && field.fieldKey === "rodne_cislo";
-
                         return (
                           <div
                             key={field.id}
@@ -2098,8 +2101,30 @@ export default function Contracts() {
                             {renderInlineField(field)}
                           </div>
                         );
-                      })}
-                    </div>
+                      };
+
+                      if (isFoOsobne) {
+                        const row1Fields = FO_OSOBNE_ROW_KEYS.map(k => nonAddrFields.find(f => f.fieldKey === k)).filter(Boolean);
+                        const row2Fields = FO_ROW2_KEYS.map(k => nonAddrFields.find(f => f.fieldKey === k)).filter(Boolean);
+                        const usedKeys = new Set([...FO_OSOBNE_ROW_KEYS, ...FO_ROW2_KEYS]);
+                        const restFields = nonAddrFields.filter(f => !usedKeys.has(f.fieldKey));
+                        return (
+                          <>
+                            <div className="grid gap-3" style={{ gridTemplateColumns: "1fr 2fr 2fr 2fr 1fr" }}>{row1Fields.map(renderField)}</div>
+                            <div className="grid gap-3 mt-3" style={{ gridTemplateColumns: "1fr 2fr 2fr" }}>{row2Fields.map(renderField)}</div>
+                            {restFields.length > 0 && (
+                              <div className="grid gap-3 mt-3" style={{ gridTemplateColumns: `repeat(${panel.gridColumns || 3}, 1fr)` }}>{restFields.map(renderField)}</div>
+                            )}
+                          </>
+                        );
+                      }
+
+                      return (
+                        <div className="grid gap-3" style={{ gridTemplateColumns: `repeat(${panel.gridColumns || 2}, 1fr)` }}>
+                          {nonAddrFields.map(renderField)}
+                        </div>
+                      );
+                    })()}
                   </div>
                 );
               });
@@ -2159,14 +2184,18 @@ export default function Contracts() {
                 return (
                   <>
                     {inlineClientType === "fo" && (
-                      <div className="grid grid-cols-2 gap-3 mb-2" data-testid="inline-row-0-uid-rc">
+                      <div className="grid grid-cols-3 gap-3 mb-2" data-testid="inline-row-0-uid-rc">
                         <div className="space-y-1">
-                          <label className="text-xs font-medium text-muted-foreground">UID</label>
-                          <Input value="" disabled placeholder="Bude pridelene po ulozeni" data-testid="input-inline-uid" />
+                          <label className="text-xs font-medium text-muted-foreground">Kód klienta</label>
+                          <Input value="Automaticky generovaný" disabled className="text-xs" data-testid="input-inline-uid" />
                         </div>
                         <div className="space-y-1">
-                          <label className="text-xs font-medium text-muted-foreground">Rodne cislo</label>
-                          <Input value={inlineFormValues["rodne_cislo"] || ""} disabled data-testid="input-inline-rodne-cislo-row0" />
+                          <label className="text-xs font-medium text-muted-foreground">Typ klienta</label>
+                          <Input value="Fyzická osoba" disabled data-testid="input-inline-typ-klienta" />
+                        </div>
+                        <div className="space-y-1">
+                          <label className="text-xs font-medium text-muted-foreground">Identifikátor (Rodné číslo)</label>
+                          <Input value={inlineFormValues["rodne_cislo"] || ""} disabled className="font-mono" data-testid="input-inline-rodne-cislo-row0" />
                         </div>
                       </div>
                     )}
