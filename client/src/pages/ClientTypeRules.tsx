@@ -172,18 +172,25 @@ function FolderFormDialog({
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const [name, setName] = useState("");
+  const [folderCategory, setFolderCategory] = useState("volitelne");
 
   useEffect(() => {
     if (open) {
-      if (editingFolder) setName(editingFolder.name);
-      else setName("");
+      if (editingFolder) {
+        setName(editingFolder.name);
+        setFolderCategory((editingFolder as any).folderCategory || "volitelne");
+      } else {
+        setName("");
+        setFolderCategory("volitelne");
+      }
     }
   }, [open, editingFolder]);
 
   const createMutation = useMutation({
-    mutationFn: async (data: { name: string }) => {
+    mutationFn: async (data: { name: string; folderCategory: string }) => {
       const res = await apiRequest("POST", `/api/client-types/${clientTypeId}/sections`, {
         name: data.name,
+        folderCategory: data.folderCategory,
         sortOrder: 0,
       });
       return res.json();
@@ -197,7 +204,7 @@ function FolderFormDialog({
   });
 
   const updateMutation = useMutation({
-    mutationFn: async (data: { name: string }) => {
+    mutationFn: async (data: { name: string; folderCategory: string }) => {
       await apiRequest("PATCH", `/api/client-type-sections/${editingFolder!.id}`, data);
     },
     onSuccess: () => {
@@ -211,7 +218,7 @@ function FolderFormDialog({
   const isPending = createMutation.isPending || updateMutation.isPending;
 
   return (
-    <Dialog open={open} onOpenChange={(isOpen) => { onOpenChange(isOpen); if (!isOpen) setName(""); }}>
+    <Dialog open={open} onOpenChange={(isOpen) => { onOpenChange(isOpen); if (!isOpen) { setName(""); setFolderCategory("volitelne"); } }}>
       <DialogContent className="sm:max-w-[400px]">
         <DialogHeader>
           <DialogTitle data-testid="text-folder-dialog-title">{editingFolder ? "Upravit priecinok" : "Pridat priecinok"}</DialogTitle>
@@ -227,14 +234,28 @@ function FolderFormDialog({
               autoFocus
             />
           </div>
+          <div>
+            <Label className="text-xs">Kategoria priecinku</Label>
+            <Select value={folderCategory} onValueChange={setFolderCategory}>
+              <SelectTrigger data-testid="select-folder-category">
+                <SelectValue placeholder="Vyberte kategoriu" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="povinne">POVINNE UDAJE</SelectItem>
+                <SelectItem value="doplnkove">DOPLNKOVE UDAJE</SelectItem>
+                <SelectItem value="volitelne">VOLITELNE UDAJE</SelectItem>
+              </SelectContent>
+            </Select>
+            <p className="text-[10px] text-muted-foreground mt-1">Urcuje, v ktorej sekcii karty klienta sa zobrazia polia.</p>
+          </div>
         </div>
         <DialogFooter className="mt-4 gap-2">
           <Button variant="outline" onClick={() => onOpenChange(false)}>Zrusit</Button>
           <Button
             onClick={() => {
               if (!name.trim()) return;
-              if (editingFolder) updateMutation.mutate({ name: name.trim() });
-              else createMutation.mutate({ name: name.trim() });
+              if (editingFolder) updateMutation.mutate({ name: name.trim(), folderCategory });
+              else createMutation.mutate({ name: name.trim(), folderCategory });
             }}
             disabled={!name.trim() || isPending}
             data-testid="button-save-folder"
@@ -776,6 +797,7 @@ function FoldersTab({ clientTypeId }: { clientTypeId: number }) {
                   <TableRow>
                     <TableHead className="w-8"></TableHead>
                     <TableHead>Nazov priecinku</TableHead>
+                    <TableHead>Kategoria</TableHead>
                     <TableHead>Panely</TableHead>
                     <TableHead>Akcie</TableHead>
                   </TableRow>
@@ -784,12 +806,24 @@ function FoldersTab({ clientTypeId }: { clientTypeId: number }) {
                   <TableBody>
                     {filtered.length === 0 ? (
                       <TableRow>
-                        <TableCell colSpan={4} className="text-center text-muted-foreground py-8" data-testid="text-no-folders">Ziadne priecinky</TableCell>
+                        <TableCell colSpan={5} className="text-center text-muted-foreground py-8" data-testid="text-no-folders">Ziadne priecinky</TableCell>
                       </TableRow>
                     ) : (
                       filtered.map(folder => (
                         <SortableRow key={folder.id} id={folder.id}>
                           <TableCell className="font-medium">{folder.name}</TableCell>
+                          <TableCell>
+                            <Badge
+                              variant={
+                                (folder as any).folderCategory === 'povinne' ? 'destructive' :
+                                (folder as any).folderCategory === 'doplnkove' ? 'default' : 'secondary'
+                              }
+                              data-testid={`badge-folder-category-${folder.id}`}
+                            >
+                              {(folder as any).folderCategory === 'povinne' ? 'POVINNE' :
+                               (folder as any).folderCategory === 'doplnkove' ? 'DOPLNKOVE' : 'VOLITELNE'}
+                            </Badge>
+                          </TableCell>
                           <TableCell>
                             <Badge variant="secondary" data-testid={`badge-folder-panel-count-${folder.id}`}>{getPanelCount(folder.id)}</Badge>
                           </TableCell>

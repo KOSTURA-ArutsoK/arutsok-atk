@@ -458,6 +458,7 @@ export const clientTypeSections = pgTable("client_type_sections", {
   id: serial("id").primaryKey(),
   clientTypeId: integer("client_type_id").notNull().references(() => clientTypes.id),
   name: text("name").notNull(),
+  folderCategory: text("folder_category").default("volitelne"),
   sortOrder: integer("sort_order").default(0),
   createdAt: timestamp("created_at").defaultNow(),
 });

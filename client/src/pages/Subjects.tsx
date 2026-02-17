@@ -36,8 +36,11 @@ import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { HelpCircle } from "lucide-react";
+import { HelpCircle, FileText, ShieldCheck, ListPlus, FileQuestion } from "lucide-react";
 import { HelpIcon } from "@/components/help-icon";
+import {
+  Accordion, AccordionContent, AccordionItem, AccordionTrigger,
+} from "@/components/ui/accordion";
 import { z } from "zod";
 import {
   Form, FormControl, FormField, FormItem, FormLabel, FormMessage,
@@ -185,6 +188,183 @@ function SubjectFinanceTab({ subject }: { subject: Subject }) {
   );
 }
 
+const FOLDER_CATEGORY_LABELS: Record<string, string> = {
+  povinne: "POVINNE UDAJE",
+  doplnkove: "DOPLNKOVE UDAJE",
+  volitelne: "VOLITELNE / DOBROVOLNE UDAJE",
+};
+
+const FOLDER_CATEGORY_ICONS: Record<string, any> = {
+  povinne: ShieldCheck,
+  doplnkove: ListPlus,
+  volitelne: FileQuestion,
+};
+
+const FOLDER_CATEGORY_ORDER = ["povinne", "doplnkove", "volitelne"];
+
+function SubjectDataTab({ subject }: { subject: Subject }) {
+  const { data: clientTypes } = useQuery<ClientType[]>({ queryKey: ["/api/client-types"] });
+  const { data: companies } = useMyCompanies();
+  const managingCompany = companies?.find(c => c.id === subject.myCompanyId);
+
+  const isPerson = subject.type === 'person';
+  const isSzco = subject.type === 'szco';
+
+  const clientType = clientTypes?.find(ct => {
+    if (subject.type === 'szco' && ct.code === 'SZCO') return true;
+    if (subject.type === 'company' && ct.code === 'PO') return true;
+    if (isPerson && ct.code === 'FO') return true;
+    return false;
+  });
+
+  const { data: typeFields } = useQuery<ClientTypeField[]>({
+    queryKey: ["/api/client-types", clientType?.id, "fields"],
+    queryFn: async () => {
+      const res = await fetch(`/api/client-types/${clientType!.id}/fields`, { credentials: "include" });
+      if (!res.ok) throw new Error("Failed");
+      return res.json();
+    },
+    enabled: !!clientType?.id,
+  });
+
+  const { data: typeSections } = useQuery<(ClientTypeSection & { folderCategory?: string })[]>({
+    queryKey: ["/api/client-types", clientType?.id, "sections"],
+    queryFn: async () => {
+      const res = await fetch(`/api/client-types/${clientType!.id}/sections`, { credentials: "include" });
+      if (!res.ok) throw new Error("Failed");
+      return res.json();
+    },
+    enabled: !!clientType?.id,
+  });
+
+  const details = (subject.details || {}) as Record<string, any>;
+  const dynamicFields = details.dynamicFields || details;
+
+  function getFieldValue(fieldKey: string): string {
+    if (dynamicFields[fieldKey] !== undefined) return String(dynamicFields[fieldKey] || "");
+    if ((details as any)[fieldKey] !== undefined) return String((details as any)[fieldKey] || "");
+    return "";
+  }
+
+  function groupFieldsByCategory() {
+    const groups: Record<string, { section: any; fields: ClientTypeField[] }[]> = {
+      povinne: [],
+      doplnkove: [],
+      volitelne: [],
+    };
+
+    if (!typeSections || !typeFields) return groups;
+
+    const sectionsSorted = [...typeSections].sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0));
+
+    for (const section of sectionsSorted) {
+      const category = (section as any).folderCategory || "volitelne";
+      const sectionFields = typeFields
+        .filter(f => (f.sectionId || 0) === section.id)
+        .sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0));
+      if (sectionFields.length > 0) {
+        if (!groups[category]) groups[category] = [];
+        groups[category].push({ section, fields: sectionFields });
+      }
+    }
+
+    const unsectionedFields = typeFields.filter(f => !f.sectionId || f.sectionId === 0);
+    if (unsectionedFields.length > 0) {
+      groups.volitelne.push({ section: { id: 0, name: "Ostatne" }, fields: unsectionedFields.sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0)) });
+    }
+
+    return groups;
+  }
+
+  const fieldGroups = groupFieldsByCategory();
+
+  return (
+    <div className="space-y-4">
+      <div className="grid grid-cols-2 gap-4 p-3 rounded-md bg-muted/30 border border-border">
+        <div>
+          <span className="text-xs text-muted-foreground">Typ</span>
+          <p className="text-sm font-medium">{isPerson ? 'FO' : isSzco ? 'SZCO' : 'PO'} - {clientType?.name || subject.type}</p>
+        </div>
+        <div>
+          <span className="text-xs text-muted-foreground">Spravujuca firma</span>
+          <p className="text-sm font-medium">{managingCompany?.name || '-'}</p>
+        </div>
+        {isPerson || isSzco ? (
+          <>
+            <div>
+              <span className="text-xs text-muted-foreground">Meno</span>
+              <p className="text-sm">{subject.firstName || '-'}</p>
+            </div>
+            <div>
+              <span className="text-xs text-muted-foreground">Priezvisko</span>
+              <p className="text-sm">{subject.lastName || '-'}</p>
+            </div>
+          </>
+        ) : (
+          <div className="col-span-2">
+            <span className="text-xs text-muted-foreground">Nazov spolocnosti</span>
+            <p className="text-sm">{subject.companyName || '-'}</p>
+          </div>
+        )}
+        <div>
+          <span className="text-xs text-muted-foreground">Email</span>
+          <p className="text-sm">{subject.email || '-'}</p>
+        </div>
+        <div>
+          <span className="text-xs text-muted-foreground">Telefon</span>
+          <p className="text-sm">{subject.phone || '-'}</p>
+        </div>
+      </div>
+
+      <Accordion type="multiple" defaultValue={["povinne", "doplnkove"]} className="space-y-2">
+        {FOLDER_CATEGORY_ORDER.map(category => {
+          const Icon = FOLDER_CATEGORY_ICONS[category];
+          const sectionGroups = fieldGroups[category] || [];
+          return (
+            <AccordionItem key={category} value={category} className="border rounded-md px-3" data-testid={`accordion-${category}`}>
+              <AccordionTrigger className="py-3 hover:no-underline">
+                <div className="flex items-center gap-2">
+                  <Icon className={`w-4 h-4 ${category === 'povinne' ? 'text-destructive' : category === 'doplnkove' ? 'text-primary' : 'text-muted-foreground'}`} />
+                  <span className="text-sm font-semibold">{FOLDER_CATEGORY_LABELS[category]}</span>
+                  <Badge variant="secondary" className="text-[10px]">
+                    {sectionGroups.reduce((acc, g) => acc + g.fields.length, 0)}
+                  </Badge>
+                </div>
+              </AccordionTrigger>
+              <AccordionContent className="pb-4">
+                {sectionGroups.length === 0 ? (
+                  <p className="text-xs text-muted-foreground text-center py-4">Ziadne polia v tejto sekcii</p>
+                ) : (
+                  <div className="space-y-4">
+                    {sectionGroups.map(({ section, fields }) => (
+                      <div key={section.id} className="space-y-2">
+                        {sectionGroups.length > 1 && (
+                          <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide border-b border-border pb-1">{section.name}</p>
+                        )}
+                        <div className="grid grid-cols-2 gap-x-6 gap-y-2">
+                          {fields.map(field => {
+                            const value = getFieldValue(field.fieldKey);
+                            return (
+                              <div key={field.id} className="space-y-0.5" data-testid={`field-display-${field.fieldKey}`}>
+                                <span className="text-xs text-muted-foreground">{field.label || field.fieldKey}</span>
+                                <p className="text-sm">{value || <span className="text-muted-foreground/50">-</span>}</p>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </AccordionContent>
+            </AccordionItem>
+          );
+        })}
+      </Accordion>
+    </div>
+  );
+}
+
 function SubjectDetailDialog({ subject, onClose }: { subject: Subject; onClose: () => void }) {
   const { data: careerHistory, isLoading } = useSubjectCareerHistory(subject.id);
   const { data: companies } = useMyCompanies();
@@ -197,7 +377,7 @@ function SubjectDetailDialog({ subject, onClose }: { subject: Subject; onClose: 
 
   return (
     <Dialog open onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-[800px] h-[600px] overflow-y-auto flex flex-col items-stretch justify-start">
+      <DialogContent className="max-w-6xl w-[90vw] h-[85vh] overflow-y-auto flex flex-col items-stretch justify-start">
         <DialogHeader>
           <div className="flex items-center gap-3 flex-wrap">
             <div className="w-10 h-10 rounded-md bg-primary/10 flex items-center justify-center flex-shrink-0">
@@ -225,8 +405,12 @@ function SubjectDetailDialog({ subject, onClose }: { subject: Subject; onClose: 
           </div>
         </DialogHeader>
 
-        <Tabs defaultValue="detail" className="flex-1">
+        <Tabs defaultValue="udaje" className="flex-1">
           <TabsList data-testid="tabs-subject-detail">
+            <TabsTrigger value="udaje" data-testid="tab-subject-udaje">
+              <FileText className="w-3.5 h-3.5 mr-1" />
+              Udaje klienta
+            </TabsTrigger>
             <TabsTrigger value="detail" data-testid="tab-subject-info">
               <User className="w-3.5 h-3.5 mr-1" />
               Detail
@@ -241,12 +425,16 @@ function SubjectDetailDialog({ subject, onClose }: { subject: Subject; onClose: 
             </TabsTrigger>
           </TabsList>
 
+          <TabsContent value="udaje" className="mt-3">
+            <SubjectDataTab subject={subject} />
+          </TabsContent>
+
           <TabsContent value="detail" className="mt-3">
             <div className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <span className="text-xs text-muted-foreground">Typ entity</span>
-                  <p className="text-sm">{subject.type === 'person' ? 'Fyzicka osoba' : 'Pravnicka osoba'}</p>
+                  <p className="text-sm">{subject.type === 'person' ? 'Fyzicka osoba' : subject.type === 'szco' ? 'SZCO' : 'Pravnicka osoba'}</p>
                 </div>
                 <div>
                   <span className="text-xs text-muted-foreground">Spravujuca firma</span>
@@ -487,6 +675,109 @@ function InitialRegistrationModal({
   );
 }
 
+function DynamicFieldInput({ field, dynamicValues, setDynamicValues }: {
+  field: ClientTypeField;
+  dynamicValues: Record<string, string>;
+  setDynamicValues: React.Dispatch<React.SetStateAction<Record<string, string>>>;
+}) {
+  return (
+    <div className="space-y-1">
+      <div className="flex items-center gap-1">
+        <Label className="text-xs">{field.label || field.fieldKey}{field.isRequired ? " *" : ""}</Label>
+      </div>
+      {field.fieldType === "long_text" ? (
+        <Textarea
+          value={dynamicValues[field.fieldKey] || ""}
+          onChange={e => setDynamicValues(prev => ({ ...prev, [field.fieldKey]: e.target.value }))}
+          rows={2}
+          data-testid={`input-dynamic-${field.fieldKey}`}
+        />
+      ) : field.fieldType === "combobox" || field.fieldType === "jedna_moznost" ? (
+        <Select
+          value={dynamicValues[field.fieldKey] || ""}
+          onValueChange={val => setDynamicValues(prev => ({ ...prev, [field.fieldKey]: val }))}
+        >
+          <SelectTrigger data-testid={`select-dynamic-${field.fieldKey}`}>
+            <SelectValue placeholder="Vyberte..." />
+          </SelectTrigger>
+          <SelectContent>
+            {(field.options || []).map((opt: string) => (
+              <SelectItem key={opt} value={opt}>{opt}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      ) : field.fieldType === "viac_moznosti" ? (
+        <MultiSelectCheckboxes
+          paramId={field.fieldKey}
+          options={field.options || []}
+          value={dynamicValues[field.fieldKey] || ""}
+          onChange={(val) => setDynamicValues(prev => ({ ...prev, [field.fieldKey]: val }))}
+        />
+      ) : field.fieldType === "switch" ? (
+        <div className="flex items-center gap-2 pt-1">
+          <Switch
+            checked={dynamicValues[field.fieldKey] === "true"}
+            onCheckedChange={checked => setDynamicValues(prev => ({ ...prev, [field.fieldKey]: String(checked) }))}
+            data-testid={`switch-dynamic-${field.fieldKey}`}
+          />
+          <span className="text-xs text-muted-foreground">{dynamicValues[field.fieldKey] === "true" ? "Ano" : "Nie"}</span>
+        </div>
+      ) : field.fieldType === "checkbox" ? (
+        <div className="flex items-center gap-2 pt-1">
+          <Checkbox
+            checked={dynamicValues[field.fieldKey] === "true"}
+            onCheckedChange={checked => setDynamicValues(prev => ({ ...prev, [field.fieldKey]: String(!!checked) }))}
+            data-testid={`checkbox-dynamic-${field.fieldKey}`}
+          />
+          <span className="text-xs text-muted-foreground">{dynamicValues[field.fieldKey] === "true" ? "Ano" : "Nie"}</span>
+        </div>
+      ) : field.fieldType === "date" ? (
+        <Input
+          type="date"
+          value={dynamicValues[field.fieldKey] || ""}
+          onChange={e => setDynamicValues(prev => ({ ...prev, [field.fieldKey]: e.target.value }))}
+          data-testid={`input-dynamic-${field.fieldKey}`}
+        />
+      ) : field.fieldType === "number" ? (
+        <Input
+          type="number"
+          value={dynamicValues[field.fieldKey] || ""}
+          onChange={e => setDynamicValues(prev => ({ ...prev, [field.fieldKey]: e.target.value }))}
+          data-testid={`input-dynamic-${field.fieldKey}`}
+        />
+      ) : field.fieldType === "email" ? (
+        <Input
+          type="email"
+          value={dynamicValues[field.fieldKey] || ""}
+          onChange={e => setDynamicValues(prev => ({ ...prev, [field.fieldKey]: e.target.value }))}
+          data-testid={`input-dynamic-${field.fieldKey}`}
+        />
+      ) : field.fieldType === "phone" ? (
+        <Input
+          type="tel"
+          value={dynamicValues[field.fieldKey] || ""}
+          onChange={e => setDynamicValues(prev => ({ ...prev, [field.fieldKey]: e.target.value }))}
+          data-testid={`input-dynamic-${field.fieldKey}`}
+        />
+      ) : field.fieldType === "iban" ? (
+        <Input
+          value={dynamicValues[field.fieldKey] || ""}
+          onChange={e => setDynamicValues(prev => ({ ...prev, [field.fieldKey]: e.target.value.toUpperCase() }))}
+          placeholder="SK00 0000 0000 0000 0000 0000"
+          className="font-mono"
+          data-testid={`input-dynamic-${field.fieldKey}`}
+        />
+      ) : (
+        <Input
+          value={dynamicValues[field.fieldKey] || ""}
+          onChange={e => setDynamicValues(prev => ({ ...prev, [field.fieldKey]: e.target.value }))}
+          data-testid={`input-dynamic-${field.fieldKey}`}
+        />
+      )}
+    </div>
+  );
+}
+
 function FullPageEditor({
   initialData,
   onCancel,
@@ -719,124 +1010,68 @@ function FullPageEditor({
                 </div>
               )}
 
-              {typeFields && typeFields.length > 0 && (
-                <div className="space-y-4 pt-2">
-                  <Separator />
-                  <h3 className="text-sm font-semibold text-muted-foreground">Doplnkove udaje ({clientType?.name})</h3>
-                  {(typeSections || [{ id: 0, name: "Vseobecne", sortOrder: 0 }] as any[]).map((section: any) => {
-                    const sectionFields = typeFields
-                      .filter(f => (f.sectionId || 0) === (section.id || 0))
-                      .filter(f => isFieldVisible(f))
-                      .sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0));
-                    if (sectionFields.length === 0) return null;
-                    return (
-                      <div key={section.id} className="space-y-3">
-                        {(typeSections || []).length > 1 && (
-                          <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">{section.name}</p>
-                        )}
-                        <div className="grid grid-cols-2 gap-3">
-                          {sectionFields.map((field: ClientTypeField) => (
-                            <div key={field.id} className="space-y-1">
-                              <div className="flex items-center gap-1">
-                                <Label className="text-xs">{field.label || field.fieldKey}{field.isRequired ? " *" : ""}</Label>
+              {typeFields && typeFields.length > 0 && (() => {
+                const editorFieldGroups: Record<string, { section: any; fields: ClientTypeField[] }[]> = {
+                  povinne: [], doplnkove: [], volitelne: [],
+                };
+                const sectionsSorted = [...(typeSections || [])].sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0));
+                for (const section of sectionsSorted) {
+                  const category = (section as any).folderCategory || "volitelne";
+                  const sectionFields = typeFields
+                    .filter(f => (f.sectionId || 0) === section.id)
+                    .filter(f => isFieldVisible(f))
+                    .sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0));
+                  if (sectionFields.length > 0) {
+                    if (!editorFieldGroups[category]) editorFieldGroups[category] = [];
+                    editorFieldGroups[category].push({ section, fields: sectionFields });
+                  }
+                }
+                const unsectioned = typeFields.filter(f => !f.sectionId || f.sectionId === 0).filter(f => isFieldVisible(f));
+                if (unsectioned.length > 0) {
+                  editorFieldGroups.volitelne.push({ section: { id: 0, name: "Ostatne" }, fields: unsectioned.sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0)) });
+                }
+
+                return (
+                  <div className="space-y-2 pt-2">
+                    <Separator />
+                    <Accordion type="multiple" defaultValue={["povinne", "doplnkove"]} className="space-y-2">
+                      {FOLDER_CATEGORY_ORDER.map(category => {
+                        const Icon = FOLDER_CATEGORY_ICONS[category];
+                        const groups = editorFieldGroups[category] || [];
+                        const totalFields = groups.reduce((acc, g) => acc + g.fields.length, 0);
+                        if (totalFields === 0) return null;
+                        return (
+                          <AccordionItem key={category} value={category} className="border rounded-md px-3" data-testid={`editor-accordion-${category}`}>
+                            <AccordionTrigger className="py-3 hover:no-underline">
+                              <div className="flex items-center gap-2">
+                                <Icon className={`w-4 h-4 ${category === 'povinne' ? 'text-destructive' : category === 'doplnkove' ? 'text-primary' : 'text-muted-foreground'}`} />
+                                <span className="text-sm font-semibold">{FOLDER_CATEGORY_LABELS[category]}</span>
+                                <Badge variant="secondary" className="text-[10px]">{totalFields}</Badge>
                               </div>
-                              {field.fieldType === "long_text" ? (
-                                <Textarea
-                                  value={dynamicValues[field.fieldKey] || ""}
-                                  onChange={e => setDynamicValues(prev => ({ ...prev, [field.fieldKey]: e.target.value }))}
-                                  rows={2}
-                                  data-testid={`input-dynamic-${field.fieldKey}`}
-                                />
-                              ) : field.fieldType === "combobox" || field.fieldType === "jedna_moznost" ? (
-                                <Select
-                                  value={dynamicValues[field.fieldKey] || ""}
-                                  onValueChange={val => setDynamicValues(prev => ({ ...prev, [field.fieldKey]: val }))}
-                                >
-                                  <SelectTrigger data-testid={`select-dynamic-${field.fieldKey}`}>
-                                    <SelectValue placeholder="Vyberte..." />
-                                  </SelectTrigger>
-                                  <SelectContent>
-                                    {(field.options || []).map((opt: string) => (
-                                      <SelectItem key={opt} value={opt}>{opt}</SelectItem>
-                                    ))}
-                                  </SelectContent>
-                                </Select>
-                              ) : field.fieldType === "viac_moznosti" ? (
-                                <MultiSelectCheckboxes
-                                  paramId={field.fieldKey}
-                                  options={field.options || []}
-                                  value={dynamicValues[field.fieldKey] || ""}
-                                  onChange={(val) => setDynamicValues(prev => ({ ...prev, [field.fieldKey]: val }))}
-                                />
-                              ) : field.fieldType === "switch" ? (
-                                <div className="flex items-center gap-2 pt-1">
-                                  <Switch
-                                    checked={dynamicValues[field.fieldKey] === "true"}
-                                    onCheckedChange={checked => setDynamicValues(prev => ({ ...prev, [field.fieldKey]: String(checked) }))}
-                                    data-testid={`switch-dynamic-${field.fieldKey}`}
-                                  />
-                                  <span className="text-xs text-muted-foreground">{dynamicValues[field.fieldKey] === "true" ? "Ano" : "Nie"}</span>
-                                </div>
-                              ) : field.fieldType === "checkbox" ? (
-                                <div className="flex items-center gap-2 pt-1">
-                                  <Checkbox
-                                    checked={dynamicValues[field.fieldKey] === "true"}
-                                    onCheckedChange={checked => setDynamicValues(prev => ({ ...prev, [field.fieldKey]: String(!!checked) }))}
-                                    data-testid={`checkbox-dynamic-${field.fieldKey}`}
-                                  />
-                                  <span className="text-xs text-muted-foreground">{dynamicValues[field.fieldKey] === "true" ? "Ano" : "Nie"}</span>
-                                </div>
-                              ) : field.fieldType === "date" ? (
-                                <Input
-                                  type="date"
-                                  value={dynamicValues[field.fieldKey] || ""}
-                                  onChange={e => setDynamicValues(prev => ({ ...prev, [field.fieldKey]: e.target.value }))}
-                                  data-testid={`input-dynamic-${field.fieldKey}`}
-                                />
-                              ) : field.fieldType === "number" ? (
-                                <Input
-                                  type="number"
-                                  value={dynamicValues[field.fieldKey] || ""}
-                                  onChange={e => setDynamicValues(prev => ({ ...prev, [field.fieldKey]: e.target.value }))}
-                                  data-testid={`input-dynamic-${field.fieldKey}`}
-                                />
-                              ) : field.fieldType === "email" ? (
-                                <Input
-                                  type="email"
-                                  value={dynamicValues[field.fieldKey] || ""}
-                                  onChange={e => setDynamicValues(prev => ({ ...prev, [field.fieldKey]: e.target.value }))}
-                                  data-testid={`input-dynamic-${field.fieldKey}`}
-                                />
-                              ) : field.fieldType === "phone" ? (
-                                <Input
-                                  type="tel"
-                                  value={dynamicValues[field.fieldKey] || ""}
-                                  onChange={e => setDynamicValues(prev => ({ ...prev, [field.fieldKey]: e.target.value }))}
-                                  data-testid={`input-dynamic-${field.fieldKey}`}
-                                />
-                              ) : field.fieldType === "iban" ? (
-                                <Input
-                                  value={dynamicValues[field.fieldKey] || ""}
-                                  onChange={e => setDynamicValues(prev => ({ ...prev, [field.fieldKey]: e.target.value.toUpperCase() }))}
-                                  placeholder="SK00 0000 0000 0000 0000 0000"
-                                  className="font-mono"
-                                  data-testid={`input-dynamic-${field.fieldKey}`}
-                                />
-                              ) : (
-                                <Input
-                                  value={dynamicValues[field.fieldKey] || ""}
-                                  onChange={e => setDynamicValues(prev => ({ ...prev, [field.fieldKey]: e.target.value }))}
-                                  data-testid={`input-dynamic-${field.fieldKey}`}
-                                />
-                              )}
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
+                            </AccordionTrigger>
+                            <AccordionContent className="pb-4">
+                              <div className="space-y-4">
+                                {groups.map(({ section, fields }) => (
+                                  <div key={section.id} className="space-y-3">
+                                    {groups.length > 1 && (
+                                      <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide border-b border-border pb-1">{section.name}</p>
+                                    )}
+                                    <div className="grid grid-cols-2 gap-3">
+                                      {fields.map((field: ClientTypeField) => (
+                                        <DynamicFieldInput key={field.id} field={field} dynamicValues={dynamicValues} setDynamicValues={setDynamicValues} />
+                                      ))}
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            </AccordionContent>
+                          </AccordionItem>
+                        );
+                      })}
+                    </Accordion>
+                  </div>
+                );
+              })()}
 
               <div className="bg-muted p-3 rounded-md text-xs text-muted-foreground flex items-start gap-2">
                 <AlertTriangle className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" />
@@ -1005,7 +1240,7 @@ function SubjectEditModal({ subject, onClose }: { subject: Subject & { isOwner?:
   return (
     <>
       <Dialog open onOpenChange={onClose}>
-        <DialogContent className="sm:max-w-[700px] max-h-[85vh] overflow-y-auto flex flex-col items-stretch justify-start">
+        <DialogContent className="max-w-5xl w-[85vw] max-h-[85vh] overflow-y-auto flex flex-col items-stretch justify-start">
           <DialogHeader>
             <div className="flex items-center gap-3 flex-wrap">
               <div className="w-10 h-10 rounded-md bg-amber-500/10 flex items-center justify-center flex-shrink-0">
@@ -1159,100 +1394,68 @@ function SubjectEditModal({ subject, onClose }: { subject: Subject & { isOwner?:
               />
             </div>
 
-            {typeFields && typeFields.length > 0 && (
-              <div className="space-y-4 pt-2">
-                <Separator />
-                <h3 className="text-sm font-semibold text-muted-foreground">Doplnkove udaje</h3>
-                {(typeSections || [{ id: 0, name: "Vseobecne", sortOrder: 0 }] as any[]).map((section: any) => {
-                  const sectionFields = typeFields
-                    .filter(f => (f.sectionId || 0) === (section.id || 0))
-                    .filter(f => isFieldVisible(f))
-                    .sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0));
-                  if (sectionFields.length === 0) return null;
-                  return (
-                    <div key={section.id} className="space-y-3">
-                      {(typeSections || []).length > 1 && (
-                        <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">{section.name}</p>
-                      )}
-                      <div className="grid grid-cols-2 gap-3">
-                        {sectionFields.map((field: ClientTypeField) => (
-                          <div key={field.id} className="space-y-1">
-                            <Label className="text-xs">{field.label || field.fieldKey}{field.isRequired ? " *" : ""}</Label>
-                            {field.fieldType === "long_text" ? (
-                              <Textarea
-                                value={dynamicValues[field.fieldKey] || ""}
-                                onChange={e => setDynamicValues(prev => ({ ...prev, [field.fieldKey]: e.target.value }))}
-                                rows={2}
-                                data-testid={`input-edit-dynamic-${field.fieldKey}`}
-                              />
-                            ) : field.fieldType === "combobox" || field.fieldType === "jedna_moznost" ? (
-                              <Select
-                                value={dynamicValues[field.fieldKey] || ""}
-                                onValueChange={val => setDynamicValues(prev => ({ ...prev, [field.fieldKey]: val }))}
-                              >
-                                <SelectTrigger data-testid={`select-edit-dynamic-${field.fieldKey}`}>
-                                  <SelectValue placeholder="Vyberte..." />
-                                </SelectTrigger>
-                                <SelectContent>
-                                  {(field.options || []).map((opt: string) => (
-                                    <SelectItem key={opt} value={opt}>{opt}</SelectItem>
-                                  ))}
-                                </SelectContent>
-                              </Select>
-                            ) : field.fieldType === "viac_moznosti" ? (
-                              <MultiSelectCheckboxes
-                                paramId={field.fieldKey}
-                                options={field.options || []}
-                                value={dynamicValues[field.fieldKey] || ""}
-                                onChange={(val) => setDynamicValues(prev => ({ ...prev, [field.fieldKey]: val }))}
-                              />
-                            ) : field.fieldType === "switch" ? (
-                              <div className="flex items-center gap-2 pt-1">
-                                <Switch
-                                  checked={dynamicValues[field.fieldKey] === "true"}
-                                  onCheckedChange={checked => setDynamicValues(prev => ({ ...prev, [field.fieldKey]: String(checked) }))}
-                                  data-testid={`switch-edit-dynamic-${field.fieldKey}`}
-                                />
-                                <span className="text-xs text-muted-foreground">{dynamicValues[field.fieldKey] === "true" ? "Ano" : "Nie"}</span>
-                              </div>
-                            ) : field.fieldType === "checkbox" ? (
-                              <div className="flex items-center gap-2 pt-1">
-                                <Checkbox
-                                  checked={dynamicValues[field.fieldKey] === "true"}
-                                  onCheckedChange={checked => setDynamicValues(prev => ({ ...prev, [field.fieldKey]: String(!!checked) }))}
-                                  data-testid={`checkbox-edit-dynamic-${field.fieldKey}`}
-                                />
-                                <span className="text-xs text-muted-foreground">{dynamicValues[field.fieldKey] === "true" ? "Ano" : "Nie"}</span>
-                              </div>
-                            ) : field.fieldType === "date" ? (
-                              <Input
-                                type="date"
-                                value={dynamicValues[field.fieldKey] || ""}
-                                onChange={e => setDynamicValues(prev => ({ ...prev, [field.fieldKey]: e.target.value }))}
-                                data-testid={`input-edit-dynamic-${field.fieldKey}`}
-                              />
-                            ) : field.fieldType === "number" ? (
-                              <Input
-                                type="number"
-                                value={dynamicValues[field.fieldKey] || ""}
-                                onChange={e => setDynamicValues(prev => ({ ...prev, [field.fieldKey]: e.target.value }))}
-                                data-testid={`input-edit-dynamic-${field.fieldKey}`}
-                              />
-                            ) : (
-                              <Input
-                                value={dynamicValues[field.fieldKey] || ""}
-                                onChange={e => setDynamicValues(prev => ({ ...prev, [field.fieldKey]: e.target.value }))}
-                                data-testid={`input-edit-dynamic-${field.fieldKey}`}
-                              />
-                            )}
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
+            {typeFields && typeFields.length > 0 && (() => {
+              const editFieldGroups: Record<string, { section: any; fields: ClientTypeField[] }[]> = {
+                povinne: [], doplnkove: [], volitelne: [],
+              };
+              const sectionsSorted = [...(typeSections || [])].sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0));
+              for (const section of sectionsSorted) {
+                const category = (section as any).folderCategory || "volitelne";
+                const sectionFields = typeFields
+                  .filter(f => (f.sectionId || 0) === section.id)
+                  .filter(f => isFieldVisible(f))
+                  .sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0));
+                if (sectionFields.length > 0) {
+                  if (!editFieldGroups[category]) editFieldGroups[category] = [];
+                  editFieldGroups[category].push({ section, fields: sectionFields });
+                }
+              }
+              const unsectioned = typeFields.filter(f => !f.sectionId || f.sectionId === 0).filter(f => isFieldVisible(f));
+              if (unsectioned.length > 0) {
+                editFieldGroups.volitelne.push({ section: { id: 0, name: "Ostatne" }, fields: unsectioned.sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0)) });
+              }
+
+              return (
+                <div className="space-y-2 pt-2">
+                  <Separator />
+                  <Accordion type="multiple" defaultValue={["povinne", "doplnkove"]} className="space-y-2">
+                    {FOLDER_CATEGORY_ORDER.map(category => {
+                      const Icon = FOLDER_CATEGORY_ICONS[category];
+                      const groups = editFieldGroups[category] || [];
+                      const totalFields = groups.reduce((acc, g) => acc + g.fields.length, 0);
+                      if (totalFields === 0) return null;
+                      return (
+                        <AccordionItem key={category} value={category} className="border rounded-md px-3" data-testid={`edit-accordion-${category}`}>
+                          <AccordionTrigger className="py-3 hover:no-underline">
+                            <div className="flex items-center gap-2">
+                              <Icon className={`w-4 h-4 ${category === 'povinne' ? 'text-destructive' : category === 'doplnkove' ? 'text-primary' : 'text-muted-foreground'}`} />
+                              <span className="text-sm font-semibold">{FOLDER_CATEGORY_LABELS[category]}</span>
+                              <Badge variant="secondary" className="text-[10px]">{totalFields}</Badge>
+                            </div>
+                          </AccordionTrigger>
+                          <AccordionContent className="pb-4">
+                            <div className="space-y-4">
+                              {groups.map(({ section, fields }) => (
+                                <div key={section.id} className="space-y-3">
+                                  {groups.length > 1 && (
+                                    <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide border-b border-border pb-1">{section.name}</p>
+                                  )}
+                                  <div className="grid grid-cols-2 gap-3">
+                                    {fields.map((field: ClientTypeField) => (
+                                      <DynamicFieldInput key={field.id} field={field} dynamicValues={dynamicValues} setDynamicValues={setDynamicValues} />
+                                    ))}
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          </AccordionContent>
+                        </AccordionItem>
+                      );
+                    })}
+                  </Accordion>
+                </div>
+              );
+            })()}
 
             <div className="flex justify-end gap-2 pt-3 border-t border-border">
               <Button variant="outline" onClick={onClose} data-testid="button-cancel-edit-subject">
