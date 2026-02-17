@@ -1209,6 +1209,8 @@ export type ContractFieldSetting = typeof contractFieldSettings.$inferSelect;
 export type InsertContractFieldSetting = z.infer<typeof insertContractFieldSettingSchema>;
 
 // === CAREER LEVELS (Financie > Body) ===
+export type CircleConfig = { visible: boolean; filled: boolean };
+
 export const careerLevels = pgTable("career_levels", {
   id: serial("id").primaryKey(),
   positionCode: text("position_code").notNull().unique(),
@@ -1220,6 +1222,15 @@ export const careerLevels = pgTable("career_levels", {
   rewardPercent: text("reward_percent").notNull().default("0,00000000"),
   coefficient: text("coefficient").notNull().default("0,00000000"),
   colorZone: text("color_zone").notNull().default("white"),
+  frameType: text("frame_type").notNull().default("none"),
+  circleConfig: jsonb("circle_config").$type<CircleConfig[]>().notNull().default([
+    { visible: true, filled: false },
+    { visible: true, filled: false },
+    { visible: true, filled: false },
+    { visible: false, filled: false },
+    { visible: false, filled: false },
+    { visible: false, filled: false },
+  ]),
   isActive: boolean("is_active").default(true),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),

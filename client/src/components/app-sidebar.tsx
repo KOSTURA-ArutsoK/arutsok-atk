@@ -3,6 +3,8 @@ import { Link, useLocation } from "wouter";
 import { useAuth } from "@/hooks/use-auth";
 import { useAppUser } from "@/hooks/use-app-user";
 import { useHelp } from "@/contexts/help-context";
+import { RankBadge } from "@/components/rank-badge";
+import type { CircleConfig } from "@shared/schema";
 import {
   LayoutDashboard,
   Building2,
@@ -586,22 +588,15 @@ export function AppSidebar() {
       <SidebarFooter className="p-3 space-y-2">
         <div className="border border-sidebar-border rounded-md p-2" data-testid="rank-display">
           <p className="text-[10px] text-sidebar-foreground/50 uppercase tracking-wider mb-1" data-testid="text-rank-label">Hodnosť</p>
-          <p className="text-xs font-semibold truncate" data-testid="text-rank-name">
+          <p className="text-xs font-semibold truncate mb-1.5" data-testid="text-rank-name">
             {appUser?.careerLevel?.positionName || "Nepriradená"}
           </p>
-          <div className="flex items-center gap-1 mt-1.5" data-testid="rank-circles">
-            {Array.from({ length: 7 }).map((_, i) => {
-              const coefficient = Math.min(Math.max(parseInt(appUser?.careerLevel?.coefficient || "0", 10), 0), 7);
-              const filled = i < coefficient;
-              return (
-                <div
-                  key={i}
-                  className={`w-3 h-3 rounded-full border ${filled ? "bg-primary border-primary" : "bg-transparent border-sidebar-foreground/30"}`}
-                  data-testid={`rank-circle-${i}`}
-                />
-              );
-            })}
-          </div>
+          <RankBadge
+            positionName={appUser?.careerLevel?.positionName || undefined}
+            frameType={appUser?.careerLevel?.frameType || "none"}
+            circleConfig={appUser?.careerLevel?.circleConfig as CircleConfig[] || undefined}
+            compact
+          />
         </div>
         <div className="flex items-center gap-2 px-2 py-1">
           <Avatar className="w-7 h-7">

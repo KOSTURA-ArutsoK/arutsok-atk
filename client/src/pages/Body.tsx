@@ -4,7 +4,7 @@ import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useAppUser } from "@/hooks/use-app-user";
 import { useMyCompanies } from "@/hooks/use-companies";
 import { useToast } from "@/hooks/use-toast";
-import type { CareerLevel, ProductPointRate } from "@shared/schema";
+import type { CareerLevel, ProductPointRate, CircleConfig } from "@shared/schema";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -60,6 +60,14 @@ function CareerLevelEditDialog({
 }) {
   const { toast } = useToast();
   const isNew = !level;
+  const defaultCircles: CircleConfig[] = [
+    { visible: true, filled: false },
+    { visible: true, filled: false },
+    { visible: true, filled: false },
+    { visible: false, filled: false },
+    { visible: false, filled: false },
+    { visible: false, filled: false },
+  ];
   const [form, setForm] = useState({
     positionCode: level?.positionCode || '',
     sortOrder: level?.sortOrder?.toString() || '0',
@@ -70,6 +78,8 @@ function CareerLevelEditDialog({
     rewardPercent: formatDecimal8(level?.rewardPercent),
     coefficient: formatDecimal8(level?.coefficient),
     colorZone: level?.colorZone || 'white',
+    frameType: level?.frameType || 'none',
+    circleConfig: (level?.circleConfig as CircleConfig[] || defaultCircles),
   });
 
   const mutation = useMutation({
@@ -82,6 +92,8 @@ function CareerLevelEditDialog({
         pricePerPoint: formatDecimal8(form.pricePerPoint),
         rewardPercent: formatDecimal8(form.rewardPercent),
         coefficient: formatDecimal8(form.coefficient),
+        frameType: form.frameType,
+        circleConfig: form.circleConfig,
       };
       if (isNew) {
         await apiRequest("POST", "/api/career-levels", payload);
@@ -138,7 +150,7 @@ function CareerLevelEditDialog({
             <Label>Koeficient (modry)</Label>
             <Input value={form.coefficient} onChange={(e) => setForm({...form, coefficient: e.target.value})} data-testid="input-coefficient" />
           </div>
-          <div className="col-span-2">
+          <div>
             <Label>Farebna zona</Label>
             <select
               value={form.colorZone}
@@ -151,6 +163,48 @@ function CareerLevelEditDialog({
               <option value="gray">Seda/Cervena (P13-P26)</option>
               <option value="yellow">Zlta (P27-P39)</option>
             </select>
+          </div>
+          <div>
+            <Label>Ramovanie</Label>
+            <select
+              value={form.frameType}
+              onChange={(e) => setForm({...form, frameType: e.target.value})}
+              className="w-full h-9 rounded-md border border-input bg-background px-3 text-sm"
+              data-testid="select-frame-type"
+            >
+              <option value="none">Ziadne</option>
+              <option value="single">1 obdlznik</option>
+              <option value="double">2 obdlzniky</option>
+            </select>
+          </div>
+          <div className="col-span-2">
+            <Label className="mb-2 block">Konfiguracia kruhov (1-6)</Label>
+            <div className="grid grid-cols-6 gap-2">
+              {form.circleConfig.map((circle, idx) => (
+                <div key={idx} className="flex flex-col items-center gap-1 p-2 rounded-md border border-border">
+                  <span className="text-[10px] text-muted-foreground font-medium">{idx + 1}</span>
+                  <div
+                    className={`w-5 h-5 rounded-full border-2 cursor-pointer transition-colors ${circle.visible ? (circle.filled ? 'bg-primary border-primary' : 'bg-transparent border-primary') : 'bg-muted/20 border-muted-foreground/20'}`}
+                    onClick={() => {
+                      const updated = [...form.circleConfig];
+                      if (!circle.visible) {
+                        updated[idx] = { visible: true, filled: false };
+                      } else if (!circle.filled) {
+                        updated[idx] = { visible: true, filled: true };
+                      } else {
+                        updated[idx] = { visible: false, filled: false };
+                      }
+                      setForm({ ...form, circleConfig: updated });
+                    }}
+                    data-testid={`circle-config-${idx}`}
+                  />
+                  <span className="text-[9px] text-muted-foreground">
+                    {!circle.visible ? 'Skryty' : circle.filled ? 'Plny' : 'Prazdny'}
+                  </span>
+                </div>
+              ))}
+            </div>
+            <p className="text-[10px] text-muted-foreground mt-1">Kliknutim prepinajte: Prazdny → Plny → Skryty</p>
           </div>
         </div>
         <DialogFooter>
