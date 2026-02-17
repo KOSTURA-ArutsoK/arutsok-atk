@@ -395,6 +395,7 @@ function FieldFormDialog({
   clientTypeId,
   panels,
   existingFields,
+  defaultCategory,
 }: {
   open: boolean;
   onOpenChange: (o: boolean) => void;
@@ -402,6 +403,7 @@ function FieldFormDialog({
   clientTypeId: number;
   panels: ClientTypePanel[];
   existingFields: ClientTypeField[];
+  defaultCategory?: string;
 }) {
   const queryClient = useQueryClient();
   const { toast } = useToast();
@@ -415,6 +417,7 @@ function FieldFormDialog({
   const [dependsValue, setDependsValue] = useState("");
   const [unit, setUnit] = useState("");
   const [decimalPlaces, setDecimalPlaces] = useState(2);
+  const [fieldCategory, setFieldCategory] = useState(defaultCategory || "volitelne");
 
   useEffect(() => {
     if (open) {
@@ -430,13 +433,15 @@ function FieldFormDialog({
         setDependsValue(vr?.value || "");
         setUnit((editingField as any).unit || "");
         setDecimalPlaces((editingField as any).decimalPlaces ?? 2);
+        setFieldCategory((editingField as any).fieldCategory || "volitelne");
       } else {
         setFieldKey(""); setLabel(""); setFieldType("short_text"); setPanelId("");
         setIsRequired(false); setOptions(""); setDependsOn(""); setDependsValue("");
         setUnit(""); setDecimalPlaces(2);
+        setFieldCategory(defaultCategory || "volitelne");
       }
     }
-  }, [open, editingField]);
+  }, [open, editingField, defaultCategory]);
 
   function buildPayload() {
     const normalizedDependsOn = dependsOn && dependsOn !== "none" ? dependsOn : "";
@@ -462,6 +467,7 @@ function FieldFormDialog({
         sortOrder: existingFields.length,
         unit: fieldType === "decimal" ? (unit || null) : null,
         decimalPlaces: fieldType === "decimal" ? decimalPlaces : null,
+        fieldCategory,
       });
     },
     onSuccess: () => {
@@ -485,6 +491,7 @@ function FieldFormDialog({
         visibilityRule,
         unit: fieldType === "decimal" ? (unit || null) : null,
         decimalPlaces: fieldType === "decimal" ? decimalPlaces : null,
+        fieldCategory,
       });
     },
     onSuccess: () => {
@@ -515,7 +522,7 @@ function FieldFormDialog({
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-3 gap-4">
             <div>
               <Label className="text-xs">Typ parametra</Label>
               <Select value={fieldType} onValueChange={setFieldType}>
@@ -524,6 +531,17 @@ function FieldFormDialog({
                   {FIELD_TYPES.map(ft => (
                     <SelectItem key={ft.value} value={ft.value}>{ft.label}</SelectItem>
                   ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label className="text-xs">Kategoria</Label>
+              <Select value={fieldCategory} onValueChange={setFieldCategory}>
+                <SelectTrigger data-testid="select-field-category"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="povinne">POVINNE UDAJE</SelectItem>
+                  <SelectItem value="doplnkove">DOPLNKOVE UDAJE</SelectItem>
+                  <SelectItem value="volitelne">VOLITELNE UDAJE</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -1055,11 +1073,107 @@ function PanelsTab({ clientTypeId }: { clientTypeId: number }) {
   );
 }
 
+function ParameterCategoryTable({
+  fields,
+  panels,
+  category,
+  onEdit,
+  onDelete,
+}: {
+  fields: ClientTypeField[];
+  panels: ClientTypePanel[];
+  category: string;
+  onEdit: (field: ClientTypeField) => void;
+  onDelete: (field: ClientTypeField) => void;
+}) {
+  function getPanelName(panelId: number | null): string {
+    if (!panelId) return "Bez panelu";
+    return panels.find(p => p.id === panelId)?.name || `#${panelId}`;
+  }
+
+  const categoryFields = fields.filter(f => ((f as any).fieldCategory || "volitelne") === category);
+
+  return (
+    <Card>
+      <CardContent className="p-0">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Nazov parametra</TableHead>
+              <TableHead>Kluc</TableHead>
+              <TableHead>Typ</TableHead>
+              <TableHead>Panel</TableHead>
+              <TableHead>Povinne</TableHead>
+              <TableHead>Podmienka</TableHead>
+              <TableHead>Akcie</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {categoryFields.length === 0 ? (
+              <TableRow>
+                <TableCell colSpan={7} className="text-center text-muted-foreground py-8" data-testid={`text-no-parameters-${category}`}>
+                  Ziadne parametre v tejto kategorii
+                </TableCell>
+              </TableRow>
+            ) : (
+              categoryFields.map(field => {
+                const ftDef = FIELD_TYPES.find(t => t.value === field.fieldType);
+                const Icon = ftDef?.icon || Type;
+                return (
+                  <TableRow key={field.id} data-testid={`row-parameter-${field.id}`}>
+                    <TableCell className="font-medium">{field.label}</TableCell>
+                    <TableCell className="font-mono text-sm text-muted-foreground">{field.fieldKey}</TableCell>
+                    <TableCell>
+                      <div className="flex items-center gap-1 flex-wrap">
+                        <Icon className="w-3 h-3 text-muted-foreground" />
+                        <span className="text-xs">{ftDef?.label || field.fieldType}</span>
+                        <span style={{ display: field.fieldType === "decimal" && (field as any).unit ? 'inline' : 'none' }} className="text-xs text-muted-foreground">{(field as any).unit}</span>
+                        <span style={{ display: field.fieldType === "decimal" ? 'inline' : 'none' }} className="text-xs text-muted-foreground">({(field as any).decimalPlaces ?? 2} des.)</span>
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant="outline">{getPanelName(field.panelId)}</Badge>
+                    </TableCell>
+                    <TableCell>
+                      {field.isRequired
+                        ? <Badge variant="default" className="bg-emerald-600 text-white">Ano</Badge>
+                        : <Badge variant="outline">Nie</Badge>}
+                    </TableCell>
+                    <TableCell>
+                      {field.visibilityRule ? (
+                        <span className="text-xs text-muted-foreground">
+                          {(field.visibilityRule as any).dependsOn} = {(field.visibilityRule as any).value}
+                        </span>
+                      ) : <span className="text-xs text-muted-foreground">-</span>}
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex items-center gap-1">
+                        <Button size="icon" variant="ghost" onClick={() => onEdit(field)} data-testid={`button-edit-parameter-${field.id}`}>
+                          <Pencil className="w-4 h-4" />
+                        </Button>
+                        <ConditionalDelete
+                          canDelete={true}
+                          onClick={() => onDelete(field)}
+                          testId={`button-delete-parameter-${field.id}`}
+                        />
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                );
+              })
+            )}
+          </TableBody>
+        </Table>
+      </CardContent>
+    </Card>
+  );
+}
+
 function ParametersTab({ clientTypeId }: { clientTypeId: number }) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [search, setSearch] = useState("");
-  const [filterPanelId, setFilterPanelId] = useState("all");
+  const [activeCategory, setActiveCategory] = useState("povinne");
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingField, setEditingField] = useState<ClientTypeField | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<ClientTypeField | null>(null);
@@ -1092,17 +1206,17 @@ function ParametersTab({ clientTypeId }: { clientTypeId: number }) {
     onError: () => toast({ title: "Chyba", description: "Nepodarilo sa vymazat parameter", variant: "destructive" }),
   });
 
-  function getPanelName(panelId: number | null): string {
-    if (!panelId) return "Bez panelu";
-    return panels.find(p => p.id === panelId)?.name || `#${panelId}`;
-  }
-
   const sorted = [...fields].sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0));
   const filtered = sorted.filter(f => {
-    if (filterPanelId !== "all" && f.panelId !== parseInt(filterPanelId)) return false;
     const searchLower = search.toLowerCase();
     return f.label.toLowerCase().includes(searchLower) || f.fieldKey.toLowerCase().includes(searchLower);
   });
+
+  const categoryCounts = {
+    povinne: filtered.filter(f => ((f as any).fieldCategory || "volitelne") === "povinne").length,
+    doplnkove: filtered.filter(f => ((f as any).fieldCategory || "volitelne") === "doplnkove").length,
+    volitelne: filtered.filter(f => ((f as any).fieldCategory || "volitelne") === "volitelne").length,
+  };
 
   return (
     <div className="space-y-4">
@@ -1111,94 +1225,61 @@ function ParametersTab({ clientTypeId }: { clientTypeId: number }) {
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
           <Input value={search} onChange={e => setSearch(e.target.value)} placeholder="Hladat parametre..." className="pl-9" data-testid="input-search-parameters" />
         </div>
-        <Select value={filterPanelId} onValueChange={setFilterPanelId}>
-          <SelectTrigger className="w-[200px]" data-testid="select-filter-panel"><SelectValue placeholder="Vsetky panely" /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">Vsetky panely</SelectItem>
-            {panels.map(p => (
-              <SelectItem key={p.id} value={p.id.toString()}>{p.name}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
         <Button onClick={() => { setEditingField(null); setDialogOpen(true); }} data-testid="button-add-parameter">
           <Plus className="w-4 h-4 mr-2" /> Pridat parameter
         </Button>
       </div>
 
-      {isLoading ? (
-        <div className="flex items-center justify-center py-12"><Loader2 className="w-6 h-6 animate-spin text-muted-foreground" /></div>
-      ) : (
-        <Card>
-          <CardContent className="p-0">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Nazov parametra</TableHead>
-                  <TableHead>Kluc</TableHead>
-                  <TableHead>Typ</TableHead>
-                  <TableHead>Panel</TableHead>
-                  <TableHead>Povinne</TableHead>
-                  <TableHead>Podmienka</TableHead>
-                  <TableHead>Akcie</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filtered.length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={7} className="text-center text-muted-foreground py-8" data-testid="text-no-parameters">Ziadne parametre</TableCell>
-                  </TableRow>
-                ) : (
-                  filtered.map(field => {
-                    const ftDef = FIELD_TYPES.find(t => t.value === field.fieldType);
-                    const Icon = ftDef?.icon || Type;
-                    return (
-                      <TableRow key={field.id} data-testid={`row-parameter-${field.id}`}>
-                        <TableCell className="font-medium">{field.label}</TableCell>
-                        <TableCell className="font-mono text-sm text-muted-foreground">{field.fieldKey}</TableCell>
-                        <TableCell>
-                          <div className="flex items-center gap-1 flex-wrap">
-                            <Icon className="w-3 h-3 text-muted-foreground" />
-                            <span className="text-xs">{ftDef?.label || field.fieldType}</span>
-                            <span style={{ display: field.fieldType === "decimal" && (field as any).unit ? 'inline' : 'none' }} className="text-xs text-muted-foreground">{(field as any).unit}</span>
-                            <span style={{ display: field.fieldType === "decimal" ? 'inline' : 'none' }} className="text-xs text-muted-foreground">({(field as any).decimalPlaces ?? 2} des.)</span>
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          <Badge variant="outline">{getPanelName(field.panelId)}</Badge>
-                        </TableCell>
-                        <TableCell>
-                          {field.isRequired
-                            ? <Badge variant="default" className="bg-emerald-600 text-white">Ano</Badge>
-                            : <Badge variant="outline">Nie</Badge>}
-                        </TableCell>
-                        <TableCell>
-                          {field.visibilityRule ? (
-                            <span className="text-xs text-muted-foreground">
-                              {(field.visibilityRule as any).dependsOn} = {(field.visibilityRule as any).value}
-                            </span>
-                          ) : <span className="text-xs text-muted-foreground">-</span>}
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex items-center gap-1">
-                            <Button size="icon" variant="ghost" onClick={() => { setEditingField(field); setDialogOpen(true); }} data-testid={`button-edit-parameter-${field.id}`}>
-                              <Pencil className="w-4 h-4" />
-                            </Button>
-                            <ConditionalDelete
-                              canDelete={true}
-                              onClick={() => setDeleteTarget(field)}
-                              testId={`button-delete-parameter-${field.id}`}
-                            />
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                    );
-                  })
-                )}
-              </TableBody>
-            </Table>
-          </CardContent>
-        </Card>
-      )}
+      <Tabs value={activeCategory} onValueChange={setActiveCategory}>
+        <TabsList data-testid="tabs-field-categories">
+          <TabsTrigger value="povinne" data-testid="tab-category-povinne">
+            POVINNE UDAJE
+            <Badge variant="secondary" className="ml-2">{categoryCounts.povinne}</Badge>
+          </TabsTrigger>
+          <TabsTrigger value="doplnkove" data-testid="tab-category-doplnkove">
+            DOPLNKOVE UDAJE
+            <Badge variant="secondary" className="ml-2">{categoryCounts.doplnkove}</Badge>
+          </TabsTrigger>
+          <TabsTrigger value="volitelne" data-testid="tab-category-volitelne">
+            VOLITELNE UDAJE
+            <Badge variant="secondary" className="ml-2">{categoryCounts.volitelne}</Badge>
+          </TabsTrigger>
+        </TabsList>
+
+        {isLoading ? (
+          <div className="flex items-center justify-center py-12"><Loader2 className="w-6 h-6 animate-spin text-muted-foreground" /></div>
+        ) : (
+          <>
+            <TabsContent value="povinne">
+              <ParameterCategoryTable
+                fields={filtered}
+                panels={panels}
+                category="povinne"
+                onEdit={(field) => { setEditingField(field); setDialogOpen(true); }}
+                onDelete={(field) => setDeleteTarget(field)}
+              />
+            </TabsContent>
+            <TabsContent value="doplnkove">
+              <ParameterCategoryTable
+                fields={filtered}
+                panels={panels}
+                category="doplnkove"
+                onEdit={(field) => { setEditingField(field); setDialogOpen(true); }}
+                onDelete={(field) => setDeleteTarget(field)}
+              />
+            </TabsContent>
+            <TabsContent value="volitelne">
+              <ParameterCategoryTable
+                fields={filtered}
+                panels={panels}
+                category="volitelne"
+                onEdit={(field) => { setEditingField(field); setDialogOpen(true); }}
+                onDelete={(field) => setDeleteTarget(field)}
+              />
+            </TabsContent>
+          </>
+        )}
+      </Tabs>
 
       <FieldFormDialog
         open={dialogOpen}
@@ -1207,6 +1288,7 @@ function ParametersTab({ clientTypeId }: { clientTypeId: number }) {
         clientTypeId={clientTypeId}
         panels={panels}
         existingFields={fields}
+        defaultCategory={activeCategory}
       />
 
       <DeleteConfirmDialog

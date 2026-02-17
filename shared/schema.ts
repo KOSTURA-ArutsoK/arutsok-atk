@@ -490,6 +490,7 @@ export const clientTypeFields = pgTable("client_type_fields", {
   visibilityRule: jsonb("visibility_rule").$type<{ dependsOn: string; value: string } | null>(),
   unit: text("unit"),
   decimalPlaces: integer("decimal_places").default(2),
+  fieldCategory: text("field_category").default("volitelne"),
   sortOrder: integer("sort_order").default(0),
   createdAt: timestamp("created_at").defaultNow(),
 });
