@@ -1002,6 +1002,10 @@ export default function Contracts() {
   const [inlineClientType, setInlineClientType] = useState<"fo" | "szco" | "po">("fo");
   const [szcoPhase, setSzcoPhase] = useState<1 | 2>(1);
   const [preSelectClientTypeId, setPreSelectClientTypeId] = useState<string>("");
+  const refProductTrigger = useRef<HTMLButtonElement>(null);
+  const refStep1Next = useRef<HTMLButtonElement>(null);
+  const refSearchInput = useRef<HTMLInputElement>(null);
+  const refStep2Confirm = useRef<HTMLButtonElement>(null);
   const [importDialogOpen, setImportDialogOpen] = useState(false);
   const [importFile, setImportFile] = useState<File | null>(null);
   const [importResult, setImportResult] = useState<{ total: number; success: number; errors: number; details: any[] } | null>(null);
@@ -1688,7 +1692,7 @@ export default function Contracts() {
 
             <div className="space-y-1">
               <label className="text-xs font-medium">Partner</label>
-              <Select value={preSelectPartnerId} onValueChange={(v) => { setPreSelectPartnerId(v); setPreSelectProductId(""); }}>
+              <Select value={preSelectPartnerId} onValueChange={(v) => { setPreSelectPartnerId(v); setPreSelectProductId(""); setTimeout(() => refProductTrigger.current?.focus(), 50); }}>
                 <SelectTrigger data-testid="select-preselect-partner">
                   <SelectValue placeholder="Vyberte partnera" />
                 </SelectTrigger>
@@ -1702,8 +1706,8 @@ export default function Contracts() {
 
             <div className="space-y-1">
               <label className="text-xs font-medium">Produkt z katalogu</label>
-              <Select value={preSelectProductId} onValueChange={setPreSelectProductId} disabled={!preSelectPartnerId}>
-                <SelectTrigger data-testid="select-preselect-product">
+              <Select value={preSelectProductId} onValueChange={(v) => { setPreSelectProductId(v); setTimeout(() => refStep1Next.current?.focus(), 50); }} disabled={!preSelectPartnerId}>
+                <SelectTrigger ref={refProductTrigger} data-testid="select-preselect-product">
                   <SelectValue placeholder={preSelectPartnerId ? "Vyberte produkt (volitelne)" : "Najprv vyberte partnera"} />
                 </SelectTrigger>
                 <SelectContent>
@@ -1717,7 +1721,7 @@ export default function Contracts() {
             </div>
 
             <div className="flex justify-end gap-2">
-              <Button onClick={handlePreSelectStep1Next} disabled={!preSelectPartnerId} data-testid="button-preselect-next">
+              <Button ref={refStep1Next} onClick={handlePreSelectStep1Next} disabled={!preSelectPartnerId} data-testid="button-preselect-next">
                 Dalej
               </Button>
             </div>
@@ -1732,7 +1736,7 @@ export default function Contracts() {
 
             <div className="space-y-1">
               <label className="text-xs font-medium">Typ klienta</label>
-              <Select value={preSelectClientTypeId} onValueChange={(v) => { setPreSelectClientTypeId(v); setPreSelectSubjectSearch(""); setPreSelectSubjectId(""); }}>
+              <Select value={preSelectClientTypeId} onValueChange={(v) => { setPreSelectClientTypeId(v); setPreSelectSubjectSearch(""); setPreSelectSubjectId(""); setTimeout(() => refSearchInput.current?.focus(), 50); }}>
                 <SelectTrigger data-testid="select-preselect-client-type">
                   <SelectValue placeholder="Vyberte typ klienta" />
                 </SelectTrigger>
@@ -1753,6 +1757,7 @@ export default function Contracts() {
                   <div className="relative">
                     <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                     <Input
+                      ref={refSearchInput}
                       placeholder="Rodne cislo / ICO / Meno..."
                       value={preSelectSubjectSearch}
                       onChange={(e) => setPreSelectSubjectSearch(e.target.value)}
@@ -1781,7 +1786,7 @@ export default function Contracts() {
                         <div
                           key={s.id}
                           className={`flex items-center gap-3 px-3 py-2 cursor-pointer border-b last:border-b-0 hover-elevate ${isSelected ? "bg-primary/10" : ""}`}
-                          onClick={() => setPreSelectSubjectId(s.id.toString())}
+                          onClick={() => { setPreSelectSubjectId(s.id.toString()); setTimeout(() => refStep2Confirm.current?.focus(), 50); }}
                           data-testid={`row-preselect-subject-${s.id}`}
                         >
                           <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center flex-shrink-0 ${isSelected ? "border-primary" : "border-muted-foreground/40"}`}>
@@ -1833,10 +1838,10 @@ export default function Contracts() {
             </div>
 
             <div className="flex justify-between gap-2">
-              <Button variant="outline" onClick={handlePreSelectStep2Back} data-testid="button-preselect-back">
+              <Button variant="outline" tabIndex={2} onClick={handlePreSelectStep2Back} data-testid="button-preselect-back">
                 Spat
               </Button>
-              <Button onClick={handlePreSelectConfirm} disabled={!preSelectSubjectId} data-testid="button-preselect-confirm">
+              <Button ref={refStep2Confirm} tabIndex={0} onClick={handlePreSelectConfirm} disabled={!preSelectSubjectId} data-testid="button-preselect-confirm">
                 Otvorit zmluvu
               </Button>
             </div>
