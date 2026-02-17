@@ -1674,7 +1674,7 @@ export default function Contracts() {
 
   const preSelectDialog = (
     <Dialog open={preSelectOpen} onOpenChange={(open) => { setPreSelectOpen(open); if (!open) { setPreSelectStep(1); setShowInlineCreate(false); setPreSelectClientTypeId(""); } }}>
-      <DialogContent className="w-[90vw] max-w-[1400px] max-h-[90vh] overflow-y-auto" data-testid="dialog-pre-select-contract">
+      <DialogContent className="w-[90vw] max-w-[1400px] max-h-[90vh] overflow-y-auto" onCloseAutoFocus={(e) => e.preventDefault()} data-testid="dialog-pre-select-contract">
         <DialogHeader>
           <DialogTitle data-testid="text-preselect-title">
             {preSelectStep === 1 ? "Krok 1: Vyber partnera a produktu" : showInlineCreate ? `Krok 2: Novy klient (${inlineClientType === "szco" ? "SZČO" : inlineClientType === "po" ? "PO" : "FO"})` : "Krok 2: Vyber klienta (subjektu)"}
@@ -1771,12 +1771,11 @@ export default function Contracts() {
                 </div>
 
                 <div className="border rounded-md max-h-[300px] overflow-y-auto" data-testid="list-preselect-subjects">
-                  {preSelectFilteredSubjects.length === 0 ? (
-                    <div className="p-4 text-center text-sm text-muted-foreground" data-testid="text-no-subjects">
-                      {preSelectSubjectSearch.trim() ? "Ziadny klient nenajdeny" : "Zadajte hladany vyraz"}
-                    </div>
-                  ) : (
-                    preSelectFilteredSubjects.map(s => {
+                  <div style={{ display: preSelectFilteredSubjects.length === 0 ? 'block' : 'none' }} className="p-4 text-center text-sm text-muted-foreground" data-testid="text-no-subjects">
+                    {preSelectSubjectSearch.trim() ? "Ziadny klient nenajdeny" : "Zadajte hladany vyraz"}
+                  </div>
+                  <div style={{ display: preSelectFilteredSubjects.length > 0 ? 'block' : 'none' }}>
+                    {preSelectFilteredSubjects.map(s => {
                       const displayName = s.type === "company"
                         ? (s.companyName || "Bez nazvu")
                         : s.type === "szco"
@@ -1807,8 +1806,8 @@ export default function Contracts() {
                           </div>
                         </div>
                       );
-                    })
-                  )}
+                    })}
+                  </div>
                 </div>
 
                 <div style={{ display: preSelectSubjectSearch.trim() && preSelectFilteredSubjects.length === 0 ? 'flex' : 'none' }} className="items-center justify-between gap-3 p-3 border rounded-md bg-muted/30">
