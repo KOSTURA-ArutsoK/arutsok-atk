@@ -176,17 +176,43 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     "--sidebar-width-icon": "3rem",
   };
 
-  const handleDismissWarning = useCallback((e: React.MouseEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
+  const dismissBtnRef = useRef<HTMLButtonElement>(null);
+
+  const handleDismissWarning = useCallback(() => {
     dismissWarning();
   }, [dismissWarning]);
 
+  useEffect(() => {
+    if (showWarning) {
+      const handleKeyDown = (e: KeyboardEvent) => {
+        if (e.key === "Escape") {
+          e.preventDefault();
+          e.stopPropagation();
+          handleDismissWarning();
+        }
+      };
+      window.addEventListener("keydown", handleKeyDown, { capture: true });
+      requestAnimationFrame(() => {
+        dismissBtnRef.current?.focus();
+      });
+      return () => window.removeEventListener("keydown", handleKeyDown, { capture: true });
+    }
+  }, [showWarning, handleDismissWarning]);
+
   const warningOverlay = createPortal(
-    showWarning && !contextOverlayOpen ? (
-      <div className="fixed inset-0 z-[9999] flex items-center justify-center" data-testid="idle-warning-overlay">
-        <div className="absolute inset-0 bg-background/80 backdrop-blur-md" />
-        <div className="relative z-10 flex flex-col items-center gap-4 p-8 rounded-md border border-destructive bg-card shadow-lg max-w-md text-center">
+    showWarning ? (
+      <div
+        className="fixed inset-0 z-[99999] flex items-center justify-center"
+        data-testid="idle-warning-overlay"
+        onClick={handleDismissWarning}
+        onMouseDown={(e) => e.stopPropagation()}
+        style={{ pointerEvents: "auto" }}
+      >
+        <div className="absolute inset-0 bg-background/80 backdrop-blur-md" style={{ pointerEvents: "none" }} />
+        <div
+          className="relative z-10 flex flex-col items-center gap-4 p-8 rounded-md border border-destructive bg-card shadow-lg max-w-md text-center"
+          onClick={(e) => e.stopPropagation()}
+        >
           <AlertTriangle className="w-12 h-12 text-destructive" />
           <h2 className="text-lg font-bold text-destructive" data-testid="text-idle-warning-title">Upozornenie na necinnost</h2>
           <div className="text-4xl font-bold font-mono text-destructive" data-testid="text-idle-countdown">
@@ -195,7 +221,13 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           <p className="text-sm text-muted-foreground">
             Budete automaticky odhlaseny z dovodu necinnosti.
           </p>
-          <Button variant="default" onClick={handleDismissWarning} data-testid="button-dismiss-idle-warning">
+          <Button
+            ref={dismissBtnRef}
+            variant="default"
+            onClick={handleDismissWarning}
+            data-testid="button-dismiss-idle-warning"
+            style={{ pointerEvents: "auto", position: "relative", zIndex: 20 }}
+          >
             Zostat prihlaseny
           </Button>
         </div>
