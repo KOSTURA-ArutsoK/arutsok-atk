@@ -4,7 +4,7 @@ import { storage } from "./storage";
 import { api } from "@shared/routes";
 import { setupAuth, registerAuthRoutes, isAuthenticated } from "./replit_integrations/auth";
 import { z } from "zod";
-import { continents, states, myCompanies, appUsers, clientTypes, clientSubGroups, clientGroupMembers, productFolderAssignments, folderPanels, panelParameters, clientTypeSections, clientTypeFields } from "@shared/schema";
+import { continents, states, myCompanies, appUsers, clientTypes, clientSubGroups, clientGroupMembers, productFolderAssignments, folderPanels, panelParameters, clientTypeSections, clientTypeFields, userClientGroupMemberships, clientGroups, permissionGroups } from "@shared/schema";
 import { db } from "./db";
 import { eq } from "drizzle-orm";
 import multer from "multer";
@@ -140,7 +140,31 @@ export async function registerRoutes(
       }
       
       if (!appUser) return res.status(404).json({ message: "App user not found" });
-      res.json(appUser);
+
+      let effectiveTimeout = 180;
+      if (appUser.permissionGroupId) {
+        const [pg] = await db.select().from(permissionGroups).where(eq(permissionGroups.id, appUser.permissionGroupId));
+        if (pg) effectiveTimeout = pg.sessionTimeoutSeconds ?? 1800;
+      } else {
+        const memberships = await db.select({ groupId: userClientGroupMemberships.groupId })
+          .from(userClientGroupMemberships)
+          .where(eq(userClientGroupMemberships.userId, appUser.id));
+        if (memberships.length > 0) {
+          const cgs = await Promise.all(
+            memberships.map(m => db.select({ permissionGroupId: clientGroups.permissionGroupId }).from(clientGroups).where(eq(clientGroups.id, m.groupId)))
+          );
+          const pgIds = cgs.flat().map(c => c.permissionGroupId).filter(Boolean) as number[];
+          if (pgIds.length > 0) {
+            const pgs = await Promise.all(
+              pgIds.map(async pgId => { const [p] = await db.select().from(permissionGroups).where(eq(permissionGroups.id, pgId)); return p; })
+            );
+            const timeouts = pgs.filter(Boolean).map(pg => pg!.sessionTimeoutSeconds ?? 1800);
+            if (timeouts.length > 0) effectiveTimeout = Math.max(...timeouts);
+          }
+        }
+      }
+
+      res.json({ ...appUser, effectiveSessionTimeoutSeconds: effectiveTimeout });
     } catch (err) {
       console.error("Error in /api/app-user/me:", err);
       res.status(500).json({ message: "Internal error" });

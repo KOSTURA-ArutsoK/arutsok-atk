@@ -10,7 +10,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { useTTSContext } from "@/contexts/tts-context";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Moon, Sun, ChevronDown, Globe, Building2, Upload, LogOut, AlertTriangle, Timer, Volume2, VolumeX } from "lucide-react";
-import type { PermissionGroup } from "@shared/schema";
+
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
@@ -97,12 +97,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     setContextOverlayOpen(true);
   }, [appUser?.activeStateId, openStateSelector]);
 
-  const { data: permGroups } = useQuery<PermissionGroup[]>({
-    queryKey: ["/api/permission-groups"],
-  });
-
-  const userGroup = permGroups?.find(g => g.id === appUser?.permissionGroupId);
-  const defaultTimeout = userGroup?.sessionTimeoutSeconds ?? 180;
+  const defaultTimeout = (appUser as any)?.effectiveSessionTimeoutSeconds ?? 180;
 
   const { timeLeft, showWarning, dismissWarning, isRed } = useIdleTimeout(defaultTimeout);
   useGlobalClickLogger();
