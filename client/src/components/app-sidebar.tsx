@@ -583,7 +583,26 @@ export function AppSidebar() {
         </SidebarGroup>
       </SidebarContent>
 
-      <SidebarFooter className="p-3">
+      <SidebarFooter className="p-3 space-y-2">
+        <div className="border border-sidebar-border rounded-md p-2" data-testid="rank-display">
+          <p className="text-[10px] text-sidebar-foreground/50 uppercase tracking-wider mb-1" data-testid="text-rank-label">Hodnosť</p>
+          <p className="text-xs font-semibold truncate" data-testid="text-rank-name">
+            {appUser?.careerLevel?.positionName || "Nepriradená"}
+          </p>
+          <div className="flex items-center gap-1 mt-1.5" data-testid="rank-circles">
+            {Array.from({ length: 7 }).map((_, i) => {
+              const coefficient = Math.min(Math.max(parseInt(appUser?.careerLevel?.coefficient || "0", 10), 0), 7);
+              const filled = i < coefficient;
+              return (
+                <div
+                  key={i}
+                  className={`w-3 h-3 rounded-full border ${filled ? "bg-primary border-primary" : "bg-transparent border-sidebar-foreground/30"}`}
+                  data-testid={`rank-circle-${i}`}
+                />
+              );
+            })}
+          </div>
+        </div>
         <div className="flex items-center gap-2 px-2 py-1">
           <Avatar className="w-7 h-7">
             <AvatarImage src={user?.profileImageUrl || undefined} />

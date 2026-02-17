@@ -4,7 +4,7 @@ import { storage } from "./storage";
 import { api } from "@shared/routes";
 import { setupAuth, registerAuthRoutes, isAuthenticated } from "./replit_integrations/auth";
 import { z } from "zod";
-import { continents, states, myCompanies, appUsers, clientTypes, clientSubGroups, clientGroupMembers, productFolderAssignments, folderPanels, panelParameters, clientTypeSections, clientTypeFields, userClientGroupMemberships, clientGroups, permissionGroups, insertCareerLevelSchema, insertProductPointRateSchema } from "@shared/schema";
+import { continents, states, myCompanies, appUsers, clientTypes, clientSubGroups, clientGroupMembers, productFolderAssignments, folderPanels, panelParameters, clientTypeSections, clientTypeFields, userClientGroupMemberships, clientGroups, permissionGroups, insertCareerLevelSchema, insertProductPointRateSchema, careerLevels } from "@shared/schema";
 import { db } from "./db";
 import { eq } from "drizzle-orm";
 import multer from "multer";
@@ -164,7 +164,13 @@ export async function registerRoutes(
         }
       }
 
-      res.json({ ...appUser, effectiveSessionTimeoutSeconds: effectiveTimeout });
+      let careerLevel = null;
+      if (appUser.careerLevelId) {
+        const [cl] = await db.select().from(careerLevels).where(eq(careerLevels.id, appUser.careerLevelId));
+        if (cl) careerLevel = cl;
+      }
+
+      res.json({ ...appUser, effectiveSessionTimeoutSeconds: effectiveTimeout, careerLevel });
     } catch (err) {
       console.error("Error in /api/app-user/me:", err);
       res.status(500).json({ message: "Internal error" });

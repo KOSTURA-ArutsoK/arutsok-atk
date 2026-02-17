@@ -345,6 +345,7 @@ export const appUsers = pgTable("app_users", {
   activeStateId: integer("active_state_id"),
   commissionLevel: integer("commission_level").default(1),
   managerId: integer("manager_id"),
+  careerLevelId: integer("career_level_id").references(() => careerLevels.id),
   createdAt: timestamp("created_at").defaultNow(),
 });
 
@@ -879,6 +880,7 @@ export type CommissionScheme = typeof commissionSchemes.$inferSelect;
 export type InsertCommissionScheme = z.infer<typeof insertCommissionSchemeSchema>;
 export type Contact = typeof contacts.$inferSelect;
 export type AppUser = typeof appUsers.$inferSelect;
+export type AppUserWithCareerLevel = AppUser & { careerLevel?: CareerLevel | null; effectiveSessionTimeoutSeconds?: number };
 export type InsertAppUser = z.infer<typeof insertAppUserSchema>;
 export type PermissionGroup = typeof permissionGroups.$inferSelect;
 export type InsertPermissionGroup = z.infer<typeof insertPermissionGroupSchema>;

@@ -1,9 +1,9 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
-import type { AppUser } from "@shared/schema";
+import type { AppUserWithCareerLevel } from "@shared/schema";
 
 export function useAppUser() {
-  return useQuery<AppUser | null>({
+  return useQuery<AppUserWithCareerLevel | null>({
     queryKey: ["/api/app-user/me"],
     queryFn: async () => {
       const res = await fetch("/api/app-user/me", { credentials: "include" });
