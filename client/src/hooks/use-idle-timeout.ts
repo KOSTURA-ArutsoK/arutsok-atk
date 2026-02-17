@@ -23,6 +23,20 @@ export function useIdleTimeout(totalTimeoutSec: number = DEFAULT_TIMEOUT_SEC) {
 
   totalRef.current = safeTotalSec;
 
+  const prevTotalRef = useRef(safeTotalSec);
+  useEffect(() => {
+    if (prevTotalRef.current !== safeTotalSec) {
+      prevTotalRef.current = safeTotalSec;
+      lastActivityRef.current = Date.now();
+      beepPlayedRef.current.clear();
+      warningBeepPlayedRef.current = false;
+      showWarningRef.current = false;
+      setShowWarning(false);
+      loggedOutRef.current = false;
+      setTimeLeft(safeTotalSec);
+    }
+  }, [safeTotalSec]);
+
   const playBeep = useCallback((freq = 800, duration = 0.2) => {
     if (!window.ARUTSOK_AUDIO_ENABLED) return;
     try {
