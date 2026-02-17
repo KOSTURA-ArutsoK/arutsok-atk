@@ -12,7 +12,6 @@ import {
   Settings,
   History,
   Briefcase,
-  LogOut,
   Shield,
   Archive,
   HelpCircle,
@@ -209,7 +208,7 @@ function CollapsibleMenu({
 
 export function AppSidebar() {
   const [location] = useLocation();
-  const { user, logout } = useAuth();
+  const { user } = useAuth();
   const { data: appUser } = useAppUser();
   const { helpEnabled, toggleHelp } = useHelp();
 
@@ -595,16 +594,6 @@ export function AppSidebar() {
             <p className="text-[10px] text-sidebar-foreground/50 truncate">{appUser?.role || "pouzivatel"}</p>
           </div>
         </div>
-        <Button
-          variant="ghost"
-          size="sm"
-          className="w-full justify-start text-xs mt-1"
-          onClick={() => logout()}
-          data-testid="button-logout"
-        >
-          <LogOut className="w-3 h-3 mr-2" />
-          Odhlasit sa
-        </Button>
       </SidebarFooter>
     </Sidebar>
   );
