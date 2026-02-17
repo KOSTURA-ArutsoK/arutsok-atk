@@ -78,6 +78,10 @@ import {
   type ProductFolderAssignment,
   contractFieldSettings,
   type ContractFieldSetting,
+  careerLevels,
+  type CareerLevel, type InsertCareerLevel,
+  productPointRates,
+  type ProductPointRate, type InsertProductPointRate,
   contractAcquirers,
   type ContractAcquirer, type InsertContractAcquirer,
   contractRewardDistributions,
@@ -464,6 +468,18 @@ export interface IStorage {
   updateCalendarEvent(id: number, data: Partial<InsertCalendarEvent>): Promise<CalendarEvent>;
   deleteCalendarEvent(id: number): Promise<void>;
   getUpcomingEvents(limit?: number): Promise<CalendarEvent[]>;
+
+  // Career Levels
+  getCareerLevels(): Promise<CareerLevel[]>;
+  createCareerLevel(data: InsertCareerLevel): Promise<CareerLevel>;
+  updateCareerLevel(id: number, data: Partial<InsertCareerLevel>): Promise<CareerLevel>;
+  deleteCareerLevel(id: number): Promise<void>;
+
+  // Product Point Rates
+  getProductPointRates(): Promise<ProductPointRate[]>;
+  createProductPointRate(data: InsertProductPointRate): Promise<ProductPointRate>;
+  updateProductPointRate(id: number, data: Partial<InsertProductPointRate>): Promise<ProductPointRate>;
+  deleteProductPointRate(id: number): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -2779,6 +2795,48 @@ export class DatabaseStorage implements IStorage {
     }
     const [created] = await db.insert(contractFieldSettings).values({ fieldKey, requiredForPfa }).returning();
     return created;
+  }
+
+  async getCareerLevels(): Promise<CareerLevel[]> {
+    return db.select().from(careerLevels).orderBy(asc(careerLevels.sortOrder));
+  }
+
+  async createCareerLevel(data: InsertCareerLevel): Promise<CareerLevel> {
+    const [created] = await db.insert(careerLevels).values(data).returning();
+    return created;
+  }
+
+  async updateCareerLevel(id: number, data: Partial<InsertCareerLevel>): Promise<CareerLevel> {
+    const [updated] = await db.update(careerLevels)
+      .set({ ...data, updatedAt: new Date() })
+      .where(eq(careerLevels.id, id))
+      .returning();
+    return updated;
+  }
+
+  async deleteCareerLevel(id: number): Promise<void> {
+    await db.delete(careerLevels).where(eq(careerLevels.id, id));
+  }
+
+  async getProductPointRates(): Promise<ProductPointRate[]> {
+    return db.select().from(productPointRates).orderBy(asc(productPointRates.id));
+  }
+
+  async createProductPointRate(data: InsertProductPointRate): Promise<ProductPointRate> {
+    const [created] = await db.insert(productPointRates).values(data).returning();
+    return created;
+  }
+
+  async updateProductPointRate(id: number, data: Partial<InsertProductPointRate>): Promise<ProductPointRate> {
+    const [updated] = await db.update(productPointRates)
+      .set({ ...data, updatedAt: new Date() })
+      .where(eq(productPointRates.id, id))
+      .returning();
+    return updated;
+  }
+
+  async deleteProductPointRate(id: number): Promise<void> {
+    await db.delete(productPointRates).where(eq(productPointRates.id, id));
   }
 }
 

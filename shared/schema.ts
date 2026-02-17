@@ -1205,6 +1205,45 @@ export const insertContractFieldSettingSchema = createInsertSchema(contractField
 export type ContractFieldSetting = typeof contractFieldSettings.$inferSelect;
 export type InsertContractFieldSetting = z.infer<typeof insertContractFieldSettingSchema>;
 
+// === CAREER LEVELS (Financie > Body) ===
+export const careerLevels = pgTable("career_levels", {
+  id: serial("id").primaryKey(),
+  positionCode: text("position_code").notNull().unique(),
+  sortOrder: integer("sort_order").notNull().default(0),
+  pointsFrom: integer("points_from").notNull().default(0),
+  pointsTo: integer("points_to").notNull().default(0),
+  pricePerPoint: text("price_per_point").notNull().default("0"),
+  positionName: text("position_name").notNull().default(""),
+  rewardPercent: text("reward_percent").notNull().default("0"),
+  coefficient: text("coefficient").notNull().default("0"),
+  colorZone: text("color_zone").notNull().default("white"),
+  isActive: boolean("is_active").default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertCareerLevelSchema = createInsertSchema(careerLevels).omit({ id: true, createdAt: true, updatedAt: true });
+export type CareerLevel = typeof careerLevels.$inferSelect;
+export type InsertCareerLevel = z.infer<typeof insertCareerLevelSchema>;
+
+// === PRODUCT POINT RATES (Financie > Body - Blue Table) ===
+export const productPointRates = pgTable("product_point_rates", {
+  id: serial("id").primaryKey(),
+  partnerId: integer("partner_id").references(() => partners.id),
+  productId: integer("product_id").references(() => products.id),
+  partnerName: text("partner_name"),
+  productName: text("product_name"),
+  basePoints: text("base_points").notNull().default("0"),
+  commissionCoefficient: text("commission_coefficient").notNull().default("0"),
+  isActive: boolean("is_active").default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertProductPointRateSchema = createInsertSchema(productPointRates).omit({ id: true, createdAt: true, updatedAt: true });
+export type ProductPointRate = typeof productPointRates.$inferSelect;
+export type InsertProductPointRate = z.infer<typeof insertProductPointRateSchema>;
+
 export type CreateSubjectRequest = InsertSubject;
 export type UpdateSubjectRequest = Partial<InsertSubject> & { changeReason?: string };
 export type UpdateMyCompanyRequest = Partial<InsertMyCompany> & { changeReason?: string };

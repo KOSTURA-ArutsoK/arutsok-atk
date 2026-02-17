@@ -4,7 +4,7 @@ import { storage } from "./storage";
 import { api } from "@shared/routes";
 import { setupAuth, registerAuthRoutes, isAuthenticated } from "./replit_integrations/auth";
 import { z } from "zod";
-import { continents, states, myCompanies, appUsers, clientTypes, clientSubGroups, clientGroupMembers, productFolderAssignments, folderPanels, panelParameters, clientTypeSections, clientTypeFields, userClientGroupMemberships, clientGroups, permissionGroups } from "@shared/schema";
+import { continents, states, myCompanies, appUsers, clientTypes, clientSubGroups, clientGroupMembers, productFolderAssignments, folderPanels, panelParameters, clientTypeSections, clientTypeFields, userClientGroupMemberships, clientGroups, permissionGroups, insertCareerLevelSchema, insertProductPointRateSchema } from "@shared/schema";
 import { db } from "./db";
 import { eq } from "drizzle-orm";
 import multer from "multer";
@@ -4658,6 +4658,120 @@ export async function registerRoutes(
     } catch (err) {
       console.error("Delete calendar event error:", err);
       res.status(500).json({ message: "Internal error" });
+    }
+  });
+
+  // === CAREER LEVELS ===
+  app.get("/api/career-levels", isAuthenticated, async (_req, res) => {
+    try {
+      const levels = await storage.getCareerLevels();
+      res.json(levels);
+    } catch (err) {
+      console.error("Get career levels error:", err);
+      res.status(500).json({ message: "Internal error" });
+    }
+  });
+
+  app.post("/api/career-levels", isAuthenticated, async (req: any, res) => {
+    try {
+      if (!["admin", "superadmin", "prezident"].includes(req.appUser?.role)) {
+        return res.status(403).json({ message: "Pristup zamietnuty" });
+      }
+      const parsed = insertCareerLevelSchema.parse(req.body);
+      const level = await storage.createCareerLevel(parsed);
+      await logAudit(req, { action: "Vytvorenie", module: "Karierne urovne", entityId: level.id, entityName: level.positionCode });
+      res.json(level);
+    } catch (err: any) {
+      console.error("Create career level error:", err);
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  app.put("/api/career-levels/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      if (!["admin", "superadmin", "prezident"].includes(req.appUser?.role)) {
+        return res.status(403).json({ message: "Pristup zamietnuty" });
+      }
+      const id = Number(req.params.id);
+      const parsed = insertCareerLevelSchema.partial().parse(req.body);
+      const level = await storage.updateCareerLevel(id, parsed);
+      await logAudit(req, { action: "Uprava", module: "Karierne urovne", entityId: id, entityName: level.positionCode });
+      res.json(level);
+    } catch (err: any) {
+      console.error("Update career level error:", err);
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  app.delete("/api/career-levels/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      if (!["admin", "superadmin", "prezident"].includes(req.appUser?.role)) {
+        return res.status(403).json({ message: "Pristup zamietnuty" });
+      }
+      const id = Number(req.params.id);
+      await storage.deleteCareerLevel(id);
+      await logAudit(req, { action: "Vymazanie", module: "Karierne urovne", entityId: id });
+      res.json({ success: true });
+    } catch (err: any) {
+      console.error("Delete career level error:", err);
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  // === PRODUCT POINT RATES ===
+  app.get("/api/product-point-rates", isAuthenticated, async (_req, res) => {
+    try {
+      const rates = await storage.getProductPointRates();
+      res.json(rates);
+    } catch (err) {
+      console.error("Get product point rates error:", err);
+      res.status(500).json({ message: "Internal error" });
+    }
+  });
+
+  app.post("/api/product-point-rates", isAuthenticated, async (req: any, res) => {
+    try {
+      if (!["admin", "superadmin", "prezident"].includes(req.appUser?.role)) {
+        return res.status(403).json({ message: "Pristup zamietnuty" });
+      }
+      const parsed = insertProductPointRateSchema.parse(req.body);
+      const rate = await storage.createProductPointRate(parsed);
+      await logAudit(req, { action: "Vytvorenie", module: "Bodove sadzby", entityId: rate.id, entityName: rate.partnerName || rate.productName });
+      res.json(rate);
+    } catch (err: any) {
+      console.error("Create product point rate error:", err);
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  app.put("/api/product-point-rates/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      if (!["admin", "superadmin", "prezident"].includes(req.appUser?.role)) {
+        return res.status(403).json({ message: "Pristup zamietnuty" });
+      }
+      const id = Number(req.params.id);
+      const parsed = insertProductPointRateSchema.partial().parse(req.body);
+      const rate = await storage.updateProductPointRate(id, parsed);
+      await logAudit(req, { action: "Uprava", module: "Bodove sadzby", entityId: id, entityName: rate.partnerName || rate.productName });
+      res.json(rate);
+    } catch (err: any) {
+      console.error("Update product point rate error:", err);
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  app.delete("/api/product-point-rates/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      if (!["admin", "superadmin", "prezident"].includes(req.appUser?.role)) {
+        return res.status(403).json({ message: "Pristup zamietnuty" });
+      }
+      const id = Number(req.params.id);
+      await storage.deleteProductPointRate(id);
+      await logAudit(req, { action: "Vymazanie", module: "Bodove sadzby", entityId: id });
+      res.json({ success: true });
+    } catch (err: any) {
+      console.error("Delete product point rate error:", err);
+      res.status(500).json({ message: err.message });
     }
   });
 

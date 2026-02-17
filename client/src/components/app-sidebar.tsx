@@ -34,6 +34,7 @@ import {
   ArrowDownLeft,
   ArrowUpRight,
   Banknote,
+  TrendingUp,
   Layers,
   Info,
   Newspaper,
@@ -73,6 +74,7 @@ const topItems = [
 ];
 
 const financieItems = [
+  { href: "/body", icon: TrendingUp, label: "Body" },
   { href: "/provizie", icon: ArrowDownLeft, label: "Provizie" },
   { href: "/odmeny", icon: ArrowUpRight, label: "Odmeny" },
   { href: "/commissions", icon: Percent, label: "Sadzby" },

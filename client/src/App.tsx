@@ -46,6 +46,7 @@ import NastaveniePrehladov from "@/pages/NastaveniePrehladov";
 import SettingsStates from "@/pages/SettingsStates";
 import ContractForm from "@/pages/ContractForm";
 import ContractFieldSettings from "@/pages/ContractFieldSettings";
+import Body from "@/pages/Body";
 import { AppShell } from "@/components/layout/AppShell";
 
 function PrivateRoute({ component: Component, ...rest }: any) {
@@ -88,6 +89,7 @@ function Router() {
       <Route path="/partners" component={() => <PrivateRoute component={Partners} />} />
       <Route path="/products" component={() => <PrivateRoute component={Products} />} />
       <Route path="/commissions" component={() => <PrivateRoute component={Commissions} />} />
+      <Route path="/body" component={() => <PrivateRoute component={Body} />} />
       <Route path="/provizie" component={() => <PrivateRoute component={Provizie} />} />
       <Route path="/odmeny" component={() => <PrivateRoute component={Odmeny} />} />
       <Route path="/settings" component={() => <PrivateRoute component={Settings} />} />

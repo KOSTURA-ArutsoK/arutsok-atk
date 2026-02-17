@@ -1,0 +1,62 @@
+Cieľ: Implementovať sekciu Financie > Body, prepojiť ju s výpočtom provízií a pridať vizuálny indikátor hodnosti do hlavného menu.
+
+1. Identita používateľa (Sidebar)
+Umiestnenie: V ľavej lište (Sidebar), v spodnej časti nad tlačidlom "Odhlásiť".
+
+Obsah: Zobrazenie aktuálnej Hodnosti prihláseného používateľa (napr. P2 - Zástupca).
+
+Vizuálny prvok: Implementuj logiku pre pozície PZ až P3 – vedľa názvu hodnosti zobraziť 3 prázdne bodky (indikátor postupu podľa predlohy).
+
+2. Navigácia a Štruktúra (Financie > Body)
+Menu: Vytvoriť sub-link Body pod kategóriou Financie.
+
+Horná lišta firiem: Nad tabuľkami umiestniť horizontálnu lištu s logami (KOSTURA, KFA, ZOOM, atď.) s ich farebnými indikátormi.
+
+3. Hlavná tabuľka: Kariérny rebríček (Career_Levels)
+Vytvoriť dynamickú tabuľku s nasledujúcim poradím stĺpcov (zľava doprava):
+
+Pozícia: (PZ, P1, P2 ... P39)
+
+Počet bodov OD: (Spodná hranica)
+
+Počet bodov DO: (Horná hranica)
+
+Cena za bod (€): (Základ pre výpočet výplaty)
+
+Názov pozície: (napr. Tipér, Manažér, atď.)
+
+Odmena (Odmena %): (Percentuálny podiel z balíka)
+
+MODRÝ STĹPEC (Sadzba/Koeficient):
+
+Vizuál: Header aj bunky podfarbené sýtou modrou farbou.
+
+Dôležitosť: Musí byť dominantný, slúži ako kľúčový koeficient výplaty.
+
+Vizuálne a technické požiadavky:
+
+Sticky Header: Hlavička tabuľky musí byť fixná pri vertikálnom scrollovaní.
+
+Farebné zóny:
+
+PZ – P3: Modrasté riadky.
+
+P4 – P12: Biele pozadie.
+
+P13 – P26: Biele/šedé riadky, červený text pri vybraných pozíciách.
+
+P27 – P39: Žlté podfarbenie v stĺpcoch "Body OD/DO".
+
+Logika: Hodnoty "Cena za bod" a "Modrý stĺpec" sú premenné. Každá nová zmluva od momentu zmeny v tabuľke musí používať aktuálne platné hodnoty.
+
+4. Druhá tabuľka: Sadzby produktov (Modrá tabuľka)
+Umiestnená pod hlavnou tabuľkou, ladená do modrých odtieňov.
+
+Stĺpce: Partner/Inštitúcia, Produkt, Základné Body (koeficient prepočtu sumy na body), Provízny koeficient.
+
+Prepojenie: Systém vypočíta body zmluvy podľa tejto tabuľky a následne určí finančnú odmenu podľa "Ceny za bod" z kariérnej tabuľky.
+
+5. Technické ošetrenie
+Plná responzivita (horizontálny scroll na mobiloch).
+
+Možnosť editácie hodnôt v tabuľkách pre rolu Admin
