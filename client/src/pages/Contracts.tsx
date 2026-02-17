@@ -1157,6 +1157,7 @@ export default function Contracts() {
     queryClient.invalidateQueries({ queryKey: ["/api/contracts"] });
     queryClient.invalidateQueries({ queryKey: ["/api/contracts/dispatched"] });
     queryClient.invalidateQueries({ queryKey: ["/api/contracts/accepted"] });
+    queryClient.invalidateQueries({ queryKey: ["/api/contracts/rejected"] });
     queryClient.invalidateQueries({ queryKey: ["/api/contracts/archived"] });
     queryClient.invalidateQueries({ queryKey: ["/api/contract-inventories"] });
   }
