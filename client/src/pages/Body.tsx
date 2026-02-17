@@ -392,7 +392,7 @@ export default function Body() {
                   >
                     Hodnosť
                   </TableHead>
-                  <TableHead className="w-[80px]" resizable={false} style={{ visibility: isAdmin ? 'visible' : 'hidden' }}>Akcie</TableHead>
+                  <TableHead className="w-[80px]" resizable={false}>Akcie</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -440,14 +440,16 @@ export default function Body() {
                           />
                         </div>
                       </TableCell>
-                      <TableCell style={{ visibility: isAdmin ? 'visible' : 'hidden' }}>
+                      <TableCell>
                         <div className="flex items-center gap-1">
                           <Button size="icon" variant="ghost" onClick={() => setEditLevel(level)} data-testid={`button-edit-level-${level.id}`}>
                             <Pencil className="w-3.5 h-3.5" />
                           </Button>
-                          <Button size="icon" variant="ghost" onClick={() => deleteLevelMutation.mutate(level.id)} data-testid={`button-delete-level-${level.id}`}>
-                            <Trash2 className="w-3.5 h-3.5 text-destructive" />
-                          </Button>
+                          <div style={{ visibility: isAdmin ? 'visible' : 'hidden' }}>
+                            <Button size="icon" variant="ghost" onClick={() => deleteLevelMutation.mutate(level.id)} data-testid={`button-delete-level-${level.id}`}>
+                              <Trash2 className="w-3.5 h-3.5 text-destructive" />
+                            </Button>
+                          </div>
                         </div>
                       </TableCell>
                     </TableRow>
