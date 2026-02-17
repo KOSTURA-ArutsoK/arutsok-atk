@@ -2083,6 +2083,8 @@ export default function Contracts() {
                       const isFoOsobne = panel.name === "Osobné údaje" && inlineClientType === "fo";
                       const FO_OSOBNE_ROW_KEYS = ["titul_pred", "meno", "druhe_meno", "priezvisko", "titul_za"];
                       const FO_ROW2_KEYS = ["pohlavie", "datum_narodenia", "rodne_priezvisko"];
+                      const FO_ROW3_KEYS = ["miesto_narodenia", "vek"];
+                      const FO_ROW4_KEYS = ["statna_prislusnost"];
 
                       const renderField = (field: any) => {
                         const rule = field.visibilityRule as { dependsOn: string; value: string } | null;
@@ -2106,12 +2108,20 @@ export default function Contracts() {
                       if (isFoOsobne) {
                         const row1Fields = FO_OSOBNE_ROW_KEYS.map(k => nonAddrFields.find(f => f.fieldKey === k)).filter(Boolean);
                         const row2Fields = FO_ROW2_KEYS.map(k => nonAddrFields.find(f => f.fieldKey === k)).filter(Boolean);
-                        const usedKeys = new Set([...FO_OSOBNE_ROW_KEYS, ...FO_ROW2_KEYS]);
+                        const row3Fields = FO_ROW3_KEYS.map(k => nonAddrFields.find(f => f.fieldKey === k)).filter(Boolean);
+                        const row4Fields = FO_ROW4_KEYS.map(k => nonAddrFields.find(f => f.fieldKey === k)).filter(Boolean);
+                        const usedKeys = new Set([...FO_OSOBNE_ROW_KEYS, ...FO_ROW2_KEYS, ...FO_ROW3_KEYS, ...FO_ROW4_KEYS]);
                         const restFields = nonAddrFields.filter(f => !usedKeys.has(f.fieldKey));
                         return (
                           <>
                             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-[1fr_2fr_2fr_2fr_1fr] gap-3">{row1Fields.map(renderField)}</div>
                             <div className="grid grid-cols-1 sm:grid-cols-3 md:grid-cols-[1fr_2fr_2fr] gap-3 mt-3">{row2Fields.map(renderField)}</div>
+                            {row3Fields.length > 0 && (
+                              <div className="grid grid-cols-1 sm:grid-cols-[2fr_1fr] gap-3 mt-3">{row3Fields.map(renderField)}</div>
+                            )}
+                            {row4Fields.length > 0 && (
+                              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-3">{row4Fields.map(renderField)}</div>
+                            )}
                             {restFields.length > 0 && (
                               <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 mt-3">{restFields.map(renderField)}</div>
                             )}
@@ -2187,16 +2197,16 @@ export default function Contracts() {
                     {inlineClientType === "fo" && (
                       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-2" data-testid="inline-row-0-uid-rc">
                         <div className="space-y-1">
+                          <label className="text-xs font-medium text-muted-foreground">Identifikátor (Rodné číslo)</label>
+                          <Input value={inlineFormValues["rodne_cislo"] || ""} disabled className="font-mono" data-testid="input-inline-rodne-cislo-row0" />
+                        </div>
+                        <div className="space-y-1">
                           <label className="text-xs font-medium text-muted-foreground">Kód klienta</label>
                           <Input value="Automaticky generovaný" disabled className="text-xs" data-testid="input-inline-uid" />
                         </div>
                         <div className="space-y-1">
                           <label className="text-xs font-medium text-muted-foreground">Typ klienta</label>
                           <Input value="Fyzická osoba" disabled data-testid="input-inline-typ-klienta" />
-                        </div>
-                        <div className="space-y-1">
-                          <label className="text-xs font-medium text-muted-foreground">Identifikátor (Rodné číslo)</label>
-                          <Input value={inlineFormValues["rodne_cislo"] || ""} disabled className="font-mono" data-testid="input-inline-rodne-cislo-row0" />
                         </div>
                       </div>
                     )}

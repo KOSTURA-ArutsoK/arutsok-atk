@@ -937,7 +937,8 @@ function FullPageEditor({
                 const FO_POVINNE_ROWS: { keys: string[]; cols: string; customCols?: string }[] = [
                   { keys: ["titul_pred", "meno", "druhe_meno", "priezvisko", "titul_za"], cols: "grid-cols-2 sm:grid-cols-3 md:grid-cols-[1fr_2fr_2fr_2fr_1fr]" },
                   { keys: ["pohlavie", "datum_narodenia", "rodne_priezvisko"], cols: "grid-cols-1 sm:grid-cols-3 md:grid-cols-[1fr_2fr_2fr]" },
-                  { keys: ["miesto_narodenia", "vek"], cols: "grid-cols-1 sm:grid-cols-2" },
+                  { keys: ["miesto_narodenia", "vek"], cols: "grid-cols-1 sm:grid-cols-[2fr_1fr]" },
+                  { keys: ["statna_prislusnost"], cols: "grid-cols-1 sm:grid-cols-2" },
                   { keys: ["typ_dokladu", "cislo_dokladu", "platnost_dokladu"], cols: "grid-cols-1 sm:grid-cols-3" },
                 ];
 
@@ -988,16 +989,16 @@ function FullPageEditor({
                         <AccordionContent className="pb-4 space-y-4">
                           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3" data-testid="row-system-fields">
                             <div className="space-y-1">
+                              <Label className="text-xs">Identifikátor (Rodné číslo)</Label>
+                              <Input value={initialData.baseValue} disabled className="font-mono" data-testid="input-identifikator" />
+                            </div>
+                            <div className="space-y-1">
                               <Label className="text-xs">Kód klienta</Label>
                               <Input value="Automaticky generovaný" disabled className="font-mono text-xs" data-testid="input-kod-klienta" />
                             </div>
                             <div className="space-y-1">
                               <Label className="text-xs">Typ klienta</Label>
                               <Input value={clientType?.name || "Fyzická osoba"} disabled data-testid="input-typ-klienta" />
-                            </div>
-                            <div className="space-y-1">
-                              <Label className="text-xs">Identifikátor (Rodné číslo)</Label>
-                              <Input value={initialData.baseValue} disabled className="font-mono" data-testid="input-identifikator" />
                             </div>
                           </div>
 
