@@ -807,7 +807,7 @@ export async function registerRoutes(
     const forContract = req.query.forContract === 'true';
     const isPrivileged = appUser?.role === 'superadmin' || appUser?.role === 'prezident';
 
-    if (forContract && !isPrivileged && appUser?.id) {
+    if (appUser?.id) {
       const acquirerSubjectIds = await storage.getSubjectIdsWhereUserIsAcquirer(appUser.id);
       const acquirerSubjectIdSet = new Set(acquirerSubjectIds);
 
@@ -816,11 +816,10 @@ export async function registerRoutes(
         const isAcquirerOnContract = acquirerSubjectIdSet.has(s.id);
         const isOwner = isRegistrator || isAcquirerOnContract;
 
-        if (isOwner) {
-          return { ...maskSubjectBirthNumber(s, appUser), isOwner: true, isAnonymized: false };
-        } else {
-          return { ...anonymizeSubject(s), isOwner: false };
+        if (forContract && !isPrivileged && !isOwner) {
+          return { ...anonymizeSubject(s), isOwner: false, isAnonymized: true };
         }
+        return { ...maskSubjectBirthNumber(s, appUser), isOwner: isOwner || isPrivileged, isAnonymized: false };
       });
       res.json(allSubjects);
     } else {
@@ -887,13 +886,65 @@ export async function registerRoutes(
 
   app.put(api.subjects.update.path, async (req: any, res) => {
     try {
+      const appUser = req.appUser;
+      if (!appUser) return res.status(401).json({ message: "Unauthorized" });
+
+      const subjectId = Number(req.params.id);
+      const original = await storage.getSubject(subjectId);
+      if (!original) return res.status(404).json({ message: "Subject not found" });
+
+      const isAdmin = appUser.role === 'admin' || appUser.role === 'superadmin' || appUser.role === 'prezident';
+      const isRegistrator = original.registeredByUserId === appUser.id;
+      const acquirerSubjectIds = await storage.getSubjectIdsWhereUserIsAcquirer(appUser.id);
+      const isAcquirer = acquirerSubjectIds.includes(subjectId);
+      const isOwner = isRegistrator || isAcquirer;
+
+      if (!isOwner && !isAdmin) {
+        return res.status(403).json({ message: "Nemate opravnenie editovat tento subjekt. Iba vlastnik (Ziskatel) alebo Admin moze menit udaje." });
+      }
+
       const input = api.subjects.update.input.parse(req.body);
+
+      if (!isAdmin) {
+        delete input.birthNumber;
+        if (input.details && typeof input.details === 'object') {
+          const existingDetails = (original.details as any) || {};
+          if (existingDetails.ico) {
+            (input.details as any).ico = existingDetails.ico;
+          }
+        }
+      }
+
       if (input.birthNumber) {
         input.birthNumber = encryptField(input.birthNumber);
       }
-      const updated = await storage.updateSubject(Number(req.params.id), input);
-      await logAudit(req, { action: "UPDATE", module: "subjekty", entityId: Number(req.params.id), newData: { ...input, birthNumber: input.birthNumber ? '***' : undefined } });
-      res.json(maskSubjectBirthNumber(updated, req.appUser));
+
+      const changedFields: Record<string, { old: any; new: any }> = {};
+      const fieldsToTrack = ['firstName', 'lastName', 'companyName', 'email', 'phone', 'idCardNumber', 'continentId', 'stateId', 'details'] as const;
+      for (const field of fieldsToTrack) {
+        const oldVal = (original as any)[field];
+        const newVal = (input as any)[field];
+        if (newVal !== undefined && JSON.stringify(oldVal) !== JSON.stringify(newVal)) {
+          changedFields[field] = { old: oldVal, new: newVal };
+        }
+      }
+
+      input.changeReason = input.changeReason || "Manualna editacia cez Register subjektov";
+
+      const updated = await storage.updateSubject(subjectId, input);
+      await logAudit(req, {
+        action: "UPDATE",
+        module: "subjekty",
+        entityId: subjectId,
+        entityName: (updated.firstName ? updated.firstName + ' ' + updated.lastName : updated.companyName) || undefined,
+        newData: {
+          ...input,
+          birthNumber: input.birthNumber ? '***' : undefined,
+          _changedFields: changedFields,
+          _editSource: "register_subjektov",
+        },
+      });
+      res.json(maskSubjectBirthNumber(updated, appUser));
     } catch (err) {
       if (err instanceof z.ZodError) return res.status(400).json({ message: err.errors[0].message });
       if (err instanceof Error && err.message === "Subject not found") return res.status(404).json({ message: err.message });

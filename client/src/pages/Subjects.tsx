@@ -6,7 +6,7 @@ import { useAppUser } from "@/hooks/use-app-user";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, Search, User, Building2, AlertTriangle, Eye, Calendar, Briefcase, ArrowRight, ArrowLeft, ExternalLink, History, Clock, Wallet, Loader2, CheckCircle2 } from "lucide-react";
+import { Plus, Search, User, Building2, AlertTriangle, Eye, Calendar, Briefcase, ArrowRight, ArrowLeft, ExternalLink, History, Clock, Wallet, Loader2, CheckCircle2, Pencil, Lock } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -16,8 +16,12 @@ import { Label } from "@/components/ui/label";
 import { MultiSelectCheckboxes } from "@/components/multi-select-checkboxes";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
-  Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription,
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter,
 } from "@/components/ui/dialog";
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
@@ -880,6 +884,417 @@ function getSubjectStatus(subject: any, activeCompanyId?: number): { color: stri
   return { color: config.color, label: config.label, category };
 }
 
+function SubjectEditModal({ subject, onClose }: { subject: Subject & { isOwner?: boolean }; onClose: () => void }) {
+  const { toast } = useToast();
+  const { data: appUser } = useAppUser();
+  const { data: allContinents } = useContinents();
+  const { data: allStates } = useStates();
+  const { data: companies } = useMyCompanies();
+  const { data: clientTypes } = useQuery<ClientType[]>({ queryKey: ["/api/client-types"] });
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const timerRef = useRef<number>(performance.now());
+
+  const isPerson = subject.type === 'person';
+  const isAdmin = appUser?.role === 'admin' || appUser?.role === 'superadmin' || appUser?.role === 'prezident';
+
+  const details = (subject.details || {}) as Record<string, any>;
+  const dynamicFields = details.dynamicFields || {};
+
+  const clientType = clientTypes?.find(ct => {
+    if (isPerson && ct.baseParameter === 'rc') return true;
+    if (!isPerson && ct.baseParameter === 'ico') return true;
+    return false;
+  });
+
+  const { data: typeFields } = useQuery<ClientTypeField[]>({
+    queryKey: ["/api/client-types", clientType?.id, "fields"],
+    queryFn: async () => {
+      const res = await fetch(`/api/client-types/${clientType!.id}/fields`, { credentials: "include" });
+      if (!res.ok) throw new Error("Failed");
+      return res.json();
+    },
+    enabled: !!clientType?.id,
+  });
+
+  const { data: typeSections } = useQuery<ClientTypeSection[]>({
+    queryKey: ["/api/client-types", clientType?.id, "sections"],
+    queryFn: async () => {
+      const res = await fetch(`/api/client-types/${clientType!.id}/sections`, { credentials: "include" });
+      if (!res.ok) throw new Error("Failed");
+      return res.json();
+    },
+    enabled: !!clientType?.id,
+  });
+
+  const [dynamicValues, setDynamicValues] = useState<Record<string, string>>(() => {
+    const initial: Record<string, string> = {};
+    if (dynamicFields && typeof dynamicFields === 'object') {
+      Object.entries(dynamicFields).forEach(([key, val]) => {
+        initial[key] = String(val || "");
+      });
+    }
+    return initial;
+  });
+
+  function isFieldVisible(field: ClientTypeField): boolean {
+    if (!field.visibilityRule) return true;
+    const rule = field.visibilityRule as { dependsOn: string; value: string };
+    if (!rule.dependsOn || !rule.value) return true;
+    const depField = typeFields?.find(f => f.fieldKey === rule.dependsOn);
+    if (!depField) return true;
+    const depValue = dynamicValues[depField.fieldKey] || "";
+    return depValue === rule.value;
+  }
+
+  const watchContinent = useState(subject.continentId || 0);
+  const [selectedContinent, setSelectedContinent] = watchContinent;
+  const { data: filteredStates } = useStates(selectedContinent || undefined);
+
+  const [formData, setFormData] = useState({
+    firstName: subject.firstName || "",
+    lastName: subject.lastName || "",
+    companyName: subject.companyName || "",
+    email: subject.email || "",
+    phone: subject.phone || "",
+    idCardNumber: subject.idCardNumber || "",
+    continentId: subject.continentId || 0,
+    stateId: subject.stateId || 0,
+  });
+
+  const updateMutation = useMutation({
+    mutationFn: async () => {
+      const processingTimeSec = Math.round((performance.now() - timerRef.current) / 1000);
+      const existingDetails = { ...(subject.details as any || {}) };
+      if (Object.keys(dynamicValues).length > 0) {
+        existingDetails.dynamicFields = dynamicValues;
+      }
+      const payload: any = {
+        firstName: formData.firstName || null,
+        lastName: formData.lastName || null,
+        companyName: formData.companyName || null,
+        email: formData.email || null,
+        phone: formData.phone || null,
+        idCardNumber: formData.idCardNumber || null,
+        continentId: Number(formData.continentId),
+        stateId: Number(formData.stateId),
+        details: existingDetails,
+        processingTimeSec,
+        changeReason: "Manualna editacia cez Register subjektov",
+      };
+      await apiRequest("PUT", `/api/subjects/${subject.id}`, payload);
+    },
+    onSuccess: () => {
+      toast({ title: "Udaje subjektu aktualizovane" });
+      queryClient.invalidateQueries({ queryKey: ["/api/subjects"] });
+      onClose();
+    },
+    onError: (error: Error) => {
+      toast({ title: "Chyba pri ukladani", description: error.message, variant: "destructive" });
+    },
+  });
+
+  function handleSaveClick() {
+    setConfirmOpen(true);
+  }
+
+  function handleConfirmSave() {
+    setConfirmOpen(false);
+    updateMutation.mutate();
+  }
+
+  return (
+    <>
+      <Dialog open onOpenChange={onClose}>
+        <DialogContent className="sm:max-w-[700px] max-h-[85vh] overflow-y-auto flex flex-col items-stretch justify-start">
+          <DialogHeader>
+            <div className="flex items-center gap-3 flex-wrap">
+              <div className="w-10 h-10 rounded-md bg-amber-500/10 flex items-center justify-center flex-shrink-0">
+                <Pencil className="w-5 h-5 text-amber-500" />
+              </div>
+              <div className="min-w-0">
+                <DialogTitle data-testid="text-edit-subject-title">
+                  Editacia subjektu
+                </DialogTitle>
+                <DialogDescription>
+                  <span className="font-mono text-xs">{subject.uid}</span>
+                  <span className="mx-2">|</span>
+                  {isPerson ? `${subject.lastName}, ${subject.firstName}` : subject.companyName}
+                </DialogDescription>
+              </div>
+            </div>
+          </DialogHeader>
+
+          <div className="space-y-4 mt-2">
+            <div className="bg-muted/50 p-3 rounded-md">
+              <div className="flex items-center gap-2 mb-2 flex-wrap">
+                <Lock className="w-3.5 h-3.5 text-muted-foreground" />
+                <span className="text-xs font-medium text-muted-foreground">NEEDITOVATELNE POLIA</span>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <Label className="text-xs text-muted-foreground">UID</Label>
+                  <Input value={subject.uid} disabled className="mt-1 font-mono text-xs" data-testid="input-edit-uid-locked" />
+                </div>
+                {isPerson ? (
+                  <div>
+                    <Label className="text-xs text-muted-foreground">Rodne cislo (RC)</Label>
+                    <Input value={subject.birthNumber || "***"} disabled className="mt-1" data-testid="input-edit-rc-locked" />
+                  </div>
+                ) : (
+                  <div>
+                    <Label className="text-xs text-muted-foreground">ICO</Label>
+                    <Input value={details.ico || ""} disabled className="mt-1" data-testid="input-edit-ico-locked" />
+                  </div>
+                )}
+              </div>
+              <p className="text-[10px] text-muted-foreground mt-2">
+                {isAdmin ? "Identifikatory moze zmenit iba admin cez specialny postup." : "Identifikatory (RC/ICO) a UID su uzamknute. Kontaktujte admina pre zmenu."}
+              </p>
+            </div>
+
+            <Separator />
+
+            {isPerson ? (
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label className="text-xs">Meno</Label>
+                  <Input
+                    value={formData.firstName}
+                    onChange={(e) => setFormData(prev => ({ ...prev, firstName: e.target.value }))}
+                    className="mt-1"
+                    data-testid="input-edit-firstname"
+                  />
+                </div>
+                <div>
+                  <Label className="text-xs">Priezvisko</Label>
+                  <Input
+                    value={formData.lastName}
+                    onChange={(e) => setFormData(prev => ({ ...prev, lastName: e.target.value }))}
+                    className="mt-1"
+                    data-testid="input-edit-lastname"
+                  />
+                </div>
+              </div>
+            ) : (
+              <div>
+                <Label className="text-xs">Nazov spolocnosti</Label>
+                <Input
+                  value={formData.companyName}
+                  onChange={(e) => setFormData(prev => ({ ...prev, companyName: e.target.value }))}
+                  className="mt-1"
+                  data-testid="input-edit-companyname"
+                />
+              </div>
+            )}
+
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label className="text-xs">Email</Label>
+                <Input
+                  type="email"
+                  value={formData.email}
+                  onChange={(e) => setFormData(prev => ({ ...prev, email: e.target.value }))}
+                  className="mt-1"
+                  data-testid="input-edit-email"
+                />
+              </div>
+              <div>
+                <Label className="text-xs">Telefon</Label>
+                <Input
+                  type="tel"
+                  value={formData.phone}
+                  onChange={(e) => setFormData(prev => ({ ...prev, phone: e.target.value }))}
+                  className="mt-1"
+                  data-testid="input-edit-phone"
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label className="text-xs">Kontinent</Label>
+                <Select
+                  value={formData.continentId?.toString()}
+                  onValueChange={(val) => {
+                    setFormData(prev => ({ ...prev, continentId: Number(val), stateId: 0 }));
+                    setSelectedContinent(Number(val));
+                  }}
+                >
+                  <SelectTrigger className="mt-1" data-testid="select-edit-continent">
+                    <SelectValue placeholder="Vyberte kontinent" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {allContinents?.map(c => (
+                      <SelectItem key={c.id} value={c.id.toString()}>{c.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label className="text-xs">Stat</Label>
+                <Select
+                  value={formData.stateId?.toString()}
+                  onValueChange={(val) => setFormData(prev => ({ ...prev, stateId: Number(val) }))}
+                  disabled={!formData.continentId}
+                >
+                  <SelectTrigger className="mt-1" data-testid="select-edit-state">
+                    <SelectValue placeholder="Vyberte stat" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {filteredStates?.map(s => (
+                      <SelectItem key={s.id} value={s.id.toString()}>{s.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <div style={{ display: isPerson ? 'block' : 'none' }}>
+              <Label className="text-xs">Cislo OP</Label>
+              <Input
+                value={formData.idCardNumber}
+                onChange={(e) => setFormData(prev => ({ ...prev, idCardNumber: e.target.value }))}
+                className="mt-1"
+                data-testid="input-edit-idcard"
+              />
+            </div>
+
+            {typeFields && typeFields.length > 0 && (
+              <div className="space-y-4 pt-2">
+                <Separator />
+                <h3 className="text-sm font-semibold text-muted-foreground">Doplnkove udaje</h3>
+                {(typeSections || [{ id: 0, name: "Vseobecne", sortOrder: 0 }] as any[]).map((section: any) => {
+                  const sectionFields = typeFields
+                    .filter(f => (f.sectionId || 0) === (section.id || 0))
+                    .filter(f => isFieldVisible(f))
+                    .sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0));
+                  if (sectionFields.length === 0) return null;
+                  return (
+                    <div key={section.id} className="space-y-3">
+                      {(typeSections || []).length > 1 && (
+                        <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">{section.name}</p>
+                      )}
+                      <div className="grid grid-cols-2 gap-3">
+                        {sectionFields.map((field: ClientTypeField) => (
+                          <div key={field.id} className="space-y-1">
+                            <Label className="text-xs">{field.label || field.fieldKey}{field.isRequired ? " *" : ""}</Label>
+                            {field.fieldType === "long_text" ? (
+                              <Textarea
+                                value={dynamicValues[field.fieldKey] || ""}
+                                onChange={e => setDynamicValues(prev => ({ ...prev, [field.fieldKey]: e.target.value }))}
+                                rows={2}
+                                data-testid={`input-edit-dynamic-${field.fieldKey}`}
+                              />
+                            ) : field.fieldType === "combobox" || field.fieldType === "jedna_moznost" ? (
+                              <Select
+                                value={dynamicValues[field.fieldKey] || ""}
+                                onValueChange={val => setDynamicValues(prev => ({ ...prev, [field.fieldKey]: val }))}
+                              >
+                                <SelectTrigger data-testid={`select-edit-dynamic-${field.fieldKey}`}>
+                                  <SelectValue placeholder="Vyberte..." />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {(field.options || []).map((opt: string) => (
+                                    <SelectItem key={opt} value={opt}>{opt}</SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                            ) : field.fieldType === "viac_moznosti" ? (
+                              <MultiSelectCheckboxes
+                                paramId={field.fieldKey}
+                                options={field.options || []}
+                                value={dynamicValues[field.fieldKey] || ""}
+                                onChange={(val) => setDynamicValues(prev => ({ ...prev, [field.fieldKey]: val }))}
+                              />
+                            ) : field.fieldType === "switch" ? (
+                              <div className="flex items-center gap-2 pt-1">
+                                <Switch
+                                  checked={dynamicValues[field.fieldKey] === "true"}
+                                  onCheckedChange={checked => setDynamicValues(prev => ({ ...prev, [field.fieldKey]: String(checked) }))}
+                                  data-testid={`switch-edit-dynamic-${field.fieldKey}`}
+                                />
+                                <span className="text-xs text-muted-foreground">{dynamicValues[field.fieldKey] === "true" ? "Ano" : "Nie"}</span>
+                              </div>
+                            ) : field.fieldType === "checkbox" ? (
+                              <div className="flex items-center gap-2 pt-1">
+                                <Checkbox
+                                  checked={dynamicValues[field.fieldKey] === "true"}
+                                  onCheckedChange={checked => setDynamicValues(prev => ({ ...prev, [field.fieldKey]: String(!!checked) }))}
+                                  data-testid={`checkbox-edit-dynamic-${field.fieldKey}`}
+                                />
+                                <span className="text-xs text-muted-foreground">{dynamicValues[field.fieldKey] === "true" ? "Ano" : "Nie"}</span>
+                              </div>
+                            ) : field.fieldType === "date" ? (
+                              <Input
+                                type="date"
+                                value={dynamicValues[field.fieldKey] || ""}
+                                onChange={e => setDynamicValues(prev => ({ ...prev, [field.fieldKey]: e.target.value }))}
+                                data-testid={`input-edit-dynamic-${field.fieldKey}`}
+                              />
+                            ) : field.fieldType === "number" ? (
+                              <Input
+                                type="number"
+                                value={dynamicValues[field.fieldKey] || ""}
+                                onChange={e => setDynamicValues(prev => ({ ...prev, [field.fieldKey]: e.target.value }))}
+                                data-testid={`input-edit-dynamic-${field.fieldKey}`}
+                              />
+                            ) : (
+                              <Input
+                                value={dynamicValues[field.fieldKey] || ""}
+                                onChange={e => setDynamicValues(prev => ({ ...prev, [field.fieldKey]: e.target.value }))}
+                                data-testid={`input-edit-dynamic-${field.fieldKey}`}
+                              />
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+
+            <div className="flex justify-end gap-2 pt-3 border-t border-border">
+              <Button variant="outline" onClick={onClose} data-testid="button-cancel-edit-subject">
+                Zrusit
+              </Button>
+              <Button
+                onClick={handleSaveClick}
+                disabled={updateMutation.isPending}
+                className="bg-amber-600 text-white border-amber-700"
+                data-testid="button-save-edit-subject"
+              >
+                {updateMutation.isPending ? "Ukladam..." : "Ulozit zmeny"}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <AlertDialog open={confirmOpen} onOpenChange={setConfirmOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Naozaj chcete prepisat udaje tohto subjektu?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Zmeny budu zaznamenane v historii subjektu. Povodne udaje budu archivovane pre spatne dohladanie.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel data-testid="button-cancel-confirm-edit">Nie</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleConfirmSave}
+              className="bg-amber-600 text-white border-amber-700"
+              data-testid="button-confirm-edit"
+            >
+              Ano, prepisat
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </>
+  );
+}
+
 function BulkAssignDialog({ selectedIds, onClose, groups }: { selectedIds: Set<number>; onClose: () => void; groups: any[] }) {
   const [selectedGroup, setSelectedGroup] = useState("");
   const { toast } = useToast();
@@ -943,6 +1358,7 @@ export default function Subjects() {
   const [isInitModalOpen, setIsInitModalOpen] = useState(false);
   const [editData, setEditData] = useState<{ clientTypeCode: string; stateId: number; baseValue: string } | null>(null);
   const [viewTarget, setViewTarget] = useState<Subject | null>(null);
+  const [editTarget, setEditTarget] = useState<(Subject & { isOwner?: boolean }) | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
   const [bulkAssignOpen, setBulkAssignOpen] = useState(false);
   const [activeFilters, setActiveFilters] = useState<Set<SubjectStatusCategory>>(new Set());
@@ -1069,7 +1485,7 @@ export default function Subjects() {
                 <TableHead>Typ</TableHead>
                 <TableHead>Spravujuca firma</TableHead>
                 <TableHead>Status</TableHead>
-                <TableHead className="w-[60px]">Akcie</TableHead>
+                <TableHead className="w-[100px]">Akcie</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -1120,9 +1536,21 @@ export default function Subjects() {
                     })()}
                   </TableCell>
                   <TableCell>
-                    <Button size="icon" variant="ghost" onClick={() => setViewTarget(subject)} data-testid={`button-view-subject-${subject.id}`}>
-                      <Eye className="w-4 h-4" />
-                    </Button>
+                    <div className="flex items-center gap-1">
+                      <Button size="icon" variant="ghost" onClick={() => setViewTarget(subject)} data-testid={`button-view-subject-${subject.id}`}>
+                        <Eye className="w-4 h-4" />
+                      </Button>
+                      <div style={{ visibility: ((subject as any).isOwner || appUser?.role === 'admin' || appUser?.role === 'superadmin' || appUser?.role === 'prezident') ? 'visible' : 'hidden' }}>
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          onClick={() => setEditTarget(subject as any)}
+                          data-testid={`button-edit-subject-${subject.id}`}
+                        >
+                          <Pencil className="w-4 h-4" />
+                        </Button>
+                      </div>
+                    </div>
                   </TableCell>
                 </TableRow>
               ))}
@@ -1151,6 +1579,7 @@ export default function Subjects() {
         />
       )}
       {viewTarget && <SubjectDetailDialog subject={viewTarget} onClose={() => setViewTarget(null)} />}
+      {editTarget && <SubjectEditModal subject={editTarget} onClose={() => setEditTarget(null)} />}
     </div>
   );
 }
