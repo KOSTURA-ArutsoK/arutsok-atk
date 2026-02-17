@@ -80,6 +80,8 @@ import {
   type ContractFieldSetting,
   contractAcquirers,
   type ContractAcquirer, type InsertContractAcquirer,
+  contractRewardDistributions,
+  type ContractRewardDistribution, type InsertContractRewardDistribution,
   contractStatusCompanies, contractStatusVisibility, contractStatusParameters, contractStatusChangeLogs,
   type ContractStatusCompany, type InsertContractStatusCompany,
   type ContractStatusVisibility, type InsertContractStatusVisibility,
@@ -314,6 +316,9 @@ export interface IStorage {
 
   getContractParameterValues(contractId: number): Promise<ContractParameterValue[]>;
   saveContractParameterValues(contractId: number, values: { parameterId: number; value: string; snapshotLabel?: string; snapshotType?: string; snapshotOptions?: string[]; snapshotHelpText?: string }[]): Promise<void>;
+
+  getContractRewardDistributions(contractId: number): Promise<ContractRewardDistribution[]>;
+  saveContractRewardDistributions(contractId: number, distributions: InsertContractRewardDistribution[]): Promise<ContractRewardDistribution[]>;
 
   // Client Groups
   getClientGroups(stateId?: number): Promise<ClientGroup[]>;
@@ -1914,6 +1919,27 @@ export class DatabaseStorage implements IStorage {
         }))
       );
     }
+  }
+
+  async getContractRewardDistributions(contractId: number): Promise<ContractRewardDistribution[]> {
+    return await db.select().from(contractRewardDistributions)
+      .where(eq(contractRewardDistributions.contractId, contractId))
+      .orderBy(asc(contractRewardDistributions.sortOrder));
+  }
+
+  async saveContractRewardDistributions(contractId: number, distributions: InsertContractRewardDistribution[]): Promise<ContractRewardDistribution[]> {
+    await db.delete(contractRewardDistributions).where(eq(contractRewardDistributions.contractId, contractId));
+    if (distributions.length === 0) return [];
+    const inserted = await db.insert(contractRewardDistributions).values(
+      distributions.map((d, i) => ({
+        contractId,
+        type: d.type,
+        uid: d.uid,
+        percentage: d.percentage,
+        sortOrder: i,
+      }))
+    ).returning();
+    return inserted;
   }
 
   // === CLIENT GROUPS ===
