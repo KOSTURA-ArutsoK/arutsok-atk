@@ -1563,6 +1563,23 @@ export default function Contracts() {
     setPreSelectOpen(true);
   };
 
+  const handleShowInlineCreate = () => {
+    const selectedCt = activeClientTypes.find(ct => ct.id.toString() === preSelectClientTypeId);
+    const ctCode = selectedCt ? selectedCt.code.toLowerCase() : "fo";
+    const type: "fo" | "szco" | "po" = ctCode === "szco" ? "szco" : ctCode === "po" ? "po" : "fo";
+    setInlineClientType(type);
+    setSzcoPhase(1);
+    setShowInlineCreate(true);
+    setPreSelectSubjectId("");
+    const defaults: Record<string, string> = {};
+    const targetFields = type === "szco" ? szcoAllFields : type === "po" ? poAllFields : foAllFields;
+    const fields = targetFields || [];
+    fields.forEach(f => {
+      if (f.defaultValue) defaults[f.fieldKey] = f.defaultValue;
+    });
+    setInlineFormValues(defaults);
+  };
+
   const handleInlineCreateSubject = async () => {
     const fieldsToValidate = inlineFields || [];
     const missingRequired = fieldsToValidate.filter(f => {
@@ -1794,6 +1811,16 @@ export default function Contracts() {
                   )}
                 </div>
 
+                <div style={{ display: preSelectSubjectSearch.trim() && preSelectFilteredSubjects.length === 0 ? 'flex' : 'none' }} className="items-center justify-between gap-3 p-3 border rounded-md bg-muted/30">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <Search className="w-4 h-4 text-muted-foreground flex-shrink-0" />
+                    <span className="text-sm text-muted-foreground">Klient nenajdeny. Chcete ho zaregistrovat?</span>
+                  </div>
+                  <Button size="sm" onClick={handleShowInlineCreate} data-testid="button-inline-create-from-search">
+                    <Plus className="w-4 h-4 mr-1" />
+                    Registrovat {activeClientTypes.find(ct => ct.id.toString() === preSelectClientTypeId)?.code || "klienta"}
+                  </Button>
+                </div>
               </div>
             </div>
 
