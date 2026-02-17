@@ -5,7 +5,7 @@ import { useAppUser } from "@/hooks/use-app-user";
 import { useStates } from "@/hooks/use-hierarchy";
 import { useToast } from "@/hooks/use-toast";
 import { useLocation, useParams } from "wouter";
-import type { Contract, ContractStatus, ContractStatusChangeLog, ContractTemplate, ContractInventory, Subject, Partner, Product, MyCompany, Sector, Section, SectorProduct, ContractPassword, ContractParameterValue, ContractFieldSetting, ClientType, ClientTypeField, ContractAcquirer, AppUser } from "@shared/schema";
+import type { Contract, ContractStatus, ContractStatusChangeLog, ContractTemplate, ContractInventory, Subject, Partner, Product, MyCompany, Sector, Section, SectorProduct, ContractPassword, ContractParameterValue, ContractFieldSetting, ClientType, ClientTypeField, ContractAcquirer, AppUser, ContractRewardDistribution } from "@shared/schema";
 import { ArrowLeft, Save, Loader2, LayoutGrid, KeyRound, Plus, Trash2, FileText, Users, ClipboardList, FolderOpen, FolderClosed, DollarSign, BarChart3, ListChecks, PieChart, ChevronLeft, ChevronRight, MessageSquare, Paperclip, Upload, X, Eye, Settings2, Calendar, UserCheck, Lock } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -737,6 +737,10 @@ export default function ContractForm() {
   const [notes, setNotes] = useState("");
   const [contractPassword, setContractPassword] = useState("");
 
+  const [rewardRecommenders, setRewardRecommenders] = useState<Array<{ uid: string; percentage: string }>>([]);
+  const [rewardSpecialistUid, setRewardSpecialistUid] = useState("");
+  const [rewardSpecialistPercentage, setRewardSpecialistPercentage] = useState("");
+
   const [contractSectorId, setContractSectorId] = useState<string>("");
   const [contractSectionId, setContractSectionId] = useState<string>("");
   const [sectorProductId, setSectorProductIdRaw] = useState<string>("");
@@ -793,6 +797,16 @@ export default function ContractForm() {
     queryKey: ["/api/contracts", contractId, "acquirers"],
     queryFn: async () => {
       const res = await fetch(`/api/contracts/${contractId}/acquirers`, { credentials: "include" });
+      if (!res.ok) throw new Error("Failed");
+      return res.json();
+    },
+    enabled: isEditing,
+  });
+
+  const { data: savedRewardDistributions } = useQuery<ContractRewardDistribution[]>({
+    queryKey: ["/api/contracts", contractId, "reward-distributions"],
+    queryFn: async () => {
+      const res = await fetch(`/api/contracts/${contractId}/reward-distributions`, { credentials: "include" });
       if (!res.ok) throw new Error("Failed");
       return res.json();
     },
@@ -1114,10 +1128,62 @@ export default function ContractForm() {
     }
   }, [existingPasswords]);
 
+  useEffect(() => {
+    if (savedRewardDistributions) {
+      if (savedRewardDistributions.length > 0) {
+        const recommenders = savedRewardDistributions
+          .filter(d => d.type === "recommender")
+          .map(d => ({ uid: d.uid, percentage: d.percentage }));
+        const specialist = savedRewardDistributions.find(d => d.type === "specialist");
+        setRewardRecommenders(recommenders);
+        setRewardSpecialistUid(specialist?.uid || "");
+        setRewardSpecialistPercentage(specialist?.percentage || "");
+      } else {
+        setRewardRecommenders([]);
+        setRewardSpecialistUid("");
+        setRewardSpecialistPercentage("");
+      }
+    }
+  }, [savedRewardDistributions]);
+
   const saveParamValuesMutation = useMutation({
     mutationFn: (data: { contractId: number; values: { parameterId: number; value: string; snapshotLabel?: string; snapshotType?: string; snapshotOptions?: string[]; snapshotHelpText?: string }[] }) =>
       apiRequest("POST", `/api/contracts/${data.contractId}/parameter-values`, { values: data.values }),
   });
+
+  const saveRewardDistributionsMutation = useMutation({
+    mutationFn: (data: { contractId: number; distributions: Array<{ contractId: number; type: string; uid: string; percentage: string }> }) =>
+      apiRequest("POST", `/api/contracts/${data.contractId}/reward-distributions`, { distributions: data.distributions }),
+  });
+
+  function buildRewardDistributions(cId: number): Array<{ contractId: number; type: string; uid: string; percentage: string }> {
+    const distributions: Array<{ contractId: number; type: string; uid: string; percentage: string }> = [];
+    const hasSpecialist = rewardSpecialistUid.trim() !== "";
+    const hasRecommenders = rewardRecommenders.some(r => r.uid.trim() !== "");
+    if (hasSpecialist) {
+      distributions.push({ contractId: cId, type: "specialist", uid: rewardSpecialistUid.trim(), percentage: rewardSpecialistPercentage || "0" });
+    }
+    if (hasRecommenders) {
+      for (const r of rewardRecommenders) {
+        if (r.uid.trim()) {
+          distributions.push({ contractId: cId, type: "recommender", uid: r.uid.trim(), percentage: r.percentage || "0" });
+        }
+      }
+    } else if (hasSpecialist) {
+      distributions.push({ contractId: cId, type: "recommender", uid: rewardSpecialistUid.trim(), percentage: "0" });
+    }
+    return distributions;
+  }
+
+  function getRewardTotalPercentage(): number {
+    let total = rewardSpecialistUid.trim() ? (parseFloat(rewardSpecialistPercentage) || 0) : 0;
+    for (const r of rewardRecommenders) {
+      if (r.uid.trim()) {
+        total += parseFloat(r.percentage) || 0;
+      }
+    }
+    return total;
+  }
 
   function invalidateAllContractQueries() {
     queryClient.invalidateQueries({ queryKey: ["/api/contracts"] });
@@ -1137,6 +1203,10 @@ export default function ContractForm() {
         if (contractPassword.trim()) {
           await apiRequest("POST", `/api/contracts/${created.id}/passwords`, { password: contractPassword.trim(), note: "" });
         }
+        const rewardDists = buildRewardDistributions(created.id);
+        if (rewardDists.length > 0) {
+          await saveRewardDistributionsMutation.mutateAsync({ contractId: created.id, distributions: rewardDists });
+        }
       }
       invalidateAllContractQueries();
       toast({ title: "Uspech", description: "Zmluva uspesne zaevidovana" });
@@ -1151,9 +1221,12 @@ export default function ContractForm() {
       if (contractId) {
         const paramEntries = buildParamEntries();
         await saveParamValuesMutation.mutateAsync({ contractId, values: paramEntries });
+        const rewardDists = buildRewardDistributions(contractId);
+        await saveRewardDistributionsMutation.mutateAsync({ contractId, distributions: rewardDists });
       }
       invalidateAllContractQueries();
       queryClient.invalidateQueries({ queryKey: ["/api/contracts", contractId, "parameter-values"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/contracts", contractId, "reward-distributions"] });
       toast({ title: "Uspech", description: "Zmluva uspesne aktualizovana" });
       navigate("/evidencia-zmluv");
     },
@@ -1190,6 +1263,11 @@ export default function ContractForm() {
   }
 
   function handleSubmit() {
+    const rewardTotal = getRewardTotalPercentage();
+    if (rewardTotal > 100) {
+      toast({ title: "Chyba", description: `Celkovy sucet odmien je ${rewardTotal}%, nesmie presiahnuť 100 %`, variant: "destructive" });
+      return;
+    }
     const processingTimeSec = Math.round((performance.now() - timerRef.current) / 1000);
     const payload = {
       contractNumber: contractNumber || null,
@@ -1989,7 +2067,7 @@ export default function ContractForm() {
           </div>
 
           <div style={{ display: activeTab === "odmeny" && (existingContract as any)?.accessRole !== 'klient' ? 'block' : 'none' }}>
-            <div className="space-y-3" data-testid="section-odmeny">
+            <div className="space-y-4" data-testid="section-odmeny">
               <h2 className="text-base font-semibold">Odmeny</h2>
               <div className="grid grid-cols-3 gap-3">
                 <CompactField label="Suma provizie">
@@ -2002,6 +2080,125 @@ export default function ContractForm() {
               <CompactField label="Poznamky">
                 <Textarea value={notes} onChange={e => setNotes(e.target.value)} rows={3} data-testid="input-notes" />
               </CompactField>
+
+              <div className="border-t border-border pt-4 mt-4">
+                <h3 className="text-sm font-semibold mb-3">Rozdelenie odmien</h3>
+                <div style={{ display: getRewardTotalPercentage() > 100 ? 'block' : 'none' }}>
+                  <div className="bg-destructive/10 border border-destructive/30 rounded-md p-2 mb-3">
+                    <p className="text-sm text-destructive font-medium" data-testid="text-reward-over-100">
+                      Celkovy sucet odmien je {getRewardTotalPercentage().toFixed(2)}% - nesmie presiahnuť 100 %. Uloženie je zablokovane.
+                    </p>
+                  </div>
+                </div>
+                <div className="mb-2">
+                  <Badge variant="outline" data-testid="badge-reward-total">
+                    Celkom: {getRewardTotalPercentage().toFixed(2)} / 100 %
+                  </Badge>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <Card>
+                    <CardContent className="p-4 space-y-3">
+                      <h4 className="text-sm font-semibold" data-testid="text-recommenders-title">Odmeny pre odporucitelov</h4>
+                      <div className="space-y-2">
+                        {rewardRecommenders.map((rec, idx) => (
+                          <div key={idx} className="flex items-center gap-2" data-testid={`row-recommender-${idx}`}>
+                            <div className="flex-1">
+                              <Input
+                                placeholder="UID kod"
+                                value={rec.uid}
+                                onChange={e => {
+                                  const next = [...rewardRecommenders];
+                                  next[idx] = { ...next[idx], uid: e.target.value };
+                                  setRewardRecommenders(next);
+                                }}
+                                className="font-mono text-sm"
+                                data-testid={`input-recommender-uid-${idx}`}
+                              />
+                            </div>
+                            <div className="w-28">
+                              <div className="flex items-center gap-1">
+                                <Input
+                                  placeholder="0"
+                                  value={rec.percentage}
+                                  onChange={e => {
+                                    const val = e.target.value.replace(/,/g, ".");
+                                    if (val === "" || /^-?\d*\.?\d{0,2}$/.test(val)) {
+                                      const next = [...rewardRecommenders];
+                                      next[idx] = { ...next[idx], percentage: val };
+                                      setRewardRecommenders(next);
+                                    }
+                                  }}
+                                  className="font-mono text-sm"
+                                  data-testid={`input-recommender-pct-${idx}`}
+                                />
+                                <span className="text-sm text-muted-foreground">%</span>
+                              </div>
+                            </div>
+                            <Button
+                              size="icon"
+                              variant="ghost"
+                              onClick={() => {
+                                const next = rewardRecommenders.filter((_, i) => i !== idx);
+                                setRewardRecommenders(next);
+                              }}
+                              data-testid={`button-remove-recommender-${idx}`}
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </Button>
+                          </div>
+                        ))}
+                      </div>
+                      <div style={{ display: rewardRecommenders.length === 0 ? 'block' : 'none' }}>
+                        <p className="text-xs text-muted-foreground" data-testid="text-no-recommenders">Ziadni odporucitelia</p>
+                      </div>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setRewardRecommenders([...rewardRecommenders, { uid: "", percentage: "" }])}
+                        data-testid="button-add-recommender"
+                      >
+                        <Plus className="w-4 h-4 mr-1" />
+                        Pridat odporucitela
+                      </Button>
+                    </CardContent>
+                  </Card>
+
+                  <Card>
+                    <CardContent className="p-4 space-y-3">
+                      <h4 className="text-sm font-semibold" data-testid="text-specialist-title">Odmena pre specialistu</h4>
+                      <p className="text-xs text-muted-foreground">Osoba zodpovedna za spravnost zmluvy</p>
+                      <div className="flex items-center gap-2">
+                        <div className="flex-1">
+                          <Input
+                            placeholder="UID kod"
+                            value={rewardSpecialistUid}
+                            onChange={e => setRewardSpecialistUid(e.target.value)}
+                            className="font-mono text-sm"
+                            data-testid="input-specialist-uid"
+                          />
+                        </div>
+                        <div className="w-28">
+                          <div className="flex items-center gap-1">
+                            <Input
+                              placeholder="0"
+                              value={rewardSpecialistPercentage}
+                              onChange={e => {
+                                const val = e.target.value.replace(/,/g, ".");
+                                if (val === "" || /^-?\d*\.?\d{0,2}$/.test(val)) {
+                                  setRewardSpecialistPercentage(val);
+                                }
+                              }}
+                              className="font-mono text-sm"
+                              data-testid="input-specialist-pct"
+                            />
+                            <span className="text-sm text-muted-foreground">%</span>
+                          </div>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </div>
+              </div>
             </div>
           </div>
 
