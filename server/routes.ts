@@ -3176,6 +3176,56 @@ export async function registerRoutes(
     }
   });
 
+  // === DASHBOARD CONTRACT STATS ===
+  app.get("/api/dashboard-contract-stats", isAuthenticated, async (req: any, res) => {
+    try {
+      const appUser = req.appUser;
+      if (!appUser) return res.status(401).json({ message: "Unauthorized" });
+
+      const filters: any = {
+        stateId: appUser.activeStateId || undefined,
+        companyId: appUser.activeCompanyId || undefined,
+      };
+      const allContracts = await storage.getContracts(filters);
+
+      const statuses = await storage.getContractStatuses();
+      const activeStatusNames = ["Vybavená", "Prijata centrom - OK"];
+      const activeStatusIds = new Set(
+        statuses.filter(s => activeStatusNames.includes(s.name)).map(s => s.id)
+      );
+
+      const interventionStatusNames = ["Nedodana / Chybna", "Neprijata - vyhrady", "Treba doplnit tlacivo pre banku", "Čaká na schválenie"];
+      const interventionStatusIds = new Set(
+        statuses.filter(s => interventionStatusNames.includes(s.name)).map(s => s.id)
+      );
+
+      const totalContracts = allContracts.length;
+      const activeContracts = allContracts.filter(c => c.statusId && activeStatusIds.has(c.statusId));
+      const interventionContracts = allContracts.filter(c =>
+        (c.statusId && interventionStatusIds.has(c.statusId)) ||
+        c.needsManualVerification === true
+      );
+
+      const totalAnnualPremium = activeContracts.reduce((sum, c) => {
+        return sum + (c.annualPremium || 0);
+      }, 0);
+
+      const activeStatusIdList = Array.from(activeStatusIds);
+      const interventionStatusIdList = Array.from(interventionStatusIds);
+
+      res.json({
+        totalContracts,
+        activeContractsCount: activeContracts.length,
+        interventionCount: interventionContracts.length,
+        totalAnnualPremium,
+        activeStatusIds: activeStatusIdList,
+        interventionStatusIds: interventionStatusIdList,
+      });
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
   // === DASHBOARD PREFERENCES ===
   app.get("/api/dashboard-preferences", isAuthenticated, async (req: any, res) => {
     try {

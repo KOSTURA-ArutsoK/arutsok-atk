@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback, useEffect } from "react";
+import { useState, useRef, useCallback, useEffect, useMemo } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useAppUser } from "@/hooks/use-app-user";
@@ -971,7 +971,29 @@ export default function Contracts() {
   const [viewingContract, setViewingContract] = useState<Contract | null>(null);
 
   const [filterStatusId, setFilterStatusId] = useState<string>("all");
+  const [filterStatusIds, setFilterStatusIds] = useState<number[]>([]);
   const [filterInventoryId, setFilterInventoryId] = useState<string>("all");
+
+  useEffect(() => {
+    const search = window.location.search;
+    if (!search) {
+      setFilterStatusIds([]);
+      return;
+    }
+    const params = new URLSearchParams(search);
+    const singleId = params.get("statusId");
+    const multiIds = params.get("statusIds");
+    if (multiIds) {
+      const ids = multiIds.split(",").map(Number).filter(n => !isNaN(n));
+      setFilterStatusIds(ids);
+      setFilterStatusId("all");
+    } else if (singleId) {
+      setFilterStatusId(singleId);
+      setFilterStatusIds([]);
+    } else {
+      setFilterStatusIds([]);
+    }
+  }, [location]);
 
   const [selectedIds, setSelectedIds] = useState<number[]>([]);
   const [sprievodkaDialogOpen, setSprievodkaDialogOpen] = useState(false);
@@ -1107,6 +1129,7 @@ export default function Contracts() {
   const activeContracts = contracts?.filter(c => {
     if (c.isDeleted) return false;
     if (!isEvidencia && nahratadoSystemuStatusId && c.statusId === nahratadoSystemuStatusId) return false;
+    if (filterStatusIds.length > 0 && c.statusId && !filterStatusIds.includes(c.statusId)) return false;
     return true;
   }) || [];
   const activeDispatched = dispatchedContracts?.filter(c => !c.isDeleted) || [];

@@ -1,13 +1,14 @@
 import { useState, useCallback, useMemo } from "react";
 import { useMyCompanies } from "@/hooks/use-companies";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { Users, Building2, ShieldAlert, TrendingUp, Briefcase, Package, History, Calendar, Clock, GripVertical, Pencil, Save, X } from "lucide-react";
+import { Users, Building2, ShieldAlert, TrendingUp, Briefcase, Package, History, Calendar, Clock, GripVertical, Pencil, Save, X, FileText, FileCheck, AlertCircle, Banknote } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useAppUser } from "@/hooks/use-app-user";
 import type { Subject, Partner, Product, AuditLog, DashboardPreference, CalendarEvent, UserDashboardLayout } from "@shared/schema";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
+import { useLocation } from "wouter";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import {
   DndContext,
@@ -73,8 +74,18 @@ function SortableWidget({ id, isEditing, children }: { id: string; isEditing: bo
   );
 }
 
+interface ContractStats {
+  totalContracts: number;
+  activeContractsCount: number;
+  interventionCount: number;
+  totalAnnualPremium: number;
+  activeStatusIds: number[];
+  interventionStatusIds: number[];
+}
+
 export default function Dashboard() {
   const { data: appUser } = useAppUser();
+  const [, navigate] = useLocation();
   const { data: companies } = useMyCompanies();
   const { data: subjects } = useQuery<Subject[]>({ queryKey: ["/api/subjects"] });
   const { data: partners } = useQuery<Partner[]>({ queryKey: ["/api/partners"] });
@@ -84,6 +95,7 @@ export default function Dashboard() {
   const { data: upcomingEvents } = useQuery<CalendarEvent[]>({ queryKey: ["/api/calendar-events/upcoming"] });
   const { data: dashboardPrefs } = useQuery<DashboardPreference[]>({ queryKey: ["/api/dashboard-preferences"] });
   const { data: savedLayout } = useQuery<UserDashboardLayout | null>({ queryKey: ["/api/dashboard-layout"] });
+  const { data: contractStats } = useQuery<ContractStats>({ queryKey: ["/api/dashboard-contract-stats"] });
 
   const { toast } = useToast();
   const [isEditing, setIsEditing] = useState(false);
@@ -153,11 +165,60 @@ export default function Dashboard() {
     });
   }, []);
 
-  const stats = [
-    { title: "Subjekty", value: subjects?.length || 0, icon: Users, color: "text-blue-500", bg: "bg-blue-500/10" },
-    { title: "Spolocnosti", value: companies?.length || 0, icon: Building2, color: "text-emerald-500", bg: "bg-emerald-500/10" },
-    { title: "Bezpecnostne upozornenia", value: 0, icon: ShieldAlert, color: "text-amber-500", bg: "bg-amber-500/10" },
-    { title: "Provizie", value: "0 EUR", icon: TrendingUp, color: "text-purple-500", bg: "bg-purple-500/10" },
+  const formatEur = (amount: number) => {
+    const val = amount.toLocaleString("sk-SK", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    return `${val} EUR`;
+  };
+
+  const contractStatsTiles = [
+    {
+      title: "Celkovy pocet zmluv",
+      value: contractStats?.totalContracts ?? 0,
+      icon: FileText,
+      color: "text-blue-500",
+      bg: "bg-blue-500/10",
+      clickable: false,
+    },
+    {
+      title: "Aktivne zmluvy",
+      value: contractStats?.activeContractsCount ?? 0,
+      icon: FileCheck,
+      color: "text-emerald-500",
+      bg: "bg-emerald-500/10",
+      clickable: true,
+      onClick: () => {
+        const ids = contractStats?.activeStatusIds;
+        if (ids && ids.length > 0) {
+          navigate(`/zmluvy?statusIds=${ids.join(",")}`);
+        } else {
+          navigate("/zmluvy");
+        }
+      },
+    },
+    {
+      title: "Intervencie",
+      value: contractStats?.interventionCount ?? 0,
+      icon: AlertCircle,
+      color: "text-amber-500",
+      bg: "bg-amber-500/10",
+      clickable: true,
+      onClick: () => {
+        const ids = contractStats?.interventionStatusIds;
+        if (ids && ids.length > 0) {
+          navigate(`/zmluvy?statusIds=${ids.join(",")}`);
+        } else {
+          navigate("/zmluvy");
+        }
+      },
+    },
+    {
+      title: "Celkove poistne",
+      value: formatEur(contractStats?.totalAnnualPremium ?? 0),
+      icon: Banknote,
+      color: "text-purple-500",
+      bg: "bg-purple-500/10",
+      clickable: false,
+    },
   ];
 
   const recentLogs = auditLogs.slice(0, 5);
@@ -165,8 +226,13 @@ export default function Dashboard() {
   const widgetRenderers: Record<string, () => React.ReactNode> = {
     stats: () => (
       <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4" data-testid="widget-stats">
-        {stats.map((stat, i) => (
-          <Card key={i}>
+        {contractStatsTiles.map((stat, i) => (
+          <Card
+            key={i}
+            className={stat.clickable ? "cursor-pointer hover-elevate" : ""}
+            onClick={stat.clickable && stat.onClick ? stat.onClick : undefined}
+            data-testid={`card-contract-stat-${i}`}
+          >
             <CardHeader className="flex flex-row items-center justify-between gap-2 space-y-0 pb-2">
               <CardTitle className="text-sm font-medium text-muted-foreground">{stat.title}</CardTitle>
               <div className={`p-2 rounded-md ${stat.bg} ${stat.color}`}>
@@ -175,6 +241,9 @@ export default function Dashboard() {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold" data-testid={`text-stat-${i}`}>{stat.value}</div>
+              <div style={{ display: stat.clickable ? 'block' : 'none' }}>
+                <p className="text-xs text-muted-foreground mt-1">Kliknite pre zobrazenie</p>
+              </div>
             </CardContent>
           </Card>
         ))}
