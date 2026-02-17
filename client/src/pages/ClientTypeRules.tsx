@@ -706,6 +706,76 @@ function FieldFormDialog({
   );
 }
 
+function SortableFolderCard({
+  folder,
+  panelCount,
+  onEdit,
+  onDelete,
+}: {
+  folder: ClientTypeSection;
+  panelCount: number;
+  onEdit: () => void;
+  onDelete: () => void;
+}) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: folder.id });
+  const style = { transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.5 : 1 };
+  const category = (folder as any).folderCategory || "volitelne";
+
+  return (
+    <div ref={setNodeRef} style={style} data-testid={`folder-card-${folder.id}`}>
+      <Card className={isDragging ? "ring-1 ring-primary" : ""}>
+        <CardContent className="p-4">
+          <div className="flex items-center gap-3 flex-wrap">
+            <div
+              className="flex flex-col items-center justify-center cursor-grab touch-none shrink-0 gap-[2px]"
+              {...attributes}
+              {...listeners}
+              data-testid={`handle-folder-${folder.id}`}
+            >
+              <div className="flex gap-[3px]"><div className="w-[5px] h-[5px] rounded-full bg-muted-foreground/50" /><div className="w-[5px] h-[5px] rounded-full bg-muted-foreground/50" /></div>
+              <div className="flex gap-[3px]"><div className="w-[5px] h-[5px] rounded-full bg-muted-foreground/50" /><div className="w-[5px] h-[5px] rounded-full bg-muted-foreground/50" /></div>
+              <div className="flex gap-[3px]"><div className="w-[5px] h-[5px] rounded-full bg-muted-foreground/50" /><div className="w-[5px] h-[5px] rounded-full bg-muted-foreground/50" /></div>
+            </div>
+
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2 flex-wrap">
+                <FolderOpen className="w-4 h-4 text-muted-foreground shrink-0" />
+                <span className="font-semibold text-sm truncate" data-testid={`text-folder-name-${folder.id}`}>
+                  {folder.name}
+                </span>
+                <Badge
+                  variant={
+                    category === 'povinne' ? 'destructive' :
+                    category === 'doplnkove' ? 'default' : 'secondary'
+                  }
+                  data-testid={`badge-folder-category-${folder.id}`}
+                >
+                  {category === 'povinne' ? 'POVINNE UDAJE' :
+                   category === 'doplnkove' ? 'DOPLNKOVE UDAJE' : 'VOLITELNE UDAJE'}
+                </Badge>
+                <Badge variant="secondary" data-testid={`badge-folder-panel-count-${folder.id}`}>
+                  {panelCount} {panelCount === 1 ? 'panel' : 'panelov'}
+                </Badge>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-1 shrink-0">
+              <Button size="icon" variant="ghost" onClick={onEdit} data-testid={`button-edit-folder-${folder.id}`}>
+                <Pencil className="w-4 h-4" />
+              </Button>
+              <ConditionalDelete
+                canDelete={panelCount === 0}
+                onClick={onDelete}
+                testId={`button-delete-folder-${folder.id}`}
+              />
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
 function FoldersTab({ clientTypeId }: { clientTypeId: number }) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -788,66 +858,28 @@ function FoldersTab({ clientTypeId }: { clientTypeId: number }) {
 
       {isLoading ? (
         <div className="flex items-center justify-center py-12"><Loader2 className="w-6 h-6 animate-spin text-muted-foreground" /></div>
-      ) : (
+      ) : filtered.length === 0 ? (
         <Card>
-          <CardContent className="p-0">
-            <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead className="w-8"></TableHead>
-                    <TableHead>Nazov priecinku</TableHead>
-                    <TableHead>Kategoria</TableHead>
-                    <TableHead>Panely</TableHead>
-                    <TableHead>Akcie</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <SortableContext items={filtered.map(f => f.id)} strategy={verticalListSortingStrategy}>
-                  <TableBody>
-                    {filtered.length === 0 ? (
-                      <TableRow>
-                        <TableCell colSpan={5} className="text-center text-muted-foreground py-8" data-testid="text-no-folders">Ziadne priecinky</TableCell>
-                      </TableRow>
-                    ) : (
-                      filtered.map(folder => (
-                        <SortableRow key={folder.id} id={folder.id}>
-                          <TableCell className="font-medium">{folder.name}</TableCell>
-                          <TableCell>
-                            <Badge
-                              variant={
-                                (folder as any).folderCategory === 'povinne' ? 'destructive' :
-                                (folder as any).folderCategory === 'doplnkove' ? 'default' : 'secondary'
-                              }
-                              data-testid={`badge-folder-category-${folder.id}`}
-                            >
-                              {(folder as any).folderCategory === 'povinne' ? 'POVINNE' :
-                               (folder as any).folderCategory === 'doplnkove' ? 'DOPLNKOVE' : 'VOLITELNE'}
-                            </Badge>
-                          </TableCell>
-                          <TableCell>
-                            <Badge variant="secondary" data-testid={`badge-folder-panel-count-${folder.id}`}>{getPanelCount(folder.id)}</Badge>
-                          </TableCell>
-                          <TableCell>
-                            <div className="flex items-center gap-1">
-                              <Button size="icon" variant="ghost" onClick={() => { setEditingFolder(folder); setDialogOpen(true); }} data-testid={`button-edit-folder-${folder.id}`}>
-                                <Pencil className="w-4 h-4" />
-                              </Button>
-                              <ConditionalDelete
-                                canDelete={getPanelCount(folder.id) === 0}
-                                onClick={() => setDeleteTarget(folder)}
-                                testId={`button-delete-folder-${folder.id}`}
-                              />
-                            </div>
-                          </TableCell>
-                        </SortableRow>
-                      ))
-                    )}
-                  </TableBody>
-                </SortableContext>
-              </Table>
-            </DndContext>
+          <CardContent className="flex items-center justify-center py-12">
+            <p className="text-muted-foreground text-sm" data-testid="text-no-folders">Ziadne priecinky</p>
           </CardContent>
         </Card>
+      ) : (
+        <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+          <SortableContext items={filtered.map(f => f.id)} strategy={verticalListSortingStrategy}>
+            <div className="space-y-2">
+              {filtered.map(folder => (
+                <SortableFolderCard
+                  key={folder.id}
+                  folder={folder}
+                  panelCount={getPanelCount(folder.id)}
+                  onEdit={() => { setEditingFolder(folder); setDialogOpen(true); }}
+                  onDelete={() => setDeleteTarget(folder)}
+                />
+              ))}
+            </div>
+          </SortableContext>
+        </DndContext>
       )}
 
       <FolderFormDialog
