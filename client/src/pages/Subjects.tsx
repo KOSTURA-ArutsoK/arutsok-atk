@@ -1371,6 +1371,7 @@ export default function Subjects() {
     activeCompanyId,
   });
   const { data: companies } = useMyCompanies();
+  const { data: clientTypes } = useQuery<ClientType[]>({ queryKey: ["/api/client-types"] });
   const { data: clientGroups } = useQuery<any[]>({ queryKey: ["/api/client-groups"] });
 
   function toggleFilter(category: SubjectStatusCategory) {
@@ -1481,10 +1482,10 @@ export default function Subjects() {
                   />
                 </TableHead>
                 <TableHead>UID</TableHead>
-                <TableHead>Meno entity</TableHead>
-                <TableHead>Typ</TableHead>
+                <TableHead style={{ maxWidth: '150px' }}>Status</TableHead>
+                <TableHead>Cele meno / Nazov</TableHead>
+                <TableHead>Typ subjektu</TableHead>
                 <TableHead>Spravujuca firma</TableHead>
-                <TableHead>Status</TableHead>
                 <TableHead className="w-[100px]">Akcie</TableHead>
               </TableRow>
             </TableHeader>
@@ -1495,65 +1496,87 @@ export default function Subjects() {
               {!isLoading && (!subjects || subjects.length === 0) && (
                 <TableRow><TableCell colSpan={7} className="text-center py-12 text-muted-foreground" data-testid="text-empty-subjects">Ziadne subjekty nenajdene</TableCell></TableRow>
               )}
-              {subjects?.map((subject) => (
-                <TableRow key={subject.id} data-testid={`row-subject-${subject.id}`}>
-                  <TableCell>
-                    <input type="checkbox" 
-                      checked={selectedIds.has(subject.id)}
-                      onChange={(e) => {
-                        const next = new Set(selectedIds);
-                        if (e.target.checked) next.add(subject.id); else next.delete(subject.id);
-                        setSelectedIds(next);
-                      }}
-                      data-testid={`checkbox-subject-${subject.id}`}
-                      className="accent-primary"
-                    />
-                  </TableCell>
-                  <TableCell className="font-mono text-xs">{subject.uid}</TableCell>
-                  <TableCell className="font-medium">
-                    {subject.type === 'person'
-                      ? `${subject.lastName}, ${subject.firstName}`
-                      : subject.companyName}
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex items-center gap-2 text-muted-foreground text-xs">
-                      {subject.type === 'person' ? <User className="w-3 h-3" /> : <Building2 className="w-3 h-3" />}
-                      <span>{subject.type === 'person' ? 'Osoba' : 'Firma'}</span>
-                    </div>
-                  </TableCell>
-                  <TableCell className="text-muted-foreground text-sm">
-                    {companies?.find(c => c.id === subject.myCompanyId)?.name || `Firma #${subject.myCompanyId}`}
-                  </TableCell>
-                  <TableCell>
-                    {(() => {
-                      const status = getSubjectStatus(subject, activeCompanyId);
-                      return (
-                        <div className="flex items-center gap-2" data-testid={`status-subject-${subject.id}`}>
-                          <span className={`w-2.5 h-2.5 rounded-full ${status.color} flex-shrink-0`} />
-                          <span className="text-xs">{status.label}</span>
-                        </div>
-                      );
-                    })()}
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex items-center gap-1">
-                      <Button size="icon" variant="ghost" onClick={() => setViewTarget(subject)} data-testid={`button-view-subject-${subject.id}`}>
-                        <Eye className="w-4 h-4" />
-                      </Button>
-                      <div style={{ visibility: ((subject as any).isOwner || appUser?.role === 'admin' || appUser?.role === 'superadmin' || appUser?.role === 'prezident') ? 'visible' : 'hidden' }}>
-                        <Button
-                          size="icon"
-                          variant="ghost"
-                          onClick={() => setEditTarget(subject as any)}
-                          data-testid={`button-edit-subject-${subject.id}`}
-                        >
-                          <Pencil className="w-4 h-4" />
-                        </Button>
+              {subjects?.map((subject) => {
+                const details = (subject.details || {}) as Record<string, any>;
+                const titulPred = details.titul_pred || details.titleBefore || '';
+                const titulZa = details.titul_za || details.titleAfter || '';
+                const subjectTypeCode = (() => {
+                  if (subject.type === 'person') return 'FO';
+                  if (subject.type === 'szco') return 'SZCO';
+                  if (subject.type === 'company') return 'PO';
+                  return subject.type;
+                })();
+                const clientTypeMatch = clientTypes?.find(ct => ct.code === subjectTypeCode);
+                const fullName = (() => {
+                  if (subject.type === 'person') {
+                    const parts = [titulPred, subject.firstName, subject.lastName, titulZa].filter(Boolean);
+                    return parts.join(' ') || '-';
+                  }
+                  if (subject.type === 'szco') {
+                    return subject.companyName || [titulPred, subject.firstName, subject.lastName, titulZa].filter(Boolean).join(' ') || '-';
+                  }
+                  return subject.companyName || '-';
+                })();
+                const managingCompanyName = companies?.find(c => c.id === subject.myCompanyId)?.name || `Firma #${subject.myCompanyId}`;
+
+                return (
+                  <TableRow key={subject.id} data-testid={`row-subject-${subject.id}`} className="align-middle">
+                    <TableCell className="align-middle">
+                      <input type="checkbox" 
+                        checked={selectedIds.has(subject.id)}
+                        onChange={(e) => {
+                          const next = new Set(selectedIds);
+                          if (e.target.checked) next.add(subject.id); else next.delete(subject.id);
+                          setSelectedIds(next);
+                        }}
+                        data-testid={`checkbox-subject-${subject.id}`}
+                        className="accent-primary"
+                      />
+                    </TableCell>
+                    <TableCell className="font-mono text-xs align-middle">{subject.uid}</TableCell>
+                    <TableCell className="align-middle !overflow-visible" style={{ maxWidth: '150px', whiteSpace: 'normal', wordBreak: 'break-word', textOverflow: 'clip' }}>
+                      {(() => {
+                        const status = getSubjectStatus(subject, activeCompanyId);
+                        return (
+                          <div className="flex items-start gap-2" data-testid={`status-subject-${subject.id}`}>
+                            <span className={`w-2.5 h-2.5 rounded-full ${status.color} flex-shrink-0 mt-0.5`} />
+                            <span className="text-xs">{status.label}</span>
+                          </div>
+                        );
+                      })()}
+                    </TableCell>
+                    <TableCell className="font-medium align-middle" data-testid={`text-fullname-${subject.id}`}>
+                      {fullName}
+                    </TableCell>
+                    <TableCell className="align-middle">
+                      <div className="flex items-center gap-2 text-muted-foreground text-xs">
+                        {subject.type === 'person' ? <User className="w-3 h-3 flex-shrink-0" /> : <Building2 className="w-3 h-3 flex-shrink-0" />}
+                        <span>{clientTypeMatch?.code || subjectTypeCode}</span>
                       </div>
-                    </div>
-                  </TableCell>
-                </TableRow>
-              ))}
+                    </TableCell>
+                    <TableCell className="text-muted-foreground text-sm align-middle" data-testid={`text-company-${subject.id}`}>
+                      {managingCompanyName}
+                    </TableCell>
+                    <TableCell className="align-middle">
+                      <div className="flex items-center gap-1">
+                        <Button size="icon" variant="ghost" onClick={() => setViewTarget(subject)} data-testid={`button-view-subject-${subject.id}`}>
+                          <Eye className="w-4 h-4" />
+                        </Button>
+                        <div style={{ visibility: ((subject as any).isOwner || appUser?.role === 'admin' || appUser?.role === 'superadmin' || appUser?.role === 'prezident') ? 'visible' : 'hidden' }}>
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            onClick={() => setEditTarget(subject as any)}
+                            data-testid={`button-edit-subject-${subject.id}`}
+                          >
+                            <Pencil className="w-4 h-4" />
+                          </Button>
+                        </div>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
             </TableBody>
           </Table>
         </CardContent>
