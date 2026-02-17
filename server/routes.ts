@@ -3633,7 +3633,8 @@ export async function registerRoutes(
   app.post("/api/client-types/:typeId/fields", isAuthenticated, async (req: any, res) => {
     try {
       const appUser = req.appUser;
-      if (!appUser || !["admin", "superadmin"].includes(appUser.role)) {
+      const isAllowed = appUser && (["admin", "superadmin", "prezident"].includes(appUser.role) || appUser.permissionGroupId);
+      if (!isAllowed) {
         return res.status(403).json({ message: "Nedostatocne opravnenia" });
       }
       const created = await storage.createClientTypeField({
@@ -3649,7 +3650,8 @@ export async function registerRoutes(
   app.patch("/api/client-type-fields/:id", isAuthenticated, async (req: any, res) => {
     try {
       const appUser = req.appUser;
-      if (!appUser || !["admin", "superadmin"].includes(appUser.role)) {
+      const isAllowed = appUser && (["admin", "superadmin", "prezident"].includes(appUser.role) || appUser.permissionGroupId);
+      if (!isAllowed) {
         return res.status(403).json({ message: "Nedostatocne opravnenia" });
       }
       const updated = await storage.updateClientTypeField(Number(req.params.id), req.body);
@@ -3662,7 +3664,8 @@ export async function registerRoutes(
   app.delete("/api/client-type-fields/:id", isAuthenticated, async (req: any, res) => {
     try {
       const appUser = req.appUser;
-      if (!appUser || !["admin", "superadmin"].includes(appUser.role)) {
+      const isAllowed = appUser && (["admin", "superadmin", "prezident"].includes(appUser.role) || appUser.permissionGroupId);
+      if (!isAllowed) {
         return res.status(403).json({ message: "Nedostatocne opravnenia" });
       }
       await storage.deleteClientTypeField(Number(req.params.id));
