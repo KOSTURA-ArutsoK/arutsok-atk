@@ -2477,6 +2477,9 @@ export default function Contracts() {
               <p className="text-sm text-muted-foreground">
                 Vybranych zmluv: <span className="font-semibold text-foreground">{selectedIds.length}</span>. Zmluvy budu odoslane na schvalenie Centralnej kancelarii cez novu sprievodku.
               </p>
+              <p className="text-xs font-medium text-red-400" data-testid="text-sprievodka-order-note">
+                Zmluvy budu na sprievodke zoradene podla poradia, v akom ich oznacite.
+              </p>
               <div className="flex items-center justify-end gap-3 flex-wrap">
                 <Button variant="outline" onClick={() => setSprievodkaDialogOpen(false)} data-testid="button-sprievodka-cancel">
                   Zrusit
