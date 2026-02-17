@@ -24,12 +24,10 @@ export function RankBadge({ positionName, frameType = "none", circleConfig, comp
   }
 
   const rectH = compact ? RECT_HEIGHT_COMPACT : RECT_HEIGHT;
-  const count = visibleCircles.length;
   const gap = 3;
   const circleD = compact ? 8 : 10;
-  const minRectW = compact ? RECT_WIDTH_COMPACT : RECT_WIDTH;
-  const neededW = count > 0 ? count * circleD + (count - 1) * gap + 12 : minRectW;
-  const rectW = Math.max(minRectW, neededW);
+  const maxCircles = 6;
+  const rectW = maxCircles * circleD + (maxCircles - 1) * gap + 12;
   const containerW = rectW + (frameType === "double" ? 12 : 0);
 
   const circles = (
