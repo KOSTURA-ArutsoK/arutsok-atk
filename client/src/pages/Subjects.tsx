@@ -881,8 +881,23 @@ function FullPageEditor({
   function onSubmit(data: z.infer<typeof createSchema>) {
     const requiredFields = (typeFields || []).filter(f => f.isRequired && isFieldVisible(f));
     const missingFields = requiredFields.filter(f => !dynamicValues[f.fieldKey]?.trim());
+
+    if (isPerson) {
+      const addressRequired: { key: string; label: string }[] = [
+        { key: "tp_ulica", label: "Ulica (trvalý pobyt)" },
+        { key: "tp_orientacne", label: "Orientačné číslo (trvalý pobyt)" },
+        { key: "tp_psc", label: "PSČ (trvalý pobyt)" },
+        { key: "tp_mesto", label: "Mesto (trvalý pobyt)" },
+      ];
+      for (const ar of addressRequired) {
+        if (!dynamicValues[ar.key]?.trim()) {
+          missingFields.push({ fieldKey: ar.key, label: ar.label } as any);
+        }
+      }
+    }
+
     if (missingFields.length > 0) {
-      toast({ title: "Chýbajúce povinné polia", description: missingFields.map(f => f.label).join(", "), variant: "destructive" });
+      toast({ title: "Chýbajúce povinné polia", description: missingFields.map(f => f.label || f.fieldKey).join(", "), variant: "destructive" });
       return;
     }
 
@@ -926,7 +941,19 @@ function FullPageEditor({
                   { keys: ["rodne_priezvisko", "datum_narodenia", "miesto_narodenia", "vek", "pohlavie"], cols: "grid-cols-5" },
                   { keys: ["typ_dokladu", "cislo_dokladu", "platnost_dokladu"], cols: "grid-cols-3" },
                 ];
-                const allRowKeys = new Set(FO_POVINNE_ROWS.flatMap(r => r.keys));
+
+                const ADDRESS_PANEL_FIELDS = {
+                  tp: { label: "Adresa trvalého pobytu", keys: ["tp_ulica", "tp_supisne", "tp_orientacne", "tp_psc", "tp_mesto", "tp_stat"], requiredKeys: ["tp_ulica", "tp_orientacne", "tp_psc", "tp_mesto"] },
+                  ka: { label: "Korešpondenčná adresa", keys: ["ka_ulica", "ka_supisne", "ka_orientacne", "ka_psc", "ka_mesto", "ka_stat"], requiredKeys: [] },
+                  koa: { label: "Kontaktná adresa", keys: ["koa_ulica", "koa_supisne", "koa_orientacne", "koa_psc", "koa_mesto", "koa_stat"], requiredKeys: [] },
+                };
+                const ADDRESS_SWITCH_KEYS = ["korespond_rovnaka", "kontaktna_rovnaka"];
+                const allAddressKeys = new Set([
+                  ...Object.values(ADDRESS_PANEL_FIELDS).flatMap(p => p.keys),
+                  ...ADDRESS_SWITCH_KEYS,
+                ]);
+
+                const allRowKeys = new Set(FO_POVINNE_ROWS.flatMap(r => r.keys).concat(Array.from(allAddressKeys)));
 
                 const povinneSection = typeSections?.find(s => (s as any).folderCategory === "povinne");
                 const povinneFields = (typeFields || [])
@@ -997,6 +1024,101 @@ function FullPageEditor({
                               </div>
                             );
                           })}
+
+                          {(() => {
+                            const korRespondRovnaka = dynamicValues["korespond_rovnaka"] === "true";
+                            const kontaktnaRovnaka = dynamicValues["kontaktna_rovnaka"] === "true";
+
+                            const ADDR_FALLBACK_LABELS: Record<string, string> = {
+                              ulica: "Ulica", supisne: "Súpisné číslo", orientacne: "Orientačné číslo",
+                              psc: "PSČ", mesto: "Mesto", stat: "Štát",
+                            };
+
+                            const renderAddressPanel = (prefix: "tp" | "ka" | "koa", panelDef: typeof ADDRESS_PANEL_FIELDS["tp"], disabled: boolean) => {
+                              const findField = (key: string) => povinneFields.find(f => f.fieldKey === key);
+                              const fieldKeys = [`${prefix}_ulica`, `${prefix}_supisne`, `${prefix}_orientacne`, `${prefix}_psc`, `${prefix}_mesto`, `${prefix}_stat`];
+                              const fields = fieldKeys.map(k => ({ key: k, field: findField(k), suffix: k.split("_").slice(1).join("_") }));
+                              const isRequired = (key: string) => panelDef.requiredKeys.includes(key);
+
+                              const renderAddrField = (key: string, field: ClientTypeField | undefined, suffix: string) => {
+                                if (field) {
+                                  const augmentedField = isRequired(key) && !field.isRequired
+                                    ? { ...field, isRequired: true } as ClientTypeField
+                                    : field;
+                                  return (
+                                    <div key={key} style={{ pointerEvents: disabled ? "none" : "auto" }}>
+                                      <DynamicFieldInput field={augmentedField} dynamicValues={dynamicValues} setDynamicValues={setDynamicValues} />
+                                    </div>
+                                  );
+                                }
+                                return (
+                                  <div className="space-y-1" key={key}>
+                                    <Label className="text-xs text-muted-foreground">{ADDR_FALLBACK_LABELS[suffix] || suffix}{isRequired(key) ? " *" : ""}</Label>
+                                    <Input disabled={disabled} value={dynamicValues[key] || ""} onChange={e => setDynamicValues(prev => ({ ...prev, [key]: e.target.value }))} data-testid={`input-addr-${key}`} />
+                                  </div>
+                                );
+                              };
+
+                              return (
+                                <Card className={`h-full ${disabled ? "opacity-50 pointer-events-none" : ""}`} data-testid={`panel-address-${prefix}`}>
+                                  <CardContent className="p-4 space-y-3">
+                                    <p className="text-sm font-semibold">{panelDef.label}</p>
+                                    <div className="grid grid-cols-1 gap-2">
+                                      {renderAddrField(fields[0].key, fields[0].field, fields[0].suffix)}
+                                    </div>
+                                    <div className="grid grid-cols-2 gap-2">
+                                      {renderAddrField(fields[1].key, fields[1].field, fields[1].suffix)}
+                                      {renderAddrField(fields[2].key, fields[2].field, fields[2].suffix)}
+                                    </div>
+                                    <div className="grid grid-cols-2 gap-2">
+                                      {renderAddrField(fields[3].key, fields[3].field, fields[3].suffix)}
+                                      {renderAddrField(fields[4].key, fields[4].field, fields[4].suffix)}
+                                    </div>
+                                    <div className="grid grid-cols-1 gap-2">
+                                      {renderAddrField(fields[5].key, fields[5].field, fields[5].suffix)}
+                                    </div>
+                                  </CardContent>
+                                </Card>
+                              );
+                            };
+
+                            return (
+                              <div className="grid grid-cols-1 md:grid-cols-3 gap-3 items-stretch" data-testid="row-address-panels">
+                                <div className="flex flex-col">
+                                  {renderAddressPanel("tp", ADDRESS_PANEL_FIELDS.tp, false)}
+                                  <div className="flex items-center gap-2 mt-2 px-1">
+                                    <Switch
+                                      checked={korRespondRovnaka}
+                                      onCheckedChange={checked => setDynamicValues(prev => ({ ...prev, korespond_rovnaka: String(checked) }))}
+                                      data-testid="switch-korespond-rovnaka"
+                                    />
+                                    <Label className="text-xs cursor-pointer" onClick={() => setDynamicValues(prev => ({ ...prev, korespond_rovnaka: String(prev["korespond_rovnaka"] !== "true") }))}>
+                                      Korešpondenčná adresa sa zhoduje s trvalou
+                                    </Label>
+                                  </div>
+                                </div>
+
+                                <div className="flex flex-col">
+                                  {renderAddressPanel("ka", ADDRESS_PANEL_FIELDS.ka, korRespondRovnaka)}
+                                  <div className="flex items-center gap-2 mt-2 px-1">
+                                    <Switch
+                                      checked={kontaktnaRovnaka}
+                                      onCheckedChange={checked => setDynamicValues(prev => ({ ...prev, kontaktna_rovnaka: String(checked) }))}
+                                      disabled={korRespondRovnaka}
+                                      data-testid="switch-kontaktna-rovnaka"
+                                    />
+                                    <Label className="text-xs cursor-pointer" onClick={() => { if (!korRespondRovnaka) setDynamicValues(prev => ({ ...prev, kontaktna_rovnaka: String(prev["kontaktna_rovnaka"] !== "true") })); }}>
+                                      Kontaktná adresa sa zhoduje s trvalou
+                                    </Label>
+                                  </div>
+                                </div>
+
+                                <div className="flex flex-col">
+                                  {renderAddressPanel("koa", ADDRESS_PANEL_FIELDS.koa, kontaktnaRovnaka || korRespondRovnaka)}
+                                </div>
+                              </div>
+                            );
+                          })()}
 
                           {povinneRemainder.length > 0 && (
                             <div className="grid grid-cols-2 gap-3" data-testid="row-povinne-remainder">
