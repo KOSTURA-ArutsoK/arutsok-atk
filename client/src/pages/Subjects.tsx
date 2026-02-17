@@ -1083,7 +1083,7 @@ function FullPageEditor({
                             };
 
                             return (
-                              <div className="grid grid-cols-1 md:grid-cols-3 gap-3 items-stretch" data-testid="row-address-panels">
+                              <div className="grid grid-cols-3 gap-3 items-stretch" data-testid="row-address-panels">
                                 <div className="flex flex-col">
                                   {renderAddressPanel("tp", ADDRESS_PANEL_FIELDS.tp, false)}
                                   <div className="flex items-center gap-2 mt-2 px-1">
@@ -1750,7 +1750,7 @@ function SubjectEditModal({ subject, onClose }: { subject: Subject & { isOwner?:
                                 );
                               })}
                               {hasAddressPanels && (
-                                <div className="grid grid-cols-1 md:grid-cols-3 gap-3 items-stretch" data-testid="edit-row-address-panels">
+                                <div className="grid grid-cols-3 gap-3 items-stretch" data-testid="edit-row-address-panels">
                                   <div className="flex flex-col">
                                     {renderEditAddressPanel("tp", EDIT_ADDRESS_PANEL_FIELDS.tp, false)}
                                     <div className="flex items-center gap-2 mt-2 px-1">
