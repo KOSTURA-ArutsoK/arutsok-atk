@@ -332,7 +332,7 @@ function ContractFormDialog({
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent className="sm:max-w-[800px] h-[600px] overflow-y-auto">
+      <DialogContent className="w-[95vw] sm:max-w-[1100px] h-[85vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle data-testid="text-contract-dialog-title">
             {editingContract ? "Upravit zmluvu" : "Pridat zmluvu"}
@@ -780,7 +780,7 @@ function ContractDetailDialog({
   if (!contract) {
     return (
       <Dialog open={false} onOpenChange={onClose}>
-        <DialogContent className="sm:max-w-[800px] h-[600px] overflow-y-auto">
+        <DialogContent className="w-[95vw] sm:max-w-[1100px] h-[85vh] overflow-y-auto">
           <DialogHeader><DialogTitle>-</DialogTitle></DialogHeader>
         </DialogContent>
       </Dialog>
@@ -789,7 +789,7 @@ function ContractDetailDialog({
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-[800px] h-[600px] overflow-y-auto">
+      <DialogContent className="w-[95vw] sm:max-w-[1100px] h-[85vh] overflow-y-auto">
         <DialogHeader>
           <div className="flex items-center gap-3 flex-wrap">
             <div className="w-10 h-10 rounded-md bg-primary/10 flex items-center justify-center flex-shrink-0">
@@ -1686,7 +1686,7 @@ export default function Contracts() {
 
   const preSelectDialog = (
     <Dialog open={preSelectOpen} onOpenChange={(open) => { setPreSelectOpen(open); if (!open) { setPreSelectStep(1); setShowInlineCreate(false); setPreSelectClientTypeId(""); } }}>
-      <DialogContent className="w-[90vw] max-w-[1400px] max-h-[90vh] overflow-y-auto" onCloseAutoFocus={(e) => e.preventDefault()} data-testid="dialog-pre-select-contract">
+      <DialogContent className="w-[95vw] sm:max-w-[1400px] max-h-[90vh] overflow-y-auto" onCloseAutoFocus={(e) => e.preventDefault()} data-testid="dialog-pre-select-contract">
         <DialogHeader>
           <DialogTitle data-testid="text-preselect-title">
             {preSelectStep === 1 ? "Krok 1: Vyber partnera a produktu" : showInlineCreate ? `Krok 2: Novy klient (${inlineClientType === "szco" ? "SZČO" : inlineClientType === "po" ? "PO" : "FO"})` : "Krok 2: Vyber klienta (subjektu)"}
