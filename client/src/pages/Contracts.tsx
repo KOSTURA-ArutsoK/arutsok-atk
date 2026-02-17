@@ -2354,7 +2354,7 @@ export default function Contracts() {
           <Card data-testid="folder-nahravanie">
             <div className="flex items-center gap-3 p-3 border-b flex-wrap">
               <div className="flex-1">
-                <p className="text-xs text-muted-foreground italic" data-testid="text-ordering-note">Poznamka: Zmluvy budu na sprievodke zoradene podla poradia, v akom ich oznacite.</p>
+                <p className="text-xs text-red-400 italic" data-testid="text-ordering-note">Poznamka: Zmluvy budu na sprievodke zoradene podla poradia, v akom ich oznacite.</p>
               </div>
               <span id="selected-dispatch-wrapper" style={{ display: selectedIds.length > 0 ? 'inline' : 'none' }}>
                 <div className="flex items-center gap-3 flex-wrap">

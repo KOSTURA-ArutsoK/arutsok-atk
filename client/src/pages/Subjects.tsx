@@ -1013,28 +1013,33 @@ function FullPageEditor({
                             </div>
                           </div>
 
-                          {FO_POVINNE_ROWS.map((row, rowIdx) => {
-                            const rowEntries = row.keys.map(k => ({ key: k, field: povinneFields.find(f => f.fieldKey === k) }));
-                            const hasAny = rowEntries.some(e => e.field);
-                            if (!hasAny) return null;
-                            const gridClass = row.cols;
-                            return (
-                              <div key={rowIdx} className={`grid ${gridClass} gap-3`} data-testid={`row-povinne-${rowIdx + 3}`}>
-                                {rowEntries.map(({ key, field }) => field ? (
-                                  <div key={key} className="min-w-0">
-                                    <DynamicFieldInput field={field} dynamicValues={dynamicValues} setDynamicValues={setDynamicValues} />
+                          <Card data-testid="panel-osobne-udaje">
+                            <CardContent className="p-4 space-y-3">
+                              <p className="text-sm font-semibold">Osobné údaje</p>
+                              {FO_POVINNE_ROWS.map((row, rowIdx) => {
+                                const rowEntries = row.keys.map(k => ({ key: k, field: povinneFields.find(f => f.fieldKey === k) }));
+                                const hasAny = rowEntries.some(e => e.field);
+                                if (!hasAny) return null;
+                                const gridClass = row.cols;
+                                return (
+                                  <div key={rowIdx} className={`grid ${gridClass} gap-3`} data-testid={`row-povinne-${rowIdx + 3}`}>
+                                    {rowEntries.map(({ key, field }) => field ? (
+                                      <div key={key} className="min-w-0">
+                                        <DynamicFieldInput field={field} dynamicValues={dynamicValues} setDynamicValues={setDynamicValues} />
+                                      </div>
+                                    ) : (
+                                      <div key={key} className="min-w-0">
+                                        <div className="space-y-1">
+                                          <Label className="text-xs text-muted-foreground">{key === "druhe_meno" ? "Druhé meno/priezvisko" : key}</Label>
+                                          <Input value={dynamicValues[key] || ""} onChange={e => setDynamicValues(prev => ({ ...prev, [key]: e.target.value }))} data-testid={`input-${key}`} />
+                                        </div>
+                                      </div>
+                                    ))}
                                   </div>
-                                ) : (
-                                  <div key={key} className="min-w-0">
-                                    <div className="space-y-1">
-                                      <Label className="text-xs text-muted-foreground">{key === "druhe_meno" ? "Druhé meno/priezvisko" : key}</Label>
-                                      <Input value={dynamicValues[key] || ""} onChange={e => setDynamicValues(prev => ({ ...prev, [key]: e.target.value }))} data-testid={`input-${key}`} />
-                                    </div>
-                                  </div>
-                                ))}
-                              </div>
-                            );
-                          })}
+                                );
+                              })}
+                            </CardContent>
+                          </Card>
 
                           {(() => {
                             const korRespondRovnaka = dynamicValues["korespond_rovnaka"] === "true";
