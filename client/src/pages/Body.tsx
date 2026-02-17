@@ -19,6 +19,12 @@ import {
 import { Plus, Pencil, Trash2, TrendingUp, Award, Loader2 } from "lucide-react";
 import { HelpIcon } from "@/components/help-icon";
 
+function formatDecimal8(value: string | number | null | undefined): string {
+  const num = parseFloat(String(value || '0').replace(',', '.'));
+  if (isNaN(num)) return '0,00000000';
+  return num.toFixed(8).replace('.', ',');
+}
+
 function getZoneRowClass(zone: string, positionCode: string): string {
   switch (zone) {
     case 'blue':
@@ -59,10 +65,10 @@ function CareerLevelEditDialog({
     sortOrder: level?.sortOrder?.toString() || '0',
     pointsFrom: level?.pointsFrom?.toString() || '0',
     pointsTo: level?.pointsTo?.toString() || '0',
-    pricePerPoint: level?.pricePerPoint || '0',
+    pricePerPoint: formatDecimal8(level?.pricePerPoint),
     positionName: level?.positionName || '',
-    rewardPercent: level?.rewardPercent || '0',
-    coefficient: level?.coefficient || '0',
+    rewardPercent: formatDecimal8(level?.rewardPercent),
+    coefficient: formatDecimal8(level?.coefficient),
     colorZone: level?.colorZone || 'white',
   });
 
@@ -73,6 +79,9 @@ function CareerLevelEditDialog({
         sortOrder: Number(form.sortOrder),
         pointsFrom: Number(form.pointsFrom),
         pointsTo: Number(form.pointsTo),
+        pricePerPoint: formatDecimal8(form.pricePerPoint),
+        rewardPercent: formatDecimal8(form.rewardPercent),
+        coefficient: formatDecimal8(form.coefficient),
       };
       if (isNew) {
         await apiRequest("POST", "/api/career-levels", payload);
@@ -167,16 +176,21 @@ function ProductRateEditDialog({
   const [form, setForm] = useState({
     partnerName: rate?.partnerName || '',
     productName: rate?.productName || '',
-    basePoints: rate?.basePoints || '0',
-    commissionCoefficient: rate?.commissionCoefficient || '0',
+    basePoints: formatDecimal8(rate?.basePoints),
+    commissionCoefficient: formatDecimal8(rate?.commissionCoefficient),
   });
 
   const mutation = useMutation({
     mutationFn: async () => {
+      const payload = {
+        ...form,
+        basePoints: formatDecimal8(form.basePoints),
+        commissionCoefficient: formatDecimal8(form.commissionCoefficient),
+      };
       if (isNew) {
-        await apiRequest("POST", "/api/product-point-rates", form);
+        await apiRequest("POST", "/api/product-point-rates", payload);
       } else {
-        await apiRequest("PUT", `/api/product-point-rates/${rate.id}`, form);
+        await apiRequest("PUT", `/api/product-point-rates/${rate.id}`, payload);
       }
     },
     onSuccess: () => {
@@ -349,19 +363,19 @@ export default function Body() {
                         {Number(level.pointsTo).toLocaleString('sk-SK')}
                       </TableCell>
                       <TableCell className={getZoneTextClass(level.colorZone)}>
-                        {level.pricePerPoint} €
+                        {formatDecimal8(level.pricePerPoint)} €
                       </TableCell>
                       <TableCell className={`font-medium ${getZoneTextClass(level.colorZone)}`}>
                         {level.positionName}
                       </TableCell>
                       <TableCell className={getZoneTextClass(level.colorZone)}>
-                        {level.rewardPercent} %
+                        {formatDecimal8(level.rewardPercent)} %
                       </TableCell>
                       <TableCell
                         className="text-center font-bold text-white"
                         style={{ backgroundColor: 'hsl(217, 91%, 35%)' }}
                       >
-                        {level.coefficient}
+                        {formatDecimal8(level.coefficient)}
                       </TableCell>
                       <TableCell style={{ visibility: isAdmin ? 'visible' : 'hidden' }}>
                         <div className="flex items-center gap-1">
@@ -425,8 +439,8 @@ export default function Body() {
                   <TableRow key={rate.id} className="border-blue-800/30" data-testid={`row-rate-${rate.id}`}>
                     <TableCell className="text-blue-100 font-medium">{rate.partnerName || '-'}</TableCell>
                     <TableCell className="text-blue-200">{rate.productName || '-'}</TableCell>
-                    <TableCell className="text-blue-100 font-semibold">{rate.basePoints}</TableCell>
-                    <TableCell className="text-blue-100 font-bold">{rate.commissionCoefficient}</TableCell>
+                    <TableCell className="text-blue-100 font-semibold">{formatDecimal8(rate.basePoints)}</TableCell>
+                    <TableCell className="text-blue-100 font-bold">{formatDecimal8(rate.commissionCoefficient)}</TableCell>
                     <TableCell style={{ visibility: isAdmin ? 'visible' : 'hidden' }}>
                       <div className="flex items-center gap-1">
                         <Button size="icon" variant="ghost" onClick={() => setEditRate(rate)} data-testid={`button-edit-rate-${rate.id}`}>
