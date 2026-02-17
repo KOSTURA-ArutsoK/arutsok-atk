@@ -24,7 +24,7 @@ const TableHeader = React.forwardRef<
   <thead
     ref={ref}
     className={cn("[&_tr]:border-b", className)}
-    style={{ position: 'sticky', top: 0, zIndex: 100 }}
+    style={{ position: 'sticky', top: 0, zIndex: 50 }}
     {...props}
   />
 ))
@@ -135,7 +135,7 @@ const TableHead = React.forwardRef<HTMLTableCellElement, TableHeadProps>(
       <th
         ref={setRefs}
         className={cn(
-          "h-12 px-4 text-left align-middle font-medium text-muted-foreground bg-background [&:has([role=checkbox])]:pr-0 border-b border-border",
+          "h-12 px-4 text-left align-middle font-medium text-muted-foreground bg-background [&:has([role=checkbox])]:pr-0 border-b border-border shadow-[0_1px_3px_-1px_rgba(0,0,0,0.1)]",
           showHandle && "relative",
           className
         )}
