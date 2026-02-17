@@ -19,11 +19,14 @@ import {
 import { Plus, Pencil, Trash2, TrendingUp, Award, Loader2 } from "lucide-react";
 import { HelpIcon } from "@/components/help-icon";
 
-function formatDecimal8(value: string | number | null | undefined): string {
+function formatDecimalN(value: string | number | null | undefined, places: number): string {
   const num = parseFloat(String(value || '0').replace(',', '.'));
-  if (isNaN(num)) return '0,00000000';
-  return num.toFixed(8).replace('.', ',');
+  if (isNaN(num)) return `0,${'0'.repeat(places)}`;
+  return num.toFixed(places).replace('.', ',');
 }
+function formatDecimal8(value: string | number | null | undefined): string { return formatDecimalN(value, 8); }
+function formatDecimal6(value: string | number | null | undefined): string { return formatDecimalN(value, 6); }
+function formatDecimal4(value: string | number | null | undefined): string { return formatDecimalN(value, 4); }
 
 function getZoneRowClass(zone: string, positionCode: string): string {
   switch (zone) {
@@ -71,11 +74,11 @@ function CareerLevelEditDialog({
   const [form, setForm] = useState({
     positionCode: level?.positionCode || '',
     sortOrder: level?.sortOrder?.toString() || '0',
-    pointsFrom: level?.pointsFrom?.toString() || '0',
-    pointsTo: level?.pointsTo?.toString() || '0',
-    pricePerPoint: formatDecimal8(level?.pricePerPoint),
+    pointsFrom: formatDecimal8(level?.pointsFrom),
+    pointsTo: formatDecimal8(level?.pointsTo),
+    pricePerPoint: formatDecimal4(level?.pricePerPoint),
     positionName: level?.positionName || '',
-    rewardPercent: formatDecimal8(level?.rewardPercent),
+    rewardPercent: formatDecimal6(level?.rewardPercent),
     coefficient: formatDecimal8(level?.coefficient),
     colorZone: level?.colorZone || 'white',
     frameType: level?.frameType || 'none',
@@ -87,10 +90,10 @@ function CareerLevelEditDialog({
       const payload = {
         ...form,
         sortOrder: Number(form.sortOrder),
-        pointsFrom: Number(form.pointsFrom),
-        pointsTo: Number(form.pointsTo),
-        pricePerPoint: formatDecimal8(form.pricePerPoint),
-        rewardPercent: formatDecimal8(form.rewardPercent),
+        pointsFrom: formatDecimal8(form.pointsFrom),
+        pointsTo: formatDecimal8(form.pointsTo),
+        pricePerPoint: formatDecimal4(form.pricePerPoint),
+        rewardPercent: formatDecimal6(form.rewardPercent),
         coefficient: formatDecimal8(form.coefficient),
         frameType: form.frameType,
         circleConfig: form.circleConfig,
@@ -128,11 +131,11 @@ function CareerLevelEditDialog({
           </div>
           <div>
             <Label>Body OD</Label>
-            <Input type="number" value={form.pointsFrom} onChange={(e) => setForm({...form, pointsFrom: e.target.value})} data-testid="input-points-from" />
+            <Input value={form.pointsFrom} onChange={(e) => setForm({...form, pointsFrom: e.target.value})} data-testid="input-points-from" />
           </div>
           <div>
             <Label>Body DO</Label>
-            <Input type="number" value={form.pointsTo} onChange={(e) => setForm({...form, pointsTo: e.target.value})} data-testid="input-points-to" />
+            <Input value={form.pointsTo} onChange={(e) => setForm({...form, pointsTo: e.target.value})} data-testid="input-points-to" />
           </div>
           <div>
             <Label>Cena za bod (€)</Label>
@@ -411,19 +414,19 @@ export default function Body() {
                         {level.positionCode}
                       </TableCell>
                       <TableCell className={getYellowCellClass(level.colorZone)}>
-                        {Number(level.pointsFrom).toLocaleString('sk-SK')}
+                        {formatDecimal8(level.pointsFrom)}
                       </TableCell>
                       <TableCell className={getYellowCellClass(level.colorZone)}>
-                        {Number(level.pointsTo).toLocaleString('sk-SK')}
+                        {formatDecimal8(level.pointsTo)}
                       </TableCell>
                       <TableCell className={getZoneTextClass(level.colorZone)}>
-                        {formatDecimal8(level.pricePerPoint)} €
+                        {formatDecimal4(level.pricePerPoint)} €
                       </TableCell>
                       <TableCell className={`font-medium ${getZoneTextClass(level.colorZone)}`}>
                         {level.positionName}
                       </TableCell>
                       <TableCell className={getZoneTextClass(level.colorZone)}>
-                        {formatDecimal8(level.rewardPercent)} %
+                        {formatDecimal6(level.rewardPercent)} %
                       </TableCell>
                       <TableCell
                         className="text-center font-bold text-white"
