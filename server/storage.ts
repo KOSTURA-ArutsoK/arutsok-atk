@@ -116,6 +116,7 @@ export interface IStorage {
   updateCompanyOfficer(id: number, data: Partial<InsertCompanyOfficer>): Promise<CompanyOfficer>;
   deleteCompanyOfficer(id: number): Promise<void>;
   autoArchiveExpiredBindings(): Promise<void>;
+  autoMoveUndeliveredContracts(): Promise<number>;
   
   getPartners(includeDeleted?: boolean): Promise<Partner[]>;
   getPartner(id: number): Promise<Partner | undefined>;
@@ -629,6 +630,80 @@ export class DatabaseStorage implements IStorage {
     await db.update(companyContacts)
       .set({ isActive: false })
       .where(and(eq(companyContacts.isActive, true), lte(companyContacts.validTo, now)));
+  }
+
+  async autoMoveUndeliveredContracts(): Promise<number> {
+    let undeliveredStatus = await this.getSystemContractStatusByName("Nedorucena 30 dni");
+    if (!undeliveredStatus) {
+      undeliveredStatus = await this.createContractStatus({
+        name: "Nedorucena 30 dni",
+        color: "#f97316",
+        sortOrder: 998,
+        isCommissionable: false,
+        isFinal: false,
+        assignsNumber: false,
+        definesContractEnd: false,
+        isSystem: true,
+      } as any);
+    }
+
+    const thirtyDaysAgo = new Date();
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+
+    const eligibleSupisky = await db
+      .select({
+        supiskaId: supisky.id,
+        contractId: supiskaContracts.contractId,
+        contractCount: sql<number>`count(${supiskaContracts.contractId}) over (partition by ${supisky.id})`,
+      })
+      .from(supisky)
+      .innerJoin(supiskaContracts, eq(supiskaContracts.supiskaId, supisky.id))
+      .where(and(
+        eq(supisky.status, "Odoslana"),
+        lte(supisky.sentAt, thirtyDaysAgo),
+      ));
+
+    const singleContractEntries = eligibleSupisky.filter(e => e.contractCount === 1);
+
+    let movedCount = 0;
+    for (const entry of singleContractEntries) {
+      const contract = await this.getContract(entry.contractId);
+      if (!contract || contract.isDeleted) continue;
+      if (contract.statusId === undeliveredStatus.id) continue;
+
+      const oldStatusId = contract.statusId;
+
+      await db.update(contracts)
+        .set({
+          statusId: undeliveredStatus.id,
+          lastStatusUpdate: new Date(),
+          updatedAt: new Date(),
+        })
+        .where(eq(contracts.id, entry.contractId));
+
+      await this.createContractStatusChangeLog({
+        contractId: entry.contractId,
+        oldStatusId: oldStatusId,
+        newStatusId: undeliveredStatus.id,
+        changedByUserId: null,
+        statusNote: "System: Zmluva automaticky presunuta do vyhrad – lehota 30 dni prekrocena.",
+      } as any);
+
+      await db.insert(auditLogs).values({
+        userId: null,
+        username: "SYSTEM",
+        action: "auto_undelivered_30d",
+        module: "contracts",
+        entityId: entry.contractId,
+        entityName: contract.contractNumber || contract.uid || `ID:${entry.contractId}`,
+        oldData: { statusId: oldStatusId },
+        newData: { statusId: undeliveredStatus.id },
+      });
+
+      movedCount++;
+    }
+
+    return movedCount;
   }
 
   async getPartners(includeDeleted?: boolean) {
@@ -1616,12 +1691,16 @@ export class DatabaseStorage implements IStorage {
 
   async getRejectedContracts(companyId?: number, stateId?: number): Promise<Contract[]> {
     const rejectedStatus = await this.getSystemContractStatusByName("Neprijata - vyhrady");
-    if (!rejectedStatus) return [];
+    const undeliveredStatus = await this.getSystemContractStatusByName("Nedorucena 30 dni");
+    const statusIds: number[] = [];
+    if (rejectedStatus) statusIds.push(rejectedStatus.id);
+    if (undeliveredStatus) statusIds.push(undeliveredStatus.id);
+    if (statusIds.length === 0) return [];
     const hundredDaysAgo = new Date();
     hundredDaysAgo.setDate(hundredDaysAgo.getDate() - 100);
     const conditions = [
       eq(contracts.isDeleted, false),
-      eq(contracts.statusId, rejectedStatus.id),
+      inArray(contracts.statusId, statusIds),
       gt(contracts.updatedAt, hundredDaysAgo),
     ];
     if (companyId) conditions.push(eq(contracts.companyId, companyId));
@@ -1869,12 +1948,16 @@ export class DatabaseStorage implements IStorage {
 
   async getArchivedContracts(companyId?: number, stateId?: number): Promise<Contract[]> {
     const rejectedStatus = await this.getSystemContractStatusByName("Neprijata - vyhrady");
-    if (!rejectedStatus) return [];
+    const undeliveredStatus = await this.getSystemContractStatusByName("Nedorucena 30 dni");
+    const statusIds: number[] = [];
+    if (rejectedStatus) statusIds.push(rejectedStatus.id);
+    if (undeliveredStatus) statusIds.push(undeliveredStatus.id);
+    if (statusIds.length === 0) return [];
     const hundredDaysAgo = new Date();
     hundredDaysAgo.setDate(hundredDaysAgo.getDate() - 100);
     const conditions = [
       eq(contracts.isDeleted, false),
-      eq(contracts.statusId, rejectedStatus.id),
+      inArray(contracts.statusId, statusIds),
       lte(contracts.updatedAt, hundredDaysAgo),
     ];
     if (companyId) conditions.push(eq(contracts.companyId, companyId));

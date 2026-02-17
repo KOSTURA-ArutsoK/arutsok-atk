@@ -3282,7 +3282,7 @@ export async function registerRoutes(
         statuses.filter(s => activeStatusNames.includes(s.name)).map(s => s.id)
       );
 
-      const interventionStatusNames = ["Nedodana / Chybna", "Neprijata - vyhrady", "Treba doplnit tlacivo pre banku", "Čaká na schválenie"];
+      const interventionStatusNames = ["Nedodana / Chybna", "Neprijata - vyhrady", "Treba doplnit tlacivo pre banku", "Čaká na schválenie", "Nedorucena 30 dni"];
       const interventionStatusIds = new Set(
         statuses.filter(s => interventionStatusNames.includes(s.name)).map(s => s.id)
       );
@@ -4610,10 +4610,56 @@ export async function registerRoutes(
     }
   });
 
+  app.post("/api/admin/run-undelivered-check", isAuthenticated, async (req: any, res) => {
+    try {
+      if (req.appUser?.role !== "admin" && req.appUser?.role !== "superadmin") {
+        return res.status(403).json({ message: "Pristup zamietnuty" });
+      }
+      const count = await storage.autoMoveUndeliveredContracts();
+      await logAudit(req, { action: "Manualne spustenie", module: "CRON - Nedorucene zmluvy", entityName: `Presunutych: ${count}` });
+      res.json({ success: true, movedCount: count });
+    } catch (err: any) {
+      console.error("Manual undelivered check error:", err);
+      res.status(500).json({ message: err.message });
+    }
+  });
+
   await seedDatabase();
   await storage.autoArchiveExpiredBindings();
   setInterval(() => storage.autoArchiveExpiredBindings(), 60 * 60 * 1000);
+
+  scheduleUndeliveredContractsCheck();
+
   return httpServer;
+}
+
+function scheduleUndeliveredContractsCheck() {
+  const TARGET_HOUR = 3;
+  const TARGET_MINUTE = 30;
+
+  function runAndScheduleNext() {
+    storage.autoMoveUndeliveredContracts().then(count => {
+      if (count > 0) {
+        console.log(`[CRON] autoMoveUndeliveredContracts: ${count} zmluv presunutych do vyhrad`);
+      }
+    }).catch(err => {
+      console.error("[CRON] autoMoveUndeliveredContracts error:", err);
+    });
+    scheduleNext();
+  }
+
+  function scheduleNext() {
+    const now = new Date();
+    const next = new Date(now);
+    next.setHours(TARGET_HOUR, TARGET_MINUTE, 0, 0);
+    if (next <= now) {
+      next.setDate(next.getDate() + 1);
+    }
+    const delay = next.getTime() - now.getTime();
+    setTimeout(runAndScheduleNext, delay);
+  }
+
+  scheduleNext();
 }
 
 async function seedDatabase() {
