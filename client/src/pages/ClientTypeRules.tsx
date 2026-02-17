@@ -800,12 +800,8 @@ export default function ClientTypeRules() {
               </TableHeader>
               <SortableContext items={clientTypes.map(ct => ct.id)} strategy={verticalListSortingStrategy}>
                 <TableBody>
-                  {isLoading && (
-                    <TableRow><TableCell colSpan={6} className="text-center py-8 text-muted-foreground">Nacitavam...</TableCell></TableRow>
-                  )}
-                  {!isLoading && clientTypes.length === 0 && (
-                    <TableRow><TableCell colSpan={6} className="text-center py-12 text-muted-foreground">Ziadne typy klientov</TableCell></TableRow>
-                  )}
+                  <TableRow style={{ display: isLoading ? 'table-row' : 'none' }}><TableCell colSpan={6} className="text-center py-8 text-muted-foreground">Nacitavam...</TableCell></TableRow>
+                  <TableRow style={{ display: !isLoading && clientTypes.length === 0 ? 'table-row' : 'none' }}><TableCell colSpan={6} className="text-center py-12 text-muted-foreground">Ziadne typy klientov</TableCell></TableRow>
                   {clientTypes.map(ct => (
                     <SortableRow key={ct.id} id={ct.id}>
                       <TableCell className="font-mono font-bold">{ct.code}</TableCell>

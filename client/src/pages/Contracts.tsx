@@ -337,12 +337,10 @@ function ContractFormDialog({
           <DialogTitle data-testid="text-contract-dialog-title">
             {editingContract ? "Upravit zmluvu" : "Pridat zmluvu"}
           </DialogTitle>
-          {editingContract?.isLocked && (
-            <div className="flex items-center gap-2 text-amber-500 text-sm mt-1">
-              <Lock className="w-4 h-4" />
-              <span>Zmluva je zamknuta v supiske. Iba admin moze upravovat.</span>
-            </div>
-          )}
+          <div className="flex items-center gap-2 text-amber-500 text-sm mt-1" style={{ display: editingContract?.isLocked ? 'flex' : 'none' }}>
+            <Lock className="w-4 h-4" />
+            <span>Zmluva je zamknuta v supiske. Iba admin moze upravovat.</span>
+          </div>
         </DialogHeader>
         <div className="space-y-4">
           <div className="grid grid-cols-2 gap-4">
@@ -415,12 +413,10 @@ function ContractFormDialog({
                   data-testid="input-identifier-value"
                 />
               </div>
-              {identifierWarning && (
-                <div className="flex items-center gap-2 p-2 rounded-md bg-amber-500/10 mt-1" data-testid="text-identifier-warning">
-                  <AlertTriangle className="w-4 h-4 text-amber-500 shrink-0" />
-                  <p className="text-xs text-amber-700 dark:text-amber-400">{identifierWarning}</p>
-                </div>
-              )}
+              <div className="flex items-center gap-2 p-2 rounded-md bg-amber-500/10 mt-1" data-testid="text-identifier-warning" style={{ display: identifierWarning ? 'flex' : 'none' }}>
+                <AlertTriangle className="w-4 h-4 text-amber-500 shrink-0" />
+                <p className="text-xs text-amber-700 dark:text-amber-400">{identifierWarning}</p>
+              </div>
             </div>
           </div>
 
@@ -442,12 +438,10 @@ function ContractFormDialog({
                 }}
                 data-testid="input-contract-number"
               />
-              {duplicateWarning && (
-                <div className="flex items-center gap-2 p-2 rounded-md bg-amber-500/10 mt-1" data-testid="text-duplicate-warning">
-                  <AlertTriangle className="w-4 h-4 text-amber-500 shrink-0" />
-                  <p className="text-xs text-amber-700 dark:text-amber-400">{duplicateWarning}</p>
-                </div>
-              )}
+              <div className="flex items-center gap-2 p-2 rounded-md bg-amber-500/10 mt-1" data-testid="text-duplicate-warning" style={{ display: duplicateWarning ? 'flex' : 'none' }}>
+                <AlertTriangle className="w-4 h-4 text-amber-500 shrink-0" />
+                <p className="text-xs text-amber-700 dark:text-amber-400">{duplicateWarning}</p>
+              </div>
             </div>
             <div className="space-y-2">
               <label className="text-sm font-medium">Klient</label>
@@ -524,8 +518,7 @@ function ContractFormDialog({
             </div>
           </div>
 
-          {sectorProductId && productPanels && productPanels.length > 0 && (
-            <div className="space-y-3 border rounded-md p-4" data-testid="section-contract-panels">
+          <div className="space-y-3 border rounded-md p-4" data-testid="section-contract-panels" style={{ display: sectorProductId && productPanels && productPanels.length > 0 ? 'block' : 'none' }}>
               <div className="flex items-center gap-2 mb-2">
                 <LayoutGrid className="w-4 h-4 text-primary" />
                 <span className="text-sm font-semibold">Parametre produktu</span>
@@ -534,9 +527,7 @@ function ContractFormDialog({
                 <Card key={panel.id} className="p-3" data-testid={`panel-section-${panel.id}`}>
                   <div className="flex items-center gap-2 mb-2">
                     <span className="text-sm font-semibold">{panel.name}</span>
-                    {panel.description && (
-                      <span className="text-xs text-muted-foreground">({panel.description})</span>
-                    )}
+                    <span className="text-xs text-muted-foreground" style={{ display: panel.description ? 'inline' : 'none' }}>({panel.description})</span>
                   </div>
                   {panel.parameters.length > 0 ? (
                     <div className="grid grid-cols-2 gap-3">
@@ -544,7 +535,7 @@ function ContractFormDialog({
                         <div key={param.id} className="space-y-1">
                           <label className="text-xs font-medium">
                             {param.name}
-                            {param.isRequired && <span className="text-destructive ml-1">*</span>}
+                            <span className="text-destructive ml-1" style={{ display: param.isRequired ? 'inline' : 'none' }}>*</span>
                           </label>
                           {param.paramType === "textarea" ? (
                             <Textarea
@@ -614,9 +605,7 @@ function ContractFormDialog({
                               data-testid={`input-panel-param-${panel.id}-${param.id}`}
                             />
                           )}
-                          {param.helpText && (
-                            <p className="text-xs text-muted-foreground">{param.helpText}</p>
-                          )}
+                          <p className="text-xs text-muted-foreground" style={{ display: param.helpText ? 'block' : 'none' }}>{param.helpText}</p>
                         </div>
                       ))}
                     </div>
@@ -626,13 +615,10 @@ function ContractFormDialog({
                 </Card>
               ))}
             </div>
-          )}
-          {sectorProductId && panelsLoading && (
-            <div className="flex items-center gap-2 p-3 text-sm text-muted-foreground">
-              <Loader2 className="w-4 h-4 animate-spin" />
-              Nacitavam panely...
-            </div>
-          )}
+          <div className="flex items-center gap-2 p-3 text-sm text-muted-foreground" style={{ display: sectorProductId && panelsLoading ? 'flex' : 'none' }}>
+            <Loader2 className="w-4 h-4 animate-spin" />
+            Nacitavam panely...
+          </div>
 
           <div className="grid grid-cols-4 gap-4">
             <div className="space-y-2">
@@ -800,15 +786,13 @@ function ContractDetailDialog({
             <div className="min-w-0">
               <DialogTitle data-testid="text-contract-detail-title">Zmluva {contract.contractNumber || contract.uid}</DialogTitle>
               <div className="flex items-center gap-2 mt-1 flex-wrap">
-                {status && (
-                  <span
-                    className="inline-flex items-center px-2 py-0.5 rounded-full border text-[11px] font-medium"
-                    style={{ borderColor: status.color, color: status.color, backgroundColor: `${status.color}15` }}
-                    data-testid="badge-detail-status"
-                  >
-                    {status.name}
-                  </span>
-                )}
+                <span
+                  className="inline-flex items-center px-2 py-0.5 rounded-full border text-[11px] font-medium"
+                  style={{ borderColor: status?.color, color: status?.color, backgroundColor: status ? `${status.color}15` : 'transparent', display: status ? 'inline-flex' : 'none' }}
+                  data-testid="badge-detail-status"
+                >
+                  {status?.name}
+                </span>
               </div>
             </div>
           </div>
@@ -888,12 +872,10 @@ function ContractDetailDialog({
             </div>
           </div>
 
-          {contract.notes && (
-            <div>
-              <span className="text-xs text-muted-foreground">Poznamky</span>
-              <p className="text-sm mt-1" data-testid="text-detail-notes">{contract.notes}</p>
-            </div>
-          )}
+          <div style={{ display: contract.notes ? 'block' : 'none' }}>
+            <span className="text-xs text-muted-foreground">Poznamky</span>
+            <p className="text-sm mt-1" data-testid="text-detail-notes">{contract.notes}</p>
+          </div>
 
           <div className="flex items-center gap-4 text-xs text-muted-foreground flex-wrap">
             <span>Cas spracovania: {formatProcessingTime(contract.processingTimeSec || 0)}</span>
@@ -1400,7 +1382,7 @@ export default function Contracts() {
                 )}
                 <TableCell className="font-mono text-sm" data-testid={`text-contract-number-${contract.id}`}>
                   <span className="flex items-center gap-1">
-                    {contract.isLocked && <Lock className="w-3 h-3 text-amber-500 shrink-0" />}
+                    <Lock className="w-3 h-3 text-amber-500 shrink-0" style={{ display: contract.isLocked ? 'block' : 'none' }} />
                     {contract.contractNumber || "-"}
                   </span>
                 </TableCell>
@@ -1426,12 +1408,8 @@ export default function Contracts() {
                           style={{ borderColor: status.color, color: status.color, backgroundColor: `${status.color}15`, whiteSpace: 'normal', wordBreak: 'break-word' }}
                         >{status.name}</span>
                       ) : "-"}
-                      {statusChangeMeta?.[contract.id]?.hasNote && (
-                        <MessageSquare className="w-3.5 h-3.5 text-blue-400 shrink-0" data-testid={`icon-note-${contract.id}`} />
-                      )}
-                      {statusChangeMeta?.[contract.id]?.hasDocs && (
-                        <Paperclip className="w-3.5 h-3.5 text-amber-400 shrink-0" data-testid={`icon-docs-${contract.id}`} />
-                      )}
+                      <MessageSquare className="w-3.5 h-3.5 text-blue-400 shrink-0" data-testid={`icon-note-${contract.id}`} style={{ display: statusChangeMeta?.[contract.id]?.hasNote ? 'block' : 'none' }} />
+                      <Paperclip className="w-3.5 h-3.5 text-amber-400 shrink-0" data-testid={`icon-docs-${contract.id}`} style={{ display: statusChangeMeta?.[contract.id]?.hasDocs ? 'block' : 'none' }} />
                     </div>
                   </TableCell>
                 )}
@@ -1520,7 +1498,7 @@ export default function Contracts() {
               Zavriet
             </Button>
             <Button onClick={handleExcelImport} disabled={!importFile || importLoading} data-testid="button-import-submit">
-              {importLoading && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+              <Loader2 className="w-4 h-4 mr-2 animate-spin" style={{ display: importLoading ? 'block' : 'none' }} />
               Importovat
             </Button>
           </div>
@@ -2325,7 +2303,7 @@ export default function Contracts() {
                                     <TableCell className="text-center text-xs text-muted-foreground">{contract.sortOrderInInventory || "-"}</TableCell>
                                     <TableCell className="font-mono text-sm" data-testid={`text-dispatched-number-${contract.id}`}>
                                       <span className="flex items-center gap-1">
-                                        {contract.isLocked && <Lock className="w-3 h-3 text-amber-500 shrink-0" />}
+                                        <Lock className="w-3 h-3 text-amber-500 shrink-0" style={{ display: contract.isLocked ? 'block' : 'none' }} />
                                         {contract.contractNumber || "-"}
                                       </span>
                                     </TableCell>
@@ -2552,7 +2530,7 @@ export default function Contracts() {
                     <TableRow key={contract.id} data-testid={`row-contract-${contract.id}`}>
                       <TableCell className="font-mono text-sm" data-testid={`text-contract-number-${contract.id}`}>
                         <span className="flex items-center gap-1">
-                          {contract.isLocked && <Lock className="w-3 h-3 text-amber-500 shrink-0" />}
+                          <Lock className="w-3 h-3 text-amber-500 shrink-0" style={{ display: contract.isLocked ? 'block' : 'none' }} />
                           {contract.contractNumber || "-"}
                         </span>
                       </TableCell>

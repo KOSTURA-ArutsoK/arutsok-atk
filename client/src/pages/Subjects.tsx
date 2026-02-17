@@ -122,7 +122,7 @@ function SubjectHistoryTab({ subjectId }: { subjectId: number }) {
                 <Clock className="w-3 h-3" />
                 T_idle: {formatProcessingTime(log.processingTimeSec ?? 0)}
               </span>
-              {log.ipAddress && <span className="font-mono">{log.ipAddress}</span>}
+              <span className="font-mono" style={{ display: log.ipAddress ? 'inline' : 'none' }}>{log.ipAddress}</span>
             </div>
           </div>
         </div>
@@ -338,9 +338,7 @@ function SubjectDataTab({ subject }: { subject: Subject }) {
                   <div className="space-y-4">
                     {sectionGroups.map(({ section, fields }) => (
                       <div key={section.id} className="space-y-2">
-                        {sectionGroups.length > 1 && (
-                          <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide border-b border-border pb-1">{section.name}</p>
-                        )}
+                        <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide border-b border-border pb-1" style={{ display: sectionGroups.length > 1 ? 'block' : 'none' }}>{section.name}</p>
                         <div className="grid grid-cols-2 gap-x-6 gap-y-2">
                           {fields.map(field => {
                             const value = getFieldValue(field.fieldKey);
@@ -475,7 +473,7 @@ function SubjectDetailDialog({ subject, onClose }: { subject: Subject; onClose: 
                               <Badge variant={entry.type === 'internal' ? 'default' : 'outline'}>
                                 {entry.type === 'internal' ? 'Interny' : 'Externy'}
                               </Badge>
-                              {entry.isActive && <Badge variant="secondary">Aktivny</Badge>}
+                              <Badge variant="secondary" style={{ display: entry.isActive ? 'inline-flex' : 'none' }}>Aktivny</Badge>
                             </div>
                             <p className="text-xs text-muted-foreground mt-0.5">{entry.role}</p>
                             <div className="flex items-center gap-1 mt-1 text-xs text-muted-foreground">
@@ -1120,13 +1118,13 @@ function FullPageEditor({
                             );
                           })()}
 
-                          {povinneRemainder.length > 0 && (
+                          <div style={{ display: povinneRemainder.length > 0 ? 'block' : 'none' }}>
                             <div className="grid grid-cols-2 gap-3" data-testid="row-povinne-remainder">
                               {povinneRemainder.map(field => (
                                 <DynamicFieldInput key={field.id} field={field} dynamicValues={dynamicValues} setDynamicValues={setDynamicValues} />
                               ))}
                             </div>
-                          )}
+                          </div>
                         </AccordionContent>
                       </AccordionItem>
 
@@ -1148,9 +1146,7 @@ function FullPageEditor({
                               <div className="space-y-4">
                                 {groups.map(({ section, fields }) => (
                                   <div key={section.id} className="space-y-3">
-                                    {groups.length > 1 && (
-                                      <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide border-b border-border pb-1">{section.name}</p>
-                                    )}
+                                    <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide border-b border-border pb-1" style={{ display: groups.length > 1 ? 'block' : 'none' }}>{section.name}</p>
                                     <div className="grid grid-cols-2 gap-3">
                                       {fields.map((field: ClientTypeField) => (
                                         <DynamicFieldInput key={field.id} field={field} dynamicValues={dynamicValues} setDynamicValues={setDynamicValues} />
@@ -1290,9 +1286,7 @@ function FullPageEditor({
                                   <div className="space-y-4">
                                     {groups.map(({ section, fields }) => (
                                       <div key={section.id} className="space-y-3">
-                                        {groups.length > 1 && (
-                                          <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide border-b border-border pb-1">{section.name}</p>
-                                        )}
+                                        <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide border-b border-border pb-1" style={{ display: groups.length > 1 ? 'block' : 'none' }}>{section.name}</p>
                                         <div className="grid grid-cols-2 gap-3">
                                           {fields.map((field: ClientTypeField) => (
                                             <DynamicFieldInput key={field.id} field={field} dynamicValues={dynamicValues} setDynamicValues={setDynamicValues} />
@@ -1738,9 +1732,7 @@ function SubjectEditModal({ subject, onClose }: { subject: Subject & { isOwner?:
                                 if (filteredFields.length === 0) return null;
                                 return (
                                   <div key={section.id} className="space-y-3">
-                                    {groups.length > 1 && (
-                                      <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide border-b border-border pb-1">{section.name}</p>
-                                    )}
+                                    <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide border-b border-border pb-1" style={{ display: groups.length > 1 ? 'block' : 'none' }}>{section.name}</p>
                                     <div className="grid grid-cols-2 gap-3">
                                       {filteredFields.map((field: ClientTypeField) => (
                                         <DynamicFieldInput key={field.id} field={field} dynamicValues={dynamicValues} setDynamicValues={setDynamicValues} />
@@ -1749,7 +1741,7 @@ function SubjectEditModal({ subject, onClose }: { subject: Subject & { isOwner?:
                                   </div>
                                 );
                               })}
-                              {hasAddressPanels && (
+                              <div style={{ display: hasAddressPanels ? 'block' : 'none' }}>
                                 <div className="grid grid-cols-3 gap-3 items-stretch" data-testid="edit-row-address-panels">
                                   <div className="flex flex-col">
                                     {renderEditAddressPanel("tp", EDIT_ADDRESS_PANEL_FIELDS.tp, false)}
@@ -1769,7 +1761,7 @@ function SubjectEditModal({ subject, onClose }: { subject: Subject & { isOwner?:
                                     {renderEditAddressPanel("koa", EDIT_ADDRESS_PANEL_FIELDS.koa, editKontaktnaRovnaka || editKorRespondRovnaka)}
                                   </div>
                                 </div>
-                              )}
+                              </div>
                             </div>
                           </AccordionContent>
                         </AccordionItem>
@@ -1976,7 +1968,7 @@ export default function Subjects() {
         </div>
       </div>
 
-      {selectedIds.size > 0 && (
+      <div style={{ display: selectedIds.size > 0 ? 'block' : 'none' }}>
         <div className="flex items-center gap-3 px-4 py-2 bg-primary/10 border border-primary/20 rounded-md">
           <span className="text-sm font-medium">{selectedIds.size} vybranych</span>
           <Button size="sm" onClick={() => setBulkAssignOpen(true)} data-testid="button-bulk-assign">
@@ -1986,7 +1978,7 @@ export default function Subjects() {
             Zrusit vyber
           </Button>
         </div>
-      )}
+      </div>
 
       <Card>
         <CardContent className="p-0">
@@ -2016,12 +2008,8 @@ export default function Subjects() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {isLoading && (
-                <TableRow><TableCell colSpan={7} className="text-center py-8 text-muted-foreground">Nacitavam...</TableCell></TableRow>
-              )}
-              {!isLoading && (!subjects || subjects.length === 0) && (
-                <TableRow><TableCell colSpan={7} className="text-center py-12 text-muted-foreground" data-testid="text-empty-subjects">Ziadne subjekty nenajdene</TableCell></TableRow>
-              )}
+              <TableRow style={{ display: isLoading ? 'table-row' : 'none' }}><TableCell colSpan={7} className="text-center py-8 text-muted-foreground">Nacitavam...</TableCell></TableRow>
+              <TableRow style={{ display: !isLoading && (!subjects || subjects.length === 0) ? 'table-row' : 'none' }}><TableCell colSpan={7} className="text-center py-12 text-muted-foreground" data-testid="text-empty-subjects">Ziadne subjekty nenajdene</TableCell></TableRow>
               {subjects?.map((subject) => {
                 const details = (subject.details || {}) as Record<string, any>;
                 const titulPred = details.titul_pred || details.titleBefore || '';
@@ -2123,15 +2111,19 @@ export default function Subjects() {
           if (found) setViewTarget(found);
         }}
       />
-      {bulkAssignOpen && (
-        <BulkAssignDialog 
+      <div style={{ display: bulkAssignOpen ? 'contents' : 'none' }}>
+        {bulkAssignOpen && <BulkAssignDialog 
           selectedIds={selectedIds}
           onClose={() => { setBulkAssignOpen(false); setSelectedIds(new Set()); }}
           groups={clientGroups || []}
-        />
-      )}
-      {viewTarget && <SubjectDetailDialog subject={viewTarget} onClose={() => setViewTarget(null)} />}
-      {editTarget && <SubjectEditModal subject={editTarget} onClose={() => setEditTarget(null)} />}
+        />}
+      </div>
+      <div style={{ display: viewTarget ? 'contents' : 'none' }}>
+        {viewTarget && <SubjectDetailDialog subject={viewTarget} onClose={() => setViewTarget(null)} />}
+      </div>
+      <div style={{ display: editTarget ? 'contents' : 'none' }}>
+        {editTarget && <SubjectEditModal subject={editTarget} onClose={() => setEditTarget(null)} />}
+      </div>
     </div>
   );
 }
