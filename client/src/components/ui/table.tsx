@@ -10,7 +10,7 @@ const Table = React.forwardRef<
   <div className="relative w-full overflow-auto">
     <table
       ref={ref}
-      className={cn("w-full caption-bottom text-sm", className)}
+      className={cn("w-full caption-bottom text-sm border-separate border-spacing-0", className)}
       {...props}
     />
   </div>
@@ -21,7 +21,12 @@ const TableHeader = React.forwardRef<
   HTMLTableSectionElement,
   React.HTMLAttributes<HTMLTableSectionElement>
 >(({ className, ...props }, ref) => (
-  <thead ref={ref} className={cn("[&_tr]:border-b sticky top-0 z-50 bg-background", className)} {...props} />
+  <thead
+    ref={ref}
+    className={cn("[&_tr]:border-b", className)}
+    style={{ position: 'sticky', top: 0, zIndex: 100 }}
+    {...props}
+  />
 ))
 TableHeader.displayName = "TableHeader"
 
@@ -130,7 +135,7 @@ const TableHead = React.forwardRef<HTMLTableCellElement, TableHeadProps>(
       <th
         ref={setRefs}
         className={cn(
-          "h-12 px-4 text-left align-middle font-medium text-muted-foreground [&:has([role=checkbox])]:pr-0",
+          "h-12 px-4 text-left align-middle font-medium text-muted-foreground bg-background [&:has([role=checkbox])]:pr-0 border-b border-border",
           showHandle && "relative",
           className
         )}
