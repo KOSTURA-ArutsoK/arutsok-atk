@@ -737,7 +737,7 @@ export default function ContractForm() {
   const [notes, setNotes] = useState("");
   const [contractPassword, setContractPassword] = useState("");
 
-  const [rewardRecommenders, setRewardRecommenders] = useState<Array<{ uid: string; percentage: string }>>([]);
+  const [rewardRecommenders, setRewardRecommenders] = useState<Array<{ id: string; uid: string; percentage: string }>>([]);
   const [rewardSpecialistUid, setRewardSpecialistUid] = useState("");
   const [rewardSpecialistPercentage, setRewardSpecialistPercentage] = useState("");
 
@@ -1133,7 +1133,7 @@ export default function ContractForm() {
       if (savedRewardDistributions.length > 0) {
         const recommenders = savedRewardDistributions
           .filter(d => d.type === "recommender")
-          .map(d => ({ uid: d.uid, percentage: d.percentage }));
+          .map((d, i) => ({ id: `saved-${d.id || i}`, uid: d.uid, percentage: d.percentage }));
         const specialist = savedRewardDistributions.find(d => d.type === "specialist");
         setRewardRecommenders(recommenders);
         setRewardSpecialistUid(specialist?.uid || "");
@@ -2101,7 +2101,7 @@ export default function ContractForm() {
                       <h4 className="text-sm font-semibold" data-testid="text-recommenders-title">Odmeny pre odporucitelov</h4>
                       <div className="space-y-2">
                         {rewardRecommenders.map((rec, idx) => (
-                          <div key={idx} className="flex items-center gap-2" data-testid={`row-recommender-${idx}`}>
+                          <div key={rec.id} className="flex items-center gap-2" data-testid={`row-recommender-${idx}`}>
                             <div className="flex-1">
                               <Input
                                 placeholder="UID kod"
@@ -2154,7 +2154,7 @@ export default function ContractForm() {
                       <Button
                         variant="outline"
                         size="sm"
-                        onClick={() => setRewardRecommenders([...rewardRecommenders, { uid: "", percentage: "" }])}
+                        onClick={() => setRewardRecommenders([...rewardRecommenders, { id: `new-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`, uid: "", percentage: "" }])}
                         data-testid="button-add-recommender"
                       >
                         <Plus className="w-4 h-4 mr-1" />
