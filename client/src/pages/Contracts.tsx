@@ -2082,19 +2082,18 @@ export default function Contracts() {
                     {(() => {
                       const isFoOsobne = panel.name === "Osobné údaje" && inlineClientType === "fo";
                       const FO_OSOBNE_ROW_KEYS = ["titul_pred", "meno", "druhe_meno", "priezvisko", "titul_za"];
-                      const FO_ROW2_KEYS = ["pohlavie", "datum_narodenia", "rodne_priezvisko"];
+                      const FO_ROW2_KEYS = ["rodne_priezvisko", "pohlavie", "datum_narodenia", "rodne_cislo"];
                       const FO_ROW3_KEYS = ["miesto_narodenia", "vek"];
                       const FO_ROW4_KEYS = ["statna_prislusnost"];
 
                       const renderField = (field: any) => {
                         const rule = field.visibilityRule as { dependsOn: string; value: string } | null;
                         const isVisible = !rule || inlineFormValues[rule.dependsOn] === rule.value;
-                        const isRow0Field = inlineClientType === "fo" && field.fieldKey === "rodne_cislo";
                         return (
                           <div
                             key={field.id}
                             className="space-y-1"
-                            style={{ display: isVisible && !isRow0Field ? 'block' : 'none' }}
+                            style={{ display: isVisible ? 'block' : 'none' }}
                             data-testid={`field-inline-${field.fieldKey}`}
                           >
                             <label className="text-xs font-medium">
@@ -2115,7 +2114,7 @@ export default function Contracts() {
                         return (
                           <>
                             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-[1fr_2fr_2fr_2fr_1fr] gap-3">{row1Fields.map(renderField)}</div>
-                            <div className="grid grid-cols-1 sm:grid-cols-3 md:grid-cols-[1fr_2fr_2fr] gap-3 mt-3">{row2Fields.map(renderField)}</div>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-[2fr_1fr_2fr_2fr] gap-3 mt-3">{row2Fields.map(renderField)}</div>
                             {row3Fields.length > 0 && (
                               <div className="grid grid-cols-1 sm:grid-cols-[2fr_1fr] gap-3 mt-3">{row3Fields.map(renderField)}</div>
                             )}

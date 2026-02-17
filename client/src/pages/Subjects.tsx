@@ -936,7 +936,7 @@ function FullPageEditor({
               {isPerson ? (() => {
                 const FO_POVINNE_ROWS: { keys: string[]; cols: string; customCols?: string }[] = [
                   { keys: ["titul_pred", "meno", "druhe_meno", "priezvisko", "titul_za"], cols: "grid-cols-2 sm:grid-cols-3 md:grid-cols-[1fr_2fr_2fr_2fr_1fr]" },
-                  { keys: ["pohlavie", "datum_narodenia", "rodne_priezvisko"], cols: "grid-cols-1 sm:grid-cols-3 md:grid-cols-[1fr_2fr_2fr]" },
+                  { keys: ["rodne_priezvisko", "pohlavie", "datum_narodenia", "rodne_cislo"], cols: "grid-cols-1 sm:grid-cols-2 md:grid-cols-[2fr_1fr_2fr_2fr]" },
                   { keys: ["miesto_narodenia", "vek"], cols: "grid-cols-1 sm:grid-cols-[2fr_1fr]" },
                   { keys: ["statna_prislusnost"], cols: "grid-cols-1 sm:grid-cols-2" },
                   { keys: ["typ_dokladu", "cislo_dokladu", "platnost_dokladu"], cols: "grid-cols-1 sm:grid-cols-3" },
