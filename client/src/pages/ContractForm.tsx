@@ -6,7 +6,7 @@ import { useStates } from "@/hooks/use-hierarchy";
 import { useToast } from "@/hooks/use-toast";
 import { useLocation, useParams } from "wouter";
 import type { Contract, ContractStatus, ContractStatusChangeLog, ContractTemplate, ContractInventory, Subject, Partner, Product, MyCompany, Sector, Section, SectorProduct, ContractPassword, ContractParameterValue, ContractFieldSetting, ClientType, ClientTypeField, ContractAcquirer, AppUser, ContractRewardDistribution } from "@shared/schema";
-import { ArrowLeft, Save, Loader2, LayoutGrid, KeyRound, Plus, Trash2, FileText, Users, ClipboardList, FolderOpen, FolderClosed, DollarSign, BarChart3, ListChecks, PieChart, ChevronLeft, ChevronRight, MessageSquare, Paperclip, Upload, X, Eye, Settings2, Calendar, UserCheck, Lock } from "lucide-react";
+import { ArrowLeft, Save, Loader2, LayoutGrid, KeyRound, Plus, Trash2, FileText, Users, ClipboardList, FolderOpen, FolderClosed, DollarSign, BarChart3, ListChecks, PieChart, ChevronLeft, ChevronRight, MessageSquare, Paperclip, Upload, X, Eye, Settings2, Calendar, UserCheck, Lock, Check } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -704,7 +704,15 @@ export default function ContractForm() {
   const contractId = params?.id ? parseInt(params.id) : null;
   const isEditing = !!contractId;
 
-  const [activeTab, setActiveTab] = useState<TabKey>("vseobecne");
+  const initialTab = (() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const tab = urlParams.get("tab");
+    if (tab && ["vseobecne", "udaje-klient", "udaje-zmluva", "dokumenty", "ziskatelia", "stavy", "zhrnutie", "odmeny", "provizne"].includes(tab)) {
+      return tab as TabKey;
+    }
+    return "vseobecne" as TabKey;
+  })();
+  const [activeTab, setActiveTab] = useState<TabKey>(initialTab);
   const [passwordsOpen, setPasswordsOpen] = useState(false);
   const timerRef = useRef<number>(0);
 
@@ -1209,8 +1217,8 @@ export default function ContractForm() {
         }
       }
       invalidateAllContractQueries();
-      toast({ title: "Uspech", description: "Zmluva uspesne zaevidovana" });
-      navigate("/evidencia-zmluv");
+      toast({ title: "Uspech", description: "Zmluva uspesne zaevidovana. Teraz priradite ziskatelov a hesla." });
+      navigate(`/contracts/${created.id}/edit?tab=ziskatelia`);
     },
     onError: () => toast({ title: "Chyba", description: "Nepodarilo sa vytvorit zmluvu", variant: "destructive" }),
   });
@@ -2063,6 +2071,25 @@ export default function ContractForm() {
                   </CardContent>
                 </Card>
               )}
+
+              <div style={{ display: isEditing ? 'flex' : 'none' }} className="items-center gap-2 pt-4 border-t border-border mt-4 flex-wrap">
+                <Button
+                  variant="outline"
+                  onClick={() => setPasswordsOpen(true)}
+                  data-testid="button-ziskatelia-passwords"
+                >
+                  <Lock className="w-4 h-4 mr-1" />
+                  Hesla k zmluvam
+                </Button>
+                <div className="flex-1" />
+                <Button
+                  onClick={() => navigate("/evidencia-zmluv")}
+                  data-testid="button-finish-contract"
+                >
+                  <Check className="w-4 h-4 mr-1" />
+                  Dokoncit
+                </Button>
+              </div>
             </div>
           </div>
 
