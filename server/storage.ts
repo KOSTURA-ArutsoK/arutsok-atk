@@ -146,7 +146,7 @@ export interface IStorage {
   getContacts(): Promise<Contact[]>;
   createContact(contact: Omit<Contact, "id">): Promise<Contact>;
   
-  getSubjects(params?: { search?: string; type?: 'person' | 'company'; isActive?: boolean }): Promise<Subject[]>;
+  getSubjects(params?: { search?: string; type?: 'person' | 'company'; isActive?: boolean; myCompanyId?: number }): Promise<Subject[]>;
   getSubject(id: number): Promise<Subject | undefined>;
   createSubject(subject: InsertSubject): Promise<Subject>;
   updateSubject(id: number, updates: UpdateSubjectRequest): Promise<Subject>;
@@ -269,7 +269,7 @@ export interface IStorage {
   createContractStatusChangeLog(data: InsertContractStatusChangeLog): Promise<ContractStatusChangeLog>;
 
   // Rejected contracts (ArutsoK 49)
-  getRejectedContracts(): Promise<Contract[]>;
+  getRejectedContracts(companyId?: number): Promise<Contract[]>;
 
   // Contract Templates
   getContractTemplates(stateId?: number): Promise<ContractTemplate[]>;
@@ -288,8 +288,8 @@ export interface IStorage {
   reorderContractInventories(items: { id: number; sortOrder: number }[]): Promise<void>;
 
   // Contracts
-  getContracts(filters?: { stateId?: number; statusId?: number; inventoryId?: number; includeDeleted?: boolean; unprocessed?: boolean; dispatched?: boolean }): Promise<Contract[]>;
-  getDispatchedContracts(): Promise<Contract[]>;
+  getContracts(filters?: { stateId?: number; statusId?: number; inventoryId?: number; includeDeleted?: boolean; unprocessed?: boolean; dispatched?: boolean; companyId?: number }): Promise<Contract[]>;
+  getDispatchedContracts(companyId?: number): Promise<Contract[]>;
   getSystemContractStatus(): Promise<ContractStatus | undefined>;
   getContract(id: number): Promise<Contract | undefined>;
   createContract(data: InsertContract): Promise<Contract>;
@@ -304,8 +304,8 @@ export interface IStorage {
   getContractsByAcquirer(userId: number): Promise<Contract[]>;
   checkContractDuplicate(contractNumber: string): Promise<{ exists: boolean; contract?: Contract; subjectName?: string }>;
   getSystemContractStatusByName(name: string): Promise<ContractStatus | undefined>;
-  getAcceptedContracts(): Promise<Contract[]>;
-  getArchivedContracts(): Promise<Contract[]>;
+  getAcceptedContracts(companyId?: number): Promise<Contract[]>;
+  getArchivedContracts(companyId?: number): Promise<Contract[]>;
 
   getContractPasswords(contractId: number): Promise<ContractPassword[]>;
   createContractPassword(data: InsertContractPassword): Promise<ContractPassword>;
@@ -801,7 +801,7 @@ export class DatabaseStorage implements IStorage {
     return newContact;
   }
 
-  async getSubjects(params?: { search?: string; type?: 'person' | 'company'; isActive?: boolean }) {
+  async getSubjects(params?: { search?: string; type?: 'person' | 'company'; isActive?: boolean; myCompanyId?: number }) {
     const contractCountSub = sql<number>`(SELECT COUNT(*)::int FROM contracts WHERE contracts.subject_id = subjects.id)`;
     const conditions = [];
 
@@ -817,6 +817,7 @@ export class DatabaseStorage implements IStorage {
     }
     if (params?.type) conditions.push(eq(subjects.type, params.type));
     if (params?.isActive !== undefined) conditions.push(eq(subjects.isActive, params.isActive));
+    if (params?.myCompanyId) conditions.push(eq(subjects.myCompanyId, params.myCompanyId));
 
     const query = db.select({
       subject: subjects,
@@ -1606,17 +1607,19 @@ export class DatabaseStorage implements IStorage {
 
   // === Rejected Contracts (ArutsoK 49) ===
 
-  async getRejectedContracts(): Promise<Contract[]> {
+  async getRejectedContracts(companyId?: number): Promise<Contract[]> {
     const rejectedStatus = await this.getSystemContractStatusByName("Neprijata - vyhrady");
     if (!rejectedStatus) return [];
     const hundredDaysAgo = new Date();
     hundredDaysAgo.setDate(hundredDaysAgo.getDate() - 100);
+    const conditions = [
+      eq(contracts.isDeleted, false),
+      eq(contracts.statusId, rejectedStatus.id),
+      gt(contracts.updatedAt, hundredDaysAgo),
+    ];
+    if (companyId) conditions.push(eq(contracts.companyId, companyId));
     return await db.select().from(contracts)
-      .where(and(
-        eq(contracts.isDeleted, false),
-        eq(contracts.statusId, rejectedStatus.id),
-        gt(contracts.updatedAt, hundredDaysAgo)
-      ))
+      .where(and(...conditions))
       .orderBy(sql`${contracts.updatedAt} DESC`);
   }
 
@@ -1694,7 +1697,7 @@ export class DatabaseStorage implements IStorage {
 
   // === Contracts ===
 
-  async getContracts(filters?: { stateId?: number; statusId?: number; inventoryId?: number; includeDeleted?: boolean; unprocessed?: boolean; dispatched?: boolean }): Promise<Contract[]> {
+  async getContracts(filters?: { stateId?: number; statusId?: number; inventoryId?: number; includeDeleted?: boolean; unprocessed?: boolean; dispatched?: boolean; companyId?: number }): Promise<Contract[]> {
     const conditions = [];
     if (!filters?.includeDeleted) {
       conditions.push(eq(contracts.isDeleted, false));
@@ -1711,22 +1714,27 @@ export class DatabaseStorage implements IStorage {
     if (filters?.unprocessed) {
       conditions.push(isNull(contracts.inventoryId));
     }
+    if (filters?.companyId) {
+      conditions.push(eq(contracts.companyId, filters.companyId));
+    }
     if (conditions.length > 0) {
       return await db.select().from(contracts).where(and(...conditions)).orderBy(sql`${contracts.createdAt} DESC`);
     }
     return await db.select().from(contracts).orderBy(sql`${contracts.createdAt} DESC`);
   }
 
-  async getDispatchedContracts(): Promise<Contract[]> {
+  async getDispatchedContracts(companyId?: number): Promise<Contract[]> {
+    const conditions = [
+      eq(contracts.isDeleted, false),
+      isNotNull(contracts.inventoryId),
+      eq(contractInventories.isAccepted, false),
+      eq(contractInventories.isDispatched, true),
+    ];
+    if (companyId) conditions.push(eq(contracts.companyId, companyId));
     return await db.select({ contract: contracts })
       .from(contracts)
       .innerJoin(contractInventories, eq(contracts.inventoryId, contractInventories.id))
-      .where(and(
-        eq(contracts.isDeleted, false),
-        isNotNull(contracts.inventoryId),
-        eq(contractInventories.isAccepted, false),
-        eq(contractInventories.isDispatched, true)
-      ))
+      .where(and(...conditions))
       .orderBy(contracts.inventoryId, contracts.sortOrderInInventory)
       .then(rows => rows.map(r => r.contract));
   }
@@ -1822,31 +1830,35 @@ export class DatabaseStorage implements IStorage {
     return status;
   }
 
-  async getAcceptedContracts(): Promise<Contract[]> {
+  async getAcceptedContracts(companyId?: number): Promise<Contract[]> {
     const acceptedStatus = await this.getSystemContractStatusByName("Prijata centrom - OK");
     if (!acceptedStatus) return [];
     const oneYearAgo = new Date();
     oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1);
+    const conditions = [
+      eq(contracts.isDeleted, false),
+      eq(contracts.statusId, acceptedStatus.id),
+      gte(contracts.acceptedAt, oneYearAgo),
+    ];
+    if (companyId) conditions.push(eq(contracts.companyId, companyId));
     return await db.select().from(contracts)
-      .where(and(
-        eq(contracts.isDeleted, false),
-        eq(contracts.statusId, acceptedStatus.id),
-        gte(contracts.acceptedAt, oneYearAgo)
-      ))
+      .where(and(...conditions))
       .orderBy(sql`${contracts.acceptedAt} DESC`);
   }
 
-  async getArchivedContracts(): Promise<Contract[]> {
+  async getArchivedContracts(companyId?: number): Promise<Contract[]> {
     const rejectedStatus = await this.getSystemContractStatusByName("Neprijata - vyhrady");
     if (!rejectedStatus) return [];
     const hundredDaysAgo = new Date();
     hundredDaysAgo.setDate(hundredDaysAgo.getDate() - 100);
+    const conditions = [
+      eq(contracts.isDeleted, false),
+      eq(contracts.statusId, rejectedStatus.id),
+      lte(contracts.updatedAt, hundredDaysAgo),
+    ];
+    if (companyId) conditions.push(eq(contracts.companyId, companyId));
     return await db.select().from(contracts)
-      .where(and(
-        eq(contracts.isDeleted, false),
-        eq(contracts.statusId, rejectedStatus.id),
-        lte(contracts.updatedAt, hundredDaysAgo)
-      ))
+      .where(and(...conditions))
       .orderBy(sql`${contracts.updatedAt} DESC`);
   }
 

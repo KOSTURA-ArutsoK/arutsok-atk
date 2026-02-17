@@ -25,6 +25,12 @@ export function useSetActiveContext() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/app-user/me"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/subjects"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/contracts"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/contracts/rejected"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/contracts/dispatched"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/contracts/accepted"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/contracts/archived"] });
     },
   });
 }

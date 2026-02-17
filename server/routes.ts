@@ -741,15 +741,17 @@ export async function registerRoutes(
 
   // === SUBJECTS ===
   app.get(api.subjects.list.path, async (req: any, res) => {
+    const appUser = req.appUser;
+    const activeCompanyId = appUser?.activeCompanyId || (req.query.activeCompanyId ? Number(req.query.activeCompanyId) : undefined);
     const params = {
       search: req.query.search as string,
       type: req.query.type as 'person' | 'company',
       isActive: req.query.isActive === 'true' ? true : req.query.isActive === 'false' ? false : undefined,
+      myCompanyId: activeCompanyId,
     };
     let allSubjects = await storage.getSubjects(params);
 
     const statusFiltersRaw = req.query.statusFilters as string | undefined;
-    const activeCompanyId = req.query.activeCompanyId ? Number(req.query.activeCompanyId) : undefined;
 
     if (statusFiltersRaw) {
       const filters = statusFiltersRaw.split(",").map((f: string) => f.trim());
@@ -797,6 +799,9 @@ export async function registerRoutes(
   app.post(api.subjects.create.path, async (req: any, res) => {
     try {
       const input = api.subjects.create.input.parse(req.body);
+      if (req.appUser?.activeCompanyId) {
+        input.myCompanyId = req.appUser.activeCompanyId;
+      }
       if (input.birthNumber) {
         input.birthNumber = encryptField(input.birthNumber);
       }
@@ -1555,9 +1560,10 @@ export async function registerRoutes(
   });
 
   // === REJECTED CONTRACTS (ArutsoK 49) ===
-  app.get("/api/contracts/rejected", isAuthenticated, async (_req: any, res) => {
+  app.get("/api/contracts/rejected", isAuthenticated, async (req: any, res) => {
     try {
-      res.json(await storage.getRejectedContracts());
+      const companyId = req.appUser?.activeCompanyId || undefined;
+      res.json(await storage.getRejectedContracts(companyId));
     } catch (err) { res.status(500).json({ message: "Internal error" }); }
   });
 
@@ -1822,9 +1828,10 @@ export async function registerRoutes(
   });
 
   // ArutsoK 45 - Get dispatched contracts (pending acceptance)
-  app.get("/api/contracts/dispatched", isAuthenticated, async (_req: any, res) => {
+  app.get("/api/contracts/dispatched", isAuthenticated, async (req: any, res) => {
     try {
-      const dispatched = await storage.getDispatchedContracts();
+      const companyId = req.appUser?.activeCompanyId || undefined;
+      const dispatched = await storage.getDispatchedContracts(companyId);
       res.json(dispatched);
     } catch (err) {
       res.status(500).json({ message: "Internal error" });
@@ -1856,18 +1863,20 @@ export async function registerRoutes(
   });
 
   // ArutsoK 47 - Get accepted contracts (folder 3)
-  app.get("/api/contracts/accepted", isAuthenticated, async (_req: any, res) => {
+  app.get("/api/contracts/accepted", isAuthenticated, async (req: any, res) => {
     try {
-      res.json(await storage.getAcceptedContracts());
+      const companyId = req.appUser?.activeCompanyId || undefined;
+      res.json(await storage.getAcceptedContracts(companyId));
     } catch (err) {
       res.status(500).json({ message: "Internal error" });
     }
   });
 
   // ArutsoK 47 - Get archived contracts (folder 4, older than 1 year)
-  app.get("/api/contracts/archived", isAuthenticated, async (_req: any, res) => {
+  app.get("/api/contracts/archived", isAuthenticated, async (req: any, res) => {
     try {
-      res.json(await storage.getArchivedContracts());
+      const companyId = req.appUser?.activeCompanyId || undefined;
+      res.json(await storage.getArchivedContracts(companyId));
     } catch (err) {
       res.status(500).json({ message: "Internal error" });
     }
@@ -1927,15 +1936,16 @@ export async function registerRoutes(
   }
 
   app.get(api.contractsApi.list.path, isAuthenticated, async (req: any, res) => {
+    const appUser = req.appUser;
     const filters = {
       stateId: getEnforcedStateId(req),
       statusId: req.query.statusId ? parseInt(req.query.statusId as string) : undefined,
       inventoryId: req.query.inventoryId ? parseInt(req.query.inventoryId as string) : undefined,
       includeDeleted: req.query.includeDeleted === 'true',
       unprocessed: req.query.unprocessed === 'true',
+      companyId: appUser?.activeCompanyId || undefined,
     };
     const allContracts = await storage.getContracts(filters);
-    const appUser = req.appUser;
     if (appUser) {
       const userUid = appUser.uid;
       let userIco: string | null = null;
@@ -1994,6 +2004,9 @@ export async function registerRoutes(
         }
       }
       const createData = { ...input, uploadedByUserId: appUser?.id || null };
+      if (appUser?.activeCompanyId) {
+        createData.companyId = appUser.activeCompanyId;
+      }
       if (!createData.statusId) {
         const defaultStatus = await storage.getSystemContractStatusByName("Nahrata do systemu");
         if (defaultStatus) {
