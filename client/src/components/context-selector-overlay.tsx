@@ -94,7 +94,7 @@ export function ContextSelectorOverlay({
             </p>
 
             <div className="flex flex-wrap justify-center gap-6 mt-4">
-              {states.map(s => (
+              {[...states].sort((a, b) => a.name.localeCompare(b.name, "sk")).map(s => (
                 <button
                   key={s.id}
                   type="button"
@@ -141,7 +141,7 @@ export function ContextSelectorOverlay({
             </p>
 
             <div className="flex flex-wrap justify-center gap-4 mt-4">
-              {filteredCompanies.map(c => {
+              {[...filteredCompanies].sort((a, b) => a.name.localeCompare(b.name, "sk")).map(c => {
                 const logoUrl = getPrimaryLogo(c.logos as LogoEntry[] | null);
                 return (
                   <button
