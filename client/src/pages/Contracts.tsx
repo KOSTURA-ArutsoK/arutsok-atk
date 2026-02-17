@@ -39,6 +39,7 @@ import { ProcessingSaveButton } from "@/components/processing-save-button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { HelpIcon } from "@/components/help-icon";
 import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
 
 function formatProcessingTime(seconds: number): string {
   const h = Math.floor(seconds / 3600);
@@ -1855,13 +1856,219 @@ export default function Contracts() {
             </p>
 
             {(() => {
+              const INLINE_ADDR_PREFIXES = ["tp", "ka", "koa"] as const;
+              const INLINE_ADDR_KEYS = INLINE_ADDR_PREFIXES.flatMap(p => [`${p}_ulica`, `${p}_supisne`, `${p}_orientacne`, `${p}_psc`, `${p}_mesto`, `${p}_stat`]);
+              const INLINE_ADDR_SWITCH_KEYS = ["korespond_rovnaka", "kontaktna_rovnaka"];
+              const INLINE_ADDR_ALL = new Set([...INLINE_ADDR_KEYS, ...INLINE_ADDR_SWITCH_KEYS]);
+
+              const INLINE_ADDR_PANELS = {
+                tp: { label: "Adresa trvalého pobytu", keys: ["tp_ulica", "tp_supisne", "tp_orientacne", "tp_psc", "tp_mesto", "tp_stat"] },
+                ka: { label: "Korešpondenčná adresa", keys: ["ka_ulica", "ka_supisne", "ka_orientacne", "ka_psc", "ka_mesto", "ka_stat"] },
+                koa: { label: "Kontaktná adresa", keys: ["koa_ulica", "koa_supisne", "koa_orientacne", "koa_psc", "koa_mesto", "koa_stat"] },
+              };
+
+              const renderInlineField = (field: ClientTypeField) => {
+                if (field.fieldType === "switch") {
+                  return (
+                    <div className="flex items-center gap-2 pt-1">
+                      <Switch
+                        checked={inlineFormValues[field.fieldKey] === "true"}
+                        onCheckedChange={checked => setInlineFormValues(prev => ({ ...prev, [field.fieldKey]: String(checked) }))}
+                        data-testid={`switch-inline-${field.fieldKey}`}
+                      />
+                      <span className="text-sm text-muted-foreground">{inlineFormValues[field.fieldKey] === "true" ? "Ano" : "Nie"}</span>
+                    </div>
+                  );
+                }
+                if (field.fieldType === "jedna_moznost") {
+                  return (
+                    <Select
+                      value={inlineFormValues[field.fieldKey] || ""}
+                      onValueChange={val => setInlineFormValues(prev => ({ ...prev, [field.fieldKey]: val }))}
+                    >
+                      <SelectTrigger data-testid={`select-inline-${field.fieldKey}`}>
+                        <SelectValue placeholder="Vyberte..." />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {(field.options || []).map((opt: string) => (
+                          <SelectItem key={opt} value={opt}>{opt}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  );
+                }
+                if (field.fieldType === "date") {
+                  return (
+                    <Input
+                      type="date"
+                      value={inlineFormValues[field.fieldKey] || ""}
+                      onChange={e => setInlineFormValues(prev => ({ ...prev, [field.fieldKey]: e.target.value }))}
+                      data-testid={`input-inline-${field.fieldKey}`}
+                    />
+                  );
+                }
+                if (field.fieldType === "number") {
+                  return (
+                    <Input
+                      type="number"
+                      value={inlineFormValues[field.fieldKey] || ""}
+                      onChange={e => setInlineFormValues(prev => ({ ...prev, [field.fieldKey]: e.target.value }))}
+                      data-testid={`input-inline-${field.fieldKey}`}
+                    />
+                  );
+                }
+                if (field.fieldType === "phone") {
+                  return (
+                    <Input
+                      type="tel"
+                      value={inlineFormValues[field.fieldKey] || ""}
+                      onChange={e => setInlineFormValues(prev => ({ ...prev, [field.fieldKey]: e.target.value }))}
+                      placeholder="+421..."
+                      data-testid={`input-inline-${field.fieldKey}`}
+                    />
+                  );
+                }
+                return (
+                  <Input
+                    value={inlineFormValues[field.fieldKey] || ""}
+                    onChange={e => setInlineFormValues(prev => ({ ...prev, [field.fieldKey]: e.target.value }))}
+                    data-testid={`input-inline-${field.fieldKey}`}
+                  />
+                );
+              };
+
+              const renderInlineAddressCards = (panelFields: ClientTypeField[]) => {
+                const inlineKorRovnaka = inlineFormValues["korespond_rovnaka"] === "true";
+                const inlineKontRovnaka = inlineFormValues["kontaktna_rovnaka"] === "true";
+
+                const ADDR_FALLBACK: Record<string, string> = {
+                  ulica: "Ulica", supisne: "Súpisné číslo", orientacne: "Orientačné číslo",
+                  psc: "PSČ", mesto: "Mesto", stat: "Štát",
+                };
+
+                const renderAddrCard = (prefix: "tp" | "ka" | "koa", panelDef: typeof INLINE_ADDR_PANELS["tp"], disabled: boolean) => {
+                  const fieldKeys = panelDef.keys;
+                  const fields = fieldKeys.map(k => {
+                    const found = panelFields.find(f => f.fieldKey === k);
+                    const suffix = k.split("_").slice(1).join("_");
+                    return { key: k, field: found, suffix };
+                  });
+
+                  return (
+                    <Card className={disabled ? "opacity-50 pointer-events-none" : ""} data-testid={`panel-inline-address-${prefix}`}>
+                      <CardContent className="p-3 space-y-2">
+                        <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">{panelDef.label}</h4>
+                        <div className="grid grid-cols-3 gap-2">
+                          {fields.slice(0, 3).map(({ key, field, suffix }) => (
+                            <div key={key} className="space-y-1">
+                              <label className="text-xs font-medium">
+                                {field?.label || ADDR_FALLBACK[suffix] || suffix}{field?.isRequired ? " *" : ""}
+                              </label>
+                              <Input
+                                value={inlineFormValues[key] || ""}
+                                onChange={e => setInlineFormValues(prev => ({ ...prev, [key]: e.target.value }))}
+                                disabled={disabled}
+                                data-testid={`input-inline-${key}`}
+                              />
+                            </div>
+                          ))}
+                        </div>
+                        <div className="grid grid-cols-2 gap-2">
+                          {fields.slice(3, 5).map(({ key, field, suffix }) => (
+                            <div key={key} className="space-y-1">
+                              <label className="text-xs font-medium">
+                                {field?.label || ADDR_FALLBACK[suffix] || suffix}{field?.isRequired ? " *" : ""}
+                              </label>
+                              <Input
+                                value={inlineFormValues[key] || ""}
+                                onChange={e => setInlineFormValues(prev => ({ ...prev, [key]: e.target.value }))}
+                                disabled={disabled}
+                                data-testid={`input-inline-${key}`}
+                              />
+                            </div>
+                          ))}
+                        </div>
+                        <div className="grid grid-cols-1 gap-2">
+                          {fields.slice(5, 6).map(({ key, field, suffix }) => (
+                            <div key={key} className="space-y-1">
+                              <label className="text-xs font-medium">
+                                {field?.label || ADDR_FALLBACK[suffix] || suffix}{field?.isRequired ? " *" : ""}
+                              </label>
+                              <Input
+                                value={inlineFormValues[key] || ""}
+                                onChange={e => setInlineFormValues(prev => ({ ...prev, [key]: e.target.value }))}
+                                disabled={disabled}
+                                data-testid={`input-inline-${key}`}
+                              />
+                            </div>
+                          ))}
+                        </div>
+                      </CardContent>
+                    </Card>
+                  );
+                };
+
+                return (
+                  <div className="space-y-3" data-testid="panel-inline-address">
+                    <div className="flex items-center gap-2">
+                      <div className="h-px flex-1 bg-border" />
+                      <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Adresa</span>
+                      <div className="h-px flex-1 bg-border" />
+                    </div>
+                    <div className="grid grid-cols-3 gap-3 items-stretch" data-testid="inline-row-address-panels">
+                      <div className="flex flex-col">
+                        {renderAddrCard("tp", INLINE_ADDR_PANELS.tp, false)}
+                        <div className="flex items-center gap-2 mt-2 px-1">
+                          <Switch
+                            checked={inlineKorRovnaka}
+                            onCheckedChange={checked => setInlineFormValues(prev => ({ ...prev, korespond_rovnaka: String(checked) }))}
+                            data-testid="switch-inline-korespond-rovnaka"
+                          />
+                          <Label className="text-xs cursor-pointer" onClick={() => setInlineFormValues(prev => ({ ...prev, korespond_rovnaka: String(prev["korespond_rovnaka"] !== "true") }))}>
+                            Korešp. = trvalá
+                          </Label>
+                        </div>
+                      </div>
+                      <div className="flex flex-col">
+                        {renderAddrCard("ka", INLINE_ADDR_PANELS.ka, inlineKorRovnaka)}
+                        <div className="flex items-center gap-2 mt-2 px-1">
+                          <Switch
+                            checked={inlineKontRovnaka}
+                            onCheckedChange={checked => setInlineFormValues(prev => ({ ...prev, kontaktna_rovnaka: String(checked) }))}
+                            disabled={inlineKorRovnaka}
+                            data-testid="switch-inline-kontaktna-rovnaka"
+                          />
+                          <Label className="text-xs cursor-pointer" onClick={() => { if (!inlineKorRovnaka) setInlineFormValues(prev => ({ ...prev, kontaktna_rovnaka: String(prev["kontaktna_rovnaka"] !== "true") })); }}>
+                            Kontaktná = trvalá
+                          </Label>
+                        </div>
+                      </div>
+                      <div className="flex flex-col">
+                        {renderAddrCard("koa", INLINE_ADDR_PANELS.koa, inlineKontRovnaka || inlineKorRovnaka)}
+                      </div>
+                    </div>
+                  </div>
+                );
+              };
+
+              const isAddressPanel = (panel: ClientTypePanel) => {
+                const panelFields = (inlineFields || []).filter(f => f.panelId === panel.id);
+                return inlineClientType === "fo" && panelFields.some(f => INLINE_ADDR_ALL.has(f.fieldKey));
+              };
+
               const renderPanels = (panels: ClientTypePanel[]) => panels.sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0)).map(panel => {
                 const panelFields = (inlineFields || [])
                   .filter(f => f.panelId === panel.id)
                   .sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0));
 
+                if (isAddressPanel(panel)) {
+                  return <div key={panel.id}>{renderInlineAddressCards(panelFields)}</div>;
+                }
+
+                const nonAddrFields = panelFields.filter(f => !INLINE_ADDR_ALL.has(f.fieldKey));
+
                 return (
-                  <div key={panel.id} className="space-y-3" style={{ display: panelFields.length > 0 ? 'block' : 'none' }} data-testid={`panel-inline-${panel.id}`}>
+                  <div key={panel.id} className="space-y-3" style={{ display: nonAddrFields.length > 0 ? 'block' : 'none' }} data-testid={`panel-inline-${panel.id}`}>
                     <div className="flex items-center gap-2">
                       <div className="h-px flex-1 bg-border" />
                       <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">{panel.name}</span>
@@ -1869,7 +2076,7 @@ export default function Contracts() {
                     </div>
 
                     <div className="grid gap-3" style={{ gridTemplateColumns: `repeat(${panel.gridColumns || 2}, 1fr)` }}>
-                      {panelFields.map(field => {
+                      {nonAddrFields.map(field => {
                         const rule = field.visibilityRule as { dependsOn: string; value: string } | null;
                         const isVisible = !rule || inlineFormValues[rule.dependsOn] === rule.value;
 
@@ -1883,59 +2090,7 @@ export default function Contracts() {
                             <label className="text-xs font-medium">
                               {field.label}{field.isRequired ? " *" : ""}
                             </label>
-
-                            {field.fieldType === "switch" ? (
-                              <div className="flex items-center gap-2 pt-1">
-                                <Switch
-                                  checked={inlineFormValues[field.fieldKey] === "true"}
-                                  onCheckedChange={checked => setInlineFormValues(prev => ({ ...prev, [field.fieldKey]: String(checked) }))}
-                                  data-testid={`switch-inline-${field.fieldKey}`}
-                                />
-                                <span className="text-sm text-muted-foreground">{inlineFormValues[field.fieldKey] === "true" ? "Ano" : "Nie"}</span>
-                              </div>
-                            ) : field.fieldType === "jedna_moznost" ? (
-                              <Select
-                                value={inlineFormValues[field.fieldKey] || ""}
-                                onValueChange={val => setInlineFormValues(prev => ({ ...prev, [field.fieldKey]: val }))}
-                              >
-                                <SelectTrigger data-testid={`select-inline-${field.fieldKey}`}>
-                                  <SelectValue placeholder="Vyberte..." />
-                                </SelectTrigger>
-                                <SelectContent>
-                                  {(field.options || []).map((opt: string) => (
-                                    <SelectItem key={opt} value={opt}>{opt}</SelectItem>
-                                  ))}
-                                </SelectContent>
-                              </Select>
-                            ) : field.fieldType === "date" ? (
-                              <Input
-                                type="date"
-                                value={inlineFormValues[field.fieldKey] || ""}
-                                onChange={e => setInlineFormValues(prev => ({ ...prev, [field.fieldKey]: e.target.value }))}
-                                data-testid={`input-inline-${field.fieldKey}`}
-                              />
-                            ) : field.fieldType === "number" ? (
-                              <Input
-                                type="number"
-                                value={inlineFormValues[field.fieldKey] || ""}
-                                onChange={e => setInlineFormValues(prev => ({ ...prev, [field.fieldKey]: e.target.value }))}
-                                data-testid={`input-inline-${field.fieldKey}`}
-                              />
-                            ) : field.fieldType === "phone" ? (
-                              <Input
-                                type="tel"
-                                value={inlineFormValues[field.fieldKey] || ""}
-                                onChange={e => setInlineFormValues(prev => ({ ...prev, [field.fieldKey]: e.target.value }))}
-                                placeholder="+421..."
-                                data-testid={`input-inline-${field.fieldKey}`}
-                              />
-                            ) : (
-                              <Input
-                                value={inlineFormValues[field.fieldKey] || ""}
-                                onChange={e => setInlineFormValues(prev => ({ ...prev, [field.fieldKey]: e.target.value }))}
-                                data-testid={`input-inline-${field.fieldKey}`}
-                              />
-                            )}
+                            {renderInlineField(field)}
                           </div>
                         );
                       })}
