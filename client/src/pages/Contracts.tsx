@@ -1347,7 +1347,8 @@ export default function Contracts() {
   function renderContractTable(list: Contract[], options?: { showCheckbox?: boolean; showOrder?: boolean; showStatus?: boolean; showRegistration?: boolean; showActions?: boolean }) {
     const { showCheckbox, showOrder, showStatus, showRegistration, showActions = true } = options || {};
     return (
-      <Table>
+      <div className="relative overflow-auto" style={{ maxHeight: 'calc(100vh - 350px)' }}>
+      <Table stickyHeader>
         <TableHeader>
           <TableRow>
             {showCheckbox && (
@@ -1454,6 +1455,7 @@ export default function Contracts() {
           })}
         </TableBody>
       </Table>
+      </div>
     );
   }
 
@@ -2361,7 +2363,8 @@ export default function Contracts() {
               Ziadne zmluvy
             </p>
           ) : (
-            <Table>
+            <div className="relative overflow-auto" style={{ maxHeight: 'calc(100vh - 300px)' }}>
+            <Table stickyHeader>
               <TableHeader>
                 <TableRow>
                   <TableHead>Cislo zmluvy</TableHead>
@@ -2453,6 +2456,7 @@ export default function Contracts() {
                 })}
               </TableBody>
             </Table>
+            </div>
           )}
         </CardContent>
       </Card>

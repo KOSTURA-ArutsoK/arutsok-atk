@@ -3,18 +3,21 @@ import { useState, useCallback, useRef } from "react"
 
 import { cn } from "@/lib/utils"
 
-const Table = React.forwardRef<
-  HTMLTableElement,
-  React.HTMLAttributes<HTMLTableElement>
->(({ className, ...props }, ref) => (
-  <div className="relative w-full overflow-x-auto">
-    <table
-      ref={ref}
-      className={cn("w-full caption-bottom text-sm border-separate border-spacing-0", className)}
-      {...props}
-    />
-  </div>
-))
+interface TableProps extends React.HTMLAttributes<HTMLTableElement> {
+  stickyHeader?: boolean;
+}
+
+const Table = React.forwardRef<HTMLTableElement, TableProps>(
+  ({ className, stickyHeader, ...props }, ref) => (
+    <div className="relative w-full" style={stickyHeader ? { overflow: 'visible' } : { overflowX: 'auto' }}>
+      <table
+        ref={ref}
+        className={cn("w-full caption-bottom text-sm border-separate border-spacing-0", className)}
+        {...props}
+      />
+    </div>
+  )
+)
 Table.displayName = "Table"
 
 const TableHeader = React.forwardRef<
