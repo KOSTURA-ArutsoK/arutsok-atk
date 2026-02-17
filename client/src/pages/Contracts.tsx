@@ -1515,6 +1515,19 @@ export default function Contracts() {
   };
 
   const handleInlineCreateSubject = async () => {
+    if (foFields) {
+      const missingRequired = foFields.filter(f => {
+        if (!f.isRequired) return false;
+        const rule = f.visibilityRule as { dependsOn: string; value: string } | null;
+        if (rule && inlineFormValues[rule.dependsOn] !== rule.value) return false;
+        const val = inlineFormValues[f.fieldKey]?.trim();
+        return !val;
+      });
+      if (missingRequired.length > 0) {
+        toast({ title: "Chyba", description: `Vyplnte povinne polia: ${missingRequired.map(f => f.label).join(", ")}`, variant: "destructive" });
+        return;
+      }
+    }
     const meno = inlineFormValues["meno"]?.trim();
     const priezvisko = inlineFormValues["priezvisko"]?.trim();
     if (!meno || !priezvisko) {
@@ -1530,6 +1543,7 @@ export default function Contracts() {
           if (val !== undefined && val !== "") details[f.fieldKey] = val;
         });
       }
+      const activeState = allStates?.find(s => s.id === appUser?.activeStateId);
       const payload: any = {
         type: "person",
         firstName: meno,
@@ -1539,6 +1553,7 @@ export default function Contracts() {
         phone: inlineFormValues["telefon"] || null,
         idCardNumber: inlineFormValues["cislo_dokladu"] || null,
         details,
+        continentId: activeState?.continentId || null,
         stateId: appUser?.activeStateId || null,
         myCompanyId: appUser?.activeCompanyId || null,
       };
@@ -1736,10 +1751,8 @@ export default function Contracts() {
                 .filter(f => f.panelId === panel.id)
                 .sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0));
 
-              if (panelFields.length === 0) return null;
-
               return (
-                <div key={panel.id} className="space-y-3" data-testid={`panel-inline-${panel.id}`}>
+                <div key={panel.id} className="space-y-3" style={{ display: panelFields.length > 0 ? 'block' : 'none' }} data-testid={`panel-inline-${panel.id}`}>
                   <div className="flex items-center gap-2">
                     <div className="h-px flex-1 bg-border" />
                     <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">{panel.name}</span>
