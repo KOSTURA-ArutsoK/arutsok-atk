@@ -5,7 +5,7 @@ import { useAppUser } from "@/hooks/use-app-user";
 import { useStates } from "@/hooks/use-hierarchy";
 import { useToast } from "@/hooks/use-toast";
 import { useLocation } from "wouter";
-import type { Contract, ContractStatus, ContractTemplate, ContractInventory, Subject, Partner, Product, MyCompany, Sector, Section, SectorProduct, ClientGroup } from "@shared/schema";
+import type { Contract, ContractStatus, ContractTemplate, ContractInventory, Subject, Partner, Product, MyCompany, Sector, Section, SectorProduct, ClientGroup, ClientTypeSection, ClientTypePanel, ClientTypeField } from "@shared/schema";
 import { Plus, Pencil, Trash2, Eye, FileText, Loader2, Lock, LayoutGrid, Send, Upload, Inbox, CheckCircle2, ChevronDown, ChevronRight, Printer, Search, Archive, AlertTriangle, Calendar, XCircle, MessageSquare, Paperclip } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { MultiSelectCheckboxes } from "@/components/multi-select-checkboxes";
@@ -39,7 +39,6 @@ import { ProcessingSaveButton } from "@/components/processing-save-button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { HelpIcon } from "@/components/help-icon";
 import { Switch } from "@/components/ui/switch";
-import type { ClientTypeField, ClientTypePanel, ClientTypeSection } from "@shared/schema";
 
 function formatProcessingTime(seconds: number): string {
   const h = Math.floor(seconds / 3600);
@@ -965,6 +964,8 @@ export default function Contracts() {
   const [showInlineCreate, setShowInlineCreate] = useState(false);
   const [inlineFormValues, setInlineFormValues] = useState<Record<string, string>>({});
   const [inlineCreating, setInlineCreating] = useState(false);
+  const [inlineClientType, setInlineClientType] = useState<"fo" | "szco">("fo");
+  const [szcoPhase, setSzcoPhase] = useState<1 | 2>(1);
   const [importDialogOpen, setImportDialogOpen] = useState(false);
   const [importFile, setImportFile] = useState<File | null>(null);
   const [importResult, setImportResult] = useState<{ total: number; success: number; errors: number; details: any[] } | null>(null);
@@ -979,15 +980,23 @@ export default function Contracts() {
     queryKey: ["/api/contract-inventories"],
   });
 
-  const { data: foSections } = useQuery<ClientTypeSection[]>({
-    queryKey: ["/api/client-types", 1, "sections"],
-  });
-  const { data: foPanels } = useQuery<ClientTypePanel[]>({
-    queryKey: ["/api/client-types", 1, "panels"],
-  });
-  const { data: foFields } = useQuery<ClientTypeField[]>({
-    queryKey: ["/api/client-types", 1, "fields"],
-  });
+  const { data: foSections } = useQuery<ClientTypeSection[]>({ queryKey: ["/api/client-types", 1, "sections"] });
+  const { data: foPanels } = useQuery<ClientTypePanel[]>({ queryKey: ["/api/client-types", 1, "panels"] });
+  const { data: foAllFields } = useQuery<ClientTypeField[]>({ queryKey: ["/api/client-types", 1, "fields"] });
+  const { data: szcoSections } = useQuery<ClientTypeSection[]>({ queryKey: ["/api/client-types", 3, "sections"] });
+  const { data: szcoPanels } = useQuery<ClientTypePanel[]>({ queryKey: ["/api/client-types", 3, "panels"] });
+  const { data: szcoAllFields } = useQuery<ClientTypeField[]>({ queryKey: ["/api/client-types", 3, "fields"] });
+
+  const activeSections = inlineClientType === "szco" ? szcoSections : foSections;
+  const activePanelsRaw = inlineClientType === "szco" ? szcoPanels : foPanels;
+  const activeFieldsRaw = inlineClientType === "szco" ? szcoAllFields : foAllFields;
+
+  const povinneSection = activeSections?.find(s => s.name === "POVINNÉ ÚDAJE");
+  const inlineFields = activeFieldsRaw?.filter(f => povinneSection ? f.sectionId === povinneSection.id : true) || [];
+  const inlinePanelsFiltered = activePanelsRaw?.filter(p => povinneSection ? p.sectionId === povinneSection.id : true) || [];
+
+  const szcoPanelFirma = inlinePanelsFiltered.filter(p => p.name === "Subjekt SZČO" || p.name === "Sídlo spoločnosti");
+  const szcoPanelOsoba = inlinePanelsFiltered.filter(p => !szcoPanelFirma.some(fp => fp.id === p.id));
 
   const contractsParams = (() => {
     if (isEvidencia) {
@@ -1202,7 +1211,7 @@ export default function Contracts() {
     if (!subjectId) return "-";
     const s = subjects?.find(sub => sub.id === subjectId);
     if (!s) return "-";
-    return s.type === "person" ? `${s.firstName} ${s.lastName}` : (s.companyName || "-");
+    return s.type === "person" ? `${s.firstName} ${s.lastName}` : s.type === "szco" ? `${s.companyName || ""} - ${s.firstName} ${s.lastName}` : (s.companyName || "-");
   }
 
   async function handleExcelImport() {
@@ -1499,55 +1508,64 @@ export default function Contracts() {
     setPreSelectSubjectId("");
     setShowInlineCreate(false);
     setInlineFormValues({});
+    setInlineClientType("fo");
+    setSzcoPhase(1);
     setPreSelectOpen(true);
   };
 
-  const handleShowInlineCreate = () => {
+  const handleShowInlineCreate = (type: "fo" | "szco") => {
+    setInlineClientType(type);
+    setSzcoPhase(1);
     setShowInlineCreate(true);
     setPreSelectSubjectId("");
     const defaults: Record<string, string> = {};
-    if (foFields) {
-      foFields.forEach(f => {
-        if (f.defaultValue) defaults[f.fieldKey] = f.defaultValue;
-      });
-    }
+    const targetSections = type === "szco" ? szcoSections : foSections;
+    const targetFields = type === "szco" ? szcoAllFields : foAllFields;
+    const povSection = targetSections?.find(s => s.name === "POVINNÉ ÚDAJE");
+    const fields = targetFields?.filter(f => povSection ? f.sectionId === povSection.id : true) || [];
+    fields.forEach(f => {
+      if (f.defaultValue) defaults[f.fieldKey] = f.defaultValue;
+    });
     setInlineFormValues(defaults);
   };
 
   const handleInlineCreateSubject = async () => {
-    if (foFields) {
-      const missingRequired = foFields.filter(f => {
-        if (!f.isRequired) return false;
-        const rule = f.visibilityRule as { dependsOn: string; value: string } | null;
-        if (rule && inlineFormValues[rule.dependsOn] !== rule.value) return false;
-        const val = inlineFormValues[f.fieldKey]?.trim();
-        return !val;
-      });
-      if (missingRequired.length > 0) {
-        toast({ title: "Chyba", description: `Vyplnte povinne polia: ${missingRequired.map(f => f.label).join(", ")}`, variant: "destructive" });
-        return;
-      }
+    const fieldsToValidate = inlineFields || [];
+    const missingRequired = fieldsToValidate.filter(f => {
+      if (!f.isRequired) return false;
+      const rule = f.visibilityRule as { dependsOn: string; value: string } | null;
+      if (rule && inlineFormValues[rule.dependsOn] !== rule.value) return false;
+      const val = inlineFormValues[f.fieldKey]?.trim();
+      return !val;
+    });
+    if (missingRequired.length > 0) {
+      toast({ title: "Chyba", description: `Vyplnte povinne polia: ${missingRequired.map(f => f.label).join(", ")}`, variant: "destructive" });
+      return;
     }
+
     const meno = inlineFormValues["meno"]?.trim();
     const priezvisko = inlineFormValues["priezvisko"]?.trim();
     if (!meno || !priezvisko) {
       toast({ title: "Chyba", description: "Meno a priezvisko su povinne", variant: "destructive" });
       return;
     }
+
     setInlineCreating(true);
     try {
       const details: Record<string, string> = {};
-      if (foFields) {
-        foFields.forEach(f => {
-          const val = inlineFormValues[f.fieldKey];
-          if (val !== undefined && val !== "") details[f.fieldKey] = val;
-        });
-      }
+      fieldsToValidate.forEach(f => {
+        const val = inlineFormValues[f.fieldKey];
+        if (val !== undefined && val !== "") details[f.fieldKey] = val;
+      });
+
       const activeState = allStates?.find(s => s.id === appUser?.activeStateId);
+      const isSzco = inlineClientType === "szco";
+
       const payload: any = {
-        type: "person",
+        type: isSzco ? "szco" : "person",
         firstName: meno,
         lastName: priezvisko,
+        companyName: isSzco ? (inlineFormValues["nazov_organizacie"]?.trim() || null) : null,
         birthNumber: inlineFormValues["rodne_cislo"] || null,
         email: inlineFormValues["email"] || null,
         phone: inlineFormValues["telefon"] || null,
@@ -1557,10 +1575,14 @@ export default function Contracts() {
         stateId: appUser?.activeStateId || null,
         myCompanyId: appUser?.activeCompanyId || null,
       };
+
       const res = await apiRequest("POST", "/api/subjects", payload);
       const created = await res.json();
       queryClient.invalidateQueries({ queryKey: ["/api/subjects"] });
-      toast({ title: "Klient vytvoreny", description: `${meno} ${priezvisko} (${created.uid})` });
+
+      const displayName = isSzco ? `${inlineFormValues["nazov_organizacie"]} - ${meno} ${priezvisko}` : `${meno} ${priezvisko}`;
+      toast({ title: "Klient vytvoreny", description: `${displayName} (${created.uid})` });
+
       setPreSelectSubjectId(created.id.toString());
       setShowInlineCreate(false);
       const params = new URLSearchParams();
@@ -1585,9 +1607,11 @@ export default function Contracts() {
     return active.filter(s => {
       const fullName = s.type === "company"
         ? (s.companyName || "")
+        : s.type === "szco"
+        ? `${s.companyName || ""} ${s.firstName || ""} ${s.lastName || ""}`.trim()
         : `${s.firstName || ""} ${s.lastName || ""}`.trim();
       const birthNum = s.birthNumber || "";
-      const ico = (s as any).ico || "";
+      const ico = (s.details as any)?.ico || "";
       return fullName.toLowerCase().includes(q) || birthNum.includes(q) || ico.includes(q) || (s.uid || "").toLowerCase().includes(q);
     });
   })();
@@ -1597,7 +1621,7 @@ export default function Contracts() {
       <DialogContent className={showInlineCreate ? "max-w-[900px] max-h-[90vh] overflow-y-auto" : "max-w-[600px]"} data-testid="dialog-pre-select-contract">
         <DialogHeader>
           <DialogTitle data-testid="text-preselect-title">
-            {preSelectStep === 1 ? "Krok 1: Vyber partnera a produktu" : showInlineCreate ? "Krok 2: Novy klient (FO)" : "Krok 2: Vyber klienta (subjektu)"}
+            {preSelectStep === 1 ? "Krok 1: Vyber partnera a produktu" : showInlineCreate ? `Krok 2: Novy klient (${inlineClientType === "szco" ? "SZČO" : "FO"})` : "Krok 2: Vyber klienta (subjektu)"}
           </DialogTitle>
         </DialogHeader>
 
@@ -1681,9 +1705,11 @@ export default function Contracts() {
                 preSelectFilteredSubjects.map(s => {
                   const displayName = s.type === "company"
                     ? (s.companyName || "Bez nazvu")
+                    : s.type === "szco"
+                    ? `${s.companyName || ""} - ${s.firstName || ""} ${s.lastName || ""}`.trim()
                     : `${s.firstName || ""} ${s.lastName || ""}`.trim() || "Bez mena";
-                  const typeLabel = s.type === "person" ? "FO" : s.type === "company" ? "PO" : s.type === "szco" ? "SZCO" : s.type;
-                  const identifier = s.type === "company" ? ((s as any).ico || "") : (s.birthNumber || "");
+                  const typeLabel = s.type === "person" ? "FO" : s.type === "company" ? "PO" : s.type === "szco" ? "SZČO" : s.type;
+                  const identifier = s.type === "company" ? ((s as any).ico || "") : s.type === "szco" ? ((s.details as any)?.ico || s.birthNumber || "") : (s.birthNumber || "");
                   const isSelected = preSelectSubjectId === s.id.toString();
                   return (
                     <div
@@ -1718,12 +1744,18 @@ export default function Contracts() {
                     <AlertTriangle className="w-5 h-5 text-amber-500 flex-shrink-0" />
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-medium">Klient nenajdeny v systeme</p>
-                      <p className="text-xs text-muted-foreground">Mozete vytvorit noveho klienta (FO) priamo tu.</p>
+                      <p className="text-xs text-muted-foreground">Vytvorte noveho klienta priamo tu.</p>
                     </div>
-                    <Button size="sm" onClick={handleShowInlineCreate} data-testid="button-inline-create-subject">
-                      <Plus className="w-4 h-4 mr-1" />
-                      Novy klient
-                    </Button>
+                    <div className="flex items-center gap-2">
+                      <Button size="sm" onClick={() => handleShowInlineCreate("fo")} data-testid="button-inline-create-fo">
+                        <Plus className="w-4 h-4 mr-1" />
+                        Novy FO
+                      </Button>
+                      <Button size="sm" variant="outline" onClick={() => handleShowInlineCreate("szco")} data-testid="button-inline-create-szco">
+                        <Plus className="w-4 h-4 mr-1" />
+                        Novy SZČO
+                      </Button>
+                    </div>
                   </div>
                 </CardContent>
               </Card>
@@ -1743,106 +1775,165 @@ export default function Contracts() {
         <div style={{ display: preSelectStep === 2 && showInlineCreate ? 'block' : 'none' }}>
           <div className="space-y-4">
             <p className="text-sm text-muted-foreground">
-              Vyplnte udaje noveho klienta (FO) podla pravidiel typov klientov.
+              {inlineClientType === "szco"
+                ? "Vyplnte udaje noveho SZČO podla pravidiel. Najprv podnikatelske udaje, potom osobne."
+                : "Vyplnte udaje noveho klienta (FO) podla pravidiel typov klientov."
+              }
             </p>
 
-            {foPanels?.sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0)).map(panel => {
-              const panelFields = (foFields || [])
-                .filter(f => f.panelId === panel.id)
-                .sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0));
+            {(() => {
+              const renderPanels = (panels: ClientTypePanel[]) => panels.sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0)).map(panel => {
+                const panelFields = (inlineFields || [])
+                  .filter(f => f.panelId === panel.id)
+                  .sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0));
+
+                return (
+                  <div key={panel.id} className="space-y-3" style={{ display: panelFields.length > 0 ? 'block' : 'none' }} data-testid={`panel-inline-${panel.id}`}>
+                    <div className="flex items-center gap-2">
+                      <div className="h-px flex-1 bg-border" />
+                      <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">{panel.name}</span>
+                      <div className="h-px flex-1 bg-border" />
+                    </div>
+
+                    <div className="grid gap-3" style={{ gridTemplateColumns: `repeat(${panel.gridColumns || 2}, 1fr)` }}>
+                      {panelFields.map(field => {
+                        const rule = field.visibilityRule as { dependsOn: string; value: string } | null;
+                        const isVisible = !rule || inlineFormValues[rule.dependsOn] === rule.value;
+
+                        return (
+                          <div
+                            key={field.id}
+                            className="space-y-1"
+                            style={{ display: isVisible ? 'block' : 'none' }}
+                            data-testid={`field-inline-${field.fieldKey}`}
+                          >
+                            <label className="text-xs font-medium">
+                              {field.label}{field.isRequired ? " *" : ""}
+                            </label>
+
+                            {field.fieldType === "switch" ? (
+                              <div className="flex items-center gap-2 pt-1">
+                                <Switch
+                                  checked={inlineFormValues[field.fieldKey] === "true"}
+                                  onCheckedChange={checked => setInlineFormValues(prev => ({ ...prev, [field.fieldKey]: String(checked) }))}
+                                  data-testid={`switch-inline-${field.fieldKey}`}
+                                />
+                                <span className="text-sm text-muted-foreground">{inlineFormValues[field.fieldKey] === "true" ? "Ano" : "Nie"}</span>
+                              </div>
+                            ) : field.fieldType === "jedna_moznost" ? (
+                              <Select
+                                value={inlineFormValues[field.fieldKey] || ""}
+                                onValueChange={val => setInlineFormValues(prev => ({ ...prev, [field.fieldKey]: val }))}
+                              >
+                                <SelectTrigger data-testid={`select-inline-${field.fieldKey}`}>
+                                  <SelectValue placeholder="Vyberte..." />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {(field.options || []).map((opt: string) => (
+                                    <SelectItem key={opt} value={opt}>{opt}</SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                            ) : field.fieldType === "date" ? (
+                              <Input
+                                type="date"
+                                value={inlineFormValues[field.fieldKey] || ""}
+                                onChange={e => setInlineFormValues(prev => ({ ...prev, [field.fieldKey]: e.target.value }))}
+                                data-testid={`input-inline-${field.fieldKey}`}
+                              />
+                            ) : field.fieldType === "number" ? (
+                              <Input
+                                type="number"
+                                value={inlineFormValues[field.fieldKey] || ""}
+                                onChange={e => setInlineFormValues(prev => ({ ...prev, [field.fieldKey]: e.target.value }))}
+                                data-testid={`input-inline-${field.fieldKey}`}
+                              />
+                            ) : field.fieldType === "phone" ? (
+                              <Input
+                                type="tel"
+                                value={inlineFormValues[field.fieldKey] || ""}
+                                onChange={e => setInlineFormValues(prev => ({ ...prev, [field.fieldKey]: e.target.value }))}
+                                placeholder="+421..."
+                                data-testid={`input-inline-${field.fieldKey}`}
+                              />
+                            ) : (
+                              <Input
+                                value={inlineFormValues[field.fieldKey] || ""}
+                                onChange={e => setInlineFormValues(prev => ({ ...prev, [field.fieldKey]: e.target.value }))}
+                                data-testid={`input-inline-${field.fieldKey}`}
+                              />
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                );
+              });
+
+              if (inlineClientType === "fo") {
+                return renderPanels(inlinePanelsFiltered);
+              }
 
               return (
-                <div key={panel.id} className="space-y-3" style={{ display: panelFields.length > 0 ? 'block' : 'none' }} data-testid={`panel-inline-${panel.id}`}>
-                  <div className="flex items-center gap-2">
-                    <div className="h-px flex-1 bg-border" />
-                    <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">{panel.name}</span>
-                    <div className="h-px flex-1 bg-border" />
+                <>
+                  {renderPanels(szcoPanelFirma)}
+
+                  <div style={{ display: szcoPhase === 1 ? 'block' : 'none' }}>
+                    <div className="flex justify-between gap-2 pt-2 border-t">
+                      <Button variant="outline" onClick={() => { setShowInlineCreate(false); setSzcoPhase(1); }} data-testid="button-inline-back">
+                        Spat na vyhladavanie
+                      </Button>
+                      <Button onClick={() => {
+                        const firmFields = inlineFields.filter(f => szcoPanelFirma.some(p => p.id === f.panelId));
+                        const missingFirm = firmFields.filter(f => {
+                          if (!f.isRequired) return false;
+                          const rule = f.visibilityRule as { dependsOn: string; value: string } | null;
+                          if (rule && inlineFormValues[rule.dependsOn] !== rule.value) return false;
+                          return !(inlineFormValues[f.fieldKey]?.trim());
+                        });
+                        if (missingFirm.length > 0) {
+                          toast({ title: "Chyba", description: `Vyplnte povinne polia: ${missingFirm.map(f => f.label).join(", ")}`, variant: "destructive" });
+                          return;
+                        }
+                        setSzcoPhase(2);
+                      }} data-testid="button-szco-continue">
+                        Pokracovat na osobne udaje
+                      </Button>
+                    </div>
                   </div>
 
-                  <div className={`grid gap-3`} style={{ gridTemplateColumns: `repeat(${panel.gridColumns || 2}, 1fr)` }}>
-                    {panelFields.map(field => {
-                      const rule = field.visibilityRule as { dependsOn: string; value: string } | null;
-                      const isVisible = !rule || inlineFormValues[rule.dependsOn] === rule.value;
-
-                      return (
-                        <div
-                          key={field.id}
-                          className="space-y-1"
-                          style={{ display: isVisible ? 'block' : 'none' }}
-                          data-testid={`field-inline-${field.fieldKey}`}
-                        >
-                          <label className="text-xs font-medium">
-                            {field.label}{field.isRequired ? " *" : ""}
-                          </label>
-
-                          {field.fieldType === "switch" ? (
-                            <div className="flex items-center gap-2 pt-1">
-                              <Switch
-                                checked={inlineFormValues[field.fieldKey] === "true"}
-                                onCheckedChange={checked => setInlineFormValues(prev => ({ ...prev, [field.fieldKey]: String(checked) }))}
-                                data-testid={`switch-inline-${field.fieldKey}`}
-                              />
-                              <span className="text-sm text-muted-foreground">{inlineFormValues[field.fieldKey] === "true" ? "Ano" : "Nie"}</span>
-                            </div>
-                          ) : field.fieldType === "jedna_moznost" ? (
-                            <Select
-                              value={inlineFormValues[field.fieldKey] || ""}
-                              onValueChange={val => setInlineFormValues(prev => ({ ...prev, [field.fieldKey]: val }))}
-                            >
-                              <SelectTrigger data-testid={`select-inline-${field.fieldKey}`}>
-                                <SelectValue placeholder="Vyberte..." />
-                              </SelectTrigger>
-                              <SelectContent>
-                                {(field.options || []).map((opt: string) => (
-                                  <SelectItem key={opt} value={opt}>{opt}</SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                          ) : field.fieldType === "date" ? (
-                            <Input
-                              type="date"
-                              value={inlineFormValues[field.fieldKey] || ""}
-                              onChange={e => setInlineFormValues(prev => ({ ...prev, [field.fieldKey]: e.target.value }))}
-                              data-testid={`input-inline-${field.fieldKey}`}
-                            />
-                          ) : field.fieldType === "number" ? (
-                            <Input
-                              type="number"
-                              value={inlineFormValues[field.fieldKey] || ""}
-                              onChange={e => setInlineFormValues(prev => ({ ...prev, [field.fieldKey]: e.target.value }))}
-                              data-testid={`input-inline-${field.fieldKey}`}
-                            />
-                          ) : field.fieldType === "phone" ? (
-                            <Input
-                              type="tel"
-                              value={inlineFormValues[field.fieldKey] || ""}
-                              onChange={e => setInlineFormValues(prev => ({ ...prev, [field.fieldKey]: e.target.value }))}
-                              placeholder="+421..."
-                              data-testid={`input-inline-${field.fieldKey}`}
-                            />
-                          ) : (
-                            <Input
-                              value={inlineFormValues[field.fieldKey] || ""}
-                              onChange={e => setInlineFormValues(prev => ({ ...prev, [field.fieldKey]: e.target.value }))}
-                              data-testid={`input-inline-${field.fieldKey}`}
-                            />
-                          )}
-                        </div>
-                      );
-                    })}
+                  <div style={{ display: szcoPhase === 2 ? 'block' : 'none' }}>
+                    <div className="space-y-4">
+                      <div className="flex items-center gap-2 pt-2">
+                        <div className="h-px flex-1 bg-primary/30" />
+                        <span className="text-xs font-semibold uppercase tracking-wider text-primary">Faza 2: Osobne udaje majitela</span>
+                        <div className="h-px flex-1 bg-primary/30" />
+                      </div>
+                      {renderPanels(szcoPanelOsoba)}
+                    </div>
                   </div>
-                </div>
+                </>
               );
-            })}
+            })()}
 
-            <div className="flex justify-between gap-2 pt-2 border-t">
-              <Button variant="outline" onClick={() => setShowInlineCreate(false)} data-testid="button-inline-back">
-                Spat na vyhladavanie
-              </Button>
-              <Button onClick={handleInlineCreateSubject} disabled={inlineCreating} data-testid="button-inline-create-confirm">
-                {inlineCreating ? <Loader2 className="w-4 h-4 mr-1 animate-spin" /> : <Plus className="w-4 h-4 mr-1" />}
-                Vytvorit klienta a otvorit zmluvu
-              </Button>
+            <div style={{ display: inlineClientType === "fo" || szcoPhase === 2 ? 'block' : 'none' }}>
+              <div className="flex justify-between gap-2 pt-2 border-t">
+                <Button variant="outline" onClick={() => {
+                  if (inlineClientType === "szco" && szcoPhase === 2) {
+                    setSzcoPhase(1);
+                  } else {
+                    setShowInlineCreate(false);
+                    setSzcoPhase(1);
+                  }
+                }} data-testid="button-inline-back">
+                  {inlineClientType === "szco" && szcoPhase === 2 ? "Spat na podnikatelske udaje" : "Spat na vyhladavanie"}
+                </Button>
+                <Button onClick={handleInlineCreateSubject} disabled={inlineCreating} data-testid="button-inline-create-confirm">
+                  {inlineCreating ? <Loader2 className="w-4 h-4 mr-1 animate-spin" /> : <Plus className="w-4 h-4 mr-1" />}
+                  {inlineClientType === "szco" ? "Ulozit subjekt SZČO" : "Vytvorit klienta a otvorit zmluvu"}
+                </Button>
+              </div>
             </div>
           </div>
         </div>
