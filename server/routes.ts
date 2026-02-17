@@ -4695,9 +4695,6 @@ export async function registerRoutes(
 
   app.put("/api/career-levels/:id", isAuthenticated, async (req: any, res) => {
     try {
-      if (!["admin", "superadmin", "prezident"].includes(req.appUser?.role)) {
-        return res.status(403).json({ message: "Pristup zamietnuty" });
-      }
       const id = Number(req.params.id);
       const parsed = insertCareerLevelSchema.partial().parse(req.body);
       const level = await storage.updateCareerLevel(id, parsed);
