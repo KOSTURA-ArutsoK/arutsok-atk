@@ -163,28 +163,29 @@ function FolderFormDialog({
   onOpenChange,
   editingFolder,
   clientTypeId,
+  activeCategory,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   editingFolder: ClientTypeSection | null;
   clientTypeId: number;
+  activeCategory: string;
 }) {
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const [name, setName] = useState("");
-  const [folderCategory, setFolderCategory] = useState("volitelne");
 
   useEffect(() => {
     if (open) {
       if (editingFolder) {
         setName(editingFolder.name);
-        setFolderCategory((editingFolder as any).folderCategory || "volitelne");
       } else {
         setName("");
-        setFolderCategory("volitelne");
       }
     }
   }, [open, editingFolder]);
+
+  const folderCategory = editingFolder ? ((editingFolder as any).folderCategory || "povinne") : activeCategory;
 
   const createMutation = useMutation({
     mutationFn: async (data: { name: string; folderCategory: string }) => {
@@ -216,9 +217,10 @@ function FolderFormDialog({
   });
 
   const isPending = createMutation.isPending || updateMutation.isPending;
+  const categoryLabel = folderCategory === 'povinne' ? 'POVINNE UDAJE' : folderCategory === 'doplnkove' ? 'DOPLNKOVE UDAJE' : 'VOLITELNE UDAJE';
 
   return (
-    <Dialog open={open} onOpenChange={(isOpen) => { onOpenChange(isOpen); if (!isOpen) { setName(""); setFolderCategory("volitelne"); } }}>
+    <Dialog open={open} onOpenChange={(isOpen) => { onOpenChange(isOpen); if (!isOpen) { setName(""); } }}>
       <DialogContent className="sm:max-w-[400px]">
         <DialogHeader>
           <DialogTitle data-testid="text-folder-dialog-title">{editingFolder ? "Upravit priecinok" : "Pridat priecinok"}</DialogTitle>
@@ -235,18 +237,11 @@ function FolderFormDialog({
             />
           </div>
           <div>
-            <Label className="text-xs">Kategoria priecinku</Label>
-            <Select value={folderCategory} onValueChange={setFolderCategory}>
-              <SelectTrigger data-testid="select-folder-category">
-                <SelectValue placeholder="Vyberte kategoriu" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="povinne">POVINNE UDAJE</SelectItem>
-                <SelectItem value="doplnkove">DOPLNKOVE UDAJE</SelectItem>
-                <SelectItem value="volitelne">VOLITELNE UDAJE</SelectItem>
-              </SelectContent>
-            </Select>
-            <p className="text-[10px] text-muted-foreground mt-1">Urcuje, v ktorej sekcii karty klienta sa zobrazia polia.</p>
+            <Label className="text-xs">Kategoria</Label>
+            <div className="mt-1">
+              <Badge variant="outline" data-testid="badge-folder-category-info">{categoryLabel}</Badge>
+            </div>
+            <p className="text-[10px] text-muted-foreground mt-1">Kategoria je urcena aktivnym prepinacov vyssie.</p>
           </div>
         </div>
         <DialogFooter className="mt-4 gap-2">
@@ -417,8 +412,6 @@ function FieldFormDialog({
   const [dependsValue, setDependsValue] = useState("");
   const [unit, setUnit] = useState("");
   const [decimalPlaces, setDecimalPlaces] = useState(2);
-  const [fieldCategory, setFieldCategory] = useState(defaultCategory || "volitelne");
-
   useEffect(() => {
     if (open) {
       if (editingField) {
@@ -433,15 +426,15 @@ function FieldFormDialog({
         setDependsValue(vr?.value || "");
         setUnit((editingField as any).unit || "");
         setDecimalPlaces((editingField as any).decimalPlaces ?? 2);
-        setFieldCategory((editingField as any).fieldCategory || "volitelne");
       } else {
         setFieldKey(""); setLabel(""); setFieldType("short_text"); setPanelId("");
         setIsRequired(false); setOptions(""); setDependsOn(""); setDependsValue("");
         setUnit(""); setDecimalPlaces(2);
-        setFieldCategory(defaultCategory || "volitelne");
       }
     }
-  }, [open, editingField, defaultCategory]);
+  }, [open, editingField]);
+
+  const fieldCategory = editingField ? ((editingField as any).fieldCategory || "povinne") : (defaultCategory || "povinne");
 
   function buildPayload() {
     const normalizedDependsOn = dependsOn && dependsOn !== "none" ? dependsOn : "";
@@ -536,14 +529,11 @@ function FieldFormDialog({
             </div>
             <div>
               <Label className="text-xs">Kategoria</Label>
-              <Select value={fieldCategory} onValueChange={setFieldCategory}>
-                <SelectTrigger data-testid="select-field-category"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="povinne">POVINNE UDAJE</SelectItem>
-                  <SelectItem value="doplnkove">DOPLNKOVE UDAJE</SelectItem>
-                  <SelectItem value="volitelne">VOLITELNE UDAJE</SelectItem>
-                </SelectContent>
-              </Select>
+              <div className="mt-1.5">
+                <Badge variant="outline" data-testid="badge-field-category-info">
+                  {fieldCategory === 'povinne' ? 'POVINNE UDAJE' : fieldCategory === 'doplnkove' ? 'DOPLNKOVE UDAJE' : 'VOLITELNE UDAJE'}
+                </Badge>
+              </div>
             </div>
             <div>
               <Label className="text-xs">Panel</Label>
@@ -737,7 +727,6 @@ function SortableFolderCard({
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: folder.id });
   const style = { transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.5 : 1 };
-  const category = (folder as any).folderCategory || "volitelne";
 
   return (
     <div ref={setNodeRef} style={style} data-testid={`folder-card-${folder.id}`}>
@@ -761,16 +750,6 @@ function SortableFolderCard({
                 <span className="font-semibold text-sm truncate" data-testid={`text-folder-name-${folder.id}`}>
                   {folder.name}
                 </span>
-                <Badge
-                  variant={
-                    category === 'povinne' ? 'destructive' :
-                    category === 'doplnkove' ? 'default' : 'secondary'
-                  }
-                  data-testid={`badge-folder-category-${folder.id}`}
-                >
-                  {category === 'povinne' ? 'POVINNE UDAJE' :
-                   category === 'doplnkove' ? 'DOPLNKOVE UDAJE' : 'VOLITELNE UDAJE'}
-                </Badge>
                 <Badge variant="secondary" data-testid={`badge-folder-panel-count-${folder.id}`}>
                   {panelCount} {panelCount === 1 ? 'panel' : 'panelov'}
                 </Badge>
@@ -794,7 +773,7 @@ function SortableFolderCard({
   );
 }
 
-function FoldersTab({ clientTypeId }: { clientTypeId: number }) {
+function FoldersTab({ clientTypeId, activeCategory }: { clientTypeId: number; activeCategory: string }) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [search, setSearch] = useState("");
@@ -860,7 +839,8 @@ function FoldersTab({ clientTypeId }: { clientTypeId: number }) {
   }
 
   const sorted = [...folders].sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0));
-  const filtered = sorted.filter(f => f.name.toLowerCase().includes(search.toLowerCase()));
+  const categoryFiltered = sorted.filter(f => ((f as any).folderCategory || "povinne") === activeCategory);
+  const filtered = categoryFiltered.filter(f => f.name.toLowerCase().includes(search.toLowerCase()));
 
   return (
     <div className="space-y-4">
@@ -905,6 +885,7 @@ function FoldersTab({ clientTypeId }: { clientTypeId: number }) {
         onOpenChange={(isOpen) => { setDialogOpen(isOpen); if (!isOpen) setEditingFolder(null); }}
         editingFolder={editingFolder}
         clientTypeId={clientTypeId}
+        activeCategory={activeCategory}
       />
 
       <DeleteConfirmDialog
@@ -918,7 +899,7 @@ function FoldersTab({ clientTypeId }: { clientTypeId: number }) {
   );
 }
 
-function PanelsTab({ clientTypeId }: { clientTypeId: number }) {
+function PanelsTab({ clientTypeId, activeCategory }: { clientTypeId: number; activeCategory: string }) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [search, setSearch] = useState("");
@@ -973,8 +954,11 @@ function PanelsTab({ clientTypeId }: { clientTypeId: number }) {
     return fields.filter(f => f.panelId === panelId).length;
   }
 
+  const categoryFolderIds = new Set(folders.filter(f => ((f as any).folderCategory || "povinne") === activeCategory).map(f => f.id));
+  const categoryFolders = folders.filter(f => ((f as any).folderCategory || "povinne") === activeCategory);
   const sorted = [...panels].sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0));
-  const filtered = sorted.filter(p => {
+  const categoryPanels = sorted.filter(p => !p.sectionId || categoryFolderIds.has(p.sectionId));
+  const filtered = categoryPanels.filter(p => {
     if (filterFolderId !== "all" && p.sectionId !== parseInt(filterFolderId)) return false;
     return p.name.toLowerCase().includes(search.toLowerCase());
   });
@@ -990,7 +974,7 @@ function PanelsTab({ clientTypeId }: { clientTypeId: number }) {
           <SelectTrigger className="w-[200px]" data-testid="select-filter-folder"><SelectValue placeholder="Vsetky priecinky" /></SelectTrigger>
           <SelectContent>
             <SelectItem value="all">Vsetky priecinky</SelectItem>
-            {folders.map(f => (
+            {categoryFolders.map(f => (
               <SelectItem key={f.id} value={f.id.toString()}>{f.name}</SelectItem>
             ))}
           </SelectContent>
@@ -1059,7 +1043,7 @@ function PanelsTab({ clientTypeId }: { clientTypeId: number }) {
         onOpenChange={(isOpen) => { setDialogOpen(isOpen); if (!isOpen) setEditingPanel(null); }}
         editingPanel={editingPanel}
         clientTypeId={clientTypeId}
-        folders={folders}
+        folders={categoryFolders}
       />
 
       <DeleteConfirmDialog
@@ -1091,8 +1075,6 @@ function ParameterCategoryTable({
     return panels.find(p => p.id === panelId)?.name || `#${panelId}`;
   }
 
-  const categoryFields = fields.filter(f => ((f as any).fieldCategory || "volitelne") === category);
-
   return (
     <Card>
       <CardContent className="p-0">
@@ -1109,14 +1091,14 @@ function ParameterCategoryTable({
             </TableRow>
           </TableHeader>
           <TableBody>
-            {categoryFields.length === 0 ? (
+            {fields.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={7} className="text-center text-muted-foreground py-8" data-testid={`text-no-parameters-${category}`}>
                   Ziadne parametre v tejto kategorii
                 </TableCell>
               </TableRow>
             ) : (
-              categoryFields.map(field => {
+              fields.map(field => {
                 const ftDef = FIELD_TYPES.find(t => t.value === field.fieldType);
                 const Icon = ftDef?.icon || Type;
                 return (
@@ -1169,11 +1151,10 @@ function ParameterCategoryTable({
   );
 }
 
-function ParametersTab({ clientTypeId }: { clientTypeId: number }) {
+function ParametersTab({ clientTypeId, activeCategory }: { clientTypeId: number; activeCategory: string }) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [search, setSearch] = useState("");
-  const [activeCategory, setActiveCategory] = useState("povinne");
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingField, setEditingField] = useState<ClientTypeField | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<ClientTypeField | null>(null);
@@ -1194,6 +1175,14 @@ function ParametersTab({ clientTypeId }: { clientTypeId: number }) {
     },
   });
 
+  const { data: folders = [] } = useQuery<ClientTypeSection[]>({
+    queryKey: ["/api/client-types", clientTypeId, "sections"],
+    queryFn: async () => {
+      const res = await fetch(`/api/client-types/${clientTypeId}/sections`, { credentials: "include" });
+      return res.json();
+    },
+  });
+
   const deleteMutation = useMutation({
     mutationFn: async () => {
       await apiRequest("DELETE", `/api/client-type-fields/${deleteTarget!.id}`);
@@ -1206,17 +1195,15 @@ function ParametersTab({ clientTypeId }: { clientTypeId: number }) {
     onError: () => toast({ title: "Chyba", description: "Nepodarilo sa vymazat parameter", variant: "destructive" }),
   });
 
+  const categoryFolderIds = new Set(folders.filter(f => ((f as any).folderCategory || "povinne") === activeCategory).map(f => f.id));
+  const categoryPanels = panels.filter(p => !p.sectionId || categoryFolderIds.has(p.sectionId));
+
   const sorted = [...fields].sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0));
   const filtered = sorted.filter(f => {
+    if (!((f as any).fieldCategory === activeCategory || (!(f as any).fieldCategory && activeCategory === "povinne"))) return false;
     const searchLower = search.toLowerCase();
     return f.label.toLowerCase().includes(searchLower) || f.fieldKey.toLowerCase().includes(searchLower);
   });
-
-  const categoryCounts = {
-    povinne: filtered.filter(f => ((f as any).fieldCategory || "volitelne") === "povinne").length,
-    doplnkove: filtered.filter(f => ((f as any).fieldCategory || "volitelne") === "doplnkove").length,
-    volitelne: filtered.filter(f => ((f as any).fieldCategory || "volitelne") === "volitelne").length,
-  };
 
   return (
     <div className="space-y-4">
@@ -1230,63 +1217,24 @@ function ParametersTab({ clientTypeId }: { clientTypeId: number }) {
         </Button>
       </div>
 
-      <Tabs value={activeCategory} onValueChange={setActiveCategory}>
-        <TabsList data-testid="tabs-field-categories">
-          <TabsTrigger value="povinne" data-testid="tab-category-povinne">
-            POVINNE UDAJE
-            <Badge variant="secondary" className="ml-2">{categoryCounts.povinne}</Badge>
-          </TabsTrigger>
-          <TabsTrigger value="doplnkove" data-testid="tab-category-doplnkove">
-            DOPLNKOVE UDAJE
-            <Badge variant="secondary" className="ml-2">{categoryCounts.doplnkove}</Badge>
-          </TabsTrigger>
-          <TabsTrigger value="volitelne" data-testid="tab-category-volitelne">
-            VOLITELNE UDAJE
-            <Badge variant="secondary" className="ml-2">{categoryCounts.volitelne}</Badge>
-          </TabsTrigger>
-        </TabsList>
-
-        {isLoading ? (
-          <div className="flex items-center justify-center py-12"><Loader2 className="w-6 h-6 animate-spin text-muted-foreground" /></div>
-        ) : (
-          <>
-            <TabsContent value="povinne">
-              <ParameterCategoryTable
-                fields={filtered}
-                panels={panels}
-                category="povinne"
-                onEdit={(field) => { setEditingField(field); setDialogOpen(true); }}
-                onDelete={(field) => setDeleteTarget(field)}
-              />
-            </TabsContent>
-            <TabsContent value="doplnkove">
-              <ParameterCategoryTable
-                fields={filtered}
-                panels={panels}
-                category="doplnkove"
-                onEdit={(field) => { setEditingField(field); setDialogOpen(true); }}
-                onDelete={(field) => setDeleteTarget(field)}
-              />
-            </TabsContent>
-            <TabsContent value="volitelne">
-              <ParameterCategoryTable
-                fields={filtered}
-                panels={panels}
-                category="volitelne"
-                onEdit={(field) => { setEditingField(field); setDialogOpen(true); }}
-                onDelete={(field) => setDeleteTarget(field)}
-              />
-            </TabsContent>
-          </>
-        )}
-      </Tabs>
+      {isLoading ? (
+        <div className="flex items-center justify-center py-12"><Loader2 className="w-6 h-6 animate-spin text-muted-foreground" /></div>
+      ) : (
+        <ParameterCategoryTable
+          fields={filtered}
+          panels={categoryPanels}
+          category={activeCategory}
+          onEdit={(field) => { setEditingField(field); setDialogOpen(true); }}
+          onDelete={(field) => setDeleteTarget(field)}
+        />
+      )}
 
       <FieldFormDialog
         open={dialogOpen}
         onOpenChange={(isOpen) => { setDialogOpen(isOpen); if (!isOpen) setEditingField(null); }}
         editingField={editingField}
         clientTypeId={clientTypeId}
-        panels={panels}
+        panels={categoryPanels}
         existingFields={fields}
         defaultCategory={activeCategory}
       />
@@ -1303,6 +1251,9 @@ function ParametersTab({ clientTypeId }: { clientTypeId: number }) {
 }
 
 function TypeDetailView({ clientType, onBack }: { clientType: ClientType; onBack: () => void }) {
+  const [activeCategory, setActiveCategory] = useState("povinne");
+  const [activeSubTab, setActiveSubTab] = useState("folders");
+
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-3 flex-wrap">
@@ -1318,29 +1269,47 @@ function TypeDetailView({ clientType, onBack }: { clientType: ClientType; onBack
         </div>
       </div>
 
-      <Tabs defaultValue="folders">
-        <TabsList data-testid="tabs-client-type-detail">
-          <TabsTrigger value="folders" data-testid="tab-folders">
-            <FolderOpen className="w-4 h-4 mr-2" />
-            Priecinky
+      <Tabs value={activeCategory} onValueChange={setActiveCategory}>
+        <TabsList data-testid="tabs-root-categories">
+          <TabsTrigger value="povinne" data-testid="tab-category-povinne">
+            POVINNE UDAJE
           </TabsTrigger>
-          <TabsTrigger value="panels" data-testid="tab-panels">
-            <LayoutGrid className="w-4 h-4 mr-2" />
-            Panely
+          <TabsTrigger value="doplnkove" data-testid="tab-category-doplnkove">
+            DOPLNKOVE UDAJE
           </TabsTrigger>
-          <TabsTrigger value="parameters" data-testid="tab-parameters">
-            <Settings2 className="w-4 h-4 mr-2" />
-            Parametre
+          <TabsTrigger value="volitelne" data-testid="tab-category-volitelne">
+            VOLITELNE UDAJE
           </TabsTrigger>
         </TabsList>
-        <TabsContent value="folders">
-          <FoldersTab clientTypeId={clientType.id} />
-        </TabsContent>
-        <TabsContent value="panels">
-          <PanelsTab clientTypeId={clientType.id} />
-        </TabsContent>
-        <TabsContent value="parameters">
-          <ParametersTab clientTypeId={clientType.id} />
+
+        <TabsContent value={activeCategory} forceMount>
+          <div className="mt-4">
+            <Tabs value={activeSubTab} onValueChange={setActiveSubTab}>
+              <TabsList data-testid="tabs-client-type-detail">
+                <TabsTrigger value="folders" data-testid="tab-folders">
+                  <FolderOpen className="w-4 h-4 mr-2" />
+                  Priecinky
+                </TabsTrigger>
+                <TabsTrigger value="panels" data-testid="tab-panels">
+                  <LayoutGrid className="w-4 h-4 mr-2" />
+                  Panely
+                </TabsTrigger>
+                <TabsTrigger value="parameters" data-testid="tab-parameters">
+                  <Settings2 className="w-4 h-4 mr-2" />
+                  Parametre
+                </TabsTrigger>
+              </TabsList>
+              <TabsContent value="folders">
+                <FoldersTab clientTypeId={clientType.id} activeCategory={activeCategory} />
+              </TabsContent>
+              <TabsContent value="panels">
+                <PanelsTab clientTypeId={clientType.id} activeCategory={activeCategory} />
+              </TabsContent>
+              <TabsContent value="parameters">
+                <ParametersTab clientTypeId={clientType.id} activeCategory={activeCategory} />
+              </TabsContent>
+            </Tabs>
+          </div>
         </TabsContent>
       </Tabs>
     </div>
