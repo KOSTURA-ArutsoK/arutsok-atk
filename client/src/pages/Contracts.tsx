@@ -1563,20 +1563,6 @@ export default function Contracts() {
     setPreSelectOpen(true);
   };
 
-  const handleShowInlineCreate = (type: "fo" | "szco" | "po") => {
-    setInlineClientType(type);
-    setSzcoPhase(1);
-    setShowInlineCreate(true);
-    setPreSelectSubjectId("");
-    const defaults: Record<string, string> = {};
-    const targetFields = type === "szco" ? szcoAllFields : type === "po" ? poAllFields : foAllFields;
-    const fields = targetFields || [];
-    fields.forEach(f => {
-      if (f.defaultValue) defaults[f.fieldKey] = f.defaultValue;
-    });
-    setInlineFormValues(defaults);
-  };
-
   const handleInlineCreateSubject = async () => {
     const fieldsToValidate = inlineFields || [];
     const missingRequired = fieldsToValidate.filter(f => {
@@ -1808,32 +1794,6 @@ export default function Contracts() {
                   )}
                 </div>
 
-                <div style={{ display: preSelectSubjectSearch.trim() && preSelectFilteredSubjects.length === 0 ? 'block' : 'none' }}>
-                  <Card>
-                    <CardContent className="p-3">
-                      <div className="flex items-center gap-3 flex-wrap">
-                        <AlertTriangle className="w-5 h-5 text-amber-500 flex-shrink-0" />
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium">Klient nenajdeny v systeme</p>
-                          <p className="text-xs text-muted-foreground">Vytvorte noveho klienta priamo tu.</p>
-                        </div>
-                        <div className="flex items-center gap-2 flex-wrap">
-                          {activeClientTypes.map(ct => {
-                            const ctCode = ct.code.toLowerCase();
-                            const inlineType = ctCode === "fo" ? "fo" : ctCode === "szco" ? "szco" : ctCode === "po" ? "po" : null;
-                            if (!inlineType) return null;
-                            return (
-                              <Button key={ct.id} size="sm" variant={ct.id.toString() === preSelectClientTypeId ? "default" : "outline"} onClick={() => handleShowInlineCreate(inlineType as "fo" | "szco" | "po")} data-testid={`button-inline-create-${ctCode}`}>
-                                <Plus className="w-4 h-4 mr-1" />
-                                Novy {ct.code}
-                              </Button>
-                            );
-                          })}
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                </div>
               </div>
             </div>
 
