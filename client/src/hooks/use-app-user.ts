@@ -31,6 +31,13 @@ export function useSetActiveContext() {
       queryClient.invalidateQueries({ queryKey: ["/api/contracts/dispatched"] });
       queryClient.invalidateQueries({ queryKey: ["/api/contracts/accepted"] });
       queryClient.invalidateQueries({ queryKey: ["/api/contracts/archived"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/contract-statuses"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/contract-templates"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/contract-inventories"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/client-groups"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/supisky"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/commission-rates"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/partners"] });
     },
   });
 }

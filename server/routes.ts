@@ -748,6 +748,7 @@ export async function registerRoutes(
       type: req.query.type as 'person' | 'company',
       isActive: req.query.isActive === 'true' ? true : req.query.isActive === 'false' ? false : undefined,
       myCompanyId: activeCompanyId,
+      stateId: appUser?.activeStateId || undefined,
     };
     let allSubjects = await storage.getSubjects(params);
 
@@ -801,6 +802,9 @@ export async function registerRoutes(
       const input = api.subjects.create.input.parse(req.body);
       if (req.appUser?.activeCompanyId) {
         input.myCompanyId = req.appUser.activeCompanyId;
+      }
+      if (req.appUser?.activeStateId) {
+        input.stateId = req.appUser.activeStateId;
       }
       if (input.birthNumber) {
         input.birthNumber = encryptField(input.birthNumber);
@@ -1563,7 +1567,8 @@ export async function registerRoutes(
   app.get("/api/contracts/rejected", isAuthenticated, async (req: any, res) => {
     try {
       const companyId = req.appUser?.activeCompanyId || undefined;
-      res.json(await storage.getRejectedContracts(companyId));
+      const stateId = req.appUser?.activeStateId || undefined;
+      res.json(await storage.getRejectedContracts(companyId, stateId));
     } catch (err) { res.status(500).json({ message: "Internal error" }); }
   });
 
@@ -1831,7 +1836,8 @@ export async function registerRoutes(
   app.get("/api/contracts/dispatched", isAuthenticated, async (req: any, res) => {
     try {
       const companyId = req.appUser?.activeCompanyId || undefined;
-      const dispatched = await storage.getDispatchedContracts(companyId);
+      const stateId = req.appUser?.activeStateId || undefined;
+      const dispatched = await storage.getDispatchedContracts(companyId, stateId);
       res.json(dispatched);
     } catch (err) {
       res.status(500).json({ message: "Internal error" });
@@ -1866,7 +1872,8 @@ export async function registerRoutes(
   app.get("/api/contracts/accepted", isAuthenticated, async (req: any, res) => {
     try {
       const companyId = req.appUser?.activeCompanyId || undefined;
-      res.json(await storage.getAcceptedContracts(companyId));
+      const stateId = req.appUser?.activeStateId || undefined;
+      res.json(await storage.getAcceptedContracts(companyId, stateId));
     } catch (err) {
       res.status(500).json({ message: "Internal error" });
     }
@@ -1876,7 +1883,8 @@ export async function registerRoutes(
   app.get("/api/contracts/archived", isAuthenticated, async (req: any, res) => {
     try {
       const companyId = req.appUser?.activeCompanyId || undefined;
-      res.json(await storage.getArchivedContracts(companyId));
+      const stateId = req.appUser?.activeStateId || undefined;
+      res.json(await storage.getArchivedContracts(companyId, stateId));
     } catch (err) {
       res.status(500).json({ message: "Internal error" });
     }
@@ -1998,12 +2006,10 @@ export async function registerRoutes(
     try {
       const input = api.contractsApi.create.input.parse(req.body);
       const appUser = req.appUser;
-      if (appUser && appUser.activeStateId && input.stateId && input.stateId !== appUser.activeStateId) {
-        if (appUser.role !== 'superadmin') {
-          return res.status(400).json({ message: "Zmluva musi patrit do aktivneho statu" });
-        }
-      }
       const createData = { ...input, uploadedByUserId: appUser?.id || null };
+      if (appUser?.activeStateId) {
+        createData.stateId = appUser.activeStateId;
+      }
       if (appUser?.activeCompanyId) {
         createData.companyId = appUser.activeCompanyId;
       }
