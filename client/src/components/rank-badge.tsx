@@ -23,15 +23,14 @@ export function RankBadge({ positionName, frameType = "none", circleConfig, comp
     );
   }
 
-  const rectW = compact ? RECT_WIDTH_COMPACT : RECT_WIDTH;
   const rectH = compact ? RECT_HEIGHT_COMPACT : RECT_HEIGHT;
-  const containerW = rectW + (frameType === "double" ? 12 : 0);
-
   const count = visibleCircles.length;
   const gap = 3;
-  const availableW = rectW - 8;
-  const maxCircleD = count > 0 ? Math.min(compact ? 10 : 12, Math.floor((availableW - gap * (count - 1)) / count)) : 0;
-  const circleD = Math.max(6, maxCircleD);
+  const circleD = compact ? 8 : 10;
+  const minRectW = compact ? RECT_WIDTH_COMPACT : RECT_WIDTH;
+  const neededW = count > 0 ? count * circleD + (count - 1) * gap + 12 : minRectW;
+  const rectW = Math.max(minRectW, neededW);
+  const containerW = rectW + (frameType === "double" ? 12 : 0);
 
   const circles = (
     <div className="flex items-center justify-center" style={{ gap }} data-testid="rank-circles">
