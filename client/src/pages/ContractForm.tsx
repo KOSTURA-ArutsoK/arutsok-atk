@@ -6,7 +6,7 @@ import { useStates } from "@/hooks/use-hierarchy";
 import { useToast } from "@/hooks/use-toast";
 import { useLocation, useParams } from "wouter";
 import type { Contract, ContractStatus, ContractStatusChangeLog, ContractTemplate, ContractInventory, Subject, Partner, Product, MyCompany, Sector, Section, SectorProduct, ContractPassword, ContractParameterValue, ContractFieldSetting, ClientType, ClientTypeField, ContractAcquirer, AppUser } from "@shared/schema";
-import { ArrowLeft, Save, Loader2, LayoutGrid, KeyRound, Plus, Trash2, FileText, Users, ClipboardList, FolderOpen, FolderClosed, DollarSign, BarChart3, ListChecks, PieChart, ChevronLeft, ChevronRight, MessageSquare, Paperclip, Upload, X, Eye, Settings2, Calendar, UserCheck } from "lucide-react";
+import { ArrowLeft, Save, Loader2, LayoutGrid, KeyRound, Plus, Trash2, FileText, Users, ClipboardList, FolderOpen, FolderClosed, DollarSign, BarChart3, ListChecks, PieChart, ChevronLeft, ChevronRight, MessageSquare, Paperclip, Upload, X, Eye, Settings2, Calendar, UserCheck, Lock } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -809,7 +809,14 @@ export default function ContractForm() {
   });
 
   const { data: allStates } = useStates();
-  const { data: subjects } = useQuery<Subject[]>({ queryKey: ["/api/subjects"] });
+  const { data: subjects } = useQuery<(Subject & { isOwner?: boolean; isAnonymized?: boolean })[]>({
+    queryKey: ["/api/subjects", "forContract"],
+    queryFn: async () => {
+      const res = await fetch("/api/subjects?forContract=true", { credentials: "include" });
+      if (!res.ok) throw new Error("Failed");
+      return res.json();
+    },
+  });
   const { data: partners } = useQuery<Partner[]>({ queryKey: ["/api/partners"] });
   const { data: companies } = useQuery<MyCompany[]>({ queryKey: ["/api/my-companies"] });
   const { data: statuses } = useQuery<ContractStatus[]>({ queryKey: ["/api/contract-statuses"] });
@@ -1502,9 +1509,17 @@ export default function ContractForm() {
                       <SelectValue placeholder="Vyberte klienta" />
                     </SelectTrigger>
                     <SelectContent>
-                      {subjects?.filter(s => s.isActive).map(s => (
-                        <SelectItem key={s.id} value={s.id.toString()}>
+                      {subjects?.filter(s => s.isActive && !s.isAnonymized).map(s => (
+                        <SelectItem key={s.id} value={s.id.toString()} data-testid={`select-item-subject-${s.id}`}>
                           {s.type === "person" ? `${s.firstName} ${s.lastName}` : s.companyName} ({s.uid})
+                        </SelectItem>
+                      ))}
+                      {subjects?.filter(s => s.isActive && s.isAnonymized).map(s => (
+                        <SelectItem key={s.id} value={s.id.toString()} data-testid={`select-item-subject-anon-${s.id}`}>
+                          <span className="flex items-center gap-1 text-muted-foreground">
+                            <Lock className="w-3 h-3" />
+                            {s.type === "person" ? `${s.firstName} ${s.lastName}` : s.companyName} ({s.uid})
+                          </span>
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -1527,17 +1542,25 @@ export default function ContractForm() {
               <div style={{ display: subjectId && subjects?.find(s => s.id === parseInt(subjectId)) ? 'block' : 'none' }}>
                 <Card>
                   <CardContent className="p-3 space-y-2">
-                    <h3 className="text-sm font-semibold">Detail klienta</h3>
+                    <div className="flex items-center gap-2">
+                      <h3 className="text-sm font-semibold">Detail klienta</h3>
+                      <span style={{ display: subjects?.find(s => s.id === (subjectId ? parseInt(subjectId) : -1))?.isAnonymized ? 'inline-flex' : 'none' }}>
+                        <Badge variant="outline" className="text-xs gap-1" data-testid="badge-anonymized">
+                          <Lock className="w-3 h-3" />
+                          Anonymizované
+                        </Badge>
+                      </span>
+                    </div>
                     <div className="grid grid-cols-2 gap-2 text-sm">
                       <div>
                         <span className="text-muted-foreground">Meno: </span>
                         <span data-testid="text-subject-name">
                           {(() => {
-                            const selectedSubject = subjects?.find(s => s.id === (subjectId ? parseInt(subjectId) : -1));
-                            if (!selectedSubject) return "";
-                            return selectedSubject.type === "person"
-                              ? `${selectedSubject.firstName} ${selectedSubject.lastName}`
-                              : selectedSubject.companyName;
+                            const sel = subjects?.find(s => s.id === (subjectId ? parseInt(subjectId) : -1));
+                            if (!sel) return "";
+                            return sel.type === "person"
+                              ? `${sel.firstName} ${sel.lastName}`
+                              : sel.companyName;
                           })()}
                         </span>
                       </div>

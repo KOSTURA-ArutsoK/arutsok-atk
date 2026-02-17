@@ -225,6 +225,7 @@ export const subjects = pgTable("subjects", {
   processingTimeSec: integer("processing_time_sec").default(0),
   isActive: boolean("is_active").default(true),
   isDeceased: boolean("is_deceased").default(false),
+  registeredByUserId: integer("registered_by_user_id").references(() => appUsers.id),
   createdAt: timestamp("created_at").defaultNow(),
 });
 

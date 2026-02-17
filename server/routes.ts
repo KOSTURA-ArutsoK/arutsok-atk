@@ -740,6 +740,24 @@ export async function registerRoutes(
   });
 
   // === SUBJECTS ===
+  function anonymizeSubject(subject: any): any {
+    const isCompany = subject.type === "company" || subject.type === "szco";
+    return {
+      ...subject,
+      firstName: subject.firstName ? subject.firstName.charAt(0) + "***" : null,
+      lastName: subject.lastName ? subject.lastName.charAt(0) + "***" : null,
+      companyName: isCompany && subject.companyName ? subject.companyName.charAt(0) + "***" : subject.companyName,
+      email: null,
+      phone: null,
+      birthNumber: "***",
+      idCardNumber: null,
+      iban: null,
+      swift: null,
+      details: {},
+      isAnonymized: true,
+    };
+  }
+
   app.get(api.subjects.list.path, async (req: any, res) => {
     const appUser = req.appUser;
     const activeCompanyId = appUser?.activeCompanyId || (req.query.activeCompanyId ? Number(req.query.activeCompanyId) : undefined);
@@ -762,7 +780,28 @@ export async function registerRoutes(
       });
     }
 
-    res.json(allSubjects.map((s: any) => maskSubjectBirthNumber(s, req.appUser)));
+    const forContract = req.query.forContract === 'true';
+    const isPrivileged = appUser?.role === 'superadmin' || appUser?.role === 'prezident';
+
+    if (forContract && !isPrivileged && appUser?.id) {
+      const acquirerSubjectIds = await storage.getSubjectIdsWhereUserIsAcquirer(appUser.id);
+      const acquirerSubjectIdSet = new Set(acquirerSubjectIds);
+
+      allSubjects = allSubjects.map((s: any) => {
+        const isRegistrator = s.registeredByUserId === appUser.id;
+        const isAcquirerOnContract = acquirerSubjectIdSet.has(s.id);
+        const isOwner = isRegistrator || isAcquirerOnContract;
+
+        if (isOwner) {
+          return { ...maskSubjectBirthNumber(s, appUser), isOwner: true, isAnonymized: false };
+        } else {
+          return { ...anonymizeSubject(s), isOwner: false };
+        }
+      });
+      res.json(allSubjects);
+    } else {
+      res.json(allSubjects.map((s: any) => ({ ...maskSubjectBirthNumber(s, appUser), isOwner: true, isAnonymized: false })));
+    }
   });
 
   function getSubjectStatusCategory(subject: any, activeCompanyId?: number): string {
@@ -805,6 +844,9 @@ export async function registerRoutes(
       }
       if (req.appUser?.activeStateId) {
         input.stateId = req.appUser.activeStateId;
+      }
+      if (req.appUser?.id) {
+        input.registeredByUserId = req.appUser.id;
       }
       if (input.birthNumber) {
         input.birthNumber = encryptField(input.birthNumber);

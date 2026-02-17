@@ -302,6 +302,7 @@ export interface IStorage {
   addContractAcquirer(data: InsertContractAcquirer): Promise<ContractAcquirer>;
   removeContractAcquirer(id: number): Promise<void>;
   getContractsByAcquirer(userId: number): Promise<Contract[]>;
+  getSubjectIdsWhereUserIsAcquirer(userId: number): Promise<number[]>;
   checkContractDuplicate(contractNumber: string): Promise<{ exists: boolean; contract?: Contract; subjectName?: string }>;
   getSystemContractStatusByName(name: string): Promise<ContractStatus | undefined>;
   getAcceptedContracts(companyId?: number, stateId?: number): Promise<Contract[]>;
@@ -1805,6 +1806,17 @@ export class DatabaseStorage implements IStorage {
         eq(contracts.isDeleted, false)
       ));
     return rows.map(r => r.contract);
+  }
+
+  async getSubjectIdsWhereUserIsAcquirer(userId: number): Promise<number[]> {
+    const rows = await db.selectDistinct({ subjectId: contracts.subjectId })
+      .from(contractAcquirers)
+      .innerJoin(contracts, eq(contractAcquirers.contractId, contracts.id))
+      .where(and(
+        eq(contractAcquirers.userId, userId),
+        eq(contracts.isDeleted, false)
+      ));
+    return rows.filter(r => r.subjectId !== null).map(r => r.subjectId!);
   }
 
   async checkContractDuplicate(contractNumber: string): Promise<{ exists: boolean; contract?: Contract; subjectName?: string }> {
