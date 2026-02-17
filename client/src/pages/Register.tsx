@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef, useCallback } from "react";
 import { Shield, ArrowLeft, Mail, Phone, KeyRound, ShieldCheck, UserCheck, AlertTriangle, Fingerprint } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -44,6 +44,8 @@ export default function RegisterPage() {
   const [idCardNumber, setIdCardNumber] = useState("");
 
   const [clientData, setClientData] = useState<ClientData | null>(null);
+
+  const verifyBirthButtonRef = useRef<HTMLButtonElement>(null);
 
   const positionLabel = (pos: number) => {
     return `${pos + 1}. cifra`;
@@ -195,6 +197,13 @@ export default function RegisterPage() {
                       placeholder="vas@email.sk"
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") {
+                          e.preventDefault();
+                          const phoneInput = document.getElementById("reg-phone");
+                          if (phoneInput) phoneInput.focus();
+                        }
+                      }}
                       className="pl-9"
                       data-testid="input-register-email"
                     />
@@ -210,6 +219,14 @@ export default function RegisterPage() {
                       placeholder="+421 900 000 000"
                       value={phone}
                       onChange={(e) => setPhone(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") {
+                          e.preventDefault();
+                          if (email && phone && !loading) {
+                            handleInitiate();
+                          }
+                        }
+                      }}
                       className="pl-9"
                       data-testid="input-register-phone"
                     />
@@ -250,6 +267,27 @@ export default function RegisterPage() {
                         const newDigits = [...digitInputs];
                         newDigits[idx] = val;
                         setDigitInputs(newDigits);
+                        if (val) {
+                          const nextIdx = idx + 1;
+                          if (nextIdx < positions.length) {
+                            const nextInput = document.querySelector(`[data-testid="input-birth-digit-${nextIdx}"]`) as HTMLInputElement;
+                            if (nextInput) nextInput.focus();
+                          } else {
+                            const allFilled = newDigits.every(d => d !== "");
+                            if (allFilled) {
+                              verifyBirthButtonRef.current?.focus();
+                            }
+                          }
+                        }
+                      }}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") {
+                          e.preventDefault();
+                          const allFilled = digitInputs.every(d => d !== "");
+                          if (allFilled && !loading) {
+                            handleBirthVerify();
+                          }
+                        }
                       }}
                       className="w-14 text-center font-mono text-lg"
                       data-testid={`input-birth-digit-${idx}`}
@@ -258,6 +296,7 @@ export default function RegisterPage() {
                 ))}
               </div>
               <Button
+                ref={verifyBirthButtonRef}
                 className="w-full"
                 onClick={handleBirthVerify}
                 disabled={loading || digitInputs.some(d => d === "")}
@@ -345,7 +384,23 @@ export default function RegisterPage() {
                     type="text"
                     placeholder="YYMMDD/XXXX"
                     value={fullBirthNumber}
-                    onChange={(e) => setFullBirthNumber(e.target.value)}
+                    onChange={(e) => {
+                      setFullBirthNumber(e.target.value);
+                      const cleanVal = e.target.value.replace(/[^0-9]/g, "");
+                      if (cleanVal.length >= 9 && cleanVal.length <= 10) {
+                        setTimeout(() => {
+                          const idCardInput = document.getElementById("id-card");
+                          if (idCardInput) idCardInput.focus();
+                        }, 50);
+                      }
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        e.preventDefault();
+                        const idCardInput = document.getElementById("id-card");
+                        if (idCardInput) idCardInput.focus();
+                      }
+                    }}
                     className="font-mono"
                     data-testid="input-full-birth-number"
                   />
@@ -358,6 +413,14 @@ export default function RegisterPage() {
                     placeholder="AA000000"
                     value={idCardNumber}
                     onChange={(e) => setIdCardNumber(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        e.preventDefault();
+                        if (fullBirthNumber && idCardNumber && !loading) {
+                          handleFullVerify();
+                        }
+                      }
+                    }}
                     className="font-mono"
                     data-testid="input-id-card-number"
                   />

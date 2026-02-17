@@ -372,7 +372,26 @@ function ContractFormDialog({
                 </Select>
                 <Input
                   value={identifierValue}
-                  onChange={e => { setIdentifierValue(e.target.value); setIdentifierWarning(null); }}
+                  onChange={e => {
+                    const val = e.target.value;
+                    setIdentifierValue(val);
+                    setIdentifierWarning(null);
+                    const cleanVal = val.replace(/[^0-9]/g, "");
+                    if (identifierType === "rodne_cislo" && (cleanVal.length === 9 || cleanVal.length === 10)) {
+                      setTimeout(async () => {
+                        if (!activeStateId) return;
+                        try {
+                          const res = await fetch(`/api/subjects/check-identifier?type=rodne_cislo&value=${encodeURIComponent(cleanVal)}&stateId=${activeStateId}`, { credentials: "include" });
+                          const data = await res.json();
+                          if (data.exists) {
+                            setIdentifierWarning(`Osoba s tymto rodnym cislom uz existuje v zozname klientov: ${data.subjectName} (${data.subjectUid})`);
+                          }
+                          const contractNumberInput = document.querySelector('[data-testid="input-contract-number"]') as HTMLInputElement;
+                          if (contractNumberInput) contractNumberInput.focus();
+                        } catch {}
+                      }, 100);
+                    }
+                  }}
                   onBlur={async () => {
                     if (!identifierValue.trim() || !identifierType || !activeStateId) return;
                     try {
@@ -382,6 +401,13 @@ function ContractFormDialog({
                         setIdentifierWarning(`Osoba s tymto ${identifierType === "ico" ? "ICO" : "rodnym cislom"} uz existuje v zozname klientov: ${data.subjectName} (${data.subjectUid})`);
                       }
                     } catch {}
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                      const contractNumberInput = document.querySelector('[data-testid="input-contract-number"]') as HTMLInputElement;
+                      if (contractNumberInput) contractNumberInput.focus();
+                    }
                   }}
                   placeholder={identifierType === "ico" ? "Zadajte ICO" : identifierType === "rodne_cislo" ? "Zadajte rodne cislo" : "Najprv vyberte typ"}
                   disabled={!identifierType}
