@@ -964,7 +964,7 @@ export default function Contracts() {
   const [showInlineCreate, setShowInlineCreate] = useState(false);
   const [inlineFormValues, setInlineFormValues] = useState<Record<string, string>>({});
   const [inlineCreating, setInlineCreating] = useState(false);
-  const [inlineClientType, setInlineClientType] = useState<"fo" | "szco">("fo");
+  const [inlineClientType, setInlineClientType] = useState<"fo" | "szco" | "po">("fo");
   const [szcoPhase, setSzcoPhase] = useState<1 | 2>(1);
   const [importDialogOpen, setImportDialogOpen] = useState(false);
   const [importFile, setImportFile] = useState<File | null>(null);
@@ -986,10 +986,13 @@ export default function Contracts() {
   const { data: szcoSections } = useQuery<ClientTypeSection[]>({ queryKey: ["/api/client-types", 3, "sections"] });
   const { data: szcoPanels } = useQuery<ClientTypePanel[]>({ queryKey: ["/api/client-types", 3, "panels"] });
   const { data: szcoAllFields } = useQuery<ClientTypeField[]>({ queryKey: ["/api/client-types", 3, "fields"] });
+  const { data: poSections } = useQuery<ClientTypeSection[]>({ queryKey: ["/api/client-types", 4, "sections"] });
+  const { data: poPanels } = useQuery<ClientTypePanel[]>({ queryKey: ["/api/client-types", 4, "panels"] });
+  const { data: poAllFields } = useQuery<ClientTypeField[]>({ queryKey: ["/api/client-types", 4, "fields"] });
 
-  const activeSections = inlineClientType === "szco" ? szcoSections : foSections;
-  const activePanelsRaw = inlineClientType === "szco" ? szcoPanels : foPanels;
-  const activeFieldsRaw = inlineClientType === "szco" ? szcoAllFields : foAllFields;
+  const activeSections = inlineClientType === "szco" ? szcoSections : inlineClientType === "po" ? poSections : foSections;
+  const activePanelsRaw = inlineClientType === "szco" ? szcoPanels : inlineClientType === "po" ? poPanels : foPanels;
+  const activeFieldsRaw = inlineClientType === "szco" ? szcoAllFields : inlineClientType === "po" ? poAllFields : foAllFields;
 
   const povinneSection = activeSections?.find(s => s.name === "POVINNÉ ÚDAJE");
   const inlineFields = activeFieldsRaw?.filter(f => povinneSection ? f.sectionId === povinneSection.id : true) || [];
@@ -1513,14 +1516,14 @@ export default function Contracts() {
     setPreSelectOpen(true);
   };
 
-  const handleShowInlineCreate = (type: "fo" | "szco") => {
+  const handleShowInlineCreate = (type: "fo" | "szco" | "po") => {
     setInlineClientType(type);
     setSzcoPhase(1);
     setShowInlineCreate(true);
     setPreSelectSubjectId("");
     const defaults: Record<string, string> = {};
-    const targetSections = type === "szco" ? szcoSections : foSections;
-    const targetFields = type === "szco" ? szcoAllFields : foAllFields;
+    const targetSections = type === "szco" ? szcoSections : type === "po" ? poSections : foSections;
+    const targetFields = type === "szco" ? szcoAllFields : type === "po" ? poAllFields : foAllFields;
     const povSection = targetSections?.find(s => s.name === "POVINNÉ ÚDAJE");
     const fields = targetFields?.filter(f => povSection ? f.sectionId === povSection.id : true) || [];
     fields.forEach(f => {
@@ -1543,10 +1546,16 @@ export default function Contracts() {
       return;
     }
 
+    const isPo = inlineClientType === "po";
+    const isSzco = inlineClientType === "szco";
     const meno = inlineFormValues["meno"]?.trim();
     const priezvisko = inlineFormValues["priezvisko"]?.trim();
-    if (!meno || !priezvisko) {
+    if (!isPo && (!meno || !priezvisko)) {
       toast({ title: "Chyba", description: "Meno a priezvisko su povinne", variant: "destructive" });
+      return;
+    }
+    if (isPo && !inlineFormValues["nazov_organizacie"]?.trim()) {
+      toast({ title: "Chyba", description: "Nazov organizacie je povinny", variant: "destructive" });
       return;
     }
 
@@ -1559,17 +1568,16 @@ export default function Contracts() {
       });
 
       const activeState = allStates?.find(s => s.id === appUser?.activeStateId);
-      const isSzco = inlineClientType === "szco";
 
       const payload: any = {
-        type: isSzco ? "szco" : "person",
-        firstName: meno,
-        lastName: priezvisko,
-        companyName: isSzco ? (inlineFormValues["nazov_organizacie"]?.trim() || null) : null,
+        type: isPo ? "company" : isSzco ? "szco" : "person",
+        firstName: isPo ? null : meno,
+        lastName: isPo ? null : priezvisko,
+        companyName: (isPo || isSzco) ? (inlineFormValues["nazov_organizacie"]?.trim() || null) : null,
         birthNumber: inlineFormValues["rodne_cislo"] || null,
         email: inlineFormValues["email"] || null,
         phone: inlineFormValues["telefon"] || null,
-        idCardNumber: inlineFormValues["cislo_dokladu"] || null,
+        idCardNumber: isPo ? null : (inlineFormValues["cislo_dokladu"] || null),
         details,
         continentId: activeState?.continentId || null,
         stateId: appUser?.activeStateId || null,
@@ -1580,7 +1588,7 @@ export default function Contracts() {
       const created = await res.json();
       queryClient.invalidateQueries({ queryKey: ["/api/subjects"] });
 
-      const displayName = isSzco ? `${inlineFormValues["nazov_organizacie"]} - ${meno} ${priezvisko}` : `${meno} ${priezvisko}`;
+      const displayName = isPo ? (inlineFormValues["nazov_organizacie"] || "PO") : isSzco ? `${inlineFormValues["nazov_organizacie"]} - ${meno} ${priezvisko}` : `${meno} ${priezvisko}`;
       toast({ title: "Klient vytvoreny", description: `${displayName} (${created.uid})` });
 
       setPreSelectSubjectId(created.id.toString());
@@ -1621,7 +1629,7 @@ export default function Contracts() {
       <DialogContent className={showInlineCreate ? "max-w-[900px] max-h-[90vh] overflow-y-auto" : "max-w-[600px]"} data-testid="dialog-pre-select-contract">
         <DialogHeader>
           <DialogTitle data-testid="text-preselect-title">
-            {preSelectStep === 1 ? "Krok 1: Vyber partnera a produktu" : showInlineCreate ? `Krok 2: Novy klient (${inlineClientType === "szco" ? "SZČO" : "FO"})` : "Krok 2: Vyber klienta (subjektu)"}
+            {preSelectStep === 1 ? "Krok 1: Vyber partnera a produktu" : showInlineCreate ? `Krok 2: Novy klient (${inlineClientType === "szco" ? "SZČO" : inlineClientType === "po" ? "PO" : "FO"})` : "Krok 2: Vyber klienta (subjektu)"}
           </DialogTitle>
         </DialogHeader>
 
@@ -1755,6 +1763,10 @@ export default function Contracts() {
                         <Plus className="w-4 h-4 mr-1" />
                         Novy SZČO
                       </Button>
+                      <Button size="sm" variant="outline" onClick={() => handleShowInlineCreate("po")} data-testid="button-inline-create-po">
+                        <Plus className="w-4 h-4 mr-1" />
+                        Novy PO
+                      </Button>
                     </div>
                   </div>
                 </CardContent>
@@ -1777,6 +1789,8 @@ export default function Contracts() {
             <p className="text-sm text-muted-foreground">
               {inlineClientType === "szco"
                 ? "Vyplnte udaje noveho SZČO podla pravidiel. Najprv podnikatelske udaje, potom osobne."
+                : inlineClientType === "po"
+                ? "Vyplnte udaje novej pravnickej osoby (PO) podla pravidiel."
                 : "Vyplnte udaje noveho klienta (FO) podla pravidiel typov klientov."
               }
             </p>
@@ -1871,7 +1885,7 @@ export default function Contracts() {
                 );
               });
 
-              if (inlineClientType === "fo") {
+              if (inlineClientType === "fo" || inlineClientType === "po") {
                 return renderPanels(inlinePanelsFiltered);
               }
 
@@ -1917,7 +1931,7 @@ export default function Contracts() {
               );
             })()}
 
-            <div style={{ display: inlineClientType === "fo" || szcoPhase === 2 ? 'block' : 'none' }}>
+            <div style={{ display: inlineClientType === "fo" || inlineClientType === "po" || szcoPhase === 2 ? 'block' : 'none' }}>
               <div className="flex justify-between gap-2 pt-2 border-t">
                 <Button variant="outline" onClick={() => {
                   if (inlineClientType === "szco" && szcoPhase === 2) {
@@ -1931,7 +1945,7 @@ export default function Contracts() {
                 </Button>
                 <Button onClick={handleInlineCreateSubject} disabled={inlineCreating} data-testid="button-inline-create-confirm">
                   {inlineCreating ? <Loader2 className="w-4 h-4 mr-1 animate-spin" /> : <Plus className="w-4 h-4 mr-1" />}
-                  {inlineClientType === "szco" ? "Ulozit subjekt SZČO" : "Vytvorit klienta a otvorit zmluvu"}
+                  {inlineClientType === "szco" ? "Ulozit subjekt SZČO" : inlineClientType === "po" ? "Ulozit subjekt PO" : "Vytvorit klienta a otvorit zmluvu"}
                 </Button>
               </div>
             </div>
