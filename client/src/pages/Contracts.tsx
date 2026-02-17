@@ -745,6 +745,7 @@ function ContractFormDialog({
 
 function ContractDetailDialog({
   contract,
+  open,
   onClose,
   subjects,
   partners,
@@ -755,7 +756,8 @@ function ContractDetailDialog({
   companies,
   states,
 }: {
-  contract: Contract;
+  contract: Contract | null;
+  open: boolean;
   onClose: () => void;
   subjects: Subject[];
   partners: Partner[];
@@ -766,17 +768,27 @@ function ContractDetailDialog({
   companies: MyCompany[];
   states: { id: number; name: string; code: string }[];
 }) {
-  const subjectName = subjects?.find(s => s.id === contract.subjectId);
-  const partnerName = partners?.find(p => p.id === contract.partnerId)?.name || "-";
-  const sectorProduct = sectorProducts?.find(p => p.id === contract.sectorProductId);
-  const status = statuses?.find(s => s.id === contract.statusId);
-  const templateName = templates?.find(t => t.id === contract.templateId)?.name || "-";
-  const inventoryName = inventories?.find(i => i.id === contract.inventoryId)?.name || "-";
-  const companyName = companies?.find(c => c.id === contract.companyId)?.name || "-";
-  const stateName = states?.find(s => s.id === contract.stateId)?.name || "-";
+  const subjectName = subjects?.find(s => s.id === contract?.subjectId);
+  const partnerName = partners?.find(p => p.id === contract?.partnerId)?.name || "-";
+  const sectorProduct = sectorProducts?.find(p => p.id === contract?.sectorProductId);
+  const status = statuses?.find(s => s.id === contract?.statusId);
+  const templateName = templates?.find(t => t.id === contract?.templateId)?.name || "-";
+  const inventoryName = inventories?.find(i => i.id === contract?.inventoryId)?.name || "-";
+  const companyName = companies?.find(c => c.id === contract?.companyId)?.name || "-";
+  const stateName = states?.find(s => s.id === contract?.stateId)?.name || "-";
+
+  if (!contract) {
+    return (
+      <Dialog open={false} onOpenChange={onClose}>
+        <DialogContent className="sm:max-w-[800px] h-[600px] overflow-y-auto">
+          <DialogHeader><DialogTitle>-</DialogTitle></DialogHeader>
+        </DialogContent>
+      </Dialog>
+    );
+  }
 
   return (
-    <Dialog open onOpenChange={onClose}>
+    <Dialog open={open} onOpenChange={onClose}>
       <DialogContent className="sm:max-w-[800px] h-[600px] overflow-y-auto">
         <DialogHeader>
           <div className="flex items-center gap-3 flex-wrap">
@@ -892,14 +904,14 @@ function DeleteContractDialog({
   open,
   onOpenChange,
 }: {
-  contract: Contract;
+  contract: Contract | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }) {
   const { toast } = useToast();
 
   const deleteMutation = useMutation({
-    mutationFn: () => apiRequest("DELETE", `/api/contracts/${contract.id}`),
+    mutationFn: () => apiRequest("DELETE", `/api/contracts/${contract?.id}`),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/contracts"] });
       toast({ title: "Uspech", description: "Zmluva vymazana" });
@@ -909,14 +921,14 @@ function DeleteContractDialog({
   });
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open && !!contract} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[500px]">
         <DialogHeader>
           <DialogTitle data-testid="text-delete-dialog-title">Vymazat zmluvu</DialogTitle>
         </DialogHeader>
         <div className="space-y-4">
           <p className="text-sm text-muted-foreground" data-testid="text-delete-confirmation">
-            Naozaj chcete vymazat zmluvu <span className="font-semibold text-foreground">{contract.contractNumber}</span>? Tuto akciu nie je mozne vratit.
+            Naozaj chcete vymazat zmluvu <span className="font-semibold text-foreground">{contract?.contractNumber}</span>? Tuto akciu nie je mozne vratit.
           </p>
           <div className="flex items-center justify-end gap-3 flex-wrap">
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)} data-testid="button-delete-cancel">
@@ -2479,35 +2491,28 @@ export default function Contracts() {
           </DialogContent>
         </Dialog>
 
-        <div id="delete-dialog-wrapper" style={{ display: deletingContract ? 'block' : 'none' }}>
-          {deletingContract && (
-            <DeleteContractDialog
-              contract={deletingContract}
-              open={deleteDialogOpen}
-              onOpenChange={(isOpen) => {
-                setDeleteDialogOpen(isOpen);
-                if (!isOpen) setDeletingContract(null);
-              }}
-            />
-          )}
-        </div>
+        <DeleteContractDialog
+          contract={deletingContract}
+          open={deleteDialogOpen}
+          onOpenChange={(isOpen) => {
+            setDeleteDialogOpen(isOpen);
+            if (!isOpen) setDeletingContract(null);
+          }}
+        />
 
-        <div id="view-dialog-wrapper" style={{ display: viewingContract ? 'block' : 'none' }}>
-          {viewingContract && (
-            <ContractDetailDialog
-              contract={viewingContract}
-              onClose={() => setViewingContract(null)}
-              subjects={subjects || []}
-              partners={partners || []}
-              sectorProducts={allSectorProducts || []}
-              statuses={statuses || []}
-              templates={templates || []}
-              inventories={inventories || []}
-              companies={companies || []}
-              states={allStates || []}
-            />
-          )}
-        </div>
+        <ContractDetailDialog
+          contract={viewingContract}
+          open={!!viewingContract}
+          onClose={() => setViewingContract(null)}
+          subjects={subjects || []}
+          partners={partners || []}
+          sectorProducts={allSectorProducts || []}
+          statuses={statuses || []}
+          templates={templates || []}
+          inventories={inventories || []}
+          companies={companies || []}
+          states={allStates || []}
+        />
         {importDialog}
       </div>
     );
@@ -2673,35 +2678,28 @@ export default function Contracts() {
         </CardContent>
       </Card>
 
-      <div id="folder3-delete-dialog-wrapper" style={{ display: deletingContract ? 'block' : 'none' }}>
-        {deletingContract && (
-          <DeleteContractDialog
-            contract={deletingContract}
-            open={deleteDialogOpen}
-            onOpenChange={(isOpen) => {
-              setDeleteDialogOpen(isOpen);
-              if (!isOpen) setDeletingContract(null);
-            }}
-          />
-        )}
-      </div>
+      <DeleteContractDialog
+        contract={deletingContract}
+        open={deleteDialogOpen}
+        onOpenChange={(isOpen) => {
+          setDeleteDialogOpen(isOpen);
+          if (!isOpen) setDeletingContract(null);
+        }}
+      />
 
-      <div id="folder3-view-dialog-wrapper" style={{ display: viewingContract ? 'block' : 'none' }}>
-        {viewingContract && (
-          <ContractDetailDialog
-            contract={viewingContract}
-            onClose={() => setViewingContract(null)}
-            subjects={subjects || []}
-            partners={partners || []}
-            sectorProducts={allSectorProducts || []}
-            statuses={statuses || []}
-            templates={templates || []}
-            inventories={inventories || []}
-            companies={companies || []}
-            states={allStates || []}
-          />
-        )}
-      </div>
+      <ContractDetailDialog
+        contract={viewingContract}
+        open={!!viewingContract}
+        onClose={() => setViewingContract(null)}
+        subjects={subjects || []}
+        partners={partners || []}
+        sectorProducts={allSectorProducts || []}
+        statuses={statuses || []}
+        templates={templates || []}
+        inventories={inventories || []}
+        companies={companies || []}
+        states={allStates || []}
+      />
       {importDialog}
     </div>
   );
