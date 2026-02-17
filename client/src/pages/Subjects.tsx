@@ -935,10 +935,10 @@ function FullPageEditor({
 
               {isPerson ? (() => {
                 const FO_POVINNE_ROWS: { keys: string[]; cols: string; customCols?: string }[] = [
-                  { keys: ["titul_pred", "meno", "druhe_meno", "priezvisko", "titul_za"], cols: "grid-cols-5", customCols: "grid-cols-[1fr_2fr_2fr_2fr_1fr]" },
-                  { keys: ["pohlavie", "datum_narodenia", "rodne_priezvisko"], cols: "grid-cols-3", customCols: "grid-cols-[1fr_2fr_2fr]" },
-                  { keys: ["miesto_narodenia", "vek"], cols: "grid-cols-2" },
-                  { keys: ["typ_dokladu", "cislo_dokladu", "platnost_dokladu"], cols: "grid-cols-3" },
+                  { keys: ["titul_pred", "meno", "druhe_meno", "priezvisko", "titul_za"], cols: "grid-cols-2 sm:grid-cols-3 md:grid-cols-[1fr_2fr_2fr_2fr_1fr]" },
+                  { keys: ["pohlavie", "datum_narodenia", "rodne_priezvisko"], cols: "grid-cols-1 sm:grid-cols-3 md:grid-cols-[1fr_2fr_2fr]" },
+                  { keys: ["miesto_narodenia", "vek"], cols: "grid-cols-1 sm:grid-cols-2" },
+                  { keys: ["typ_dokladu", "cislo_dokladu", "platnost_dokladu"], cols: "grid-cols-1 sm:grid-cols-3" },
                 ];
 
                 const ADDRESS_PANEL_FIELDS = {
@@ -986,7 +986,7 @@ function FullPageEditor({
                           </div>
                         </AccordionTrigger>
                         <AccordionContent className="pb-4 space-y-4">
-                          <div className="grid grid-cols-3 gap-3" data-testid="row-system-fields">
+                          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3" data-testid="row-system-fields">
                             <div className="space-y-1">
                               <Label className="text-xs">Kód klienta</Label>
                               <Input value="Automaticky generovaný" disabled className="font-mono text-xs" data-testid="input-kod-klienta" />
@@ -1016,7 +1016,7 @@ function FullPageEditor({
                             const rowEntries = row.keys.map(k => ({ key: k, field: povinneFields.find(f => f.fieldKey === k) }));
                             const hasAny = rowEntries.some(e => e.field);
                             if (!hasAny) return null;
-                            const gridClass = row.customCols || row.cols;
+                            const gridClass = row.cols;
                             return (
                               <div key={rowIdx} className={`grid ${gridClass} gap-3`} data-testid={`row-povinne-${rowIdx + 3}`}>
                                 {rowEntries.map(({ key, field }) => field ? (
@@ -1130,7 +1130,7 @@ function FullPageEditor({
                           })()}
 
                           <div style={{ display: povinneRemainder.length > 0 ? 'block' : 'none' }}>
-                            <div className="grid grid-cols-2 gap-3" data-testid="row-povinne-remainder">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3" data-testid="row-povinne-remainder">
                               {povinneRemainder.map(field => (
                                 <DynamicFieldInput key={field.id} field={field} dynamicValues={dynamicValues} setDynamicValues={setDynamicValues} />
                               ))}
@@ -1158,7 +1158,7 @@ function FullPageEditor({
                                 {groups.map(({ section, fields }) => (
                                   <div key={section.id} className="space-y-3">
                                     <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide border-b border-border pb-1" style={{ display: groups.length > 1 ? 'block' : 'none' }}>{section.name}</p>
-                                    <div className="grid grid-cols-2 gap-3">
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                                       {fields.map((field: ClientTypeField) => (
                                         <DynamicFieldInput key={field.id} field={field} dynamicValues={dynamicValues} setDynamicValues={setDynamicValues} />
                                       ))}
@@ -1172,7 +1172,7 @@ function FullPageEditor({
                       })}
                     </Accordion>
 
-                    <div className="grid grid-cols-2 gap-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                       <FormField control={form.control} name="continentId" render={({ field }) => (
                         <FormItem>
                           <FormLabel>Kontinent</FormLabel>

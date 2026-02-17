@@ -2110,17 +2110,18 @@ export default function Contracts() {
                         const restFields = nonAddrFields.filter(f => !usedKeys.has(f.fieldKey));
                         return (
                           <>
-                            <div className="grid gap-3" style={{ gridTemplateColumns: "1fr 2fr 2fr 2fr 1fr" }}>{row1Fields.map(renderField)}</div>
-                            <div className="grid gap-3 mt-3" style={{ gridTemplateColumns: "1fr 2fr 2fr" }}>{row2Fields.map(renderField)}</div>
+                            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-[1fr_2fr_2fr_2fr_1fr] gap-3">{row1Fields.map(renderField)}</div>
+                            <div className="grid grid-cols-1 sm:grid-cols-3 md:grid-cols-[1fr_2fr_2fr] gap-3 mt-3">{row2Fields.map(renderField)}</div>
                             {restFields.length > 0 && (
-                              <div className="grid gap-3 mt-3" style={{ gridTemplateColumns: `repeat(${panel.gridColumns || 3}, 1fr)` }}>{restFields.map(renderField)}</div>
+                              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 mt-3">{restFields.map(renderField)}</div>
                             )}
                           </>
                         );
                       }
 
+                      const cols = panel.gridColumns || 2;
                       return (
-                        <div className="grid gap-3" style={{ gridTemplateColumns: `repeat(${panel.gridColumns || 2}, 1fr)` }}>
+                        <div className={`grid gap-3 grid-cols-1 ${cols >= 3 ? 'sm:grid-cols-2 md:grid-cols-3' : cols >= 2 ? 'sm:grid-cols-2' : ''}`} style={{ gridTemplateColumns: undefined }} data-grid-cols={cols}>
                           {nonAddrFields.map(renderField)}
                         </div>
                       );
@@ -2184,7 +2185,7 @@ export default function Contracts() {
                 return (
                   <>
                     {inlineClientType === "fo" && (
-                      <div className="grid grid-cols-3 gap-3 mb-2" data-testid="inline-row-0-uid-rc">
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-2" data-testid="inline-row-0-uid-rc">
                         <div className="space-y-1">
                           <label className="text-xs font-medium text-muted-foreground">Kód klienta</label>
                           <Input value="Automaticky generovaný" disabled className="text-xs" data-testid="input-inline-uid" />
