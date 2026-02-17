@@ -788,6 +788,7 @@ function FullPageEditor({
   onCancel: () => void;
 }) {
   const { mutate, isPending } = useCreateSubject();
+  const { toast } = useToast();
   const { data: allContinents } = useContinents();
   const { data: companies } = useMyCompanies();
   const { data: allStates, isLoading: statesLoading } = useStates();
@@ -878,12 +879,22 @@ function FullPageEditor({
   const { data: filteredStates } = useStates(watchContinent);
 
   function onSubmit(data: z.infer<typeof createSchema>) {
+    const requiredFields = (typeFields || []).filter(f => f.isRequired && isFieldVisible(f));
+    const missingFields = requiredFields.filter(f => !dynamicValues[f.fieldKey]?.trim());
+    if (missingFields.length > 0) {
+      toast({ title: "Chýbajúce povinné polia", description: missingFields.map(f => f.label).join(", "), variant: "destructive" });
+      return;
+    }
+
     const processingTimeSec = Math.round((performance.now() - timerRef.current) / 1000);
-    const existingDetails = data.details || {};
+    const existingDetails = (typeof data.details === "object" && data.details) ? data.details : {};
     const mergedDetails = Object.keys(dynamicValues).length > 0
-      ? { ...existingDetails, dynamicFields: dynamicValues }
+      ? { ...(existingDetails as Record<string, any>), dynamicFields: dynamicValues }
       : existingDetails;
-    mutate({ ...data, details: mergedDetails, processingTimeSec }, {
+    const submitData: any = { ...data, details: mergedDetails, processingTimeSec };
+    if (isPerson && dynamicValues.meno) submitData.firstName = dynamicValues.meno;
+    if (isPerson && dynamicValues.priezvisko) submitData.lastName = dynamicValues.priezvisko;
+    mutate(submitData, {
       onSuccess: () => { onCancel(); },
     });
   }
@@ -908,145 +919,105 @@ function FullPageEditor({
         <CardContent className="p-6">
           <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-5">
-              <div className="max-w-xs">
-                <FormField control={form.control} name="type" render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Typ entity</FormLabel>
-                    <Input value={field.value === "person" ? "Fyzicka osoba" : "Pravnicka osoba"} disabled data-testid="input-subject-type-locked" />
-                    <FormMessage />
-                  </FormItem>
-                )} />
-              </div>
 
-              {isPerson ? (
-                <div className="grid grid-cols-2 gap-4">
-                  <FormField control={form.control} name="firstName" render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Meno</FormLabel>
-                      <FormControl><Input {...field} value={field.value || ""} data-testid="input-subject-firstname" /></FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )} />
-                  <FormField control={form.control} name="lastName" render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Priezvisko</FormLabel>
-                      <FormControl><Input {...field} value={field.value || ""} data-testid="input-subject-lastname" /></FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )} />
-                </div>
-              ) : (
-                <FormField control={form.control} name="companyName" render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Nazov spolocnosti</FormLabel>
-                    <FormControl><Input {...field} value={field.value || ""} data-testid="input-subject-companyname" /></FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )} />
-              )}
+              {isPerson ? (() => {
+                const FO_POVINNE_ROWS: { keys: string[]; cols: string }[] = [
+                  { keys: ["titul_pred", "meno", "priezvisko", "titul_za"], cols: "grid-cols-4" },
+                  { keys: ["rodne_priezvisko", "datum_narodenia", "miesto_narodenia", "vek", "pohlavie"], cols: "grid-cols-5" },
+                  { keys: ["typ_dokladu", "cislo_dokladu", "platnost_dokladu"], cols: "grid-cols-3" },
+                ];
+                const allRowKeys = new Set(FO_POVINNE_ROWS.flatMap(r => r.keys));
 
-              <div className="grid grid-cols-2 gap-4">
-                <FormField control={form.control} name="email" render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Email</FormLabel>
-                    <FormControl><Input type="email" {...field} value={field.value || ""} data-testid="input-subject-email" /></FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )} />
-                <FormField control={form.control} name="phone" render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Telefon</FormLabel>
-                    <FormControl><Input type="tel" {...field} value={field.value || ""} data-testid="input-subject-phone" /></FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )} />
-              </div>
+                const povinneSection = typeSections?.find(s => (s as any).folderCategory === "povinne");
+                const povinneFields = (typeFields || [])
+                  .filter(f => povinneSection && (f.sectionId || 0) === povinneSection.id)
+                  .filter(f => isFieldVisible(f));
+                const povinneRemainder = povinneFields.filter(f => !allRowKeys.has(f.fieldKey)).sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0));
 
-              <div className="grid grid-cols-2 gap-4">
-                <FormField control={form.control} name="continentId" render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Kontinent</FormLabel>
-                    <Select onValueChange={(val) => { field.onChange(val); form.setValue("stateId", 0); }} value={field.value?.toString()}>
-                      <FormControl><SelectTrigger data-testid="select-continent"><SelectValue placeholder="Vyberte kontinent" /></SelectTrigger></FormControl>
-                      <SelectContent>
-                        {allContinents?.map(c => (<SelectItem key={c.id} value={c.id.toString()}>{c.name}</SelectItem>))}
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
-                )} />
-                <FormField control={form.control} name="stateId" render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Stat</FormLabel>
-                    <Select onValueChange={field.onChange} value={field.value?.toString()} disabled={!watchContinent}>
-                      <FormControl><SelectTrigger data-testid="select-state"><SelectValue placeholder="Vyberte stat" /></SelectTrigger></FormControl>
-                      <SelectContent>
-                        {filteredStates?.map(s => (<SelectItem key={s.id} value={s.id.toString()}>{s.name}</SelectItem>))}
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
-                )} />
-              </div>
-
-              {isPerson && (
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <Label className="text-xs text-muted-foreground">Rodne cislo</Label>
-                    <Input value={initialData.baseValue} disabled className="mt-1" data-testid="input-birth-number-locked" />
-                  </div>
-                  <FormField control={form.control} name="idCardNumber" render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Cislo OP</FormLabel>
-                      <FormControl><Input {...field} value={field.value || ""} data-testid="input-id-card" /></FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )} />
-                </div>
-              )}
-
-              {!isPerson && (
-                <div>
-                  <Label className="text-xs text-muted-foreground">ICO</Label>
-                  <Input value={initialData.baseValue} disabled className="mt-1" data-testid="input-ico-locked" />
-                </div>
-              )}
-
-              {typeFields && typeFields.length > 0 && (() => {
-                const editorFieldGroups: Record<string, { section: any; fields: ClientTypeField[] }[]> = {
-                  povinne: [], doplnkove: [], volitelne: [],
-                };
+                const nonPovinneGroups: { section: any; fields: ClientTypeField[] }[] = [];
                 const sectionsSorted = [...(typeSections || [])].sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0));
                 for (const section of sectionsSorted) {
                   const category = (section as any).folderCategory || "volitelne";
-                  const sectionFields = typeFields
+                  if (category === "povinne") continue;
+                  const sectionFields = (typeFields || [])
                     .filter(f => (f.sectionId || 0) === section.id)
                     .filter(f => isFieldVisible(f))
                     .sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0));
                   if (sectionFields.length > 0) {
-                    if (!editorFieldGroups[category]) editorFieldGroups[category] = [];
-                    editorFieldGroups[category].push({ section, fields: sectionFields });
+                    nonPovinneGroups.push({ section, fields: sectionFields });
                   }
-                }
-                const unsectioned = typeFields.filter(f => !f.sectionId || f.sectionId === 0).filter(f => isFieldVisible(f));
-                if (unsectioned.length > 0) {
-                  editorFieldGroups.volitelne.push({ section: { id: 0, name: "Ostatne" }, fields: unsectioned.sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0)) });
                 }
 
                 return (
-                  <div className="space-y-2 pt-2">
-                    <Separator />
-                    <Accordion type="multiple" defaultValue={["povinne", "doplnkove"]} className="space-y-2">
-                      {FOLDER_CATEGORY_ORDER.map(category => {
+                  <>
+                    <Accordion type="multiple" defaultValue={["povinne", "doplnkove", "volitelne"]} className="space-y-2">
+                      <AccordionItem value="povinne" className="border rounded-md px-3" data-testid="editor-accordion-povinne">
+                        <AccordionTrigger className="py-3 hover:no-underline">
+                          <div className="flex items-center gap-2">
+                            <ShieldCheck className="w-4 h-4 text-destructive" />
+                            <span className="text-sm font-semibold">{FOLDER_CATEGORY_LABELS["povinne"]}</span>
+                            <Badge variant="secondary" className="text-[10px]">{povinneFields.length + 3}</Badge>
+                          </div>
+                        </AccordionTrigger>
+                        <AccordionContent className="pb-4 space-y-4">
+                          <div className="grid grid-cols-3 gap-3" data-testid="row-system-fields">
+                            <div className="space-y-1">
+                              <Label className="text-xs">Kód klienta</Label>
+                              <Input value="Automaticky generovaný" disabled className="font-mono text-xs" data-testid="input-kod-klienta" />
+                            </div>
+                            <div className="space-y-1">
+                              <Label className="text-xs">Typ klienta</Label>
+                              <Input value={clientType?.name || "Fyzická osoba"} disabled data-testid="input-typ-klienta" />
+                            </div>
+                            <div className="space-y-1">
+                              <Label className="text-xs">Identifikátor (Rodné číslo)</Label>
+                              <Input value={initialData.baseValue} disabled className="font-mono" data-testid="input-identifikator" />
+                            </div>
+                          </div>
+
+                          <div className="grid grid-cols-1 gap-3" data-testid="row-ziskatel">
+                            <div className="space-y-1">
+                              <Label className="text-xs">Získateľ</Label>
+                              <Input
+                                value={appUser ? `${appUser.firstName || ""} ${appUser.lastName || ""}`.trim() || appUser.username : ""}
+                                disabled
+                                data-testid="input-ziskatel"
+                              />
+                            </div>
+                          </div>
+
+                          {FO_POVINNE_ROWS.map((row, rowIdx) => {
+                            const rowFields = row.keys.map(k => povinneFields.find(f => f.fieldKey === k)).filter(Boolean) as ClientTypeField[];
+                            if (rowFields.length === 0) return null;
+                            return (
+                              <div key={rowIdx} className={`grid ${row.cols} gap-3`} data-testid={`row-povinne-${rowIdx + 3}`}>
+                                {rowFields.map(field => (
+                                  <DynamicFieldInput key={field.id} field={field} dynamicValues={dynamicValues} setDynamicValues={setDynamicValues} />
+                                ))}
+                              </div>
+                            );
+                          })}
+
+                          {povinneRemainder.length > 0 && (
+                            <div className="grid grid-cols-2 gap-3" data-testid="row-povinne-remainder">
+                              {povinneRemainder.map(field => (
+                                <DynamicFieldInput key={field.id} field={field} dynamicValues={dynamicValues} setDynamicValues={setDynamicValues} />
+                              ))}
+                            </div>
+                          )}
+                        </AccordionContent>
+                      </AccordionItem>
+
+                      {(["doplnkove", "volitelne"] as const).map(category => {
                         const Icon = FOLDER_CATEGORY_ICONS[category];
-                        const groups = editorFieldGroups[category] || [];
+                        const groups = nonPovinneGroups.filter(g => (g.section as any).folderCategory === category);
                         const totalFields = groups.reduce((acc, g) => acc + g.fields.length, 0);
                         if (totalFields === 0) return null;
                         return (
                           <AccordionItem key={category} value={category} className="border rounded-md px-3" data-testid={`editor-accordion-${category}`}>
                             <AccordionTrigger className="py-3 hover:no-underline">
                               <div className="flex items-center gap-2">
-                                <Icon className={`w-4 h-4 ${category === 'povinne' ? 'text-destructive' : category === 'doplnkove' ? 'text-primary' : 'text-muted-foreground'}`} />
+                                <Icon className={`w-4 h-4 ${category === 'doplnkove' ? 'text-primary' : 'text-muted-foreground'}`} />
                                 <span className="text-sm font-semibold">{FOLDER_CATEGORY_LABELS[category]}</span>
                                 <Badge variant="secondary" className="text-[10px]">{totalFields}</Badge>
                               </div>
@@ -1071,9 +1042,153 @@ function FullPageEditor({
                         );
                       })}
                     </Accordion>
-                  </div>
+
+                    <div className="grid grid-cols-2 gap-4">
+                      <FormField control={form.control} name="continentId" render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Kontinent</FormLabel>
+                          <Select onValueChange={(val) => { field.onChange(val); form.setValue("stateId", 0); }} value={field.value?.toString()}>
+                            <FormControl><SelectTrigger data-testid="select-continent"><SelectValue placeholder="Vyberte kontinent" /></SelectTrigger></FormControl>
+                            <SelectContent>
+                              {allContinents?.map(c => (<SelectItem key={c.id} value={c.id.toString()}>{c.name}</SelectItem>))}
+                            </SelectContent>
+                          </Select>
+                          <FormMessage />
+                        </FormItem>
+                      )} />
+                      <FormField control={form.control} name="stateId" render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Štát</FormLabel>
+                          <Select onValueChange={field.onChange} value={field.value?.toString()} disabled={!watchContinent}>
+                            <FormControl><SelectTrigger data-testid="select-state"><SelectValue placeholder="Vyberte stat" /></SelectTrigger></FormControl>
+                            <SelectContent>
+                              {filteredStates?.map(s => (<SelectItem key={s.id} value={s.id.toString()}>{s.name}</SelectItem>))}
+                            </SelectContent>
+                          </Select>
+                          <FormMessage />
+                        </FormItem>
+                      )} />
+                    </div>
+                  </>
                 );
-              })()}
+              })() : (
+                <>
+                  <FormField control={form.control} name="companyName" render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Názov spoločnosti</FormLabel>
+                      <FormControl><Input {...field} value={field.value || ""} data-testid="input-subject-companyname" /></FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )} />
+
+                  <div>
+                    <Label className="text-xs text-muted-foreground">IČO</Label>
+                    <Input value={initialData.baseValue} disabled className="mt-1" data-testid="input-ico-locked" />
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <FormField control={form.control} name="email" render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Email</FormLabel>
+                        <FormControl><Input type="email" {...field} value={field.value || ""} data-testid="input-subject-email" /></FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )} />
+                    <FormField control={form.control} name="phone" render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Telefón</FormLabel>
+                        <FormControl><Input type="tel" {...field} value={field.value || ""} data-testid="input-subject-phone" /></FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )} />
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <FormField control={form.control} name="continentId" render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Kontinent</FormLabel>
+                        <Select onValueChange={(val) => { field.onChange(val); form.setValue("stateId", 0); }} value={field.value?.toString()}>
+                          <FormControl><SelectTrigger data-testid="select-continent"><SelectValue placeholder="Vyberte kontinent" /></SelectTrigger></FormControl>
+                          <SelectContent>
+                            {allContinents?.map(c => (<SelectItem key={c.id} value={c.id.toString()}>{c.name}</SelectItem>))}
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )} />
+                    <FormField control={form.control} name="stateId" render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Štát</FormLabel>
+                        <Select onValueChange={field.onChange} value={field.value?.toString()} disabled={!watchContinent}>
+                          <FormControl><SelectTrigger data-testid="select-state"><SelectValue placeholder="Vyberte stat" /></SelectTrigger></FormControl>
+                          <SelectContent>
+                            {filteredStates?.map(s => (<SelectItem key={s.id} value={s.id.toString()}>{s.name}</SelectItem>))}
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )} />
+                  </div>
+
+                  {typeFields && typeFields.length > 0 && (() => {
+                    const editorFieldGroups: Record<string, { section: any; fields: ClientTypeField[] }[]> = {
+                      povinne: [], doplnkove: [], volitelne: [],
+                    };
+                    const sectionsSorted = [...(typeSections || [])].sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0));
+                    for (const section of sectionsSorted) {
+                      const category = (section as any).folderCategory || "volitelne";
+                      const sectionFields = (typeFields || [])
+                        .filter(f => (f.sectionId || 0) === section.id)
+                        .filter(f => isFieldVisible(f))
+                        .sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0));
+                      if (sectionFields.length > 0) {
+                        if (!editorFieldGroups[category]) editorFieldGroups[category] = [];
+                        editorFieldGroups[category].push({ section, fields: sectionFields });
+                      }
+                    }
+                    return (
+                      <div className="space-y-2 pt-2">
+                        <Separator />
+                        <Accordion type="multiple" defaultValue={["povinne", "doplnkove"]} className="space-y-2">
+                          {FOLDER_CATEGORY_ORDER.map(category => {
+                            const Icon = FOLDER_CATEGORY_ICONS[category];
+                            const groups = editorFieldGroups[category] || [];
+                            const totalFields = groups.reduce((acc, g) => acc + g.fields.length, 0);
+                            if (totalFields === 0) return null;
+                            return (
+                              <AccordionItem key={category} value={category} className="border rounded-md px-3" data-testid={`editor-accordion-${category}`}>
+                                <AccordionTrigger className="py-3 hover:no-underline">
+                                  <div className="flex items-center gap-2">
+                                    <Icon className={`w-4 h-4 ${category === 'povinne' ? 'text-destructive' : category === 'doplnkove' ? 'text-primary' : 'text-muted-foreground'}`} />
+                                    <span className="text-sm font-semibold">{FOLDER_CATEGORY_LABELS[category]}</span>
+                                    <Badge variant="secondary" className="text-[10px]">{totalFields}</Badge>
+                                  </div>
+                                </AccordionTrigger>
+                                <AccordionContent className="pb-4">
+                                  <div className="space-y-4">
+                                    {groups.map(({ section, fields }) => (
+                                      <div key={section.id} className="space-y-3">
+                                        {groups.length > 1 && (
+                                          <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide border-b border-border pb-1">{section.name}</p>
+                                        )}
+                                        <div className="grid grid-cols-2 gap-3">
+                                          {fields.map((field: ClientTypeField) => (
+                                            <DynamicFieldInput key={field.id} field={field} dynamicValues={dynamicValues} setDynamicValues={setDynamicValues} />
+                                          ))}
+                                        </div>
+                                      </div>
+                                    ))}
+                                  </div>
+                                </AccordionContent>
+                              </AccordionItem>
+                            );
+                          })}
+                        </Accordion>
+                      </div>
+                    );
+                  })()}
+                </>
+              )}
 
               <div className="bg-muted p-3 rounded-md text-xs text-muted-foreground flex items-start gap-2">
                 <AlertTriangle className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" />
