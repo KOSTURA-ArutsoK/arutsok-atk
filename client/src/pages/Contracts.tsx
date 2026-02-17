@@ -1589,6 +1589,9 @@ export default function Contracts() {
     fields.forEach(f => {
       if (f.defaultValue) defaults[f.fieldKey] = f.defaultValue;
     });
+    if (type === "fo" && preSelectSubjectSearch.trim()) {
+      defaults["rodne_cislo"] = preSelectSubjectSearch.trim();
+    }
     setInlineFormValues(defaults);
   };
 
@@ -1959,8 +1962,8 @@ export default function Contracts() {
                   return (
                     <Card className={disabled ? "opacity-50 pointer-events-none" : ""} data-testid={`panel-inline-address-${prefix}`}>
                       <CardContent className="p-3 space-y-2">
-                        <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">{panelDef.label}</h4>
-                        <div className="grid grid-cols-3 gap-2">
+                        <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground truncate" title={panelDef.label}>{panelDef.label}</h4>
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                           {fields.slice(0, 3).map(({ key, field, suffix }) => (
                             <div key={key} className="space-y-1">
                               <label className="text-xs font-medium">
@@ -1975,7 +1978,7 @@ export default function Contracts() {
                             </div>
                           ))}
                         </div>
-                        <div className="grid grid-cols-2 gap-2">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                           {fields.slice(3, 5).map(({ key, field, suffix }) => (
                             <div key={key} className="space-y-1">
                               <label className="text-xs font-medium">
@@ -2017,7 +2020,7 @@ export default function Contracts() {
                       <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Adresa</span>
                       <div className="h-px flex-1 bg-border" />
                     </div>
-                    <div className="grid grid-cols-3 gap-3 items-start" data-testid="inline-row-address-panels">
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3 items-start" data-testid="inline-row-address-panels">
                       <div className="flex flex-col">
                         {renderAddrCard("tp", INLINE_ADDR_PANELS.tp, false)}
                         <div className="flex items-center gap-2 mt-2 px-1">
@@ -2081,12 +2084,13 @@ export default function Contracts() {
                       {nonAddrFields.map(field => {
                         const rule = field.visibilityRule as { dependsOn: string; value: string } | null;
                         const isVisible = !rule || inlineFormValues[rule.dependsOn] === rule.value;
+                        const isRow0Field = inlineClientType === "fo" && field.fieldKey === "rodne_cislo";
 
                         return (
                           <div
                             key={field.id}
                             className="space-y-1"
-                            style={{ display: isVisible ? 'block' : 'none' }}
+                            style={{ display: isVisible && !isRow0Field ? 'block' : 'none' }}
                             data-testid={`field-inline-${field.fieldKey}`}
                           >
                             <label className="text-xs font-medium">
@@ -2153,7 +2157,23 @@ export default function Contracts() {
               const renderSectionedPanels = () => sortedSections.map(section => renderSectionWithPanels(section));
 
               if (inlineClientType === "fo" || inlineClientType === "po") {
-                return renderSectionedPanels();
+                return (
+                  <>
+                    {inlineClientType === "fo" && (
+                      <div className="grid grid-cols-2 gap-3 mb-2" data-testid="inline-row-0-uid-rc">
+                        <div className="space-y-1">
+                          <label className="text-xs font-medium text-muted-foreground">UID</label>
+                          <Input value="" disabled placeholder="Bude pridelene po ulozeni" data-testid="input-inline-uid" />
+                        </div>
+                        <div className="space-y-1">
+                          <label className="text-xs font-medium text-muted-foreground">Rodne cislo</label>
+                          <Input value={inlineFormValues["rodne_cislo"] || ""} disabled data-testid="input-inline-rodne-cislo-row0" />
+                        </div>
+                      </div>
+                    )}
+                    {renderSectionedPanels()}
+                  </>
+                );
               }
 
               const szcoPovinneSection = sortedSections.find(s => s.folderCategory === "povinne" || s.name === "POVINNÉ ÚDAJE");

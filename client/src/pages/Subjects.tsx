@@ -1060,15 +1060,15 @@ function FullPageEditor({
                               return (
                                 <Card className={`${disabled ? "opacity-50 pointer-events-none" : ""}`} data-testid={`panel-address-${prefix}`}>
                                   <CardContent className="p-4 space-y-3">
-                                    <p className="text-sm font-semibold">{panelDef.label}</p>
+                                    <p className="text-sm font-semibold truncate" title={panelDef.label}>{panelDef.label}</p>
                                     <div className="grid grid-cols-1 gap-2">
                                       {renderAddrField(fields[0].key, fields[0].field, fields[0].suffix)}
                                     </div>
-                                    <div className="grid grid-cols-2 gap-2">
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                                       {renderAddrField(fields[1].key, fields[1].field, fields[1].suffix)}
                                       {renderAddrField(fields[2].key, fields[2].field, fields[2].suffix)}
                                     </div>
-                                    <div className="grid grid-cols-2 gap-2">
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                                       {renderAddrField(fields[3].key, fields[3].field, fields[3].suffix)}
                                       {renderAddrField(fields[4].key, fields[4].field, fields[4].suffix)}
                                     </div>
@@ -1081,7 +1081,7 @@ function FullPageEditor({
                             };
 
                             return (
-                              <div className="grid grid-cols-3 gap-3 items-start" data-testid="row-address-panels">
+                              <div className="grid grid-cols-1 md:grid-cols-3 gap-3 items-start" data-testid="row-address-panels">
                                 <div className="flex flex-col">
                                   {renderAddressPanel("tp", ADDRESS_PANEL_FIELDS.tp, false)}
                                   <div className="flex items-center gap-2 mt-2 px-1">
@@ -1694,10 +1694,10 @@ function SubjectEditModal({ subject, onClose }: { subject: Subject & { isOwner?:
                 return (
                   <Card className={`${disabled ? "opacity-50 pointer-events-none" : ""}`} data-testid={`edit-panel-address-${prefix}`}>
                     <CardContent className="p-4 space-y-3">
-                      <p className="text-sm font-semibold">{panelDef.label}</p>
+                      <p className="text-sm font-semibold truncate" title={panelDef.label}>{panelDef.label}</p>
                       <div className="grid grid-cols-1 gap-2">{renderAddrField(fields[0].key, fields[0].field, fields[0].suffix)}</div>
-                      <div className="grid grid-cols-2 gap-2">{renderAddrField(fields[1].key, fields[1].field, fields[1].suffix)}{renderAddrField(fields[2].key, fields[2].field, fields[2].suffix)}</div>
-                      <div className="grid grid-cols-2 gap-2">{renderAddrField(fields[3].key, fields[3].field, fields[3].suffix)}{renderAddrField(fields[4].key, fields[4].field, fields[4].suffix)}</div>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">{renderAddrField(fields[1].key, fields[1].field, fields[1].suffix)}{renderAddrField(fields[2].key, fields[2].field, fields[2].suffix)}</div>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">{renderAddrField(fields[3].key, fields[3].field, fields[3].suffix)}{renderAddrField(fields[4].key, fields[4].field, fields[4].suffix)}</div>
                       <div className="grid grid-cols-1 gap-2">{renderAddrField(fields[5].key, fields[5].field, fields[5].suffix)}</div>
                     </CardContent>
                   </Card>
@@ -1742,7 +1742,7 @@ function SubjectEditModal({ subject, onClose }: { subject: Subject & { isOwner?:
                                 );
                               })}
                               <div style={{ display: hasAddressPanels ? 'block' : 'none' }}>
-                                <div className="grid grid-cols-3 gap-3 items-start" data-testid="edit-row-address-panels">
+                                <div className="grid grid-cols-1 md:grid-cols-3 gap-3 items-start" data-testid="edit-row-address-panels">
                                   <div className="flex flex-col">
                                     {renderEditAddressPanel("tp", EDIT_ADDRESS_PANEL_FIELDS.tp, false)}
                                     <div className="flex items-center gap-2 mt-2 px-1">
