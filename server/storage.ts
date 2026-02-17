@@ -482,9 +482,9 @@ export class DatabaseStorage implements IStorage {
   
   async getStates(continentId?: number): Promise<State[]> {
     if (continentId) {
-      return await db.select().from(states).where(eq(states.continentId, continentId)).orderBy(desc(states.id));
+      return await db.select().from(states).where(eq(states.continentId, continentId)).orderBy(states.name);
     }
-    return await db.select().from(states).orderBy(desc(states.id));
+    return await db.select().from(states).orderBy(states.name);
   }
 
   async getState(id: number): Promise<State | undefined> {
