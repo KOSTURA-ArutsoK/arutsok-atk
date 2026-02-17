@@ -495,6 +495,7 @@ function FullPageEditor({
   const { data: companies } = useMyCompanies();
   const { data: allStates, isLoading: statesLoading } = useStates();
   const { data: clientTypes, isLoading: typesLoading } = useQuery<ClientType[]>({ queryKey: ["/api/client-types"] });
+  const { data: appUser } = useAppUser();
   const timerRef = useRef<number>(performance.now());
 
   const clientType = clientTypes?.find(ct => ct.code === initialData.clientTypeCode);
@@ -533,6 +534,8 @@ function FullPageEditor({
     return depValue === rule.value;
   }
 
+  const activeCompanyName = companies?.find(c => c.id === appUser?.activeCompanyId)?.name || "";
+
   const form = useForm<z.infer<typeof createSchema>>({
     resolver: zodResolver(createSchema),
     defaultValues: {
@@ -545,11 +548,12 @@ function FullPageEditor({
       continentId: state?.continentId || 0,
       birthNumber: isPerson ? initialData.baseValue : undefined,
       details: !isPerson ? { ico: initialData.baseValue } : {},
+      myCompanyId: appUser?.activeCompanyId || 0,
     },
   });
 
   const formResetDone = useRef(false);
-  if (!formResetDone.current && clientType && state) {
+  if (!formResetDone.current && clientType && state && appUser?.activeCompanyId) {
     formResetDone.current = true;
     form.reset({
       type: isPerson ? "person" : "company",
@@ -561,6 +565,7 @@ function FullPageEditor({
       continentId: state.continentId,
       birthNumber: isPerson ? initialData.baseValue : undefined,
       details: !isPerson ? { ico: initialData.baseValue } : {},
+      myCompanyId: appUser.activeCompanyId,
     });
   }
 
@@ -614,17 +619,10 @@ function FullPageEditor({
                     <FormMessage />
                   </FormItem>
                 )} />
-                <FormField control={form.control} name="myCompanyId" render={({ field }) => (
+                <FormField control={form.control} name="myCompanyId" render={() => (
                   <FormItem>
                     <FormLabel>Spravujuca firma</FormLabel>
-                    <Select onValueChange={field.onChange} value={field.value?.toString()}>
-                      <FormControl><SelectTrigger data-testid="select-managing-company"><SelectValue placeholder="Vyberte firmu" /></SelectTrigger></FormControl>
-                      <SelectContent>
-                        {companies?.map(c => (
-                          <SelectItem key={c.id} value={c.id.toString()}>{c.name}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    <Input value={activeCompanyName} disabled data-testid="input-managing-company-locked" />
                     <FormMessage />
                   </FormItem>
                 )} />
