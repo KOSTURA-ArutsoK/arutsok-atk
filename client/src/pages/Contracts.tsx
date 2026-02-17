@@ -38,6 +38,8 @@ import {
 import { ProcessingSaveButton } from "@/components/processing-save-button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { HelpIcon } from "@/components/help-icon";
+import { Switch } from "@/components/ui/switch";
+import type { ClientTypeField, ClientTypePanel, ClientTypeSection } from "@shared/schema";
 
 function formatProcessingTime(seconds: number): string {
   const h = Math.floor(seconds / 3600);
@@ -960,6 +962,9 @@ export default function Contracts() {
   const [preSelectProductId, setPreSelectProductId] = useState<string>("");
   const [preSelectSubjectSearch, setPreSelectSubjectSearch] = useState("");
   const [preSelectSubjectId, setPreSelectSubjectId] = useState<string>("");
+  const [showInlineCreate, setShowInlineCreate] = useState(false);
+  const [inlineFormValues, setInlineFormValues] = useState<Record<string, string>>({});
+  const [inlineCreating, setInlineCreating] = useState(false);
   const [importDialogOpen, setImportDialogOpen] = useState(false);
   const [importFile, setImportFile] = useState<File | null>(null);
   const [importResult, setImportResult] = useState<{ total: number; success: number; errors: number; details: any[] } | null>(null);
@@ -972,6 +977,16 @@ export default function Contracts() {
 
   const { data: inventories } = useQuery<ContractInventory[]>({
     queryKey: ["/api/contract-inventories"],
+  });
+
+  const { data: foSections } = useQuery<ClientTypeSection[]>({
+    queryKey: ["/api/client-types", 1, "sections"],
+  });
+  const { data: foPanels } = useQuery<ClientTypePanel[]>({
+    queryKey: ["/api/client-types", 1, "panels"],
+  });
+  const { data: foFields } = useQuery<ClientTypeField[]>({
+    queryKey: ["/api/client-types", 1, "fields"],
   });
 
   const contractsParams = (() => {
@@ -1482,7 +1497,69 @@ export default function Contracts() {
     setPreSelectProductId("");
     setPreSelectSubjectSearch("");
     setPreSelectSubjectId("");
+    setShowInlineCreate(false);
+    setInlineFormValues({});
     setPreSelectOpen(true);
+  };
+
+  const handleShowInlineCreate = () => {
+    setShowInlineCreate(true);
+    setPreSelectSubjectId("");
+    const defaults: Record<string, string> = {};
+    if (foFields) {
+      foFields.forEach(f => {
+        if (f.defaultValue) defaults[f.fieldKey] = f.defaultValue;
+      });
+    }
+    setInlineFormValues(defaults);
+  };
+
+  const handleInlineCreateSubject = async () => {
+    const meno = inlineFormValues["meno"]?.trim();
+    const priezvisko = inlineFormValues["priezvisko"]?.trim();
+    if (!meno || !priezvisko) {
+      toast({ title: "Chyba", description: "Meno a priezvisko su povinne", variant: "destructive" });
+      return;
+    }
+    setInlineCreating(true);
+    try {
+      const details: Record<string, string> = {};
+      if (foFields) {
+        foFields.forEach(f => {
+          const val = inlineFormValues[f.fieldKey];
+          if (val !== undefined && val !== "") details[f.fieldKey] = val;
+        });
+      }
+      const payload: any = {
+        type: "person",
+        firstName: meno,
+        lastName: priezvisko,
+        birthNumber: inlineFormValues["rodne_cislo"] || null,
+        email: inlineFormValues["email"] || null,
+        phone: inlineFormValues["telefon"] || null,
+        idCardNumber: inlineFormValues["cislo_dokladu"] || null,
+        details,
+        stateId: appUser?.activeStateId || null,
+        myCompanyId: appUser?.activeCompanyId || null,
+      };
+      const res = await apiRequest("POST", "/api/subjects", payload);
+      const created = await res.json();
+      queryClient.invalidateQueries({ queryKey: ["/api/subjects"] });
+      toast({ title: "Klient vytvoreny", description: `${meno} ${priezvisko} (${created.uid})` });
+      setPreSelectSubjectId(created.id.toString());
+      setShowInlineCreate(false);
+      const params = new URLSearchParams();
+      if (preSelectPartnerId) params.set("partnerId", preSelectPartnerId);
+      if (preSelectProductId) params.set("productId", preSelectProductId);
+      params.set("subjectId", created.id.toString());
+      navigate(`/contracts/new${params.toString() ? `?${params.toString()}` : ""}`);
+      setPreSelectOpen(false);
+      setPreSelectStep(1);
+    } catch (err: any) {
+      toast({ title: "Chyba", description: err.message || "Nepodarilo sa vytvorit klienta", variant: "destructive" });
+    } finally {
+      setInlineCreating(false);
+    }
   };
 
   const preSelectFilteredSubjects = (() => {
@@ -1501,11 +1578,11 @@ export default function Contracts() {
   })();
 
   const preSelectDialog = (
-    <Dialog open={preSelectOpen} onOpenChange={(open) => { setPreSelectOpen(open); if (!open) { setPreSelectStep(1); } }}>
-      <DialogContent className="max-w-[600px]" data-testid="dialog-pre-select-contract">
+    <Dialog open={preSelectOpen} onOpenChange={(open) => { setPreSelectOpen(open); if (!open) { setPreSelectStep(1); setShowInlineCreate(false); } }}>
+      <DialogContent className={showInlineCreate ? "max-w-[900px] max-h-[90vh] overflow-y-auto" : "max-w-[600px]"} data-testid="dialog-pre-select-contract">
         <DialogHeader>
           <DialogTitle data-testid="text-preselect-title">
-            {preSelectStep === 1 ? "Krok 1: Vyber partnera a produktu" : "Krok 2: Vyber klienta (subjektu)"}
+            {preSelectStep === 1 ? "Krok 1: Vyber partnera a produktu" : showInlineCreate ? "Krok 2: Novy klient (FO)" : "Krok 2: Vyber klienta (subjektu)"}
           </DialogTitle>
         </DialogHeader>
 
@@ -1559,7 +1636,7 @@ export default function Contracts() {
           </div>
         </div>
 
-        <div style={{ display: preSelectStep === 2 ? 'block' : 'none' }}>
+        <div style={{ display: preSelectStep === 2 && !showInlineCreate ? 'block' : 'none' }}>
           <div className="space-y-4">
             <p className="text-sm text-muted-foreground">
               Vyhladajte a vyberte klienta podla rodneho cisla, ICO alebo mena.
@@ -1619,12 +1696,139 @@ export default function Contracts() {
               )}
             </div>
 
+            <div style={{ display: preSelectSubjectSearch.trim() && preSelectFilteredSubjects.length === 0 ? 'block' : 'none' }}>
+              <Card>
+                <CardContent className="p-3">
+                  <div className="flex items-center gap-3">
+                    <AlertTriangle className="w-5 h-5 text-amber-500 flex-shrink-0" />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium">Klient nenajdeny v systeme</p>
+                      <p className="text-xs text-muted-foreground">Mozete vytvorit noveho klienta (FO) priamo tu.</p>
+                    </div>
+                    <Button size="sm" onClick={handleShowInlineCreate} data-testid="button-inline-create-subject">
+                      <Plus className="w-4 h-4 mr-1" />
+                      Novy klient
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+
             <div className="flex justify-between gap-2">
               <Button variant="outline" onClick={handlePreSelectStep2Back} data-testid="button-preselect-back">
                 Spat
               </Button>
               <Button onClick={handlePreSelectConfirm} disabled={!preSelectSubjectId} data-testid="button-preselect-confirm">
                 Otvorit zmluvu
+              </Button>
+            </div>
+          </div>
+        </div>
+
+        <div style={{ display: preSelectStep === 2 && showInlineCreate ? 'block' : 'none' }}>
+          <div className="space-y-4">
+            <p className="text-sm text-muted-foreground">
+              Vyplnte udaje noveho klienta (FO) podla pravidiel typov klientov.
+            </p>
+
+            {foPanels?.sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0)).map(panel => {
+              const panelFields = (foFields || [])
+                .filter(f => f.panelId === panel.id)
+                .sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0));
+
+              if (panelFields.length === 0) return null;
+
+              return (
+                <div key={panel.id} className="space-y-3" data-testid={`panel-inline-${panel.id}`}>
+                  <div className="flex items-center gap-2">
+                    <div className="h-px flex-1 bg-border" />
+                    <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">{panel.name}</span>
+                    <div className="h-px flex-1 bg-border" />
+                  </div>
+
+                  <div className={`grid gap-3`} style={{ gridTemplateColumns: `repeat(${panel.gridColumns || 2}, 1fr)` }}>
+                    {panelFields.map(field => {
+                      const rule = field.visibilityRule as { dependsOn: string; value: string } | null;
+                      const isVisible = !rule || inlineFormValues[rule.dependsOn] === rule.value;
+
+                      return (
+                        <div
+                          key={field.id}
+                          className="space-y-1"
+                          style={{ display: isVisible ? 'block' : 'none' }}
+                          data-testid={`field-inline-${field.fieldKey}`}
+                        >
+                          <label className="text-xs font-medium">
+                            {field.label}{field.isRequired ? " *" : ""}
+                          </label>
+
+                          {field.fieldType === "switch" ? (
+                            <div className="flex items-center gap-2 pt-1">
+                              <Switch
+                                checked={inlineFormValues[field.fieldKey] === "true"}
+                                onCheckedChange={checked => setInlineFormValues(prev => ({ ...prev, [field.fieldKey]: String(checked) }))}
+                                data-testid={`switch-inline-${field.fieldKey}`}
+                              />
+                              <span className="text-sm text-muted-foreground">{inlineFormValues[field.fieldKey] === "true" ? "Ano" : "Nie"}</span>
+                            </div>
+                          ) : field.fieldType === "jedna_moznost" ? (
+                            <Select
+                              value={inlineFormValues[field.fieldKey] || ""}
+                              onValueChange={val => setInlineFormValues(prev => ({ ...prev, [field.fieldKey]: val }))}
+                            >
+                              <SelectTrigger data-testid={`select-inline-${field.fieldKey}`}>
+                                <SelectValue placeholder="Vyberte..." />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {(field.options || []).map((opt: string) => (
+                                  <SelectItem key={opt} value={opt}>{opt}</SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          ) : field.fieldType === "date" ? (
+                            <Input
+                              type="date"
+                              value={inlineFormValues[field.fieldKey] || ""}
+                              onChange={e => setInlineFormValues(prev => ({ ...prev, [field.fieldKey]: e.target.value }))}
+                              data-testid={`input-inline-${field.fieldKey}`}
+                            />
+                          ) : field.fieldType === "number" ? (
+                            <Input
+                              type="number"
+                              value={inlineFormValues[field.fieldKey] || ""}
+                              onChange={e => setInlineFormValues(prev => ({ ...prev, [field.fieldKey]: e.target.value }))}
+                              data-testid={`input-inline-${field.fieldKey}`}
+                            />
+                          ) : field.fieldType === "phone" ? (
+                            <Input
+                              type="tel"
+                              value={inlineFormValues[field.fieldKey] || ""}
+                              onChange={e => setInlineFormValues(prev => ({ ...prev, [field.fieldKey]: e.target.value }))}
+                              placeholder="+421..."
+                              data-testid={`input-inline-${field.fieldKey}`}
+                            />
+                          ) : (
+                            <Input
+                              value={inlineFormValues[field.fieldKey] || ""}
+                              onChange={e => setInlineFormValues(prev => ({ ...prev, [field.fieldKey]: e.target.value }))}
+                              data-testid={`input-inline-${field.fieldKey}`}
+                            />
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              );
+            })}
+
+            <div className="flex justify-between gap-2 pt-2 border-t">
+              <Button variant="outline" onClick={() => setShowInlineCreate(false)} data-testid="button-inline-back">
+                Spat na vyhladavanie
+              </Button>
+              <Button onClick={handleInlineCreateSubject} disabled={inlineCreating} data-testid="button-inline-create-confirm">
+                {inlineCreating ? <Loader2 className="w-4 h-4 mr-1 animate-spin" /> : <Plus className="w-4 h-4 mr-1" />}
+                Vytvorit klienta a otvorit zmluvu
               </Button>
             </div>
           </div>
