@@ -1868,7 +1868,7 @@ export default function Contracts() {
 
               const INLINE_ADDR_PANELS = {
                 tp: { label: "Adresa trvalého pobytu", keys: ["tp_ulica", "tp_supisne", "tp_orientacne", "tp_psc", "tp_mesto", "tp_stat"] },
-                ka: { label: "Korešpondenčná adresa", keys: ["ka_ulica", "ka_supisne", "ka_orientacne", "ka_psc", "ka_mesto", "ka_stat"] },
+                ka: { label: "Adresa prechodného pobytu", keys: ["ka_ulica", "ka_supisne", "ka_orientacne", "ka_psc", "ka_mesto", "ka_stat"] },
                 koa: { label: "Kontaktná adresa", keys: ["koa_ulica", "koa_supisne", "koa_orientacne", "koa_psc", "koa_mesto", "koa_stat"] },
               };
 
@@ -2030,7 +2030,7 @@ export default function Contracts() {
                             data-testid="switch-inline-korespond-rovnaka"
                           />
                           <Label className="text-xs cursor-pointer" onClick={() => setInlineFormValues(prev => ({ ...prev, korespond_rovnaka: String(prev["korespond_rovnaka"] !== "true") }))}>
-                            Korešpondenčná adresa je totožná s adresou trvalého pobytu
+                            Adresa prechodného pobytu je totožná s adresou trvalého pobytu
                           </Label>
                         </div>
                       </div>
@@ -2040,11 +2040,10 @@ export default function Contracts() {
                           <Switch
                             checked={inlineKontRovnaka}
                             onCheckedChange={checked => setInlineFormValues(prev => ({ ...prev, kontaktna_rovnaka: String(checked) }))}
-                            disabled={inlineKorRovnaka}
                             data-testid="switch-inline-kontaktna-rovnaka"
                           />
-                          <Label className="text-xs cursor-pointer" onClick={() => { if (!inlineKorRovnaka) setInlineFormValues(prev => ({ ...prev, kontaktna_rovnaka: String(prev["kontaktna_rovnaka"] !== "true") })); }}>
-                            Kontaktná adresa je totožná s korešpondenčnou adresou
+                          <Label className="text-xs cursor-pointer" onClick={() => setInlineFormValues(prev => ({ ...prev, kontaktna_rovnaka: String(prev["kontaktna_rovnaka"] !== "true") }))}>
+                            Kontaktná adresa je totožná s adresou prechodného pobytu
                           </Label>
                         </div>
                       </div>

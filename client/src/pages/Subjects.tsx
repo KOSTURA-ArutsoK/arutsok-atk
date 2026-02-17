@@ -943,7 +943,7 @@ function FullPageEditor({
 
                 const ADDRESS_PANEL_FIELDS = {
                   tp: { label: "Adresa trvalého pobytu", keys: ["tp_ulica", "tp_supisne", "tp_orientacne", "tp_psc", "tp_mesto", "tp_stat"], requiredKeys: ["tp_ulica", "tp_orientacne", "tp_psc", "tp_mesto"] },
-                  ka: { label: "Korešpondenčná adresa", keys: ["ka_ulica", "ka_supisne", "ka_orientacne", "ka_psc", "ka_mesto", "ka_stat"], requiredKeys: [] },
+                  ka: { label: "Adresa prechodného pobytu", keys: ["ka_ulica", "ka_supisne", "ka_orientacne", "ka_psc", "ka_mesto", "ka_stat"], requiredKeys: [] },
                   koa: { label: "Kontaktná adresa", keys: ["koa_ulica", "koa_supisne", "koa_orientacne", "koa_psc", "koa_mesto", "koa_stat"], requiredKeys: [] },
                 };
                 const ADDRESS_SWITCH_KEYS = ["korespond_rovnaka", "kontaktna_rovnaka"];
@@ -1094,7 +1094,7 @@ function FullPageEditor({
                                       data-testid="switch-korespond-rovnaka"
                                     />
                                     <Label className="text-xs cursor-pointer" onClick={() => setDynamicValues(prev => ({ ...prev, korespond_rovnaka: String(prev["korespond_rovnaka"] !== "true") }))}>
-                                      Korešpondenčná adresa je totožná s adresou trvalého pobytu
+                                      Adresa prechodného pobytu je totožná s adresou trvalého pobytu
                                     </Label>
                                   </div>
                                 </div>
@@ -1105,11 +1105,10 @@ function FullPageEditor({
                                     <Switch
                                       checked={kontaktnaRovnaka}
                                       onCheckedChange={checked => setDynamicValues(prev => ({ ...prev, kontaktna_rovnaka: String(checked) }))}
-                                      disabled={korRespondRovnaka}
                                       data-testid="switch-kontaktna-rovnaka"
                                     />
-                                    <Label className="text-xs cursor-pointer" onClick={() => { if (!korRespondRovnaka) setDynamicValues(prev => ({ ...prev, kontaktna_rovnaka: String(prev["kontaktna_rovnaka"] !== "true") })); }}>
-                                      Kontaktná adresa je totožná s korešpondenčnou adresou
+                                    <Label className="text-xs cursor-pointer" onClick={() => setDynamicValues(prev => ({ ...prev, kontaktna_rovnaka: String(prev["kontaktna_rovnaka"] !== "true") }))}>
+                                      Kontaktná adresa je totožná s adresou prechodného pobytu
                                     </Label>
                                   </div>
                                 </div>
@@ -1653,7 +1652,7 @@ function SubjectEditModal({ subject, onClose }: { subject: Subject & { isOwner?:
 
               const EDIT_ADDRESS_PANEL_FIELDS = {
                 tp: { label: "Adresa trvalého pobytu", keys: ["tp_ulica", "tp_supisne", "tp_orientacne", "tp_psc", "tp_mesto", "tp_stat"], requiredKeys: ["tp_ulica", "tp_orientacne", "tp_psc", "tp_mesto"] },
-                ka: { label: "Korešpondenčná adresa", keys: ["ka_ulica", "ka_supisne", "ka_orientacne", "ka_psc", "ka_mesto", "ka_stat"], requiredKeys: [] },
+                ka: { label: "Adresa prechodného pobytu", keys: ["ka_ulica", "ka_supisne", "ka_orientacne", "ka_psc", "ka_mesto", "ka_stat"], requiredKeys: [] },
                 koa: { label: "Kontaktná adresa", keys: ["koa_ulica", "koa_supisne", "koa_orientacne", "koa_psc", "koa_mesto", "koa_stat"], requiredKeys: [] },
               };
               const EDIT_ADDR_SWITCH_KEYS = ["korespond_rovnaka", "kontaktna_rovnaka"];
@@ -1750,14 +1749,14 @@ function SubjectEditModal({ subject, onClose }: { subject: Subject & { isOwner?:
                                     {renderEditAddressPanel("tp", EDIT_ADDRESS_PANEL_FIELDS.tp, false)}
                                     <div className="flex items-center gap-2 mt-2 px-1">
                                       <Switch checked={editKorRespondRovnaka} onCheckedChange={checked => setDynamicValues(prev => ({ ...prev, korespond_rovnaka: String(checked) }))} data-testid="edit-switch-korespond-rovnaka" />
-                                      <Label className="text-xs cursor-pointer" onClick={() => setDynamicValues(prev => ({ ...prev, korespond_rovnaka: String(prev["korespond_rovnaka"] !== "true") }))}>Korešpondenčná adresa je totožná s adresou trvalého pobytu</Label>
+                                      <Label className="text-xs cursor-pointer" onClick={() => setDynamicValues(prev => ({ ...prev, korespond_rovnaka: String(prev["korespond_rovnaka"] !== "true") }))}>Adresa prechodného pobytu je totožná s adresou trvalého pobytu</Label>
                                     </div>
                                   </div>
                                   <div className="flex flex-col">
                                     {renderEditAddressPanel("ka", EDIT_ADDRESS_PANEL_FIELDS.ka, editKorRespondRovnaka)}
                                     <div className="flex items-center gap-2 mt-2 px-1">
-                                      <Switch checked={editKontaktnaRovnaka} onCheckedChange={checked => setDynamicValues(prev => ({ ...prev, kontaktna_rovnaka: String(checked) }))} disabled={editKorRespondRovnaka} data-testid="edit-switch-kontaktna-rovnaka" />
-                                      <Label className="text-xs cursor-pointer" onClick={() => { if (!editKorRespondRovnaka) setDynamicValues(prev => ({ ...prev, kontaktna_rovnaka: String(prev["kontaktna_rovnaka"] !== "true") })); }}>Kontaktná adresa je totožná s korešpondenčnou adresou</Label>
+                                      <Switch checked={editKontaktnaRovnaka} onCheckedChange={checked => setDynamicValues(prev => ({ ...prev, kontaktna_rovnaka: String(checked) }))} data-testid="edit-switch-kontaktna-rovnaka" />
+                                      <Label className="text-xs cursor-pointer" onClick={() => setDynamicValues(prev => ({ ...prev, kontaktna_rovnaka: String(prev["kontaktna_rovnaka"] !== "true") }))}>Kontaktná adresa je totožná s adresou prechodného pobytu</Label>
                                     </div>
                                   </div>
                                   <div className="flex flex-col">
