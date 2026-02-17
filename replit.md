@@ -41,7 +41,7 @@ The system uses a modern full-stack architecture, emphasizing data integrity, se
     - **Commission Brain & Calculation Engine**: Manages `commission_rates` with temporal validity, supports base and differential calculations, and maintains `commission_calculation_logs`.
     - **Settlement Sheets (Supisky) Module**: Manages settlement sheets and contracts, including locking mechanisms and status workflows.
     - **Calendar Module**: Provides full CRUD for `calendar_events` with various views and dashboard integration.
-    - **Client Registration**: Multi-step flow including identity verification and simulated MFA.
+    - **Client Registration**: Multi-step flow including identity verification and simulated MFA. Supports dual client type inline creation (FO and SZČO) in contract pre-select dialog with two-phase SZČO workflow (business info → personal info). ClientTypeRules organized into "POVINNÉ ÚDAJE" and "VOLITEĽNÉ ÚDAJE" sections; inline forms filter to show only mandatory fields.
     - **System Settings**: Key-value store for application configurations.
     - **Dashboard Customization**: Drag-and-drop widget reordering with user-specific layout persistence.
     - **Global Table Resizing**: All tables support column resizing with persistence.
