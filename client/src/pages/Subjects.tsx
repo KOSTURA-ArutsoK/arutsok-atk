@@ -1058,7 +1058,7 @@ function FullPageEditor({
                               };
 
                               return (
-                                <Card className={`h-full ${disabled ? "opacity-50 pointer-events-none" : ""}`} data-testid={`panel-address-${prefix}`}>
+                                <Card className={`${disabled ? "opacity-50 pointer-events-none" : ""}`} data-testid={`panel-address-${prefix}`}>
                                   <CardContent className="p-4 space-y-3">
                                     <p className="text-sm font-semibold">{panelDef.label}</p>
                                     <div className="grid grid-cols-1 gap-2">
@@ -1081,7 +1081,7 @@ function FullPageEditor({
                             };
 
                             return (
-                              <div className="grid grid-cols-3 gap-3 items-stretch" data-testid="row-address-panels">
+                              <div className="grid grid-cols-3 gap-3 items-start" data-testid="row-address-panels">
                                 <div className="flex flex-col">
                                   {renderAddressPanel("tp", ADDRESS_PANEL_FIELDS.tp, false)}
                                   <div className="flex items-center gap-2 mt-2 px-1">
@@ -1091,7 +1091,7 @@ function FullPageEditor({
                                       data-testid="switch-korespond-rovnaka"
                                     />
                                     <Label className="text-xs cursor-pointer" onClick={() => setDynamicValues(prev => ({ ...prev, korespond_rovnaka: String(prev["korespond_rovnaka"] !== "true") }))}>
-                                      Korešpondenčná adresa sa zhoduje s trvalou
+                                      Korešpondenčná adresa je totožná s adresou trvalého pobytu
                                     </Label>
                                   </div>
                                 </div>
@@ -1106,7 +1106,7 @@ function FullPageEditor({
                                       data-testid="switch-kontaktna-rovnaka"
                                     />
                                     <Label className="text-xs cursor-pointer" onClick={() => { if (!korRespondRovnaka) setDynamicValues(prev => ({ ...prev, kontaktna_rovnaka: String(prev["kontaktna_rovnaka"] !== "true") })); }}>
-                                      Kontaktná adresa sa zhoduje s trvalou
+                                      Kontaktná adresa je totožná s korešpondenčnou adresou
                                     </Label>
                                   </div>
                                 </div>
@@ -1692,7 +1692,7 @@ function SubjectEditModal({ subject, onClose }: { subject: Subject & { isOwner?:
                 };
 
                 return (
-                  <Card className={`h-full ${disabled ? "opacity-50 pointer-events-none" : ""}`} data-testid={`edit-panel-address-${prefix}`}>
+                  <Card className={`${disabled ? "opacity-50 pointer-events-none" : ""}`} data-testid={`edit-panel-address-${prefix}`}>
                     <CardContent className="p-4 space-y-3">
                       <p className="text-sm font-semibold">{panelDef.label}</p>
                       <div className="grid grid-cols-1 gap-2">{renderAddrField(fields[0].key, fields[0].field, fields[0].suffix)}</div>
@@ -1742,19 +1742,19 @@ function SubjectEditModal({ subject, onClose }: { subject: Subject & { isOwner?:
                                 );
                               })}
                               <div style={{ display: hasAddressPanels ? 'block' : 'none' }}>
-                                <div className="grid grid-cols-3 gap-3 items-stretch" data-testid="edit-row-address-panels">
+                                <div className="grid grid-cols-3 gap-3 items-start" data-testid="edit-row-address-panels">
                                   <div className="flex flex-col">
                                     {renderEditAddressPanel("tp", EDIT_ADDRESS_PANEL_FIELDS.tp, false)}
                                     <div className="flex items-center gap-2 mt-2 px-1">
                                       <Switch checked={editKorRespondRovnaka} onCheckedChange={checked => setDynamicValues(prev => ({ ...prev, korespond_rovnaka: String(checked) }))} data-testid="edit-switch-korespond-rovnaka" />
-                                      <Label className="text-xs cursor-pointer" onClick={() => setDynamicValues(prev => ({ ...prev, korespond_rovnaka: String(prev["korespond_rovnaka"] !== "true") }))}>Korešpondenčná adresa sa zhoduje s trvalou</Label>
+                                      <Label className="text-xs cursor-pointer" onClick={() => setDynamicValues(prev => ({ ...prev, korespond_rovnaka: String(prev["korespond_rovnaka"] !== "true") }))}>Korešpondenčná adresa je totožná s adresou trvalého pobytu</Label>
                                     </div>
                                   </div>
                                   <div className="flex flex-col">
                                     {renderEditAddressPanel("ka", EDIT_ADDRESS_PANEL_FIELDS.ka, editKorRespondRovnaka)}
                                     <div className="flex items-center gap-2 mt-2 px-1">
                                       <Switch checked={editKontaktnaRovnaka} onCheckedChange={checked => setDynamicValues(prev => ({ ...prev, kontaktna_rovnaka: String(checked) }))} disabled={editKorRespondRovnaka} data-testid="edit-switch-kontaktna-rovnaka" />
-                                      <Label className="text-xs cursor-pointer" onClick={() => { if (!editKorRespondRovnaka) setDynamicValues(prev => ({ ...prev, kontaktna_rovnaka: String(prev["kontaktna_rovnaka"] !== "true") })); }}>Kontaktná adresa sa zhoduje s trvalou</Label>
+                                      <Label className="text-xs cursor-pointer" onClick={() => { if (!editKorRespondRovnaka) setDynamicValues(prev => ({ ...prev, kontaktna_rovnaka: String(prev["kontaktna_rovnaka"] !== "true") })); }}>Kontaktná adresa je totožná s korešpondenčnou adresou</Label>
                                     </div>
                                   </div>
                                   <div className="flex flex-col">

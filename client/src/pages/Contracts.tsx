@@ -2017,7 +2017,7 @@ export default function Contracts() {
                       <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Adresa</span>
                       <div className="h-px flex-1 bg-border" />
                     </div>
-                    <div className="grid grid-cols-3 gap-3 items-stretch" data-testid="inline-row-address-panels">
+                    <div className="grid grid-cols-3 gap-3 items-start" data-testid="inline-row-address-panels">
                       <div className="flex flex-col">
                         {renderAddrCard("tp", INLINE_ADDR_PANELS.tp, false)}
                         <div className="flex items-center gap-2 mt-2 px-1">
@@ -2027,7 +2027,7 @@ export default function Contracts() {
                             data-testid="switch-inline-korespond-rovnaka"
                           />
                           <Label className="text-xs cursor-pointer" onClick={() => setInlineFormValues(prev => ({ ...prev, korespond_rovnaka: String(prev["korespond_rovnaka"] !== "true") }))}>
-                            Korešp. = trvalá
+                            Korešpondenčná adresa je totožná s adresou trvalého pobytu
                           </Label>
                         </div>
                       </div>
@@ -2041,7 +2041,7 @@ export default function Contracts() {
                             data-testid="switch-inline-kontaktna-rovnaka"
                           />
                           <Label className="text-xs cursor-pointer" onClick={() => { if (!inlineKorRovnaka) setInlineFormValues(prev => ({ ...prev, kontaktna_rovnaka: String(prev["kontaktna_rovnaka"] !== "true") })); }}>
-                            Kontaktná = trvalá
+                            Kontaktná adresa je totožná s korešpondenčnou adresou
                           </Label>
                         </div>
                       </div>
