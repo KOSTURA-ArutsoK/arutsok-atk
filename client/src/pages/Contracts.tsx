@@ -1520,6 +1520,10 @@ export default function Contracts() {
   const [inlineValidationErrors, setInlineValidationErrors] = useState<Set<string>>(new Set());
   const [inlineClientType, setInlineClientType] = useState<"fo" | "szco" | "po">("fo");
   const [szcoPhase, setSzcoPhase] = useState<1 | 2>(1);
+  const [szcoSelectedFo, setSzcoSelectedFo] = useState<any>(null);
+  const [szcoFoSearchQuery, setSzcoFoSearchQuery] = useState("");
+  const [szcoFoMode, setSzcoFoMode] = useState<"search" | "create">("search");
+  const [szcoNewFoData, setSzcoNewFoData] = useState({ firstName: "", lastName: "", birthNumber: "" });
   const [preSelectClientTypeId, setPreSelectClientTypeId] = useState<string>("");
   const refProductTrigger = useRef<HTMLButtonElement>(null);
   const refStep1Next = useRef<HTMLButtonElement>(null);
@@ -1566,6 +1570,16 @@ export default function Contracts() {
   const { data: poSections } = useQuery<ClientTypeSection[]>({ queryKey: ["/api/client-types", 4, "sections"], staleTime: 0, refetchOnMount: "always" });
   const { data: poPanels } = useQuery<ClientTypePanel[]>({ queryKey: ["/api/client-types", 4, "panels"], staleTime: 0, refetchOnMount: "always" });
   const { data: poAllFields } = useQuery<ClientTypeField[]>({ queryKey: ["/api/client-types", 4, "fields"], staleTime: 0, refetchOnMount: "always" });
+
+  const { data: szcoFoSearchResults } = useQuery<any[]>({
+    queryKey: ["/api/subjects/search-fo", szcoFoSearchQuery],
+    queryFn: async () => {
+      const res = await fetch(`/api/subjects/search-fo?q=${encodeURIComponent(szcoFoSearchQuery)}`, { credentials: "include" });
+      if (!res.ok) return [];
+      return res.json();
+    },
+    enabled: inlineClientType === "szco" && szcoFoSearchQuery.length >= 2,
+  });
 
   const activeSections = inlineClientType === "szco" ? szcoSections : inlineClientType === "po" ? poSections : foSections;
   const activePanelsRaw = inlineClientType === "szco" ? szcoPanels : inlineClientType === "po" ? poPanels : foPanels;
@@ -2164,11 +2178,20 @@ export default function Contracts() {
     });
     const isPo = inlineClientType === "po";
     const isSzco = inlineClientType === "szco";
-    const meno = inlineFormValues["meno"]?.trim();
-    const priezvisko = inlineFormValues["priezvisko"]?.trim();
-    if (!isPo && !meno) missingRequired.push({ fieldKey: "meno", label: "Meno", isRequired: true } as any);
-    if (!isPo && !priezvisko) missingRequired.push({ fieldKey: "priezvisko", label: "Priezvisko", isRequired: true } as any);
+    const meno = isSzco ? (szcoSelectedFo?.firstName || szcoNewFoData.firstName || "") : inlineFormValues["meno"]?.trim() || "";
+    const priezvisko = isSzco ? (szcoSelectedFo?.lastName || szcoNewFoData.lastName || "") : inlineFormValues["priezvisko"]?.trim() || "";
+    if (!isPo && !isSzco && !meno) missingRequired.push({ fieldKey: "meno", label: "Meno", isRequired: true } as any);
+    if (!isPo && !isSzco && !priezvisko) missingRequired.push({ fieldKey: "priezvisko", label: "Priezvisko", isRequired: true } as any);
     if (isPo && !inlineFormValues["nazov_organizacie"]?.trim()) missingRequired.push({ fieldKey: "nazov_organizacie", label: "Názov organizácie", isRequired: true } as any);
+    if (isSzco && !szcoSelectedFo) {
+      if (szcoFoMode === "create") {
+        if (!szcoNewFoData.firstName.trim()) missingRequired.push({ fieldKey: "fo_meno", label: "Meno (FO)", isRequired: true } as any);
+        if (!szcoNewFoData.lastName.trim()) missingRequired.push({ fieldKey: "fo_priezvisko", label: "Priezvisko (FO)", isRequired: true } as any);
+        if (!szcoNewFoData.birthNumber.trim()) missingRequired.push({ fieldKey: "fo_rodne_cislo", label: "Rodné číslo (FO)", isRequired: true } as any);
+      } else {
+        missingRequired.push({ fieldKey: "fo_osoba", label: "Prepojená Fyzická osoba", isRequired: true } as any);
+      }
+    }
 
     if (missingRequired.length > 0) {
       const errorKeys = new Set(missingRequired.map((f: any) => f.fieldKey));
@@ -2190,10 +2213,10 @@ export default function Contracts() {
 
       const payload: any = {
         type: isPo ? "company" : isSzco ? "szco" : "person",
-        firstName: isPo ? null : meno,
-        lastName: isPo ? null : priezvisko,
+        firstName: isPo ? null : isSzco ? (szcoSelectedFo ? null : szcoNewFoData.firstName || null) : meno,
+        lastName: isPo ? null : isSzco ? (szcoSelectedFo ? null : szcoNewFoData.lastName || null) : priezvisko,
         companyName: (isPo || isSzco) ? (inlineFormValues["nazov_organizacie"]?.trim() || null) : null,
-        birthNumber: inlineFormValues["rodne_cislo"] || null,
+        birthNumber: isSzco ? (szcoSelectedFo ? null : szcoNewFoData.birthNumber || null) : (inlineFormValues["rodne_cislo"] || null),
         email: inlineFormValues["email"] || null,
         phone: inlineFormValues["telefon"] || null,
         idCardNumber: isPo ? null : (inlineFormValues["cislo_dokladu"] || null),
@@ -2201,6 +2224,7 @@ export default function Contracts() {
         continentId: activeState?.continentId || null,
         stateId: appUser?.activeStateId || null,
         myCompanyId: appUser?.activeCompanyId || null,
+        ...(isSzco && szcoSelectedFo ? { linkedFoId: szcoSelectedFo.id } : {}),
       };
 
       const res = await apiRequest("POST", "/api/subjects", payload);
@@ -2822,7 +2846,7 @@ export default function Contracts() {
 
                   <div style={{ display: szcoPhase === 1 ? 'block' : 'none' }}>
                     <div className="flex justify-between gap-2 pt-2 border-t">
-                      <Button variant="outline" onClick={() => { setShowInlineCreate(false); setSzcoPhase(1); }} data-testid="button-inline-back">
+                      <Button variant="outline" onClick={() => { setShowInlineCreate(false); setSzcoPhase(1); setSzcoSelectedFo(null); setSzcoFoSearchQuery(""); setSzcoFoMode("search"); setSzcoNewFoData({ firstName: "", lastName: "", birthNumber: "" }); }} data-testid="button-inline-back">
                         Spat na vyhladavanie
                       </Button>
                       <Button onClick={() => {
@@ -2848,12 +2872,92 @@ export default function Contracts() {
                     <div className="space-y-4">
                       <div className="flex items-center gap-2 pt-2">
                         <div className="h-px flex-1 bg-primary/30" />
-                        <span className="text-xs font-semibold uppercase tracking-wider text-primary">Faza 2: Osobne udaje majitela</span>
+                        <span className="text-xs font-semibold uppercase tracking-wider text-primary">Faza 2: Prepojenie s Fyzickou osobou</span>
                         <div className="h-px flex-1 bg-primary/30" />
                       </div>
-                      {renderPanels(szcoPovinePanelOsoba)}
 
-                      {szcoExtraSections.map(section => renderSectionWithPanels(section))}
+                      {szcoSelectedFo ? (
+                        <div className="flex items-center gap-3 p-3 rounded-md bg-blue-500/10 border border-blue-500/30">
+                          <div className="flex-1">
+                            <p className="text-sm font-medium">{szcoSelectedFo.firstName} {szcoSelectedFo.lastName}</p>
+                            <p className="text-xs text-muted-foreground">{szcoSelectedFo.uid} | {szcoSelectedFo.email || 'Bez emailu'}</p>
+                          </div>
+                          <Button size="sm" variant="ghost" onClick={() => setSzcoSelectedFo(null)} data-testid="button-clear-szco-fo">
+                            <X className="w-3 h-3" />
+                          </Button>
+                        </div>
+                      ) : szcoFoMode === "search" ? (
+                        <div className="space-y-3">
+                          <p className="text-xs text-muted-foreground">Vyhladajte existujucu Fyzicku osobu alebo vytvorte novu</p>
+                          <div className="flex gap-2">
+                            <Input
+                              placeholder="Hladaj meno, priezvisko, RC, email..."
+                              value={szcoFoSearchQuery}
+                              onChange={e => setSzcoFoSearchQuery(e.target.value)}
+                              data-testid="input-szco-fo-search"
+                            />
+                            <Button size="sm" variant="outline" onClick={() => setSzcoFoMode("create")} data-testid="button-szco-create-new-fo">
+                              Nova FO
+                            </Button>
+                          </div>
+                          {szcoFoSearchResults && szcoFoSearchResults.length > 0 && (
+                            <div className="space-y-1 max-h-48 overflow-y-auto">
+                              {szcoFoSearchResults.map((fo: any) => (
+                                <div
+                                  key={fo.id}
+                                  className="flex items-center gap-3 p-2 rounded-md border border-border hover-elevate cursor-pointer"
+                                  onClick={() => setSzcoSelectedFo(fo)}
+                                  data-testid={`szco-fo-result-${fo.id}`}
+                                >
+                                  <div>
+                                    <p className="text-sm font-medium">{fo.firstName} {fo.lastName}</p>
+                                    <p className="text-xs text-muted-foreground">{fo.uid} | {fo.email || ''}</p>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                          {szcoFoSearchQuery.length >= 2 && szcoFoSearchResults && szcoFoSearchResults.length === 0 && (
+                            <p className="text-xs text-muted-foreground text-center py-2">Ziadne vysledky. Skuste vytvorit novu FO.</p>
+                          )}
+                        </div>
+                      ) : (
+                        <div className="space-y-3">
+                          <div className="flex items-center gap-2 justify-between">
+                            <p className="text-xs text-muted-foreground">Vyplnte osobne udaje novej Fyzickej osoby</p>
+                            <Button size="sm" variant="ghost" onClick={() => setSzcoFoMode("search")} data-testid="button-szco-back-to-search">
+                              Spat na vyhladavanie
+                            </Button>
+                          </div>
+                          <div className="grid grid-cols-2 gap-3">
+                            <div className="space-y-1">
+                              <Label className="text-xs">Meno *</Label>
+                              <Input
+                                value={szcoNewFoData.firstName}
+                                onChange={e => setSzcoNewFoData(prev => ({ ...prev, firstName: e.target.value }))}
+                                data-testid="input-szco-new-fo-firstname"
+                              />
+                            </div>
+                            <div className="space-y-1">
+                              <Label className="text-xs">Priezvisko *</Label>
+                              <Input
+                                value={szcoNewFoData.lastName}
+                                onChange={e => setSzcoNewFoData(prev => ({ ...prev, lastName: e.target.value }))}
+                                data-testid="input-szco-new-fo-lastname"
+                              />
+                            </div>
+                          </div>
+                          <div className="space-y-1">
+                            <Label className="text-xs">Rodne cislo *</Label>
+                            <Input
+                              value={szcoNewFoData.birthNumber}
+                              onChange={e => setSzcoNewFoData(prev => ({ ...prev, birthNumber: e.target.value }))}
+                              placeholder="XXXXXX/XXXX"
+                              data-testid="input-szco-new-fo-rc"
+                            />
+                          </div>
+                        </div>
+                      )}
                     </div>
                   </div>
                 </>
@@ -2865,9 +2969,17 @@ export default function Contracts() {
                 <Button variant="outline" onClick={() => {
                   if (inlineClientType === "szco" && szcoPhase === 2) {
                     setSzcoPhase(1);
+                    setSzcoSelectedFo(null);
+                    setSzcoFoSearchQuery("");
+                    setSzcoFoMode("search");
+                    setSzcoNewFoData({ firstName: "", lastName: "", birthNumber: "" });
                   } else {
                     setShowInlineCreate(false);
                     setSzcoPhase(1);
+                    setSzcoSelectedFo(null);
+                    setSzcoFoSearchQuery("");
+                    setSzcoFoMode("search");
+                    setSzcoNewFoData({ firstName: "", lastName: "", birthNumber: "" });
                   }
                 }} data-testid="button-inline-back">
                   {inlineClientType === "szco" && szcoPhase === 2 ? "Spat na podnikatelske udaje" : "Spat na vyhladavanie"}

@@ -6,7 +6,7 @@ import { useAppUser } from "@/hooks/use-app-user";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, Search, User, Building2, AlertTriangle, Eye, Calendar, Briefcase, ArrowRight, ArrowLeft, ExternalLink, History, Clock, Wallet, Loader2, CheckCircle2, Pencil, Lock } from "lucide-react";
+import { Plus, Search, User, Building2, AlertTriangle, Eye, Calendar, Briefcase, ArrowRight, ArrowLeft, ExternalLink, History, Clock, Wallet, Loader2, CheckCircle2, Pencil, Lock, Users, X, Info } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -240,6 +240,29 @@ function SubjectDataTab({ subject }: { subject: Subject }) {
     refetchOnMount: "always",
   });
 
+  const foClientType = clientTypes?.find(ct => ct.code === 'FO');
+  const { data: foTypeFields } = useQuery<ClientTypeField[]>({
+    queryKey: ["/api/client-types", foClientType?.id, "fields"],
+    queryFn: async () => {
+      const res = await fetch(`/api/client-types/${foClientType!.id}/fields`, { credentials: "include" });
+      if (!res.ok) throw new Error("Failed");
+      return res.json();
+    },
+    enabled: isSzco && !!foClientType?.id,
+    staleTime: 0,
+    refetchOnMount: "always",
+  });
+
+  const INHERITED_FO_FIELDS = ["meno", "priezvisko", "rodne_cislo", "cislo_dokladu", "titul"];
+  const isFieldHidden = (fieldKey: string) => {
+    const szcoHidden = (typeFields || []).find(f => f.fieldKey === fieldKey)?.isHidden;
+    if (isSzco && INHERITED_FO_FIELDS.includes(fieldKey)) {
+      const foHidden = (foTypeFields || []).find(f => f.fieldKey === fieldKey)?.isHidden;
+      return szcoHidden || foHidden;
+    }
+    return szcoHidden;
+  };
+
   const { data: typeSections } = useQuery<(ClientTypeSection & { folderCategory?: string })[]>({
     queryKey: ["/api/client-types", clientType?.id, "sections"],
     queryFn: async () => {
@@ -275,7 +298,7 @@ function SubjectDataTab({ subject }: { subject: Subject }) {
     for (const section of sectionsSorted) {
       const category = (section as any).folderCategory || "volitelne";
       const sectionFields = typeFields
-        .filter(f => (f.sectionId || 0) === section.id && !f.isHidden)
+        .filter(f => (f.sectionId || 0) === section.id && !isFieldHidden(f.fieldKey))
         .sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0));
       if (sectionFields.length > 0) {
         if (!groups[category]) groups[category] = [];
@@ -283,7 +306,7 @@ function SubjectDataTab({ subject }: { subject: Subject }) {
       }
     }
 
-    const unsectionedFields = typeFields.filter(f => (!f.sectionId || f.sectionId === 0) && !f.isHidden);
+    const unsectionedFields = typeFields.filter(f => (!f.sectionId || f.sectionId === 0) && !isFieldHidden(f.fieldKey));
     if (unsectionedFields.length > 0) {
       groups.volitelne.push({ section: { id: 0, name: "Ostatne" }, fields: unsectionedFields.sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0)) });
     }
@@ -306,13 +329,13 @@ function SubjectDataTab({ subject }: { subject: Subject }) {
         </div>
         {isPerson || isSzco ? (
           <>
-            {!(typeFields || []).find(f => f.fieldKey === "meno")?.isHidden && (
+            {!isFieldHidden("meno") && (
             <div className="flex-1 min-w-[calc(50%-0.5rem)]">
               <span className="text-xs text-muted-foreground">Meno</span>
               <p className="text-sm">{subject.firstName || '-'}</p>
             </div>
             )}
-            {!(typeFields || []).find(f => f.fieldKey === "priezvisko")?.isHidden && (
+            {!isFieldHidden("priezvisko") && (
             <div className="flex-1 min-w-[calc(50%-0.5rem)]">
               <span className="text-xs text-muted-foreground">Priezvisko</span>
               <p className="text-sm">{subject.lastName || '-'}</p>
@@ -320,26 +343,35 @@ function SubjectDataTab({ subject }: { subject: Subject }) {
             )}
           </>
         ) : (
-          !(typeFields || []).find(f => f.fieldKey === "nazov_organizacie")?.isHidden && (
+          !isFieldHidden("nazov_organizacie") && (
           <div className="flex-1 min-w-[calc(50%-0.5rem)]">
             <span className="text-xs text-muted-foreground">Nazov spolocnosti</span>
             <p className="text-sm">{subject.companyName || '-'}</p>
           </div>
           )
         )}
-        {!(typeFields || []).find(f => f.fieldKey === "email")?.isHidden && (
+        {!isFieldHidden("email") && (
         <div className="flex-1 min-w-[calc(50%-0.5rem)]">
           <span className="text-xs text-muted-foreground">Email</span>
           <p className="text-sm">{subject.email || '-'}</p>
         </div>
         )}
-        {!(typeFields || []).find(f => f.fieldKey === "telefon")?.isHidden && (
+        {!isFieldHidden("telefon") && (
         <div className="flex-1 min-w-[calc(50%-0.5rem)]">
           <span className="text-xs text-muted-foreground">Telefon</span>
           <p className="text-sm">{subject.phone || '-'}</p>
         </div>
         )}
       </div>
+
+      {isSzco && (subject as any).linkedFo && (
+        <div className="flex items-center gap-2 p-3 rounded-md bg-blue-500/10 border border-blue-500/30">
+          <Info className="w-4 h-4 text-blue-400 flex-shrink-0" />
+          <p className="text-xs">
+            Osobne udaje prevzate z FO: <span className="font-medium">{(subject as any).linkedFo.firstName} {(subject as any).linkedFo.lastName}</span> ({(subject as any).linkedFo.uid})
+          </p>
+        </div>
+      )}
 
       <Accordion type="multiple" defaultValue={["povinne", "doplnkove"]} className="space-y-2">
         {FOLDER_CATEGORY_ORDER.map(category => {
@@ -850,6 +882,22 @@ function FullPageEditor({
   const isPerson = clientType?.baseParameter === "rc";
   const state = allStates?.find(s => s.id === initialData.stateId);
 
+  const isSzcoType = clientType?.code === 'SZCO';
+  const [selectedFo, setSelectedFo] = useState<any>(null);
+  const [foSearchQuery, setFoSearchQuery] = useState("");
+  const [szcoFoMode, setSzcoFoMode] = useState<"search" | "create">("search");
+  const [newFoData, setNewFoData] = useState({ firstName: "", lastName: "", birthNumber: "" });
+
+  const { data: foSearchResults } = useQuery<any[]>({
+    queryKey: ["/api/subjects/search-fo", foSearchQuery],
+    queryFn: async () => {
+      const res = await fetch(`/api/subjects/search-fo?q=${encodeURIComponent(foSearchQuery)}`, { credentials: "include" });
+      if (!res.ok) return [];
+      return res.json();
+    },
+    enabled: isSzcoType && foSearchQuery.length >= 2,
+  });
+
   const [dynamicValues, setDynamicValuesRaw] = useState<Record<string, string>>({});
   const [validationErrors, setValidationErrors] = useState<Set<string>>(new Set());
   const setDynamicValues: typeof setDynamicValuesRaw = (updater) => {
@@ -946,7 +994,7 @@ function FullPageEditor({
   const form = useForm<z.infer<typeof createSchema>>({
     resolver: zodResolver(createSchema),
     defaultValues: {
-      type: isPerson ? "person" : "company",
+      type: isPerson ? "person" : (clientType?.code === 'SZCO' ? "szco" : "company"),
       isActive: true,
       firstName: "",
       lastName: "",
@@ -962,7 +1010,7 @@ function FullPageEditor({
   if (!formResetDone.current && clientType && state && appUser?.activeCompanyId) {
     formResetDone.current = true;
     form.reset({
-      type: isPerson ? "person" : "company",
+      type: isPerson ? "person" : (clientType?.code === 'SZCO' ? "szco" : "company"),
       isActive: true,
       firstName: "",
       lastName: "",
@@ -1017,6 +1065,20 @@ function FullPageEditor({
     const submitData: any = { ...data, details: mergedDetails, processingTimeSec };
     if (isPerson && dynamicValues.meno) submitData.firstName = dynamicValues.meno;
     if (isPerson && dynamicValues.priezvisko) submitData.lastName = dynamicValues.priezvisko;
+    if (isSzcoType) {
+      if (selectedFo) {
+        submitData.linkedFoId = selectedFo.id;
+      } else if (szcoFoMode === "create") {
+        if (!newFoData.firstName || !newFoData.lastName || !newFoData.birthNumber) {
+          toast({ title: "Chybajuce osobne udaje FO", description: "Vyplnte meno, priezvisko a rodne cislo pre novu Fyzicku osobu.", variant: "destructive" });
+          return;
+        }
+        submitData.firstName = newFoData.firstName;
+        submitData.lastName = newFoData.lastName;
+        submitData.birthNumber = newFoData.birthNumber;
+      }
+      submitData.type = "szco";
+    }
     mutate(submitData, {
       onSuccess: () => { onCancel(); },
     });
@@ -1037,6 +1099,100 @@ function FullPageEditor({
           </p>
         </div>
       </div>
+
+      {isSzcoType && (
+        <Card className="mb-4">
+          <CardContent className="p-4 space-y-3">
+            <div className="flex items-center gap-2 mb-2">
+              <Users className="w-4 h-4 text-blue-400" />
+              <span className="text-sm font-semibold">Prepojenie s Fyzickou osobou</span>
+            </div>
+
+            {selectedFo ? (
+              <div className="flex items-center gap-3 p-3 rounded-md bg-blue-500/10 border border-blue-500/30">
+                <div className="flex-1">
+                  <p className="text-sm font-medium">{selectedFo.firstName} {selectedFo.lastName}</p>
+                  <p className="text-xs text-muted-foreground">{selectedFo.uid} | {selectedFo.email || 'Bez emailu'}</p>
+                </div>
+                <Button size="sm" variant="ghost" onClick={() => setSelectedFo(null)} data-testid="button-clear-fo">
+                  <X className="w-3 h-3" />
+                </Button>
+              </div>
+            ) : szcoFoMode === "search" ? (
+              <div className="space-y-2">
+                <p className="text-xs text-muted-foreground">Vyhladajte existujucu Fyzicku osobu alebo vytvorte novu</p>
+                <div className="flex gap-2">
+                  <Input
+                    placeholder="Hladaj meno, priezvisko, RC, email..."
+                    value={foSearchQuery}
+                    onChange={e => setFoSearchQuery(e.target.value)}
+                    data-testid="input-fo-search"
+                  />
+                  <Button size="sm" variant="outline" onClick={() => setSzcoFoMode("create")} data-testid="button-create-new-fo">
+                    Nova FO
+                  </Button>
+                </div>
+                {foSearchResults && foSearchResults.length > 0 && (
+                  <div className="space-y-1 max-h-48 overflow-y-auto">
+                    {foSearchResults.map((fo: any) => (
+                      <div
+                        key={fo.id}
+                        className="flex items-center gap-3 p-2 rounded-md border border-border hover-elevate cursor-pointer"
+                        onClick={() => setSelectedFo(fo)}
+                        data-testid={`fo-result-${fo.id}`}
+                      >
+                        <div>
+                          <p className="text-sm font-medium">{fo.firstName} {fo.lastName}</p>
+                          <p className="text-xs text-muted-foreground">{fo.uid} | {fo.email || ''}</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                {foSearchQuery.length >= 2 && foSearchResults && foSearchResults.length === 0 && (
+                  <p className="text-xs text-muted-foreground text-center py-2">Ziadne vysledky. Skuste vytvorit novu FO.</p>
+                )}
+              </div>
+            ) : (
+              <div className="space-y-3">
+                <div className="flex items-center gap-2 justify-between">
+                  <p className="text-xs text-muted-foreground">Vyplnte osobne udaje novej Fyzickej osoby</p>
+                  <Button size="sm" variant="ghost" onClick={() => setSzcoFoMode("search")} data-testid="button-back-to-search">
+                    Spat na vyhladavanie
+                  </Button>
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1">
+                    <Label className="text-xs">Meno *</Label>
+                    <Input
+                      value={newFoData.firstName}
+                      onChange={e => setNewFoData(prev => ({ ...prev, firstName: e.target.value }))}
+                      data-testid="input-new-fo-firstname"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-xs">Priezvisko *</Label>
+                    <Input
+                      value={newFoData.lastName}
+                      onChange={e => setNewFoData(prev => ({ ...prev, lastName: e.target.value }))}
+                      data-testid="input-new-fo-lastname"
+                    />
+                  </div>
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs">Rodne cislo *</Label>
+                  <Input
+                    value={newFoData.birthNumber}
+                    onChange={e => setNewFoData(prev => ({ ...prev, birthNumber: e.target.value }))}
+                    placeholder="XXXXXX/XXXX"
+                    data-testid="input-new-fo-rc"
+                  />
+                </div>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
 
       <Card>
         <CardContent className="p-6">
@@ -1542,14 +1698,17 @@ function SubjectEditModal({ subject, onClose }: { subject: Subject & { isOwner?:
   const timerRef = useRef<number>(performance.now());
 
   const isPerson = subject.type === 'person';
+  const isSzco = subject.type === 'szco';
+  const linkedFo = (subject as any).linkedFo;
   const isAdmin = appUser?.role === 'admin' || appUser?.role === 'superadmin' || appUser?.role === 'prezident';
 
   const details = (subject.details || {}) as Record<string, any>;
   const dynamicFields = details.dynamicFields || {};
 
   const clientType = clientTypes?.find(ct => {
-    if (isPerson && ct.baseParameter === 'rc') return true;
-    if (!isPerson && ct.baseParameter === 'ico') return true;
+    if (isSzco && ct.code === 'SZCO') return true;
+    if (subject.type === 'company' && ct.code === 'PO') return true;
+    if (isPerson && ct.code === 'FO') return true;
     return false;
   });
 
@@ -1718,6 +1877,17 @@ function SubjectEditModal({ subject, onClose }: { subject: Subject & { isOwner?:
                 {isAdmin ? "Identifikatory moze zmenit iba admin cez specialny postup." : "Identifikatory (RC/ICO) a UID su uzamknute. Kontaktujte admina pre zmenu."}
               </p>
             </div>
+
+            {isSzco && linkedFo && (
+              <div className="flex items-center gap-2 p-3 rounded-md bg-blue-500/10 border border-blue-500/30">
+                <Info className="w-4 h-4 text-blue-400 flex-shrink-0" />
+                <div>
+                  <p className="text-xs font-medium">Osobne udaje prevzate z FO</p>
+                  <p className="text-xs text-muted-foreground">{linkedFo.firstName} {linkedFo.lastName} ({linkedFo.uid})</p>
+                  <p className="text-[10px] text-muted-foreground mt-0.5">Meno, priezvisko a rodne cislo su prevzate z prepojenej Fyzickej osoby a nie je mozne ich tu menit.</p>
+                </div>
+              </div>
+            )}
 
             <Separator />
 

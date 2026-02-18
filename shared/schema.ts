@@ -207,6 +207,7 @@ export const subjects = pgTable("subjects", {
   id: serial("id").primaryKey(),
   uid: text("uid").notNull().unique(),
   type: text("type").notNull(),
+  linkedFoId: integer("linked_fo_id").references(() => subjects.id),
   firstName: text("first_name"),
   lastName: text("last_name"),
   companyName: text("company_name"),
@@ -365,6 +366,7 @@ export const subjectsRelations = relations(subjects, ({ one }) => ({
   continent: one(continents, { fields: [subjects.continentId], references: [continents.id] }),
   state: one(states, { fields: [subjects.stateId], references: [states.id] }),
   company: one(myCompanies, { fields: [subjects.myCompanyId], references: [myCompanies.id] }),
+  linkedFo: one(subjects, { fields: [subjects.linkedFoId], references: [subjects.id] }),
 }));
 
 export const productsRelations = relations(products, ({ one }) => ({
