@@ -1142,6 +1142,7 @@ function FullPageEditor({
                               <InternationalPhoneInput
                                 value={dynamicValues["telefon"] || ""}
                                 onChange={(val) => setDynamicValues(prev => ({ ...prev, telefon: val }))}
+                                dialCode={allStates?.find(s => s.id === appUser?.activeStateId)?.code}
                                 data-testid="input-telefon-primary"
                               />
                             </div>
