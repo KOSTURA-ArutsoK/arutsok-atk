@@ -798,6 +798,13 @@ export async function registerRoutes(
     };
     let allSubjects = await storage.getSubjects(params);
 
+    const allCompanies = await storage.getMyCompanies();
+    const companyMap = new Map(allCompanies.map(c => [c.id, c.name]));
+    allSubjects = allSubjects.map((s: any) => ({
+      ...s,
+      companyName: companyMap.get(s.myCompanyId) || null,
+    }));
+
     const statusFiltersRaw = req.query.statusFilters as string | undefined;
 
     if (statusFiltersRaw) {

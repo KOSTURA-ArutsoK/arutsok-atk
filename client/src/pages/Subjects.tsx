@@ -445,7 +445,7 @@ function SubjectDetailDialog({ subject, onClose }: { subject: Subject; onClose: 
                 </div>
                 <div>
                   <span className="text-xs text-muted-foreground">Spravujuca firma</span>
-                  <p className="text-sm">{managingCompany?.name || `Firma #${subject.myCompanyId}`}</p>
+                  <p className="text-sm">{(subject as any).companyName || managingCompany?.name || '-'}</p>
                 </div>
               </div>
 
@@ -2184,7 +2184,7 @@ export default function Subjects() {
                   }
                   return subject.companyName || '-';
                 })();
-                const managingCompanyName = companies?.find(c => c.id === subject.myCompanyId)?.name || `Firma #${subject.myCompanyId}`;
+                const managingCompanyName = (subject as any).companyName || companies?.find(c => c.id === subject.myCompanyId)?.name || '-';
 
                 return (
                   <TableRow key={subject.id} data-testid={`row-subject-${subject.id}`} className="align-middle">
