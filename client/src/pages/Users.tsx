@@ -37,8 +37,9 @@ import { HelpIcon } from "@/components/help-icon";
 import { useTableSort } from "@/hooks/use-table-sort";
 import { useColumnVisibility, type ColumnDef } from "@/hooks/use-column-visibility";
 import { ColumnManager } from "@/components/column-manager";
-import { useTableFilter } from "@/hooks/use-table-filter";
-import { TableFilterBar } from "@/components/table-filter-bar";
+import { useSmartFilter } from "@/hooks/use-smart-filter";
+import type { SmartColumnDef } from "@/hooks/use-smart-filter";
+import { SmartFilterBar } from "@/components/smart-filter-bar";
 
 const USER_COLUMNS: ColumnDef[] = [
   { key: "firstName", label: "Meno" },
@@ -52,15 +53,15 @@ const USER_COLUMNS: ColumnDef[] = [
   { key: "permissionGroupId", label: "Skupina" },
 ];
 
-const USER_FILTER_COLUMNS = [
-  { key: "firstName", label: "Meno" },
-  { key: "lastName", label: "Priezvisko" },
-  { key: "uid", label: "UID" },
-  { key: "email", label: "Email" },
-  { key: "phone", label: "Telefon" },
-  { key: "role", label: "Rola" },
-  { key: "mfaType", label: "MFA" },
-  { key: "securityLevel", label: "Bezp. uroven" },
+const USER_FILTER_COLUMNS: SmartColumnDef[] = [
+  { key: "firstName", label: "Meno", type: "text" },
+  { key: "lastName", label: "Priezvisko", type: "text" },
+  { key: "uid", label: "UID", type: "text" },
+  { key: "email", label: "Email", type: "text" },
+  { key: "phone", label: "Telefon", type: "number" },
+  { key: "role", label: "Rola", type: "text" },
+  { key: "mfaType", label: "MFA", type: "text" },
+  { key: "securityLevel", label: "Bezp. uroven", type: "number" },
 ];
 
 const ROLES = ["superadmin", "admin", "backoffice", "manager", "user"] as const;
@@ -466,7 +467,7 @@ export default function UsersPage() {
     queryKey: ["/api/permission-groups"],
   });
 
-  const tableFilter = useTableFilter(users || [], USER_FILTER_COLUMNS);
+  const tableFilter = useSmartFilter(users || [], USER_FILTER_COLUMNS, "users");
   const { sortedData, sortKey, sortDirection, requestSort } = useTableSort(tableFilter.filteredData);
   const columnVisibility = useColumnVisibility("users", USER_COLUMNS);
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -512,7 +513,7 @@ export default function UsersPage() {
           </div>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
-          <TableFilterBar filter={tableFilter} />
+          <SmartFilterBar filter={tableFilter} />
           <ColumnManager columnVisibility={columnVisibility} />
           <Button onClick={openCreate} data-testid="button-add-user">
             <Plus className="w-4 h-4 mr-2" />
@@ -526,14 +527,14 @@ export default function UsersPage() {
           <Table>
             <TableHeader>
               <TableRow>
-                {columnVisibility.isVisible("firstName") && <TableHead sortKey="firstName" sortDirection={sortKey === "firstName" ? sortDirection : null} onSort={requestSort} filterValue={tableFilter.columnFilters["firstName"] || ""} onFilterChange={(val) => tableFilter.setColumnFilter("firstName", val)}>Meno</TableHead>}
-                {columnVisibility.isVisible("lastName") && <TableHead sortKey="lastName" sortDirection={sortKey === "lastName" ? sortDirection : null} onSort={requestSort} filterValue={tableFilter.columnFilters["lastName"] || ""} onFilterChange={(val) => tableFilter.setColumnFilter("lastName", val)}>Priezvisko</TableHead>}
-                {columnVisibility.isVisible("uid") && <TableHead sortKey="uid" sortDirection={sortKey === "uid" ? sortDirection : null} onSort={requestSort} filterValue={tableFilter.columnFilters["uid"] || ""} onFilterChange={(val) => tableFilter.setColumnFilter("uid", val)}>UID</TableHead>}
-                {columnVisibility.isVisible("email") && <TableHead sortKey="email" sortDirection={sortKey === "email" ? sortDirection : null} onSort={requestSort} filterValue={tableFilter.columnFilters["email"] || ""} onFilterChange={(val) => tableFilter.setColumnFilter("email", val)}>Email</TableHead>}
-                {columnVisibility.isVisible("phone") && <TableHead sortKey="phone" sortDirection={sortKey === "phone" ? sortDirection : null} onSort={requestSort} filterValue={tableFilter.columnFilters["phone"] || ""} onFilterChange={(val) => tableFilter.setColumnFilter("phone", val)}>Telefon</TableHead>}
-                {columnVisibility.isVisible("role") && <TableHead sortKey="role" sortDirection={sortKey === "role" ? sortDirection : null} onSort={requestSort} filterValue={tableFilter.columnFilters["role"] || ""} onFilterChange={(val) => tableFilter.setColumnFilter("role", val)}>Rola</TableHead>}
-                {columnVisibility.isVisible("mfaType") && <TableHead sortKey="mfaType" sortDirection={sortKey === "mfaType" ? sortDirection : null} onSort={requestSort} filterValue={tableFilter.columnFilters["mfaType"] || ""} onFilterChange={(val) => tableFilter.setColumnFilter("mfaType", val)}>MFA</TableHead>}
-                {columnVisibility.isVisible("securityLevel") && <TableHead sortKey="securityLevel" sortDirection={sortKey === "securityLevel" ? sortDirection : null} onSort={requestSort} filterValue={tableFilter.columnFilters["securityLevel"] || ""} onFilterChange={(val) => tableFilter.setColumnFilter("securityLevel", val)}>Bezp. uroven</TableHead>}
+                {columnVisibility.isVisible("firstName") && <TableHead sortKey="firstName" sortDirection={sortKey === "firstName" ? sortDirection : null} onSort={requestSort}>Meno</TableHead>}
+                {columnVisibility.isVisible("lastName") && <TableHead sortKey="lastName" sortDirection={sortKey === "lastName" ? sortDirection : null} onSort={requestSort}>Priezvisko</TableHead>}
+                {columnVisibility.isVisible("uid") && <TableHead sortKey="uid" sortDirection={sortKey === "uid" ? sortDirection : null} onSort={requestSort}>UID</TableHead>}
+                {columnVisibility.isVisible("email") && <TableHead sortKey="email" sortDirection={sortKey === "email" ? sortDirection : null} onSort={requestSort}>Email</TableHead>}
+                {columnVisibility.isVisible("phone") && <TableHead sortKey="phone" sortDirection={sortKey === "phone" ? sortDirection : null} onSort={requestSort}>Telefon</TableHead>}
+                {columnVisibility.isVisible("role") && <TableHead sortKey="role" sortDirection={sortKey === "role" ? sortDirection : null} onSort={requestSort}>Rola</TableHead>}
+                {columnVisibility.isVisible("mfaType") && <TableHead sortKey="mfaType" sortDirection={sortKey === "mfaType" ? sortDirection : null} onSort={requestSort}>MFA</TableHead>}
+                {columnVisibility.isVisible("securityLevel") && <TableHead sortKey="securityLevel" sortDirection={sortKey === "securityLevel" ? sortDirection : null} onSort={requestSort}>Bezp. uroven</TableHead>}
                 {columnVisibility.isVisible("permissionGroupId") && <TableHead>Skupina</TableHead>}
                 <TableHead>Akcie</TableHead>
               </TableRow>

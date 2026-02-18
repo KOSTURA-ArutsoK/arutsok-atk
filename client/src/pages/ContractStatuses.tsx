@@ -5,8 +5,9 @@ import { useAppUser } from "@/hooks/use-app-user";
 import { useStates } from "@/hooks/use-hierarchy";
 import { useToast } from "@/hooks/use-toast";
 import { useTableSort } from "@/hooks/use-table-sort";
-import { useTableFilter } from "@/hooks/use-table-filter";
-import { TableFilterBar } from "@/components/table-filter-bar";
+import { useSmartFilter } from "@/hooks/use-smart-filter";
+import type { SmartColumnDef } from "@/hooks/use-smart-filter";
+import { SmartFilterBar } from "@/components/smart-filter-bar";
 import { useColumnVisibility, type ColumnDef } from "@/hooks/use-column-visibility";
 import { ColumnManager } from "@/components/column-manager";
 import type { ContractStatus, ContractStatusParameter, MyCompany, Sector, Section, SectorProduct } from "@shared/schema";
@@ -50,9 +51,9 @@ const CONTRACT_STATUS_COLUMNS: ColumnDef[] = [
   { key: "properties", label: "Vlastnosti stavu zmluvy" },
 ];
 
-const CONTRACT_STATUS_FILTER_COLUMNS = [
-  { key: "sortOrder", label: "Poradie" },
-  { key: "name", label: "Nazov stavu zmluvy" },
+const CONTRACT_STATUS_FILTER_COLUMNS: SmartColumnDef[] = [
+  { key: "sortOrder", label: "Poradie", type: "number" },
+  { key: "name", label: "Nazov stavu zmluvy", type: "text" },
 ];
 
 type VisibilityItem = { entityType: string; entityId: number };
@@ -748,7 +749,7 @@ export default function ContractStatuses() {
 
   const sorted = statuses ? [...statuses].sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0)) : [];
 
-  const tableFilter = useTableFilter(sorted, CONTRACT_STATUS_FILTER_COLUMNS);
+  const tableFilter = useSmartFilter(sorted, CONTRACT_STATUS_FILTER_COLUMNS, "contract-statuses");
   const { sortedData: sortedStatuses, sortKey, sortDirection, requestSort } = useTableSort(tableFilter.filteredData);
 
   const handleReorder = (items: { id: number | string; sortOrder: number }[]) => {
@@ -775,7 +776,7 @@ export default function ContractStatuses() {
       <div className="flex items-center justify-between gap-4 flex-wrap">
         <h1 className="text-2xl font-bold" data-testid="text-page-title">Nastavenia stavov zmluv</h1>
         <div className="flex items-center gap-2 flex-wrap">
-          <TableFilterBar filter={tableFilter} />
+          <SmartFilterBar filter={tableFilter} />
           <ColumnManager columnVisibility={columnVisibility} />
           <Button onClick={openCreate} data-testid="button-create-status">
             <Plus className="w-4 h-4 mr-2" />
@@ -799,8 +800,8 @@ export default function ContractStatuses() {
               <TableHeader>
                 <TableRow>
                   <TableHead className="w-10"></TableHead>
-                  {columnVisibility.isVisible("sortOrder") && <TableHead sortKey="sortOrder" sortDirection={sortKey === "sortOrder" ? sortDirection : null} onSort={requestSort} className="w-20" filterValue={tableFilter.columnFilters["sortOrder"] || ""} onFilterChange={(val) => tableFilter.setColumnFilter("sortOrder", val)}>Poradie</TableHead>}
-                  {columnVisibility.isVisible("name") && <TableHead sortKey="name" sortDirection={sortKey === "name" ? sortDirection : null} onSort={requestSort} filterValue={tableFilter.columnFilters["name"] || ""} onFilterChange={(val) => tableFilter.setColumnFilter("name", val)}>Nazov stavu zmluvy</TableHead>}
+                  {columnVisibility.isVisible("sortOrder") && <TableHead sortKey="sortOrder" sortDirection={sortKey === "sortOrder" ? sortDirection : null} onSort={requestSort} className="w-20">Poradie</TableHead>}
+                  {columnVisibility.isVisible("name") && <TableHead sortKey="name" sortDirection={sortKey === "name" ? sortDirection : null} onSort={requestSort}>Nazov stavu zmluvy</TableHead>}
                   {columnVisibility.isVisible("color") && <TableHead className="w-32">Farba stavu zmluvy</TableHead>}
                   {columnVisibility.isVisible("properties") && <TableHead>Vlastnosti stavu zmluvy</TableHead>}
                   <TableHead className="w-32 text-right">Akcie</TableHead>

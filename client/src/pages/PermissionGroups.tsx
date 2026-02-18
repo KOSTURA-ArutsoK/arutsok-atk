@@ -3,8 +3,9 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2, Plus, Pencil, ShieldCheck, RefreshCw, Search } from "lucide-react";
-import { useTableFilter } from "@/hooks/use-table-filter";
-import { TableFilterBar } from "@/components/table-filter-bar";
+import { useSmartFilter } from "@/hooks/use-smart-filter";
+import type { SmartColumnDef } from "@/hooks/use-smart-filter";
+import { SmartFilterBar } from "@/components/smart-filter-bar";
 import { useColumnVisibility, type ColumnDef } from "@/hooks/use-column-visibility";
 import { ColumnManager } from "@/components/column-manager";
 import { ConditionalDelete } from "@/components/conditional-delete";
@@ -83,9 +84,9 @@ const ACTION_COLUMNS = [
   { key: "canDelete", label: "Vymazanie" },
 ];
 
-const GROUP_FILTER_COLUMNS = [
-  { key: "name", label: "Nazov" },
-  { key: "description", label: "Popis" },
+const GROUP_FILTER_COLUMNS: SmartColumnDef[] = [
+  { key: "name", label: "Nazov", type: "text" },
+  { key: "description", label: "Popis", type: "text" },
 ];
 
 function GroupFormDialog({
@@ -453,7 +454,7 @@ export default function PermissionGroupsPage() {
   const [selectedGroupId, setSelectedGroupId] = useState<number | null>(null);
   const [deleteGroupId, setDeleteGroupId] = useState<number | null>(null);
   const matrixColumnVisibility = useColumnVisibility("permission-matrix", PERMISSION_MATRIX_COLUMNS);
-  const tableFilter = useTableFilter(groups || [], GROUP_FILTER_COLUMNS);
+  const tableFilter = useSmartFilter(groups || [], GROUP_FILTER_COLUMNS, "permission-groups-filter");
 
   const deleteMutation = useMutation({
     mutationFn: (id: number) => apiRequest("DELETE", `/api/permission-groups/${id}`),
@@ -503,7 +504,7 @@ export default function PermissionGroupsPage() {
           </div>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
-          <TableFilterBar filter={tableFilter} />
+          <SmartFilterBar filter={tableFilter} />
           <Button onClick={openCreate} data-testid="button-add-group">
             <Plus className="w-4 h-4 mr-2" />
             Pridat skupinu

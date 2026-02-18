@@ -60,8 +60,9 @@ import { ProcessingSaveButton } from "@/components/processing-save-button";
 import { useTableSort } from "@/hooks/use-table-sort";
 import { useColumnVisibility, type ColumnDef } from "@/hooks/use-column-visibility";
 import { ColumnManager } from "@/components/column-manager";
-import { useTableFilter } from "@/hooks/use-table-filter";
-import { TableFilterBar } from "@/components/table-filter-bar";
+import { useSmartFilter } from "@/hooks/use-smart-filter";
+import type { SmartColumnDef } from "@/hooks/use-smart-filter";
+import { SmartFilterBar } from "@/components/smart-filter-bar";
 
 const PARTNER_COLUMNS: ColumnDef[] = [
   { key: "uid", label: "UID" },
@@ -74,14 +75,14 @@ const PARTNER_COLUMNS: ColumnDef[] = [
   { key: "collaborationDate", label: "Datum spoluprace" },
 ];
 
-const PARTNER_FILTER_COLUMNS = [
-  { key: "uid", label: "UID" },
-  { key: "name", label: "Nazov" },
-  { key: "code", label: "Kod" },
-  { key: "specialization", label: "Zameranie" },
-  { key: "ico", label: "ICO" },
-  { key: "city", label: "Mesto" },
-  { key: "collaborationDate", label: "Datum spoluprace" },
+const PARTNER_FILTER_COLUMNS: SmartColumnDef[] = [
+  { key: "uid", label: "UID", type: "text" },
+  { key: "name", label: "Nazov", type: "text" },
+  { key: "code", label: "Kod", type: "text" },
+  { key: "specialization", label: "Zameranie", type: "text" },
+  { key: "ico", label: "ICO", type: "text" },
+  { key: "city", label: "Mesto", type: "text" },
+  { key: "collaborationDate", label: "Datum spoluprace", type: "date" },
 ];
 
 const specializationOptions = [
@@ -633,7 +634,7 @@ function PartnerUnifiedDialog({
 
 export default function Partners() {
   const { data: partners, isLoading } = usePartners();
-  const tableFilter = useTableFilter(partners || [], PARTNER_FILTER_COLUMNS);
+  const tableFilter = useSmartFilter(partners || [], PARTNER_FILTER_COLUMNS, "partners");
   const { sortedData, sortKey, sortDirection, requestSort } = useTableSort(tableFilter.filteredData);
   const columnVisibility = useColumnVisibility("partners", PARTNER_COLUMNS);
   const { data: allStates } = useStates();
@@ -666,7 +667,7 @@ export default function Partners() {
           <p className="text-sm text-muted-foreground mt-1">Sprava externych obchodnych partnerov.</p>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
-          <TableFilterBar filter={tableFilter} />
+          <SmartFilterBar filter={tableFilter} />
           <ColumnManager columnVisibility={columnVisibility} />
           <Button onClick={openCreate} data-testid="button-add-partner">
             <Plus className="w-4 h-4 mr-2" />
@@ -680,14 +681,14 @@ export default function Partners() {
           <Table>
             <TableHeader>
               <TableRow>
-                {columnVisibility.isVisible("uid") && <TableHead sortKey="uid" sortDirection={sortKey === "uid" ? sortDirection : null} onSort={requestSort} filterValue={tableFilter.columnFilters["uid"] || ""} onFilterChange={(val) => tableFilter.setColumnFilter("uid", val)}>UID</TableHead>}
-                {columnVisibility.isVisible("name") && <TableHead sortKey="name" sortDirection={sortKey === "name" ? sortDirection : null} onSort={requestSort} filterValue={tableFilter.columnFilters["name"] || ""} onFilterChange={(val) => tableFilter.setColumnFilter("name", val)}>Nazov</TableHead>}
-                {columnVisibility.isVisible("code") && <TableHead sortKey="code" sortDirection={sortKey === "code" ? sortDirection : null} onSort={requestSort} filterValue={tableFilter.columnFilters["code"] || ""} onFilterChange={(val) => tableFilter.setColumnFilter("code", val)}>Kod</TableHead>}
-                {columnVisibility.isVisible("specialization") && <TableHead sortKey="specialization" sortDirection={sortKey === "specialization" ? sortDirection : null} onSort={requestSort} filterValue={tableFilter.columnFilters["specialization"] || ""} onFilterChange={(val) => tableFilter.setColumnFilter("specialization", val)}>Zameranie</TableHead>}
-                {columnVisibility.isVisible("ico") && <TableHead sortKey="ico" sortDirection={sortKey === "ico" ? sortDirection : null} onSort={requestSort} filterValue={tableFilter.columnFilters["ico"] || ""} onFilterChange={(val) => tableFilter.setColumnFilter("ico", val)}>ICO</TableHead>}
-                {columnVisibility.isVisible("city") && <TableHead sortKey="city" sortDirection={sortKey === "city" ? sortDirection : null} onSort={requestSort} filterValue={tableFilter.columnFilters["city"] || ""} onFilterChange={(val) => tableFilter.setColumnFilter("city", val)}>Mesto</TableHead>}
+                {columnVisibility.isVisible("uid") && <TableHead sortKey="uid" sortDirection={sortKey === "uid" ? sortDirection : null} onSort={requestSort}>UID</TableHead>}
+                {columnVisibility.isVisible("name") && <TableHead sortKey="name" sortDirection={sortKey === "name" ? sortDirection : null} onSort={requestSort}>Nazov</TableHead>}
+                {columnVisibility.isVisible("code") && <TableHead sortKey="code" sortDirection={sortKey === "code" ? sortDirection : null} onSort={requestSort}>Kod</TableHead>}
+                {columnVisibility.isVisible("specialization") && <TableHead sortKey="specialization" sortDirection={sortKey === "specialization" ? sortDirection : null} onSort={requestSort}>Zameranie</TableHead>}
+                {columnVisibility.isVisible("ico") && <TableHead sortKey="ico" sortDirection={sortKey === "ico" ? sortDirection : null} onSort={requestSort}>ICO</TableHead>}
+                {columnVisibility.isVisible("city") && <TableHead sortKey="city" sortDirection={sortKey === "city" ? sortDirection : null} onSort={requestSort}>Mesto</TableHead>}
                 {columnVisibility.isVisible("stateId") && <TableHead>Stat</TableHead>}
-                {columnVisibility.isVisible("collaborationDate") && <TableHead sortKey="collaborationDate" sortDirection={sortKey === "collaborationDate" ? sortDirection : null} onSort={requestSort} filterValue={tableFilter.columnFilters["collaborationDate"] || ""} onFilterChange={(val) => tableFilter.setColumnFilter("collaborationDate", val)}>Datum spoluprace</TableHead>}
+                {columnVisibility.isVisible("collaborationDate") && <TableHead sortKey="collaborationDate" sortDirection={sortKey === "collaborationDate" ? sortDirection : null} onSort={requestSort}>Datum spoluprace</TableHead>}
                 <TableHead className="w-[80px]">Akcie</TableHead>
               </TableRow>
             </TableHeader>

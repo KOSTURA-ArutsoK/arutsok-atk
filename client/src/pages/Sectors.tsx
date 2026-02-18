@@ -2,8 +2,9 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useTableSort } from "@/hooks/use-table-sort";
-import { useTableFilter } from "@/hooks/use-table-filter";
-import { TableFilterBar } from "@/components/table-filter-bar";
+import { useSmartFilter } from "@/hooks/use-smart-filter";
+import type { SmartColumnDef } from "@/hooks/use-smart-filter";
+import { SmartFilterBar } from "@/components/smart-filter-bar";
 import { useToast } from "@/hooks/use-toast";
 import { usePartners } from "@/hooks/use-partners";
 import type { Sector, Parameter, SectorProduct, SectorProductParameter, Panel, PanelParameter, ProductPanel, Section, ContractFolder, FolderPanel } from "@shared/schema";
@@ -45,32 +46,32 @@ import { SortableTableRow, SortableContext_Wrapper } from "@/components/sortable
 import { useColumnVisibility, type ColumnDef } from "@/hooks/use-column-visibility";
 import { ColumnManager } from "@/components/column-manager";
 
-const SECTOR_FILTER_COLUMNS = [
-  { key: "name", label: "Nazov sektoru" },
-  { key: "sectorType", label: "Typ" },
-  { key: "description", label: "Popis" },
+const SECTOR_FILTER_COLUMNS: SmartColumnDef[] = [
+  { key: "name", label: "Nazov sektoru", type: "text" },
+  { key: "sectorType", label: "Typ", type: "text" },
+  { key: "description", label: "Popis", type: "text" },
 ];
 
-const SECTION_FILTER_COLUMNS = [
-  { key: "name", label: "Nazov sekcie" },
-  { key: "description", label: "Popis" },
+const SECTION_FILTER_COLUMNS: SmartColumnDef[] = [
+  { key: "name", label: "Nazov sekcie", type: "text" },
+  { key: "description", label: "Popis", type: "text" },
 ];
 
-const SECTOR_PRODUCT_FILTER_COLUMNS = [
-  { key: "name", label: "Nazov produktu" },
-  { key: "abbreviation", label: "Skratka produktu" },
+const SECTOR_PRODUCT_FILTER_COLUMNS: SmartColumnDef[] = [
+  { key: "name", label: "Nazov produktu", type: "text" },
+  { key: "abbreviation", label: "Skratka produktu", type: "text" },
 ];
 
-const PARAMETER_FILTER_COLUMNS = [
-  { key: "name", label: "Nazov" },
-  { key: "paramType", label: "Typ" },
-  { key: "defaultValue", label: "Predvolena hodnota" },
-  { key: "helpText", label: "Napoveda" },
+const PARAMETER_FILTER_COLUMNS: SmartColumnDef[] = [
+  { key: "name", label: "Nazov", type: "text" },
+  { key: "paramType", label: "Typ", type: "text" },
+  { key: "defaultValue", label: "Predvolena hodnota", type: "text" },
+  { key: "helpText", label: "Napoveda", type: "text" },
 ];
 
-const PANEL_FILTER_COLUMNS = [
-  { key: "name", label: "Nazov" },
-  { key: "description", label: "Popis" },
+const PANEL_FILTER_COLUMNS: SmartColumnDef[] = [
+  { key: "name", label: "Nazov", type: "text" },
+  { key: "description", label: "Popis", type: "text" },
 ];
 
 const SECTOR_COLUMNS: ColumnDef[] = [
@@ -1163,13 +1164,13 @@ function SectionsTab() {
     return true;
   });
 
-  const sectionTableFilter = useTableFilter(preFiltered, SECTION_FILTER_COLUMNS);
+  const sectionTableFilter = useSmartFilter(preFiltered, SECTION_FILTER_COLUMNS, "sectors-sections");
   const { sortedData: sortedSections, sortKey: sectionSortKey, sortDirection: sectionSortDirection, requestSort: sectionRequestSort } = useTableSort(sectionTableFilter.filteredData);
 
   return (
     <div className="space-y-4">
       <div className="flex items-center gap-3 flex-wrap">
-        <TableFilterBar filter={sectionTableFilter} />
+        <SmartFilterBar filter={sectionTableFilter} />
         <Select value={filterSectorId} onValueChange={setFilterSectorId}>
           <SelectTrigger className="w-[200px]" data-testid="select-filter-sector-for-sections">
             <SelectValue placeholder="Vsetky sektory" />
@@ -1197,10 +1198,10 @@ function SectionsTab() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  {columnVisibility.isVisible("name") && <TableHead sortKey="name" sortDirection={sectionSortKey === "name" ? sectionSortDirection : null} onSort={sectionRequestSort} filterValue={sectionTableFilter.columnFilters["name"] || ""} onFilterChange={(val) => sectionTableFilter.setColumnFilter("name", val)}>Nazov sekcie</TableHead>}
+                  {columnVisibility.isVisible("name") && <TableHead sortKey="name" sortDirection={sectionSortKey === "name" ? sectionSortDirection : null} onSort={sectionRequestSort}>Nazov sekcie</TableHead>}
                   {columnVisibility.isVisible("sectorId") && <TableHead sortKey="sectorId" sortDirection={sectionSortKey === "sectorId" ? sectionSortDirection : null} onSort={sectionRequestSort}>Sektor</TableHead>}
                   {columnVisibility.isVisible("productCount") && <TableHead>Produkty</TableHead>}
-                  {columnVisibility.isVisible("description") && <TableHead sortKey="description" sortDirection={sectionSortKey === "description" ? sectionSortDirection : null} onSort={sectionRequestSort} filterValue={sectionTableFilter.columnFilters["description"] || ""} onFilterChange={(val) => sectionTableFilter.setColumnFilter("description", val)}>Popis</TableHead>}
+                  {columnVisibility.isVisible("description") && <TableHead sortKey="description" sortDirection={sectionSortKey === "description" ? sectionSortDirection : null} onSort={sectionRequestSort}>Popis</TableHead>}
                   <TableHead>Akcie</TableHead>
                 </TableRow>
               </TableHeader>
@@ -1297,13 +1298,13 @@ function SectorsTab() {
     return ids.map(id => partners.find(p => p.id === id)?.name || `#${id}`).join(", ");
   }
 
-  const sectorTableFilter = useTableFilter(sectors || [], SECTOR_FILTER_COLUMNS);
+  const sectorTableFilter = useSmartFilter(sectors || [], SECTOR_FILTER_COLUMNS, "sectors");
   const { sortedData: sortedSectors, sortKey: sectorSortKey, sortDirection: sectorSortDirection, requestSort: sectorRequestSort } = useTableSort(sectorTableFilter.filteredData);
 
   return (
     <div className="space-y-4">
       <div className="flex items-center gap-3 flex-wrap">
-        <TableFilterBar filter={sectorTableFilter} />
+        <SmartFilterBar filter={sectorTableFilter} />
         <ColumnManager columnVisibility={columnVisibility} />
         <Button onClick={() => { setEditingSector(null); setDialogOpen(true); }} data-testid="button-add-sector">
           <Plus className="w-4 h-4 mr-2" /> Pridat sektor
@@ -1320,11 +1321,11 @@ function SectorsTab() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  {columnVisibility.isVisible("name") && <TableHead sortKey="name" sortDirection={sectorSortKey === "name" ? sectorSortDirection : null} onSort={sectorRequestSort} filterValue={sectorTableFilter.columnFilters["name"] || ""} onFilterChange={(val) => sectorTableFilter.setColumnFilter("name", val)}>Nazov sektoru</TableHead>}
-                  {columnVisibility.isVisible("sectorType") && <TableHead sortKey="sectorType" sortDirection={sectorSortKey === "sectorType" ? sectorSortDirection : null} onSort={sectorRequestSort} filterValue={sectorTableFilter.columnFilters["sectorType"] || ""} onFilterChange={(val) => sectorTableFilter.setColumnFilter("sectorType", val)}>Typ</TableHead>}
+                  {columnVisibility.isVisible("name") && <TableHead sortKey="name" sortDirection={sectorSortKey === "name" ? sectorSortDirection : null} onSort={sectorRequestSort}>Nazov sektoru</TableHead>}
+                  {columnVisibility.isVisible("sectorType") && <TableHead sortKey="sectorType" sortDirection={sectorSortKey === "sectorType" ? sectorSortDirection : null} onSort={sectorRequestSort}>Typ</TableHead>}
                   {columnVisibility.isVisible("productCount") && <TableHead>Produkty</TableHead>}
                   {columnVisibility.isVisible("partnerNames") && <TableHead>Firmy posobiace v sektore</TableHead>}
-                  {columnVisibility.isVisible("description") && <TableHead sortKey="description" sortDirection={sectorSortKey === "description" ? sectorSortDirection : null} onSort={sectorRequestSort} filterValue={sectorTableFilter.columnFilters["description"] || ""} onFilterChange={(val) => sectorTableFilter.setColumnFilter("description", val)}>Popis</TableHead>}
+                  {columnVisibility.isVisible("description") && <TableHead sortKey="description" sortDirection={sectorSortKey === "description" ? sectorSortDirection : null} onSort={sectorRequestSort}>Popis</TableHead>}
                   <TableHead>Akcie</TableHead>
                 </TableRow>
               </TableHeader>
@@ -1431,7 +1432,7 @@ function ProductsTab() {
     return true;
   });
 
-  const prodTableFilter = useTableFilter(preFiltered, SECTOR_PRODUCT_FILTER_COLUMNS);
+  const prodTableFilter = useSmartFilter(preFiltered, SECTOR_PRODUCT_FILTER_COLUMNS, "sectors-products");
   const { sortedData: sortedProds, sortKey: prodSortKey, sortDirection: prodSortDirection, requestSort: prodRequestSort } = useTableSort(prodTableFilter.filteredData);
 
   return (

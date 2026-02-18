@@ -1,8 +1,9 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { useTableSort } from "@/hooks/use-table-sort";
-import { useTableFilter } from "@/hooks/use-table-filter";
-import { TableFilterBar } from "@/components/table-filter-bar";
+import { useSmartFilter } from "@/hooks/use-smart-filter";
+import type { SmartColumnDef } from "@/hooks/use-smart-filter";
+import { SmartFilterBar } from "@/components/smart-filter-bar";
 import { Timer, Loader2 } from "lucide-react";
 import { useColumnVisibility, type ColumnDef } from "@/hooks/use-column-visibility";
 import { ColumnManager } from "@/components/column-manager";
@@ -27,10 +28,10 @@ const COLUMNS: ColumnDef[] = [
   { key: "time", label: "Cas" },
 ];
 
-const FILTER_COLUMNS = [
-  { key: "name", label: "Skupina" },
-  { key: "description", label: "Popis" },
-  { key: "sessionTimeoutSeconds", label: "Timeout (sek)" },
+const FILTER_COLUMNS: SmartColumnDef[] = [
+  { key: "name", label: "Skupina", type: "text" },
+  { key: "description", label: "Popis", type: "text" },
+  { key: "sessionTimeoutSeconds", label: "Timeout (sek)", type: "number" },
 ];
 
 export default function DobaPrihlasenia() {
@@ -43,7 +44,7 @@ export default function DobaPrihlasenia() {
     queryKey: ["/api/permission-groups"],
   });
 
-  const tableFilter = useTableFilter(groups || [], FILTER_COLUMNS);
+  const tableFilter = useSmartFilter(groups || [], FILTER_COLUMNS, "doba-prihlasenia");
   const { sortedData: sortedGroups, sortKey, sortDirection, requestSort } = useTableSort(tableFilter.filteredData);
   const columnVisibility = useColumnVisibility("doba-prihlasenia", COLUMNS);
 
@@ -74,7 +75,7 @@ export default function DobaPrihlasenia() {
           <h1 className="text-2xl font-bold" data-testid="text-page-title">Doba prihlasenia</h1>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
-          <TableFilterBar filter={tableFilter} />
+          <SmartFilterBar filter={tableFilter} />
           <ColumnManager columnVisibility={columnVisibility} />
         </div>
       </div>
@@ -105,9 +106,9 @@ export default function DobaPrihlasenia() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  {columnVisibility.isVisible("name") && <TableHead sortKey="name" sortDirection={sortKey === "name" ? sortDirection : null} onSort={requestSort} filterValue={tableFilter.columnFilters["name"] || ""} onFilterChange={(v) => tableFilter.setColumnFilter("name", v)}>Skupina</TableHead>}
-                  {columnVisibility.isVisible("description") && <TableHead sortKey="description" sortDirection={sortKey === "description" ? sortDirection : null} onSort={requestSort} filterValue={tableFilter.columnFilters["description"] || ""} onFilterChange={(v) => tableFilter.setColumnFilter("description", v)}>Popis</TableHead>}
-                  {columnVisibility.isVisible("sessionTimeoutSeconds") && <TableHead className="w-36" sortKey="sessionTimeoutSeconds" sortDirection={sortKey === "sessionTimeoutSeconds" ? sortDirection : null} onSort={requestSort} filterValue={tableFilter.columnFilters["sessionTimeoutSeconds"] || ""} onFilterChange={(v) => tableFilter.setColumnFilter("sessionTimeoutSeconds", v)}>Timeout (sek)</TableHead>}
+                  {columnVisibility.isVisible("name") && <TableHead sortKey="name" sortDirection={sortKey === "name" ? sortDirection : null} onSort={requestSort}>Skupina</TableHead>}
+                  {columnVisibility.isVisible("description") && <TableHead sortKey="description" sortDirection={sortKey === "description" ? sortDirection : null} onSort={requestSort}>Popis</TableHead>}
+                  {columnVisibility.isVisible("sessionTimeoutSeconds") && <TableHead className="w-36" sortKey="sessionTimeoutSeconds" sortDirection={sortKey === "sessionTimeoutSeconds" ? sortDirection : null} onSort={requestSort}>Timeout (sek)</TableHead>}
                   {columnVisibility.isVisible("time") && <TableHead className="w-32">Cas</TableHead>}
                 </TableRow>
               </TableHeader>

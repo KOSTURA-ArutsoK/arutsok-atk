@@ -1,8 +1,9 @@
 import { useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useTableSort } from "@/hooks/use-table-sort";
-import { useTableFilter } from "@/hooks/use-table-filter";
-import { TableFilterBar } from "@/components/table-filter-bar";
+import { useSmartFilter } from "@/hooks/use-smart-filter";
+import type { SmartColumnDef } from "@/hooks/use-smart-filter";
+import { SmartFilterBar } from "@/components/smart-filter-bar";
 import { ArrowUpRight, Filter, Loader2, Search } from "lucide-react";
 import { HelpIcon } from "@/components/help-icon";
 import { useColumnVisibility, type ColumnDef } from "@/hooks/use-column-visibility";
@@ -42,19 +43,19 @@ const COLUMNS: ColumnDef[] = [
   { key: "created_at", label: "Datum" },
 ];
 
-const FILTER_COLUMNS = [
-  { key: "cn", label: "Cislo zmluvy" },
-  { key: "client_name", label: "Klient" },
-  { key: "partner_name", label: "Partner" },
-  { key: "product_name", label: "Produkt" },
-  { key: "agent_name", label: "Spolupracovnik" },
-  { key: "agent_level", label: "Uroven" },
-  { key: "premium_amount", label: "Poistne" },
-  { key: "base_commission", label: "Zakladna provzia" },
-  { key: "differential_commission", label: "Rozdielova" },
-  { key: "total_commission", label: "Celkova odmena" },
-  { key: "points_earned", label: "Body" },
-  { key: "created_at", label: "Datum" },
+const FILTER_COLUMNS: SmartColumnDef[] = [
+  { key: "cn", label: "Cislo zmluvy", type: "text" },
+  { key: "client_name", label: "Klient", type: "text" },
+  { key: "partner_name", label: "Partner", type: "text" },
+  { key: "product_name", label: "Produkt", type: "text" },
+  { key: "agent_name", label: "Spolupracovnik", type: "text" },
+  { key: "agent_level", label: "Uroven", type: "number" },
+  { key: "premium_amount", label: "Poistne", type: "number" },
+  { key: "base_commission", label: "Zakladna provzia", type: "number" },
+  { key: "differential_commission", label: "Rozdielova", type: "number" },
+  { key: "total_commission", label: "Celkova odmena", type: "number" },
+  { key: "points_earned", label: "Body", type: "number" },
+  { key: "created_at", label: "Datum", type: "date" },
 ];
 
 export default function Odmeny() {
@@ -103,7 +104,7 @@ export default function Odmeny() {
     });
   }, [odmenyData, searchTerm, filterAgent]);
 
-  const tableFilter = useTableFilter(filtered, FILTER_COLUMNS);
+  const tableFilter = useSmartFilter(filtered, FILTER_COLUMNS, "odmeny-filter");
   const { sortedData: sortedFiltered, sortKey, sortDirection, requestSort } = useTableSort(tableFilter.filteredData);
   const columnVisibility = useColumnVisibility("odmeny", COLUMNS);
 
@@ -159,11 +160,11 @@ export default function Odmeny() {
               <Filter className="w-4 h-4" />
               Filtre
             </CardTitle>
-            <Button variant="ghost" size="sm" onClick={() => { setSearchTerm(""); setFilterAgent("all"); tableFilter.clearAllFilters(); }} data-testid="button-reset-filters">
+            <Button variant="ghost" size="sm" onClick={() => { setSearchTerm(""); setFilterAgent("all"); tableFilter.clearAll(); }} data-testid="button-reset-filters">
               Zrusit filtre
             </Button>
           </div>
-          <TableFilterBar filter={tableFilter} />
+          <SmartFilterBar filter={tableFilter} />
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
@@ -214,18 +215,18 @@ export default function Odmeny() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  {columnVisibility.isVisible("cn") && <TableHead sortKey="cn" sortDirection={sortKey === "cn" ? sortDirection : null} onSort={requestSort} filterValue={tableFilter.columnFilters["cn"] || ""} onFilterChange={(v) => tableFilter.setColumnFilter("cn", v)}>Cislo zmluvy</TableHead>}
-                  {columnVisibility.isVisible("client_name") && <TableHead sortKey="client_name" sortDirection={sortKey === "client_name" ? sortDirection : null} onSort={requestSort} filterValue={tableFilter.columnFilters["client_name"] || ""} onFilterChange={(v) => tableFilter.setColumnFilter("client_name", v)}>Klient</TableHead>}
-                  {columnVisibility.isVisible("partner_name") && <TableHead sortKey="partner_name" sortDirection={sortKey === "partner_name" ? sortDirection : null} onSort={requestSort} filterValue={tableFilter.columnFilters["partner_name"] || ""} onFilterChange={(v) => tableFilter.setColumnFilter("partner_name", v)}>Partner</TableHead>}
-                  {columnVisibility.isVisible("product_name") && <TableHead sortKey="product_name" sortDirection={sortKey === "product_name" ? sortDirection : null} onSort={requestSort} filterValue={tableFilter.columnFilters["product_name"] || ""} onFilterChange={(v) => tableFilter.setColumnFilter("product_name", v)}>Produkt</TableHead>}
-                  {columnVisibility.isVisible("agent_name") && <TableHead sortKey="agent_name" sortDirection={sortKey === "agent_name" ? sortDirection : null} onSort={requestSort} filterValue={tableFilter.columnFilters["agent_name"] || ""} onFilterChange={(v) => tableFilter.setColumnFilter("agent_name", v)}>Spolupracovnik</TableHead>}
-                  {columnVisibility.isVisible("agent_level") && <TableHead sortKey="agent_level" className="text-center" sortDirection={sortKey === "agent_level" ? sortDirection : null} onSort={requestSort} filterValue={tableFilter.columnFilters["agent_level"] || ""} onFilterChange={(v) => tableFilter.setColumnFilter("agent_level", v)}>Uroven</TableHead>}
-                  {columnVisibility.isVisible("premium_amount") && <TableHead sortKey="premium_amount" className="text-right" sortDirection={sortKey === "premium_amount" ? sortDirection : null} onSort={requestSort} filterValue={tableFilter.columnFilters["premium_amount"] || ""} onFilterChange={(v) => tableFilter.setColumnFilter("premium_amount", v)}>Poistne</TableHead>}
-                  {columnVisibility.isVisible("base_commission") && <TableHead sortKey="base_commission" className="text-right" sortDirection={sortKey === "base_commission" ? sortDirection : null} onSort={requestSort} filterValue={tableFilter.columnFilters["base_commission"] || ""} onFilterChange={(v) => tableFilter.setColumnFilter("base_commission", v)}>Zakladna provzia</TableHead>}
-                  {columnVisibility.isVisible("differential_commission") && <TableHead sortKey="differential_commission" className="text-right" sortDirection={sortKey === "differential_commission" ? sortDirection : null} onSort={requestSort} filterValue={tableFilter.columnFilters["differential_commission"] || ""} onFilterChange={(v) => tableFilter.setColumnFilter("differential_commission", v)}>Rozdielova</TableHead>}
-                  {columnVisibility.isVisible("total_commission") && <TableHead sortKey="total_commission" className="text-right" sortDirection={sortKey === "total_commission" ? sortDirection : null} onSort={requestSort} filterValue={tableFilter.columnFilters["total_commission"] || ""} onFilterChange={(v) => tableFilter.setColumnFilter("total_commission", v)}>Celkova odmena</TableHead>}
-                  {columnVisibility.isVisible("points_earned") && <TableHead sortKey="points_earned" className="text-right" sortDirection={sortKey === "points_earned" ? sortDirection : null} onSort={requestSort} filterValue={tableFilter.columnFilters["points_earned"] || ""} onFilterChange={(v) => tableFilter.setColumnFilter("points_earned", v)}>Body</TableHead>}
-                  {columnVisibility.isVisible("created_at") && <TableHead sortKey="created_at" sortDirection={sortKey === "created_at" ? sortDirection : null} onSort={requestSort} filterValue={tableFilter.columnFilters["created_at"] || ""} onFilterChange={(v) => tableFilter.setColumnFilter("created_at", v)}>Datum</TableHead>}
+                  {columnVisibility.isVisible("cn") && <TableHead sortKey="cn" sortDirection={sortKey === "cn" ? sortDirection : null} onSort={requestSort}>Cislo zmluvy</TableHead>}
+                  {columnVisibility.isVisible("client_name") && <TableHead sortKey="client_name" sortDirection={sortKey === "client_name" ? sortDirection : null} onSort={requestSort}>Klient</TableHead>}
+                  {columnVisibility.isVisible("partner_name") && <TableHead sortKey="partner_name" sortDirection={sortKey === "partner_name" ? sortDirection : null} onSort={requestSort}>Partner</TableHead>}
+                  {columnVisibility.isVisible("product_name") && <TableHead sortKey="product_name" sortDirection={sortKey === "product_name" ? sortDirection : null} onSort={requestSort}>Produkt</TableHead>}
+                  {columnVisibility.isVisible("agent_name") && <TableHead sortKey="agent_name" sortDirection={sortKey === "agent_name" ? sortDirection : null} onSort={requestSort}>Spolupracovnik</TableHead>}
+                  {columnVisibility.isVisible("agent_level") && <TableHead sortKey="agent_level" className="text-center" sortDirection={sortKey === "agent_level" ? sortDirection : null} onSort={requestSort}>Uroven</TableHead>}
+                  {columnVisibility.isVisible("premium_amount") && <TableHead sortKey="premium_amount" className="text-right" sortDirection={sortKey === "premium_amount" ? sortDirection : null} onSort={requestSort}>Poistne</TableHead>}
+                  {columnVisibility.isVisible("base_commission") && <TableHead sortKey="base_commission" className="text-right" sortDirection={sortKey === "base_commission" ? sortDirection : null} onSort={requestSort}>Zakladna provzia</TableHead>}
+                  {columnVisibility.isVisible("differential_commission") && <TableHead sortKey="differential_commission" className="text-right" sortDirection={sortKey === "differential_commission" ? sortDirection : null} onSort={requestSort}>Rozdielova</TableHead>}
+                  {columnVisibility.isVisible("total_commission") && <TableHead sortKey="total_commission" className="text-right" sortDirection={sortKey === "total_commission" ? sortDirection : null} onSort={requestSort}>Celkova odmena</TableHead>}
+                  {columnVisibility.isVisible("points_earned") && <TableHead sortKey="points_earned" className="text-right" sortDirection={sortKey === "points_earned" ? sortDirection : null} onSort={requestSort}>Body</TableHead>}
+                  {columnVisibility.isVisible("created_at") && <TableHead sortKey="created_at" sortDirection={sortKey === "created_at" ? sortDirection : null} onSort={requestSort}>Datum</TableHead>}
                 </TableRow>
               </TableHeader>
               <TableBody>

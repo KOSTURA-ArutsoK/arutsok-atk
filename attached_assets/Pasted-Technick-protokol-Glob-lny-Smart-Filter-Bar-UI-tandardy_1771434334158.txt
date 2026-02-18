@@ -1,0 +1,58 @@
+Technický protokol: Globálny "Smart Filter Bar" & UI Štandardy
+Status: Kritická systémová zmena | Rozsah: Celý systém (všetky súčasné a budúce tabuľky)
+
+1. Architektonický základ (Core Logic)
+Agent, implementuj toto riešenie priamo do BaseTable komponentu. Cieľom je, aby akýkoľvek vývojár (alebo ty sám v budúcnosti) pri vytvorení novej tabuľky nemusel riešiť filtre – tie sa musia vygenerovať automaticky na základe dátových typov v stĺpcoch.
+
+2. Totálna čistka starého UI
+Deaktivácia starých search barov: Úplne odstráň globálne textové polia nad tabuľkami.
+
+Čistenie hlavičiek (Th): Z hlavičiek stĺpcov odstráň všetky textové inputy. Ponechaj len názov stĺpca a ikony pre zoraďovanie (Sorting).
+
+3. Implementácia Smart Filter Baru
+Umiestni nový filtračný riadok medzi hlavičku stránky a samotnú tabuľku.
+
+A. Tlačidlo [+] a výber parametra
+Interaktivita: Kliknutím na [+] Pridať filter sa otvorí vyhľadávateľný dropdown so zoznamom všetkých stĺpcov danej tabuľky.
+
+Multi-výber: Užívateľ môže pridať ľubovoľný počet filtrov (čipov).
+
+B. Dynamické Smart Chips (Bubliny)
+Každý vybraný filter sa zobrazí ako vizuálny čip. Po kliknutí do čipu sa otvorí mini-popover s nástrojmi podľa typu dát:
+
+Typ: TEXT (Meno, Ulica, Poznámka)
+
+Logika: Obsahuje / Neobsahuje.
+
+Vlastnosť: Ignorovanie diakritiky (Search-friendly).
+
+Typ: ČÍSLO (IČO, Tel, Sumy, Počty)
+
+Operátory: =, >, <, ≥, ≤.
+
+Špeciálna voľba: Rozsah (od - do).
+
+Typ: DÁTUM (Dátum narodenia, Platnosť)
+
+UI: Integrovaný kalendár (Date Picker).
+
+Operátory: Presne, Pred, Po, Rozsah (od - do).
+
+Rýchle voľby: Dnes, Včera, Tento mesiac, Tento rok.
+
+C. Technické správanie
+AND Logika: Viacero čipov naraz automaticky zužuje výsledky (Filter 1 AND Filter 2).
+
+Live Update & Debouncing: Tabuľka sa filtruje okamžite. Pri písaní textu počkaj 300ms (debouncing), než odošleš dopyt na server, aby systém "nesekal".
+
+Zrušenie: Každý čip má [x] na zmazanie. Tlačidlo Zmazať všetko sa objaví, ak sú aktívne aspoň 2 filtre.
+
+4. Ukladanie pohľadov (Saved Views)
+Vedľa tlačidla [+] pridaj ikonu diskety/uloženia.
+
+Užívateľ si môže aktuálnu kombináciu filtrov uložiť pod názvom (napr. "Dlžníci - Prešov").
+
+Tieto uložené pohľady sa zobrazia v dropdowne pre rýchly prístup.
+
+5. Dedičnosť pre budúce moduly
+Automatická detekcia: Komponent musí sám prečítať schéma tabuľky. Ak pridám nový stĺpec do databázy, Smart Filter Bar ho musí automaticky ponúknuť v zozname [+] bez manuálneho zásahu do kódu.

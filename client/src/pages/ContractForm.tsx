@@ -40,8 +40,9 @@ import {
 } from "@/components/ui/select";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { UIDInput } from "@/components/uid-input";
-import { useTableFilter } from "@/hooks/use-table-filter";
-import { TableFilterBar } from "@/components/table-filter-bar";
+import { useSmartFilter } from "@/hooks/use-smart-filter";
+import type { SmartColumnDef } from "@/hooks/use-smart-filter";
+import { SmartFilterBar } from "@/components/smart-filter-bar";
 
 type PanelWithParams = {
   id: number;
@@ -316,9 +317,9 @@ type StatusTabContentProps = {
   statusChangeLogs: ContractStatusChangeLog[] | undefined;
 };
 
-const STATUS_HISTORY_FILTER_COLUMNS = [
-  { key: "status", label: "Stav" },
-  { key: "changedAt", label: "Datum zmeny" },
+const STATUS_HISTORY_FILTER_COLUMNS: SmartColumnDef[] = [
+  { key: "status", label: "Stav", type: "text" },
+  { key: "changedAt", label: "Datum zmeny", type: "date" },
 ];
 
 const STATUS_HISTORY_COLUMNS: ColumnDef[] = [
@@ -348,7 +349,7 @@ function StatusTabContent(props: StatusTabContentProps) {
     const logStatus = statuses?.find(s => s.id === log.newStatusId);
     return { ...log, status: logStatus?.name || `Stav #${log.newStatusId}` };
   });
-  const statusHistoryFilter = useTableFilter(enrichedLogs, STATUS_HISTORY_FILTER_COLUMNS);
+  const statusHistoryFilter = useSmartFilter(enrichedLogs, STATUS_HISTORY_FILTER_COLUMNS, "contract-form-status-history");
 
   const currentStatus = statuses?.find(s => s.id === (statusId ? parseInt(statusId) : -1));
   const newStatus = filteredStatuses.find(s => s.id === parseInt(statusFormStatusId));
@@ -670,12 +671,12 @@ function StatusTabContent(props: StatusTabContentProps) {
                 <h3 className="text-sm font-semibold">Historia zmien stavov ({(statusChangeLogs || []).length})</h3>
                 <ColumnManager columnVisibility={statusHistoryColumnVisibility} />
               </div>
-              <TableFilterBar filter={statusHistoryFilter} />
+              <SmartFilterBar filter={statusHistoryFilter} />
               <Table>
                 <TableHeader>
                   <TableRow>
-                    {statusHistoryColumnVisibility.isVisible("status") && <TableHead filterValue={statusHistoryFilter.columnFilters["status"] || ""} onFilterChange={(val) => statusHistoryFilter.setColumnFilter("status", val)}>Stav</TableHead>}
-                    {statusHistoryColumnVisibility.isVisible("changedAt") && <TableHead filterValue={statusHistoryFilter.columnFilters["changedAt"] || ""} onFilterChange={(val) => statusHistoryFilter.setColumnFilter("changedAt", val)}>Datum zmeny</TableHead>}
+                    {statusHistoryColumnVisibility.isVisible("status") && <TableHead>Stav</TableHead>}
+                    {statusHistoryColumnVisibility.isVisible("changedAt") && <TableHead>Datum zmeny</TableHead>}
                     {statusHistoryColumnVisibility.isVisible("details") && <TableHead>Detaily</TableHead>}
                   </TableRow>
                 </TableHeader>

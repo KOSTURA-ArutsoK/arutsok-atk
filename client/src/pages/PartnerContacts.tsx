@@ -1,8 +1,9 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useTableSort } from "@/hooks/use-table-sort";
-import { useTableFilter } from "@/hooks/use-table-filter";
-import { TableFilterBar } from "@/components/table-filter-bar";
+import { useSmartFilter } from "@/hooks/use-smart-filter";
+import type { SmartColumnDef } from "@/hooks/use-smart-filter";
+import { SmartFilterBar } from "@/components/smart-filter-bar";
 import { useColumnVisibility, type ColumnDef } from "@/hooks/use-column-visibility";
 import { ColumnManager } from "@/components/column-manager";
 import type { Partner, PartnerContact } from "@shared/schema";
@@ -16,12 +17,12 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 
-const PARTNER_CONTACTS_FILTER_COLUMNS = [
-  { key: "firstName", label: "Meno" },
-  { key: "partnerName", label: "Partner" },
-  { key: "position", label: "Pozicia" },
-  { key: "phone", label: "Telefon" },
-  { key: "email", label: "Email" },
+const PARTNER_CONTACTS_FILTER_COLUMNS: SmartColumnDef[] = [
+  { key: "firstName", label: "Meno", type: "text" },
+  { key: "partnerName", label: "Partner", type: "text" },
+  { key: "position", label: "Pozicia", type: "text" },
+  { key: "phone", label: "Telefon", type: "number" },
+  { key: "email", label: "Email", type: "text" },
 ];
 
 const PARTNER_CONTACTS_COLUMNS: ColumnDef[] = [
@@ -68,7 +69,7 @@ export default function PartnerContacts() {
     return filterActive === "all" || (filterActive === "active" ? c.isActive : !c.isActive);
   });
 
-  const tableFilter = useTableFilter(preFilteredContacts, PARTNER_CONTACTS_FILTER_COLUMNS);
+  const tableFilter = useSmartFilter(preFilteredContacts, PARTNER_CONTACTS_FILTER_COLUMNS, "partner-contacts");
   const { sortedData: sortedContacts, sortKey, sortDirection, requestSort } = useTableSort(tableFilter.filteredData);
   const columnVisibility = useColumnVisibility("partner-contacts", PARTNER_CONTACTS_COLUMNS);
 
@@ -92,7 +93,7 @@ export default function PartnerContacts() {
         </Select>
       </div>
 
-      <TableFilterBar filter={tableFilter} />
+      <SmartFilterBar filter={tableFilter} />
 
       <Card>
         <CardContent className="p-0">
@@ -102,11 +103,11 @@ export default function PartnerContacts() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  {columnVisibility.isVisible("firstName") && <TableHead sortKey="firstName" sortDirection={sortKey === "firstName" ? sortDirection : null} onSort={requestSort} filterValue={tableFilter.columnFilters["firstName"] || ""} onFilterChange={(val) => tableFilter.setColumnFilter("firstName", val)}>Meno</TableHead>}
-                  {columnVisibility.isVisible("partnerName") && <TableHead sortKey="partnerName" sortDirection={sortKey === "partnerName" ? sortDirection : null} onSort={requestSort} filterValue={tableFilter.columnFilters["partnerName"] || ""} onFilterChange={(val) => tableFilter.setColumnFilter("partnerName", val)}>Partner</TableHead>}
-                  {columnVisibility.isVisible("position") && <TableHead sortKey="position" sortDirection={sortKey === "position" ? sortDirection : null} onSort={requestSort} filterValue={tableFilter.columnFilters["position"] || ""} onFilterChange={(val) => tableFilter.setColumnFilter("position", val)}>Pozicia</TableHead>}
-                  {columnVisibility.isVisible("phone") && <TableHead sortKey="phone" sortDirection={sortKey === "phone" ? sortDirection : null} onSort={requestSort} filterValue={tableFilter.columnFilters["phone"] || ""} onFilterChange={(val) => tableFilter.setColumnFilter("phone", val)}>Telefon</TableHead>}
-                  {columnVisibility.isVisible("email") && <TableHead sortKey="email" sortDirection={sortKey === "email" ? sortDirection : null} onSort={requestSort} filterValue={tableFilter.columnFilters["email"] || ""} onFilterChange={(val) => tableFilter.setColumnFilter("email", val)}>Email</TableHead>}
+                  {columnVisibility.isVisible("firstName") && <TableHead sortKey="firstName" sortDirection={sortKey === "firstName" ? sortDirection : null} onSort={requestSort}>Meno</TableHead>}
+                  {columnVisibility.isVisible("partnerName") && <TableHead sortKey="partnerName" sortDirection={sortKey === "partnerName" ? sortDirection : null} onSort={requestSort}>Partner</TableHead>}
+                  {columnVisibility.isVisible("position") && <TableHead sortKey="position" sortDirection={sortKey === "position" ? sortDirection : null} onSort={requestSort}>Pozicia</TableHead>}
+                  {columnVisibility.isVisible("phone") && <TableHead sortKey="phone" sortDirection={sortKey === "phone" ? sortDirection : null} onSort={requestSort}>Telefon</TableHead>}
+                  {columnVisibility.isVisible("email") && <TableHead sortKey="email" sortDirection={sortKey === "email" ? sortDirection : null} onSort={requestSort}>Email</TableHead>}
                   {columnVisibility.isVisible("securityLevel") && <TableHead sortKey="securityLevel" className="w-24 text-center" sortDirection={sortKey === "securityLevel" ? sortDirection : null} onSort={requestSort}>Bezpecnost</TableHead>}
                   {columnVisibility.isVisible("isActive") && <TableHead sortKey="isActive" className="w-24 text-center" sortDirection={sortKey === "isActive" ? sortDirection : null} onSort={requestSort}>Stav</TableHead>}
                 </TableRow>

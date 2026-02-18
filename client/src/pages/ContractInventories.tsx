@@ -38,13 +38,14 @@ import {
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { ProcessingSaveButton } from "@/components/processing-save-button";
 import { SortableTableRow, SortableContext_Wrapper } from "@/components/sortable-list";
-import { useTableFilter } from "@/hooks/use-table-filter";
-import { TableFilterBar } from "@/components/table-filter-bar";
+import { useSmartFilter } from "@/hooks/use-smart-filter";
+import type { SmartColumnDef } from "@/hooks/use-smart-filter";
+import { SmartFilterBar } from "@/components/smart-filter-bar";
 
-const INVENTORY_FILTER_COLUMNS = [
-  { key: "name", label: "Nazov" },
-  { key: "sequenceNumber", label: "Cislo" },
-  { key: "description", label: "Popis" },
+const INVENTORY_FILTER_COLUMNS: SmartColumnDef[] = [
+  { key: "name", label: "Nazov", type: "text" },
+  { key: "sequenceNumber", label: "Cislo", type: "number" },
+  { key: "description", label: "Popis", type: "text" },
 ];
 
 const INVENTORY_COLUMNS: ColumnDef[] = [
@@ -301,7 +302,7 @@ export default function ContractInventories() {
   });
 
   const sorted = inventories ? [...inventories].sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0)) : [];
-  const tableFilter = useTableFilter(sorted, INVENTORY_FILTER_COLUMNS);
+  const tableFilter = useSmartFilter(sorted, INVENTORY_FILTER_COLUMNS, "contract-inventories");
   const columnVisibility = useColumnVisibility("contract-inventories", INVENTORY_COLUMNS);
 
   const handleReorder = (items: { id: number | string; sortOrder: number }[]) => {
@@ -330,7 +331,7 @@ export default function ContractInventories() {
         <ColumnManager columnVisibility={columnVisibility} />
       </div>
 
-      <TableFilterBar filter={tableFilter} />
+      <SmartFilterBar filter={tableFilter} />
 
       <Card>
         <CardContent className="p-0">

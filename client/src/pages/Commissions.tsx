@@ -35,8 +35,9 @@ import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { HelpIcon, AdminNote } from "@/components/help-icon";
 import { useTableSort } from "@/hooks/use-table-sort";
-import { useTableFilter } from "@/hooks/use-table-filter";
-import { TableFilterBar } from "@/components/table-filter-bar";
+import { useSmartFilter } from "@/hooks/use-smart-filter";
+import type { SmartColumnDef } from "@/hooks/use-smart-filter";
+import { SmartFilterBar } from "@/components/smart-filter-bar";
 import { useColumnVisibility, type ColumnDef } from "@/hooks/use-column-visibility";
 import { ColumnManager } from "@/components/column-manager";
 
@@ -52,13 +53,13 @@ const COLUMNS: ColumnDef[] = [
   { key: "status", label: "Stav" },
 ];
 
-const FILTER_COLUMNS = [
-  { key: "rateType", label: "Typ" },
-  { key: "rateValue", label: "Hodnota" },
-  { key: "pointsFactor", label: "Body faktor" },
-  { key: "currency", label: "Mena" },
-  { key: "validFrom", label: "Platnost od" },
-  { key: "validTo", label: "Platnost do" },
+const FILTER_COLUMNS: SmartColumnDef[] = [
+  { key: "rateType", label: "Typ", type: "text" },
+  { key: "rateValue", label: "Hodnota", type: "number" },
+  { key: "pointsFactor", label: "Body faktor", type: "number" },
+  { key: "currency", label: "Mena", type: "text" },
+  { key: "validFrom", label: "Platnost od", type: "date" },
+  { key: "validTo", label: "Platnost do", type: "date" },
 ];
 
 function ProcessingTimer({ startTime }: { startTime: number }) {
@@ -234,7 +235,7 @@ export default function Commissions() {
     });
   }, [rates, searchTerm, filterPartner, filterType, filterStatus, partnerMap, productMap]);
 
-  const tableFilter = useTableFilter(filtered, FILTER_COLUMNS);
+  const tableFilter = useSmartFilter(filtered, FILTER_COLUMNS, "commissions-filter");
   const { sortedData, sortKey, sortDirection, requestSort } = useTableSort(tableFilter.filteredData);
   const columnVisibility = useColumnVisibility("commissions", COLUMNS);
 
@@ -276,11 +277,11 @@ export default function Commissions() {
               <Filter className="w-4 h-4" />
               Filtre
             </CardTitle>
-            <Button variant="ghost" size="sm" onClick={() => { setSearchTerm(""); setFilterPartner("all"); setFilterType("all"); setFilterStatus("all"); tableFilter.clearAllFilters(); }} data-testid="button-reset-filters">
+            <Button variant="ghost" size="sm" onClick={() => { setSearchTerm(""); setFilterPartner("all"); setFilterType("all"); setFilterStatus("all"); tableFilter.clearAll(); }} data-testid="button-reset-filters">
               Zrusit filtre
             </Button>
           </div>
-          <TableFilterBar filter={tableFilter} />
+          <SmartFilterBar filter={tableFilter} />
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
@@ -354,12 +355,12 @@ export default function Commissions() {
                 <TableRow>
                   {columnVisibility.isVisible("partner") && <TableHead>Partner</TableHead>}
                   {columnVisibility.isVisible("product") && <TableHead>Produkt</TableHead>}
-                  {columnVisibility.isVisible("rateType") && <TableHead sortKey="rateType" sortDirection={sortKey === "rateType" ? sortDirection : null} onSort={requestSort} filterValue={tableFilter.columnFilters["rateType"] || ""} onFilterChange={(v) => tableFilter.setColumnFilter("rateType", v)}>Typ</TableHead>}
-                  {columnVisibility.isVisible("rateValue") && <TableHead className="text-right" sortKey="rateValue" sortDirection={sortKey === "rateValue" ? sortDirection : null} onSort={requestSort} filterValue={tableFilter.columnFilters["rateValue"] || ""} onFilterChange={(v) => tableFilter.setColumnFilter("rateValue", v)}>Hodnota</TableHead>}
-                  {columnVisibility.isVisible("pointsFactor") && <TableHead className="text-right" sortKey="pointsFactor" sortDirection={sortKey === "pointsFactor" ? sortDirection : null} onSort={requestSort} filterValue={tableFilter.columnFilters["pointsFactor"] || ""} onFilterChange={(v) => tableFilter.setColumnFilter("pointsFactor", v)}>Body faktor</TableHead>}
-                  {columnVisibility.isVisible("currency") && <TableHead sortKey="currency" sortDirection={sortKey === "currency" ? sortDirection : null} onSort={requestSort} filterValue={tableFilter.columnFilters["currency"] || ""} onFilterChange={(v) => tableFilter.setColumnFilter("currency", v)}>Mena</TableHead>}
-                  {columnVisibility.isVisible("validFrom") && <TableHead sortKey="validFrom" sortDirection={sortKey === "validFrom" ? sortDirection : null} onSort={requestSort} filterValue={tableFilter.columnFilters["validFrom"] || ""} onFilterChange={(v) => tableFilter.setColumnFilter("validFrom", v)}>Platnost od</TableHead>}
-                  {columnVisibility.isVisible("validTo") && <TableHead sortKey="validTo" sortDirection={sortKey === "validTo" ? sortDirection : null} onSort={requestSort} filterValue={tableFilter.columnFilters["validTo"] || ""} onFilterChange={(v) => tableFilter.setColumnFilter("validTo", v)}>Platnost do</TableHead>}
+                  {columnVisibility.isVisible("rateType") && <TableHead sortKey="rateType" sortDirection={sortKey === "rateType" ? sortDirection : null} onSort={requestSort}>Typ</TableHead>}
+                  {columnVisibility.isVisible("rateValue") && <TableHead className="text-right" sortKey="rateValue" sortDirection={sortKey === "rateValue" ? sortDirection : null} onSort={requestSort}>Hodnota</TableHead>}
+                  {columnVisibility.isVisible("pointsFactor") && <TableHead className="text-right" sortKey="pointsFactor" sortDirection={sortKey === "pointsFactor" ? sortDirection : null} onSort={requestSort}>Body faktor</TableHead>}
+                  {columnVisibility.isVisible("currency") && <TableHead sortKey="currency" sortDirection={sortKey === "currency" ? sortDirection : null} onSort={requestSort}>Mena</TableHead>}
+                  {columnVisibility.isVisible("validFrom") && <TableHead sortKey="validFrom" sortDirection={sortKey === "validFrom" ? sortDirection : null} onSort={requestSort}>Platnost od</TableHead>}
+                  {columnVisibility.isVisible("validTo") && <TableHead sortKey="validTo" sortDirection={sortKey === "validTo" ? sortDirection : null} onSort={requestSort}>Platnost do</TableHead>}
                   {columnVisibility.isVisible("status") && <TableHead>Stav</TableHead>}
                   <TableHead className="text-right">Akcie</TableHead>
                 </TableRow>

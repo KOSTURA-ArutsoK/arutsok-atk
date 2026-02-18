@@ -33,8 +33,9 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import { ProcessingSaveButton } from "@/components/processing-save-button";
-import { useTableFilter } from "@/hooks/use-table-filter";
-import { TableFilterBar } from "@/components/table-filter-bar";
+import { useSmartFilter } from "@/hooks/use-smart-filter";
+import type { SmartColumnDef } from "@/hooks/use-smart-filter";
+import { SmartFilterBar } from "@/components/smart-filter-bar";
 import { useColumnVisibility, type ColumnDef } from "@/hooks/use-column-visibility";
 import { ColumnManager } from "@/components/column-manager";
 
@@ -473,9 +474,9 @@ const CLIENT_GROUPS_COLUMNS: ColumnDef[] = [
   { key: "memberCount", label: "Pocet klientov" },
 ];
 
-const CLIENT_GROUPS_FILTER_COLUMNS = [
-  { key: "name", label: "Nazov skupiny" },
-  { key: "memberCount", label: "Pocet klientov" },
+const CLIENT_GROUPS_FILTER_COLUMNS: SmartColumnDef[] = [
+  { key: "name", label: "Nazov skupiny", type: "text" },
+  { key: "memberCount", label: "Pocet klientov", type: "number" },
 ];
 
 export default function ClientGroups() {
@@ -494,7 +495,7 @@ export default function ClientGroups() {
   const { data: permGroupsData } = useQuery<PermissionGroup[]>({
     queryKey: ["/api/permission-groups"],
   });
-  const groupFilter = useTableFilter(groups || [], CLIENT_GROUPS_FILTER_COLUMNS);
+  const groupFilter = useSmartFilter(groups || [], CLIENT_GROUPS_FILTER_COLUMNS, "client-groups");
   const columnVisibility = useColumnVisibility("client-groups", CLIENT_GROUPS_COLUMNS);
 
   const reorderMutation = useMutation({
@@ -525,7 +526,7 @@ export default function ClientGroups() {
       <div className="flex items-center justify-between gap-4 flex-wrap">
         <h1 className="text-2xl font-bold" data-testid="text-page-title">Skupiny klientov</h1>
         <div className="flex items-center gap-2">
-          <TableFilterBar filter={groupFilter} />
+          <SmartFilterBar filter={groupFilter} />
           <ColumnManager columnVisibility={columnVisibility} />
           <Button
             onClick={() => { setEditingGroup(null); setDialogOpen(true); }}

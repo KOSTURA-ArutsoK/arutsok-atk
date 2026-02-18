@@ -5,8 +5,9 @@ import { useAppUser } from "@/hooks/use-app-user";
 import { useStates } from "@/hooks/use-hierarchy";
 import { useToast } from "@/hooks/use-toast";
 import { useTableSort } from "@/hooks/use-table-sort";
-import { useTableFilter } from "@/hooks/use-table-filter";
-import { TableFilterBar } from "@/components/table-filter-bar";
+import { useSmartFilter } from "@/hooks/use-smart-filter";
+import type { SmartColumnDef } from "@/hooks/use-smart-filter";
+import { SmartFilterBar } from "@/components/smart-filter-bar";
 import { useColumnVisibility, type ColumnDef } from "@/hooks/use-column-visibility";
 import { ColumnManager } from "@/components/column-manager";
 import type { ContractTemplate } from "@shared/schema";
@@ -41,10 +42,10 @@ import {
 } from "@/components/ui/select";
 import { ProcessingSaveButton } from "@/components/processing-save-button";
 
-const TEMPLATE_FILTER_COLUMNS = [
-  { key: "name", label: "Nazov" },
-  { key: "productType", label: "Typ produktu" },
-  { key: "isActive", label: "Stav" },
+const TEMPLATE_FILTER_COLUMNS: SmartColumnDef[] = [
+  { key: "name", label: "Nazov", type: "text" },
+  { key: "productType", label: "Typ produktu", type: "text" },
+  { key: "isActive", label: "Stav", type: "text" },
 ];
 
 const TEMPLATE_COLUMNS: ColumnDef[] = [
@@ -347,7 +348,7 @@ export default function ContractTemplates() {
     uploadMutation.mutate({ id: templateId, file });
   }
 
-  const tableFilter = useTableFilter(templates || [], TEMPLATE_FILTER_COLUMNS);
+  const tableFilter = useSmartFilter(templates || [], TEMPLATE_FILTER_COLUMNS, "contract-templates");
   const { sortedData: sortedTemplates, sortKey, sortDirection, requestSort } = useTableSort(tableFilter.filteredData);
   const columnVisibility = useColumnVisibility("contract-templates", TEMPLATE_COLUMNS);
 
@@ -364,7 +365,7 @@ export default function ContractTemplates() {
         </div>
       </div>
 
-      <TableFilterBar filter={tableFilter} />
+      <SmartFilterBar filter={tableFilter} />
 
       <Card>
         <CardContent className="p-0">
@@ -380,9 +381,9 @@ export default function ContractTemplates() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  {columnVisibility.isVisible("name") && <TableHead sortKey="name" sortDirection={sortKey === "name" ? sortDirection : null} onSort={requestSort} filterValue={tableFilter.columnFilters["name"] || ""} onFilterChange={(val) => tableFilter.setColumnFilter("name", val)}>Nazov</TableHead>}
-                  {columnVisibility.isVisible("productType") && <TableHead sortKey="productType" sortDirection={sortKey === "productType" ? sortDirection : null} onSort={requestSort} filterValue={tableFilter.columnFilters["productType"] || ""} onFilterChange={(val) => tableFilter.setColumnFilter("productType", val)}>Typ produktu</TableHead>}
-                  {columnVisibility.isVisible("isActive") && <TableHead sortKey="isActive" sortDirection={sortKey === "isActive" ? sortDirection : null} onSort={requestSort} filterValue={tableFilter.columnFilters["isActive"] || ""} onFilterChange={(val) => tableFilter.setColumnFilter("isActive", val)} className="w-24">Stav</TableHead>}
+                  {columnVisibility.isVisible("name") && <TableHead sortKey="name" sortDirection={sortKey === "name" ? sortDirection : null} onSort={requestSort}>Nazov</TableHead>}
+                  {columnVisibility.isVisible("productType") && <TableHead sortKey="productType" sortDirection={sortKey === "productType" ? sortDirection : null} onSort={requestSort}>Typ produktu</TableHead>}
+                  {columnVisibility.isVisible("isActive") && <TableHead sortKey="isActive" sortDirection={sortKey === "isActive" ? sortDirection : null} onSort={requestSort} className="w-24">Stav</TableHead>}
                   {columnVisibility.isVisible("file") && <TableHead>Subor</TableHead>}
                   <TableHead className="w-40 text-right">Akcie</TableHead>
                 </TableRow>

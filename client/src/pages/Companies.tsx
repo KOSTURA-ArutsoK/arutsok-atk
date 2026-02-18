@@ -63,8 +63,9 @@ import { RichTextEditor } from "@/components/rich-text-editor";
 import { useToast } from "@/hooks/use-toast";
 import { useQueryClient } from "@tanstack/react-query";
 import { useTableSort } from "@/hooks/use-table-sort";
-import { useTableFilter } from "@/hooks/use-table-filter";
-import { TableFilterBar } from "@/components/table-filter-bar";
+import { useSmartFilter } from "@/hooks/use-smart-filter";
+import type { SmartColumnDef } from "@/hooks/use-smart-filter";
+import { SmartFilterBar } from "@/components/smart-filter-bar";
 
 
 const COMPANY_COLUMNS: ColumnDef[] = [
@@ -75,11 +76,11 @@ const COMPANY_COLUMNS: ColumnDef[] = [
   { key: "state", label: "Stat" },
 ];
 
-const COMPANY_FILTER_COLUMNS = [
-  { key: "name", label: "Nazov" },
-  { key: "ico", label: "ICO" },
-  { key: "specialization", label: "Zameranie" },
-  { key: "city", label: "Mesto" },
+const COMPANY_FILTER_COLUMNS: SmartColumnDef[] = [
+  { key: "name", label: "Nazov", type: "text" },
+  { key: "ico", label: "ICO", type: "text" },
+  { key: "specialization", label: "Zameranie", type: "text" },
+  { key: "city", label: "Mesto", type: "text" },
 ];
 
 const formSchema = insertMyCompanySchema.extend({
@@ -802,7 +803,7 @@ export default function Companies() {
   const { data: companies, isLoading } = useMyCompanies();
   const { data: allStates } = useStates();
   const deleteMutation = useDeleteMyCompany();
-  const tableFilter = useTableFilter(companies || [], COMPANY_FILTER_COLUMNS);
+  const tableFilter = useSmartFilter(companies || [], COMPANY_FILTER_COLUMNS, "companies");
   const { sortedData, sortKey, sortDirection, requestSort } = useTableSort(tableFilter.filteredData);
   const columnVisibility = useColumnVisibility("companies", COMPANY_COLUMNS);
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -834,7 +835,7 @@ export default function Companies() {
           <p className="text-sm text-muted-foreground mt-1">Sprava vaseho portfelia firiem.</p>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
-          <TableFilterBar filter={tableFilter} />
+          <SmartFilterBar filter={tableFilter} />
           <ColumnManager columnVisibility={columnVisibility} />
           <Button onClick={openCreate} data-testid="button-add-company">
             <Plus className="w-4 h-4 mr-2" />
@@ -848,10 +849,10 @@ export default function Companies() {
           <Table>
             <TableHeader>
               <TableRow>
-                {columnVisibility.isVisible("name") && <TableHead sortKey="name" sortDirection={sortKey === "name" ? sortDirection : null} onSort={requestSort} filterValue={tableFilter.columnFilters["name"] || ""} onFilterChange={(val) => tableFilter.setColumnFilter("name", val)}>Nazov</TableHead>}
-                {columnVisibility.isVisible("ico") && <TableHead sortKey="ico" sortDirection={sortKey === "ico" ? sortDirection : null} onSort={requestSort} filterValue={tableFilter.columnFilters["ico"] || ""} onFilterChange={(val) => tableFilter.setColumnFilter("ico", val)}>ICO</TableHead>}
-                {columnVisibility.isVisible("specialization") && <TableHead sortKey="specialization" sortDirection={sortKey === "specialization" ? sortDirection : null} onSort={requestSort} filterValue={tableFilter.columnFilters["specialization"] || ""} onFilterChange={(val) => tableFilter.setColumnFilter("specialization", val)}>Zameranie</TableHead>}
-                {columnVisibility.isVisible("city") && <TableHead sortKey="city" sortDirection={sortKey === "city" ? sortDirection : null} onSort={requestSort} filterValue={tableFilter.columnFilters["city"] || ""} onFilterChange={(val) => tableFilter.setColumnFilter("city", val)}>Mesto</TableHead>}
+                {columnVisibility.isVisible("name") && <TableHead sortKey="name" sortDirection={sortKey === "name" ? sortDirection : null} onSort={requestSort}>Nazov</TableHead>}
+                {columnVisibility.isVisible("ico") && <TableHead sortKey="ico" sortDirection={sortKey === "ico" ? sortDirection : null} onSort={requestSort}>ICO</TableHead>}
+                {columnVisibility.isVisible("specialization") && <TableHead sortKey="specialization" sortDirection={sortKey === "specialization" ? sortDirection : null} onSort={requestSort}>Zameranie</TableHead>}
+                {columnVisibility.isVisible("city") && <TableHead sortKey="city" sortDirection={sortKey === "city" ? sortDirection : null} onSort={requestSort}>Mesto</TableHead>}
                 {columnVisibility.isVisible("state") && <TableHead>Stat</TableHead>}
                 <TableHead className="w-[160px]">Akcie</TableHead>
               </TableRow>

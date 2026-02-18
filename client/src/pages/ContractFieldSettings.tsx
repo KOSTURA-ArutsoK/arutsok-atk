@@ -3,8 +3,9 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { useTableSort } from "@/hooks/use-table-sort";
-import { useTableFilter } from "@/hooks/use-table-filter";
-import { TableFilterBar } from "@/components/table-filter-bar";
+import { useSmartFilter } from "@/hooks/use-smart-filter";
+import type { SmartColumnDef } from "@/hooks/use-smart-filter";
+import { SmartFilterBar } from "@/components/smart-filter-bar";
 import { useColumnVisibility, type ColumnDef } from "@/hooks/use-column-visibility";
 import { ColumnManager } from "@/components/column-manager";
 import type { ContractFieldSetting } from "@shared/schema";
@@ -20,8 +21,8 @@ import {
   TableRow,
 } from "@/components/ui/table";
 
-const FIELD_SETTINGS_FILTER_COLUMNS = [
-  { key: "label", label: "Pole" },
+const FIELD_SETTINGS_FILTER_COLUMNS: SmartColumnDef[] = [
+  { key: "label", label: "Pole", type: "text" },
 ];
 
 const FIELD_SETTINGS_COLUMNS: ColumnDef[] = [
@@ -63,7 +64,7 @@ export default function ContractFieldSettings() {
     return setting?.requiredForPfa ?? false;
   }
 
-  const tableFilter = useTableFilter(CONTRACT_FIELDS, FIELD_SETTINGS_FILTER_COLUMNS);
+  const tableFilter = useSmartFilter(CONTRACT_FIELDS, FIELD_SETTINGS_FILTER_COLUMNS, "contract-field-settings");
   const { sortedData: sortedFields, sortKey, sortDirection, requestSort } = useTableSort(tableFilter.filteredData);
   const columnVisibility = useColumnVisibility("contract-field-settings", FIELD_SETTINGS_COLUMNS);
 
@@ -81,7 +82,7 @@ export default function ContractFieldSettings() {
         Nastavte, ktore polia su povinne pri vyplnani zmluvy (PFA).
       </p>
 
-      <TableFilterBar filter={tableFilter} />
+      <SmartFilterBar filter={tableFilter} />
 
       {isLoading ? (
         <div className="flex items-center justify-center py-12">
@@ -93,7 +94,7 @@ export default function ContractFieldSettings() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  {columnVisibility.isVisible("label") && <TableHead sortKey="label" sortDirection={sortKey === "label" ? sortDirection : null} onSort={requestSort} filterValue={tableFilter.columnFilters["label"] || ""} onFilterChange={(val) => tableFilter.setColumnFilter("label", val)}>Pole</TableHead>}
+                  {columnVisibility.isVisible("label") && <TableHead sortKey="label" sortDirection={sortKey === "label" ? sortDirection : null} onSort={requestSort}>Pole</TableHead>}
                   {columnVisibility.isVisible("requiredForPfa") && <TableHead className="w-40 text-center">Povinne pre PFA</TableHead>}
                 </TableRow>
               </TableHeader>

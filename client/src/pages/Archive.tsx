@@ -4,8 +4,9 @@ import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useAppUser } from "@/hooks/use-app-user";
 import { useToast } from "@/hooks/use-toast";
 import { useTableSort } from "@/hooks/use-table-sort";
-import { useTableFilter } from "@/hooks/use-table-filter";
-import { TableFilterBar } from "@/components/table-filter-bar";
+import { useSmartFilter } from "@/hooks/use-smart-filter";
+import type { SmartColumnDef } from "@/hooks/use-smart-filter";
+import { SmartFilterBar } from "@/components/smart-filter-bar";
 import { useColumnVisibility, type ColumnDef } from "@/hooks/use-column-visibility";
 import { ColumnManager } from "@/components/column-manager";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -43,40 +44,40 @@ const ARCHIVE_COLUMNS: ColumnDef[] = [
   { key: "partnerId", label: "Partner" },
 ];
 
-const FILTER_COLUMNS_COMPANIES = [
-  { key: "name", label: "Nazov" },
-  { key: "code", label: "Kod" },
-  { key: "deletedBy", label: "Vymazal" },
-  { key: "deletedAt", label: "Datum vymazania" },
-  { key: "deletedFromIp", label: "IP" },
+const FILTER_COLUMNS_COMPANIES: SmartColumnDef[] = [
+  { key: "name", label: "Nazov", type: "text" },
+  { key: "code", label: "Kod", type: "text" },
+  { key: "deletedBy", label: "Vymazal", type: "text" },
+  { key: "deletedAt", label: "Datum vymazania", type: "date" },
+  { key: "deletedFromIp", label: "IP", type: "text" },
 ];
 
-const FILTER_COLUMNS_PARTNERS = [
-  { key: "name", label: "Nazov" },
-  { key: "code", label: "Kod" },
-  { key: "deletedBy", label: "Vymazal" },
-  { key: "deletedAt", label: "Datum vymazania" },
-  { key: "deletedFromIp", label: "IP" },
+const FILTER_COLUMNS_PARTNERS: SmartColumnDef[] = [
+  { key: "name", label: "Nazov", type: "text" },
+  { key: "code", label: "Kod", type: "text" },
+  { key: "deletedBy", label: "Vymazal", type: "text" },
+  { key: "deletedAt", label: "Datum vymazania", type: "date" },
+  { key: "deletedFromIp", label: "IP", type: "text" },
 ];
 
-const FILTER_COLUMNS_PRODUCTS = [
-  { key: "name", label: "Nazov" },
-  { key: "partnerId", label: "Partner" },
-  { key: "deletedBy", label: "Vymazal" },
-  { key: "deletedAt", label: "Datum vymazania" },
-  { key: "deletedFromIp", label: "IP" },
+const FILTER_COLUMNS_PRODUCTS: SmartColumnDef[] = [
+  { key: "name", label: "Nazov", type: "text" },
+  { key: "partnerId", label: "Partner", type: "number" },
+  { key: "deletedBy", label: "Vymazal", type: "text" },
+  { key: "deletedAt", label: "Datum vymazania", type: "date" },
+  { key: "deletedFromIp", label: "IP", type: "text" },
 ];
 
-const FILTER_COLUMNS_CONTRACTS = [
-  { key: "contractNumber", label: "Cislo zmluvy" },
-  { key: "uid", label: "UID" },
-  { key: "deletedAt", label: "Datum vymazania" },
+const FILTER_COLUMNS_CONTRACTS: SmartColumnDef[] = [
+  { key: "contractNumber", label: "Cislo zmluvy", type: "text" },
+  { key: "uid", label: "UID", type: "text" },
+  { key: "deletedAt", label: "Datum vymazania", type: "date" },
 ];
 
-const FILTER_COLUMNS_SOFT = [
-  { key: "entityType", label: "Typ" },
-  { key: "name", label: "Nazov" },
-  { key: "deletedAt", label: "Datum vymazania" },
+const FILTER_COLUMNS_SOFT: SmartColumnDef[] = [
+  { key: "entityType", label: "Typ", type: "text" },
+  { key: "name", label: "Nazov", type: "text" },
+  { key: "deletedAt", label: "Datum vymazania", type: "date" },
 ];
 
 interface SoftDeletedEntity {
@@ -181,11 +182,11 @@ export default function Archive() {
   const softDeleted = data?.softDeleted || [];
   const totalDeleted = companies.length + partners.length + products.length + contracts.length + softDeleted.length;
 
-  const filterCompanies = useTableFilter(companies, FILTER_COLUMNS_COMPANIES);
-  const filterPartners = useTableFilter(partners, FILTER_COLUMNS_PARTNERS);
-  const filterProducts = useTableFilter(products, FILTER_COLUMNS_PRODUCTS);
-  const filterContracts = useTableFilter(contracts, FILTER_COLUMNS_CONTRACTS);
-  const filterSoft = useTableFilter(softDeleted, FILTER_COLUMNS_SOFT);
+  const filterCompanies = useSmartFilter(companies, FILTER_COLUMNS_COMPANIES, "archive-companies");
+  const filterPartners = useSmartFilter(partners, FILTER_COLUMNS_PARTNERS, "archive-partners");
+  const filterProducts = useSmartFilter(products, FILTER_COLUMNS_PRODUCTS, "archive-products");
+  const filterContracts = useSmartFilter(contracts, FILTER_COLUMNS_CONTRACTS, "archive-contracts");
+  const filterSoft = useSmartFilter(softDeleted, FILTER_COLUMNS_SOFT, "archive-soft");
 
   const { sortedData: sortedCompanies, sortKey: sortKeyCompanies, sortDirection: sortDirCompanies, requestSort: requestSortCompanies } = useTableSort(filterCompanies.filteredData);
   const { sortedData: sortedPartners, sortKey: sortKeyPartners, sortDirection: sortDirPartners, requestSort: requestSortPartners } = useTableSort(filterPartners.filteredData);
@@ -370,7 +371,7 @@ export default function Archive() {
             <CardHeader>
               <div className="flex items-center justify-between gap-2 flex-wrap">
                 <CardTitle className="text-base">Vymazane spolocnosti</CardTitle>
-                <TableFilterBar filter={filterCompanies} />
+                <SmartFilterBar filter={filterCompanies} />
               </div>
             </CardHeader>
             <CardContent>
@@ -380,11 +381,11 @@ export default function Archive() {
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      {columnVisibility.isVisible("name") && <TableHead sortKey="name" sortDirection={sortKeyCompanies === "name" ? sortDirCompanies : null} onSort={requestSortCompanies} filterValue={filterCompanies.columnFilters["name"] || ""} onFilterChange={(v) => filterCompanies.setColumnFilter("name", v)}>Nazov</TableHead>}
-                      {columnVisibility.isVisible("code") && <TableHead sortKey="code" sortDirection={sortKeyCompanies === "code" ? sortDirCompanies : null} onSort={requestSortCompanies} filterValue={filterCompanies.columnFilters["code"] || ""} onFilterChange={(v) => filterCompanies.setColumnFilter("code", v)}>Kod</TableHead>}
-                      {columnVisibility.isVisible("deletedBy") && <TableHead sortKey="deletedBy" sortDirection={sortKeyCompanies === "deletedBy" ? sortDirCompanies : null} onSort={requestSortCompanies} filterValue={filterCompanies.columnFilters["deletedBy"] || ""} onFilterChange={(v) => filterCompanies.setColumnFilter("deletedBy", v)}>Vymazal</TableHead>}
-                      {columnVisibility.isVisible("deletedAt") && <TableHead sortKey="deletedAt" sortDirection={sortKeyCompanies === "deletedAt" ? sortDirCompanies : null} onSort={requestSortCompanies} filterValue={filterCompanies.columnFilters["deletedAt"] || ""} onFilterChange={(v) => filterCompanies.setColumnFilter("deletedAt", v)}>Datum vymazania</TableHead>}
-                      {columnVisibility.isVisible("deletedFromIp") && <TableHead sortKey="deletedFromIp" sortDirection={sortKeyCompanies === "deletedFromIp" ? sortDirCompanies : null} onSort={requestSortCompanies} filterValue={filterCompanies.columnFilters["deletedFromIp"] || ""} onFilterChange={(v) => filterCompanies.setColumnFilter("deletedFromIp", v)}>IP</TableHead>}
+                      {columnVisibility.isVisible("name") && <TableHead sortKey="name" sortDirection={sortKeyCompanies === "name" ? sortDirCompanies : null} onSort={requestSortCompanies}>Nazov</TableHead>}
+                      {columnVisibility.isVisible("code") && <TableHead sortKey="code" sortDirection={sortKeyCompanies === "code" ? sortDirCompanies : null} onSort={requestSortCompanies}>Kod</TableHead>}
+                      {columnVisibility.isVisible("deletedBy") && <TableHead sortKey="deletedBy" sortDirection={sortKeyCompanies === "deletedBy" ? sortDirCompanies : null} onSort={requestSortCompanies}>Vymazal</TableHead>}
+                      {columnVisibility.isVisible("deletedAt") && <TableHead sortKey="deletedAt" sortDirection={sortKeyCompanies === "deletedAt" ? sortDirCompanies : null} onSort={requestSortCompanies}>Datum vymazania</TableHead>}
+                      {columnVisibility.isVisible("deletedFromIp") && <TableHead sortKey="deletedFromIp" sortDirection={sortKeyCompanies === "deletedFromIp" ? sortDirCompanies : null} onSort={requestSortCompanies}>IP</TableHead>}
                       {isAdmin && <TableHead className="text-right">Akcia</TableHead>}
                     </TableRow>
                   </TableHeader>
@@ -418,7 +419,7 @@ export default function Archive() {
             <CardHeader>
               <div className="flex items-center justify-between gap-2 flex-wrap">
                 <CardTitle className="text-base">Vymazani partneri</CardTitle>
-                <TableFilterBar filter={filterPartners} />
+                <SmartFilterBar filter={filterPartners} />
               </div>
             </CardHeader>
             <CardContent>
@@ -428,11 +429,11 @@ export default function Archive() {
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      {columnVisibility.isVisible("name") && <TableHead sortKey="name" sortDirection={sortKeyPartners === "name" ? sortDirPartners : null} onSort={requestSortPartners} filterValue={filterPartners.columnFilters["name"] || ""} onFilterChange={(v) => filterPartners.setColumnFilter("name", v)}>Nazov</TableHead>}
-                      {columnVisibility.isVisible("code") && <TableHead sortKey="code" sortDirection={sortKeyPartners === "code" ? sortDirPartners : null} onSort={requestSortPartners} filterValue={filterPartners.columnFilters["code"] || ""} onFilterChange={(v) => filterPartners.setColumnFilter("code", v)}>Kod</TableHead>}
-                      {columnVisibility.isVisible("deletedBy") && <TableHead sortKey="deletedBy" sortDirection={sortKeyPartners === "deletedBy" ? sortDirPartners : null} onSort={requestSortPartners} filterValue={filterPartners.columnFilters["deletedBy"] || ""} onFilterChange={(v) => filterPartners.setColumnFilter("deletedBy", v)}>Vymazal</TableHead>}
-                      {columnVisibility.isVisible("deletedAt") && <TableHead sortKey="deletedAt" sortDirection={sortKeyPartners === "deletedAt" ? sortDirPartners : null} onSort={requestSortPartners} filterValue={filterPartners.columnFilters["deletedAt"] || ""} onFilterChange={(v) => filterPartners.setColumnFilter("deletedAt", v)}>Datum vymazania</TableHead>}
-                      {columnVisibility.isVisible("deletedFromIp") && <TableHead sortKey="deletedFromIp" sortDirection={sortKeyPartners === "deletedFromIp" ? sortDirPartners : null} onSort={requestSortPartners} filterValue={filterPartners.columnFilters["deletedFromIp"] || ""} onFilterChange={(v) => filterPartners.setColumnFilter("deletedFromIp", v)}>IP</TableHead>}
+                      {columnVisibility.isVisible("name") && <TableHead sortKey="name" sortDirection={sortKeyPartners === "name" ? sortDirPartners : null} onSort={requestSortPartners}>Nazov</TableHead>}
+                      {columnVisibility.isVisible("code") && <TableHead sortKey="code" sortDirection={sortKeyPartners === "code" ? sortDirPartners : null} onSort={requestSortPartners}>Kod</TableHead>}
+                      {columnVisibility.isVisible("deletedBy") && <TableHead sortKey="deletedBy" sortDirection={sortKeyPartners === "deletedBy" ? sortDirPartners : null} onSort={requestSortPartners}>Vymazal</TableHead>}
+                      {columnVisibility.isVisible("deletedAt") && <TableHead sortKey="deletedAt" sortDirection={sortKeyPartners === "deletedAt" ? sortDirPartners : null} onSort={requestSortPartners}>Datum vymazania</TableHead>}
+                      {columnVisibility.isVisible("deletedFromIp") && <TableHead sortKey="deletedFromIp" sortDirection={sortKeyPartners === "deletedFromIp" ? sortDirPartners : null} onSort={requestSortPartners}>IP</TableHead>}
                       {isAdmin && <TableHead className="text-right">Akcia</TableHead>}
                     </TableRow>
                   </TableHeader>
@@ -466,7 +467,7 @@ export default function Archive() {
             <CardHeader>
               <div className="flex items-center justify-between gap-2 flex-wrap">
                 <CardTitle className="text-base">Vymazane produkty</CardTitle>
-                <TableFilterBar filter={filterProducts} />
+                <SmartFilterBar filter={filterProducts} />
               </div>
             </CardHeader>
             <CardContent>
@@ -476,11 +477,11 @@ export default function Archive() {
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      {columnVisibility.isVisible("name") && <TableHead sortKey="name" sortDirection={sortKeyProducts === "name" ? sortDirProducts : null} onSort={requestSortProducts} filterValue={filterProducts.columnFilters["name"] || ""} onFilterChange={(v) => filterProducts.setColumnFilter("name", v)}>Nazov</TableHead>}
-                      {columnVisibility.isVisible("partnerId") && <TableHead sortKey="partnerId" sortDirection={sortKeyProducts === "partnerId" ? sortDirProducts : null} onSort={requestSortProducts} filterValue={filterProducts.columnFilters["partnerId"] || ""} onFilterChange={(v) => filterProducts.setColumnFilter("partnerId", v)}>Partner</TableHead>}
-                      {columnVisibility.isVisible("deletedBy") && <TableHead sortKey="deletedBy" sortDirection={sortKeyProducts === "deletedBy" ? sortDirProducts : null} onSort={requestSortProducts} filterValue={filterProducts.columnFilters["deletedBy"] || ""} onFilterChange={(v) => filterProducts.setColumnFilter("deletedBy", v)}>Vymazal</TableHead>}
-                      {columnVisibility.isVisible("deletedAt") && <TableHead sortKey="deletedAt" sortDirection={sortKeyProducts === "deletedAt" ? sortDirProducts : null} onSort={requestSortProducts} filterValue={filterProducts.columnFilters["deletedAt"] || ""} onFilterChange={(v) => filterProducts.setColumnFilter("deletedAt", v)}>Datum vymazania</TableHead>}
-                      {columnVisibility.isVisible("deletedFromIp") && <TableHead sortKey="deletedFromIp" sortDirection={sortKeyProducts === "deletedFromIp" ? sortDirProducts : null} onSort={requestSortProducts} filterValue={filterProducts.columnFilters["deletedFromIp"] || ""} onFilterChange={(v) => filterProducts.setColumnFilter("deletedFromIp", v)}>IP</TableHead>}
+                      {columnVisibility.isVisible("name") && <TableHead sortKey="name" sortDirection={sortKeyProducts === "name" ? sortDirProducts : null} onSort={requestSortProducts}>Nazov</TableHead>}
+                      {columnVisibility.isVisible("partnerId") && <TableHead sortKey="partnerId" sortDirection={sortKeyProducts === "partnerId" ? sortDirProducts : null} onSort={requestSortProducts}>Partner</TableHead>}
+                      {columnVisibility.isVisible("deletedBy") && <TableHead sortKey="deletedBy" sortDirection={sortKeyProducts === "deletedBy" ? sortDirProducts : null} onSort={requestSortProducts}>Vymazal</TableHead>}
+                      {columnVisibility.isVisible("deletedAt") && <TableHead sortKey="deletedAt" sortDirection={sortKeyProducts === "deletedAt" ? sortDirProducts : null} onSort={requestSortProducts}>Datum vymazania</TableHead>}
+                      {columnVisibility.isVisible("deletedFromIp") && <TableHead sortKey="deletedFromIp" sortDirection={sortKeyProducts === "deletedFromIp" ? sortDirProducts : null} onSort={requestSortProducts}>IP</TableHead>}
                       {isAdmin && <TableHead className="text-right">Akcia</TableHead>}
                     </TableRow>
                   </TableHeader>
@@ -514,7 +515,7 @@ export default function Archive() {
             <CardHeader>
               <div className="flex items-center justify-between gap-2 flex-wrap">
                 <CardTitle className="text-base">Vymazane zmluvy</CardTitle>
-                <TableFilterBar filter={filterContracts} />
+                <SmartFilterBar filter={filterContracts} />
               </div>
             </CardHeader>
             <CardContent>
@@ -524,9 +525,9 @@ export default function Archive() {
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      {columnVisibility.isVisible("contractNumber") && <TableHead sortKey="contractNumber" sortDirection={sortKeyContracts === "contractNumber" ? sortDirContracts : null} onSort={requestSortContracts} filterValue={filterContracts.columnFilters["contractNumber"] || ""} onFilterChange={(v) => filterContracts.setColumnFilter("contractNumber", v)}>Cislo zmluvy</TableHead>}
-                      {columnVisibility.isVisible("uid") && <TableHead sortKey="uid" sortDirection={sortKeyContracts === "uid" ? sortDirContracts : null} onSort={requestSortContracts} filterValue={filterContracts.columnFilters["uid"] || ""} onFilterChange={(v) => filterContracts.setColumnFilter("uid", v)}>UID</TableHead>}
-                      {columnVisibility.isVisible("deletedAt") && <TableHead sortKey="deletedAt" sortDirection={sortKeyContracts === "deletedAt" ? sortDirContracts : null} onSort={requestSortContracts} filterValue={filterContracts.columnFilters["deletedAt"] || ""} onFilterChange={(v) => filterContracts.setColumnFilter("deletedAt", v)}>Datum vymazania</TableHead>}
+                      {columnVisibility.isVisible("contractNumber") && <TableHead sortKey="contractNumber" sortDirection={sortKeyContracts === "contractNumber" ? sortDirContracts : null} onSort={requestSortContracts}>Cislo zmluvy</TableHead>}
+                      {columnVisibility.isVisible("uid") && <TableHead sortKey="uid" sortDirection={sortKeyContracts === "uid" ? sortDirContracts : null} onSort={requestSortContracts}>UID</TableHead>}
+                      {columnVisibility.isVisible("deletedAt") && <TableHead sortKey="deletedAt" sortDirection={sortKeyContracts === "deletedAt" ? sortDirContracts : null} onSort={requestSortContracts}>Datum vymazania</TableHead>}
                       {isAdmin && <TableHead className="text-right">Akcia</TableHead>}
                     </TableRow>
                   </TableHeader>
@@ -558,7 +559,7 @@ export default function Archive() {
             <CardHeader>
               <div className="flex items-center justify-between gap-2 flex-wrap">
                 <CardTitle className="text-base">Ostatne vymazane zaznamy</CardTitle>
-                <TableFilterBar filter={filterSoft} />
+                <SmartFilterBar filter={filterSoft} />
               </div>
             </CardHeader>
             <CardContent>
@@ -569,9 +570,9 @@ export default function Archive() {
                   <Table stickyHeader>
                     <TableHeader>
                       <TableRow>
-                        {columnVisibility.isVisible("type") && <TableHead sortKey="entityType" sortDirection={sortKeySoft === "entityType" ? sortDirSoft : null} onSort={requestSortSoft} filterValue={filterSoft.columnFilters["entityType"] || ""} onFilterChange={(v) => filterSoft.setColumnFilter("entityType", v)}>Typ</TableHead>}
-                        {columnVisibility.isVisible("name") && <TableHead sortKey="name" sortDirection={sortKeySoft === "name" ? sortDirSoft : null} onSort={requestSortSoft} filterValue={filterSoft.columnFilters["name"] || ""} onFilterChange={(v) => filterSoft.setColumnFilter("name", v)}>Nazov</TableHead>}
-                        {columnVisibility.isVisible("deletedAt") && <TableHead sortKey="deletedAt" sortDirection={sortKeySoft === "deletedAt" ? sortDirSoft : null} onSort={requestSortSoft} filterValue={filterSoft.columnFilters["deletedAt"] || ""} onFilterChange={(v) => filterSoft.setColumnFilter("deletedAt", v)}>Datum vymazania</TableHead>}
+                        {columnVisibility.isVisible("type") && <TableHead sortKey="entityType" sortDirection={sortKeySoft === "entityType" ? sortDirSoft : null} onSort={requestSortSoft}>Typ</TableHead>}
+                        {columnVisibility.isVisible("name") && <TableHead sortKey="name" sortDirection={sortKeySoft === "name" ? sortDirSoft : null} onSort={requestSortSoft}>Nazov</TableHead>}
+                        {columnVisibility.isVisible("deletedAt") && <TableHead sortKey="deletedAt" sortDirection={sortKeySoft === "deletedAt" ? sortDirSoft : null} onSort={requestSortSoft}>Datum vymazania</TableHead>}
                         {isAdmin && <TableHead className="text-right">Akcie</TableHead>}
                       </TableRow>
                     </TableHeader>

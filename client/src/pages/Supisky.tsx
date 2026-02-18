@@ -4,8 +4,9 @@ import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useAppUser } from "@/hooks/use-app-user";
 import { useToast } from "@/hooks/use-toast";
 import { useTableSort } from "@/hooks/use-table-sort";
-import { useTableFilter } from "@/hooks/use-table-filter";
-import { TableFilterBar } from "@/components/table-filter-bar";
+import { useSmartFilter } from "@/hooks/use-smart-filter";
+import type { SmartColumnDef } from "@/hooks/use-smart-filter";
+import { SmartFilterBar } from "@/components/smart-filter-bar";
 import { useColumnVisibility, type ColumnDef } from "@/hooks/use-column-visibility";
 import { ColumnManager } from "@/components/column-manager";
 import type { Supiska, Contract } from "@shared/schema";
@@ -35,12 +36,12 @@ import { ProcessingSaveButton } from "@/components/processing-save-button";
 
 const STATUSES = ["Nova", "Pripravena", "Odoslana"] as const;
 
-const SUPISKY_FILTER_COLUMNS = [
-  { key: "supId", label: "SUP ID" },
-  { key: "name", label: "Nazov" },
-  { key: "status", label: "Stav" },
-  { key: "createdAt", label: "Vytvorene" },
-  { key: "createdBy", label: "Vytvoril" },
+const SUPISKY_FILTER_COLUMNS: SmartColumnDef[] = [
+  { key: "supId", label: "SUP ID", type: "text" },
+  { key: "name", label: "Nazov", type: "text" },
+  { key: "status", label: "Stav", type: "text" },
+  { key: "createdAt", label: "Vytvorene", type: "date" },
+  { key: "createdBy", label: "Vytvoril", type: "text" },
 ];
 
 const SUPISKY_COLUMNS: ColumnDef[] = [
@@ -575,7 +576,7 @@ export default function SupiskyPage() {
     onError: () => toast({ title: "Chyba", description: "Nepodarilo sa vymazat supisku", variant: "destructive" }),
   });
 
-  const tableFilter = useTableFilter(supisky, SUPISKY_FILTER_COLUMNS);
+  const tableFilter = useSmartFilter(supisky, SUPISKY_FILTER_COLUMNS, "supisky");
   const { sortedData: sortedSupisky, sortKey: sortKeyMain, sortDirection: sortDirMain, requestSort: requestSortMain } = useTableSort(tableFilter.filteredData);
 
   return (
@@ -594,18 +595,18 @@ export default function SupiskyPage() {
         </div>
       </div>
 
-      <TableFilterBar filter={tableFilter} />
+      <SmartFilterBar filter={tableFilter} />
 
       <Card>
         <CardContent className="p-0">
           <Table>
             <TableHeader>
               <TableRow>
-                {columnVisibility.isVisible("supId") && <TableHead sortKey="supId" sortDirection={sortKeyMain === "supId" ? sortDirMain : null} onSort={requestSortMain} filterValue={tableFilter.columnFilters["supId"] || ""} onFilterChange={(val) => tableFilter.setColumnFilter("supId", val)}>SUP ID</TableHead>}
-                {columnVisibility.isVisible("name") && <TableHead sortKey="name" sortDirection={sortKeyMain === "name" ? sortDirMain : null} onSort={requestSortMain} filterValue={tableFilter.columnFilters["name"] || ""} onFilterChange={(val) => tableFilter.setColumnFilter("name", val)}>Nazov</TableHead>}
-                {columnVisibility.isVisible("status") && <TableHead sortKey="status" sortDirection={sortKeyMain === "status" ? sortDirMain : null} onSort={requestSortMain} filterValue={tableFilter.columnFilters["status"] || ""} onFilterChange={(val) => tableFilter.setColumnFilter("status", val)}>Stav</TableHead>}
-                {columnVisibility.isVisible("createdAt") && <TableHead sortKey="createdAt" sortDirection={sortKeyMain === "createdAt" ? sortDirMain : null} onSort={requestSortMain} filterValue={tableFilter.columnFilters["createdAt"] || ""} onFilterChange={(val) => tableFilter.setColumnFilter("createdAt", val)}>Vytvorene</TableHead>}
-                {columnVisibility.isVisible("createdBy") && <TableHead sortKey="createdBy" sortDirection={sortKeyMain === "createdBy" ? sortDirMain : null} onSort={requestSortMain} filterValue={tableFilter.columnFilters["createdBy"] || ""} onFilterChange={(val) => tableFilter.setColumnFilter("createdBy", val)}>Vytvoril</TableHead>}
+                {columnVisibility.isVisible("supId") && <TableHead sortKey="supId" sortDirection={sortKeyMain === "supId" ? sortDirMain : null} onSort={requestSortMain}>SUP ID</TableHead>}
+                {columnVisibility.isVisible("name") && <TableHead sortKey="name" sortDirection={sortKeyMain === "name" ? sortDirMain : null} onSort={requestSortMain}>Nazov</TableHead>}
+                {columnVisibility.isVisible("status") && <TableHead sortKey="status" sortDirection={sortKeyMain === "status" ? sortDirMain : null} onSort={requestSortMain}>Stav</TableHead>}
+                {columnVisibility.isVisible("createdAt") && <TableHead sortKey="createdAt" sortDirection={sortKeyMain === "createdAt" ? sortDirMain : null} onSort={requestSortMain}>Vytvorene</TableHead>}
+                {columnVisibility.isVisible("createdBy") && <TableHead sortKey="createdBy" sortDirection={sortKeyMain === "createdBy" ? sortDirMain : null} onSort={requestSortMain}>Vytvoril</TableHead>}
                 <TableHead className="w-24"></TableHead>
               </TableRow>
             </TableHeader>
