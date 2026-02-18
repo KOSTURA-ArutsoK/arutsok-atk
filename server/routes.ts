@@ -798,6 +798,11 @@ export async function registerRoutes(
     };
     let allSubjects = await storage.getSubjects(params);
 
+    const enforcedState = getEnforcedStateId(req);
+    if (enforcedState) {
+      allSubjects = allSubjects.filter((s: any) => s.stateId === enforcedState);
+    }
+
     const allCompanies = await storage.getMyCompanies();
     const companyMap = new Map(allCompanies.map(c => [c.id, c.name]));
     allSubjects = allSubjects.map((s: any) => ({
