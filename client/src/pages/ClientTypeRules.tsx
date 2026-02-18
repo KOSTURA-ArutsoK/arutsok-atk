@@ -55,9 +55,16 @@ function isSelectFieldType(t: string): boolean {
 }
 
 function SortableRow({ id, children }: { id: number; children: React.ReactNode }) {
-  const { attributes, listeners, setNodeRef, isDragging } = useSortable({ id });
+  const { attributes, listeners, setNodeRef, isDragging, isOver } = useSortable({ id });
   return (
-    <TableRow ref={setNodeRef} style={{ opacity: isDragging ? 0.3 : 1 }} data-testid={`row-sortable-${id}`}>
+    <TableRow
+      ref={setNodeRef}
+      style={{
+        opacity: isDragging ? 0.3 : 1,
+        borderTop: isOver && !isDragging ? "2px solid hsl(var(--primary))" : undefined,
+      }}
+      data-testid={`row-sortable-${id}`}
+    >
       <TableCell className="w-8 cursor-grab">
         <span {...attributes} {...listeners} data-testid={`handle-sortable-${id}`}>
           <GripVertical className="w-4 h-4 text-muted-foreground" />
