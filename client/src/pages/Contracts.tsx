@@ -1746,9 +1746,11 @@ export default function Contracts() {
     if (type === "fo" && preSelectSubjectSearch.trim()) {
       defaults["rodne_cislo"] = preSelectSubjectSearch.trim();
       const parsed = parseRodneCislo(preSelectSubjectSearch.trim());
+      console.log("[RC Parse] input:", preSelectSubjectSearch.trim(), "parsed:", parsed);
       if (parsed.pohlavie) defaults["pohlavie"] = parsed.pohlavie;
       if (parsed.datumNarodenia) defaults["datum_narodenia"] = parsed.datumNarodenia;
     }
+    console.log("[RC Parse] final defaults:", JSON.stringify(defaults));
     const activeState = allStates?.find(s => s.id === appUser?.activeStateId);
     if ((type === "fo") && activeState?.name) {
       defaults["statna_prislusnost"] = getDefaultCountryForState(activeState.name);

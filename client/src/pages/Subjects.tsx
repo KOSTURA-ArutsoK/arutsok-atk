@@ -859,10 +859,12 @@ function FullPageEditor({
   useEffect(() => {
     if (isPerson && initialData.baseValue) {
       const parsed = parseRodneCislo(initialData.baseValue);
+      console.log("[RC Parse Subjects] input:", initialData.baseValue, "parsed:", parsed);
       setDynamicValues(prev => {
         const updates: Record<string, string> = {};
         if (parsed.pohlavie && !prev["pohlavie"]) updates["pohlavie"] = parsed.pohlavie;
         if (parsed.datumNarodenia && !prev["datum_narodenia"]) updates["datum_narodenia"] = parsed.datumNarodenia;
+        console.log("[RC Parse Subjects] updates:", updates, "prev keys:", Object.keys(prev));
         return Object.keys(updates).length > 0 ? { ...prev, ...updates } : prev;
       });
     }
