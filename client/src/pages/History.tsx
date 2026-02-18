@@ -397,7 +397,7 @@ export default function History() {
       </Card>
 
       <Dialog open={!!detailLog} onOpenChange={(open) => { if (!open) setDetailLog(null); }}>
-        <DialogContent className="sm:max-w-[800px] h-[600px] overflow-y-auto">
+        <DialogContent size="md">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <HistoryIcon className="w-5 h-5" />

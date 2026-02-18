@@ -282,7 +282,7 @@ function PartnerUnifiedDialog({
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent className="sm:max-w-[800px] h-[600px] overflow-y-auto">
+      <DialogContent size="md">
         <DialogHeader>
           <div className="flex items-center gap-3 flex-wrap">
             <div className="w-10 h-10 rounded-md bg-primary/10 flex items-center justify-center flex-shrink-0">

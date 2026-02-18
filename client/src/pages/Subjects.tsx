@@ -16,7 +16,7 @@ import { Label } from "@/components/ui/label";
 import { MultiSelectCheckboxes } from "@/components/multi-select-checkboxes";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
-  Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter,
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogScrollContent,
 } from "@/components/ui/dialog";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
@@ -386,8 +386,8 @@ function SubjectDetailDialog({ subject, onClose }: { subject: Subject; onClose: 
 
   return (
     <Dialog open onOpenChange={onClose}>
-      <DialogContent className="max-w-6xl w-[90vw] h-[85vh] overflow-y-auto flex flex-col items-stretch justify-start">
-        <DialogHeader>
+      <DialogContent size="xl" className="items-stretch justify-start">
+        <DialogHeader className="p-6 pb-0">
           <div className="flex items-center gap-3 flex-wrap">
             <div className="w-10 h-10 rounded-md bg-primary/10 flex items-center justify-center flex-shrink-0">
               {subject.type === 'person' ? <User className="w-5 h-5 text-primary" /> : <Building2 className="w-5 h-5 text-primary" />}
@@ -416,6 +416,7 @@ function SubjectDetailDialog({ subject, onClose }: { subject: Subject; onClose: 
           </div>
         </DialogHeader>
 
+        <DialogScrollContent>
         <Tabs defaultValue="udaje" className="flex-1">
           <TabsList data-testid="tabs-subject-detail">
             <TabsTrigger value="udaje" data-testid="tab-subject-udaje">
@@ -511,6 +512,7 @@ function SubjectDetailDialog({ subject, onClose }: { subject: Subject; onClose: 
             <SubjectFinanceTab subject={subject} />
           </TabsContent>
         </Tabs>
+        </DialogScrollContent>
       </DialogContent>
     </Dialog>
   );
@@ -600,7 +602,7 @@ function InitialRegistrationModal({
       if (!o) { setDuplicateInfo(null); setDuplicateChecked(false); setBaseValue(""); setSelectedType(""); }
       onOpenChange(o);
     }}>
-      <DialogContent className="sm:max-w-[500px] flex flex-col items-stretch justify-start">
+      <DialogContent size="sm" className="flex flex-col items-stretch justify-start">
         <DialogHeader>
           <DialogTitle>Registracia noveho klienta</DialogTitle>
           <DialogDescription>
@@ -1653,8 +1655,8 @@ function SubjectEditModal({ subject, onClose }: { subject: Subject & { isOwner?:
   return (
     <>
       <Dialog open onOpenChange={onClose}>
-        <DialogContent className="max-w-5xl w-[85vw] max-h-[95vh] overflow-y-auto flex flex-col items-stretch justify-start">
-          <DialogHeader>
+        <DialogContent size="xl" className="items-stretch justify-start">
+          <DialogHeader className="p-6 pb-0">
             <div className="flex items-center gap-3 flex-wrap">
               <div className="w-10 h-10 rounded-md bg-amber-500/10 flex items-center justify-center flex-shrink-0">
                 <Pencil className="w-5 h-5 text-amber-500" />
@@ -1672,7 +1674,7 @@ function SubjectEditModal({ subject, onClose }: { subject: Subject & { isOwner?:
             </div>
           </DialogHeader>
 
-          <div className="space-y-4 mt-2">
+          <DialogScrollContent className="space-y-4">
             <div className="bg-muted/50 p-3 rounded-md">
               <div className="flex items-center gap-2 mb-2 flex-wrap">
                 <Lock className="w-3.5 h-3.5 text-muted-foreground" />
@@ -1924,19 +1926,19 @@ function SubjectEditModal({ subject, onClose }: { subject: Subject & { isOwner?:
               );
             })()}
 
-            <div className="flex justify-end gap-2 pt-3 border-t border-border">
-              <Button variant="outline" onClick={onClose} data-testid="button-cancel-edit-subject">
-                Zrusit
-              </Button>
-              <Button
-                onClick={handleSaveClick}
-                disabled={updateMutation.isPending}
-                className="bg-amber-600 text-white border-amber-700"
-                data-testid="button-save-edit-subject"
-              >
-                {updateMutation.isPending ? "Ukladam..." : "Ulozit zmeny"}
-              </Button>
-            </div>
+          </DialogScrollContent>
+          <div className="flex justify-end gap-2 p-6 pt-3 border-t border-border">
+            <Button variant="outline" onClick={onClose} data-testid="button-cancel-edit-subject">
+              Zrusit
+            </Button>
+            <Button
+              onClick={handleSaveClick}
+              disabled={updateMutation.isPending}
+              className="bg-amber-600 text-white border-amber-700"
+              data-testid="button-save-edit-subject"
+            >
+              {updateMutation.isPending ? "Ukladam..." : "Ulozit zmeny"}
+            </Button>
           </div>
         </DialogContent>
       </Dialog>
@@ -1987,7 +1989,7 @@ function BulkAssignDialog({ selectedIds, onClose, groups }: { selectedIds: Set<n
 
   return (
     <Dialog open onOpenChange={() => onClose()}>
-      <DialogContent className="sm:max-w-[500px]">
+      <DialogContent size="sm">
         <DialogHeader>
           <DialogTitle>Priradit do skupiny</DialogTitle>
           <DialogDescription>

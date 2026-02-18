@@ -346,7 +346,7 @@ function StatusFormDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[900px] h-[700px] overflow-y-auto">
+      <DialogContent size="lg">
         <form onSubmit={(e) => { e.preventDefault(); handleSubmit(); }}>
         <DialogHeader>
           <DialogTitle data-testid="text-status-dialog-title">
@@ -683,7 +683,7 @@ function DeleteStatusDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[500px]">
+      <DialogContent size="sm">
         <DialogHeader>
           <DialogTitle data-testid="text-delete-dialog-title">Vymazat stav zmluvy</DialogTitle>
         </DialogHeader>

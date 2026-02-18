@@ -36,12 +36,12 @@ interface DialogContentProps extends React.ComponentPropsWithoutRef<typeof Dialo
 }
 
 const SIZE_CLASSES: Record<DialogSize, string> = {
-  sm: "sm:max-w-[40vw] max-w-[95vw]",
-  md: "sm:max-w-[60vw] max-w-[95vw]",
-  lg: "sm:max-w-[80vw] max-w-[95vw]",
-  xl: "sm:max-w-[95vw] sm:max-h-[90vh] max-w-[95vw]",
+  sm: "sm:max-w-[40vw] max-w-[95vw] max-h-[85vh] overflow-y-auto",
+  md: "sm:max-w-[60vw] max-w-[95vw] max-h-[85vh] overflow-y-auto",
+  lg: "sm:max-w-[80vw] max-w-[95vw] max-h-[85vh] overflow-y-auto",
+  xl: "sm:max-w-[95vw] sm:max-h-[90vh] max-w-[95vw] max-h-[90vh]",
   full: "max-w-[100vw] max-h-[100vh] w-[100vw] h-[100vh] rounded-none",
-  auto: "sm:max-w-[700px] max-w-[95vw]",
+  auto: "sm:max-w-[700px] max-w-[95vw] max-h-[85vh] overflow-y-auto",
 };
 
 const DialogContent = React.forwardRef<
@@ -57,12 +57,7 @@ const DialogContent = React.forwardRef<
     else if (ref) (ref as React.MutableRefObject<HTMLDivElement | null>).current = node;
   }, [ref]);
 
-  React.useEffect(() => {
-    if (size !== "auto") {
-      setComputedSize(size);
-      return;
-    }
-
+  const computeAutoSize = React.useCallback(() => {
     const el = contentRef.current;
     if (!el) return;
 
@@ -90,7 +85,20 @@ const DialogContent = React.forwardRef<
     } else {
       setComputedSize("sm");
     }
-  }, [size, children]);
+  }, []);
+
+  React.useEffect(() => {
+    if (size !== "auto") {
+      setComputedSize(size);
+      return;
+    }
+
+    computeAutoSize();
+
+    const handleResize = () => computeAutoSize();
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, [size, children, computeAutoSize]);
 
   const isXlOrFull = computedSize === "xl" || computedSize === "full";
 

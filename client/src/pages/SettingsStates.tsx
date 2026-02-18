@@ -169,7 +169,7 @@ function StateFormDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[800px] h-[600px] overflow-y-auto">
+      <DialogContent size="md">
         <DialogHeader>
           <DialogTitle data-testid="text-state-dialog-title">
             {editingState ? "Upravit stat" : "Pridat stat"}
@@ -274,7 +274,7 @@ function FlagUploadDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[500px]">
+      <DialogContent size="sm">
         <DialogHeader>
           <DialogTitle data-testid="text-flag-upload-title">Nahrat vlajku - {state.name}</DialogTitle>
         </DialogHeader>
@@ -336,7 +336,7 @@ function FlagHistoryDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[800px] h-[600px] overflow-y-auto">
+      <DialogContent size="md">
         <DialogHeader>
           <DialogTitle data-testid="text-flag-history-title">Historia vlajok statu - {state.name}</DialogTitle>
         </DialogHeader>

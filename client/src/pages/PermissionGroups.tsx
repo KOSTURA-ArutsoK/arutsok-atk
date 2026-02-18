@@ -166,7 +166,7 @@ function GroupFormDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[800px] h-[600px] overflow-y-auto">
+      <DialogContent size="md">
         <DialogHeader>
           <DialogTitle data-testid="text-group-dialog-title">
             {editingGroup ? "Upravit skupinu" : "Pridat skupinu"}

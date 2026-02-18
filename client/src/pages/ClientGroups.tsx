@@ -208,7 +208,7 @@ function GroupDetailDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[800px] h-[600px] overflow-y-auto flex flex-col" data-testid="dialog-client-group">
+      <DialogContent size="md" className="flex flex-col" data-testid="dialog-client-group">
         <DialogHeader>
           <DialogTitle data-testid="text-group-dialog-title">
             {isEditing ? `Uprava skupiny: ${group?.name}` : "Nova skupina klientov"}

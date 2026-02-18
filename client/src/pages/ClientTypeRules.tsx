@@ -85,7 +85,7 @@ function DeleteConfirmDialog({
 }) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[400px]">
+      <DialogContent size="sm">
         <DialogHeader>
           <DialogTitle data-testid="text-delete-dialog-title">Potvrdit vymazanie</DialogTitle>
         </DialogHeader>
@@ -125,7 +125,7 @@ function AddTypeDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (o
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[400px] flex flex-col items-stretch justify-start">
+      <DialogContent size="sm" className="flex flex-col items-stretch justify-start">
         <DialogHeader><DialogTitle>Novy typ klienta</DialogTitle></DialogHeader>
         <div className="space-y-3 mt-2">
           <div>
@@ -278,7 +278,7 @@ function FieldFormDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[800px] h-[600px] overflow-y-auto flex flex-col items-stretch justify-start">
+      <DialogContent size="md" className="flex flex-col items-stretch justify-start">
         <DialogHeader><DialogTitle>{editingField ? "Upravit parameter" : "Novy parameter"}</DialogTitle></DialogHeader>
         <div className="space-y-4 mt-2">
           <div className="grid grid-cols-2 gap-4">

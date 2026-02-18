@@ -119,7 +119,7 @@ function SupiskaFormDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[800px] h-[600px] overflow-y-auto">
+      <DialogContent size="md">
         <DialogHeader>
           <DialogTitle>{editing ? "Upravit supisku" : "Nova supiska"}</DialogTitle>
         </DialogHeader>
@@ -236,7 +236,7 @@ function SupiskaDetailDialog({
   return (
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="sm:max-w-[800px] h-[600px] overflow-y-auto">
+        <DialogContent size="md">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 flex-wrap">
               <span>{supiska.name}</span>
@@ -469,7 +469,7 @@ function AddContractsDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[800px] h-[600px] overflow-y-auto">
+      <DialogContent size="md">
         <DialogHeader>
           <DialogTitle>Pridat zmluvy do supisky</DialogTitle>
         </DialogHeader>

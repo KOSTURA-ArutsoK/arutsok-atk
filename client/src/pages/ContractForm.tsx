@@ -196,7 +196,7 @@ function PasswordsModal({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[600px]">
+      <DialogContent size="sm">
         <DialogHeader>
           <DialogTitle data-testid="text-passwords-title">
             <span className="flex items-center gap-2">

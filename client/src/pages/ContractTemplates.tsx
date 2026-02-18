@@ -144,7 +144,7 @@ function TemplateFormDialog({
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent className="sm:max-w-[800px] h-[600px] overflow-y-auto">
+      <DialogContent size="md">
         <form onSubmit={(e) => { e.preventDefault(); handleSubmit(); }}>
         <DialogHeader>
           <DialogTitle data-testid="text-template-dialog-title">
@@ -254,7 +254,7 @@ function DeleteTemplateDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[500px]">
+      <DialogContent size="sm">
         <DialogHeader>
           <DialogTitle data-testid="text-delete-dialog-title">Vymazat sablonu</DialogTitle>
         </DialogHeader>

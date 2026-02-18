@@ -122,7 +122,7 @@ function CareerLevelEditDialog({
 
   return (
     <Dialog open onOpenChange={() => onClose()}>
-      <DialogContent className="max-w-lg">
+      <DialogContent size="sm">
         <form onSubmit={(e) => { e.preventDefault(); mutation.mutate(); }}>
         <DialogHeader>
           <DialogTitle>{isNew ? "Nova karierna uroven" : `Upravit ${level.positionCode}`}</DialogTitle>
@@ -270,7 +270,7 @@ function ProductRateEditDialog({
 
   return (
     <Dialog open onOpenChange={() => onClose()}>
-      <DialogContent className="max-w-md">
+      <DialogContent size="sm">
         <form onSubmit={(e) => { e.preventDefault(); mutation.mutate(); }}>
         <DialogHeader>
           <DialogTitle>{isNew ? "Nova sadzba produktu" : "Upravit sadzbu"}</DialogTitle>

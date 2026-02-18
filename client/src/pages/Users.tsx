@@ -248,7 +248,7 @@ function UserFormDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[800px] h-[600px] overflow-y-auto">
+      <DialogContent size="md">
         <DialogHeader>
           <DialogTitle data-testid="text-user-dialog-title">
             {editingUser ? "Upravit pouzivatela" : "Pridat pouzivatela"}

@@ -393,7 +393,7 @@ export default function Kalendar() {
       )}
 
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent className="sm:max-w-[500px]">
+        <DialogContent size="sm">
           <DialogHeader>
             <DialogTitle data-testid="text-event-dialog-title">
               {editingEvent ? "Upravit udalost" : "Nova udalost"}
@@ -480,7 +480,7 @@ export default function Kalendar() {
       </Dialog>
 
       <Dialog open={deleteConfirmId !== null} onOpenChange={() => setDeleteConfirmId(null)}>
-        <DialogContent className="sm:max-w-[400px]">
+        <DialogContent size="sm">
           <DialogHeader>
             <DialogTitle>Vymazat udalost?</DialogTitle>
           </DialogHeader>

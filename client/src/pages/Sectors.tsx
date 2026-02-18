@@ -174,7 +174,7 @@ function DeleteConfirmDialog({
 }) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[400px]">
+      <DialogContent size="sm">
         <DialogHeader>
           <DialogTitle data-testid="text-delete-dialog-title">Potvrdit vymazanie</DialogTitle>
         </DialogHeader>
@@ -274,7 +274,7 @@ function SectorFormDialog({
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent className="sm:max-w-[800px] h-[600px] overflow-y-auto">
+      <DialogContent size="md">
         <form onSubmit={(e) => { e.preventDefault(); handleSubmit(); }}>
         <DialogHeader>
           <DialogTitle data-testid="text-sector-dialog-title">
@@ -499,7 +499,7 @@ function SectorProductFormDialog({
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent className="sm:max-w-[800px] h-[600px] overflow-y-auto">
+      <DialogContent size="md">
         <form onSubmit={(e) => { e.preventDefault(); handleSubmit(); }}>
         <DialogHeader>
           <DialogTitle data-testid="text-sector-product-dialog-title">
@@ -688,7 +688,7 @@ function ChoiceOptionsModal({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[600px] max-h-[500px] flex flex-col z-[60]">
+      <DialogContent size="sm" className="flex flex-col z-[60]">
         <DialogHeader>
           <DialogTitle data-testid="text-choice-options-title">Moznosti vyberu</DialogTitle>
         </DialogHeader>
@@ -860,7 +860,7 @@ function ParameterFormDialog({
   return (
     <>
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent className="sm:max-w-[800px] h-[600px] overflow-y-auto">
+      <DialogContent size="md">
         <form onSubmit={(e) => { e.preventDefault(); handleSubmit(); }}>
         <DialogHeader>
           <DialogTitle data-testid="text-parameter-dialog-title">
@@ -1085,7 +1085,7 @@ function SectionFormDialog({
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent className="sm:max-w-[800px] h-[600px] overflow-y-auto">
+      <DialogContent size="md">
         <form onSubmit={(e) => { e.preventDefault(); handleSubmit(); }}>
         <DialogHeader>
           <DialogTitle data-testid="text-section-dialog-title">
@@ -1831,7 +1831,7 @@ function PanelFormDialog({
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent className="sm:max-w-[800px] h-[600px] overflow-y-auto">
+      <DialogContent size="md">
         <form onSubmit={(e) => { e.preventDefault(); handleSubmit(); }}>
         <DialogHeader>
           <DialogTitle data-testid="text-panel-dialog-title">
@@ -2101,7 +2101,7 @@ function ProductPanelAssignDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[500px] max-h-[500px] overflow-y-auto">
+      <DialogContent size="sm">
         <form onSubmit={(e) => { e.preventDefault(); saveMutation.mutate(); }}>
         <DialogHeader>
           <DialogTitle data-testid="text-product-panels-dialog-title">
@@ -2257,7 +2257,7 @@ function FolderFormDialog({
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent className="w-[800px] max-w-[800px] h-[600px] max-h-[600px] flex flex-col overflow-hidden" data-testid="dialog-folder">
+      <DialogContent size="md" data-testid="dialog-folder">
         <form onSubmit={(e) => { e.preventDefault(); handleSubmit(); }} className="flex flex-col flex-1 overflow-hidden">
         <DialogHeader>
           <DialogTitle>{editingFolder ? "Upravit priecinok" : "Novy priecinok"}</DialogTitle>

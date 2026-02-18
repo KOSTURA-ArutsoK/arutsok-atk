@@ -26,6 +26,7 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogScrollContent,
 } from "@/components/ui/dialog";
 import {
   Table,
@@ -557,9 +558,9 @@ function ContractFormDialog({
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent className="w-[95vw] sm:max-w-[1100px] h-[85vh] overflow-y-auto">
-        <form onSubmit={(e) => { e.preventDefault(); handleSubmit(); }}>
-        <DialogHeader>
+      <DialogContent size="xl">
+        <form onSubmit={(e) => { e.preventDefault(); handleSubmit(); }} className="flex flex-col flex-1 min-h-0">
+        <DialogHeader className="px-6 pt-6 pb-2">
           <DialogTitle data-testid="text-contract-dialog-title">
             {editingContract ? "Upravit zmluvu" : "Pridat zmluvu"}
           </DialogTitle>
@@ -568,6 +569,7 @@ function ContractFormDialog({
             <span>Zmluva je zamknuta v supiske. Iba admin moze upravovat.</span>
           </div>
         </DialogHeader>
+        <DialogScrollContent>
         <div className="space-y-4">
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
@@ -1230,7 +1232,10 @@ function ContractFormDialog({
             </Button>
           </div>
         </div>
-        <ProcessingSaveButton isPending={isPending} />
+        </DialogScrollContent>
+        <div className="px-6 pb-6 pt-2">
+          <ProcessingSaveButton isPending={isPending} />
+        </div>
         </form>
       </DialogContent>
     </Dialog>
@@ -1274,8 +1279,8 @@ function ContractDetailDialog({
   if (!contract) {
     return (
       <Dialog open={false} onOpenChange={onClose}>
-        <DialogContent className="w-[95vw] sm:max-w-[1100px] h-[85vh] overflow-y-auto">
-          <DialogHeader><DialogTitle>-</DialogTitle></DialogHeader>
+        <DialogContent size="xl">
+          <DialogHeader className="px-6 pt-6 pb-2"><DialogTitle>-</DialogTitle></DialogHeader>
         </DialogContent>
       </Dialog>
     );
@@ -1283,8 +1288,8 @@ function ContractDetailDialog({
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="w-[95vw] sm:max-w-[1100px] h-[85vh] overflow-y-auto">
-        <DialogHeader>
+      <DialogContent size="xl">
+        <DialogHeader className="px-6 pt-6 pb-2">
           <div className="flex items-center gap-3 flex-wrap">
             <div className="w-10 h-10 rounded-md bg-primary/10 flex items-center justify-center flex-shrink-0">
               <FileText className="w-5 h-5 text-primary" />
@@ -1304,6 +1309,7 @@ function ContractDetailDialog({
           </div>
         </DialogHeader>
 
+        <DialogScrollContent>
         <div className="space-y-4 mt-2">
           <div className="grid grid-cols-4 gap-4">
             <div>
@@ -1388,6 +1394,7 @@ function ContractDetailDialog({
             <span>Vytvorene: {contract.createdAt ? new Date(contract.createdAt).toLocaleDateString("sk-SK") : "-"}</span>
           </div>
         </div>
+        </DialogScrollContent>
       </DialogContent>
     </Dialog>
   );
@@ -1416,7 +1423,7 @@ function DeleteContractDialog({
 
   return (
     <Dialog open={open && !!contract} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[500px]">
+      <DialogContent size="sm">
         <DialogHeader>
           <DialogTitle data-testid="text-delete-dialog-title">Vymazat zmluvu</DialogTitle>
         </DialogHeader>
@@ -1982,7 +1989,7 @@ export default function Contracts() {
 
   const importDialog = (
     <Dialog open={importDialogOpen} onOpenChange={setImportDialogOpen}>
-      <DialogContent className="sm:max-w-[500px]">
+      <DialogContent size="sm">
         <DialogHeader>
           <DialogTitle data-testid="text-import-title">Import zmlúv z Excelu</DialogTitle>
         </DialogHeader>
@@ -2233,13 +2240,14 @@ export default function Contracts() {
 
   const preSelectDialog = (
     <Dialog open={preSelectOpen} onOpenChange={(open) => { setPreSelectOpen(open); if (!open) { setPreSelectStep(1); setShowInlineCreate(false); setPreSelectClientTypeId(""); } }}>
-      <DialogContent className="w-[95vw] sm:max-w-[1400px] max-h-[90vh] overflow-y-auto" onCloseAutoFocus={(e) => e.preventDefault()} data-testid="dialog-pre-select-contract">
-        <DialogHeader>
+      <DialogContent size="xl" onCloseAutoFocus={(e) => e.preventDefault()} data-testid="dialog-pre-select-contract">
+        <DialogHeader className="px-6 pt-6 pb-2">
           <DialogTitle data-testid="text-preselect-title">
             {preSelectStep === 1 ? "Krok 1: Vyber partnera a produktu" : showInlineCreate ? `Krok 2: Novy klient (${inlineClientType === "szco" ? "SZČO" : inlineClientType === "po" ? "PO" : "FO"})` : "Krok 2: Vyber klienta (subjektu)"}
           </DialogTitle>
         </DialogHeader>
 
+        <DialogScrollContent>
         <div className="flex items-center gap-2 mb-2">
           <div className={`flex items-center justify-center w-7 h-7 rounded-full text-xs font-bold ${preSelectStep === 1 ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"}`} data-testid="step-indicator-1">1</div>
           <div className="flex-1 h-px bg-border" />
@@ -2867,6 +2875,7 @@ export default function Contracts() {
             </div>
           </div>
         </div>
+        </DialogScrollContent>
       </DialogContent>
     </Dialog>
   );
@@ -3107,7 +3116,7 @@ export default function Contracts() {
         </div>
 
         <Dialog open={sprievodkaDialogOpen} onOpenChange={setSprievodkaDialogOpen}>
-          <DialogContent className="sm:max-w-[500px]">
+          <DialogContent size="sm">
             <DialogHeader>
               <DialogTitle data-testid="text-sprievodka-dialog-title">Odoslat zmluvy</DialogTitle>
             </DialogHeader>
@@ -3131,7 +3140,7 @@ export default function Contracts() {
         </Dialog>
 
         <Dialog open={duplicateModal.open} onOpenChange={(o) => setDuplicateModal({ open: o })}>
-          <DialogContent className="sm:max-w-[450px]">
+          <DialogContent size="sm">
             <DialogHeader>
               <DialogTitle data-testid="text-duplicate-title">Duplicitna zmluva</DialogTitle>
             </DialogHeader>

@@ -404,7 +404,7 @@ export default function Commissions() {
       </Card>
 
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent className="sm:max-w-[800px] h-[600px] overflow-y-auto" data-testid="dialog-rate">
+        <DialogContent size="md" data-testid="dialog-rate">
           <DialogHeader>
             <DialogTitle className="flex items-center justify-between gap-2 flex-wrap">
               <span>{editingRate ? "Upravit sadzbu" : "Nova sadzba"}</span>

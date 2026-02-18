@@ -607,7 +607,7 @@ export default function Archive() {
       </Tabs>
 
       <Dialog open={!!restoreTarget} onOpenChange={(open) => { if (!open) { setRestoreTarget(null); setPassword(""); } }}>
-        <DialogContent className="sm:max-w-[800px] h-[600px] overflow-y-auto flex flex-col items-start justify-start">
+        <DialogContent size="md" className="flex flex-col items-start justify-start">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Lock className="w-5 h-5 text-destructive" />
@@ -649,7 +649,7 @@ export default function Archive() {
       </Dialog>
 
       <Dialog open={!!deleteTarget} onOpenChange={(open) => { if (!open) { setDeleteTarget(null); setPassword(""); } }}>
-        <DialogContent className="sm:max-w-[800px] h-[600px] overflow-y-auto flex flex-col items-start justify-start">
+        <DialogContent size="md" className="flex flex-col items-start justify-start">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Trash2 className="w-5 h-5 text-destructive" />

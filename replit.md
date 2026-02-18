@@ -24,7 +24,10 @@ The system uses a modern full-stack architecture, emphasizing data integrity, se
 - **Unique Identifiers**: Atomic 12-digit UIDs generated from a `global_counters` table.
 - **UI/UX & Interaction**:
     - **Context Switching**: Forced two-step context selector (State → Company) with a blocking visual overlay.
-    - **Design**: Dark mode, Slovak language, sharp borders, small border radius, fixed dialog sizes.
+    - **Design**: Dark mode, Slovak language, sharp borders, small border radius.
+    - **Dynamic Dialog Sizing**: `DialogContent` supports `size` prop ("sm"|"md"|"lg"|"xl"|"full"|"auto"). Auto mode detects mobile (<1024px → full), tables (→ xl), field count (>15 → xl, 5-15 → md, ≤5 → sm). `DialogScrollContent` wraps scrollable body in xl/full dialogs. All sm/md/lg get `max-h-[85vh] overflow-y-auto`. Responsive resize listener for auto mode.
+    - **Universal Search & Filter System**: `useTableFilter` hook with diacritic-insensitive global search + per-column filters, 200ms debouncing, AND logic. `TableFilterBar` component + inline column filter inputs in `TableHead`. Integrated across 24+ pages. Data flow: raw data → useTableFilter → useTableSort → display.
+    - **Row-Click Navigation**: `TableRow` accepts `onRowClick` prop with automatic stop propagation for interactive elements (buttons, inputs, checkboxes via selector matching).
     - **Rich Text Editing**: Integrated Tiptap editor for notes.
     - **Document Management**: Supports dual document systems (official/work) with file uploads and database metadata.
     - **Drag & Drop Reordering**: Implemented for various elements using `@dnd-kit`.
