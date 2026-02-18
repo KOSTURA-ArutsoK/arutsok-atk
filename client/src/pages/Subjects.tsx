@@ -1545,6 +1545,14 @@ function SubjectEditModal({ subject, onClose }: { subject: Subject & { isOwner?:
     enabled: !!clientType?.id,
   });
 
+  const CORE_FIELD_MAP: Record<string, string> = {
+    email: "email",
+    telefon: "phone",
+    cislo_dokladu: "idCardNumber",
+    meno: "firstName",
+    priezvisko: "lastName",
+  };
+
   const [dynamicValues, setDynamicValues] = useState<Record<string, string>>(() => {
     const initial: Record<string, string> = {};
     if (dynamicFields && typeof dynamicFields === 'object') {
@@ -1552,6 +1560,14 @@ function SubjectEditModal({ subject, onClose }: { subject: Subject & { isOwner?:
         initial[key] = String(val || "");
       });
     }
+    const configuredKeys = new Set<string>();
+    if (typeFields) typeFields.forEach(f => configuredKeys.add(f.fieldKey));
+    Object.entries(CORE_FIELD_MAP).forEach(([fieldKey, subjectKey]) => {
+      if (!initial[fieldKey]) {
+        const val = (subject as any)[subjectKey];
+        if (val) initial[fieldKey] = String(val);
+      }
+    });
     return initial;
   });
 
@@ -1584,16 +1600,23 @@ function SubjectEditModal({ subject, onClose }: { subject: Subject & { isOwner?:
     mutationFn: async () => {
       const processingTimeSec = Math.round((performance.now() - timerRef.current) / 1000);
       const existingDetails = { ...(subject.details as any || {}) };
-      if (Object.keys(dynamicValues).length > 0) {
-        existingDetails.dynamicFields = dynamicValues;
-      }
+      const cleanDynamic = { ...dynamicValues };
+      const configuredFieldKeys = new Set((typeFields || []).map(f => f.fieldKey));
+      const coreFieldValues: Record<string, string | null> = {};
+      Object.entries(CORE_FIELD_MAP).forEach(([fieldKey, subjectKey]) => {
+        if (configuredFieldKeys.has(fieldKey)) {
+          coreFieldValues[subjectKey] = cleanDynamic[fieldKey] || null;
+          delete cleanDynamic[fieldKey];
+        }
+      });
+      existingDetails.dynamicFields = cleanDynamic;
       const payload: any = {
-        firstName: formData.firstName || null,
-        lastName: formData.lastName || null,
-        companyName: formData.companyName || null,
-        email: formData.email || null,
-        phone: formData.phone || null,
-        idCardNumber: formData.idCardNumber || null,
+        firstName: coreFieldValues.firstName ?? formData.firstName ?? subject.firstName ?? null,
+        lastName: coreFieldValues.lastName ?? formData.lastName ?? subject.lastName ?? null,
+        companyName: formData.companyName || subject.companyName || null,
+        email: coreFieldValues.email ?? subject.email ?? null,
+        phone: coreFieldValues.phone ?? subject.phone ?? null,
+        idCardNumber: coreFieldValues.idCardNumber ?? subject.idCardNumber ?? null,
         continentId: Number(formData.continentId),
         stateId: Number(formData.stateId),
         details: existingDetails,
@@ -1673,60 +1696,14 @@ function SubjectEditModal({ subject, onClose }: { subject: Subject & { isOwner?:
 
             <Separator />
 
-            {isPerson ? (
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <Label className="text-xs">Meno</Label>
-                  <Input
-                    value={formData.firstName}
-                    onChange={(e) => setFormData(prev => ({ ...prev, firstName: e.target.value }))}
-                    className="mt-1"
-                    data-testid="input-edit-firstname"
-                  />
-                </div>
-                <div>
-                  <Label className="text-xs">Priezvisko</Label>
-                  <Input
-                    value={formData.lastName}
-                    onChange={(e) => setFormData(prev => ({ ...prev, lastName: e.target.value }))}
-                    className="mt-1"
-                    data-testid="input-edit-lastname"
-                  />
-                </div>
-              </div>
-            ) : (
-              <div>
-                <Label className="text-xs">Nazov spolocnosti</Label>
-                <Input
-                  value={formData.companyName}
-                  onChange={(e) => setFormData(prev => ({ ...prev, companyName: e.target.value }))}
-                  className="mt-1"
-                  data-testid="input-edit-companyname"
-                />
-              </div>
-            )}
-
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <Label className="text-xs">Email</Label>
-                <Input
-                  type="email"
-                  value={formData.email}
-                  onChange={(e) => setFormData(prev => ({ ...prev, email: e.target.value }))}
-                  className="mt-1"
-                  data-testid="input-edit-email"
-                />
-              </div>
-              <div>
-                <Label className="text-xs">Telefon</Label>
-                <Input
-                  type="tel"
-                  value={formData.phone}
-                  onChange={(e) => setFormData(prev => ({ ...prev, phone: e.target.value }))}
-                  className="mt-1"
-                  data-testid="input-edit-phone"
-                />
-              </div>
+            <div style={{ display: !isPerson ? 'block' : 'none' }}>
+              <Label className="text-xs">Nazov spolocnosti</Label>
+              <Input
+                value={formData.companyName}
+                onChange={(e) => setFormData(prev => ({ ...prev, companyName: e.target.value }))}
+                className="mt-1"
+                data-testid="input-edit-companyname"
+              />
             </div>
 
             <div className="grid grid-cols-2 gap-4">
@@ -1766,16 +1743,6 @@ function SubjectEditModal({ subject, onClose }: { subject: Subject & { isOwner?:
                   </SelectContent>
                 </Select>
               </div>
-            </div>
-
-            <div style={{ display: isPerson ? 'block' : 'none' }}>
-              <Label className="text-xs">Cislo OP</Label>
-              <Input
-                value={formData.idCardNumber}
-                onChange={(e) => setFormData(prev => ({ ...prev, idCardNumber: e.target.value }))}
-                className="mt-1"
-                data-testid="input-edit-idcard"
-              />
             </div>
 
             {typeFields && typeFields.length > 0 && (() => {
@@ -1881,13 +1848,41 @@ function SubjectEditModal({ subject, onClose }: { subject: Subject & { isOwner?:
                                   ? fields.filter(f => !editAllAddressKeys.has(f.fieldKey))
                                   : fields;
                                 if (filteredFields.length === 0) return null;
+
+                                const rows = new Map<number, ClientTypeField[]>();
+                                filteredFields.forEach((f: ClientTypeField) => {
+                                  const rn = (f as any).rowNumber ?? 0;
+                                  if (!rows.has(rn)) rows.set(rn, []);
+                                  rows.get(rn)!.push(f);
+                                });
+                                const sortedRowKeys = Array.from(rows.keys()).sort((a, b) => a - b);
+
                                 return (
                                   <div key={section.id} className="space-y-3">
                                     <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide border-b border-border pb-1" style={{ display: groups.length > 1 ? 'block' : 'none' }}>{section.name}</p>
-                                    <div className="grid grid-cols-2 gap-3">
-                                      {filteredFields.map((field: ClientTypeField) => (
-                                        <DynamicFieldInput key={field.id} field={field} dynamicValues={dynamicValues} setDynamicValues={setDynamicValues} />
-                                      ))}
+                                    <div className="space-y-3">
+                                      {sortedRowKeys.map(rowNum => {
+                                        const rowFields = rows.get(rowNum)!;
+                                        const hasCustomWidths = rowFields.some(f => ((f as any).widthPercent ?? 100) !== 100);
+                                        if (hasCustomWidths) {
+                                          return (
+                                            <div key={rowNum} className="flex gap-3 flex-wrap">
+                                              {rowFields.map((field: ClientTypeField) => (
+                                                <div key={field.id} style={{ width: `calc(${(field as any).widthPercent ?? 50}% - 0.375rem)`, minWidth: '120px' }}>
+                                                  <DynamicFieldInput field={field} dynamicValues={dynamicValues} setDynamicValues={setDynamicValues} />
+                                                </div>
+                                              ))}
+                                            </div>
+                                          );
+                                        }
+                                        return (
+                                          <div key={rowNum} className="grid grid-cols-2 gap-3">
+                                            {rowFields.map((field: ClientTypeField) => (
+                                              <DynamicFieldInput key={field.id} field={field} dynamicValues={dynamicValues} setDynamicValues={setDynamicValues} />
+                                            ))}
+                                          </div>
+                                        );
+                                      })}
                                     </div>
                                   </div>
                                 );
