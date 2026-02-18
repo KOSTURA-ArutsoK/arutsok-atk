@@ -625,8 +625,8 @@ function ContractFormDialog({
           <div className="space-y-3 border rounded-md p-4" data-testid="section-reward-distributions">
             <div className="flex items-center justify-between gap-2 flex-wrap">
               <div className="flex items-center gap-2">
-                <Award className="w-4 h-4 text-primary" />
-                <span className="text-sm font-semibold">Odmeny pre specialistu a odporucitelov</span>
+                <Users className="w-4 h-4 text-primary" />
+                <span className="text-sm font-semibold">Získatelia</span>
               </div>
               <div className="flex items-center gap-2">
                 <Badge variant={rewardTotalPercentage > 100 ? "destructive" : rewardTotalPercentage === 100 ? "default" : "outline"} className="text-[10px] font-mono">
