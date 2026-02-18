@@ -648,19 +648,15 @@ function FieldTable({
                   <Button size="icon" variant="ghost" onClick={() => { setEditingField(field); setDialogOpen(true); }} data-testid={`button-edit-parameter-${field.id}`}>
                     <Pencil className="w-4 h-4" />
                   </Button>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Button
-                        size="icon"
-                        variant="ghost"
-                        onClick={() => layoutMutation.mutate({ id: field.id, data: { isHidden: !hidden } })}
-                        data-testid={`button-toggle-visibility-${field.id}`}
-                      >
-                        <Layers className={`w-4 h-4 ${hidden ? 'text-muted-foreground opacity-40' : 'text-amber-500'}`} />
-                      </Button>
-                    </TooltipTrigger>
-                    <TooltipContent>{hidden ? 'Zobraziť parameter' : 'Skryť parameter'}</TooltipContent>
-                  </Tooltip>
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    title={hidden ? 'Zobraziť parameter' : 'Skryť parameter'}
+                    onClick={() => layoutMutation.mutate({ id: field.id, data: { isHidden: !hidden } })}
+                    data-testid={`button-toggle-visibility-${field.id}`}
+                  >
+                    <Layers className={`w-4 h-4 ${hidden ? 'text-muted-foreground opacity-40' : 'text-amber-500'}`} />
+                  </Button>
                 </div>
               </TableCell>
             </>
@@ -865,14 +861,11 @@ function FolderSection({
                 <span className="text-sm font-semibold">Sprava panelov</span>
               </div>
 
-              {sortedPanels.length === 0 && (
-                <p className="text-xs text-muted-foreground text-center py-2" data-testid={`text-no-panels-${section.id}`}>
-                  Ziadne panely v tomto priecinku
-                </p>
-              )}
+              <p className="text-xs text-muted-foreground text-center py-2" style={{ display: sortedPanels.length === 0 ? 'block' : 'none' }} data-testid={`text-no-panels-${section.id}`}>
+                Ziadne panely v tomto priecinku
+              </p>
 
-              {sortedPanels.length > 0 && (
-                <div className="space-y-1">
+              <div className="space-y-1" style={{ display: sortedPanels.length > 0 ? 'block' : 'none' }}>
                   {sortedPanels.map((panel, idx) => {
                     const panelFieldCount = fields.filter(f => f.panelId === panel.id).length;
                     return (
@@ -895,7 +888,6 @@ function FolderSection({
                     );
                   })}
                 </div>
-              )}
 
               <div className="flex items-end gap-2 flex-wrap">
                 <div className="flex-1 min-w-[120px]">
@@ -939,12 +931,10 @@ function FolderSection({
             </div>
           </div>
 
-          {displayFields.length === 0 && (
-            <p className="text-sm text-muted-foreground text-center py-6" data-testid={`text-no-parameters-${section.id}`}>
-              Ziadne parametre v tomto priecinku
-            </p>
-          )}
-          {displayFields.length > 0 && !fieldSortKey && (
+          <p className="text-sm text-muted-foreground text-center py-6" style={{ display: displayFields.length === 0 ? 'block' : 'none' }} data-testid={`text-no-parameters-${section.id}`}>
+            Ziadne parametre v tomto priecinku
+          </p>
+          <div style={{ display: displayFields.length > 0 && !fieldSortKey ? 'block' : 'none' }}>
             <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
               <SortableContext items={displayFields.map(f => f.id)} strategy={verticalListSortingStrategy}>
                 <FieldTable
@@ -960,8 +950,8 @@ function FolderSection({
                 />
               </SortableContext>
             </DndContext>
-          )}
-          {displayFields.length > 0 && !!fieldSortKey && (
+          </div>
+          <div style={{ display: displayFields.length > 0 && !!fieldSortKey ? 'block' : 'none' }}>
             <FieldTable
               displayFields={displayFields}
               fieldSortKey={fieldSortKey}
@@ -973,7 +963,7 @@ function FolderSection({
               setDialogOpen={setDialogOpen}
               useDnd={false}
             />
-          )}
+          </div>
         </CardContent>
       </div>
 
