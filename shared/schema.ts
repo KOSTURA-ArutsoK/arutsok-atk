@@ -489,6 +489,7 @@ export const clientTypeFields = pgTable("client_type_fields", {
   label: text("label").notNull(),
   fieldType: text("field_type").notNull(),
   isRequired: boolean("is_required").default(false),
+  isHidden: boolean("is_hidden").default(false),
   options: jsonb("options").$type<string[]>().default([]),
   defaultValue: text("default_value"),
   visibilityRule: jsonb("visibility_rule").$type<{ dependsOn: string; value: string } | null>(),
