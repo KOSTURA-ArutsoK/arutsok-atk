@@ -2082,8 +2082,8 @@ export default function Subjects() {
         </Button>
       </div>
 
-      <div className="flex flex-col gap-4">
-        <div className="flex items-center gap-2 flex-wrap" data-testid="panel-status-filters">
+      <div className="flex items-center justify-between gap-3 flex-wrap">
+        <div className="flex items-center gap-2 flex-wrap flex-1 min-w-0" data-testid="panel-status-filters">
           {FILTER_ORDER.map(category => {
             const config = STATUS_CONFIG[category];
             const isActive = activeFilters.has(category);
@@ -2109,7 +2109,7 @@ export default function Subjects() {
             );
           })}
         </div>
-        <div className="relative flex-1 max-w-md">
+        <div className="relative w-full sm:w-64 shrink-0">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
           <Input
             placeholder="Hladat podla mena alebo UID..."
