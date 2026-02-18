@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { useSubjects, useCreateSubject, useSubjectCareerHistory } from "@/hooks/use-subjects";
-import { useContinents, useStates } from "@/hooks/use-hierarchy";
+import { useStates } from "@/hooks/use-hierarchy";
 import { useMyCompanies } from "@/hooks/use-companies";
 import { useAppUser } from "@/hooks/use-app-user";
 import { useQuery, useMutation } from "@tanstack/react-query";
@@ -59,7 +59,6 @@ import {
 } from "@/components/ui/form";
 
 const createSchema = insertSubjectSchema.extend({
-  continentId: z.coerce.number().min(1, "Povinne"),
   stateId: z.coerce.number().min(1, "Povinne"),
   myCompanyId: z.coerce.number().min(1, "Povinne"),
 });
@@ -826,7 +825,6 @@ function FullPageEditor({
 }) {
   const { mutate, isPending } = useCreateSubject();
   const { toast } = useToast();
-  const { data: allContinents } = useContinents();
   const { data: companies } = useMyCompanies();
   const { data: allStates, isLoading: statesLoading } = useStates();
   const { data: clientTypes, isLoading: typesLoading } = useQuery<ClientType[]>({ queryKey: ["/api/client-types"] });
@@ -939,7 +937,6 @@ function FullPageEditor({
       lastName: "",
       companyName: "",
       stateId: initialData.stateId,
-      continentId: state?.continentId || 0,
       birthNumber: isPerson ? initialData.baseValue : undefined,
       details: !isPerson ? { ico: initialData.baseValue } : {},
       myCompanyId: appUser?.activeCompanyId || 0,
@@ -956,7 +953,6 @@ function FullPageEditor({
       lastName: "",
       companyName: "",
       stateId: initialData.stateId,
-      continentId: state.continentId,
       birthNumber: isPerson ? initialData.baseValue : undefined,
       details: !isPerson ? { ico: initialData.baseValue } : {},
       myCompanyId: appUser.activeCompanyId,
@@ -970,9 +966,6 @@ function FullPageEditor({
       </div>
     );
   }
-
-  const watchContinent = form.watch("continentId");
-  const { data: filteredStates } = useStates(watchContinent);
 
   function onSubmit(data: z.infer<typeof createSchema>) {
     const requiredFields = (typeFields || []).filter(f => f.isRequired && isFieldVisible(f));
@@ -1384,32 +1377,6 @@ function FullPageEditor({
                       })}
                     </Accordion>
 
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                      <FormField control={form.control} name="continentId" render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Kontinent</FormLabel>
-                          <Select onValueChange={(val) => { field.onChange(val); form.setValue("stateId", 0); }} value={field.value?.toString()}>
-                            <FormControl><SelectTrigger data-testid="select-continent"><SelectValue placeholder="Vyberte kontinent" /></SelectTrigger></FormControl>
-                            <SelectContent>
-                              {allContinents?.map(c => (<SelectItem key={c.id} value={c.id.toString()}>{c.name}</SelectItem>))}
-                            </SelectContent>
-                          </Select>
-                          <FormMessage />
-                        </FormItem>
-                      )} />
-                      <FormField control={form.control} name="stateId" render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Štát</FormLabel>
-                          <Select onValueChange={field.onChange} value={field.value?.toString()} disabled={!watchContinent}>
-                            <FormControl><SelectTrigger data-testid="select-state"><SelectValue placeholder="Vyberte stat" /></SelectTrigger></FormControl>
-                            <SelectContent>
-                              {filteredStates?.map(s => (<SelectItem key={s.id} value={s.id.toString()}>{s.name}</SelectItem>))}
-                            </SelectContent>
-                          </Select>
-                          <FormMessage />
-                        </FormItem>
-                      )} />
-                    </div>
                   </>
                 );
               })() : (
@@ -1439,33 +1406,6 @@ function FullPageEditor({
                       <FormItem>
                         <FormLabel>Telefón</FormLabel>
                         <FormControl><Input type="tel" {...field} value={field.value || ""} data-testid="input-subject-phone" /></FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )} />
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-4">
-                    <FormField control={form.control} name="continentId" render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Kontinent</FormLabel>
-                        <Select onValueChange={(val) => { field.onChange(val); form.setValue("stateId", 0); }} value={field.value?.toString()}>
-                          <FormControl><SelectTrigger data-testid="select-continent"><SelectValue placeholder="Vyberte kontinent" /></SelectTrigger></FormControl>
-                          <SelectContent>
-                            {allContinents?.map(c => (<SelectItem key={c.id} value={c.id.toString()}>{c.name}</SelectItem>))}
-                          </SelectContent>
-                        </Select>
-                        <FormMessage />
-                      </FormItem>
-                    )} />
-                    <FormField control={form.control} name="stateId" render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Štát</FormLabel>
-                        <Select onValueChange={field.onChange} value={field.value?.toString()} disabled={!watchContinent}>
-                          <FormControl><SelectTrigger data-testid="select-state"><SelectValue placeholder="Vyberte stat" /></SelectTrigger></FormControl>
-                          <SelectContent>
-                            {filteredStates?.map(s => (<SelectItem key={s.id} value={s.id.toString()}>{s.name}</SelectItem>))}
-                          </SelectContent>
-                        </Select>
                         <FormMessage />
                       </FormItem>
                     )} />
@@ -1578,7 +1518,6 @@ function getSubjectStatus(subject: any, activeCompanyId?: number): { color: stri
 function SubjectEditModal({ subject, onClose }: { subject: Subject & { isOwner?: boolean }; onClose: () => void }) {
   const { toast } = useToast();
   const { data: appUser } = useAppUser();
-  const { data: allContinents } = useContinents();
   const { data: allStates } = useStates();
   const { data: companies } = useMyCompanies();
   const { data: clientTypes } = useQuery<ClientType[]>({ queryKey: ["/api/client-types"] });
@@ -1658,10 +1597,6 @@ function SubjectEditModal({ subject, onClose }: { subject: Subject & { isOwner?:
     return depValue === rule.value;
   }
 
-  const watchContinent = useState(subject.continentId || 0);
-  const [selectedContinent, setSelectedContinent] = watchContinent;
-  const { data: filteredStates } = useStates(selectedContinent || undefined);
-
   const [formData, setFormData] = useState({
     firstName: subject.firstName || "",
     lastName: subject.lastName || "",
@@ -1669,8 +1604,6 @@ function SubjectEditModal({ subject, onClose }: { subject: Subject & { isOwner?:
     email: subject.email || "",
     phone: subject.phone || "",
     idCardNumber: subject.idCardNumber || "",
-    continentId: subject.continentId || 0,
-    stateId: subject.stateId || 0,
   });
 
   const updateMutation = useMutation({
@@ -1694,8 +1627,6 @@ function SubjectEditModal({ subject, onClose }: { subject: Subject & { isOwner?:
         email: coreFieldValues.email ?? subject.email ?? null,
         phone: coreFieldValues.phone ?? subject.phone ?? null,
         idCardNumber: coreFieldValues.idCardNumber ?? subject.idCardNumber ?? null,
-        continentId: Number(formData.continentId),
-        stateId: Number(formData.stateId),
         details: existingDetails,
         processingTimeSec,
         changeReason: "Manualna editacia cez Register subjektov",
@@ -1781,45 +1712,6 @@ function SubjectEditModal({ subject, onClose }: { subject: Subject & { isOwner?:
                 className="mt-1"
                 data-testid="input-edit-companyname"
               />
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <Label className="text-xs">Kontinent</Label>
-                <Select
-                  value={formData.continentId?.toString()}
-                  onValueChange={(val) => {
-                    setFormData(prev => ({ ...prev, continentId: Number(val), stateId: 0 }));
-                    setSelectedContinent(Number(val));
-                  }}
-                >
-                  <SelectTrigger className="mt-1" data-testid="select-edit-continent">
-                    <SelectValue placeholder="Vyberte kontinent" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {allContinents?.map(c => (
-                      <SelectItem key={c.id} value={c.id.toString()}>{c.name}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div>
-                <Label className="text-xs">Stat</Label>
-                <Select
-                  value={formData.stateId?.toString()}
-                  onValueChange={(val) => setFormData(prev => ({ ...prev, stateId: Number(val) }))}
-                  disabled={!formData.continentId}
-                >
-                  <SelectTrigger className="mt-1" data-testid="select-edit-state">
-                    <SelectValue placeholder="Vyberte stat" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {filteredStates?.map(s => (
-                      <SelectItem key={s.id} value={s.id.toString()}>{s.name}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
             </div>
 
             {typeFields && typeFields.length > 0 && (() => {
