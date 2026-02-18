@@ -3748,6 +3748,25 @@ export async function registerRoutes(
     }
   });
 
+  app.patch("/api/client-type-fields/:id/layout", isAuthenticated, async (req: any, res) => {
+    try {
+      const appUser = req.appUser;
+      const isAllowed = appUser && (["admin", "superadmin", "prezident"].includes(appUser.role) || appUser.permissionGroupId);
+      if (!isAllowed) {
+        return res.status(403).json({ message: "Nedostatocne opravnenia" });
+      }
+      const { rowNumber, widthPercent, sortOrder } = req.body;
+      const updateData: any = {};
+      if (rowNumber !== undefined) updateData.rowNumber = rowNumber;
+      if (widthPercent !== undefined) updateData.widthPercent = widthPercent;
+      if (sortOrder !== undefined) updateData.sortOrder = sortOrder;
+      const updated = await storage.updateClientTypeField(Number(req.params.id), updateData);
+      res.json(updated);
+    } catch {
+      res.status(500).json({ message: "Failed to update field layout" });
+    }
+  });
+
   app.delete("/api/client-type-fields/:id", isAuthenticated, async (req: any, res) => {
     try {
       const appUser = req.appUser;

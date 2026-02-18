@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { useTableSort } from "@/hooks/use-table-sort";
@@ -28,7 +28,7 @@ import {
   Plus, Settings2, Layers, ArrowLeft, Pencil,
   Type, AlignLeft, List, CheckSquare, ToggleLeft, Phone, Mail,
   Hash, Image, Calendar, CreditCard, Search, Loader2,
-  FolderOpen, GripVertical, HelpCircle, X, Info,
+  FolderOpen, GripVertical, HelpCircle, X, Info, ArrowUp, ArrowDown,
 } from "lucide-react";
 import { DndContext, closestCenter, PointerSensor, KeyboardSensor, useSensor, useSensors, type DragEndEvent } from "@dnd-kit/core";
 import { SortableContext, useSortable, verticalListSortingStrategy, arrayMove } from "@dnd-kit/sortable";
@@ -491,6 +491,67 @@ function FieldFormDialog({
   );
 }
 
+function InlineNumberInput({ value, onChange, min, max, suffix, testId }: {
+  value: number;
+  onChange: (val: number) => void;
+  min?: number;
+  max?: number;
+  suffix?: string;
+  testId?: string;
+}) {
+  const [localValue, setLocalValue] = useState(String(value));
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    setLocalValue(String(value));
+  }, [value]);
+
+  const commitValue = useCallback((val: string) => {
+    const num = parseInt(val, 10);
+    if (isNaN(num)) return;
+    const clamped = Math.max(min ?? 0, Math.min(max ?? 999, num));
+    if (clamped !== value) {
+      onChange(clamped);
+    }
+  }, [min, max, value, onChange]);
+
+  const handleChange = (e: { target: { value: string } }) => {
+    const val = e.target.value;
+    setLocalValue(val);
+    if (timerRef.current) clearTimeout(timerRef.current);
+    timerRef.current = setTimeout(() => commitValue(val), 600);
+  };
+
+  const handleBlur = () => {
+    if (timerRef.current) clearTimeout(timerRef.current);
+    commitValue(localValue);
+  };
+
+  const handleKeyDown = (e: { key: string }) => {
+    if (e.key === "Enter") {
+      if (timerRef.current) clearTimeout(timerRef.current);
+      commitValue(localValue);
+    }
+  };
+
+  return (
+    <div className="flex items-center gap-1">
+      <Input
+        type="number"
+        value={localValue}
+        onChange={handleChange}
+        onBlur={handleBlur}
+        onKeyDown={handleKeyDown}
+        min={min}
+        max={max}
+        className="w-16 text-xs text-center"
+        data-testid={testId}
+      />
+      <span style={{ display: suffix ? 'inline' : 'none' }} className="text-xs text-muted-foreground">{suffix}</span>
+    </div>
+  );
+}
+
 function FolderSection({
   section,
   fields,
@@ -525,6 +586,16 @@ function FolderSection({
     onError: () => toast({ title: "Chyba", description: "Nepodarilo sa vymazat parameter", variant: "destructive" }),
   });
 
+  const layoutMutation = useMutation({
+    mutationFn: async ({ id, data }: { id: number; data: { rowNumber?: number; widthPercent?: number; sortOrder?: number } }) => {
+      await apiRequest("PATCH", `/api/client-type-fields/${id}/layout`, data);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/client-types", clientTypeId, "fields"] });
+    },
+    onError: () => toast({ title: "Chyba", description: "Nepodarilo sa ulozit zmenu", variant: "destructive" }),
+  });
+
   const sorted = [...fields].sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0));
   const { sortedData: sortedFields, sortKey: fieldSortKey, sortDirection: fieldSortDirection, requestSort: fieldRequestSort } = useTableSort(sorted);
 
@@ -532,6 +603,20 @@ function FolderSection({
     if (!panelId) return "Bez panelu";
     return panels.find(p => p.id === panelId)?.name || `#${panelId}`;
   }
+
+  function moveField(fieldId: number, direction: "up" | "down") {
+    const list = sorted;
+    const idx = list.findIndex(f => f.id === fieldId);
+    if (idx === -1) return;
+    const swapIdx = direction === "up" ? idx - 1 : idx + 1;
+    if (swapIdx < 0 || swapIdx >= list.length) return;
+    const currentOrder = list[idx].sortOrder ?? idx;
+    const swapOrder = list[swapIdx].sortOrder ?? swapIdx;
+    layoutMutation.mutate({ id: list[idx].id, data: { sortOrder: swapOrder } });
+    layoutMutation.mutate({ id: list[swapIdx].id, data: { sortOrder: currentOrder } });
+  }
+
+  const displayFields = fieldSortKey ? sortedFields : sorted;
 
   return (
     <Card data-testid={`folder-section-${section.id}`}>
@@ -558,7 +643,7 @@ function FolderSection({
             </Button>
           </div>
 
-          {sortedFields.length === 0 ? (
+          {displayFields.length === 0 ? (
             <p className="text-sm text-muted-foreground text-center py-6" data-testid={`text-no-parameters-${section.id}`}>
               Ziadne parametre v tomto priecinku
             </p>
@@ -566,22 +651,50 @@ function FolderSection({
             <Table>
               <TableHeader>
                 <TableRow>
+                  <TableHead className="w-16">Poradie</TableHead>
                   <TableHead sortKey="label" sortDirection={fieldSortKey === "label" ? fieldSortDirection : null} onSort={fieldRequestSort}>Nazov</TableHead>
-                  <TableHead sortKey="fieldKey" sortDirection={fieldSortKey === "fieldKey" ? fieldSortDirection : null} onSort={fieldRequestSort}>Kluc</TableHead>
                   <TableHead sortKey="fieldType" sortDirection={fieldSortKey === "fieldType" ? fieldSortDirection : null} onSort={fieldRequestSort}>Typ</TableHead>
                   <TableHead sortKey="panelId" sortDirection={fieldSortKey === "panelId" ? fieldSortDirection : null} onSort={fieldRequestSort}>Panel</TableHead>
                   <TableHead sortKey="isRequired" sortDirection={fieldSortKey === "isRequired" ? fieldSortDirection : null} onSort={fieldRequestSort}>Povinne</TableHead>
+                  <TableHead sortKey="rowNumber" sortDirection={fieldSortKey === "rowNumber" ? fieldSortDirection : null} onSort={fieldRequestSort}>Riadok</TableHead>
+                  <TableHead sortKey="widthPercent" sortDirection={fieldSortKey === "widthPercent" ? fieldSortDirection : null} onSort={fieldRequestSort}>Sirka</TableHead>
                   <TableHead>Akcie</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {sortedFields.map(field => {
+                {displayFields.map((field, idx) => {
                   const ftDef = FIELD_TYPES.find(t => t.value === field.fieldType);
                   const Icon = ftDef?.icon || Type;
                   return (
                     <TableRow key={field.id} data-testid={`row-parameter-${field.id}`}>
-                      <TableCell className="font-medium">{field.label}</TableCell>
-                      <TableCell className="font-mono text-sm text-muted-foreground">{field.fieldKey}</TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-0.5">
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            disabled={idx === 0 || !!fieldSortKey}
+                            onClick={() => moveField(field.id, "up")}
+                            data-testid={`button-move-up-${field.id}`}
+                          >
+                            <ArrowUp className="w-3 h-3" />
+                          </Button>
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            disabled={idx === displayFields.length - 1 || !!fieldSortKey}
+                            onClick={() => moveField(field.id, "down")}
+                            data-testid={`button-move-down-${field.id}`}
+                          >
+                            <ArrowDown className="w-3 h-3" />
+                          </Button>
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <div>
+                          <span className="font-medium text-sm">{field.label}</span>
+                          <span className="block font-mono text-xs text-muted-foreground">{field.fieldKey}</span>
+                        </div>
+                      </TableCell>
                       <TableCell>
                         <div className="flex items-center gap-1 flex-wrap">
                           <Icon className="w-3 h-3 text-muted-foreground" />
@@ -597,6 +710,25 @@ function FolderSection({
                         {field.isRequired
                           ? <Badge variant="default" className="bg-emerald-600 text-white">Ano</Badge>
                           : <Badge variant="outline">Nie</Badge>}
+                      </TableCell>
+                      <TableCell>
+                        <InlineNumberInput
+                          value={(field as any).rowNumber ?? 0}
+                          onChange={(val) => layoutMutation.mutate({ id: field.id, data: { rowNumber: val } })}
+                          min={0}
+                          max={99}
+                          testId={`input-row-number-${field.id}`}
+                        />
+                      </TableCell>
+                      <TableCell>
+                        <InlineNumberInput
+                          value={(field as any).widthPercent ?? 100}
+                          onChange={(val) => layoutMutation.mutate({ id: field.id, data: { widthPercent: val } })}
+                          min={10}
+                          max={100}
+                          suffix="%"
+                          testId={`input-width-percent-${field.id}`}
+                        />
                       </TableCell>
                       <TableCell>
                         <div className="flex items-center gap-1">
