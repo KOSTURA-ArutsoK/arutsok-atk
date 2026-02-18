@@ -2060,6 +2060,128 @@ export default function ContractForm() {
                       </div>
                     </CardContent>
                   </Card>
+
+                  <div className="border-t border-border pt-4 mt-4">
+                    <h3 className="text-sm font-semibold mb-3">Rozdelenie odmien</h3>
+                    <div style={{ display: getRewardTotalPercentage() > 100 ? 'block' : 'none' }}>
+                      <div className="bg-destructive/10 border border-destructive/30 rounded-md p-2 mb-3">
+                        <p className="text-sm text-destructive font-medium" data-testid="text-reward-over-100-zisk">
+                          Celkovy sucet odmien je {getRewardTotalPercentage().toFixed(2)}% - nesmie presiahnuť 100 %. Uloženie je zablokovane.
+                        </p>
+                      </div>
+                    </div>
+                    <div className="mb-2">
+                      <Badge variant="outline" data-testid="badge-reward-total-zisk">
+                        Celkom: {getRewardTotalPercentage().toFixed(2)} / 100 %
+                      </Badge>
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
+                      <Card>
+                        <CardContent className="p-4 space-y-3">
+                          <h4 className="text-sm font-semibold" data-testid="text-specialist-title-zisk">Odmena pre specialistu</h4>
+                          <p className="text-xs text-muted-foreground">Osoba zodpovedna za spravnost zmluvy</p>
+                          <div className="flex items-center gap-2">
+                            <div className="flex-1">
+                              <Input
+                                placeholder="UID kod"
+                                value={rewardSpecialistUid}
+                                onChange={e => setRewardSpecialistUid(e.target.value)}
+                                className="font-mono text-sm"
+                                data-testid="input-specialist-uid-zisk"
+                              />
+                            </div>
+                            <div className="w-28">
+                              <div className="flex items-center gap-1">
+                                <Input
+                                  placeholder="0"
+                                  value={rewardSpecialistPercentage}
+                                  onChange={e => {
+                                    const val = e.target.value.replace(/,/g, ".");
+                                    if (val === "" || /^-?\d*\.?\d{0,2}$/.test(val)) {
+                                      setRewardSpecialistPercentage(val);
+                                    }
+                                  }}
+                                  className="font-mono text-sm"
+                                  data-testid="input-specialist-pct-zisk"
+                                />
+                                <span className="text-sm text-muted-foreground">%</span>
+                              </div>
+                            </div>
+                          </div>
+                          <p className="text-[10px] text-muted-foreground">
+                            Ak nie su zadani odporucitelia, specialista bude automaticky pridany ako odporucitel s 0%.
+                          </p>
+                        </CardContent>
+                      </Card>
+
+                      <Card>
+                        <CardContent className="p-4 space-y-3">
+                          <h4 className="text-sm font-semibold" data-testid="text-recommenders-title-zisk">Odmeny pre odporucitelov</h4>
+                          <div className="space-y-2">
+                            {rewardRecommenders.map((rec, idx) => (
+                              <div key={rec.id} className="flex items-center gap-2" data-testid={`row-recommender-zisk-${idx}`}>
+                                <div className="flex-1">
+                                  <Input
+                                    placeholder="UID kod"
+                                    value={rec.uid}
+                                    onChange={e => {
+                                      const next = [...rewardRecommenders];
+                                      next[idx] = { ...next[idx], uid: e.target.value };
+                                      setRewardRecommenders(next);
+                                    }}
+                                    className="font-mono text-sm"
+                                    data-testid={`input-recommender-uid-zisk-${idx}`}
+                                  />
+                                </div>
+                                <div className="w-28">
+                                  <div className="flex items-center gap-1">
+                                    <Input
+                                      placeholder="0"
+                                      value={rec.percentage}
+                                      onChange={e => {
+                                        const val = e.target.value.replace(/,/g, ".");
+                                        if (val === "" || /^-?\d*\.?\d{0,2}$/.test(val)) {
+                                          const next = [...rewardRecommenders];
+                                          next[idx] = { ...next[idx], percentage: val };
+                                          setRewardRecommenders(next);
+                                        }
+                                      }}
+                                      className="font-mono text-sm"
+                                      data-testid={`input-recommender-pct-zisk-${idx}`}
+                                    />
+                                    <span className="text-sm text-muted-foreground">%</span>
+                                  </div>
+                                </div>
+                                <Button
+                                  size="icon"
+                                  variant="ghost"
+                                  onClick={() => {
+                                    const next = rewardRecommenders.filter((_, i) => i !== idx);
+                                    setRewardRecommenders(next);
+                                  }}
+                                  data-testid={`button-remove-recommender-zisk-${idx}`}
+                                >
+                                  <Trash2 className="w-4 h-4" />
+                                </Button>
+                              </div>
+                            ))}
+                          </div>
+                          <div style={{ display: rewardRecommenders.length === 0 ? 'block' : 'none' }}>
+                            <p className="text-xs text-muted-foreground" data-testid="text-no-recommenders-zisk">Ziadni odporucitelia</p>
+                          </div>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setRewardRecommenders([...rewardRecommenders, { id: `new-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`, uid: "", percentage: "" }])}
+                            data-testid="button-add-recommender-zisk"
+                          >
+                            <Plus className="w-4 h-4 mr-1" />
+                            Pridat odporucitela
+                          </Button>
+                        </CardContent>
+                      </Card>
+                    </div>
+                  </div>
                 </>
               ) : (
                 <Card>
@@ -2109,121 +2231,13 @@ export default function ContractForm() {
               </CompactField>
 
               <div className="border-t border-border pt-4 mt-4">
-                <h3 className="text-sm font-semibold mb-3">Rozdelenie odmien</h3>
-                <div style={{ display: getRewardTotalPercentage() > 100 ? 'block' : 'none' }}>
-                  <div className="bg-destructive/10 border border-destructive/30 rounded-md p-2 mb-3">
-                    <p className="text-sm text-destructive font-medium" data-testid="text-reward-over-100">
-                      Celkovy sucet odmien je {getRewardTotalPercentage().toFixed(2)}% - nesmie presiahnuť 100 %. Uloženie je zablokovane.
-                    </p>
-                  </div>
-                </div>
-                <div className="mb-2">
+                <p className="text-sm text-muted-foreground">
+                  Rozdelenie odmien pre specialistu a odporucitelov je dostupne v zalozke <span className="font-semibold text-foreground">Ziskatelia</span>.
+                </p>
+                <div className="mt-2">
                   <Badge variant="outline" data-testid="badge-reward-total">
                     Celkom: {getRewardTotalPercentage().toFixed(2)} / 100 %
                   </Badge>
-                </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <Card>
-                    <CardContent className="p-4 space-y-3">
-                      <h4 className="text-sm font-semibold" data-testid="text-recommenders-title">Odmeny pre odporucitelov</h4>
-                      <div className="space-y-2">
-                        {rewardRecommenders.map((rec, idx) => (
-                          <div key={rec.id} className="flex items-center gap-2" data-testid={`row-recommender-${idx}`}>
-                            <div className="flex-1">
-                              <Input
-                                placeholder="UID kod"
-                                value={rec.uid}
-                                onChange={e => {
-                                  const next = [...rewardRecommenders];
-                                  next[idx] = { ...next[idx], uid: e.target.value };
-                                  setRewardRecommenders(next);
-                                }}
-                                className="font-mono text-sm"
-                                data-testid={`input-recommender-uid-${idx}`}
-                              />
-                            </div>
-                            <div className="w-28">
-                              <div className="flex items-center gap-1">
-                                <Input
-                                  placeholder="0"
-                                  value={rec.percentage}
-                                  onChange={e => {
-                                    const val = e.target.value.replace(/,/g, ".");
-                                    if (val === "" || /^-?\d*\.?\d{0,2}$/.test(val)) {
-                                      const next = [...rewardRecommenders];
-                                      next[idx] = { ...next[idx], percentage: val };
-                                      setRewardRecommenders(next);
-                                    }
-                                  }}
-                                  className="font-mono text-sm"
-                                  data-testid={`input-recommender-pct-${idx}`}
-                                />
-                                <span className="text-sm text-muted-foreground">%</span>
-                              </div>
-                            </div>
-                            <Button
-                              size="icon"
-                              variant="ghost"
-                              onClick={() => {
-                                const next = rewardRecommenders.filter((_, i) => i !== idx);
-                                setRewardRecommenders(next);
-                              }}
-                              data-testid={`button-remove-recommender-${idx}`}
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </Button>
-                          </div>
-                        ))}
-                      </div>
-                      <div style={{ display: rewardRecommenders.length === 0 ? 'block' : 'none' }}>
-                        <p className="text-xs text-muted-foreground" data-testid="text-no-recommenders">Ziadni odporucitelia</p>
-                      </div>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => setRewardRecommenders([...rewardRecommenders, { id: `new-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`, uid: "", percentage: "" }])}
-                        data-testid="button-add-recommender"
-                      >
-                        <Plus className="w-4 h-4 mr-1" />
-                        Pridat odporucitela
-                      </Button>
-                    </CardContent>
-                  </Card>
-
-                  <Card>
-                    <CardContent className="p-4 space-y-3">
-                      <h4 className="text-sm font-semibold" data-testid="text-specialist-title">Odmena pre specialistu</h4>
-                      <p className="text-xs text-muted-foreground">Osoba zodpovedna za spravnost zmluvy</p>
-                      <div className="flex items-center gap-2">
-                        <div className="flex-1">
-                          <Input
-                            placeholder="UID kod"
-                            value={rewardSpecialistUid}
-                            onChange={e => setRewardSpecialistUid(e.target.value)}
-                            className="font-mono text-sm"
-                            data-testid="input-specialist-uid"
-                          />
-                        </div>
-                        <div className="w-28">
-                          <div className="flex items-center gap-1">
-                            <Input
-                              placeholder="0"
-                              value={rewardSpecialistPercentage}
-                              onChange={e => {
-                                const val = e.target.value.replace(/,/g, ".");
-                                if (val === "" || /^-?\d*\.?\d{0,2}$/.test(val)) {
-                                  setRewardSpecialistPercentage(val);
-                                }
-                              }}
-                              className="font-mono text-sm"
-                              data-testid="input-specialist-pct"
-                            />
-                            <span className="text-sm text-muted-foreground">%</span>
-                          </div>
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
                 </div>
               </div>
             </div>
