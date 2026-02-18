@@ -552,6 +552,8 @@ function InitialRegistrationModal({
   const [duplicateInfo, setDuplicateInfo] = useState<{ name: string; uid: string; id: number; matchedField?: string } | null>(null);
   const [duplicateChecked, setDuplicateChecked] = useState(false);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const baseInputRef = useRef<HTMLInputElement>(null);
+  const proceedBtnRef = useRef<HTMLButtonElement>(null);
 
   const selectedClientType = clientTypes?.find(ct => ct.code === selectedType);
   const baseParamLabel = selectedClientType?.baseParameter === "ico" ? "ICO" : "Rodne cislo (RC)";
@@ -574,6 +576,9 @@ function InitialRegistrationModal({
         setDuplicateInfo(null);
       }
       setDuplicateChecked(true);
+      if (!data.isDuplicate) {
+        setTimeout(() => proceedBtnRef.current?.focus(), 50);
+      }
     } catch {
       setDuplicateInfo(null);
       setDuplicateChecked(true);
@@ -627,7 +632,7 @@ function InitialRegistrationModal({
         <div className="space-y-4 mt-2">
           <div>
             <Label className="text-xs">Typ klienta</Label>
-            <Select value={selectedType} onValueChange={(v) => { setSelectedType(v); setDuplicateInfo(null); }}>
+            <Select value={selectedType} onValueChange={(v) => { setSelectedType(v); setDuplicateInfo(null); setTimeout(() => baseInputRef.current?.focus(), 50); }}>
               <SelectTrigger data-testid="select-client-type">
                 <SelectValue placeholder="Vyberte typ" />
               </SelectTrigger>
@@ -643,9 +648,11 @@ function InitialRegistrationModal({
             <Label className="text-xs">{baseParamLabel}</Label>
             <div className="relative">
               <Input
+                ref={baseInputRef}
                 placeholder={selectedClientType?.baseParameter === "ico" ? "napr. 12345678" : "napr. 900101/1234"}
                 value={baseValue}
                 onChange={(e) => { setBaseValue(e.target.value); }}
+                onKeyDown={(e) => { if (e.key === "Enter" && canProceed && !checking) handleProceed(); }}
                 data-testid="input-base-parameter"
               />
               <div className="absolute right-2 top-1/2 -translate-y-1/2" style={{ display: checking ? 'block' : 'none' }}>
@@ -689,6 +696,7 @@ function InitialRegistrationModal({
               Zrusit
             </Button>
             <Button
+              ref={proceedBtnRef}
               onClick={handleProceed}
               disabled={!canProceed || checking}
               data-testid="button-continue-reg"
