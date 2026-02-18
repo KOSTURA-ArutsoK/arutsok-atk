@@ -237,6 +237,8 @@ function SubjectDataTab({ subject }: { subject: Subject }) {
       return res.json();
     },
     enabled: !!clientType?.id,
+    staleTime: 0,
+    refetchOnMount: "always",
   });
 
   const { data: typeSections } = useQuery<(ClientTypeSection & { folderCategory?: string })[]>({
@@ -247,6 +249,8 @@ function SubjectDataTab({ subject }: { subject: Subject }) {
       return res.json();
     },
     enabled: !!clientType?.id,
+    staleTime: 0,
+    refetchOnMount: "always",
   });
 
   const details = (subject.details || {}) as Record<string, any>;
@@ -272,7 +276,7 @@ function SubjectDataTab({ subject }: { subject: Subject }) {
     for (const section of sectionsSorted) {
       const category = (section as any).folderCategory || "volitelne";
       const sectionFields = typeFields
-        .filter(f => (f.sectionId || 0) === section.id && !(f as any).isHidden)
+        .filter(f => (f.sectionId || 0) === section.id && !f.isHidden)
         .sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0));
       if (sectionFields.length > 0) {
         if (!groups[category]) groups[category] = [];
@@ -280,7 +284,7 @@ function SubjectDataTab({ subject }: { subject: Subject }) {
       }
     }
 
-    const unsectionedFields = typeFields.filter(f => (!f.sectionId || f.sectionId === 0) && !(f as any).isHidden);
+    const unsectionedFields = typeFields.filter(f => (!f.sectionId || f.sectionId === 0) && !f.isHidden);
     if (unsectionedFields.length > 0) {
       groups.volitelne.push({ section: { id: 0, name: "Ostatne" }, fields: unsectionedFields.sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0)) });
     }
@@ -887,6 +891,8 @@ function FullPageEditor({
       return res.json();
     },
     enabled: !!clientType?.id,
+    staleTime: 0,
+    refetchOnMount: "always",
   });
 
   const { data: typeSections } = useQuery<ClientTypeSection[]>({
@@ -897,10 +903,12 @@ function FullPageEditor({
       return res.json();
     },
     enabled: !!clientType?.id,
+    staleTime: 0,
+    refetchOnMount: "always",
   });
 
   function isFieldVisible(field: ClientTypeField): boolean {
-    if ((field as any).isHidden) return false;
+    if (field.isHidden) return false;
     if (!field.visibilityRule) return true;
     const rule = field.visibilityRule as { dependsOn: string; value: string };
     if (!rule.dependsOn || !rule.value) return true;
@@ -1541,6 +1549,8 @@ function SubjectEditModal({ subject, onClose }: { subject: Subject & { isOwner?:
       return res.json();
     },
     enabled: !!clientType?.id,
+    staleTime: 0,
+    refetchOnMount: "always",
   });
 
   const { data: typeSections } = useQuery<ClientTypeSection[]>({
@@ -1551,6 +1561,8 @@ function SubjectEditModal({ subject, onClose }: { subject: Subject & { isOwner?:
       return res.json();
     },
     enabled: !!clientType?.id,
+    staleTime: 0,
+    refetchOnMount: "always",
   });
 
   const CORE_FIELD_MAP: Record<string, string> = {
@@ -1580,7 +1592,7 @@ function SubjectEditModal({ subject, onClose }: { subject: Subject & { isOwner?:
   });
 
   function isFieldVisible(field: ClientTypeField): boolean {
-    if ((field as any).isHidden) return false;
+    if (field.isHidden) return false;
     if (!field.visibilityRule) return true;
     const rule = field.visibilityRule as { dependsOn: string; value: string };
     if (!rule.dependsOn || !rule.value) return true;

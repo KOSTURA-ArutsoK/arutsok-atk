@@ -1557,21 +1557,21 @@ export default function Contracts() {
   const { data: allClientTypes } = useQuery<ClientType[]>({ queryKey: ["/api/client-types"] });
   const activeClientTypes = (allClientTypes || []).filter(ct => ct.isActive).sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0));
 
-  const { data: foSections } = useQuery<ClientTypeSection[]>({ queryKey: ["/api/client-types", 1, "sections"] });
-  const { data: foPanels } = useQuery<ClientTypePanel[]>({ queryKey: ["/api/client-types", 1, "panels"] });
-  const { data: foAllFields } = useQuery<ClientTypeField[]>({ queryKey: ["/api/client-types", 1, "fields"] });
-  const { data: szcoSections } = useQuery<ClientTypeSection[]>({ queryKey: ["/api/client-types", 3, "sections"] });
-  const { data: szcoPanels } = useQuery<ClientTypePanel[]>({ queryKey: ["/api/client-types", 3, "panels"] });
-  const { data: szcoAllFields } = useQuery<ClientTypeField[]>({ queryKey: ["/api/client-types", 3, "fields"] });
-  const { data: poSections } = useQuery<ClientTypeSection[]>({ queryKey: ["/api/client-types", 4, "sections"] });
-  const { data: poPanels } = useQuery<ClientTypePanel[]>({ queryKey: ["/api/client-types", 4, "panels"] });
-  const { data: poAllFields } = useQuery<ClientTypeField[]>({ queryKey: ["/api/client-types", 4, "fields"] });
+  const { data: foSections } = useQuery<ClientTypeSection[]>({ queryKey: ["/api/client-types", 1, "sections"], staleTime: 0, refetchOnMount: "always" });
+  const { data: foPanels } = useQuery<ClientTypePanel[]>({ queryKey: ["/api/client-types", 1, "panels"], staleTime: 0, refetchOnMount: "always" });
+  const { data: foAllFields } = useQuery<ClientTypeField[]>({ queryKey: ["/api/client-types", 1, "fields"], staleTime: 0, refetchOnMount: "always" });
+  const { data: szcoSections } = useQuery<ClientTypeSection[]>({ queryKey: ["/api/client-types", 3, "sections"], staleTime: 0, refetchOnMount: "always" });
+  const { data: szcoPanels } = useQuery<ClientTypePanel[]>({ queryKey: ["/api/client-types", 3, "panels"], staleTime: 0, refetchOnMount: "always" });
+  const { data: szcoAllFields } = useQuery<ClientTypeField[]>({ queryKey: ["/api/client-types", 3, "fields"], staleTime: 0, refetchOnMount: "always" });
+  const { data: poSections } = useQuery<ClientTypeSection[]>({ queryKey: ["/api/client-types", 4, "sections"], staleTime: 0, refetchOnMount: "always" });
+  const { data: poPanels } = useQuery<ClientTypePanel[]>({ queryKey: ["/api/client-types", 4, "panels"], staleTime: 0, refetchOnMount: "always" });
+  const { data: poAllFields } = useQuery<ClientTypeField[]>({ queryKey: ["/api/client-types", 4, "fields"], staleTime: 0, refetchOnMount: "always" });
 
   const activeSections = inlineClientType === "szco" ? szcoSections : inlineClientType === "po" ? poSections : foSections;
   const activePanelsRaw = inlineClientType === "szco" ? szcoPanels : inlineClientType === "po" ? poPanels : foPanels;
   const activeFieldsRaw = inlineClientType === "szco" ? szcoAllFields : inlineClientType === "po" ? poAllFields : foAllFields;
 
-  const inlineFields = (activeFieldsRaw || []).filter(f => !(f as any).isHidden);
+  const inlineFields = (activeFieldsRaw || []).filter(f => !f.isHidden);
   const inlinePanelsFiltered = activePanelsRaw || [];
 
   const sortedSections = (activeSections || []).slice().sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0));

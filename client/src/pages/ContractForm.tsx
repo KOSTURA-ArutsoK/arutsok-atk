@@ -1031,7 +1031,7 @@ export default function ContractForm() {
   const matchedClientTypeCode = selectedSubject?.type ? subjectTypeToClientCode[selectedSubject.type] || null : null;
   const matchedClientType = matchedClientTypeCode ? clientTypes?.find(ct => ct.code === matchedClientTypeCode) : null;
 
-  const { data: clientTypeFields } = useQuery<ClientTypeField[]>({
+  const { data: clientTypeFieldsRaw } = useQuery<ClientTypeField[]>({
     queryKey: ["/api/client-types", matchedClientType?.id, "fields"],
     queryFn: async () => {
       const res = await fetch(`/api/client-types/${matchedClientType!.id}/fields`, { credentials: "include" });
@@ -1039,7 +1039,10 @@ export default function ContractForm() {
       return res.json();
     },
     enabled: !!matchedClientType?.id,
+    staleTime: 0,
+    refetchOnMount: "always",
   });
+  const clientTypeFields = (clientTypeFieldsRaw || []).filter(f => !f.isHidden);
 
   const urlQueryParams = typeof window !== "undefined" ? new URLSearchParams(window.location.search) : new URLSearchParams();
   const urlPartnerId = urlQueryParams.get("partnerId") || "";
