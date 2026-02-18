@@ -6,7 +6,7 @@ import { useStates } from "@/hooks/use-hierarchy";
 import { useToast } from "@/hooks/use-toast";
 import { useLocation } from "wouter";
 import type { Contract, ContractStatus, ContractTemplate, ContractInventory, Subject, Partner, Product, MyCompany, Sector, Section, SectorProduct, ClientGroup, ClientType, ClientTypeSection, ClientTypePanel, ClientTypeField, AppUser, ContractAcquirer } from "@shared/schema";
-import { Plus, Pencil, Trash2, Eye, FileText, Loader2, Lock, LayoutGrid, Send, Upload, Inbox, CheckCircle2, ChevronDown, ChevronRight, Printer, Search, Archive, AlertTriangle, Calendar, XCircle, MessageSquare, Paperclip, UserPlus, X, Users, Check, ChevronsUpDown } from "lucide-react";
+import { Plus, Pencil, Trash2, Eye, FileText, Loader2, Lock, LayoutGrid, Send, Upload, Inbox, CheckCircle2, ChevronDown, ChevronRight, Printer, Search, Archive, AlertTriangle, Calendar, XCircle, MessageSquare, Paperclip, UserPlus, X, Users, Check, ChevronsUpDown, Award, Percent } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { PRIORITY_COUNTRIES, ALL_COUNTRIES, getDefaultCountryForState } from "@/lib/countries";
@@ -127,8 +127,37 @@ function ContractFormDialog({
     enabled: !!editingContract?.id,
   });
 
+  const { data: existingRewardDistributions } = useQuery<any[]>({
+    queryKey: ["/api/contracts", editingContract?.id, "reward-distributions"],
+    queryFn: async () => {
+      const res = await fetch(`/api/contracts/${editingContract!.id}/reward-distributions`, { credentials: "include" });
+      if (!res.ok) throw new Error("Failed");
+      return res.json();
+    },
+    enabled: !!editingContract?.id,
+  });
+
   const [acquirerUserIds, setAcquirerUserIds] = useState<number[]>([]);
   const [acquirerSearch, setAcquirerSearch] = useState("");
+
+  const [specialistUid, setSpecialistUid] = useState("");
+  const [specialistPercentage, setSpecialistPercentage] = useState("");
+  const [recommenders, setRecommenders] = useState<{ uid: string; percentage: string }[]>([]);
+  const [rewardSearchSpecialist, setRewardSearchSpecialist] = useState("");
+  const [rewardSearchRecommender, setRewardSearchRecommender] = useState("");
+  const [addingRecommender, setAddingRecommender] = useState(false);
+  const [newRecommenderUid, setNewRecommenderUid] = useState("");
+  const [newRecommenderPercentage, setNewRecommenderPercentage] = useState("");
+
+  const rewardTotalPercentage = useMemo(() => {
+    const specPct = parseFloat(specialistPercentage) || 0;
+    const recPct = recommenders.reduce((sum, r) => sum + (parseFloat(r.percentage) || 0), 0);
+    return specPct + recPct;
+  }, [specialistPercentage, recommenders]);
+
+  const rewardPercentageRemaining = useMemo(() => {
+    return Math.max(0, 100 - rewardTotalPercentage);
+  }, [rewardTotalPercentage]);
 
   const [clientGroupId, setClientGroupId] = useState<string>("");
   const [identifierType, setIdentifierType] = useState<string>("");
@@ -240,12 +269,31 @@ function ContractFormDialog({
     }
   };
 
+  const saveRewardDistributions = async (contractId: number) => {
+    const distributions: { type: string; uid: string; percentage: string; sortOrder: number }[] = [];
+    if (specialistUid) {
+      distributions.push({ type: "specialist", uid: specialistUid, percentage: specialistPercentage || "0", sortOrder: 0 });
+      if (recommenders.length === 0) {
+        distributions.push({ type: "recommender", uid: specialistUid, percentage: "0", sortOrder: 1 });
+      }
+    }
+    recommenders.forEach((r, i) => {
+      distributions.push({ type: "recommender", uid: r.uid, percentage: r.percentage || "0", sortOrder: i + 1 });
+    });
+    try {
+      await apiRequest("POST", `/api/contracts/${contractId}/reward-distributions`, { distributions });
+    } catch {}
+  };
+
   const createMutation = useMutation({
     mutationFn: (data: any) => apiRequest("POST", "/api/contracts", data),
     onSuccess: async (res: any) => {
       const created = await res.json?.() ?? res;
       if (acquirerUserIds.length > 0 && created?.id) {
         await saveAcquirersForContract(created.id);
+      }
+      if (created?.id) {
+        await saveRewardDistributions(created.id);
       }
       queryClient.invalidateQueries({ queryKey: ["/api/contracts"] });
       toast({ title: "Uspech", description: "Zmluva vytvorena" });
@@ -259,6 +307,7 @@ function ContractFormDialog({
     onSuccess: async () => {
       if (editingContract?.id) {
         await syncAcquirersForContract(editingContract.id);
+        await saveRewardDistributions(editingContract.id);
       }
       queryClient.invalidateQueries({ queryKey: ["/api/contracts"] });
       toast({ title: "Uspech", description: "Zmluva aktualizovana" });
@@ -295,6 +344,14 @@ function ContractFormDialog({
         setIdentifierWarning(null);
         setAcquirerUserIds([]);
         setAcquirerSearch("");
+        setSpecialistUid("");
+        setSpecialistPercentage("");
+        setRecommenders([]);
+        setRewardSearchSpecialist("");
+        setRewardSearchRecommender("");
+        setAddingRecommender(false);
+        setNewRecommenderUid("");
+        setNewRecommenderPercentage("");
         if (spId && allSPForEdit && allSectionsForEdit) {
           const sp = allSPForEdit.find(p => p.id === spId);
           if (sp) {
@@ -334,6 +391,14 @@ function ContractFormDialog({
         setContractSectionId("");
         setAcquirerUserIds([]);
         setAcquirerSearch("");
+        setSpecialistUid("");
+        setSpecialistPercentage("");
+        setRecommenders([]);
+        setRewardSearchSpecialist("");
+        setRewardSearchRecommender("");
+        setAddingRecommender(false);
+        setNewRecommenderUid("");
+        setNewRecommenderPercentage("");
       }
     }
   }, [open, editingContract, activeStateId, allSPForEdit, allSectionsForEdit]);
@@ -344,6 +409,21 @@ function ContractFormDialog({
     }
   }, [existingAcquirers, editingContract]);
 
+  useEffect(() => {
+    if (existingRewardDistributions && editingContract) {
+      const spec = existingRewardDistributions.find((d: any) => d.type === "specialist");
+      if (spec) {
+        setSpecialistUid(spec.uid || "");
+        setSpecialistPercentage(spec.percentage || "");
+      }
+      const recs = existingRewardDistributions
+        .filter((d: any) => d.type === "recommender")
+        .sort((a: any, b: any) => (a.sortOrder || 0) - (b.sortOrder || 0))
+        .map((d: any) => ({ uid: d.uid || "", percentage: d.percentage || "" }));
+      setRecommenders(recs);
+    }
+  }, [existingRewardDistributions, editingContract]);
+
   const handleOpenChange = useCallback((isOpen: boolean) => {
     onOpenChange(isOpen);
   }, [onOpenChange]);
@@ -351,6 +431,10 @@ function ContractFormDialog({
   function handleSubmit() {
     if (!contractNumber) {
       toast({ title: "Chyba", description: "Cislo zmluvy je povinne", variant: "destructive" });
+      return;
+    }
+    if (rewardTotalPercentage > 100) {
+      toast({ title: "Chyba", description: "Sucet odmien presiahol 100%. Upravte hodnoty pred ulozenim.", variant: "destructive" });
       return;
     }
     const processingTimeSec = Math.round((performance.now() - timerRef.current) / 1000);
@@ -538,75 +622,269 @@ function ContractFormDialog({
             </div>
           </div>
 
-          <div className="space-y-3 border rounded-md p-4" data-testid="section-acquirers">
-            <div className="flex items-center gap-2">
-              <Users className="w-4 h-4 text-primary" />
-              <span className="text-sm font-semibold">Získatelia</span>
-              <Badge variant="outline" className="text-[10px]">{acquirerUserIds.length}</Badge>
-            </div>
-            <div className="space-y-2">
-              <div className="relative">
-                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input
-                  placeholder="Hladat pouzivatela podla mena..."
-                  value={acquirerSearch}
-                  onChange={e => setAcquirerSearch(e.target.value)}
-                  className="pl-9"
-                  data-testid="input-acquirer-search"
-                />
+          <div className="space-y-3 border rounded-md p-4" data-testid="section-reward-distributions">
+            <div className="flex items-center justify-between gap-2 flex-wrap">
+              <div className="flex items-center gap-2">
+                <Award className="w-4 h-4 text-primary" />
+                <span className="text-sm font-semibold">Odmeny pre specialistu a odporucitelov</span>
               </div>
-              {(() => {
-                const searchLower = acquirerSearch.toLowerCase().trim();
-                const filtered = searchLower
-                  ? (appUsersAll || []).filter(u =>
-                      !acquirerUserIds.includes(u.id) &&
-                      (`${u.firstName || ""} ${u.lastName || ""} ${u.username || ""} ${u.uid || ""}`.toLowerCase().includes(searchLower))
-                    )
-                  : [];
-                return (
-                  <div className="border rounded-md max-h-[150px] overflow-y-auto" style={{ display: filtered.length > 0 ? 'block' : 'none' }} data-testid="list-acquirer-suggestions">
-                    {filtered.slice(0, 10).map(u => (
-                      <div
-                        key={u.id}
-                        className="flex items-center gap-2 px-3 py-1.5 cursor-pointer hover-elevate text-sm"
-                        onClick={() => {
-                          setAcquirerUserIds(prev => [...prev, u.id]);
-                          setAcquirerSearch("");
+              <div className="flex items-center gap-2">
+                <Badge variant={rewardTotalPercentage > 100 ? "destructive" : rewardTotalPercentage === 100 ? "default" : "outline"} className="text-[10px] font-mono">
+                  {rewardTotalPercentage}% / 100%
+                </Badge>
+                <span className="text-[10px] text-muted-foreground" style={{ visibility: rewardPercentageRemaining > 0 && rewardTotalPercentage <= 100 ? 'visible' : 'hidden' }}>
+                  Zostava: {rewardPercentageRemaining}%
+                </span>
+              </div>
+            </div>
+
+            <p className="text-xs text-destructive font-medium" style={{ visibility: rewardTotalPercentage > 100 ? 'visible' : 'hidden' }}>
+              Sucet percent presiahol 100%. Upravte hodnoty.
+            </p>
+
+            <div className="space-y-3">
+              <div className="border rounded-md p-3 space-y-2" data-testid="panel-specialist-reward">
+                <div className="flex items-center gap-2">
+                  <Award className="w-3.5 h-3.5 text-primary" />
+                  <span className="text-xs font-semibold uppercase tracking-wide">Specialista</span>
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <div className="space-y-1">
+                    <label className="text-xs text-muted-foreground">UID specialistu</label>
+                    <div className="relative">
+                      <Input
+                        placeholder="Zadajte UID alebo hladajte..."
+                        value={specialistUid}
+                        onChange={e => {
+                          setSpecialistUid(e.target.value);
+                          setRewardSearchSpecialist(e.target.value);
                         }}
-                        data-testid={`row-acquirer-suggestion-${u.id}`}
-                      >
-                        <UserPlus className="w-3.5 h-3.5 text-muted-foreground flex-shrink-0" />
-                        <span className="font-medium">{u.firstName || ""} {u.lastName || ""}</span>
-                        <span className="text-xs text-muted-foreground">({u.username})</span>
-                        <span className="text-xs text-muted-foreground font-mono ml-auto" style={{ display: u.uid ? 'inline' : 'none' }}>{u.uid}</span>
-                      </div>
-                    ))}
-                  </div>
-                );
-              })()}
-              <div className="space-y-1" data-testid="list-acquirers">
-                {acquirerUserIds.map(uid => {
-                  const user = (appUsersAll || []).find(u => u.id === uid);
-                  return (
-                    <div key={uid} className="flex items-center gap-2 px-3 py-1.5 border rounded-md bg-muted/30" data-testid={`row-acquirer-${uid}`}>
-                      <Users className="w-3.5 h-3.5 text-primary flex-shrink-0" />
-                      <span className="text-sm font-medium">{user ? `${user.firstName || ""} ${user.lastName || ""}`.trim() || user.username : `ID ${uid}`}</span>
-                      <span className="text-xs text-muted-foreground" style={{ display: user?.username ? 'inline' : 'none' }}>({user?.username})</span>
-                      <span className="text-xs text-muted-foreground font-mono ml-auto" style={{ display: user?.uid ? 'inline' : 'none' }}>{user?.uid}</span>
-                      <Button
-                        size="icon"
-                        variant="ghost"
-                        onClick={() => setAcquirerUserIds(prev => prev.filter(id => id !== uid))}
-                        data-testid={`button-remove-acquirer-${uid}`}
-                      >
-                        <X className="w-3.5 h-3.5" />
-                      </Button>
+                        className="font-mono text-sm"
+                        data-testid="input-specialist-uid"
+                      />
+                      {(() => {
+                        const searchLower = rewardSearchSpecialist.toLowerCase().trim();
+                        const filtered = searchLower && searchLower.length >= 2
+                          ? (appUsersAll || []).filter(u =>
+                              (`${u.firstName || ""} ${u.lastName || ""} ${u.username || ""} ${u.uid || ""}`.toLowerCase().includes(searchLower))
+                            )
+                          : [];
+                        return (
+                          <div className="absolute top-full left-0 right-0 z-50 border rounded-md bg-popover max-h-[120px] overflow-y-auto" style={{ display: filtered.length > 0 ? 'block' : 'none' }} data-testid="list-specialist-suggestions">
+                            {filtered.slice(0, 8).map(u => (
+                              <div
+                                key={u.id}
+                                className="flex items-center gap-2 px-3 py-1.5 cursor-pointer hover-elevate text-sm"
+                                onClick={() => {
+                                  setSpecialistUid(u.uid || "");
+                                  setRewardSearchSpecialist("");
+                                }}
+                                data-testid={`row-specialist-suggestion-${u.id}`}
+                              >
+                                <span className="font-medium text-xs">{u.firstName || ""} {u.lastName || ""}</span>
+                                <span className="text-xs text-muted-foreground font-mono ml-auto">{u.uid || ""}</span>
+                              </div>
+                            ))}
+                          </div>
+                        );
+                      })()}
                     </div>
-                  );
-                })}
-                <p className="text-xs text-muted-foreground" style={{ display: acquirerUserIds.length === 0 ? 'block' : 'none' }}>
-                  Ziadni ziskatelia. Vyhladajte a pridajte pouzivatelov.
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-xs text-muted-foreground">Podiel (%)</label>
+                    <div className="relative">
+                      <Input
+                        type="number"
+                        min="0"
+                        max="100"
+                        step="0.01"
+                        placeholder="0"
+                        value={specialistPercentage}
+                        onChange={e => setSpecialistPercentage(e.target.value)}
+                        className="pr-8 font-mono text-sm"
+                        data-testid="input-specialist-percentage"
+                      />
+                      <Percent className="absolute right-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+                    </div>
+                  </div>
+                </div>
+                <p className="text-[10px] text-muted-foreground">
+                  Ak nie su zadani odporucitelia, specialista bude automaticky pridany ako odporucitel s 0%.
                 </p>
+              </div>
+
+              <div className="border rounded-md p-3 space-y-2" data-testid="panel-recommenders-reward">
+                <div className="flex items-center justify-between gap-2 flex-wrap">
+                  <div className="flex items-center gap-2">
+                    <Users className="w-3.5 h-3.5 text-primary" />
+                    <span className="text-xs font-semibold uppercase tracking-wide">Odporucitelia</span>
+                    <Badge variant="outline" className="text-[10px]">{recommenders.length}</Badge>
+                  </div>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => {
+                      setAddingRecommender(true);
+                      setNewRecommenderUid("");
+                      setNewRecommenderPercentage("");
+                      setRewardSearchRecommender("");
+                    }}
+                    data-testid="button-add-recommender"
+                  >
+                    <Plus className="w-3.5 h-3.5 mr-1" /> Pridat odporucitela
+                  </Button>
+                </div>
+
+                <div className="border rounded-md p-2 space-y-2" style={{ display: addingRecommender ? 'block' : 'none' }} data-testid="panel-add-recommender">
+                  <div className="grid grid-cols-2 gap-2">
+                    <div className="space-y-1">
+                      <label className="text-xs text-muted-foreground">UID odporucitela</label>
+                      <div className="relative">
+                        <Input
+                          placeholder="Zadajte UID alebo hladajte..."
+                          value={newRecommenderUid}
+                          onChange={e => {
+                            setNewRecommenderUid(e.target.value);
+                            setRewardSearchRecommender(e.target.value);
+                          }}
+                          className="font-mono text-sm"
+                          data-testid="input-new-recommender-uid"
+                        />
+                        {(() => {
+                          const searchLower = rewardSearchRecommender.toLowerCase().trim();
+                          const filtered = searchLower && searchLower.length >= 2
+                            ? (appUsersAll || []).filter(u =>
+                                (`${u.firstName || ""} ${u.lastName || ""} ${u.username || ""} ${u.uid || ""}`.toLowerCase().includes(searchLower))
+                              )
+                            : [];
+                          return (
+                            <div className="absolute top-full left-0 right-0 z-50 border rounded-md bg-popover max-h-[120px] overflow-y-auto" style={{ display: filtered.length > 0 ? 'block' : 'none' }} data-testid="list-recommender-suggestions">
+                              {filtered.slice(0, 8).map(u => (
+                                <div
+                                  key={u.id}
+                                  className="flex items-center gap-2 px-3 py-1.5 cursor-pointer hover-elevate text-sm"
+                                  onClick={() => {
+                                    setNewRecommenderUid(u.uid || "");
+                                    setRewardSearchRecommender("");
+                                  }}
+                                  data-testid={`row-recommender-suggestion-${u.id}`}
+                                >
+                                  <span className="font-medium text-xs">{u.firstName || ""} {u.lastName || ""}</span>
+                                  <span className="text-xs text-muted-foreground font-mono ml-auto">{u.uid || ""}</span>
+                                </div>
+                              ))}
+                            </div>
+                          );
+                        })()}
+                      </div>
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-xs text-muted-foreground">Podiel (%)</label>
+                      <div className="relative">
+                        <Input
+                          type="number"
+                          min="0"
+                          max="100"
+                          step="0.01"
+                          placeholder="0"
+                          value={newRecommenderPercentage}
+                          onChange={e => setNewRecommenderPercentage(e.target.value)}
+                          className="pr-8 font-mono text-sm"
+                          data-testid="input-new-recommender-percentage"
+                        />
+                        <Percent className="absolute right-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+                      </div>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2 justify-end">
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => setAddingRecommender(false)}
+                      data-testid="button-cancel-recommender"
+                    >
+                      Zrusit
+                    </Button>
+                    <Button
+                      size="sm"
+                      onClick={() => {
+                        if (!newRecommenderUid.trim()) {
+                          toast({ title: "Chyba", description: "Zadajte UID odporucitela", variant: "destructive" });
+                          return;
+                        }
+                        const newTotal = rewardTotalPercentage + (parseFloat(newRecommenderPercentage) || 0);
+                        if (newTotal > 100) {
+                          toast({ title: "Chyba", description: `Sucet percent by presahoval 100% (${newTotal.toFixed(2)}%)`, variant: "destructive" });
+                          return;
+                        }
+                        setRecommenders(prev => [...prev, { uid: newRecommenderUid.trim(), percentage: newRecommenderPercentage || "0" }]);
+                        setNewRecommenderUid("");
+                        setNewRecommenderPercentage("");
+                        setRewardSearchRecommender("");
+                        setAddingRecommender(false);
+                      }}
+                      data-testid="button-confirm-recommender"
+                    >
+                      <Check className="w-3.5 h-3.5 mr-1" /> Potvrdit
+                    </Button>
+                  </div>
+                </div>
+
+                <div className="space-y-1" data-testid="list-recommenders">
+                  {recommenders.map((rec, idx) => {
+                    const user = (appUsersAll || []).find(u => u.uid === rec.uid);
+                    return (
+                      <div key={`${rec.uid}-${idx}`} className="flex items-center gap-2 px-3 py-1.5 border rounded-md bg-muted/30" data-testid={`row-recommender-${idx}`}>
+                        <Users className="w-3.5 h-3.5 text-primary flex-shrink-0" />
+                        <span className="text-sm font-medium">{user ? `${user.firstName || ""} ${user.lastName || ""}`.trim() || user.username : rec.uid}</span>
+                        <span className="text-xs text-muted-foreground font-mono">{rec.uid}</span>
+                        <div className="flex items-center gap-1 ml-auto">
+                          <Input
+                            type="number"
+                            min="0"
+                            max="100"
+                            step="0.01"
+                            value={rec.percentage}
+                            onChange={e => {
+                              const val = e.target.value;
+                              setRecommenders(prev => prev.map((r, i) => i === idx ? { ...r, percentage: val } : r));
+                            }}
+                            className="w-20 h-7 text-xs font-mono text-right"
+                            data-testid={`input-recommender-percentage-${idx}`}
+                          />
+                          <span className="text-xs text-muted-foreground">%</span>
+                        </div>
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          onClick={() => setRecommenders(prev => prev.filter((_, i) => i !== idx))}
+                          data-testid={`button-remove-recommender-${idx}`}
+                        >
+                          <X className="w-3.5 h-3.5" />
+                        </Button>
+                      </div>
+                    );
+                  })}
+                  <div style={{ display: recommenders.length === 0 && specialistUid ? 'block' : 'none' }}>
+                    <div className="flex items-center gap-2 px-3 py-1.5 border rounded-md bg-muted/20 border-dashed" data-testid="row-autofill-recommender">
+                      <Users className="w-3.5 h-3.5 text-muted-foreground flex-shrink-0" />
+                      <span className="text-sm text-muted-foreground italic">
+                        {(() => {
+                          const user = (appUsersAll || []).find(u => u.uid === specialistUid);
+                          return user ? `${user.firstName || ""} ${user.lastName || ""}`.trim() || user.username : specialistUid;
+                        })()}
+                      </span>
+                      <span className="text-xs text-muted-foreground font-mono">{specialistUid}</span>
+                      <span className="text-[10px] text-muted-foreground ml-auto">0% (auto)</span>
+                    </div>
+                    <p className="text-[10px] text-muted-foreground mt-1">
+                      Specialista bude automaticky pridany ako odporucitel s 0% pri ulozeni.
+                    </p>
+                  </div>
+                  <p className="text-xs text-muted-foreground" style={{ display: recommenders.length === 0 && !specialistUid ? 'block' : 'none' }}>
+                    Ziadni odporucitelia. Zadajte specialistu alebo pridajte odporucitelov manualne.
+                  </p>
+                </div>
               </div>
             </div>
           </div>
