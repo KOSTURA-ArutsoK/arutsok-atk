@@ -37,6 +37,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { UIDInput } from "@/components/uid-input";
 
 type PanelWithParams = {
   id: number;
@@ -749,6 +750,43 @@ export default function ContractForm() {
   const [rewardSpecialistUid, setRewardSpecialistUid] = useState("");
   const [rewardSpecialistPercentage, setRewardSpecialistPercentage] = useState("");
 
+  const { data: uidPrefixData } = useQuery<{ prefix: string }>({
+    queryKey: ["/api/uid-prefix"],
+  });
+  const uidPrefix = uidPrefixData?.prefix || "";
+
+  const [subjectNames, setSubjectNames] = useState<Record<string, { name: string | null; loading: boolean }>>({});
+  const subjectLookupTimers = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
+
+  const lookupSubjectByUid = useCallback((uid: string) => {
+    const raw = uid.replace(/\s/g, "");
+    if (raw.length !== 15) {
+      setSubjectNames(prev => {
+        const next = { ...prev };
+        delete next[raw];
+        return next;
+      });
+      return;
+    }
+    if (subjectLookupTimers.current[raw]) {
+      clearTimeout(subjectLookupTimers.current[raw]);
+    }
+    setSubjectNames(prev => ({ ...prev, [raw]: { name: null, loading: true } }));
+    subjectLookupTimers.current[raw] = setTimeout(async () => {
+      try {
+        const res = await fetch(`/api/subjects/by-uid/${raw}`, { credentials: "include" });
+        if (res.ok) {
+          const data = await res.json();
+          setSubjectNames(prev => ({ ...prev, [raw]: { name: data.displayName, loading: false } }));
+        } else {
+          setSubjectNames(prev => ({ ...prev, [raw]: { name: null, loading: false } }));
+        }
+      } catch {
+        setSubjectNames(prev => ({ ...prev, [raw]: { name: null, loading: false } }));
+      }
+    }, 400);
+  }, []);
+
   const [contractSectorId, setContractSectorId] = useState<string>("");
   const [contractSectionId, setContractSectionId] = useState<string>("");
   const [sectorProductId, setSectorProductIdRaw] = useState<string>("");
@@ -1141,18 +1179,21 @@ export default function ContractForm() {
       if (savedRewardDistributions.length > 0) {
         const recommenders = savedRewardDistributions
           .filter(d => d.type === "recommender")
-          .map((d, i) => ({ id: `saved-${d.id || i}`, uid: d.uid, percentage: d.percentage }));
+          .map((d, i) => ({ id: `saved-${d.id || i}`, uid: (d.uid || "").replace(/\s/g, ""), percentage: d.percentage }));
         const specialist = savedRewardDistributions.find(d => d.type === "specialist");
         setRewardRecommenders(recommenders);
-        setRewardSpecialistUid(specialist?.uid || "");
+        const specUid = (specialist?.uid || "").replace(/\s/g, "");
+        setRewardSpecialistUid(specUid);
         setRewardSpecialistPercentage(specialist?.percentage || "");
+        if (specUid) lookupSubjectByUid(specUid);
+        recommenders.forEach(r => { if (r.uid) lookupSubjectByUid(r.uid); });
       } else {
         setRewardRecommenders([]);
         setRewardSpecialistUid("");
         setRewardSpecialistPercentage("");
       }
     }
-  }, [savedRewardDistributions]);
+  }, [savedRewardDistributions, lookupSubjectByUid]);
 
   const saveParamValuesMutation = useMutation({
     mutationFn: (data: { contractId: number; values: { parameterId: number; value: string; snapshotLabel?: string; snapshotType?: string; snapshotOptions?: string[]; snapshotHelpText?: string }[] }) =>
@@ -2000,17 +2041,22 @@ export default function ContractForm() {
                         <CardContent className="p-4 space-y-3">
                           <h4 className="text-sm font-semibold" data-testid="text-specialist-title-zisk">Odmena pre specialistu</h4>
                           <p className="text-xs text-muted-foreground">Osoba zodpovedna za spravnost zmluvy</p>
-                          <div className="flex items-center gap-2">
+                          <div className="flex items-start gap-2">
                             <div className="flex-1">
-                              <Input
-                                placeholder="UID kod"
+                              <UIDInput
                                 value={rewardSpecialistUid}
-                                onChange={e => setRewardSpecialistUid(e.target.value)}
-                                className="font-mono text-sm"
+                                onChange={(val) => {
+                                  setRewardSpecialistUid(val);
+                                  lookupSubjectByUid(val);
+                                }}
+                                prefix={uidPrefix}
+                                subjectName={subjectNames[rewardSpecialistUid]?.name ?? null}
+                                isLoadingSubject={subjectNames[rewardSpecialistUid]?.loading ?? false}
+                                placeholder="UID kód"
                                 data-testid="input-specialist-uid-zisk"
                               />
                             </div>
-                            <div className="w-28">
+                            <div className="w-28 pt-0">
                               <div className="flex items-center gap-1">
                                 <Input
                                   placeholder="0"
@@ -2039,21 +2085,24 @@ export default function ContractForm() {
                           <h4 className="text-sm font-semibold" data-testid="text-recommenders-title-zisk">Odmeny pre odporucitelov</h4>
                           <div className="space-y-2">
                             {rewardRecommenders.map((rec, idx) => (
-                              <div key={rec.id} className="flex items-center gap-2" data-testid={`row-recommender-zisk-${idx}`}>
+                              <div key={rec.id} className="flex items-start gap-2" data-testid={`row-recommender-zisk-${idx}`}>
                                 <div className="flex-1">
-                                  <Input
-                                    placeholder="UID kod"
+                                  <UIDInput
                                     value={rec.uid}
-                                    onChange={e => {
+                                    onChange={(val) => {
                                       const next = [...rewardRecommenders];
-                                      next[idx] = { ...next[idx], uid: e.target.value };
+                                      next[idx] = { ...next[idx], uid: val };
                                       setRewardRecommenders(next);
+                                      lookupSubjectByUid(val);
                                     }}
-                                    className="font-mono text-sm"
+                                    prefix={uidPrefix}
+                                    subjectName={subjectNames[rec.uid]?.name ?? null}
+                                    isLoadingSubject={subjectNames[rec.uid]?.loading ?? false}
+                                    placeholder="UID kód"
                                     data-testid={`input-recommender-uid-zisk-${idx}`}
                                   />
                                 </div>
-                                <div className="w-28">
+                                <div className="w-28 pt-0">
                                   <div className="flex items-center gap-1">
                                     <Input
                                       placeholder="0"

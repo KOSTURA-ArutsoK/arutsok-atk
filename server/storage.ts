@@ -155,6 +155,8 @@ export interface IStorage {
   
   getSubjects(params?: { search?: string; type?: 'person' | 'company'; isActive?: boolean; myCompanyId?: number }): Promise<Subject[]>;
   getSubject(id: number): Promise<Subject | undefined>;
+  getSubjectByUid(uid: string): Promise<Subject | undefined>;
+  getDynamicUIDPrefix(): Promise<string>;
   createSubject(subject: InsertSubject): Promise<Subject>;
   updateSubject(id: number, updates: UpdateSubjectRequest): Promise<Subject>;
   archiveSubject(id: number, reason: string): Promise<void>;
@@ -932,6 +934,46 @@ export class DatabaseStorage implements IStorage {
   async getSubject(id: number) {
     const [subject] = await db.select().from(subjects).where(eq(subjects.id, id));
     return subject;
+  }
+
+  async getSubjectByUid(uid: string) {
+    const raw = uid.replace(/\s/g, "");
+    const formatted = raw.replace(/(\d{3})(?=\d)/g, "$1 ");
+    const [subject] = await db.select().from(subjects).where(
+      or(eq(subjects.uid, raw), eq(subjects.uid, formatted))
+    );
+    return subject;
+  }
+
+  async getDynamicUIDPrefix(): Promise<string> {
+    const recentSubjects = await db
+      .select({ uid: subjects.uid })
+      .from(subjects)
+      .where(eq(subjects.isActive, true))
+      .orderBy(desc(subjects.id))
+      .limit(10);
+
+    if (recentSubjects.length === 0) return "";
+
+    const uids = recentSubjects.map(s => s.uid?.replace(/\s/g, "")).filter((u): u is string => !!u && /^\d{12,15}$/.test(u));
+    if (uids.length === 0) return "";
+
+    let prefix = uids[0];
+    for (let i = 1; i < uids.length; i++) {
+      let common = "";
+      for (let j = 0; j < prefix.length && j < uids[i].length; j++) {
+        if (prefix[j] === uids[i][j]) {
+          common += prefix[j];
+        } else {
+          break;
+        }
+      }
+      prefix = common;
+      if (prefix.length === 0) break;
+    }
+
+    const aligned = Math.floor(prefix.length / 3) * 3;
+    return aligned > 0 && aligned < 15 ? prefix.slice(0, aligned) : "";
   }
 
   async createSubject(insertSubject: InsertSubject) {

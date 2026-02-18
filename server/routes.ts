@@ -3129,6 +3129,37 @@ export async function registerRoutes(
     }
   });
 
+  app.get("/api/uid-prefix", isAuthenticated, async (_req, res) => {
+    try {
+      const prefix = await storage.getDynamicUIDPrefix();
+      res.json({ prefix });
+    } catch (err) {
+      res.status(500).json({ message: "Internal error" });
+    }
+  });
+
+  app.get("/api/subjects/by-uid/:uid", isAuthenticated, async (req, res) => {
+    try {
+      const { uid } = req.params;
+      const subject = await storage.getSubjectByUid(uid);
+      if (!subject) {
+        return res.status(404).json({ message: "Subject not found" });
+      }
+      const details = (subject as any).details || {};
+      const nameParts = [
+        details.titul_pred || details.titleBefore || '',
+        details.meno || subject.firstName || '',
+        details.druhe_meno || '',
+        details.priezvisko || subject.lastName || '',
+        details.titul_za || details.titleAfter || '',
+      ].filter(Boolean);
+      const displayName = nameParts.join(' ') || subject.companyName || 'Neznámy subjekt';
+      res.json({ id: subject.id, uid: subject.uid, displayName, type: subject.type });
+    } catch (err) {
+      res.status(500).json({ message: "Internal error" });
+    }
+  });
+
   // === ARCHIVE MODULE ===
   app.get("/api/archive/deleted", isAuthenticated, async (_req, res) => {
     try {
