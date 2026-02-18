@@ -1979,89 +1979,7 @@ export default function ContractForm() {
               <h2 className="text-base font-semibold">Ziskatelia</h2>
               {isEditing ? (
                 <>
-                  <Card>
-                    <CardContent className="p-4 space-y-3">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <Select
-                          value=""
-                          onValueChange={async (userId) => {
-                            if (!userId || !contractId) return;
-                            const existing = acquirers?.find(a => a.userId === Number(userId));
-                            if (existing) {
-                              toast({ title: "Uz priradeny", description: "Tento pouzivatel je uz priradeny ako ziskatel.", variant: "destructive" });
-                              return;
-                            }
-                            try {
-                              await apiRequest("POST", `/api/contracts/${contractId}/acquirers`, { userId: Number(userId) });
-                              queryClient.invalidateQueries({ queryKey: ["/api/contracts", contractId, "acquirers"] });
-                              toast({ title: "Ziskatel pridany" });
-                            } catch (err: any) {
-                              toast({ title: "Chyba", description: err.message, variant: "destructive" });
-                            }
-                          }}
-                        >
-                          <SelectTrigger className="max-w-xs" data-testid="select-add-acquirer">
-                            <SelectValue placeholder="Pridat ziskatela..." />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {allAppUsers?.filter(u => !acquirers?.some(a => a.userId === u.id)).map(u => (
-                              <SelectItem key={u.id} value={u.id.toString()} data-testid={`option-acquirer-${u.id}`}>
-                                {u.firstName} {u.lastName} ({u.username || u.email})
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-
-                      <div style={{ display: acquirersLoading ? 'block' : 'none' }}>
-                        <div className="flex items-center gap-2 py-4 justify-center">
-                          <Loader2 className="w-4 h-4 animate-spin" />
-                          <span className="text-sm text-muted-foreground">Nacitavam...</span>
-                        </div>
-                      </div>
-
-                      <div style={{ display: !acquirersLoading && (!acquirers || acquirers.length === 0) ? 'block' : 'none' }}>
-                        <p className="text-sm text-muted-foreground text-center py-4" data-testid="text-no-acquirers">
-                          Ziadni ziskatelia neboli priradeni k tejto zmluve.
-                        </p>
-                      </div>
-
-                      <div style={{ display: !acquirersLoading && acquirers && acquirers.length > 0 ? 'block' : 'none' }}>
-                        <div className="space-y-2">
-                          {acquirers?.map(acq => {
-                            const user = allAppUsers?.find(u => u.id === acq.userId);
-                            return (
-                              <div key={acq.id} className="flex items-center justify-between gap-2 p-2 rounded-md border" data-testid={`acquirer-row-${acq.id}`}>
-                                <div className="flex items-center gap-2">
-                                  <UserCheck className="w-4 h-4 text-muted-foreground" />
-                                  <span className="text-sm font-medium">{user ? `${user.firstName} ${user.lastName}` : `Pouzivatel #${acq.userId}`}</span>
-                                  <span className="text-xs text-muted-foreground">{user?.email || ""}</span>
-                                </div>
-                                <Button
-                                  size="icon"
-                                  variant="ghost"
-                                  onClick={async () => {
-                                    try {
-                                      await apiRequest("DELETE", `/api/contract-acquirers/${acq.id}`);
-                                      queryClient.invalidateQueries({ queryKey: ["/api/contracts", contractId, "acquirers"] });
-                                      toast({ title: "Ziskatel odobrany" });
-                                    } catch (err: any) {
-                                      toast({ title: "Chyba", description: err.message, variant: "destructive" });
-                                    }
-                                  }}
-                                  data-testid={`button-remove-acquirer-${acq.id}`}
-                                >
-                                  <Trash2 className="w-4 h-4" />
-                                </Button>
-                              </div>
-                            );
-                          })}
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-
-                  <div className="border-t border-border pt-4 mt-4">
+                  <div>
                     <h3 className="text-sm font-semibold mb-3">Rozdelenie odmien</h3>
                     <div style={{ display: getRewardTotalPercentage() > 100 ? 'block' : 'none' }}>
                       <div className="bg-destructive/10 border border-destructive/30 rounded-md p-2 mb-3">
@@ -2193,25 +2111,6 @@ export default function ContractForm() {
                   </CardContent>
                 </Card>
               )}
-
-              <div style={{ display: isEditing ? 'flex' : 'none' }} className="items-center gap-2 pt-4 border-t border-border mt-4 flex-wrap">
-                <Button
-                  variant="outline"
-                  onClick={() => setPasswordsOpen(true)}
-                  data-testid="button-ziskatelia-passwords"
-                >
-                  <Lock className="w-4 h-4 mr-1" />
-                  Hesla k zmluvam
-                </Button>
-                <div className="flex-1" />
-                <Button
-                  onClick={() => navigate("/evidencia-zmluv")}
-                  data-testid="button-finish-contract"
-                >
-                  <Check className="w-4 h-4 mr-1" />
-                  Dokoncit
-                </Button>
-              </div>
             </div>
           </div>
 
