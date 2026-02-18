@@ -242,7 +242,10 @@ function FieldFormDialog({
     },
     onSuccess: () => {
       toast({ title: "Parameter vytvoreny" });
-      queryClient.invalidateQueries({ queryKey: ["/api/client-types", clientTypeId, "fields"] });
+      queryClient.invalidateQueries({ predicate: (query) => {
+        const key = query.queryKey;
+        return Array.isArray(key) && typeof key[0] === "string" && (key[0] as string).startsWith("/api/client-types");
+      }});
       onOpenChange(false);
     },
     onError: () => { toast({ title: "Chyba", variant: "destructive" }); },
@@ -266,7 +269,10 @@ function FieldFormDialog({
     },
     onSuccess: () => {
       toast({ title: "Parameter aktualizovany" });
-      queryClient.invalidateQueries({ queryKey: ["/api/client-types", clientTypeId, "fields"] });
+      queryClient.invalidateQueries({ predicate: (query) => {
+        const key = query.queryKey;
+        return Array.isArray(key) && typeof key[0] === "string" && (key[0] as string).startsWith("/api/client-types");
+      }});
       onOpenChange(false);
     },
     onError: () => { toast({ title: "Chyba", variant: "destructive" }); },
@@ -707,7 +713,10 @@ function FolderSection({
       await apiRequest("DELETE", `/api/client-type-fields/${deleteTarget!.id}`);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/client-types", clientTypeId, "fields"] });
+      queryClient.invalidateQueries({ predicate: (query) => {
+        const key = query.queryKey;
+        return Array.isArray(key) && typeof key[0] === "string" && (key[0] as string).startsWith("/api/client-types");
+      }});
       toast({ title: "Uspech", description: "Parameter vymazany" });
       setDeleteTarget(null);
     },
@@ -719,7 +728,10 @@ function FolderSection({
       await apiRequest("PATCH", `/api/client-type-fields/${id}/layout`, data);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/client-types", clientTypeId, "fields"] });
+      queryClient.invalidateQueries({ predicate: (query) => {
+        const key = query.queryKey;
+        return Array.isArray(key) && typeof key[0] === "string" && (key[0] as string).startsWith("/api/client-types");
+      }});
     },
     onError: () => toast({ title: "Chyba", description: "Nepodarilo sa ulozit zmenu", variant: "destructive" }),
   });

@@ -307,14 +307,18 @@ function SubjectDataTab({ subject }: { subject: Subject }) {
         </div>
         {isPerson || isSzco ? (
           <>
+            {!(typeFields || []).find(f => f.fieldKey === "meno")?.isHidden && (
             <div>
               <span className="text-xs text-muted-foreground">Meno</span>
               <p className="text-sm">{subject.firstName || '-'}</p>
             </div>
+            )}
+            {!(typeFields || []).find(f => f.fieldKey === "priezvisko")?.isHidden && (
             <div>
               <span className="text-xs text-muted-foreground">Priezvisko</span>
               <p className="text-sm">{subject.lastName || '-'}</p>
             </div>
+            )}
           </>
         ) : (
           <div className="col-span-2">
@@ -322,14 +326,18 @@ function SubjectDataTab({ subject }: { subject: Subject }) {
             <p className="text-sm">{subject.companyName || '-'}</p>
           </div>
         )}
+        {!(typeFields || []).find(f => f.fieldKey === "email")?.isHidden && (
         <div>
           <span className="text-xs text-muted-foreground">Email</span>
           <p className="text-sm">{subject.email || '-'}</p>
         </div>
+        )}
+        {!(typeFields || []).find(f => f.fieldKey === "telefon")?.isHidden && (
         <div>
           <span className="text-xs text-muted-foreground">Telefon</span>
           <p className="text-sm">{subject.phone || '-'}</p>
         </div>
+        )}
       </div>
 
       <Accordion type="multiple" defaultValue={["povinne", "doplnkove"]} className="space-y-2">
@@ -1106,9 +1114,14 @@ function FullPageEditor({
                             <CardContent className="p-4 space-y-3">
                               <p className="text-sm font-semibold">Osobné údaje</p>
                               {FO_POVINNE_ROWS.map((row, rowIdx) => {
-                                const rowEntries = row.keys.map(k => ({ key: k, field: povinneFields.find(f => f.fieldKey === k) }));
-                                const hasAny = rowEntries.some(e => e.field) || row.keys.includes("statna_prislusnost");
-                                if (!hasAny) return null;
+                                const rowEntries = row.keys
+                                  .filter(k => {
+                                    const fullField = (typeFields || []).find(f => f.fieldKey === k);
+                                    return !fullField || !fullField.isHidden;
+                                  })
+                                  .map(k => ({ key: k, field: povinneFields.find(f => f.fieldKey === k) }));
+                                const hasAny = rowEntries.some(e => e.field) || rowEntries.some(e => e.key === "statna_prislusnost");
+                                if (!hasAny || rowEntries.length === 0) return null;
                                 const gridClass = row.cols;
                                 return (
                                   <div key={rowIdx} className={`grid ${gridClass} gap-3`} data-testid={`row-povinne-${rowIdx + 3}`}>
