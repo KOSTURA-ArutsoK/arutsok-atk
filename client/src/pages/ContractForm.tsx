@@ -2278,7 +2278,7 @@ export default function ContractForm() {
             className="bg-emerald-600 hover:bg-emerald-700 text-white"
             onClick={() => {
               if (activeTab === "ziskatelia" && hasAnyRewardData() && Math.round(getRewardTotalPercentage() * 100) !== 10000) {
-                toast({ title: "Upozornenie", description: "Provízia nie je rozdelená na 100 percent.", variant: "destructive" });
+                toast({ title: "Upozornenie", description: "Provízia nie je rozdelená na 100 percent medzi získateľov.", variant: "destructive" });
                 return;
               }
               const idx = TABS.findIndex(t => t.key === activeTab);
