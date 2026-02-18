@@ -321,10 +321,12 @@ function SubjectDataTab({ subject }: { subject: Subject }) {
             )}
           </>
         ) : (
+          !(typeFields || []).find(f => f.fieldKey === "nazov_organizacie")?.isHidden && (
           <div className="col-span-2">
             <span className="text-xs text-muted-foreground">Nazov spolocnosti</span>
             <p className="text-sm">{subject.companyName || '-'}</p>
           </div>
+          )
         )}
         {!(typeFields || []).find(f => f.fieldKey === "email")?.isHidden && (
         <div>
