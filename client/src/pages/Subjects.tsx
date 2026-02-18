@@ -1719,7 +1719,7 @@ function SubjectEditModal({ subject, onClose }: { subject: Subject & { isOwner?:
                 {isPerson ? (
                   <div>
                     <Label className="text-xs text-muted-foreground">Rodne cislo (RC)</Label>
-                    <Input value={subject.birthNumber || "***"} disabled className="mt-1" data-testid="input-edit-rc-locked" />
+                    <Input value={subject.birthNumber || ""} disabled className="mt-1" data-testid="input-edit-rc-locked" />
                   </div>
                 ) : (
                   <div>
