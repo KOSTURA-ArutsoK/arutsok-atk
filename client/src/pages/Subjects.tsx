@@ -681,11 +681,12 @@ function InitialRegistrationModal({
   );
 }
 
-function DynamicFieldInput({ field, dynamicValues, setDynamicValues, hasError }: {
+function DynamicFieldInput({ field, dynamicValues, setDynamicValues, hasError, disabled }: {
   field: ClientTypeField;
   dynamicValues: Record<string, string>;
   setDynamicValues: React.Dispatch<React.SetStateAction<Record<string, string>>>;
   hasError?: boolean;
+  disabled?: boolean;
 }) {
   const errorBorder = hasError ? "border-red-500 ring-1 ring-red-500" : "";
   return (
@@ -705,8 +706,9 @@ function DynamicFieldInput({ field, dynamicValues, setDynamicValues, hasError }:
         <Select
           value={dynamicValues[field.fieldKey] || ""}
           onValueChange={val => setDynamicValues(prev => ({ ...prev, [field.fieldKey]: val }))}
+          disabled={disabled}
         >
-          <SelectTrigger className={errorBorder} data-testid={`select-dynamic-${field.fieldKey}`}>
+          <SelectTrigger className={cn(errorBorder, disabled && "opacity-70")} data-testid={`select-dynamic-${field.fieldKey}`}>
             <SelectValue placeholder="Vyberte..." />
           </SelectTrigger>
           <SelectContent>
@@ -745,7 +747,8 @@ function DynamicFieldInput({ field, dynamicValues, setDynamicValues, hasError }:
           type="date"
           value={dynamicValues[field.fieldKey] || ""}
           onChange={e => setDynamicValues(prev => ({ ...prev, [field.fieldKey]: e.target.value }))}
-          className={errorBorder}
+          className={cn(errorBorder, disabled && "opacity-70")}
+          disabled={disabled}
           data-testid={`input-dynamic-${field.fieldKey}`}
         />
       ) : field.fieldType === "number" ? (
@@ -829,12 +832,41 @@ function FullPageEditor({
     });
   };
 
+  const parseRodneCislo = (rc: string): { pohlavie?: string; datumNarodenia?: string } => {
+    const clean = rc.replace(/[\s\/]/g, "");
+    if (clean.length < 6 || !/^\d+$/.test(clean)) return {};
+    const yy = parseInt(clean.substring(0, 2), 10);
+    let mm = parseInt(clean.substring(2, 4), 10);
+    const dd = parseInt(clean.substring(4, 6), 10);
+    const pohlavie = mm > 50 ? "žena" : "muž";
+    if (mm > 50) mm -= 50;
+    if (mm > 20) mm -= 20;
+    const year = yy >= 0 && yy <= 30 ? 2000 + yy : 1900 + yy;
+    if (mm < 1 || mm > 12 || dd < 1 || dd > 31) return { pohlavie };
+    const dateStr = `${year}-${String(mm).padStart(2, "0")}-${String(dd).padStart(2, "0")}`;
+    const parsed = new Date(dateStr);
+    if (isNaN(parsed.getTime())) return { pohlavie };
+    return { pohlavie, datumNarodenia: dateStr };
+  };
+
   useEffect(() => {
     if (isPerson && state?.name && !dynamicValues["statna_prislusnost"]) {
       const defaultCountry = getDefaultCountryForState(state.name);
       setDynamicValues(prev => prev["statna_prislusnost"] ? prev : { ...prev, statna_prislusnost: defaultCountry });
     }
   }, [isPerson, state?.name]);
+
+  useEffect(() => {
+    if (isPerson && initialData.baseValue) {
+      const parsed = parseRodneCislo(initialData.baseValue);
+      setDynamicValues(prev => {
+        const updates: Record<string, string> = {};
+        if (parsed.pohlavie && !prev["pohlavie"]) updates["pohlavie"] = parsed.pohlavie;
+        if (parsed.datumNarodenia && !prev["datum_narodenia"]) updates["datum_narodenia"] = parsed.datumNarodenia;
+        return Object.keys(updates).length > 0 ? { ...prev, ...updates } : prev;
+      });
+    }
+  }, [isPerson, initialData.baseValue]);
 
   const { data: typeFields } = useQuery<ClientTypeField[]>({
     queryKey: ["/api/client-types", clientType?.id, "fields"],
@@ -1108,9 +1140,11 @@ function FullPageEditor({
                                           </div>
                                         );
                                       }
+                                      const rcParsedResult = initialData.baseValue?.trim() ? parseRodneCislo(initialData.baseValue.trim()) : {};
+                                      const isRcAuto = (key === "pohlavie" && !!rcParsedResult.pohlavie) || (key === "datum_narodenia" && !!rcParsedResult.datumNarodenia);
                                       return field ? (
                                       <div key={key} className="min-w-0">
-                                        <DynamicFieldInput field={field} dynamicValues={dynamicValues} setDynamicValues={setDynamicValues} hasError={validationErrors.has(field.fieldKey)} />
+                                        <DynamicFieldInput field={field} dynamicValues={dynamicValues} setDynamicValues={setDynamicValues} hasError={validationErrors.has(field.fieldKey)} disabled={isRcAuto} />
                                       </div>
                                     ) : (
                                       <div key={key} className="min-w-0">

@@ -1711,6 +1711,23 @@ export default function Contracts() {
     setPreSelectOpen(true);
   };
 
+  const parseRodneCislo = (rc: string): { pohlavie?: string; datumNarodenia?: string } => {
+    const clean = rc.replace(/[\s\/]/g, "");
+    if (clean.length < 6 || !/^\d+$/.test(clean)) return {};
+    const yy = parseInt(clean.substring(0, 2), 10);
+    let mm = parseInt(clean.substring(2, 4), 10);
+    const dd = parseInt(clean.substring(4, 6), 10);
+    const pohlavie = mm > 50 ? "žena" : "muž";
+    if (mm > 50) mm -= 50;
+    if (mm > 20) mm -= 20;
+    const year = yy >= 0 && yy <= 30 ? 2000 + yy : 1900 + yy;
+    if (mm < 1 || mm > 12 || dd < 1 || dd > 31) return { pohlavie };
+    const dateStr = `${year}-${String(mm).padStart(2, "0")}-${String(dd).padStart(2, "0")}`;
+    const parsed = new Date(dateStr);
+    if (isNaN(parsed.getTime())) return { pohlavie };
+    return { pohlavie, datumNarodenia: dateStr };
+  };
+
   const handleShowInlineCreate = () => {
     const selectedCt = activeClientTypes.find(ct => ct.id.toString() === preSelectClientTypeId);
     const ctCode = selectedCt ? selectedCt.code.toLowerCase() : "fo";
@@ -1728,6 +1745,9 @@ export default function Contracts() {
     });
     if (type === "fo" && preSelectSubjectSearch.trim()) {
       defaults["rodne_cislo"] = preSelectSubjectSearch.trim();
+      const parsed = parseRodneCislo(preSelectSubjectSearch.trim());
+      if (parsed.pohlavie) defaults["pohlavie"] = parsed.pohlavie;
+      if (parsed.datumNarodenia) defaults["datum_narodenia"] = parsed.datumNarodenia;
     }
     const activeState = allStates?.find(s => s.id === appUser?.activeStateId);
     if ((type === "fo") && activeState?.name) {
@@ -2011,6 +2031,13 @@ export default function Contracts() {
                 koa: { label: "Kontaktná adresa", keys: ["koa_ulica", "koa_supisne", "koa_orientacne", "koa_psc", "koa_mesto", "koa_stat"] },
               };
 
+              const rcParsed = inlineFormValues["rodne_cislo"]?.trim() ? parseRodneCislo(inlineFormValues["rodne_cislo"].trim()) : {};
+              const isRcAutoDisabled = (key: string) => {
+                if (key === "pohlavie") return !!rcParsed.pohlavie;
+                if (key === "datum_narodenia") return !!rcParsed.datumNarodenia;
+                return false;
+              };
+
               const renderInlineField = (field: ClientTypeField) => {
                 const errCls = inlineValidationErrors.has(field.fieldKey) ? "border-red-500 ring-1 ring-red-500" : "";
                 if (field.fieldType === "switch") {
@@ -2026,12 +2053,14 @@ export default function Contracts() {
                   );
                 }
                 if (field.fieldType === "jedna_moznost") {
+                  const autoDisabled = isRcAutoDisabled(field.fieldKey);
                   return (
                     <Select
                       value={inlineFormValues[field.fieldKey] || ""}
                       onValueChange={val => { setInlineFormValues(prev => ({ ...prev, [field.fieldKey]: val })); setInlineValidationErrors(prev => { const n = new Set(prev); n.delete(field.fieldKey); return n; }); }}
+                      disabled={autoDisabled}
                     >
-                      <SelectTrigger className={errCls} data-testid={`select-inline-${field.fieldKey}`}>
+                      <SelectTrigger className={cn(errCls, autoDisabled && "opacity-70")} data-testid={`select-inline-${field.fieldKey}`}>
                         <SelectValue placeholder="Vyberte..." />
                       </SelectTrigger>
                       <SelectContent>
@@ -2043,12 +2072,14 @@ export default function Contracts() {
                   );
                 }
                 if (field.fieldType === "date") {
+                  const autoDisabled = isRcAutoDisabled(field.fieldKey);
                   return (
                     <Input
                       type="date"
                       value={inlineFormValues[field.fieldKey] || ""}
                       onChange={e => { setInlineFormValues(prev => ({ ...prev, [field.fieldKey]: e.target.value })); setInlineValidationErrors(prev => { const n = new Set(prev); n.delete(field.fieldKey); return n; }); }}
-                      className={errCls}
+                      className={cn(errCls, autoDisabled && "opacity-70")}
+                      disabled={autoDisabled}
                       data-testid={`input-inline-${field.fieldKey}`}
                     />
                   );
