@@ -3,6 +3,7 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useAppUser } from "@/hooks/use-app-user";
 import { useToast } from "@/hooks/use-toast";
+import { useTableSort } from "@/hooks/use-table-sort";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -87,6 +88,10 @@ export default function Archive() {
   const products = data?.products || [];
   const totalDeleted = companies.length + partners.length + products.length;
 
+  const { sortedData: sortedCompanies, sortKey: sortKeyCompanies, sortDirection: sortDirCompanies, requestSort: requestSortCompanies } = useTableSort(companies);
+  const { sortedData: sortedPartners, sortKey: sortKeyPartners, sortDirection: sortDirPartners, requestSort: requestSortPartners } = useTableSort(partners);
+  const { sortedData: sortedProducts, sortKey: sortKeyProducts, sortDirection: sortDirProducts, requestSort: requestSortProducts } = useTableSort(products);
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between flex-wrap gap-2">
@@ -130,16 +135,16 @@ export default function Archive() {
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>Nazov</TableHead>
-                      <TableHead>Kod</TableHead>
-                      <TableHead>Vymazal</TableHead>
-                      <TableHead>Datum vymazania</TableHead>
-                      <TableHead>IP</TableHead>
+                      <TableHead sortKey="name" sortDirection={sortKeyCompanies === "name" ? sortDirCompanies : null} onSort={requestSortCompanies}>Nazov</TableHead>
+                      <TableHead sortKey="code" sortDirection={sortKeyCompanies === "code" ? sortDirCompanies : null} onSort={requestSortCompanies}>Kod</TableHead>
+                      <TableHead sortKey="deletedBy" sortDirection={sortKeyCompanies === "deletedBy" ? sortDirCompanies : null} onSort={requestSortCompanies}>Vymazal</TableHead>
+                      <TableHead sortKey="deletedAt" sortDirection={sortKeyCompanies === "deletedAt" ? sortDirCompanies : null} onSort={requestSortCompanies}>Datum vymazania</TableHead>
+                      <TableHead sortKey="deletedFromIp" sortDirection={sortKeyCompanies === "deletedFromIp" ? sortDirCompanies : null} onSort={requestSortCompanies}>IP</TableHead>
                       {isAdmin && <TableHead className="text-right">Akcia</TableHead>}
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {companies.map((c: any) => (
+                    {sortedCompanies.map((c: any) => (
                       <TableRow key={c.id} data-testid={`row-archive-company-${c.id}`}>
                         <TableCell className="font-medium">{c.name}</TableCell>
                         <TableCell>{c.code}</TableCell>
@@ -175,16 +180,16 @@ export default function Archive() {
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>Nazov</TableHead>
-                      <TableHead>Kod</TableHead>
-                      <TableHead>Vymazal</TableHead>
-                      <TableHead>Datum vymazania</TableHead>
-                      <TableHead>IP</TableHead>
+                      <TableHead sortKey="name" sortDirection={sortKeyPartners === "name" ? sortDirPartners : null} onSort={requestSortPartners}>Nazov</TableHead>
+                      <TableHead sortKey="code" sortDirection={sortKeyPartners === "code" ? sortDirPartners : null} onSort={requestSortPartners}>Kod</TableHead>
+                      <TableHead sortKey="deletedBy" sortDirection={sortKeyPartners === "deletedBy" ? sortDirPartners : null} onSort={requestSortPartners}>Vymazal</TableHead>
+                      <TableHead sortKey="deletedAt" sortDirection={sortKeyPartners === "deletedAt" ? sortDirPartners : null} onSort={requestSortPartners}>Datum vymazania</TableHead>
+                      <TableHead sortKey="deletedFromIp" sortDirection={sortKeyPartners === "deletedFromIp" ? sortDirPartners : null} onSort={requestSortPartners}>IP</TableHead>
                       {isAdmin && <TableHead className="text-right">Akcia</TableHead>}
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {partners.map((p: any) => (
+                    {sortedPartners.map((p: any) => (
                       <TableRow key={p.id} data-testid={`row-archive-partner-${p.id}`}>
                         <TableCell className="font-medium">{p.name}</TableCell>
                         <TableCell>{p.code || "-"}</TableCell>
@@ -220,16 +225,16 @@ export default function Archive() {
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>Nazov</TableHead>
-                      <TableHead>Partner</TableHead>
-                      <TableHead>Vymazal</TableHead>
-                      <TableHead>Datum vymazania</TableHead>
-                      <TableHead>IP</TableHead>
+                      <TableHead sortKey="name" sortDirection={sortKeyProducts === "name" ? sortDirProducts : null} onSort={requestSortProducts}>Nazov</TableHead>
+                      <TableHead sortKey="partnerId" sortDirection={sortKeyProducts === "partnerId" ? sortDirProducts : null} onSort={requestSortProducts}>Partner</TableHead>
+                      <TableHead sortKey="deletedBy" sortDirection={sortKeyProducts === "deletedBy" ? sortDirProducts : null} onSort={requestSortProducts}>Vymazal</TableHead>
+                      <TableHead sortKey="deletedAt" sortDirection={sortKeyProducts === "deletedAt" ? sortDirProducts : null} onSort={requestSortProducts}>Datum vymazania</TableHead>
+                      <TableHead sortKey="deletedFromIp" sortDirection={sortKeyProducts === "deletedFromIp" ? sortDirProducts : null} onSort={requestSortProducts}>IP</TableHead>
                       {isAdmin && <TableHead className="text-right">Akcia</TableHead>}
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {products.map((p: any) => (
+                    {sortedProducts.map((p: any) => (
                       <TableRow key={p.id} data-testid={`row-archive-product-${p.id}`}>
                         <TableCell className="font-medium">{p.displayName || p.name}</TableCell>
                         <TableCell>{p.partnerId || "-"}</TableCell>

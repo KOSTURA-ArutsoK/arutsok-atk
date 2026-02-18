@@ -34,6 +34,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { HelpIcon, AdminNote } from "@/components/help-icon";
+import { useTableSort } from "@/hooks/use-table-sort";
 
 function ProcessingTimer({ startTime }: { startTime: number }) {
   const [now, setNow] = useState(Date.now());
@@ -208,6 +209,8 @@ export default function Commissions() {
     });
   }, [rates, searchTerm, filterPartner, filterType, filterStatus, partnerMap, productMap]);
 
+  const { sortedData, sortKey, sortDirection, requestSort } = useTableSort(filtered);
+
   function formatDate(dateStr: string | Date | null) {
     if (!dateStr) return "-";
     return new Date(dateStr).toLocaleDateString("sk-SK", { day: "2-digit", month: "2-digit", year: "numeric" });
@@ -322,18 +325,18 @@ export default function Commissions() {
                 <TableRow>
                   <TableHead>Partner</TableHead>
                   <TableHead>Produkt</TableHead>
-                  <TableHead>Typ</TableHead>
-                  <TableHead className="text-right">Hodnota</TableHead>
-                  <TableHead className="text-right">Body faktor</TableHead>
-                  <TableHead>Mena</TableHead>
-                  <TableHead>Platnost od</TableHead>
-                  <TableHead>Platnost do</TableHead>
+                  <TableHead sortKey="rateType" sortDirection={sortKey === "rateType" ? sortDirection : null} onSort={requestSort}>Typ</TableHead>
+                  <TableHead className="text-right" sortKey="rateValue" sortDirection={sortKey === "rateValue" ? sortDirection : null} onSort={requestSort}>Hodnota</TableHead>
+                  <TableHead className="text-right" sortKey="pointsFactor" sortDirection={sortKey === "pointsFactor" ? sortDirection : null} onSort={requestSort}>Body faktor</TableHead>
+                  <TableHead sortKey="currency" sortDirection={sortKey === "currency" ? sortDirection : null} onSort={requestSort}>Mena</TableHead>
+                  <TableHead sortKey="validFrom" sortDirection={sortKey === "validFrom" ? sortDirection : null} onSort={requestSort}>Platnost od</TableHead>
+                  <TableHead sortKey="validTo" sortDirection={sortKey === "validTo" ? sortDirection : null} onSort={requestSort}>Platnost do</TableHead>
                   <TableHead>Stav</TableHead>
                   <TableHead className="text-right">Akcie</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filtered.map(r => {
+                {sortedData.map(r => {
                   const status = getStatus(r);
                   return (
                     <TableRow key={r.id} data-testid={`row-rate-${r.id}`}>

@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { useTableSort } from "@/hooks/use-table-sort";
 import type { AuditLog } from "@shared/schema";
 import { History as HistoryIcon, Search, Filter, ChevronLeft, ChevronRight, Clock, User, Database } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -97,6 +98,7 @@ export default function History() {
   });
 
   const logs = data?.logs || [];
+  const { sortedData: sortedLogs, sortKey, sortDirection, requestSort } = useTableSort(logs);
   const total = data?.total || 0;
   const totalPages = Math.ceil(total / PAGE_SIZE);
 
@@ -284,18 +286,18 @@ export default function History() {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead className="w-[50px]">ID</TableHead>
-                    <TableHead className="w-[160px]">Cas</TableHead>
-                    <TableHead className="w-[120px]">Pouzivatel</TableHead>
-                    <TableHead className="w-[90px]">Akcia</TableHead>
-                    <TableHead className="w-[120px]">Modul</TableHead>
-                    <TableHead>Entita</TableHead>
-                    <TableHead className="w-[100px] text-right">Cas spracovania</TableHead>
+                    <TableHead className="w-[50px]" sortKey="id" sortDirection={sortKey === "id" ? sortDirection : null} onSort={requestSort}>ID</TableHead>
+                    <TableHead className="w-[160px]" sortKey="createdAt" sortDirection={sortKey === "createdAt" ? sortDirection : null} onSort={requestSort}>Cas</TableHead>
+                    <TableHead className="w-[120px]" sortKey="username" sortDirection={sortKey === "username" ? sortDirection : null} onSort={requestSort}>Pouzivatel</TableHead>
+                    <TableHead className="w-[90px]" sortKey="action" sortDirection={sortKey === "action" ? sortDirection : null} onSort={requestSort}>Akcia</TableHead>
+                    <TableHead className="w-[120px]" sortKey="module" sortDirection={sortKey === "module" ? sortDirection : null} onSort={requestSort}>Modul</TableHead>
+                    <TableHead sortKey="entityName" sortDirection={sortKey === "entityName" ? sortDirection : null} onSort={requestSort}>Entita</TableHead>
+                    <TableHead className="w-[100px] text-right" sortKey="processingTimeSec" sortDirection={sortKey === "processingTimeSec" ? sortDirection : null} onSort={requestSort}>Cas spracovania</TableHead>
                     <TableHead className="w-[50px]" />
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {logs.map(log => (
+                  {sortedLogs.map(log => (
                     <TableRow key={log.id} className="hover-elevate cursor-pointer" onClick={() => setDetailLog(log)} data-testid={`row-audit-log-${log.id}`}>
                       <TableCell className="font-mono text-xs text-muted-foreground">{log.id}</TableCell>
                       <TableCell className="text-xs">{formatDate(log.createdAt)}</TableCell>

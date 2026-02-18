@@ -3,6 +3,7 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useAppUser } from "@/hooks/use-app-user";
 import { useToast } from "@/hooks/use-toast";
+import { useTableSort } from "@/hooks/use-table-sort";
 import type { Supiska, Contract } from "@shared/schema";
 import { Plus, Pencil, Trash2, Loader2, Send, Undo2, FileSpreadsheet, FileDown, Lock, Unlock, X } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
@@ -192,6 +193,8 @@ function SupiskaDetailDialog({
 
   const isSent = supiska.status === "Odoslana";
 
+  const { sortedData: sortedLinkedContracts, sortKey: sortKeyLinked, sortDirection: sortDirLinked, requestSort: requestSortLinked } = useTableSort(linkedContracts);
+
   const getSubjectName = (subjectId: number | null) => {
     if (!subjectId) return "";
     const s = subjects.find((s: any) => s.id === subjectId);
@@ -310,11 +313,11 @@ function SupiskaDetailDialog({
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Cislo kontraktu</TableHead>
-                    <TableHead>Klient</TableHead>
-                    <TableHead>Partner</TableHead>
-                    <TableHead>Produkt</TableHead>
-                    <TableHead>Stav</TableHead>
+                    <TableHead sortKey="globalNumber" sortDirection={sortKeyLinked === "globalNumber" ? sortDirLinked : null} onSort={requestSortLinked}>Cislo kontraktu</TableHead>
+                    <TableHead sortKey="subjectId" sortDirection={sortKeyLinked === "subjectId" ? sortDirLinked : null} onSort={requestSortLinked}>Klient</TableHead>
+                    <TableHead sortKey="partnerId" sortDirection={sortKeyLinked === "partnerId" ? sortDirLinked : null} onSort={requestSortLinked}>Partner</TableHead>
+                    <TableHead sortKey="productId" sortDirection={sortKeyLinked === "productId" ? sortDirLinked : null} onSort={requestSortLinked}>Produkt</TableHead>
+                    <TableHead sortKey="isLocked" sortDirection={sortKeyLinked === "isLocked" ? sortDirLinked : null} onSort={requestSortLinked}>Stav</TableHead>
                     {!isSent && <TableHead className="w-12"></TableHead>}
                   </TableRow>
                 </TableHeader>
@@ -332,7 +335,7 @@ function SupiskaDetailDialog({
                       </TableCell>
                     </TableRow>
                   ) : (
-                    linkedContracts.map((c: any) => (
+                    sortedLinkedContracts.map((c: any) => (
                       <TableRow key={c.id} data-testid={`row-contract-${c.id}`}>
                         <TableCell className="font-mono text-sm">{c.globalNumber || c.id}</TableCell>
                         <TableCell>{getSubjectName(c.subjectId)}</TableCell>
@@ -442,6 +445,8 @@ function AddContractsDialog({
     }
   };
 
+  const { sortedData: sortedEligible, sortKey: sortKeyEligible, sortDirection: sortDirEligible, requestSort: requestSortEligible } = useTableSort(eligibleContracts);
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[800px] h-[600px] overflow-y-auto">
@@ -463,9 +468,9 @@ function AddContractsDialog({
                       data-testid="checkbox-select-all"
                     />
                   </TableHead>
-                  <TableHead>Cislo kontraktu</TableHead>
-                  <TableHead>Klient</TableHead>
-                  <TableHead>Partner</TableHead>
+                  <TableHead sortKey="globalNumber" sortDirection={sortKeyEligible === "globalNumber" ? sortDirEligible : null} onSort={requestSortEligible}>Cislo kontraktu</TableHead>
+                  <TableHead sortKey="subjectId" sortDirection={sortKeyEligible === "subjectId" ? sortDirEligible : null} onSort={requestSortEligible}>Klient</TableHead>
+                  <TableHead sortKey="partnerId" sortDirection={sortKeyEligible === "partnerId" ? sortDirEligible : null} onSort={requestSortEligible}>Partner</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -482,7 +487,7 @@ function AddContractsDialog({
                     </TableCell>
                   </TableRow>
                 ) : (
-                  eligibleContracts.map((c: any) => {
+                  sortedEligible.map((c: any) => {
                     const subject = subjects.find((s: any) => s.id === c.subjectId);
                     const partner = partners.find((p: any) => p.id === c.partnerId);
                     return (
@@ -560,6 +565,8 @@ export default function SupiskyPage() {
     );
   });
 
+  const { sortedData: sortedSupisky, sortKey: sortKeyMain, sortDirection: sortDirMain, requestSort: requestSortMain } = useTableSort(filteredSupisky);
+
   return (
     <div className="p-4 space-y-4">
       <div className="flex items-center justify-between gap-2 flex-wrap">
@@ -586,11 +593,11 @@ export default function SupiskyPage() {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>SUP ID</TableHead>
-                <TableHead>Nazov</TableHead>
-                <TableHead>Stav</TableHead>
-                <TableHead>Vytvorene</TableHead>
-                <TableHead>Vytvoril</TableHead>
+                <TableHead sortKey="supId" sortDirection={sortKeyMain === "supId" ? sortDirMain : null} onSort={requestSortMain}>SUP ID</TableHead>
+                <TableHead sortKey="name" sortDirection={sortKeyMain === "name" ? sortDirMain : null} onSort={requestSortMain}>Nazov</TableHead>
+                <TableHead sortKey="status" sortDirection={sortKeyMain === "status" ? sortDirMain : null} onSort={requestSortMain}>Stav</TableHead>
+                <TableHead sortKey="createdAt" sortDirection={sortKeyMain === "createdAt" ? sortDirMain : null} onSort={requestSortMain}>Vytvorene</TableHead>
+                <TableHead sortKey="createdBy" sortDirection={sortKeyMain === "createdBy" ? sortDirMain : null} onSort={requestSortMain}>Vytvoril</TableHead>
                 <TableHead className="w-24"></TableHead>
               </TableRow>
             </TableHeader>
@@ -608,7 +615,7 @@ export default function SupiskyPage() {
                   </TableCell>
                 </TableRow>
               ) : (
-                filteredSupisky.map((s: Supiska) => (
+                sortedSupisky.map((s: Supiska) => (
                   <TableRow
                     key={s.id}
                     className="cursor-pointer hover-elevate"

@@ -4,6 +4,7 @@ import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useAppUser } from "@/hooks/use-app-user";
 import { useStates } from "@/hooks/use-hierarchy";
 import { useToast } from "@/hooks/use-toast";
+import { useTableSort } from "@/hooks/use-table-sort";
 import { useLocation } from "wouter";
 import type { Contract, ContractStatus, ContractTemplate, ContractInventory, Subject, Partner, Product, MyCompany, Sector, Section, SectorProduct, ClientGroup, ClientType, ClientTypeSection, ClientTypePanel, ClientTypeField, AppUser, ContractAcquirer } from "@shared/schema";
 import { Plus, Pencil, Trash2, Eye, FileText, Loader2, Lock, LayoutGrid, Send, Upload, Inbox, CheckCircle2, ChevronDown, ChevronRight, Printer, Search, Archive, AlertTriangle, Calendar, XCircle, MessageSquare, Paperclip, UserPlus, X, Users, Check, ChevronsUpDown, Award, Percent } from "lucide-react";
@@ -1778,8 +1779,11 @@ export default function Contracts() {
     );
   }
 
-  function renderContractTable(list: Contract[], options?: { showCheckbox?: boolean; showOrder?: boolean; showStatus?: boolean; showRegistration?: boolean; showActions?: boolean }) {
-    const { showCheckbox, showOrder, showStatus, showRegistration, showActions = true } = options || {};
+  function renderContractTable(list: Contract[], options?: { showCheckbox?: boolean; showOrder?: boolean; showStatus?: boolean; showRegistration?: boolean; showActions?: boolean; sortState?: { sortKey: string | null; sortDirection: "asc" | "desc" | null; requestSort: (key: string) => void } }) {
+    const { showCheckbox, showOrder, showStatus, showRegistration, showActions = true, sortState } = options || {};
+    const sk = sortState?.sortKey ?? null;
+    const sd = sortState?.sortDirection ?? null;
+    const rs = sortState?.requestSort;
     return (
       <div className="relative overflow-auto" style={{ maxHeight: 'calc(100vh - 350px)' }}>
       <Table stickyHeader>
@@ -1795,16 +1799,16 @@ export default function Contracts() {
               </TableHead>
             )}
             {showOrder && <TableHead className="w-[40px] text-center">#</TableHead>}
-            <TableHead>Cislo zmluvy</TableHead>
-            <TableHead>Cislo navrhu</TableHead>
-            {showRegistration && <TableHead>Poradove cislo</TableHead>}
-            <TableHead>Klient</TableHead>
-            <TableHead>Partner</TableHead>
-            <TableHead>Produkt</TableHead>
+            <TableHead sortKey="contractNumber" sortDirection={sk === "contractNumber" ? sd : null} onSort={rs}>Cislo zmluvy</TableHead>
+            <TableHead sortKey="proposalNumber" sortDirection={sk === "proposalNumber" ? sd : null} onSort={rs}>Cislo navrhu</TableHead>
+            {showRegistration && <TableHead sortKey="globalNumber" sortDirection={sk === "globalNumber" ? sd : null} onSort={rs}>Poradove cislo</TableHead>}
+            <TableHead sortKey="subjectId" sortDirection={sk === "subjectId" ? sd : null} onSort={rs}>Klient</TableHead>
+            <TableHead sortKey="partnerId" sortDirection={sk === "partnerId" ? sd : null} onSort={rs}>Partner</TableHead>
+            <TableHead sortKey="productId" sortDirection={sk === "productId" ? sd : null} onSort={rs}>Produkt</TableHead>
             {showStatus && <TableHead>Stav</TableHead>}
-            <TableHead>Rocne poistne</TableHead>
-            <TableHead>Vytvorenie zmluvy</TableHead>
-            <TableHead>Lehotne poistne</TableHead>
+            <TableHead sortKey="annualPremium" sortDirection={sk === "annualPremium" ? sd : null} onSort={rs}>Rocne poistne</TableHead>
+            <TableHead sortKey="signedDate" sortDirection={sk === "signedDate" ? sd : null} onSort={rs}>Vytvorenie zmluvy</TableHead>
+            <TableHead sortKey="premiumAmount" sortDirection={sk === "premiumAmount" ? sd : null} onSort={rs}>Lehotne poistne</TableHead>
             {showActions && <TableHead className="text-right">Akcie</TableHead>}
           </TableRow>
         </TableHeader>
@@ -2788,10 +2792,16 @@ export default function Contracts() {
     </Dialog>
   );
 
+  const filteredNahravanie = filterBySearch(activeContracts);
+  const filteredRejected = filterBySearch(activeRejected);
+  const filteredArchived = filterBySearch(activeArchived);
+
+  const { sortedData: sortedNahravanie, sortKey: skNahr, sortDirection: sdNahr, requestSort: rsNahr } = useTableSort(filteredNahravanie);
+  const { sortedData: sortedRejected, sortKey: skRej, sortDirection: sdRej, requestSort: rsRej } = useTableSort(filteredRejected);
+  const { sortedData: sortedArchived, sortKey: skArch, sortDirection: sdArch, requestSort: rsArch } = useTableSort(filteredArchived);
+  const { sortedData: sortedMain, sortKey: skMain, sortDirection: sdMain, requestSort: rsMain } = useTableSort(activeContracts);
+
   if (isEvidencia) {
-    const filteredNahravanie = filterBySearch(activeContracts);
-    const filteredRejected = filterBySearch(activeRejected);
-    const filteredArchived = filterBySearch(activeArchived);
 
     return (
       <div className="p-6 space-y-4">
@@ -2870,7 +2880,7 @@ export default function Contracts() {
                 <div className="flex items-center justify-center py-8"><Loader2 className="w-5 h-5 animate-spin" /></div>
               ) : filteredNahravanie.length === 0 ? (
                 <p className="text-sm text-muted-foreground text-center py-8" data-testid="text-no-nahravanie">Ziadne zmluvy na nahravanie</p>
-              ) : renderContractTable(filteredNahravanie, { showCheckbox: true, showOrder: true })}
+              ) : renderContractTable(sortedNahravanie, { showCheckbox: true, showOrder: true, sortState: { sortKey: skNahr, sortDirection: sdNahr, requestSort: rsNahr } })}
             </CardContent>
           </Card>
         </div>
@@ -2984,9 +2994,9 @@ export default function Contracts() {
             <CardContent className="p-0">
               {isLoadingRejected ? (
                 <div className="flex items-center justify-center py-8"><Loader2 className="w-5 h-5 animate-spin" /></div>
-              ) : filterBySearch(activeRejected).length === 0 ? (
+              ) : filteredRejected.length === 0 ? (
                 <p className="text-sm text-muted-foreground text-center py-8" data-testid="text-no-neprijate">Ziadne neprijate zmluvy</p>
-              ) : renderContractTable(filterBySearch(activeRejected), { showStatus: true, showRegistration: true, showActions: true })}
+              ) : renderContractTable(sortedRejected, { showStatus: true, showRegistration: true, showActions: true, sortState: { sortKey: skRej, sortDirection: sdRej, requestSort: rsRej } })}
             </CardContent>
           </Card>
         </div>
@@ -3000,9 +3010,9 @@ export default function Contracts() {
             <CardContent className="p-0">
               {isLoadingArchived ? (
                 <div className="flex items-center justify-center py-8"><Loader2 className="w-5 h-5 animate-spin" /></div>
-              ) : filterBySearch(activeArchived).length === 0 ? (
+              ) : filteredArchived.length === 0 ? (
                 <p className="text-sm text-muted-foreground text-center py-8" data-testid="text-no-archiv">Ziadne archivovane zmluvy</p>
-              ) : renderContractTable(filterBySearch(activeArchived), { showStatus: true, showRegistration: true, showActions: false })}
+              ) : renderContractTable(sortedArchived, { showStatus: true, showRegistration: true, showActions: false, sortState: { sortKey: skArch, sortDirection: sdArch, requestSort: rsArch } })}
             </CardContent>
           </Card>
         </div>
@@ -3144,22 +3154,22 @@ export default function Contracts() {
             <Table stickyHeader>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Cislo zmluvy</TableHead>
-                  <TableHead>Cislo navrhu</TableHead>
-                  <TableHead>Poradove cislo</TableHead>
-                  <TableHead>Klient</TableHead>
-                  <TableHead>Partner</TableHead>
-                  <TableHead>Produkt</TableHead>
+                  <TableHead sortKey="contractNumber" sortDirection={skMain === "contractNumber" ? sdMain : null} onSort={rsMain}>Cislo zmluvy</TableHead>
+                  <TableHead sortKey="proposalNumber" sortDirection={skMain === "proposalNumber" ? sdMain : null} onSort={rsMain}>Cislo navrhu</TableHead>
+                  <TableHead sortKey="globalNumber" sortDirection={skMain === "globalNumber" ? sdMain : null} onSort={rsMain}>Poradove cislo</TableHead>
+                  <TableHead sortKey="subjectId" sortDirection={skMain === "subjectId" ? sdMain : null} onSort={rsMain}>Klient</TableHead>
+                  <TableHead sortKey="partnerId" sortDirection={skMain === "partnerId" ? sdMain : null} onSort={rsMain}>Partner</TableHead>
+                  <TableHead sortKey="productId" sortDirection={skMain === "productId" ? sdMain : null} onSort={rsMain}>Produkt</TableHead>
                   <TableHead>Stav</TableHead>
-                  <TableHead>Sprievodka</TableHead>
-                  <TableHead>Rocne poistne</TableHead>
-                  <TableHead>Vytvorenie zmluvy</TableHead>
-                  <TableHead>Lehotne poistne</TableHead>
+                  <TableHead sortKey="inventoryId" sortDirection={skMain === "inventoryId" ? sdMain : null} onSort={rsMain}>Sprievodka</TableHead>
+                  <TableHead sortKey="annualPremium" sortDirection={skMain === "annualPremium" ? sdMain : null} onSort={rsMain}>Rocne poistne</TableHead>
+                  <TableHead sortKey="signedDate" sortDirection={skMain === "signedDate" ? sdMain : null} onSort={rsMain}>Vytvorenie zmluvy</TableHead>
+                  <TableHead sortKey="premiumAmount" sortDirection={skMain === "premiumAmount" ? sdMain : null} onSort={rsMain}>Lehotne poistne</TableHead>
                   <TableHead className="text-right">Akcie</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {activeContracts.map(contract => {
+                {sortedMain.map(contract => {
                   const status = statuses?.find(s => s.id === contract.statusId);
                   const inventoryName = inventories?.find(i => i.id === contract.inventoryId)?.name || "-";
 

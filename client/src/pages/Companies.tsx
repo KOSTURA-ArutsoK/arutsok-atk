@@ -60,6 +60,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import { RichTextEditor } from "@/components/rich-text-editor";
 import { useToast } from "@/hooks/use-toast";
 import { useQueryClient } from "@tanstack/react-query";
+import { useTableSort } from "@/hooks/use-table-sort";
 
 
 const formSchema = insertMyCompanySchema.extend({
@@ -782,6 +783,7 @@ export default function Companies() {
   const { data: companies, isLoading } = useMyCompanies();
   const { data: allStates } = useStates();
   const deleteMutation = useDeleteMyCompany();
+  const { sortedData, sortKey, sortDirection, requestSort } = useTableSort(companies || []);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingCompanyId, setEditingCompanyId] = useState<number | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<MyCompany | null>(null);
@@ -821,10 +823,10 @@ export default function Companies() {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Nazov</TableHead>
-                <TableHead>ICO</TableHead>
-                <TableHead>Zameranie</TableHead>
-                <TableHead>Mesto</TableHead>
+                <TableHead sortKey="name" sortDirection={sortKey === "name" ? sortDirection : null} onSort={requestSort}>Nazov</TableHead>
+                <TableHead sortKey="ico" sortDirection={sortKey === "ico" ? sortDirection : null} onSort={requestSort}>ICO</TableHead>
+                <TableHead sortKey="specialization" sortDirection={sortKey === "specialization" ? sortDirection : null} onSort={requestSort}>Zameranie</TableHead>
+                <TableHead sortKey="city" sortDirection={sortKey === "city" ? sortDirection : null} onSort={requestSort}>Mesto</TableHead>
                 <TableHead>Stat</TableHead>
                 <TableHead className="w-[160px]">Akcie</TableHead>
               </TableRow>
@@ -842,7 +844,7 @@ export default function Companies() {
                   </TableCell>
                 </TableRow>
               )}
-              {companies?.map(company => (
+              {sortedData.map(company => (
                 <TableRow key={company.id} data-testid={`row-company-${company.id}`}>
                   <TableCell className="font-medium">{company.name}</TableCell>
                   <TableCell className="font-mono text-xs">{company.ico || "-"}</TableCell>

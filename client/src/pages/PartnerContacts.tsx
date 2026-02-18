@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { useTableSort } from "@/hooks/use-table-sort";
 import type { Partner, PartnerContact } from "@shared/schema";
 import { Loader2, Phone, Mail, Shield, User } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -49,6 +50,8 @@ export default function PartnerContacts() {
     return nameMatch && activeMatch;
   });
 
+  const { sortedData: sortedContacts, sortKey, sortDirection, requestSort } = useTableSort(filteredContacts);
+
   return (
     <div className="p-6 space-y-6">
       <div className="flex items-center justify-between gap-4 flex-wrap">
@@ -84,17 +87,17 @@ export default function PartnerContacts() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Meno</TableHead>
-                  <TableHead>Partner</TableHead>
-                  <TableHead>Pozicia</TableHead>
-                  <TableHead>Telefon</TableHead>
-                  <TableHead>Email</TableHead>
-                  <TableHead className="w-24 text-center">Bezpecnost</TableHead>
-                  <TableHead className="w-24 text-center">Stav</TableHead>
+                  <TableHead sortKey="firstName" sortDirection={sortKey === "firstName" ? sortDirection : null} onSort={requestSort}>Meno</TableHead>
+                  <TableHead sortKey="partnerName" sortDirection={sortKey === "partnerName" ? sortDirection : null} onSort={requestSort}>Partner</TableHead>
+                  <TableHead sortKey="position" sortDirection={sortKey === "position" ? sortDirection : null} onSort={requestSort}>Pozicia</TableHead>
+                  <TableHead sortKey="phone" sortDirection={sortKey === "phone" ? sortDirection : null} onSort={requestSort}>Telefon</TableHead>
+                  <TableHead sortKey="email" sortDirection={sortKey === "email" ? sortDirection : null} onSort={requestSort}>Email</TableHead>
+                  <TableHead sortKey="securityLevel" className="w-24 text-center" sortDirection={sortKey === "securityLevel" ? sortDirection : null} onSort={requestSort}>Bezpecnost</TableHead>
+                  <TableHead sortKey="isActive" className="w-24 text-center" sortDirection={sortKey === "isActive" ? sortDirection : null} onSort={requestSort}>Stav</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredContacts.map((contact) => (
+                {sortedContacts.map((contact) => (
                   <TableRow key={contact.id} data-testid={`row-contact-${contact.id}`}>
                     <TableCell className="font-medium">
                       <div className="flex items-center gap-2">

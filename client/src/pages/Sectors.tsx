@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
+import { useTableSort } from "@/hooks/use-table-sort";
 import { useToast } from "@/hooks/use-toast";
 import { usePartners } from "@/hooks/use-partners";
 import type { Sector, Parameter, SectorProduct, SectorProductParameter, Panel, PanelParameter, ProductPanel, Section, ContractFolder, FolderPanel } from "@shared/schema";
@@ -1082,6 +1083,8 @@ function SectionsTab() {
       (sec.description || "").toLowerCase().includes(searchLower);
   });
 
+  const { sortedData: sortedSections, sortKey: sectionSortKey, sortDirection: sectionSortDirection, requestSort: sectionRequestSort } = useTableSort(filtered);
+
   return (
     <div className="space-y-4">
       <div className="flex items-center gap-3 flex-wrap">
@@ -1121,10 +1124,10 @@ function SectionsTab() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Nazov sekcie</TableHead>
-                  <TableHead>Sektor</TableHead>
+                  <TableHead sortKey="name" sortDirection={sectionSortKey === "name" ? sectionSortDirection : null} onSort={sectionRequestSort}>Nazov sekcie</TableHead>
+                  <TableHead sortKey="sectorId" sortDirection={sectionSortKey === "sectorId" ? sectionSortDirection : null} onSort={sectionRequestSort}>Sektor</TableHead>
                   <TableHead>Produkty</TableHead>
-                  <TableHead>Popis</TableHead>
+                  <TableHead sortKey="description" sortDirection={sectionSortKey === "description" ? sectionSortDirection : null} onSort={sectionRequestSort}>Popis</TableHead>
                   <TableHead>Akcie</TableHead>
                 </TableRow>
               </TableHeader>
@@ -1136,7 +1139,7 @@ function SectionsTab() {
                     </TableCell>
                   </TableRow>
                 ) : (
-                  filtered.map(section => (
+                  sortedSections.map(section => (
                     <TableRow key={section.id} data-testid={`row-section-${section.id}`}>
                       <TableCell className="font-medium">{section.name}</TableCell>
                       <TableCell>
@@ -1226,6 +1229,8 @@ function SectorsTab() {
     (s.description || "").toLowerCase().includes(search.toLowerCase())
   ) || [];
 
+  const { sortedData: sortedSectors, sortKey: sectorSortKey, sortDirection: sectorSortDirection, requestSort: sectorRequestSort } = useTableSort(filtered);
+
   return (
     <div className="space-y-4">
       <div className="flex items-center gap-3 flex-wrap">
@@ -1254,11 +1259,11 @@ function SectorsTab() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Nazov sektoru</TableHead>
-                  <TableHead>Typ</TableHead>
+                  <TableHead sortKey="name" sortDirection={sectorSortKey === "name" ? sectorSortDirection : null} onSort={sectorRequestSort}>Nazov sektoru</TableHead>
+                  <TableHead sortKey="sectorType" sortDirection={sectorSortKey === "sectorType" ? sectorSortDirection : null} onSort={sectorRequestSort}>Typ</TableHead>
                   <TableHead>Produkty</TableHead>
                   <TableHead>Firmy posobiace v sektore</TableHead>
-                  <TableHead>Popis</TableHead>
+                  <TableHead sortKey="description" sortDirection={sectorSortKey === "description" ? sectorSortDirection : null} onSort={sectorRequestSort}>Popis</TableHead>
                   <TableHead>Akcie</TableHead>
                 </TableRow>
               </TableHeader>
@@ -1270,7 +1275,7 @@ function SectorsTab() {
                     </TableCell>
                   </TableRow>
                 ) : (
-                  filtered.map(sector => (
+                  sortedSectors.map(sector => (
                     <TableRow key={sector.id} data-testid={`row-sector-${sector.id}`}>
                       <TableCell className="font-medium">{sector.name}</TableCell>
                       <TableCell>
@@ -1367,6 +1372,8 @@ function ProductsTab() {
       (p.abbreviation || "").toLowerCase().includes(searchLower);
   });
 
+  const { sortedData: sortedProds, sortKey: prodSortKey, sortDirection: prodSortDirection, requestSort: prodRequestSort } = useTableSort(filtered);
+
   return (
     <div className="space-y-4">
       <div className="flex items-center gap-3 flex-wrap">
@@ -1406,9 +1413,9 @@ function ProductsTab() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Nazov produktu</TableHead>
-                  <TableHead>Skratka produktu</TableHead>
-                  <TableHead>Sekcia</TableHead>
+                  <TableHead sortKey="name" sortDirection={prodSortKey === "name" ? prodSortDirection : null} onSort={prodRequestSort}>Nazov produktu</TableHead>
+                  <TableHead sortKey="abbreviation" sortDirection={prodSortKey === "abbreviation" ? prodSortDirection : null} onSort={prodRequestSort}>Skratka produktu</TableHead>
+                  <TableHead sortKey="sectionId" sortDirection={prodSortKey === "sectionId" ? prodSortDirection : null} onSort={prodRequestSort}>Sekcia</TableHead>
                   <TableHead>Priecinky</TableHead>
                   <TableHead>Akcie</TableHead>
                 </TableRow>
@@ -1421,7 +1428,7 @@ function ProductsTab() {
                     </TableCell>
                   </TableRow>
                 ) : (
-                  filtered.map(product => (
+                  sortedProds.map(product => (
                     <ProductTableRow
                       key={product.id}
                       product={product}
@@ -1533,6 +1540,8 @@ function ParametersTab() {
     (p.helpText || "").toLowerCase().includes(search.toLowerCase())
   ) || [];
 
+  const { sortedData: sortedParams, sortKey: paramSortKey, sortDirection: paramSortDirection, requestSort: paramRequestSort } = useTableSort(filtered);
+
   return (
     <div className="space-y-4">
       <div className="flex items-center gap-3 flex-wrap">
@@ -1561,23 +1570,23 @@ function ParametersTab() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Nazov</TableHead>
-                  <TableHead>Typ</TableHead>
-                  <TableHead>Povinny udaj</TableHead>
-                  <TableHead>Predvolena hodnota k danemu parametru</TableHead>
-                  <TableHead>Napoveda</TableHead>
+                  <TableHead sortKey="name" sortDirection={paramSortKey === "name" ? paramSortDirection : null} onSort={paramRequestSort}>Nazov</TableHead>
+                  <TableHead sortKey="paramType" sortDirection={paramSortKey === "paramType" ? paramSortDirection : null} onSort={paramRequestSort}>Typ</TableHead>
+                  <TableHead sortKey="isRequired" sortDirection={paramSortKey === "isRequired" ? paramSortDirection : null} onSort={paramRequestSort}>Povinny udaj</TableHead>
+                  <TableHead sortKey="defaultValue" sortDirection={paramSortKey === "defaultValue" ? paramSortDirection : null} onSort={paramRequestSort}>Predvolena hodnota k danemu parametru</TableHead>
+                  <TableHead sortKey="helpText" sortDirection={paramSortKey === "helpText" ? paramSortDirection : null} onSort={paramRequestSort}>Napoveda</TableHead>
                   <TableHead>Akcie</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filtered.length === 0 ? (
+                {sortedParams.length === 0 ? (
                   <TableRow>
                     <TableCell colSpan={6} className="text-center text-muted-foreground py-8" data-testid="text-no-parameters">
                       Ziadne parametre
                     </TableCell>
                   </TableRow>
                 ) : (
-                  filtered.map(param => (
+                  sortedParams.map(param => (
                     <TableRow key={param.id} data-testid={`row-parameter-${param.id}`}>
                       <TableCell className="font-medium">{param.name}</TableCell>
                       <TableCell>

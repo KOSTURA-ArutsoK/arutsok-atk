@@ -1,5 +1,6 @@
 import { useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { useTableSort } from "@/hooks/use-table-sort";
 import { ArrowUpRight, Filter, Loader2, Search } from "lucide-react";
 import { HelpIcon } from "@/components/help-icon";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -67,6 +68,8 @@ export default function Odmeny() {
       return true;
     });
   }, [odmenyData, searchTerm, filterAgent]);
+
+  const { sortedData: sortedFiltered, sortKey, sortDirection, requestSort } = useTableSort(filtered);
 
   const totalOdmeny = useMemo(() => {
     return filtered.reduce((sum: number, r: any) => sum + (parseFloat(r.total_commission) || 0), 0);
@@ -173,22 +176,22 @@ export default function Odmeny() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Cislo zmluvy</TableHead>
-                  <TableHead>Klient</TableHead>
-                  <TableHead>Partner</TableHead>
-                  <TableHead>Produkt</TableHead>
-                  <TableHead>Spolupracovnik</TableHead>
-                  <TableHead className="text-center">Uroven</TableHead>
-                  <TableHead className="text-right">Poistne</TableHead>
-                  <TableHead className="text-right">Zakladna provzia</TableHead>
-                  <TableHead className="text-right">Rozdielova</TableHead>
-                  <TableHead className="text-right">Celkova odmena</TableHead>
-                  <TableHead className="text-right">Body</TableHead>
-                  <TableHead>Datum</TableHead>
+                  <TableHead sortKey="cn" sortDirection={sortKey === "cn" ? sortDirection : null} onSort={requestSort}>Cislo zmluvy</TableHead>
+                  <TableHead sortKey="client_name" sortDirection={sortKey === "client_name" ? sortDirection : null} onSort={requestSort}>Klient</TableHead>
+                  <TableHead sortKey="partner_name" sortDirection={sortKey === "partner_name" ? sortDirection : null} onSort={requestSort}>Partner</TableHead>
+                  <TableHead sortKey="product_name" sortDirection={sortKey === "product_name" ? sortDirection : null} onSort={requestSort}>Produkt</TableHead>
+                  <TableHead sortKey="agent_name" sortDirection={sortKey === "agent_name" ? sortDirection : null} onSort={requestSort}>Spolupracovnik</TableHead>
+                  <TableHead sortKey="agent_level" className="text-center" sortDirection={sortKey === "agent_level" ? sortDirection : null} onSort={requestSort}>Uroven</TableHead>
+                  <TableHead sortKey="premium_amount" className="text-right" sortDirection={sortKey === "premium_amount" ? sortDirection : null} onSort={requestSort}>Poistne</TableHead>
+                  <TableHead sortKey="base_commission" className="text-right" sortDirection={sortKey === "base_commission" ? sortDirection : null} onSort={requestSort}>Zakladna provzia</TableHead>
+                  <TableHead sortKey="differential_commission" className="text-right" sortDirection={sortKey === "differential_commission" ? sortDirection : null} onSort={requestSort}>Rozdielova</TableHead>
+                  <TableHead sortKey="total_commission" className="text-right" sortDirection={sortKey === "total_commission" ? sortDirection : null} onSort={requestSort}>Celkova odmena</TableHead>
+                  <TableHead sortKey="points_earned" className="text-right" sortDirection={sortKey === "points_earned" ? sortDirection : null} onSort={requestSort}>Body</TableHead>
+                  <TableHead sortKey="created_at" sortDirection={sortKey === "created_at" ? sortDirection : null} onSort={requestSort}>Datum</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filtered.map((r: any, idx: number) => {
+                {sortedFiltered.map((r: any, idx: number) => {
                   const agentFullName = r.agent_first_name && r.agent_last_name
                     ? `${r.agent_first_name} ${r.agent_last_name}`
                     : r.agent_name || "-";

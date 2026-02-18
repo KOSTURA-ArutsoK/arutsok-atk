@@ -4,6 +4,7 @@ import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useAppUser } from "@/hooks/use-app-user";
 import { useStates } from "@/hooks/use-hierarchy";
 import { useToast } from "@/hooks/use-toast";
+import { useTableSort } from "@/hooks/use-table-sort";
 import type { ContractStatus, ContractStatusParameter, MyCompany, Sector, Section, SectorProduct } from "@shared/schema";
 import { Plus, Pencil, Loader2, GripVertical } from "lucide-react";
 import { ConditionalDelete } from "@/components/conditional-delete";
@@ -115,6 +116,8 @@ function StatusFormDialog({
     },
     enabled: !!editingStatus,
   });
+
+  const { sortedData: sortedParams, sortKey: sortKeyParam, sortDirection: sortDirParam, requestSort: requestSortParam } = useTableSort(existingParams || []);
 
   const createMutation = useMutation({
     mutationFn: async (data: any) => {
@@ -595,15 +598,15 @@ function StatusFormDialog({
                       <Table>
                         <TableHeader>
                           <TableRow>
-                            <TableHead>Nazov</TableHead>
-                            <TableHead>Typ</TableHead>
-                            <TableHead>Povinny</TableHead>
-                            <TableHead>Pomocny text</TableHead>
+                            <TableHead sortKey="name" sortDirection={sortKeyParam === "name" ? sortDirParam : null} onSort={requestSortParam}>Nazov</TableHead>
+                            <TableHead sortKey="paramType" sortDirection={sortKeyParam === "paramType" ? sortDirParam : null} onSort={requestSortParam}>Typ</TableHead>
+                            <TableHead sortKey="isRequired" sortDirection={sortKeyParam === "isRequired" ? sortDirParam : null} onSort={requestSortParam}>Povinny</TableHead>
+                            <TableHead sortKey="helpText" sortDirection={sortKeyParam === "helpText" ? sortDirParam : null} onSort={requestSortParam}>Pomocny text</TableHead>
                             <TableHead className="text-right">Akcie</TableHead>
                           </TableRow>
                         </TableHeader>
                         <TableBody>
-                          {existingParams.map(param => (
+                          {sortedParams.map(param => (
                             <TableRow key={param.id} data-testid={`row-param-${param.id}`}>
                               <TableCell className="font-medium text-sm" data-testid={`text-param-name-${param.id}`}>{param.name}</TableCell>
                               <TableCell>
@@ -726,6 +729,8 @@ export default function ContractStatuses() {
 
   const sorted = statuses ? [...statuses].sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0)) : [];
 
+  const { sortedData: sortedStatuses, sortKey, sortDirection, requestSort } = useTableSort(sorted);
+
   const handleReorder = (items: { id: number | string; sortOrder: number }[]) => {
     reorderMutation.mutate(items.map(i => ({ id: Number(i.id), sortOrder: i.sortOrder })));
   };
@@ -770,16 +775,16 @@ export default function ContractStatuses() {
               <TableHeader>
                 <TableRow>
                   <TableHead className="w-10"></TableHead>
-                  <TableHead className="w-20">Poradie</TableHead>
-                  <TableHead>Nazov stavu zmluvy</TableHead>
+                  <TableHead sortKey="sortOrder" sortDirection={sortKey === "sortOrder" ? sortDirection : null} onSort={requestSort} className="w-20">Poradie</TableHead>
+                  <TableHead sortKey="name" sortDirection={sortKey === "name" ? sortDirection : null} onSort={requestSort}>Nazov stavu zmluvy</TableHead>
                   <TableHead className="w-32">Farba stavu zmluvy</TableHead>
                   <TableHead>Vlastnosti stavu zmluvy</TableHead>
                   <TableHead className="w-32 text-right">Akcie</TableHead>
                 </TableRow>
               </TableHeader>
-              <SortableContext_Wrapper items={sorted} onReorder={handleReorder}>
+              <SortableContext_Wrapper items={sortedStatuses} onReorder={handleReorder}>
                 <TableBody>
-                  {sorted.map((status) => {
+                  {sortedStatuses.map((status) => {
                     const contractCountForStatus = (allContracts || []).filter((c: any) => c.statusId === status.id).length;
                     return (
                     <SortableTableRow

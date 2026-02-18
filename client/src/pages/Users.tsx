@@ -34,6 +34,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import type { AppUser, PermissionGroup, ClientGroup } from "@shared/schema";
 import { ProcessingSaveButton } from "@/components/processing-save-button";
 import { HelpIcon } from "@/components/help-icon";
+import { useTableSort } from "@/hooks/use-table-sort";
 
 
 const ROLES = ["superadmin", "admin", "backoffice", "manager", "user"] as const;
@@ -439,6 +440,7 @@ export default function UsersPage() {
     queryKey: ["/api/permission-groups"],
   });
 
+  const { sortedData, sortKey, sortDirection, requestSort } = useTableSort(users || []);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingUser, setEditingUser] = useState<AppUser | null>(null);
 
@@ -492,21 +494,21 @@ export default function UsersPage() {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Meno</TableHead>
-                <TableHead>Priezvisko</TableHead>
-                <TableHead>UID</TableHead>
-                <TableHead>Email</TableHead>
-                <TableHead>Telefon</TableHead>
-                <TableHead>Rola</TableHead>
-                <TableHead>MFA</TableHead>
-                <TableHead>Bezp. uroven</TableHead>
+                <TableHead sortKey="firstName" sortDirection={sortKey === "firstName" ? sortDirection : null} onSort={requestSort}>Meno</TableHead>
+                <TableHead sortKey="lastName" sortDirection={sortKey === "lastName" ? sortDirection : null} onSort={requestSort}>Priezvisko</TableHead>
+                <TableHead sortKey="uid" sortDirection={sortKey === "uid" ? sortDirection : null} onSort={requestSort}>UID</TableHead>
+                <TableHead sortKey="email" sortDirection={sortKey === "email" ? sortDirection : null} onSort={requestSort}>Email</TableHead>
+                <TableHead sortKey="phone" sortDirection={sortKey === "phone" ? sortDirection : null} onSort={requestSort}>Telefon</TableHead>
+                <TableHead sortKey="role" sortDirection={sortKey === "role" ? sortDirection : null} onSort={requestSort}>Rola</TableHead>
+                <TableHead sortKey="mfaType" sortDirection={sortKey === "mfaType" ? sortDirection : null} onSort={requestSort}>MFA</TableHead>
+                <TableHead sortKey="securityLevel" sortDirection={sortKey === "securityLevel" ? sortDirection : null} onSort={requestSort}>Bezp. uroven</TableHead>
                 <TableHead>Skupina</TableHead>
                 <TableHead>Akcie</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {users && users.length > 0 ? (
-                users.map(user => (
+              {sortedData && sortedData.length > 0 ? (
+                sortedData.map(user => (
                   <TableRow key={user.id} data-testid={`row-user-${user.id}`}>
                     <TableCell data-testid={`text-user-firstname-${user.id}`}>
                       {user.firstName || "-"}

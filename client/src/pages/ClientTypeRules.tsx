@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
+import { useTableSort } from "@/hooks/use-table-sort";
 import { useAppUser } from "@/hooks/use-app-user";
 import { useToast } from "@/hooks/use-toast";
 import type { ClientType, ClientTypeSection, ClientTypePanel, ClientTypeField } from "@shared/schema";
@@ -525,6 +526,7 @@ function FolderSection({
   });
 
   const sorted = [...fields].sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0));
+  const { sortedData: sortedFields, sortKey: fieldSortKey, sortDirection: fieldSortDirection, requestSort: fieldRequestSort } = useTableSort(sorted);
 
   function getPanelName(panelId: number | null): string {
     if (!panelId) return "Bez panelu";
@@ -556,7 +558,7 @@ function FolderSection({
             </Button>
           </div>
 
-          {sorted.length === 0 ? (
+          {sortedFields.length === 0 ? (
             <p className="text-sm text-muted-foreground text-center py-6" data-testid={`text-no-parameters-${section.id}`}>
               Ziadne parametre v tomto priecinku
             </p>
@@ -564,16 +566,16 @@ function FolderSection({
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Nazov</TableHead>
-                  <TableHead>Kluc</TableHead>
-                  <TableHead>Typ</TableHead>
-                  <TableHead>Panel</TableHead>
-                  <TableHead>Povinne</TableHead>
+                  <TableHead sortKey="label" sortDirection={fieldSortKey === "label" ? fieldSortDirection : null} onSort={fieldRequestSort}>Nazov</TableHead>
+                  <TableHead sortKey="fieldKey" sortDirection={fieldSortKey === "fieldKey" ? fieldSortDirection : null} onSort={fieldRequestSort}>Kluc</TableHead>
+                  <TableHead sortKey="fieldType" sortDirection={fieldSortKey === "fieldType" ? fieldSortDirection : null} onSort={fieldRequestSort}>Typ</TableHead>
+                  <TableHead sortKey="panelId" sortDirection={fieldSortKey === "panelId" ? fieldSortDirection : null} onSort={fieldRequestSort}>Panel</TableHead>
+                  <TableHead sortKey="isRequired" sortDirection={fieldSortKey === "isRequired" ? fieldSortDirection : null} onSort={fieldRequestSort}>Povinne</TableHead>
                   <TableHead>Akcie</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {sorted.map(field => {
+                {sortedFields.map(field => {
                   const ftDef = FIELD_TYPES.find(t => t.value === field.fieldType);
                   const Icon = ftDef?.icon || Type;
                   return (

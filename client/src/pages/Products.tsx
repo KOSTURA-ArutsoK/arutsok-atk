@@ -1,6 +1,7 @@
 import { useState, useRef, useCallback, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
+import { useTableSort } from "@/hooks/use-table-sort";
 import { usePartners } from "@/hooks/use-partners";
 import { useAppUser } from "@/hooks/use-app-user";
 import { useToast } from "@/hooks/use-toast";
@@ -470,6 +471,7 @@ function ProductFormDialog({
 function CommissionSection({ productId }: { productId: number }) {
   const { toast } = useToast();
   const { data: commissions, isLoading } = useCommissions(productId);
+  const { sortedData: sortedCommissions, sortKey: commSortKey, sortDirection: commSortDirection, requestSort: commRequestSort } = useTableSort(commissions || []);
   const [showAdd, setShowAdd] = useState(false);
   const [validFrom, setValidFrom] = useState(new Date().toISOString().split("T")[0]);
   const [validTo, setValidTo] = useState("");
@@ -527,16 +529,16 @@ function CommissionSection({ productId }: { productId: number }) {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Platnost od</TableHead>
-                    <TableHead>Platnost do</TableHead>
-                    <TableHead>Typ</TableHead>
-                    <TableHead>Hodnota</TableHead>
-                    <TableHead>Koeficient</TableHead>
-                    <TableHead>Mena</TableHead>
+                    <TableHead sortKey="validFrom" sortDirection={commSortKey === "validFrom" ? commSortDirection : null} onSort={commRequestSort}>Platnost od</TableHead>
+                    <TableHead sortKey="validTo" sortDirection={commSortKey === "validTo" ? commSortDirection : null} onSort={commRequestSort}>Platnost do</TableHead>
+                    <TableHead sortKey="type" sortDirection={commSortKey === "type" ? commSortDirection : null} onSort={commRequestSort}>Typ</TableHead>
+                    <TableHead sortKey="value" sortDirection={commSortKey === "value" ? commSortDirection : null} onSort={commRequestSort}>Hodnota</TableHead>
+                    <TableHead sortKey="coefficient" sortDirection={commSortKey === "coefficient" ? commSortDirection : null} onSort={commRequestSort}>Koeficient</TableHead>
+                    <TableHead sortKey="currency" sortDirection={commSortKey === "currency" ? commSortDirection : null} onSort={commRequestSort}>Mena</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {commissions.map(c => (
+                  {sortedCommissions.map(c => (
                     <TableRow key={c.id} data-testid={`row-commission-${c.id}`}>
                       <TableCell className="text-xs">{c.validFrom ? new Date(c.validFrom).toLocaleDateString("sk-SK") : "-"}</TableCell>
                       <TableCell className="text-xs">{c.validTo ? new Date(c.validTo).toLocaleDateString("sk-SK") : "-"}</TableCell>
@@ -808,6 +810,7 @@ export default function Products() {
   const [deleteOpen, setDeleteOpen] = useState(false);
 
   const activeProducts = products?.filter(p => !p.isDeleted) || [];
+  const { sortedData: sortedProducts, sortKey, sortDirection, requestSort } = useTableSort(activeProducts);
 
   function getPartnerName(id: number | null) {
     if (!id || !partners) return "-";
@@ -869,18 +872,18 @@ export default function Products() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Kod</TableHead>
-                  <TableHead>Nazov</TableHead>
-                  <TableHead>Zobrazovaci nazov</TableHead>
-                  <TableHead>Partner</TableHead>
-                  <TableHead>Spolocnost</TableHead>
-                  <TableHead>Stat</TableHead>
+                  <TableHead sortKey="code" sortDirection={sortKey === "code" ? sortDirection : null} onSort={requestSort}>Kod</TableHead>
+                  <TableHead sortKey="name" sortDirection={sortKey === "name" ? sortDirection : null} onSort={requestSort}>Nazov</TableHead>
+                  <TableHead sortKey="displayName" sortDirection={sortKey === "displayName" ? sortDirection : null} onSort={requestSort}>Zobrazovaci nazov</TableHead>
+                  <TableHead sortKey="partnerId" sortDirection={sortKey === "partnerId" ? sortDirection : null} onSort={requestSort}>Partner</TableHead>
+                  <TableHead sortKey="companyId" sortDirection={sortKey === "companyId" ? sortDirection : null} onSort={requestSort}>Spolocnost</TableHead>
+                  <TableHead sortKey="stateId" sortDirection={sortKey === "stateId" ? sortDirection : null} onSort={requestSort}>Stat</TableHead>
                   <TableHead>Povoleni specialisti</TableHead>
                   <TableHead className="text-right">Akcie</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {activeProducts.map(product => (
+                {sortedProducts.map(product => (
                   <TableRow key={product.id} data-testid={`row-product-${product.id}`}>
                     <TableCell className="font-mono text-xs">{product.code}</TableCell>
                     <TableCell className="font-medium">{product.name}</TableCell>

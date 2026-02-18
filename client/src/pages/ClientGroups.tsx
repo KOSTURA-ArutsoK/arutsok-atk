@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
+import { useTableSort } from "@/hooks/use-table-sort";
 import { useToast } from "@/hooks/use-toast";
 import { useAppUser } from "@/hooks/use-app-user";
 import { useMyCompanies } from "@/hooks/use-companies";
@@ -199,6 +200,7 @@ function GroupDetailDialog({
 
   const existingMemberIds = new Set(members?.map(m => m.subjectId) || []);
   const filteredSearchResults = searchResults?.filter(s => !existingMemberIds.has(s.id)) || [];
+  const { sortedData: sortedMembers, sortKey: memberSortKey, sortDirection: memberSortDirection, requestSort: memberRequestSort } = useTableSort(members || []);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -412,13 +414,13 @@ function GroupDetailDialog({
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Meno</TableHead>
-                    <TableHead>KIK ID</TableHead>
+                    <TableHead sortKey="subject.firstName" sortDirection={memberSortKey === "subject.firstName" ? memberSortDirection : null} onSort={memberRequestSort}>Meno</TableHead>
+                    <TableHead sortKey="subject.uid" sortDirection={memberSortKey === "subject.uid" ? memberSortDirection : null} onSort={memberRequestSort}>KIK ID</TableHead>
                     <TableHead className="w-16"></TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {(members || []).map((m) => (
+                  {sortedMembers.map((m) => (
                     <TableRow key={m.id} data-testid={`row-member-${m.id}`}>
                       <TableCell className="font-medium">
                         {m.subject?.firstName} {m.subject?.lastName} {m.subject?.companyName}

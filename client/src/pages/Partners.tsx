@@ -57,6 +57,7 @@ import {
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { RichTextEditor } from "@/components/rich-text-editor";
 import { ProcessingSaveButton } from "@/components/processing-save-button";
+import { useTableSort } from "@/hooks/use-table-sort";
 
 const specializationOptions = [
   { value: "SFA", label: "SFA" },
@@ -607,6 +608,7 @@ function PartnerUnifiedDialog({
 
 export default function Partners() {
   const { data: partners, isLoading } = usePartners();
+  const { sortedData, sortKey, sortDirection, requestSort } = useTableSort(partners || []);
   const { data: allStates } = useStates();
   const deleteMutation = useDeletePartner();
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -647,14 +649,14 @@ export default function Partners() {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>UID</TableHead>
-                <TableHead>Nazov</TableHead>
-                <TableHead>Kod</TableHead>
-                <TableHead>Zameranie</TableHead>
-                <TableHead>ICO</TableHead>
-                <TableHead>Mesto</TableHead>
+                <TableHead sortKey="uid" sortDirection={sortKey === "uid" ? sortDirection : null} onSort={requestSort}>UID</TableHead>
+                <TableHead sortKey="name" sortDirection={sortKey === "name" ? sortDirection : null} onSort={requestSort}>Nazov</TableHead>
+                <TableHead sortKey="code" sortDirection={sortKey === "code" ? sortDirection : null} onSort={requestSort}>Kod</TableHead>
+                <TableHead sortKey="specialization" sortDirection={sortKey === "specialization" ? sortDirection : null} onSort={requestSort}>Zameranie</TableHead>
+                <TableHead sortKey="ico" sortDirection={sortKey === "ico" ? sortDirection : null} onSort={requestSort}>ICO</TableHead>
+                <TableHead sortKey="city" sortDirection={sortKey === "city" ? sortDirection : null} onSort={requestSort}>Mesto</TableHead>
                 <TableHead>Stat</TableHead>
-                <TableHead>Datum spoluprace</TableHead>
+                <TableHead sortKey="collaborationDate" sortDirection={sortKey === "collaborationDate" ? sortDirection : null} onSort={requestSort}>Datum spoluprace</TableHead>
                 <TableHead className="w-[80px]">Akcie</TableHead>
               </TableRow>
             </TableHeader>
@@ -671,7 +673,7 @@ export default function Partners() {
                   </TableCell>
                 </TableRow>
               )}
-              {partners?.map(partner => (
+              {sortedData.map(partner => (
                 <TableRow
                   key={partner.id}
                   data-testid={`row-partner-${partner.id}`}

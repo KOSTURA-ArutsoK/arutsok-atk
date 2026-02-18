@@ -1,7 +1,9 @@
 import * as React from "react"
 import { useState, useCallback, useRef } from "react"
+import { ArrowUp, ArrowDown, ArrowUpDown } from "lucide-react"
 
 import { cn } from "@/lib/utils"
+import type { SortDirection } from "@/hooks/use-table-sort"
 
 interface TableProps extends React.HTMLAttributes<HTMLTableElement> {
   stickyHeader?: boolean;
@@ -77,10 +79,13 @@ TableRow.displayName = "TableRow"
 
 interface TableHeadProps extends React.ThHTMLAttributes<HTMLTableCellElement> {
   resizable?: boolean;
+  sortKey?: string;
+  sortDirection?: SortDirection;
+  onSort?: (key: string) => void;
 }
 
 const TableHead = React.forwardRef<HTMLTableCellElement, TableHeadProps>(
-  ({ className, resizable = true, children, style, ...props }, ref) => {
+  ({ className, resizable = true, children, style, sortKey, sortDirection, onSort, ...props }, ref) => {
     const thRef = useRef<HTMLTableCellElement | null>(null);
     const [dragging, setDragging] = useState(false);
 
@@ -133,6 +138,25 @@ const TableHead = React.forwardRef<HTMLTableCellElement, TableHeadProps>(
 
     const hasColSpan = props.colSpan && props.colSpan > 1;
     const showHandle = resizable && !hasColSpan;
+    const isSortable = !!sortKey && !!onSort;
+
+    const handleSortClick = useCallback(() => {
+      if (isSortable && sortKey) {
+        onSort!(sortKey);
+      }
+    }, [isSortable, sortKey, onSort]);
+
+    const renderSortIcon = () => {
+      if (!isSortable) return null;
+      const isActive = !!sortDirection;
+      if (sortDirection === "asc") {
+        return <ArrowUp className={cn("inline-block ml-1 h-3.5 w-3.5 shrink-0 text-primary")} />;
+      }
+      if (sortDirection === "desc") {
+        return <ArrowDown className={cn("inline-block ml-1 h-3.5 w-3.5 shrink-0 text-primary")} />;
+      }
+      return <ArrowUpDown className="inline-block ml-1 h-3.5 w-3.5 shrink-0 opacity-30" />;
+    };
 
     return (
       <th
@@ -140,12 +164,17 @@ const TableHead = React.forwardRef<HTMLTableCellElement, TableHeadProps>(
         className={cn(
           "h-12 px-4 text-left align-middle font-medium text-muted-foreground bg-background [&:has([role=checkbox])]:pr-0 border-b border-border shadow-[0_1px_3px_-1px_rgba(0,0,0,0.1)]",
           showHandle && "relative",
+          isSortable && "cursor-pointer select-none",
           className
         )}
         style={style}
+        onClick={isSortable ? handleSortClick : undefined}
         {...props}
       >
-        {children}
+        <span className={cn(isSortable && "inline-flex items-center gap-0")}>
+          {children}
+          {renderSortIcon()}
+        </span>
         {showHandle && (
           <div
             onMouseDown={handleMouseDown}

@@ -37,6 +37,7 @@ import { Switch } from "@/components/ui/switch";
 import { InternationalPhoneInput } from "@/components/ui/international-phone-input";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { useTableSort } from "@/hooks/use-table-sort";
 import { HelpCircle, FileText, ShieldCheck, ListPlus, FileQuestion } from "lucide-react";
 import { HelpIcon } from "@/components/help-icon";
 import {
@@ -2039,6 +2040,7 @@ export default function Subjects() {
     statusFilters: activeFilters.size > 0 ? Array.from(activeFilters) : undefined,
     activeCompanyId,
   });
+  const { sortedData, sortKey, sortDirection, requestSort } = useTableSort(subjects || []);
   const { data: companies } = useMyCompanies();
   const { data: clientTypes } = useQuery<ClientType[]>({ queryKey: ["/api/client-types"] });
   const { data: clientGroups } = useQuery<any[]>({ queryKey: ["/api/client-groups"] });
@@ -2150,10 +2152,10 @@ export default function Subjects() {
                     className="accent-primary"
                   />
                 </TableHead>
-                <TableHead>UID</TableHead>
+                <TableHead sortKey="uid" sortDirection={sortKey === "uid" ? sortDirection : null} onSort={requestSort}>UID</TableHead>
                 <TableHead style={{ maxWidth: '150px' }}>Status</TableHead>
-                <TableHead>Cele meno / Nazov</TableHead>
-                <TableHead>Typ subjektu</TableHead>
+                <TableHead sortKey="firstName" sortDirection={sortKey === "firstName" ? sortDirection : null} onSort={requestSort}>Cele meno / Nazov</TableHead>
+                <TableHead sortKey="type" sortDirection={sortKey === "type" ? sortDirection : null} onSort={requestSort}>Typ subjektu</TableHead>
                 <TableHead>Spravujuca firma</TableHead>
                 <TableHead className="w-[100px]">Akcie</TableHead>
               </TableRow>
@@ -2161,7 +2163,7 @@ export default function Subjects() {
             <TableBody>
               <TableRow style={{ display: isLoading ? 'table-row' : 'none' }}><TableCell colSpan={7} className="text-center py-8 text-muted-foreground">Nacitavam...</TableCell></TableRow>
               <TableRow style={{ display: !isLoading && (!subjects || subjects.length === 0) ? 'table-row' : 'none' }}><TableCell colSpan={7} className="text-center py-12 text-muted-foreground" data-testid="text-empty-subjects">Ziadne subjekty nenajdene</TableCell></TableRow>
-              {subjects?.map((subject) => {
+              {sortedData.map((subject) => {
                 const details = (subject.details || {}) as Record<string, any>;
                 const titulPred = details.titul_pred || details.titleBefore || '';
                 const titulZa = details.titul_za || details.titleAfter || '';

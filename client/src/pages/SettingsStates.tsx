@@ -2,6 +2,7 @@ import { useState, useRef, useCallback, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import { useTableSort } from "@/hooks/use-table-sort";
 import { Plus, Pencil, Trash2, Clock, Upload, Image, Globe } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -369,6 +370,8 @@ export default function SettingsStates() {
     queryKey: ["/api/hierarchy/continents"],
   });
 
+  const { sortedData: sortedStates, sortKey, sortDirection, requestSort } = useTableSort(allStates || []);
+
   const deleteMutation = useMutation({
     mutationFn: (id: number) => apiRequest("DELETE", `/api/states/${id}`),
     onSuccess: () => {
@@ -409,16 +412,16 @@ export default function SettingsStates() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>ID</TableHead>
-                  <TableHead>Nazov</TableHead>
-                  <TableHead>Skratka</TableHead>
-                  <TableHead>Kontinent</TableHead>
+                  <TableHead sortKey="id" sortDirection={sortKey === "id" ? sortDirection : null} onSort={requestSort}>ID</TableHead>
+                  <TableHead sortKey="name" sortDirection={sortKey === "name" ? sortDirection : null} onSort={requestSort}>Nazov</TableHead>
+                  <TableHead sortKey="code" sortDirection={sortKey === "code" ? sortDirection : null} onSort={requestSort}>Skratka</TableHead>
+                  <TableHead sortKey="continentId" sortDirection={sortKey === "continentId" ? sortDirection : null} onSort={requestSort}>Kontinent</TableHead>
                   <TableHead>Vlajka</TableHead>
                   <TableHead className="text-right">Akcie</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {allStates.map(state => (
+                {sortedStates.map(state => (
                   <TableRow key={state.id} data-testid={`row-state-${state.id}`}>
                     <TableCell>
                       <Badge variant="outline">{state.id}</Badge>

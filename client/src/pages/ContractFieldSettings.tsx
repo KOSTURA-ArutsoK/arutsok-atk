@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import { useTableSort } from "@/hooks/use-table-sort";
 import type { ContractFieldSetting } from "@shared/schema";
 import { Loader2, Settings2 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
@@ -49,6 +50,8 @@ export default function ContractFieldSettings() {
     return setting?.requiredForPfa ?? false;
   }
 
+  const { sortedData: sortedFields, sortKey, sortDirection, requestSort } = useTableSort(CONTRACT_FIELDS);
+
   return (
     <div className="p-6 space-y-4">
       <div className="flex items-center gap-3">
@@ -70,12 +73,12 @@ export default function ContractFieldSettings() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Pole</TableHead>
+                  <TableHead sortKey="label" sortDirection={sortKey === "label" ? sortDirection : null} onSort={requestSort}>Pole</TableHead>
                   <TableHead className="w-40 text-center">Povinne pre PFA</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {CONTRACT_FIELDS.map(field => (
+                {sortedFields.map(field => (
                   <TableRow key={field.key} data-testid={`row-field-${field.key}`}>
                     <TableCell className="font-medium">{field.label}</TableCell>
                     <TableCell className="text-center">

@@ -2,6 +2,7 @@ import { useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { ArrowDownLeft, Filter, Loader2, Search } from "lucide-react";
 import { HelpIcon } from "@/components/help-icon";
+import { useTableSort } from "@/hooks/use-table-sort";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -52,6 +53,8 @@ export default function Provizie() {
       return true;
     });
   }, [provizieData, searchTerm, filterPartner]);
+
+  const { sortedData, sortKey, sortDirection, requestSort } = useTableSort(filtered);
 
   const totalCommission = useMemo(() => {
     return filtered.reduce((sum: number, r: any) => sum + (parseFloat(r.calculated_commission) || 0), 0);
@@ -156,21 +159,21 @@ export default function Provizie() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Cislo zmluvy</TableHead>
-                  <TableHead>Cislo kontraktu</TableHead>
+                  <TableHead sortKey="contract_number" sortDirection={sortKey === "contract_number" ? sortDirection : null} onSort={requestSort}>Cislo zmluvy</TableHead>
+                  <TableHead sortKey="global_number" sortDirection={sortKey === "global_number" ? sortDirection : null} onSort={requestSort}>Cislo kontraktu</TableHead>
                   <TableHead>Klient</TableHead>
                   <TableHead>Partner</TableHead>
                   <TableHead>Produkt</TableHead>
-                  <TableHead className="text-right">Poistne</TableHead>
-                  <TableHead>Typ sadzby</TableHead>
-                  <TableHead className="text-right">Sadzba</TableHead>
-                  <TableHead className="text-right">Provzia</TableHead>
-                  <TableHead className="text-right">Body</TableHead>
-                  <TableHead>Datum podpisu</TableHead>
+                  <TableHead className="text-right" sortKey="premium_amount" sortDirection={sortKey === "premium_amount" ? sortDirection : null} onSort={requestSort}>Poistne</TableHead>
+                  <TableHead sortKey="rate_type" sortDirection={sortKey === "rate_type" ? sortDirection : null} onSort={requestSort}>Typ sadzby</TableHead>
+                  <TableHead className="text-right" sortKey="rate_value" sortDirection={sortKey === "rate_value" ? sortDirection : null} onSort={requestSort}>Sadzba</TableHead>
+                  <TableHead className="text-right" sortKey="calculated_commission" sortDirection={sortKey === "calculated_commission" ? sortDirection : null} onSort={requestSort}>Provzia</TableHead>
+                  <TableHead className="text-right" sortKey="points_earned" sortDirection={sortKey === "points_earned" ? sortDirection : null} onSort={requestSort}>Body</TableHead>
+                  <TableHead sortKey="signed_date" sortDirection={sortKey === "signed_date" ? sortDirection : null} onSort={requestSort}>Datum podpisu</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filtered.map((r: any, idx: number) => (
+                {sortedData.map((r: any, idx: number) => (
                   <TableRow key={r.contract_id || idx} data-testid={`row-provzia-${r.contract_id || idx}`}>
                     <TableCell className="font-mono text-xs">{r.contract_number || "-"}</TableCell>
                     <TableCell className="text-xs">{r.global_number || "-"}</TableCell>

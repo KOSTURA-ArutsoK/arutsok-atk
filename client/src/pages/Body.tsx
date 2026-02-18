@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
+import { useTableSort } from "@/hooks/use-table-sort";
 import { useAppUser } from "@/hooks/use-app-user";
 import { useMyCompanies } from "@/hooks/use-companies";
 import { useToast } from "@/hooks/use-toast";
@@ -310,6 +311,9 @@ export default function Body() {
     queryKey: ["/api/product-point-rates"],
   });
 
+  const { sortedData: sortedLevels, sortKey: levelSortKey, sortDirection: levelSortDirection, requestSort: levelRequestSort } = useTableSort(careerLevels || []);
+  const { sortedData: sortedRates, sortKey: rateSortKey, sortDirection: rateSortDirection, requestSort: rateRequestSort } = useTableSort(productRates || []);
+
   const [editLevel, setEditLevel] = useState<CareerLevel | null | 'new'>(null);
   const [editRate, setEditRate] = useState<ProductPointRate | null | 'new'>(null);
 
@@ -379,12 +383,12 @@ export default function Body() {
             <Table stickyHeader>
               <TableHeader>
                 <TableRow>
-                  <TableHead className="w-[80px]" resizable={false}>Pozicia</TableHead>
-                  <TableHead>Body OD</TableHead>
-                  <TableHead>Body DO</TableHead>
-                  <TableHead>Cena za bod (€)</TableHead>
-                  <TableHead>Nazov pozicie</TableHead>
-                  <TableHead>Odmena %</TableHead>
+                  <TableHead className="w-[80px]" resizable={false} sortKey="positionCode" sortDirection={levelSortKey === "positionCode" ? levelSortDirection : null} onSort={levelRequestSort}>Pozicia</TableHead>
+                  <TableHead sortKey="pointsFrom" sortDirection={levelSortKey === "pointsFrom" ? levelSortDirection : null} onSort={levelRequestSort}>Body OD</TableHead>
+                  <TableHead sortKey="pointsTo" sortDirection={levelSortKey === "pointsTo" ? levelSortDirection : null} onSort={levelRequestSort}>Body DO</TableHead>
+                  <TableHead sortKey="pricePerPoint" sortDirection={levelSortKey === "pricePerPoint" ? levelSortDirection : null} onSort={levelRequestSort}>Cena za bod (€)</TableHead>
+                  <TableHead sortKey="positionName" sortDirection={levelSortKey === "positionName" ? levelSortDirection : null} onSort={levelRequestSort}>Nazov pozicie</TableHead>
+                  <TableHead sortKey="rewardPercent" sortDirection={levelSortKey === "rewardPercent" ? levelSortDirection : null} onSort={levelRequestSort}>Odmena %</TableHead>
                   <TableHead
                     className="text-center text-white"
                     style={{ backgroundColor: 'hsl(217, 91%, 40%)' }}
@@ -403,7 +407,7 @@ export default function Body() {
                     </TableCell>
                   </TableRow>
                 )}
-                {careerLevels?.map((level) => {
+                {sortedLevels.map((level) => {
                   const isCurrentLevel = userLevel?.id === level.id;
                   return (
                     <TableRow
@@ -478,10 +482,10 @@ export default function Body() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead style={{ backgroundColor: 'hsl(217, 60%, 18%)' }} className="text-blue-200">Partner / Institucia</TableHead>
-                  <TableHead style={{ backgroundColor: 'hsl(217, 60%, 18%)' }} className="text-blue-200">Produkt</TableHead>
-                  <TableHead style={{ backgroundColor: 'hsl(217, 60%, 18%)' }} className="text-blue-200">Zakladne body</TableHead>
-                  <TableHead style={{ backgroundColor: 'hsl(217, 60%, 18%)' }} className="text-blue-200">Provizny koeficient</TableHead>
+                  <TableHead style={{ backgroundColor: 'hsl(217, 60%, 18%)' }} className="text-blue-200" sortKey="partnerName" sortDirection={rateSortKey === "partnerName" ? rateSortDirection : null} onSort={rateRequestSort}>Partner / Institucia</TableHead>
+                  <TableHead style={{ backgroundColor: 'hsl(217, 60%, 18%)' }} className="text-blue-200" sortKey="productName" sortDirection={rateSortKey === "productName" ? rateSortDirection : null} onSort={rateRequestSort}>Produkt</TableHead>
+                  <TableHead style={{ backgroundColor: 'hsl(217, 60%, 18%)' }} className="text-blue-200" sortKey="basePoints" sortDirection={rateSortKey === "basePoints" ? rateSortDirection : null} onSort={rateRequestSort}>Zakladne body</TableHead>
+                  <TableHead style={{ backgroundColor: 'hsl(217, 60%, 18%)' }} className="text-blue-200" sortKey="commissionCoefficient" sortDirection={rateSortKey === "commissionCoefficient" ? rateSortDirection : null} onSort={rateRequestSort}>Provizny koeficient</TableHead>
                   <TableHead style={{ backgroundColor: 'hsl(217, 60%, 18%)', visibility: isAdmin ? 'visible' : 'hidden' }} className="text-blue-200 w-[80px]">Akcie</TableHead>
                 </TableRow>
               </TableHeader>
@@ -500,7 +504,7 @@ export default function Body() {
                     </TableCell>
                   </TableRow>
                 )}
-                {productRates?.map((rate) => (
+                {sortedRates.map((rate) => (
                   <TableRow key={rate.id} className="border-blue-800/30" data-testid={`row-rate-${rate.id}`}>
                     <TableCell className="text-blue-100 font-medium">{rate.partnerName || '-'}</TableCell>
                     <TableCell className="text-blue-200">{rate.productName || '-'}</TableCell>

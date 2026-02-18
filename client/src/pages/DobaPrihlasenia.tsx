@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
+import { useTableSort } from "@/hooks/use-table-sort";
 import { Timer, Loader2 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -24,6 +25,8 @@ export default function DobaPrihlasenia() {
   const { data: groups, isLoading } = useQuery<PermissionGroup[]>({
     queryKey: ["/api/permission-groups"],
   });
+
+  const { sortedData: sortedGroups, sortKey, sortDirection, requestSort } = useTableSort(groups || []);
 
   const updateTimeoutMutation = useMutation({
     mutationFn: async ({ id, sessionTimeoutSeconds }: { id: number; sessionTimeoutSeconds: number }) => {
@@ -77,15 +80,15 @@ export default function DobaPrihlasenia() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Skupina</TableHead>
-                  <TableHead>Popis</TableHead>
-                  <TableHead className="w-36">Timeout (sek)</TableHead>
+                  <TableHead sortKey="name" sortDirection={sortKey === "name" ? sortDirection : null} onSort={requestSort}>Skupina</TableHead>
+                  <TableHead sortKey="description" sortDirection={sortKey === "description" ? sortDirection : null} onSort={requestSort}>Popis</TableHead>
+                  <TableHead className="w-36" sortKey="sessionTimeoutSeconds" sortDirection={sortKey === "sessionTimeoutSeconds" ? sortDirection : null} onSort={requestSort}>Timeout (sek)</TableHead>
                   <TableHead className="w-32">Cas</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {groups && groups.length > 0 ? (
-                  groups.map(group => (
+                {sortedGroups && sortedGroups.length > 0 ? (
+                  sortedGroups.map(group => (
                     <TableRow key={group.id} data-testid={`timeout-row-${group.id}`}>
                       <TableCell className="font-medium" data-testid={`text-group-name-${group.id}`}>
                         {group.name}

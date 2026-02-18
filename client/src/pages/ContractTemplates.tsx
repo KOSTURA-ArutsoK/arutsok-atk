@@ -4,6 +4,7 @@ import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useAppUser } from "@/hooks/use-app-user";
 import { useStates } from "@/hooks/use-hierarchy";
 import { useToast } from "@/hooks/use-toast";
+import { useTableSort } from "@/hooks/use-table-sort";
 import type { ContractTemplate } from "@shared/schema";
 import { Plus, Pencil, Upload, FileText, Loader2, ExternalLink } from "lucide-react";
 import { ConditionalDelete } from "@/components/conditional-delete";
@@ -327,6 +328,8 @@ export default function ContractTemplates() {
     uploadMutation.mutate({ id: templateId, file });
   }
 
+  const { sortedData: sortedTemplates, sortKey, sortDirection, requestSort } = useTableSort(templates || []);
+
   return (
     <div className="p-6 space-y-6">
       <div className="flex items-center justify-between gap-4 flex-wrap">
@@ -351,15 +354,15 @@ export default function ContractTemplates() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Nazov</TableHead>
-                  <TableHead>Typ produktu</TableHead>
-                  <TableHead className="w-24">Stav</TableHead>
+                  <TableHead sortKey="name" sortDirection={sortKey === "name" ? sortDirection : null} onSort={requestSort}>Nazov</TableHead>
+                  <TableHead sortKey="productType" sortDirection={sortKey === "productType" ? sortDirection : null} onSort={requestSort}>Typ produktu</TableHead>
+                  <TableHead sortKey="isActive" sortDirection={sortKey === "isActive" ? sortDirection : null} onSort={requestSort} className="w-24">Stav</TableHead>
                   <TableHead>Subor</TableHead>
                   <TableHead className="w-40 text-right">Akcie</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {templates.map((template) => {
+                {sortedTemplates.map((template) => {
                   const contractCountForTemplate = (allContracts || []).filter((c: any) => c.templateId === template.id).length;
                   return (
                   <TableRow key={template.id} data-testid={`row-template-${template.id}`}>
