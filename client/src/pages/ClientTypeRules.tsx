@@ -30,9 +30,8 @@ import {
   Hash, Image, Calendar, CreditCard, Search, Loader2,
   FolderOpen, GripVertical, HelpCircle, X, Info,
 } from "lucide-react";
-import { DndContext, closestCenter, PointerSensor, KeyboardSensor, useSensor, useSensors, type DragEndEvent } from "@dnd-kit/core";
+import { DndContext, closestCenter, PointerSensor, KeyboardSensor, useSensor, useSensors, type DragEndEvent, DragOverlay, type DragStartEvent } from "@dnd-kit/core";
 import { SortableContext, useSortable, verticalListSortingStrategy, arrayMove } from "@dnd-kit/sortable";
-import { CSS } from "@dnd-kit/utilities";
 
 const FIELD_TYPES = [
   { value: "short_text", label: "Kratky text", icon: Type },
@@ -56,10 +55,9 @@ function isSelectFieldType(t: string): boolean {
 }
 
 function SortableRow({ id, children }: { id: number; children: React.ReactNode }) {
-  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id });
-  const style = { transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.5 : 1 };
+  const { attributes, listeners, setNodeRef, isDragging } = useSortable({ id });
   return (
-    <TableRow ref={setNodeRef} style={style} data-testid={`row-sortable-${id}`}>
+    <TableRow ref={setNodeRef} style={{ opacity: isDragging ? 0.3 : 1 }} data-testid={`row-sortable-${id}`}>
       <TableCell className="w-8 cursor-grab">
         <span {...attributes} {...listeners} data-testid={`handle-sortable-${id}`}>
           <GripVertical className="w-4 h-4 text-muted-foreground" />
@@ -801,7 +799,14 @@ function FolderSection({
     useSensor(KeyboardSensor)
   );
 
+  const [activeDragFieldId, setActiveDragFieldId] = useState<number | null>(null);
+
+  function handleFieldDragStart(event: DragStartEvent) {
+    setActiveDragFieldId(Number(event.active.id));
+  }
+
   function handleDragEnd(event: DragEndEvent) {
+    setActiveDragFieldId(null);
     const { active, over } = event;
     if (!over || active.id === over.id) return;
     const oldIndex = sorted.findIndex(f => f.id === active.id);
@@ -816,6 +821,7 @@ function FolderSection({
   }
 
   const sorted = [...fields].sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0));
+  const activeDragField = activeDragFieldId ? sorted.find(f => f.id === activeDragFieldId) : null;
   const { sortedData: sortedFields, sortKey: fieldSortKey, sortDirection: fieldSortDirection, requestSort: fieldRequestSort } = useTableSort(sorted);
 
   function getPanelName(panelId: number | null): string {
@@ -935,7 +941,7 @@ function FolderSection({
             Ziadne parametre v tomto priecinku
           </p>
           <div style={{ display: displayFields.length > 0 && !fieldSortKey ? 'block' : 'none' }}>
-            <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+            <DndContext sensors={sensors} collisionDetection={closestCenter} onDragStart={handleFieldDragStart} onDragEnd={handleDragEnd} onDragCancel={() => setActiveDragFieldId(null)}>
               <SortableContext items={displayFields.map(f => f.id)} strategy={verticalListSortingStrategy}>
                 <FieldTable
                   displayFields={displayFields}
@@ -949,6 +955,15 @@ function FolderSection({
                   useDnd={true}
                 />
               </SortableContext>
+              <DragOverlay>
+                {activeDragField ? (
+                  <div className="flex items-center gap-2 p-2 bg-card border rounded-md shadow-lg">
+                    <GripVertical className="w-4 h-4 text-muted-foreground" />
+                    <span className="font-medium text-sm">{activeDragField.label}</span>
+                    <span className="font-mono text-xs text-muted-foreground">{activeDragField.fieldKey}</span>
+                  </div>
+                ) : null}
+              </DragOverlay>
             </DndContext>
           </div>
           <div style={{ display: displayFields.length > 0 && !!fieldSortKey ? 'block' : 'none' }}>
@@ -1154,7 +1169,14 @@ export default function ClientTypeRules() {
     },
   });
 
+  const [activeDragTypeId, setActiveDragTypeId] = useState<number | null>(null);
+
+  function handleTypeDragStart(event: DragStartEvent) {
+    setActiveDragTypeId(Number(event.active.id));
+  }
+
   function handleDragEnd(event: DragEndEvent) {
+    setActiveDragTypeId(null);
     const { active, over } = event;
     if (!over || active.id === over.id) return;
     const oldIndex = clientTypes.findIndex(ct => ct.id === active.id);
@@ -1164,6 +1186,8 @@ export default function ClientTypeRules() {
     const items = reordered.map((ct, i) => ({ id: ct.id, sortOrder: i }));
     reorderMutation.mutate(items);
   }
+
+  const activeDragType = activeDragTypeId ? clientTypes.find(ct => ct.id === activeDragTypeId) : null;
 
   if (selectedType) {
     return <TypeDetailView clientType={selectedType} onBack={() => setSelectedType(null)} />;
@@ -1188,7 +1212,7 @@ export default function ClientTypeRules() {
 
       <Card>
         <CardContent className="p-0">
-          <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+          <DndContext sensors={sensors} collisionDetection={closestCenter} onDragStart={handleTypeDragStart} onDragEnd={handleDragEnd} onDragCancel={() => setActiveDragTypeId(null)}>
             <Table>
               <TableHeader>
                 <TableRow>
@@ -1236,6 +1260,15 @@ export default function ClientTypeRules() {
                 </TableBody>
               </SortableContext>
             </Table>
+            <DragOverlay>
+              {activeDragType ? (
+                <div className="flex items-center gap-3 p-3 bg-card border rounded-md shadow-lg">
+                  <GripVertical className="w-4 h-4 text-muted-foreground" />
+                  <span className="font-mono font-bold">{activeDragType.code}</span>
+                  <span className="font-medium">{activeDragType.name}</span>
+                </div>
+              ) : null}
+            </DragOverlay>
           </DndContext>
         </CardContent>
       </Card>
