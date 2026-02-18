@@ -1624,7 +1624,7 @@ function SubjectEditModal({ subject, onClose }: { subject: Subject & { isOwner?:
   return (
     <>
       <Dialog open onOpenChange={onClose}>
-        <DialogContent className="max-w-5xl w-[85vw] max-h-[85vh] overflow-y-auto flex flex-col items-stretch justify-start">
+        <DialogContent className="max-w-5xl w-[85vw] max-h-[95vh] overflow-y-auto flex flex-col items-stretch justify-start">
           <DialogHeader>
             <div className="flex items-center gap-3 flex-wrap">
               <div className="w-10 h-10 rounded-md bg-amber-500/10 flex items-center justify-center flex-shrink-0">
