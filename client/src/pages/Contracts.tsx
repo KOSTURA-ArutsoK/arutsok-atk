@@ -2118,6 +2118,10 @@ export default function Contracts() {
   };
 
   const handleShowInlineCreate = () => {
+    queryClient.invalidateQueries({ predicate: (query) => {
+      const key = query.queryKey;
+      return Array.isArray(key) && key[0] === "/api/client-types" && key.length >= 3;
+    }});
     const selectedCt = activeClientTypes.find(ct => ct.id.toString() === preSelectClientTypeId);
     const ctCode = selectedCt ? selectedCt.code.toLowerCase() : "fo";
     const type: "fo" | "szco" | "po" = ctCode === "szco" ? "szco" : ctCode === "po" ? "po" : "fo";
