@@ -75,14 +75,6 @@ export default function Archive() {
     return new Date(d).toLocaleDateString("sk-SK", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" });
   }
 
-  if (isLoading) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
-      </div>
-    );
-  }
-
   const companies = data?.companies || [];
   const partners = data?.partners || [];
   const products = data?.products || [];
@@ -91,6 +83,14 @@ export default function Archive() {
   const { sortedData: sortedCompanies, sortKey: sortKeyCompanies, sortDirection: sortDirCompanies, requestSort: requestSortCompanies } = useTableSort(companies);
   const { sortedData: sortedPartners, sortKey: sortKeyPartners, sortDirection: sortDirPartners, requestSort: requestSortPartners } = useTableSort(partners);
   const { sortedData: sortedProducts, sortKey: sortKeyProducts, sortDirection: sortDirProducts, requestSort: requestSortProducts } = useTableSort(products);
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
