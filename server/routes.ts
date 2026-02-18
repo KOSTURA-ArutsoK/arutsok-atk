@@ -788,7 +788,7 @@ export async function registerRoutes(
     };
   }
 
-  app.get(api.subjects.list.path, async (req: any, res) => {
+  app.get(api.subjects.list.path, isAuthenticated, async (req: any, res) => {
     const appUser = req.appUser;
     const activeCompanyId = appUser?.activeCompanyId || (req.query.activeCompanyId ? Number(req.query.activeCompanyId) : undefined);
     const params = {
