@@ -123,7 +123,8 @@ function GroupFormDialog({
     mutationFn: (data: any) => apiRequest("POST", "/api/permission-groups", data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/permission-groups"] });
-      toast({ title: "Uspech", description: "Skupina vytvorena" });
+      queryClient.invalidateQueries({ queryKey: ["/api/client-groups"] });
+      toast({ title: "Uspech", description: "Skupina uspesne vytvorena a pridana do zoznamu skupin klientov." });
       onOpenChange(false);
     },
     onError: (err: Error) => {
@@ -136,6 +137,7 @@ function GroupFormDialog({
       apiRequest("PUT", `/api/permission-groups/${id}`, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/permission-groups"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/client-groups"] });
       toast({ title: "Uspech", description: "Skupina aktualizovana" });
       onOpenChange(false);
     },

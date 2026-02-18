@@ -1251,6 +1251,11 @@ export async function registerRoutes(
       }
       const created = await storage.createPermissionGroup(input);
       await logAudit(req, { action: "CREATE", module: "skupiny_pravomoci", entityName: input.name, newData: input });
+      const linkedClientGroup = await storage.createClientGroup({
+        name: created.name,
+        permissionGroupId: created.id,
+      });
+      await logAudit(req, { action: "CREATE", module: "skupiny_klientov", entityId: linkedClientGroup.id, entityName: linkedClientGroup.name, newData: { autoLinked: true, permissionGroupId: created.id } });
       res.status(201).json(created);
     } catch (err) {
       if (err instanceof z.ZodError) return res.status(400).json({ message: err.errors[0].message });
@@ -1266,6 +1271,16 @@ export async function registerRoutes(
       }
       const updated = await storage.updatePermissionGroup(Number(req.params.id), input);
       await logAudit(req, { action: "UPDATE", module: "skupiny_pravomoci", entityId: Number(req.params.id) });
+      if (input.name) {
+        const linkedCg = await storage.getClientGroupByPermissionGroupId(Number(req.params.id));
+        if (linkedCg) {
+          await storage.updateClientGroup(linkedCg.id, { name: input.name });
+          await logAudit(req, { action: "UPDATE", module: "skupiny_klientov", entityId: linkedCg.id, entityName: input.name, newData: { nameSyncFromPermissionGroup: true } });
+        } else {
+          const created = await storage.createClientGroup({ name: input.name, permissionGroupId: Number(req.params.id) });
+          await logAudit(req, { action: "CREATE", module: "skupiny_klientov", entityId: created.id, entityName: input.name, newData: { autoLinkedOnUpdate: true } });
+        }
+      }
       res.json(updated);
     } catch (err) {
       if (err instanceof z.ZodError) return res.status(400).json({ message: err.errors[0].message });
@@ -4897,6 +4912,30 @@ export async function registerRoutes(
     }
   });
 
+  app.post("/api/admin/sync-permission-groups-to-client-groups", isAuthenticated, async (req: any, res) => {
+    try {
+      if (req.appUser?.role !== "admin" && req.appUser?.role !== "superadmin") {
+        return res.status(403).json({ message: "Pristup zamietnuty" });
+      }
+      const allPgs = await storage.getPermissionGroups();
+      let created = 0;
+      for (const pg of allPgs) {
+        const existing = await storage.getClientGroupByPermissionGroupId(pg.id);
+        if (!existing) {
+          await storage.createClientGroup({ name: pg.name, permissionGroupId: pg.id });
+          created++;
+        }
+      }
+      if (created > 0) {
+        await logAudit(req, { action: "SYNC", module: "skupiny_klientov", entityName: `Synchronizovanych: ${created} skupin` });
+      }
+      res.json({ success: true, created });
+    } catch (err: any) {
+      console.error("Sync permission groups error:", err);
+      res.status(500).json({ message: err.message });
+    }
+  });
+
   app.post("/api/admin/run-undelivered-check", isAuthenticated, async (req: any, res) => {
     try {
       if (req.appUser?.role !== "admin" && req.appUser?.role !== "superadmin") {
@@ -4912,6 +4951,20 @@ export async function registerRoutes(
   });
 
   await seedDatabase();
+
+  {
+    const allPgs = await storage.getPermissionGroups();
+    let synced = 0;
+    for (const pg of allPgs) {
+      const existing = await storage.getClientGroupByPermissionGroupId(pg.id);
+      if (!existing) {
+        await storage.createClientGroup({ name: pg.name, permissionGroupId: pg.id });
+        synced++;
+      }
+    }
+    if (synced > 0) console.log(`[SYNC] Auto-created ${synced} client groups from permission groups`);
+  }
+
   await storage.autoArchiveExpiredBindings();
   setInterval(() => storage.autoArchiveExpiredBindings(), 60 * 60 * 1000);
 

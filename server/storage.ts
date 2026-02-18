@@ -330,6 +330,7 @@ export interface IStorage {
   // Client Groups
   getClientGroups(stateId?: number): Promise<ClientGroup[]>;
   getClientGroup(id: number): Promise<ClientGroup | undefined>;
+  getClientGroupByPermissionGroupId(permissionGroupId: number): Promise<ClientGroup | undefined>;
   createClientGroup(data: InsertClientGroup): Promise<ClientGroup>;
   updateClientGroup(id: number, data: Partial<InsertClientGroup>): Promise<ClientGroup>;
   deleteClientGroup(id: number): Promise<void>;
@@ -2091,6 +2092,11 @@ export class DatabaseStorage implements IStorage {
 
   async getClientGroup(id: number): Promise<ClientGroup | undefined> {
     const [group] = await db.select().from(clientGroups).where(eq(clientGroups.id, id));
+    return group;
+  }
+
+  async getClientGroupByPermissionGroupId(permissionGroupId: number): Promise<ClientGroup | undefined> {
+    const [group] = await db.select().from(clientGroups).where(eq(clientGroups.permissionGroupId, permissionGroupId));
     return group;
   }
 
