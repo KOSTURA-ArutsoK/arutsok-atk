@@ -6,7 +6,11 @@ import { useStates } from "@/hooks/use-hierarchy";
 import { useToast } from "@/hooks/use-toast";
 import { useLocation } from "wouter";
 import type { Contract, ContractStatus, ContractTemplate, ContractInventory, Subject, Partner, Product, MyCompany, Sector, Section, SectorProduct, ClientGroup, ClientType, ClientTypeSection, ClientTypePanel, ClientTypeField, AppUser, ContractAcquirer } from "@shared/schema";
-import { Plus, Pencil, Trash2, Eye, FileText, Loader2, Lock, LayoutGrid, Send, Upload, Inbox, CheckCircle2, ChevronDown, ChevronRight, Printer, Search, Archive, AlertTriangle, Calendar, XCircle, MessageSquare, Paperclip, UserPlus, X, Users } from "lucide-react";
+import { Plus, Pencil, Trash2, Eye, FileText, Loader2, Lock, LayoutGrid, Send, Upload, Inbox, CheckCircle2, ChevronDown, ChevronRight, Printer, Search, Archive, AlertTriangle, Calendar, XCircle, MessageSquare, Paperclip, UserPlus, X, Users, Check, ChevronsUpDown } from "lucide-react";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
+import { PRIORITY_COUNTRIES, ALL_COUNTRIES, getDefaultCountryForState } from "@/lib/countries";
+import { cn } from "@/lib/utils";
 import { Checkbox } from "@/components/ui/checkbox";
 import { MultiSelectCheckboxes } from "@/components/multi-select-checkboxes";
 import { Card, CardContent } from "@/components/ui/card";
@@ -1725,6 +1729,10 @@ export default function Contracts() {
     if (type === "fo" && preSelectSubjectSearch.trim()) {
       defaults["rodne_cislo"] = preSelectSubjectSearch.trim();
     }
+    const activeState = allStates?.find(s => s.id === appUser?.activeStateId);
+    if ((type === "fo") && activeState?.name) {
+      defaults["statna_prislusnost"] = getDefaultCountryForState(activeState.name);
+    }
     setInlineFormValues(defaults);
   };
 
@@ -2237,9 +2245,54 @@ export default function Contracts() {
                             {row3Fields.length > 0 && (
                               <div className="grid grid-cols-1 sm:grid-cols-[2fr_1fr] gap-3 mt-3">{row3Fields.map(renderField)}</div>
                             )}
-                            {row4Fields.length > 0 && (
-                              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-3">{row4Fields.map(renderField)}</div>
-                            )}
+                            {(() => {
+                              const spField = nonAddrFields.find(f => f.fieldKey === "statna_prislusnost");
+                              if (!spField && row4Fields.length === 0) return null;
+                              const hasErr = inlineValidationErrors.has("statna_prislusnost");
+                              const label = spField?.label || "Štátna príslušnosť";
+                              const isReq = spField?.isRequired;
+                              const prioritySet = new Set(PRIORITY_COUNTRIES);
+                              const restCountries = ALL_COUNTRIES.filter(c => !prioritySet.has(c));
+                              return (
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-3">
+                                  <div className="space-y-1" data-testid="field-inline-statna_prislusnost">
+                                    <label className={`text-xs font-medium ${hasErr ? "text-red-500" : ""}`}>{label}{isReq ? " *" : ""}</label>
+                                    <Popover>
+                                      <PopoverTrigger asChild>
+                                        <Button variant="outline" role="combobox" className={cn("w-full justify-between font-normal", hasErr && "border-red-500 ring-1 ring-red-500", !inlineFormValues["statna_prislusnost"] && "text-muted-foreground")} data-testid="select-inline-statna-prislusnost">
+                                          {inlineFormValues["statna_prislusnost"] || "Vyberte krajinu..."}
+                                          <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                                        </Button>
+                                      </PopoverTrigger>
+                                      <PopoverContent className="w-[300px] p-0" align="start">
+                                        <Command>
+                                          <CommandInput placeholder="Hľadať krajinu..." />
+                                          <CommandList>
+                                            <CommandEmpty>Krajina nenájdená.</CommandEmpty>
+                                            <CommandGroup heading="Prioritné">
+                                              {PRIORITY_COUNTRIES.map(c => (
+                                                <CommandItem key={c} value={c} onSelect={() => { setInlineFormValues(prev => ({ ...prev, statna_prislusnost: c })); if (hasErr) setInlineValidationErrors(prev => { const n = new Set(prev); n.delete("statna_prislusnost"); return n; }); }}>
+                                                  <Check className={cn("mr-2 h-4 w-4", inlineFormValues["statna_prislusnost"] === c ? "opacity-100" : "opacity-0")} />
+                                                  {c}
+                                                </CommandItem>
+                                              ))}
+                                            </CommandGroup>
+                                            <CommandGroup heading="Všetky krajiny">
+                                              {restCountries.map(c => (
+                                                <CommandItem key={c} value={c} onSelect={() => { setInlineFormValues(prev => ({ ...prev, statna_prislusnost: c })); if (hasErr) setInlineValidationErrors(prev => { const n = new Set(prev); n.delete("statna_prislusnost"); return n; }); }}>
+                                                  <Check className={cn("mr-2 h-4 w-4", inlineFormValues["statna_prislusnost"] === c ? "opacity-100" : "opacity-0")} />
+                                                  {c}
+                                                </CommandItem>
+                                              ))}
+                                            </CommandGroup>
+                                          </CommandList>
+                                        </Command>
+                                      </PopoverContent>
+                                    </Popover>
+                                  </div>
+                                </div>
+                              );
+                            })()}
                             {restFields.length > 0 && (
                               <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 mt-3">{restFields.map(renderField)}</div>
                             )}
