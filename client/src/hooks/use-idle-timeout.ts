@@ -1,6 +1,6 @@
 import { useEffect, useRef, useCallback, useState } from "react";
 
-const DEFAULT_TIMEOUT_SEC = 180;
+const DEFAULT_TIMEOUT_SEC = 1800;
 const BEEP_LAST_SEC = 10;
 const THROTTLE_MS = 1000;
 

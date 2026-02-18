@@ -97,7 +97,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     setContextOverlayOpen(true);
   }, [appUser?.activeStateId, openStateSelector]);
 
-  const defaultTimeout = (appUser as any)?.effectiveSessionTimeoutSeconds ?? 180;
+  const defaultTimeout = (appUser as any)?.effectiveSessionTimeoutSeconds ?? 1800;
 
   const { timeLeft, showWarning, dismissWarning, isRed } = useIdleTimeout(defaultTimeout);
   useGlobalClickLogger();

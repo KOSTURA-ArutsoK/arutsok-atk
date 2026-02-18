@@ -141,7 +141,7 @@ export async function registerRoutes(
       
       if (!appUser) return res.status(404).json({ message: "App user not found" });
 
-      let effectiveTimeout = 180;
+      let effectiveTimeout = 1800;
       if (appUser.permissionGroupId) {
         const [pg] = await db.select().from(permissionGroups).where(eq(permissionGroups.id, appUser.permissionGroupId));
         if (pg) effectiveTimeout = pg.sessionTimeoutSeconds ?? 1800;
