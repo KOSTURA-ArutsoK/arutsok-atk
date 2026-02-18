@@ -227,6 +227,7 @@ export const subjects = pgTable("subjects", {
   isDeceased: boolean("is_deceased").default(false),
   registeredByUserId: integer("registered_by_user_id").references(() => appUsers.id),
   createdAt: timestamp("created_at").defaultNow(),
+  deletedAt: timestamp("deleted_at"),
 });
 
 export const subjectArchive = pgTable("subject_archive", {
@@ -310,6 +311,7 @@ export const permissionGroups = pgTable("permission_groups", {
   description: text("description"),
   sessionTimeoutSeconds: integer("session_timeout_seconds").notNull().default(180),
   createdAt: timestamp("created_at").defaultNow(),
+  deletedAt: timestamp("deleted_at"),
 });
 
 // === RBAC: PERMISSIONS MATRIX ===
@@ -462,6 +464,7 @@ export const clientTypeSections = pgTable("client_type_sections", {
   folderCategory: text("folder_category").default("povinne"),
   sortOrder: integer("sort_order").default(0),
   createdAt: timestamp("created_at").defaultNow(),
+  deletedAt: timestamp("deleted_at"),
 });
 
 // === CLIENT TYPE PANELS (Panel grouping within folders) ===
@@ -473,6 +476,7 @@ export const clientTypePanels = pgTable("client_type_panels", {
   gridColumns: integer("grid_columns").default(2),
   sortOrder: integer("sort_order").default(0),
   createdAt: timestamp("created_at").defaultNow(),
+  deletedAt: timestamp("deleted_at"),
 });
 
 // === CLIENT TYPE FIELDS (Field definitions per type) ===
@@ -493,6 +497,7 @@ export const clientTypeFields = pgTable("client_type_fields", {
   fieldCategory: text("field_category").default("povinne"),
   sortOrder: integer("sort_order").default(0),
   createdAt: timestamp("created_at").defaultNow(),
+  deletedAt: timestamp("deleted_at"),
 });
 
 // === CLIENT GROUPS (Skupiny klientov) ===
@@ -549,6 +554,7 @@ export const contractStatuses = pgTable("contract_statuses", {
   definesContractEnd: boolean("defines_contract_end").default(false),
   stateId: integer("state_id").references(() => states.id),
   createdAt: timestamp("created_at").defaultNow(),
+  deletedAt: timestamp("deleted_at"),
 });
 
 // === CONTRACT STATUS COMPANIES (ArutsoK 49 - statuses linked to companies) ===
@@ -609,6 +615,7 @@ export const contractTemplates = pgTable("contract_templates", {
   isActive: boolean("is_active").default(true),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
+  deletedAt: timestamp("deleted_at"),
 });
 
 // === CONTRACT INVENTORIES (Supisky - batches) ===
@@ -624,6 +631,7 @@ export const contractInventories = pgTable("contract_inventories", {
   isDispatched: boolean("is_dispatched").default(false),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
+  deletedAt: timestamp("deleted_at"),
 });
 
 // === CONTRACTS (Zmluvy - main) ===
@@ -774,6 +782,7 @@ export const commissionRates = pgTable("commission_rates", {
   createdBy: text("created_by"),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
+  deletedAt: timestamp("deleted_at"),
 });
 
 // === COMMISSION CALCULATION LOGS (Audit trail for calculations) ===
@@ -977,6 +986,7 @@ export const sectors = pgTable("sectors", {
   sortOrder: integer("sort_order").default(0),
   isActive: boolean("is_active").default(true),
   createdAt: timestamp("created_at").defaultNow(),
+  deletedAt: timestamp("deleted_at"),
 });
 
 export const insertSectorSchema = createInsertSchema(sectors).omit({ id: true, createdAt: true });
@@ -990,6 +1000,7 @@ export const sections = pgTable("sections", {
   sortOrder: integer("sort_order").default(0),
   isActive: boolean("is_active").default(true),
   createdAt: timestamp("created_at").defaultNow(),
+  deletedAt: timestamp("deleted_at"),
 });
 
 export const insertSectionSchema = createInsertSchema(sections).omit({ id: true, createdAt: true });
@@ -1003,6 +1014,7 @@ export const sectorProducts = pgTable("sector_products", {
   partnerId: integer("partner_id"),
   sortOrder: integer("sort_order").default(0),
   createdAt: timestamp("created_at").defaultNow(),
+  deletedAt: timestamp("deleted_at"),
 });
 
 export const insertSectorProductSchema = createInsertSchema(sectorProducts).omit({ id: true, createdAt: true });
@@ -1020,6 +1032,7 @@ export const parameters = pgTable("parameters", {
   decimalPlaces: integer("decimal_places").default(2),
   sortOrder: integer("sort_order").default(0),
   createdAt: timestamp("created_at").defaultNow(),
+  deletedAt: timestamp("deleted_at"),
 });
 
 export const insertParameterSchema = createInsertSchema(parameters).omit({ id: true, createdAt: true });
@@ -1086,6 +1099,7 @@ export const panels = pgTable("panels", {
   description: text("description").default(""),
   sortOrder: integer("sort_order").default(0),
   createdAt: timestamp("created_at").defaultNow(),
+  deletedAt: timestamp("deleted_at"),
 });
 
 export const insertPanelSchema = createInsertSchema(panels).omit({ id: true, createdAt: true });
@@ -1123,6 +1137,7 @@ export const contractFolders = pgTable("contract_folders", {
   name: text("name").notNull(),
   sortOrder: integer("sort_order").default(0),
   createdAt: timestamp("created_at").defaultNow(),
+  deletedAt: timestamp("deleted_at"),
 });
 
 export const insertContractFolderSchema = createInsertSchema(contractFolders).omit({ id: true, createdAt: true });

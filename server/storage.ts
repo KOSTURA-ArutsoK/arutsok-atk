@@ -482,6 +482,10 @@ export interface IStorage {
   createProductPointRate(data: InsertProductPointRate): Promise<ProductPointRate>;
   updateProductPointRate(id: number, data: Partial<InsertProductPointRate>): Promise<ProductPointRate>;
   deleteProductPointRate(id: number): Promise<void>;
+
+  restoreEntity(entityType: string, id: number): Promise<void>;
+  permanentDeleteEntity(entityType: string, id: number): Promise<void>;
+  getAllDeletedEntities(): Promise<Array<{id: number; entityType: string; name: string; deletedAt: Date}>>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -918,15 +922,14 @@ export class DatabaseStorage implements IStorage {
     if (params?.isActive !== undefined) conditions.push(eq(subjects.isActive, params.isActive));
     if (params?.myCompanyId) conditions.push(eq(subjects.myCompanyId, params.myCompanyId));
     if (params?.stateId) conditions.push(eq(subjects.stateId, params.stateId));
+    conditions.push(isNull(subjects.deletedAt));
 
     const query = db.select({
       subject: subjects,
       contractCount: contractCountSub,
     }).from(subjects);
 
-    const rows = conditions.length > 0
-      ? await query.where(and(...conditions))
-      : await query;
+    const rows = await query.where(and(...conditions));
 
     return rows.map(r => ({ ...r.subject, contractCount: r.contractCount ?? 0 }));
   }
@@ -1017,7 +1020,7 @@ export class DatabaseStorage implements IStorage {
       data: original as any,
       reason,
     });
-    await db.update(subjects).set({ isActive: false }).where(eq(subjects.id, id));
+    await db.update(subjects).set({ isActive: false, deletedAt: new Date() }).where(eq(subjects.id, id));
   }
 
   async getProducts(includeDeleted?: boolean) {
@@ -1225,7 +1228,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getPermissionGroups() {
-    return await db.select().from(permissionGroups);
+    return await db.select().from(permissionGroups).where(isNull(permissionGroups.deletedAt));
   }
 
   async createPermissionGroup(data: InsertPermissionGroup) {
@@ -1240,8 +1243,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async deletePermissionGroup(id: number) {
-    await db.delete(permissions).where(eq(permissions.groupId, id));
-    await db.delete(permissionGroups).where(eq(permissionGroups.id, id));
+    await db.update(permissionGroups).set({ deletedAt: new Date() }).where(eq(permissionGroups.id, id));
   }
 
   async getPermissions(groupId: number) {
@@ -1472,7 +1474,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getClientTypes(): Promise<ClientType[]> {
-    return await db.select().from(clientTypes).orderBy(clientTypes.sortOrder);
+    return await db.select().from(clientTypes).where(isNull(clientTypes.deletedAt)).orderBy(clientTypes.sortOrder);
   }
 
   async getClientType(id: number): Promise<ClientType | undefined> {
@@ -1491,15 +1493,16 @@ export class DatabaseStorage implements IStorage {
   }
 
   async deleteClientType(id: number): Promise<void> {
-    await db.delete(clientTypeFields).where(eq(clientTypeFields.clientTypeId, id));
-    await db.delete(clientTypePanels).where(eq(clientTypePanels.clientTypeId, id));
-    await db.delete(clientTypeSections).where(eq(clientTypeSections.clientTypeId, id));
-    await db.delete(clientTypes).where(eq(clientTypes.id, id));
+    const now = new Date();
+    await db.update(clientTypeFields).set({ deletedAt: now }).where(eq(clientTypeFields.clientTypeId, id));
+    await db.update(clientTypePanels).set({ deletedAt: now }).where(eq(clientTypePanels.clientTypeId, id));
+    await db.update(clientTypeSections).set({ deletedAt: now }).where(eq(clientTypeSections.clientTypeId, id));
+    await db.update(clientTypes).set({ deletedAt: now } as any).where(eq(clientTypes.id, id));
   }
 
   async getClientTypeSections(clientTypeId: number): Promise<ClientTypeSection[]> {
     return await db.select().from(clientTypeSections)
-      .where(eq(clientTypeSections.clientTypeId, clientTypeId))
+      .where(and(eq(clientTypeSections.clientTypeId, clientTypeId), isNull(clientTypeSections.deletedAt)))
       .orderBy(clientTypeSections.sortOrder);
   }
 
@@ -1514,18 +1517,12 @@ export class DatabaseStorage implements IStorage {
   }
 
   async deleteClientTypeSection(id: number): Promise<void> {
-    const panelsInSection = await db.select().from(clientTypePanels).where(eq(clientTypePanels.sectionId, id));
-    for (const panel of panelsInSection) {
-      await db.update(clientTypeFields).set({ panelId: null }).where(eq(clientTypeFields.panelId, panel.id));
-    }
-    await db.delete(clientTypePanels).where(eq(clientTypePanels.sectionId, id));
-    await db.update(clientTypeFields).set({ sectionId: null }).where(eq(clientTypeFields.sectionId, id));
-    await db.delete(clientTypeSections).where(eq(clientTypeSections.id, id));
+    await db.update(clientTypeSections).set({ deletedAt: new Date() }).where(eq(clientTypeSections.id, id));
   }
 
   async getClientTypePanels(clientTypeId: number): Promise<ClientTypePanel[]> {
     return await db.select().from(clientTypePanels)
-      .where(eq(clientTypePanels.clientTypeId, clientTypeId))
+      .where(and(eq(clientTypePanels.clientTypeId, clientTypeId), isNull(clientTypePanels.deletedAt)))
       .orderBy(clientTypePanels.sortOrder);
   }
 
@@ -1540,13 +1537,12 @@ export class DatabaseStorage implements IStorage {
   }
 
   async deleteClientTypePanel(id: number): Promise<void> {
-    await db.update(clientTypeFields).set({ panelId: null }).where(eq(clientTypeFields.panelId, id));
-    await db.delete(clientTypePanels).where(eq(clientTypePanels.id, id));
+    await db.update(clientTypePanels).set({ deletedAt: new Date() }).where(eq(clientTypePanels.id, id));
   }
 
   async getClientTypeFields(clientTypeId: number): Promise<ClientTypeField[]> {
     return await db.select().from(clientTypeFields)
-      .where(eq(clientTypeFields.clientTypeId, clientTypeId))
+      .where(and(eq(clientTypeFields.clientTypeId, clientTypeId), isNull(clientTypeFields.deletedAt)))
       .orderBy(clientTypeFields.sortOrder);
   }
 
@@ -1561,7 +1557,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async deleteClientTypeField(id: number): Promise<void> {
-    await db.delete(clientTypeFields).where(eq(clientTypeFields.id, id));
+    await db.update(clientTypeFields).set({ deletedAt: new Date() }).where(eq(clientTypeFields.id, id));
   }
 
   async checkDuplicateSubject(params: { birthNumber?: string; ico?: string }): Promise<{ id: number; uid: string; name: string; type: string; matchedField: string } | undefined> {
@@ -1625,10 +1621,10 @@ export class DatabaseStorage implements IStorage {
   async getContractStatuses(stateId?: number): Promise<ContractStatus[]> {
     if (stateId) {
       return await db.select().from(contractStatuses)
-        .where(or(eq(contractStatuses.stateId, stateId), isNull(contractStatuses.stateId)))
+        .where(and(or(eq(contractStatuses.stateId, stateId), isNull(contractStatuses.stateId)), isNull(contractStatuses.deletedAt)))
         .orderBy(contractStatuses.sortOrder);
     }
-    return await db.select().from(contractStatuses).orderBy(contractStatuses.sortOrder);
+    return await db.select().from(contractStatuses).where(isNull(contractStatuses.deletedAt)).orderBy(contractStatuses.sortOrder);
   }
 
   async createContractStatus(data: InsertContractStatus): Promise<ContractStatus> {
@@ -1642,7 +1638,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async deleteContractStatus(id: number): Promise<void> {
-    await db.delete(contractStatuses).where(eq(contractStatuses.id, id));
+    await db.update(contractStatuses).set({ deletedAt: new Date() }).where(eq(contractStatuses.id, id));
   }
 
   async reorderContractStatuses(items: { id: number; sortOrder: number }[]): Promise<void> {
@@ -1773,10 +1769,10 @@ export class DatabaseStorage implements IStorage {
   async getContractTemplates(stateId?: number): Promise<ContractTemplate[]> {
     if (stateId) {
       return await db.select().from(contractTemplates)
-        .where(eq(contractTemplates.stateId, stateId))
+        .where(and(eq(contractTemplates.stateId, stateId), isNull(contractTemplates.deletedAt)))
         .orderBy(contractTemplates.name);
     }
-    return await db.select().from(contractTemplates).orderBy(contractTemplates.name);
+    return await db.select().from(contractTemplates).where(isNull(contractTemplates.deletedAt)).orderBy(contractTemplates.name);
   }
 
   async createContractTemplate(data: InsertContractTemplate): Promise<ContractTemplate> {
@@ -1790,7 +1786,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async deleteContractTemplate(id: number): Promise<void> {
-    await db.delete(contractTemplates).where(eq(contractTemplates.id, id));
+    await db.update(contractTemplates).set({ deletedAt: new Date() }).where(eq(contractTemplates.id, id));
   }
 
   // === Counters ===
@@ -1814,10 +1810,10 @@ export class DatabaseStorage implements IStorage {
   async getContractInventories(stateId?: number): Promise<ContractInventory[]> {
     if (stateId) {
       return await db.select().from(contractInventories)
-        .where(eq(contractInventories.stateId, stateId))
+        .where(and(eq(contractInventories.stateId, stateId), isNull(contractInventories.deletedAt)))
         .orderBy(contractInventories.sortOrder);
     }
-    return await db.select().from(contractInventories).orderBy(contractInventories.sortOrder);
+    return await db.select().from(contractInventories).where(isNull(contractInventories.deletedAt)).orderBy(contractInventories.sortOrder);
   }
 
   async createContractInventory(data: InsertContractInventory): Promise<ContractInventory> {
@@ -1831,7 +1827,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async deleteContractInventory(id: number): Promise<void> {
-    await db.delete(contractInventories).where(eq(contractInventories.id, id));
+    await db.update(contractInventories).set({ deletedAt: new Date() }).where(eq(contractInventories.id, id));
   }
 
   async reorderContractInventories(items: { id: number; sortOrder: number }[]): Promise<void> {
@@ -2352,15 +2348,12 @@ export class DatabaseStorage implements IStorage {
 
   // === Commission Rates (Sadzby) ===
   async getCommissionRates(filters?: { partnerId?: number; productId?: number; stateId?: number; isActive?: boolean }): Promise<CommissionRate[]> {
-    const conditions: any[] = [];
+    const conditions: any[] = [isNull(commissionRates.deletedAt)];
     if (filters?.partnerId) conditions.push(eq(commissionRates.partnerId, filters.partnerId));
     if (filters?.productId) conditions.push(eq(commissionRates.productId, filters.productId));
     if (filters?.stateId) conditions.push(eq(commissionRates.stateId, filters.stateId));
     if (filters?.isActive !== undefined) conditions.push(eq(commissionRates.isActive, filters.isActive));
-    if (conditions.length > 0) {
-      return db.select().from(commissionRates).where(and(...conditions)).orderBy(commissionRates.createdAt);
-    }
-    return db.select().from(commissionRates).orderBy(commissionRates.createdAt);
+    return db.select().from(commissionRates).where(and(...conditions)).orderBy(commissionRates.createdAt);
   }
 
   async getCommissionRate(id: number): Promise<CommissionRate | undefined> {
@@ -2379,7 +2372,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async deleteCommissionRate(id: number): Promise<void> {
-    await db.delete(commissionRates).where(eq(commissionRates.id, id));
+    await db.update(commissionRates).set({ deletedAt: new Date() }).where(eq(commissionRates.id, id));
   }
 
   // === Commission Calculation Logs ===
@@ -2475,7 +2468,7 @@ export class DatabaseStorage implements IStorage {
   }
   // === Sectors CRUD (ArutsoK 25: descending sort) ===
   async getSectors(): Promise<Sector[]> {
-    return await db.select().from(sectors).orderBy(desc(sectors.id));
+    return await db.select().from(sectors).where(isNull(sectors.deletedAt)).orderBy(desc(sectors.id));
   }
 
   async getSector(id: number): Promise<Sector | undefined> {
@@ -2494,26 +2487,21 @@ export class DatabaseStorage implements IStorage {
   }
 
   async deleteSector(id: number): Promise<void> {
+    const now = new Date();
     const secs = await db.select().from(sections).where(eq(sections.sectorId, id));
     for (const sec of secs) {
-      const sps = await db.select().from(sectorProducts).where(eq(sectorProducts.sectionId, sec.id));
-      for (const sp of sps) {
-        await db.delete(sectorProductParameters).where(eq(sectorProductParameters.sectorProductId, sp.id));
-        await db.delete(productPanels).where(eq(productPanels.sectorProductId, sp.id));
-      }
-      await db.delete(sectorProducts).where(eq(sectorProducts.sectionId, sec.id));
+      await db.update(sectorProducts).set({ deletedAt: now }).where(eq(sectorProducts.sectionId, sec.id));
     }
-    await db.delete(sections).where(eq(sections.sectorId, id));
-    await db.delete(sectorParameters).where(eq(sectorParameters.sectorId, id));
-    await db.delete(sectors).where(eq(sectors.id, id));
+    await db.update(sections).set({ deletedAt: now }).where(eq(sections.sectorId, id));
+    await db.update(sectors).set({ deletedAt: now }).where(eq(sectors.id, id));
   }
 
   // === Sections CRUD (ArutsoK 28) ===
   async getSections(sectorId?: number): Promise<Section[]> {
     if (sectorId !== undefined) {
-      return await db.select().from(sections).where(eq(sections.sectorId, sectorId)).orderBy(desc(sections.id));
+      return await db.select().from(sections).where(and(eq(sections.sectorId, sectorId), isNull(sections.deletedAt))).orderBy(desc(sections.id));
     }
-    return await db.select().from(sections).orderBy(desc(sections.id));
+    return await db.select().from(sections).where(isNull(sections.deletedAt)).orderBy(desc(sections.id));
   }
 
   async getSection(id: number): Promise<Section | undefined> {
@@ -2532,21 +2520,17 @@ export class DatabaseStorage implements IStorage {
   }
 
   async deleteSection(id: number): Promise<void> {
-    const sps = await db.select().from(sectorProducts).where(eq(sectorProducts.sectionId, id));
-    for (const sp of sps) {
-      await db.delete(sectorProductParameters).where(eq(sectorProductParameters.sectorProductId, sp.id));
-      await db.delete(productPanels).where(eq(productPanels.sectorProductId, sp.id));
-    }
-    await db.delete(sectorProducts).where(eq(sectorProducts.sectionId, id));
-    await db.delete(sections).where(eq(sections.id, id));
+    const now = new Date();
+    await db.update(sectorProducts).set({ deletedAt: now }).where(eq(sectorProducts.sectionId, id));
+    await db.update(sections).set({ deletedAt: now }).where(eq(sections.id, id));
   }
 
   // === Sector Products CRUD (ArutsoK 28 - now linked via sectionId) ===
   async getSectorProducts(sectionId?: number): Promise<SectorProduct[]> {
     if (sectionId !== undefined) {
-      return await db.select().from(sectorProducts).where(eq(sectorProducts.sectionId, sectionId)).orderBy(desc(sectorProducts.id));
+      return await db.select().from(sectorProducts).where(and(eq(sectorProducts.sectionId, sectionId), isNull(sectorProducts.deletedAt))).orderBy(desc(sectorProducts.id));
     }
-    return await db.select().from(sectorProducts).orderBy(desc(sectorProducts.id));
+    return await db.select().from(sectorProducts).where(isNull(sectorProducts.deletedAt)).orderBy(desc(sectorProducts.id));
   }
 
   async getSectorProduct(id: number): Promise<SectorProduct | undefined> {
@@ -2565,8 +2549,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async deleteSectorProduct(id: number): Promise<void> {
-    await db.delete(sectorProductParameters).where(eq(sectorProductParameters.sectorProductId, id));
-    await db.delete(sectorProducts).where(eq(sectorProducts.id, id));
+    await db.update(sectorProducts).set({ deletedAt: new Date() }).where(eq(sectorProducts.id, id));
   }
 
   // === Sector-Product-Parameter assignments (ArutsoK 25) ===
@@ -2585,7 +2568,7 @@ export class DatabaseStorage implements IStorage {
 
   // === Parameters CRUD (ArutsoK 25: descending sort) ===
   async getParameters(): Promise<Parameter[]> {
-    return await db.select().from(parameters).orderBy(desc(parameters.id));
+    return await db.select().from(parameters).where(isNull(parameters.deletedAt)).orderBy(desc(parameters.id));
   }
 
   async getParameter(id: number): Promise<Parameter | undefined> {
@@ -2604,10 +2587,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async deleteParameter(id: number): Promise<void> {
-    await db.delete(sectorParameters).where(eq(sectorParameters.parameterId, id));
-    await db.delete(sectorProductParameters).where(eq(sectorProductParameters.parameterId, id));
-    await db.delete(productParameters).where(eq(productParameters.parameterId, id));
-    await db.delete(parameters).where(eq(parameters.id, id));
+    await db.update(parameters).set({ deletedAt: new Date() }).where(eq(parameters.id, id));
   }
 
   // === Sector-Parameter assignments ===
@@ -2692,7 +2672,7 @@ export class DatabaseStorage implements IStorage {
 
   // === PANELS CRUD (ArutsoK 27) ===
   async getPanels(): Promise<Panel[]> {
-    return await db.select().from(panels).orderBy(desc(panels.id));
+    return await db.select().from(panels).where(isNull(panels.deletedAt)).orderBy(desc(panels.id));
   }
 
   async getPanel(id: number): Promise<Panel | undefined> {
@@ -2711,9 +2691,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async deletePanel(id: number): Promise<void> {
-    await db.delete(panelParameters).where(eq(panelParameters.panelId, id));
-    await db.delete(productPanels).where(eq(productPanels.panelId, id));
-    await db.delete(panels).where(eq(panels.id, id));
+    await db.update(panels).set({ deletedAt: new Date() }).where(eq(panels.id, id));
   }
 
   // === Panel-Parameter assignments (ArutsoK 27) ===
@@ -2758,7 +2736,7 @@ export class DatabaseStorage implements IStorage {
 
   // === Contract Folders (ArutsoK 35) ===
   async getContractFolders(): Promise<ContractFolder[]> {
-    return await db.select().from(contractFolders).orderBy(contractFolders.sortOrder);
+    return await db.select().from(contractFolders).where(isNull(contractFolders.deletedAt)).orderBy(contractFolders.sortOrder);
   }
 
   async getContractFolder(id: number): Promise<ContractFolder | undefined> {
@@ -2777,8 +2755,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async deleteContractFolder(id: number): Promise<void> {
-    await db.delete(folderPanels).where(eq(folderPanels.folderId, id));
-    await db.delete(contractFolders).where(eq(contractFolders.id, id));
+    await db.update(contractFolders).set({ deletedAt: new Date() }).where(eq(contractFolders.id, id));
   }
 
   async getFolderPanels(folderId: number): Promise<FolderPanel[]> {
@@ -2879,6 +2856,108 @@ export class DatabaseStorage implements IStorage {
 
   async deleteProductPointRate(id: number): Promise<void> {
     await db.delete(productPointRates).where(eq(productPointRates.id, id));
+  }
+
+  async restoreEntity(entityType: string, id: number): Promise<void> {
+    switch (entityType) {
+      case 'subjects': await db.update(subjects).set({ deletedAt: null, isActive: true }).where(eq(subjects.id, id)); break;
+      case 'clientTypes': await db.update(clientTypes).set({ deletedAt: null } as any).where(eq(clientTypes.id, id)); break;
+      case 'clientTypeFields': await db.update(clientTypeFields).set({ deletedAt: null }).where(eq(clientTypeFields.id, id)); break;
+      case 'clientTypePanels': await db.update(clientTypePanels).set({ deletedAt: null }).where(eq(clientTypePanels.id, id)); break;
+      case 'clientTypeSections': await db.update(clientTypeSections).set({ deletedAt: null }).where(eq(clientTypeSections.id, id)); break;
+      case 'sectors': await db.update(sectors).set({ deletedAt: null }).where(eq(sectors.id, id)); break;
+      case 'sections': await db.update(sections).set({ deletedAt: null }).where(eq(sections.id, id)); break;
+      case 'sectorProducts': await db.update(sectorProducts).set({ deletedAt: null }).where(eq(sectorProducts.id, id)); break;
+      case 'parameters': await db.update(parameters).set({ deletedAt: null }).where(eq(parameters.id, id)); break;
+      case 'panels': await db.update(panels).set({ deletedAt: null }).where(eq(panels.id, id)); break;
+      case 'contractFolders': await db.update(contractFolders).set({ deletedAt: null }).where(eq(contractFolders.id, id)); break;
+      case 'contractStatuses': await db.update(contractStatuses).set({ deletedAt: null }).where(eq(contractStatuses.id, id)); break;
+      case 'contractTemplates': await db.update(contractTemplates).set({ deletedAt: null }).where(eq(contractTemplates.id, id)); break;
+      case 'contractInventories': await db.update(contractInventories).set({ deletedAt: null }).where(eq(contractInventories.id, id)); break;
+      case 'commissionRates': await db.update(commissionRates).set({ deletedAt: null }).where(eq(commissionRates.id, id)); break;
+      case 'permissionGroups': await db.update(permissionGroups).set({ deletedAt: null }).where(eq(permissionGroups.id, id)); break;
+      default: throw new Error(`Unknown entity type: ${entityType}`);
+    }
+  }
+
+  async permanentDeleteEntity(entityType: string, id: number): Promise<void> {
+    switch (entityType) {
+      case 'subjects': await db.delete(subjects).where(and(eq(subjects.id, id), isNotNull(subjects.deletedAt))); break;
+      case 'clientTypes': await db.delete(clientTypes).where(and(eq(clientTypes.id, id), isNotNull(clientTypes.deletedAt))); break;
+      case 'clientTypeFields': await db.delete(clientTypeFields).where(and(eq(clientTypeFields.id, id), isNotNull(clientTypeFields.deletedAt))); break;
+      case 'clientTypePanels': await db.delete(clientTypePanels).where(and(eq(clientTypePanels.id, id), isNotNull(clientTypePanels.deletedAt))); break;
+      case 'clientTypeSections': await db.delete(clientTypeSections).where(and(eq(clientTypeSections.id, id), isNotNull(clientTypeSections.deletedAt))); break;
+      case 'sectors': await db.delete(sectors).where(and(eq(sectors.id, id), isNotNull(sectors.deletedAt))); break;
+      case 'sections': await db.delete(sections).where(and(eq(sections.id, id), isNotNull(sections.deletedAt))); break;
+      case 'sectorProducts': await db.delete(sectorProducts).where(and(eq(sectorProducts.id, id), isNotNull(sectorProducts.deletedAt))); break;
+      case 'parameters': await db.delete(parameters).where(and(eq(parameters.id, id), isNotNull(parameters.deletedAt))); break;
+      case 'panels': await db.delete(panels).where(and(eq(panels.id, id), isNotNull(panels.deletedAt))); break;
+      case 'contractFolders': await db.delete(contractFolders).where(and(eq(contractFolders.id, id), isNotNull(contractFolders.deletedAt))); break;
+      case 'contractStatuses': await db.delete(contractStatuses).where(and(eq(contractStatuses.id, id), isNotNull(contractStatuses.deletedAt))); break;
+      case 'contractTemplates': await db.delete(contractTemplates).where(and(eq(contractTemplates.id, id), isNotNull(contractTemplates.deletedAt))); break;
+      case 'contractInventories': await db.delete(contractInventories).where(and(eq(contractInventories.id, id), isNotNull(contractInventories.deletedAt))); break;
+      case 'commissionRates': await db.delete(commissionRates).where(and(eq(commissionRates.id, id), isNotNull(commissionRates.deletedAt))); break;
+      case 'permissionGroups': await db.delete(permissionGroups).where(and(eq(permissionGroups.id, id), isNotNull(permissionGroups.deletedAt))); break;
+      default: throw new Error(`Unknown entity type: ${entityType}`);
+    }
+  }
+
+  async getAllDeletedEntities(): Promise<Array<{id: number; entityType: string; name: string; deletedAt: Date}>> {
+    const results: Array<{id: number; entityType: string; name: string; deletedAt: Date}> = [];
+
+    const deletedSubjects = await db.select().from(subjects).where(isNotNull(subjects.deletedAt));
+    for (const s of deletedSubjects) {
+      const name = s.type === 'company' ? (s.companyName || '') : `${s.firstName || ''} ${s.lastName || ''}`.trim();
+      results.push({ id: s.id, entityType: 'Subjekt', name: name || s.uid, deletedAt: s.deletedAt! });
+    }
+
+    const deletedClientTypes = await db.select().from(clientTypes).where(isNotNull(clientTypes.deletedAt));
+    for (const ct of deletedClientTypes) results.push({ id: ct.id, entityType: 'Typ klienta', name: ct.name, deletedAt: ct.deletedAt! });
+
+    const deletedClientTypeFields = await db.select().from(clientTypeFields).where(isNotNull(clientTypeFields.deletedAt));
+    for (const f of deletedClientTypeFields) results.push({ id: f.id, entityType: 'Parameter klienta', name: f.fieldKey, deletedAt: f.deletedAt! });
+
+    const deletedClientTypePanels = await db.select().from(clientTypePanels).where(isNotNull(clientTypePanels.deletedAt));
+    for (const p of deletedClientTypePanels) results.push({ id: p.id, entityType: 'Panel klienta', name: p.name, deletedAt: p.deletedAt! });
+
+    const deletedClientTypeSections = await db.select().from(clientTypeSections).where(isNotNull(clientTypeSections.deletedAt));
+    for (const s of deletedClientTypeSections) results.push({ id: s.id, entityType: 'Sekcia klienta', name: s.name, deletedAt: s.deletedAt! });
+
+    const deletedSectors = await db.select().from(sectors).where(isNotNull(sectors.deletedAt));
+    for (const s of deletedSectors) results.push({ id: s.id, entityType: 'Sektor', name: s.name, deletedAt: s.deletedAt! });
+
+    const deletedSections = await db.select().from(sections).where(isNotNull(sections.deletedAt));
+    for (const s of deletedSections) results.push({ id: s.id, entityType: 'Sekcia', name: s.name, deletedAt: s.deletedAt! });
+
+    const deletedSectorProducts = await db.select().from(sectorProducts).where(isNotNull(sectorProducts.deletedAt));
+    for (const sp of deletedSectorProducts) results.push({ id: sp.id, entityType: 'Produkt sektora', name: sp.name, deletedAt: sp.deletedAt! });
+
+    const deletedParameters = await db.select().from(parameters).where(isNotNull(parameters.deletedAt));
+    for (const p of deletedParameters) results.push({ id: p.id, entityType: 'Parameter', name: p.name, deletedAt: p.deletedAt! });
+
+    const deletedPanels = await db.select().from(panels).where(isNotNull(panels.deletedAt));
+    for (const p of deletedPanels) results.push({ id: p.id, entityType: 'Panel', name: p.name, deletedAt: p.deletedAt! });
+
+    const deletedContractFolders = await db.select().from(contractFolders).where(isNotNull(contractFolders.deletedAt));
+    for (const f of deletedContractFolders) results.push({ id: f.id, entityType: 'Priečinok', name: f.name, deletedAt: f.deletedAt! });
+
+    const deletedContractStatuses = await db.select().from(contractStatuses).where(isNotNull(contractStatuses.deletedAt));
+    for (const s of deletedContractStatuses) results.push({ id: s.id, entityType: 'Stav zmluvy', name: s.name, deletedAt: s.deletedAt! });
+
+    const deletedContractTemplates = await db.select().from(contractTemplates).where(isNotNull(contractTemplates.deletedAt));
+    for (const t of deletedContractTemplates) results.push({ id: t.id, entityType: 'Šablóna zmluvy', name: t.name, deletedAt: t.deletedAt! });
+
+    const deletedContractInventories = await db.select().from(contractInventories).where(isNotNull(contractInventories.deletedAt));
+    for (const i of deletedContractInventories) results.push({ id: i.id, entityType: 'Supiska', name: i.name, deletedAt: i.deletedAt! });
+
+    const deletedCommissionRates = await db.select().from(commissionRates).where(isNotNull(commissionRates.deletedAt));
+    for (const r of deletedCommissionRates) results.push({ id: r.id, entityType: 'Provízna sadzba', name: `Sadzba #${r.id}`, deletedAt: r.deletedAt! });
+
+    const deletedPermissionGroups = await db.select().from(permissionGroups).where(isNotNull(permissionGroups.deletedAt));
+    for (const g of deletedPermissionGroups) results.push({ id: g.id, entityType: 'Skupina oprávnení', name: g.name, deletedAt: g.deletedAt! });
+
+    results.sort((a, b) => b.deletedAt.getTime() - a.deletedAt.getTime());
+    return results;
   }
 }
 
