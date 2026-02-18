@@ -42,6 +42,11 @@ import { HelpIcon } from "@/components/help-icon";
 import {
   Accordion, AccordionContent, AccordionItem, AccordionTrigger,
 } from "@/components/ui/accordion";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
+import { PRIORITY_COUNTRIES, ALL_COUNTRIES, getDefaultCountryForState } from "@/lib/countries";
+import { Check, ChevronsUpDown } from "lucide-react";
+import { cn } from "@/lib/utils";
 import { z } from "zod";
 import {
   Form, FormControl, FormField, FormItem, FormLabel, FormMessage,
@@ -824,6 +829,13 @@ function FullPageEditor({
     });
   };
 
+  useEffect(() => {
+    if (isPerson && state?.name && !dynamicValues["statna_prislusnost"]) {
+      const defaultCountry = getDefaultCountryForState(state.name);
+      setDynamicValues(prev => prev["statna_prislusnost"] ? prev : { ...prev, statna_prislusnost: defaultCountry });
+    }
+  }, [isPerson, state?.name]);
+
   const { data: typeFields } = useQuery<ClientTypeField[]>({
     queryKey: ["/api/client-types", clientType?.id, "fields"],
     queryFn: async () => {
@@ -1044,12 +1056,59 @@ function FullPageEditor({
                               <p className="text-sm font-semibold">Osobné údaje</p>
                               {FO_POVINNE_ROWS.map((row, rowIdx) => {
                                 const rowEntries = row.keys.map(k => ({ key: k, field: povinneFields.find(f => f.fieldKey === k) }));
-                                const hasAny = rowEntries.some(e => e.field);
+                                const hasAny = rowEntries.some(e => e.field) || row.keys.includes("statna_prislusnost");
                                 if (!hasAny) return null;
                                 const gridClass = row.cols;
                                 return (
                                   <div key={rowIdx} className={`grid ${gridClass} gap-3`} data-testid={`row-povinne-${rowIdx + 3}`}>
-                                    {rowEntries.map(({ key, field }) => field ? (
+                                    {rowEntries.map(({ key, field }) => {
+                                      if (key === "statna_prislusnost") {
+                                        const label = field?.label || "Štátna príslušnosť";
+                                        const isReq = field?.isRequired;
+                                        const hasErr = validationErrors.has(key);
+                                        const prioritySet = new Set(PRIORITY_COUNTRIES);
+                                        const restCountries = ALL_COUNTRIES.filter(c => !prioritySet.has(c));
+                                        return (
+                                          <div key={key} className="min-w-0">
+                                            <div className="space-y-1">
+                                              <Label className={`text-xs text-muted-foreground ${hasErr ? "text-red-500" : ""}`}>{label}{isReq ? " *" : ""}</Label>
+                                              <Popover>
+                                                <PopoverTrigger asChild>
+                                                  <Button variant="outline" role="combobox" className={cn("w-full justify-between font-normal", hasErr && "border-red-500 ring-1 ring-red-500", !dynamicValues[key] && "text-muted-foreground")} data-testid="select-statna-prislusnost">
+                                                    {dynamicValues[key] || "Vyberte krajinu..."}
+                                                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                                                  </Button>
+                                                </PopoverTrigger>
+                                                <PopoverContent className="w-[300px] p-0" align="start">
+                                                  <Command>
+                                                    <CommandInput placeholder="Hľadať krajinu..." />
+                                                    <CommandList>
+                                                      <CommandEmpty>Krajina nenájdená.</CommandEmpty>
+                                                      <CommandGroup heading="Prioritné">
+                                                        {PRIORITY_COUNTRIES.map(c => (
+                                                          <CommandItem key={c} value={c} onSelect={() => { setDynamicValues(prev => ({ ...prev, [key]: c })); if (hasErr) setValidationErrors(prev => { const n = new Set(prev); n.delete(key); return n; }); }}>
+                                                            <Check className={cn("mr-2 h-4 w-4", dynamicValues[key] === c ? "opacity-100" : "opacity-0")} />
+                                                            {c}
+                                                          </CommandItem>
+                                                        ))}
+                                                      </CommandGroup>
+                                                      <CommandGroup heading="Všetky krajiny">
+                                                        {restCountries.map(c => (
+                                                          <CommandItem key={c} value={c} onSelect={() => { setDynamicValues(prev => ({ ...prev, [key]: c })); if (hasErr) setValidationErrors(prev => { const n = new Set(prev); n.delete(key); return n; }); }}>
+                                                            <Check className={cn("mr-2 h-4 w-4", dynamicValues[key] === c ? "opacity-100" : "opacity-0")} />
+                                                            {c}
+                                                          </CommandItem>
+                                                        ))}
+                                                      </CommandGroup>
+                                                    </CommandList>
+                                                  </Command>
+                                                </PopoverContent>
+                                              </Popover>
+                                            </div>
+                                          </div>
+                                        );
+                                      }
+                                      return field ? (
                                       <div key={key} className="min-w-0">
                                         <DynamicFieldInput field={field} dynamicValues={dynamicValues} setDynamicValues={setDynamicValues} hasError={validationErrors.has(field.fieldKey)} />
                                       </div>
@@ -1060,7 +1119,7 @@ function FullPageEditor({
                                           <Input value={dynamicValues[key] || ""} onChange={e => setDynamicValues(prev => ({ ...prev, [key]: e.target.value }))} className={validationErrors.has(key) ? "border-red-500 ring-1 ring-red-500" : ""} data-testid={`input-${key}`} />
                                         </div>
                                       </div>
-                                    ))}
+                                    )})}
                                   </div>
                                 );
                               })}
