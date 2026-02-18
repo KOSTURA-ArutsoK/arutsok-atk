@@ -705,8 +705,72 @@ function FolderSection({
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingField, setEditingField] = useState<ClientTypeField | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<ClientTypeField | null>(null);
+  const [showPanelManager, setShowPanelManager] = useState(false);
+  const [newPanelName, setNewPanelName] = useState("");
+  const [newPanelGrid, setNewPanelGrid] = useState("2");
+  const [editingPanel, setEditingPanel] = useState<ClientTypePanel | null>(null);
+  const [editPanelName, setEditPanelName] = useState("");
+  const [editPanelGrid, setEditPanelGrid] = useState("2");
+  const [deletePanelTarget, setDeletePanelTarget] = useState<ClientTypePanel | null>(null);
 
   const folderCategory = (section as any).folderCategory || "povinne";
+
+  const sectionPanels = panels.filter(p => p.sectionId === section.id || !p.sectionId);
+  const sortedPanels = [...sectionPanels].sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0));
+
+  const createPanelMutation = useMutation({
+    mutationFn: async () => {
+      await apiRequest("POST", `/api/client-types/${clientTypeId}/panels`, {
+        name: newPanelName.trim(),
+        gridColumns: Number(newPanelGrid) || 2,
+        sectionId: section.id,
+        sortOrder: sectionPanels.length,
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ predicate: (query) => {
+        const key = query.queryKey;
+        return Array.isArray(key) && typeof key[0] === "string" && (key[0] as string).startsWith("/api/client-types");
+      }});
+      toast({ title: "Panel vytvoreny" });
+      setNewPanelName("");
+      setNewPanelGrid("2");
+    },
+    onError: () => toast({ title: "Chyba", description: "Nepodarilo sa vytvorit panel", variant: "destructive" }),
+  });
+
+  const updatePanelMutation = useMutation({
+    mutationFn: async () => {
+      await apiRequest("PATCH", `/api/client-type-panels/${editingPanel!.id}`, {
+        name: editPanelName.trim(),
+        gridColumns: Number(editPanelGrid) || 2,
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ predicate: (query) => {
+        const key = query.queryKey;
+        return Array.isArray(key) && typeof key[0] === "string" && (key[0] as string).startsWith("/api/client-types");
+      }});
+      toast({ title: "Panel aktualizovany" });
+      setEditingPanel(null);
+    },
+    onError: () => toast({ title: "Chyba", description: "Nepodarilo sa aktualizovat panel", variant: "destructive" }),
+  });
+
+  const deletePanelMutation = useMutation({
+    mutationFn: async () => {
+      await apiRequest("DELETE", `/api/client-type-panels/${deletePanelTarget!.id}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ predicate: (query) => {
+        const key = query.queryKey;
+        return Array.isArray(key) && typeof key[0] === "string" && (key[0] as string).startsWith("/api/client-types");
+      }});
+      toast({ title: "Panel vymazany" });
+      setDeletePanelTarget(null);
+    },
+    onError: () => toast({ title: "Chyba", description: "Nepodarilo sa vymazat panel", variant: "destructive" }),
+  });
 
   const deleteMutation = useMutation({
     mutationFn: async () => {
@@ -784,10 +848,95 @@ function FolderSection({
       <div style={{ display: expanded ? 'block' : 'none' }}>
         <Separator />
         <CardContent className="p-4 space-y-3">
-          <div className="flex items-center justify-end">
+          <div className="flex items-center justify-between gap-2 flex-wrap">
+            <Button variant="outline" size="sm" onClick={() => setShowPanelManager(!showPanelManager)} data-testid={`button-toggle-panels-${section.id}`}>
+              <Layers className="w-4 h-4 mr-2" />
+              Panely ({sortedPanels.length})
+            </Button>
             <Button size="sm" onClick={() => { setEditingField(null); setDialogOpen(true); }} data-testid={`button-add-parameter-${section.id}`}>
               <Plus className="w-4 h-4 mr-2" /> Pridat parameter
             </Button>
+          </div>
+
+          <div style={{ display: showPanelManager ? 'block' : 'none' }}>
+            <div className="border rounded-md p-3 space-y-3 bg-muted/30">
+              <div className="flex items-center gap-2 flex-wrap">
+                <Settings2 className="w-4 h-4 text-primary shrink-0" />
+                <span className="text-sm font-semibold">Sprava panelov</span>
+              </div>
+
+              {sortedPanels.length === 0 && (
+                <p className="text-xs text-muted-foreground text-center py-2" data-testid={`text-no-panels-${section.id}`}>
+                  Ziadne panely v tomto priecinku
+                </p>
+              )}
+
+              {sortedPanels.length > 0 && (
+                <div className="space-y-1">
+                  {sortedPanels.map((panel, idx) => {
+                    const panelFieldCount = fields.filter(f => f.panelId === panel.id).length;
+                    return (
+                      <div key={panel.id} className="flex items-center gap-2 p-2 rounded border bg-background flex-wrap" data-testid={`panel-item-${panel.id}`}>
+                        <GripVertical className="w-3 h-3 text-muted-foreground shrink-0" />
+                        <span className="text-sm flex-1 min-w-0 truncate" data-testid={`text-panel-name-${panel.id}`}>{panel.name}</span>
+                        <Badge variant="outline" className="text-xs shrink-0">{panel.gridColumns || 2} stlpce</Badge>
+                        <Badge variant="secondary" className="text-xs shrink-0">{panelFieldCount} poli</Badge>
+                        <Button variant="ghost" size="icon" onClick={() => {
+                          setEditingPanel(panel);
+                          setEditPanelName(panel.name);
+                          setEditPanelGrid(String(panel.gridColumns || 2));
+                        }} data-testid={`button-edit-panel-${panel.id}`}>
+                          <Pencil className="w-3 h-3" />
+                        </Button>
+                        <Button variant="ghost" size="icon" onClick={() => setDeletePanelTarget(panel)} data-testid={`button-delete-panel-${panel.id}`}>
+                          <X className="w-3 h-3" />
+                        </Button>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+
+              <div className="flex items-end gap-2 flex-wrap">
+                <div className="flex-1 min-w-[120px]">
+                  <Label className="text-xs">Nazov panelu</Label>
+                  <Input
+                    value={newPanelName}
+                    onChange={e => setNewPanelName(e.target.value)}
+                    placeholder="Napr. Osobne udaje"
+                    data-testid={`input-new-panel-name-${section.id}`}
+                    onKeyDown={e => {
+                      if (e.key === "Enter" && newPanelName.trim()) {
+                        e.preventDefault();
+                        createPanelMutation.mutate();
+                      }
+                    }}
+                  />
+                </div>
+                <div className="w-20">
+                  <Label className="text-xs">Stlpce</Label>
+                  <Select value={newPanelGrid} onValueChange={setNewPanelGrid}>
+                    <SelectTrigger data-testid={`select-new-panel-grid-${section.id}`}><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="1">1</SelectItem>
+                      <SelectItem value="2">2</SelectItem>
+                      <SelectItem value="3">3</SelectItem>
+                      <SelectItem value="4">4</SelectItem>
+                      <SelectItem value="5">5</SelectItem>
+                      <SelectItem value="6">6</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <Button
+                  size="sm"
+                  onClick={() => createPanelMutation.mutate()}
+                  disabled={!newPanelName.trim() || createPanelMutation.isPending}
+                  data-testid={`button-create-panel-${section.id}`}
+                >
+                  <Plus className="w-4 h-4 mr-1" /> Pridat
+                </Button>
+              </div>
+            </div>
           </div>
 
           {displayFields.length === 0 && (
@@ -845,6 +994,58 @@ function FolderSection({
         title={`Naozaj chcete vymazat parameter "${deleteTarget?.label}"?`}
         onConfirm={() => deleteMutation.mutate()}
         isPending={deleteMutation.isPending}
+      />
+
+      <Dialog open={!!editingPanel} onOpenChange={(isOpen) => { if (!isOpen) setEditingPanel(null); }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Upravit panel</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div>
+              <Label className="text-xs">Nazov panelu</Label>
+              <Input
+                value={editPanelName}
+                onChange={e => setEditPanelName(e.target.value)}
+                data-testid="input-edit-panel-name"
+                onKeyDown={e => {
+                  if (e.key === "Enter" && editPanelName.trim()) {
+                    e.preventDefault();
+                    updatePanelMutation.mutate();
+                  }
+                }}
+              />
+            </div>
+            <div>
+              <Label className="text-xs">Pocet stlpcov</Label>
+              <Select value={editPanelGrid} onValueChange={setEditPanelGrid}>
+                <SelectTrigger data-testid="select-edit-panel-grid"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="1">1</SelectItem>
+                  <SelectItem value="2">2</SelectItem>
+                  <SelectItem value="3">3</SelectItem>
+                  <SelectItem value="4">4</SelectItem>
+                  <SelectItem value="5">5</SelectItem>
+                  <SelectItem value="6">6</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" size="sm" onClick={() => setEditingPanel(null)} data-testid="button-cancel-edit-panel">Zrusit</Button>
+            <Button size="sm" onClick={() => updatePanelMutation.mutate()} disabled={!editPanelName.trim() || updatePanelMutation.isPending} data-testid="button-save-edit-panel">
+              Ulozit
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <DeleteConfirmDialog
+        open={!!deletePanelTarget}
+        onOpenChange={(isOpen) => { if (!isOpen) setDeletePanelTarget(null); }}
+        title={`Naozaj chcete vymazat panel "${deletePanelTarget?.name}"?`}
+        onConfirm={() => deletePanelMutation.mutate()}
+        isPending={deletePanelMutation.isPending}
       />
     </Card>
   );
