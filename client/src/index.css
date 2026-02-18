@@ -272,3 +272,52 @@ body[style*="overflow:hidden"] main {
 ::-webkit-scrollbar-thumb:hover {
   background: hsl(var(--muted-foreground) / 0.45);
 }
+
+.react-international-phone-input-container {
+  width: 100%;
+}
+.react-international-phone-input-container .react-international-phone-input {
+  width: 100% !important;
+  height: 36px !important;
+  background: hsl(var(--background)) !important;
+  color: hsl(var(--foreground)) !important;
+  border: 1px solid hsl(var(--border)) !important;
+  border-left: none !important;
+  border-radius: 0 calc(var(--radius) - 2px) calc(var(--radius) - 2px) 0 !important;
+  font-size: 14px !important;
+  padding: 0 12px !important;
+}
+.react-international-phone-input-container .react-international-phone-input:focus {
+  outline: none !important;
+  box-shadow: 0 0 0 2px hsl(var(--ring)) !important;
+  border-color: hsl(var(--ring)) !important;
+}
+.react-international-phone-input-container .react-international-phone-input:disabled {
+  opacity: 0.5 !important;
+  cursor: not-allowed !important;
+}
+.react-international-phone-input-container .react-international-phone-country-selector-button {
+  height: 36px !important;
+  background: hsl(var(--muted)) !important;
+  border: 1px solid hsl(var(--border)) !important;
+  border-radius: calc(var(--radius) - 2px) 0 0 calc(var(--radius) - 2px) !important;
+  padding: 0 8px !important;
+}
+.react-international-phone-input-container .react-international-phone-country-selector-button:hover {
+  background: hsl(var(--accent)) !important;
+}
+.react-international-phone-input-container .react-international-phone-country-selector-dropdown {
+  background: hsl(var(--popover)) !important;
+  color: hsl(var(--popover-foreground)) !important;
+  border: 1px solid hsl(var(--border)) !important;
+  border-radius: calc(var(--radius) - 2px) !important;
+  z-index: 50 !important;
+  max-height: 200px !important;
+}
+.react-international-phone-input-container .react-international-phone-country-selector-dropdown__list-item:hover {
+  background: hsl(var(--accent)) !important;
+}
+.react-international-phone-input-container .react-international-phone-country-selector-dropdown__list-item-country-name,
+.react-international-phone-input-container .react-international-phone-country-selector-dropdown__list-item-dial-code {
+  color: hsl(var(--foreground)) !important;
+}

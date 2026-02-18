@@ -34,6 +34,7 @@ import { insertSubjectSchema } from "@shared/schema";
 import type { Subject, ClientType, ClientTypeField, ClientTypeSection, AuditLog } from "@shared/schema";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
+import { InternationalPhoneInput } from "@/components/ui/international-phone-input";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { HelpCircle, FileText, ShieldCheck, ListPlus, FileQuestion } from "lucide-react";
@@ -953,7 +954,7 @@ function FullPageEditor({
                   ...ADDRESS_SWITCH_KEYS,
                 ]);
 
-                const allRowKeys = new Set(FO_POVINNE_ROWS.flatMap(r => r.keys).concat(Array.from(allAddressKeys)));
+                const allRowKeys = new Set(FO_POVINNE_ROWS.flatMap(r => r.keys).concat(Array.from(allAddressKeys)).concat(["telefon"]));
 
                 const povinneSection = typeSections?.find(s => (s as any).folderCategory === "povinne");
                 const povinneFields = (typeFields || [])
@@ -1134,6 +1135,17 @@ function FullPageEditor({
                               </div>
                             );
                           })()}
+
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3" data-testid="row-telefon">
+                            <div className="space-y-1">
+                              <Label className="text-xs">Tel. číslo (primárne) *</Label>
+                              <InternationalPhoneInput
+                                value={dynamicValues["telefon"] || ""}
+                                onChange={(val) => setDynamicValues(prev => ({ ...prev, telefon: val }))}
+                                data-testid="input-telefon-primary"
+                              />
+                            </div>
+                          </div>
 
                           <div style={{ display: povinneRemainder.length > 0 ? 'block' : 'none' }}>
                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3" data-testid="row-povinne-remainder">
