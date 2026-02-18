@@ -857,18 +857,19 @@ function FullPageEditor({
   }, [isPerson, state?.name]);
 
   useEffect(() => {
-    if (isPerson && initialData.baseValue) {
-      const parsed = parseRodneCislo(initialData.baseValue);
-      console.log("[RC Parse Subjects] input:", initialData.baseValue, "parsed:", parsed);
+    if (!isPerson) return;
+    const rc = dynamicValues["rodne_cislo"]?.trim() || initialData.baseValue?.trim();
+    if (!rc) return;
+    const parsed = parseRodneCislo(rc);
+    if (parsed.pohlavie || parsed.datumNarodenia) {
       setDynamicValues(prev => {
         const updates: Record<string, string> = {};
-        if (parsed.pohlavie && !prev["pohlavie"]) updates["pohlavie"] = parsed.pohlavie;
-        if (parsed.datumNarodenia && !prev["datum_narodenia"]) updates["datum_narodenia"] = parsed.datumNarodenia;
-        console.log("[RC Parse Subjects] updates:", updates, "prev keys:", Object.keys(prev));
+        if (parsed.pohlavie && prev["pohlavie"] !== parsed.pohlavie) updates["pohlavie"] = parsed.pohlavie;
+        if (parsed.datumNarodenia && prev["datum_narodenia"] !== parsed.datumNarodenia) updates["datum_narodenia"] = parsed.datumNarodenia;
         return Object.keys(updates).length > 0 ? { ...prev, ...updates } : prev;
       });
     }
-  }, [isPerson, initialData.baseValue]);
+  }, [isPerson, dynamicValues["rodne_cislo"], initialData.baseValue]);
 
   const { data: typeFields } = useQuery<ClientTypeField[]>({
     queryKey: ["/api/client-types", clientType?.id, "fields"],

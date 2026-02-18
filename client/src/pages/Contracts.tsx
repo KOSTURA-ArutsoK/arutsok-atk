@@ -1160,6 +1160,21 @@ export default function Contracts() {
   const [importLoading, setImportLoading] = useState(false);
   const importFileRef = useRef<HTMLInputElement>(null);
 
+  useEffect(() => {
+    if (inlineClientType !== "fo" || !showInlineCreate) return;
+    const rc = inlineFormValues["rodne_cislo"]?.trim();
+    if (!rc) return;
+    const parsed = parseRodneCislo(rc);
+    if (parsed.pohlavie || parsed.datumNarodenia) {
+      setInlineFormValues(prev => {
+        const updates: Record<string, string> = {};
+        if (parsed.pohlavie && prev["pohlavie"] !== parsed.pohlavie) updates["pohlavie"] = parsed.pohlavie;
+        if (parsed.datumNarodenia && prev["datum_narodenia"] !== parsed.datumNarodenia) updates["datum_narodenia"] = parsed.datumNarodenia;
+        return Object.keys(updates).length > 0 ? { ...prev, ...updates } : prev;
+      });
+    }
+  }, [inlineFormValues["rodne_cislo"], inlineClientType, showInlineCreate]);
+
   const { data: statuses } = useQuery<ContractStatus[]>({
     queryKey: ["/api/contract-statuses"],
   });
@@ -1744,13 +1759,15 @@ export default function Contracts() {
       if (f.defaultValue) defaults[f.fieldKey] = f.defaultValue;
     });
     if (type === "fo" && preSelectSubjectSearch.trim()) {
-      defaults["rodne_cislo"] = preSelectSubjectSearch.trim();
-      const parsed = parseRodneCislo(preSelectSubjectSearch.trim());
-      console.log("[RC Parse] input:", preSelectSubjectSearch.trim(), "parsed:", parsed);
-      if (parsed.pohlavie) defaults["pohlavie"] = parsed.pohlavie;
-      if (parsed.datumNarodenia) defaults["datum_narodenia"] = parsed.datumNarodenia;
+      const searchTrimmed = preSelectSubjectSearch.trim();
+      const cleaned = searchTrimmed.replace(/[\s\/]/g, "");
+      if (/^\d{6,}$/.test(cleaned)) {
+        defaults["rodne_cislo"] = searchTrimmed;
+        const parsed = parseRodneCislo(searchTrimmed);
+        if (parsed.pohlavie) defaults["pohlavie"] = parsed.pohlavie;
+        if (parsed.datumNarodenia) defaults["datum_narodenia"] = parsed.datumNarodenia;
+      }
     }
-    console.log("[RC Parse] final defaults:", JSON.stringify(defaults));
     const activeState = allStates?.find(s => s.id === appUser?.activeStateId);
     if ((type === "fo") && activeState?.name) {
       defaults["statna_prislusnost"] = getDefaultCountryForState(activeState.name);
