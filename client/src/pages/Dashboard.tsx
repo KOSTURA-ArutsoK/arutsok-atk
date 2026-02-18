@@ -425,7 +425,7 @@ export default function Dashboard() {
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <div style={{ display: isEditing ? 'contents' : 'none' }}>
+          {isEditing ? <>
             <Button variant="outline" onClick={handleCancel} data-testid="button-cancel-layout">
               <X className="w-4 h-4 mr-1" />
               Zrusit upravy
@@ -434,13 +434,12 @@ export default function Dashboard() {
               <Save className="w-4 h-4 mr-1" />
               Ulozit rozlozenie
             </Button>
-          </div>
-          <div style={{ display: isEditing ? 'none' : 'contents' }}>
+          </> : <>
             <Button variant="outline" onClick={handleStartEdit} data-testid="button-edit-layout">
               <Pencil className="w-4 h-4 mr-1" />
               Upravit rozlozenie
             </Button>
-          </div>
+          </>}
         </div>
       </div>
 

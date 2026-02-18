@@ -2321,19 +2321,13 @@ export default function Subjects() {
           if (found) setViewTarget(found);
         }}
       />
-      <div style={{ display: bulkAssignOpen ? 'contents' : 'none' }}>
-        {bulkAssignOpen && <BulkAssignDialog 
-          selectedIds={selectedIds}
-          onClose={() => { setBulkAssignOpen(false); setSelectedIds(new Set()); }}
-          groups={clientGroups || []}
-        />}
-      </div>
-      <div style={{ display: viewTarget ? 'contents' : 'none' }}>
-        {viewTarget && <SubjectDetailDialog subject={viewTarget} onClose={() => setViewTarget(null)} />}
-      </div>
-      <div style={{ display: editTarget ? 'contents' : 'none' }}>
-        {editTarget && <SubjectEditModal subject={editTarget} onClose={() => setEditTarget(null)} />}
-      </div>
+      {bulkAssignOpen && <BulkAssignDialog 
+        selectedIds={selectedIds}
+        onClose={() => { setBulkAssignOpen(false); setSelectedIds(new Set()); }}
+        groups={clientGroups || []}
+      />}
+      {viewTarget && <SubjectDetailDialog subject={viewTarget} onClose={() => setViewTarget(null)} />}
+      {editTarget && <SubjectEditModal subject={editTarget} onClose={() => setEditTarget(null)} />}
     </div>
   );
 }

@@ -364,21 +364,21 @@ function StatusTabContent(props: StatusTabContentProps) {
     <div id="status-tab-root" className="space-y-4" data-testid="section-stavy">
       <div id="status-current-display" data-testid="current-status-display">
         <div id="status-current-inner" className="flex items-center gap-2 flex-wrap">
-          <div style={{ display: currentStatus ? 'contents' : 'none' }}>
+          {currentStatus && <>
             <span className="text-sm text-muted-foreground">Aktualny stav:</span>
             <div className="w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: currentStatus?.color }} />
             <span className="text-sm font-semibold" data-testid="text-current-status">{currentStatus?.name}</span>
             <span id="status-badge-commissionable" style={{ display: currentStatus?.isCommissionable ? 'inline' : 'none' }}><Badge variant="outline" className="text-xs">Provizna</Badge></span>
             <span id="status-badge-final" style={{ display: currentStatus?.isFinal ? 'inline' : 'none' }}><Badge variant="outline" className="text-xs">Finalna</Badge></span>
-          </div>
-          <div style={{ display: !currentStatus && !contractId && !statuses ? 'contents' : 'none' }}>
+          </>}
+          {!currentStatus && !contractId && !statuses && <>
             <Loader2 className="w-4 h-4 animate-spin" />
             <span className="text-sm text-muted-foreground">Nacitavam stavy...</span>
-          </div>
-          <div style={{ display: !currentStatus && (!!contractId || !!statuses) ? 'contents' : 'none' }}>
+          </>}
+          {!currentStatus && (!!contractId || !!statuses) && <>
             <span className="text-sm text-muted-foreground">Aktualny stav:</span>
             <span className="text-sm font-semibold" data-testid="text-current-status">Nahratá do systému</span>
-          </div>
+          </>}
         </div>
       </div>
 
@@ -1581,15 +1581,14 @@ export default function ContractForm() {
                 <CompactField label="Stav zmluvy">
                   <div style={{ display: isEditing ? 'block' : 'none' }}>
                     <div id="contract-status-display" className="flex items-center gap-2 h-9 px-3 border rounded-md bg-muted/30" data-testid="display-contract-status">
-                      <div style={{ display: statuses?.find(s => s.id === (statusId ? parseInt(statusId) : -1)) ? 'contents' : 'none' }}>
+                      {statuses?.find(s => s.id === (statusId ? parseInt(statusId) : -1)) ? (
                         <div className="flex items-center gap-2">
                           <div className="w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: statuses?.find(s => s.id === (statusId ? parseInt(statusId) : -1))?.color }} />
                           <span className="text-sm">{statuses?.find(s => s.id === (statusId ? parseInt(statusId) : -1))?.name}</span>
                         </div>
-                      </div>
-                      <div style={{ display: !statuses?.find(s => s.id === (statusId ? parseInt(statusId) : -1)) ? 'contents' : 'none' }}>
+                      ) : (
                         <span className="text-sm text-muted-foreground">Bez stavu</span>
-                      </div>
+                      )}
                     </div>
                   </div>
                   <div style={{ display: !isEditing ? 'block' : 'none' }}>
@@ -2279,7 +2278,7 @@ export default function ContractForm() {
                     <SummaryField label="Frekvencia platenia" value={PAYMENT_FREQUENCIES.find(f => f.value === paymentFrequency)?.label || "-"} testId="summary-frequency" />
                     <SummaryField label="Lehotne poistne" value={premiumAmount ? `${premiumAmount} ${currency}` : "-"} testId="summary-premium" mono />
                     <SummaryField label="Rocne poistne" value={annualPremium ? `${annualPremium} ${currency}` : "-"} testId="summary-annual" mono />
-                    <span style={{ display: (existingContract as any)?.accessRole !== 'klient' ? 'contents' : 'none' }}><SummaryField label="Suma provizie" value={commissionAmount ? `${commissionAmount} ${currency}` : "-"} testId="summary-commission" mono /></span>
+                    {(existingContract as any)?.accessRole !== 'klient' && <SummaryField label="Suma provizie" value={commissionAmount ? `${commissionAmount} ${currency}` : "-"} testId="summary-commission" mono />}
                     <SummaryField label="Datum podpisu" value={signedDate || "-"} testId="summary-signed" />
                     <SummaryField label="Ucinnost od" value={effectiveDate || "-"} testId="summary-effective" />
                     <SummaryField label="Koniec zmluvy" value={expiryDate || "-"} testId="summary-expiry" />
