@@ -1481,7 +1481,7 @@ export default function Contracts() {
   const activePanelsRaw = inlineClientType === "szco" ? szcoPanels : inlineClientType === "po" ? poPanels : foPanels;
   const activeFieldsRaw = inlineClientType === "szco" ? szcoAllFields : inlineClientType === "po" ? poAllFields : foAllFields;
 
-  const inlineFields = activeFieldsRaw || [];
+  const inlineFields = (activeFieldsRaw || []).filter(f => !(f as any).isHidden);
   const inlinePanelsFiltered = activePanelsRaw || [];
 
   const sortedSections = (activeSections || []).slice().sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0));

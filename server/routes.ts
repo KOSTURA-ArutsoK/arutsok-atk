@@ -3755,11 +3755,13 @@ export async function registerRoutes(
       if (!isAllowed) {
         return res.status(403).json({ message: "Nedostatocne opravnenia" });
       }
-      const { rowNumber, widthPercent, sortOrder } = req.body;
+      const { rowNumber, widthPercent, sortOrder, isRequired, isHidden } = req.body;
       const updateData: any = {};
       if (rowNumber !== undefined) updateData.rowNumber = rowNumber;
       if (widthPercent !== undefined) updateData.widthPercent = widthPercent;
       if (sortOrder !== undefined) updateData.sortOrder = sortOrder;
+      if (isRequired !== undefined) updateData.isRequired = isRequired;
+      if (isHidden !== undefined) updateData.isHidden = isHidden;
       const updated = await storage.updateClientTypeField(Number(req.params.id), updateData);
       res.json(updated);
     } catch {

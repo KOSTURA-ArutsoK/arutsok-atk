@@ -267,7 +267,7 @@ function SubjectDataTab({ subject }: { subject: Subject }) {
     for (const section of sectionsSorted) {
       const category = (section as any).folderCategory || "volitelne";
       const sectionFields = typeFields
-        .filter(f => (f.sectionId || 0) === section.id)
+        .filter(f => (f.sectionId || 0) === section.id && !(f as any).isHidden)
         .sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0));
       if (sectionFields.length > 0) {
         if (!groups[category]) groups[category] = [];
@@ -275,7 +275,7 @@ function SubjectDataTab({ subject }: { subject: Subject }) {
       }
     }
 
-    const unsectionedFields = typeFields.filter(f => !f.sectionId || f.sectionId === 0);
+    const unsectionedFields = typeFields.filter(f => (!f.sectionId || f.sectionId === 0) && !(f as any).isHidden);
     if (unsectionedFields.length > 0) {
       groups.volitelne.push({ section: { id: 0, name: "Ostatne" }, fields: unsectionedFields.sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0)) });
     }
@@ -893,6 +893,7 @@ function FullPageEditor({
   });
 
   function isFieldVisible(field: ClientTypeField): boolean {
+    if ((field as any).isHidden) return false;
     if (!field.visibilityRule) return true;
     const rule = field.visibilityRule as { dependsOn: string; value: string };
     if (!rule.dependsOn || !rule.value) return true;
@@ -1572,6 +1573,7 @@ function SubjectEditModal({ subject, onClose }: { subject: Subject & { isOwner?:
   });
 
   function isFieldVisible(field: ClientTypeField): boolean {
+    if ((field as any).isHidden) return false;
     if (!field.visibilityRule) return true;
     const rule = field.visibilityRule as { dependsOn: string; value: string };
     if (!rule.dependsOn || !rule.value) return true;

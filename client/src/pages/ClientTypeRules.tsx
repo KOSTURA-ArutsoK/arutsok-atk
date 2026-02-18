@@ -28,7 +28,7 @@ import {
   Plus, Settings2, Layers, ArrowLeft, Pencil,
   Type, AlignLeft, List, CheckSquare, ToggleLeft, Phone, Mail,
   Hash, Image, Calendar, CreditCard, Search, Loader2,
-  FolderOpen, GripVertical, HelpCircle, X, Info, ArrowUp, ArrowDown,
+  FolderOpen, GripVertical, HelpCircle, X, Info,
 } from "lucide-react";
 import { DndContext, closestCenter, PointerSensor, KeyboardSensor, useSensor, useSensors, type DragEndEvent } from "@dnd-kit/core";
 import { SortableContext, useSortable, verticalListSortingStrategy, arrayMove } from "@dnd-kit/sortable";
@@ -552,6 +552,134 @@ function InlineNumberInput({ value, onChange, min, max, suffix, testId }: {
   );
 }
 
+function FieldTable({
+  displayFields,
+  fieldSortKey,
+  fieldSortDirection,
+  fieldRequestSort,
+  getPanelName,
+  layoutMutation,
+  setEditingField,
+  setDialogOpen,
+  useDnd,
+}: {
+  displayFields: ClientTypeField[];
+  fieldSortKey: string | null;
+  fieldSortDirection: "asc" | "desc" | null;
+  fieldRequestSort: (key: string) => void;
+  getPanelName: (panelId: number | null) => string;
+  layoutMutation: any;
+  setEditingField: (f: ClientTypeField | null) => void;
+  setDialogOpen: (open: boolean) => void;
+  useDnd: boolean;
+}) {
+  return (
+    <Table>
+      <TableHeader>
+        <TableRow>
+          <TableHead className="w-8"></TableHead>
+          <TableHead sortKey="label" sortDirection={fieldSortKey === "label" ? fieldSortDirection : null} onSort={fieldRequestSort}>Nazov</TableHead>
+          <TableHead sortKey="fieldType" sortDirection={fieldSortKey === "fieldType" ? fieldSortDirection : null} onSort={fieldRequestSort}>Typ</TableHead>
+          <TableHead sortKey="panelId" sortDirection={fieldSortKey === "panelId" ? fieldSortDirection : null} onSort={fieldRequestSort}>Panel</TableHead>
+          <TableHead sortKey="isRequired" sortDirection={fieldSortKey === "isRequired" ? fieldSortDirection : null} onSort={fieldRequestSort}>Povinne</TableHead>
+          <TableHead sortKey="rowNumber" sortDirection={fieldSortKey === "rowNumber" ? fieldSortDirection : null} onSort={fieldRequestSort}>Riadok</TableHead>
+          <TableHead sortKey="widthPercent" sortDirection={fieldSortKey === "widthPercent" ? fieldSortDirection : null} onSort={fieldRequestSort}>Sirka</TableHead>
+          <TableHead>Akcie</TableHead>
+        </TableRow>
+      </TableHeader>
+      <TableBody>
+        {displayFields.map((field) => {
+          const ftDef = FIELD_TYPES.find(t => t.value === field.fieldType);
+          const Icon = ftDef?.icon || Type;
+          const hidden = (field as any).isHidden ?? false;
+          const cells = (
+            <>
+              <TableCell>
+                <div className={hidden ? "opacity-40" : ""}>
+                  <span className="font-medium text-sm">{field.label}</span>
+                  <span className="block font-mono text-xs text-muted-foreground">{field.fieldKey}</span>
+                </div>
+              </TableCell>
+              <TableCell>
+                <div className="flex items-center gap-1 flex-wrap">
+                  <Icon className="w-3 h-3 text-muted-foreground" />
+                  <span className="text-xs">{ftDef?.label || field.fieldType}</span>
+                  <span style={{ display: field.fieldType === "decimal" && (field as any).unit ? 'inline' : 'none' }} className="text-xs text-muted-foreground">{(field as any).unit}</span>
+                  <span style={{ display: field.fieldType === "decimal" ? 'inline' : 'none' }} className="text-xs text-muted-foreground">({(field as any).decimalPlaces ?? 2} des.)</span>
+                </div>
+              </TableCell>
+              <TableCell>
+                <Badge variant="outline">{getPanelName(field.panelId)}</Badge>
+              </TableCell>
+              <TableCell>
+                <Switch
+                  checked={field.isRequired ?? false}
+                  onCheckedChange={(checked) => layoutMutation.mutate({ id: field.id, data: { isRequired: checked } })}
+                  data-testid={`switch-required-${field.id}`}
+                />
+              </TableCell>
+              <TableCell>
+                <InlineNumberInput
+                  value={(field as any).rowNumber ?? 0}
+                  onChange={(val) => layoutMutation.mutate({ id: field.id, data: { rowNumber: val } })}
+                  min={0}
+                  max={99}
+                  testId={`input-row-number-${field.id}`}
+                />
+              </TableCell>
+              <TableCell>
+                <InlineNumberInput
+                  value={(field as any).widthPercent ?? 100}
+                  onChange={(val) => layoutMutation.mutate({ id: field.id, data: { widthPercent: val } })}
+                  min={10}
+                  max={100}
+                  suffix="%"
+                  testId={`input-width-percent-${field.id}`}
+                />
+              </TableCell>
+              <TableCell>
+                <div className="flex items-center gap-1">
+                  <Button size="icon" variant="ghost" onClick={() => { setEditingField(field); setDialogOpen(true); }} data-testid={`button-edit-parameter-${field.id}`}>
+                    <Pencil className="w-4 h-4" />
+                  </Button>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        onClick={() => layoutMutation.mutate({ id: field.id, data: { isHidden: !hidden } })}
+                        data-testid={`button-toggle-visibility-${field.id}`}
+                      >
+                        <Layers className={`w-4 h-4 ${hidden ? 'text-muted-foreground opacity-40' : 'text-amber-500'}`} />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>{hidden ? 'Zobraziť parameter' : 'Skryť parameter'}</TooltipContent>
+                  </Tooltip>
+                </div>
+              </TableCell>
+            </>
+          );
+          if (useDnd) {
+            return (
+              <SortableRow key={field.id} id={field.id}>
+                {cells}
+              </SortableRow>
+            );
+          }
+          return (
+            <TableRow key={field.id} data-testid={`row-parameter-${field.id}`}>
+              <TableCell className="w-8">
+                <GripVertical className="w-4 h-4 text-muted-foreground opacity-30" />
+              </TableCell>
+              {cells}
+            </TableRow>
+          );
+        })}
+      </TableBody>
+    </Table>
+  );
+}
+
 function FolderSection({
   section,
   fields,
@@ -587,7 +715,7 @@ function FolderSection({
   });
 
   const layoutMutation = useMutation({
-    mutationFn: async ({ id, data }: { id: number; data: { rowNumber?: number; widthPercent?: number; sortOrder?: number } }) => {
+    mutationFn: async ({ id, data }: { id: number; data: { rowNumber?: number; widthPercent?: number; sortOrder?: number; isRequired?: boolean; isHidden?: boolean } }) => {
       await apiRequest("PATCH", `/api/client-type-fields/${id}/layout`, data);
     },
     onSuccess: () => {
@@ -596,24 +724,31 @@ function FolderSection({
     onError: () => toast({ title: "Chyba", description: "Nepodarilo sa ulozit zmenu", variant: "destructive" }),
   });
 
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
+    useSensor(KeyboardSensor)
+  );
+
+  function handleDragEnd(event: DragEndEvent) {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+    const oldIndex = sorted.findIndex(f => f.id === active.id);
+    const newIndex = sorted.findIndex(f => f.id === over.id);
+    if (oldIndex === -1 || newIndex === -1) return;
+    const reordered = arrayMove(sorted, oldIndex, newIndex);
+    reordered.forEach((f, i) => {
+      if ((f.sortOrder ?? 0) !== i) {
+        layoutMutation.mutate({ id: f.id, data: { sortOrder: i } });
+      }
+    });
+  }
+
   const sorted = [...fields].sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0));
   const { sortedData: sortedFields, sortKey: fieldSortKey, sortDirection: fieldSortDirection, requestSort: fieldRequestSort } = useTableSort(sorted);
 
   function getPanelName(panelId: number | null): string {
     if (!panelId) return "Bez panelu";
     return panels.find(p => p.id === panelId)?.name || `#${panelId}`;
-  }
-
-  function moveField(fieldId: number, direction: "up" | "down") {
-    const list = sorted;
-    const idx = list.findIndex(f => f.id === fieldId);
-    if (idx === -1) return;
-    const swapIdx = direction === "up" ? idx - 1 : idx + 1;
-    if (swapIdx < 0 || swapIdx >= list.length) return;
-    const currentOrder = list[idx].sortOrder ?? idx;
-    const swapOrder = list[swapIdx].sortOrder ?? swapIdx;
-    layoutMutation.mutate({ id: list[idx].id, data: { sortOrder: swapOrder } });
-    layoutMutation.mutate({ id: list[swapIdx].id, data: { sortOrder: currentOrder } });
   }
 
   const displayFields = fieldSortKey ? sortedFields : sorted;
@@ -643,110 +778,40 @@ function FolderSection({
             </Button>
           </div>
 
-          {displayFields.length === 0 ? (
+          {displayFields.length === 0 && (
             <p className="text-sm text-muted-foreground text-center py-6" data-testid={`text-no-parameters-${section.id}`}>
               Ziadne parametre v tomto priecinku
             </p>
-          ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="w-16">Poradie</TableHead>
-                  <TableHead sortKey="label" sortDirection={fieldSortKey === "label" ? fieldSortDirection : null} onSort={fieldRequestSort}>Nazov</TableHead>
-                  <TableHead sortKey="fieldType" sortDirection={fieldSortKey === "fieldType" ? fieldSortDirection : null} onSort={fieldRequestSort}>Typ</TableHead>
-                  <TableHead sortKey="panelId" sortDirection={fieldSortKey === "panelId" ? fieldSortDirection : null} onSort={fieldRequestSort}>Panel</TableHead>
-                  <TableHead sortKey="isRequired" sortDirection={fieldSortKey === "isRequired" ? fieldSortDirection : null} onSort={fieldRequestSort}>Povinne</TableHead>
-                  <TableHead sortKey="rowNumber" sortDirection={fieldSortKey === "rowNumber" ? fieldSortDirection : null} onSort={fieldRequestSort}>Riadok</TableHead>
-                  <TableHead sortKey="widthPercent" sortDirection={fieldSortKey === "widthPercent" ? fieldSortDirection : null} onSort={fieldRequestSort}>Sirka</TableHead>
-                  <TableHead>Akcie</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {displayFields.map((field, idx) => {
-                  const ftDef = FIELD_TYPES.find(t => t.value === field.fieldType);
-                  const Icon = ftDef?.icon || Type;
-                  return (
-                    <TableRow key={field.id} data-testid={`row-parameter-${field.id}`}>
-                      <TableCell>
-                        <div className="flex items-center gap-0.5">
-                          <Button
-                            size="icon"
-                            variant="ghost"
-                            disabled={idx === 0 || !!fieldSortKey}
-                            onClick={() => moveField(field.id, "up")}
-                            data-testid={`button-move-up-${field.id}`}
-                          >
-                            <ArrowUp className="w-3 h-3" />
-                          </Button>
-                          <Button
-                            size="icon"
-                            variant="ghost"
-                            disabled={idx === displayFields.length - 1 || !!fieldSortKey}
-                            onClick={() => moveField(field.id, "down")}
-                            data-testid={`button-move-down-${field.id}`}
-                          >
-                            <ArrowDown className="w-3 h-3" />
-                          </Button>
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <div>
-                          <span className="font-medium text-sm">{field.label}</span>
-                          <span className="block font-mono text-xs text-muted-foreground">{field.fieldKey}</span>
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex items-center gap-1 flex-wrap">
-                          <Icon className="w-3 h-3 text-muted-foreground" />
-                          <span className="text-xs">{ftDef?.label || field.fieldType}</span>
-                          <span style={{ display: field.fieldType === "decimal" && (field as any).unit ? 'inline' : 'none' }} className="text-xs text-muted-foreground">{(field as any).unit}</span>
-                          <span style={{ display: field.fieldType === "decimal" ? 'inline' : 'none' }} className="text-xs text-muted-foreground">({(field as any).decimalPlaces ?? 2} des.)</span>
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <Badge variant="outline">{getPanelName(field.panelId)}</Badge>
-                      </TableCell>
-                      <TableCell>
-                        {field.isRequired
-                          ? <Badge variant="default" className="bg-emerald-600 text-white">Ano</Badge>
-                          : <Badge variant="outline">Nie</Badge>}
-                      </TableCell>
-                      <TableCell>
-                        <InlineNumberInput
-                          value={(field as any).rowNumber ?? 0}
-                          onChange={(val) => layoutMutation.mutate({ id: field.id, data: { rowNumber: val } })}
-                          min={0}
-                          max={99}
-                          testId={`input-row-number-${field.id}`}
-                        />
-                      </TableCell>
-                      <TableCell>
-                        <InlineNumberInput
-                          value={(field as any).widthPercent ?? 100}
-                          onChange={(val) => layoutMutation.mutate({ id: field.id, data: { widthPercent: val } })}
-                          min={10}
-                          max={100}
-                          suffix="%"
-                          testId={`input-width-percent-${field.id}`}
-                        />
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex items-center gap-1">
-                          <Button size="icon" variant="ghost" onClick={() => { setEditingField(field); setDialogOpen(true); }} data-testid={`button-edit-parameter-${field.id}`}>
-                            <Pencil className="w-4 h-4" />
-                          </Button>
-                          <ConditionalDelete
-                            canDelete={true}
-                            onClick={() => setDeleteTarget(field)}
-                            testId={`button-delete-parameter-${field.id}`}
-                          />
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  );
-                })}
-              </TableBody>
-            </Table>
+          )}
+          {displayFields.length > 0 && !fieldSortKey && (
+            <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+              <SortableContext items={displayFields.map(f => f.id)} strategy={verticalListSortingStrategy}>
+                <FieldTable
+                  displayFields={displayFields}
+                  fieldSortKey={fieldSortKey}
+                  fieldSortDirection={fieldSortDirection}
+                  fieldRequestSort={fieldRequestSort}
+                  getPanelName={getPanelName}
+                  layoutMutation={layoutMutation}
+                  setEditingField={setEditingField}
+                  setDialogOpen={setDialogOpen}
+                  useDnd={true}
+                />
+              </SortableContext>
+            </DndContext>
+          )}
+          {displayFields.length > 0 && !!fieldSortKey && (
+            <FieldTable
+              displayFields={displayFields}
+              fieldSortKey={fieldSortKey}
+              fieldSortDirection={fieldSortDirection}
+              fieldRequestSort={fieldRequestSort}
+              getPanelName={getPanelName}
+              layoutMutation={layoutMutation}
+              setEditingField={setEditingField}
+              setDialogOpen={setDialogOpen}
+              useDnd={false}
+            />
           )}
         </CardContent>
       </div>
