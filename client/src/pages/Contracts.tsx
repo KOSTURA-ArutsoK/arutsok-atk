@@ -5,6 +5,8 @@ import { useAppUser } from "@/hooks/use-app-user";
 import { useStates } from "@/hooks/use-hierarchy";
 import { useToast } from "@/hooks/use-toast";
 import { useTableSort } from "@/hooks/use-table-sort";
+import { useTableFilter } from "@/hooks/use-table-filter";
+import { TableFilterBar } from "@/components/table-filter-bar";
 import { useLocation } from "wouter";
 import type { Contract, ContractStatus, ContractTemplate, ContractInventory, Subject, Partner, Product, MyCompany, Sector, Section, SectorProduct, ClientGroup, ClientType, ClientTypeSection, ClientTypePanel, ClientTypeField, AppUser, ContractAcquirer } from "@shared/schema";
 import { Plus, Pencil, Trash2, Eye, FileText, Loader2, Lock, LayoutGrid, Send, Upload, Inbox, CheckCircle2, ChevronDown, ChevronRight, Printer, Search, Archive, AlertTriangle, Calendar, XCircle, MessageSquare, Paperclip, UserPlus, X, Users, Check, ChevronsUpDown, Award, Percent } from "lucide-react";
@@ -76,6 +78,42 @@ const CONTRACTS_EVIDENCIA_COLUMNS: ColumnDef[] = [
 ];
 
 const CONTRACTS_SPRIEVODKA_COLUMNS: ColumnDef[] = [
+  { key: "contractNumber", label: "Cislo zmluvy" },
+  { key: "proposalNumber", label: "Cislo navrhu" },
+  { key: "subjectId", label: "Klient" },
+  { key: "partnerId", label: "Partner" },
+  { key: "productId", label: "Produkt" },
+  { key: "annualPremium", label: "Rocne poistne" },
+  { key: "signedDate", label: "Vytvorenie zmluvy" },
+  { key: "premiumAmount", label: "Lehotne poistne" },
+];
+
+const MAIN_FILTER_COLUMNS = [
+  { key: "contractNumber", label: "Cislo zmluvy" },
+  { key: "proposalNumber", label: "Cislo navrhu" },
+  { key: "globalNumber", label: "Poradove cislo" },
+  { key: "subjectId", label: "Klient" },
+  { key: "partnerId", label: "Partner" },
+  { key: "productId", label: "Produkt" },
+  { key: "inventoryId", label: "Sprievodka" },
+  { key: "annualPremium", label: "Rocne poistne" },
+  { key: "signedDate", label: "Vytvorenie zmluvy" },
+  { key: "premiumAmount", label: "Lehotne poistne" },
+];
+
+const EVIDENCIA_FILTER_COLUMNS = [
+  { key: "contractNumber", label: "Cislo zmluvy" },
+  { key: "proposalNumber", label: "Cislo navrhu" },
+  { key: "globalNumber", label: "Poradove cislo" },
+  { key: "subjectId", label: "Klient" },
+  { key: "partnerId", label: "Partner" },
+  { key: "productId", label: "Produkt" },
+  { key: "annualPremium", label: "Rocne poistne" },
+  { key: "signedDate", label: "Vytvorenie zmluvy" },
+  { key: "premiumAmount", label: "Lehotne poistne" },
+];
+
+const SPRIEVODKA_FILTER_COLUMNS = [
   { key: "contractNumber", label: "Cislo zmluvy" },
   { key: "proposalNumber", label: "Cislo navrhu" },
   { key: "subjectId", label: "Klient" },
@@ -1825,8 +1863,8 @@ export default function Contracts() {
     );
   }
 
-  function renderContractTable(list: Contract[], options?: { showCheckbox?: boolean; showOrder?: boolean; showStatus?: boolean; showRegistration?: boolean; showActions?: boolean; sortState?: { sortKey: string | null; sortDirection: "asc" | "desc" | null; requestSort: (key: string) => void } }) {
-    const { showCheckbox, showOrder, showStatus, showRegistration, showActions = true, sortState } = options || {};
+  function renderContractTable(list: Contract[], options?: { showCheckbox?: boolean; showOrder?: boolean; showStatus?: boolean; showRegistration?: boolean; showActions?: boolean; sortState?: { sortKey: string | null; sortDirection: "asc" | "desc" | null; requestSort: (key: string) => void }; tableFilter?: { columnFilters: Record<string, string>; setColumnFilter: (key: string, val: string) => void } }) {
+    const { showCheckbox, showOrder, showStatus, showRegistration, showActions = true, sortState, tableFilter: tf } = options || {};
     const sk = sortState?.sortKey ?? null;
     const sd = sortState?.sortDirection ?? null;
     const rs = sortState?.requestSort;
@@ -1845,16 +1883,16 @@ export default function Contracts() {
               </TableHead>
             )}
             {showOrder && <TableHead className="w-[40px] text-center">#</TableHead>}
-            {evidenciaColumnVisibility.isVisible("contractNumber") && <TableHead sortKey="contractNumber" sortDirection={sk === "contractNumber" ? sd : null} onSort={rs}>Cislo zmluvy</TableHead>}
-            {evidenciaColumnVisibility.isVisible("proposalNumber") && <TableHead sortKey="proposalNumber" sortDirection={sk === "proposalNumber" ? sd : null} onSort={rs}>Cislo navrhu</TableHead>}
-            {showRegistration && evidenciaColumnVisibility.isVisible("globalNumber") && <TableHead sortKey="globalNumber" sortDirection={sk === "globalNumber" ? sd : null} onSort={rs}>Poradove cislo</TableHead>}
-            {evidenciaColumnVisibility.isVisible("subjectId") && <TableHead sortKey="subjectId" sortDirection={sk === "subjectId" ? sd : null} onSort={rs}>Klient</TableHead>}
-            {evidenciaColumnVisibility.isVisible("partnerId") && <TableHead sortKey="partnerId" sortDirection={sk === "partnerId" ? sd : null} onSort={rs}>Partner</TableHead>}
-            {evidenciaColumnVisibility.isVisible("productId") && <TableHead sortKey="productId" sortDirection={sk === "productId" ? sd : null} onSort={rs}>Produkt</TableHead>}
+            {evidenciaColumnVisibility.isVisible("contractNumber") && <TableHead sortKey="contractNumber" sortDirection={sk === "contractNumber" ? sd : null} onSort={rs} filterValue={tf?.columnFilters["contractNumber"] || ""} onFilterChange={(val) => tf?.setColumnFilter("contractNumber", val)}>Cislo zmluvy</TableHead>}
+            {evidenciaColumnVisibility.isVisible("proposalNumber") && <TableHead sortKey="proposalNumber" sortDirection={sk === "proposalNumber" ? sd : null} onSort={rs} filterValue={tf?.columnFilters["proposalNumber"] || ""} onFilterChange={(val) => tf?.setColumnFilter("proposalNumber", val)}>Cislo navrhu</TableHead>}
+            {showRegistration && evidenciaColumnVisibility.isVisible("globalNumber") && <TableHead sortKey="globalNumber" sortDirection={sk === "globalNumber" ? sd : null} onSort={rs} filterValue={tf?.columnFilters["globalNumber"] || ""} onFilterChange={(val) => tf?.setColumnFilter("globalNumber", val)}>Poradove cislo</TableHead>}
+            {evidenciaColumnVisibility.isVisible("subjectId") && <TableHead sortKey="subjectId" sortDirection={sk === "subjectId" ? sd : null} onSort={rs} filterValue={tf?.columnFilters["subjectId"] || ""} onFilterChange={(val) => tf?.setColumnFilter("subjectId", val)}>Klient</TableHead>}
+            {evidenciaColumnVisibility.isVisible("partnerId") && <TableHead sortKey="partnerId" sortDirection={sk === "partnerId" ? sd : null} onSort={rs} filterValue={tf?.columnFilters["partnerId"] || ""} onFilterChange={(val) => tf?.setColumnFilter("partnerId", val)}>Partner</TableHead>}
+            {evidenciaColumnVisibility.isVisible("productId") && <TableHead sortKey="productId" sortDirection={sk === "productId" ? sd : null} onSort={rs} filterValue={tf?.columnFilters["productId"] || ""} onFilterChange={(val) => tf?.setColumnFilter("productId", val)}>Produkt</TableHead>}
             {showStatus && evidenciaColumnVisibility.isVisible("status") && <TableHead>Stav</TableHead>}
-            {evidenciaColumnVisibility.isVisible("annualPremium") && <TableHead sortKey="annualPremium" sortDirection={sk === "annualPremium" ? sd : null} onSort={rs}>Rocne poistne</TableHead>}
-            {evidenciaColumnVisibility.isVisible("signedDate") && <TableHead sortKey="signedDate" sortDirection={sk === "signedDate" ? sd : null} onSort={rs}>Vytvorenie zmluvy</TableHead>}
-            {evidenciaColumnVisibility.isVisible("premiumAmount") && <TableHead sortKey="premiumAmount" sortDirection={sk === "premiumAmount" ? sd : null} onSort={rs}>Lehotne poistne</TableHead>}
+            {evidenciaColumnVisibility.isVisible("annualPremium") && <TableHead sortKey="annualPremium" sortDirection={sk === "annualPremium" ? sd : null} onSort={rs} filterValue={tf?.columnFilters["annualPremium"] || ""} onFilterChange={(val) => tf?.setColumnFilter("annualPremium", val)}>Rocne poistne</TableHead>}
+            {evidenciaColumnVisibility.isVisible("signedDate") && <TableHead sortKey="signedDate" sortDirection={sk === "signedDate" ? sd : null} onSort={rs} filterValue={tf?.columnFilters["signedDate"] || ""} onFilterChange={(val) => tf?.setColumnFilter("signedDate", val)}>Vytvorenie zmluvy</TableHead>}
+            {evidenciaColumnVisibility.isVisible("premiumAmount") && <TableHead sortKey="premiumAmount" sortDirection={sk === "premiumAmount" ? sd : null} onSort={rs} filterValue={tf?.columnFilters["premiumAmount"] || ""} onFilterChange={(val) => tf?.setColumnFilter("premiumAmount", val)}>Lehotne poistne</TableHead>}
             {showActions && <TableHead className="text-right">Akcie</TableHead>}
           </TableRow>
         </TableHeader>
@@ -1862,7 +1900,7 @@ export default function Contracts() {
           {list.map(contract => {
             const status = statuses?.find(s => s.id === contract.statusId);
             return (
-              <TableRow key={contract.id} data-testid={`row-evidencia-${contract.id}`}>
+              <TableRow key={contract.id} data-testid={`row-evidencia-${contract.id}`} onRowClick={() => openEdit(contract)}>
                 {showCheckbox && (
                   <TableCell>
                     <Checkbox
@@ -2837,10 +2875,15 @@ export default function Contracts() {
   const filteredRejected = filterBySearch(activeRejected);
   const filteredArchived = filterBySearch(activeArchived);
 
-  const { sortedData: sortedNahravanie, sortKey: skNahr, sortDirection: sdNahr, requestSort: rsNahr } = useTableSort(filteredNahravanie);
-  const { sortedData: sortedRejected, sortKey: skRej, sortDirection: sdRej, requestSort: rsRej } = useTableSort(filteredRejected);
-  const { sortedData: sortedArchived, sortKey: skArch, sortDirection: sdArch, requestSort: rsArch } = useTableSort(filteredArchived);
-  const { sortedData: sortedMain, sortKey: skMain, sortDirection: sdMain, requestSort: rsMain } = useTableSort(activeContracts);
+  const evidenciaFilter = useTableFilter(filteredNahravanie, EVIDENCIA_FILTER_COLUMNS);
+  const rejectedFilter = useTableFilter(filteredRejected, EVIDENCIA_FILTER_COLUMNS);
+  const archivedFilter = useTableFilter(filteredArchived, EVIDENCIA_FILTER_COLUMNS);
+  const mainFilter = useTableFilter(activeContracts, MAIN_FILTER_COLUMNS);
+
+  const { sortedData: sortedNahravanie, sortKey: skNahr, sortDirection: sdNahr, requestSort: rsNahr } = useTableSort(evidenciaFilter.filteredData);
+  const { sortedData: sortedRejected, sortKey: skRej, sortDirection: sdRej, requestSort: rsRej } = useTableSort(rejectedFilter.filteredData);
+  const { sortedData: sortedArchived, sortKey: skArch, sortDirection: sdArch, requestSort: rsArch } = useTableSort(archivedFilter.filteredData);
+  const { sortedData: sortedMain, sortKey: skMain, sortDirection: sdMain, requestSort: rsMain } = useTableSort(mainFilter.filteredData);
 
   if (isEvidencia) {
 
@@ -2900,6 +2943,7 @@ export default function Contracts() {
               data-testid="input-search-contracts"
             />
           </div>
+          <TableFilterBar filter={evidenciaFilter} />
           <ColumnManager columnVisibility={evidenciaColumnVisibility} />
           <ColumnManager columnVisibility={sprievodkaColumnVisibility} />
         </div>
@@ -2925,7 +2969,7 @@ export default function Contracts() {
                 <div className="flex items-center justify-center py-8"><Loader2 className="w-5 h-5 animate-spin" /></div>
               ) : filteredNahravanie.length === 0 ? (
                 <p className="text-sm text-muted-foreground text-center py-8" data-testid="text-no-nahravanie">Ziadne zmluvy na nahravanie</p>
-              ) : renderContractTable(sortedNahravanie, { showCheckbox: true, showOrder: true, sortState: { sortKey: skNahr, sortDirection: sdNahr, requestSort: rsNahr } })}
+              ) : renderContractTable(sortedNahravanie, { showCheckbox: true, showOrder: true, sortState: { sortKey: skNahr, sortDirection: sdNahr, requestSort: rsNahr }, tableFilter: { columnFilters: evidenciaFilter.columnFilters, setColumnFilter: evidenciaFilter.setColumnFilter } })}
             </CardContent>
           </Card>
         </div>
@@ -2992,7 +3036,7 @@ export default function Contracts() {
                               </TableHeader>
                               <TableBody>
                                 {group.contracts.map(contract => (
-                                  <TableRow key={contract.id} data-testid={`row-cakajuce-${contract.id}`}>
+                                  <TableRow key={contract.id} data-testid={`row-cakajuce-${contract.id}`} onRowClick={() => openEdit(contract)}>
                                     <TableCell>
                                       <Checkbox checked={checkedIds.has(contract.id)} onCheckedChange={() => toggleAcceptContract(group.inventoryId, contract.id)} data-testid={`checkbox-accept-${contract.id}`} />
                                     </TableCell>
@@ -3041,7 +3085,7 @@ export default function Contracts() {
                 <div className="flex items-center justify-center py-8"><Loader2 className="w-5 h-5 animate-spin" /></div>
               ) : filteredRejected.length === 0 ? (
                 <p className="text-sm text-muted-foreground text-center py-8" data-testid="text-no-neprijate">Ziadne neprijate zmluvy</p>
-              ) : renderContractTable(sortedRejected, { showStatus: true, showRegistration: true, showActions: true, sortState: { sortKey: skRej, sortDirection: sdRej, requestSort: rsRej } })}
+              ) : renderContractTable(sortedRejected, { showStatus: true, showRegistration: true, showActions: true, sortState: { sortKey: skRej, sortDirection: sdRej, requestSort: rsRej }, tableFilter: { columnFilters: rejectedFilter.columnFilters, setColumnFilter: rejectedFilter.setColumnFilter } })}
             </CardContent>
           </Card>
         </div>
@@ -3057,7 +3101,7 @@ export default function Contracts() {
                 <div className="flex items-center justify-center py-8"><Loader2 className="w-5 h-5 animate-spin" /></div>
               ) : filteredArchived.length === 0 ? (
                 <p className="text-sm text-muted-foreground text-center py-8" data-testid="text-no-archiv">Ziadne archivovane zmluvy</p>
-              ) : renderContractTable(sortedArchived, { showStatus: true, showRegistration: true, showActions: false, sortState: { sortKey: skArch, sortDirection: sdArch, requestSort: rsArch } })}
+              ) : renderContractTable(sortedArchived, { showStatus: true, showRegistration: true, showActions: false, sortState: { sortKey: skArch, sortDirection: sdArch, requestSort: rsArch }, tableFilter: { columnFilters: archivedFilter.columnFilters, setColumnFilter: archivedFilter.setColumnFilter } })}
             </CardContent>
           </Card>
         </div>
@@ -3183,6 +3227,7 @@ export default function Contracts() {
           </Select>
         </div>
         <div className="flex-1" />
+        <TableFilterBar filter={mainFilter} />
         <ColumnManager columnVisibility={columnVisibility} />
       </div>
 
@@ -3201,17 +3246,17 @@ export default function Contracts() {
             <Table stickyHeader>
               <TableHeader>
                 <TableRow>
-                  {columnVisibility.isVisible("contractNumber") && <TableHead sortKey="contractNumber" sortDirection={skMain === "contractNumber" ? sdMain : null} onSort={rsMain}>Cislo zmluvy</TableHead>}
-                  {columnVisibility.isVisible("proposalNumber") && <TableHead sortKey="proposalNumber" sortDirection={skMain === "proposalNumber" ? sdMain : null} onSort={rsMain}>Cislo navrhu</TableHead>}
-                  {columnVisibility.isVisible("globalNumber") && <TableHead sortKey="globalNumber" sortDirection={skMain === "globalNumber" ? sdMain : null} onSort={rsMain}>Poradove cislo</TableHead>}
-                  {columnVisibility.isVisible("subjectId") && <TableHead sortKey="subjectId" sortDirection={skMain === "subjectId" ? sdMain : null} onSort={rsMain}>Klient</TableHead>}
-                  {columnVisibility.isVisible("partnerId") && <TableHead sortKey="partnerId" sortDirection={skMain === "partnerId" ? sdMain : null} onSort={rsMain}>Partner</TableHead>}
-                  {columnVisibility.isVisible("productId") && <TableHead sortKey="productId" sortDirection={skMain === "productId" ? sdMain : null} onSort={rsMain}>Produkt</TableHead>}
+                  {columnVisibility.isVisible("contractNumber") && <TableHead sortKey="contractNumber" sortDirection={skMain === "contractNumber" ? sdMain : null} onSort={rsMain} filterValue={mainFilter.columnFilters["contractNumber"] || ""} onFilterChange={(val) => mainFilter.setColumnFilter("contractNumber", val)}>Cislo zmluvy</TableHead>}
+                  {columnVisibility.isVisible("proposalNumber") && <TableHead sortKey="proposalNumber" sortDirection={skMain === "proposalNumber" ? sdMain : null} onSort={rsMain} filterValue={mainFilter.columnFilters["proposalNumber"] || ""} onFilterChange={(val) => mainFilter.setColumnFilter("proposalNumber", val)}>Cislo navrhu</TableHead>}
+                  {columnVisibility.isVisible("globalNumber") && <TableHead sortKey="globalNumber" sortDirection={skMain === "globalNumber" ? sdMain : null} onSort={rsMain} filterValue={mainFilter.columnFilters["globalNumber"] || ""} onFilterChange={(val) => mainFilter.setColumnFilter("globalNumber", val)}>Poradove cislo</TableHead>}
+                  {columnVisibility.isVisible("subjectId") && <TableHead sortKey="subjectId" sortDirection={skMain === "subjectId" ? sdMain : null} onSort={rsMain} filterValue={mainFilter.columnFilters["subjectId"] || ""} onFilterChange={(val) => mainFilter.setColumnFilter("subjectId", val)}>Klient</TableHead>}
+                  {columnVisibility.isVisible("partnerId") && <TableHead sortKey="partnerId" sortDirection={skMain === "partnerId" ? sdMain : null} onSort={rsMain} filterValue={mainFilter.columnFilters["partnerId"] || ""} onFilterChange={(val) => mainFilter.setColumnFilter("partnerId", val)}>Partner</TableHead>}
+                  {columnVisibility.isVisible("productId") && <TableHead sortKey="productId" sortDirection={skMain === "productId" ? sdMain : null} onSort={rsMain} filterValue={mainFilter.columnFilters["productId"] || ""} onFilterChange={(val) => mainFilter.setColumnFilter("productId", val)}>Produkt</TableHead>}
                   {columnVisibility.isVisible("status") && <TableHead>Stav</TableHead>}
-                  {columnVisibility.isVisible("inventoryId") && <TableHead sortKey="inventoryId" sortDirection={skMain === "inventoryId" ? sdMain : null} onSort={rsMain}>Sprievodka</TableHead>}
-                  {columnVisibility.isVisible("annualPremium") && <TableHead sortKey="annualPremium" sortDirection={skMain === "annualPremium" ? sdMain : null} onSort={rsMain}>Rocne poistne</TableHead>}
-                  {columnVisibility.isVisible("signedDate") && <TableHead sortKey="signedDate" sortDirection={skMain === "signedDate" ? sdMain : null} onSort={rsMain}>Vytvorenie zmluvy</TableHead>}
-                  {columnVisibility.isVisible("premiumAmount") && <TableHead sortKey="premiumAmount" sortDirection={skMain === "premiumAmount" ? sdMain : null} onSort={rsMain}>Lehotne poistne</TableHead>}
+                  {columnVisibility.isVisible("inventoryId") && <TableHead sortKey="inventoryId" sortDirection={skMain === "inventoryId" ? sdMain : null} onSort={rsMain} filterValue={mainFilter.columnFilters["inventoryId"] || ""} onFilterChange={(val) => mainFilter.setColumnFilter("inventoryId", val)}>Sprievodka</TableHead>}
+                  {columnVisibility.isVisible("annualPremium") && <TableHead sortKey="annualPremium" sortDirection={skMain === "annualPremium" ? sdMain : null} onSort={rsMain} filterValue={mainFilter.columnFilters["annualPremium"] || ""} onFilterChange={(val) => mainFilter.setColumnFilter("annualPremium", val)}>Rocne poistne</TableHead>}
+                  {columnVisibility.isVisible("signedDate") && <TableHead sortKey="signedDate" sortDirection={skMain === "signedDate" ? sdMain : null} onSort={rsMain} filterValue={mainFilter.columnFilters["signedDate"] || ""} onFilterChange={(val) => mainFilter.setColumnFilter("signedDate", val)}>Vytvorenie zmluvy</TableHead>}
+                  {columnVisibility.isVisible("premiumAmount") && <TableHead sortKey="premiumAmount" sortDirection={skMain === "premiumAmount" ? sdMain : null} onSort={rsMain} filterValue={mainFilter.columnFilters["premiumAmount"] || ""} onFilterChange={(val) => mainFilter.setColumnFilter("premiumAmount", val)}>Lehotne poistne</TableHead>}
                   <TableHead className="text-right">Akcie</TableHead>
                 </TableRow>
               </TableHeader>
@@ -3221,7 +3266,7 @@ export default function Contracts() {
                   const inventoryName = inventories?.find(i => i.id === contract.inventoryId)?.name || "-";
 
                   return (
-                    <TableRow key={contract.id} data-testid={`row-contract-${contract.id}`}>
+                    <TableRow key={contract.id} data-testid={`row-contract-${contract.id}`} onRowClick={() => openEdit(contract)}>
                       {columnVisibility.isVisible("contractNumber") && <TableCell className="font-mono text-sm" data-testid={`text-contract-number-${contract.id}`}>
                         <span className="flex items-center gap-1">
                           <Lock className="w-3 h-3 text-amber-500 shrink-0" style={{ display: contract.isLocked ? 'block' : 'none' }} />

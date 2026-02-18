@@ -40,6 +40,8 @@ import {
 } from "@/components/ui/select";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { UIDInput } from "@/components/uid-input";
+import { useTableFilter } from "@/hooks/use-table-filter";
+import { TableFilterBar } from "@/components/table-filter-bar";
 
 type PanelWithParams = {
   id: number;
@@ -314,6 +316,11 @@ type StatusTabContentProps = {
   statusChangeLogs: ContractStatusChangeLog[] | undefined;
 };
 
+const STATUS_HISTORY_FILTER_COLUMNS = [
+  { key: "status", label: "Stav" },
+  { key: "changedAt", label: "Datum zmeny" },
+];
+
 const STATUS_HISTORY_COLUMNS: ColumnDef[] = [
   { key: "status", label: "Stav" },
   { key: "changedAt", label: "Datum zmeny" },
@@ -336,6 +343,12 @@ function StatusTabContent(props: StatusTabContentProps) {
   } = props;
 
   const statusHistoryColumnVisibility = useColumnVisibility("contract-form-status-history", STATUS_HISTORY_COLUMNS);
+
+  const enrichedLogs = (statusChangeLogs || []).map(log => {
+    const logStatus = statuses?.find(s => s.id === log.newStatusId);
+    return { ...log, status: logStatus?.name || `Stav #${log.newStatusId}` };
+  });
+  const statusHistoryFilter = useTableFilter(enrichedLogs, STATUS_HISTORY_FILTER_COLUMNS);
 
   const currentStatus = statuses?.find(s => s.id === (statusId ? parseInt(statusId) : -1));
   const newStatus = filteredStatuses.find(s => s.id === parseInt(statusFormStatusId));
@@ -657,16 +670,17 @@ function StatusTabContent(props: StatusTabContentProps) {
                 <h3 className="text-sm font-semibold">Historia zmien stavov ({(statusChangeLogs || []).length})</h3>
                 <ColumnManager columnVisibility={statusHistoryColumnVisibility} />
               </div>
+              <TableFilterBar filter={statusHistoryFilter} />
               <Table>
                 <TableHeader>
                   <TableRow>
-                    {statusHistoryColumnVisibility.isVisible("status") && <TableHead>Stav</TableHead>}
-                    {statusHistoryColumnVisibility.isVisible("changedAt") && <TableHead>Datum zmeny</TableHead>}
+                    {statusHistoryColumnVisibility.isVisible("status") && <TableHead filterValue={statusHistoryFilter.columnFilters["status"] || ""} onFilterChange={(val) => statusHistoryFilter.setColumnFilter("status", val)}>Stav</TableHead>}
+                    {statusHistoryColumnVisibility.isVisible("changedAt") && <TableHead filterValue={statusHistoryFilter.columnFilters["changedAt"] || ""} onFilterChange={(val) => statusHistoryFilter.setColumnFilter("changedAt", val)}>Datum zmeny</TableHead>}
                     {statusHistoryColumnVisibility.isVisible("details") && <TableHead>Detaily</TableHead>}
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {(statusChangeLogs || []).map(log => {
+                  {statusHistoryFilter.filteredData.map(log => {
                     const logStatus = statuses?.find(s => s.id === log.newStatusId);
                     const statusName = logStatus?.name || `Stav #${log.newStatusId}`;
                     const iteration = log.statusIteration || 1;

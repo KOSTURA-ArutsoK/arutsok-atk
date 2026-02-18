@@ -2,6 +2,8 @@ import { useState, useRef, useCallback, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useTableSort } from "@/hooks/use-table-sort";
+import { useTableFilter } from "@/hooks/use-table-filter";
+import { TableFilterBar } from "@/components/table-filter-bar";
 import { useColumnVisibility, type ColumnDef } from "@/hooks/use-column-visibility";
 import { ColumnManager } from "@/components/column-manager";
 import { usePartners } from "@/hooks/use-partners";
@@ -60,6 +62,15 @@ const PRODUCT_COLUMNS: ColumnDef[] = [
   { key: "companyId", label: "Spolocnost" },
   { key: "stateId", label: "Stat" },
   { key: "allowedSpecialists", label: "Povoleni specialisti" },
+];
+
+const PRODUCT_FILTER_COLUMNS = [
+  { key: "code", label: "Kod" },
+  { key: "name", label: "Nazov" },
+  { key: "displayName", label: "Zobrazovaci nazov" },
+  { key: "partnerId", label: "Partner" },
+  { key: "companyId", label: "Spolocnost" },
+  { key: "stateId", label: "Stat" },
 ];
 
 const SPECIALIST_TYPES = ["NBS", "Zbrojny preukaz", "Reality", "Poistenie", "Dochodok", "Ine"];
@@ -825,7 +836,8 @@ export default function Products() {
 
   const columnVisibility = useColumnVisibility("products", PRODUCT_COLUMNS);
   const activeProducts = products?.filter(p => !p.isDeleted) || [];
-  const { sortedData: sortedProducts, sortKey, sortDirection, requestSort } = useTableSort(activeProducts);
+  const tableFilter = useTableFilter(activeProducts, PRODUCT_FILTER_COLUMNS);
+  const { sortedData: sortedProducts, sortKey, sortDirection, requestSort } = useTableSort(tableFilter.filteredData);
 
   function getPartnerName(id: number | null) {
     if (!id || !partners) return "-";
@@ -869,6 +881,7 @@ export default function Products() {
           <Badge variant="secondary">{activeProducts.length}</Badge>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
+          <TableFilterBar filter={tableFilter} />
           <ColumnManager columnVisibility={columnVisibility} />
           <Button onClick={handleAdd} data-testid="button-add-product">
             <Plus className="w-4 h-4 mr-1" /> Pridat produkt
@@ -890,19 +903,19 @@ export default function Products() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  {columnVisibility.isVisible("code") && <TableHead sortKey="code" sortDirection={sortKey === "code" ? sortDirection : null} onSort={requestSort}>Kod</TableHead>}
-                  {columnVisibility.isVisible("name") && <TableHead sortKey="name" sortDirection={sortKey === "name" ? sortDirection : null} onSort={requestSort}>Nazov</TableHead>}
-                  {columnVisibility.isVisible("displayName") && <TableHead sortKey="displayName" sortDirection={sortKey === "displayName" ? sortDirection : null} onSort={requestSort}>Zobrazovaci nazov</TableHead>}
-                  {columnVisibility.isVisible("partnerId") && <TableHead sortKey="partnerId" sortDirection={sortKey === "partnerId" ? sortDirection : null} onSort={requestSort}>Partner</TableHead>}
-                  {columnVisibility.isVisible("companyId") && <TableHead sortKey="companyId" sortDirection={sortKey === "companyId" ? sortDirection : null} onSort={requestSort}>Spolocnost</TableHead>}
-                  {columnVisibility.isVisible("stateId") && <TableHead sortKey="stateId" sortDirection={sortKey === "stateId" ? sortDirection : null} onSort={requestSort}>Stat</TableHead>}
+                  {columnVisibility.isVisible("code") && <TableHead sortKey="code" sortDirection={sortKey === "code" ? sortDirection : null} onSort={requestSort} filterValue={tableFilter.columnFilters["code"] || ""} onFilterChange={(val) => tableFilter.setColumnFilter("code", val)}>Kod</TableHead>}
+                  {columnVisibility.isVisible("name") && <TableHead sortKey="name" sortDirection={sortKey === "name" ? sortDirection : null} onSort={requestSort} filterValue={tableFilter.columnFilters["name"] || ""} onFilterChange={(val) => tableFilter.setColumnFilter("name", val)}>Nazov</TableHead>}
+                  {columnVisibility.isVisible("displayName") && <TableHead sortKey="displayName" sortDirection={sortKey === "displayName" ? sortDirection : null} onSort={requestSort} filterValue={tableFilter.columnFilters["displayName"] || ""} onFilterChange={(val) => tableFilter.setColumnFilter("displayName", val)}>Zobrazovaci nazov</TableHead>}
+                  {columnVisibility.isVisible("partnerId") && <TableHead sortKey="partnerId" sortDirection={sortKey === "partnerId" ? sortDirection : null} onSort={requestSort} filterValue={tableFilter.columnFilters["partnerId"] || ""} onFilterChange={(val) => tableFilter.setColumnFilter("partnerId", val)}>Partner</TableHead>}
+                  {columnVisibility.isVisible("companyId") && <TableHead sortKey="companyId" sortDirection={sortKey === "companyId" ? sortDirection : null} onSort={requestSort} filterValue={tableFilter.columnFilters["companyId"] || ""} onFilterChange={(val) => tableFilter.setColumnFilter("companyId", val)}>Spolocnost</TableHead>}
+                  {columnVisibility.isVisible("stateId") && <TableHead sortKey="stateId" sortDirection={sortKey === "stateId" ? sortDirection : null} onSort={requestSort} filterValue={tableFilter.columnFilters["stateId"] || ""} onFilterChange={(val) => tableFilter.setColumnFilter("stateId", val)}>Stat</TableHead>}
                   {columnVisibility.isVisible("allowedSpecialists") && <TableHead>Povoleni specialisti</TableHead>}
                   <TableHead className="text-right">Akcie</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {sortedProducts.map(product => (
-                  <TableRow key={product.id} data-testid={`row-product-${product.id}`}>
+                  <TableRow key={product.id} data-testid={`row-product-${product.id}`} onRowClick={() => handleEdit(product)}>
                     {columnVisibility.isVisible("code") && <TableCell className="font-mono text-xs">{product.code}</TableCell>}
                     {columnVisibility.isVisible("name") && <TableCell className="font-medium">{product.name}</TableCell>}
                     {columnVisibility.isVisible("displayName") && <TableCell className="text-sm text-muted-foreground">{product.displayName || "-"}</TableCell>}

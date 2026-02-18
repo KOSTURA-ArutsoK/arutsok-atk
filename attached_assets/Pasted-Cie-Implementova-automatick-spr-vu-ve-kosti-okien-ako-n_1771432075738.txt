@@ -1,0 +1,44 @@
+Cieľ: Implementovať automatickú správu veľkosti okien ako natívnu vlastnosť základného komponentu systému ArutsoK. Systém musí inteligentne prispôsobiť šírku a výšku okna podľa množstva obsahu, aby sa eliminoval prázdny priestor a zlepšila práca s dátami.
+
+1. Globálna logika (Base Modal Component)
+Automatizácia: Neupravuj okná manuálne po jednom. Uprav hlavný komponent modálu tak, aby automaticky vypočítal potrebnú šírku na základe počtu vstupných polí (vlastností) alebo typu vloženého obsahu (napr. tabuľka).
+
+Detekcia obsahu: Komponent musí v reálnom čase rozpoznať, či ide o jednoduchý krok alebo komplexný formulár.
+
+2. Tri úrovne dynamickej šírky (Desktop/Large Screen)
+Systém musí prepínať medzi týmito štyrmi stavmi:
+
+A. Malé okná (do 5 polí): Napr. „Krok 1: Výber partnera a produktu“ alebo potvrdenie akcie.
+
+Šírka: Maximálne 40 % (vw).
+
+Cieľ: Kompaktný vzhľad, sústredenie na stred obrazovky.
+
+B. Stredné okná (5 – 15 polí): Bežné záznamy a formuláre.
+
+Šírka: Štandardných 60 % (vw).
+
+C. Veľké/Komplexné okná (nad 15 polí): Napr. „Pravidlá typov klientov“ (37+ parametrov).
+
+Šírka: Fixne 95 % (vw).
+
+Výška: Fixne 90 % (vh).
+
+D. Špeciálna výnimka pre Tabuľky:
+
+Ak okno obsahuje akúkoľvek dátovú tabuľku (aj keby to bol jediný prvok), automaticky vynúť šírku minimálne 80 % až 95 %, aby nedošlo k horizontálnemu stláčaniu dát.
+
+3. Vnútorná štruktúra a layout (UX)
+Fixná hlavička a päta: Pri veľkých oknách (95/90) musí byť názov okna a tlačidlá (Uložiť/Zrušiť) vždy fixne prichytené k okrajom. Skrolovať sa smie výhradne stredová časť s formulárom.
+
+Viacstĺpcový grid: V režime 95 % šírky prioritne využívaj viacstĺpcové usporiadanie (napr. 3 panely vedľa seba pri adresách), aby sme maximálne využili plochu monitora a eliminovali vertikálne skrolovanie.
+
+4. Striktná responzivita (Mobily a Tablety)
+Detekcia zariadenia: Pre všetky zariadenia s rozlíšením pod 1024px ignoruj vyššie uvedené delenie.
+
+Pravidlo 100 %: Na mobiloch a tabletoch musí byť každé okno vždy na 100 % šírky aj výšky obrazovky (Full-screen).
+
+Stacking: Všetky viacstĺpcové layouty sa na malých displejoch musia automaticky preskladať do jedného stĺpca pod seba.
+
+5. Rozsah a udržateľnosť
+Toto nastavenie sa musí aplikovať na všetky súčasné okná a musí byť automaticky zdedené každým novým oknom, ktoré sa v systéme vytvorí neskôr.

@@ -2,6 +2,8 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useTableSort } from "@/hooks/use-table-sort";
+import { useTableFilter } from "@/hooks/use-table-filter";
+import { TableFilterBar } from "@/components/table-filter-bar";
 import { useToast } from "@/hooks/use-toast";
 import { usePartners } from "@/hooks/use-partners";
 import type { Sector, Parameter, SectorProduct, SectorProductParameter, Panel, PanelParameter, ProductPanel, Section, ContractFolder, FolderPanel } from "@shared/schema";
@@ -42,6 +44,34 @@ import { ProcessingSaveButton } from "@/components/processing-save-button";
 import { SortableTableRow, SortableContext_Wrapper } from "@/components/sortable-list";
 import { useColumnVisibility, type ColumnDef } from "@/hooks/use-column-visibility";
 import { ColumnManager } from "@/components/column-manager";
+
+const SECTOR_FILTER_COLUMNS = [
+  { key: "name", label: "Nazov sektoru" },
+  { key: "sectorType", label: "Typ" },
+  { key: "description", label: "Popis" },
+];
+
+const SECTION_FILTER_COLUMNS = [
+  { key: "name", label: "Nazov sekcie" },
+  { key: "description", label: "Popis" },
+];
+
+const SECTOR_PRODUCT_FILTER_COLUMNS = [
+  { key: "name", label: "Nazov produktu" },
+  { key: "abbreviation", label: "Skratka produktu" },
+];
+
+const PARAMETER_FILTER_COLUMNS = [
+  { key: "name", label: "Nazov" },
+  { key: "paramType", label: "Typ" },
+  { key: "defaultValue", label: "Predvolena hodnota" },
+  { key: "helpText", label: "Napoveda" },
+];
+
+const PANEL_FILTER_COLUMNS = [
+  { key: "name", label: "Nazov" },
+  { key: "description", label: "Popis" },
+];
 
 const SECTOR_COLUMNS: ColumnDef[] = [
   { key: "name", label: "Nazov sektoru" },
@@ -1099,7 +1129,6 @@ function SectionFormDialog({
 
 function SectionsTab() {
   const { toast } = useToast();
-  const [search, setSearch] = useState("");
   const [filterSectorId, setFilterSectorId] = useState<string>("all");
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingSection, setEditingSection] = useState<Section | null>(null);
@@ -1129,30 +1158,18 @@ function SectionsTab() {
     return sectors?.find(s => s.id === sectorId)?.name || `#${sectorId}`;
   }
 
-  const sorted = [...(sections || [])].sort((a, b) => b.id - a.id);
-
-  const filtered = sorted.filter(sec => {
+  const preFiltered = [...(sections || [])].filter(sec => {
     if (filterSectorId !== "all" && sec.sectorId !== parseInt(filterSectorId)) return false;
-    const searchLower = search.toLowerCase();
-    return sec.name.toLowerCase().includes(searchLower) ||
-      (sec.description || "").toLowerCase().includes(searchLower);
+    return true;
   });
 
-  const { sortedData: sortedSections, sortKey: sectionSortKey, sortDirection: sectionSortDirection, requestSort: sectionRequestSort } = useTableSort(filtered);
+  const sectionTableFilter = useTableFilter(preFiltered, SECTION_FILTER_COLUMNS);
+  const { sortedData: sortedSections, sortKey: sectionSortKey, sortDirection: sectionSortDirection, requestSort: sectionRequestSort } = useTableSort(sectionTableFilter.filteredData);
 
   return (
     <div className="space-y-4">
       <div className="flex items-center gap-3 flex-wrap">
-        <div className="relative flex-1 min-w-[200px]">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-          <Input
-            value={search}
-            onChange={e => setSearch(e.target.value)}
-            placeholder="Hladat sekcie..."
-            className="pl-9"
-            data-testid="input-search-sections"
-          />
-        </div>
+        <TableFilterBar filter={sectionTableFilter} />
         <Select value={filterSectorId} onValueChange={setFilterSectorId}>
           <SelectTrigger className="w-[200px]" data-testid="select-filter-sector-for-sections">
             <SelectValue placeholder="Vsetky sektory" />
@@ -1180,15 +1197,15 @@ function SectionsTab() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  {columnVisibility.isVisible("name") && <TableHead sortKey="name" sortDirection={sectionSortKey === "name" ? sectionSortDirection : null} onSort={sectionRequestSort}>Nazov sekcie</TableHead>}
+                  {columnVisibility.isVisible("name") && <TableHead sortKey="name" sortDirection={sectionSortKey === "name" ? sectionSortDirection : null} onSort={sectionRequestSort} filterValue={sectionTableFilter.columnFilters["name"] || ""} onFilterChange={(val) => sectionTableFilter.setColumnFilter("name", val)}>Nazov sekcie</TableHead>}
                   {columnVisibility.isVisible("sectorId") && <TableHead sortKey="sectorId" sortDirection={sectionSortKey === "sectorId" ? sectionSortDirection : null} onSort={sectionRequestSort}>Sektor</TableHead>}
                   {columnVisibility.isVisible("productCount") && <TableHead>Produkty</TableHead>}
-                  {columnVisibility.isVisible("description") && <TableHead sortKey="description" sortDirection={sectionSortKey === "description" ? sectionSortDirection : null} onSort={sectionRequestSort}>Popis</TableHead>}
+                  {columnVisibility.isVisible("description") && <TableHead sortKey="description" sortDirection={sectionSortKey === "description" ? sectionSortDirection : null} onSort={sectionRequestSort} filterValue={sectionTableFilter.columnFilters["description"] || ""} onFilterChange={(val) => sectionTableFilter.setColumnFilter("description", val)}>Popis</TableHead>}
                   <TableHead>Akcie</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filtered.length === 0 ? (
+                {sectionTableFilter.filteredData.length === 0 ? (
                   <TableRow>
                     <TableCell colSpan={5} className="text-center text-muted-foreground py-8" data-testid="text-no-sections">
                       Ziadne sekcie
@@ -1196,7 +1213,7 @@ function SectionsTab() {
                   </TableRow>
                 ) : (
                   sortedSections.map(section => (
-                    <TableRow key={section.id} data-testid={`row-section-${section.id}`}>
+                    <TableRow key={section.id} data-testid={`row-section-${section.id}`} onRowClick={() => { setEditingSection(section); setDialogOpen(true); }}>
                       {columnVisibility.isVisible("name") && <TableCell className="font-medium">{section.name}</TableCell>}
                       {columnVisibility.isVisible("sectorId") && <TableCell>
                         <Badge variant="outline">{getSectorName(section.sectorId)}</Badge>
@@ -1253,7 +1270,6 @@ function SectionsTab() {
 
 function SectorsTab() {
   const { toast } = useToast();
-  const [search, setSearch] = useState("");
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingSector, setEditingSector] = useState<Sector | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Sector | null>(null);
@@ -1281,26 +1297,13 @@ function SectorsTab() {
     return ids.map(id => partners.find(p => p.id === id)?.name || `#${id}`).join(", ");
   }
 
-  const filtered = sectors?.filter(s =>
-    s.name.toLowerCase().includes(search.toLowerCase()) ||
-    (s.description || "").toLowerCase().includes(search.toLowerCase())
-  ) || [];
-
-  const { sortedData: sortedSectors, sortKey: sectorSortKey, sortDirection: sectorSortDirection, requestSort: sectorRequestSort } = useTableSort(filtered);
+  const sectorTableFilter = useTableFilter(sectors || [], SECTOR_FILTER_COLUMNS);
+  const { sortedData: sortedSectors, sortKey: sectorSortKey, sortDirection: sectorSortDirection, requestSort: sectorRequestSort } = useTableSort(sectorTableFilter.filteredData);
 
   return (
     <div className="space-y-4">
       <div className="flex items-center gap-3 flex-wrap">
-        <div className="relative flex-1 min-w-[200px]">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-          <Input
-            value={search}
-            onChange={e => setSearch(e.target.value)}
-            placeholder="Hladat sektory..."
-            className="pl-9"
-            data-testid="input-search-sectors"
-          />
-        </div>
+        <TableFilterBar filter={sectorTableFilter} />
         <ColumnManager columnVisibility={columnVisibility} />
         <Button onClick={() => { setEditingSector(null); setDialogOpen(true); }} data-testid="button-add-sector">
           <Plus className="w-4 h-4 mr-2" /> Pridat sektor
@@ -1317,16 +1320,16 @@ function SectorsTab() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  {columnVisibility.isVisible("name") && <TableHead sortKey="name" sortDirection={sectorSortKey === "name" ? sectorSortDirection : null} onSort={sectorRequestSort}>Nazov sektoru</TableHead>}
-                  {columnVisibility.isVisible("sectorType") && <TableHead sortKey="sectorType" sortDirection={sectorSortKey === "sectorType" ? sectorSortDirection : null} onSort={sectorRequestSort}>Typ</TableHead>}
+                  {columnVisibility.isVisible("name") && <TableHead sortKey="name" sortDirection={sectorSortKey === "name" ? sectorSortDirection : null} onSort={sectorRequestSort} filterValue={sectorTableFilter.columnFilters["name"] || ""} onFilterChange={(val) => sectorTableFilter.setColumnFilter("name", val)}>Nazov sektoru</TableHead>}
+                  {columnVisibility.isVisible("sectorType") && <TableHead sortKey="sectorType" sortDirection={sectorSortKey === "sectorType" ? sectorSortDirection : null} onSort={sectorRequestSort} filterValue={sectorTableFilter.columnFilters["sectorType"] || ""} onFilterChange={(val) => sectorTableFilter.setColumnFilter("sectorType", val)}>Typ</TableHead>}
                   {columnVisibility.isVisible("productCount") && <TableHead>Produkty</TableHead>}
                   {columnVisibility.isVisible("partnerNames") && <TableHead>Firmy posobiace v sektore</TableHead>}
-                  {columnVisibility.isVisible("description") && <TableHead sortKey="description" sortDirection={sectorSortKey === "description" ? sectorSortDirection : null} onSort={sectorRequestSort}>Popis</TableHead>}
+                  {columnVisibility.isVisible("description") && <TableHead sortKey="description" sortDirection={sectorSortKey === "description" ? sectorSortDirection : null} onSort={sectorRequestSort} filterValue={sectorTableFilter.columnFilters["description"] || ""} onFilterChange={(val) => sectorTableFilter.setColumnFilter("description", val)}>Popis</TableHead>}
                   <TableHead>Akcie</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filtered.length === 0 ? (
+                {sectorTableFilter.filteredData.length === 0 ? (
                   <TableRow>
                     <TableCell colSpan={6} className="text-center text-muted-foreground py-8" data-testid="text-no-sectors">
                       Ziadne sektory
@@ -1334,7 +1337,7 @@ function SectorsTab() {
                   </TableRow>
                 ) : (
                   sortedSectors.map(sector => (
-                    <TableRow key={sector.id} data-testid={`row-sector-${sector.id}`}>
+                    <TableRow key={sector.id} data-testid={`row-sector-${sector.id}`} onRowClick={() => { setEditingSector(sector); setDialogOpen(true); }}>
                       {columnVisibility.isVisible("name") && <TableCell className="font-medium">{sector.name}</TableCell>}
                       {columnVisibility.isVisible("sectorType") && <TableCell>
                         <Badge variant="outline">{sector.sectorType}</Badge>
@@ -1393,7 +1396,6 @@ function SectorsTab() {
 
 function ProductsTab() {
   const { toast } = useToast();
-  const [search, setSearch] = useState("");
   const [filterSectionId, setFilterSectionId] = useState<string>("all");
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState<SectorProduct | null>(null);
@@ -1424,14 +1426,13 @@ function ProductsTab() {
     return sections?.find(s => s.id === sectionId)?.name || `#${sectionId}`;
   }
 
-  const filtered = (sectorProds || []).filter(p => {
+  const preFiltered = (sectorProds || []).filter(p => {
     if (filterSectionId !== "all" && p.sectionId !== parseInt(filterSectionId)) return false;
-    const searchLower = search.toLowerCase();
-    return p.name.toLowerCase().includes(searchLower) ||
-      (p.abbreviation || "").toLowerCase().includes(searchLower);
+    return true;
   });
 
-  const { sortedData: sortedProds, sortKey: prodSortKey, sortDirection: prodSortDirection, requestSort: prodRequestSort } = useTableSort(filtered);
+  const prodTableFilter = useTableFilter(preFiltered, SECTOR_PRODUCT_FILTER_COLUMNS);
+  const { sortedData: sortedProds, sortKey: prodSortKey, sortDirection: prodSortDirection, requestSort: prodRequestSort } = useTableSort(prodTableFilter.filteredData);
 
   return (
     <div className="space-y-4">

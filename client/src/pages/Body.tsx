@@ -20,6 +20,8 @@ import {
 import { Plus, Pencil, Trash2, TrendingUp, Award, Loader2 } from "lucide-react";
 import { HelpIcon } from "@/components/help-icon";
 import { RankBadge } from "@/components/rank-badge";
+import { useTableFilter } from "@/hooks/use-table-filter";
+import { TableFilterBar } from "@/components/table-filter-bar";
 import { useColumnVisibility, type ColumnDef } from "@/hooks/use-column-visibility";
 import { ColumnManager } from "@/components/column-manager";
 
@@ -320,6 +322,22 @@ const PRODUCT_RATE_COLUMNS: ColumnDef[] = [
   { key: "commissionCoefficient", label: "Provizny koeficient" },
 ];
 
+const CAREER_LEVEL_FILTER_COLUMNS = [
+  { key: "positionCode", label: "Pozicia" },
+  { key: "pointsFrom", label: "Body OD" },
+  { key: "pointsTo", label: "Body DO" },
+  { key: "pricePerPoint", label: "Cena za bod" },
+  { key: "positionName", label: "Nazov pozicie" },
+  { key: "rewardPercent", label: "Odmena %" },
+];
+
+const PRODUCT_RATE_FILTER_COLUMNS = [
+  { key: "partnerName", label: "Partner / Institucia" },
+  { key: "productName", label: "Produkt" },
+  { key: "basePoints", label: "Zakladne body" },
+  { key: "commissionCoefficient", label: "Provizny koeficient" },
+];
+
 export default function Body() {
   const { data: appUser } = useAppUser();
   const { data: companies } = useMyCompanies();
@@ -334,8 +352,10 @@ export default function Body() {
     queryKey: ["/api/product-point-rates"],
   });
 
-  const { sortedData: sortedLevels, sortKey: levelSortKey, sortDirection: levelSortDirection, requestSort: levelRequestSort } = useTableSort(careerLevels || []);
-  const { sortedData: sortedRates, sortKey: rateSortKey, sortDirection: rateSortDirection, requestSort: rateRequestSort } = useTableSort(productRates || []);
+  const levelFilter = useTableFilter(careerLevels || [], CAREER_LEVEL_FILTER_COLUMNS);
+  const rateFilter = useTableFilter(productRates || [], PRODUCT_RATE_FILTER_COLUMNS);
+  const { sortedData: sortedLevels, sortKey: levelSortKey, sortDirection: levelSortDirection, requestSort: levelRequestSort } = useTableSort(levelFilter.filteredData);
+  const { sortedData: sortedRates, sortKey: rateSortKey, sortDirection: rateSortDirection, requestSort: rateRequestSort } = useTableSort(rateFilter.filteredData);
   const careerColumnVisibility = useColumnVisibility("body-career-levels", CAREER_LEVEL_COLUMNS);
   const rateColumnVisibility = useColumnVisibility("body-product-rates", PRODUCT_RATE_COLUMNS);
 
@@ -399,6 +419,7 @@ export default function Body() {
               <h2 className="text-lg font-semibold" data-testid="text-career-table-title">Karierne urovne</h2>
             </div>
             <div className="flex items-center gap-2">
+              <TableFilterBar filter={levelFilter} />
               <ColumnManager columnVisibility={careerColumnVisibility} />
               <div style={{ visibility: isAdmin ? 'visible' : 'hidden' }}>
                 <Button size="sm" onClick={() => setEditLevel('new')} data-testid="button-add-career-level">
@@ -411,12 +432,12 @@ export default function Body() {
             <Table stickyHeader>
               <TableHeader>
                 <TableRow>
-                  {careerColumnVisibility.isVisible("positionCode") && <TableHead className="w-[80px]" resizable={false} sortKey="positionCode" sortDirection={levelSortKey === "positionCode" ? levelSortDirection : null} onSort={levelRequestSort}>Pozicia</TableHead>}
-                  {careerColumnVisibility.isVisible("pointsFrom") && <TableHead sortKey="pointsFrom" sortDirection={levelSortKey === "pointsFrom" ? levelSortDirection : null} onSort={levelRequestSort}>Body OD</TableHead>}
-                  {careerColumnVisibility.isVisible("pointsTo") && <TableHead sortKey="pointsTo" sortDirection={levelSortKey === "pointsTo" ? levelSortDirection : null} onSort={levelRequestSort}>Body DO</TableHead>}
-                  {careerColumnVisibility.isVisible("pricePerPoint") && <TableHead sortKey="pricePerPoint" sortDirection={levelSortKey === "pricePerPoint" ? levelSortDirection : null} onSort={levelRequestSort}>Cena za bod (€)</TableHead>}
-                  {careerColumnVisibility.isVisible("positionName") && <TableHead sortKey="positionName" sortDirection={levelSortKey === "positionName" ? levelSortDirection : null} onSort={levelRequestSort}>Nazov pozicie</TableHead>}
-                  {careerColumnVisibility.isVisible("rewardPercent") && <TableHead sortKey="rewardPercent" sortDirection={levelSortKey === "rewardPercent" ? levelSortDirection : null} onSort={levelRequestSort}>Odmena %</TableHead>}
+                  {careerColumnVisibility.isVisible("positionCode") && <TableHead className="w-[80px]" resizable={false} sortKey="positionCode" sortDirection={levelSortKey === "positionCode" ? levelSortDirection : null} onSort={levelRequestSort} filterValue={levelFilter.columnFilters["positionCode"] || ""} onFilterChange={(val) => levelFilter.setColumnFilter("positionCode", val)}>Pozicia</TableHead>}
+                  {careerColumnVisibility.isVisible("pointsFrom") && <TableHead sortKey="pointsFrom" sortDirection={levelSortKey === "pointsFrom" ? levelSortDirection : null} onSort={levelRequestSort} filterValue={levelFilter.columnFilters["pointsFrom"] || ""} onFilterChange={(val) => levelFilter.setColumnFilter("pointsFrom", val)}>Body OD</TableHead>}
+                  {careerColumnVisibility.isVisible("pointsTo") && <TableHead sortKey="pointsTo" sortDirection={levelSortKey === "pointsTo" ? levelSortDirection : null} onSort={levelRequestSort} filterValue={levelFilter.columnFilters["pointsTo"] || ""} onFilterChange={(val) => levelFilter.setColumnFilter("pointsTo", val)}>Body DO</TableHead>}
+                  {careerColumnVisibility.isVisible("pricePerPoint") && <TableHead sortKey="pricePerPoint" sortDirection={levelSortKey === "pricePerPoint" ? levelSortDirection : null} onSort={levelRequestSort} filterValue={levelFilter.columnFilters["pricePerPoint"] || ""} onFilterChange={(val) => levelFilter.setColumnFilter("pricePerPoint", val)}>Cena za bod (€)</TableHead>}
+                  {careerColumnVisibility.isVisible("positionName") && <TableHead sortKey="positionName" sortDirection={levelSortKey === "positionName" ? levelSortDirection : null} onSort={levelRequestSort} filterValue={levelFilter.columnFilters["positionName"] || ""} onFilterChange={(val) => levelFilter.setColumnFilter("positionName", val)}>Nazov pozicie</TableHead>}
+                  {careerColumnVisibility.isVisible("rewardPercent") && <TableHead sortKey="rewardPercent" sortDirection={levelSortKey === "rewardPercent" ? levelSortDirection : null} onSort={levelRequestSort} filterValue={levelFilter.columnFilters["rewardPercent"] || ""} onFilterChange={(val) => levelFilter.setColumnFilter("rewardPercent", val)}>Odmena %</TableHead>}
                   {careerColumnVisibility.isVisible("hodnost") && <TableHead
                     className="text-center text-white"
                     style={{ backgroundColor: 'hsl(217, 91%, 40%)' }}
@@ -442,6 +463,7 @@ export default function Body() {
                       key={level.id}
                       className={`${getZoneRowClass(level.colorZone, level.positionCode)} ${isCurrentLevel ? 'ring-1 ring-primary ring-inset' : ''}`}
                       data-testid={`row-career-${level.positionCode}`}
+                      onRowClick={() => setEditLevel(level)}
                     >
                       {careerColumnVisibility.isVisible("positionCode") && <TableCell className="font-bold text-sm">
                         {level.positionCode}
@@ -501,6 +523,7 @@ export default function Body() {
               <h2 className="text-lg font-semibold text-blue-200" data-testid="text-rates-table-title">Sadzby produktov</h2>
             </div>
             <div className="flex items-center gap-2">
+              <TableFilterBar filter={rateFilter} />
               <ColumnManager columnVisibility={rateColumnVisibility} />
               <div style={{ visibility: isAdmin ? 'visible' : 'hidden' }}>
                 <Button size="sm" variant="outline" className="border-blue-600 text-blue-300" onClick={() => setEditRate('new')} data-testid="button-add-rate">
@@ -513,10 +536,10 @@ export default function Body() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  {rateColumnVisibility.isVisible("partnerName") && <TableHead style={{ backgroundColor: 'hsl(217, 60%, 18%)' }} className="text-blue-200" sortKey="partnerName" sortDirection={rateSortKey === "partnerName" ? rateSortDirection : null} onSort={rateRequestSort}>Partner / Institucia</TableHead>}
-                  {rateColumnVisibility.isVisible("productName") && <TableHead style={{ backgroundColor: 'hsl(217, 60%, 18%)' }} className="text-blue-200" sortKey="productName" sortDirection={rateSortKey === "productName" ? rateSortDirection : null} onSort={rateRequestSort}>Produkt</TableHead>}
-                  {rateColumnVisibility.isVisible("basePoints") && <TableHead style={{ backgroundColor: 'hsl(217, 60%, 18%)' }} className="text-blue-200" sortKey="basePoints" sortDirection={rateSortKey === "basePoints" ? rateSortDirection : null} onSort={rateRequestSort}>Zakladne body</TableHead>}
-                  {rateColumnVisibility.isVisible("commissionCoefficient") && <TableHead style={{ backgroundColor: 'hsl(217, 60%, 18%)' }} className="text-blue-200" sortKey="commissionCoefficient" sortDirection={rateSortKey === "commissionCoefficient" ? rateSortDirection : null} onSort={rateRequestSort}>Provizny koeficient</TableHead>}
+                  {rateColumnVisibility.isVisible("partnerName") && <TableHead style={{ backgroundColor: 'hsl(217, 60%, 18%)' }} className="text-blue-200" sortKey="partnerName" sortDirection={rateSortKey === "partnerName" ? rateSortDirection : null} onSort={rateRequestSort} filterValue={rateFilter.columnFilters["partnerName"] || ""} onFilterChange={(val) => rateFilter.setColumnFilter("partnerName", val)}>Partner / Institucia</TableHead>}
+                  {rateColumnVisibility.isVisible("productName") && <TableHead style={{ backgroundColor: 'hsl(217, 60%, 18%)' }} className="text-blue-200" sortKey="productName" sortDirection={rateSortKey === "productName" ? rateSortDirection : null} onSort={rateRequestSort} filterValue={rateFilter.columnFilters["productName"] || ""} onFilterChange={(val) => rateFilter.setColumnFilter("productName", val)}>Produkt</TableHead>}
+                  {rateColumnVisibility.isVisible("basePoints") && <TableHead style={{ backgroundColor: 'hsl(217, 60%, 18%)' }} className="text-blue-200" sortKey="basePoints" sortDirection={rateSortKey === "basePoints" ? rateSortDirection : null} onSort={rateRequestSort} filterValue={rateFilter.columnFilters["basePoints"] || ""} onFilterChange={(val) => rateFilter.setColumnFilter("basePoints", val)}>Zakladne body</TableHead>}
+                  {rateColumnVisibility.isVisible("commissionCoefficient") && <TableHead style={{ backgroundColor: 'hsl(217, 60%, 18%)' }} className="text-blue-200" sortKey="commissionCoefficient" sortDirection={rateSortKey === "commissionCoefficient" ? rateSortDirection : null} onSort={rateRequestSort} filterValue={rateFilter.columnFilters["commissionCoefficient"] || ""} onFilterChange={(val) => rateFilter.setColumnFilter("commissionCoefficient", val)}>Provizny koeficient</TableHead>}
                   <TableHead style={{ backgroundColor: 'hsl(217, 60%, 18%)', visibility: isAdmin ? 'visible' : 'hidden' }} className="text-blue-200 w-[80px]">Akcie</TableHead>
                 </TableRow>
               </TableHeader>
@@ -536,7 +559,7 @@ export default function Body() {
                   </TableRow>
                 )}
                 {sortedRates.map((rate) => (
-                  <TableRow key={rate.id} className="border-blue-800/30" data-testid={`row-rate-${rate.id}`}>
+                  <TableRow key={rate.id} className="border-blue-800/30" data-testid={`row-rate-${rate.id}`} onRowClick={() => setEditRate(rate)}>
                     {rateColumnVisibility.isVisible("partnerName") && <TableCell className="text-blue-100 font-medium">{rate.partnerName || '-'}</TableCell>}
                     {rateColumnVisibility.isVisible("productName") && <TableCell className="text-blue-200">{rate.productName || '-'}</TableCell>}
                     {rateColumnVisibility.isVisible("basePoints") && <TableCell className="text-blue-100 font-semibold">{formatDecimal8(rate.basePoints)}</TableCell>}

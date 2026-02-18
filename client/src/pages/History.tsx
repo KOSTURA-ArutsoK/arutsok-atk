@@ -1,6 +1,8 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useTableSort } from "@/hooks/use-table-sort";
+import { useTableFilter } from "@/hooks/use-table-filter";
+import { TableFilterBar } from "@/components/table-filter-bar";
 import type { AuditLog } from "@shared/schema";
 import { History as HistoryIcon, Search, Filter, ChevronLeft, ChevronRight, Clock, User, Database } from "lucide-react";
 import { useColumnVisibility, type ColumnDef } from "@/hooks/use-column-visibility";
@@ -78,6 +80,16 @@ const COLUMNS: ColumnDef[] = [
   { key: "processingTimeSec", label: "Cas spracovania" },
 ];
 
+const FILTER_COLUMNS = [
+  { key: "id", label: "ID" },
+  { key: "createdAt", label: "Cas" },
+  { key: "username", label: "Pouzivatel" },
+  { key: "action", label: "Akcia" },
+  { key: "module", label: "Modul" },
+  { key: "entityName", label: "Entita" },
+  { key: "processingTimeSec", label: "Cas spracovania" },
+];
+
 export default function History() {
   const [filterModule, setFilterModule] = useState<string>("all");
   const [filterAction, setFilterAction] = useState<string>("all");
@@ -110,7 +122,8 @@ export default function History() {
   });
 
   const logs = data?.logs || [];
-  const { sortedData: sortedLogs, sortKey, sortDirection, requestSort } = useTableSort(logs);
+  const tableFilter = useTableFilter(logs, FILTER_COLUMNS);
+  const { sortedData: sortedLogs, sortKey, sortDirection, requestSort } = useTableSort(tableFilter.filteredData);
   const columnVisibility = useColumnVisibility("history", COLUMNS);
   const total = data?.total || 0;
   const totalPages = Math.ceil(total / PAGE_SIZE);
@@ -208,10 +221,11 @@ export default function History() {
               <Filter className="w-4 h-4" />
               Filtre
             </CardTitle>
-            <Button variant="ghost" size="sm" onClick={resetFilters} data-testid="button-reset-filters">
+            <Button variant="ghost" size="sm" onClick={() => { resetFilters(); tableFilter.clearAllFilters(); }} data-testid="button-reset-filters">
               Zrusit filtre
             </Button>
           </div>
+          <TableFilterBar filter={tableFilter} />
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
@@ -302,13 +316,13 @@ export default function History() {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    {columnVisibility.isVisible("id") && <TableHead className="w-[50px]" sortKey="id" sortDirection={sortKey === "id" ? sortDirection : null} onSort={requestSort}>ID</TableHead>}
-                    {columnVisibility.isVisible("createdAt") && <TableHead className="w-[160px]" sortKey="createdAt" sortDirection={sortKey === "createdAt" ? sortDirection : null} onSort={requestSort}>Cas</TableHead>}
-                    {columnVisibility.isVisible("username") && <TableHead className="w-[120px]" sortKey="username" sortDirection={sortKey === "username" ? sortDirection : null} onSort={requestSort}>Pouzivatel</TableHead>}
-                    {columnVisibility.isVisible("action") && <TableHead className="w-[90px]" sortKey="action" sortDirection={sortKey === "action" ? sortDirection : null} onSort={requestSort}>Akcia</TableHead>}
-                    {columnVisibility.isVisible("module") && <TableHead className="w-[120px]" sortKey="module" sortDirection={sortKey === "module" ? sortDirection : null} onSort={requestSort}>Modul</TableHead>}
-                    {columnVisibility.isVisible("entityName") && <TableHead sortKey="entityName" sortDirection={sortKey === "entityName" ? sortDirection : null} onSort={requestSort}>Entita</TableHead>}
-                    {columnVisibility.isVisible("processingTimeSec") && <TableHead className="w-[100px] text-right" sortKey="processingTimeSec" sortDirection={sortKey === "processingTimeSec" ? sortDirection : null} onSort={requestSort}>Cas spracovania</TableHead>}
+                    {columnVisibility.isVisible("id") && <TableHead className="w-[50px]" sortKey="id" sortDirection={sortKey === "id" ? sortDirection : null} onSort={requestSort} filterValue={tableFilter.columnFilters["id"] || ""} onFilterChange={(v) => tableFilter.setColumnFilter("id", v)}>ID</TableHead>}
+                    {columnVisibility.isVisible("createdAt") && <TableHead className="w-[160px]" sortKey="createdAt" sortDirection={sortKey === "createdAt" ? sortDirection : null} onSort={requestSort} filterValue={tableFilter.columnFilters["createdAt"] || ""} onFilterChange={(v) => tableFilter.setColumnFilter("createdAt", v)}>Cas</TableHead>}
+                    {columnVisibility.isVisible("username") && <TableHead className="w-[120px]" sortKey="username" sortDirection={sortKey === "username" ? sortDirection : null} onSort={requestSort} filterValue={tableFilter.columnFilters["username"] || ""} onFilterChange={(v) => tableFilter.setColumnFilter("username", v)}>Pouzivatel</TableHead>}
+                    {columnVisibility.isVisible("action") && <TableHead className="w-[90px]" sortKey="action" sortDirection={sortKey === "action" ? sortDirection : null} onSort={requestSort} filterValue={tableFilter.columnFilters["action"] || ""} onFilterChange={(v) => tableFilter.setColumnFilter("action", v)}>Akcia</TableHead>}
+                    {columnVisibility.isVisible("module") && <TableHead className="w-[120px]" sortKey="module" sortDirection={sortKey === "module" ? sortDirection : null} onSort={requestSort} filterValue={tableFilter.columnFilters["module"] || ""} onFilterChange={(v) => tableFilter.setColumnFilter("module", v)}>Modul</TableHead>}
+                    {columnVisibility.isVisible("entityName") && <TableHead sortKey="entityName" sortDirection={sortKey === "entityName" ? sortDirection : null} onSort={requestSort} filterValue={tableFilter.columnFilters["entityName"] || ""} onFilterChange={(v) => tableFilter.setColumnFilter("entityName", v)}>Entita</TableHead>}
+                    {columnVisibility.isVisible("processingTimeSec") && <TableHead className="w-[100px] text-right" sortKey="processingTimeSec" sortDirection={sortKey === "processingTimeSec" ? sortDirection : null} onSort={requestSort} filterValue={tableFilter.columnFilters["processingTimeSec"] || ""} onFilterChange={(v) => tableFilter.setColumnFilter("processingTimeSec", v)}>Cas spracovania</TableHead>}
                     <TableHead className="w-[50px]" />
                   </TableRow>
                 </TableHeader>

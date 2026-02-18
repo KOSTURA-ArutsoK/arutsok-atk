@@ -33,6 +33,8 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import { ProcessingSaveButton } from "@/components/processing-save-button";
+import { useTableFilter } from "@/hooks/use-table-filter";
+import { TableFilterBar } from "@/components/table-filter-bar";
 import { useColumnVisibility, type ColumnDef } from "@/hooks/use-column-visibility";
 import { ColumnManager } from "@/components/column-manager";
 
@@ -471,6 +473,11 @@ const CLIENT_GROUPS_COLUMNS: ColumnDef[] = [
   { key: "memberCount", label: "Pocet klientov" },
 ];
 
+const CLIENT_GROUPS_FILTER_COLUMNS = [
+  { key: "name", label: "Nazov skupiny" },
+  { key: "memberCount", label: "Pocet klientov" },
+];
+
 export default function ClientGroups() {
   const { toast } = useToast();
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -487,6 +494,7 @@ export default function ClientGroups() {
   const { data: permGroupsData } = useQuery<PermissionGroup[]>({
     queryKey: ["/api/permission-groups"],
   });
+  const groupFilter = useTableFilter(groups || [], CLIENT_GROUPS_FILTER_COLUMNS);
   const columnVisibility = useColumnVisibility("client-groups", CLIENT_GROUPS_COLUMNS);
 
   const reorderMutation = useMutation({
@@ -517,6 +525,7 @@ export default function ClientGroups() {
       <div className="flex items-center justify-between gap-4 flex-wrap">
         <h1 className="text-2xl font-bold" data-testid="text-page-title">Skupiny klientov</h1>
         <div className="flex items-center gap-2">
+          <TableFilterBar filter={groupFilter} />
           <ColumnManager columnVisibility={columnVisibility} />
           <Button
             onClick={() => { setEditingGroup(null); setDialogOpen(true); }}
@@ -554,15 +563,16 @@ export default function ClientGroups() {
                 </TableRow>
               </TableHeader>
               <SortableContext_Wrapper
-                items={groups || []}
+                items={groupFilter.filteredData}
                 onReorder={(items) => reorderMutation.mutate(items.map(i => ({ id: Number(i.id), sortOrder: i.sortOrder })))}
               >
                 <TableBody>
-                  {(groups || []).map((group) => (
+                  {groupFilter.filteredData.map((group) => (
                     <SortableTableRow
                       key={group.id}
                       id={group.id}
                       data-testid={`row-group-${group.id}`}
+                      onRowClick={() => { setEditingGroup(group); setDialogOpen(true); }}
                     >
                       {columnVisibility.isVisible("name") && <TableCell
                         className="font-medium cursor-pointer hover-elevate"

@@ -38,6 +38,8 @@ import { InternationalPhoneInput } from "@/components/ui/international-phone-inp
 import { Checkbox } from "@/components/ui/checkbox";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { useTableSort } from "@/hooks/use-table-sort";
+import { useTableFilter } from "@/hooks/use-table-filter";
+import { TableFilterBar } from "@/components/table-filter-bar";
 import { useColumnVisibility, type ColumnDef } from "@/hooks/use-column-visibility";
 import { ColumnManager } from "@/components/column-manager";
 import { HelpCircle, FileText, ShieldCheck, ListPlus, FileQuestion } from "lucide-react";
@@ -2029,6 +2031,12 @@ const SUBJECTS_COLUMNS: ColumnDef[] = [
   { key: "managingCompany", label: "Spravujuca firma" },
 ];
 
+const SUBJECTS_FILTER_COLUMNS = [
+  { key: "uid", label: "UID" },
+  { key: "firstName", label: "Cele meno / Nazov" },
+  { key: "type", label: "Typ subjektu" },
+];
+
 export default function Subjects() {
   const [search, setSearch] = useState("");
   const [isInitModalOpen, setIsInitModalOpen] = useState(false);
@@ -2046,7 +2054,8 @@ export default function Subjects() {
     statusFilters: activeFilters.size > 0 ? Array.from(activeFilters) : undefined,
     activeCompanyId,
   });
-  const { sortedData, sortKey, sortDirection, requestSort } = useTableSort(subjects || []);
+  const tableFilter = useTableFilter(subjects || [], SUBJECTS_FILTER_COLUMNS);
+  const { sortedData, sortKey, sortDirection, requestSort } = useTableSort(tableFilter.filteredData);
   const { data: companies } = useMyCompanies();
   const { data: clientTypes } = useQuery<ClientType[]>({ queryKey: ["/api/client-types"] });
   const { data: clientGroups } = useQuery<any[]>({ queryKey: ["/api/client-groups"] });
@@ -2084,6 +2093,7 @@ export default function Subjects() {
           <p className="text-sm text-muted-foreground mt-1">Sprava entit a integritnych zaznamov.</p>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
+          <TableFilterBar filter={tableFilter} />
           <ColumnManager columnVisibility={columnVisibility} />
           <Button onClick={() => setIsInitModalOpen(true)} data-testid="button-add-subject">
             <Plus className="w-4 h-4 mr-2" />
@@ -2163,10 +2173,10 @@ export default function Subjects() {
                     className="accent-primary"
                   />
                 </TableHead>
-                {columnVisibility.isVisible("uid") && <TableHead sortKey="uid" sortDirection={sortKey === "uid" ? sortDirection : null} onSort={requestSort}>UID</TableHead>}
+                {columnVisibility.isVisible("uid") && <TableHead sortKey="uid" sortDirection={sortKey === "uid" ? sortDirection : null} onSort={requestSort} filterValue={tableFilter.columnFilters["uid"] || ""} onFilterChange={(val) => tableFilter.setColumnFilter("uid", val)}>UID</TableHead>}
                 {columnVisibility.isVisible("status") && <TableHead style={{ maxWidth: '150px' }}>Status</TableHead>}
-                {columnVisibility.isVisible("firstName") && <TableHead sortKey="firstName" sortDirection={sortKey === "firstName" ? sortDirection : null} onSort={requestSort}>Cele meno / Nazov</TableHead>}
-                {columnVisibility.isVisible("type") && <TableHead sortKey="type" sortDirection={sortKey === "type" ? sortDirection : null} onSort={requestSort}>Typ subjektu</TableHead>}
+                {columnVisibility.isVisible("firstName") && <TableHead sortKey="firstName" sortDirection={sortKey === "firstName" ? sortDirection : null} onSort={requestSort} filterValue={tableFilter.columnFilters["firstName"] || ""} onFilterChange={(val) => tableFilter.setColumnFilter("firstName", val)}>Cele meno / Nazov</TableHead>}
+                {columnVisibility.isVisible("type") && <TableHead sortKey="type" sortDirection={sortKey === "type" ? sortDirection : null} onSort={requestSort} filterValue={tableFilter.columnFilters["type"] || ""} onFilterChange={(val) => tableFilter.setColumnFilter("type", val)}>Typ subjektu</TableHead>}
                 {columnVisibility.isVisible("managingCompany") && <TableHead>Spravujuca firma</TableHead>}
                 <TableHead className="w-[100px]">Akcie</TableHead>
               </TableRow>
@@ -2198,7 +2208,7 @@ export default function Subjects() {
                 const managingCompanyName = (subject as any).companyName || companies?.find(c => c.id === subject.myCompanyId)?.name || '-';
 
                 return (
-                  <TableRow key={subject.id} data-testid={`row-subject-${subject.id}`} className="align-middle">
+                  <TableRow key={subject.id} data-testid={`row-subject-${subject.id}`} className="align-middle" onRowClick={() => setViewTarget(subject)}>
                     <TableCell className="align-middle">
                       <input type="checkbox" 
                         checked={selectedIds.has(subject.id)}

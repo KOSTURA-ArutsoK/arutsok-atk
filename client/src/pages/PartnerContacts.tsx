@@ -1,19 +1,28 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useTableSort } from "@/hooks/use-table-sort";
+import { useTableFilter } from "@/hooks/use-table-filter";
+import { TableFilterBar } from "@/components/table-filter-bar";
 import { useColumnVisibility, type ColumnDef } from "@/hooks/use-column-visibility";
 import { ColumnManager } from "@/components/column-manager";
 import type { Partner, PartnerContact } from "@shared/schema";
 import { Loader2, Phone, Mail, Shield, User } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Input } from "@/components/ui/input";
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
+
+const PARTNER_CONTACTS_FILTER_COLUMNS = [
+  { key: "firstName", label: "Meno" },
+  { key: "partnerName", label: "Partner" },
+  { key: "position", label: "Pozicia" },
+  { key: "phone", label: "Telefon" },
+  { key: "email", label: "Email" },
+];
 
 const PARTNER_CONTACTS_COLUMNS: ColumnDef[] = [
   { key: "firstName", label: "Meno" },
@@ -28,7 +37,6 @@ const PARTNER_CONTACTS_COLUMNS: ColumnDef[] = [
 type PartnerContactWithPartner = PartnerContact & { partnerName?: string };
 
 export default function PartnerContacts() {
-  const [searchQuery, setSearchQuery] = useState("");
   const [filterActive, setFilterActive] = useState<string>("all");
 
   const { data: partners, isLoading: partnersLoading } = useQuery<Partner[]>({
@@ -56,13 +64,12 @@ export default function PartnerContacts() {
 
   const isLoading = partnersLoading || contactsLoading;
 
-  const filteredContacts = (allContacts || []).filter(c => {
-    const nameMatch = `${c.firstName} ${c.lastName} ${c.partnerName || ""} ${c.email || ""} ${c.phone || ""}`.toLowerCase().includes(searchQuery.toLowerCase());
-    const activeMatch = filterActive === "all" || (filterActive === "active" ? c.isActive : !c.isActive);
-    return nameMatch && activeMatch;
+  const preFilteredContacts = (allContacts || []).filter(c => {
+    return filterActive === "all" || (filterActive === "active" ? c.isActive : !c.isActive);
   });
 
-  const { sortedData: sortedContacts, sortKey, sortDirection, requestSort } = useTableSort(filteredContacts);
+  const tableFilter = useTableFilter(preFilteredContacts, PARTNER_CONTACTS_FILTER_COLUMNS);
+  const { sortedData: sortedContacts, sortKey, sortDirection, requestSort } = useTableSort(tableFilter.filteredData);
   const columnVisibility = useColumnVisibility("partner-contacts", PARTNER_CONTACTS_COLUMNS);
 
   return (
@@ -72,14 +79,6 @@ export default function PartnerContacts() {
       </div>
 
       <div className="flex items-center gap-3 flex-wrap">
-        <div className="relative flex-1 min-w-[200px]">
-          <Input
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Vyhladat kontaktnu osobu..."
-            data-testid="input-search-contacts"
-          />
-        </div>
         <ColumnManager columnVisibility={columnVisibility} />
         <Select value={filterActive} onValueChange={setFilterActive}>
           <SelectTrigger className="w-[180px]" data-testid="select-filter-active">
@@ -93,6 +92,8 @@ export default function PartnerContacts() {
         </Select>
       </div>
 
+      <TableFilterBar filter={tableFilter} />
+
       <Card>
         <CardContent className="p-0">
           {isLoading ? (
@@ -101,11 +102,11 @@ export default function PartnerContacts() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  {columnVisibility.isVisible("firstName") && <TableHead sortKey="firstName" sortDirection={sortKey === "firstName" ? sortDirection : null} onSort={requestSort}>Meno</TableHead>}
-                  {columnVisibility.isVisible("partnerName") && <TableHead sortKey="partnerName" sortDirection={sortKey === "partnerName" ? sortDirection : null} onSort={requestSort}>Partner</TableHead>}
-                  {columnVisibility.isVisible("position") && <TableHead sortKey="position" sortDirection={sortKey === "position" ? sortDirection : null} onSort={requestSort}>Pozicia</TableHead>}
-                  {columnVisibility.isVisible("phone") && <TableHead sortKey="phone" sortDirection={sortKey === "phone" ? sortDirection : null} onSort={requestSort}>Telefon</TableHead>}
-                  {columnVisibility.isVisible("email") && <TableHead sortKey="email" sortDirection={sortKey === "email" ? sortDirection : null} onSort={requestSort}>Email</TableHead>}
+                  {columnVisibility.isVisible("firstName") && <TableHead sortKey="firstName" sortDirection={sortKey === "firstName" ? sortDirection : null} onSort={requestSort} filterValue={tableFilter.columnFilters["firstName"] || ""} onFilterChange={(val) => tableFilter.setColumnFilter("firstName", val)}>Meno</TableHead>}
+                  {columnVisibility.isVisible("partnerName") && <TableHead sortKey="partnerName" sortDirection={sortKey === "partnerName" ? sortDirection : null} onSort={requestSort} filterValue={tableFilter.columnFilters["partnerName"] || ""} onFilterChange={(val) => tableFilter.setColumnFilter("partnerName", val)}>Partner</TableHead>}
+                  {columnVisibility.isVisible("position") && <TableHead sortKey="position" sortDirection={sortKey === "position" ? sortDirection : null} onSort={requestSort} filterValue={tableFilter.columnFilters["position"] || ""} onFilterChange={(val) => tableFilter.setColumnFilter("position", val)}>Pozicia</TableHead>}
+                  {columnVisibility.isVisible("phone") && <TableHead sortKey="phone" sortDirection={sortKey === "phone" ? sortDirection : null} onSort={requestSort} filterValue={tableFilter.columnFilters["phone"] || ""} onFilterChange={(val) => tableFilter.setColumnFilter("phone", val)}>Telefon</TableHead>}
+                  {columnVisibility.isVisible("email") && <TableHead sortKey="email" sortDirection={sortKey === "email" ? sortDirection : null} onSort={requestSort} filterValue={tableFilter.columnFilters["email"] || ""} onFilterChange={(val) => tableFilter.setColumnFilter("email", val)}>Email</TableHead>}
                   {columnVisibility.isVisible("securityLevel") && <TableHead sortKey="securityLevel" className="w-24 text-center" sortDirection={sortKey === "securityLevel" ? sortDirection : null} onSort={requestSort}>Bezpecnost</TableHead>}
                   {columnVisibility.isVisible("isActive") && <TableHead sortKey="isActive" className="w-24 text-center" sortDirection={sortKey === "isActive" ? sortDirection : null} onSort={requestSort}>Stav</TableHead>}
                 </TableRow>
@@ -163,7 +164,7 @@ export default function PartnerContacts() {
                     </TableCell>}
                   </TableRow>
                 ))}
-                {filteredContacts.length === 0 && (
+                {tableFilter.filteredData.length === 0 && (
                   <TableRow>
                     <TableCell colSpan={7} className="text-center text-muted-foreground py-12">
                       Ziadne kontaktne osoby

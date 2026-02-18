@@ -62,19 +62,36 @@ const TableFooter = React.forwardRef<
 ))
 TableFooter.displayName = "TableFooter"
 
-const TableRow = React.forwardRef<
-  HTMLTableRowElement,
-  React.HTMLAttributes<HTMLTableRowElement>
->(({ className, ...props }, ref) => (
-  <tr
-    ref={ref}
-    className={cn(
-      "border-b transition-colors hover:bg-muted/50 data-[state=selected]:bg-muted",
-      className
-    )}
-    {...props}
-  />
-))
+const INTERACTIVE_SELECTORS = "button, a, input, select, textarea, [role=checkbox], [role=switch], [role=button], [data-no-row-click]";
+
+interface TableRowProps extends React.HTMLAttributes<HTMLTableRowElement> {
+  onRowClick?: () => void;
+}
+
+const TableRow = React.forwardRef<HTMLTableRowElement, TableRowProps>(
+  ({ className, onClick, onRowClick, ...props }, ref) => {
+    const handleClick = useCallback((e: React.MouseEvent<HTMLTableRowElement>) => {
+      if (onClick) onClick(e);
+      if (!onRowClick) return;
+      const target = e.target as HTMLElement;
+      if (target.closest(INTERACTIVE_SELECTORS)) return;
+      onRowClick();
+    }, [onClick, onRowClick]);
+
+    return (
+      <tr
+        ref={ref}
+        className={cn(
+          "border-b transition-colors hover:bg-muted/50 data-[state=selected]:bg-muted",
+          onRowClick && "cursor-pointer",
+          className
+        )}
+        onClick={handleClick}
+        {...props}
+      />
+    );
+  }
+)
 TableRow.displayName = "TableRow"
 
 interface TableHeadProps extends React.ThHTMLAttributes<HTMLTableCellElement> {
@@ -82,10 +99,12 @@ interface TableHeadProps extends React.ThHTMLAttributes<HTMLTableCellElement> {
   sortKey?: string;
   sortDirection?: SortDirection;
   onSort?: (key: string) => void;
+  filterValue?: string;
+  onFilterChange?: (val: string) => void;
 }
 
 const TableHead = React.forwardRef<HTMLTableCellElement, TableHeadProps>(
-  ({ className, resizable = true, children, style, sortKey, sortDirection, onSort, ...props }, ref) => {
+  ({ className, resizable = true, children, style, sortKey, sortDirection, onSort, filterValue, onFilterChange, ...props }, ref) => {
     const thRef = useRef<HTMLTableCellElement | null>(null);
     const [dragging, setDragging] = useState(false);
 
@@ -139,8 +158,9 @@ const TableHead = React.forwardRef<HTMLTableCellElement, TableHeadProps>(
     const hasColSpan = props.colSpan && props.colSpan > 1;
     const showHandle = resizable && !hasColSpan;
     const isSortable = !!sortKey && !!onSort;
+    const hasFilter = onFilterChange !== undefined;
 
-    const handleSortClick = useCallback(() => {
+    const handleSortClick = useCallback((e: React.MouseEvent) => {
       if (isSortable && sortKey) {
         onSort!(sortKey);
       }
@@ -148,7 +168,6 @@ const TableHead = React.forwardRef<HTMLTableCellElement, TableHeadProps>(
 
     const renderSortIcon = () => {
       if (!isSortable) return null;
-      const isActive = !!sortDirection;
       if (sortDirection === "asc") {
         return <ArrowUp className={cn("inline-block ml-1 h-3.5 w-3.5 shrink-0 text-primary")} />;
       }
@@ -162,7 +181,8 @@ const TableHead = React.forwardRef<HTMLTableCellElement, TableHeadProps>(
       <th
         ref={setRefs}
         className={cn(
-          "h-12 px-4 text-left align-middle font-medium text-muted-foreground bg-background [&:has([role=checkbox])]:pr-0 border-b border-border shadow-[0_1px_3px_-1px_rgba(0,0,0,0.1)]",
+          "px-4 text-left align-middle font-medium text-muted-foreground bg-background [&:has([role=checkbox])]:pr-0 border-b border-border shadow-[0_1px_3px_-1px_rgba(0,0,0,0.1)]",
+          hasFilter ? "py-1" : "h-12",
           showHandle && "relative",
           isSortable && "cursor-pointer select-none",
           className
@@ -175,6 +195,19 @@ const TableHead = React.forwardRef<HTMLTableCellElement, TableHeadProps>(
           {children}
           {renderSortIcon()}
         </span>
+        {hasFilter && (
+          <div className="mt-1" onClick={(e) => e.stopPropagation()}>
+            <input
+              type="text"
+              value={filterValue || ""}
+              onChange={(e) => onFilterChange!(e.target.value)}
+              placeholder="..."
+              className="w-full bg-muted/50 border border-border rounded px-1.5 py-0.5 text-xs font-normal text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:ring-1 focus:ring-primary/40"
+              data-testid={`input-column-filter-${sortKey || "unknown"}`}
+              data-no-row-click="true"
+            />
+          </div>
+        )}
         {showHandle && (
           <div
             onMouseDown={handleMouseDown}

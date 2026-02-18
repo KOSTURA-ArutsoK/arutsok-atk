@@ -2,7 +2,9 @@ import { useState, useRef, useEffect, Fragment } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, Plus, Pencil, ShieldCheck, RefreshCw } from "lucide-react";
+import { Loader2, Plus, Pencil, ShieldCheck, RefreshCw, Search } from "lucide-react";
+import { useTableFilter } from "@/hooks/use-table-filter";
+import { TableFilterBar } from "@/components/table-filter-bar";
 import { useColumnVisibility, type ColumnDef } from "@/hooks/use-column-visibility";
 import { ColumnManager } from "@/components/column-manager";
 import { ConditionalDelete } from "@/components/conditional-delete";
@@ -79,6 +81,11 @@ const ACTION_COLUMNS = [
   { key: "canEdit", label: "Uprava" },
   { key: "canPublish", label: "Publikovanie" },
   { key: "canDelete", label: "Vymazanie" },
+];
+
+const GROUP_FILTER_COLUMNS = [
+  { key: "name", label: "Nazov" },
+  { key: "description", label: "Popis" },
 ];
 
 function GroupFormDialog({
@@ -446,6 +453,7 @@ export default function PermissionGroupsPage() {
   const [selectedGroupId, setSelectedGroupId] = useState<number | null>(null);
   const [deleteGroupId, setDeleteGroupId] = useState<number | null>(null);
   const matrixColumnVisibility = useColumnVisibility("permission-matrix", PERMISSION_MATRIX_COLUMNS);
+  const tableFilter = useTableFilter(groups || [], GROUP_FILTER_COLUMNS);
 
   const deleteMutation = useMutation({
     mutationFn: (id: number) => apiRequest("DELETE", `/api/permission-groups/${id}`),
@@ -494,15 +502,18 @@ export default function PermissionGroupsPage() {
             <p className="text-sm text-muted-foreground">Sprava skupin opravneni a matica pristupov</p>
           </div>
         </div>
-        <Button onClick={openCreate} data-testid="button-add-group">
-          <Plus className="w-4 h-4 mr-2" />
-          Pridat skupinu
-        </Button>
+        <div className="flex items-center gap-2 flex-wrap">
+          <TableFilterBar filter={tableFilter} />
+          <Button onClick={openCreate} data-testid="button-add-group">
+            <Plus className="w-4 h-4 mr-2" />
+            Pridat skupinu
+          </Button>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {groups && groups.length > 0 ? (
-          groups.map(group => {
+        {tableFilter.filteredData.length > 0 ? (
+          tableFilter.filteredData.map(group => {
             const userCountForGroup = (appUsers || []).filter((u: any) => u.permissionGroupId === group.id).length;
             return (
             <Card

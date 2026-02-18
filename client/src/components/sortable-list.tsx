@@ -24,12 +24,14 @@ export function SortableTableRow({
   children,
   disabled,
   className,
+  onRowClick,
   "data-testid": dataTestId,
 }: {
   id: string | number;
   children: React.ReactNode;
   disabled?: boolean;
   className?: string;
+  onRowClick?: () => void;
   "data-testid"?: string;
 }) {
   const {
@@ -53,6 +55,7 @@ export function SortableTableRow({
       style={style}
       className={className}
       data-testid={dataTestId}
+      onRowClick={onRowClick}
     >
       <TableCell className={disabled ? "" : "cursor-grab"}>
         {!disabled && (

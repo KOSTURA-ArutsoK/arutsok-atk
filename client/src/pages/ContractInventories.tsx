@@ -38,6 +38,14 @@ import {
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { ProcessingSaveButton } from "@/components/processing-save-button";
 import { SortableTableRow, SortableContext_Wrapper } from "@/components/sortable-list";
+import { useTableFilter } from "@/hooks/use-table-filter";
+import { TableFilterBar } from "@/components/table-filter-bar";
+
+const INVENTORY_FILTER_COLUMNS = [
+  { key: "name", label: "Nazov" },
+  { key: "sequenceNumber", label: "Cislo" },
+  { key: "description", label: "Popis" },
+];
 
 const INVENTORY_COLUMNS: ColumnDef[] = [
   { key: "sortOrder", label: "Poradie" },
@@ -293,6 +301,7 @@ export default function ContractInventories() {
   });
 
   const sorted = inventories ? [...inventories].sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0)) : [];
+  const tableFilter = useTableFilter(sorted, INVENTORY_FILTER_COLUMNS);
   const columnVisibility = useColumnVisibility("contract-inventories", INVENTORY_COLUMNS);
 
   const handleReorder = (items: { id: number | string; sortOrder: number }[]) => {
@@ -321,13 +330,15 @@ export default function ContractInventories() {
         <ColumnManager columnVisibility={columnVisibility} />
       </div>
 
+      <TableFilterBar filter={tableFilter} />
+
       <Card>
         <CardContent className="p-0">
           {isLoading ? (
             <div className="flex items-center justify-center py-12">
               <Loader2 className="w-6 h-6 animate-spin" />
             </div>
-          ) : sorted.length === 0 ? (
+          ) : tableFilter.filteredData.length === 0 ? (
             <p className="text-sm text-muted-foreground text-center py-12" data-testid="text-no-inventories">
               Ziadne supisky
             </p>
@@ -344,12 +355,13 @@ export default function ContractInventories() {
                   <TableHead className="w-32 text-right">Akcie</TableHead>
                 </TableRow>
               </TableHeader>
-              <SortableContext_Wrapper items={sorted} onReorder={handleReorder}>
+              <SortableContext_Wrapper items={tableFilter.filteredData} onReorder={handleReorder}>
                 <TableBody>
-                  {sorted.map((inventory) => (
+                  {tableFilter.filteredData.map((inventory) => (
                     <SortableTableRow
                       key={inventory.id}
                       id={inventory.id}
+                      onRowClick={() => openEdit(inventory)}
                       data-testid={`row-inventory-${inventory.id}`}
                     >
                       {columnVisibility.isVisible("sortOrder") && <TableCell className="font-mono text-sm" data-testid={`text-sort-order-${inventory.id}`}>

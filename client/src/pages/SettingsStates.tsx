@@ -3,6 +3,8 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { useTableSort } from "@/hooks/use-table-sort";
+import { useTableFilter } from "@/hooks/use-table-filter";
+import { TableFilterBar } from "@/components/table-filter-bar";
 import { useColumnVisibility, type ColumnDef } from "@/hooks/use-column-visibility";
 import { ColumnManager } from "@/components/column-manager";
 import { Plus, Pencil, Trash2, Clock, Upload, Image, Globe } from "lucide-react";
@@ -50,6 +52,13 @@ const STATE_COLUMNS: ColumnDef[] = [
   { key: "code", label: "Skratka" },
   { key: "continentId", label: "Kontinent" },
   { key: "flagUrl", label: "Vlajka" },
+];
+
+const STATE_FILTER_COLUMNS = [
+  { key: "id", label: "ID" },
+  { key: "name", label: "Nazov" },
+  { key: "code", label: "Skratka" },
+  { key: "continentId", label: "Kontinent" },
 ];
 
 function FlagImage({
@@ -380,7 +389,8 @@ export default function SettingsStates() {
     queryKey: ["/api/hierarchy/continents"],
   });
 
-  const { sortedData: sortedStates, sortKey, sortDirection, requestSort } = useTableSort(allStates || []);
+  const tableFilter = useTableFilter(allStates || [], STATE_FILTER_COLUMNS);
+  const { sortedData: sortedStates, sortKey, sortDirection, requestSort } = useTableSort(tableFilter.filteredData);
   const columnVisibility = useColumnVisibility("settings-states", STATE_COLUMNS);
 
   const deleteMutation = useMutation({
@@ -405,6 +415,7 @@ export default function SettingsStates() {
           <p className="text-sm text-muted-foreground">Sprava statov a vlajok</p>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
+          <TableFilterBar filter={tableFilter} />
           <ColumnManager columnVisibility={columnVisibility} />
           <Button
             onClick={() => { setEditingState(null); setFormOpen(true); }}
@@ -426,17 +437,17 @@ export default function SettingsStates() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  {columnVisibility.isVisible("id") && <TableHead sortKey="id" sortDirection={sortKey === "id" ? sortDirection : null} onSort={requestSort}>ID</TableHead>}
-                  {columnVisibility.isVisible("name") && <TableHead sortKey="name" sortDirection={sortKey === "name" ? sortDirection : null} onSort={requestSort}>Nazov</TableHead>}
-                  {columnVisibility.isVisible("code") && <TableHead sortKey="code" sortDirection={sortKey === "code" ? sortDirection : null} onSort={requestSort}>Skratka</TableHead>}
-                  {columnVisibility.isVisible("continentId") && <TableHead sortKey="continentId" sortDirection={sortKey === "continentId" ? sortDirection : null} onSort={requestSort}>Kontinent</TableHead>}
+                  {columnVisibility.isVisible("id") && <TableHead sortKey="id" sortDirection={sortKey === "id" ? sortDirection : null} onSort={requestSort} filterValue={tableFilter.columnFilters["id"] || ""} onFilterChange={(val) => tableFilter.setColumnFilter("id", val)}>ID</TableHead>}
+                  {columnVisibility.isVisible("name") && <TableHead sortKey="name" sortDirection={sortKey === "name" ? sortDirection : null} onSort={requestSort} filterValue={tableFilter.columnFilters["name"] || ""} onFilterChange={(val) => tableFilter.setColumnFilter("name", val)}>Nazov</TableHead>}
+                  {columnVisibility.isVisible("code") && <TableHead sortKey="code" sortDirection={sortKey === "code" ? sortDirection : null} onSort={requestSort} filterValue={tableFilter.columnFilters["code"] || ""} onFilterChange={(val) => tableFilter.setColumnFilter("code", val)}>Skratka</TableHead>}
+                  {columnVisibility.isVisible("continentId") && <TableHead sortKey="continentId" sortDirection={sortKey === "continentId" ? sortDirection : null} onSort={requestSort} filterValue={tableFilter.columnFilters["continentId"] || ""} onFilterChange={(val) => tableFilter.setColumnFilter("continentId", val)}>Kontinent</TableHead>}
                   {columnVisibility.isVisible("flagUrl") && <TableHead>Vlajka</TableHead>}
                   <TableHead className="text-right">Akcie</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {sortedStates.map(state => (
-                  <TableRow key={state.id} data-testid={`row-state-${state.id}`}>
+                  <TableRow key={state.id} data-testid={`row-state-${state.id}`} onRowClick={() => { setEditingState(state); setFormOpen(true); }}>
                     {columnVisibility.isVisible("id") && <TableCell>
                       <Badge variant="outline">{state.id}</Badge>
                     </TableCell>}

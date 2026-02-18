@@ -3,6 +3,8 @@ import { useQuery } from "@tanstack/react-query";
 import { ArrowDownLeft, Filter, Loader2, Search } from "lucide-react";
 import { HelpIcon } from "@/components/help-icon";
 import { useTableSort } from "@/hooks/use-table-sort";
+import { useTableFilter } from "@/hooks/use-table-filter";
+import { TableFilterBar } from "@/components/table-filter-bar";
 import { useColumnVisibility, type ColumnDef } from "@/hooks/use-column-visibility";
 import { ColumnManager } from "@/components/column-manager";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -31,6 +33,20 @@ const COLUMNS: ColumnDef[] = [
   { key: "client", label: "Klient" },
   { key: "partner", label: "Partner" },
   { key: "product", label: "Produkt" },
+  { key: "premium_amount", label: "Poistne" },
+  { key: "rate_type", label: "Typ sadzby" },
+  { key: "rate_value", label: "Sadzba" },
+  { key: "calculated_commission", label: "Provzia" },
+  { key: "points_earned", label: "Body" },
+  { key: "signed_date", label: "Datum podpisu" },
+];
+
+const FILTER_COLUMNS = [
+  { key: "contract_number", label: "Cislo zmluvy" },
+  { key: "global_number", label: "Cislo kontraktu" },
+  { key: "client_name", label: "Klient" },
+  { key: "partner_name", label: "Partner" },
+  { key: "product_name", label: "Produkt" },
   { key: "premium_amount", label: "Poistne" },
   { key: "rate_type", label: "Typ sadzby" },
   { key: "rate_value", label: "Sadzba" },
@@ -70,7 +86,8 @@ export default function Provizie() {
     });
   }, [provizieData, searchTerm, filterPartner]);
 
-  const { sortedData, sortKey, sortDirection, requestSort } = useTableSort(filtered);
+  const tableFilter = useTableFilter(filtered, FILTER_COLUMNS);
+  const { sortedData, sortKey, sortDirection, requestSort } = useTableSort(tableFilter.filteredData);
   const columnVisibility = useColumnVisibility("provizie", COLUMNS);
 
   const totalCommission = useMemo(() => {
@@ -123,10 +140,11 @@ export default function Provizie() {
               <Filter className="w-4 h-4" />
               Filtre
             </CardTitle>
-            <Button variant="ghost" size="sm" onClick={() => { setSearchTerm(""); setFilterPartner("all"); }} data-testid="button-reset-filters">
+            <Button variant="ghost" size="sm" onClick={() => { setSearchTerm(""); setFilterPartner("all"); tableFilter.clearAllFilters(); }} data-testid="button-reset-filters">
               Zrusit filtre
             </Button>
           </div>
+          <TableFilterBar filter={tableFilter} />
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
@@ -177,17 +195,17 @@ export default function Provizie() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  {columnVisibility.isVisible("contract_number") && <TableHead sortKey="contract_number" sortDirection={sortKey === "contract_number" ? sortDirection : null} onSort={requestSort}>Cislo zmluvy</TableHead>}
-                  {columnVisibility.isVisible("global_number") && <TableHead sortKey="global_number" sortDirection={sortKey === "global_number" ? sortDirection : null} onSort={requestSort}>Cislo kontraktu</TableHead>}
-                  {columnVisibility.isVisible("client") && <TableHead>Klient</TableHead>}
-                  {columnVisibility.isVisible("partner") && <TableHead>Partner</TableHead>}
-                  {columnVisibility.isVisible("product") && <TableHead>Produkt</TableHead>}
-                  {columnVisibility.isVisible("premium_amount") && <TableHead className="text-right" sortKey="premium_amount" sortDirection={sortKey === "premium_amount" ? sortDirection : null} onSort={requestSort}>Poistne</TableHead>}
-                  {columnVisibility.isVisible("rate_type") && <TableHead sortKey="rate_type" sortDirection={sortKey === "rate_type" ? sortDirection : null} onSort={requestSort}>Typ sadzby</TableHead>}
-                  {columnVisibility.isVisible("rate_value") && <TableHead className="text-right" sortKey="rate_value" sortDirection={sortKey === "rate_value" ? sortDirection : null} onSort={requestSort}>Sadzba</TableHead>}
-                  {columnVisibility.isVisible("calculated_commission") && <TableHead className="text-right" sortKey="calculated_commission" sortDirection={sortKey === "calculated_commission" ? sortDirection : null} onSort={requestSort}>Provzia</TableHead>}
-                  {columnVisibility.isVisible("points_earned") && <TableHead className="text-right" sortKey="points_earned" sortDirection={sortKey === "points_earned" ? sortDirection : null} onSort={requestSort}>Body</TableHead>}
-                  {columnVisibility.isVisible("signed_date") && <TableHead sortKey="signed_date" sortDirection={sortKey === "signed_date" ? sortDirection : null} onSort={requestSort}>Datum podpisu</TableHead>}
+                  {columnVisibility.isVisible("contract_number") && <TableHead sortKey="contract_number" sortDirection={sortKey === "contract_number" ? sortDirection : null} onSort={requestSort} filterValue={tableFilter.columnFilters["contract_number"] || ""} onFilterChange={(v) => tableFilter.setColumnFilter("contract_number", v)}>Cislo zmluvy</TableHead>}
+                  {columnVisibility.isVisible("global_number") && <TableHead sortKey="global_number" sortDirection={sortKey === "global_number" ? sortDirection : null} onSort={requestSort} filterValue={tableFilter.columnFilters["global_number"] || ""} onFilterChange={(v) => tableFilter.setColumnFilter("global_number", v)}>Cislo kontraktu</TableHead>}
+                  {columnVisibility.isVisible("client") && <TableHead filterValue={tableFilter.columnFilters["client_name"] || ""} onFilterChange={(v) => tableFilter.setColumnFilter("client_name", v)}>Klient</TableHead>}
+                  {columnVisibility.isVisible("partner") && <TableHead filterValue={tableFilter.columnFilters["partner_name"] || ""} onFilterChange={(v) => tableFilter.setColumnFilter("partner_name", v)}>Partner</TableHead>}
+                  {columnVisibility.isVisible("product") && <TableHead filterValue={tableFilter.columnFilters["product_name"] || ""} onFilterChange={(v) => tableFilter.setColumnFilter("product_name", v)}>Produkt</TableHead>}
+                  {columnVisibility.isVisible("premium_amount") && <TableHead className="text-right" sortKey="premium_amount" sortDirection={sortKey === "premium_amount" ? sortDirection : null} onSort={requestSort} filterValue={tableFilter.columnFilters["premium_amount"] || ""} onFilterChange={(v) => tableFilter.setColumnFilter("premium_amount", v)}>Poistne</TableHead>}
+                  {columnVisibility.isVisible("rate_type") && <TableHead sortKey="rate_type" sortDirection={sortKey === "rate_type" ? sortDirection : null} onSort={requestSort} filterValue={tableFilter.columnFilters["rate_type"] || ""} onFilterChange={(v) => tableFilter.setColumnFilter("rate_type", v)}>Typ sadzby</TableHead>}
+                  {columnVisibility.isVisible("rate_value") && <TableHead className="text-right" sortKey="rate_value" sortDirection={sortKey === "rate_value" ? sortDirection : null} onSort={requestSort} filterValue={tableFilter.columnFilters["rate_value"] || ""} onFilterChange={(v) => tableFilter.setColumnFilter("rate_value", v)}>Sadzba</TableHead>}
+                  {columnVisibility.isVisible("calculated_commission") && <TableHead className="text-right" sortKey="calculated_commission" sortDirection={sortKey === "calculated_commission" ? sortDirection : null} onSort={requestSort} filterValue={tableFilter.columnFilters["calculated_commission"] || ""} onFilterChange={(v) => tableFilter.setColumnFilter("calculated_commission", v)}>Provzia</TableHead>}
+                  {columnVisibility.isVisible("points_earned") && <TableHead className="text-right" sortKey="points_earned" sortDirection={sortKey === "points_earned" ? sortDirection : null} onSort={requestSort} filterValue={tableFilter.columnFilters["points_earned"] || ""} onFilterChange={(v) => tableFilter.setColumnFilter("points_earned", v)}>Body</TableHead>}
+                  {columnVisibility.isVisible("signed_date") && <TableHead sortKey="signed_date" sortDirection={sortKey === "signed_date" ? sortDirection : null} onSort={requestSort} filterValue={tableFilter.columnFilters["signed_date"] || ""} onFilterChange={(v) => tableFilter.setColumnFilter("signed_date", v)}>Datum podpisu</TableHead>}
                 </TableRow>
               </TableHeader>
               <TableBody>

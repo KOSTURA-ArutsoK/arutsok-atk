@@ -4,6 +4,8 @@ import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useAppUser } from "@/hooks/use-app-user";
 import { useToast } from "@/hooks/use-toast";
 import { useTableSort } from "@/hooks/use-table-sort";
+import { useTableFilter } from "@/hooks/use-table-filter";
+import { TableFilterBar } from "@/components/table-filter-bar";
 import { useColumnVisibility, type ColumnDef } from "@/hooks/use-column-visibility";
 import { ColumnManager } from "@/components/column-manager";
 import type { Supiska, Contract } from "@shared/schema";
@@ -32,6 +34,14 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import { ProcessingSaveButton } from "@/components/processing-save-button";
 
 const STATUSES = ["Nova", "Pripravena", "Odoslana"] as const;
+
+const SUPISKY_FILTER_COLUMNS = [
+  { key: "supId", label: "SUP ID" },
+  { key: "name", label: "Nazov" },
+  { key: "status", label: "Stav" },
+  { key: "createdAt", label: "Vytvorene" },
+  { key: "createdBy", label: "Vytvoril" },
+];
 
 const SUPISKY_COLUMNS: ColumnDef[] = [
   { key: "supId", label: "SUP ID" },
@@ -550,7 +560,6 @@ export default function SupiskyPage() {
   const [editing, setEditing] = useState<Supiska | null>(null);
   const [detailOpen, setDetailOpen] = useState(false);
   const [selectedSupiska, setSelectedSupiska] = useState<Supiska | null>(null);
-  const [searchQuery, setSearchQuery] = useState("");
   const columnVisibility = useColumnVisibility("supisky", SUPISKY_COLUMNS);
 
   const { data: supisky = [], isLoading } = useQuery<Supiska[]>({
@@ -566,17 +575,8 @@ export default function SupiskyPage() {
     onError: () => toast({ title: "Chyba", description: "Nepodarilo sa vymazat supisku", variant: "destructive" }),
   });
 
-  const filteredSupisky = supisky.filter((s: Supiska) => {
-    if (!searchQuery) return true;
-    const q = searchQuery.toLowerCase();
-    return (
-      s.name.toLowerCase().includes(q) ||
-      s.supId.toLowerCase().includes(q) ||
-      s.status.toLowerCase().includes(q)
-    );
-  });
-
-  const { sortedData: sortedSupisky, sortKey: sortKeyMain, sortDirection: sortDirMain, requestSort: requestSortMain } = useTableSort(filteredSupisky);
+  const tableFilter = useTableFilter(supisky, SUPISKY_FILTER_COLUMNS);
+  const { sortedData: sortedSupisky, sortKey: sortKeyMain, sortDirection: sortDirMain, requestSort: requestSortMain } = useTableSort(tableFilter.filteredData);
 
   return (
     <div className="p-4 space-y-4">
@@ -594,24 +594,18 @@ export default function SupiskyPage() {
         </div>
       </div>
 
-      <Input
-        placeholder="Hladat..."
-        value={searchQuery}
-        onChange={e => setSearchQuery(e.target.value)}
-        className="max-w-xs"
-        data-testid="input-search"
-      />
+      <TableFilterBar filter={tableFilter} />
 
       <Card>
         <CardContent className="p-0">
           <Table>
             <TableHeader>
               <TableRow>
-                {columnVisibility.isVisible("supId") && <TableHead sortKey="supId" sortDirection={sortKeyMain === "supId" ? sortDirMain : null} onSort={requestSortMain}>SUP ID</TableHead>}
-                {columnVisibility.isVisible("name") && <TableHead sortKey="name" sortDirection={sortKeyMain === "name" ? sortDirMain : null} onSort={requestSortMain}>Nazov</TableHead>}
-                {columnVisibility.isVisible("status") && <TableHead sortKey="status" sortDirection={sortKeyMain === "status" ? sortDirMain : null} onSort={requestSortMain}>Stav</TableHead>}
-                {columnVisibility.isVisible("createdAt") && <TableHead sortKey="createdAt" sortDirection={sortKeyMain === "createdAt" ? sortDirMain : null} onSort={requestSortMain}>Vytvorene</TableHead>}
-                {columnVisibility.isVisible("createdBy") && <TableHead sortKey="createdBy" sortDirection={sortKeyMain === "createdBy" ? sortDirMain : null} onSort={requestSortMain}>Vytvoril</TableHead>}
+                {columnVisibility.isVisible("supId") && <TableHead sortKey="supId" sortDirection={sortKeyMain === "supId" ? sortDirMain : null} onSort={requestSortMain} filterValue={tableFilter.columnFilters["supId"] || ""} onFilterChange={(val) => tableFilter.setColumnFilter("supId", val)}>SUP ID</TableHead>}
+                {columnVisibility.isVisible("name") && <TableHead sortKey="name" sortDirection={sortKeyMain === "name" ? sortDirMain : null} onSort={requestSortMain} filterValue={tableFilter.columnFilters["name"] || ""} onFilterChange={(val) => tableFilter.setColumnFilter("name", val)}>Nazov</TableHead>}
+                {columnVisibility.isVisible("status") && <TableHead sortKey="status" sortDirection={sortKeyMain === "status" ? sortDirMain : null} onSort={requestSortMain} filterValue={tableFilter.columnFilters["status"] || ""} onFilterChange={(val) => tableFilter.setColumnFilter("status", val)}>Stav</TableHead>}
+                {columnVisibility.isVisible("createdAt") && <TableHead sortKey="createdAt" sortDirection={sortKeyMain === "createdAt" ? sortDirMain : null} onSort={requestSortMain} filterValue={tableFilter.columnFilters["createdAt"] || ""} onFilterChange={(val) => tableFilter.setColumnFilter("createdAt", val)}>Vytvorene</TableHead>}
+                {columnVisibility.isVisible("createdBy") && <TableHead sortKey="createdBy" sortDirection={sortKeyMain === "createdBy" ? sortDirMain : null} onSort={requestSortMain} filterValue={tableFilter.columnFilters["createdBy"] || ""} onFilterChange={(val) => tableFilter.setColumnFilter("createdBy", val)}>Vytvoril</TableHead>}
                 <TableHead className="w-24"></TableHead>
               </TableRow>
             </TableHeader>
@@ -622,7 +616,7 @@ export default function SupiskyPage() {
                     <Loader2 className="w-5 h-5 animate-spin inline" />
                   </TableCell>
                 </TableRow>
-              ) : filteredSupisky.length === 0 ? (
+              ) : tableFilter.filteredData.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
                     Ziadne supisky
@@ -632,8 +626,8 @@ export default function SupiskyPage() {
                 sortedSupisky.map((s: Supiska) => (
                   <TableRow
                     key={s.id}
-                    className="cursor-pointer hover-elevate"
-                    onClick={() => { setSelectedSupiska(s); setDetailOpen(true); }}
+                    className="hover-elevate"
+                    onRowClick={() => { setSelectedSupiska(s); setDetailOpen(true); }}
                     data-testid={`row-supiska-${s.id}`}
                   >
                     {columnVisibility.isVisible("supId") && <TableCell className="font-mono text-sm">{s.supId}</TableCell>}
