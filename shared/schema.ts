@@ -496,6 +496,8 @@ export const clientTypeFields = pgTable("client_type_fields", {
   decimalPlaces: integer("decimal_places").default(2),
   fieldCategory: text("field_category").default("povinne"),
   sortOrder: integer("sort_order").default(0),
+  rowNumber: integer("row_number").default(0),
+  widthPercent: integer("width_percent").default(100),
   createdAt: timestamp("created_at").defaultNow(),
   deletedAt: timestamp("deleted_at"),
 });
