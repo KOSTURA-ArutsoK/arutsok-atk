@@ -208,7 +208,7 @@ const FOLDER_CATEGORY_LABELS: Record<string, string> = {
 const FOLDER_CATEGORY_ICONS: Record<string, any> = {
   povinne: ShieldCheck,
   doplnkove: ListPlus,
-  volitelne: FileQuestion,
+  volitelne: Eye,
 };
 
 const FOLDER_CATEGORY_ORDER = ["povinne", "doplnkove", "volitelne"];
