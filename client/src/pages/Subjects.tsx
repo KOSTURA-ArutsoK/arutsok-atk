@@ -676,21 +676,24 @@ function InitialRegistrationModal({
   );
 }
 
-function DynamicFieldInput({ field, dynamicValues, setDynamicValues }: {
+function DynamicFieldInput({ field, dynamicValues, setDynamicValues, hasError }: {
   field: ClientTypeField;
   dynamicValues: Record<string, string>;
   setDynamicValues: React.Dispatch<React.SetStateAction<Record<string, string>>>;
+  hasError?: boolean;
 }) {
+  const errorBorder = hasError ? "border-red-500 ring-1 ring-red-500" : "";
   return (
     <div className="space-y-1">
       <div className="flex items-center gap-1">
-        <Label className="text-xs">{field.label || field.fieldKey}{field.isRequired ? " *" : ""}</Label>
+        <Label className={`text-xs ${hasError ? "text-red-500" : ""}`}>{field.label || field.fieldKey}{field.isRequired ? " *" : ""}</Label>
       </div>
       {field.fieldType === "long_text" ? (
         <Textarea
           value={dynamicValues[field.fieldKey] || ""}
           onChange={e => setDynamicValues(prev => ({ ...prev, [field.fieldKey]: e.target.value }))}
           rows={2}
+          className={errorBorder}
           data-testid={`input-dynamic-${field.fieldKey}`}
         />
       ) : field.fieldType === "combobox" || field.fieldType === "jedna_moznost" ? (
@@ -698,7 +701,7 @@ function DynamicFieldInput({ field, dynamicValues, setDynamicValues }: {
           value={dynamicValues[field.fieldKey] || ""}
           onValueChange={val => setDynamicValues(prev => ({ ...prev, [field.fieldKey]: val }))}
         >
-          <SelectTrigger data-testid={`select-dynamic-${field.fieldKey}`}>
+          <SelectTrigger className={errorBorder} data-testid={`select-dynamic-${field.fieldKey}`}>
             <SelectValue placeholder="Vyberte..." />
           </SelectTrigger>
           <SelectContent>
@@ -737,6 +740,7 @@ function DynamicFieldInput({ field, dynamicValues, setDynamicValues }: {
           type="date"
           value={dynamicValues[field.fieldKey] || ""}
           onChange={e => setDynamicValues(prev => ({ ...prev, [field.fieldKey]: e.target.value }))}
+          className={errorBorder}
           data-testid={`input-dynamic-${field.fieldKey}`}
         />
       ) : field.fieldType === "number" ? (
@@ -744,6 +748,7 @@ function DynamicFieldInput({ field, dynamicValues, setDynamicValues }: {
           type="number"
           value={dynamicValues[field.fieldKey] || ""}
           onChange={e => setDynamicValues(prev => ({ ...prev, [field.fieldKey]: e.target.value }))}
+          className={errorBorder}
           data-testid={`input-dynamic-${field.fieldKey}`}
         />
       ) : field.fieldType === "email" ? (
@@ -751,6 +756,7 @@ function DynamicFieldInput({ field, dynamicValues, setDynamicValues }: {
           type="email"
           value={dynamicValues[field.fieldKey] || ""}
           onChange={e => setDynamicValues(prev => ({ ...prev, [field.fieldKey]: e.target.value }))}
+          className={errorBorder}
           data-testid={`input-dynamic-${field.fieldKey}`}
         />
       ) : field.fieldType === "phone" ? (
@@ -758,6 +764,7 @@ function DynamicFieldInput({ field, dynamicValues, setDynamicValues }: {
           type="tel"
           value={dynamicValues[field.fieldKey] || ""}
           onChange={e => setDynamicValues(prev => ({ ...prev, [field.fieldKey]: e.target.value }))}
+          className={errorBorder}
           data-testid={`input-dynamic-${field.fieldKey}`}
         />
       ) : field.fieldType === "iban" ? (
@@ -765,13 +772,14 @@ function DynamicFieldInput({ field, dynamicValues, setDynamicValues }: {
           value={dynamicValues[field.fieldKey] || ""}
           onChange={e => setDynamicValues(prev => ({ ...prev, [field.fieldKey]: e.target.value.toUpperCase() }))}
           placeholder="SK00 0000 0000 0000 0000 0000"
-          className="font-mono"
+          className={`font-mono ${errorBorder}`}
           data-testid={`input-dynamic-${field.fieldKey}`}
         />
       ) : (
         <Input
           value={dynamicValues[field.fieldKey] || ""}
           onChange={e => setDynamicValues(prev => ({ ...prev, [field.fieldKey]: e.target.value }))}
+          className={errorBorder}
           data-testid={`input-dynamic-${field.fieldKey}`}
         />
       )}
@@ -799,7 +807,22 @@ function FullPageEditor({
   const isPerson = clientType?.baseParameter === "rc";
   const state = allStates?.find(s => s.id === initialData.stateId);
 
-  const [dynamicValues, setDynamicValues] = useState<Record<string, string>>({});
+  const [dynamicValues, setDynamicValuesRaw] = useState<Record<string, string>>({});
+  const [validationErrors, setValidationErrors] = useState<Set<string>>(new Set());
+  const setDynamicValues: typeof setDynamicValuesRaw = (updater) => {
+    setDynamicValuesRaw((prev) => {
+      const next = typeof updater === "function" ? updater(prev) : updater;
+      const changedKeys = Object.keys(next).filter(k => next[k] !== prev[k]);
+      if (changedKeys.length > 0 && validationErrors.size > 0) {
+        setValidationErrors(prev => {
+          const updated = new Set(prev);
+          changedKeys.forEach(k => updated.delete(k));
+          return updated.size === prev.size ? prev : updated;
+        });
+      }
+      return next;
+    });
+  };
 
   const { data: typeFields } = useQuery<ClientTypeField[]>({
     queryKey: ["/api/client-types", clientType?.id, "fields"],
@@ -896,9 +919,11 @@ function FullPageEditor({
     }
 
     if (missingFields.length > 0) {
+      setValidationErrors(new Set(missingFields.map(f => f.fieldKey)));
       toast({ title: "Chýbajúce povinné polia", description: missingFields.map(f => f.label || f.fieldKey).join(", "), variant: "destructive" });
       return;
     }
+    setValidationErrors(new Set());
 
     const processingTimeSec = Math.round((performance.now() - timerRef.current) / 1000);
     const existingDetails = (typeof data.details === "object" && data.details) ? data.details : {};
@@ -937,7 +962,7 @@ function FullPageEditor({
               {isPerson ? (() => {
                 const FO_POVINNE_ROWS: { keys: string[]; cols: string; customCols?: string }[] = [
                   { keys: ["titul_pred", "meno", "druhe_meno", "priezvisko", "titul_za"], cols: "grid-cols-2 sm:grid-cols-3 md:grid-cols-[1fr_2fr_2fr_2fr_1fr]" },
-                  { keys: ["rodne_priezvisko", "pohlavie", "datum_narodenia", "rodne_cislo"], cols: "grid-cols-1 sm:grid-cols-2 md:grid-cols-[2fr_1fr_2fr_2fr]" },
+                  { keys: ["rodne_priezvisko", "pohlavie", "datum_narodenia"], cols: "grid-cols-1 sm:grid-cols-3" },
                   { keys: ["miesto_narodenia", "vek"], cols: "grid-cols-1 sm:grid-cols-[2fr_1fr]" },
                   { keys: ["statna_prislusnost"], cols: "grid-cols-1 sm:grid-cols-2" },
                   { keys: ["typ_dokladu", "cislo_dokladu", "platnost_dokladu"], cols: "grid-cols-1 sm:grid-cols-3" },
@@ -954,7 +979,7 @@ function FullPageEditor({
                   ...ADDRESS_SWITCH_KEYS,
                 ]);
 
-                const allRowKeys = new Set(FO_POVINNE_ROWS.flatMap(r => r.keys).concat(Array.from(allAddressKeys)).concat(["telefon"]));
+                const allRowKeys = new Set(FO_POVINNE_ROWS.flatMap(r => r.keys).concat(Array.from(allAddressKeys)).concat(["telefon", "rodne_cislo"]));
 
                 const povinneSection = typeSections?.find(s => (s as any).folderCategory === "povinne");
                 const povinneFields = (typeFields || [])
@@ -1026,13 +1051,13 @@ function FullPageEditor({
                                   <div key={rowIdx} className={`grid ${gridClass} gap-3`} data-testid={`row-povinne-${rowIdx + 3}`}>
                                     {rowEntries.map(({ key, field }) => field ? (
                                       <div key={key} className="min-w-0">
-                                        <DynamicFieldInput field={field} dynamicValues={dynamicValues} setDynamicValues={setDynamicValues} />
+                                        <DynamicFieldInput field={field} dynamicValues={dynamicValues} setDynamicValues={setDynamicValues} hasError={validationErrors.has(field.fieldKey)} />
                                       </div>
                                     ) : (
                                       <div key={key} className="min-w-0">
                                         <div className="space-y-1">
-                                          <Label className="text-xs text-muted-foreground">{key === "druhe_meno" ? "Druhé meno/priezvisko" : key}</Label>
-                                          <Input value={dynamicValues[key] || ""} onChange={e => setDynamicValues(prev => ({ ...prev, [key]: e.target.value }))} data-testid={`input-${key}`} />
+                                          <Label className={`text-xs text-muted-foreground ${validationErrors.has(key) ? "text-red-500" : ""}`}>{key === "druhe_meno" ? "Druhé meno/priezvisko" : key}</Label>
+                                          <Input value={dynamicValues[key] || ""} onChange={e => setDynamicValues(prev => ({ ...prev, [key]: e.target.value }))} className={validationErrors.has(key) ? "border-red-500 ring-1 ring-red-500" : ""} data-testid={`input-${key}`} />
                                         </div>
                                       </div>
                                     ))}
@@ -1064,14 +1089,14 @@ function FullPageEditor({
                                     : field;
                                   return (
                                     <div key={key} style={{ pointerEvents: disabled ? "none" : "auto" }}>
-                                      <DynamicFieldInput field={augmentedField} dynamicValues={dynamicValues} setDynamicValues={setDynamicValues} />
+                                      <DynamicFieldInput field={augmentedField} dynamicValues={dynamicValues} setDynamicValues={setDynamicValues} hasError={validationErrors.has(key)} />
                                     </div>
                                   );
                                 }
                                 return (
                                   <div className="space-y-1" key={key}>
-                                    <Label className="text-xs text-muted-foreground">{ADDR_FALLBACK_LABELS[suffix] || suffix}{isRequired(key) ? " *" : ""}</Label>
-                                    <Input disabled={disabled} value={dynamicValues[key] || ""} onChange={e => setDynamicValues(prev => ({ ...prev, [key]: e.target.value }))} data-testid={`input-addr-${key}`} />
+                                    <Label className={`text-xs text-muted-foreground ${validationErrors.has(key) ? "text-red-500" : ""}`}>{ADDR_FALLBACK_LABELS[suffix] || suffix}{isRequired(key) ? " *" : ""}</Label>
+                                    <Input disabled={disabled} value={dynamicValues[key] || ""} onChange={e => setDynamicValues(prev => ({ ...prev, [key]: e.target.value }))} className={validationErrors.has(key) ? "border-red-500 ring-1 ring-red-500" : ""} data-testid={`input-addr-${key}`} />
                                   </div>
                                 );
                               };
@@ -1151,7 +1176,7 @@ function FullPageEditor({
                           <div style={{ display: povinneRemainder.length > 0 ? 'block' : 'none' }}>
                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3" data-testid="row-povinne-remainder">
                               {povinneRemainder.map(field => (
-                                <DynamicFieldInput key={field.id} field={field} dynamicValues={dynamicValues} setDynamicValues={setDynamicValues} />
+                                <DynamicFieldInput key={field.id} field={field} dynamicValues={dynamicValues} setDynamicValues={setDynamicValues} hasError={validationErrors.has(field.fieldKey)} />
                               ))}
                             </div>
                           </div>
@@ -1179,7 +1204,7 @@ function FullPageEditor({
                                     <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide border-b border-border pb-1" style={{ display: groups.length > 1 ? 'block' : 'none' }}>{section.name}</p>
                                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                                       {fields.map((field: ClientTypeField) => (
-                                        <DynamicFieldInput key={field.id} field={field} dynamicValues={dynamicValues} setDynamicValues={setDynamicValues} />
+                                        <DynamicFieldInput key={field.id} field={field} dynamicValues={dynamicValues} setDynamicValues={setDynamicValues} hasError={validationErrors.has(field.fieldKey)} />
                                       ))}
                                     </div>
                                   </div>
@@ -1319,7 +1344,7 @@ function FullPageEditor({
                                         <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide border-b border-border pb-1" style={{ display: groups.length > 1 ? 'block' : 'none' }}>{section.name}</p>
                                         <div className="grid grid-cols-2 gap-3">
                                           {fields.map((field: ClientTypeField) => (
-                                            <DynamicFieldInput key={field.id} field={field} dynamicValues={dynamicValues} setDynamicValues={setDynamicValues} />
+                                            <DynamicFieldInput key={field.id} field={field} dynamicValues={dynamicValues} setDynamicValues={setDynamicValues} hasError={validationErrors.has(field.fieldKey)} />
                                           ))}
                                         </div>
                                       </div>
