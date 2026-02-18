@@ -1184,11 +1184,9 @@ export default function ContractForm() {
   }
 
   function getRewardTotalPercentage(): number {
-    let total = rewardSpecialistUid.trim() ? (parseFloat(rewardSpecialistPercentage) || 0) : 0;
+    let total = parseFloat(rewardSpecialistPercentage) || 0;
     for (const r of rewardRecommenders) {
-      if (r.uid.trim()) {
-        total += parseFloat(r.percentage) || 0;
-      }
+      total += parseFloat(r.percentage) || 0;
     }
     return total;
   }
