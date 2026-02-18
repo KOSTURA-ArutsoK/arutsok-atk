@@ -1193,6 +1193,14 @@ export default function ContractForm() {
     return total;
   }
 
+  function formatSkPercent(value: number): string {
+    return value.toFixed(2).replace(".", ",");
+  }
+
+  function hasAnyRewardData(): boolean {
+    return rewardSpecialistUid.trim() !== "" || rewardRecommenders.some(r => r.uid.trim() !== "");
+  }
+
   function invalidateAllContractQueries() {
     queryClient.invalidateQueries({ queryKey: ["/api/contracts"] });
     queryClient.invalidateQueries({ queryKey: ["/api/contracts/dispatched"] });
@@ -1984,13 +1992,13 @@ export default function ContractForm() {
                     <div style={{ display: getRewardTotalPercentage() > 100 ? 'block' : 'none' }}>
                       <div className="bg-destructive/10 border border-destructive/30 rounded-md p-2 mb-3">
                         <p className="text-sm text-destructive font-medium" data-testid="text-reward-over-100-zisk">
-                          Celkovy sucet odmien je {getRewardTotalPercentage().toFixed(2)}% - nesmie presiahnuť 100 %. Uloženie je zablokovane.
+                          Celkovy sucet odmien je {formatSkPercent(getRewardTotalPercentage())} % - nesmie presiahnuť 100,00 %. Uloženie je zablokovane.
                         </p>
                       </div>
                     </div>
                     <div className="mb-2">
                       <Badge variant="outline" data-testid="badge-reward-total-zisk">
-                        Celkom: {getRewardTotalPercentage().toFixed(2)} / 100 %
+                        Celkom: {formatSkPercent(getRewardTotalPercentage())} % / 100,00 %
                       </Badge>
                     </div>
                     <div className="grid grid-cols-2 gap-4">
@@ -2269,6 +2277,10 @@ export default function ContractForm() {
             size="sm"
             className="bg-emerald-600 hover:bg-emerald-700 text-white"
             onClick={() => {
+              if (activeTab === "ziskatelia" && hasAnyRewardData() && Math.round(getRewardTotalPercentage() * 100) !== 10000) {
+                toast({ title: "Upozornenie", description: "Provízia nie je rozdelená na 100 percent.", variant: "destructive" });
+                return;
+              }
               const idx = TABS.findIndex(t => t.key === activeTab);
               if (idx < TABS.length - 1) setActiveTab(TABS[idx + 1].key);
             }}
