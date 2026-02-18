@@ -795,8 +795,6 @@ export async function registerRoutes(
       search: req.query.search as string,
       type: req.query.type as 'person' | 'company',
       isActive: req.query.isActive === 'true' ? true : req.query.isActive === 'false' ? false : undefined,
-      myCompanyId: activeCompanyId,
-      stateId: appUser?.activeStateId || undefined,
     };
     let allSubjects = await storage.getSubjects(params);
 
