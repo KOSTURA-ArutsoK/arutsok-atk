@@ -1987,17 +1987,13 @@ export default function ContractForm() {
                 <>
                   <div>
                     <h3 className="text-sm font-semibold mb-3">Rozdelenie odmien</h3>
-                    <div style={{ display: getRewardTotalPercentage() > 100 ? 'block' : 'none' }}>
-                      <div className="bg-destructive/10 border border-destructive/30 rounded-md p-2 mb-3">
-                        <p className="text-sm text-destructive font-medium" data-testid="text-reward-over-100-zisk">
-                          Celkovy sucet odmien je {formatSkPercent(getRewardTotalPercentage())} % - nesmie presiahnuť 100,00 %. Uloženie je zablokovane.
-                        </p>
-                      </div>
-                    </div>
-                    <div className="mb-2">
-                      <Badge variant="outline" data-testid="badge-reward-total-zisk">
-                        Celkom: {formatSkPercent(getRewardTotalPercentage())} % / 100,00 %
-                      </Badge>
+                    <div className={`rounded-md p-2 mb-3 ${Math.round(getRewardTotalPercentage() * 100) === 10000 ? 'bg-emerald-500/10 border border-emerald-500/30' : 'bg-destructive/10 border border-destructive/30'}`}>
+                      <p className={`text-sm font-medium ${Math.round(getRewardTotalPercentage() * 100) === 10000 ? 'text-emerald-600' : 'text-destructive'}`} data-testid="text-reward-status-zisk">
+                        {Math.round(getRewardTotalPercentage() * 100) === 10000
+                          ? `Celkový súčet odmien je 100,00 % - Uloženie je povolené.`
+                          : `Celkový súčet odmien nie je 100,00 % (${formatSkPercent(getRewardTotalPercentage())} %) - Uloženie je zablokované.`
+                        }
+                      </p>
                     </div>
                     <div className="grid grid-cols-2 gap-4">
                       <Card>
@@ -2141,7 +2137,7 @@ export default function ContractForm() {
                 </p>
                 <div className="mt-2">
                   <Badge variant="outline" data-testid="badge-reward-total">
-                    Celkom: {getRewardTotalPercentage().toFixed(2)} / 100 %
+                    Celkom: {formatSkPercent(getRewardTotalPercentage())} % / 100,00 %
                   </Badge>
                 </div>
               </div>
