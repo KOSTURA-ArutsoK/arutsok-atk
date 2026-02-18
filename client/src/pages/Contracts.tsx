@@ -1011,6 +1011,7 @@ export default function Contracts() {
   const [showInlineCreate, setShowInlineCreate] = useState(false);
   const [inlineFormValues, setInlineFormValues] = useState<Record<string, string>>({});
   const [inlineCreating, setInlineCreating] = useState(false);
+  const [inlineValidationErrors, setInlineValidationErrors] = useState<Set<string>>(new Set());
   const [inlineClientType, setInlineClientType] = useState<"fo" | "szco" | "po">("fo");
   const [szcoPhase, setSzcoPhase] = useState<1 | 2>(1);
   const [preSelectClientTypeId, setPreSelectClientTypeId] = useState<string>("");
@@ -1582,6 +1583,7 @@ export default function Contracts() {
     setInlineClientType(type);
     setSzcoPhase(1);
     setShowInlineCreate(true);
+    setInlineValidationErrors(new Set());
     setPreSelectSubjectId("");
     const defaults: Record<string, string> = {};
     const targetFields = type === "szco" ? szcoAllFields : type === "po" ? poAllFields : foAllFields;
@@ -1604,23 +1606,21 @@ export default function Contracts() {
       const val = inlineFormValues[f.fieldKey]?.trim();
       return !val;
     });
-    if (missingRequired.length > 0) {
-      toast({ title: "Chyba", description: `Vyplnte povinne polia: ${missingRequired.map(f => f.label).join(", ")}`, variant: "destructive" });
-      return;
-    }
-
     const isPo = inlineClientType === "po";
     const isSzco = inlineClientType === "szco";
     const meno = inlineFormValues["meno"]?.trim();
     const priezvisko = inlineFormValues["priezvisko"]?.trim();
-    if (!isPo && (!meno || !priezvisko)) {
-      toast({ title: "Chyba", description: "Meno a priezvisko su povinne", variant: "destructive" });
+    if (!isPo && !meno) missingRequired.push({ fieldKey: "meno", label: "Meno", isRequired: true } as any);
+    if (!isPo && !priezvisko) missingRequired.push({ fieldKey: "priezvisko", label: "Priezvisko", isRequired: true } as any);
+    if (isPo && !inlineFormValues["nazov_organizacie"]?.trim()) missingRequired.push({ fieldKey: "nazov_organizacie", label: "Názov organizácie", isRequired: true } as any);
+
+    if (missingRequired.length > 0) {
+      const errorKeys = new Set(missingRequired.map((f: any) => f.fieldKey));
+      setInlineValidationErrors(errorKeys);
+      toast({ title: "Chyba", description: `Vyplňte povinné polia: ${missingRequired.map((f: any) => f.label || f.fieldKey).join(", ")}`, variant: "destructive" });
       return;
     }
-    if (isPo && !inlineFormValues["nazov_organizacie"]?.trim()) {
-      toast({ title: "Chyba", description: "Nazov organizacie je povinny", variant: "destructive" });
-      return;
-    }
+    setInlineValidationErrors(new Set());
 
     setInlineCreating(true);
     try {
@@ -1873,12 +1873,13 @@ export default function Contracts() {
               };
 
               const renderInlineField = (field: ClientTypeField) => {
+                const errCls = inlineValidationErrors.has(field.fieldKey) ? "border-red-500 ring-1 ring-red-500" : "";
                 if (field.fieldType === "switch") {
                   return (
                     <div className="flex items-center gap-2 pt-1">
                       <Switch
                         checked={inlineFormValues[field.fieldKey] === "true"}
-                        onCheckedChange={checked => setInlineFormValues(prev => ({ ...prev, [field.fieldKey]: String(checked) }))}
+                        onCheckedChange={checked => { setInlineFormValues(prev => ({ ...prev, [field.fieldKey]: String(checked) })); setInlineValidationErrors(prev => { const n = new Set(prev); n.delete(field.fieldKey); return n; }); }}
                         data-testid={`switch-inline-${field.fieldKey}`}
                       />
                       <span className="text-sm text-muted-foreground">{inlineFormValues[field.fieldKey] === "true" ? "Ano" : "Nie"}</span>
@@ -1889,9 +1890,9 @@ export default function Contracts() {
                   return (
                     <Select
                       value={inlineFormValues[field.fieldKey] || ""}
-                      onValueChange={val => setInlineFormValues(prev => ({ ...prev, [field.fieldKey]: val }))}
+                      onValueChange={val => { setInlineFormValues(prev => ({ ...prev, [field.fieldKey]: val })); setInlineValidationErrors(prev => { const n = new Set(prev); n.delete(field.fieldKey); return n; }); }}
                     >
-                      <SelectTrigger data-testid={`select-inline-${field.fieldKey}`}>
+                      <SelectTrigger className={errCls} data-testid={`select-inline-${field.fieldKey}`}>
                         <SelectValue placeholder="Vyberte..." />
                       </SelectTrigger>
                       <SelectContent>
@@ -1907,7 +1908,8 @@ export default function Contracts() {
                     <Input
                       type="date"
                       value={inlineFormValues[field.fieldKey] || ""}
-                      onChange={e => setInlineFormValues(prev => ({ ...prev, [field.fieldKey]: e.target.value }))}
+                      onChange={e => { setInlineFormValues(prev => ({ ...prev, [field.fieldKey]: e.target.value })); setInlineValidationErrors(prev => { const n = new Set(prev); n.delete(field.fieldKey); return n; }); }}
+                      className={errCls}
                       data-testid={`input-inline-${field.fieldKey}`}
                     />
                   );
@@ -1917,7 +1919,8 @@ export default function Contracts() {
                     <Input
                       type="number"
                       value={inlineFormValues[field.fieldKey] || ""}
-                      onChange={e => setInlineFormValues(prev => ({ ...prev, [field.fieldKey]: e.target.value }))}
+                      onChange={e => { setInlineFormValues(prev => ({ ...prev, [field.fieldKey]: e.target.value })); setInlineValidationErrors(prev => { const n = new Set(prev); n.delete(field.fieldKey); return n; }); }}
+                      className={errCls}
                       data-testid={`input-inline-${field.fieldKey}`}
                     />
                   );
@@ -1927,8 +1930,9 @@ export default function Contracts() {
                     <Input
                       type="tel"
                       value={inlineFormValues[field.fieldKey] || ""}
-                      onChange={e => setInlineFormValues(prev => ({ ...prev, [field.fieldKey]: e.target.value }))}
+                      onChange={e => { setInlineFormValues(prev => ({ ...prev, [field.fieldKey]: e.target.value })); setInlineValidationErrors(prev => { const n = new Set(prev); n.delete(field.fieldKey); return n; }); }}
                       placeholder="+421..."
+                      className={errCls}
                       data-testid={`input-inline-${field.fieldKey}`}
                     />
                   );
@@ -1936,7 +1940,8 @@ export default function Contracts() {
                 return (
                   <Input
                     value={inlineFormValues[field.fieldKey] || ""}
-                    onChange={e => setInlineFormValues(prev => ({ ...prev, [field.fieldKey]: e.target.value }))}
+                    onChange={e => { setInlineFormValues(prev => ({ ...prev, [field.fieldKey]: e.target.value })); setInlineValidationErrors(prev => { const n = new Set(prev); n.delete(field.fieldKey); return n; }); }}
+                    className={errCls}
                     data-testid={`input-inline-${field.fieldKey}`}
                   />
                 );
@@ -1959,54 +1964,36 @@ export default function Contracts() {
                     return { key: k, field: found, suffix };
                   });
 
+                  const renderAddrInput = (key: string, field: any, suffix: string) => {
+                    const hasErr = inlineValidationErrors.has(key);
+                    return (
+                      <div key={key} className="space-y-1">
+                        <label className={`text-xs font-medium ${hasErr ? "text-red-500" : ""}`}>
+                          {field?.label || ADDR_FALLBACK[suffix] || suffix}{field?.isRequired ? " *" : ""}
+                        </label>
+                        <Input
+                          value={inlineFormValues[key] || ""}
+                          onChange={e => { setInlineFormValues(prev => ({ ...prev, [key]: e.target.value })); setInlineValidationErrors(prev => { const n = new Set(prev); n.delete(key); return n; }); }}
+                          disabled={disabled}
+                          className={hasErr ? "border-red-500 ring-1 ring-red-500" : ""}
+                          data-testid={`input-inline-${key}`}
+                        />
+                      </div>
+                    );
+                  };
+
                   return (
                     <Card className={disabled ? "opacity-50 pointer-events-none" : ""} data-testid={`panel-inline-address-${prefix}`}>
                       <CardContent className="p-3 space-y-2">
                         <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground truncate" title={panelDef.label}>{panelDef.label}</h4>
                         <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-                          {fields.slice(0, 3).map(({ key, field, suffix }) => (
-                            <div key={key} className="space-y-1">
-                              <label className="text-xs font-medium">
-                                {field?.label || ADDR_FALLBACK[suffix] || suffix}{field?.isRequired ? " *" : ""}
-                              </label>
-                              <Input
-                                value={inlineFormValues[key] || ""}
-                                onChange={e => setInlineFormValues(prev => ({ ...prev, [key]: e.target.value }))}
-                                disabled={disabled}
-                                data-testid={`input-inline-${key}`}
-                              />
-                            </div>
-                          ))}
+                          {fields.slice(0, 3).map(({ key, field, suffix }) => renderAddrInput(key, field, suffix))}
                         </div>
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                          {fields.slice(3, 5).map(({ key, field, suffix }) => (
-                            <div key={key} className="space-y-1">
-                              <label className="text-xs font-medium">
-                                {field?.label || ADDR_FALLBACK[suffix] || suffix}{field?.isRequired ? " *" : ""}
-                              </label>
-                              <Input
-                                value={inlineFormValues[key] || ""}
-                                onChange={e => setInlineFormValues(prev => ({ ...prev, [key]: e.target.value }))}
-                                disabled={disabled}
-                                data-testid={`input-inline-${key}`}
-                              />
-                            </div>
-                          ))}
+                          {fields.slice(3, 5).map(({ key, field, suffix }) => renderAddrInput(key, field, suffix))}
                         </div>
                         <div className="grid grid-cols-1 gap-2">
-                          {fields.slice(5, 6).map(({ key, field, suffix }) => (
-                            <div key={key} className="space-y-1">
-                              <label className="text-xs font-medium">
-                                {field?.label || ADDR_FALLBACK[suffix] || suffix}{field?.isRequired ? " *" : ""}
-                              </label>
-                              <Input
-                                value={inlineFormValues[key] || ""}
-                                onChange={e => setInlineFormValues(prev => ({ ...prev, [key]: e.target.value }))}
-                                disabled={disabled}
-                                data-testid={`input-inline-${key}`}
-                              />
-                            </div>
-                          ))}
+                          {fields.slice(5, 6).map(({ key, field, suffix }) => renderAddrInput(key, field, suffix))}
                         </div>
                       </CardContent>
                     </Card>
@@ -2082,13 +2069,14 @@ export default function Contracts() {
                     {(() => {
                       const isFoOsobne = panel.name === "Osobné údaje" && inlineClientType === "fo";
                       const FO_OSOBNE_ROW_KEYS = ["titul_pred", "meno", "druhe_meno", "priezvisko", "titul_za"];
-                      const FO_ROW2_KEYS = ["rodne_priezvisko", "pohlavie", "datum_narodenia", "rodne_cislo"];
+                      const FO_ROW2_KEYS = ["rodne_priezvisko", "pohlavie", "datum_narodenia"];
                       const FO_ROW3_KEYS = ["miesto_narodenia", "vek"];
                       const FO_ROW4_KEYS = ["statna_prislusnost"];
 
                       const renderField = (field: any) => {
                         const rule = field.visibilityRule as { dependsOn: string; value: string } | null;
                         const isVisible = !rule || inlineFormValues[rule.dependsOn] === rule.value;
+                        const hasErr = inlineValidationErrors.has(field.fieldKey);
                         return (
                           <div
                             key={field.id}
@@ -2096,7 +2084,7 @@ export default function Contracts() {
                             style={{ display: isVisible ? 'block' : 'none' }}
                             data-testid={`field-inline-${field.fieldKey}`}
                           >
-                            <label className="text-xs font-medium">
+                            <label className={`text-xs font-medium ${hasErr ? "text-red-500" : ""}`}>
                               {field.label}{field.isRequired ? " *" : ""}
                             </label>
                             {renderInlineField(field)}
@@ -2109,12 +2097,12 @@ export default function Contracts() {
                         const row2Fields = FO_ROW2_KEYS.map(k => nonAddrFields.find(f => f.fieldKey === k)).filter(Boolean);
                         const row3Fields = FO_ROW3_KEYS.map(k => nonAddrFields.find(f => f.fieldKey === k)).filter(Boolean);
                         const row4Fields = FO_ROW4_KEYS.map(k => nonAddrFields.find(f => f.fieldKey === k)).filter(Boolean);
-                        const usedKeys = new Set([...FO_OSOBNE_ROW_KEYS, ...FO_ROW2_KEYS, ...FO_ROW3_KEYS, ...FO_ROW4_KEYS]);
+                        const usedKeys = new Set([...FO_OSOBNE_ROW_KEYS, ...FO_ROW2_KEYS, ...FO_ROW3_KEYS, ...FO_ROW4_KEYS, "rodne_cislo"]);
                         const restFields = nonAddrFields.filter(f => !usedKeys.has(f.fieldKey));
                         return (
                           <>
                             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-[1fr_2fr_2fr_2fr_1fr] gap-3">{row1Fields.map(renderField)}</div>
-                            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-[2fr_1fr_2fr_2fr] gap-3 mt-3">{row2Fields.map(renderField)}</div>
+                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mt-3">{row2Fields.map(renderField)}</div>
                             {row3Fields.length > 0 && (
                               <div className="grid grid-cols-1 sm:grid-cols-[2fr_1fr] gap-3 mt-3">{row3Fields.map(renderField)}</div>
                             )}
