@@ -296,25 +296,25 @@ function SubjectDataTab({ subject }: { subject: Subject }) {
 
   return (
     <div className="space-y-4">
-      <div className="grid grid-cols-2 gap-4 p-3 rounded-md bg-muted/30 border border-border">
-        <div>
+      <div className="flex flex-wrap gap-4 p-3 rounded-md bg-muted/30 border border-border">
+        <div className="flex-1 min-w-[calc(50%-0.5rem)]">
           <span className="text-xs text-muted-foreground">Typ</span>
           <p className="text-sm font-medium">{isPerson ? 'FO' : isSzco ? 'SZCO' : 'PO'} - {clientType?.name || subject.type}</p>
         </div>
-        <div>
+        <div className="flex-1 min-w-[calc(50%-0.5rem)]">
           <span className="text-xs text-muted-foreground">Spravujuca firma</span>
           <p className="text-sm font-medium">{managingCompany?.name || '-'}</p>
         </div>
         {isPerson || isSzco ? (
           <>
             {!(typeFields || []).find(f => f.fieldKey === "meno")?.isHidden && (
-            <div>
+            <div className="flex-1 min-w-[calc(50%-0.5rem)]">
               <span className="text-xs text-muted-foreground">Meno</span>
               <p className="text-sm">{subject.firstName || '-'}</p>
             </div>
             )}
             {!(typeFields || []).find(f => f.fieldKey === "priezvisko")?.isHidden && (
-            <div>
+            <div className="flex-1 min-w-[calc(50%-0.5rem)]">
               <span className="text-xs text-muted-foreground">Priezvisko</span>
               <p className="text-sm">{subject.lastName || '-'}</p>
             </div>
@@ -322,20 +322,20 @@ function SubjectDataTab({ subject }: { subject: Subject }) {
           </>
         ) : (
           !(typeFields || []).find(f => f.fieldKey === "nazov_organizacie")?.isHidden && (
-          <div className="col-span-2">
+          <div className="flex-1 min-w-[calc(50%-0.5rem)]">
             <span className="text-xs text-muted-foreground">Nazov spolocnosti</span>
             <p className="text-sm">{subject.companyName || '-'}</p>
           </div>
           )
         )}
         {!(typeFields || []).find(f => f.fieldKey === "email")?.isHidden && (
-        <div>
+        <div className="flex-1 min-w-[calc(50%-0.5rem)]">
           <span className="text-xs text-muted-foreground">Email</span>
           <p className="text-sm">{subject.email || '-'}</p>
         </div>
         )}
         {!(typeFields || []).find(f => f.fieldKey === "telefon")?.isHidden && (
-        <div>
+        <div className="flex-1 min-w-[calc(50%-0.5rem)]">
           <span className="text-xs text-muted-foreground">Telefon</span>
           <p className="text-sm">{subject.phone || '-'}</p>
         </div>
@@ -365,11 +365,11 @@ function SubjectDataTab({ subject }: { subject: Subject }) {
                     {sectionGroups.map(({ section, fields }) => (
                       <div key={section.id} className="space-y-2">
                         <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide border-b border-border pb-1" style={{ display: sectionGroups.length > 1 ? 'block' : 'none' }}>{section.name}</p>
-                        <div className="grid grid-cols-2 gap-x-6 gap-y-2">
+                        <div className="flex flex-wrap gap-x-6 gap-y-2">
                           {fields.map(field => {
                             const value = getFieldValue(field.fieldKey);
                             return (
-                              <div key={field.id} className="space-y-0.5" data-testid={`field-display-${field.fieldKey}`}>
+                              <div key={field.id} className="space-y-0.5 flex-1 min-w-[calc(50%-0.75rem)]" data-testid={`field-display-${field.fieldKey}`}>
                                 <span className="text-xs text-muted-foreground">{field.label || field.fieldKey}</span>
                                 <p className="text-sm">{value || <span className="text-muted-foreground/50">-</span>}</p>
                               </div>
@@ -1034,11 +1034,11 @@ function FullPageEditor({
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-5">
 
               {isPerson ? (() => {
-                const FO_POVINNE_ROWS: { keys: string[]; cols: string; customCols?: string }[] = [
-                  { keys: ["titul_pred", "meno", "druhe_meno", "priezvisko", "titul_za"], cols: "grid-cols-2 sm:grid-cols-3 md:grid-cols-[1fr_2fr_2fr_2fr_1fr]" },
-                  { keys: ["rodne_priezvisko", "pohlavie", "datum_narodenia"], cols: "grid-cols-1 sm:grid-cols-3" },
-                  { keys: ["miesto_narodenia", "vek", "statna_prislusnost"], cols: "grid-cols-1 sm:grid-cols-3" },
-                  { keys: ["typ_dokladu", "cislo_dokladu", "platnost_dokladu"], cols: "grid-cols-1 sm:grid-cols-3" },
+                const FO_POVINNE_ROWS: { keys: string[] }[] = [
+                  { keys: ["titul_pred", "meno", "druhe_meno", "priezvisko", "titul_za"] },
+                  { keys: ["rodne_priezvisko", "pohlavie", "datum_narodenia"] },
+                  { keys: ["miesto_narodenia", "vek", "statna_prislusnost"] },
+                  { keys: ["typ_dokladu", "cislo_dokladu", "platnost_dokladu"] },
                 ];
 
                 const ADDRESS_PANEL_FIELDS = {
@@ -1124,9 +1124,8 @@ function FullPageEditor({
                                   .map(k => ({ key: k, field: povinneFields.find(f => f.fieldKey === k) }));
                                 const hasAny = rowEntries.some(e => e.field) || rowEntries.some(e => e.key === "statna_prislusnost");
                                 if (!hasAny || rowEntries.length === 0) return null;
-                                const gridClass = row.cols;
                                 return (
-                                  <div key={rowIdx} className={`grid ${gridClass} gap-3`} data-testid={`row-povinne-${rowIdx + 3}`}>
+                                  <div key={rowIdx} className="flex flex-wrap gap-3" data-testid={`row-povinne-${rowIdx + 3}`}>
                                     {rowEntries.map(({ key, field }) => {
                                       if (key === "statna_prislusnost") {
                                         const label = field?.label || "Štátna príslušnosť";
@@ -1135,7 +1134,7 @@ function FullPageEditor({
                                         const prioritySet = new Set(PRIORITY_COUNTRIES);
                                         const restCountries = ALL_COUNTRIES.filter(c => !prioritySet.has(c));
                                         return (
-                                          <div key={key} className="min-w-0">
+                                          <div key={key} className="flex-1 min-w-[30%]">
                                             <div className="space-y-1">
                                               <Label className={`text-xs text-muted-foreground ${hasErr ? "text-red-500" : ""}`}>{label}{isReq ? " *" : ""}</Label>
                                               <Popover>
@@ -1177,11 +1176,11 @@ function FullPageEditor({
                                       const rcParsedResult = initialData.baseValue?.trim() ? parseRodneCislo(initialData.baseValue.trim()) : {};
                                       const isRcAuto = (key === "pohlavie" && !!rcParsedResult.pohlavie) || (key === "datum_narodenia" && !!rcParsedResult.datumNarodenia);
                                       return field ? (
-                                      <div key={key} className="min-w-0">
+                                      <div key={key} className="flex-1 min-w-[30%]">
                                         <DynamicFieldInput field={field} dynamicValues={dynamicValues} setDynamicValues={setDynamicValues} hasError={validationErrors.has(field.fieldKey)} disabled={isRcAuto} />
                                       </div>
                                     ) : (
-                                      <div key={key} className="min-w-0">
+                                      <div key={key} className="flex-1 min-w-[30%]">
                                         <div className="space-y-1">
                                           <Label className={`text-xs text-muted-foreground ${validationErrors.has(key) ? "text-red-500" : ""}`}>{key === "druhe_meno" ? "Druhé meno/priezvisko" : key}</Label>
                                           <Input value={dynamicValues[key] || ""} onChange={e => setDynamicValues(prev => ({ ...prev, [key]: e.target.value }))} className={validationErrors.has(key) ? "border-red-500 ring-1 ring-red-500" : ""} data-testid={`input-${key}`} />
@@ -1288,8 +1287,8 @@ function FullPageEditor({
                             );
                           })()}
 
-                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3" data-testid="row-telefon">
-                            <div className="space-y-1">
+                          <div className="flex flex-wrap gap-3" data-testid="row-telefon">
+                            <div className="space-y-1 flex-1 min-w-[calc(50%-0.375rem)]">
                               <Label className="text-xs">Tel. číslo (primárne) *</Label>
                               <InternationalPhoneInput
                                 value={dynamicValues["telefon"] || ""}
@@ -1301,9 +1300,11 @@ function FullPageEditor({
                           </div>
 
                           <div style={{ display: povinneRemainder.length > 0 ? 'block' : 'none' }}>
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3" data-testid="row-povinne-remainder">
+                            <div className="flex flex-wrap gap-3" data-testid="row-povinne-remainder">
                               {povinneRemainder.map(field => (
-                                <DynamicFieldInput key={field.id} field={field} dynamicValues={dynamicValues} setDynamicValues={setDynamicValues} hasError={validationErrors.has(field.fieldKey)} />
+                                <div key={field.id} className="flex-1 min-w-[calc(50%-0.375rem)]">
+                                  <DynamicFieldInput field={field} dynamicValues={dynamicValues} setDynamicValues={setDynamicValues} hasError={validationErrors.has(field.fieldKey)} />
+                                </div>
                               ))}
                             </div>
                           </div>
@@ -1329,9 +1330,11 @@ function FullPageEditor({
                                 {groups.map(({ section, fields }) => (
                                   <div key={section.id} className="space-y-3">
                                     <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide border-b border-border pb-1" style={{ display: groups.length > 1 ? 'block' : 'none' }}>{section.name}</p>
-                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                    <div className="flex flex-wrap gap-3">
                                       {fields.map((field: ClientTypeField) => (
-                                        <DynamicFieldInput key={field.id} field={field} dynamicValues={dynamicValues} setDynamicValues={setDynamicValues} hasError={validationErrors.has(field.fieldKey)} />
+                                        <div key={field.id} className="flex-1 min-w-[calc(50%-0.375rem)]">
+                                          <DynamicFieldInput field={field} dynamicValues={dynamicValues} setDynamicValues={setDynamicValues} hasError={validationErrors.has(field.fieldKey)} />
+                                        </div>
                                       ))}
                                     </div>
                                   </div>
@@ -1912,9 +1915,11 @@ function SubjectEditModal({ subject, onClose }: { subject: Subject & { isOwner?:
                                           );
                                         }
                                         return (
-                                          <div key={rowNum} className="grid grid-cols-2 gap-3">
+                                          <div key={rowNum} className="flex flex-wrap gap-3">
                                             {rowFields.map((field: ClientTypeField) => (
-                                              <DynamicFieldInput key={field.id} field={field} dynamicValues={dynamicValues} setDynamicValues={setDynamicValues} />
+                                              <div key={field.id} className="flex-1 min-w-[calc(50%-0.375rem)]">
+                                                <DynamicFieldInput field={field} dynamicValues={dynamicValues} setDynamicValues={setDynamicValues} />
+                                              </div>
                                             ))}
                                           </div>
                                         );

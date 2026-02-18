@@ -1759,9 +1759,9 @@ export default function ContractForm() {
                       </h3>
                       <Badge variant="outline" className="text-xs" data-testid="badge-client-type">{matchedClientType?.code}</Badge>
                     </div>
-                    <div className="grid grid-cols-2 gap-2">
+                    <div className="flex flex-wrap gap-2">
                       {(clientTypeFields || []).map(field => (
-                        <div key={field.id} className="space-y-0.5" data-testid={`client-type-field-${field.id}`}>
+                        <div key={field.id} className="space-y-0.5 flex-1 min-w-[calc(50%-0.25rem)]" data-testid={`client-type-field-${field.id}`}>
                           <label className="text-xs font-medium">
                             {field.label}
                             <span style={{ display: field.isRequired ? 'inline' : 'none' }}><span className="text-destructive ml-1">*</span></span>
@@ -1914,9 +1914,9 @@ export default function ContractForm() {
                       <span style={{ display: panel.description ? 'inline' : 'none' }}><span className="text-xs text-muted-foreground">({panel.description})</span></span>
                     </div>
                     <div style={{ display: panel.parameters.length > 0 ? 'block' : 'none' }}>
-                      <div className="grid grid-cols-2 gap-2">
+                      <div className="flex flex-wrap gap-2">
                         {panel.parameters.map(param => (
-                          <div key={param.id} className="space-y-0.5">
+                          <div key={param.id} className="space-y-0.5 flex-1 min-w-[calc(50%-0.25rem)]">
                             <label className="text-xs font-medium">
                               {param.name}
                               <span style={{ display: param.isRequired ? 'inline' : 'none' }}><span className="text-destructive ml-1">*</span></span>
