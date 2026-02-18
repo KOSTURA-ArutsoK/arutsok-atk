@@ -199,6 +199,7 @@ function SectorFormDialog({
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent className="sm:max-w-[800px] h-[600px] overflow-y-auto">
+        <form onSubmit={(e) => { e.preventDefault(); handleSubmit(); }}>
         <DialogHeader>
           <DialogTitle data-testid="text-sector-dialog-title">
             {editingSector ? "Upravit sektor" : "Pridat sektor"}
@@ -294,7 +295,8 @@ function SectorFormDialog({
             </Button>
           </div>
         </div>
-        <ProcessingSaveButton isPending={isPending} onClick={handleSubmit} type="button" />
+        <ProcessingSaveButton isPending={isPending} />
+        </form>
       </DialogContent>
     </Dialog>
   );
@@ -422,6 +424,7 @@ function SectorProductFormDialog({
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent className="sm:max-w-[800px] h-[600px] overflow-y-auto">
+        <form onSubmit={(e) => { e.preventDefault(); handleSubmit(); }}>
         <DialogHeader>
           <DialogTitle data-testid="text-sector-product-dialog-title">
             {editingProduct ? "Upravit produkt" : "Pridat produkt"}
@@ -546,7 +549,8 @@ function SectorProductFormDialog({
             </Button>
           </div>
         </div>
-        <ProcessingSaveButton isPending={isPending} onClick={handleSubmit} type="button" />
+        <ProcessingSaveButton isPending={isPending} />
+        </form>
       </DialogContent>
     </Dialog>
   );
@@ -781,6 +785,7 @@ function ParameterFormDialog({
     <>
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent className="sm:max-w-[800px] h-[600px] overflow-y-auto">
+        <form onSubmit={(e) => { e.preventDefault(); handleSubmit(); }}>
         <DialogHeader>
           <DialogTitle data-testid="text-parameter-dialog-title">
             {editingParameter ? "Upravit parameter" : "Pridat parameter"}
@@ -907,7 +912,8 @@ function ParameterFormDialog({
             </Button>
           </div>
         </div>
-        <ProcessingSaveButton isPending={isPending} onClick={handleSubmit} type="button" />
+        <ProcessingSaveButton isPending={isPending} />
+        </form>
       </DialogContent>
     </Dialog>
     <ChoiceOptionsModal
@@ -1004,6 +1010,7 @@ function SectionFormDialog({
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent className="sm:max-w-[800px] h-[600px] overflow-y-auto">
+        <form onSubmit={(e) => { e.preventDefault(); handleSubmit(); }}>
         <DialogHeader>
           <DialogTitle data-testid="text-section-dialog-title">
             {editingSection ? "Upravit sekciu" : "Pridat sekciu"}
@@ -1037,7 +1044,8 @@ function SectionFormDialog({
             </Button>
           </div>
         </div>
-        <ProcessingSaveButton isPending={isPending} onClick={handleSubmit} type="button" />
+        <ProcessingSaveButton isPending={isPending} />
+        </form>
       </DialogContent>
     </Dialog>
   );
@@ -1766,6 +1774,7 @@ function PanelFormDialog({
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent className="sm:max-w-[800px] h-[600px] overflow-y-auto">
+        <form onSubmit={(e) => { e.preventDefault(); handleSubmit(); }}>
         <DialogHeader>
           <DialogTitle data-testid="text-panel-dialog-title">
             {editingPanel ? "Upravit panel" : "Pridat panel"}
@@ -1834,7 +1843,8 @@ function PanelFormDialog({
             </Button>
           </div>
         </div>
-        <ProcessingSaveButton isPending={isPending} onClick={handleSubmit} type="button" />
+        <ProcessingSaveButton isPending={isPending} />
+        </form>
       </DialogContent>
     </Dialog>
   );
@@ -2032,6 +2042,7 @@ function ProductPanelAssignDialog({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[500px] max-h-[500px] overflow-y-auto">
+        <form onSubmit={(e) => { e.preventDefault(); saveMutation.mutate(); }}>
         <DialogHeader>
           <DialogTitle data-testid="text-product-panels-dialog-title">
             Panely - {sectorProduct?.name}
@@ -2071,9 +2082,10 @@ function ProductPanelAssignDialog({
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)} data-testid="button-product-panels-cancel">
               Zrusit
             </Button>
-            <ProcessingSaveButton isPending={saveMutation.isPending} onClick={() => saveMutation.mutate()} type="button" />
+            <ProcessingSaveButton isPending={saveMutation.isPending} />
           </div>
         </div>
+        </form>
       </DialogContent>
     </Dialog>
   );
@@ -2186,6 +2198,7 @@ function FolderFormDialog({
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent className="w-[800px] max-w-[800px] h-[600px] max-h-[600px] flex flex-col overflow-hidden" data-testid="dialog-folder">
+        <form onSubmit={(e) => { e.preventDefault(); handleSubmit(); }} className="flex flex-col flex-1 overflow-hidden">
         <DialogHeader>
           <DialogTitle>{editingFolder ? "Upravit priecinok" : "Novy priecinok"}</DialogTitle>
         </DialogHeader>
@@ -2259,7 +2272,8 @@ function FolderFormDialog({
             )}
           </div>
         </div>
-        <ProcessingSaveButton isPending={isPending} onClick={handleSubmit} type="button" />
+        <ProcessingSaveButton isPending={isPending} />
+        </form>
       </DialogContent>
     </Dialog>
   );

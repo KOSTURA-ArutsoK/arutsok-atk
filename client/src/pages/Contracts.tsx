@@ -480,6 +480,7 @@ function ContractFormDialog({
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent className="w-[95vw] sm:max-w-[1100px] h-[85vh] overflow-y-auto">
+        <form onSubmit={(e) => { e.preventDefault(); handleSubmit(); }}>
         <DialogHeader>
           <DialogTitle data-testid="text-contract-dialog-title">
             {editingContract ? "Upravit zmluvu" : "Pridat zmluvu"}
@@ -1151,7 +1152,8 @@ function ContractFormDialog({
             </Button>
           </div>
         </div>
-        <ProcessingSaveButton isPending={isPending} onClick={handleSubmit} type="button" />
+        <ProcessingSaveButton isPending={isPending} />
+        </form>
       </DialogContent>
     </Dialog>
   );

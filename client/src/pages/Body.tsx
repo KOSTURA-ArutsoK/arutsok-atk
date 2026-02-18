@@ -119,6 +119,7 @@ function CareerLevelEditDialog({
   return (
     <Dialog open onOpenChange={() => onClose()}>
       <DialogContent className="max-w-lg">
+        <form onSubmit={(e) => { e.preventDefault(); mutation.mutate(); }}>
         <DialogHeader>
           <DialogTitle>{isNew ? "Nova karierna uroven" : `Upravit ${level.positionCode}`}</DialogTitle>
         </DialogHeader>
@@ -213,11 +214,12 @@ function CareerLevelEditDialog({
           </div>
         </div>
         <DialogFooter>
-          <Button variant="outline" onClick={onClose}>Zrusit</Button>
-          <Button onClick={() => mutation.mutate()} disabled={mutation.isPending} data-testid="button-save-career-level">
+          <Button variant="outline" type="button" onClick={onClose}>Zrusit</Button>
+          <Button type="submit" disabled={mutation.isPending} data-testid="button-save-career-level">
             {mutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : (isNew ? "Vytvorit" : "Ulozit")}
           </Button>
         </DialogFooter>
+        </form>
       </DialogContent>
     </Dialog>
   );
@@ -265,6 +267,7 @@ function ProductRateEditDialog({
   return (
     <Dialog open onOpenChange={() => onClose()}>
       <DialogContent className="max-w-md">
+        <form onSubmit={(e) => { e.preventDefault(); mutation.mutate(); }}>
         <DialogHeader>
           <DialogTitle>{isNew ? "Nova sadzba produktu" : "Upravit sadzbu"}</DialogTitle>
         </DialogHeader>
@@ -287,11 +290,12 @@ function ProductRateEditDialog({
           </div>
         </div>
         <DialogFooter>
-          <Button variant="outline" onClick={onClose}>Zrusit</Button>
-          <Button onClick={() => mutation.mutate()} disabled={mutation.isPending} data-testid="button-save-rate">
+          <Button variant="outline" type="button" onClick={onClose}>Zrusit</Button>
+          <Button type="submit" disabled={mutation.isPending} data-testid="button-save-rate">
             {mutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : (isNew ? "Vytvorit" : "Ulozit")}
           </Button>
         </DialogFooter>
+        </form>
       </DialogContent>
     </Dialog>
   );

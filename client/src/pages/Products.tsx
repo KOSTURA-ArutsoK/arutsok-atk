@@ -210,6 +210,7 @@ function ProductFormDialog({
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent className="sm:max-w-[800px] h-[600px] overflow-y-auto">
+        <form onSubmit={(e) => { e.preventDefault(); handleSubmit(); }}>
         <DialogHeader>
           <DialogTitle data-testid="text-product-dialog-title">
             {editingProduct ? "Upravit produkt" : "Pridat produkt"}
@@ -462,7 +463,8 @@ function ProductFormDialog({
             </div>
           </div>
         </div>
-        <ProcessingSaveButton isPending={isPending} onClick={handleSubmit} type="button" />
+        <ProcessingSaveButton isPending={isPending} />
+        </form>
       </DialogContent>
     </Dialog>
   );

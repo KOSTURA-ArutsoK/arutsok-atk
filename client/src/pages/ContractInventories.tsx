@@ -124,6 +124,7 @@ function InventoryFormDialog({
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent className="sm:max-w-[800px] h-[600px] overflow-y-auto">
+        <form onSubmit={(e) => { e.preventDefault(); handleSubmit(); }}>
         <DialogHeader>
           <DialogTitle data-testid="text-inventory-dialog-title">
             {editingInventory ? "Upravit supisku" : "Pridat supisku"}
@@ -193,7 +194,8 @@ function InventoryFormDialog({
             </Button>
           </div>
         </div>
-        <ProcessingSaveButton isPending={isPending} onClick={handleSubmit} type="button" />
+        <ProcessingSaveButton isPending={isPending} />
+        </form>
       </DialogContent>
     </Dialog>
   );

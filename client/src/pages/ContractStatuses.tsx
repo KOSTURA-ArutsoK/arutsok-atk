@@ -331,6 +331,7 @@ function StatusFormDialog({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[900px] h-[700px] overflow-y-auto">
+        <form onSubmit={(e) => { e.preventDefault(); handleSubmit(); }}>
         <DialogHeader>
           <DialogTitle data-testid="text-status-dialog-title">
             {editingStatus ? "Upravit stav zmluvy" : "Pridat stav zmluvy"}
@@ -521,7 +522,7 @@ function StatusFormDialog({
               <Button type="button" variant="outline" onClick={() => onOpenChange(false)} data-testid="button-status-cancel">
                 Zrusit
               </Button>
-              <ProcessingSaveButton isPending={isPending} onClick={handleSubmit} type="button" />
+              <ProcessingSaveButton isPending={isPending} />
             </div>
           </TabsContent>
 
@@ -637,6 +638,7 @@ function StatusFormDialog({
             )}
           </TabsContent>
         </Tabs>
+        </form>
       </DialogContent>
     </Dialog>
   );

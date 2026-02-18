@@ -219,6 +219,8 @@ function GroupDetailDialog({
           </TabsList>
 
           <TabsContent value="vseobecne" className="flex-1 space-y-4 mt-4">
+            <form onSubmit={(e) => { e.preventDefault(); handleSave(); }}>
+            <div className="space-y-4">
             <div className="space-y-2">
               <Label htmlFor="group-name">Nazov skupiny</Label>
               <Input
@@ -285,12 +287,12 @@ function GroupDetailDialog({
 
             <div className="flex justify-end gap-2 pt-4">
               <ProcessingSaveButton
-                onClick={handleSave}
                 isPending={createMutation.isPending || updateMutation.isPending}
               />
               {isEditing && (
                 <Button
                   variant="outline"
+                  type="button"
                   onClick={() => setActiveTab("podskupiny")}
                   data-testid="button-dalej"
                 >
@@ -298,6 +300,8 @@ function GroupDetailDialog({
                 </Button>
               )}
             </div>
+            </div>
+            </form>
           </TabsContent>
 
           <TabsContent value="podskupiny" className="flex-1 space-y-4 mt-4">

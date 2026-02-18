@@ -382,6 +382,7 @@ export default function Commissions() {
               {formStartRef.current > 0 && <ProcessingTimer startTime={formStartRef.current} />}
             </DialogTitle>
           </DialogHeader>
+          <form onSubmit={(e) => { e.preventDefault(); handleSave(); }}>
           <div className="space-y-4 mt-4">
             <div className="grid grid-cols-2 gap-4">
               <div>
@@ -473,9 +474,9 @@ export default function Commissions() {
             </div>
 
             <div className="flex justify-end gap-2 pt-4">
-              <Button variant="outline" onClick={closeDialog} data-testid="button-cancel">Zrusit</Button>
+              <Button variant="outline" type="button" onClick={closeDialog} data-testid="button-cancel">Zrusit</Button>
               <Button
-                onClick={handleSave}
+                type="submit"
                 disabled={createMutation.isPending || updateMutation.isPending}
                 data-testid="button-save-processing"
               >
@@ -484,6 +485,7 @@ export default function Commissions() {
               </Button>
             </div>
           </div>
+          </form>
         </DialogContent>
       </Dialog>
     </div>

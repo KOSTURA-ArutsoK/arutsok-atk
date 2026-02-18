@@ -128,6 +128,7 @@ function TemplateFormDialog({
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent className="sm:max-w-[800px] h-[600px] overflow-y-auto">
+        <form onSubmit={(e) => { e.preventDefault(); handleSubmit(); }}>
         <DialogHeader>
           <DialogTitle data-testid="text-template-dialog-title">
             {editingTemplate ? "Upravit sablonu" : "Pridat sablonu"}
@@ -206,7 +207,8 @@ function TemplateFormDialog({
             </Button>
           </div>
         </div>
-        <ProcessingSaveButton isPending={isPending} onClick={handleSubmit} type="button" />
+        <ProcessingSaveButton isPending={isPending} />
+        </form>
       </DialogContent>
     </Dialog>
   );
