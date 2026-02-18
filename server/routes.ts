@@ -3191,7 +3191,15 @@ export async function registerRoutes(
         ...c, entityType: "contract" as const,
       }));
 
-      res.json({ companies: deletedCompanies, partners: deletedPartners, products: deletedProducts, contracts: deletedContracts });
+      const softDeletedEntities = await storage.getAllDeletedEntities();
+
+      res.json({
+        companies: deletedCompanies,
+        partners: deletedPartners,
+        products: deletedProducts,
+        contracts: deletedContracts,
+        softDeleted: softDeletedEntities,
+      });
     } catch (err) {
       res.status(500).json({ message: "Failed to load archive" });
     }
@@ -3227,7 +3235,8 @@ export async function registerRoutes(
           await storage.restoreContract(numId);
           break;
         default:
-          return res.status(400).json({ message: "Neznamy typ entity" });
+          await storage.restoreEntity(entityType, numId);
+          break;
       }
 
       await logAudit(req, {
@@ -3246,6 +3255,43 @@ export async function registerRoutes(
       res.json({ success: true });
     } catch (err) {
       res.status(500).json({ message: "Restore failed" });
+    }
+  });
+
+  app.post("/api/archive/permanent-delete/:entityType/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const { entityType, id } = req.params;
+      const { password } = req.body || {};
+      const numId = Number(id);
+      const appUser = req.appUser;
+
+      if (!appUser || !["admin", "superadmin"].includes(appUser.role)) {
+        return res.status(403).json({ message: "Nedostatocne opravnenia" });
+      }
+
+      const archivePassword = process.env.ARCHIVE_RESTORE_PASSWORD || "ArutsoK2025!Restore";
+      if (!password || password !== archivePassword) {
+        return res.status(401).json({ message: "Nespravne bezpecnostne heslo" });
+      }
+
+      await storage.permanentDeleteEntity(entityType, numId);
+
+      await logAudit(req, {
+        action: "PERMANENT_DELETE",
+        module: "kos",
+        entityId: numId,
+        entityName: `${entityType} #${numId}`,
+        newData: {
+          authorizedByAdminId: appUser.id,
+          authorizedByUsername: appUser.username,
+          authorizedByRole: appUser.role,
+          deletedEntityType: entityType,
+        },
+      });
+
+      res.json({ success: true });
+    } catch (err) {
+      res.status(500).json({ message: "Permanent delete failed" });
     }
   });
 

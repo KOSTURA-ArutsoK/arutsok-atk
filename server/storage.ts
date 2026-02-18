@@ -1474,7 +1474,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getClientTypes(): Promise<ClientType[]> {
-    return await db.select().from(clientTypes).where(isNull(clientTypes.deletedAt)).orderBy(clientTypes.sortOrder);
+    return await db.select().from(clientTypes).orderBy(clientTypes.sortOrder);
   }
 
   async getClientType(id: number): Promise<ClientType | undefined> {
