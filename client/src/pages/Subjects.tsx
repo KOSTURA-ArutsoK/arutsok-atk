@@ -986,6 +986,8 @@ function FullPageEditor({
         { key: "tp_mesto", label: "Mesto (trvalý pobyt)" },
       ];
       for (const ar of addressRequired) {
+        const dbField = (typeFields || []).find(f => f.fieldKey === ar.key);
+        if (dbField?.isHidden) continue;
         if (!dynamicValues[ar.key]?.trim()) {
           missingFields.push({ fieldKey: ar.key, label: ar.label } as any);
         }
@@ -1202,11 +1204,19 @@ function FullPageEditor({
                               psc: "PSČ", mesto: "Mesto", stat: "Štát",
                             };
 
+                            const isAddrFieldHidden = (key: string) => {
+                              const dbField = (typeFields || []).find(f => f.fieldKey === key);
+                              return dbField ? dbField.isHidden : false;
+                            };
+
                             const renderAddressPanel = (prefix: "tp" | "ka" | "koa", panelDef: typeof ADDRESS_PANEL_FIELDS["tp"], disabled: boolean) => {
                               const findField = (key: string) => povinneFields.find(f => f.fieldKey === key);
                               const fieldKeys = [`${prefix}_ulica`, `${prefix}_supisne`, `${prefix}_orientacne`, `${prefix}_psc`, `${prefix}_mesto`, `${prefix}_stat`];
-                              const fields = fieldKeys.map(k => ({ key: k, field: findField(k), suffix: k.split("_").slice(1).join("_") }));
+                              const fields = fieldKeys.map(k => ({ key: k, field: findField(k), suffix: k.split("_").slice(1).join("_"), hidden: isAddrFieldHidden(k) }));
+                              const visibleFields = fields.filter(f => !f.hidden);
                               const isRequired = (key: string) => panelDef.requiredKeys.includes(key);
+
+                              if (visibleFields.length === 0) return null;
 
                               const renderAddrField = (key: string, field: ClientTypeField | undefined, suffix: string) => {
                                 if (field) {
@@ -1227,62 +1237,90 @@ function FullPageEditor({
                                 );
                               };
 
+                              const row1 = visibleFields.filter(f => f.suffix === "ulica");
+                              const row2 = visibleFields.filter(f => f.suffix === "supisne" || f.suffix === "orientacne");
+                              const row3 = visibleFields.filter(f => f.suffix === "psc" || f.suffix === "mesto");
+                              const row4 = visibleFields.filter(f => f.suffix === "stat");
+
                               return (
                                 <Card className={`${disabled ? "opacity-50 pointer-events-none" : ""}`} data-testid={`panel-address-${prefix}`}>
                                   <CardContent className="p-4 space-y-3">
                                     <p className="text-sm font-semibold truncate" title={panelDef.label}>{panelDef.label}</p>
-                                    <div className="grid grid-cols-1 gap-2">
-                                      {renderAddrField(fields[0].key, fields[0].field, fields[0].suffix)}
-                                    </div>
-                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                                      {renderAddrField(fields[1].key, fields[1].field, fields[1].suffix)}
-                                      {renderAddrField(fields[2].key, fields[2].field, fields[2].suffix)}
-                                    </div>
-                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                                      {renderAddrField(fields[3].key, fields[3].field, fields[3].suffix)}
-                                      {renderAddrField(fields[4].key, fields[4].field, fields[4].suffix)}
-                                    </div>
-                                    <div className="grid grid-cols-1 gap-2">
-                                      {renderAddrField(fields[5].key, fields[5].field, fields[5].suffix)}
-                                    </div>
+                                    {row1.length > 0 && (
+                                      <div className="grid grid-cols-1 gap-2">
+                                        {row1.map(f => renderAddrField(f.key, f.field, f.suffix))}
+                                      </div>
+                                    )}
+                                    {row2.length > 0 && (
+                                      <div className={`grid grid-cols-1 ${row2.length > 1 ? "sm:grid-cols-2" : ""} gap-2`}>
+                                        {row2.map(f => renderAddrField(f.key, f.field, f.suffix))}
+                                      </div>
+                                    )}
+                                    {row3.length > 0 && (
+                                      <div className={`grid grid-cols-1 ${row3.length > 1 ? "sm:grid-cols-2" : ""} gap-2`}>
+                                        {row3.map(f => renderAddrField(f.key, f.field, f.suffix))}
+                                      </div>
+                                    )}
+                                    {row4.length > 0 && (
+                                      <div className="grid grid-cols-1 gap-2">
+                                        {row4.map(f => renderAddrField(f.key, f.field, f.suffix))}
+                                      </div>
+                                    )}
                                   </CardContent>
                                 </Card>
                               );
                             };
 
+                            const tpPanel = renderAddressPanel("tp", ADDRESS_PANEL_FIELDS.tp, false);
+                            const kaPanel = renderAddressPanel("ka", ADDRESS_PANEL_FIELDS.ka, korRespondRovnaka);
+                            const koaPanel = renderAddressPanel("koa", ADDRESS_PANEL_FIELDS.koa, kontaktnaRovnaka || korRespondRovnaka);
+                            const hasAnyAddressPanel = tpPanel || kaPanel || koaPanel;
+
+                            if (!hasAnyAddressPanel) return null;
+
                             return (
                               <div className="grid grid-cols-1 md:grid-cols-3 gap-3 items-start" data-testid="row-address-panels">
-                                <div className="flex flex-col">
-                                  {renderAddressPanel("tp", ADDRESS_PANEL_FIELDS.tp, false)}
-                                  <div className="flex items-center gap-2 mt-2 px-1">
-                                    <Switch
-                                      checked={korRespondRovnaka}
-                                      onCheckedChange={checked => setDynamicValues(prev => ({ ...prev, korespond_rovnaka: String(checked) }))}
-                                      data-testid="switch-korespond-rovnaka"
-                                    />
-                                    <Label className="text-xs cursor-pointer" onClick={() => setDynamicValues(prev => ({ ...prev, korespond_rovnaka: String(prev["korespond_rovnaka"] !== "true") }))}>
-                                      Adresa prechodného pobytu je totožná s adresou trvalého pobytu
-                                    </Label>
+                                {tpPanel && (
+                                  <div className="flex flex-col">
+                                    {tpPanel}
+                                    {kaPanel && (
+                                      <div className="flex items-center gap-2 mt-2 px-1">
+                                        <Switch
+                                          checked={korRespondRovnaka}
+                                          onCheckedChange={checked => setDynamicValues(prev => ({ ...prev, korespond_rovnaka: String(checked) }))}
+                                          data-testid="switch-korespond-rovnaka"
+                                        />
+                                        <Label className="text-xs cursor-pointer" onClick={() => setDynamicValues(prev => ({ ...prev, korespond_rovnaka: String(prev["korespond_rovnaka"] !== "true") }))}>
+                                          Adresa prechodného pobytu je totožná s adresou trvalého pobytu
+                                        </Label>
+                                      </div>
+                                    )}
                                   </div>
-                                </div>
+                                )}
 
-                                <div className="flex flex-col">
-                                  {renderAddressPanel("ka", ADDRESS_PANEL_FIELDS.ka, korRespondRovnaka)}
-                                  <div className="flex items-center gap-2 mt-2 px-1">
-                                    <Switch
-                                      checked={kontaktnaRovnaka}
-                                      onCheckedChange={checked => setDynamicValues(prev => ({ ...prev, kontaktna_rovnaka: String(checked) }))}
-                                      data-testid="switch-kontaktna-rovnaka"
-                                    />
-                                    <Label className="text-xs cursor-pointer" onClick={() => setDynamicValues(prev => ({ ...prev, kontaktna_rovnaka: String(prev["kontaktna_rovnaka"] !== "true") }))}>
-                                      Kontaktná adresa je totožná s adresou prechodného pobytu
-                                    </Label>
+                                {kaPanel && (
+                                  <div className="flex flex-col">
+                                    {kaPanel}
+                                    {koaPanel && (
+                                      <div className="flex items-center gap-2 mt-2 px-1">
+                                        <Switch
+                                          checked={kontaktnaRovnaka}
+                                          onCheckedChange={checked => setDynamicValues(prev => ({ ...prev, kontaktna_rovnaka: String(checked) }))}
+                                          data-testid="switch-kontaktna-rovnaka"
+                                        />
+                                        <Label className="text-xs cursor-pointer" onClick={() => setDynamicValues(prev => ({ ...prev, kontaktna_rovnaka: String(prev["kontaktna_rovnaka"] !== "true") }))}>
+                                          Kontaktná adresa je totožná s adresou prechodného pobytu
+                                        </Label>
+                                      </div>
+                                    )}
                                   </div>
-                                </div>
+                                )}
 
-                                <div className="flex flex-col">
-                                  {renderAddressPanel("koa", ADDRESS_PANEL_FIELDS.koa, kontaktnaRovnaka || korRespondRovnaka)}
-                                </div>
+                                {koaPanel && (
+                                  <div className="flex flex-col">
+                                    {koaPanel}
+                                  </div>
+                                )}
                               </div>
                             );
                           })()}
@@ -1825,11 +1863,19 @@ function SubjectEditModal({ subject, onClose }: { subject: Subject & { isOwner?:
 
               const allPovinneFields = (editFieldGroups.povinne || []).flatMap(g => g.fields);
 
+              const isEditAddrFieldHidden = (key: string) => {
+                const dbField = (typeFields || []).find(f => f.fieldKey === key);
+                return dbField ? dbField.isHidden : false;
+              };
+
               const renderEditAddressPanel = (prefix: "tp" | "ka" | "koa", panelDef: typeof EDIT_ADDRESS_PANEL_FIELDS["tp"], disabled: boolean) => {
                 const findField = (key: string) => allPovinneFields.find(f => f.fieldKey === key);
                 const fieldKeys = [`${prefix}_ulica`, `${prefix}_supisne`, `${prefix}_orientacne`, `${prefix}_psc`, `${prefix}_mesto`, `${prefix}_stat`];
-                const fields = fieldKeys.map(k => ({ key: k, field: findField(k), suffix: k.split("_").slice(1).join("_") }));
+                const fields = fieldKeys.map(k => ({ key: k, field: findField(k), suffix: k.split("_").slice(1).join("_"), hidden: isEditAddrFieldHidden(k) }));
+                const visibleFields = fields.filter(f => !f.hidden);
                 const isReq = (key: string) => panelDef.requiredKeys.includes(key);
+
+                if (visibleFields.length === 0) return null;
 
                 const renderAddrField = (key: string, field: ClientTypeField | undefined, suffix: string) => {
                   if (field) {
@@ -1848,14 +1894,19 @@ function SubjectEditModal({ subject, onClose }: { subject: Subject & { isOwner?:
                   );
                 };
 
+                const row1 = visibleFields.filter(f => f.suffix === "ulica");
+                const row2 = visibleFields.filter(f => f.suffix === "supisne" || f.suffix === "orientacne");
+                const row3 = visibleFields.filter(f => f.suffix === "psc" || f.suffix === "mesto");
+                const row4 = visibleFields.filter(f => f.suffix === "stat");
+
                 return (
                   <Card className={`${disabled ? "opacity-50 pointer-events-none" : ""}`} data-testid={`edit-panel-address-${prefix}`}>
                     <CardContent className="p-4 space-y-3">
                       <p className="text-sm font-semibold truncate" title={panelDef.label}>{panelDef.label}</p>
-                      <div className="grid grid-cols-1 gap-2">{renderAddrField(fields[0].key, fields[0].field, fields[0].suffix)}</div>
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">{renderAddrField(fields[1].key, fields[1].field, fields[1].suffix)}{renderAddrField(fields[2].key, fields[2].field, fields[2].suffix)}</div>
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">{renderAddrField(fields[3].key, fields[3].field, fields[3].suffix)}{renderAddrField(fields[4].key, fields[4].field, fields[4].suffix)}</div>
-                      <div className="grid grid-cols-1 gap-2">{renderAddrField(fields[5].key, fields[5].field, fields[5].suffix)}</div>
+                      {row1.length > 0 && <div className="grid grid-cols-1 gap-2">{row1.map(f => renderAddrField(f.key, f.field, f.suffix))}</div>}
+                      {row2.length > 0 && <div className={`grid grid-cols-1 ${row2.length > 1 ? "sm:grid-cols-2" : ""} gap-2`}>{row2.map(f => renderAddrField(f.key, f.field, f.suffix))}</div>}
+                      {row3.length > 0 && <div className={`grid grid-cols-1 ${row3.length > 1 ? "sm:grid-cols-2" : ""} gap-2`}>{row3.map(f => renderAddrField(f.key, f.field, f.suffix))}</div>}
+                      {row4.length > 0 && <div className="grid grid-cols-1 gap-2">{row4.map(f => renderAddrField(f.key, f.field, f.suffix))}</div>}
                     </CardContent>
                   </Card>
                 );
@@ -1870,14 +1921,17 @@ function SubjectEditModal({ subject, onClose }: { subject: Subject & { isOwner?:
                       const groups = editFieldGroups[category] || [];
                       const totalFields = groups.reduce((acc, g) => acc + g.fields.length, 0);
                       const hasAddressPanels = isPerson && category === "povinne";
-                      if (totalFields === 0 && !hasAddressPanels) return null;
+                      const visibleAddrFieldCount = hasAddressPanels
+                        ? Object.values(EDIT_ADDRESS_PANEL_FIELDS).flatMap(p => p.keys).filter(k => !isEditAddrFieldHidden(k)).length
+                        : 0;
+                      if (totalFields === 0 && visibleAddrFieldCount === 0) return null;
                       return (
                         <AccordionItem key={category} value={category} className="border rounded-md px-3" data-testid={`edit-accordion-${category}`}>
                           <AccordionTrigger className="py-3 hover:no-underline">
                             <div className="flex items-center gap-2">
                               <Icon className={`w-4 h-4 ${category === 'povinne' ? 'text-destructive' : category === 'doplnkove' ? 'text-primary' : 'text-muted-foreground'}`} />
                               <span className="text-sm font-semibold">{FOLDER_CATEGORY_LABELS[category]}</span>
-                              <Badge variant="secondary" className="text-[10px]">{hasAddressPanels ? totalFields + 18 : totalFields}</Badge>
+                              <Badge variant="secondary" className="text-[10px]">{totalFields + visibleAddrFieldCount}</Badge>
                             </div>
                           </AccordionTrigger>
                           <AccordionContent className="pb-4">
@@ -1928,27 +1982,44 @@ function SubjectEditModal({ subject, onClose }: { subject: Subject & { isOwner?:
                                   </div>
                                 );
                               })}
-                              <div style={{ display: hasAddressPanels ? 'block' : 'none' }}>
-                                <div className="grid grid-cols-1 md:grid-cols-3 gap-3 items-start" data-testid="edit-row-address-panels">
-                                  <div className="flex flex-col">
-                                    {renderEditAddressPanel("tp", EDIT_ADDRESS_PANEL_FIELDS.tp, false)}
-                                    <div className="flex items-center gap-2 mt-2 px-1">
-                                      <Switch checked={editKorRespondRovnaka} onCheckedChange={checked => setDynamicValues(prev => ({ ...prev, korespond_rovnaka: String(checked) }))} data-testid="edit-switch-korespond-rovnaka" />
-                                      <Label className="text-xs cursor-pointer" onClick={() => setDynamicValues(prev => ({ ...prev, korespond_rovnaka: String(prev["korespond_rovnaka"] !== "true") }))}>Adresa prechodného pobytu je totožná s adresou trvalého pobytu</Label>
-                                    </div>
+                              {(() => {
+                                if (!hasAddressPanels) return null;
+                                const editTpPanel = renderEditAddressPanel("tp", EDIT_ADDRESS_PANEL_FIELDS.tp, false);
+                                const editKaPanel = renderEditAddressPanel("ka", EDIT_ADDRESS_PANEL_FIELDS.ka, editKorRespondRovnaka);
+                                const editKoaPanel = renderEditAddressPanel("koa", EDIT_ADDRESS_PANEL_FIELDS.koa, editKontaktnaRovnaka || editKorRespondRovnaka);
+                                if (!editTpPanel && !editKaPanel && !editKoaPanel) return null;
+                                return (
+                                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3 items-start" data-testid="edit-row-address-panels">
+                                    {editTpPanel && (
+                                      <div className="flex flex-col">
+                                        {editTpPanel}
+                                        {editKaPanel && (
+                                          <div className="flex items-center gap-2 mt-2 px-1">
+                                            <Switch checked={editKorRespondRovnaka} onCheckedChange={checked => setDynamicValues(prev => ({ ...prev, korespond_rovnaka: String(checked) }))} data-testid="edit-switch-korespond-rovnaka" />
+                                            <Label className="text-xs cursor-pointer" onClick={() => setDynamicValues(prev => ({ ...prev, korespond_rovnaka: String(prev["korespond_rovnaka"] !== "true") }))}>Adresa prechodného pobytu je totožná s adresou trvalého pobytu</Label>
+                                          </div>
+                                        )}
+                                      </div>
+                                    )}
+                                    {editKaPanel && (
+                                      <div className="flex flex-col">
+                                        {editKaPanel}
+                                        {editKoaPanel && (
+                                          <div className="flex items-center gap-2 mt-2 px-1">
+                                            <Switch checked={editKontaktnaRovnaka} onCheckedChange={checked => setDynamicValues(prev => ({ ...prev, kontaktna_rovnaka: String(checked) }))} data-testid="edit-switch-kontaktna-rovnaka" />
+                                            <Label className="text-xs cursor-pointer" onClick={() => setDynamicValues(prev => ({ ...prev, kontaktna_rovnaka: String(prev["kontaktna_rovnaka"] !== "true") }))}>Kontaktná adresa je totožná s adresou prechodného pobytu</Label>
+                                          </div>
+                                        )}
+                                      </div>
+                                    )}
+                                    {editKoaPanel && (
+                                      <div className="flex flex-col">
+                                        {editKoaPanel}
+                                      </div>
+                                    )}
                                   </div>
-                                  <div className="flex flex-col">
-                                    {renderEditAddressPanel("ka", EDIT_ADDRESS_PANEL_FIELDS.ka, editKorRespondRovnaka)}
-                                    <div className="flex items-center gap-2 mt-2 px-1">
-                                      <Switch checked={editKontaktnaRovnaka} onCheckedChange={checked => setDynamicValues(prev => ({ ...prev, kontaktna_rovnaka: String(checked) }))} data-testid="edit-switch-kontaktna-rovnaka" />
-                                      <Label className="text-xs cursor-pointer" onClick={() => setDynamicValues(prev => ({ ...prev, kontaktna_rovnaka: String(prev["kontaktna_rovnaka"] !== "true") }))}>Kontaktná adresa je totožná s adresou prechodného pobytu</Label>
-                                    </div>
-                                  </div>
-                                  <div className="flex flex-col">
-                                    {renderEditAddressPanel("koa", EDIT_ADDRESS_PANEL_FIELDS.koa, editKontaktnaRovnaka || editKorRespondRovnaka)}
-                                  </div>
-                                </div>
-                              </div>
+                                );
+                              })()}
                             </div>
                           </AccordionContent>
                         </AccordionItem>
