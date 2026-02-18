@@ -4,6 +4,8 @@ import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useAppUser } from "@/hooks/use-app-user";
 import { useStates } from "@/hooks/use-hierarchy";
 import { useToast } from "@/hooks/use-toast";
+import { useColumnVisibility, type ColumnDef } from "@/hooks/use-column-visibility";
+import { ColumnManager } from "@/components/column-manager";
 import type { ContractInventory } from "@shared/schema";
 import { Plus, Pencil, Trash2, Loader2 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
@@ -36,6 +38,14 @@ import {
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { ProcessingSaveButton } from "@/components/processing-save-button";
 import { SortableTableRow, SortableContext_Wrapper } from "@/components/sortable-list";
+
+const INVENTORY_COLUMNS: ColumnDef[] = [
+  { key: "sortOrder", label: "Poradie" },
+  { key: "name", label: "Nazov" },
+  { key: "sequenceNumber", label: "Cislo" },
+  { key: "description", label: "Popis" },
+  { key: "status", label: "Stav" },
+];
 
 function InventoryFormDialog({
   open,
@@ -283,6 +293,7 @@ export default function ContractInventories() {
   });
 
   const sorted = inventories ? [...inventories].sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0)) : [];
+  const columnVisibility = useColumnVisibility("contract-inventories", INVENTORY_COLUMNS);
 
   const handleReorder = (items: { id: number | string; sortOrder: number }[]) => {
     reorderMutation.mutate(items.map(i => ({ id: Number(i.id), sortOrder: i.sortOrder })));
@@ -307,6 +318,7 @@ export default function ContractInventories() {
     <div className="p-6 space-y-6">
       <div className="flex items-center justify-between gap-4 flex-wrap">
         <h1 className="text-2xl font-bold" data-testid="text-page-title">Zoznam sprievodiek</h1>
+        <ColumnManager columnVisibility={columnVisibility} />
       </div>
 
       <Card>
@@ -324,11 +336,11 @@ export default function ContractInventories() {
               <TableHeader>
                 <TableRow>
                   <TableHead className="w-10"></TableHead>
-                  <TableHead className="w-20">Poradie</TableHead>
-                  <TableHead>Nazov</TableHead>
-                  <TableHead>Cislo</TableHead>
-                  <TableHead>Popis</TableHead>
-                  <TableHead className="w-32">Stav</TableHead>
+                  {columnVisibility.isVisible("sortOrder") && <TableHead className="w-20">Poradie</TableHead>}
+                  {columnVisibility.isVisible("name") && <TableHead>Nazov</TableHead>}
+                  {columnVisibility.isVisible("sequenceNumber") && <TableHead>Cislo</TableHead>}
+                  {columnVisibility.isVisible("description") && <TableHead>Popis</TableHead>}
+                  {columnVisibility.isVisible("status") && <TableHead className="w-32">Stav</TableHead>}
                   <TableHead className="w-32 text-right">Akcie</TableHead>
                 </TableRow>
               </TableHeader>
@@ -340,19 +352,19 @@ export default function ContractInventories() {
                       id={inventory.id}
                       data-testid={`row-inventory-${inventory.id}`}
                     >
-                      <TableCell className="font-mono text-sm" data-testid={`text-sort-order-${inventory.id}`}>
+                      {columnVisibility.isVisible("sortOrder") && <TableCell className="font-mono text-sm" data-testid={`text-sort-order-${inventory.id}`}>
                         {inventory.sortOrder}
-                      </TableCell>
-                      <TableCell data-testid={`text-inventory-name-${inventory.id}`}>
+                      </TableCell>}
+                      {columnVisibility.isVisible("name") && <TableCell data-testid={`text-inventory-name-${inventory.id}`}>
                         {inventory.name}
-                      </TableCell>
-                      <TableCell className="font-mono text-sm" data-testid={`text-inventory-seq-${inventory.id}`}>
+                      </TableCell>}
+                      {columnVisibility.isVisible("sequenceNumber") && <TableCell className="font-mono text-sm" data-testid={`text-inventory-seq-${inventory.id}`}>
                         {inventory.sequenceNumber ? `c. ${inventory.sequenceNumber}` : "-"}
-                      </TableCell>
-                      <TableCell className="text-sm text-muted-foreground" data-testid={`text-inventory-description-${inventory.id}`}>
+                      </TableCell>}
+                      {columnVisibility.isVisible("description") && <TableCell className="text-sm text-muted-foreground" data-testid={`text-inventory-description-${inventory.id}`}>
                         {inventory.description || "—"}
-                      </TableCell>
-                      <TableCell data-testid={`badge-inventory-status-${inventory.id}`}>
+                      </TableCell>}
+                      {columnVisibility.isVisible("status") && <TableCell data-testid={`badge-inventory-status-${inventory.id}`}>
                         <div className="flex items-center gap-1 flex-wrap">
                           {inventory.isClosed ? (
                             <Badge variant="destructive" className="text-xs">Uzavreta</Badge>
@@ -366,7 +378,7 @@ export default function ContractInventories() {
                             <Badge variant="outline" className="text-xs border-amber-500 text-amber-500">Odoslana</Badge>
                           )}
                         </div>
-                      </TableCell>
+                      </TableCell>}
                       <TableCell className="text-right">
                         <div className="flex items-center justify-end gap-1 flex-wrap">
                           <Button

@@ -5,6 +5,8 @@ import { Plus, Building2, Pencil, Trash2, Eye, Upload, FileText, X, Download, Cl
 import { useQuery } from "@tanstack/react-query";
 import type { CompanyLogoHistory } from "@shared/schema";
 
+import { useColumnVisibility, type ColumnDef } from "@/hooks/use-column-visibility";
+import { ColumnManager } from "@/components/column-manager";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -62,6 +64,14 @@ import { useToast } from "@/hooks/use-toast";
 import { useQueryClient } from "@tanstack/react-query";
 import { useTableSort } from "@/hooks/use-table-sort";
 
+
+const COMPANY_COLUMNS: ColumnDef[] = [
+  { key: "name", label: "Nazov" },
+  { key: "ico", label: "ICO" },
+  { key: "specialization", label: "Zameranie" },
+  { key: "city", label: "Mesto" },
+  { key: "state", label: "Stat" },
+];
 
 const formSchema = insertMyCompanySchema.extend({
   name: z.string().min(1, "Nazov je povinny"),
@@ -784,6 +794,7 @@ export default function Companies() {
   const { data: allStates } = useStates();
   const deleteMutation = useDeleteMyCompany();
   const { sortedData, sortKey, sortDirection, requestSort } = useTableSort(companies || []);
+  const columnVisibility = useColumnVisibility("companies", COMPANY_COLUMNS);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingCompanyId, setEditingCompanyId] = useState<number | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<MyCompany | null>(null);
@@ -812,10 +823,13 @@ export default function Companies() {
           <h2 className="text-2xl font-bold" data-testid="text-companies-title">Zoznam spolocnosti</h2>
           <p className="text-sm text-muted-foreground mt-1">Sprava vaseho portfelia firiem.</p>
         </div>
-        <Button onClick={openCreate} data-testid="button-add-company">
-          <Plus className="w-4 h-4 mr-2" />
-          Pridat novu spolocnost
-        </Button>
+        <div className="flex items-center gap-2 flex-wrap">
+          <ColumnManager columnVisibility={columnVisibility} />
+          <Button onClick={openCreate} data-testid="button-add-company">
+            <Plus className="w-4 h-4 mr-2" />
+            Pridat novu spolocnost
+          </Button>
+        </div>
       </div>
 
       <Card>
@@ -823,11 +837,11 @@ export default function Companies() {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead sortKey="name" sortDirection={sortKey === "name" ? sortDirection : null} onSort={requestSort}>Nazov</TableHead>
-                <TableHead sortKey="ico" sortDirection={sortKey === "ico" ? sortDirection : null} onSort={requestSort}>ICO</TableHead>
-                <TableHead sortKey="specialization" sortDirection={sortKey === "specialization" ? sortDirection : null} onSort={requestSort}>Zameranie</TableHead>
-                <TableHead sortKey="city" sortDirection={sortKey === "city" ? sortDirection : null} onSort={requestSort}>Mesto</TableHead>
-                <TableHead>Stat</TableHead>
+                {columnVisibility.isVisible("name") && <TableHead sortKey="name" sortDirection={sortKey === "name" ? sortDirection : null} onSort={requestSort}>Nazov</TableHead>}
+                {columnVisibility.isVisible("ico") && <TableHead sortKey="ico" sortDirection={sortKey === "ico" ? sortDirection : null} onSort={requestSort}>ICO</TableHead>}
+                {columnVisibility.isVisible("specialization") && <TableHead sortKey="specialization" sortDirection={sortKey === "specialization" ? sortDirection : null} onSort={requestSort}>Zameranie</TableHead>}
+                {columnVisibility.isVisible("city") && <TableHead sortKey="city" sortDirection={sortKey === "city" ? sortDirection : null} onSort={requestSort}>Mesto</TableHead>}
+                {columnVisibility.isVisible("state") && <TableHead>Stat</TableHead>}
                 <TableHead className="w-[160px]">Akcie</TableHead>
               </TableRow>
             </TableHeader>
@@ -846,13 +860,13 @@ export default function Companies() {
               )}
               {sortedData.map(company => (
                 <TableRow key={company.id} data-testid={`row-company-${company.id}`}>
-                  <TableCell className="font-medium">{company.name}</TableCell>
-                  <TableCell className="font-mono text-xs">{company.ico || "-"}</TableCell>
-                  <TableCell>
+                  {columnVisibility.isVisible("name") && <TableCell className="font-medium">{company.name}</TableCell>}
+                  {columnVisibility.isVisible("ico") && <TableCell className="font-mono text-xs">{company.ico || "-"}</TableCell>}
+                  {columnVisibility.isVisible("specialization") && <TableCell>
                     <Badge variant="secondary">{company.specialization}</Badge>
-                  </TableCell>
-                  <TableCell>{company.city || "-"}</TableCell>
-                  <TableCell>{getStateName(company.stateId)}</TableCell>
+                  </TableCell>}
+                  {columnVisibility.isVisible("city") && <TableCell>{company.city || "-"}</TableCell>}
+                  {columnVisibility.isVisible("state") && <TableCell>{getStateName(company.stateId)}</TableCell>}
                   <TableCell>
                     <div className="flex items-center gap-1">
                       <Button size="icon" variant="ghost" onClick={() => setViewTarget(company)} data-testid={`button-view-${company.id}`}>

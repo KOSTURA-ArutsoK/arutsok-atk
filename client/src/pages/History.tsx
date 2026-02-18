@@ -3,6 +3,8 @@ import { useQuery } from "@tanstack/react-query";
 import { useTableSort } from "@/hooks/use-table-sort";
 import type { AuditLog } from "@shared/schema";
 import { History as HistoryIcon, Search, Filter, ChevronLeft, ChevronRight, Clock, User, Database } from "lucide-react";
+import { useColumnVisibility, type ColumnDef } from "@/hooks/use-column-visibility";
+import { ColumnManager } from "@/components/column-manager";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -66,6 +68,16 @@ const ACTION_VARIANTS: Record<string, "default" | "secondary" | "destructive" | 
 
 const PAGE_SIZE = 25;
 
+const COLUMNS: ColumnDef[] = [
+  { key: "id", label: "ID" },
+  { key: "createdAt", label: "Cas" },
+  { key: "username", label: "Pouzivatel" },
+  { key: "action", label: "Akcia" },
+  { key: "module", label: "Modul" },
+  { key: "entityName", label: "Entita" },
+  { key: "processingTimeSec", label: "Cas spracovania" },
+];
+
 export default function History() {
   const [filterModule, setFilterModule] = useState<string>("all");
   const [filterAction, setFilterAction] = useState<string>("all");
@@ -99,6 +111,7 @@ export default function History() {
 
   const logs = data?.logs || [];
   const { sortedData: sortedLogs, sortKey, sortDirection, requestSort } = useTableSort(logs);
+  const columnVisibility = useColumnVisibility("history", COLUMNS);
   const total = data?.total || 0;
   const totalPages = Math.ceil(total / PAGE_SIZE);
 
@@ -180,9 +193,12 @@ export default function History() {
             <p className="text-xs text-muted-foreground">Audit trail vsetkych zmien v systeme</p>
           </div>
         </div>
-        <Badge variant="outline" data-testid="text-total-logs">
-          {total} zaznamov
-        </Badge>
+        <div className="flex items-center gap-2 flex-wrap">
+          <ColumnManager columnVisibility={columnVisibility} />
+          <Badge variant="outline" data-testid="text-total-logs">
+            {total} zaznamov
+          </Badge>
+        </div>
       </div>
 
       <Card>
@@ -286,41 +302,41 @@ export default function History() {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead className="w-[50px]" sortKey="id" sortDirection={sortKey === "id" ? sortDirection : null} onSort={requestSort}>ID</TableHead>
-                    <TableHead className="w-[160px]" sortKey="createdAt" sortDirection={sortKey === "createdAt" ? sortDirection : null} onSort={requestSort}>Cas</TableHead>
-                    <TableHead className="w-[120px]" sortKey="username" sortDirection={sortKey === "username" ? sortDirection : null} onSort={requestSort}>Pouzivatel</TableHead>
-                    <TableHead className="w-[90px]" sortKey="action" sortDirection={sortKey === "action" ? sortDirection : null} onSort={requestSort}>Akcia</TableHead>
-                    <TableHead className="w-[120px]" sortKey="module" sortDirection={sortKey === "module" ? sortDirection : null} onSort={requestSort}>Modul</TableHead>
-                    <TableHead sortKey="entityName" sortDirection={sortKey === "entityName" ? sortDirection : null} onSort={requestSort}>Entita</TableHead>
-                    <TableHead className="w-[100px] text-right" sortKey="processingTimeSec" sortDirection={sortKey === "processingTimeSec" ? sortDirection : null} onSort={requestSort}>Cas spracovania</TableHead>
+                    {columnVisibility.isVisible("id") && <TableHead className="w-[50px]" sortKey="id" sortDirection={sortKey === "id" ? sortDirection : null} onSort={requestSort}>ID</TableHead>}
+                    {columnVisibility.isVisible("createdAt") && <TableHead className="w-[160px]" sortKey="createdAt" sortDirection={sortKey === "createdAt" ? sortDirection : null} onSort={requestSort}>Cas</TableHead>}
+                    {columnVisibility.isVisible("username") && <TableHead className="w-[120px]" sortKey="username" sortDirection={sortKey === "username" ? sortDirection : null} onSort={requestSort}>Pouzivatel</TableHead>}
+                    {columnVisibility.isVisible("action") && <TableHead className="w-[90px]" sortKey="action" sortDirection={sortKey === "action" ? sortDirection : null} onSort={requestSort}>Akcia</TableHead>}
+                    {columnVisibility.isVisible("module") && <TableHead className="w-[120px]" sortKey="module" sortDirection={sortKey === "module" ? sortDirection : null} onSort={requestSort}>Modul</TableHead>}
+                    {columnVisibility.isVisible("entityName") && <TableHead sortKey="entityName" sortDirection={sortKey === "entityName" ? sortDirection : null} onSort={requestSort}>Entita</TableHead>}
+                    {columnVisibility.isVisible("processingTimeSec") && <TableHead className="w-[100px] text-right" sortKey="processingTimeSec" sortDirection={sortKey === "processingTimeSec" ? sortDirection : null} onSort={requestSort}>Cas spracovania</TableHead>}
                     <TableHead className="w-[50px]" />
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {sortedLogs.map(log => (
                     <TableRow key={log.id} className="hover-elevate cursor-pointer" onClick={() => setDetailLog(log)} data-testid={`row-audit-log-${log.id}`}>
-                      <TableCell className="font-mono text-xs text-muted-foreground">{log.id}</TableCell>
-                      <TableCell className="text-xs">{formatDate(log.createdAt)}</TableCell>
-                      <TableCell className="text-xs font-medium">{log.username || "-"}</TableCell>
-                      <TableCell>
+                      {columnVisibility.isVisible("id") && <TableCell className="font-mono text-xs text-muted-foreground">{log.id}</TableCell>}
+                      {columnVisibility.isVisible("createdAt") && <TableCell className="text-xs">{formatDate(log.createdAt)}</TableCell>}
+                      {columnVisibility.isVisible("username") && <TableCell className="text-xs font-medium">{log.username || "-"}</TableCell>}
+                      {columnVisibility.isVisible("action") && <TableCell>
                         <Badge variant={ACTION_VARIANTS[log.action] || "outline"} className="text-[10px]">
                           {ACTION_LABELS[log.action] || log.action}
                         </Badge>
-                      </TableCell>
-                      <TableCell>
+                      </TableCell>}
+                      {columnVisibility.isVisible("module") && <TableCell>
                         <Badge variant="outline" className="text-[10px]">
                           {MODULE_LABELS[log.module] || log.module}
                         </Badge>
-                      </TableCell>
-                      <TableCell className="text-xs max-w-[200px] truncate">
+                      </TableCell>}
+                      {columnVisibility.isVisible("entityName") && <TableCell className="text-xs max-w-[200px] truncate">
                         {log.entityName || (log.entityId ? `#${log.entityId}` : "-")}
-                      </TableCell>
-                      <TableCell className="text-right font-mono text-xs">
+                      </TableCell>}
+                      {columnVisibility.isVisible("processingTimeSec") && <TableCell className="text-right font-mono text-xs">
                         <span className="flex items-center justify-end gap-1">
                           <Clock className="w-3 h-3 text-muted-foreground" />
                           {formatProcessingTime(log.processingTimeSec ?? 0)}
                         </span>
-                      </TableCell>
+                      </TableCell>}
                       <TableCell>
                         <Button
                           variant="ghost"

@@ -3,6 +3,8 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { useTableSort } from "@/hooks/use-table-sort";
+import { useColumnVisibility, type ColumnDef } from "@/hooks/use-column-visibility";
+import { ColumnManager } from "@/components/column-manager";
 import { Plus, Pencil, Trash2, Clock, Upload, Image, Globe } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -41,6 +43,14 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import type { State, StateFlagHistory } from "@shared/schema";
+
+const STATE_COLUMNS: ColumnDef[] = [
+  { key: "id", label: "ID" },
+  { key: "name", label: "Nazov" },
+  { key: "code", label: "Skratka" },
+  { key: "continentId", label: "Kontinent" },
+  { key: "flagUrl", label: "Vlajka" },
+];
 
 function FlagImage({
   src,
@@ -371,6 +381,7 @@ export default function SettingsStates() {
   });
 
   const { sortedData: sortedStates, sortKey, sortDirection, requestSort } = useTableSort(allStates || []);
+  const columnVisibility = useColumnVisibility("settings-states", STATE_COLUMNS);
 
   const deleteMutation = useMutation({
     mutationFn: (id: number) => apiRequest("DELETE", `/api/states/${id}`),
@@ -393,13 +404,16 @@ export default function SettingsStates() {
           <h1 className="text-xl font-bold" data-testid="text-page-title">Staty</h1>
           <p className="text-sm text-muted-foreground">Sprava statov a vlajok</p>
         </div>
-        <Button
-          onClick={() => { setEditingState(null); setFormOpen(true); }}
-          data-testid="button-add-state"
-        >
-          <Plus className="w-4 h-4 mr-2" />
-          Pridat stat
-        </Button>
+        <div className="flex items-center gap-2 flex-wrap">
+          <ColumnManager columnVisibility={columnVisibility} />
+          <Button
+            onClick={() => { setEditingState(null); setFormOpen(true); }}
+            data-testid="button-add-state"
+          >
+            <Plus className="w-4 h-4 mr-2" />
+            Pridat stat
+          </Button>
+        </div>
       </div>
 
       <Card>
@@ -412,30 +426,30 @@ export default function SettingsStates() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead sortKey="id" sortDirection={sortKey === "id" ? sortDirection : null} onSort={requestSort}>ID</TableHead>
-                  <TableHead sortKey="name" sortDirection={sortKey === "name" ? sortDirection : null} onSort={requestSort}>Nazov</TableHead>
-                  <TableHead sortKey="code" sortDirection={sortKey === "code" ? sortDirection : null} onSort={requestSort}>Skratka</TableHead>
-                  <TableHead sortKey="continentId" sortDirection={sortKey === "continentId" ? sortDirection : null} onSort={requestSort}>Kontinent</TableHead>
-                  <TableHead>Vlajka</TableHead>
+                  {columnVisibility.isVisible("id") && <TableHead sortKey="id" sortDirection={sortKey === "id" ? sortDirection : null} onSort={requestSort}>ID</TableHead>}
+                  {columnVisibility.isVisible("name") && <TableHead sortKey="name" sortDirection={sortKey === "name" ? sortDirection : null} onSort={requestSort}>Nazov</TableHead>}
+                  {columnVisibility.isVisible("code") && <TableHead sortKey="code" sortDirection={sortKey === "code" ? sortDirection : null} onSort={requestSort}>Skratka</TableHead>}
+                  {columnVisibility.isVisible("continentId") && <TableHead sortKey="continentId" sortDirection={sortKey === "continentId" ? sortDirection : null} onSort={requestSort}>Kontinent</TableHead>}
+                  {columnVisibility.isVisible("flagUrl") && <TableHead>Vlajka</TableHead>}
                   <TableHead className="text-right">Akcie</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {sortedStates.map(state => (
                   <TableRow key={state.id} data-testid={`row-state-${state.id}`}>
-                    <TableCell>
+                    {columnVisibility.isVisible("id") && <TableCell>
                       <Badge variant="outline">{state.id}</Badge>
-                    </TableCell>
-                    <TableCell className="font-medium" data-testid={`text-state-name-${state.id}`}>
+                    </TableCell>}
+                    {columnVisibility.isVisible("name") && <TableCell className="font-medium" data-testid={`text-state-name-${state.id}`}>
                       {state.name}
-                    </TableCell>
-                    <TableCell data-testid={`text-state-code-${state.id}`}>
+                    </TableCell>}
+                    {columnVisibility.isVisible("code") && <TableCell data-testid={`text-state-code-${state.id}`}>
                       {state.code}
-                    </TableCell>
-                    <TableCell>{getContinentName(state.continentId)}</TableCell>
-                    <TableCell>
+                    </TableCell>}
+                    {columnVisibility.isVisible("continentId") && <TableCell>{getContinentName(state.continentId)}</TableCell>}
+                    {columnVisibility.isVisible("flagUrl") && <TableCell>
                       <FlagImage src={state.flagUrl} alt={state.name} code={state.code} className="h-6 object-contain" />
-                    </TableCell>
+                    </TableCell>}
                     <TableCell className="text-right">
                       <div className="flex items-center justify-end gap-1">
                         <Button

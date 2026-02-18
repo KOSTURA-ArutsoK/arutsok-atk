@@ -2,6 +2,8 @@ import { useState, useRef, useCallback, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useTableSort } from "@/hooks/use-table-sort";
+import { useColumnVisibility, type ColumnDef } from "@/hooks/use-column-visibility";
+import { ColumnManager } from "@/components/column-manager";
 import { usePartners } from "@/hooks/use-partners";
 import { useAppUser } from "@/hooks/use-app-user";
 import { useToast } from "@/hooks/use-toast";
@@ -49,6 +51,16 @@ import { RichTextEditor } from "@/components/rich-text-editor";
 import { ProcessingSaveButton } from "@/components/processing-save-button";
 import { HelpIcon } from "@/components/help-icon";
 import { MultiSelectCheckboxes } from "@/components/multi-select-checkboxes";
+
+const PRODUCT_COLUMNS: ColumnDef[] = [
+  { key: "code", label: "Kod" },
+  { key: "name", label: "Nazov" },
+  { key: "displayName", label: "Zobrazovaci nazov" },
+  { key: "partnerId", label: "Partner" },
+  { key: "companyId", label: "Spolocnost" },
+  { key: "stateId", label: "Stat" },
+  { key: "allowedSpecialists", label: "Povoleni specialisti" },
+];
 
 const SPECIALIST_TYPES = ["NBS", "Zbrojny preukaz", "Reality", "Poistenie", "Dochodok", "Ine"];
 
@@ -811,6 +823,7 @@ export default function Products() {
   const [deleteProduct, setDeleteProduct] = useState<Product | null>(null);
   const [deleteOpen, setDeleteOpen] = useState(false);
 
+  const columnVisibility = useColumnVisibility("products", PRODUCT_COLUMNS);
   const activeProducts = products?.filter(p => !p.isDeleted) || [];
   const { sortedData: sortedProducts, sortKey, sortDirection, requestSort } = useTableSort(activeProducts);
 
@@ -855,9 +868,12 @@ export default function Products() {
           </div>
           <Badge variant="secondary">{activeProducts.length}</Badge>
         </div>
-        <Button onClick={handleAdd} data-testid="button-add-product">
-          <Plus className="w-4 h-4 mr-1" /> Pridat produkt
-        </Button>
+        <div className="flex items-center gap-2 flex-wrap">
+          <ColumnManager columnVisibility={columnVisibility} />
+          <Button onClick={handleAdd} data-testid="button-add-product">
+            <Plus className="w-4 h-4 mr-1" /> Pridat produkt
+          </Button>
+        </div>
       </div>
 
       <Card>
@@ -874,26 +890,26 @@ export default function Products() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead sortKey="code" sortDirection={sortKey === "code" ? sortDirection : null} onSort={requestSort}>Kod</TableHead>
-                  <TableHead sortKey="name" sortDirection={sortKey === "name" ? sortDirection : null} onSort={requestSort}>Nazov</TableHead>
-                  <TableHead sortKey="displayName" sortDirection={sortKey === "displayName" ? sortDirection : null} onSort={requestSort}>Zobrazovaci nazov</TableHead>
-                  <TableHead sortKey="partnerId" sortDirection={sortKey === "partnerId" ? sortDirection : null} onSort={requestSort}>Partner</TableHead>
-                  <TableHead sortKey="companyId" sortDirection={sortKey === "companyId" ? sortDirection : null} onSort={requestSort}>Spolocnost</TableHead>
-                  <TableHead sortKey="stateId" sortDirection={sortKey === "stateId" ? sortDirection : null} onSort={requestSort}>Stat</TableHead>
-                  <TableHead>Povoleni specialisti</TableHead>
+                  {columnVisibility.isVisible("code") && <TableHead sortKey="code" sortDirection={sortKey === "code" ? sortDirection : null} onSort={requestSort}>Kod</TableHead>}
+                  {columnVisibility.isVisible("name") && <TableHead sortKey="name" sortDirection={sortKey === "name" ? sortDirection : null} onSort={requestSort}>Nazov</TableHead>}
+                  {columnVisibility.isVisible("displayName") && <TableHead sortKey="displayName" sortDirection={sortKey === "displayName" ? sortDirection : null} onSort={requestSort}>Zobrazovaci nazov</TableHead>}
+                  {columnVisibility.isVisible("partnerId") && <TableHead sortKey="partnerId" sortDirection={sortKey === "partnerId" ? sortDirection : null} onSort={requestSort}>Partner</TableHead>}
+                  {columnVisibility.isVisible("companyId") && <TableHead sortKey="companyId" sortDirection={sortKey === "companyId" ? sortDirection : null} onSort={requestSort}>Spolocnost</TableHead>}
+                  {columnVisibility.isVisible("stateId") && <TableHead sortKey="stateId" sortDirection={sortKey === "stateId" ? sortDirection : null} onSort={requestSort}>Stat</TableHead>}
+                  {columnVisibility.isVisible("allowedSpecialists") && <TableHead>Povoleni specialisti</TableHead>}
                   <TableHead className="text-right">Akcie</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {sortedProducts.map(product => (
                   <TableRow key={product.id} data-testid={`row-product-${product.id}`}>
-                    <TableCell className="font-mono text-xs">{product.code}</TableCell>
-                    <TableCell className="font-medium">{product.name}</TableCell>
-                    <TableCell className="text-sm text-muted-foreground">{product.displayName || "-"}</TableCell>
-                    <TableCell className="text-sm">{getPartnerName(product.partnerId)}</TableCell>
-                    <TableCell className="text-sm">{getCompanyName(product.companyId)}</TableCell>
-                    <TableCell className="text-sm">{getStateName(product.stateId)}</TableCell>
-                    <TableCell>
+                    {columnVisibility.isVisible("code") && <TableCell className="font-mono text-xs">{product.code}</TableCell>}
+                    {columnVisibility.isVisible("name") && <TableCell className="font-medium">{product.name}</TableCell>}
+                    {columnVisibility.isVisible("displayName") && <TableCell className="text-sm text-muted-foreground">{product.displayName || "-"}</TableCell>}
+                    {columnVisibility.isVisible("partnerId") && <TableCell className="text-sm">{getPartnerName(product.partnerId)}</TableCell>}
+                    {columnVisibility.isVisible("companyId") && <TableCell className="text-sm">{getCompanyName(product.companyId)}</TableCell>}
+                    {columnVisibility.isVisible("stateId") && <TableCell className="text-sm">{getStateName(product.stateId)}</TableCell>}
+                    {columnVisibility.isVisible("allowedSpecialists") && <TableCell>
                       <div className="flex items-center gap-1 flex-wrap">
                         {product.allowedSpecialists && product.allowedSpecialists.length > 0
                           ? product.allowedSpecialists.map(s => (
@@ -902,7 +918,7 @@ export default function Products() {
                           : <span className="text-xs text-muted-foreground">-</span>
                         }
                       </div>
-                    </TableCell>
+                    </TableCell>}
                     <TableCell className="text-right">
                       <div className="flex items-center justify-end gap-1">
                         <Button size="icon" variant="ghost" onClick={() => setDetailProduct(product)} data-testid={`button-view-product-${product.id}`}>

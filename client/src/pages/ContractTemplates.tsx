@@ -5,6 +5,8 @@ import { useAppUser } from "@/hooks/use-app-user";
 import { useStates } from "@/hooks/use-hierarchy";
 import { useToast } from "@/hooks/use-toast";
 import { useTableSort } from "@/hooks/use-table-sort";
+import { useColumnVisibility, type ColumnDef } from "@/hooks/use-column-visibility";
+import { ColumnManager } from "@/components/column-manager";
 import type { ContractTemplate } from "@shared/schema";
 import { Plus, Pencil, Upload, FileText, Loader2, ExternalLink } from "lucide-react";
 import { ConditionalDelete } from "@/components/conditional-delete";
@@ -36,6 +38,13 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { ProcessingSaveButton } from "@/components/processing-save-button";
+
+const TEMPLATE_COLUMNS: ColumnDef[] = [
+  { key: "name", label: "Nazov" },
+  { key: "productType", label: "Typ produktu" },
+  { key: "isActive", label: "Stav" },
+  { key: "file", label: "Subor" },
+];
 
 function TemplateFormDialog({
   open,
@@ -331,15 +340,19 @@ export default function ContractTemplates() {
   }
 
   const { sortedData: sortedTemplates, sortKey, sortDirection, requestSort } = useTableSort(templates || []);
+  const columnVisibility = useColumnVisibility("contract-templates", TEMPLATE_COLUMNS);
 
   return (
     <div className="p-6 space-y-6">
       <div className="flex items-center justify-between gap-4 flex-wrap">
         <h1 className="text-2xl font-bold" data-testid="text-page-title">Sprava sablon</h1>
-        <Button onClick={openCreate} data-testid="button-create-template">
-          <Plus className="w-4 h-4 mr-2" />
-          Pridat sablonu
-        </Button>
+        <div className="flex items-center gap-2 flex-wrap">
+          <ColumnManager columnVisibility={columnVisibility} />
+          <Button onClick={openCreate} data-testid="button-create-template">
+            <Plus className="w-4 h-4 mr-2" />
+            Pridat sablonu
+          </Button>
+        </div>
       </div>
 
       <Card>
@@ -356,10 +369,10 @@ export default function ContractTemplates() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead sortKey="name" sortDirection={sortKey === "name" ? sortDirection : null} onSort={requestSort}>Nazov</TableHead>
-                  <TableHead sortKey="productType" sortDirection={sortKey === "productType" ? sortDirection : null} onSort={requestSort}>Typ produktu</TableHead>
-                  <TableHead sortKey="isActive" sortDirection={sortKey === "isActive" ? sortDirection : null} onSort={requestSort} className="w-24">Stav</TableHead>
-                  <TableHead>Subor</TableHead>
+                  {columnVisibility.isVisible("name") && <TableHead sortKey="name" sortDirection={sortKey === "name" ? sortDirection : null} onSort={requestSort}>Nazov</TableHead>}
+                  {columnVisibility.isVisible("productType") && <TableHead sortKey="productType" sortDirection={sortKey === "productType" ? sortDirection : null} onSort={requestSort}>Typ produktu</TableHead>}
+                  {columnVisibility.isVisible("isActive") && <TableHead sortKey="isActive" sortDirection={sortKey === "isActive" ? sortDirection : null} onSort={requestSort} className="w-24">Stav</TableHead>}
+                  {columnVisibility.isVisible("file") && <TableHead>Subor</TableHead>}
                   <TableHead className="w-40 text-right">Akcie</TableHead>
                 </TableRow>
               </TableHeader>
@@ -368,13 +381,13 @@ export default function ContractTemplates() {
                   const contractCountForTemplate = (allContracts || []).filter((c: any) => c.templateId === template.id).length;
                   return (
                   <TableRow key={template.id} data-testid={`row-template-${template.id}`}>
-                    <TableCell data-testid={`text-template-name-${template.id}`}>
+                    {columnVisibility.isVisible("name") && <TableCell data-testid={`text-template-name-${template.id}`}>
                       {template.name}
-                    </TableCell>
-                    <TableCell data-testid={`text-template-product-type-${template.id}`}>
+                    </TableCell>}
+                    {columnVisibility.isVisible("productType") && <TableCell data-testid={`text-template-product-type-${template.id}`}>
                       {template.productType || "-"}
-                    </TableCell>
-                    <TableCell>
+                    </TableCell>}
+                    {columnVisibility.isVisible("isActive") && <TableCell>
                       <Badge
                         variant="outline"
                         className={template.isActive ? "border-green-500 text-green-500" : "border-red-500 text-red-500"}
@@ -382,8 +395,8 @@ export default function ContractTemplates() {
                       >
                         {template.isActive ? "Aktivna" : "Neaktivna"}
                       </Badge>
-                    </TableCell>
-                    <TableCell data-testid={`text-template-file-${template.id}`}>
+                    </TableCell>}
+                    {columnVisibility.isVisible("file") && <TableCell data-testid={`text-template-file-${template.id}`}>
                       {template.fileOriginalName && template.fileUrl ? (
                         <a
                           href={template.fileUrl}
@@ -399,7 +412,7 @@ export default function ContractTemplates() {
                       ) : (
                         <span className="text-muted-foreground text-sm">-</span>
                       )}
-                    </TableCell>
+                    </TableCell>}
                     <TableCell className="text-right">
                       <div className="flex items-center justify-end gap-1 flex-wrap">
                         <input

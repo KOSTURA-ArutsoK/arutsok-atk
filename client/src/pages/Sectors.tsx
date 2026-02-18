@@ -40,6 +40,52 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { ProcessingSaveButton } from "@/components/processing-save-button";
 import { SortableTableRow, SortableContext_Wrapper } from "@/components/sortable-list";
+import { useColumnVisibility, type ColumnDef } from "@/hooks/use-column-visibility";
+import { ColumnManager } from "@/components/column-manager";
+
+const SECTOR_COLUMNS: ColumnDef[] = [
+  { key: "name", label: "Nazov sektoru" },
+  { key: "sectorType", label: "Typ" },
+  { key: "productCount", label: "Produkty" },
+  { key: "partnerNames", label: "Firmy posobiace v sektore" },
+  { key: "description", label: "Popis" },
+];
+
+const SECTION_COLUMNS: ColumnDef[] = [
+  { key: "name", label: "Nazov sekcie" },
+  { key: "sectorId", label: "Sektor" },
+  { key: "productCount", label: "Produkty" },
+  { key: "description", label: "Popis" },
+];
+
+const SECTOR_PRODUCT_COLUMNS: ColumnDef[] = [
+  { key: "name", label: "Nazov produktu" },
+  { key: "abbreviation", label: "Skratka produktu" },
+  { key: "sectionId", label: "Sekcia" },
+  { key: "folderCount", label: "Priecinky" },
+];
+
+const PARAMETER_COLUMNS: ColumnDef[] = [
+  { key: "name", label: "Nazov" },
+  { key: "paramType", label: "Typ" },
+  { key: "isRequired", label: "Povinny udaj" },
+  { key: "defaultValue", label: "Predvolena hodnota k danemu parametru" },
+  { key: "helpText", label: "Napoveda" },
+];
+
+const PANEL_COLUMNS: ColumnDef[] = [
+  { key: "panelId", label: "ID" },
+  { key: "panelName", label: "Nazov" },
+  { key: "panelDescription", label: "Popis" },
+  { key: "panelParameters", label: "Parametre" },
+];
+
+const FOLDER_COLUMNS: ColumnDef[] = [
+  { key: "folderId", label: "ID" },
+  { key: "folderName", label: "Nazov" },
+  { key: "folderPanels", label: "Panely" },
+  { key: "folderSortOrder", label: "Poradie" },
+];
 
 type HierarchyCounts = {
   sectorSections: Record<number, number>;
@@ -1059,6 +1105,7 @@ function SectionsTab() {
   const [editingSection, setEditingSection] = useState<Section | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Section | null>(null);
   const { data: hierarchyCounts } = useHierarchyCounts();
+  const columnVisibility = useColumnVisibility("sections", SECTION_COLUMNS);
 
   const { data: sectors } = useQuery<Sector[]>({
     queryKey: ["/api/sectors"],
@@ -1117,6 +1164,7 @@ function SectionsTab() {
             ))}
           </SelectContent>
         </Select>
+        <ColumnManager columnVisibility={columnVisibility} />
         <Button onClick={() => { setEditingSection(null); setDialogOpen(true); }} data-testid="button-add-section">
           <Plus className="w-4 h-4 mr-2" /> Pridat sekciu
         </Button>
@@ -1132,10 +1180,10 @@ function SectionsTab() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead sortKey="name" sortDirection={sectionSortKey === "name" ? sectionSortDirection : null} onSort={sectionRequestSort}>Nazov sekcie</TableHead>
-                  <TableHead sortKey="sectorId" sortDirection={sectionSortKey === "sectorId" ? sectionSortDirection : null} onSort={sectionRequestSort}>Sektor</TableHead>
-                  <TableHead>Produkty</TableHead>
-                  <TableHead sortKey="description" sortDirection={sectionSortKey === "description" ? sectionSortDirection : null} onSort={sectionRequestSort}>Popis</TableHead>
+                  {columnVisibility.isVisible("name") && <TableHead sortKey="name" sortDirection={sectionSortKey === "name" ? sectionSortDirection : null} onSort={sectionRequestSort}>Nazov sekcie</TableHead>}
+                  {columnVisibility.isVisible("sectorId") && <TableHead sortKey="sectorId" sortDirection={sectionSortKey === "sectorId" ? sectionSortDirection : null} onSort={sectionRequestSort}>Sektor</TableHead>}
+                  {columnVisibility.isVisible("productCount") && <TableHead>Produkty</TableHead>}
+                  {columnVisibility.isVisible("description") && <TableHead sortKey="description" sortDirection={sectionSortKey === "description" ? sectionSortDirection : null} onSort={sectionRequestSort}>Popis</TableHead>}
                   <TableHead>Akcie</TableHead>
                 </TableRow>
               </TableHeader>
@@ -1149,16 +1197,16 @@ function SectionsTab() {
                 ) : (
                   sortedSections.map(section => (
                     <TableRow key={section.id} data-testid={`row-section-${section.id}`}>
-                      <TableCell className="font-medium">{section.name}</TableCell>
-                      <TableCell>
+                      {columnVisibility.isVisible("name") && <TableCell className="font-medium">{section.name}</TableCell>}
+                      {columnVisibility.isVisible("sectorId") && <TableCell>
                         <Badge variant="outline">{getSectorName(section.sectorId)}</Badge>
-                      </TableCell>
-                      <TableCell>
+                      </TableCell>}
+                      {columnVisibility.isVisible("productCount") && <TableCell>
                         <Badge variant="secondary" data-testid={`badge-section-product-count-${section.id}`}>{hierarchyCounts?.sectionProducts?.[section.id] ?? 0}</Badge>
-                      </TableCell>
-                      <TableCell className="text-sm text-muted-foreground max-w-[200px] truncate">
+                      </TableCell>}
+                      {columnVisibility.isVisible("description") && <TableCell className="text-sm text-muted-foreground max-w-[200px] truncate">
                         {section.description || "-"}
-                      </TableCell>
+                      </TableCell>}
                       <TableCell>
                         <div className="flex items-center gap-1">
                           <Button
@@ -1211,6 +1259,7 @@ function SectorsTab() {
   const [deleteTarget, setDeleteTarget] = useState<Sector | null>(null);
   const { data: partners } = usePartners();
   const { data: hierarchyCounts } = useHierarchyCounts();
+  const columnVisibility = useColumnVisibility("sectors", SECTOR_COLUMNS);
 
   const { data: sectors, isLoading } = useQuery<Sector[]>({
     queryKey: ["/api/sectors"],
@@ -1252,6 +1301,7 @@ function SectorsTab() {
             data-testid="input-search-sectors"
           />
         </div>
+        <ColumnManager columnVisibility={columnVisibility} />
         <Button onClick={() => { setEditingSector(null); setDialogOpen(true); }} data-testid="button-add-sector">
           <Plus className="w-4 h-4 mr-2" /> Pridat sektor
         </Button>
@@ -1267,11 +1317,11 @@ function SectorsTab() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead sortKey="name" sortDirection={sectorSortKey === "name" ? sectorSortDirection : null} onSort={sectorRequestSort}>Nazov sektoru</TableHead>
-                  <TableHead sortKey="sectorType" sortDirection={sectorSortKey === "sectorType" ? sectorSortDirection : null} onSort={sectorRequestSort}>Typ</TableHead>
-                  <TableHead>Produkty</TableHead>
-                  <TableHead>Firmy posobiace v sektore</TableHead>
-                  <TableHead sortKey="description" sortDirection={sectorSortKey === "description" ? sectorSortDirection : null} onSort={sectorRequestSort}>Popis</TableHead>
+                  {columnVisibility.isVisible("name") && <TableHead sortKey="name" sortDirection={sectorSortKey === "name" ? sectorSortDirection : null} onSort={sectorRequestSort}>Nazov sektoru</TableHead>}
+                  {columnVisibility.isVisible("sectorType") && <TableHead sortKey="sectorType" sortDirection={sectorSortKey === "sectorType" ? sectorSortDirection : null} onSort={sectorRequestSort}>Typ</TableHead>}
+                  {columnVisibility.isVisible("productCount") && <TableHead>Produkty</TableHead>}
+                  {columnVisibility.isVisible("partnerNames") && <TableHead>Firmy posobiace v sektore</TableHead>}
+                  {columnVisibility.isVisible("description") && <TableHead sortKey="description" sortDirection={sectorSortKey === "description" ? sectorSortDirection : null} onSort={sectorRequestSort}>Popis</TableHead>}
                   <TableHead>Akcie</TableHead>
                 </TableRow>
               </TableHeader>
@@ -1285,19 +1335,19 @@ function SectorsTab() {
                 ) : (
                   sortedSectors.map(sector => (
                     <TableRow key={sector.id} data-testid={`row-sector-${sector.id}`}>
-                      <TableCell className="font-medium">{sector.name}</TableCell>
-                      <TableCell>
+                      {columnVisibility.isVisible("name") && <TableCell className="font-medium">{sector.name}</TableCell>}
+                      {columnVisibility.isVisible("sectorType") && <TableCell>
                         <Badge variant="outline">{sector.sectorType}</Badge>
-                      </TableCell>
-                      <TableCell>
+                      </TableCell>}
+                      {columnVisibility.isVisible("productCount") && <TableCell>
                         <Badge variant="secondary" data-testid={`badge-sector-product-count-${sector.id}`}>{hierarchyCounts?.sectorProducts?.[sector.id] ?? 0}</Badge>
-                      </TableCell>
-                      <TableCell className="text-sm text-muted-foreground max-w-[250px] truncate">
+                      </TableCell>}
+                      {columnVisibility.isVisible("partnerNames") && <TableCell className="text-sm text-muted-foreground max-w-[250px] truncate">
                         {getPartnerNames(sector.partnerIds)}
-                      </TableCell>
-                      <TableCell className="text-sm text-muted-foreground max-w-[200px] truncate">
+                      </TableCell>}
+                      {columnVisibility.isVisible("description") && <TableCell className="text-sm text-muted-foreground max-w-[200px] truncate">
                         {sector.description || "-"}
-                      </TableCell>
+                      </TableCell>}
                       <TableCell>
                         <div className="flex items-center gap-1">
                           <Button
@@ -1350,6 +1400,7 @@ function ProductsTab() {
   const [deleteTarget, setDeleteTarget] = useState<SectorProduct | null>(null);
   const [panelAssignProduct, setPanelAssignProduct] = useState<SectorProduct | null>(null);
   const { data: hierarchyCounts } = useHierarchyCounts();
+  const columnVisibility = useColumnVisibility("sector-products", SECTOR_PRODUCT_COLUMNS);
 
   const { data: sections } = useQuery<Section[]>({
     queryKey: ["/api/sections"],
@@ -1406,6 +1457,7 @@ function ProductsTab() {
             ))}
           </SelectContent>
         </Select>
+        <ColumnManager columnVisibility={columnVisibility} />
         <Button onClick={() => { setEditingProduct(null); setDialogOpen(true); }} data-testid="button-add-sector-product">
           <Plus className="w-4 h-4 mr-2" /> Pridat produkt
         </Button>
@@ -1421,10 +1473,10 @@ function ProductsTab() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead sortKey="name" sortDirection={prodSortKey === "name" ? prodSortDirection : null} onSort={prodRequestSort}>Nazov produktu</TableHead>
-                  <TableHead sortKey="abbreviation" sortDirection={prodSortKey === "abbreviation" ? prodSortDirection : null} onSort={prodRequestSort}>Skratka produktu</TableHead>
-                  <TableHead sortKey="sectionId" sortDirection={prodSortKey === "sectionId" ? prodSortDirection : null} onSort={prodRequestSort}>Sekcia</TableHead>
-                  <TableHead>Priecinky</TableHead>
+                  {columnVisibility.isVisible("name") && <TableHead sortKey="name" sortDirection={prodSortKey === "name" ? prodSortDirection : null} onSort={prodRequestSort}>Nazov produktu</TableHead>}
+                  {columnVisibility.isVisible("abbreviation") && <TableHead sortKey="abbreviation" sortDirection={prodSortKey === "abbreviation" ? prodSortDirection : null} onSort={prodRequestSort}>Skratka produktu</TableHead>}
+                  {columnVisibility.isVisible("sectionId") && <TableHead sortKey="sectionId" sortDirection={prodSortKey === "sectionId" ? prodSortDirection : null} onSort={prodRequestSort}>Sekcia</TableHead>}
+                  {columnVisibility.isVisible("folderCount") && <TableHead>Priecinky</TableHead>}
                   <TableHead>Akcie</TableHead>
                 </TableRow>
               </TableHeader>
@@ -1444,6 +1496,7 @@ function ProductsTab() {
                       folderCount={hierarchyCounts?.productFolders?.[product.id] ?? 0}
                       onEdit={() => { setEditingProduct(product); setDialogOpen(true); }}
                       onDelete={() => setDeleteTarget(product)}
+                      columnVisibility={columnVisibility}
                     />
                   ))
                 )}
@@ -1484,23 +1537,25 @@ function ProductTableRow({
   folderCount,
   onEdit,
   onDelete,
+  columnVisibility,
 }: {
   product: SectorProduct;
   sectionName: string;
   folderCount: number;
   onEdit: () => void;
   onDelete: () => void;
+  columnVisibility: ReturnType<typeof useColumnVisibility>;
 }) {
   return (
     <TableRow data-testid={`row-sector-product-${product.id}`}>
-      <TableCell className="font-medium">{product.name}</TableCell>
-      <TableCell className="font-mono text-sm">{product.abbreviation || "-"}</TableCell>
-      <TableCell>
+      {columnVisibility.isVisible("name") && <TableCell className="font-medium">{product.name}</TableCell>}
+      {columnVisibility.isVisible("abbreviation") && <TableCell className="font-mono text-sm">{product.abbreviation || "-"}</TableCell>}
+      {columnVisibility.isVisible("sectionId") && <TableCell>
         <Badge variant="outline">{sectionName}</Badge>
-      </TableCell>
-      <TableCell>
+      </TableCell>}
+      {columnVisibility.isVisible("folderCount") && <TableCell>
         <Badge variant="secondary" data-testid={`badge-product-folder-count-${product.id}`}>{folderCount}</Badge>
-      </TableCell>
+      </TableCell>}
       <TableCell>
         <div className="flex items-center gap-1">
           <Button
@@ -1528,6 +1583,7 @@ function ParametersTab() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingParameter, setEditingParameter] = useState<Parameter | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Parameter | null>(null);
+  const columnVisibility = useColumnVisibility("parameters", PARAMETER_COLUMNS);
 
   const { data: parameters, isLoading } = useQuery<Parameter[]>({
     queryKey: ["/api/parameters"],
@@ -1563,6 +1619,7 @@ function ParametersTab() {
             data-testid="input-search-parameters"
           />
         </div>
+        <ColumnManager columnVisibility={columnVisibility} />
         <Button onClick={() => { setEditingParameter(null); setDialogOpen(true); }} data-testid="button-add-parameter">
           <Plus className="w-4 h-4 mr-2" /> Pridat parameter
         </Button>
@@ -1578,11 +1635,11 @@ function ParametersTab() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead sortKey="name" sortDirection={paramSortKey === "name" ? paramSortDirection : null} onSort={paramRequestSort}>Nazov</TableHead>
-                  <TableHead sortKey="paramType" sortDirection={paramSortKey === "paramType" ? paramSortDirection : null} onSort={paramRequestSort}>Typ</TableHead>
-                  <TableHead sortKey="isRequired" sortDirection={paramSortKey === "isRequired" ? paramSortDirection : null} onSort={paramRequestSort}>Povinny udaj</TableHead>
-                  <TableHead sortKey="defaultValue" sortDirection={paramSortKey === "defaultValue" ? paramSortDirection : null} onSort={paramRequestSort}>Predvolena hodnota k danemu parametru</TableHead>
-                  <TableHead sortKey="helpText" sortDirection={paramSortKey === "helpText" ? paramSortDirection : null} onSort={paramRequestSort}>Napoveda</TableHead>
+                  {columnVisibility.isVisible("name") && <TableHead sortKey="name" sortDirection={paramSortKey === "name" ? paramSortDirection : null} onSort={paramRequestSort}>Nazov</TableHead>}
+                  {columnVisibility.isVisible("paramType") && <TableHead sortKey="paramType" sortDirection={paramSortKey === "paramType" ? paramSortDirection : null} onSort={paramRequestSort}>Typ</TableHead>}
+                  {columnVisibility.isVisible("isRequired") && <TableHead sortKey="isRequired" sortDirection={paramSortKey === "isRequired" ? paramSortDirection : null} onSort={paramRequestSort}>Povinny udaj</TableHead>}
+                  {columnVisibility.isVisible("defaultValue") && <TableHead sortKey="defaultValue" sortDirection={paramSortKey === "defaultValue" ? paramSortDirection : null} onSort={paramRequestSort}>Predvolena hodnota k danemu parametru</TableHead>}
+                  {columnVisibility.isVisible("helpText") && <TableHead sortKey="helpText" sortDirection={paramSortKey === "helpText" ? paramSortDirection : null} onSort={paramRequestSort}>Napoveda</TableHead>}
                   <TableHead>Akcie</TableHead>
                 </TableRow>
               </TableHeader>
@@ -1596,27 +1653,27 @@ function ParametersTab() {
                 ) : (
                   sortedParams.map(param => (
                     <TableRow key={param.id} data-testid={`row-parameter-${param.id}`}>
-                      <TableCell className="font-medium">{param.name}</TableCell>
-                      <TableCell>
+                      {columnVisibility.isVisible("name") && <TableCell className="font-medium">{param.name}</TableCell>}
+                      {columnVisibility.isVisible("paramType") && <TableCell>
                         <div className="flex items-center gap-1.5 flex-wrap">
                           <Badge variant="outline">{getParamTypeLabel(param.paramType)}</Badge>
                           <span style={{ display: param.paramType === "decimal" && (param as any).unit ? 'inline' : 'none' }} className="text-xs text-muted-foreground">{(param as any).unit}</span>
                           <span style={{ display: param.paramType === "decimal" ? 'inline' : 'none' }} className="text-xs text-muted-foreground">({(param as any).decimalPlaces ?? 2} des. miest)</span>
                         </div>
-                      </TableCell>
-                      <TableCell>
+                      </TableCell>}
+                      {columnVisibility.isVisible("isRequired") && <TableCell>
                         {param.isRequired ? (
                           <Badge variant="default">Ano</Badge>
                         ) : (
                           <span className="text-sm text-muted-foreground">Nie</span>
                         )}
-                      </TableCell>
-                      <TableCell className="text-sm text-muted-foreground">
+                      </TableCell>}
+                      {columnVisibility.isVisible("defaultValue") && <TableCell className="text-sm text-muted-foreground">
                         {param.defaultValue || "-"}
-                      </TableCell>
-                      <TableCell className="text-sm text-muted-foreground">
+                      </TableCell>}
+                      {columnVisibility.isVisible("helpText") && <TableCell className="text-sm text-muted-foreground">
                         {param.helpText || "-"}
-                      </TableCell>
+                      </TableCell>}
                       <TableCell>
                         <div className="flex items-center gap-1">
                           <Button
@@ -1856,6 +1913,7 @@ function PanelsTab() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingPanel, setEditingPanel] = useState<Panel | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Panel | null>(null);
+  const columnVisibility = useColumnVisibility("panels", PANEL_COLUMNS);
 
   const { data: panels, isLoading } = useQuery<Panel[]>({
     queryKey: ["/api/panels"],
@@ -1893,6 +1951,7 @@ function PanelsTab() {
             data-testid="input-search-panels"
           />
         </div>
+        <ColumnManager columnVisibility={columnVisibility} />
         <Button onClick={() => { setEditingPanel(null); setDialogOpen(true); }} data-testid="button-add-panel">
           <Plus className="w-4 h-4 mr-2" /> Pridat panel
         </Button>
@@ -1908,10 +1967,10 @@ function PanelsTab() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead className="w-[60px]">ID</TableHead>
-                  <TableHead>Nazov</TableHead>
-                  <TableHead>Popis</TableHead>
-                  <TableHead>Parametre</TableHead>
+                  {columnVisibility.isVisible("panelId") && <TableHead className="w-[60px]">ID</TableHead>}
+                  {columnVisibility.isVisible("panelName") && <TableHead>Nazov</TableHead>}
+                  {columnVisibility.isVisible("panelDescription") && <TableHead>Popis</TableHead>}
+                  {columnVisibility.isVisible("panelParameters") && <TableHead>Parametre</TableHead>}
                   <TableHead>Akcie</TableHead>
                 </TableRow>
               </TableHeader>
@@ -1924,7 +1983,7 @@ function PanelsTab() {
                   </TableRow>
                 ) : (
                   filtered.map(panel => (
-                    <PanelTableRow key={panel.id} panel={panel} onEdit={() => { setEditingPanel(panel); setDialogOpen(true); }} onDelete={() => setDeleteTarget(panel)} />
+                    <PanelTableRow key={panel.id} panel={panel} onEdit={() => { setEditingPanel(panel); setDialogOpen(true); }} onDelete={() => setDeleteTarget(panel)} columnVisibility={columnVisibility} />
                   ))
                 )}
               </TableBody>
@@ -1950,7 +2009,7 @@ function PanelsTab() {
   );
 }
 
-function PanelTableRow({ panel, onEdit, onDelete }: { panel: Panel; onEdit: () => void; onDelete: () => void }) {
+function PanelTableRow({ panel, onEdit, onDelete, columnVisibility }: { panel: Panel; onEdit: () => void; onDelete: () => void; columnVisibility: ReturnType<typeof useColumnVisibility> }) {
   const { data: panelParams } = useQuery<PanelParameter[]>({
     queryKey: ["/api/panels", panel.id, "parameters"],
     queryFn: async () => {
@@ -1962,12 +2021,12 @@ function PanelTableRow({ panel, onEdit, onDelete }: { panel: Panel; onEdit: () =
 
   return (
     <TableRow data-testid={`row-panel-${panel.id}`}>
-      <TableCell className="font-mono text-sm text-muted-foreground">{panel.id}</TableCell>
-      <TableCell className="font-medium">{panel.name}</TableCell>
-      <TableCell className="text-sm text-muted-foreground">{panel.description || "-"}</TableCell>
-      <TableCell>
+      {columnVisibility.isVisible("panelId") && <TableCell className="font-mono text-sm text-muted-foreground">{panel.id}</TableCell>}
+      {columnVisibility.isVisible("panelName") && <TableCell className="font-medium">{panel.name}</TableCell>}
+      {columnVisibility.isVisible("panelDescription") && <TableCell className="text-sm text-muted-foreground">{panel.description || "-"}</TableCell>}
+      {columnVisibility.isVisible("panelParameters") && <TableCell>
         <Badge variant="secondary" data-testid={`badge-panel-param-count-${panel.id}`}>{panelParams?.length ?? 0}</Badge>
-      </TableCell>
+      </TableCell>}
       <TableCell>
         <div className="flex items-center gap-1">
           <Button
@@ -2286,6 +2345,7 @@ function FoldersTab() {
   const [editingFolder, setEditingFolder] = useState<ContractFolder | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<ContractFolder | null>(null);
   const { data: hierarchyCounts } = useHierarchyCounts();
+  const columnVisibility = useColumnVisibility("folders", FOLDER_COLUMNS);
 
   const { data: folders, isLoading } = useQuery<ContractFolder[]>({
     queryKey: ["/api/contract-folders"],
@@ -2318,6 +2378,7 @@ function FoldersTab() {
             data-testid="input-search-folders"
           />
         </div>
+        <ColumnManager columnVisibility={columnVisibility} />
         <Button onClick={() => { setEditingFolder(null); setDialogOpen(true); }} data-testid="button-add-folder">
           <Plus className="w-4 h-4 mr-2" /> Pridat priecinok
         </Button>
@@ -2333,10 +2394,10 @@ function FoldersTab() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead className="w-[60px]">ID</TableHead>
-                  <TableHead>Nazov</TableHead>
-                  <TableHead>Panely</TableHead>
-                  <TableHead className="w-[80px]">Poradie</TableHead>
+                  {columnVisibility.isVisible("folderId") && <TableHead className="w-[60px]">ID</TableHead>}
+                  {columnVisibility.isVisible("folderName") && <TableHead>Nazov</TableHead>}
+                  {columnVisibility.isVisible("folderPanels") && <TableHead>Panely</TableHead>}
+                  {columnVisibility.isVisible("folderSortOrder") && <TableHead className="w-[80px]">Poradie</TableHead>}
                   <TableHead className="w-[100px]">Akcie</TableHead>
                 </TableRow>
               </TableHeader>
@@ -2350,12 +2411,12 @@ function FoldersTab() {
                 ) : (
                   filtered.map(folder => (
                     <TableRow key={folder.id} data-testid={`row-folder-${folder.id}`}>
-                      <TableCell className="font-mono text-xs">{folder.id}</TableCell>
-                      <TableCell className="font-medium">{folder.name}</TableCell>
-                      <TableCell>
+                      {columnVisibility.isVisible("folderId") && <TableCell className="font-mono text-xs">{folder.id}</TableCell>}
+                      {columnVisibility.isVisible("folderName") && <TableCell className="font-medium">{folder.name}</TableCell>}
+                      {columnVisibility.isVisible("folderPanels") && <TableCell>
                         <Badge variant="secondary" data-testid={`badge-folder-panel-count-${folder.id}`}>{hierarchyCounts?.folderPanels?.[folder.id] ?? 0}</Badge>
-                      </TableCell>
-                      <TableCell>{folder.sortOrder}</TableCell>
+                      </TableCell>}
+                      {columnVisibility.isVisible("folderSortOrder") && <TableCell>{folder.sortOrder}</TableCell>}
                       <TableCell>
                         <div className="flex items-center gap-1">
                           <Button size="icon" variant="ghost" onClick={() => { setEditingFolder(folder); setDialogOpen(true); }} data-testid={`button-edit-folder-${folder.id}`}>

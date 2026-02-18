@@ -3,6 +3,8 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2, Plus, Pencil, ShieldCheck, RefreshCw } from "lucide-react";
+import { useColumnVisibility, type ColumnDef } from "@/hooks/use-column-visibility";
+import { ColumnManager } from "@/components/column-manager";
 import { ConditionalDelete } from "@/components/conditional-delete";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -37,6 +39,14 @@ import {
 import type { PermissionGroup, Permission } from "@shared/schema";
 import { ProcessingSaveButton } from "@/components/processing-save-button";
 import { HelpIcon, AdminNote } from "@/components/help-icon";
+
+const PERMISSION_MATRIX_COLUMNS: ColumnDef[] = [
+  { key: "canRead", label: "Citanie" },
+  { key: "canCreate", label: "Vytvorenie" },
+  { key: "canEdit", label: "Uprava" },
+  { key: "canPublish", label: "Publikovanie" },
+  { key: "canDelete", label: "Vymazanie" },
+];
 
 const MODULES = [
   { key: "dashboard", label: "Prehlad", group: "Zakladne" },
@@ -206,7 +216,7 @@ function GroupFormDialog({
 
 const MODULE_GROUPS = Array.from(new Set(MODULES.map(m => m.group)));
 
-function PermissionMatrix({ groupId }: { groupId: number }) {
+function PermissionMatrix({ groupId, columnVisibility }: { groupId: number; columnVisibility: ReturnType<typeof useColumnVisibility> }) {
   const { toast } = useToast();
 
   const { data: permissions, isLoading } = useQuery<Permission[]>({
@@ -315,6 +325,7 @@ function PermissionMatrix({ groupId }: { groupId: number }) {
       <div className="flex items-center justify-between gap-4 flex-wrap">
         <h3 className="text-sm font-semibold" data-testid="text-matrix-title">Matica opravneni</h3>
         <div className="flex items-center gap-2 flex-wrap">
+          <ColumnManager columnVisibility={columnVisibility} />
           <Button
             variant={allGlobalChecked ? "destructive" : "default"}
             size="sm"
@@ -343,7 +354,7 @@ function PermissionMatrix({ groupId }: { groupId: number }) {
             <TableHeader>
               <TableRow>
                 <TableHead className="min-w-[200px]">Modul</TableHead>
-                {ACTION_COLUMNS.map(col => {
+                {ACTION_COLUMNS.filter(col => columnVisibility.isVisible(col.key)).map(col => {
                   const colAllChecked = MODULES.every(mod => {
                     const perm = getPermission(mod.key);
                     return perm ? !!(perm as any)[col.key] : false;
@@ -371,7 +382,7 @@ function PermissionMatrix({ groupId }: { groupId: number }) {
                 return (
                   <Fragment key={`group-${group}`}>
                     <TableRow className="bg-muted/40">
-                      <TableCell colSpan={ACTION_COLUMNS.length + 2} className="py-1.5">
+                      <TableCell colSpan={ACTION_COLUMNS.filter(col => columnVisibility.isVisible(col.key)).length + 2} className="py-1.5">
                         <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground" data-testid={`text-group-header-${group}`}>
                           {group}
                         </span>
@@ -385,7 +396,7 @@ function PermissionMatrix({ groupId }: { groupId: number }) {
                           <TableCell className="font-medium" data-testid={`text-module-${mod.key}`}>
                             {mod.label}
                           </TableCell>
-                          {ACTION_COLUMNS.map(col => {
+                          {ACTION_COLUMNS.filter(col => columnVisibility.isVisible(col.key)).map(col => {
                             const val = perm ? !!(perm as any)[col.key] : false;
                             return (
                               <TableCell key={col.key} className="text-center">
@@ -434,6 +445,7 @@ export default function PermissionGroupsPage() {
   const [editingGroup, setEditingGroup] = useState<PermissionGroup | null>(null);
   const [selectedGroupId, setSelectedGroupId] = useState<number | null>(null);
   const [deleteGroupId, setDeleteGroupId] = useState<number | null>(null);
+  const matrixColumnVisibility = useColumnVisibility("permission-matrix", PERMISSION_MATRIX_COLUMNS);
 
   const deleteMutation = useMutation({
     mutationFn: (id: number) => apiRequest("DELETE", `/api/permission-groups/${id}`),
@@ -541,7 +553,7 @@ export default function PermissionGroupsPage() {
       </div>
 
       {selectedGroupId && (
-        <PermissionMatrix groupId={selectedGroupId} />
+        <PermissionMatrix groupId={selectedGroupId} columnVisibility={matrixColumnVisibility} />
       )}
 
       <GroupFormDialog

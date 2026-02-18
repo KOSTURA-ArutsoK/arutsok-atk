@@ -33,6 +33,8 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import { ProcessingSaveButton } from "@/components/processing-save-button";
+import { useColumnVisibility, type ColumnDef } from "@/hooks/use-column-visibility";
+import { ColumnManager } from "@/components/column-manager";
 
 
 type ClientGroupWithCount = ClientGroup & { memberCount: number };
@@ -461,6 +463,14 @@ function GroupDetailDialog({
   );
 }
 
+const CLIENT_GROUPS_COLUMNS: ColumnDef[] = [
+  { key: "name", label: "Nazov skupiny" },
+  { key: "permissionGroup", label: "Skupina pravomoci" },
+  { key: "allowLogin", label: "Povolenie prihlasenia" },
+  { key: "allowCalculators", label: "Povolene kalkulacky" },
+  { key: "memberCount", label: "Pocet klientov" },
+];
+
 export default function ClientGroups() {
   const { toast } = useToast();
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -477,6 +487,7 @@ export default function ClientGroups() {
   const { data: permGroupsData } = useQuery<PermissionGroup[]>({
     queryKey: ["/api/permission-groups"],
   });
+  const columnVisibility = useColumnVisibility("client-groups", CLIENT_GROUPS_COLUMNS);
 
   const reorderMutation = useMutation({
     mutationFn: (items: { id: number; sortOrder: number }[]) =>
@@ -505,13 +516,16 @@ export default function ClientGroups() {
     <div className="p-6 space-y-6">
       <div className="flex items-center justify-between gap-4 flex-wrap">
         <h1 className="text-2xl font-bold" data-testid="text-page-title">Skupiny klientov</h1>
-        <Button
-          onClick={() => { setEditingGroup(null); setDialogOpen(true); }}
-          data-testid="button-add-group"
-        >
-          <Plus className="w-4 h-4 mr-2" />
-          Pridat skupinu
-        </Button>
+        <div className="flex items-center gap-2">
+          <ColumnManager columnVisibility={columnVisibility} />
+          <Button
+            onClick={() => { setEditingGroup(null); setDialogOpen(true); }}
+            data-testid="button-add-group"
+          >
+            <Plus className="w-4 h-4 mr-2" />
+            Pridat skupinu
+          </Button>
+        </div>
       </div>
 
       {activeCompanyName && (
@@ -531,11 +545,11 @@ export default function ClientGroups() {
               <TableHeader>
                 <TableRow>
                   <TableHead className="w-10"></TableHead>
-                  <TableHead>Nazov skupiny</TableHead>
-                  <TableHead className="w-36 text-center">Skupina pravomoci</TableHead>
-                  <TableHead className="w-32 text-center">Povolenie prihlasenia</TableHead>
-                  <TableHead className="w-32 text-center">Povolene kalkulacky</TableHead>
-                  <TableHead className="w-32 text-center">Pocet klientov</TableHead>
+                  {columnVisibility.isVisible("name") && <TableHead>Nazov skupiny</TableHead>}
+                  {columnVisibility.isVisible("permissionGroup") && <TableHead className="w-36 text-center">Skupina pravomoci</TableHead>}
+                  {columnVisibility.isVisible("allowLogin") && <TableHead className="w-32 text-center">Povolenie prihlasenia</TableHead>}
+                  {columnVisibility.isVisible("allowCalculators") && <TableHead className="w-32 text-center">Povolene kalkulacky</TableHead>}
+                  {columnVisibility.isVisible("memberCount") && <TableHead className="w-32 text-center">Pocet klientov</TableHead>}
                   <TableHead className="w-24"></TableHead>
                 </TableRow>
               </TableHeader>
@@ -550,36 +564,36 @@ export default function ClientGroups() {
                       id={group.id}
                       data-testid={`row-group-${group.id}`}
                     >
-                      <TableCell
+                      {columnVisibility.isVisible("name") && <TableCell
                         className="font-medium cursor-pointer hover-elevate"
                         onClick={() => { setEditingGroup(group); setDialogOpen(true); }}
                       >
                         {group.name}
-                      </TableCell>
-                      <TableCell className="text-center">
+                      </TableCell>}
+                      {columnVisibility.isVisible("permissionGroup") && <TableCell className="text-center">
                         <Badge variant="outline" data-testid={`badge-level-${group.id}`}>
                           {group.permissionGroupId
                             ? (permGroupsData || []).find(pg => pg.id === group.permissionGroupId)?.name || "—"
                             : "—"}
                         </Badge>
-                      </TableCell>
-                      <TableCell className="text-center">
+                      </TableCell>}
+                      {columnVisibility.isVisible("allowLogin") && <TableCell className="text-center">
                         {group.allowLogin ? (
                           <Check className="w-4 h-4 text-emerald-500 mx-auto" data-testid={`icon-login-${group.id}`} />
                         ) : (
                           <X className="w-4 h-4 text-destructive mx-auto" data-testid={`icon-login-${group.id}`} />
                         )}
-                      </TableCell>
-                      <TableCell className="text-center">
+                      </TableCell>}
+                      {columnVisibility.isVisible("allowCalculators") && <TableCell className="text-center">
                         {group.allowCalculators ? (
                           <Check className="w-4 h-4 text-emerald-500 mx-auto" data-testid={`icon-calc-${group.id}`} />
                         ) : (
                           <X className="w-4 h-4 text-destructive mx-auto" data-testid={`icon-calc-${group.id}`} />
                         )}
-                      </TableCell>
-                      <TableCell className="text-center">
+                      </TableCell>}
+                      {columnVisibility.isVisible("memberCount") && <TableCell className="text-center">
                         <Badge variant="secondary" data-testid={`badge-count-${group.id}`}>{group.memberCount}</Badge>
-                      </TableCell>
+                      </TableCell>}
                       <TableCell>
                         <div className="flex items-center gap-1">
                           <Button

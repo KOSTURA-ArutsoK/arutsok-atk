@@ -3,6 +3,8 @@ import { useQuery } from "@tanstack/react-query";
 import { ArrowDownLeft, Filter, Loader2, Search } from "lucide-react";
 import { HelpIcon } from "@/components/help-icon";
 import { useTableSort } from "@/hooks/use-table-sort";
+import { useColumnVisibility, type ColumnDef } from "@/hooks/use-column-visibility";
+import { ColumnManager } from "@/components/column-manager";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -22,6 +24,20 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+
+const COLUMNS: ColumnDef[] = [
+  { key: "contract_number", label: "Cislo zmluvy" },
+  { key: "global_number", label: "Cislo kontraktu" },
+  { key: "client", label: "Klient" },
+  { key: "partner", label: "Partner" },
+  { key: "product", label: "Produkt" },
+  { key: "premium_amount", label: "Poistne" },
+  { key: "rate_type", label: "Typ sadzby" },
+  { key: "rate_value", label: "Sadzba" },
+  { key: "calculated_commission", label: "Provzia" },
+  { key: "points_earned", label: "Body" },
+  { key: "signed_date", label: "Datum podpisu" },
+];
 
 export default function Provizie() {
   const [searchTerm, setSearchTerm] = useState("");
@@ -55,6 +71,7 @@ export default function Provizie() {
   }, [provizieData, searchTerm, filterPartner]);
 
   const { sortedData, sortKey, sortDirection, requestSort } = useTableSort(filtered);
+  const columnVisibility = useColumnVisibility("provizie", COLUMNS);
 
   const totalCommission = useMemo(() => {
     return filtered.reduce((sum: number, r: any) => sum + (parseFloat(r.calculated_commission) || 0), 0);
@@ -86,6 +103,7 @@ export default function Provizie() {
           </div>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
+          <ColumnManager columnVisibility={columnVisibility} />
           <Badge variant="outline" className="border-emerald-500/30 text-emerald-500" data-testid="text-total-commission">
             Spolu: {formatAmount(totalCommission)}
           </Badge>
@@ -159,41 +177,41 @@ export default function Provizie() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead sortKey="contract_number" sortDirection={sortKey === "contract_number" ? sortDirection : null} onSort={requestSort}>Cislo zmluvy</TableHead>
-                  <TableHead sortKey="global_number" sortDirection={sortKey === "global_number" ? sortDirection : null} onSort={requestSort}>Cislo kontraktu</TableHead>
-                  <TableHead>Klient</TableHead>
-                  <TableHead>Partner</TableHead>
-                  <TableHead>Produkt</TableHead>
-                  <TableHead className="text-right" sortKey="premium_amount" sortDirection={sortKey === "premium_amount" ? sortDirection : null} onSort={requestSort}>Poistne</TableHead>
-                  <TableHead sortKey="rate_type" sortDirection={sortKey === "rate_type" ? sortDirection : null} onSort={requestSort}>Typ sadzby</TableHead>
-                  <TableHead className="text-right" sortKey="rate_value" sortDirection={sortKey === "rate_value" ? sortDirection : null} onSort={requestSort}>Sadzba</TableHead>
-                  <TableHead className="text-right" sortKey="calculated_commission" sortDirection={sortKey === "calculated_commission" ? sortDirection : null} onSort={requestSort}>Provzia</TableHead>
-                  <TableHead className="text-right" sortKey="points_earned" sortDirection={sortKey === "points_earned" ? sortDirection : null} onSort={requestSort}>Body</TableHead>
-                  <TableHead sortKey="signed_date" sortDirection={sortKey === "signed_date" ? sortDirection : null} onSort={requestSort}>Datum podpisu</TableHead>
+                  {columnVisibility.isVisible("contract_number") && <TableHead sortKey="contract_number" sortDirection={sortKey === "contract_number" ? sortDirection : null} onSort={requestSort}>Cislo zmluvy</TableHead>}
+                  {columnVisibility.isVisible("global_number") && <TableHead sortKey="global_number" sortDirection={sortKey === "global_number" ? sortDirection : null} onSort={requestSort}>Cislo kontraktu</TableHead>}
+                  {columnVisibility.isVisible("client") && <TableHead>Klient</TableHead>}
+                  {columnVisibility.isVisible("partner") && <TableHead>Partner</TableHead>}
+                  {columnVisibility.isVisible("product") && <TableHead>Produkt</TableHead>}
+                  {columnVisibility.isVisible("premium_amount") && <TableHead className="text-right" sortKey="premium_amount" sortDirection={sortKey === "premium_amount" ? sortDirection : null} onSort={requestSort}>Poistne</TableHead>}
+                  {columnVisibility.isVisible("rate_type") && <TableHead sortKey="rate_type" sortDirection={sortKey === "rate_type" ? sortDirection : null} onSort={requestSort}>Typ sadzby</TableHead>}
+                  {columnVisibility.isVisible("rate_value") && <TableHead className="text-right" sortKey="rate_value" sortDirection={sortKey === "rate_value" ? sortDirection : null} onSort={requestSort}>Sadzba</TableHead>}
+                  {columnVisibility.isVisible("calculated_commission") && <TableHead className="text-right" sortKey="calculated_commission" sortDirection={sortKey === "calculated_commission" ? sortDirection : null} onSort={requestSort}>Provzia</TableHead>}
+                  {columnVisibility.isVisible("points_earned") && <TableHead className="text-right" sortKey="points_earned" sortDirection={sortKey === "points_earned" ? sortDirection : null} onSort={requestSort}>Body</TableHead>}
+                  {columnVisibility.isVisible("signed_date") && <TableHead sortKey="signed_date" sortDirection={sortKey === "signed_date" ? sortDirection : null} onSort={requestSort}>Datum podpisu</TableHead>}
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {sortedData.map((r: any, idx: number) => (
                   <TableRow key={r.contract_id || idx} data-testid={`row-provzia-${r.contract_id || idx}`}>
-                    <TableCell className="font-mono text-xs">{r.contract_number || "-"}</TableCell>
-                    <TableCell className="text-xs">{r.global_number || "-"}</TableCell>
-                    <TableCell>{r.client_name || "-"}</TableCell>
-                    <TableCell>{r.partner_name || "-"}</TableCell>
-                    <TableCell>{r.product_name || "-"}</TableCell>
-                    <TableCell className="text-right font-mono text-xs">{r.premium_amount ? formatAmount(r.premium_amount) : "-"}</TableCell>
-                    <TableCell>
+                    {columnVisibility.isVisible("contract_number") && <TableCell className="font-mono text-xs">{r.contract_number || "-"}</TableCell>}
+                    {columnVisibility.isVisible("global_number") && <TableCell className="text-xs">{r.global_number || "-"}</TableCell>}
+                    {columnVisibility.isVisible("client") && <TableCell>{r.client_name || "-"}</TableCell>}
+                    {columnVisibility.isVisible("partner") && <TableCell>{r.partner_name || "-"}</TableCell>}
+                    {columnVisibility.isVisible("product") && <TableCell>{r.product_name || "-"}</TableCell>}
+                    {columnVisibility.isVisible("premium_amount") && <TableCell className="text-right font-mono text-xs">{r.premium_amount ? formatAmount(r.premium_amount) : "-"}</TableCell>}
+                    {columnVisibility.isVisible("rate_type") && <TableCell>
                       <Badge variant="outline" className="text-[10px]">
                         {r.rate_type === "percent" ? "%" : r.rate_type === "fixed" ? "Fix" : r.rate_type || "-"}
                       </Badge>
-                    </TableCell>
-                    <TableCell className="text-right font-mono text-xs">
+                    </TableCell>}
+                    {columnVisibility.isVisible("rate_value") && <TableCell className="text-right font-mono text-xs">
                       {r.rate_value ? (r.rate_type === "percent" ? `${r.rate_value}%` : formatAmount(r.rate_value)) : "-"}
-                    </TableCell>
-                    <TableCell className="text-right font-mono text-xs text-emerald-500 font-medium">
+                    </TableCell>}
+                    {columnVisibility.isVisible("calculated_commission") && <TableCell className="text-right font-mono text-xs text-emerald-500 font-medium">
                       {r.calculated_commission ? formatAmount(r.calculated_commission) : "-"}
-                    </TableCell>
-                    <TableCell className="text-right font-mono text-xs">{r.points_earned ? parseFloat(r.points_earned).toFixed(2) : "-"}</TableCell>
-                    <TableCell className="text-xs">{formatDate(r.signed_date)}</TableCell>
+                    </TableCell>}
+                    {columnVisibility.isVisible("points_earned") && <TableCell className="text-right font-mono text-xs">{r.points_earned ? parseFloat(r.points_earned).toFixed(2) : "-"}</TableCell>}
+                    {columnVisibility.isVisible("signed_date") && <TableCell className="text-xs">{formatDate(r.signed_date)}</TableCell>}
                   </TableRow>
                 ))}
               </TableBody>

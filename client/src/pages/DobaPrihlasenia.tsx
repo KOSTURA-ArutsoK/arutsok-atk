@@ -2,6 +2,8 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { useTableSort } from "@/hooks/use-table-sort";
 import { Timer, Loader2 } from "lucide-react";
+import { useColumnVisibility, type ColumnDef } from "@/hooks/use-column-visibility";
+import { ColumnManager } from "@/components/column-manager";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
@@ -16,6 +18,13 @@ import {
 } from "@/components/ui/table";
 import type { PermissionGroup } from "@shared/schema";
 
+const COLUMNS: ColumnDef[] = [
+  { key: "name", label: "Skupina" },
+  { key: "description", label: "Popis" },
+  { key: "sessionTimeoutSeconds", label: "Timeout (sek)" },
+  { key: "time", label: "Cas" },
+];
+
 export default function DobaPrihlasenia() {
   const { data: appUser } = useAppUser();
   const { toast } = useToast();
@@ -27,6 +36,7 @@ export default function DobaPrihlasenia() {
   });
 
   const { sortedData: sortedGroups, sortKey, sortDirection, requestSort } = useTableSort(groups || []);
+  const columnVisibility = useColumnVisibility("doba-prihlasenia", COLUMNS);
 
   const updateTimeoutMutation = useMutation({
     mutationFn: async ({ id, sessionTimeoutSeconds }: { id: number; sessionTimeoutSeconds: number }) => {
@@ -49,9 +59,12 @@ export default function DobaPrihlasenia() {
 
   return (
     <div className="p-4 space-y-4">
-      <div className="flex items-center gap-3">
-        <Timer className="w-6 h-6 text-primary" />
-        <h1 className="text-2xl font-bold" data-testid="text-page-title">Doba prihlasenia</h1>
+      <div className="flex items-center justify-between gap-3 flex-wrap">
+        <div className="flex items-center gap-3">
+          <Timer className="w-6 h-6 text-primary" />
+          <h1 className="text-2xl font-bold" data-testid="text-page-title">Doba prihlasenia</h1>
+        </div>
+        <ColumnManager columnVisibility={columnVisibility} />
       </div>
 
       {!isAdmin ? (
@@ -80,23 +93,23 @@ export default function DobaPrihlasenia() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead sortKey="name" sortDirection={sortKey === "name" ? sortDirection : null} onSort={requestSort}>Skupina</TableHead>
-                  <TableHead sortKey="description" sortDirection={sortKey === "description" ? sortDirection : null} onSort={requestSort}>Popis</TableHead>
-                  <TableHead className="w-36" sortKey="sessionTimeoutSeconds" sortDirection={sortKey === "sessionTimeoutSeconds" ? sortDirection : null} onSort={requestSort}>Timeout (sek)</TableHead>
-                  <TableHead className="w-32">Cas</TableHead>
+                  {columnVisibility.isVisible("name") && <TableHead sortKey="name" sortDirection={sortKey === "name" ? sortDirection : null} onSort={requestSort}>Skupina</TableHead>}
+                  {columnVisibility.isVisible("description") && <TableHead sortKey="description" sortDirection={sortKey === "description" ? sortDirection : null} onSort={requestSort}>Popis</TableHead>}
+                  {columnVisibility.isVisible("sessionTimeoutSeconds") && <TableHead className="w-36" sortKey="sessionTimeoutSeconds" sortDirection={sortKey === "sessionTimeoutSeconds" ? sortDirection : null} onSort={requestSort}>Timeout (sek)</TableHead>}
+                  {columnVisibility.isVisible("time") && <TableHead className="w-32">Cas</TableHead>}
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {sortedGroups && sortedGroups.length > 0 ? (
                   sortedGroups.map(group => (
                     <TableRow key={group.id} data-testid={`timeout-row-${group.id}`}>
-                      <TableCell className="font-medium" data-testid={`text-group-name-${group.id}`}>
+                      {columnVisibility.isVisible("name") && <TableCell className="font-medium" data-testid={`text-group-name-${group.id}`}>
                         {group.name}
-                      </TableCell>
-                      <TableCell className="text-muted-foreground text-sm">
+                      </TableCell>}
+                      {columnVisibility.isVisible("description") && <TableCell className="text-muted-foreground text-sm">
                         {group.description || "-"}
-                      </TableCell>
-                      <TableCell>
+                      </TableCell>}
+                      {columnVisibility.isVisible("sessionTimeoutSeconds") && <TableCell>
                         <Input
                           type="number"
                           min={60}
@@ -115,10 +128,10 @@ export default function DobaPrihlasenia() {
                           }}
                           data-testid={`input-timeout-${group.id}`}
                         />
-                      </TableCell>
-                      <TableCell className="text-sm text-muted-foreground" data-testid={`text-timeout-display-${group.id}`}>
+                      </TableCell>}
+                      {columnVisibility.isVisible("time") && <TableCell className="text-sm text-muted-foreground" data-testid={`text-timeout-display-${group.id}`}>
                         {formatTime(group.sessionTimeoutSeconds ?? 180)}
-                      </TableCell>
+                      </TableCell>}
                     </TableRow>
                   ))
                 ) : (

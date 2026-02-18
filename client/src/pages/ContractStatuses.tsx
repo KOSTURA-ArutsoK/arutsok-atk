@@ -5,6 +5,8 @@ import { useAppUser } from "@/hooks/use-app-user";
 import { useStates } from "@/hooks/use-hierarchy";
 import { useToast } from "@/hooks/use-toast";
 import { useTableSort } from "@/hooks/use-table-sort";
+import { useColumnVisibility, type ColumnDef } from "@/hooks/use-column-visibility";
+import { ColumnManager } from "@/components/column-manager";
 import type { ContractStatus, ContractStatusParameter, MyCompany, Sector, Section, SectorProduct } from "@shared/schema";
 import { Plus, Pencil, Loader2, GripVertical } from "lucide-react";
 import { ConditionalDelete } from "@/components/conditional-delete";
@@ -38,6 +40,13 @@ import {
 } from "@/components/ui/select";
 import { ProcessingSaveButton } from "@/components/processing-save-button";
 import { SortableTableRow, SortableContext_Wrapper } from "@/components/sortable-list";
+
+const CONTRACT_STATUS_COLUMNS: ColumnDef[] = [
+  { key: "sortOrder", label: "Poradie" },
+  { key: "name", label: "Nazov stavu zmluvy" },
+  { key: "color", label: "Farba stavu zmluvy" },
+  { key: "properties", label: "Vlastnosti stavu zmluvy" },
+];
 
 type VisibilityItem = { entityType: string; entityId: number };
 
@@ -707,6 +716,7 @@ export default function ContractStatuses() {
   const { data: appUser } = useAppUser();
   const activeStateId = appUser?.activeStateId ?? null;
 
+  const columnVisibility = useColumnVisibility("contract-statuses", CONTRACT_STATUS_COLUMNS);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingStatus, setEditingStatus] = useState<ContractStatus | null>(null);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
@@ -756,10 +766,13 @@ export default function ContractStatuses() {
     <div className="p-6 space-y-6">
       <div className="flex items-center justify-between gap-4 flex-wrap">
         <h1 className="text-2xl font-bold" data-testid="text-page-title">Nastavenia stavov zmluv</h1>
-        <Button onClick={openCreate} data-testid="button-create-status">
-          <Plus className="w-4 h-4 mr-2" />
-          Pridat stav zmluvy
-        </Button>
+        <div className="flex items-center gap-2 flex-wrap">
+          <ColumnManager columnVisibility={columnVisibility} />
+          <Button onClick={openCreate} data-testid="button-create-status">
+            <Plus className="w-4 h-4 mr-2" />
+            Pridat stav zmluvy
+          </Button>
+        </div>
       </div>
 
       <Card>
@@ -777,10 +790,10 @@ export default function ContractStatuses() {
               <TableHeader>
                 <TableRow>
                   <TableHead className="w-10"></TableHead>
-                  <TableHead sortKey="sortOrder" sortDirection={sortKey === "sortOrder" ? sortDirection : null} onSort={requestSort} className="w-20">Poradie</TableHead>
-                  <TableHead sortKey="name" sortDirection={sortKey === "name" ? sortDirection : null} onSort={requestSort}>Nazov stavu zmluvy</TableHead>
-                  <TableHead className="w-32">Farba stavu zmluvy</TableHead>
-                  <TableHead>Vlastnosti stavu zmluvy</TableHead>
+                  {columnVisibility.isVisible("sortOrder") && <TableHead sortKey="sortOrder" sortDirection={sortKey === "sortOrder" ? sortDirection : null} onSort={requestSort} className="w-20">Poradie</TableHead>}
+                  {columnVisibility.isVisible("name") && <TableHead sortKey="name" sortDirection={sortKey === "name" ? sortDirection : null} onSort={requestSort}>Nazov stavu zmluvy</TableHead>}
+                  {columnVisibility.isVisible("color") && <TableHead className="w-32">Farba stavu zmluvy</TableHead>}
+                  {columnVisibility.isVisible("properties") && <TableHead>Vlastnosti stavu zmluvy</TableHead>}
                   <TableHead className="w-32 text-right">Akcie</TableHead>
                 </TableRow>
               </TableHeader>
@@ -794,18 +807,18 @@ export default function ContractStatuses() {
                       id={status.id}
                       data-testid={`row-status-${status.id}`}
                     >
-                      <TableCell className="font-mono text-sm" data-testid={`text-sort-order-${status.id}`}>
+                      {columnVisibility.isVisible("sortOrder") && <TableCell className="font-mono text-sm" data-testid={`text-sort-order-${status.id}`}>
                         {status.sortOrder}
-                      </TableCell>
-                      <TableCell data-testid={`text-status-name-${status.id}`}>
+                      </TableCell>}
+                      {columnVisibility.isVisible("name") && <TableCell data-testid={`text-status-name-${status.id}`}>
                         <Badge
                           variant="outline"
                           style={{ borderColor: status.color, color: status.color }}
                         >
                           {status.name}
                         </Badge>
-                      </TableCell>
-                      <TableCell>
+                      </TableCell>}
+                      {columnVisibility.isVisible("color") && <TableCell>
                         <div className="flex items-center gap-2 flex-wrap">
                           <div
                             className="w-6 h-6 rounded-md border border-border"
@@ -816,15 +829,15 @@ export default function ContractStatuses() {
                             {status.color}
                           </span>
                         </div>
-                      </TableCell>
-                      <TableCell>
+                      </TableCell>}
+                      {columnVisibility.isVisible("properties") && <TableCell>
                         <div className="flex items-center gap-1 flex-wrap">
                           {status.isCommissionable && <Badge variant="secondary" className="text-xs" data-testid={`badge-commissionable-${status.id}`}>Provizna</Badge>}
                           {status.isFinal && <Badge variant="secondary" className="text-xs" data-testid={`badge-final-${status.id}`}>Finalny</Badge>}
                           {status.assignsNumber && <Badge variant="secondary" className="text-xs" data-testid={`badge-assigns-number-${status.id}`}>Cislo</Badge>}
                           {status.definesContractEnd && <Badge variant="secondary" className="text-xs" data-testid={`badge-defines-end-${status.id}`}>Ukoncenie</Badge>}
                         </div>
-                      </TableCell>
+                      </TableCell>}
                       <TableCell className="text-right">
                         <div className="flex items-center justify-end gap-1 flex-wrap">
                           {status.isSystem && (

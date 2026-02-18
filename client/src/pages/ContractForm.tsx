@@ -5,6 +5,8 @@ import { useAppUser } from "@/hooks/use-app-user";
 import { useStates } from "@/hooks/use-hierarchy";
 import { useToast } from "@/hooks/use-toast";
 import { useLocation, useParams } from "wouter";
+import { useColumnVisibility, type ColumnDef } from "@/hooks/use-column-visibility";
+import { ColumnManager } from "@/components/column-manager";
 import type { Contract, ContractStatus, ContractStatusChangeLog, ContractTemplate, ContractInventory, Subject, Partner, Product, MyCompany, Sector, Section, SectorProduct, ContractPassword, ContractParameterValue, ContractFieldSetting, ClientType, ClientTypeField, ContractAcquirer, AppUser, ContractRewardDistribution } from "@shared/schema";
 import { ArrowLeft, Save, Loader2, LayoutGrid, KeyRound, Plus, Trash2, FileText, Users, ClipboardList, FolderOpen, FolderClosed, DollarSign, BarChart3, ListChecks, PieChart, ChevronLeft, ChevronRight, MessageSquare, Paperclip, Upload, X, Eye, Settings2, Calendar, UserCheck, Lock, Check } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
@@ -312,6 +314,12 @@ type StatusTabContentProps = {
   statusChangeLogs: ContractStatusChangeLog[] | undefined;
 };
 
+const STATUS_HISTORY_COLUMNS: ColumnDef[] = [
+  { key: "status", label: "Stav" },
+  { key: "changedAt", label: "Datum zmeny" },
+  { key: "details", label: "Detaily" },
+];
+
 function StatusTabContent(props: StatusTabContentProps) {
   const {
     statuses, statusId, filteredStatuses,
@@ -326,6 +334,8 @@ function StatusTabContent(props: StatusTabContentProps) {
     contractId, contractSectorId, contractSectionId, sectorProductId,
     statusChangeLogs,
   } = props;
+
+  const statusHistoryColumnVisibility = useColumnVisibility("contract-form-status-history", STATUS_HISTORY_COLUMNS);
 
   const currentStatus = statuses?.find(s => s.id === (statusId ? parseInt(statusId) : -1));
   const newStatus = filteredStatuses.find(s => s.id === parseInt(statusFormStatusId));
@@ -643,13 +653,16 @@ function StatusTabContent(props: StatusTabContentProps) {
         <div style={{ display: contractId && statusChangeLogs && statusChangeLogs.length > 0 ? 'block' : 'none' }}>
           <Card>
             <CardContent className="p-3 space-y-2">
-              <h3 className="text-sm font-semibold">Historia zmien stavov ({(statusChangeLogs || []).length})</h3>
+              <div className="flex items-center justify-between gap-2 flex-wrap">
+                <h3 className="text-sm font-semibold">Historia zmien stavov ({(statusChangeLogs || []).length})</h3>
+                <ColumnManager columnVisibility={statusHistoryColumnVisibility} />
+              </div>
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Stav</TableHead>
-                    <TableHead>Datum zmeny</TableHead>
-                    <TableHead>Detaily</TableHead>
+                    {statusHistoryColumnVisibility.isVisible("status") && <TableHead>Stav</TableHead>}
+                    {statusHistoryColumnVisibility.isVisible("changedAt") && <TableHead>Datum zmeny</TableHead>}
+                    {statusHistoryColumnVisibility.isVisible("details") && <TableHead>Detaily</TableHead>}
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -661,16 +674,16 @@ function StatusTabContent(props: StatusTabContentProps) {
                     const docCount = Array.isArray(log.statusChangeDocuments) ? (log.statusChangeDocuments as any[]).length : 0;
                     return (
                       <TableRow key={`log-${log.id}`} data-testid={`row-status-log-${log.id}`}>
-                        <TableCell data-testid={`text-status-name-${log.id}`}>
+                        {statusHistoryColumnVisibility.isVisible("status") && <TableCell data-testid={`text-status-name-${log.id}`}>
                           <div className="flex items-center gap-2">
                             <div className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: logStatus?.color || "transparent" }} />
                             <span className="text-sm font-medium">{statusName} {iteration}</span>
                           </div>
-                        </TableCell>
-                        <TableCell className="text-sm text-muted-foreground" data-testid={`text-changed-at-${log.id}`}>
+                        </TableCell>}
+                        {statusHistoryColumnVisibility.isVisible("changedAt") && <TableCell className="text-sm text-muted-foreground" data-testid={`text-changed-at-${log.id}`}>
                           {log.changedAt ? new Date(log.changedAt).toLocaleString("sk-SK") : "-"}
-                        </TableCell>
-                        <TableCell>
+                        </TableCell>}
+                        {statusHistoryColumnVisibility.isVisible("details") && <TableCell>
                           <div id={`log-details-${log.id}`} className="flex items-center gap-1.5">
                             <span id={`log-params-${log.id}`} style={{ display: paramCount > 0 ? 'inline' : 'none' }}><Badge variant="outline" className="text-xs">{paramCount} param.</Badge></span>
                             <span id={`log-note-${log.id}`} style={{ display: log.statusNote ? 'inline' : 'none' }}><MessageSquare className="w-3.5 h-3.5 text-blue-400" data-testid={`icon-log-note-${log.id}`} /></span>
@@ -682,7 +695,7 @@ function StatusTabContent(props: StatusTabContentProps) {
                             </span>
                             <span id={`log-visible-${log.id}`} style={{ display: log.visibleToClient ? 'inline' : 'none' }}><Badge variant="outline" className="text-xs text-green-500 border-green-500/30" data-testid={`badge-visible-${log.id}`}>K</Badge></span>
                           </div>
-                        </TableCell>
+                        </TableCell>}
                       </TableRow>
                     );
                   })}

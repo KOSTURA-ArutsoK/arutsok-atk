@@ -58,6 +58,19 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import { RichTextEditor } from "@/components/rich-text-editor";
 import { ProcessingSaveButton } from "@/components/processing-save-button";
 import { useTableSort } from "@/hooks/use-table-sort";
+import { useColumnVisibility, type ColumnDef } from "@/hooks/use-column-visibility";
+import { ColumnManager } from "@/components/column-manager";
+
+const PARTNER_COLUMNS: ColumnDef[] = [
+  { key: "uid", label: "UID" },
+  { key: "name", label: "Nazov" },
+  { key: "code", label: "Kod" },
+  { key: "specialization", label: "Zameranie" },
+  { key: "ico", label: "ICO" },
+  { key: "city", label: "Mesto" },
+  { key: "stateId", label: "Stat" },
+  { key: "collaborationDate", label: "Datum spoluprace" },
+];
 
 const specializationOptions = [
   { value: "SFA", label: "SFA" },
@@ -609,6 +622,7 @@ function PartnerUnifiedDialog({
 export default function Partners() {
   const { data: partners, isLoading } = usePartners();
   const { sortedData, sortKey, sortDirection, requestSort } = useTableSort(partners || []);
+  const columnVisibility = useColumnVisibility("partners", PARTNER_COLUMNS);
   const { data: allStates } = useStates();
   const deleteMutation = useDeletePartner();
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -638,10 +652,13 @@ export default function Partners() {
           <h2 className="text-2xl font-bold" data-testid="text-partners-title">Zoznam partnerov</h2>
           <p className="text-sm text-muted-foreground mt-1">Sprava externych obchodnych partnerov.</p>
         </div>
-        <Button onClick={openCreate} data-testid="button-add-partner">
-          <Plus className="w-4 h-4 mr-2" />
-          Pridat noveho partnera
-        </Button>
+        <div className="flex items-center gap-2 flex-wrap">
+          <ColumnManager columnVisibility={columnVisibility} />
+          <Button onClick={openCreate} data-testid="button-add-partner">
+            <Plus className="w-4 h-4 mr-2" />
+            Pridat noveho partnera
+          </Button>
+        </div>
       </div>
 
       <Card>
@@ -649,14 +666,14 @@ export default function Partners() {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead sortKey="uid" sortDirection={sortKey === "uid" ? sortDirection : null} onSort={requestSort}>UID</TableHead>
-                <TableHead sortKey="name" sortDirection={sortKey === "name" ? sortDirection : null} onSort={requestSort}>Nazov</TableHead>
-                <TableHead sortKey="code" sortDirection={sortKey === "code" ? sortDirection : null} onSort={requestSort}>Kod</TableHead>
-                <TableHead sortKey="specialization" sortDirection={sortKey === "specialization" ? sortDirection : null} onSort={requestSort}>Zameranie</TableHead>
-                <TableHead sortKey="ico" sortDirection={sortKey === "ico" ? sortDirection : null} onSort={requestSort}>ICO</TableHead>
-                <TableHead sortKey="city" sortDirection={sortKey === "city" ? sortDirection : null} onSort={requestSort}>Mesto</TableHead>
-                <TableHead>Stat</TableHead>
-                <TableHead sortKey="collaborationDate" sortDirection={sortKey === "collaborationDate" ? sortDirection : null} onSort={requestSort}>Datum spoluprace</TableHead>
+                {columnVisibility.isVisible("uid") && <TableHead sortKey="uid" sortDirection={sortKey === "uid" ? sortDirection : null} onSort={requestSort}>UID</TableHead>}
+                {columnVisibility.isVisible("name") && <TableHead sortKey="name" sortDirection={sortKey === "name" ? sortDirection : null} onSort={requestSort}>Nazov</TableHead>}
+                {columnVisibility.isVisible("code") && <TableHead sortKey="code" sortDirection={sortKey === "code" ? sortDirection : null} onSort={requestSort}>Kod</TableHead>}
+                {columnVisibility.isVisible("specialization") && <TableHead sortKey="specialization" sortDirection={sortKey === "specialization" ? sortDirection : null} onSort={requestSort}>Zameranie</TableHead>}
+                {columnVisibility.isVisible("ico") && <TableHead sortKey="ico" sortDirection={sortKey === "ico" ? sortDirection : null} onSort={requestSort}>ICO</TableHead>}
+                {columnVisibility.isVisible("city") && <TableHead sortKey="city" sortDirection={sortKey === "city" ? sortDirection : null} onSort={requestSort}>Mesto</TableHead>}
+                {columnVisibility.isVisible("stateId") && <TableHead>Stat</TableHead>}
+                {columnVisibility.isVisible("collaborationDate") && <TableHead sortKey="collaborationDate" sortDirection={sortKey === "collaborationDate" ? sortDirection : null} onSort={requestSort}>Datum spoluprace</TableHead>}
                 <TableHead className="w-[80px]">Akcie</TableHead>
               </TableRow>
             </TableHeader>
@@ -680,16 +697,16 @@ export default function Partners() {
                   className="cursor-pointer"
                   onClick={() => openPartner(partner)}
                 >
-                  <TableCell className="font-mono text-xs text-muted-foreground">{partner.uid || "-"}</TableCell>
-                  <TableCell className="font-medium">{partner.name}</TableCell>
-                  <TableCell>{partner.code ? <Badge variant="secondary" className="font-mono">{partner.code}</Badge> : "-"}</TableCell>
-                  <TableCell className="text-sm">{partner.specialization || "-"}</TableCell>
-                  <TableCell className="text-sm">{partner.ico || "-"}</TableCell>
-                  <TableCell className="text-sm">{partner.city || "-"}</TableCell>
-                  <TableCell className="text-sm">{getStateName(partner.stateId)}</TableCell>
-                  <TableCell className="text-xs text-muted-foreground">
+                  {columnVisibility.isVisible("uid") && <TableCell className="font-mono text-xs text-muted-foreground">{partner.uid || "-"}</TableCell>}
+                  {columnVisibility.isVisible("name") && <TableCell className="font-medium">{partner.name}</TableCell>}
+                  {columnVisibility.isVisible("code") && <TableCell>{partner.code ? <Badge variant="secondary" className="font-mono">{partner.code}</Badge> : "-"}</TableCell>}
+                  {columnVisibility.isVisible("specialization") && <TableCell className="text-sm">{partner.specialization || "-"}</TableCell>}
+                  {columnVisibility.isVisible("ico") && <TableCell className="text-sm">{partner.ico || "-"}</TableCell>}
+                  {columnVisibility.isVisible("city") && <TableCell className="text-sm">{partner.city || "-"}</TableCell>}
+                  {columnVisibility.isVisible("stateId") && <TableCell className="text-sm">{getStateName(partner.stateId)}</TableCell>}
+                  {columnVisibility.isVisible("collaborationDate") && <TableCell className="text-xs text-muted-foreground">
                     {partner.collaborationDate ? new Date(partner.collaborationDate).toLocaleDateString("sk-SK") : "-"}
-                  </TableCell>
+                  </TableCell>}
                   <TableCell>
                     <div className="flex items-center gap-1">
                       <Button size="icon" variant="ghost" onClick={(e) => { e.stopPropagation(); openPartner(partner); }} data-testid={`button-edit-partner-${partner.id}`}>

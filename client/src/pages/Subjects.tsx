@@ -38,6 +38,8 @@ import { InternationalPhoneInput } from "@/components/ui/international-phone-inp
 import { Checkbox } from "@/components/ui/checkbox";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { useTableSort } from "@/hooks/use-table-sort";
+import { useColumnVisibility, type ColumnDef } from "@/hooks/use-column-visibility";
+import { ColumnManager } from "@/components/column-manager";
 import { HelpCircle, FileText, ShieldCheck, ListPlus, FileQuestion } from "lucide-react";
 import { HelpIcon } from "@/components/help-icon";
 import {
@@ -2019,6 +2021,14 @@ function BulkAssignDialog({ selectedIds, onClose, groups }: { selectedIds: Set<n
 
 const FILTER_ORDER: SubjectStatusCategory[] = ["other_company", "deceased", "no_contract", "active", "inactive"];
 
+const SUBJECTS_COLUMNS: ColumnDef[] = [
+  { key: "uid", label: "UID" },
+  { key: "status", label: "Status" },
+  { key: "firstName", label: "Cele meno / Nazov" },
+  { key: "type", label: "Typ subjektu" },
+  { key: "managingCompany", label: "Spravujuca firma" },
+];
+
 export default function Subjects() {
   const [search, setSearch] = useState("");
   const [isInitModalOpen, setIsInitModalOpen] = useState(false);
@@ -2040,6 +2050,7 @@ export default function Subjects() {
   const { data: companies } = useMyCompanies();
   const { data: clientTypes } = useQuery<ClientType[]>({ queryKey: ["/api/client-types"] });
   const { data: clientGroups } = useQuery<any[]>({ queryKey: ["/api/client-groups"] });
+  const columnVisibility = useColumnVisibility("subjects", SUBJECTS_COLUMNS);
 
   function toggleFilter(category: SubjectStatusCategory) {
     setActiveFilters(prev => {
@@ -2072,10 +2083,13 @@ export default function Subjects() {
           </div>
           <p className="text-sm text-muted-foreground mt-1">Sprava entit a integritnych zaznamov.</p>
         </div>
-        <Button onClick={() => setIsInitModalOpen(true)} data-testid="button-add-subject">
-          <Plus className="w-4 h-4 mr-2" />
-          Novy subjekt
-        </Button>
+        <div className="flex items-center gap-2 flex-wrap">
+          <ColumnManager columnVisibility={columnVisibility} />
+          <Button onClick={() => setIsInitModalOpen(true)} data-testid="button-add-subject">
+            <Plus className="w-4 h-4 mr-2" />
+            Novy subjekt
+          </Button>
+        </div>
       </div>
 
       <div className="flex items-center justify-between gap-3 flex-wrap">
@@ -2149,11 +2163,11 @@ export default function Subjects() {
                     className="accent-primary"
                   />
                 </TableHead>
-                <TableHead sortKey="uid" sortDirection={sortKey === "uid" ? sortDirection : null} onSort={requestSort}>UID</TableHead>
-                <TableHead style={{ maxWidth: '150px' }}>Status</TableHead>
-                <TableHead sortKey="firstName" sortDirection={sortKey === "firstName" ? sortDirection : null} onSort={requestSort}>Cele meno / Nazov</TableHead>
-                <TableHead sortKey="type" sortDirection={sortKey === "type" ? sortDirection : null} onSort={requestSort}>Typ subjektu</TableHead>
-                <TableHead>Spravujuca firma</TableHead>
+                {columnVisibility.isVisible("uid") && <TableHead sortKey="uid" sortDirection={sortKey === "uid" ? sortDirection : null} onSort={requestSort}>UID</TableHead>}
+                {columnVisibility.isVisible("status") && <TableHead style={{ maxWidth: '150px' }}>Status</TableHead>}
+                {columnVisibility.isVisible("firstName") && <TableHead sortKey="firstName" sortDirection={sortKey === "firstName" ? sortDirection : null} onSort={requestSort}>Cele meno / Nazov</TableHead>}
+                {columnVisibility.isVisible("type") && <TableHead sortKey="type" sortDirection={sortKey === "type" ? sortDirection : null} onSort={requestSort}>Typ subjektu</TableHead>}
+                {columnVisibility.isVisible("managingCompany") && <TableHead>Spravujuca firma</TableHead>}
                 <TableHead className="w-[100px]">Akcie</TableHead>
               </TableRow>
             </TableHeader>
@@ -2197,8 +2211,8 @@ export default function Subjects() {
                         className="accent-primary"
                       />
                     </TableCell>
-                    <TableCell className="font-mono text-xs align-middle">{subject.uid}</TableCell>
-                    <TableCell className="align-middle !overflow-visible" style={{ maxWidth: '150px', whiteSpace: 'normal', wordBreak: 'break-word', textOverflow: 'clip' }}>
+                    {columnVisibility.isVisible("uid") && <TableCell className="font-mono text-xs align-middle">{subject.uid}</TableCell>}
+                    {columnVisibility.isVisible("status") && <TableCell className="align-middle !overflow-visible" style={{ maxWidth: '150px', whiteSpace: 'normal', wordBreak: 'break-word', textOverflow: 'clip' }}>
                       {(() => {
                         const status = getSubjectStatus(subject, activeCompanyId);
                         return (
@@ -2211,19 +2225,19 @@ export default function Subjects() {
                           </span>
                         );
                       })()}
-                    </TableCell>
-                    <TableCell className="font-medium align-middle" data-testid={`text-fullname-${subject.id}`}>
+                    </TableCell>}
+                    {columnVisibility.isVisible("firstName") && <TableCell className="font-medium align-middle" data-testid={`text-fullname-${subject.id}`}>
                       {fullName}
-                    </TableCell>
-                    <TableCell className="align-middle">
+                    </TableCell>}
+                    {columnVisibility.isVisible("type") && <TableCell className="align-middle">
                       <div className="flex items-center gap-2 text-muted-foreground text-xs">
                         {subject.type === 'person' ? <User className="w-3 h-3 flex-shrink-0" /> : <Building2 className="w-3 h-3 flex-shrink-0" />}
                         <span>{clientTypeMatch?.code || subjectTypeCode}</span>
                       </div>
-                    </TableCell>
-                    <TableCell className="text-muted-foreground text-sm align-middle" data-testid={`text-company-${subject.id}`}>
+                    </TableCell>}
+                    {columnVisibility.isVisible("managingCompany") && <TableCell className="text-muted-foreground text-sm align-middle" data-testid={`text-company-${subject.id}`}>
                       {managingCompanyName}
-                    </TableCell>
+                    </TableCell>}
                     <TableCell className="align-middle">
                       <div className="flex items-center gap-1">
                         <Button size="icon" variant="ghost" onClick={() => setViewTarget(subject)} data-testid={`button-view-subject-${subject.id}`}>

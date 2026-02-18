@@ -35,6 +35,20 @@ import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { HelpIcon, AdminNote } from "@/components/help-icon";
 import { useTableSort } from "@/hooks/use-table-sort";
+import { useColumnVisibility, type ColumnDef } from "@/hooks/use-column-visibility";
+import { ColumnManager } from "@/components/column-manager";
+
+const COLUMNS: ColumnDef[] = [
+  { key: "partner", label: "Partner" },
+  { key: "product", label: "Produkt" },
+  { key: "rateType", label: "Typ" },
+  { key: "rateValue", label: "Hodnota" },
+  { key: "pointsFactor", label: "Body faktor" },
+  { key: "currency", label: "Mena" },
+  { key: "validFrom", label: "Platnost od" },
+  { key: "validTo", label: "Platnost do" },
+  { key: "status", label: "Stav" },
+];
 
 function ProcessingTimer({ startTime }: { startTime: number }) {
   const [now, setNow] = useState(Date.now());
@@ -210,6 +224,7 @@ export default function Commissions() {
   }, [rates, searchTerm, filterPartner, filterType, filterStatus, partnerMap, productMap]);
 
   const { sortedData, sortKey, sortDirection, requestSort } = useTableSort(filtered);
+  const columnVisibility = useColumnVisibility("commissions", COLUMNS);
 
   function formatDate(dateStr: string | Date | null) {
     if (!dateStr) return "-";
@@ -234,6 +249,7 @@ export default function Commissions() {
         <div className="flex items-center gap-2 flex-wrap">
           <Badge variant="outline" data-testid="text-active-count">{activeCount} aktivnych</Badge>
           <Badge variant="outline" data-testid="text-total-count">{rates?.length || 0} celkom</Badge>
+          <ColumnManager columnVisibility={columnVisibility} />
           <Button size="sm" onClick={openCreate} data-testid="button-create-rate">
             <Plus className="w-4 h-4 mr-1" />
             Nova sadzba
@@ -323,15 +339,15 @@ export default function Commissions() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Partner</TableHead>
-                  <TableHead>Produkt</TableHead>
-                  <TableHead sortKey="rateType" sortDirection={sortKey === "rateType" ? sortDirection : null} onSort={requestSort}>Typ</TableHead>
-                  <TableHead className="text-right" sortKey="rateValue" sortDirection={sortKey === "rateValue" ? sortDirection : null} onSort={requestSort}>Hodnota</TableHead>
-                  <TableHead className="text-right" sortKey="pointsFactor" sortDirection={sortKey === "pointsFactor" ? sortDirection : null} onSort={requestSort}>Body faktor</TableHead>
-                  <TableHead sortKey="currency" sortDirection={sortKey === "currency" ? sortDirection : null} onSort={requestSort}>Mena</TableHead>
-                  <TableHead sortKey="validFrom" sortDirection={sortKey === "validFrom" ? sortDirection : null} onSort={requestSort}>Platnost od</TableHead>
-                  <TableHead sortKey="validTo" sortDirection={sortKey === "validTo" ? sortDirection : null} onSort={requestSort}>Platnost do</TableHead>
-                  <TableHead>Stav</TableHead>
+                  {columnVisibility.isVisible("partner") && <TableHead>Partner</TableHead>}
+                  {columnVisibility.isVisible("product") && <TableHead>Produkt</TableHead>}
+                  {columnVisibility.isVisible("rateType") && <TableHead sortKey="rateType" sortDirection={sortKey === "rateType" ? sortDirection : null} onSort={requestSort}>Typ</TableHead>}
+                  {columnVisibility.isVisible("rateValue") && <TableHead className="text-right" sortKey="rateValue" sortDirection={sortKey === "rateValue" ? sortDirection : null} onSort={requestSort}>Hodnota</TableHead>}
+                  {columnVisibility.isVisible("pointsFactor") && <TableHead className="text-right" sortKey="pointsFactor" sortDirection={sortKey === "pointsFactor" ? sortDirection : null} onSort={requestSort}>Body faktor</TableHead>}
+                  {columnVisibility.isVisible("currency") && <TableHead sortKey="currency" sortDirection={sortKey === "currency" ? sortDirection : null} onSort={requestSort}>Mena</TableHead>}
+                  {columnVisibility.isVisible("validFrom") && <TableHead sortKey="validFrom" sortDirection={sortKey === "validFrom" ? sortDirection : null} onSort={requestSort}>Platnost od</TableHead>}
+                  {columnVisibility.isVisible("validTo") && <TableHead sortKey="validTo" sortDirection={sortKey === "validTo" ? sortDirection : null} onSort={requestSort}>Platnost do</TableHead>}
+                  {columnVisibility.isVisible("status") && <TableHead>Stav</TableHead>}
                   <TableHead className="text-right">Akcie</TableHead>
                 </TableRow>
               </TableHeader>
@@ -340,15 +356,15 @@ export default function Commissions() {
                   const status = getStatus(r);
                   return (
                     <TableRow key={r.id} data-testid={`row-rate-${r.id}`}>
-                      <TableCell className="font-medium">{partnerMap.get(r.partnerId) || `#${r.partnerId}`}</TableCell>
-                      <TableCell>{productMap.get(r.productId) || `#${r.productId}`}</TableCell>
-                      <TableCell><Badge variant="secondary" className="text-[10px]">{r.rateType === "percent" ? "%" : "Fix"}</Badge></TableCell>
-                      <TableCell className="text-right font-mono">{r.rateType === "percent" ? `${r.rateValue}%` : `${r.rateValue} ${r.currency}`}</TableCell>
-                      <TableCell className="text-right font-mono text-xs">{r.pointsFactor}</TableCell>
-                      <TableCell className="text-xs">{r.currency}</TableCell>
-                      <TableCell className="text-xs">{formatDate(r.validFrom)}</TableCell>
-                      <TableCell className="text-xs">{formatDate(r.validTo)}</TableCell>
-                      <TableCell>
+                      {columnVisibility.isVisible("partner") && <TableCell className="font-medium">{partnerMap.get(r.partnerId) || `#${r.partnerId}`}</TableCell>}
+                      {columnVisibility.isVisible("product") && <TableCell>{productMap.get(r.productId) || `#${r.productId}`}</TableCell>}
+                      {columnVisibility.isVisible("rateType") && <TableCell><Badge variant="secondary" className="text-[10px]">{r.rateType === "percent" ? "%" : "Fix"}</Badge></TableCell>}
+                      {columnVisibility.isVisible("rateValue") && <TableCell className="text-right font-mono">{r.rateType === "percent" ? `${r.rateValue}%` : `${r.rateValue} ${r.currency}`}</TableCell>}
+                      {columnVisibility.isVisible("pointsFactor") && <TableCell className="text-right font-mono text-xs">{r.pointsFactor}</TableCell>}
+                      {columnVisibility.isVisible("currency") && <TableCell className="text-xs">{r.currency}</TableCell>}
+                      {columnVisibility.isVisible("validFrom") && <TableCell className="text-xs">{formatDate(r.validFrom)}</TableCell>}
+                      {columnVisibility.isVisible("validTo") && <TableCell className="text-xs">{formatDate(r.validTo)}</TableCell>}
+                      {columnVisibility.isVisible("status") && <TableCell>
                         {status === "active" ? (
                           <Badge variant="default" className="bg-green-600 text-white no-default-hover-elevate text-[10px]">Aktivna</Badge>
                         ) : status === "expired" ? (
@@ -356,7 +372,7 @@ export default function Commissions() {
                         ) : (
                           <Badge variant="secondary" className="text-[10px]">Neaktivna</Badge>
                         )}
-                      </TableCell>
+                      </TableCell>}
                       <TableCell className="text-right">
                         <div className="flex items-center justify-end gap-1">
                           <Button size="icon" variant="ghost" onClick={() => openEdit(r)} data-testid={`button-edit-rate-${r.id}`}>

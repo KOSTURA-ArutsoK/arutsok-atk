@@ -35,7 +35,20 @@ import type { AppUser, PermissionGroup, ClientGroup } from "@shared/schema";
 import { ProcessingSaveButton } from "@/components/processing-save-button";
 import { HelpIcon } from "@/components/help-icon";
 import { useTableSort } from "@/hooks/use-table-sort";
+import { useColumnVisibility, type ColumnDef } from "@/hooks/use-column-visibility";
+import { ColumnManager } from "@/components/column-manager";
 
+const USER_COLUMNS: ColumnDef[] = [
+  { key: "firstName", label: "Meno" },
+  { key: "lastName", label: "Priezvisko" },
+  { key: "uid", label: "UID" },
+  { key: "email", label: "Email" },
+  { key: "phone", label: "Telefon" },
+  { key: "role", label: "Rola" },
+  { key: "mfaType", label: "MFA" },
+  { key: "securityLevel", label: "Bezp. uroven" },
+  { key: "permissionGroupId", label: "Skupina" },
+];
 
 const ROLES = ["superadmin", "admin", "backoffice", "manager", "user"] as const;
 
@@ -441,6 +454,7 @@ export default function UsersPage() {
   });
 
   const { sortedData, sortKey, sortDirection, requestSort } = useTableSort(users || []);
+  const columnVisibility = useColumnVisibility("users", USER_COLUMNS);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingUser, setEditingUser] = useState<AppUser | null>(null);
 
@@ -483,10 +497,13 @@ export default function UsersPage() {
             <p className="text-sm text-muted-foreground">Sprava pouzivatelov systemu</p>
           </div>
         </div>
-        <Button onClick={openCreate} data-testid="button-add-user">
-          <Plus className="w-4 h-4 mr-2" />
-          Pridat pouzivatela
-        </Button>
+        <div className="flex items-center gap-2 flex-wrap">
+          <ColumnManager columnVisibility={columnVisibility} />
+          <Button onClick={openCreate} data-testid="button-add-user">
+            <Plus className="w-4 h-4 mr-2" />
+            Pridat pouzivatela
+          </Button>
+        </div>
       </div>
 
       <Card>
@@ -494,15 +511,15 @@ export default function UsersPage() {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead sortKey="firstName" sortDirection={sortKey === "firstName" ? sortDirection : null} onSort={requestSort}>Meno</TableHead>
-                <TableHead sortKey="lastName" sortDirection={sortKey === "lastName" ? sortDirection : null} onSort={requestSort}>Priezvisko</TableHead>
-                <TableHead sortKey="uid" sortDirection={sortKey === "uid" ? sortDirection : null} onSort={requestSort}>UID</TableHead>
-                <TableHead sortKey="email" sortDirection={sortKey === "email" ? sortDirection : null} onSort={requestSort}>Email</TableHead>
-                <TableHead sortKey="phone" sortDirection={sortKey === "phone" ? sortDirection : null} onSort={requestSort}>Telefon</TableHead>
-                <TableHead sortKey="role" sortDirection={sortKey === "role" ? sortDirection : null} onSort={requestSort}>Rola</TableHead>
-                <TableHead sortKey="mfaType" sortDirection={sortKey === "mfaType" ? sortDirection : null} onSort={requestSort}>MFA</TableHead>
-                <TableHead sortKey="securityLevel" sortDirection={sortKey === "securityLevel" ? sortDirection : null} onSort={requestSort}>Bezp. uroven</TableHead>
-                <TableHead>Skupina</TableHead>
+                {columnVisibility.isVisible("firstName") && <TableHead sortKey="firstName" sortDirection={sortKey === "firstName" ? sortDirection : null} onSort={requestSort}>Meno</TableHead>}
+                {columnVisibility.isVisible("lastName") && <TableHead sortKey="lastName" sortDirection={sortKey === "lastName" ? sortDirection : null} onSort={requestSort}>Priezvisko</TableHead>}
+                {columnVisibility.isVisible("uid") && <TableHead sortKey="uid" sortDirection={sortKey === "uid" ? sortDirection : null} onSort={requestSort}>UID</TableHead>}
+                {columnVisibility.isVisible("email") && <TableHead sortKey="email" sortDirection={sortKey === "email" ? sortDirection : null} onSort={requestSort}>Email</TableHead>}
+                {columnVisibility.isVisible("phone") && <TableHead sortKey="phone" sortDirection={sortKey === "phone" ? sortDirection : null} onSort={requestSort}>Telefon</TableHead>}
+                {columnVisibility.isVisible("role") && <TableHead sortKey="role" sortDirection={sortKey === "role" ? sortDirection : null} onSort={requestSort}>Rola</TableHead>}
+                {columnVisibility.isVisible("mfaType") && <TableHead sortKey="mfaType" sortDirection={sortKey === "mfaType" ? sortDirection : null} onSort={requestSort}>MFA</TableHead>}
+                {columnVisibility.isVisible("securityLevel") && <TableHead sortKey="securityLevel" sortDirection={sortKey === "securityLevel" ? sortDirection : null} onSort={requestSort}>Bezp. uroven</TableHead>}
+                {columnVisibility.isVisible("permissionGroupId") && <TableHead>Skupina</TableHead>}
                 <TableHead>Akcie</TableHead>
               </TableRow>
             </TableHeader>
@@ -510,38 +527,38 @@ export default function UsersPage() {
               {sortedData && sortedData.length > 0 ? (
                 sortedData.map(user => (
                   <TableRow key={user.id} data-testid={`row-user-${user.id}`}>
-                    <TableCell data-testid={`text-user-firstname-${user.id}`}>
+                    {columnVisibility.isVisible("firstName") && <TableCell data-testid={`text-user-firstname-${user.id}`}>
                       {user.firstName || "-"}
-                    </TableCell>
-                    <TableCell data-testid={`text-user-lastname-${user.id}`}>
+                    </TableCell>}
+                    {columnVisibility.isVisible("lastName") && <TableCell data-testid={`text-user-lastname-${user.id}`}>
                       {user.lastName || "-"}
-                    </TableCell>
-                    <TableCell data-testid={`text-user-uid-${user.id}`}>
+                    </TableCell>}
+                    {columnVisibility.isVisible("uid") && <TableCell data-testid={`text-user-uid-${user.id}`}>
                       <span className="font-mono text-xs">{user.uid || "-"}</span>
-                    </TableCell>
-                    <TableCell data-testid={`text-user-email-${user.id}`}>
+                    </TableCell>}
+                    {columnVisibility.isVisible("email") && <TableCell data-testid={`text-user-email-${user.id}`}>
                       {user.email || "-"}
-                    </TableCell>
-                    <TableCell data-testid={`text-user-phone-${user.id}`}>
+                    </TableCell>}
+                    {columnVisibility.isVisible("phone") && <TableCell data-testid={`text-user-phone-${user.id}`}>
                       {user.phone || "-"}
-                    </TableCell>
-                    <TableCell>
+                    </TableCell>}
+                    {columnVisibility.isVisible("role") && <TableCell>
                       <Badge variant="secondary" data-testid={`badge-user-role-${user.id}`}>
                         {ROLE_LABELS[user.role || "user"] || user.role}
                       </Badge>
-                    </TableCell>
-                    <TableCell data-testid={`text-user-mfa-${user.id}`}>
+                    </TableCell>}
+                    {columnVisibility.isVisible("mfaType") && <TableCell data-testid={`text-user-mfa-${user.id}`}>
                       {MFA_LABELS[user.mfaType || "none"] || user.mfaType}
-                    </TableCell>
-                    <TableCell>
+                    </TableCell>}
+                    {columnVisibility.isVisible("securityLevel") && <TableCell>
                       <Badge variant="outline" data-testid={`badge-user-sl-${user.id}`}>
                         <Shield className="w-3 h-3 mr-1" />
                         SL{user.securityLevel || 1}
                       </Badge>
-                    </TableCell>
-                    <TableCell data-testid={`text-user-group-${user.id}`}>
+                    </TableCell>}
+                    {columnVisibility.isVisible("permissionGroupId") && <TableCell data-testid={`text-user-group-${user.id}`}>
                       {getGroupName(user.permissionGroupId)}
-                    </TableCell>
+                    </TableCell>}
                     <TableCell>
                       <Button
                         size="icon"

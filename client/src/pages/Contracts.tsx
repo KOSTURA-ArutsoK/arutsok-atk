@@ -45,6 +45,46 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import { HelpIcon } from "@/components/help-icon";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
+import { useColumnVisibility, type ColumnDef } from "@/hooks/use-column-visibility";
+import { ColumnManager } from "@/components/column-manager";
+
+const CONTRACTS_COLUMNS: ColumnDef[] = [
+  { key: "contractNumber", label: "Cislo zmluvy" },
+  { key: "proposalNumber", label: "Cislo navrhu" },
+  { key: "globalNumber", label: "Poradove cislo" },
+  { key: "subjectId", label: "Klient" },
+  { key: "partnerId", label: "Partner" },
+  { key: "productId", label: "Produkt" },
+  { key: "status", label: "Stav" },
+  { key: "inventoryId", label: "Sprievodka" },
+  { key: "annualPremium", label: "Rocne poistne" },
+  { key: "signedDate", label: "Vytvorenie zmluvy" },
+  { key: "premiumAmount", label: "Lehotne poistne" },
+];
+
+const CONTRACTS_EVIDENCIA_COLUMNS: ColumnDef[] = [
+  { key: "contractNumber", label: "Cislo zmluvy" },
+  { key: "proposalNumber", label: "Cislo navrhu" },
+  { key: "globalNumber", label: "Poradove cislo" },
+  { key: "subjectId", label: "Klient" },
+  { key: "partnerId", label: "Partner" },
+  { key: "productId", label: "Produkt" },
+  { key: "status", label: "Stav" },
+  { key: "annualPremium", label: "Rocne poistne" },
+  { key: "signedDate", label: "Vytvorenie zmluvy" },
+  { key: "premiumAmount", label: "Lehotne poistne" },
+];
+
+const CONTRACTS_SPRIEVODKA_COLUMNS: ColumnDef[] = [
+  { key: "contractNumber", label: "Cislo zmluvy" },
+  { key: "proposalNumber", label: "Cislo navrhu" },
+  { key: "subjectId", label: "Klient" },
+  { key: "partnerId", label: "Partner" },
+  { key: "productId", label: "Produkt" },
+  { key: "annualPremium", label: "Rocne poistne" },
+  { key: "signedDate", label: "Vytvorenie zmluvy" },
+  { key: "premiumAmount", label: "Lehotne poistne" },
+];
 
 function formatProcessingTime(seconds: number): string {
   const h = Math.floor(seconds / 3600);
@@ -1381,6 +1421,10 @@ export default function Contracts() {
 
   const isEvidencia = location === "/evidencia-zmluv";
 
+  const columnVisibility = useColumnVisibility("contracts", CONTRACTS_COLUMNS);
+  const evidenciaColumnVisibility = useColumnVisibility("contracts-evidencia", CONTRACTS_EVIDENCIA_COLUMNS);
+  const sprievodkaColumnVisibility = useColumnVisibility("contracts-sprievodka", CONTRACTS_SPRIEVODKA_COLUMNS);
+
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [deletingContract, setDeletingContract] = useState<Contract | null>(null);
   const [viewingContract, setViewingContract] = useState<Contract | null>(null);
@@ -1801,16 +1845,16 @@ export default function Contracts() {
               </TableHead>
             )}
             {showOrder && <TableHead className="w-[40px] text-center">#</TableHead>}
-            <TableHead sortKey="contractNumber" sortDirection={sk === "contractNumber" ? sd : null} onSort={rs}>Cislo zmluvy</TableHead>
-            <TableHead sortKey="proposalNumber" sortDirection={sk === "proposalNumber" ? sd : null} onSort={rs}>Cislo navrhu</TableHead>
-            {showRegistration && <TableHead sortKey="globalNumber" sortDirection={sk === "globalNumber" ? sd : null} onSort={rs}>Poradove cislo</TableHead>}
-            <TableHead sortKey="subjectId" sortDirection={sk === "subjectId" ? sd : null} onSort={rs}>Klient</TableHead>
-            <TableHead sortKey="partnerId" sortDirection={sk === "partnerId" ? sd : null} onSort={rs}>Partner</TableHead>
-            <TableHead sortKey="productId" sortDirection={sk === "productId" ? sd : null} onSort={rs}>Produkt</TableHead>
-            {showStatus && <TableHead>Stav</TableHead>}
-            <TableHead sortKey="annualPremium" sortDirection={sk === "annualPremium" ? sd : null} onSort={rs}>Rocne poistne</TableHead>
-            <TableHead sortKey="signedDate" sortDirection={sk === "signedDate" ? sd : null} onSort={rs}>Vytvorenie zmluvy</TableHead>
-            <TableHead sortKey="premiumAmount" sortDirection={sk === "premiumAmount" ? sd : null} onSort={rs}>Lehotne poistne</TableHead>
+            {evidenciaColumnVisibility.isVisible("contractNumber") && <TableHead sortKey="contractNumber" sortDirection={sk === "contractNumber" ? sd : null} onSort={rs}>Cislo zmluvy</TableHead>}
+            {evidenciaColumnVisibility.isVisible("proposalNumber") && <TableHead sortKey="proposalNumber" sortDirection={sk === "proposalNumber" ? sd : null} onSort={rs}>Cislo navrhu</TableHead>}
+            {showRegistration && evidenciaColumnVisibility.isVisible("globalNumber") && <TableHead sortKey="globalNumber" sortDirection={sk === "globalNumber" ? sd : null} onSort={rs}>Poradove cislo</TableHead>}
+            {evidenciaColumnVisibility.isVisible("subjectId") && <TableHead sortKey="subjectId" sortDirection={sk === "subjectId" ? sd : null} onSort={rs}>Klient</TableHead>}
+            {evidenciaColumnVisibility.isVisible("partnerId") && <TableHead sortKey="partnerId" sortDirection={sk === "partnerId" ? sd : null} onSort={rs}>Partner</TableHead>}
+            {evidenciaColumnVisibility.isVisible("productId") && <TableHead sortKey="productId" sortDirection={sk === "productId" ? sd : null} onSort={rs}>Produkt</TableHead>}
+            {showStatus && evidenciaColumnVisibility.isVisible("status") && <TableHead>Stav</TableHead>}
+            {evidenciaColumnVisibility.isVisible("annualPremium") && <TableHead sortKey="annualPremium" sortDirection={sk === "annualPremium" ? sd : null} onSort={rs}>Rocne poistne</TableHead>}
+            {evidenciaColumnVisibility.isVisible("signedDate") && <TableHead sortKey="signedDate" sortDirection={sk === "signedDate" ? sd : null} onSort={rs}>Vytvorenie zmluvy</TableHead>}
+            {evidenciaColumnVisibility.isVisible("premiumAmount") && <TableHead sortKey="premiumAmount" sortDirection={sk === "premiumAmount" ? sd : null} onSort={rs}>Lehotne poistne</TableHead>}
             {showActions && <TableHead className="text-right">Akcie</TableHead>}
           </TableRow>
         </TableHeader>
@@ -1833,14 +1877,14 @@ export default function Contracts() {
                     {selectedIds.includes(contract.id) ? selectedIds.indexOf(contract.id) + 1 : ""}
                   </TableCell>
                 )}
-                <TableCell className="font-mono text-sm" data-testid={`text-contract-number-${contract.id}`}>
+                {evidenciaColumnVisibility.isVisible("contractNumber") && <TableCell className="font-mono text-sm" data-testid={`text-contract-number-${contract.id}`}>
                   <span className="flex items-center gap-1">
                     <Lock className="w-3 h-3 text-amber-500 shrink-0" style={{ display: contract.isLocked ? 'block' : 'none' }} />
                     {contract.contractNumber || "-"}
                   </span>
-                </TableCell>
-                <TableCell className="text-sm font-mono" data-testid={`text-contract-proposal-${contract.id}`}>{contract.proposalNumber || "-"}</TableCell>
-                {showRegistration && (
+                </TableCell>}
+                {evidenciaColumnVisibility.isVisible("proposalNumber") && <TableCell className="text-sm font-mono" data-testid={`text-contract-proposal-${contract.id}`}>{contract.proposalNumber || "-"}</TableCell>}
+                {showRegistration && evidenciaColumnVisibility.isVisible("globalNumber") && (
                   <TableCell className="font-mono text-sm" data-testid={`text-contract-registration-${contract.id}`}>
                     {contract.globalNumber ? (
                       <span className="font-semibold">{contract.globalNumber}</span>
@@ -1849,10 +1893,10 @@ export default function Contracts() {
                     )}
                   </TableCell>
                 )}
-                <TableCell className="text-sm">{getSubjectDisplay(contract.subjectId)}</TableCell>
-                <TableCell className="text-sm">{getPartnerName(contract)}</TableCell>
-                <TableCell className="text-sm">{getProductName(contract)}</TableCell>
-                {showStatus && (
+                {evidenciaColumnVisibility.isVisible("subjectId") && <TableCell className="text-sm">{getSubjectDisplay(contract.subjectId)}</TableCell>}
+                {evidenciaColumnVisibility.isVisible("partnerId") && <TableCell className="text-sm">{getPartnerName(contract)}</TableCell>}
+                {evidenciaColumnVisibility.isVisible("productId") && <TableCell className="text-sm">{getProductName(contract)}</TableCell>}
+                {showStatus && evidenciaColumnVisibility.isVisible("status") && (
                   <TableCell data-testid={`text-contract-status-${contract.id}`}>
                     <div className="flex items-center gap-1.5 flex-wrap">
                       {status ? (
@@ -1866,9 +1910,9 @@ export default function Contracts() {
                     </div>
                   </TableCell>
                 )}
-                <TableCell className="text-sm font-mono">{formatAmount(contract.annualPremium, contract.currency)}</TableCell>
-                <TableCell className="text-sm">{formatDate(contract.signedDate)}</TableCell>
-                <TableCell className="text-sm font-mono">{formatAmount(contract.premiumAmount, contract.currency)}</TableCell>
+                {evidenciaColumnVisibility.isVisible("annualPremium") && <TableCell className="text-sm font-mono">{formatAmount(contract.annualPremium, contract.currency)}</TableCell>}
+                {evidenciaColumnVisibility.isVisible("signedDate") && <TableCell className="text-sm">{formatDate(contract.signedDate)}</TableCell>}
+                {evidenciaColumnVisibility.isVisible("premiumAmount") && <TableCell className="text-sm font-mono">{formatAmount(contract.premiumAmount, contract.currency)}</TableCell>}
                 {showActions && (
                   <TableCell className="text-right">
                     <div className="flex items-center justify-end gap-1 flex-wrap">
@@ -2845,15 +2889,19 @@ export default function Contracts() {
           })}
         </div>
 
-        <div className="relative" data-testid="search-bar">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-          <Input
-            value={searchQuery}
-            onChange={e => setSearchQuery(e.target.value)}
-            placeholder="Hladat zmluvy (cislo, klient, partner, produkt...)"
-            className="pl-9"
-            data-testid="input-search-contracts"
-          />
+        <div className="flex items-center gap-2">
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+            <Input
+              value={searchQuery}
+              onChange={e => setSearchQuery(e.target.value)}
+              placeholder="Hladat zmluvy (cislo, klient, partner, produkt...)"
+              className="pl-9"
+              data-testid="input-search-contracts"
+            />
+          </div>
+          <ColumnManager columnVisibility={evidenciaColumnVisibility} />
+          <ColumnManager columnVisibility={sprievodkaColumnVisibility} />
         </div>
 
         <div id="folder-1-wrapper" style={{ display: activeFolder === 1 ? 'block' : 'none' }}>
@@ -2931,14 +2979,14 @@ export default function Contracts() {
                                     <Checkbox checked={allChecked} onCheckedChange={() => toggleAcceptAll(group.inventoryId, group.contracts)} data-testid={`checkbox-accept-all-${group.inventoryId}`} />
                                   </TableHead>
                                   <TableHead className="w-[40px] text-center">#</TableHead>
-                                  <TableHead>Cislo zmluvy</TableHead>
-                                  <TableHead>Cislo navrhu</TableHead>
-                                  <TableHead>Klient</TableHead>
-                                  <TableHead>Partner</TableHead>
-                                  <TableHead>Produkt</TableHead>
-                                  <TableHead>Rocne poistne</TableHead>
-                                  <TableHead>Vytvorenie zmluvy</TableHead>
-                                  <TableHead>Lehotne poistne</TableHead>
+                                  {sprievodkaColumnVisibility.isVisible("contractNumber") && <TableHead>Cislo zmluvy</TableHead>}
+                                  {sprievodkaColumnVisibility.isVisible("proposalNumber") && <TableHead>Cislo navrhu</TableHead>}
+                                  {sprievodkaColumnVisibility.isVisible("subjectId") && <TableHead>Klient</TableHead>}
+                                  {sprievodkaColumnVisibility.isVisible("partnerId") && <TableHead>Partner</TableHead>}
+                                  {sprievodkaColumnVisibility.isVisible("productId") && <TableHead>Produkt</TableHead>}
+                                  {sprievodkaColumnVisibility.isVisible("annualPremium") && <TableHead>Rocne poistne</TableHead>}
+                                  {sprievodkaColumnVisibility.isVisible("signedDate") && <TableHead>Vytvorenie zmluvy</TableHead>}
+                                  {sprievodkaColumnVisibility.isVisible("premiumAmount") && <TableHead>Lehotne poistne</TableHead>}
                                   <TableHead className="text-right">Akcie</TableHead>
                                 </TableRow>
                               </TableHeader>
@@ -2949,19 +2997,19 @@ export default function Contracts() {
                                       <Checkbox checked={checkedIds.has(contract.id)} onCheckedChange={() => toggleAcceptContract(group.inventoryId, contract.id)} data-testid={`checkbox-accept-${contract.id}`} />
                                     </TableCell>
                                     <TableCell className="text-center text-xs text-muted-foreground">{contract.sortOrderInInventory || "-"}</TableCell>
-                                    <TableCell className="font-mono text-sm" data-testid={`text-dispatched-number-${contract.id}`}>
+                                    {sprievodkaColumnVisibility.isVisible("contractNumber") && <TableCell className="font-mono text-sm" data-testid={`text-dispatched-number-${contract.id}`}>
                                       <span className="flex items-center gap-1">
                                         <Lock className="w-3 h-3 text-amber-500 shrink-0" style={{ display: contract.isLocked ? 'block' : 'none' }} />
                                         {contract.contractNumber || "-"}
                                       </span>
-                                    </TableCell>
-                                    <TableCell className="text-sm font-mono">{contract.proposalNumber || "-"}</TableCell>
-                                    <TableCell className="text-sm">{getSubjectDisplay(contract.subjectId)}</TableCell>
-                                    <TableCell className="text-sm">{getPartnerName(contract)}</TableCell>
-                                    <TableCell className="text-sm">{getProductName(contract)}</TableCell>
-                                    <TableCell className="text-sm font-mono">{formatAmount(contract.annualPremium, contract.currency)}</TableCell>
-                                    <TableCell className="text-sm">{formatDate(contract.signedDate)}</TableCell>
-                                    <TableCell className="text-sm font-mono">{formatAmount(contract.premiumAmount, contract.currency)}</TableCell>
+                                    </TableCell>}
+                                    {sprievodkaColumnVisibility.isVisible("proposalNumber") && <TableCell className="text-sm font-mono">{contract.proposalNumber || "-"}</TableCell>}
+                                    {sprievodkaColumnVisibility.isVisible("subjectId") && <TableCell className="text-sm">{getSubjectDisplay(contract.subjectId)}</TableCell>}
+                                    {sprievodkaColumnVisibility.isVisible("partnerId") && <TableCell className="text-sm">{getPartnerName(contract)}</TableCell>}
+                                    {sprievodkaColumnVisibility.isVisible("productId") && <TableCell className="text-sm">{getProductName(contract)}</TableCell>}
+                                    {sprievodkaColumnVisibility.isVisible("annualPremium") && <TableCell className="text-sm font-mono">{formatAmount(contract.annualPremium, contract.currency)}</TableCell>}
+                                    {sprievodkaColumnVisibility.isVisible("signedDate") && <TableCell className="text-sm">{formatDate(contract.signedDate)}</TableCell>}
+                                    {sprievodkaColumnVisibility.isVisible("premiumAmount") && <TableCell className="text-sm font-mono">{formatAmount(contract.premiumAmount, contract.currency)}</TableCell>}
                                     <TableCell className="text-right">
                                       <Button size="icon" variant="ghost" onClick={() => openView(contract)} data-testid={`button-view-dispatched-${contract.id}`}>
                                         <Eye className="w-4 h-4" />
@@ -3134,6 +3182,8 @@ export default function Contracts() {
             </SelectContent>
           </Select>
         </div>
+        <div className="flex-1" />
+        <ColumnManager columnVisibility={columnVisibility} />
       </div>
 
       <Card>
@@ -3151,17 +3201,17 @@ export default function Contracts() {
             <Table stickyHeader>
               <TableHeader>
                 <TableRow>
-                  <TableHead sortKey="contractNumber" sortDirection={skMain === "contractNumber" ? sdMain : null} onSort={rsMain}>Cislo zmluvy</TableHead>
-                  <TableHead sortKey="proposalNumber" sortDirection={skMain === "proposalNumber" ? sdMain : null} onSort={rsMain}>Cislo navrhu</TableHead>
-                  <TableHead sortKey="globalNumber" sortDirection={skMain === "globalNumber" ? sdMain : null} onSort={rsMain}>Poradove cislo</TableHead>
-                  <TableHead sortKey="subjectId" sortDirection={skMain === "subjectId" ? sdMain : null} onSort={rsMain}>Klient</TableHead>
-                  <TableHead sortKey="partnerId" sortDirection={skMain === "partnerId" ? sdMain : null} onSort={rsMain}>Partner</TableHead>
-                  <TableHead sortKey="productId" sortDirection={skMain === "productId" ? sdMain : null} onSort={rsMain}>Produkt</TableHead>
-                  <TableHead>Stav</TableHead>
-                  <TableHead sortKey="inventoryId" sortDirection={skMain === "inventoryId" ? sdMain : null} onSort={rsMain}>Sprievodka</TableHead>
-                  <TableHead sortKey="annualPremium" sortDirection={skMain === "annualPremium" ? sdMain : null} onSort={rsMain}>Rocne poistne</TableHead>
-                  <TableHead sortKey="signedDate" sortDirection={skMain === "signedDate" ? sdMain : null} onSort={rsMain}>Vytvorenie zmluvy</TableHead>
-                  <TableHead sortKey="premiumAmount" sortDirection={skMain === "premiumAmount" ? sdMain : null} onSort={rsMain}>Lehotne poistne</TableHead>
+                  {columnVisibility.isVisible("contractNumber") && <TableHead sortKey="contractNumber" sortDirection={skMain === "contractNumber" ? sdMain : null} onSort={rsMain}>Cislo zmluvy</TableHead>}
+                  {columnVisibility.isVisible("proposalNumber") && <TableHead sortKey="proposalNumber" sortDirection={skMain === "proposalNumber" ? sdMain : null} onSort={rsMain}>Cislo navrhu</TableHead>}
+                  {columnVisibility.isVisible("globalNumber") && <TableHead sortKey="globalNumber" sortDirection={skMain === "globalNumber" ? sdMain : null} onSort={rsMain}>Poradove cislo</TableHead>}
+                  {columnVisibility.isVisible("subjectId") && <TableHead sortKey="subjectId" sortDirection={skMain === "subjectId" ? sdMain : null} onSort={rsMain}>Klient</TableHead>}
+                  {columnVisibility.isVisible("partnerId") && <TableHead sortKey="partnerId" sortDirection={skMain === "partnerId" ? sdMain : null} onSort={rsMain}>Partner</TableHead>}
+                  {columnVisibility.isVisible("productId") && <TableHead sortKey="productId" sortDirection={skMain === "productId" ? sdMain : null} onSort={rsMain}>Produkt</TableHead>}
+                  {columnVisibility.isVisible("status") && <TableHead>Stav</TableHead>}
+                  {columnVisibility.isVisible("inventoryId") && <TableHead sortKey="inventoryId" sortDirection={skMain === "inventoryId" ? sdMain : null} onSort={rsMain}>Sprievodka</TableHead>}
+                  {columnVisibility.isVisible("annualPremium") && <TableHead sortKey="annualPremium" sortDirection={skMain === "annualPremium" ? sdMain : null} onSort={rsMain}>Rocne poistne</TableHead>}
+                  {columnVisibility.isVisible("signedDate") && <TableHead sortKey="signedDate" sortDirection={skMain === "signedDate" ? sdMain : null} onSort={rsMain}>Vytvorenie zmluvy</TableHead>}
+                  {columnVisibility.isVisible("premiumAmount") && <TableHead sortKey="premiumAmount" sortDirection={skMain === "premiumAmount" ? sdMain : null} onSort={rsMain}>Lehotne poistne</TableHead>}
                   <TableHead className="text-right">Akcie</TableHead>
                 </TableRow>
               </TableHeader>
@@ -3172,30 +3222,30 @@ export default function Contracts() {
 
                   return (
                     <TableRow key={contract.id} data-testid={`row-contract-${contract.id}`}>
-                      <TableCell className="font-mono text-sm" data-testid={`text-contract-number-${contract.id}`}>
+                      {columnVisibility.isVisible("contractNumber") && <TableCell className="font-mono text-sm" data-testid={`text-contract-number-${contract.id}`}>
                         <span className="flex items-center gap-1">
                           <Lock className="w-3 h-3 text-amber-500 shrink-0" style={{ display: contract.isLocked ? 'block' : 'none' }} />
                           {contract.contractNumber || "-"}
                         </span>
-                      </TableCell>
-                      <TableCell className="text-sm font-mono" data-testid={`text-contract-proposal-${contract.id}`}>{contract.proposalNumber || "-"}</TableCell>
-                      <TableCell className="font-mono text-sm" data-testid={`text-contract-registration-${contract.id}`}>
+                      </TableCell>}
+                      {columnVisibility.isVisible("proposalNumber") && <TableCell className="text-sm font-mono" data-testid={`text-contract-proposal-${contract.id}`}>{contract.proposalNumber || "-"}</TableCell>}
+                      {columnVisibility.isVisible("globalNumber") && <TableCell className="font-mono text-sm" data-testid={`text-contract-registration-${contract.id}`}>
                         {contract.globalNumber ? (
                           <span className="font-semibold">{contract.globalNumber}</span>
                         ) : (
                           <Badge variant="outline" className="text-xs text-amber-500 border-amber-500/50">V procese</Badge>
                         )}
-                      </TableCell>
-                      <TableCell className="text-sm" data-testid={`text-contract-subject-${contract.id}`}>
+                      </TableCell>}
+                      {columnVisibility.isVisible("subjectId") && <TableCell className="text-sm" data-testid={`text-contract-subject-${contract.id}`}>
                         {getSubjectDisplay(contract.subjectId)}
-                      </TableCell>
-                      <TableCell className="text-sm" data-testid={`text-contract-partner-${contract.id}`}>
+                      </TableCell>}
+                      {columnVisibility.isVisible("partnerId") && <TableCell className="text-sm" data-testid={`text-contract-partner-${contract.id}`}>
                         {getPartnerName(contract)}
-                      </TableCell>
-                      <TableCell className="text-sm" data-testid={`text-contract-product-${contract.id}`}>
+                      </TableCell>}
+                      {columnVisibility.isVisible("productId") && <TableCell className="text-sm" data-testid={`text-contract-product-${contract.id}`}>
                         {getProductName(contract)}
-                      </TableCell>
-                      <TableCell data-testid={`text-contract-status-${contract.id}`} style={{ maxWidth: '150px', whiteSpace: 'normal', wordBreak: 'break-word' }}>
+                      </TableCell>}
+                      {columnVisibility.isVisible("status") && <TableCell data-testid={`text-contract-status-${contract.id}`} style={{ maxWidth: '150px', whiteSpace: 'normal', wordBreak: 'break-word' }}>
                         {status ? (
                           <span
                             className="inline-flex items-center px-2 py-0.5 rounded-full border text-[11px] font-medium leading-snug"
@@ -3205,19 +3255,19 @@ export default function Contracts() {
                             {status.name}
                           </span>
                         ) : "-"}
-                      </TableCell>
-                      <TableCell className="text-sm" data-testid={`text-contract-inventory-${contract.id}`}>
+                      </TableCell>}
+                      {columnVisibility.isVisible("inventoryId") && <TableCell className="text-sm" data-testid={`text-contract-inventory-${contract.id}`}>
                         {inventoryName}
-                      </TableCell>
-                      <TableCell className="text-sm font-mono" data-testid={`text-contract-annual-${contract.id}`}>
+                      </TableCell>}
+                      {columnVisibility.isVisible("annualPremium") && <TableCell className="text-sm font-mono" data-testid={`text-contract-annual-${contract.id}`}>
                         {formatAmount(contract.annualPremium, contract.currency)}
-                      </TableCell>
-                      <TableCell className="text-sm" data-testid={`text-contract-date-${contract.id}`}>
+                      </TableCell>}
+                      {columnVisibility.isVisible("signedDate") && <TableCell className="text-sm" data-testid={`text-contract-date-${contract.id}`}>
                         {formatDate(contract.signedDate)}
-                      </TableCell>
-                      <TableCell className="text-sm font-mono" data-testid={`text-contract-amount-${contract.id}`}>
+                      </TableCell>}
+                      {columnVisibility.isVisible("premiumAmount") && <TableCell className="text-sm font-mono" data-testid={`text-contract-amount-${contract.id}`}>
                         {formatAmount(contract.premiumAmount, contract.currency)}
-                      </TableCell>
+                      </TableCell>}
                       <TableCell className="text-right">
                         <div className="flex items-center justify-end gap-1 flex-wrap">
                           <Button size="icon" variant="ghost" onClick={() => openView(contract)} data-testid={`button-view-contract-${contract.id}`}>

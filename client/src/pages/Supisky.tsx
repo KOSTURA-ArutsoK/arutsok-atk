@@ -4,6 +4,8 @@ import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useAppUser } from "@/hooks/use-app-user";
 import { useToast } from "@/hooks/use-toast";
 import { useTableSort } from "@/hooks/use-table-sort";
+import { useColumnVisibility, type ColumnDef } from "@/hooks/use-column-visibility";
+import { ColumnManager } from "@/components/column-manager";
 import type { Supiska, Contract } from "@shared/schema";
 import { Plus, Pencil, Trash2, Loader2, Send, Undo2, FileSpreadsheet, FileDown, Lock, Unlock, X } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
@@ -30,6 +32,14 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import { ProcessingSaveButton } from "@/components/processing-save-button";
 
 const STATUSES = ["Nova", "Pripravena", "Odoslana"] as const;
+
+const SUPISKY_COLUMNS: ColumnDef[] = [
+  { key: "supId", label: "SUP ID" },
+  { key: "name", label: "Nazov" },
+  { key: "status", label: "Stav" },
+  { key: "createdAt", label: "Vytvorene" },
+  { key: "createdBy", label: "Vytvoril" },
+];
 
 function statusBadgeClasses(status: string): string {
   switch (status) {
@@ -541,6 +551,7 @@ export default function SupiskyPage() {
   const [detailOpen, setDetailOpen] = useState(false);
   const [selectedSupiska, setSelectedSupiska] = useState<Supiska | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
+  const columnVisibility = useColumnVisibility("supisky", SUPISKY_COLUMNS);
 
   const { data: supisky = [], isLoading } = useQuery<Supiska[]>({
     queryKey: ["/api/supisky"],
@@ -571,13 +582,16 @@ export default function SupiskyPage() {
     <div className="p-4 space-y-4">
       <div className="flex items-center justify-between gap-2 flex-wrap">
         <h1 className="text-xl font-semibold" data-testid="text-page-title">Supisky</h1>
-        <Button
-          onClick={() => { setEditing(null); setFormOpen(true); }}
-          data-testid="button-create-supiska"
-        >
-          <Plus className="w-4 h-4 mr-1" />
-          Nova supiska
-        </Button>
+        <div className="flex items-center gap-2 flex-wrap">
+          <ColumnManager columnVisibility={columnVisibility} />
+          <Button
+            onClick={() => { setEditing(null); setFormOpen(true); }}
+            data-testid="button-create-supiska"
+          >
+            <Plus className="w-4 h-4 mr-1" />
+            Nova supiska
+          </Button>
+        </div>
       </div>
 
       <Input
@@ -593,11 +607,11 @@ export default function SupiskyPage() {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead sortKey="supId" sortDirection={sortKeyMain === "supId" ? sortDirMain : null} onSort={requestSortMain}>SUP ID</TableHead>
-                <TableHead sortKey="name" sortDirection={sortKeyMain === "name" ? sortDirMain : null} onSort={requestSortMain}>Nazov</TableHead>
-                <TableHead sortKey="status" sortDirection={sortKeyMain === "status" ? sortDirMain : null} onSort={requestSortMain}>Stav</TableHead>
-                <TableHead sortKey="createdAt" sortDirection={sortKeyMain === "createdAt" ? sortDirMain : null} onSort={requestSortMain}>Vytvorene</TableHead>
-                <TableHead sortKey="createdBy" sortDirection={sortKeyMain === "createdBy" ? sortDirMain : null} onSort={requestSortMain}>Vytvoril</TableHead>
+                {columnVisibility.isVisible("supId") && <TableHead sortKey="supId" sortDirection={sortKeyMain === "supId" ? sortDirMain : null} onSort={requestSortMain}>SUP ID</TableHead>}
+                {columnVisibility.isVisible("name") && <TableHead sortKey="name" sortDirection={sortKeyMain === "name" ? sortDirMain : null} onSort={requestSortMain}>Nazov</TableHead>}
+                {columnVisibility.isVisible("status") && <TableHead sortKey="status" sortDirection={sortKeyMain === "status" ? sortDirMain : null} onSort={requestSortMain}>Stav</TableHead>}
+                {columnVisibility.isVisible("createdAt") && <TableHead sortKey="createdAt" sortDirection={sortKeyMain === "createdAt" ? sortDirMain : null} onSort={requestSortMain}>Vytvorene</TableHead>}
+                {columnVisibility.isVisible("createdBy") && <TableHead sortKey="createdBy" sortDirection={sortKeyMain === "createdBy" ? sortDirMain : null} onSort={requestSortMain}>Vytvoril</TableHead>}
                 <TableHead className="w-24"></TableHead>
               </TableRow>
             </TableHeader>
@@ -622,15 +636,15 @@ export default function SupiskyPage() {
                     onClick={() => { setSelectedSupiska(s); setDetailOpen(true); }}
                     data-testid={`row-supiska-${s.id}`}
                   >
-                    <TableCell className="font-mono text-sm">{s.supId}</TableCell>
-                    <TableCell>{s.name}</TableCell>
-                    <TableCell>
+                    {columnVisibility.isVisible("supId") && <TableCell className="font-mono text-sm">{s.supId}</TableCell>}
+                    {columnVisibility.isVisible("name") && <TableCell>{s.name}</TableCell>}
+                    {columnVisibility.isVisible("status") && <TableCell>
                       <span className={`inline-flex items-center px-2 py-0.5 rounded-full border text-[11px] font-medium ${statusBadgeClasses(s.status)}`}>{s.status}</span>
-                    </TableCell>
-                    <TableCell className="text-sm text-muted-foreground">
+                    </TableCell>}
+                    {columnVisibility.isVisible("createdAt") && <TableCell className="text-sm text-muted-foreground">
                       {s.createdAt ? new Date(s.createdAt).toLocaleDateString("sk-SK") : ""}
-                    </TableCell>
-                    <TableCell className="text-sm">{s.createdBy || ""}</TableCell>
+                    </TableCell>}
+                    {columnVisibility.isVisible("createdBy") && <TableCell className="text-sm">{s.createdBy || ""}</TableCell>}
                     <TableCell>
                       <div className="flex items-center gap-1">
                         <Button

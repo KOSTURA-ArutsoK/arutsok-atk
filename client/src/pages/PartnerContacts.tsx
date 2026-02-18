@@ -1,6 +1,8 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useTableSort } from "@/hooks/use-table-sort";
+import { useColumnVisibility, type ColumnDef } from "@/hooks/use-column-visibility";
+import { ColumnManager } from "@/components/column-manager";
 import type { Partner, PartnerContact } from "@shared/schema";
 import { Loader2, Phone, Mail, Shield, User } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -12,6 +14,16 @@ import {
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
+
+const PARTNER_CONTACTS_COLUMNS: ColumnDef[] = [
+  { key: "firstName", label: "Meno" },
+  { key: "partnerName", label: "Partner" },
+  { key: "position", label: "Pozicia" },
+  { key: "phone", label: "Telefon" },
+  { key: "email", label: "Email" },
+  { key: "securityLevel", label: "Bezpecnost" },
+  { key: "isActive", label: "Stav" },
+];
 
 type PartnerContactWithPartner = PartnerContact & { partnerName?: string };
 
@@ -51,6 +63,7 @@ export default function PartnerContacts() {
   });
 
   const { sortedData: sortedContacts, sortKey, sortDirection, requestSort } = useTableSort(filteredContacts);
+  const columnVisibility = useColumnVisibility("partner-contacts", PARTNER_CONTACTS_COLUMNS);
 
   return (
     <div className="p-6 space-y-6">
@@ -67,6 +80,7 @@ export default function PartnerContacts() {
             data-testid="input-search-contacts"
           />
         </div>
+        <ColumnManager columnVisibility={columnVisibility} />
         <Select value={filterActive} onValueChange={setFilterActive}>
           <SelectTrigger className="w-[180px]" data-testid="select-filter-active">
             <SelectValue />
@@ -87,19 +101,19 @@ export default function PartnerContacts() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead sortKey="firstName" sortDirection={sortKey === "firstName" ? sortDirection : null} onSort={requestSort}>Meno</TableHead>
-                  <TableHead sortKey="partnerName" sortDirection={sortKey === "partnerName" ? sortDirection : null} onSort={requestSort}>Partner</TableHead>
-                  <TableHead sortKey="position" sortDirection={sortKey === "position" ? sortDirection : null} onSort={requestSort}>Pozicia</TableHead>
-                  <TableHead sortKey="phone" sortDirection={sortKey === "phone" ? sortDirection : null} onSort={requestSort}>Telefon</TableHead>
-                  <TableHead sortKey="email" sortDirection={sortKey === "email" ? sortDirection : null} onSort={requestSort}>Email</TableHead>
-                  <TableHead sortKey="securityLevel" className="w-24 text-center" sortDirection={sortKey === "securityLevel" ? sortDirection : null} onSort={requestSort}>Bezpecnost</TableHead>
-                  <TableHead sortKey="isActive" className="w-24 text-center" sortDirection={sortKey === "isActive" ? sortDirection : null} onSort={requestSort}>Stav</TableHead>
+                  {columnVisibility.isVisible("firstName") && <TableHead sortKey="firstName" sortDirection={sortKey === "firstName" ? sortDirection : null} onSort={requestSort}>Meno</TableHead>}
+                  {columnVisibility.isVisible("partnerName") && <TableHead sortKey="partnerName" sortDirection={sortKey === "partnerName" ? sortDirection : null} onSort={requestSort}>Partner</TableHead>}
+                  {columnVisibility.isVisible("position") && <TableHead sortKey="position" sortDirection={sortKey === "position" ? sortDirection : null} onSort={requestSort}>Pozicia</TableHead>}
+                  {columnVisibility.isVisible("phone") && <TableHead sortKey="phone" sortDirection={sortKey === "phone" ? sortDirection : null} onSort={requestSort}>Telefon</TableHead>}
+                  {columnVisibility.isVisible("email") && <TableHead sortKey="email" sortDirection={sortKey === "email" ? sortDirection : null} onSort={requestSort}>Email</TableHead>}
+                  {columnVisibility.isVisible("securityLevel") && <TableHead sortKey="securityLevel" className="w-24 text-center" sortDirection={sortKey === "securityLevel" ? sortDirection : null} onSort={requestSort}>Bezpecnost</TableHead>}
+                  {columnVisibility.isVisible("isActive") && <TableHead sortKey="isActive" className="w-24 text-center" sortDirection={sortKey === "isActive" ? sortDirection : null} onSort={requestSort}>Stav</TableHead>}
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {sortedContacts.map((contact) => (
                   <TableRow key={contact.id} data-testid={`row-contact-${contact.id}`}>
-                    <TableCell className="font-medium">
+                    {columnVisibility.isVisible("firstName") && <TableCell className="font-medium">
                       <div className="flex items-center gap-2">
                         <User className="w-4 h-4 text-muted-foreground" />
                         <span>
@@ -111,42 +125,42 @@ export default function PartnerContacts() {
                           <Badge variant="default" className="text-[10px]">Primarny</Badge>
                         )}
                       </div>
-                    </TableCell>
-                    <TableCell>
+                    </TableCell>}
+                    {columnVisibility.isVisible("partnerName") && <TableCell>
                       <span className="text-sm">{contact.partnerName}</span>
-                    </TableCell>
-                    <TableCell>
+                    </TableCell>}
+                    {columnVisibility.isVisible("position") && <TableCell>
                       <span className="text-sm text-muted-foreground">{contact.position || "-"}</span>
-                    </TableCell>
-                    <TableCell>
+                    </TableCell>}
+                    {columnVisibility.isVisible("phone") && <TableCell>
                       {contact.phone ? (
                         <div className="flex items-center gap-1">
                           <Phone className="w-3 h-3 text-muted-foreground" />
                           <span className="text-sm">{contact.phone}</span>
                         </div>
                       ) : "-"}
-                    </TableCell>
-                    <TableCell>
+                    </TableCell>}
+                    {columnVisibility.isVisible("email") && <TableCell>
                       {contact.email ? (
                         <div className="flex items-center gap-1">
                           <Mail className="w-3 h-3 text-muted-foreground" />
                           <span className="text-sm">{contact.email}</span>
                         </div>
                       ) : "-"}
-                    </TableCell>
-                    <TableCell className="text-center">
+                    </TableCell>}
+                    {columnVisibility.isVisible("securityLevel") && <TableCell className="text-center">
                       <div className="flex items-center justify-center gap-1">
                         <Shield className="w-3 h-3 text-muted-foreground" />
                         <span className="text-sm">{contact.securityLevel}</span>
                       </div>
-                    </TableCell>
-                    <TableCell className="text-center">
+                    </TableCell>}
+                    {columnVisibility.isVisible("isActive") && <TableCell className="text-center">
                       {contact.isActive ? (
                         <Badge variant="default" className="bg-emerald-500/20 text-emerald-500 border-emerald-500/30">Aktivny</Badge>
                       ) : (
                         <Badge variant="default" className="bg-destructive/20 text-destructive border-destructive/30">Neaktivny</Badge>
                       )}
-                    </TableCell>
+                    </TableCell>}
                   </TableRow>
                 ))}
                 {filteredContacts.length === 0 && (

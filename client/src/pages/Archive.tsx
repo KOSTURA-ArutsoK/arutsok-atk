@@ -4,6 +4,8 @@ import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useAppUser } from "@/hooks/use-app-user";
 import { useToast } from "@/hooks/use-toast";
 import { useTableSort } from "@/hooks/use-table-sort";
+import { useColumnVisibility, type ColumnDef } from "@/hooks/use-column-visibility";
+import { ColumnManager } from "@/components/column-manager";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -26,6 +28,18 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Building2, Briefcase, Package, RotateCcw, Lock, Loader2, Trash2, FileText, Database } from "lucide-react";
+
+const ARCHIVE_COLUMNS: ColumnDef[] = [
+  { key: "type", label: "Typ" },
+  { key: "name", label: "Nazov" },
+  { key: "code", label: "Kod" },
+  { key: "deletedBy", label: "Vymazal" },
+  { key: "deletedAt", label: "Datum vymazania" },
+  { key: "deletedFromIp", label: "IP" },
+  { key: "contractNumber", label: "Cislo zmluvy" },
+  { key: "uid", label: "UID" },
+  { key: "partnerId", label: "Partner" },
+];
 
 interface SoftDeletedEntity {
   id: number;
@@ -134,6 +148,7 @@ export default function Archive() {
   const { sortedData: sortedProducts, sortKey: sortKeyProducts, sortDirection: sortDirProducts, requestSort: requestSortProducts } = useTableSort(products);
   const { sortedData: sortedContracts, sortKey: sortKeyContracts, sortDirection: sortDirContracts, requestSort: requestSortContracts } = useTableSort(contracts);
   const { sortedData: sortedSoftDeleted, sortKey: sortKeySoft, sortDirection: sortDirSoft, requestSort: requestSortSoft } = useTableSort(softDeleted);
+  const columnVisibility = useColumnVisibility("archive", ARCHIVE_COLUMNS);
 
   if (isLoading) {
     return (
@@ -152,10 +167,13 @@ export default function Archive() {
             Celkovo {totalDeleted} vymazanych zaznamov
           </p>
         </div>
-        <Badge variant="outline" className="gap-1">
-          <Lock className="w-3 h-3" />
-          Chranene heslom
-        </Badge>
+        <div className="flex items-center gap-2 flex-wrap">
+          <ColumnManager columnVisibility={columnVisibility} />
+          <Badge variant="outline" className="gap-1">
+            <Lock className="w-3 h-3" />
+            Chranene heslom
+          </Badge>
+        </div>
       </div>
 
       <Tabs defaultValue="all">
@@ -199,18 +217,18 @@ export default function Archive() {
                   <Table stickyHeader>
                     <TableHeader>
                       <TableRow>
-                        <TableHead>Typ</TableHead>
-                        <TableHead>Nazov</TableHead>
-                        <TableHead>Datum vymazania</TableHead>
+                        {columnVisibility.isVisible("type") && <TableHead>Typ</TableHead>}
+                        {columnVisibility.isVisible("name") && <TableHead>Nazov</TableHead>}
+                        {columnVisibility.isVisible("deletedAt") && <TableHead>Datum vymazania</TableHead>}
                         {isAdmin && <TableHead className="text-right">Akcie</TableHead>}
                       </TableRow>
                     </TableHeader>
                     <TableBody>
                       {companies.map((c: any) => (
                         <TableRow key={`company-${c.id}`} data-testid={`row-archive-all-company-${c.id}`}>
-                          <TableCell><Badge variant="secondary">Spolocnost</Badge></TableCell>
-                          <TableCell className="font-medium">{c.name}</TableCell>
-                          <TableCell>{formatDate(c.deletedAt)}</TableCell>
+                          {columnVisibility.isVisible("type") && <TableCell><Badge variant="secondary">Spolocnost</Badge></TableCell>}
+                          {columnVisibility.isVisible("name") && <TableCell className="font-medium">{c.name}</TableCell>}
+                          {columnVisibility.isVisible("deletedAt") && <TableCell>{formatDate(c.deletedAt)}</TableCell>}
                           {isAdmin && (
                             <TableCell className="text-right">
                               <div className="flex items-center justify-end gap-1">
@@ -225,9 +243,9 @@ export default function Archive() {
                       ))}
                       {partners.map((p: any) => (
                         <TableRow key={`partner-${p.id}`} data-testid={`row-archive-all-partner-${p.id}`}>
-                          <TableCell><Badge variant="secondary">Partner</Badge></TableCell>
-                          <TableCell className="font-medium">{p.name}</TableCell>
-                          <TableCell>{formatDate(p.deletedAt)}</TableCell>
+                          {columnVisibility.isVisible("type") && <TableCell><Badge variant="secondary">Partner</Badge></TableCell>}
+                          {columnVisibility.isVisible("name") && <TableCell className="font-medium">{p.name}</TableCell>}
+                          {columnVisibility.isVisible("deletedAt") && <TableCell>{formatDate(p.deletedAt)}</TableCell>}
                           {isAdmin && (
                             <TableCell className="text-right">
                               <div className="flex items-center justify-end gap-1">
@@ -242,9 +260,9 @@ export default function Archive() {
                       ))}
                       {products.map((p: any) => (
                         <TableRow key={`product-${p.id}`} data-testid={`row-archive-all-product-${p.id}`}>
-                          <TableCell><Badge variant="secondary">Produkt</Badge></TableCell>
-                          <TableCell className="font-medium">{p.displayName || p.name}</TableCell>
-                          <TableCell>{formatDate(p.deletedAt)}</TableCell>
+                          {columnVisibility.isVisible("type") && <TableCell><Badge variant="secondary">Produkt</Badge></TableCell>}
+                          {columnVisibility.isVisible("name") && <TableCell className="font-medium">{p.displayName || p.name}</TableCell>}
+                          {columnVisibility.isVisible("deletedAt") && <TableCell>{formatDate(p.deletedAt)}</TableCell>}
                           {isAdmin && (
                             <TableCell className="text-right">
                               <div className="flex items-center justify-end gap-1">
@@ -259,9 +277,9 @@ export default function Archive() {
                       ))}
                       {contracts.map((c: any) => (
                         <TableRow key={`contract-${c.id}`} data-testid={`row-archive-all-contract-${c.id}`}>
-                          <TableCell><Badge variant="secondary">Zmluva</Badge></TableCell>
-                          <TableCell className="font-medium">{c.contractNumber || c.uid || `#${c.id}`}</TableCell>
-                          <TableCell>{formatDate(c.deletedAt)}</TableCell>
+                          {columnVisibility.isVisible("type") && <TableCell><Badge variant="secondary">Zmluva</Badge></TableCell>}
+                          {columnVisibility.isVisible("name") && <TableCell className="font-medium">{c.contractNumber || c.uid || `#${c.id}`}</TableCell>}
+                          {columnVisibility.isVisible("deletedAt") && <TableCell>{formatDate(c.deletedAt)}</TableCell>}
                           {isAdmin && (
                             <TableCell className="text-right">
                               <div className="flex items-center justify-end gap-1">
@@ -276,9 +294,9 @@ export default function Archive() {
                       ))}
                       {softDeleted.map((e: SoftDeletedEntity) => (
                         <TableRow key={`${e.entityType}-${e.id}`} data-testid={`row-archive-all-${e.entityType}-${e.id}`}>
-                          <TableCell><Badge variant="secondary">{e.entityType}</Badge></TableCell>
-                          <TableCell className="font-medium">{e.name}</TableCell>
-                          <TableCell>{formatDate(e.deletedAt)}</TableCell>
+                          {columnVisibility.isVisible("type") && <TableCell><Badge variant="secondary">{e.entityType}</Badge></TableCell>}
+                          {columnVisibility.isVisible("name") && <TableCell className="font-medium">{e.name}</TableCell>}
+                          {columnVisibility.isVisible("deletedAt") && <TableCell>{formatDate(e.deletedAt)}</TableCell>}
                           {isAdmin && (
                             <TableCell className="text-right">
                               <div className="flex items-center justify-end gap-1">
@@ -315,22 +333,22 @@ export default function Archive() {
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead sortKey="name" sortDirection={sortKeyCompanies === "name" ? sortDirCompanies : null} onSort={requestSortCompanies}>Nazov</TableHead>
-                      <TableHead sortKey="code" sortDirection={sortKeyCompanies === "code" ? sortDirCompanies : null} onSort={requestSortCompanies}>Kod</TableHead>
-                      <TableHead sortKey="deletedBy" sortDirection={sortKeyCompanies === "deletedBy" ? sortDirCompanies : null} onSort={requestSortCompanies}>Vymazal</TableHead>
-                      <TableHead sortKey="deletedAt" sortDirection={sortKeyCompanies === "deletedAt" ? sortDirCompanies : null} onSort={requestSortCompanies}>Datum vymazania</TableHead>
-                      <TableHead sortKey="deletedFromIp" sortDirection={sortKeyCompanies === "deletedFromIp" ? sortDirCompanies : null} onSort={requestSortCompanies}>IP</TableHead>
+                      {columnVisibility.isVisible("name") && <TableHead sortKey="name" sortDirection={sortKeyCompanies === "name" ? sortDirCompanies : null} onSort={requestSortCompanies}>Nazov</TableHead>}
+                      {columnVisibility.isVisible("code") && <TableHead sortKey="code" sortDirection={sortKeyCompanies === "code" ? sortDirCompanies : null} onSort={requestSortCompanies}>Kod</TableHead>}
+                      {columnVisibility.isVisible("deletedBy") && <TableHead sortKey="deletedBy" sortDirection={sortKeyCompanies === "deletedBy" ? sortDirCompanies : null} onSort={requestSortCompanies}>Vymazal</TableHead>}
+                      {columnVisibility.isVisible("deletedAt") && <TableHead sortKey="deletedAt" sortDirection={sortKeyCompanies === "deletedAt" ? sortDirCompanies : null} onSort={requestSortCompanies}>Datum vymazania</TableHead>}
+                      {columnVisibility.isVisible("deletedFromIp") && <TableHead sortKey="deletedFromIp" sortDirection={sortKeyCompanies === "deletedFromIp" ? sortDirCompanies : null} onSort={requestSortCompanies}>IP</TableHead>}
                       {isAdmin && <TableHead className="text-right">Akcia</TableHead>}
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {sortedCompanies.map((c: any) => (
                       <TableRow key={c.id} data-testid={`row-archive-company-${c.id}`}>
-                        <TableCell className="font-medium">{c.name}</TableCell>
-                        <TableCell>{c.code}</TableCell>
-                        <TableCell>{c.deletedBy || "-"}</TableCell>
-                        <TableCell>{formatDate(c.deletedAt)}</TableCell>
-                        <TableCell className="text-xs font-mono">{c.deletedFromIp || "-"}</TableCell>
+                        {columnVisibility.isVisible("name") && <TableCell className="font-medium">{c.name}</TableCell>}
+                        {columnVisibility.isVisible("code") && <TableCell>{c.code}</TableCell>}
+                        {columnVisibility.isVisible("deletedBy") && <TableCell>{c.deletedBy || "-"}</TableCell>}
+                        {columnVisibility.isVisible("deletedAt") && <TableCell>{formatDate(c.deletedAt)}</TableCell>}
+                        {columnVisibility.isVisible("deletedFromIp") && <TableCell className="text-xs font-mono">{c.deletedFromIp || "-"}</TableCell>}
                         {isAdmin && (
                           <TableCell className="text-right">
                             <Button size="sm" variant="outline" onClick={() => handleRestoreClick("company", c.id, c.name)} data-testid={`button-restore-company-${c.id}`}>
@@ -360,22 +378,22 @@ export default function Archive() {
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead sortKey="name" sortDirection={sortKeyPartners === "name" ? sortDirPartners : null} onSort={requestSortPartners}>Nazov</TableHead>
-                      <TableHead sortKey="code" sortDirection={sortKeyPartners === "code" ? sortDirPartners : null} onSort={requestSortPartners}>Kod</TableHead>
-                      <TableHead sortKey="deletedBy" sortDirection={sortKeyPartners === "deletedBy" ? sortDirPartners : null} onSort={requestSortPartners}>Vymazal</TableHead>
-                      <TableHead sortKey="deletedAt" sortDirection={sortKeyPartners === "deletedAt" ? sortDirPartners : null} onSort={requestSortPartners}>Datum vymazania</TableHead>
-                      <TableHead sortKey="deletedFromIp" sortDirection={sortKeyPartners === "deletedFromIp" ? sortDirPartners : null} onSort={requestSortPartners}>IP</TableHead>
+                      {columnVisibility.isVisible("name") && <TableHead sortKey="name" sortDirection={sortKeyPartners === "name" ? sortDirPartners : null} onSort={requestSortPartners}>Nazov</TableHead>}
+                      {columnVisibility.isVisible("code") && <TableHead sortKey="code" sortDirection={sortKeyPartners === "code" ? sortDirPartners : null} onSort={requestSortPartners}>Kod</TableHead>}
+                      {columnVisibility.isVisible("deletedBy") && <TableHead sortKey="deletedBy" sortDirection={sortKeyPartners === "deletedBy" ? sortDirPartners : null} onSort={requestSortPartners}>Vymazal</TableHead>}
+                      {columnVisibility.isVisible("deletedAt") && <TableHead sortKey="deletedAt" sortDirection={sortKeyPartners === "deletedAt" ? sortDirPartners : null} onSort={requestSortPartners}>Datum vymazania</TableHead>}
+                      {columnVisibility.isVisible("deletedFromIp") && <TableHead sortKey="deletedFromIp" sortDirection={sortKeyPartners === "deletedFromIp" ? sortDirPartners : null} onSort={requestSortPartners}>IP</TableHead>}
                       {isAdmin && <TableHead className="text-right">Akcia</TableHead>}
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {sortedPartners.map((p: any) => (
                       <TableRow key={p.id} data-testid={`row-archive-partner-${p.id}`}>
-                        <TableCell className="font-medium">{p.name}</TableCell>
-                        <TableCell>{p.code || "-"}</TableCell>
-                        <TableCell>{p.deletedBy || "-"}</TableCell>
-                        <TableCell>{formatDate(p.deletedAt)}</TableCell>
-                        <TableCell className="text-xs font-mono">{p.deletedFromIp || "-"}</TableCell>
+                        {columnVisibility.isVisible("name") && <TableCell className="font-medium">{p.name}</TableCell>}
+                        {columnVisibility.isVisible("code") && <TableCell>{p.code || "-"}</TableCell>}
+                        {columnVisibility.isVisible("deletedBy") && <TableCell>{p.deletedBy || "-"}</TableCell>}
+                        {columnVisibility.isVisible("deletedAt") && <TableCell>{formatDate(p.deletedAt)}</TableCell>}
+                        {columnVisibility.isVisible("deletedFromIp") && <TableCell className="text-xs font-mono">{p.deletedFromIp || "-"}</TableCell>}
                         {isAdmin && (
                           <TableCell className="text-right">
                             <Button size="sm" variant="outline" onClick={() => handleRestoreClick("partner", p.id, p.name)} data-testid={`button-restore-partner-${p.id}`}>
@@ -405,22 +423,22 @@ export default function Archive() {
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead sortKey="name" sortDirection={sortKeyProducts === "name" ? sortDirProducts : null} onSort={requestSortProducts}>Nazov</TableHead>
-                      <TableHead sortKey="partnerId" sortDirection={sortKeyProducts === "partnerId" ? sortDirProducts : null} onSort={requestSortProducts}>Partner</TableHead>
-                      <TableHead sortKey="deletedBy" sortDirection={sortKeyProducts === "deletedBy" ? sortDirProducts : null} onSort={requestSortProducts}>Vymazal</TableHead>
-                      <TableHead sortKey="deletedAt" sortDirection={sortKeyProducts === "deletedAt" ? sortDirProducts : null} onSort={requestSortProducts}>Datum vymazania</TableHead>
-                      <TableHead sortKey="deletedFromIp" sortDirection={sortKeyProducts === "deletedFromIp" ? sortDirProducts : null} onSort={requestSortProducts}>IP</TableHead>
+                      {columnVisibility.isVisible("name") && <TableHead sortKey="name" sortDirection={sortKeyProducts === "name" ? sortDirProducts : null} onSort={requestSortProducts}>Nazov</TableHead>}
+                      {columnVisibility.isVisible("partnerId") && <TableHead sortKey="partnerId" sortDirection={sortKeyProducts === "partnerId" ? sortDirProducts : null} onSort={requestSortProducts}>Partner</TableHead>}
+                      {columnVisibility.isVisible("deletedBy") && <TableHead sortKey="deletedBy" sortDirection={sortKeyProducts === "deletedBy" ? sortDirProducts : null} onSort={requestSortProducts}>Vymazal</TableHead>}
+                      {columnVisibility.isVisible("deletedAt") && <TableHead sortKey="deletedAt" sortDirection={sortKeyProducts === "deletedAt" ? sortDirProducts : null} onSort={requestSortProducts}>Datum vymazania</TableHead>}
+                      {columnVisibility.isVisible("deletedFromIp") && <TableHead sortKey="deletedFromIp" sortDirection={sortKeyProducts === "deletedFromIp" ? sortDirProducts : null} onSort={requestSortProducts}>IP</TableHead>}
                       {isAdmin && <TableHead className="text-right">Akcia</TableHead>}
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {sortedProducts.map((p: any) => (
                       <TableRow key={p.id} data-testid={`row-archive-product-${p.id}`}>
-                        <TableCell className="font-medium">{p.displayName || p.name}</TableCell>
-                        <TableCell>{p.partnerId || "-"}</TableCell>
-                        <TableCell>{p.deletedBy || "-"}</TableCell>
-                        <TableCell>{formatDate(p.deletedAt)}</TableCell>
-                        <TableCell className="text-xs font-mono">{p.deletedFromIp || "-"}</TableCell>
+                        {columnVisibility.isVisible("name") && <TableCell className="font-medium">{p.displayName || p.name}</TableCell>}
+                        {columnVisibility.isVisible("partnerId") && <TableCell>{p.partnerId || "-"}</TableCell>}
+                        {columnVisibility.isVisible("deletedBy") && <TableCell>{p.deletedBy || "-"}</TableCell>}
+                        {columnVisibility.isVisible("deletedAt") && <TableCell>{formatDate(p.deletedAt)}</TableCell>}
+                        {columnVisibility.isVisible("deletedFromIp") && <TableCell className="text-xs font-mono">{p.deletedFromIp || "-"}</TableCell>}
                         {isAdmin && (
                           <TableCell className="text-right">
                             <Button size="sm" variant="outline" onClick={() => handleRestoreClick("product", p.id, p.displayName || p.name)} data-testid={`button-restore-product-${p.id}`}>
@@ -450,18 +468,18 @@ export default function Archive() {
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead sortKey="contractNumber" sortDirection={sortKeyContracts === "contractNumber" ? sortDirContracts : null} onSort={requestSortContracts}>Cislo zmluvy</TableHead>
-                      <TableHead sortKey="uid" sortDirection={sortKeyContracts === "uid" ? sortDirContracts : null} onSort={requestSortContracts}>UID</TableHead>
-                      <TableHead sortKey="deletedAt" sortDirection={sortKeyContracts === "deletedAt" ? sortDirContracts : null} onSort={requestSortContracts}>Datum vymazania</TableHead>
+                      {columnVisibility.isVisible("contractNumber") && <TableHead sortKey="contractNumber" sortDirection={sortKeyContracts === "contractNumber" ? sortDirContracts : null} onSort={requestSortContracts}>Cislo zmluvy</TableHead>}
+                      {columnVisibility.isVisible("uid") && <TableHead sortKey="uid" sortDirection={sortKeyContracts === "uid" ? sortDirContracts : null} onSort={requestSortContracts}>UID</TableHead>}
+                      {columnVisibility.isVisible("deletedAt") && <TableHead sortKey="deletedAt" sortDirection={sortKeyContracts === "deletedAt" ? sortDirContracts : null} onSort={requestSortContracts}>Datum vymazania</TableHead>}
                       {isAdmin && <TableHead className="text-right">Akcia</TableHead>}
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {sortedContracts.map((c: any) => (
                       <TableRow key={c.id} data-testid={`row-archive-contract-${c.id}`}>
-                        <TableCell className="font-medium">{c.contractNumber || "-"}</TableCell>
-                        <TableCell>{c.uid || "-"}</TableCell>
-                        <TableCell>{formatDate(c.deletedAt)}</TableCell>
+                        {columnVisibility.isVisible("contractNumber") && <TableCell className="font-medium">{c.contractNumber || "-"}</TableCell>}
+                        {columnVisibility.isVisible("uid") && <TableCell>{c.uid || "-"}</TableCell>}
+                        {columnVisibility.isVisible("deletedAt") && <TableCell>{formatDate(c.deletedAt)}</TableCell>}
                         {isAdmin && (
                           <TableCell className="text-right">
                             <Button size="sm" variant="outline" onClick={() => handleRestoreClick("contract", c.id, c.contractNumber || c.uid || `#${c.id}`)} data-testid={`button-restore-contract-${c.id}`}>
@@ -492,18 +510,18 @@ export default function Archive() {
                   <Table stickyHeader>
                     <TableHeader>
                       <TableRow>
-                        <TableHead sortKey="entityType" sortDirection={sortKeySoft === "entityType" ? sortDirSoft : null} onSort={requestSortSoft}>Typ</TableHead>
-                        <TableHead sortKey="name" sortDirection={sortKeySoft === "name" ? sortDirSoft : null} onSort={requestSortSoft}>Nazov</TableHead>
-                        <TableHead sortKey="deletedAt" sortDirection={sortKeySoft === "deletedAt" ? sortDirSoft : null} onSort={requestSortSoft}>Datum vymazania</TableHead>
+                        {columnVisibility.isVisible("type") && <TableHead sortKey="entityType" sortDirection={sortKeySoft === "entityType" ? sortDirSoft : null} onSort={requestSortSoft}>Typ</TableHead>}
+                        {columnVisibility.isVisible("name") && <TableHead sortKey="name" sortDirection={sortKeySoft === "name" ? sortDirSoft : null} onSort={requestSortSoft}>Nazov</TableHead>}
+                        {columnVisibility.isVisible("deletedAt") && <TableHead sortKey="deletedAt" sortDirection={sortKeySoft === "deletedAt" ? sortDirSoft : null} onSort={requestSortSoft}>Datum vymazania</TableHead>}
                         {isAdmin && <TableHead className="text-right">Akcie</TableHead>}
                       </TableRow>
                     </TableHeader>
                     <TableBody>
                       {sortedSoftDeleted.map((e: SoftDeletedEntity) => (
                         <TableRow key={`${e.entityType}-${e.id}`} data-testid={`row-archive-entity-${e.entityType}-${e.id}`}>
-                          <TableCell><Badge variant="secondary">{e.entityType}</Badge></TableCell>
-                          <TableCell className="font-medium">{e.name}</TableCell>
-                          <TableCell>{formatDate(e.deletedAt)}</TableCell>
+                          {columnVisibility.isVisible("type") && <TableCell><Badge variant="secondary">{e.entityType}</Badge></TableCell>}
+                          {columnVisibility.isVisible("name") && <TableCell className="font-medium">{e.name}</TableCell>}
+                          {columnVisibility.isVisible("deletedAt") && <TableCell>{formatDate(e.deletedAt)}</TableCell>}
                           {isAdmin && (
                             <TableCell className="text-right">
                               <div className="flex items-center justify-end gap-1">
