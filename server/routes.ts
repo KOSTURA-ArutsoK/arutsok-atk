@@ -859,7 +859,7 @@ export async function registerRoutes(
 
   function canViewBirthNumber(appUser: any): boolean {
     if (!appUser) return false;
-    return appUser.role === 'superadmin' || appUser.role === 'prezident';
+    return appUser.role === 'superadmin' || appUser.role === 'prezident' || appUser.role === 'admin';
   }
 
   function maskSubjectBirthNumber(subject: any, appUser: any): any {

@@ -651,7 +651,14 @@ function InitialRegistrationModal({
                 ref={baseInputRef}
                 placeholder={selectedClientType?.baseParameter === "ico" ? "napr. 12345678" : "napr. 900101/1234"}
                 value={baseValue}
-                onChange={(e) => { setBaseValue(e.target.value); }}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  setBaseValue(val);
+                  const digitsOnly = val.replace(/[^0-9]/g, "");
+                  if (selectedClientType?.baseParameter === "rc" && digitsOnly.length >= 10) {
+                    setTimeout(() => proceedBtnRef.current?.focus(), 550);
+                  }
+                }}
                 onKeyDown={(e) => { if (e.key === "Enter" && canProceed && !checking) handleProceed(); }}
                 data-testid="input-base-parameter"
               />
@@ -1326,6 +1333,7 @@ function FullPageEditor({
                             );
                           })()}
 
+                          {!((typeFields || []).find(f => f.fieldKey === "telefon")?.isHidden) && (
                           <div className="flex flex-wrap gap-3" data-testid="row-telefon">
                             <div className="space-y-1 flex-1 min-w-[calc(50%-0.375rem)]">
                               <Label className="text-xs">Tel. číslo (primárne) *</Label>
@@ -1337,6 +1345,7 @@ function FullPageEditor({
                               />
                             </div>
                           </div>
+                          )}
 
                           <div style={{ display: povinneRemainder.length > 0 ? 'block' : 'none' }}>
                             <div className="flex flex-wrap gap-3" data-testid="row-povinne-remainder">
