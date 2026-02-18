@@ -304,11 +304,7 @@ export default function ContractInventories() {
   return (
     <div className="p-6 space-y-6">
       <div className="flex items-center justify-between gap-4 flex-wrap">
-        <h1 className="text-2xl font-bold" data-testid="text-page-title">Zoznam supisiek</h1>
-        <Button onClick={openCreate} data-testid="button-create-inventory">
-          <Plus className="w-4 h-4 mr-2" />
-          Pridat supisku
-        </Button>
+        <h1 className="text-2xl font-bold" data-testid="text-page-title">Zoznam sprievodiek</h1>
       </div>
 
       <Card>
