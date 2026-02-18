@@ -47,6 +47,7 @@ The system uses a modern full-stack architecture, emphasizing data integrity, se
     - **System Settings**: Key-value store for application configurations.
     - **Dashboard Customization**: Drag-and-drop widget reordering with user-specific layout persistence.
     - **Global Table Resizing**: All tables support column resizing with persistence.
+    - **Universal Column Manager**: Global `useColumnVisibility` hook + `ColumnManager` popover component. Every table in the system has a settings icon that opens a column picker with checkboxes, bulk actions (Show All, Hide All, Reset to Default), and per-table localStorage persistence. Integrated across 24 pages.
     - **State and Company Management**: Dedicated pages for CRUD operations on states and companies.
     - **Contract Folders System**: Organizes panels visually into folders within the contract form for flexible grid-based layouts.
     - **Contract Processing Workflow**: Features a multi-phase system for contract submission, dispatch, and acceptance (`Evidencia zmluv` module), including auto-numbering for `Sprievodka` and contract registration.
