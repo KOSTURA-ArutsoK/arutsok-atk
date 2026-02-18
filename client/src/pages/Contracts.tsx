@@ -2315,16 +2315,16 @@ export default function Contracts() {
                     {inlineClientType === "fo" && (
                       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-2" data-testid="inline-row-0-uid-rc">
                         <div className="space-y-1">
-                          <label className="text-xs font-medium text-muted-foreground">Identifikátor (Rodné číslo)</label>
-                          <Input value={inlineFormValues["rodne_cislo"] || ""} disabled className="font-mono" data-testid="input-inline-rodne-cislo-row0" />
-                        </div>
-                        <div className="space-y-1">
                           <label className="text-xs font-medium text-muted-foreground">Kód klienta</label>
                           <Input value="Automaticky generovaný" disabled className="text-xs" data-testid="input-inline-uid" />
                         </div>
                         <div className="space-y-1">
                           <label className="text-xs font-medium text-muted-foreground">Typ klienta</label>
                           <Input value="Fyzická osoba" disabled data-testid="input-inline-typ-klienta" />
+                        </div>
+                        <div className="space-y-1">
+                          <label className="text-xs font-medium text-muted-foreground">Identifikátor (Rodné číslo)</label>
+                          <Input value={inlineFormValues["rodne_cislo"] || ""} disabled className="font-mono" data-testid="input-inline-rodne-cislo-row0" />
                         </div>
                       </div>
                     )}
