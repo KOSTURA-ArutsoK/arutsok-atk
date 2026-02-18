@@ -5,8 +5,8 @@ import { useAppUser } from "@/hooks/use-app-user";
 import { useStates } from "@/hooks/use-hierarchy";
 import { useToast } from "@/hooks/use-toast";
 import { useLocation } from "wouter";
-import type { Contract, ContractStatus, ContractTemplate, ContractInventory, Subject, Partner, Product, MyCompany, Sector, Section, SectorProduct, ClientGroup, ClientType, ClientTypeSection, ClientTypePanel, ClientTypeField } from "@shared/schema";
-import { Plus, Pencil, Trash2, Eye, FileText, Loader2, Lock, LayoutGrid, Send, Upload, Inbox, CheckCircle2, ChevronDown, ChevronRight, Printer, Search, Archive, AlertTriangle, Calendar, XCircle, MessageSquare, Paperclip } from "lucide-react";
+import type { Contract, ContractStatus, ContractTemplate, ContractInventory, Subject, Partner, Product, MyCompany, Sector, Section, SectorProduct, ClientGroup, ClientType, ClientTypeSection, ClientTypePanel, ClientTypeField, AppUser, ContractAcquirer } from "@shared/schema";
+import { Plus, Pencil, Trash2, Eye, FileText, Loader2, Lock, LayoutGrid, Send, Upload, Inbox, CheckCircle2, ChevronDown, ChevronRight, Printer, Search, Archive, AlertTriangle, Calendar, XCircle, MessageSquare, Paperclip, UserPlus, X, Users } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { MultiSelectCheckboxes } from "@/components/multi-select-checkboxes";
 import { Card, CardContent } from "@/components/ui/card";
@@ -110,6 +110,22 @@ function ContractFormDialog({
     },
   });
 
+  const { data: appUsersAll } = useQuery<AppUser[]>({
+    queryKey: ["/api/app-users"],
+  });
+  const { data: existingAcquirers } = useQuery<ContractAcquirer[]>({
+    queryKey: ["/api/contracts", editingContract?.id, "acquirers"],
+    queryFn: async () => {
+      const res = await fetch(`/api/contracts/${editingContract!.id}/acquirers`, { credentials: "include" });
+      if (!res.ok) throw new Error("Failed");
+      return res.json();
+    },
+    enabled: !!editingContract?.id,
+  });
+
+  const [acquirerUserIds, setAcquirerUserIds] = useState<number[]>([]);
+  const [acquirerSearch, setAcquirerSearch] = useState("");
+
   const [clientGroupId, setClientGroupId] = useState<string>("");
   const [identifierType, setIdentifierType] = useState<string>("");
   const [identifierValue, setIdentifierValue] = useState<string>("");
@@ -195,9 +211,38 @@ function ContractFormDialog({
     enabled: !!sectorProductId,
   });
 
+  const saveAcquirersForContract = async (contractId: number) => {
+    for (const userId of acquirerUserIds) {
+      try {
+        await apiRequest("POST", `/api/contracts/${contractId}/acquirers`, { userId });
+      } catch {}
+    }
+  };
+
+  const syncAcquirersForContract = async (contractId: number) => {
+    const existing = existingAcquirers || [];
+    const toRemove = existing.filter(a => !acquirerUserIds.includes(a.userId));
+    const existingUserIds = existing.map(a => a.userId);
+    const toAdd = acquirerUserIds.filter(uid => !existingUserIds.includes(uid));
+    for (const acq of toRemove) {
+      try {
+        await apiRequest("DELETE", `/api/contract-acquirers/${acq.id}`);
+      } catch {}
+    }
+    for (const userId of toAdd) {
+      try {
+        await apiRequest("POST", `/api/contracts/${contractId}/acquirers`, { userId });
+      } catch {}
+    }
+  };
+
   const createMutation = useMutation({
     mutationFn: (data: any) => apiRequest("POST", "/api/contracts", data),
-    onSuccess: () => {
+    onSuccess: async (res: any) => {
+      const created = await res.json?.() ?? res;
+      if (acquirerUserIds.length > 0 && created?.id) {
+        await saveAcquirersForContract(created.id);
+      }
       queryClient.invalidateQueries({ queryKey: ["/api/contracts"] });
       toast({ title: "Uspech", description: "Zmluva vytvorena" });
       onOpenChange(false);
@@ -207,7 +252,10 @@ function ContractFormDialog({
 
   const updateMutation = useMutation({
     mutationFn: (data: any) => apiRequest("PUT", `/api/contracts/${editingContract?.id}`, data),
-    onSuccess: () => {
+    onSuccess: async () => {
+      if (editingContract?.id) {
+        await syncAcquirersForContract(editingContract.id);
+      }
       queryClient.invalidateQueries({ queryKey: ["/api/contracts"] });
       toast({ title: "Uspech", description: "Zmluva aktualizovana" });
       onOpenChange(false);
@@ -241,6 +289,8 @@ function ContractFormDialog({
         setIdentifierType((editingContract as any).identifierType || "");
         setIdentifierValue((editingContract as any).identifierValue || "");
         setIdentifierWarning(null);
+        setAcquirerUserIds([]);
+        setAcquirerSearch("");
         if (spId && allSPForEdit && allSectionsForEdit) {
           const sp = allSPForEdit.find(p => p.id === spId);
           if (sp) {
@@ -278,9 +328,17 @@ function ContractFormDialog({
         setIdentifierWarning(null);
         setContractSectorId("");
         setContractSectionId("");
+        setAcquirerUserIds([]);
+        setAcquirerSearch("");
       }
     }
   }, [open, editingContract, activeStateId, allSPForEdit, allSectionsForEdit]);
+
+  useEffect(() => {
+    if (existingAcquirers && editingContract) {
+      setAcquirerUserIds(existingAcquirers.map(a => a.userId));
+    }
+  }, [existingAcquirers, editingContract]);
 
   const handleOpenChange = useCallback((isOpen: boolean) => {
     onOpenChange(isOpen);
@@ -473,6 +531,79 @@ function ContractFormDialog({
                   ))}
                 </SelectContent>
               </Select>
+            </div>
+          </div>
+
+          <div className="space-y-3 border rounded-md p-4" data-testid="section-acquirers">
+            <div className="flex items-center gap-2">
+              <Users className="w-4 h-4 text-primary" />
+              <span className="text-sm font-semibold">Získatelia</span>
+              <Badge variant="outline" className="text-[10px]">{acquirerUserIds.length}</Badge>
+            </div>
+            <div className="space-y-2">
+              <div className="relative">
+                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder="Hladat pouzivatela podla mena..."
+                  value={acquirerSearch}
+                  onChange={e => setAcquirerSearch(e.target.value)}
+                  className="pl-9"
+                  data-testid="input-acquirer-search"
+                />
+              </div>
+              {(() => {
+                const searchLower = acquirerSearch.toLowerCase().trim();
+                const filtered = searchLower
+                  ? (appUsersAll || []).filter(u =>
+                      !acquirerUserIds.includes(u.id) &&
+                      (`${u.firstName || ""} ${u.lastName || ""} ${u.username || ""} ${u.uid || ""}`.toLowerCase().includes(searchLower))
+                    )
+                  : [];
+                return (
+                  <div className="border rounded-md max-h-[150px] overflow-y-auto" style={{ display: filtered.length > 0 ? 'block' : 'none' }} data-testid="list-acquirer-suggestions">
+                    {filtered.slice(0, 10).map(u => (
+                      <div
+                        key={u.id}
+                        className="flex items-center gap-2 px-3 py-1.5 cursor-pointer hover-elevate text-sm"
+                        onClick={() => {
+                          setAcquirerUserIds(prev => [...prev, u.id]);
+                          setAcquirerSearch("");
+                        }}
+                        data-testid={`row-acquirer-suggestion-${u.id}`}
+                      >
+                        <UserPlus className="w-3.5 h-3.5 text-muted-foreground flex-shrink-0" />
+                        <span className="font-medium">{u.firstName || ""} {u.lastName || ""}</span>
+                        <span className="text-xs text-muted-foreground">({u.username})</span>
+                        <span className="text-xs text-muted-foreground font-mono ml-auto" style={{ display: u.uid ? 'inline' : 'none' }}>{u.uid}</span>
+                      </div>
+                    ))}
+                  </div>
+                );
+              })()}
+              <div className="space-y-1" data-testid="list-acquirers">
+                {acquirerUserIds.map(uid => {
+                  const user = (appUsersAll || []).find(u => u.id === uid);
+                  return (
+                    <div key={uid} className="flex items-center gap-2 px-3 py-1.5 border rounded-md bg-muted/30" data-testid={`row-acquirer-${uid}`}>
+                      <Users className="w-3.5 h-3.5 text-primary flex-shrink-0" />
+                      <span className="text-sm font-medium">{user ? `${user.firstName || ""} ${user.lastName || ""}`.trim() || user.username : `ID ${uid}`}</span>
+                      <span className="text-xs text-muted-foreground" style={{ display: user?.username ? 'inline' : 'none' }}>({user?.username})</span>
+                      <span className="text-xs text-muted-foreground font-mono ml-auto" style={{ display: user?.uid ? 'inline' : 'none' }}>{user?.uid}</span>
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        onClick={() => setAcquirerUserIds(prev => prev.filter(id => id !== uid))}
+                        data-testid={`button-remove-acquirer-${uid}`}
+                      >
+                        <X className="w-3.5 h-3.5" />
+                      </Button>
+                    </div>
+                  );
+                })}
+                <p className="text-xs text-muted-foreground" style={{ display: acquirerUserIds.length === 0 ? 'block' : 'none' }}>
+                  Ziadni ziskatelia. Vyhladajte a pridajte pouzivatelov.
+                </p>
+              </div>
             </div>
           </div>
 
