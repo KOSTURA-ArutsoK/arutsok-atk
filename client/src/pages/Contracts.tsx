@@ -2674,7 +2674,11 @@ export default function Contracts() {
                         const restFields = nonAddrFields.filter(f => !usedKeys.has(f.fieldKey));
                         return (
                           <>
-                            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-[1fr_2fr_2fr_2fr_1fr] gap-3">{row1Fields.map(renderField)}</div>
+                            <div className="flex flex-nowrap gap-3">{row1Fields.map(f => {
+                              if (!f) return null;
+                              const wp = f.widthPercent || 25;
+                              return <div key={f.id} style={{ flex: `1 1 ${wp}%`, minWidth: 0 }}>{renderField(f)}</div>;
+                            })}</div>
                             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mt-3">{row2Fields.map(renderField)}</div>
                             {row3Fields.length > 0 && (
                               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mt-3">{row3Fields.map(f => {

@@ -1367,8 +1367,9 @@ function FullPageEditor({
                                   .map(k => ({ key: k, field: povinneFields.find(f => f.fieldKey === k) }));
                                 const hasAny = rowEntries.some(e => e.field) || rowEntries.some(e => e.key === "statna_prislusnost");
                                 if (!hasAny || rowEntries.length === 0) return null;
+                                const isNameRow = rowIdx === 0;
                                 return (
-                                  <div key={rowIdx} className="flex flex-wrap gap-3" data-testid={`row-povinne-${rowIdx + 3}`}>
+                                  <div key={rowIdx} className={isNameRow ? "flex flex-nowrap gap-3" : "flex flex-wrap gap-3"} data-testid={`row-povinne-${rowIdx + 3}`}>
                                     {rowEntries.map(({ key, field }) => {
                                       if (key === "statna_prislusnost") {
                                         const label = field?.label || "Štátna príslušnosť";
@@ -1418,12 +1419,14 @@ function FullPageEditor({
                                       }
                                       const rcParsedResult = initialData.baseValue?.trim() ? parseRodneCislo(initialData.baseValue.trim()) : {};
                                       const isRcAuto = (key === "pohlavie" && !!rcParsedResult.pohlavie) || (key === "datum_narodenia" && !!rcParsedResult.datumNarodenia);
+                                      const widthStyle = isNameRow && field?.widthPercent ? { flex: `1 1 ${field.widthPercent}%`, minWidth: 0 } : undefined;
+                                      const defaultClass = isNameRow ? "" : "flex-1 min-w-[30%]";
                                       return field ? (
-                                      <div key={key} className="flex-1 min-w-[30%]">
+                                      <div key={key} className={defaultClass} style={widthStyle}>
                                         <DynamicFieldInput field={field} dynamicValues={dynamicValues} setDynamicValues={setDynamicValues} hasError={validationErrors.has(field.fieldKey)} disabled={isRcAuto} />
                                       </div>
                                     ) : (
-                                      <div key={key} className="flex-1 min-w-[30%]">
+                                      <div key={key} className={defaultClass} style={widthStyle}>
                                         <div className="space-y-1">
                                           <Label className={`text-xs text-muted-foreground ${validationErrors.has(key) ? "text-red-500" : ""}`}>{key}</Label>
                                           <Input value={dynamicValues[key] || ""} onChange={e => setDynamicValues(prev => ({ ...prev, [key]: e.target.value }))} className={validationErrors.has(key) ? "border-red-500 ring-1 ring-red-500" : ""} data-testid={`input-${key}`} />
