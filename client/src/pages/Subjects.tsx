@@ -1488,16 +1488,16 @@ function FullPageEditor({
                         <AccordionContent className="pb-4 space-y-4">
                           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3" data-testid="row-system-fields">
                             <div className="space-y-1">
-                              <Label className="text-xs">Identifikátor (Rodné číslo)</Label>
-                              <Input value={initialData.baseValue} disabled className="font-mono" data-testid="input-identifikator" />
-                            </div>
-                            <div className="space-y-1">
                               <Label className="text-xs">Kód klienta</Label>
                               <Input value="Automaticky generovaný" disabled className="font-mono text-xs" data-testid="input-kod-klienta" />
                             </div>
                             <div className="space-y-1">
                               <Label className="text-xs">Typ klienta</Label>
                               <Input value={clientType?.name || "Fyzická osoba"} disabled data-testid="input-typ-klienta" />
+                            </div>
+                            <div className="space-y-1">
+                              <Label className="text-xs">Identifikátor (Rodné číslo)</Label>
+                              <Input value={initialData.baseValue} disabled className="font-mono" data-testid="input-identifikator" />
                             </div>
                           </div>
 
