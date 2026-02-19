@@ -1697,13 +1697,9 @@ function FullPageEditor({
                               );
                             };
 
-                            const activePanels: { prefix: "tp" | "ka" | "koa"; def: typeof ADDRESS_PANEL_FIELDS["tp"] }[] = [
-                              { prefix: "tp", def: ADDRESS_PANEL_FIELDS.tp },
-                            ];
-                            if (!korRespondRovnaka) activePanels.push({ prefix: "ka", def: ADDRESS_PANEL_FIELDS.ka });
-                            if (!kontaktnaRovnaka) activePanels.push({ prefix: "koa", def: ADDRESS_PANEL_FIELDS.koa });
-
-                            const panelCount = activePanels.length;
+                            const showKa = !korRespondRovnaka;
+                            const showKoa = !kontaktnaRovnaka;
+                            const panelCount = 1 + (showKa ? 1 : 0) + (showKoa ? 1 : 0);
                             const gridClass = panelCount === 3
                               ? "grid-cols-1 md:grid-cols-3"
                               : panelCount === 2
@@ -1734,12 +1730,20 @@ function FullPageEditor({
                                     </Label>
                                   </div>
                                 </div>
-                                <div className={`grid ${gridClass} gap-3 items-start`} data-testid="row-address-panels">
-                                  {activePanels.map(p => (
-                                    <div key={p.prefix} className="flex flex-col">
-                                      {renderAddressPanel(p.prefix, p.def, false)}
+                                <div className="flex flex-col md:flex-row gap-3 items-start" data-testid="row-address-panels">
+                                  <div className="w-full" style={{ flex: `0 0 calc(${(100 / panelCount).toFixed(2)}% - ${((panelCount - 1) * 12 / panelCount).toFixed(2)}px)` }}>
+                                    {renderAddressPanel("tp", ADDRESS_PANEL_FIELDS.tp, false)}
+                                  </div>
+                                  {showKa && (
+                                    <div className="w-full" style={{ flex: `0 0 calc(${(100 / panelCount).toFixed(2)}% - ${((panelCount - 1) * 12 / panelCount).toFixed(2)}px)` }}>
+                                      {renderAddressPanel("ka", ADDRESS_PANEL_FIELDS.ka, false)}
                                     </div>
-                                  ))}
+                                  )}
+                                  {showKoa && (
+                                    <div className="w-full" style={{ flex: `0 0 calc(${(100 / panelCount).toFixed(2)}% - ${((panelCount - 1) * 12 / panelCount).toFixed(2)}px)` }}>
+                                      {renderAddressPanel("koa", ADDRESS_PANEL_FIELDS.koa, false)}
+                                    </div>
+                                  )}
                                 </div>
                               </div>
                             );
