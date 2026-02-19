@@ -11,11 +11,7 @@ import type { SmartColumnDef } from "@/hooks/use-smart-filter";
 import { SmartFilterBar } from "@/components/smart-filter-bar";
 import { useLocation } from "wouter";
 import type { Contract, ContractStatus, ContractTemplate, ContractInventory, Subject, Partner, Product, MyCompany, Sector, Section, SectorProduct, ClientGroup, ClientType, AppUser, ContractAcquirer } from "@shared/schema";
-import { FO_FIELDS, FO_SECTIONS, FO_PANELS, SZCO_FIELDS, SZCO_SECTIONS, SZCO_PANELS, PO_FIELDS, PO_SECTIONS, PO_PANELS, type StaticField, type StaticSection, type StaticPanel } from "@/lib/staticFieldDefs";
-import { Plus, Pencil, Trash2, Eye, FileText, Loader2, Lock, LayoutGrid, Send, Upload, Inbox, CheckCircle2, ChevronDown, ChevronRight, Printer, Search, Archive, AlertTriangle, Calendar, XCircle, MessageSquare, Paperclip, UserPlus, X, Users, Check, ChevronsUpDown, Award, Percent } from "lucide-react";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
-import { PRIORITY_COUNTRY_NAMES, ALL_COUNTRY_NAMES, DEFAULT_COUNTRY, getDefaultCountryForState } from "@/lib/countries";
+import { Plus, Pencil, Trash2, Eye, FileText, Loader2, Lock, LayoutGrid, Send, Upload, Inbox, CheckCircle2, ChevronDown, ChevronRight, Printer, Search, Archive, AlertTriangle, Calendar, XCircle, MessageSquare, Paperclip, X, Users, Check, Award, Percent } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Checkbox } from "@/components/ui/checkbox";
 import { MultiSelectCheckboxes } from "@/components/multi-select-checkboxes";
@@ -49,7 +45,6 @@ import {
 import { ProcessingSaveButton } from "@/components/processing-save-button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { HelpIcon } from "@/components/help-icon";
-import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { useColumnVisibility, type ColumnDef } from "@/hooks/use-column-visibility";
 import { ColumnManager } from "@/components/column-manager";
@@ -1512,13 +1507,6 @@ export default function Contracts() {
   const [preSelectProductId, setPreSelectProductId] = useState<string>("");
   const [preSelectSubjectSearch, setPreSelectSubjectSearch] = useState("");
   const [preSelectSubjectId, setPreSelectSubjectId] = useState<string>("");
-  const [showInlineCreate, setShowInlineCreate] = useState(false);
-  const [inlineFormValues, setInlineFormValues] = useState<Record<string, string>>({});
-  const [inlineCreating, setInlineCreating] = useState(false);
-  const [inlineValidationErrors, setInlineValidationErrors] = useState<Set<string>>(new Set());
-  const [inlineClientType, setInlineClientType] = useState<"fo" | "szco" | "po">("fo");
-  const [szcoPhase, setSzcoPhase] = useState<1 | 2>(1);
-  const [szcoPersonalData, setSzcoPersonalData] = useState({ firstName: "", lastName: "", birthNumber: "" });
   const [preSelectClientTypeId, setPreSelectClientTypeId] = useState<string>("");
   const [clientTypeSelectOpen, setClientTypeSelectOpen] = useState(false);
   const refProductTrigger = useRef<HTMLButtonElement>(null);
@@ -1531,21 +1519,6 @@ export default function Contracts() {
   const [importLoading, setImportLoading] = useState(false);
   const importFileRef = useRef<HTMLInputElement>(null);
 
-  useEffect(() => {
-    if (inlineClientType !== "fo" || !showInlineCreate) return;
-    const rc = inlineFormValues["rodne_cislo"]?.trim();
-    if (!rc) return;
-    const parsed = parseRodneCislo(rc);
-    if (parsed.pohlavie || parsed.datumNarodenia) {
-      setInlineFormValues(prev => {
-        const updates: Record<string, string> = {};
-        if (parsed.pohlavie && prev["pohlavie"] !== parsed.pohlavie) updates["pohlavie"] = parsed.pohlavie;
-        if (parsed.datumNarodenia && prev["datum_narodenia"] !== parsed.datumNarodenia) updates["datum_narodenia"] = parsed.datumNarodenia;
-        return Object.keys(updates).length > 0 ? { ...prev, ...updates } : prev;
-      });
-    }
-  }, [inlineFormValues["rodne_cislo"], inlineClientType, showInlineCreate]);
-
   const { data: statuses } = useQuery<ContractStatus[]>({
     queryKey: ["/api/contract-statuses"],
   });
@@ -1556,26 +1529,6 @@ export default function Contracts() {
 
   const { data: allClientTypes } = useQuery<ClientType[]>({ queryKey: ["/api/client-types"] });
   const activeClientTypes = (allClientTypes || []).filter(ct => ct.isActive).sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0));
-
-  const foSections = FO_SECTIONS;
-  const foPanels = FO_PANELS;
-  const foAllFields = FO_FIELDS;
-  const szcoSections = SZCO_SECTIONS;
-  const szcoPanels = SZCO_PANELS;
-  const szcoAllFields = SZCO_FIELDS;
-  const poSections = PO_SECTIONS;
-  const poPanels = PO_PANELS;
-  const poAllFields = PO_FIELDS;
-
-
-  const activeSections = inlineClientType === "szco" ? szcoSections : inlineClientType === "po" ? poSections : foSections;
-  const activePanelsRaw = inlineClientType === "szco" ? szcoPanels : inlineClientType === "po" ? poPanels : foPanels;
-  const activeFieldsRaw = inlineClientType === "szco" ? szcoAllFields : inlineClientType === "po" ? poAllFields : foAllFields;
-
-  const inlineFields = activeFieldsRaw || [];
-  const inlinePanelsFiltered = activePanelsRaw || [];
-
-  const sortedSections = (activeSections || []).slice().sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0));
 
   const contractsParams = (() => {
     if (isEvidencia) {
@@ -2064,11 +2017,11 @@ export default function Contracts() {
   };
 
   useEffect(() => {
-    if (preSelectStep === 2 && !showInlineCreate && !preSelectClientTypeId) {
+    if (preSelectStep === 2 && !preSelectClientTypeId) {
       const t = setTimeout(() => setClientTypeSelectOpen(true), 150);
       return () => clearTimeout(t);
     }
-  }, [preSelectStep, showInlineCreate, preSelectClientTypeId]);
+  }, [preSelectStep, preSelectClientTypeId]);
 
   const handlePreSelectStep2Back = () => {
     setPreSelectStep(1);
@@ -2102,141 +2055,7 @@ export default function Contracts() {
     setPreSelectSubjectSearch("");
     setPreSelectSubjectId("");
     setPreSelectClientTypeId("");
-    setShowInlineCreate(false);
-    setInlineFormValues({});
-    setInlineClientType("fo");
-    setSzcoPhase(1);
     setPreSelectOpen(true);
-  };
-
-  const parseRodneCislo = (rc: string): { pohlavie?: string; datumNarodenia?: string } => {
-    const clean = rc.replace(/[\s\/]/g, "");
-    if (clean.length < 6 || !/^\d+$/.test(clean)) return {};
-    const yy = parseInt(clean.substring(0, 2), 10);
-    let mm = parseInt(clean.substring(2, 4), 10);
-    const dd = parseInt(clean.substring(4, 6), 10);
-    const pohlavie = mm > 50 ? "žena" : "muž";
-    if (mm > 50) mm -= 50;
-    if (mm > 20) mm -= 20;
-    const year = yy >= 0 && yy <= 30 ? 2000 + yy : 1900 + yy;
-    if (mm < 1 || mm > 12 || dd < 1 || dd > 31) return { pohlavie };
-    const dateStr = `${year}-${String(mm).padStart(2, "0")}-${String(dd).padStart(2, "0")}`;
-    const parsed = new Date(dateStr);
-    if (isNaN(parsed.getTime())) return { pohlavie };
-    return { pohlavie, datumNarodenia: dateStr };
-  };
-
-  const handleShowInlineCreate = () => {
-    queryClient.invalidateQueries({ predicate: (query) => {
-      const key = query.queryKey;
-      return Array.isArray(key) && key[0] === "/api/client-types" && key.length >= 3;
-    }});
-    const selectedCt = activeClientTypes.find(ct => ct.id.toString() === preSelectClientTypeId);
-    const ctCode = selectedCt ? selectedCt.code.toLowerCase() : "fo";
-    const type: "fo" | "szco" | "po" = ctCode === "szco" ? "szco" : ctCode === "po" ? "po" : "fo";
-    setInlineClientType(type);
-    setSzcoPhase(1);
-    setShowInlineCreate(true);
-    setInlineValidationErrors(new Set());
-    setPreSelectSubjectId("");
-    const defaults: Record<string, string> = {};
-    const targetFields = type === "szco" ? szcoAllFields : type === "po" ? poAllFields : foAllFields;
-    const fields = targetFields || [];
-    fields.forEach(f => {
-      if (f.defaultValue) defaults[f.fieldKey] = f.defaultValue;
-    });
-    if (type === "fo" && preSelectSubjectSearch.trim()) {
-      const searchTrimmed = preSelectSubjectSearch.trim();
-      const cleaned = searchTrimmed.replace(/[\s\/]/g, "");
-      if (/^\d{6,}$/.test(cleaned)) {
-        defaults["rodne_cislo"] = searchTrimmed;
-        const parsed = parseRodneCislo(searchTrimmed);
-        if (parsed.pohlavie) defaults["pohlavie"] = parsed.pohlavie;
-        if (parsed.datumNarodenia) defaults["datum_narodenia"] = parsed.datumNarodenia;
-      }
-    }
-    const activeState = allStates?.find(s => s.id === appUser?.activeStateId);
-    if ((type === "fo") && activeState?.name) {
-      defaults["statna_prislusnost"] = getDefaultCountryForState(activeState.name);
-    }
-    setInlineFormValues(defaults);
-  };
-
-  const handleInlineCreateSubject = async () => {
-    const fieldsToValidate = inlineFields || [];
-    const missingRequired = fieldsToValidate.filter(f => {
-      if (!f.isRequired) return false;
-      const rule = f.visibilityRule as { dependsOn: string; value: string } | null;
-      if (rule && inlineFormValues[rule.dependsOn] !== rule.value) return false;
-      const val = inlineFormValues[f.fieldKey]?.trim();
-      return !val;
-    });
-    const isPo = inlineClientType === "po";
-    const isSzco = inlineClientType === "szco";
-    const meno = isSzco ? szcoPersonalData.firstName : inlineFormValues["meno"]?.trim() || "";
-    const priezvisko = isSzco ? szcoPersonalData.lastName : inlineFormValues["priezvisko"]?.trim() || "";
-    if (!isPo && !isSzco && !meno) missingRequired.push({ fieldKey: "meno", label: "Meno", isRequired: true } as any);
-    if (!isPo && !isSzco && !priezvisko) missingRequired.push({ fieldKey: "priezvisko", label: "Priezvisko", isRequired: true } as any);
-    if (isPo && !inlineFormValues["nazov_organizacie"]?.trim()) missingRequired.push({ fieldKey: "nazov_organizacie", label: "Názov organizácie", isRequired: true } as any);
-    if (isSzco) {
-      if (!szcoPersonalData.firstName.trim()) missingRequired.push({ fieldKey: "szco_meno", label: "Meno (SZCO)", isRequired: true } as any);
-      if (!szcoPersonalData.lastName.trim()) missingRequired.push({ fieldKey: "szco_priezvisko", label: "Priezvisko (SZCO)", isRequired: true } as any);
-    }
-
-    if (missingRequired.length > 0) {
-      const errorKeys = new Set(missingRequired.map((f: any) => f.fieldKey));
-      setInlineValidationErrors(errorKeys);
-      toast({ title: "Chyba", description: `Vyplňte povinné polia: ${missingRequired.map((f: any) => f.label || f.fieldKey).join(", ")}`, variant: "destructive" });
-      return;
-    }
-    setInlineValidationErrors(new Set());
-
-    setInlineCreating(true);
-    try {
-      const details: Record<string, string> = {};
-      fieldsToValidate.forEach(f => {
-        const val = inlineFormValues[f.fieldKey];
-        if (val !== undefined && val !== "") details[f.fieldKey] = val;
-      });
-
-      const activeState = allStates?.find(s => s.id === appUser?.activeStateId);
-
-      const payload: any = {
-        type: isPo ? "company" : isSzco ? "szco" : "person",
-        firstName: isPo ? null : isSzco ? (szcoPersonalData.firstName || null) : meno,
-        lastName: isPo ? null : isSzco ? (szcoPersonalData.lastName || null) : priezvisko,
-        companyName: (isPo || isSzco) ? (inlineFormValues["nazov_organizacie"]?.trim() || null) : null,
-        birthNumber: isSzco ? (szcoPersonalData.birthNumber || null) : (inlineFormValues["rodne_cislo"] || null),
-        email: inlineFormValues["email"] || null,
-        phone: inlineFormValues["telefon"] || null,
-        idCardNumber: isPo ? null : (inlineFormValues["cislo_dokladu"] || null),
-        details,
-        continentId: activeState?.continentId || null,
-        stateId: appUser?.activeStateId || null,
-        myCompanyId: appUser?.activeCompanyId || null,
-      };
-
-      const res = await apiRequest("POST", "/api/subjects", payload);
-      const created = await res.json();
-      queryClient.invalidateQueries({ queryKey: ["/api/subjects"] });
-
-      const displayName = isPo ? (inlineFormValues["nazov_organizacie"] || "PO") : isSzco ? `${inlineFormValues["nazov_organizacie"]} - ${meno} ${priezvisko}` : `${meno} ${priezvisko}`;
-      toast({ title: "Klient vytvoreny", description: `${displayName} (${created.uid})` });
-
-      setPreSelectSubjectId(created.id.toString());
-      setShowInlineCreate(false);
-      const params = new URLSearchParams();
-      if (preSelectPartnerId) params.set("partnerId", preSelectPartnerId);
-      if (preSelectProductId) params.set("productId", preSelectProductId);
-      params.set("subjectId", created.id.toString());
-      navigate(`/contracts/new${params.toString() ? `?${params.toString()}` : ""}`);
-      setPreSelectOpen(false);
-      setPreSelectStep(1);
-    } catch (err: any) {
-      toast({ title: "Chyba", description: err.message || "Nepodarilo sa vytvorit klienta", variant: "destructive" });
-    } finally {
-      setInlineCreating(false);
-    }
   };
 
   const preSelectFilteredSubjects = (() => {
@@ -2257,11 +2076,11 @@ export default function Contracts() {
   })();
 
   const preSelectDialog = (
-    <Dialog open={preSelectOpen} onOpenChange={(open) => { setPreSelectOpen(open); if (!open) { setPreSelectStep(1); setShowInlineCreate(false); setPreSelectClientTypeId(""); } }}>
+    <Dialog open={preSelectOpen} onOpenChange={(open) => { setPreSelectOpen(open); if (!open) { setPreSelectStep(1); setPreSelectClientTypeId(""); } }}>
       <DialogContent size="xl" onCloseAutoFocus={(e) => e.preventDefault()} data-testid="dialog-pre-select-contract">
         <DialogHeader className="px-6 pt-6 pb-2">
           <DialogTitle data-testid="text-preselect-title">
-            {preSelectStep === 1 ? "Krok 1: Vyber partnera a produktu" : showInlineCreate ? `Krok 2: Novy klient (${inlineClientType === "szco" ? "SZČO" : inlineClientType === "po" ? "PO" : "FO"})` : "Krok 2: Vyber klienta (subjektu)"}
+            {preSelectStep === 1 ? "Krok 1: Vyber partnera a produktu" : "Krok 2: Vyber klienta (subjektu)"}
           </DialogTitle>
         </DialogHeader>
 
@@ -2316,7 +2135,7 @@ export default function Contracts() {
           </div>
         </div>
 
-        <div style={{ display: preSelectStep === 2 && !showInlineCreate ? 'block' : 'none' }}>
+        <div style={{ display: preSelectStep === 2 ? 'block' : 'none' }}>
           <div className="space-y-4">
             <p className="text-sm text-muted-foreground">
               Najprv vyberte typ klienta, potom vyhladajte podla rodneho cisla, ICO alebo mena.
@@ -2395,16 +2214,6 @@ export default function Contracts() {
                   </div>
                 </div>
 
-                <div style={{ display: preSelectSubjectSearch.trim() && preSelectFilteredSubjects.length === 0 ? 'flex' : 'none' }} className="items-center justify-between gap-3 p-3 border rounded-md bg-muted/30">
-                  <div className="flex items-center gap-2 min-w-0">
-                    <Search className="w-4 h-4 text-muted-foreground flex-shrink-0" />
-                    <span className="text-sm text-muted-foreground">Klient nenajdeny. Chcete ho zaregistrovat?</span>
-                  </div>
-                  <Button size="sm" onClick={handleShowInlineCreate} data-testid="button-inline-create-from-search">
-                    <Plus className="w-4 h-4 mr-1" />
-                    Registrovat {activeClientTypes.find(ct => ct.id.toString() === preSelectClientTypeId)?.code || "klienta"}
-                  </Button>
-                </div>
               </div>
             </div>
 
@@ -2419,545 +2228,6 @@ export default function Contracts() {
           </div>
         </div>
 
-        <div style={{ display: preSelectStep === 2 && showInlineCreate ? 'block' : 'none' }}>
-          <div className="space-y-4">
-            <p className="text-sm text-muted-foreground">
-              {inlineClientType === "szco"
-                ? "Vyplnte udaje noveho SZČO podla pravidiel. Najprv podnikatelske udaje, potom osobne."
-                : inlineClientType === "po"
-                ? "Vyplnte udaje novej pravnickej osoby (PO) podla pravidiel."
-                : "Vyplnte udaje noveho klienta (FO) podla pravidiel typov klientov."
-              }
-            </p>
-
-            {(() => {
-              const INLINE_ADDR_PREFIXES = ["tp", "ka", "koa"] as const;
-              const INLINE_ADDR_KEYS = INLINE_ADDR_PREFIXES.flatMap(p => [`${p}_ulica`, `${p}_supisne`, `${p}_orientacne`, `${p}_psc`, `${p}_mesto`, `${p}_stat`]);
-              const INLINE_ADDR_SWITCH_KEYS = ["korespond_rovnaka", "kontaktna_rovnaka"];
-              const INLINE_ADDR_ALL = new Set([...INLINE_ADDR_KEYS, ...INLINE_ADDR_SWITCH_KEYS]);
-
-              const INLINE_ADDR_PANELS = {
-                tp: { label: "Adresa trvalého pobytu", keys: ["tp_ulica", "tp_supisne", "tp_orientacne", "tp_psc", "tp_mesto", "tp_stat"] },
-                ka: { label: "Adresa prechodného pobytu", keys: ["ka_ulica", "ka_supisne", "ka_orientacne", "ka_psc", "ka_mesto", "ka_stat"] },
-                koa: { label: "Kontaktná adresa", keys: ["koa_ulica", "koa_supisne", "koa_orientacne", "koa_psc", "koa_mesto", "koa_stat"] },
-              };
-
-              const rcParsed = inlineFormValues["rodne_cislo"]?.trim() ? parseRodneCislo(inlineFormValues["rodne_cislo"].trim()) : {};
-              const isRcAutoDisabled = (key: string) => {
-                if (key === "pohlavie") return !!rcParsed.pohlavie;
-                if (key === "datum_narodenia") return !!rcParsed.datumNarodenia;
-                return false;
-              };
-
-              const renderInlineField = (field: StaticField) => {
-                const errCls = inlineValidationErrors.has(field.fieldKey) ? "border-red-500 ring-1 ring-red-500" : "";
-                if (field.fieldType === "switch") {
-                  return (
-                    <div className="flex items-center gap-2 pt-1">
-                      <Switch
-                        checked={inlineFormValues[field.fieldKey] === "true"}
-                        onCheckedChange={checked => { setInlineFormValues(prev => ({ ...prev, [field.fieldKey]: String(checked) })); setInlineValidationErrors(prev => { const n = new Set(prev); n.delete(field.fieldKey); return n; }); }}
-                        data-testid={`switch-inline-${field.fieldKey}`}
-                      />
-                      <span className="text-sm text-muted-foreground">{inlineFormValues[field.fieldKey] === "true" ? "Ano" : "Nie"}</span>
-                    </div>
-                  );
-                }
-                if (field.fieldType === "jedna_moznost") {
-                  const autoDisabled = isRcAutoDisabled(field.fieldKey);
-                  return (
-                    <Select
-                      value={inlineFormValues[field.fieldKey] || ""}
-                      onValueChange={val => { setInlineFormValues(prev => ({ ...prev, [field.fieldKey]: val })); setInlineValidationErrors(prev => { const n = new Set(prev); n.delete(field.fieldKey); return n; }); }}
-                      disabled={autoDisabled}
-                    >
-                      <SelectTrigger className={cn(errCls, autoDisabled && "opacity-70")} data-testid={`select-inline-${field.fieldKey}`}>
-                        <SelectValue placeholder="Vyberte..." />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {(field.options || []).map((opt: string) => (
-                          <SelectItem key={opt} value={opt}>{opt}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  );
-                }
-                if (field.fieldType === "date") {
-                  const autoDisabled = isRcAutoDisabled(field.fieldKey);
-                  return (
-                    <Input
-                      type="date"
-                      value={inlineFormValues[field.fieldKey] || ""}
-                      onChange={e => { setInlineFormValues(prev => ({ ...prev, [field.fieldKey]: e.target.value })); setInlineValidationErrors(prev => { const n = new Set(prev); n.delete(field.fieldKey); return n; }); }}
-                      className={cn(errCls, autoDisabled && "opacity-70")}
-                      disabled={autoDisabled}
-                      data-testid={`input-inline-${field.fieldKey}`}
-                    />
-                  );
-                }
-                if (field.fieldType === "number") {
-                  return (
-                    <Input
-                      type="number"
-                      value={inlineFormValues[field.fieldKey] || ""}
-                      onChange={e => { setInlineFormValues(prev => ({ ...prev, [field.fieldKey]: e.target.value })); setInlineValidationErrors(prev => { const n = new Set(prev); n.delete(field.fieldKey); return n; }); }}
-                      className={errCls}
-                      data-testid={`input-inline-${field.fieldKey}`}
-                    />
-                  );
-                }
-                if (field.fieldType === "phone") {
-                  return (
-                    <Input
-                      type="tel"
-                      value={inlineFormValues[field.fieldKey] || ""}
-                      onChange={e => { setInlineFormValues(prev => ({ ...prev, [field.fieldKey]: e.target.value })); setInlineValidationErrors(prev => { const n = new Set(prev); n.delete(field.fieldKey); return n; }); }}
-                      placeholder="+421..."
-                      className={errCls}
-                      data-testid={`input-inline-${field.fieldKey}`}
-                    />
-                  );
-                }
-                return (
-                  <Input
-                    value={inlineFormValues[field.fieldKey] || ""}
-                    onChange={e => { setInlineFormValues(prev => ({ ...prev, [field.fieldKey]: e.target.value })); setInlineValidationErrors(prev => { const n = new Set(prev); n.delete(field.fieldKey); return n; }); }}
-                    className={errCls}
-                    data-testid={`input-inline-${field.fieldKey}`}
-                  />
-                );
-              };
-
-              const renderInlineAddressCards = (panelFields: StaticField[]) => {
-                const inlineKorRovnaka = inlineFormValues["korespond_rovnaka"] === "true";
-                const inlineKontRovnaka = inlineFormValues["kontaktna_rovnaka"] === "true";
-
-                const ADDR_FALLBACK: Record<string, string> = {
-                  ulica: "Ulica", supisne: "Súpisné číslo", orientacne: "Orientačné číslo",
-                  psc: "PSČ", mesto: "Mesto", stat: "Štát",
-                };
-
-                const renderAddrCard = (prefix: "tp" | "ka" | "koa", panelDef: typeof INLINE_ADDR_PANELS["tp"], disabled: boolean) => {
-                  const fieldKeys = panelDef.keys;
-                  const fields = fieldKeys.map(k => {
-                    const found = panelFields.find(f => f.fieldKey === k);
-                    const suffix = k.split("_").slice(1).join("_");
-                    return { key: k, field: found, suffix };
-                  });
-
-                  const renderAddrInput = (key: string, field: any, suffix: string) => {
-                    const hasErr = inlineValidationErrors.has(key);
-                    return (
-                      <div key={key} className="space-y-1">
-                        <label className={`text-xs font-medium ${hasErr ? "text-red-500" : ""}`}>
-                          {field?.label || ADDR_FALLBACK[suffix] || suffix}{field?.isRequired ? " *" : ""}
-                        </label>
-                        <Input
-                          value={inlineFormValues[key] || ""}
-                          onChange={e => { setInlineFormValues(prev => ({ ...prev, [key]: e.target.value })); setInlineValidationErrors(prev => { const n = new Set(prev); n.delete(key); return n; }); }}
-                          disabled={disabled}
-                          className={hasErr ? "border-red-500 ring-1 ring-red-500" : ""}
-                          data-testid={`input-inline-${key}`}
-                        />
-                      </div>
-                    );
-                  };
-
-                  return (
-                    <Card className={disabled ? "opacity-50 pointer-events-none" : ""} data-testid={`panel-inline-address-${prefix}`}>
-                      <CardContent className="p-3 space-y-2">
-                        <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground truncate" title={panelDef.label}>{panelDef.label}</h4>
-                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-                          {fields.slice(0, 3).map(({ key, field, suffix }) => renderAddrInput(key, field, suffix))}
-                        </div>
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                          {fields.slice(3, 5).map(({ key, field, suffix }) => renderAddrInput(key, field, suffix))}
-                        </div>
-                        <div className="grid grid-cols-1 gap-2">
-                          {fields.slice(5, 6).map(({ key, field, suffix }) => renderAddrInput(key, field, suffix))}
-                        </div>
-                      </CardContent>
-                    </Card>
-                  );
-                };
-
-                return (
-                  <div className="space-y-3" data-testid="panel-inline-address">
-                    <div className="flex items-center gap-2">
-                      <div className="h-px flex-1 bg-border" />
-                      <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Adresa</span>
-                      <div className="h-px flex-1 bg-border" />
-                    </div>
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3 items-start" data-testid="inline-row-address-panels">
-                      <div className="flex flex-col">
-                        {renderAddrCard("tp", INLINE_ADDR_PANELS.tp, false)}
-                        <div className="flex items-center gap-2 mt-2 px-1">
-                          <Switch
-                            checked={inlineKorRovnaka}
-                            onCheckedChange={checked => setInlineFormValues(prev => ({ ...prev, korespond_rovnaka: String(checked) }))}
-                            data-testid="switch-inline-korespond-rovnaka"
-                          />
-                          <Label className="text-xs cursor-pointer" onClick={() => setInlineFormValues(prev => ({ ...prev, korespond_rovnaka: String(prev["korespond_rovnaka"] !== "true") }))}>
-                            Adresa prechodného pobytu je totožná s adresou trvalého pobytu
-                          </Label>
-                        </div>
-                      </div>
-                      <div className="flex flex-col">
-                        {renderAddrCard("ka", INLINE_ADDR_PANELS.ka, inlineKorRovnaka)}
-                        <div className="flex items-center gap-2 mt-2 px-1">
-                          <Switch
-                            checked={inlineKontRovnaka}
-                            onCheckedChange={checked => setInlineFormValues(prev => ({ ...prev, kontaktna_rovnaka: String(checked) }))}
-                            data-testid="switch-inline-kontaktna-rovnaka"
-                          />
-                          <Label className="text-xs cursor-pointer" onClick={() => setInlineFormValues(prev => ({ ...prev, kontaktna_rovnaka: String(prev["kontaktna_rovnaka"] !== "true") }))}>
-                            Kontaktná adresa je totožná s adresou prechodného pobytu
-                          </Label>
-                        </div>
-                      </div>
-                      <div className="flex flex-col">
-                        {renderAddrCard("koa", INLINE_ADDR_PANELS.koa, inlineKontRovnaka || inlineKorRovnaka)}
-                      </div>
-                    </div>
-                  </div>
-                );
-              };
-
-              const isAddressPanel = (panel: StaticPanel) => {
-                const panelFields = (inlineFields || []).filter(f => f.panelId === panel.id);
-                return inlineClientType === "fo" && panelFields.some(f => INLINE_ADDR_ALL.has(f.fieldKey));
-              };
-
-              const renderPanels = (panels: StaticPanel[]) => panels.sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0)).map(panel => {
-                const panelFields = (inlineFields || [])
-                  .filter(f => f.panelId === panel.id)
-                  .sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0));
-
-                if (isAddressPanel(panel)) {
-                  return <div key={panel.id}>{renderInlineAddressCards(panelFields)}</div>;
-                }
-
-                const nonAddrFields = panelFields.filter(f => !INLINE_ADDR_ALL.has(f.fieldKey));
-
-                return (
-                  <div key={panel.id} className="space-y-3" style={{ display: nonAddrFields.length > 0 ? 'block' : 'none' }} data-testid={`panel-inline-${panel.id}`}>
-                    <div className="flex items-center gap-2">
-                      <div className="h-px flex-1 bg-border" />
-                      <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">{panel.name}</span>
-                      <div className="h-px flex-1 bg-border" />
-                    </div>
-
-                    {(() => {
-                      const isFoOsobne = panel.name === "Osobné údaje" && inlineClientType === "fo";
-                      const FO_OSOBNE_ROW_KEYS = ["titul_pred", "meno", "priezvisko", "titul_za"];
-                      const FO_ROW2_KEYS = ["rodne_priezvisko", "pohlavie", "datum_narodenia"];
-                      const FO_ROW3_KEYS = ["miesto_narodenia", "vek", "statna_prislusnost"];
-
-                      const renderField = (field: any) => {
-                        const rule = field.visibilityRule as { dependsOn: string; value: string } | null;
-                        const isVisible = !rule || inlineFormValues[rule.dependsOn] === rule.value;
-                        const hasErr = inlineValidationErrors.has(field.fieldKey);
-                        return (
-                          <div
-                            key={field.id}
-                            className="space-y-1"
-                            style={{ display: isVisible ? 'block' : 'none' }}
-                            data-testid={`field-inline-${field.fieldKey}`}
-                          >
-                            <label className={`text-xs font-medium truncate block ${hasErr ? "text-red-500" : "text-muted-foreground"}`}>
-                              {field.shortLabel ? (
-                                <>
-                                  <span className="hidden lg:inline">{field.label}</span>
-                                  <span className="inline lg:hidden">{field.shortLabel}</span>
-                                </>
-                              ) : (
-                                <span>{field.label}</span>
-                              )}
-                              {field.isRequired ? " *" : ""}
-                            </label>
-                            {renderInlineField(field)}
-                          </div>
-                        );
-                      };
-
-                      if (isFoOsobne) {
-                        const row1Fields = FO_OSOBNE_ROW_KEYS.map(k => nonAddrFields.find(f => f.fieldKey === k)).filter(Boolean);
-                        const row2Fields = FO_ROW2_KEYS.map(k => nonAddrFields.find(f => f.fieldKey === k)).filter(Boolean);
-                        const row3Fields = FO_ROW3_KEYS.map(k => nonAddrFields.find(f => f.fieldKey === k)).filter(Boolean);
-                        const usedKeys = new Set([...FO_OSOBNE_ROW_KEYS, ...FO_ROW2_KEYS, ...FO_ROW3_KEYS, "rodne_cislo"]);
-                        const restFields = nonAddrFields.filter(f => !usedKeys.has(f.fieldKey));
-                        return (
-                          <>
-                            <div className="flex flex-nowrap items-end gap-3">{row1Fields.map(f => {
-                              if (!f) return null;
-                              const wp = f.widthPercent || 25;
-                              const hasErr = inlineValidationErrors.has(f.fieldKey);
-                              const rule = f.visibilityRule as { dependsOn: string; value: string } | null;
-                              const isVisible = !rule || inlineFormValues[rule.dependsOn] === rule.value;
-                              return (
-                                <div key={f.id} className="space-y-1" style={{ flex: `0 1 ${wp}%`, minWidth: 0, display: isVisible ? 'block' : 'none' }}>
-                                  <Label className={`text-xs truncate block ${hasErr ? "text-red-500" : "text-muted-foreground"}`}>
-                                    {f.shortLabel ? (
-                                      <>
-                                        <span className="hidden lg:inline">{f.label}</span>
-                                        <span className="inline lg:hidden">{f.shortLabel}</span>
-                                      </>
-                                    ) : (
-                                      <span>{f.label}</span>
-                                    )}
-                                    {f.isRequired ? " *" : ""}
-                                  </Label>
-                                  <Input
-                                    placeholder=""
-                                    value={inlineFormValues[f.fieldKey] || ""}
-                                    onChange={e => setInlineFormValues(prev => ({ ...prev, [f.fieldKey]: e.target.value }))}
-                                    className={hasErr ? "border-red-500 ring-1 ring-red-500" : ""}
-                                    data-testid={`input-inline-${f.fieldKey}`}
-                                  />
-                                </div>
-                              );
-                            })}</div>
-                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mt-3">{row2Fields.map(renderField)}</div>
-                            {row3Fields.length > 0 && (
-                              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mt-3">{row3Fields.map(f => {
-                                if (!f) return null;
-                                if (f.fieldKey === "statna_prislusnost") {
-                                  const hasErr = inlineValidationErrors.has("statna_prislusnost");
-                                  const prioritySet = new Set(PRIORITY_COUNTRY_NAMES);
-                                  const restCountries = ALL_COUNTRY_NAMES.filter(c => !prioritySet.has(c));
-                                  return (
-                                    <div key={f.id} className="space-y-1" data-testid="field-inline-statna_prislusnost">
-                                      <label className={`text-xs font-medium ${hasErr ? "text-red-500" : ""}`}>{f.label}{f.isRequired ? " *" : ""}</label>
-                                      <Popover>
-                                        <PopoverTrigger asChild>
-                                          <Button variant="outline" role="combobox" className={cn("w-full justify-between font-normal", hasErr && "border-red-500 ring-1 ring-red-500", !inlineFormValues["statna_prislusnost"] && "text-muted-foreground")} data-testid="select-inline-statna-prislusnost">
-                                            {inlineFormValues["statna_prislusnost"] || "Vyberte krajinu..."}
-                                            <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                                          </Button>
-                                        </PopoverTrigger>
-                                        <PopoverContent className="w-[300px] p-0" align="start">
-                                          <Command>
-                                            <CommandInput placeholder="Hľadať krajinu..." />
-                                            <CommandList>
-                                              <CommandEmpty>Krajina nenájdená.</CommandEmpty>
-                                              <CommandGroup heading="Prioritné">
-                                                {PRIORITY_COUNTRY_NAMES.map(c => (
-                                                  <CommandItem key={c} value={c} onSelect={() => { setInlineFormValues(prev => ({ ...prev, statna_prislusnost: c })); if (hasErr) setInlineValidationErrors(prev => { const n = new Set(prev); n.delete("statna_prislusnost"); return n; }); }}>
-                                                    <Check className={cn("mr-2 h-4 w-4", inlineFormValues["statna_prislusnost"] === c ? "opacity-100" : "opacity-0")} />
-                                                    {c}
-                                                  </CommandItem>
-                                                ))}
-                                              </CommandGroup>
-                                              <CommandGroup heading="Všetky krajiny">
-                                                {restCountries.map(c => (
-                                                  <CommandItem key={c} value={c} onSelect={() => { setInlineFormValues(prev => ({ ...prev, statna_prislusnost: c })); if (hasErr) setInlineValidationErrors(prev => { const n = new Set(prev); n.delete("statna_prislusnost"); return n; }); }}>
-                                                    <Check className={cn("mr-2 h-4 w-4", inlineFormValues["statna_prislusnost"] === c ? "opacity-100" : "opacity-0")} />
-                                                    {c}
-                                                  </CommandItem>
-                                                ))}
-                                              </CommandGroup>
-                                            </CommandList>
-                                          </Command>
-                                        </PopoverContent>
-                                      </Popover>
-                                    </div>
-                                  );
-                                }
-                                return renderField(f);
-                              })}</div>
-                            )}
-                            {restFields.length > 0 && (
-                              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 mt-3">{restFields.map(renderField)}</div>
-                            )}
-                          </>
-                        );
-                      }
-
-                      const cols = panel.gridColumns || 2;
-                      return (
-                        <div className={`grid gap-3 grid-cols-1 ${cols >= 3 ? 'sm:grid-cols-2 md:grid-cols-3' : cols >= 2 ? 'sm:grid-cols-2' : ''}`} style={{ gridTemplateColumns: undefined }} data-grid-cols={cols}>
-                          {nonAddrFields.map(renderField)}
-                        </div>
-                      );
-                    })()}
-                  </div>
-                );
-              });
-
-              const FOLDER_LABELS: Record<string, string> = {
-                povinne: "POVINNÉ ÚDAJE",
-                doplnkove: "DOPLNKOVÉ ÚDAJE",
-                volitelne: "VOLITEĽNÉ ÚDAJE",
-              };
-              const FOLDER_TEXT_COLORS: Record<string, string> = {
-                povinne: "text-red-400",
-                doplnkove: "text-amber-400",
-                volitelne: "text-blue-400",
-              };
-              const FOLDER_BORDER_COLORS: Record<string, string> = {
-                povinne: "border-red-400/30",
-                doplnkove: "border-amber-400/30",
-                volitelne: "border-blue-400/30",
-              };
-
-              const renderSectionHeader = (section: StaticSection) => {
-                const sectionFields = inlineFields.filter(f => f.sectionId === section.id);
-                const cat = section.folderCategory || "povinne";
-                const textColor = FOLDER_TEXT_COLORS[cat] || FOLDER_TEXT_COLORS.povinne;
-                const borderColor = FOLDER_BORDER_COLORS[cat] || FOLDER_BORDER_COLORS.povinne;
-                return (
-                  <div className="flex items-center gap-2 pt-3">
-                    <span className={`text-[10px] font-bold uppercase tracking-widest ${textColor}`}>
-                      {FOLDER_LABELS[cat] || section.name}
-                    </span>
-                    <div className={`flex-1 border-t ${borderColor}`} style={{ borderTopStyle: "dashed" }} />
-                    <span className="text-[10px] text-muted-foreground">
-                      {sectionFields.length} {sectionFields.length === 1 ? "pole" : sectionFields.length < 5 ? "polia" : "polí"}
-                    </span>
-                  </div>
-                );
-              };
-
-              const renderSectionWithPanels = (section: StaticSection) => {
-                const sectionPanels = inlinePanelsFiltered.filter(p => p.sectionId === section.id);
-                return (
-                  <div key={section.id} className="space-y-3" data-testid={`section-inline-${section.id}`}>
-                    {renderSectionHeader(section)}
-                    <div style={{ display: sectionPanels.length > 0 ? 'block' : 'none' }}>
-                      {renderPanels(sectionPanels)}
-                    </div>
-                    <div className="text-xs text-muted-foreground italic px-2" style={{ display: sectionPanels.length === 0 ? 'block' : 'none' }}>
-                      Žiadne panely v tejto sekcii.
-                    </div>
-                  </div>
-                );
-              };
-
-              const renderSectionedPanels = () => sortedSections.map(section => renderSectionWithPanels(section));
-
-              if (inlineClientType === "fo" || inlineClientType === "po") {
-                return (
-                  <>
-                    {inlineClientType === "fo" && (
-                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-2" data-testid="inline-row-0-uid-rc">
-                        <div className="space-y-1">
-                          <label className="text-xs font-medium text-muted-foreground">Kód klienta</label>
-                          <Input value="Automaticky generovaný" disabled className="text-xs" data-testid="input-inline-uid" />
-                        </div>
-                        <div className="space-y-1">
-                          <label className="text-xs font-medium text-muted-foreground">Typ klienta</label>
-                          <Input value="Fyzická osoba" disabled data-testid="input-inline-typ-klienta" />
-                        </div>
-                        <div className="space-y-1">
-                          <label className="text-xs font-medium text-muted-foreground">Identifikátor (Rodné číslo)</label>
-                          <Input value={inlineFormValues["rodne_cislo"] || ""} disabled className="font-mono" data-testid="input-inline-rodne-cislo-row0" />
-                        </div>
-                      </div>
-                    )}
-                    {renderSectionedPanels()}
-                  </>
-                );
-              }
-
-              const szcoPovinneSection = sortedSections.find(s => s.folderCategory === "povinne" || s.name === "POVINNÉ ÚDAJE");
-              const szcoExtraSections = sortedSections.filter(s => s.id !== szcoPovinneSection?.id);
-              const szcoPovinePanelFirma = inlinePanelsFiltered.filter(p => p.sectionId === szcoPovinneSection?.id && (p.name === "Subjekt SZČO" || p.name === "Sídlo spoločnosti"));
-              const szcoPovinePanelOsoba = inlinePanelsFiltered.filter(p => p.sectionId === szcoPovinneSection?.id && !szcoPovinePanelFirma.some(fp => fp.id === p.id));
-
-              return (
-                <>
-                  {szcoPovinneSection && renderSectionHeader(szcoPovinneSection)}
-                  {renderPanels(szcoPovinePanelFirma)}
-
-                  <div style={{ display: szcoPhase === 1 ? 'block' : 'none' }}>
-                    <div className="flex justify-between gap-2 pt-2 border-t">
-                      <Button variant="outline" onClick={() => { setShowInlineCreate(false); setSzcoPhase(1); setSzcoPersonalData({ firstName: "", lastName: "", birthNumber: "" }); }} data-testid="button-inline-back">
-                        Spat na vyhladavanie
-                      </Button>
-                      <Button onClick={() => {
-                        const firmFields = inlineFields.filter(f => szcoPovinePanelFirma.some(p => p.id === f.panelId));
-                        const missingFirm = firmFields.filter(f => {
-                          if (!f.isRequired) return false;
-                          const rule = f.visibilityRule as { dependsOn: string; value: string } | null;
-                          if (rule && inlineFormValues[rule.dependsOn] !== rule.value) return false;
-                          return !(inlineFormValues[f.fieldKey]?.trim());
-                        });
-                        if (missingFirm.length > 0) {
-                          toast({ title: "Chyba", description: `Vyplnte povinne polia: ${missingFirm.map(f => f.label).join(", ")}`, variant: "destructive" });
-                          return;
-                        }
-                        setSzcoPhase(2);
-                      }} data-testid="button-szco-continue">
-                        Pokracovat na osobne udaje
-                      </Button>
-                    </div>
-                  </div>
-
-                  <div style={{ display: szcoPhase === 2 ? 'block' : 'none' }}>
-                    <div className="space-y-4">
-                      <div className="flex items-center gap-2 pt-2">
-                        <div className="h-px flex-1 bg-primary/30" />
-                        <span className="text-xs font-semibold uppercase tracking-wider text-primary">Faza 2: Osobne udaje SZCO</span>
-                        <div className="h-px flex-1 bg-primary/30" />
-                      </div>
-
-                      <div className="space-y-3">
-                        <div className="grid grid-cols-2 gap-3">
-                          <div className="space-y-1">
-                            <Label className="text-xs">Meno *</Label>
-                            <Input
-                              value={szcoPersonalData.firstName}
-                              onChange={e => setSzcoPersonalData(prev => ({ ...prev, firstName: e.target.value }))}
-                              data-testid="input-szco-firstname"
-                            />
-                          </div>
-                          <div className="space-y-1">
-                            <Label className="text-xs">Priezvisko *</Label>
-                            <Input
-                              value={szcoPersonalData.lastName}
-                              onChange={e => setSzcoPersonalData(prev => ({ ...prev, lastName: e.target.value }))}
-                              data-testid="input-szco-lastname"
-                            />
-                          </div>
-                        </div>
-                        <div className="space-y-1">
-                          <Label className="text-xs">Rodne cislo</Label>
-                          <Input
-                            value={szcoPersonalData.birthNumber}
-                            onChange={e => setSzcoPersonalData(prev => ({ ...prev, birthNumber: e.target.value }))}
-                            placeholder="XXXXXX/XXXX"
-                            data-testid="input-szco-rc"
-                          />
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </>
-              );
-            })()}
-
-            <div style={{ display: inlineClientType === "fo" || inlineClientType === "po" || szcoPhase === 2 ? 'block' : 'none' }}>
-              <div className="flex justify-between gap-2 pt-2 border-t">
-                <Button variant="outline" onClick={() => {
-                  if (inlineClientType === "szco" && szcoPhase === 2) {
-                    setSzcoPhase(1);
-                    setSzcoPersonalData({ firstName: "", lastName: "", birthNumber: "" });
-                  } else {
-                    setShowInlineCreate(false);
-                    setSzcoPhase(1);
-                    setSzcoPersonalData({ firstName: "", lastName: "", birthNumber: "" });
-                  }
-                }} data-testid="button-inline-back">
-                  {inlineClientType === "szco" && szcoPhase === 2 ? "Spat na podnikatelske udaje" : "Spat na vyhladavanie"}
-                </Button>
-                <Button onClick={handleInlineCreateSubject} disabled={inlineCreating} data-testid="button-inline-create-confirm">
-                  {inlineCreating ? <Loader2 className="w-4 h-4 mr-1 animate-spin" /> : <Plus className="w-4 h-4 mr-1" />}
-                  {inlineClientType === "szco" ? "Ulozit subjekt SZČO" : inlineClientType === "po" ? "Ulozit subjekt PO" : "Vytvorit klienta a otvorit zmluvu"}
-                </Button>
-              </div>
-            </div>
-          </div>
-        </div>
         </DialogScrollContent>
       </DialogContent>
     </Dialog>
