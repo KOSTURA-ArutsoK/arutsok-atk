@@ -94,6 +94,7 @@ function StatusFormDialog({
 
   const [selectedCompanyIds, setSelectedCompanyIds] = useState<number[]>([]);
   const [visibilityItems, setVisibilityItems] = useState<VisibilityItem[]>([]);
+  const [selectedContractTypes, setSelectedContractTypes] = useState<string[]>([]);
 
   const [statusParams, setStatusParams] = useState<ContractStatusParameter[]>([]);
   const [newParamName, setNewParamName] = useState("");
@@ -124,6 +125,16 @@ function StatusFormDialog({
     enabled: !!editingStatus,
   });
 
+  const { data: existingContractTypes } = useQuery<{ id: number; statusId: number; contractType: string }[]>({
+    queryKey: ["/api/contract-statuses", editingStatus?.id, "contract-types"],
+    queryFn: async () => {
+      const res = await fetch(`/api/contract-statuses/${editingStatus!.id}/contract-types`, { credentials: "include" });
+      if (!res.ok) throw new Error("Failed");
+      return res.json();
+    },
+    enabled: !!editingStatus,
+  });
+
   const { data: existingParams } = useQuery<ContractStatusParameter[]>({
     queryKey: ["/api/contract-statuses", editingStatus?.id, "parameters"],
     queryFn: async () => {
@@ -142,11 +153,13 @@ function StatusFormDialog({
       const created = await res.json();
       await apiRequest("PUT", `/api/contract-statuses/${created.id}/companies`, { companyIds: data.companyIds });
       await apiRequest("PUT", `/api/contract-statuses/${created.id}/visibility`, { items: data.visibility });
+      await apiRequest("PUT", `/api/contract-statuses/${created.id}/contract-types`, { contractTypes: data.contractTypes });
       return created;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/contract-statuses"] });
       queryClient.invalidateQueries({ queryKey: ["/api/contract-statuses/all-visibility"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/contract-statuses/all-contract-types"] });
       toast({ title: "Uspech", description: "Stav zmluvy vytvoreny" });
       onOpenChange(false);
     },
@@ -158,10 +171,12 @@ function StatusFormDialog({
       await apiRequest("PUT", `/api/contract-statuses/${editingStatus!.id}`, data.status);
       await apiRequest("PUT", `/api/contract-statuses/${editingStatus!.id}/companies`, { companyIds: data.companyIds });
       await apiRequest("PUT", `/api/contract-statuses/${editingStatus!.id}/visibility`, { items: data.visibility });
+      await apiRequest("PUT", `/api/contract-statuses/${editingStatus!.id}/contract-types`, { contractTypes: data.contractTypes });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/contract-statuses"] });
       queryClient.invalidateQueries({ queryKey: ["/api/contract-statuses/all-visibility"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/contract-statuses/all-contract-types"] });
       toast({ title: "Uspech", description: "Stav zmluvy aktualizovany" });
       onOpenChange(false);
     },
@@ -218,6 +233,7 @@ function StatusFormDialog({
         setIsFinal(editingStatus.isFinal ?? false);
         setAssignsNumber(editingStatus.assignsNumber ?? false);
         setDefinesContractEnd(editingStatus.definesContractEnd ?? false);
+        setSelectedContractTypes([]);
       } else {
         setName("");
         setColor("#3b82f6");
@@ -229,6 +245,7 @@ function StatusFormDialog({
         setDefinesContractEnd(false);
         setSelectedCompanyIds([]);
         setVisibilityItems([]);
+        setSelectedContractTypes([]);
       }
       resetParamForm();
     }
@@ -245,6 +262,12 @@ function StatusFormDialog({
       setVisibilityItems(existingVisibility.map((v: any) => ({ entityType: v.entityType, entityId: v.entityId })));
     }
   }, [existingVisibility]);
+
+  useEffect(() => {
+    if (existingContractTypes) {
+      setSelectedContractTypes(existingContractTypes.map((ct: any) => ct.contractType));
+    }
+  }, [existingContractTypes]);
 
   useEffect(() => {
     if (existingParams) {
@@ -270,6 +293,7 @@ function StatusFormDialog({
       },
       companyIds: selectedCompanyIds,
       visibility: visibilityItems,
+      contractTypes: selectedContractTypes,
     };
 
     if (editingStatus) {
@@ -531,6 +555,29 @@ function StatusFormDialog({
                   )) : (
                     <p className="text-xs text-muted-foreground">Ziadne sektory</p>
                   )}
+                </CardContent>
+              </Card>
+            </div>
+
+            <div className="space-y-2 pt-4 border-t border-border">
+              <label className="text-sm font-medium">Povolene typy zmluv</label>
+              <p className="text-xs text-muted-foreground mb-2">Urcite, pre ktore typy zmluv bude tento stav dostupny. Ak nie je zvoleny ziadny typ, stav bude dostupny pre vsetky typy zmluv.</p>
+              <Card>
+                <CardContent className="p-3 space-y-2">
+                  {["Nova", "Prestupova", "Zmenova"].map(ct => (
+                    <div key={ct} className="flex items-center gap-2">
+                      <Checkbox
+                        checked={selectedContractTypes.includes(ct)}
+                        onCheckedChange={() => {
+                          setSelectedContractTypes(prev =>
+                            prev.includes(ct) ? prev.filter(t => t !== ct) : [...prev, ct]
+                          );
+                        }}
+                        data-testid={`checkbox-contract-type-${ct.toLowerCase()}`}
+                      />
+                      <span className="text-sm">{ct}</span>
+                    </div>
+                  ))}
                 </CardContent>
               </Card>
             </div>

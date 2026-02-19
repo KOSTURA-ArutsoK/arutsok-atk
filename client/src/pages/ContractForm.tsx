@@ -1439,6 +1439,13 @@ export default function ContractForm() {
         }
       }
 
+      if ((meta as any).contractTypes && (meta as any).contractTypes.length > 0 && contractType) {
+        if (!(meta as any).contractTypes.includes(contractType)) {
+          console.log(`[ArutsoK Status Filter] '${s.name}' (id=${s.id}) hidden: ContractType mismatch (contract=${contractType}, allowed=${(meta as any).contractTypes.join(",")})`);
+          return false;
+        }
+      }
+
       console.log(`[ArutsoK Status Filter] '${s.name}' (id=${s.id}) shown: Passed all checks`);
       return true;
     });

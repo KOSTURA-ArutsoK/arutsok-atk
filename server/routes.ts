@@ -1735,6 +1735,36 @@ export async function registerRoutes(
     } catch (err) { res.status(500).json({ message: "Internal error" }); }
   });
 
+  // === CONTRACT STATUS CONTRACT TYPES ===
+  app.get("/api/contract-statuses/:id/contract-types", isAuthenticated, async (req: any, res) => {
+    try {
+      res.json(await storage.getContractStatusContractTypes(Number(req.params.id)));
+    } catch (err) { res.status(500).json({ message: "Internal error" }); }
+  });
+
+  app.put("/api/contract-statuses/:id/contract-types", isAuthenticated, async (req: any, res) => {
+    try {
+      const { contractTypes } = req.body;
+      const validTypes = ["Nova", "Prestupova", "Zmenova"];
+      const filtered = (contractTypes || []).filter((t: string) => validTypes.includes(t));
+      await storage.setContractStatusContractTypes(Number(req.params.id), filtered);
+      await logAudit(req, { action: "UPDATE", module: "stavy_zmluv_contract_types", entityId: Number(req.params.id), newData: { contractTypes: filtered } });
+      res.json({ success: true });
+    } catch (err) { res.status(500).json({ message: "Internal error" }); }
+  });
+
+  app.get("/api/contract-statuses/all-contract-types", isAuthenticated, async (_req: any, res) => {
+    try {
+      const all = await storage.getAllContractStatusContractTypes();
+      const result: Record<number, string[]> = {};
+      for (const item of all) {
+        if (!result[item.statusId]) result[item.statusId] = [];
+        result[item.statusId].push(item.contractType);
+      }
+      res.json(result);
+    } catch (err) { res.status(500).json({ message: "Internal error" }); }
+  });
+
   // === CONTRACT STATUS PARAMETERS (ArutsoK 49) ===
   app.get("/api/contract-statuses/:id/parameters", isAuthenticated, async (req: any, res) => {
     try {
@@ -1795,6 +1825,13 @@ export async function registerRoutes(
 
       const { newStatusId, changedAt, visibleToClient, statusNote, parameterValues } = req.body;
       if (!newStatusId) return res.status(400).json({ message: "Novy stav je povinny" });
+
+      const allowedTypes = await storage.getContractStatusContractTypes(Number(newStatusId));
+      if (allowedTypes.length > 0 && contract.contractType) {
+        if (!allowedTypes.some(at => at.contractType === contract.contractType)) {
+          return res.status(400).json({ message: `Stav nie je povoleny pre typ zmluvy '${contract.contractType}'` });
+        }
+      }
 
       const statusParams = await storage.getContractStatusParameters(Number(newStatusId));
       const parsedParams = parameterValues ? (typeof parameterValues === "string" ? JSON.parse(parameterValues) : parameterValues) : {};
@@ -1881,13 +1918,20 @@ export async function registerRoutes(
   app.get("/api/contract-statuses/all-visibility", isAuthenticated, async (_req: any, res) => {
     try {
       const statuses = await storage.getContractStatuses();
-      const result: Record<number, { companies: number[]; visibility: { entityType: string; entityId: number }[] }> = {};
+      const allCtTypes = await storage.getAllContractStatusContractTypes();
+      const ctTypeMap: Record<number, string[]> = {};
+      for (const item of allCtTypes) {
+        if (!ctTypeMap[item.statusId]) ctTypeMap[item.statusId] = [];
+        ctTypeMap[item.statusId].push(item.contractType);
+      }
+      const result: Record<number, { companies: number[]; visibility: { entityType: string; entityId: number }[]; contractTypes: string[] }> = {};
       for (const s of statuses) {
         const companies = await storage.getContractStatusCompanies(s.id);
         const visibility = await storage.getContractStatusVisibility(s.id);
         result[s.id] = {
           companies: companies.map(c => c.companyId),
           visibility: visibility.map(v => ({ entityType: v.entityType, entityId: v.entityId })),
+          contractTypes: ctTypeMap[s.id] || [],
         };
       }
       res.json(result);

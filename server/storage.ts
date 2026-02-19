@@ -83,9 +83,10 @@ import {
   type ContractAcquirer, type InsertContractAcquirer,
   contractRewardDistributions,
   type ContractRewardDistribution, type InsertContractRewardDistribution,
-  contractStatusCompanies, contractStatusVisibility, contractStatusParameters, contractStatusChangeLogs,
+  contractStatusCompanies, contractStatusVisibility, contractStatusContractTypes, contractStatusParameters, contractStatusChangeLogs,
   type ContractStatusCompany, type InsertContractStatusCompany,
   type ContractStatusVisibility, type InsertContractStatusVisibility,
+  type ContractStatusContractType,
   type ContractStatusParameter, type InsertContractStatusParameter,
   type ContractStatusChangeLog, type InsertContractStatusChangeLog,
   entityLinks,
@@ -1644,6 +1645,24 @@ export class DatabaseStorage implements IStorage {
     if (items.length > 0) {
       await db.insert(contractStatusVisibility).values(items.map(i => ({ statusId, entityType: i.entityType, entityId: i.entityId })));
     }
+  }
+
+  // === Contract Status Contract Types ===
+
+  async getContractStatusContractTypes(statusId: number): Promise<ContractStatusContractType[]> {
+    return await db.select().from(contractStatusContractTypes)
+      .where(eq(contractStatusContractTypes.statusId, statusId));
+  }
+
+  async setContractStatusContractTypes(statusId: number, types: string[]): Promise<void> {
+    await db.delete(contractStatusContractTypes).where(eq(contractStatusContractTypes.statusId, statusId));
+    if (types.length > 0) {
+      await db.insert(contractStatusContractTypes).values(types.map(contractType => ({ statusId, contractType })));
+    }
+  }
+
+  async getAllContractStatusContractTypes(): Promise<ContractStatusContractType[]> {
+    return await db.select().from(contractStatusContractTypes);
   }
 
   // === Contract Status Parameters (ArutsoK 49) ===
