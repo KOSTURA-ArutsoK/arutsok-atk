@@ -2683,7 +2683,6 @@ export default function Contracts() {
                                 priezvisko: { full: "Priezvisko", short: "Priezvisko" },
                                 titul_za: { full: "Titul za menom", short: "Titul za" },
                               };
-                              const namePlaceholders: Record<string, string> = { titul_pred: "", meno: "", priezvisko: "", titul_za: "" };
                               const hasErr = inlineValidationErrors.has(f.fieldKey);
                               const rule = f.visibilityRule as { dependsOn: string; value: string } | null;
                               const isVisible = !rule || inlineFormValues[rule.dependsOn] === rule.value;
@@ -2696,7 +2695,7 @@ export default function Contracts() {
                                     {f.isRequired ? " *" : ""}
                                   </Label>
                                   <Input
-                                    placeholder={namePlaceholders[f.fieldKey] || f.label}
+                                    placeholder=""
                                     value={inlineFormValues[f.fieldKey] || ""}
                                     onChange={e => setInlineFormValues(prev => ({ ...prev, [f.fieldKey]: e.target.value }))}
                                     className={hasErr ? "border-red-500 ring-1 ring-red-500" : ""}

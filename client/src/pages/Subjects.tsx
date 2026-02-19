@@ -1369,7 +1369,6 @@ function FullPageEditor({
                                   priezvisko: { full: "Priezvisko", short: "Priezvisko" },
                                   titul_za: { full: "Titul za menom", short: "Titul za" },
                                 };
-                                const NAME_PLACEHOLDERS: Record<string, string> = { titul_pred: "", meno: "", priezvisko: "", titul_za: "" };
                                 const nameRowKeys = FO_POVINNE_ROWS[0].keys;
                                 const nameRowFields = nameRowKeys.map(k => ({ key: k, field: povinneFields.find(f => f.fieldKey === k) }));
                                 return (
@@ -1387,7 +1386,7 @@ function FullPageEditor({
                                             {isReq ? " *" : ""}
                                           </Label>
                                           <Input
-                                            placeholder={NAME_PLACEHOLDERS[key] || key}
+                                            placeholder=""
                                             value={dynamicValues[key] || ""}
                                             onChange={e => setDynamicValues(prev => ({ ...prev, [key]: e.target.value }))}
                                             className={hasErr ? "border-red-500 ring-1 ring-red-500" : ""}
