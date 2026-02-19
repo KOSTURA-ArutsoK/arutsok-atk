@@ -1641,6 +1641,15 @@ export async function registerRoutes(
     res.json(await storage.getContractStatuses(getEnforcedStateId(req)));
   });
 
+  app.get("/api/contract-statuses/usage-counts", isAuthenticated, async (_req: any, res) => {
+    try {
+      const counts = await storage.getContractStatusUsageCounts();
+      res.json(counts);
+    } catch (err) {
+      res.status(500).json({ message: "Chyba pri nacitani poctu pouziti" });
+    }
+  });
+
   app.post(api.contractStatusesApi.create.path, isAuthenticated, async (req: any, res) => {
     try {
       const input = api.contractStatusesApi.create.input.parse(req.body);

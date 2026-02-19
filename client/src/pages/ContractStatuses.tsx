@@ -723,6 +723,7 @@ function DeleteStatusDialog({
     mutationFn: () => apiRequest("DELETE", `/api/contract-statuses/${status.id}`),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/contract-statuses"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/contract-statuses/usage-counts"] });
       toast({ title: "Uspech", description: "Stav zmluvy vymazany" });
       onOpenChange(false);
     },
@@ -781,8 +782,8 @@ export default function ContractStatuses() {
     queryKey: ["/api/contract-statuses"],
   });
 
-  const { data: allContracts } = useQuery<any[]>({
-    queryKey: ["/api/contracts"],
+  const { data: usageCounts } = useQuery<{ statusId: number; count: number }[]>({
+    queryKey: ["/api/contract-statuses/usage-counts"],
   });
 
   const reorderMutation = useMutation({
@@ -857,7 +858,7 @@ export default function ContractStatuses() {
               <SortableContext_Wrapper items={sortedStatuses} onReorder={handleReorder}>
                 <TableBody>
                   {sortedStatuses.map((status) => {
-                    const contractCountForStatus = (allContracts || []).filter((c: any) => c.statusId === status.id).length;
+                    const usageCount = usageCounts?.find(u => u.statusId === status.id)?.count ?? 0;
                     return (
                     <SortableTableRow
                       key={status.id}
@@ -869,12 +870,21 @@ export default function ContractStatuses() {
                         {status.sortOrder}
                       </TableCell>}
                       {columnVisibility.isVisible("name") && <TableCell data-testid={`text-status-name-${status.id}`}>
-                        <Badge
-                          variant="outline"
-                          style={{ borderColor: status.color, color: status.color }}
-                        >
-                          {status.name}
-                        </Badge>
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <Badge
+                            variant="outline"
+                            style={{ borderColor: status.color, color: status.color }}
+                          >
+                            {status.name}
+                          </Badge>
+                          <span
+                            className="inline-flex items-center justify-center min-w-[1.25rem] h-5 px-1 rounded-full text-[10px] font-semibold bg-muted text-muted-foreground"
+                            title={`Pouzite v ${usageCount} zmluvach`}
+                            data-testid={`badge-usage-count-${status.id}`}
+                          >
+                            {usageCount}
+                          </span>
+                        </div>
                       </TableCell>}
                       {columnVisibility.isVisible("color") && <TableCell>
                         <div className="flex items-center gap-2 flex-wrap">
@@ -909,8 +919,8 @@ export default function ContractStatuses() {
                           >
                             <Pencil className="w-4 h-4" />
                           </Button>
-                          {!status.isSystem && (
-                            <ConditionalDelete canDelete={contractCountForStatus === 0} onClick={() => openDelete(status)} testId={`button-delete-status-${status.id}`} />
+                          {!status.isSystem && usageCount === 0 && (
+                            <ConditionalDelete canDelete={true} onClick={() => openDelete(status)} testId={`button-delete-status-${status.id}`} />
                           )}
                         </div>
                       </TableCell>

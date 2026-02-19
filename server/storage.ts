@@ -247,6 +247,7 @@ export interface IStorage {
 
   // Contract Statuses
   getContractStatuses(stateId?: number): Promise<ContractStatus[]>;
+  getContractStatusUsageCounts(): Promise<{ statusId: number; count: number }[]>;
   createContractStatus(data: InsertContractStatus): Promise<ContractStatus>;
   updateContractStatus(id: number, data: Partial<InsertContractStatus>): Promise<ContractStatus>;
   deleteContractStatus(id: number): Promise<void>;
@@ -1597,6 +1598,18 @@ export class DatabaseStorage implements IStorage {
         .orderBy(contractStatuses.sortOrder);
     }
     return await db.select().from(contractStatuses).where(isNull(contractStatuses.deletedAt)).orderBy(contractStatuses.sortOrder);
+  }
+
+  async getContractStatusUsageCounts(): Promise<{ statusId: number; count: number }[]> {
+    const result = await db
+      .select({
+        statusId: contracts.statusId,
+        count: sql<number>`cast(count(*) as integer)`,
+      })
+      .from(contracts)
+      .where(isNotNull(contracts.statusId))
+      .groupBy(contracts.statusId);
+    return result.map(r => ({ statusId: r.statusId!, count: r.count }));
   }
 
   async createContractStatus(data: InsertContractStatus): Promise<ContractStatus> {
