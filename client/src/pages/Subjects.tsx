@@ -32,7 +32,7 @@ import {
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { insertSubjectSchema } from "@shared/schema";
-import type { Subject, ClientType, AuditLog, DocumentEntry } from "@shared/schema";
+import type { Subject, ClientType, AuditLog, DocumentEntry, ContactEntry } from "@shared/schema";
 import { getFieldsForClientTypeId, getSectionsForClientTypeId, getPanelsForClientTypeId, getFieldsForType, getSectionsForType, getPanelsForType, type StaticField, type StaticSection, type StaticPanel } from "@/lib/staticFieldDefs";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";

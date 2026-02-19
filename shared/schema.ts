@@ -225,7 +225,7 @@ export const subjects = pgTable("subjects", {
   id: serial("id").primaryKey(),
   uid: text("uid").notNull().unique(),
   type: text("type").notNull(),
-  linkedFoId: integer("linked_fo_id").references(() => subjects.id),
+  linkedFoId: integer("linked_fo_id"),
   firstName: text("first_name"),
   lastName: text("last_name"),
   companyName: text("company_name"),
