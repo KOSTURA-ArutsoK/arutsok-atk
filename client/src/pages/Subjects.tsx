@@ -1374,8 +1374,10 @@ function FullPageEditor({
   }
 
   function onSubmit(data: z.infer<typeof createSchema>) {
+    const DOC_KEYS = new Set(["typ_dokladu", "typ_dokladu_iny", "cislo_dokladu", "platnost_dokladu", "vydal_organ", "kod_vydavajuceho_organu"]);
+    const CONTACT_KEYS = new Set(["telefon", "email"]);
     const requiredFields = (typeFields || []).filter(f => f.isRequired && isFieldVisible(f));
-    const missingFields = requiredFields.filter(f => !dynamicValues[f.fieldKey]?.trim());
+    const missingFields = requiredFields.filter(f => !DOC_KEYS.has(f.fieldKey) && !CONTACT_KEYS.has(f.fieldKey) && !dynamicValues[f.fieldKey]?.trim());
 
     if (isPerson) {
       const addressRequired: { key: string; label: string }[] = [
@@ -1388,6 +1390,10 @@ function FullPageEditor({
         if (!dynamicValues[ar.key]?.trim()) {
           missingFields.push({ fieldKey: ar.key, label: ar.label } as any);
         }
+      }
+      const hasValidDoc = documents.some(d => d.documentType?.trim() && d.documentNumber?.trim());
+      if (!hasValidDoc) {
+        missingFields.push({ fieldKey: "typ_dokladu", label: "Doklad totožnosti (typ a číslo)" } as any);
       }
     }
 
