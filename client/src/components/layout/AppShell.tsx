@@ -27,6 +27,16 @@ import {
   DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
 
+const SIDEBAR_STORAGE_KEY = "arutsok-sidebar-open";
+
+function getSidebarDefault(): boolean {
+  try {
+    const stored = localStorage.getItem(SIDEBAR_STORAGE_KEY);
+    if (stored !== null) return stored === "true";
+  } catch {}
+  return true;
+}
+
 export function AppShell({ children }: { children: React.ReactNode }) {
   const { user, logout } = useAuth();
   const { data: appUser } = useAppUser();
@@ -40,6 +50,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const queryClient = useQueryClient();
   const photoInputRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
+  const [sidebarOpen, setSidebarOpen] = useState(getSidebarDefault);
+  const handleSidebarChange = useCallback((open: boolean) => {
+    setSidebarOpen(open);
+    try { localStorage.setItem(SIDEBAR_STORAGE_KEY, String(open)); } catch {}
+  }, []);
   const [contextOverlayOpen, setContextOverlayOpen] = useState(false);
   const [contextStep, setContextStep] = useState<"state" | "company">("state");
   const [pendingStateId, setPendingStateId] = useState<number | null>(null);
@@ -232,7 +247,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   );
 
   return (
-    <SidebarProvider style={sidebarStyle as React.CSSProperties}>
+    <SidebarProvider open={sidebarOpen} onOpenChange={handleSidebarChange} style={sidebarStyle as React.CSSProperties}>
       <div className="flex h-screen w-full">
         <AppSidebar />
         <div className="flex flex-col flex-1 min-w-0">
