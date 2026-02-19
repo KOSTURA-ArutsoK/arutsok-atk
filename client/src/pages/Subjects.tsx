@@ -270,50 +270,65 @@ function SubjectDataTab({ subject }: { subject: Subject }) {
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap gap-4 p-3 rounded-md bg-muted/30 border border-border">
-        <div className="flex-1 min-w-[calc(50%-0.5rem)]">
-          <span className="text-xs text-muted-foreground">Typ</span>
-          <p className="text-sm font-medium">{isPerson ? 'FO' : isSzco ? 'SZCO' : 'PO'} - {clientType?.name || subject.type}</p>
+      <div className="flex flex-wrap gap-2">
+        <div className="h-10 flex items-center gap-2 px-3 rounded-md border border-border bg-muted/30">
+          <span className="text-xs text-muted-foreground whitespace-nowrap">Typ:</span>
+          <span className="text-sm font-medium">{isPerson ? 'FO' : isSzco ? 'SZCO' : 'PO'} - {clientType?.name || subject.type}</span>
         </div>
-        <div className="flex-1 min-w-[calc(50%-0.5rem)]">
-          <span className="text-xs text-muted-foreground">Spravujuca firma</span>
-          <p className="text-sm font-medium">{managingCompany?.name || '-'}</p>
+        <div className="h-10 flex items-center gap-2 px-3 rounded-md border border-border bg-muted/30">
+          <span className="text-xs text-muted-foreground whitespace-nowrap">Firma:</span>
+          <span className="text-sm font-medium">{managingCompany?.name || '-'}</span>
         </div>
         {isPerson || isSzco ? (
           <>
-            <div className="flex-1 min-w-[calc(50%-0.5rem)]">
-              <span className="text-xs text-muted-foreground">Meno</span>
-              <p className="text-sm">{subject.firstName || '-'}</p>
+            <div className="h-10 flex items-center gap-2 px-3 rounded-md border border-border bg-muted/30">
+              <span className="text-xs text-muted-foreground whitespace-nowrap">Meno:</span>
+              <span className="text-sm font-medium">{subject.firstName || '-'}</span>
             </div>
-            <div className="flex-1 min-w-[calc(50%-0.5rem)]">
-              <span className="text-xs text-muted-foreground">Priezvisko</span>
-              <p className="text-sm">{subject.lastName || '-'}</p>
+            <div className="h-10 flex items-center gap-2 px-3 rounded-md border border-border bg-muted/30">
+              <span className="text-xs text-muted-foreground whitespace-nowrap">Priezvisko:</span>
+              <span className="text-sm font-medium">{subject.lastName || '-'}</span>
             </div>
           </>
         ) : (
-          <div className="flex-1 min-w-[calc(50%-0.5rem)]">
-            <span className="text-xs text-muted-foreground">Nazov spolocnosti</span>
-            <p className="text-sm">{subject.companyName || '-'}</p>
+          <div className="h-10 flex items-center gap-2 px-3 rounded-md border border-border bg-muted/30">
+            <span className="text-xs text-muted-foreground whitespace-nowrap">Nazov:</span>
+            <span className="text-sm font-medium">{subject.companyName || '-'}</span>
           </div>
         )}
-        <div className="flex-1 min-w-[calc(50%-0.5rem)]">
-          <span className="text-xs text-muted-foreground">Email</span>
-          <p className="text-sm">{subject.email || '-'}</p>
+        <div className="h-10 flex items-center gap-2 px-3 rounded-md border border-border bg-muted/30">
+          <span className="text-xs text-muted-foreground whitespace-nowrap">Email:</span>
+          <span className="text-sm font-medium">{subject.email || '-'}</span>
         </div>
-        <div className="flex-1 min-w-[calc(50%-0.5rem)]">
-          <span className="text-xs text-muted-foreground">Telefon</span>
-          <p className="text-sm">{subject.phone || '-'}</p>
+        <div className="h-10 flex items-center gap-2 px-3 rounded-md border border-border bg-muted/30">
+          <span className="text-xs text-muted-foreground whitespace-nowrap">Telefon:</span>
+          <span className="text-sm font-medium">{subject.phone || '-'}</span>
         </div>
       </div>
 
       {isSzco && (subject as any).linkedFo && (
-        <div className="flex items-center gap-2 p-3 rounded-md bg-blue-500/10 border border-blue-500/30" data-testid="linked-fo-info">
-          <Link2 className="w-4 h-4 text-blue-400 flex-shrink-0" />
-          <p className="text-xs">
-            Prepojená FO (Majiteľ): <span className="font-medium">{(subject as any).linkedFo.firstName} {(subject as any).linkedFo.lastName}</span>
-            <span className="text-muted-foreground ml-1">ID: {(subject as any).linkedFo.uid}</span>
-          </p>
-        </div>
+        <Card data-testid="linked-fo-info">
+          <CardContent className="p-3 space-y-2">
+            <div className="flex items-center gap-2">
+              <Link2 className="w-4 h-4 text-blue-400" />
+              <p className="text-sm font-semibold">Prepojená FO (Majiteľ)</p>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <div className="h-10 flex items-center gap-2 px-3 rounded-md border border-border bg-muted/30">
+                <span className="text-xs text-muted-foreground whitespace-nowrap">UID:</span>
+                <span className="text-sm font-medium font-mono">{(subject as any).linkedFo.uid}</span>
+              </div>
+              <div className="h-10 flex items-center gap-2 px-3 rounded-md border border-border bg-muted/30">
+                <span className="text-xs text-muted-foreground whitespace-nowrap">Meno:</span>
+                <span className="text-sm font-medium">{(subject as any).linkedFo.firstName}</span>
+              </div>
+              <div className="h-10 flex items-center gap-2 px-3 rounded-md border border-border bg-muted/30">
+                <span className="text-xs text-muted-foreground whitespace-nowrap">Priezvisko:</span>
+                <span className="text-sm font-medium">{(subject as any).linkedFo.lastName}</span>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
       )}
 
       <Accordion type="multiple" defaultValue={["povinne", "doplnkove"]} className="space-y-2">
@@ -339,13 +354,13 @@ function SubjectDataTab({ subject }: { subject: Subject }) {
                     {sectionGroups.map(({ section, fields }) => (
                       <div key={section.id} className="space-y-2">
                         <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide border-b border-border pb-1" style={{ display: sectionGroups.length > 1 ? 'block' : 'none' }}>{section.name}</p>
-                        <div className="flex flex-wrap gap-x-6 gap-y-2">
+                        <div className="flex flex-wrap gap-2">
                           {fields.map(field => {
                             const value = getFieldValue(field.fieldKey);
                             return (
-                              <div key={field.id} className="space-y-0.5 flex-1 min-w-[calc(50%-0.75rem)]" data-testid={`field-display-${field.fieldKey}`}>
-                                <span className="text-xs text-muted-foreground">{field.label || field.fieldKey}</span>
-                                <p className="text-sm">{value || <span className="text-muted-foreground/50">-</span>}</p>
+                              <div key={field.id} className="h-10 flex items-center gap-2 px-3 rounded-md border border-border bg-muted/30" data-testid={`field-display-${field.fieldKey}`}>
+                                <span className="text-xs text-muted-foreground whitespace-nowrap">{field.shortLabel || field.label}:</span>
+                                <span className="text-sm font-medium truncate">{value || "-"}</span>
                               </div>
                             );
                           })}
@@ -371,25 +386,49 @@ function SubjectDataTab({ subject }: { subject: Subject }) {
                 <p className="text-sm font-semibold">Doklady totožnosti</p>
                 <Badge variant="secondary" className="text-[10px]">{docs.length}</Badge>
               </div>
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+              <div className="space-y-2">
                 {docs.map((doc: DocumentEntry, idx: number) => {
                   const expired = doc.validUntil ? new Date(doc.validUntil) < new Date() : false;
                   const expSoon = doc.validUntil ? (() => { const d = new Date(doc.validUntil).getTime() - Date.now(); return d > 0 && d < 90 * 24 * 60 * 60 * 1000; })() : false;
                   return (
-                    <div key={doc.id || idx} className={cn("p-3 rounded-md border", expired ? "border-red-500/50 bg-red-500/5" : expSoon ? "border-orange-500/50 bg-orange-500/5" : "border-border bg-muted/30")} data-testid={`view-document-card-${idx}`}>
-                      <div className="flex items-center gap-2 mb-2 flex-wrap">
-                        <span className="text-sm font-medium">{doc.documentType || '-'}</span>
-                        {doc.documentType === "Iný" && doc.customDocType && (
-                          <span className="text-xs text-muted-foreground">({doc.customDocType})</span>
-                        )}
+                    <div key={doc.id || idx} data-testid={`view-document-card-${idx}`}>
+                      <div className="flex items-center gap-2 mb-1 flex-wrap">
                         {expired && <Badge variant="destructive" className="text-[10px]">Expirovaný</Badge>}
                         {expSoon && !expired && <Badge className="text-[10px] bg-orange-500/20 text-orange-400 border-orange-500/30">Expiruje čoskoro</Badge>}
                       </div>
-                      <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs">
-                        <div><span className="text-muted-foreground">Číslo: </span><span className="font-medium">{doc.documentNumber || '-'}</span></div>
-                        {doc.validUntil && <div><span className="text-muted-foreground">Platnosť do: </span><span className={cn("font-medium", expired ? "text-red-500" : expSoon ? "text-orange-500" : "")}>{formatDateSlovak(doc.validUntil)}</span></div>}
-                        {doc.issuedBy && <div><span className="text-muted-foreground">Vydal: </span><span className="font-medium">{doc.issuedBy}</span></div>}
-                        {doc.issuingAuthorityCode && <div><span className="text-muted-foreground">Kód orgánu: </span><span className="font-medium">{doc.issuingAuthorityCode}</span></div>}
+                      <div className="flex flex-wrap gap-2">
+                        <div className="h-10 flex items-center gap-2 px-3 rounded-md border border-border bg-muted/30">
+                          <span className="text-xs text-muted-foreground whitespace-nowrap">Typ:</span>
+                          <span className="text-sm font-medium">{doc.documentType || '-'}</span>
+                        </div>
+                        {doc.documentType === "Iný" && doc.customDocType && (
+                          <div className="h-10 flex items-center gap-2 px-3 rounded-md border border-border bg-muted/30">
+                            <span className="text-xs text-muted-foreground whitespace-nowrap">Špecifikácia:</span>
+                            <span className="text-sm font-medium">{doc.customDocType}</span>
+                          </div>
+                        )}
+                        <div className="h-10 flex items-center gap-2 px-3 rounded-md border border-border bg-muted/30">
+                          <span className="text-xs text-muted-foreground whitespace-nowrap">Číslo:</span>
+                          <span className="text-sm font-medium font-mono">{doc.documentNumber || '-'}</span>
+                        </div>
+                        {doc.validUntil && (
+                          <div className={cn("h-10 flex items-center gap-2 px-3 rounded-md border bg-muted/30", expired ? "border-red-500/50" : expSoon ? "border-orange-500/50" : "border-border")}>
+                            <span className="text-xs text-muted-foreground whitespace-nowrap">Platnosť do:</span>
+                            <span className={cn("text-sm font-medium", expired ? "text-red-500" : expSoon ? "text-orange-500" : "")}>{formatDateSlovak(doc.validUntil)}</span>
+                          </div>
+                        )}
+                        {doc.issuedBy && (
+                          <div className="h-10 flex items-center gap-2 px-3 rounded-md border border-border bg-muted/30">
+                            <span className="text-xs text-muted-foreground whitespace-nowrap">Vydal:</span>
+                            <span className="text-sm font-medium">{doc.issuedBy}</span>
+                          </div>
+                        )}
+                        {doc.issuingAuthorityCode && (
+                          <div className="h-10 flex items-center gap-2 px-3 rounded-md border border-border bg-muted/30">
+                            <span className="text-xs text-muted-foreground whitespace-nowrap">Kód orgánu:</span>
+                            <span className="text-sm font-medium">{doc.issuingAuthorityCode}</span>
+                          </div>
+                        )}
                       </div>
                     </div>
                   );

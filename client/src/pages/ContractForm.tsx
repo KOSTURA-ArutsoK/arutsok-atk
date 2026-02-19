@@ -1,7 +1,7 @@
 import { useState, useRef, useCallback, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import { formatDateTimeSlovak } from "@/lib/utils";
+import { formatDateTimeSlovak, formatDateSlovak } from "@/lib/utils";
 import { useAppUser } from "@/hooks/use-app-user";
 import { useStates } from "@/hooks/use-hierarchy";
 import { useToast } from "@/hooks/use-toast";
@@ -10,7 +10,9 @@ import { useColumnVisibility, type ColumnDef } from "@/hooks/use-column-visibili
 import { ColumnManager } from "@/components/column-manager";
 import type { Contract, ContractStatus, ContractStatusChangeLog, ContractTemplate, ContractInventory, Subject, Partner, Product, MyCompany, Sector, Section, SectorProduct, ContractPassword, ContractParameterValue, ContractFieldSetting, ClientType, ContractAcquirer, AppUser, ContractRewardDistribution } from "@shared/schema";
 import { getFieldsForClientTypeId, type StaticField } from "@/lib/staticFieldDefs";
-import { ArrowLeft, Save, Loader2, LayoutGrid, KeyRound, Plus, Trash2, FileText, Users, ClipboardList, FolderOpen, FolderClosed, DollarSign, BarChart3, ListChecks, PieChart, ChevronLeft, ChevronRight, MessageSquare, Paperclip, Upload, X, Eye, Settings2, Calendar, UserCheck, Lock, Check } from "lucide-react";
+import { ArrowLeft, Save, Loader2, LayoutGrid, KeyRound, Plus, Trash2, FileText, Users, ClipboardList, FolderOpen, FolderClosed, DollarSign, BarChart3, ListChecks, PieChart, ChevronLeft, ChevronRight, MessageSquare, Paperclip, Upload, X, Eye, Settings2, Calendar, UserCheck, Lock, Check, Link2, CreditCard } from "lucide-react";
+import { getSectionsForClientTypeId } from "@/lib/staticFieldDefs";
+import type { DocumentEntry } from "@shared/schema";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -1699,49 +1701,7 @@ export default function ContractForm() {
               </div>
 
               <div style={{ display: subjectId && subjects?.find(s => s.id === parseInt(subjectId)) ? 'block' : 'none' }}>
-                <Card>
-                  <CardContent className="p-3 space-y-2">
-                    <div className="flex items-center gap-2">
-                      <h3 className="text-sm font-semibold">Detail klienta</h3>
-                      <span style={{ display: subjects?.find(s => s.id === (subjectId ? parseInt(subjectId) : -1))?.isAnonymized ? 'inline-flex' : 'none' }}>
-                        <Badge variant="outline" className="text-xs gap-1" data-testid="badge-anonymized">
-                          <Lock className="w-3 h-3" />
-                          Anonymizované
-                        </Badge>
-                      </span>
-                    </div>
-                    <div className="grid grid-cols-2 gap-2 text-sm">
-                      <div>
-                        <span className="text-muted-foreground">Meno: </span>
-                        <span data-testid="text-subject-name">
-                          {(() => {
-                            const sel = subjects?.find(s => s.id === (subjectId ? parseInt(subjectId) : -1));
-                            if (!sel) return "";
-                            return sel.type === "person"
-                              ? `${sel.firstName} ${sel.lastName}`
-                              : sel.companyName;
-                          })()}
-                        </span>
-                      </div>
-                      <div>
-                        <span className="text-muted-foreground">UID: </span>
-                        <span className="font-mono" data-testid="text-subject-uid">{subjects?.find(s => s.id === (subjectId ? parseInt(subjectId) : -1))?.uid}</span>
-                      </div>
-                      <div id="subject-email-wrapper" style={{ display: subjects?.find(s => s.id === (subjectId ? parseInt(subjectId) : -1))?.email ? 'block' : 'none' }}>
-                        <div>
-                          <span className="text-muted-foreground">Email: </span>
-                          <span>{subjects?.find(s => s.id === (subjectId ? parseInt(subjectId) : -1))?.email}</span>
-                        </div>
-                      </div>
-                      <div id="subject-phone-wrapper" style={{ display: subjects?.find(s => s.id === (subjectId ? parseInt(subjectId) : -1))?.phone ? 'block' : 'none' }}>
-                        <div>
-                          <span className="text-muted-foreground">Telefon: </span>
-                          <span>{subjects?.find(s => s.id === (subjectId ? parseInt(subjectId) : -1))?.phone}</span>
-                        </div>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
+                <SubjectIslandView subject={subjects?.find(s => s.id === (subjectId ? parseInt(subjectId) : -1)) || null} allSubjects={subjects || []} mode="contract" />
               </div>
 
               <div style={{ display: subjectId && matchedClientType && clientTypeFields && clientTypeFields.length > 0 ? 'block' : 'none' }}>
@@ -2253,17 +2213,13 @@ export default function ContractForm() {
               <h2 className="text-base font-semibold">Zhrnutie zmluvy</h2>
               <Card>
                 <CardContent className="p-3 space-y-2">
-                  <div className="grid grid-cols-2 gap-3">
+                  <h3 className="text-sm font-semibold mb-2">Zmluva</h3>
+                  <div className="flex flex-wrap gap-2">
                     <SummaryField label="Cislo zmluvy" value={contractNumber || "-"} testId="summary-contract-number" />
                     <SummaryField label="Cislo navrhu" value={proposalNumber || "-"} testId="summary-proposal" />
                     <SummaryField label="Cislo kontraktu" value={existingContract?.globalNumber?.toString() || "Pridelene pri ulozeni"} testId="summary-global-number" />
                     <SummaryField label="Typ zmluvy" value={contractType || "-"} testId="summary-type" />
                     <SummaryField label="Miesto podpisu" value={signingPlace || "-"} testId="summary-signing-place" />
-                    <SummaryField label="Klient" value={(() => {
-                      const s = subjects?.find(sub => sub.id === (subjectId ? parseInt(subjectId) : -1));
-                      if (!s) return "-";
-                      return s.type === "person" ? `${s.firstName} ${s.lastName}` : (s.companyName || "-");
-                    })()} testId="summary-subject" />
                     <SummaryField label="Partner" value={partners?.find(p => p.id === (partnerId ? parseInt(partnerId) : -1))?.name || "-"} testId="summary-partner" />
                     <SummaryField label="Produkt" value={(() => {
                       const sp = allSPForEdit?.find(p => p.id === (sectorProductId ? parseInt(sectorProductId) : -1));
@@ -2283,6 +2239,15 @@ export default function ContractForm() {
                   </div>
                 </CardContent>
               </Card>
+
+              <div style={{ display: subjectId && subjects?.find(s => s.id === parseInt(subjectId)) ? 'block' : 'none' }}>
+                <Card>
+                  <CardContent className="p-3 space-y-2">
+                    <h3 className="text-sm font-semibold mb-2">Klient</h3>
+                    <SubjectIslandView subject={subjects?.find(s => s.id === (subjectId ? parseInt(subjectId) : -1)) || null} allSubjects={subjects || []} mode="summary" />
+                  </CardContent>
+                </Card>
+              </div>
             </div>
           </div>
 
@@ -2405,9 +2370,180 @@ function CompactField({ label, children }: { label: string; children: React.Reac
 
 function SummaryField({ label, value, testId, mono }: { label: string; value: string; testId: string; mono?: boolean }) {
   return (
-    <div>
-      <span className="text-xs text-muted-foreground">{label}</span>
-      <p className={`text-sm ${mono ? "font-mono" : ""}`} data-testid={testId}>{value}</p>
+    <div className="h-10 flex items-center gap-2 px-3 rounded-md border border-border bg-muted/30" data-testid={testId}>
+      <span className="text-xs text-muted-foreground whitespace-nowrap">{label}:</span>
+      <span className={`text-sm font-medium truncate ${mono ? "font-mono" : ""}`}>{value}</span>
+    </div>
+  );
+}
+
+function IslandField({ label, value, testId, mono }: { label: string; value: string; testId?: string; mono?: boolean }) {
+  return (
+    <div className="h-10 flex items-center gap-2 px-3 rounded-md border border-border bg-muted/30" data-testid={testId}>
+      <span className="text-xs text-muted-foreground whitespace-nowrap">{label}:</span>
+      <span className={`text-sm font-medium truncate ${mono ? "font-mono" : ""}`}>{value || "-"}</span>
+    </div>
+  );
+}
+
+function SubjectIslandView({ subject, allSubjects, mode }: { subject: any | null; allSubjects: any[]; mode: "contract" | "summary" }) {
+  if (!subject) return null;
+
+  const isPerson = subject.type === 'person';
+  const isSzco = subject.type === 'szco';
+  const isPo = subject.type === 'company';
+
+  const details = (subject.details || {}) as Record<string, any>;
+  const dynamicFields = details.dynamicFields || details;
+
+  function getVal(key: string): string {
+    if (dynamicFields[key] !== undefined) return String(dynamicFields[key] || "");
+    if (details[key] !== undefined) return String(details[key] || "");
+    return "";
+  }
+
+  const clientTypeId = isSzco ? 3 : isPerson ? 1 : 4;
+  const typeFields = getFieldsForClientTypeId(clientTypeId);
+  const typeSections = getSectionsForClientTypeId(clientTypeId);
+
+  const docs: DocumentEntry[] = dynamicFields.documents || [];
+
+  const linkedFo = isSzco && subject.linkedFoId
+    ? allSubjects.find((s: any) => s.id === subject.linkedFoId)
+    : null;
+
+  return (
+    <div className="space-y-3">
+      <Card>
+        <CardContent className="p-3 space-y-3">
+          <div className="flex items-center gap-2 flex-wrap">
+            <h3 className="text-sm font-semibold">{mode === "summary" ? "Klient" : "Detail klienta"}</h3>
+            <Badge variant="outline" className="text-xs">{isPerson ? "FO" : isSzco ? "SZCO" : "PO"}</Badge>
+            <span style={{ display: (subject as any).isAnonymized ? 'inline-flex' : 'none' }}>
+              <Badge variant="outline" className="text-xs gap-1" data-testid="badge-anonymized">
+                <Lock className="w-3 h-3" />
+                Anonymizované
+              </Badge>
+            </span>
+          </div>
+
+          <div className="flex flex-wrap gap-2">
+            <IslandField label="UID" value={subject.uid || "-"} testId="island-uid" mono />
+            {(isPerson || isSzco) && (
+              <>
+                <IslandField label="Meno" value={subject.firstName || "-"} testId="island-meno" />
+                <IslandField label="Priezvisko" value={subject.lastName || "-"} testId="island-priezvisko" />
+              </>
+            )}
+            {isPo && <IslandField label="Nazov" value={subject.companyName || "-"} testId="island-company" />}
+            <span style={{ display: subject.email ? 'inline-flex' : 'none' }}>
+              <IslandField label="Email" value={subject.email || ""} testId="island-email" />
+            </span>
+            <span style={{ display: subject.phone ? 'inline-flex' : 'none' }}>
+              <IslandField label="Telefon" value={subject.phone || ""} testId="island-phone" />
+            </span>
+          </div>
+        </CardContent>
+      </Card>
+
+      {typeSections.length > 0 && typeFields.length > 0 && (
+        <Card>
+          <CardContent className="p-3 space-y-3">
+            {typeSections
+              .sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0))
+              .map(section => {
+                const sectionFields = typeFields
+                  .filter(f => (f.sectionId || 0) === section.id)
+                  .filter(f => f.fieldKey !== "telefon" && f.fieldKey !== "email")
+                  .sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0));
+                const filledFields = sectionFields.filter(f => getVal(f.fieldKey));
+                if (filledFields.length === 0) return null;
+                return (
+                  <div key={section.id} className="space-y-2">
+                    <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">{section.name}</p>
+                    <div className="flex flex-wrap gap-2">
+                      {filledFields.map(field => (
+                        <IslandField
+                          key={field.id}
+                          label={field.shortLabel || field.label}
+                          value={field.fieldType === "date" ? formatDateSlovak(getVal(field.fieldKey)) : getVal(field.fieldKey)}
+                          testId={`island-${field.fieldKey}`}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                );
+              })}
+          </CardContent>
+        </Card>
+      )}
+
+      {docs.length > 0 && (
+        <Card>
+          <CardContent className="p-3 space-y-2">
+            <div className="flex items-center gap-2">
+              <CreditCard className="w-4 h-4 text-primary" />
+              <p className="text-sm font-semibold">Doklady totožnosti</p>
+              <Badge variant="secondary" className="text-[10px]">{docs.length}</Badge>
+            </div>
+            {docs.map((doc: DocumentEntry, idx: number) => (
+              <div key={doc.id || idx} className="flex flex-wrap gap-2" data-testid={`island-doc-${idx}`}>
+                <IslandField label="Typ" value={doc.documentType || "-"} />
+                {doc.documentType === "Iný" && doc.customDocType && <IslandField label="Špecifikácia" value={doc.customDocType} />}
+                <IslandField label="Číslo" value={doc.documentNumber || "-"} mono />
+                {doc.validUntil && <IslandField label="Platnosť do" value={formatDateSlovak(doc.validUntil)} />}
+                {doc.issuedBy && <IslandField label="Vydal" value={doc.issuedBy} />}
+                {doc.issuingAuthorityCode && <IslandField label="Kód orgánu" value={doc.issuingAuthorityCode} />}
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+      )}
+
+      {isSzco && linkedFo && (
+        <Card>
+          <CardContent className="p-3 space-y-2">
+            <div className="flex items-center gap-2">
+              <Link2 className="w-4 h-4 text-blue-400" />
+              <p className="text-sm font-semibold">Prepojená FO (Majiteľ)</p>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <IslandField label="UID" value={linkedFo.uid || "-"} testId="island-linked-fo-uid" mono />
+              <IslandField label="Meno" value={linkedFo.firstName || "-"} testId="island-linked-fo-meno" />
+              <IslandField label="Priezvisko" value={linkedFo.lastName || "-"} testId="island-linked-fo-priezvisko" />
+              <span style={{ display: linkedFo.email ? 'inline-flex' : 'none' }}>
+                <IslandField label="Email" value={linkedFo.email || ""} testId="island-linked-fo-email" />
+              </span>
+              <span style={{ display: linkedFo.phone ? 'inline-flex' : 'none' }}>
+                <IslandField label="Telefon" value={linkedFo.phone || ""} testId="island-linked-fo-phone" />
+              </span>
+              {(() => {
+                const foDetails = (linkedFo.details || {}) as Record<string, any>;
+                const foDyn = foDetails.dynamicFields || foDetails;
+                const foFields = getFieldsForClientTypeId(1);
+                const filledFoFields = foFields
+                  .filter(f => f.fieldKey !== "telefon" && f.fieldKey !== "email")
+                  .filter(f => {
+                    const v = foDyn[f.fieldKey] !== undefined ? String(foDyn[f.fieldKey] || "") : (foDetails[f.fieldKey] !== undefined ? String(foDetails[f.fieldKey] || "") : "");
+                    return !!v;
+                  })
+                  .sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0));
+                return filledFoFields.map(field => {
+                  const v = foDyn[field.fieldKey] !== undefined ? String(foDyn[field.fieldKey] || "") : String(foDetails[field.fieldKey] || "");
+                  return (
+                    <IslandField
+                      key={field.id}
+                      label={field.shortLabel || field.label}
+                      value={field.fieldType === "date" ? formatDateSlovak(v) : v}
+                      testId={`island-linked-fo-${field.fieldKey}`}
+                    />
+                  );
+                });
+              })()}
+            </div>
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }
