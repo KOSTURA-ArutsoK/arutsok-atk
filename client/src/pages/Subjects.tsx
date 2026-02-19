@@ -1697,56 +1697,50 @@ function FullPageEditor({
                               );
                             };
 
-                            const tpPanel = renderAddressPanel("tp", ADDRESS_PANEL_FIELDS.tp, false);
-                            const kaPanel = renderAddressPanel("ka", ADDRESS_PANEL_FIELDS.ka, korRespondRovnaka);
-                            const koaPanel = renderAddressPanel("koa", ADDRESS_PANEL_FIELDS.koa, kontaktnaRovnaka || korRespondRovnaka);
-                            const hasAnyAddressPanel = tpPanel || kaPanel || koaPanel;
+                            const activePanels: { prefix: "tp" | "ka" | "koa"; def: typeof ADDRESS_PANEL_FIELDS["tp"] }[] = [
+                              { prefix: "tp", def: ADDRESS_PANEL_FIELDS.tp },
+                            ];
+                            if (!korRespondRovnaka) activePanels.push({ prefix: "ka", def: ADDRESS_PANEL_FIELDS.ka });
+                            if (!kontaktnaRovnaka) activePanels.push({ prefix: "koa", def: ADDRESS_PANEL_FIELDS.koa });
 
-                            if (!hasAnyAddressPanel) return null;
+                            const panelCount = activePanels.length;
+                            const gridClass = panelCount === 3
+                              ? "grid-cols-1 md:grid-cols-3"
+                              : panelCount === 2
+                                ? "grid-cols-1 md:grid-cols-2"
+                                : "grid-cols-1";
 
                             return (
-                              <div className="grid grid-cols-1 md:grid-cols-3 gap-3 items-start" data-testid="row-address-panels">
-                                {tpPanel && (
-                                  <div className="flex flex-col">
-                                    {tpPanel}
-                                    {kaPanel && (
-                                      <div className="flex items-center gap-2 mt-2 px-1">
-                                        <Switch
-                                          checked={korRespondRovnaka}
-                                          onCheckedChange={checked => setDynamicValues(prev => ({ ...prev, korespond_rovnaka: String(checked) }))}
-                                          data-testid="switch-korespond-rovnaka"
-                                        />
-                                        <Label className="text-xs cursor-pointer" onClick={() => setDynamicValues(prev => ({ ...prev, korespond_rovnaka: String(prev["korespond_rovnaka"] !== "true") }))}>
-                                          Adresa prechodného pobytu je totožná s adresou trvalého pobytu
-                                        </Label>
-                                      </div>
-                                    )}
+                              <div className="space-y-3">
+                                <div className="flex flex-col sm:flex-row sm:items-center gap-3 px-1" data-testid="row-address-switches">
+                                  <div className="flex items-center gap-2">
+                                    <Switch
+                                      checked={korRespondRovnaka}
+                                      onCheckedChange={checked => setDynamicValues(prev => ({ ...prev, korespond_rovnaka: String(checked) }))}
+                                      data-testid="switch-korespond-rovnaka"
+                                    />
+                                    <Label className="text-xs cursor-pointer" onClick={() => setDynamicValues(prev => ({ ...prev, korespond_rovnaka: String(prev["korespond_rovnaka"] !== "true") }))}>
+                                      Prechodná = Trvalá
+                                    </Label>
                                   </div>
-                                )}
-
-                                {kaPanel && (
-                                  <div className="flex flex-col">
-                                    {kaPanel}
-                                    {koaPanel && (
-                                      <div className="flex items-center gap-2 mt-2 px-1">
-                                        <Switch
-                                          checked={kontaktnaRovnaka}
-                                          onCheckedChange={checked => setDynamicValues(prev => ({ ...prev, kontaktna_rovnaka: String(checked) }))}
-                                          data-testid="switch-kontaktna-rovnaka"
-                                        />
-                                        <Label className="text-xs cursor-pointer" onClick={() => setDynamicValues(prev => ({ ...prev, kontaktna_rovnaka: String(prev["kontaktna_rovnaka"] !== "true") }))}>
-                                          Kontaktná adresa je totožná s adresou prechodného pobytu
-                                        </Label>
-                                      </div>
-                                    )}
+                                  <div className="flex items-center gap-2">
+                                    <Switch
+                                      checked={kontaktnaRovnaka}
+                                      onCheckedChange={checked => setDynamicValues(prev => ({ ...prev, kontaktna_rovnaka: String(checked) }))}
+                                      data-testid="switch-kontaktna-rovnaka"
+                                    />
+                                    <Label className="text-xs cursor-pointer" onClick={() => setDynamicValues(prev => ({ ...prev, kontaktna_rovnaka: String(prev["kontaktna_rovnaka"] !== "true") }))}>
+                                      Kontaktná = Prechodná
+                                    </Label>
                                   </div>
-                                )}
-
-                                {koaPanel && (
-                                  <div className="flex flex-col">
-                                    {koaPanel}
-                                  </div>
-                                )}
+                                </div>
+                                <div className={`grid ${gridClass} gap-3 items-start`} data-testid="row-address-panels">
+                                  {activePanels.map(p => (
+                                    <div key={p.prefix} className="flex flex-col">
+                                      {renderAddressPanel(p.prefix, p.def, false)}
+                                    </div>
+                                  ))}
+                                </div>
                               </div>
                             );
                           })()}
