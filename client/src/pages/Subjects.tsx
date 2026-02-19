@@ -1054,7 +1054,7 @@ function DynamicFieldInput({ field, dynamicValues, setDynamicValues, hasError, d
           onValueChange={val => setDynamicValues(prev => ({ ...prev, [field.fieldKey]: val }))}
           disabled={disabled}
         >
-          <SelectTrigger className={cn(errorBorder, disabled && "opacity-70")} data-testid={`select-dynamic-${field.fieldKey}`}>
+          <SelectTrigger className={cn(errorBorder, disabled && "bg-muted/50 cursor-default opacity-100")} data-testid={`select-dynamic-${field.fieldKey}`}>
             <SelectValue placeholder="" />
           </SelectTrigger>
           <SelectContent>
@@ -1111,9 +1111,10 @@ function DynamicFieldInput({ field, dynamicValues, setDynamicValues, hasError, d
               <Input
                 type="date"
                 value={dateVal}
-                onChange={e => setDynamicValues(prev => ({ ...prev, [field.fieldKey]: e.target.value }))}
-                className={cn(errorBorder || validityClass, disabled && "opacity-70", validityLabel && "pr-[5.5rem]")}
-                disabled={disabled}
+                onChange={e => { if (disabled) return; setDynamicValues(prev => ({ ...prev, [field.fieldKey]: e.target.value })); }}
+                readOnly={disabled}
+                tabIndex={disabled ? -1 : undefined}
+                className={cn(errorBorder || validityClass, disabled && "bg-muted/50 cursor-default", validityLabel && "pr-[5.5rem]")}
                 data-testid={`input-dynamic-${field.fieldKey}`}
               />
               {validityLabel && (
@@ -1603,8 +1604,9 @@ function FullPageEditor({
                                           </div>
                                         );
                                       }
-                                      const rcParsedResult = initialData.baseValue?.trim() ? parseRodneCislo(initialData.baseValue.trim()) : {};
-                                      const isRcAuto = (key === "pohlavie" && !!rcParsedResult.pohlavie) || (key === "datum_narodenia" && !!rcParsedResult.datumNarodenia);
+                                      const rcSource = dynamicValues["rodne_cislo"]?.trim() || initialData.baseValue?.trim() || "";
+                                      const rcParsedResult = rcSource ? parseRodneCislo(rcSource) : {};
+                                      const isRcAuto = (key === "pohlavie" && !!rcParsedResult.pohlavie) || (key === "datum_narodenia" && !!rcParsedResult.datumNarodenia) || (key === "vek" && !!rcParsedResult.datumNarodenia);
                                       return field ? (
                                       <div key={key} style={{ flex: `0 1 ${wp}%`, minWidth: 0 }}>
                                         <DynamicFieldInput field={field} dynamicValues={dynamicValues} setDynamicValues={setDynamicValues} hasError={validationErrors.has(field.fieldKey)} disabled={isRcAuto} />
