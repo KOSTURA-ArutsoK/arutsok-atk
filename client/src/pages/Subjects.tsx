@@ -1130,7 +1130,7 @@ function DynamicFieldInput({ field, dynamicValues, setDynamicValues, hasError, d
         })()
       ) : field.fieldType === "number" && field.fieldKey === "vek" ? (
         <div
-          className="h-9 w-full flex items-center px-3 rounded-md bg-muted/50 border border-border text-sm font-medium text-foreground antialiased cursor-default select-none whitespace-nowrap overflow-hidden"
+          className="h-9 w-full flex items-center px-3 rounded-md bg-muted/50 border border-border text-sm font-medium text-foreground cursor-default select-none whitespace-nowrap"
           data-testid={`input-dynamic-${field.fieldKey}`}
         >
           {dynamicValues[field.fieldKey] ? `${dynamicValues[field.fieldKey]} rokov` : ""}
@@ -1510,50 +1510,20 @@ function FullPageEditor({
                           <Card data-testid="panel-osobne-udaje">
                             <CardContent className="p-4 space-y-3">
                               <p className="text-sm font-semibold">Osobné údaje</p>
-                              {(() => {
-                                const nameRowKeys = FO_POVINNE_ROWS[0].keys;
-                                const nameRowFields = nameRowKeys.map(k => ({ key: k, field: povinneFields.find(f => f.fieldKey === k) }));
-                                return (
-                                  <div className="flex flex-nowrap items-end gap-3" data-testid="row-povinne-3">
-                                    {nameRowFields.map(({ key, field }) => {
-                                      const wp = field?.widthPercent || 25;
-                                      const hasErr = validationErrors.has(key);
-                                      const isReq = field?.isRequired;
-                                      return (
-                                        <div key={key} className="space-y-1" style={{ flex: `0 1 ${wp}%`, minWidth: 0 }}>
-                                          <Label className={`text-xs truncate block ${hasErr ? "text-red-500" : "text-muted-foreground"}`}>
-                                            {field?.shortLabel ? (
-                                              <>
-                                                <span className="hidden lg:inline">{field.label || key}</span>
-                                                <span className="inline lg:hidden">{field.shortLabel}</span>
-                                              </>
-                                            ) : (
-                                              <span>{field?.label || key}</span>
-                                            )}
-                                            {isReq ? " *" : ""}
-                                          </Label>
-                                          <Input
-                                            placeholder=""
-                                            value={dynamicValues[key] || ""}
-                                            onChange={e => setDynamicValues(prev => ({ ...prev, [key]: e.target.value }))}
-                                            className={hasErr ? "border-red-500 ring-1 ring-red-500" : ""}
-                                            data-testid={`input-${key}`}
-                                          />
-                                        </div>
-                                      );
-                                    })}
-                                  </div>
-                                );
-                              })()}
-                              {FO_POVINNE_ROWS.slice(1).map((row, rowIdx) => {
+                              {FO_POVINNE_ROWS.map((row, rowIdx) => {
                                 const rowEntries = row.keys
                                   .map(k => ({ key: k, field: povinneFields.find(f => f.fieldKey === k) }));
                                 const hasAny = rowEntries.some(e => e.field) || rowEntries.some(e => e.key === "statna_prislusnost");
                                 if (!hasAny || rowEntries.length === 0) return null;
+                                const colCount = rowEntries.length;
+                                const gridClass = colCount <= 2
+                                  ? "grid grid-cols-1 sm:grid-cols-2 gap-4"
+                                  : colCount === 3
+                                    ? "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4"
+                                    : "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4";
                                 return (
-                                  <div key={rowIdx + 1} className="flex flex-nowrap items-end gap-3" data-testid={`row-povinne-${rowIdx + 4}`}>
+                                  <div key={rowIdx} className={gridClass} data-testid={`row-povinne-${rowIdx + 3}`}>
                                     {rowEntries.map(({ key, field }) => {
-                                      const wp = field?.widthPercent || 25;
                                       if (key === "statna_prislusnost") {
                                         const label = field?.label || "Štátna príslušnosť";
                                         const shortLbl = field?.shortLabel;
@@ -1562,68 +1532,148 @@ function FullPageEditor({
                                         const prioritySet = new Set(PRIORITY_COUNTRIES);
                                         const restCountries = ALL_COUNTRIES.filter(c => !prioritySet.has(c));
                                         return (
-                                          <div key={key} style={{ flex: `0 1 ${wp}%`, minWidth: 0 }}>
-                                            <div className="space-y-1">
-                                              <Label className={`text-xs truncate block ${hasErr ? "text-red-500" : "text-muted-foreground"}`}>
-                                                {shortLbl ? (
-                                                  <>
-                                                    <span className="hidden lg:inline">{label}</span>
-                                                    <span className="inline lg:hidden">{shortLbl}</span>
-                                                  </>
-                                                ) : label}
-                                                {isReq ? " *" : ""}
-                                              </Label>
-                                              <Popover>
-                                                <PopoverTrigger asChild>
-                                                  <Button variant="outline" role="combobox" className={cn("w-full justify-between font-normal", hasErr && "border-red-500 ring-1 ring-red-500", !dynamicValues[key] && "text-muted-foreground")} data-testid="select-statna-prislusnost">
-                                                    {dynamicValues[key] || ""}
-                                                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                                                  </Button>
-                                                </PopoverTrigger>
-                                                <PopoverContent className="w-[300px] p-0" align="start">
-                                                  <Command>
-                                                    <CommandInput placeholder="Hľadať krajinu..." />
-                                                    <CommandList>
-                                                      <CommandEmpty>Krajina nenájdená.</CommandEmpty>
-                                                      <CommandGroup heading="Prioritné">
-                                                        {PRIORITY_COUNTRIES.map(c => (
-                                                          <CommandItem key={c} value={c} onSelect={() => { setDynamicValues(prev => ({ ...prev, [key]: c })); if (hasErr) setValidationErrors(prev => { const n = new Set(prev); n.delete(key); return n; }); }}>
-                                                            <Check className={cn("mr-2 h-4 w-4", dynamicValues[key] === c ? "opacity-100" : "opacity-0")} />
-                                                            {c}
-                                                          </CommandItem>
-                                                        ))}
-                                                      </CommandGroup>
-                                                      <CommandGroup heading="Všetky krajiny">
-                                                        {restCountries.map(c => (
-                                                          <CommandItem key={c} value={c} onSelect={() => { setDynamicValues(prev => ({ ...prev, [key]: c })); if (hasErr) setValidationErrors(prev => { const n = new Set(prev); n.delete(key); return n; }); }}>
-                                                            <Check className={cn("mr-2 h-4 w-4", dynamicValues[key] === c ? "opacity-100" : "opacity-0")} />
-                                                            {c}
-                                                          </CommandItem>
-                                                        ))}
-                                                      </CommandGroup>
-                                                    </CommandList>
-                                                  </Command>
-                                                </PopoverContent>
-                                              </Popover>
-                                            </div>
+                                          <div key={key} className="space-y-1 min-w-0">
+                                            <Label className={`text-xs block ${hasErr ? "text-red-500" : "text-muted-foreground"}`}>
+                                              {shortLbl ? (
+                                                <>
+                                                  <span className="hidden lg:inline">{label}</span>
+                                                  <span className="inline lg:hidden">{shortLbl}</span>
+                                                </>
+                                              ) : label}
+                                              {isReq ? " *" : ""}
+                                            </Label>
+                                            <Popover>
+                                              <PopoverTrigger asChild>
+                                                <Button variant="outline" role="combobox" className={cn("w-full justify-between font-normal", hasErr && "border-red-500 ring-1 ring-red-500", !dynamicValues[key] && "text-muted-foreground")} data-testid="select-statna-prislusnost">
+                                                  <span className="truncate">{dynamicValues[key] || ""}</span>
+                                                  <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                                                </Button>
+                                              </PopoverTrigger>
+                                              <PopoverContent className="w-[300px] p-0" align="start">
+                                                <Command>
+                                                  <CommandInput placeholder="Hľadať krajinu..." />
+                                                  <CommandList>
+                                                    <CommandEmpty>Krajina nenájdená.</CommandEmpty>
+                                                    <CommandGroup heading="Prioritné">
+                                                      {PRIORITY_COUNTRIES.map(c => (
+                                                        <CommandItem key={c} value={c} onSelect={() => { setDynamicValues(prev => ({ ...prev, [key]: c })); if (hasErr) setValidationErrors(prev => { const n = new Set(prev); n.delete(key); return n; }); }}>
+                                                          <Check className={cn("mr-2 h-4 w-4", dynamicValues[key] === c ? "opacity-100" : "opacity-0")} />
+                                                          {c}
+                                                        </CommandItem>
+                                                      ))}
+                                                    </CommandGroup>
+                                                    <CommandGroup heading="Všetky krajiny">
+                                                      {restCountries.map(c => (
+                                                        <CommandItem key={c} value={c} onSelect={() => { setDynamicValues(prev => ({ ...prev, [key]: c })); if (hasErr) setValidationErrors(prev => { const n = new Set(prev); n.delete(key); return n; }); }}>
+                                                          <Check className={cn("mr-2 h-4 w-4", dynamicValues[key] === c ? "opacity-100" : "opacity-0")} />
+                                                          {c}
+                                                        </CommandItem>
+                                                      ))}
+                                                    </CommandGroup>
+                                                  </CommandList>
+                                                </Command>
+                                              </PopoverContent>
+                                            </Popover>
                                           </div>
                                         );
                                       }
                                       const rcSource = dynamicValues["rodne_cislo"]?.trim() || initialData.baseValue?.trim() || "";
                                       const rcParsedResult = rcSource ? parseRodneCislo(rcSource) : {};
                                       const isRcAuto = (key === "pohlavie" && !!rcParsedResult.pohlavie) || (key === "datum_narodenia" && !!rcParsedResult.datumNarodenia) || (key === "vek" && !!rcParsedResult.datumNarodenia);
-                                      return field ? (
-                                      <div key={key} style={{ flex: `0 1 ${wp}%`, minWidth: 0 }}>
-                                        <DynamicFieldInput field={field} dynamicValues={dynamicValues} setDynamicValues={setDynamicValues} hasError={validationErrors.has(field.fieldKey)} disabled={isRcAuto} />
-                                      </div>
-                                    ) : (
-                                      <div key={key} style={{ flex: `0 1 ${wp}%`, minWidth: 0 }}>
-                                        <div className="space-y-1">
-                                          <Label className={`text-xs truncate block text-muted-foreground ${validationErrors.has(key) ? "text-red-500" : ""}`}>{key}</Label>
+                                      if (field) {
+                                        return (
+                                          <div key={key} className="space-y-1 min-w-0">
+                                            <Label className={`text-xs block ${validationErrors.has(key) ? "text-red-500" : "text-muted-foreground"}`}>
+                                              {field.shortLabel ? (
+                                                <>
+                                                  <span className="hidden lg:inline">{field.label || key}</span>
+                                                  <span className="inline lg:hidden">{field.shortLabel}</span>
+                                                </>
+                                              ) : (
+                                                <span>{field.label || key}</span>
+                                              )}
+                                              {field.isRequired ? " *" : ""}
+                                            </Label>
+                                            {field.fieldType === "number" && field.fieldKey === "vek" ? (
+                                              <div className="h-9 w-full flex items-center px-3 rounded-md bg-muted/50 border border-border text-sm font-medium text-foreground cursor-default select-none whitespace-nowrap" data-testid={`input-dynamic-${field.fieldKey}`}>
+                                                {dynamicValues[field.fieldKey] ? `${dynamicValues[field.fieldKey]} rokov` : ""}
+                                              </div>
+                                            ) : field.fieldType === "jedna_moznost" && field.fieldKey === "pohlavie" ? (
+                                              isRcAuto ? (
+                                                <div className="h-9 w-full flex items-center px-3 rounded-md bg-muted/50 border border-border text-sm font-medium text-foreground cursor-default select-none whitespace-nowrap" data-testid={`select-dynamic-${field.fieldKey}`}>
+                                                  {dynamicValues[field.fieldKey] === "muž" ? "Muž" : dynamicValues[field.fieldKey] === "žena" ? "Žena" : dynamicValues[field.fieldKey] || ""}
+                                                </div>
+                                              ) : (
+                                                <Select value={dynamicValues[field.fieldKey] || ""} onValueChange={val => setDynamicValues(prev => ({ ...prev, [field.fieldKey]: val }))}>
+                                                  <SelectTrigger className={validationErrors.has(key) ? "border-red-500 ring-1 ring-red-500" : ""} data-testid={`select-dynamic-${field.fieldKey}`}>
+                                                    <SelectValue placeholder="" />
+                                                  </SelectTrigger>
+                                                  <SelectContent>
+                                                    {(field.options || []).map((opt: string) => (
+                                                      <SelectItem key={opt} value={opt}>{opt === "muž" ? "Muž" : opt === "žena" ? "Žena" : opt}</SelectItem>
+                                                    ))}
+                                                  </SelectContent>
+                                                </Select>
+                                              )
+                                            ) : field.fieldType === "date" ? (
+                                              (() => {
+                                                const dateVal = dynamicValues[field.fieldKey] || "";
+                                                let validityClass = "";
+                                                let validityLabel = "";
+                                                if (field.fieldKey === "platnost_dokladu" && dateVal) {
+                                                  const expiry = new Date(dateVal);
+                                                  const now = new Date();
+                                                  const threeMonths = new Date();
+                                                  threeMonths.setMonth(threeMonths.getMonth() + 3);
+                                                  if (expiry < now) {
+                                                    validityClass = "border-red-500 bg-red-500/10 ring-1 ring-red-500";
+                                                    validityLabel = "Neplatný";
+                                                  } else if (expiry < threeMonths) {
+                                                    validityClass = "border-orange-500 bg-orange-500/10 ring-1 ring-orange-500";
+                                                    validityLabel = "Končiaci";
+                                                  }
+                                                }
+                                                return (
+                                                  <div className="relative">
+                                                    <Input
+                                                      type="date"
+                                                      value={dateVal}
+                                                      onChange={e => { if (isRcAuto) return; setDynamicValues(prev => ({ ...prev, [field.fieldKey]: e.target.value })); }}
+                                                      readOnly={isRcAuto}
+                                                      tabIndex={isRcAuto ? -1 : undefined}
+                                                      className={cn(validationErrors.has(key) ? "border-red-500 ring-1 ring-red-500" : validityClass, isRcAuto && "bg-muted/50 cursor-default", validityLabel && "pr-[5.5rem]")}
+                                                      data-testid={`input-dynamic-${field.fieldKey}`}
+                                                    />
+                                                    {validityLabel && (
+                                                      <span className={cn(
+                                                        "absolute right-8 top-1/2 -translate-y-1/2 text-[10px] font-semibold pointer-events-none select-none",
+                                                        validityLabel === "Neplatný" ? "text-red-500" : "text-orange-500"
+                                                      )} data-testid={`validity-status-${field.fieldKey}`}>
+                                                        {validityLabel}
+                                                      </span>
+                                                    )}
+                                                  </div>
+                                                );
+                                              })()
+                                            ) : (
+                                              <Input
+                                                placeholder=""
+                                                value={dynamicValues[key] || ""}
+                                                onChange={e => setDynamicValues(prev => ({ ...prev, [key]: e.target.value }))}
+                                                className={validationErrors.has(key) ? "border-red-500 ring-1 ring-red-500" : ""}
+                                                data-testid={`input-${key}`}
+                                              />
+                                            )}
+                                          </div>
+                                        );
+                                      }
+                                      return (
+                                        <div key={key} className="space-y-1 min-w-0">
+                                          <Label className={`text-xs block text-muted-foreground ${validationErrors.has(key) ? "text-red-500" : ""}`}>{key}</Label>
                                           <Input placeholder="" value={dynamicValues[key] || ""} onChange={e => setDynamicValues(prev => ({ ...prev, [key]: e.target.value }))} className={validationErrors.has(key) ? "border-red-500 ring-1 ring-red-500" : ""} data-testid={`input-${key}`} />
                                         </div>
-                                      </div>
-                                    )})}
+                                      );
+                                    })}
                                   </div>
                                 );
                               })}
@@ -1763,27 +1813,27 @@ function FullPageEditor({
                             );
                           })()}
 
-                          <div className="flex flex-wrap gap-3" data-testid="row-telefon">
-                            <div className="space-y-1 flex-1 min-w-[calc(50%-0.375rem)]">
-                              <Label className="text-xs">Tel. číslo (primárne) *</Label>
-                              <InternationalPhoneInput
-                                value={dynamicValues["telefon"] || ""}
-                                onChange={(val) => setDynamicValues(prev => ({ ...prev, telefon: val }))}
-                                dialCode={allStates?.find(s => s.id === appUser?.activeStateId)?.code}
-                                data-testid="input-telefon-primary"
-                              />
-                            </div>
-                          </div>
-
-                          <div style={{ display: povinneRemainder.length > 0 ? 'block' : 'none' }}>
-                            <div className="flex flex-wrap gap-3" data-testid="row-povinne-remainder">
-                              {povinneRemainder.map(field => (
-                                <div key={field.id} className="flex-1 min-w-[calc(50%-0.375rem)]">
-                                  <DynamicFieldInput field={field} dynamicValues={dynamicValues} setDynamicValues={setDynamicValues} hasError={validationErrors.has(field.fieldKey)} />
+                          <Card data-testid="panel-kontaktne-udaje">
+                            <CardContent className="p-4 space-y-3">
+                              <p className="text-sm font-semibold">Kontaktné údaje</p>
+                              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4" data-testid="row-kontakt-fields">
+                                <div className="space-y-1 min-w-0">
+                                  <Label className="text-xs block text-muted-foreground">Tel. číslo (primárne) *</Label>
+                                  <InternationalPhoneInput
+                                    value={dynamicValues["telefon"] || ""}
+                                    onChange={(val) => setDynamicValues(prev => ({ ...prev, telefon: val }))}
+                                    dialCode={allStates?.find(s => s.id === appUser?.activeStateId)?.code}
+                                    data-testid="input-telefon-primary"
+                                  />
                                 </div>
-                              ))}
-                            </div>
-                          </div>
+                                {povinneRemainder.map(field => (
+                                  <div key={field.id} className="min-w-0">
+                                    <DynamicFieldInput field={field} dynamicValues={dynamicValues} setDynamicValues={setDynamicValues} hasError={validationErrors.has(field.fieldKey)} />
+                                  </div>
+                                ))}
+                              </div>
+                            </CardContent>
+                          </Card>
                         </AccordionContent>
                       </AccordionItem>
 
@@ -1806,9 +1856,9 @@ function FullPageEditor({
                                 {groups.map(({ section, fields }) => (
                                   <div key={section.id} className="space-y-3">
                                     <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide border-b border-border pb-1" style={{ display: groups.length > 1 ? 'block' : 'none' }}>{section.name}</p>
-                                    <div className="flex flex-wrap gap-3">
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
                                       {fields.map((field: StaticField) => (
-                                        <div key={field.id} className="flex-1 min-w-[calc(50%-0.375rem)]">
+                                        <div key={field.id} className="min-w-0">
                                           <DynamicFieldInput field={field} dynamicValues={dynamicValues} setDynamicValues={setDynamicValues} hasError={validationErrors.has(field.fieldKey)} />
                                         </div>
                                       ))}
