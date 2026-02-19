@@ -1363,16 +1363,29 @@ function FullPageEditor({
                             <CardContent className="p-4 space-y-3">
                               <p className="text-sm font-semibold">Osobné údaje</p>
                               {(() => {
+                                const NAME_LABELS: Record<string, { full: string; short: string }> = {
+                                  titul_pred: { full: "Titul pred menom", short: "Titul pred" },
+                                  meno: { full: "Meno", short: "Meno" },
+                                  priezvisko: { full: "Priezvisko", short: "Priezvisko" },
+                                  titul_za: { full: "Titul za menom", short: "Titul za" },
+                                };
                                 const NAME_PLACEHOLDERS: Record<string, string> = { titul_pred: "Titul pred", meno: "Meno *", priezvisko: "Priezvisko *", titul_za: "Titul za" };
                                 const nameRowKeys = FO_POVINNE_ROWS[0].keys;
                                 const nameRowFields = nameRowKeys.map(k => ({ key: k, field: povinneFields.find(f => f.fieldKey === k) }));
                                 return (
-                                  <div className="flex flex-nowrap items-end gap-3 h-9" data-testid="row-povinne-3">
+                                  <div className="flex flex-nowrap items-end gap-3" data-testid="row-povinne-3">
                                     {nameRowFields.map(({ key, field }) => {
                                       const wp = field?.widthPercent || 25;
                                       const hasErr = validationErrors.has(key);
+                                      const isReq = field?.isRequired;
+                                      const labels = NAME_LABELS[key];
                                       return (
-                                        <div key={key} style={{ flex: `1 1 ${wp}%`, minWidth: 0 }}>
+                                        <div key={key} className="space-y-1" style={{ flex: `0 1 ${wp}%`, minWidth: 0 }}>
+                                          <Label className={`text-xs truncate block ${hasErr ? "text-red-500" : "text-muted-foreground"}`}>
+                                            <span className="hidden md:inline">{labels?.full || key}</span>
+                                            <span className="inline md:hidden">{labels?.short || key}</span>
+                                            {isReq ? " *" : ""}
+                                          </Label>
                                           <Input
                                             placeholder={NAME_PLACEHOLDERS[key] || key}
                                             value={dynamicValues[key] || ""}

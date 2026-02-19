@@ -2674,15 +2674,27 @@ export default function Contracts() {
                         const restFields = nonAddrFields.filter(f => !usedKeys.has(f.fieldKey));
                         return (
                           <>
-                            <div className="flex flex-nowrap items-end gap-3 h-9">{row1Fields.map(f => {
+                            <div className="flex flex-nowrap items-end gap-3">{row1Fields.map(f => {
                               if (!f) return null;
                               const wp = f.widthPercent || 25;
+                              const nameLabels: Record<string, { full: string; short: string }> = {
+                                titul_pred: { full: "Titul pred menom", short: "Titul pred" },
+                                meno: { full: "Meno", short: "Meno" },
+                                priezvisko: { full: "Priezvisko", short: "Priezvisko" },
+                                titul_za: { full: "Titul za menom", short: "Titul za" },
+                              };
                               const namePlaceholders: Record<string, string> = { titul_pred: "Titul pred", meno: "Meno *", priezvisko: "Priezvisko *", titul_za: "Titul za" };
                               const hasErr = inlineValidationErrors.has(f.fieldKey);
                               const rule = f.visibilityRule as { dependsOn: string; value: string } | null;
                               const isVisible = !rule || inlineFormValues[rule.dependsOn] === rule.value;
+                              const labels = nameLabels[f.fieldKey];
                               return (
-                                <div key={f.id} style={{ flex: `1 1 ${wp}%`, minWidth: 0, display: isVisible ? 'block' : 'none' }}>
+                                <div key={f.id} className="space-y-1" style={{ flex: `0 1 ${wp}%`, minWidth: 0, display: isVisible ? 'block' : 'none' }}>
+                                  <Label className={`text-xs truncate block ${hasErr ? "text-red-500" : "text-muted-foreground"}`}>
+                                    <span className="hidden md:inline">{labels?.full || f.label}</span>
+                                    <span className="inline md:hidden">{labels?.short || f.label}</span>
+                                    {f.isRequired ? " *" : ""}
+                                  </Label>
                                   <Input
                                     placeholder={namePlaceholders[f.fieldKey] || f.label}
                                     value={inlineFormValues[f.fieldKey] || ""}
