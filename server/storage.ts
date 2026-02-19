@@ -980,12 +980,16 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createSubject(insertSubject: InsertSubject) {
-    const continent = insertSubject.continentId ? await db.select().from(continents).where(eq(continents.id, insertSubject.continentId)).then(r => r[0]) : null;
     const state = insertSubject.stateId ? await db.select().from(states).where(eq(states.id, insertSubject.stateId)).then(r => r[0]) : null;
     const company = insertSubject.myCompanyId ? await db.select().from(myCompanies).where(eq(myCompanies.id, insertSubject.myCompanyId)).then(r => r[0]) : null;
+    const continent = state?.continentId ? await db.select().from(continents).where(eq(continents.id, state.continentId)).then(r => r[0]) : null;
     
-    if (!continent || !state || !company) {
+    if (!state || !company || !continent) {
       throw new Error("Invalid hierarchy references for UID generation");
+    }
+
+    if (!insertSubject.continentId && continent) {
+      insertSubject.continentId = continent.id;
     }
 
     const uid = await this.generateUID(state.code, continent.code);
