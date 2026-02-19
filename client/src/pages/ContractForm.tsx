@@ -386,6 +386,7 @@ function StatusTabContent(props: StatusTabContentProps) {
         </div>
       </div>
 
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
       <div id="status-change-form-wrapper" data-testid="status-change-form-container">
         <div style={{ display: contractId ? 'block' : 'none' }}>
           <Card>
@@ -676,8 +677,9 @@ function StatusTabContent(props: StatusTabContentProps) {
                 <ColumnManager columnVisibility={statusHistoryColumnVisibility} />
               </div>
               <SmartFilterBar filter={statusHistoryFilter} />
+              <div className="max-h-[600px] overflow-y-auto">
               <Table>
-                <TableHeader>
+                <TableHeader className="sticky top-0 z-10 bg-card">
                   <TableRow>
                     {statusHistoryColumnVisibility.isVisible("status") && <TableHead>Stav</TableHead>}
                     {statusHistoryColumnVisibility.isVisible("changedAt") && <TableHead>Datum zmeny</TableHead>}
@@ -720,10 +722,12 @@ function StatusTabContent(props: StatusTabContentProps) {
                   })}
                 </TableBody>
               </Table>
+              </div>
             </CardContent>
           </Card>
         </div>
         <div id="status-history-empty" style={{ display: !(contractId && statusChangeLogs && statusChangeLogs.length > 0) ? 'block' : 'none' }} />
+      </div>
       </div>
     </div>
   );
