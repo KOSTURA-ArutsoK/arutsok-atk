@@ -1520,6 +1520,7 @@ export default function Contracts() {
   const [szcoPhase, setSzcoPhase] = useState<1 | 2>(1);
   const [szcoPersonalData, setSzcoPersonalData] = useState({ firstName: "", lastName: "", birthNumber: "" });
   const [preSelectClientTypeId, setPreSelectClientTypeId] = useState<string>("");
+  const [clientTypeSelectOpen, setClientTypeSelectOpen] = useState(false);
   const refProductTrigger = useRef<HTMLButtonElement>(null);
   const refStep1Next = useRef<HTMLButtonElement>(null);
   const refSearchInput = useRef<HTMLInputElement>(null);
@@ -2062,11 +2063,19 @@ export default function Contracts() {
     setPreSelectSubjectId("");
   };
 
+  useEffect(() => {
+    if (preSelectStep === 2 && !showInlineCreate && !preSelectClientTypeId) {
+      const t = setTimeout(() => setClientTypeSelectOpen(true), 150);
+      return () => clearTimeout(t);
+    }
+  }, [preSelectStep, showInlineCreate, preSelectClientTypeId]);
+
   const handlePreSelectStep2Back = () => {
     setPreSelectStep(1);
     setPreSelectSubjectSearch("");
     setPreSelectSubjectId("");
     setPreSelectClientTypeId("");
+    setClientTypeSelectOpen(false);
   };
 
   const handlePreSelectConfirm = () => {
@@ -2315,7 +2324,7 @@ export default function Contracts() {
 
             <div className="space-y-1">
               <label className="text-xs font-medium">Typ klienta</label>
-              <Select value={preSelectClientTypeId} onValueChange={(v) => { setPreSelectClientTypeId(v); setPreSelectSubjectSearch(""); setPreSelectSubjectId(""); setTimeout(() => refSearchInput.current?.focus(), 50); }}>
+              <Select open={clientTypeSelectOpen} onOpenChange={setClientTypeSelectOpen} value={preSelectClientTypeId} onValueChange={(v) => { setPreSelectClientTypeId(v); setClientTypeSelectOpen(false); setPreSelectSubjectSearch(""); setPreSelectSubjectId(""); setTimeout(() => refSearchInput.current?.focus(), 50); }}>
                 <SelectTrigger data-testid="select-preselect-client-type">
                   <SelectValue placeholder="Vyberte typ klienta" />
                 </SelectTrigger>
