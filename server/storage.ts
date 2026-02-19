@@ -2054,7 +2054,7 @@ export class DatabaseStorage implements IStorage {
   async getClientGroups(stateId?: number): Promise<ClientGroup[]> {
     if (stateId) {
       return await db.select().from(clientGroups)
-        .where(eq(clientGroups.stateId, stateId))
+        .where(or(eq(clientGroups.stateId, stateId), isNull(clientGroups.stateId)))
         .orderBy(clientGroups.sortOrder);
     }
     return await db.select().from(clientGroups).orderBy(clientGroups.sortOrder);
