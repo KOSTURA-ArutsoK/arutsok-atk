@@ -1246,12 +1246,10 @@ function FullPageEditor({
   const state = allStates?.find(s => s.id === initialData.stateId);
 
   const isSzcoType = clientType?.code === 'SZCO';
-  const [szcoPersonalData, setSzcoPersonalData] = useState({ firstName: "", lastName: "", birthNumber: "" });
-  const [assignedFO, setAssignedFO] = useState<{ id: number; uid: string; firstName: string; lastName: string; birthNumber: string } | null>(null);
-  const [foSearchQuery, setFoSearchQuery] = useState("");
-  const [foSearchResults, setFoSearchResults] = useState<any[]>([]);
-  const [foSearchLoading, setFoSearchLoading] = useState(false);
-  const [foLinked, setFoLinked] = useState(false);
+  const [szcoData, setSzcoData] = useState({ obchodne_meno: "", ico: initialData.baseValue || "", dic: "", ic_dph: "", miesto_podnikania: "", register: "", szco_uid: "" });
+  const [szcoFoData, setSzcoFoData] = useState({ firstName: "", lastName: "", birthNumber: "", fo_uid: "" });
+  const [szcoFoLinkedId, setSzcoFoLinkedId] = useState<number | null>(null);
+  const [szcoFoLoading, setSzcoFoLoading] = useState(false);
 
   const [dynamicValues, setDynamicValuesRaw] = useState<Record<string, string>>({ korespond_rovnaka: "true", kontaktna_rovnaka: "true", tp_stat: DEFAULT_COUNTRY, ka_stat: DEFAULT_COUNTRY, koa_stat: DEFAULT_COUNTRY, sidlo_stat: DEFAULT_COUNTRY, vykon_stat: DEFAULT_COUNTRY });
   const [documents, setDocuments] = useState<DocumentEntry[]>([]);
@@ -1414,15 +1412,32 @@ function FullPageEditor({
     if (isPerson && dynamicValues.meno) submitData.firstName = dynamicValues.meno;
     if (isPerson && dynamicValues.priezvisko) submitData.lastName = dynamicValues.priezvisko;
     if (isSzcoType) {
-      if (!szcoPersonalData.firstName || !szcoPersonalData.lastName) {
-        toast({ title: "Chybajuce osobne udaje", description: "Vyplnte meno a priezvisko pre SZCO.", variant: "destructive" });
+      if (!szcoFoData.firstName || !szcoFoData.lastName) {
+        toast({ title: "Chýbajúce osobné údaje", description: "Vyplňte meno a priezvisko majiteľa SZČO.", variant: "destructive" });
         return;
       }
-      submitData.firstName = szcoPersonalData.firstName;
-      submitData.lastName = szcoPersonalData.lastName;
-      if (szcoPersonalData.birthNumber) submitData.birthNumber = szcoPersonalData.birthNumber;
+      if (!szcoData.obchodne_meno) {
+        toast({ title: "Chýbajúce obchodné údaje", description: "Vyplňte obchodné meno SZČO.", variant: "destructive" });
+        return;
+      }
+      submitData.firstName = szcoFoData.firstName;
+      submitData.lastName = szcoFoData.lastName;
+      if (szcoFoData.birthNumber) submitData.birthNumber = szcoFoData.birthNumber;
+      submitData.companyName = szcoData.obchodne_meno;
       submitData.type = "szco";
-      if (assignedFO?.id) submitData.linkedFoId = assignedFO.id;
+      if (szcoFoLinkedId) submitData.linkedFoId = szcoFoLinkedId;
+      const existingDet = (typeof submitData.details === "object" && submitData.details) ? submitData.details as Record<string, any> : {};
+      const dynFields = existingDet.dynamicFields || {};
+      dynFields.ico = szcoData.ico;
+      dynFields.dic = szcoData.dic;
+      dynFields.ic_dph = szcoData.ic_dph;
+      dynFields.miesto_podnikania = szcoData.miesto_podnikania;
+      dynFields.register = szcoData.register;
+      dynFields.szco_uid = szcoData.szco_uid;
+      dynFields.fo_uid = szcoFoData.fo_uid;
+      existingDet.dynamicFields = dynFields;
+      existingDet.ico = szcoData.ico;
+      submitData.details = existingDet;
     }
     mutate(submitData, {
       onSuccess: () => { onCancel(); },
@@ -1446,166 +1461,185 @@ function FullPageEditor({
       </div>
 
       {isSzcoType && (
-        <Card className="mb-4">
-          <CardContent className="p-4 space-y-4">
-            <div className="flex items-center justify-between gap-2 flex-wrap">
+        <>
+          <Card className="mb-4">
+            <CardContent className="p-4 space-y-3">
+              <div className="flex items-center gap-2">
+                <Building2 className="w-4 h-4 text-primary" />
+                <span className="text-sm font-semibold">SZČO - Obchodné údaje</span>
+              </div>
+              <div className="flex flex-wrap gap-3">
+                <div className="space-y-1 flex-1 min-w-[200px]">
+                  <Label className="text-xs text-muted-foreground">ID Subjektu (421...) *</Label>
+                  <Input
+                    value={szcoData.szco_uid}
+                    onChange={e => setSzcoData(prev => ({ ...prev, szco_uid: e.target.value }))}
+                    onBlur={async () => {
+                      const val = szcoData.szco_uid.trim();
+                      if (!val || !val.startsWith("421") || val.length < 6) return;
+                      try {
+                        const resp = await fetch(`/api/subjects/by-uid/${encodeURIComponent(val)}`);
+                        if (resp.ok) {
+                          const existing = await resp.json();
+                          if (existing && existing.type === "szco") {
+                            const fullResp = await fetch(`/api/subjects/${existing.id}`);
+                            if (fullResp.ok) {
+                              const full = await fullResp.json();
+                              const det = full.details || {};
+                              setSzcoData(prev => ({
+                                ...prev,
+                                obchodne_meno: full.companyName || det.dynamicFields?.obchodne_meno || prev.obchodne_meno,
+                                ico: det.ico || det.dynamicFields?.ico || prev.ico,
+                                dic: det.dic || det.dynamicFields?.dic || prev.dic,
+                                ic_dph: det.ic_dph || det.dynamicFields?.ic_dph || prev.ic_dph,
+                                miesto_podnikania: det.miesto_podnikania || det.dynamicFields?.miesto_podnikania || prev.miesto_podnikania,
+                                register: det.register || det.dynamicFields?.register || prev.register,
+                              }));
+                            }
+                          }
+                        }
+                      } catch {}
+                    }}
+                    placeholder="421XXXXXXXXX"
+                    className="font-mono"
+                    data-testid="input-szco-uid"
+                  />
+                </div>
+                <div className="space-y-1 flex-1 min-w-[200px]">
+                  <Label className="text-xs text-muted-foreground">Obchodné meno *</Label>
+                  <Input
+                    value={szcoData.obchodne_meno}
+                    onChange={e => setSzcoData(prev => ({ ...prev, obchodne_meno: e.target.value }))}
+                    data-testid="input-szco-obchodne-meno"
+                  />
+                </div>
+                <div className="space-y-1 w-[160px] min-w-[120px]">
+                  <Label className="text-xs text-muted-foreground">IČO *</Label>
+                  <Input
+                    value={szcoData.ico}
+                    onChange={e => setSzcoData(prev => ({ ...prev, ico: e.target.value }))}
+                    data-testid="input-szco-ico"
+                  />
+                </div>
+                <div className="space-y-1 w-[160px] min-w-[120px]">
+                  <Label className="text-xs text-muted-foreground">DIČ</Label>
+                  <Input
+                    value={szcoData.dic}
+                    onChange={e => setSzcoData(prev => ({ ...prev, dic: e.target.value }))}
+                    data-testid="input-szco-dic"
+                  />
+                </div>
+                <div className="space-y-1 w-[160px] min-w-[120px]">
+                  <Label className="text-xs text-muted-foreground">IČ DPH</Label>
+                  <Input
+                    value={szcoData.ic_dph}
+                    onChange={e => setSzcoData(prev => ({ ...prev, ic_dph: e.target.value }))}
+                    data-testid="input-szco-ic-dph"
+                  />
+                </div>
+                <div className="space-y-1 flex-1 min-w-[200px]">
+                  <Label className="text-xs text-muted-foreground">Miesto podnikania</Label>
+                  <Input
+                    value={szcoData.miesto_podnikania}
+                    onChange={e => setSzcoData(prev => ({ ...prev, miesto_podnikania: e.target.value }))}
+                    data-testid="input-szco-miesto"
+                  />
+                </div>
+                <div className="space-y-1 flex-1 min-w-[200px]">
+                  <Label className="text-xs text-muted-foreground">Register</Label>
+                  <Input
+                    value={szcoData.register}
+                    onChange={e => setSzcoData(prev => ({ ...prev, register: e.target.value }))}
+                    data-testid="input-szco-register"
+                  />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="mb-4">
+            <CardContent className="p-4 space-y-3">
               <div className="flex items-center gap-2">
                 <User className="w-4 h-4 text-primary" />
-                <span className="text-sm font-semibold">Prepojená Fyzická osoba (Majiteľ)</span>
+                <span className="text-sm font-semibold">Fyzická osoba (Majiteľ SZČO)</span>
+                {szcoFoLoading && <Loader2 className="w-3 h-3 animate-spin text-muted-foreground" />}
+                {szcoFoLinkedId && (
+                  <Badge variant="outline" className="text-xs ml-auto">
+                    <Link2 className="w-3 h-3 mr-1" />
+                    Prepojená FO #{szcoFoLinkedId}
+                  </Badge>
+                )}
               </div>
-              <span className="text-xs text-muted-foreground" data-testid="text-fo-subject-id">
-                Subjekt ID: {assignedFO?.uid || "Nepriradené"}
-              </span>
-            </div>
-
-            <div className="flex flex-wrap gap-2 items-end">
-              <div className="flex-1 min-w-[200px]">
-                <Label className="text-xs text-muted-foreground">Vyhľadať podľa RČ alebo ID subjektu (421...)</Label>
-                <Input
-                  value={foSearchQuery}
-                  onChange={e => setFoSearchQuery(e.target.value)}
-                  placeholder="Zadajte RČ alebo ID subjektu 421..."
-                  disabled={foLinked}
-                  data-testid="input-fo-search"
-                />
-              </div>
-              {!foLinked ? (
-                <Button
-                  type="button"
-                  variant="default"
-                  size="sm"
-                  disabled={foSearchQuery.length < 2 || foSearchLoading}
-                  onClick={async () => {
-                    setFoSearchLoading(true);
-                    try {
-                      const resp = await fetch(`/api/subjects/search-fo?q=${encodeURIComponent(foSearchQuery)}`);
-                      const data = await resp.json();
-                      setFoSearchResults(data);
-                      if (data.length === 1) {
-                        const fo = data[0];
-                        setAssignedFO(fo);
-                        setSzcoPersonalData({ firstName: fo.firstName || "", lastName: fo.lastName || "", birthNumber: fo.birthNumber || "" });
-                        setFoLinked(true);
-                        setFoSearchResults([]);
-                      }
-                    } catch {}
-                    setFoSearchLoading(false);
-                  }}
-                  data-testid="button-load-fo"
-                >
-                  {foSearchLoading ? <Loader2 className="w-3 h-3 animate-spin mr-1" /> : <Search className="w-3 h-3 mr-1" />}
-                  Načítať existujúcu FO
-                </Button>
-              ) : (
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => {
-                    setAssignedFO(null);
-                    setFoLinked(false);
-                    setSzcoPersonalData({ firstName: "", lastName: "", birthNumber: "" });
-                    setFoSearchQuery("");
-                    setFoSearchResults([]);
-                  }}
-                  data-testid="button-unlink-fo"
-                >
-                  <X className="w-3 h-3 mr-1" />
-                  Zrušiť prepojenie
-                </Button>
-              )}
-            </div>
-
-            {foSearchResults.length > 1 && !foLinked && (
-              <div className="border rounded-md overflow-hidden max-h-[200px] overflow-y-auto">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead className="text-xs">Meno</TableHead>
-                      <TableHead className="text-xs">Priezvisko</TableHead>
-                      <TableHead className="text-xs">RČ</TableHead>
-                      <TableHead className="text-xs">ID</TableHead>
-                      <TableHead className="text-xs w-[80px]"></TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {foSearchResults.map((fo, idx) => (
-                      <TableRow key={fo.id} data-testid={`fo-result-row-${idx}`}>
-                        <TableCell className="text-xs py-1">{fo.firstName}</TableCell>
-                        <TableCell className="text-xs py-1">{fo.lastName}</TableCell>
-                        <TableCell className="text-xs py-1">{fo.birthNumber}</TableCell>
-                        <TableCell className="text-xs py-1 font-mono">{fo.uid}</TableCell>
-                        <TableCell className="text-xs py-1">
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => {
-                              setAssignedFO(fo);
-                              setSzcoPersonalData({ firstName: fo.firstName || "", lastName: fo.lastName || "", birthNumber: fo.birthNumber || "" });
-                              setFoLinked(true);
-                              setFoSearchResults([]);
-                            }}
-                            data-testid={`button-select-fo-${idx}`}
-                          >
-                            Vybrať
-                          </Button>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </div>
-            )}
-
-            {foSearchResults.length === 0 && foSearchQuery.length >= 2 && !foLinked && !foSearchLoading && (
-              <p className="text-xs text-muted-foreground">Žiadne výsledky. Vyplňte údaje manuálne nižšie.</p>
-            )}
-
-            <div className="border-t pt-3">
-              <div className="flex flex-wrap gap-4 items-end">
-                <div className="space-y-1 flex-1 min-w-[150px]">
-                  <Label className="text-xs text-muted-foreground">Meno FO *</Label>
+              <div className="flex flex-wrap gap-3">
+                <div className="space-y-1 w-[180px] min-w-[140px]">
+                  <Label className="text-xs text-muted-foreground">ID Subjektu FO (421...)</Label>
                   <Input
-                    value={szcoPersonalData.firstName}
-                    onChange={e => setSzcoPersonalData(prev => ({ ...prev, firstName: e.target.value }))}
-                    disabled={foLinked}
-                    data-testid="input-szco-firstname"
-                  />
-                </div>
-                <div className="space-y-1 flex-1 min-w-[150px]">
-                  <Label className="text-xs text-muted-foreground">Priezvisko FO *</Label>
-                  <Input
-                    value={szcoPersonalData.lastName}
-                    onChange={e => setSzcoPersonalData(prev => ({ ...prev, lastName: e.target.value }))}
-                    disabled={foLinked}
-                    data-testid="input-szco-lastname"
-                  />
-                </div>
-                <div className="space-y-1 w-[180px] min-w-[140px] shrink-0">
-                  <Label className="text-xs text-muted-foreground">Rodné číslo *</Label>
-                  <Input
-                    value={szcoPersonalData.birthNumber}
-                    onChange={e => setSzcoPersonalData(prev => ({ ...prev, birthNumber: e.target.value }))}
-                    placeholder="XXXXXX/XXXX"
-                    disabled={foLinked}
-                    data-testid="input-szco-rc"
-                  />
-                </div>
-                <div className="space-y-1 w-[180px] min-w-[140px] shrink-0">
-                  <Label className="text-xs text-muted-foreground">ID Subjektu (421...)</Label>
-                  <Input
-                    value={assignedFO?.uid || ""}
-                    disabled
+                    value={szcoFoData.fo_uid}
+                    onChange={e => setSzcoFoData(prev => ({ ...prev, fo_uid: e.target.value }))}
+                    onBlur={async () => {
+                      const val = szcoFoData.fo_uid.trim();
+                      if (!val || !val.startsWith("421") || val.length < 6) return;
+                      setSzcoFoLoading(true);
+                      try {
+                        const resp = await fetch(`/api/subjects/search-fo?q=${encodeURIComponent(val)}`);
+                        const data = await resp.json();
+                        const match = data.find((fo: any) => fo.uid === val);
+                        if (match) {
+                          setSzcoFoData({ firstName: match.firstName || "", lastName: match.lastName || "", birthNumber: match.birthNumber || "", fo_uid: match.uid });
+                          setSzcoFoLinkedId(match.id);
+                        }
+                      } catch {}
+                      setSzcoFoLoading(false);
+                    }}
                     placeholder="421XXXXXXXXX"
                     className="font-mono"
                     data-testid="input-szco-fo-uid"
                   />
                 </div>
+                <div className="space-y-1 flex-1 min-w-[150px]">
+                  <Label className="text-xs text-muted-foreground">Meno *</Label>
+                  <Input
+                    value={szcoFoData.firstName}
+                    onChange={e => { setSzcoFoData(prev => ({ ...prev, firstName: e.target.value })); }}
+                    data-testid="input-szco-firstname"
+                  />
+                </div>
+                <div className="space-y-1 flex-1 min-w-[150px]">
+                  <Label className="text-xs text-muted-foreground">Priezvisko *</Label>
+                  <Input
+                    value={szcoFoData.lastName}
+                    onChange={e => { setSzcoFoData(prev => ({ ...prev, lastName: e.target.value })); }}
+                    data-testid="input-szco-lastname"
+                  />
+                </div>
+                <div className="space-y-1 w-[180px] min-w-[140px]">
+                  <Label className="text-xs text-muted-foreground">Rodné číslo</Label>
+                  <Input
+                    value={szcoFoData.birthNumber}
+                    onChange={e => setSzcoFoData(prev => ({ ...prev, birthNumber: e.target.value }))}
+                    onBlur={async () => {
+                      const val = szcoFoData.birthNumber.trim().replace(/[\s\/]/g, "");
+                      if (!val || val.length < 6) return;
+                      setSzcoFoLoading(true);
+                      try {
+                        const resp = await fetch(`/api/subjects/search-fo?q=${encodeURIComponent(val)}`);
+                        const data = await resp.json();
+                        if (data.length === 1) {
+                          const fo = data[0];
+                          setSzcoFoData({ firstName: fo.firstName || "", lastName: fo.lastName || "", birthNumber: fo.birthNumber || "", fo_uid: fo.uid });
+                          setSzcoFoLinkedId(fo.id);
+                        }
+                      } catch {}
+                      setSzcoFoLoading(false);
+                    }}
+                    placeholder="XXXXXX/XXXX"
+                    data-testid="input-szco-rc"
+                  />
+                </div>
               </div>
-            </div>
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
+        </>
       )}
 
       <Card>
