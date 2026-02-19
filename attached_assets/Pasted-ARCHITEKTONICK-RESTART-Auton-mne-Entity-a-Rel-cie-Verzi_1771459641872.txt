@@ -1,0 +1,43 @@
+ARCHITEKTONICKÝ RESTART: Autonómne Entity a Relácie (Verzia 2.0)
+Cieľ: Úplná zmena stratégie z dedičného modelu na model autonómnych subjektov so zjednoteným systémom dynamických prepojení, históriou a inteligentnou automatizáciou.
+
+1. Nová Architektúra entít (Autonómne moduly)
+Agent, zruš zložité prepojenia polí (dedičnosť) medzi FO, SZČO a PO. Implementuj nezávislé moduly:
+
+FO (Fyzická Osoba): Samostatná entita so súkromnými údajmi.
+
+SZČO (Samostatná Entita): Samostatná tabuľka. Obsahuje vlastné biznis údaje (IČO, DIČ, Obchodné meno) a vlastné kópie osobných údajov (Meno, Priezvisko, Adresa atď.) priamo vo svojej schéme.
+
+PO (Právnická Osoba): Samostatná tabuľka pre biznis údaje firmy.
+
+2. Univerzálny Modul "Prepojenia subjektov" (Relácie)
+Vytvor jednu centrálnu logiku pre správu vzťahov, ktorá bude vizuálne identická vo všetkých moduloch:
+
+Tabuľka Entity_Links: Musí obsahovať: source_id (Subjekt/Firma/FO), target_id (Osoba/FO), datum_od a datum_do.
+
+Typy vzťahov: Neimplementuj role (konateľ/majiteľ). Stačí existencia prepojenia.
+
+Univerzálnosť: Musí umožňovať prepojenia Subjekt -> Osoba (napr. PO -> FO) aj Osoba -> Osoba (napr. FO -> FO pre rodinné vzťahy).
+
+História (Audit): Pri zrušení prepojenia [x] záznam nemaž. Iba zapíš aktuálny dátum do datum_do.
+
+UI Panel: V detaile každého subjektu (FO, SZČO, PO) implementuj rovnaký panel "Vzťahy a prepojenia" so sekciami "Aktuálne" a "História".
+
+3. Inteligentná automatizácia pri Zmluvách
+Multi-výber na zmluve: Umožni na jednu zmluvu pridať viacero osôb/subjektov.
+
+Smart Linking: Ak sú na zmluve aspoň dva subjekty, po uložení zobraziť výzvu: "Chcete tieto subjekty navzájom prepojiť?".
+
+Cieľ: Ak zadávam zmluvu pre SRO a pridám konateľa (FO), prepojenie v ich profiloch sa musí vytvoriť automaticky na jeden klik zo zmluvy.
+
+4. UI/UX Štandardy a Vizuálna čistota
+Pravidlá viditeľnosti: Ak je v globálnych nastaveniach (Pravidlá) skryté pole (napr. Titul), toto pole musí zmiznúť zo všetkých modulov (FO, SZČO, PO) súčasne.
+
+Tlačidlo [+ Priradiť]: Vždy umožni vyhľadať existujúcu FO v systéme alebo vytvoriť novú "on-the-fly" bez opustenia formulára.
+
+5. Odstránenie technického dlhu (Cleanup)
+Refactoring: Vymaž všetok starý kód, ktorý obsluhoval pôvodné "Pravidlá typov klientov".
+
+Očista DB: Odstráň redundantné stĺpce a hard-coded prepojenia zo starej architektúry.
+
+Kritické: Zachovaj funkčnosť Smart Filter Baru, Row-Click navigácie a Column Pickera nad týmito novými tabuľkami!
