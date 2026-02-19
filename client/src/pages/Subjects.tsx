@@ -2173,7 +2173,7 @@ function FullPageEditor({
                                     </div>
                                     <div className="flex items-center gap-1 pb-0.5">
                                       {!contact.isPrimary && (
-                                        <Button type="button" variant="ghost" size="icon" onClick={() => setContacts(prev => prev.map(c => ({ ...c, isPrimary: c.id === contact.id && c.type === contact.type })))} title="Nastaviť ako primárny" data-testid={`button-set-primary-${cIdx}`}>
+                                        <Button type="button" variant="ghost" size="icon" onClick={() => setContacts(prev => prev.map(c => c.type === contact.type ? { ...c, isPrimary: c.id === contact.id } : c))} title="Nastaviť ako primárny" data-testid={`button-set-primary-${cIdx}`}>
                                           <CheckCircle2 className="w-3.5 h-3.5 text-muted-foreground" />
                                         </Button>
                                       )}
@@ -2181,7 +2181,16 @@ function FullPageEditor({
                                         <Badge variant="secondary" className="text-[10px]">Primárny</Badge>
                                       )}
                                       {contacts.length > 1 && (
-                                        <Button type="button" variant="ghost" size="icon" onClick={() => setContacts(prev => prev.filter(c => c.id !== contact.id))} data-testid={`button-remove-contact-${cIdx}`}>
+                                        <Button type="button" variant="ghost" size="icon" onClick={() => {
+                                          setContacts(prev => {
+                                            const remaining = prev.filter(c => c.id !== contact.id);
+                                            if (contact.isPrimary) {
+                                              const nextOfType = remaining.find(c => c.type === contact.type);
+                                              if (nextOfType) nextOfType.isPrimary = true;
+                                            }
+                                            return [...remaining];
+                                          });
+                                        }} data-testid={`button-remove-contact-${cIdx}`}>
                                           <Trash2 className="w-3.5 h-3.5 text-destructive" />
                                         </Button>
                                       )}
