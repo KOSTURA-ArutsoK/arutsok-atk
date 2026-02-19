@@ -563,6 +563,13 @@ export const contractStatusVisibility = pgTable("contract_status_visibility", {
   entityId: integer("entity_id").notNull(),
 });
 
+// === CONTRACT STATUS CONTRACT TYPES (statuses linked to contract types) ===
+export const contractStatusContractTypes = pgTable("contract_status_contract_types", {
+  id: serial("id").primaryKey(),
+  statusId: integer("status_id").notNull().references(() => contractStatuses.id, { onDelete: "cascade" }),
+  contractType: text("contract_type").notNull(),
+});
+
 // === CONTRACT STATUS PARAMETERS (ArutsoK 49 - independent parameter sub-system for statuses) ===
 export const contractStatusParameters = pgTable("contract_status_parameters", {
   id: serial("id").primaryKey(),
