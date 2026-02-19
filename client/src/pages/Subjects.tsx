@@ -1606,7 +1606,7 @@ function FullPageEditor({
                                       if (resolvedField) {
                                         return (
                                           <div key={key} className={cn("space-y-1 min-w-0", widthClass)} style={!isVisibleByRule ? { display: "none" } : undefined}>
-                                            <Label className={`text-xs block ${key === "typ_dokladu_iny" ? "text-orange-500 font-semibold" : validationErrors.has(key) ? "text-red-500" : "text-muted-foreground"}`}>
+                                            <Label className={`text-xs block ${key === "typ_dokladu_iny" && !dynamicValues[key] ? "text-orange-500 font-semibold" : validationErrors.has(key) ? "text-red-500" : "text-muted-foreground"}`}>
                                               {key === "typ_dokladu_iny" ? (
                                                 <span>Uveďte typ dokladu *</span>
                                               ) : resolvedField.shortLabel ? (
@@ -1697,7 +1697,7 @@ function FullPageEditor({
                                                 placeholder="Napr. Preukaz diplomata"
                                                 value={dynamicValues[key] || ""}
                                                 onChange={e => setDynamicValues(prev => ({ ...prev, [key]: e.target.value }))}
-                                                className="border-orange-500 ring-1 ring-orange-500 bg-orange-500/5"
+                                                className={dynamicValues[key] ? "" : "border-orange-500 ring-1 ring-orange-500 bg-orange-500/5"}
                                                 data-testid={`input-${key}`}
                                               />
                                             ) : (
