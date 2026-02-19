@@ -1521,11 +1521,8 @@ function FullPageEditor({
                                 const hasAny = rowEntries.some(e => e.field) || rowEntries.some(e => e.key === "statna_prislusnost");
                                 if (!hasAny || rowEntries.length === 0) return null;
                                 const colCount = rowEntries.length;
-                                const gridClass = colCount <= 2
-                                  ? "grid grid-cols-1 sm:grid-cols-2 gap-4"
-                                  : colCount === 3
-                                    ? "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4"
-                                    : "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4";
+                                const gridClass = "grid grid-cols-[repeat(auto-fill,minmax(200px,1fr))] gap-x-4 gap-y-2";
+                                void colCount;
                                 return (
                                   <div key={rowIdx} className={gridClass} data-testid={`row-povinne-${rowIdx + 3}`}>
                                     {rowEntries.map(({ key, field }) => {
