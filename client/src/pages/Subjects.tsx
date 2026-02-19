@@ -1436,7 +1436,7 @@ function FullPageEditor({
                   { keys: ["titul_pred", "meno", "priezvisko", "titul_za"] },
                   { keys: ["rodne_priezvisko", "datum_narodenia", "vek", "pohlavie"] },
                   { keys: ["miesto_narodenia", "statna_prislusnost"] },
-                  { keys: ["typ_dokladu", "typ_dokladu_iny", "cislo_dokladu", "platnost_dokladu", "vydal_organ"] },
+                  { keys: ["typ_dokladu", "cislo_dokladu", "platnost_dokladu", "vydal_organ"] },
                 ];
 
                 const getFieldWidthClass = (fieldKey: string): string => {
