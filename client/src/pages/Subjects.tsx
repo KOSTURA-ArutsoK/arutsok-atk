@@ -1599,6 +1599,10 @@ function FullPageEditor({
                                       const rcSource = dynamicValues["rodne_cislo"]?.trim() || initialData.baseValue?.trim() || "";
                                       const rcParsedResult = rcSource ? parseRodneCislo(rcSource) : {};
                                       const isRcAuto = (key === "pohlavie" && !!rcParsedResult.pohlavie) || (key === "datum_narodenia" && !!rcParsedResult.datumNarodenia) || (key === "vek" && !!rcParsedResult.datumNarodenia);
+                                      const rawField = !field ? (typeFields || []).find(f => f.fieldKey === key) : null;
+                                      if (!field && rawField && rawField.visibilityRule && !isFieldVisible(rawField)) {
+                                        return null;
+                                      }
                                       if (field) {
                                         return (
                                           <div key={key} className={cn("space-y-1 min-w-0", widthClass)}>
