@@ -1,0 +1,102 @@
+Download the React DevTools for a better development experience: https://reactjs.org/link/react-devtools
+/api/user-profile/me:1 
+        
+        
+       Failed to load resource: the server responded with a status of 404 (Not Found)
+chunk-LPF6KSF2.js?v=5d5954cc:521 Warning: validateDOMNesting(...): <li> cannot appear as a descendant of <li>.
+    at li
+    at SidebarMenuSubItem (https://81722522-cf43-4c2a-b78d-45bb1eaa0cea-00-3fwf0djej3ees.picard.replit.dev/src/components/ui/sidebar.tsx:980:3)
+    at div
+    at div
+    at https://81722522-cf43-4c2a-b78d-45bb1eaa0cea-00-3fwf0djej3ees.picard.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-BP2RBKL6.js?v=5d5954cc:42:13
+    at https://81722522-cf43-4c2a-b78d-45bb1eaa0cea-00-3fwf0djej3ees.picard.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-M7HEAEPJ.js?v=5d5954cc:106:11
+    at Presence (https://81722522-cf43-4c2a-b78d-45bb1eaa0cea-00-3fwf0djej3ees.picard.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-7PGJF4JC.js?v=5d5954cc:24:11)
+    at https://81722522-cf43-4c2a-b78d-45bb1eaa0cea-00-3fwf0djej3ees.picard.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-M7HEAEPJ.js?v=5d5954cc:99:13
+    at div
+    at https://81722522-cf43-4c2a-b78d-45bb1eaa0cea-00-3fwf0djej3ees.picard.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-BP2RBKL6.js?v=5d5954cc:42:13
+    at Provider (https://81722522-cf43-4c2a-b78d-45bb1eaa0cea-00-3fwf0djej3ees.picard.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-N4W4ACQW.js?v=5d5954cc:37:15)
+    at https://81722522-cf43-4c2a-b78d-45bb1eaa0cea-00-3fwf0djej3ees.picard.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-M7HEAEPJ.js?v=5d5954cc:40:7
+    at li
+    at SidebarMenuSubItem (https://81722522-cf43-4c2a-b78d-45bb1eaa0cea-00-3fwf0djej3ees.picard.replit.dev/src/components/ui/sidebar.tsx:980:3)
+    at ul
+    at SidebarMenuSub (https://81722522-cf43-4c2a-b78d-45bb1eaa0cea-00-3fwf0djej3ees.picard.replit.dev/src/components/ui/sidebar.tsx:953:27)
+    at div
+    at https://81722522-cf43-4c2a-b78d-45bb1eaa0cea-00-3fwf0djej3ees.picard.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-BP2RBKL6.js?v=5d5954cc:42:13
+    at https://81722522-cf43-4c2a-b78d-45bb1eaa0cea-00-3fwf0djej3ees.picard.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-M7HEAEPJ.js?v=5d5954cc:106:11
+    at Presence (https://81722522-cf43-4c2a-b78d-45bb1eaa0cea-00-3fwf0djej3ees.picard.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-7PGJF4JC.js?v=5d5954cc:24:11)
+    at https://81722522-cf43-4c2a-b78d-45bb1eaa0cea-00-3fwf0djej3ees.picard.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-M7HEAEPJ.js?v=5d5954cc:99:13
+    at li
+    at SidebarMenuItem (https://81722522-cf43-4c2a-b78d-45bb1eaa0cea-00-3fwf0djej3ees.picard.replit.dev/src/components/ui/sidebar.tsx:694:28)
+    at div
+    at https://81722522-cf43-4c2a-b78d-45bb1eaa0cea-00-3fwf0djej3ees.picard.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-BP2RBKL6.js?v=5d5954cc:42:13
+    at Provider (https://81722522-cf43-4c2a-b78d-45bb1eaa0cea-00-3fwf0djej3ees.picard.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-N4W4ACQW.js?v=5d5954cc:37:15)
+    at https://81722522-cf43-4c2a-b78d-45bb1eaa0cea-00-3fwf0djej3ees.picard.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-M7HEAEPJ.js?v=5d5954cc:40:7
+    at ul
+    at SidebarMenu (https://81722522-cf43-4c2a-b78d-45bb1eaa0cea-00-3fwf0djej3ees.picard.replit.dev/src/components/ui/sidebar.tsx:672:24)
+    at div
+    at SidebarGroupContent (https://81722522-cf43-4c2a-b78d-45bb1eaa0cea-00-3fwf0djej3ees.picard.replit.dev/src/components/ui/sidebar.tsx:648:3)
+    at div
+    at SidebarGroup (https://81722522-cf43-4c2a-b78d-45bb1eaa0cea-00-3fwf0djej3ees.picard.replit.dev/src/components/ui/sidebar.tsx:561:25)
+    at div
+    at SidebarContent (https://81722522-cf43-4c2a-b78d-45bb1eaa0cea-00-3fwf0djej3ees.picard.replit.dev/src/components/ui/sidebar.tsx:536:27)
+    at div
+    at div
+    at div
+    at Sidebar (https://81722522-cf43-4c2a-b78d-45bb1eaa0cea-00-3fwf0djej3ees.picard.replit.dev/src/components/ui/sidebar.tsx:151:3)
+    at AppSidebar (https://81722522-cf43-4c2a-b78d-45bb1eaa0cea-00-3fwf0djej3ees.picard.replit.dev/src/components/app-sidebar.tsx:273:22)
+    at div
+    at div
+    at Provider (https://81722522-cf43-4c2a-b78d-45bb1eaa0cea-00-3fwf0djej3ees.picard.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-N4W4ACQW.js?v=5d5954cc:37:15)
+    at TooltipProvider (https://81722522-cf43-4c2a-b78d-45bb1eaa0cea-00-3fwf0djej3ees.picard.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/@radix-ui_react-tooltip.js?v=5d5954cc:61:5)
+    at SidebarProvider (https://81722522-cf43-4c2a-b78d-45bb1eaa0cea-00-3fwf0djej3ees.picard.replit.dev/src/components/ui/sidebar.tsx:59:3)
+    at AppShell (https://81722522-cf43-4c2a-b78d-45bb1eaa0cea-00-3fwf0djej3ees.picard.replit.dev/src/components/layout/AppShell.tsx:54:28)
+    at PrivateRoute (https://81722522-cf43-4c2a-b78d-45bb1eaa0cea-00-3fwf0djej3ees.picard.replit.dev/src/App.tsx?t=1771542052669:66:36)
+    at component
+    at Route (https://81722522-cf43-4c2a-b78d-45bb1eaa0cea-00-3fwf0djej3ees.picard.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/wouter.js?v=5d5954cc:190:16)
+    at Switch (https://81722522-cf43-4c2a-b78d-45bb1eaa0cea-00-3fwf0djej3ees.picard.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/wouter.js?v=5d5954cc:246:17)
+    at Router
+    at Provider (https://81722522-cf43-4c2a-b78d-45bb1eaa0cea-00-3fwf0djej3ees.picard.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-N4W4ACQW.js?v=5d5954cc:37:15)
+    at TooltipProvider (https://81722522-cf43-4c2a-b78d-45bb1eaa0cea-00-3fwf0djej3ees.picard.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/@radix-ui_react-tooltip.js?v=5d5954cc:61:5)
+    at TTSProvider (https://81722522-cf43-4c2a-b78d-45bb1eaa0cea-00-3fwf0djej3ees.picard.replit.dev/src/contexts/tts-context.tsx:29:31)
+    at HelpProvider (https://81722522-cf43-4c2a-b78d-45bb1eaa0cea-00-3fwf0djej3ees.picard.replit.dev/src/contexts/help-context.tsx:29:32)
+    at ThemeProvider (https://81722522-cf43-4c2a-b78d-45bb1eaa0cea-00-3fwf0djej3ees.picard.replit.dev/src/components/theme-provider.tsx:20:33)
+    at QueryClientProvider (https://81722522-cf43-4c2a-b78d-45bb1eaa0cea-00-3fwf0djej3ees.picard.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/@tanstack_react-query.js?v=5d5954cc:2747:3)
+    at App
+printWarning @ chunk-LPF6KSF2.js?v=5d5954cc:521
+Show 1 more frame
+Show less
+chunk-LPF6KSF2.js?v=5d5954cc:521 Warning: validateDOMNesting(...): <div> cannot appear as a child of <table>.
+    at div
+    at HiddenText (https://81722522-cf43-4c2a-b78d-45bb1eaa0cea-00-3fwf0djej3ees.picard.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-MGTHJGVJ.js?v=5d5954cc:46:5)
+    at Accessibility (https://81722522-cf43-4c2a-b78d-45bb1eaa0cea-00-3fwf0djej3ees.picard.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-MGTHJGVJ.js?v=5d5954cc:164:5)
+    at DndContext2 (https://81722522-cf43-4c2a-b78d-45bb1eaa0cea-00-3fwf0djej3ees.picard.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-MGTHJGVJ.js?v=5d5954cc:2521:5)
+    at SortableContext_Wrapper (https://81722522-cf43-4c2a-b78d-45bb1eaa0cea-00-3fwf0djej3ees.picard.replit.dev/src/components/sortable-list.tsx:100:3)
+    at table
+    at div
+    at _c (https://81722522-cf43-4c2a-b78d-45bb1eaa0cea-00-3fwf0djej3ees.picard.replit.dev/src/components/ui/table.tsx:23:11)
+    at div
+    at _c9 (https://81722522-cf43-4c2a-b78d-45bb1eaa0cea-00-3fwf0djej3ees.picard.replit.dev/src/components/ui/card.tsx:114:12)
+    at div
+    at _c (https://81722522-cf43-4c2a-b78d-45bb1eaa0cea-00-3fwf0djej3ees.picard.replit.dev/src/components/ui/card.tsx:20:11)
+    at div
+    at ContractStatuses (https://81722522-cf43-4c2a-b78d-45bb1eaa0cea-00-3fwf0djej3ees.picard.replit.dev/src/pages/ContractStatuses.tsx:1436:21)
+    at main
+    at div
+    at div
+    at div
+    at Provider (https://81722522-cf43-4c2a-b78d-45bb1eaa0cea-00-3fwf0djej3ees.picard.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-N4W4ACQW.js?v=5d5954cc:37:15)
+    at TooltipProvider (https://81722522-cf43-4c2a-b78d-45bb1eaa0cea-00-3fwf0djej3ees.picard.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/@radix-ui_react-tooltip.js?v=5d5954cc:61:5)
+    at SidebarProvider (https://81722522-cf43-4c2a-b78d-45bb1eaa0cea-00-3fwf0djej3ees.picard.replit.dev/src/components/ui/sidebar.tsx:59:3)
+    at AppShell (https://81722522-cf43-4c2a-b78d-45bb1eaa0cea-00-3fwf0djej3ees.picard.replit.dev/src/components/layout/AppShell.tsx:54:28)
+    at PrivateRoute (https://81722522-cf43-4c2a-b78d-45bb1eaa0cea-00-3fwf0djej3ees.picard.replit.dev/src/App.tsx?t=1771542052669:66:36)
+    at component
+    at Route (https://81722522-cf43-4c2a-b78d-45bb1eaa0cea-00-3fwf0djej3ees.picard.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/wouter.js?v=5d5954cc:190:16)
+    at Switch (https://81722522-cf43-4c2a-b78d-45bb1eaa0cea-00-3fwf0djej3ees.picard.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/wouter.js?v=5d5954cc:246:17)
+    at Router
+    at Provider (https://81722522-cf43-4c2a-b78d-45bb1eaa0cea-00-3fwf0djej3ees.picard.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-N4W4ACQW.js?v=5d5954cc:37:15)
+    at TooltipProvider (https://81722522-cf43-4c2a-b78d-45bb1eaa0cea-00-3fwf0djej3ees.picard.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/@radix-ui_react-tooltip.js?v=5d5954cc:61:5)
+    at TTSProvider (https://81722522-cf43-4c2a-b78d-45bb1eaa0cea-00-3fwf0djej3ees.picard.replit.dev/src/contexts/tts-context.tsx:29:31)
+    at HelpProvider (https://81722522-cf43-4c2a-b78d-45bb1eaa0cea-00-3fwf0djej3ees.picard.replit.dev/src/contexts/help-context.tsx:29:32)
+    at ThemeProvider (https://81722522-cf43-4c2a-b78d-45bb1eaa0cea-00-3fwf0djej3ees.picard.replit.dev/src/components/theme-provider.tsx:20:33)
+    at QueryClientProvider (https://81722522-cf43-4c2a-b78d-45bb1eaa0cea-00-3fwf0djej3ees.picard.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/@tanstack_react-query.js?v=5d5954cc:2747:3)
+    at App

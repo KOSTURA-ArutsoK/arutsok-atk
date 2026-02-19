@@ -596,10 +596,9 @@ export async function registerRoutes(
     try {
       const replitUserId = req.user?.claims?.sub;
       const appUser = await storage.getAppUserByReplitId(replitUserId);
-      if (!appUser) return res.status(404).json({ message: "App user not found" });
+      if (!appUser) return res.json(null);
       const profile = await storage.getUserProfile(appUser.id);
-      if (!profile) return res.status(404).json({ message: "Profile not found" });
-      res.json(profile);
+      res.json(profile || null);
     } catch (err) {
       res.status(500).json({ message: "Internal error" });
     }

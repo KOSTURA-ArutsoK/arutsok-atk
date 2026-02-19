@@ -846,6 +846,7 @@ export default function ContractStatuses() {
               Ziadne stavy zmluv. Pridajte prvy stav zmluvy tlacidlom vyssie.
             </p>
           ) : (
+            <SortableContext_Wrapper items={sortedStatuses} onReorder={handleReorder}>
             <Table>
               <TableHeader>
                 <TableRow>
@@ -859,7 +860,6 @@ export default function ContractStatuses() {
                   <TableHead className="w-32 text-right">Akcie</TableHead>
                 </TableRow>
               </TableHeader>
-              <SortableContext_Wrapper items={sortedStatuses} onReorder={handleReorder}>
                 <TableBody>
                   {sortedStatuses.map((status) => {
                     const usageCount = usageCounts?.find(u => u.statusId === status.id)?.count ?? 0;
@@ -937,8 +937,8 @@ export default function ContractStatuses() {
                     );
                   })}
                 </TableBody>
-              </SortableContext_Wrapper>
             </Table>
+            </SortableContext_Wrapper>
           )}
         </CardContent>
       </Card>
