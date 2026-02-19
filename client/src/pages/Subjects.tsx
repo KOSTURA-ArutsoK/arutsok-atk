@@ -307,10 +307,11 @@ function SubjectDataTab({ subject }: { subject: Subject }) {
       </div>
 
       {isSzco && (subject as any).linkedFo && (
-        <div className="flex items-center gap-2 p-3 rounded-md bg-blue-500/10 border border-blue-500/30">
-          <Info className="w-4 h-4 text-blue-400 flex-shrink-0" />
+        <div className="flex items-center gap-2 p-3 rounded-md bg-blue-500/10 border border-blue-500/30" data-testid="linked-fo-info">
+          <Link2 className="w-4 h-4 text-blue-400 flex-shrink-0" />
           <p className="text-xs">
-            Osobne udaje prevzate z FO: <span className="font-medium">{(subject as any).linkedFo.firstName} {(subject as any).linkedFo.lastName}</span> ({(subject as any).linkedFo.uid})
+            Prepojená FO (Majiteľ): <span className="font-medium">{(subject as any).linkedFo.firstName} {(subject as any).linkedFo.lastName}</span>
+            <span className="text-muted-foreground ml-1">ID: {(subject as any).linkedFo.uid}</span>
           </p>
         </div>
       )}
@@ -1246,6 +1247,11 @@ function FullPageEditor({
 
   const isSzcoType = clientType?.code === 'SZCO';
   const [szcoPersonalData, setSzcoPersonalData] = useState({ firstName: "", lastName: "", birthNumber: "" });
+  const [assignedFO, setAssignedFO] = useState<{ id: number; uid: string; firstName: string; lastName: string; birthNumber: string } | null>(null);
+  const [foSearchQuery, setFoSearchQuery] = useState("");
+  const [foSearchResults, setFoSearchResults] = useState<any[]>([]);
+  const [foSearchLoading, setFoSearchLoading] = useState(false);
+  const [foLinked, setFoLinked] = useState(false);
 
   const [dynamicValues, setDynamicValuesRaw] = useState<Record<string, string>>({ korespond_rovnaka: "true", kontaktna_rovnaka: "true", tp_stat: DEFAULT_COUNTRY, ka_stat: DEFAULT_COUNTRY, koa_stat: DEFAULT_COUNTRY, sidlo_stat: DEFAULT_COUNTRY, vykon_stat: DEFAULT_COUNTRY });
   const [documents, setDocuments] = useState<DocumentEntry[]>([]);
@@ -1416,6 +1422,7 @@ function FullPageEditor({
       submitData.lastName = szcoPersonalData.lastName;
       if (szcoPersonalData.birthNumber) submitData.birthNumber = szcoPersonalData.birthNumber;
       submitData.type = "szco";
+      if (assignedFO?.id) submitData.linkedFoId = assignedFO.id;
     }
     mutate(submitData, {
       onSuccess: () => { onCancel(); },
@@ -1440,36 +1447,161 @@ function FullPageEditor({
 
       {isSzcoType && (
         <Card className="mb-4">
-          <CardContent className="p-4 space-y-3">
-            <div className="flex items-center gap-2 mb-2">
-              <User className="w-4 h-4 text-primary" />
-              <span className="text-sm font-semibold">Osobne udaje SZCO</span>
+          <CardContent className="p-4 space-y-4">
+            <div className="flex items-center justify-between gap-2 flex-wrap">
+              <div className="flex items-center gap-2">
+                <User className="w-4 h-4 text-primary" />
+                <span className="text-sm font-semibold">Prepojená Fyzická osoba (Majiteľ)</span>
+              </div>
+              <span className="text-xs text-muted-foreground" data-testid="text-fo-subject-id">
+                Subjekt ID: {assignedFO?.uid || "Nepriradené"}
+              </span>
             </div>
-            <div className="flex flex-wrap gap-4 items-end">
-              <div className="space-y-1 flex-1 min-w-[150px]">
-                <Label className="text-xs">Meno *</Label>
+
+            <div className="flex flex-wrap gap-2 items-end">
+              <div className="flex-1 min-w-[200px]">
+                <Label className="text-xs text-muted-foreground">Vyhľadať podľa RČ alebo ID subjektu (421...)</Label>
                 <Input
-                  value={szcoPersonalData.firstName}
-                  onChange={e => setSzcoPersonalData(prev => ({ ...prev, firstName: e.target.value }))}
-                  data-testid="input-szco-firstname"
+                  value={foSearchQuery}
+                  onChange={e => setFoSearchQuery(e.target.value)}
+                  placeholder="Zadajte RČ alebo ID subjektu 421..."
+                  disabled={foLinked}
+                  data-testid="input-fo-search"
                 />
               </div>
-              <div className="space-y-1 flex-1 min-w-[150px]">
-                <Label className="text-xs">Priezvisko *</Label>
-                <Input
-                  value={szcoPersonalData.lastName}
-                  onChange={e => setSzcoPersonalData(prev => ({ ...prev, lastName: e.target.value }))}
-                  data-testid="input-szco-lastname"
-                />
+              {!foLinked ? (
+                <Button
+                  type="button"
+                  variant="default"
+                  size="sm"
+                  disabled={foSearchQuery.length < 2 || foSearchLoading}
+                  onClick={async () => {
+                    setFoSearchLoading(true);
+                    try {
+                      const resp = await fetch(`/api/subjects/search-fo?q=${encodeURIComponent(foSearchQuery)}`);
+                      const data = await resp.json();
+                      setFoSearchResults(data);
+                      if (data.length === 1) {
+                        const fo = data[0];
+                        setAssignedFO(fo);
+                        setSzcoPersonalData({ firstName: fo.firstName || "", lastName: fo.lastName || "", birthNumber: fo.birthNumber || "" });
+                        setFoLinked(true);
+                        setFoSearchResults([]);
+                      }
+                    } catch {}
+                    setFoSearchLoading(false);
+                  }}
+                  data-testid="button-load-fo"
+                >
+                  {foSearchLoading ? <Loader2 className="w-3 h-3 animate-spin mr-1" /> : <Search className="w-3 h-3 mr-1" />}
+                  Načítať existujúcu FO
+                </Button>
+              ) : (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    setAssignedFO(null);
+                    setFoLinked(false);
+                    setSzcoPersonalData({ firstName: "", lastName: "", birthNumber: "" });
+                    setFoSearchQuery("");
+                    setFoSearchResults([]);
+                  }}
+                  data-testid="button-unlink-fo"
+                >
+                  <X className="w-3 h-3 mr-1" />
+                  Zrušiť prepojenie
+                </Button>
+              )}
+            </div>
+
+            {foSearchResults.length > 1 && !foLinked && (
+              <div className="border rounded-md overflow-hidden max-h-[200px] overflow-y-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="text-xs">Meno</TableHead>
+                      <TableHead className="text-xs">Priezvisko</TableHead>
+                      <TableHead className="text-xs">RČ</TableHead>
+                      <TableHead className="text-xs">ID</TableHead>
+                      <TableHead className="text-xs w-[80px]"></TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {foSearchResults.map((fo, idx) => (
+                      <TableRow key={fo.id} data-testid={`fo-result-row-${idx}`}>
+                        <TableCell className="text-xs py-1">{fo.firstName}</TableCell>
+                        <TableCell className="text-xs py-1">{fo.lastName}</TableCell>
+                        <TableCell className="text-xs py-1">{fo.birthNumber}</TableCell>
+                        <TableCell className="text-xs py-1 font-mono">{fo.uid}</TableCell>
+                        <TableCell className="text-xs py-1">
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => {
+                              setAssignedFO(fo);
+                              setSzcoPersonalData({ firstName: fo.firstName || "", lastName: fo.lastName || "", birthNumber: fo.birthNumber || "" });
+                              setFoLinked(true);
+                              setFoSearchResults([]);
+                            }}
+                            data-testid={`button-select-fo-${idx}`}
+                          >
+                            Vybrať
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
               </div>
-              <div className="space-y-1 w-[180px] min-w-[140px] shrink-0">
-                <Label className="text-xs">Rodne cislo</Label>
-                <Input
-                  value={szcoPersonalData.birthNumber}
-                  onChange={e => setSzcoPersonalData(prev => ({ ...prev, birthNumber: e.target.value }))}
-                  placeholder="XXXXXX/XXXX"
-                  data-testid="input-szco-rc"
-                />
+            )}
+
+            {foSearchResults.length === 0 && foSearchQuery.length >= 2 && !foLinked && !foSearchLoading && (
+              <p className="text-xs text-muted-foreground">Žiadne výsledky. Vyplňte údaje manuálne nižšie.</p>
+            )}
+
+            <div className="border-t pt-3">
+              <div className="flex flex-wrap gap-4 items-end">
+                <div className="space-y-1 flex-1 min-w-[150px]">
+                  <Label className="text-xs text-muted-foreground">Meno FO *</Label>
+                  <Input
+                    value={szcoPersonalData.firstName}
+                    onChange={e => setSzcoPersonalData(prev => ({ ...prev, firstName: e.target.value }))}
+                    disabled={foLinked}
+                    data-testid="input-szco-firstname"
+                  />
+                </div>
+                <div className="space-y-1 flex-1 min-w-[150px]">
+                  <Label className="text-xs text-muted-foreground">Priezvisko FO *</Label>
+                  <Input
+                    value={szcoPersonalData.lastName}
+                    onChange={e => setSzcoPersonalData(prev => ({ ...prev, lastName: e.target.value }))}
+                    disabled={foLinked}
+                    data-testid="input-szco-lastname"
+                  />
+                </div>
+                <div className="space-y-1 w-[180px] min-w-[140px] shrink-0">
+                  <Label className="text-xs text-muted-foreground">Rodné číslo *</Label>
+                  <Input
+                    value={szcoPersonalData.birthNumber}
+                    onChange={e => setSzcoPersonalData(prev => ({ ...prev, birthNumber: e.target.value }))}
+                    placeholder="XXXXXX/XXXX"
+                    disabled={foLinked}
+                    data-testid="input-szco-rc"
+                  />
+                </div>
+                <div className="space-y-1 w-[180px] min-w-[140px] shrink-0">
+                  <Label className="text-xs text-muted-foreground">ID Subjektu (421...)</Label>
+                  <Input
+                    value={assignedFO?.uid || ""}
+                    disabled
+                    placeholder="421XXXXXXXXX"
+                    className="font-mono"
+                    data-testid="input-szco-fo-uid"
+                  />
+                </div>
               </div>
             </div>
           </CardContent>

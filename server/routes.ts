@@ -858,7 +858,14 @@ export async function registerRoutes(
   app.get(api.subjects.get.path, async (req: any, res) => {
     const subject = await storage.getSubject(Number(req.params.id));
     if (!subject) return res.status(404).json({ message: "Subject not found" });
-    res.json(maskSubjectBirthNumber(subject, req.appUser));
+    const masked = maskSubjectBirthNumber(subject, req.appUser);
+    if (subject.linkedFoId) {
+      const linkedFo = await storage.getSubject(subject.linkedFoId);
+      if (linkedFo) {
+        masked.linkedFo = { id: linkedFo.id, uid: linkedFo.uid, firstName: linkedFo.firstName, lastName: linkedFo.lastName };
+      }
+    }
+    res.json(masked);
   });
 
   function canViewBirthNumber(appUser: any): boolean {
@@ -890,6 +897,7 @@ export async function registerRoutes(
       const foSubjects = allSubjects.filter(s => s.type === 'person' && !s.deletedAt);
       const query = q.toLowerCase();
       const queryStripped = stripBallast(query);
+      const canView = canViewBirthNumber(req.appUser);
       const results = foSubjects.filter(s => {
         const fullName = `${s.firstName || ''} ${s.lastName || ''}`.toLowerCase();
         if (fullName.includes(query)) return true;
@@ -900,15 +908,19 @@ export async function registerRoutes(
         const decrypted = decryptField(s.birthNumber);
         if (decrypted && stripBallast(decrypted).includes(queryStripped)) return true;
         return false;
-      }).slice(0, 20).map(s => ({
-        id: s.id,
-        uid: s.uid,
-        firstName: s.firstName,
-        lastName: s.lastName,
-        email: s.email,
-        phone: s.phone,
-        birthNumber: maskSubjectBirthNumber(s, req.appUser).birthNumber,
-      }));
+      }).slice(0, 20).map(s => {
+        const decryptedBN = decryptField(s.birthNumber);
+        const maskedBN = decryptedBN ? (canView ? decryptedBN : decryptedBN.substring(0, 4) + "******") : "";
+        return {
+          id: s.id,
+          uid: s.uid,
+          firstName: s.firstName,
+          lastName: s.lastName,
+          email: s.email,
+          phone: s.phone,
+          birthNumber: maskedBN,
+        };
+      });
       res.json(results);
     } catch {
       res.status(500).json({ message: "Chyba pri vyhladavani FO" });
@@ -989,7 +1001,7 @@ export async function registerRoutes(
         if (input.birthNumber) {
           input.birthNumber = encryptField(input.birthNumber);
         }
-        input.linkedFoId = null;
+        if (!input.linkedFoId) input.linkedFoId = null;
         const created = await storage.createSubject(input);
         await logAudit(req, { action: "CREATE", module: "subjekty", entityId: created.id, entityName: created.companyName || `${created.firstName} ${created.lastName} - SZCO #${created.uid}`, newData: { ...input, birthNumber: undefined } });
         res.status(201).json(maskSubjectBirthNumber(created, req.appUser));
