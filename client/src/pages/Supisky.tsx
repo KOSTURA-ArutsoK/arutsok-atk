@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
+import { formatDateSlovak } from "@/lib/utils";
 import { useAppUser } from "@/hooks/use-app-user";
 import { useToast } from "@/hooks/use-toast";
 import { useTableSort } from "@/hooks/use-table-sort";
@@ -326,7 +327,7 @@ function SupiskaDetailDialog({
             {isSent && supiska.sentAt && (
               <div className="flex items-center gap-2 text-sm text-muted-foreground">
                 <Lock className="w-4 h-4" />
-                <span>Odoslana {new Date(supiska.sentAt).toLocaleDateString("sk-SK")} uzivatelom {supiska.sentBy}</span>
+                <span>Odoslana {formatDateSlovak(supiska.sentAt)} uzivatelom {supiska.sentBy}</span>
               </div>
             )}
 
@@ -637,7 +638,7 @@ export default function SupiskyPage() {
                       <span className={`inline-flex items-center px-2 py-0.5 rounded-full border text-[11px] font-medium ${statusBadgeClasses(s.status)}`}>{s.status}</span>
                     </TableCell>}
                     {columnVisibility.isVisible("createdAt") && <TableCell className="text-sm text-muted-foreground">
-                      {s.createdAt ? new Date(s.createdAt).toLocaleDateString("sk-SK") : ""}
+                      {s.createdAt ? formatDateSlovak(s.createdAt) : ""}
                     </TableCell>}
                     {columnVisibility.isVisible("createdBy") && <TableCell className="text-sm">{s.createdBy || ""}</TableCell>}
                     <TableCell>

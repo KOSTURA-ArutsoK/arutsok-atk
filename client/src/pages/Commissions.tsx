@@ -1,6 +1,7 @@
 import { useState, useMemo, useRef, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
+import { formatDateSlovak } from "@/lib/utils";
 import type { CommissionRate, Partner, Product } from "@shared/schema";
 import { Percent, Filter, Loader2, Search, Plus, Pencil } from "lucide-react";
 import { ConditionalDelete } from "@/components/conditional-delete";
@@ -239,10 +240,7 @@ export default function Commissions() {
   const { sortedData, sortKey, sortDirection, requestSort } = useTableSort(tableFilter.filteredData);
   const columnVisibility = useColumnVisibility("commissions", COLUMNS);
 
-  function formatDate(dateStr: string | Date | null) {
-    if (!dateStr) return "-";
-    return new Date(dateStr).toLocaleDateString("sk-SK", { day: "2-digit", month: "2-digit", year: "numeric" });
-  }
+  const formatDate = formatDateSlovak;
 
   const activeCount = rates?.filter(r => getStatus(r) === "active").length || 0;
 

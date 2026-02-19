@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
+import { formatDateTimeSlovak } from "@/lib/utils";
 import { useAppUser } from "@/hooks/use-app-user";
 import { useToast } from "@/hooks/use-toast";
 import { useTableSort } from "@/hooks/use-table-sort";
@@ -170,10 +171,7 @@ export default function Archive() {
     permanentDeleteMutation.mutate({ entityType: deleteTarget.entityType, id: deleteTarget.id, password });
   }
 
-  function formatDate(d: string | null | undefined) {
-    if (!d) return "-";
-    return new Date(d).toLocaleDateString("sk-SK", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" });
-  }
+  const formatDate = formatDateTimeSlovak;
 
   const companies = data?.companies || [];
   const partners = data?.partners || [];

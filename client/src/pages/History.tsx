@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { formatDateTimeSlovak } from "@/lib/utils";
 import { useTableSort } from "@/hooks/use-table-sort";
 import { useSmartFilter } from "@/hooks/use-smart-filter";
 import type { SmartColumnDef } from "@/hooks/use-smart-filter";
@@ -129,17 +130,7 @@ export default function History() {
   const total = data?.total || 0;
   const totalPages = Math.ceil(total / PAGE_SIZE);
 
-  function formatDate(dateStr: string | Date | null) {
-    if (!dateStr) return "-";
-    return new Date(dateStr).toLocaleString("sk-SK", {
-      day: "2-digit",
-      month: "2-digit",
-      year: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
-      second: "2-digit",
-    });
-  }
+  const formatDate = formatDateTimeSlovak;
 
   function formatProcessingTime(seconds: number): string {
     const h = Math.floor(seconds / 3600);

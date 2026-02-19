@@ -1,6 +1,7 @@
 import { useState, useRef, useCallback, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
+import { formatDateTimeSlovak } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 import { useTableSort } from "@/hooks/use-table-sort";
 import { useSmartFilter } from "@/hooks/use-smart-filter";
@@ -360,9 +361,7 @@ function FlagHistoryDialog({
                     <FlagImage src={entry.flagUrl} alt="Stara vlajka" code={state?.code} className="max-h-12 object-contain" />
                   </TableCell>
                   <TableCell>
-                    {entry.replacedAt
-                      ? new Date(entry.replacedAt).toLocaleString("sk-SK")
-                      : "-"}
+                    {formatDateTimeSlovak(entry.replacedAt)}
                   </TableCell>
                 </TableRow>
               ))}

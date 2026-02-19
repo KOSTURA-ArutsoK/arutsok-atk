@@ -1,6 +1,7 @@
 import { useState, useRef, useCallback, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
+import { formatDateTimeSlovak } from "@/lib/utils";
 import { useAppUser } from "@/hooks/use-app-user";
 import { useStates } from "@/hooks/use-hierarchy";
 import { useToast } from "@/hooks/use-toast";
@@ -697,7 +698,7 @@ function StatusTabContent(props: StatusTabContentProps) {
                           </div>
                         </TableCell>}
                         {statusHistoryColumnVisibility.isVisible("changedAt") && <TableCell className="text-sm text-muted-foreground" data-testid={`text-changed-at-${log.id}`}>
-                          {log.changedAt ? new Date(log.changedAt).toLocaleString("sk-SK") : "-"}
+                          {formatDateTimeSlovak(log.changedAt)}
                         </TableCell>}
                         {statusHistoryColumnVisibility.isVisible("details") && <TableCell>
                           <div id={`log-details-${log.id}`} className="flex items-center gap-1.5">

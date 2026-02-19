@@ -2,6 +2,7 @@ import { useState, useRef, useCallback, useEffect } from "react";
 import { usePartners, useCreatePartner, useUpdatePartner, useDeletePartner, usePartnerContacts, usePartnerProducts, useCreatePartnerContact, useCreatePartnerProduct } from "@/hooks/use-partners";
 import { useStates } from "@/hooks/use-hierarchy";
 import { useAppUser } from "@/hooks/use-app-user";
+import { formatDateSlovak } from "@/lib/utils";
 import { Plus, Briefcase, Pencil, Trash2, Clock, Users, Package, Calendar, Archive, MapPin } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -467,9 +468,9 @@ function PartnerUnifiedDialog({
                     <Clock className="w-3 h-3" />
                     <span>Cas spracovania: {editingPartner?.processingTimeSec || 0}s</span>
                     <span>|</span>
-                    <span>Vytvorene: {editingPartner?.createdAt ? new Date(editingPartner.createdAt).toLocaleDateString("sk-SK") : "-"}</span>
+                    <span>Vytvorene: {formatDateSlovak(editingPartner?.createdAt)}</span>
                     <span>|</span>
-                    <span>Aktualizovane: {editingPartner?.updatedAt ? new Date(editingPartner.updatedAt).toLocaleDateString("sk-SK") : "-"}</span>
+                    <span>Aktualizovane: {formatDateSlovak(editingPartner?.updatedAt)}</span>
                   </div>
                 </div>
               </TabsContent>
@@ -495,8 +496,8 @@ function PartnerUnifiedDialog({
                                 <p className="text-xs text-muted-foreground">{c.position || ""} {c.email ? `| ${c.email}` : ""} {c.phone ? `| ${c.phone}` : ""}</p>
                                 <div className="flex items-center gap-1 mt-1 text-xs text-muted-foreground">
                                   <Calendar className="w-3 h-3" />
-                                  <span>Od: {c.validFrom ? new Date(c.validFrom).toLocaleDateString("sk-SK") : "-"}</span>
-                                  <span>Do: {c.validTo ? new Date(c.validTo).toLocaleDateString("sk-SK") : "Neurcito"}</span>
+                                  <span>Od: {formatDateSlovak(c.validFrom)}</span>
+                                  <span>Do: {c.validTo ? formatDateSlovak(c.validTo) : "Neurcito"}</span>
                                 </div>
                               </div>
                               {c.isPrimary && <Badge variant="secondary">Primarny</Badge>}
@@ -528,8 +529,8 @@ function PartnerUnifiedDialog({
                                 <p className="text-xs text-muted-foreground">{c.position || ""} {c.email ? `| ${c.email}` : ""} {c.phone ? `| ${c.phone}` : ""}</p>
                                 <div className="flex items-center gap-1 mt-1 text-xs text-muted-foreground">
                                   <Calendar className="w-3 h-3" />
-                                  <span>Od: {c.validFrom ? new Date(c.validFrom).toLocaleDateString("sk-SK") : "-"}</span>
-                                  <span>Do: {c.validTo ? new Date(c.validTo).toLocaleDateString("sk-SK") : "-"}</span>
+                                  <span>Od: {formatDateSlovak(c.validFrom)}</span>
+                                  <span>Do: {formatDateSlovak(c.validTo)}</span>
                                 </div>
                               </div>
                               <Badge variant="destructive">Archivovany</Badge>
@@ -719,7 +720,7 @@ export default function Partners() {
                   {columnVisibility.isVisible("city") && <TableCell className="text-sm">{partner.city || "-"}</TableCell>}
                   {columnVisibility.isVisible("stateId") && <TableCell className="text-sm">{getStateName(partner.stateId)}</TableCell>}
                   {columnVisibility.isVisible("collaborationDate") && <TableCell className="text-xs text-muted-foreground">
-                    {partner.collaborationDate ? new Date(partner.collaborationDate).toLocaleDateString("sk-SK") : "-"}
+                    {formatDateSlovak(partner.collaborationDate)}
                   </TableCell>}
                   <TableCell>
                     <div className="flex items-center gap-1">

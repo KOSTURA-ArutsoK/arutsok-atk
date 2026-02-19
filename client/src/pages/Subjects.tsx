@@ -5,6 +5,7 @@ import { useMyCompanies } from "@/hooks/use-companies";
 import { useAppUser } from "@/hooks/use-app-user";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
+import { formatDateSlovak, formatDateTimeSlovak } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 import { Plus, Search, User, Building2, AlertTriangle, Eye, Calendar, Briefcase, ArrowRight, ArrowLeft, ExternalLink, History, Clock, Wallet, Loader2, CheckCircle2, Pencil, Lock, Users, X, Info, Link2, Unlink } from "lucide-react";
 import { Input } from "@/components/ui/input";
@@ -92,13 +93,7 @@ function SubjectHistoryTab({ subjectId }: { subjectId: number }) {
     },
   });
 
-  function formatDate(d: string | Date | null) {
-    if (!d) return "-";
-    return new Date(d).toLocaleString("sk-SK", {
-      day: "2-digit", month: "2-digit", year: "numeric",
-      hour: "2-digit", minute: "2-digit", second: "2-digit",
-    });
-  }
+  const formatDate = formatDateTimeSlovak;
 
   function formatProcessingTime(seconds: number): string {
     const h = Math.floor(seconds / 3600);
@@ -445,7 +440,7 @@ function EntityLinksTab({ subject }: { subject: Subject }) {
     return link.sourceId === subject.id ? link.target : link.source;
   };
 
-  const formatDate = (d: string | null) => d ? new Date(d).toLocaleDateString("sk-SK") : null;
+  const formatDate = (d: string | null) => d ? formatDateSlovak(d) : null;
 
   if (isLoading) return <p className="text-sm text-muted-foreground text-center py-6">Nacitavam prepojenia...</p>;
 
@@ -594,10 +589,7 @@ function SubjectDetailDialog({ subject, onClose }: { subject: Subject; onClose: 
   const { data: companies } = useMyCompanies();
   const managingCompany = companies?.find(c => c.id === subject.myCompanyId);
 
-  function formatDate(d: string | null) {
-    if (!d) return null;
-    return new Date(d).toLocaleDateString("sk-SK");
-  }
+  const formatDate = (d: string | null) => d ? formatDateSlovak(d) : null;
 
   return (
     <Dialog open onOpenChange={onClose}>

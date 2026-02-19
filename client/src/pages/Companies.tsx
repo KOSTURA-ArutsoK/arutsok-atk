@@ -3,6 +3,7 @@ import { useMyCompanies, useCreateMyCompany, useUpdateMyCompany, useDeleteMyComp
 import { useStates } from "@/hooks/use-hierarchy";
 import { Plus, Building2, Pencil, Trash2, Eye, Upload, FileText, X, Download, Clock, MapPin, FileCheck, Image } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
+import { formatDateSlovak, formatDateTimeSlovak } from "@/lib/utils";
 import type { CompanyLogoHistory } from "@shared/schema";
 
 import { useColumnVisibility, type ColumnDef } from "@/hooks/use-column-visibility";
@@ -223,7 +224,7 @@ function FileUploadSection({
                 <FileText className="w-4 h-4 text-muted-foreground flex-shrink-0" />
                 <span className="text-sm truncate">{doc.name}</span>
                 <span className="text-xs text-muted-foreground flex-shrink-0">
-                  {new Date(doc.uploadedAt).toLocaleDateString("sk-SK")}
+                  {formatDateSlovak(doc.uploadedAt)}
                 </span>
               </div>
               <div className="flex items-center gap-1">
@@ -643,9 +644,9 @@ function CompanyDetailDialog({
               <Clock className="w-3 h-3" />
               <span>Cas spracovania: {formatProcessingTime(company.processingTimeSec || 0)}</span>
               <span>|</span>
-              <span>Vytvorene: {company.createdAt ? new Date(company.createdAt).toLocaleDateString("sk-SK") : "-"}</span>
+              <span>Vytvorene: {formatDateSlovak(company.createdAt)}</span>
               <span>|</span>
-              <span>Aktualizovane: {company.updatedAt ? new Date(company.updatedAt).toLocaleDateString("sk-SK") : "-"}</span>
+              <span>Aktualizovane: {formatDateSlovak(company.updatedAt)}</span>
             </div>
           </TabsContent>
 
@@ -677,7 +678,7 @@ function CompanyDetailDialog({
                     <div key={idx} className="flex items-center gap-2 text-sm p-2 rounded-md border border-border" data-testid={`detail-file-official-${idx}`}>
                       <FileText className="w-4 h-4 text-muted-foreground flex-shrink-0" />
                       <span className="truncate flex-1">{doc.name}</span>
-                      <span className="text-xs text-muted-foreground">{new Date(doc.uploadedAt).toLocaleDateString("sk-SK")}</span>
+                      <span className="text-xs text-muted-foreground">{formatDateSlovak(doc.uploadedAt)}</span>
                       <Button size="icon" variant="ghost" onClick={() => window.open(doc.url, "_blank")} data-testid={`button-detail-download-official-${idx}`}>
                         <Download className="w-4 h-4" />
                       </Button>
@@ -701,7 +702,7 @@ function CompanyDetailDialog({
                     <div key={idx} className="flex items-center gap-2 text-sm p-2 rounded-md border border-border" data-testid={`detail-file-work-${idx}`}>
                       <FileText className="w-4 h-4 text-muted-foreground flex-shrink-0" />
                       <span className="truncate flex-1">{doc.name}</span>
-                      <span className="text-xs text-muted-foreground">{new Date(doc.uploadedAt).toLocaleDateString("sk-SK")}</span>
+                      <span className="text-xs text-muted-foreground">{formatDateSlovak(doc.uploadedAt)}</span>
                       <Button size="icon" variant="ghost" onClick={() => window.open(doc.url, "_blank")} data-testid={`button-detail-download-work-${idx}`}>
                         <Download className="w-4 h-4" />
                       </Button>
@@ -770,7 +771,7 @@ function LogoHistoryDialog({
                 <div className="flex-1 min-w-0">
                   <p className="text-sm truncate">{entry.originalName || "Logo"}</p>
                   <p className="text-xs text-muted-foreground">
-                    Nahradene: {entry.replacedAt ? new Date(entry.replacedAt).toLocaleString("sk-SK") : "-"}
+                    Nahradene: {formatDateTimeSlovak(entry.replacedAt)}
                   </p>
                 </div>
                 <Button

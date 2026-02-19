@@ -1,6 +1,7 @@
 import { useState, useRef, useCallback, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
+import { formatDateSlovak } from "@/lib/utils";
 import { useTableSort } from "@/hooks/use-table-sort";
 import { useSmartFilter } from "@/hooks/use-smart-filter";
 import type { SmartColumnDef } from "@/hooks/use-smart-filter";
@@ -566,8 +567,8 @@ function CommissionSection({ productId }: { productId: number }) {
                 <TableBody>
                   {sortedCommissions.map(c => (
                     <TableRow key={c.id} data-testid={`row-commission-${c.id}`}>
-                      <TableCell className="text-xs">{c.validFrom ? new Date(c.validFrom).toLocaleDateString("sk-SK") : "-"}</TableCell>
-                      <TableCell className="text-xs">{c.validTo ? new Date(c.validTo).toLocaleDateString("sk-SK") : "-"}</TableCell>
+                      <TableCell className="text-xs">{formatDateSlovak(c.validFrom)}</TableCell>
+                      <TableCell className="text-xs">{formatDateSlovak(c.validTo)}</TableCell>
                       <TableCell>
                         <Badge variant="secondary">{c.type}</Badge>
                       </TableCell>
@@ -729,7 +730,7 @@ function ProductDetailDialog({
 
           <div className="flex items-center gap-4 text-xs text-muted-foreground flex-wrap">
             <span>Cas spracovania: {formatProcessingTime(product.processingTimeSec || 0)}</span>
-            <span>Vytvorene: {product.createdAt ? new Date(product.createdAt).toLocaleDateString("sk-SK") : "-"}</span>
+            <span>Vytvorene: {formatDateSlovak(product.createdAt)}</span>
           </div>
 
           <CommissionSection productId={product.id} />

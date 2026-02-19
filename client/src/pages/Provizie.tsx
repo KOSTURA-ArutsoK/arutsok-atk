@@ -1,5 +1,6 @@
 import { useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { formatDateSlovak } from "@/lib/utils";
 import { ArrowDownLeft, Filter, Loader2, Search } from "lucide-react";
 import { HelpIcon } from "@/components/help-icon";
 import { useTableSort } from "@/hooks/use-table-sort";
@@ -99,10 +100,7 @@ export default function Provizie() {
     return filtered.reduce((sum: number, r: any) => sum + (parseFloat(r.points_earned) || 0), 0);
   }, [filtered]);
 
-  function formatDate(dateStr: string | Date | null) {
-    if (!dateStr) return "-";
-    return new Date(dateStr).toLocaleDateString("sk-SK", { day: "2-digit", month: "2-digit", year: "numeric" });
-  }
+  const formatDate = formatDateSlovak;
 
   function formatAmount(val: any) {
     const num = parseFloat(val);

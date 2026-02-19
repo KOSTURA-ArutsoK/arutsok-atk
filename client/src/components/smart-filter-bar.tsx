@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from "react";
+import { formatDateSlovak } from "@/lib/utils";
 import { Plus, X, Save, ChevronDown, Trash2, Type, Hash, CalendarIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -51,9 +52,8 @@ function getTypeIcon(type: FilterColumnType) {
 
 function formatDateSk(dateStr: string): string {
   if (!dateStr) return "";
-  const d = new Date(dateStr);
-  if (isNaN(d.getTime())) return dateStr;
-  return `${d.getDate()}.${d.getMonth() + 1}.${d.getFullYear()}`;
+  const result = formatDateSlovak(dateStr);
+  return result === '-' ? dateStr : result;
 }
 
 function getOperatorLabel(chip: FilterChip): string {

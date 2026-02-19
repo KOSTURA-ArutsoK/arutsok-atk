@@ -1,6 +1,7 @@
 import { useState, useRef, useCallback, useEffect, useMemo } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
+import { formatDateSlovak } from "@/lib/utils";
 import { useAppUser } from "@/hooks/use-app-user";
 import { useStates } from "@/hooks/use-hierarchy";
 import { useToast } from "@/hooks/use-toast";
@@ -134,11 +135,7 @@ function formatProcessingTime(seconds: number): string {
   return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
 }
 
-function formatDate(date: string | Date | null | undefined): string {
-  if (!date) return "-";
-  const d = new Date(date);
-  return `${String(d.getDate()).padStart(2, '0')}.${String(d.getMonth() + 1).padStart(2, '0')}.${d.getFullYear()}`;
-}
+const formatDate = formatDateSlovak;
 
 function formatAmount(amount: number | null | undefined, currency: string | null | undefined): string {
   if (amount == null) return "-";
@@ -1393,7 +1390,7 @@ function ContractDetailDialog({
 
           <div className="flex items-center gap-4 text-xs text-muted-foreground flex-wrap">
             <span>Cas spracovania: {formatProcessingTime(contract.processingTimeSec || 0)}</span>
-            <span>Vytvorene: {contract.createdAt ? new Date(contract.createdAt).toLocaleDateString("sk-SK") : "-"}</span>
+            <span>Vytvorene: {formatDateSlovak(contract.createdAt)}</span>
           </div>
         </div>
         </DialogScrollContent>
