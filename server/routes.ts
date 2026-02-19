@@ -1877,13 +1877,22 @@ export async function registerRoutes(
         statusChangeDocuments: docs,
       });
 
-      await storage.updateContract(contractId, {
-        statusId: Number(newStatusId),
-        lastStatusUpdate: new Date(),
-      } as any);
-
       const allStatuses = await storage.getContractStatuses();
       const status = allStatuses.find(s => s.id === Number(newStatusId));
+
+      const contractUpdate: any = {
+        statusId: Number(newStatusId),
+        lastStatusUpdate: new Date(),
+      };
+
+      if (status?.definesContractEnd) {
+        contractUpdate.expiryDate = changedAt ? new Date(changedAt) : new Date();
+      } else {
+        contractUpdate.expiryDate = null;
+      }
+
+      await storage.updateContract(contractId, contractUpdate);
+
       if (status?.assignsNumber && !contract.globalNumber) {
         const counter = await storage.getNextCounterValue("global_contract_number");
         await storage.updateContract(contractId, { globalNumber: counter } as any);

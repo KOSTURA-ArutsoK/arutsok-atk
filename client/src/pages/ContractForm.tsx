@@ -10,7 +10,7 @@ import { useColumnVisibility, type ColumnDef } from "@/hooks/use-column-visibili
 import { ColumnManager } from "@/components/column-manager";
 import type { Contract, ContractStatus, ContractStatusChangeLog, ContractTemplate, ContractInventory, Subject, Partner, Product, MyCompany, Sector, Section, SectorProduct, ContractPassword, ContractParameterValue, ContractFieldSetting, ClientType, ContractAcquirer, AppUser, ContractRewardDistribution } from "@shared/schema";
 import { getFieldsForClientTypeId, type StaticField } from "@/lib/staticFieldDefs";
-import { ArrowLeft, Save, Loader2, LayoutGrid, KeyRound, Plus, Trash2, FileText, Users, ClipboardList, FolderOpen, FolderClosed, DollarSign, BarChart3, ListChecks, PieChart, ChevronLeft, ChevronRight, MessageSquare, Paperclip, Upload, X, Eye, Settings2, Calendar, UserCheck, Check, Link2, CreditCard } from "lucide-react";
+import { ArrowLeft, Save, Loader2, LayoutGrid, KeyRound, Plus, Trash2, FileText, Users, ClipboardList, FolderOpen, FolderClosed, DollarSign, BarChart3, ListChecks, PieChart, ChevronLeft, ChevronRight, MessageSquare, Paperclip, Upload, X, Eye, Settings2, Calendar, UserCheck, Check, Link2, CreditCard, Flag } from "lucide-react";
 import { getSectionsForClientTypeId } from "@/lib/staticFieldDefs";
 import type { DocumentEntry } from "@shared/schema";
 import { Card, CardContent } from "@/components/ui/card";
@@ -699,6 +699,9 @@ function StatusTabContent(props: StatusTabContentProps) {
                           <div className="flex items-center gap-2">
                             <div className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: logStatus?.color || "transparent" }} />
                             <span className="text-sm font-medium">{statusName} {iteration}</span>
+                            {logStatus?.definesContractEnd && (
+                              <Flag className="w-3.5 h-3.5 text-destructive shrink-0" title="Tento stav ukoncil zmluvu" data-testid={`icon-defines-end-${log.id}`} />
+                            )}
                           </div>
                         </TableCell>}
                         {statusHistoryColumnVisibility.isVisible("changedAt") && <TableCell className="text-sm text-muted-foreground" data-testid={`text-changed-at-${log.id}`}>
