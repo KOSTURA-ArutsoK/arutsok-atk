@@ -52,7 +52,7 @@ import {
 } from "@/components/ui/accordion";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
-import { PRIORITY_COUNTRIES, ALL_COUNTRIES, getDefaultCountryForState } from "@/lib/countries";
+import { PRIORITY_COUNTRY_NAMES, ALL_COUNTRY_NAMES, DEFAULT_COUNTRY, getDefaultCountryForState } from "@/lib/countries";
 import { Check, ChevronsUpDown } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { z } from "zod";
@@ -1204,7 +1204,7 @@ function FullPageEditor({
   const isSzcoType = clientType?.code === 'SZCO';
   const [szcoPersonalData, setSzcoPersonalData] = useState({ firstName: "", lastName: "", birthNumber: "" });
 
-  const [dynamicValues, setDynamicValuesRaw] = useState<Record<string, string>>({ korespond_rovnaka: "true", kontaktna_rovnaka: "true" });
+  const [dynamicValues, setDynamicValuesRaw] = useState<Record<string, string>>({ korespond_rovnaka: "true", kontaktna_rovnaka: "true", tp_stat: DEFAULT_COUNTRY, ka_stat: DEFAULT_COUNTRY, koa_stat: DEFAULT_COUNTRY, sidlo_stat: DEFAULT_COUNTRY, vykon_stat: DEFAULT_COUNTRY });
   const [validationErrors, setValidationErrors] = useState<Set<string>>(new Set());
   const setDynamicValues: typeof setDynamicValuesRaw = (updater) => {
     setDynamicValuesRaw((prev) => {
@@ -1548,8 +1548,8 @@ function FullPageEditor({
                                         const shortLbl = field?.shortLabel;
                                         const isReq = field?.isRequired;
                                         const hasErr = validationErrors.has(key);
-                                        const prioritySet = new Set(PRIORITY_COUNTRIES);
-                                        const restCountries = ALL_COUNTRIES.filter(c => !prioritySet.has(c));
+                                        const prioritySet = new Set(PRIORITY_COUNTRY_NAMES);
+                                        const restCountries = ALL_COUNTRY_NAMES.filter(c => !prioritySet.has(c));
                                         return (
                                           <div key={key} className={cn("space-y-1 min-w-0", widthClass)}>
                                             <Label className={`text-xs block ${hasErr ? "text-red-500" : "text-muted-foreground"}`}>
@@ -1574,7 +1574,7 @@ function FullPageEditor({
                                                   <CommandList>
                                                     <CommandEmpty>Krajina nenájdená.</CommandEmpty>
                                                     <CommandGroup heading="Prioritné">
-                                                      {PRIORITY_COUNTRIES.map(c => (
+                                                      {PRIORITY_COUNTRY_NAMES.map(c => (
                                                         <CommandItem key={c} value={c} onSelect={() => { setDynamicValues(prev => ({ ...prev, [key]: c })); if (hasErr) setValidationErrors(prev => { const n = new Set(prev); n.delete(key); return n; }); }}>
                                                           <Check className={cn("mr-2 h-4 w-4", dynamicValues[key] === c ? "opacity-100" : "opacity-0")} />
                                                           {c}
@@ -1788,7 +1788,53 @@ function FullPageEditor({
                                     )}
                                     {fStat && (
                                       <div data-testid={`addr-row-stat-${prefix}`}>
-                                        {renderAddrField(fStat.key, fStat.field, fStat.suffix)}
+                                        {(() => {
+                                          const statKey = fStat.key;
+                                          const statLabel = ADDR_SHORT_LABELS["stat"] || "Štát";
+                                          const statReq = isRequired(statKey);
+                                          const statErr = validationErrors.has(statKey);
+                                          const pSet = new Set(PRIORITY_COUNTRY_NAMES);
+                                          const restC = ALL_COUNTRY_NAMES.filter(c => !pSet.has(c));
+                                          return (
+                                            <div style={{ pointerEvents: disabled ? "none" : "auto" }}>
+                                              <div className="space-y-1">
+                                                <Label className={`text-xs truncate block ${statErr ? "text-red-500" : "text-muted-foreground"}`}>{statLabel}{statReq ? " *" : ""}</Label>
+                                                <Popover>
+                                                  <PopoverTrigger asChild>
+                                                    <Button variant="outline" role="combobox" className={cn("w-full justify-between font-normal", statErr && "border-red-500 ring-1 ring-red-500", !dynamicValues[statKey] && "text-muted-foreground")} data-testid={`select-addr-stat-${prefix}`}>
+                                                      <span className="truncate">{dynamicValues[statKey] || "Vyberte štát..."}</span>
+                                                      <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                                                    </Button>
+                                                  </PopoverTrigger>
+                                                  <PopoverContent className="w-[300px] p-0" align="start">
+                                                    <Command>
+                                                      <CommandInput placeholder="Hľadať štát..." />
+                                                      <CommandList>
+                                                        <CommandEmpty>Štát nenájdený.</CommandEmpty>
+                                                        <CommandGroup heading="Prioritné">
+                                                          {PRIORITY_COUNTRY_NAMES.map(c => (
+                                                            <CommandItem key={c} value={c} onSelect={() => { setDynamicValues(prev => ({ ...prev, [statKey]: c })); if (statErr) setValidationErrors(prev => { const n = new Set(prev); n.delete(statKey); return n; }); }}>
+                                                              <Check className={cn("mr-2 h-4 w-4", dynamicValues[statKey] === c ? "opacity-100" : "opacity-0")} />
+                                                              {c}
+                                                            </CommandItem>
+                                                          ))}
+                                                        </CommandGroup>
+                                                        <CommandGroup heading="Všetky krajiny">
+                                                          {restC.map(c => (
+                                                            <CommandItem key={c} value={c} onSelect={() => { setDynamicValues(prev => ({ ...prev, [statKey]: c })); if (statErr) setValidationErrors(prev => { const n = new Set(prev); n.delete(statKey); return n; }); }}>
+                                                              <Check className={cn("mr-2 h-4 w-4", dynamicValues[statKey] === c ? "opacity-100" : "opacity-0")} />
+                                                              {c}
+                                                            </CommandItem>
+                                                          ))}
+                                                        </CommandGroup>
+                                                      </CommandList>
+                                                    </Command>
+                                                  </PopoverContent>
+                                                </Popover>
+                                              </div>
+                                            </div>
+                                          );
+                                        })()}
                                       </div>
                                     )}
                                   </CardContent>
@@ -2334,7 +2380,52 @@ function SubjectEditModal({ subject, onClose }: { subject: Subject & { isOwner?:
                       {row1.length > 0 && <div className="grid grid-cols-1 gap-2">{row1.map(f => renderAddrField(f.key, f.field, f.suffix))}</div>}
                       {row2.length > 0 && <div className={`grid grid-cols-1 ${row2.length > 1 ? "sm:grid-cols-2" : ""} gap-2`}>{row2.map(f => renderAddrField(f.key, f.field, f.suffix))}</div>}
                       {row3.length > 0 && <div className={`grid grid-cols-1 ${row3.length > 1 ? "sm:grid-cols-2" : ""} gap-2`}>{row3.map(f => renderAddrField(f.key, f.field, f.suffix))}</div>}
-                      {row4.length > 0 && <div className="grid grid-cols-1 gap-2">{row4.map(f => renderAddrField(f.key, f.field, f.suffix))}</div>}
+                      {row4.length > 0 && <div className="grid grid-cols-1 gap-2">{row4.map(f => {
+                        const statKey = f.key;
+                        const statLabel = EDIT_ADDR_FALLBACK_LABELS["stat"] || "Štát";
+                        const statReq = isReq(statKey);
+                        const pSet = new Set(PRIORITY_COUNTRY_NAMES);
+                        const restC = ALL_COUNTRY_NAMES.filter(c => !pSet.has(c));
+                        return (
+                          <div key={statKey} style={{ pointerEvents: disabled ? "none" : "auto" }}>
+                            <div className="space-y-1">
+                              <Label className={`text-xs truncate block text-muted-foreground`}>{statLabel}{statReq ? " *" : ""}</Label>
+                              <Popover>
+                                <PopoverTrigger asChild>
+                                  <Button variant="outline" role="combobox" className={cn("w-full justify-between font-normal", !dynamicValues[statKey] && "text-muted-foreground")} data-testid={`select-edit-addr-stat-${prefix}`}>
+                                    <span className="truncate">{dynamicValues[statKey] || "Vyberte štát..."}</span>
+                                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                                  </Button>
+                                </PopoverTrigger>
+                                <PopoverContent className="w-[300px] p-0" align="start">
+                                  <Command>
+                                    <CommandInput placeholder="Hľadať štát..." />
+                                    <CommandList>
+                                      <CommandEmpty>Štát nenájdený.</CommandEmpty>
+                                      <CommandGroup heading="Prioritné">
+                                        {PRIORITY_COUNTRY_NAMES.map(c => (
+                                          <CommandItem key={c} value={c} onSelect={() => setDynamicValues(prev => ({ ...prev, [statKey]: c }))}>
+                                            <Check className={cn("mr-2 h-4 w-4", dynamicValues[statKey] === c ? "opacity-100" : "opacity-0")} />
+                                            {c}
+                                          </CommandItem>
+                                        ))}
+                                      </CommandGroup>
+                                      <CommandGroup heading="Všetky krajiny">
+                                        {restC.map(c => (
+                                          <CommandItem key={c} value={c} onSelect={() => setDynamicValues(prev => ({ ...prev, [statKey]: c }))}>
+                                            <Check className={cn("mr-2 h-4 w-4", dynamicValues[statKey] === c ? "opacity-100" : "opacity-0")} />
+                                            {c}
+                                          </CommandItem>
+                                        ))}
+                                      </CommandGroup>
+                                    </CommandList>
+                                  </Command>
+                                </PopoverContent>
+                              </Popover>
+                            </div>
+                          </div>
+                        );
+                      })}</div>}
                     </CardContent>
                   </Card>
                 );

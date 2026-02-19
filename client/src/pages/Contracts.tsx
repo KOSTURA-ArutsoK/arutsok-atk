@@ -15,7 +15,7 @@ import { FO_FIELDS, FO_SECTIONS, FO_PANELS, SZCO_FIELDS, SZCO_SECTIONS, SZCO_PAN
 import { Plus, Pencil, Trash2, Eye, FileText, Loader2, Lock, LayoutGrid, Send, Upload, Inbox, CheckCircle2, ChevronDown, ChevronRight, Printer, Search, Archive, AlertTriangle, Calendar, XCircle, MessageSquare, Paperclip, UserPlus, X, Users, Check, ChevronsUpDown, Award, Percent } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
-import { PRIORITY_COUNTRIES, ALL_COUNTRIES, getDefaultCountryForState } from "@/lib/countries";
+import { PRIORITY_COUNTRY_NAMES, ALL_COUNTRY_NAMES, DEFAULT_COUNTRY, getDefaultCountryForState } from "@/lib/countries";
 import { cn } from "@/lib/utils";
 import { Checkbox } from "@/components/ui/checkbox";
 import { MultiSelectCheckboxes } from "@/components/multi-select-checkboxes";
@@ -2714,8 +2714,8 @@ export default function Contracts() {
                                 if (!f) return null;
                                 if (f.fieldKey === "statna_prislusnost") {
                                   const hasErr = inlineValidationErrors.has("statna_prislusnost");
-                                  const prioritySet = new Set(PRIORITY_COUNTRIES);
-                                  const restCountries = ALL_COUNTRIES.filter(c => !prioritySet.has(c));
+                                  const prioritySet = new Set(PRIORITY_COUNTRY_NAMES);
+                                  const restCountries = ALL_COUNTRY_NAMES.filter(c => !prioritySet.has(c));
                                   return (
                                     <div key={f.id} className="space-y-1" data-testid="field-inline-statna_prislusnost">
                                       <label className={`text-xs font-medium ${hasErr ? "text-red-500" : ""}`}>{f.label}{f.isRequired ? " *" : ""}</label>
@@ -2732,7 +2732,7 @@ export default function Contracts() {
                                             <CommandList>
                                               <CommandEmpty>Krajina nenájdená.</CommandEmpty>
                                               <CommandGroup heading="Prioritné">
-                                                {PRIORITY_COUNTRIES.map(c => (
+                                                {PRIORITY_COUNTRY_NAMES.map(c => (
                                                   <CommandItem key={c} value={c} onSelect={() => { setInlineFormValues(prev => ({ ...prev, statna_prislusnost: c })); if (hasErr) setInlineValidationErrors(prev => { const n = new Set(prev); n.delete("statna_prislusnost"); return n; }); }}>
                                                     <Check className={cn("mr-2 h-4 w-4", inlineFormValues["statna_prislusnost"] === c ? "opacity-100" : "opacity-0")} />
                                                     {c}
