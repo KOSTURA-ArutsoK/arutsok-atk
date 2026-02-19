@@ -1279,6 +1279,21 @@ export const insertProductPointRateSchema = createInsertSchema(productPointRates
 export type ProductPointRate = typeof productPointRates.$inferSelect;
 export type InsertProductPointRate = z.infer<typeof insertProductPointRateSchema>;
 
+// === ENTITY LINKS (Universal subject relationships) ===
+export const entityLinks = pgTable("entity_links", {
+  id: serial("id").primaryKey(),
+  sourceId: integer("source_id").notNull().references(() => subjects.id),
+  targetId: integer("target_id").notNull().references(() => subjects.id),
+  dateFrom: timestamp("date_from").notNull().defaultNow(),
+  dateTo: timestamp("date_to"),
+  createdAt: timestamp("created_at").defaultNow(),
+  createdByUserId: integer("created_by_user_id").references(() => appUsers.id),
+});
+
+export const insertEntityLinkSchema = createInsertSchema(entityLinks).omit({ id: true, createdAt: true });
+export type EntityLink = typeof entityLinks.$inferSelect;
+export type InsertEntityLink = z.infer<typeof insertEntityLinkSchema>;
+
 export type CreateSubjectRequest = InsertSubject;
 export type UpdateSubjectRequest = Partial<InsertSubject> & { changeReason?: string };
 export type UpdateMyCompanyRequest = Partial<InsertMyCompany> & { changeReason?: string };

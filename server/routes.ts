@@ -962,6 +962,63 @@ export async function registerRoutes(
     }
   });
 
+  app.get("/api/entity-links/:subjectId", isAuthenticated, async (req: any, res) => {
+    try {
+      const subjectId = parseInt(req.params.subjectId);
+      if (isNaN(subjectId)) return res.status(400).json({ message: "Neplatné ID subjektu" });
+      const links = await storage.getEntityLinks(subjectId);
+      const subjectIds = new Set<number>();
+      for (const link of links) {
+        subjectIds.add(link.sourceId);
+        subjectIds.add(link.targetId);
+      }
+      const subjectMap = new Map<number, any>();
+      for (const sid of subjectIds) {
+        const s = await storage.getSubject(sid);
+        if (s) subjectMap.set(sid, { id: s.id, uid: s.uid, type: s.type, firstName: s.firstName, lastName: s.lastName, companyName: s.companyName, email: s.email });
+      }
+      const enriched = links.map(link => ({
+        ...link,
+        source: subjectMap.get(link.sourceId) || null,
+        target: subjectMap.get(link.targetId) || null,
+      }));
+      res.json(enriched);
+    } catch {
+      res.status(500).json({ message: "Chyba pri nacitani prepojeni" });
+    }
+  });
+
+  app.post("/api/entity-links", isAuthenticated, async (req: any, res) => {
+    try {
+      const { sourceId, targetId } = req.body;
+      if (!sourceId || !targetId) return res.status(400).json({ message: "sourceId a targetId su povinne" });
+      if (sourceId === targetId) return res.status(400).json({ message: "Subjekt nemoze byt prepojeny sam so sebou" });
+      const existing = await storage.getEntityLinks(sourceId);
+      const duplicate = existing.find(l => !l.dateTo && ((l.sourceId === sourceId && l.targetId === targetId) || (l.sourceId === targetId && l.targetId === sourceId)));
+      if (duplicate) return res.status(400).json({ message: "Toto prepojenie uz existuje" });
+      const link = await storage.createEntityLink({
+        sourceId,
+        targetId,
+        dateFrom: new Date(),
+        createdByUserId: req.appUser?.id || null,
+      });
+      res.json(link);
+    } catch {
+      res.status(500).json({ message: "Chyba pri vytvarani prepojenia" });
+    }
+  });
+
+  app.patch("/api/entity-links/:id/close", isAuthenticated, async (req: any, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) return res.status(400).json({ message: "Neplatné ID" });
+      const link = await storage.closeEntityLink(id);
+      res.json(link);
+    } catch {
+      res.status(500).json({ message: "Chyba pri uzatvarani prepojenia" });
+    }
+  });
+
   app.post(api.subjects.create.path, async (req: any, res) => {
     try {
       const input = api.subjects.create.input.parse(req.body);

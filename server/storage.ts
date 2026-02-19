@@ -91,6 +91,8 @@ import {
   type ContractStatusVisibility, type InsertContractStatusVisibility,
   type ContractStatusParameter, type InsertContractStatusParameter,
   type ContractStatusChangeLog, type InsertContractStatusChangeLog,
+  entityLinks,
+  type EntityLink, type InsertEntityLink,
 } from "@shared/schema";
 import { eq, and, or, ne, like, sql, lte, gte, gt, desc, asc, isNull, isNotNull, inArray } from "drizzle-orm";
 
@@ -160,6 +162,10 @@ export interface IStorage {
   createSubject(subject: InsertSubject): Promise<Subject>;
   updateSubject(id: number, updates: UpdateSubjectRequest): Promise<Subject>;
   archiveSubject(id: number, reason: string): Promise<void>;
+
+  getEntityLinks(subjectId: number): Promise<EntityLink[]>;
+  createEntityLink(data: InsertEntityLink): Promise<EntityLink>;
+  closeEntityLink(id: number): Promise<EntityLink>;
   
   getProducts(includeDeleted?: boolean): Promise<Product[]>;
   getProduct(id: number): Promise<Product | undefined>;
@@ -1022,6 +1028,25 @@ export class DatabaseStorage implements IStorage {
       reason,
     });
     await db.update(subjects).set({ isActive: false, deletedAt: new Date() }).where(eq(subjects.id, id));
+  }
+
+  async getEntityLinks(subjectId: number): Promise<EntityLink[]> {
+    return await db.select().from(entityLinks)
+      .where(or(eq(entityLinks.sourceId, subjectId), eq(entityLinks.targetId, subjectId)))
+      .orderBy(desc(entityLinks.dateFrom));
+  }
+
+  async createEntityLink(data: InsertEntityLink): Promise<EntityLink> {
+    const [link] = await db.insert(entityLinks).values(data).returning();
+    return link;
+  }
+
+  async closeEntityLink(id: number): Promise<EntityLink> {
+    const [link] = await db.update(entityLinks)
+      .set({ dateTo: new Date() })
+      .where(eq(entityLinks.id, id))
+      .returning();
+    return link;
   }
 
   async getProducts(includeDeleted?: boolean) {
