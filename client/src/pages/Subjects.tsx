@@ -1130,7 +1130,7 @@ function DynamicFieldInput({ field, dynamicValues, setDynamicValues, hasError, d
         })()
       ) : field.fieldType === "number" && field.fieldKey === "vek" ? (
         <div
-          className="h-9 w-full flex items-center px-3 rounded-md bg-muted/50 border border-border text-sm font-medium text-foreground antialiased cursor-default select-none"
+          className="h-9 w-full flex items-center px-3 rounded-md bg-muted/50 border border-border text-sm font-medium text-foreground antialiased cursor-default select-none whitespace-nowrap overflow-hidden"
           data-testid={`input-dynamic-${field.fieldKey}`}
         >
           {dynamicValues[field.fieldKey] ? `${dynamicValues[field.fieldKey]} rokov` : ""}
