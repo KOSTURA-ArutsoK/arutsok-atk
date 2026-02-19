@@ -1599,65 +1599,65 @@ function FullPageEditor({
                                       const rcSource = dynamicValues["rodne_cislo"]?.trim() || initialData.baseValue?.trim() || "";
                                       const rcParsedResult = rcSource ? parseRodneCislo(rcSource) : {};
                                       const isRcAuto = (key === "pohlavie" && !!rcParsedResult.pohlavie) || (key === "datum_narodenia" && !!rcParsedResult.datumNarodenia) || (key === "vek" && !!rcParsedResult.datumNarodenia);
-                                      const rawField = !field ? (typeFields || []).find(f => f.fieldKey === key) : null;
-                                      if (!field && rawField && rawField.visibilityRule && !isFieldVisible(rawField)) {
-                                        return null;
-                                      }
-                                      if (field) {
+                                      const rawFieldDef = (typeFields || []).find(f => f.fieldKey === key);
+                                      const hasVisibilityRule = rawFieldDef?.visibilityRule;
+                                      const isVisibleByRule = hasVisibilityRule ? isFieldVisible(rawFieldDef!) : true;
+                                      const resolvedField = field || (hasVisibilityRule ? rawFieldDef : null);
+                                      if (resolvedField) {
                                         return (
-                                          <div key={key} className={cn("space-y-1 min-w-0", widthClass)}>
+                                          <div key={key} className={cn("space-y-1 min-w-0", widthClass)} style={!isVisibleByRule ? { display: "none" } : undefined}>
                                             <Label className={`text-xs block ${key === "typ_dokladu_iny" ? "text-orange-500 font-semibold" : validationErrors.has(key) ? "text-red-500" : "text-muted-foreground"}`}>
                                               {key === "typ_dokladu_iny" ? (
                                                 <span>Uveďte typ dokladu *</span>
-                                              ) : field.shortLabel ? (
+                                              ) : resolvedField.shortLabel ? (
                                                 <>
-                                                  <span className="hidden lg:inline">{field.label || key}</span>
-                                                  <span className="inline lg:hidden">{field.shortLabel}</span>
+                                                  <span className="hidden lg:inline">{resolvedField.label || key}</span>
+                                                  <span className="inline lg:hidden">{resolvedField.shortLabel}</span>
                                                 </>
                                               ) : (
-                                                <span>{field.label || key}</span>
+                                                <span>{resolvedField.label || key}</span>
                                               )}
-                                              {key !== "typ_dokladu_iny" && field.isRequired ? " *" : ""}
+                                              {key !== "typ_dokladu_iny" && resolvedField.isRequired ? " *" : ""}
                                             </Label>
-                                            {field.fieldType === "number" && field.fieldKey === "vek" ? (
-                                              <div className="h-9 w-full flex items-center px-3 rounded-md bg-muted/50 border border-border text-sm font-medium text-foreground cursor-default select-none whitespace-nowrap" data-testid={`input-dynamic-${field.fieldKey}`}>
-                                                {dynamicValues[field.fieldKey] ? `${dynamicValues[field.fieldKey]} rokov` : ""}
+                                            {resolvedField.fieldType === "number" && resolvedField.fieldKey === "vek" ? (
+                                              <div className="h-9 w-full flex items-center px-3 rounded-md bg-muted/50 border border-border text-sm font-medium text-foreground cursor-default select-none whitespace-nowrap" data-testid={`input-dynamic-${resolvedField.fieldKey}`}>
+                                                {dynamicValues[resolvedField.fieldKey] ? `${dynamicValues[resolvedField.fieldKey]} rokov` : ""}
                                               </div>
-                                            ) : field.fieldType === "jedna_moznost" && field.fieldKey === "pohlavie" ? (
+                                            ) : resolvedField.fieldType === "jedna_moznost" && resolvedField.fieldKey === "pohlavie" ? (
                                               <>
-                                                <div style={{ display: isRcAuto ? undefined : "none" }} className="h-9 w-full flex items-center px-3 rounded-md bg-muted/50 border border-border text-sm font-medium text-foreground cursor-default select-none whitespace-nowrap" data-testid={`display-dynamic-${field.fieldKey}`}>
-                                                  {dynamicValues[field.fieldKey] === "muž" ? "Muž" : dynamicValues[field.fieldKey] === "žena" ? "Žena" : dynamicValues[field.fieldKey] || ""}
+                                                <div style={{ display: isRcAuto ? undefined : "none" }} className="h-9 w-full flex items-center px-3 rounded-md bg-muted/50 border border-border text-sm font-medium text-foreground cursor-default select-none whitespace-nowrap" data-testid={`display-dynamic-${resolvedField.fieldKey}`}>
+                                                  {dynamicValues[resolvedField.fieldKey] === "muž" ? "Muž" : dynamicValues[resolvedField.fieldKey] === "žena" ? "Žena" : dynamicValues[resolvedField.fieldKey] || ""}
                                                 </div>
                                                 <div style={{ display: isRcAuto ? "none" : undefined }}>
-                                                  <Select value={dynamicValues[field.fieldKey] || ""} onValueChange={val => setDynamicValues(prev => ({ ...prev, [field.fieldKey]: val }))}>
-                                                    <SelectTrigger className={validationErrors.has(key) ? "border-red-500 ring-1 ring-red-500" : ""} data-testid={`select-dynamic-${field.fieldKey}`}>
+                                                  <Select value={dynamicValues[resolvedField.fieldKey] || ""} onValueChange={val => setDynamicValues(prev => ({ ...prev, [resolvedField.fieldKey]: val }))}>
+                                                    <SelectTrigger className={validationErrors.has(key) ? "border-red-500 ring-1 ring-red-500" : ""} data-testid={`select-dynamic-${resolvedField.fieldKey}`}>
                                                       <SelectValue placeholder="" />
                                                     </SelectTrigger>
                                                     <SelectContent>
-                                                      {(field.options || []).map((opt: string) => (
+                                                      {(resolvedField.options || []).map((opt: string) => (
                                                         <SelectItem key={opt} value={opt}>{opt === "muž" ? "Muž" : opt === "žena" ? "Žena" : opt}</SelectItem>
                                                       ))}
                                                     </SelectContent>
                                                   </Select>
                                                 </div>
                                               </>
-                                            ) : field.fieldType === "jedna_moznost" ? (
-                                              <Select value={dynamicValues[field.fieldKey] || ""} onValueChange={val => setDynamicValues(prev => ({ ...prev, [field.fieldKey]: val }))}>
-                                                <SelectTrigger className={validationErrors.has(key) ? "border-red-500 ring-1 ring-red-500" : ""} data-testid={`select-dynamic-${field.fieldKey}`}>
+                                            ) : resolvedField.fieldType === "jedna_moznost" ? (
+                                              <Select value={dynamicValues[resolvedField.fieldKey] || ""} onValueChange={val => setDynamicValues(prev => ({ ...prev, [resolvedField.fieldKey]: val }))}>
+                                                <SelectTrigger className={validationErrors.has(key) ? "border-red-500 ring-1 ring-red-500" : ""} data-testid={`select-dynamic-${resolvedField.fieldKey}`}>
                                                   <SelectValue placeholder="" />
                                                 </SelectTrigger>
                                                 <SelectContent>
-                                                  {(field.options || []).map((opt: string) => (
+                                                  {(resolvedField.options || []).map((opt: string) => (
                                                     <SelectItem key={opt} value={opt}>{opt}</SelectItem>
                                                   ))}
                                                 </SelectContent>
                                               </Select>
-                                            ) : field.fieldType === "date" ? (
+                                            ) : resolvedField.fieldType === "date" ? (
                                               (() => {
-                                                const dateVal = dynamicValues[field.fieldKey] || "";
+                                                const dateVal = dynamicValues[resolvedField.fieldKey] || "";
                                                 let validityClass = "";
                                                 let validityLabel = "";
-                                                if (field.fieldKey === "platnost_dokladu" && dateVal) {
+                                                if (resolvedField.fieldKey === "platnost_dokladu" && dateVal) {
                                                   const expiry = new Date(dateVal);
                                                   const now = new Date();
                                                   const threeMonths = new Date();
@@ -1675,17 +1675,17 @@ function FullPageEditor({
                                                     <Input
                                                       type="date"
                                                       value={dateVal}
-                                                      onChange={e => { if (isRcAuto) return; setDynamicValues(prev => ({ ...prev, [field.fieldKey]: e.target.value })); }}
+                                                      onChange={e => { if (isRcAuto) return; setDynamicValues(prev => ({ ...prev, [resolvedField.fieldKey]: e.target.value })); }}
                                                       readOnly={isRcAuto}
                                                       tabIndex={isRcAuto ? -1 : undefined}
                                                       className={cn(validationErrors.has(key) ? "border-red-500 ring-1 ring-red-500" : validityClass, isRcAuto && "bg-muted/50 cursor-default", validityLabel && "pr-[5.5rem]")}
-                                                      data-testid={`input-dynamic-${field.fieldKey}`}
+                                                      data-testid={`input-dynamic-${resolvedField.fieldKey}`}
                                                     />
                                                     {validityLabel && (
                                                       <span className={cn(
                                                         "absolute right-8 top-1/2 -translate-y-1/2 text-[10px] font-semibold pointer-events-none select-none",
                                                         validityLabel === "Neplatný" ? "text-red-500" : "text-orange-500"
-                                                      )} data-testid={`validity-status-${field.fieldKey}`}>
+                                                      )} data-testid={`validity-status-${resolvedField.fieldKey}`}>
                                                         {validityLabel}
                                                       </span>
                                                     )}
