@@ -1599,22 +1599,23 @@ function FullPageEditor({
                                                 {dynamicValues[field.fieldKey] ? `${dynamicValues[field.fieldKey]} rokov` : ""}
                                               </div>
                                             ) : field.fieldType === "jedna_moznost" && field.fieldKey === "pohlavie" ? (
-                                              isRcAuto ? (
-                                                <div className="h-9 w-full flex items-center px-3 rounded-md bg-muted/50 border border-border text-sm font-medium text-foreground cursor-default select-none whitespace-nowrap" data-testid={`select-dynamic-${field.fieldKey}`}>
+                                              <>
+                                                <div style={{ display: isRcAuto ? undefined : "none" }} className="h-9 w-full flex items-center px-3 rounded-md bg-muted/50 border border-border text-sm font-medium text-foreground cursor-default select-none whitespace-nowrap" data-testid={`display-dynamic-${field.fieldKey}`}>
                                                   {dynamicValues[field.fieldKey] === "muž" ? "Muž" : dynamicValues[field.fieldKey] === "žena" ? "Žena" : dynamicValues[field.fieldKey] || ""}
                                                 </div>
-                                              ) : (
-                                                <Select value={dynamicValues[field.fieldKey] || ""} onValueChange={val => setDynamicValues(prev => ({ ...prev, [field.fieldKey]: val }))}>
-                                                  <SelectTrigger className={validationErrors.has(key) ? "border-red-500 ring-1 ring-red-500" : ""} data-testid={`select-dynamic-${field.fieldKey}`}>
-                                                    <SelectValue placeholder="" />
-                                                  </SelectTrigger>
-                                                  <SelectContent>
-                                                    {(field.options || []).map((opt: string) => (
-                                                      <SelectItem key={opt} value={opt}>{opt === "muž" ? "Muž" : opt === "žena" ? "Žena" : opt}</SelectItem>
-                                                    ))}
-                                                  </SelectContent>
-                                                </Select>
-                                              )
+                                                <div style={{ display: isRcAuto ? "none" : undefined }}>
+                                                  <Select value={dynamicValues[field.fieldKey] || ""} onValueChange={val => setDynamicValues(prev => ({ ...prev, [field.fieldKey]: val }))}>
+                                                    <SelectTrigger className={validationErrors.has(key) ? "border-red-500 ring-1 ring-red-500" : ""} data-testid={`select-dynamic-${field.fieldKey}`}>
+                                                      <SelectValue placeholder="" />
+                                                    </SelectTrigger>
+                                                    <SelectContent>
+                                                      {(field.options || []).map((opt: string) => (
+                                                        <SelectItem key={opt} value={opt}>{opt === "muž" ? "Muž" : opt === "žena" ? "Žena" : opt}</SelectItem>
+                                                      ))}
+                                                    </SelectContent>
+                                                  </Select>
+                                                </div>
+                                              </>
                                             ) : field.fieldType === "date" ? (
                                               (() => {
                                                 const dateVal = dynamicValues[field.fieldKey] || "";
