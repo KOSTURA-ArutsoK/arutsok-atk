@@ -2033,6 +2033,13 @@ export default function Contracts() {
 
   const handlePreSelectConfirm = () => {
     if (!preSelectSubjectId) {
+      const selectedCt = activeClientTypes.find(ct => ct.id.toString() === preSelectClientTypeId);
+      const ctCode = selectedCt?.code || "";
+      const searchVal = preSelectSubjectSearch.trim();
+      const navParams = new URLSearchParams();
+      navParams.set("addNew", "true");
+      if (ctCode) navParams.set("clientType", ctCode);
+      if (searchVal) navParams.set("baseValue", searchVal);
       setPreSelectOpen(false);
       setPreSelectStep(1);
       setPreSelectPartnerId("");
@@ -2040,7 +2047,7 @@ export default function Contracts() {
       setPreSelectSubjectSearch("");
       setPreSelectSubjectId("");
       setPreSelectClientTypeId("");
-      navigate("/subjects?addNew=true");
+      navigate(`/subjects?${navParams.toString()}`);
       return;
     }
     const params = new URLSearchParams();

@@ -3168,15 +3168,9 @@ const SUBJECTS_FILTER_COLUMNS: SmartColumnDef[] = [
 
 export default function Subjects() {
   const [search, setSearch] = useState("");
-  const [isInitModalOpen, setIsInitModalOpen] = useState(() => {
-    const params = new URLSearchParams(window.location.search);
-    if (params.get("addNew") === "true") {
-      window.history.replaceState({}, "", window.location.pathname);
-      return true;
-    }
-    return false;
-  });
+  const [isInitModalOpen, setIsInitModalOpen] = useState(false);
   const [editData, setEditData] = useState<{ clientTypeCode: string; stateId: number; baseValue: string } | null>(null);
+  const [addNewHandled, setAddNewHandled] = useState(false);
   const [viewTarget, setViewTarget] = useState<Subject | null>(null);
   const [editTarget, setEditTarget] = useState<(Subject & { isOwner?: boolean }) | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
@@ -3196,6 +3190,21 @@ export default function Subjects() {
   const { data: clientTypes } = useQuery<ClientType[]>({ queryKey: ["/api/client-types"] });
   const { data: clientGroups } = useQuery<any[]>({ queryKey: ["/api/client-groups"] });
   const columnVisibility = useColumnVisibility("subjects", SUBJECTS_COLUMNS);
+
+  useEffect(() => {
+    if (addNewHandled) return;
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("addNew") !== "true") return;
+    window.history.replaceState({}, "", window.location.pathname);
+    setAddNewHandled(true);
+    const ctCode = params.get("clientType");
+    const bv = params.get("baseValue");
+    if (ctCode && bv && appUser?.activeStateId) {
+      setEditData({ clientTypeCode: ctCode, stateId: appUser.activeStateId, baseValue: bv });
+    } else {
+      setIsInitModalOpen(true);
+    }
+  }, [addNewHandled, appUser?.activeStateId]);
 
   function toggleFilter(category: SubjectStatusCategory) {
     setActiveFilters(prev => {
