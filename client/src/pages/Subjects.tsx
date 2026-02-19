@@ -1436,7 +1436,7 @@ function FullPageEditor({
                   { keys: ["titul_pred", "meno", "priezvisko", "titul_za"] },
                   { keys: ["rodne_priezvisko", "datum_narodenia", "vek", "pohlavie"] },
                   { keys: ["miesto_narodenia", "statna_prislusnost"] },
-                  { keys: ["typ_dokladu", "cislo_dokladu", "platnost_dokladu", "vydal_organ"] },
+                  { keys: ["typ_dokladu", "typ_dokladu_iny", "cislo_dokladu", "platnost_dokladu", "vydal_organ"] },
                 ];
 
                 const getFieldWidthClass = (fieldKey: string): string => {
@@ -1602,8 +1602,10 @@ function FullPageEditor({
                                       if (field) {
                                         return (
                                           <div key={key} className={cn("space-y-1 min-w-0", widthClass)}>
-                                            <Label className={`text-xs block ${validationErrors.has(key) ? "text-red-500" : "text-muted-foreground"}`}>
-                                              {field.shortLabel ? (
+                                            <Label className={`text-xs block ${key === "typ_dokladu_iny" ? "text-orange-500 font-semibold" : validationErrors.has(key) ? "text-red-500" : "text-muted-foreground"}`}>
+                                              {key === "typ_dokladu_iny" ? (
+                                                <span>Uveďte typ dokladu *</span>
+                                              ) : field.shortLabel ? (
                                                 <>
                                                   <span className="hidden lg:inline">{field.label || key}</span>
                                                   <span className="inline lg:hidden">{field.shortLabel}</span>
@@ -1611,7 +1613,7 @@ function FullPageEditor({
                                               ) : (
                                                 <span>{field.label || key}</span>
                                               )}
-                                              {field.isRequired ? " *" : ""}
+                                              {key !== "typ_dokladu_iny" && field.isRequired ? " *" : ""}
                                             </Label>
                                             {field.fieldType === "number" && field.fieldKey === "vek" ? (
                                               <div className="h-9 w-full flex items-center px-3 rounded-md bg-muted/50 border border-border text-sm font-medium text-foreground cursor-default select-none whitespace-nowrap" data-testid={`input-dynamic-${field.fieldKey}`}>
@@ -1686,6 +1688,14 @@ function FullPageEditor({
                                                   </div>
                                                 );
                                               })()
+                                            ) : key === "typ_dokladu_iny" ? (
+                                              <Input
+                                                placeholder="Napr. Preukaz diplomata"
+                                                value={dynamicValues[key] || ""}
+                                                onChange={e => setDynamicValues(prev => ({ ...prev, [key]: e.target.value }))}
+                                                className="border-orange-500 ring-1 ring-orange-500 bg-orange-500/5"
+                                                data-testid={`input-${key}`}
+                                              />
                                             ) : (
                                               <Input
                                                 placeholder=""
