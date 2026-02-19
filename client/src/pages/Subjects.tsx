@@ -3168,7 +3168,14 @@ const SUBJECTS_FILTER_COLUMNS: SmartColumnDef[] = [
 
 export default function Subjects() {
   const [search, setSearch] = useState("");
-  const [isInitModalOpen, setIsInitModalOpen] = useState(false);
+  const [isInitModalOpen, setIsInitModalOpen] = useState(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("addNew") === "true") {
+      window.history.replaceState({}, "", window.location.pathname);
+      return true;
+    }
+    return false;
+  });
   const [editData, setEditData] = useState<{ clientTypeCode: string; stateId: number; baseValue: string } | null>(null);
   const [viewTarget, setViewTarget] = useState<Subject | null>(null);
   const [editTarget, setEditTarget] = useState<(Subject & { isOwner?: boolean }) | null>(null);

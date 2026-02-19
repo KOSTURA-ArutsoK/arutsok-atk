@@ -2040,7 +2040,7 @@ export default function Contracts() {
       setPreSelectSubjectSearch("");
       setPreSelectSubjectId("");
       setPreSelectClientTypeId("");
-      navigate("/subjects");
+      navigate("/subjects?addNew=true");
       return;
     }
     const params = new URLSearchParams();
