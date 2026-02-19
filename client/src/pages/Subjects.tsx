@@ -165,20 +165,20 @@ function SubjectFinanceTab({ subject }: { subject: Subject }) {
 
   return (
     <div className="space-y-4">
-      <div className="grid grid-cols-[repeat(auto-fill,minmax(200px,1fr))] gap-x-4 gap-y-2">
-        <div className="max-w-[300px]">
+      <div className="flex flex-wrap gap-4 items-end">
+        <div className="flex-1 min-w-[140px]">
           <Label className="text-xs">KIK ID</Label>
           <Input value={kikId} onChange={(e) => setKikId(e.target.value)} placeholder="napr. KIK-001234" data-testid="input-kik-id" className="mt-1" />
         </div>
-        <div className="max-w-[300px]">
+        <div className="w-[100px] min-w-[80px] shrink-0">
           <Label className="text-xs">Uroven provizii</Label>
           <Input type="number" value={commissionLevel} onChange={(e) => setCommissionLevel(e.target.value)} placeholder="1-10" data-testid="input-commission-level" className="mt-1" />
         </div>
-        <div className="max-w-[300px]">
+        <div className="flex-1 min-w-[200px]">
           <Label className="text-xs">IBAN</Label>
           <Input value={iban} onChange={(e) => setIban(e.target.value)} placeholder="SK00 0000 0000 0000 0000 0000" data-testid="input-iban" className="mt-1" />
         </div>
-        <div className="max-w-[300px]">
+        <div className="w-[160px] min-w-[120px] shrink-0">
           <Label className="text-xs">SWIFT/BIC</Label>
           <Input value={swift} onChange={(e) => setSwift(e.target.value)} placeholder="napr. TATRSKBX" data-testid="input-swift" className="mt-1" />
         </div>
@@ -753,12 +753,12 @@ function SubjectDetailDialog({ subject, onClose }: { subject: Subject; onClose: 
 
           <TabsContent value="detail" className="mt-3">
             <div className="space-y-4">
-              <div className="grid grid-cols-[repeat(auto-fill,minmax(200px,1fr))] gap-x-4 gap-y-2">
-                <div className="max-w-[300px]">
+              <div className="flex flex-wrap gap-4 items-end">
+                <div className="flex-1 min-w-[140px]">
                   <span className="text-xs text-muted-foreground">Typ entity</span>
                   <p className="text-sm">{subject.type === 'person' ? 'Fyzicka osoba' : subject.type === 'szco' ? 'SZCO' : 'Pravnicka osoba'}</p>
                 </div>
-                <div className="max-w-[300px]">
+                <div className="flex-1 min-w-[140px]">
                   <span className="text-xs text-muted-foreground">Spravujuca firma</span>
                   <p className="text-sm">{(subject as any).companyName || managingCompany?.name || '-'}</p>
                 </div>
@@ -1395,8 +1395,8 @@ function FullPageEditor({
               <User className="w-4 h-4 text-primary" />
               <span className="text-sm font-semibold">Osobne udaje SZCO</span>
             </div>
-            <div className="grid grid-cols-[repeat(auto-fill,minmax(200px,1fr))] gap-x-4 gap-y-2">
-              <div className="space-y-1 max-w-[300px]">
+            <div className="flex flex-wrap gap-4 items-end">
+              <div className="space-y-1 flex-1 min-w-[150px]">
                 <Label className="text-xs">Meno *</Label>
                 <Input
                   value={szcoPersonalData.firstName}
@@ -1404,7 +1404,7 @@ function FullPageEditor({
                   data-testid="input-szco-firstname"
                 />
               </div>
-              <div className="space-y-1 max-w-[300px]">
+              <div className="space-y-1 flex-1 min-w-[150px]">
                 <Label className="text-xs">Priezvisko *</Label>
                 <Input
                   value={szcoPersonalData.lastName}
@@ -1412,15 +1412,15 @@ function FullPageEditor({
                   data-testid="input-szco-lastname"
                 />
               </div>
-            </div>
-            <div className="space-y-1">
-              <Label className="text-xs">Rodne cislo</Label>
-              <Input
-                value={szcoPersonalData.birthNumber}
-                onChange={e => setSzcoPersonalData(prev => ({ ...prev, birthNumber: e.target.value }))}
-                placeholder="XXXXXX/XXXX"
-                data-testid="input-szco-rc"
-              />
+              <div className="space-y-1 w-[180px] min-w-[140px] shrink-0">
+                <Label className="text-xs">Rodne cislo</Label>
+                <Input
+                  value={szcoPersonalData.birthNumber}
+                  onChange={e => setSzcoPersonalData(prev => ({ ...prev, birthNumber: e.target.value }))}
+                  placeholder="XXXXXX/XXXX"
+                  data-testid="input-szco-rc"
+                />
+              </div>
             </div>
           </CardContent>
         </Card>
@@ -1438,6 +1438,27 @@ function FullPageEditor({
                   { keys: ["miesto_narodenia", "statna_prislusnost"] },
                   { keys: ["typ_dokladu", "cislo_dokladu", "platnost_dokladu", "vydal_organ"] },
                 ];
+
+                const getFieldWidthClass = (fieldKey: string): string => {
+                  switch (fieldKey) {
+                    case "titul_pred":
+                    case "titul_za":
+                      return "w-[100px] min-w-[80px] shrink-0";
+                    case "vek":
+                      return "w-[80px] min-w-[60px] shrink-0";
+                    case "pohlavie":
+                      return "w-[130px] min-w-[100px] shrink-0";
+                    case "datum_narodenia":
+                    case "platnost_dokladu":
+                      return "w-[160px] min-w-[140px] shrink-0";
+                    case "meno":
+                    case "priezvisko":
+                    case "rodne_priezvisko":
+                      return "flex-1 min-w-[150px]";
+                    default:
+                      return "flex-1 min-w-[140px]";
+                  }
+                };
 
                 const ADDRESS_PANEL_FIELDS = {
                   tp: { label: "Adresa trvalého pobytu", keys: ["tp_ulica", "tp_supisne", "tp_orientacne", "tp_psc", "tp_mesto", "tp_stat"], requiredKeys: ["tp_ulica", "tp_orientacne", "tp_psc", "tp_mesto"] },
@@ -1484,23 +1505,23 @@ function FullPageEditor({
                           </div>
                         </AccordionTrigger>
                         <AccordionContent className="pb-4 space-y-2">
-                          <div className="grid grid-cols-[repeat(auto-fill,minmax(200px,1fr))] gap-x-4 gap-y-2" data-testid="row-system-fields">
-                            <div className="space-y-1 max-w-[300px]">
+                          <div className="flex flex-wrap gap-4 items-end" data-testid="row-system-fields">
+                            <div className="space-y-1 w-[200px] min-w-[160px] shrink-0">
                               <Label className="text-xs">Kód klienta</Label>
                               <Input value="Automaticky generovaný" disabled className="font-mono text-xs" data-testid="input-kod-klienta" />
                             </div>
-                            <div className="space-y-1 max-w-[300px]">
+                            <div className="space-y-1 w-[200px] min-w-[160px] shrink-0">
                               <Label className="text-xs">Typ klienta</Label>
                               <Input value={clientType?.name || "Fyzická osoba"} disabled data-testid="input-typ-klienta" />
                             </div>
-                            <div className="space-y-1 max-w-[300px]">
+                            <div className="space-y-1 flex-1 min-w-[180px]">
                               <Label className="text-xs">Identifikátor (Rodné číslo)</Label>
                               <Input value={initialData.baseValue} disabled className="font-mono" data-testid="input-identifikator" />
                             </div>
                           </div>
 
-                          <div className="grid grid-cols-[repeat(auto-fill,minmax(200px,1fr))] gap-x-4 gap-y-2" data-testid="row-ziskatel">
-                            <div className="space-y-1 max-w-[300px]">
+                          <div className="flex flex-wrap gap-4 items-end" data-testid="row-ziskatel">
+                            <div className="space-y-1 w-[250px] min-w-[200px]">
                               <Label className="text-xs">Získateľ</Label>
                               <Input
                                 value={appUser ? `${appUser.firstName || ""} ${appUser.lastName || ""}`.trim() || appUser.username : ""}
@@ -1518,12 +1539,10 @@ function FullPageEditor({
                                   .map(k => ({ key: k, field: povinneFields.find(f => f.fieldKey === k) }));
                                 const hasAny = rowEntries.some(e => e.field) || rowEntries.some(e => e.key === "statna_prislusnost");
                                 if (!hasAny || rowEntries.length === 0) return null;
-                                const colCount = rowEntries.length;
-                                const gridClass = "grid grid-cols-[repeat(auto-fill,minmax(200px,1fr))] gap-x-4 gap-y-2";
-                                void colCount;
                                 return (
-                                  <div key={rowIdx} className={gridClass} data-testid={`row-povinne-${rowIdx + 3}`}>
+                                  <div key={rowIdx} className="flex flex-wrap gap-4 items-end" data-testid={`row-povinne-${rowIdx + 3}`}>
                                     {rowEntries.map(({ key, field }) => {
+                                      const widthClass = getFieldWidthClass(key);
                                       if (key === "statna_prislusnost") {
                                         const label = field?.label || "Štátna príslušnosť";
                                         const shortLbl = field?.shortLabel;
@@ -1532,7 +1551,7 @@ function FullPageEditor({
                                         const prioritySet = new Set(PRIORITY_COUNTRIES);
                                         const restCountries = ALL_COUNTRIES.filter(c => !prioritySet.has(c));
                                         return (
-                                          <div key={key} className="space-y-1 min-w-0 max-w-[300px]">
+                                          <div key={key} className={cn("space-y-1 min-w-0", widthClass)}>
                                             <Label className={`text-xs block ${hasErr ? "text-red-500" : "text-muted-foreground"}`}>
                                               {shortLbl ? (
                                                 <>
@@ -1582,7 +1601,7 @@ function FullPageEditor({
                                       const isRcAuto = (key === "pohlavie" && !!rcParsedResult.pohlavie) || (key === "datum_narodenia" && !!rcParsedResult.datumNarodenia) || (key === "vek" && !!rcParsedResult.datumNarodenia);
                                       if (field) {
                                         return (
-                                          <div key={key} className="space-y-1 min-w-0 max-w-[300px]">
+                                          <div key={key} className={cn("space-y-1 min-w-0", widthClass)}>
                                             <Label className={`text-xs block ${validationErrors.has(key) ? "text-red-500" : "text-muted-foreground"}`}>
                                               {field.shortLabel ? (
                                                 <>
@@ -1669,7 +1688,7 @@ function FullPageEditor({
                                         );
                                       }
                                       return (
-                                        <div key={key} className="space-y-1 min-w-0">
+                                        <div key={key} className={cn("space-y-1 min-w-0", widthClass)}>
                                           <Label className={`text-xs block text-muted-foreground ${validationErrors.has(key) ? "text-red-500" : ""}`}>{key}</Label>
                                           <Input placeholder="" value={dynamicValues[key] || ""} onChange={e => setDynamicValues(prev => ({ ...prev, [key]: e.target.value }))} className={validationErrors.has(key) ? "border-red-500 ring-1 ring-red-500" : ""} data-testid={`input-${key}`} />
                                         </div>
@@ -1817,8 +1836,8 @@ function FullPageEditor({
                           <Card data-testid="panel-kontaktne-udaje">
                             <CardContent className="p-4 space-y-2">
                               <p className="text-sm font-semibold">Kontaktné údaje</p>
-                              <div className="grid grid-cols-[repeat(auto-fill,minmax(200px,1fr))] gap-x-4 gap-y-2" data-testid="row-kontakt-fields">
-                                <div className="space-y-1 min-w-0 max-w-[300px]">
+                              <div className="flex flex-wrap gap-4 items-end" data-testid="row-kontakt-fields">
+                                <div className="space-y-1 w-[200px] min-w-[160px] shrink-0">
                                   <Label className="text-xs block text-muted-foreground">Tel. číslo (primárne) *</Label>
                                   <InternationalPhoneInput
                                     value={dynamicValues["telefon"] || ""}
@@ -1828,7 +1847,7 @@ function FullPageEditor({
                                   />
                                 </div>
                                 {povinneRemainder.map(field => (
-                                  <div key={field.id} className="min-w-0">
+                                  <div key={field.id} className="min-w-0 flex-1 min-w-[140px]">
                                     <DynamicFieldInput field={field} dynamicValues={dynamicValues} setDynamicValues={setDynamicValues} hasError={validationErrors.has(field.fieldKey)} />
                                   </div>
                                 ))}
@@ -1857,12 +1876,21 @@ function FullPageEditor({
                                 {groups.map(({ section, fields }) => (
                                   <div key={section.id} className="space-y-2">
                                     <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide border-b border-border pb-1" style={{ display: groups.length > 1 ? 'block' : 'none' }}>{section.name}</p>
-                                    <div className="grid grid-cols-[repeat(auto-fill,minmax(200px,1fr))] gap-x-4 gap-y-2">
-                                      {fields.map((field: StaticField) => (
-                                        <div key={field.id} className="min-w-0 max-w-[300px]">
-                                          <DynamicFieldInput field={field} dynamicValues={dynamicValues} setDynamicValues={setDynamicValues} hasError={validationErrors.has(field.fieldKey)} />
-                                        </div>
-                                      ))}
+                                    <div className="flex flex-wrap gap-4 items-end">
+                                      {fields.map((field: StaticField) => {
+                                        const fk = field.fieldKey;
+                                        let wCls = "flex-1 min-w-[140px]";
+                                        if (fk === "titul_pred" || fk === "titul_za") wCls = "w-[100px] min-w-[80px] shrink-0";
+                                        else if (fk === "vek") wCls = "w-[80px] min-w-[60px] shrink-0";
+                                        else if (fk === "pohlavie") wCls = "w-[130px] min-w-[100px] shrink-0";
+                                        else if (fk === "datum_narodenia" || fk === "platnost_dokladu") wCls = "w-[160px] min-w-[140px] shrink-0";
+                                        else if (fk === "meno" || fk === "priezvisko" || fk === "rodne_priezvisko") wCls = "flex-1 min-w-[150px]";
+                                        return (
+                                          <div key={field.id} className={cn("min-w-0", wCls)}>
+                                            <DynamicFieldInput field={field} dynamicValues={dynamicValues} setDynamicValues={setDynamicValues} hasError={validationErrors.has(field.fieldKey)} />
+                                          </div>
+                                        );
+                                      })}
                                     </div>
                                   </div>
                                 ))}
@@ -1890,16 +1918,16 @@ function FullPageEditor({
                     <Input value={initialData.baseValue} disabled className="mt-1" data-testid="input-ico-locked" />
                   </div>
 
-                  <div className="grid grid-cols-[repeat(auto-fill,minmax(200px,1fr))] gap-x-4 gap-y-2">
+                  <div className="flex flex-wrap gap-4 items-end">
                     <FormField control={form.control} name="email" render={({ field }) => (
-                      <FormItem className="max-w-[300px]">
+                      <FormItem className="flex-1 min-w-[180px]">
                         <FormLabel>Email</FormLabel>
                         <FormControl><Input type="email" {...field} value={field.value || ""} data-testid="input-subject-email" /></FormControl>
                         <FormMessage />
                       </FormItem>
                     )} />
                     <FormField control={form.control} name="phone" render={({ field }) => (
-                      <FormItem className="max-w-[300px]">
+                      <FormItem className="w-[200px] min-w-[160px] shrink-0">
                         <FormLabel>Telefón</FormLabel>
                         <FormControl><Input type="tel" {...field} value={field.value || ""} data-testid="input-subject-phone" /></FormControl>
                         <FormMessage />
@@ -1946,12 +1974,21 @@ function FullPageEditor({
                                     {groups.map(({ section, fields }) => (
                                       <div key={section.id} className="space-y-2">
                                         <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide border-b border-border pb-1" style={{ display: groups.length > 1 ? 'block' : 'none' }}>{section.name}</p>
-                                        <div className="grid grid-cols-[repeat(auto-fill,minmax(200px,1fr))] gap-x-4 gap-y-2">
-                                          {fields.map((field: StaticField) => (
-                                            <div key={field.id} className="min-w-0 max-w-[300px]">
-                                              <DynamicFieldInput field={field} dynamicValues={dynamicValues} setDynamicValues={setDynamicValues} hasError={validationErrors.has(field.fieldKey)} />
-                                            </div>
-                                          ))}
+                                        <div className="flex flex-wrap gap-4 items-end">
+                                          {fields.map((field: StaticField) => {
+                                            const fk = field.fieldKey;
+                                            let wCls = "flex-1 min-w-[140px]";
+                                            if (fk === "titul_pred" || fk === "titul_za") wCls = "w-[100px] min-w-[80px] shrink-0";
+                                            else if (fk === "vek") wCls = "w-[80px] min-w-[60px] shrink-0";
+                                            else if (fk === "pohlavie") wCls = "w-[130px] min-w-[100px] shrink-0";
+                                            else if (fk === "datum_narodenia" || fk === "platnost_dokladu") wCls = "w-[160px] min-w-[140px] shrink-0";
+                                            else if (fk === "meno" || fk === "priezvisko" || fk === "rodne_priezvisko") wCls = "flex-1 min-w-[150px]";
+                                            return (
+                                              <div key={field.id} className={cn("min-w-0", wCls)}>
+                                                <DynamicFieldInput field={field} dynamicValues={dynamicValues} setDynamicValues={setDynamicValues} hasError={validationErrors.has(field.fieldKey)} />
+                                              </div>
+                                            );
+                                          })}
                                         </div>
                                       </div>
                                     ))}
@@ -2160,18 +2197,18 @@ function SubjectEditModal({ subject, onClose }: { subject: Subject & { isOwner?:
                 <Lock className="w-3.5 h-3.5 text-muted-foreground" />
                 <span className="text-xs font-medium text-muted-foreground">NEEDITOVATELNE POLIA</span>
               </div>
-              <div className="grid grid-cols-[repeat(auto-fill,minmax(200px,1fr))] gap-x-4 gap-y-2">
-                <div className="max-w-[300px]">
+              <div className="flex flex-wrap gap-4 items-end">
+                <div className="w-[200px] min-w-[160px] shrink-0">
                   <Label className="text-xs text-muted-foreground">UID</Label>
                   <Input value={subject.uid} disabled className="mt-1 font-mono text-xs" data-testid="input-edit-uid-locked" />
                 </div>
                 {isPerson ? (
-                  <div>
+                  <div className="w-[200px] min-w-[160px] shrink-0">
                     <Label className="text-xs text-muted-foreground">Rodne cislo (RC)</Label>
                     <Input value={subject.birthNumber || ""} disabled className="mt-1" data-testid="input-edit-rc-locked" />
                   </div>
                 ) : (
-                  <div>
+                  <div className="w-[200px] min-w-[160px] shrink-0">
                     <Label className="text-xs text-muted-foreground">ICO</Label>
                     <Input value={details.ico || ""} disabled className="mt-1" data-testid="input-edit-ico-locked" />
                   </div>
@@ -2336,25 +2373,22 @@ function SubjectEditModal({ subject, onClose }: { subject: Subject & { isOwner?:
                                     <div className="space-y-2">
                                       {sortedRowKeys.map(rowNum => {
                                         const rowFields = rows.get(rowNum)!;
-                                        const hasCustomWidths = rowFields.some(f => ((f as any).widthPercent ?? 100) !== 100);
-                                        if (hasCustomWidths) {
-                                          return (
-                                            <div key={rowNum} className="grid grid-cols-[repeat(auto-fill,minmax(200px,1fr))] gap-x-4 gap-y-2">
-                                              {rowFields.map((field: StaticField) => (
-                                                <div key={field.id} className="min-w-0 max-w-[300px]">
+                                        return (
+                                          <div key={rowNum} className="flex flex-wrap gap-4 items-end">
+                                            {rowFields.map((field: StaticField) => {
+                                              const fk = field.fieldKey;
+                                              let wCls = "flex-1 min-w-[140px]";
+                                              if (fk === "titul_pred" || fk === "titul_za") wCls = "w-[100px] min-w-[80px] shrink-0";
+                                              else if (fk === "vek") wCls = "w-[80px] min-w-[60px] shrink-0";
+                                              else if (fk === "pohlavie") wCls = "w-[130px] min-w-[100px] shrink-0";
+                                              else if (fk === "datum_narodenia" || fk === "platnost_dokladu") wCls = "w-[160px] min-w-[140px] shrink-0";
+                                              else if (fk === "meno" || fk === "priezvisko" || fk === "rodne_priezvisko") wCls = "flex-1 min-w-[150px]";
+                                              return (
+                                                <div key={field.id} className={cn("min-w-0", wCls)}>
                                                   <DynamicFieldInput field={field} dynamicValues={dynamicValues} setDynamicValues={setDynamicValues} />
                                                 </div>
-                                              ))}
-                                            </div>
-                                          );
-                                        }
-                                        return (
-                                          <div key={rowNum} className="grid grid-cols-[repeat(auto-fill,minmax(200px,1fr))] gap-x-4 gap-y-2">
-                                            {rowFields.map((field: StaticField) => (
-                                              <div key={field.id} className="min-w-0 max-w-[300px]">
-                                                <DynamicFieldInput field={field} dynamicValues={dynamicValues} setDynamicValues={setDynamicValues} />
-                                              </div>
-                                            ))}
+                                              );
+                                            })}
                                           </div>
                                         );
                                       })}
