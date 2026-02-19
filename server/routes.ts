@@ -797,7 +797,6 @@ export async function registerRoutes(
       isActive: req.query.isActive === 'true' ? true : req.query.isActive === 'false' ? false : undefined,
     };
     let allSubjects = await storage.getSubjects(params);
-    allSubjects = await enrichSubjectsWithFoData(allSubjects);
 
     const enforcedState = getEnforcedStateId(req);
     if (enforcedState) {
@@ -853,9 +852,8 @@ export async function registerRoutes(
   }
 
   app.get(api.subjects.get.path, async (req: any, res) => {
-    let subject = await storage.getSubject(Number(req.params.id));
+    const subject = await storage.getSubject(Number(req.params.id));
     if (!subject) return res.status(404).json({ message: "Subject not found" });
-    subject = await enrichSzcoWithFoData(subject);
     res.json(maskSubjectBirthNumber(subject, req.appUser));
   });
 
@@ -875,58 +873,6 @@ export async function registerRoutes(
       return { ...subject, birthNumber: decrypted || "***" };
     }
     return { ...subject, birthNumber: "***" };
-  }
-
-  async function enrichSzcoWithFoData(subject: any): Promise<any> {
-    if (!subject || subject.type !== 'szco' || !subject.linkedFoId) return subject;
-    const linkedFo = await storage.getSubject(subject.linkedFoId);
-    if (!linkedFo) return subject;
-    return {
-      ...subject,
-      firstName: linkedFo.firstName,
-      lastName: linkedFo.lastName,
-      birthNumber: linkedFo.birthNumber,
-      idCardNumber: linkedFo.idCardNumber,
-      linkedFo: {
-        id: linkedFo.id,
-        uid: linkedFo.uid,
-        firstName: linkedFo.firstName,
-        lastName: linkedFo.lastName,
-        email: linkedFo.email,
-        phone: linkedFo.phone,
-      },
-    };
-  }
-
-  async function enrichSubjectsWithFoData(subjectsList: any[]): Promise<any[]> {
-    const szcoSubjects = subjectsList.filter(s => s.type === 'szco' && s.linkedFoId);
-    if (szcoSubjects.length === 0) return subjectsList;
-    const foIds = [...new Set(szcoSubjects.map(s => s.linkedFoId))];
-    const foMap = new Map<number, any>();
-    for (const foId of foIds) {
-      const fo = await storage.getSubject(foId);
-      if (fo) foMap.set(foId, fo);
-    }
-    return subjectsList.map(s => {
-      if (s.type !== 'szco' || !s.linkedFoId) return s;
-      const fo = foMap.get(s.linkedFoId);
-      if (!fo) return s;
-      return {
-        ...s,
-        firstName: fo.firstName,
-        lastName: fo.lastName,
-        birthNumber: fo.birthNumber,
-        idCardNumber: fo.idCardNumber,
-        linkedFo: {
-          id: fo.id,
-          uid: fo.uid,
-          firstName: fo.firstName,
-          lastName: fo.lastName,
-          email: fo.email,
-          phone: fo.phone,
-        },
-      };
-    });
   }
 
   app.get("/api/subjects/search-fo", isAuthenticated, async (req: any, res) => {
@@ -1033,48 +979,12 @@ export async function registerRoutes(
       }
 
       if (input.type === 'szco') {
-        let foId = input.linkedFoId;
-
-        if (!foId && input.birthNumber) {
-          const encBn = encryptField(input.birthNumber);
-          const companyId = req.appUser?.activeCompanyId;
-          const allSubjects = await storage.getSubjects(companyId);
-          const existingFo = allSubjects.find(s => {
-            if (s.type !== 'person' || s.deletedAt) return false;
-            const decrypted = decryptField(s.birthNumber);
-            return decrypted === input.birthNumber;
-          });
-
-          if (existingFo) {
-            foId = existingFo.id;
-          } else {
-            const foInput: any = {
-              type: 'person',
-              firstName: input.firstName,
-              lastName: input.lastName,
-              birthNumber: encBn,
-              email: input.email,
-              phone: input.phone,
-              continentId: input.continentId,
-              stateId: input.stateId,
-              myCompanyId: input.myCompanyId,
-              registeredByUserId: input.registeredByUserId,
-              details: {},
-            };
-            const createdFo = await storage.createSubject(foInput);
-            await logAudit(req, { action: "CREATE", module: "subjekty", entityId: createdFo.id, entityName: `${createdFo.firstName} ${createdFo.lastName}`, newData: { ...foInput, birthNumber: '***' } });
-            foId = createdFo.id;
-          }
+        if (input.birthNumber) {
+          input.birthNumber = encryptField(input.birthNumber);
         }
-
-        input.linkedFoId = foId || null;
-        input.firstName = null;
-        input.lastName = null;
-        input.birthNumber = null;
-        input.idCardNumber = null;
-
+        input.linkedFoId = null;
         const created = await storage.createSubject(input);
-        await logAudit(req, { action: "CREATE", module: "subjekty", entityId: created.id, entityName: created.companyName || `SZCO #${created.uid}`, newData: { ...input, birthNumber: undefined } });
+        await logAudit(req, { action: "CREATE", module: "subjekty", entityId: created.id, entityName: created.companyName || `${created.firstName} ${created.lastName} - SZCO #${created.uid}`, newData: { ...input, birthNumber: undefined } });
         res.status(201).json(maskSubjectBirthNumber(created, req.appUser));
       } else {
         if (input.birthNumber) {

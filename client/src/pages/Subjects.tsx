@@ -6,7 +6,7 @@ import { useAppUser } from "@/hooks/use-app-user";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, Search, User, Building2, AlertTriangle, Eye, Calendar, Briefcase, ArrowRight, ArrowLeft, ExternalLink, History, Clock, Wallet, Loader2, CheckCircle2, Pencil, Lock, Users, X, Info } from "lucide-react";
+import { Plus, Search, User, Building2, AlertTriangle, Eye, Calendar, Briefcase, ArrowRight, ArrowLeft, ExternalLink, History, Clock, Wallet, Loader2, CheckCircle2, Pencil, Lock, Users, X, Info, Link2, Unlink } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -420,6 +420,226 @@ function SubjectDataTab({ subject }: { subject: Subject }) {
   );
 }
 
+type EnrichedEntityLink = {
+  id: number;
+  sourceId: number;
+  targetId: number;
+  dateFrom: string;
+  dateTo: string | null;
+  createdAt: string;
+  source: { id: number; uid: string; type: string; firstName: string | null; lastName: string | null; companyName: string | null; email: string | null } | null;
+  target: { id: number; uid: string; type: string; firstName: string | null; lastName: string | null; companyName: string | null; email: string | null } | null;
+};
+
+function getSubjectLabel(s: { type: string; firstName: string | null; lastName: string | null; companyName: string | null } | null) {
+  if (!s) return "Neznamy subjekt";
+  if (s.type === 'person' || s.type === 'szco') return `${s.lastName || ''}, ${s.firstName || ''}`.trim().replace(/^,\s*/, '').replace(/,\s*$/, '') || 'Bez mena';
+  return s.companyName || 'Bez nazvu';
+}
+
+function EntityLinksTab({ subject }: { subject: Subject }) {
+  const { toast } = useToast();
+  const [showAddDialog, setShowAddDialog] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchResults, setSearchResults] = useState<any[]>([]);
+  const [searching, setSearching] = useState(false);
+
+  const { data: links, isLoading } = useQuery<EnrichedEntityLink[]>({
+    queryKey: ['/api/entity-links', subject.id],
+  });
+
+  const closeMutation = useMutation({
+    mutationFn: async (linkId: number) => {
+      await apiRequest("PATCH", `/api/entity-links/${linkId}/close`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/entity-links', subject.id] });
+      toast({ title: "Prepojenie ukoncene" });
+    },
+    onError: () => {
+      toast({ title: "Chyba", description: "Nepodarilo sa ukoncit prepojenie", variant: "destructive" });
+    },
+  });
+
+  const createMutation = useMutation({
+    mutationFn: async (targetId: number) => {
+      await apiRequest("POST", "/api/entity-links", { sourceId: subject.id, targetId });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/entity-links', subject.id] });
+      setShowAddDialog(false);
+      setSearchQuery("");
+      setSearchResults([]);
+      toast({ title: "Prepojenie vytvorene" });
+    },
+    onError: (err: any) => {
+      toast({ title: "Chyba", description: err?.message || "Nepodarilo sa vytvorit prepojenie", variant: "destructive" });
+    },
+  });
+
+  const handleSearch = useCallback(async (q: string) => {
+    setSearchQuery(q);
+    if (q.length < 2) { setSearchResults([]); return; }
+    setSearching(true);
+    try {
+      const res = await fetch(`/api/subjects/search?q=${encodeURIComponent(q)}`);
+      const data = await res.json();
+      setSearchResults((data || []).filter((s: any) => s.id !== subject.id));
+    } catch { setSearchResults([]); }
+    finally { setSearching(false); }
+  }, [subject.id]);
+
+  const activeLinks = (links || []).filter(l => !l.dateTo);
+  const historicLinks = (links || []).filter(l => l.dateTo);
+
+  const getOtherSubject = (link: EnrichedEntityLink) => {
+    return link.sourceId === subject.id ? link.target : link.source;
+  };
+
+  const formatDate = (d: string | null) => d ? new Date(d).toLocaleDateString("sk-SK") : null;
+
+  if (isLoading) return <p className="text-sm text-muted-foreground text-center py-6">Nacitavam prepojenia...</p>;
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between gap-2 flex-wrap">
+        <div className="flex items-center gap-2">
+          <Link2 className="w-4 h-4 text-primary" />
+          <h3 className="text-sm font-semibold">Vztahy a prepojenia</h3>
+        </div>
+        <Button size="sm" variant="outline" onClick={() => setShowAddDialog(true)} data-testid="button-add-entity-link">
+          <Plus className="w-3.5 h-3.5 mr-1" />
+          Pridat prepojenie
+        </Button>
+      </div>
+
+      <div>
+        <div className="flex items-center gap-2 mb-2">
+          <Badge variant="default">Aktualne</Badge>
+          <span className="text-xs text-muted-foreground">({activeLinks.length})</span>
+        </div>
+        {activeLinks.length === 0 ? (
+          <p className="text-sm text-muted-foreground py-3 text-center" data-testid="text-no-active-links">Ziadne aktivne prepojenia</p>
+        ) : (
+          <div className="space-y-2">
+            {activeLinks.map(link => {
+              const other = getOtherSubject(link);
+              return (
+                <Card key={link.id}>
+                  <CardContent className="p-3">
+                    <div className="flex items-center justify-between gap-2 flex-wrap">
+                      <div className="flex items-center gap-2 min-w-0">
+                        {other?.type === 'person' || other?.type === 'szco'
+                          ? <User className="w-4 h-4 text-muted-foreground flex-shrink-0" />
+                          : <Building2 className="w-4 h-4 text-muted-foreground flex-shrink-0" />}
+                        <div className="min-w-0">
+                          <p className="text-sm font-medium truncate" data-testid={`text-link-name-${link.id}`}>{getSubjectLabel(other)}</p>
+                          <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                            <span className="font-mono">{other?.uid}</span>
+                            <span>od {formatDate(link.dateFrom)}</span>
+                          </div>
+                        </div>
+                      </div>
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        onClick={() => closeMutation.mutate(link.id)}
+                        disabled={closeMutation.isPending}
+                        data-testid={`button-close-link-${link.id}`}
+                      >
+                        <Unlink className="w-4 h-4 text-destructive" />
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              );
+            })}
+          </div>
+        )}
+      </div>
+
+      {historicLinks.length > 0 && (
+        <div>
+          <Separator className="my-3" />
+          <div className="flex items-center gap-2 mb-2">
+            <Badge variant="secondary">Historia</Badge>
+            <span className="text-xs text-muted-foreground">({historicLinks.length})</span>
+          </div>
+          <div className="space-y-2">
+            {historicLinks.map(link => {
+              const other = getOtherSubject(link);
+              return (
+                <Card key={link.id}>
+                  <CardContent className="p-3 opacity-60">
+                    <div className="flex items-center gap-2 min-w-0">
+                      {other?.type === 'person' || other?.type === 'szco'
+                        ? <User className="w-4 h-4 text-muted-foreground flex-shrink-0" />
+                        : <Building2 className="w-4 h-4 text-muted-foreground flex-shrink-0" />}
+                      <div className="min-w-0">
+                        <p className="text-sm font-medium truncate" data-testid={`text-link-history-name-${link.id}`}>{getSubjectLabel(other)}</p>
+                        <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                          <span className="font-mono">{other?.uid}</span>
+                          <span>{formatDate(link.dateFrom)} - {formatDate(link.dateTo)}</span>
+                        </div>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      <Dialog open={showAddDialog} onOpenChange={setShowAddDialog}>
+        <DialogContent size="md">
+          <DialogHeader>
+            <DialogTitle>Pridat prepojenie</DialogTitle>
+            <DialogDescription>Vyhladajte subjekt pre vytvorenie prepojenia</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3 p-4">
+            <Input
+              placeholder="Hladat podla mena, UID, emailu..."
+              value={searchQuery}
+              onChange={(e) => handleSearch(e.target.value)}
+              data-testid="input-search-entity-link"
+            />
+            {searching && <p className="text-xs text-muted-foreground">Hladam...</p>}
+            {searchResults.length > 0 && (
+              <div className="max-h-48 overflow-y-auto space-y-1">
+                {searchResults.map((s: any) => (
+                  <div
+                    key={s.id}
+                    className="flex items-center justify-between gap-2 p-2 rounded-md hover-elevate cursor-pointer"
+                    onClick={() => createMutation.mutate(s.id)}
+                    data-testid={`button-select-link-target-${s.id}`}
+                  >
+                    <div className="flex items-center gap-2 min-w-0">
+                      {s.type === 'person' || s.type === 'szco'
+                        ? <User className="w-4 h-4 text-muted-foreground" />
+                        : <Building2 className="w-4 h-4 text-muted-foreground" />}
+                      <div className="min-w-0">
+                        <p className="text-sm font-medium truncate">
+                          {s.type === 'company' ? (s.companyName || 'Bez nazvu') : `${s.lastName || ''}, ${s.firstName || ''}`}
+                        </p>
+                        <span className="text-xs text-muted-foreground font-mono">{s.uid}</span>
+                      </div>
+                    </div>
+                    <Plus className="w-4 h-4 text-primary flex-shrink-0" />
+                  </div>
+                ))}
+              </div>
+            )}
+            {searchQuery.length >= 2 && !searching && searchResults.length === 0 && (
+              <p className="text-sm text-muted-foreground text-center py-3">Ziadne vysledky</p>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}
+
 function SubjectDetailDialog({ subject, onClose }: { subject: Subject; onClose: () => void }) {
   const { data: careerHistory, isLoading } = useSubjectCareerHistory(subject.id);
   const { data: companies } = useMyCompanies();
@@ -480,6 +700,10 @@ function SubjectDetailDialog({ subject, onClose }: { subject: Subject; onClose: 
             <TabsTrigger value="financie" data-testid="tab-subject-financie">
               <Wallet className="w-3.5 h-3.5 mr-1" />
               Financie
+            </TabsTrigger>
+            <TabsTrigger value="vztahy" data-testid="tab-subject-vztahy">
+              <Link2 className="w-3.5 h-3.5 mr-1" />
+              Vztahy
             </TabsTrigger>
           </TabsList>
 
@@ -556,6 +780,10 @@ function SubjectDetailDialog({ subject, onClose }: { subject: Subject; onClose: 
 
           <TabsContent value="financie" className="mt-3">
             <SubjectFinanceTab subject={subject} />
+          </TabsContent>
+
+          <TabsContent value="vztahy" className="mt-3">
+            <EntityLinksTab subject={subject} />
           </TabsContent>
         </Tabs>
         </DialogScrollContent>
@@ -883,20 +1111,7 @@ function FullPageEditor({
   const state = allStates?.find(s => s.id === initialData.stateId);
 
   const isSzcoType = clientType?.code === 'SZCO';
-  const [selectedFo, setSelectedFo] = useState<any>(null);
-  const [foSearchQuery, setFoSearchQuery] = useState("");
-  const [szcoFoMode, setSzcoFoMode] = useState<"search" | "create">("search");
-  const [newFoData, setNewFoData] = useState({ firstName: "", lastName: "", birthNumber: "" });
-
-  const { data: foSearchResults } = useQuery<any[]>({
-    queryKey: ["/api/subjects/search-fo", foSearchQuery],
-    queryFn: async () => {
-      const res = await fetch(`/api/subjects/search-fo?q=${encodeURIComponent(foSearchQuery)}`, { credentials: "include" });
-      if (!res.ok) return [];
-      return res.json();
-    },
-    enabled: isSzcoType && foSearchQuery.length >= 2,
-  });
+  const [szcoPersonalData, setSzcoPersonalData] = useState({ firstName: "", lastName: "", birthNumber: "" });
 
   const [dynamicValues, setDynamicValuesRaw] = useState<Record<string, string>>({});
   const [validationErrors, setValidationErrors] = useState<Set<string>>(new Set());
@@ -1066,17 +1281,13 @@ function FullPageEditor({
     if (isPerson && dynamicValues.meno) submitData.firstName = dynamicValues.meno;
     if (isPerson && dynamicValues.priezvisko) submitData.lastName = dynamicValues.priezvisko;
     if (isSzcoType) {
-      if (selectedFo) {
-        submitData.linkedFoId = selectedFo.id;
-      } else if (szcoFoMode === "create") {
-        if (!newFoData.firstName || !newFoData.lastName || !newFoData.birthNumber) {
-          toast({ title: "Chybajuce osobne udaje FO", description: "Vyplnte meno, priezvisko a rodne cislo pre novu Fyzicku osobu.", variant: "destructive" });
-          return;
-        }
-        submitData.firstName = newFoData.firstName;
-        submitData.lastName = newFoData.lastName;
-        submitData.birthNumber = newFoData.birthNumber;
+      if (!szcoPersonalData.firstName || !szcoPersonalData.lastName) {
+        toast({ title: "Chybajuce osobne udaje", description: "Vyplnte meno a priezvisko pre SZCO.", variant: "destructive" });
+        return;
       }
+      submitData.firstName = szcoPersonalData.firstName;
+      submitData.lastName = szcoPersonalData.lastName;
+      if (szcoPersonalData.birthNumber) submitData.birthNumber = szcoPersonalData.birthNumber;
       submitData.type = "szco";
     }
     mutate(submitData, {
@@ -1104,92 +1315,36 @@ function FullPageEditor({
         <Card className="mb-4">
           <CardContent className="p-4 space-y-3">
             <div className="flex items-center gap-2 mb-2">
-              <Users className="w-4 h-4 text-blue-400" />
-              <span className="text-sm font-semibold">Prepojenie s Fyzickou osobou</span>
+              <User className="w-4 h-4 text-primary" />
+              <span className="text-sm font-semibold">Osobne udaje SZCO</span>
             </div>
-
-            {selectedFo ? (
-              <div className="flex items-center gap-3 p-3 rounded-md bg-blue-500/10 border border-blue-500/30">
-                <div className="flex-1">
-                  <p className="text-sm font-medium">{selectedFo.firstName} {selectedFo.lastName}</p>
-                  <p className="text-xs text-muted-foreground">{selectedFo.uid} | {selectedFo.email || 'Bez emailu'}</p>
-                </div>
-                <Button size="sm" variant="ghost" onClick={() => setSelectedFo(null)} data-testid="button-clear-fo">
-                  <X className="w-3 h-3" />
-                </Button>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <Label className="text-xs">Meno *</Label>
+                <Input
+                  value={szcoPersonalData.firstName}
+                  onChange={e => setSzcoPersonalData(prev => ({ ...prev, firstName: e.target.value }))}
+                  data-testid="input-szco-firstname"
+                />
               </div>
-            ) : szcoFoMode === "search" ? (
-              <div className="space-y-2">
-                <p className="text-xs text-muted-foreground">Vyhladajte existujucu Fyzicku osobu alebo vytvorte novu</p>
-                <div className="flex gap-2">
-                  <Input
-                    placeholder="Hladaj meno, priezvisko, RC, email..."
-                    value={foSearchQuery}
-                    onChange={e => setFoSearchQuery(e.target.value)}
-                    data-testid="input-fo-search"
-                  />
-                  <Button size="sm" variant="outline" onClick={() => setSzcoFoMode("create")} data-testid="button-create-new-fo">
-                    Nova FO
-                  </Button>
-                </div>
-                {foSearchResults && foSearchResults.length > 0 && (
-                  <div className="space-y-1 max-h-48 overflow-y-auto">
-                    {foSearchResults.map((fo: any) => (
-                      <div
-                        key={fo.id}
-                        className="flex items-center gap-3 p-2 rounded-md border border-border hover-elevate cursor-pointer"
-                        onClick={() => setSelectedFo(fo)}
-                        data-testid={`fo-result-${fo.id}`}
-                      >
-                        <div>
-                          <p className="text-sm font-medium">{fo.firstName} {fo.lastName}</p>
-                          <p className="text-xs text-muted-foreground">{fo.uid} | {fo.email || ''}</p>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-                {foSearchQuery.length >= 2 && foSearchResults && foSearchResults.length === 0 && (
-                  <p className="text-xs text-muted-foreground text-center py-2">Ziadne vysledky. Skuste vytvorit novu FO.</p>
-                )}
+              <div className="space-y-1">
+                <Label className="text-xs">Priezvisko *</Label>
+                <Input
+                  value={szcoPersonalData.lastName}
+                  onChange={e => setSzcoPersonalData(prev => ({ ...prev, lastName: e.target.value }))}
+                  data-testid="input-szco-lastname"
+                />
               </div>
-            ) : (
-              <div className="space-y-3">
-                <div className="flex items-center gap-2 justify-between">
-                  <p className="text-xs text-muted-foreground">Vyplnte osobne udaje novej Fyzickej osoby</p>
-                  <Button size="sm" variant="ghost" onClick={() => setSzcoFoMode("search")} data-testid="button-back-to-search">
-                    Spat na vyhladavanie
-                  </Button>
-                </div>
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="space-y-1">
-                    <Label className="text-xs">Meno *</Label>
-                    <Input
-                      value={newFoData.firstName}
-                      onChange={e => setNewFoData(prev => ({ ...prev, firstName: e.target.value }))}
-                      data-testid="input-new-fo-firstname"
-                    />
-                  </div>
-                  <div className="space-y-1">
-                    <Label className="text-xs">Priezvisko *</Label>
-                    <Input
-                      value={newFoData.lastName}
-                      onChange={e => setNewFoData(prev => ({ ...prev, lastName: e.target.value }))}
-                      data-testid="input-new-fo-lastname"
-                    />
-                  </div>
-                </div>
-                <div className="space-y-1">
-                  <Label className="text-xs">Rodne cislo *</Label>
-                  <Input
-                    value={newFoData.birthNumber}
-                    onChange={e => setNewFoData(prev => ({ ...prev, birthNumber: e.target.value }))}
-                    placeholder="XXXXXX/XXXX"
-                    data-testid="input-new-fo-rc"
-                  />
-                </div>
-              </div>
-            )}
+            </div>
+            <div className="space-y-1">
+              <Label className="text-xs">Rodne cislo</Label>
+              <Input
+                value={szcoPersonalData.birthNumber}
+                onChange={e => setSzcoPersonalData(prev => ({ ...prev, birthNumber: e.target.value }))}
+                placeholder="XXXXXX/XXXX"
+                data-testid="input-szco-rc"
+              />
+            </div>
           </CardContent>
         </Card>
       )}
