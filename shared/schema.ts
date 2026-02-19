@@ -8,6 +8,24 @@ export * from "./models/auth";
 export type LogoEntry = { name: string; url: string; uploadedAt: string; isPrimary: boolean; isArchived: boolean };
 export type DocEntry = { name: string; url: string; uploadedAt: string };
 
+export type DocumentEntry = {
+  id: string;
+  documentType: string;
+  customDocType?: string;
+  documentNumber: string;
+  validUntil?: string;
+  issuedBy?: string;
+  issuingAuthorityCode?: string;
+};
+
+export type ContactEntry = {
+  id: string;
+  type: "phone" | "email";
+  value: string;
+  label?: string;
+  isPrimary?: boolean;
+};
+
 // === GLOBAL COUNTER (for 12-digit UID generation) ===
 export const globalCounters = pgTable("global_counters", {
   id: serial("id").primaryKey(),
@@ -245,6 +263,7 @@ export const clientDocumentHistory = pgTable("client_document_history", {
   id: serial("id").primaryKey(),
   subjectId: integer("subject_id").notNull().references(() => subjects.id),
   documentType: text("document_type"),
+  customDocType: text("custom_doc_type"),
   documentNumber: text("document_number"),
   validUntil: text("valid_until"),
   issuedBy: text("issued_by"),

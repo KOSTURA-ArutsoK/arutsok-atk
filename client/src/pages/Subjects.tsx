@@ -7,7 +7,7 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { formatDateSlovak, formatDateTimeSlovak } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, Search, User, Building2, AlertTriangle, Eye, Calendar, Briefcase, ArrowRight, ArrowLeft, ExternalLink, History, Clock, Wallet, Loader2, CheckCircle2, Pencil, Lock, Users, X, Info, Link2, Unlink } from "lucide-react";
+import { Plus, Search, User, Building2, AlertTriangle, Eye, Calendar, Briefcase, ArrowRight, ArrowLeft, ExternalLink, History, Clock, Wallet, Loader2, CheckCircle2, Pencil, Lock, Users, X, Info, Link2, Unlink, Trash2, CreditCard, Archive } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -32,7 +32,7 @@ import {
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { insertSubjectSchema } from "@shared/schema";
-import type { Subject, ClientType, AuditLog } from "@shared/schema";
+import type { Subject, ClientType, AuditLog, DocumentEntry } from "@shared/schema";
 import { getFieldsForClientTypeId, getSectionsForClientTypeId, getPanelsForClientTypeId, getFieldsForType, getSectionsForType, getPanelsForType, type StaticField, type StaticSection, type StaticPanel } from "@/lib/staticFieldDefs";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
@@ -359,6 +359,46 @@ function SubjectDataTab({ subject }: { subject: Subject }) {
         })}
       </Accordion>
 
+      {(subject.type === 'person' || subject.type === 'szco') && (() => {
+        const docs: DocumentEntry[] = dynamicFields.documents || [];
+        if (docs.length === 0) return null;
+        return (
+          <Card data-testid="panel-view-doklady">
+            <CardContent className="p-4 space-y-3">
+              <div className="flex items-center gap-2">
+                <CreditCard className="w-4 h-4 text-primary" />
+                <p className="text-sm font-semibold">Doklady totožnosti</p>
+                <Badge variant="secondary" className="text-[10px]">{docs.length}</Badge>
+              </div>
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+                {docs.map((doc: DocumentEntry, idx: number) => {
+                  const expired = doc.validUntil ? new Date(doc.validUntil) < new Date() : false;
+                  const expSoon = doc.validUntil ? (() => { const d = new Date(doc.validUntil).getTime() - Date.now(); return d > 0 && d < 90 * 24 * 60 * 60 * 1000; })() : false;
+                  return (
+                    <div key={doc.id || idx} className={cn("p-3 rounded-md border", expired ? "border-red-500/50 bg-red-500/5" : expSoon ? "border-orange-500/50 bg-orange-500/5" : "border-border bg-muted/30")} data-testid={`view-document-card-${idx}`}>
+                      <div className="flex items-center gap-2 mb-2 flex-wrap">
+                        <span className="text-sm font-medium">{doc.documentType || '-'}</span>
+                        {doc.documentType === "Iný" && doc.customDocType && (
+                          <span className="text-xs text-muted-foreground">({doc.customDocType})</span>
+                        )}
+                        {expired && <Badge variant="destructive" className="text-[10px]">Expirovaný</Badge>}
+                        {expSoon && !expired && <Badge className="text-[10px] bg-orange-500/20 text-orange-400 border-orange-500/30">Expiruje čoskoro</Badge>}
+                      </div>
+                      <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs">
+                        <div><span className="text-muted-foreground">Číslo: </span><span className="font-medium">{doc.documentNumber || '-'}</span></div>
+                        {doc.validUntil && <div><span className="text-muted-foreground">Platnosť do: </span><span className={cn("font-medium", expired ? "text-red-500" : expSoon ? "text-orange-500" : "")}>{formatDateSlovak(doc.validUntil)}</span></div>}
+                        {doc.issuedBy && <div><span className="text-muted-foreground">Vydal: </span><span className="font-medium">{doc.issuedBy}</span></div>}
+                        {doc.issuingAuthorityCode && <div><span className="text-muted-foreground">Kód orgánu: </span><span className="font-medium">{doc.issuingAuthorityCode}</span></div>}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </CardContent>
+          </Card>
+        );
+      })()}
+
       {(subject.type === 'person' || subject.type === 'szco') && (
         <DocumentHistorySection subjectId={subject.id} />
       )}
@@ -422,6 +462,9 @@ function DocumentHistorySection({ subjectId }: { subjectId: number }) {
                     <div>
                       <span className="text-muted-foreground">Typ: </span>
                       <span className="font-medium">{entry.documentType || '-'}</span>
+                      {entry.customDocType && (
+                        <span className="text-muted-foreground ml-1">({entry.customDocType})</span>
+                      )}
                     </div>
                     <div>
                       <span className="text-muted-foreground">Cislo: </span>
@@ -1205,6 +1248,8 @@ function FullPageEditor({
   const [szcoPersonalData, setSzcoPersonalData] = useState({ firstName: "", lastName: "", birthNumber: "" });
 
   const [dynamicValues, setDynamicValuesRaw] = useState<Record<string, string>>({ korespond_rovnaka: "true", kontaktna_rovnaka: "true", tp_stat: DEFAULT_COUNTRY, ka_stat: DEFAULT_COUNTRY, koa_stat: DEFAULT_COUNTRY, sidlo_stat: DEFAULT_COUNTRY, vykon_stat: DEFAULT_COUNTRY });
+  const [documents, setDocuments] = useState<DocumentEntry[]>([]);
+  const [contacts, setContacts] = useState<ContactEntry[]>([{ id: crypto.randomUUID(), type: "phone", value: "", label: "Primárny", isPrimary: true }]);
   const [validationErrors, setValidationErrors] = useState<Set<string>>(new Set());
   const setDynamicValues: typeof setDynamicValuesRaw = (updater) => {
     setDynamicValuesRaw((prev) => {
@@ -1351,10 +1396,15 @@ function FullPageEditor({
 
     const processingTimeSec = Math.round((performance.now() - timerRef.current) / 1000);
     const existingDetails = (typeof data.details === "object" && data.details) ? data.details : {};
-    const mergedDetails = Object.keys(dynamicValues).length > 0
-      ? { ...(existingDetails as Record<string, any>), dynamicFields: dynamicValues }
+    const primaryPhone = contacts.find(c => c.type === "phone" && c.isPrimary)?.value || contacts.find(c => c.type === "phone")?.value || "";
+    const primaryEmail = contacts.find(c => c.type === "email" && c.isPrimary)?.value || contacts.find(c => c.type === "email")?.value || "";
+    const dynWithDocs = { ...dynamicValues, documents, contacts, telefon: primaryPhone };
+    const mergedDetails = Object.keys(dynWithDocs).length > 0
+      ? { ...(existingDetails as Record<string, any>), dynamicFields: dynWithDocs }
       : existingDetails;
     const submitData: any = { ...data, details: mergedDetails, processingTimeSec };
+    if (primaryPhone) submitData.phone = primaryPhone;
+    if (primaryEmail) submitData.email = primaryEmail;
     if (isPerson && dynamicValues.meno) submitData.firstName = dynamicValues.meno;
     if (isPerson && dynamicValues.priezvisko) submitData.lastName = dynamicValues.priezvisko;
     if (isSzcoType) {
@@ -1436,8 +1486,43 @@ function FullPageEditor({
                   { keys: ["titul_pred", "meno", "priezvisko", "titul_za"] },
                   { keys: ["rodne_priezvisko", "datum_narodenia", "vek", "pohlavie"] },
                   { keys: ["miesto_narodenia", "statna_prislusnost"] },
-                  { keys: ["typ_dokladu", "typ_dokladu_iny", "cislo_dokladu", "platnost_dokladu", "vydal_organ"] },
                 ];
+
+                const DOCUMENT_TYPES = ["Občiansky preukaz", "Cestovný pas", "Vodičský preukaz", "Povolenie na pobyt", "Preukaz diplomata", "Iný"];
+
+                const addNewDocument = () => {
+                  const newDoc: DocumentEntry = {
+                    id: crypto.randomUUID(),
+                    documentType: "",
+                    documentNumber: "",
+                    validUntil: "",
+                    issuedBy: "",
+                    issuingAuthorityCode: "",
+                  };
+                  setDocuments(prev => [...prev, newDoc]);
+                };
+
+                const updateDocument = (docId: string, field: keyof DocumentEntry, value: string) => {
+                  setDocuments(prev => prev.map(d => d.id === docId ? { ...d, [field]: value } : d));
+                };
+
+                const removeDocument = (docId: string) => {
+                  setDocuments(prev => prev.filter(d => d.id !== docId));
+                };
+
+                const isDocExpired = (validUntil?: string) => {
+                  if (!validUntil) return false;
+                  const exp = new Date(validUntil);
+                  return exp < new Date();
+                };
+
+                const isDocExpiringSoon = (validUntil?: string) => {
+                  if (!validUntil) return false;
+                  const exp = new Date(validUntil);
+                  const now = new Date();
+                  const diff = exp.getTime() - now.getTime();
+                  return diff > 0 && diff < 90 * 24 * 60 * 60 * 1000;
+                };
 
                 const getFieldWidthClass = (fieldKey: string): string => {
                   switch (fieldKey) {
@@ -1471,7 +1556,9 @@ function FullPageEditor({
                   ...ADDRESS_SWITCH_KEYS,
                 ]);
 
-                const allRowKeys = new Set(FO_POVINNE_ROWS.flatMap(r => r.keys).concat(Array.from(allAddressKeys)).concat(["telefon", "rodne_cislo"]));
+                const DOC_FIELD_KEYS = ["typ_dokladu", "typ_dokladu_iny", "cislo_dokladu", "platnost_dokladu", "vydal_organ", "kod_vydavajuceho_organu"];
+                const CONTACT_FIELD_KEYS = ["telefon", "email", "rodne_cislo"];
+                const allRowKeys = new Set(FO_POVINNE_ROWS.flatMap(r => r.keys).concat(Array.from(allAddressKeys)).concat(CONTACT_FIELD_KEYS).concat(DOC_FIELD_KEYS));
 
                 const povinneSection = typeSections?.find(s => (s as any).folderCategory === "povinne");
                 const povinneFields = (typeFields || [])
@@ -1725,6 +1812,123 @@ function FullPageEditor({
                             </CardContent>
                           </Card>
 
+                          <Card data-testid="panel-doklady-totoznosti">
+                            <CardContent className="p-4 space-y-3">
+                              <div className="flex items-center justify-between gap-2 flex-wrap">
+                                <div className="flex items-center gap-2">
+                                  <CreditCard className="w-4 h-4 text-primary" />
+                                  <p className="text-sm font-semibold">Doklady totožnosti</p>
+                                  <Badge variant="secondary" className="text-[10px]">{documents.length}</Badge>
+                                </div>
+                                <Button type="button" variant="outline" size="sm" onClick={addNewDocument} data-testid="button-add-document">
+                                  <Plus className="w-3 h-3 mr-1" />
+                                  Pridať doklad
+                                </Button>
+                              </div>
+
+                              {documents.length === 0 && (
+                                <div className="text-center py-6 text-muted-foreground" data-testid="text-no-documents">
+                                  <CreditCard className="w-8 h-8 mx-auto mb-2 opacity-30" />
+                                  <p className="text-sm">Žiadne doklady totožnosti</p>
+                                  <p className="text-xs">Kliknite "Pridať doklad" pre pridanie dokladu</p>
+                                </div>
+                              )}
+
+                              <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+                                {documents.map((doc, docIdx) => {
+                                  const expired = isDocExpired(doc.validUntil);
+                                  const expiringSoon = isDocExpiringSoon(doc.validUntil);
+                                  const borderColor = expired ? "border-red-500/50" : expiringSoon ? "border-orange-500/50" : "border-border";
+                                  return (
+                                    <Card key={doc.id} className={cn("relative", borderColor)} data-testid={`card-document-${docIdx}`}>
+                                      <CardContent className="p-3 space-y-2">
+                                        <div className="flex items-center justify-between gap-2 flex-wrap">
+                                          <div className="flex items-center gap-1.5">
+                                            {expired && <Badge variant="destructive" className="text-[10px]">Expirovaný</Badge>}
+                                            {expiringSoon && !expired && <Badge className="text-[10px] bg-orange-500/20 text-orange-400 border-orange-500/30">Expiruje čoskoro</Badge>}
+                                            {!expired && !expiringSoon && doc.validUntil && <Badge variant="secondary" className="text-[10px]">Platný</Badge>}
+                                          </div>
+                                          <Button type="button" variant="ghost" size="icon" onClick={() => removeDocument(doc.id)} data-testid={`button-remove-document-${docIdx}`}>
+                                            <Trash2 className="w-3.5 h-3.5 text-destructive" />
+                                          </Button>
+                                        </div>
+
+                                        <div className="flex flex-wrap gap-3 items-end">
+                                          <div className="space-y-1 flex-1 min-w-[140px]">
+                                            <Label className="text-xs text-muted-foreground">Typ dokladu *</Label>
+                                            <Select value={doc.documentType || ""} onValueChange={val => updateDocument(doc.id, "documentType", val)}>
+                                              <SelectTrigger data-testid={`select-doc-type-${docIdx}`}>
+                                                <SelectValue placeholder="Vyberte typ" />
+                                              </SelectTrigger>
+                                              <SelectContent>
+                                                {DOCUMENT_TYPES.map(t => (
+                                                  <SelectItem key={t} value={t}>{t}</SelectItem>
+                                                ))}
+                                              </SelectContent>
+                                            </Select>
+                                          </div>
+
+                                          {doc.documentType === "Iný" && (
+                                            <div className="space-y-1 flex-1 min-w-[140px]">
+                                              <Label className={cn("text-xs", !doc.customDocType ? "text-orange-500 font-semibold" : "text-muted-foreground")}>Špecifikácia dokladu *</Label>
+                                              <Input
+                                                value={doc.customDocType || ""}
+                                                onChange={e => updateDocument(doc.id, "customDocType", e.target.value)}
+                                                placeholder="Uveďte typ dokladu"
+                                                className={!doc.customDocType ? "border-orange-500/50" : ""}
+                                                data-testid={`input-doc-custom-type-${docIdx}`}
+                                              />
+                                            </div>
+                                          )}
+                                        </div>
+
+                                        <div className="flex flex-wrap gap-3 items-end">
+                                          <div className="space-y-1 flex-1 min-w-[140px]">
+                                            <Label className="text-xs text-muted-foreground">Číslo dokladu *</Label>
+                                            <Input
+                                              value={doc.documentNumber || ""}
+                                              onChange={e => updateDocument(doc.id, "documentNumber", e.target.value)}
+                                              data-testid={`input-doc-number-${docIdx}`}
+                                            />
+                                          </div>
+                                          <div className="space-y-1 w-[160px] min-w-[140px] shrink-0">
+                                            <Label className={cn("text-xs", expired ? "text-red-500 font-semibold" : expiringSoon ? "text-orange-500" : "text-muted-foreground")}>Platnosť do</Label>
+                                            <Input
+                                              type="date"
+                                              value={doc.validUntil || ""}
+                                              onChange={e => updateDocument(doc.id, "validUntil", e.target.value)}
+                                              className={expired ? "border-red-500/50" : expiringSoon ? "border-orange-500/50" : ""}
+                                              data-testid={`input-doc-valid-${docIdx}`}
+                                            />
+                                          </div>
+                                        </div>
+
+                                        <div className="flex flex-wrap gap-3 items-end">
+                                          <div className="space-y-1 flex-1 min-w-[140px]">
+                                            <Label className="text-xs text-muted-foreground">Vydávajúci orgán</Label>
+                                            <Input
+                                              value={doc.issuedBy || ""}
+                                              onChange={e => updateDocument(doc.id, "issuedBy", e.target.value)}
+                                              data-testid={`input-doc-issued-${docIdx}`}
+                                            />
+                                          </div>
+                                          <div className="space-y-1 flex-1 min-w-[120px]">
+                                            <Label className="text-xs text-muted-foreground">Kód orgánu</Label>
+                                            <Input
+                                              value={doc.issuingAuthorityCode || ""}
+                                              onChange={e => updateDocument(doc.id, "issuingAuthorityCode", e.target.value)}
+                                              data-testid={`input-doc-authority-${docIdx}`}
+                                            />
+                                          </div>
+                                        </div>
+                                      </CardContent>
+                                    </Card>
+                                  );
+                                })}
+                              </div>
+                            </CardContent>
+                          </Card>
+
                           {(() => {
                             const korRespondRovnaka = dynamicValues["korespond_rovnaka"] === "true";
                             const kontaktnaRovnaka = dynamicValues["kontaktna_rovnaka"] === "true";
@@ -1905,24 +2109,96 @@ function FullPageEditor({
                           })()}
 
                           <Card data-testid="panel-kontaktne-udaje">
-                            <CardContent className="p-4 space-y-2">
-                              <p className="text-sm font-semibold">Kontaktné údaje</p>
-                              <div className="flex flex-wrap gap-4 items-end" data-testid="row-kontakt-fields">
-                                <div className="space-y-1 w-[200px] min-w-[160px] shrink-0">
-                                  <Label className="text-xs block text-muted-foreground">Tel. číslo (primárne) *</Label>
-                                  <InternationalPhoneInput
-                                    value={dynamicValues["telefon"] || ""}
-                                    onChange={(val) => setDynamicValues(prev => ({ ...prev, telefon: val }))}
-                                    dialCode={allStates?.find(s => s.id === appUser?.activeStateId)?.code}
-                                    data-testid="input-telefon-primary"
-                                  />
+                            <CardContent className="p-4 space-y-3">
+                              <div className="flex items-center justify-between gap-2 flex-wrap">
+                                <div className="flex items-center gap-2">
+                                  <Users className="w-4 h-4 text-primary" />
+                                  <p className="text-sm font-semibold">Kontaktné údaje</p>
+                                  <Badge variant="secondary" className="text-[10px]">{contacts.length}</Badge>
                                 </div>
-                                {povinneRemainder.map(field => (
-                                  <div key={field.id} className="min-w-0 flex-1 min-w-[140px]">
-                                    <DynamicFieldInput field={field} dynamicValues={dynamicValues} setDynamicValues={setDynamicValues} hasError={validationErrors.has(field.fieldKey)} />
+                                <div className="flex items-center gap-1 flex-wrap">
+                                  <Button type="button" variant="outline" size="sm" onClick={() => setContacts(prev => [...prev, { id: crypto.randomUUID(), type: "phone", value: "", label: "" }])} data-testid="button-add-phone">
+                                    <Plus className="w-3 h-3 mr-1" />
+                                    Telefón
+                                  </Button>
+                                  <Button type="button" variant="outline" size="sm" onClick={() => setContacts(prev => [...prev, { id: crypto.randomUUID(), type: "email", value: "", label: "" }])} data-testid="button-add-email">
+                                    <Plus className="w-3 h-3 mr-1" />
+                                    Email
+                                  </Button>
+                                </div>
+                              </div>
+
+                              <div className="space-y-2">
+                                {contacts.map((contact, cIdx) => (
+                                  <div key={contact.id} className="flex flex-wrap gap-3 items-end p-2 rounded-md border border-border bg-muted/20" data-testid={`contact-row-${cIdx}`}>
+                                    <div className="space-y-1 w-[100px] min-w-[80px] shrink-0">
+                                      <Label className="text-xs text-muted-foreground">Typ</Label>
+                                      <Select value={contact.type} onValueChange={val => setContacts(prev => prev.map(c => c.id === contact.id ? { ...c, type: val as "phone" | "email" } : c))}>
+                                        <SelectTrigger data-testid={`select-contact-type-${cIdx}`}>
+                                          <SelectValue />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                          <SelectItem value="phone">Telefón</SelectItem>
+                                          <SelectItem value="email">Email</SelectItem>
+                                        </SelectContent>
+                                      </Select>
+                                    </div>
+                                    <div className="space-y-1 flex-1 min-w-[160px]">
+                                      <Label className="text-xs text-muted-foreground">{contact.type === "phone" ? "Telefónne číslo" : "Emailová adresa"} {contact.isPrimary ? "*" : ""}</Label>
+                                      {contact.type === "phone" ? (
+                                        <InternationalPhoneInput
+                                          value={contact.value}
+                                          onChange={val => setContacts(prev => prev.map(c => c.id === contact.id ? { ...c, value: val } : c))}
+                                          dialCode={allStates?.find(s => s.id === appUser?.activeStateId)?.code}
+                                          data-testid={`input-contact-value-${cIdx}`}
+                                        />
+                                      ) : (
+                                        <Input
+                                          type="email"
+                                          value={contact.value}
+                                          onChange={e => setContacts(prev => prev.map(c => c.id === contact.id ? { ...c, value: e.target.value } : c))}
+                                          placeholder="meno@priklad.sk"
+                                          data-testid={`input-contact-value-${cIdx}`}
+                                        />
+                                      )}
+                                    </div>
+                                    <div className="space-y-1 w-[120px] min-w-[100px] shrink-0">
+                                      <Label className="text-xs text-muted-foreground">Označenie</Label>
+                                      <Input
+                                        value={contact.label || ""}
+                                        onChange={e => setContacts(prev => prev.map(c => c.id === contact.id ? { ...c, label: e.target.value } : c))}
+                                        placeholder="napr. Osobný"
+                                        data-testid={`input-contact-label-${cIdx}`}
+                                      />
+                                    </div>
+                                    <div className="flex items-center gap-1 pb-0.5">
+                                      {!contact.isPrimary && (
+                                        <Button type="button" variant="ghost" size="icon" onClick={() => setContacts(prev => prev.map(c => ({ ...c, isPrimary: c.id === contact.id && c.type === contact.type })))} title="Nastaviť ako primárny" data-testid={`button-set-primary-${cIdx}`}>
+                                          <CheckCircle2 className="w-3.5 h-3.5 text-muted-foreground" />
+                                        </Button>
+                                      )}
+                                      {contact.isPrimary && (
+                                        <Badge variant="secondary" className="text-[10px]">Primárny</Badge>
+                                      )}
+                                      {contacts.length > 1 && (
+                                        <Button type="button" variant="ghost" size="icon" onClick={() => setContacts(prev => prev.filter(c => c.id !== contact.id))} data-testid={`button-remove-contact-${cIdx}`}>
+                                          <Trash2 className="w-3.5 h-3.5 text-destructive" />
+                                        </Button>
+                                      )}
+                                    </div>
                                   </div>
                                 ))}
                               </div>
+
+                              {povinneRemainder.length > 0 && (
+                                <div className="flex flex-wrap gap-4 items-end" data-testid="row-kontakt-fields-remainder">
+                                  {povinneRemainder.map(field => (
+                                    <div key={field.id} className="min-w-0 flex-1 min-w-[140px]">
+                                      <DynamicFieldInput field={field} dynamicValues={dynamicValues} setDynamicValues={setDynamicValues} hasError={validationErrors.has(field.fieldKey)} />
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
                             </CardContent>
                           </Card>
                         </AccordionContent>

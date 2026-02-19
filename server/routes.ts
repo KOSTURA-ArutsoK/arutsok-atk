@@ -1061,31 +1061,63 @@ export async function registerRoutes(
       const newDetails = (input.details as any) || {};
       const newDynamic = newDetails.dynamicFields || newDetails;
 
+      const oldDocuments: any[] = oldDynamic.documents || [];
+      const newDocuments: any[] = newDynamic.documents || [];
+
       const oldDocType = oldDynamic.typ_dokladu || "";
       const oldDocNumber = oldDynamic.cislo_dokladu || "";
       const oldDocValidity = oldDynamic.platnost_dokladu || "";
       const oldDocIssuedBy = oldDynamic.vydal_organ || "";
       const oldDocAuthority = oldDynamic.kod_vydavajuceho_organu || "";
+      const oldCustomDocType = oldDynamic.typ_dokladu_iny || "";
 
-      const newDocType = newDynamic.typ_dokladu;
-      const newDocNumber = newDynamic.cislo_dokladu;
+      if (oldDocuments.length > 0 || newDocuments.length > 0) {
+        const oldDocIds = new Set(oldDocuments.map((d: any) => d.id));
+        const newDocIds = new Set(newDocuments.map((d: any) => d.id));
+        
+        for (const oldDoc of oldDocuments) {
+          const newDoc = newDocuments.find((d: any) => d.id === oldDoc.id);
+          const removed = !newDocIds.has(oldDoc.id);
+          const changed = newDoc && (
+            newDoc.documentType !== oldDoc.documentType ||
+            newDoc.documentNumber !== oldDoc.documentNumber ||
+            newDoc.validUntil !== oldDoc.validUntil
+          );
+          if (removed || changed) {
+            await storage.createClientDocumentHistory({
+              subjectId,
+              documentType: oldDoc.documentType || null,
+              customDocType: oldDoc.customDocType || null,
+              documentNumber: oldDoc.documentNumber || null,
+              validUntil: oldDoc.validUntil || null,
+              issuedBy: oldDoc.issuedBy || null,
+              issuingAuthorityCode: oldDoc.issuingAuthorityCode || null,
+              archivedByUserId: appUser.id,
+            });
+          }
+        }
+      } else {
+        const newDocType = newDynamic.typ_dokladu;
+        const newDocNumber = newDynamic.cislo_dokladu;
 
-      const hasOldDocData = oldDocType || oldDocNumber || oldDocValidity;
-      const docChanged = hasOldDocData && (
-        (newDocType !== undefined && newDocType !== oldDocType) ||
-        (newDocNumber !== undefined && newDocNumber !== oldDocNumber)
-      );
+        const hasOldDocData = oldDocType || oldDocNumber || oldDocValidity;
+        const docChanged = hasOldDocData && (
+          (newDocType !== undefined && newDocType !== oldDocType) ||
+          (newDocNumber !== undefined && newDocNumber !== oldDocNumber)
+        );
 
-      if (docChanged) {
-        await storage.createClientDocumentHistory({
-          subjectId,
-          documentType: oldDocType || null,
-          documentNumber: oldDocNumber || null,
-          validUntil: oldDocValidity || null,
-          issuedBy: oldDocIssuedBy || null,
-          issuingAuthorityCode: oldDocAuthority || null,
-          archivedByUserId: appUser.id,
-        });
+        if (docChanged) {
+          await storage.createClientDocumentHistory({
+            subjectId,
+            documentType: oldDocType || null,
+            customDocType: oldCustomDocType || null,
+            documentNumber: oldDocNumber || null,
+            validUntil: oldDocValidity || null,
+            issuedBy: oldDocIssuedBy || null,
+            issuingAuthorityCode: oldDocAuthority || null,
+            archivedByUserId: appUser.id,
+          });
+        }
       }
 
       const updated = await storage.updateSubject(subjectId, input);
