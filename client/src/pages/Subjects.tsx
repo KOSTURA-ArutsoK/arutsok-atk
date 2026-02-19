@@ -1055,7 +1055,7 @@ function DynamicFieldInput({ field, dynamicValues, setDynamicValues, hasError, d
           disabled={disabled}
         >
           <SelectTrigger className={cn(errorBorder, disabled && "opacity-70")} data-testid={`select-dynamic-${field.fieldKey}`}>
-            <SelectValue placeholder="Vyberte..." />
+            <SelectValue placeholder="" />
           </SelectTrigger>
           <SelectContent>
             {(field.options || []).map((opt: string) => (
@@ -1414,9 +1414,9 @@ function FullPageEditor({
               {isPerson ? (() => {
                 const FO_POVINNE_ROWS: { keys: string[] }[] = [
                   { keys: ["titul_pred", "meno", "priezvisko", "titul_za"] },
-                  { keys: ["rodne_priezvisko", "pohlavie", "datum_narodenia"] },
-                  { keys: ["miesto_narodenia", "vek", "statna_prislusnost"] },
-                  { keys: ["typ_dokladu", "cislo_dokladu", "platnost_dokladu"] },
+                  { keys: ["rodne_priezvisko", "datum_narodenia", "vek", "pohlavie"] },
+                  { keys: ["miesto_narodenia", "statna_prislusnost"] },
+                  { keys: ["typ_dokladu", "cislo_dokladu", "platnost_dokladu", "vydal_organ"] },
                 ];
 
                 const ADDRESS_PANEL_FIELDS = {
@@ -1534,22 +1534,32 @@ function FullPageEditor({
                                 const hasAny = rowEntries.some(e => e.field) || rowEntries.some(e => e.key === "statna_prislusnost");
                                 if (!hasAny || rowEntries.length === 0) return null;
                                 return (
-                                  <div key={rowIdx + 1} className="flex flex-wrap gap-3" data-testid={`row-povinne-${rowIdx + 4}`}>
+                                  <div key={rowIdx + 1} className="flex flex-nowrap items-end gap-3" data-testid={`row-povinne-${rowIdx + 4}`}>
                                     {rowEntries.map(({ key, field }) => {
+                                      const wp = field?.widthPercent || 25;
                                       if (key === "statna_prislusnost") {
                                         const label = field?.label || "Štátna príslušnosť";
+                                        const shortLbl = field?.shortLabel;
                                         const isReq = field?.isRequired;
                                         const hasErr = validationErrors.has(key);
                                         const prioritySet = new Set(PRIORITY_COUNTRIES);
                                         const restCountries = ALL_COUNTRIES.filter(c => !prioritySet.has(c));
                                         return (
-                                          <div key={key} className="flex-1 min-w-[30%]">
+                                          <div key={key} style={{ flex: `0 1 ${wp}%`, minWidth: 0 }}>
                                             <div className="space-y-1">
-                                              <Label className={`text-xs text-muted-foreground ${hasErr ? "text-red-500" : ""}`}>{label}{isReq ? " *" : ""}</Label>
+                                              <Label className={`text-xs truncate block ${hasErr ? "text-red-500" : "text-muted-foreground"}`}>
+                                                {shortLbl ? (
+                                                  <>
+                                                    <span className="hidden lg:inline">{label}</span>
+                                                    <span className="inline lg:hidden">{shortLbl}</span>
+                                                  </>
+                                                ) : label}
+                                                {isReq ? " *" : ""}
+                                              </Label>
                                               <Popover>
                                                 <PopoverTrigger asChild>
                                                   <Button variant="outline" role="combobox" className={cn("w-full justify-between font-normal", hasErr && "border-red-500 ring-1 ring-red-500", !dynamicValues[key] && "text-muted-foreground")} data-testid="select-statna-prislusnost">
-                                                    {dynamicValues[key] || "Vyberte krajinu..."}
+                                                    {dynamicValues[key] || ""}
                                                     <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                                                   </Button>
                                                 </PopoverTrigger>
@@ -1585,14 +1595,14 @@ function FullPageEditor({
                                       const rcParsedResult = initialData.baseValue?.trim() ? parseRodneCislo(initialData.baseValue.trim()) : {};
                                       const isRcAuto = (key === "pohlavie" && !!rcParsedResult.pohlavie) || (key === "datum_narodenia" && !!rcParsedResult.datumNarodenia);
                                       return field ? (
-                                      <div key={key} className="flex-1 min-w-[30%]">
+                                      <div key={key} style={{ flex: `0 1 ${wp}%`, minWidth: 0 }}>
                                         <DynamicFieldInput field={field} dynamicValues={dynamicValues} setDynamicValues={setDynamicValues} hasError={validationErrors.has(field.fieldKey)} disabled={isRcAuto} />
                                       </div>
                                     ) : (
-                                      <div key={key} className="flex-1 min-w-[30%]">
+                                      <div key={key} style={{ flex: `0 1 ${wp}%`, minWidth: 0 }}>
                                         <div className="space-y-1">
-                                          <Label className={`text-xs text-muted-foreground ${validationErrors.has(key) ? "text-red-500" : ""}`}>{key}</Label>
-                                          <Input value={dynamicValues[key] || ""} onChange={e => setDynamicValues(prev => ({ ...prev, [key]: e.target.value }))} className={validationErrors.has(key) ? "border-red-500 ring-1 ring-red-500" : ""} data-testid={`input-${key}`} />
+                                          <Label className={`text-xs truncate block text-muted-foreground ${validationErrors.has(key) ? "text-red-500" : ""}`}>{key}</Label>
+                                          <Input placeholder="" value={dynamicValues[key] || ""} onChange={e => setDynamicValues(prev => ({ ...prev, [key]: e.target.value }))} className={validationErrors.has(key) ? "border-red-500 ring-1 ring-red-500" : ""} data-testid={`input-${key}`} />
                                         </div>
                                       </div>
                                     )})}
