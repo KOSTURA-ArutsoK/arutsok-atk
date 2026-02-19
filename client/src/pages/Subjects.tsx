@@ -3170,6 +3170,15 @@ export default function Subjects() {
   const [search, setSearch] = useState("");
   const [isInitModalOpen, setIsInitModalOpen] = useState(false);
   const [editData, setEditData] = useState<{ clientTypeCode: string; stateId: number; baseValue: string } | null>(null);
+  const [pendingAddNew] = useState<{ clientType: string; baseValue: string } | null>(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("addNew") === "true") {
+      const result = { clientType: params.get("clientType") || "", baseValue: params.get("baseValue") || "" };
+      window.history.replaceState({}, "", window.location.pathname);
+      return result;
+    }
+    return null;
+  });
   const [addNewHandled, setAddNewHandled] = useState(false);
   const [viewTarget, setViewTarget] = useState<Subject | null>(null);
   const [editTarget, setEditTarget] = useState<(Subject & { isOwner?: boolean }) | null>(null);
@@ -3192,19 +3201,16 @@ export default function Subjects() {
   const columnVisibility = useColumnVisibility("subjects", SUBJECTS_COLUMNS);
 
   useEffect(() => {
-    if (addNewHandled) return;
-    const params = new URLSearchParams(window.location.search);
-    if (params.get("addNew") !== "true") return;
-    window.history.replaceState({}, "", window.location.pathname);
-    setAddNewHandled(true);
-    const ctCode = params.get("clientType");
-    const bv = params.get("baseValue");
-    if (ctCode && bv && appUser?.activeStateId) {
-      setEditData({ clientTypeCode: ctCode, stateId: appUser.activeStateId, baseValue: bv });
+    if (addNewHandled || !pendingAddNew) return;
+    if (pendingAddNew.clientType && pendingAddNew.baseValue) {
+      if (!appUser?.activeStateId) return;
+      setAddNewHandled(true);
+      setEditData({ clientTypeCode: pendingAddNew.clientType, stateId: appUser.activeStateId, baseValue: pendingAddNew.baseValue });
     } else {
+      setAddNewHandled(true);
       setIsInitModalOpen(true);
     }
-  }, [addNewHandled, appUser?.activeStateId]);
+  }, [addNewHandled, pendingAddNew, appUser?.activeStateId]);
 
   function toggleFilter(category: SubjectStatusCategory) {
     setActiveFilters(prev => {
