@@ -1204,7 +1204,7 @@ function FullPageEditor({
   const isSzcoType = clientType?.code === 'SZCO';
   const [szcoPersonalData, setSzcoPersonalData] = useState({ firstName: "", lastName: "", birthNumber: "" });
 
-  const [dynamicValues, setDynamicValuesRaw] = useState<Record<string, string>>({});
+  const [dynamicValues, setDynamicValuesRaw] = useState<Record<string, string>>({ korespond_rovnaka: "true", kontaktna_rovnaka: "true" });
   const [validationErrors, setValidationErrors] = useState<Set<string>>(new Set());
   const setDynamicValues: typeof setDynamicValuesRaw = (updater) => {
     setDynamicValuesRaw((prev) => {
@@ -1804,7 +1804,7 @@ function FullPageEditor({
                                       data-testid="switch-korespond-rovnaka"
                                     />
                                     <Label className="text-xs cursor-pointer" onClick={() => setDynamicValues(prev => ({ ...prev, korespond_rovnaka: String(prev["korespond_rovnaka"] !== "true") }))}>
-                                      Prechodná = Trvalá
+                                      Adresa prechodného pobytu je totožná z adresou trvalého pobytu
                                     </Label>
                                   </div>
                                   <div className="flex items-center gap-2">
@@ -1814,7 +1814,7 @@ function FullPageEditor({
                                       data-testid="switch-kontaktna-rovnaka"
                                     />
                                     <Label className="text-xs cursor-pointer" onClick={() => setDynamicValues(prev => ({ ...prev, kontaktna_rovnaka: String(prev["kontaktna_rovnaka"] !== "true") }))}>
-                                      Kontaktná = Prechodná
+                                      Kontaktná adresa je totožná z korešpondenčnou adresou
                                     </Label>
                                   </div>
                                 </div>
@@ -2406,11 +2406,11 @@ function SubjectEditModal({ subject, onClose }: { subject: Subject & { isOwner?:
                                     <div className="flex flex-col sm:flex-row sm:items-center gap-3 px-1" data-testid="edit-row-address-switches">
                                       <div className="flex items-center gap-2">
                                         <Switch checked={editKorRespondRovnaka} onCheckedChange={checked => setDynamicValues(prev => ({ ...prev, korespond_rovnaka: String(checked) }))} data-testid="edit-switch-korespond-rovnaka" />
-                                        <Label className="text-xs cursor-pointer" onClick={() => setDynamicValues(prev => ({ ...prev, korespond_rovnaka: String(prev["korespond_rovnaka"] !== "true") }))}>Prechodná = Trvalá</Label>
+                                        <Label className="text-xs cursor-pointer" onClick={() => setDynamicValues(prev => ({ ...prev, korespond_rovnaka: String(prev["korespond_rovnaka"] !== "true") }))}>Adresa prechodného pobytu je totožná z adresou trvalého pobytu</Label>
                                       </div>
                                       <div className="flex items-center gap-2">
                                         <Switch checked={editKontaktnaRovnaka} onCheckedChange={checked => setDynamicValues(prev => ({ ...prev, kontaktna_rovnaka: String(checked) }))} data-testid="edit-switch-kontaktna-rovnaka" />
-                                        <Label className="text-xs cursor-pointer" onClick={() => setDynamicValues(prev => ({ ...prev, kontaktna_rovnaka: String(prev["kontaktna_rovnaka"] !== "true") }))}>Kontaktná = Prechodná</Label>
+                                        <Label className="text-xs cursor-pointer" onClick={() => setDynamicValues(prev => ({ ...prev, kontaktna_rovnaka: String(prev["kontaktna_rovnaka"] !== "true") }))}>Kontaktná adresa je totožná z korešpondenčnou adresou</Label>
                                       </div>
                                     </div>
                                     <div className="flex flex-col md:flex-row gap-3 items-start" data-testid="edit-row-address-panels">
