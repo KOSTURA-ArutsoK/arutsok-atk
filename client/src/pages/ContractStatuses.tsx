@@ -47,6 +47,7 @@ import { SortableTableRow, SortableContext_Wrapper } from "@/components/sortable
 const CONTRACT_STATUS_COLUMNS: ColumnDef[] = [
   { key: "sortOrder", label: "Poradie" },
   { key: "name", label: "Nazov stavu zmluvy" },
+  { key: "usageCount", label: "Pocet zmluv" },
   { key: "color", label: "Farba stavu zmluvy" },
   { key: "properties", label: "Vlastnosti stavu zmluvy" },
 ];
@@ -850,6 +851,7 @@ export default function ContractStatuses() {
                   <TableHead className="w-10"></TableHead>
                   {columnVisibility.isVisible("sortOrder") && <TableHead sortKey="sortOrder" sortDirection={sortKey === "sortOrder" ? sortDirection : null} onSort={requestSort} className="w-20">Poradie</TableHead>}
                   {columnVisibility.isVisible("name") && <TableHead sortKey="name" sortDirection={sortKey === "name" ? sortDirection : null} onSort={requestSort}>Nazov stavu zmluvy</TableHead>}
+                  {columnVisibility.isVisible("usageCount") && <TableHead className="w-24 text-center">Pocet zmluv</TableHead>}
                   {columnVisibility.isVisible("color") && <TableHead className="w-32">Farba stavu zmluvy</TableHead>}
                   {columnVisibility.isVisible("properties") && <TableHead>Vlastnosti stavu zmluvy</TableHead>}
                   <TableHead className="w-32 text-right">Akcie</TableHead>
@@ -870,21 +872,21 @@ export default function ContractStatuses() {
                         {status.sortOrder}
                       </TableCell>}
                       {columnVisibility.isVisible("name") && <TableCell data-testid={`text-status-name-${status.id}`}>
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <Badge
-                            variant="outline"
-                            style={{ borderColor: status.color, color: status.color }}
-                          >
-                            {status.name}
-                          </Badge>
-                          <span
-                            className="inline-flex items-center justify-center min-w-[1.25rem] h-5 px-1 rounded-full text-[10px] font-semibold bg-muted text-muted-foreground"
-                            title={`Pouzite v ${usageCount} zmluvach`}
-                            data-testid={`badge-usage-count-${status.id}`}
-                          >
-                            {usageCount}
-                          </span>
-                        </div>
+                        <Badge
+                          variant="outline"
+                          style={{ borderColor: status.color, color: status.color }}
+                        >
+                          {status.name}
+                        </Badge>
+                      </TableCell>}
+                      {columnVisibility.isVisible("usageCount") && <TableCell className="text-center" data-testid={`cell-usage-count-${status.id}`}>
+                        <span
+                          className="inline-flex items-center justify-center min-w-[1.5rem] h-5 px-1.5 rounded-full text-[11px] font-semibold bg-muted text-muted-foreground"
+                          title={`Pouzite v ${usageCount} zmluvach`}
+                          data-testid={`badge-usage-count-${status.id}`}
+                        >
+                          {usageCount}
+                        </span>
                       </TableCell>}
                       {columnVisibility.isVisible("color") && <TableCell>
                         <div className="flex items-center gap-2 flex-wrap">
