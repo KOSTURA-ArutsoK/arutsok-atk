@@ -1461,8 +1461,8 @@ function FullPageEditor({
       </div>
 
       {isSzcoType && (
-        <>
-          <Card className="mb-4">
+        <div className="space-y-4">
+          <Card>
             <CardContent className="p-4 space-y-3">
               <div className="flex items-center gap-2">
                 <Building2 className="w-4 h-4 text-primary" />
@@ -1639,7 +1639,7 @@ function FullPageEditor({
               </div>
             </CardContent>
           </Card>
-        </>
+        </div>
       )}
 
       <Card>
