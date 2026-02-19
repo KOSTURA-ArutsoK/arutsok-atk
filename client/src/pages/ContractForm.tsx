@@ -1459,8 +1459,8 @@ export default function ContractForm() {
           {isEditing ? "Upravit zmluvu" : "Nova zmluva"}
         </h1>
         {!isEditing && appUser && (
-          <span className="text-xs text-muted-foreground" data-testid="text-form-user-name">
-            {[appUser.firstName, appUser.lastName].filter(Boolean).join(" ") || appUser.username}
+          <span className="text-xs text-muted-foreground ml-6" data-testid="text-form-user-name">
+            {appUser.uid ? `${appUser.uid} - ` : ""}{[appUser.firstName, appUser.lastName].filter(Boolean).join(" ") || appUser.username}
           </span>
         )}
         <div data-testid="badge-uid-container">
