@@ -1055,6 +1055,37 @@ export async function registerRoutes(
 
       input.changeReason = input.changeReason || "Manualna editacia cez Register subjektov";
 
+      const docFieldKeys = ["typ_dokladu", "cislo_dokladu", "platnost_dokladu", "kod_vydavajuceho_organu"];
+      const oldDetails = (original.details as any) || {};
+      const oldDynamic = oldDetails.dynamicFields || oldDetails;
+      const newDetails = (input.details as any) || {};
+      const newDynamic = newDetails.dynamicFields || newDetails;
+
+      const oldDocType = oldDynamic.typ_dokladu || "";
+      const oldDocNumber = oldDynamic.cislo_dokladu || "";
+      const oldDocValidity = oldDynamic.platnost_dokladu || "";
+      const oldDocAuthority = oldDynamic.kod_vydavajuceho_organu || "";
+
+      const newDocType = newDynamic.typ_dokladu;
+      const newDocNumber = newDynamic.cislo_dokladu;
+
+      const hasOldDocData = oldDocType || oldDocNumber || oldDocValidity;
+      const docChanged = hasOldDocData && (
+        (newDocType !== undefined && newDocType !== oldDocType) ||
+        (newDocNumber !== undefined && newDocNumber !== oldDocNumber)
+      );
+
+      if (docChanged) {
+        await storage.createClientDocumentHistory({
+          subjectId,
+          documentType: oldDocType || null,
+          documentNumber: oldDocNumber || null,
+          validUntil: oldDocValidity || null,
+          issuingAuthorityCode: oldDocAuthority || null,
+          archivedByUserId: appUser.id,
+        });
+      }
+
       const updated = await storage.updateSubject(subjectId, input);
       await logAudit(req, {
         action: "UPDATE",
@@ -1066,6 +1097,7 @@ export async function registerRoutes(
           birthNumber: input.birthNumber ? '***' : undefined,
           _changedFields: changedFields,
           _editSource: "register_subjektov",
+          _documentArchived: docChanged || false,
         },
       });
       res.json(maskSubjectBirthNumber(updated, appUser));
@@ -1076,6 +1108,23 @@ export async function registerRoutes(
     }
   });
   
+  app.get("/api/subjects/:id/document-history", isAuthenticated, async (req: any, res) => {
+    try {
+      const appUser = req.appUser;
+      if (!appUser) return res.status(401).json({ message: "Unauthorized" });
+      const subjectId = Number(req.params.id);
+      const subject = await storage.getSubject(subjectId);
+      if (!subject) return res.status(404).json({ message: "Subject not found" });
+      if (subject.myCompanyId !== appUser.activeCompanyId) {
+        return res.status(403).json({ message: "Pristup zamietnuty - subjekt nepatri do vasej firmy" });
+      }
+      const history = await storage.getClientDocumentHistory(subjectId);
+      res.json(history);
+    } catch (err) {
+      throw err;
+    }
+  });
+
   app.post(api.subjects.archive.path, async (req, res) => {
     try {
       await storage.archiveSubject(Number(req.params.id), req.body.reason);

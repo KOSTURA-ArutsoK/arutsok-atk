@@ -90,6 +90,8 @@ import {
   type ContractStatusChangeLog, type InsertContractStatusChangeLog,
   entityLinks,
   type EntityLink, type InsertEntityLink,
+  clientDocumentHistory,
+  type ClientDocumentHistory, type InsertClientDocumentHistory,
 } from "@shared/schema";
 import { eq, and, or, ne, like, sql, lte, gte, gt, desc, asc, isNull, isNotNull, inArray } from "drizzle-orm";
 
@@ -159,6 +161,9 @@ export interface IStorage {
   createSubject(subject: InsertSubject): Promise<Subject>;
   updateSubject(id: number, updates: UpdateSubjectRequest): Promise<Subject>;
   archiveSubject(id: number, reason: string): Promise<void>;
+
+  getClientDocumentHistory(subjectId: number): Promise<ClientDocumentHistory[]>;
+  createClientDocumentHistory(data: InsertClientDocumentHistory): Promise<ClientDocumentHistory>;
 
   getEntityLinks(subjectId: number): Promise<EntityLink[]>;
   createEntityLink(data: InsertEntityLink): Promise<EntityLink>;
@@ -1016,6 +1021,17 @@ export class DatabaseStorage implements IStorage {
       reason,
     });
     await db.update(subjects).set({ isActive: false, deletedAt: new Date() }).where(eq(subjects.id, id));
+  }
+
+  async getClientDocumentHistory(subjectId: number): Promise<ClientDocumentHistory[]> {
+    return await db.select().from(clientDocumentHistory)
+      .where(eq(clientDocumentHistory.subjectId, subjectId))
+      .orderBy(desc(clientDocumentHistory.archivedAt));
+  }
+
+  async createClientDocumentHistory(data: InsertClientDocumentHistory): Promise<ClientDocumentHistory> {
+    const [record] = await db.insert(clientDocumentHistory).values(data).returning();
+    return record;
   }
 
   async getEntityLinks(subjectId: number): Promise<EntityLink[]> {

@@ -360,6 +360,101 @@ function SubjectDataTab({ subject }: { subject: Subject }) {
           );
         })}
       </Accordion>
+
+      {(subject.type === 'person' || subject.type === 'szco') && (
+        <DocumentHistorySection subjectId={subject.id} />
+      )}
+    </div>
+  );
+}
+
+function DocumentHistorySection({ subjectId }: { subjectId: number }) {
+  const [showHistory, setShowHistory] = useState(false);
+  const { data: history, isLoading } = useQuery<any[]>({
+    queryKey: [`/api/subjects/${subjectId}/document-history`],
+    enabled: showHistory,
+  });
+
+  return (
+    <div className="border rounded-md" data-testid="document-history-section">
+      <button
+        type="button"
+        className="flex items-center gap-2 w-full p-3 text-left hover-elevate rounded-md"
+        onClick={() => setShowHistory(v => !v)}
+        data-testid="button-toggle-document-history"
+      >
+        <History className="w-4 h-4 text-muted-foreground" />
+        <span className="text-sm font-semibold flex-1">Historia dokladov</span>
+        <Badge variant="secondary" className="text-[10px]">{showHistory && history ? history.length : '...'}</Badge>
+      </button>
+
+      {showHistory && (
+        <div className="px-3 pb-3">
+          {isLoading ? (
+            <div className="flex items-center gap-2 justify-center py-4">
+              <Loader2 className="w-4 h-4 animate-spin" />
+              <span className="text-xs text-muted-foreground">Nacitavam...</span>
+            </div>
+          ) : !history || history.length === 0 ? (
+            <p className="text-xs text-muted-foreground text-center py-4" data-testid="text-no-document-history">
+              Ziadna historia zmien dokladov
+            </p>
+          ) : (
+            <div className="space-y-2">
+              {history.map((entry: any, idx: number) => {
+                const validUntil = entry.validUntil ? new Date(entry.validUntil) : null;
+                const now = new Date();
+                let validityStatus = "";
+                let validityColor = "";
+                if (validUntil) {
+                  if (validUntil < now) {
+                    validityStatus = "Neplatny";
+                    validityColor = "text-red-500";
+                  } else {
+                    const threeMonths = new Date();
+                    threeMonths.setMonth(threeMonths.getMonth() + 3);
+                    if (validUntil < threeMonths) {
+                      validityStatus = "Konciaci";
+                      validityColor = "text-orange-500";
+                    }
+                  }
+                }
+                return (
+                  <div key={entry.id} className="flex flex-wrap gap-x-4 gap-y-1 p-2 rounded-md bg-muted/30 border border-border text-xs" data-testid={`document-history-entry-${idx}`}>
+                    <div>
+                      <span className="text-muted-foreground">Typ: </span>
+                      <span className="font-medium">{entry.documentType || '-'}</span>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground">Cislo: </span>
+                      <span className="font-medium">{entry.documentNumber || '-'}</span>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground">Platnost do: </span>
+                      <span className={cn("font-medium", validityColor)}>
+                        {entry.validUntil ? formatDateSlovak(entry.validUntil) : '-'}
+                      </span>
+                      {validityStatus && (
+                        <span className={cn("ml-1 text-[10px] font-semibold", validityColor)}>({validityStatus})</span>
+                      )}
+                    </div>
+                    {entry.issuingAuthorityCode && (
+                      <div>
+                        <span className="text-muted-foreground">Kod organu: </span>
+                        <span className="font-medium">{entry.issuingAuthorityCode}</span>
+                      </div>
+                    )}
+                    <div className="w-full">
+                      <span className="text-muted-foreground">Archivovane: </span>
+                      <span>{entry.archivedAt ? formatDateTimeSlovak(entry.archivedAt) : '-'}</span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }
@@ -988,14 +1083,44 @@ function DynamicFieldInput({ field, dynamicValues, setDynamicValues, hasError, d
           <span className="text-xs text-muted-foreground">{dynamicValues[field.fieldKey] === "true" ? "Ano" : "Nie"}</span>
         </div>
       ) : field.fieldType === "date" ? (
-        <Input
-          type="date"
-          value={dynamicValues[field.fieldKey] || ""}
-          onChange={e => setDynamicValues(prev => ({ ...prev, [field.fieldKey]: e.target.value }))}
-          className={cn(errorBorder, disabled && "opacity-70")}
-          disabled={disabled}
-          data-testid={`input-dynamic-${field.fieldKey}`}
-        />
+        (() => {
+          const dateVal = dynamicValues[field.fieldKey] || "";
+          let validityClass = "";
+          let validityLabel = "";
+          if (field.fieldKey === "platnost_dokladu" && dateVal) {
+            const expiry = new Date(dateVal);
+            const now = new Date();
+            const threeMonths = new Date();
+            threeMonths.setMonth(threeMonths.getMonth() + 3);
+            if (expiry < now) {
+              validityClass = "border-red-500 bg-red-500/10 ring-1 ring-red-500";
+              validityLabel = "Neplatný";
+            } else if (expiry < threeMonths) {
+              validityClass = "border-orange-500 bg-orange-500/10 ring-1 ring-orange-500";
+              validityLabel = "Končiaci";
+            }
+          }
+          return (
+            <div className="space-y-0.5">
+              <Input
+                type="date"
+                value={dateVal}
+                onChange={e => setDynamicValues(prev => ({ ...prev, [field.fieldKey]: e.target.value }))}
+                className={cn(errorBorder || validityClass, disabled && "opacity-70")}
+                disabled={disabled}
+                data-testid={`input-dynamic-${field.fieldKey}`}
+              />
+              {validityLabel && (
+                <span className={cn(
+                  "text-[10px] font-semibold px-1.5 py-0.5 rounded-sm inline-block",
+                  validityLabel === "Neplatný" ? "text-red-500 bg-red-500/10" : "text-orange-500 bg-orange-500/10"
+                )} data-testid={`validity-status-${field.fieldKey}`}>
+                  {validityLabel}
+                </span>
+              )}
+            </div>
+          );
+        })()
       ) : field.fieldType === "number" ? (
         <Input
           type="number"

@@ -44,6 +44,7 @@ const FO_PANEL_OSOBNE = 4;
 const FO_PANEL_ADRESA = 5;
 const FO_PANEL_CUDZINEC = 3;
 const FO_PANEL_KONTAKT = 6;
+const FO_PANEL_DOKLADY = 20;
 
 const SZCO_SECTION_POVINNE = 11;
 const SZCO_SECTION_DOPLNKOVE = 18;
@@ -53,6 +54,7 @@ const SZCO_PANEL_SIDLO = 8;
 const SZCO_PANEL_OSOBNE = 9;
 const SZCO_PANEL_ADRESA = 10;
 const SZCO_PANEL_KONTAKT = 11;
+const SZCO_PANEL_DOKLADY = 21;
 
 const PO_SECTION_POVINNE = 15;
 const PO_SECTION_DOPLNKOVE = 19;
@@ -71,7 +73,8 @@ export const FO_PANELS: StaticPanel[] = [
   { id: FO_PANEL_OSOBNE, clientTypeId: 1, sectionId: FO_SECTION_POVINNE, name: "Osobné údaje", gridColumns: 5, sortOrder: 0 },
   { id: FO_PANEL_ADRESA, clientTypeId: 1, sectionId: FO_SECTION_POVINNE, name: "Adresa", gridColumns: 4, sortOrder: 1 },
   { id: FO_PANEL_CUDZINEC, clientTypeId: 1, sectionId: FO_SECTION_POVINNE, name: "Cudzinec bez rodného čísla", gridColumns: 1, sortOrder: 2 },
-  { id: FO_PANEL_KONTAKT, clientTypeId: 1, sectionId: FO_SECTION_POVINNE, name: "Kontaktné údaje", gridColumns: 2, sortOrder: 3 },
+  { id: FO_PANEL_DOKLADY, clientTypeId: 1, sectionId: FO_SECTION_POVINNE, name: "Doklady", gridColumns: 4, sortOrder: 3 },
+  { id: FO_PANEL_KONTAKT, clientTypeId: 1, sectionId: FO_SECTION_POVINNE, name: "Kontaktné údaje", gridColumns: 2, sortOrder: 4 },
 ];
 
 export const FO_FIELDS: StaticField[] = [
@@ -86,9 +89,10 @@ export const FO_FIELDS: StaticField[] = [
   { id: 20, clientTypeId: 1, sectionId: FO_SECTION_POVINNE, panelId: FO_PANEL_OSOBNE, fieldKey: "miesto_narodenia", label: "Miesto narodenia", shortLabel: "Miesto nar.", fieldType: "short_text", isRequired: false, isHidden: false, options: [], defaultValue: null, visibilityRule: null, unit: null, decimalPlaces: 2, fieldCategory: "povinne", sortOrder: 21, rowNumber: 0, widthPercent: 100 },
   { id: 15, clientTypeId: 1, sectionId: FO_SECTION_POVINNE, panelId: FO_PANEL_OSOBNE, fieldKey: "vek", label: "Vek", fieldType: "number", isRequired: true, isHidden: false, options: [], defaultValue: null, visibilityRule: null, unit: null, decimalPlaces: 2, fieldCategory: "povinne", sortOrder: 23, rowNumber: 2, widthPercent: 100 },
   { id: 16, clientTypeId: 1, sectionId: FO_SECTION_POVINNE, panelId: FO_PANEL_OSOBNE, fieldKey: "statna_prislusnost", label: "Štátna príslušnosť", shortLabel: "Št. príslušnosť", fieldType: "short_text", isRequired: false, isHidden: false, options: [], defaultValue: null, visibilityRule: null, unit: null, decimalPlaces: 2, fieldCategory: "povinne", sortOrder: 24, rowNumber: 0, widthPercent: 100 },
-  { id: 17, clientTypeId: 1, sectionId: FO_SECTION_POVINNE, panelId: FO_PANEL_OSOBNE, fieldKey: "typ_dokladu", label: "Typ dokladu totožnosti", shortLabel: "Typ dokladu", fieldType: "jedna_moznost", isRequired: true, isHidden: false, options: ["Občiansky preukaz", "Cestovný pas", "Povolenie na pobyt"], defaultValue: null, visibilityRule: null, unit: null, decimalPlaces: 2, fieldCategory: "povinne", sortOrder: 26, rowNumber: 3, widthPercent: 100 },
-  { id: 18, clientTypeId: 1, sectionId: FO_SECTION_POVINNE, panelId: FO_PANEL_OSOBNE, fieldKey: "cislo_dokladu", label: "Číslo dokladu totožnosti", shortLabel: "Č. dokladu", fieldType: "short_text", isRequired: true, isHidden: false, options: [], defaultValue: null, visibilityRule: null, unit: null, decimalPlaces: 2, fieldCategory: "povinne", sortOrder: 28, rowNumber: 3, widthPercent: 100 },
-  { id: 19, clientTypeId: 1, sectionId: FO_SECTION_POVINNE, panelId: FO_PANEL_OSOBNE, fieldKey: "platnost_dokladu", label: "Platnosť dokladu do", shortLabel: "Platnosť dokl.", fieldType: "date", isRequired: false, isHidden: false, options: [], defaultValue: null, visibilityRule: null, unit: null, decimalPlaces: 2, fieldCategory: "povinne", sortOrder: 30, rowNumber: 3, widthPercent: 100 },
+  { id: 17, clientTypeId: 1, sectionId: FO_SECTION_POVINNE, panelId: FO_PANEL_DOKLADY, fieldKey: "typ_dokladu", label: "Typ dokladu totožnosti", shortLabel: "Typ dokladu", fieldType: "jedna_moznost", isRequired: true, isHidden: false, options: ["Občiansky preukaz", "Cestovný pas", "Povolenie na pobyt", "Vodičský preukaz"], defaultValue: null, visibilityRule: null, unit: null, decimalPlaces: 2, fieldCategory: "povinne", sortOrder: 0, rowNumber: 0, widthPercent: 50 },
+  { id: 18, clientTypeId: 1, sectionId: FO_SECTION_POVINNE, panelId: FO_PANEL_DOKLADY, fieldKey: "cislo_dokladu", label: "Číslo dokladu totožnosti", shortLabel: "Č. dokladu", fieldType: "short_text", isRequired: true, isHidden: false, options: [], defaultValue: null, visibilityRule: null, unit: null, decimalPlaces: 2, fieldCategory: "povinne", sortOrder: 1, rowNumber: 0, widthPercent: 50 },
+  { id: 19, clientTypeId: 1, sectionId: FO_SECTION_POVINNE, panelId: FO_PANEL_DOKLADY, fieldKey: "platnost_dokladu", label: "Platnosť dokladu do", shortLabel: "Platnosť dokl.", fieldType: "date", isRequired: false, isHidden: false, options: [], defaultValue: null, visibilityRule: null, unit: null, decimalPlaces: 2, fieldCategory: "povinne", sortOrder: 2, rowNumber: 1, widthPercent: 50 },
+  { id: 110, clientTypeId: 1, sectionId: FO_SECTION_POVINNE, panelId: FO_PANEL_DOKLADY, fieldKey: "kod_vydavajuceho_organu", label: "Kód vydávajúceho orgánu", shortLabel: "Kód orgánu", fieldType: "short_text", isRequired: false, isHidden: false, options: [], defaultValue: null, visibilityRule: null, unit: null, decimalPlaces: 2, fieldCategory: "povinne", sortOrder: 3, rowNumber: 1, widthPercent: 50 },
   { id: 23, clientTypeId: 1, sectionId: FO_SECTION_POVINNE, panelId: FO_PANEL_ADRESA, fieldKey: "tp_ulica", label: "Ulica (trvalý pobyt)", shortLabel: "Ulica", fieldType: "short_text", isRequired: false, isHidden: false, options: [], defaultValue: null, visibilityRule: null, unit: null, decimalPlaces: 2, fieldCategory: "povinne", sortOrder: 9, rowNumber: 0, widthPercent: 100 },
   { id: 24, clientTypeId: 1, sectionId: FO_SECTION_POVINNE, panelId: FO_PANEL_ADRESA, fieldKey: "tp_supisne", label: "Súpisné číslo", shortLabel: "Súpisné č.", fieldType: "short_text", isRequired: false, isHidden: false, options: [], defaultValue: null, visibilityRule: null, unit: null, decimalPlaces: 2, fieldCategory: "povinne", sortOrder: 10, rowNumber: 0, widthPercent: 100 },
   { id: 25, clientTypeId: 1, sectionId: FO_SECTION_POVINNE, panelId: FO_PANEL_ADRESA, fieldKey: "tp_orientacne", label: "Orientačné číslo", shortLabel: "Orient. č.", fieldType: "short_text", isRequired: true, isHidden: false, options: [], defaultValue: null, visibilityRule: null, unit: null, decimalPlaces: 2, fieldCategory: "povinne", sortOrder: 11, rowNumber: 0, widthPercent: 100 },
@@ -124,7 +128,8 @@ export const SZCO_PANELS: StaticPanel[] = [
   { id: SZCO_PANEL_SIDLO, clientTypeId: 3, sectionId: SZCO_SECTION_POVINNE, name: "Sídlo spoločnosti", gridColumns: 4, sortOrder: 1 },
   { id: SZCO_PANEL_OSOBNE, clientTypeId: 3, sectionId: SZCO_SECTION_POVINNE, name: "Osobné údaje", gridColumns: 4, sortOrder: 2 },
   { id: SZCO_PANEL_ADRESA, clientTypeId: 3, sectionId: SZCO_SECTION_POVINNE, name: "Adresa trvalého pobytu", gridColumns: 4, sortOrder: 3 },
-  { id: SZCO_PANEL_KONTAKT, clientTypeId: 3, sectionId: SZCO_SECTION_POVINNE, name: "Kontaktné údaje", gridColumns: 2, sortOrder: 4 },
+  { id: SZCO_PANEL_DOKLADY, clientTypeId: 3, sectionId: SZCO_SECTION_POVINNE, name: "Doklady", gridColumns: 4, sortOrder: 4 },
+  { id: SZCO_PANEL_KONTAKT, clientTypeId: 3, sectionId: SZCO_SECTION_POVINNE, name: "Kontaktné údaje", gridColumns: 2, sortOrder: 5 },
 ];
 
 export const SZCO_FIELDS: StaticField[] = [
@@ -152,9 +157,10 @@ export const SZCO_FIELDS: StaticField[] = [
   { id: 66, clientTypeId: 3, sectionId: SZCO_SECTION_POVINNE, panelId: SZCO_PANEL_OSOBNE, fieldKey: "datum_narodenia", label: "Dátum narodenia", shortLabel: "Dát. narodenia", fieldType: "date", isRequired: false, isHidden: false, options: [], defaultValue: null, visibilityRule: null, unit: null, decimalPlaces: 2, fieldCategory: "povinne", sortOrder: 5, rowNumber: 0, widthPercent: 100 },
   { id: 67, clientTypeId: 3, sectionId: SZCO_SECTION_POVINNE, panelId: SZCO_PANEL_OSOBNE, fieldKey: "vek", label: "Vek", fieldType: "number", isRequired: false, isHidden: false, options: [], defaultValue: null, visibilityRule: null, unit: null, decimalPlaces: 2, fieldCategory: "povinne", sortOrder: 6, rowNumber: 0, widthPercent: 100 },
   { id: 68, clientTypeId: 3, sectionId: SZCO_SECTION_POVINNE, panelId: SZCO_PANEL_OSOBNE, fieldKey: "statna_prislusnost", label: "Štátna príslušnosť", shortLabel: "Št. príslušnosť", fieldType: "short_text", isRequired: false, isHidden: false, options: [], defaultValue: null, visibilityRule: null, unit: null, decimalPlaces: 2, fieldCategory: "povinne", sortOrder: 7, rowNumber: 0, widthPercent: 100 },
-  { id: 69, clientTypeId: 3, sectionId: SZCO_SECTION_POVINNE, panelId: SZCO_PANEL_OSOBNE, fieldKey: "typ_dokladu", label: "Typ dokladu totožnosti", shortLabel: "Typ dokladu", fieldType: "jedna_moznost", isRequired: true, isHidden: false, options: [], defaultValue: null, visibilityRule: null, unit: null, decimalPlaces: 2, fieldCategory: "povinne", sortOrder: 8, rowNumber: 0, widthPercent: 100 },
-  { id: 70, clientTypeId: 3, sectionId: SZCO_SECTION_POVINNE, panelId: SZCO_PANEL_OSOBNE, fieldKey: "cislo_dokladu", label: "Číslo dokladu totožnosti", shortLabel: "Č. dokladu", fieldType: "short_text", isRequired: true, isHidden: false, options: [], defaultValue: null, visibilityRule: null, unit: null, decimalPlaces: 2, fieldCategory: "povinne", sortOrder: 9, rowNumber: 0, widthPercent: 100 },
-  { id: 71, clientTypeId: 3, sectionId: SZCO_SECTION_POVINNE, panelId: SZCO_PANEL_OSOBNE, fieldKey: "platnost_dokladu", label: "Platnosť dokladu do", shortLabel: "Platnosť dokl.", fieldType: "date", isRequired: false, isHidden: false, options: [], defaultValue: null, visibilityRule: null, unit: null, decimalPlaces: 2, fieldCategory: "povinne", sortOrder: 10, rowNumber: 0, widthPercent: 100 },
+  { id: 69, clientTypeId: 3, sectionId: SZCO_SECTION_POVINNE, panelId: SZCO_PANEL_DOKLADY, fieldKey: "typ_dokladu", label: "Typ dokladu totožnosti", shortLabel: "Typ dokladu", fieldType: "jedna_moznost", isRequired: true, isHidden: false, options: ["Občiansky preukaz", "Cestovný pas", "Povolenie na pobyt", "Vodičský preukaz"], defaultValue: null, visibilityRule: null, unit: null, decimalPlaces: 2, fieldCategory: "povinne", sortOrder: 0, rowNumber: 0, widthPercent: 50 },
+  { id: 70, clientTypeId: 3, sectionId: SZCO_SECTION_POVINNE, panelId: SZCO_PANEL_DOKLADY, fieldKey: "cislo_dokladu", label: "Číslo dokladu totožnosti", shortLabel: "Č. dokladu", fieldType: "short_text", isRequired: true, isHidden: false, options: [], defaultValue: null, visibilityRule: null, unit: null, decimalPlaces: 2, fieldCategory: "povinne", sortOrder: 1, rowNumber: 0, widthPercent: 50 },
+  { id: 71, clientTypeId: 3, sectionId: SZCO_SECTION_POVINNE, panelId: SZCO_PANEL_DOKLADY, fieldKey: "platnost_dokladu", label: "Platnosť dokladu do", shortLabel: "Platnosť dokl.", fieldType: "date", isRequired: false, isHidden: false, options: [], defaultValue: null, visibilityRule: null, unit: null, decimalPlaces: 2, fieldCategory: "povinne", sortOrder: 2, rowNumber: 1, widthPercent: 50 },
+  { id: 111, clientTypeId: 3, sectionId: SZCO_SECTION_POVINNE, panelId: SZCO_PANEL_DOKLADY, fieldKey: "kod_vydavajuceho_organu", label: "Kód vydávajúceho orgánu", shortLabel: "Kód orgánu", fieldType: "short_text", isRequired: false, isHidden: false, options: [], defaultValue: null, visibilityRule: null, unit: null, decimalPlaces: 2, fieldCategory: "povinne", sortOrder: 3, rowNumber: 1, widthPercent: 50 },
   { id: 72, clientTypeId: 3, sectionId: SZCO_SECTION_POVINNE, panelId: SZCO_PANEL_ADRESA, fieldKey: "tp_ulica", label: "Ulica (trvalý pobyt)", shortLabel: "Ulica", fieldType: "short_text", isRequired: true, isHidden: false, options: [], defaultValue: null, visibilityRule: null, unit: null, decimalPlaces: 2, fieldCategory: "povinne", sortOrder: 0, rowNumber: 0, widthPercent: 100 },
   { id: 73, clientTypeId: 3, sectionId: SZCO_SECTION_POVINNE, panelId: SZCO_PANEL_ADRESA, fieldKey: "tp_supisne", label: "Súpisné číslo", shortLabel: "Súpisné č.", fieldType: "short_text", isRequired: false, isHidden: false, options: [], defaultValue: null, visibilityRule: null, unit: null, decimalPlaces: 2, fieldCategory: "povinne", sortOrder: 1, rowNumber: 0, widthPercent: 100 },
   { id: 74, clientTypeId: 3, sectionId: SZCO_SECTION_POVINNE, panelId: SZCO_PANEL_ADRESA, fieldKey: "tp_orientacne", label: "Orientačné číslo", shortLabel: "Orient. č.", fieldType: "short_text", isRequired: true, isHidden: false, options: [], defaultValue: null, visibilityRule: null, unit: null, decimalPlaces: 2, fieldCategory: "povinne", sortOrder: 2, rowNumber: 0, widthPercent: 100 },

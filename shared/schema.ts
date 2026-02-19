@@ -240,6 +240,18 @@ export const subjectArchive = pgTable("subject_archive", {
   reason: text("reason"),
 });
 
+// === CLIENT DOCUMENT HISTORY (Archive of identity documents) ===
+export const clientDocumentHistory = pgTable("client_document_history", {
+  id: serial("id").primaryKey(),
+  subjectId: integer("subject_id").notNull().references(() => subjects.id),
+  documentType: text("document_type"),
+  documentNumber: text("document_number"),
+  validUntil: text("valid_until"),
+  issuingAuthorityCode: text("issuing_authority_code"),
+  archivedAt: timestamp("archived_at").defaultNow(),
+  archivedByUserId: integer("archived_by_user_id").references(() => appUsers.id),
+});
+
 // === CONTRACT AMENDMENTS (Dodatky k zmluvam) ===
 export const contractAmendments = pgTable("contract_amendments", {
   id: serial("id").primaryKey(),
@@ -803,6 +815,7 @@ export const insertPartnerProductSchema = createInsertSchema(partnerProducts).om
 export const insertPartnerContractSchema = createInsertSchema(partnerContracts).omit({ id: true, createdAt: true });
 export const insertCommunicationMatrixSchema = createInsertSchema(communicationMatrix).omit({ id: true, createdAt: true });
 export const insertCompanyContactSchema = createInsertSchema(companyContacts).omit({ id: true, createdAt: true });
+export const insertClientDocumentHistorySchema = createInsertSchema(clientDocumentHistory).omit({ id: true, archivedAt: true });
 export const insertContractAmendmentSchema = createInsertSchema(contractAmendments).omit({ id: true, createdAt: true });
 export const insertUserProfileSchema = createInsertSchema(userProfiles).omit({ id: true, createdAt: true, updatedAt: true });
 export const insertAuditLogSchema = createInsertSchema(auditLogs).omit({ id: true, createdAt: true });
@@ -862,6 +875,8 @@ export type PartnerContract = typeof partnerContracts.$inferSelect;
 export type InsertPartnerContract = z.infer<typeof insertPartnerContractSchema>;
 export type CommunicationMatrixEntry = typeof communicationMatrix.$inferSelect;
 export type CompanyContact = typeof companyContacts.$inferSelect;
+export type ClientDocumentHistory = typeof clientDocumentHistory.$inferSelect;
+export type InsertClientDocumentHistory = z.infer<typeof insertClientDocumentHistorySchema>;
 export type ContractAmendment = typeof contractAmendments.$inferSelect;
 export type InsertContractAmendment = z.infer<typeof insertContractAmendmentSchema>;
 export type UserProfile = typeof userProfiles.$inferSelect;
