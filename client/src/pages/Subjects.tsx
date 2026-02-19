@@ -1436,7 +1436,7 @@ function FullPageEditor({
                   { keys: ["titul_pred", "meno", "priezvisko", "titul_za"] },
                   { keys: ["rodne_priezvisko", "datum_narodenia", "vek", "pohlavie"] },
                   { keys: ["miesto_narodenia", "statna_prislusnost"] },
-                  { keys: ["typ_dokladu", "cislo_dokladu", "platnost_dokladu", "vydal_organ"] },
+                  { keys: ["typ_dokladu", "typ_dokladu_iny", "cislo_dokladu", "platnost_dokladu", "vydal_organ"] },
                 ];
 
                 const getFieldWidthClass = (fieldKey: string): string => {
@@ -1635,6 +1635,17 @@ function FullPageEditor({
                                                   </Select>
                                                 </div>
                                               </>
+                                            ) : field.fieldType === "jedna_moznost" ? (
+                                              <Select value={dynamicValues[field.fieldKey] || ""} onValueChange={val => setDynamicValues(prev => ({ ...prev, [field.fieldKey]: val }))}>
+                                                <SelectTrigger className={validationErrors.has(key) ? "border-red-500 ring-1 ring-red-500" : ""} data-testid={`select-dynamic-${field.fieldKey}`}>
+                                                  <SelectValue placeholder="" />
+                                                </SelectTrigger>
+                                                <SelectContent>
+                                                  {(field.options || []).map((opt: string) => (
+                                                    <SelectItem key={opt} value={opt}>{opt}</SelectItem>
+                                                  ))}
+                                                </SelectContent>
+                                              </Select>
                                             ) : field.fieldType === "date" ? (
                                               (() => {
                                                 const dateVal = dynamicValues[field.fieldKey] || "";
