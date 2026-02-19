@@ -7,7 +7,8 @@ import { useToast } from "@/hooks/use-toast";
 import { useLocation, useParams } from "wouter";
 import { useColumnVisibility, type ColumnDef } from "@/hooks/use-column-visibility";
 import { ColumnManager } from "@/components/column-manager";
-import type { Contract, ContractStatus, ContractStatusChangeLog, ContractTemplate, ContractInventory, Subject, Partner, Product, MyCompany, Sector, Section, SectorProduct, ContractPassword, ContractParameterValue, ContractFieldSetting, ClientType, ClientTypeField, ContractAcquirer, AppUser, ContractRewardDistribution } from "@shared/schema";
+import type { Contract, ContractStatus, ContractStatusChangeLog, ContractTemplate, ContractInventory, Subject, Partner, Product, MyCompany, Sector, Section, SectorProduct, ContractPassword, ContractParameterValue, ContractFieldSetting, ClientType, ContractAcquirer, AppUser, ContractRewardDistribution } from "@shared/schema";
+import { getFieldsForClientTypeId, type StaticField } from "@/lib/staticFieldDefs";
 import { ArrowLeft, Save, Loader2, LayoutGrid, KeyRound, Plus, Trash2, FileText, Users, ClipboardList, FolderOpen, FolderClosed, DollarSign, BarChart3, ListChecks, PieChart, ChevronLeft, ChevronRight, MessageSquare, Paperclip, Upload, X, Eye, Settings2, Calendar, UserCheck, Lock, Check } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -1031,18 +1032,7 @@ export default function ContractForm() {
   const matchedClientTypeCode = selectedSubject?.type ? subjectTypeToClientCode[selectedSubject.type] || null : null;
   const matchedClientType = matchedClientTypeCode ? clientTypes?.find(ct => ct.code === matchedClientTypeCode) : null;
 
-  const { data: clientTypeFieldsRaw } = useQuery<ClientTypeField[]>({
-    queryKey: ["/api/client-types", matchedClientType?.id, "fields"],
-    queryFn: async () => {
-      const res = await fetch(`/api/client-types/${matchedClientType!.id}/fields`, { credentials: "include" });
-      if (!res.ok) throw new Error("Failed");
-      return res.json();
-    },
-    enabled: !!matchedClientType?.id,
-    staleTime: 0,
-    refetchOnMount: "always",
-  });
-  const clientTypeFields = (clientTypeFieldsRaw || []).filter(f => !f.isHidden);
+  const clientTypeFields = matchedClientType?.id ? getFieldsForClientTypeId(matchedClientType.id) : [];
 
   const urlQueryParams = typeof window !== "undefined" ? new URLSearchParams(window.location.search) : new URLSearchParams();
   const urlPartnerId = urlQueryParams.get("partnerId") || "";

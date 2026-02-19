@@ -9,7 +9,8 @@ import { useSmartFilter } from "@/hooks/use-smart-filter";
 import type { SmartColumnDef } from "@/hooks/use-smart-filter";
 import { SmartFilterBar } from "@/components/smart-filter-bar";
 import { useLocation } from "wouter";
-import type { Contract, ContractStatus, ContractTemplate, ContractInventory, Subject, Partner, Product, MyCompany, Sector, Section, SectorProduct, ClientGroup, ClientType, ClientTypeSection, ClientTypePanel, ClientTypeField, AppUser, ContractAcquirer } from "@shared/schema";
+import type { Contract, ContractStatus, ContractTemplate, ContractInventory, Subject, Partner, Product, MyCompany, Sector, Section, SectorProduct, ClientGroup, ClientType, AppUser, ContractAcquirer } from "@shared/schema";
+import { FO_FIELDS, FO_SECTIONS, FO_PANELS, SZCO_FIELDS, SZCO_SECTIONS, SZCO_PANELS, PO_FIELDS, PO_SECTIONS, PO_PANELS, type StaticField, type StaticSection, type StaticPanel } from "@/lib/staticFieldDefs";
 import { Plus, Pencil, Trash2, Eye, FileText, Loader2, Lock, LayoutGrid, Send, Upload, Inbox, CheckCircle2, ChevronDown, ChevronRight, Printer, Search, Archive, AlertTriangle, Calendar, XCircle, MessageSquare, Paperclip, UserPlus, X, Users, Check, ChevronsUpDown, Award, Percent } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
@@ -1558,22 +1559,22 @@ export default function Contracts() {
   const { data: allClientTypes } = useQuery<ClientType[]>({ queryKey: ["/api/client-types"] });
   const activeClientTypes = (allClientTypes || []).filter(ct => ct.isActive).sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0));
 
-  const { data: foSections } = useQuery<ClientTypeSection[]>({ queryKey: ["/api/client-types", 1, "sections"], staleTime: 0, refetchOnMount: "always" });
-  const { data: foPanels } = useQuery<ClientTypePanel[]>({ queryKey: ["/api/client-types", 1, "panels"], staleTime: 0, refetchOnMount: "always" });
-  const { data: foAllFields } = useQuery<ClientTypeField[]>({ queryKey: ["/api/client-types", 1, "fields"], staleTime: 0, refetchOnMount: "always" });
-  const { data: szcoSections } = useQuery<ClientTypeSection[]>({ queryKey: ["/api/client-types", 3, "sections"], staleTime: 0, refetchOnMount: "always" });
-  const { data: szcoPanels } = useQuery<ClientTypePanel[]>({ queryKey: ["/api/client-types", 3, "panels"], staleTime: 0, refetchOnMount: "always" });
-  const { data: szcoAllFields } = useQuery<ClientTypeField[]>({ queryKey: ["/api/client-types", 3, "fields"], staleTime: 0, refetchOnMount: "always" });
-  const { data: poSections } = useQuery<ClientTypeSection[]>({ queryKey: ["/api/client-types", 4, "sections"], staleTime: 0, refetchOnMount: "always" });
-  const { data: poPanels } = useQuery<ClientTypePanel[]>({ queryKey: ["/api/client-types", 4, "panels"], staleTime: 0, refetchOnMount: "always" });
-  const { data: poAllFields } = useQuery<ClientTypeField[]>({ queryKey: ["/api/client-types", 4, "fields"], staleTime: 0, refetchOnMount: "always" });
+  const foSections = FO_SECTIONS;
+  const foPanels = FO_PANELS;
+  const foAllFields = FO_FIELDS;
+  const szcoSections = SZCO_SECTIONS;
+  const szcoPanels = SZCO_PANELS;
+  const szcoAllFields = SZCO_FIELDS;
+  const poSections = PO_SECTIONS;
+  const poPanels = PO_PANELS;
+  const poAllFields = PO_FIELDS;
 
 
   const activeSections = inlineClientType === "szco" ? szcoSections : inlineClientType === "po" ? poSections : foSections;
   const activePanelsRaw = inlineClientType === "szco" ? szcoPanels : inlineClientType === "po" ? poPanels : foPanels;
   const activeFieldsRaw = inlineClientType === "szco" ? szcoAllFields : inlineClientType === "po" ? poAllFields : foAllFields;
 
-  const inlineFields = (activeFieldsRaw || []).filter(f => !f.isHidden);
+  const inlineFields = activeFieldsRaw || [];
   const inlinePanelsFiltered = activePanelsRaw || [];
 
   const sortedSections = (activeSections || []).slice().sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0));
@@ -2442,7 +2443,7 @@ export default function Contracts() {
                 return false;
               };
 
-              const renderInlineField = (field: ClientTypeField) => {
+              const renderInlineField = (field: StaticField) => {
                 const errCls = inlineValidationErrors.has(field.fieldKey) ? "border-red-500 ring-1 ring-red-500" : "";
                 if (field.fieldType === "switch") {
                   return (
@@ -2521,7 +2522,7 @@ export default function Contracts() {
                 );
               };
 
-              const renderInlineAddressCards = (panelFields: ClientTypeField[]) => {
+              const renderInlineAddressCards = (panelFields: StaticField[]) => {
                 const inlineKorRovnaka = inlineFormValues["korespond_rovnaka"] === "true";
                 const inlineKontRovnaka = inlineFormValues["kontaktna_rovnaka"] === "true";
 
@@ -2616,12 +2617,12 @@ export default function Contracts() {
                 );
               };
 
-              const isAddressPanel = (panel: ClientTypePanel) => {
+              const isAddressPanel = (panel: StaticPanel) => {
                 const panelFields = (inlineFields || []).filter(f => f.panelId === panel.id);
                 return inlineClientType === "fo" && panelFields.some(f => INLINE_ADDR_ALL.has(f.fieldKey));
               };
 
-              const renderPanels = (panels: ClientTypePanel[]) => panels.sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0)).map(panel => {
+              const renderPanels = (panels: StaticPanel[]) => panels.sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0)).map(panel => {
                 const panelFields = (inlineFields || [])
                   .filter(f => f.panelId === panel.id)
                   .sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0));
@@ -2757,7 +2758,7 @@ export default function Contracts() {
                 volitelne: "border-blue-400/30",
               };
 
-              const renderSectionHeader = (section: ClientTypeSection) => {
+              const renderSectionHeader = (section: StaticSection) => {
                 const sectionFields = inlineFields.filter(f => f.sectionId === section.id);
                 const cat = section.folderCategory || "povinne";
                 const textColor = FOLDER_TEXT_COLORS[cat] || FOLDER_TEXT_COLORS.povinne;
@@ -2775,7 +2776,7 @@ export default function Contracts() {
                 );
               };
 
-              const renderSectionWithPanels = (section: ClientTypeSection) => {
+              const renderSectionWithPanels = (section: StaticSection) => {
                 const sectionPanels = inlinePanelsFiltered.filter(p => p.sectionId === section.id);
                 return (
                   <div key={section.id} className="space-y-3" data-testid={`section-inline-${section.id}`}>
@@ -2784,7 +2785,7 @@ export default function Contracts() {
                       {renderPanels(sectionPanels)}
                     </div>
                     <div className="text-xs text-muted-foreground italic px-2" style={{ display: sectionPanels.length === 0 ? 'block' : 'none' }}>
-                      Ziadne panely v tejto sekcii. Pridajte ich cez Pravidla typov klientov.
+                      Žiadne panely v tejto sekcii.
                     </div>
                   </div>
                 );

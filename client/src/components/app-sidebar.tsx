@@ -96,7 +96,6 @@ const partneriProduktyItems = [
 
 const klientiItems = [
   { href: "/subjects", icon: Users, label: "Zoznam klientov" },
-  { href: "/client-type-rules", icon: Sliders, label: "Pravidla typov klientov" },
   { href: "/client-groups", icon: UsersRound, label: "Skupiny klientov" },
 ];
 

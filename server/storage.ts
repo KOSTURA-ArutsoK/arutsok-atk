@@ -35,10 +35,7 @@ import {
   type DashboardPreference, type InsertDashboardPreference,
   type UserDashboardLayout,
   type ClientType, type InsertClientType,
-  type ClientTypeSection, type InsertClientTypeSection,
-  type ClientTypePanel, type InsertClientTypePanel,
-  type ClientTypeField, type InsertClientTypeField,
-  clientTypes, clientTypeSections, clientTypePanels, clientTypeFields,
+  clientTypes,
   contractStatuses, contractTemplates, contractInventories, contracts, contractPasswords, contractParameterValues,
   type ContractStatus, type InsertContractStatus,
   type ContractTemplate, type InsertContractTemplate,
@@ -239,21 +236,6 @@ export interface IStorage {
   createClientType(data: InsertClientType): Promise<ClientType>;
   updateClientType(id: number, data: Partial<InsertClientType>): Promise<ClientType>;
   deleteClientType(id: number): Promise<void>;
-
-  getClientTypeSections(clientTypeId: number): Promise<ClientTypeSection[]>;
-  createClientTypeSection(data: InsertClientTypeSection): Promise<ClientTypeSection>;
-  updateClientTypeSection(id: number, data: Partial<InsertClientTypeSection>): Promise<ClientTypeSection>;
-  deleteClientTypeSection(id: number): Promise<void>;
-
-  getClientTypePanels(clientTypeId: number): Promise<ClientTypePanel[]>;
-  createClientTypePanel(data: InsertClientTypePanel): Promise<ClientTypePanel>;
-  updateClientTypePanel(id: number, data: Partial<InsertClientTypePanel>): Promise<ClientTypePanel>;
-  deleteClientTypePanel(id: number): Promise<void>;
-
-  getClientTypeFields(clientTypeId: number): Promise<ClientTypeField[]>;
-  createClientTypeField(data: InsertClientTypeField): Promise<ClientTypeField>;
-  updateClientTypeField(id: number, data: Partial<InsertClientTypeField>): Promise<ClientTypeField>;
-  deleteClientTypeField(id: number): Promise<void>;
 
   checkDuplicateSubject(params: { birthNumber?: string; ico?: string }): Promise<{ id: number; uid: string; name: string; type: string; matchedField: string } | undefined>;
 
@@ -1520,70 +1502,7 @@ export class DatabaseStorage implements IStorage {
 
   async deleteClientType(id: number): Promise<void> {
     const now = new Date();
-    await db.update(clientTypeFields).set({ deletedAt: now }).where(eq(clientTypeFields.clientTypeId, id));
-    await db.update(clientTypePanels).set({ deletedAt: now }).where(eq(clientTypePanels.clientTypeId, id));
-    await db.update(clientTypeSections).set({ deletedAt: now }).where(eq(clientTypeSections.clientTypeId, id));
     await db.update(clientTypes).set({ deletedAt: now } as any).where(eq(clientTypes.id, id));
-  }
-
-  async getClientTypeSections(clientTypeId: number): Promise<ClientTypeSection[]> {
-    return await db.select().from(clientTypeSections)
-      .where(and(eq(clientTypeSections.clientTypeId, clientTypeId), isNull(clientTypeSections.deletedAt)))
-      .orderBy(clientTypeSections.sortOrder);
-  }
-
-  async createClientTypeSection(data: InsertClientTypeSection): Promise<ClientTypeSection> {
-    const [created] = await db.insert(clientTypeSections).values(data).returning();
-    return created;
-  }
-
-  async updateClientTypeSection(id: number, data: Partial<InsertClientTypeSection>): Promise<ClientTypeSection> {
-    const [updated] = await db.update(clientTypeSections).set(data).where(eq(clientTypeSections.id, id)).returning();
-    return updated;
-  }
-
-  async deleteClientTypeSection(id: number): Promise<void> {
-    await db.update(clientTypeSections).set({ deletedAt: new Date() }).where(eq(clientTypeSections.id, id));
-  }
-
-  async getClientTypePanels(clientTypeId: number): Promise<ClientTypePanel[]> {
-    return await db.select().from(clientTypePanels)
-      .where(and(eq(clientTypePanels.clientTypeId, clientTypeId), isNull(clientTypePanels.deletedAt)))
-      .orderBy(clientTypePanels.sortOrder);
-  }
-
-  async createClientTypePanel(data: InsertClientTypePanel): Promise<ClientTypePanel> {
-    const [created] = await db.insert(clientTypePanels).values(data as any).returning();
-    return created;
-  }
-
-  async updateClientTypePanel(id: number, data: Partial<InsertClientTypePanel>): Promise<ClientTypePanel> {
-    const [updated] = await db.update(clientTypePanels).set(data as any).where(eq(clientTypePanels.id, id)).returning();
-    return updated;
-  }
-
-  async deleteClientTypePanel(id: number): Promise<void> {
-    await db.update(clientTypePanels).set({ deletedAt: new Date() }).where(eq(clientTypePanels.id, id));
-  }
-
-  async getClientTypeFields(clientTypeId: number): Promise<ClientTypeField[]> {
-    return await db.select().from(clientTypeFields)
-      .where(and(eq(clientTypeFields.clientTypeId, clientTypeId), isNull(clientTypeFields.deletedAt)))
-      .orderBy(clientTypeFields.sortOrder);
-  }
-
-  async createClientTypeField(data: InsertClientTypeField): Promise<ClientTypeField> {
-    const [created] = await db.insert(clientTypeFields).values(data as any).returning();
-    return created;
-  }
-
-  async updateClientTypeField(id: number, data: Partial<InsertClientTypeField>): Promise<ClientTypeField> {
-    const [updated] = await db.update(clientTypeFields).set(data as any).where(eq(clientTypeFields.id, id)).returning();
-    return updated;
-  }
-
-  async deleteClientTypeField(id: number): Promise<void> {
-    await db.update(clientTypeFields).set({ deletedAt: new Date() }).where(eq(clientTypeFields.id, id));
   }
 
   async checkDuplicateSubject(params: { birthNumber?: string; ico?: string }): Promise<{ id: number; uid: string; name: string; type: string; matchedField: string } | undefined> {
@@ -2892,10 +2811,6 @@ export class DatabaseStorage implements IStorage {
   async restoreEntity(entityType: string, id: number): Promise<void> {
     switch (entityType) {
       case 'subjects': await db.update(subjects).set({ deletedAt: null, isActive: true }).where(eq(subjects.id, id)); break;
-      case 'clientTypes': await db.update(clientTypes).set({ deletedAt: null } as any).where(eq(clientTypes.id, id)); break;
-      case 'clientTypeFields': await db.update(clientTypeFields).set({ deletedAt: null }).where(eq(clientTypeFields.id, id)); break;
-      case 'clientTypePanels': await db.update(clientTypePanels).set({ deletedAt: null }).where(eq(clientTypePanels.id, id)); break;
-      case 'clientTypeSections': await db.update(clientTypeSections).set({ deletedAt: null }).where(eq(clientTypeSections.id, id)); break;
       case 'sectors': await db.update(sectors).set({ deletedAt: null }).where(eq(sectors.id, id)); break;
       case 'sections': await db.update(sections).set({ deletedAt: null }).where(eq(sections.id, id)); break;
       case 'sectorProducts': await db.update(sectorProducts).set({ deletedAt: null }).where(eq(sectorProducts.id, id)); break;
@@ -2914,10 +2829,6 @@ export class DatabaseStorage implements IStorage {
   async permanentDeleteEntity(entityType: string, id: number): Promise<void> {
     switch (entityType) {
       case 'subjects': await db.delete(subjects).where(and(eq(subjects.id, id), isNotNull(subjects.deletedAt))); break;
-      case 'clientTypes': await db.delete(clientTypes).where(and(eq(clientTypes.id, id), isNotNull(clientTypes.deletedAt))); break;
-      case 'clientTypeFields': await db.delete(clientTypeFields).where(and(eq(clientTypeFields.id, id), isNotNull(clientTypeFields.deletedAt))); break;
-      case 'clientTypePanels': await db.delete(clientTypePanels).where(and(eq(clientTypePanels.id, id), isNotNull(clientTypePanels.deletedAt))); break;
-      case 'clientTypeSections': await db.delete(clientTypeSections).where(and(eq(clientTypeSections.id, id), isNotNull(clientTypeSections.deletedAt))); break;
       case 'sectors': await db.delete(sectors).where(and(eq(sectors.id, id), isNotNull(sectors.deletedAt))); break;
       case 'sections': await db.delete(sections).where(and(eq(sections.id, id), isNotNull(sections.deletedAt))); break;
       case 'sectorProducts': await db.delete(sectorProducts).where(and(eq(sectorProducts.id, id), isNotNull(sectorProducts.deletedAt))); break;
@@ -2942,17 +2853,6 @@ export class DatabaseStorage implements IStorage {
       results.push({ id: s.id, entityType: 'Subjekt', name: name || s.uid, deletedAt: s.deletedAt! });
     }
 
-    const deletedClientTypes = await db.select().from(clientTypes).where(isNotNull(clientTypes.deletedAt));
-    for (const ct of deletedClientTypes) results.push({ id: ct.id, entityType: 'Typ klienta', name: ct.name, deletedAt: ct.deletedAt! });
-
-    const deletedClientTypeFields = await db.select().from(clientTypeFields).where(isNotNull(clientTypeFields.deletedAt));
-    for (const f of deletedClientTypeFields) results.push({ id: f.id, entityType: 'Parameter klienta', name: f.fieldKey, deletedAt: f.deletedAt! });
-
-    const deletedClientTypePanels = await db.select().from(clientTypePanels).where(isNotNull(clientTypePanels.deletedAt));
-    for (const p of deletedClientTypePanels) results.push({ id: p.id, entityType: 'Panel klienta', name: p.name, deletedAt: p.deletedAt! });
-
-    const deletedClientTypeSections = await db.select().from(clientTypeSections).where(isNotNull(clientTypeSections.deletedAt));
-    for (const s of deletedClientTypeSections) results.push({ id: s.id, entityType: 'Sekcia klienta', name: s.name, deletedAt: s.deletedAt! });
 
     const deletedSectors = await db.select().from(sectors).where(isNotNull(sectors.deletedAt));
     for (const s of deletedSectors) results.push({ id: s.id, entityType: 'Sektor', name: s.name, deletedAt: s.deletedAt! });

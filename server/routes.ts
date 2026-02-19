@@ -4,7 +4,7 @@ import { storage } from "./storage";
 import { api } from "@shared/routes";
 import { setupAuth, registerAuthRoutes, isAuthenticated } from "./replit_integrations/auth";
 import { z } from "zod";
-import { continents, states, myCompanies, appUsers, clientTypes, clientSubGroups, clientGroupMembers, productFolderAssignments, folderPanels, panelParameters, clientTypeSections, clientTypeFields, userClientGroupMemberships, clientGroups, permissionGroups, insertCareerLevelSchema, insertProductPointRateSchema, careerLevels } from "@shared/schema";
+import { continents, states, myCompanies, appUsers, clientTypes, clientSubGroups, clientGroupMembers, productFolderAssignments, folderPanels, panelParameters, userClientGroupMemberships, clientGroups, permissionGroups, insertCareerLevelSchema, insertProductPointRateSchema, careerLevels } from "@shared/schema";
 import { db } from "./db";
 import { eq } from "drizzle-orm";
 import multer from "multer";
@@ -2623,35 +2623,6 @@ export async function registerRoutes(
     }
   });
 
-  // === CLIENT TYPE REORDER ===
-  app.put("/api/client-types/:typeId/fields/reorder", isAuthenticated, async (req: any, res) => {
-    try {
-      const { items } = req.body;
-      if (!Array.isArray(items)) return res.status(400).json({ message: "Items array required" });
-      for (const item of items) {
-        await storage.updateClientTypeField(item.id, { sortOrder: item.sortOrder });
-      }
-      await logAudit(req, { action: "UPDATE", module: "pravidla_typov", entityName: "reorder fields" });
-      res.json({ success: true });
-    } catch (err) {
-      res.status(500).json({ message: "Internal error" });
-    }
-  });
-
-  app.put("/api/client-types/:typeId/sections/reorder", isAuthenticated, async (req: any, res) => {
-    try {
-      const { items } = req.body;
-      if (!Array.isArray(items)) return res.status(400).json({ message: "Items array required" });
-      for (const item of items) {
-        await storage.updateClientTypeSection(item.id, { sortOrder: item.sortOrder });
-      }
-      await logAudit(req, { action: "UPDATE", module: "pravidla_typov", entityName: "reorder sections" });
-      res.json({ success: true });
-    } catch (err) {
-      res.status(500).json({ message: "Internal error" });
-    }
-  });
-
   app.put("/api/client-types/reorder", isAuthenticated, async (req: any, res) => {
     try {
       const { items } = req.body;
@@ -3633,25 +3604,11 @@ export async function registerRoutes(
     }
   });
 
-  // === CLIENT TYPES (Dynamic Parameter System) ===
+  // === CLIENT TYPES ===
   app.get("/api/client-types", isAuthenticated, async (_req, res) => {
     try {
       const types = await storage.getClientTypes();
-      const allSections = await db.select().from(clientTypeSections);
-      const allFields = await db.select().from(clientTypeFields);
-      const sectionCountByType: Record<number, number> = {};
-      const fieldCountByType: Record<number, number> = {};
-      for (const s of allSections) {
-        sectionCountByType[s.clientTypeId] = (sectionCountByType[s.clientTypeId] || 0) + 1;
-      }
-      for (const f of allFields) {
-        fieldCountByType[f.clientTypeId] = (fieldCountByType[f.clientTypeId] || 0) + 1;
-      }
-      const typesWithCounts = types.map(t => ({
-        ...t,
-        childCount: (sectionCountByType[t.id] || 0) + (fieldCountByType[t.id] || 0),
-      }));
-      res.json(typesWithCounts);
+      res.json(types);
     } catch {
       res.status(500).json({ message: "Failed to get client types" });
     }
@@ -3664,14 +3621,6 @@ export async function registerRoutes(
         return res.status(403).json({ message: "Nedostatocne opravnenia" });
       }
       const created = await storage.createClientType(req.body);
-      const defaultSections = [
-        { clientTypeId: created.id, name: "POVINNÉ ÚDAJE", folderCategory: "povinne", sortOrder: 0 },
-        { clientTypeId: created.id, name: "DOPLNKOVÉ ÚDAJE", folderCategory: "doplnkove", sortOrder: 1 },
-        { clientTypeId: created.id, name: "VOLITEĽNÉ ÚDAJE", folderCategory: "volitelne", sortOrder: 2 },
-      ];
-      for (const sec of defaultSections) {
-        await storage.createClientTypeSection(sec);
-      }
       await logAudit(req, { action: "CREATE", module: "client_types", entityId: created.id, entityName: created.name });
       res.json(created);
     } catch {
@@ -3704,198 +3653,6 @@ export async function registerRoutes(
       res.json({ ok: true });
     } catch {
       res.status(500).json({ message: "Failed to delete client type" });
-    }
-  });
-
-  // === CLIENT TYPE SECTIONS ===
-  app.get("/api/client-types/:typeId/sections", isAuthenticated, async (req, res) => {
-    try {
-      const sections = await storage.getClientTypeSections(Number(req.params.typeId));
-      res.json(sections);
-    } catch {
-      res.status(500).json({ message: "Failed to get sections" });
-    }
-  });
-
-  app.post("/api/client-types/:typeId/sections", isAuthenticated, async (req: any, res) => {
-    try {
-      const appUser = req.appUser;
-      if (!appUser || !["admin", "superadmin"].includes(appUser.role)) {
-        return res.status(403).json({ message: "Nedostatocne opravnenia" });
-      }
-      const created = await storage.createClientTypeSection({
-        ...req.body,
-        clientTypeId: Number(req.params.typeId),
-      });
-      res.json(created);
-    } catch {
-      res.status(500).json({ message: "Failed to create section" });
-    }
-  });
-
-  app.patch("/api/client-type-sections/:id", isAuthenticated, async (req: any, res) => {
-    try {
-      const appUser = req.appUser;
-      if (!appUser || !["admin", "superadmin"].includes(appUser.role)) {
-        return res.status(403).json({ message: "Nedostatocne opravnenia" });
-      }
-      const updated = await storage.updateClientTypeSection(Number(req.params.id), req.body);
-      res.json(updated);
-    } catch {
-      res.status(500).json({ message: "Failed to update section" });
-    }
-  });
-
-  app.delete("/api/client-type-sections/:id", isAuthenticated, async (req: any, res) => {
-    try {
-      const appUser = req.appUser;
-      if (!appUser || !["admin", "superadmin"].includes(appUser.role)) {
-        return res.status(403).json({ message: "Nedostatocne opravnenia" });
-      }
-      await storage.deleteClientTypeSection(Number(req.params.id));
-      res.json({ ok: true });
-    } catch {
-      res.status(500).json({ message: "Failed to delete section" });
-    }
-  });
-
-  // === CLIENT TYPE PANELS ===
-  app.get("/api/client-types/:typeId/panels", isAuthenticated, async (req, res) => {
-    try {
-      const panels = await storage.getClientTypePanels(Number(req.params.typeId));
-      res.json(panels);
-    } catch {
-      res.status(500).json({ message: "Failed to get panels" });
-    }
-  });
-
-  app.post("/api/client-types/:typeId/panels", isAuthenticated, async (req: any, res) => {
-    try {
-      const appUser = req.appUser;
-      if (!appUser || !["admin", "superadmin"].includes(appUser.role)) {
-        return res.status(403).json({ message: "Nedostatocne opravnenia" });
-      }
-      const created = await storage.createClientTypePanel({
-        ...req.body,
-        clientTypeId: Number(req.params.typeId),
-      });
-      res.json(created);
-    } catch {
-      res.status(500).json({ message: "Failed to create panel" });
-    }
-  });
-
-  app.patch("/api/client-type-panels/:id", isAuthenticated, async (req: any, res) => {
-    try {
-      const appUser = req.appUser;
-      if (!appUser || !["admin", "superadmin"].includes(appUser.role)) {
-        return res.status(403).json({ message: "Nedostatocne opravnenia" });
-      }
-      const updated = await storage.updateClientTypePanel(Number(req.params.id), req.body);
-      res.json(updated);
-    } catch {
-      res.status(500).json({ message: "Failed to update panel" });
-    }
-  });
-
-  app.delete("/api/client-type-panels/:id", isAuthenticated, async (req: any, res) => {
-    try {
-      const appUser = req.appUser;
-      if (!appUser || !["admin", "superadmin"].includes(appUser.role)) {
-        return res.status(403).json({ message: "Nedostatocne opravnenia" });
-      }
-      await storage.deleteClientTypePanel(Number(req.params.id));
-      res.json({ ok: true });
-    } catch {
-      res.status(500).json({ message: "Failed to delete panel" });
-    }
-  });
-
-  app.put("/api/client-types/:typeId/panels/reorder", isAuthenticated, async (req: any, res) => {
-    try {
-      const items: { id: number; sortOrder: number }[] = req.body.items;
-      for (const item of items) {
-        await storage.updateClientTypePanel(item.id, { sortOrder: item.sortOrder });
-      }
-      res.json({ ok: true });
-    } catch {
-      res.status(500).json({ message: "Failed to reorder panels" });
-    }
-  });
-
-  // === CLIENT TYPE FIELDS ===
-  app.get("/api/client-types/:typeId/fields", isAuthenticated, async (req, res) => {
-    try {
-      const fields = await storage.getClientTypeFields(Number(req.params.typeId));
-      res.json(fields);
-    } catch {
-      res.status(500).json({ message: "Failed to get fields" });
-    }
-  });
-
-  app.post("/api/client-types/:typeId/fields", isAuthenticated, async (req: any, res) => {
-    try {
-      const appUser = req.appUser;
-      const isAllowed = appUser && (["admin", "superadmin", "prezident"].includes(appUser.role) || appUser.permissionGroupId);
-      if (!isAllowed) {
-        return res.status(403).json({ message: "Nedostatocne opravnenia" });
-      }
-      const created = await storage.createClientTypeField({
-        ...req.body,
-        clientTypeId: Number(req.params.typeId),
-      });
-      res.json(created);
-    } catch {
-      res.status(500).json({ message: "Failed to create field" });
-    }
-  });
-
-  app.patch("/api/client-type-fields/:id", isAuthenticated, async (req: any, res) => {
-    try {
-      const appUser = req.appUser;
-      const isAllowed = appUser && (["admin", "superadmin", "prezident"].includes(appUser.role) || appUser.permissionGroupId);
-      if (!isAllowed) {
-        return res.status(403).json({ message: "Nedostatocne opravnenia" });
-      }
-      const updated = await storage.updateClientTypeField(Number(req.params.id), req.body);
-      res.json(updated);
-    } catch {
-      res.status(500).json({ message: "Failed to update field" });
-    }
-  });
-
-  app.patch("/api/client-type-fields/:id/layout", isAuthenticated, async (req: any, res) => {
-    try {
-      const appUser = req.appUser;
-      const isAllowed = appUser && (["admin", "superadmin", "prezident"].includes(appUser.role) || appUser.permissionGroupId);
-      if (!isAllowed) {
-        return res.status(403).json({ message: "Nedostatocne opravnenia" });
-      }
-      const { rowNumber, widthPercent, sortOrder, isRequired, isHidden } = req.body;
-      const updateData: any = {};
-      if (rowNumber !== undefined) updateData.rowNumber = rowNumber;
-      if (widthPercent !== undefined) updateData.widthPercent = widthPercent;
-      if (sortOrder !== undefined) updateData.sortOrder = sortOrder;
-      if (isRequired !== undefined) updateData.isRequired = isRequired;
-      if (isHidden !== undefined) updateData.isHidden = isHidden;
-      const updated = await storage.updateClientTypeField(Number(req.params.id), updateData);
-      res.json(updated);
-    } catch {
-      res.status(500).json({ message: "Failed to update field layout" });
-    }
-  });
-
-  app.delete("/api/client-type-fields/:id", isAuthenticated, async (req: any, res) => {
-    try {
-      const appUser = req.appUser;
-      const isAllowed = appUser && (["admin", "superadmin", "prezident"].includes(appUser.role) || appUser.permissionGroupId);
-      if (!isAllowed) {
-        return res.status(403).json({ message: "Nedostatocne opravnenia" });
-      }
-      await storage.deleteClientTypeField(Number(req.params.id));
-      res.json({ ok: true });
-    } catch {
-      res.status(500).json({ message: "Failed to delete field" });
     }
   });
 

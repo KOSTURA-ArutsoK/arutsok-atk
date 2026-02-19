@@ -458,52 +458,6 @@ export const clientTypes = pgTable("client_types", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
-// === CLIENT TYPE SECTIONS (Layout grouping) ===
-export const clientTypeSections = pgTable("client_type_sections", {
-  id: serial("id").primaryKey(),
-  clientTypeId: integer("client_type_id").notNull().references(() => clientTypes.id),
-  name: text("name").notNull(),
-  folderCategory: text("folder_category").default("povinne"),
-  sortOrder: integer("sort_order").default(0),
-  createdAt: timestamp("created_at").defaultNow(),
-  deletedAt: timestamp("deleted_at"),
-});
-
-// === CLIENT TYPE PANELS (Panel grouping within folders) ===
-export const clientTypePanels = pgTable("client_type_panels", {
-  id: serial("id").primaryKey(),
-  clientTypeId: integer("client_type_id").notNull().references(() => clientTypes.id),
-  sectionId: integer("section_id").references(() => clientTypeSections.id),
-  name: text("name").notNull(),
-  gridColumns: integer("grid_columns").default(2),
-  sortOrder: integer("sort_order").default(0),
-  createdAt: timestamp("created_at").defaultNow(),
-  deletedAt: timestamp("deleted_at"),
-});
-
-// === CLIENT TYPE FIELDS (Field definitions per type) ===
-export const clientTypeFields = pgTable("client_type_fields", {
-  id: serial("id").primaryKey(),
-  clientTypeId: integer("client_type_id").notNull().references(() => clientTypes.id),
-  sectionId: integer("section_id").references(() => clientTypeSections.id),
-  panelId: integer("panel_id").references(() => clientTypePanels.id),
-  fieldKey: text("field_key").notNull(),
-  label: text("label").notNull(),
-  fieldType: text("field_type").notNull(),
-  isRequired: boolean("is_required").default(false),
-  isHidden: boolean("is_hidden").default(false),
-  options: jsonb("options").$type<string[]>().default([]),
-  defaultValue: text("default_value"),
-  visibilityRule: jsonb("visibility_rule").$type<{ dependsOn: string; value: string } | null>(),
-  unit: text("unit"),
-  decimalPlaces: integer("decimal_places").default(2),
-  fieldCategory: text("field_category").default("povinne"),
-  sortOrder: integer("sort_order").default(0),
-  rowNumber: integer("row_number").default(0),
-  widthPercent: integer("width_percent").default(100),
-  createdAt: timestamp("created_at").defaultNow(),
-  deletedAt: timestamp("deleted_at"),
-});
 
 // === CLIENT GROUPS (Skupiny klientov) ===
 export const clientGroups = pgTable("client_groups", {
@@ -858,9 +812,6 @@ export const insertCategoryTimeoutSchema = createInsertSchema(categoryTimeouts).
 export const insertDashboardPreferenceSchema = createInsertSchema(dashboardPreferences).omit({ id: true });
 export const insertUserDashboardLayoutSchema = createInsertSchema(userDashboardLayouts).omit({ id: true, updatedAt: true });
 export const insertClientTypeSchema = createInsertSchema(clientTypes).omit({ id: true, createdAt: true });
-export const insertClientTypeSectionSchema = createInsertSchema(clientTypeSections).omit({ id: true, createdAt: true });
-export const insertClientTypePanelSchema = createInsertSchema(clientTypePanels).omit({ id: true, createdAt: true });
-export const insertClientTypeFieldSchema = createInsertSchema(clientTypeFields).omit({ id: true, createdAt: true });
 export const insertClientGroupSchema = createInsertSchema(clientGroups).omit({ id: true, createdAt: true, updatedAt: true });
 export const insertClientSubGroupSchema = createInsertSchema(clientSubGroups).omit({ id: true, createdAt: true });
 export const insertClientGroupMemberSchema = createInsertSchema(clientGroupMembers).omit({ id: true, createdAt: true });
@@ -930,12 +881,6 @@ export type InsertUserDashboardLayout = z.infer<typeof insertUserDashboardLayout
 
 export type ClientType = typeof clientTypes.$inferSelect;
 export type InsertClientType = z.infer<typeof insertClientTypeSchema>;
-export type ClientTypeSection = typeof clientTypeSections.$inferSelect;
-export type InsertClientTypeSection = z.infer<typeof insertClientTypeSectionSchema>;
-export type ClientTypePanel = typeof clientTypePanels.$inferSelect;
-export type InsertClientTypePanel = z.infer<typeof insertClientTypePanelSchema>;
-export type ClientTypeField = typeof clientTypeFields.$inferSelect;
-export type InsertClientTypeField = z.infer<typeof insertClientTypeFieldSchema>;
 
 export type ClientGroup = typeof clientGroups.$inferSelect;
 export type InsertClientGroup = z.infer<typeof insertClientGroupSchema>;

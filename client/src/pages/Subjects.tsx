@@ -31,7 +31,8 @@ import {
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { insertSubjectSchema } from "@shared/schema";
-import type { Subject, ClientType, ClientTypeField, ClientTypeSection, AuditLog } from "@shared/schema";
+import type { Subject, ClientType, AuditLog } from "@shared/schema";
+import { getFieldsForClientTypeId, getSectionsForClientTypeId, getPanelsForClientTypeId, getFieldsForType, getSectionsForType, getPanelsForType, type StaticField, type StaticSection, type StaticPanel } from "@/lib/staticFieldDefs";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { InternationalPhoneInput } from "@/components/ui/international-phone-input";
@@ -228,52 +229,10 @@ function SubjectDataTab({ subject }: { subject: Subject }) {
     return false;
   });
 
-  const { data: typeFields } = useQuery<ClientTypeField[]>({
-    queryKey: ["/api/client-types", clientType?.id, "fields"],
-    queryFn: async () => {
-      const res = await fetch(`/api/client-types/${clientType!.id}/fields`, { credentials: "include" });
-      if (!res.ok) throw new Error("Failed");
-      return res.json();
-    },
-    enabled: !!clientType?.id,
-    staleTime: 0,
-    refetchOnMount: "always",
-  });
-
-  const foClientType = clientTypes?.find(ct => ct.code === 'FO');
-  const { data: foTypeFields } = useQuery<ClientTypeField[]>({
-    queryKey: ["/api/client-types", foClientType?.id, "fields"],
-    queryFn: async () => {
-      const res = await fetch(`/api/client-types/${foClientType!.id}/fields`, { credentials: "include" });
-      if (!res.ok) throw new Error("Failed");
-      return res.json();
-    },
-    enabled: isSzco && !!foClientType?.id,
-    staleTime: 0,
-    refetchOnMount: "always",
-  });
-
-  const INHERITED_FO_FIELDS = ["meno", "priezvisko", "rodne_cislo", "cislo_dokladu", "titul"];
-  const isFieldHidden = (fieldKey: string) => {
-    const szcoHidden = (typeFields || []).find(f => f.fieldKey === fieldKey)?.isHidden;
-    if (isSzco && INHERITED_FO_FIELDS.includes(fieldKey)) {
-      const foHidden = (foTypeFields || []).find(f => f.fieldKey === fieldKey)?.isHidden;
-      return szcoHidden || foHidden;
-    }
-    return szcoHidden;
-  };
-
-  const { data: typeSections } = useQuery<(ClientTypeSection & { folderCategory?: string })[]>({
-    queryKey: ["/api/client-types", clientType?.id, "sections"],
-    queryFn: async () => {
-      const res = await fetch(`/api/client-types/${clientType!.id}/sections`, { credentials: "include" });
-      if (!res.ok) throw new Error("Failed");
-      return res.json();
-    },
-    enabled: !!clientType?.id,
-    staleTime: 0,
-    refetchOnMount: "always",
-  });
+  const clientTypeId = isSzco ? 3 : isPerson ? 1 : 4;
+  const typeFields = getFieldsForClientTypeId(clientTypeId);
+  const foTypeFields = getFieldsForClientTypeId(1);
+  const typeSections = getSectionsForClientTypeId(clientTypeId);
 
   const details = (subject.details || {}) as Record<string, any>;
   const dynamicFields = details.dynamicFields || details;
@@ -285,7 +244,7 @@ function SubjectDataTab({ subject }: { subject: Subject }) {
   }
 
   function groupFieldsByCategory() {
-    const groups: Record<string, { section: any; fields: ClientTypeField[] }[]> = {
+    const groups: Record<string, { section: any; fields: StaticField[] }[]> = {
       povinne: [],
       doplnkove: [],
       volitelne: [],
@@ -298,7 +257,7 @@ function SubjectDataTab({ subject }: { subject: Subject }) {
     for (const section of sectionsSorted) {
       const category = (section as any).folderCategory || "volitelne";
       const sectionFields = typeFields
-        .filter(f => (f.sectionId || 0) === section.id && !isFieldHidden(f.fieldKey))
+        .filter(f => (f.sectionId || 0) === section.id)
         .sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0));
       if (sectionFields.length > 0) {
         if (!groups[category]) groups[category] = [];
@@ -306,7 +265,7 @@ function SubjectDataTab({ subject }: { subject: Subject }) {
       }
     }
 
-    const unsectionedFields = typeFields.filter(f => (!f.sectionId || f.sectionId === 0) && !isFieldHidden(f.fieldKey));
+    const unsectionedFields = typeFields.filter(f => (!f.sectionId || f.sectionId === 0));
     if (unsectionedFields.length > 0) {
       groups.volitelne.push({ section: { id: 0, name: "Ostatne" }, fields: unsectionedFields.sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0)) });
     }
@@ -329,39 +288,29 @@ function SubjectDataTab({ subject }: { subject: Subject }) {
         </div>
         {isPerson || isSzco ? (
           <>
-            {!isFieldHidden("meno") && (
             <div className="flex-1 min-w-[calc(50%-0.5rem)]">
               <span className="text-xs text-muted-foreground">Meno</span>
               <p className="text-sm">{subject.firstName || '-'}</p>
             </div>
-            )}
-            {!isFieldHidden("priezvisko") && (
             <div className="flex-1 min-w-[calc(50%-0.5rem)]">
               <span className="text-xs text-muted-foreground">Priezvisko</span>
               <p className="text-sm">{subject.lastName || '-'}</p>
             </div>
-            )}
           </>
         ) : (
-          !isFieldHidden("nazov_organizacie") && (
           <div className="flex-1 min-w-[calc(50%-0.5rem)]">
             <span className="text-xs text-muted-foreground">Nazov spolocnosti</span>
             <p className="text-sm">{subject.companyName || '-'}</p>
           </div>
-          )
         )}
-        {!isFieldHidden("email") && (
         <div className="flex-1 min-w-[calc(50%-0.5rem)]">
           <span className="text-xs text-muted-foreground">Email</span>
           <p className="text-sm">{subject.email || '-'}</p>
         </div>
-        )}
-        {!isFieldHidden("telefon") && (
         <div className="flex-1 min-w-[calc(50%-0.5rem)]">
           <span className="text-xs text-muted-foreground">Telefon</span>
           <p className="text-sm">{subject.phone || '-'}</p>
         </div>
-        )}
       </div>
 
       {isSzco && (subject as any).linkedFo && (
@@ -978,7 +927,7 @@ function InitialRegistrationModal({
 }
 
 function DynamicFieldInput({ field, dynamicValues, setDynamicValues, hasError, disabled }: {
-  field: ClientTypeField;
+  field: StaticField;
   dynamicValues: Record<string, string>;
   setDynamicValues: React.Dispatch<React.SetStateAction<Record<string, string>>>;
   hasError?: boolean;
@@ -1169,32 +1118,11 @@ function FullPageEditor({
     }
   }, [isPerson, dynamicValues["rodne_cislo"], initialData.baseValue]);
 
-  const { data: typeFields } = useQuery<ClientTypeField[]>({
-    queryKey: ["/api/client-types", clientType?.id, "fields"],
-    queryFn: async () => {
-      const res = await fetch(`/api/client-types/${clientType!.id}/fields`, { credentials: "include" });
-      if (!res.ok) throw new Error("Failed");
-      return res.json();
-    },
-    enabled: !!clientType?.id,
-    staleTime: 0,
-    refetchOnMount: "always",
-  });
+  const editorClientTypeId = clientType?.code === 'SZCO' ? 3 : clientType?.code === 'PO' ? 4 : 1;
+  const typeFields = getFieldsForClientTypeId(editorClientTypeId);
+  const typeSections = getSectionsForClientTypeId(editorClientTypeId);
 
-  const { data: typeSections } = useQuery<ClientTypeSection[]>({
-    queryKey: ["/api/client-types", clientType?.id, "sections"],
-    queryFn: async () => {
-      const res = await fetch(`/api/client-types/${clientType!.id}/sections`, { credentials: "include" });
-      if (!res.ok) throw new Error("Failed");
-      return res.json();
-    },
-    enabled: !!clientType?.id,
-    staleTime: 0,
-    refetchOnMount: "always",
-  });
-
-  function isFieldVisible(field: ClientTypeField): boolean {
-    if (field.isHidden) return false;
+  function isFieldVisible(field: StaticField): boolean {
     if (!field.visibilityRule) return true;
     const rule = field.visibilityRule as { dependsOn: string; value: string };
     if (!rule.dependsOn || !rule.value) return true;
@@ -1257,8 +1185,6 @@ function FullPageEditor({
         { key: "tp_mesto", label: "Mesto (trvalý pobyt)" },
       ];
       for (const ar of addressRequired) {
-        const dbField = (typeFields || []).find(f => f.fieldKey === ar.key);
-        if (dbField?.isHidden) continue;
         if (!dynamicValues[ar.key]?.trim()) {
           missingFields.push({ fieldKey: ar.key, label: ar.label } as any);
         }
@@ -1381,7 +1307,7 @@ function FullPageEditor({
                   .filter(f => isFieldVisible(f));
                 const povinneRemainder = povinneFields.filter(f => !allRowKeys.has(f.fieldKey)).sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0));
 
-                const nonPovinneGroups: { section: any; fields: ClientTypeField[] }[] = [];
+                const nonPovinneGroups: { section: any; fields: StaticField[] }[] = [];
                 const sectionsSorted = [...(typeSections || [])].sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0));
                 for (const section of sectionsSorted) {
                   const category = (section as any).folderCategory || "volitelne";
@@ -1438,10 +1364,6 @@ function FullPageEditor({
                               <p className="text-sm font-semibold">Osobné údaje</p>
                               {FO_POVINNE_ROWS.map((row, rowIdx) => {
                                 const rowEntries = row.keys
-                                  .filter(k => {
-                                    const fullField = (typeFields || []).find(f => f.fieldKey === k);
-                                    return !fullField || !fullField.isHidden;
-                                  })
                                   .map(k => ({ key: k, field: povinneFields.find(f => f.fieldKey === k) }));
                                 const hasAny = rowEntries.some(e => e.field) || rowEntries.some(e => e.key === "statna_prislusnost");
                                 if (!hasAny || rowEntries.length === 0) return null;
@@ -1523,10 +1445,7 @@ function FullPageEditor({
                               psc: "PSČ", mesto: "Mesto", stat: "Štát",
                             };
 
-                            const isAddrFieldHidden = (key: string) => {
-                              const dbField = (typeFields || []).find(f => f.fieldKey === key);
-                              return dbField ? dbField.isHidden : false;
-                            };
+                            const isAddrFieldHidden = (_key: string) => false;
 
                             const renderAddressPanel = (prefix: "tp" | "ka" | "koa", panelDef: typeof ADDRESS_PANEL_FIELDS["tp"], disabled: boolean) => {
                               const findField = (key: string) => povinneFields.find(f => f.fieldKey === key);
@@ -1537,10 +1456,10 @@ function FullPageEditor({
 
                               if (visibleFields.length === 0) return null;
 
-                              const renderAddrField = (key: string, field: ClientTypeField | undefined, suffix: string) => {
+                              const renderAddrField = (key: string, field: StaticField | undefined, suffix: string) => {
                                 if (field) {
                                   const augmentedField = isRequired(key) && !field.isRequired
-                                    ? { ...field, isRequired: true } as ClientTypeField
+                                    ? { ...field, isRequired: true } as StaticField
                                     : field;
                                   return (
                                     <div key={key} style={{ pointerEvents: disabled ? "none" : "auto" }}>
@@ -1644,7 +1563,6 @@ function FullPageEditor({
                             );
                           })()}
 
-                          {!((typeFields || []).find(f => f.fieldKey === "telefon")?.isHidden) && (
                           <div className="flex flex-wrap gap-3" data-testid="row-telefon">
                             <div className="space-y-1 flex-1 min-w-[calc(50%-0.375rem)]">
                               <Label className="text-xs">Tel. číslo (primárne) *</Label>
@@ -1656,7 +1574,6 @@ function FullPageEditor({
                               />
                             </div>
                           </div>
-                          )}
 
                           <div style={{ display: povinneRemainder.length > 0 ? 'block' : 'none' }}>
                             <div className="flex flex-wrap gap-3" data-testid="row-povinne-remainder">
@@ -1690,7 +1607,7 @@ function FullPageEditor({
                                   <div key={section.id} className="space-y-3">
                                     <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide border-b border-border pb-1" style={{ display: groups.length > 1 ? 'block' : 'none' }}>{section.name}</p>
                                     <div className="flex flex-wrap gap-3">
-                                      {fields.map((field: ClientTypeField) => (
+                                      {fields.map((field: StaticField) => (
                                         <div key={field.id} className="flex-1 min-w-[calc(50%-0.375rem)]">
                                           <DynamicFieldInput field={field} dynamicValues={dynamicValues} setDynamicValues={setDynamicValues} hasError={validationErrors.has(field.fieldKey)} />
                                         </div>
@@ -1740,7 +1657,7 @@ function FullPageEditor({
                   </div>
 
                   {typeFields && typeFields.length > 0 && (() => {
-                    const editorFieldGroups: Record<string, { section: any; fields: ClientTypeField[] }[]> = {
+                    const editorFieldGroups: Record<string, { section: any; fields: StaticField[] }[]> = {
                       povinne: [], doplnkove: [], volitelne: [],
                     };
                     const sectionsSorted = [...(typeSections || [])].sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0));
@@ -1779,7 +1696,7 @@ function FullPageEditor({
                                       <div key={section.id} className="space-y-3">
                                         <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide border-b border-border pb-1" style={{ display: groups.length > 1 ? 'block' : 'none' }}>{section.name}</p>
                                         <div className="grid grid-cols-2 gap-3">
-                                          {fields.map((field: ClientTypeField) => (
+                                          {fields.map((field: StaticField) => (
                                             <DynamicFieldInput key={field.id} field={field} dynamicValues={dynamicValues} setDynamicValues={setDynamicValues} hasError={validationErrors.has(field.fieldKey)} />
                                           ))}
                                         </div>
@@ -1867,29 +1784,9 @@ function SubjectEditModal({ subject, onClose }: { subject: Subject & { isOwner?:
     return false;
   });
 
-  const { data: typeFields } = useQuery<ClientTypeField[]>({
-    queryKey: ["/api/client-types", clientType?.id, "fields"],
-    queryFn: async () => {
-      const res = await fetch(`/api/client-types/${clientType!.id}/fields`, { credentials: "include" });
-      if (!res.ok) throw new Error("Failed");
-      return res.json();
-    },
-    enabled: !!clientType?.id,
-    staleTime: 0,
-    refetchOnMount: "always",
-  });
-
-  const { data: typeSections } = useQuery<ClientTypeSection[]>({
-    queryKey: ["/api/client-types", clientType?.id, "sections"],
-    queryFn: async () => {
-      const res = await fetch(`/api/client-types/${clientType!.id}/sections`, { credentials: "include" });
-      if (!res.ok) throw new Error("Failed");
-      return res.json();
-    },
-    enabled: !!clientType?.id,
-    staleTime: 0,
-    refetchOnMount: "always",
-  });
+  const modalClientTypeId = isSzco ? 3 : subject.type === 'company' ? 4 : 1;
+  const typeFields = getFieldsForClientTypeId(modalClientTypeId);
+  const typeSections = getSectionsForClientTypeId(modalClientTypeId);
 
   const CORE_FIELD_MAP: Record<string, string> = {
     email: "email",
@@ -1917,8 +1814,7 @@ function SubjectEditModal({ subject, onClose }: { subject: Subject & { isOwner?:
     return initial;
   });
 
-  function isFieldVisible(field: ClientTypeField): boolean {
-    if (field.isHidden) return false;
+  function isFieldVisible(field: StaticField): boolean {
     if (!field.visibilityRule) return true;
     const rule = field.visibilityRule as { dependsOn: string; value: string };
     if (!rule.dependsOn || !rule.value) return true;
@@ -2057,7 +1953,7 @@ function SubjectEditModal({ subject, onClose }: { subject: Subject & { isOwner?:
             </div>
 
             {typeFields && typeFields.length > 0 && (() => {
-              const editFieldGroups: Record<string, { section: any; fields: ClientTypeField[] }[]> = {
+              const editFieldGroups: Record<string, { section: any; fields: StaticField[] }[]> = {
                 povinne: [], doplnkove: [], volitelne: [],
               };
               const sectionsSorted = [...(typeSections || [])].sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0));
@@ -2097,10 +1993,7 @@ function SubjectEditModal({ subject, onClose }: { subject: Subject & { isOwner?:
 
               const allPovinneFields = (editFieldGroups.povinne || []).flatMap(g => g.fields);
 
-              const isEditAddrFieldHidden = (key: string) => {
-                const dbField = (typeFields || []).find(f => f.fieldKey === key);
-                return dbField ? dbField.isHidden : false;
-              };
+              const isEditAddrFieldHidden = (_key: string) => false;
 
               const renderEditAddressPanel = (prefix: "tp" | "ka" | "koa", panelDef: typeof EDIT_ADDRESS_PANEL_FIELDS["tp"], disabled: boolean) => {
                 const findField = (key: string) => allPovinneFields.find(f => f.fieldKey === key);
@@ -2111,9 +2004,9 @@ function SubjectEditModal({ subject, onClose }: { subject: Subject & { isOwner?:
 
                 if (visibleFields.length === 0) return null;
 
-                const renderAddrField = (key: string, field: ClientTypeField | undefined, suffix: string) => {
+                const renderAddrField = (key: string, field: StaticField | undefined, suffix: string) => {
                   if (field) {
-                    const augField = isReq(key) && !field.isRequired ? { ...field, isRequired: true } as ClientTypeField : field;
+                    const augField = isReq(key) && !field.isRequired ? { ...field, isRequired: true } as StaticField : field;
                     return (
                       <div key={key} style={{ pointerEvents: disabled ? "none" : "auto" }}>
                         <DynamicFieldInput field={augField} dynamicValues={dynamicValues} setDynamicValues={setDynamicValues} />
@@ -2176,8 +2069,8 @@ function SubjectEditModal({ subject, onClose }: { subject: Subject & { isOwner?:
                                   : fields;
                                 if (filteredFields.length === 0) return null;
 
-                                const rows = new Map<number, ClientTypeField[]>();
-                                filteredFields.forEach((f: ClientTypeField) => {
+                                const rows = new Map<number, StaticField[]>();
+                                filteredFields.forEach((f: StaticField) => {
                                   const rn = (f as any).rowNumber ?? 0;
                                   if (!rows.has(rn)) rows.set(rn, []);
                                   rows.get(rn)!.push(f);
@@ -2194,7 +2087,7 @@ function SubjectEditModal({ subject, onClose }: { subject: Subject & { isOwner?:
                                         if (hasCustomWidths) {
                                           return (
                                             <div key={rowNum} className="flex gap-3 flex-wrap">
-                                              {rowFields.map((field: ClientTypeField) => (
+                                              {rowFields.map((field: StaticField) => (
                                                 <div key={field.id} style={{ width: `calc(${(field as any).widthPercent ?? 50}% - 0.375rem)`, minWidth: '120px' }}>
                                                   <DynamicFieldInput field={field} dynamicValues={dynamicValues} setDynamicValues={setDynamicValues} />
                                                 </div>
@@ -2204,7 +2097,7 @@ function SubjectEditModal({ subject, onClose }: { subject: Subject & { isOwner?:
                                         }
                                         return (
                                           <div key={rowNum} className="flex flex-wrap gap-3">
-                                            {rowFields.map((field: ClientTypeField) => (
+                                            {rowFields.map((field: StaticField) => (
                                               <div key={field.id} className="flex-1 min-w-[calc(50%-0.375rem)]">
                                                 <DynamicFieldInput field={field} dynamicValues={dynamicValues} setDynamicValues={setDynamicValues} />
                                               </div>
