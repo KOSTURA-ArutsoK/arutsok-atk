@@ -1064,6 +1064,7 @@ export async function registerRoutes(
       const oldDocType = oldDynamic.typ_dokladu || "";
       const oldDocNumber = oldDynamic.cislo_dokladu || "";
       const oldDocValidity = oldDynamic.platnost_dokladu || "";
+      const oldDocIssuedBy = oldDynamic.vydal_organ || "";
       const oldDocAuthority = oldDynamic.kod_vydavajuceho_organu || "";
 
       const newDocType = newDynamic.typ_dokladu;
@@ -1081,6 +1082,7 @@ export async function registerRoutes(
           documentType: oldDocType || null,
           documentNumber: oldDocNumber || null,
           validUntil: oldDocValidity || null,
+          issuedBy: oldDocIssuedBy || null,
           issuingAuthorityCode: oldDocAuthority || null,
           archivedByUserId: appUser.id,
         });

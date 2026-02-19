@@ -247,6 +247,7 @@ export const clientDocumentHistory = pgTable("client_document_history", {
   documentType: text("document_type"),
   documentNumber: text("document_number"),
   validUntil: text("valid_until"),
+  issuedBy: text("issued_by"),
   issuingAuthorityCode: text("issuing_authority_code"),
   archivedAt: timestamp("archived_at").defaultNow(),
   archivedByUserId: integer("archived_by_user_id").references(() => appUsers.id),

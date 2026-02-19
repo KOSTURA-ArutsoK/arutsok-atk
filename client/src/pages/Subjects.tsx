@@ -438,6 +438,12 @@ function DocumentHistorySection({ subjectId }: { subjectId: number }) {
                         <span className={cn("ml-1 text-[10px] font-semibold", validityColor)}>({validityStatus})</span>
                       )}
                     </div>
+                    {entry.issuedBy && (
+                      <div>
+                        <span className="text-muted-foreground">Vydal: </span>
+                        <span className="font-medium">{entry.issuedBy}</span>
+                      </div>
+                    )}
                     {entry.issuingAuthorityCode && (
                       <div>
                         <span className="text-muted-foreground">Kod organu: </span>
