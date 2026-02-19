@@ -1131,8 +1131,10 @@ function DynamicFieldInput({ field, dynamicValues, setDynamicValues, hasError, d
         <Input
           type="number"
           value={dynamicValues[field.fieldKey] || ""}
-          onChange={e => setDynamicValues(prev => ({ ...prev, [field.fieldKey]: e.target.value }))}
-          className={errorBorder}
+          onChange={e => { if (field.fieldKey === "vek") return; setDynamicValues(prev => ({ ...prev, [field.fieldKey]: e.target.value })); }}
+          readOnly={field.fieldKey === "vek"}
+          tabIndex={field.fieldKey === "vek" ? -1 : undefined}
+          className={cn(errorBorder, field.fieldKey === "vek" && "bg-muted/50 cursor-default")}
           data-testid={`input-dynamic-${field.fieldKey}`}
         />
       ) : field.fieldType === "email" ? (
@@ -1244,6 +1246,15 @@ function FullPageEditor({
         const updates: Record<string, string> = {};
         if (parsed.pohlavie && prev["pohlavie"] !== parsed.pohlavie) updates["pohlavie"] = parsed.pohlavie;
         if (parsed.datumNarodenia && prev["datum_narodenia"] !== parsed.datumNarodenia) updates["datum_narodenia"] = parsed.datumNarodenia;
+        if (parsed.datumNarodenia) {
+          const birth = new Date(parsed.datumNarodenia);
+          const today = new Date();
+          let age = today.getFullYear() - birth.getFullYear();
+          const mDiff = today.getMonth() - birth.getMonth();
+          if (mDiff < 0 || (mDiff === 0 && today.getDate() < birth.getDate())) age--;
+          const ageStr = String(age >= 0 ? age : 0);
+          if (prev["vek"] !== ageStr) updates["vek"] = ageStr;
+        }
         return Object.keys(updates).length > 0 ? { ...prev, ...updates } : prev;
       });
     }
