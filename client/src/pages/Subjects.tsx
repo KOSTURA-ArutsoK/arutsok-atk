@@ -1107,19 +1107,19 @@ function DynamicFieldInput({ field, dynamicValues, setDynamicValues, hasError, d
             }
           }
           return (
-            <div className="space-y-0.5">
+            <div className="relative">
               <Input
                 type="date"
                 value={dateVal}
                 onChange={e => setDynamicValues(prev => ({ ...prev, [field.fieldKey]: e.target.value }))}
-                className={cn(errorBorder || validityClass, disabled && "opacity-70")}
+                className={cn(errorBorder || validityClass, disabled && "opacity-70", validityLabel && "pr-[5.5rem]")}
                 disabled={disabled}
                 data-testid={`input-dynamic-${field.fieldKey}`}
               />
               {validityLabel && (
                 <span className={cn(
-                  "text-[10px] font-semibold px-1.5 py-0.5 rounded-sm inline-block",
-                  validityLabel === "Neplatný" ? "text-red-500 bg-red-500/10" : "text-orange-500 bg-orange-500/10"
+                  "absolute right-8 top-1/2 -translate-y-1/2 text-[10px] font-semibold pointer-events-none select-none",
+                  validityLabel === "Neplatný" ? "text-red-500" : "text-orange-500"
                 )} data-testid={`validity-status-${field.fieldKey}`}>
                   {validityLabel}
                 </span>
