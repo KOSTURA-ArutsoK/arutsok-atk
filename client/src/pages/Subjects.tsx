@@ -936,9 +936,17 @@ function DynamicFieldInput({ field, dynamicValues, setDynamicValues, hasError, d
   const errorBorder = hasError ? "border-red-500 ring-1 ring-red-500" : "";
   return (
     <div className="space-y-1">
-      <div className="flex items-center gap-1">
-        <Label className={`text-xs ${hasError ? "text-red-500" : ""}`}>{field.label || field.fieldKey}{field.isRequired ? " *" : ""}</Label>
-      </div>
+      <Label className={`text-xs truncate block ${hasError ? "text-red-500" : "text-muted-foreground"}`}>
+        {field.shortLabel ? (
+          <>
+            <span className="hidden lg:inline">{field.label || field.fieldKey}</span>
+            <span className="inline lg:hidden">{field.shortLabel}</span>
+          </>
+        ) : (
+          <span>{field.label || field.fieldKey}</span>
+        )}
+        {field.isRequired ? " *" : ""}
+      </Label>
       {field.fieldType === "long_text" ? (
         <Textarea
           value={dynamicValues[field.fieldKey] || ""}
@@ -1363,12 +1371,6 @@ function FullPageEditor({
                             <CardContent className="p-4 space-y-3">
                               <p className="text-sm font-semibold">Osobné údaje</p>
                               {(() => {
-                                const NAME_LABELS: Record<string, { full: string; short: string }> = {
-                                  titul_pred: { full: "Titul pred menom", short: "Titul pred" },
-                                  meno: { full: "Meno", short: "Meno" },
-                                  priezvisko: { full: "Priezvisko", short: "Priezvisko" },
-                                  titul_za: { full: "Titul za menom", short: "Titul za" },
-                                };
                                 const nameRowKeys = FO_POVINNE_ROWS[0].keys;
                                 const nameRowFields = nameRowKeys.map(k => ({ key: k, field: povinneFields.find(f => f.fieldKey === k) }));
                                 return (
@@ -1377,12 +1379,17 @@ function FullPageEditor({
                                       const wp = field?.widthPercent || 25;
                                       const hasErr = validationErrors.has(key);
                                       const isReq = field?.isRequired;
-                                      const labels = NAME_LABELS[key];
                                       return (
                                         <div key={key} className="space-y-1" style={{ flex: `0 1 ${wp}%`, minWidth: 0 }}>
                                           <Label className={`text-xs truncate block ${hasErr ? "text-red-500" : "text-muted-foreground"}`}>
-                                            <span className="hidden md:inline">{labels?.full || key}</span>
-                                            <span className="inline md:hidden">{labels?.short || key}</span>
+                                            {field?.shortLabel ? (
+                                              <>
+                                                <span className="hidden lg:inline">{field.label || key}</span>
+                                                <span className="inline lg:hidden">{field.shortLabel}</span>
+                                              </>
+                                            ) : (
+                                              <span>{field?.label || key}</span>
+                                            )}
                                             {isReq ? " *" : ""}
                                           </Label>
                                           <Input

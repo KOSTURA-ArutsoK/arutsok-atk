@@ -2658,8 +2658,16 @@ export default function Contracts() {
                             style={{ display: isVisible ? 'block' : 'none' }}
                             data-testid={`field-inline-${field.fieldKey}`}
                           >
-                            <label className={`text-xs font-medium ${hasErr ? "text-red-500" : ""}`}>
-                              {field.label}{field.isRequired ? " *" : ""}
+                            <label className={`text-xs font-medium truncate block ${hasErr ? "text-red-500" : "text-muted-foreground"}`}>
+                              {field.shortLabel ? (
+                                <>
+                                  <span className="hidden lg:inline">{field.label}</span>
+                                  <span className="inline lg:hidden">{field.shortLabel}</span>
+                                </>
+                              ) : (
+                                <span>{field.label}</span>
+                              )}
+                              {field.isRequired ? " *" : ""}
                             </label>
                             {renderInlineField(field)}
                           </div>
@@ -2677,21 +2685,20 @@ export default function Contracts() {
                             <div className="flex flex-nowrap items-end gap-3">{row1Fields.map(f => {
                               if (!f) return null;
                               const wp = f.widthPercent || 25;
-                              const nameLabels: Record<string, { full: string; short: string }> = {
-                                titul_pred: { full: "Titul pred menom", short: "Titul pred" },
-                                meno: { full: "Meno", short: "Meno" },
-                                priezvisko: { full: "Priezvisko", short: "Priezvisko" },
-                                titul_za: { full: "Titul za menom", short: "Titul za" },
-                              };
                               const hasErr = inlineValidationErrors.has(f.fieldKey);
                               const rule = f.visibilityRule as { dependsOn: string; value: string } | null;
                               const isVisible = !rule || inlineFormValues[rule.dependsOn] === rule.value;
-                              const labels = nameLabels[f.fieldKey];
                               return (
                                 <div key={f.id} className="space-y-1" style={{ flex: `0 1 ${wp}%`, minWidth: 0, display: isVisible ? 'block' : 'none' }}>
                                   <Label className={`text-xs truncate block ${hasErr ? "text-red-500" : "text-muted-foreground"}`}>
-                                    <span className="hidden md:inline">{labels?.full || f.label}</span>
-                                    <span className="inline md:hidden">{labels?.short || f.label}</span>
+                                    {f.shortLabel ? (
+                                      <>
+                                        <span className="hidden lg:inline">{f.label}</span>
+                                        <span className="inline lg:hidden">{f.shortLabel}</span>
+                                      </>
+                                    ) : (
+                                      <span>{f.label}</span>
+                                    )}
                                     {f.isRequired ? " *" : ""}
                                   </Label>
                                   <Input
