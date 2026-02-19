@@ -13,6 +13,10 @@ import path from "path";
 import fs from "fs";
 import { encryptField, decryptField } from "./crypto";
 
+function stripBallast(str: string): string {
+  return str.replace(/[\s\-\+\(\)\/\.]/g, "");
+}
+
 async function logAudit(req: any, params: {
   action: string;
   module: string;
@@ -885,13 +889,16 @@ export async function registerRoutes(
       const allSubjects = await storage.getSubjects(companyId);
       const foSubjects = allSubjects.filter(s => s.type === 'person' && !s.deletedAt);
       const query = q.toLowerCase();
+      const queryStripped = stripBallast(query);
       const results = foSubjects.filter(s => {
         const fullName = `${s.firstName || ''} ${s.lastName || ''}`.toLowerCase();
         if (fullName.includes(query)) return true;
         if (s.email && s.email.toLowerCase().includes(query)) return true;
         if (s.uid && s.uid.toLowerCase().includes(query)) return true;
+        if (s.phone && stripBallast(s.phone.toLowerCase()).includes(queryStripped)) return true;
+        if (s.iban && stripBallast(s.iban.toLowerCase()).includes(queryStripped)) return true;
         const decrypted = decryptField(s.birthNumber);
-        if (decrypted && decrypted.includes(query)) return true;
+        if (decrypted && stripBallast(decrypted).includes(queryStripped)) return true;
         return false;
       }).slice(0, 20).map(s => ({
         id: s.id,
@@ -3211,13 +3218,19 @@ export async function registerRoutes(
     try {
       const q = (req.query.q as string || "").toLowerCase();
       if (!q || q.length < 2) return res.json([]);
+      const qStripped = stripBallast(q);
       const enforcedState = getEnforcedStateId(req);
       const allSubjects = await storage.getSubjects();
       const filtered = allSubjects
         .filter(s => {
           if (enforcedState && s.stateId !== enforcedState) return false;
           const fullName = `${s.firstName || ""} ${s.lastName || ""} ${s.companyName || ""} ${s.uid || ""}`.toLowerCase();
-          return fullName.includes(q);
+          if (fullName.includes(q)) return true;
+          if (s.phone && stripBallast(s.phone.toLowerCase()).includes(qStripped)) return true;
+          if (s.iban && stripBallast(s.iban.toLowerCase()).includes(qStripped)) return true;
+          if (s.ico && stripBallast(s.ico.toLowerCase()).includes(qStripped)) return true;
+          if (s.email && s.email.toLowerCase().includes(q)) return true;
+          return false;
         })
         .slice(0, 20);
       res.json(filtered);

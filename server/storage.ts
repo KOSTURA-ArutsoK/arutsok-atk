@@ -898,12 +898,18 @@ export class DatabaseStorage implements IStorage {
     const conditions = [];
 
     if (params?.search) {
+      const raw = params.search;
+      const stripped = raw.replace(/[\s\-\+\(\)\/\.]/g, "");
       conditions.push(
         or(
-          like(subjects.firstName, `%${params.search}%`),
-          like(subjects.lastName, `%${params.search}%`),
-          like(subjects.companyName, `%${params.search}%`),
-          like(subjects.uid, `%${params.search}%`)
+          like(subjects.firstName, `%${raw}%`),
+          like(subjects.lastName, `%${raw}%`),
+          like(subjects.companyName, `%${raw}%`),
+          like(subjects.uid, `%${raw}%`),
+          sql`LOWER(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(COALESCE(${subjects.phone},''), ' ', ''), '-', ''), '+', ''), '(', ''), ')', ''), '/', ''), '.', '')) ILIKE ${'%' + stripped + '%'}`,
+          sql`LOWER(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(COALESCE(${subjects.email},''), ' ', ''), '-', ''), '+', ''), '(', ''), ')', ''), '/', ''), '.', '')) ILIKE ${'%' + stripped + '%'}`,
+          sql`LOWER(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(COALESCE(${subjects.iban},''), ' ', ''), '-', ''), '+', ''), '(', ''), ')', ''), '/', ''), '.', '')) ILIKE ${'%' + stripped + '%'}`,
+          sql`LOWER(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(COALESCE(${subjects.ico},''), ' ', ''), '-', ''), '+', ''), '(', ''), ')', ''), '/', ''), '.', '')) ILIKE ${'%' + stripped + '%'}`
         )
       );
     }

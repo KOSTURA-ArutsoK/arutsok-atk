@@ -20,9 +20,13 @@ function removeDiacritics(str: string): string {
   return result;
 }
 
+function stripBallast(str: string): string {
+  return str.replace(/[\s\-\+\(\)\/\.]/g, "");
+}
+
 function normalize(val: unknown): string {
   if (val == null) return "";
-  return removeDiacritics(String(val).toLowerCase());
+  return stripBallast(removeDiacritics(String(val).toLowerCase()));
 }
 
 function getNestedValue(obj: any, path: string): any {
