@@ -1128,14 +1128,19 @@ function DynamicFieldInput({ field, dynamicValues, setDynamicValues, hasError, d
             </div>
           );
         })()
+      ) : field.fieldType === "number" && field.fieldKey === "vek" ? (
+        <div
+          className="h-9 w-full flex items-center px-3 rounded-md bg-muted/50 border border-border text-foreground font-semibold text-sm cursor-default select-none"
+          data-testid={`input-dynamic-${field.fieldKey}`}
+        >
+          {dynamicValues[field.fieldKey] ? `${dynamicValues[field.fieldKey]} rokov` : ""}
+        </div>
       ) : field.fieldType === "number" ? (
         <Input
           type="number"
           value={dynamicValues[field.fieldKey] || ""}
-          onChange={e => { if (field.fieldKey === "vek") return; setDynamicValues(prev => ({ ...prev, [field.fieldKey]: e.target.value })); }}
-          readOnly={field.fieldKey === "vek"}
-          tabIndex={field.fieldKey === "vek" ? -1 : undefined}
-          className={cn(errorBorder, field.fieldKey === "vek" && "bg-muted/50 cursor-default")}
+          onChange={e => setDynamicValues(prev => ({ ...prev, [field.fieldKey]: e.target.value }))}
+          className={errorBorder}
           data-testid={`input-dynamic-${field.fieldKey}`}
         />
       ) : field.fieldType === "email" ? (
