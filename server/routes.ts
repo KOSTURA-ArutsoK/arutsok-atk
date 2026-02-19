@@ -774,24 +774,6 @@ export async function registerRoutes(
   });
 
   // === SUBJECTS ===
-  function anonymizeSubject(subject: any): any {
-    const isCompany = subject.type === "company" || subject.type === "szco";
-    return {
-      ...subject,
-      firstName: subject.firstName ? subject.firstName.charAt(0) + "***" : null,
-      lastName: subject.lastName ? subject.lastName.charAt(0) + "***" : null,
-      companyName: isCompany && subject.companyName ? subject.companyName.charAt(0) + "***" : subject.companyName,
-      email: null,
-      phone: null,
-      birthNumber: "***",
-      idCardNumber: null,
-      iban: null,
-      swift: null,
-      details: {},
-      isAnonymized: true,
-    };
-  }
-
   app.get(api.subjects.list.path, isAuthenticated, async (req: any, res) => {
     const appUser = req.appUser;
     const activeCompanyId = appUser?.activeCompanyId || (req.query.activeCompanyId ? Number(req.query.activeCompanyId) : undefined);
@@ -824,27 +806,7 @@ export async function registerRoutes(
       });
     }
 
-    const forContract = req.query.forContract === 'true';
-    const isPrivileged = appUser?.role === 'superadmin' || appUser?.role === 'prezident';
-
-    if (appUser?.id) {
-      const acquirerSubjectIds = await storage.getSubjectIdsWhereUserIsAcquirer(appUser.id);
-      const acquirerSubjectIdSet = new Set(acquirerSubjectIds);
-
-      allSubjects = allSubjects.map((s: any) => {
-        const isRegistrator = s.registeredByUserId === appUser.id;
-        const isAcquirerOnContract = acquirerSubjectIdSet.has(s.id);
-        const isOwner = isRegistrator || isAcquirerOnContract;
-
-        if (forContract && !isPrivileged && !isOwner) {
-          return { ...anonymizeSubject(s), isOwner: false, isAnonymized: true };
-        }
-        return { ...maskSubjectBirthNumber(s, appUser), isOwner: isOwner || isPrivileged, isAnonymized: false };
-      });
-      res.json(allSubjects);
-    } else {
-      res.json(allSubjects.map((s: any) => ({ ...maskSubjectBirthNumber(s, appUser), isOwner: true, isAnonymized: false })));
-    }
+    res.json(allSubjects.map((s: any) => maskSubjectBirthNumber(s, appUser)));
   });
 
   function getSubjectStatusCategory(subject: any, activeCompanyId?: number): string {
@@ -1030,14 +992,6 @@ export async function registerRoutes(
       if (!original) return res.status(404).json({ message: "Subject not found" });
 
       const isAdmin = appUser.role === 'admin' || appUser.role === 'superadmin' || appUser.role === 'prezident';
-      const isRegistrator = original.registeredByUserId === appUser.id;
-      const acquirerSubjectIds = await storage.getSubjectIdsWhereUserIsAcquirer(appUser.id);
-      const isAcquirer = acquirerSubjectIds.includes(subjectId);
-      const isOwner = isRegistrator || isAcquirer;
-
-      if (!isOwner && !isAdmin) {
-        return res.status(403).json({ message: "Nemate opravnenie editovat tento subjekt. Iba vlastnik (Ziskatel) alebo Admin moze menit udaje." });
-      }
 
       const input = api.subjects.update.input.parse(req.body);
 

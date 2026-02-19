@@ -10,7 +10,7 @@ import { useColumnVisibility, type ColumnDef } from "@/hooks/use-column-visibili
 import { ColumnManager } from "@/components/column-manager";
 import type { Contract, ContractStatus, ContractStatusChangeLog, ContractTemplate, ContractInventory, Subject, Partner, Product, MyCompany, Sector, Section, SectorProduct, ContractPassword, ContractParameterValue, ContractFieldSetting, ClientType, ContractAcquirer, AppUser, ContractRewardDistribution } from "@shared/schema";
 import { getFieldsForClientTypeId, type StaticField } from "@/lib/staticFieldDefs";
-import { ArrowLeft, Save, Loader2, LayoutGrid, KeyRound, Plus, Trash2, FileText, Users, ClipboardList, FolderOpen, FolderClosed, DollarSign, BarChart3, ListChecks, PieChart, ChevronLeft, ChevronRight, MessageSquare, Paperclip, Upload, X, Eye, Settings2, Calendar, UserCheck, Lock, Check, Link2, CreditCard } from "lucide-react";
+import { ArrowLeft, Save, Loader2, LayoutGrid, KeyRound, Plus, Trash2, FileText, Users, ClipboardList, FolderOpen, FolderClosed, DollarSign, BarChart3, ListChecks, PieChart, ChevronLeft, ChevronRight, MessageSquare, Paperclip, Upload, X, Eye, Settings2, Calendar, UserCheck, Check, Link2, CreditCard } from "lucide-react";
 import { getSectionsForClientTypeId } from "@/lib/staticFieldDefs";
 import type { DocumentEntry } from "@shared/schema";
 import { Card, CardContent } from "@/components/ui/card";
@@ -901,13 +901,8 @@ export default function ContractForm() {
   });
 
   const { data: allStates } = useStates();
-  const { data: subjects } = useQuery<(Subject & { isOwner?: boolean; isAnonymized?: boolean })[]>({
-    queryKey: ["/api/subjects", "forContract"],
-    queryFn: async () => {
-      const res = await fetch("/api/subjects?forContract=true", { credentials: "include" });
-      if (!res.ok) throw new Error("Failed");
-      return res.json();
-    },
+  const { data: subjects } = useQuery<Subject[]>({
+    queryKey: ["/api/subjects"],
   });
   const { data: partners } = useQuery<Partner[]>({ queryKey: ["/api/partners"] });
   const { data: companies } = useQuery<MyCompany[]>({ queryKey: ["/api/my-companies"] });
@@ -1670,17 +1665,9 @@ export default function ContractForm() {
                       <SelectValue placeholder="Vyberte klienta" />
                     </SelectTrigger>
                     <SelectContent>
-                      {subjects?.filter(s => s.isActive && !s.isAnonymized).map(s => (
+                      {subjects?.filter(s => s.isActive).map(s => (
                         <SelectItem key={s.id} value={s.id.toString()} data-testid={`select-item-subject-${s.id}`}>
                           {s.type === "person" ? `${s.firstName} ${s.lastName}` : s.companyName} ({s.uid})
-                        </SelectItem>
-                      ))}
-                      {subjects?.filter(s => s.isActive && s.isAnonymized).map(s => (
-                        <SelectItem key={s.id} value={s.id.toString()} data-testid={`select-item-subject-anon-${s.id}`}>
-                          <span className="flex items-center gap-1 text-muted-foreground">
-                            <Lock className="w-3 h-3" />
-                            {s.type === "person" ? `${s.firstName} ${s.lastName}` : s.companyName} ({s.uid})
-                          </span>
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -2419,12 +2406,6 @@ function SubjectIslandView({ subject, allSubjects, mode }: { subject: any | null
           <div className="flex items-center gap-2 flex-wrap">
             <h3 className="text-sm font-semibold">{mode === "summary" ? "Klient" : "Detail klienta"}</h3>
             <Badge variant="outline" className="text-xs">{isPerson ? "FO" : isSzco ? "SZCO" : "PO"}</Badge>
-            <span style={{ display: (subject as any).isAnonymized ? 'inline-flex' : 'none' }}>
-              <Badge variant="outline" className="text-xs gap-1" data-testid="badge-anonymized">
-                <Lock className="w-3 h-3" />
-                Anonymizované
-              </Badge>
-            </span>
           </div>
 
           <div className="flex flex-wrap gap-2">

@@ -2621,7 +2621,7 @@ function getSubjectStatus(subject: any, activeCompanyId?: number): { color: stri
   return { color: config.color, bgColor: config.bgColor, borderColor: config.borderColor, textColor: config.textColor, label: config.label, category };
 }
 
-function SubjectEditModal({ subject, onClose }: { subject: Subject & { isOwner?: boolean }; onClose: () => void }) {
+function SubjectEditModal({ subject, onClose }: { subject: Subject; onClose: () => void }) {
   const { toast } = useToast();
   const { data: appUser } = useAppUser();
   const { data: allStates } = useStates();
@@ -3181,7 +3181,7 @@ export default function Subjects() {
   });
   const [addNewHandled, setAddNewHandled] = useState(false);
   const [viewTarget, setViewTarget] = useState<Subject | null>(null);
-  const [editTarget, setEditTarget] = useState<(Subject & { isOwner?: boolean }) | null>(null);
+  const [editTarget, setEditTarget] = useState<Subject | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
   const [bulkAssignOpen, setBulkAssignOpen] = useState(false);
   const [activeFilters, setActiveFilters] = useState<Set<SubjectStatusCategory>>(new Set());
@@ -3404,16 +3404,14 @@ export default function Subjects() {
                         <Button size="icon" variant="ghost" onClick={() => setViewTarget(subject)} data-testid={`button-view-subject-${subject.id}`}>
                           <Eye className="w-4 h-4" />
                         </Button>
-                        <div style={{ visibility: ((subject as any).isOwner || appUser?.role === 'admin' || appUser?.role === 'superadmin' || appUser?.role === 'prezident' || !!(appUser as any)?.permissionGroupId) ? 'visible' : 'hidden' }}>
-                          <Button
-                            size="icon"
-                            variant="ghost"
-                            onClick={() => setEditTarget(subject as any)}
-                            data-testid={`button-edit-subject-${subject.id}`}
-                          >
-                            <Pencil className="w-4 h-4" />
-                          </Button>
-                        </div>
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          onClick={() => setEditTarget(subject as any)}
+                          data-testid={`button-edit-subject-${subject.id}`}
+                        >
+                          <Pencil className="w-4 h-4" />
+                        </Button>
                       </div>
                     </TableCell>
                   </TableRow>
