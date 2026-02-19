@@ -2184,7 +2184,14 @@ export default function Contracts() {
                       ref={refSearchInput}
                       placeholder="Rodne cislo / ICO / Meno..."
                       value={preSelectSubjectSearch}
-                      onChange={(e) => setPreSelectSubjectSearch(e.target.value)}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        setPreSelectSubjectSearch(val);
+                        const digitsOnly = val.replace(/[^0-9]/g, "");
+                        if (digitsOnly.length >= 10) {
+                          setTimeout(() => refStep2Confirm.current?.focus(), 100);
+                        }
+                      }}
                       className="pl-9"
                       data-testid="input-preselect-subject-search"
                     />
