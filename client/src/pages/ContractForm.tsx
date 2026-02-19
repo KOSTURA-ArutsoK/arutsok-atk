@@ -1458,6 +1458,11 @@ export default function ContractForm() {
         <h1 className="text-lg font-bold" data-testid="text-form-title">
           {isEditing ? "Upravit zmluvu" : "Nova zmluva"}
         </h1>
+        {!isEditing && appUser && (
+          <span className="text-xs text-muted-foreground" data-testid="text-form-user-name">
+            {[appUser.firstName, appUser.lastName].filter(Boolean).join(" ") || appUser.username}
+          </span>
+        )}
         <div data-testid="badge-uid-container">
           <span style={{ display: existingContract?.uid ? 'inline' : 'none' }}>
             <Badge variant="outline" data-testid="badge-contract-uid">{existingContract?.uid}</Badge>
