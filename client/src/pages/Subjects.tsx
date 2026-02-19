@@ -1369,7 +1369,7 @@ function FullPageEditor({
                                   priezvisko: { full: "Priezvisko", short: "Priezvisko" },
                                   titul_za: { full: "Titul za menom", short: "Titul za" },
                                 };
-                                const NAME_PLACEHOLDERS: Record<string, string> = { titul_pred: "Titul pred", meno: "Meno *", priezvisko: "Priezvisko *", titul_za: "Titul za" };
+                                const NAME_PLACEHOLDERS: Record<string, string> = { titul_pred: "", meno: "", priezvisko: "", titul_za: "" };
                                 const nameRowKeys = FO_POVINNE_ROWS[0].keys;
                                 const nameRowFields = nameRowKeys.map(k => ({ key: k, field: povinneFields.find(f => f.fieldKey === k) }));
                                 return (

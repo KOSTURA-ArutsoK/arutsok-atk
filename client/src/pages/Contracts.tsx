@@ -2683,7 +2683,7 @@ export default function Contracts() {
                                 priezvisko: { full: "Priezvisko", short: "Priezvisko" },
                                 titul_za: { full: "Titul za menom", short: "Titul za" },
                               };
-                              const namePlaceholders: Record<string, string> = { titul_pred: "Titul pred", meno: "Meno *", priezvisko: "Priezvisko *", titul_za: "Titul za" };
+                              const namePlaceholders: Record<string, string> = { titul_pred: "", meno: "", priezvisko: "", titul_za: "" };
                               const hasErr = inlineValidationErrors.has(f.fieldKey);
                               const rule = f.visibilityRule as { dependsOn: string; value: string } | null;
                               const isVisible = !rule || inlineFormValues[rule.dependsOn] === rule.value;
