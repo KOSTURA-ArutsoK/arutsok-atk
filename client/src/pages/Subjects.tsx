@@ -2311,39 +2311,32 @@ function SubjectEditModal({ subject, onClose }: { subject: Subject & { isOwner?:
                               })}
                               {(() => {
                                 if (!hasAddressPanels) return null;
-                                const editTpPanel = renderEditAddressPanel("tp", EDIT_ADDRESS_PANEL_FIELDS.tp, false);
-                                const editKaPanel = renderEditAddressPanel("ka", EDIT_ADDRESS_PANEL_FIELDS.ka, editKorRespondRovnaka);
-                                const editKoaPanel = renderEditAddressPanel("koa", EDIT_ADDRESS_PANEL_FIELDS.koa, editKontaktnaRovnaka || editKorRespondRovnaka);
-                                if (!editTpPanel && !editKaPanel && !editKoaPanel) return null;
+                                const editShowKa = !editKorRespondRovnaka;
+                                const editShowKoa = !editKontaktnaRovnaka;
+                                const editPanelCount = 1 + (editShowKa ? 1 : 0) + (editShowKoa ? 1 : 0);
                                 return (
-                                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3 items-start" data-testid="edit-row-address-panels">
-                                    {editTpPanel && (
-                                      <div className="flex flex-col">
-                                        {editTpPanel}
-                                        {editKaPanel && (
-                                          <div className="flex items-center gap-2 mt-2 px-1">
-                                            <Switch checked={editKorRespondRovnaka} onCheckedChange={checked => setDynamicValues(prev => ({ ...prev, korespond_rovnaka: String(checked) }))} data-testid="edit-switch-korespond-rovnaka" />
-                                            <Label className="text-xs cursor-pointer" onClick={() => setDynamicValues(prev => ({ ...prev, korespond_rovnaka: String(prev["korespond_rovnaka"] !== "true") }))}>Adresa prechodného pobytu je totožná s adresou trvalého pobytu</Label>
-                                          </div>
-                                        )}
+                                  <div className="space-y-3">
+                                    <div className="flex flex-col sm:flex-row sm:items-center gap-3 px-1" data-testid="edit-row-address-switches">
+                                      <div className="flex items-center gap-2">
+                                        <Switch checked={editKorRespondRovnaka} onCheckedChange={checked => setDynamicValues(prev => ({ ...prev, korespond_rovnaka: String(checked) }))} data-testid="edit-switch-korespond-rovnaka" />
+                                        <Label className="text-xs cursor-pointer" onClick={() => setDynamicValues(prev => ({ ...prev, korespond_rovnaka: String(prev["korespond_rovnaka"] !== "true") }))}>Prechodná = Trvalá</Label>
                                       </div>
-                                    )}
-                                    {editKaPanel && (
-                                      <div className="flex flex-col">
-                                        {editKaPanel}
-                                        {editKoaPanel && (
-                                          <div className="flex items-center gap-2 mt-2 px-1">
-                                            <Switch checked={editKontaktnaRovnaka} onCheckedChange={checked => setDynamicValues(prev => ({ ...prev, kontaktna_rovnaka: String(checked) }))} data-testid="edit-switch-kontaktna-rovnaka" />
-                                            <Label className="text-xs cursor-pointer" onClick={() => setDynamicValues(prev => ({ ...prev, kontaktna_rovnaka: String(prev["kontaktna_rovnaka"] !== "true") }))}>Kontaktná adresa je totožná s adresou prechodného pobytu</Label>
-                                          </div>
-                                        )}
+                                      <div className="flex items-center gap-2">
+                                        <Switch checked={editKontaktnaRovnaka} onCheckedChange={checked => setDynamicValues(prev => ({ ...prev, kontaktna_rovnaka: String(checked) }))} data-testid="edit-switch-kontaktna-rovnaka" />
+                                        <Label className="text-xs cursor-pointer" onClick={() => setDynamicValues(prev => ({ ...prev, kontaktna_rovnaka: String(prev["kontaktna_rovnaka"] !== "true") }))}>Kontaktná = Prechodná</Label>
                                       </div>
-                                    )}
-                                    {editKoaPanel && (
-                                      <div className="flex flex-col">
-                                        {editKoaPanel}
+                                    </div>
+                                    <div className="flex flex-col md:flex-row gap-3 items-start" data-testid="edit-row-address-panels">
+                                      <div className="w-full" style={{ flex: `0 0 calc(${(100 / editPanelCount).toFixed(2)}% - ${((editPanelCount - 1) * 12 / editPanelCount).toFixed(2)}px)` }}>
+                                        {renderEditAddressPanel("tp", EDIT_ADDRESS_PANEL_FIELDS.tp, false)}
                                       </div>
-                                    )}
+                                      <div className="w-full" style={{ display: editShowKa ? undefined : "none", flex: `0 0 calc(${(100 / editPanelCount).toFixed(2)}% - ${((editPanelCount - 1) * 12 / editPanelCount).toFixed(2)}px)` }}>
+                                        {renderEditAddressPanel("ka", EDIT_ADDRESS_PANEL_FIELDS.ka, false)}
+                                      </div>
+                                      <div className="w-full" style={{ display: editShowKoa ? undefined : "none", flex: `0 0 calc(${(100 / editPanelCount).toFixed(2)}% - ${((editPanelCount - 1) * 12 / editPanelCount).toFixed(2)}px)` }}>
+                                        {renderEditAddressPanel("koa", EDIT_ADDRESS_PANEL_FIELDS.koa, false)}
+                                      </div>
+                                    </div>
                                   </div>
                                 );
                               })()}
