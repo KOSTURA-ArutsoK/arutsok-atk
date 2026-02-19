@@ -597,6 +597,7 @@ export const contractStatusChangeLogs = pgTable("contract_status_change_logs", {
   statusNote: text("status_note"),
   statusChangeDocuments: jsonb("status_change_documents").$type<DocEntry[]>().default([]),
   statusIteration: integer("status_iteration").default(1),
+  importId: integer("import_id"),
   createdAt: timestamp("created_at").defaultNow(),
 });
 
@@ -1283,6 +1284,45 @@ export const entityLinks = pgTable("entity_links", {
 export const insertEntityLinkSchema = createInsertSchema(entityLinks).omit({ id: true, createdAt: true });
 export type EntityLink = typeof entityLinks.$inferSelect;
 export type InsertEntityLink = z.infer<typeof insertEntityLinkSchema>;
+
+// === IMPORT LOGS (Hromadný import - záznamy) ===
+export const importLogs = pgTable("import_logs", {
+  id: serial("id").primaryKey(),
+  fileName: text("file_name").notNull(),
+  originalFileUrl: text("original_file_url"),
+  uploadedAt: timestamp("uploaded_at").defaultNow(),
+  userId: integer("user_id").references(() => appUsers.id),
+  companyId: integer("company_id").references(() => myCompanies.id),
+  totalCommission: numeric("total_commission").default("0"),
+  successCount: integer("success_count").default(0),
+  errorCount: integer("error_count").default(0),
+  totalRows: integer("total_rows").default(0),
+  rawData: jsonb("raw_data").$type<Record<string, any>[]>().default([]),
+  mappingConfig: jsonb("mapping_config").$type<Record<string, string>>().default({}),
+  status: text("status").notNull().default("completed"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// === COMMISSIONS (Provízie z importu) ===
+export const commissions = pgTable("commissions", {
+  id: serial("id").primaryKey(),
+  contractId: integer("contract_id").references(() => contracts.id),
+  importId: integer("import_id").references(() => importLogs.id),
+  amount: numeric("amount").notNull().default("0"),
+  currency: text("currency").default("EUR"),
+  agentId: integer("agent_id").references(() => appUsers.id),
+  note: text("note"),
+  status: text("status").notNull().default("predbezna"),
+  creditDate: timestamp("credit_date"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertImportLogSchema = createInsertSchema(importLogs).omit({ id: true, createdAt: true });
+export const insertCommissionSchema = createInsertSchema(commissions).omit({ id: true, createdAt: true });
+export type ImportLog = typeof importLogs.$inferSelect;
+export type InsertImportLog = z.infer<typeof insertImportLogSchema>;
+export type Commission = typeof commissions.$inferSelect;
+export type InsertCommission = z.infer<typeof insertCommissionSchema>;
 
 export type CreateSubjectRequest = InsertSubject;
 export type UpdateSubjectRequest = Partial<InsertSubject> & { changeReason?: string };

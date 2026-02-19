@@ -46,6 +46,8 @@ import SettingsStates from "@/pages/SettingsStates";
 import ContractForm from "@/pages/ContractForm";
 import ContractFieldSettings from "@/pages/ContractFieldSettings";
 import Body from "@/pages/Body";
+import BulkImport from "@/pages/BulkImport";
+import ImportArchive from "@/pages/ImportArchive";
 import { AppShell } from "@/components/layout/AppShell";
 
 function PrivateRoute({ component: Component, ...rest }: any) {
@@ -118,6 +120,8 @@ function Router() {
       <Route path="/dashboard-settings" component={() => <PrivateRoute component={NastaveniePrehladov} />} />
       <Route path="/settings-states" component={() => <PrivateRoute component={SettingsStates} />} />
       <Route path="/settings-companies" component={() => <PrivateRoute component={Companies} />} />
+      <Route path="/bulk-import" component={() => <PrivateRoute component={BulkImport} />} />
+      <Route path="/import-archive" component={() => <PrivateRoute component={ImportArchive} />} />
 
       <Route component={NotFound} />
     </Switch>

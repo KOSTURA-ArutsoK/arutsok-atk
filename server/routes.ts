@@ -4,7 +4,7 @@ import { storage } from "./storage";
 import { api } from "@shared/routes";
 import { setupAuth, registerAuthRoutes, isAuthenticated } from "./replit_integrations/auth";
 import { z } from "zod";
-import { continents, states, myCompanies, appUsers, clientTypes, clientSubGroups, clientGroupMembers, productFolderAssignments, folderPanels, panelParameters, userClientGroupMemberships, clientGroups, permissionGroups, insertCareerLevelSchema, insertProductPointRateSchema, careerLevels } from "@shared/schema";
+import { continents, states, myCompanies, appUsers, clientTypes, clientSubGroups, clientGroupMembers, productFolderAssignments, folderPanels, panelParameters, userClientGroupMemberships, clientGroups, permissionGroups, insertCareerLevelSchema, insertProductPointRateSchema, careerLevels, importLogs, commissions, contracts, contractStatuses, contractStatusChangeLogs } from "@shared/schema";
 import { db } from "./db";
 import { eq } from "drizzle-orm";
 import multer from "multer";
@@ -4926,6 +4926,387 @@ export async function registerRoutes(
       res.json({ success: true, movedCount: count });
     } catch (err: any) {
       console.error("Manual undelivered check error:", err);
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  // === BULK IMPORT (Hromadný import) ===
+  app.post("/api/bulk-import/parse", isAuthenticated, upload.single("file"), async (req: any, res) => {
+    try {
+      const file = req.file;
+      if (!file) return res.status(400).json({ message: "Žiadny súbor nebol nahraný" });
+
+      const workbook = new ExcelJS.Workbook();
+      await workbook.xlsx.readFile(file.path);
+      const worksheet = workbook.worksheets[0];
+      if (!worksheet) return res.status(400).json({ message: "Excel súbor neobsahuje žiadny hárok" });
+
+      const headers: string[] = [];
+      const firstRow = worksheet.getRow(1);
+      firstRow.eachCell((cell, colNumber) => {
+        headers.push(String(cell.value || `Stĺpec ${colNumber}`));
+      });
+
+      const sampleRows: Record<string, any>[] = [];
+      for (let i = 2; i <= Math.min(worksheet.rowCount, 6); i++) {
+        const row = worksheet.getRow(i);
+        const rowData: Record<string, any> = {};
+        headers.forEach((header, idx) => {
+          const cell = row.getCell(idx + 1);
+          rowData[header] = cell.value !== null && cell.value !== undefined ? String(cell.value) : "";
+        });
+        sampleRows.push(rowData);
+      }
+
+      const allRows: Record<string, any>[] = [];
+      for (let i = 2; i <= worksheet.rowCount; i++) {
+        const row = worksheet.getRow(i);
+        const hasData = headers.some((_, idx) => {
+          const v = row.getCell(idx + 1).value;
+          return v !== null && v !== undefined && String(v).trim() !== "";
+        });
+        if (!hasData) continue;
+        const rowData: Record<string, any> = {};
+        headers.forEach((header, idx) => {
+          const cell = row.getCell(idx + 1);
+          rowData[header] = cell.value !== null && cell.value !== undefined ? String(cell.value) : "";
+        });
+        allRows.push(rowData);
+      }
+
+      res.json({
+        headers,
+        sampleRows,
+        allRows,
+        totalRows: allRows.length,
+        fileName: file.originalname,
+        filePath: file.path,
+      });
+    } catch (err: any) {
+      console.error("Bulk import parse error:", err);
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  app.post("/api/bulk-import/validate", isAuthenticated, async (req: any, res) => {
+    try {
+      const { rows, mapping } = req.body;
+      if (!rows || !mapping) return res.status(400).json({ message: "Chýbajú dáta alebo mapovanie" });
+
+      const replitUserId = req.user?.claims?.sub;
+      const appUser = await storage.getAppUserByReplitId(replitUserId);
+      if (!appUser) return res.status(401).json({ message: "Používateľ nenájdený" });
+
+      const companyId = appUser.activeCompanyId;
+      const allStatuses = await storage.getContractStatuses();
+      const allContracts = await storage.getContracts(companyId ? { companyId } : undefined);
+      const allUsers = await storage.getAppUsers();
+
+      const results: any[] = [];
+      let totalCommission = 0;
+      let errorCount = 0;
+
+      for (let i = 0; i < rows.length; i++) {
+        const row = rows[i];
+        const result: any = {
+          rowIndex: i,
+          originalData: row,
+          errors: [],
+          warnings: [],
+          contractId: null,
+          statusId: null,
+          agentId: null,
+          commissionAmount: 0,
+        };
+
+        const contractNumber = mapping.contractNumber ? String(row[mapping.contractNumber] || "").trim() : "";
+        const statusName = mapping.status ? String(row[mapping.status] || "").trim() : "";
+        const agentName = mapping.agent ? String(row[mapping.agent] || "").trim() : "";
+        const commissionStr = mapping.commission ? String(row[mapping.commission] || "").trim() : "";
+        const noteText = mapping.note ? String(row[mapping.note] || "").trim() : "";
+
+        result.contractNumber = contractNumber;
+        result.statusName = statusName;
+        result.agentName = agentName;
+        result.commissionStr = commissionStr;
+        result.note = noteText;
+
+        if (contractNumber) {
+          const contract = allContracts.find(c =>
+            c.contractNumber === contractNumber ||
+            c.proposalNumber === contractNumber ||
+            c.kik === contractNumber
+          );
+          if (contract) {
+            result.contractId = contract.id;
+            result.currentStatusId = contract.statusId;
+          } else {
+            result.errors.push(`Zmluva "${contractNumber}" nenájdená`);
+          }
+        } else if (mapping.contractNumber) {
+          result.errors.push("Chýba číslo zmluvy");
+        }
+
+        if (statusName) {
+          const normalizedInput = statusName.toLowerCase().trim();
+          const status = allStatuses.find(s => s.name.toLowerCase().trim() === normalizedInput);
+          if (status) {
+            result.statusId = status.id;
+            result.statusColor = status.color;
+            result.definesContractEnd = status.definesContractEnd;
+          } else {
+            result.errors.push(`Stav "${statusName}" nenájdený v číselníku`);
+          }
+        }
+
+        if (commissionStr) {
+          const parsed = parseFloat(commissionStr.replace(",", ".").replace(/[^0-9.\-]/g, ""));
+          if (!isNaN(parsed)) {
+            result.commissionAmount = parsed;
+            totalCommission += parsed;
+          } else {
+            result.warnings.push(`Neplatná suma provízie: "${commissionStr}"`);
+          }
+        }
+
+        if (agentName) {
+          const normalizedAgent = agentName.toLowerCase().trim();
+          const agent = allUsers.find(u => {
+            const fullName = `${u.firstName || ""} ${u.lastName || ""}`.toLowerCase().trim();
+            const reverseName = `${u.lastName || ""} ${u.firstName || ""}`.toLowerCase().trim();
+            return fullName === normalizedAgent || reverseName === normalizedAgent ||
+              (u.username || "").toLowerCase() === normalizedAgent;
+          });
+          if (agent) {
+            result.agentId = agent.id;
+          } else {
+            result.warnings.push(`Sprostredkovateľ "${agentName}" nenájdený`);
+          }
+        }
+
+        if (result.errors.length > 0) errorCount++;
+        results.push(result);
+      }
+
+      res.json({
+        results,
+        totalRows: rows.length,
+        errorCount,
+        warningCount: results.filter(r => r.warnings.length > 0 && r.errors.length === 0).length,
+        successCount: results.filter(r => r.errors.length === 0).length,
+        totalCommission,
+      });
+    } catch (err: any) {
+      console.error("Bulk import validate error:", err);
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  app.post("/api/bulk-import/execute", isAuthenticated, async (req: any, res) => {
+    try {
+      const { rows, mapping, fileName } = req.body;
+      if (!rows || !mapping) return res.status(400).json({ message: "Chýbajú dáta alebo mapovanie" });
+
+      const replitUserId = req.user?.claims?.sub;
+      const appUser = await storage.getAppUserByReplitId(replitUserId);
+      if (!appUser) return res.status(401).json({ message: "Používateľ nenájdený" });
+
+      const companyId = appUser.activeCompanyId;
+      const allStatuses = await storage.getContractStatuses();
+      const allContracts = await storage.getContracts(companyId ? { companyId } : undefined);
+      const allUsers = await storage.getAppUsers();
+
+      const revalidated: any[] = [];
+      for (const row of rows) {
+        const result: any = { originalData: row, errors: [], contractId: null, statusId: null, agentId: null, commissionAmount: 0, currentStatusId: null, note: "" };
+
+        const contractNumber = mapping.contractNumber ? String(row[mapping.contractNumber] || "").trim() : "";
+        const statusName = mapping.status ? String(row[mapping.status] || "").trim() : "";
+        const agentName = mapping.agent ? String(row[mapping.agent] || "").trim() : "";
+        const commissionStr = mapping.commission ? String(row[mapping.commission] || "").trim() : "";
+        result.note = mapping.note ? String(row[mapping.note] || "").trim() : "";
+        result.contractNumber = contractNumber;
+        result.statusName = statusName;
+
+        if (contractNumber) {
+          const contract = allContracts.find(c =>
+            c.contractNumber === contractNumber ||
+            c.proposalNumber === contractNumber ||
+            c.kik === contractNumber
+          );
+          if (contract) {
+            result.contractId = contract.id;
+            result.currentStatusId = contract.statusId;
+          } else {
+            result.errors.push(`Zmluva "${contractNumber}" nenájdená`);
+          }
+        } else if (mapping.contractNumber) {
+          result.errors.push("Chýba číslo zmluvy");
+        }
+
+        if (statusName) {
+          const status = allStatuses.find(s => s.name.toLowerCase().trim() === statusName.toLowerCase().trim());
+          if (status) {
+            result.statusId = status.id;
+            result.definesContractEnd = status.definesContractEnd;
+          } else {
+            result.errors.push(`Stav "${statusName}" nenájdený`);
+          }
+        }
+
+        if (commissionStr) {
+          const parsed = parseFloat(commissionStr.replace(",", ".").replace(/[^0-9.\-]/g, ""));
+          if (!isNaN(parsed)) result.commissionAmount = parsed;
+        }
+
+        if (agentName) {
+          const normalizedAgent = agentName.toLowerCase().trim();
+          const agent = allUsers.find(u => {
+            const fullName = `${u.firstName || ""} ${u.lastName || ""}`.toLowerCase().trim();
+            const reverseName = `${u.lastName || ""} ${u.firstName || ""}`.toLowerCase().trim();
+            return fullName === normalizedAgent || reverseName === normalizedAgent ||
+              (u.username || "").toLowerCase() === normalizedAgent;
+          });
+          if (agent) result.agentId = agent.id;
+        }
+
+        revalidated.push(result);
+      }
+
+      const validRows = revalidated.filter(r => r.errors.length === 0 && r.contractId && r.statusId);
+      const errorRows = revalidated.filter(r => r.errors.length > 0);
+
+      if (validRows.length === 0) {
+        return res.status(400).json({ message: "Žiadny platný riadok na import", errorCount: errorRows.length });
+      }
+
+      let successCount = 0;
+      let errorCount = errorRows.length;
+      let totalCommission = 0;
+      let importLogId: number | null = null;
+
+      await db.transaction(async (tx) => {
+        const [importLog] = await tx.insert(importLogs).values({
+          fileName: fileName || "import.xlsx",
+          userId: appUser.id,
+          companyId: companyId || null,
+          rawData: rows,
+          mappingConfig: mapping,
+          totalRows: rows.length,
+          status: "completed",
+        }).returning();
+        importLogId = importLog.id;
+
+        for (const row of validRows) {
+          const existingLogs = await tx.select().from(contractStatusChangeLogs)
+            .where(eq(contractStatusChangeLogs.contractId, row.contractId));
+          const sameStatusCount = existingLogs.filter(l => l.newStatusId === row.statusId).length;
+
+          await tx.insert(contractStatusChangeLogs).values({
+            contractId: row.contractId,
+            oldStatusId: row.currentStatusId || null,
+            newStatusId: row.statusId,
+            changedByUserId: appUser.id,
+            changedAt: new Date(),
+            statusIteration: sameStatusCount + 1,
+            statusNote: row.note || null,
+            importId: importLog.id,
+          });
+
+          const statusDef = allStatuses.find(s => s.id === row.statusId);
+          const contractUpdate: any = {
+            statusId: row.statusId,
+            lastStatusUpdate: new Date(),
+          };
+          if (statusDef?.definesContractEnd) {
+            contractUpdate.expiryDate = new Date();
+          } else {
+            contractUpdate.expiryDate = null;
+          }
+          await tx.update(contracts)
+            .set(contractUpdate)
+            .where(eq(contracts.id, row.contractId));
+
+          if (row.commissionAmount && row.commissionAmount !== 0) {
+            await tx.insert(commissions).values({
+              contractId: row.contractId,
+              importId: importLog.id,
+              amount: String(row.commissionAmount),
+              currency: "EUR",
+              agentId: row.agentId || appUser.id,
+              note: row.note || null,
+              status: "predbezna",
+              creditDate: new Date(),
+            });
+            totalCommission += row.commissionAmount;
+          }
+
+          successCount++;
+        }
+
+        await tx.update(importLogs)
+          .set({
+            successCount,
+            errorCount,
+            totalCommission: String(totalCommission),
+          })
+          .where(eq(importLogs.id, importLog.id));
+      });
+
+      await logAudit(req, {
+        action: "BULK_IMPORT",
+        module: "hromadny-import",
+        entityId: importLogId,
+        entityName: fileName || "import.xlsx",
+        newData: { successCount, errorCount, totalCommission, totalRows: rows.length },
+      });
+
+      res.json({
+        importId: importLogId,
+        successCount,
+        errorCount,
+        totalCommission,
+      });
+    } catch (err: any) {
+      console.error("Bulk import execute error:", err);
+      res.status(500).json({ message: `Import zlyhal: ${err.message}. Žiadne dáta neboli zapísané.` });
+    }
+  });
+
+  app.get("/api/bulk-import/logs", isAuthenticated, async (req: any, res) => {
+    try {
+      const replitUserId = req.user?.claims?.sub;
+      const appUser = await storage.getAppUserByReplitId(replitUserId);
+      if (!appUser) return res.status(401).json({ message: "Používateľ nenájdený" });
+      const logs = await storage.getImportLogs(appUser.activeCompanyId || undefined);
+      const users = await storage.getAppUsers();
+      const enriched = logs.map(log => ({
+        ...log,
+        userName: (() => {
+          const u = users.find(u => u.id === log.userId);
+          return u ? `${u.firstName || ""} ${u.lastName || ""}`.trim() || u.username : "Neznámy";
+        })(),
+      }));
+      res.json(enriched);
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  app.get("/api/bulk-import/logs/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const log = await storage.getImportLog(id);
+      if (!log) return res.status(404).json({ message: "Import nenájdený" });
+      const importCommissions = await storage.getCommissionsByImport(id);
+      const users = await storage.getAppUsers();
+      const user = users.find(u => u.id === log.userId);
+      res.json({
+        ...log,
+        userName: user ? `${user.firstName || ""} ${user.lastName || ""}`.trim() || user.username : "Neznámy",
+        commissions: importCommissions,
+      });
+    } catch (err: any) {
       res.status(500).json({ message: err.message });
     }
   });

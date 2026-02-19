@@ -45,6 +45,7 @@ import {
   KeyRound,
   Globe,
   Building,
+  FileSpreadsheet,
 } from "lucide-react";
 import {
   Sidebar,
@@ -115,10 +116,16 @@ const protokolyChildren = [
   { href: "/supisky", icon: ClipboardList, label: "Supisky" },
 ];
 
+const importItems = [
+  { href: "/bulk-import", icon: FileSpreadsheet, label: "Hromadný import" },
+  { href: "/import-archive", icon: Archive, label: "Archív importov" },
+];
+
 const allZmluvyHrefs = [
   ...zmluvyFlatItems.map(i => i.href),
   ...nastaveniaSablonChildren.map(i => i.href),
   ...protokolyChildren.map(i => i.href),
+  ...importItems.map(i => i.href),
 ];
 
 const spravaPristupovItems = [
@@ -219,7 +226,7 @@ export function AppSidebar() {
     { id: "specifikacie", items: specifikacieItems },
     { id: "partneri", items: partneriProduktyItems },
     { id: "klienti", items: klientiItems },
-    { id: "zmluvy", items: [...zmluvyFlatItems, ...nastaveniaSablonChildren, ...protokolyChildren] },
+    { id: "zmluvy", items: [...zmluvyFlatItems, ...nastaveniaSablonChildren, ...protokolyChildren, ...importItems] },
     { id: "financie", items: financieItems },
     { id: "informacie", items: informacieItems },
   ];
@@ -235,7 +242,8 @@ export function AppSidebar() {
   const isZmluvyActive = allZmluvyHrefs.includes(location);
   const isZmluvyOpen = openMenuId === "zmluvy";
   const zmluvyInitialSub = nastaveniaSablonChildren.some(i => i.href === location) ? "sablony"
-    : protokolyChildren.some(i => i.href === location) ? "protokoly" : null;
+    : protokolyChildren.some(i => i.href === location) ? "protokoly"
+    : importItems.some(i => i.href === location) ? "import" : null;
   const [zmluvySubId, setZmluvySubId] = useState<string | null>(zmluvyInitialSub);
 
   const displayName = appUser
@@ -519,6 +527,42 @@ export function AppSidebar() {
                           <CollapsibleContent>
                             <div className="ml-2 border-l border-border pl-1.5 mt-1 space-y-0.5">
                               {protokolyChildren.map(item => (
+                                <SidebarMenuSubItem key={item.href}>
+                                  <SidebarMenuSubButton
+                                    asChild
+                                    isActive={location === item.href}
+                                    data-testid={`nav-${item.label.toLowerCase().replace(/\s/g, '-')}`}
+                                  >
+                                    <Link href={item.href}>
+                                      <item.icon className="w-3.5 h-3.5" />
+                                      <span>{item.label}</span>
+                                    </Link>
+                                  </SidebarMenuSubButton>
+                                </SidebarMenuSubItem>
+                              ))}
+                            </div>
+                          </CollapsibleContent>
+                        </Collapsible>
+                      </SidebarMenuSubItem>
+
+                      <SidebarMenuSubItem>
+                        <Collapsible
+                          open={zmluvySubId === "import"}
+                          onOpenChange={(val) => setZmluvySubId(val ? "import" : null)}
+                        >
+                          <CollapsibleTrigger asChild>
+                            <SidebarMenuSubButton
+                              data-testid="nav-submenu-hromadny-import"
+                              className={`cursor-pointer ${importItems.some(i => i.href === location) ? "text-sidebar-accent-foreground font-medium" : ""}`}
+                            >
+                              <FileSpreadsheet className="w-3.5 h-3.5" />
+                              <span className="flex-1">Hromadné stavy</span>
+                              <ChevronRight className={`w-3 h-3 text-muted-foreground transition-transform duration-200 ${zmluvySubId === "import" ? "rotate-90" : ""}`} />
+                            </SidebarMenuSubButton>
+                          </CollapsibleTrigger>
+                          <CollapsibleContent>
+                            <div className="ml-2 border-l border-border pl-1.5 mt-1 space-y-0.5">
+                              {importItems.map(item => (
                                 <SidebarMenuSubItem key={item.href}>
                                   <SidebarMenuSubButton
                                     asChild

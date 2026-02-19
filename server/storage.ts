@@ -93,6 +93,10 @@ import {
   type EntityLink, type InsertEntityLink,
   clientDocumentHistory,
   type ClientDocumentHistory, type InsertClientDocumentHistory,
+  importLogs,
+  type ImportLog, type InsertImportLog,
+  commissions,
+  type Commission, type InsertCommission,
 } from "@shared/schema";
 import { eq, and, or, ne, like, sql, lte, gte, gt, desc, asc, isNull, isNotNull, inArray } from "drizzle-orm";
 
@@ -482,6 +486,14 @@ export interface IStorage {
   restoreEntity(entityType: string, id: number): Promise<void>;
   permanentDeleteEntity(entityType: string, id: number): Promise<void>;
   getAllDeletedEntities(): Promise<Array<{id: number; entityType: string; name: string; deletedAt: Date}>>;
+
+  getImportLogs(companyId?: number): Promise<ImportLog[]>;
+  getImportLog(id: number): Promise<ImportLog | undefined>;
+  createImportLog(data: InsertImportLog): Promise<ImportLog>;
+
+  getCommissionsByImport(importId: number): Promise<Commission[]>;
+  getCommissionsByContract(contractId: number): Promise<Commission[]>;
+  createCommissionRecord(data: InsertCommission): Promise<Commission>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -2947,6 +2959,36 @@ export class DatabaseStorage implements IStorage {
 
     results.sort((a, b) => b.deletedAt.getTime() - a.deletedAt.getTime());
     return results;
+  }
+
+  async getImportLogs(companyId?: number): Promise<ImportLog[]> {
+    if (companyId) {
+      return await db.select().from(importLogs).where(eq(importLogs.companyId, companyId)).orderBy(desc(importLogs.uploadedAt));
+    }
+    return await db.select().from(importLogs).orderBy(desc(importLogs.uploadedAt));
+  }
+
+  async getImportLog(id: number): Promise<ImportLog | undefined> {
+    const [log] = await db.select().from(importLogs).where(eq(importLogs.id, id));
+    return log;
+  }
+
+  async createImportLog(data: InsertImportLog): Promise<ImportLog> {
+    const [log] = await db.insert(importLogs).values(data).returning();
+    return log;
+  }
+
+  async getCommissionsByImport(importId: number): Promise<Commission[]> {
+    return await db.select().from(commissions).where(eq(commissions.importId, importId)).orderBy(desc(commissions.createdAt));
+  }
+
+  async getCommissionsByContract(contractId: number): Promise<Commission[]> {
+    return await db.select().from(commissions).where(eq(commissions.contractId, contractId)).orderBy(desc(commissions.createdAt));
+  }
+
+  async createCommissionRecord(data: InsertCommission): Promise<Commission> {
+    const [c] = await db.insert(commissions).values(data).returning();
+    return c;
   }
 }
 

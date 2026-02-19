@@ -1,0 +1,68 @@
+KOMPLEXNÝ TECHNICKÝ PROJEKT: MODUL HROMADNÉHO IMPORTU ARUTSOK
+
+1. DATABÁZOVÁ SCHÉMA (Backend)
+„Agent, najprv priprav databázové tabuľky pre tento modul:“
+
+Table import_logs: ID, názov súboru, pôvodný súbor (storage link), timestamp, ID používateľa, celková suma provízií, počet úspešných/chybných riadkov, raw JSON všetkých dát z Excelu.
+
+Table commissions: ID, contract_id, import_id, suma, mena, sprostredkovateľ_id, poznámka, stav (predbežná/finalizovaná), dátum pripísania.
+
+Update contract_status_history: Pridaj stĺpec import_id (nullable), aby sme vedeli, ktorý stav prišiel z hromadného importu.
+
+2. LOGIKA IMPORTÉRA (Krok za krokom)
+„Implementuj presne tento algoritmus:“
+
+KROK 1: Mapping rozhranie
+
+Načítaj hlavičku Excelu.
+
+Zobraz dropdowny pre naše polia: Číslo zmluvy, Stav, Meno, Suma provízie, Sprostredkovateľ.
+
+Umožni používateľovi označiť, ktorý stĺpec v Exceli patrí ktorému poľu.
+
+KROK 2: Validačný Engine (Pred zápisom)
+
+Pre každý riadok v Exceli vykonaj tieto kontroly:
+
+Existencia zmluvy: Nájdi contract_id podľa čísla zmluvy. Ak neexistuje -> Error (Červená).
+
+Validácia stavu: Porovnaj text z Excelu s tvojím číselníkom contract_status_parameters. Ak sa nezhoduje -> Error (Červená).
+
+Kontrola sprostredkovateľa: Ak je priradená provízia, porovnaj sprostredkovateľa z Excelu s tým v ArutsoK -> Warning (Oranžová).
+
+Ukončujúci stav: Ak stav v číselníku má flag defines_termination, priprav si dátum na zápis do end_date zmluvy.
+
+KROK 3: Masívny zápis (Transaction)
+
+Všetky zápisy sa musia vykonať v jednej databázovej transakcii. Ak jeden riadok zlyhá, nič sa nezapíše.
+
+Pre každý úspešný riadok:
+
+Vytvor záznam v contract_status_history.
+
+Ak je v riadku suma, vytvor záznam v commissions.
+
+Ak je stav 'ukončujúci', prepíš contracts.end_date hodnotou z importu.
+
+3. POUŽÍVATEĽSKÉ ROZHRANIE (Frontend)
+„Dodržuj tieto vizuálne pravidlá:“
+
+Žiadna vata: Kompaktná tabuľka, písmo text-xs alebo text-sm.
+
+Fixná hlavička: Pri scrollovaní stovkami riadkov musí hlavička tabuľky a tlačidlo 'Potvrdiť' zostať viditeľné.
+
+Zobrazenie metadát: Kliknutím na riadok v náhľade sa zobrazia všetky ostatné stĺpce z Excelu, ktoré neboli namapované.
+
+Sumárny bar: V spodnej časti obrazovky svieti: Počet riadkov: X | Celkom provízie: XXX € | Chyby: Y.
+
+4. ARCHÍV A SPÄTNÁ KONTROLA
+V sekcii 'Hromadné stavy' vytvor zoznam všetkých vykonaných importov.
+
+Po kliknutí na import sa zobrazí pôvodná tabuľka (log) s výsledkami, aby bolo jasné, čo sa v ten deň udialo.
+
+Prečo je to takto detailné:
+Transakcie: Ak by Agentovi počas zápisu 500 riadkov vypadol internet, bez transakcie by si mal 250 riadkov zapísaných a 250 nie – a mal by si v tom totálny chaos. S transakciou je to buď všetko, alebo nič.
+
+Párovanie: Explicitne mu hovoríme, že má hľadať contract_id. To je srdce celého systému.
+
+Logy: Ukladanie "Raw JSON" je tvoja poistka. Aj keď stĺpec "Poznámka" v Exceli teraz nepotrebuješ, bude uložený v databáze v tom JSONe a o rok ho môžeš vytiahnuť.
