@@ -1752,16 +1752,12 @@ function FullPageEditor({
                                   <div className="w-full" style={{ flex: `0 0 calc(${(100 / panelCount).toFixed(2)}% - ${((panelCount - 1) * 12 / panelCount).toFixed(2)}px)` }}>
                                     {renderAddressPanel("tp", ADDRESS_PANEL_FIELDS.tp, false)}
                                   </div>
-                                  {showKa && (
-                                    <div className="w-full" style={{ flex: `0 0 calc(${(100 / panelCount).toFixed(2)}% - ${((panelCount - 1) * 12 / panelCount).toFixed(2)}px)` }}>
-                                      {renderAddressPanel("ka", ADDRESS_PANEL_FIELDS.ka, false)}
-                                    </div>
-                                  )}
-                                  {showKoa && (
-                                    <div className="w-full" style={{ flex: `0 0 calc(${(100 / panelCount).toFixed(2)}% - ${((panelCount - 1) * 12 / panelCount).toFixed(2)}px)` }}>
-                                      {renderAddressPanel("koa", ADDRESS_PANEL_FIELDS.koa, false)}
-                                    </div>
-                                  )}
+                                  <div className="w-full" style={{ display: showKa ? undefined : "none", flex: `0 0 calc(${(100 / panelCount).toFixed(2)}% - ${((panelCount - 1) * 12 / panelCount).toFixed(2)}px)` }}>
+                                    {renderAddressPanel("ka", ADDRESS_PANEL_FIELDS.ka, false)}
+                                  </div>
+                                  <div className="w-full" style={{ display: showKoa ? undefined : "none", flex: `0 0 calc(${(100 / panelCount).toFixed(2)}% - ${((panelCount - 1) * 12 / panelCount).toFixed(2)}px)` }}>
+                                    {renderAddressPanel("koa", ADDRESS_PANEL_FIELDS.koa, false)}
+                                  </div>
                                 </div>
                               </div>
                             );
