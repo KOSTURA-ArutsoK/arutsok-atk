@@ -1632,52 +1632,64 @@ function FullPageEditor({
 
                               if (visibleFields.length === 0) return null;
 
-                              const renderAddrField = (key: string, field: StaticField | undefined, suffix: string) => {
-                                if (field) {
-                                  const augmentedField = isRequired(key) && !field.isRequired
-                                    ? { ...field, isRequired: true } as StaticField
-                                    : field;
-                                  return (
-                                    <div key={key} style={{ pointerEvents: disabled ? "none" : "auto" }}>
-                                      <DynamicFieldInput field={augmentedField} dynamicValues={dynamicValues} setDynamicValues={setDynamicValues} hasError={validationErrors.has(key)} />
-                                    </div>
-                                  );
-                                }
+                              const ADDR_SHORT_LABELS: Record<string, string> = {
+                                ulica: "Ulica", supisne: "Súpisné č.", orientacne: "Orient. č.",
+                                psc: "PSČ", mesto: "Obec / Mesto", stat: "Štát",
+                              };
+
+                              const renderAddrField = (key: string, field: StaticField | undefined, suffix: string, widthPct?: number) => {
+                                const label = ADDR_SHORT_LABELS[suffix] || ADDR_FALLBACK_LABELS[suffix] || suffix;
+                                const req = isRequired(key);
+                                const hasErr = validationErrors.has(key);
+                                const wrapStyle = widthPct ? { flex: `0 1 ${widthPct}%`, minWidth: 0 } : {};
                                 return (
-                                  <div className="space-y-1" key={key}>
-                                    <Label className={`text-xs text-muted-foreground ${validationErrors.has(key) ? "text-red-500" : ""}`}>{ADDR_FALLBACK_LABELS[suffix] || suffix}{isRequired(key) ? " *" : ""}</Label>
-                                    <Input disabled={disabled} value={dynamicValues[key] || ""} onChange={e => setDynamicValues(prev => ({ ...prev, [key]: e.target.value }))} className={validationErrors.has(key) ? "border-red-500 ring-1 ring-red-500" : ""} data-testid={`input-addr-${key}`} />
+                                  <div key={key} style={{ ...wrapStyle, pointerEvents: disabled ? "none" : "auto" }}>
+                                    <div className="space-y-1">
+                                      <Label className={`text-xs truncate block ${hasErr ? "text-red-500" : "text-muted-foreground"}`}>{label}{req ? " *" : ""}</Label>
+                                      <Input
+                                        disabled={disabled}
+                                        value={dynamicValues[key] || ""}
+                                        onChange={e => setDynamicValues(prev => ({ ...prev, [key]: e.target.value }))}
+                                        className={hasErr ? "border-red-500 ring-1 ring-red-500" : ""}
+                                        data-testid={`input-addr-${key}`}
+                                      />
+                                    </div>
                                   </div>
                                 );
                               };
 
-                              const row1 = visibleFields.filter(f => f.suffix === "ulica");
-                              const row2 = visibleFields.filter(f => f.suffix === "supisne" || f.suffix === "orientacne");
-                              const row3 = visibleFields.filter(f => f.suffix === "psc" || f.suffix === "mesto");
-                              const row4 = visibleFields.filter(f => f.suffix === "stat");
+                              const getF = (suffix: string) => visibleFields.find(f => f.suffix === suffix);
+                              const fUlica = getF("ulica");
+                              const fSupisne = getF("supisne");
+                              const fOrientacne = getF("orientacne");
+                              const fPsc = getF("psc");
+                              const fMesto = getF("mesto");
+                              const fStat = getF("stat");
 
                               return (
                                 <Card className={`${disabled ? "opacity-50 pointer-events-none" : ""}`} data-testid={`panel-address-${prefix}`}>
                                   <CardContent className="p-4 space-y-3">
                                     <p className="text-sm font-semibold truncate" title={panelDef.label}>{panelDef.label}</p>
-                                    {row1.length > 0 && (
-                                      <div className="grid grid-cols-1 gap-2">
-                                        {row1.map(f => renderAddrField(f.key, f.field, f.suffix))}
+                                    {fUlica && (
+                                      <div data-testid={`addr-row-ulica-${prefix}`}>
+                                        {renderAddrField(fUlica.key, fUlica.field, fUlica.suffix)}
                                       </div>
                                     )}
-                                    {row2.length > 0 && (
-                                      <div className={`grid grid-cols-1 ${row2.length > 1 ? "sm:grid-cols-2" : ""} gap-2`}>
-                                        {row2.map(f => renderAddrField(f.key, f.field, f.suffix))}
+                                    {(fSupisne || fOrientacne) && (
+                                      <div className="flex flex-nowrap items-end gap-2" data-testid={`addr-row-cisla-${prefix}`}>
+                                        {fSupisne && renderAddrField(fSupisne.key, fSupisne.field, fSupisne.suffix, 50)}
+                                        {fOrientacne && renderAddrField(fOrientacne.key, fOrientacne.field, fOrientacne.suffix, 50)}
                                       </div>
                                     )}
-                                    {row3.length > 0 && (
-                                      <div className={`grid grid-cols-1 ${row3.length > 1 ? "sm:grid-cols-2" : ""} gap-2`}>
-                                        {row3.map(f => renderAddrField(f.key, f.field, f.suffix))}
+                                    {(fPsc || fMesto) && (
+                                      <div className="flex flex-nowrap items-end gap-2" data-testid={`addr-row-psc-mesto-${prefix}`}>
+                                        {fPsc && renderAddrField(fPsc.key, fPsc.field, fPsc.suffix, 30)}
+                                        {fMesto && renderAddrField(fMesto.key, fMesto.field, fMesto.suffix, 70)}
                                       </div>
                                     )}
-                                    {row4.length > 0 && (
-                                      <div className="grid grid-cols-1 gap-2">
-                                        {row4.map(f => renderAddrField(f.key, f.field, f.suffix))}
+                                    {fStat && (
+                                      <div data-testid={`addr-row-stat-${prefix}`}>
+                                        {renderAddrField(fStat.key, fStat.field, fStat.suffix)}
                                       </div>
                                     )}
                                   </CardContent>
