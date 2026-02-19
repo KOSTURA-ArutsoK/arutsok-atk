@@ -895,12 +895,22 @@ function InitialRegistrationModal({
       setDuplicateChecked(false);
       return;
     }
-    if (debounceRef.current) clearTimeout(debounceRef.current);
-    setDuplicateChecked(false);
-    debounceRef.current = setTimeout(() => {
+    const isRc = selectedClientType?.baseParameter === "rc";
+    if (isRc) {
+      const digitsOnly = baseValue.replace(/[^0-9]/g, "");
+      if (digitsOnly.length < 10) {
+        setDuplicateChecked(false);
+        return;
+      }
       performDuplicateCheck(baseValue, selectedClientType?.baseParameter);
-    }, 500);
-    return () => { if (debounceRef.current) clearTimeout(debounceRef.current); };
+    } else {
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+      setDuplicateChecked(false);
+      debounceRef.current = setTimeout(() => {
+        performDuplicateCheck(baseValue, selectedClientType?.baseParameter);
+      }, 500);
+      return () => { if (debounceRef.current) clearTimeout(debounceRef.current); };
+    }
   }, [baseValue, selectedType, selectedClientType?.baseParameter, performDuplicateCheck]);
 
   function handleProceed() {
@@ -954,12 +964,7 @@ function InitialRegistrationModal({
                 placeholder={selectedClientType?.baseParameter === "ico" ? "napr. 12345678" : "napr. 900101/1234"}
                 value={baseValue}
                 onChange={(e) => {
-                  const val = e.target.value;
-                  setBaseValue(val);
-                  const digitsOnly = val.replace(/[^0-9]/g, "");
-                  if (selectedClientType?.baseParameter === "rc" && digitsOnly.length >= 10) {
-                    setTimeout(() => proceedBtnRef.current?.focus(), 550);
-                  }
+                  setBaseValue(e.target.value);
                 }}
                 onKeyDown={(e) => { if (e.key === "Enter" && canProceed && !checking) handleProceed(); }}
                 data-testid="input-base-parameter"
