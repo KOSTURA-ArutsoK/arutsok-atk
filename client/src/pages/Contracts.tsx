@@ -2643,7 +2643,7 @@ export default function Contracts() {
 
                     {(() => {
                       const isFoOsobne = panel.name === "Osobné údaje" && inlineClientType === "fo";
-                      const FO_OSOBNE_ROW_KEYS = ["titul_pred", "meno", "druhe_meno", "priezvisko", "titul_za"];
+                      const FO_OSOBNE_ROW_KEYS = ["titul_pred", "meno", "priezvisko", "titul_za"];
                       const FO_ROW2_KEYS = ["rodne_priezvisko", "pohlavie", "datum_narodenia"];
                       const FO_ROW3_KEYS = ["miesto_narodenia", "vek", "statna_prislusnost"];
 

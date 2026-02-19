@@ -1282,7 +1282,7 @@ function FullPageEditor({
 
               {isPerson ? (() => {
                 const FO_POVINNE_ROWS: { keys: string[] }[] = [
-                  { keys: ["titul_pred", "meno", "druhe_meno", "priezvisko", "titul_za"] },
+                  { keys: ["titul_pred", "meno", "priezvisko", "titul_za"] },
                   { keys: ["rodne_priezvisko", "pohlavie", "datum_narodenia"] },
                   { keys: ["miesto_narodenia", "vek", "statna_prislusnost"] },
                   { keys: ["typ_dokladu", "cislo_dokladu", "platnost_dokladu"] },
@@ -1425,7 +1425,7 @@ function FullPageEditor({
                                     ) : (
                                       <div key={key} className="flex-1 min-w-[30%]">
                                         <div className="space-y-1">
-                                          <Label className={`text-xs text-muted-foreground ${validationErrors.has(key) ? "text-red-500" : ""}`}>{key === "druhe_meno" ? "Druhé meno/priezvisko" : key}</Label>
+                                          <Label className={`text-xs text-muted-foreground ${validationErrors.has(key) ? "text-red-500" : ""}`}>{key}</Label>
                                           <Input value={dynamicValues[key] || ""} onChange={e => setDynamicValues(prev => ({ ...prev, [key]: e.target.value }))} className={validationErrors.has(key) ? "border-red-500 ring-1 ring-red-500" : ""} data-testid={`input-${key}`} />
                                         </div>
                                       </div>

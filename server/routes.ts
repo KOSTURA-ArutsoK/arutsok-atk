@@ -3259,7 +3259,6 @@ export async function registerRoutes(
       const nameParts = [
         details.titul_pred || details.titleBefore || '',
         details.meno || subject.firstName || '',
-        details.druhe_meno || '',
         details.priezvisko || subject.lastName || '',
         details.titul_za || details.titleAfter || '',
       ].filter(Boolean);
