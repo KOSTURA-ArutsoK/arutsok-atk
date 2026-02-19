@@ -11,7 +11,7 @@ import { SmartFilterBar } from "@/components/smart-filter-bar";
 import { useColumnVisibility, type ColumnDef } from "@/hooks/use-column-visibility";
 import { ColumnManager } from "@/components/column-manager";
 import type { ContractStatus, ContractStatusParameter, MyCompany, Sector, Section, SectorProduct } from "@shared/schema";
-import { Plus, Pencil, Loader2, GripVertical } from "lucide-react";
+import { Plus, Pencil, Loader2, GripVertical, Flag } from "lucide-react";
 import { ConditionalDelete } from "@/components/conditional-delete";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -48,6 +48,7 @@ const CONTRACT_STATUS_COLUMNS: ColumnDef[] = [
   { key: "sortOrder", label: "Poradie" },
   { key: "name", label: "Nazov stavu zmluvy" },
   { key: "usageCount", label: "Pocet zmluv" },
+  { key: "definesContractEnd", label: "Ukoncenie zmluvy" },
   { key: "color", label: "Farba stavu zmluvy" },
   { key: "properties", label: "Vlastnosti stavu zmluvy" },
 ];
@@ -852,6 +853,7 @@ export default function ContractStatuses() {
                   {columnVisibility.isVisible("sortOrder") && <TableHead sortKey="sortOrder" sortDirection={sortKey === "sortOrder" ? sortDirection : null} onSort={requestSort} className="w-20">Poradie</TableHead>}
                   {columnVisibility.isVisible("name") && <TableHead sortKey="name" sortDirection={sortKey === "name" ? sortDirection : null} onSort={requestSort}>Nazov stavu zmluvy</TableHead>}
                   {columnVisibility.isVisible("usageCount") && <TableHead className="w-24 text-center">Pocet zmluv</TableHead>}
+                  {columnVisibility.isVisible("definesContractEnd") && <TableHead className="w-28 text-center">Ukoncenie</TableHead>}
                   {columnVisibility.isVisible("color") && <TableHead className="w-32">Farba stavu zmluvy</TableHead>}
                   {columnVisibility.isVisible("properties") && <TableHead>Vlastnosti stavu zmluvy</TableHead>}
                   <TableHead className="w-32 text-right">Akcie</TableHead>
@@ -887,6 +889,11 @@ export default function ContractStatuses() {
                         >
                           {usageCount}
                         </span>
+                      </TableCell>}
+                      {columnVisibility.isVisible("definesContractEnd") && <TableCell className="text-center" data-testid={`cell-defines-end-${status.id}`}>
+                        {status.definesContractEnd && (
+                          <Flag className="w-4 h-4 text-destructive mx-auto" data-testid={`icon-defines-end-${status.id}`} />
+                        )}
                       </TableCell>}
                       {columnVisibility.isVisible("color") && <TableCell>
                         <div className="flex items-center gap-2 flex-wrap">
