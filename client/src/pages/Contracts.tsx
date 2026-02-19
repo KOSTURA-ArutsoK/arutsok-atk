@@ -2032,7 +2032,17 @@ export default function Contracts() {
   };
 
   const handlePreSelectConfirm = () => {
-    if (!preSelectSubjectId) return;
+    if (!preSelectSubjectId) {
+      setPreSelectOpen(false);
+      setPreSelectStep(1);
+      setPreSelectPartnerId("");
+      setPreSelectProductId("");
+      setPreSelectSubjectSearch("");
+      setPreSelectSubjectId("");
+      setPreSelectClientTypeId("");
+      navigate("/subjects");
+      return;
+    }
     const params = new URLSearchParams();
     if (preSelectPartnerId) params.set("partnerId", preSelectPartnerId);
     if (preSelectProductId) params.set("productId", preSelectProductId);
@@ -2221,7 +2231,7 @@ export default function Contracts() {
               <Button variant="outline" tabIndex={2} onClick={handlePreSelectStep2Back} data-testid="button-preselect-back">
                 Spat
               </Button>
-              <Button ref={refStep2Confirm} tabIndex={0} onClick={handlePreSelectConfirm} disabled={!preSelectSubjectId} data-testid="button-preselect-confirm">
+              <Button ref={refStep2Confirm} tabIndex={0} onClick={handlePreSelectConfirm} data-testid="button-preselect-confirm">
                 Otvorit zmluvu
               </Button>
             </div>
