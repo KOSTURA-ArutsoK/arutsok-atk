@@ -165,22 +165,20 @@ function SubjectFinanceTab({ subject }: { subject: Subject }) {
 
   return (
     <div className="space-y-4">
-      <div className="grid grid-cols-2 gap-4">
-        <div>
+      <div className="grid grid-cols-[repeat(auto-fill,minmax(200px,1fr))] gap-x-4 gap-y-2">
+        <div className="max-w-[300px]">
           <Label className="text-xs">KIK ID</Label>
           <Input value={kikId} onChange={(e) => setKikId(e.target.value)} placeholder="napr. KIK-001234" data-testid="input-kik-id" className="mt-1" />
         </div>
-        <div>
+        <div className="max-w-[300px]">
           <Label className="text-xs">Uroven provizii</Label>
           <Input type="number" value={commissionLevel} onChange={(e) => setCommissionLevel(e.target.value)} placeholder="1-10" data-testid="input-commission-level" className="mt-1" />
         </div>
-      </div>
-      <div className="grid grid-cols-2 gap-4">
-        <div>
+        <div className="max-w-[300px]">
           <Label className="text-xs">IBAN</Label>
           <Input value={iban} onChange={(e) => setIban(e.target.value)} placeholder="SK00 0000 0000 0000 0000 0000" data-testid="input-iban" className="mt-1" />
         </div>
-        <div>
+        <div className="max-w-[300px]">
           <Label className="text-xs">SWIFT/BIC</Label>
           <Input value={swift} onChange={(e) => setSwift(e.target.value)} placeholder="napr. TATRSKBX" data-testid="input-swift" className="mt-1" />
         </div>
@@ -755,12 +753,12 @@ function SubjectDetailDialog({ subject, onClose }: { subject: Subject; onClose: 
 
           <TabsContent value="detail" className="mt-3">
             <div className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div>
+              <div className="grid grid-cols-[repeat(auto-fill,minmax(200px,1fr))] gap-x-4 gap-y-2">
+                <div className="max-w-[300px]">
                   <span className="text-xs text-muted-foreground">Typ entity</span>
                   <p className="text-sm">{subject.type === 'person' ? 'Fyzicka osoba' : subject.type === 'szco' ? 'SZCO' : 'Pravnicka osoba'}</p>
                 </div>
-                <div>
+                <div className="max-w-[300px]">
                   <span className="text-xs text-muted-foreground">Spravujuca firma</span>
                   <p className="text-sm">{(subject as any).companyName || managingCompany?.name || '-'}</p>
                 </div>
@@ -1397,8 +1395,8 @@ function FullPageEditor({
               <User className="w-4 h-4 text-primary" />
               <span className="text-sm font-semibold">Osobne udaje SZCO</span>
             </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1">
+            <div className="grid grid-cols-[repeat(auto-fill,minmax(200px,1fr))] gap-x-4 gap-y-2">
+              <div className="space-y-1 max-w-[300px]">
                 <Label className="text-xs">Meno *</Label>
                 <Input
                   value={szcoPersonalData.firstName}
@@ -1406,7 +1404,7 @@ function FullPageEditor({
                   data-testid="input-szco-firstname"
                 />
               </div>
-              <div className="space-y-1">
+              <div className="space-y-1 max-w-[300px]">
                 <Label className="text-xs">Priezvisko *</Label>
                 <Input
                   value={szcoPersonalData.lastName}
@@ -1485,24 +1483,24 @@ function FullPageEditor({
                             <Badge variant="secondary" className="text-[10px]">{povinneFields.length + 3}</Badge>
                           </div>
                         </AccordionTrigger>
-                        <AccordionContent className="pb-4 space-y-4">
-                          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3" data-testid="row-system-fields">
-                            <div className="space-y-1">
+                        <AccordionContent className="pb-4 space-y-2">
+                          <div className="grid grid-cols-[repeat(auto-fill,minmax(200px,1fr))] gap-x-4 gap-y-2" data-testid="row-system-fields">
+                            <div className="space-y-1 max-w-[300px]">
                               <Label className="text-xs">Kód klienta</Label>
                               <Input value="Automaticky generovaný" disabled className="font-mono text-xs" data-testid="input-kod-klienta" />
                             </div>
-                            <div className="space-y-1">
+                            <div className="space-y-1 max-w-[300px]">
                               <Label className="text-xs">Typ klienta</Label>
                               <Input value={clientType?.name || "Fyzická osoba"} disabled data-testid="input-typ-klienta" />
                             </div>
-                            <div className="space-y-1">
+                            <div className="space-y-1 max-w-[300px]">
                               <Label className="text-xs">Identifikátor (Rodné číslo)</Label>
                               <Input value={initialData.baseValue} disabled className="font-mono" data-testid="input-identifikator" />
                             </div>
                           </div>
 
-                          <div className="grid grid-cols-1 gap-3" data-testid="row-ziskatel">
-                            <div className="space-y-1">
+                          <div className="grid grid-cols-[repeat(auto-fill,minmax(200px,1fr))] gap-x-4 gap-y-2" data-testid="row-ziskatel">
+                            <div className="space-y-1 max-w-[300px]">
                               <Label className="text-xs">Získateľ</Label>
                               <Input
                                 value={appUser ? `${appUser.firstName || ""} ${appUser.lastName || ""}`.trim() || appUser.username : ""}
@@ -1513,7 +1511,7 @@ function FullPageEditor({
                           </div>
 
                           <Card data-testid="panel-osobne-udaje">
-                            <CardContent className="p-4 space-y-3">
+                            <CardContent className="p-4 space-y-2">
                               <p className="text-sm font-semibold">Osobné údaje</p>
                               {FO_POVINNE_ROWS.map((row, rowIdx) => {
                                 const rowEntries = row.keys
@@ -1534,7 +1532,7 @@ function FullPageEditor({
                                         const prioritySet = new Set(PRIORITY_COUNTRIES);
                                         const restCountries = ALL_COUNTRIES.filter(c => !prioritySet.has(c));
                                         return (
-                                          <div key={key} className="space-y-1 min-w-0">
+                                          <div key={key} className="space-y-1 min-w-0 max-w-[300px]">
                                             <Label className={`text-xs block ${hasErr ? "text-red-500" : "text-muted-foreground"}`}>
                                               {shortLbl ? (
                                                 <>
@@ -1584,7 +1582,7 @@ function FullPageEditor({
                                       const isRcAuto = (key === "pohlavie" && !!rcParsedResult.pohlavie) || (key === "datum_narodenia" && !!rcParsedResult.datumNarodenia) || (key === "vek" && !!rcParsedResult.datumNarodenia);
                                       if (field) {
                                         return (
-                                          <div key={key} className="space-y-1 min-w-0">
+                                          <div key={key} className="space-y-1 min-w-0 max-w-[300px]">
                                             <Label className={`text-xs block ${validationErrors.has(key) ? "text-red-500" : "text-muted-foreground"}`}>
                                               {field.shortLabel ? (
                                                 <>
@@ -1739,7 +1737,7 @@ function FullPageEditor({
 
                               return (
                                 <Card className={`${disabled ? "opacity-50 pointer-events-none" : ""}`} data-testid={`panel-address-${prefix}`}>
-                                  <CardContent className="p-4 space-y-3">
+                                  <CardContent className="p-4 space-y-2">
                                     <p className="text-sm font-semibold truncate" title={panelDef.label}>{panelDef.label}</p>
                                     {fUlica && (
                                       <div data-testid={`addr-row-ulica-${prefix}`}>
@@ -1778,8 +1776,8 @@ function FullPageEditor({
                                 : "grid-cols-1";
 
                             return (
-                              <div className="space-y-3">
-                                <div className="flex flex-col sm:flex-row sm:items-center gap-3 px-1" data-testid="row-address-switches">
+                              <div className="space-y-2">
+                                <div className="flex flex-col sm:flex-row sm:items-center gap-2 px-1" data-testid="row-address-switches">
                                   <div className="flex items-center gap-2">
                                     <Switch
                                       checked={korRespondRovnaka}
@@ -1817,10 +1815,10 @@ function FullPageEditor({
                           })()}
 
                           <Card data-testid="panel-kontaktne-udaje">
-                            <CardContent className="p-4 space-y-3">
+                            <CardContent className="p-4 space-y-2">
                               <p className="text-sm font-semibold">Kontaktné údaje</p>
-                              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4" data-testid="row-kontakt-fields">
-                                <div className="space-y-1 min-w-0">
+                              <div className="grid grid-cols-[repeat(auto-fill,minmax(200px,1fr))] gap-x-4 gap-y-2" data-testid="row-kontakt-fields">
+                                <div className="space-y-1 min-w-0 max-w-[300px]">
                                   <Label className="text-xs block text-muted-foreground">Tel. číslo (primárne) *</Label>
                                   <InternationalPhoneInput
                                     value={dynamicValues["telefon"] || ""}
@@ -1855,13 +1853,13 @@ function FullPageEditor({
                               </div>
                             </AccordionTrigger>
                             <AccordionContent className="pb-4">
-                              <div className="space-y-4">
+                              <div className="space-y-2">
                                 {groups.map(({ section, fields }) => (
-                                  <div key={section.id} className="space-y-3">
+                                  <div key={section.id} className="space-y-2">
                                     <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide border-b border-border pb-1" style={{ display: groups.length > 1 ? 'block' : 'none' }}>{section.name}</p>
-                                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                                    <div className="grid grid-cols-[repeat(auto-fill,minmax(200px,1fr))] gap-x-4 gap-y-2">
                                       {fields.map((field: StaticField) => (
-                                        <div key={field.id} className="min-w-0">
+                                        <div key={field.id} className="min-w-0 max-w-[300px]">
                                           <DynamicFieldInput field={field} dynamicValues={dynamicValues} setDynamicValues={setDynamicValues} hasError={validationErrors.has(field.fieldKey)} />
                                         </div>
                                       ))}
@@ -1892,16 +1890,16 @@ function FullPageEditor({
                     <Input value={initialData.baseValue} disabled className="mt-1" data-testid="input-ico-locked" />
                   </div>
 
-                  <div className="grid grid-cols-2 gap-4">
+                  <div className="grid grid-cols-[repeat(auto-fill,minmax(200px,1fr))] gap-x-4 gap-y-2">
                     <FormField control={form.control} name="email" render={({ field }) => (
-                      <FormItem>
+                      <FormItem className="max-w-[300px]">
                         <FormLabel>Email</FormLabel>
                         <FormControl><Input type="email" {...field} value={field.value || ""} data-testid="input-subject-email" /></FormControl>
                         <FormMessage />
                       </FormItem>
                     )} />
                     <FormField control={form.control} name="phone" render={({ field }) => (
-                      <FormItem>
+                      <FormItem className="max-w-[300px]">
                         <FormLabel>Telefón</FormLabel>
                         <FormControl><Input type="tel" {...field} value={field.value || ""} data-testid="input-subject-phone" /></FormControl>
                         <FormMessage />
@@ -1944,13 +1942,15 @@ function FullPageEditor({
                                   </div>
                                 </AccordionTrigger>
                                 <AccordionContent className="pb-4">
-                                  <div className="space-y-4">
+                                  <div className="space-y-2">
                                     {groups.map(({ section, fields }) => (
-                                      <div key={section.id} className="space-y-3">
+                                      <div key={section.id} className="space-y-2">
                                         <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide border-b border-border pb-1" style={{ display: groups.length > 1 ? 'block' : 'none' }}>{section.name}</p>
-                                        <div className="grid grid-cols-2 gap-3">
+                                        <div className="grid grid-cols-[repeat(auto-fill,minmax(200px,1fr))] gap-x-4 gap-y-2">
                                           {fields.map((field: StaticField) => (
-                                            <DynamicFieldInput key={field.id} field={field} dynamicValues={dynamicValues} setDynamicValues={setDynamicValues} hasError={validationErrors.has(field.fieldKey)} />
+                                            <div key={field.id} className="min-w-0 max-w-[300px]">
+                                              <DynamicFieldInput field={field} dynamicValues={dynamicValues} setDynamicValues={setDynamicValues} hasError={validationErrors.has(field.fieldKey)} />
+                                            </div>
                                           ))}
                                         </div>
                                       </div>
@@ -2160,8 +2160,8 @@ function SubjectEditModal({ subject, onClose }: { subject: Subject & { isOwner?:
                 <Lock className="w-3.5 h-3.5 text-muted-foreground" />
                 <span className="text-xs font-medium text-muted-foreground">NEEDITOVATELNE POLIA</span>
               </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
+              <div className="grid grid-cols-[repeat(auto-fill,minmax(200px,1fr))] gap-x-4 gap-y-2">
+                <div className="max-w-[300px]">
                   <Label className="text-xs text-muted-foreground">UID</Label>
                   <Input value={subject.uid} disabled className="mt-1 font-mono text-xs" data-testid="input-edit-uid-locked" />
                 </div>
@@ -2333,15 +2333,15 @@ function SubjectEditModal({ subject, onClose }: { subject: Subject & { isOwner?:
                                 return (
                                   <div key={section.id} className="space-y-3">
                                     <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide border-b border-border pb-1" style={{ display: groups.length > 1 ? 'block' : 'none' }}>{section.name}</p>
-                                    <div className="space-y-3">
+                                    <div className="space-y-2">
                                       {sortedRowKeys.map(rowNum => {
                                         const rowFields = rows.get(rowNum)!;
                                         const hasCustomWidths = rowFields.some(f => ((f as any).widthPercent ?? 100) !== 100);
                                         if (hasCustomWidths) {
                                           return (
-                                            <div key={rowNum} className="flex gap-3 flex-wrap">
+                                            <div key={rowNum} className="grid grid-cols-[repeat(auto-fill,minmax(200px,1fr))] gap-x-4 gap-y-2">
                                               {rowFields.map((field: StaticField) => (
-                                                <div key={field.id} style={{ width: `calc(${(field as any).widthPercent ?? 50}% - 0.375rem)`, minWidth: '120px' }}>
+                                                <div key={field.id} className="min-w-0 max-w-[300px]">
                                                   <DynamicFieldInput field={field} dynamicValues={dynamicValues} setDynamicValues={setDynamicValues} />
                                                 </div>
                                               ))}
@@ -2349,9 +2349,9 @@ function SubjectEditModal({ subject, onClose }: { subject: Subject & { isOwner?:
                                           );
                                         }
                                         return (
-                                          <div key={rowNum} className="flex flex-wrap gap-3">
+                                          <div key={rowNum} className="grid grid-cols-[repeat(auto-fill,minmax(200px,1fr))] gap-x-4 gap-y-2">
                                             {rowFields.map((field: StaticField) => (
-                                              <div key={field.id} className="flex-1 min-w-[calc(50%-0.375rem)]">
+                                              <div key={field.id} className="min-w-0 max-w-[300px]">
                                                 <DynamicFieldInput field={field} dynamicValues={dynamicValues} setDynamicValues={setDynamicValues} />
                                               </div>
                                             ))}
