@@ -2512,7 +2512,7 @@ export default function Subjects() {
         onOpenChange={setIsInitModalOpen}
         onProceed={(data) => {
           setIsInitModalOpen(false);
-          setEditData(data);
+          setTimeout(() => setEditData(data), 150);
         }}
         onViewSubject={(id) => {
           const found = subjects?.find(s => s.id === id);
