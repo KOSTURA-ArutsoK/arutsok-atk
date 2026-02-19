@@ -2674,10 +2674,24 @@ export default function Contracts() {
                         const restFields = nonAddrFields.filter(f => !usedKeys.has(f.fieldKey));
                         return (
                           <>
-                            <div className="flex flex-nowrap gap-3">{row1Fields.map(f => {
+                            <div className="flex flex-nowrap items-end gap-3 h-9">{row1Fields.map(f => {
                               if (!f) return null;
                               const wp = f.widthPercent || 25;
-                              return <div key={f.id} style={{ flex: `1 1 ${wp}%`, minWidth: 0 }}>{renderField(f)}</div>;
+                              const namePlaceholders: Record<string, string> = { titul_pred: "Titul pred", meno: "Meno *", priezvisko: "Priezvisko *", titul_za: "Titul za" };
+                              const hasErr = inlineValidationErrors.has(f.fieldKey);
+                              const rule = f.visibilityRule as { dependsOn: string; value: string } | null;
+                              const isVisible = !rule || inlineFormValues[rule.dependsOn] === rule.value;
+                              return (
+                                <div key={f.id} style={{ flex: `1 1 ${wp}%`, minWidth: 0, display: isVisible ? 'block' : 'none' }}>
+                                  <Input
+                                    placeholder={namePlaceholders[f.fieldKey] || f.label}
+                                    value={inlineFormValues[f.fieldKey] || ""}
+                                    onChange={e => setInlineFormValues(prev => ({ ...prev, [f.fieldKey]: e.target.value }))}
+                                    className={hasErr ? "border-red-500 ring-1 ring-red-500" : ""}
+                                    data-testid={`input-inline-${f.fieldKey}`}
+                                  />
+                                </div>
+                              );
                             })}</div>
                             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mt-3">{row2Fields.map(renderField)}</div>
                             {row3Fields.length > 0 && (

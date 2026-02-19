@@ -1362,14 +1362,37 @@ function FullPageEditor({
                           <Card data-testid="panel-osobne-udaje">
                             <CardContent className="p-4 space-y-3">
                               <p className="text-sm font-semibold">Osobné údaje</p>
-                              {FO_POVINNE_ROWS.map((row, rowIdx) => {
+                              {(() => {
+                                const NAME_PLACEHOLDERS: Record<string, string> = { titul_pred: "Titul pred", meno: "Meno *", priezvisko: "Priezvisko *", titul_za: "Titul za" };
+                                const nameRowKeys = FO_POVINNE_ROWS[0].keys;
+                                const nameRowFields = nameRowKeys.map(k => ({ key: k, field: povinneFields.find(f => f.fieldKey === k) }));
+                                return (
+                                  <div className="flex flex-nowrap items-end gap-3 h-9" data-testid="row-povinne-3">
+                                    {nameRowFields.map(({ key, field }) => {
+                                      const wp = field?.widthPercent || 25;
+                                      const hasErr = validationErrors.has(key);
+                                      return (
+                                        <div key={key} style={{ flex: `1 1 ${wp}%`, minWidth: 0 }}>
+                                          <Input
+                                            placeholder={NAME_PLACEHOLDERS[key] || key}
+                                            value={dynamicValues[key] || ""}
+                                            onChange={e => setDynamicValues(prev => ({ ...prev, [key]: e.target.value }))}
+                                            className={hasErr ? "border-red-500 ring-1 ring-red-500" : ""}
+                                            data-testid={`input-${key}`}
+                                          />
+                                        </div>
+                                      );
+                                    })}
+                                  </div>
+                                );
+                              })()}
+                              {FO_POVINNE_ROWS.slice(1).map((row, rowIdx) => {
                                 const rowEntries = row.keys
                                   .map(k => ({ key: k, field: povinneFields.find(f => f.fieldKey === k) }));
                                 const hasAny = rowEntries.some(e => e.field) || rowEntries.some(e => e.key === "statna_prislusnost");
                                 if (!hasAny || rowEntries.length === 0) return null;
-                                const isNameRow = rowIdx === 0;
                                 return (
-                                  <div key={rowIdx} className={isNameRow ? "flex flex-nowrap gap-3" : "flex flex-wrap gap-3"} data-testid={`row-povinne-${rowIdx + 3}`}>
+                                  <div key={rowIdx + 1} className="flex flex-wrap gap-3" data-testid={`row-povinne-${rowIdx + 4}`}>
                                     {rowEntries.map(({ key, field }) => {
                                       if (key === "statna_prislusnost") {
                                         const label = field?.label || "Štátna príslušnosť";
@@ -1419,14 +1442,12 @@ function FullPageEditor({
                                       }
                                       const rcParsedResult = initialData.baseValue?.trim() ? parseRodneCislo(initialData.baseValue.trim()) : {};
                                       const isRcAuto = (key === "pohlavie" && !!rcParsedResult.pohlavie) || (key === "datum_narodenia" && !!rcParsedResult.datumNarodenia);
-                                      const widthStyle = isNameRow && field?.widthPercent ? { flex: `1 1 ${field.widthPercent}%`, minWidth: 0 } : undefined;
-                                      const defaultClass = isNameRow ? "" : "flex-1 min-w-[30%]";
                                       return field ? (
-                                      <div key={key} className={defaultClass} style={widthStyle}>
+                                      <div key={key} className="flex-1 min-w-[30%]">
                                         <DynamicFieldInput field={field} dynamicValues={dynamicValues} setDynamicValues={setDynamicValues} hasError={validationErrors.has(field.fieldKey)} disabled={isRcAuto} />
                                       </div>
                                     ) : (
-                                      <div key={key} className={defaultClass} style={widthStyle}>
+                                      <div key={key} className="flex-1 min-w-[30%]">
                                         <div className="space-y-1">
                                           <Label className={`text-xs text-muted-foreground ${validationErrors.has(key) ? "text-red-500" : ""}`}>{key}</Label>
                                           <Input value={dynamicValues[key] || ""} onChange={e => setDynamicValues(prev => ({ ...prev, [key]: e.target.value }))} className={validationErrors.has(key) ? "border-red-500 ring-1 ring-red-500" : ""} data-testid={`input-${key}`} />
