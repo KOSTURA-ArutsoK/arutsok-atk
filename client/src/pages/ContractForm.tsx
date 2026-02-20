@@ -2361,9 +2361,9 @@ function SummaryField({ label, value, testId, mono }: { label: string; value: st
 
 function IslandField({ label, value, testId, mono }: { label: string; value: string; testId?: string; mono?: boolean }) {
   return (
-    <div className="h-10 flex items-center gap-2 px-3 rounded-md border border-border bg-muted/30" data-testid={testId}>
-      <span className="text-xs text-muted-foreground whitespace-nowrap">{label}:</span>
-      <span className={`text-sm font-medium truncate ${mono ? "font-mono" : ""}`}>{value || "-"}</span>
+    <div className="flex flex-col gap-1 w-fit" data-testid={testId}>
+      <label className="text-xs text-muted-foreground">{label}</label>
+      <div className={`h-10 px-3 flex items-center border rounded font-semibold text-sm ${mono ? "font-mono" : ""}`}>{value || "-"}</div>
     </div>
   );
 }
@@ -2403,7 +2403,7 @@ function SubjectIslandView({ subject, allSubjects, mode }: { subject: any | null
             <Badge variant="outline" className="text-xs">{isPerson ? "FO" : isSzco ? "SZCO" : "PO"}</Badge>
           </div>
 
-          <div className="flex flex-wrap gap-2">
+          <div className="flex flex-wrap gap-x-4 gap-y-2">
             <IslandField label="UID" value={subject.uid || "-"} testId="island-uid" mono />
             {(isPerson || isSzco) && (
               <>
@@ -2412,12 +2412,8 @@ function SubjectIslandView({ subject, allSubjects, mode }: { subject: any | null
               </>
             )}
             {isPo && <IslandField label="Nazov" value={subject.companyName || "-"} testId="island-company" />}
-            <span style={{ display: subject.email ? 'inline-flex' : 'none' }}>
-              <IslandField label="Email" value={subject.email || ""} testId="island-email" />
-            </span>
-            <span style={{ display: subject.phone ? 'inline-flex' : 'none' }}>
-              <IslandField label="Telefon" value={subject.phone || ""} testId="island-phone" />
-            </span>
+            {subject.email && <IslandField label="Email" value={subject.email} testId="island-email" />}
+            {subject.phone && <IslandField label="Telefon" value={subject.phone} testId="island-phone" />}
           </div>
         </CardContent>
       </Card>
@@ -2437,7 +2433,7 @@ function SubjectIslandView({ subject, allSubjects, mode }: { subject: any | null
                 return (
                   <div key={section.id} className="space-y-2">
                     <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">{section.name}</p>
-                    <div className="flex flex-wrap gap-2">
+                    <div className="flex flex-wrap gap-x-4 gap-y-2">
                       {filledFields.map(field => (
                         <IslandField
                           key={field.id}
@@ -2463,7 +2459,7 @@ function SubjectIslandView({ subject, allSubjects, mode }: { subject: any | null
               <Badge variant="secondary" className="text-[10px]">{docs.length}</Badge>
             </div>
             {docs.map((doc: DocumentEntry, idx: number) => (
-              <div key={doc.id || idx} className="flex flex-wrap gap-2" data-testid={`island-doc-${idx}`}>
+              <div key={doc.id || idx} className="flex flex-wrap gap-x-4 gap-y-2" data-testid={`island-doc-${idx}`}>
                 <IslandField label="Typ" value={doc.documentType || "-"} />
                 {doc.documentType === "Iný" && doc.customDocType && <IslandField label="Špecifikácia" value={doc.customDocType} />}
                 <IslandField label="Číslo" value={doc.documentNumber || "-"} mono />
@@ -2478,45 +2474,56 @@ function SubjectIslandView({ subject, allSubjects, mode }: { subject: any | null
 
       {isSzco && linkedFo && (
         <Card>
-          <CardContent className="p-3 space-y-2">
+          <CardContent className="p-3 space-y-3">
             <div className="flex items-center gap-2">
               <Link2 className="w-4 h-4 text-blue-400" />
               <p className="text-sm font-semibold">Prepojená FO (Majiteľ)</p>
             </div>
-            <div className="flex flex-wrap gap-2">
+            <div className="flex flex-wrap gap-x-4 gap-y-2">
               <IslandField label="UID" value={linkedFo.uid || "-"} testId="island-linked-fo-uid" mono />
               <IslandField label="Meno" value={linkedFo.firstName || "-"} testId="island-linked-fo-meno" />
               <IslandField label="Priezvisko" value={linkedFo.lastName || "-"} testId="island-linked-fo-priezvisko" />
-              <span style={{ display: linkedFo.email ? 'inline-flex' : 'none' }}>
-                <IslandField label="Email" value={linkedFo.email || ""} testId="island-linked-fo-email" />
-              </span>
-              <span style={{ display: linkedFo.phone ? 'inline-flex' : 'none' }}>
-                <IslandField label="Telefon" value={linkedFo.phone || ""} testId="island-linked-fo-phone" />
-              </span>
-              {(() => {
-                const foDetails = (linkedFo.details || {}) as Record<string, any>;
-                const foDyn = foDetails.dynamicFields || foDetails;
-                const foFields = getFieldsForClientTypeId(1);
-                const filledFoFields = foFields
-                  .filter(f => f.fieldKey !== "telefon" && f.fieldKey !== "email")
-                  .filter(f => {
-                    const v = foDyn[f.fieldKey] !== undefined ? String(foDyn[f.fieldKey] || "") : (foDetails[f.fieldKey] !== undefined ? String(foDetails[f.fieldKey] || "") : "");
-                    return !!v;
-                  })
-                  .sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0));
-                return filledFoFields.map(field => {
-                  const v = foDyn[field.fieldKey] !== undefined ? String(foDyn[field.fieldKey] || "") : String(foDetails[field.fieldKey] || "");
+              {linkedFo.email && <IslandField label="Email" value={linkedFo.email} testId="island-linked-fo-email" />}
+              {linkedFo.phone && <IslandField label="Telefon" value={linkedFo.phone} testId="island-linked-fo-phone" />}
+            </div>
+            {(() => {
+              const foDetails = (linkedFo.details || {}) as Record<string, any>;
+              const foDyn = foDetails.dynamicFields || foDetails;
+              const foFields = getFieldsForClientTypeId(1);
+              const foSections = getSectionsForClientTypeId(1);
+              const filledFoFields = foFields
+                .filter(f => f.fieldKey !== "telefon" && f.fieldKey !== "email")
+                .filter(f => {
+                  const v = foDyn[f.fieldKey] !== undefined ? String(foDyn[f.fieldKey] || "") : (foDetails[f.fieldKey] !== undefined ? String(foDetails[f.fieldKey] || "") : "");
+                  return !!v;
+                })
+                .sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0));
+              if (filledFoFields.length === 0) return null;
+              return foSections
+                .sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0))
+                .map(section => {
+                  const sectionFields = filledFoFields.filter(f => (f.sectionId || 0) === section.id);
+                  if (sectionFields.length === 0) return null;
                   return (
-                    <IslandField
-                      key={field.id}
-                      label={field.shortLabel || field.label}
-                      value={field.fieldType === "date" ? formatDateSlovak(v) : v}
-                      testId={`island-linked-fo-${field.fieldKey}`}
-                    />
+                    <div key={section.id} className="space-y-2">
+                      <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">{section.name}</p>
+                      <div className="flex flex-wrap gap-x-4 gap-y-2">
+                        {sectionFields.map(field => {
+                          const v = foDyn[field.fieldKey] !== undefined ? String(foDyn[field.fieldKey] || "") : String(foDetails[field.fieldKey] || "");
+                          return (
+                            <IslandField
+                              key={field.id}
+                              label={field.shortLabel || field.label}
+                              value={field.fieldType === "date" ? formatDateSlovak(v) : v}
+                              testId={`island-linked-fo-${field.fieldKey}`}
+                            />
+                          );
+                        })}
+                      </div>
+                    </div>
                   );
                 });
-              })()}
-            </div>
+            })()}
           </CardContent>
         </Card>
       )}
