@@ -13,6 +13,7 @@ import { getFieldsForClientTypeId, type StaticField } from "@/lib/staticFieldDef
 import { ArrowLeft, Save, Loader2, LayoutGrid, KeyRound, Plus, Trash2, FileText, Users, ClipboardList, FolderOpen, FolderClosed, DollarSign, BarChart3, ListChecks, PieChart, ChevronLeft, ChevronRight, MessageSquare, Paperclip, Upload, X, Eye, Settings2, Calendar, UserCheck, Check, Link2, CreditCard, Flag } from "lucide-react";
 import { getSectionsForClientTypeId } from "@/lib/staticFieldDefs";
 import type { DocumentEntry } from "@shared/schema";
+import StatusDocUpload, { type StatusDocUploadHandle } from "@/components/StatusDocUpload";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -315,6 +316,9 @@ type StatusTabContentProps = {
   statusFormFileRef: React.RefObject<HTMLInputElement>;
   statusFormSubmit: any;
   contractId: number | null;
+  renamePrefix: string;
+  setRenamePrefix: (v: string) => void;
+  docUploadRef: React.RefObject<StatusDocUploadHandle>;
   contractSectorId: string;
   contractSectionId: string;
   sectorProductId: string;
@@ -343,7 +347,8 @@ function StatusTabContent(props: StatusTabContentProps) {
     statusFormNote, setStatusFormNote,
     statusFormFiles, setStatusFormFiles,
     statusFormFileRef, statusFormSubmit,
-    contractId, contractSectorId, contractSectionId, sectorProductId,
+    contractId, renamePrefix, setRenamePrefix, docUploadRef,
+    contractSectorId, contractSectionId, sectorProductId,
     statusChangeLogs,
   } = props;
 
@@ -600,53 +605,19 @@ function StatusTabContent(props: StatusTabContentProps) {
 
               <hr className="my-4 border-border/50" />
 
-              <div id="status-form-docs" className="space-y-4" data-testid="section-status-dokumenty">
-                <div className="flex items-center justify-between gap-2 flex-wrap">
-                  <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
-                    <Upload className="w-3.5 h-3.5" /> Dokumenty ku stavu
-                    <span id="docs-count-display" style={{ display: statusFormFiles.length > 0 ? 'inline' : 'none' }}><span className="text-[10px] tabular-nums font-normal">({statusFormFiles.length})</span></span>
-                  </h3>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => statusFormFileRef.current?.click()}
-                    data-testid="button-add-document"
-                  >
-                    <Upload className="w-3.5 h-3.5 mr-1" /> Pridat subor
-                  </Button>
-                  <input
-                    ref={statusFormFileRef}
-                    type="file"
-                    multiple
-                    className="hidden"
-                    onChange={e => {
-                      if (e.target.files) setStatusFormFiles(prev => [...prev, ...Array.from(e.target.files!)]);
-                      if (statusFormFileRef.current) statusFormFileRef.current.value = "";
-                    }}
-                    accept="*/*"
-                  />
-                </div>
-                <div id="status-files-content">
-                  <div style={{ display: statusFormFiles.length === 0 ? 'block' : 'none' }}>
-                    <p className="text-sm text-muted-foreground py-2">Ziadne dokumenty neboli pridane</p>
-                  </div>
-                  <div style={{ display: statusFormFiles.length > 0 ? 'block' : 'none' }}>
-                    <div id="status-files-list" className="space-y-2">
-                      {statusFormFiles.map((file, idx) => (
-                        <div key={`sf-${file.name}-${file.size}-${file.lastModified}`} className="flex items-center justify-between gap-2 p-2 border rounded-md" data-testid={`file-item-${idx}`}>
-                          <div className="flex items-center gap-2 min-w-0">
-                            <FileText className="w-4 h-4 shrink-0 text-muted-foreground" />
-                            <span className="text-sm truncate">{file.name}</span>
-                            <span className="text-xs text-muted-foreground shrink-0">({(file.size / 1024).toFixed(1)} KB)</span>
-                          </div>
-                          <Button variant="ghost" size="icon" onClick={() => setStatusFormFiles(prev => prev.filter((_, i) => i !== idx))} data-testid={`button-remove-file-${idx}`}>
-                            <X className="w-4 h-4" />
-                          </Button>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                </div>
+              <div id="status-form-docs" className="space-y-3" data-testid="section-status-dokumenty">
+                <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+                  <Upload className="w-3.5 h-3.5" /> Dokumenty ku stavu
+                  <span id="docs-count-display" style={{ display: statusFormFiles.length > 0 ? 'inline' : 'none' }}><span className="text-[10px] tabular-nums font-normal">({statusFormFiles.length})</span></span>
+                </h3>
+                <StatusDocUpload
+                  ref={docUploadRef}
+                  files={statusFormFiles}
+                  onFilesChange={setStatusFormFiles}
+                  contractId={contractId}
+                  renamePrefix={renamePrefix}
+                  onRenamePrefixChange={setRenamePrefix}
+                />
               </div>
 
               <div id="status-submit-wrapper" className="flex items-center justify-end gap-2 pt-4 mt-4 border-t">
@@ -767,7 +738,9 @@ export default function ContractForm() {
   const [statusFormNote, setStatusFormNote] = useState("");
   const [statusFormParamValues, setStatusFormParamValues] = useState<Record<string, string>>({});
   const [statusFormFiles, setStatusFormFiles] = useState<File[]>([]);
+  const [statusFormRenamePrefix, setStatusFormRenamePrefix] = useState("");
   const statusFormFileRef = useRef<HTMLInputElement>(null);
+  const statusDocUploadRef = useRef<StatusDocUploadHandle>(null);
   const [templateId, setTemplateId] = useState<string>("");
   const [inventoryId, setInventoryId] = useState<string>("");
   const [stateId, setStateId] = useState<string>("");
@@ -927,12 +900,23 @@ export default function ContractForm() {
   });
   const statusFormSubmit = useMutation({
     mutationFn: async () => {
+      const uploadHashes = statusDocUploadRef.current?.getFileHashes() || {};
+      const fileHashes: Record<string, string> = {};
+      for (const file of statusFormFiles) {
+        const key = `${file.name}::${file.size}::${file.lastModified}`;
+        if (uploadHashes[key]) {
+          fileHashes[file.name] = uploadHashes[key];
+        }
+      }
+
       const formData = new FormData();
       formData.append("newStatusId", statusFormStatusId);
       formData.append("changedAt", statusFormChangedAt);
       formData.append("visibleToClient", statusFormVisibleToClient.toString());
       if (statusFormNote.trim()) formData.append("statusNote", statusFormNote);
       formData.append("parameterValues", JSON.stringify(statusFormParamValues));
+      formData.append("fileHashes", JSON.stringify(fileHashes));
+      if (statusFormRenamePrefix.trim()) formData.append("renamePrefix", statusFormRenamePrefix.trim());
       for (const file of statusFormFiles) {
         formData.append("documents", file);
       }
@@ -957,6 +941,7 @@ export default function ContractForm() {
       setStatusFormNote("");
       setStatusFormParamValues({});
       setStatusFormFiles([]);
+      setStatusFormRenamePrefix("");
       queryClient.invalidateQueries({ queryKey: ["/api/contracts", contractId] });
       queryClient.invalidateQueries({ queryKey: ["/api/contracts", contractId, "status-change-logs"] });
       queryClient.invalidateQueries({ queryKey: ["/api/contracts"] });
@@ -2195,6 +2180,9 @@ export default function ContractForm() {
               statusFormFileRef={statusFormFileRef}
               statusFormSubmit={statusFormSubmit}
               contractId={contractId}
+              renamePrefix={statusFormRenamePrefix}
+              setRenamePrefix={setStatusFormRenamePrefix}
+              docUploadRef={statusDocUploadRef}
               contractSectorId={contractSectorId}
               contractSectionId={contractSectionId}
               sectorProductId={sectorProductId}

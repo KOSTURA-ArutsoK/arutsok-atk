@@ -11,6 +11,7 @@ import multer from "multer";
 import ExcelJS from "exceljs";
 import path from "path";
 import fs from "fs";
+import crypto from "crypto";
 import { encryptField, decryptField } from "./crypto";
 
 function stripBallast(str: string): string {
@@ -79,7 +80,7 @@ const uploadStorage = multer.diskStorage({
 
 const upload = multer({
   storage: uploadStorage,
-  limits: { fileSize: 20 * 1024 * 1024 },
+  limits: { fileSize: 50 * 1024 * 1024 },
 });
 
 export async function registerRoutes(
@@ -1824,7 +1825,7 @@ export async function registerRoutes(
   app.post("/api/contracts/:id/status-change", isAuthenticated, (req, _res, next) => {
     (req as any)._uploadSection = "status-change-docs";
     next();
-  }, upload.array("documents", 10), async (req: any, res) => {
+  }, upload.array("documents", 50), async (req: any, res) => {
     try {
       const appUser = req.appUser;
       const contractId = Number(req.params.id);
@@ -1852,14 +1853,27 @@ export async function registerRoutes(
         }
       }
 
+      const fileHashes = req.body.fileHashes ? (typeof req.body.fileHashes === "string" ? JSON.parse(req.body.fileHashes) : req.body.fileHashes) : {};
+      const renamePrefixRaw = req.body.renamePrefix ? String(req.body.renamePrefix).trim() : "";
+
       const docs: any[] = [];
       if (req.files && Array.isArray(req.files)) {
         for (const file of req.files) {
+          let fileHash = fileHashes[file.originalname] || "";
+          if (!fileHash) {
+            const buf = fs.readFileSync(file.path);
+            fileHash = crypto.createHash("sha256").update(buf).digest("hex");
+          }
+          const displayName = renamePrefixRaw
+            ? `${renamePrefixRaw}_${file.originalname}`
+            : file.originalname;
           docs.push({
             id: Date.now().toString() + "-" + Math.random().toString(36).slice(2, 8),
-            name: file.originalname,
+            name: displayName,
             url: `/api/files/status-change-docs/${file.filename}`,
             uploadedAt: new Date().toISOString(),
+            fileHash,
+            fileSize: file.size,
           });
         }
       }
@@ -1920,6 +1934,27 @@ export async function registerRoutes(
       const meta = await storage.getLatestStatusChangeLogsForContracts(contractIds);
       res.json(meta);
     } catch (err) { res.status(500).json({ message: "Internal error" }); }
+  });
+
+  app.post("/api/contracts/:id/check-doc-duplicates", isAuthenticated, async (req: any, res) => {
+    try {
+      const contractId = Number(req.params.id);
+      const { hashes } = req.body;
+      if (!hashes || !Array.isArray(hashes)) return res.json({ duplicates: [] });
+      const logs = await storage.getContractStatusChangeLogs(contractId);
+      const existingHashes = new Set<string>();
+      for (const log of logs) {
+        if (Array.isArray(log.statusChangeDocuments)) {
+          for (const doc of log.statusChangeDocuments as any[]) {
+            if (doc.fileHash) existingHashes.add(doc.fileHash);
+          }
+        }
+      }
+      const duplicates = hashes.filter((h: string) => existingHashes.has(h));
+      res.json({ duplicates });
+    } catch (err) {
+      res.status(500).json({ message: "Internal error" });
+    }
   });
 
   // === REJECTED CONTRACTS (ArutsoK 49) ===

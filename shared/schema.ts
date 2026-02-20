@@ -6,7 +6,7 @@ import { z } from "zod";
 export * from "./models/auth";
 
 export type LogoEntry = { name: string; url: string; uploadedAt: string; isPrimary: boolean; isArchived: boolean };
-export type DocEntry = { name: string; url: string; uploadedAt: string };
+export type DocEntry = { name: string; url: string; uploadedAt: string; fileHash?: string; fileSize?: number };
 
 export type DocumentEntry = {
   id: string;
