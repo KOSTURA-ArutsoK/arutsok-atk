@@ -97,6 +97,10 @@ import {
   type ImportLog, type InsertImportLog,
   commissions,
   type Commission, type InsertCommission,
+  clientDataTabs, clientDataCategories, clientMarketingConsents,
+  type ClientDataTab, type InsertClientDataTab,
+  type ClientDataCategory, type InsertClientDataCategory,
+  type ClientMarketingConsent, type InsertClientMarketingConsent,
 } from "@shared/schema";
 import { eq, and, or, ne, like, sql, lte, gte, gt, desc, asc, isNull, isNotNull, inArray } from "drizzle-orm";
 
@@ -494,6 +498,16 @@ export interface IStorage {
   getCommissionsByImport(importId: number): Promise<Commission[]>;
   getCommissionsByContract(contractId: number): Promise<Commission[]>;
   createCommissionRecord(data: InsertCommission): Promise<Commission>;
+
+  // Client Data Tabs & Categories
+  getClientDataTabs(): Promise<ClientDataTab[]>;
+  getClientDataCategories(tabId?: number): Promise<ClientDataCategory[]>;
+
+  // Client Marketing Consents (M:N per client × company)
+  getClientMarketingConsents(subjectId: number, companyId?: number): Promise<ClientMarketingConsent[]>;
+  upsertClientMarketingConsent(data: InsertClientMarketingConsent): Promise<ClientMarketingConsent>;
+
+  updateSubjectUiPreferences(subjectId: number, prefs: { summary_fields: Record<string, boolean> }): Promise<Subject>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -2989,6 +3003,46 @@ export class DatabaseStorage implements IStorage {
   async createCommissionRecord(data: InsertCommission): Promise<Commission> {
     const [c] = await db.insert(commissions).values(data).returning();
     return c;
+  }
+
+  async getClientDataTabs(): Promise<ClientDataTab[]> {
+    return await db.select().from(clientDataTabs).where(eq(clientDataTabs.isActive, true)).orderBy(asc(clientDataTabs.sortOrder));
+  }
+
+  async getClientDataCategories(tabId?: number): Promise<ClientDataCategory[]> {
+    if (tabId) {
+      return await db.select().from(clientDataCategories).where(and(eq(clientDataCategories.tabId, tabId), eq(clientDataCategories.isActive, true))).orderBy(asc(clientDataCategories.sortOrder));
+    }
+    return await db.select().from(clientDataCategories).where(eq(clientDataCategories.isActive, true)).orderBy(asc(clientDataCategories.sortOrder));
+  }
+
+  async getClientMarketingConsents(subjectId: number, companyId?: number): Promise<ClientMarketingConsent[]> {
+    if (companyId) {
+      return await db.select().from(clientMarketingConsents).where(and(eq(clientMarketingConsents.subjectId, subjectId), eq(clientMarketingConsents.companyId, companyId)));
+    }
+    return await db.select().from(clientMarketingConsents).where(eq(clientMarketingConsents.subjectId, subjectId));
+  }
+
+  async upsertClientMarketingConsent(data: InsertClientMarketingConsent): Promise<ClientMarketingConsent> {
+    const existing = await db.select().from(clientMarketingConsents).where(and(
+      eq(clientMarketingConsents.subjectId, data.subjectId),
+      eq(clientMarketingConsents.companyId, data.companyId),
+      eq(clientMarketingConsents.consentType, data.consentType || 'marketing')
+    ));
+    if (existing.length > 0) {
+      const [updated] = await db.update(clientMarketingConsents)
+        .set({ isGranted: data.isGranted, grantedAt: data.isGranted ? new Date() : null, revokedAt: !data.isGranted ? new Date() : null, note: data.note, updatedAt: new Date() })
+        .where(eq(clientMarketingConsents.id, existing[0].id))
+        .returning();
+      return updated;
+    }
+    const [created] = await db.insert(clientMarketingConsents).values({ ...data, grantedAt: data.isGranted ? new Date() : null }).returning();
+    return created;
+  }
+
+  async updateSubjectUiPreferences(subjectId: number, prefs: { summary_fields: Record<string, boolean> }): Promise<Subject> {
+    const [updated] = await db.update(subjects).set({ uiPreferences: prefs }).where(eq(subjects.id, subjectId)).returning();
+    return updated;
   }
 }
 

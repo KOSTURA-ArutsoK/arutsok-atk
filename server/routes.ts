@@ -4,7 +4,7 @@ import { storage } from "./storage";
 import { api } from "@shared/routes";
 import { setupAuth, registerAuthRoutes, isAuthenticated } from "./replit_integrations/auth";
 import { z } from "zod";
-import { continents, states, myCompanies, appUsers, clientTypes, clientSubGroups, clientGroupMembers, productFolderAssignments, folderPanels, panelParameters, userClientGroupMemberships, clientGroups, permissionGroups, insertCareerLevelSchema, insertProductPointRateSchema, careerLevels, importLogs, commissions, contracts, contractStatuses, contractStatusChangeLogs } from "@shared/schema";
+import { continents, states, myCompanies, appUsers, clientTypes, clientSubGroups, clientGroupMembers, productFolderAssignments, folderPanels, panelParameters, userClientGroupMemberships, clientGroups, permissionGroups, insertCareerLevelSchema, insertProductPointRateSchema, careerLevels, importLogs, commissions, contracts, contractStatuses, contractStatusChangeLogs, clientDataTabs, clientDataCategories } from "@shared/schema";
 import { db } from "./db";
 import { eq } from "drizzle-orm";
 import multer from "multer";
@@ -5345,6 +5345,70 @@ export async function registerRoutes(
     }
   });
 
+  // === CLIENT DATA TABS & CATEGORIES ===
+  app.get("/api/client-data-tabs", isAuthenticated, async (_req: any, res) => {
+    try {
+      const tabs = await storage.getClientDataTabs();
+      res.json(tabs);
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  app.get("/api/client-data-categories", isAuthenticated, async (req: any, res) => {
+    try {
+      const tabId = req.query.tabId ? Number(req.query.tabId) : undefined;
+      const categories = await storage.getClientDataCategories(tabId);
+      res.json(categories);
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  // === CLIENT MARKETING CONSENTS ===
+  app.get("/api/subjects/:id/marketing-consents", isAuthenticated, async (req: any, res) => {
+    try {
+      const subjectId = Number(req.params.id);
+      const companyId = req.query.companyId ? Number(req.query.companyId) : undefined;
+      const consents = await storage.getClientMarketingConsents(subjectId, companyId);
+      res.json(consents);
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  app.post("/api/subjects/:id/marketing-consents", isAuthenticated, async (req: any, res) => {
+    try {
+      const subjectId = Number(req.params.id);
+      const { companyId, consentType, isGranted, note } = req.body;
+      if (!companyId) return res.status(400).json({ message: "companyId je povinné" });
+      const consent = await storage.upsertClientMarketingConsent({
+        subjectId,
+        companyId,
+        consentType: consentType || "marketing",
+        isGranted: isGranted ?? false,
+        note: note || null,
+      });
+      await logAudit(req, { action: "UPDATE", module: "marketing-consents", entityId: subjectId, entityName: `Súhlas: ${consentType || "marketing"}`, newData: consent });
+      res.json(consent);
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  // === SUBJECT UI PREFERENCES (summary_fields for PDF export) ===
+  app.patch("/api/subjects/:id/ui-preferences", isAuthenticated, async (req: any, res) => {
+    try {
+      const subjectId = Number(req.params.id);
+      const { summary_fields } = req.body;
+      if (!summary_fields || typeof summary_fields !== "object" || Array.isArray(summary_fields)) return res.status(400).json({ message: "summary_fields musí byť objekt" });
+      const updated = await storage.updateSubjectUiPreferences(subjectId, { summary_fields });
+      res.json(updated);
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
   await seedDatabase();
 
   {
@@ -5446,5 +5510,50 @@ async function seedDatabase() {
       { code: "PO", name: "Pravnicka osoba", baseParameter: "ico", isActive: true },
       { code: "SZCO", name: "Samostatne zamestnan\u00e1 osoba", baseParameter: "ico", isActive: true },
     ]);
+  }
+
+  const existingTabs = await storage.getClientDataTabs();
+  if (existingTabs.length === 0) {
+    const [tab1] = await db.insert(clientDataTabs).values({ code: "identita", name: "Identita", icon: "UserCheck", sortOrder: 0 }).returning();
+    const [tab2] = await db.insert(clientDataTabs).values({ code: "legislativa", name: "Legislat\u00edva", icon: "Scale", sortOrder: 1 }).returning();
+    const [tab3] = await db.insert(clientDataTabs).values({ code: "rodina", name: "Rodina a vz\u0165ahy", icon: "Users", sortOrder: 2 }).returning();
+    const [tab4] = await db.insert(clientDataTabs).values({ code: "financie", name: "Financie a majetok", icon: "Wallet", sortOrder: 3 }).returning();
+    const [tab5] = await db.insert(clientDataTabs).values({ code: "profil", name: "Profil a marketing", icon: "BarChart3", sortOrder: 4 }).returning();
+    const [tab6] = await db.insert(clientDataTabs).values({ code: "digital", name: "Digit\u00e1lna stopa", icon: "Wifi", sortOrder: 5 }).returning();
+    const [tab7] = await db.insert(clientDataTabs).values({ code: "servis", name: "Servis a arch\u00edv", icon: "Archive", sortOrder: 6 }).returning();
+
+    await db.insert(clientDataCategories).values([
+      { tabId: tab1.id, code: "povinne", name: "Povinn\u00e9", description: "Z\u00e1kladn\u00e9 identifika\u010dn\u00e9 \u00fadaje", color: "#ef4444", icon: "AlertCircle", sortOrder: 0 },
+      { tabId: tab1.id, code: "dobrovolne", name: "Dobrovo\u013en\u00e9", description: "Dop\u013a\u0148uj\u00face osobn\u00e9 \u00fadaje", color: "#f59e0b", icon: "Plus", sortOrder: 1 },
+      { tabId: tab1.id, code: "dokumentacne", name: "Dokumenta\u010dn\u00e9", description: "Doklady toto\u017enosti a k\u00f3pie", color: "#6366f1", icon: "FileText", sortOrder: 2 },
+      { tabId: tab1.id, code: "komunikacne", name: "Komunika\u010dn\u00e9", description: "Kontaktn\u00e9 \u00fadaje a kan\u00e1ly", color: "#06b6d4", icon: "MessageSquare", sortOrder: 3 },
+      { tabId: tab2.id, code: "zakonne", name: "Z\u00e1konn\u00e9", description: "Z\u00e1konom vy\u017eadovan\u00e9 \u00fadaje", color: "#dc2626", icon: "Gavel", sortOrder: 0 },
+      { tabId: tab2.id, code: "aml", name: "AML", description: "Anti-money laundering \u00fadaje", color: "#b91c1c", icon: "Shield", sortOrder: 1 },
+      { tabId: tab2.id, code: "pravne", name: "Pr\u00e1vne", description: "Pr\u00e1vne z\u00e1le\u017eitosti a exek\u00facie", color: "#7c3aed", icon: "Scale", sortOrder: 2 },
+      { tabId: tab2.id, code: "citlive", name: "Citliv\u00e9", description: "Osobitn\u00e1 kateg\u00f3ria osobn\u00fdch \u00fadajov", color: "#be185d", icon: "Lock", sortOrder: 3 },
+      { tabId: tab3.id, code: "vztahove", name: "Vz\u0165ahov\u00e9", description: "Rodinn\u00e9 a osobn\u00e9 vz\u0165ahy", color: "#ec4899", icon: "Heart", sortOrder: 0 },
+      { tabId: tab3.id, code: "dedicske", name: "Dedi\u010dsk\u00e9", description: "Dedi\u010dsk\u00e9 inform\u00e1cie", color: "#a855f7", icon: "Scroll", sortOrder: 1 },
+      { tabId: tab3.id, code: "rodokmen", name: "Rodokme\u0148", description: "Genealogick\u00e9 \u00fadaje", color: "#8b5cf6", icon: "GitBranch", sortOrder: 2 },
+      { tabId: tab3.id, code: "socialne", name: "Soci\u00e1lne", description: "Soci\u00e1lne v\u00e4zby a komunity", color: "#f472b6", icon: "Users", sortOrder: 3 },
+      { tabId: tab4.id, code: "majetkove", name: "Majetkov\u00e9", description: "Nehnute\u013enosti a majetok", color: "#059669", icon: "Building", sortOrder: 0 },
+      { tabId: tab4.id, code: "zmluvne", name: "Zmluvn\u00e9", description: "\u00dadaje viazan\u00e9 na zmluvy", color: "#0d9488", icon: "FileSignature", sortOrder: 1 },
+      { tabId: tab4.id, code: "transakcne", name: "Transak\u010dn\u00e9", description: "Hist\u00f3ria transakci\u00ed", color: "#0891b2", icon: "ArrowLeftRight", sortOrder: 2 },
+      { tabId: tab4.id, code: "bonita", name: "Bonita a Discipl\u00edna", description: "Kreditn\u00fd rating a platobn\u00e1 mor\u00e1lka", color: "#16a34a", icon: "TrendingUp", sortOrder: 3 },
+      { tabId: tab5.id, code: "doplnkove", name: "Doplnkov\u00e9/Servisn\u00e9", description: "Servisn\u00e9 a doplnkov\u00e9 inform\u00e1cie", color: "#f97316", icon: "Settings", sortOrder: 0 },
+      { tabId: tab5.id, code: "marketingove", name: "Marketingov\u00e9", description: "S\u00fahlasy a preferencie (per firma)", color: "#eab308", icon: "Megaphone", sortOrder: 1 },
+      { tabId: tab5.id, code: "segmentacne", name: "Segmenta\u010dn\u00e9", description: "Segment\u00e1cia a cie\u013eov\u00e9 skupiny", color: "#84cc16", icon: "Target", sortOrder: 2 },
+      { tabId: tab5.id, code: "psychograficke", name: "Psychografick\u00e9", description: "Osobnostn\u00e9 rysy a hodnoty", color: "#a3e635", icon: "Brain", sortOrder: 3 },
+      { tabId: tab5.id, code: "vzdelanostne", name: "Vzdelanostn\u00e9", description: "Vzdelanie a kvalifik\u00e1cie", color: "#22d3ee", icon: "GraduationCap", sortOrder: 4 },
+      { tabId: tab6.id, code: "digitalne", name: "Digit\u00e1lne/Tech", description: "Digit\u00e1lne \u00fa\u010dty a zariadenia", color: "#3b82f6", icon: "Monitor", sortOrder: 0 },
+      { tabId: tab6.id, code: "geolokacne", name: "Geoloka\u010dn\u00e9", description: "Polohy a adresy", color: "#2563eb", icon: "MapPin", sortOrder: 1 },
+      { tabId: tab6.id, code: "behavioralne", name: "Behavior\u00e1lne", description: "Vzorce spr\u00e1vania", color: "#1d4ed8", icon: "Activity", sortOrder: 2 },
+      { tabId: tab6.id, code: "biometricke", name: "Biometrick\u00e9", description: "Biometrick\u00e9 identifik\u00e1tory", color: "#7c3aed", icon: "Fingerprint", sortOrder: 3 },
+      { tabId: tab6.id, code: "iot_zdravie", name: "IoT (Zdravie)", description: "Zdravotn\u00e9 a IoT d\u00e1ta", color: "#10b981", icon: "Heartbeat", sortOrder: 4 },
+      { tabId: tab7.id, code: "systemove", name: "Syst\u00e9mov\u00e9", description: "Intern\u00e9 syst\u00e9mov\u00e9 z\u00e1znamy", color: "#64748b", icon: "Database", sortOrder: 0 },
+      { tabId: tab7.id, code: "staznostne", name: "S\u0165a\u017enostn\u00e9", description: "Reklam\u00e1cie a s\u0165a\u017enosti", color: "#ef4444", icon: "AlertTriangle", sortOrder: 1 },
+      { tabId: tab7.id, code: "externy_scoring", name: "Extern\u00fd scoring", description: "Extern\u00e9 hodnotenia a scoring", color: "#0ea5e9", icon: "BarChart", sortOrder: 2 },
+      { tabId: tab7.id, code: "ai_predikcie", name: "AI predikcie", description: "Strojov\u00e9 u\u010denie a predikcie", color: "#8b5cf6", icon: "Cpu", sortOrder: 3 },
+    ]);
+    console.log("[SEED] Created 7 client data tabs and 30 categories");
   }
 }

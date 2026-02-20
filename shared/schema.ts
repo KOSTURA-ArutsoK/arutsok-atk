@@ -241,6 +241,7 @@ export const subjects = pgTable("subjects", {
   swift: text("swift"),
   commissionLevel: integer("commission_level"),
   details: jsonb("details").default({}),
+  uiPreferences: jsonb("ui_preferences").$type<{ summary_fields: Record<string, boolean> }>().default({ summary_fields: {} }),
   processingTimeSec: integer("processing_time_sec").default(0),
   isActive: boolean("is_active").default(true),
   isDeceased: boolean("is_deceased").default(false),
@@ -1324,6 +1325,57 @@ export type ImportLog = typeof importLogs.$inferSelect;
 export type InsertImportLog = z.infer<typeof insertImportLogSchema>;
 export type Commission = typeof commissions.$inferSelect;
 export type InsertCommission = z.infer<typeof insertCommissionSchema>;
+
+// === CLIENT DATA TABS (7 logical tabs for SubjektView) ===
+export const clientDataTabs = pgTable("client_data_tabs", {
+  id: serial("id").primaryKey(),
+  code: text("code").notNull().unique(),
+  name: text("name").notNull(),
+  icon: text("icon").default("FileText"),
+  sortOrder: integer("sort_order").default(0),
+  isActive: boolean("is_active").default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertClientDataTabSchema = createInsertSchema(clientDataTabs).omit({ id: true, createdAt: true });
+export type ClientDataTab = typeof clientDataTabs.$inferSelect;
+export type InsertClientDataTab = z.infer<typeof insertClientDataTabSchema>;
+
+// === CLIENT DATA CATEGORIES (30 categories mapped to tabs) ===
+export const clientDataCategories = pgTable("client_data_categories", {
+  id: serial("id").primaryKey(),
+  tabId: integer("tab_id").notNull().references(() => clientDataTabs.id),
+  code: text("code").notNull().unique(),
+  name: text("name").notNull(),
+  description: text("description").default(""),
+  color: text("color").default("#6b7280"),
+  icon: text("icon").default("Tag"),
+  sortOrder: integer("sort_order").default(0),
+  isActive: boolean("is_active").default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertClientDataCategorySchema = createInsertSchema(clientDataCategories).omit({ id: true, createdAt: true });
+export type ClientDataCategory = typeof clientDataCategories.$inferSelect;
+export type InsertClientDataCategory = z.infer<typeof insertClientDataCategorySchema>;
+
+// === CLIENT MARKETING CONSENTS (M:N per client × company) ===
+export const clientMarketingConsents = pgTable("client_marketing_consents", {
+  id: serial("id").primaryKey(),
+  subjectId: integer("subject_id").notNull().references(() => subjects.id),
+  companyId: integer("company_id").notNull().references(() => myCompanies.id),
+  consentType: text("consent_type").notNull().default("marketing"),
+  isGranted: boolean("is_granted").default(false),
+  grantedAt: timestamp("granted_at"),
+  revokedAt: timestamp("revoked_at"),
+  note: text("note"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertClientMarketingConsentSchema = createInsertSchema(clientMarketingConsents).omit({ id: true, createdAt: true, updatedAt: true });
+export type ClientMarketingConsent = typeof clientMarketingConsents.$inferSelect;
+export type InsertClientMarketingConsent = z.infer<typeof insertClientMarketingConsentSchema>;
 
 export type CreateSubjectRequest = InsertSubject;
 export type UpdateSubjectRequest = Partial<InsertSubject> & { changeReason?: string };

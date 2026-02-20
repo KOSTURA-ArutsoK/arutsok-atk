@@ -55,6 +55,7 @@ import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, Command
 import { PRIORITY_COUNTRY_NAMES, ALL_COUNTRY_NAMES, DEFAULT_COUNTRY, getDefaultCountryForState } from "@/lib/countries";
 import { Check, ChevronsUpDown } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { SubjektView } from "@/components/subjekt-view";
 import { z } from "zod";
 import {
   Form, FormControl, FormField, FormItem, FormLabel, FormMessage,
@@ -831,7 +832,7 @@ function SubjectDetailDialog({ subject, onClose }: { subject: Subject; onClose: 
           </TabsList>
 
           <TabsContent value="udaje" className="mt-3">
-            <SubjectDataTab subject={subject} />
+            <SubjektView subject={subject} showPdfSidebar />
           </TabsContent>
 
           <TabsContent value="detail" className="mt-3">

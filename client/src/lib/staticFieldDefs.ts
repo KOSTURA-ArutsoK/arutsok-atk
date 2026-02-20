@@ -15,6 +15,7 @@ export interface StaticField {
   unit: string | null;
   decimalPlaces: number;
   fieldCategory: string;
+  categoryCode?: string;
   sortOrder: number;
   rowNumber: number;
   widthPercent: number;
