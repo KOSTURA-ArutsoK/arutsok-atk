@@ -1,0 +1,34 @@
+Agent, na základe našej hĺbkovej analýzy realizuj nasledujúce zadanie ako celok. Ide o prechod na novú úroveň správy klientskych dát a zmlúv.
+
+1. Databázová štruktúra (30 kategórií)
+Vytvor systém 30 kategórií údajov, ktoré tvoria chrbticu systému. Každé pole musí patriť do jednej z nich:
+
+Povinné, 2. Dobrovoľné, 3. Zákonné, 4. AML, 5. Doplnkové/Servisné, 6. Marketingové, 7. Citlivé, 8. Vzťahové, 9. Systémové, 10. Majetkové, 11. Dokumentačné, 12. Komunikačné, 13. Zmluvné, 14. Segmentačné, 15. Transakčné, 16. Digitálne, 17. Geolokačné, 18. Behaviorálne, 19. Sociálne, 20. Biometrické, 21. Sťažnostné, 22. Dedičské, 23. Psychografické, 24. Vzdelanostné, 25. IoT (Zdravie), 26. Externý scoring, 27. AI predikcie, 28. Právne, 29. Rodokmeň, 30. Bonita a Disciplína (neplatiči, storná).
+
+2. UI a UX (7 Záložiek & Anti-zahltenie)
+Týchto 30 kategórií v komponente SubjektView rozdeľ do 7 logických záložiek:
+(1. Identita, 2. Legislatíva, 3. Rodina, 4. Financie, 5. Profil, 6. Digitálna stopa, 7. Servis a archív).
+
+Workflow: 99 % údajov sa vypĺňa priamo v Zmluve. Dáta sa on-the-fly ukladajú na kartu klienta.
+
+UX: V zmluve zobrazuj len povinné polia. Ostatné kategórie musia byť sbalené (collapsible), aby užívateľ nebol zahltený 300 poliami.
+
+3. Optimalizácia výkonu (JSON Storage)
+Pri 10 000+ klientoch nesmie systém spomaliť. Stav prepínača is_summary_visible (určuje, čo ide do PDF exportu) ukladaj ako jeden JSON objekt v stĺpci ui_settings v tabuľke klienta. Žiadne milióny riadkov pre jednotlivé nastavenia polí.
+
+4. Marketingová logika (Viac firiem)
+Kategória č. 6 (Marketing) musí podporovať reláciu M:N. Súhlasy (napr. prieskum trhu) sa musia ukladať samostatne pre ID Klienta + ID Spoločnosti. Jedna firma môže mať súhlas "Áno", druhá "Nie".
+
+5. Hromadná migrácia a import (13k zmlúv / 160k skenov)
+Zmluvy: Priprav systém na import 13 000 historických zmlúv a ich životných cyklov (stavy: Návrh, Aktívne, Storno...).
+
+Skeny: Priprav automatický párovací skript pre 160 000 súborov (PDF/JPG).
+
+Logika párovania: Skript musí identifikovať súbory podľa názvu (RČ, číslo zmluvy, číslo OP alebo ID kód 421...) a automaticky ich priradiť ku klientovi/zmluve do kategórie č. 11 (Dokumentačné údaje).
+
+Nespárované súbory odlož do priečinka na manuálnu kontrolu.
+
+6. Životný cyklus a Bonita
+Prepoj stavy zmlúv s kategóriou č. 30. Ak zmluva zanikne ako 'Storno pre neplatenie', automaticky sa musí aktualizovať rating klienta v kategórii Bonita.
+
+Agent, toto je finálna architektúra. Začni s definíciou databázových tabuliek a API endpointov pre tento model.
