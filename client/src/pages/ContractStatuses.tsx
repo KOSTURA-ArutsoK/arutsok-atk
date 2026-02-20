@@ -93,6 +93,7 @@ function StatusFormDialog({
   const [isFinal, setIsFinal] = useState(false);
   const [assignsNumber, setAssignsNumber] = useState(false);
   const [definesContractEnd, setDefinesContractEnd] = useState(false);
+  const [isIntervention, setIsIntervention] = useState(false);
 
   const [selectedCompanyIds, setSelectedCompanyIds] = useState<number[]>([]);
   const [visibilityItems, setVisibilityItems] = useState<VisibilityItem[]>([]);
@@ -235,6 +236,7 @@ function StatusFormDialog({
         setIsFinal(editingStatus.isFinal ?? false);
         setAssignsNumber(editingStatus.assignsNumber ?? false);
         setDefinesContractEnd(editingStatus.definesContractEnd ?? false);
+        setIsIntervention(editingStatus.isIntervention ?? false);
         setSelectedContractTypes([]);
       } else {
         setName("");
@@ -245,6 +247,7 @@ function StatusFormDialog({
         setIsFinal(false);
         setAssignsNumber(false);
         setDefinesContractEnd(false);
+        setIsIntervention(false);
         setSelectedCompanyIds([]);
         setVisibilityItems([]);
         setSelectedContractTypes([]);
@@ -292,6 +295,7 @@ function StatusFormDialog({
         isFinal,
         assignsNumber,
         definesContractEnd,
+        isIntervention,
       },
       companyIds: selectedCompanyIds,
       visibility: visibilityItems,
@@ -458,6 +462,14 @@ function StatusFormDialog({
                     <p className="text-xs text-muted-foreground">Ak je zapnuty, system identifikuje tento stav ako konecnu fazu zivotneho cyklu zmluvy.</p>
                   </div>
                   <Switch checked={definesContractEnd} onCheckedChange={setDefinesContractEnd} data-testid="switch-defines-contract-end" />
+                </div>
+
+                <div className="flex items-center justify-between gap-4 pt-3 border-t border-border">
+                  <div>
+                    <p className="text-sm font-medium">Intervencia</p>
+                    <p className="text-xs text-muted-foreground">Zmluvy s tymto stavom sa zobrazia v prehlade intervencii</p>
+                  </div>
+                  <Switch checked={isIntervention} onCheckedChange={setIsIntervention} data-testid="switch-is-intervention" />
                 </div>
               </CardContent>
             </Card>
@@ -913,6 +925,7 @@ export default function ContractStatuses() {
                           {status.isFinal && <Badge variant="secondary" className="text-xs" data-testid={`badge-final-${status.id}`}>Finalny</Badge>}
                           {status.assignsNumber && <Badge variant="secondary" className="text-xs" data-testid={`badge-assigns-number-${status.id}`}>Cislo</Badge>}
                           {status.definesContractEnd && <Badge variant="secondary" className="text-xs" data-testid={`badge-defines-end-${status.id}`}>Ukoncenie</Badge>}
+                          {status.isIntervention && <Badge variant="secondary" className="text-xs" data-testid={`badge-intervention-${status.id}`}>Intervencia</Badge>}
                         </div>
                       </TableCell>}
                       <TableCell className="text-right">

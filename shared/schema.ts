@@ -543,6 +543,7 @@ export const contractStatuses = pgTable("contract_statuses", {
   isFinal: boolean("is_final").default(false),
   assignsNumber: boolean("assigns_number").default(false),
   definesContractEnd: boolean("defines_contract_end").default(false),
+  isIntervention: boolean("is_intervention").default(false),
   stateId: integer("state_id").references(() => states.id),
   createdAt: timestamp("created_at").defaultNow(),
   deletedAt: timestamp("deleted_at"),

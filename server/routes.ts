@@ -3670,9 +3670,8 @@ export async function registerRoutes(
         statuses.filter(s => activeStatusNames.includes(s.name)).map(s => s.id)
       );
 
-      const interventionStatusNames = ["Nedodana / Chybna", "Neprijata - vyhrady", "Treba doplnit tlacivo pre banku", "Čaká na schválenie", "Nedorucena 30 dni"];
       const interventionStatusIds = new Set(
-        statuses.filter(s => interventionStatusNames.includes(s.name)).map(s => s.id)
+        statuses.filter(s => s.isIntervention).map(s => s.id)
       );
 
       const totalContracts = allContracts.length;
