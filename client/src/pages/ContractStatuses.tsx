@@ -474,30 +474,15 @@ function StatusFormDialog({
               </CardContent>
             </Card>
 
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Stat stavu zmluvy</label>
-                <Select value={stateId} onValueChange={setStateId}>
-                  <SelectTrigger data-testid="select-status-state">
-                    <SelectValue placeholder="Vyberte stat" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {allStates?.map(s => (
-                      <SelectItem key={s.id} value={s.id.toString()}>{s.name} ({s.code})</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Poradie stavu zmluvy</label>
-                <Input
-                  type="number"
-                  value={sortOrder}
-                  onChange={e => setSortOrder(e.target.value)}
-                  placeholder="0"
-                  data-testid="input-status-sort-order"
-                />
-              </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Poradie stavu zmluvy</label>
+              <Input
+                type="number"
+                value={sortOrder}
+                onChange={e => setSortOrder(e.target.value)}
+                placeholder="0"
+                data-testid="input-status-sort-order"
+              />
             </div>
 
             <div className="space-y-4 pt-4 border-t border-border">
