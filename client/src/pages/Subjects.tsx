@@ -9,6 +9,7 @@ import { formatDateSlovak, formatDateTimeSlovak } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 import { Plus, Search, User, Building2, AlertTriangle, Eye, Calendar, Briefcase, ArrowRight, ArrowLeft, ExternalLink, History, Clock, Wallet, Loader2, CheckCircle2, Pencil, Lock, Users, X, Info, Link2, Unlink, Trash2, CreditCard, Archive, Ban } from "lucide-react";
 import { SubjectPhotoThumbnail } from "@/components/subject-profile-photo";
+import { ActivityTimeline } from "@/components/activity-timeline";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -1057,7 +1058,21 @@ function SubjectDetailPanel({ subject, onClose }: { subject: Subject; onClose: (
         </TabsContent>
 
         <TabsContent value="historia" className="mt-3">
-          <SubjectHistoryTab subjectId={subject.id} />
+          <div className="space-y-6">
+            <div>
+              <h4 className="text-sm font-semibold mb-3 flex items-center gap-2" data-testid="text-activity-timeline-header">
+                <Clock className="w-4 h-4" /> Časová os aktivít
+              </h4>
+              <ActivityTimeline subjectId={subject.id} />
+            </div>
+            <Separator />
+            <div>
+              <h4 className="text-sm font-semibold mb-3 flex items-center gap-2" data-testid="text-audit-log-header">
+                <History className="w-4 h-4" /> Audit log
+              </h4>
+              <SubjectHistoryTab subjectId={subject.id} />
+            </div>
+          </div>
         </TabsContent>
 
         <TabsContent value="financie" className="mt-3">

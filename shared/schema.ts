@@ -1471,6 +1471,29 @@ export const insertSubjectPhotoSchema = createInsertSchema(subjectPhotos).omit({
 export type SubjectPhoto = typeof subjectPhotos.$inferSelect;
 export type InsertSubjectPhoto = z.infer<typeof insertSubjectPhotoSchema>;
 
+// === ACTIVITY EVENTS (Timeline / Activity Tracking) ===
+export const activityEvents = pgTable("activity_events", {
+  id: serial("id").primaryKey(),
+  subjectId: integer("subject_id").references(() => subjects.id),
+  contractId: integer("contract_id").references(() => contracts.id),
+  eventType: text("event_type").notNull().$type<"registration" | "card_open" | "field_change" | "communication" | "client_response" | "status_change">(),
+  fieldName: text("field_name"),
+  oldValue: text("old_value"),
+  newValue: text("new_value"),
+  messageText: text("message_text"),
+  messageStatus: text("message_status").$type<"odoslane" | "dorucene" | "precitane">(),
+  responseText: text("response_text"),
+  ipAddress: text("ip_address"),
+  deviceType: text("device_type"),
+  userId: integer("user_id").references(() => appUsers.id),
+  username: text("username"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertActivityEventSchema = createInsertSchema(activityEvents).omit({ id: true, createdAt: true });
+export type ActivityEvent = typeof activityEvents.$inferSelect;
+export type InsertActivityEvent = z.infer<typeof insertActivityEventSchema>;
+
 export type CreateSubjectRequest = InsertSubject;
 export type UpdateSubjectRequest = Partial<InsertSubject> & { changeReason?: string };
 export type UpdateMyCompanyRequest = Partial<InsertMyCompany> & { changeReason?: string };

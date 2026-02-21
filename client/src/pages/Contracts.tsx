@@ -11,7 +11,9 @@ import type { SmartColumnDef } from "@/hooks/use-smart-filter";
 import { SmartFilterBar } from "@/components/smart-filter-bar";
 import { useLocation } from "wouter";
 import type { Contract, ContractStatus, ContractTemplate, ContractInventory, Subject, Partner, Product, MyCompany, Sector, Section, SectorProduct, ClientGroup, ClientType, AppUser, ContractAcquirer } from "@shared/schema";
-import { Plus, Pencil, Trash2, Eye, FileText, Loader2, Lock, LayoutGrid, Send, Upload, Inbox, CheckCircle2, ChevronDown, ChevronRight, Printer, Search, Archive, AlertTriangle, Calendar, XCircle, MessageSquare, Paperclip, X, Users, Check, Award, Percent } from "lucide-react";
+import { Plus, Pencil, Trash2, Eye, FileText, Loader2, Lock, LayoutGrid, Send, Upload, Inbox, CheckCircle2, ChevronDown, ChevronRight, Printer, Search, Archive, AlertTriangle, Calendar, XCircle, MessageSquare, Paperclip, X, Users, Check, Award, Percent, History } from "lucide-react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { ActivityTimeline } from "@/components/activity-timeline";
 import { cn } from "@/lib/utils";
 import { Checkbox } from "@/components/ui/checkbox";
 import { MultiSelectCheckboxes } from "@/components/multi-select-checkboxes";
@@ -1383,90 +1385,107 @@ function ContractDetailDialog({
         </DialogHeader>
 
         <DialogScrollContent>
-        <div className="space-y-4 mt-2">
-          <div className="grid grid-cols-4 gap-4">
-            <div>
-              <span className="text-xs text-muted-foreground">Cislo zmluvy</span>
-              <p className="text-sm" data-testid="text-detail-contract-number">{contract.contractNumber || "-"}</p>
-            </div>
-            <div>
-              <span className="text-xs text-muted-foreground">Klient</span>
-              <p className="text-sm" data-testid="text-detail-subject">
-                {subjectName ? (subjectName.type === "person" ? `${subjectName.firstName} ${subjectName.lastName}` : subjectName.companyName) : "-"}
-              </p>
-            </div>
-            <div>
-              <span className="text-xs text-muted-foreground">Partner</span>
-              <p className="text-sm" data-testid="text-detail-partner">{partnerName}</p>
-            </div>
-          </div>
+        <Tabs defaultValue="detail" className="mt-2">
+          <TabsList data-testid="tabs-contract-detail">
+            <TabsTrigger value="detail" data-testid="tab-contract-detail">
+              <FileText className="w-3.5 h-3.5 mr-1" /> Detail
+            </TabsTrigger>
+            <TabsTrigger value="historia" data-testid="tab-contract-historia">
+              <History className="w-3.5 h-3.5 mr-1" /> História
+            </TabsTrigger>
+          </TabsList>
 
-          <div className="grid grid-cols-4 gap-4">
-            <div>
-              <span className="text-xs text-muted-foreground">Produkt</span>
-              <p className="text-sm" data-testid="text-detail-product">{sectorProduct ? `${sectorProduct.name}${sectorProduct.abbreviation ? ` (${sectorProduct.abbreviation})` : ''}` : "-"}</p>
-            </div>
-            <div>
-              <span className="text-xs text-muted-foreground">Sablona</span>
-              <p className="text-sm" data-testid="text-detail-template">{templateName}</p>
-            </div>
-            <div>
-              <span className="text-xs text-muted-foreground">Supiska</span>
-              <p className="text-sm" data-testid="text-detail-inventory">{inventoryName}</p>
-            </div>
-          </div>
+          <TabsContent value="detail" className="mt-3">
+            <div className="space-y-4">
+              <div className="grid grid-cols-4 gap-4">
+                <div>
+                  <span className="text-xs text-muted-foreground">Cislo zmluvy</span>
+                  <p className="text-sm" data-testid="text-detail-contract-number">{contract.contractNumber || "-"}</p>
+                </div>
+                <div>
+                  <span className="text-xs text-muted-foreground">Klient</span>
+                  <p className="text-sm" data-testid="text-detail-subject">
+                    {subjectName ? (subjectName.type === "person" ? `${subjectName.firstName} ${subjectName.lastName}` : subjectName.companyName) : "-"}
+                  </p>
+                </div>
+                <div>
+                  <span className="text-xs text-muted-foreground">Partner</span>
+                  <p className="text-sm" data-testid="text-detail-partner">{partnerName}</p>
+                </div>
+              </div>
 
-          <div className="grid grid-cols-4 gap-4">
-            <div>
-              <span className="text-xs text-muted-foreground">Spolocnost</span>
-              <p className="text-sm" data-testid="text-detail-company">{companyName}</p>
-            </div>
-            <div>
-              <span className="text-xs text-muted-foreground">Stat</span>
-              <p className="text-sm" data-testid="text-detail-state">{stateName}</p>
-            </div>
-            <div>
-              <span className="text-xs text-muted-foreground">Mena</span>
-              <p className="text-sm" data-testid="text-detail-currency">{contract.currency || "EUR"}</p>
-            </div>
-          </div>
+              <div className="grid grid-cols-4 gap-4">
+                <div>
+                  <span className="text-xs text-muted-foreground">Produkt</span>
+                  <p className="text-sm" data-testid="text-detail-product">{sectorProduct ? `${sectorProduct.name}${sectorProduct.abbreviation ? ` (${sectorProduct.abbreviation})` : ''}` : "-"}</p>
+                </div>
+                <div>
+                  <span className="text-xs text-muted-foreground">Sablona</span>
+                  <p className="text-sm" data-testid="text-detail-template">{templateName}</p>
+                </div>
+                <div>
+                  <span className="text-xs text-muted-foreground">Supiska</span>
+                  <p className="text-sm" data-testid="text-detail-inventory">{inventoryName}</p>
+                </div>
+              </div>
 
-          <div className="grid grid-cols-4 gap-4">
-            <div>
-              <span className="text-xs text-muted-foreground">Datum podpisu</span>
-              <p className="text-sm" data-testid="text-detail-signed-date">{formatDate(contract.signedDate)}</p>
-            </div>
-            <div>
-              <span className="text-xs text-muted-foreground">Datum ucinnosti</span>
-              <p className="text-sm" data-testid="text-detail-effective-date">{formatDate(contract.effectiveDate)}</p>
-            </div>
-            <div>
-              <span className="text-xs text-muted-foreground">Datum expiracie</span>
-              <p className="text-sm" data-testid="text-detail-expiry-date">{formatDate(contract.expiryDate)}</p>
-            </div>
-          </div>
+              <div className="grid grid-cols-4 gap-4">
+                <div>
+                  <span className="text-xs text-muted-foreground">Spolocnost</span>
+                  <p className="text-sm" data-testid="text-detail-company">{companyName}</p>
+                </div>
+                <div>
+                  <span className="text-xs text-muted-foreground">Stat</span>
+                  <p className="text-sm" data-testid="text-detail-state">{stateName}</p>
+                </div>
+                <div>
+                  <span className="text-xs text-muted-foreground">Mena</span>
+                  <p className="text-sm" data-testid="text-detail-currency">{contract.currency || "EUR"}</p>
+                </div>
+              </div>
 
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <span className="text-xs text-muted-foreground">Suma poistneho</span>
-              <p className="text-sm font-mono" data-testid="text-detail-premium">{formatAmount(contract.premiumAmount, contract.currency)}</p>
-            </div>
-            <div>
-              <span className="text-xs text-muted-foreground">Suma provizie</span>
-              <p className="text-sm font-mono" data-testid="text-detail-commission">{formatAmount(contract.commissionAmount, contract.currency)}</p>
-            </div>
-          </div>
+              <div className="grid grid-cols-4 gap-4">
+                <div>
+                  <span className="text-xs text-muted-foreground">Datum podpisu</span>
+                  <p className="text-sm" data-testid="text-detail-signed-date">{formatDate(contract.signedDate)}</p>
+                </div>
+                <div>
+                  <span className="text-xs text-muted-foreground">Datum ucinnosti</span>
+                  <p className="text-sm" data-testid="text-detail-effective-date">{formatDate(contract.effectiveDate)}</p>
+                </div>
+                <div>
+                  <span className="text-xs text-muted-foreground">Datum expiracie</span>
+                  <p className="text-sm" data-testid="text-detail-expiry-date">{formatDate(contract.expiryDate)}</p>
+                </div>
+              </div>
 
-          <div style={{ display: contract.notes ? 'block' : 'none' }}>
-            <span className="text-xs text-muted-foreground">Poznamky</span>
-            <p className="text-sm mt-1" data-testid="text-detail-notes">{contract.notes}</p>
-          </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <span className="text-xs text-muted-foreground">Suma poistneho</span>
+                  <p className="text-sm font-mono" data-testid="text-detail-premium">{formatAmount(contract.premiumAmount, contract.currency)}</p>
+                </div>
+                <div>
+                  <span className="text-xs text-muted-foreground">Suma provizie</span>
+                  <p className="text-sm font-mono" data-testid="text-detail-commission">{formatAmount(contract.commissionAmount, contract.currency)}</p>
+                </div>
+              </div>
 
-          <div className="flex items-center gap-4 text-xs text-muted-foreground flex-wrap">
-            <span>Cas spracovania: {formatProcessingTime(contract.processingTimeSec || 0)}</span>
-            <span>Vytvorene: {formatDateSlovak(contract.createdAt)}</span>
-          </div>
-        </div>
+              <div style={{ display: contract.notes ? 'block' : 'none' }}>
+                <span className="text-xs text-muted-foreground">Poznamky</span>
+                <p className="text-sm mt-1" data-testid="text-detail-notes">{contract.notes}</p>
+              </div>
+
+              <div className="flex items-center gap-4 text-xs text-muted-foreground flex-wrap">
+                <span>Cas spracovania: {formatProcessingTime(contract.processingTimeSec || 0)}</span>
+                <span>Vytvorene: {formatDateSlovak(contract.createdAt)}</span>
+              </div>
+            </div>
+          </TabsContent>
+
+          <TabsContent value="historia" className="mt-3">
+            <ActivityTimeline subjectId={contract.subjectId || undefined} contractId={contract.id} />
+          </TabsContent>
+        </Tabs>
         </DialogScrollContent>
       </DialogContent>
     </Dialog>

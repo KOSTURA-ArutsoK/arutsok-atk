@@ -4,7 +4,7 @@ import { storage } from "./storage";
 import { api } from "@shared/routes";
 import { setupAuth, registerAuthRoutes, isAuthenticated } from "./replit_integrations/auth";
 import { z } from "zod";
-import { continents, states, myCompanies, appUsers, clientTypes, clientSubGroups, clientGroupMembers, productFolderAssignments, folderPanels, panelParameters, userClientGroupMemberships, clientGroups, permissionGroups, insertCareerLevelSchema, insertProductPointRateSchema, careerLevels, importLogs, commissions, contracts, contractStatuses, contractStatusChangeLogs, clientDataTabs, clientDataCategories, subjects, subjectPointsLog, subjectFieldHistory, subjectCollaborators, clientMarketingConsents, clientDocumentHistory, contractAcquirers, contractPasswords, contractRewardDistributions, contractParameterValues, subjectArchive, auditLogs, globalCounters, subjectPhotos } from "@shared/schema";
+import { continents, states, myCompanies, appUsers, clientTypes, clientSubGroups, clientGroupMembers, productFolderAssignments, folderPanels, panelParameters, userClientGroupMemberships, clientGroups, permissionGroups, insertCareerLevelSchema, insertProductPointRateSchema, careerLevels, importLogs, commissions, contracts, contractStatuses, contractStatusChangeLogs, clientDataTabs, clientDataCategories, subjects, subjectPointsLog, subjectFieldHistory, subjectCollaborators, clientMarketingConsents, clientDocumentHistory, contractAcquirers, contractPasswords, contractRewardDistributions, contractParameterValues, subjectArchive, auditLogs, globalCounters, subjectPhotos, activityEvents } from "@shared/schema";
 import sharp from "sharp";
 import { db } from "./db";
 import { eq, isNotNull } from "drizzle-orm";
@@ -391,6 +391,106 @@ export async function registerRoutes(
       const users = await storage.getAppUsers();
       res.json(users.map(u => ({ id: u.id, username: u.username, firstName: u.firstName, lastName: u.lastName })));
     } catch (err) {
+      res.status(500).json({ message: "Internal error" });
+    }
+  });
+
+  // === ACTIVITY EVENTS (Timeline) ===
+  app.get("/api/activity-events", isAuthenticated, async (req: any, res) => {
+    try {
+      const replitUserId = req.user?.claims?.sub;
+      const appUser = await storage.getAppUserByReplitId(replitUserId);
+      if (!appUser || !['superadmin', 'admin'].includes(appUser.role)) {
+        return res.status(403).json({ message: "Pristup len pre SuperAdmin a Admin" });
+      }
+
+      const subjectId = req.query.subjectId ? Number(req.query.subjectId) : undefined;
+      const contractId = req.query.contractId ? Number(req.query.contractId) : undefined;
+      const limit = req.query.limit ? Math.min(Number(req.query.limit), 200) : 50;
+
+      let query = db.select().from(activityEvents).orderBy(activityEvents.createdAt);
+      const conditions: any[] = [];
+      if (subjectId) conditions.push(eq(activityEvents.subjectId, subjectId));
+      if (contractId) conditions.push(eq(activityEvents.contractId, contractId));
+
+      const { and, desc } = await import("drizzle-orm");
+      const events = await db.select().from(activityEvents)
+        .where(conditions.length > 0 ? and(...conditions) : undefined)
+        .orderBy(desc(activityEvents.createdAt))
+        .limit(limit);
+
+      res.json({ events, total: events.length });
+    } catch (err) {
+      console.error("Activity events error:", err);
+      res.status(500).json({ message: "Internal error" });
+    }
+  });
+
+  app.post("/api/activity-events", isAuthenticated, async (req: any, res) => {
+    try {
+      const replitUserId = req.user?.claims?.sub;
+      const appUser = await storage.getAppUserByReplitId(replitUserId);
+      if (!appUser || !['superadmin', 'admin'].includes(appUser.role)) {
+        return res.status(403).json({ message: "Pristup len pre SuperAdmin a Admin" });
+      }
+
+      const ip = req.ip || req.headers['x-forwarded-for'] || req.socket?.remoteAddress || '';
+      const ua = req.headers['user-agent'] || '';
+      const deviceType = /mobile|android|iphone|ipad/i.test(ua) ? 'mobile' : /tablet/i.test(ua) ? 'tablet' : 'desktop';
+
+      const eventData = {
+        ...req.body,
+        userId: appUser.id,
+        username: appUser.username,
+        ipAddress: typeof ip === 'string' ? ip : JSON.stringify(ip),
+        deviceType,
+      };
+
+      const [event] = await db.insert(activityEvents).values(eventData).returning();
+      res.status(201).json(event);
+    } catch (err) {
+      console.error("Create activity event error:", err);
+      res.status(500).json({ message: "Internal error" });
+    }
+  });
+
+  app.post("/api/activity-events/:id/status-change", isAuthenticated, async (req: any, res) => {
+    try {
+      const replitUserId = req.user?.claims?.sub;
+      const appUser = await storage.getAppUserByReplitId(replitUserId);
+      if (!appUser || !['superadmin', 'admin'].includes(appUser.role)) {
+        return res.status(403).json({ message: "Pristup len pre SuperAdmin a Admin" });
+      }
+
+      const parentEventId = Number(req.params.id);
+      const { messageStatus, responseText } = req.body;
+
+      const ip = req.ip || req.headers['x-forwarded-for'] || req.socket?.remoteAddress || '';
+      const ua = req.headers['user-agent'] || '';
+      const deviceType = /mobile|android|iphone|ipad/i.test(ua) ? 'mobile' : /tablet/i.test(ua) ? 'tablet' : 'desktop';
+
+      const [parentEvent] = await db.select().from(activityEvents).where(eq(activityEvents.id, parentEventId)).limit(1);
+      if (!parentEvent) return res.status(404).json({ message: "Event not found" });
+
+      const [newEvent] = await db.insert(activityEvents).values({
+        subjectId: parentEvent.subjectId,
+        contractId: parentEvent.contractId,
+        eventType: responseText ? "client_response" : "status_change",
+        messageText: responseText || `Status zmenený na: ${messageStatus}`,
+        messageStatus: messageStatus || parentEvent.messageStatus,
+        fieldName: `ref:${parentEventId}`,
+        oldValue: parentEvent.messageStatus,
+        newValue: messageStatus,
+        responseText: responseText || null,
+        userId: appUser.id,
+        username: appUser.username,
+        ipAddress: typeof ip === 'string' ? ip : JSON.stringify(ip),
+        deviceType,
+      }).returning();
+
+      res.status(201).json(newEvent);
+    } catch (err) {
+      console.error("Activity event status change error:", err);
       res.status(500).json({ message: "Internal error" });
     }
   });
@@ -1186,6 +1286,22 @@ export async function registerRoutes(
           _documentArchived: docChanged || false,
         },
       });
+
+      const fieldIp = req.ip || req.headers['x-forwarded-for'] || req.socket?.remoteAddress || '';
+      for (const [field, vals] of Object.entries(changedFields)) {
+        if (field === 'details') continue;
+        await db.insert(activityEvents).values({
+          subjectId,
+          eventType: "field_change",
+          fieldName: field,
+          oldValue: vals.old != null ? String(vals.old) : null,
+          newValue: vals.new != null ? String(vals.new) : null,
+          userId: appUser.id,
+          username: appUser.username,
+          ipAddress: typeof fieldIp === 'string' ? fieldIp : JSON.stringify(fieldIp),
+        });
+      }
+
       res.json(maskSubjectBirthNumber(updated, appUser));
     } catch (err) {
       if (err instanceof z.ZodError) return res.status(400).json({ message: err.errors[0].message });
@@ -6334,6 +6450,10 @@ export async function registerRoutes(
         return res.status(403).json({ message: "Prístup zamietnutý" });
       }
 
+      const ip = req.ip || req.headers['x-forwarded-for'] || req.socket?.remoteAddress || '';
+      const ua = req.headers['user-agent'] || '';
+      const deviceType = /mobile|android|iphone|ipad/i.test(ua) ? 'mobile' : /tablet/i.test(ua) ? 'tablet' : 'desktop';
+
       await storage.createAuditLog({
         userId: appUser.id,
         username: appUser.username,
@@ -6341,6 +6461,15 @@ export async function registerRoutes(
         module: "subjects",
         entityId: subjectId,
         entityName: `Náhľad profilu subjektu #${subjectId}`,
+      });
+
+      await db.insert(activityEvents).values({
+        subjectId,
+        eventType: "card_open",
+        userId: appUser.id,
+        username: appUser.username,
+        ipAddress: typeof ip === 'string' ? ip : JSON.stringify(ip),
+        deviceType,
       });
 
       res.json({ ok: true });
