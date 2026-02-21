@@ -1435,6 +1435,7 @@ function SectorsTab() {
 
 function ProductsTab() {
   const { toast } = useToast();
+  const [search, setSearch] = useState("");
   const [filterSectionId, setFilterSectionId] = useState<string>("all");
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState<SectorProduct | null>(null);
@@ -1521,7 +1522,7 @@ function ProductsTab() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filtered.length === 0 ? (
+                {sortedProds.length === 0 ? (
                   <TableRow>
                     <TableCell colSpan={5} className="text-center text-muted-foreground py-8" data-testid="text-no-sector-products">
                       Ziadne produkty
