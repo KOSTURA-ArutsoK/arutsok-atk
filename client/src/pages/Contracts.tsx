@@ -1594,7 +1594,7 @@ export default function Contracts() {
   const refStep2Confirm = useRef<HTMLButtonElement>(null);
   const [importDialogOpen, setImportDialogOpen] = useState(false);
   const [importFile, setImportFile] = useState<File | null>(null);
-  const [importResult, setImportResult] = useState<{ total: number; success: number; errors: number; details: any[] } | null>(null);
+  const [importResult, setImportResult] = useState<{ total: number; success: number; errors: number; created?: number; updated?: number; warnings?: number; duplicityWarnings?: any[]; details: any[] } | null>(null);
   const [importLoading, setImportLoading] = useState(false);
   const importFileRef = useRef<HTMLInputElement>(null);
 
@@ -2022,60 +2022,129 @@ export default function Contracts() {
   }
 
   const importDialog = (
-    <Dialog open={importDialogOpen} onOpenChange={setImportDialogOpen}>
-      <DialogContent size="sm">
+    <Dialog open={importDialogOpen} onOpenChange={(open) => {
+      setImportDialogOpen(open);
+      if (!open) { setImportFile(null); setImportResult(null); }
+    }}>
+      <DialogContent size="md">
         <DialogHeader>
-          <DialogTitle data-testid="text-import-title">Import zmlúv z Excelu</DialogTitle>
+          <DialogTitle data-testid="text-import-title">Hromadný import zmlúv</DialogTitle>
         </DialogHeader>
         <div className="space-y-4">
           <div className="space-y-2">
             <p className="text-sm text-muted-foreground">
-              Nahrajte Excel subor (.xlsx) s udajmi o zmluvach. Subor musi obsahovat stlpce: cislo zmluvy, klient UID (421...), ziskatel UID, specialista UID.
+              Nahrajte Excel (.xlsx) alebo CSV súbor s údajmi o zmluvách a klientoch. Systém automaticky:
             </p>
+            <ul className="text-xs text-muted-foreground list-disc pl-4 space-y-0.5">
+              <li>Podľa RČ/IČO nájde existujúceho klienta a aktualizuje ho, alebo vytvorí nového</li>
+              <li>Namapuje dáta do 30 kategórií klienta podľa nastavených pravidiel</li>
+              <li>Skontroluje duplicitné ŠPZ a VIN naprieč klientmi</li>
+              <li>Zmluvy bez dátumu storna nechá na manuálne posúdenie</li>
+            </ul>
             <input
               ref={importFileRef}
               type="file"
-              accept=".xlsx,.xls"
+              accept=".xlsx,.xls,.csv"
               className="hidden"
               data-testid="input-import-file"
               onChange={(e) => {
                 const f = e.target.files?.[0];
-                if (f) setImportFile(f);
+                if (f) { setImportFile(f); setImportResult(null); }
               }}
             />
             <div className="flex items-center gap-2">
               <Button variant="outline" onClick={() => importFileRef.current?.click()} data-testid="button-choose-file">
-                Vybrat subor
+                <Upload className="w-4 h-4 mr-1" />
+                Vybrať súbor
               </Button>
               <span className="text-sm text-muted-foreground truncate max-w-[250px]" data-testid="text-selected-file">
-                {importFile ? importFile.name : "Ziadny subor"}
+                {importFile ? importFile.name : "Žiadny súbor"}
               </span>
             </div>
           </div>
-          <div style={{ display: importResult ? 'block' : 'none' }}>
-            {importResult && (
-              <div className="space-y-2 p-3 rounded-md border">
-                <p className="text-sm font-medium" data-testid="text-import-summary">
-                  Vysledok: {importResult.success} uspesnych z {importResult.total} riadkov
-                </p>
-                <div style={{ display: importResult.errors > 0 ? 'block' : 'none' }}>
-                  <p className="text-sm text-destructive">Chyby: {importResult.errors}</p>
-                  <div className="max-h-[150px] overflow-y-auto text-xs space-y-1 mt-1">
+          {importResult && (
+            <div className="space-y-3 p-3 rounded-md border">
+              <div className="flex items-center gap-4 flex-wrap">
+                <div className="text-center">
+                  <p className="text-xl font-bold text-green-500" data-testid="text-import-success">{importResult.success}</p>
+                  <p className="text-[10px] text-muted-foreground">Úspešných</p>
+                </div>
+                {(importResult.created || 0) > 0 && (
+                  <div className="text-center">
+                    <p className="text-xl font-bold text-blue-500" data-testid="text-import-created">{importResult.created}</p>
+                    <p className="text-[10px] text-muted-foreground">Nových klientov</p>
+                  </div>
+                )}
+                {(importResult.updated || 0) > 0 && (
+                  <div className="text-center">
+                    <p className="text-xl font-bold text-amber-500" data-testid="text-import-updated">{importResult.updated}</p>
+                    <p className="text-[10px] text-muted-foreground">Aktualizovaných</p>
+                  </div>
+                )}
+                {importResult.errors > 0 && (
+                  <div className="text-center">
+                    <p className="text-xl font-bold text-destructive" data-testid="text-import-errors">{importResult.errors}</p>
+                    <p className="text-[10px] text-muted-foreground">Chýb</p>
+                  </div>
+                )}
+                {(importResult.warnings || 0) > 0 && (
+                  <div className="text-center">
+                    <p className="text-xl font-bold text-yellow-500" data-testid="text-import-warnings">{importResult.warnings}</p>
+                    <p className="text-[10px] text-muted-foreground">Varovaní</p>
+                  </div>
+                )}
+              </div>
+
+              {importResult.duplicityWarnings && importResult.duplicityWarnings.length > 0 && (
+                <div className="border border-yellow-500/30 rounded p-2 bg-yellow-500/5">
+                  <p className="text-xs font-medium text-yellow-600 mb-1 flex items-center gap-1">
+                    <AlertTriangle className="w-3 h-3" />
+                    Potenciálne konflikty majetku ({importResult.duplicityWarnings.length})
+                  </p>
+                  <div className="max-h-[100px] overflow-y-auto text-xs space-y-0.5">
+                    {importResult.duplicityWarnings.map((dw: any, i: number) => (
+                      <p key={i} className="text-yellow-700">
+                        Riadok {dw.row}: {dw.field} {dw.value} — UID {dw.existingUid} ↔ {dw.newUid}
+                      </p>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {importResult.errors > 0 && (
+                <div className="border border-destructive/30 rounded p-2 bg-destructive/5">
+                  <p className="text-xs font-medium text-destructive mb-1">Chyby:</p>
+                  <div className="max-h-[100px] overflow-y-auto text-xs space-y-0.5">
                     {importResult.details?.filter((d: any) => d.error).map((d: any, i: number) => (
                       <p key={i} className="text-destructive">Riadok {d.row}: {d.error}</p>
                     ))}
                   </div>
                 </div>
-              </div>
-            )}
-          </div>
+              )}
+
+              {importResult.details?.some((d: any) => d.warnings?.length > 0) && (
+                <div className="border border-amber-500/30 rounded p-2 bg-amber-500/5">
+                  <p className="text-xs font-medium text-amber-600 mb-1">Varovania:</p>
+                  <div className="max-h-[100px] overflow-y-auto text-xs space-y-0.5">
+                    {importResult.details.filter((d: any) => d.warnings?.length > 0).map((d: any, i: number) => (
+                      <div key={i}>
+                        {d.warnings.map((w: string, wi: number) => (
+                          <p key={wi} className="text-amber-600">Riadok {d.row}: {w}</p>
+                        ))}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
           <div className="flex justify-end gap-2">
             <Button variant="outline" onClick={() => setImportDialogOpen(false)} data-testid="button-import-cancel">
-              Zavriet
+              Zavrieť
             </Button>
             <Button onClick={handleExcelImport} disabled={!importFile || importLoading} data-testid="button-import-submit">
-              <Loader2 className="w-4 h-4 mr-2 animate-spin" style={{ display: importLoading ? 'block' : 'none' }} />
-              Importovat
+              {importLoading && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+              Importovať
             </Button>
           </div>
         </div>
@@ -2653,10 +2722,16 @@ export default function Contracts() {
           <h1 className="text-2xl font-bold" data-testid="text-page-title">Evidencia zmlúv</h1>
           <HelpIcon text="Prehled vsetkych zmluv v systeme. Zmluvy sa viazu na klientov, produkty a partnerov." side="right" />
         </div>
-        <Button onClick={() => navigate("/evidencia-zmluv")} data-testid="button-create-contract">
-          <Plus className="w-4 h-4 mr-2" />
-          Evidovat zmluvu
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button variant="outline" onClick={() => setImportDialogOpen(true)} data-testid="button-bulk-import">
+            <Upload className="w-4 h-4 mr-2" />
+            Hromadný import
+          </Button>
+          <Button onClick={() => navigate("/evidencia-zmluv")} data-testid="button-create-contract">
+            <Plus className="w-4 h-4 mr-2" />
+            Evidovať zmluvu
+          </Button>
+        </div>
       </div>
 
       <div className="flex items-center gap-4 flex-wrap">

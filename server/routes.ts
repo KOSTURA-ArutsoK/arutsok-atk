@@ -10,6 +10,7 @@ import { db } from "./db";
 import { eq, isNotNull } from "drizzle-orm";
 import multer from "multer";
 import ExcelJS from "exceljs";
+import { parse as csvParse } from "csv-parse/sync";
 import path from "path";
 import fs from "fs";
 import crypto from "crypto";
@@ -2630,10 +2631,48 @@ export async function registerRoutes(
       const file = req.file;
       if (!file) return res.status(400).json({ message: "Nebol nahratý žiadny súbor" });
 
-      const workbook = new ExcelJS.Workbook();
-      await workbook.xlsx.readFile(file.path);
-      const sheet = workbook.worksheets[0];
-      if (!sheet) return res.status(400).json({ message: "Excel neobsahuje žiadny hárok" });
+      const fileName = file.originalname || "import";
+      const isCSV = /\.csv$/i.test(fileName);
+      let headers: string[] = [];
+      const rawRows: Record<string, string>[] = [];
+
+      if (isCSV) {
+        const csvContent = fs.readFileSync(file.path, "utf-8");
+        const records = csvParse(csvContent, { columns: true, skip_empty_lines: true, delimiter: [";", ",", "\t"], relax_column_count: true });
+        if (records.length === 0) return res.status(400).json({ message: "CSV neobsahuje žiadne dáta" });
+        headers = Object.keys(records[0] as Record<string, unknown>).map((h: string) => h.trim().toLowerCase());
+        for (const rec of records) {
+          const rowData: Record<string, string> = {};
+          for (const [k, v] of Object.entries(rec as Record<string, unknown>)) {
+            rowData[k.trim().toLowerCase()] = String(v || "").trim();
+          }
+          rawRows.push(rowData);
+        }
+      } else {
+        const workbook = new ExcelJS.Workbook();
+        await workbook.xlsx.readFile(file.path);
+        const sheet = workbook.worksheets[0];
+        if (!sheet) return res.status(400).json({ message: "Excel neobsahuje žiadny hárok" });
+
+        sheet.getRow(1).eachCell((cell, colNumber) => {
+          headers[colNumber] = String(cell.value || "").trim().toLowerCase();
+        });
+
+        for (let rowNum = 2; rowNum <= sheet.rowCount; rowNum++) {
+          const row = sheet.getRow(rowNum);
+          const rowData: Record<string, string> = {};
+          let hasData = false;
+          row.eachCell((cell, colNumber) => {
+            const header = headers[colNumber];
+            if (header) {
+              const val = String(cell.value || "").trim();
+              rowData[header] = val;
+              if (val) hasData = true;
+            }
+          });
+          if (hasData) rawRows.push(rowData);
+        }
+      }
 
       const allSubjects = await storage.getSubjects();
       const uidMap = new Map<string, typeof allSubjects[0]>();
@@ -2641,22 +2680,27 @@ export async function registerRoutes(
         if (s.uid) uidMap.set(s.uid, s);
       }
 
-      const headers: string[] = [];
-      sheet.getRow(1).eachCell((cell, colNumber) => {
-        headers[colNumber] = String(cell.value || "").trim().toLowerCase();
-      });
+      const allPanelParams = await db.select().from(panelParameters).where(isNotNull(panelParameters.targetCategoryCode));
+      const categoryMappings = new Map<string, string>();
+      for (const pp of allPanelParams) {
+        if (pp.targetCategoryCode) {
+          const paramName = (pp as any).name || `param_${pp.parameterId}`;
+          categoryMappings.set(String(paramName).toLowerCase(), pp.targetCategoryCode);
+        }
+      }
 
-      const results: { row: number; status: string; contractId?: number; error?: string }[] = [];
+      const vinSpzTracker = new Map<string, { uid: string; subjectId: number; row: number }>();
+      const duplicityWarnings: { row: number; field: string; value: string; existingUid: string; newUid: string }[] = [];
+
+      const results: { row: number; status: string; action?: string; contractId?: number; subjectId?: number; warnings?: string[]; error?: string }[] = [];
       const appUser = req.appUser;
       const defaultStatus = await storage.getSystemContractStatusByName("Nahrata do systemu");
+      const batchId = req.body?.batchId || `IMPORT-${Date.now()}`;
 
-      for (let rowNum = 2; rowNum <= sheet.rowCount; rowNum++) {
-        const row = sheet.getRow(rowNum);
-        const rowData: Record<string, string> = {};
-        row.eachCell((cell, colNumber) => {
-          const header = headers[colNumber];
-          if (header) rowData[header] = String(cell.value || "").trim();
-        });
+      for (let i = 0; i < rawRows.length; i++) {
+        const rowData = rawRows[i];
+        const rowNum = i + 2;
+        const rowWarnings: string[] = [];
 
         try {
           const klientUidVal = rowData["klient_uid"] || rowData["klientuid"] || rowData["klient"] || rowData["klient_id"] || null;
@@ -2669,60 +2713,82 @@ export async function registerRoutes(
           const szcoRcVal = rowData["szco_rc"] || rowData["szco_rodne_cislo"] || rowData["szco_rodnecislo"] || null;
 
           let subjectId: number | null = null;
+          let subjectAction: "matched" | "updated" | "created" = "matched";
           let needsManualVerification = false;
+
           if (klientUidVal && uidMap.has(klientUidVal)) {
             subjectId = uidMap.get(klientUidVal)!.id;
+            subjectAction = "matched";
           }
 
-          if (!subjectId) {
-            const rc = rowData["rodne_cislo"] || rowData["rc"] || rowData["birth_number"] || null;
-            const ico = rowData["ico"] || rowData["ic_organizacie"] || null;
-            const firstName = rowData["meno"] || rowData["first_name"] || null;
-            const lastName = rowData["priezvisko"] || rowData["last_name"] || null;
-            const companyName = rowData["nazov_firmy"] || rowData["company_name"] || null;
-            const email = rowData["email"] || null;
-            const phone = rowData["telefon"] || rowData["phone"] || null;
+          const rc = rowData["rodne_cislo"] || rowData["rc"] || rowData["birth_number"] || null;
+          const ico = rowData["ico"] || rowData["ic_organizacie"] || null;
+          const firstName = rowData["meno"] || rowData["first_name"] || null;
+          const lastName = rowData["priezvisko"] || rowData["last_name"] || null;
+          const companyName = rowData["nazov_firmy"] || rowData["company_name"] || null;
+          const email = rowData["email"] || null;
+          const phone = rowData["telefon"] || rowData["phone"] || null;
 
-            if (rc) {
-              const existing = allSubjects.find(s => {
-                if (!s.birthNumber) return false;
-                const decrypted = decryptField(s.birthNumber);
-                return decrypted !== null && decrypted === rc;
-              });
-              if (existing) {
-                subjectId = existing.id;
+          if (!subjectId && rc) {
+            const existing = allSubjects.find(s => {
+              if (!s.birthNumber) return false;
+              const decrypted = decryptField(s.birthNumber);
+              return decrypted !== null && decrypted === rc;
+            });
+            if (existing) {
+              subjectId = existing.id;
+              subjectAction = "updated";
+              const updates: any = {};
+              if (firstName && firstName !== existing.firstName) updates.firstName = firstName;
+              if (lastName && lastName !== existing.lastName) updates.lastName = lastName;
+              if (email && email !== existing.email) updates.email = email;
+              if (phone && phone !== existing.phone) updates.phone = phone;
+              if (Object.keys(updates).length > 0) {
+                updates.changeReason = "Automatická aktualizácia z importu zmlúv";
+                await storage.updateSubject(existing.id, updates);
               }
             }
-            if (!subjectId && ico) {
-              const existing = allSubjects.find(s => {
-                const details = s.details as any;
-                return details?.ico === ico || details?.dynamicFields?.ico === ico;
-              });
-              if (existing) {
-                subjectId = existing.id;
+          }
+          if (!subjectId && ico) {
+            const existing = allSubjects.find(s => {
+              const details = s.details as any;
+              return details?.ico === ico || details?.dynamicFields?.ico === ico;
+            });
+            if (existing) {
+              subjectId = existing.id;
+              subjectAction = "updated";
+              const updates: any = {};
+              if (firstName && firstName !== existing.firstName) updates.firstName = firstName;
+              if (lastName && lastName !== existing.lastName) updates.lastName = lastName;
+              if (email && email !== existing.email) updates.email = email;
+              if (phone && phone !== existing.phone) updates.phone = phone;
+              if (Object.keys(updates).length > 0) {
+                updates.changeReason = "Automatická aktualizácia z importu zmlúv";
+                await storage.updateSubject(existing.id, updates);
               }
             }
-            if (!subjectId && (firstName || companyName)) {
-              try {
-                const isCompany = !!companyName && !firstName;
-                const newSubject = await storage.createSubject({
-                  type: isCompany ? "company" : "person",
-                  firstName: firstName || null,
-                  lastName: lastName || null,
-                  companyName: companyName || null,
-                  email: email || null,
-                  phone: phone || null,
-                  birthNumber: rc ? encryptField(rc) : null,
-                  stateId: appUser?.activeStateId || null,
-                  myCompanyId: appUser?.activeCompanyId || null,
-                  details: ico ? { dynamicFields: { ico } } : {},
-                } as any);
-                subjectId = newSubject.id;
-                allSubjects.push(newSubject);
-                if (newSubject.uid) uidMap.set(newSubject.uid, newSubject);
-              } catch (createErr) {
-                console.error("Import: Failed to create subject:", createErr);
-              }
+          }
+          if (!subjectId && (firstName || companyName)) {
+            try {
+              const isCompany = !!companyName && !firstName;
+              const newSubject = await storage.createSubject({
+                type: isCompany ? "company" : "person",
+                firstName: firstName || null,
+                lastName: lastName || null,
+                companyName: companyName || null,
+                email: email || null,
+                phone: phone || null,
+                birthNumber: rc ? encryptField(rc) : null,
+                stateId: appUser?.activeStateId || null,
+                myCompanyId: appUser?.activeCompanyId || null,
+                details: ico ? { dynamicFields: { ico } } : {},
+              } as any);
+              subjectId = newSubject.id;
+              subjectAction = "created";
+              allSubjects.push(newSubject);
+              if (newSubject.uid) uidMap.set(newSubject.uid, newSubject);
+            } catch (createErr) {
+              console.error("Import: Failed to create subject:", createErr);
             }
           }
 
@@ -2758,16 +2824,80 @@ export async function registerRoutes(
             }
           }
 
+          const spz = rowData["spz"] || rowData["ecv"] || rowData["licence_plate"] || null;
+          const vin = rowData["vin"] || rowData["vin_cislo"] || null;
+          const currentSubjectUid = subjectId ? (allSubjects.find(s => s.id === subjectId)?.uid || `ID:${subjectId}`) : "neznámy";
+
+          if (spz) {
+            const spzUpper = spz.toUpperCase();
+            const existingSpz = vinSpzTracker.get(`spz:${spzUpper}`);
+            if (existingSpz && existingSpz.subjectId !== subjectId) {
+              duplicityWarnings.push({ row: rowNum, field: "ŠPZ", value: spzUpper, existingUid: existingSpz.uid, newUid: currentSubjectUid });
+              rowWarnings.push(`Potenciálny konflikt majetku: ŠPZ ${spzUpper} je priradené aj k UID ${existingSpz.uid}`);
+            } else {
+              const dbDuplicates = await storage.checkDuplicates({ spz: spzUpper });
+              const conflicting = dbDuplicates.filter(s => s.id !== subjectId);
+              if (conflicting.length > 0) {
+                for (const c of conflicting) {
+                  duplicityWarnings.push({ row: rowNum, field: "ŠPZ", value: spzUpper, existingUid: c.uid || `ID:${c.id}`, newUid: currentSubjectUid });
+                  rowWarnings.push(`Potenciálny konflikt majetku: ŠPZ ${spzUpper} je priradené aj k UID ${c.uid || c.id}`);
+                }
+              }
+            }
+            vinSpzTracker.set(`spz:${spzUpper}`, { uid: currentSubjectUid, subjectId: subjectId || 0, row: rowNum });
+          }
+
+          if (vin) {
+            const vinUpper = vin.toUpperCase();
+            const existingVin = vinSpzTracker.get(`vin:${vinUpper}`);
+            if (existingVin && existingVin.subjectId !== subjectId) {
+              duplicityWarnings.push({ row: rowNum, field: "VIN", value: vinUpper, existingUid: existingVin.uid, newUid: currentSubjectUid });
+              rowWarnings.push(`Potenciálny konflikt majetku: VIN ${vinUpper} je priradené aj k UID ${existingVin.uid}`);
+            } else {
+              const dbDuplicates = await storage.checkDuplicates({ vin: vinUpper });
+              const conflicting = dbDuplicates.filter(s => s.id !== subjectId);
+              if (conflicting.length > 0) {
+                for (const c of conflicting) {
+                  duplicityWarnings.push({ row: rowNum, field: "VIN", value: vinUpper, existingUid: c.uid || `ID:${c.id}`, newUid: currentSubjectUid });
+                  rowWarnings.push(`Potenciálny konflikt majetku: VIN ${vinUpper} je priradené aj k UID ${c.uid || c.id}`);
+                }
+              }
+            }
+            vinSpzTracker.set(`vin:${vinUpper}`, { uid: currentSubjectUid, subjectId: subjectId || 0, row: rowNum });
+          }
+
+          const stornoDate = rowData["datum_storna"] || rowData["storno_date"] || rowData["datum_ukoncenia"] || null;
+          let contractStatusId = defaultStatus?.id || null;
+          let pendingBonusMalus = false;
+
+          if (!stornoDate) {
+            let pendingStatus = await storage.getSystemContractStatusByName("Čaká na posúdenie bonusu/malusu");
+            if (!pendingStatus) {
+              pendingStatus = await storage.createContractStatus({
+                name: "Čaká na posúdenie bonusu/malusu",
+                color: "#f59e0b",
+                sortOrder: 997,
+                isCommissionable: false,
+                isFinal: false,
+                assignsNumber: false,
+                definesContractEnd: false,
+                isSystem: true,
+              } as any);
+            }
+            if (pendingStatus) {
+              contractStatusId = pendingStatus.id;
+              pendingBonusMalus = true;
+              rowWarnings.push("Chýba dátum storna – zmluva čaká na manuálne posúdenie bonusu/malusu");
+            }
+          }
+
           const nextGlobalNumber = await storage.getNextCounterValue("contract_global_number");
 
-          const spz = rowData["spz"] || rowData["ecv"] || rowData["licence_plate"] || null;
           const telefon = rowData["telefon"] || rowData["phone"] || rowData["tel"] || null;
           const missingFields: string[] = [];
           if (!spz) missingFields.push("ŠPZ");
           if (!telefon) missingFields.push("Telefón");
           const isIncomplete = missingFields.length > 0;
-
-          const batchId = req.body?.batchId || `IMPORT-${Date.now()}`;
 
           const contractData: any = {
             contractNumber: rowData["cislo_zmluvy"] || rowData["contract_number"] || null,
@@ -2789,7 +2919,7 @@ export async function registerRoutes(
             notes: rowData["poznamky"] || rowData["notes"] || null,
             stateId: appUser?.activeStateId || null,
             companyId: appUser?.activeCompanyId || null,
-            statusId: defaultStatus?.id || null,
+            statusId: contractStatusId,
             globalNumber: nextGlobalNumber,
             uploadedByUserId: appUser?.id || null,
             incompleteData: isIncomplete,
@@ -2808,22 +2938,88 @@ export async function registerRoutes(
               parameterValues: {},
             });
           }
-          results.push({ row: rowNum, status: "ok", contractId: created.id });
+
+          if (subjectId) {
+            const dynUpdates: Record<string, string> = {};
+            for (const [headerKey, value] of Object.entries(rowData)) {
+              if (!value) continue;
+              if (categoryMappings.has(headerKey)) {
+                dynUpdates[categoryMappings.get(headerKey)!] = value;
+              }
+            }
+            if (spz) dynUpdates["spz"] = spz;
+            if (vin) dynUpdates["vin"] = vin;
+
+            if (Object.keys(dynUpdates).length > 0) {
+              try {
+                const subject = await storage.getSubject(subjectId);
+                if (subject) {
+                  const existingDetails = (subject.details || {}) as Record<string, any>;
+                  const existingDynamic = existingDetails.dynamicFields || {};
+                  await storage.updateSubject(subjectId, {
+                    details: {
+                      ...existingDetails,
+                      dynamicFields: { ...existingDynamic, ...dynUpdates },
+                    },
+                    changeReason: "Automatické mapovanie dát z importu zmlúv do kategórií klienta",
+                  });
+                }
+              } catch (mapErr) {
+                console.error("Import category mapping error:", mapErr);
+                rowWarnings.push("Nepodarilo sa namapovať dáta do kategórií klienta");
+              }
+            }
+          }
+
+          results.push({
+            row: rowNum,
+            status: "ok",
+            action: subjectAction,
+            contractId: created.id,
+            subjectId: subjectId || undefined,
+            warnings: rowWarnings.length > 0 ? rowWarnings : undefined,
+          });
         } catch (rowErr: any) {
           results.push({ row: rowNum, status: "error", error: rowErr.message || "Neznáma chyba" });
         }
       }
 
-      await logAudit(req, { action: "IMPORT", module: "zmluvy", entityName: `Excel import: ${results.filter(r => r.status === 'ok').length} úspešných z ${results.length}` });
+      if (duplicityWarnings.length > 0) {
+        for (const dw of duplicityWarnings) {
+          await logAudit(req, {
+            action: "DUPLICITY_WARNING",
+            module: "import-zmluv",
+            entityName: `Potenciálny konflikt majetku: ${dw.field} ${dw.value}`,
+            newData: { row: dw.row, field: dw.field, value: dw.value, existingUid: dw.existingUid, newUid: dw.newUid },
+          });
+        }
+      }
+
+      const successCount = results.filter(r => r.status === "ok").length;
+      const errorCount = results.filter(r => r.status === "error").length;
+      const createdCount = results.filter(r => r.action === "created").length;
+      const updatedCount = results.filter(r => r.action === "updated").length;
+      const warningCount = results.filter(r => r.warnings && r.warnings.length > 0).length;
+
+      await logAudit(req, {
+        action: "IMPORT",
+        module: "zmluvy",
+        entityName: `Import ${fileName}: ${successCount} úspešných, ${createdCount} nových subjektov, ${updatedCount} aktualizovaných, ${errorCount} chýb, ${duplicityWarnings.length} duplicitných varovaní`,
+        newData: { successCount, errorCount, createdCount, updatedCount, duplicityWarnings: duplicityWarnings.length },
+      });
 
       res.json({
         total: results.length,
-        success: results.filter(r => r.status === "ok").length,
-        errors: results.filter(r => r.status === "error").length,
+        success: successCount,
+        errors: errorCount,
+        created: createdCount,
+        updated: updatedCount,
+        warnings: warningCount,
+        duplicityWarnings,
         details: results,
       });
     } catch (err: any) {
-      console.error("Excel import error:", err);
+      console.error("Excel/CSV import error:", err);
       res.status(500).json({ message: "Chyba pri importe: " + (err.message || "Neznáma chyba") });
     }
   });
