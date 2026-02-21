@@ -70,6 +70,7 @@ The system employs a modern full-stack architecture, emphasizing data integrity,
     - **Subject Collaborators (Tipér/Špecialista/Správca)**: Manages collaborators with roles and temporal validity.
     - **Extended Bonita Points**: `subject_points_log` supports `pointType` and manual point addition with reason.
     - **Duplicity Checker**: Enhanced checking for duplicates including ŠPZ and VIN, with bulk checking capabilities.
+    - **Master Subject Component (SubjektView)**: Single shared component (`subjekt-view.tsx`) used across: Subject Registry, Contract Detail ("Údaje o klientovi" + "Zhrnutie" tabs), and Client Portal. Any field/ordering change in `staticFieldDefs.ts` automatically propagates to all locations.
     - **Inline Subject Detail Panel**: Subject detail renders as a full-page inline panel.
     - **Field Hints System**: Category and field-level hints for various data types.
     - **Nezatriedené dáta (Category 33)**: Category for unclassified contract data with trend detection.
