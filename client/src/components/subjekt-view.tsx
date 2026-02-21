@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback } from "react";
+import { useState, useMemo, useCallback, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -14,7 +14,7 @@ import { Switch } from "@/components/ui/switch";
 import { Separator } from "@/components/ui/separator";
 import { Card, CardContent } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Loader2, UserCheck, Scale, Users, Wallet, BarChart3, Wifi, Archive, FileText, Eye, EyeOff, ChevronRight, Check, X, Plus, AlertTriangle, ShieldAlert, Ban, Link2, Building2, User, ArrowLeftRight, History, UserPlus, ShieldCheck, Clock, Pencil, Save, MessageSquare } from "lucide-react";
+import { Loader2, UserCheck, Scale, Users, Wallet, BarChart3, Wifi, Archive, FileText, Eye, EyeOff, ChevronRight, Check, X, Plus, AlertTriangle, ShieldAlert, Ban, Link2, Building2, User, ArrowLeftRight, History, UserPlus, ShieldCheck, Clock, Pencil, Save, MessageSquare, FileDown } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
@@ -345,9 +345,10 @@ function CategoriesAccordion({
 interface SubjektViewProps {
   subject: Subject;
   showPdfSidebar?: boolean;
+  isClientView?: boolean;
 }
 
-export function SubjektView({ subject, showPdfSidebar = false }: SubjektViewProps) {
+export function SubjektView({ subject, showPdfSidebar = false, isClientView = false }: SubjektViewProps) {
   const { toast } = useToast();
   const { data: appUser } = useAppUser();
   const { data: companies } = useMyCompanies();
@@ -489,6 +490,18 @@ export function SubjektView({ subject, showPdfSidebar = false }: SubjektViewProp
     setEditReason("");
   }, []);
 
+  useEffect(() => {
+    if (subject?.id) {
+      apiRequest("POST", `/api/subjects/${subject.id}/log-view`).catch(() => {});
+    }
+  }, [subject?.id]);
+
+  const isPep = useMemo(() => {
+    const det = (subject as any).details || {};
+    const dynFields = det.dynamicFields || {};
+    return dynFields.pep === "true" || dynFields.pep === "\u00e1no";
+  }, [subject]);
+
   const isPerson = subject.type === "person";
   const isSzco = subject.type === "szco";
   const clientTypeId = isSzco ? 3 : isPerson ? 1 : 4;
@@ -586,7 +599,10 @@ export function SubjektView({ subject, showPdfSidebar = false }: SubjektViewProp
     );
   }
 
+  const HIDDEN_CLIENT_TABS = new Set(['bonita_scoring']);
+  const HIDDEN_CLIENT_CATEGORIES = new Set(['bonita', 'behavioralne', 'nezatriedene']);
   const sortedTabs = [...(tabs || [])].filter(t => t.isActive).sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0));
+  const displayTabs = isClientView ? sortedTabs.filter(t => !HIDDEN_CLIENT_TABS.has(t.code)) : sortedTabs;
   const activeCompanyId = appUser?.activeCompanyId;
 
   const listStatus = (subject as any).listStatus as string | null;
@@ -594,7 +610,7 @@ export function SubjektView({ subject, showPdfSidebar = false }: SubjektViewProp
   return (
     <div className="flex gap-4">
       <div className={pdfSidebarOpen ? "flex-1 min-w-0" : "w-full"}>
-        {listStatus === "cierny" && (
+        {!isClientView && listStatus === "cierny" && (
           <div className="mb-3 flex items-center gap-3 rounded border border-red-900 bg-red-950/80 px-4 py-3 text-red-200" data-testid="banner-cierny-zoznam">
             <Ban className="w-5 h-5 text-red-400 shrink-0" />
             <div>
@@ -603,7 +619,7 @@ export function SubjektView({ subject, showPdfSidebar = false }: SubjektViewProp
             </div>
           </div>
         )}
-        {listStatus === "cerveny" && (
+        {!isClientView && listStatus === "cerveny" && (
           <div className="mb-3 flex items-center gap-3 rounded border border-orange-700 bg-orange-950/80 px-4 py-3 text-orange-200" data-testid="banner-cerveny-zoznam">
             <AlertTriangle className="w-5 h-5 text-orange-400 shrink-0" />
             <div>
@@ -612,7 +628,7 @@ export function SubjektView({ subject, showPdfSidebar = false }: SubjektViewProp
             </div>
           </div>
         )}
-        {riskData?.foPoRisks && riskData.foPoRisks.length > 0 && (
+        {!isClientView && riskData?.foPoRisks && riskData.foPoRisks.length > 0 && (
           <div className="mb-3 space-y-1" data-testid="banner-fo-po-risks">
             {riskData.foPoRisks.map((risk, i) => (
               <div key={`fopo-${i}`} className="flex items-center gap-3 rounded border border-yellow-700 bg-yellow-950/80 px-4 py-2.5 text-yellow-200">
@@ -633,7 +649,16 @@ export function SubjektView({ subject, showPdfSidebar = false }: SubjektViewProp
             ))}
           </div>
         )}
-        {riskData?.riskLinks && riskData.riskLinks.length > 0 && (
+        {isPep && !isClientView && (
+          <div className="mb-3 flex items-center gap-3 rounded border border-purple-700 bg-purple-950/60 px-4 py-3" data-testid="banner-pep">
+            <ShieldAlert className="w-5 h-5 text-purple-400 shrink-0" />
+            <div>
+              <span className="font-bold text-purple-300 uppercase tracking-wide">POLITICKY EXPONOVAN\u00c1 OSOBA</span>
+              <span className="ml-2 text-sm text-purple-200/80">Tento subjekt je ozna\u010den\u00fd ako PEP - zv\u00fd\u0161en\u00e1 obozretnos\u0165</span>
+            </div>
+          </div>
+        )}
+        {!isClientView && riskData?.riskLinks && riskData.riskLinks.length > 0 && (
           <div className="mb-3 space-y-1" data-testid="banner-risk-links">
             {riskData.riskLinks.map((link, i) => (
               <div key={`risk-${i}`} className="flex items-center gap-3 rounded border border-amber-700 bg-amber-950/80 px-4 py-2.5 text-amber-200">
@@ -668,7 +693,7 @@ export function SubjektView({ subject, showPdfSidebar = false }: SubjektViewProp
             )}
           </div>
           <div className="flex items-center gap-2">
-            {isEditing ? (
+            {!isClientView && (isEditing ? (
               <>
                 <div className="flex items-center gap-2 mr-2">
                   <Input
@@ -709,7 +734,7 @@ export function SubjektView({ subject, showPdfSidebar = false }: SubjektViewProp
                 <Pencil className="w-4 h-4 mr-1" />
                 Editácia
               </Button>
-            )}
+            ))}
             {showPdfSidebar && !isEditing && (
               <Button
                 variant="ghost"
@@ -721,6 +746,34 @@ export function SubjektView({ subject, showPdfSidebar = false }: SubjektViewProp
                 PDF export
               </Button>
             )}
+            {!isClientView && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  window.open(`/api/subjects/${subject.id}/gdpr-export`, '_blank');
+                }}
+                data-testid="btn-gdpr-export"
+                className="text-xs"
+              >
+                <FileDown className="w-3.5 h-3.5 mr-1" />
+                GDPR Export
+              </Button>
+            )}
+            {isClientView && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  window.open(`/api/subjects/${subject.id}/gdpr-export`, '_blank');
+                }}
+                data-testid="btn-client-gdpr-export"
+                className="text-xs"
+              >
+                <FileDown className="w-3.5 h-3.5 mr-1" />
+                Stiahnuť moje údaje
+              </Button>
+            )}
           </div>
         </div>
 
@@ -730,9 +783,9 @@ export function SubjektView({ subject, showPdfSidebar = false }: SubjektViewProp
           </div>
         </div>
 
-        <Tabs defaultValue={sortedTabs[0]?.code || "identita"} data-testid="tabs-subjekt-view">
+        <Tabs defaultValue={displayTabs[0]?.code || "identita"} data-testid="tabs-subjekt-view">
           <TabsList className="flex flex-wrap h-auto gap-1 p-1 bg-muted/50 border border-border" data-testid="tablist-subjekt-view">
-            {sortedTabs.map(tab => {
+            {displayTabs.map(tab => {
               const Icon = getTabIcon(tab.icon || "FileText");
               const tabCats = categoriesByTab[tab.id] || [];
               const totalFields = tabCats.reduce((sum, cat) => sum + (fieldsByCategory[cat.code]?.length || 0), 0);
@@ -757,11 +810,12 @@ export function SubjektView({ subject, showPdfSidebar = false }: SubjektViewProp
             })}
           </TabsList>
 
-          {sortedTabs.map(tab => {
-            const tabCats = categoriesByTab[tab.id] || [];
+          {displayTabs.map(tab => {
+            const rawTabCats = categoriesByTab[tab.id] || [];
+            const tabCats = isClientView ? rawTabCats.filter(c => !HIDDEN_CLIENT_CATEGORIES.has(c.code)) : rawTabCats;
             return (
               <TabsContent key={tab.code} value={tab.code} className="mt-3" data-testid={`tabcontent-${tab.code}`}>
-                {tab.code === "rodina" && (subject.type === "company" || subject.type === "person" || subject.type === "szco") && (
+                {!isClientView && tab.code === "rodina" && (subject.type === "company" || subject.type === "person" || subject.type === "szco") && (
                   <>
                     <RelationshipSection
                       subject={subject}

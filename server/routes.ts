@@ -175,7 +175,13 @@ export async function registerRoutes(
         if (cl) careerLevel = cl;
       }
 
-      res.json({ ...appUser, effectiveSessionTimeoutSeconds: effectiveTimeout, careerLevel });
+      let permissionGroup = null;
+      if (appUser.permissionGroupId) {
+        const [pg] = await db.select().from(permissionGroups).where(eq(permissionGroups.id, appUser.permissionGroupId));
+        if (pg) permissionGroup = pg;
+      }
+
+      res.json({ ...appUser, effectiveSessionTimeoutSeconds: effectiveTimeout, careerLevel, permissionGroup });
     } catch (err) {
       console.error("Error in /api/app-user/me:", err);
       res.status(500).json({ message: "Internal error" });
@@ -806,7 +812,26 @@ export async function registerRoutes(
       });
     }
 
-    res.json(allSubjects.map((s: any) => maskSubjectBirthNumber(s, appUser)));
+    const isSuperAdminUser = (() => {
+      if (!appUser?.permissionGroupId) return appUser?.role === 'superadmin' || appUser?.role === 'prezident';
+      return false;
+    })();
+    let pgNameForList = '';
+    if (appUser?.permissionGroupId) {
+      const [pgCheck] = await db.select().from(permissionGroups).where(eq(permissionGroups.id, appUser.permissionGroupId));
+      pgNameForList = pgCheck?.name?.toLowerCase() || '';
+    }
+    const canSeeNotes = isSuperAdminUser || pgNameForList.includes('superadmin') || pgNameForList.includes('prezident');
+    
+    res.json(allSubjects.map((s: any) => {
+      const masked = maskSubjectBirthNumber(s, appUser);
+      if (!canSeeNotes && masked.uiPreferences) {
+        const prefs = { ...(masked.uiPreferences as any) };
+        delete prefs.field_notes;
+        masked.uiPreferences = prefs;
+      }
+      return masked;
+    }));
   });
 
   function getSubjectStatusCategory(subject: any, activeCompanyId?: number): string {
@@ -818,13 +843,37 @@ export async function registerRoutes(
   }
 
   app.get(api.subjects.get.path, async (req: any, res) => {
-    const subject = await storage.getSubject(Number(req.params.id));
+    const subjectId = Number(req.params.id);
+    if (req.appUser?.permissionGroupId) {
+      const [pg] = await db.select().from(permissionGroups).where(eq(permissionGroups.id, req.appUser.permissionGroupId));
+      if (pg?.name === 'Klienti' && req.appUser.linkedSubjectId !== subjectId) {
+        return res.status(403).json({ message: "Prístup zamietnutý" });
+      }
+    }
+    const subject = await storage.getSubject(subjectId);
     if (!subject) return res.status(404).json({ message: "Subject not found" });
     const masked = maskSubjectBirthNumber(subject, req.appUser);
     if (subject.linkedFoId) {
       const linkedFo = await storage.getSubject(subject.linkedFoId);
       if (linkedFo) {
         masked.linkedFo = { id: linkedFo.id, uid: linkedFo.uid, firstName: linkedFo.firstName, lastName: linkedFo.lastName };
+      }
+    }
+    if (req.appUser?.permissionGroupId) {
+      const [pg] = await db.select().from(permissionGroups).where(eq(permissionGroups.id, req.appUser.permissionGroupId));
+      const pgName = pg?.name?.toLowerCase() || '';
+      if (!pgName.includes('superadmin') && !pgName.includes('prezident')) {
+        if (masked.uiPreferences) {
+          const prefs = { ...(masked.uiPreferences as any) };
+          delete prefs.field_notes;
+          masked.uiPreferences = prefs;
+        }
+      }
+    } else if (!req.appUser || (!req.appUser.role || (req.appUser.role !== 'superadmin' && req.appUser.role !== 'prezident'))) {
+      if (masked.uiPreferences) {
+        const prefs = { ...(masked.uiPreferences as any) };
+        delete prefs.field_notes;
+        masked.uiPreferences = prefs;
       }
     }
     res.json(masked);
@@ -5514,6 +5563,97 @@ export async function registerRoutes(
     }
   });
 
+  // === GDPR DATA EXPORT ===
+  app.get("/api/subjects/:id/gdpr-export", isAuthenticated, async (req: any, res) => {
+    try {
+      const subjectId = Number(req.params.id);
+      const appUser = await storage.getAppUserByReplitId(req.user.claims.sub);
+      if (!appUser) return res.status(401).json({ message: "Unauthorized" });
+      
+      const subject = await storage.getSubject(subjectId);
+      if (!subject) return res.status(404).json({ message: "Subjekt nenájdený" });
+      
+      const legalExport: Record<string, any> = {
+        exportDate: new Date().toISOString(),
+        exportType: "GDPR_DATA_SUBJECT_REQUEST",
+        subject: {
+          uid: subject.uid,
+          type: subject.type,
+          firstName: subject.firstName,
+          lastName: subject.lastName,
+          companyName: subject.companyName,
+          email: subject.email,
+          phone: subject.phone,
+          birthNumber: subject.birthNumber ? "***" : null,
+          isActive: subject.isActive,
+          createdAt: subject.createdAt,
+        },
+        identityData: (() => {
+          const details = (subject.details || {}) as Record<string, any>;
+          const dynFields = details.dynamicFields || {};
+          const LEGAL_FIELDS = [
+            'titul_pred', 'meno', 'priezvisko', 'titul_za', 'datum_narodenia',
+            'pohlavie', 'miesto_narodenia', 'statna_prislusnost', 'rodne_priezvisko',
+            'typ_dokladu', 'cislo_dokladu', 'platnost_dokladu', 'vydal_doklad',
+            'adresa_trvaly_ulica', 'adresa_trvaly_cislo', 'adresa_trvaly_mesto',
+            'adresa_trvaly_psc', 'adresa_trvaly_stat',
+            'adresa_prechodny_ulica', 'adresa_prechodny_cislo', 'adresa_prechodny_mesto',
+            'adresa_prechodny_psc', 'adresa_prechodny_stat',
+            'email', 'telefon', 'telefon2',
+          ];
+          const filtered: Record<string, any> = {};
+          for (const key of LEGAL_FIELDS) {
+            if (dynFields[key]) filtered[key] = dynFields[key];
+          }
+          return filtered;
+        })(),
+        _excluded: [
+          "bonitaPoints - Interné obchodné tajomstvo",
+          "cgnRating - Interné obchodné tajomstvo",
+          "listStatus - Interné obchodné tajomstvo",
+          "internalNotes - Interné obchodné tajomstvo",
+          "riskLinks - Interné obchodné tajomstvo",
+          "auditLogs - Interné obchodné tajomstvo",
+          "fieldHistory - Interné obchodné tajomstvo",
+        ],
+      };
+      
+      const allContracts = await storage.getContracts();
+      const subjectContracts = allContracts.filter((c: any) => c.subjectId === subjectId);
+      legalExport.contracts = subjectContracts.map((c: any) => ({
+        id: c.id,
+        contractNumber: c.contractNumber,
+        status: c.statusName || c.statusId,
+        productName: c.productName,
+        createdAt: c.createdAt,
+        signedAt: c.signedDate,
+      }));
+      
+      const consents = await storage.getClientMarketingConsents(subjectId);
+      legalExport.consents = consents.map((c: any) => ({
+        consentType: c.consentType,
+        isGranted: c.isGranted,
+        grantedAt: c.grantedAt,
+        revokedAt: c.revokedAt,
+      }));
+      
+      await storage.createAuditLog({
+        userId: appUser.id,
+        username: appUser.username,
+        action: "GDPR_EXPORT",
+        module: "subjects",
+        entityId: subjectId,
+        entityName: `GDPR export subjektu #${subjectId}`,
+      });
+      
+      res.setHeader('Content-Type', 'application/json');
+      res.setHeader('Content-Disposition', `attachment; filename="gdpr-export-${subject.uid?.replace(/\s/g, '')}-${new Date().toISOString().split('T')[0]}.json"`);
+      res.json(legalExport);
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
   // === SUBJECT BONITA POINTS LOG ===
   app.get("/api/subjects/:id/points-log", isAuthenticated, async (req: any, res) => {
     try {
@@ -5775,6 +5915,27 @@ export async function registerRoutes(
         storage.findLinkedFoPoRisks(subjectId),
       ]);
       res.json({ riskLinks, foPoRisks });
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  app.post("/api/subjects/:id/log-view", isAuthenticated, async (req: any, res) => {
+    try {
+      const subjectId = Number(req.params.id);
+      const appUser = await storage.getAppUserByReplitId(req.user.claims.sub);
+      if (!appUser) return res.status(401).json({ message: "Unauthorized" });
+
+      await storage.createAuditLog({
+        userId: appUser.id,
+        username: appUser.username,
+        action: "VIEW_PROFILE",
+        module: "subjects",
+        entityId: subjectId,
+        entityName: `Náhľad profilu subjektu #${subjectId}`,
+      });
+
+      res.json({ ok: true });
     } catch (err: any) {
       res.status(500).json({ message: err.message });
     }

@@ -392,6 +392,7 @@ export const appUsers = pgTable("app_users", {
   commissionLevel: integer("commission_level").default(1),
   managerId: integer("manager_id"),
   careerLevelId: integer("career_level_id").references(() => careerLevels.id),
+  linkedSubjectId: integer("linked_subject_id"),
   createdAt: timestamp("created_at").defaultNow(),
 });
 

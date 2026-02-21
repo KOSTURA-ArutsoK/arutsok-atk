@@ -1,13 +1,16 @@
 import { Switch, Route } from "wouter";
 import { queryClient } from "./lib/queryClient";
-import { QueryClientProvider } from "@tanstack/react-query";
+import { QueryClientProvider, useQuery } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { ThemeProvider } from "@/components/theme-provider";
 import { HelpProvider } from "@/contexts/help-context";
 import { TTSProvider } from "@/contexts/tts-context";
 import { useAuth } from "@/hooks/use-auth";
+import { useAppUser } from "@/hooks/use-app-user";
 import { Loader2 } from "lucide-react";
+import type { Subject } from "@shared/schema";
+import { SubjektView } from "@/components/subjekt-view";
 
 import NotFound from "@/pages/not-found";
 import AuthPage from "@/pages/Auth";
@@ -72,6 +75,25 @@ function PrivateRoute({ component: Component, ...rest }: any) {
   );
 }
 
+function ClientProfilePage() {
+  const { data: appUser } = useAppUser();
+  const { data: subject, isLoading } = useQuery<Subject>({
+    queryKey: ['/api/subjects', appUser?.linkedSubjectId],
+    queryFn: () => fetch(`/api/subjects/${appUser?.linkedSubjectId}`, { credentials: 'include' }).then(r => r.json()),
+    enabled: !!appUser?.linkedSubjectId,
+  });
+
+  if (isLoading || !subject) {
+    return (
+      <div className="flex items-center justify-center py-12">
+        <Loader2 className="w-6 h-6 animate-spin" />
+      </div>
+    );
+  }
+
+  return <SubjektView subject={subject} isClientView={true} />;
+}
+
 function Router() {
   return (
     <Switch>
@@ -83,6 +105,7 @@ function Router() {
       <Route path="/register" component={RegisterPage} />
       <Route path="/forgot-password" component={ForgotPassword} />
       <Route path="/client-zone" component={ClientZone} />
+      <Route path="/client-profile" component={() => <PrivateRoute component={ClientProfilePage} />} />
       
       <Route path="/" component={() => <PrivateRoute component={Dashboard} />} />
       <Route path="/subjects" component={() => <PrivateRoute component={Subjects} />} />

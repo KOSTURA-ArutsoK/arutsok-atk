@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useCallback } from "react";
+import { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import { createPortal } from "react-dom";
 import { useIdleTimeout } from "@/hooks/use-idle-timeout";
 import { useGlobalClickLogger } from "@/hooks/use-global-click-logger";
@@ -9,7 +9,7 @@ import { useTheme } from "@/components/theme-provider";
 import { useAuth } from "@/hooks/use-auth";
 import { useTTSContext } from "@/contexts/tts-context";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Moon, Sun, ChevronDown, Globe, Building2, Upload, LogOut, AlertTriangle, Timer, Volume2, VolumeX } from "lucide-react";
+import { Moon, Sun, ChevronDown, Globe, Building2, Upload, LogOut, AlertTriangle, Timer, Volume2, VolumeX, Shield } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -60,8 +60,25 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const [pendingStateId, setPendingStateId] = useState<number | null>(null);
   const contextInitRef = useRef(false);
 
+  const isClientUser = useMemo(() => {
+    const pgName = (appUser as any)?.permissionGroup?.name?.toLowerCase();
+    return pgName === 'klienti';
+  }, [appUser]);
+
+  const handleLogout = useCallback(() => {
+    logout();
+  }, [logout]);
+
   useEffect(() => {
-    if (appUser && !contextInitRef.current) {
+    if (isClientUser && appUser?.linkedSubjectId) {
+      if (window.location.pathname !== '/client-profile') {
+        window.location.href = '/client-profile';
+      }
+    }
+  }, [isClientUser, appUser]);
+
+  useEffect(() => {
+    if (appUser && !contextInitRef.current && !isClientUser) {
       contextInitRef.current = true;
       if (!appUser.activeStateId || !appUser.activeCompanyId) {
         setPendingStateId(appUser.activeStateId || null);
@@ -69,7 +86,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         setContextOverlayOpen(true);
       }
     }
-  }, [appUser]);
+  }, [appUser, isClientUser]);
 
   const handleContextSelectState = useCallback((stateId: number) => {
     setPendingStateId(stateId);
@@ -245,6 +262,28 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     ) : null,
     document.body
   );
+
+  if (isClientUser) {
+    return (
+      <div className="min-h-screen bg-background">
+        <header className="h-14 border-b border-border px-6 flex items-center justify-between gap-3">
+          <div className="flex items-center gap-3">
+            <Shield className="w-5 h-5 text-primary" />
+            <span className="font-bold text-sm">ArutsoK</span>
+            <span className="text-[10px] text-muted-foreground uppercase tracking-widest">Klientsk\u00e1 z\u00f3na</span>
+          </div>
+          <div className="flex items-center gap-3">
+            <span className="text-xs text-muted-foreground" data-testid="text-client-username">{displayName}</span>
+            <Button variant="ghost" size="sm" onClick={handleLogout} data-testid="btn-client-logout">
+              <LogOut className="w-4 h-4" />
+            </Button>
+          </div>
+        </header>
+        <main className="p-6">{children}</main>
+        {warningOverlay}
+      </div>
+    );
+  }
 
   return (
     <SidebarProvider open={sidebarOpen} onOpenChange={handleSidebarChange} style={sidebarStyle as React.CSSProperties}>
