@@ -103,6 +103,10 @@ import {
   type ClientMarketingConsent, type InsertClientMarketingConsent,
   subjectPointsLog,
   type SubjectPointsLog, type InsertSubjectPointsLog,
+  subjectFieldHistory,
+  type SubjectFieldHistory, type InsertSubjectFieldHistory,
+  subjectCollaborators,
+  type SubjectCollaborator, type InsertSubjectCollaborator,
 } from "@shared/schema";
 import { eq, and, or, ne, like, sql, lte, gte, gt, desc, asc, isNull, isNotNull, inArray } from "drizzle-orm";
 
@@ -175,6 +179,18 @@ export interface IStorage {
 
   getClientDocumentHistory(subjectId: number): Promise<ClientDocumentHistory[]>;
   createClientDocumentHistory(data: InsertClientDocumentHistory): Promise<ClientDocumentHistory>;
+
+  getSubjectFieldHistory(subjectId: number, fieldKey?: string): Promise<SubjectFieldHistory[]>;
+  recordFieldChanges(subjectId: number, original: any, updated: any, userId?: number, reason?: string): Promise<void>;
+
+  anonymizeSubject(id: number, userId: number): Promise<Subject>;
+  revealAnonymizedSubject(id: number): Promise<any>;
+
+  getSubjectCollaborators(subjectId: number): Promise<SubjectCollaborator[]>;
+  addSubjectCollaborator(data: InsertSubjectCollaborator): Promise<SubjectCollaborator>;
+  deactivateSubjectCollaborator(id: number): Promise<SubjectCollaborator>;
+
+  checkDuplicates(params: { birthNumber?: string; spz?: string; vin?: string }): Promise<Subject[]>;
 
   getEntityLinks(subjectId: number): Promise<EntityLink[]>;
   createEntityLink(data: InsertEntityLink): Promise<EntityLink>;
@@ -525,12 +541,10 @@ export interface IStorage {
 export class DatabaseStorage implements IStorage {
 
   async generateUID(stateCode: string, continentCode?: string): Promise<string> {
-    const code = stateCode && /^\d+$/.test(stateCode) ? stateCode : '000';
-    const counterName = `uid_state_${code}`;
+    const counterName = `uid_global`;
     const nextValue = await this.getNextCounterValue(counterName);
     const padded = nextValue.toString().padStart(12, '0');
-    const formatted = padded.match(/.{1,3}/g)!.join(' ');
-    return `${code} ${formatted}`;
+    return `421${padded}`;
   }
 
   async getContinents() {
@@ -1050,6 +1064,9 @@ export class DatabaseStorage implements IStorage {
     });
 
     const { changeReason, ...subjectUpdates } = updates;
+
+    await this.recordFieldChanges(id, original, subjectUpdates, undefined, changeReason);
+
     const [updated] = await db.update(subjects).set(subjectUpdates).where(eq(subjects.id, id)).returning();
     return updated;
   }
@@ -1076,6 +1093,181 @@ export class DatabaseStorage implements IStorage {
   async createClientDocumentHistory(data: InsertClientDocumentHistory): Promise<ClientDocumentHistory> {
     const [record] = await db.insert(clientDocumentHistory).values(data).returning();
     return record;
+  }
+
+  async getSubjectFieldHistory(subjectId: number, fieldKey?: string): Promise<SubjectFieldHistory[]> {
+    if (fieldKey) {
+      return await db.select().from(subjectFieldHistory)
+        .where(and(eq(subjectFieldHistory.subjectId, subjectId), eq(subjectFieldHistory.fieldKey, fieldKey)))
+        .orderBy(desc(subjectFieldHistory.changedAt));
+    }
+    return await db.select().from(subjectFieldHistory)
+      .where(eq(subjectFieldHistory.subjectId, subjectId))
+      .orderBy(desc(subjectFieldHistory.changedAt));
+  }
+
+  async recordFieldChanges(subjectId: number, original: any, updated: any, userId?: number, reason?: string): Promise<void> {
+    const historyEntries: InsertSubjectFieldHistory[] = [];
+    const staticKeys = ['firstName', 'lastName', 'companyName', 'email', 'phone', 'birthNumber',
+      'idCardNumber', 'iban', 'swift', 'kikId', 'commissionLevel', 'listStatus', 'cgnRating',
+      'isActive', 'isDeceased', 'type', 'linkedFoId'];
+
+    for (const key of staticKeys) {
+      const oldVal = original[key];
+      const newVal = updated[key];
+      if (newVal !== undefined && String(oldVal ?? '') !== String(newVal ?? '')) {
+        historyEntries.push({
+          subjectId,
+          fieldKey: key,
+          fieldSource: 'static',
+          oldValue: oldVal != null ? String(oldVal) : null,
+          newValue: newVal != null ? String(newVal) : null,
+          changedByUserId: userId ?? null,
+          changeReason: reason ?? null,
+        });
+      }
+    }
+
+    const origDetails = (original.details as any) || {};
+    const newDetails = (updated.details as any) || {};
+    const origDynamic = origDetails.dynamicFields || {};
+    const newDynamic = newDetails.dynamicFields || {};
+    const allDynamicKeys = Array.from(new Set([...Object.keys(origDynamic), ...Object.keys(newDynamic)]));
+    for (const key of allDynamicKeys) {
+      const oldVal = origDynamic[key];
+      const newVal = newDynamic[key];
+      if (String(oldVal ?? '') !== String(newVal ?? '')) {
+        historyEntries.push({
+          subjectId,
+          fieldKey: key,
+          fieldSource: 'dynamic',
+          oldValue: oldVal != null ? String(oldVal) : null,
+          newValue: newVal != null ? String(newVal) : null,
+          changedByUserId: userId ?? null,
+          changeReason: reason ?? null,
+        });
+      }
+    }
+
+    if (historyEntries.length > 0) {
+      await db.insert(subjectFieldHistory).values(historyEntries);
+    }
+  }
+
+  async anonymizeSubject(id: number, userId: number): Promise<Subject> {
+    const original = await this.getSubject(id);
+    if (!original) throw new Error("Subject not found");
+
+    const { encryptField } = await import("./crypto");
+    const piiData = {
+      firstName: original.firstName,
+      lastName: original.lastName,
+      companyName: original.companyName,
+      email: original.email,
+      phone: original.phone,
+      birthNumber: original.birthNumber,
+      idCardNumber: original.idCardNumber,
+      iban: original.iban,
+      swift: original.swift,
+      details: original.details,
+    };
+    const encryptedPayload = encryptField(JSON.stringify(piiData));
+
+    const [updated] = await db.update(subjects).set({
+      firstName: null,
+      lastName: 'ANONYMIZOVANÝ',
+      companyName: original.type === 'company' ? 'ANONYMIZOVANÁ FIRMA' : null,
+      email: null,
+      phone: null,
+      birthNumber: null,
+      idCardNumber: null,
+      iban: null,
+      swift: null,
+      details: {},
+      isAnonymized: true,
+      anonymizedAt: new Date(),
+      anonymizedByUserId: userId,
+      anonymizedData: encryptedPayload,
+    }).where(eq(subjects.id, id)).returning();
+    return updated;
+  }
+
+  async revealAnonymizedSubject(id: number): Promise<any> {
+    const subject = await this.getSubject(id);
+    if (!subject || !subject.isAnonymized || !subject.anonymizedData) {
+      throw new Error("Subject is not anonymized or data not found");
+    }
+    const { decryptField } = await import("./crypto");
+    const decrypted = decryptField(subject.anonymizedData!);
+    return JSON.parse(decrypted);
+  }
+
+  async getSubjectCollaborators(subjectId: number): Promise<SubjectCollaborator[]> {
+    return await db.select().from(subjectCollaborators)
+      .where(eq(subjectCollaborators.subjectId, subjectId))
+      .orderBy(desc(subjectCollaborators.createdAt));
+  }
+
+  async addSubjectCollaborator(data: InsertSubjectCollaborator): Promise<SubjectCollaborator> {
+    const existing = await db.select().from(subjectCollaborators)
+      .where(and(
+        eq(subjectCollaborators.subjectId, data.subjectId),
+        eq(subjectCollaborators.role, data.role),
+        eq(subjectCollaborators.isActive, true)
+      ));
+    if (existing.length > 0) {
+      await db.update(subjectCollaborators).set({
+        isActive: false,
+        validTo: new Date(),
+      }).where(eq(subjectCollaborators.id, existing[0].id));
+    }
+    const [collab] = await db.insert(subjectCollaborators).values(data).returning();
+    return collab;
+  }
+
+  async deactivateSubjectCollaborator(id: number): Promise<SubjectCollaborator> {
+    const [updated] = await db.update(subjectCollaborators).set({
+      isActive: false,
+      validTo: new Date(),
+    }).where(eq(subjectCollaborators.id, id)).returning();
+    return updated;
+  }
+
+  async checkDuplicates(params: { birthNumber?: string; spz?: string; vin?: string }): Promise<Subject[]> {
+    const conditions: any[] = [];
+    if (params.birthNumber) {
+      conditions.push(eq(subjects.birthNumber, params.birthNumber));
+    }
+    const allSubjects = await db.select().from(subjects).where(isNull(subjects.deletedAt));
+    const results: Subject[] = [];
+    const seen = new Set<number>();
+
+    if (params.birthNumber) {
+      for (const s of allSubjects) {
+        if (s.birthNumber === params.birthNumber && !seen.has(s.id)) {
+          results.push(s);
+          seen.add(s.id);
+        }
+      }
+    }
+
+    if (params.spz || params.vin) {
+      for (const s of allSubjects) {
+        if (seen.has(s.id)) continue;
+        const details = (s.details as any) || {};
+        const dynFields = details.dynamicFields || {};
+        if (params.spz && Object.values(dynFields).some((v: any) => String(v).toLowerCase() === params.spz!.toLowerCase())) {
+          results.push(s);
+          seen.add(s.id);
+        }
+        if (params.vin && Object.values(dynFields).some((v: any) => String(v).toLowerCase() === params.vin!.toLowerCase())) {
+          results.push(s);
+          seen.add(s.id);
+        }
+      }
+    }
+
+    return results;
   }
 
   async getEntityLinks(subjectId: number): Promise<EntityLink[]> {

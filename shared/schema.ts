@@ -252,6 +252,10 @@ export const subjects = pgTable("subjects", {
   bonitaPoints: integer("bonita_points").default(0),
   cgnRating: text("cgn_rating"),
   registeredByUserId: integer("registered_by_user_id").references(() => appUsers.id),
+  isAnonymized: boolean("is_anonymized").default(false),
+  anonymizedAt: timestamp("anonymized_at"),
+  anonymizedByUserId: integer("anonymized_by_user_id").references(() => appUsers.id),
+  anonymizedData: text("anonymized_data"),
   createdAt: timestamp("created_at").defaultNow(),
   deletedAt: timestamp("deleted_at"),
 });
@@ -1339,10 +1343,12 @@ export const subjectPointsLog = pgTable("subject_points_log", {
   subjectId: integer("subject_id").notNull().references(() => subjects.id),
   contractId: integer("contract_id").references(() => contracts.id),
   points: integer("points").notNull(),
+  pointType: text("point_type").default("cerveny"),
   reason: text("reason").notNull(),
   identifierType: text("identifier_type"),
   identifierValue: text("identifier_value"),
   companyId: integer("company_id").references(() => myCompanies.id),
+  createdByUserId: integer("created_by_user_id").references(() => appUsers.id),
   createdAt: timestamp("created_at").defaultNow(),
 });
 
@@ -1400,6 +1406,42 @@ export const clientMarketingConsents = pgTable("client_marketing_consents", {
 export const insertClientMarketingConsentSchema = createInsertSchema(clientMarketingConsents).omit({ id: true, createdAt: true, updatedAt: true });
 export type ClientMarketingConsent = typeof clientMarketingConsents.$inferSelect;
 export type InsertClientMarketingConsent = z.infer<typeof insertClientMarketingConsentSchema>;
+
+// === SUBJECT FIELD HISTORY (granular versioning per field) ===
+export const subjectFieldHistory = pgTable("subject_field_history", {
+  id: serial("id").primaryKey(),
+  subjectId: integer("subject_id").notNull().references(() => subjects.id),
+  fieldKey: text("field_key").notNull(),
+  fieldSource: text("field_source").notNull().default("static"),
+  oldValue: text("old_value"),
+  newValue: text("new_value"),
+  changedByUserId: integer("changed_by_user_id").references(() => appUsers.id),
+  changedAt: timestamp("changed_at").defaultNow(),
+  changeReason: text("change_reason"),
+});
+
+export const insertSubjectFieldHistorySchema = createInsertSchema(subjectFieldHistory).omit({ id: true, changedAt: true });
+export type SubjectFieldHistory = typeof subjectFieldHistory.$inferSelect;
+export type InsertSubjectFieldHistory = z.infer<typeof insertSubjectFieldHistorySchema>;
+
+// === SUBJECT COLLABORATORS (Tipér / Špecialista / Správca) ===
+export const subjectCollaborators = pgTable("subject_collaborators", {
+  id: serial("id").primaryKey(),
+  subjectId: integer("subject_id").notNull().references(() => subjects.id),
+  collaboratorUserId: integer("collaborator_user_id").references(() => appUsers.id),
+  collaboratorName: text("collaborator_name"),
+  role: text("role").notNull(),
+  validFrom: timestamp("valid_from").defaultNow(),
+  validTo: timestamp("valid_to"),
+  isActive: boolean("is_active").default(true),
+  note: text("note"),
+  createdByUserId: integer("created_by_user_id").references(() => appUsers.id),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertSubjectCollaboratorSchema = createInsertSchema(subjectCollaborators).omit({ id: true, createdAt: true });
+export type SubjectCollaborator = typeof subjectCollaborators.$inferSelect;
+export type InsertSubjectCollaborator = z.infer<typeof insertSubjectCollaboratorSchema>;
 
 export type CreateSubjectRequest = InsertSubject;
 export type UpdateSubjectRequest = Partial<InsertSubject> & { changeReason?: string };

@@ -4,7 +4,7 @@ import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { useMyCompanies } from "@/hooks/use-companies";
 import { useAppUser } from "@/hooks/use-app-user";
-import type { Subject, ClientDataTab, ClientDataCategory, ClientMarketingConsent, ClientType } from "@shared/schema";
+import type { Subject, ClientDataTab, ClientDataCategory, ClientMarketingConsent, ClientType, SubjectCollaborator, SubjectFieldHistory } from "@shared/schema";
 import { getFieldsForClientTypeId, getSectionsForClientTypeId, type StaticField } from "@/lib/staticFieldDefs";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
@@ -14,7 +14,12 @@ import { Switch } from "@/components/ui/switch";
 import { Separator } from "@/components/ui/separator";
 import { Card, CardContent } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Loader2, UserCheck, Scale, Users, Wallet, BarChart3, Wifi, Archive, FileText, Eye, EyeOff, ChevronRight, Check, X, Plus, AlertTriangle, ShieldAlert, Ban, Link2, Building2, User, ArrowLeftRight } from "lucide-react";
+import { Loader2, UserCheck, Scale, Users, Wallet, BarChart3, Wifi, Archive, FileText, Eye, EyeOff, ChevronRight, Check, X, Plus, AlertTriangle, ShieldAlert, Ban, Link2, Building2, User, ArrowLeftRight, History, UserPlus, ShieldCheck, Clock } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
 import { formatDateSlovak } from "@/lib/utils";
 
 const TAB_ICONS: Record<string, typeof UserCheck> = {
@@ -116,6 +121,16 @@ export function SubjektView({ subject, showPdfSidebar = false }: SubjektViewProp
     queryKey: ["/api/subjects", subject.id, "linked-companies"],
     queryFn: () => apiRequest("GET", `/api/subjects/${subject.id}/linked-companies`).then(r => r.json()),
     enabled: subject.type === "person" || subject.type === "szco",
+  });
+
+  const { data: collaborators } = useQuery<SubjectCollaborator[]>({
+    queryKey: ["/api/subjects", subject.id, "collaborators"],
+    queryFn: () => apiRequest("GET", `/api/subjects/${subject.id}/collaborators`).then(r => r.json()),
+  });
+
+  const { data: fieldHistory } = useQuery<SubjectFieldHistory[]>({
+    queryKey: ["/api/subjects", subject.id, "field-history"],
+    queryFn: () => apiRequest("GET", `/api/subjects/${subject.id}/field-history`).then(r => r.json()),
   });
 
   const upsertConsent = useMutation({
@@ -306,12 +321,19 @@ export function SubjektView({ subject, showPdfSidebar = false }: SubjektViewProp
             return (
               <TabsContent key={tab.code} value={tab.code} className="mt-3" data-testid={`tabcontent-${tab.code}`}>
                 {tab.code === "rodina" && (subject.type === "company" || subject.type === "person" || subject.type === "szco") && (
-                  <RelationshipSection
-                    subject={subject}
-                    linkedFo={linkedFo || null}
-                    linkedPos={linkedPos || []}
-                    foPoRisks={riskData?.foPoRisks || []}
-                  />
+                  <>
+                    <RelationshipSection
+                      subject={subject}
+                      linkedFo={linkedFo || null}
+                      linkedPos={linkedPos || []}
+                      foPoRisks={riskData?.foPoRisks || []}
+                    />
+                    <CollaboratorsSection subjectId={subject.id} collaborators={collaborators || []} />
+                  </>
+                )}
+
+                {tab.code === "servis" && (
+                  <FieldHistorySection subjectId={subject.id} history={fieldHistory || []} />
                 )}
 
                 {tab.code === "profil" && (
@@ -584,6 +606,200 @@ function RelationshipSection({
               </div>
             )}
           </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+const ROLE_LABELS: Record<string, string> = {
+  tiper: "Tipér",
+  specialist: "Špecialista",
+  spravca: "Správca",
+};
+
+const ROLE_COLORS: Record<string, string> = {
+  tiper: "bg-purple-900/50 text-purple-300",
+  specialist: "bg-cyan-900/50 text-cyan-300",
+  spravca: "bg-green-900/50 text-green-300",
+};
+
+function CollaboratorsSection({ subjectId, collaborators }: { subjectId: number; collaborators: SubjectCollaborator[] }) {
+  const { toast } = useToast();
+  const [addOpen, setAddOpen] = useState(false);
+  const [newRole, setNewRole] = useState("tiper");
+  const [newName, setNewName] = useState("");
+  const [newNote, setNewNote] = useState("");
+
+  const addCollab = useMutation({
+    mutationFn: async () => {
+      return apiRequest("POST", `/api/subjects/${subjectId}/collaborators`, {
+        role: newRole,
+        collaboratorName: newName,
+        note: newNote,
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/subjects", subjectId, "collaborators"] });
+      toast({ title: "Spolupracovník pridaný" });
+      setAddOpen(false);
+      setNewName("");
+      setNewNote("");
+    },
+  });
+
+  const deactivate = useMutation({
+    mutationFn: (id: number) => apiRequest("PATCH", `/api/subjects/collaborators/${id}/deactivate`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/subjects", subjectId, "collaborators"] });
+      toast({ title: "Spolupracovník deaktivovaný" });
+    },
+  });
+
+  const active = collaborators.filter(c => c.isActive);
+  const history = collaborators.filter(c => !c.isActive);
+
+  return (
+    <Card className="mb-4" data-testid="collaborators-section">
+      <CardContent className="p-4 space-y-3">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <UserPlus className="w-4 h-4 text-primary" />
+            <span className="text-sm font-semibold">Spolupracovníci</span>
+            <Badge variant="outline" className="text-[10px]">{active.length} aktívnych</Badge>
+          </div>
+          <Dialog open={addOpen} onOpenChange={setAddOpen}>
+            <DialogTrigger asChild>
+              <Button variant="ghost" size="sm" data-testid="button-add-collaborator">
+                <Plus className="w-3.5 h-3.5 mr-1" /> Pridať
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="max-w-sm">
+              <DialogHeader>
+                <DialogTitle>Pridať spolupracovníka</DialogTitle>
+              </DialogHeader>
+              <div className="space-y-3 pt-2">
+                <div>
+                  <Label className="text-xs">Rola</Label>
+                  <Select value={newRole} onValueChange={setNewRole}>
+                    <SelectTrigger data-testid="select-collaborator-role">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="tiper">Tipér</SelectItem>
+                      <SelectItem value="specialist">Špecialista</SelectItem>
+                      <SelectItem value="spravca">Správca</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label className="text-xs">Meno</Label>
+                  <Input value={newName} onChange={e => setNewName(e.target.value)} placeholder="Meno spolupracovníka" data-testid="input-collaborator-name" />
+                </div>
+                <div>
+                  <Label className="text-xs">Poznámka</Label>
+                  <Textarea value={newNote} onChange={e => setNewNote(e.target.value)} rows={2} data-testid="input-collaborator-note" />
+                </div>
+                <Button onClick={() => addCollab.mutate()} disabled={!newName.trim() || addCollab.isPending} className="w-full" data-testid="button-save-collaborator">
+                  {addCollab.isPending ? <Loader2 className="w-4 h-4 animate-spin mr-1" /> : null}
+                  Uložiť
+                </Button>
+              </div>
+            </DialogContent>
+          </Dialog>
+        </div>
+
+        {active.length === 0 && history.length === 0 && (
+          <p className="text-xs text-muted-foreground text-center py-3">Žiadni spolupracovníci</p>
+        )}
+
+        {active.map(c => (
+          <div key={c.id} className="flex items-center justify-between border rounded-md px-3 py-2" data-testid={`collaborator-${c.id}`}>
+            <div className="flex items-center gap-2">
+              <Badge className={`text-[10px] ${ROLE_COLORS[c.role] || "bg-muted"}`}>
+                {ROLE_LABELS[c.role] || c.role}
+              </Badge>
+              <span className="text-sm">{c.collaboratorName || "Neznámy"}</span>
+              {c.note && <span className="text-xs text-muted-foreground">({c.note})</span>}
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="text-[10px] text-muted-foreground">{c.validFrom ? formatDateSlovak(String(c.validFrom)) : ""}</span>
+              <Button variant="ghost" size="sm" onClick={() => deactivate.mutate(c.id)} data-testid={`button-deactivate-${c.id}`}>
+                <X className="w-3 h-3" />
+              </Button>
+            </div>
+          </div>
+        ))}
+
+        {history.length > 0 && (
+          <div className="space-y-1 pt-2 border-t border-border">
+            <div className="flex items-center gap-1 text-xs text-muted-foreground">
+              <Clock className="w-3 h-3" />
+              <span>História ({history.length})</span>
+            </div>
+            {history.map(c => (
+              <div key={c.id} className="flex items-center gap-2 px-3 py-1 text-xs text-muted-foreground opacity-60" data-testid={`collaborator-history-${c.id}`}>
+                <Badge variant="outline" className="text-[9px]">{ROLE_LABELS[c.role] || c.role}</Badge>
+                <span>{c.collaboratorName || "Neznámy"}</span>
+                <span>{c.validFrom ? formatDateSlovak(String(c.validFrom)) : ""} – {c.validTo ? formatDateSlovak(String(c.validTo)) : "dnes"}</span>
+              </div>
+            ))}
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+function FieldHistorySection({ subjectId, history }: { subjectId: number; history: SubjectFieldHistory[] }) {
+  const [showAll, setShowAll] = useState(false);
+  const displayed = showAll ? history : history.slice(0, 20);
+
+  return (
+    <Card className="mb-4" data-testid="field-history-section">
+      <CardContent className="p-4 space-y-3">
+        <div className="flex items-center gap-2">
+          <History className="w-4 h-4 text-primary" />
+          <span className="text-sm font-semibold">História zmien polí</span>
+          <Badge variant="outline" className="text-[10px]">{history.length} záznamov</Badge>
+        </div>
+
+        {history.length === 0 ? (
+          <p className="text-xs text-muted-foreground text-center py-3">Žiadne zaznamenané zmeny</p>
+        ) : (
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead className="text-xs">Pole</TableHead>
+                <TableHead className="text-xs">Stará hodnota</TableHead>
+                <TableHead className="text-xs">Nová hodnota</TableHead>
+                <TableHead className="text-xs">Dátum</TableHead>
+                <TableHead className="text-xs">Dôvod</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {displayed.map(h => (
+                <TableRow key={h.id} data-testid={`history-row-${h.id}`}>
+                  <TableCell className="text-xs py-1.5">
+                    <div className="flex items-center gap-1">
+                      <span className="font-medium">{h.fieldKey}</span>
+                      {h.fieldSource === "dynamic" && <Badge variant="outline" className="text-[8px]">dyn</Badge>}
+                    </div>
+                  </TableCell>
+                  <TableCell className="text-xs py-1.5 text-red-400 max-w-[150px] truncate">{h.oldValue || "-"}</TableCell>
+                  <TableCell className="text-xs py-1.5 text-green-400 max-w-[150px] truncate">{h.newValue || "-"}</TableCell>
+                  <TableCell className="text-xs py-1.5 text-muted-foreground">{h.changedAt ? formatDateSlovak(String(h.changedAt)) : "-"}</TableCell>
+                  <TableCell className="text-xs py-1.5 text-muted-foreground">{h.changeReason || "-"}</TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        )}
+
+        {history.length > 20 && (
+          <Button variant="ghost" size="sm" onClick={() => setShowAll(!showAll)} data-testid="button-show-all-history">
+            {showAll ? "Zobraziť menej" : `Zobraziť všetky (${history.length})`}
+          </Button>
         )}
       </CardContent>
     </Card>

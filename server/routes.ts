@@ -4,7 +4,7 @@ import { storage } from "./storage";
 import { api } from "@shared/routes";
 import { setupAuth, registerAuthRoutes, isAuthenticated } from "./replit_integrations/auth";
 import { z } from "zod";
-import { continents, states, myCompanies, appUsers, clientTypes, clientSubGroups, clientGroupMembers, productFolderAssignments, folderPanels, panelParameters, userClientGroupMemberships, clientGroups, permissionGroups, insertCareerLevelSchema, insertProductPointRateSchema, careerLevels, importLogs, commissions, contracts, contractStatuses, contractStatusChangeLogs, clientDataTabs, clientDataCategories, subjects } from "@shared/schema";
+import { continents, states, myCompanies, appUsers, clientTypes, clientSubGroups, clientGroupMembers, productFolderAssignments, folderPanels, panelParameters, userClientGroupMemberships, clientGroups, permissionGroups, insertCareerLevelSchema, insertProductPointRateSchema, careerLevels, importLogs, commissions, contracts, contractStatuses, contractStatusChangeLogs, clientDataTabs, clientDataCategories, subjects, subjectPointsLog } from "@shared/schema";
 import { db } from "./db";
 import { eq } from "drizzle-orm";
 import multer from "multer";
@@ -3850,7 +3850,7 @@ export async function registerRoutes(
   // === DUPLICATE CHECK ===
   app.post("/api/subjects/check-duplicate", isAuthenticated, async (req, res) => {
     try {
-      const { birthNumber, ico } = req.body;
+      const { birthNumber, ico, spz, vin } = req.body;
       const existing = await storage.checkDuplicateSubject({ birthNumber, ico });
       if (existing) {
         res.json({
@@ -3863,9 +3863,31 @@ export async function registerRoutes(
             matchedField: existing.matchedField,
           },
         });
-      } else {
-        res.json({ isDuplicate: false });
+        return;
       }
+
+      if (spz || vin) {
+        const duplicates = await storage.checkDuplicates({
+          spz: spz || undefined,
+          vin: vin || undefined,
+        });
+        if (duplicates.length > 0) {
+          const d = duplicates[0];
+          res.json({
+            isDuplicate: true,
+            subject: {
+              id: d.id,
+              uid: d.uid,
+              name: d.companyName || [d.firstName, d.lastName].filter(Boolean).join(" "),
+              type: d.type,
+              matchedField: spz ? "ŠPZ" : "VIN",
+            },
+          });
+          return;
+        }
+      }
+
+      res.json({ isDuplicate: false });
     } catch {
       res.status(500).json({ message: "Failed to check duplicate" });
     }
@@ -5485,6 +5507,52 @@ export async function registerRoutes(
     }
   });
 
+  app.post("/api/subjects/:id/add-point", isAuthenticated, async (req: any, res) => {
+    try {
+      const subjectId = Number(req.params.id);
+      const { points, pointType, reason, contractId } = req.body;
+      if (!reason || reason.trim().length === 0) {
+        return res.status(400).json({ message: "Dôvod je povinný pri udeľovaní bodov" });
+      }
+      if (!pointType || !['cerveny', 'oranzovy', 'modry'].includes(pointType)) {
+        return res.status(400).json({ message: "Typ bodu je povinný. Povolené: cerveny, oranzovy, modry" });
+      }
+      if (points === undefined || points === null || typeof points !== 'number') {
+        return res.status(400).json({ message: "Počet bodov je povinný" });
+      }
+      const subject = await storage.getSubject(subjectId);
+      if (!subject) return res.status(404).json({ message: "Subjekt nenajdený" });
+
+      const identifierType = subject.birthNumber ? "rc" : "ico";
+      const identifierValue = subject.birthNumber || ((subject.details as any)?.dynamicFields?.ico);
+
+      await db.insert(subjectPointsLog).values({
+        subjectId,
+        contractId: contractId || null,
+        points,
+        pointType,
+        reason: reason.trim(),
+        identifierType: identifierValue ? identifierType : null,
+        identifierValue: identifierValue || null,
+        companyId: req.appUser?.activeCompanyId || null,
+        createdByUserId: req.appUser?.id || null,
+      });
+
+      const allLogs = identifierValue
+        ? await storage.getPointsByIdentifier(identifierType, identifierValue, 10)
+        : await storage.getSubjectPointsLog(subjectId);
+      const newTotal = allLogs
+        .filter((l: any) => !l.pointType || l.pointType === 'cerveny')
+        .reduce((sum: number, l: any) => sum + l.points, 0);
+      await db.update(subjects).set({ bonitaPoints: newTotal }).where(eq(subjects.id, subjectId));
+
+      await logAudit(req, { action: "ADD_POINT", module: "subjekty_bonita", entityId: subjectId, entityName: `${pointType} bod (${points}) pre subjekt #${subject.uid}: ${reason}` });
+      res.json({ totalPoints: newTotal });
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
   // === SUBJECT LIST STATUS (Červený/Čierny zoznam) ===
   app.patch("/api/subjects/:id/list-status", isAuthenticated, async (req: any, res) => {
     try {
@@ -5547,6 +5615,105 @@ export async function registerRoutes(
       const allSubjects = await storage.getSubjects();
       const linked = allSubjects.filter((s: any) => s.linkedFoId === subjectId && !s.deletedAt);
       res.json(linked);
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  app.get("/api/subjects/:id/field-history", isAuthenticated, async (req: any, res) => {
+    try {
+      const subjectId = Number(req.params.id);
+      const fieldKey = req.query.fieldKey as string | undefined;
+      const history = await storage.getSubjectFieldHistory(subjectId, fieldKey);
+      res.json(history);
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  app.post("/api/subjects/:id/anonymize", isAuthenticated, async (req: any, res) => {
+    try {
+      const appUser = req.appUser;
+      if (!appUser) return res.status(401).json({ message: "Unauthorized" });
+      const subjectId = Number(req.params.id);
+      const result = await storage.anonymizeSubject(subjectId, appUser.id);
+      await logAudit(req, { action: "ANONYMIZE", module: "subjekty", entityId: subjectId, entityName: `Anonymizácia subjektu #${result.uid}` });
+      res.json(result);
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  app.get("/api/subjects/:id/reveal", isAuthenticated, async (req: any, res) => {
+    try {
+      const appUser = req.appUser;
+      const userPerms = appUser?.permissionGroup;
+      const isSuperAdmin = userPerms?.name?.toLowerCase().includes("superadmin") || userPerms?.name?.toLowerCase().includes("prezident") || appUser?.role === 'superadmin';
+      if (!isSuperAdmin) {
+        return res.status(403).json({ message: "Len SuperAdmin môže odkryť anonymizované údaje" });
+      }
+      const subjectId = Number(req.params.id);
+      const data = await storage.revealAnonymizedSubject(subjectId);
+      await logAudit(req, { action: "REVEAL", module: "subjekty", entityId: subjectId, entityName: `Odkrytie anonymizovaného subjektu #${subjectId}` });
+      res.json(data);
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  app.get("/api/subjects/:id/collaborators", isAuthenticated, async (req: any, res) => {
+    try {
+      const subjectId = Number(req.params.id);
+      const collaborators = await storage.getSubjectCollaborators(subjectId);
+      res.json(collaborators);
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  app.post("/api/subjects/:id/collaborators", isAuthenticated, async (req: any, res) => {
+    try {
+      const subjectId = Number(req.params.id);
+      const { role, collaboratorUserId, collaboratorName, note } = req.body;
+      if (!role || !['tiper', 'specialist', 'spravca'].includes(role)) {
+        return res.status(400).json({ message: "Neplatná rola. Povolené: tiper, specialist, spravca" });
+      }
+      const collab = await storage.addSubjectCollaborator({
+        subjectId,
+        collaboratorUserId: collaboratorUserId || null,
+        collaboratorName: collaboratorName || null,
+        role,
+        note: note || null,
+        isActive: true,
+        createdByUserId: req.appUser?.id || null,
+      });
+      await logAudit(req, { action: "CREATE", module: "subjekty_collaborators", entityId: collab.id, entityName: `${role} pre subjekt #${subjectId}` });
+      res.status(201).json(collab);
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  app.patch("/api/subjects/collaborators/:id/deactivate", isAuthenticated, async (req: any, res) => {
+    try {
+      const collabId = Number(req.params.id);
+      const result = await storage.deactivateSubjectCollaborator(collabId);
+      await logAudit(req, { action: "DEACTIVATE", module: "subjekty_collaborators", entityId: collabId });
+      res.json(result);
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  app.post("/api/subjects/check-duplicates", isAuthenticated, async (req: any, res) => {
+    try {
+      const { birthNumber, spz, vin } = req.body;
+      let encryptedBN = birthNumber;
+      if (birthNumber) {
+        encryptedBN = encryptField(birthNumber);
+      }
+      const results = await storage.checkDuplicates({ birthNumber: encryptedBN, spz, vin });
+      res.json(results.map((s: any) => ({ id: s.id, uid: s.uid, type: s.type, firstName: s.firstName, lastName: s.lastName, companyName: s.companyName })));
     } catch (err: any) {
       res.status(500).json({ message: err.message });
     }
