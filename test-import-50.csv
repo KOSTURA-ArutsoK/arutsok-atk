@@ -1,0 +1,51 @@
+rodne_cislo,ico,meno,priezvisko,nazov_firmy,email,telefon,cislo_zmluvy,cislo_navrhu,kik,vin,spz,lehotne_poistne,frekvencia,mena,datum_storna,poznamky,tp_ulica,tp_mesto,tp_psc
+9001011234,,Aktualizovaný,Import,,updated0@import-test.sk,+421 990 711625,IMP-FO-001,NAV-0001,,2EMN9XBM8WE3K7SPP,LV842EE,148,mesačne,EUR,2025-05-24,Automatický import – existujúca FO (RČ match) #1,Štúrova 34,Martin,95316
+836123/8925,,Anna,Kováč,,updated1@import-test.sk,+421 906 828515,IMP-FO-002,NAV-0002,,ESYMG47ENC8M8Z2X2,SB329VC,178,štvrťročne,EUR,2026-05-19,Automatický import – existujúca FO (RČ match) #2,Nová 48,Trenčín,86111
+720118/4327,,Igor,Szabó,,updated2@import-test.sk,+421 936 903326,IMP-FO-003,NAV-0003,,Y2RF3U2UHVP4539MB,TN354BD,344,ročne,EUR,2026-04-08,Automatický import – existujúca FO (RČ match) #3,Nová 19,Banská Bystrica,90870
+985418/7186,,Monika,Polák,,updated3@import-test.sk,+421 940 462155,IMP-FO-004,NAV-0004,,04XEXXJL0F6WVCRDD,KI823KM,459,štvrťročne,EUR,,Automatický import – existujúca FO (RČ match) #4,Nová 4,Košice,85279
+895413/9637,,Veronika,Nagy,,updated4@import-test.sk,+421 956 170597,IMP-FO-005,NAV-0005,,HN8XTK8GEFEV7RVUH,TV843KX,277,mesačne,EUR,,Automatický import – existujúca FO (RČ match) #5,Hviezdoslavova 50,Trnava,88931
+,40439189,,,"TAU Logistics, a.s.",firma-update0@import-test.sk,+421 925 579870,IMP-PO-001,NAV-PO-0001,,MYJ3B2XN2AHVMNPCV,VT133PV,980,ročne,EUR,2026-01-22,Automatický import – existujúca PO (IČO match) #1,,,
+,45141978,,,"SIGMA Defense, s.r.o.",firma-update1@import-test.sk,+421 952 505491,IMP-PO-002,NAV-PO-0002,,W4RX9M8Z8SW3CV60U,LC512AZ,1122,ročne,EUR,2025-03-07,Automatický import – existujúca PO (IČO match) #2,,,
+,48998029,,,"UPSILON Trade, s.r.o.",firma-update2@import-test.sk,+421 970 385493,IMP-PO-003,NAV-PO-0003,,2EMN9XBM8WE3K7SPP,ZC331LM,2238,polročne,EUR,,Automatický import – existujúca PO (IČO match) #3,,,
+,49514679,,,Aktualizovaná Firma 3,firma-update3@import-test.sk,+421 900 555855,IMP-PO-004,NAV-PO-0004,,66TR7T7S58JMH92HU,SB329VC,2014,ročne,EUR,,Automatický import – existujúca PO (IČO match) #4,,,
+,43198305,,,"OMEGA Finance, s.r.o.",firma-update4@import-test.sk,+421 909 259885,IMP-PO-005,NAV-PO-0005,,X9JYX5FJ3DH62LFLU,TT166VG,2254,ročne,EUR,,Automatický import – existujúca PO (IČO match) #5,,,
+810207/6361,,Marek,Nagy,,marek.nagy4@import-test.sk,+421 946 134205,IMP-NEW-001,NAV-NEW-0001,,897285XMGWJ105XCE,BA732ZV,332,štvrťročne,EUR,2025-02-27,Nový FO subjekt z importu #1,Hlavná 44,Banská Bystrica,90988
+861221/5585,,Michal,Černák,,michal.cernak75@import-test.sk,+421 972 680139,IMP-NEW-002,NAV-NEW-0002,,JWPKJEKSWSDG64Y85,SB329VC,263,štvrťročne,EUR,2026-09-11,Nový FO subjekt z importu #2,Školská 41,Prešov,83439
+716116/7219,,Monika,Nagy,,monika.nagy10@import-test.sk,+421 997 825731,IMP-NEW-003,NAV-NEW-0003,,2FS19YVPZPDEY7J5H,HE560ED,121,mesačne,EUR,2026-11-27,Nový FO subjekt z importu #3,Nová 99,Banská Bystrica,96130
+741111/0212,,Tomáš,Nagy,,tomas.nagy72@import-test.sk,+421 923 340972,IMP-NEW-004,NAV-NEW-0004,,VP17W6PPSCJSY585G,LM635PC,175,štvrťročne,EUR,2026-12-17,Nový FO subjekt z importu #4,Dlhá 41,Žilina,85775
+680413/6452,,Vladimír,Baláž,,vladimir.balaz87@import-test.sk,+421 995 753899,IMP-NEW-005,NAV-NEW-0005,,XLYL94AYF8USKFZP9,LE478SD,353,štvrťročne,EUR,2026-01-23,Nový FO subjekt z importu #5,Hviezdoslavova 15,Poprad,84928
+950716/2217,,Jakub,Szabó,,jakub.szabo79@import-test.sk,+421 923 781990,IMP-NEW-006,NAV-NEW-0006,,2EMN9XBM8WE3K7SPP,KA542SP,234,polročne,EUR,2026-09-21,Nový FO subjekt z importu #6,Hlavná 26,Trenčín,86746
+661106/6506,,Igor,Bartoš,,igor.bartos47@import-test.sk,+421 978 911887,IMP-NEW-007,NAV-NEW-0007,,3UH7XFFRMNUF84XRF,KI289NN,161,polročne,EUR,2025-01-16,Nový FO subjekt z importu #7,Hviezdoslavova 49,Trenčín,86529
+936021/7747,,Martina,Kováč,,martina.kovac88@import-test.sk,+421 906 660785,IMP-NEW-008,NAV-NEW-0008,,LSJFX9F4G2WCANXAF,PU330MM,322,mesačne,EUR,2026-09-18,Nový FO subjekt z importu #8,Dlhá 94,Trenčín,80230
+720707/5312,,Vladimír,Kováč,,vladimir.kovac1@import-test.sk,+421 997 705880,IMP-NEW-009,NAV-NEW-0009,,YWLFCY8ZYF120VKLF,TO894EL,254,ročne,EUR,,Nový FO subjekt z importu #9,Hlavná 68,Trnava,86100
+730123/1683,,Martin,Novák,,martin.novak78@import-test.sk,+421 910 129042,IMP-NEW-010,NAV-NEW-0010,,HZV2860K8PJL435RZ,KE193EV,50,polročne,EUR,,Nový FO subjekt z importu #10,Záhradná 52,Bratislava,87620
+990320/1805,,Rastislav,Baláž,,rastislav.balaz89@import-test.sk,+421 939 916547,IMP-NEW-011,NAV-NEW-0011,,S99J7PLGMFB75NP1E,BT207FG,140,štvrťročne,EUR,,Nový FO subjekt z importu #11,Záhradná 43,Poprad,94888
+871117/4571,,Tomáš,Černák,,tomas.cernak97@import-test.sk,+421 909 158042,IMP-NEW-012,NAV-NEW-0012,,VFJPM1SV3ZMNEMCY5,RA754KV,177,mesačne,EUR,,Nový FO subjekt z importu #12,Nová 9,Poprad,81160
+830314/8666,,Robert,Baláž,,robert.balaz24@import-test.sk,+421 964 402898,IMP-NEW-013,NAV-NEW-0013,,4FXV2WWERKEJEG7L8,MI532KF,286,mesačne,EUR,,Nový FO subjekt z importu #13,Krátka 96,Martin,91263
+840809/3433,,Igor,Černák,,igor.cernak61@import-test.sk,+421 911 069602,IMP-NEW-014,NAV-NEW-0014,,41BFKV9436RFD777N,SN968GP,426,polročne,EUR,,Nový FO subjekt z importu #14,Nová 3,Poprad,86335
+760401/8901,,Jakub,Bartoš,,jakub.bartos98@import-test.sk,+421 930 409039,IMP-NEW-015,NAV-NEW-0015,,4APULFGFDT0JPDSKT,SP817CT,119,ročne,EUR,,Nový FO subjekt z importu #15,Hviezdoslavova 44,Trenčín,98956
+,45159440,,,"OMEGA Finance, s.r.o.",omegafinance@import-test.sk,+421 924 395606,IMP-FIRMA-001,NAV-FIRMA-0001,,ELBNFEN3UD37401YB,SP651KT,3594,polročne,EUR,2025-10-10,"Nová PO z importu – OMEGA Finance, s.r.o.",,,
+,47308108,,,"RHO Invest, a.s.",rhoinvestas@import-test.sk,+421 910 952213,IMP-FIRMA-002,NAV-FIRMA-0002,,VRCJ4U2WJKWYWPWDZ,PO890AF,2950,polročne,EUR,2026-06-19,"Nová PO z importu – RHO Invest, a.s.",,,
+,43112321,,,"PSI Reality, s.r.o.",psirealitysr@import-test.sk,+421 974 639942,IMP-FIRMA-003,NAV-FIRMA-0003,,NNZ17D85HV2ERE1EV,PD398MF,2889,polročne,EUR,2025-02-16,"Nová PO z importu – PSI Reality, s.r.o.",,,
+,41961726,,,"CHI Motors, s.r.o.",chimotorssro@import-test.sk,+421 933 517874,IMP-FIRMA-004,NAV-FIRMA-0004,,897285XMGWJ105XCE,MI158KM,3011,ročne,EUR,2026-01-17,"Nová PO z importu – CHI Motors, s.r.o.",,,
+,49984062,,,"PHI Capital, a.s.",phicapitalas@import-test.sk,+421 995 415563,IMP-FIRMA-005,NAV-FIRMA-0005,,HVEHNA7JYBJWE5JJG,LV568MS,3152,štvrťročne,EUR,,"Nová PO z importu – PHI Capital, a.s.",,,
+,46528634,,,"UPSILON Trade, s.r.o.",upsilontrade@import-test.sk,+421 970 349606,IMP-FIRMA-006,NAV-FIRMA-0006,,0XS6CGEVPRKPKV0Z4,DS598GS,4870,ročne,EUR,,"Nová PO z importu – UPSILON Trade, s.r.o.",,,
+,46876353,,,"TAU Logistics, a.s.",taulogistics@import-test.sk,+421 990 585205,IMP-FIRMA-007,NAV-FIRMA-0007,,63N6V861JY86UVBB5,VK472CB,1910,ročne,EUR,,"Nová PO z importu – TAU Logistics, a.s.",,,
+,48703171,,,"SIGMA Defense, s.r.o.",sigmadefense@import-test.sk,+421 971 507659,IMP-FIRMA-008,NAV-FIRMA-0008,,3KJF1MRF73CV4EMRP,LM694EF,3893,polročne,EUR,,"Nová PO z importu – SIGMA Defense, s.r.o.",,,
+965105/1246,,Katarína,Černák,,dup-batch0@import-test.sk,+421 931 073977,IMP-DUP-001,,,F2MYCWU4X2SV2ZXSY,RA737HC,281,mesačne,EUR,2025-05-18,Duplicitný batch test #1 – rovnaký VIN,,,
+851202/3150,,Ján,Horváth,,dup-batch1@import-test.sk,+421 936 074422,IMP-DUP-002,,,F2MYCWU4X2SV2ZXSY,SP133BM,139,mesačne,EUR,2025-11-25,Duplicitný batch test #2 – rovnaký VIN,,,
+616115/6919,,Katarína,Baláž,,dup-batch2@import-test.sk,+421 931 869988,IMP-DUP-003,,,F2MYCWU4X2SV2ZXSY,SK469ZL,124,mesačne,EUR,,Duplicitný batch test #3 – rovnaký VIN,,,
+820201/1533,,Michal,Szabó,,dup-batch3@import-test.sk,+421 916 080429,IMP-DUP-004,,,F2MYCWU4X2SV2ZXSY,SP346DC,131,mesačne,EUR,,Duplicitný batch test #4 – rovnaký VIN,,,
+855219/1247,,Eva,Polák,,dup-batch4@import-test.sk,+421 985 513561,IMP-DUP-005,,,PFUBF1Z1PMSYCRY6Z,TR328CE,354,mesačne,EUR,,Duplicitný batch test #5 – rovnaká ŠPZ,,,
+681216/7292,,Milan,Baláž,,dup-batch5@import-test.sk,+421 957 921402,IMP-DUP-006,,,C3AV8Y5JM8BF3U3MB,TR328CE,265,mesačne,EUR,,Duplicitný batch test #6 – rovnaká ŠPZ,,,
+615819/5940,,Lucia,Polák,,dup-batch6@import-test.sk,+421 908 068565,IMP-DUP-007,,,TBG0PCE4JBB60988M,TR328CE,291,mesačne,EUR,,Duplicitný batch test #7 – rovnaká ŠPZ,,,
+800811/3767,,Michal,Kováč,,,+421 984 120333,IMP-INC-001,,,,,417,mesačne,EUR,,Neúplná zmluva #1 – chýba telefón a/alebo ŠPZ,,,
+671002/5768,,Peter,Kučera,,,,IMP-INC-002,,,,,261,mesačne,EUR,,Neúplná zmluva #2 – chýba telefón a/alebo ŠPZ,,,
+810511/5127,,Peter,Polák,,,+421 967 464444,IMP-INC-003,,,,,482,mesačne,EUR,,Neúplná zmluva #3 – chýba telefón a/alebo ŠPZ,,,
+970516/2065,,Igor,Krajčír,,,,IMP-INC-004,,,,RK887KE,491,mesačne,EUR,,Neúplná zmluva #4 – chýba telefón a/alebo ŠPZ,,,
+880203/7732,,Martin,Nagy,,,+421 998 264751,IMP-INC-005,,,,NR349RS,443,mesačne,EUR,,Neúplná zmluva #5 – chýba telefón a/alebo ŠPZ,,,
+980116/2623,,Anonymný,Klient,,,+421 903 958123,IMP-EDGE-001,,,DT5SUE0W9PF7UWH8S,SO492ST,350,ročne,EUR,2025-11-24,Edge case: FO bez emailu,,,
+,43407217,,,,bezfirmy@edge-test.sk,+421 969 870314,IMP-EDGE-002,,,UAXAJFAU6WXLGZCW3,SP980GF,2500,polročne,EUR,,"Edge case: PO len s IČO, bez názvu firmy, BEZ storna",,,
+676204/2827,,Veľká,Zmluva,,velka.zmluva@edge-test.sk,+421 928 382020,IMP-EDGE-003,,,KKZ9ZT9G7ZKAVF064,ZL963ML,99999,ročne,EUR,2026-07-26,Edge case: vysoké poistné 99999 EUR,,,
+951001/6790,,České,Poistenie,,ceske@edge-test.sk,+420 777 123456,IMP-EDGE-004,,,2E20KGL5KM2WA9JY7,3A12345,5000,mesačne,CZK,,"Edge case: CZK mena, česká ŠPZ, BEZ storna",,,
+670709/6902,,Minimálny,Záznam,,,,IMP-EDGE-005,,,,,,,,,"Edge case: minimálne dáta – len RČ, meno, číslo zmluvy",,,
