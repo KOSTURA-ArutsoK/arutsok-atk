@@ -1679,6 +1679,64 @@ export default function ContractForm() {
                 </CompactField>
               </div>
 
+              {(() => {
+                const selectedSubject = subjects?.find(s => s.id === (subjectId ? parseInt(subjectId) : -1)) || null;
+                if (!selectedSubject) return null;
+                const sd = (selectedSubject.details || {}) as Record<string, any>;
+                const df = sd.dynamicFields || sd;
+                const isPerson = selectedSubject.type === 'person';
+                const isSzco = selectedSubject.type === 'szco';
+                const titulPred = df.titul_pred || "";
+                const titulZa = df.titul_za || "";
+                const fullName = isPerson || isSzco
+                  ? [titulPred, selectedSubject.firstName, selectedSubject.lastName, titulZa].filter(Boolean).join(" ")
+                  : selectedSubject.companyName || "-";
+                const ulica = df.tp_ulica || df.sidlo_ulica || "";
+                const cislo = df.tp_orientacne || df.sidlo_orientacne || "";
+                const mesto = df.tp_mesto || df.sidlo_mesto || "";
+                const psc = df.tp_psc || df.sidlo_psc || "";
+                const stat = df.tp_stat || df.sidlo_stat || "";
+                const adresaParts = [ulica, cislo].filter(Boolean).join(" ");
+                const mestoPsc = [mesto, psc].filter(Boolean).join(", ");
+                const fullAdresa = [adresaParts, mestoPsc, stat].filter(Boolean).join(", ");
+                const rc = df.rodne_cislo || "";
+                const datNar = df.datum_narodenia ? formatDateSlovak(df.datum_narodenia) : "";
+                return (
+                  <Card data-testid="contract-client-summary">
+                    <CardContent className="p-3">
+                      <div className="flex items-center gap-2 mb-2">
+                        <Users className="w-4 h-4 text-primary" />
+                        <h3 className="text-sm font-semibold">Zhrnutie</h3>
+                        <Badge variant="outline" className="text-xs">{isPerson ? "FO" : isSzco ? "SZCO" : "PO"}</Badge>
+                        <span className="text-xs text-muted-foreground font-mono ml-auto" data-testid="summary-uid">{selectedSubject.uid}</span>
+                      </div>
+                      <div className="grid grid-cols-2 gap-x-6 gap-y-1">
+                        <div className="flex flex-col">
+                          <span className="text-xs text-muted-foreground">Celé meno</span>
+                          <span className="text-sm font-semibold" data-testid="summary-full-name">{fullName}</span>
+                        </div>
+                        <div className="flex flex-col">
+                          <span className="text-xs text-muted-foreground">Adresa</span>
+                          <span className="text-sm" data-testid="summary-address">{fullAdresa || "-"}</span>
+                        </div>
+                        {(isPerson || isSzco) && (
+                          <div className="flex flex-col">
+                            <span className="text-xs text-muted-foreground">{rc ? "RČ / Dátum narodenia" : "Dátum narodenia"}</span>
+                            <span className="text-sm font-mono" data-testid="summary-rc">{[rc, datNar].filter(Boolean).join(" / ") || "-"}</span>
+                          </div>
+                        )}
+                        <div className="flex flex-col">
+                          <span className="text-xs text-muted-foreground">Kontakty</span>
+                          <span className="text-sm" data-testid="summary-contacts">
+                            {[selectedSubject.email, selectedSubject.phone].filter(Boolean).join(" | ") || "-"}
+                          </span>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                );
+              })()}
+
               <div style={{ display: subjectId && subjects?.find(s => s.id === parseInt(subjectId)) ? 'block' : 'none' }}>
                 <SubjectIslandView subject={subjects?.find(s => s.id === (subjectId ? parseInt(subjectId) : -1)) || null} allSubjects={subjects || []} mode="contract" />
               </div>
@@ -2485,20 +2543,37 @@ function SubjectIslandView({ subject, allSubjects, mode }: { subject: any | null
                   .filter(f => (f.sectionId || 0) === section.id)
                   .filter(f => f.fieldKey !== "telefon" && f.fieldKey !== "email")
                   .sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0));
-                const filledFields = sectionFields.filter(f => getVal(f.fieldKey));
-                if (filledFields.length === 0) return null;
+                const switchFields = sectionFields.filter(f => f.fieldType === "switch");
+                const nonSwitchFields = sectionFields.filter(f => f.fieldType !== "switch");
+                const filledNonSwitch = nonSwitchFields.filter(f => getVal(f.fieldKey));
+                const visibleFields = [...filledNonSwitch, ...switchFields].sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0));
+                if (visibleFields.length === 0) return null;
                 return (
                   <div key={section.id} className="space-y-2">
                     <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">{section.name}</p>
                     <div className="flex flex-wrap gap-x-4 gap-y-2">
-                      {filledFields.map(field => (
-                        <IslandField
-                          key={field.id}
-                          label={field.shortLabel || field.label}
-                          value={field.fieldType === "date" ? formatDateSlovak(getVal(field.fieldKey)) : getVal(field.fieldKey)}
-                          testId={`island-${field.fieldKey}`}
-                        />
-                      ))}
+                      {visibleFields.map(field => {
+                        if (field.fieldType === "switch") {
+                          const val = getVal(field.fieldKey);
+                          const isOn = val === "true" || val === "1" || val === "Áno";
+                          return (
+                            <div key={field.id} className="flex items-center gap-2 min-w-[200px]" data-testid={`island-${field.fieldKey}`}>
+                              <div className={`w-5 h-5 rounded border flex items-center justify-center ${isOn ? "bg-green-600 border-green-600" : "border-muted-foreground/30"}`}>
+                                {isOn && <Check className="w-3.5 h-3.5 text-white" />}
+                              </div>
+                              <span className="text-xs">{field.shortLabel || field.label}</span>
+                            </div>
+                          );
+                        }
+                        return (
+                          <IslandField
+                            key={field.id}
+                            label={field.shortLabel || field.label}
+                            value={field.fieldType === "date" ? formatDateSlovak(getVal(field.fieldKey)) : getVal(field.fieldKey)}
+                            testId={`island-${field.fieldKey}`}
+                          />
+                        );
+                      })}
                     </div>
                   </div>
                 );
