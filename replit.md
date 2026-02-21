@@ -37,7 +37,8 @@ The system employs a modern full-stack architecture, emphasizing data integrity,
     - **Archive Module**: Dedicated page for soft-deleted entities with password-protected restore.
     - **Processing Time Protocol**: Tracks form editing duration.
 - **Module-Specific Features**:
-    - **Dynamic Parameter System**: A 4-level hierarchy (Sectors → Sections → Products → Parameters) for dynamic configuration and form generation.
+    - **Dynamic Parameter System (Contract-level)**: A 4-level hierarchy (Sectors → Sections → Products → Parameters) for dynamic contract field configuration and form generation.
+    - **Dynamic Subject Parameter Library**: Database-driven field definitions replacing hardcoded `staticFieldDefs.ts`. Architecture: `subject_param_sections` (folders/panels) → `subject_parameters` (field definitions) → `subject_templates` (field groupings) → `subject_template_params` (template↔parameter bindings with temporal validity via `validFrom`/`validTo`). Admin UI at `/kniznica-parametrov` with 3 tabs: Parametre, Sekcie & Panely, Šablóny. Supports `getResolvedParametersForTemplate()` for contract-date-based field resolution.
     - **Dynamic Panels System**: Wraps parameters into visual containers within forms for flexible layout.
     - **Contracts Module**: Full-page contract management with multi-tab navigation, custom fields, and password management.
     - **Commission Brain & Calculation Engine**: Manages `commission_rates` with temporal validity, supports base and differential calculations, and maintains `commission_calculation_logs`.

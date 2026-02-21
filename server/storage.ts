@@ -107,6 +107,11 @@ import {
   type SubjectFieldHistory, type InsertSubjectFieldHistory,
   subjectCollaborators,
   type SubjectCollaborator, type InsertSubjectCollaborator,
+  subjectParamSections, subjectParameters, subjectTemplates, subjectTemplateParams,
+  type SubjectParamSection, type InsertSubjectParamSection,
+  type SubjectParameter, type InsertSubjectParameter,
+  type SubjectTemplate, type InsertSubjectTemplate,
+  type SubjectTemplateParam, type InsertSubjectTemplateParam,
 } from "@shared/schema";
 import { eq, and, or, ne, like, sql, lte, gte, gt, desc, asc, isNull, isNotNull, inArray } from "drizzle-orm";
 
@@ -536,6 +541,31 @@ export interface IStorage {
   findRiskLinks(subjectId: number): Promise<Array<{ subjectId: number; name: string; uid: string; listStatus: string; matchType: string; matchValue: string }>>;
   findLinkedFoPoRisks(subjectId: number): Promise<Array<{ subjectId: number; name: string; uid: string; listStatus: string; relationship: string }>>;
   recalculateAllBonita(): Promise<{ processed: number; updated: number; errors: number }>;
+
+  getSubjectParamSections(clientTypeId?: number): Promise<SubjectParamSection[]>;
+  createSubjectParamSection(data: InsertSubjectParamSection): Promise<SubjectParamSection>;
+  updateSubjectParamSection(id: number, data: Partial<InsertSubjectParamSection>): Promise<SubjectParamSection>;
+  deleteSubjectParamSection(id: number): Promise<void>;
+
+  getSubjectParameters(clientTypeId?: number): Promise<SubjectParameter[]>;
+  getSubjectParameter(id: number): Promise<SubjectParameter | undefined>;
+  createSubjectParameter(data: InsertSubjectParameter): Promise<SubjectParameter>;
+  updateSubjectParameter(id: number, data: Partial<InsertSubjectParameter>): Promise<SubjectParameter>;
+  deleteSubjectParameter(id: number): Promise<void>;
+
+  getSubjectTemplates(): Promise<SubjectTemplate[]>;
+  getSubjectTemplate(id: number): Promise<SubjectTemplate | undefined>;
+  createSubjectTemplate(data: InsertSubjectTemplate): Promise<SubjectTemplate>;
+  updateSubjectTemplate(id: number, data: Partial<InsertSubjectTemplate>): Promise<SubjectTemplate>;
+  deleteSubjectTemplate(id: number): Promise<void>;
+
+  getSubjectTemplateParams(templateId: number): Promise<SubjectTemplateParam[]>;
+  createSubjectTemplateParam(data: InsertSubjectTemplateParam): Promise<SubjectTemplateParam>;
+  updateSubjectTemplateParam(id: number, data: Partial<InsertSubjectTemplateParam>): Promise<SubjectTemplateParam>;
+  deleteSubjectTemplateParam(id: number): Promise<void>;
+  bulkSetTemplateParams(templateId: number, paramIds: number[]): Promise<void>;
+
+  getResolvedParametersForTemplate(templateId: number, contractDate?: Date): Promise<SubjectParameter[]>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -3519,6 +3549,147 @@ export class DatabaseStorage implements IStorage {
     }
 
     return { processed, updated, errors };
+  }
+
+  async getSubjectParamSections(clientTypeId?: number): Promise<SubjectParamSection[]> {
+    if (clientTypeId) {
+      return db.select().from(subjectParamSections).where(eq(subjectParamSections.clientTypeId, clientTypeId)).orderBy(asc(subjectParamSections.sortOrder));
+    }
+    return db.select().from(subjectParamSections).orderBy(asc(subjectParamSections.sortOrder));
+  }
+
+  async createSubjectParamSection(data: InsertSubjectParamSection): Promise<SubjectParamSection> {
+    const [section] = await db.insert(subjectParamSections).values(data).returning();
+    return section;
+  }
+
+  async updateSubjectParamSection(id: number, data: Partial<InsertSubjectParamSection>): Promise<SubjectParamSection> {
+    const [section] = await db.update(subjectParamSections).set(data).where(eq(subjectParamSections.id, id)).returning();
+    return section;
+  }
+
+  async deleteSubjectParamSection(id: number): Promise<void> {
+    await db.delete(subjectParamSections).where(eq(subjectParamSections.id, id));
+  }
+
+  async getSubjectParameters(clientTypeId?: number): Promise<SubjectParameter[]> {
+    if (clientTypeId) {
+      return db.select().from(subjectParameters)
+        .where(and(eq(subjectParameters.clientTypeId, clientTypeId), eq(subjectParameters.isActive, true)))
+        .orderBy(asc(subjectParameters.sortOrder));
+    }
+    return db.select().from(subjectParameters).where(eq(subjectParameters.isActive, true)).orderBy(asc(subjectParameters.sortOrder));
+  }
+
+  async getSubjectParameter(id: number): Promise<SubjectParameter | undefined> {
+    const [param] = await db.select().from(subjectParameters).where(eq(subjectParameters.id, id));
+    return param;
+  }
+
+  async createSubjectParameter(data: InsertSubjectParameter): Promise<SubjectParameter> {
+    const [param] = await db.insert(subjectParameters).values(data).returning();
+    return param;
+  }
+
+  async updateSubjectParameter(id: number, data: Partial<InsertSubjectParameter>): Promise<SubjectParameter> {
+    const [param] = await db.update(subjectParameters).set({ ...data, updatedAt: new Date() }).where(eq(subjectParameters.id, id)).returning();
+    return param;
+  }
+
+  async deleteSubjectParameter(id: number): Promise<void> {
+    await db.update(subjectParameters).set({ isActive: false, updatedAt: new Date() }).where(eq(subjectParameters.id, id));
+  }
+
+  async getSubjectTemplates(): Promise<SubjectTemplate[]> {
+    return db.select().from(subjectTemplates).where(eq(subjectTemplates.isActive, true)).orderBy(asc(subjectTemplates.name));
+  }
+
+  async getSubjectTemplate(id: number): Promise<SubjectTemplate | undefined> {
+    const [tmpl] = await db.select().from(subjectTemplates).where(eq(subjectTemplates.id, id));
+    return tmpl;
+  }
+
+  async createSubjectTemplate(data: InsertSubjectTemplate): Promise<SubjectTemplate> {
+    const [tmpl] = await db.insert(subjectTemplates).values(data).returning();
+    return tmpl;
+  }
+
+  async updateSubjectTemplate(id: number, data: Partial<InsertSubjectTemplate>): Promise<SubjectTemplate> {
+    const [tmpl] = await db.update(subjectTemplates).set({ ...data, updatedAt: new Date() }).where(eq(subjectTemplates.id, id)).returning();
+    return tmpl;
+  }
+
+  async deleteSubjectTemplate(id: number): Promise<void> {
+    await db.update(subjectTemplates).set({ isActive: false, updatedAt: new Date() }).where(eq(subjectTemplates.id, id));
+  }
+
+  async getSubjectTemplateParams(templateId: number): Promise<SubjectTemplateParam[]> {
+    return db.select().from(subjectTemplateParams).where(eq(subjectTemplateParams.templateId, templateId)).orderBy(asc(subjectTemplateParams.sortOrder));
+  }
+
+  async createSubjectTemplateParam(data: InsertSubjectTemplateParam): Promise<SubjectTemplateParam> {
+    const [tp] = await db.insert(subjectTemplateParams).values(data).returning();
+    return tp;
+  }
+
+  async updateSubjectTemplateParam(id: number, data: Partial<InsertSubjectTemplateParam>): Promise<SubjectTemplateParam> {
+    const [tp] = await db.update(subjectTemplateParams).set(data).where(eq(subjectTemplateParams.id, id)).returning();
+    return tp;
+  }
+
+  async deleteSubjectTemplateParam(id: number): Promise<void> {
+    await db.delete(subjectTemplateParams).where(eq(subjectTemplateParams.id, id));
+  }
+
+  async bulkSetTemplateParams(templateId: number, paramIds: number[]): Promise<void> {
+    await db.delete(subjectTemplateParams).where(eq(subjectTemplateParams.templateId, templateId));
+    if (paramIds.length > 0) {
+      const values = paramIds.map((pid, idx) => ({
+        templateId,
+        parameterId: pid,
+        sortOrder: idx * 10,
+      }));
+      await db.insert(subjectTemplateParams).values(values);
+    }
+  }
+
+  async getResolvedParametersForTemplate(templateId: number, contractDate?: Date): Promise<SubjectParameter[]> {
+    const tps = await db.select().from(subjectTemplateParams)
+      .where(eq(subjectTemplateParams.templateId, templateId))
+      .orderBy(asc(subjectTemplateParams.sortOrder));
+
+    if (tps.length === 0) return [];
+
+    const paramIds = tps.map(tp => tp.parameterId);
+    const params = await db.select().from(subjectParameters)
+      .where(and(
+        inArray(subjectParameters.id, paramIds),
+        eq(subjectParameters.isActive, true)
+      ));
+
+    const paramMap = new Map(params.map(p => [p.id, p]));
+    const tpMap = new Map(tps.map(tp => [tp.parameterId, tp]));
+
+    const result: SubjectParameter[] = [];
+    for (const tp of tps) {
+      const param = paramMap.get(tp.parameterId);
+      if (!param) continue;
+
+      if (contractDate) {
+        const validFrom = tp.validFrom ? new Date(tp.validFrom) : null;
+        const validTo = tp.validTo ? new Date(tp.validTo) : null;
+        if (validFrom && contractDate < validFrom) continue;
+        if (validTo && contractDate > validTo) continue;
+      }
+
+      if (tp.isRequired !== null && tp.isRequired !== undefined) {
+        result.push({ ...param, isRequired: tp.isRequired });
+      } else {
+        result.push(param);
+      }
+    }
+
+    return result;
   }
 }
 

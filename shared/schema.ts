@@ -1494,6 +1494,87 @@ export const insertActivityEventSchema = createInsertSchema(activityEvents).omit
 export type ActivityEvent = typeof activityEvents.$inferSelect;
 export type InsertActivityEvent = z.infer<typeof insertActivityEventSchema>;
 
+// === DYNAMIC SUBJECT PARAMETERS (Knižnica parametrov) ===
+
+export const subjectParamSections = pgTable("subject_param_sections", {
+  id: serial("id").primaryKey(),
+  clientTypeId: integer("client_type_id").notNull(),
+  name: text("name").notNull(),
+  code: text("code").notNull(),
+  folderCategory: text("folder_category").notNull(),
+  sortOrder: integer("sort_order").default(0),
+  isPanel: boolean("is_panel").default(false),
+  parentSectionId: integer("parent_section_id"),
+  gridColumns: integer("grid_columns").default(1),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertSubjectParamSectionSchema = createInsertSchema(subjectParamSections).omit({ id: true, createdAt: true });
+export type SubjectParamSection = typeof subjectParamSections.$inferSelect;
+export type InsertSubjectParamSection = z.infer<typeof insertSubjectParamSectionSchema>;
+
+export const subjectParameters = pgTable("subject_parameters", {
+  id: serial("id").primaryKey(),
+  clientTypeId: integer("client_type_id").notNull(),
+  sectionId: integer("section_id").references(() => subjectParamSections.id),
+  panelId: integer("panel_id").references(() => subjectParamSections.id),
+  fieldKey: text("field_key").notNull(),
+  label: text("label").notNull(),
+  shortLabel: text("short_label"),
+  fieldType: text("field_type").notNull(),
+  isRequired: boolean("is_required").default(false),
+  isHidden: boolean("is_hidden").default(false),
+  options: jsonb("options").$type<string[]>().default([]),
+  defaultValue: text("default_value"),
+  visibilityRule: jsonb("visibility_rule").$type<{ dependsOn: string; value: string } | null>(),
+  unit: text("unit"),
+  decimalPlaces: integer("decimal_places").default(2),
+  fieldCategory: text("field_category").notNull(),
+  categoryCode: text("category_code"),
+  sortOrder: integer("sort_order").default(0),
+  rowNumber: integer("row_number").default(0),
+  widthPercent: integer("width_percent").default(100),
+  isActive: boolean("is_active").default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertSubjectParameterSchema = createInsertSchema(subjectParameters).omit({ id: true, createdAt: true, updatedAt: true });
+export type SubjectParameter = typeof subjectParameters.$inferSelect;
+export type InsertSubjectParameter = z.infer<typeof insertSubjectParameterSchema>;
+
+export const subjectTemplates = pgTable("subject_templates", {
+  id: serial("id").primaryKey(),
+  name: text("name").notNull(),
+  code: text("code").notNull().unique(),
+  description: text("description"),
+  clientTypeId: integer("client_type_id"),
+  isDefault: boolean("is_default").default(false),
+  isActive: boolean("is_active").default(true),
+  createdByUserId: integer("created_by_user_id").references(() => appUsers.id),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertSubjectTemplateSchema = createInsertSchema(subjectTemplates).omit({ id: true, createdAt: true, updatedAt: true });
+export type SubjectTemplate = typeof subjectTemplates.$inferSelect;
+export type InsertSubjectTemplate = z.infer<typeof insertSubjectTemplateSchema>;
+
+export const subjectTemplateParams = pgTable("subject_template_params", {
+  id: serial("id").primaryKey(),
+  templateId: integer("template_id").notNull().references(() => subjectTemplates.id, { onDelete: "cascade" }),
+  parameterId: integer("parameter_id").notNull().references(() => subjectParameters.id, { onDelete: "cascade" }),
+  sortOrder: integer("sort_order").default(0),
+  isRequired: boolean("is_required"),
+  validFrom: timestamp("valid_from"),
+  validTo: timestamp("valid_to"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertSubjectTemplateParamSchema = createInsertSchema(subjectTemplateParams).omit({ id: true, createdAt: true });
+export type SubjectTemplateParam = typeof subjectTemplateParams.$inferSelect;
+export type InsertSubjectTemplateParam = z.infer<typeof insertSubjectTemplateParamSchema>;
+
 export type CreateSubjectRequest = InsertSubject;
 export type UpdateSubjectRequest = Partial<InsertSubject> & { changeReason?: string };
 export type UpdateMyCompanyRequest = Partial<InsertMyCompany> & { changeReason?: string };
