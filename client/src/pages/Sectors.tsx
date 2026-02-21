@@ -8,7 +8,8 @@ import { SmartFilterBar } from "@/components/smart-filter-bar";
 import { useToast } from "@/hooks/use-toast";
 import { usePartners } from "@/hooks/use-partners";
 import type { Sector, Parameter, SectorProduct, SectorProductParameter, Panel, PanelParameter, ProductPanel, Section, ContractFolder, FolderPanel } from "@shared/schema";
-import { Plus, Pencil, Trash2, Loader2, Search, Layers, Settings2, ChevronsUpDown, X, Check, FolderOpen, List, Package, Info, LayoutGrid, FolderClosed, Hash, ArrowRight } from "lucide-react";
+import { Plus, Pencil, Trash2, Loader2, Search, Layers, Settings2, ChevronsUpDown, X, Check, FolderOpen, List, Package, Info, LayoutGrid, FolderClosed, Hash, ArrowRight, Users } from "lucide-react";
+import KniznicaParametrov from "@/pages/KniznicaParametrov";
 import { ConditionalDelete } from "@/components/conditional-delete";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -2504,58 +2505,83 @@ function FoldersTab() {
   );
 }
 
+function ContractSectorsContent() {
+  return (
+    <Tabs defaultValue="sectors">
+      <TabsList data-testid="tabs-sectors-products-parameters">
+        <TabsTrigger value="sectors" data-testid="tab-sectors">
+          <Layers className="w-4 h-4 mr-2" />
+          Sektory
+        </TabsTrigger>
+        <TabsTrigger value="sections" data-testid="tab-sections">
+          <FolderOpen className="w-4 h-4 mr-2" />
+          Sekcie
+        </TabsTrigger>
+        <TabsTrigger value="products" data-testid="tab-products">
+          <Package className="w-4 h-4 mr-2" />
+          Produkty
+        </TabsTrigger>
+        <TabsTrigger value="folders" data-testid="tab-folders">
+          <FolderClosed className="w-4 h-4 mr-2" />
+          Priecinky
+        </TabsTrigger>
+        <TabsTrigger value="panels" data-testid="tab-panels">
+          <LayoutGrid className="w-4 h-4 mr-2" />
+          Panely
+        </TabsTrigger>
+        <TabsTrigger value="parameters" data-testid="tab-parameters">
+          <Settings2 className="w-4 h-4 mr-2" />
+          Parametre
+        </TabsTrigger>
+      </TabsList>
+      <TabsContent value="sectors">
+        <SectorsTab />
+      </TabsContent>
+      <TabsContent value="sections">
+        <SectionsTab />
+      </TabsContent>
+      <TabsContent value="products">
+        <ProductsTab />
+      </TabsContent>
+      <TabsContent value="folders">
+        <FoldersTab />
+      </TabsContent>
+      <TabsContent value="panels">
+        <PanelsTab />
+      </TabsContent>
+      <TabsContent value="parameters">
+        <ParametersTab />
+      </TabsContent>
+    </Tabs>
+  );
+}
+
 export default function Sectors() {
+  const [mainTab, setMainTab] = useState("contracts");
+
   return (
     <div className="p-6 space-y-6">
       <div className="flex items-center gap-3">
         <Layers className="w-6 h-6 text-primary" />
-        <h1 className="text-2xl font-bold" data-testid="text-page-title">Sektory, sekcie, produkty a parametre</h1>
+        <h1 className="text-2xl font-bold" data-testid="text-page-title">Sektory</h1>
       </div>
 
-      <Tabs defaultValue="sectors">
-        <TabsList data-testid="tabs-sectors-products-parameters">
-          <TabsTrigger value="sectors" data-testid="tab-sectors">
+      <Tabs value={mainTab} onValueChange={setMainTab}>
+        <TabsList data-testid="tabs-main-sectors">
+          <TabsTrigger value="contracts" data-testid="tab-sektory-zmluv">
             <Layers className="w-4 h-4 mr-2" />
-            Sektory
+            Sektory Zmlúv
           </TabsTrigger>
-          <TabsTrigger value="sections" data-testid="tab-sections">
-            <FolderOpen className="w-4 h-4 mr-2" />
-            Sekcie
-          </TabsTrigger>
-          <TabsTrigger value="products" data-testid="tab-products">
-            <Package className="w-4 h-4 mr-2" />
-            Produkty
-          </TabsTrigger>
-          <TabsTrigger value="folders" data-testid="tab-folders">
-            <FolderClosed className="w-4 h-4 mr-2" />
-            Priecinky
-          </TabsTrigger>
-          <TabsTrigger value="panels" data-testid="tab-panels">
-            <LayoutGrid className="w-4 h-4 mr-2" />
-            Panely
-          </TabsTrigger>
-          <TabsTrigger value="parameters" data-testid="tab-parameters">
-            <Settings2 className="w-4 h-4 mr-2" />
-            Parametre
+          <TabsTrigger value="subjects" data-testid="tab-sektory-subjektov">
+            <Users className="w-4 h-4 mr-2" />
+            Sektory Subjektov
           </TabsTrigger>
         </TabsList>
-        <TabsContent value="sectors">
-          <SectorsTab />
+        <TabsContent value="contracts">
+          <ContractSectorsContent />
         </TabsContent>
-        <TabsContent value="sections">
-          <SectionsTab />
-        </TabsContent>
-        <TabsContent value="products">
-          <ProductsTab />
-        </TabsContent>
-        <TabsContent value="folders">
-          <FoldersTab />
-        </TabsContent>
-        <TabsContent value="panels">
-          <PanelsTab />
-        </TabsContent>
-        <TabsContent value="parameters">
-          <ParametersTab />
+        <TabsContent value="subjects">
+          <KniznicaParametrov />
         </TabsContent>
       </Tabs>
     </div>

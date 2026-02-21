@@ -1,4 +1,4 @@
-import { pgTable, text, serial, integer, boolean, timestamp, jsonb, bigint, numeric } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, integer, boolean, timestamp, jsonb, bigint, numeric, varchar } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
@@ -1427,6 +1427,8 @@ export const subjectFieldHistory = pgTable("subject_field_history", {
   changedByUserId: integer("changed_by_user_id").references(() => appUsers.id),
   changedAt: timestamp("changed_at").defaultNow(),
   changeReason: text("change_reason"),
+  validFrom: timestamp("valid_from"),
+  validTo: timestamp("valid_to"),
 });
 
 export const insertSubjectFieldHistorySchema = createInsertSchema(subjectFieldHistory).omit({ id: true, changedAt: true });
@@ -1519,11 +1521,14 @@ export const subjectParameters = pgTable("subject_parameters", {
   sectionId: integer("section_id").references(() => subjectParamSections.id),
   panelId: integer("panel_id").references(() => subjectParamSections.id),
   fieldKey: text("field_key").notNull(),
+  code: text("code"),
   label: text("label").notNull(),
   shortLabel: text("short_label"),
   fieldType: text("field_type").notNull(),
   isRequired: boolean("is_required").default(false),
   isHidden: boolean("is_hidden").default(false),
+  isCollection: boolean("is_collection").default(false),
+  extractionHints: jsonb("extraction_hints").$type<{ regex?: string; format?: string; examples?: string[] }>(),
   options: jsonb("options").$type<string[]>().default([]),
   defaultValue: text("default_value"),
   visibilityRule: jsonb("visibility_rule").$type<{ dependsOn: string; value: string } | null>(),
@@ -1574,6 +1579,20 @@ export const subjectTemplateParams = pgTable("subject_template_params", {
 export const insertSubjectTemplateParamSchema = createInsertSchema(subjectTemplateParams).omit({ id: true, createdAt: true });
 export type SubjectTemplateParam = typeof subjectTemplateParams.$inferSelect;
 export type InsertSubjectTemplateParam = z.infer<typeof insertSubjectTemplateParamSchema>;
+
+export const parameterSynonyms = pgTable("parameter_synonyms", {
+  id: serial("id").primaryKey(),
+  parameterId: integer("parameter_id").notNull().references(() => subjectParameters.id, { onDelete: "cascade" }),
+  synonym: varchar("synonym", { length: 255 }).notNull(),
+  language: varchar("language", { length: 10 }).default("sk"),
+  source: varchar("source", { length: 50 }).default("manual"),
+  confidence: integer("confidence").default(100),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertParameterSynonymSchema = createInsertSchema(parameterSynonyms).omit({ id: true, createdAt: true });
+export type ParameterSynonym = typeof parameterSynonyms.$inferSelect;
+export type InsertParameterSynonym = z.infer<typeof insertParameterSynonymSchema>;
 
 export type CreateSubjectRequest = InsertSubject;
 export type UpdateSubjectRequest = Partial<InsertSubject> & { changeReason?: string };

@@ -46,7 +46,6 @@ import {
   Globe,
   Building,
   FileSpreadsheet,
-  Library,
 } from "lucide-react";
 import {
   Sidebar,
@@ -141,7 +140,6 @@ const specifikacieItems = [
 ];
 
 const nastavenieDirectItems = [
-  { href: "/kniznica-parametrov", icon: Library, label: "Knižnica parametrov" },
   { href: "/history", icon: History, label: "Logy" },
   { href: "/support", icon: Phone, label: "Podpora a registracia" },
   { href: "/dashboard-settings", icon: Eye, label: "Nastavenie prehladov" },

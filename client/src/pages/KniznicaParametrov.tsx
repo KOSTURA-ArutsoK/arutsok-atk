@@ -15,6 +15,8 @@ import {
   Loader2,
   Copy,
   LayoutTemplate,
+  X,
+  Brain,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -61,6 +63,7 @@ type SubjectParamSection = {
   isPanel: boolean;
   parentSectionId: number | null;
   gridColumns: number;
+  icon: string | null;
   isActive: boolean;
 };
 
@@ -70,6 +73,7 @@ type SubjectParameter = {
   sectionId: number | null;
   panelId: number | null;
   fieldKey: string;
+  code: string;
   label: string;
   shortLabel: string | null;
   fieldType: string;
@@ -319,10 +323,8 @@ export default function KniznicaParametrov() {
   const isLoading = sectionsLoading || paramsLoading || templatesLoading;
 
   return (
-    <div className="p-6 space-y-4">
+    <div className="space-y-4">
       <div className="flex items-center gap-3 flex-wrap">
-        <Library className="w-5 h-5 text-muted-foreground" />
-        <h1 className="text-xl font-bold" data-testid="text-page-title">Knižnica parametrov</h1>
         <Badge variant="outline" className="text-xs" data-testid="badge-param-count">
           {parameters.length} parametrov
         </Badge>
@@ -838,6 +840,96 @@ export default function KniznicaParametrov() {
   );
 }
 
+function SynonymManager({ parameterId, parameterLabel }: { parameterId: number; parameterLabel: string }) {
+  const [newSynonym, setNewSynonym] = useState("");
+  const { toast } = useToast();
+
+  const { data: synonyms = [], isLoading } = useQuery<any[]>({
+    queryKey: ["/api/subject-parameters", parameterId, "synonyms"],
+    queryFn: async () => {
+      const res = await fetch(`/api/subject-parameters/${parameterId}/synonyms`);
+      return res.json();
+    },
+  });
+
+  const addMutation = useMutation({
+    mutationFn: async (synonym: string) => {
+      await apiRequest("POST", `/api/subject-parameters/${parameterId}/synonyms`, { synonym });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/subject-parameters", parameterId, "synonyms"] });
+      setNewSynonym("");
+      toast({ title: "Synonymum pridané" });
+    },
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: async (id: number) => {
+      await apiRequest("DELETE", `/api/parameter-synonyms/${id}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/subject-parameters", parameterId, "synonyms"] });
+      toast({ title: "Synonymum odstránené" });
+    },
+  });
+
+  const handleAdd = () => {
+    if (!newSynonym.trim()) return;
+    addMutation.mutate(newSynonym.trim());
+  };
+
+  return (
+    <div className="border border-border rounded-md p-3 space-y-2">
+      <div className="flex items-center gap-2 text-sm font-medium">
+        <Brain className="w-4 h-4 text-purple-400" />
+        <span>AI Synonymá</span>
+        <span className="text-muted-foreground text-xs">({synonyms.length})</span>
+      </div>
+      <p className="text-xs text-muted-foreground">
+        Alternatívne názvy pre automatické rozpoznanie z dokumentov
+      </p>
+      <div className="flex gap-2">
+        <Input
+          value={newSynonym}
+          onChange={e => setNewSynonym(e.target.value)}
+          placeholder="napr. r.č., rodné č., birth number..."
+          className="text-sm"
+          onKeyDown={e => e.key === "Enter" && handleAdd()}
+          data-testid="input-new-synonym"
+        />
+        <Button
+          size="sm"
+          onClick={handleAdd}
+          disabled={!newSynonym.trim() || addMutation.isPending}
+          data-testid="button-add-synonym"
+        >
+          <Plus className="w-3 h-3" />
+        </Button>
+      </div>
+      {isLoading ? (
+        <div className="text-xs text-muted-foreground">Načítavam...</div>
+      ) : synonyms.length > 0 ? (
+        <div className="flex flex-wrap gap-1.5">
+          {synonyms.map((syn: any) => (
+            <Badge key={syn.id} variant="secondary" className="text-xs gap-1 pr-1">
+              {syn.synonym}
+              <button
+                onClick={() => deleteMutation.mutate(syn.id)}
+                className="ml-0.5 hover:text-destructive"
+                data-testid={`button-delete-synonym-${syn.id}`}
+              >
+                <X className="w-3 h-3" />
+              </button>
+            </Badge>
+          ))}
+        </div>
+      ) : (
+        <div className="text-xs text-muted-foreground italic">Zatiaľ žiadne synonymá</div>
+      )}
+    </div>
+  );
+}
+
 function ParameterDialog({
   open,
   onOpenChange,
@@ -858,6 +950,7 @@ function ParameterDialog({
   const [shortLabel, setShortLabel] = useState("");
   const [fieldType, setFieldType] = useState("short_text");
   const [isRequired, setIsRequired] = useState(false);
+  const [isCollection, setIsCollection] = useState(false);
   const [clientTypeId, setClientTypeId] = useState("1");
   const [sectionId, setSectionId] = useState<string>("");
   const [panelId, setPanelId] = useState<string>("");
@@ -867,6 +960,8 @@ function ParameterDialog({
   const [optionsStr, setOptionsStr] = useState("");
   const [unit, setUnit] = useState("");
   const [decimalPlaces, setDecimalPlaces] = useState("2");
+  const [hintRegex, setHintRegex] = useState("");
+  const [hintFormat, setHintFormat] = useState("");
 
   const resetForm = () => {
     if (editParam) {
@@ -875,6 +970,7 @@ function ParameterDialog({
       setShortLabel(editParam.shortLabel || "");
       setFieldType(editParam.fieldType);
       setIsRequired(editParam.isRequired);
+      setIsCollection((editParam as any).isCollection || false);
       setClientTypeId(String(editParam.clientTypeId));
       setSectionId(editParam.sectionId ? String(editParam.sectionId) : "");
       setPanelId(editParam.panelId ? String(editParam.panelId) : "");
@@ -884,12 +980,16 @@ function ParameterDialog({
       setOptionsStr(editParam.options?.join(", ") || "");
       setUnit(editParam.unit || "");
       setDecimalPlaces(String(editParam.decimalPlaces));
+      const hints = (editParam as any).extractionHints;
+      setHintRegex(hints?.regex || "");
+      setHintFormat(hints?.format || "");
     } else {
       setFieldKey("");
       setLabel("");
       setShortLabel("");
       setFieldType("short_text");
       setIsRequired(false);
+      setIsCollection(false);
       setClientTypeId("1");
       setSectionId("");
       setPanelId("");
@@ -899,6 +999,8 @@ function ParameterDialog({
       setOptionsStr("");
       setUnit("");
       setDecimalPlaces("2");
+      setHintRegex("");
+      setHintFormat("");
     }
   };
 
@@ -911,13 +1013,13 @@ function ParameterDialog({
   const filteredPanels = sections.filter(s => s.clientTypeId === Number(clientTypeId) && s.isPanel);
 
   const handleSubmit = () => {
-    if (!fieldKey || !label) return;
+    if (!label) return;
     const data: any = {
-      fieldKey,
       label,
       shortLabel: shortLabel || null,
       fieldType,
       isRequired,
+      isCollection,
       clientTypeId: Number(clientTypeId),
       sectionId: sectionId ? Number(sectionId) : null,
       panelId: panelId ? Number(panelId) : null,
@@ -932,6 +1034,7 @@ function ParameterDialog({
       defaultValue: null,
       visibilityRule: null,
       categoryCode: null,
+      extractionHints: (hintRegex || hintFormat) ? { regex: hintRegex || undefined, format: hintFormat || undefined } : null,
     };
     if (editParam) data.id = editParam.id;
     onSave(data);
@@ -944,22 +1047,12 @@ function ParameterDialog({
           <DialogTitle>{editParam ? "Upraviť parameter" : "Nový parameter"}</DialogTitle>
         </DialogHeader>
         <div className="grid grid-cols-2 gap-4">
-          <div className="space-y-1.5">
-            <Label>Kľúč poľa *</Label>
-            <Input
-              value={fieldKey}
-              onChange={e => setFieldKey(e.target.value)}
-              placeholder="napr. meno, rodne_cislo"
-              disabled={!!editParam}
-              data-testid="input-field-key"
-            />
-          </div>
-          <div className="space-y-1.5">
-            <Label>Názov (label) *</Label>
+          <div className="col-span-2 space-y-1.5">
+            <Label>Názov parametra *</Label>
             <Input
               value={label}
               onChange={e => setLabel(e.target.value)}
-              placeholder="Meno klienta"
+              placeholder="napr. Rodné číslo, Meno klienta..."
               data-testid="input-field-label"
             />
           </div>
@@ -1034,6 +1127,17 @@ function ParameterDialog({
             />
             <Label>Povinné pole</Label>
           </div>
+          <div className="flex items-center gap-3 pt-5">
+            <Switch
+              checked={isCollection}
+              onCheckedChange={setIsCollection}
+              data-testid="switch-collection"
+            />
+            <Label className="flex flex-col">
+              <span>Kolekcia (viac hodnôt)</span>
+              <span className="text-xs text-muted-foreground font-normal">napr. telefóny, emaily, adresy</span>
+            </Label>
+          </div>
           <div className="space-y-1.5">
             <Label>Poradie (sortOrder)</Label>
             <Input
@@ -1095,13 +1199,50 @@ function ParameterDialog({
             </>
           )}
         </div>
+
+        <div className="border border-border rounded-md p-3 space-y-2">
+          <div className="flex items-center gap-2 text-sm font-medium">
+            <Brain className="w-4 h-4 text-blue-400" />
+            <span>Extrakčné pravidlá</span>
+          </div>
+          <p className="text-xs text-muted-foreground">
+            Regex vzor a formát pre automatickú extrakciu z dokumentov
+          </p>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1">
+              <Label className="text-xs">Regex vzor</Label>
+              <Input
+                value={hintRegex}
+                onChange={e => setHintRegex(e.target.value)}
+                placeholder="napr. \d{6}/\d{3,4}"
+                className="text-xs font-mono"
+                data-testid="input-hint-regex"
+              />
+            </div>
+            <div className="space-y-1">
+              <Label className="text-xs">Formát</Label>
+              <Input
+                value={hintFormat}
+                onChange={e => setHintFormat(e.target.value)}
+                placeholder="napr. XXXXXX/XXXX"
+                className="text-xs"
+                data-testid="input-hint-format"
+              />
+            </div>
+          </div>
+        </div>
+
+        {editParam && (
+          <SynonymManager parameterId={editParam.id} parameterLabel={editParam.label} />
+        )}
+
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)} data-testid="button-cancel-param">
             Zrušiť
           </Button>
           <Button
             onClick={handleSubmit}
-            disabled={isPending || !fieldKey || !label}
+            disabled={isPending || !label}
             data-testid="button-save-param"
           >
             {isPending ? <Loader2 className="w-4 h-4 animate-spin mr-1" /> : null}
@@ -1167,10 +1308,9 @@ function SectionDialog({
   const folderSections = sections.filter(s => !s.isPanel && s.clientTypeId === Number(clientTypeId));
 
   const handleSubmit = () => {
-    if (!name || !code) return;
+    if (!name) return;
     const data: any = {
       name,
-      code,
       clientTypeId: Number(clientTypeId),
       isPanel,
       parentSectionId: isPanel && parentSectionId ? Number(parentSectionId) : null,
@@ -1190,13 +1330,9 @@ function SectionDialog({
           <DialogTitle>{editSection ? "Upraviť sekciu/panel" : "Nová sekcia/panel"}</DialogTitle>
         </DialogHeader>
         <div className="grid grid-cols-2 gap-4">
-          <div className="space-y-1.5">
+          <div className="col-span-2 space-y-1.5">
             <Label>Názov *</Label>
-            <Input value={name} onChange={e => setName(e.target.value)} data-testid="input-section-name" />
-          </div>
-          <div className="space-y-1.5">
-            <Label>Kód *</Label>
-            <Input value={code} onChange={e => setCode(e.target.value)} disabled={!!editSection} data-testid="input-section-code" />
+            <Input value={name} onChange={e => setName(e.target.value)} placeholder="napr. Osobné údaje, Kontaktné údaje..." data-testid="input-section-name" />
           </div>
           <div className="space-y-1.5">
             <Label>Typ klienta</Label>
@@ -1241,7 +1377,7 @@ function SectionDialog({
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)} data-testid="button-cancel-section">Zrušiť</Button>
-          <Button onClick={handleSubmit} disabled={isPending || !name || !code} data-testid="button-save-section">
+          <Button onClick={handleSubmit} disabled={isPending || !name} data-testid="button-save-section">
             {isPending ? <Loader2 className="w-4 h-4 animate-spin mr-1" /> : null}
             {editSection ? "Uložiť zmeny" : "Vytvoriť"}
           </Button>
@@ -1292,8 +1428,8 @@ function TemplateDialog({
   };
 
   const handleSubmit = () => {
-    if (!name || !code) return;
-    const data: any = { name, code, description: description || null, isDefault, isActive };
+    if (!name) return;
+    const data: any = { name, description: description || null, isDefault, isActive };
     if (editTemplate) data.id = editTemplate.id;
     onSave(data);
   };
@@ -1305,13 +1441,9 @@ function TemplateDialog({
           <DialogTitle>{editTemplate ? "Upraviť šablónu" : "Nová šablóna"}</DialogTitle>
         </DialogHeader>
         <div className="grid grid-cols-2 gap-4">
-          <div className="space-y-1.5">
+          <div className="col-span-2 space-y-1.5">
             <Label>Názov *</Label>
-            <Input value={name} onChange={e => setName(e.target.value)} data-testid="input-template-name" />
-          </div>
-          <div className="space-y-1.5">
-            <Label>Kód *</Label>
-            <Input value={code} onChange={e => setCode(e.target.value)} disabled={!!editTemplate} data-testid="input-template-code" />
+            <Input value={name} onChange={e => setName(e.target.value)} placeholder="napr. Základná FO šablóna..." data-testid="input-template-name" />
           </div>
           <div className="col-span-2 space-y-1.5">
             <Label>Popis</Label>
@@ -1328,7 +1460,7 @@ function TemplateDialog({
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)} data-testid="button-cancel-template">Zrušiť</Button>
-          <Button onClick={handleSubmit} disabled={isPending || !name || !code} data-testid="button-save-template">
+          <Button onClick={handleSubmit} disabled={isPending || !name} data-testid="button-save-template">
             {isPending ? <Loader2 className="w-4 h-4 animate-spin mr-1" /> : null}
             {editTemplate ? "Uložiť zmeny" : "Vytvoriť"}
           </Button>

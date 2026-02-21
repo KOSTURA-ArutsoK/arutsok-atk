@@ -108,10 +108,12 @@ import {
   subjectCollaborators,
   type SubjectCollaborator, type InsertSubjectCollaborator,
   subjectParamSections, subjectParameters, subjectTemplates, subjectTemplateParams,
+  parameterSynonyms,
   type SubjectParamSection, type InsertSubjectParamSection,
   type SubjectParameter, type InsertSubjectParameter,
   type SubjectTemplate, type InsertSubjectTemplate,
   type SubjectTemplateParam, type InsertSubjectTemplateParam,
+  type ParameterSynonym, type InsertParameterSynonym,
 } from "@shared/schema";
 import { eq, and, or, ne, like, sql, lte, gte, gt, desc, asc, isNull, isNotNull, inArray } from "drizzle-orm";
 
@@ -566,6 +568,12 @@ export interface IStorage {
   bulkSetTemplateParams(templateId: number, paramIds: number[]): Promise<void>;
 
   getResolvedParametersForTemplate(templateId: number, contractDate?: Date): Promise<SubjectParameter[]>;
+
+  getParameterSynonyms(parameterId: number): Promise<ParameterSynonym[]>;
+  getAllParameterSynonyms(): Promise<ParameterSynonym[]>;
+  createParameterSynonym(data: InsertParameterSynonym): Promise<ParameterSynonym>;
+  deleteParameterSynonym(id: number): Promise<void>;
+  matchParameterBySynonym(text: string): Promise<{ parameterId: number; synonym: string; confidence: number }[]>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -3690,6 +3698,41 @@ export class DatabaseStorage implements IStorage {
     }
 
     return result;
+  }
+
+  async getParameterSynonyms(parameterId: number): Promise<ParameterSynonym[]> {
+    return db.select().from(parameterSynonyms).where(eq(parameterSynonyms.parameterId, parameterId)).orderBy(asc(parameterSynonyms.synonym));
+  }
+
+  async getAllParameterSynonyms(): Promise<ParameterSynonym[]> {
+    return db.select().from(parameterSynonyms).orderBy(asc(parameterSynonyms.synonym));
+  }
+
+  async createParameterSynonym(data: InsertParameterSynonym): Promise<ParameterSynonym> {
+    const [syn] = await db.insert(parameterSynonyms).values(data).returning();
+    return syn;
+  }
+
+  async deleteParameterSynonym(id: number): Promise<void> {
+    await db.delete(parameterSynonyms).where(eq(parameterSynonyms.id, id));
+  }
+
+  async matchParameterBySynonym(text: string): Promise<{ parameterId: number; synonym: string; confidence: number }[]> {
+    const normalizedText = text.toLowerCase().trim();
+    const allSynonyms = await this.getAllParameterSynonyms();
+    const matches: { parameterId: number; synonym: string; confidence: number }[] = [];
+    for (const syn of allSynonyms) {
+      const normalizedSyn = syn.synonym.toLowerCase().trim();
+      if (normalizedText.includes(normalizedSyn) || normalizedSyn.includes(normalizedText)) {
+        matches.push({
+          parameterId: syn.parameterId,
+          synonym: syn.synonym,
+          confidence: syn.confidence ?? 100,
+        });
+      }
+    }
+    matches.sort((a, b) => b.confidence - a.confidence);
+    return matches;
   }
 }
 

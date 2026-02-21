@@ -6885,13 +6885,29 @@ export async function registerRoutes(
     } catch (err) { res.status(500).json({ message: "Internal error" }); }
   });
 
+  function generateAutoCode(name: string, prefix: string = ""): string {
+    const slug = name
+      .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "_")
+      .replace(/^_|_$/g, "")
+      .substring(0, 30);
+    const suffix = Math.random().toString(36).substring(2, 6);
+    return `${prefix}${slug}_${suffix}`;
+  }
+
   app.post("/api/subject-param-sections", isAuthenticated, async (req, res) => {
     try {
-      const { name, code, clientTypeId } = req.body;
-      if (!name || !code || !clientTypeId) return res.status(400).json({ message: "name, code, clientTypeId required" });
-      const section = await storage.createSubjectParamSection(req.body);
+      const { name, clientTypeId } = req.body;
+      if (!name || !clientTypeId) return res.status(400).json({ message: "name, clientTypeId required" });
+      const code = req.body.code || generateAutoCode(name, "sec_");
+      const folderCategory = req.body.folderCategory || "general";
+      const section = await storage.createSubjectParamSection({ ...req.body, code, folderCategory });
       res.json(section);
-    } catch (err) { res.status(500).json({ message: "Internal error" }); }
+    } catch (err: any) {
+      console.error("Error creating subject param section:", err?.message || err);
+      res.status(500).json({ message: "Internal error" });
+    }
   });
 
   app.patch("/api/subject-param-sections/:id", isAuthenticated, async (req, res) => {
@@ -6936,11 +6952,17 @@ export async function registerRoutes(
 
   app.post("/api/subject-parameters", isAuthenticated, async (req, res) => {
     try {
-      const { fieldKey, label, fieldType, clientTypeId } = req.body;
-      if (!fieldKey || !label || !fieldType || !clientTypeId) return res.status(400).json({ message: "fieldKey, label, fieldType, clientTypeId required" });
-      const param = await storage.createSubjectParameter(req.body);
+      const { label, fieldType, clientTypeId } = req.body;
+      if (!label || !fieldType || !clientTypeId) return res.status(400).json({ message: "label, fieldType, clientTypeId required" });
+      const fieldKey = req.body.fieldKey || generateAutoCode(label, "f_");
+      const code = req.body.code || generateAutoCode(label, "p_");
+      const fieldCategory = req.body.fieldCategory || "general";
+      const param = await storage.createSubjectParameter({ ...req.body, fieldKey, code, fieldCategory });
       res.json(param);
-    } catch (err) { res.status(500).json({ message: "Internal error" }); }
+    } catch (err: any) {
+      console.error("Error creating subject parameter:", err?.message || err);
+      res.status(500).json({ message: "Internal error" });
+    }
   });
 
   app.patch("/api/subject-parameters/:id", isAuthenticated, async (req, res) => {
@@ -6955,6 +6977,125 @@ export async function registerRoutes(
       await storage.deleteSubjectParameter(Number(req.params.id));
       res.json({ success: true });
     } catch (err) { res.status(500).json({ message: "Internal error" }); }
+  });
+
+  // Parameter Synonyms CRUD
+  app.get("/api/subject-parameters/:parameterId/synonyms", isAuthenticated, async (req, res) => {
+    try {
+      const synonyms = await storage.getParameterSynonyms(Number(req.params.parameterId));
+      res.json(synonyms);
+    } catch (err) { res.status(500).json({ message: "Internal error" }); }
+  });
+
+  app.post("/api/subject-parameters/:parameterId/synonyms", isAuthenticated, async (req, res) => {
+    try {
+      const { synonym } = req.body;
+      if (!synonym) return res.status(400).json({ message: "synonym required" });
+      const syn = await storage.createParameterSynonym({
+        parameterId: Number(req.params.parameterId),
+        synonym,
+        language: req.body.language || "sk",
+        source: req.body.source || "manual",
+        confidence: req.body.confidence ?? 100,
+      });
+      res.json(syn);
+    } catch (err) { res.status(500).json({ message: "Internal error" }); }
+  });
+
+  app.delete("/api/parameter-synonyms/:id", isAuthenticated, async (req, res) => {
+    try {
+      await storage.deleteParameterSynonym(Number(req.params.id));
+      res.json({ success: true });
+    } catch (err) { res.status(500).json({ message: "Internal error" }); }
+  });
+
+  app.post("/api/parameter-synonyms/match", isAuthenticated, async (req, res) => {
+    try {
+      const { text } = req.body;
+      if (!text) return res.status(400).json({ message: "text required" });
+      const matches = await storage.matchParameterBySynonym(text);
+      res.json(matches);
+    } catch (err) { res.status(500).json({ message: "Internal error" }); }
+  });
+
+  // AI Field Extraction - maps document text to parameters via synonyms + regex hints
+  app.post("/api/ai/extract-fields", isAuthenticated, async (req, res) => {
+    try {
+      const { text, clientTypeId } = req.body;
+      if (!text) return res.status(400).json({ message: "text required" });
+
+      const allParams = await storage.getSubjectParameters(clientTypeId ? Number(clientTypeId) : undefined);
+      const allSynonyms = await storage.getAllParameterSynonyms();
+
+      const synonymMap = new Map<number, string[]>();
+      for (const syn of allSynonyms) {
+        if (!synonymMap.has(syn.parameterId)) synonymMap.set(syn.parameterId, []);
+        synonymMap.get(syn.parameterId)!.push(syn.synonym.toLowerCase());
+      }
+
+      const results: { parameterId: number; fieldKey: string; label: string; matchedValue: string | null; matchType: string; confidence: number }[] = [];
+      const lines = text.split(/\n/);
+
+      for (const param of allParams) {
+        const searchTerms = [param.label.toLowerCase()];
+        if (param.shortLabel) searchTerms.push(param.shortLabel.toLowerCase());
+        const paramSynonyms = synonymMap.get(param.id) || [];
+        searchTerms.push(...paramSynonyms);
+
+        let bestMatch: { value: string | null; matchType: string; confidence: number } | null = null;
+
+        for (const line of lines) {
+          const lowerLine = line.toLowerCase().trim();
+          if (!lowerLine) continue;
+
+          for (const term of searchTerms) {
+            if (lowerLine.includes(term)) {
+              const afterTerm = line.substring(lowerLine.indexOf(term) + term.length).replace(/^[\s:=\-]+/, "").trim();
+              const extractedValue = afterTerm || null;
+
+              const hints = (param as any).extractionHints;
+              if (hints?.regex && extractedValue) {
+                try {
+                  const regex = new RegExp(hints.regex);
+                  const match = extractedValue.match(regex);
+                  if (match) {
+                    bestMatch = { value: match[0], matchType: "regex", confidence: 95 };
+                    break;
+                  }
+                } catch {}
+              }
+
+              if (!bestMatch || bestMatch.confidence < 80) {
+                bestMatch = {
+                  value: extractedValue,
+                  matchType: paramSynonyms.includes(term) ? "synonym" : "label",
+                  confidence: paramSynonyms.includes(term) ? 85 : 75,
+                };
+              }
+            }
+          }
+
+          if (bestMatch?.confidence === 95) break;
+        }
+
+        if (bestMatch) {
+          results.push({
+            parameterId: param.id,
+            fieldKey: param.fieldKey,
+            label: param.label,
+            matchedValue: bestMatch.value,
+            matchType: bestMatch.matchType,
+            confidence: bestMatch.confidence,
+          });
+        }
+      }
+
+      results.sort((a, b) => b.confidence - a.confidence);
+      res.json({ extracted: results, totalParams: allParams.length, matchedCount: results.length });
+    } catch (err) {
+      console.error("[AI EXTRACT ERROR]", err);
+      res.status(500).json({ message: "Internal error" });
+    }
   });
 
   app.get("/api/subject-templates", isAuthenticated, async (req, res) => {
@@ -6974,11 +7115,15 @@ export async function registerRoutes(
 
   app.post("/api/subject-templates", isAuthenticated, async (req, res) => {
     try {
-      const { name, code } = req.body;
-      if (!name || !code) return res.status(400).json({ message: "name, code required" });
-      const tmpl = await storage.createSubjectTemplate(req.body);
+      const { name } = req.body;
+      if (!name) return res.status(400).json({ message: "name required" });
+      const code = req.body.code || generateAutoCode(name, "tmpl_");
+      const tmpl = await storage.createSubjectTemplate({ ...req.body, code });
       res.json(tmpl);
-    } catch (err) { res.status(500).json({ message: "Internal error" }); }
+    } catch (err: any) {
+      console.error("Error creating subject template:", err?.message || err);
+      res.status(500).json({ message: "Internal error" });
+    }
   });
 
   app.patch("/api/subject-templates/:id", isAuthenticated, async (req, res) => {
