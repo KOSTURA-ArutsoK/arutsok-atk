@@ -6010,7 +6010,8 @@ export async function registerRoutes(
       const existing = await storage.getSubject(subjectId);
       if (!existing) return res.status(404).json({ message: "Subjekt nenájdený" });
 
-      if (req.appUser?.activeCompanyId && existing.companyId !== req.appUser.activeCompanyId) {
+      const userCompanyId = req.appUser?.activeCompanyId;
+      if (userCompanyId && existing.myCompanyId != null && Number(existing.myCompanyId) !== Number(userCompanyId)) {
         return res.status(403).json({ message: "Subjekt nepatrí do vašej aktívnej spoločnosti" });
       }
 
