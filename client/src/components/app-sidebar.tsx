@@ -1,9 +1,9 @@
 import { useState } from "react";
 import { Link, useLocation } from "wouter";
-import { useAuth } from "@/hooks/use-auth";
 import { useAppUser } from "@/hooks/use-app-user";
 import { useHelp } from "@/contexts/help-context";
 import { RankBadge } from "@/components/rank-badge";
+import { useQuery } from "@tanstack/react-query";
 import type { CircleConfig } from "@shared/schema";
 import {
   LayoutDashboard,
@@ -70,7 +70,6 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 
 const topItems = [
@@ -218,9 +217,12 @@ function CollapsibleMenu({
 
 export function AppSidebar() {
   const [location] = useLocation();
-  const { user } = useAuth();
   const { data: appUser } = useAppUser();
   const { helpEnabled, toggleHelp } = useHelp();
+  const { data: pointsData } = useQuery<{ points: number }>({
+    queryKey: ["/api/app-users/my-points"],
+    staleTime: 1000 * 60 * 5,
+  });
 
   const allMenus = [
     { id: "nastavenia", items: [...spravaPristupovItems, ...specifikacieItems, ...nastavenieDirectItems] },
@@ -247,14 +249,6 @@ export function AppSidebar() {
     : protokolyChildren.some(i => i.href === location) ? "protokoly"
     : importItems.some(i => i.href === location) ? "import" : null;
   const [zmluvySubId, setZmluvySubId] = useState<string | null>(zmluvyInitialSub);
-
-  const displayName = appUser
-    ? `${appUser.firstName || ""} ${appUser.lastName || ""}`.trim() || appUser.username
-    : user?.firstName || "Pouzivatel";
-
-  const initials = appUser
-    ? `${(appUser.firstName || "U")[0]}${(appUser.lastName || "")[0] || ""}`.toUpperCase()
-    : "U";
 
   return (
     <Sidebar>
@@ -631,11 +625,10 @@ export function AppSidebar() {
         </SidebarGroup>
       </SidebarContent>
 
-      <SidebarFooter className="p-3 space-y-2">
+      <SidebarFooter className="p-3">
         <div className="border border-sidebar-border rounded-md p-2" data-testid="rank-display">
-          <p className="text-[10px] text-sidebar-foreground/50 uppercase tracking-wider mb-1" data-testid="text-rank-label">Hodnosť</p>
           <p className="text-xs font-semibold truncate mb-1.5" data-testid="text-rank-name">
-            {appUser?.careerLevel?.positionName || "Nepriradená"}
+            {appUser?.careerLevel?.positionName || "Nepriradená"} • {pointsData?.points?.toFixed(1) ?? "0"} bodov
           </p>
           <RankBadge
             positionName={appUser?.careerLevel?.positionName || undefined}
@@ -643,16 +636,6 @@ export function AppSidebar() {
             circleConfig={appUser?.careerLevel?.circleConfig as CircleConfig[] || undefined}
             compact
           />
-        </div>
-        <div className="flex items-center gap-2 px-2 py-1">
-          <Avatar className="w-7 h-7">
-            <AvatarImage src={user?.profileImageUrl || undefined} />
-            <AvatarFallback className="text-xs">{initials}</AvatarFallback>
-          </Avatar>
-          <div className="flex-1 min-w-0">
-            <p className="text-xs font-medium truncate" data-testid="text-sidebar-username">{displayName}</p>
-            <p className="text-[10px] text-sidebar-foreground/50 truncate">{appUser?.role || "pouzivatel"}</p>
-          </div>
         </div>
       </SidebarFooter>
     </Sidebar>
