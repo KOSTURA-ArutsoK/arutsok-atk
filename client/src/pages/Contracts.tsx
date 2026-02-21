@@ -1944,12 +1944,12 @@ export default function Contracts() {
             )}
             {showOrder && <TableHead className="w-[40px] text-center">#</TableHead>}
             {evidenciaColumnVisibility.isVisible("contractNumber") && <TableHead sortKey="contractNumber" sortDirection={sk === "contractNumber" ? sd : null} onSort={rs}>Cislo zmluvy</TableHead>}
+            {showStatus && evidenciaColumnVisibility.isVisible("status") && <TableHead style={{ minWidth: 140 }}>Stav</TableHead>}
             {evidenciaColumnVisibility.isVisible("proposalNumber") && <TableHead sortKey="proposalNumber" sortDirection={sk === "proposalNumber" ? sd : null} onSort={rs}>Cislo navrhu</TableHead>}
             {showRegistration && evidenciaColumnVisibility.isVisible("globalNumber") && <TableHead sortKey="globalNumber" sortDirection={sk === "globalNumber" ? sd : null} onSort={rs}>Poradove cislo</TableHead>}
-            {evidenciaColumnVisibility.isVisible("subjectId") && <TableHead sortKey="subjectId" sortDirection={sk === "subjectId" ? sd : null} onSort={rs}>Klient</TableHead>}
             {evidenciaColumnVisibility.isVisible("partnerId") && <TableHead sortKey="partnerId" sortDirection={sk === "partnerId" ? sd : null} onSort={rs}>Partner</TableHead>}
+            {evidenciaColumnVisibility.isVisible("subjectId") && <TableHead sortKey="subjectId" sortDirection={sk === "subjectId" ? sd : null} onSort={rs}>Klient</TableHead>}
             {evidenciaColumnVisibility.isVisible("productId") && <TableHead sortKey="productId" sortDirection={sk === "productId" ? sd : null} onSort={rs}>Produkt</TableHead>}
-            {showStatus && evidenciaColumnVisibility.isVisible("status") && <TableHead style={{ minWidth: 170 }}>Stav</TableHead>}
             {evidenciaColumnVisibility.isVisible("annualPremium") && <TableHead sortKey="annualPremium" sortDirection={sk === "annualPremium" ? sd : null} onSort={rs}>Rocne poistne</TableHead>}
             {evidenciaColumnVisibility.isVisible("signedDate") && <TableHead sortKey="signedDate" sortDirection={sk === "signedDate" ? sd : null} onSort={rs}>Vytvorenie zmluvy</TableHead>}
             {evidenciaColumnVisibility.isVisible("premiumAmount") && <TableHead sortKey="premiumAmount" sortDirection={sk === "premiumAmount" ? sd : null} onSort={rs}>Lehotne poistne</TableHead>}
@@ -1971,36 +1971,23 @@ export default function Contracts() {
                   </TableCell>
                 )}
                 {showOrder && (
-                  <TableCell className="text-center text-xs text-muted-foreground" data-testid={`text-selection-order-${contract.id}`}>
+                  <TableCell className="text-center text-xs text-muted-foreground py-1" data-testid={`text-selection-order-${contract.id}`}>
                     {selectedIds.includes(contract.id) ? selectedIds.indexOf(contract.id) + 1 : ""}
                   </TableCell>
                 )}
-                {evidenciaColumnVisibility.isVisible("contractNumber") && <TableCell className="font-mono text-sm" data-testid={`text-contract-number-${contract.id}`}>
+                {evidenciaColumnVisibility.isVisible("contractNumber") && <TableCell className="font-mono text-sm font-bold text-blue-500 py-1" data-testid={`text-contract-number-${contract.id}`}>
                   <span className="flex items-center gap-1">
                     <Lock className="w-3 h-3 text-amber-500 shrink-0" style={{ display: contract.isLocked ? 'block' : 'none' }} />
                     {contract.contractNumber || "-"}
                   </span>
                 </TableCell>}
-                {evidenciaColumnVisibility.isVisible("proposalNumber") && <TableCell className="text-sm font-mono" data-testid={`text-contract-proposal-${contract.id}`}>{contract.proposalNumber || "-"}</TableCell>}
-                {showRegistration && evidenciaColumnVisibility.isVisible("globalNumber") && (
-                  <TableCell className="font-mono text-sm" data-testid={`text-contract-registration-${contract.id}`}>
-                    {contract.globalNumber ? (
-                      <span className="font-semibold">{contract.globalNumber}</span>
-                    ) : (
-                      <Badge variant="outline" className="text-xs text-amber-500 border-amber-500/50">V procese</Badge>
-                    )}
-                  </TableCell>
-                )}
-                {evidenciaColumnVisibility.isVisible("subjectId") && <TableCell className="text-sm">{getSubjectDisplay(contract.subjectId)}</TableCell>}
-                {evidenciaColumnVisibility.isVisible("partnerId") && <TableCell className="text-sm">{getPartnerName(contract)}</TableCell>}
-                {evidenciaColumnVisibility.isVisible("productId") && <TableCell className="text-sm">{getProductName(contract)}</TableCell>}
                 {showStatus && evidenciaColumnVisibility.isVisible("status") && (
-                  <TableCell data-testid={`text-contract-status-${contract.id}`} style={{ minWidth: 170 }}>
+                  <TableCell className="py-1" data-testid={`text-contract-status-${contract.id}`} style={{ minWidth: 140 }}>
                     <div className="flex items-center justify-center gap-1.5">
                       {status ? (
                         <span
-                          className="inline-flex items-center justify-center px-3 py-1 rounded-md border text-[11px] font-medium leading-tight text-center"
-                          style={{ borderColor: status.color, color: status.color, backgroundColor: `${status.color}15`, whiteSpace: 'normal', wordBreak: 'normal', overflowWrap: 'break-word' }}
+                          className="inline-flex items-center justify-center px-2.5 py-0.5 rounded-md border text-[11px] font-medium leading-tight text-center whitespace-normal"
+                          style={{ borderColor: status.color, color: status.color, backgroundColor: `${status.color}15`, wordBreak: 'normal', overflowWrap: 'break-word' }}
                         >{status.name}</span>
                       ) : "-"}
                       <MessageSquare className="w-3.5 h-3.5 text-blue-400 shrink-0" data-testid={`icon-note-${contract.id}`} style={{ display: statusChangeMeta?.[contract.id]?.hasNote ? 'block' : 'none' }} />
@@ -2008,22 +1995,35 @@ export default function Contracts() {
                     </div>
                   </TableCell>
                 )}
-                {evidenciaColumnVisibility.isVisible("annualPremium") && <TableCell className="text-sm font-mono">{formatAmount(contract.annualPremium, contract.currency)}</TableCell>}
-                {evidenciaColumnVisibility.isVisible("signedDate") && <TableCell className="text-sm">{formatDate(contract.signedDate)}</TableCell>}
-                {evidenciaColumnVisibility.isVisible("premiumAmount") && <TableCell className="text-sm font-mono">{formatAmount(contract.premiumAmount, contract.currency)}</TableCell>}
+                {evidenciaColumnVisibility.isVisible("proposalNumber") && <TableCell className="text-sm font-mono py-1" data-testid={`text-contract-proposal-${contract.id}`}>{contract.proposalNumber || "-"}</TableCell>}
+                {showRegistration && evidenciaColumnVisibility.isVisible("globalNumber") && (
+                  <TableCell className="font-mono text-sm py-1" data-testid={`text-contract-registration-${contract.id}`}>
+                    {contract.globalNumber ? (
+                      <span className="font-semibold">{contract.globalNumber}</span>
+                    ) : (
+                      <Badge variant="outline" className="text-xs text-amber-500 border-amber-500/50">V procese</Badge>
+                    )}
+                  </TableCell>
+                )}
+                {evidenciaColumnVisibility.isVisible("partnerId") && <TableCell className="text-sm py-1">{getPartnerName(contract)}</TableCell>}
+                {evidenciaColumnVisibility.isVisible("subjectId") && <TableCell className="text-sm py-1">{getSubjectDisplay(contract.subjectId)}</TableCell>}
+                {evidenciaColumnVisibility.isVisible("productId") && <TableCell className="text-sm py-1">{getProductName(contract)}</TableCell>}
+                {evidenciaColumnVisibility.isVisible("annualPremium") && <TableCell className="text-sm font-mono py-1">{formatAmount(contract.annualPremium, contract.currency)}</TableCell>}
+                {evidenciaColumnVisibility.isVisible("signedDate") && <TableCell className="text-sm py-1">{formatDate(contract.signedDate)}</TableCell>}
+                {evidenciaColumnVisibility.isVisible("premiumAmount") && <TableCell className="text-sm font-mono py-1">{formatAmount(contract.premiumAmount, contract.currency)}</TableCell>}
                 {showActions && (
-                  <TableCell className="text-right">
-                    <div className="flex items-center justify-end gap-1 flex-wrap">
-                      <Button size="icon" variant="ghost" onClick={() => openView(contract)} data-testid={`button-view-contract-${contract.id}`}>
-                        <Eye className="w-4 h-4" />
+                  <TableCell className="text-right py-1">
+                    <div className="flex items-center justify-end gap-0.5 flex-nowrap">
+                      <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => openView(contract)} data-testid={`button-view-contract-${contract.id}`}>
+                        <Eye className="w-3.5 h-3.5" />
                       </Button>
-                      <Button size="icon" variant="ghost" onClick={() => openEdit(contract)} data-testid={`button-edit-contract-${contract.id}`}>
-                        <Pencil className="w-4 h-4" />
+                      <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => openEdit(contract)} data-testid={`button-edit-contract-${contract.id}`}>
+                        <Pencil className="w-3.5 h-3.5" />
                       </Button>
                       <Tooltip>
                         <TooltipTrigger asChild>
-                          <Button size="icon" variant="ghost" onClick={() => openDelete(contract)} data-testid={`button-delete-contract-${contract.id}`}>
-                            <Trash2 className="w-4 h-4" />
+                          <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => openDelete(contract)} data-testid={`button-delete-contract-${contract.id}`}>
+                            <Trash2 className="w-3.5 h-3.5" />
                           </Button>
                         </TooltipTrigger>
                         <TooltipContent>Zmazať prázdny záznam</TooltipContent>
@@ -2808,12 +2808,12 @@ export default function Contracts() {
               <TableHeader>
                 <TableRow>
                   {columnVisibility.isVisible("contractNumber") && <TableHead sortKey="contractNumber" sortDirection={skMain === "contractNumber" ? sdMain : null} onSort={rsMain}>Cislo zmluvy</TableHead>}
+                  {columnVisibility.isVisible("status") && <TableHead style={{ minWidth: 140 }}>Stav</TableHead>}
                   {columnVisibility.isVisible("proposalNumber") && <TableHead sortKey="proposalNumber" sortDirection={skMain === "proposalNumber" ? sdMain : null} onSort={rsMain}>Cislo navrhu</TableHead>}
                   {columnVisibility.isVisible("globalNumber") && <TableHead sortKey="globalNumber" sortDirection={skMain === "globalNumber" ? sdMain : null} onSort={rsMain}>Poradove cislo</TableHead>}
-                  {columnVisibility.isVisible("subjectId") && <TableHead sortKey="subjectId" sortDirection={skMain === "subjectId" ? sdMain : null} onSort={rsMain}>Klient</TableHead>}
                   {columnVisibility.isVisible("partnerId") && <TableHead sortKey="partnerId" sortDirection={skMain === "partnerId" ? sdMain : null} onSort={rsMain}>Partner</TableHead>}
+                  {columnVisibility.isVisible("subjectId") && <TableHead sortKey="subjectId" sortDirection={skMain === "subjectId" ? sdMain : null} onSort={rsMain}>Klient</TableHead>}
                   {columnVisibility.isVisible("productId") && <TableHead sortKey="productId" sortDirection={skMain === "productId" ? sdMain : null} onSort={rsMain}>Produkt</TableHead>}
-                  {columnVisibility.isVisible("status") && <TableHead style={{ minWidth: 170 }}>Stav</TableHead>}
                   {columnVisibility.isVisible("inventoryId") && <TableHead sortKey="inventoryId" sortDirection={skMain === "inventoryId" ? sdMain : null} onSort={rsMain}>Sprievodka</TableHead>}
                   {columnVisibility.isVisible("annualPremium") && <TableHead sortKey="annualPremium" sortDirection={skMain === "annualPremium" ? sdMain : null} onSort={rsMain}>Rocne poistne</TableHead>}
                   {columnVisibility.isVisible("signedDate") && <TableHead sortKey="signedDate" sortDirection={skMain === "signedDate" ? sdMain : null} onSort={rsMain}>Vytvorenie zmluvy</TableHead>}
@@ -2828,35 +2828,18 @@ export default function Contracts() {
 
                   return (
                     <TableRow key={contract.id} data-testid={`row-contract-${contract.id}`} onRowClick={() => openEdit(contract)}>
-                      {columnVisibility.isVisible("contractNumber") && <TableCell className="font-mono text-sm" data-testid={`text-contract-number-${contract.id}`}>
+                      {columnVisibility.isVisible("contractNumber") && <TableCell className="font-mono text-sm font-bold text-blue-500 py-1" data-testid={`text-contract-number-${contract.id}`}>
                         <span className="flex items-center gap-1">
                           <Lock className="w-3 h-3 text-amber-500 shrink-0" style={{ display: contract.isLocked ? 'block' : 'none' }} />
                           {contract.contractNumber || "-"}
                         </span>
                       </TableCell>}
-                      {columnVisibility.isVisible("proposalNumber") && <TableCell className="text-sm font-mono" data-testid={`text-contract-proposal-${contract.id}`}>{contract.proposalNumber || "-"}</TableCell>}
-                      {columnVisibility.isVisible("globalNumber") && <TableCell className="font-mono text-sm" data-testid={`text-contract-registration-${contract.id}`}>
-                        {contract.globalNumber ? (
-                          <span className="font-semibold">{contract.globalNumber}</span>
-                        ) : (
-                          <Badge variant="outline" className="text-xs text-amber-500 border-amber-500/50">V procese</Badge>
-                        )}
-                      </TableCell>}
-                      {columnVisibility.isVisible("subjectId") && <TableCell className="text-sm" data-testid={`text-contract-subject-${contract.id}`}>
-                        {getSubjectDisplay(contract.subjectId)}
-                      </TableCell>}
-                      {columnVisibility.isVisible("partnerId") && <TableCell className="text-sm" data-testid={`text-contract-partner-${contract.id}`}>
-                        {getPartnerName(contract)}
-                      </TableCell>}
-                      {columnVisibility.isVisible("productId") && <TableCell className="text-sm" data-testid={`text-contract-product-${contract.id}`}>
-                        {getProductName(contract)}
-                      </TableCell>}
-                      {columnVisibility.isVisible("status") && <TableCell data-testid={`text-contract-status-${contract.id}`} style={{ minWidth: 170 }}>
+                      {columnVisibility.isVisible("status") && <TableCell className="py-1" data-testid={`text-contract-status-${contract.id}`} style={{ minWidth: 140 }}>
                         <div className="flex items-center justify-center">
                           {status ? (
                             <span
-                              className="inline-flex items-center justify-center px-3 py-1 rounded-md border text-[11px] font-medium leading-tight text-center"
-                              style={{ borderColor: status.color, color: status.color, backgroundColor: `${status.color}15`, whiteSpace: 'normal', wordBreak: 'normal', overflowWrap: 'break-word' }}
+                              className="inline-flex items-center justify-center px-2.5 py-0.5 rounded-md border text-[11px] font-medium leading-tight text-center whitespace-normal"
+                              style={{ borderColor: status.color, color: status.color, backgroundColor: `${status.color}15`, wordBreak: 'normal', overflowWrap: 'break-word' }}
                               data-testid={`badge-contract-status-${contract.id}`}
                             >
                               {status.name}
@@ -2864,30 +2847,47 @@ export default function Contracts() {
                           ) : "-"}
                         </div>
                       </TableCell>}
-                      {columnVisibility.isVisible("inventoryId") && <TableCell className="text-sm" data-testid={`text-contract-inventory-${contract.id}`}>
+                      {columnVisibility.isVisible("proposalNumber") && <TableCell className="text-sm font-mono py-1" data-testid={`text-contract-proposal-${contract.id}`}>{contract.proposalNumber || "-"}</TableCell>}
+                      {columnVisibility.isVisible("globalNumber") && <TableCell className="font-mono text-sm py-1" data-testid={`text-contract-registration-${contract.id}`}>
+                        {contract.globalNumber ? (
+                          <span className="font-semibold">{contract.globalNumber}</span>
+                        ) : (
+                          <Badge variant="outline" className="text-xs text-amber-500 border-amber-500/50">V procese</Badge>
+                        )}
+                      </TableCell>}
+                      {columnVisibility.isVisible("partnerId") && <TableCell className="text-sm py-1" data-testid={`text-contract-partner-${contract.id}`}>
+                        {getPartnerName(contract)}
+                      </TableCell>}
+                      {columnVisibility.isVisible("subjectId") && <TableCell className="text-sm py-1" data-testid={`text-contract-subject-${contract.id}`}>
+                        {getSubjectDisplay(contract.subjectId)}
+                      </TableCell>}
+                      {columnVisibility.isVisible("productId") && <TableCell className="text-sm py-1" data-testid={`text-contract-product-${contract.id}`}>
+                        {getProductName(contract)}
+                      </TableCell>}
+                      {columnVisibility.isVisible("inventoryId") && <TableCell className="text-sm py-1" data-testid={`text-contract-inventory-${contract.id}`}>
                         {inventoryName}
                       </TableCell>}
-                      {columnVisibility.isVisible("annualPremium") && <TableCell className="text-sm font-mono" data-testid={`text-contract-annual-${contract.id}`}>
+                      {columnVisibility.isVisible("annualPremium") && <TableCell className="text-sm font-mono py-1" data-testid={`text-contract-annual-${contract.id}`}>
                         {formatAmount(contract.annualPremium, contract.currency)}
                       </TableCell>}
-                      {columnVisibility.isVisible("signedDate") && <TableCell className="text-sm" data-testid={`text-contract-date-${contract.id}`}>
+                      {columnVisibility.isVisible("signedDate") && <TableCell className="text-sm py-1" data-testid={`text-contract-date-${contract.id}`}>
                         {formatDate(contract.signedDate)}
                       </TableCell>}
-                      {columnVisibility.isVisible("premiumAmount") && <TableCell className="text-sm font-mono" data-testid={`text-contract-amount-${contract.id}`}>
+                      {columnVisibility.isVisible("premiumAmount") && <TableCell className="text-sm font-mono py-1" data-testid={`text-contract-amount-${contract.id}`}>
                         {formatAmount(contract.premiumAmount, contract.currency)}
                       </TableCell>}
-                      <TableCell className="text-right">
-                        <div className="flex items-center justify-end gap-1 flex-wrap">
-                          <Button size="icon" variant="ghost" onClick={() => openView(contract)} data-testid={`button-view-contract-${contract.id}`}>
-                            <Eye className="w-4 h-4" />
+                      <TableCell className="text-right py-1">
+                        <div className="flex items-center justify-end gap-0.5 flex-nowrap">
+                          <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => openView(contract)} data-testid={`button-view-contract-${contract.id}`}>
+                            <Eye className="w-3.5 h-3.5" />
                           </Button>
-                          <Button size="icon" variant="ghost" onClick={() => openEdit(contract)} data-testid={`button-edit-contract-${contract.id}`}>
-                            <Pencil className="w-4 h-4" />
+                          <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => openEdit(contract)} data-testid={`button-edit-contract-${contract.id}`}>
+                            <Pencil className="w-3.5 h-3.5" />
                           </Button>
                           <Tooltip>
                             <TooltipTrigger asChild>
-                              <Button size="icon" variant="ghost" onClick={() => openDelete(contract)} data-testid={`button-delete-contract-${contract.id}`}>
-                                <Trash2 className="w-4 h-4" />
+                              <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => openDelete(contract)} data-testid={`button-delete-contract-${contract.id}`}>
+                                <Trash2 className="w-3.5 h-3.5" />
                               </Button>
                             </TooltipTrigger>
                             <TooltipContent>Zmazať prázdny záznam</TooltipContent>
