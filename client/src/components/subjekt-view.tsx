@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useCallback } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -14,7 +14,7 @@ import { Switch } from "@/components/ui/switch";
 import { Separator } from "@/components/ui/separator";
 import { Card, CardContent } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Loader2, UserCheck, Scale, Users, Wallet, BarChart3, Wifi, Archive, FileText, Eye, EyeOff, ChevronRight, Check, X, Plus, AlertTriangle, ShieldAlert, Ban, Link2, Building2, User, ArrowLeftRight, History, UserPlus, ShieldCheck, Clock } from "lucide-react";
+import { Loader2, UserCheck, Scale, Users, Wallet, BarChart3, Wifi, Archive, FileText, Eye, EyeOff, ChevronRight, Check, X, Plus, AlertTriangle, ShieldAlert, Ban, Link2, Building2, User, ArrowLeftRight, History, UserPlus, ShieldCheck, Clock, Pencil, Save } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
@@ -82,6 +82,9 @@ export function SubjektView({ subject, showPdfSidebar = false }: SubjektViewProp
   const { data: appUser } = useAppUser();
   const { data: companies } = useMyCompanies();
   const [pdfSidebarOpen, setPdfSidebarOpen] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
+  const [editValues, setEditValues] = useState<Record<string, string>>({});
+  const [editReason, setEditReason] = useState("");
   const [summaryFields, setSummaryFields] = useState<Record<string, boolean>>(() => {
     const prefs = (subject as any).uiPreferences;
     return prefs?.summary_fields || {};
@@ -152,6 +155,65 @@ export function SubjektView({ subject, showPdfSidebar = false }: SubjektViewProp
     },
   });
 
+  const saveEdit = useMutation({
+    mutationFn: async () => {
+      const staticKeys = new Set([
+        "firstName", "lastName", "companyName", "email", "phone",
+        "iban", "swift", "idCardNumber", "birthNumber",
+        "continentId", "stateId", "myCompanyId",
+      ]);
+      const payload: Record<string, any> = {};
+      const dynUpdates: Record<string, any> = {};
+
+      for (const [key, val] of Object.entries(editValues)) {
+        if (staticKeys.has(key)) {
+          if (key === "continentId" || key === "stateId" || key === "myCompanyId") {
+            payload[key] = val ? parseInt(val) : null;
+          } else {
+            payload[key] = val;
+          }
+        } else {
+          dynUpdates[key] = val;
+        }
+      }
+
+      if (Object.keys(dynUpdates).length > 0) {
+        const existingDetails = (subject.details || {}) as Record<string, any>;
+        const existingDynamic = existingDetails.dynamicFields || {};
+        payload.details = {
+          ...existingDetails,
+          dynamicFields: { ...existingDynamic, ...dynUpdates },
+        };
+      }
+      payload.changeReason = editReason || "Manuálna editácia cez profil subjektu";
+
+      return apiRequest("PATCH", `/api/subjects/${subject.id}`, payload);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/subjects"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/subjects", subject.id, "field-history"] });
+      toast({ title: "Zmeny uložené" });
+      setIsEditing(false);
+      setEditValues({});
+      setEditReason("");
+    },
+    onError: (err: any) => {
+      toast({ title: "Chyba pri ukladaní", description: err.message, variant: "destructive" });
+    },
+  });
+
+  const startEditing = useCallback(() => {
+    setEditValues({});
+    setEditReason("");
+    setIsEditing(true);
+  }, []);
+
+  const cancelEditing = useCallback(() => {
+    setIsEditing(false);
+    setEditValues({});
+    setEditReason("");
+  }, []);
+
   const isPerson = subject.type === "person";
   const isSzco = subject.type === "szco";
   const clientTypeId = isSzco ? 3 : isPerson ? 1 : 4;
@@ -164,6 +226,15 @@ export function SubjektView({ subject, showPdfSidebar = false }: SubjektViewProp
     if (dynamicFields[fieldKey] !== undefined) return String(dynamicFields[fieldKey] || "");
     if (details[fieldKey] !== undefined) return String(details[fieldKey] || "");
     return "";
+  }
+
+  function getEditableValue(fieldKey: string): string {
+    if (editValues[fieldKey] !== undefined) return editValues[fieldKey];
+    return getFieldValue(fieldKey);
+  }
+
+  function setEditFieldValue(fieldKey: string, value: string) {
+    setEditValues(prev => ({ ...prev, [fieldKey]: value }));
   }
 
   const fieldsByCategory = useMemo(() => {
@@ -285,17 +356,61 @@ export function SubjektView({ subject, showPdfSidebar = false }: SubjektViewProp
               </Badge>
             )}
           </div>
-          {showPdfSidebar && (
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => setPdfSidebarOpen(!pdfSidebarOpen)}
-              data-testid="button-toggle-pdf-sidebar"
-            >
-              {pdfSidebarOpen ? <EyeOff className="w-4 h-4 mr-1" /> : <Eye className="w-4 h-4 mr-1" />}
-              PDF export
-            </Button>
-          )}
+          <div className="flex items-center gap-2">
+            {isEditing ? (
+              <>
+                <div className="flex items-center gap-2 mr-2">
+                  <Input
+                    placeholder="Dôvod zmeny..."
+                    value={editReason}
+                    onChange={e => setEditReason(e.target.value)}
+                    className="h-8 text-xs w-48"
+                    data-testid="input-edit-reason"
+                  />
+                </div>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={cancelEditing}
+                  disabled={saveEdit.isPending}
+                  data-testid="button-cancel-edit"
+                >
+                  <X className="w-4 h-4 mr-1" />
+                  Zrušiť
+                </Button>
+                <Button
+                  size="sm"
+                  onClick={() => saveEdit.mutate()}
+                  disabled={saveEdit.isPending || Object.keys(editValues).length === 0}
+                  data-testid="button-save-edit"
+                >
+                  {saveEdit.isPending ? <Loader2 className="w-4 h-4 mr-1 animate-spin" /> : <Save className="w-4 h-4 mr-1" />}
+                  Uložiť ({Object.keys(editValues).length})
+                </Button>
+              </>
+            ) : (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={startEditing}
+                data-testid="button-start-edit"
+              >
+                <Pencil className="w-4 h-4 mr-1" />
+                Editácia
+              </Button>
+            )}
+            {showPdfSidebar && !isEditing && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setPdfSidebarOpen(!pdfSidebarOpen)}
+                data-testid="button-toggle-pdf-sidebar"
+              >
+                {pdfSidebarOpen ? <EyeOff className="w-4 h-4 mr-1" /> : <Eye className="w-4 h-4 mr-1" />}
+                PDF export
+              </Button>
+            )}
+          </div>
         </div>
 
         <Tabs defaultValue={sortedTabs[0]?.code || "identita"} data-testid="tabs-subjekt-view">
@@ -349,87 +464,157 @@ export function SubjektView({ subject, showPdfSidebar = false }: SubjektViewProp
                   />
                 )}
 
-                {tabCats.length === 0 ? (
-                  <div className="text-center py-8 text-sm text-muted-foreground" data-testid={`empty-tab-${tab.code}`}>
-                    Žiadne kategórie v tejto záložke
-                  </div>
-                ) : (
-                  <Accordion
-                    type="multiple"
-                    defaultValue={tabCats.filter(c => (fieldsByCategory[c.code]?.length || 0) > 0).map(c => c.code)}
-                    className="space-y-2"
-                  >
-                    {tabCats.map(cat => {
-                      const catFields = fieldsByCategory[cat.code] || [];
-                      const filledCount = catFields.filter(f => !!getFieldValue(f.fieldKey)).length;
-                      return (
-                        <AccordionItem key={cat.code} value={cat.code} className="border rounded-md px-3" data-testid={`category-${cat.code}`}>
-                          <AccordionTrigger className="py-2.5 hover:no-underline">
-                            <div className="flex items-center gap-2">
-                              <div className="w-2 h-2 rounded-full" style={{ backgroundColor: cat.color || "#6b7280" }} />
-                              <span className="text-sm font-medium">{cat.name}</span>
-                              {catFields.length > 0 && (
-                                <Badge variant="secondary" className="text-[10px] px-1.5 py-0">
-                                  {filledCount}/{catFields.length}
-                                </Badge>
-                              )}
-                            </div>
-                          </AccordionTrigger>
-                          <AccordionContent className="pb-3">
-                            {cat.description && (
-                              <p className="text-xs text-muted-foreground mb-2">{cat.description}</p>
-                            )}
-                            {catFields.length === 0 ? (
-                              <p className="text-xs text-muted-foreground text-center py-3">
-                                Žiadne polia v tejto kategórii
-                              </p>
-                            ) : (
-                              <div className="flex flex-wrap gap-2">
-                                {catFields.map(field => {
-                                  const value = getFieldValue(field.fieldKey);
-                                  const isSummary = summaryFields[field.fieldKey];
-                                  return (
-                                    <div
-                                      key={field.id}
-                                      className={`h-10 flex items-center gap-2 px-3 rounded-md border ${
-                                        isSummary ? "border-primary/50 bg-primary/5" : "border-border bg-muted/30"
-                                      }`}
-                                      data-testid={`field-${field.fieldKey}`}
-                                    >
-                                      <span className="text-xs text-muted-foreground whitespace-nowrap">
-                                        {field.shortLabel || field.label}:
-                                      </span>
-                                      <span className="text-sm font-medium truncate max-w-[200px]">
-                                        {field.fieldType === "switch"
-                                          ? value === "true" ? "Áno" : value === "false" ? "Nie" : "-"
-                                          : field.fieldType === "date" && value
-                                            ? formatDateSlovak(value)
-                                            : value || "-"}
-                                      </span>
-                                      {pdfSidebarOpen && (
-                                        <button
-                                          onClick={() => toggleSummaryField(field.fieldKey)}
-                                          className="ml-1 opacity-60 hover:opacity-100"
-                                          data-testid={`toggle-summary-${field.fieldKey}`}
-                                        >
-                                          {isSummary ? (
-                                            <Eye className="w-3 h-3 text-primary" />
-                                          ) : (
-                                            <EyeOff className="w-3 h-3" />
-                                          )}
-                                        </button>
-                                      )}
-                                    </div>
-                                  );
-                                })}
+                {(() => {
+                  const visibleCats = isEditing
+                    ? tabCats
+                    : tabCats.filter(cat => {
+                        const catFields = fieldsByCategory[cat.code] || [];
+                        if (catFields.length === 0) return false;
+                        return catFields.some(f => !!getFieldValue(f.fieldKey));
+                      });
+
+                  if (visibleCats.length === 0) {
+                    return (
+                      <div className="text-center py-8 text-sm text-muted-foreground" data-testid={`empty-tab-${tab.code}`}>
+                        {isEditing ? "Žiadne kategórie v tejto záložke" : "Žiadne vyplnené údaje v tejto záložke"}
+                      </div>
+                    );
+                  }
+
+                  return (
+                    <Accordion
+                      type="multiple"
+                      defaultValue={visibleCats.filter(c => (fieldsByCategory[c.code]?.length || 0) > 0).map(c => c.code)}
+                      className="space-y-2"
+                    >
+                      {visibleCats.map(cat => {
+                        const catFields = fieldsByCategory[cat.code] || [];
+                        const filledCount = catFields.filter(f => !!getFieldValue(f.fieldKey)).length;
+                        return (
+                          <AccordionItem key={cat.code} value={cat.code} className="border rounded-md px-3" data-testid={`category-${cat.code}`}>
+                            <AccordionTrigger className="py-2.5 hover:no-underline">
+                              <div className="flex items-center gap-2">
+                                <div className="w-2 h-2 rounded-full" style={{ backgroundColor: cat.color || "#6b7280" }} />
+                                <span className="text-sm font-medium">{cat.name}</span>
+                                {catFields.length > 0 && (
+                                  <Badge variant="secondary" className="text-[10px] px-1.5 py-0">
+                                    {filledCount}/{catFields.length}
+                                  </Badge>
+                                )}
+                                {isEditing && <Badge variant="outline" className="text-[9px] border-primary/40 text-primary">editácia</Badge>}
                               </div>
-                            )}
-                          </AccordionContent>
-                        </AccordionItem>
-                      );
-                    })}
-                  </Accordion>
-                )}
+                            </AccordionTrigger>
+                            <AccordionContent className="pb-3">
+                              {cat.description && (
+                                <p className="text-xs text-muted-foreground mb-2">{cat.description}</p>
+                              )}
+                              {catFields.length === 0 ? (
+                                <p className="text-xs text-muted-foreground text-center py-3">
+                                  Žiadne polia v tejto kategórii
+                                </p>
+                              ) : isEditing ? (
+                                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                                  {catFields.map(field => {
+                                    const currentVal = getEditableValue(field.fieldKey);
+                                    const isModified = editValues[field.fieldKey] !== undefined && editValues[field.fieldKey] !== getFieldValue(field.fieldKey);
+                                    return (
+                                      <div key={field.id} className="space-y-1" data-testid={`edit-field-${field.fieldKey}`}>
+                                        <Label className={`text-xs ${isModified ? "text-primary font-semibold" : "text-muted-foreground"}`}>
+                                          {field.shortLabel || field.label}
+                                          {field.isRequired && <span className="text-red-400 ml-0.5">*</span>}
+                                          {isModified && <span className="ml-1 text-[9px]">(zmenené)</span>}
+                                        </Label>
+                                        {field.fieldType === "switch" ? (
+                                          <div className="flex items-center gap-2 h-9">
+                                            <Switch
+                                              checked={currentVal === "true"}
+                                              onCheckedChange={checked => setEditFieldValue(field.fieldKey, checked ? "true" : "false")}
+                                              data-testid={`switch-edit-${field.fieldKey}`}
+                                            />
+                                            <span className="text-xs text-muted-foreground">{currentVal === "true" ? "Áno" : "Nie"}</span>
+                                          </div>
+                                        ) : field.fieldType === "select" && field.options.length > 0 ? (
+                                          <Select value={currentVal} onValueChange={v => setEditFieldValue(field.fieldKey, v)}>
+                                            <SelectTrigger className="h-9 text-xs" data-testid={`select-edit-${field.fieldKey}`}>
+                                              <SelectValue placeholder="Vyberte..." />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                              {field.options.map(opt => (
+                                                <SelectItem key={opt} value={opt}>{opt}</SelectItem>
+                                              ))}
+                                            </SelectContent>
+                                          </Select>
+                                        ) : field.fieldType === "textarea" ? (
+                                          <Textarea
+                                            value={currentVal}
+                                            onChange={e => setEditFieldValue(field.fieldKey, e.target.value)}
+                                            rows={2}
+                                            className="text-xs"
+                                            data-testid={`textarea-edit-${field.fieldKey}`}
+                                          />
+                                        ) : (
+                                          <Input
+                                            type={field.fieldType === "date" ? "date" : field.fieldType === "number" || field.fieldType === "desatinne_cislo" ? "text" : "text"}
+                                            value={currentVal}
+                                            onChange={e => setEditFieldValue(field.fieldKey, e.target.value)}
+                                            className={`h-9 text-xs ${isModified ? "border-primary/60" : ""}`}
+                                            placeholder={field.label}
+                                            data-testid={`input-edit-${field.fieldKey}`}
+                                          />
+                                        )}
+                                      </div>
+                                    );
+                                  })}
+                                </div>
+                              ) : (
+                                <div className="flex flex-wrap gap-2">
+                                  {catFields.map(field => {
+                                    const value = getFieldValue(field.fieldKey);
+                                    if (!value) return null;
+                                    const isSummary = summaryFields[field.fieldKey];
+                                    return (
+                                      <div
+                                        key={field.id}
+                                        className={`h-10 flex items-center gap-2 px-3 rounded-md border ${
+                                          isSummary ? "border-primary/50 bg-primary/5" : "border-border bg-muted/30"
+                                        }`}
+                                        data-testid={`field-${field.fieldKey}`}
+                                      >
+                                        <span className="text-xs text-muted-foreground whitespace-nowrap">
+                                          {field.shortLabel || field.label}:
+                                        </span>
+                                        <span className="text-sm font-medium truncate max-w-[200px]">
+                                          {field.fieldType === "switch"
+                                            ? value === "true" ? "Áno" : value === "false" ? "Nie" : "-"
+                                            : field.fieldType === "date" && value
+                                              ? formatDateSlovak(value)
+                                              : value || "-"}
+                                        </span>
+                                        {pdfSidebarOpen && (
+                                          <button
+                                            onClick={() => toggleSummaryField(field.fieldKey)}
+                                            className="ml-1 opacity-60 hover:opacity-100"
+                                            data-testid={`toggle-summary-${field.fieldKey}`}
+                                          >
+                                            {isSummary ? (
+                                              <Eye className="w-3 h-3 text-primary" />
+                                            ) : (
+                                              <EyeOff className="w-3 h-3" />
+                                            )}
+                                          </button>
+                                        )}
+                                      </div>
+                                    );
+                                  })}
+                                </div>
+                              )}
+                            </AccordionContent>
+                          </AccordionItem>
+                        );
+                      })}
+                    </Accordion>
+                  );
+                })()}
               </TabsContent>
             );
           })}

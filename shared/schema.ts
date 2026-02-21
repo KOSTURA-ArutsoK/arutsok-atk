@@ -1039,6 +1039,8 @@ export const parameters = pgTable("parameters", {
   defaultValue: text("default_value").default(""),
   unit: text("unit"),
   decimalPlaces: integer("decimal_places").default(2),
+  targetCategoryCode: text("target_category_code"),
+  targetFieldKey: text("target_field_key"),
   sortOrder: integer("sort_order").default(0),
   createdAt: timestamp("created_at").defaultNow(),
   deletedAt: timestamp("deleted_at"),

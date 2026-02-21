@@ -8,7 +8,7 @@ import { SmartFilterBar } from "@/components/smart-filter-bar";
 import { useToast } from "@/hooks/use-toast";
 import { usePartners } from "@/hooks/use-partners";
 import type { Sector, Parameter, SectorProduct, SectorProductParameter, Panel, PanelParameter, ProductPanel, Section, ContractFolder, FolderPanel } from "@shared/schema";
-import { Plus, Pencil, Trash2, Loader2, Search, Layers, Settings2, ChevronsUpDown, X, Check, FolderOpen, List, Package, Info, LayoutGrid, FolderClosed, Hash } from "lucide-react";
+import { Plus, Pencil, Trash2, Loader2, Search, Layers, Settings2, ChevronsUpDown, X, Check, FolderOpen, List, Package, Info, LayoutGrid, FolderClosed, Hash, ArrowRight } from "lucide-react";
 import { ConditionalDelete } from "@/components/conditional-delete";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -785,6 +785,8 @@ function ParameterFormDialog({
   const [optionsModalOpen, setOptionsModalOpen] = useState(false);
   const [unit, setUnit] = useState("");
   const [decimalPlaces, setDecimalPlaces] = useState(2);
+  const [targetCategoryCode, setTargetCategoryCode] = useState("");
+  const [targetFieldKey, setTargetFieldKey] = useState("");
 
   const createMutation = useMutation({
     mutationFn: (data: any) => apiRequest("POST", "/api/parameters", data),
@@ -818,6 +820,8 @@ function ParameterFormDialog({
         setChoiceOptions(parseOptions(editingParameter.options));
         setUnit((editingParameter as any).unit || "");
         setDecimalPlaces((editingParameter as any).decimalPlaces ?? 2);
+        setTargetCategoryCode((editingParameter as any).targetCategoryCode || "");
+        setTargetFieldKey((editingParameter as any).targetFieldKey || "");
       } else {
         setName("");
         setParamType("text");
@@ -827,6 +831,8 @@ function ParameterFormDialog({
         setChoiceOptions([]);
         setUnit("");
         setDecimalPlaces(2);
+        setTargetCategoryCode("");
+        setTargetFieldKey("");
       }
     }
   }, [open, editingParameter]);
@@ -849,6 +855,8 @@ function ParameterFormDialog({
       payload.unit = null;
       payload.decimalPlaces = null;
     }
+    payload.targetCategoryCode = targetCategoryCode || null;
+    payload.targetFieldKey = targetFieldKey || null;
     if (editingParameter) {
       updateMutation.mutate(payload);
     } else {
@@ -945,6 +953,36 @@ function ParameterFormDialog({
               </Tooltip>
             </div>
             <Input value={defaultValue} onChange={e => setDefaultValue(e.target.value)} data-testid="input-parameter-default" />
+          </div>
+          <div className="rounded-md border border-primary/30 bg-primary/5 p-4 space-y-3">
+            <div className="flex items-center gap-2">
+              <ArrowRight className="w-4 h-4 text-primary" />
+              <span className="text-sm font-semibold">Mapovanie do profilu klienta</span>
+              <Badge variant="outline" className="text-[9px] border-primary/40 text-primary">Kľúčové</Badge>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Určuje, do ktorej z 30 kategórií klienta sa hodnota tohto parametra automaticky zapíše pri uzavretí zmluvy.
+            </p>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <label className="text-xs font-medium">Cieľová kategória</label>
+                <Input
+                  value={targetCategoryCode}
+                  onChange={e => setTargetCategoryCode(e.target.value)}
+                  placeholder="napr. majetok, komunikacne, bonita_disciplina"
+                  data-testid="input-parameter-target-category"
+                />
+              </div>
+              <div className="space-y-1">
+                <label className="text-xs font-medium">Cieľový kľúč poľa</label>
+                <Input
+                  value={targetFieldKey}
+                  onChange={e => setTargetFieldKey(e.target.value)}
+                  placeholder="napr. vin, spz, iban"
+                  data-testid="input-parameter-target-field-key"
+                />
+              </div>
+            </div>
           </div>
           <div className={`rounded-md border border-border p-4 space-y-3 ${!isSelectType(paramType) ? "opacity-50" : ""}`}>
             <div className="flex items-center gap-2">
