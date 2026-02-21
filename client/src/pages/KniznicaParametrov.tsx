@@ -183,6 +183,38 @@ export default function KniznicaParametrov() {
     },
   });
 
+  const confirmSynonymMutation = useMutation({
+    mutationFn: async (data: { synonymId: number; documentName?: string; sourceText?: string }) => {
+      const res = await apiRequest("POST", `/api/parameter-synonyms/${data.synonymId}/confirm`, {
+        documentName: data.documentName,
+        sourceText: data.sourceText,
+      });
+      return res.json();
+    },
+    onSuccess: (updated, variables) => {
+      if (extractionResults?.extracted) {
+        const newResults = { ...extractionResults };
+        newResults.extracted = newResults.extracted.map((r: any) => {
+          if (r.synonymId === variables.synonymId) {
+            return {
+              ...r,
+              synonymStatus: updated.status,
+              synonymConfirmationCount: updated.confirmationCount,
+              isProposal: updated.status === "learning",
+              needsConfirmation: updated.status === "learning",
+            };
+          }
+          return r;
+        });
+        setExtractionResults(newResults);
+      }
+      toast({ title: `Synonymum potvrdené (${updated.confirmationCount}/5)` });
+    },
+    onError: () => {
+      toast({ title: "Chyba pri potvrdzovaní", variant: "destructive" });
+    },
+  });
+
   const saveSectionMutation = useMutation({
     mutationFn: async (data: Partial<SubjectParamSection> & { id?: number }) => {
       if (data.id) {
@@ -951,6 +983,14 @@ export default function KniznicaParametrov() {
                           {extractionResults.needsConfirmationCount} na potvrdenie
                         </Badge>
                       </div>
+                      {extractionResults.proposalCount > 0 && (
+                        <div className="flex items-center gap-2">
+                          <Badge variant="outline" className="bg-purple-500/10 text-purple-400 border-purple-500/30">
+                            <Brain className="w-3 h-3 mr-1" />
+                            {extractionResults.proposalCount} návrhy (učiace sa)
+                          </Badge>
+                        </div>
+                      )}
                       {extractionResults.unmatchedCount > 0 && (
                         <div className="flex items-center gap-2">
                           <Badge variant="outline" className="bg-red-500/10 text-red-400 border-red-500/30">
@@ -1024,12 +1064,19 @@ export default function KniznicaParametrov() {
                                 </Badge>
                               </TableCell>
                               <TableCell>
-                                {isConfirmed && !result.needsConfirmation && !isRejected ? (
+                                {isConfirmed && !result.needsConfirmation && !isRejected && !result.isProposal ? (
                                   <Badge className="bg-green-600 text-xs">Auto</Badge>
+                                ) : isConfirmed && result.isProposal ? (
+                                  <Badge className="bg-green-600 text-xs">OK</Badge>
                                 ) : isConfirmed ? (
                                   <Badge className="bg-green-600 text-xs">OK</Badge>
                                 ) : isRejected ? (
                                   <Badge variant="destructive" className="text-xs">Zamietnuté</Badge>
+                                ) : result.isProposal ? (
+                                  <Badge variant="outline" className="border-purple-500/30 text-purple-400 text-xs">
+                                    <Brain className="w-3 h-3 mr-0.5" />
+                                    Návrh {result.synonymConfirmationCount}/{extractionResults?.confirmationThreshold || 5}
+                                  </Badge>
                                 ) : (
                                   <Badge variant="outline" className="border-amber-500/30 text-amber-400 text-xs">
                                     <AlertTriangle className="w-3 h-3 mr-0.5" />
@@ -1038,12 +1085,41 @@ export default function KniznicaParametrov() {
                                 )}
                               </TableCell>
                               <TableCell className="text-right">
-                                {result.needsConfirmation && !isConfirmed && !isRejected ? (
+                                {result.isProposal && !isConfirmed && !isRejected && result.synonymId ? (
+                                  <div className="flex items-center justify-end gap-1">
+                                    <Button
+                                      size="sm"
+                                      variant="outline"
+                                      className="border-purple-500/30 text-purple-400 text-xs"
+                                      disabled={confirmSynonymMutation.isPending}
+                                      onClick={() => {
+                                        confirmSynonymMutation.mutate({
+                                          synonymId: result.synonymId!,
+                                          documentName: extractionResults?.detectedDocumentType || undefined,
+                                          sourceText: result.matchedValue || undefined,
+                                        });
+                                        setConfirmedFields(prev => { const n = new Set(Array.from(prev)); n.add(idx); return n; });
+                                      }}
+                                      data-testid={`button-confirm-proposal-${idx}`}
+                                    >
+                                      <ThumbsUp className="w-3 h-3 mr-1" />
+                                      Potvrdiť
+                                    </Button>
+                                    <Button
+                                      size="icon"
+                                      variant="ghost"
+                                      onClick={() => setRejectedFields(prev => { const n = new Set(Array.from(prev)); n.add(idx); return n; })}
+                                      data-testid={`button-reject-${idx}`}
+                                    >
+                                      <ThumbsDown className="w-3.5 h-3.5 text-red-400" />
+                                    </Button>
+                                  </div>
+                                ) : result.needsConfirmation && !isConfirmed && !isRejected ? (
                                   <div className="flex items-center justify-end gap-1">
                                     <Button
                                       size="icon"
                                       variant="ghost"
-                                      onClick={() => setConfirmedFields(prev => new Set([...prev, idx]))}
+                                      onClick={() => setConfirmedFields(prev => { const n = new Set(Array.from(prev)); n.add(idx); return n; })}
                                       data-testid={`button-confirm-${idx}`}
                                     >
                                       <ThumbsUp className="w-3.5 h-3.5 text-green-400" />
@@ -1051,7 +1127,7 @@ export default function KniznicaParametrov() {
                                     <Button
                                       size="icon"
                                       variant="ghost"
-                                      onClick={() => setRejectedFields(prev => new Set([...prev, idx]))}
+                                      onClick={() => setRejectedFields(prev => { const n = new Set(Array.from(prev)); n.add(idx); return n; })}
                                       data-testid={`button-reject-${idx}`}
                                     >
                                       <ThumbsDown className="w-3.5 h-3.5 text-red-400" />

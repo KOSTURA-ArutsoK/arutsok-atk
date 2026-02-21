@@ -1587,12 +1587,29 @@ export const parameterSynonyms = pgTable("parameter_synonyms", {
   language: varchar("language", { length: 10 }).default("sk"),
   source: varchar("source", { length: 50 }).default("manual"),
   confidence: integer("confidence").default(100),
+  confirmationCount: integer("confirmation_count").default(0).notNull(),
+  status: varchar("status", { length: 20 }).default("learning").notNull(),
   createdAt: timestamp("created_at").defaultNow(),
 });
 
 export const insertParameterSynonymSchema = createInsertSchema(parameterSynonyms).omit({ id: true, createdAt: true });
 export type ParameterSynonym = typeof parameterSynonyms.$inferSelect;
 export type InsertParameterSynonym = z.infer<typeof insertParameterSynonymSchema>;
+
+export const synonymConfirmationLogs = pgTable("synonym_confirmation_logs", {
+  id: serial("id").primaryKey(),
+  synonymId: integer("synonym_id").notNull().references(() => parameterSynonyms.id, { onDelete: "cascade" }),
+  userId: integer("user_id").references(() => appUsers.id),
+  username: text("username"),
+  documentName: text("document_name"),
+  sourceText: text("source_text"),
+  action: varchar("action", { length: 20 }).default("confirm").notNull(),
+  confirmedAt: timestamp("confirmed_at").defaultNow(),
+});
+
+export const insertSynonymConfirmationLogSchema = createInsertSchema(synonymConfirmationLogs).omit({ id: true, confirmedAt: true });
+export type SynonymConfirmationLog = typeof synonymConfirmationLogs.$inferSelect;
+export type InsertSynonymConfirmationLog = z.infer<typeof insertSynonymConfirmationLogSchema>;
 
 // === UNKNOWN EXTRACTED FIELDS (AI extraction misses) ===
 export const unknownExtractedFields = pgTable("unknown_extracted_fields", {

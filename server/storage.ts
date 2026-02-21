@@ -108,13 +108,14 @@ import {
   subjectCollaborators,
   type SubjectCollaborator, type InsertSubjectCollaborator,
   subjectParamSections, subjectParameters, subjectTemplates, subjectTemplateParams,
-  parameterSynonyms, unknownExtractedFields,
+  parameterSynonyms, unknownExtractedFields, synonymConfirmationLogs,
   type SubjectParamSection, type InsertSubjectParamSection,
   type SubjectParameter, type InsertSubjectParameter,
   type SubjectTemplate, type InsertSubjectTemplate,
   type SubjectTemplateParam, type InsertSubjectTemplateParam,
   type ParameterSynonym, type InsertParameterSynonym,
   type UnknownExtractedField, type InsertUnknownExtractedField,
+  type SynonymConfirmationLog, type InsertSynonymConfirmationLog,
 } from "@shared/schema";
 import { eq, and, or, ne, like, sql, lte, gte, gt, desc, asc, isNull, isNotNull, inArray } from "drizzle-orm";
 
@@ -575,6 +576,10 @@ export interface IStorage {
   createParameterSynonym(data: InsertParameterSynonym): Promise<ParameterSynonym>;
   deleteParameterSynonym(id: number): Promise<void>;
   matchParameterBySynonym(text: string): Promise<{ parameterId: number; synonym: string; confidence: number }[]>;
+  confirmSynonym(id: number): Promise<ParameterSynonym>;
+  getSynonymById(id: number): Promise<ParameterSynonym | null>;
+  createSynonymConfirmationLog(data: InsertSynonymConfirmationLog): Promise<SynonymConfirmationLog>;
+  getSynonymConfirmationLogs(synonymId: number): Promise<SynonymConfirmationLog[]>;
 
   getParameterUsageCount(parameterId: number): Promise<number>;
 
@@ -3723,6 +3728,35 @@ export class DatabaseStorage implements IStorage {
 
   async deleteParameterSynonym(id: number): Promise<void> {
     await db.delete(parameterSynonyms).where(eq(parameterSynonyms.id, id));
+  }
+
+  async getSynonymById(id: number): Promise<ParameterSynonym | null> {
+    const [syn] = await db.select().from(parameterSynonyms).where(eq(parameterSynonyms.id, id));
+    return syn || null;
+  }
+
+  async confirmSynonym(id: number): Promise<ParameterSynonym> {
+    const CONFIRMATION_THRESHOLD = 5;
+    const [syn] = await db.select().from(parameterSynonyms).where(eq(parameterSynonyms.id, id));
+    if (!syn) throw new Error("Synonym not found");
+    const newCount = (syn.confirmationCount || 0) + 1;
+    const newStatus = newCount >= CONFIRMATION_THRESHOLD ? "confirmed" : "learning";
+    const [updated] = await db.update(parameterSynonyms)
+      .set({ confirmationCount: newCount, status: newStatus })
+      .where(eq(parameterSynonyms.id, id))
+      .returning();
+    return updated;
+  }
+
+  async createSynonymConfirmationLog(data: InsertSynonymConfirmationLog): Promise<SynonymConfirmationLog> {
+    const [log] = await db.insert(synonymConfirmationLogs).values(data).returning();
+    return log;
+  }
+
+  async getSynonymConfirmationLogs(synonymId: number): Promise<SynonymConfirmationLog[]> {
+    return db.select().from(synonymConfirmationLogs)
+      .where(eq(synonymConfirmationLogs.synonymId, synonymId))
+      .orderBy(desc(synonymConfirmationLogs.confirmedAt));
   }
 
   async matchParameterBySynonym(text: string): Promise<{ parameterId: number; synonym: string; confidence: number }[]> {

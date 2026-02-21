@@ -4,7 +4,7 @@ import { storage } from "./storage";
 import { api } from "@shared/routes";
 import { setupAuth, registerAuthRoutes, isAuthenticated } from "./replit_integrations/auth";
 import { z } from "zod";
-import { continents, states, myCompanies, appUsers, clientTypes, clientSubGroups, clientGroupMembers, productFolderAssignments, folderPanels, panelParameters, userClientGroupMemberships, clientGroups, permissionGroups, insertCareerLevelSchema, insertProductPointRateSchema, careerLevels, importLogs, commissions, contracts, contractStatuses, contractStatusChangeLogs, clientDataTabs, clientDataCategories, subjects, subjectPointsLog, subjectFieldHistory, subjectCollaborators, clientMarketingConsents, clientDocumentHistory, contractAcquirers, contractPasswords, contractRewardDistributions, contractParameterValues, subjectArchive, auditLogs, globalCounters, subjectPhotos, activityEvents, subjectParamSections, subjectParameters, subjectTemplates, subjectTemplateParams, commissionCalculationLogs } from "@shared/schema";
+import { continents, states, myCompanies, appUsers, clientTypes, clientSubGroups, clientGroupMembers, productFolderAssignments, folderPanels, panelParameters, userClientGroupMemberships, clientGroups, permissionGroups, insertCareerLevelSchema, insertProductPointRateSchema, careerLevels, importLogs, commissions, contracts, contractStatuses, contractStatusChangeLogs, clientDataTabs, clientDataCategories, subjects, subjectPointsLog, subjectFieldHistory, subjectCollaborators, clientMarketingConsents, clientDocumentHistory, contractAcquirers, contractPasswords, contractRewardDistributions, contractParameterValues, subjectArchive, auditLogs, globalCounters, subjectPhotos, activityEvents, subjectParamSections, subjectParameters, subjectTemplates, subjectTemplateParams, commissionCalculationLogs, parameterSynonyms } from "@shared/schema";
 import { seedSubjectParameters } from "./seed-subject-params";
 import sharp from "sharp";
 import { db } from "./db";
@@ -7039,6 +7039,46 @@ export async function registerRoutes(
     } catch (err) { res.status(500).json({ message: "Internal error" }); }
   });
 
+  app.post("/api/parameter-synonyms/:id/confirm", isAuthenticated, async (req: any, res) => {
+    try {
+      const synonymId = Number(req.params.id);
+      const { documentName, sourceText } = req.body;
+      const replitUserId = req.user?.claims?.sub;
+      const appUser = await storage.getAppUserByReplitId(replitUserId);
+
+      const updated = await storage.confirmSynonym(synonymId);
+
+      await storage.createSynonymConfirmationLog({
+        synonymId,
+        userId: appUser?.id || null,
+        username: appUser?.username || req.user?.claims?.email || 'system',
+        documentName: documentName || null,
+        sourceText: sourceText || null,
+        action: "confirm",
+      });
+
+      await logAudit(req, {
+        action: "confirm_synonym",
+        module: "parameter_synonyms",
+        entityId: synonymId,
+        entityName: updated.synonym,
+        newData: { confirmationCount: updated.confirmationCount, status: updated.status },
+      });
+
+      res.json(updated);
+    } catch (err) {
+      console.error("[SYNONYM CONFIRM ERROR]", err);
+      res.status(500).json({ message: "Internal error" });
+    }
+  });
+
+  app.get("/api/parameter-synonyms/:id/logs", isAuthenticated, async (req, res) => {
+    try {
+      const logs = await storage.getSynonymConfirmationLogs(Number(req.params.id));
+      res.json(logs);
+    } catch (err) { res.status(500).json({ message: "Internal error" }); }
+  });
+
   app.post("/api/parameter-synonyms/match", isAuthenticated, async (req, res) => {
     try {
       const { text } = req.body;
@@ -7058,11 +7098,18 @@ export async function registerRoutes(
       const allSynonyms = await storage.getAllParameterSynonyms();
 
       const synonymMap = new Map<number, string[]>();
+      const synonymDetailMap = new Map<string, { id: number; status: string; confirmationCount: number }>();
       for (const syn of allSynonyms) {
         if (!synonymMap.has(syn.parameterId)) synonymMap.set(syn.parameterId, []);
         synonymMap.get(syn.parameterId)!.push(syn.synonym.toLowerCase());
+        synonymDetailMap.set(`${syn.parameterId}:${syn.synonym.toLowerCase()}`, {
+          id: syn.id,
+          status: syn.status,
+          confirmationCount: syn.confirmationCount,
+        });
       }
 
+      const CONFIRMATION_THRESHOLD = 5;
       const CONFIDENCE_THRESHOLD = 95;
 
       const documentTypeAnchors: Record<string, string[]> = {
@@ -7083,7 +7130,7 @@ export async function registerRoutes(
         }
       }
 
-      const results: { parameterId: number; fieldKey: string; label: string; matchedValue: string | null; matchType: string; confidence: number; needsConfirmation: boolean }[] = [];
+      const results: { parameterId: number; fieldKey: string; label: string; matchedValue: string | null; matchType: string; confidence: number; needsConfirmation: boolean; synonymId?: number; synonymStatus?: string; synonymConfirmationCount?: number; isProposal?: boolean }[] = [];
       const lines = text.split(/\n/);
 
       for (const param of allParams) {
@@ -7092,7 +7139,7 @@ export async function registerRoutes(
         const paramSynonyms = synonymMap.get(param.id) || [];
         searchTerms.push(...paramSynonyms);
 
-        let bestMatch: { value: string | null; matchType: string; confidence: number } | null = null;
+        let bestMatch: { value: string | null; matchType: string; confidence: number; matchedTerm?: string } | null = null;
 
         for (const line of lines) {
           const lowerLine = line.toLowerCase().trim();
@@ -7109,7 +7156,7 @@ export async function registerRoutes(
                   const regex = new RegExp(hints.regex);
                   const match = extractedValue.match(regex);
                   if (match) {
-                    bestMatch = { value: match[0], matchType: "regex", confidence: 95 };
+                    bestMatch = { value: match[0], matchType: "regex", confidence: 95, matchedTerm: term };
                     break;
                   }
                 } catch {}
@@ -7120,6 +7167,7 @@ export async function registerRoutes(
                   value: extractedValue,
                   matchType: paramSynonyms.includes(term) ? "synonym" : "label",
                   confidence: paramSynonyms.includes(term) ? 85 : 75,
+                  matchedTerm: term,
                 };
               }
             }
@@ -7129,6 +7177,9 @@ export async function registerRoutes(
         }
 
         if (bestMatch) {
+          const synDetail = bestMatch.matchedTerm ? synonymDetailMap.get(`${param.id}:${bestMatch.matchedTerm}`) : undefined;
+          const isSynonymMatch = bestMatch.matchType === "synonym" && synDetail;
+          const isLearning = isSynonymMatch && synDetail.status === "learning";
           results.push({
             parameterId: param.id,
             fieldKey: param.fieldKey,
@@ -7136,7 +7187,11 @@ export async function registerRoutes(
             matchedValue: bestMatch.value,
             matchType: bestMatch.matchType,
             confidence: bestMatch.confidence,
-            needsConfirmation: bestMatch.confidence < CONFIDENCE_THRESHOLD,
+            needsConfirmation: isLearning ? true : bestMatch.confidence < CONFIDENCE_THRESHOLD,
+            synonymId: synDetail?.id,
+            synonymStatus: synDetail?.status,
+            synonymConfirmationCount: synDetail?.confirmationCount,
+            isProposal: isLearning || false,
           });
         }
       }
@@ -7179,14 +7234,17 @@ export async function registerRoutes(
 
       const confirmedResults = results.filter(r => !r.needsConfirmation);
       const needsConfirmationResults = results.filter(r => r.needsConfirmation);
+      const proposalResults = results.filter(r => r.isProposal);
       res.json({
         extracted: results,
         totalParams: allParams.length,
         matchedCount: results.length,
         confirmedCount: confirmedResults.length,
         needsConfirmationCount: needsConfirmationResults.length,
+        proposalCount: proposalResults.length,
         unmatchedCount: unmatchedLines.length,
         confidenceThreshold: CONFIDENCE_THRESHOLD,
+        confirmationThreshold: CONFIRMATION_THRESHOLD,
         detectedDocumentType,
       });
     } catch (err) {
