@@ -79,6 +79,11 @@ The system employs a modern full-stack architecture, emphasizing data integrity,
     - **GDPR Data Export**: `/api/subjects/:id/gdpr-export` endpoint generating JSON with only legal fields (Identity, Contracts, Consents). Internal data excluded as "Interné obchodné tajomstvo".
     - **Access Logging**: Every subject profile view logged via `POST /api/subjects/:id/log-view` with audit trail.
     - **Internal Notes Backend Security**: field_notes stripped from uiPreferences for non-SuperAdmin/Prezident users at API level.
+    - **Edit/View Mode Toggle**: Subject detail supports Edit mode (all fields editable) and View mode (empty categories auto-hidden).
+    - **Parameter → Category Mapping**: `panel_parameters.targetCategoryCode` maps contract parameter values to client data categories automatically on save.
+    - **Supplementary Index (Dodatkový index)**: `subjects.supplementaryIndex` allows SuperAdmin to insert subjects between existing records (e.g., 1057/B, 1057.1) for correct ordering in settlement sheets.
+    - **Big Reset Script**: `POST /api/admin/big-reset` (SuperAdmin-only, confirmation code: RESET-ARUTSOK-2025) wipes all test data and resets UID counters.
+    - **Enhanced Excel Importer**: `POST /api/contracts/import-excel` auto-creates subjects by RČ/IČO, marks incomplete contracts (`incompleteData`, `incompleteDataReason`), tracks batches via `importBatchId`/`importedAt`.
 
 ## External Dependencies
 - **Replit OIDC Auth**: User authentication.

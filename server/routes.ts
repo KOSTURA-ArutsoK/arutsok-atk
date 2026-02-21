@@ -4,9 +4,9 @@ import { storage } from "./storage";
 import { api } from "@shared/routes";
 import { setupAuth, registerAuthRoutes, isAuthenticated } from "./replit_integrations/auth";
 import { z } from "zod";
-import { continents, states, myCompanies, appUsers, clientTypes, clientSubGroups, clientGroupMembers, productFolderAssignments, folderPanels, panelParameters, userClientGroupMemberships, clientGroups, permissionGroups, insertCareerLevelSchema, insertProductPointRateSchema, careerLevels, importLogs, commissions, contracts, contractStatuses, contractStatusChangeLogs, clientDataTabs, clientDataCategories, subjects, subjectPointsLog } from "@shared/schema";
+import { continents, states, myCompanies, appUsers, clientTypes, clientSubGroups, clientGroupMembers, productFolderAssignments, folderPanels, panelParameters, userClientGroupMemberships, clientGroups, permissionGroups, insertCareerLevelSchema, insertProductPointRateSchema, careerLevels, importLogs, commissions, contracts, contractStatuses, contractStatusChangeLogs, clientDataTabs, clientDataCategories, subjects, subjectPointsLog, subjectFieldHistory, subjectCollaborators, clientMarketingConsents, clientDocumentHistory, contractAcquirers, contractPasswords, contractRewardDistributions, contractParameterValues, subjectArchive, auditLogs, globalCounters } from "@shared/schema";
 import { db } from "./db";
-import { eq } from "drizzle-orm";
+import { eq, isNotNull } from "drizzle-orm";
 import multer from "multer";
 import ExcelJS from "exceljs";
 import path from "path";
@@ -2672,6 +2672,58 @@ export async function registerRoutes(
             subjectId = uidMap.get(klientUidVal)!.id;
           }
 
+          if (!subjectId) {
+            const rc = rowData["rodne_cislo"] || rowData["rc"] || rowData["birth_number"] || null;
+            const ico = rowData["ico"] || rowData["ic_organizacie"] || null;
+            const firstName = rowData["meno"] || rowData["first_name"] || null;
+            const lastName = rowData["priezvisko"] || rowData["last_name"] || null;
+            const companyName = rowData["nazov_firmy"] || rowData["company_name"] || null;
+            const email = rowData["email"] || null;
+            const phone = rowData["telefon"] || rowData["phone"] || null;
+
+            if (rc) {
+              const existing = allSubjects.find(s => {
+                if (!s.birthNumber) return false;
+                const decrypted = decryptField(s.birthNumber);
+                return decrypted !== null && decrypted === rc;
+              });
+              if (existing) {
+                subjectId = existing.id;
+              }
+            }
+            if (!subjectId && ico) {
+              const existing = allSubjects.find(s => {
+                const details = s.details as any;
+                return details?.ico === ico || details?.dynamicFields?.ico === ico;
+              });
+              if (existing) {
+                subjectId = existing.id;
+              }
+            }
+            if (!subjectId && (firstName || companyName)) {
+              try {
+                const isCompany = !!companyName && !firstName;
+                const newSubject = await storage.createSubject({
+                  type: isCompany ? "company" : "person",
+                  firstName: firstName || null,
+                  lastName: lastName || null,
+                  companyName: companyName || null,
+                  email: email || null,
+                  phone: phone || null,
+                  birthNumber: rc ? encryptField(rc) : null,
+                  stateId: appUser?.activeStateId || null,
+                  myCompanyId: appUser?.activeCompanyId || null,
+                  details: ico ? { dynamicFields: { ico } } : {},
+                } as any);
+                subjectId = newSubject.id;
+                allSubjects.push(newSubject);
+                if (newSubject.uid) uidMap.set(newSubject.uid, newSubject);
+              } catch (createErr) {
+                console.error("Import: Failed to create subject:", createErr);
+              }
+            }
+          }
+
           let resolvedSzcoUid = szcoUidVal;
           if (!szcoUidVal && (szcoIcoVal || szcoRcVal)) {
             let szcoSubject: typeof allSubjects[0] | undefined;
@@ -2706,6 +2758,15 @@ export async function registerRoutes(
 
           const nextGlobalNumber = await storage.getNextCounterValue("contract_global_number");
 
+          const spz = rowData["spz"] || rowData["ecv"] || rowData["licence_plate"] || null;
+          const telefon = rowData["telefon"] || rowData["phone"] || rowData["tel"] || null;
+          const missingFields: string[] = [];
+          if (!spz) missingFields.push("ŠPZ");
+          if (!telefon) missingFields.push("Telefón");
+          const isIncomplete = missingFields.length > 0;
+
+          const batchId = req.body?.batchId || `IMPORT-${Date.now()}`;
+
           const contractData: any = {
             contractNumber: rowData["cislo_zmluvy"] || rowData["contract_number"] || null,
             proposalNumber: rowData["cislo_navrhu"] || rowData["proposal_number"] || null,
@@ -2729,6 +2790,10 @@ export async function registerRoutes(
             statusId: defaultStatus?.id || null,
             globalNumber: nextGlobalNumber,
             uploadedByUserId: appUser?.id || null,
+            incompleteData: isIncomplete,
+            incompleteDataReason: isIncomplete ? `Chýba: ${missingFields.join(", ")}` : null,
+            importedAt: new Date(),
+            importBatchId: batchId,
           };
 
           const created = await storage.createContract(contractData);
@@ -2862,8 +2927,48 @@ export async function registerRoutes(
     try {
       const { values } = req.body;
       if (!Array.isArray(values)) return res.status(400).json({ message: "Values array required" });
-      await storage.saveContractParameterValues(Number(req.params.contractId), values);
-      await logAudit(req, { action: "UPDATE", module: "contract_parameter_values", entityId: Number(req.params.contractId), entityName: "parameter values saved" });
+      const contractId = Number(req.params.contractId);
+      await storage.saveContractParameterValues(contractId, values);
+
+      try {
+        const contract = await storage.getContract(contractId);
+        if (contract?.subjectId) {
+          const allPanelParams = await db.select().from(panelParameters).where(isNotNull(panelParameters.targetCategoryCode));
+          const mappings = new Map<number, string>();
+          for (const pp of allPanelParams) {
+            if (pp.targetCategoryCode) mappings.set(pp.parameterId, pp.targetCategoryCode);
+          }
+          
+          const dynUpdates: Record<string, string> = {};
+          for (const v of values) {
+            const paramId = v.parameterId || v.parameter_id;
+            const val = v.value;
+            if (paramId && val && mappings.has(Number(paramId))) {
+              const targetField = mappings.get(Number(paramId))!;
+              dynUpdates[targetField] = val;
+            }
+          }
+          
+          if (Object.keys(dynUpdates).length > 0) {
+            const subject = await storage.getSubject(contract.subjectId);
+            if (subject) {
+              const existingDetails = (subject.details || {}) as Record<string, any>;
+              const existingDynamic = existingDetails.dynamicFields || {};
+              await storage.updateSubject(contract.subjectId, {
+                details: {
+                  ...existingDetails,
+                  dynamicFields: { ...existingDynamic, ...dynUpdates },
+                },
+                changeReason: "Automatická aktualizácia z parametrov zmluvy",
+              });
+            }
+          }
+        }
+      } catch (mapErr) {
+        console.error("Parameter → Category mapping error:", mapErr);
+      }
+      
+      await logAudit(req, { action: "UPDATE", module: "contract_parameter_values", entityId: contractId, entityName: "parameter values saved" });
       res.json({ success: true });
     } catch (err) {
       res.status(500).json({ message: "Internal error" });
@@ -5934,6 +6039,63 @@ export async function registerRoutes(
       res.json(result);
     } catch (err: any) {
       res.status(500).json({ message: err.message });
+    }
+  });
+
+  app.patch("/api/subjects/:id/supplementary-index", isAuthenticated, async (req: any, res) => {
+    try {
+      const id = Number(req.params.id);
+      const { supplementaryIndex } = req.body;
+      const appUser = req.appUser;
+      const pgName = (appUser as any)?.permissionGroup?.name?.toLowerCase() || "";
+      if (!pgName.includes("superadmin") && !pgName.includes("prezident")) {
+        return res.status(403).json({ message: "Iba SuperAdmin môže nastaviť dodatkový index" });
+      }
+      await db.update(subjects).set({ supplementaryIndex }).where(eq(subjects.id, id));
+      await logAudit(req, { action: "UPDATE", module: "Subjekty", entityId: id, entityName: `Dodatkový index: ${supplementaryIndex}` });
+      res.json({ success: true, supplementaryIndex });
+    } catch (err) {
+      console.error("Supplementary index error:", err);
+      res.status(500).json({ message: "Internal error" });
+    }
+  });
+
+  app.post("/api/admin/big-reset", isAuthenticated, async (req: any, res) => {
+    try {
+      const appUser = req.appUser;
+      const pgName = (appUser as any)?.permissionGroup?.name?.toLowerCase() || "";
+      if (!pgName.includes("superadmin") && !pgName.includes("prezident")) {
+        return res.status(403).json({ message: "Iba SuperAdmin môže vykonať reset" });
+      }
+      const { confirmCode } = req.body;
+      if (confirmCode !== "RESET-ARUTSOK-2025") {
+        return res.status(400).json({ message: "Nesprávny potvrdzovací kód" });
+      }
+      
+      await db.delete(subjectPointsLog);
+      await db.delete(subjectFieldHistory);
+      await db.delete(subjectCollaborators);
+      await db.delete(clientMarketingConsents);
+      await db.delete(clientDocumentHistory);
+      await db.delete(contractAcquirers);
+      await db.delete(contractStatusChangeLogs);
+      await db.delete(contractPasswords);
+      await db.delete(contractRewardDistributions);
+      await db.delete(contractParameterValues);
+      await db.delete(contracts);
+      await db.delete(subjectArchive);
+      await db.delete(subjects);
+      await db.delete(auditLogs);
+      
+      await db.update(globalCounters).set({ currentValue: 0 }).where(eq(globalCounters.counterName, "subject_uid"));
+      await db.update(globalCounters).set({ currentValue: 0 }).where(eq(globalCounters.counterName, "contract_global_number"));
+      
+      await logAudit(req, { action: "RESET", module: "System", entityName: "Veľký Reset - vymazanie všetkých testovacích dát" });
+      
+      res.json({ success: true, message: "Všetky testovacie dáta boli vymazané. UID počítadlo resetované." });
+    } catch (err) {
+      console.error("Big reset error:", err);
+      res.status(500).json({ message: "Chyba pri resete: " + (err as any).message });
     }
   });
 

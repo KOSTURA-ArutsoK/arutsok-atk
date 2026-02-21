@@ -256,6 +256,7 @@ export const subjects = pgTable("subjects", {
   anonymizedAt: timestamp("anonymized_at"),
   anonymizedByUserId: integer("anonymized_by_user_id").references(() => appUsers.id),
   anonymizedData: text("anonymized_data"),
+  supplementaryIndex: text("supplementary_index"),
   createdAt: timestamp("created_at").defaultNow(),
   deletedAt: timestamp("deleted_at"),
 });
@@ -702,6 +703,10 @@ export const contracts = pgTable("contracts", {
   lockedBy: text("locked_by"),
   lockedAt: timestamp("locked_at"),
   lockedBySupiskaId: integer("locked_by_supiska_id"),
+  incompleteData: boolean("incomplete_data").default(false),
+  incompleteDataReason: text("incomplete_data_reason"),
+  importedAt: timestamp("imported_at"),
+  importBatchId: text("import_batch_id"),
   isDeleted: boolean("is_deleted").default(false),
   deletedBy: text("deleted_by"),
   deletedAt: timestamp("deleted_at"),
@@ -1122,6 +1127,7 @@ export const panelParameters = pgTable("panel_parameters", {
   panelId: integer("panel_id").notNull(),
   parameterId: integer("parameter_id").notNull(),
   sortOrder: integer("sort_order").default(0),
+  targetCategoryCode: text("target_category_code"),
 });
 
 export const insertPanelParameterSchema = createInsertSchema(panelParameters).omit({ id: true });

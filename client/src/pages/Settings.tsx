@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useAppUser } from "@/hooks/use-app-user";
 import { useMyCompanies } from "@/hooks/use-companies";
 import { useStates } from "@/hooks/use-hierarchy";
@@ -6,7 +6,8 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import {
   Settings as SettingsIcon, Shield, Database, Info, Building2, Globe,
-  Lock, Phone, Save, Clock, LayoutDashboard, Plus, Trash2, Eye
+  Lock, Phone, Save, Clock, LayoutDashboard, Plus, Trash2, Eye,
+  AlertTriangle, Upload, FileSpreadsheet, Loader2
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -143,6 +144,66 @@ export default function Settings() {
   const activeState = states?.find(s => s.id === appUser?.activeStateId);
   const mfaLabel = appUser?.mfaType === "none" ? "Neaktivne" : appUser?.mfaType === "totp" ? "TOTP" : appUser?.mfaType || "Neaktivne";
   const isAdmin = appUser?.role === "admin" || appUser?.role === "superadmin";
+  const isSuperAdmin = (() => {
+    const pgName = (appUser as any)?.permissionGroup?.name?.toLowerCase() || "";
+    return pgName.includes("superadmin") || pgName.includes("prezident");
+  })();
+
+  const [resetCode, setResetCode] = useState("");
+  const [resetPending, setResetPending] = useState(false);
+  const [importFile, setImportFile] = useState<File | null>(null);
+  const [importPending, setImportPending] = useState(false);
+  const [importResults, setImportResults] = useState<any[] | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleBigReset = async () => {
+    if (resetCode !== "RESET-ARUTSOK-2025") {
+      toast({ title: "Nesprávny kód", variant: "destructive" });
+      return;
+    }
+    if (!confirm("POZOR: Toto vymaže VŠETKY subjekty, zmluvy, body a logy. Ste si istý?")) return;
+    setResetPending(true);
+    try {
+      const res = await apiRequest("POST", "/api/admin/big-reset", { confirmCode: resetCode });
+      const data = await res.json();
+      toast({ title: data.message || "Reset dokončený" });
+      setResetCode("");
+      queryClient.invalidateQueries();
+    } catch (err: any) {
+      toast({ title: "Chyba pri resete", description: err.message, variant: "destructive" });
+    } finally {
+      setResetPending(false);
+    }
+  };
+
+  const handleImport = async () => {
+    if (!importFile) return;
+    setImportPending(true);
+    setImportResults(null);
+    try {
+      const formData = new FormData();
+      formData.append("file", importFile);
+      const res = await fetch("/api/contracts/import-excel", {
+        method: "POST",
+        body: formData,
+        credentials: "include",
+      });
+      const data = await res.json();
+      if (data.results) {
+        setImportResults(data.results);
+        const ok = data.results.filter((r: any) => r.status === "ok").length;
+        const fail = data.results.filter((r: any) => r.status === "error").length;
+        toast({ title: `Import dokončený: ${ok} úspešných, ${fail} chýb` });
+        queryClient.invalidateQueries();
+      } else {
+        toast({ title: data.message || "Import dokončený" });
+      }
+    } catch (err: any) {
+      toast({ title: "Chyba pri importe", description: err.message, variant: "destructive" });
+    } finally {
+      setImportPending(false);
+    }
+  };
 
   return (
     <div className="space-y-6">
@@ -460,6 +521,100 @@ export default function Settings() {
           </CardContent>
         </Card>
       </div>
+
+      {isSuperAdmin && (
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <Card className="border-amber-800/50" data-testid="card-excel-import">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-lg">Importér z Excelu</CardTitle>
+              <FileSpreadsheet className="h-5 w-5 text-amber-400" />
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <p className="text-xs text-muted-foreground">
+                Hromadný import subjektov a zmlúv z Excel/CSV súboru. Systém automaticky vytvorí chýbajúce subjekty podľa RČ/IČO a označí neúplné zmluvy.
+              </p>
+              <div className="space-y-3">
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept=".xlsx,.xls,.csv"
+                  className="hidden"
+                  onChange={e => setImportFile(e.target.files?.[0] || null)}
+                  data-testid="input-import-file"
+                />
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => fileInputRef.current?.click()}
+                    data-testid="btn-choose-import-file"
+                  >
+                    <Upload className="w-4 h-4 mr-1" />
+                    Vybrať súbor
+                  </Button>
+                  {importFile && (
+                    <span className="text-xs text-muted-foreground">{importFile.name}</span>
+                  )}
+                </div>
+                <Button
+                  onClick={handleImport}
+                  disabled={!importFile || importPending}
+                  className="w-full"
+                  data-testid="btn-start-import"
+                >
+                  {importPending ? <Loader2 className="w-4 h-4 mr-1 animate-spin" /> : <FileSpreadsheet className="w-4 h-4 mr-1" />}
+                  Spustiť import
+                </Button>
+              </div>
+              {importResults && (
+                <div className="space-y-2 max-h-48 overflow-y-auto border rounded p-2" data-testid="import-results">
+                  <div className="flex gap-2 text-xs">
+                    <Badge variant="default" className="bg-green-900">{importResults.filter(r => r.status === "ok").length} úspešných</Badge>
+                    <Badge variant="destructive">{importResults.filter(r => r.status === "error").length} chýb</Badge>
+                  </div>
+                  {importResults.filter(r => r.status === "error").map((r, i) => (
+                    <div key={i} className="text-[11px] text-red-400">Riadok {r.row}: {r.error}</div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          <Card className="border-red-900/50" data-testid="card-big-reset">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-lg text-red-400">Veľký Reset</CardTitle>
+              <AlertTriangle className="h-5 w-5 text-red-400" />
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <p className="text-xs text-red-400/80">
+                NEBEZPEČNÁ OPERÁCIA: Vymaže VŠETKY testovacie subjekty, zmluvy, body a logy. Resetuje UID počítadlo na začiatok. Použite pred ostrým štartom.
+              </p>
+              <div className="space-y-3">
+                <div className="space-y-1">
+                  <Label className="text-xs text-muted-foreground">Potvrdzovací kód</Label>
+                  <Input
+                    value={resetCode}
+                    onChange={e => setResetCode(e.target.value)}
+                    placeholder="Zadajte RESET-ARUTSOK-2025"
+                    className="h-9 text-xs font-mono"
+                    data-testid="input-reset-code"
+                  />
+                </div>
+                <Button
+                  variant="destructive"
+                  onClick={handleBigReset}
+                  disabled={resetPending || resetCode !== "RESET-ARUTSOK-2025"}
+                  className="w-full"
+                  data-testid="btn-big-reset"
+                >
+                  {resetPending ? <Loader2 className="w-4 h-4 mr-1 animate-spin" /> : <Trash2 className="w-4 h-4 mr-1" />}
+                  Vykonať Veľký Reset
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
     </div>
   );
 }
