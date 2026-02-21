@@ -108,12 +108,13 @@ import {
   subjectCollaborators,
   type SubjectCollaborator, type InsertSubjectCollaborator,
   subjectParamSections, subjectParameters, subjectTemplates, subjectTemplateParams,
-  parameterSynonyms,
+  parameterSynonyms, unknownExtractedFields,
   type SubjectParamSection, type InsertSubjectParamSection,
   type SubjectParameter, type InsertSubjectParameter,
   type SubjectTemplate, type InsertSubjectTemplate,
   type SubjectTemplateParam, type InsertSubjectTemplateParam,
   type ParameterSynonym, type InsertParameterSynonym,
+  type UnknownExtractedField, type InsertUnknownExtractedField,
 } from "@shared/schema";
 import { eq, and, or, ne, like, sql, lte, gte, gt, desc, asc, isNull, isNotNull, inArray } from "drizzle-orm";
 
@@ -574,6 +575,13 @@ export interface IStorage {
   createParameterSynonym(data: InsertParameterSynonym): Promise<ParameterSynonym>;
   deleteParameterSynonym(id: number): Promise<void>;
   matchParameterBySynonym(text: string): Promise<{ parameterId: number; synonym: string; confidence: number }[]>;
+
+  getParameterUsageCount(parameterId: number): Promise<number>;
+
+  getUnknownExtractedFields(status?: string): Promise<UnknownExtractedField[]>;
+  createUnknownExtractedField(data: InsertUnknownExtractedField): Promise<UnknownExtractedField>;
+  updateUnknownExtractedField(id: number, data: Partial<InsertUnknownExtractedField>): Promise<UnknownExtractedField>;
+  deleteUnknownExtractedField(id: number): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -3733,6 +3741,34 @@ export class DatabaseStorage implements IStorage {
     }
     matches.sort((a, b) => b.confidence - a.confidence);
     return matches;
+  }
+
+  async getParameterUsageCount(parameterId: number): Promise<number> {
+    const result = await db.select({ count: sql<number>`count(*)` })
+      .from(subjectFieldHistory)
+      .where(eq(subjectFieldHistory.fieldKey, sql`(SELECT field_key FROM subject_parameters WHERE id = ${parameterId})`));
+    return Number(result[0]?.count ?? 0);
+  }
+
+  async getUnknownExtractedFields(status?: string): Promise<UnknownExtractedField[]> {
+    if (status) {
+      return db.select().from(unknownExtractedFields).where(eq(unknownExtractedFields.status, status)).orderBy(desc(unknownExtractedFields.createdAt));
+    }
+    return db.select().from(unknownExtractedFields).orderBy(desc(unknownExtractedFields.createdAt));
+  }
+
+  async createUnknownExtractedField(data: InsertUnknownExtractedField): Promise<UnknownExtractedField> {
+    const [field] = await db.insert(unknownExtractedFields).values(data).returning();
+    return field;
+  }
+
+  async updateUnknownExtractedField(id: number, data: Partial<InsertUnknownExtractedField>): Promise<UnknownExtractedField> {
+    const [field] = await db.update(unknownExtractedFields).set(data).where(eq(unknownExtractedFields.id, id)).returning();
+    return field;
+  }
+
+  async deleteUnknownExtractedField(id: number): Promise<void> {
+    await db.delete(unknownExtractedFields).where(eq(unknownExtractedFields.id, id));
   }
 }
 

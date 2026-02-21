@@ -1,0 +1,708 @@
+import { db } from "./db";
+import { subjectParamSections, subjectParameters, parameterSynonyms } from "@shared/schema";
+import { eq } from "drizzle-orm";
+
+type FieldSeed = {
+  clientTypeId: number; sectionCode: string; panelCode: string | null; fieldKey: string; label: string;
+  shortLabel?: string; fieldType: string; isRequired: boolean; isHidden: boolean; isCollection: boolean;
+  extractionHints: any; options: string[]; defaultValue: string | null;
+  visibilityRule: { dependsOn: string; value: string } | null;
+  unit: string | null; decimalPlaces: number; fieldCategory: string; categoryCode?: string;
+  sortOrder: number; rowNumber: number; widthPercent: number;
+};
+
+function f(clientTypeId: number, sectionCode: string, panelCode: string, fieldKey: string, label: string, fieldType: string, sortOrder: number, rowNumber: number, widthPercent: number, opts?: Partial<FieldSeed>): FieldSeed {
+  return {
+    clientTypeId, sectionCode, panelCode, fieldKey, label, fieldType,
+    isRequired: false, isHidden: false, isCollection: false, extractionHints: null,
+    options: [], defaultValue: null, visibilityRule: null, unit: null, decimalPlaces: 2,
+    fieldCategory: sectionCode.includes("povinne") ? "povinne" : "doplnkove",
+    sortOrder, rowNumber, widthPercent,
+    ...opts,
+  };
+}
+
+export async function seedSubjectParameters(): Promise<{ sectionsCount: number; parametersCount: number; synonymsCount: number }> {
+  const existing = await db.select({ id: subjectParameters.id }).from(subjectParameters).limit(1);
+  if (existing.length > 0) {
+    console.log("[SEED] Subject parameters already exist, skipping seed.");
+    return { sectionsCount: 0, parametersCount: 0, synonymsCount: 0 };
+  }
+
+  const STATIC_SECTIONS = [
+    { clientTypeId: 1, name: "POVINNÉ ÚDAJE", code: "fo_povinne", folderCategory: "povinne", sortOrder: 0, isPanel: false, gridColumns: 1 },
+    { clientTypeId: 1, name: "DOPLNKOVÉ ÚDAJE", code: "fo_doplnkove", folderCategory: "doplnkove", sortOrder: 1, isPanel: false, gridColumns: 1 },
+    { clientTypeId: 1, name: "VOLITEĽNÉ ÚDAJE", code: "fo_volitelne", folderCategory: "volitelne", sortOrder: 2, isPanel: false, gridColumns: 1 },
+    { clientTypeId: 1, name: "Osobné údaje", code: "fo_osobne", folderCategory: "povinne", sortOrder: 0, isPanel: true, gridColumns: 5 },
+    { clientTypeId: 1, name: "Adresa", code: "fo_adresa", folderCategory: "povinne", sortOrder: 1, isPanel: true, gridColumns: 4 },
+    { clientTypeId: 1, name: "Cudzinec bez rodného čísla", code: "fo_cudzinec", folderCategory: "povinne", sortOrder: 2, isPanel: true, gridColumns: 1 },
+    { clientTypeId: 1, name: "Doklady", code: "fo_doklady", folderCategory: "povinne", sortOrder: 3, isPanel: true, gridColumns: 4 },
+    { clientTypeId: 1, name: "Kontaktné údaje", code: "fo_kontakt", folderCategory: "povinne", sortOrder: 4, isPanel: true, gridColumns: 2 },
+    { clientTypeId: 1, name: "Rodinný kontakt a zastihnutie", code: "fo_rodina", folderCategory: "doplnkove", sortOrder: 0, isPanel: true, gridColumns: 2 },
+    { clientTypeId: 1, name: "Doručovacia adresa", code: "fo_dorucovacia", folderCategory: "doplnkove", sortOrder: 1, isPanel: true, gridColumns: 4 },
+    { clientTypeId: 1, name: "AML – PEP a KUV", code: "fo_aml", folderCategory: "doplnkove", sortOrder: 2, isPanel: true, gridColumns: 3 },
+    { clientTypeId: 1, name: "Zákonné údaje", code: "fo_zakonne", folderCategory: "doplnkove", sortOrder: 3, isPanel: true, gridColumns: 2 },
+    { clientTypeId: 1, name: "Bankové údaje", code: "fo_zmluvne", folderCategory: "doplnkove", sortOrder: 4, isPanel: true, gridColumns: 3 },
+    { clientTypeId: 1, name: "Majetkové údaje", code: "fo_majetkove", folderCategory: "doplnkove", sortOrder: 5, isPanel: true, gridColumns: 2 },
+    { clientTypeId: 1, name: "Zdravotné údaje", code: "fo_zdravie", folderCategory: "doplnkove", sortOrder: 6, isPanel: true, gridColumns: 3 },
+    { clientTypeId: 1, name: "PZP – Povinné zmluvné poistenie", code: "fo_poistenie_pzp", folderCategory: "doplnkove", sortOrder: 7, isPanel: true, gridColumns: 4 },
+    { clientTypeId: 1, name: "Životné poistenie", code: "fo_poistenie_zivot", folderCategory: "doplnkove", sortOrder: 8, isPanel: true, gridColumns: 4 },
+    { clientTypeId: 1, name: "Poistenie majetku", code: "fo_poistenie_majetok", folderCategory: "doplnkove", sortOrder: 9, isPanel: true, gridColumns: 4 },
+    { clientTypeId: 1, name: "Vozidlo", code: "fo_auto", folderCategory: "doplnkove", sortOrder: 10, isPanel: true, gridColumns: 4 },
+    { clientTypeId: 1, name: "Nehnuteľnosť", code: "fo_nehnutelnost", folderCategory: "doplnkove", sortOrder: 11, isPanel: true, gridColumns: 3 },
+    { clientTypeId: 1, name: "Deti", code: "fo_deti", folderCategory: "doplnkove", sortOrder: 12, isPanel: true, gridColumns: 3 },
+    { clientTypeId: 1, name: "Zamestnávateľ", code: "fo_zamestnavatel", folderCategory: "doplnkove", sortOrder: 13, isPanel: true, gridColumns: 3 },
+    { clientTypeId: 3, name: "POVINNÉ ÚDAJE", code: "szco_povinne", folderCategory: "povinne", sortOrder: 0, isPanel: false, gridColumns: 1 },
+    { clientTypeId: 3, name: "DOPLNKOVÉ ÚDAJE", code: "szco_doplnkove", folderCategory: "doplnkove", sortOrder: 1, isPanel: false, gridColumns: 1 },
+    { clientTypeId: 3, name: "VOLITEĽNÉ ÚDAJE", code: "szco_volitelne", folderCategory: "volitelne", sortOrder: 2, isPanel: false, gridColumns: 1 },
+    { clientTypeId: 3, name: "Subjekt SZČO", code: "szco_subjekt", folderCategory: "povinne", sortOrder: 0, isPanel: true, gridColumns: 2 },
+    { clientTypeId: 3, name: "Sídlo", code: "szco_sidlo", folderCategory: "povinne", sortOrder: 1, isPanel: true, gridColumns: 4 },
+    { clientTypeId: 3, name: "Osobné údaje", code: "szco_osobne", folderCategory: "povinne", sortOrder: 2, isPanel: true, gridColumns: 4 },
+    { clientTypeId: 3, name: "Adresa trvalého pobytu", code: "szco_adresa", folderCategory: "povinne", sortOrder: 3, isPanel: true, gridColumns: 4 },
+    { clientTypeId: 3, name: "Kontaktné údaje", code: "szco_kontakt", folderCategory: "povinne", sortOrder: 4, isPanel: true, gridColumns: 2 },
+    { clientTypeId: 3, name: "Doklady", code: "szco_doklady", folderCategory: "povinne", sortOrder: 5, isPanel: true, gridColumns: 4 },
+    { clientTypeId: 3, name: "AML – KUV", code: "szco_aml", folderCategory: "doplnkove", sortOrder: 0, isPanel: true, gridColumns: 3 },
+    { clientTypeId: 3, name: "Firemný profil", code: "szco_firemny", folderCategory: "doplnkove", sortOrder: 1, isPanel: true, gridColumns: 2 },
+    { clientTypeId: 3, name: "Zákonné údaje", code: "szco_zakonne", folderCategory: "doplnkove", sortOrder: 2, isPanel: true, gridColumns: 2 },
+    { clientTypeId: 3, name: "Bankové údaje", code: "szco_zmluvne", folderCategory: "doplnkove", sortOrder: 3, isPanel: true, gridColumns: 3 },
+    { clientTypeId: 3, name: "PZP – Povinné zmluvné poistenie", code: "szco_poistenie_pzp", folderCategory: "doplnkove", sortOrder: 4, isPanel: true, gridColumns: 4 },
+    { clientTypeId: 3, name: "Poistenie majetku", code: "szco_poistenie_majetok", folderCategory: "doplnkove", sortOrder: 5, isPanel: true, gridColumns: 4 },
+    { clientTypeId: 3, name: "Vozidlo", code: "szco_auto", folderCategory: "doplnkove", sortOrder: 6, isPanel: true, gridColumns: 4 },
+    { clientTypeId: 3, name: "Nehnuteľnosť", code: "szco_nehnutelnost", folderCategory: "doplnkove", sortOrder: 7, isPanel: true, gridColumns: 3 },
+    { clientTypeId: 3, name: "Podnikateľské údaje", code: "szco_zamestnavatelia", folderCategory: "doplnkove", sortOrder: 8, isPanel: true, gridColumns: 3 },
+    { clientTypeId: 4, name: "POVINNÉ ÚDAJE", code: "po_povinne", folderCategory: "povinne", sortOrder: 0, isPanel: false, gridColumns: 1 },
+    { clientTypeId: 4, name: "DOPLNKOVÉ ÚDAJE", code: "po_doplnkove", folderCategory: "doplnkove", sortOrder: 1, isPanel: false, gridColumns: 1 },
+    { clientTypeId: 4, name: "VOLITEĽNÉ ÚDAJE", code: "po_volitelne", folderCategory: "volitelne", sortOrder: 2, isPanel: false, gridColumns: 1 },
+    { clientTypeId: 4, name: "Subjekt PO", code: "po_subjekt", folderCategory: "povinne", sortOrder: 0, isPanel: true, gridColumns: 2 },
+    { clientTypeId: 4, name: "Sídlo", code: "po_sidlo", folderCategory: "povinne", sortOrder: 1, isPanel: true, gridColumns: 4 },
+    { clientTypeId: 4, name: "Kontaktné údaje", code: "po_kontakt", folderCategory: "povinne", sortOrder: 2, isPanel: true, gridColumns: 2 },
+    { clientTypeId: 4, name: "AML – KUV", code: "po_aml", folderCategory: "doplnkove", sortOrder: 0, isPanel: true, gridColumns: 3 },
+    { clientTypeId: 4, name: "Firemný profil", code: "po_firemny", folderCategory: "doplnkove", sortOrder: 1, isPanel: true, gridColumns: 2 },
+    { clientTypeId: 4, name: "Zákonné údaje", code: "po_zakonne", folderCategory: "doplnkove", sortOrder: 2, isPanel: true, gridColumns: 2 },
+    { clientTypeId: 4, name: "Bankové údaje", code: "po_zmluvne", folderCategory: "doplnkove", sortOrder: 3, isPanel: true, gridColumns: 3 },
+    { clientTypeId: 4, name: "Štatutári", code: "po_statutari", folderCategory: "doplnkove", sortOrder: 4, isPanel: true, gridColumns: 2 },
+    { clientTypeId: 4, name: "PZP – Povinné zmluvné poistenie", code: "po_poistenie_pzp", folderCategory: "doplnkove", sortOrder: 5, isPanel: true, gridColumns: 4 },
+    { clientTypeId: 4, name: "Poistenie majetku", code: "po_poistenie_majetok", folderCategory: "doplnkove", sortOrder: 6, isPanel: true, gridColumns: 4 },
+    { clientTypeId: 4, name: "Vozidlo", code: "po_auto", folderCategory: "doplnkove", sortOrder: 7, isPanel: true, gridColumns: 4 },
+    { clientTypeId: 4, name: "Nehnuteľnosti", code: "po_nehnutelnosti", folderCategory: "doplnkove", sortOrder: 8, isPanel: true, gridColumns: 3 },
+    { clientTypeId: 4, name: "Flotila vozidiel", code: "po_flota", folderCategory: "doplnkove", sortOrder: 9, isPanel: true, gridColumns: 3 },
+  ];
+
+  const sectionMap: Record<string, number> = {};
+  for (const sec of STATIC_SECTIONS) {
+    const [inserted] = await db.insert(subjectParamSections).values(sec as any).returning();
+    sectionMap[sec.code] = inserted.id;
+  }
+
+  const parentCodes: Record<string, string> = {
+    fo_osobne: "fo_povinne", fo_adresa: "fo_povinne", fo_cudzinec: "fo_povinne", fo_doklady: "fo_povinne", fo_kontakt: "fo_povinne",
+    fo_rodina: "fo_doplnkove", fo_dorucovacia: "fo_doplnkove", fo_aml: "fo_doplnkove", fo_zakonne: "fo_doplnkove", fo_zmluvne: "fo_doplnkove", fo_majetkove: "fo_doplnkove",
+    fo_zdravie: "fo_doplnkove", fo_poistenie_pzp: "fo_doplnkove", fo_poistenie_zivot: "fo_doplnkove", fo_poistenie_majetok: "fo_doplnkove",
+    fo_auto: "fo_doplnkove", fo_nehnutelnost: "fo_doplnkove", fo_deti: "fo_doplnkove", fo_zamestnavatel: "fo_doplnkove",
+    szco_subjekt: "szco_povinne", szco_sidlo: "szco_povinne", szco_osobne: "szco_povinne", szco_adresa: "szco_povinne", szco_kontakt: "szco_povinne", szco_doklady: "szco_povinne",
+    szco_aml: "szco_doplnkove", szco_firemny: "szco_doplnkove", szco_zakonne: "szco_doplnkove", szco_zmluvne: "szco_doplnkove",
+    szco_poistenie_pzp: "szco_doplnkove", szco_poistenie_majetok: "szco_doplnkove", szco_auto: "szco_doplnkove", szco_nehnutelnost: "szco_doplnkove", szco_zamestnavatelia: "szco_doplnkove",
+    po_subjekt: "po_povinne", po_sidlo: "po_povinne", po_kontakt: "po_povinne",
+    po_aml: "po_doplnkove", po_firemny: "po_doplnkove", po_zakonne: "po_doplnkove", po_zmluvne: "po_doplnkove", po_statutari: "po_doplnkove",
+    po_poistenie_pzp: "po_doplnkove", po_poistenie_majetok: "po_doplnkove", po_auto: "po_doplnkove", po_nehnutelnosti: "po_doplnkove", po_flota: "po_doplnkove",
+  };
+
+  for (const [childCode, parentCode] of Object.entries(parentCodes)) {
+    const childId = sectionMap[childCode];
+    const parentId = sectionMap[parentCode];
+    if (childId && parentId) {
+      await db.update(subjectParamSections).set({ parentSectionId: parentId }).where(eq(subjectParamSections.id, childId));
+    }
+  }
+
+  const FIELDS: FieldSeed[] = [
+    // ============================================================
+    // FO: Osobné údaje (fo_osobne) - 11 fields
+    // ============================================================
+    f(1, "fo_povinne", "fo_osobne", "titul_pred", "Titul pred menom", "short_text", 10, 1, 12, { shortLabel: "Titul pred" }),
+    f(1, "fo_povinne", "fo_osobne", "meno", "Meno", "short_text", 20, 1, 33, { isRequired: true }),
+    f(1, "fo_povinne", "fo_osobne", "priezvisko", "Priezvisko", "short_text", 30, 1, 43, { isRequired: true }),
+    f(1, "fo_povinne", "fo_osobne", "titul_za", "Titul za menom", "short_text", 40, 1, 12, { shortLabel: "Titul za" }),
+    f(1, "fo_povinne", "fo_osobne", "rodne_priezvisko", "Rodné priezvisko", "short_text", 50, 2, 50, { shortLabel: "Rod. priez." }),
+    f(1, "fo_povinne", "fo_osobne", "rodne_cislo", "Rodné číslo", "short_text", 60, 2, 25, { isRequired: true, shortLabel: "Rod. číslo" }),
+    f(1, "fo_povinne", "fo_osobne", "datum_narodenia", "Dátum narodenia", "date", 70, 2, 25, { isRequired: true, shortLabel: "Dát. nar." }),
+    f(1, "fo_povinne", "fo_osobne", "vek", "Vek", "number", 80, 3, 15, { isRequired: true }),
+    f(1, "fo_povinne", "fo_osobne", "pohlavie", "Pohlavie", "jedna_moznost", 90, 3, 20, { options: ["muž", "žena"] }),
+    f(1, "fo_povinne", "fo_osobne", "miesto_narodenia", "Miesto narodenia", "short_text", 100, 4, 50, { shortLabel: "Miesto nar." }),
+    f(1, "fo_povinne", "fo_osobne", "statna_prislusnost", "Štátna príslušnosť", "short_text", 110, 4, 50, { shortLabel: "Št. príslušnosť" }),
+
+    // ============================================================
+    // FO: Adresa (fo_adresa) - 21 fields
+    // ============================================================
+    f(1, "fo_povinne", "fo_adresa", "tp_ulica", "Ulica (trvalý pobyt)", "short_text", 10, 0, 40, { shortLabel: "Ulica" }),
+    f(1, "fo_povinne", "fo_adresa", "tp_supisne", "Súpisné číslo", "short_text", 20, 0, 30, { shortLabel: "Súpisné č." }),
+    f(1, "fo_povinne", "fo_adresa", "tp_orientacne", "Orientačné číslo", "short_text", 30, 0, 30, { isRequired: true, shortLabel: "Orient. č." }),
+    f(1, "fo_povinne", "fo_adresa", "tp_mesto", "Mesto", "short_text", 40, 1, 50),
+    f(1, "fo_povinne", "fo_adresa", "tp_psc", "PSČ", "short_text", 50, 1, 25),
+    f(1, "fo_povinne", "fo_adresa", "tp_stat", "Štát", "short_text", 60, 1, 25),
+    f(1, "fo_povinne", "fo_adresa", "korespond_rovnaka", "Adresa prech. pobytu sa zhoduje s trvalou", "switch", 100, 2, 100, { shortLabel: "Prech. = trvalá" }),
+    f(1, "fo_povinne", "fo_adresa", "ka_ulica", "Ulica (prechodný pobyt)", "short_text", 110, 3, 40, { shortLabel: "Ulica (prech.)", visibilityRule: { dependsOn: "korespond_rovnaka", value: "false" } }),
+    f(1, "fo_povinne", "fo_adresa", "ka_supisne", "Súpisné číslo (prechodný)", "short_text", 120, 3, 30, { shortLabel: "Súp. č. (prech.)", visibilityRule: { dependsOn: "korespond_rovnaka", value: "false" } }),
+    f(1, "fo_povinne", "fo_adresa", "ka_orientacne", "Orientačné číslo (prechodný)", "short_text", 130, 3, 30, { shortLabel: "Or. č. (prech.)", visibilityRule: { dependsOn: "korespond_rovnaka", value: "false" } }),
+    f(1, "fo_povinne", "fo_adresa", "ka_mesto", "Mesto (prechodný)", "short_text", 140, 4, 50, { shortLabel: "Mesto (prech.)", visibilityRule: { dependsOn: "korespond_rovnaka", value: "false" } }),
+    f(1, "fo_povinne", "fo_adresa", "ka_psc", "PSČ (prechodný)", "short_text", 150, 4, 25, { shortLabel: "PSČ (prech.)", visibilityRule: { dependsOn: "korespond_rovnaka", value: "false" } }),
+    f(1, "fo_povinne", "fo_adresa", "ka_stat", "Štát (prechodný)", "short_text", 160, 4, 25, { shortLabel: "Štát (prech.)", visibilityRule: { dependsOn: "korespond_rovnaka", value: "false" } }),
+    f(1, "fo_povinne", "fo_adresa", "kontaktna_rovnaka", "Kontaktná adresa sa zhoduje s trvalou", "switch", 200, 5, 100, { shortLabel: "Kontakt. = trvalá" }),
+    f(1, "fo_povinne", "fo_adresa", "koa_ulica", "Ulica (kontaktná)", "short_text", 210, 6, 40, { shortLabel: "Ulica (kont.)", visibilityRule: { dependsOn: "kontaktna_rovnaka", value: "false" } }),
+    f(1, "fo_povinne", "fo_adresa", "koa_supisne", "Súpisné číslo (kontaktná)", "short_text", 220, 6, 30, { shortLabel: "Súp. č. (kont.)", visibilityRule: { dependsOn: "kontaktna_rovnaka", value: "false" } }),
+    f(1, "fo_povinne", "fo_adresa", "koa_orientacne", "Orientačné číslo (kontaktná)", "short_text", 230, 6, 30, { shortLabel: "Or. č. (kont.)", visibilityRule: { dependsOn: "kontaktna_rovnaka", value: "false" } }),
+    f(1, "fo_povinne", "fo_adresa", "koa_mesto", "Mesto (kontaktná)", "short_text", 240, 7, 50, { shortLabel: "Mesto (kont.)", visibilityRule: { dependsOn: "kontaktna_rovnaka", value: "false" } }),
+    f(1, "fo_povinne", "fo_adresa", "koa_psc", "PSČ (kontaktná)", "short_text", 250, 7, 25, { shortLabel: "PSČ (kont.)", visibilityRule: { dependsOn: "kontaktna_rovnaka", value: "false" } }),
+    f(1, "fo_povinne", "fo_adresa", "koa_stat", "Štát (kontaktná)", "short_text", 260, 7, 25, { shortLabel: "Štát (kont.)", visibilityRule: { dependsOn: "kontaktna_rovnaka", value: "false" } }),
+
+    // ============================================================
+    // FO: Cudzinec (fo_cudzinec) - 7 fields (NEW)
+    // ============================================================
+    f(1, "fo_povinne", "fo_cudzinec", "pas_cislo", "Číslo pasu", "short_text", 10, 0, 33),
+    f(1, "fo_povinne", "fo_cudzinec", "pas_platnost", "Platnosť pasu do", "date", 20, 0, 33),
+    f(1, "fo_povinne", "fo_cudzinec", "pas_vydal", "Pas vydal", "short_text", 30, 0, 34),
+    f(1, "fo_povinne", "fo_cudzinec", "pobyt_typ", "Typ pobytu", "short_text", 40, 1, 33),
+    f(1, "fo_povinne", "fo_cudzinec", "pobyt_platnost", "Platnosť pobytu do", "date", 50, 1, 33),
+    f(1, "fo_povinne", "fo_cudzinec", "druh_pobytu", "Druh pobytu", "jedna_moznost", 60, 2, 50, { options: ["prechodný", "trvalý", "tolerovaný"] }),
+    f(1, "fo_povinne", "fo_cudzinec", "udelenie_azylu", "Azyl udelený dňa", "date", 70, 2, 50),
+
+    // ============================================================
+    // FO: Doklady (fo_doklady) - 6 fields
+    // ============================================================
+    f(1, "fo_povinne", "fo_doklady", "typ_dokladu", "Typ dokladu totožnosti", "jedna_moznost", 10, 0, 20, { isRequired: true, shortLabel: "Typ dokladu", options: ["Občiansky preukaz", "Cestovný pas", "Vodičský preukaz", "Povolenie na pobyt", "Preukaz diplomata", "Iný"] }),
+    f(1, "fo_povinne", "fo_doklady", "typ_dokladu_iny", "Špecifikácia dokladu", "short_text", 20, 0, 20, { isRequired: true, shortLabel: "Špecifikácia", visibilityRule: { dependsOn: "typ_dokladu", value: "Iný" } }),
+    f(1, "fo_povinne", "fo_doklady", "cislo_dokladu", "Číslo dokladu totožnosti", "short_text", 30, 0, 30, { isRequired: true, shortLabel: "Č. dokladu" }),
+    f(1, "fo_povinne", "fo_doklady", "platnost_dokladu", "Platnosť dokladu do", "date", 40, 0, 20, { shortLabel: "Platnosť do" }),
+    f(1, "fo_povinne", "fo_doklady", "vydal_organ", "Vydal (orgán)", "short_text", 50, 0, 30, { shortLabel: "Vydal" }),
+    f(1, "fo_povinne", "fo_doklady", "kod_vydavajuceho_organu", "Kód vydávajúceho orgánu", "short_text", 60, 1, 100, { shortLabel: "Kód orgánu" }),
+
+    // ============================================================
+    // FO: Kontakt (fo_kontakt) - 2 fields
+    // ============================================================
+    f(1, "fo_povinne", "fo_kontakt", "telefon", "Telefónne číslo (primárne)", "phone", 10, 0, 50, { shortLabel: "Tel. číslo" }),
+    f(1, "fo_povinne", "fo_kontakt", "email", "Email (primárny)", "short_text", 20, 0, 50, { shortLabel: "Email" }),
+
+    // ============================================================
+    // FO: Rodina (fo_rodina) - 4 fields
+    // ============================================================
+    f(1, "fo_doplnkove", "fo_rodina", "rodinny_kontakt_meno", "Meno rodinného kontaktu", "short_text", 10, 0, 50, { shortLabel: "Rod. kontakt", categoryCode: "komunikacne" }),
+    f(1, "fo_doplnkove", "fo_rodina", "rodinny_kontakt_telefon", "Telefón rodinného kontaktu", "phone", 20, 0, 50, { shortLabel: "Rod. telefón", categoryCode: "komunikacne" }),
+    f(1, "fo_doplnkove", "fo_rodina", "rodinny_kontakt_vztah", "Vzťah", "jedna_moznost", 30, 1, 50, { options: ["Manžel/ka", "Partner/ka", "Rodič", "Dieťa", "Súrodenec", "Iný"], categoryCode: "komunikacne" }),
+    f(1, "fo_doplnkove", "fo_rodina", "zastihnutie", "Najlepšie zastihnutie", "jedna_moznost", 40, 1, 50, { shortLabel: "Zastihnutie", options: ["Ráno (8-12)", "Poobede (12-17)", "Večer (17-21)", "Kedykoľvek"], categoryCode: "komunikacne" }),
+
+    // ============================================================
+    // FO: Doručovacia (fo_dorucovacia) - 5 fields
+    // ============================================================
+    f(1, "fo_doplnkove", "fo_dorucovacia", "doruc_rovnaka", "Doručovacia adresa sa zhoduje s trvalou", "switch", 10, 0, 100, { shortLabel: "Doruč. = trvalá", categoryCode: "geolokacne" }),
+    f(1, "fo_doplnkove", "fo_dorucovacia", "doruc_ulica", "Ulica (doručovacia)", "short_text", 20, 1, 100, { shortLabel: "Ulica (doruč.)", visibilityRule: { dependsOn: "doruc_rovnaka", value: "false" }, categoryCode: "geolokacne" }),
+    f(1, "fo_doplnkove", "fo_dorucovacia", "doruc_mesto", "Mesto (doručovacia)", "short_text", 30, 2, 50, { shortLabel: "Mesto (doruč.)", visibilityRule: { dependsOn: "doruc_rovnaka", value: "false" }, categoryCode: "geolokacne" }),
+    f(1, "fo_doplnkove", "fo_dorucovacia", "doruc_psc", "PSČ (doručovacia)", "short_text", 40, 2, 25, { shortLabel: "PSČ (doruč.)", visibilityRule: { dependsOn: "doruc_rovnaka", value: "false" }, categoryCode: "geolokacne" }),
+    f(1, "fo_doplnkove", "fo_dorucovacia", "doruc_stat", "Štát (doručovacia)", "short_text", 50, 2, 25, { shortLabel: "Štát (doruč.)", visibilityRule: { dependsOn: "doruc_rovnaka", value: "false" }, categoryCode: "geolokacne" }),
+
+    // ============================================================
+    // FO: AML (fo_aml) - 6 fields
+    // ============================================================
+    f(1, "fo_doplnkove", "fo_aml", "pep", "Politicky exponovaná osoba (PEP)", "jedna_moznost", 10, 0, 33, { shortLabel: "PEP", options: ["Áno", "Nie"], defaultValue: "Nie", categoryCode: "aml" }),
+    f(1, "fo_doplnkove", "fo_aml", "pep_funkcia", "PEP – verejná funkcia", "short_text", 20, 0, 33, { shortLabel: "PEP funkcia", visibilityRule: { dependsOn: "pep", value: "Áno" }, categoryCode: "aml" }),
+    f(1, "fo_doplnkove", "fo_aml", "pep_vztah", "PEP – vzťah k PEP osobe", "short_text", 30, 0, 33, { shortLabel: "PEP vzťah", visibilityRule: { dependsOn: "pep", value: "Áno" }, categoryCode: "aml" }),
+    f(1, "fo_doplnkove", "fo_aml", "kuv_meno_1", "KUV 1 – Meno a priezvisko", "short_text", 40, 1, 40, { shortLabel: "KUV 1 Meno", categoryCode: "aml" }),
+    f(1, "fo_doplnkove", "fo_aml", "kuv_rc_1", "KUV 1 – Rodné číslo", "short_text", 50, 1, 30, { shortLabel: "KUV 1 RČ", categoryCode: "aml" }),
+    f(1, "fo_doplnkove", "fo_aml", "kuv_podiel_1", "KUV 1 – % podiel", "desatinne_cislo", 60, 1, 30, { shortLabel: "KUV 1 %", unit: "%", categoryCode: "aml" }),
+
+    // ============================================================
+    // FO: Zákonné (fo_zakonne) - 4 fields
+    // ============================================================
+    f(1, "fo_doplnkove", "fo_zakonne", "dic", "DIČ", "short_text", 10, 0, 50, { categoryCode: "zakonne" }),
+    f(1, "fo_doplnkove", "fo_zakonne", "ic_dph", "IČ DPH", "short_text", 20, 0, 50, { categoryCode: "zakonne" }),
+    f(1, "fo_doplnkove", "fo_zakonne", "suhlas_gdpr", "Súhlas so spracovaním osobných údajov (GDPR)", "switch", 30, 1, 50, { shortLabel: "GDPR súhlas", defaultValue: "false", categoryCode: "zakonne" }),
+    f(1, "fo_doplnkove", "fo_zakonne", "suhlas_marketing", "Súhlas s marketingovou komunikáciou", "switch", 40, 1, 50, { shortLabel: "Marketing súhlas", defaultValue: "false", categoryCode: "zakonne" }),
+
+    // ============================================================
+    // FO: Bankové (fo_zmluvne) - 3 fields
+    // ============================================================
+    f(1, "fo_doplnkove", "fo_zmluvne", "iban", "IBAN", "short_text", 10, 0, 40, { categoryCode: "zmluvne" }),
+    f(1, "fo_doplnkove", "fo_zmluvne", "bic", "BIC/SWIFT", "short_text", 20, 0, 30, { categoryCode: "zmluvne" }),
+    f(1, "fo_doplnkove", "fo_zmluvne", "cislo_uctu", "Číslo účtu", "short_text", 30, 0, 30, { categoryCode: "zmluvne" }),
+
+    // ============================================================
+    // FO: Majetkové (fo_majetkove) - 2 fields
+    // ============================================================
+    f(1, "fo_doplnkove", "fo_majetkove", "spz", "ŠPZ vozidla", "short_text", 10, 0, 50, { shortLabel: "ŠPZ", categoryCode: "majetkove" }),
+    f(1, "fo_doplnkove", "fo_majetkove", "vin", "VIN číslo", "short_text", 20, 0, 50, { shortLabel: "VIN", categoryCode: "majetkove" }),
+
+    // ============================================================
+    // FO: Zdravie (fo_zdravie) - 13 fields (NEW)
+    // ============================================================
+    f(1, "fo_doplnkove", "fo_zdravie", "vyska_cm", "Výška v cm", "number", 10, 0, 25, { unit: "cm", decimalPlaces: 0, categoryCode: "zdravotne" }),
+    f(1, "fo_doplnkove", "fo_zdravie", "hmotnost_kg", "Hmotnosť v kg", "number", 20, 0, 25, { unit: "kg", decimalPlaces: 1, categoryCode: "zdravotne" }),
+    f(1, "fo_doplnkove", "fo_zdravie", "bmi", "BMI", "desatinne_cislo", 30, 0, 25, { decimalPlaces: 1, categoryCode: "zdravotne" }),
+    f(1, "fo_doplnkove", "fo_zdravie", "krvna_skupina", "Krvná skupina", "jedna_moznost", 40, 0, 25, { options: ["A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-"], categoryCode: "zdravotne" }),
+    f(1, "fo_doplnkove", "fo_zdravie", "kurak", "Fajčiar", "jedna_moznost", 50, 1, 33, { options: ["Áno", "Nie", "Bývalý"], categoryCode: "zdravotne" }),
+    f(1, "fo_doplnkove", "fo_zdravie", "alergie", "Alergie", "long_text", 60, 1, 67, { categoryCode: "zdravotne" }),
+    f(1, "fo_doplnkove", "fo_zdravie", "chronicke_choroby", "Chronické ochorenia", "long_text", 70, 2, 50, { categoryCode: "zdravotne" }),
+    f(1, "fo_doplnkove", "fo_zdravie", "hospitalizacia_posledna", "Posledná hospitalizácia", "date", 80, 2, 50, { categoryCode: "zdravotne" }),
+    f(1, "fo_doplnkove", "fo_zdravie", "lieky", "Užívané lieky", "long_text", 90, 3, 100, { categoryCode: "zdravotne" }),
+    f(1, "fo_doplnkove", "fo_zdravie", "invalidny_dochodca", "Invalidný dôchodca", "jedna_moznost", 100, 4, 33, { options: ["Áno", "Nie"], categoryCode: "zdravotne" }),
+    f(1, "fo_doplnkove", "fo_zdravie", "stupen_invalidity", "Stupeň invalidity", "number", 110, 4, 33, { decimalPlaces: 0, categoryCode: "zdravotne" }),
+    f(1, "fo_doplnkove", "fo_zdravie", "telesne_postihnutie", "Telesné postihnutie", "short_text", 120, 4, 34, { categoryCode: "zdravotne" }),
+    f(1, "fo_doplnkove", "fo_zdravie", "sport_rizikovy", "Rizikový šport", "long_text", 130, 5, 100, { categoryCode: "zdravotne" }),
+
+    // ============================================================
+    // FO: PZP (fo_poistenie_pzp) - 8 fields (NEW)
+    // ============================================================
+    f(1, "fo_doplnkove", "fo_poistenie_pzp", "pzp_cislo_poistky", "Číslo poistky PZP", "short_text", 10, 0, 25, { categoryCode: "poistenie" }),
+    f(1, "fo_doplnkove", "fo_poistenie_pzp", "pzp_poistovatel", "Poisťovateľ PZP", "short_text", 20, 0, 25, { categoryCode: "poistenie" }),
+    f(1, "fo_doplnkove", "fo_poistenie_pzp", "pzp_zaciatok", "Začiatok poistenia PZP", "date", 30, 0, 25, { categoryCode: "poistenie" }),
+    f(1, "fo_doplnkove", "fo_poistenie_pzp", "pzp_koniec", "Koniec poistenia PZP", "date", 40, 0, 25, { categoryCode: "poistenie" }),
+    f(1, "fo_doplnkove", "fo_poistenie_pzp", "pzp_rocne_poistne", "Ročné poistné PZP", "desatinne_cislo", 50, 1, 25, { unit: "€", categoryCode: "poistenie" }),
+    f(1, "fo_doplnkove", "fo_poistenie_pzp", "pzp_bonus_malus", "Bonus/Malus stupeň", "short_text", 60, 1, 25, { categoryCode: "poistenie" }),
+    f(1, "fo_doplnkove", "fo_poistenie_pzp", "pzp_predchadzajuca_poistovna", "Predchádzajúca poisťovňa PZP", "short_text", 70, 1, 25, { categoryCode: "poistenie" }),
+    f(1, "fo_doplnkove", "fo_poistenie_pzp", "pzp_pocet_skod", "Počet škodových udalostí", "number", 80, 1, 25, { decimalPlaces: 0, categoryCode: "poistenie" }),
+
+    // ============================================================
+    // FO: Životné poistenie (fo_poistenie_zivot) - 11 fields (NEW)
+    // ============================================================
+    f(1, "fo_doplnkove", "fo_poistenie_zivot", "ziv_cislo_poistky", "Číslo poistky životného poistenia", "short_text", 10, 0, 33, { categoryCode: "poistenie" }),
+    f(1, "fo_doplnkove", "fo_poistenie_zivot", "ziv_poistovatel", "Poisťovateľ ŽP", "short_text", 20, 0, 33, { categoryCode: "poistenie" }),
+    f(1, "fo_doplnkove", "fo_poistenie_zivot", "ziv_typ", "Typ životného poistenia", "jedna_moznost", 30, 0, 34, { options: ["rizikové", "investičné", "kapitálové", "unit-linked"], categoryCode: "poistenie" }),
+    f(1, "fo_doplnkove", "fo_poistenie_zivot", "ziv_poistna_suma", "Poistná suma ŽP", "desatinne_cislo", 40, 1, 33, { unit: "€", categoryCode: "poistenie" }),
+    f(1, "fo_doplnkove", "fo_poistenie_zivot", "ziv_mesacne_poistne", "Mesačné poistné ŽP", "desatinne_cislo", 50, 1, 33, { unit: "€", categoryCode: "poistenie" }),
+    f(1, "fo_doplnkove", "fo_poistenie_zivot", "ziv_zaciatok", "Začiatok poistenia ŽP", "date", 60, 1, 34, { categoryCode: "poistenie" }),
+    f(1, "fo_doplnkove", "fo_poistenie_zivot", "ziv_koniec", "Koniec poistenia ŽP", "date", 70, 2, 33, { categoryCode: "poistenie" }),
+    f(1, "fo_doplnkove", "fo_poistenie_zivot", "ziv_opravnena_osoba", "Oprávnená osoba ŽP", "short_text", 80, 2, 33, { categoryCode: "poistenie" }),
+    f(1, "fo_doplnkove", "fo_poistenie_zivot", "ziv_pripoistenia", "Pripoistenia", "long_text", 90, 2, 34, { categoryCode: "poistenie" }),
+    f(1, "fo_doplnkove", "fo_poistenie_zivot", "ziv_vinkulacia", "Vinkulácia", "jedna_moznost", 100, 3, 50, { options: ["Áno", "Nie"], categoryCode: "poistenie" }),
+    f(1, "fo_doplnkove", "fo_poistenie_zivot", "ziv_vinkulacia_banka", "Vinkulácia v prospech banky", "short_text", 110, 3, 50, { categoryCode: "poistenie" }),
+
+    // ============================================================
+    // FO: Majetok poistenie (fo_poistenie_majetok) - 11 fields (NEW)
+    // ============================================================
+    f(1, "fo_doplnkove", "fo_poistenie_majetok", "maj_cislo_poistky", "Číslo poistky majetku", "short_text", 10, 0, 25, { categoryCode: "poistenie" }),
+    f(1, "fo_doplnkove", "fo_poistenie_majetok", "maj_poistovatel", "Poisťovateľ majetku", "short_text", 20, 0, 25, { categoryCode: "poistenie" }),
+    f(1, "fo_doplnkove", "fo_poistenie_majetok", "maj_typ", "Typ poistenia", "jedna_moznost", 30, 0, 25, { options: ["nehnuteľnosť", "domácnosť", "komplex"], categoryCode: "poistenie" }),
+    f(1, "fo_doplnkove", "fo_poistenie_majetok", "maj_poistna_suma", "Poistná suma", "desatinne_cislo", 40, 0, 25, { unit: "€", categoryCode: "poistenie" }),
+    f(1, "fo_doplnkove", "fo_poistenie_majetok", "maj_mesacne_poistne", "Mesačné poistné", "desatinne_cislo", 50, 1, 25, { unit: "€", categoryCode: "poistenie" }),
+    f(1, "fo_doplnkove", "fo_poistenie_majetok", "maj_zaciatok", "Začiatok poistenia", "date", 60, 1, 25, { categoryCode: "poistenie" }),
+    f(1, "fo_doplnkove", "fo_poistenie_majetok", "maj_koniec", "Koniec poistenia", "date", 70, 1, 25, { categoryCode: "poistenie" }),
+    f(1, "fo_doplnkove", "fo_poistenie_majetok", "maj_adresa_poistenia", "Adresa poistenej nehnuteľnosti", "short_text", 80, 1, 25, { categoryCode: "poistenie" }),
+    f(1, "fo_doplnkove", "fo_poistenie_majetok", "maj_typ_nehnutelnosti", "Typ nehnuteľnosti", "jedna_moznost", 90, 2, 33, { options: ["byt", "rodinný dom", "chata", "garáž"], categoryCode: "poistenie" }),
+    f(1, "fo_doplnkove", "fo_poistenie_majetok", "maj_rozloha", "Rozloha m²", "number", 100, 2, 33, { unit: "m²", decimalPlaces: 0, categoryCode: "poistenie" }),
+    f(1, "fo_doplnkove", "fo_poistenie_majetok", "maj_rok_vystavby", "Rok výstavby", "number", 110, 2, 34, { decimalPlaces: 0, categoryCode: "poistenie" }),
+
+    // ============================================================
+    // FO: Auto (fo_auto) - 10 fields (NEW)
+    // ============================================================
+    f(1, "fo_doplnkove", "fo_auto", "auto_znacka", "Značka vozidla", "short_text", 10, 0, 25, { categoryCode: "majetkove" }),
+    f(1, "fo_doplnkove", "fo_auto", "auto_model", "Model vozidla", "short_text", 20, 0, 25, { categoryCode: "majetkove" }),
+    f(1, "fo_doplnkove", "fo_auto", "auto_rok", "Rok výroby", "number", 30, 0, 25, { decimalPlaces: 0, categoryCode: "majetkove" }),
+    f(1, "fo_doplnkove", "fo_auto", "auto_objem", "Objem motora cm³", "number", 40, 0, 25, { unit: "cm³", decimalPlaces: 0, categoryCode: "majetkove" }),
+    f(1, "fo_doplnkove", "fo_auto", "auto_vykon_kw", "Výkon kW", "number", 50, 1, 25, { unit: "kW", decimalPlaces: 0, categoryCode: "majetkove" }),
+    f(1, "fo_doplnkove", "fo_auto", "auto_palivo", "Palivo", "jedna_moznost", 60, 1, 25, { options: ["benzín", "nafta", "LPG", "elektro", "hybrid"], categoryCode: "majetkove" }),
+    f(1, "fo_doplnkove", "fo_auto", "auto_farba", "Farba vozidla", "short_text", 70, 1, 25, { categoryCode: "majetkove" }),
+    f(1, "fo_doplnkove", "fo_auto", "auto_pocet_km", "Počet najazdených km", "number", 80, 1, 25, { unit: "km", decimalPlaces: 0, categoryCode: "majetkove" }),
+    f(1, "fo_doplnkove", "fo_auto", "auto_prvy_evid", "Dátum prvej evidencie", "date", 90, 2, 50, { categoryCode: "majetkove" }),
+    f(1, "fo_doplnkove", "fo_auto", "auto_ecv", "EČV", "short_text", 100, 2, 50, { categoryCode: "majetkove" }),
+
+    // ============================================================
+    // FO: Nehnuteľnosť (fo_nehnutelnost) - 9 fields (NEW)
+    // ============================================================
+    f(1, "fo_doplnkove", "fo_nehnutelnost", "neh_typ", "Typ nehnuteľnosti", "jedna_moznost", 10, 0, 25, { options: ["byt", "rodinný dom", "pozemok", "komerčný objekt"], categoryCode: "majetkove" }),
+    f(1, "fo_doplnkove", "fo_nehnutelnost", "neh_adresa", "Adresa nehnuteľnosti", "short_text", 20, 0, 75, { categoryCode: "majetkove" }),
+    f(1, "fo_doplnkove", "fo_nehnutelnost", "neh_rozloha", "Rozloha m²", "desatinne_cislo", 30, 1, 33, { unit: "m²", categoryCode: "majetkove" }),
+    f(1, "fo_doplnkove", "fo_nehnutelnost", "neh_hodnota", "Trhová hodnota", "desatinne_cislo", 40, 1, 33, { unit: "€", categoryCode: "majetkove" }),
+    f(1, "fo_doplnkove", "fo_nehnutelnost", "neh_lv_cislo", "Číslo listu vlastníctva", "short_text", 50, 1, 34, { categoryCode: "majetkove" }),
+    f(1, "fo_doplnkove", "fo_nehnutelnost", "neh_parcela", "Parcela č.", "short_text", 60, 2, 25, { categoryCode: "majetkove" }),
+    f(1, "fo_doplnkove", "fo_nehnutelnost", "neh_kataster", "Katastrálne územie", "short_text", 70, 2, 25, { categoryCode: "majetkove" }),
+    f(1, "fo_doplnkove", "fo_nehnutelnost", "neh_druh_pozemku", "Druh pozemku", "short_text", 80, 2, 25, { categoryCode: "majetkove" }),
+    f(1, "fo_doplnkove", "fo_nehnutelnost", "neh_tiarchy", "Ťarchy na nehnuteľnosti", "long_text", 90, 2, 25, { categoryCode: "majetkove" }),
+
+    // ============================================================
+    // FO: Deti (fo_deti) - 9 fields (NEW)
+    // ============================================================
+    f(1, "fo_doplnkove", "fo_deti", "dieta1_meno", "Dieťa 1 - Meno", "short_text", 10, 0, 34, { categoryCode: "rodinne" }),
+    f(1, "fo_doplnkove", "fo_deti", "dieta1_rc", "Dieťa 1 - Rodné číslo", "short_text", 20, 0, 33, { categoryCode: "rodinne" }),
+    f(1, "fo_doplnkove", "fo_deti", "dieta1_datum_nar", "Dieťa 1 - Dátum narodenia", "date", 30, 0, 33, { categoryCode: "rodinne" }),
+    f(1, "fo_doplnkove", "fo_deti", "dieta2_meno", "Dieťa 2 - Meno", "short_text", 40, 1, 34, { categoryCode: "rodinne" }),
+    f(1, "fo_doplnkove", "fo_deti", "dieta2_rc", "Dieťa 2 - Rodné číslo", "short_text", 50, 1, 33, { categoryCode: "rodinne" }),
+    f(1, "fo_doplnkove", "fo_deti", "dieta2_datum_nar", "Dieťa 2 - Dátum narodenia", "date", 60, 1, 33, { categoryCode: "rodinne" }),
+    f(1, "fo_doplnkove", "fo_deti", "dieta3_meno", "Dieťa 3 - Meno", "short_text", 70, 2, 34, { categoryCode: "rodinne" }),
+    f(1, "fo_doplnkove", "fo_deti", "dieta3_rc", "Dieťa 3 - Rodné číslo", "short_text", 80, 2, 33, { categoryCode: "rodinne" }),
+    f(1, "fo_doplnkove", "fo_deti", "dieta3_datum_nar", "Dieťa 3 - Dátum narodenia", "date", 90, 2, 33, { categoryCode: "rodinne" }),
+
+    // ============================================================
+    // FO: Zamestnávateľ (fo_zamestnavatel) - 9 fields (NEW)
+    // ============================================================
+    f(1, "fo_doplnkove", "fo_zamestnavatel", "zam_nazov", "Názov zamestnávateľa", "short_text", 10, 0, 50, { categoryCode: "pracovne" }),
+    f(1, "fo_doplnkove", "fo_zamestnavatel", "zam_ico", "IČO zamestnávateľa", "short_text", 20, 0, 50, { categoryCode: "pracovne" }),
+    f(1, "fo_doplnkove", "fo_zamestnavatel", "zam_adresa", "Adresa zamestnávateľa", "short_text", 30, 1, 100, { categoryCode: "pracovne" }),
+    f(1, "fo_doplnkove", "fo_zamestnavatel", "zam_pozicia", "Pracovná pozícia", "short_text", 40, 2, 50, { categoryCode: "pracovne" }),
+    f(1, "fo_doplnkove", "fo_zamestnavatel", "zam_prijem_mesacny", "Mesačný príjem", "desatinne_cislo", 50, 2, 50, { unit: "€", categoryCode: "pracovne" }),
+    f(1, "fo_doplnkove", "fo_zamestnavatel", "zam_typ_pomeru", "Typ pracovného pomeru", "jedna_moznost", 60, 3, 50, { options: ["TPP", "DPP", "DPČ", "SZČO", "Dôchodca", "Nezamestnaný"], categoryCode: "pracovne" }),
+    f(1, "fo_doplnkove", "fo_zamestnavatel", "zam_od", "Zamestnaný od", "date", 70, 3, 50, { categoryCode: "pracovne" }),
+    f(1, "fo_doplnkove", "fo_zamestnavatel", "zam_druhy_prijem", "Druhý príjem", "desatinne_cislo", 80, 4, 50, { unit: "€", categoryCode: "pracovne" }),
+    f(1, "fo_doplnkove", "fo_zamestnavatel", "zam_prijem_partner", "Príjem partnera", "desatinne_cislo", 90, 4, 50, { unit: "€", categoryCode: "pracovne" }),
+
+    // ============================================================
+    // SZČO: Subjekt (szco_subjekt) - 2 fields
+    // ============================================================
+    f(3, "szco_povinne", "szco_subjekt", "nazov_firmy", "Obchodné meno SZČO", "short_text", 10, 0, 60, { isRequired: true, shortLabel: "Obch. meno" }),
+    f(3, "szco_povinne", "szco_subjekt", "ico", "IČO", "short_text", 20, 0, 40, { isRequired: true }),
+
+    // ============================================================
+    // SZČO: Sídlo (szco_sidlo) - 6 fields
+    // ============================================================
+    f(3, "szco_povinne", "szco_sidlo", "sidlo_ulica", "Ulica (sídlo)", "short_text", 10, 0, 40, { isRequired: true, shortLabel: "Ulica" }),
+    f(3, "szco_povinne", "szco_sidlo", "sidlo_supisne", "Súpisné číslo", "short_text", 20, 0, 30, { shortLabel: "Súpisné č." }),
+    f(3, "szco_povinne", "szco_sidlo", "sidlo_orientacne", "Orientačné číslo", "short_text", 30, 0, 30, { isRequired: true, shortLabel: "Orient. č." }),
+    f(3, "szco_povinne", "szco_sidlo", "sidlo_mesto", "Mesto/Obec", "short_text", 40, 1, 50, { isRequired: true }),
+    f(3, "szco_povinne", "szco_sidlo", "sidlo_psc", "PSČ", "short_text", 50, 1, 25, { isRequired: true }),
+    f(3, "szco_povinne", "szco_sidlo", "sidlo_stat", "Štát", "short_text", 60, 1, 25),
+
+    // ============================================================
+    // SZČO: Osobné (szco_osobne) - 8 fields
+    // ============================================================
+    f(3, "szco_povinne", "szco_osobne", "titul_pred", "Titul pred menom", "short_text", 10, 0, 12, { isRequired: true, shortLabel: "Titul pred" }),
+    f(3, "szco_povinne", "szco_osobne", "meno", "Meno", "short_text", 20, 0, 33, { isRequired: true }),
+    f(3, "szco_povinne", "szco_osobne", "priezvisko", "Priezvisko", "short_text", 30, 0, 43, { isRequired: true }),
+    f(3, "szco_povinne", "szco_osobne", "titul_za", "Titul za menom", "short_text", 40, 0, 12, { shortLabel: "Titul za" }),
+    f(3, "szco_povinne", "szco_osobne", "rodne_cislo", "Rodné číslo", "short_text", 50, 1, 33, { shortLabel: "Rod. číslo" }),
+    f(3, "szco_povinne", "szco_osobne", "datum_narodenia", "Dátum narodenia", "date", 60, 1, 33, { shortLabel: "Dát. narodenia" }),
+    f(3, "szco_povinne", "szco_osobne", "vek", "Vek", "number", 70, 1, 15),
+    f(3, "szco_povinne", "szco_osobne", "statna_prislusnost", "Štátna príslušnosť", "short_text", 80, 2, 100, { shortLabel: "Št. príslušnosť" }),
+
+    // ============================================================
+    // SZČO: Kontakt (szco_kontakt) - 2 fields
+    // ============================================================
+    f(3, "szco_povinne", "szco_kontakt", "telefon", "Telefónne číslo (primárne)", "phone", 10, 0, 50, { shortLabel: "Tel. číslo" }),
+    f(3, "szco_povinne", "szco_kontakt", "email", "Email (primárny)", "short_text", 20, 0, 50, { shortLabel: "Email" }),
+
+    // ============================================================
+    // SZČO: Doklady (szco_doklady) - 6 fields
+    // ============================================================
+    f(3, "szco_povinne", "szco_doklady", "typ_dokladu", "Typ dokladu totožnosti", "jedna_moznost", 10, 0, 20, { isRequired: true, shortLabel: "Typ dokladu", options: ["Občiansky preukaz", "Cestovný pas", "Vodičský preukaz", "Povolenie na pobyt", "Preukaz diplomata", "Iný"] }),
+    f(3, "szco_povinne", "szco_doklady", "typ_dokladu_iny", "Špecifikácia dokladu", "short_text", 20, 0, 20, { isRequired: true, shortLabel: "Špecifikácia", visibilityRule: { dependsOn: "typ_dokladu", value: "Iný" } }),
+    f(3, "szco_povinne", "szco_doklady", "cislo_dokladu", "Číslo dokladu totožnosti", "short_text", 30, 0, 30, { isRequired: true, shortLabel: "Č. dokladu" }),
+    f(3, "szco_povinne", "szco_doklady", "platnost_dokladu", "Platnosť dokladu do", "date", 40, 0, 20, { shortLabel: "Platnosť do" }),
+    f(3, "szco_povinne", "szco_doklady", "vydal_organ", "Vydal (orgán)", "short_text", 50, 0, 30, { shortLabel: "Vydal" }),
+    f(3, "szco_povinne", "szco_doklady", "kod_vydavajuceho_organu", "Kód vydávajúceho orgánu", "short_text", 60, 1, 100, { shortLabel: "Kód orgánu" }),
+
+    // ============================================================
+    // SZČO: Adresa (szco_adresa) - 6 fields
+    // ============================================================
+    f(3, "szco_povinne", "szco_adresa", "tp_ulica", "Ulica (trvalý pobyt)", "short_text", 10, 0, 40, { isRequired: true, shortLabel: "Ulica" }),
+    f(3, "szco_povinne", "szco_adresa", "tp_supisne", "Súpisné číslo", "short_text", 20, 0, 30, { shortLabel: "Súpisné č." }),
+    f(3, "szco_povinne", "szco_adresa", "tp_orientacne", "Orientačné číslo", "short_text", 30, 0, 30, { isRequired: true, shortLabel: "Orient. č." }),
+    f(3, "szco_povinne", "szco_adresa", "tp_mesto", "Mesto", "short_text", 40, 1, 50, { isRequired: true }),
+    f(3, "szco_povinne", "szco_adresa", "tp_psc", "PSČ", "short_text", 50, 1, 25, { isRequired: true }),
+    f(3, "szco_povinne", "szco_adresa", "tp_stat", "Štát", "short_text", 60, 1, 25, { isRequired: true }),
+
+    // ============================================================
+    // SZČO: AML (szco_aml) - 3 fields
+    // ============================================================
+    f(3, "szco_doplnkove", "szco_aml", "kuv_meno_1", "KUV 1 – Meno a priezvisko", "short_text", 10, 0, 40, { shortLabel: "KUV 1 Meno", categoryCode: "aml" }),
+    f(3, "szco_doplnkove", "szco_aml", "kuv_rc_1", "KUV 1 – Rodné číslo", "short_text", 20, 0, 30, { shortLabel: "KUV 1 RČ", categoryCode: "aml" }),
+    f(3, "szco_doplnkove", "szco_aml", "kuv_podiel_1", "KUV 1 – % podiel", "desatinne_cislo", 30, 0, 30, { shortLabel: "KUV 1 %", unit: "%", categoryCode: "aml" }),
+
+    // ============================================================
+    // SZČO: Firemný profil (szco_firemny) - 2 fields
+    // ============================================================
+    f(3, "szco_doplnkove", "szco_firemny", "obrat", "Obrat (ročný)", "desatinne_cislo", 10, 0, 50, { shortLabel: "Obrat", unit: "€", categoryCode: "firemny_profil" }),
+    f(3, "szco_doplnkove", "szco_firemny", "pocet_zamestnancov", "Počet zamestnancov", "number", 20, 0, 50, { shortLabel: "Zamestnanci", decimalPlaces: 0, categoryCode: "firemny_profil" }),
+
+    // ============================================================
+    // SZČO: Zákonné (szco_zakonne) - 4 fields
+    // ============================================================
+    f(3, "szco_doplnkove", "szco_zakonne", "dic", "DIČ", "short_text", 10, 0, 50, { categoryCode: "zakonne" }),
+    f(3, "szco_doplnkove", "szco_zakonne", "ic_dph", "IČ DPH", "short_text", 20, 0, 50, { categoryCode: "zakonne" }),
+    f(3, "szco_doplnkove", "szco_zakonne", "suhlas_gdpr", "Súhlas so spracovaním osobných údajov (GDPR)", "switch", 30, 1, 50, { shortLabel: "GDPR súhlas", defaultValue: "false", categoryCode: "zakonne" }),
+    f(3, "szco_doplnkove", "szco_zakonne", "suhlas_marketing", "Súhlas s marketingovou komunikáciou", "switch", 40, 1, 50, { shortLabel: "Marketing súhlas", defaultValue: "false", categoryCode: "zakonne" }),
+
+    // ============================================================
+    // SZČO: Bankové (szco_zmluvne) - 3 fields
+    // ============================================================
+    f(3, "szco_doplnkove", "szco_zmluvne", "iban", "IBAN", "short_text", 10, 0, 40, { categoryCode: "zmluvne" }),
+    f(3, "szco_doplnkove", "szco_zmluvne", "bic", "BIC/SWIFT", "short_text", 20, 0, 30, { categoryCode: "zmluvne" }),
+    f(3, "szco_doplnkove", "szco_zmluvne", "cislo_uctu", "Číslo účtu", "short_text", 30, 0, 30, { categoryCode: "zmluvne" }),
+
+    // ============================================================
+    // SZČO: PZP (szco_poistenie_pzp) - 8 fields (NEW)
+    // ============================================================
+    f(3, "szco_doplnkove", "szco_poistenie_pzp", "szco_pzp_cislo_poistky", "Číslo poistky PZP", "short_text", 10, 0, 25, { categoryCode: "poistenie" }),
+    f(3, "szco_doplnkove", "szco_poistenie_pzp", "szco_pzp_poistovatel", "Poisťovateľ PZP", "short_text", 20, 0, 25, { categoryCode: "poistenie" }),
+    f(3, "szco_doplnkove", "szco_poistenie_pzp", "szco_pzp_zaciatok", "Začiatok poistenia PZP", "date", 30, 0, 25, { categoryCode: "poistenie" }),
+    f(3, "szco_doplnkove", "szco_poistenie_pzp", "szco_pzp_koniec", "Koniec poistenia PZP", "date", 40, 0, 25, { categoryCode: "poistenie" }),
+    f(3, "szco_doplnkove", "szco_poistenie_pzp", "szco_pzp_rocne_poistne", "Ročné poistné PZP", "desatinne_cislo", 50, 1, 25, { unit: "€", categoryCode: "poistenie" }),
+    f(3, "szco_doplnkove", "szco_poistenie_pzp", "szco_pzp_bonus_malus", "Bonus/Malus stupeň", "short_text", 60, 1, 25, { categoryCode: "poistenie" }),
+    f(3, "szco_doplnkove", "szco_poistenie_pzp", "szco_pzp_predchadzajuca_poistovna", "Predchádzajúca poisťovňa PZP", "short_text", 70, 1, 25, { categoryCode: "poistenie" }),
+    f(3, "szco_doplnkove", "szco_poistenie_pzp", "szco_pzp_pocet_skod", "Počet škodových udalostí", "number", 80, 1, 25, { decimalPlaces: 0, categoryCode: "poistenie" }),
+
+    // ============================================================
+    // SZČO: Poistenie majetku (szco_poistenie_majetok) - 11 fields (NEW)
+    // ============================================================
+    f(3, "szco_doplnkove", "szco_poistenie_majetok", "szco_maj_cislo_poistky", "Číslo poistky majetku", "short_text", 10, 0, 25, { categoryCode: "poistenie" }),
+    f(3, "szco_doplnkove", "szco_poistenie_majetok", "szco_maj_poistovatel", "Poisťovateľ majetku", "short_text", 20, 0, 25, { categoryCode: "poistenie" }),
+    f(3, "szco_doplnkove", "szco_poistenie_majetok", "szco_maj_typ", "Typ poistenia", "jedna_moznost", 30, 0, 25, { options: ["nehnuteľnosť", "domácnosť", "komplex"], categoryCode: "poistenie" }),
+    f(3, "szco_doplnkove", "szco_poistenie_majetok", "szco_maj_poistna_suma", "Poistná suma", "desatinne_cislo", 40, 0, 25, { unit: "€", categoryCode: "poistenie" }),
+    f(3, "szco_doplnkove", "szco_poistenie_majetok", "szco_maj_mesacne_poistne", "Mesačné poistné", "desatinne_cislo", 50, 1, 25, { unit: "€", categoryCode: "poistenie" }),
+    f(3, "szco_doplnkove", "szco_poistenie_majetok", "szco_maj_zaciatok", "Začiatok poistenia", "date", 60, 1, 25, { categoryCode: "poistenie" }),
+    f(3, "szco_doplnkove", "szco_poistenie_majetok", "szco_maj_koniec", "Koniec poistenia", "date", 70, 1, 25, { categoryCode: "poistenie" }),
+    f(3, "szco_doplnkove", "szco_poistenie_majetok", "szco_maj_adresa_poistenia", "Adresa poistenej nehnuteľnosti", "short_text", 80, 1, 25, { categoryCode: "poistenie" }),
+    f(3, "szco_doplnkove", "szco_poistenie_majetok", "szco_maj_typ_nehnutelnosti", "Typ nehnuteľnosti", "jedna_moznost", 90, 2, 33, { options: ["byt", "rodinný dom", "chata", "garáž"], categoryCode: "poistenie" }),
+    f(3, "szco_doplnkove", "szco_poistenie_majetok", "szco_maj_rozloha", "Rozloha m²", "number", 100, 2, 33, { unit: "m²", decimalPlaces: 0, categoryCode: "poistenie" }),
+    f(3, "szco_doplnkove", "szco_poistenie_majetok", "szco_maj_rok_vystavby", "Rok výstavby", "number", 110, 2, 34, { decimalPlaces: 0, categoryCode: "poistenie" }),
+
+    // ============================================================
+    // SZČO: Auto (szco_auto) - 10 fields (NEW)
+    // ============================================================
+    f(3, "szco_doplnkove", "szco_auto", "szco_auto_znacka", "Značka vozidla", "short_text", 10, 0, 25, { categoryCode: "majetkove" }),
+    f(3, "szco_doplnkove", "szco_auto", "szco_auto_model", "Model vozidla", "short_text", 20, 0, 25, { categoryCode: "majetkove" }),
+    f(3, "szco_doplnkove", "szco_auto", "szco_auto_rok", "Rok výroby", "number", 30, 0, 25, { decimalPlaces: 0, categoryCode: "majetkove" }),
+    f(3, "szco_doplnkove", "szco_auto", "szco_auto_objem", "Objem motora cm³", "number", 40, 0, 25, { unit: "cm³", decimalPlaces: 0, categoryCode: "majetkove" }),
+    f(3, "szco_doplnkove", "szco_auto", "szco_auto_vykon_kw", "Výkon kW", "number", 50, 1, 25, { unit: "kW", decimalPlaces: 0, categoryCode: "majetkove" }),
+    f(3, "szco_doplnkove", "szco_auto", "szco_auto_palivo", "Palivo", "jedna_moznost", 60, 1, 25, { options: ["benzín", "nafta", "LPG", "elektro", "hybrid"], categoryCode: "majetkove" }),
+    f(3, "szco_doplnkove", "szco_auto", "szco_auto_farba", "Farba vozidla", "short_text", 70, 1, 25, { categoryCode: "majetkove" }),
+    f(3, "szco_doplnkove", "szco_auto", "szco_auto_pocet_km", "Počet najazdených km", "number", 80, 1, 25, { unit: "km", decimalPlaces: 0, categoryCode: "majetkove" }),
+    f(3, "szco_doplnkove", "szco_auto", "szco_auto_prvy_evid", "Dátum prvej evidencie", "date", 90, 2, 50, { categoryCode: "majetkove" }),
+    f(3, "szco_doplnkove", "szco_auto", "szco_auto_ecv", "EČV", "short_text", 100, 2, 50, { categoryCode: "majetkove" }),
+
+    // ============================================================
+    // SZČO: Nehnuteľnosť (szco_nehnutelnost) - 9 fields (NEW)
+    // ============================================================
+    f(3, "szco_doplnkove", "szco_nehnutelnost", "szco_neh_typ", "Typ nehnuteľnosti", "jedna_moznost", 10, 0, 25, { options: ["byt", "rodinný dom", "pozemok", "komerčný objekt"], categoryCode: "majetkove" }),
+    f(3, "szco_doplnkove", "szco_nehnutelnost", "szco_neh_adresa", "Adresa nehnuteľnosti", "short_text", 20, 0, 75, { categoryCode: "majetkove" }),
+    f(3, "szco_doplnkove", "szco_nehnutelnost", "szco_neh_rozloha", "Rozloha m²", "desatinne_cislo", 30, 1, 33, { unit: "m²", categoryCode: "majetkove" }),
+    f(3, "szco_doplnkove", "szco_nehnutelnost", "szco_neh_hodnota", "Trhová hodnota", "desatinne_cislo", 40, 1, 33, { unit: "€", categoryCode: "majetkove" }),
+    f(3, "szco_doplnkove", "szco_nehnutelnost", "szco_neh_lv_cislo", "Číslo listu vlastníctva", "short_text", 50, 1, 34, { categoryCode: "majetkove" }),
+    f(3, "szco_doplnkove", "szco_nehnutelnost", "szco_neh_parcela", "Parcela č.", "short_text", 60, 2, 25, { categoryCode: "majetkove" }),
+    f(3, "szco_doplnkove", "szco_nehnutelnost", "szco_neh_kataster", "Katastrálne územie", "short_text", 70, 2, 25, { categoryCode: "majetkove" }),
+    f(3, "szco_doplnkove", "szco_nehnutelnost", "szco_neh_druh_pozemku", "Druh pozemku", "short_text", 80, 2, 25, { categoryCode: "majetkove" }),
+    f(3, "szco_doplnkove", "szco_nehnutelnost", "szco_neh_tiarchy", "Ťarchy na nehnuteľnosti", "long_text", 90, 2, 25, { categoryCode: "majetkove" }),
+
+    // ============================================================
+    // SZČO: Podnikateľské údaje (szco_zamestnavatelia) - 5 fields (NEW)
+    // ============================================================
+    f(3, "szco_doplnkove", "szco_zamestnavatelia", "szco_nace", "SK NACE kód", "short_text", 10, 0, 50, { categoryCode: "firemny_profil" }),
+    f(3, "szco_doplnkove", "szco_zamestnavatelia", "szco_predmet_podnikania", "Predmet podnikania", "short_text", 20, 0, 50, { categoryCode: "firemny_profil" }),
+    f(3, "szco_doplnkove", "szco_zamestnavatelia", "szco_datum_vzniku", "Dátum vzniku", "date", 30, 1, 33, { categoryCode: "firemny_profil" }),
+    f(3, "szco_doplnkove", "szco_zamestnavatelia", "szco_register", "Registrový súd", "short_text", 40, 1, 33, { categoryCode: "firemny_profil" }),
+    f(3, "szco_doplnkove", "szco_zamestnavatelia", "szco_spisova_znacka", "Spisová značka", "short_text", 50, 1, 34, { categoryCode: "firemny_profil" }),
+
+    // ============================================================
+    // PO: Subjekt (po_subjekt) - 4 fields
+    // ============================================================
+    f(4, "po_povinne", "po_subjekt", "nazov_firmy", "Obchodné meno", "short_text", 10, 0, 60, { isRequired: true, shortLabel: "Obch. meno" }),
+    f(4, "po_povinne", "po_subjekt", "ico", "IČO", "short_text", 20, 0, 40, { isRequired: true }),
+    f(4, "po_povinne", "po_subjekt", "pravna_forma", "Právna forma", "jedna_moznost", 30, 1, 50, { shortLabel: "Právna forma", options: ["s.r.o.", "a.s.", "k.s.", "v.o.s.", "družstvo", "nezisková org.", "iná"] }),
+    f(4, "po_povinne", "po_subjekt", "datum_zalozenia", "Dátum založenia", "date", 40, 1, 50, { shortLabel: "Založenie" }),
+
+    // ============================================================
+    // PO: Sídlo (po_sidlo) - 6 fields
+    // ============================================================
+    f(4, "po_povinne", "po_sidlo", "sidlo_ulica", "Ulica (sídlo)", "short_text", 10, 0, 40, { isRequired: true, shortLabel: "Ulica" }),
+    f(4, "po_povinne", "po_sidlo", "sidlo_supisne", "Súpisné číslo", "short_text", 20, 0, 30, { shortLabel: "Súpisné č." }),
+    f(4, "po_povinne", "po_sidlo", "sidlo_orientacne", "Orientačné číslo", "short_text", 30, 0, 30, { isRequired: true, shortLabel: "Orient. č." }),
+    f(4, "po_povinne", "po_sidlo", "sidlo_mesto", "Mesto/Obec", "short_text", 40, 1, 50, { isRequired: true }),
+    f(4, "po_povinne", "po_sidlo", "sidlo_psc", "PSČ", "short_text", 50, 1, 25, { isRequired: true }),
+    f(4, "po_povinne", "po_sidlo", "sidlo_stat", "Štát", "short_text", 60, 1, 25),
+
+    // ============================================================
+    // PO: Kontakt (po_kontakt) - 2 fields
+    // ============================================================
+    f(4, "po_povinne", "po_kontakt", "telefon", "Telefónne číslo", "phone", 10, 0, 50, { shortLabel: "Telefón" }),
+    f(4, "po_povinne", "po_kontakt", "email", "Email", "short_text", 20, 0, 50),
+
+    // ============================================================
+    // PO: AML (po_aml) - 3 fields
+    // ============================================================
+    f(4, "po_doplnkove", "po_aml", "kuv_meno_1", "KUV 1 – Meno a priezvisko", "short_text", 10, 0, 40, { shortLabel: "KUV 1 Meno", categoryCode: "aml" }),
+    f(4, "po_doplnkove", "po_aml", "kuv_rc_1", "KUV 1 – Rodné číslo / IČO", "short_text", 20, 0, 30, { shortLabel: "KUV 1 RČ", categoryCode: "aml" }),
+    f(4, "po_doplnkove", "po_aml", "kuv_podiel_1", "KUV 1 – % podiel", "desatinne_cislo", 30, 0, 30, { shortLabel: "KUV 1 %", unit: "%", categoryCode: "aml" }),
+
+    // ============================================================
+    // PO: Zákonné (po_zakonne) - 4 fields
+    // ============================================================
+    f(4, "po_doplnkove", "po_zakonne", "dic", "DIČ", "short_text", 10, 0, 50, { categoryCode: "zakonne" }),
+    f(4, "po_doplnkove", "po_zakonne", "ic_dph", "IČ DPH", "short_text", 20, 0, 50, { categoryCode: "zakonne" }),
+    f(4, "po_doplnkove", "po_zakonne", "suhlas_gdpr", "Súhlas GDPR", "switch", 30, 1, 50, { shortLabel: "GDPR", defaultValue: "false", categoryCode: "zakonne" }),
+    f(4, "po_doplnkove", "po_zakonne", "suhlas_marketing", "Súhlas marketing", "switch", 40, 1, 50, { shortLabel: "Marketing", defaultValue: "false", categoryCode: "zakonne" }),
+
+    // ============================================================
+    // PO: Bankové (po_zmluvne) - 3 fields
+    // ============================================================
+    f(4, "po_doplnkove", "po_zmluvne", "iban", "IBAN", "short_text", 10, 0, 40, { categoryCode: "zmluvne" }),
+    f(4, "po_doplnkove", "po_zmluvne", "bic", "BIC/SWIFT", "short_text", 20, 0, 30, { categoryCode: "zmluvne" }),
+    f(4, "po_doplnkove", "po_zmluvne", "cislo_uctu", "Číslo účtu", "short_text", 30, 0, 30, { categoryCode: "zmluvne" }),
+
+    // ============================================================
+    // PO: Firemný profil (po_firemny) - 2 fields
+    // ============================================================
+    f(4, "po_doplnkove", "po_firemny", "obrat", "Obrat (ročný)", "desatinne_cislo", 10, 0, 50, { shortLabel: "Obrat", unit: "€", categoryCode: "firemny_profil" }),
+    f(4, "po_doplnkove", "po_firemny", "pocet_zamestnancov", "Počet zamestnancov", "number", 20, 0, 50, { shortLabel: "Zamestnanci", decimalPlaces: 0, categoryCode: "firemny_profil" }),
+
+    // ============================================================
+    // PO: Štatutári (po_statutari) - 2 fields
+    // ============================================================
+    f(4, "po_doplnkove", "po_statutari", "statutar_meno_1", "Štatutár 1 – Meno", "short_text", 10, 0, 50, { shortLabel: "Štat. 1 Meno", categoryCode: "statutarne" }),
+    f(4, "po_doplnkove", "po_statutari", "statutar_funkcia_1", "Štatutár 1 – Funkcia", "short_text", 20, 0, 50, { shortLabel: "Štat. 1 Funkcia", categoryCode: "statutarne" }),
+
+    // ============================================================
+    // PO: PZP (po_poistenie_pzp) - 8 fields (NEW)
+    // ============================================================
+    f(4, "po_doplnkove", "po_poistenie_pzp", "po_pzp_cislo_poistky", "Číslo poistky PZP", "short_text", 10, 0, 25, { categoryCode: "poistenie" }),
+    f(4, "po_doplnkove", "po_poistenie_pzp", "po_pzp_poistovatel", "Poisťovateľ PZP", "short_text", 20, 0, 25, { categoryCode: "poistenie" }),
+    f(4, "po_doplnkove", "po_poistenie_pzp", "po_pzp_zaciatok", "Začiatok poistenia PZP", "date", 30, 0, 25, { categoryCode: "poistenie" }),
+    f(4, "po_doplnkove", "po_poistenie_pzp", "po_pzp_koniec", "Koniec poistenia PZP", "date", 40, 0, 25, { categoryCode: "poistenie" }),
+    f(4, "po_doplnkove", "po_poistenie_pzp", "po_pzp_rocne_poistne", "Ročné poistné PZP", "desatinne_cislo", 50, 1, 25, { unit: "€", categoryCode: "poistenie" }),
+    f(4, "po_doplnkove", "po_poistenie_pzp", "po_pzp_bonus_malus", "Bonus/Malus stupeň", "short_text", 60, 1, 25, { categoryCode: "poistenie" }),
+    f(4, "po_doplnkove", "po_poistenie_pzp", "po_pzp_predchadzajuca_poistovna", "Predchádzajúca poisťovňa PZP", "short_text", 70, 1, 25, { categoryCode: "poistenie" }),
+    f(4, "po_doplnkove", "po_poistenie_pzp", "po_pzp_pocet_skod", "Počet škodových udalostí", "number", 80, 1, 25, { decimalPlaces: 0, categoryCode: "poistenie" }),
+
+    // ============================================================
+    // PO: Poistenie majetku (po_poistenie_majetok) - 11 fields (NEW)
+    // ============================================================
+    f(4, "po_doplnkove", "po_poistenie_majetok", "po_maj_cislo_poistky", "Číslo poistky majetku", "short_text", 10, 0, 25, { categoryCode: "poistenie" }),
+    f(4, "po_doplnkove", "po_poistenie_majetok", "po_maj_poistovatel", "Poisťovateľ majetku", "short_text", 20, 0, 25, { categoryCode: "poistenie" }),
+    f(4, "po_doplnkove", "po_poistenie_majetok", "po_maj_typ", "Typ poistenia", "jedna_moznost", 30, 0, 25, { options: ["nehnuteľnosť", "domácnosť", "komplex"], categoryCode: "poistenie" }),
+    f(4, "po_doplnkove", "po_poistenie_majetok", "po_maj_poistna_suma", "Poistná suma", "desatinne_cislo", 40, 0, 25, { unit: "€", categoryCode: "poistenie" }),
+    f(4, "po_doplnkove", "po_poistenie_majetok", "po_maj_mesacne_poistne", "Mesačné poistné", "desatinne_cislo", 50, 1, 25, { unit: "€", categoryCode: "poistenie" }),
+    f(4, "po_doplnkove", "po_poistenie_majetok", "po_maj_zaciatok", "Začiatok poistenia", "date", 60, 1, 25, { categoryCode: "poistenie" }),
+    f(4, "po_doplnkove", "po_poistenie_majetok", "po_maj_koniec", "Koniec poistenia", "date", 70, 1, 25, { categoryCode: "poistenie" }),
+    f(4, "po_doplnkove", "po_poistenie_majetok", "po_maj_adresa_poistenia", "Adresa poistenej nehnuteľnosti", "short_text", 80, 1, 25, { categoryCode: "poistenie" }),
+    f(4, "po_doplnkove", "po_poistenie_majetok", "po_maj_typ_nehnutelnosti", "Typ nehnuteľnosti", "jedna_moznost", 90, 2, 33, { options: ["byt", "rodinný dom", "chata", "garáž"], categoryCode: "poistenie" }),
+    f(4, "po_doplnkove", "po_poistenie_majetok", "po_maj_rozloha", "Rozloha m²", "number", 100, 2, 33, { unit: "m²", decimalPlaces: 0, categoryCode: "poistenie" }),
+    f(4, "po_doplnkove", "po_poistenie_majetok", "po_maj_rok_vystavby", "Rok výstavby", "number", 110, 2, 34, { decimalPlaces: 0, categoryCode: "poistenie" }),
+
+    // ============================================================
+    // PO: Auto (po_auto) - 10 fields (NEW)
+    // ============================================================
+    f(4, "po_doplnkove", "po_auto", "po_auto_znacka", "Značka vozidla", "short_text", 10, 0, 25, { categoryCode: "majetkove" }),
+    f(4, "po_doplnkove", "po_auto", "po_auto_model", "Model vozidla", "short_text", 20, 0, 25, { categoryCode: "majetkove" }),
+    f(4, "po_doplnkove", "po_auto", "po_auto_rok", "Rok výroby", "number", 30, 0, 25, { decimalPlaces: 0, categoryCode: "majetkove" }),
+    f(4, "po_doplnkove", "po_auto", "po_auto_objem", "Objem motora cm³", "number", 40, 0, 25, { unit: "cm³", decimalPlaces: 0, categoryCode: "majetkove" }),
+    f(4, "po_doplnkove", "po_auto", "po_auto_vykon_kw", "Výkon kW", "number", 50, 1, 25, { unit: "kW", decimalPlaces: 0, categoryCode: "majetkove" }),
+    f(4, "po_doplnkove", "po_auto", "po_auto_palivo", "Palivo", "jedna_moznost", 60, 1, 25, { options: ["benzín", "nafta", "LPG", "elektro", "hybrid"], categoryCode: "majetkove" }),
+    f(4, "po_doplnkove", "po_auto", "po_auto_farba", "Farba vozidla", "short_text", 70, 1, 25, { categoryCode: "majetkove" }),
+    f(4, "po_doplnkove", "po_auto", "po_auto_pocet_km", "Počet najazdených km", "number", 80, 1, 25, { unit: "km", decimalPlaces: 0, categoryCode: "majetkove" }),
+    f(4, "po_doplnkove", "po_auto", "po_auto_prvy_evid", "Dátum prvej evidencie", "date", 90, 2, 50, { categoryCode: "majetkove" }),
+    f(4, "po_doplnkove", "po_auto", "po_auto_ecv", "EČV", "short_text", 100, 2, 50, { categoryCode: "majetkove" }),
+
+    // ============================================================
+    // PO: Nehnuteľnosti (po_nehnutelnosti) - 9 fields (NEW)
+    // ============================================================
+    f(4, "po_doplnkove", "po_nehnutelnosti", "po_neh_typ", "Typ nehnuteľnosti", "jedna_moznost", 10, 0, 25, { options: ["byt", "rodinný dom", "pozemok", "komerčný objekt"], categoryCode: "majetkove" }),
+    f(4, "po_doplnkove", "po_nehnutelnosti", "po_neh_adresa", "Adresa nehnuteľnosti", "short_text", 20, 0, 75, { categoryCode: "majetkove" }),
+    f(4, "po_doplnkove", "po_nehnutelnosti", "po_neh_rozloha", "Rozloha m²", "desatinne_cislo", 30, 1, 33, { unit: "m²", categoryCode: "majetkove" }),
+    f(4, "po_doplnkove", "po_nehnutelnosti", "po_neh_hodnota", "Trhová hodnota", "desatinne_cislo", 40, 1, 33, { unit: "€", categoryCode: "majetkove" }),
+    f(4, "po_doplnkove", "po_nehnutelnosti", "po_neh_lv_cislo", "Číslo listu vlastníctva", "short_text", 50, 1, 34, { categoryCode: "majetkove" }),
+    f(4, "po_doplnkove", "po_nehnutelnosti", "po_neh_parcela", "Parcela č.", "short_text", 60, 2, 25, { categoryCode: "majetkove" }),
+    f(4, "po_doplnkove", "po_nehnutelnosti", "po_neh_kataster", "Katastrálne územie", "short_text", 70, 2, 25, { categoryCode: "majetkove" }),
+    f(4, "po_doplnkove", "po_nehnutelnosti", "po_neh_druh_pozemku", "Druh pozemku", "short_text", 80, 2, 25, { categoryCode: "majetkove" }),
+    f(4, "po_doplnkove", "po_nehnutelnosti", "po_neh_tiarchy", "Ťarchy na nehnuteľnosti", "long_text", 90, 2, 25, { categoryCode: "majetkove" }),
+
+    // ============================================================
+    // PO: Flotila (po_flota) - 5 fields (NEW)
+    // ============================================================
+    f(4, "po_doplnkove", "po_flota", "flota_pocet", "Počet vozidiel", "number", 10, 0, 33, { decimalPlaces: 0, categoryCode: "majetkove" }),
+    f(4, "po_doplnkove", "po_flota", "flota_celkove_poistne", "Celkové ročné poistné", "desatinne_cislo", 20, 0, 33, { unit: "€", categoryCode: "majetkove" }),
+    f(4, "po_doplnkove", "po_flota", "flota_poistovatel", "Poisťovateľ flotily", "short_text", 30, 0, 34, { categoryCode: "majetkove" }),
+    f(4, "po_doplnkove", "po_flota", "flota_zmluva_od", "Zmluva platná od", "date", 40, 1, 50, { categoryCode: "majetkove" }),
+    f(4, "po_doplnkove", "po_flota", "flota_zmluva_do", "Zmluva platná do", "date", 50, 1, 50, { categoryCode: "majetkove" }),
+  ];
+
+  const paramIdMap: Record<string, number> = {};
+  const allInsertedParams: number[] = [];
+
+  for (const field of FIELDS) {
+    const sectionId = field.sectionCode ? sectionMap[field.sectionCode] : null;
+    const panelId = field.panelCode ? sectionMap[field.panelCode] : null;
+    const [inserted] = await db.insert(subjectParameters).values({
+      clientTypeId: field.clientTypeId,
+      sectionId: sectionId || null,
+      panelId: panelId || null,
+      fieldKey: field.fieldKey,
+      code: `p_${field.fieldKey}`,
+      label: field.label,
+      shortLabel: field.shortLabel || null,
+      fieldType: field.fieldType,
+      isRequired: field.isRequired,
+      isHidden: field.isHidden,
+      isCollection: field.isCollection,
+      extractionHints: field.extractionHints,
+      options: field.options as any,
+      defaultValue: field.defaultValue,
+      visibilityRule: field.visibilityRule as any,
+      unit: field.unit,
+      decimalPlaces: field.decimalPlaces,
+      fieldCategory: field.fieldCategory,
+      categoryCode: field.categoryCode || null,
+      sortOrder: field.sortOrder,
+      rowNumber: field.rowNumber,
+      widthPercent: field.widthPercent,
+    } as any).returning();
+    allInsertedParams.push(inserted.id);
+    const mapKey = `${field.clientTypeId}:${field.fieldKey}`;
+    paramIdMap[mapKey] = inserted.id;
+  }
+
+  const SYNONYM_DEFS: Record<string, string[]> = {
+    "meno": ["krstné meno", "first name", "meno klienta", "given name"],
+    "priezvisko": ["family name", "surname", "priezvisko klienta"],
+    "rodne_cislo": ["RČ", "birth number", "osobné číslo", "rodné číslo klienta"],
+    "datum_narodenia": ["dátum nar.", "born", "date of birth", "DOB"],
+    "telefon": ["tel", "telefónne č.", "mobile", "mobil", "kontaktné číslo"],
+    "email": ["e-mail", "mail", "emailová adresa", "elektronická pošta"],
+    "tp_ulica": ["ulica bydliska", "street", "adresa - ulica"],
+    "tp_mesto": ["mesto bydliska", "city", "obec"],
+    "tp_psc": ["poštové smerovacie číslo", "ZIP", "postal code"],
+    "ico": ["identifikačné číslo", "company ID", "IČ"],
+    "dic": ["daňové identifikačné číslo", "tax ID", "DIČ"],
+    "iban": ["bankový účet", "číslo účtu", "account number"],
+    "cislo_dokladu": ["číslo OP", "ID card number", "č. dokladu"],
+    "spz": ["evidenčné číslo", "EČV", "license plate", "ŠPZ vozidla"],
+    "vin": ["číslo karosérie", "vehicle identification number", "VIN číslo"],
+    "pzp_cislo_poistky": ["číslo PZP", "policy number PZP"],
+    "ziv_cislo_poistky": ["číslo ŽP", "life policy number"],
+    "auto_znacka": ["značka auta", "car brand", "výrobca vozidla"],
+    "auto_ecv": ["evidenčné číslo vozidla", "ŠPZ", "registration number"],
+    "neh_lv_cislo": ["list vlastníctva", "LV", "vlastnícky list"],
+    "nazov_firmy": ["obchodné meno", "company name", "firma", "názov spoločnosti"],
+    "sidlo_ulica": ["ulica sídla", "registered street", "sídlo - ulica"],
+    "sidlo_mesto": ["mesto sídla", "registered city", "sídlo - mesto"],
+    "obrat": ["ročný obrat", "revenue", "turnover", "annual revenue"],
+  };
+
+  let synonymsCount = 0;
+  const synonymValues: { parameterId: number; synonym: string; language: string; source: string; confidence: number }[] = [];
+
+  for (const [fieldKey, synonyms] of Object.entries(SYNONYM_DEFS)) {
+    const clientTypeIds = [1, 3, 4];
+    for (const ctId of clientTypeIds) {
+      const paramId = paramIdMap[`${ctId}:${fieldKey}`];
+      if (paramId) {
+        for (const syn of synonyms) {
+          synonymValues.push({
+            parameterId: paramId,
+            synonym: syn,
+            language: "sk",
+            source: "manual",
+            confidence: 100,
+          });
+        }
+      }
+    }
+  }
+
+  for (let i = 0; i < synonymValues.length; i += 50) {
+    const batch = synonymValues.slice(i, i + 50);
+    await db.insert(parameterSynonyms).values(batch);
+    synonymsCount += batch.length;
+  }
+
+  console.log(`[SEED] Created ${STATIC_SECTIONS.length} sections, ${allInsertedParams.length} parameters, ${synonymsCount} synonyms`);
+
+  return {
+    sectionsCount: STATIC_SECTIONS.length,
+    parametersCount: allInsertedParams.length,
+    synonymsCount,
+  };
+}

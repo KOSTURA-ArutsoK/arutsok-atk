@@ -1,0 +1,42 @@
+Agent, vykonaj nasledujúcu generálnu prestavbu navigácie a dátovej štruktúry:
+
+Rozdelenie Navigácie (Sidebar): >     * Úplne zruš položku 'Sektory' a odkazy v 'Nastaveniach'.
+
+Vytvor v hlavnom menu dve samostatné položky pod sebou:
+
+1. Sektory Subjektov (ikona Users alebo Database) - smeruje na Knižnicu parametrov.
+
+2. Sektory Zmlúv (ikona Briefcase alebo FileText) - smeruje na správu Partnerov a Produktov.
+
+Hromadný Import (Seed) 300+ Parametrov:
+
+Do sekcie 'Sektory Subjektov' (Knižnica) hromadne nahraj (seed) nasledujúce kategórie a polia (interné kódy vygeneruj automaticky):
+
+IDENTITA: Tituly, Meno, Priezvisko, Rodné priezvisko, RČ, Dátum narodenia, Štátna príslušnosť, Pohlavie, Rodinný stav.
+
+DOKLADY: Číslo OP, Platnosť OP, Vydal OP, Pas, Vodičský preukaz.
+
+ADRESY (Kolekcie): Ulica, Číslo, Mesto, PSČ, Štát (pre typy: Trvalá, Prechodná, Korešpondenčná).
+
+KONTAKTY (Kolekcie): Mobil (Súkromný/Pracovný), E-mail (Súkromný/Pracovný), LinkedIn.
+
+EKONOMIKA: Zamestnávateľ, Povolanie, Príjem, IBAN, Banka, Zdroj príjmu.
+
+SDS / DDS: Číslo zmluvy, Vybraný fond, Oprávnené osoby (Meno/RČ/Vzťah), Pomer sporenia, Dátum vstupu do piliera.
+
+VOZIDLÁ: ŠPZ, VIN, Číslo TP, kW, Objem motora, Hmotnosť, Farba, Rok výroby.
+
+MAJETOK: Súpisné číslo, List vlastníctva, Katastrálne územie, Rozloha, Rok kolaudácie.
+
+AML & LEGISLATÍVA: PEO (Politicky exponovaná osoba), Účel obchodu, Zdroj majetku, GDPR súhlas, Marketingový súhlas.
+
+Implementácia ochrany: >     * Zabezpeč, aby nebolo možné vymazať parameter, ktorý má v systéme priradenú aspoň jednu hodnotu (validácia na subject_field_values).
+
+AI Klasifikácia (Príprava): >     * Priprav logiku pre budúce skenovanie, kde AI priradí dokument k typu (napr. 'Technický preukaz') na základe prítomnosti kľúčových slov (VIN, kW, ŠPZ) a vizuálnej DNA.“
+
+💡 Čo očakávať po dokončení:
+Prehľadnosť: Keď ráno otvoríš ATK, vľavo uvidíš jasne: „Tu spravujem ľudí (Sektory Subjektov)“ a „Tu spravujem biznis (Sektory Zmlúv)“.
+
+Dátová sila: Už nemusíš nič vytvárať. Pôjdeš do klienta, klikneš „Pridať údaje“ a systém ti ponúkne všetko od RČ až po kW motora jeho auta.
+
+História: Ak zmeníš e-mail, starý sa automaticky odsunie do archívu s dátumom „Platné do“

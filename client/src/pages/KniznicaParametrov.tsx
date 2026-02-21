@@ -215,6 +215,20 @@ export default function KniznicaParametrov() {
     },
   });
 
+  const seedMutation = useMutation({
+    mutationFn: async () => {
+      await apiRequest("POST", "/api/admin/seed-subject-parameters");
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/subject-parameters"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/subject-param-sections"] });
+      toast({ title: "Parametre úspešne naplnené" });
+    },
+    onError: (err: Error) => {
+      toast({ title: err.message || "Chyba pri seedovaní", variant: "destructive" });
+    },
+  });
+
   const addTemplateParamMutation = useMutation({
     mutationFn: async (data: { templateId: number; parameterId: number; validFrom?: string; validTo?: string }) => {
       await apiRequest("POST", "/api/subject-template-params", data);
@@ -262,8 +276,18 @@ export default function KniznicaParametrov() {
       queryClient.invalidateQueries({ queryKey: ["/api/subject-parameters"] });
       toast({ title: "Parameter vymazaný" });
     },
-    onError: () => {
-      toast({ title: "Chyba pri mazaní", variant: "destructive" });
+    onError: (err: Error) => {
+      const msg = err.message || "";
+      const jsonPart = msg.includes("{") ? msg.substring(msg.indexOf("{")) : "";
+      let userMsg = "Chyba pri mazaní";
+      try {
+        if (jsonPart) {
+          const parsed = JSON.parse(jsonPart);
+          userMsg = parsed.message || userMsg;
+        }
+      } catch {}
+      if (msg.includes("nie je možné vymazať")) userMsg = msg.replace(/^\d+:\s*/, "");
+      toast({ title: userMsg, variant: "destructive" });
     },
   });
 
@@ -350,6 +374,10 @@ export default function KniznicaParametrov() {
             <LayoutTemplate className="w-3.5 h-3.5 mr-1" />
             Šablóny
           </TabsTrigger>
+          <TabsTrigger value="unknown" data-testid="tab-unknown-fields">
+            <Brain className="w-3.5 h-3.5 mr-1" />
+            Neznáme polia
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="parameters" className="space-y-4">
@@ -383,6 +411,18 @@ export default function KniznicaParametrov() {
               <Plus className="w-4 h-4 mr-1" />
               Nový parameter
             </Button>
+            {parameters.length === 0 && (
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => seedMutation.mutate()}
+                disabled={seedMutation.isPending}
+                data-testid="button-seed-params"
+              >
+                {seedMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin mr-1" /> : <Library className="w-4 h-4 mr-1" />}
+                Naplniť knižnicu (304 parametrov)
+              </Button>
+            )}
           </div>
 
           {isLoading ? (
@@ -808,6 +848,10 @@ export default function KniznicaParametrov() {
               )}
             </div>
           )}
+        </TabsContent>
+
+        <TabsContent value="unknown" className="space-y-4">
+          <UnknownFieldsTab sections={sections} parameters={parameters} />
         </TabsContent>
       </Tabs>
 
@@ -1467,5 +1511,241 @@ function TemplateDialog({
         </DialogFooter>
       </DialogContent>
     </Dialog>
+  );
+}
+
+type UnknownField = {
+  id: number;
+  sourceText: string;
+  extractedKey: string;
+  extractedValue: string | null;
+  documentName: string | null;
+  clientTypeId: number | null;
+  subjectId: number | null;
+  contractId: number | null;
+  status: string;
+  assignedParameterId: number | null;
+  resolvedByUserId: number | null;
+  resolvedAt: string | null;
+  createdAt: string;
+};
+
+function UnknownFieldsTab({ sections, parameters }: { sections: SubjectParamSection[]; parameters: SubjectParameter[] }) {
+  const { toast } = useToast();
+  const [statusFilter, setStatusFilter] = useState<string>("new");
+  const [assignDialogOpen, setAssignDialogOpen] = useState(false);
+  const [selectedField, setSelectedField] = useState<UnknownField | null>(null);
+  const [assignParamId, setAssignParamId] = useState<string>("");
+  const [searchAssign, setSearchAssign] = useState("");
+
+  const { data: unknownFields = [], isLoading } = useQuery<UnknownField[]>({
+    queryKey: ["/api/unknown-extracted-fields", statusFilter],
+    queryFn: async () => {
+      const url = statusFilter === "all" ? "/api/unknown-extracted-fields" : `/api/unknown-extracted-fields?status=${statusFilter}`;
+      const resp = await fetch(url, { credentials: "include" });
+      if (!resp.ok) throw new Error("Chyba pri načítaní");
+      return resp.json();
+    },
+  });
+
+  const assignMutation = useMutation({
+    mutationFn: async ({ id, parameterId }: { id: number; parameterId: number }) => {
+      await apiRequest("PATCH", `/api/unknown-extracted-fields/${id}`, {
+        status: "assigned",
+        assignedParameterId: parameterId,
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/unknown-extracted-fields"] });
+      setAssignDialogOpen(false);
+      setSelectedField(null);
+      toast({ title: "Priradené k parametru" });
+    },
+  });
+
+  const dismissMutation = useMutation({
+    mutationFn: async (id: number) => {
+      await apiRequest("PATCH", `/api/unknown-extracted-fields/${id}`, { status: "dismissed" });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/unknown-extracted-fields"] });
+      toast({ title: "Pole zamietnuté" });
+    },
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: async (id: number) => {
+      await apiRequest("DELETE", `/api/unknown-extracted-fields/${id}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/unknown-extracted-fields"] });
+    },
+  });
+
+  const filteredAssignParams = parameters.filter(p =>
+    !searchAssign || p.label.toLowerCase().includes(searchAssign.toLowerCase()) || p.fieldKey.toLowerCase().includes(searchAssign.toLowerCase())
+  );
+
+  const statusColors: Record<string, string> = {
+    new: "bg-yellow-500/20 text-yellow-400 border-yellow-500/30",
+    assigned: "bg-green-500/20 text-green-400 border-green-500/30",
+    dismissed: "bg-zinc-500/20 text-zinc-400 border-zinc-500/30",
+    created: "bg-blue-500/20 text-blue-400 border-blue-500/30",
+  };
+
+  return (
+    <>
+      <Card>
+        <CardHeader className="pb-3">
+          <div className="flex items-center justify-between">
+            <CardTitle className="text-base flex items-center gap-2">
+              <Brain className="w-4 h-4" />
+              Neznáme extrahované polia
+            </CardTitle>
+            <div className="flex items-center gap-2">
+              <Select value={statusFilter} onValueChange={setStatusFilter}>
+                <SelectTrigger className="w-[140px] h-8" data-testid="select-unknown-status-filter">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="new">Nové</SelectItem>
+                  <SelectItem value="assigned">Priradené</SelectItem>
+                  <SelectItem value="dismissed">Zamietnuté</SelectItem>
+                  <SelectItem value="all">Všetky</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent>
+          {isLoading ? (
+            <div className="flex items-center justify-center py-8">
+              <Loader2 className="w-5 h-5 animate-spin" />
+            </div>
+          ) : unknownFields.length === 0 ? (
+            <div className="text-center text-muted-foreground py-8" data-testid="text-no-unknown-fields">
+              Žiadne neznáme polia
+            </div>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Kľúč</TableHead>
+                  <TableHead>Hodnota</TableHead>
+                  <TableHead>Zdroj</TableHead>
+                  <TableHead>Stav</TableHead>
+                  <TableHead className="w-[160px]">Akcie</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {unknownFields.map((field) => (
+                  <TableRow key={field.id} data-testid={`row-unknown-field-${field.id}`}>
+                    <TableCell className="font-mono text-sm">{field.extractedKey}</TableCell>
+                    <TableCell className="max-w-[200px] truncate text-sm">{field.extractedValue || "-"}</TableCell>
+                    <TableCell className="max-w-[250px] truncate text-xs text-muted-foreground">{field.sourceText}</TableCell>
+                    <TableCell>
+                      <Badge variant="outline" className={statusColors[field.status] || ""}>
+                        {field.status === "new" ? "Nové" : field.status === "assigned" ? "Priradené" : field.status === "dismissed" ? "Zamietnuté" : field.status}
+                      </Badge>
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex items-center gap-1">
+                        {field.status === "new" && (
+                          <>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-7 px-2 text-xs"
+                              onClick={() => { setSelectedField(field); setAssignDialogOpen(true); }}
+                              data-testid={`button-assign-unknown-${field.id}`}
+                            >
+                              <ChevronRight className="w-3 h-3 mr-1" />
+                              Priradiť
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-7 px-2 text-xs text-muted-foreground"
+                              onClick={() => dismissMutation.mutate(field.id)}
+                              data-testid={`button-dismiss-unknown-${field.id}`}
+                            >
+                              <X className="w-3 h-3" />
+                            </Button>
+                          </>
+                        )}
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-7 px-2 text-xs text-destructive"
+                          onClick={() => deleteMutation.mutate(field.id)}
+                          data-testid={`button-delete-unknown-${field.id}`}
+                        >
+                          <Trash2 className="w-3 h-3" />
+                        </Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
+        </CardContent>
+      </Card>
+
+      <Dialog open={assignDialogOpen} onOpenChange={setAssignDialogOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Priradiť k parametru</DialogTitle>
+          </DialogHeader>
+          {selectedField && (
+            <div className="space-y-3">
+              <div className="p-2 bg-muted/50 rounded text-sm">
+                <span className="text-muted-foreground">Kľúč:</span> <strong>{selectedField.extractedKey}</strong>
+                {selectedField.extractedValue && (
+                  <><br /><span className="text-muted-foreground">Hodnota:</span> {selectedField.extractedValue}</>
+                )}
+              </div>
+              <div className="space-y-1.5">
+                <Label>Hľadať parameter</Label>
+                <Input
+                  value={searchAssign}
+                  onChange={e => setSearchAssign(e.target.value)}
+                  placeholder="Hľadať podľa názvu alebo kódu..."
+                  data-testid="input-search-assign-param"
+                />
+              </div>
+              <div className="max-h-[200px] overflow-y-auto border rounded">
+                {filteredAssignParams.slice(0, 30).map(p => (
+                  <button
+                    key={p.id}
+                    className={`w-full text-left px-3 py-1.5 text-sm hover:bg-muted/50 flex items-center justify-between ${assignParamId === String(p.id) ? "bg-primary/10" : ""}`}
+                    onClick={() => setAssignParamId(String(p.id))}
+                    data-testid={`button-select-param-${p.id}`}
+                  >
+                    <span>{p.label}</span>
+                    <span className="text-xs text-muted-foreground font-mono">{p.code}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setAssignDialogOpen(false)}>Zrušiť</Button>
+            <Button
+              onClick={() => {
+                if (selectedField && assignParamId) {
+                  assignMutation.mutate({ id: selectedField.id, parameterId: Number(assignParamId) });
+                }
+              }}
+              disabled={!assignParamId || assignMutation.isPending}
+              data-testid="button-confirm-assign"
+            >
+              {assignMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin mr-1" /> : null}
+              Priradiť
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }

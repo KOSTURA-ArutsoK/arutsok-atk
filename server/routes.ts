@@ -5,6 +5,7 @@ import { api } from "@shared/routes";
 import { setupAuth, registerAuthRoutes, isAuthenticated } from "./replit_integrations/auth";
 import { z } from "zod";
 import { continents, states, myCompanies, appUsers, clientTypes, clientSubGroups, clientGroupMembers, productFolderAssignments, folderPanels, panelParameters, userClientGroupMemberships, clientGroups, permissionGroups, insertCareerLevelSchema, insertProductPointRateSchema, careerLevels, importLogs, commissions, contracts, contractStatuses, contractStatusChangeLogs, clientDataTabs, clientDataCategories, subjects, subjectPointsLog, subjectFieldHistory, subjectCollaborators, clientMarketingConsents, clientDocumentHistory, contractAcquirers, contractPasswords, contractRewardDistributions, contractParameterValues, subjectArchive, auditLogs, globalCounters, subjectPhotos, activityEvents, subjectParamSections, subjectParameters, subjectTemplates, subjectTemplateParams } from "@shared/schema";
+import { seedSubjectParameters } from "./seed-subject-params";
 import sharp from "sharp";
 import { db } from "./db";
 import { eq, isNotNull } from "drizzle-orm";
@@ -6974,9 +6975,20 @@ export async function registerRoutes(
 
   app.delete("/api/subject-parameters/:id", isAuthenticated, async (req, res) => {
     try {
-      await storage.deleteSubjectParameter(Number(req.params.id));
+      const paramId = Number(req.params.id);
+      const usageCount = await storage.getParameterUsageCount(paramId);
+      if (usageCount > 0) {
+        return res.status(400).json({
+          message: `Parameter nie je možné vymazať – existuje ${usageCount} záznamov v histórii polí.`,
+          usageCount,
+        });
+      }
+      await storage.deleteSubjectParameter(paramId);
       res.json({ success: true });
-    } catch (err) { res.status(500).json({ message: "Internal error" }); }
+    } catch (err: any) {
+      console.error("Error deleting subject parameter:", err?.message || err);
+      res.status(500).json({ message: "Internal error" });
+    }
   });
 
   // Parameter Synonyms CRUD
@@ -7091,7 +7103,42 @@ export async function registerRoutes(
       }
 
       results.sort((a, b) => b.confidence - a.confidence);
-      res.json({ extracted: results, totalParams: allParams.length, matchedCount: results.length });
+
+      const matchedLabels = new Set(results.map(r => r.label.toLowerCase()));
+      const unmatchedLines: string[] = [];
+      for (const line of lines) {
+        const trimmed = line.trim();
+        if (!trimmed || trimmed.length < 3) continue;
+        const parts = trimmed.split(/[\s:=\-]+/);
+        const fieldCandidate = parts[0]?.toLowerCase();
+        if (fieldCandidate && !matchedLabels.has(fieldCandidate)) {
+          const isKnownField = results.some(r => trimmed.toLowerCase().includes(r.label.toLowerCase()));
+          if (!isKnownField) {
+            unmatchedLines.push(trimmed);
+          }
+        }
+      }
+
+      if (unmatchedLines.length > 0) {
+        for (const line of unmatchedLines.slice(0, 20)) {
+          const colonIdx = line.indexOf(":");
+          const eqIdx = line.indexOf("=");
+          const sepIdx = colonIdx >= 0 ? colonIdx : eqIdx;
+          const extractedKey = sepIdx >= 0 ? line.substring(0, sepIdx).trim() : line.substring(0, 30).trim();
+          const extractedValue = sepIdx >= 0 ? line.substring(sepIdx + 1).trim() : null;
+          try {
+            await storage.createUnknownExtractedField({
+              extractedKey,
+              extractedValue,
+              sourceText: line,
+              status: "new",
+              clientTypeId: clientTypeId ? Number(clientTypeId) : null,
+            });
+          } catch {}
+        }
+      }
+
+      res.json({ extracted: results, totalParams: allParams.length, matchedCount: results.length, unmatchedCount: unmatchedLines.length });
     } catch (err) {
       console.error("[AI EXTRACT ERROR]", err);
       res.status(500).json({ message: "Internal error" });
@@ -7174,6 +7221,36 @@ export async function registerRoutes(
     try {
       const { paramIds } = req.body;
       await storage.bulkSetTemplateParams(Number(req.params.templateId), paramIds || []);
+      res.json({ success: true });
+    } catch (err) { res.status(500).json({ message: "Internal error" }); }
+  });
+
+  // Unknown Extracted Fields CRUD
+  app.get("/api/unknown-extracted-fields", isAuthenticated, async (req, res) => {
+    try {
+      const status = req.query.status as string | undefined;
+      const fields = await storage.getUnknownExtractedFields(status);
+      res.json(fields);
+    } catch (err) { res.status(500).json({ message: "Internal error" }); }
+  });
+
+  app.post("/api/unknown-extracted-fields", isAuthenticated, async (req, res) => {
+    try {
+      const field = await storage.createUnknownExtractedField(req.body);
+      res.json(field);
+    } catch (err) { res.status(500).json({ message: "Internal error" }); }
+  });
+
+  app.patch("/api/unknown-extracted-fields/:id", isAuthenticated, async (req, res) => {
+    try {
+      const field = await storage.updateUnknownExtractedField(Number(req.params.id), req.body);
+      res.json(field);
+    } catch (err) { res.status(500).json({ message: "Internal error" }); }
+  });
+
+  app.delete("/api/unknown-extracted-fields/:id", isAuthenticated, async (req, res) => {
+    try {
+      await storage.deleteUnknownExtractedField(Number(req.params.id));
       res.json({ success: true });
     } catch (err) { res.status(500).json({ message: "Internal error" }); }
   });

@@ -1594,6 +1594,27 @@ export const insertParameterSynonymSchema = createInsertSchema(parameterSynonyms
 export type ParameterSynonym = typeof parameterSynonyms.$inferSelect;
 export type InsertParameterSynonym = z.infer<typeof insertParameterSynonymSchema>;
 
+// === UNKNOWN EXTRACTED FIELDS (AI extraction misses) ===
+export const unknownExtractedFields = pgTable("unknown_extracted_fields", {
+  id: serial("id").primaryKey(),
+  sourceText: text("source_text").notNull(),
+  extractedKey: text("extracted_key").notNull(),
+  extractedValue: text("extracted_value"),
+  documentName: text("document_name"),
+  clientTypeId: integer("client_type_id"),
+  subjectId: integer("subject_id").references(() => subjects.id),
+  contractId: integer("contract_id"),
+  status: text("status").notNull().default("new"),
+  assignedParameterId: integer("assigned_parameter_id").references(() => subjectParameters.id),
+  resolvedByUserId: integer("resolved_by_user_id").references(() => appUsers.id),
+  resolvedAt: timestamp("resolved_at"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertUnknownExtractedFieldSchema = createInsertSchema(unknownExtractedFields).omit({ id: true, createdAt: true });
+export type UnknownExtractedField = typeof unknownExtractedFields.$inferSelect;
+export type InsertUnknownExtractedField = z.infer<typeof insertUnknownExtractedFieldSchema>;
+
 export type CreateSubjectRequest = InsertSubject;
 export type UpdateSubjectRequest = Partial<InsertSubject> & { changeReason?: string };
 export type UpdateMyCompanyRequest = Partial<InsertMyCompany> & { changeReason?: string };
