@@ -47,6 +47,7 @@ import {
   Building,
   FileSpreadsheet,
   Database,
+  LayoutGrid,
 } from "lucide-react";
 import {
   Sidebar,
@@ -400,31 +401,19 @@ export function AppSidebar() {
                 </SidebarMenuItem>
               </Collapsible>
 
-              <SidebarMenuItem>
-                <SidebarMenuButton
-                  asChild
-                  isActive={location === "/sektory-subjektov"}
-                  data-testid="nav-sektory-subjektov"
-                >
-                  <Link href="/sektory-subjektov">
-                    <Database className="w-4 h-4" />
-                    <span>Sektory Subjektov</span>
-                  </Link>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-
-              <SidebarMenuItem>
-                <SidebarMenuButton
-                  asChild
-                  isActive={location === "/sektory-zmluv"}
-                  data-testid="nav-sektory-zmluv"
-                >
-                  <Link href="/sektory-zmluv">
-                    <FileText className="w-4 h-4" />
-                    <span>Sektory Zmlúv</span>
-                  </Link>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
+              <CollapsibleMenu
+                label="Sektory"
+                icon={LayoutGrid}
+                items={[
+                  { href: "/sektory-subjektov", icon: Database, label: "Sektory Subjektov" },
+                  { href: "/sektory-zmluv", icon: FileText, label: "Sektory Zmlúv" },
+                ]}
+                location={location}
+                testId="nav-sektory"
+                menuId="sektory"
+                openMenuId={openMenuId}
+                setOpenMenuId={setOpenMenuId}
+              />
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
