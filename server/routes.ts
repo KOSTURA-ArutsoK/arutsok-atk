@@ -8,7 +8,7 @@ import { continents, states, myCompanies, appUsers, clientTypes, clientSubGroups
 import { seedSubjectParameters } from "./seed-subject-params";
 import sharp from "sharp";
 import { db } from "./db";
-import { eq, isNotNull, sql } from "drizzle-orm";
+import { eq, and, isNotNull, sql } from "drizzle-orm";
 import multer from "multer";
 import ExcelJS from "exceljs";
 import { parse as csvParse } from "csv-parse/sync";
@@ -6663,9 +6663,24 @@ export async function registerRoutes(
 
       const source = req.body.source || "manual";
       const sourceDocumentId = req.body.sourceDocumentId || null;
+      const fileType = req.body.fileType || "profile";
 
       let processedFileName = file.filename;
-      if (req.body.cropFace === "true") {
+      const isSignature = fileType === "signature";
+
+      if (isSignature) {
+        try {
+          const inputPath = path.join(UPLOADS_DIR, "subject-photos", file.filename);
+          const resizedName = `sig-${file.filename}`;
+          const outputPath = path.join(UPLOADS_DIR, "subject-photos", resizedName);
+          await sharp(inputPath)
+            .resize(800, null, { fit: "inside", withoutEnlargement: true })
+            .toFile(outputPath);
+          processedFileName = resizedName;
+        } catch (resizeErr) {
+          console.error("Signature resize failed, using original:", resizeErr);
+        }
+      } else if (req.body.cropFace === "true") {
         try {
           const inputPath = path.join(UPLOADS_DIR, "subject-photos", file.filename);
           const croppedName = `cropped-${file.filename}`;
@@ -6702,14 +6717,17 @@ export async function registerRoutes(
         }
       }
 
-      await db.update(subjectPhotos)
-        .set({ isActive: false, validTo: new Date() })
-        .where(eq(subjectPhotos.subjectId, subjectId));
+      if (!isSignature) {
+        await db.update(subjectPhotos)
+          .set({ isActive: false, validTo: new Date() })
+          .where(and(eq(subjectPhotos.subjectId, subjectId), eq(subjectPhotos.fileType, "profile")));
+      }
 
       const [photo] = await db.insert(subjectPhotos).values({
         subjectId,
         fileName: processedFileName,
         filePath: `/api/subject-photos/file/${processedFileName}`,
+        fileType: fileType as any,
         source: source as any,
         sourceDocumentId,
         isActive: true,
@@ -6759,14 +6777,17 @@ export async function registerRoutes(
         console.error("Document face crop failed:", cropErr);
       }
 
+      const fileType = req.body.fileType || "id_scan";
+
       await db.update(subjectPhotos)
         .set({ isActive: false, validTo: new Date() })
-        .where(eq(subjectPhotos.subjectId, subjectId));
+        .where(and(eq(subjectPhotos.subjectId, subjectId), eq(subjectPhotos.fileType, fileType)));
 
       const [photo] = await db.insert(subjectPhotos).values({
         subjectId,
         fileName: processedFileName,
         filePath: `/api/subject-photos/file/${processedFileName}`,
+        fileType: fileType as any,
         source: documentType === "passport" ? "passport" : "id_card",
         sourceDocumentId,
         isActive: true,
@@ -6779,7 +6800,7 @@ export async function registerRoutes(
         module: "subject_photo",
         entityId: subjectId,
         entityName: `Automaticka fotka z dokumentu`,
-        newData: { photoId: photo.id, documentType },
+        newData: { photoId: photo.id, documentType, fileType },
       });
 
       res.json(photo);

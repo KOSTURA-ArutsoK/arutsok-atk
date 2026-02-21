@@ -1460,6 +1460,7 @@ export const subjectPhotos = pgTable("subject_photos", {
   subjectId: integer("subject_id").notNull().references(() => subjects.id),
   fileName: text("file_name").notNull(),
   filePath: text("file_path").notNull(),
+  fileType: varchar("file_type", { length: 50 }).default("profile").$type<"profile" | "signature" | "id_scan" | "other">(),
   source: text("source").notNull().$type<"manual" | "id_card" | "passport" | "document">(),
   sourceDocumentId: text("source_document_id"),
   isActive: boolean("is_active").default(true),

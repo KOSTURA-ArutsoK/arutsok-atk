@@ -31,7 +31,7 @@ The system employs a modern full-stack architecture, emphasizing data integrity,
 - **Client Portal**: Provides a restricted, read-only interface for clients to access their own profiles, ensuring data isolation.
 - **Reporting & Administration**: Features include system settings, customizable dashboards with drag-and-drop widgets, global table resizing, a universal column manager, and dedicated CRUD pages for states and companies.
 - **Excel Importer**: Advanced importer auto-creates/updates subjects, marks incomplete contracts, detects duplicates, and maps data to client categories.
-- **Profile Photo System**: Manages `subject_photos` with versioning, smart cropping, and authenticated file serving.
+- **Profile Photo System**: Manages `subject_photos` with versioning, smart cropping, authenticated file serving, and `fileType` classification (profile/signature/id_scan/other). WhatsApp-style `ImageLightbox` component with carousel navigation (arrows/swipe/keyboard), zoom (scroll/buttons), rotation, responsive display, and thumbnail strip. Signature uploads use aspect-preserving resize (800px width). File type deactivation is scoped (uploading signature doesn't deactivate profile). Signature indicator badge on avatar when signature is attached.
 - **AI Feedback Loop**: `parameter_synonyms` table supports synonym learning with user confirmations, enhancing AI document text extraction accuracy over time.
 
 ## External Dependencies
