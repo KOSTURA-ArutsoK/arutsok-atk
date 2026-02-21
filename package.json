@@ -80,6 +80,7 @@
     "react-international-phone": "^4.7.0",
     "react-resizable-panels": "^2.1.7",
     "recharts": "^2.15.4",
+    "sharp": "^0.34.5",
     "tailwind-merge": "^2.6.1",
     "tailwindcss-animate": "^1.0.7",
     "tw-animate-css": "^1.2.5",

@@ -21,6 +21,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { formatDateSlovak } from "@/lib/utils";
+import { SubjectProfilePhoto } from "@/components/subject-profile-photo";
 
 const TAB_ICONS: Record<string, typeof UserCheck> = {
   UserCheck, Scale, Users, Wallet, BarChart3, Wifi, Archive,
@@ -681,43 +682,53 @@ export function SubjektView({ subject, showPdfSidebar = false, isClientView = fa
           </div>
         )}
         <div className="flex items-center justify-between mb-3">
-          <div className="flex items-center gap-2">
-            <Badge variant="outline" className="text-xs">
-              {isPerson ? "FO" : isSzco ? "SZČO" : "PO"}
-            </Badge>
-            <span className="text-xs text-muted-foreground font-mono">{subject.uid}</span>
-            {(subject as any).supplementaryIndex && (
-              <Badge variant="outline" className="text-[10px] border-blue-600 text-blue-300" data-testid="badge-supplementary-index">
-                Index: {(subject as any).supplementaryIndex}
-              </Badge>
-            )}
-            {isSuperAdmin && !isClientView && (
-              <Button
-                variant="ghost"
-                size="sm"
-                className="h-6 px-1.5 text-[10px]"
-                onClick={() => {
-                  const current = (subject as any).supplementaryIndex || "";
-                  const val = prompt("Dodatkový index (napr. 1057/B alebo 1057.1):", current);
-                  if (val !== null) {
-                    apiRequest("PATCH", `/api/subjects/${subject.id}/supplementary-index`, { supplementaryIndex: val || null })
-                      .then(() => {
-                        queryClient.invalidateQueries({ queryKey: ["/api/subjects"] });
-                        toast({ title: "Dodatkový index uložený" });
-                      })
-                      .catch(() => toast({ title: "Chyba", variant: "destructive" }));
-                  }
-                }}
-                data-testid="btn-set-supplementary-index"
-              >
-                <Pencil className="w-3 h-3" />
-              </Button>
-            )}
-            {listStatus && (
-              <Badge variant={listStatus === "cierny" ? "destructive" : "secondary"} className={listStatus === "cierny" ? "bg-red-900 text-red-200" : "bg-orange-900 text-orange-200"}>
-                {listStatus === "cierny" ? "Čierny zoznam" : "Červený zoznam"}
-              </Badge>
-            )}
+          <div className="flex items-center gap-3">
+            <SubjectProfilePhoto
+              subjectId={subject.id}
+              size="lg"
+              editable={!isClientView && isEditing}
+              showHistory={!isClientView}
+            />
+            <div className="flex flex-col gap-1">
+              <div className="flex items-center gap-2">
+                <Badge variant="outline" className="text-xs">
+                  {isPerson ? "FO" : isSzco ? "SZČO" : "PO"}
+                </Badge>
+                <span className="text-xs text-muted-foreground font-mono">{subject.uid}</span>
+                {(subject as any).supplementaryIndex && (
+                  <Badge variant="outline" className="text-[10px] border-blue-600 text-blue-300" data-testid="badge-supplementary-index">
+                    Index: {(subject as any).supplementaryIndex}
+                  </Badge>
+                )}
+                {isSuperAdmin && !isClientView && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-6 px-1.5 text-[10px]"
+                    onClick={() => {
+                      const current = (subject as any).supplementaryIndex || "";
+                      const val = prompt("Dodatkový index (napr. 1057/B alebo 1057.1):", current);
+                      if (val !== null) {
+                        apiRequest("PATCH", `/api/subjects/${subject.id}/supplementary-index`, { supplementaryIndex: val || null })
+                          .then(() => {
+                            queryClient.invalidateQueries({ queryKey: ["/api/subjects"] });
+                            toast({ title: "Dodatkový index uložený" });
+                          })
+                          .catch(() => toast({ title: "Chyba", variant: "destructive" }));
+                      }
+                    }}
+                    data-testid="btn-set-supplementary-index"
+                  >
+                    <Pencil className="w-3 h-3" />
+                  </Button>
+                )}
+                {listStatus && (
+                  <Badge variant={listStatus === "cierny" ? "destructive" : "secondary"} className={listStatus === "cierny" ? "bg-red-900 text-red-200" : "bg-orange-900 text-orange-200"}>
+                    {listStatus === "cierny" ? "Čierny zoznam" : "Červený zoznam"}
+                  </Badge>
+                )}
+              </div>
+            </div>
           </div>
           <div className="flex items-center gap-2">
             {!isClientView && (isEditing ? (

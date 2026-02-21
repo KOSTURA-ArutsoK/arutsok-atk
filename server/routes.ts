@@ -4,7 +4,8 @@ import { storage } from "./storage";
 import { api } from "@shared/routes";
 import { setupAuth, registerAuthRoutes, isAuthenticated } from "./replit_integrations/auth";
 import { z } from "zod";
-import { continents, states, myCompanies, appUsers, clientTypes, clientSubGroups, clientGroupMembers, productFolderAssignments, folderPanels, panelParameters, userClientGroupMemberships, clientGroups, permissionGroups, insertCareerLevelSchema, insertProductPointRateSchema, careerLevels, importLogs, commissions, contracts, contractStatuses, contractStatusChangeLogs, clientDataTabs, clientDataCategories, subjects, subjectPointsLog, subjectFieldHistory, subjectCollaborators, clientMarketingConsents, clientDocumentHistory, contractAcquirers, contractPasswords, contractRewardDistributions, contractParameterValues, subjectArchive, auditLogs, globalCounters } from "@shared/schema";
+import { continents, states, myCompanies, appUsers, clientTypes, clientSubGroups, clientGroupMembers, productFolderAssignments, folderPanels, panelParameters, userClientGroupMemberships, clientGroups, permissionGroups, insertCareerLevelSchema, insertProductPointRateSchema, careerLevels, importLogs, commissions, contracts, contractStatuses, contractStatusChangeLogs, clientDataTabs, clientDataCategories, subjects, subjectPointsLog, subjectFieldHistory, subjectCollaborators, clientMarketingConsents, clientDocumentHistory, contractAcquirers, contractPasswords, contractRewardDistributions, contractParameterValues, subjectArchive, auditLogs, globalCounters, subjectPhotos } from "@shared/schema";
+import sharp from "sharp";
 import { db } from "./db";
 import { eq, isNotNull } from "drizzle-orm";
 import multer from "multer";
@@ -74,11 +75,12 @@ fs.mkdirSync(path.join(UPLOADS_DIR, "amendments"), { recursive: true });
 fs.mkdirSync(path.join(UPLOADS_DIR, "profiles"), { recursive: true });
 fs.mkdirSync(path.join(UPLOADS_DIR, "flags"), { recursive: true });
 fs.mkdirSync(path.join(UPLOADS_DIR, "status-change-docs"), { recursive: true });
+fs.mkdirSync(path.join(UPLOADS_DIR, "subject-photos"), { recursive: true });
 
 const uploadStorage = multer.diskStorage({
   destination: (req, _file, cb) => {
     const section = (req.params as any).section || (req as any)._uploadSection;
-    const validDirs = ["official", "work", "logos", "amendments", "profiles", "flags", "status-change-docs"];
+    const validDirs = ["official", "work", "logos", "amendments", "profiles", "flags", "status-change-docs", "subject-photos"];
     const dir = validDirs.includes(section) ? section : "official";
     cb(null, path.join(UPLOADS_DIR, dir));
   },
@@ -6199,6 +6201,300 @@ export async function registerRoutes(
   setInterval(() => storage.autoArchiveExpiredBindings(), 60 * 60 * 1000);
 
   scheduleUndeliveredContractsCheck();
+
+  // === SUBJECT PHOTOS (Profile Photo with Versioning) ===
+  app.get("/api/subjects/:id/photos", isAuthenticated, async (req: any, res) => {
+    try {
+      const subjectId = Number(req.params.id);
+      if (!await checkKlientiSubjectAccess(req.appUser, subjectId)) {
+        return res.status(403).json({ message: "Pristup zamietnuty" });
+      }
+      const photos = await db.select().from(subjectPhotos)
+        .where(eq(subjectPhotos.subjectId, subjectId))
+        .orderBy(subjectPhotos.createdAt);
+      res.json(photos);
+    } catch (err) {
+      res.status(500).json({ message: "Internal error" });
+    }
+  });
+
+  app.get("/api/subjects/:id/active-photo", isAuthenticated, async (req: any, res) => {
+    try {
+      const subjectId = Number(req.params.id);
+      const allPhotos = await db.select().from(subjectPhotos)
+        .where(eq(subjectPhotos.subjectId, subjectId));
+      const activePhotos = allPhotos
+        .filter(p => p.isActive)
+        .sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime());
+      res.json(activePhotos.length > 0 ? activePhotos[0] : null);
+    } catch (err) {
+      res.status(500).json({ message: "Internal error" });
+    }
+  });
+
+  app.get("/api/subject-photos/file/:filename", isAuthenticated, async (req: any, res) => {
+    try {
+      const filename = req.params.filename;
+      if (filename.includes("..") || filename.includes("/")) {
+        return res.status(400).json({ message: "Invalid filename" });
+      }
+      const [photo] = (await db.select().from(subjectPhotos)).filter(p => p.fileName === filename);
+      if (photo) {
+        if (!await checkKlientiSubjectAccess(req.appUser, photo.subjectId)) {
+          return res.status(403).json({ message: "Pristup zamietnuty" });
+        }
+      }
+      const filePath = path.join(UPLOADS_DIR, "subject-photos", filename);
+      if (!fs.existsSync(filePath)) {
+        return res.status(404).json({ message: "File not found" });
+      }
+      res.sendFile(filePath);
+    } catch (err) {
+      res.status(500).json({ message: "Internal error" });
+    }
+  });
+
+  app.post("/api/subjects/:id/photos/upload", isAuthenticated, (req: any, _res, next) => {
+    (req as any)._uploadSection = "subject-photos";
+    next();
+  }, upload.single("photo"), async (req: any, res) => {
+    try {
+      const subjectId = Number(req.params.id);
+      const file = req.file;
+      if (!file) return res.status(400).json({ message: "Ziaden subor nebol nahrany" });
+
+      const source = req.body.source || "manual";
+      const sourceDocumentId = req.body.sourceDocumentId || null;
+
+      let processedFileName = file.filename;
+      if (req.body.cropFace === "true") {
+        try {
+          const inputPath = path.join(UPLOADS_DIR, "subject-photos", file.filename);
+          const croppedName = `cropped-${file.filename}`;
+          const outputPath = path.join(UPLOADS_DIR, "subject-photos", croppedName);
+
+          const metadata = await sharp(inputPath).metadata();
+          const w = metadata.width || 400;
+          const h = metadata.height || 400;
+          const size = Math.min(w, h);
+          const left = Math.round((w - size) / 2);
+          const topOffset = Math.round(Math.max(0, (h * 0.1)));
+          const faceHeight = Math.min(size, h - topOffset);
+
+          await sharp(inputPath)
+            .extract({ left, top: topOffset, width: size, height: faceHeight })
+            .resize(300, 300, { fit: "cover", position: "attention" })
+            .toFile(outputPath);
+
+          processedFileName = croppedName;
+        } catch (cropErr) {
+          console.error("Face crop failed, using original:", cropErr);
+        }
+      } else {
+        try {
+          const inputPath = path.join(UPLOADS_DIR, "subject-photos", file.filename);
+          const resizedName = `resized-${file.filename}`;
+          const outputPath = path.join(UPLOADS_DIR, "subject-photos", resizedName);
+          await sharp(inputPath)
+            .resize(300, 300, { fit: "cover", position: "attention" })
+            .toFile(outputPath);
+          processedFileName = resizedName;
+        } catch (resizeErr) {
+          console.error("Resize failed, using original:", resizeErr);
+        }
+      }
+
+      await db.update(subjectPhotos)
+        .set({ isActive: false, validTo: new Date() })
+        .where(eq(subjectPhotos.subjectId, subjectId));
+
+      const [photo] = await db.insert(subjectPhotos).values({
+        subjectId,
+        fileName: processedFileName,
+        filePath: `/api/subject-photos/file/${processedFileName}`,
+        source: source as any,
+        sourceDocumentId,
+        isActive: true,
+        validFrom: new Date(),
+        createdByUserId: req.appUser?.id || null,
+      }).returning();
+
+      await logAudit(req, {
+        action: "CREATE",
+        module: "subject_photo",
+        entityId: subjectId,
+        entityName: `Profilova fotka subjektu ${subjectId}`,
+        newData: { photoId: photo.id, source, fileName: processedFileName },
+      });
+
+      res.json(photo);
+    } catch (err) {
+      console.error("Photo upload error:", err);
+      res.status(500).json({ message: "Internal error" });
+    }
+  });
+
+  app.post("/api/subjects/:id/photos/from-document", isAuthenticated, (req: any, _res, next) => {
+    (req as any)._uploadSection = "subject-photos";
+    next();
+  }, upload.single("photo"), async (req: any, res) => {
+    try {
+      const subjectId = Number(req.params.id);
+      const file = req.file;
+      if (!file) return res.status(400).json({ message: "Ziaden subor nebol nahrany" });
+
+      const documentType = req.body.documentType || "id_card";
+      const sourceDocumentId = req.body.sourceDocumentId || null;
+
+      let processedFileName = file.filename;
+      try {
+        const inputPath = path.join(UPLOADS_DIR, "subject-photos", file.filename);
+        const croppedName = `face-${file.filename}`;
+        const outputPath = path.join(UPLOADS_DIR, "subject-photos", croppedName);
+
+        await sharp(inputPath)
+          .resize(300, 300, { fit: "cover", position: "attention" })
+          .toFile(outputPath);
+
+        processedFileName = croppedName;
+      } catch (cropErr) {
+        console.error("Document face crop failed:", cropErr);
+      }
+
+      await db.update(subjectPhotos)
+        .set({ isActive: false, validTo: new Date() })
+        .where(eq(subjectPhotos.subjectId, subjectId));
+
+      const [photo] = await db.insert(subjectPhotos).values({
+        subjectId,
+        fileName: processedFileName,
+        filePath: `/api/subject-photos/file/${processedFileName}`,
+        source: documentType === "passport" ? "passport" : "id_card",
+        sourceDocumentId,
+        isActive: true,
+        validFrom: new Date(),
+        createdByUserId: req.appUser?.id || null,
+      }).returning();
+
+      await logAudit(req, {
+        action: "CREATE",
+        module: "subject_photo",
+        entityId: subjectId,
+        entityName: `Automaticka fotka z dokumentu`,
+        newData: { photoId: photo.id, documentType },
+      });
+
+      res.json(photo);
+    } catch (err) {
+      console.error("Document photo extract error:", err);
+      res.status(500).json({ message: "Internal error" });
+    }
+  });
+
+  app.patch("/api/subjects/:id/photos/:photoId/activate", isAuthenticated, async (req: any, res) => {
+    try {
+      const subjectId = Number(req.params.id);
+      const photoId = Number(req.params.photoId);
+
+      await db.update(subjectPhotos)
+        .set({ isActive: false, validTo: new Date() })
+        .where(eq(subjectPhotos.subjectId, subjectId));
+
+      const [updated] = await db.update(subjectPhotos)
+        .set({ isActive: true, validFrom: new Date(), validTo: null })
+        .where(eq(subjectPhotos.id, photoId))
+        .returning();
+
+      await logAudit(req, {
+        action: "UPDATE",
+        module: "subject_photo",
+        entityId: subjectId,
+        entityName: `Aktivovana fotka ${photoId}`,
+        newData: { photoId },
+      });
+
+      res.json(updated);
+    } catch (err) {
+      res.status(500).json({ message: "Internal error" });
+    }
+  });
+
+  // === CONTRACT RENUMBERING (Fix Poradia - Inteligentny posun) ===
+  app.patch("/api/contracts/:id/renumber", isAuthenticated, async (req: any, res) => {
+    try {
+      const contractId = Number(req.params.id);
+      const { newSortOrder } = req.body;
+      if (typeof newSortOrder !== "number" || newSortOrder < 1) {
+        return res.status(400).json({ message: "Neplatne poradove cislo" });
+      }
+
+      const contract = await storage.getContract(contractId);
+      if (!contract) return res.status(404).json({ message: "Zmluva nenajdena" });
+
+      const appUser = req.appUser;
+      if (appUser && appUser.activeStateId && contract.stateId && contract.stateId !== appUser.activeStateId && appUser.role !== 'superadmin') {
+        return res.status(403).json({ message: "Uprava zmluvy z ineho statu nie je povolena" });
+      }
+
+      if (!contract.inventoryId) {
+        await storage.updateContract(contractId, { sortOrderInInventory: newSortOrder });
+        return res.json({ success: true, updated: 1 });
+      }
+
+      const allContracts = await db.select().from(contracts)
+        .where(eq(contracts.inventoryId, contract.inventoryId));
+
+      const sorted = allContracts
+        .filter(c => c.id !== contractId)
+        .sort((a, b) => (a.sortOrderInInventory || 0) - (b.sortOrderInInventory || 0));
+
+      const conflicting = sorted.filter(c => (c.sortOrderInInventory || 0) >= newSortOrder);
+      let updatedCount = 0;
+
+      for (const c of conflicting) {
+        const currentOrder = c.sortOrderInInventory || 0;
+        await storage.updateContract(c.id, { sortOrderInInventory: currentOrder + 1 });
+        updatedCount++;
+      }
+
+      await storage.updateContract(contractId, { sortOrderInInventory: newSortOrder });
+      updatedCount++;
+
+      await logAudit(req, {
+        action: "UPDATE",
+        module: "contract_renumber",
+        entityId: contractId,
+        entityName: `Renumber zmluvy na ${newSortOrder}`,
+        newData: { newSortOrder, shiftedContracts: conflicting.length },
+      });
+
+      res.json({ success: true, updated: updatedCount, shifted: conflicting.length });
+    } catch (err) {
+      console.error("Contract renumber error:", err);
+      res.status(500).json({ message: "Internal error" });
+    }
+  });
+
+  // Batch endpoint for getting active photos for multiple subjects (for list view)
+  app.post("/api/subjects/batch-photos", isAuthenticated, async (req: any, res) => {
+    try {
+      const { subjectIds } = req.body;
+      if (!Array.isArray(subjectIds)) return res.json({});
+
+      const allPhotos = await db.select().from(subjectPhotos);
+      const activePhotos: Record<number, { id: number; filePath: string }> = {};
+
+      for (const photo of allPhotos) {
+        if (photo.isActive && subjectIds.includes(photo.subjectId)) {
+          activePhotos[photo.subjectId] = { id: photo.id, filePath: photo.filePath };
+        }
+      }
+
+      res.json(activePhotos);
+    } catch (err) {
+      res.status(500).json({ message: "Internal error" });
+    }
+  });
 
   return httpServer;
 }

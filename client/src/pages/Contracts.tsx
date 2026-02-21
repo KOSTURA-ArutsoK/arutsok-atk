@@ -123,6 +123,85 @@ const SPRIEVODKA_FILTER_COLUMNS: SmartColumnDef[] = [
   { key: "premiumAmount", label: "Lehotne poistne", type: "number" },
 ];
 
+function InlineSortOrderEdit({ contractId, currentOrder }: { contractId: number; currentOrder: number | null }) {
+  const [editing, setEditing] = useState(false);
+  const [value, setValue] = useState(String(currentOrder || ""));
+  const { toast } = useToast();
+
+  const renumberMutation = useMutation({
+    mutationFn: async (newSortOrder: number) => {
+      const res = await apiRequest("PATCH", `/api/contracts/${contractId}/renumber`, { newSortOrder });
+      return res;
+    },
+    onSuccess: (data: any) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/contracts"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/contract-inventories"] });
+      toast({
+        title: "Poradie aktualizované",
+        description: data.shifted > 0 ? `Posunutých ${data.shifted} zmlúv` : undefined,
+      });
+      setEditing(false);
+    },
+    onError: () => toast({ title: "Chyba pri zmene poradia", variant: "destructive" }),
+  });
+
+  if (!editing) {
+    return (
+      <span
+        className="cursor-pointer hover:text-primary hover:underline"
+        onClick={(e) => { e.stopPropagation(); setEditing(true); setValue(String(currentOrder || "")); }}
+        title="Klikni pre zmenu poradia"
+        data-testid={`sort-order-${contractId}`}
+      >
+        {currentOrder || "-"}
+      </span>
+    );
+  }
+
+  return (
+    <div className="flex items-center gap-1" onClick={e => e.stopPropagation()}>
+      <Input
+        type="number"
+        min={1}
+        value={value}
+        onChange={e => setValue(e.target.value)}
+        className="h-6 w-14 text-xs text-center"
+        autoFocus
+        onKeyDown={e => {
+          if (e.key === "Enter") {
+            const n = parseInt(value);
+            if (n > 0) renumberMutation.mutate(n);
+          }
+          if (e.key === "Escape") setEditing(false);
+        }}
+        data-testid={`input-sort-order-${contractId}`}
+      />
+      <Button
+        size="sm"
+        variant="ghost"
+        className="h-6 w-6 p-0"
+        onClick={() => {
+          const n = parseInt(value);
+          if (n > 0) renumberMutation.mutate(n);
+        }}
+        disabled={renumberMutation.isPending}
+        data-testid={`btn-confirm-sort-${contractId}`}
+      >
+        <Check className="w-3 h-3" />
+      </Button>
+      <Button
+        size="sm"
+        variant="ghost"
+        className="h-6 w-6 p-0"
+        onClick={() => setEditing(false)}
+        data-testid={`btn-cancel-sort-${contractId}`}
+      >
+        <X className="w-3 h-3" />
+      </Button>
+    </div>
+  );
+}
+
 function formatProcessingTime(seconds: number): string {
   const h = Math.floor(seconds / 3600);
   const m = Math.floor((seconds % 3600) / 60);
@@ -2426,7 +2505,9 @@ export default function Contracts() {
                                     <TableCell>
                                       <Checkbox checked={checkedIds.has(contract.id)} onCheckedChange={() => toggleAcceptContract(group.inventoryId, contract.id)} data-testid={`checkbox-accept-${contract.id}`} />
                                     </TableCell>
-                                    <TableCell className="text-center text-xs text-muted-foreground">{contract.sortOrderInInventory || "-"}</TableCell>
+                                    <TableCell className="text-center text-xs text-muted-foreground">
+                                      <InlineSortOrderEdit contractId={contract.id} currentOrder={contract.sortOrderInInventory} />
+                                    </TableCell>
                                     {sprievodkaColumnVisibility.isVisible("contractNumber") && <TableCell className="font-mono text-sm" data-testid={`text-dispatched-number-${contract.id}`}>
                                       <span className="flex items-center gap-1">
                                         <Lock className="w-3 h-3 text-amber-500 shrink-0" style={{ display: contract.isLocked ? 'block' : 'none' }} />

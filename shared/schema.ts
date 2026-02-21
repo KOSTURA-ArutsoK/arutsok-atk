@@ -1452,6 +1452,25 @@ export const insertSubjectCollaboratorSchema = createInsertSchema(subjectCollabo
 export type SubjectCollaborator = typeof subjectCollaborators.$inferSelect;
 export type InsertSubjectCollaborator = z.infer<typeof insertSubjectCollaboratorSchema>;
 
+// === SUBJECT PHOTOS (Profile Photo with Versioning) ===
+export const subjectPhotos = pgTable("subject_photos", {
+  id: serial("id").primaryKey(),
+  subjectId: integer("subject_id").notNull().references(() => subjects.id),
+  fileName: text("file_name").notNull(),
+  filePath: text("file_path").notNull(),
+  source: text("source").notNull().$type<"manual" | "id_card" | "passport" | "document">(),
+  sourceDocumentId: text("source_document_id"),
+  isActive: boolean("is_active").default(true),
+  validFrom: timestamp("valid_from").defaultNow(),
+  validTo: timestamp("valid_to"),
+  createdByUserId: integer("created_by_user_id").references(() => appUsers.id),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertSubjectPhotoSchema = createInsertSchema(subjectPhotos).omit({ id: true, createdAt: true });
+export type SubjectPhoto = typeof subjectPhotos.$inferSelect;
+export type InsertSubjectPhoto = z.infer<typeof insertSubjectPhotoSchema>;
+
 export type CreateSubjectRequest = InsertSubject;
 export type UpdateSubjectRequest = Partial<InsertSubject> & { changeReason?: string };
 export type UpdateMyCompanyRequest = Partial<InsertMyCompany> & { changeReason?: string };

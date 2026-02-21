@@ -8,6 +8,7 @@ import { apiRequest, queryClient } from "@/lib/queryClient";
 import { formatDateSlovak, formatDateTimeSlovak } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 import { Plus, Search, User, Building2, AlertTriangle, Eye, Calendar, Briefcase, ArrowRight, ArrowLeft, ExternalLink, History, Clock, Wallet, Loader2, CheckCircle2, Pencil, Lock, Users, X, Info, Link2, Unlink, Trash2, CreditCard, Archive, Ban } from "lucide-react";
+import { SubjectPhotoThumbnail } from "@/components/subject-profile-photo";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -3356,6 +3357,23 @@ export default function Subjects() {
   const { data: clientGroups } = useQuery<any[]>({ queryKey: ["/api/client-groups"] });
   const columnVisibility = useColumnVisibility("subjects", SUBJECTS_COLUMNS);
 
+  const subjectIds = useMemo(() => (sortedData || []).map((s: any) => s.id), [sortedData]);
+  const { data: batchPhotos } = useQuery<Record<number, { id: number; filePath: string }>>({
+    queryKey: ["/api/subjects/batch-photos", subjectIds],
+    queryFn: async () => {
+      if (subjectIds.length === 0) return {};
+      const res = await fetch("/api/subjects/batch-photos", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ subjectIds }),
+        credentials: "include",
+      });
+      if (!res.ok) return {};
+      return res.json();
+    },
+    enabled: subjectIds.length > 0,
+  });
+
   useEffect(() => {
     if (addNewHandled || !pendingAddNew) return;
     if (pendingAddNew.clientType && pendingAddNew.baseValue) {
@@ -3532,7 +3550,12 @@ export default function Subjects() {
                             className="accent-primary"
                           />
                         </TableCell>
-                        {columnVisibility.isVisible("uid") && <TableCell className="font-mono text-xs align-middle">{subject.uid}</TableCell>}
+                        {columnVisibility.isVisible("uid") && <TableCell className="font-mono text-xs align-middle">
+                          <div className="flex items-center gap-2">
+                            <SubjectPhotoThumbnail subjectId={subject.id} photoPath={batchPhotos?.[subject.id]?.filePath} />
+                            {subject.uid}
+                          </div>
+                        </TableCell>}
                         {columnVisibility.isVisible("status") && <TableCell className="align-middle !overflow-visible" style={{ maxWidth: '150px', whiteSpace: 'normal', wordBreak: 'break-word', textOverflow: 'clip' }}>
                           {(() => {
                             const status = getSubjectStatus(subject, activeCompanyId);

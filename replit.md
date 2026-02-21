@@ -84,6 +84,8 @@ The system employs a modern full-stack architecture, emphasizing data integrity,
     - **Supplementary Index (Dodatkový index)**: `subjects.supplementaryIndex` allows SuperAdmin to insert subjects between existing records (e.g., 1057/B, 1057.1) for correct ordering in settlement sheets.
     - **Big Reset Script**: `POST /api/admin/big-reset` (SuperAdmin-only, confirmation code: RESET-ARUTSOK-2025) wipes all test data and resets UID counters.
     - **Enhanced Excel Importer**: `POST /api/contracts/import-excel` auto-creates subjects by RČ/IČO, marks incomplete contracts (`incompleteData`, `incompleteDataReason`), tracks batches via `importBatchId`/`importedAt`.
+    - **Profile Photo System**: `subject_photos` table with versioning (photos never overwritten). Circular avatar in subject detail header + thumbnail in subjects list next to UID. Upload sources: manual, from OP (Občiansky preukaz), from Pas. Smart crop via `sharp` attention strategy. Photo history archive with validity dates and activation. Authenticated file serving.
+    - **Contract Renumbering (Fix Poradia)**: `PATCH /api/contracts/:id/renumber` with automatic shift of subsequent contracts (+1) within same inventory. Inline sort order editing in contract list.
 
 ## External Dependencies
 - **Replit OIDC Auth**: User authentication.
@@ -97,3 +99,4 @@ The system employs a modern full-stack architecture, emphasizing data integrity,
 - **Tiptap**: Rich text editor.
 - **Multer**: File upload handling.
 - **ExcelJS**: Excel spreadsheet generation.
+- **Sharp**: Image processing (resize, crop with attention strategy).
