@@ -55,6 +55,17 @@ async function logAudit(req: any, params: {
   }
 }
 
+async function isKlientiUser(appUser: any): Promise<boolean> {
+  if (!appUser?.permissionGroupId) return false;
+  const [pg] = await db.select().from(permissionGroups).where(eq(permissionGroups.id, appUser.permissionGroupId));
+  return pg?.name === 'Klienti';
+}
+
+async function checkKlientiSubjectAccess(appUser: any, subjectId: number): Promise<boolean> {
+  if (!await isKlientiUser(appUser)) return true;
+  return appUser.linkedSubjectId === subjectId;
+}
+
 const UPLOADS_DIR = path.join(process.cwd(), "uploads");
 fs.mkdirSync(path.join(UPLOADS_DIR, "official"), { recursive: true });
 fs.mkdirSync(path.join(UPLOADS_DIR, "work"), { recursive: true });
@@ -102,6 +113,22 @@ export async function registerRoutes(
         const appUser = await storage.getAppUserByReplitId(req.user.claims.sub);
         if (appUser) {
           req.appUser = appUser;
+        }
+      }
+    } catch (err) {
+    }
+    next();
+  });
+
+  app.use("/api/subjects/:id", async (req: any, res: any, next: any) => {
+    try {
+      if (req.method === 'OPTIONS') return next();
+      const subjectId = Number(req.params.id);
+      if (!isNaN(subjectId) && req.appUser) {
+        if (await isKlientiUser(req.appUser)) {
+          if (req.appUser.linkedSubjectId !== subjectId) {
+            return res.status(403).json({ message: "Prístup zamietnutý" });
+          }
         }
       }
     } catch (err) {
@@ -782,6 +809,13 @@ export async function registerRoutes(
   // === SUBJECTS ===
   app.get(api.subjects.list.path, isAuthenticated, async (req: any, res) => {
     const appUser = req.appUser;
+    
+    if (await isKlientiUser(appUser)) {
+      if (!appUser.linkedSubjectId) return res.json([]);
+      const own = await storage.getSubject(appUser.linkedSubjectId);
+      return res.json(own ? [maskSubjectBirthNumber(own, appUser)] : []);
+    }
+    
     const activeCompanyId = appUser?.activeCompanyId || (req.query.activeCompanyId ? Number(req.query.activeCompanyId) : undefined);
     const params = {
       search: req.query.search as string,
@@ -5514,6 +5548,7 @@ export async function registerRoutes(
   app.get("/api/subjects/:id/marketing-consents", isAuthenticated, async (req: any, res) => {
     try {
       const subjectId = Number(req.params.id);
+      if (!await checkKlientiSubjectAccess(req.appUser, subjectId)) return res.status(403).json({ message: "Prístup zamietnutý" });
       const companyId = req.query.companyId ? Number(req.query.companyId) : undefined;
       const consents = await storage.getClientMarketingConsents(subjectId, companyId);
       res.json(consents);
@@ -5569,6 +5604,10 @@ export async function registerRoutes(
       const subjectId = Number(req.params.id);
       const appUser = await storage.getAppUserByReplitId(req.user.claims.sub);
       if (!appUser) return res.status(401).json({ message: "Unauthorized" });
+      
+      if (!await checkKlientiSubjectAccess(appUser, subjectId)) {
+        return res.status(403).json({ message: "Prístup zamietnutý" });
+      }
       
       const subject = await storage.getSubject(subjectId);
       if (!subject) return res.status(404).json({ message: "Subjekt nenájdený" });
@@ -5658,6 +5697,7 @@ export async function registerRoutes(
   app.get("/api/subjects/:id/points-log", isAuthenticated, async (req: any, res) => {
     try {
       const subjectId = Number(req.params.id);
+      if (!await checkKlientiSubjectAccess(req.appUser, subjectId)) return res.status(403).json({ message: "Prístup zamietnutý" });
       const logs = await storage.getSubjectPointsLog(subjectId);
       res.json(logs);
     } catch (err: any) {
@@ -5668,6 +5708,7 @@ export async function registerRoutes(
   app.get("/api/subjects/:id/bonita-summary", isAuthenticated, async (req: any, res) => {
     try {
       const subjectId = Number(req.params.id);
+      if (!await checkKlientiSubjectAccess(req.appUser, subjectId)) return res.status(403).json({ message: "Prístup zamietnutý" });
       const subject = await storage.getSubject(subjectId);
       if (!subject) return res.status(404).json({ message: "Subjekt nenajdeny" });
       const identifierType = subject.birthNumber ? "rc" : "ico";
@@ -5800,6 +5841,7 @@ export async function registerRoutes(
   app.get("/api/subjects/:id/linked-companies", isAuthenticated, async (req: any, res) => {
     try {
       const subjectId = Number(req.params.id);
+      if (!await checkKlientiSubjectAccess(req.appUser, subjectId)) return res.status(403).json({ message: "Prístup zamietnutý" });
       const allSubjects = await storage.getSubjects();
       const linked = allSubjects.filter((s: any) => s.linkedFoId === subjectId && !s.deletedAt);
       res.json(linked);
@@ -5811,6 +5853,7 @@ export async function registerRoutes(
   app.get("/api/subjects/:id/field-history", isAuthenticated, async (req: any, res) => {
     try {
       const subjectId = Number(req.params.id);
+      if (!await checkKlientiSubjectAccess(req.appUser, subjectId)) return res.status(403).json({ message: "Prístup zamietnutý" });
       const fieldKey = req.query.fieldKey as string | undefined;
       const history = await storage.getSubjectFieldHistory(subjectId, fieldKey);
       res.json(history);
@@ -5852,6 +5895,7 @@ export async function registerRoutes(
   app.get("/api/subjects/:id/collaborators", isAuthenticated, async (req: any, res) => {
     try {
       const subjectId = Number(req.params.id);
+      if (!await checkKlientiSubjectAccess(req.appUser, subjectId)) return res.status(403).json({ message: "Prístup zamietnutý" });
       const collaborators = await storage.getSubjectCollaborators(subjectId);
       res.json(collaborators);
     } catch (err: any) {
@@ -5925,6 +5969,10 @@ export async function registerRoutes(
       const subjectId = Number(req.params.id);
       const appUser = await storage.getAppUserByReplitId(req.user.claims.sub);
       if (!appUser) return res.status(401).json({ message: "Unauthorized" });
+
+      if (!await checkKlientiSubjectAccess(appUser, subjectId)) {
+        return res.status(403).json({ message: "Prístup zamietnutý" });
+      }
 
       await storage.createAuditLog({
         userId: appUser.id,

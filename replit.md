@@ -74,6 +74,11 @@ The system employs a modern full-stack architecture, emphasizing data integrity,
     - **Field Hints System**: Category and field-level hints for various data types.
     - **Nezatriedené dáta (Category 33)**: Category for unclassified contract data with trend detection.
     - **Internal Field Notes (SuperAdmin)**: Per-field notes visible only to SuperAdmin/Prezident.
+    - **Client Portal System (Klientská zóna)**: 'Klienti' permission group with auto-redirect to own profile, hidden sidebar, read-only access. `appUsers.linkedSubjectId` links users to subject profiles. Backend guards enforce access isolation on all subject endpoints.
+    - **PEP Intelligence Banner**: Purple banner highlighting "POLITICKY EXPONOVANÁ OSOBA" when subject has PEP flag in dynamicFields.
+    - **GDPR Data Export**: `/api/subjects/:id/gdpr-export` endpoint generating JSON with only legal fields (Identity, Contracts, Consents). Internal data excluded as "Interné obchodné tajomstvo".
+    - **Access Logging**: Every subject profile view logged via `POST /api/subjects/:id/log-view` with audit trail.
+    - **Internal Notes Backend Security**: field_notes stripped from uiPreferences for non-SuperAdmin/Prezident users at API level.
 
 ## External Dependencies
 - **Replit OIDC Auth**: User authentication.
