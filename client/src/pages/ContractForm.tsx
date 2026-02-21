@@ -2197,11 +2197,11 @@ export default function ContractForm() {
                 <CardContent className="p-3 space-y-2">
                   <h3 className="text-sm font-semibold mb-2">Zmluva</h3>
                   <div className="flex flex-wrap gap-2">
-                    <SummaryField label="Cislo zmluvy" value={contractNumber || "-"} testId="summary-contract-number" />
-                    <SummaryField label="Cislo navrhu" value={proposalNumber || "-"} testId="summary-proposal" />
+                    <SummaryField label="Cislo zmluvy" value={contractNumber || "-"} testId="summary-contract-number" onEdit={v => setContractNumber(v)} />
+                    <SummaryField label="Cislo navrhu" value={proposalNumber || "-"} testId="summary-proposal" onEdit={v => setProposalNumber(v)} />
                     <SummaryField label="Cislo kontraktu" value={existingContract?.globalNumber?.toString() || "Pridelene pri ulozeni"} testId="summary-global-number" />
                     <SummaryField label="Typ zmluvy" value={contractType || "-"} testId="summary-type" />
-                    <SummaryField label="Miesto podpisu" value={signingPlace || "-"} testId="summary-signing-place" />
+                    <SummaryField label="Miesto podpisu" value={signingPlace || "-"} testId="summary-signing-place" onEdit={v => setSigningPlace(v)} />
                     <SummaryField label="Partner" value={partners?.find(p => p.id === (partnerId ? parseInt(partnerId) : -1))?.name || "-"} testId="summary-partner" />
                     <SummaryField label="Produkt" value={(() => {
                       const sp = allSPForEdit?.find(p => p.id === (sectorProductId ? parseInt(sectorProductId) : -1));
@@ -2210,12 +2210,12 @@ export default function ContractForm() {
                     <SummaryField label="Stav" value={statuses?.find(s => s.id === (statusId ? parseInt(statusId) : -1))?.name || "-"} testId="summary-status" />
                     <SummaryField label="Sablona" value={templates?.find(t => t.id === (templateId ? parseInt(templateId) : -1))?.name || "-"} testId="summary-template" />
                     <SummaryField label="Frekvencia platenia" value={PAYMENT_FREQUENCIES.find(f => f.value === paymentFrequency)?.label || "-"} testId="summary-frequency" />
-                    <SummaryField label="Lehotne poistne" value={premiumAmount ? `${premiumAmount} ${currency}` : "-"} testId="summary-premium" mono />
-                    <SummaryField label="Rocne poistne" value={annualPremium ? `${annualPremium} ${currency}` : "-"} testId="summary-annual" mono />
-                    {(existingContract as any)?.accessRole !== 'klient' && <SummaryField label="Suma provizie" value={commissionAmount ? `${commissionAmount} ${currency}` : "-"} testId="summary-commission" mono />}
-                    <SummaryField label="Datum podpisu" value={signedDate || "-"} testId="summary-signed" />
-                    <SummaryField label="Ucinnost od" value={effectiveDate || "-"} testId="summary-effective" />
-                    <SummaryField label="Koniec zmluvy" value={expiryDate || "-"} testId="summary-expiry" />
+                    <SummaryField label="Lehotne poistne" value={premiumAmount ? `${premiumAmount} ${currency}` : "-"} testId="summary-premium" mono onEdit={v => setPremiumAmount(v.replace(/[^0-9.,]/g, ""))} />
+                    <SummaryField label="Rocne poistne" value={annualPremium ? `${annualPremium} ${currency}` : "-"} testId="summary-annual" mono onEdit={v => { setAnnualPremium(v.replace(/[^0-9.,]/g, "")); setAnnualPremiumUserEdited(true); }} />
+                    {(existingContract as any)?.accessRole !== 'klient' && <SummaryField label="Suma provizie" value={commissionAmount ? `${commissionAmount} ${currency}` : "-"} testId="summary-commission" mono onEdit={v => setCommissionAmount(v.replace(/[^0-9.,]/g, ""))} />}
+                    <SummaryField label="Datum podpisu" value={signedDate || "-"} testId="summary-signed" onEdit={v => setSignedDate(v)} />
+                    <SummaryField label="Ucinnost od" value={effectiveDate || "-"} testId="summary-effective" onEdit={v => setEffectiveDate(v)} />
+                    <SummaryField label="Koniec zmluvy" value={expiryDate || "-"} testId="summary-expiry" onEdit={v => setExpiryDate(v)} />
                     <SummaryField label="Spolocnost" value={currentCompany?.name || "-"} testId="summary-company" />
                     <SummaryField label="Stat" value={allStates?.find(s => s.id === (stateId ? parseInt(stateId) : -1))?.name || "-"} testId="summary-state" />
                   </div>
@@ -2350,11 +2350,68 @@ function CompactField({ label, children }: { label: string; children: React.Reac
   );
 }
 
-function SummaryField({ label, value, testId, mono }: { label: string; value: string; testId: string; mono?: boolean }) {
+function SummaryField({ label, value, testId, mono, onEdit }: { label: string; value: string; testId: string; mono?: boolean; onEdit?: (newValue: string) => void }) {
+  const [verified, setVerified] = useState(false);
+  const [editing, setEditing] = useState(false);
+  const [editValue, setEditValue] = useState(value);
+  const inputRef = useRef<HTMLInputElement>(null);
+  const clickTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => { setEditValue(value); }, [value]);
+  useEffect(() => { if (editing && inputRef.current) inputRef.current.focus(); }, [editing]);
+
+  const commitEdit = () => {
+    setEditing(false);
+    if (onEdit && editValue !== value) onEdit(editValue);
+  };
+
+  const handleClick = () => {
+    if (editing) return;
+    if (clickTimer.current) return;
+    clickTimer.current = setTimeout(() => {
+      clickTimer.current = null;
+      setVerified(v => !v);
+    }, 250);
+  };
+
+  const handleDoubleClick = () => {
+    if (clickTimer.current) { clearTimeout(clickTimer.current); clickTimer.current = null; }
+    if (!onEdit) return;
+    setEditing(true);
+    setEditValue(value === "-" ? "" : value);
+  };
+
+  if (editing) {
+    return (
+      <div className="h-10 flex items-center gap-2 px-3 rounded-md border-2 border-blue-500 bg-white dark:bg-slate-900 shadow-sm" data-testid={testId}>
+        <span className="text-xs text-muted-foreground whitespace-nowrap">{label}:</span>
+        <input
+          ref={inputRef}
+          className={`flex-1 bg-transparent outline-none text-sm font-medium ${mono ? "font-mono" : ""}`}
+          value={editValue}
+          onChange={e => setEditValue(e.target.value)}
+          onKeyDown={e => { if (e.key === "Enter") commitEdit(); if (e.key === "Escape") { setEditing(false); setEditValue(value); } }}
+          onBlur={commitEdit}
+          data-testid={`${testId}-input`}
+        />
+      </div>
+    );
+  }
+
   return (
-    <div className="h-10 flex items-center gap-2 px-3 rounded-md border border-border bg-muted/30" data-testid={testId}>
+    <div
+      className={`h-10 flex items-center gap-2 px-3 rounded-md border transition-colors duration-150 select-none ${
+        verified
+          ? "border-blue-400/60 bg-blue-500/10 dark:bg-blue-500/15"
+          : "border-border bg-muted/30"
+      } ${onEdit ? "cursor-pointer" : ""}`}
+      data-testid={testId}
+      onClick={handleClick}
+      onDoubleClick={handleDoubleClick}
+    >
       <span className="text-xs text-muted-foreground whitespace-nowrap">{label}:</span>
       <span className={`text-sm font-medium truncate ${mono ? "font-mono" : ""}`}>{value}</span>
+      {verified && <Check className="w-3 h-3 text-blue-500 flex-none" />}
     </div>
   );
 }

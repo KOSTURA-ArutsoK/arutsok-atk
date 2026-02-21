@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback, useEffect } from "react";
+import { useState, useMemo, useCallback, useEffect, useRef } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -138,6 +138,93 @@ function UnclassifiedTrendsNotice() {
   );
 }
 
+function SubjectViewField({
+  field, value, isSummary, hasNote, noteText, pdfSidebarOpen, toggleSummaryField, onInlineSave,
+}: {
+  field: StaticField; value: string; isSummary: boolean; hasNote: boolean; noteText?: string;
+  pdfSidebarOpen: boolean; toggleSummaryField: (key: string) => void;
+  onInlineSave?: (fieldKey: string, newValue: string) => void;
+}) {
+  const [verified, setVerified] = useState(false);
+  const [editing, setEditing] = useState(false);
+  const [editVal, setEditVal] = useState(value);
+  const inputRef = useRef<HTMLInputElement>(null);
+  const clickTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => { setEditVal(value); }, [value]);
+  useEffect(() => { if (editing && inputRef.current) inputRef.current.focus(); }, [editing]);
+
+  const displayValue = field.fieldType === "switch"
+    ? value === "true" ? "Áno" : value === "false" ? "Nie" : "-"
+    : field.fieldType === "date" && value
+      ? formatDateSlovak(value)
+      : value || "-";
+
+  const commitEdit = () => {
+    setEditing(false);
+    if (onInlineSave && editVal !== value) onInlineSave(field.fieldKey, editVal);
+  };
+
+  const handleClick = () => {
+    if (editing) return;
+    if (clickTimer.current) return;
+    clickTimer.current = setTimeout(() => { clickTimer.current = null; setVerified(v => !v); }, 250);
+  };
+
+  const handleDoubleClick = () => {
+    if (clickTimer.current) { clearTimeout(clickTimer.current); clickTimer.current = null; }
+    if (!onInlineSave || field.fieldType === "switch" || field.fieldType === "select") return;
+    setEditing(true);
+    setEditVal(value === "-" ? "" : value);
+  };
+
+  if (editing) {
+    return (
+      <div className="h-10 flex items-center gap-2 px-3 rounded-md border-2 border-blue-500 bg-white dark:bg-slate-900 shadow-sm" data-testid={`field-${field.fieldKey}`}>
+        <span className="text-xs text-muted-foreground whitespace-nowrap">{field.shortLabel || field.label}:</span>
+        <input
+          ref={inputRef}
+          type={field.fieldType === "date" ? "date" : "text"}
+          className="flex-1 bg-transparent outline-none text-sm font-medium"
+          value={editVal}
+          onChange={e => setEditVal(e.target.value)}
+          onKeyDown={e => { if (e.key === "Enter") commitEdit(); if (e.key === "Escape") { setEditing(false); setEditVal(value); } }}
+          onBlur={commitEdit}
+          data-testid={`field-${field.fieldKey}-input`}
+        />
+      </div>
+    );
+  }
+
+  return (
+    <div
+      className={`h-10 flex items-center gap-2 px-3 rounded-md border transition-colors duration-150 select-none cursor-pointer ${
+        verified
+          ? "border-blue-400/60 bg-blue-500/10 dark:bg-blue-500/15"
+          : isSummary ? "border-primary/50 bg-primary/5" : "border-border bg-muted/30"
+      }`}
+      title={hasNote ? `Poznámka: ${noteText}` : undefined}
+      data-testid={`field-${field.fieldKey}`}
+      onClick={handleClick}
+      onDoubleClick={handleDoubleClick}
+    >
+      <span className="text-xs text-muted-foreground whitespace-nowrap">{field.shortLabel || field.label}:</span>
+      <span className="text-sm font-medium truncate max-w-[200px]">{displayValue}</span>
+      {verified && <Check className="w-3 h-3 text-blue-500 flex-none" />}
+      {hasNote && !verified && <MessageSquare className="w-3 h-3 text-amber-400 shrink-0" />}
+      {pdfSidebarOpen && (
+        <button
+          onClick={e => { e.stopPropagation(); toggleSummaryField(field.fieldKey); }}
+          className="ml-1 opacity-60 hover:opacity-100"
+          data-testid={`toggle-summary-${field.fieldKey}`}
+        >
+          {isSummary ? <Eye className="w-3 h-3 text-primary" /> : <EyeOff className="w-3 h-3" />}
+        </button>
+      )}
+    </div>
+  );
+}
+
 interface CategoriesAccordionProps {
   tabCode: string;
   tabCats: ClientDataCategory[];
@@ -153,13 +240,14 @@ interface CategoriesAccordionProps {
   isSuperAdmin?: boolean;
   fieldNotes?: Record<string, string>;
   onFieldNoteChange?: (key: string, note: string) => void;
+  onInlineSave?: (fieldKey: string, newValue: string) => void;
 }
 
 function CategoriesAccordion({
   tabCode, tabCats, fieldsByCategory, isEditing,
   getFieldValue, getEditableValue, editValues, setEditFieldValue,
   summaryFields, pdfSidebarOpen, toggleSummaryField,
-  isSuperAdmin, fieldNotes, onFieldNoteChange,
+  isSuperAdmin, fieldNotes, onFieldNoteChange, onInlineSave,
 }: CategoriesAccordionProps) {
   const visibleCats = useMemo(() => {
     if (isEditing) return tabCats;
@@ -297,42 +385,18 @@ function CategoriesAccordion({
                   {catFields.map(field => {
                     const value = getFieldValue(field.fieldKey);
                     if (!value) return null;
-                    const isSummary = summaryFields[field.fieldKey];
-                    const hasNote = isSuperAdmin && fieldNotes?.[field.fieldKey];
                     return (
-                      <div
+                      <SubjectViewField
                         key={field.fieldKey}
-                        className={`h-10 flex items-center gap-2 px-3 rounded-md border ${
-                          isSummary ? "border-primary/50 bg-primary/5" : "border-border bg-muted/30"
-                        }`}
-                        title={hasNote ? `Poznámka: ${fieldNotes![field.fieldKey]}` : undefined}
-                        data-testid={`field-${field.fieldKey}`}
-                      >
-                        <span className="text-xs text-muted-foreground whitespace-nowrap">
-                          {field.shortLabel || field.label}:
-                        </span>
-                        <span className="text-sm font-medium truncate max-w-[200px]">
-                          {field.fieldType === "switch"
-                            ? value === "true" ? "Áno" : value === "false" ? "Nie" : "-"
-                            : field.fieldType === "date" && value
-                              ? formatDateSlovak(value)
-                              : value || "-"}
-                        </span>
-                        {hasNote && <MessageSquare className="w-3 h-3 text-amber-400 shrink-0" />}
-                        {pdfSidebarOpen && (
-                          <button
-                            onClick={() => toggleSummaryField(field.fieldKey)}
-                            className="ml-1 opacity-60 hover:opacity-100"
-                            data-testid={`toggle-summary-${field.fieldKey}`}
-                          >
-                            {isSummary ? (
-                              <Eye className="w-3 h-3 text-primary" />
-                            ) : (
-                              <EyeOff className="w-3 h-3" />
-                            )}
-                          </button>
-                        )}
-                      </div>
+                        field={field}
+                        value={value}
+                        isSummary={!!summaryFields[field.fieldKey]}
+                        hasNote={!!(isSuperAdmin && fieldNotes?.[field.fieldKey])}
+                        noteText={fieldNotes?.[field.fieldKey]}
+                        pdfSidebarOpen={pdfSidebarOpen}
+                        toggleSummaryField={toggleSummaryField}
+                        onInlineSave={onInlineSave}
+                      />
                     );
                   })}
                 </div>
@@ -481,6 +545,33 @@ export function SubjektView({ subject, showPdfSidebar = false, isClientView = fa
       toast({ title: "Chyba pri ukladaní", description: err.message, variant: "destructive" });
     },
   });
+
+  const handleInlineSave = useCallback(async (fieldKey: string, newValue: string) => {
+    try {
+      const colName = FIELD_TO_SUBJECT_COLUMN[fieldKey];
+      const payload: Record<string, any> = { changeReason: "Rýchla úprava z profilu" };
+      if (colName) {
+        if (INT_COLUMNS.has(colName)) {
+          payload[colName] = parseInt(newValue) || null;
+        } else {
+          payload[colName] = newValue;
+        }
+      } else {
+        const existingDetails = (subject.details || {}) as Record<string, any>;
+        const existingDynamic = existingDetails.dynamicFields || {};
+        payload.details = {
+          ...existingDetails,
+          dynamicFields: { ...existingDynamic, [fieldKey]: newValue },
+        };
+      }
+      await apiRequest("PATCH", `/api/subjects/${subject.id}`, payload);
+      queryClient.invalidateQueries({ queryKey: ["/api/subjects"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/subjects", subject.id, "field-history"] });
+      toast({ title: "Uložené" });
+    } catch (err: any) {
+      toast({ title: "Chyba", description: err.message, variant: "destructive" });
+    }
+  }, [subject, toast]);
 
   const startEditing = useCallback(() => {
     setEditValues({});
@@ -901,6 +992,7 @@ export function SubjektView({ subject, showPdfSidebar = false, isClientView = fa
                   isSuperAdmin={isSuperAdmin}
                   fieldNotes={fieldNotes}
                   onFieldNoteChange={handleFieldNoteChange}
+                  onInlineSave={handleInlineSave}
                 />
               </TabsContent>
             );
