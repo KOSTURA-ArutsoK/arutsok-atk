@@ -525,7 +525,7 @@ export interface IStorage {
   getClientMarketingConsents(subjectId: number, companyId?: number): Promise<ClientMarketingConsent[]>;
   upsertClientMarketingConsent(data: InsertClientMarketingConsent): Promise<ClientMarketingConsent>;
 
-  updateSubjectUiPreferences(subjectId: number, prefs: { summary_fields: Record<string, boolean> }): Promise<Subject>;
+  updateSubjectUiPreferences(subjectId: number, prefs: Record<string, any>): Promise<Subject>;
 
   getSubjectPointsLog(subjectId: number): Promise<SubjectPointsLog[]>;
   getPointsByIdentifier(identifierType: string, identifierValue: string, windowYears?: number): Promise<SubjectPointsLog[]>;
@@ -3244,8 +3244,11 @@ export class DatabaseStorage implements IStorage {
     return created;
   }
 
-  async updateSubjectUiPreferences(subjectId: number, prefs: { summary_fields: Record<string, boolean> }): Promise<Subject> {
-    const [updated] = await db.update(subjects).set({ uiPreferences: prefs }).where(eq(subjects.id, subjectId)).returning();
+  async updateSubjectUiPreferences(subjectId: number, prefs: Record<string, any>): Promise<Subject> {
+    const existing = await db.select().from(subjects).where(eq(subjects.id, subjectId)).limit(1);
+    const currentPrefs = (existing[0]?.uiPreferences || {}) as Record<string, any>;
+    const merged = { ...currentPrefs, ...prefs };
+    const [updated] = await db.update(subjects).set({ uiPreferences: merged as any }).where(eq(subjects.id, subjectId)).returning();
     return updated;
   }
 

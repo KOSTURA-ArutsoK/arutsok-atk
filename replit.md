@@ -1,7 +1,7 @@
 # ArutsoK
 
 ## Overview
-ArutsoK is a multi-tenant CRM and commission tracking system built for the financial services and real estate industries. It offers comprehensive client and partner management, precise commission calculations, and prioritizes data integrity, auditability, and temporal validity. The platform aims to be a secure and robust solution for managing complex business relationships and financial transactions.
+ArutsoK is a multi-tenant CRM and commission tracking system designed for financial services and real estate industries. It provides comprehensive client and partner management, precise commission calculations, and prioritizes data integrity, auditability, and temporal validity. The platform aims to be a secure and robust solution for managing complex business relationships and financial transactions.
 
 ## User Preferences
 - Dark mode default with military/security aesthetic
@@ -9,7 +9,7 @@ ArutsoK is a multi-tenant CRM and commission tracking system built for the finan
 - Sharp borders, small border radius
 
 ## System Architecture
-The system uses a modern full-stack architecture, emphasizing data integrity, security, and auditability.
+The system employs a modern full-stack architecture, emphasizing data integrity, security, and auditability.
 
 **Core Technologies:**
 - **Frontend**: React with Vite, Tailwind CSS, `shadcn/ui`, `wouter`.
@@ -18,19 +18,18 @@ The system uses a modern full-stack architecture, emphasizing data integrity, se
 - **Authentication**: Replit OIDC Auth.
 
 **Key Architectural Decisions & Features:**
-- **Data Integrity & Auditability**: Achieved through immutable historical records, soft deletion with audit trails, comprehensive `audit_logs` for all mutating operations, and subject-specific history views.
-- **Temporal Validity**: Utilizes `validFrom`, `validTo`, and `isActive` fields with an hourly cron job for archiving expired bindings.
+- **Data Integrity & Auditability**: Implemented through immutable historical records, soft deletion with audit trails, comprehensive `audit_logs`, and subject-specific history views.
+- **Temporal Validity**: Uses `validFrom`, `validTo`, and `isActive` fields with an hourly cron job for archiving expired bindings.
 - **Role-Based Access Control (RBAC)**: Granular permissions managed via `permission_groups`.
 - **Unique Identifiers**: Atomic 12-digit UIDs generated from a `global_counters` table.
 - **UI/UX & Interaction**:
     - **Context Switching**: Forced two-step context selector (State → Company) with a blocking visual overlay.
-    - **Design**: Dark mode, Slovak language, sharp borders, small border radius.
-    - **Dynamic Dialog Sizing**: `DialogContent` supports `size` prop ("sm"|"md"|"lg"|"xl"|"full"|"auto"). Auto mode detects mobile (<1024px → full), tables (→ xl), field count (>15 → xl, 5-15 → md, ≤5 → sm). `DialogScrollContent` wraps scrollable body in xl/full dialogs. All sm/md/lg get `max-h-[85vh] overflow-y-auto`. Responsive resize listener for auto mode.
-    - **Smart Filter Bar System**: `useSmartFilter` hook with typed column definitions (`SmartColumnDef`: key, label, type: "text"|"number"|"date"). Filter chips with type-specific operators: TEXT (contains/not_contains, diacritic-insensitive), NUMBER (=, >, <, ≥, ≤, range od-do), DATE (exact, before, after, range + quick picks: Dnes, Vcera, Tento mesiac, Tento rok). `SmartFilterBar` component with [+] column picker (searchable Command dropdown), dynamic chip editors via Popovers, saved views per table (localStorage). AND logic, 300ms debouncing. Integrated across 24+ pages. Data flow: raw data → useSmartFilter → useTableSort → display.
-    - **Row-Click Navigation**: `TableRow` accepts `onRowClick` prop with automatic stop propagation for interactive elements (buttons, inputs, checkboxes via selector matching).
+    - **Dynamic Dialog Sizing**: `DialogContent` supports responsive sizing based on content and screen size.
+    - **Smart Filter Bar System**: `useSmartFilter` hook provides typed column definitions and type-specific operators for filtering, including saved views per table.
+    - **Row-Click Navigation**: `TableRow` supports `onRowClick` with automatic stop propagation.
     - **Rich Text Editing**: Integrated Tiptap editor for notes.
-    - **Document Management**: Supports dual document systems (official/work) with file uploads and database metadata.
-    - **Drag & Drop Reordering**: Implemented for various elements using `@dnd-kit`.
+    - **Document Management**: Supports dual document systems (official/work) with file uploads.
+    - **Drag & Drop Reordering**: Implemented using `@dnd-kit`.
     - **Status Indicators**: Consistent 5-color status dots and green/red for active/inactive states.
     - **Voice Assistance (TTS)**: Web Speech API for user-controlled notifications.
 - **Security & Workflow**:
@@ -39,38 +38,42 @@ The system uses a modern full-stack architecture, emphasizing data integrity, se
     - **Processing Time Protocol**: Tracks form editing duration.
 - **Module-Specific Features**:
     - **Dynamic Parameter System**: A 4-level hierarchy (Sectors → Sections → Products → Parameters) for dynamic configuration and form generation.
-    - **Dynamic Panels System**: Wraps parameters into visual containers within forms, allowing flexible layout with customizable grid columns.
-    - **Contracts Module**: Full-page contract management with multi-tab navigation, custom fields, and password management. Supports dynamic panel loading and value persistence.
+    - **Dynamic Panels System**: Wraps parameters into visual containers within forms for flexible layout.
+    - **Contracts Module**: Full-page contract management with multi-tab navigation, custom fields, and password management.
     - **Commission Brain & Calculation Engine**: Manages `commission_rates` with temporal validity, supports base and differential calculations, and maintains `commission_calculation_logs`.
-    - **Settlement Sheets (Supisky) Module**: Manages settlement sheets and contracts, including locking mechanisms and status workflows. Includes automatic undelivered contract monitoring: daily cron (03:30) checks supisky with status "Odoslana", exactly 1 contract, and sentAt > 30 days, moving those contracts to "Nedorucena 30 dni" system status with full audit trail. Manual trigger available via POST /api/admin/run-undelivered-check.
+    - **Settlement Sheets (Supisky) Module**: Manages settlement sheets and contracts, including locking mechanisms, status workflows, and automatic undelivered contract monitoring.
     - **Calendar Module**: Provides full CRUD for `calendar_events` with various views and dashboard integration.
-    - **Client Registration**: Multi-step flow including identity verification and simulated MFA. Supports triple client type inline creation (FO, SZČO, and PO) in contract pre-select dialog with two-phase SZČO workflow (business info → personal info). ClientTypeRules organized into "POVINNÉ ÚDAJE" and "VOLITEĽNÉ ÚDAJE" sections; inline forms filter to show only mandatory fields.
-    - **Subject Ownership & Visibility**: Subjects track `registeredByUserId` (auto-set on creation). In contract form Step 2, ownership is determined by: (a) user registered the subject, OR (b) user is an acquirer on any contract of that subject. Owned subjects show full details; non-owned subjects are anonymized (first letter + ***, no email/phone/IBAN). Superadmin/prezident bypass anonymization. Anonymized subjects are selectable but shown with Lock icon. Backend uses `?forContract=true` query param to trigger this logic.
-    - **Company Context Filtering**: All subject and contract queries filter by `appUser.activeCompanyId`. Creating subjects/contracts auto-assigns the active company. Switching company context invalidates all cached data. Storage methods accept `companyId`/`myCompanyId` parameters; routes extract from `req.appUser.activeCompanyId`.
+    - **Client Registration**: Multi-step flow including identity verification, simulated MFA, and triple client type inline creation.
+    - **Subject Ownership & Visibility**: Subjects track `registeredByUserId`, with visibility rules anonymizing non-owned subjects unless the user is a superadmin/prezident.
+    - **Company Context Filtering**: All subject and contract queries filter by `appUser.activeCompanyId`.
     - **System Settings**: Key-value store for application configurations.
     - **Dashboard Customization**: Drag-and-drop widget reordering with user-specific layout persistence.
     - **Global Table Resizing**: All tables support column resizing with persistence.
-    - **Universal Column Manager**: Global `useColumnVisibility` hook + `ColumnManager` popover component. Every table in the system has a settings icon that opens a column picker with checkboxes, bulk actions (Show All, Hide All, Reset to Default), and per-table localStorage persistence. Integrated across 24 pages.
+    - **Universal Column Manager**: Global `useColumnVisibility` hook and `ColumnManager` component for per-table column selection and persistence.
     - **State and Company Management**: Dedicated pages for CRUD operations on states and companies.
-    - **Contract Folders System**: Organizes panels visually into folders within the contract form for flexible grid-based layouts.
-    - **Contract Processing Workflow**: Features a multi-phase system for contract submission, dispatch, and acceptance (`Evidencia zmluv` module), including auto-numbering for `Sprievodka` and contract registration.
-    - **Contract Status Management**: Customizable `contract_statuses` with properties like `isCommissionable`, `isFinal`, `assignsNumber`, and status-specific parameters. Supports tracking status change history and documents.
-    - **Hierarchy Count Badges**: Displays child-item counts in various hierarchical tables.
-    - **Decimal Parameter Type (DESATINNE_CISLO)**: Global parameter type across all modules (Sectors, ClientTypeRules) supporting comma/dot input, configurable unit suffix (€, %, BTC, ETH), and dynamic precision (0-8 decimal places). Stored with `unit` and `decimal_places` metadata columns.
-    - **Client Data Architecture (30-Category System)**: 7 logical tabs (Identita, Legislatíva, Rodina a vzťahy, Financie a majetok, Profil a marketing, Digitálna stopa, Servis a archív) with 30 categories organized via `client_data_tabs` and `client_data_categories` tables. `SubjektView` component (`client/src/components/subjekt-view.tsx`) renders the 7-tab layout with collapsible category accordions. Fields mapped to categories via `FIELD_TO_CATEGORY` mapping and optional `categoryCode` on `StaticField`. PDF summary sidebar allows toggling `is_summary_visible` per field, stored in `subjects.ui_preferences` as `{ summary_fields: Record<string, boolean> }`. **Edit/View mode**: Toggle between view (hides empty categories for clean profile) and edit mode (all 30 categories editable inline with save/cancel). Edit saves via PATCH `/api/subjects/:id` with change reason and triggers field history logging.
-    - **Parameter → Category Mapping**: `parameters` table has `target_category_code` and `target_field_key` columns. When a parameter (e.g., VIN in PZP product) has a mapping, its value from a contract automatically flows into the specified client data category/field. UI in Sectors.tsx parameter dialog under "Mapovanie do profilu klienta" section.
-    - **Marketing Consents (M:N)**: `client_marketing_consents` table stores per-subject × per-company consent types (email, SMS, phone, data_processing, third_party, profiling). UI in "Profil a marketing" tab shows current active company consents with Switch toggles.
-    - **Bonita Point System**: Automatic credit rating via `subject_points_log` table. Points: storno < 1yr = -1, > 1yr = +1, > 2yr = +2. Červený zoznam (red list) auto-triggered at -5 points in 10-year window. Čierny zoznam (blacklist) is manual, permanent, SuperAdmin/Prezident-only removal. Points and list statuses are GLOBAL across all companies, tracked by RČ (birth number) or IČO (company ID). CGN Rating (A-E) stored on subjects. Warning banners in SubjektView and SubjectDetailDialog. API routes: GET `/api/subjects/:id/bonita-summary`, GET `/api/subjects/:id/points-log`, PATCH `/api/subjects/:id/list-status`, PATCH `/api/subjects/:id/cgn-rating`.
-    - **Detective Risk Linking (BLOK 2)**: Cross-check of risky data beyond RČ/IČO — matches phone, email, and all address types (trvalý, prechodný, doručovacia, sídlo) against subjects on Červený/Čierny zoznam. Phone normalization strips spaces/dashes/plus. FO↔PO linking: if a konateľ (via `linkedFoId`) is on a list, warning appears on the PO card and vice versa. Shared konateľ PO detection. API: GET `/api/subjects/:id/risk-links` returns `riskLinks` (contact matches) and `foPoRisks` (relationship matches). UI: yellow banners for FO-PO inherited risks, amber banners for contact cross-matches. Bulk migration: POST `/api/admin/recalculate-all-bonita` (SuperAdmin only) retroactively calculates points for all storno contracts (idempotent, skips already-logged).
-    - **AML Module (KUV)**: Konečný užívateľ výhod fields for PO/SZČO - 3 sets of (meno, RČ, % podiel) as kuv_meno_1/2/3, kuv_rc_1/2/3, kuv_podiel_1/2/3. Mapped to AML category (cat 6) in Legislatíva tab.
-    - **Firemný profil (Category 32)**: New category with SK NACE, Obrat (€, decimal), Počet zamestnancov for PO/SZČO subjects. In Legislatíva tab.
-    - **Relationship Visualization**: RelationshipSection component in SubjektView "Rodina a vzťahy" tab. Shows Konateľ ↔ Firma cards with name, UID, type badge, and list status. Čierny/Červený zoznam warnings propagate both directions. API: GET `/api/subjects/:id/linked-companies` returns POs where subject is linkedFoId.
-    - **UID Format**: Subjects get permanent UID in format `421` + 12-digit sequential number (e.g., `421000000000001`). Uses `global_counters` table with `uid_global` counter.
-    - **Field History (Versioning)**: `subject_field_history` table tracks granular per-field changes with old/new values, timestamps, user, and reason. Covers both static fields and dynamic fields from `details.dynamicFields`. Auto-recorded on every `updateSubject()` call. API: GET `/api/subjects/:id/field-history`. UI: "Servis a archív" tab shows change history table.
-    - **Shadow Archive (GDPR Bypass)**: Subjects have `isAnonymized`, `anonymizedAt`, `anonymizedByUserId`, `anonymizedData` columns. On anonymization request, PII is replaced with placeholders but encrypted original data is preserved. SuperAdmin can reveal via GET `/api/subjects/:id/reveal`. API: POST `/api/subjects/:id/anonymize`.
-    - **Subject Collaborators (Tipér/Špecialista/Správca)**: `subject_collaborators` table with role, validFrom/validTo, isActive for full history. When adding a new collaborator with same role, previous one is auto-deactivated. UI: CollaboratorsSection in "Rodina a vzťahy" tab with add dialog and history view. API: GET/POST `/api/subjects/:id/collaborators`, PATCH `/api/subjects/collaborators/:id/deactivate`.
-    - **Extended Bonita Points**: `subject_points_log` now has `pointType` (cerveny/oranzovy/modry) and `createdByUserId`. Manual point addition via POST `/api/subjects/:id/add-point` requires mandatory `reason` and `pointType`. Orange and Blue points are neutral/informational.
-    - **Duplicity Checker**: Enhanced POST `/api/subjects/check-duplicate` now also checks ŠPZ and VIN via dynamic fields matching. Additional endpoint POST `/api/subjects/check-duplicates` for bulk checking.
+    - **Contract Folders System**: Organizes panels visually into folders within the contract form.
+    - **Contract Processing Workflow**: Multi-phase system for contract submission, dispatch, and acceptance.
+    - **Contract Status Management**: Customizable `contract_statuses` with status change history tracking.
+    - **Hierarchy Count Badges**: Displays child-item counts in hierarchical tables.
+    - **Decimal Parameter Type (DESATINNE_CISLO)**: Global parameter type supporting configurable unit suffix and dynamic precision.
+    - **Client Data Architecture (30-Category System)**: Organized into 7 logical tabs and 30 categories with PDF summary sidebar and field history logging.
+    - **Parameter → Category Mapping**: Allows parameter values from contracts to automatically flow into specified client data categories/fields.
+    - **Marketing Consents (M:N)**: Stores per-subject and per-company consent types.
+    - **Bonita Point System**: Automatic credit rating system with `subject_points_log`, "Červený zoznam" (red list), and "Čierny zoznam" (blacklist).
+    - **Detective Risk Linking (BLOK 2)**: Cross-checks risky data (phone, email, addresses) against blacklisted subjects and identifies FO-PO relationship risks.
+    - **AML Module (KUV)**: Fields for Konečný užívateľ výhod (Ultimate Beneficial Owner).
+    - **Firemný profil (Category 32)**: Category for business profile information (SK NACE, Turnover, Employee Count).
+    - **Relationship Visualization**: Component for visualizing Konateľ ↔ Firma relationships with propagated list warnings.
+    - **UID Format**: Subjects receive permanent UIDs in `421` + 12-digit sequential format.
+    - **Field History (Versioning)**: `subject_field_history` tracks granular per-field changes.
+    - **Shadow Archive (GDPR Bypass)**: Anonymizes PII while preserving encrypted original data for SuperAdmin reveal.
+    - **Subject Collaborators (Tipér/Špecialista/Správca)**: Manages collaborators with roles and temporal validity.
+    - **Extended Bonita Points**: `subject_points_log` supports `pointType` and manual point addition with reason.
+    - **Duplicity Checker**: Enhanced checking for duplicates including ŠPZ and VIN, with bulk checking capabilities.
+    - **Inline Subject Detail Panel**: Subject detail renders as a full-page inline panel.
+    - **Field Hints System**: Category and field-level hints for various data types.
+    - **Nezatriedené dáta (Category 33)**: Category for unclassified contract data with trend detection.
+    - **Internal Field Notes (SuperAdmin)**: Per-field notes visible only to SuperAdmin/Prezident.
 
 ## External Dependencies
 - **Replit OIDC Auth**: User authentication.
@@ -82,5 +85,5 @@ The system uses a modern full-stack architecture, emphasizing data integrity, se
 - **shadcn/ui**: UI component library.
 - **wouter**: Client-side routing.
 - **Tiptap**: Rich text editor.
-- **Multer**: For handling file uploads.
-- **ExcelJS**: For generating Excel spreadsheets.
+- **Multer**: File upload handling.
+- **ExcelJS**: Excel spreadsheet generation.

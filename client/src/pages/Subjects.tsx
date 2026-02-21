@@ -767,7 +767,7 @@ function EntityLinksTab({ subject }: { subject: Subject }) {
   );
 }
 
-function SubjectDetailDialog({ subject, onClose }: { subject: Subject; onClose: () => void }) {
+function SubjectDetailPanel({ subject, onClose }: { subject: Subject; onClose: () => void }) {
   const { data: careerHistory, isLoading } = useSubjectCareerHistory(subject.id);
   const { data: companies } = useMyCompanies();
   const { data: appUser } = useAppUser();
@@ -809,266 +809,265 @@ function SubjectDetailDialog({ subject, onClose }: { subject: Subject; onClose: 
   const formatDate = (d: string | null) => d ? formatDateSlovak(d) : null;
 
   return (
-    <Dialog open onOpenChange={onClose}>
-      <DialogContent size="xl" className="items-stretch justify-start">
-        <DialogHeader className="p-6 pb-0">
-          <div className="flex items-center gap-3 flex-wrap">
-            <div className="w-10 h-10 rounded-md bg-primary/10 flex items-center justify-center flex-shrink-0">
-              {subject.type === 'person' ? <User className="w-5 h-5 text-primary" /> : <Building2 className="w-5 h-5 text-primary" />}
-            </div>
-            <div className="min-w-0">
-              <DialogTitle data-testid="text-subject-detail-name">
-                {subject.type === 'person'
-                  ? `${subject.lastName}, ${subject.firstName}`
-                  : subject.companyName}
-              </DialogTitle>
-              <div className="flex items-center gap-2 mt-1 flex-wrap">
-                <span className="text-xs font-mono text-muted-foreground">{subject.uid}</span>
-                {(() => {
-                  const status = getSubjectStatus(subject);
-                  return (
-                    <span
-                      className={`inline-flex items-center px-2 py-0.5 rounded-full border text-[11px] font-medium ${status.bgColor} ${status.borderColor} ${status.textColor}`}
-                      data-testid={`status-dialog-subject-${subject.id}`}
-                    >
-                      {status.label}
-                    </span>
-                  );
-                })()}
+    <div className="w-full space-y-4">
+      <div className="flex items-center gap-3 flex-wrap">
+        <Button variant="ghost" size="sm" onClick={onClose} data-testid="button-back-to-list">
+          <ArrowLeft className="w-4 h-4 mr-1" />
+          Späť na zoznam
+        </Button>
+        <Separator orientation="vertical" className="h-6" />
+        <div className="w-10 h-10 rounded-md bg-primary/10 flex items-center justify-center flex-shrink-0">
+          {subject.type === 'person' ? <User className="w-5 h-5 text-primary" /> : <Building2 className="w-5 h-5 text-primary" />}
+        </div>
+        <div className="min-w-0">
+          <h2 className="text-lg font-semibold" data-testid="text-subject-detail-name">
+            {subject.type === 'person'
+              ? `${subject.lastName}, ${subject.firstName}`
+              : subject.companyName}
+          </h2>
+          <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+            <span className="text-xs font-mono text-muted-foreground">{subject.uid}</span>
+            {(() => {
+              const status = getSubjectStatus(subject);
+              return (
+                <span
+                  className={`inline-flex items-center px-2 py-0.5 rounded-full border text-[11px] font-medium ${status.bgColor} ${status.borderColor} ${status.textColor}`}
+                  data-testid={`status-dialog-subject-${subject.id}`}
+                >
+                  {status.label}
+                </span>
+              );
+            })()}
+          </div>
+        </div>
+      </div>
+
+      {(subject as any).listStatus === "cierny" && (
+        <div className="flex items-center gap-3 rounded border border-red-900 bg-red-950/80 px-4 py-3 text-red-200" data-testid="dialog-banner-cierny-zoznam">
+          <Ban className="w-5 h-5 text-red-400 shrink-0" />
+          <div>
+            <span className="font-bold text-red-300 uppercase tracking-wide">ČIERNY ZOZNAM</span>
+            <span className="ml-2 text-sm">Subjekt je na čiernom zozname. Zmluvná činnosť je zakázaná.</span>
+          </div>
+        </div>
+      )}
+      {(subject as any).listStatus === "cerveny" && (
+        <div className="flex items-center gap-3 rounded border border-orange-700 bg-orange-950/80 px-4 py-3 text-orange-200" data-testid="dialog-banner-cerveny-zoznam">
+          <AlertTriangle className="w-5 h-5 text-orange-400 shrink-0" />
+          <div>
+            <span className="font-bold text-orange-300 uppercase tracking-wide">ČERVENÝ ZOZNAM</span>
+            <span className="ml-2 text-sm">Subjekt dosiahol -5 bodov za posledných 10 rokov. Zvýšená opatrnosť.</span>
+          </div>
+        </div>
+      )}
+      {riskData?.foPoRisks && riskData.foPoRisks.length > 0 && (
+        <div className="space-y-1" data-testid="dialog-banner-fo-po-risks">
+          {riskData.foPoRisks.map((risk, i) => (
+            <div key={`fopo-${i}`} className="flex items-center gap-3 rounded border border-yellow-700 bg-yellow-950/80 px-4 py-2.5 text-yellow-200">
+              <Link2 className="w-5 h-5 text-yellow-400 shrink-0" />
+              <div className="text-sm">
+                <span className="font-semibold text-yellow-300">
+                  {risk.relationship === "konateľ" ? "Konateľ" : risk.relationship === "firma" ? "Firma" : "Prepojený subjekt"}
+                </span>
+                {" "}
+                <span className="font-bold">{risk.name}</span>
+                {" je na "}
+                <span className={risk.listStatus === "cierny" ? "text-red-300 font-bold" : "text-orange-300 font-bold"}>
+                  {risk.listStatus === "cierny" ? "Čiernom zozname" : "Červenom zozname"}
+                </span>
+                {"!"}
               </div>
             </div>
-          </div>
-        </DialogHeader>
+          ))}
+        </div>
+      )}
+      {riskData?.riskLinks && riskData.riskLinks.length > 0 && (
+        <div className="space-y-1" data-testid="dialog-banner-risk-links">
+          {riskData.riskLinks.map((link, i) => (
+            <div key={`risk-${i}`} className="flex items-center gap-3 rounded border border-amber-700 bg-amber-950/80 px-4 py-2.5 text-amber-200">
+              <ShieldAlert className="w-5 h-5 text-amber-400 shrink-0" />
+              <div className="text-sm">
+                <span className="font-semibold">Kontakt je prepojený s rizikovou osobou:</span>
+                {" "}
+                <span className="font-bold text-amber-300">{link.name}</span>
+                {" "}
+                <span className="text-xs text-amber-400">
+                  ({link.matchType}: {link.matchValue})
+                </span>
+                {" — "}
+                <span className={link.listStatus === "cierny" ? "text-red-300 font-semibold" : "text-orange-300 font-semibold"}>
+                  {link.listStatus === "cierny" ? "Čierny zoznam" : "Červený zoznam"}
+                </span>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+      <Tabs defaultValue="udaje" className="flex-1">
+        <TabsList data-testid="tabs-subject-detail">
+          <TabsTrigger value="udaje" data-testid="tab-subject-udaje">
+            <FileText className="w-3.5 h-3.5 mr-1" />
+            Udaje klienta
+          </TabsTrigger>
+          <TabsTrigger value="detail" data-testid="tab-subject-info">
+            <User className="w-3.5 h-3.5 mr-1" />
+            Detail
+          </TabsTrigger>
+          <TabsTrigger value="historia" data-testid="tab-subject-historia">
+            <History className="w-3.5 h-3.5 mr-1" />
+            Historia
+          </TabsTrigger>
+          <TabsTrigger value="financie" data-testid="tab-subject-financie">
+            <Wallet className="w-3.5 h-3.5 mr-1" />
+            Financie
+          </TabsTrigger>
+          <TabsTrigger value="vztahy" data-testid="tab-subject-vztahy">
+            <Link2 className="w-3.5 h-3.5 mr-1" />
+            Vztahy
+          </TabsTrigger>
+        </TabsList>
 
-        <DialogScrollContent>
-        {(subject as any).listStatus === "cierny" && (
-          <div className="mx-6 mb-3 flex items-center gap-3 rounded border border-red-900 bg-red-950/80 px-4 py-3 text-red-200" data-testid="dialog-banner-cierny-zoznam">
-            <Ban className="w-5 h-5 text-red-400 shrink-0" />
+        <TabsContent value="udaje" className="mt-3">
+          <SubjektView subject={subject} showPdfSidebar />
+        </TabsContent>
+
+        <TabsContent value="detail" className="mt-3">
+          <div className="space-y-4">
+            <div className="flex flex-wrap gap-4 items-end">
+              <div className="flex-1 min-w-[140px]">
+                <span className="text-xs text-muted-foreground">Typ entity</span>
+                <p className="text-sm">{subject.type === 'person' ? 'Fyzicka osoba' : subject.type === 'szco' ? 'SZCO' : 'Pravnicka osoba'}</p>
+              </div>
+              <div className="flex-1 min-w-[140px]">
+                <span className="text-xs text-muted-foreground">Spravujuca firma</span>
+                <p className="text-sm">{(subject as any).companyName || managingCompany?.name || '-'}</p>
+              </div>
+            </div>
+
+            <Separator />
+
             <div>
-              <span className="font-bold text-red-300 uppercase tracking-wide">ČIERNY ZOZNAM</span>
-              <span className="ml-2 text-sm">Subjekt je na čiernom zozname. Zmluvná činnosť je zakázaná.</span>
-            </div>
-          </div>
-        )}
-        {(subject as any).listStatus === "cerveny" && (
-          <div className="mx-6 mb-3 flex items-center gap-3 rounded border border-orange-700 bg-orange-950/80 px-4 py-3 text-orange-200" data-testid="dialog-banner-cerveny-zoznam">
-            <AlertTriangle className="w-5 h-5 text-orange-400 shrink-0" />
-            <div>
-              <span className="font-bold text-orange-300 uppercase tracking-wide">ČERVENÝ ZOZNAM</span>
-              <span className="ml-2 text-sm">Subjekt dosiahol -5 bodov za posledných 10 rokov. Zvýšená opatrnosť.</span>
-            </div>
-          </div>
-        )}
-        {riskData?.foPoRisks && riskData.foPoRisks.length > 0 && (
-          <div className="mx-6 mb-3 space-y-1" data-testid="dialog-banner-fo-po-risks">
-            {riskData.foPoRisks.map((risk, i) => (
-              <div key={`fopo-${i}`} className="flex items-center gap-3 rounded border border-yellow-700 bg-yellow-950/80 px-4 py-2.5 text-yellow-200">
-                <Link2 className="w-5 h-5 text-yellow-400 shrink-0" />
-                <div className="text-sm">
-                  <span className="font-semibold text-yellow-300">
-                    {risk.relationship === "konateľ" ? "Konateľ" : risk.relationship === "firma" ? "Firma" : "Prepojený subjekt"}
-                  </span>
-                  {" "}
-                  <span className="font-bold">{risk.name}</span>
-                  {" je na "}
-                  <span className={risk.listStatus === "cierny" ? "text-red-300 font-bold" : "text-orange-300 font-bold"}>
-                    {risk.listStatus === "cierny" ? "Čiernom zozname" : "Červenom zozname"}
-                  </span>
-                  {"!"}
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-        {riskData?.riskLinks && riskData.riskLinks.length > 0 && (
-          <div className="mx-6 mb-3 space-y-1" data-testid="dialog-banner-risk-links">
-            {riskData.riskLinks.map((link, i) => (
-              <div key={`risk-${i}`} className="flex items-center gap-3 rounded border border-amber-700 bg-amber-950/80 px-4 py-2.5 text-amber-200">
-                <ShieldAlert className="w-5 h-5 text-amber-400 shrink-0" />
-                <div className="text-sm">
-                  <span className="font-semibold">Kontakt je prepojený s rizikovou osobou:</span>
-                  {" "}
-                  <span className="font-bold text-amber-300">{link.name}</span>
-                  {" "}
-                  <span className="text-xs text-amber-400">
-                    ({link.matchType}: {link.matchValue})
-                  </span>
-                  {" — "}
-                  <span className={link.listStatus === "cierny" ? "text-red-300 font-semibold" : "text-orange-300 font-semibold"}>
-                    {link.listStatus === "cierny" ? "Čierny zoznam" : "Červený zoznam"}
-                  </span>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-        <Tabs defaultValue="udaje" className="flex-1">
-          <TabsList data-testid="tabs-subject-detail">
-            <TabsTrigger value="udaje" data-testid="tab-subject-udaje">
-              <FileText className="w-3.5 h-3.5 mr-1" />
-              Udaje klienta
-            </TabsTrigger>
-            <TabsTrigger value="detail" data-testid="tab-subject-info">
-              <User className="w-3.5 h-3.5 mr-1" />
-              Detail
-            </TabsTrigger>
-            <TabsTrigger value="historia" data-testid="tab-subject-historia">
-              <History className="w-3.5 h-3.5 mr-1" />
-              Historia
-            </TabsTrigger>
-            <TabsTrigger value="financie" data-testid="tab-subject-financie">
-              <Wallet className="w-3.5 h-3.5 mr-1" />
-              Financie
-            </TabsTrigger>
-            <TabsTrigger value="vztahy" data-testid="tab-subject-vztahy">
-              <Link2 className="w-3.5 h-3.5 mr-1" />
-              Vztahy
-            </TabsTrigger>
-          </TabsList>
-
-          <TabsContent value="udaje" className="mt-3">
-            <SubjektView subject={subject} showPdfSidebar />
-          </TabsContent>
-
-          <TabsContent value="detail" className="mt-3">
-            <div className="space-y-4">
-              <div className="flex flex-wrap gap-4 items-end">
-                <div className="flex-1 min-w-[140px]">
-                  <span className="text-xs text-muted-foreground">Typ entity</span>
-                  <p className="text-sm">{subject.type === 'person' ? 'Fyzicka osoba' : subject.type === 'szco' ? 'SZCO' : 'Pravnicka osoba'}</p>
-                </div>
-                <div className="flex-1 min-w-[140px]">
-                  <span className="text-xs text-muted-foreground">Spravujuca firma</span>
-                  <p className="text-sm">{(subject as any).companyName || managingCompany?.name || '-'}</p>
-                </div>
+              <div className="flex items-center gap-2 mb-3 flex-wrap">
+                <Briefcase className="w-4 h-4 text-primary" />
+                <h3 className="text-sm font-semibold">Historia kariery v systeme</h3>
               </div>
 
-              <Separator />
-
-              <div>
-                <div className="flex items-center gap-2 mb-3 flex-wrap">
-                  <Briefcase className="w-4 h-4 text-primary" />
-                  <h3 className="text-sm font-semibold">Historia kariery v systeme</h3>
-                </div>
-
-                {isLoading ? (
-                  <p className="text-sm text-muted-foreground text-center py-4">Nacitavam historiu...</p>
-                ) : !careerHistory || careerHistory.length === 0 ? (
-                  <p className="text-sm text-muted-foreground text-center py-4" data-testid="text-no-career-history">
-                    Ziadna historia vazby v systeme
-                  </p>
-                ) : (
-                  <div className="relative space-y-0">
-                    <div className="absolute left-4 top-3 bottom-3 w-px bg-border" />
-                    {careerHistory.map((entry, idx) => (
-                      <div key={idx} className="relative pl-10 py-3" data-testid={`career-entry-${idx}`}>
-                        <div className={`absolute left-2.5 top-4 w-3 h-3 rounded-full border-2 ${
-                          entry.isActive 
-                            ? 'bg-primary border-primary' 
-                            : 'bg-muted border-muted-foreground/40'
-                        }`} />
-                        <div className="flex items-start gap-2 flex-wrap">
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-2 flex-wrap">
-                              <span className="text-sm font-medium">{entry.entityName}</span>
-                              <Badge variant={entry.type === 'internal' ? 'default' : 'outline'}>
-                                {entry.type === 'internal' ? 'Interny' : 'Externy'}
-                              </Badge>
-                              <Badge variant="secondary" style={{ display: entry.isActive ? 'inline-flex' : 'none' }}>Aktivny</Badge>
-                            </div>
-                            <p className="text-xs text-muted-foreground mt-0.5">{entry.role}</p>
-                            <div className="flex items-center gap-1 mt-1 text-xs text-muted-foreground">
-                              <Calendar className="w-3 h-3" />
-                              <span>{formatDate(entry.validFrom) || "-"}</span>
-                              <ArrowRight className="w-3 h-3" />
-                              <span>{entry.isActive && !entry.validTo ? "Sucasnost" : (formatDate(entry.validTo) || "-")}</span>
-                            </div>
+              {isLoading ? (
+                <p className="text-sm text-muted-foreground text-center py-4">Nacitavam historiu...</p>
+              ) : !careerHistory || careerHistory.length === 0 ? (
+                <p className="text-sm text-muted-foreground text-center py-4" data-testid="text-no-career-history">
+                  Ziadna historia vazby v systeme
+                </p>
+              ) : (
+                <div className="relative space-y-0">
+                  <div className="absolute left-4 top-3 bottom-3 w-px bg-border" />
+                  {careerHistory.map((entry, idx) => (
+                    <div key={idx} className="relative pl-10 py-3" data-testid={`career-entry-${idx}`}>
+                      <div className={`absolute left-2.5 top-4 w-3 h-3 rounded-full border-2 ${
+                        entry.isActive 
+                          ? 'bg-primary border-primary' 
+                          : 'bg-muted border-muted-foreground/40'
+                      }`} />
+                      <div className="flex items-start gap-2 flex-wrap">
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="text-sm font-medium">{entry.entityName}</span>
+                            <Badge variant={entry.type === 'internal' ? 'default' : 'outline'}>
+                              {entry.type === 'internal' ? 'Interny' : 'Externy'}
+                            </Badge>
+                            <Badge variant="secondary" style={{ display: entry.isActive ? 'inline-flex' : 'none' }}>Aktivny</Badge>
+                          </div>
+                          <p className="text-xs text-muted-foreground mt-0.5">{entry.role}</p>
+                          <div className="flex items-center gap-1 mt-1 text-xs text-muted-foreground">
+                            <Calendar className="w-3 h-3" />
+                            <span>{formatDate(entry.validFrom) || "-"}</span>
+                            <ArrowRight className="w-3 h-3" />
+                            <span>{entry.isActive && !entry.validTo ? "Sucasnost" : (formatDate(entry.validTo) || "-")}</span>
                           </div>
                         </div>
                       </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-
-              <Separator />
-
-              <div>
-                <div className="flex items-center gap-2 mb-3 flex-wrap">
-                  <ShieldCheck className="w-4 h-4 text-primary" />
-                  <h3 className="text-sm font-semibold">Bonita a Disciplína</h3>
+                    </div>
+                  ))}
                 </div>
-
-                <div className="grid grid-cols-3 gap-4 mb-4">
-                  <div className="rounded border p-3">
-                    <span className="text-xs text-muted-foreground block mb-1">Body celkom</span>
-                    <span className={`text-lg font-bold ${(bonitaSummary?.totalPoints ?? 0) < 0 ? "text-red-400" : (bonitaSummary?.totalPoints ?? 0) > 0 ? "text-green-400" : ""}`} data-testid="text-bonita-points">
-                      {bonitaSummary?.totalPoints ?? 0}
-                    </span>
-                  </div>
-                  <div className="rounded border p-3">
-                    <span className="text-xs text-muted-foreground block mb-1">CGN Rating</span>
-                    <span className="text-lg font-bold" data-testid="text-cgn-rating">{bonitaSummary?.cgnRating || "-"}</span>
-                  </div>
-                  <div className="rounded border p-3">
-                    <span className="text-xs text-muted-foreground block mb-1">Stav zoznamu</span>
-                    <span data-testid="text-list-status" className={`text-sm font-semibold ${bonitaSummary?.listStatus === "cierny" ? "text-red-400" : bonitaSummary?.listStatus === "cerveny" ? "text-orange-400" : "text-green-400"}`}>
-                      {bonitaSummary?.listStatus === "cierny" ? "Čierny zoznam" : bonitaSummary?.listStatus === "cerveny" ? "Červený zoznam" : "Čistý"}
-                    </span>
-                  </div>
-                </div>
-
-                {bonitaSummary?.crossCompanyCount > 1 && (
-                  <div className="text-xs text-muted-foreground mb-3" data-testid="text-cross-company-count">
-                    Subjekt evidovaný v {bonitaSummary.crossCompanyCount} firmách (globálny výpočet bodov)
-                  </div>
-                )}
-
-                {isSuperAdmin && (
-                  <div className="flex items-center gap-2 flex-wrap" data-testid="section-list-status-controls">
-                    {(subject as any).listStatus === "cierny" ? (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => toggleListStatus.mutate({ listStatus: null, reason: "Manuálne zrušenie SuperAdminom" })}
-                        disabled={toggleListStatus.isPending}
-                        data-testid="button-remove-blacklist"
-                      >
-                        Zrušiť Čierny zoznam
-                      </Button>
-                    ) : (
-                      <Button
-                        variant="destructive"
-                        size="sm"
-                        onClick={() => toggleListStatus.mutate({ listStatus: "cierny", reason: "Manuálne zaradenie SuperAdminom" })}
-                        disabled={toggleListStatus.isPending}
-                        data-testid="button-add-blacklist"
-                      >
-                        <Ban className="w-3.5 h-3.5 mr-1" />
-                        Zaradiť na Čierny zoznam
-                      </Button>
-                    )}
-                  </div>
-                )}
-              </div>
+              )}
             </div>
-          </TabsContent>
 
-          <TabsContent value="historia" className="mt-3">
-            <SubjectHistoryTab subjectId={subject.id} />
-          </TabsContent>
+            <Separator />
 
-          <TabsContent value="financie" className="mt-3">
-            <SubjectFinanceTab subject={subject} />
-          </TabsContent>
+            <div>
+              <div className="flex items-center gap-2 mb-3 flex-wrap">
+                <ShieldCheck className="w-4 h-4 text-primary" />
+                <h3 className="text-sm font-semibold">Bonita a Disciplína</h3>
+              </div>
 
-          <TabsContent value="vztahy" className="mt-3">
-            <EntityLinksTab subject={subject} />
-          </TabsContent>
-        </Tabs>
-        </DialogScrollContent>
-      </DialogContent>
-    </Dialog>
+              <div className="grid grid-cols-3 gap-4 mb-4">
+                <div className="rounded border p-3">
+                  <span className="text-xs text-muted-foreground block mb-1">Body celkom</span>
+                  <span className={`text-lg font-bold ${(bonitaSummary?.totalPoints ?? 0) < 0 ? "text-red-400" : (bonitaSummary?.totalPoints ?? 0) > 0 ? "text-green-400" : ""}`} data-testid="text-bonita-points">
+                    {bonitaSummary?.totalPoints ?? 0}
+                  </span>
+                </div>
+                <div className="rounded border p-3">
+                  <span className="text-xs text-muted-foreground block mb-1">CGN Rating</span>
+                  <span className="text-lg font-bold" data-testid="text-cgn-rating">{bonitaSummary?.cgnRating || "-"}</span>
+                </div>
+                <div className="rounded border p-3">
+                  <span className="text-xs text-muted-foreground block mb-1">Stav zoznamu</span>
+                  <span data-testid="text-list-status" className={`text-sm font-semibold ${bonitaSummary?.listStatus === "cierny" ? "text-red-400" : bonitaSummary?.listStatus === "cerveny" ? "text-orange-400" : "text-green-400"}`}>
+                    {bonitaSummary?.listStatus === "cierny" ? "Čierny zoznam" : bonitaSummary?.listStatus === "cerveny" ? "Červený zoznam" : "Čistý"}
+                  </span>
+                </div>
+              </div>
+
+              {bonitaSummary?.crossCompanyCount > 1 && (
+                <div className="text-xs text-muted-foreground mb-3" data-testid="text-cross-company-count">
+                  Subjekt evidovaný v {bonitaSummary.crossCompanyCount} firmách (globálny výpočet bodov)
+                </div>
+              )}
+
+              {isSuperAdmin && (
+                <div className="flex items-center gap-2 flex-wrap" data-testid="section-list-status-controls">
+                  {(subject as any).listStatus === "cierny" ? (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => toggleListStatus.mutate({ listStatus: null, reason: "Manuálne zrušenie SuperAdminom" })}
+                      disabled={toggleListStatus.isPending}
+                      data-testid="button-remove-blacklist"
+                    >
+                      Zrušiť Čierny zoznam
+                    </Button>
+                  ) : (
+                    <Button
+                      variant="destructive"
+                      size="sm"
+                      onClick={() => toggleListStatus.mutate({ listStatus: "cierny", reason: "Manuálne zaradenie SuperAdminom" })}
+                      disabled={toggleListStatus.isPending}
+                      data-testid="button-add-blacklist"
+                    >
+                      <Ban className="w-3.5 h-3.5 mr-1" />
+                      Zaradiť na Čierny zoznam
+                    </Button>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+        </TabsContent>
+
+        <TabsContent value="historia" className="mt-3">
+          <SubjectHistoryTab subjectId={subject.id} />
+        </TabsContent>
+
+        <TabsContent value="financie" className="mt-3">
+          <SubjectFinanceTab subject={subject} />
+        </TabsContent>
+
+        <TabsContent value="vztahy" className="mt-3">
+          <EntityLinksTab subject={subject} />
+        </TabsContent>
+      </Tabs>
+    </div>
   );
 }
 
@@ -3410,179 +3409,185 @@ export default function Subjects() {
         </div>
       </div>
 
-      <div className="flex items-center justify-between gap-3 flex-wrap">
-        <div className="flex items-center gap-2 flex-wrap flex-1 min-w-0" data-testid="panel-status-filters">
-          {FILTER_ORDER.map(category => {
-            const config = STATUS_CONFIG[category];
-            const isActive = activeFilters.has(category);
-            return (
-              <button
-                key={category}
-                type="button"
-                onClick={() => toggleFilter(category)}
-                aria-pressed={isActive}
-                className={`
-                  flex items-center gap-2 px-3 py-1.5 rounded-md border-2 text-xs font-medium transition-all duration-200 cursor-pointer select-none
-                  ${isActive
-                    ? `${config.borderColor} ${config.bgColor} ${config.shadowColor} shadow-md`
-                    : "border-border/40 bg-muted/30 opacity-60 hover:opacity-80"
-                  }
-                `}
-                data-testid={`button-filter-${category}`}
-                data-active={isActive}
-              >
-                <span className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${config.color}`} />
-                <span>{config.label}</span>
-              </button>
-            );
-          })}
-        </div>
-        <div className="relative w-full sm:w-64 shrink-0">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-          <Input
-            placeholder="Hladat podla mena alebo UID..."
-            className="pl-9"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            data-testid="input-search-subjects"
-          />
-        </div>
-      </div>
-
-      <div style={{ display: selectedIds.size > 0 ? 'block' : 'none' }}>
-        <div className="flex items-center gap-3 px-4 py-2 bg-primary/10 border border-primary/20 rounded-md">
-          <span className="text-sm font-medium">{selectedIds.size} vybranych</span>
-          <Button size="sm" onClick={() => setBulkAssignOpen(true)} data-testid="button-bulk-assign">
-            Priradit do skupiny
-          </Button>
-          <Button size="sm" variant="outline" onClick={() => setSelectedIds(new Set())} data-testid="button-clear-selection">
-            Zrusit vyber
-          </Button>
-        </div>
-      </div>
-
-      <Card>
-        <CardContent className="p-0">
-          <div className="overflow-auto" style={{ maxHeight: 'calc(100vh - 280px)' }}>
-          <Table stickyHeader>
-            <TableHeader>
-              <TableRow>
-                <TableHead className="w-10">
-                  <input type="checkbox" 
-                    checked={(subjects?.length ?? 0) > 0 && selectedIds.size === (subjects?.length ?? 0)}
-                    onChange={(e) => {
-                      if (e.target.checked && subjects) {
-                        setSelectedIds(new Set(subjects.map(s => s.id)));
-                      } else {
-                        setSelectedIds(new Set());
-                      }
-                    }}
-                    data-testid="checkbox-select-all"
-                    className="accent-primary"
-                  />
-                </TableHead>
-                {columnVisibility.isVisible("uid") && <TableHead sortKey="uid" sortDirection={sortKey === "uid" ? sortDirection : null} onSort={requestSort}>UID</TableHead>}
-                {columnVisibility.isVisible("status") && <TableHead style={{ maxWidth: '150px' }}>Status</TableHead>}
-                {columnVisibility.isVisible("firstName") && <TableHead sortKey="firstName" sortDirection={sortKey === "firstName" ? sortDirection : null} onSort={requestSort}>Cele meno / Nazov</TableHead>}
-                {columnVisibility.isVisible("type") && <TableHead sortKey="type" sortDirection={sortKey === "type" ? sortDirection : null} onSort={requestSort}>Typ subjektu</TableHead>}
-                {columnVisibility.isVisible("managingCompany") && <TableHead>Spravujuca firma</TableHead>}
-                <TableHead className="w-[100px]">Akcie</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              <TableRow style={{ display: isLoading ? 'table-row' : 'none' }}><TableCell colSpan={7} className="text-center py-8 text-muted-foreground">Nacitavam...</TableCell></TableRow>
-              <TableRow style={{ display: !isLoading && (!subjects || subjects.length === 0) ? 'table-row' : 'none' }}><TableCell colSpan={7} className="text-center py-12 text-muted-foreground" data-testid="text-empty-subjects">Ziadne subjekty nenajdene</TableCell></TableRow>
-              {sortedData.map((subject) => {
-                const details = (subject.details || {}) as Record<string, any>;
-                const titulPred = details.titul_pred || details.titleBefore || '';
-                const titulZa = details.titul_za || details.titleAfter || '';
-                const subjectTypeCode = (() => {
-                  if (subject.type === 'person') return 'FO';
-                  if (subject.type === 'szco') return 'SZCO';
-                  if (subject.type === 'company') return 'PO';
-                  return subject.type;
-                })();
-                const clientTypeMatch = clientTypes?.find(ct => ct.code === subjectTypeCode);
-                const fullName = (() => {
-                  if (subject.type === 'person') {
-                    const parts = [titulPred, subject.firstName, subject.lastName, titulZa].filter(Boolean);
-                    return parts.join(' ') || '-';
-                  }
-                  if (subject.type === 'szco') {
-                    return subject.companyName || [titulPred, subject.firstName, subject.lastName, titulZa].filter(Boolean).join(' ') || '-';
-                  }
-                  return subject.companyName || '-';
-                })();
-                const managingCompanyName = (subject as any).companyName || companies?.find(c => c.id === subject.myCompanyId)?.name || '-';
-
+      {viewTarget ? (
+        <SubjectDetailPanel subject={viewTarget} onClose={() => setViewTarget(null)} />
+      ) : (
+        <>
+          <div className="flex items-center justify-between gap-3 flex-wrap">
+            <div className="flex items-center gap-2 flex-wrap flex-1 min-w-0" data-testid="panel-status-filters">
+              {FILTER_ORDER.map(category => {
+                const config = STATUS_CONFIG[category];
+                const isActive = activeFilters.has(category);
                 return (
-                  <TableRow key={subject.id} data-testid={`row-subject-${subject.id}`} className="align-middle" onRowClick={() => setViewTarget(subject)}>
-                    <TableCell className="align-middle">
-                      <input type="checkbox" 
-                        checked={selectedIds.has(subject.id)}
-                        onChange={(e) => {
-                          const next = new Set(selectedIds);
-                          if (e.target.checked) next.add(subject.id); else next.delete(subject.id);
-                          setSelectedIds(next);
-                        }}
-                        data-testid={`checkbox-subject-${subject.id}`}
-                        className="accent-primary"
-                      />
-                    </TableCell>
-                    {columnVisibility.isVisible("uid") && <TableCell className="font-mono text-xs align-middle">{subject.uid}</TableCell>}
-                    {columnVisibility.isVisible("status") && <TableCell className="align-middle !overflow-visible" style={{ maxWidth: '150px', whiteSpace: 'normal', wordBreak: 'break-word', textOverflow: 'clip' }}>
-                      {(() => {
-                        const status = getSubjectStatus(subject, activeCompanyId);
-                        return (
-                          <span
-                            className={`inline-flex items-center px-2 py-0.5 rounded-full border text-[11px] font-medium leading-snug ${status.bgColor} ${status.borderColor} ${status.textColor}`}
-                            style={{ whiteSpace: 'normal', wordBreak: 'break-word' }}
-                            data-testid={`status-subject-${subject.id}`}
-                          >
-                            {status.label}
-                          </span>
-                        );
-                      })()}
-                    </TableCell>}
-                    {columnVisibility.isVisible("firstName") && <TableCell className="font-medium align-middle" data-testid={`text-fullname-${subject.id}`}>
-                      <span className="flex items-center gap-1.5">
-                        {fullName}
-                        {(subject as any).listStatus === "cierny" && <span title="Čierny zoznam"><Ban className="w-3.5 h-3.5 text-red-500 shrink-0" /></span>}
-                        {(subject as any).listStatus === "cerveny" && <span title="Červený zoznam"><AlertTriangle className="w-3.5 h-3.5 text-orange-500 shrink-0" /></span>}
-                      </span>
-                    </TableCell>}
-                    {columnVisibility.isVisible("type") && <TableCell className="align-middle">
-                      <div className="flex items-center gap-2 text-muted-foreground text-xs">
-                        {subject.type === 'person' ? <User className="w-3 h-3 flex-shrink-0" /> : <Building2 className="w-3 h-3 flex-shrink-0" />}
-                        <span>{clientTypeMatch?.code || subjectTypeCode}</span>
-                      </div>
-                    </TableCell>}
-                    {columnVisibility.isVisible("managingCompany") && <TableCell className="text-muted-foreground text-sm align-middle" data-testid={`text-company-${subject.id}`}>
-                      {managingCompanyName}
-                    </TableCell>}
-                    <TableCell className="align-middle">
-                      <div className="flex items-center gap-1">
-                        <Button size="icon" variant="ghost" onClick={() => setViewTarget(subject)} data-testid={`button-view-subject-${subject.id}`}>
-                          <Eye className="w-4 h-4" />
-                        </Button>
-                        <Button
-                          size="icon"
-                          variant="ghost"
-                          onClick={() => setEditTarget(subject as any)}
-                          data-testid={`button-edit-subject-${subject.id}`}
-                        >
-                          <Pencil className="w-4 h-4" />
-                        </Button>
-                      </div>
-                    </TableCell>
-                  </TableRow>
+                  <button
+                    key={category}
+                    type="button"
+                    onClick={() => toggleFilter(category)}
+                    aria-pressed={isActive}
+                    className={`
+                      flex items-center gap-2 px-3 py-1.5 rounded-md border-2 text-xs font-medium transition-all duration-200 cursor-pointer select-none
+                      ${isActive
+                        ? `${config.borderColor} ${config.bgColor} ${config.shadowColor} shadow-md`
+                        : "border-border/40 bg-muted/30 opacity-60 hover:opacity-80"
+                      }
+                    `}
+                    data-testid={`button-filter-${category}`}
+                    data-active={isActive}
+                  >
+                    <span className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${config.color}`} />
+                    <span>{config.label}</span>
+                  </button>
                 );
               })}
-            </TableBody>
-          </Table>
+            </div>
+            <div className="relative w-full sm:w-64 shrink-0">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+              <Input
+                placeholder="Hladat podla mena alebo UID..."
+                className="pl-9"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                data-testid="input-search-subjects"
+              />
+            </div>
           </div>
-        </CardContent>
-      </Card>
+
+          <div style={{ display: selectedIds.size > 0 ? 'block' : 'none' }}>
+            <div className="flex items-center gap-3 px-4 py-2 bg-primary/10 border border-primary/20 rounded-md">
+              <span className="text-sm font-medium">{selectedIds.size} vybranych</span>
+              <Button size="sm" onClick={() => setBulkAssignOpen(true)} data-testid="button-bulk-assign">
+                Priradit do skupiny
+              </Button>
+              <Button size="sm" variant="outline" onClick={() => setSelectedIds(new Set())} data-testid="button-clear-selection">
+                Zrusit vyber
+              </Button>
+            </div>
+          </div>
+
+          <Card>
+            <CardContent className="p-0">
+              <div className="overflow-auto" style={{ maxHeight: 'calc(100vh - 280px)' }}>
+              <Table stickyHeader>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="w-10">
+                      <input type="checkbox" 
+                        checked={(subjects?.length ?? 0) > 0 && selectedIds.size === (subjects?.length ?? 0)}
+                        onChange={(e) => {
+                          if (e.target.checked && subjects) {
+                            setSelectedIds(new Set(subjects.map(s => s.id)));
+                          } else {
+                            setSelectedIds(new Set());
+                          }
+                        }}
+                        data-testid="checkbox-select-all"
+                        className="accent-primary"
+                      />
+                    </TableHead>
+                    {columnVisibility.isVisible("uid") && <TableHead sortKey="uid" sortDirection={sortKey === "uid" ? sortDirection : null} onSort={requestSort}>UID</TableHead>}
+                    {columnVisibility.isVisible("status") && <TableHead style={{ maxWidth: '150px' }}>Status</TableHead>}
+                    {columnVisibility.isVisible("firstName") && <TableHead sortKey="firstName" sortDirection={sortKey === "firstName" ? sortDirection : null} onSort={requestSort}>Cele meno / Nazov</TableHead>}
+                    {columnVisibility.isVisible("type") && <TableHead sortKey="type" sortDirection={sortKey === "type" ? sortDirection : null} onSort={requestSort}>Typ subjektu</TableHead>}
+                    {columnVisibility.isVisible("managingCompany") && <TableHead>Spravujuca firma</TableHead>}
+                    <TableHead className="w-[100px]">Akcie</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  <TableRow style={{ display: isLoading ? 'table-row' : 'none' }}><TableCell colSpan={7} className="text-center py-8 text-muted-foreground">Nacitavam...</TableCell></TableRow>
+                  <TableRow style={{ display: !isLoading && (!subjects || subjects.length === 0) ? 'table-row' : 'none' }}><TableCell colSpan={7} className="text-center py-12 text-muted-foreground" data-testid="text-empty-subjects">Ziadne subjekty nenajdene</TableCell></TableRow>
+                  {sortedData.map((subject) => {
+                    const details = (subject.details || {}) as Record<string, any>;
+                    const titulPred = details.titul_pred || details.titleBefore || '';
+                    const titulZa = details.titul_za || details.titleAfter || '';
+                    const subjectTypeCode = (() => {
+                      if (subject.type === 'person') return 'FO';
+                      if (subject.type === 'szco') return 'SZCO';
+                      if (subject.type === 'company') return 'PO';
+                      return subject.type;
+                    })();
+                    const clientTypeMatch = clientTypes?.find(ct => ct.code === subjectTypeCode);
+                    const fullName = (() => {
+                      if (subject.type === 'person') {
+                        const parts = [titulPred, subject.firstName, subject.lastName, titulZa].filter(Boolean);
+                        return parts.join(' ') || '-';
+                      }
+                      if (subject.type === 'szco') {
+                        return subject.companyName || [titulPred, subject.firstName, subject.lastName, titulZa].filter(Boolean).join(' ') || '-';
+                      }
+                      return subject.companyName || '-';
+                    })();
+                    const managingCompanyName = (subject as any).companyName || companies?.find(c => c.id === subject.myCompanyId)?.name || '-';
+
+                    return (
+                      <TableRow key={subject.id} data-testid={`row-subject-${subject.id}`} className="align-middle" onRowClick={() => setViewTarget(subject)}>
+                        <TableCell className="align-middle">
+                          <input type="checkbox" 
+                            checked={selectedIds.has(subject.id)}
+                            onChange={(e) => {
+                              const next = new Set(selectedIds);
+                              if (e.target.checked) next.add(subject.id); else next.delete(subject.id);
+                              setSelectedIds(next);
+                            }}
+                            data-testid={`checkbox-subject-${subject.id}`}
+                            className="accent-primary"
+                          />
+                        </TableCell>
+                        {columnVisibility.isVisible("uid") && <TableCell className="font-mono text-xs align-middle">{subject.uid}</TableCell>}
+                        {columnVisibility.isVisible("status") && <TableCell className="align-middle !overflow-visible" style={{ maxWidth: '150px', whiteSpace: 'normal', wordBreak: 'break-word', textOverflow: 'clip' }}>
+                          {(() => {
+                            const status = getSubjectStatus(subject, activeCompanyId);
+                            return (
+                              <span
+                                className={`inline-flex items-center px-2 py-0.5 rounded-full border text-[11px] font-medium leading-snug ${status.bgColor} ${status.borderColor} ${status.textColor}`}
+                                style={{ whiteSpace: 'normal', wordBreak: 'break-word' }}
+                                data-testid={`status-subject-${subject.id}`}
+                              >
+                                {status.label}
+                              </span>
+                            );
+                          })()}
+                        </TableCell>}
+                        {columnVisibility.isVisible("firstName") && <TableCell className="font-medium align-middle" data-testid={`text-fullname-${subject.id}`}>
+                          <span className="flex items-center gap-1.5">
+                            {fullName}
+                            {(subject as any).listStatus === "cierny" && <span title="Čierny zoznam"><Ban className="w-3.5 h-3.5 text-red-500 shrink-0" /></span>}
+                            {(subject as any).listStatus === "cerveny" && <span title="Červený zoznam"><AlertTriangle className="w-3.5 h-3.5 text-orange-500 shrink-0" /></span>}
+                          </span>
+                        </TableCell>}
+                        {columnVisibility.isVisible("type") && <TableCell className="align-middle">
+                          <div className="flex items-center gap-2 text-muted-foreground text-xs">
+                            {subject.type === 'person' ? <User className="w-3 h-3 flex-shrink-0" /> : <Building2 className="w-3 h-3 flex-shrink-0" />}
+                            <span>{clientTypeMatch?.code || subjectTypeCode}</span>
+                          </div>
+                        </TableCell>}
+                        {columnVisibility.isVisible("managingCompany") && <TableCell className="text-muted-foreground text-sm align-middle" data-testid={`text-company-${subject.id}`}>
+                          {managingCompanyName}
+                        </TableCell>}
+                        <TableCell className="align-middle">
+                          <div className="flex items-center gap-1">
+                            <Button size="icon" variant="ghost" onClick={() => setViewTarget(subject)} data-testid={`button-view-subject-${subject.id}`}>
+                              <Eye className="w-4 h-4" />
+                            </Button>
+                            <Button
+                              size="icon"
+                              variant="ghost"
+                              onClick={() => setEditTarget(subject as any)}
+                              data-testid={`button-edit-subject-${subject.id}`}
+                            >
+                              <Pencil className="w-4 h-4" />
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
+              </div>
+            </CardContent>
+          </Card>
+        </>
+      )}
 
       <InitialRegistrationModal
         open={isInitModalOpen}
@@ -3601,7 +3606,6 @@ export default function Subjects() {
         onClose={() => { setBulkAssignOpen(false); setSelectedIds(new Set()); }}
         groups={clientGroups || []}
       />}
-      {viewTarget && <SubjectDetailDialog subject={viewTarget} onClose={() => setViewTarget(null)} />}
       {editTarget && <SubjectEditModal subject={editTarget} onClose={() => setEditTarget(null)} />}
     </div>
   );

@@ -14,7 +14,7 @@ import { Switch } from "@/components/ui/switch";
 import { Separator } from "@/components/ui/separator";
 import { Card, CardContent } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Loader2, UserCheck, Scale, Users, Wallet, BarChart3, Wifi, Archive, FileText, Eye, EyeOff, ChevronRight, Check, X, Plus, AlertTriangle, ShieldAlert, Ban, Link2, Building2, User, ArrowLeftRight, History, UserPlus, ShieldCheck, Clock, Pencil, Save } from "lucide-react";
+import { Loader2, UserCheck, Scale, Users, Wallet, BarChart3, Wifi, Archive, FileText, Eye, EyeOff, ChevronRight, Check, X, Plus, AlertTriangle, ShieldAlert, Ban, Link2, Building2, User, ArrowLeftRight, History, UserPlus, ShieldCheck, Clock, Pencil, Save, MessageSquare } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
@@ -30,6 +30,38 @@ const TAB_ICONS: Record<string, typeof UserCheck> = {
 function getTabIcon(iconName: string) {
   return TAB_ICONS[iconName] || FileText;
 }
+
+const FIELD_HINTS: Record<string, string> = {
+  pep: "Politicky exponovaná osoba podľa AML zákona 297/2008 Z.z.",
+  pep_funkcia: "Konkrétna verejná funkcia, ktorú osoba zastáva alebo zastávala",
+  pep_vztah: "Vzťah k PEP osobe (rodinný príslušník, blízky spolupracovník)",
+  kuv_meno_1: "Konečný užívateľ výhod – osoba s podielom ≥25% alebo kontrolou nad subjektom",
+  kuv_rc_1: "Rodné číslo KUV pre jednoznačnú identifikáciu",
+  kuv_podiel_1: "Percentuálny podiel KUV na základnom imaní alebo hlasovacích právach",
+  kuv_meno_2: "Druhý konečný užívateľ výhod",
+  kuv_rc_2: "Rodné číslo druhého KUV",
+  kuv_podiel_2: "Podiel druhého KUV",
+  kuv_meno_3: "Tretí konečný užívateľ výhod",
+  kuv_rc_3: "Rodné číslo tretieho KUV",
+  kuv_podiel_3: "Podiel tretieho KUV",
+  cgn_rating: "Interný kreditný rating klienta (A=najlepší, E=najhorší)",
+  marketing_email: "Súhlas so zasielaním marketingových emailov podľa GDPR",
+  marketing_sms: "Súhlas so zasielaním SMS správ s ponukami",
+  marketing_phone: "Súhlas s telefonickým oslovením s ponukami",
+  data_processing: "Súhlas so spracovaním osobných údajov nad rámec zmluvy",
+  third_party: "Súhlas s poskytnutím údajov partnerským spoločnostiam",
+  profiling: "Súhlas s automatizovaným profilovaním na základe správania",
+};
+
+const HINTED_CATEGORIES = new Set(["aml", "marketingove", "bonita", "behavioralne"]);
+
+const CATEGORY_HINTS: Record<string, string> = {
+  aml: "Údaje vyžadované zákonom o AML (297/2008 Z.z.) – identifikácia konečných užívateľov výhod a politicky exponovaných osôb",
+  marketingove: "Marketingové súhlasy a preferencie klienta podľa GDPR nariadenia",
+  bonita: "Bodový systém hodnotenia klienta – automatický výpočet na základe histórie zmlúv",
+  behavioralne: "Sledovanie správania klienta v digitálnom prostredí pre personalizáciu služieb",
+  nezatriedene: "Údaje zo zmlúv, ktoré nie sú priradené do žiadnej štandardnej kategórie. Ak sa typ údaja vyskytne u viac ako 20 klientov, je označený ako nový trend.",
+};
 
 const FIELD_TO_CATEGORY: Record<string, string> = {
   titul_pred: "povinne", meno: "povinne", priezvisko: "povinne", titul_za: "povinne",
@@ -72,6 +104,36 @@ const CONSENT_TYPES = [
   { code: "profiling", label: "Profilovanie" },
 ];
 
+function UnclassifiedTrendsNotice() {
+  const { data: trendsData } = useQuery<{ trends: Array<{ fieldKey: string; count: number }> }>({
+    queryKey: ["/api/data-trends/unclassified"],
+  });
+
+  if (!trendsData?.trends || trendsData.trends.length === 0) return null;
+
+  return (
+    <div className="mt-2 rounded border border-amber-700/50 bg-amber-950/30 p-3" data-testid="unclassified-trends-notice">
+      <div className="flex items-center gap-2 mb-2">
+        <AlertTriangle className="w-4 h-4 text-amber-400" />
+        <span className="text-xs font-semibold text-amber-300">Nový trend - nezatriedené údaje</span>
+      </div>
+      <div className="space-y-1">
+        {trendsData.trends.map(t => (
+          <div key={t.fieldKey} className="flex items-center justify-between text-[11px]">
+            <span className="text-amber-200/80 font-mono">{t.fieldKey}</span>
+            <Badge variant="outline" className="text-[9px] border-amber-600 text-amber-300">
+              {t.count} klientov
+            </Badge>
+          </div>
+        ))}
+      </div>
+      <p className="text-[10px] text-muted-foreground mt-2">
+        Tieto údaje sa vyskytujú u viac ako 20 klientov a mali by byť zatriedené do príslušnej kategórie.
+      </p>
+    </div>
+  );
+}
+
 interface CategoriesAccordionProps {
   tabCode: string;
   tabCats: ClientDataCategory[];
@@ -84,12 +146,16 @@ interface CategoriesAccordionProps {
   summaryFields: Record<string, boolean>;
   pdfSidebarOpen: boolean;
   toggleSummaryField: (key: string) => void;
+  isSuperAdmin?: boolean;
+  fieldNotes?: Record<string, string>;
+  onFieldNoteChange?: (key: string, note: string) => void;
 }
 
 function CategoriesAccordion({
   tabCode, tabCats, fieldsByCategory, isEditing,
   getFieldValue, getEditableValue, editValues, setEditFieldValue,
   summaryFields, pdfSidebarOpen, toggleSummaryField,
+  isSuperAdmin, fieldNotes, onFieldNoteChange,
 }: CategoriesAccordionProps) {
   const visibleCats = useMemo(() => {
     if (isEditing) return tabCats;
@@ -137,8 +203,8 @@ function CategoriesAccordion({
               </div>
             </AccordionTrigger>
             <AccordionContent className="pb-3">
-              {cat.description && (
-                <p className="text-xs text-muted-foreground mb-2">{cat.description}</p>
+              {(cat.description || CATEGORY_HINTS[cat.code]) && (
+                <p className="text-[11px] text-muted-foreground mb-2 leading-relaxed">{CATEGORY_HINTS[cat.code] || cat.description}</p>
               )}
               {catFields.length === 0 ? (
                 <p className="text-xs text-muted-foreground text-center py-3">
@@ -149,13 +215,37 @@ function CategoriesAccordion({
                   {catFields.map(field => {
                     const currentVal = getEditableValue(field.fieldKey);
                     const isModified = editValues[field.fieldKey] !== undefined && editValues[field.fieldKey] !== getFieldValue(field.fieldKey);
+                    const fieldHint = HINTED_CATEGORIES.has(cat.code) ? FIELD_HINTS[field.fieldKey] : undefined;
+                    const existingNote = fieldNotes?.[field.fieldKey] || "";
                     return (
                       <div key={field.fieldKey} className="space-y-1" data-testid={`edit-field-${field.fieldKey}`}>
-                        <Label className={`text-xs ${isModified ? "text-primary font-semibold" : "text-muted-foreground"}`}>
-                          {field.shortLabel || field.label}
-                          {field.isRequired && <span className="text-red-400 ml-0.5">*</span>}
-                          {isModified && <span className="ml-1 text-[9px]">(zmenené)</span>}
-                        </Label>
+                        <div className="flex items-center gap-1">
+                          <Label className={`text-xs ${isModified ? "text-primary font-semibold" : "text-muted-foreground"}`}>
+                            {field.shortLabel || field.label}
+                            {field.isRequired && <span className="text-red-400 ml-0.5">*</span>}
+                            {isModified && <span className="ml-1 text-[9px]">(zmenené)</span>}
+                          </Label>
+                          {isSuperAdmin && (
+                            <button
+                              type="button"
+                              className={`ml-auto p-0.5 rounded hover:bg-muted ${existingNote ? "text-amber-400" : "text-muted-foreground/40 hover:text-muted-foreground"}`}
+                              title={existingNote || "Pridať internú poznámku"}
+                              onClick={() => {
+                                const note = prompt("Interná poznámka (viditeľná len SuperAdmin):", existingNote);
+                                if (note !== null && onFieldNoteChange) onFieldNoteChange(field.fieldKey, note);
+                              }}
+                              data-testid={`note-btn-${field.fieldKey}`}
+                            >
+                              <MessageSquare className="w-3 h-3" />
+                            </button>
+                          )}
+                        </div>
+                        {isSuperAdmin && existingNote && (
+                          <p className="text-[10px] text-amber-400/80 leading-tight -mt-0.5 italic" data-testid={`note-text-${field.fieldKey}`}>
+                            {existingNote}
+                          </p>
+                        )}
+                        {fieldHint && <p className="text-[10px] text-muted-foreground/70 leading-tight -mt-0.5">{fieldHint}</p>}
                         {field.fieldType === "switch" ? (
                           <div className="flex items-center gap-2 h-9">
                             <Switch
@@ -204,12 +294,14 @@ function CategoriesAccordion({
                     const value = getFieldValue(field.fieldKey);
                     if (!value) return null;
                     const isSummary = summaryFields[field.fieldKey];
+                    const hasNote = isSuperAdmin && fieldNotes?.[field.fieldKey];
                     return (
                       <div
                         key={field.fieldKey}
                         className={`h-10 flex items-center gap-2 px-3 rounded-md border ${
                           isSummary ? "border-primary/50 bg-primary/5" : "border-border bg-muted/30"
                         }`}
+                        title={hasNote ? `Poznámka: ${fieldNotes![field.fieldKey]}` : undefined}
                         data-testid={`field-${field.fieldKey}`}
                       >
                         <span className="text-xs text-muted-foreground whitespace-nowrap">
@@ -222,6 +314,7 @@ function CategoriesAccordion({
                               ? formatDateSlovak(value)
                               : value || "-"}
                         </span>
+                        {hasNote && <MessageSquare className="w-3 h-3 text-amber-400 shrink-0" />}
                         {pdfSidebarOpen && (
                           <button
                             onClick={() => toggleSummaryField(field.fieldKey)}
@@ -240,6 +333,7 @@ function CategoriesAccordion({
                   })}
                 </div>
               )}
+              {cat.code === "nezatriedene" && <UnclassifiedTrendsNotice />}
             </AccordionContent>
           </AccordionItem>
         );
@@ -261,10 +355,19 @@ export function SubjektView({ subject, showPdfSidebar = false }: SubjektViewProp
   const [isEditing, setIsEditing] = useState(false);
   const [editValues, setEditValues] = useState<Record<string, string>>({});
   const [editReason, setEditReason] = useState("");
+  const [fieldNotes, setFieldNotes] = useState<Record<string, string>>(() => {
+    const prefs = (subject as any).uiPreferences;
+    return prefs?.field_notes || {};
+  });
   const [summaryFields, setSummaryFields] = useState<Record<string, boolean>>(() => {
     const prefs = (subject as any).uiPreferences;
     return prefs?.summary_fields || {};
   });
+
+  const isSuperAdmin = useMemo(() => {
+    const name = (appUser as any)?.permissionGroup?.name?.toLowerCase() || "";
+    return name.includes("superadmin") || name.includes("prezident");
+  }, [appUser]);
 
   const { data: tabs, isLoading: tabsLoading } = useQuery<ClientDataTab[]>({
     queryKey: ["/api/client-data-tabs"],
@@ -466,6 +569,13 @@ export function SubjektView({ subject, showPdfSidebar = false }: SubjektViewProp
     const next = { ...summaryFields, [fieldKey]: !summaryFields[fieldKey] };
     setSummaryFields(next);
     updateUiPrefs.mutate({ summary_fields: next });
+  }
+
+  function handleFieldNoteChange(fieldKey: string, note: string) {
+    const next = { ...fieldNotes, [fieldKey]: note };
+    if (!note) delete next[fieldKey];
+    setFieldNotes(next);
+    updateUiPrefs.mutate({ field_notes: next });
   }
 
   if (tabsLoading || catsLoading) {
@@ -692,6 +802,9 @@ export function SubjektView({ subject, showPdfSidebar = false }: SubjektViewProp
                   summaryFields={summaryFields}
                   pdfSidebarOpen={pdfSidebarOpen}
                   toggleSummaryField={toggleSummaryField}
+                  isSuperAdmin={isSuperAdmin}
+                  fieldNotes={fieldNotes}
+                  onFieldNoteChange={handleFieldNoteChange}
                 />
               </TabsContent>
             );

@@ -5422,6 +5422,45 @@ export async function registerRoutes(
     }
   });
 
+  // === UNCLASSIFIED DATA TRENDS ===
+  app.get("/api/data-trends/unclassified", isAuthenticated, async (_req: any, res) => {
+    try {
+      const allSubjects = await storage.getSubjects();
+      const fieldCounts: Record<string, number> = {};
+      const knownStaticKeys = new Set([
+        "firstName", "lastName", "companyName", "email", "phone", "birthNumber",
+        "idCardNumber", "iban", "swift", "type", "uid", "details", "createdAt",
+        "deletedAt", "isActive", "listStatus", "bonitaPoints", "cgnRating",
+        "meno", "priezvisko", "telefon", "rodne_cislo", "cislo_dokladu", "bic",
+        "nazov_organizacie", "ico", "titul_pred", "titul_za", "datum_narodenia",
+        "vek", "pohlavie", "miesto_narodenia", "statna_prislusnost",
+      ]);
+
+      for (const subj of allSubjects) {
+        const details = (subj.details || {}) as Record<string, any>;
+        const dynFields = details.dynamicFields || {};
+        for (const key of Object.keys(dynFields)) {
+          if (!knownStaticKeys.has(key) && dynFields[key]) {
+            fieldCounts[key] = (fieldCounts[key] || 0) + 1;
+          }
+        }
+      }
+
+      const trends = Object.entries(fieldCounts)
+        .filter(([_, count]) => count >= 20)
+        .map(([fieldKey, count]) => ({ fieldKey, count, isTrend: true }))
+        .sort((a, b) => b.count - a.count);
+
+      const allUnclassified = Object.entries(fieldCounts)
+        .map(([fieldKey, count]) => ({ fieldKey, count, isTrend: count >= 20 }))
+        .sort((a, b) => b.count - a.count);
+
+      res.json({ trends, allUnclassified, totalSubjects: allSubjects.length });
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
   // === CLIENT MARKETING CONSENTS ===
   app.get("/api/subjects/:id/marketing-consents", isAuthenticated, async (req: any, res) => {
     try {
@@ -5453,13 +5492,22 @@ export async function registerRoutes(
     }
   });
 
-  // === SUBJECT UI PREFERENCES (summary_fields for PDF export) ===
+  // === SUBJECT UI PREFERENCES (summary_fields for PDF export, field_notes for SuperAdmin) ===
   app.patch("/api/subjects/:id/ui-preferences", isAuthenticated, async (req: any, res) => {
     try {
       const subjectId = Number(req.params.id);
-      const { summary_fields } = req.body;
-      if (!summary_fields || typeof summary_fields !== "object" || Array.isArray(summary_fields)) return res.status(400).json({ message: "summary_fields musí byť objekt" });
-      const updated = await storage.updateSubjectUiPreferences(subjectId, { summary_fields });
+      const { summary_fields, field_notes } = req.body;
+      const updatePayload: Record<string, any> = {};
+      if (summary_fields && typeof summary_fields === "object" && !Array.isArray(summary_fields)) {
+        updatePayload.summary_fields = summary_fields;
+      }
+      if (field_notes && typeof field_notes === "object" && !Array.isArray(field_notes)) {
+        updatePayload.field_notes = field_notes;
+      }
+      if (Object.keys(updatePayload).length === 0) {
+        return res.status(400).json({ message: "Musíte poskytnúť summary_fields alebo field_notes" });
+      }
+      const updated = await storage.updateSubjectUiPreferences(subjectId, updatePayload);
       res.json(updated);
     } catch (err: any) {
       res.status(500).json({ message: err.message });
