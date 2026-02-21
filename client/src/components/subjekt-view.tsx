@@ -14,7 +14,7 @@ import { Switch } from "@/components/ui/switch";
 import { Separator } from "@/components/ui/separator";
 import { Card, CardContent } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Loader2, UserCheck, Scale, Users, Wallet, BarChart3, Wifi, Archive, FileText, Eye, EyeOff, ChevronRight, Check, X, Plus } from "lucide-react";
+import { Loader2, UserCheck, Scale, Users, Wallet, BarChart3, Wifi, Archive, FileText, Eye, EyeOff, ChevronRight, Check, X, Plus, AlertTriangle, ShieldAlert, Ban } from "lucide-react";
 import { formatDateSlovak } from "@/lib/utils";
 
 const TAB_ICONS: Record<string, typeof UserCheck> = {
@@ -47,6 +47,11 @@ const FIELD_TO_CATEGORY: Record<string, string> = {
   dic: "zakonne", ic_dph: "zakonne",
   pep: "aml", pep_funkcia: "aml", pep_vztah: "aml",
   iban: "zmluvne", bic: "zmluvne", cislo_uctu: "zmluvne",
+  rodinny_kontakt_meno: "komunikacne", rodinny_kontakt_telefon: "komunikacne",
+  rodinny_kontakt_vztah: "komunikacne", zastihnutie: "komunikacne",
+  doruc_ulica: "geolokacie", doruc_mesto: "geolokacie", doruc_psc: "geolokacie",
+  doruc_stat: "geolokacie", doruc_rovnaka: "geolokacie",
+  cgn_rating: "bonita_disciplina",
 };
 
 const CONSENT_TYPES = [
@@ -162,15 +167,40 @@ export function SubjektView({ subject, showPdfSidebar = false }: SubjektViewProp
   const sortedTabs = [...(tabs || [])].filter(t => t.isActive).sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0));
   const activeCompanyId = appUser?.activeCompanyId;
 
+  const listStatus = (subject as any).listStatus as string | null;
+
   return (
     <div className="flex gap-4">
       <div className={pdfSidebarOpen ? "flex-1 min-w-0" : "w-full"}>
+        {listStatus === "cierny" && (
+          <div className="mb-3 flex items-center gap-3 rounded border border-red-900 bg-red-950/80 px-4 py-3 text-red-200" data-testid="banner-cierny-zoznam">
+            <Ban className="w-5 h-5 text-red-400 shrink-0" />
+            <div>
+              <span className="font-bold text-red-300 uppercase tracking-wide">ČIERNY ZOZNAM</span>
+              <span className="ml-2 text-sm">Subjekt je na čiernom zozname. Zmluvná činnosť je zakázaná.</span>
+            </div>
+          </div>
+        )}
+        {listStatus === "cerveny" && (
+          <div className="mb-3 flex items-center gap-3 rounded border border-orange-700 bg-orange-950/80 px-4 py-3 text-orange-200" data-testid="banner-cerveny-zoznam">
+            <AlertTriangle className="w-5 h-5 text-orange-400 shrink-0" />
+            <div>
+              <span className="font-bold text-orange-300 uppercase tracking-wide">ČERVENÝ ZOZNAM</span>
+              <span className="ml-2 text-sm">Subjekt dosiahol -5 bodov za posledných 10 rokov. Zvýšená opatrnosť.</span>
+            </div>
+          </div>
+        )}
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-2">
             <Badge variant="outline" className="text-xs">
               {isPerson ? "FO" : isSzco ? "SZČO" : "PO"}
             </Badge>
             <span className="text-xs text-muted-foreground font-mono">{subject.uid}</span>
+            {listStatus && (
+              <Badge variant={listStatus === "cierny" ? "destructive" : "secondary"} className={listStatus === "cierny" ? "bg-red-900 text-red-200" : "bg-orange-900 text-orange-200"}>
+                {listStatus === "cierny" ? "Čierny zoznam" : "Červený zoznam"}
+              </Badge>
+            )}
           </div>
           {showPdfSidebar && (
             <Button

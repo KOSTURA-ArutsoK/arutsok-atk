@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useCallback } from "react";
+import { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import { useSubjects, useCreateSubject, useSubjectCareerHistory } from "@/hooks/use-subjects";
 import { useStates } from "@/hooks/use-hierarchy";
 import { useMyCompanies } from "@/hooks/use-companies";
@@ -7,7 +7,7 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { formatDateSlovak, formatDateTimeSlovak } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, Search, User, Building2, AlertTriangle, Eye, Calendar, Briefcase, ArrowRight, ArrowLeft, ExternalLink, History, Clock, Wallet, Loader2, CheckCircle2, Pencil, Lock, Users, X, Info, Link2, Unlink, Trash2, CreditCard, Archive } from "lucide-react";
+import { Plus, Search, User, Building2, AlertTriangle, Eye, Calendar, Briefcase, ArrowRight, ArrowLeft, ExternalLink, History, Clock, Wallet, Loader2, CheckCircle2, Pencil, Lock, Users, X, Info, Link2, Unlink, Trash2, CreditCard, Archive, Ban } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -770,7 +770,33 @@ function EntityLinksTab({ subject }: { subject: Subject }) {
 function SubjectDetailDialog({ subject, onClose }: { subject: Subject; onClose: () => void }) {
   const { data: careerHistory, isLoading } = useSubjectCareerHistory(subject.id);
   const { data: companies } = useMyCompanies();
+  const { data: appUser } = useAppUser();
+  const { toast } = useToast();
   const managingCompany = companies?.find(c => c.id === subject.myCompanyId);
+
+  const isSuperAdmin = useMemo(() => {
+    const name = (appUser as any)?.permissionGroup?.name?.toLowerCase() || "";
+    return name.includes("superadmin") || name.includes("prezident");
+  }, [appUser]);
+
+  const { data: bonitaSummary } = useQuery<any>({
+    queryKey: ["/api/subjects", subject.id, "bonita-summary"],
+    queryFn: () => apiRequest("GET", `/api/subjects/${subject.id}/bonita-summary`).then(r => r.json()),
+  });
+
+  const toggleListStatus = useMutation({
+    mutationFn: async (data: { listStatus: string | null; reason?: string }) => {
+      return apiRequest("PATCH", `/api/subjects/${subject.id}/list-status`, data);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/subjects"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/subjects", subject.id, "bonita-summary"] });
+      toast({ title: "Stav zoznamu aktualizovaný" });
+    },
+    onError: (err: any) => {
+      toast({ title: "Chyba", description: err.message || "Nepodarilo sa zmeniť stav", variant: "destructive" });
+    },
+  });
 
   const formatDate = (d: string | null) => d ? formatDateSlovak(d) : null;
 
@@ -807,6 +833,24 @@ function SubjectDetailDialog({ subject, onClose }: { subject: Subject; onClose: 
         </DialogHeader>
 
         <DialogScrollContent>
+        {(subject as any).listStatus === "cierny" && (
+          <div className="mx-6 mb-3 flex items-center gap-3 rounded border border-red-900 bg-red-950/80 px-4 py-3 text-red-200" data-testid="dialog-banner-cierny-zoznam">
+            <Ban className="w-5 h-5 text-red-400 shrink-0" />
+            <div>
+              <span className="font-bold text-red-300 uppercase tracking-wide">ČIERNY ZOZNAM</span>
+              <span className="ml-2 text-sm">Subjekt je na čiernom zozname. Zmluvná činnosť je zakázaná.</span>
+            </div>
+          </div>
+        )}
+        {(subject as any).listStatus === "cerveny" && (
+          <div className="mx-6 mb-3 flex items-center gap-3 rounded border border-orange-700 bg-orange-950/80 px-4 py-3 text-orange-200" data-testid="dialog-banner-cerveny-zoznam">
+            <AlertTriangle className="w-5 h-5 text-orange-400 shrink-0" />
+            <div>
+              <span className="font-bold text-orange-300 uppercase tracking-wide">ČERVENÝ ZOZNAM</span>
+              <span className="ml-2 text-sm">Subjekt dosiahol -5 bodov za posledných 10 rokov. Zvýšená opatrnosť.</span>
+            </div>
+          </div>
+        )}
         <Tabs defaultValue="udaje" className="flex-1">
           <TabsList data-testid="tabs-subject-detail">
             <TabsTrigger value="udaje" data-testid="tab-subject-udaje">
@@ -892,6 +936,67 @@ function SubjectDetailDialog({ subject, onClose }: { subject: Subject; onClose: 
                         </div>
                       </div>
                     ))}
+                  </div>
+                )}
+              </div>
+
+              <Separator />
+
+              <div>
+                <div className="flex items-center gap-2 mb-3 flex-wrap">
+                  <ShieldCheck className="w-4 h-4 text-primary" />
+                  <h3 className="text-sm font-semibold">Bonita a Disciplína</h3>
+                </div>
+
+                <div className="grid grid-cols-3 gap-4 mb-4">
+                  <div className="rounded border p-3">
+                    <span className="text-xs text-muted-foreground block mb-1">Body celkom</span>
+                    <span className={`text-lg font-bold ${(bonitaSummary?.totalPoints ?? 0) < 0 ? "text-red-400" : (bonitaSummary?.totalPoints ?? 0) > 0 ? "text-green-400" : ""}`} data-testid="text-bonita-points">
+                      {bonitaSummary?.totalPoints ?? 0}
+                    </span>
+                  </div>
+                  <div className="rounded border p-3">
+                    <span className="text-xs text-muted-foreground block mb-1">CGN Rating</span>
+                    <span className="text-lg font-bold" data-testid="text-cgn-rating">{bonitaSummary?.cgnRating || "-"}</span>
+                  </div>
+                  <div className="rounded border p-3">
+                    <span className="text-xs text-muted-foreground block mb-1">Stav zoznamu</span>
+                    <span data-testid="text-list-status" className={`text-sm font-semibold ${bonitaSummary?.listStatus === "cierny" ? "text-red-400" : bonitaSummary?.listStatus === "cerveny" ? "text-orange-400" : "text-green-400"}`}>
+                      {bonitaSummary?.listStatus === "cierny" ? "Čierny zoznam" : bonitaSummary?.listStatus === "cerveny" ? "Červený zoznam" : "Čistý"}
+                    </span>
+                  </div>
+                </div>
+
+                {bonitaSummary?.crossCompanyCount > 1 && (
+                  <div className="text-xs text-muted-foreground mb-3" data-testid="text-cross-company-count">
+                    Subjekt evidovaný v {bonitaSummary.crossCompanyCount} firmách (globálny výpočet bodov)
+                  </div>
+                )}
+
+                {isSuperAdmin && (
+                  <div className="flex items-center gap-2 flex-wrap" data-testid="section-list-status-controls">
+                    {(subject as any).listStatus === "cierny" ? (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => toggleListStatus.mutate({ listStatus: null, reason: "Manuálne zrušenie SuperAdminom" })}
+                        disabled={toggleListStatus.isPending}
+                        data-testid="button-remove-blacklist"
+                      >
+                        Zrušiť Čierny zoznam
+                      </Button>
+                    ) : (
+                      <Button
+                        variant="destructive"
+                        size="sm"
+                        onClick={() => toggleListStatus.mutate({ listStatus: "cierny", reason: "Manuálne zaradenie SuperAdminom" })}
+                        disabled={toggleListStatus.isPending}
+                        data-testid="button-add-blacklist"
+                      >
+                        <Ban className="w-3.5 h-3.5 mr-1" />
+                        Zaradiť na Čierny zoznam
+                      </Button>
+                    )}
                   </div>
                 )}
               </div>
@@ -3389,7 +3494,11 @@ export default function Subjects() {
                       })()}
                     </TableCell>}
                     {columnVisibility.isVisible("firstName") && <TableCell className="font-medium align-middle" data-testid={`text-fullname-${subject.id}`}>
-                      {fullName}
+                      <span className="flex items-center gap-1.5">
+                        {fullName}
+                        {(subject as any).listStatus === "cierny" && <span title="Čierny zoznam"><Ban className="w-3.5 h-3.5 text-red-500 shrink-0" /></span>}
+                        {(subject as any).listStatus === "cerveny" && <span title="Červený zoznam"><AlertTriangle className="w-3.5 h-3.5 text-orange-500 shrink-0" /></span>}
+                      </span>
                     </TableCell>}
                     {columnVisibility.isVisible("type") && <TableCell className="align-middle">
                       <div className="flex items-center gap-2 text-muted-foreground text-xs">

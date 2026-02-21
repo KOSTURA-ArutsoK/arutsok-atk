@@ -4,7 +4,7 @@ import { storage } from "./storage";
 import { api } from "@shared/routes";
 import { setupAuth, registerAuthRoutes, isAuthenticated } from "./replit_integrations/auth";
 import { z } from "zod";
-import { continents, states, myCompanies, appUsers, clientTypes, clientSubGroups, clientGroupMembers, productFolderAssignments, folderPanels, panelParameters, userClientGroupMemberships, clientGroups, permissionGroups, insertCareerLevelSchema, insertProductPointRateSchema, careerLevels, importLogs, commissions, contracts, contractStatuses, contractStatusChangeLogs, clientDataTabs, clientDataCategories } from "@shared/schema";
+import { continents, states, myCompanies, appUsers, clientTypes, clientSubGroups, clientGroupMembers, productFolderAssignments, folderPanels, panelParameters, userClientGroupMemberships, clientGroups, permissionGroups, insertCareerLevelSchema, insertProductPointRateSchema, careerLevels, importLogs, commissions, contracts, contractStatuses, contractStatusChangeLogs, clientDataTabs, clientDataCategories, subjects } from "@shared/schema";
 import { db } from "./db";
 import { eq } from "drizzle-orm";
 import multer from "multer";
@@ -1909,6 +1909,41 @@ export async function registerRoutes(
       if (status?.assignsNumber && !contract.globalNumber) {
         const counter = await storage.getNextCounterValue("global_contract_number");
         await storage.updateContract(contractId, { globalNumber: counter } as any);
+      }
+
+      if (status?.isStorno && contract.subjectId) {
+        try {
+          const subject = await storage.getSubject(contract.subjectId);
+          if (subject) {
+            const signedDate = contract.signedDate ? new Date(contract.signedDate) : contract.createdAt ? new Date(contract.createdAt) : null;
+            const now = new Date();
+            const yearsActive = signedDate ? (now.getTime() - signedDate.getTime()) / (365.25 * 24 * 60 * 60 * 1000) : 0;
+            let points = -1;
+            let reason = "Storno zmluvy do 1 roka";
+            if (yearsActive >= 2) {
+              points = 2;
+              reason = "Storno zmluvy po 2+ rokoch (+2)";
+            } else if (yearsActive >= 1) {
+              points = 1;
+              reason = "Storno zmluvy po 1+ roku (+1)";
+            }
+            const identifierType = subject.birthNumber ? "rc" : "ico";
+            const identifierValue = subject.birthNumber || ((subject.details as any)?.ico || (subject.details as any)?.dynamicFields?.ico);
+            await storage.addSubjectPoints({
+              subjectId: contract.subjectId,
+              contractId,
+              points,
+              reason,
+              identifierType: identifierValue ? identifierType : null,
+              identifierValue: identifierValue || null,
+              companyId: contract.companyId,
+            });
+            await storage.recalculateBonitaPoints(contract.subjectId);
+            console.log(`[BONITA] Points ${points > 0 ? '+' : ''}${points} for subject ${contract.subjectId} (contract ${contractId})`);
+          }
+        } catch (bonitaErr) {
+          console.error("[BONITA] Error calculating points:", bonitaErr);
+        }
       }
 
       await logAudit(req, {
@@ -5403,6 +5438,103 @@ export async function registerRoutes(
       const { summary_fields } = req.body;
       if (!summary_fields || typeof summary_fields !== "object" || Array.isArray(summary_fields)) return res.status(400).json({ message: "summary_fields musí byť objekt" });
       const updated = await storage.updateSubjectUiPreferences(subjectId, { summary_fields });
+      res.json(updated);
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  // === SUBJECT BONITA POINTS LOG ===
+  app.get("/api/subjects/:id/points-log", isAuthenticated, async (req: any, res) => {
+    try {
+      const subjectId = Number(req.params.id);
+      const logs = await storage.getSubjectPointsLog(subjectId);
+      res.json(logs);
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  app.get("/api/subjects/:id/bonita-summary", isAuthenticated, async (req: any, res) => {
+    try {
+      const subjectId = Number(req.params.id);
+      const subject = await storage.getSubject(subjectId);
+      if (!subject) return res.status(404).json({ message: "Subjekt nenajdeny" });
+      const identifierType = subject.birthNumber ? "rc" : "ico";
+      const identifierValue = subject.birthNumber || ((subject.details as any)?.ico || (subject.details as any)?.dynamicFields?.ico);
+      let globalLogs: any[] = [];
+      let crossCompanySubjects: any[] = [];
+      if (identifierValue) {
+        globalLogs = await storage.getPointsByIdentifier(identifierType, identifierValue, 10);
+        crossCompanySubjects = await storage.findSubjectsByIdentifier(identifierType, identifierValue);
+      } else {
+        globalLogs = await storage.getSubjectPointsLog(subjectId);
+      }
+      const totalPoints = globalLogs.reduce((sum: number, l: any) => sum + l.points, 0);
+      res.json({
+        totalPoints,
+        listStatus: subject.listStatus,
+        cgnRating: subject.cgnRating,
+        logs: globalLogs,
+        crossCompanyCount: crossCompanySubjects.length,
+        identifierType: identifierValue ? identifierType : null,
+        identifierValue: identifierValue || null,
+      });
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  // === SUBJECT LIST STATUS (Červený/Čierny zoznam) ===
+  app.patch("/api/subjects/:id/list-status", isAuthenticated, async (req: any, res) => {
+    try {
+      const appUser = req.appUser;
+      const subjectId = Number(req.params.id);
+      const { listStatus, reason } = req.body;
+
+      if (listStatus === "cierny" || listStatus === null) {
+        const userPerms = appUser?.permissionGroup;
+        const isSuperAdmin = userPerms?.name?.toLowerCase().includes("superadmin") || userPerms?.name?.toLowerCase().includes("prezident");
+        if (!isSuperAdmin) {
+          return res.status(403).json({ message: "Len SuperAdmin/Prezident môže meniť Čierny zoznam" });
+        }
+      }
+
+      if (listStatus !== "cerveny" && listStatus !== "cierny" && listStatus !== null) {
+        return res.status(400).json({ message: "Neplatný stav zoznamu" });
+      }
+
+      const updated = await storage.updateSubjectListStatus(subjectId, listStatus, appUser?.id || 0, reason);
+
+      await logAudit(req, {
+        action: "UPDATE",
+        module: "subjekty",
+        entityId: subjectId,
+        entityName: `Zmena listu: ${listStatus || 'zrušený'}`,
+        oldData: {},
+        newData: { listStatus, reason },
+      });
+
+      res.json(updated);
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  // === CGN RATING UPDATE ===
+  app.patch("/api/subjects/:id/cgn-rating", isAuthenticated, async (req: any, res) => {
+    try {
+      const subjectId = Number(req.params.id);
+      const { cgnRating } = req.body;
+      const [updated] = await db.update(subjects).set({ cgnRating }).where(eq(subjects.id, subjectId)).returning();
+      await logAudit(req, {
+        action: "UPDATE",
+        module: "subjekty",
+        entityId: subjectId,
+        entityName: `CGN rating: ${cgnRating || 'zrušený'}`,
+        oldData: {},
+        newData: { cgnRating },
+      });
       res.json(updated);
     } catch (err: any) {
       res.status(500).json({ message: err.message });

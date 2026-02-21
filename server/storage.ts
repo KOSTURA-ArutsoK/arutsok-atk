@@ -101,6 +101,8 @@ import {
   type ClientDataTab, type InsertClientDataTab,
   type ClientDataCategory, type InsertClientDataCategory,
   type ClientMarketingConsent, type InsertClientMarketingConsent,
+  subjectPointsLog,
+  type SubjectPointsLog, type InsertSubjectPointsLog,
 } from "@shared/schema";
 import { eq, and, or, ne, like, sql, lte, gte, gt, desc, asc, isNull, isNotNull, inArray } from "drizzle-orm";
 
@@ -508,6 +510,13 @@ export interface IStorage {
   upsertClientMarketingConsent(data: InsertClientMarketingConsent): Promise<ClientMarketingConsent>;
 
   updateSubjectUiPreferences(subjectId: number, prefs: { summary_fields: Record<string, boolean> }): Promise<Subject>;
+
+  getSubjectPointsLog(subjectId: number): Promise<SubjectPointsLog[]>;
+  getPointsByIdentifier(identifierType: string, identifierValue: string, windowYears?: number): Promise<SubjectPointsLog[]>;
+  addSubjectPoints(data: InsertSubjectPointsLog): Promise<SubjectPointsLog>;
+  recalculateBonitaPoints(subjectId: number): Promise<number>;
+  findSubjectsByIdentifier(identifierType: string, identifierValue: string): Promise<Subject[]>;
+  updateSubjectListStatus(subjectId: number, listStatus: "cerveny" | "cierny" | null, changedByUserId: number, reason?: string): Promise<Subject>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -3042,6 +3051,81 @@ export class DatabaseStorage implements IStorage {
 
   async updateSubjectUiPreferences(subjectId: number, prefs: { summary_fields: Record<string, boolean> }): Promise<Subject> {
     const [updated] = await db.update(subjects).set({ uiPreferences: prefs }).where(eq(subjects.id, subjectId)).returning();
+    return updated;
+  }
+
+  async getSubjectPointsLog(subjectId: number): Promise<SubjectPointsLog[]> {
+    return await db.select().from(subjectPointsLog)
+      .where(eq(subjectPointsLog.subjectId, subjectId))
+      .orderBy(desc(subjectPointsLog.createdAt));
+  }
+
+  async getPointsByIdentifier(identifierType: string, identifierValue: string, windowYears: number = 10): Promise<SubjectPointsLog[]> {
+    const cutoffDate = new Date();
+    cutoffDate.setFullYear(cutoffDate.getFullYear() - windowYears);
+    return await db.select().from(subjectPointsLog)
+      .where(and(
+        eq(subjectPointsLog.identifierType, identifierType),
+        eq(subjectPointsLog.identifierValue, identifierValue),
+        gte(subjectPointsLog.createdAt, cutoffDate)
+      ))
+      .orderBy(desc(subjectPointsLog.createdAt));
+  }
+
+  async addSubjectPoints(data: InsertSubjectPointsLog): Promise<SubjectPointsLog> {
+    const [created] = await db.insert(subjectPointsLog).values(data).returning();
+    return created;
+  }
+
+  async recalculateBonitaPoints(subjectId: number): Promise<number> {
+    const subject = await this.getSubject(subjectId);
+    if (!subject) return 0;
+
+    const identifierType = subject.birthNumber ? "rc" : "ico";
+    const identifierValue = subject.birthNumber || (subject as any).details?.ico;
+    if (!identifierValue) {
+      const logs = await this.getSubjectPointsLog(subjectId);
+      const total = logs.reduce((sum, l) => sum + l.points, 0);
+      await db.update(subjects).set({ bonitaPoints: total }).where(eq(subjects.id, subjectId));
+      return total;
+    }
+
+    const allLogs = await this.getPointsByIdentifier(identifierType, identifierValue, 10);
+    const total = allLogs.reduce((sum, l) => sum + l.points, 0);
+
+    const allSubjects = await this.findSubjectsByIdentifier(identifierType, identifierValue);
+    for (const s of allSubjects) {
+      await db.update(subjects).set({ bonitaPoints: total }).where(eq(subjects.id, s.id));
+      if (total <= -5 && s.listStatus !== "cierny") {
+        await db.update(subjects).set({
+          listStatus: "cerveny",
+          listStatusReason: `Automaticky: bodové saldo ${total} (prah -5)`,
+          listStatusChangedAt: new Date(),
+        }).where(and(eq(subjects.id, s.id), isNull(subjects.listStatus)));
+      }
+    }
+    return total;
+  }
+
+  async findSubjectsByIdentifier(identifierType: string, identifierValue: string): Promise<Subject[]> {
+    if (identifierType === "rc") {
+      return await db.select().from(subjects)
+        .where(and(eq(subjects.birthNumber, identifierValue), isNull(subjects.deletedAt)));
+    }
+    const allSubjects = await db.select().from(subjects).where(isNull(subjects.deletedAt));
+    return allSubjects.filter(s => {
+      const details = (s.details || {}) as Record<string, any>;
+      return details.ico === identifierValue || details.dynamicFields?.ico === identifierValue;
+    });
+  }
+
+  async updateSubjectListStatus(subjectId: number, listStatus: "cerveny" | "cierny" | null, changedByUserId: number, reason?: string): Promise<Subject> {
+    const [updated] = await db.update(subjects).set({
+      listStatus,
+      listStatusChangedBy: changedByUserId,
+      listStatusChangedAt: new Date(),
+      listStatusReason: reason || null,
+    }).where(eq(subjects.id, subjectId)).returning();
     return updated;
   }
 }

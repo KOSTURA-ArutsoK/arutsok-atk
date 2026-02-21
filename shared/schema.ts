@@ -245,6 +245,12 @@ export const subjects = pgTable("subjects", {
   processingTimeSec: integer("processing_time_sec").default(0),
   isActive: boolean("is_active").default(true),
   isDeceased: boolean("is_deceased").default(false),
+  listStatus: text("list_status").$type<"cerveny" | "cierny" | null>(),
+  listStatusChangedBy: integer("list_status_changed_by").references(() => appUsers.id),
+  listStatusChangedAt: timestamp("list_status_changed_at"),
+  listStatusReason: text("list_status_reason"),
+  bonitaPoints: integer("bonita_points").default(0),
+  cgnRating: text("cgn_rating"),
   registeredByUserId: integer("registered_by_user_id").references(() => appUsers.id),
   createdAt: timestamp("created_at").defaultNow(),
   deletedAt: timestamp("deleted_at"),
@@ -545,6 +551,7 @@ export const contractStatuses = pgTable("contract_statuses", {
   assignsNumber: boolean("assigns_number").default(false),
   definesContractEnd: boolean("defines_contract_end").default(false),
   isIntervention: boolean("is_intervention").default(false),
+  isStorno: boolean("is_storno").default(false),
   stateId: integer("state_id").references(() => states.id),
   createdAt: timestamp("created_at").defaultNow(),
   deletedAt: timestamp("deleted_at"),
@@ -1325,6 +1332,23 @@ export type ImportLog = typeof importLogs.$inferSelect;
 export type InsertImportLog = z.infer<typeof insertImportLogSchema>;
 export type Commission = typeof commissions.$inferSelect;
 export type InsertCommission = z.infer<typeof insertCommissionSchema>;
+
+// === SUBJECT POINTS LOG (Bonita point tracking) ===
+export const subjectPointsLog = pgTable("subject_points_log", {
+  id: serial("id").primaryKey(),
+  subjectId: integer("subject_id").notNull().references(() => subjects.id),
+  contractId: integer("contract_id").references(() => contracts.id),
+  points: integer("points").notNull(),
+  reason: text("reason").notNull(),
+  identifierType: text("identifier_type"),
+  identifierValue: text("identifier_value"),
+  companyId: integer("company_id").references(() => myCompanies.id),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertSubjectPointsLogSchema = createInsertSchema(subjectPointsLog).omit({ id: true, createdAt: true });
+export type SubjectPointsLog = typeof subjectPointsLog.$inferSelect;
+export type InsertSubjectPointsLog = z.infer<typeof insertSubjectPointsLogSchema>;
 
 // === CLIENT DATA TABS (7 logical tabs for SubjektView) ===
 export const clientDataTabs = pgTable("client_data_tabs", {
