@@ -3327,7 +3327,9 @@ const FILTER_ORDER: SubjectStatusCategory[] = ["other_company", "deceased", "no_
 const SUBJECTS_COLUMNS: ColumnDef[] = [
   { key: "uid", label: "UID" },
   { key: "status", label: "Status" },
+  { key: "titul", label: "Titul" },
   { key: "firstName", label: "Cele meno / Nazov" },
+  { key: "ulica", label: "Ulica" },
   { key: "type", label: "Typ subjektu" },
   { key: "managingCompany", label: "Spravujuca firma" },
 ];
@@ -3519,19 +3521,29 @@ export default function Subjects() {
                     </TableHead>
                     {columnVisibility.isVisible("uid") && <TableHead sortKey="uid" sortDirection={sortKey === "uid" ? sortDirection : null} onSort={requestSort}>UID</TableHead>}
                     {columnVisibility.isVisible("status") && <TableHead style={{ maxWidth: '150px' }}>Status</TableHead>}
+                    {columnVisibility.isVisible("titul") && <TableHead>Titul</TableHead>}
                     {columnVisibility.isVisible("firstName") && <TableHead sortKey="firstName" sortDirection={sortKey === "firstName" ? sortDirection : null} onSort={requestSort}>Cele meno / Nazov</TableHead>}
+                    {columnVisibility.isVisible("ulica") && <TableHead>Ulica</TableHead>}
                     {columnVisibility.isVisible("type") && <TableHead sortKey="type" sortDirection={sortKey === "type" ? sortDirection : null} onSort={requestSort}>Typ subjektu</TableHead>}
                     {columnVisibility.isVisible("managingCompany") && <TableHead>Spravujuca firma</TableHead>}
                     <TableHead className="w-[100px]">Akcie</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  <TableRow style={{ display: isLoading ? 'table-row' : 'none' }}><TableCell colSpan={7} className="text-center py-8 text-muted-foreground">Nacitavam...</TableCell></TableRow>
-                  <TableRow style={{ display: !isLoading && (!subjects || subjects.length === 0) ? 'table-row' : 'none' }}><TableCell colSpan={7} className="text-center py-12 text-muted-foreground" data-testid="text-empty-subjects">Ziadne subjekty nenajdene</TableCell></TableRow>
+                  <TableRow style={{ display: isLoading ? 'table-row' : 'none' }}><TableCell colSpan={9} className="text-center py-8 text-muted-foreground">Nacitavam...</TableCell></TableRow>
+                  <TableRow style={{ display: !isLoading && (!subjects || subjects.length === 0) ? 'table-row' : 'none' }}><TableCell colSpan={9} className="text-center py-12 text-muted-foreground" data-testid="text-empty-subjects">Ziadne subjekty nenajdene</TableCell></TableRow>
                   {sortedData.map((subject) => {
                     const details = (subject.details || {}) as Record<string, any>;
-                    const titulPred = details.titul_pred || details.titleBefore || '';
-                    const titulZa = details.titul_za || details.titleAfter || '';
+                    const dynFields = details.dynamicFields || {};
+                    const titulPred = dynFields.titul_pred || details.titul_pred || details.titleBefore || '';
+                    const titulZa = dynFields.titul_za || details.titul_za || details.titleAfter || '';
+                    const titulCompact = [titulPred, titulZa].filter(Boolean).join(' / ') || '-';
+                    const ulicaVal = (() => {
+                      if (subject.type === 'person' || subject.type === 'szco') {
+                        return dynFields.tp_ulica || details.tp_ulica || '';
+                      }
+                      return dynFields.sidlo_ulica || details.sidlo_ulica || '';
+                    })() || '-';
                     const subjectTypeCode = (() => {
                       if (subject.type === 'person') return 'FO';
                       if (subject.type === 'szco') return 'SZCO';
@@ -3585,6 +3597,7 @@ export default function Subjects() {
                             );
                           })()}
                         </TableCell>}
+                        {columnVisibility.isVisible("titul") && <TableCell className="text-xs text-muted-foreground align-middle" data-testid={`text-titul-${subject.id}`}>{titulCompact}</TableCell>}
                         {columnVisibility.isVisible("firstName") && <TableCell className="font-medium align-middle" data-testid={`text-fullname-${subject.id}`}>
                           <span className="flex items-center gap-1.5">
                             {fullName}
@@ -3592,6 +3605,7 @@ export default function Subjects() {
                             {(subject as any).listStatus === "cerveny" && <span title="Červený zoznam"><AlertTriangle className="w-3.5 h-3.5 text-orange-500 shrink-0" /></span>}
                           </span>
                         </TableCell>}
+                        {columnVisibility.isVisible("ulica") && <TableCell className="text-xs text-muted-foreground align-middle" data-testid={`text-ulica-${subject.id}`}>{ulicaVal}</TableCell>}
                         {columnVisibility.isVisible("type") && <TableCell className="align-middle">
                           <div className="flex items-center gap-2 text-muted-foreground text-xs">
                             {subject.type === 'person' ? <User className="w-3 h-3 flex-shrink-0" /> : <Building2 className="w-3 h-3 flex-shrink-0" />}

@@ -91,9 +91,12 @@ const FIELD_TO_CATEGORY: Record<string, string> = {
   iban: "zmluvne", bic: "zmluvne", cislo_uctu: "zmluvne",
   rodinny_kontakt_meno: "komunikacne", rodinny_kontakt_telefon: "komunikacne",
   rodinny_kontakt_vztah: "komunikacne", zastihnutie: "komunikacne",
-  doruc_ulica: "geolokacie", doruc_mesto: "geolokacie", doruc_psc: "geolokacie",
-  doruc_stat: "geolokacie", doruc_rovnaka: "geolokacie",
-  cgn_rating: "bonita_disciplina",
+  doruc_ulica: "geolokacne", doruc_mesto: "geolokacne", doruc_psc: "geolokacne",
+  doruc_stat: "geolokacne", doruc_rovnaka: "geolokacne",
+  spz: "majetkove", vin: "majetkove",
+  statutar_meno_1: "pravne", statutar_rc_1: "pravne", statutar_funkcia_1: "pravne",
+  statutar_meno_2: "pravne", statutar_rc_2: "pravne", statutar_funkcia_2: "pravne",
+  cgn_rating: "bonita",
 };
 
 const CONSENT_TYPES = [
@@ -500,7 +503,8 @@ export function SubjektView({ subject, showPdfSidebar = false, isClientView = fa
   const isPep = useMemo(() => {
     const det = (subject as any).details || {};
     const dynFields = det.dynamicFields || {};
-    return dynFields.pep === "true" || dynFields.pep === "\u00e1no";
+    const pepVal = (dynFields.pep || "").toLowerCase();
+    return pepVal === "true" || pepVal === "áno" || pepVal === "ano";
   }, [subject]);
 
   const isPerson = subject.type === "person";
