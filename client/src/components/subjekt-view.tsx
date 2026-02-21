@@ -333,23 +333,19 @@ export function SubjektView({ subject, showPdfSidebar = false }: SubjektViewProp
 
   const saveEdit = useMutation({
     mutationFn: async () => {
-      const staticKeys = new Set([
-        "firstName", "lastName", "companyName", "email", "phone",
-        "iban", "swift", "idCardNumber", "birthNumber",
-        "continentId", "stateId", "myCompanyId",
-      ]);
       const payload: Record<string, any> = {};
       const dynUpdates: Record<string, any> = {};
 
-      for (const [key, val] of Object.entries(editValues)) {
-        if (staticKeys.has(key)) {
-          if (key === "continentId" || key === "stateId" || key === "myCompanyId") {
-            payload[key] = val ? parseInt(val) : null;
+      for (const [fieldKey, val] of Object.entries(editValues)) {
+        const colName = FIELD_TO_SUBJECT_COLUMN[fieldKey];
+        if (colName) {
+          if (INT_COLUMNS.has(colName)) {
+            payload[colName] = val ? parseInt(val) : null;
           } else {
-            payload[key] = val;
+            payload[colName] = val;
           }
         } else {
-          dynUpdates[key] = val;
+          dynUpdates[fieldKey] = val;
         }
       }
 
@@ -398,7 +394,36 @@ export function SubjektView({ subject, showPdfSidebar = false }: SubjektViewProp
   const details = (subject.details || {}) as Record<string, any>;
   const dynamicFields = details.dynamicFields || details;
 
+  const FIELD_TO_SUBJECT_COLUMN: Record<string, string> = {
+    meno: "firstName",
+    priezvisko: "lastName",
+    nazov_organizacie: "companyName",
+    email: "email",
+    telefon: "phone",
+    rodne_cislo: "birthNumber",
+    cislo_dokladu: "idCardNumber",
+    iban: "iban",
+    bic: "swift",
+    firstName: "firstName",
+    lastName: "lastName",
+    companyName: "companyName",
+    phone: "phone",
+    birthNumber: "birthNumber",
+    idCardNumber: "idCardNumber",
+    swift: "swift",
+    continentId: "continentId",
+    stateId: "stateId",
+    myCompanyId: "myCompanyId",
+  };
+
+  const INT_COLUMNS = new Set(["continentId", "stateId", "myCompanyId"]);
+
   function getFieldValue(fieldKey: string): string {
+    const col = FIELD_TO_SUBJECT_COLUMN[fieldKey];
+    if (col) {
+      const v = (subject as any)[col];
+      return v != null ? String(v) : "";
+    }
     if (dynamicFields[fieldKey] !== undefined) return String(dynamicFields[fieldKey] || "");
     if (details[fieldKey] !== undefined) return String(details[fieldKey] || "");
     return "";
@@ -589,18 +614,33 @@ export function SubjektView({ subject, showPdfSidebar = false }: SubjektViewProp
           </div>
         </div>
 
+        <div className="flex items-center justify-between mb-1">
+          <div className="text-[10px] text-muted-foreground" data-testid="debug-category-count">
+            Počet nájdených kategórií pre tento subjekt: {categories?.length ?? 0} | Záložky: {sortedTabs.length} | Polia: {typeFields.length}
+          </div>
+        </div>
+
         <Tabs defaultValue={sortedTabs[0]?.code || "identita"} data-testid="tabs-subjekt-view">
-          <TabsList className="flex flex-wrap h-auto gap-1" data-testid="tablist-subjekt-view">
+          <TabsList className="flex flex-wrap h-auto gap-1 p-1 bg-muted/50 border border-border" data-testid="tablist-subjekt-view">
             {sortedTabs.map(tab => {
               const Icon = getTabIcon(tab.icon || "FileText");
               const tabCats = categoriesByTab[tab.id] || [];
               const totalFields = tabCats.reduce((sum, cat) => sum + (fieldsByCategory[cat.code]?.length || 0), 0);
+              const catCount = tabCats.length;
               return (
-                <TabsTrigger key={tab.code} value={tab.code} className="text-xs px-2 py-1.5" data-testid={`tab-${tab.code}`}>
-                  <Icon className="w-3.5 h-3.5 mr-1" />
+                <TabsTrigger
+                  key={tab.code}
+                  value={tab.code}
+                  className="text-xs px-3 py-2 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-md data-[state=active]:font-semibold transition-all"
+                  data-testid={`tab-${tab.code}`}
+                >
+                  <Icon className="w-3.5 h-3.5 mr-1.5" />
                   {tab.name}
+                  <Badge variant="outline" className="ml-1.5 text-[9px] px-1 py-0 h-4">
+                    {catCount}
+                  </Badge>
                   {totalFields > 0 && (
-                    <Badge variant="secondary" className="ml-1 text-[9px] px-1 py-0 h-4">{totalFields}</Badge>
+                    <Badge variant="secondary" className="ml-0.5 text-[9px] px-1 py-0 h-4">{totalFields}</Badge>
                   )}
                 </TabsTrigger>
               );
