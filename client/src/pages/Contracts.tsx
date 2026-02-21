@@ -1949,7 +1949,7 @@ export default function Contracts() {
             {evidenciaColumnVisibility.isVisible("subjectId") && <TableHead sortKey="subjectId" sortDirection={sk === "subjectId" ? sd : null} onSort={rs}>Klient</TableHead>}
             {evidenciaColumnVisibility.isVisible("partnerId") && <TableHead sortKey="partnerId" sortDirection={sk === "partnerId" ? sd : null} onSort={rs}>Partner</TableHead>}
             {evidenciaColumnVisibility.isVisible("productId") && <TableHead sortKey="productId" sortDirection={sk === "productId" ? sd : null} onSort={rs}>Produkt</TableHead>}
-            {showStatus && evidenciaColumnVisibility.isVisible("status") && <TableHead>Stav</TableHead>}
+            {showStatus && evidenciaColumnVisibility.isVisible("status") && <TableHead style={{ minWidth: 170 }}>Stav</TableHead>}
             {evidenciaColumnVisibility.isVisible("annualPremium") && <TableHead sortKey="annualPremium" sortDirection={sk === "annualPremium" ? sd : null} onSort={rs}>Rocne poistne</TableHead>}
             {evidenciaColumnVisibility.isVisible("signedDate") && <TableHead sortKey="signedDate" sortDirection={sk === "signedDate" ? sd : null} onSort={rs}>Vytvorenie zmluvy</TableHead>}
             {evidenciaColumnVisibility.isVisible("premiumAmount") && <TableHead sortKey="premiumAmount" sortDirection={sk === "premiumAmount" ? sd : null} onSort={rs}>Lehotne poistne</TableHead>}
@@ -1995,12 +1995,12 @@ export default function Contracts() {
                 {evidenciaColumnVisibility.isVisible("partnerId") && <TableCell className="text-sm">{getPartnerName(contract)}</TableCell>}
                 {evidenciaColumnVisibility.isVisible("productId") && <TableCell className="text-sm">{getProductName(contract)}</TableCell>}
                 {showStatus && evidenciaColumnVisibility.isVisible("status") && (
-                  <TableCell data-testid={`text-contract-status-${contract.id}`}>
-                    <div className="flex items-center gap-1.5 flex-wrap">
+                  <TableCell data-testid={`text-contract-status-${contract.id}`} style={{ minWidth: 170 }}>
+                    <div className="flex items-center justify-center gap-1.5">
                       {status ? (
                         <span
-                          className="inline-flex items-center px-2 py-0.5 rounded-full border text-[11px] font-medium leading-snug"
-                          style={{ borderColor: status.color, color: status.color, backgroundColor: `${status.color}15`, whiteSpace: 'normal', wordBreak: 'break-word' }}
+                          className="inline-flex items-center justify-center px-3 py-1 rounded-md border text-[11px] font-medium leading-tight text-center"
+                          style={{ borderColor: status.color, color: status.color, backgroundColor: `${status.color}15`, whiteSpace: 'normal', wordBreak: 'normal', overflowWrap: 'break-word' }}
                         >{status.name}</span>
                       ) : "-"}
                       <MessageSquare className="w-3.5 h-3.5 text-blue-400 shrink-0" data-testid={`icon-note-${contract.id}`} style={{ display: statusChangeMeta?.[contract.id]?.hasNote ? 'block' : 'none' }} />
@@ -2813,7 +2813,7 @@ export default function Contracts() {
                   {columnVisibility.isVisible("subjectId") && <TableHead sortKey="subjectId" sortDirection={skMain === "subjectId" ? sdMain : null} onSort={rsMain}>Klient</TableHead>}
                   {columnVisibility.isVisible("partnerId") && <TableHead sortKey="partnerId" sortDirection={skMain === "partnerId" ? sdMain : null} onSort={rsMain}>Partner</TableHead>}
                   {columnVisibility.isVisible("productId") && <TableHead sortKey="productId" sortDirection={skMain === "productId" ? sdMain : null} onSort={rsMain}>Produkt</TableHead>}
-                  {columnVisibility.isVisible("status") && <TableHead>Stav</TableHead>}
+                  {columnVisibility.isVisible("status") && <TableHead style={{ minWidth: 170 }}>Stav</TableHead>}
                   {columnVisibility.isVisible("inventoryId") && <TableHead sortKey="inventoryId" sortDirection={skMain === "inventoryId" ? sdMain : null} onSort={rsMain}>Sprievodka</TableHead>}
                   {columnVisibility.isVisible("annualPremium") && <TableHead sortKey="annualPremium" sortDirection={skMain === "annualPremium" ? sdMain : null} onSort={rsMain}>Rocne poistne</TableHead>}
                   {columnVisibility.isVisible("signedDate") && <TableHead sortKey="signedDate" sortDirection={skMain === "signedDate" ? sdMain : null} onSort={rsMain}>Vytvorenie zmluvy</TableHead>}
@@ -2851,16 +2851,18 @@ export default function Contracts() {
                       {columnVisibility.isVisible("productId") && <TableCell className="text-sm" data-testid={`text-contract-product-${contract.id}`}>
                         {getProductName(contract)}
                       </TableCell>}
-                      {columnVisibility.isVisible("status") && <TableCell data-testid={`text-contract-status-${contract.id}`} style={{ maxWidth: '150px', whiteSpace: 'normal', wordBreak: 'break-word' }}>
-                        {status ? (
-                          <span
-                            className="inline-flex items-center px-2 py-0.5 rounded-full border text-[11px] font-medium leading-snug"
-                            style={{ borderColor: status.color, color: status.color, backgroundColor: `${status.color}15`, whiteSpace: 'normal', wordBreak: 'break-word' }}
-                            data-testid={`badge-contract-status-${contract.id}`}
-                          >
-                            {status.name}
-                          </span>
-                        ) : "-"}
+                      {columnVisibility.isVisible("status") && <TableCell data-testid={`text-contract-status-${contract.id}`} style={{ minWidth: 170 }}>
+                        <div className="flex items-center justify-center">
+                          {status ? (
+                            <span
+                              className="inline-flex items-center justify-center px-3 py-1 rounded-md border text-[11px] font-medium leading-tight text-center"
+                              style={{ borderColor: status.color, color: status.color, backgroundColor: `${status.color}15`, whiteSpace: 'normal', wordBreak: 'normal', overflowWrap: 'break-word' }}
+                              data-testid={`badge-contract-status-${contract.id}`}
+                            >
+                              {status.name}
+                            </span>
+                          ) : "-"}
+                        </div>
                       </TableCell>}
                       {columnVisibility.isVisible("inventoryId") && <TableCell className="text-sm" data-testid={`text-contract-inventory-${contract.id}`}>
                         {inventoryName}
