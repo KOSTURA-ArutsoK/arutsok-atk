@@ -517,6 +517,9 @@ export interface IStorage {
   recalculateBonitaPoints(subjectId: number): Promise<number>;
   findSubjectsByIdentifier(identifierType: string, identifierValue: string): Promise<Subject[]>;
   updateSubjectListStatus(subjectId: number, listStatus: "cerveny" | "cierny" | null, changedByUserId: number, reason?: string): Promise<Subject>;
+  findRiskLinks(subjectId: number): Promise<Array<{ subjectId: number; name: string; uid: string; listStatus: string; matchType: string; matchValue: string }>>;
+  findLinkedFoPoRisks(subjectId: number): Promise<Array<{ subjectId: number; name: string; uid: string; listStatus: string; relationship: string }>>;
+  recalculateAllBonita(): Promise<{ processed: number; updated: number; errors: number }>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -3127,6 +3130,200 @@ export class DatabaseStorage implements IStorage {
       listStatusReason: reason || null,
     }).where(eq(subjects.id, subjectId)).returning();
     return updated;
+  }
+
+  async findRiskLinks(subjectId: number): Promise<Array<{ subjectId: number; name: string; uid: string; listStatus: string; matchType: string; matchValue: string }>> {
+    const subject = await this.getSubject(subjectId);
+    if (!subject) return [];
+
+    const riskySubjects = await db.select().from(subjects)
+      .where(and(
+        isNull(subjects.deletedAt),
+        sql`${subjects.id} != ${subjectId}`,
+        sql`${subjects.listStatus} IS NOT NULL`
+      ));
+
+    if (riskySubjects.length === 0) return [];
+
+    const results: Array<{ subjectId: number; name: string; uid: string; listStatus: string; matchType: string; matchValue: string }> = [];
+    const subjectDetails = (subject.details || {}) as Record<string, any>;
+    const dynFields = subjectDetails.dynamicFields || {};
+
+    const normalizePhone = (p: string) => p.replace(/[\s\-\+\(\)]/g, "");
+    const rawPhone = subject.phone || dynFields.telefon || dynFields.phone || "";
+    const myPhone = normalizePhone(rawPhone);
+    const myEmail = (subject.email || dynFields.email || "").toLowerCase().trim();
+    const collectAddresses = (dyn: Record<string, any>) => {
+      const addrs: string[] = [];
+      const tp = [dyn.tp_ulica, dyn.tp_mesto, dyn.tp_psc].filter(Boolean).join("|").toLowerCase();
+      if (tp.length > 5) addrs.push(tp);
+      const ka = [dyn.ka_ulica, dyn.ka_mesto, dyn.ka_psc].filter(Boolean).join("|").toLowerCase();
+      if (ka.length > 5) addrs.push(ka);
+      const doruc = [dyn.doruc_ulica, dyn.doruc_mesto, dyn.doruc_psc].filter(Boolean).join("|").toLowerCase();
+      if (doruc.length > 5) addrs.push(doruc);
+      const sidlo = [dyn.sidlo_ulica, dyn.sidlo_mesto, dyn.sidlo_psc].filter(Boolean).join("|").toLowerCase();
+      if (sidlo.length > 5) addrs.push(sidlo);
+      return addrs;
+    };
+    const myAddresses = collectAddresses(dynFields);
+
+    for (const risky of riskySubjects) {
+      const riskyDetails = (risky.details || {}) as Record<string, any>;
+      const riskyDyn = riskyDetails.dynamicFields || {};
+      const riskyName = risky.companyName || [risky.firstName, risky.lastName].filter(Boolean).join(" ") || risky.uid;
+
+      if (myPhone && myPhone.length >= 6) {
+        const riskyPhone = normalizePhone(risky.phone || riskyDyn.telefon || riskyDyn.phone || "");
+        if (riskyPhone && riskyPhone.length >= 6 && riskyPhone === myPhone) {
+          results.push({ subjectId: risky.id, name: riskyName, uid: risky.uid, listStatus: risky.listStatus!, matchType: "telefón", matchValue: rawPhone });
+        }
+      }
+
+      if (myEmail && myEmail.length >= 3) {
+        const riskyEmail = (risky.email || riskyDyn.email || "").toLowerCase().trim();
+        if (riskyEmail && riskyEmail === myEmail) {
+          results.push({ subjectId: risky.id, name: riskyName, uid: risky.uid, listStatus: risky.listStatus!, matchType: "e-mail", matchValue: myEmail });
+        }
+      }
+
+      if (myAddresses.length > 0) {
+        const riskyAddresses = collectAddresses(riskyDyn);
+        for (const myAddr of myAddresses) {
+          for (const riskyAddr of riskyAddresses) {
+            if (riskyAddr === myAddr) {
+              const addrParts = myAddr.split("|");
+              results.push({ subjectId: risky.id, name: riskyName, uid: risky.uid, listStatus: risky.listStatus!, matchType: "adresa", matchValue: addrParts.join(", ") });
+              break;
+            }
+          }
+        }
+      }
+    }
+
+    return results;
+  }
+
+  async findLinkedFoPoRisks(subjectId: number): Promise<Array<{ subjectId: number; name: string; uid: string; listStatus: string; relationship: string }>> {
+    const subject = await this.getSubject(subjectId);
+    if (!subject) return [];
+    const results: Array<{ subjectId: number; name: string; uid: string; listStatus: string; relationship: string }> = [];
+
+    if (subject.type === "company") {
+      if (subject.linkedFoId) {
+        const linkedFo = await this.getSubject(subject.linkedFoId);
+        if (linkedFo && linkedFo.listStatus) {
+          const foName = [linkedFo.firstName, linkedFo.lastName].filter(Boolean).join(" ") || linkedFo.uid;
+          results.push({ subjectId: linkedFo.id, name: foName, uid: linkedFo.uid, listStatus: linkedFo.listStatus, relationship: "konateľ" });
+        }
+      }
+    }
+
+    if (subject.type === "person" || subject.type === "szco") {
+      const linkedPos = await db.select().from(subjects)
+        .where(and(
+          eq(subjects.linkedFoId, subjectId),
+          isNull(subjects.deletedAt),
+          sql`${subjects.listStatus} IS NOT NULL`
+        ));
+      for (const po of linkedPos) {
+        const poName = po.companyName || po.uid;
+        results.push({ subjectId: po.id, name: poName, uid: po.uid, listStatus: po.listStatus!, relationship: "firma" });
+      }
+    }
+
+    if (subject.type === "company") {
+      if (subject.linkedFoId) {
+        const otherPos = await db.select().from(subjects)
+          .where(and(
+            eq(subjects.linkedFoId, subject.linkedFoId),
+            sql`${subjects.id} != ${subjectId}`,
+            isNull(subjects.deletedAt),
+            sql`${subjects.listStatus} IS NOT NULL`
+          ));
+        for (const po of otherPos) {
+          const poName = po.companyName || po.uid;
+          results.push({ subjectId: po.id, name: poName, uid: po.uid, listStatus: po.listStatus!, relationship: "spoločná firma konateľa" });
+        }
+      }
+    }
+
+    return results;
+  }
+
+  async recalculateAllBonita(): Promise<{ processed: number; updated: number; errors: number }> {
+    const allContracts = await db.select().from(contracts)
+      .where(isNull(contracts.deletedAt));
+    
+    const stornoStatuses = await db.select().from(contractStatuses)
+      .where(eq(contractStatuses.isStorno, true));
+    const stornoStatusIds = new Set(stornoStatuses.map(s => s.id));
+
+    let processed = 0;
+    let updated = 0;
+    let errors = 0;
+
+    const stornoContracts = allContracts.filter(c => 
+      c.statusId && stornoStatusIds.has(c.statusId)
+    );
+
+    const existingLogs = await db.select().from(subjectPointsLog);
+    const loggedContractIds = new Set(existingLogs.map(l => l.contractId));
+
+    for (const contract of stornoContracts) {
+      if (loggedContractIds.has(contract.id)) continue;
+      if (!contract.subjectId) continue;
+
+      try {
+        const subject = await this.getSubject(contract.subjectId);
+        if (!subject) continue;
+
+        const signedDate = contract.signedDate ? new Date(contract.signedDate) : contract.createdAt ? new Date(contract.createdAt) : null;
+        const now = new Date();
+        const yearsActive = signedDate ? (now.getTime() - signedDate.getTime()) / (365.25 * 24 * 60 * 60 * 1000) : 0;
+
+        let points = -1;
+        let reason = "Spätný prepočet: Storno zmluvy do 1 roka";
+        if (yearsActive >= 2) {
+          points = 2;
+          reason = "Spätný prepočet: Storno zmluvy po 2+ rokoch (+2)";
+        } else if (yearsActive >= 1) {
+          points = 1;
+          reason = "Spätný prepočet: Storno zmluvy po 1+ roku (+1)";
+        }
+
+        const identifierType = subject.birthNumber ? "rc" : "ico";
+        const identifierValue = subject.birthNumber || ((subject.details as any)?.ico || (subject.details as any)?.dynamicFields?.ico);
+
+        await this.addSubjectPoints({
+          subjectId: contract.subjectId,
+          contractId: contract.id,
+          points,
+          reason,
+          identifierType: identifierValue ? identifierType : null,
+          identifierValue: identifierValue || null,
+          companyId: contract.companyId,
+        });
+
+        processed++;
+      } catch (err) {
+        errors++;
+        console.error(`[BONITA MIGRATION] Error processing contract ${contract.id}:`, err);
+      }
+    }
+
+    const allSubjectsWithPoints = await db.select({ id: subjects.id }).from(subjects)
+      .where(isNull(subjects.deletedAt));
+    
+    for (const s of allSubjectsWithPoints) {
+      try {
+        await this.recalculateBonitaPoints(s.id);
+        updated++;
+      } catch (err) {
+        errors++;
+      }
+    }
+
+    return { processed, updated, errors };
   }
 }
 

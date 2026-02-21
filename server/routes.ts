@@ -5541,6 +5541,48 @@ export async function registerRoutes(
     }
   });
 
+  app.get("/api/subjects/:id/risk-links", isAuthenticated, async (req: any, res) => {
+    try {
+      const subjectId = Number(req.params.id);
+      const [riskLinks, foPoRisks] = await Promise.all([
+        storage.findRiskLinks(subjectId),
+        storage.findLinkedFoPoRisks(subjectId),
+      ]);
+      res.json({ riskLinks, foPoRisks });
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  app.post("/api/admin/recalculate-all-bonita", isAuthenticated, async (req: any, res) => {
+    try {
+      const appUser = req.appUser;
+      const userPerms = appUser?.permissionGroup;
+      const isSuperAdmin = userPerms?.name?.toLowerCase().includes("superadmin") || userPerms?.name?.toLowerCase().includes("prezident");
+      if (!isSuperAdmin) {
+        return res.status(403).json({ message: "Len SuperAdmin/Prezident môže spustiť hromadný prepočet" });
+      }
+
+      console.log("[BONITA MIGRATION] Starting bulk recalculation...");
+      const result = await storage.recalculateAllBonita();
+      console.log(`[BONITA MIGRATION] Done: processed=${result.processed}, updated=${result.updated}, errors=${result.errors}`);
+
+      await logAudit(req, {
+        action: "ADMIN",
+        module: "bonita",
+        entityId: 0,
+        entityName: "Hromadný prepočet bonity",
+        oldData: {},
+        newData: result,
+      });
+
+      res.json(result);
+    } catch (err: any) {
+      console.error("[BONITA MIGRATION] Error:", err);
+      res.status(500).json({ message: err.message });
+    }
+  });
+
   await seedDatabase();
 
   {

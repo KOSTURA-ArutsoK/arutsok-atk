@@ -14,7 +14,7 @@ import { Switch } from "@/components/ui/switch";
 import { Separator } from "@/components/ui/separator";
 import { Card, CardContent } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Loader2, UserCheck, Scale, Users, Wallet, BarChart3, Wifi, Archive, FileText, Eye, EyeOff, ChevronRight, Check, X, Plus, AlertTriangle, ShieldAlert, Ban } from "lucide-react";
+import { Loader2, UserCheck, Scale, Users, Wallet, BarChart3, Wifi, Archive, FileText, Eye, EyeOff, ChevronRight, Check, X, Plus, AlertTriangle, ShieldAlert, Ban, Link2 } from "lucide-react";
 import { formatDateSlovak } from "@/lib/utils";
 
 const TAB_ICONS: Record<string, typeof UserCheck> = {
@@ -92,6 +92,14 @@ export function SubjektView({ subject, showPdfSidebar = false }: SubjektViewProp
   });
 
   const { data: clientTypes } = useQuery<ClientType[]>({ queryKey: ["/api/client-types"] });
+
+  const { data: riskData } = useQuery<{
+    riskLinks: Array<{ subjectId: number; name: string; uid: string; listStatus: string; matchType: string; matchValue: string }>;
+    foPoRisks: Array<{ subjectId: number; name: string; uid: string; listStatus: string; relationship: string }>;
+  }>({
+    queryKey: ["/api/subjects", subject.id, "risk-links"],
+    queryFn: () => apiRequest("GET", `/api/subjects/${subject.id}/risk-links`).then(r => r.json()),
+  });
 
   const upsertConsent = useMutation({
     mutationFn: async (data: { consentType: string; isGranted: boolean; companyId: number }) => {
@@ -188,6 +196,49 @@ export function SubjektView({ subject, showPdfSidebar = false }: SubjektViewProp
               <span className="font-bold text-orange-300 uppercase tracking-wide">ČERVENÝ ZOZNAM</span>
               <span className="ml-2 text-sm">Subjekt dosiahol -5 bodov za posledných 10 rokov. Zvýšená opatrnosť.</span>
             </div>
+          </div>
+        )}
+        {riskData?.foPoRisks && riskData.foPoRisks.length > 0 && (
+          <div className="mb-3 space-y-1" data-testid="banner-fo-po-risks">
+            {riskData.foPoRisks.map((risk, i) => (
+              <div key={`fopo-${i}`} className="flex items-center gap-3 rounded border border-yellow-700 bg-yellow-950/80 px-4 py-2.5 text-yellow-200">
+                <Link2 className="w-5 h-5 text-yellow-400 shrink-0" />
+                <div className="text-sm">
+                  <span className="font-semibold text-yellow-300">
+                    {risk.relationship === "konateľ" ? "Konateľ" : risk.relationship === "firma" ? "Firma" : "Prepojený subjekt"}
+                  </span>
+                  {" "}
+                  <span className="font-bold">{risk.name}</span>
+                  {" je na "}
+                  <span className={risk.listStatus === "cierny" ? "text-red-300 font-bold" : "text-orange-300 font-bold"}>
+                    {risk.listStatus === "cierny" ? "Čiernom zozname" : "Červenom zozname"}
+                  </span>
+                  {"!"}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+        {riskData?.riskLinks && riskData.riskLinks.length > 0 && (
+          <div className="mb-3 space-y-1" data-testid="banner-risk-links">
+            {riskData.riskLinks.map((link, i) => (
+              <div key={`risk-${i}`} className="flex items-center gap-3 rounded border border-amber-700 bg-amber-950/80 px-4 py-2.5 text-amber-200">
+                <ShieldAlert className="w-5 h-5 text-amber-400 shrink-0" />
+                <div className="text-sm">
+                  <span className="font-semibold">Kontakt je prepojený s rizikovou osobou:</span>
+                  {" "}
+                  <span className="font-bold text-amber-300">{link.name}</span>
+                  {" "}
+                  <span className="text-xs text-amber-400">
+                    ({link.matchType}: {link.matchValue})
+                  </span>
+                  {" — "}
+                  <span className={link.listStatus === "cierny" ? "text-red-300 font-semibold" : "text-orange-300 font-semibold"}>
+                    {link.listStatus === "cierny" ? "Čierny zoznam" : "Červený zoznam"}
+                  </span>
+                </div>
+              </div>
+            ))}
           </div>
         )}
         <div className="flex items-center justify-between mb-3">

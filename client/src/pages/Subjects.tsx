@@ -45,7 +45,7 @@ import type { SmartColumnDef } from "@/hooks/use-smart-filter";
 import { SmartFilterBar } from "@/components/smart-filter-bar";
 import { useColumnVisibility, type ColumnDef } from "@/hooks/use-column-visibility";
 import { ColumnManager } from "@/components/column-manager";
-import { HelpCircle, FileText, ShieldCheck, ListPlus, FileQuestion } from "lucide-react";
+import { HelpCircle, FileText, ShieldCheck, ListPlus, FileQuestion, ShieldAlert } from "lucide-react";
 import { HelpIcon } from "@/components/help-icon";
 import {
   Accordion, AccordionContent, AccordionItem, AccordionTrigger,
@@ -784,6 +784,14 @@ function SubjectDetailDialog({ subject, onClose }: { subject: Subject; onClose: 
     queryFn: () => apiRequest("GET", `/api/subjects/${subject.id}/bonita-summary`).then(r => r.json()),
   });
 
+  const { data: riskData } = useQuery<{
+    riskLinks: Array<{ subjectId: number; name: string; uid: string; listStatus: string; matchType: string; matchValue: string }>;
+    foPoRisks: Array<{ subjectId: number; name: string; uid: string; listStatus: string; relationship: string }>;
+  }>({
+    queryKey: ["/api/subjects", subject.id, "risk-links"],
+    queryFn: () => apiRequest("GET", `/api/subjects/${subject.id}/risk-links`).then(r => r.json()),
+  });
+
   const toggleListStatus = useMutation({
     mutationFn: async (data: { listStatus: string | null; reason?: string }) => {
       return apiRequest("PATCH", `/api/subjects/${subject.id}/list-status`, data);
@@ -849,6 +857,49 @@ function SubjectDetailDialog({ subject, onClose }: { subject: Subject; onClose: 
               <span className="font-bold text-orange-300 uppercase tracking-wide">ČERVENÝ ZOZNAM</span>
               <span className="ml-2 text-sm">Subjekt dosiahol -5 bodov za posledných 10 rokov. Zvýšená opatrnosť.</span>
             </div>
+          </div>
+        )}
+        {riskData?.foPoRisks && riskData.foPoRisks.length > 0 && (
+          <div className="mx-6 mb-3 space-y-1" data-testid="dialog-banner-fo-po-risks">
+            {riskData.foPoRisks.map((risk, i) => (
+              <div key={`fopo-${i}`} className="flex items-center gap-3 rounded border border-yellow-700 bg-yellow-950/80 px-4 py-2.5 text-yellow-200">
+                <Link2 className="w-5 h-5 text-yellow-400 shrink-0" />
+                <div className="text-sm">
+                  <span className="font-semibold text-yellow-300">
+                    {risk.relationship === "konateľ" ? "Konateľ" : risk.relationship === "firma" ? "Firma" : "Prepojený subjekt"}
+                  </span>
+                  {" "}
+                  <span className="font-bold">{risk.name}</span>
+                  {" je na "}
+                  <span className={risk.listStatus === "cierny" ? "text-red-300 font-bold" : "text-orange-300 font-bold"}>
+                    {risk.listStatus === "cierny" ? "Čiernom zozname" : "Červenom zozname"}
+                  </span>
+                  {"!"}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+        {riskData?.riskLinks && riskData.riskLinks.length > 0 && (
+          <div className="mx-6 mb-3 space-y-1" data-testid="dialog-banner-risk-links">
+            {riskData.riskLinks.map((link, i) => (
+              <div key={`risk-${i}`} className="flex items-center gap-3 rounded border border-amber-700 bg-amber-950/80 px-4 py-2.5 text-amber-200">
+                <ShieldAlert className="w-5 h-5 text-amber-400 shrink-0" />
+                <div className="text-sm">
+                  <span className="font-semibold">Kontakt je prepojený s rizikovou osobou:</span>
+                  {" "}
+                  <span className="font-bold text-amber-300">{link.name}</span>
+                  {" "}
+                  <span className="text-xs text-amber-400">
+                    ({link.matchType}: {link.matchValue})
+                  </span>
+                  {" — "}
+                  <span className={link.listStatus === "cierny" ? "text-red-300 font-semibold" : "text-orange-300 font-semibold"}>
+                    {link.listStatus === "cierny" ? "Čierny zoznam" : "Červený zoznam"}
+                  </span>
+                </div>
+              </div>
+            ))}
           </div>
         )}
         <Tabs defaultValue="udaje" className="flex-1">
