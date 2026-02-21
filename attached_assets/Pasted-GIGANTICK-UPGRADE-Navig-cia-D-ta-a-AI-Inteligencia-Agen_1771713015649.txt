@@ -1,0 +1,48 @@
+GIGANTICKÝ UPGRADE: Navigácia, Dáta a AI Inteligencia
+Agent, vykonaj nasledujúcu generálnu prestavbu systému ArutsoK (ATK):
+
+1. Rozdelenie Navigácie (Sidebar)
+Zruš pôvodnú položku 'Sektory' a všetky súvisiace odkazy v 'Nastaveniach'.
+
+Vytvor dve samostatné položky v hlavnom menu pod sebou:
+
+Sektory Subjektov (ikona Users alebo Database) – smeruje na Knižnicu parametrov (správa polí klienta).
+
+Sektory Zmlúv (ikona FileText alebo Briefcase) – smeruje na správu Partnerov a Produktov.
+
+2. Hromadný Import (Seed) 300+ Parametrov
+Do sekcie 'Sektory Subjektov' hromadne nahraj (seed) tieto kategórie a polia (interné kódy/slugy generuj automaticky):
+
+IDENTITA: Tituly (pred/za), Meno, Priezvisko, Rodné priezvisko, RČ, Dátum narodenia, Miesto narodenia, Štátna príslušnosť, Pohlavie, Rodinný stav.
+
+DOKLADY: Číslo OP, Platnosť OP, Vydal OP, Pas, Vodičský preukaz.
+
+ADRESY (Kolekcie s históriou): Ulica, Číslo domu, Mesto, PSČ, Štát (pre typy: Trvalá, Prechodná, Korešpondenčná).
+
+KONTAKTY (Kolekcie s históriou): Mobil (Súkromný/Pracovný), E-mail (Súkromný/Pracovný), LinkedIn, Web.
+
+DÔLEŽITÉ: K mobilu a e-mailu pridaj príznak 'Primárny' (is_primary). Systém musí zabezpečiť, aby bol v danom čase primárny vždy iba jeden kontakt daného typu (slúži na odosielanie Auth kódov).
+
+EKONOMIKA: Zamestnávateľ, Povolanie, Príjem, IBAN, Banka, Zdroj príjmu.
+
+SDS / DDS: Číslo zmluvy o starobnom sporení, Vybraný fond, Oprávnené osoby (Meno/RČ/Vzťah), Pomer sporenia, Dátum vstupu do II. piliera.
+
+VOZIDLÁ (PZP/Kasko): ŠPZ, VIN, Číslo TP, kW, Objem motora, Hmotnosť, Farba, Rok výroby, Bonus/Malus.
+
+MAJETOK: Súpisné číslo, List vlastníctva, Katastrálne územie, Rozloha, Rok kolaudácie, Typ konštrukcie.
+
+AML & LEGISLATÍVA: Politicky exponovaná osoba (PEO), Účel obchodu, Zdroj majetku, GDPR súhlas, Marketingový súhlas.
+
+3. Logika 'Auto-kódov' a Integrita
+Užívateľ pracuje len s Názvami. Ty na pozadí generuj unikátne systémové identifikátory.
+
+Ochrana: Zablokuj možnosť vymazania parametra, ak už má v systéme priradenú aspoň jednu hodnotu u ľubovoľného subjektu.
+
+4. AI Klasifikácia a Extrakcia (Príprava)
+Priprav sémantickú logiku pre budúce skenovanie dokumentov:
+
+Vizuálna DNA: Rozlíšenie podľa štruktúry (napr. Technický preukaz vs. Čestné prehlásenie).
+
+Kľúčové kotvy: Ak dokument obsahuje kľúčové slová (VIN, kW, ŠPZ), automaticky ho priraď k typu 'Technický preukaz' a aktivuj extrakciu pre sekciu VOZIDLÁ.
+
+Miera istoty: Implementuj 'Confidence Score'. Ak je istota pod 95 %, systém sa musí pýtať na potvrdenie.
