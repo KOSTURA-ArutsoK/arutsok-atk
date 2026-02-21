@@ -72,6 +72,182 @@ const CONSENT_TYPES = [
   { code: "profiling", label: "Profilovanie" },
 ];
 
+interface CategoriesAccordionProps {
+  tabCode: string;
+  tabCats: ClientDataCategory[];
+  fieldsByCategory: Record<string, StaticField[]>;
+  isEditing: boolean;
+  getFieldValue: (key: string) => string;
+  getEditableValue: (key: string) => string;
+  editValues: Record<string, string>;
+  setEditFieldValue: (key: string, value: string) => void;
+  summaryFields: Record<string, boolean>;
+  pdfSidebarOpen: boolean;
+  toggleSummaryField: (key: string) => void;
+}
+
+function CategoriesAccordion({
+  tabCode, tabCats, fieldsByCategory, isEditing,
+  getFieldValue, getEditableValue, editValues, setEditFieldValue,
+  summaryFields, pdfSidebarOpen, toggleSummaryField,
+}: CategoriesAccordionProps) {
+  const visibleCats = useMemo(() => {
+    if (isEditing) return tabCats;
+    return tabCats.filter(cat => {
+      const catFields = fieldsByCategory[cat.code] || [];
+      if (catFields.length === 0) return false;
+      return catFields.some(f => !!getFieldValue(f.fieldKey));
+    });
+  }, [isEditing, tabCats, fieldsByCategory, getFieldValue]);
+
+  if (visibleCats.length === 0) {
+    return (
+      <div className="text-center py-8 text-sm text-muted-foreground" data-testid={`empty-tab-${tabCode}`}>
+        {isEditing ? "Žiadne kategórie v tejto záložke" : "Žiadne vyplnené údaje v tejto záložke"}
+      </div>
+    );
+  }
+
+  const defaultOpen = visibleCats
+    .filter(c => (fieldsByCategory[c.code]?.length || 0) > 0)
+    .map(c => c.code);
+
+  return (
+    <Accordion
+      key={isEditing ? "edit" : "view"}
+      type="multiple"
+      defaultValue={defaultOpen}
+      className="space-y-2"
+    >
+      {visibleCats.map(cat => {
+        const catFields = fieldsByCategory[cat.code] || [];
+        const filledCount = catFields.filter(f => !!getFieldValue(f.fieldKey)).length;
+        return (
+          <AccordionItem key={cat.code} value={cat.code} className="border rounded-md px-3" data-testid={`category-${cat.code}`}>
+            <AccordionTrigger className="py-2.5 hover:no-underline">
+              <div className="flex items-center gap-2">
+                <div className="w-2 h-2 rounded-full" style={{ backgroundColor: cat.color || "#6b7280" }} />
+                <span className="text-sm font-medium">{cat.name}</span>
+                {catFields.length > 0 && (
+                  <Badge variant="secondary" className="text-[10px] px-1.5 py-0">
+                    {filledCount}/{catFields.length}
+                  </Badge>
+                )}
+                {isEditing && <Badge variant="outline" className="text-[9px] border-primary/40 text-primary">editácia</Badge>}
+              </div>
+            </AccordionTrigger>
+            <AccordionContent className="pb-3">
+              {cat.description && (
+                <p className="text-xs text-muted-foreground mb-2">{cat.description}</p>
+              )}
+              {catFields.length === 0 ? (
+                <p className="text-xs text-muted-foreground text-center py-3">
+                  Žiadne polia v tejto kategórii
+                </p>
+              ) : isEditing ? (
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                  {catFields.map(field => {
+                    const currentVal = getEditableValue(field.fieldKey);
+                    const isModified = editValues[field.fieldKey] !== undefined && editValues[field.fieldKey] !== getFieldValue(field.fieldKey);
+                    return (
+                      <div key={field.fieldKey} className="space-y-1" data-testid={`edit-field-${field.fieldKey}`}>
+                        <Label className={`text-xs ${isModified ? "text-primary font-semibold" : "text-muted-foreground"}`}>
+                          {field.shortLabel || field.label}
+                          {field.isRequired && <span className="text-red-400 ml-0.5">*</span>}
+                          {isModified && <span className="ml-1 text-[9px]">(zmenené)</span>}
+                        </Label>
+                        {field.fieldType === "switch" ? (
+                          <div className="flex items-center gap-2 h-9">
+                            <Switch
+                              checked={currentVal === "true"}
+                              onCheckedChange={checked => setEditFieldValue(field.fieldKey, checked ? "true" : "false")}
+                              data-testid={`switch-edit-${field.fieldKey}`}
+                            />
+                            <span className="text-xs text-muted-foreground">{currentVal === "true" ? "Áno" : "Nie"}</span>
+                          </div>
+                        ) : field.fieldType === "select" && field.options.length > 0 ? (
+                          <Select value={currentVal} onValueChange={v => setEditFieldValue(field.fieldKey, v)}>
+                            <SelectTrigger className="h-9 text-xs" data-testid={`select-edit-${field.fieldKey}`}>
+                              <SelectValue placeholder="Vyberte..." />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {field.options.map(opt => (
+                                <SelectItem key={opt} value={opt}>{opt}</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        ) : field.fieldType === "textarea" ? (
+                          <Textarea
+                            value={currentVal}
+                            onChange={e => setEditFieldValue(field.fieldKey, e.target.value)}
+                            rows={2}
+                            className="text-xs"
+                            data-testid={`textarea-edit-${field.fieldKey}`}
+                          />
+                        ) : (
+                          <Input
+                            type={field.fieldType === "date" ? "date" : "text"}
+                            value={currentVal}
+                            onChange={e => setEditFieldValue(field.fieldKey, e.target.value)}
+                            className={`h-9 text-xs ${isModified ? "border-primary/60" : ""}`}
+                            placeholder={field.label}
+                            data-testid={`input-edit-${field.fieldKey}`}
+                          />
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : (
+                <div className="flex flex-wrap gap-2">
+                  {catFields.map(field => {
+                    const value = getFieldValue(field.fieldKey);
+                    if (!value) return null;
+                    const isSummary = summaryFields[field.fieldKey];
+                    return (
+                      <div
+                        key={field.fieldKey}
+                        className={`h-10 flex items-center gap-2 px-3 rounded-md border ${
+                          isSummary ? "border-primary/50 bg-primary/5" : "border-border bg-muted/30"
+                        }`}
+                        data-testid={`field-${field.fieldKey}`}
+                      >
+                        <span className="text-xs text-muted-foreground whitespace-nowrap">
+                          {field.shortLabel || field.label}:
+                        </span>
+                        <span className="text-sm font-medium truncate max-w-[200px]">
+                          {field.fieldType === "switch"
+                            ? value === "true" ? "Áno" : value === "false" ? "Nie" : "-"
+                            : field.fieldType === "date" && value
+                              ? formatDateSlovak(value)
+                              : value || "-"}
+                        </span>
+                        {pdfSidebarOpen && (
+                          <button
+                            onClick={() => toggleSummaryField(field.fieldKey)}
+                            className="ml-1 opacity-60 hover:opacity-100"
+                            data-testid={`toggle-summary-${field.fieldKey}`}
+                          >
+                            {isSummary ? (
+                              <Eye className="w-3 h-3 text-primary" />
+                            ) : (
+                              <EyeOff className="w-3 h-3" />
+                            )}
+                          </button>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </AccordionContent>
+          </AccordionItem>
+        );
+      })}
+    </Accordion>
+  );
+}
+
 interface SubjektViewProps {
   subject: Subject;
   showPdfSidebar?: boolean;
@@ -464,157 +640,19 @@ export function SubjektView({ subject, showPdfSidebar = false }: SubjektViewProp
                   />
                 )}
 
-                {(() => {
-                  const visibleCats = isEditing
-                    ? tabCats
-                    : tabCats.filter(cat => {
-                        const catFields = fieldsByCategory[cat.code] || [];
-                        if (catFields.length === 0) return false;
-                        return catFields.some(f => !!getFieldValue(f.fieldKey));
-                      });
-
-                  if (visibleCats.length === 0) {
-                    return (
-                      <div className="text-center py-8 text-sm text-muted-foreground" data-testid={`empty-tab-${tab.code}`}>
-                        {isEditing ? "Žiadne kategórie v tejto záložke" : "Žiadne vyplnené údaje v tejto záložke"}
-                      </div>
-                    );
-                  }
-
-                  return (
-                    <Accordion
-                      type="multiple"
-                      defaultValue={visibleCats.filter(c => (fieldsByCategory[c.code]?.length || 0) > 0).map(c => c.code)}
-                      className="space-y-2"
-                    >
-                      {visibleCats.map(cat => {
-                        const catFields = fieldsByCategory[cat.code] || [];
-                        const filledCount = catFields.filter(f => !!getFieldValue(f.fieldKey)).length;
-                        return (
-                          <AccordionItem key={cat.code} value={cat.code} className="border rounded-md px-3" data-testid={`category-${cat.code}`}>
-                            <AccordionTrigger className="py-2.5 hover:no-underline">
-                              <div className="flex items-center gap-2">
-                                <div className="w-2 h-2 rounded-full" style={{ backgroundColor: cat.color || "#6b7280" }} />
-                                <span className="text-sm font-medium">{cat.name}</span>
-                                {catFields.length > 0 && (
-                                  <Badge variant="secondary" className="text-[10px] px-1.5 py-0">
-                                    {filledCount}/{catFields.length}
-                                  </Badge>
-                                )}
-                                {isEditing && <Badge variant="outline" className="text-[9px] border-primary/40 text-primary">editácia</Badge>}
-                              </div>
-                            </AccordionTrigger>
-                            <AccordionContent className="pb-3">
-                              {cat.description && (
-                                <p className="text-xs text-muted-foreground mb-2">{cat.description}</p>
-                              )}
-                              {catFields.length === 0 ? (
-                                <p className="text-xs text-muted-foreground text-center py-3">
-                                  Žiadne polia v tejto kategórii
-                                </p>
-                              ) : isEditing ? (
-                                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                                  {catFields.map(field => {
-                                    const currentVal = getEditableValue(field.fieldKey);
-                                    const isModified = editValues[field.fieldKey] !== undefined && editValues[field.fieldKey] !== getFieldValue(field.fieldKey);
-                                    return (
-                                      <div key={field.id} className="space-y-1" data-testid={`edit-field-${field.fieldKey}`}>
-                                        <Label className={`text-xs ${isModified ? "text-primary font-semibold" : "text-muted-foreground"}`}>
-                                          {field.shortLabel || field.label}
-                                          {field.isRequired && <span className="text-red-400 ml-0.5">*</span>}
-                                          {isModified && <span className="ml-1 text-[9px]">(zmenené)</span>}
-                                        </Label>
-                                        {field.fieldType === "switch" ? (
-                                          <div className="flex items-center gap-2 h-9">
-                                            <Switch
-                                              checked={currentVal === "true"}
-                                              onCheckedChange={checked => setEditFieldValue(field.fieldKey, checked ? "true" : "false")}
-                                              data-testid={`switch-edit-${field.fieldKey}`}
-                                            />
-                                            <span className="text-xs text-muted-foreground">{currentVal === "true" ? "Áno" : "Nie"}</span>
-                                          </div>
-                                        ) : field.fieldType === "select" && field.options.length > 0 ? (
-                                          <Select value={currentVal} onValueChange={v => setEditFieldValue(field.fieldKey, v)}>
-                                            <SelectTrigger className="h-9 text-xs" data-testid={`select-edit-${field.fieldKey}`}>
-                                              <SelectValue placeholder="Vyberte..." />
-                                            </SelectTrigger>
-                                            <SelectContent>
-                                              {field.options.map(opt => (
-                                                <SelectItem key={opt} value={opt}>{opt}</SelectItem>
-                                              ))}
-                                            </SelectContent>
-                                          </Select>
-                                        ) : field.fieldType === "textarea" ? (
-                                          <Textarea
-                                            value={currentVal}
-                                            onChange={e => setEditFieldValue(field.fieldKey, e.target.value)}
-                                            rows={2}
-                                            className="text-xs"
-                                            data-testid={`textarea-edit-${field.fieldKey}`}
-                                          />
-                                        ) : (
-                                          <Input
-                                            type={field.fieldType === "date" ? "date" : field.fieldType === "number" || field.fieldType === "desatinne_cislo" ? "text" : "text"}
-                                            value={currentVal}
-                                            onChange={e => setEditFieldValue(field.fieldKey, e.target.value)}
-                                            className={`h-9 text-xs ${isModified ? "border-primary/60" : ""}`}
-                                            placeholder={field.label}
-                                            data-testid={`input-edit-${field.fieldKey}`}
-                                          />
-                                        )}
-                                      </div>
-                                    );
-                                  })}
-                                </div>
-                              ) : (
-                                <div className="flex flex-wrap gap-2">
-                                  {catFields.map(field => {
-                                    const value = getFieldValue(field.fieldKey);
-                                    if (!value) return null;
-                                    const isSummary = summaryFields[field.fieldKey];
-                                    return (
-                                      <div
-                                        key={field.id}
-                                        className={`h-10 flex items-center gap-2 px-3 rounded-md border ${
-                                          isSummary ? "border-primary/50 bg-primary/5" : "border-border bg-muted/30"
-                                        }`}
-                                        data-testid={`field-${field.fieldKey}`}
-                                      >
-                                        <span className="text-xs text-muted-foreground whitespace-nowrap">
-                                          {field.shortLabel || field.label}:
-                                        </span>
-                                        <span className="text-sm font-medium truncate max-w-[200px]">
-                                          {field.fieldType === "switch"
-                                            ? value === "true" ? "Áno" : value === "false" ? "Nie" : "-"
-                                            : field.fieldType === "date" && value
-                                              ? formatDateSlovak(value)
-                                              : value || "-"}
-                                        </span>
-                                        {pdfSidebarOpen && (
-                                          <button
-                                            onClick={() => toggleSummaryField(field.fieldKey)}
-                                            className="ml-1 opacity-60 hover:opacity-100"
-                                            data-testid={`toggle-summary-${field.fieldKey}`}
-                                          >
-                                            {isSummary ? (
-                                              <Eye className="w-3 h-3 text-primary" />
-                                            ) : (
-                                              <EyeOff className="w-3 h-3" />
-                                            )}
-                                          </button>
-                                        )}
-                                      </div>
-                                    );
-                                  })}
-                                </div>
-                              )}
-                            </AccordionContent>
-                          </AccordionItem>
-                        );
-                      })}
-                    </Accordion>
-                  );
-                })()}
+                <CategoriesAccordion
+                  tabCode={tab.code}
+                  tabCats={tabCats}
+                  fieldsByCategory={fieldsByCategory}
+                  isEditing={isEditing}
+                  getFieldValue={getFieldValue}
+                  getEditableValue={getEditableValue}
+                  editValues={editValues}
+                  setEditFieldValue={setEditFieldValue}
+                  summaryFields={summaryFields}
+                  pdfSidebarOpen={pdfSidebarOpen}
+                  toggleSummaryField={toggleSummaryField}
+                />
               </TabsContent>
             );
           })}
