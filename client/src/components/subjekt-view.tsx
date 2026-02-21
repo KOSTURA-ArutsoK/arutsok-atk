@@ -14,12 +14,12 @@ import { Switch } from "@/components/ui/switch";
 import { Separator } from "@/components/ui/separator";
 import { Card, CardContent } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Loader2, UserCheck, Scale, Users, Wallet, BarChart3, Wifi, Archive, FileText, Eye, EyeOff, ChevronRight, Check, X, Plus, AlertTriangle, ShieldAlert, Ban, Link2 } from "lucide-react";
+import { Loader2, UserCheck, Scale, Users, Wallet, BarChart3, Wifi, Archive, FileText, Eye, EyeOff, ChevronRight, Check, X, Plus, AlertTriangle, ShieldAlert, Ban, Link2, Building2, User, ArrowLeftRight } from "lucide-react";
 import { formatDateSlovak } from "@/lib/utils";
 
 const TAB_ICONS: Record<string, typeof UserCheck> = {
   UserCheck, Scale, Users, Wallet, BarChart3, Wifi, Archive,
-  FileText, Shield: Scale, Heart: Users,
+  FileText, Shield: Scale, Heart: Users, Building2,
 };
 
 function getTabIcon(iconName: string) {
@@ -39,13 +39,17 @@ const FIELD_TO_CATEGORY: Record<string, string> = {
   ka_orientacne: "povinne", ka_mesto: "povinne", ka_psc: "povinne", ka_stat: "povinne",
   kontaktna_rovnaka: "povinne", koa_ulica: "povinne", koa_supisne: "povinne",
   koa_orientacne: "povinne", koa_mesto: "povinne", koa_psc: "povinne", koa_stat: "povinne",
-  nazov_organizacie: "povinne", ico: "povinne", sk_nace: "povinne",
+  nazov_organizacie: "povinne", ico: "povinne", sk_nace: "firemny_profil",
   sidlo_ulica: "povinne", sidlo_supisne: "povinne", sidlo_orientacne: "povinne",
   sidlo_mesto: "povinne", sidlo_psc: "povinne", sidlo_stat: "povinne",
   vykon_rovnaky: "povinne", vykon_ulica: "povinne", vykon_supisne: "povinne",
   vykon_orientacne: "povinne", vykon_mesto: "povinne", vykon_psc: "povinne", vykon_stat: "povinne",
   dic: "zakonne", ic_dph: "zakonne",
   pep: "aml", pep_funkcia: "aml", pep_vztah: "aml",
+  kuv_meno_1: "aml", kuv_rc_1: "aml", kuv_podiel_1: "aml",
+  kuv_meno_2: "aml", kuv_rc_2: "aml", kuv_podiel_2: "aml",
+  kuv_meno_3: "aml", kuv_rc_3: "aml", kuv_podiel_3: "aml",
+  obrat: "firemny_profil", pocet_zamestnancov: "firemny_profil",
   iban: "zmluvne", bic: "zmluvne", cislo_uctu: "zmluvne",
   rodinny_kontakt_meno: "komunikacne", rodinny_kontakt_telefon: "komunikacne",
   rodinny_kontakt_vztah: "komunikacne", zastihnutie: "komunikacne",
@@ -99,6 +103,19 @@ export function SubjektView({ subject, showPdfSidebar = false }: SubjektViewProp
   }>({
     queryKey: ["/api/subjects", subject.id, "risk-links"],
     queryFn: () => apiRequest("GET", `/api/subjects/${subject.id}/risk-links`).then(r => r.json()),
+  });
+
+  const linkedFoId = (subject as any).linkedFoId as number | null;
+  const { data: linkedFo } = useQuery<Subject>({
+    queryKey: ["/api/subjects", linkedFoId],
+    queryFn: () => apiRequest("GET", `/api/subjects/${linkedFoId}`).then(r => r.json()),
+    enabled: !!linkedFoId && subject.type === "company",
+  });
+
+  const { data: linkedPos } = useQuery<Subject[]>({
+    queryKey: ["/api/subjects", subject.id, "linked-companies"],
+    queryFn: () => apiRequest("GET", `/api/subjects/${subject.id}/linked-companies`).then(r => r.json()),
+    enabled: subject.type === "person" || subject.type === "szco",
   });
 
   const upsertConsent = useMutation({
@@ -288,6 +305,15 @@ export function SubjektView({ subject, showPdfSidebar = false }: SubjektViewProp
             const tabCats = categoriesByTab[tab.id] || [];
             return (
               <TabsContent key={tab.code} value={tab.code} className="mt-3" data-testid={`tabcontent-${tab.code}`}>
+                {tab.code === "rodina" && (subject.type === "company" || subject.type === "person" || subject.type === "szco") && (
+                  <RelationshipSection
+                    subject={subject}
+                    linkedFo={linkedFo || null}
+                    linkedPos={linkedPos || []}
+                    foPoRisks={riskData?.foPoRisks || []}
+                  />
+                )}
+
                 {tab.code === "profil" && (
                   <MarketingConsentsSection
                     subjectId={subject.id}
@@ -421,6 +447,146 @@ export function SubjektView({ subject, showPdfSidebar = false }: SubjektViewProp
         </div>
       )}
     </div>
+  );
+}
+
+function RelationshipSection({
+  subject,
+  linkedFo,
+  linkedPos,
+  foPoRisks,
+}: {
+  subject: Subject;
+  linkedFo: Subject | null;
+  linkedPos: Subject[];
+  foPoRisks: Array<{ subjectId: number; name: string; uid: string; listStatus: string; relationship: string }>;
+}) {
+  const isCompany = subject.type === "company";
+  const isPerson = subject.type === "person" || subject.type === "szco";
+
+  const hasRelationships = (isCompany && linkedFo) || (isPerson && linkedPos.length > 0);
+
+  function getListBadge(listStatus: string | null) {
+    if (!listStatus) return null;
+    if (listStatus === "cierny") {
+      return <Badge variant="destructive" className="bg-red-900 text-red-200 text-[10px]">Čierny zoznam</Badge>;
+    }
+    if (listStatus === "cerveny") {
+      return <Badge variant="secondary" className="bg-orange-900 text-orange-200 text-[10px]">Červený zoznam</Badge>;
+    }
+    return null;
+  }
+
+  function SubjectCard({ s, role }: { s: Subject; role: string }) {
+    const name = s.companyName || [s.firstName, s.lastName].filter(Boolean).join(" ") || "Bez mena";
+    const isOnList = !!(s as any).listStatus;
+    const listStatus = (s as any).listStatus as string | null;
+    return (
+      <div
+        className={`flex items-center gap-3 rounded-md border px-4 py-3 ${
+          isOnList
+            ? listStatus === "cierny"
+              ? "border-red-700 bg-red-950/60"
+              : "border-orange-700 bg-orange-950/60"
+            : "border-border bg-muted/30"
+        }`}
+        data-testid={`relationship-card-${s.id}`}
+      >
+        <div className={`flex items-center justify-center w-10 h-10 rounded-md ${
+          s.type === "company" ? "bg-blue-900/50" : "bg-emerald-900/50"
+        }`}>
+          {s.type === "company" ? (
+            <Building2 className="w-5 h-5 text-blue-400" />
+          ) : (
+            <User className="w-5 h-5 text-emerald-400" />
+          )}
+        </div>
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2">
+            <span className="text-sm font-semibold truncate">{name}</span>
+            {getListBadge(listStatus)}
+          </div>
+          <div className="flex items-center gap-2 mt-0.5">
+            <Badge variant="outline" className="text-[9px] px-1 py-0">
+              {s.type === "company" ? "PO" : s.type === "szco" ? "SZČO" : "FO"}
+            </Badge>
+            <span className="text-[10px] text-muted-foreground font-mono">{s.uid}</span>
+          </div>
+          <span className="text-[10px] text-muted-foreground mt-0.5 block">{role}</span>
+        </div>
+        {isOnList && (
+          <AlertTriangle className={`w-5 h-5 shrink-0 ${listStatus === "cierny" ? "text-red-400" : "text-orange-400"}`} />
+        )}
+      </div>
+    );
+  }
+
+  return (
+    <Card className="mb-4" data-testid="relationship-section">
+      <CardContent className="p-4 space-y-3">
+        <div className="flex items-center gap-2">
+          <Link2 className="w-4 h-4 text-primary" />
+          <span className="text-sm font-semibold">Vzťahy – Konateľ ↔ Firma</span>
+        </div>
+
+        {!hasRelationships ? (
+          <div className="text-center py-4 text-sm text-muted-foreground">
+            Žiadne prepojenia Konateľ ↔ Firma
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {isCompany && linkedFo && (
+              <div className="space-y-2">
+                <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                  <ArrowLeftRight className="w-3 h-3" />
+                  <span>Konateľ tejto firmy</span>
+                </div>
+                <SubjectCard s={linkedFo} role="Konateľ" />
+                {foPoRisks.some(r => r.relationship === "konateľ" && r.subjectId === linkedFo.id) && (
+                  <div className="flex items-center gap-2 rounded border border-yellow-700 bg-yellow-950/80 px-3 py-2 text-yellow-200 text-xs">
+                    <ShieldAlert className="w-4 h-4 text-yellow-400 shrink-0" />
+                    <span>
+                      Konateľ je na {(linkedFo as any).listStatus === "cierny" ? "Čiernom" : "Červenom"} zozname – riziko sa prenáša na túto firmu!
+                    </span>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {isPerson && linkedPos.length > 0 && (
+              <div className="space-y-2">
+                <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                  <ArrowLeftRight className="w-3 h-3" />
+                  <span>Firmy kde je konateľom</span>
+                </div>
+                {linkedPos.map(po => (
+                  <div key={po.id} className="space-y-1">
+                    <SubjectCard s={po} role="Firma" />
+                    {foPoRisks.some(r => r.relationship === "firma" && r.subjectId === po.id) && (
+                      <div className="flex items-center gap-2 rounded border border-yellow-700 bg-yellow-950/80 px-3 py-2 text-yellow-200 text-xs">
+                        <ShieldAlert className="w-4 h-4 text-yellow-400 shrink-0" />
+                        <span>
+                          Firma je na {(po as any).listStatus === "cierny" ? "Čiernom" : "Červenom"} zozname – riziko sa prenáša na konateľa!
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {(subject as any).listStatus && (
+              <div className="flex items-center gap-2 rounded border border-red-700 bg-red-950/80 px-3 py-2 text-red-200 text-xs mt-2">
+                <Ban className="w-4 h-4 text-red-400 shrink-0" />
+                <span>
+                  Tento subjekt je na {(subject as any).listStatus === "cierny" ? "Čiernom" : "Červenom"} zozname – riziko sa prenáša na prepojené subjekty!
+                </span>
+              </div>
+            )}
+          </div>
+        )}
+      </CardContent>
+    </Card>
   );
 }
 

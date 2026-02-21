@@ -5541,6 +5541,17 @@ export async function registerRoutes(
     }
   });
 
+  app.get("/api/subjects/:id/linked-companies", isAuthenticated, async (req: any, res) => {
+    try {
+      const subjectId = Number(req.params.id);
+      const allSubjects = await storage.getSubjects();
+      const linked = allSubjects.filter((s: any) => s.linkedFoId === subjectId && !s.deletedAt);
+      res.json(linked);
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
   app.get("/api/subjects/:id/risk-links", isAuthenticated, async (req: any, res) => {
     try {
       const subjectId = Number(req.params.id);
