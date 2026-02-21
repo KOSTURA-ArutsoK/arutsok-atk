@@ -70,32 +70,27 @@ function generateClientDetails(type: "person" | "company", city: string) {
     },
   };
   if (type === "person") {
-    details.dynamicFields.category_1 = {
-      datumNarodenia: `${1960 + Math.floor(Math.random() * 40)}-${String(1 + Math.floor(Math.random() * 12)).padStart(2, "0")}-${String(1 + Math.floor(Math.random() * 28)).padStart(2, "0")}`,
-      miestNarodenia: randomPick(SK_CITIES),
-      statnaInstitucia: "SR",
-      rodinnyStav: randomPick(["slobodný/á", "ženatý/vydatá", "rozvedený/á"]),
-    };
-    details.dynamicFields.category_3 = {
-      trvBydliskoUlica: details.address.street,
-      trvBydliskoMesto: city,
-      trvBydliskoPsc: details.address.zip,
-    };
-    details.dynamicFields.category_5 = {
-      zamestnanie: randomPick(["zamestnanec", "SZČO", "dôchodca", "študent", "podnikateľ"]),
-      mesacnyPrijem: String(800 + Math.floor(Math.random() * 3000)),
-    };
+    details.dynamicFields.datum_narodenia = `${1960 + Math.floor(Math.random() * 40)}-${String(1 + Math.floor(Math.random() * 12)).padStart(2, "0")}-${String(1 + Math.floor(Math.random() * 28)).padStart(2, "0")}`;
+    details.dynamicFields.miesto_narodenia = randomPick(SK_CITIES);
+    details.dynamicFields.statna_prislusnost = "SR";
+    details.dynamicFields.rodinny_stav = randomPick(["slobodný/á", "ženatý/vydatá", "rozvedený/á"]);
+    details.dynamicFields.tp_ulica = details.address.street;
+    details.dynamicFields.tp_mesto = city;
+    details.dynamicFields.tp_psc = details.address.zip;
+    details.dynamicFields.tp_stat = "Slovensko";
+    details.dynamicFields.zamestnanie = randomPick(["zamestnanec", "SZČO", "dôchodca", "študent", "podnikateľ"]);
+    details.dynamicFields.mesacny_prijem = String(800 + Math.floor(Math.random() * 3000));
   } else {
-    details.dynamicFields.category_32 = {
-      skNace: `${60 + Math.floor(Math.random() * 30)}.${Math.floor(Math.random() * 10)}0`,
-      obrat: String((100000 + Math.floor(Math.random() * 5000000))),
-      pocetZamestnancov: String(1 + Math.floor(Math.random() * 200)),
-    };
-    details.dynamicFields.category_31 = {
-      ico: randomICO(),
-      dic: `20${String(Math.floor(Math.random() * 100000000)).padStart(8, "0")}`,
-      icDph: `SK20${String(Math.floor(Math.random() * 100000000)).padStart(8, "0")}`,
-    };
+    details.dynamicFields.sk_nace = `${60 + Math.floor(Math.random() * 30)}.${Math.floor(Math.random() * 10)}0`;
+    details.dynamicFields.obrat = String((100000 + Math.floor(Math.random() * 5000000)));
+    details.dynamicFields.pocet_zamestnancov = String(1 + Math.floor(Math.random() * 200));
+    details.dynamicFields.ico = randomICO();
+    details.dynamicFields.dic = `20${String(Math.floor(Math.random() * 100000000)).padStart(8, "0")}`;
+    details.dynamicFields.ic_dph = `SK20${String(Math.floor(Math.random() * 100000000)).padStart(8, "0")}`;
+    details.dynamicFields.sidlo_ulica = details.address.street;
+    details.dynamicFields.sidlo_mesto = city;
+    details.dynamicFields.sidlo_psc = details.address.zip;
+    details.dynamicFields.sidlo_stat = "Slovensko";
   }
   return details;
 }
