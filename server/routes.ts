@@ -5995,6 +5995,59 @@ export async function registerRoutes(
     }
   });
 
+  // === SUBJECT UPDATE (generic field update for edit mode and inline edits) ===
+  const ALLOWED_SUBJECT_FIELDS = new Set([
+    "firstName", "lastName", "companyName", "email", "phone",
+    "birthNumber", "idCardNumber", "iban", "swift",
+    "continentId", "stateId", "myCompanyId", "type",
+  ]);
+
+  app.patch("/api/subjects/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const subjectId = Number(req.params.id);
+      if (isNaN(subjectId)) return res.status(400).json({ message: "Neplatné ID subjektu" });
+
+      const existing = await storage.getSubject(subjectId);
+      if (!existing) return res.status(404).json({ message: "Subjekt nenájdený" });
+
+      if (req.appUser?.activeCompanyId && existing.companyId !== req.appUser.activeCompanyId) {
+        return res.status(403).json({ message: "Subjekt nepatrí do vašej aktívnej spoločnosti" });
+      }
+
+      const { changeReason, details, ...rawFields } = req.body;
+
+      const updates: Record<string, any> = {};
+      for (const [key, val] of Object.entries(rawFields)) {
+        if (ALLOWED_SUBJECT_FIELDS.has(key)) updates[key] = val;
+      }
+
+      if (details && typeof details === "object") {
+        const existingDetails = (existing.details || {}) as Record<string, any>;
+        const existingDynamic = existingDetails.dynamicFields || {};
+        const incomingDynamic = details.dynamicFields || {};
+        updates.details = {
+          ...existingDetails,
+          dynamicFields: { ...existingDynamic, ...incomingDynamic },
+        };
+      }
+
+      if (changeReason) updates.changeReason = changeReason;
+
+      const updated = await storage.updateSubject(subjectId, updates);
+      await logAudit(req, {
+        action: "UPDATE",
+        module: "subjects",
+        entityId: subjectId,
+        entityName: existing.uid || `Subject #${subjectId}`,
+        oldData: existing,
+        newData: updated,
+      });
+      res.json(updated);
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
   // === SUBJECT UI PREFERENCES (summary_fields for PDF export, field_notes for SuperAdmin) ===
   app.patch("/api/subjects/:id/ui-preferences", isAuthenticated, async (req: any, res) => {
     try {
