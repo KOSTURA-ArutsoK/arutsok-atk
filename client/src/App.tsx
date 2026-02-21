@@ -53,7 +53,7 @@ import BulkImport from "@/pages/BulkImport";
 import ImportArchive from "@/pages/ImportArchive";
 import { AppShell } from "@/components/layout/AppShell";
 
-function PrivateRoute({ component: Component, ...rest }: any) {
+function PrivateRoute({ children }: { children: React.ReactNode }) {
   const { user, isLoading } = useAuth();
 
   if (isLoading) {
@@ -70,7 +70,7 @@ function PrivateRoute({ component: Component, ...rest }: any) {
 
   return (
     <AppShell>
-      <Component />
+      {children}
     </AppShell>
   );
 }
@@ -94,57 +94,95 @@ function ClientProfilePage() {
   return <SubjektView subject={subject} isClientView={true} />;
 }
 
+function LoginRedirect() {
+  window.location.href = "/api/login";
+  return null;
+}
+
+const PrivateDashboard = () => <PrivateRoute><Dashboard /></PrivateRoute>;
+const PrivateSubjects = () => <PrivateRoute><Subjects /></PrivateRoute>;
+const PrivateCompanies = () => <PrivateRoute><Companies /></PrivateRoute>;
+const PrivatePartners = () => <PrivateRoute><Partners /></PrivateRoute>;
+const PrivateProducts = () => <PrivateRoute><Products /></PrivateRoute>;
+const PrivateCommissions = () => <PrivateRoute><Commissions /></PrivateRoute>;
+const PrivateBody = () => <PrivateRoute><Body /></PrivateRoute>;
+const PrivateProvizie = () => <PrivateRoute><Provizie /></PrivateRoute>;
+const PrivateOdmeny = () => <PrivateRoute><Odmeny /></PrivateRoute>;
+const PrivateSettings = () => <PrivateRoute><Settings /></PrivateRoute>;
+const PrivateHistory = () => <PrivateRoute><History /></PrivateRoute>;
+const PrivateUsers = () => <PrivateRoute><Users /></PrivateRoute>;
+const PrivatePermissionGroups = () => <PrivateRoute><PermissionGroups /></PrivateRoute>;
+const PrivateArchive = () => <PrivateRoute><Archive /></PrivateRoute>;
+const PrivateContracts = () => <PrivateRoute><Contracts /></PrivateRoute>;
+const PrivateContractForm = () => <PrivateRoute><ContractForm /></PrivateRoute>;
+const PrivateContractStatuses = () => <PrivateRoute><ContractStatuses /></PrivateRoute>;
+const PrivateContractTemplates = () => <PrivateRoute><ContractTemplates /></PrivateRoute>;
+const PrivateContractFieldSettings = () => <PrivateRoute><ContractFieldSettings /></PrivateRoute>;
+const PrivateContractInventories = () => <PrivateRoute><ContractInventories /></PrivateRoute>;
+const PrivateSupisky = () => <PrivateRoute><SupiskyPage /></PrivateRoute>;
+const PrivateClientGroups = () => <PrivateRoute><ClientGroups /></PrivateRoute>;
+const PrivatePartnerContacts = () => <PrivateRoute><PartnerContacts /></PrivateRoute>;
+const PrivateSectors = () => <PrivateRoute><Sectors /></PrivateRoute>;
+const PrivateNovinky = () => <PrivateRoute><Novinky /></PrivateRoute>;
+const PrivateDokumenty = () => <PrivateRoute><DokumentyNaStiahnutie /></PrivateRoute>;
+const PrivateExterne = () => <PrivateRoute><ExternePristupy /></PrivateRoute>;
+const PrivateKalendar = () => <PrivateRoute><Kalendar /></PrivateRoute>;
+const PrivateDobaPrihlasenia = () => <PrivateRoute><DobaPrihlasenia /></PrivateRoute>;
+const PrivatePodpora = () => <PrivateRoute><PodporaRegistracia /></PrivateRoute>;
+const PrivateNastaveniePrehladov = () => <PrivateRoute><NastaveniePrehladov /></PrivateRoute>;
+const PrivateSettingsStates = () => <PrivateRoute><SettingsStates /></PrivateRoute>;
+const PrivateBulkImport = () => <PrivateRoute><BulkImport /></PrivateRoute>;
+const PrivateImportArchive = () => <PrivateRoute><ImportArchive /></PrivateRoute>;
+const PrivateClientProfile = () => <PrivateRoute><ClientProfilePage /></PrivateRoute>;
+
 function Router() {
   return (
     <Switch>
-      <Route path="/api/login" component={() => {
-        window.location.href = "/api/login";
-        return null;
-      }} />
+      <Route path="/api/login" component={LoginRedirect} />
 
       <Route path="/register" component={RegisterPage} />
       <Route path="/forgot-password" component={ForgotPassword} />
       <Route path="/client-zone" component={ClientZone} />
-      <Route path="/client-profile" component={() => <PrivateRoute component={ClientProfilePage} />} />
+      <Route path="/client-profile" component={PrivateClientProfile} />
       
-      <Route path="/" component={() => <PrivateRoute component={Dashboard} />} />
-      <Route path="/subjects" component={() => <PrivateRoute component={Subjects} />} />
-      <Route path="/companies" component={() => <PrivateRoute component={Companies} />} />
-      <Route path="/partners" component={() => <PrivateRoute component={Partners} />} />
-      <Route path="/products" component={() => <PrivateRoute component={Products} />} />
-      <Route path="/commissions" component={() => <PrivateRoute component={Commissions} />} />
-      <Route path="/body" component={() => <PrivateRoute component={Body} />} />
-      <Route path="/provizie" component={() => <PrivateRoute component={Provizie} />} />
-      <Route path="/odmeny" component={() => <PrivateRoute component={Odmeny} />} />
-      <Route path="/settings" component={() => <PrivateRoute component={Settings} />} />
-      <Route path="/history" component={() => <PrivateRoute component={History} />} />
-      <Route path="/users" component={() => <PrivateRoute component={Users} />} />
-      <Route path="/permission-groups" component={() => <PrivateRoute component={PermissionGroups} />} />
-      <Route path="/archive" component={() => <PrivateRoute component={Archive} />} />
-      <Route path="/contracts" component={() => <PrivateRoute component={Contracts} />} />
-      <Route path="/evidencia-zmluv" component={() => <PrivateRoute component={Contracts} />} />
-      <Route path="/contracts/new" component={() => <PrivateRoute component={ContractForm} />} />
-      <Route path="/contracts/:id/edit" component={() => <PrivateRoute component={ContractForm} />} />
-      <Route path="/contract-statuses" component={() => <PrivateRoute component={ContractStatuses} />} />
-      <Route path="/contract-template-settings" component={() => <PrivateRoute component={ContractTemplates} />} />
-      <Route path="/contract-template-management" component={() => <PrivateRoute component={ContractTemplates} />} />
-      <Route path="/contract-field-settings" component={() => <PrivateRoute component={ContractFieldSettings} />} />
-      <Route path="/contract-inventories" component={() => <PrivateRoute component={ContractInventories} />} />
-      <Route path="/supisky" component={() => <PrivateRoute component={SupiskyPage} />} />
-      <Route path="/client-groups" component={() => <PrivateRoute component={ClientGroups} />} />
-      <Route path="/partner-contacts" component={() => <PrivateRoute component={PartnerContacts} />} />
-      <Route path="/sectors" component={() => <PrivateRoute component={Sectors} />} />
-      <Route path="/novinky" component={() => <PrivateRoute component={Novinky} />} />
-      <Route path="/dokumenty-na-stiahnutie" component={() => <PrivateRoute component={DokumentyNaStiahnutie} />} />
-      <Route path="/externe-pristupy" component={() => <PrivateRoute component={ExternePristupy} />} />
-      <Route path="/kalendar" component={() => <PrivateRoute component={Kalendar} />} />
-      <Route path="/doba-prihlasenia" component={() => <PrivateRoute component={DobaPrihlasenia} />} />
-      <Route path="/support" component={() => <PrivateRoute component={PodporaRegistracia} />} />
-      <Route path="/dashboard-settings" component={() => <PrivateRoute component={NastaveniePrehladov} />} />
-      <Route path="/settings-states" component={() => <PrivateRoute component={SettingsStates} />} />
-      <Route path="/settings-companies" component={() => <PrivateRoute component={Companies} />} />
-      <Route path="/bulk-import" component={() => <PrivateRoute component={BulkImport} />} />
-      <Route path="/import-archive" component={() => <PrivateRoute component={ImportArchive} />} />
+      <Route path="/" component={PrivateDashboard} />
+      <Route path="/subjects" component={PrivateSubjects} />
+      <Route path="/companies" component={PrivateCompanies} />
+      <Route path="/partners" component={PrivatePartners} />
+      <Route path="/products" component={PrivateProducts} />
+      <Route path="/commissions" component={PrivateCommissions} />
+      <Route path="/body" component={PrivateBody} />
+      <Route path="/provizie" component={PrivateProvizie} />
+      <Route path="/odmeny" component={PrivateOdmeny} />
+      <Route path="/settings" component={PrivateSettings} />
+      <Route path="/history" component={PrivateHistory} />
+      <Route path="/users" component={PrivateUsers} />
+      <Route path="/permission-groups" component={PrivatePermissionGroups} />
+      <Route path="/archive" component={PrivateArchive} />
+      <Route path="/contracts" component={PrivateContracts} />
+      <Route path="/evidencia-zmluv" component={PrivateContracts} />
+      <Route path="/contracts/new" component={PrivateContractForm} />
+      <Route path="/contracts/:id/edit" component={PrivateContractForm} />
+      <Route path="/contract-statuses" component={PrivateContractStatuses} />
+      <Route path="/contract-template-settings" component={PrivateContractTemplates} />
+      <Route path="/contract-template-management" component={PrivateContractTemplates} />
+      <Route path="/contract-field-settings" component={PrivateContractFieldSettings} />
+      <Route path="/contract-inventories" component={PrivateContractInventories} />
+      <Route path="/supisky" component={PrivateSupisky} />
+      <Route path="/client-groups" component={PrivateClientGroups} />
+      <Route path="/partner-contacts" component={PrivatePartnerContacts} />
+      <Route path="/sectors" component={PrivateSectors} />
+      <Route path="/novinky" component={PrivateNovinky} />
+      <Route path="/dokumenty-na-stiahnutie" component={PrivateDokumenty} />
+      <Route path="/externe-pristupy" component={PrivateExterne} />
+      <Route path="/kalendar" component={PrivateKalendar} />
+      <Route path="/doba-prihlasenia" component={PrivateDobaPrihlasenia} />
+      <Route path="/support" component={PrivatePodpora} />
+      <Route path="/dashboard-settings" component={PrivateNastaveniePrehladov} />
+      <Route path="/settings-states" component={PrivateSettingsStates} />
+      <Route path="/settings-companies" component={PrivateCompanies} />
+      <Route path="/bulk-import" component={PrivateBulkImport} />
+      <Route path="/import-archive" component={PrivateImportArchive} />
 
       <Route component={NotFound} />
     </Switch>
