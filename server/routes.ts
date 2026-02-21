@@ -7045,7 +7045,27 @@ export async function registerRoutes(
         synonymMap.get(syn.parameterId)!.push(syn.synonym.toLowerCase());
       }
 
-      const results: { parameterId: number; fieldKey: string; label: string; matchedValue: string | null; matchType: string; confidence: number }[] = [];
+      const CONFIDENCE_THRESHOLD = 95;
+
+      const documentTypeAnchors: Record<string, string[]> = {
+        "Technický preukaz": ["vin", "kw", "šp", "značka vozidla", "druh vozidla", "farba vozidla", "rok výroby", "evidenčné číslo", "celková hmotnosť"],
+        "Občiansky preukaz": ["rodné číslo", "dátum narodenia", "miesto narodenia", "trvalý pobyt", "číslo op", "platnosť do", "štátna príslušnosť"],
+        "Cestovný pas": ["passport", "číslo pasu", "pas č", "platnosť pasu", "miesto vydania"],
+        "Poistná zmluva": ["poistné", "poistná suma", "poisťovňa", "poistená osoba", "poistná doba", "poistné obdobie", "výška poistného"],
+        "Živnostenský list": ["ičo", "predmet podnikania", "obchodné meno", "živnostenské oprávnenie", "miesto podnikania"],
+      };
+      const lowerText = text.toLowerCase();
+      let detectedDocumentType: string | null = null;
+      let maxAnchorHits = 0;
+      for (const [docType, anchors] of Object.entries(documentTypeAnchors)) {
+        const hits = anchors.filter(a => lowerText.includes(a)).length;
+        if (hits > maxAnchorHits && hits >= 2) {
+          maxAnchorHits = hits;
+          detectedDocumentType = docType;
+        }
+      }
+
+      const results: { parameterId: number; fieldKey: string; label: string; matchedValue: string | null; matchType: string; confidence: number; needsConfirmation: boolean }[] = [];
       const lines = text.split(/\n/);
 
       for (const param of allParams) {
@@ -7098,6 +7118,7 @@ export async function registerRoutes(
             matchedValue: bestMatch.value,
             matchType: bestMatch.matchType,
             confidence: bestMatch.confidence,
+            needsConfirmation: bestMatch.confidence < CONFIDENCE_THRESHOLD,
           });
         }
       }
@@ -7138,7 +7159,18 @@ export async function registerRoutes(
         }
       }
 
-      res.json({ extracted: results, totalParams: allParams.length, matchedCount: results.length, unmatchedCount: unmatchedLines.length });
+      const confirmedResults = results.filter(r => !r.needsConfirmation);
+      const needsConfirmationResults = results.filter(r => r.needsConfirmation);
+      res.json({
+        extracted: results,
+        totalParams: allParams.length,
+        matchedCount: results.length,
+        confirmedCount: confirmedResults.length,
+        needsConfirmationCount: needsConfirmationResults.length,
+        unmatchedCount: unmatchedLines.length,
+        confidenceThreshold: CONFIDENCE_THRESHOLD,
+        detectedDocumentType,
+      });
     } catch (err) {
       console.error("[AI EXTRACT ERROR]", err);
       res.status(500).json({ message: "Internal error" });

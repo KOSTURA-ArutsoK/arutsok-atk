@@ -46,6 +46,7 @@ import {
   Globe,
   Building,
   FileSpreadsheet,
+  Database,
 } from "lucide-react";
 import {
   Sidebar,
@@ -402,12 +403,25 @@ export function AppSidebar() {
               <SidebarMenuItem>
                 <SidebarMenuButton
                   asChild
-                  isActive={location === "/sectors"}
-                  data-testid="nav-sektory"
+                  isActive={location === "/sektory-subjektov"}
+                  data-testid="nav-sektory-subjektov"
                 >
-                  <Link href="/sectors">
-                    <Layers className="w-4 h-4" />
-                    <span>Sektory</span>
+                  <Link href="/sektory-subjektov">
+                    <Database className="w-4 h-4" />
+                    <span>Sektory Subjektov</span>
+                  </Link>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+
+              <SidebarMenuItem>
+                <SidebarMenuButton
+                  asChild
+                  isActive={location === "/sektory-zmluv"}
+                  data-testid="nav-sektory-zmluv"
+                >
+                  <Link href="/sektory-zmluv">
+                    <FileText className="w-4 h-4" />
+                    <span>Sektory Zmlúv</span>
                   </Link>
                 </SidebarMenuButton>
               </SidebarMenuItem>

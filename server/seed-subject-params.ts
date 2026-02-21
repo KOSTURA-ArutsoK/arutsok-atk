@@ -52,6 +52,8 @@ export async function seedSubjectParameters(): Promise<{ sectionsCount: number; 
     { clientTypeId: 1, name: "Nehnuteľnosť", code: "fo_nehnutelnost", folderCategory: "doplnkove", sortOrder: 11, isPanel: true, gridColumns: 3 },
     { clientTypeId: 1, name: "Deti", code: "fo_deti", folderCategory: "doplnkove", sortOrder: 12, isPanel: true, gridColumns: 3 },
     { clientTypeId: 1, name: "Zamestnávateľ", code: "fo_zamestnavatel", folderCategory: "doplnkove", sortOrder: 13, isPanel: true, gridColumns: 3 },
+    { clientTypeId: 1, name: "Starobné dôchodkové sporenie (SDS)", code: "fo_sds", folderCategory: "doplnkove", sortOrder: 14, isPanel: true, gridColumns: 3 },
+    { clientTypeId: 1, name: "Doplnkové dôchodkové sporenie (DDS)", code: "fo_dds", folderCategory: "doplnkove", sortOrder: 15, isPanel: true, gridColumns: 3 },
     { clientTypeId: 3, name: "POVINNÉ ÚDAJE", code: "szco_povinne", folderCategory: "povinne", sortOrder: 0, isPanel: false, gridColumns: 1 },
     { clientTypeId: 3, name: "DOPLNKOVÉ ÚDAJE", code: "szco_doplnkove", folderCategory: "doplnkove", sortOrder: 1, isPanel: false, gridColumns: 1 },
     { clientTypeId: 3, name: "VOLITEĽNÉ ÚDAJE", code: "szco_volitelne", folderCategory: "volitelne", sortOrder: 2, isPanel: false, gridColumns: 1 },
@@ -70,6 +72,8 @@ export async function seedSubjectParameters(): Promise<{ sectionsCount: number; 
     { clientTypeId: 3, name: "Vozidlo", code: "szco_auto", folderCategory: "doplnkove", sortOrder: 6, isPanel: true, gridColumns: 4 },
     { clientTypeId: 3, name: "Nehnuteľnosť", code: "szco_nehnutelnost", folderCategory: "doplnkove", sortOrder: 7, isPanel: true, gridColumns: 3 },
     { clientTypeId: 3, name: "Podnikateľské údaje", code: "szco_zamestnavatelia", folderCategory: "doplnkove", sortOrder: 8, isPanel: true, gridColumns: 3 },
+    { clientTypeId: 3, name: "Starobné dôchodkové sporenie (SDS)", code: "szco_sds", folderCategory: "doplnkove", sortOrder: 9, isPanel: true, gridColumns: 3 },
+    { clientTypeId: 3, name: "Doplnkové dôchodkové sporenie (DDS)", code: "szco_dds", folderCategory: "doplnkove", sortOrder: 10, isPanel: true, gridColumns: 3 },
     { clientTypeId: 4, name: "POVINNÉ ÚDAJE", code: "po_povinne", folderCategory: "povinne", sortOrder: 0, isPanel: false, gridColumns: 1 },
     { clientTypeId: 4, name: "DOPLNKOVÉ ÚDAJE", code: "po_doplnkove", folderCategory: "doplnkove", sortOrder: 1, isPanel: false, gridColumns: 1 },
     { clientTypeId: 4, name: "VOLITEĽNÉ ÚDAJE", code: "po_volitelne", folderCategory: "volitelne", sortOrder: 2, isPanel: false, gridColumns: 1 },
@@ -99,9 +103,11 @@ export async function seedSubjectParameters(): Promise<{ sectionsCount: number; 
     fo_rodina: "fo_doplnkove", fo_dorucovacia: "fo_doplnkove", fo_aml: "fo_doplnkove", fo_zakonne: "fo_doplnkove", fo_zmluvne: "fo_doplnkove", fo_majetkove: "fo_doplnkove",
     fo_zdravie: "fo_doplnkove", fo_poistenie_pzp: "fo_doplnkove", fo_poistenie_zivot: "fo_doplnkove", fo_poistenie_majetok: "fo_doplnkove",
     fo_auto: "fo_doplnkove", fo_nehnutelnost: "fo_doplnkove", fo_deti: "fo_doplnkove", fo_zamestnavatel: "fo_doplnkove",
+    fo_sds: "fo_doplnkove", fo_dds: "fo_doplnkove",
     szco_subjekt: "szco_povinne", szco_sidlo: "szco_povinne", szco_osobne: "szco_povinne", szco_adresa: "szco_povinne", szco_kontakt: "szco_povinne", szco_doklady: "szco_povinne",
     szco_aml: "szco_doplnkove", szco_firemny: "szco_doplnkove", szco_zakonne: "szco_doplnkove", szco_zmluvne: "szco_doplnkove",
     szco_poistenie_pzp: "szco_doplnkove", szco_poistenie_majetok: "szco_doplnkove", szco_auto: "szco_doplnkove", szco_nehnutelnost: "szco_doplnkove", szco_zamestnavatelia: "szco_doplnkove",
+    szco_sds: "szco_doplnkove", szco_dds: "szco_doplnkove",
     po_subjekt: "po_povinne", po_sidlo: "po_povinne", po_kontakt: "po_povinne",
     po_aml: "po_doplnkove", po_firemny: "po_doplnkove", po_zakonne: "po_doplnkove", po_zmluvne: "po_doplnkove", po_statutari: "po_doplnkove",
     po_poistenie_pzp: "po_doplnkove", po_poistenie_majetok: "po_doplnkove", po_auto: "po_doplnkove", po_nehnutelnosti: "po_doplnkove", po_flota: "po_doplnkove",
@@ -128,6 +134,7 @@ export async function seedSubjectParameters(): Promise<{ sectionsCount: number; 
     f(1, "fo_povinne", "fo_osobne", "datum_narodenia", "Dátum narodenia", "date", 70, 2, 25, { isRequired: true, shortLabel: "Dát. nar." }),
     f(1, "fo_povinne", "fo_osobne", "vek", "Vek", "number", 80, 3, 15, { isRequired: true }),
     f(1, "fo_povinne", "fo_osobne", "pohlavie", "Pohlavie", "jedna_moznost", 90, 3, 20, { options: ["muž", "žena"] }),
+    f(1, "fo_povinne", "fo_osobne", "rodinny_stav", "Rodinný stav", "jedna_moznost", 95, 3, 35, { options: ["slobodný/á", "ženatý/vydatá", "rozvedený/á", "vdovec/vdova", "druh/družka"], categoryCode: "osobne" }),
     f(1, "fo_povinne", "fo_osobne", "miesto_narodenia", "Miesto narodenia", "short_text", 100, 4, 50, { shortLabel: "Miesto nar." }),
     f(1, "fo_povinne", "fo_osobne", "statna_prislusnost", "Štátna príslušnosť", "short_text", 110, 4, 50, { shortLabel: "Št. príslušnosť" }),
 
@@ -179,8 +186,8 @@ export async function seedSubjectParameters(): Promise<{ sectionsCount: number; 
     // ============================================================
     // FO: Kontakt (fo_kontakt) - 2 fields
     // ============================================================
-    f(1, "fo_povinne", "fo_kontakt", "telefon", "Telefónne číslo (primárne)", "phone", 10, 0, 50, { shortLabel: "Tel. číslo" }),
-    f(1, "fo_povinne", "fo_kontakt", "email", "Email (primárny)", "short_text", 20, 0, 50, { shortLabel: "Email" }),
+    f(1, "fo_povinne", "fo_kontakt", "telefon", "Telefónne číslo (primárne)", "phone", 10, 0, 50, { shortLabel: "Tel. číslo", isCollection: true }),
+    f(1, "fo_povinne", "fo_kontakt", "email", "Email (primárny)", "short_text", 20, 0, 50, { shortLabel: "Email", isCollection: true }),
 
     // ============================================================
     // FO: Rodina (fo_rodina) - 4 fields
@@ -343,6 +350,29 @@ export async function seedSubjectParameters(): Promise<{ sectionsCount: number; 
     f(1, "fo_doplnkove", "fo_zamestnavatel", "zam_prijem_partner", "Príjem partnera", "desatinne_cislo", 90, 4, 50, { unit: "€", categoryCode: "pracovne" }),
 
     // ============================================================
+    // FO: SDS – Starobné dôchodkové sporenie (fo_sds) - 7 fields (NEW)
+    // ============================================================
+    f(1, "fo_doplnkove", "fo_sds", "sds_dss", "DSS (správcovská spoločnosť)", "short_text", 10, 0, 50, { shortLabel: "DSS", categoryCode: "dochodkove" }),
+    f(1, "fo_doplnkove", "fo_sds", "sds_cislo_zmluvy", "Číslo zmluvy SDS", "short_text", 20, 0, 50, { categoryCode: "dochodkove" }),
+    f(1, "fo_doplnkove", "fo_sds", "sds_fond", "Fond SDS", "jedna_moznost", 30, 1, 33, { options: ["dlhopisový garantovaný", "zmiešaný negarantovaný", "akciový negarantovaný", "indexový negarantovaný"], categoryCode: "dochodkove" }),
+    f(1, "fo_doplnkove", "fo_sds", "sds_mesacny_prispevok", "Mesačný príspevok SDS", "desatinne_cislo", 40, 1, 33, { unit: "€", categoryCode: "dochodkove" }),
+    f(1, "fo_doplnkove", "fo_sds", "sds_datum_vstupu", "Dátum vstupu do II. piliera", "date", 50, 1, 34, { categoryCode: "dochodkove" }),
+    f(1, "fo_doplnkove", "fo_sds", "sds_aktualny_stav", "Aktuálny stav účtu SDS", "desatinne_cislo", 60, 2, 50, { unit: "€", categoryCode: "dochodkove" }),
+    f(1, "fo_doplnkove", "fo_sds", "sds_poznamky", "Poznámky SDS", "long_text", 70, 2, 50, { categoryCode: "dochodkove" }),
+
+    // ============================================================
+    // FO: DDS – Doplnkové dôchodkové sporenie (fo_dds) - 8 fields (NEW)
+    // ============================================================
+    f(1, "fo_doplnkove", "fo_dds", "dds_spolocnost", "DDS spoločnosť (III. pilier)", "short_text", 10, 0, 50, { shortLabel: "DDS spoločnosť", categoryCode: "dochodkove" }),
+    f(1, "fo_doplnkove", "fo_dds", "dds_cislo_zmluvy", "Číslo zmluvy DDS", "short_text", 20, 0, 50, { categoryCode: "dochodkove" }),
+    f(1, "fo_doplnkove", "fo_dds", "dds_fond", "Fond DDS", "jedna_moznost", 30, 1, 33, { options: ["konzervatívny", "vyvážený", "rastový", "príspevkový"], categoryCode: "dochodkove" }),
+    f(1, "fo_doplnkove", "fo_dds", "dds_mesacny_prispevok_ucastnik", "Mesačný príspevok účastníka", "desatinne_cislo", 40, 1, 33, { unit: "€", categoryCode: "dochodkove" }),
+    f(1, "fo_doplnkove", "fo_dds", "dds_mesacny_prispevok_zamestnavatel", "Mesačný príspevok zamestnávateľa", "desatinne_cislo", 50, 1, 34, { unit: "€", categoryCode: "dochodkove" }),
+    f(1, "fo_doplnkove", "fo_dds", "dds_datum_vstupu", "Dátum vstupu do III. piliera", "date", 60, 2, 50, { categoryCode: "dochodkove" }),
+    f(1, "fo_doplnkove", "fo_dds", "dds_aktualny_stav", "Aktuálny stav účtu DDS", "desatinne_cislo", 70, 2, 50, { unit: "€", categoryCode: "dochodkove" }),
+    f(1, "fo_doplnkove", "fo_dds", "dds_poznamky", "Poznámky DDS", "long_text", 80, 3, 100, { categoryCode: "dochodkove" }),
+
+    // ============================================================
     // SZČO: Subjekt (szco_subjekt) - 2 fields
     // ============================================================
     f(3, "szco_povinne", "szco_subjekt", "nazov_firmy", "Obchodné meno SZČO", "short_text", 10, 0, 60, { isRequired: true, shortLabel: "Obch. meno" }),
@@ -373,8 +403,8 @@ export async function seedSubjectParameters(): Promise<{ sectionsCount: number; 
     // ============================================================
     // SZČO: Kontakt (szco_kontakt) - 2 fields
     // ============================================================
-    f(3, "szco_povinne", "szco_kontakt", "telefon", "Telefónne číslo (primárne)", "phone", 10, 0, 50, { shortLabel: "Tel. číslo" }),
-    f(3, "szco_povinne", "szco_kontakt", "email", "Email (primárny)", "short_text", 20, 0, 50, { shortLabel: "Email" }),
+    f(3, "szco_povinne", "szco_kontakt", "telefon", "Telefónne číslo (primárne)", "phone", 10, 0, 50, { shortLabel: "Tel. číslo", isCollection: true }),
+    f(3, "szco_povinne", "szco_kontakt", "email", "Email (primárny)", "short_text", 20, 0, 50, { shortLabel: "Email", isCollection: true }),
 
     // ============================================================
     // SZČO: Doklady (szco_doklady) - 6 fields
@@ -488,6 +518,29 @@ export async function seedSubjectParameters(): Promise<{ sectionsCount: number; 
     f(3, "szco_doplnkove", "szco_zamestnavatelia", "szco_spisova_znacka", "Spisová značka", "short_text", 50, 1, 34, { categoryCode: "firemny_profil" }),
 
     // ============================================================
+    // SZČO: SDS – Starobné dôchodkové sporenie (szco_sds) - 7 fields (NEW)
+    // ============================================================
+    f(3, "szco_doplnkove", "szco_sds", "szco_sds_dss", "DSS (správcovská spoločnosť)", "short_text", 10, 0, 50, { shortLabel: "DSS", categoryCode: "dochodkove" }),
+    f(3, "szco_doplnkove", "szco_sds", "szco_sds_cislo_zmluvy", "Číslo zmluvy SDS", "short_text", 20, 0, 50, { categoryCode: "dochodkove" }),
+    f(3, "szco_doplnkove", "szco_sds", "szco_sds_fond", "Fond SDS", "jedna_moznost", 30, 1, 33, { options: ["dlhopisový garantovaný", "zmiešaný negarantovaný", "akciový negarantovaný", "indexový negarantovaný"], categoryCode: "dochodkove" }),
+    f(3, "szco_doplnkove", "szco_sds", "szco_sds_mesacny_prispevok", "Mesačný príspevok SDS", "desatinne_cislo", 40, 1, 33, { unit: "€", categoryCode: "dochodkove" }),
+    f(3, "szco_doplnkove", "szco_sds", "szco_sds_datum_vstupu", "Dátum vstupu do II. piliera", "date", 50, 1, 34, { categoryCode: "dochodkove" }),
+    f(3, "szco_doplnkove", "szco_sds", "szco_sds_aktualny_stav", "Aktuálny stav účtu SDS", "desatinne_cislo", 60, 2, 50, { unit: "€", categoryCode: "dochodkove" }),
+    f(3, "szco_doplnkove", "szco_sds", "szco_sds_poznamky", "Poznámky SDS", "long_text", 70, 2, 50, { categoryCode: "dochodkove" }),
+
+    // ============================================================
+    // SZČO: DDS – Doplnkové dôchodkové sporenie (szco_dds) - 8 fields (NEW)
+    // ============================================================
+    f(3, "szco_doplnkove", "szco_dds", "szco_dds_spolocnost", "DDS spoločnosť (III. pilier)", "short_text", 10, 0, 50, { shortLabel: "DDS spoločnosť", categoryCode: "dochodkove" }),
+    f(3, "szco_doplnkove", "szco_dds", "szco_dds_cislo_zmluvy", "Číslo zmluvy DDS", "short_text", 20, 0, 50, { categoryCode: "dochodkove" }),
+    f(3, "szco_doplnkove", "szco_dds", "szco_dds_fond", "Fond DDS", "jedna_moznost", 30, 1, 33, { options: ["konzervatívny", "vyvážený", "rastový", "príspevkový"], categoryCode: "dochodkove" }),
+    f(3, "szco_doplnkove", "szco_dds", "szco_dds_mesacny_prispevok_ucastnik", "Mesačný príspevok účastníka", "desatinne_cislo", 40, 1, 33, { unit: "€", categoryCode: "dochodkove" }),
+    f(3, "szco_doplnkove", "szco_dds", "szco_dds_mesacny_prispevok_zamestnavatel", "Mesačný príspevok zamestnávateľa", "desatinne_cislo", 50, 1, 34, { unit: "€", categoryCode: "dochodkove" }),
+    f(3, "szco_doplnkove", "szco_dds", "szco_dds_datum_vstupu", "Dátum vstupu do III. piliera", "date", 60, 2, 50, { categoryCode: "dochodkove" }),
+    f(3, "szco_doplnkove", "szco_dds", "szco_dds_aktualny_stav", "Aktuálny stav účtu DDS", "desatinne_cislo", 70, 2, 50, { unit: "€", categoryCode: "dochodkove" }),
+    f(3, "szco_doplnkove", "szco_dds", "szco_dds_poznamky", "Poznámky DDS", "long_text", 80, 3, 100, { categoryCode: "dochodkove" }),
+
+    // ============================================================
     // PO: Subjekt (po_subjekt) - 4 fields
     // ============================================================
     f(4, "po_povinne", "po_subjekt", "nazov_firmy", "Obchodné meno", "short_text", 10, 0, 60, { isRequired: true, shortLabel: "Obch. meno" }),
@@ -508,8 +561,8 @@ export async function seedSubjectParameters(): Promise<{ sectionsCount: number; 
     // ============================================================
     // PO: Kontakt (po_kontakt) - 2 fields
     // ============================================================
-    f(4, "po_povinne", "po_kontakt", "telefon", "Telefónne číslo", "phone", 10, 0, 50, { shortLabel: "Telefón" }),
-    f(4, "po_povinne", "po_kontakt", "email", "Email", "short_text", 20, 0, 50),
+    f(4, "po_povinne", "po_kontakt", "telefon", "Telefónne číslo", "phone", 10, 0, 50, { shortLabel: "Telefón", isCollection: true }),
+    f(4, "po_povinne", "po_kontakt", "email", "Email", "short_text", 20, 0, 50, { isCollection: true }),
 
     // ============================================================
     // PO: AML (po_aml) - 3 fields
@@ -665,6 +718,11 @@ export async function seedSubjectParameters(): Promise<{ sectionsCount: number; 
     "auto_znacka": ["značka auta", "car brand", "výrobca vozidla"],
     "auto_ecv": ["evidenčné číslo vozidla", "ŠPZ", "registration number"],
     "neh_lv_cislo": ["list vlastníctva", "LV", "vlastnícky list"],
+    "rodinny_stav": ["manželský stav", "marital status", "stav", "rodinný stav klienta"],
+    "sds_dss": ["DSS", "dôchodková správcovská spoločnosť", "II. pilier správca", "pension fund company"],
+    "sds_cislo_zmluvy": ["číslo zmluvy SDS", "SDS contract number", "zmluva II. pilier"],
+    "dds_spolocnost": ["DDS spoločnosť", "III. pilier správca", "doplnkové dôchodkové"],
+    "dds_cislo_zmluvy": ["číslo zmluvy DDS", "DDS contract number", "zmluva III. pilier"],
     "nazov_firmy": ["obchodné meno", "company name", "firma", "názov spoločnosti"],
     "sidlo_ulica": ["ulica sídla", "registered street", "sídlo - ulica"],
     "sidlo_mesto": ["mesto sídla", "registered city", "sídlo - mesto"],

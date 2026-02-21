@@ -8,8 +8,7 @@ import { SmartFilterBar } from "@/components/smart-filter-bar";
 import { useToast } from "@/hooks/use-toast";
 import { usePartners } from "@/hooks/use-partners";
 import type { Sector, Parameter, SectorProduct, SectorProductParameter, Panel, PanelParameter, ProductPanel, Section, ContractFolder, FolderPanel } from "@shared/schema";
-import { Plus, Pencil, Trash2, Loader2, Search, Layers, Settings2, ChevronsUpDown, X, Check, FolderOpen, List, Package, Info, LayoutGrid, FolderClosed, Hash, ArrowRight, Users } from "lucide-react";
-import KniznicaParametrov from "@/pages/KniznicaParametrov";
+import { Plus, Pencil, Trash2, Loader2, Search, Layers, Settings2, ChevronsUpDown, X, Check, FolderOpen, List, Package, Info, LayoutGrid, FolderClosed, Hash, ArrowRight, FileText } from "lucide-react";
 import { ConditionalDelete } from "@/components/conditional-delete";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -2557,33 +2556,13 @@ function ContractSectorsContent() {
 }
 
 export default function Sectors() {
-  const [mainTab, setMainTab] = useState("contracts");
-
   return (
     <div className="p-6 space-y-6">
       <div className="flex items-center gap-3">
-        <Layers className="w-6 h-6 text-primary" />
-        <h1 className="text-2xl font-bold" data-testid="text-page-title">Sektory</h1>
+        <FileText className="w-6 h-6 text-primary" />
+        <h1 className="text-2xl font-bold" data-testid="text-page-title">Sektory Zmlúv</h1>
       </div>
-
-      <Tabs value={mainTab} onValueChange={setMainTab}>
-        <TabsList data-testid="tabs-main-sectors">
-          <TabsTrigger value="contracts" data-testid="tab-sektory-zmluv">
-            <Layers className="w-4 h-4 mr-2" />
-            Sektory Zmlúv
-          </TabsTrigger>
-          <TabsTrigger value="subjects" data-testid="tab-sektory-subjektov">
-            <Users className="w-4 h-4 mr-2" />
-            Sektory Subjektov
-          </TabsTrigger>
-        </TabsList>
-        <TabsContent value="contracts">
-          <ContractSectorsContent />
-        </TabsContent>
-        <TabsContent value="subjects">
-          <KniznicaParametrov />
-        </TabsContent>
-      </Tabs>
+      <ContractSectorsContent />
     </div>
   );
 }

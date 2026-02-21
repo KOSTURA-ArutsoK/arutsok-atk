@@ -38,6 +38,7 @@ import SupiskyPage from "@/pages/Supisky";
 import ClientGroups from "@/pages/ClientGroups";
 import PartnerContacts from "@/pages/PartnerContacts";
 import Sectors from "@/pages/Sectors";
+import SektorySubjektov from "@/pages/SektorySubjektov";
 import Novinky from "@/pages/Novinky";
 import DokumentyNaStiahnutie from "@/pages/DokumentyNaStiahnutie";
 import ExternePristupy from "@/pages/ExternePristupy";
@@ -123,6 +124,7 @@ const PrivateSupisky = () => <PrivateRoute><SupiskyPage /></PrivateRoute>;
 const PrivateClientGroups = () => <PrivateRoute><ClientGroups /></PrivateRoute>;
 const PrivatePartnerContacts = () => <PrivateRoute><PartnerContacts /></PrivateRoute>;
 const PrivateSectors = () => <PrivateRoute><Sectors /></PrivateRoute>;
+const PrivateSektorySubjektov = () => <PrivateRoute><SektorySubjektov /></PrivateRoute>;
 const PrivateNovinky = () => <PrivateRoute><Novinky /></PrivateRoute>;
 const PrivateDokumenty = () => <PrivateRoute><DokumentyNaStiahnutie /></PrivateRoute>;
 const PrivateExterne = () => <PrivateRoute><ExternePristupy /></PrivateRoute>;
@@ -171,7 +173,9 @@ function Router() {
       <Route path="/supisky" component={PrivateSupisky} />
       <Route path="/client-groups" component={PrivateClientGroups} />
       <Route path="/partner-contacts" component={PrivatePartnerContacts} />
+      <Route path="/sektory-zmluv" component={PrivateSectors} />
       <Route path="/sectors" component={PrivateSectors} />
+      <Route path="/sektory-subjektov" component={PrivateSektorySubjektov} />
       <Route path="/novinky" component={PrivateNovinky} />
       <Route path="/dokumenty-na-stiahnutie" component={PrivateDokumenty} />
       <Route path="/externe-pristupy" component={PrivateExterne} />

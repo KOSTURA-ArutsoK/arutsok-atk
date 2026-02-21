@@ -17,10 +17,16 @@ import {
   LayoutTemplate,
   X,
   Brain,
+  Wand2,
+  CheckCircle2,
+  AlertTriangle,
+  ThumbsUp,
+  ThumbsDown,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
@@ -133,6 +139,12 @@ export default function KniznicaParametrov() {
   const [isTemplateDialogOpen, setIsTemplateDialogOpen] = useState(false);
   const [editTemplate, setEditTemplate] = useState<SubjectTemplate | null>(null);
   const [bindingTemplateId, setBindingTemplateId] = useState<number | null>(null);
+  const [extractionText, setExtractionText] = useState("");
+  const [extractionClientType, setExtractionClientType] = useState<string>("1");
+  const [extractionResults, setExtractionResults] = useState<any>(null);
+  const [confirmedFields, setConfirmedFields] = useState<Set<number>>(new Set());
+  const [rejectedFields, setRejectedFields] = useState<Set<number>>(new Set());
+  
 
   const { data: sections = [], isLoading: sectionsLoading } = useQuery<SubjectParamSection[]>({
     queryKey: ["/api/subject-param-sections"],
@@ -149,6 +161,26 @@ export default function KniznicaParametrov() {
   const { data: templateParams = [] } = useQuery<{ id: number; templateId: number; parameterId: number; sortOrder: number; validFrom: string | null; validTo: string | null }[]>({
     queryKey: [`/api/subject-template-params/${bindingTemplateId}`],
     enabled: !!bindingTemplateId,
+  });
+
+  const extractFieldsMutation = useMutation({
+    mutationFn: async (data: { text: string; clientTypeId: string }) => {
+      const res = await apiRequest("POST", "/api/ai/extract-fields", data);
+      return res.json();
+    },
+    onSuccess: (data) => {
+      setExtractionResults(data);
+      setRejectedFields(new Set());
+      const autoConfirmed = new Set<number>();
+      (data.extracted || []).forEach((r: any, i: number) => {
+        if (!r.needsConfirmation) autoConfirmed.add(i);
+      });
+      setConfirmedFields(autoConfirmed);
+      toast({ title: `Extrakcia dokončená: ${data.matchedCount} zhôd, ${data.needsConfirmationCount} na potvrdenie` });
+    },
+    onError: () => {
+      toast({ title: "Chyba pri extrakcii", variant: "destructive" });
+    },
   });
 
   const saveSectionMutation = useMutation({
@@ -377,6 +409,10 @@ export default function KniznicaParametrov() {
           <TabsTrigger value="unknown" data-testid="tab-unknown-fields">
             <Brain className="w-3.5 h-3.5 mr-1" />
             Neznáme polia
+          </TabsTrigger>
+          <TabsTrigger value="extraction" data-testid="tab-extraction">
+            <Wand2 className="w-3.5 h-3.5 mr-1" />
+            Extrakcia
           </TabsTrigger>
         </TabsList>
 
@@ -852,6 +888,200 @@ export default function KniznicaParametrov() {
 
         <TabsContent value="unknown" className="space-y-4">
           <UnknownFieldsTab sections={sections} parameters={parameters} />
+        </TabsContent>
+
+        <TabsContent value="extraction" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base flex items-center gap-2">
+                <Wand2 className="w-4 h-4" />
+                AI Extrakcia polí z dokumentu
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label>Text dokumentu</Label>
+                  <Textarea
+                    value={extractionText}
+                    onChange={e => setExtractionText(e.target.value)}
+                    placeholder="Vložte text z dokumentu (napr. občiansky preukaz, technický preukaz, zmluva)..."
+                    className="min-h-[200px] font-mono text-sm"
+                    data-testid="textarea-extraction-input"
+                  />
+                </div>
+                <div className="space-y-3">
+                  <div className="space-y-2">
+                    <Label>Typ klienta</Label>
+                    <Select value={extractionClientType} onValueChange={setExtractionClientType}>
+                      <SelectTrigger data-testid="select-extraction-client-type">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="1">FO (Fyzická osoba)</SelectItem>
+                        <SelectItem value="3">SZČO</SelectItem>
+                        <SelectItem value="4">PO (Právnická osoba)</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <Button
+                    onClick={() => extractFieldsMutation.mutate({ text: extractionText, clientTypeId: extractionClientType })}
+                    disabled={!extractionText.trim() || extractFieldsMutation.isPending}
+                    className="w-full"
+                    data-testid="button-run-extraction"
+                  >
+                    {extractFieldsMutation.isPending ? (
+                      <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                    ) : (
+                      <Wand2 className="w-4 h-4 mr-2" />
+                    )}
+                    Extrahovať polia
+                  </Button>
+                  {extractionResults && (
+                    <div className="space-y-2 text-sm">
+                      <div className="flex items-center gap-2">
+                        <Badge variant="outline" className="bg-green-500/10 text-green-400 border-green-500/30">
+                          <CheckCircle2 className="w-3 h-3 mr-1" />
+                          {extractionResults.confirmedCount} automaticky potvrdené
+                        </Badge>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Badge variant="outline" className="bg-amber-500/10 text-amber-400 border-amber-500/30">
+                          <AlertTriangle className="w-3 h-3 mr-1" />
+                          {extractionResults.needsConfirmationCount} na potvrdenie
+                        </Badge>
+                      </div>
+                      {extractionResults.unmatchedCount > 0 && (
+                        <div className="flex items-center gap-2">
+                          <Badge variant="outline" className="bg-red-500/10 text-red-400 border-red-500/30">
+                            <Brain className="w-3 h-3 mr-1" />
+                            {extractionResults.unmatchedCount} neznáme
+                          </Badge>
+                        </div>
+                      )}
+                      {extractionResults.detectedDocumentType && (
+                        <div className="flex items-center gap-2 mt-1">
+                          <Badge variant="secondary" className="text-xs">
+                            <FileText className="w-3 h-3 mr-1" />
+                            Detekovaný typ: {extractionResults.detectedDocumentType}
+                          </Badge>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {extractionResults?.extracted && extractionResults.extracted.length > 0 && (
+                <div className="mt-4 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <Label className="text-sm font-medium">Výsledky extrakcie</Label>
+                    <div className="text-xs text-muted-foreground">
+                      Potvrdené: {confirmedFields.size} | Zamietnuté: {rejectedFields.size} | Celkom: {extractionResults.extracted.length}
+                    </div>
+                  </div>
+                  <div className="border rounded overflow-hidden">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead className="w-[200px]">Parameter</TableHead>
+                          <TableHead>Hodnota</TableHead>
+                          <TableHead className="w-[100px]">Istota</TableHead>
+                          <TableHead className="w-[80px]">Zdroj</TableHead>
+                          <TableHead className="w-[80px]">Stav</TableHead>
+                          <TableHead className="w-[120px] text-right">Akcie</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {extractionResults.extracted.map((result: any, idx: number) => {
+                          const isConfirmed = confirmedFields.has(idx);
+                          const isRejected = rejectedFields.has(idx);
+                          const confidencePercent = Math.round(result.confidence || 0);
+                          const confidenceColor = confidencePercent >= 95
+                            ? "text-green-400"
+                            : confidencePercent >= 75
+                              ? "text-amber-400"
+                              : "text-red-400";
+                          return (
+                            <TableRow
+                              key={`extraction-${idx}`}
+                              className={isRejected ? "opacity-40 line-through" : isConfirmed ? "bg-green-500/5" : result.needsConfirmation ? "bg-amber-500/5" : ""}
+                            >
+                              <TableCell className="font-medium text-sm">
+                                {result.label || result.fieldKey}
+                              </TableCell>
+                              <TableCell className="font-mono text-sm max-w-[250px] truncate">
+                                {result.matchedValue || "-"}
+                              </TableCell>
+                              <TableCell>
+                                <span className={`font-mono text-sm font-bold ${confidenceColor}`}>
+                                  {confidencePercent}%
+                                </span>
+                              </TableCell>
+                              <TableCell>
+                                <Badge variant="outline" className="text-xs">
+                                  {result.matchType === "regex" ? "Regex" : result.matchType === "synonym" ? "Synonymum" : "Label"}
+                                </Badge>
+                              </TableCell>
+                              <TableCell>
+                                {isConfirmed && !result.needsConfirmation && !isRejected ? (
+                                  <Badge className="bg-green-600 text-xs">Auto</Badge>
+                                ) : isConfirmed ? (
+                                  <Badge className="bg-green-600 text-xs">OK</Badge>
+                                ) : isRejected ? (
+                                  <Badge variant="destructive" className="text-xs">Zamietnuté</Badge>
+                                ) : (
+                                  <Badge variant="outline" className="border-amber-500/30 text-amber-400 text-xs">
+                                    <AlertTriangle className="w-3 h-3 mr-0.5" />
+                                    Čaká
+                                  </Badge>
+                                )}
+                              </TableCell>
+                              <TableCell className="text-right">
+                                {result.needsConfirmation && !isConfirmed && !isRejected ? (
+                                  <div className="flex items-center justify-end gap-1">
+                                    <Button
+                                      size="icon"
+                                      variant="ghost"
+                                      onClick={() => setConfirmedFields(prev => new Set([...prev, idx]))}
+                                      data-testid={`button-confirm-${idx}`}
+                                    >
+                                      <ThumbsUp className="w-3.5 h-3.5 text-green-400" />
+                                    </Button>
+                                    <Button
+                                      size="icon"
+                                      variant="ghost"
+                                      onClick={() => setRejectedFields(prev => new Set([...prev, idx]))}
+                                      data-testid={`button-reject-${idx}`}
+                                    >
+                                      <ThumbsDown className="w-3.5 h-3.5 text-red-400" />
+                                    </Button>
+                                  </div>
+                                ) : isRejected ? (
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    onClick={() => {
+                                      const next = new Set(rejectedFields);
+                                      next.delete(idx);
+                                      setRejectedFields(next);
+                                    }}
+                                    data-testid={`button-undo-reject-${idx}`}
+                                  >
+                                    Vrátiť
+                                  </Button>
+                                ) : null}
+                              </TableCell>
+                            </TableRow>
+                          );
+                        })}
+                      </TableBody>
+                    </Table>
+                  </div>
+                </div>
+              )}
+            </CardContent>
+          </Card>
         </TabsContent>
       </Tabs>
 
