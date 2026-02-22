@@ -1,4 +1,4 @@
-import { pgTable, text, serial, integer, boolean, timestamp, jsonb, bigint, numeric, varchar } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, integer, boolean, timestamp, jsonb, bigint, numeric, varchar, index } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
@@ -1943,6 +1943,146 @@ export const accessConsentLog = pgTable("access_consent_log", {
 export const insertAccessConsentLogSchema = createInsertSchema(accessConsentLog).omit({ id: true, createdAt: true });
 export type AccessConsentLogEntry = typeof accessConsentLog.$inferSelect;
 export type InsertAccessConsentLogEntry = z.infer<typeof insertAccessConsentLogSchema>;
+
+// === MATURITY EVENTS (Auto-transition at 18 - Full Autopilot) ===
+export const maturityEvents = pgTable("maturity_events", {
+  id: serial("id").primaryKey(),
+  subjectId: integer("subject_id").notNull().references(() => subjects.id),
+  eventType: text("event_type").notNull().default("auto_adult_transition"),
+  triggerAge: integer("trigger_age").notNull().default(18),
+  processedAt: timestamp("processed_at"),
+  status: text("status").notNull().default("pending"),
+  guardianSubjectIds: jsonb("guardian_subject_ids").default([]),
+  actionsPerformed: jsonb("actions_performed").default([]),
+  notificationsSent: jsonb("notifications_sent").default([]),
+  privacyBlocksCreated: jsonb("privacy_blocks_created").default([]),
+  consentsRevoked: jsonb("consents_revoked").default([]),
+  errorDetails: text("error_details"),
+  createdAt: timestamp("created_at").defaultNow(),
+  completedAt: timestamp("completed_at"),
+});
+
+export const insertMaturityEventSchema = createInsertSchema(maturityEvents).omit({ id: true, createdAt: true });
+export type MaturityEvent = typeof maturityEvents.$inferSelect;
+export type InsertMaturityEvent = z.infer<typeof insertMaturityEventSchema>;
+
+// === ADDRESS GROUPS (Adresná skupina - Objekt XY) ===
+export const addressGroups = pgTable("address_groups", {
+  id: serial("id").primaryKey(),
+  uid: text("uid").notNull().unique(),
+  name: text("name").notNull(),
+  groupType: text("group_type").notNull().default("address"),
+  address: text("address"),
+  description: text("description"),
+  contractId: integer("contract_id"),
+  isActive: boolean("is_active").default(true),
+  createdByUserId: integer("created_by_user_id").references(() => appUsers.id),
+  createdByName: text("created_by_name"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertAddressGroupSchema = createInsertSchema(addressGroups).omit({ id: true, createdAt: true, updatedAt: true });
+export type AddressGroup = typeof addressGroups.$inferSelect;
+export type InsertAddressGroup = z.infer<typeof insertAddressGroupSchema>;
+
+export const addressGroupMembers = pgTable("address_group_members", {
+  id: serial("id").primaryKey(),
+  groupId: integer("group_id").notNull().references(() => addressGroups.id),
+  subjectId: integer("subject_id").notNull().references(() => subjects.id),
+  role: text("role").default("clen"),
+  note: text("note"),
+  isActive: boolean("is_active").default(true),
+  addedByUserId: integer("added_by_user_id").references(() => appUsers.id),
+  addedByName: text("added_by_name"),
+  joinedAt: timestamp("joined_at").defaultNow(),
+  leftAt: timestamp("left_at"),
+});
+
+export const insertAddressGroupMemberSchema = createInsertSchema(addressGroupMembers).omit({ id: true, joinedAt: true });
+export type AddressGroupMember = typeof addressGroupMembers.$inferSelect;
+export type InsertAddressGroupMember = z.infer<typeof insertAddressGroupMemberSchema>;
+
+// === COMPANY SUBJECT ROLES (PO Štruktúra - Štatutár, UBO, Operátor) ===
+export const companySubjectRoles = pgTable("company_subject_roles", {
+  id: serial("id").primaryKey(),
+  companySubjectId: integer("company_subject_id").notNull().references(() => subjects.id),
+  personSubjectId: integer("person_subject_id").notNull().references(() => subjects.id),
+  roleType: text("role_type").notNull(),
+  allowedSections: jsonb("allowed_sections").default([]),
+  description: text("description"),
+  validFrom: timestamp("valid_from").defaultNow(),
+  validTo: timestamp("valid_to"),
+  isActive: boolean("is_active").default(true),
+  assignedByUserId: integer("assigned_by_user_id").references(() => appUsers.id),
+  assignedByName: text("assigned_by_name"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("idx_csr_company").on(table.companySubjectId),
+  index("idx_csr_person").on(table.personSubjectId),
+  index("idx_csr_role_type").on(table.roleType),
+]);
+
+export const insertCompanySubjectRoleSchema = createInsertSchema(companySubjectRoles).omit({ id: true, createdAt: true, updatedAt: true });
+export type CompanySubjectRole = typeof companySubjectRoles.$inferSelect;
+export type InsertCompanySubjectRole = z.infer<typeof insertCompanySubjectRoleSchema>;
+
+// === NOTIFICATION QUEUE (Systémové notifikácie - async bulk processing) ===
+export const notificationQueue = pgTable("notification_queue", {
+  id: serial("id").primaryKey(),
+  batchId: text("batch_id"),
+  recipientSubjectId: integer("recipient_subject_id").references(() => subjects.id),
+  recipientUserId: integer("recipient_user_id").references(() => appUsers.id),
+  notificationType: text("notification_type").notNull(),
+  title: text("title").notNull(),
+  message: text("message").notNull(),
+  priority: text("priority").default("normal"),
+  status: text("status").notNull().default("pending"),
+  metadata: jsonb("metadata").default({}),
+  readAt: timestamp("read_at"),
+  processedAt: timestamp("processed_at"),
+  errorDetails: text("error_details"),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("idx_nq_recipient_subject").on(table.recipientSubjectId),
+  index("idx_nq_recipient_user").on(table.recipientUserId),
+  index("idx_nq_batch").on(table.batchId),
+  index("idx_nq_status").on(table.status),
+]);
+
+export const insertNotificationSchema = createInsertSchema(notificationQueue).omit({ id: true, createdAt: true });
+export type Notification = typeof notificationQueue.$inferSelect;
+export type InsertNotification = z.infer<typeof insertNotificationSchema>;
+
+// === BATCH JOBS (Hromadné akcie - progress tracking) ===
+export const batchJobs = pgTable("batch_jobs", {
+  id: serial("id").primaryKey(),
+  batchId: text("batch_id").notNull().unique(),
+  jobType: text("job_type").notNull(),
+  status: text("status").notNull().default("pending"),
+  totalItems: integer("total_items").default(0),
+  processedItems: integer("processed_items").default(0),
+  failedItems: integer("failed_items").default(0),
+  progress: integer("progress").default(0),
+  metadata: jsonb("metadata").default({}),
+  result: jsonb("result"),
+  errorDetails: text("error_details"),
+  startedAt: timestamp("started_at"),
+  completedAt: timestamp("completed_at"),
+  createdByUserId: integer("created_by_user_id").references(() => appUsers.id),
+  createdByName: text("created_by_name"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("idx_bj_batch_id").on(table.batchId),
+  index("idx_bj_status").on(table.status),
+  index("idx_bj_job_type").on(table.jobType),
+]);
+
+export const insertBatchJobSchema = createInsertSchema(batchJobs).omit({ id: true, createdAt: true, updatedAt: true });
+export type BatchJob = typeof batchJobs.$inferSelect;
+export type InsertBatchJob = z.infer<typeof insertBatchJobSchema>;
 
 export type CreateSubjectRequest = InsertSubject;
 export type UpdateSubjectRequest = Partial<InsertSubject> & { changeReason?: string };

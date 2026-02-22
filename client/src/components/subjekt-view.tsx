@@ -22,6 +22,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
+import { Checkbox } from "@/components/ui/checkbox";
 import { formatDateSlovak } from "@/lib/utils";
 import { SubjectProfilePhoto } from "@/components/subject-profile-photo";
 
@@ -2358,6 +2359,8 @@ function SubjectRelationsSection({ subjectId }: { subjectId: number }) {
         <MaturityAlertsSection subjectId={subjectId} />
         <PrivacyConsentSection subjectId={subjectId} />
         <InheritanceSection subjectId={subjectId} />
+        <AddressGroupSection subjectId={subjectId} />
+        <CompanyRolesSection subjectId={subjectId} />
       </CardContent>
     </Card>
   );
@@ -3312,6 +3315,449 @@ function InheritanceSection({ subjectId }: { subjectId: number }) {
         </DialogContent>
       </Dialog>
     </div>
+  );
+}
+
+function AddressGroupSection({ subjectId }: { subjectId: number }) {
+  const { toast } = useToast();
+  const [showCreateDialog, setShowCreateDialog] = useState(false);
+  const [showAddMemberDialog, setShowAddMemberDialog] = useState(false);
+  const [selectedGroupId, setSelectedGroupId] = useState<number | null>(null);
+  const [groupName, setGroupName] = useState("");
+  const [groupAddress, setGroupAddress] = useState("");
+  const [groupDescription, setGroupDescription] = useState("");
+  const [groupType, setGroupType] = useState("address");
+  const [newMemberId, setNewMemberId] = useState("");
+
+  const { data: groupsData } = useQuery<any[]>({
+    queryKey: [`/api/address-groups/subject/${subjectId}`],
+  });
+
+  const createGroup = useMutation({
+    mutationFn: async (data: any) => {
+      const res = await apiRequest("POST", "/api/address-groups", data);
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [`/api/address-groups/subject/${subjectId}`] });
+      setShowCreateDialog(false);
+      setGroupName("");
+      setGroupAddress("");
+      setGroupDescription("");
+      setGroupType("address");
+      toast({ title: "Adresná skupina vytvorená" });
+    },
+    onError: (err: any) => toast({ title: "Chyba", description: err.message, variant: "destructive" }),
+  });
+
+  const addMember = useMutation({
+    mutationFn: async (data: { groupId: number; subjectId: number }) => {
+      const res = await apiRequest("POST", `/api/address-groups/${data.groupId}/members`, { subjectId: data.subjectId });
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [`/api/address-groups/subject/${subjectId}`] });
+      setShowAddMemberDialog(false);
+      setNewMemberId("");
+      toast({ title: "Člen pridaný do skupiny" });
+    },
+    onError: (err: any) => toast({ title: "Chyba", description: err.message, variant: "destructive" }),
+  });
+
+  const removeMember = useMutation({
+    mutationFn: async (data: { groupId: number; memberId: number }) => {
+      const res = await apiRequest("DELETE", `/api/address-groups/${data.groupId}/members/${data.memberId}`);
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [`/api/address-groups/subject/${subjectId}`] });
+      toast({ title: "Člen odstránený zo skupiny" });
+    },
+    onError: (err: any) => toast({ title: "Chyba", description: err.message, variant: "destructive" }),
+  });
+
+  const groupTypeLabels: Record<string, string> = {
+    address: "Adresná",
+    contract: "Zmluvná",
+  };
+
+  return (
+    <div className="mt-3 border border-cyan-500/20 rounded p-3 bg-cyan-500/5" data-testid="address-group-section">
+      <div className="flex items-center gap-2 mb-3">
+        <Home className="w-4 h-4 text-cyan-400" />
+        <span className="text-sm font-semibold text-cyan-300">Adresné skupiny</span>
+        {groupsData && groupsData.length > 0 && (
+          <Badge variant="outline" className="text-[10px] border-cyan-500/30 text-cyan-400">{groupsData.length} skupín</Badge>
+        )}
+        <Button size="sm" variant="outline" className="text-[10px] ml-auto"
+          onClick={() => setShowCreateDialog(true)} data-testid="btn-create-address-group">
+          <Plus className="w-3 h-3 mr-1" /> Vytvoriť skupinu
+        </Button>
+      </div>
+
+      {groupsData && groupsData.length > 0 ? (
+        <div className="space-y-3">
+          {groupsData.map((g: any) => (
+            <div key={g.id} className="border border-border rounded p-2 bg-background/50" data-testid={`address-group-${g.id}`}>
+              <div className="flex items-center gap-2 mb-1.5">
+                <Home className="w-3.5 h-3.5 text-cyan-400" />
+                <span className="text-xs font-medium">{g.name}</span>
+                <span className="text-[9px] text-muted-foreground">({g.uid})</span>
+                <Badge variant="outline" className="text-[9px]">{groupTypeLabels[g.groupType] || g.groupType}</Badge>
+                <div className="ml-auto flex gap-1">
+                  <Button size="sm" variant="ghost" className="text-[10px]"
+                    onClick={() => { setSelectedGroupId(g.id); setShowAddMemberDialog(true); }}
+                    data-testid={`btn-add-group-member-${g.id}`}>
+                    <UserPlus className="w-3 h-3 mr-1" /> Pridať člena
+                  </Button>
+                </div>
+              </div>
+              {g.address && <p className="text-[9px] text-muted-foreground mb-1"><MapPin className="w-3 h-3 inline mr-1" />{g.address}</p>}
+              {g.description && <p className="text-[9px] text-muted-foreground mb-1">{g.description}</p>}
+
+              {g.members?.length > 0 && (
+                <div className="mb-1.5">
+                  <p className="text-[9px] font-medium text-cyan-400 mb-1">Členovia:</p>
+                  <div className="flex flex-wrap gap-1">
+                    {g.members.map((m: any) => (
+                      <div key={m.id} className="flex items-center gap-1 text-[9px] bg-muted/30 rounded px-1.5 py-0.5" data-testid={`group-member-${m.subjectId}`}>
+                        <User className="w-2.5 h-2.5" />
+                        <span>{m.name}</span>
+                        <Badge variant="outline" className="text-[8px]">{m.uid}</Badge>
+                        {m.type && (
+                          <Badge variant="outline" className="text-[8px]">{m.type === "company" ? "PO" : m.type === "szco" ? "SZČO" : "FO"}</Badge>
+                        )}
+                        {m.role && <Badge variant="outline" className="text-[8px]">{m.role}</Badge>}
+                        {m.subjectId !== subjectId && (
+                          <Button variant="ghost" size="icon" className="p-0 text-destructive shrink-0"
+                            onClick={() => removeMember.mutate({ groupId: g.id, memberId: m.id })}
+                            data-testid={`btn-remove-group-member-${m.id}`}>
+                            <X className="w-2.5 h-2.5" />
+                          </Button>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      ) : (
+        <p className="text-[10px] text-muted-foreground text-center py-2">Subjekt nie je členom žiadnej adresnej skupiny</p>
+      )}
+
+      <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
+        <DialogContent className="max-w-sm" data-testid="dialog-create-address-group">
+          <DialogHeader><DialogTitle>Nová adresná skupina</DialogTitle></DialogHeader>
+          <div className="space-y-3">
+            <div>
+              <Label className="text-xs">Názov *</Label>
+              <Input className="text-xs mt-1" value={groupName} onChange={e => setGroupName(e.target.value)}
+                placeholder="napr. Objekt XY" data-testid="input-group-name" />
+            </div>
+            <div>
+              <Label className="text-xs">Adresa (voliteľné)</Label>
+              <Input className="text-xs mt-1" value={groupAddress} onChange={e => setGroupAddress(e.target.value)}
+                placeholder="napr. Hlavná 15, Bratislava" data-testid="input-group-address" />
+            </div>
+            <div>
+              <Label className="text-xs">Popis (voliteľné)</Label>
+              <Input className="text-xs mt-1" value={groupDescription} onChange={e => setGroupDescription(e.target.value)}
+                placeholder="Bližšie informácie o skupine" data-testid="input-group-description" />
+            </div>
+            <div>
+              <Label className="text-xs">Typ skupiny</Label>
+              <Select value={groupType} onValueChange={setGroupType}>
+                <SelectTrigger className="text-xs mt-1" data-testid="select-group-type"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="address">Adresná</SelectItem>
+                  <SelectItem value="contract">Zmluvná</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <Button size="sm" className="text-xs" disabled={!groupName || createGroup.isPending}
+              onClick={() => createGroup.mutate({ name: groupName, address: groupAddress, description: groupDescription, groupType, memberSubjectIds: [subjectId] })}
+              data-testid="btn-confirm-create-group">
+              {createGroup.isPending ? <Loader2 className="w-3 h-3 animate-spin mr-1" /> : <Plus className="w-3 h-3 mr-1" />}
+              Vytvoriť
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={showAddMemberDialog} onOpenChange={setShowAddMemberDialog}>
+        <DialogContent className="max-w-sm" data-testid="dialog-add-group-member">
+          <DialogHeader><DialogTitle>Pridať člena do skupiny</DialogTitle></DialogHeader>
+          <div className="space-y-3">
+            <div>
+              <Label className="text-xs">ID subjektu</Label>
+              <Input className="text-xs mt-1" value={newMemberId} onChange={e => setNewMemberId(e.target.value)}
+                placeholder="Zadajte ID subjektu" data-testid="input-group-member-id" />
+            </div>
+            <Button size="sm" className="text-xs" disabled={!newMemberId || addMember.isPending}
+              onClick={() => selectedGroupId && addMember.mutate({ groupId: selectedGroupId, subjectId: parseInt(newMemberId) })}
+              data-testid="btn-confirm-add-group-member">
+              {addMember.isPending ? <Loader2 className="w-3 h-3 animate-spin mr-1" /> : <UserPlus className="w-3 h-3 mr-1" />}
+              Pridať
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}
+
+function CompanyRolesSection({ subjectId }: { subjectId: number }) {
+  const { toast } = useToast();
+  const [showAssignDialog, setShowAssignDialog] = useState(false);
+  const [personSubjectId, setPersonSubjectId] = useState("");
+  const [roleType, setRoleType] = useState("zamestnanec");
+  const [roleDescription, setRoleDescription] = useState("");
+  const [allowedSections, setAllowedSections] = useState<string[]>([]);
+
+  const SECTION_KEYS = ["IDENTITA", "KONTAKT", "ADRESA", "DOKLADY", "EKONOMIKA", "AML", "PRÁVNE SUBJEKTY", "RETAIL", "FAKTÚRY"];
+
+  const { data: subjectData } = useQuery<Subject>({
+    queryKey: ['/api/subjects', subjectId],
+  });
+
+  const subjectType = subjectData?.type || "person";
+  const isCompany = subjectType === "company";
+
+  const { data: companyRoles } = useQuery<any[]>({
+    queryKey: isCompany ? [`/api/company-roles/${subjectId}`] : [`/api/company-roles/person/${subjectId}`],
+  });
+
+  const assignRole = useMutation({
+    mutationFn: async (data: any) => {
+      const res = await apiRequest("POST", "/api/company-roles", data);
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [`/api/company-roles/${subjectId}`] });
+      queryClient.invalidateQueries({ queryKey: [`/api/company-roles/person/${subjectId}`] });
+      setShowAssignDialog(false);
+      setPersonSubjectId("");
+      setRoleType("zamestnanec");
+      setRoleDescription("");
+      setAllowedSections([]);
+      toast({ title: "Rola priradená" });
+    },
+    onError: (err: any) => toast({ title: "Chyba", description: err.message, variant: "destructive" }),
+  });
+
+  const removeRole = useMutation({
+    mutationFn: async (roleId: number) => {
+      const res = await apiRequest("PATCH", `/api/company-roles/${roleId}`, { isActive: false });
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [`/api/company-roles/${subjectId}`] });
+      queryClient.invalidateQueries({ queryKey: [`/api/company-roles/person/${subjectId}`] });
+      toast({ title: "Rola odstránená" });
+    },
+    onError: (err: any) => toast({ title: "Chyba", description: err.message, variant: "destructive" }),
+  });
+
+  const roleTypeConfig: Record<string, { label: string; className: string }> = {
+    statutar: { label: "Štatutár", className: "border-green-500/30 text-green-400 bg-green-500/10" },
+    ubo: { label: "UBO", className: "border-blue-500/30 text-blue-400 bg-blue-500/10" },
+    zamestnanec: { label: "Zamestnanec", className: "border-amber-500/30 text-amber-400 bg-amber-500/10" },
+    operator: { label: "Operátor", className: "border-purple-500/30 text-purple-400 bg-purple-500/10" },
+  };
+
+  const toggleSection = (section: string) => {
+    setAllowedSections(prev =>
+      prev.includes(section) ? prev.filter(s => s !== section) : [...prev, section]
+    );
+  };
+
+  return (
+    <div className="mt-3 border border-indigo-500/20 rounded p-3 bg-indigo-500/5" data-testid="company-roles-section">
+      <div className="flex items-center gap-2 mb-3">
+        <Building2 className="w-4 h-4 text-indigo-400" />
+        <span className="text-sm font-semibold text-indigo-300">Firemné role</span>
+        {companyRoles && companyRoles.length > 0 && (
+          <Badge variant="outline" className="text-[10px] border-indigo-500/30 text-indigo-400">{companyRoles.length} rolí</Badge>
+        )}
+        {isCompany && (
+          <Button size="sm" variant="outline" className="text-[10px] ml-auto"
+            onClick={() => setShowAssignDialog(true)} data-testid="btn-assign-company-role">
+            <Plus className="w-3 h-3 mr-1" /> Priradiť rolu
+          </Button>
+        )}
+      </div>
+
+      {companyRoles && companyRoles.length > 0 ? (
+        <div className="space-y-1">
+          {companyRoles.map((r: any) => {
+            const config = roleTypeConfig[r.roleType] || roleTypeConfig.zamestnanec;
+            return (
+              <div key={r.id} className="flex items-center gap-2 bg-background/50 rounded px-2 py-1.5 border border-border/50" data-testid={`company-role-${r.id}`}>
+                {isCompany ? <User className="w-3.5 h-3.5 text-indigo-400 shrink-0" /> : <Building2 className="w-3.5 h-3.5 text-indigo-400 shrink-0" />}
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <span className="text-xs font-medium truncate">{isCompany ? (r.personName || `Subjekt #${r.personSubjectId}`) : (r.companyName || `Firma #${r.companySubjectId}`)}</span>
+                    <Badge variant="outline" className={`text-[9px] ${config.className}`}>{config.label}</Badge>
+                    {r.allowedSections && r.allowedSections.length > 0 && (
+                      <div className="flex gap-0.5 flex-wrap">
+                        {r.allowedSections.map((s: string) => (
+                          <Badge key={s} variant="outline" className="text-[8px] border-border/50">{s}</Badge>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                  {r.description && <p className="text-[9px] text-muted-foreground mt-0.5">{r.description}</p>}
+                </div>
+                <Button variant="ghost" size="icon" className="p-0 text-destructive shrink-0"
+                  onClick={() => removeRole.mutate(r.id)}
+                  data-testid={`btn-remove-role-${r.id}`}>
+                  <Trash2 className="w-3 h-3" />
+                </Button>
+              </div>
+            );
+          })}
+        </div>
+      ) : (
+        <p className="text-[10px] text-muted-foreground text-center py-2">
+          {isCompany ? "Žiadne priradené firemné role" : "Subjekt nemá žiadne firemné role"}
+        </p>
+      )}
+
+      <Dialog open={showAssignDialog} onOpenChange={setShowAssignDialog}>
+        <DialogContent className="max-w-md" data-testid="dialog-assign-company-role">
+          <DialogHeader><DialogTitle>Priradiť firemnú rolu</DialogTitle></DialogHeader>
+          <div className="space-y-3">
+            <div>
+              <Label className="text-xs">ID subjektu osoby</Label>
+              <Input className="text-xs mt-1" value={personSubjectId} onChange={e => setPersonSubjectId(e.target.value)}
+                placeholder="Zadajte ID subjektu FO" data-testid="input-person-subject-id" />
+            </div>
+            <div>
+              <Label className="text-xs">Typ roly</Label>
+              <Select value={roleType} onValueChange={setRoleType}>
+                <SelectTrigger className="text-xs mt-1" data-testid="select-role-type"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="statutar">Štatutár</SelectItem>
+                  <SelectItem value="ubo">UBO</SelectItem>
+                  <SelectItem value="zamestnanec">Zamestnanec</SelectItem>
+                  <SelectItem value="operator">Operátor</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label className="text-xs">Popis (voliteľné)</Label>
+              <Input className="text-xs mt-1" value={roleDescription} onChange={e => setRoleDescription(e.target.value)}
+                placeholder="Popis role" data-testid="input-role-description" />
+            </div>
+            <div>
+              <Label className="text-xs mb-1.5 block">Povolené sekcie</Label>
+              <div className="flex flex-wrap gap-1.5">
+                {SECTION_KEYS.map(section => (
+                  <label key={section} className="flex items-center gap-1 text-[10px] cursor-pointer">
+                    <Checkbox
+                      checked={allowedSections.includes(section)}
+                      onCheckedChange={() => toggleSection(section)}
+                      data-testid={`checkbox-section-${section}`}
+                    />
+                    {section}
+                  </label>
+                ))}
+              </div>
+            </div>
+            <Button size="sm" className="text-xs" disabled={!personSubjectId || assignRole.isPending}
+              onClick={() => assignRole.mutate({
+                companySubjectId: subjectId,
+                personSubjectId: parseInt(personSubjectId),
+                roleType,
+                description: roleDescription || undefined,
+                allowedSections: allowedSections.length > 0 ? allowedSections : undefined,
+              })}
+              data-testid="btn-confirm-assign-role">
+              {assignRole.isPending ? <Loader2 className="w-3 h-3 animate-spin mr-1" /> : <Plus className="w-3 h-3 mr-1" />}
+              Priradiť
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}
+
+function NotificationBadge() {
+  const { toast } = useToast();
+  const [showNotifications, setShowNotifications] = useState(false);
+
+  const { data: unreadCount } = useQuery<{ count: number }>({
+    queryKey: ["/api/notifications/unread-count"],
+  });
+
+  const { data: notifications } = useQuery<any[]>({
+    queryKey: ["/api/notifications/my"],
+    enabled: showNotifications,
+  });
+
+  const markAsRead = useMutation({
+    mutationFn: async (notificationId: number) => {
+      const res = await apiRequest("POST", `/api/notifications/${notificationId}/read`, {});
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/notifications/unread-count"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/notifications/my"] });
+    },
+    onError: (err: any) => toast({ title: "Chyba", description: err.message, variant: "destructive" }),
+  });
+
+  const count = unreadCount?.count || 0;
+
+  return (
+    <>
+      <Button variant="ghost" size="icon" className="relative"
+        onClick={() => setShowNotifications(true)} data-testid="btn-notification-badge">
+        <Bell className="w-4 h-4" />
+        {count > 0 && (
+          <span className="absolute -top-0.5 -right-0.5 flex items-center justify-center min-w-[16px] h-4 rounded-full bg-red-500 text-white text-[9px] font-bold px-1" data-testid="notification-count">
+            {count > 99 ? "99+" : count}
+          </span>
+        )}
+      </Button>
+
+      <Dialog open={showNotifications} onOpenChange={setShowNotifications}>
+        <DialogContent className="max-w-md" data-testid="dialog-notifications">
+          <DialogHeader><DialogTitle>Notifikácie</DialogTitle></DialogHeader>
+          <div className="space-y-1 max-h-80 overflow-y-auto">
+            {notifications && notifications.length > 0 ? (
+              notifications.map((n: any) => (
+                <div
+                  key={n.id}
+                  className={`flex items-start gap-2 rounded px-2 py-1.5 border cursor-pointer transition-colors ${
+                    n.isRead ? "border-border/50 bg-muted/20" : "border-blue-500/30 bg-blue-500/10"
+                  }`}
+                  onClick={() => { if (!n.isRead) markAsRead.mutate(n.id); }}
+                  data-testid={`notification-${n.id}`}
+                >
+                  <Bell className={`w-3.5 h-3.5 mt-0.5 shrink-0 ${n.isRead ? "text-muted-foreground" : "text-blue-400"}`} />
+                  <div className="flex-1 min-w-0">
+                    <p className={`text-xs ${n.isRead ? "text-muted-foreground" : "font-medium"}`}>{n.title || n.message}</p>
+                    {n.message && n.title && <p className="text-[10px] text-muted-foreground mt-0.5">{n.message}</p>}
+                    <span className="text-[9px] text-muted-foreground">
+                      {n.createdAt ? new Date(n.createdAt).toLocaleString("sk-SK") : "—"}
+                    </span>
+                  </div>
+                  {!n.isRead && (
+                    <Badge variant="outline" className="text-[8px] border-blue-500/30 text-blue-400 shrink-0">Nové</Badge>
+                  )}
+                </div>
+              ))
+            ) : (
+              <p className="text-xs text-muted-foreground text-center py-4">Žiadne notifikácie</p>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }
 

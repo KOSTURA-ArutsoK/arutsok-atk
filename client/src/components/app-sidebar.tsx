@@ -48,6 +48,7 @@ import {
   FileSpreadsheet,
   Database,
   LayoutGrid,
+  Zap,
 } from "lucide-react";
 import {
   Sidebar,
@@ -120,6 +121,7 @@ const protokolyChildren = [
 const importItems = [
   { href: "/bulk-import", icon: FileSpreadsheet, label: "Hromadný import" },
   { href: "/import-archive", icon: Archive, label: "Archív importov" },
+  { href: "/bulk-actions", icon: Zap, label: "Hromadné akcie" },
 ];
 
 const allZmluvyHrefs = [

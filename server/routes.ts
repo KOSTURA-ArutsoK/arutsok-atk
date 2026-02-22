@@ -4,7 +4,7 @@ import { storage } from "./storage";
 import { api } from "@shared/routes";
 import { setupAuth, registerAuthRoutes, isAuthenticated } from "./replit_integrations/auth";
 import { z } from "zod";
-import { continents, states, myCompanies, appUsers, clientTypes, clientSubGroups, clientGroupMembers, productFolderAssignments, folderPanels, panelParameters, userClientGroupMemberships, clientGroups, permissionGroups, insertCareerLevelSchema, insertProductPointRateSchema, careerLevels, importLogs, commissions, contracts, contractStatuses, contractStatusChangeLogs, clientDataTabs, clientDataCategories, subjects, subjectPointsLog, subjectFieldHistory, subjectCollaborators, clientMarketingConsents, clientDocumentHistory, contractAcquirers, contractPasswords, contractRewardDistributions, contractParameterValues, subjectArchive, auditLogs, globalCounters, subjectPhotos, activityEvents, subjectParamSections, subjectParameters, subjectTemplates, subjectTemplateParams, commissionCalculationLogs, parameterSynonyms, dataConflictAlerts, transactionDedupLog, relationRoleTypes, subjectRelations, maturityAlerts, inheritancePrompts, guardianshipArchive, households, householdMembers, householdAssets, privacyBlocks, accessConsentLog } from "@shared/schema";
+import { continents, states, myCompanies, appUsers, clientTypes, clientSubGroups, clientGroupMembers, productFolderAssignments, folderPanels, panelParameters, userClientGroupMemberships, clientGroups, permissionGroups, insertCareerLevelSchema, insertProductPointRateSchema, careerLevels, importLogs, commissions, contracts, contractStatuses, contractStatusChangeLogs, clientDataTabs, clientDataCategories, subjects, subjectPointsLog, subjectFieldHistory, subjectCollaborators, clientMarketingConsents, clientDocumentHistory, contractAcquirers, contractPasswords, contractRewardDistributions, contractParameterValues, subjectArchive, auditLogs, globalCounters, subjectPhotos, activityEvents, subjectParamSections, subjectParameters, subjectTemplates, subjectTemplateParams, commissionCalculationLogs, parameterSynonyms, dataConflictAlerts, transactionDedupLog, relationRoleTypes, subjectRelations, maturityAlerts, inheritancePrompts, guardianshipArchive, households, householdMembers, householdAssets, privacyBlocks, accessConsentLog, maturityEvents, addressGroups, addressGroupMembers, companySubjectRoles, notificationQueue, batchJobs } from "@shared/schema";
 import { seedSubjectParameters } from "./seed-subject-params";
 import sharp from "sharp";
 import { db } from "./db";
@@ -193,6 +193,18 @@ export async function registerRoutes(
     } catch (err) {
     }
     next();
+  });
+
+  app.get("/api/subjects/count", isAuthenticated, async (req: any, res: any) => {
+    try {
+      const user = req.appUser;
+      const conditions: any[] = [eq(subjects.isActive, true)];
+      if (user?.activeCompanyId) conditions.push(eq(subjects.myCompanyId, user.activeCompanyId));
+      const [result] = await db.select({ count: sql<number>`count(*)::int` }).from(subjects).where(and(...conditions));
+      res.json({ count: result?.count || 0 });
+    } catch (err: any) {
+      res.status(500).json({ message: err?.message || "Chyba" });
+    }
   });
 
   app.use("/api/subjects/:id", async (req: any, res: any, next: any) => {
@@ -8431,8 +8443,135 @@ export async function registerRoutes(
   }
 
   refreshMaturityAlerts().catch(err => console.error("[MATURITY SEMAPHORE INIT ERROR]", err));
+
+  async function processAutoAdultTransitions(): Promise<number> {
+    try {
+      const reachedAlerts = await db.select({ alert: maturityAlerts, subject: { id: subjects.id, uid: subjects.uid, firstName: subjects.firstName, lastName: subjects.lastName, details: subjects.details } })
+        .from(maturityAlerts)
+        .innerJoin(subjects, eq(maturityAlerts.subjectId, subjects.id))
+        .where(and(eq(maturityAlerts.alertType, "reached"), eq(maturityAlerts.status, "pending")));
+
+      let processed = 0;
+      for (const ra of reachedAlerts) {
+        const existingEvent = await db.select({ id: maturityEvents.id }).from(maturityEvents)
+          .where(and(eq(maturityEvents.subjectId, ra.subject.id), eq(maturityEvents.status, "completed"))).limit(1);
+        if (existingEvent.length > 0) continue;
+
+        try {
+          const guardianRelations = await db.select({ rel: subjectRelations, roleType: relationRoleTypes })
+            .from(subjectRelations)
+            .innerJoin(relationRoleTypes, eq(subjectRelations.roleTypeId, relationRoleTypes.id))
+            .where(and(
+              eq(subjectRelations.targetSubjectId, ra.subject.id),
+              eq(subjectRelations.isActive, true),
+              eq(relationRoleTypes.category, "rodina"),
+              sql`${relationRoleTypes.code} IN ('rodic_zakonny_zastupca', 'stary_rodic')`
+            ));
+
+          const guardianIds = guardianRelations.map(g => g.rel.sourceSubjectId);
+          const actions: string[] = [];
+          const notifsSent: any[] = [];
+          const blocksCreated: any[] = [];
+          const consentsRevoked: any[] = [];
+
+          const revokedConsents = await db.update(accessConsentLog).set({
+            isActive: false, revokedAt: new Date(), revokedReason: "auto_adult_transition",
+            revokedByName: "SYSTEM"
+          }).where(and(
+            eq(accessConsentLog.grantorSubjectId, ra.subject.id),
+            eq(accessConsentLog.consentType, "post_maturity_sharing"),
+            eq(accessConsentLog.isActive, true)
+          )).returning();
+          consentsRevoked.push(...revokedConsents.map(c => c.id));
+          actions.push(`Revoked ${revokedConsents.length} consents`);
+
+          const sensitiveBlocks = ["EKONOMIKA", "AML", "DOKLADY", "INVESTIČNÝ PROFIL", "ZDRAVOTNÝ PROFIL"];
+          for (const block of sensitiveBlocks) {
+            const [pb] = await db.insert(privacyBlocks).values({
+              subjectId: ra.subject.id, blockType: "section", blockKey: block,
+              isPrivate: true, reason: "Auto-transition pri dosiahnutí 18 rokov",
+              setByName: "SYSTEM",
+            }).returning();
+            blocksCreated.push(pb.id);
+          }
+          actions.push(`Created ${sensitiveBlocks.length} privacy blocks`);
+
+          for (const gr of guardianRelations) {
+            await db.insert(guardianshipArchive).values({
+              guardianSubjectId: gr.rel.sourceSubjectId,
+              wardSubjectId: ra.subject.id,
+              relationId: gr.rel.id,
+              guardianType: "fo",
+              roleCode: gr.roleType.code,
+              roleLabel: gr.roleType.label,
+              legalBasis: "Dosiahnutie dospelosti - automatický prechod",
+              startedAt: gr.rel.validFrom || gr.rel.createdAt,
+              endedAt: new Date(),
+              endReason: "auto_adult_transition",
+              archivalTrigger: "maturity",
+              archivedByName: "SYSTEM",
+            });
+            await db.update(subjectRelations).set({
+              isActive: false, validTo: new Date(), updatedAt: new Date(),
+              relationMeta: sql`COALESCE(relation_meta, '{}'::jsonb) || '{"deactivatedReason":"auto_adult_transition","deactivatedBy":"SYSTEM"}'::jsonb`
+            }).where(eq(subjectRelations.id, gr.rel.id));
+          }
+          actions.push(`Archived ${guardianRelations.length} guardian relations`);
+
+          const wardName = `${ra.subject.firstName || ""} ${ra.subject.lastName || ""}`.trim() || ra.subject.uid;
+          await db.insert(notificationQueue).values({
+            recipientSubjectId: ra.subject.id,
+            notificationType: "adult_transition",
+            title: "Dosiahli ste 18 rokov",
+            message: `Vaše citlivé údaje boli automaticky zabezpečené. Zákonní zástupcovia nemajú automatický prístup k vašim finančným a zdravotným údajom.`,
+            priority: "high", status: "sent",
+            metadata: { eventType: "auto_adult_transition", subjectId: ra.subject.id },
+          });
+          notifsSent.push({ recipientId: ra.subject.id, type: "ward" });
+
+          for (const gId of guardianIds) {
+            await db.insert(notificationQueue).values({
+              recipientSubjectId: gId,
+              notificationType: "adult_transition",
+              title: `${wardName} dosiahol/a 18 rokov`,
+              message: `Automatická zmena: Prístup k citlivým údajom subjektu ${wardName} bol obmedzený. Pre obnovenie prístupu je potrebný explicitný súhlas.`,
+              priority: "high", status: "sent",
+              metadata: { eventType: "auto_adult_transition", wardSubjectId: ra.subject.id },
+            });
+            notifsSent.push({ recipientId: gId, type: "guardian" });
+          }
+          actions.push(`Sent ${notifsSent.length} notifications`);
+
+          await db.insert(maturityEvents).values({
+            subjectId: ra.subject.id, eventType: "auto_adult_transition",
+            triggerAge: 18, processedAt: new Date(), status: "completed",
+            guardianSubjectIds: guardianIds, actionsPerformed: actions,
+            notificationsSent: notifsSent, privacyBlocksCreated: blocksCreated,
+            consentsRevoked, completedAt: new Date(),
+          });
+
+          await db.update(maturityAlerts).set({ status: "resolved", resolvedAt: new Date(), resolvedByName: "SYSTEM" }).where(eq(maturityAlerts.id, ra.alert.id));
+
+          processed++;
+        } catch (subErr: any) {
+          await db.insert(maturityEvents).values({
+            subjectId: ra.subject.id, eventType: "auto_adult_transition",
+            triggerAge: 18, status: "failed", errorDetails: subErr?.message,
+          });
+        }
+      }
+      console.log(`[AUTO ADULT TRANSITION] Processed ${processed} transitions`);
+      return processed;
+    } catch (err) {
+      console.error("[AUTO ADULT TRANSITION ERROR]", err);
+      return 0;
+    }
+  }
+
+  processAutoAdultTransitions().catch(err => console.error("[AUTO ADULT TRANSITION INIT ERROR]", err));
   setInterval(() => {
     refreshMaturityAlerts().catch(err => console.error("[MATURITY SEMAPHORE CRON ERROR]", err));
+    processAutoAdultTransitions().catch(err => console.error("[AUTO ADULT TRANSITION CRON ERROR]", err));
   }, 60 * 60 * 1000);
 
   app.get("/api/maturity-alerts", isAuthenticated, async (req, res) => {
@@ -9317,6 +9456,360 @@ export async function registerRoutes(
       });
     } catch (err: any) {
       res.status(500).json({ message: err?.message || "Chyba pri kontrole privacy triggeru" });
+    }
+  });
+
+  // === ADDRESS GROUPS (Adresná skupina - Objekt XY) ===
+  app.post("/api/address-groups", isAuthenticated, async (req, res) => {
+    try {
+      const user = (req as any).appUser;
+      const { name, groupType, address, description, contractId, memberSubjectIds } = req.body;
+      if (!name) return res.status(400).json({ message: "Názov skupiny je povinný" });
+
+      const [counter] = await db.select().from(globalCounters).where(eq(globalCounters.counterName, "subject"));
+      const nextVal = (counter?.currentValue || 0) + 1;
+      await db.update(globalCounters).set({ currentValue: nextVal }).where(eq(globalCounters.counterName, "subject"));
+      const uid = `AGR-${String(nextVal).padStart(6, '0')}`;
+
+      const [group] = await db.insert(addressGroups).values({
+        uid, name, groupType: groupType || "address", address: address || null,
+        description: description || null, contractId: contractId || null,
+        createdByUserId: user?.id, createdByName: user?.username,
+      }).returning();
+
+      if (memberSubjectIds && Array.isArray(memberSubjectIds)) {
+        for (const sid of memberSubjectIds) {
+          await db.insert(addressGroupMembers).values({
+            groupId: group.id, subjectId: sid,
+            addedByUserId: user?.id, addedByName: user?.username,
+          });
+        }
+      }
+
+      await logAudit(req, { action: "CREATE", module: "address_groups", entityId: group.id, entityName: `Adresná skupina: ${name}`, newData: { uid, name, groupType, memberCount: memberSubjectIds?.length || 0 } });
+      res.json(group);
+    } catch (err: any) {
+      res.status(500).json({ message: err?.message || "Chyba pri vytváraní skupiny" });
+    }
+  });
+
+  app.get("/api/address-groups/subject/:subjectId", isAuthenticated, async (req, res) => {
+    try {
+      const subjectId = parseInt(req.params.subjectId);
+      if (isNaN(subjectId)) return res.status(400).json({ message: "Neplatné ID" });
+      if (!await checkKlientiSubjectAccess((req as any).appUser, subjectId)) return res.status(403).json({ message: "Prístup zamietnutý" });
+
+      const memberships = await db.select({ membership: addressGroupMembers, group: addressGroups })
+        .from(addressGroupMembers)
+        .innerJoin(addressGroups, eq(addressGroupMembers.groupId, addressGroups.id))
+        .where(and(eq(addressGroupMembers.subjectId, subjectId), eq(addressGroupMembers.isActive, true), eq(addressGroups.isActive, true)));
+
+      const result = [];
+      for (const m of memberships) {
+        const members = await db.select({
+          member: addressGroupMembers,
+          subject: { id: subjects.id, uid: subjects.uid, firstName: subjects.firstName, lastName: subjects.lastName, companyName: subjects.companyName, type: subjects.type },
+        }).from(addressGroupMembers)
+          .innerJoin(subjects, eq(addressGroupMembers.subjectId, subjects.id))
+          .where(and(eq(addressGroupMembers.groupId, m.group.id), eq(addressGroupMembers.isActive, true)));
+
+        result.push({
+          ...m.group,
+          myRole: m.membership.role,
+          members: members.map(mb => ({
+            memberId: mb.member.id, subjectId: mb.subject.id, uid: mb.subject.uid,
+            name: mb.subject.companyName || `${mb.subject.firstName || ""} ${mb.subject.lastName || ""}`.trim(),
+            type: mb.subject.type, role: mb.member.role, note: mb.member.note,
+          })),
+        });
+      }
+      res.json(result);
+    } catch (err: any) {
+      res.status(500).json({ message: err?.message || "Chyba pri načítaní skupín" });
+    }
+  });
+
+  app.post("/api/address-groups/:groupId/members", isAuthenticated, async (req, res) => {
+    try {
+      const groupId = parseInt(req.params.groupId);
+      const { subjectId, role, note } = req.body;
+      const user = (req as any).appUser;
+      if (isNaN(groupId) || !subjectId) return res.status(400).json({ message: "Neplatné parametre" });
+
+      const existing = await db.select().from(addressGroupMembers).where(and(
+        eq(addressGroupMembers.groupId, groupId), eq(addressGroupMembers.subjectId, subjectId), eq(addressGroupMembers.isActive, true)
+      ));
+      if (existing.length > 0) return res.status(409).json({ message: "Subjekt je už členom skupiny" });
+
+      const [member] = await db.insert(addressGroupMembers).values({
+        groupId, subjectId, role: role || "clen", note: note || null,
+        addedByUserId: user?.id, addedByName: user?.username,
+      }).returning();
+
+      await logAudit(req, { action: "ADD_MEMBER", module: "address_groups", entityId: groupId, entityName: `Člen pridaný do adresnej skupiny`, newData: { subjectId, role } });
+      res.json(member);
+    } catch (err: any) {
+      res.status(500).json({ message: err?.message || "Chyba pri pridávaní člena" });
+    }
+  });
+
+  app.post("/api/address-groups/:groupId/members/:memberId/remove", isAuthenticated, async (req, res) => {
+    try {
+      const memberId = parseInt(req.params.memberId);
+      await db.update(addressGroupMembers).set({ isActive: false, leftAt: new Date() }).where(eq(addressGroupMembers.id, memberId));
+      await logAudit(req, { action: "REMOVE_MEMBER", module: "address_groups", entityId: memberId, entityName: "Člen odstránený z adresnej skupiny" });
+      res.json({ success: true });
+    } catch (err: any) {
+      res.status(500).json({ message: err?.message || "Chyba" });
+    }
+  });
+
+  app.get("/api/address-groups", isAuthenticated, async (req, res) => {
+    try {
+      const search = (req.query.search as string || "").toLowerCase();
+      let groups = await db.select().from(addressGroups).where(eq(addressGroups.isActive, true));
+      if (search) {
+        groups = groups.filter(g => g.name.toLowerCase().includes(search) || (g.address || "").toLowerCase().includes(search) || g.uid.toLowerCase().includes(search));
+      }
+      res.json(groups);
+    } catch (err: any) {
+      res.status(500).json({ message: err?.message || "Chyba" });
+    }
+  });
+
+  // === COMPANY SUBJECT ROLES (PO Štruktúra) ===
+  app.get("/api/company-roles/:companySubjectId", isAuthenticated, async (req, res) => {
+    try {
+      const companySubjectId = parseInt(req.params.companySubjectId);
+      if (isNaN(companySubjectId)) return res.status(400).json({ message: "Neplatné ID" });
+
+      const roles = await db.select({
+        role: companySubjectRoles,
+        person: { id: subjects.id, uid: subjects.uid, firstName: subjects.firstName, lastName: subjects.lastName, companyName: subjects.companyName, type: subjects.type, email: subjects.email, phone: subjects.phone },
+      }).from(companySubjectRoles)
+        .innerJoin(subjects, eq(companySubjectRoles.personSubjectId, subjects.id))
+        .where(and(eq(companySubjectRoles.companySubjectId, companySubjectId), eq(companySubjectRoles.isActive, true)));
+
+      const enriched = roles.map(r => ({
+        ...r.role,
+        personName: r.person.companyName || `${r.person.firstName || ""} ${r.person.lastName || ""}`.trim(),
+        personUid: r.person.uid, personType: r.person.type,
+        personEmail: r.person.email, personPhone: r.person.phone,
+      }));
+      res.json(enriched);
+    } catch (err: any) {
+      res.status(500).json({ message: err?.message || "Chyba" });
+    }
+  });
+
+  app.get("/api/company-roles/person/:personSubjectId", isAuthenticated, async (req, res) => {
+    try {
+      const personSubjectId = parseInt(req.params.personSubjectId);
+      if (isNaN(personSubjectId)) return res.status(400).json({ message: "Neplatné ID" });
+
+      const roles = await db.select({
+        role: companySubjectRoles,
+        company: { id: subjects.id, uid: subjects.uid, companyName: subjects.companyName, type: subjects.type },
+      }).from(companySubjectRoles)
+        .innerJoin(subjects, eq(companySubjectRoles.companySubjectId, subjects.id))
+        .where(and(eq(companySubjectRoles.personSubjectId, personSubjectId), eq(companySubjectRoles.isActive, true)));
+
+      const enriched = roles.map(r => ({
+        ...r.role,
+        companyName: r.company.companyName || `Firma #${r.company.id}`,
+        companyUid: r.company.uid,
+      }));
+      res.json(enriched);
+    } catch (err: any) {
+      res.status(500).json({ message: err?.message || "Chyba" });
+    }
+  });
+
+  app.post("/api/company-roles", isAuthenticated, async (req, res) => {
+    try {
+      const user = (req as any).appUser;
+      const { companySubjectId, personSubjectId, roleType, allowedSections, description, validFrom, validTo } = req.body;
+      if (!companySubjectId || !personSubjectId || !roleType) return res.status(400).json({ message: "Chýbajú povinné parametre" });
+      if (!["statutar", "ubo", "zamestnanec", "operator"].includes(roleType)) return res.status(400).json({ message: "Neplatný typ roly" });
+
+      const existing = await db.select().from(companySubjectRoles).where(and(
+        eq(companySubjectRoles.companySubjectId, companySubjectId),
+        eq(companySubjectRoles.personSubjectId, personSubjectId),
+        eq(companySubjectRoles.roleType, roleType),
+        eq(companySubjectRoles.isActive, true)
+      ));
+      if (existing.length > 0) return res.status(409).json({ message: "Táto rola už existuje" });
+
+      const [role] = await db.insert(companySubjectRoles).values({
+        companySubjectId, personSubjectId, roleType,
+        allowedSections: allowedSections || [],
+        description: description || null,
+        validFrom: validFrom ? new Date(validFrom) : new Date(),
+        validTo: validTo ? new Date(validTo) : null,
+        assignedByUserId: user?.id, assignedByName: user?.username,
+      }).returning();
+
+      const roleLabels: Record<string, string> = { statutar: "Štatutár", ubo: "UBO", zamestnanec: "Zamestnanec", operator: "Operátor" };
+      await logAudit(req, { action: "ASSIGN_ROLE", module: "company_roles", entityId: companySubjectId, entityName: `Rola ${roleLabels[roleType]} priradená subjektu #${personSubjectId}`, newData: { roleType, allowedSections } });
+      res.json(role);
+    } catch (err: any) {
+      res.status(500).json({ message: err?.message || "Chyba pri priraďovaní roly" });
+    }
+  });
+
+  app.patch("/api/company-roles/:roleId", isAuthenticated, async (req, res) => {
+    try {
+      const roleId = parseInt(req.params.roleId);
+      const { allowedSections, description, validTo, isActive } = req.body;
+      const updates: any = { updatedAt: new Date() };
+      if (allowedSections !== undefined) updates.allowedSections = allowedSections;
+      if (description !== undefined) updates.description = description;
+      if (validTo !== undefined) updates.validTo = validTo ? new Date(validTo) : null;
+      if (isActive !== undefined) updates.isActive = isActive;
+
+      const [updated] = await db.update(companySubjectRoles).set(updates).where(eq(companySubjectRoles.id, roleId)).returning();
+      await logAudit(req, { action: "UPDATE_ROLE", module: "company_roles", entityId: roleId, entityName: "Aktualizácia firemnej roly", newData: updates });
+      res.json(updated);
+    } catch (err: any) {
+      res.status(500).json({ message: err?.message || "Chyba" });
+    }
+  });
+
+  app.delete("/api/company-roles/:roleId", isAuthenticated, async (req, res) => {
+    try {
+      const roleId = parseInt(req.params.roleId);
+      await db.update(companySubjectRoles).set({ isActive: false, updatedAt: new Date() }).where(eq(companySubjectRoles.id, roleId));
+      await logAudit(req, { action: "REMOVE_ROLE", module: "company_roles", entityId: roleId, entityName: "Firemná rola deaktivovaná" });
+      res.json({ success: true });
+    } catch (err: any) {
+      res.status(500).json({ message: err?.message || "Chyba" });
+    }
+  });
+
+  // === NOTIFICATION QUEUE & BULK JOBS ===
+  app.get("/api/notifications/my", isAuthenticated, async (req, res) => {
+    try {
+      const user = (req as any).appUser;
+      const notifs = await db.select().from(notificationQueue)
+        .where(and(eq(notificationQueue.recipientUserId, user?.id), eq(notificationQueue.status, "sent")))
+        .orderBy(sql`${notificationQueue.createdAt} DESC`).limit(50);
+      res.json(notifs);
+    } catch (err: any) {
+      res.status(500).json({ message: err?.message || "Chyba" });
+    }
+  });
+
+  app.post("/api/notifications/:notifId/read", isAuthenticated, async (req, res) => {
+    try {
+      const notifId = parseInt(req.params.notifId);
+      await db.update(notificationQueue).set({ readAt: new Date(), status: "read" }).where(eq(notificationQueue.id, notifId));
+      res.json({ success: true });
+    } catch (err: any) {
+      res.status(500).json({ message: err?.message || "Chyba" });
+    }
+  });
+
+  app.get("/api/notifications/unread-count", isAuthenticated, async (req, res) => {
+    try {
+      const user = (req as any).appUser;
+      const [result] = await db.select({ count: sql<number>`count(*)::int` }).from(notificationQueue)
+        .where(and(eq(notificationQueue.recipientUserId, user?.id), eq(notificationQueue.status, "sent")));
+      res.json({ count: result?.count || 0 });
+    } catch (err: any) {
+      res.status(500).json({ message: err?.message || "Chyba" });
+    }
+  });
+
+  app.post("/api/batch-notifications", isAuthenticated, async (req, res) => {
+    try {
+      const user = (req as any).appUser;
+      const { notificationType, title, message, recipientSubjectIds, priority, sendToAll } = req.body;
+
+      let finalRecipientIds: number[] = recipientSubjectIds || [];
+      if (sendToAll) {
+        const conditions: any[] = [eq(subjects.isActive, true)];
+        if (user?.activeCompanyId) conditions.push(eq(subjects.myCompanyId, user.activeCompanyId));
+        const allSubjects = await db.select({ id: subjects.id }).from(subjects).where(and(...conditions));
+        finalRecipientIds = allSubjects.map(s => s.id);
+      }
+
+      if (!notificationType || !title || !message || !finalRecipientIds.length) return res.status(400).json({ message: "Chýbajú povinné parametre" });
+
+      const batchId = `BATCH-${Date.now()}-${Math.random().toString(36).substr(2, 6)}`;
+      const [job] = await db.insert(batchJobs).values({
+        batchId, jobType: "bulk_notification", status: "processing",
+        totalItems: finalRecipientIds.length, processedItems: 0, failedItems: 0, progress: 0,
+        metadata: { notificationType, title },
+        createdByUserId: user?.id, createdByName: user?.username, startedAt: new Date(),
+      }).returning();
+
+      const recipientsCopy = [...finalRecipientIds];
+      (async () => {
+        let processed = 0, failed = 0;
+        const BATCH_SIZE = 100;
+        for (let i = 0; i < recipientsCopy.length; i += BATCH_SIZE) {
+          const batch = recipientsCopy.slice(i, i + BATCH_SIZE);
+          const values = batch.map((sid: number) => ({
+            batchId, recipientSubjectId: sid, notificationType,
+            title, message, priority: priority || "normal", status: "sent" as const,
+          }));
+          try {
+            await db.insert(notificationQueue).values(values);
+            processed += batch.length;
+          } catch (e: any) {
+            failed += batch.length;
+          }
+          const progress = Math.round(((processed + failed) / recipientsCopy.length) * 100);
+          await db.update(batchJobs).set({ processedItems: processed, failedItems: failed, progress, updatedAt: new Date() }).where(eq(batchJobs.id, job.id));
+        }
+        await db.update(batchJobs).set({
+          status: failed > 0 ? "completed_with_errors" : "completed",
+          processedItems: processed, failedItems: failed, progress: 100,
+          completedAt: new Date(), updatedAt: new Date(),
+          result: { totalSent: processed, totalFailed: failed },
+        }).where(eq(batchJobs.id, job.id));
+        console.log(`[BATCH NOTIFICATION] ${batchId}: ${processed} sent, ${failed} failed`);
+      })();
+
+      await logAudit(req, { action: "BULK_NOTIFY", module: "notifications", entityId: job.id, entityName: `Hromadná notifikácia: ${title}`, newData: { batchId, recipientCount: finalRecipientIds.length } });
+      res.json({ batchId, jobId: job.id, totalItems: finalRecipientIds.length, status: "processing" });
+    } catch (err: any) {
+      res.status(500).json({ message: err?.message || "Chyba pri hromadnom odoslaní" });
+    }
+  });
+
+  app.get("/api/batch-jobs/:batchId", isAuthenticated, async (req, res) => {
+    try {
+      const batchId = req.params.batchId;
+      const [job] = await db.select().from(batchJobs).where(eq(batchJobs.batchId, batchId));
+      if (!job) return res.status(404).json({ message: "Batch job nenájdený" });
+      res.json(job);
+    } catch (err: any) {
+      res.status(500).json({ message: err?.message || "Chyba" });
+    }
+  });
+
+  app.get("/api/batch-jobs", isAuthenticated, async (req, res) => {
+    try {
+      const jobs = await db.select().from(batchJobs).orderBy(sql`${batchJobs.createdAt} DESC`).limit(50);
+      res.json(jobs);
+    } catch (err: any) {
+      res.status(500).json({ message: err?.message || "Chyba" });
+    }
+  });
+
+  // === MATURITY EVENTS (Auto-transition log) ===
+  app.get("/api/maturity-events", isAuthenticated, async (req, res) => {
+    try {
+      const events = await db.select().from(maturityEvents).orderBy(sql`${maturityEvents.createdAt} DESC`).limit(50);
+      const enriched = [];
+      for (const e of events) {
+        const [subj] = await db.select({ id: subjects.id, uid: subjects.uid, firstName: subjects.firstName, lastName: subjects.lastName }).from(subjects).where(eq(subjects.id, e.subjectId));
+        enriched.push({ ...e, subjectName: subj ? `${subj.firstName || ""} ${subj.lastName || ""}`.trim() : `#${e.subjectId}`, subjectUid: subj?.uid });
+      }
+      res.json(enriched);
+    } catch (err: any) {
+      res.status(500).json({ message: err?.message || "Chyba" });
     }
   });
 

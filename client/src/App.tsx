@@ -52,6 +52,7 @@ import ContractFieldSettings from "@/pages/ContractFieldSettings";
 import Body from "@/pages/Body";
 import BulkImport from "@/pages/BulkImport";
 import ImportArchive from "@/pages/ImportArchive";
+import BulkActions from "@/pages/BulkActions";
 import { AppShell } from "@/components/layout/AppShell";
 
 function PrivateRoute({ children }: { children: React.ReactNode }) {
@@ -135,6 +136,7 @@ const PrivateNastaveniePrehladov = () => <PrivateRoute><NastaveniePrehladov /></
 const PrivateSettingsStates = () => <PrivateRoute><SettingsStates /></PrivateRoute>;
 const PrivateBulkImport = () => <PrivateRoute><BulkImport /></PrivateRoute>;
 const PrivateImportArchive = () => <PrivateRoute><ImportArchive /></PrivateRoute>;
+const PrivateBulkActions = () => <PrivateRoute><BulkActions /></PrivateRoute>;
 const PrivateClientProfile = () => <PrivateRoute><ClientProfilePage /></PrivateRoute>;
 
 function Router() {
@@ -187,6 +189,7 @@ function Router() {
       <Route path="/settings-companies" component={PrivateCompanies} />
       <Route path="/bulk-import" component={PrivateBulkImport} />
       <Route path="/import-archive" component={PrivateImportArchive} />
+      <Route path="/bulk-actions" component={PrivateBulkActions} />
       <Route component={NotFound} />
     </Switch>
   );
