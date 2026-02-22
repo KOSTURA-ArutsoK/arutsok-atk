@@ -23,7 +23,7 @@ import { formatDateSlovak } from "@/lib/utils";
 import { PRIORITY_COUNTRY_NAMES, ALL_COUNTRY_NAMES } from "@/lib/countries";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
-import { Check, ChevronsUpDown, Plus, Trash2, Users, CreditCard, CheckCircle2, Camera, FileSignature, FileImage, Archive, ChevronLeft, ChevronRight, User } from "lucide-react";
+import { Check, ChevronsUpDown, Plus, Trash2, Users, CreditCard, CheckCircle2, Camera, FileSignature, FileImage, Archive, ChevronLeft, ChevronRight, User, MapPin, Phone, FileSearch, Lock, Ban, AlertOctagon, Star } from "lucide-react";
 import {
   Loader2, Pencil, Save, X, AlertTriangle, Shield,
   ShieldCheck, ListPlus, Eye, ArrowUp, ArrowDown, Settings2, MoreHorizontal,
@@ -35,6 +35,7 @@ const FOLDER_CATEGORY_LABELS: Record<string, string> = {
   doplnkove: "DOPLNKOVE UDAJE",
   volitelne: "VOLITELNE / DOBROVOLNE UDAJE",
   ine: "INÉ ÚDAJE",
+  extrahovane: "EXTRAHOVANÉ ÚDAJE",
 };
 
 const FOLDER_CATEGORY_ICONS: Record<string, any> = {
@@ -42,9 +43,10 @@ const FOLDER_CATEGORY_ICONS: Record<string, any> = {
   doplnkove: ListPlus,
   volitelne: Eye,
   ine: MoreHorizontal,
+  extrahovane: Eye,
 };
 
-const FOLDER_CATEGORY_ORDER = ["povinne", "doplnkove", "volitelne", "ine"];
+const FOLDER_CATEGORY_ORDER = ["povinne", "doplnkove", "volitelne", "ine", "extrahovane"];
 
 const FIELD_TO_SUBJECT_COLUMN: Record<string, string> = {
   meno: "firstName",
@@ -1217,7 +1219,7 @@ export function SubjectProfileModuleC({ subject }: ModuleCProps) {
           <div className="inline-flex rounded-lg border-2 border-primary/30 shadow-md p-1 bg-muted/30" data-testid="toggle-client-type-wrapper">
             <ToggleGroup type="single" value={activeClientType} onValueChange={(val) => { if (val) setActiveClientType(val); }} className="h-9" data-testid="toggle-client-type">
               {CLIENT_TYPE_OPTIONS.map(opt => (
-                <ToggleGroupItem key={opt.value} value={opt.value} className="h-9 px-6 text-sm font-semibold data-[state=on]:bg-primary data-[state=on]:text-primary-foreground data-[state=on]:shadow-sm" data-testid={`toggle-type-${opt.value}`}>
+                <ToggleGroupItem key={opt.value} value={opt.value} className="h-9 px-8 text-sm font-semibold data-[state=on]:bg-primary data-[state=on]:text-primary-foreground data-[state=on]:shadow-sm" data-testid={`toggle-type-${opt.value}`}>
                   {opt.short}
                 </ToggleGroupItem>
               ))}
@@ -1248,7 +1250,7 @@ export function SubjectProfileModuleC({ subject }: ModuleCProps) {
       )}
 
       {isPerson ? (
-        <Accordion type="multiple" defaultValue={["povinne", "osobne", "doplnkove", "volitelne", "ine"]} className="space-y-2">
+        <Accordion type="multiple" defaultValue={["povinne", "osobne", "doplnkove", "volitelne", "ine", "extrahovane"]} className="space-y-2">
           <AccordionItem value="povinne" className="border rounded-md px-3" data-testid="editor-accordion-povinne">
             <AccordionTrigger className="py-3 hover:no-underline">
               <div className="flex items-center gap-2">
@@ -1591,6 +1593,22 @@ export function SubjectProfileModuleC({ subject }: ModuleCProps) {
                 </CardContent>
               </Card>
 
+            </AccordionContent>
+          </AccordionItem>
+
+          <AccordionItem value="doplnkove" className="border rounded-md px-3" data-testid="editor-accordion-doplnkove">
+            <AccordionTrigger className="py-3 hover:no-underline">
+              <div className="flex items-center gap-2">
+                <MapPin className="w-4 h-4 text-primary" />
+                <span className="text-sm font-semibold">DOPLNKOVÉ ÚDAJE</span>
+                <Badge variant="secondary" className="text-[10px]">{(() => {
+                  const doplnkoveGroups = nonPovinneGroups.filter(g => (g.section as any).folderCategory === "doplnkove");
+                  const doplnkoveFieldCount = doplnkoveGroups.reduce((acc, g) => acc + g.fields.length, 0);
+                  return 3 + doplnkoveFieldCount;
+                })()}</Badge>
+              </div>
+            </AccordionTrigger>
+            <AccordionContent className="pb-4 space-y-2">
               {(() => {
                 const korRespondRovnaka = dynamicValues["korespond_rovnaka"] === "true";
                 const kontaktnaRovnaka = dynamicValues["kontaktna_rovnaka"] === "true";
@@ -1639,11 +1657,55 @@ export function SubjectProfileModuleC({ subject }: ModuleCProps) {
                 );
               })()}
 
+              {(() => {
+                const doplnkoveGroups = nonPovinneGroups.filter(g => (g.section as any).folderCategory === "doplnkove");
+                if (doplnkoveGroups.length === 0) return null;
+                return (
+                  <div className="space-y-2">
+                    {doplnkoveGroups.map(({ section, fields }) => (
+                      <div key={section.id} className="space-y-2">
+                        <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide border-b border-border pb-1" style={{ display: doplnkoveGroups.length > 1 ? 'block' : 'none' }}>{section.name}</p>
+                        <div className="flex flex-wrap gap-4 items-end">
+                          {sortFieldsByLayout(fields, "doplnkove").map((field: StaticField) => {
+                            const fk = field.fieldKey;
+                            let wCls = "flex-1 min-w-[140px]";
+                            if (fk === "titul_pred" || fk === "titul_za") wCls = "w-[100px] min-w-[80px] shrink-0";
+                            else if (fk === "vek") wCls = "w-[80px] min-w-[60px] shrink-0";
+                            else if (fk === "pohlavie") wCls = "w-[130px] min-w-[100px] shrink-0";
+                            else if (fk === "datum_narodenia" || fk === "platnost_dokladu") wCls = "w-[160px] min-w-[140px] shrink-0";
+                            else if (fk === "meno" || fk === "priezvisko" || fk === "rodne_priezvisko") wCls = "flex-1 min-w-[150px]";
+                            const savedLayout = getFieldLayout(fk, "doplnkove");
+                            const effectiveWCls = savedLayout?.widthClass || wCls;
+                            return (
+                              <div key={field.id} className={cn("min-w-0 relative", effectiveWCls)}>
+                                <ArchitectFieldOverlay fieldKey={fk} sectionCategory="doplnkove" />
+                                <DynamicFieldInput field={field} dynamicValues={dynamicValues} setDynamicValues={setDynamicValues} disabled={!isEditing} subjectId={subject.id} />
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                );
+              })()}
+            </AccordionContent>
+          </AccordionItem>
+
+          <AccordionItem value="volitelne" className="border rounded-md px-3" data-testid="editor-accordion-volitelne">
+            <AccordionTrigger className="py-3 hover:no-underline">
+              <div className="flex items-center gap-2">
+                <Phone className="w-4 h-4 text-muted-foreground" />
+                <span className="text-sm font-semibold">VOLITEĽNÉ / DOBROVOĽNÉ ÚDAJE</span>
+                <Badge variant="secondary" className="text-[10px]">{contacts.length}</Badge>
+              </div>
+            </AccordionTrigger>
+            <AccordionContent className="pb-4 space-y-2">
               <Card data-testid="panel-kontaktne-udaje">
                 <CardContent className="p-4 space-y-3">
                   <div className="flex items-center justify-between gap-2 flex-wrap">
                     <div className="flex items-center gap-2">
-                      <Users className="w-4 h-4 text-primary" />
+                      <Phone className="w-4 h-4 text-primary" />
                       <p className="text-sm font-semibold">Kontaktné údaje</p>
                       <Badge variant="secondary" className="text-[10px]">{contacts.length}</Badge>
                     </div>
@@ -1716,6 +1778,9 @@ export function SubjectProfileModuleC({ subject }: ModuleCProps) {
                           </Select>
                         </div>
                         <div className="flex items-center gap-1 pb-0.5">
+                          {contact.isPrimary && contact.value?.trim() && (
+                            <Lock className="w-3.5 h-3.5 text-primary" data-testid={`lock-primary-${cIdx}`} />
+                          )}
                           {!contact.isPrimary && isEditing && (
                             <Button type="button" variant="ghost" size="icon" onClick={() => setContacts(prev => prev.map(c => c.type === contact.type ? { ...c, isPrimary: c.id === contact.id } : c))} title="Nastaviť ako primárny" data-testid={`button-set-primary-${cIdx}`}>
                               <CheckCircle2 className="w-3.5 h-3.5 text-muted-foreground" />
@@ -1757,10 +1822,43 @@ export function SubjectProfileModuleC({ subject }: ModuleCProps) {
                   )}
                 </CardContent>
               </Card>
+
+              {(() => {
+                const volitelneGroups = nonPovinneGroups.filter(g => (g.section as any).folderCategory === "volitelne");
+                if (volitelneGroups.length === 0) return null;
+                return (
+                  <div className="space-y-2">
+                    {volitelneGroups.map(({ section, fields }) => (
+                      <div key={section.id} className="space-y-2">
+                        <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide border-b border-border pb-1" style={{ display: volitelneGroups.length > 1 ? 'block' : 'none' }}>{section.name}</p>
+                        <div className="flex flex-wrap gap-4 items-end">
+                          {sortFieldsByLayout(fields, "volitelne").map((field: StaticField) => {
+                            const fk = field.fieldKey;
+                            let wCls = "flex-1 min-w-[140px]";
+                            if (fk === "titul_pred" || fk === "titul_za") wCls = "w-[100px] min-w-[80px] shrink-0";
+                            else if (fk === "vek") wCls = "w-[80px] min-w-[60px] shrink-0";
+                            else if (fk === "pohlavie") wCls = "w-[130px] min-w-[100px] shrink-0";
+                            else if (fk === "datum_narodenia" || fk === "platnost_dokladu") wCls = "w-[160px] min-w-[140px] shrink-0";
+                            else if (fk === "meno" || fk === "priezvisko" || fk === "rodne_priezvisko") wCls = "flex-1 min-w-[150px]";
+                            const savedLayout = getFieldLayout(fk, "volitelne");
+                            const effectiveWCls = savedLayout?.widthClass || wCls;
+                            return (
+                              <div key={field.id} className={cn("min-w-0 relative", effectiveWCls)}>
+                                <ArchitectFieldOverlay fieldKey={fk} sectionCategory="volitelne" />
+                                <DynamicFieldInput field={field} dynamicValues={dynamicValues} setDynamicValues={setDynamicValues} disabled={!isEditing} subjectId={subject.id} />
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                );
+              })()}
             </AccordionContent>
           </AccordionItem>
 
-          {(["doplnkove", "volitelne", "ine"] as const).map(category => {
+          {(["ine"] as const).map(category => {
             const Icon = FOLDER_CATEGORY_ICONS[category];
             const groups = nonPovinneGroups.filter(g => (g.section as any).folderCategory === category);
             const totalFields = groups.reduce((acc, g) => acc + g.fields.length, 0);
@@ -1769,7 +1867,7 @@ export function SubjectProfileModuleC({ subject }: ModuleCProps) {
               <AccordionItem key={category} value={category} className="border rounded-md px-3" data-testid={`editor-accordion-${category}`}>
                 <AccordionTrigger className="py-3 hover:no-underline">
                   <div className="flex items-center gap-2">
-                    <Icon className={`w-4 h-4 ${category === 'doplnkove' ? 'text-primary' : category === 'ine' ? 'text-muted-foreground' : 'text-muted-foreground'}`} />
+                    <Icon className="w-4 h-4 text-muted-foreground" />
                     <span className="text-sm font-semibold">{FOLDER_CATEGORY_LABELS[category]}</span>
                     <Badge variant="secondary" className="text-[10px]">{totalFields}</Badge>
                   </div>
@@ -1805,6 +1903,36 @@ export function SubjectProfileModuleC({ subject }: ModuleCProps) {
               </AccordionItem>
             );
           })}
+
+          <AccordionItem value="extrahovane" className="border rounded-md px-3" data-testid="editor-accordion-extrahovane">
+            <AccordionTrigger className="py-3 hover:no-underline">
+              <div className="flex items-center gap-2">
+                <FileSearch className="w-4 h-4 text-blue-400" />
+                <span className="text-sm font-semibold">EXTRAHOVANÉ ÚDAJE</span>
+                <Badge variant="outline" className="text-[10px]">AI</Badge>
+              </div>
+            </AccordionTrigger>
+            <AccordionContent className="pb-4">
+              <Card data-testid="panel-extrahovane-stats">
+                <CardContent className="p-4">
+                  <div className="flex flex-wrap gap-6 items-start">
+                    <div className="space-y-1 text-center" data-testid="stat-kategorie">
+                      <p className="text-2xl font-bold text-foreground">{synonymCounts ? Object.keys(synonymCounts).filter(k => synonymCounts[k] > 0).length : 0}</p>
+                      <p className="text-xs text-muted-foreground">Počet nájdených kategórií</p>
+                    </div>
+                    <div className="space-y-1 text-center" data-testid="stat-zalozky">
+                      <p className="text-2xl font-bold text-foreground">6</p>
+                      <p className="text-xs text-muted-foreground">Záložky</p>
+                    </div>
+                    <div className="space-y-1 text-center" data-testid="stat-polia">
+                      <p className="text-2xl font-bold text-foreground">{povinneFields.length + nonPovinneGroups.reduce((acc, g) => acc + g.fields.length, 0)}</p>
+                      <p className="text-xs text-muted-foreground">Polia</p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </AccordionContent>
+          </AccordionItem>
         </Accordion>
       ) : (
         <Accordion type="multiple" defaultValue={["povinne", "doplnkove", "ine"]} className="space-y-2">
