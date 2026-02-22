@@ -7062,6 +7062,132 @@ export async function registerRoutes(
     }
   });
 
+  // === DYNAMIC SUBJECT SCHEMA (EAV) ===
+
+  app.get("/api/subject-schema/:clientTypeId", isAuthenticated, async (req, res) => {
+    try {
+      const clientTypeId = Number(req.params.clientTypeId);
+      if (!clientTypeId) return res.status(400).json({ message: "clientTypeId required" });
+
+      const allSections = await db.select().from(subjectParamSections)
+        .where(eq(subjectParamSections.clientTypeId, clientTypeId))
+        .orderBy(subjectParamSections.sortOrder);
+
+      const allParams = await db.select().from(subjectParameters)
+        .where(and(
+          eq(subjectParameters.clientTypeId, clientTypeId),
+          eq(subjectParameters.isActive, true)
+        ))
+        .orderBy(subjectParameters.sortOrder);
+
+      const parentSections = allSections.filter(s => !s.isPanel && !s.parentSectionId);
+      const panels = allSections.filter(s => s.isPanel || !!s.parentSectionId);
+
+      const filteredPanels = panels.filter(p => {
+        const name = p.name || "";
+        return !name.startsWith("[ZLÚČENÉ]");
+      });
+
+      const sections = parentSections.map(sec => ({
+        id: sec.id,
+        clientTypeId: sec.clientTypeId,
+        name: sec.name,
+        code: sec.code,
+        folderCategory: sec.folderCategory,
+        sortOrder: sec.sortOrder || 0,
+        isCollection: sec.isCollection || false,
+        gridColumns: sec.gridColumns || 1,
+        panels: filteredPanels
+          .filter(p => p.parentSectionId === sec.id)
+          .map(panel => ({
+            id: panel.id,
+            clientTypeId: panel.clientTypeId,
+            sectionId: sec.id,
+            name: panel.name,
+            code: panel.code,
+            gridColumns: panel.gridColumns || 1,
+            sortOrder: panel.sortOrder || 0,
+            isCollection: panel.isCollection || false,
+            fields: allParams
+              .filter(f => f.panelId === panel.id)
+              .map(f => ({
+                id: f.id,
+                clientTypeId: f.clientTypeId,
+                sectionId: f.sectionId,
+                panelId: f.panelId,
+                fieldKey: f.fieldKey,
+                label: f.label,
+                shortLabel: f.shortLabel || undefined,
+                fieldType: f.fieldType,
+                isRequired: f.isRequired || false,
+                isHidden: f.isHidden || false,
+                options: (f.options as string[]) || [],
+                defaultValue: f.defaultValue || null,
+                visibilityRule: f.visibilityRule as { dependsOn: string; value: string } | null,
+                unit: f.unit || null,
+                decimalPlaces: f.decimalPlaces || 2,
+                fieldCategory: f.fieldCategory,
+                categoryCode: f.categoryCode || undefined,
+                sortOrder: f.sortOrder || 0,
+                rowNumber: f.rowNumber || 0,
+                widthPercent: f.widthPercent || 100,
+                extractionHints: f.extractionHints || null,
+                code: f.code || undefined,
+              })),
+          })),
+      }));
+
+      res.json({ clientTypeId, sections });
+    } catch (err: any) {
+      console.error("Error fetching subject schema:", err?.message || err);
+      res.status(500).json({ message: "Internal error" });
+    }
+  });
+
+  // === AI PARAMETER MAP ===
+
+  app.get("/api/ai/parameter-map", isAuthenticated, async (req, res) => {
+    try {
+      const clientTypeId = req.query.clientTypeId ? Number(req.query.clientTypeId) : undefined;
+
+      let params;
+      if (clientTypeId) {
+        params = await db.select().from(subjectParameters)
+          .where(and(
+            eq(subjectParameters.clientTypeId, clientTypeId),
+            eq(subjectParameters.isActive, true)
+          ))
+          .orderBy(subjectParameters.sortOrder);
+      } else {
+        params = await db.select().from(subjectParameters)
+          .where(eq(subjectParameters.isActive, true))
+          .orderBy(subjectParameters.sortOrder);
+      }
+
+      const parameterMap = params.map(p => ({
+        id: p.id,
+        fieldKey: p.fieldKey,
+        code: p.code,
+        label: p.label,
+        fieldType: p.fieldType,
+        options: p.options,
+        extractionHints: p.extractionHints,
+        sectionId: p.sectionId,
+        panelId: p.panelId,
+        clientTypeId: p.clientTypeId,
+      }));
+
+      res.json({
+        totalActive: parameterMap.length,
+        generatedAt: new Date().toISOString(),
+        parameters: parameterMap,
+      });
+    } catch (err: any) {
+      console.error("Error fetching AI parameter map:", err?.message || err);
+      res.status(500).json({ message: "Internal error" });
+    }
+  });
+
   // === DYNAMIC SUBJECT PARAMETERS API ===
 
   app.get("/api/subject-param-sections", isAuthenticated, async (req, res) => {

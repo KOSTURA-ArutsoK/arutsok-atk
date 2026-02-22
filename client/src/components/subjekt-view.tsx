@@ -6,6 +6,7 @@ import { useMyCompanies } from "@/hooks/use-companies";
 import { useAppUser } from "@/hooks/use-app-user";
 import type { Subject, ClientDataTab, ClientDataCategory, ClientMarketingConsent, ClientType, SubjectCollaborator, SubjectFieldHistory, SubjectAddress } from "@shared/schema";
 import { getFieldsForClientTypeId, getSectionsForClientTypeId, type StaticField } from "@/lib/staticFieldDefs";
+import { useSubjectSchema, type DynamicField } from "@/hooks/use-subject-schema";
 import { getDocumentValidityStatus, isValidityField, isNumberFieldWithExpiredPair, getValidityFromDateStatus, isValidityFromDateField } from "@/lib/document-validity";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
@@ -372,6 +373,12 @@ interface CategoriesAccordionProps {
   fieldNotes?: Record<string, string>;
   onFieldNoteChange?: (key: string, note: string) => void;
   onInlineSave?: (fieldKey: string, newValue: string) => void;
+  activeFieldHints?: Record<string, string>;
+  collectionCategories?: Record<string, { sectionCode: string; sectionName: string; fields: any[] }>;
+  dynamicFields?: Record<string, any>;
+  onCollectionAdd?: (sectionCode: string) => void;
+  onCollectionRemove?: (sectionCode: string, instanceIndex: number) => void;
+  collectionCounts?: Record<string, number>;
 }
 
 function CategoriesAccordion({
@@ -379,6 +386,8 @@ function CategoriesAccordion({
   getFieldValue, getEditableValue, editValues, setEditFieldValue,
   summaryFields, pdfSidebarOpen, toggleSummaryField,
   isSuperAdmin, fieldNotes, onFieldNoteChange, onInlineSave,
+  activeFieldHints, collectionCategories, dynamicFields,
+  onCollectionAdd, onCollectionRemove, collectionCounts,
 }: CategoriesAccordionProps) {
   const visibleCats = useMemo(() => {
     if (isEditing) return tabCats;
@@ -410,7 +419,37 @@ function CategoriesAccordion({
     >
       {visibleCats.map(cat => {
         const catFields = fieldsByCategory[cat.code] || [];
-        const filledCount = catFields.filter(f => !!getFieldValue(f.fieldKey)).length;
+        const isCollection = !!(collectionCategories && collectionCategories[cat.code]);
+        const collectionInfo = collectionCategories?.[cat.code];
+
+        const getCollectionInstanceCount = () => {
+          if (!isCollection || !dynamicFields) return 0;
+          let maxIdx = -1;
+          const prefix = (collectionInfo?.sectionCode || cat.code) + "_";
+          for (const key of Object.keys(dynamicFields)) {
+            if (key.startsWith(prefix)) {
+              const parts = key.slice(prefix.length).split("_");
+              const idx = parseInt(parts[0], 10);
+              if (!isNaN(idx) && idx > maxIdx) maxIdx = idx;
+            }
+          }
+          return maxIdx + 1;
+        };
+
+        const sectionCode = collectionInfo?.sectionCode || cat.code;
+        const stateCount = collectionCounts?.[sectionCode] || 0;
+        const instanceCount = isCollection ? Math.max(1, getCollectionInstanceCount(), stateCount) : 0;
+
+        const filledCount = isCollection
+          ? catFields.filter(f => {
+              for (let i = 0; i < instanceCount; i++) {
+                const key = `${collectionInfo?.sectionCode || cat.code}_${i}_${f.fieldKey}`;
+                if (dynamicFields?.[key]) return true;
+              }
+              return !!getFieldValue(f.fieldKey);
+            }).length
+          : catFields.filter(f => !!getFieldValue(f.fieldKey)).length;
+
         return (
           <AccordionItem key={cat.code} value={cat.code} className="border rounded-md px-3" data-testid={`category-${cat.code}`}>
             <AccordionTrigger className="py-2.5 hover:no-underline">
@@ -420,6 +459,11 @@ function CategoriesAccordion({
                 {catFields.length > 0 && (
                   <Badge variant="secondary" className="text-[10px] px-1.5 py-0">
                     {filledCount}/{catFields.length}
+                  </Badge>
+                )}
+                {isCollection && instanceCount > 0 && (
+                  <Badge variant="outline" className="text-[9px] border-blue-400/60 text-blue-400">
+                    {instanceCount}× záznam{instanceCount > 1 ? "y" : ""}
                   </Badge>
                 )}
                 {isEditing && <Badge variant="outline" className="text-[9px] border-primary/40 text-primary">editácia</Badge>}
@@ -433,6 +477,117 @@ function CategoriesAccordion({
                 <p className="text-xs text-muted-foreground text-center py-3">
                   Žiadne polia v tejto kategórii
                 </p>
+              ) : isCollection && isEditing ? (
+                <div className="space-y-4" data-testid={`collection-edit-${cat.code}`}>
+                  {Array.from({ length: instanceCount }, (_, idx) => {
+                    const prefix = `${collectionInfo?.sectionCode || cat.code}_${idx}_`;
+                    return (
+                      <div key={idx} className="border border-dashed border-muted-foreground/30 rounded-md p-3 relative">
+                        <div className="flex items-center justify-between mb-2">
+                          <span className="text-xs font-medium text-muted-foreground">
+                            {collectionInfo?.sectionName || cat.name} #{idx + 1}
+                          </span>
+                          {idx > 0 && onCollectionRemove && (
+                            <button
+                              type="button"
+                              onClick={() => onCollectionRemove(collectionInfo?.sectionCode || cat.code, idx)}
+                              className="text-xs text-red-400 hover:text-red-300 flex items-center gap-1"
+                              data-testid={`collection-remove-${cat.code}-${idx}`}
+                            >
+                              <Trash2 className="w-3 h-3" /> Odstrániť
+                            </button>
+                          )}
+                        </div>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                          {catFields.map(field => {
+                            const indexedKey = `${prefix}${field.fieldKey}`;
+                            const currentVal = editValues[indexedKey] ?? dynamicFields?.[indexedKey] ?? "";
+                            const origVal = dynamicFields?.[indexedKey] ?? "";
+                            const isModified = editValues[indexedKey] !== undefined && editValues[indexedKey] !== origVal;
+                            return (
+                              <div key={indexedKey} className="space-y-1" data-testid={`edit-field-${indexedKey}`}>
+                                <Label className={`text-xs ${isModified ? "text-primary font-semibold" : "text-muted-foreground"}`}>
+                                  {field.shortLabel || field.label}
+                                  {field.isRequired && <span className="text-red-400 ml-0.5">*</span>}
+                                </Label>
+                                {field.fieldType === "switch" ? (
+                                  <div className="flex items-center gap-2 h-9">
+                                    <Switch
+                                      checked={currentVal === "true"}
+                                      onCheckedChange={checked => setEditFieldValue(indexedKey, checked ? "true" : "false")}
+                                    />
+                                    <span className="text-xs text-muted-foreground">{currentVal === "true" ? "Áno" : "Nie"}</span>
+                                  </div>
+                                ) : (field.fieldType === "select" || field.fieldType === "jedna_moznost") && field.options.length > 0 ? (
+                                  <Select value={currentVal} onValueChange={v => setEditFieldValue(indexedKey, v)}>
+                                    <SelectTrigger className="h-9 text-xs"><SelectValue placeholder="Vyberte..." /></SelectTrigger>
+                                    <SelectContent>
+                                      {field.options.map(opt => <SelectItem key={opt} value={opt}>{opt}</SelectItem>)}
+                                    </SelectContent>
+                                  </Select>
+                                ) : field.fieldType === "textarea" ? (
+                                  <Textarea value={currentVal} onChange={e => setEditFieldValue(indexedKey, e.target.value)} rows={2} className="text-xs" />
+                                ) : (
+                                  <Input
+                                    type={field.fieldType === "date" ? "date" : field.fieldType === "number" || field.fieldType === "desatinne_cislo" ? "number" : "text"}
+                                    value={currentVal}
+                                    onChange={e => setEditFieldValue(indexedKey, e.target.value)}
+                                    className={`h-9 text-xs ${isModified ? "border-primary/60" : ""}`}
+                                    placeholder={field.label}
+                                    step={field.fieldType === "desatinne_cislo" ? "0.01" : undefined}
+                                  />
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    );
+                  })}
+                  {onCollectionAdd && (
+                    <button
+                      type="button"
+                      onClick={() => onCollectionAdd(collectionInfo?.sectionCode || cat.code)}
+                      className="w-full border border-dashed border-muted-foreground/30 rounded-md py-2 text-xs text-muted-foreground hover:text-foreground hover:border-primary/40 flex items-center justify-center gap-1.5 transition-colors"
+                      data-testid={`collection-add-${cat.code}`}
+                    >
+                      <Plus className="w-3.5 h-3.5" /> Pridať {collectionInfo?.sectionName || cat.name}
+                    </button>
+                  )}
+                </div>
+              ) : isCollection && !isEditing ? (
+                <div className="space-y-3" data-testid={`collection-view-${cat.code}`}>
+                  {Array.from({ length: instanceCount }, (_, idx) => {
+                    const prefix = `${collectionInfo?.sectionCode || cat.code}_${idx}_`;
+                    const hasData = catFields.some(f => !!dynamicFields?.[`${prefix}${f.fieldKey}`]);
+                    if (!hasData) return null;
+                    return (
+                      <div key={idx} className="border border-muted-foreground/20 rounded-md p-3">
+                        <p className="text-[11px] text-muted-foreground mb-2 font-medium">
+                          {collectionInfo?.sectionName || cat.name} #{idx + 1}
+                        </p>
+                        <div className="flex flex-wrap gap-2">
+                          {catFields.map(field => {
+                            const indexedKey = `${prefix}${field.fieldKey}`;
+                            const value = dynamicFields?.[indexedKey] || "";
+                            if (!value) return null;
+                            return (
+                              <SubjectViewField
+                                key={indexedKey}
+                                field={{ ...field, fieldKey: indexedKey }}
+                                value={value}
+                                isSummary={false}
+                                hasNote={false}
+                                pdfSidebarOpen={false}
+                                toggleSummaryField={() => {}}
+                              />
+                            );
+                          })}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
               ) : isEditing ? (
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                   {catFields.map(field => {
@@ -442,7 +597,8 @@ function CategoriesAccordion({
                     }
                     const currentVal = getEditableValue(field.fieldKey);
                     const isModified = editValues[field.fieldKey] !== undefined && editValues[field.fieldKey] !== getFieldValue(field.fieldKey);
-                    const fieldHint = HINTED_CATEGORIES.has(cat.code) ? FIELD_HINTS[field.fieldKey] : undefined;
+                    const hintsMap = activeFieldHints || FIELD_HINTS;
+                    const fieldHint = HINTED_CATEGORIES.has(cat.code) ? hintsMap[field.fieldKey] : (hintsMap[field.fieldKey] || undefined);
                     const existingNote = fieldNotes?.[field.fieldKey] || "";
                     return (
                       <div key={field.fieldKey} className="space-y-1" data-testid={`edit-field-${field.fieldKey}`}>
@@ -756,6 +912,33 @@ export function SubjektView({ subject, showPdfSidebar = false, isClientView = fa
     setEditReason("");
   }, []);
 
+  const [collectionCounts, setCollectionCounts] = useState<Record<string, number>>({});
+
+  const handleCollectionAdd = useCallback((sectionCode: string) => {
+    setCollectionCounts(prev => ({
+      ...prev,
+      [sectionCode]: (prev[sectionCode] || 1) + 1,
+    }));
+  }, []);
+
+  const handleCollectionRemove = useCallback((sectionCode: string, instanceIndex: number) => {
+    setCollectionCounts(prev => {
+      const current = prev[sectionCode] || 1;
+      if (current <= 1) return prev;
+      return { ...prev, [sectionCode]: current - 1 };
+    });
+    setEditValues(prev => {
+      const next = { ...prev };
+      const prefix = `${sectionCode}_${instanceIndex}_`;
+      for (const key of Object.keys(next)) {
+        if (key.startsWith(prefix)) {
+          delete next[key];
+        }
+      }
+      return next;
+    });
+  }, []);
+
   useEffect(() => {
     if (subject?.id) {
       apiRequest("POST", `/api/subjects/${subject.id}/log-view`).catch(() => {});
@@ -772,7 +955,29 @@ export function SubjektView({ subject, showPdfSidebar = false, isClientView = fa
   const isPerson = subject.type === "person";
   const isSzco = subject.type === "szco";
   const clientTypeId = isSzco ? 3 : isPerson ? 1 : 4;
-  const typeFields = getFieldsForClientTypeId(clientTypeId) || [];
+
+  const { fields: dynamicSchemaFields, fieldHints: dynamicFieldHints, fieldToCategory: dynamicFieldToCategory, collectionCategories, isLoading: schemaLoading } = useSubjectSchema(clientTypeId);
+
+  const typeFields: StaticField[] = useMemo(() => {
+    if (dynamicSchemaFields && dynamicSchemaFields.length > 0) {
+      return dynamicSchemaFields;
+    }
+    return getFieldsForClientTypeId(clientTypeId) || [];
+  }, [dynamicSchemaFields, clientTypeId]);
+
+  const activeFieldHints = useMemo(() => {
+    if (dynamicSchemaFields && dynamicSchemaFields.length > 0) {
+      return { ...FIELD_HINTS, ...dynamicFieldHints };
+    }
+    return FIELD_HINTS;
+  }, [dynamicSchemaFields, dynamicFieldHints]);
+
+  const activeFieldToCategory = useMemo(() => {
+    if (dynamicSchemaFields && dynamicSchemaFields.length > 0) {
+      return { ...FIELD_TO_CATEGORY, ...dynamicFieldToCategory };
+    }
+    return FIELD_TO_CATEGORY;
+  }, [dynamicSchemaFields, dynamicFieldToCategory]);
 
   const details = (subject.details || {}) as Record<string, any>;
   const dynamicFields = details.dynamicFields || details;
@@ -824,7 +1029,7 @@ export function SubjektView({ subject, showPdfSidebar = false, isClientView = fa
   const fieldsByCategory = useMemo(() => {
     const map: Record<string, StaticField[]> = {};
     for (const field of typeFields) {
-      const catCode = field.categoryCode || FIELD_TO_CATEGORY[field.fieldKey] || "doplnkove";
+      const catCode = field.categoryCode || activeFieldToCategory[field.fieldKey] || "doplnkove";
       if (!map[catCode]) map[catCode] = [];
       map[catCode].push(field);
     }
@@ -832,7 +1037,7 @@ export function SubjektView({ subject, showPdfSidebar = false, isClientView = fa
       map[key].sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0));
     }
     return map;
-  }, [typeFields]);
+  }, [typeFields, activeFieldToCategory]);
 
   const categoriesByTab = useMemo(() => {
     if (!categories || !tabs) return {};
@@ -858,7 +1063,7 @@ export function SubjektView({ subject, showPdfSidebar = false, isClientView = fa
     updateUiPrefs.mutate({ field_notes: next });
   }
 
-  if (tabsLoading || catsLoading) {
+  if (tabsLoading || catsLoading || schemaLoading) {
     return (
       <div className="flex items-center justify-center py-12">
         <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
@@ -1168,6 +1373,12 @@ export function SubjektView({ subject, showPdfSidebar = false, isClientView = fa
                   fieldNotes={fieldNotes}
                   onFieldNoteChange={handleFieldNoteChange}
                   onInlineSave={handleInlineSave}
+                  activeFieldHints={activeFieldHints}
+                  collectionCategories={collectionCategories}
+                  dynamicFields={dynamicFields}
+                  onCollectionAdd={handleCollectionAdd}
+                  onCollectionRemove={handleCollectionRemove}
+                  collectionCounts={collectionCounts}
                 />
               </TabsContent>
             );

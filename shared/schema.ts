@@ -1539,6 +1539,7 @@ export const subjectParamSections = pgTable("subject_param_sections", {
   isPanel: boolean("is_panel").default(false),
   parentSectionId: integer("parent_section_id"),
   gridColumns: integer("grid_columns").default(1),
+  isCollection: boolean("is_collection").default(false),
   createdAt: timestamp("created_at").defaultNow(),
 });
 
