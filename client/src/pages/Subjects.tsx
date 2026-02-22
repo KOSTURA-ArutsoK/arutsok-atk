@@ -142,6 +142,236 @@ function SubjectHistoryTab({ subjectId }: { subjectId: number }) {
   );
 }
 
+const STATIC_FIELD_LABELS: Record<string, string> = {
+  firstName: "Meno",
+  lastName: "Priezvisko",
+  companyName: "Názov firmy",
+  email: "Email",
+  phone: "Telefón",
+  birthNumber: "Rodné číslo",
+  idCardNumber: "Číslo OP",
+  iban: "IBAN",
+  swift: "SWIFT",
+  kikId: "KIK ID",
+  commissionLevel: "Úroveň provízií",
+  listStatus: "Status zoznamu",
+  cgnRating: "CGN Rating",
+  isActive: "Aktívny",
+  isDeceased: "Zosnulý",
+  type: "Typ subjektu",
+  linkedFoId: "Prepojená FO",
+};
+
+function getFieldLabel(fieldKey: string, allFields?: StaticField[]): string {
+  if (STATIC_FIELD_LABELS[fieldKey]) return STATIC_FIELD_LABELS[fieldKey];
+  if (allFields) {
+    const found = allFields.find(f => f.fieldKey === fieldKey);
+    if (found) return found.shortLabel || found.label;
+  }
+  return fieldKey.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+}
+
+function SubjectFieldHistoryPanel({ subjectId, clientTypeId }: { subjectId: number; clientTypeId?: number }) {
+  const [selectedField, setSelectedField] = useState<string>("__all__");
+  const { toast } = useToast();
+
+  const allFields = useMemo(() => {
+    if (clientTypeId) return getFieldsForClientTypeId(clientTypeId);
+    return getFieldsForClientTypeId(1);
+  }, [clientTypeId]);
+
+  const { data: historyKeys = [], isLoading: keysLoading } = useQuery<string[]>({
+    queryKey: ["/api/subjects", subjectId, "field-history", "keys"],
+    queryFn: async () => {
+      const res = await fetch(`/api/subjects/${subjectId}/field-history/keys`, { credentials: "include" });
+      if (!res.ok) throw new Error("Failed");
+      return res.json();
+    },
+  });
+
+  const fieldKeyParam = selectedField === "__all__" ? undefined : selectedField;
+  const { data: history = [], isLoading } = useQuery<any[]>({
+    queryKey: ["/api/subjects", subjectId, "field-history", fieldKeyParam || "all"],
+    queryFn: async () => {
+      const url = fieldKeyParam
+        ? `/api/subjects/${subjectId}/field-history?fieldKey=${encodeURIComponent(fieldKeyParam)}`
+        : `/api/subjects/${subjectId}/field-history`;
+      const res = await fetch(url, { credentials: "include" });
+      if (!res.ok) throw new Error("Failed");
+      return res.json();
+    },
+  });
+
+  const restoreMutation = useMutation({
+    mutationFn: async (historyEntryId: number) => {
+      const res = await apiRequest("POST", `/api/subjects/${subjectId}/field-history/restore`, { historyEntryId });
+      return res.json();
+    },
+    onSuccess: (data) => {
+      toast({ title: "Hodnota obnovená", description: `Pole '${getFieldLabel(data.fieldKey, allFields)}' bolo obnovené` });
+      queryClient.invalidateQueries({ queryKey: ["/api/subjects", subjectId, "field-history"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/subjects"] });
+    },
+    onError: () => {
+      toast({ title: "Chyba pri obnove hodnoty", variant: "destructive" });
+    },
+  });
+
+  const [confirmRestoreId, setConfirmRestoreId] = useState<number | null>(null);
+
+  return (
+    <div className="space-y-3" data-testid="field-history-panel">
+      <div className="flex items-center gap-3 flex-wrap">
+        <div className="flex items-center gap-2">
+          <History className="w-4 h-4 text-muted-foreground" />
+          <span className="text-sm font-semibold">História zmien polí</span>
+          <Badge variant="secondary" className="text-[10px]">{history.length}</Badge>
+        </div>
+        <Select value={selectedField} onValueChange={setSelectedField}>
+          <SelectTrigger className="w-[240px] h-8 text-xs" data-testid="select-field-filter">
+            <SelectValue placeholder="Filter podľa poľa" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="__all__" data-testid="filter-option-all">Celá história</SelectItem>
+            {historyKeys.map(key => (
+              <SelectItem key={key} value={key} data-testid={`filter-option-${key}`}>
+                {getFieldLabel(key, allFields)}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        {selectedField !== "__all__" && (
+          <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => setSelectedField("__all__")} data-testid="button-clear-filter">
+            <X className="w-3 h-3 mr-1" /> Zrušiť filter
+          </Button>
+        )}
+      </div>
+
+      <div className="text-[10px] text-muted-foreground flex items-center gap-1.5 px-1">
+        <Lock className="w-3 h-3" />
+        <span>Append-only: Záznamy sú nemenné a nevymazateľné</span>
+      </div>
+
+      {(isLoading || keysLoading) ? (
+        <div className="flex items-center gap-2 justify-center py-6">
+          <Loader2 className="w-4 h-4 animate-spin" />
+          <span className="text-xs text-muted-foreground">Načítavam históriu...</span>
+        </div>
+      ) : history.length === 0 ? (
+        <p className="text-sm text-muted-foreground text-center py-6" data-testid="text-no-field-history">
+          {selectedField === "__all__" ? "Žiadna história zmien" : `Žiadne zmeny pre pole '${getFieldLabel(selectedField, allFields)}'`}
+        </p>
+      ) : (
+        <div className="space-y-1.5">
+          {history.map((entry: any) => {
+            const isRestoreEntry = entry.isRestore;
+            const changedDate = entry.changedAt ? formatDateTimeSlovak(entry.changedAt) : '-';
+            const label = getFieldLabel(entry.fieldKey, allFields);
+
+            return (
+              <div
+                key={entry.id}
+                className={cn(
+                  "p-2.5 rounded-md border text-xs space-y-1.5",
+                  isRestoreEntry
+                    ? "border-blue-500/40 bg-blue-500/5"
+                    : "border-border bg-muted/20"
+                )}
+                data-testid={`field-history-entry-${entry.id}`}
+              >
+                <div className="flex items-center gap-2 flex-wrap">
+                  <Badge
+                    variant={isRestoreEntry ? "default" : "secondary"}
+                    className={cn("text-[10px]", isRestoreEntry && "bg-blue-600")}
+                  >
+                    {isRestoreEntry ? "Obnova" : "Zmena"}
+                  </Badge>
+                  <span className="font-semibold text-foreground">{label}</span>
+                  <span className="text-muted-foreground">•</span>
+                  <span className="text-muted-foreground">{changedDate}</span>
+                </div>
+
+                <div className="flex items-center gap-2 flex-wrap">
+                  <User className="w-3 h-3 text-muted-foreground shrink-0" />
+                  <span className="text-muted-foreground">
+                    {entry.changedByName || 'Systém'}
+                  </span>
+                </div>
+
+                <div className="flex items-start gap-3 flex-wrap">
+                  <div className="flex items-center gap-1.5 min-w-0">
+                    <span className="text-muted-foreground shrink-0">Pred:</span>
+                    <span className={cn("font-mono break-all", entry.oldValue ? "text-red-400 line-through" : "text-muted-foreground italic")}>
+                      {entry.oldValue || '(prázdne)'}
+                    </span>
+                  </div>
+                  <ArrowRight className="w-3 h-3 text-muted-foreground shrink-0 mt-0.5" />
+                  <div className="flex items-center gap-1.5 min-w-0">
+                    <span className="text-muted-foreground shrink-0">Po:</span>
+                    <span className={cn("font-mono break-all", entry.newValue ? "text-emerald-400 font-semibold" : "text-muted-foreground italic")}>
+                      {entry.newValue || '(prázdne)'}
+                    </span>
+                  </div>
+                </div>
+
+                {entry.changeReason && (
+                  <div className="flex items-start gap-1.5 text-muted-foreground">
+                    <Info className="w-3 h-3 shrink-0 mt-0.5" />
+                    <span className="italic">{entry.changeReason}</span>
+                  </div>
+                )}
+
+                {!isRestoreEntry && entry.newValue && (
+                  <div className="flex justify-end pt-1">
+                    {confirmRestoreId === entry.id ? (
+                      <div className="flex items-center gap-2">
+                        <span className="text-[10px] text-muted-foreground">Naozaj obnoviť?</span>
+                        <Button
+                          variant="default"
+                          size="sm"
+                          className="h-6 text-[10px] px-2"
+                          disabled={restoreMutation.isPending}
+                          onClick={() => {
+                            restoreMutation.mutate(entry.id);
+                            setConfirmRestoreId(null);
+                          }}
+                          data-testid={`button-confirm-restore-${entry.id}`}
+                        >
+                          {restoreMutation.isPending ? <Loader2 className="w-3 h-3 animate-spin" /> : "Áno, obnoviť"}
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-6 text-[10px] px-2"
+                          onClick={() => setConfirmRestoreId(null)}
+                          data-testid={`button-cancel-restore-${entry.id}`}
+                        >
+                          Zrušiť
+                        </Button>
+                      </div>
+                    ) : (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="h-6 text-[10px] px-2"
+                        onClick={() => setConfirmRestoreId(entry.id)}
+                        data-testid={`button-restore-${entry.id}`}
+                      >
+                        <History className="w-3 h-3 mr-1" />
+                        Obnoviť túto hodnotu
+                      </Button>
+                    )}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function SubjectFinanceTab({ subject }: { subject: Subject }) {
   const { toast } = useToast();
   const [kikId, setKikId] = useState(subject.kikId || "");
@@ -1093,6 +1323,10 @@ function SubjectDetailPanel({ subject, onClose }: { subject: Subject; onClose: (
 
         <TabsContent value="historia" className="mt-3">
           <div className="space-y-6">
+            <div>
+              <SubjectFieldHistoryPanel subjectId={subject.id} clientTypeId={subject.clientTypeId ?? undefined} />
+            </div>
+            <Separator />
             <div>
               <h4 className="text-sm font-semibold mb-3 flex items-center gap-2" data-testid="text-activity-timeline-header">
                 <Clock className="w-4 h-4" /> Časová os aktivít

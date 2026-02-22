@@ -190,7 +190,9 @@ export interface IStorage {
   createClientDocumentHistory(data: InsertClientDocumentHistory): Promise<ClientDocumentHistory>;
 
   getSubjectFieldHistory(subjectId: number, fieldKey?: string): Promise<SubjectFieldHistory[]>;
-  recordFieldChanges(subjectId: number, original: any, updated: any, userId?: number, reason?: string): Promise<void>;
+  getSubjectFieldHistoryKeys(subjectId: number): Promise<string[]>;
+  recordFieldChanges(subjectId: number, original: any, updated: any, userId?: number, reason?: string, userName?: string): Promise<void>;
+  restoreFieldValue(subjectId: number, historyEntryId: number, userId: number, userName: string): Promise<SubjectFieldHistory>;
 
   anonymizeSubject(id: number, userId: number): Promise<Subject>;
   revealAnonymizedSubject(id: number): Promise<any>;
@@ -1147,17 +1149,42 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getSubjectFieldHistory(subjectId: number, fieldKey?: string): Promise<SubjectFieldHistory[]> {
+    const conditions = [eq(subjectFieldHistory.subjectId, subjectId)];
     if (fieldKey) {
-      return await db.select().from(subjectFieldHistory)
-        .where(and(eq(subjectFieldHistory.subjectId, subjectId), eq(subjectFieldHistory.fieldKey, fieldKey)))
-        .orderBy(desc(subjectFieldHistory.changedAt));
+      conditions.push(eq(subjectFieldHistory.fieldKey, fieldKey));
     }
-    return await db.select().from(subjectFieldHistory)
-      .where(eq(subjectFieldHistory.subjectId, subjectId))
+    const rows = await db.select({
+      id: subjectFieldHistory.id,
+      subjectId: subjectFieldHistory.subjectId,
+      fieldKey: subjectFieldHistory.fieldKey,
+      fieldSource: subjectFieldHistory.fieldSource,
+      oldValue: subjectFieldHistory.oldValue,
+      newValue: subjectFieldHistory.newValue,
+      changedByUserId: subjectFieldHistory.changedByUserId,
+      changedByName: sql<string>`COALESCE(${subjectFieldHistory.changedByName}, CONCAT(${appUsers.firstName}, ' ', ${appUsers.lastName}), 'Systém')`,
+      changedAt: subjectFieldHistory.changedAt,
+      changeReason: subjectFieldHistory.changeReason,
+      isRestore: subjectFieldHistory.isRestore,
+      restoredFromDate: subjectFieldHistory.restoredFromDate,
+      validFrom: subjectFieldHistory.validFrom,
+      validTo: subjectFieldHistory.validTo,
+    })
+      .from(subjectFieldHistory)
+      .leftJoin(appUsers, eq(subjectFieldHistory.changedByUserId, appUsers.id))
+      .where(and(...conditions))
       .orderBy(desc(subjectFieldHistory.changedAt));
+    return rows as SubjectFieldHistory[];
   }
 
-  async recordFieldChanges(subjectId: number, original: any, updated: any, userId?: number, reason?: string): Promise<void> {
+  async getSubjectFieldHistoryKeys(subjectId: number): Promise<string[]> {
+    const rows = await db.selectDistinct({ fieldKey: subjectFieldHistory.fieldKey })
+      .from(subjectFieldHistory)
+      .where(eq(subjectFieldHistory.subjectId, subjectId))
+      .orderBy(subjectFieldHistory.fieldKey);
+    return rows.map(r => r.fieldKey);
+  }
+
+  async recordFieldChanges(subjectId: number, original: any, updated: any, userId?: number, reason?: string, userName?: string): Promise<void> {
     const historyEntries: InsertSubjectFieldHistory[] = [];
     const staticKeys = ['firstName', 'lastName', 'companyName', 'email', 'phone', 'birthNumber',
       'idCardNumber', 'iban', 'swift', 'kikId', 'commissionLevel', 'listStatus', 'cgnRating',
@@ -1174,6 +1201,7 @@ export class DatabaseStorage implements IStorage {
           oldValue: oldVal != null ? String(oldVal) : null,
           newValue: newVal != null ? String(newVal) : null,
           changedByUserId: userId ?? null,
+          changedByName: userName ?? null,
           changeReason: reason ?? null,
         });
       }
@@ -1195,6 +1223,7 @@ export class DatabaseStorage implements IStorage {
           oldValue: oldVal != null ? String(oldVal) : null,
           newValue: newVal != null ? String(newVal) : null,
           changedByUserId: userId ?? null,
+          changedByName: userName ?? null,
           changeReason: reason ?? null,
         });
       }
@@ -1203,6 +1232,51 @@ export class DatabaseStorage implements IStorage {
     if (historyEntries.length > 0) {
       await db.insert(subjectFieldHistory).values(historyEntries);
     }
+  }
+
+  async restoreFieldValue(subjectId: number, historyEntryId: number, userId: number, userName: string): Promise<SubjectFieldHistory> {
+    const [historyEntry] = await db.select().from(subjectFieldHistory)
+      .where(and(eq(subjectFieldHistory.id, historyEntryId), eq(subjectFieldHistory.subjectId, subjectId)));
+    if (!historyEntry) throw new Error("Záznam histórie nebol nájdený");
+
+    const subject = await this.getSubject(subjectId);
+    if (!subject) throw new Error("Subjekt nebol nájdený");
+
+    const valueToRestore = historyEntry.newValue;
+    const fieldKey = historyEntry.fieldKey;
+    const fieldSource = historyEntry.fieldSource;
+    const restoreDate = historyEntry.changedAt;
+
+    let currentValue: string | null = null;
+
+    if (fieldSource === 'static') {
+      currentValue = (subject as any)[fieldKey] != null ? String((subject as any)[fieldKey]) : null;
+      const updateData: any = {};
+      updateData[fieldKey] = valueToRestore;
+      await db.update(subjects).set(updateData).where(eq(subjects.id, subjectId));
+    } else {
+      const details = (subject.details as any) || {};
+      const dynamicFields = details.dynamicFields || {};
+      currentValue = dynamicFields[fieldKey] != null ? String(dynamicFields[fieldKey]) : null;
+      dynamicFields[fieldKey] = valueToRestore;
+      await db.update(subjects).set({ details: { ...details, dynamicFields } }).where(eq(subjects.id, subjectId));
+    }
+
+    const restoreDateFormatted = restoreDate ? new Date(restoreDate).toLocaleString('sk-SK') : 'neznámy';
+    const [restoreLog] = await db.insert(subjectFieldHistory).values({
+      subjectId,
+      fieldKey,
+      fieldSource,
+      oldValue: currentValue,
+      newValue: valueToRestore,
+      changedByUserId: userId,
+      changedByName: userName,
+      changeReason: `Hodnota obnovená používateľom ${userName} z verzie zo dňa ${restoreDateFormatted}`,
+      isRestore: true,
+      restoredFromDate: restoreDate,
+    }).returning();
+
+    return restoreLog;
   }
 
   async anonymizeSubject(id: number, userId: number): Promise<Subject> {

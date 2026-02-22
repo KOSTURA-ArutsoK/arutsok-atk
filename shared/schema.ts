@@ -1425,8 +1425,11 @@ export const subjectFieldHistory = pgTable("subject_field_history", {
   oldValue: text("old_value"),
   newValue: text("new_value"),
   changedByUserId: integer("changed_by_user_id").references(() => appUsers.id),
+  changedByName: text("changed_by_name"),
   changedAt: timestamp("changed_at").defaultNow(),
   changeReason: text("change_reason"),
+  isRestore: boolean("is_restore").default(false),
+  restoredFromDate: timestamp("restored_from_date"),
   validFrom: timestamp("valid_from"),
   validTo: timestamp("valid_to"),
 });

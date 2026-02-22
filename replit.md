@@ -18,7 +18,7 @@ The system employs a modern full-stack architecture, emphasizing data integrity,
 - **Authentication**: Replit OIDC Auth.
 
 **Key Architectural Decisions & Features:**
-- **Data Integrity & Auditability**: Immutable historical records, soft deletion with audit trails, comprehensive `audit_logs`, and subject-specific history views ensure data integrity and full auditability.
+- **Data Integrity & Auditability**: Immutable historical records, soft deletion with audit trails, comprehensive `audit_logs`, and subject-specific history views ensure data integrity and full auditability. Granular field-level history (`subject_field_history`) with per-field filtering, author attribution, intelligent restore with append-only audit trail, and document validity semaphore (traffic light indicators for expired/expiring/valid documents).
 - **Temporal Validity**: Utilizes `validFrom`, `validTo`, and `isActive` fields, supported by an hourly cron job for archiving expired data.
 - **Role-Based Access Control (RBAC)**: Granular permissions are managed via `permission_groups` for secure access control.
 - **Unique Identifiers**: Atomic 12-digit UIDs are generated from a `global_counters` table for all entities.

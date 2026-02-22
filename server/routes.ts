@@ -6354,6 +6354,42 @@ export async function registerRoutes(
     }
   });
 
+  app.get("/api/subjects/:id/field-history/keys", isAuthenticated, async (req: any, res) => {
+    try {
+      const subjectId = Number(req.params.id);
+      if (!await checkKlientiSubjectAccess(req.appUser, subjectId)) return res.status(403).json({ message: "Prístup zamietnutý" });
+      const keys = await storage.getSubjectFieldHistoryKeys(subjectId);
+      res.json(keys);
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  app.post("/api/subjects/:id/field-history/restore", isAuthenticated, async (req: any, res) => {
+    try {
+      const appUser = req.appUser;
+      if (!appUser) return res.status(401).json({ message: "Unauthorized" });
+      const subjectId = Number(req.params.id);
+      if (!await checkKlientiSubjectAccess(req.appUser, subjectId)) return res.status(403).json({ message: "Prístup zamietnutý" });
+      const { historyEntryId } = req.body;
+      if (!historyEntryId || typeof historyEntryId !== 'number' || !Number.isInteger(historyEntryId) || historyEntryId <= 0) {
+        return res.status(400).json({ message: "historyEntryId musí byť platné celé číslo" });
+      }
+      const userName = [appUser.firstName, appUser.lastName].filter(Boolean).join(' ') || appUser.email || 'Neznámy';
+      const restoreLog = await storage.restoreFieldValue(subjectId, historyEntryId, appUser.id, userName);
+      await logAudit(req, {
+        action: "RESTORE",
+        module: "subjekty",
+        entityId: subjectId,
+        entityName: `Obnova hodnoty poľa '${restoreLog.fieldKey}' subjektu #${subjectId}`,
+        newData: { fieldKey: restoreLog.fieldKey, restoredValue: restoreLog.newValue, fromDate: restoreLog.restoredFromDate },
+      });
+      res.json(restoreLog);
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
   app.post("/api/subjects/:id/anonymize", isAuthenticated, async (req: any, res) => {
     try {
       const appUser = req.appUser;
