@@ -22,6 +22,7 @@ import {
   AlertTriangle,
   ThumbsUp,
   ThumbsDown,
+  Lock,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -58,6 +59,22 @@ import {
   TabsList,
   TabsTrigger,
 } from "@/components/ui/tabs";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 type SubjectParamSection = {
   id: number;
@@ -128,7 +145,7 @@ const FIELD_TYPE_OPTIONS = [
 
 export default function KniznicaParametrov() {
   const { toast } = useToast();
-  const [activeTab, setActiveTab] = useState("parameters");
+  const [activeTab, setActiveTab] = useState("templates");
   const [selectedClientType, setSelectedClientType] = useState<string>("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [editParam, setEditParam] = useState<SubjectParameter | null>(null);
@@ -144,6 +161,7 @@ export default function KniznicaParametrov() {
   const [extractionResults, setExtractionResults] = useState<any>(null);
   const [confirmedFields, setConfirmedFields] = useState<Set<number>>(new Set());
   const [rejectedFields, setRejectedFields] = useState<Set<number>>(new Set());
+  const [deleteConfirm, setDeleteConfirm] = useState<{ type: "parameter" | "section" | "panel" | "template" | "unknown"; id: number; name: string } | null>(null);
   
 
   const { data: sections = [], isLoading: sectionsLoading } = useQuery<SubjectParamSection[]>({
@@ -161,6 +179,51 @@ export default function KniznicaParametrov() {
   const { data: templateParams = [] } = useQuery<{ id: number; templateId: number; parameterId: number; sortOrder: number; validFrom: string | null; validTo: string | null }[]>({
     queryKey: [`/api/subject-template-params/${bindingTemplateId}`],
     enabled: !!bindingTemplateId,
+  });
+
+  const { data: paramDeps = {} } = useQuery<Record<number, { subjectCount: number; templateCount: number; historyCount: number }>>({
+    queryKey: ["/api/param-dependencies-batch", parameters.map(p => p.id).join(",")],
+    queryFn: async () => {
+      const results: Record<number, any> = {};
+      await Promise.all(
+        parameters.map(async (p) => {
+          const res = await fetch(`/api/subject-parameters/${p.id}/dependencies`, { credentials: "include" });
+          if (res.ok) results[p.id] = await res.json();
+        })
+      );
+      return results;
+    },
+    enabled: parameters.length > 0,
+  });
+
+  const { data: sectionDeps = {} } = useQuery<Record<number, { parameterCount: number; subjectCount: number }>>({
+    queryKey: ["/api/section-dependencies-batch", sections.map(s => s.id).join(",")],
+    queryFn: async () => {
+      const results: Record<number, any> = {};
+      await Promise.all(
+        sections.map(async (s) => {
+          const res = await fetch(`/api/subject-param-sections/${s.id}/dependencies`, { credentials: "include" });
+          if (res.ok) results[s.id] = await res.json();
+        })
+      );
+      return results;
+    },
+    enabled: sections.length > 0,
+  });
+
+  const { data: templateDeps = {} } = useQuery<Record<number, { parameterCount: number }>>({
+    queryKey: ["/api/template-dependencies-batch", templates.map(t => t.id).join(",")],
+    queryFn: async () => {
+      const results: Record<number, any> = {};
+      await Promise.all(
+        templates.map(async (t) => {
+          const res = await fetch(`/api/subject-templates/${t.id}/dependencies`, { credentials: "include" });
+          if (res.ok) results[t.id] = await res.json();
+        })
+      );
+      return results;
+    },
+    enabled: templates.length > 0,
   });
 
   const extractFieldsMutation = useMutation({
@@ -332,6 +395,19 @@ export default function KniznicaParametrov() {
     },
   });
 
+  const unknownDeleteMutation = useMutation({
+    mutationFn: async (id: number) => {
+      await apiRequest("DELETE", `/api/unknown-extracted-fields/${id}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/unknown-extracted-fields"] });
+      toast({ title: "Neznáme pole vymazané" });
+    },
+    onError: () => {
+      toast({ title: "Chyba pri mazaní", variant: "destructive" });
+    },
+  });
+
   const deleteParamMutation = useMutation({
     mutationFn: async (id: number) => {
       await apiRequest("DELETE", `/api/subject-parameters/${id}`);
@@ -383,6 +459,8 @@ export default function KniznicaParametrov() {
     return true;
   });
 
+  const isDeletePending = deleteParamMutation.isPending || deleteSectionMutation.isPending || deleteTemplateMutation.isPending || unknownDeleteMutation.isPending;
+
   const sectionMap = new Map(sections.map(s => [s.id, s]));
 
   const toggleSection = (id: number) => {
@@ -426,17 +504,17 @@ export default function KniznicaParametrov() {
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>
         <TabsList data-testid="tabs-kniznica">
-          <TabsTrigger value="parameters" data-testid="tab-parameters">
-            <FileText className="w-3.5 h-3.5 mr-1" />
-            Parametre
+          <TabsTrigger value="templates" data-testid="tab-templates">
+            <LayoutTemplate className="w-3.5 h-3.5 mr-1" />
+            Šablóny
           </TabsTrigger>
           <TabsTrigger value="sections" data-testid="tab-sections">
             <Layers className="w-3.5 h-3.5 mr-1" />
             Sekcie & Panely
           </TabsTrigger>
-          <TabsTrigger value="templates" data-testid="tab-templates">
-            <LayoutTemplate className="w-3.5 h-3.5 mr-1" />
-            Šablóny
+          <TabsTrigger value="parameters" data-testid="tab-parameters">
+            <FileText className="w-3.5 h-3.5 mr-1" />
+            Parametre
           </TabsTrigger>
           <TabsTrigger value="unknown" data-testid="tab-unknown-fields">
             <Brain className="w-3.5 h-3.5 mr-1" />
@@ -562,19 +640,46 @@ export default function KniznicaParametrov() {
                                 >
                                   <Pencil className="w-3.5 h-3.5" />
                                 </Button>
-                                <Button
-                                  variant="ghost"
-                                  size="icon"
-                                  className="h-7 w-7 text-destructive"
-                                  onClick={() => {
-                                    if (confirm("Naozaj vymazať tento parameter?")) {
-                                      deleteParamMutation.mutate(p.id);
-                                    }
-                                  }}
-                                  data-testid={`button-delete-param-${p.id}`}
-                                >
-                                  <Trash2 className="w-3.5 h-3.5" />
-                                </Button>
+                                {(() => {
+                                  const deps = paramDeps[p.id];
+                                  const isLocked = deps && (deps.historyCount > 0 || deps.templateCount > 0);
+                                  if (isLocked) {
+                                    const reasons: string[] = [];
+                                    if (deps.subjectCount > 0) reasons.push(`${deps.subjectCount} subjektov`);
+                                    if (deps.templateCount > 0) reasons.push(`${deps.templateCount} šablón`);
+                                    return (
+                                      <TooltipProvider>
+                                        <Tooltip>
+                                          <TooltipTrigger asChild>
+                                            <Button
+                                              variant="ghost"
+                                              size="icon"
+                                              className="h-7 w-7 text-muted-foreground cursor-not-allowed"
+                                              disabled
+                                              data-testid={`button-lock-param-${p.id}`}
+                                            >
+                                              <Lock className="w-3.5 h-3.5" />
+                                            </Button>
+                                          </TooltipTrigger>
+                                          <TooltipContent side="left" className="max-w-xs">
+                                            <p className="text-xs">Toto pole nie je možné vymazať, pretože obsahuje dáta u {reasons.join(" a je súčasťou ")}.</p>
+                                          </TooltipContent>
+                                        </Tooltip>
+                                      </TooltipProvider>
+                                    );
+                                  }
+                                  return (
+                                    <Button
+                                      variant="ghost"
+                                      size="icon"
+                                      className="h-7 w-7 text-destructive"
+                                      onClick={() => setDeleteConfirm({ type: "parameter", id: p.id, name: p.label })}
+                                      data-testid={`button-delete-param-${p.id}`}
+                                    >
+                                      <Trash2 className="w-3.5 h-3.5" />
+                                    </Button>
+                                  );
+                                })()}
                               </div>
                             </TableCell>
                           </TableRow>
@@ -649,17 +754,43 @@ export default function KniznicaParametrov() {
                           >
                             <Pencil className="w-3 h-3" />
                           </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-6 w-6 text-destructive"
-                            onClick={() => {
-                              if (confirm("Vymazať sekciu?")) deleteSectionMutation.mutate(folder.id);
-                            }}
-                            data-testid={`button-delete-section-${folder.id}`}
-                          >
-                            <Trash2 className="w-3 h-3" />
-                          </Button>
+                          {(() => {
+                            const deps = sectionDeps[folder.id];
+                            const isLocked = deps && deps.parameterCount > 0;
+                            if (isLocked) {
+                              return (
+                                <TooltipProvider>
+                                  <Tooltip>
+                                    <TooltipTrigger asChild>
+                                      <Button
+                                        variant="ghost"
+                                        size="icon"
+                                        className="h-6 w-6 text-muted-foreground cursor-not-allowed"
+                                        disabled
+                                        data-testid={`button-lock-section-${folder.id}`}
+                                      >
+                                        <Lock className="w-3 h-3" />
+                                      </Button>
+                                    </TooltipTrigger>
+                                    <TooltipContent side="left" className="max-w-xs">
+                                      <p className="text-xs">Túto sekciu nie je možné vymazať, pretože obsahuje {deps.parameterCount} parametrov/panelov.</p>
+                                    </TooltipContent>
+                                  </Tooltip>
+                                </TooltipProvider>
+                              );
+                            }
+                            return (
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-6 w-6 text-destructive"
+                                onClick={() => setDeleteConfirm({ type: "section", id: folder.id, name: folder.name })}
+                                data-testid={`button-delete-section-${folder.id}`}
+                              >
+                                <Trash2 className="w-3 h-3" />
+                              </Button>
+                            );
+                          })()}
                         </div>
                       </div>
                     </CardHeader>
@@ -689,17 +820,43 @@ export default function KniznicaParametrov() {
                                     >
                                       <Pencil className="w-3 h-3" />
                                     </Button>
-                                    <Button
-                                      variant="ghost"
-                                      size="icon"
-                                      className="h-6 w-6 text-destructive"
-                                      onClick={() => {
-                                        if (confirm("Vymazať panel?")) deleteSectionMutation.mutate(panel.id);
-                                      }}
-                                      data-testid={`button-delete-panel-${panel.id}`}
-                                    >
-                                      <Trash2 className="w-3 h-3" />
-                                    </Button>
+                                    {(() => {
+                                      const deps = sectionDeps[panel.id];
+                                      const isLocked = deps && deps.parameterCount > 0;
+                                      if (isLocked) {
+                                        return (
+                                          <TooltipProvider>
+                                            <Tooltip>
+                                              <TooltipTrigger asChild>
+                                                <Button
+                                                  variant="ghost"
+                                                  size="icon"
+                                                  className="h-6 w-6 text-muted-foreground cursor-not-allowed"
+                                                  disabled
+                                                  data-testid={`button-lock-panel-${panel.id}`}
+                                                >
+                                                  <Lock className="w-3 h-3" />
+                                                </Button>
+                                              </TooltipTrigger>
+                                              <TooltipContent side="left" className="max-w-xs">
+                                                <p className="text-xs">Tento panel nie je možné vymazať, pretože obsahuje {deps.parameterCount} parametrov.</p>
+                                              </TooltipContent>
+                                            </Tooltip>
+                                          </TooltipProvider>
+                                        );
+                                      }
+                                      return (
+                                        <Button
+                                          variant="ghost"
+                                          size="icon"
+                                          className="h-6 w-6 text-destructive"
+                                          onClick={() => setDeleteConfirm({ type: "section", id: panel.id, name: panel.name })}
+                                          data-testid={`button-delete-panel-${panel.id}`}
+                                        >
+                                          <Trash2 className="w-3 h-3" />
+                                        </Button>
+                                      );
+                                    })()}
                                   </div>
                                 </div>
                                 {panelParams.length > 0 && (
@@ -777,17 +934,43 @@ export default function KniznicaParametrov() {
                           >
                             <Pencil className="w-3 h-3" />
                           </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-6 w-6 text-destructive"
-                            onClick={() => {
-                              if (confirm("Vymazať šablónu?")) deleteTemplateMutation.mutate(tmpl.id);
-                            }}
-                            data-testid={`button-delete-template-${tmpl.id}`}
-                          >
-                            <Trash2 className="w-3 h-3" />
-                          </Button>
+                          {(() => {
+                            const deps = templateDeps[tmpl.id];
+                            const isLocked = deps && deps.parameterCount > 0;
+                            if (isLocked) {
+                              return (
+                                <TooltipProvider>
+                                  <Tooltip>
+                                    <TooltipTrigger asChild>
+                                      <Button
+                                        variant="ghost"
+                                        size="icon"
+                                        className="h-6 w-6 text-muted-foreground cursor-not-allowed"
+                                        disabled
+                                        data-testid={`button-lock-template-${tmpl.id}`}
+                                      >
+                                        <Lock className="w-3 h-3" />
+                                      </Button>
+                                    </TooltipTrigger>
+                                    <TooltipContent side="left" className="max-w-xs">
+                                      <p className="text-xs">Túto šablónu nie je možné vymazať, pretože obsahuje {deps.parameterCount} naviazaných parametrov.</p>
+                                    </TooltipContent>
+                                  </Tooltip>
+                                </TooltipProvider>
+                              );
+                            }
+                            return (
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-6 w-6 text-destructive"
+                                onClick={() => setDeleteConfirm({ type: "template", id: tmpl.id, name: tmpl.name })}
+                                data-testid={`button-delete-template-${tmpl.id}`}
+                              >
+                                <Trash2 className="w-3 h-3" />
+                              </Button>
+                            );
+                          })()}
                         </div>
                       </div>
                     </CardHeader>
@@ -919,7 +1102,7 @@ export default function KniznicaParametrov() {
         </TabsContent>
 
         <TabsContent value="unknown" className="space-y-4">
-          <UnknownFieldsTab sections={sections} parameters={parameters} />
+          <UnknownFieldsTab sections={sections} parameters={parameters} onDeleteConfirm={(id, name) => setDeleteConfirm({ type: "unknown", id, name })} />
         </TabsContent>
 
         <TabsContent value="extraction" className="space-y-4">
@@ -1186,6 +1369,45 @@ export default function KniznicaParametrov() {
         onSave={(data) => saveTemplateMutation.mutate(data)}
         isPending={saveTemplateMutation.isPending}
       />
+
+      <AlertDialog open={!!deleteConfirm} onOpenChange={(open) => { if (!open && !isDeletePending) setDeleteConfirm(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <AlertTriangle className="w-5 h-5 text-destructive" />
+              Potvrdenie vymazania
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              Naozaj chcete vymazať {deleteConfirm ? ({ parameter: "tento parameter", section: "túto sekciu", panel: "tento panel", template: "túto šablónu", unknown: "toto neznáme pole" } as const)[deleteConfirm.type] : ""} <strong>„{deleteConfirm?.name}"</strong>? Táto akcia je nevratná.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel data-testid="button-cancel-delete" disabled={isDeletePending}>Zrušiť</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              data-testid="button-confirm-delete"
+              disabled={isDeletePending}
+              onClick={(e) => {
+                e.preventDefault();
+                if (!deleteConfirm) return;
+                const onDone = { onSuccess: () => setDeleteConfirm(null), onError: () => {} };
+                if (deleteConfirm.type === "parameter") {
+                  deleteParamMutation.mutate(deleteConfirm.id, onDone);
+                } else if (deleteConfirm.type === "section" || deleteConfirm.type === "panel") {
+                  deleteSectionMutation.mutate(deleteConfirm.id, onDone);
+                } else if (deleteConfirm.type === "template") {
+                  deleteTemplateMutation.mutate(deleteConfirm.id, onDone);
+                } else if (deleteConfirm.type === "unknown") {
+                  unknownDeleteMutation.mutate(deleteConfirm.id, onDone);
+                }
+              }}
+            >
+              {isDeletePending ? <Loader2 className="w-4 h-4 animate-spin mr-1" /> : null}
+              Vymazať
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
@@ -1836,7 +2058,7 @@ type UnknownField = {
   createdAt: string;
 };
 
-function UnknownFieldsTab({ sections, parameters }: { sections: SubjectParamSection[]; parameters: SubjectParameter[] }) {
+function UnknownFieldsTab({ sections, parameters, onDeleteConfirm }: { sections: SubjectParamSection[]; parameters: SubjectParameter[]; onDeleteConfirm: (id: number, name: string) => void }) {
   const { toast } = useToast();
   const [statusFilter, setStatusFilter] = useState<string>("new");
   const [assignDialogOpen, setAssignDialogOpen] = useState(false);
@@ -1876,15 +2098,6 @@ function UnknownFieldsTab({ sections, parameters }: { sections: SubjectParamSect
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/unknown-extracted-fields"] });
       toast({ title: "Pole zamietnuté" });
-    },
-  });
-
-  const deleteMutation = useMutation({
-    mutationFn: async (id: number) => {
-      await apiRequest("DELETE", `/api/unknown-extracted-fields/${id}`);
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/unknown-extracted-fields"] });
     },
   });
 
@@ -1945,8 +2158,15 @@ function UnknownFieldsTab({ sections, parameters }: { sections: SubjectParamSect
               </TableHeader>
               <TableBody>
                 {unknownFields.map((field) => (
-                  <TableRow key={field.id} data-testid={`row-unknown-field-${field.id}`}>
-                    <TableCell className="font-mono text-sm">{field.extractedKey}</TableCell>
+                  <TableRow
+                    key={field.id}
+                    className={field.status === "new" ? "bg-amber-500/10 border-l-2 border-l-amber-500" : ""}
+                    data-testid={`row-unknown-field-${field.id}`}
+                  >
+                    <TableCell className="font-mono text-sm">
+                      {field.status === "new" && <AlertTriangle className="w-3 h-3 text-amber-400 inline mr-1" />}
+                      {field.extractedKey}
+                    </TableCell>
                     <TableCell className="max-w-[200px] truncate text-sm">{field.extractedValue || "-"}</TableCell>
                     <TableCell className="max-w-[250px] truncate text-xs text-muted-foreground">{field.sourceText}</TableCell>
                     <TableCell>
@@ -1983,7 +2203,7 @@ function UnknownFieldsTab({ sections, parameters }: { sections: SubjectParamSect
                           variant="ghost"
                           size="sm"
                           className="h-7 px-2 text-xs text-destructive"
-                          onClick={() => deleteMutation.mutate(field.id)}
+                          onClick={() => onDeleteConfirm(field.id, field.extractedKey)}
                           data-testid={`button-delete-unknown-${field.id}`}
                         >
                           <Trash2 className="w-3 h-3" />

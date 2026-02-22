@@ -594,6 +594,9 @@ export interface IStorage {
   getSynonymConfirmationLogs(synonymId: number): Promise<SynonymConfirmationLog[]>;
 
   getParameterUsageCount(parameterId: number): Promise<number>;
+  getParameterDependencies(parameterId: number): Promise<{ subjectCount: number; templateCount: number; historyCount: number }>;
+  getSectionDependencies(sectionId: number): Promise<{ parameterCount: number; subjectCount: number }>;
+  getTemplateDependencies(templateId: number): Promise<{ parameterCount: number }>;
 
   getUnknownExtractedFields(status?: string): Promise<UnknownExtractedField[]>;
   createUnknownExtractedField(data: InsertUnknownExtractedField): Promise<UnknownExtractedField>;
@@ -4028,6 +4031,46 @@ export class DatabaseStorage implements IStorage {
       .from(subjectFieldHistory)
       .where(eq(subjectFieldHistory.fieldKey, sql`(SELECT field_key FROM subject_parameters WHERE id = ${parameterId})`));
     return Number(result[0]?.count ?? 0);
+  }
+
+  async getParameterDependencies(parameterId: number): Promise<{ subjectCount: number; templateCount: number; historyCount: number }> {
+    const [historyResult] = await db.select({ count: sql<number>`count(*)` })
+      .from(subjectFieldHistory)
+      .where(eq(subjectFieldHistory.fieldKey, sql`(SELECT field_key FROM subject_parameters WHERE id = ${parameterId})`));
+    const [templateResult] = await db.select({ count: sql<number>`count(*)` })
+      .from(subjectTemplateParams)
+      .where(eq(subjectTemplateParams.parameterId, parameterId));
+    const [subjectResult] = await db.select({ count: sql<number>`count(DISTINCT subject_id)` })
+      .from(subjectFieldHistory)
+      .where(eq(subjectFieldHistory.fieldKey, sql`(SELECT field_key FROM subject_parameters WHERE id = ${parameterId})`));
+    return {
+      subjectCount: Number(subjectResult?.count ?? 0),
+      templateCount: Number(templateResult?.count ?? 0),
+      historyCount: Number(historyResult?.count ?? 0),
+    };
+  }
+
+  async getSectionDependencies(sectionId: number): Promise<{ parameterCount: number; subjectCount: number }> {
+    const [paramResult] = await db.select({ count: sql<number>`count(*)` })
+      .from(subjectParameters)
+      .where(and(
+        or(eq(subjectParameters.sectionId, sectionId), eq(subjectParameters.panelId, sectionId)),
+        eq(subjectParameters.isActive, true)
+      ));
+    const [childPanelResult] = await db.select({ count: sql<number>`count(*)` })
+      .from(subjectParamSections)
+      .where(eq(subjectParamSections.parentSectionId, sectionId));
+    return {
+      parameterCount: Number(paramResult?.count ?? 0) + Number(childPanelResult?.count ?? 0),
+      subjectCount: 0,
+    };
+  }
+
+  async getTemplateDependencies(templateId: number): Promise<{ parameterCount: number }> {
+    const [result] = await db.select({ count: sql<number>`count(*)` })
+      .from(subjectTemplateParams)
+      .where(eq(subjectTemplateParams.templateId, templateId));
+    return { parameterCount: Number(result?.count ?? 0) };
   }
 
   async getUnknownExtractedFields(status?: string): Promise<UnknownExtractedField[]> {

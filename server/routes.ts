@@ -7358,9 +7358,38 @@ export async function registerRoutes(
     } catch (err) { res.status(500).json({ message: "Internal error" }); }
   });
 
+  app.get("/api/subject-param-sections/:id/dependencies", isAuthenticated, async (req, res) => {
+    try {
+      const deps = await storage.getSectionDependencies(Number(req.params.id));
+      res.json(deps);
+    } catch (err) { res.status(500).json({ message: "Internal error" }); }
+  });
+
   app.delete("/api/subject-param-sections/:id", isAuthenticated, async (req, res) => {
     try {
-      await storage.deleteSubjectParamSection(Number(req.params.id));
+      const sectionId = Number(req.params.id);
+      const deps = await storage.getSectionDependencies(sectionId);
+      if (deps.parameterCount > 0) {
+        return res.status(400).json({
+          message: `Sekciu nie je možné vymazať – obsahuje ${deps.parameterCount} parametrov/panelov.`,
+          dependencies: deps,
+        });
+      }
+      const section = await storage.getSubjectParamSections();
+      const found = section.find(s => s.id === sectionId);
+      await storage.deleteSubjectParamSection(sectionId);
+      const appUser = (req as any).user;
+      const userName = [appUser?.firstName, appUser?.lastName].filter(Boolean).join(' ') || appUser?.email || 'Neznámy';
+      await storage.createAuditLog({
+        userId: appUser?.id || null,
+        username: userName,
+        action: "delete",
+        module: "kniznica_parametrov",
+        entityId: sectionId,
+        entityName: found?.name || `Sekcia #${sectionId}`,
+        oldData: found || null,
+        newData: null,
+      });
       res.json({ success: true });
     } catch (err) { res.status(500).json({ message: "Internal error" }); }
   });
@@ -7413,17 +7442,37 @@ export async function registerRoutes(
     } catch (err) { res.status(500).json({ message: "Internal error" }); }
   });
 
+  app.get("/api/subject-parameters/:id/dependencies", isAuthenticated, async (req, res) => {
+    try {
+      const deps = await storage.getParameterDependencies(Number(req.params.id));
+      res.json(deps);
+    } catch (err) { res.status(500).json({ message: "Internal error" }); }
+  });
+
   app.delete("/api/subject-parameters/:id", isAuthenticated, async (req, res) => {
     try {
       const paramId = Number(req.params.id);
-      const usageCount = await storage.getParameterUsageCount(paramId);
-      if (usageCount > 0) {
+      const deps = await storage.getParameterDependencies(paramId);
+      if (deps.historyCount > 0 || deps.templateCount > 0) {
         return res.status(400).json({
-          message: `Parameter nie je možné vymazať – existuje ${usageCount} záznamov v histórii polí.`,
-          usageCount,
+          message: `Parameter nie je možné vymazať – existuje ${deps.subjectCount} subjektov s dátami a ${deps.templateCount} šablón.`,
+          dependencies: deps,
         });
       }
+      const param = await storage.getSubjectParameter(paramId);
       await storage.deleteSubjectParameter(paramId);
+      const appUser = (req as any).user;
+      const userName = [appUser?.firstName, appUser?.lastName].filter(Boolean).join(' ') || appUser?.email || 'Neznámy';
+      await storage.createAuditLog({
+        userId: appUser?.id || null,
+        username: userName,
+        action: "delete",
+        module: "kniznica_parametrov",
+        entityId: paramId,
+        entityName: param?.label || `Parameter #${paramId}`,
+        oldData: param || null,
+        newData: null,
+      });
       res.json({ success: true });
     } catch (err: any) {
       console.error("Error deleting subject parameter:", err?.message || err);
@@ -7714,9 +7763,38 @@ export async function registerRoutes(
     } catch (err) { res.status(500).json({ message: "Internal error" }); }
   });
 
+  app.get("/api/subject-templates/:id/dependencies", isAuthenticated, async (req, res) => {
+    try {
+      const deps = await storage.getTemplateDependencies(Number(req.params.id));
+      res.json(deps);
+    } catch (err) { res.status(500).json({ message: "Internal error" }); }
+  });
+
   app.delete("/api/subject-templates/:id", isAuthenticated, async (req, res) => {
     try {
-      await storage.deleteSubjectTemplate(Number(req.params.id));
+      const templateId = Number(req.params.id);
+      const deps = await storage.getTemplateDependencies(templateId);
+      if (deps.parameterCount > 0) {
+        return res.status(400).json({
+          message: `Šablónu nie je možné vymazať – obsahuje ${deps.parameterCount} naviazaných parametrov.`,
+          dependencies: deps,
+        });
+      }
+      const templates = await storage.getSubjectTemplates();
+      const found = templates.find(t => t.id === templateId);
+      await storage.deleteSubjectTemplate(templateId);
+      const appUser = (req as any).user;
+      const userName = [appUser?.firstName, appUser?.lastName].filter(Boolean).join(' ') || appUser?.email || 'Neznámy';
+      await storage.createAuditLog({
+        userId: appUser?.id || null,
+        username: userName,
+        action: "delete",
+        module: "kniznica_parametrov",
+        entityId: templateId,
+        entityName: found?.name || `Šablóna #${templateId}`,
+        oldData: found || null,
+        newData: null,
+      });
       res.json({ success: true });
     } catch (err) { res.status(500).json({ message: "Internal error" }); }
   });
@@ -7784,7 +7862,22 @@ export async function registerRoutes(
 
   app.delete("/api/unknown-extracted-fields/:id", isAuthenticated, async (req, res) => {
     try {
-      await storage.deleteUnknownExtractedField(Number(req.params.id));
+      const fieldId = Number(req.params.id);
+      const fields = await storage.getUnknownExtractedFields();
+      const found = fields.find(f => f.id === fieldId);
+      await storage.deleteUnknownExtractedField(fieldId);
+      const appUser = (req as any).user;
+      const userName = [appUser?.firstName, appUser?.lastName].filter(Boolean).join(' ') || appUser?.email || 'Neznámy';
+      await storage.createAuditLog({
+        userId: appUser?.id || null,
+        username: userName,
+        action: "delete",
+        module: "kniznica_parametrov",
+        entityId: fieldId,
+        entityName: found?.extractedKey || `Neznáme pole #${fieldId}`,
+        oldData: found || null,
+        newData: null,
+      });
       res.json({ success: true });
     } catch (err) { res.status(500).json({ message: "Internal error" }); }
   });
