@@ -3261,6 +3261,22 @@ export async function registerRoutes(
       const { values } = req.body;
       if (!Array.isArray(values)) return res.status(400).json({ message: "Values array required" });
       const contractId = Number(req.params.contractId);
+
+      const cisloZmluvyParam = values.find((v: any) => (v.parameterId || v.parameter_id) === 46);
+      if (cisloZmluvyParam?.value?.trim()) {
+        const existing = await db.select({ contractId: contractParameterValues.contractId })
+          .from(contractParameterValues)
+          .where(and(
+            eq(contractParameterValues.parameterId, 46),
+            eq(contractParameterValues.value, cisloZmluvyParam.value.trim()),
+            contractId ? sql`${contractParameterValues.contractId} != ${contractId}` : sql`1=1`
+          ))
+          .limit(1);
+        if (existing.length > 0) {
+          return res.status(409).json({ message: `Číslo zmluvy "${cisloZmluvyParam.value}" už existuje na inej zmluve (ID: ${existing[0].contractId})` });
+        }
+      }
+
       const userId = req.user?.appUserId || null;
       const userName = req.user?.displayName || req.user?.firstName || null;
       await storage.saveContractParameterValues(contractId, values, userId, userName);

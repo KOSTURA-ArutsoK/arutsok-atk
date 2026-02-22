@@ -136,6 +136,55 @@ export function isValidityFromDateField(fieldKey: string): boolean {
   return fieldKey in VALIDITY_FROM_DATE_FIELDS;
 }
 
+const CONTRACT_ANNIVERSARY_PARAMS: Record<number, { warningDays: number; label: string }> = {
+  54: { warningDays: 42, label: "Výročie zmluvy" },
+};
+
+export function getContractAnniversaryStatus(parameterId: number, dateValue: string | null | undefined): ValidityResult | null {
+  const config = CONTRACT_ANNIVERSARY_PARAMS[parameterId];
+  if (!config || !dateValue) return null;
+
+  const annivDate = new Date(dateValue);
+  if (isNaN(annivDate.getTime())) return null;
+  const now = new Date();
+  const thisYear = now.getFullYear();
+
+  let nextAnniv = new Date(annivDate);
+  nextAnniv.setFullYear(thisYear);
+  if (nextAnniv < now) nextAnniv.setFullYear(thisYear + 1);
+
+  const diffMs = nextAnniv.getTime() - now.getTime();
+  const daysUntil = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
+
+  if (daysUntil <= config.warningDays) {
+    return {
+      status: "expiring",
+      label: `${config.label} – o ${daysUntil} dní`,
+      daysRemaining: daysUntil,
+      colorClass: "text-orange-500",
+      borderClass: "border-orange-500 ring-1 ring-orange-500/50",
+      bgClass: "bg-orange-500/10",
+      dotClass: "bg-orange-500",
+      textClass: "text-orange-500",
+    };
+  }
+
+  return {
+    status: "valid",
+    label: `${config.label} – o ${daysUntil} dní`,
+    daysRemaining: daysUntil,
+    colorClass: "text-emerald-500",
+    borderClass: "border-emerald-500/50",
+    bgClass: "",
+    dotClass: "bg-emerald-500",
+    textClass: "text-emerald-500",
+  };
+}
+
+export function isContractAnniversaryParam(parameterId: number): boolean {
+  return parameterId in CONTRACT_ANNIVERSARY_PARAMS;
+}
+
 const VALIDITY_FIELD_KEYS = new Set(Object.keys(DOCUMENT_PAIRS));
 
 export function isValidityField(fieldKey: string): boolean {

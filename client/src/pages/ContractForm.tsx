@@ -11,6 +11,7 @@ import { ColumnManager } from "@/components/column-manager";
 import type { Contract, ContractStatus, ContractStatusChangeLog, ContractTemplate, ContractInventory, Subject, Partner, Product, MyCompany, Sector, Section, SectorProduct, ContractPassword, ContractParameterValue, ContractFieldSetting, ClientType, ContractAcquirer, AppUser, ContractRewardDistribution } from "@shared/schema";
 import { getFieldsForClientTypeId, type StaticField } from "@/lib/staticFieldDefs";
 import { ArrowLeft, Save, Loader2, LayoutGrid, KeyRound, Plus, Trash2, FileText, Users, ClipboardList, FolderOpen, FolderClosed, DollarSign, BarChart3, ListChecks, PieChart, ChevronLeft, ChevronRight, MessageSquare, Paperclip, Upload, X, Eye, Settings2, Calendar, UserCheck, Check, Link2, CreditCard, Flag, History } from "lucide-react";
+import { getContractAnniversaryStatus, isContractAnniversaryParam } from "@/lib/document-validity";
 import { SubjektView } from "@/components/subjekt-view";
 import type { DocumentEntry } from "@shared/schema";
 import StatusDocUpload, { type StatusDocUploadHandle } from "@/components/StatusDocUpload";
@@ -1821,8 +1822,11 @@ export default function ContractForm() {
                     )}
                     <div style={{ display: panel.parameters.length > 0 ? 'block' : 'none' }}>
                       <div className="flex flex-wrap gap-2">
-                        {panel.parameters.map(param => (
-                          <div key={param.id} className="space-y-0.5 flex-1 min-w-[calc(50%-0.25rem)]">
+                        {panel.parameters.map(param => {
+                          const vinkulaciaHidden = (param.id === 56 || param.id === 57) &&
+                            panelValues[`${panel.id}_55`]?.toLowerCase() !== "ano";
+                          return (
+                          <div key={param.id} className="space-y-0.5 flex-1 min-w-[calc(50%-0.25rem)]" style={{ display: vinkulaciaHidden ? 'none' : undefined }}>
                             <label className="text-xs font-medium">
                               {param.name}
                               <span style={{ display: param.isRequired ? 'inline' : 'none' }}><span className="text-destructive ml-1">*</span></span>
@@ -1882,16 +1886,31 @@ export default function ContractForm() {
                               />
                             </div>
                             <div style={{ display: param.paramType !== "textarea" && param.paramType !== "boolean" && param.paramType !== "decimal" && !((param.paramType === "combobox" || param.paramType === "jedna_moznost") && param.options?.length > 0) && param.paramType !== "viac_moznosti" ? 'block' : 'none' }}>
-                              <Input
-                                type={param.paramType === "number" || param.paramType === "currency" || param.paramType === "percent" ? "number" : param.paramType === "date" ? "date" : param.paramType === "datetime" ? "datetime-local" : param.paramType === "email" ? "email" : param.paramType === "url" ? "url" : "text"}
-                                value={panelValues[`${panel.id}_${param.id}`] || param.defaultValue || ""}
-                                onChange={e => setPanelValues(prev => ({ ...prev, [`${panel.id}_${param.id}`]: e.target.value }))}
-                                data-testid={`input-panel-param-${panel.id}-${param.id}`}
-                              />
+                              <div className="flex items-center gap-1.5">
+                                <Input
+                                  type={param.paramType === "number" || param.paramType === "currency" || param.paramType === "percent" ? "number" : param.paramType === "date" ? "date" : param.paramType === "datetime" ? "datetime-local" : param.paramType === "email" ? "email" : param.paramType === "url" ? "url" : "text"}
+                                  value={panelValues[`${panel.id}_${param.id}`] || param.defaultValue || ""}
+                                  onChange={e => setPanelValues(prev => ({ ...prev, [`${panel.id}_${param.id}`]: e.target.value }))}
+                                  data-testid={`input-panel-param-${panel.id}-${param.id}`}
+                                />
+                                {(() => {
+                                  const annivStatus = isContractAnniversaryParam(param.id)
+                                    ? getContractAnniversaryStatus(param.id, panelValues[`${panel.id}_${param.id}`])
+                                    : null;
+                                  return annivStatus ? (
+                                    <span
+                                      className={`w-3 h-3 rounded-full shrink-0 ${annivStatus.dotClass}`}
+                                      title={annivStatus.label}
+                                      data-testid={`anniversary-dot-${param.id}`}
+                                    />
+                                  ) : null;
+                                })()}
+                              </div>
                             </div>
                             <div style={{ display: param.helpText ? 'block' : 'none' }}><p className="text-xs text-muted-foreground">{param.helpText}</p></div>
                           </div>
-                        ))}
+                          );
+                        })}
                       </div>
                     </div>
                     <div style={{ display: panel.parameters.length === 0 ? 'block' : 'none' }}>
