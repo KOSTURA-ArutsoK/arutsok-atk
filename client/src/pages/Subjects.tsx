@@ -60,6 +60,7 @@ import { PRIORITY_COUNTRY_NAMES, ALL_COUNTRY_NAMES, DEFAULT_COUNTRY, getDefaultC
 import { Check, ChevronsUpDown } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { SubjektView } from "@/components/subjekt-view";
+import { SubjectProfileModuleC } from "@/components/subject-profile-module-c";
 import { z } from "zod";
 import {
   Form, FormControl, FormField, FormItem, FormLabel, FormMessage,
@@ -1508,6 +1509,10 @@ function SubjectDetailPanel({ subject, onClose }: { subject: Subject; onClose: (
             <Boxes className="w-3.5 h-3.5 mr-1" />
             Objekty
           </TabsTrigger>
+          <TabsTrigger value="profil_subjektu" data-testid="tab-subject-profil">
+            <ShieldCheck className="w-3.5 h-3.5 mr-1" />
+            Profil subjektu
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="udaje" className="mt-3">
@@ -1641,7 +1646,7 @@ function SubjectDetailPanel({ subject, onClose }: { subject: Subject; onClose: (
         <TabsContent value="historia" className="mt-3">
           <div className="space-y-6">
             <div>
-              <SubjectFieldHistoryPanel subjectId={subject.id} clientTypeId={subject.clientTypeId ?? undefined} />
+              <SubjectFieldHistoryPanel subjectId={subject.id} clientTypeId={(subject as any).clientTypeId ?? undefined} />
             </div>
             <Separator />
             <div>
@@ -1670,6 +1675,10 @@ function SubjectDetailPanel({ subject, onClose }: { subject: Subject; onClose: (
 
         <TabsContent value="objekty" className="mt-3">
           <SubjectObjectsTab subjectId={subject.id} />
+        </TabsContent>
+
+        <TabsContent value="profil_subjektu" className="mt-3">
+          <SubjectProfileModuleC subject={subject} />
         </TabsContent>
       </Tabs>
     </div>
