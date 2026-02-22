@@ -4,7 +4,7 @@ import { storage } from "./storage";
 import { api } from "@shared/routes";
 import { setupAuth, registerAuthRoutes, isAuthenticated } from "./replit_integrations/auth";
 import { z } from "zod";
-import { continents, states, myCompanies, appUsers, clientTypes, clientSubGroups, clientGroupMembers, productFolderAssignments, folderPanels, panelParameters, userClientGroupMemberships, clientGroups, permissionGroups, insertCareerLevelSchema, insertProductPointRateSchema, careerLevels, importLogs, commissions, contracts, contractStatuses, contractStatusChangeLogs, clientDataTabs, clientDataCategories, subjects, subjectPointsLog, subjectFieldHistory, subjectCollaborators, clientMarketingConsents, clientDocumentHistory, contractAcquirers, contractPasswords, contractRewardDistributions, contractParameterValues, subjectArchive, auditLogs, globalCounters, subjectPhotos, activityEvents, subjectParamSections, subjectParameters, subjectTemplates, subjectTemplateParams, commissionCalculationLogs, parameterSynonyms } from "@shared/schema";
+import { continents, states, myCompanies, appUsers, clientTypes, clientSubGroups, clientGroupMembers, productFolderAssignments, folderPanels, panelParameters, userClientGroupMemberships, clientGroups, permissionGroups, insertCareerLevelSchema, insertProductPointRateSchema, careerLevels, importLogs, commissions, contracts, contractStatuses, contractStatusChangeLogs, clientDataTabs, clientDataCategories, subjects, subjectPointsLog, subjectFieldHistory, subjectCollaborators, clientMarketingConsents, clientDocumentHistory, contractAcquirers, contractPasswords, contractRewardDistributions, contractParameterValues, subjectArchive, auditLogs, globalCounters, subjectPhotos, activityEvents, subjectParamSections, subjectParameters, subjectTemplates, subjectTemplateParams, commissionCalculationLogs, parameterSynonyms, dataConflictAlerts, transactionDedupLog } from "@shared/schema";
 import { seedSubjectParameters } from "./seed-subject-params";
 import sharp from "sharp";
 import { db } from "./db";
@@ -7707,6 +7707,180 @@ export async function registerRoutes(
   setInterval(() => {
     refreshDocumentStatuses().catch(err => console.error("[DOC VALIDITY CRON ERROR]", err));
   }, 60 * 60 * 1000);
+
+  // === DATA CONFLICT ALERTS (Blbuvzdornosť) ===
+  const conflictAlertCreateSchema = z.object({
+    subjectId: z.number().int().positive(),
+    fieldKey: z.string().min(1),
+    existingValue: z.string().optional().nullable(),
+    conflictingValue: z.string().optional().nullable(),
+    sourceDocument: z.string().optional().nullable(),
+    sourceDocumentId: z.number().int().optional().nullable(),
+    status: z.enum(["pending", "resolved", "dismissed"]).default("pending"),
+    collectionKey: z.string().optional().nullable(),
+    severity: z.enum(["info", "warning", "critical"]).default("warning"),
+  });
+
+  const conflictResolveSchema = z.object({
+    resolution: z.enum(["keep_existing", "use_new", "merge", "dismissed"]),
+    resolvedByName: z.string().optional(),
+  });
+
+  const dedupCheckSchema = z.object({
+    subjectId: z.number().int().positive(),
+    docNumber: z.string().optional().nullable(),
+    amount: z.string().optional().nullable(),
+    transactionDate: z.string().optional().nullable(),
+    sectionCode: z.string().default("retail_obchod"),
+    collectionIndex: z.number().int().default(0),
+  });
+
+  app.get("/api/conflict-alerts/:subjectId", isAuthenticated, async (req, res) => {
+    try {
+      const subjectId = parseInt(req.params.subjectId);
+      if (isNaN(subjectId)) return res.status(400).json({ message: "Neplatné ID subjektu" });
+      if (!await checkKlientiSubjectAccess((req as any).appUser, subjectId)) return res.status(403).json({ message: "Prístup zamietnutý" });
+      const status = (req.query.status as string) || undefined;
+      let query = db.select().from(dataConflictAlerts).where(eq(dataConflictAlerts.subjectId, subjectId));
+      if (status) {
+        query = db.select().from(dataConflictAlerts).where(and(eq(dataConflictAlerts.subjectId, subjectId), eq(dataConflictAlerts.status, status)));
+      }
+      const alerts = await query;
+      res.json(alerts);
+    } catch (err: any) {
+      res.status(500).json({ message: err?.message || "Chyba pri načítaní konfliktov" });
+    }
+  });
+
+  app.post("/api/conflict-alerts", isAuthenticated, async (req, res) => {
+    try {
+      const parsed = conflictAlertCreateSchema.parse(req.body);
+      if (!await checkKlientiSubjectAccess((req as any).appUser, parsed.subjectId)) return res.status(403).json({ message: "Prístup zamietnutý" });
+      const [alert] = await db.insert(dataConflictAlerts).values(parsed).returning();
+      res.json(alert);
+    } catch (err: any) {
+      if (err instanceof z.ZodError) return res.status(400).json({ message: "Neplatné dáta", errors: err.errors });
+      res.status(500).json({ message: err?.message || "Chyba pri vytváraní konfliktu" });
+    }
+  });
+
+  app.patch("/api/conflict-alerts/:id/resolve", isAuthenticated, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) return res.status(400).json({ message: "Neplatné ID" });
+      const parsed = conflictResolveSchema.parse(req.body);
+      const user = (req as any).user;
+      const [updated] = await db.update(dataConflictAlerts)
+        .set({
+          status: "resolved",
+          resolution: parsed.resolution,
+          resolvedAt: new Date(),
+          resolvedByUserId: user?.id || null,
+          resolvedByName: parsed.resolvedByName || user?.username || "system",
+        })
+        .where(eq(dataConflictAlerts.id, id))
+        .returning();
+      if (!updated) return res.status(404).json({ message: "Konflikt nenájdený" });
+      res.json(updated);
+    } catch (err: any) {
+      if (err instanceof z.ZodError) return res.status(400).json({ message: "Neplatné dáta", errors: err.errors });
+      res.status(500).json({ message: err?.message || "Chyba pri riešení konfliktu" });
+    }
+  });
+
+  // === TRANSACTION DEDUP LOG (Blbuvzdornosť - duplicate detection) ===
+  app.get("/api/transaction-dedup/:subjectId", isAuthenticated, async (req, res) => {
+    try {
+      const subjectId = parseInt(req.params.subjectId);
+      if (isNaN(subjectId)) return res.status(400).json({ message: "Neplatné ID subjektu" });
+      if (!await checkKlientiSubjectAccess((req as any).appUser, subjectId)) return res.status(403).json({ message: "Prístup zamietnutý" });
+      const logs = await db.select().from(transactionDedupLog).where(eq(transactionDedupLog.subjectId, subjectId));
+      res.json(logs);
+    } catch (err: any) {
+      res.status(500).json({ message: err?.message || "Chyba pri načítaní deduplikácie" });
+    }
+  });
+
+  app.post("/api/transaction-dedup/check", isAuthenticated, async (req, res) => {
+    try {
+      const parsed = dedupCheckSchema.parse(req.body);
+      if (!await checkKlientiSubjectAccess((req as any).appUser, parsed.subjectId)) return res.status(403).json({ message: "Prístup zamietnutý" });
+      const fingerprint = `${(parsed.docNumber || "").trim()}|${(parsed.amount || "").trim()}|${(parsed.transactionDate || "").trim()}`;
+
+      const existing = await db.select().from(transactionDedupLog)
+        .where(and(
+          eq(transactionDedupLog.subjectId, parsed.subjectId),
+          eq(transactionDedupLog.fingerprint, fingerprint)
+        ));
+
+      if (existing.length > 0) {
+        res.json({ isDuplicate: true, existingEntries: existing, fingerprint });
+      } else {
+        const [entry] = await db.insert(transactionDedupLog).values({
+          subjectId: parsed.subjectId,
+          docNumber: parsed.docNumber,
+          amount: parsed.amount,
+          transactionDate: parsed.transactionDate,
+          sectionCode: parsed.sectionCode,
+          collectionIndex: parsed.collectionIndex,
+          fingerprint,
+        }).returning();
+        res.json({ isDuplicate: false, entry, fingerprint });
+      }
+    } catch (err: any) {
+      if (err instanceof z.ZodError) return res.status(400).json({ message: "Neplatné dáta", errors: err.errors });
+      res.status(500).json({ message: err?.message || "Chyba pri kontrole duplicít" });
+    }
+  });
+
+  // === CONFLICT DETECTION ON SAVE (auto-detect conflicts when updating subject data) ===
+  app.post("/api/conflict-detect/:subjectId", isAuthenticated, async (req, res) => {
+    try {
+      const subjectId = parseInt(req.params.subjectId);
+      if (isNaN(subjectId)) return res.status(400).json({ message: "Neplatné ID subjektu" });
+      if (!await checkKlientiSubjectAccess((req as any).appUser, subjectId)) return res.status(403).json({ message: "Prístup zamietnutý" });
+      const { newData, sourceDocument } = req.body;
+      if (!newData || typeof newData !== "object") return res.status(400).json({ message: "Chýba newData objekt" });
+
+      const [subject] = await db.select().from(subjects).where(eq(subjects.id, subjectId));
+      if (!subject) return res.status(404).json({ message: "Subjekt nenájdený" });
+
+      const existingData = (subject as any).clientData || {};
+      const conflicts: any[] = [];
+
+      const normalize = (v: any): string => {
+        if (v === null || v === undefined) return "";
+        if (typeof v === "object") return JSON.stringify(v);
+        return String(v).trim();
+      };
+
+      for (const [key, newValue] of Object.entries(newData)) {
+        const existingNorm = normalize(existingData[key]);
+        const newNorm = normalize(newValue);
+        if (existingNorm && newNorm && existingNorm !== newNorm) {
+          conflicts.push({
+            subjectId,
+            fieldKey: key,
+            existingValue: existingNorm,
+            conflictingValue: newNorm,
+            sourceDocument: sourceDocument || "manual_edit",
+            status: "pending",
+            severity: "warning",
+          });
+        }
+      }
+
+      if (conflicts.length > 0) {
+        for (const c of conflicts) {
+          await db.insert(dataConflictAlerts).values(c);
+        }
+      }
+
+      res.json({ conflictsFound: conflicts.length, conflicts });
+    } catch (err: any) {
+      res.status(500).json({ message: err?.message || "Chyba pri detekcii konfliktov" });
+    }
+  });
 
   return httpServer;
 }

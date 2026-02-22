@@ -1682,6 +1682,48 @@ export const insertContractParameterValueHistorySchema = createInsertSchema(cont
 export type ContractParameterValueHistory = typeof contractParameterValueHistory.$inferSelect;
 export type InsertContractParameterValueHistory = z.infer<typeof insertContractParameterValueHistorySchema>;
 
+// === DATA CONFLICT ALERTS (Blbuvzdornosť - Conflict Detection) ===
+export const dataConflictAlerts = pgTable("data_conflict_alerts", {
+  id: serial("id").primaryKey(),
+  subjectId: integer("subject_id").notNull().references(() => subjects.id),
+  fieldKey: text("field_key").notNull(),
+  existingValue: text("existing_value"),
+  conflictingValue: text("conflicting_value"),
+  sourceDocument: text("source_document"),
+  sourceDocumentId: integer("source_document_id"),
+  detectedAt: timestamp("detected_at").defaultNow(),
+  resolvedAt: timestamp("resolved_at"),
+  resolvedByUserId: integer("resolved_by_user_id").references(() => appUsers.id),
+  resolvedByName: text("resolved_by_name"),
+  resolution: text("resolution"),
+  status: text("status").notNull().default("pending"),
+  collectionKey: text("collection_key"),
+  severity: text("severity").notNull().default("warning"),
+});
+
+export const insertDataConflictAlertSchema = createInsertSchema(dataConflictAlerts).omit({ id: true, detectedAt: true });
+export type DataConflictAlert = typeof dataConflictAlerts.$inferSelect;
+export type InsertDataConflictAlert = z.infer<typeof insertDataConflictAlertSchema>;
+
+// === TRANSACTION DEDUP LOG (Retail/Obchod duplicate detection) ===
+export const transactionDedupLog = pgTable("transaction_dedup_log", {
+  id: serial("id").primaryKey(),
+  subjectId: integer("subject_id").notNull().references(() => subjects.id),
+  docNumber: text("doc_number"),
+  amount: text("amount"),
+  transactionDate: text("transaction_date"),
+  sectionCode: text("section_code").notNull().default("retail_obchod"),
+  collectionIndex: integer("collection_index").notNull(),
+  documentIds: text("document_ids").array(),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+  fingerprint: text("fingerprint").notNull(),
+});
+
+export const insertTransactionDedupLogSchema = createInsertSchema(transactionDedupLog).omit({ id: true, createdAt: true, updatedAt: true });
+export type TransactionDedupLog = typeof transactionDedupLog.$inferSelect;
+export type InsertTransactionDedupLog = z.infer<typeof insertTransactionDedupLogSchema>;
+
 export type CreateSubjectRequest = InsertSubject;
 export type UpdateSubjectRequest = Partial<InsertSubject> & { changeReason?: string };
 export type UpdateMyCompanyRequest = Partial<InsertMyCompany> & { changeReason?: string };
