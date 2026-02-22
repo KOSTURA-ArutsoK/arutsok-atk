@@ -1837,6 +1837,113 @@ export const insertGuardianshipArchiveSchema = createInsertSchema(guardianshipAr
 export type GuardianshipArchive = typeof guardianshipArchive.$inferSelect;
 export type InsertGuardianshipArchive = z.infer<typeof insertGuardianshipArchiveSchema>;
 
+// === HOUSEHOLDS (Domácnosti - grouping subjects for shared assets & visibility) ===
+export const households = pgTable("households", {
+  id: serial("id").primaryKey(),
+  uid: text("uid").notNull().unique(),
+  name: text("name").notNull(),
+  description: text("description"),
+  address: text("address"),
+  isActive: boolean("is_active").default(true),
+  createdByUserId: integer("created_by_user_id").references(() => appUsers.id),
+  createdByName: text("created_by_name"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertHouseholdSchema = createInsertSchema(households).omit({ id: true, createdAt: true, updatedAt: true });
+export type Household = typeof households.$inferSelect;
+export type InsertHousehold = z.infer<typeof insertHouseholdSchema>;
+
+// === HOUSEHOLD MEMBERS (Členovia domácnosti) ===
+export const householdMembers = pgTable("household_members", {
+  id: serial("id").primaryKey(),
+  householdId: integer("household_id").notNull().references(() => households.id),
+  subjectId: integer("subject_id").notNull().references(() => subjects.id),
+  role: text("role").notNull().default("clen"),
+  isActive: boolean("is_active").default(true),
+  joinedAt: timestamp("joined_at").defaultNow(),
+  leftAt: timestamp("left_at"),
+  addedByUserId: integer("added_by_user_id").references(() => appUsers.id),
+  addedByName: text("added_by_name"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertHouseholdMemberSchema = createInsertSchema(householdMembers).omit({ id: true, createdAt: true });
+export type HouseholdMember = typeof householdMembers.$inferSelect;
+export type InsertHouseholdMember = z.infer<typeof insertHouseholdMemberSchema>;
+
+// === HOUSEHOLD ASSETS (Spoločný majetok domácnosti - BSM, hypotéky, etc.) ===
+export const householdAssets = pgTable("household_assets", {
+  id: serial("id").primaryKey(),
+  householdId: integer("household_id").notNull().references(() => households.id),
+  assetType: text("asset_type").notNull(),
+  name: text("name").notNull(),
+  description: text("description"),
+  value: numeric("value"),
+  currency: text("currency").default("EUR"),
+  details: jsonb("details").default({}),
+  sourceType: text("source_type").default("manual"),
+  isActive: boolean("is_active").default(true),
+  validFrom: timestamp("valid_from"),
+  validTo: timestamp("valid_to"),
+  createdByUserId: integer("created_by_user_id").references(() => appUsers.id),
+  createdByName: text("created_by_name"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertHouseholdAssetSchema = createInsertSchema(householdAssets).omit({ id: true, createdAt: true, updatedAt: true });
+export type HouseholdAsset = typeof householdAssets.$inferSelect;
+export type InsertHouseholdAsset = z.infer<typeof insertHouseholdAssetSchema>;
+
+// === PRIVACY BLOCKS (Individuálne súkromie - per-block privacy flags) ===
+export const privacyBlocks = pgTable("privacy_blocks", {
+  id: serial("id").primaryKey(),
+  subjectId: integer("subject_id").notNull().references(() => subjects.id),
+  blockType: text("block_type").notNull(),
+  blockKey: text("block_key").notNull(),
+  collectionIndex: integer("collection_index"),
+  isPrivate: boolean("is_private").default(true),
+  reason: text("reason"),
+  setByUserId: integer("set_by_user_id").references(() => appUsers.id),
+  setByName: text("set_by_name"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertPrivacyBlockSchema = createInsertSchema(privacyBlocks).omit({ id: true, createdAt: true, updatedAt: true });
+export type PrivacyBlock = typeof privacyBlocks.$inferSelect;
+export type InsertPrivacyBlock = z.infer<typeof insertPrivacyBlockSchema>;
+
+// === ACCESS CONSENT LOG (Súhlas so zdieľaním údajov - GDPR consent tracking) ===
+export const accessConsentLog = pgTable("access_consent_log", {
+  id: serial("id").primaryKey(),
+  grantorSubjectId: integer("grantor_subject_id").notNull().references(() => subjects.id),
+  granteeSubjectId: integer("grantee_subject_id").notNull().references(() => subjects.id),
+  consentType: text("consent_type").notNull(),
+  action: text("action").notNull(),
+  scope: text("scope").notNull().default("full"),
+  reason: text("reason"),
+  legalBasis: text("legal_basis"),
+  relationId: integer("relation_id").references(() => subjectRelations.id),
+  householdId: integer("household_id").references(() => households.id),
+  effectiveFrom: timestamp("effective_from").defaultNow(),
+  effectiveTo: timestamp("effective_to"),
+  isActive: boolean("is_active").default(true),
+  grantedByUserId: integer("granted_by_user_id").references(() => appUsers.id),
+  grantedByName: text("granted_by_name"),
+  revokedAt: timestamp("revoked_at"),
+  revokedByUserId: integer("revoked_by_user_id").references(() => appUsers.id),
+  revokedByName: text("revoked_by_name"),
+  revokedReason: text("revoked_reason"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertAccessConsentLogSchema = createInsertSchema(accessConsentLog).omit({ id: true, createdAt: true });
+export type AccessConsentLogEntry = typeof accessConsentLog.$inferSelect;
+export type InsertAccessConsentLogEntry = z.infer<typeof insertAccessConsentLogSchema>;
+
 export type CreateSubjectRequest = InsertSubject;
 export type UpdateSubjectRequest = Partial<InsertSubject> & { changeReason?: string };
 export type UpdateMyCompanyRequest = Partial<InsertMyCompany> & { changeReason?: string };

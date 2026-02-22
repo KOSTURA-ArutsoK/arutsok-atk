@@ -2353,11 +2353,432 @@ function SubjectRelationsSection({ subjectId }: { subjectId: number }) {
         )}
 
         <GuardianshipSection subjectId={subjectId} />
+        <HouseholdSection subjectId={subjectId} />
         <FamilySpiderSection subjectId={subjectId} />
         <MaturityAlertsSection subjectId={subjectId} />
+        <PrivacyConsentSection subjectId={subjectId} />
         <InheritanceSection subjectId={subjectId} />
       </CardContent>
     </Card>
+  );
+}
+
+function HouseholdSection({ subjectId }: { subjectId: number }) {
+  const { toast } = useToast();
+  const [showCreateDialog, setShowCreateDialog] = useState(false);
+  const [showAddMemberDialog, setShowAddMemberDialog] = useState(false);
+  const [showAddAssetDialog, setShowAddAssetDialog] = useState(false);
+  const [selectedHouseholdId, setSelectedHouseholdId] = useState<number | null>(null);
+  const [householdName, setHouseholdName] = useState("");
+  const [householdAddress, setHouseholdAddress] = useState("");
+  const [newMemberId, setNewMemberId] = useState("");
+  const [assetType, setAssetType] = useState("nehnutelnost");
+  const [assetName, setAssetName] = useState("");
+  const [assetValue, setAssetValue] = useState("");
+  const [assetDescription, setAssetDescription] = useState("");
+
+  const { data: householdsData } = useQuery<any[]>({
+    queryKey: [`/api/households/subject/${subjectId}`],
+  });
+
+  const createHousehold = useMutation({
+    mutationFn: async (data: any) => {
+      const res = await apiRequest("POST", "/api/households", data);
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [`/api/households/subject/${subjectId}`] });
+      setShowCreateDialog(false);
+      setHouseholdName("");
+      setHouseholdAddress("");
+      toast({ title: "Domácnosť vytvorená" });
+    },
+  });
+
+  const addMember = useMutation({
+    mutationFn: async (data: any) => {
+      const res = await apiRequest("POST", `/api/households/${data.householdId}/members`, { subjectId: data.subjectId });
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [`/api/households/subject/${subjectId}`] });
+      setShowAddMemberDialog(false);
+      setNewMemberId("");
+      toast({ title: "Člen pridaný do domácnosti" });
+    },
+  });
+
+  const removeMember = useMutation({
+    mutationFn: async (data: { householdId: number; memberId: number }) => {
+      const res = await apiRequest("POST", `/api/households/${data.householdId}/members/${data.memberId}/remove`, {});
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [`/api/households/subject/${subjectId}`] });
+      toast({ title: "Člen odstránený z domácnosti" });
+    },
+  });
+
+  const addAsset = useMutation({
+    mutationFn: async (data: any) => {
+      const res = await apiRequest("POST", `/api/households/${data.householdId}/assets`, data);
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [`/api/households/subject/${subjectId}`] });
+      setShowAddAssetDialog(false);
+      setAssetName("");
+      setAssetValue("");
+      setAssetDescription("");
+      toast({ title: "Majetok pridaný" });
+    },
+  });
+
+  const removeAsset = useMutation({
+    mutationFn: async (assetId: number) => {
+      const res = await apiRequest("DELETE", `/api/household-assets/${assetId}`);
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [`/api/households/subject/${subjectId}`] });
+      toast({ title: "Majetok odstránený" });
+    },
+  });
+
+  const assetTypeLabels: Record<string, string> = {
+    nehnutelnost: "Nehnuteľnosť",
+    hypoteka: "Hypotéka",
+    auto: "Automobil",
+    investicia: "Investícia",
+    poistenie: "Poistenie",
+    uver: "Úver/Leasing",
+    ine: "Iné",
+  };
+
+  return (
+    <div className="mt-3 border border-purple-500/20 rounded p-3 bg-purple-500/5" data-testid="household-section">
+      <div className="flex items-center gap-2 mb-3">
+        <Home className="w-4 h-4 text-purple-400" />
+        <span className="text-sm font-semibold text-purple-300">Domácnosti</span>
+        {householdsData && householdsData.length > 0 && (
+          <Badge variant="outline" className="text-[10px] border-purple-500/30 text-purple-400">{householdsData.length} domácností</Badge>
+        )}
+        <Button size="sm" variant="outline" className="text-[10px] ml-auto"
+          onClick={() => setShowCreateDialog(true)} data-testid="btn-create-household">
+          <Plus className="w-3 h-3 mr-1" /> Nová domácnosť
+        </Button>
+      </div>
+
+      {householdsData && householdsData.length > 0 ? (
+        <div className="space-y-3">
+          {householdsData.map((h: any) => (
+            <div key={h.id} className="border border-border rounded p-2 bg-background/50" data-testid={`household-${h.id}`}>
+              <div className="flex items-center gap-2 mb-1.5">
+                <Home className="w-3.5 h-3.5 text-purple-400" />
+                <span className="text-xs font-medium">{h.name}</span>
+                <span className="text-[9px] text-muted-foreground">({h.uid})</span>
+                <Badge variant="outline" className="text-[9px]">{h.myRole}</Badge>
+                <div className="ml-auto flex gap-1">
+                  <Button size="sm" variant="ghost" className="text-[10px]"
+                    onClick={() => { setSelectedHouseholdId(h.id); setShowAddMemberDialog(true); }}
+                    data-testid={`btn-add-member-${h.id}`}>
+                    <UserPlus className="w-3 h-3 mr-1" /> Člen
+                  </Button>
+                  <Button size="sm" variant="ghost" className="text-[10px]"
+                    onClick={() => { setSelectedHouseholdId(h.id); setShowAddAssetDialog(true); }}
+                    data-testid={`btn-add-asset-${h.id}`}>
+                    <Plus className="w-3 h-3 mr-1" /> Majetok
+                  </Button>
+                </div>
+              </div>
+              {h.address && <p className="text-[9px] text-muted-foreground mb-1"><MapPin className="w-3 h-3 inline mr-1" />{h.address}</p>}
+
+              {h.members?.length > 0 && (
+                <div className="mb-1.5">
+                  <p className="text-[9px] font-medium text-purple-400 mb-1">Členovia:</p>
+                  <div className="flex flex-wrap gap-1">
+                    {h.members.map((m: any) => (
+                      <div key={m.memberId} className="flex items-center gap-1 text-[9px] bg-muted/30 rounded px-1.5 py-0.5" data-testid={`household-member-${m.subjectId}`}>
+                        <User className="w-2.5 h-2.5" />
+                        <span>{m.name}</span>
+                        <Badge variant="outline" className="text-[8px]">{m.role}</Badge>
+                        {m.subjectId !== subjectId && (
+                          <Button variant="ghost" size="icon" className="p-0 text-destructive shrink-0"
+                            onClick={() => removeMember.mutate({ householdId: h.id, memberId: m.memberId })}
+                            data-testid={`btn-remove-member-${m.subjectId}`}>
+                            <X className="w-2.5 h-2.5" />
+                          </Button>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {h.assets?.length > 0 && (
+                <div>
+                  <p className="text-[9px] font-medium text-purple-400 mb-1">Spoločný majetok (BSM):</p>
+                  <div className="space-y-1">
+                    {h.assets.map((a: any) => (
+                      <div key={a.id} className="flex items-center gap-2 text-[9px] bg-muted/20 rounded px-2 py-1" data-testid={`household-asset-${a.id}`}>
+                        <Wallet className="w-3 h-3 text-purple-400 shrink-0" />
+                        <span className="font-medium">{a.name}</span>
+                        <Badge variant="outline" className="text-[8px]">{assetTypeLabels[a.assetType] || a.assetType}</Badge>
+                        {a.value && <span className="text-muted-foreground">{Number(a.value).toLocaleString("sk-SK")} {a.currency}</span>}
+                        {a.description && <span className="text-muted-foreground truncate">{a.description}</span>}
+                        <Button variant="ghost" size="icon" className="p-0 text-destructive shrink-0 ml-auto"
+                          onClick={() => removeAsset.mutate(a.id)} data-testid={`btn-remove-asset-${a.id}`}>
+                          <X className="w-2.5 h-2.5" />
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      ) : (
+        <p className="text-[10px] text-muted-foreground text-center py-2">Subjekt nie je členom žiadnej domácnosti</p>
+      )}
+
+      <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
+        <DialogContent className="max-w-sm" data-testid="dialog-create-household">
+          <DialogHeader><DialogTitle>Nová domácnosť</DialogTitle></DialogHeader>
+          <div className="space-y-3">
+            <div>
+              <Label className="text-xs">Názov</Label>
+              <Input className="text-xs mt-1" value={householdName} onChange={e => setHouseholdName(e.target.value)}
+                placeholder="napr. Rodina Novákových" data-testid="input-household-name" />
+            </div>
+            <div>
+              <Label className="text-xs">Adresa (voliteľné)</Label>
+              <Input className="text-xs mt-1" value={householdAddress} onChange={e => setHouseholdAddress(e.target.value)}
+                placeholder="napr. Hlavná 15, Bratislava" data-testid="input-household-address" />
+            </div>
+            <Button size="sm" className="text-xs" disabled={!householdName || createHousehold.isPending}
+              onClick={() => createHousehold.mutate({ name: householdName, address: householdAddress, memberSubjectIds: [subjectId] })}
+              data-testid="btn-confirm-create-household">
+              {createHousehold.isPending ? <Loader2 className="w-3 h-3 animate-spin mr-1" /> : <Plus className="w-3 h-3 mr-1" />}
+              Vytvoriť
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={showAddMemberDialog} onOpenChange={setShowAddMemberDialog}>
+        <DialogContent className="max-w-sm" data-testid="dialog-add-member">
+          <DialogHeader><DialogTitle>Pridať člena domácnosti</DialogTitle></DialogHeader>
+          <div className="space-y-3">
+            <div>
+              <Label className="text-xs">ID subjektu</Label>
+              <Input className="text-xs mt-1" value={newMemberId} onChange={e => setNewMemberId(e.target.value)}
+                placeholder="Zadajte ID subjektu" data-testid="input-member-id" />
+            </div>
+            <Button size="sm" className="text-xs" disabled={!newMemberId || addMember.isPending}
+              onClick={() => selectedHouseholdId && addMember.mutate({ householdId: selectedHouseholdId, subjectId: parseInt(newMemberId) })}
+              data-testid="btn-confirm-add-member">
+              {addMember.isPending ? <Loader2 className="w-3 h-3 animate-spin mr-1" /> : <UserPlus className="w-3 h-3 mr-1" />}
+              Pridať
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={showAddAssetDialog} onOpenChange={setShowAddAssetDialog}>
+        <DialogContent className="max-w-md" data-testid="dialog-add-asset">
+          <DialogHeader><DialogTitle>Pridať spoločný majetok</DialogTitle></DialogHeader>
+          <div className="space-y-3">
+            <div>
+              <Label className="text-xs">Typ majetku</Label>
+              <Select value={assetType} onValueChange={setAssetType}>
+                <SelectTrigger className="text-xs mt-1" data-testid="select-asset-type"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {Object.entries(assetTypeLabels).map(([k, v]) => (
+                    <SelectItem key={k} value={k}>{v}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label className="text-xs">Názov</Label>
+              <Input className="text-xs mt-1" value={assetName} onChange={e => setAssetName(e.target.value)}
+                placeholder="napr. Byt na Hlavnej 15" data-testid="input-asset-name" />
+            </div>
+            <div>
+              <Label className="text-xs">Hodnota (EUR)</Label>
+              <Input className="text-xs mt-1" type="number" value={assetValue} onChange={e => setAssetValue(e.target.value)}
+                placeholder="napr. 150000" data-testid="input-asset-value" />
+            </div>
+            <div>
+              <Label className="text-xs">Popis (voliteľné)</Label>
+              <Input className="text-xs mt-1" value={assetDescription} onChange={e => setAssetDescription(e.target.value)}
+                placeholder="Bližšie informácie o majetku" data-testid="input-asset-description" />
+            </div>
+            <Button size="sm" className="text-xs" disabled={!assetName || addAsset.isPending}
+              onClick={() => selectedHouseholdId && addAsset.mutate({ householdId: selectedHouseholdId, assetType, name: assetName, value: assetValue, description: assetDescription })}
+              data-testid="btn-confirm-add-asset">
+              {addAsset.isPending ? <Loader2 className="w-3 h-3 animate-spin mr-1" /> : <Plus className="w-3 h-3 mr-1" />}
+              Pridať majetok
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}
+
+function PrivacyConsentSection({ subjectId }: { subjectId: number }) {
+  const { toast } = useToast();
+
+  const { data: privacyTrigger } = useQuery<any>({
+    queryKey: [`/api/privacy-trigger/${subjectId}`],
+  });
+
+  const { data: consentLogs } = useQuery<any[]>({
+    queryKey: [`/api/access-consent/subject/${subjectId}`],
+  });
+
+  const { data: privacyBlksData } = useQuery<any[]>({
+    queryKey: [`/api/privacy-blocks/${subjectId}`],
+  });
+
+  const grantConsent = useMutation({
+    mutationFn: async (data: any) => {
+      const res = await apiRequest("POST", "/api/access-consent", data);
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [`/api/privacy-trigger/${subjectId}`] });
+      queryClient.invalidateQueries({ queryKey: [`/api/access-consent/subject/${subjectId}`] });
+      toast({ title: "Súhlas udelený" });
+    },
+  });
+
+  const revokeConsent = useMutation({
+    mutationFn: async (data: any) => {
+      const res = await apiRequest("POST", "/api/access-consent", { ...data, action: "revoke" });
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [`/api/privacy-trigger/${subjectId}`] });
+      queryClient.invalidateQueries({ queryKey: [`/api/access-consent/subject/${subjectId}`] });
+      toast({ title: "Súhlas odobraný" });
+    },
+  });
+
+  const hasPrivacyTrigger = privacyTrigger?.isAdult && privacyTrigger?.needsConsentReview;
+  const hasConsents = consentLogs && consentLogs.length > 0;
+  const hasPrivacyBlocks = privacyBlksData && privacyBlksData.length > 0;
+
+  if (!hasPrivacyTrigger && !hasConsents && !hasPrivacyBlocks) return null;
+
+  return (
+    <div className="mt-3 border border-amber-500/20 rounded p-3 bg-amber-500/5" data-testid="privacy-consent-section">
+      <div className="flex items-center gap-2 mb-3">
+        <ShieldCheck className="w-4 h-4 text-amber-400" />
+        <span className="text-sm font-semibold text-amber-300">GDPR & Súkromie</span>
+        {hasPrivacyBlocks && <Badge variant="outline" className="text-[10px] border-amber-500/30 text-amber-400">{privacyBlksData!.length} súkromných blokov</Badge>}
+      </div>
+
+      {hasPrivacyTrigger && (
+        <div className="mb-3 border border-red-500/30 rounded p-2 bg-red-500/10" data-testid="privacy-trigger-alert">
+          <div className="flex items-center gap-2 mb-1.5">
+            <AlertTriangle className="w-3.5 h-3.5 text-red-400" />
+            <span className="text-xs font-semibold text-red-400">Privacy Trigger: Dospelosť ({privacyTrigger.age} r.)</span>
+          </div>
+          <p className="text-[10px] text-muted-foreground mb-2">
+            Subjekt dosiahol 18 rokov. Citlivé údaje sú obmedzené pre zákonných zástupcov.
+            Pre obnovenie prístupu je potrebný manuálny súhlas.
+          </p>
+          {privacyTrigger.guardianIds?.map((gId: number) => (
+            <div key={gId} className="flex items-center gap-2 mb-1" data-testid={`consent-action-${gId}`}>
+              <span className="text-[10px] text-muted-foreground">Zástupca #{gId}:</span>
+              <Button size="sm" variant="outline" className="text-[10px]"
+                onClick={() => grantConsent.mutate({
+                  grantorSubjectId: subjectId,
+                  granteeSubjectId: gId,
+                  consentType: "post_maturity_sharing",
+                  action: "grant",
+                  scope: "full",
+                  reason: "Manuálny súhlas po dosiahnutí dospelosti",
+                  legalBasis: "Súhlas dotknutej osoby (čl. 6(1)(a) GDPR)"
+                })}
+                disabled={grantConsent.isPending}
+                data-testid={`btn-grant-consent-${gId}`}>
+                <CheckCircle className="w-3 h-3 mr-1" /> Udeliť plný prístup
+              </Button>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {privacyTrigger?.hasActiveConsent && (
+        <div className="mb-3 border border-green-500/30 rounded p-2 bg-green-500/10" data-testid="active-consent-info">
+          <div className="flex items-center gap-2">
+            <CheckCircle className="w-3.5 h-3.5 text-green-400" />
+            <span className="text-xs text-green-400">Aktívny súhlas s prístupom po dospelosti</span>
+            <Button size="sm" variant="ghost" className="text-[10px] ml-auto text-destructive"
+              onClick={() => {
+                privacyTrigger.consentDetails?.forEach((c: any) => {
+                  revokeConsent.mutate({
+                    grantorSubjectId: subjectId,
+                    granteeSubjectId: c.granteeSubjectId,
+                    consentType: "post_maturity_sharing",
+                    reason: "Odobranie súhlasu po dospelosti"
+                  });
+                });
+              }}
+              data-testid="btn-revoke-all-consent">
+              <Unlink className="w-3 h-3 mr-1" /> Odobrať súhlas
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {hasPrivacyBlocks && (
+        <div className="mb-3" data-testid="privacy-blocks-list">
+          <p className="text-[9px] font-medium text-amber-400 mb-1">Súkromné bloky údajov:</p>
+          <div className="flex flex-wrap gap-1">
+            {privacyBlksData!.map((pb: any) => (
+              <Badge key={pb.id} variant="outline" className="text-[8px] border-amber-500/30" data-testid={`privacy-block-${pb.id}`}>
+                <EyeOff className="w-2.5 h-2.5 mr-0.5" />
+                {pb.blockType}/{pb.blockKey}
+                {pb.collectionIndex != null && ` [${pb.collectionIndex}]`}
+              </Badge>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {hasConsents && (
+        <div data-testid="consent-audit-log">
+          <p className="text-[9px] font-medium text-amber-400 mb-1">Audit prístupu (posledných 10):</p>
+          <div className="space-y-1 max-h-40 overflow-y-auto">
+            {consentLogs!.slice(0, 10).map((log: any) => (
+              <div key={log.id} className="flex items-center gap-2 text-[9px] bg-muted/20 rounded px-2 py-1" data-testid={`consent-log-${log.id}`}>
+                {log.action === "grant" ? (
+                  <CheckCircle className="w-3 h-3 text-green-400 shrink-0" />
+                ) : (
+                  <Ban className="w-3 h-3 text-red-400 shrink-0" />
+                )}
+                <span className="font-medium">{log.grantorName}</span>
+                <ArrowLeftRight className="w-3 h-3 text-muted-foreground" />
+                <span className="font-medium">{log.granteeName}</span>
+                <Badge variant="outline" className="text-[8px]">{log.consentType}</Badge>
+                <Badge variant="outline" className={`text-[8px] ${log.action === "grant" ? "border-green-500/30 text-green-400" : "border-red-500/30 text-red-400"}`}>
+                  {log.action === "grant" ? "Udelený" : "Odobraný"}
+                </Badge>
+                {log.reason && <span className="text-muted-foreground truncate">{log.reason}</span>}
+                <span className="text-muted-foreground ml-auto shrink-0">
+                  {log.createdAt ? new Date(log.createdAt).toLocaleDateString("sk-SK") : "—"}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
   );
 }
 

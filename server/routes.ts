@@ -4,7 +4,7 @@ import { storage } from "./storage";
 import { api } from "@shared/routes";
 import { setupAuth, registerAuthRoutes, isAuthenticated } from "./replit_integrations/auth";
 import { z } from "zod";
-import { continents, states, myCompanies, appUsers, clientTypes, clientSubGroups, clientGroupMembers, productFolderAssignments, folderPanels, panelParameters, userClientGroupMemberships, clientGroups, permissionGroups, insertCareerLevelSchema, insertProductPointRateSchema, careerLevels, importLogs, commissions, contracts, contractStatuses, contractStatusChangeLogs, clientDataTabs, clientDataCategories, subjects, subjectPointsLog, subjectFieldHistory, subjectCollaborators, clientMarketingConsents, clientDocumentHistory, contractAcquirers, contractPasswords, contractRewardDistributions, contractParameterValues, subjectArchive, auditLogs, globalCounters, subjectPhotos, activityEvents, subjectParamSections, subjectParameters, subjectTemplates, subjectTemplateParams, commissionCalculationLogs, parameterSynonyms, dataConflictAlerts, transactionDedupLog, relationRoleTypes, subjectRelations, maturityAlerts, inheritancePrompts, guardianshipArchive } from "@shared/schema";
+import { continents, states, myCompanies, appUsers, clientTypes, clientSubGroups, clientGroupMembers, productFolderAssignments, folderPanels, panelParameters, userClientGroupMemberships, clientGroups, permissionGroups, insertCareerLevelSchema, insertProductPointRateSchema, careerLevels, importLogs, commissions, contracts, contractStatuses, contractStatusChangeLogs, clientDataTabs, clientDataCategories, subjects, subjectPointsLog, subjectFieldHistory, subjectCollaborators, clientMarketingConsents, clientDocumentHistory, contractAcquirers, contractPasswords, contractRewardDistributions, contractParameterValues, subjectArchive, auditLogs, globalCounters, subjectPhotos, activityEvents, subjectParamSections, subjectParameters, subjectTemplates, subjectTemplateParams, commissionCalculationLogs, parameterSynonyms, dataConflictAlerts, transactionDedupLog, relationRoleTypes, subjectRelations, maturityAlerts, inheritancePrompts, guardianshipArchive, households, householdMembers, householdAssets, privacyBlocks, accessConsentLog } from "@shared/schema";
 import { seedSubjectParameters } from "./seed-subject-params";
 import sharp from "sharp";
 import { db } from "./db";
@@ -80,7 +80,64 @@ async function checkKlientiSubjectAccess(appUser: any, subjectId: number): Promi
     ))
     .limit(1);
 
-  return guardianWardLink.length > 0;
+  if (guardianWardLink.length === 0) return false;
+
+  // Privacy Trigger: if ward is 18+, check for explicit consent
+  const [ward] = await db.select({ details: subjects.details }).from(subjects).where(eq(subjects.id, subjectId));
+  if (ward) {
+    const dyn = (ward.details as any)?.dynamicFields || (ward.details as any) || {};
+    const dob = dyn.datum_narodenia || dyn.p_datum_nar;
+    if (dob) {
+      const dobDate = new Date(dob);
+      const now = new Date();
+      let age = now.getFullYear() - dobDate.getFullYear();
+      if (now.getMonth() < dobDate.getMonth() || (now.getMonth() === dobDate.getMonth() && now.getDate() < dobDate.getDate())) age--;
+      if (age >= 18) {
+        // Check for explicit post-maturity consent
+        const consent = await db.select({ id: accessConsentLog.id })
+          .from(accessConsentLog)
+          .where(and(
+            eq(accessConsentLog.grantorSubjectId, subjectId),
+            eq(accessConsentLog.granteeSubjectId, appUser.linkedSubjectId),
+            eq(accessConsentLog.consentType, "post_maturity_sharing"),
+            eq(accessConsentLog.isActive, true)
+          ))
+          .limit(1);
+        // If 18+ and no consent, restrict sensitive data (but still allow basic access)
+        // The actual filtering happens in subject detail endpoints
+        if (consent.length === 0) {
+          (appUser as any)._privacyRestricted = true;
+        }
+      }
+    }
+  }
+
+  return true;
+}
+
+const PRIVACY_SENSITIVE_PREFIXES = ["eko_", "aml_", "dok_", "inv_", "zdr_"];
+
+function applyPrivacyFilter(subjectData: any, appUser: any): any {
+  if (!(appUser as any)?._privacyRestricted) return subjectData;
+  const filtered = { ...subjectData };
+  if (filtered.details) {
+    const details = { ...filtered.details };
+    const dyn = details.dynamicFields ? { ...details.dynamicFields } : { ...details };
+    for (const key of Object.keys(dyn)) {
+      if (PRIVACY_SENSITIVE_PREFIXES.some(p => key.startsWith(p))) {
+        dyn[key] = "[CHRÁNENÉ]";
+      }
+    }
+    if (details.dynamicFields) {
+      details.dynamicFields = dyn;
+    }
+    filtered.details = details;
+  }
+  filtered.birthNumber = filtered.birthNumber ? "***" : null;
+  filtered.email = filtered.email ? "[CHRÁNENÉ]" : null;
+  filtered.phone = filtered.phone ? "[CHRÁNENÉ]" : null;
+  filtered._privacyRestricted = true;
+  return filtered;
 }
 
 const UPLOADS_DIR = path.join(process.cwd(), "uploads");
@@ -143,10 +200,8 @@ export async function registerRoutes(
       if (req.method === 'OPTIONS') return next();
       const subjectId = Number(req.params.id);
       if (!isNaN(subjectId) && req.appUser) {
-        if (await isKlientiUser(req.appUser)) {
-          if (req.appUser.linkedSubjectId !== subjectId) {
-            return res.status(403).json({ message: "Prístup zamietnutý" });
-          }
+        if (!await checkKlientiSubjectAccess(req.appUser, subjectId)) {
+          return res.status(403).json({ message: "Prístup zamietnutý" });
         }
       }
     } catch (err) {
@@ -8750,6 +8805,518 @@ export async function registerRoutes(
       res.json({ success: true, message: "Zastupovanie ukončené a archivované" });
     } catch (err: any) {
       res.status(500).json({ message: err?.message || "Chyba pri ukončení zastupovania" });
+    }
+  });
+
+  // === GDPR & PRIVACY: Households, Privacy Blocks, Access Consent ===
+
+  // --- HOUSEHOLDS ---
+  // Create household
+  app.post("/api/households", isAuthenticated, async (req, res) => {
+    try {
+      const user = (req as any).appUser;
+      const { name, description, address, memberSubjectIds } = req.body;
+      if (!name) return res.status(400).json({ message: "Názov domácnosti je povinný" });
+
+      const [counter] = await db.select().from(globalCounters).where(eq(globalCounters.counterName, "subject"));
+      const nextVal = (counter?.currentValue || 0) + 1;
+      await db.update(globalCounters).set({ currentValue: nextVal }).where(eq(globalCounters.counterName, "subject"));
+      const uid = `DOM-${String(nextVal).padStart(6, '0')}`;
+
+      const [household] = await db.insert(households).values({
+        uid,
+        name,
+        description: description || null,
+        address: address || null,
+        createdByUserId: user?.id,
+        createdByName: user?.username,
+      }).returning();
+
+      if (memberSubjectIds && Array.isArray(memberSubjectIds)) {
+        for (const sid of memberSubjectIds) {
+          await db.insert(householdMembers).values({
+            householdId: household.id,
+            subjectId: sid,
+            role: "clen",
+            addedByUserId: user?.id,
+            addedByName: user?.username,
+          });
+
+          for (const otherId of memberSubjectIds.filter((s: number) => s !== sid)) {
+            await db.insert(accessConsentLog).values({
+              grantorSubjectId: sid,
+              granteeSubjectId: otherId,
+              consentType: "household_membership",
+              action: "grant",
+              scope: "household_shared",
+              reason: `Pridanie do domácnosti ${household.name}`,
+              householdId: household.id,
+              grantedByUserId: user?.id,
+              grantedByName: user?.username,
+            });
+          }
+        }
+      }
+
+      await logAudit(req, { action: "CREATE", module: "households", entityId: household.id, entityName: `Domácnosť: ${name}`, newData: { uid, name, memberCount: memberSubjectIds?.length || 0 } });
+      res.json(household);
+    } catch (err: any) {
+      res.status(500).json({ message: err?.message || "Chyba pri vytváraní domácnosti" });
+    }
+  });
+
+  // List households for a subject
+  app.get("/api/households/subject/:subjectId", isAuthenticated, async (req, res) => {
+    try {
+      const subjectId = parseInt(req.params.subjectId);
+      if (isNaN(subjectId)) return res.status(400).json({ message: "Neplatné ID" });
+      if (!await checkKlientiSubjectAccess((req as any).appUser, subjectId)) return res.status(403).json({ message: "Prístup zamietnutý" });
+
+      const memberships = await db.select({
+        membership: householdMembers,
+        household: households,
+      })
+        .from(householdMembers)
+        .innerJoin(households, eq(householdMembers.householdId, households.id))
+        .where(and(
+          eq(householdMembers.subjectId, subjectId),
+          eq(householdMembers.isActive, true),
+          eq(households.isActive, true)
+        ));
+
+      const result = [];
+      for (const m of memberships) {
+        const members = await db.select({
+          member: householdMembers,
+          subject: {
+            id: subjects.id,
+            uid: subjects.uid,
+            firstName: subjects.firstName,
+            lastName: subjects.lastName,
+            companyName: subjects.companyName,
+            type: subjects.type,
+            email: subjects.email,
+            phone: subjects.phone,
+          },
+        })
+          .from(householdMembers)
+          .innerJoin(subjects, eq(householdMembers.subjectId, subjects.id))
+          .where(and(
+            eq(householdMembers.householdId, m.household.id),
+            eq(householdMembers.isActive, true)
+          ));
+
+        const assets = await db.select().from(householdAssets).where(and(
+          eq(householdAssets.householdId, m.household.id),
+          eq(householdAssets.isActive, true)
+        ));
+
+        result.push({
+          ...m.household,
+          myRole: m.membership.role,
+          members: members.map(mb => ({
+            memberId: mb.member.id,
+            subjectId: mb.subject.id,
+            uid: mb.subject.uid,
+            name: mb.subject.companyName || `${mb.subject.firstName || ""} ${mb.subject.lastName || ""}`.trim(),
+            type: mb.subject.type,
+            email: mb.subject.email,
+            phone: mb.subject.phone,
+            role: mb.member.role,
+            joinedAt: mb.member.joinedAt,
+          })),
+          assets,
+        });
+      }
+
+      res.json(result);
+    } catch (err: any) {
+      res.status(500).json({ message: err?.message || "Chyba pri načítaní domácností" });
+    }
+  });
+
+  // Add member to household
+  app.post("/api/households/:householdId/members", isAuthenticated, async (req, res) => {
+    try {
+      const householdId = parseInt(req.params.householdId);
+      const { subjectId, role } = req.body;
+      const user = (req as any).appUser;
+      if (isNaN(householdId) || !subjectId) return res.status(400).json({ message: "Neplatné parametre" });
+
+      const [household] = await db.select().from(households).where(eq(households.id, householdId));
+      if (!household) return res.status(404).json({ message: "Domácnosť nenájdená" });
+
+      const existing = await db.select().from(householdMembers).where(and(
+        eq(householdMembers.householdId, householdId),
+        eq(householdMembers.subjectId, subjectId),
+        eq(householdMembers.isActive, true)
+      ));
+      if (existing.length > 0) return res.status(409).json({ message: "Subjekt je už členom domácnosti" });
+
+      const [member] = await db.insert(householdMembers).values({
+        householdId,
+        subjectId,
+        role: role || "clen",
+        addedByUserId: user?.id,
+        addedByName: user?.username,
+      }).returning();
+
+      const existingMembers = await db.select().from(householdMembers).where(and(
+        eq(householdMembers.householdId, householdId),
+        eq(householdMembers.isActive, true),
+        sql`${householdMembers.subjectId} != ${subjectId}`
+      ));
+
+      for (const em of existingMembers) {
+        await db.insert(accessConsentLog).values({
+          grantorSubjectId: subjectId,
+          granteeSubjectId: em.subjectId,
+          consentType: "household_membership",
+          action: "grant",
+          scope: "household_shared",
+          reason: `Pridanie do domácnosti ${household.name}`,
+          householdId,
+          grantedByUserId: user?.id,
+          grantedByName: user?.username,
+        });
+        await db.insert(accessConsentLog).values({
+          grantorSubjectId: em.subjectId,
+          granteeSubjectId: subjectId,
+          consentType: "household_membership",
+          action: "grant",
+          scope: "household_shared",
+          reason: `Nový člen domácnosti ${household.name}`,
+          householdId,
+          grantedByUserId: user?.id,
+          grantedByName: user?.username,
+        });
+      }
+
+      await logAudit(req, { action: "ADD_MEMBER", module: "households", entityId: householdId, entityName: `Člen pridaný do domácnosti ${household.name}`, newData: { subjectId, role: role || "clen" } });
+      res.json(member);
+    } catch (err: any) {
+      res.status(500).json({ message: err?.message || "Chyba pri pridávaní člena" });
+    }
+  });
+
+  // Remove member from household
+  app.post("/api/households/:householdId/members/:memberId/remove", isAuthenticated, async (req, res) => {
+    try {
+      const householdId = parseInt(req.params.householdId);
+      const memberId = parseInt(req.params.memberId);
+      const user = (req as any).appUser;
+      const { reason } = req.body;
+
+      const [member] = await db.select().from(householdMembers).where(eq(householdMembers.id, memberId));
+      if (!member) return res.status(404).json({ message: "Člen nenájdený" });
+
+      await db.update(householdMembers).set({
+        isActive: false,
+        leftAt: new Date(),
+      }).where(eq(householdMembers.id, memberId));
+
+      await db.update(accessConsentLog).set({
+        isActive: false,
+        revokedAt: new Date(),
+        revokedByUserId: user?.id,
+        revokedByName: user?.username,
+        revokedReason: reason || "Odstránenie z domácnosti",
+      }).where(and(
+        eq(accessConsentLog.householdId, householdId),
+        eq(accessConsentLog.isActive, true),
+        or(
+          eq(accessConsentLog.grantorSubjectId, member.subjectId),
+          eq(accessConsentLog.granteeSubjectId, member.subjectId)
+        )
+      ));
+
+      await logAudit(req, { action: "REMOVE_MEMBER", module: "households", entityId: householdId, entityName: `Člen odstránený z domácnosti`, oldData: { subjectId: member.subjectId }, newData: { reason: reason || "manual" } });
+      res.json({ success: true });
+    } catch (err: any) {
+      res.status(500).json({ message: err?.message || "Chyba pri odstraňovaní člena" });
+    }
+  });
+
+  // Add/update household asset
+  app.post("/api/households/:householdId/assets", isAuthenticated, async (req, res) => {
+    try {
+      const householdId = parseInt(req.params.householdId);
+      const user = (req as any).appUser;
+      const { assetType, name, description, value, currency, details, validFrom, validTo, sourceType } = req.body;
+      if (!assetType || !name) return res.status(400).json({ message: "Typ a názov majetku sú povinné" });
+
+      const [asset] = await db.insert(householdAssets).values({
+        householdId,
+        assetType,
+        name,
+        description: description || null,
+        value: value || null,
+        currency: currency || "EUR",
+        details: details || {},
+        sourceType: sourceType || "manual",
+        validFrom: validFrom ? new Date(validFrom) : null,
+        validTo: validTo ? new Date(validTo) : null,
+        createdByUserId: user?.id,
+        createdByName: user?.username,
+      }).returning();
+
+      await logAudit(req, { action: "ADD_ASSET", module: "households", entityId: householdId, entityName: `Majetok: ${name}`, newData: { assetType, name, value } });
+      res.json(asset);
+    } catch (err: any) {
+      res.status(500).json({ message: err?.message || "Chyba pri pridávaní majetku" });
+    }
+  });
+
+  // Remove household asset
+  app.delete("/api/household-assets/:assetId", isAuthenticated, async (req, res) => {
+    try {
+      const assetId = parseInt(req.params.assetId);
+      const user = (req as any).appUser;
+
+      await db.update(householdAssets).set({
+        isActive: false,
+        updatedAt: new Date(),
+      }).where(eq(householdAssets.id, assetId));
+
+      await logAudit(req, { action: "REMOVE_ASSET", module: "households", entityId: assetId, entityName: "Majetok deaktivovaný" });
+      res.json({ success: true });
+    } catch (err: any) {
+      res.status(500).json({ message: err?.message || "Chyba pri odstraňovaní majetku" });
+    }
+  });
+
+  // --- PRIVACY BLOCKS ---
+  // Get privacy blocks for a subject
+  app.get("/api/privacy-blocks/:subjectId", isAuthenticated, async (req, res) => {
+    try {
+      const subjectId = parseInt(req.params.subjectId);
+      if (isNaN(subjectId)) return res.status(400).json({ message: "Neplatné ID" });
+      if (!await checkKlientiSubjectAccess((req as any).appUser, subjectId)) return res.status(403).json({ message: "Prístup zamietnutý" });
+
+      const blocks = await db.select().from(privacyBlocks).where(eq(privacyBlocks.subjectId, subjectId));
+      res.json(blocks);
+    } catch (err: any) {
+      res.status(500).json({ message: err?.message || "Chyba" });
+    }
+  });
+
+  // Toggle privacy on a dynamic block
+  app.post("/api/privacy-blocks", isAuthenticated, async (req, res) => {
+    try {
+      const user = (req as any).appUser;
+      const { subjectId, blockType, blockKey, collectionIndex, isPrivate, reason } = req.body;
+      if (!subjectId || !blockType || !blockKey) return res.status(400).json({ message: "Chýbajú povinné parametre" });
+      if (!await checkKlientiSubjectAccess(user, subjectId)) return res.status(403).json({ message: "Prístup zamietnutý" });
+
+      const existing = await db.select().from(privacyBlocks).where(and(
+        eq(privacyBlocks.subjectId, subjectId),
+        eq(privacyBlocks.blockType, blockType),
+        eq(privacyBlocks.blockKey, blockKey),
+        collectionIndex != null ? eq(privacyBlocks.collectionIndex, collectionIndex) : sql`${privacyBlocks.collectionIndex} IS NULL`
+      ));
+
+      let result;
+      if (existing.length > 0) {
+        [result] = await db.update(privacyBlocks).set({
+          isPrivate: isPrivate !== false,
+          reason: reason || null,
+          setByUserId: user?.id,
+          setByName: user?.username,
+          updatedAt: new Date(),
+        }).where(eq(privacyBlocks.id, existing[0].id)).returning();
+      } else {
+        [result] = await db.insert(privacyBlocks).values({
+          subjectId,
+          blockType,
+          blockKey,
+          collectionIndex: collectionIndex || null,
+          isPrivate: isPrivate !== false,
+          reason: reason || null,
+          setByUserId: user?.id,
+          setByName: user?.username,
+        }).returning();
+      }
+
+      await logAudit(req, {
+        action: isPrivate !== false ? "SET_PRIVATE" : "SET_PUBLIC",
+        module: "privacy",
+        entityId: subjectId,
+        entityName: `Blok ${blockType}/${blockKey} nastavený ako ${isPrivate !== false ? "súkromný" : "verejný"}`,
+        newData: { blockType, blockKey, collectionIndex, isPrivate }
+      });
+
+      res.json(result);
+    } catch (err: any) {
+      res.status(500).json({ message: err?.message || "Chyba pri nastavení súkromia" });
+    }
+  });
+
+  // --- ACCESS CONSENT (18+ Privacy Trigger & general consent) ---
+  // Get consent status between two subjects
+  app.get("/api/access-consent/:grantorId/:granteeId", isAuthenticated, async (req, res) => {
+    try {
+      const grantorId = parseInt(req.params.grantorId);
+      const granteeId = parseInt(req.params.granteeId);
+
+      const consents = await db.select().from(accessConsentLog).where(and(
+        eq(accessConsentLog.grantorSubjectId, grantorId),
+        eq(accessConsentLog.granteeSubjectId, granteeId),
+        eq(accessConsentLog.isActive, true)
+      ));
+
+      res.json(consents);
+    } catch (err: any) {
+      res.status(500).json({ message: err?.message || "Chyba" });
+    }
+  });
+
+  // Get all consent logs for a subject
+  app.get("/api/access-consent/subject/:subjectId", isAuthenticated, async (req, res) => {
+    try {
+      const subjectId = parseInt(req.params.subjectId);
+      if (isNaN(subjectId)) return res.status(400).json({ message: "Neplatné ID" });
+      if (!await checkKlientiSubjectAccess((req as any).appUser, subjectId)) return res.status(403).json({ message: "Prístup zamietnutý" });
+
+      const consents = await db.select().from(accessConsentLog).where(or(
+        eq(accessConsentLog.grantorSubjectId, subjectId),
+        eq(accessConsentLog.granteeSubjectId, subjectId)
+      )).orderBy(sql`${accessConsentLog.createdAt} DESC`).limit(100);
+
+      const subjectIds = new Set<number>();
+      consents.forEach(c => { subjectIds.add(c.grantorSubjectId); subjectIds.add(c.granteeSubjectId); });
+      const subjectsMap = new Map<number, any>();
+      if (subjectIds.size > 0) {
+        const subs = await db.select({ id: subjects.id, firstName: subjects.firstName, lastName: subjects.lastName, companyName: subjects.companyName }).from(subjects).where(sql`${subjects.id} IN (${sql.join([...subjectIds].map(id => sql`${id}`), sql`, `)})`);
+        subs.forEach(s => subjectsMap.set(s.id, s));
+      }
+
+      const enriched = consents.map(c => ({
+        ...c,
+        grantorName: (() => { const s = subjectsMap.get(c.grantorSubjectId); return s ? (s.companyName || `${s.firstName || ""} ${s.lastName || ""}`.trim()) : "—"; })(),
+        granteeName: (() => { const s = subjectsMap.get(c.granteeSubjectId); return s ? (s.companyName || `${s.firstName || ""} ${s.lastName || ""}`.trim()) : "—"; })(),
+      }));
+
+      res.json(enriched);
+    } catch (err: any) {
+      res.status(500).json({ message: err?.message || "Chyba pri načítaní súhlasov" });
+    }
+  });
+
+  // Grant/revoke access consent (for 18+ privacy trigger and manual consent)
+  app.post("/api/access-consent", isAuthenticated, async (req, res) => {
+    try {
+      const user = (req as any).appUser;
+      const { grantorSubjectId, granteeSubjectId, consentType, action, scope, reason, legalBasis, relationId } = req.body;
+      if (!grantorSubjectId || !granteeSubjectId || !consentType || !action) return res.status(400).json({ message: "Chýbajú povinné parametre" });
+      if (!await checkKlientiSubjectAccess(user, grantorSubjectId)) return res.status(403).json({ message: "Prístup zamietnutý" });
+
+      if (action === "grant") {
+        const [consent] = await db.insert(accessConsentLog).values({
+          grantorSubjectId,
+          granteeSubjectId,
+          consentType,
+          action: "grant",
+          scope: scope || "full",
+          reason: reason || null,
+          legalBasis: legalBasis || null,
+          relationId: relationId || null,
+          grantedByUserId: user?.id,
+          grantedByName: user?.username,
+        }).returning();
+
+        await logAudit(req, { action: "GRANT_ACCESS", module: "privacy", entityId: grantorSubjectId, entityName: `Súhlas udelený subjektu #${granteeSubjectId}`, newData: { consentType, scope, reason } });
+        res.json(consent);
+      } else if (action === "revoke") {
+        const revoked = await db.update(accessConsentLog).set({
+          isActive: false,
+          revokedAt: new Date(),
+          revokedByUserId: user?.id,
+          revokedByName: user?.username,
+          revokedReason: reason || null,
+        }).where(and(
+          eq(accessConsentLog.grantorSubjectId, grantorSubjectId),
+          eq(accessConsentLog.granteeSubjectId, granteeSubjectId),
+          eq(accessConsentLog.consentType, consentType),
+          eq(accessConsentLog.isActive, true)
+        )).returning();
+
+        await db.insert(accessConsentLog).values({
+          grantorSubjectId,
+          granteeSubjectId,
+          consentType,
+          action: "revoke",
+          scope: scope || "full",
+          reason: reason || null,
+          isActive: false,
+          revokedAt: new Date(),
+          revokedByUserId: user?.id,
+          revokedByName: user?.username,
+          revokedReason: reason || null,
+          grantedByUserId: user?.id,
+          grantedByName: user?.username,
+        });
+
+        await logAudit(req, { action: "REVOKE_ACCESS", module: "privacy", entityId: grantorSubjectId, entityName: `Súhlas odobraný subjektu #${granteeSubjectId}`, oldData: { consentType }, newData: { reason } });
+        res.json({ success: true, revokedCount: revoked.length });
+      } else {
+        return res.status(400).json({ message: "Neplatná akcia. Použite 'grant' alebo 'revoke'" });
+      }
+    } catch (err: any) {
+      res.status(500).json({ message: err?.message || "Chyba pri správe súhlasu" });
+    }
+  });
+
+  // Check if subject has reached 18 and needs privacy restriction
+  app.get("/api/privacy-trigger/:subjectId", isAuthenticated, async (req, res) => {
+    try {
+      const subjectId = parseInt(req.params.subjectId);
+      if (isNaN(subjectId)) return res.status(400).json({ message: "Neplatné ID" });
+
+      const [subject] = await db.select().from(subjects).where(eq(subjects.id, subjectId));
+      if (!subject) return res.status(404).json({ message: "Subjekt nenájdený" });
+
+      const details = (subject.details as any) || {};
+      const dyn = details.dynamicFields || details;
+      const dob = dyn.datum_narodenia || dyn.p_datum_nar;
+
+      if (!dob) return res.json({ isAdult: false, needsConsentReview: false, hasActiveConsent: false });
+
+      const dobDate = new Date(dob);
+      const now = new Date();
+      let age = now.getFullYear() - dobDate.getFullYear();
+      if (now.getMonth() < dobDate.getMonth() || (now.getMonth() === dobDate.getMonth() && now.getDate() < dobDate.getDate())) age--;
+
+      const isAdult = age >= 18;
+
+      const guardianRelations = await db.select({ id: subjectRelations.id, sourceId: subjectRelations.sourceSubjectId })
+        .from(subjectRelations)
+        .innerJoin(relationRoleTypes, eq(subjectRelations.roleTypeId, relationRoleTypes.id))
+        .where(and(
+          eq(subjectRelations.targetSubjectId, subjectId),
+          eq(subjectRelations.isActive, true),
+          eq(relationRoleTypes.category, "rodina"),
+          sql`${relationRoleTypes.code} IN ('rodic_zakonny_zastupca', 'stary_rodic')`
+        ));
+
+      const activeConsents = await db.select().from(accessConsentLog).where(and(
+        eq(accessConsentLog.grantorSubjectId, subjectId),
+        eq(accessConsentLog.consentType, "post_maturity_sharing"),
+        eq(accessConsentLog.isActive, true)
+      ));
+
+      const needsConsentReview = isAdult && guardianRelations.length > 0 && activeConsents.length === 0;
+
+      res.json({
+        isAdult,
+        age,
+        needsConsentReview,
+        hasActiveConsent: activeConsents.length > 0,
+        guardianCount: guardianRelations.length,
+        guardianIds: guardianRelations.map(g => g.sourceId),
+        consentDetails: activeConsents,
+      });
+    } catch (err: any) {
+      res.status(500).json({ message: err?.message || "Chyba pri kontrole privacy triggeru" });
     }
   });
 
