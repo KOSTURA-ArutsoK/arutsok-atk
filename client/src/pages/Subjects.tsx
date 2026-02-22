@@ -203,6 +203,21 @@ const STATIC_FIELD_LABELS: Record<string, string> = {
   voz_ek_platnost: "Platnosť emisnej kontroly do",
   voz_tachometer: "Stav tachometra",
   voz_zabezpecenie: "Zabezpečenie vozidla",
+  real_typ_nehnutelnosti: "Typ nehnuteľnosti",
+  real_supisne_cislo: "Súpisné číslo",
+  real_parcelne_cislo: "Parcelné číslo",
+  real_katastralne_uzemie: "Katastrálne územie",
+  real_cislo_lv: "Číslo listu vlastníctva",
+  real_rok_kolaudacie: "Rok kolaudácie",
+  real_rekon_strecha: "Rekonštrukcia – strecha",
+  real_rekon_rozvody: "Rekonštrukcia – rozvody",
+  real_rekon_kurenie: "Rekonštrukcia – kúrenie",
+  real_rozloha: "Rozloha obytnej plochy",
+  real_pocet_podlazi: "Počet podlaží",
+  real_typ_konstrukcie: "Typ konštrukcie",
+  real_typ_dveri: "Typ dverí (bezp. trieda)",
+  real_elektro_zabezpecenie: "Elektronické zabezpečenie",
+  real_protipoz_ochrana: "Protipožiarna ochrana",
 };
 
 function getFieldLabel(fieldKey: string, allFields?: StaticField[]): string {

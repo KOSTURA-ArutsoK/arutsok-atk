@@ -124,9 +124,24 @@ const FIELD_HINTS: Record<string, string> = {
   voz_ek_platnost: "Dátum platnosti emisnej kontroly – semafor: zelená >90d, oranžová ≤90d, červená = neplatná",
   voz_tachometer: "Aktuálny stav tachometra v km pri poslednej kontrole",
   voz_zabezpecenie: "Typ zabezpečenia vozidla (napr. VAM, Pandora, Jablotron, GPS lokátor)",
+  real_typ_nehnutelnosti: "Typ nehnuteľnosti podľa poistnej zmluvy alebo znaleckého posudku",
+  real_supisne_cislo: "Súpisné číslo nehnuteľnosti z listu vlastníctva",
+  real_parcelne_cislo: "Parcelné číslo pozemku z listu vlastníctva (napr. 1234/5)",
+  real_katastralne_uzemie: "Katastrálne územie, v ktorom sa nehnuteľnosť nachádza",
+  real_cislo_lv: "Číslo listu vlastníctva z katastra nehnuteľností",
+  real_rok_kolaudacie: "Rok kolaudácie nehnuteľnosti – kľúčové pre rizikovosť poistenia",
+  real_rekon_strecha: "Rok poslednej rekonštrukcie strechy – znižuje riziko poistnej udalosti",
+  real_rekon_rozvody: "Rok poslednej rekonštrukcie rozvodov (elektrina, voda, plyn)",
+  real_rekon_kurenie: "Rok poslednej rekonštrukcie vykurovacieho systému",
+  real_rozloha: "Rozloha obytnej plochy v m² – kľúčový parameter pre výpočet poistného",
+  real_pocet_podlazi: "Počet podlaží nehnuteľnosti podľa znaleckého posudku",
+  real_typ_konstrukcie: "Typ konštrukcie stavby – ovplyvňuje výšku poistného",
+  real_typ_dveri: "Bezpečnostná trieda vstupných dverí (RC2–RC6) – zľava na poistnom",
+  real_elektro_zabezpecenie: "Elektronický zabezpečovací systém – zľava na poistnom",
+  real_protipoz_ochrana: "Protipožiarne zariadenia (senzory dymu/plynu, hasiace prístroje)",
 };
 
-const HINTED_CATEGORIES = new Set(["aml", "marketingove", "bonita", "behavioralne", "ekonomika", "vozidla"]);
+const HINTED_CATEGORIES = new Set(["aml", "marketingove", "bonita", "behavioralne", "ekonomika", "vozidla", "reality"]);
 
 const CATEGORY_HINTS: Record<string, string> = {
   aml: "Údaje vyžadované zákonom o AML (297/2008 Z.z.) – identifikácia konečných užívateľov výhod a politicky exponovaných osôb",
@@ -136,6 +151,7 @@ const CATEGORY_HINTS: Record<string, string> = {
   nezatriedene: "Údaje zo zmlúv, ktoré nie sú priradené do žiadnej štandardnej kategórie. Ak sa typ údaja vyskytne u viac ako 20 klientov, je označený ako nový trend.",
   ekonomika: "Ekonomický profil klienta – zamestnanie, príjmy, finančné údaje a AML legislatívny status. Každá zmena príjmu alebo zamestnávateľa je sledovaná v histórii.",
   vozidla: "Údaje o vozidle z technického preukazu. Platnosť STK a EK je sledovaná semaforom (zelená >90d, oranžová ≤90d, červená = neplatná). Každá zmena sa zapisuje do histórie.",
+  reality: "Údaje o nehnuteľnostiach klienta z poistnej zmluvy na majetok alebo znaleckého posudku. Technický stav a zabezpečenie ovplyvňujú výpočet poistného. Každá zmena sa zapisuje do histórie.",
 };
 
 const FIELD_TO_CATEGORY: Record<string, string> = {
@@ -177,6 +193,11 @@ const FIELD_TO_CATEGORY: Record<string, string> = {
   voz_ecv: "vozidla", voz_vin: "vozidla", voz_cislo_tp: "vozidla", voz_znacka: "vozidla", voz_model: "vozidla",
   voz_vykon: "vozidla", voz_objem: "vozidla", voz_hmotnost: "vozidla", voz_palivo: "vozidla",
   voz_stk_platnost: "vozidla", voz_ek_platnost: "vozidla", voz_tachometer: "vozidla", voz_zabezpecenie: "vozidla",
+  real_typ_nehnutelnosti: "reality", real_supisne_cislo: "reality", real_parcelne_cislo: "reality",
+  real_katastralne_uzemie: "reality", real_cislo_lv: "reality", real_rok_kolaudacie: "reality",
+  real_rekon_strecha: "reality", real_rekon_rozvody: "reality", real_rekon_kurenie: "reality",
+  real_rozloha: "reality", real_pocet_podlazi: "reality", real_typ_konstrukcie: "reality",
+  real_typ_dveri: "reality", real_elektro_zabezpecenie: "reality", real_protipoz_ochrana: "reality",
 };
 
 const CONSENT_TYPES = [

@@ -62,6 +62,10 @@ const FO_PANEL_VOZ_TP = 50;
 const FO_PANEL_VOZ_PLATNOST = 51;
 const FO_PANEL_VOZ_DOPLNKY = 52;
 
+const FO_PANEL_REAL_ZAKLAD = 60;
+const FO_PANEL_REAL_TECH = 61;
+const FO_PANEL_REAL_ZABEZP = 62;
+
 const SZCO_SECTION_POVINNE = 11;
 const SZCO_SECTION_DOPLNKOVE = 18;
 const SZCO_SECTION_VOLITELNE = 12;
@@ -113,6 +117,9 @@ export const FO_PANELS: StaticPanel[] = [
   { id: FO_PANEL_VOZ_TP, clientTypeId: 1, sectionId: FO_SECTION_DOPLNKOVE, name: "Technický preukaz", gridColumns: 3, sortOrder: 9 },
   { id: FO_PANEL_VOZ_PLATNOST, clientTypeId: 1, sectionId: FO_SECTION_DOPLNKOVE, name: "Platnosť a stav", gridColumns: 3, sortOrder: 10 },
   { id: FO_PANEL_VOZ_DOPLNKY, clientTypeId: 1, sectionId: FO_SECTION_DOPLNKOVE, name: "Doplnkové údaje vozidla", gridColumns: 2, sortOrder: 11 },
+  { id: FO_PANEL_REAL_ZAKLAD, clientTypeId: 1, sectionId: FO_SECTION_DOPLNKOVE, name: "Základná identifikácia nehnuteľnosti", gridColumns: 3, sortOrder: 12 },
+  { id: FO_PANEL_REAL_TECH, clientTypeId: 1, sectionId: FO_SECTION_DOPLNKOVE, name: "Technický stav", gridColumns: 4, sortOrder: 13 },
+  { id: FO_PANEL_REAL_ZABEZP, clientTypeId: 1, sectionId: FO_SECTION_DOPLNKOVE, name: "Zabezpečenie", gridColumns: 3, sortOrder: 14 },
 ];
 
 export const FO_FIELDS: StaticField[] = [
@@ -248,6 +255,27 @@ export const FO_FIELDS: StaticField[] = [
   // === VOZIDLÁ: Doplnkové === Tachometer → Zabezpečenie
   { id: 820, clientTypeId: 1, sectionId: FO_SECTION_DOPLNKOVE, panelId: FO_PANEL_VOZ_DOPLNKY, fieldKey: "voz_tachometer", label: "Stav tachometra", shortLabel: "Tachometer", fieldType: "desatinne_cislo", isRequired: false, isHidden: false, options: [], defaultValue: null, visibilityRule: null, unit: "km", decimalPlaces: 0, fieldCategory: "doplnkove", categoryCode: "vozidla", sortOrder: 120, rowNumber: 0, widthPercent: 50 },
   { id: 821, clientTypeId: 1, sectionId: FO_SECTION_DOPLNKOVE, panelId: FO_PANEL_VOZ_DOPLNKY, fieldKey: "voz_zabezpecenie", label: "Zabezpečenie vozidla", shortLabel: "Zabezpečenie", fieldType: "short_text", isRequired: false, isHidden: false, options: [], defaultValue: null, visibilityRule: null, unit: null, decimalPlaces: 2, fieldCategory: "doplnkove", categoryCode: "vozidla", sortOrder: 130, rowNumber: 0, widthPercent: 50 },
+
+  // === DOPLNKOVÉ: REALITY – Základná identifikácia === Typ | Súpisné | Parcelné → Kataster | LV
+  { id: 830, clientTypeId: 1, sectionId: FO_SECTION_DOPLNKOVE, panelId: FO_PANEL_REAL_ZAKLAD, fieldKey: "real_typ_nehnutelnosti", label: "Typ nehnuteľnosti", shortLabel: "Typ nehnut.", fieldType: "jedna_moznost", isRequired: false, isHidden: false, options: ["Byt", "Rodinný dom", "Chata", "Garáž", "Hala", "Polyfunkcia"], defaultValue: null, visibilityRule: null, unit: null, decimalPlaces: 2, fieldCategory: "doplnkove", categoryCode: "reality", sortOrder: 10, rowNumber: 0, widthPercent: 50 },
+  { id: 831, clientTypeId: 1, sectionId: FO_SECTION_DOPLNKOVE, panelId: FO_PANEL_REAL_ZAKLAD, fieldKey: "real_supisne_cislo", label: "Súpisné číslo", shortLabel: "Súp. č.", fieldType: "short_text", isRequired: false, isHidden: false, options: [], defaultValue: null, visibilityRule: null, unit: null, decimalPlaces: 2, fieldCategory: "doplnkove", categoryCode: "reality", sortOrder: 20, rowNumber: 0, widthPercent: 25 },
+  { id: 832, clientTypeId: 1, sectionId: FO_SECTION_DOPLNKOVE, panelId: FO_PANEL_REAL_ZAKLAD, fieldKey: "real_parcelne_cislo", label: "Parcelné číslo", shortLabel: "Parc. č.", fieldType: "short_text", isRequired: false, isHidden: false, options: [], defaultValue: null, visibilityRule: null, unit: null, decimalPlaces: 2, fieldCategory: "doplnkove", categoryCode: "reality", sortOrder: 30, rowNumber: 0, widthPercent: 25 },
+  { id: 833, clientTypeId: 1, sectionId: FO_SECTION_DOPLNKOVE, panelId: FO_PANEL_REAL_ZAKLAD, fieldKey: "real_katastralne_uzemie", label: "Katastrálne územie", shortLabel: "Kat. územie", fieldType: "short_text", isRequired: false, isHidden: false, options: [], defaultValue: null, visibilityRule: null, unit: null, decimalPlaces: 2, fieldCategory: "doplnkove", categoryCode: "reality", sortOrder: 40, rowNumber: 1, widthPercent: 50 },
+  { id: 834, clientTypeId: 1, sectionId: FO_SECTION_DOPLNKOVE, panelId: FO_PANEL_REAL_ZAKLAD, fieldKey: "real_cislo_lv", label: "Číslo listu vlastníctva", shortLabel: "Číslo LV", fieldType: "short_text", isRequired: false, isHidden: false, options: [], defaultValue: null, visibilityRule: null, unit: null, decimalPlaces: 2, fieldCategory: "doplnkove", categoryCode: "reality", sortOrder: 50, rowNumber: 1, widthPercent: 50 },
+
+  // === DOPLNKOVÉ: REALITY – Technický stav === Rok kolaud. | Rekon. strecha | Rekon. rozvody | Rekon. kúrenie → Rozloha | Podlažia | Konštrukcia
+  { id: 835, clientTypeId: 1, sectionId: FO_SECTION_DOPLNKOVE, panelId: FO_PANEL_REAL_TECH, fieldKey: "real_rok_kolaudacie", label: "Rok kolaudácie", shortLabel: "Rok kolaud.", fieldType: "number", isRequired: false, isHidden: false, options: [], defaultValue: null, visibilityRule: null, unit: null, decimalPlaces: 0, fieldCategory: "doplnkove", categoryCode: "reality", sortOrder: 60, rowNumber: 0, widthPercent: 25 },
+  { id: 836, clientTypeId: 1, sectionId: FO_SECTION_DOPLNKOVE, panelId: FO_PANEL_REAL_TECH, fieldKey: "real_rekon_strecha", label: "Posledná rekonštrukcia – strecha", shortLabel: "Rekon. strecha", fieldType: "number", isRequired: false, isHidden: false, options: [], defaultValue: null, visibilityRule: null, unit: null, decimalPlaces: 0, fieldCategory: "doplnkove", categoryCode: "reality", sortOrder: 70, rowNumber: 0, widthPercent: 25 },
+  { id: 837, clientTypeId: 1, sectionId: FO_SECTION_DOPLNKOVE, panelId: FO_PANEL_REAL_TECH, fieldKey: "real_rekon_rozvody", label: "Posledná rekonštrukcia – rozvody", shortLabel: "Rekon. rozvody", fieldType: "number", isRequired: false, isHidden: false, options: [], defaultValue: null, visibilityRule: null, unit: null, decimalPlaces: 0, fieldCategory: "doplnkove", categoryCode: "reality", sortOrder: 80, rowNumber: 0, widthPercent: 25 },
+  { id: 838, clientTypeId: 1, sectionId: FO_SECTION_DOPLNKOVE, panelId: FO_PANEL_REAL_TECH, fieldKey: "real_rekon_kurenie", label: "Posledná rekonštrukcia – kúrenie", shortLabel: "Rekon. kúrenie", fieldType: "number", isRequired: false, isHidden: false, options: [], defaultValue: null, visibilityRule: null, unit: null, decimalPlaces: 0, fieldCategory: "doplnkove", categoryCode: "reality", sortOrder: 90, rowNumber: 0, widthPercent: 25 },
+  { id: 839, clientTypeId: 1, sectionId: FO_SECTION_DOPLNKOVE, panelId: FO_PANEL_REAL_TECH, fieldKey: "real_rozloha", label: "Rozloha obytnej plochy", shortLabel: "Rozloha", fieldType: "desatinne_cislo", isRequired: false, isHidden: false, options: [], defaultValue: null, visibilityRule: null, unit: "m²", decimalPlaces: 2, fieldCategory: "doplnkove", categoryCode: "reality", sortOrder: 100, rowNumber: 1, widthPercent: 33 },
+  { id: 840, clientTypeId: 1, sectionId: FO_SECTION_DOPLNKOVE, panelId: FO_PANEL_REAL_TECH, fieldKey: "real_pocet_podlazi", label: "Počet podlaží", shortLabel: "Podlažia", fieldType: "number", isRequired: false, isHidden: false, options: [], defaultValue: null, visibilityRule: null, unit: null, decimalPlaces: 0, fieldCategory: "doplnkove", categoryCode: "reality", sortOrder: 110, rowNumber: 1, widthPercent: 33 },
+  { id: 841, clientTypeId: 1, sectionId: FO_SECTION_DOPLNKOVE, panelId: FO_PANEL_REAL_TECH, fieldKey: "real_typ_konstrukcie", label: "Typ konštrukcie", shortLabel: "Konštrukcia", fieldType: "jedna_moznost", isRequired: false, isHidden: false, options: ["Murovaná", "Drevená", "Montovaná"], defaultValue: null, visibilityRule: null, unit: null, decimalPlaces: 2, fieldCategory: "doplnkove", categoryCode: "reality", sortOrder: 120, rowNumber: 1, widthPercent: 34 },
+
+  // === DOPLNKOVÉ: REALITY – Zabezpečenie === Typ dverí | El. zabezpečenie → Protipož. ochrana
+  { id: 842, clientTypeId: 1, sectionId: FO_SECTION_DOPLNKOVE, panelId: FO_PANEL_REAL_ZABEZP, fieldKey: "real_typ_dveri", label: "Typ dverí (bezpečnostná trieda)", shortLabel: "Typ dverí", fieldType: "short_text", isRequired: false, isHidden: false, options: [], defaultValue: null, visibilityRule: null, unit: null, decimalPlaces: 2, fieldCategory: "doplnkove", categoryCode: "reality", sortOrder: 130, rowNumber: 0, widthPercent: 50 },
+  { id: 843, clientTypeId: 1, sectionId: FO_SECTION_DOPLNKOVE, panelId: FO_PANEL_REAL_ZABEZP, fieldKey: "real_elektro_zabezpecenie", label: "Elektronické zabezpečenie", shortLabel: "El. zabezpeč.", fieldType: "jedna_moznost", isRequired: false, isHidden: false, options: ["Alarm na PCO", "Lokálny alarm", "Kamery"], defaultValue: null, visibilityRule: null, unit: null, decimalPlaces: 2, fieldCategory: "doplnkove", categoryCode: "reality", sortOrder: 140, rowNumber: 0, widthPercent: 50 },
+  { id: 844, clientTypeId: 1, sectionId: FO_SECTION_DOPLNKOVE, panelId: FO_PANEL_REAL_ZABEZP, fieldKey: "real_protipoz_ochrana", label: "Protipožiarna ochrana", shortLabel: "Protipož.", fieldType: "short_text", isRequired: false, isHidden: false, options: [], defaultValue: null, visibilityRule: null, unit: null, decimalPlaces: 2, fieldCategory: "doplnkove", categoryCode: "reality", sortOrder: 150, rowNumber: 1, widthPercent: 100 },
 
   // === VOLITEĽNÉ === CGN Rating
   { id: 209, clientTypeId: 1, sectionId: FO_SECTION_VOLITELNE, panelId: null, fieldKey: "cgn_rating", label: "CGN Rating", shortLabel: "CGN", fieldType: "jedna_moznost", isRequired: false, isHidden: false, options: ["A", "B", "C", "D", "E"], defaultValue: null, visibilityRule: null, unit: null, decimalPlaces: 2, fieldCategory: "volitelne", categoryCode: "bonita", sortOrder: 10, rowNumber: 0, widthPercent: 100 },
