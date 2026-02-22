@@ -7399,7 +7399,104 @@ export async function registerRoutes(
     }
   });
 
+  app.get("/api/document-validity/statuses", isAuthenticated, async (_req, res) => {
+    try {
+      const statuses = await db.execute(sql`
+        SELECT s.id as subject_id, s.uid, s.first_name, s.last_name, s.company_name, s.type,
+               ds.field_key, ds.expiry_date, ds.status, ds.days_remaining
+        FROM subject_document_status ds
+        JOIN subjects s ON s.id = ds.subject_id
+        WHERE ds.status IN ('expired', 'expiring')
+        ORDER BY ds.status ASC, ds.days_remaining ASC
+      `);
+      res.json(statuses.rows || []);
+    } catch (err: any) {
+      console.error("[DOC VALIDITY ERROR]", err);
+      res.status(500).json({ message: err?.message || "Internal error" });
+    }
+  });
+
+  app.post("/api/document-validity/refresh", isAuthenticated, async (_req, res) => {
+    try {
+      const count = await refreshDocumentStatuses();
+      res.json({ message: "Refreshed", count });
+    } catch (err: any) {
+      console.error("[DOC VALIDITY REFRESH ERROR]", err);
+      res.status(500).json({ message: err?.message || "Internal error" });
+    }
+  });
+
+  refreshDocumentStatuses().catch(err => console.error("[DOC VALIDITY INIT ERROR]", err));
+  setInterval(() => {
+    refreshDocumentStatuses().catch(err => console.error("[DOC VALIDITY CRON ERROR]", err));
+  }, 60 * 60 * 1000);
+
   return httpServer;
+}
+
+async function refreshDocumentStatuses(): Promise<number> {
+  const VALIDITY_FIELDS = ['op_platnost', 'pas_platnost', 'platnost_dokladu'];
+
+  const subjects = await db.execute(sql`
+    SELECT id, details FROM subjects WHERE is_active = true AND deleted_at IS NULL
+  `);
+
+  let count = 0;
+  for (const subject of (subjects.rows || [])) {
+    const details = (subject as any).details || {};
+    const dynamicFields = details.dynamicFields || details;
+
+    for (const fieldKey of VALIDITY_FIELDS) {
+      const dateVal = dynamicFields[fieldKey];
+      if (!dateVal) continue;
+
+      const expiry = new Date(dateVal);
+      expiry.setHours(23, 59, 59, 999);
+      const now = new Date();
+      const diffMs = expiry.getTime() - now.getTime();
+      const daysRemaining = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
+
+      let status = 'valid';
+      if (daysRemaining <= 0) status = 'expired';
+      else if (daysRemaining <= 90) status = 'expiring';
+
+      await db.execute(sql`
+        INSERT INTO subject_document_status (subject_id, field_key, expiry_date, status, days_remaining, updated_at)
+        VALUES (${(subject as any).id}, ${fieldKey}, ${dateVal}::date, ${status}, ${daysRemaining}, NOW())
+        ON CONFLICT (subject_id, field_key) 
+        DO UPDATE SET expiry_date = ${dateVal}::date, status = ${status}, days_remaining = ${daysRemaining}, updated_at = NOW()
+      `);
+      count++;
+    }
+
+    const docs = dynamicFields.documents || [];
+    for (let i = 0; i < docs.length; i++) {
+      const doc = docs[i];
+      if (!doc.validUntil) continue;
+      const fk = `doc_${i}_validUntil`;
+
+      const expiry = new Date(doc.validUntil);
+      expiry.setHours(23, 59, 59, 999);
+      const now = new Date();
+      const diffMs = expiry.getTime() - now.getTime();
+      const daysRemaining = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
+
+      let status = 'valid';
+      if (daysRemaining <= 0) status = 'expired';
+      else if (daysRemaining <= 90) status = 'expiring';
+
+      await db.execute(sql`
+        INSERT INTO subject_document_status (subject_id, field_key, expiry_date, status, days_remaining, updated_at)
+        VALUES (${(subject as any).id}, ${fk}, ${doc.validUntil}::date, ${status}, ${daysRemaining}, NOW())
+        ON CONFLICT (subject_id, field_key) 
+        DO UPDATE SET expiry_date = ${doc.validUntil}::date, status = ${status}, days_remaining = ${daysRemaining}, updated_at = NOW()
+      `);
+      count++;
+    }
+  }
+
+  console.log(`[DOC VALIDITY] Refreshed ${count} document statuses`);
+  return count;
 }
 
 function scheduleUndeliveredContractsCheck() {

@@ -6,6 +6,7 @@ import { useMyCompanies } from "@/hooks/use-companies";
 import { useAppUser } from "@/hooks/use-app-user";
 import type { Subject, ClientDataTab, ClientDataCategory, ClientMarketingConsent, ClientType, SubjectCollaborator, SubjectFieldHistory } from "@shared/schema";
 import { getFieldsForClientTypeId, getSectionsForClientTypeId, type StaticField } from "@/lib/staticFieldDefs";
+import { getDocumentValidityStatus, isValidityField, isNumberFieldWithExpiredPair } from "@/lib/document-validity";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Badge } from "@/components/ui/badge";
@@ -139,11 +140,12 @@ function UnclassifiedTrendsNotice() {
 }
 
 function SubjectViewField({
-  field, value, isSummary, hasNote, noteText, pdfSidebarOpen, toggleSummaryField, onInlineSave,
+  field, value, isSummary, hasNote, noteText, pdfSidebarOpen, toggleSummaryField, onInlineSave, allFieldValues,
 }: {
   field: StaticField; value: string; isSummary: boolean; hasNote: boolean; noteText?: string;
   pdfSidebarOpen: boolean; toggleSummaryField: (key: string) => void;
   onInlineSave?: (fieldKey: string, newValue: string) => void;
+  allFieldValues?: Record<string, string>;
 }) {
   const [verified, setVerified] = useState(false);
   const [editing, setEditing] = useState(false);
@@ -153,6 +155,11 @@ function SubjectViewField({
 
   useEffect(() => { setEditVal(value); }, [value]);
   useEffect(() => { if (editing && inputRef.current) inputRef.current.focus(); }, [editing]);
+
+  const isValField = isValidityField(field.fieldKey);
+  const validity = isValField && value ? getDocumentValidityStatus(value) : null;
+  const numValidity = allFieldValues ? isNumberFieldWithExpiredPair(field.fieldKey, allFieldValues) : null;
+  const isExpiredNumber = numValidity?.status === "expired";
 
   const displayValue = field.fieldType === "switch"
     ? value === "true" ? "Áno" : value === "false" ? "Nie" : "-"
@@ -196,20 +203,27 @@ function SubjectViewField({
     );
   }
 
+  const borderCls = verified
+    ? "border-blue-400/60 bg-blue-500/10 dark:bg-blue-500/15"
+    : isExpiredNumber
+      ? "border-red-500/60 bg-red-500/10"
+      : validity && validity.status !== "unknown"
+        ? `${validity.borderClass} ${validity.bgClass}`
+        : isSummary ? "border-primary/50 bg-primary/5" : "border-border bg-muted/30";
+
   return (
     <div
-      className={`h-10 flex items-center gap-2 px-3 rounded-md border transition-colors duration-150 select-none cursor-pointer ${
-        verified
-          ? "border-blue-400/60 bg-blue-500/10 dark:bg-blue-500/15"
-          : isSummary ? "border-primary/50 bg-primary/5" : "border-border bg-muted/30"
-      }`}
-      title={hasNote ? `Poznámka: ${noteText}` : undefined}
+      className={`h-10 flex items-center gap-2 px-3 rounded-md border transition-colors duration-150 select-none cursor-pointer ${borderCls}`}
+      title={hasNote ? `Poznámka: ${noteText}` : validity ? validity.label : undefined}
       data-testid={`field-${field.fieldKey}`}
       onClick={handleClick}
       onDoubleClick={handleDoubleClick}
     >
       <span className="text-xs text-muted-foreground whitespace-nowrap">{field.shortLabel || field.label}:</span>
-      <span className="text-sm font-medium truncate max-w-[200px]">{displayValue}</span>
+      <span className={`text-sm font-medium truncate max-w-[200px] ${validity?.textClass || ""} ${isExpiredNumber ? "text-red-500" : ""}`}>{displayValue}</span>
+      {validity && validity.status !== "unknown" && value && (
+        <span className={`w-2.5 h-2.5 rounded-full shrink-0 ${validity.dotClass}`} data-testid={`validity-dot-${field.fieldKey}`} />
+      )}
       {verified && <Check className="w-3 h-3 text-blue-500 flex-none" />}
       {hasNote && !verified && <MessageSquare className="w-3 h-3 text-amber-400 shrink-0" />}
       {pdfSidebarOpen && (
@@ -385,6 +399,8 @@ function CategoriesAccordion({
                   {catFields.map(field => {
                     const value = getFieldValue(field.fieldKey);
                     if (!value) return null;
+                    const allVals: Record<string, string> = {};
+                    Object.values(fieldsByCategory).flat().forEach(f => { const v = getFieldValue(f.fieldKey); if (v) allVals[f.fieldKey] = v; });
                     return (
                       <SubjectViewField
                         key={field.fieldKey}
@@ -396,6 +412,7 @@ function CategoriesAccordion({
                         pdfSidebarOpen={pdfSidebarOpen}
                         toggleSummaryField={toggleSummaryField}
                         onInlineSave={onInlineSave}
+                        allFieldValues={allVals}
                       />
                     );
                   })}

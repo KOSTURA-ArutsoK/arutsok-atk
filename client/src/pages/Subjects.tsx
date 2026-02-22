@@ -6,6 +6,7 @@ import { useAppUser } from "@/hooks/use-app-user";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { formatDateSlovak, formatDateTimeSlovak } from "@/lib/utils";
+import { getDocumentValidityStatus, isValidityField, isNumberFieldWithExpiredPair, type ValidityResult } from "@/lib/document-validity";
 import { useToast } from "@/hooks/use-toast";
 import { Plus, Search, User, Building2, AlertTriangle, Eye, Calendar, Briefcase, ArrowRight, ArrowLeft, ExternalLink, History, Clock, Wallet, Loader2, CheckCircle2, Pencil, Lock, Users, X, Info, Link2, Unlink, Trash2, CreditCard, Archive, Ban } from "lucide-react";
 import { SubjectPhotoThumbnail } from "@/components/subject-profile-photo";
@@ -360,10 +361,25 @@ function SubjectDataTab({ subject }: { subject: Subject }) {
                         <div className="flex flex-wrap gap-2">
                           {fields.map(field => {
                             const value = getFieldValue(field.fieldKey);
+                            const isValField = isValidityField(field.fieldKey);
+                            const validity = isValField && value ? getDocumentValidityStatus(value) : null;
+                            const numValidity = isNumberFieldWithExpiredPair(field.fieldKey, (() => {
+                              const vals: Record<string, string> = {};
+                              fields.forEach(f => { vals[f.fieldKey] = getFieldValue(f.fieldKey); });
+                              return vals;
+                            })());
+                            const isExpNum = numValidity?.status === "expired";
+                            const displayValue = field.fieldType === "date" && value ? formatDateSlovak(value) : value;
                             return (
-                              <div key={field.id} className="h-10 flex items-center gap-2 px-3 rounded-md border border-border bg-muted/30" data-testid={`field-display-${field.fieldKey}`}>
+                              <div key={field.id} className={cn(
+                                "h-10 flex items-center gap-2 px-3 rounded-md border",
+                                isExpNum ? "border-red-500/60 bg-red-500/10" : validity ? `${validity.borderClass} ${validity.bgClass}` : "border-border bg-muted/30"
+                              )} data-testid={`field-display-${field.fieldKey}`}>
                                 <span className="text-xs text-muted-foreground whitespace-nowrap">{field.shortLabel || field.label}:</span>
-                                <span className="text-sm font-medium truncate">{value || "-"}</span>
+                                <span className={cn("text-sm font-medium truncate", validity?.textClass, isExpNum && "text-red-500")}>{displayValue || "-"}</span>
+                                {validity && validity.status !== "unknown" && value && (
+                                  <span className={cn("w-2.5 h-2.5 rounded-full shrink-0", validity.dotClass)} title={validity.label} data-testid={`validity-dot-${field.fieldKey}`} />
+                                )}
                               </div>
                             );
                           })}
@@ -391,13 +407,30 @@ function SubjectDataTab({ subject }: { subject: Subject }) {
               </div>
               <div className="space-y-2">
                 {docs.map((doc: DocumentEntry, idx: number) => {
-                  const expired = doc.validUntil ? new Date(doc.validUntil) < new Date() : false;
-                  const expSoon = doc.validUntil ? (() => { const d = new Date(doc.validUntil).getTime() - Date.now(); return d > 0 && d < 90 * 24 * 60 * 60 * 1000; })() : false;
+                  const docValidity = getDocumentValidityStatus(doc.validUntil);
+                  const expired = docValidity.status === "expired";
+                  const expSoon = docValidity.status === "expiring";
                   return (
                     <div key={doc.id || idx} data-testid={`view-document-card-${idx}`}>
                       <div className="flex items-center gap-2 mb-1 flex-wrap">
-                        {expired && <Badge variant="destructive" className="text-[10px]">Expirovaný</Badge>}
-                        {expSoon && !expired && <Badge className="text-[10px] bg-orange-500/20 text-orange-400 border-orange-500/30">Expiruje čoskoro</Badge>}
+                        {expired && (
+                          <Badge variant="destructive" className="text-[10px] flex items-center gap-1">
+                            <span className={cn("w-2 h-2 rounded-full", docValidity.dotClass)} />
+                            Neplatný
+                          </Badge>
+                        )}
+                        {expSoon && (
+                          <Badge className="text-[10px] bg-orange-500/20 text-orange-400 border-orange-500/30 flex items-center gap-1">
+                            <span className={cn("w-2 h-2 rounded-full", docValidity.dotClass)} />
+                            {docValidity.label}
+                          </Badge>
+                        )}
+                        {!expired && !expSoon && doc.validUntil && (
+                          <Badge variant="secondary" className="text-[10px] flex items-center gap-1">
+                            <span className={cn("w-2 h-2 rounded-full", docValidity.dotClass)} />
+                            Platný
+                          </Badge>
+                        )}
                       </div>
                       <div className="flex flex-wrap gap-2">
                         <div className="h-10 flex items-center gap-2 px-3 rounded-md border border-border bg-muted/30">
@@ -410,14 +443,15 @@ function SubjectDataTab({ subject }: { subject: Subject }) {
                             <span className="text-sm font-medium">{doc.customDocType}</span>
                           </div>
                         )}
-                        <div className="h-10 flex items-center gap-2 px-3 rounded-md border border-border bg-muted/30">
+                        <div className={cn("h-10 flex items-center gap-2 px-3 rounded-md border", expired ? "border-red-500/60 bg-red-500/10" : "border-border bg-muted/30")}>
                           <span className="text-xs text-muted-foreground whitespace-nowrap">Číslo:</span>
-                          <span className="text-sm font-medium font-mono">{doc.documentNumber || '-'}</span>
+                          <span className={cn("text-sm font-medium font-mono", expired && "text-red-500")}>{doc.documentNumber || '-'}</span>
                         </div>
                         {doc.validUntil && (
-                          <div className={cn("h-10 flex items-center gap-2 px-3 rounded-md border bg-muted/30", expired ? "border-red-500/50" : expSoon ? "border-orange-500/50" : "border-border")}>
+                          <div className={cn("h-10 flex items-center gap-2 px-3 rounded-md border", docValidity.borderClass, docValidity.bgClass || "bg-muted/30")}>
                             <span className="text-xs text-muted-foreground whitespace-nowrap">Platnosť do:</span>
-                            <span className={cn("text-sm font-medium", expired ? "text-red-500" : expSoon ? "text-orange-500" : "")}>{formatDateSlovak(doc.validUntil)}</span>
+                            <span className={cn("text-sm font-medium", docValidity.textClass)}>{formatDateSlovak(doc.validUntil)}</span>
+                            <span className={cn("w-2.5 h-2.5 rounded-full shrink-0", docValidity.dotClass)} />
                           </div>
                         )}
                         {doc.issuedBy && (
@@ -1284,10 +1318,14 @@ function DynamicFieldInput({ field, dynamicValues, setDynamicValues, hasError, d
   hasError?: boolean;
   disabled?: boolean;
 }) {
-  const errorBorder = hasError ? "border-red-500 ring-1 ring-red-500" : "";
+  const numberFieldValidity = useMemo(() => {
+    return isNumberFieldWithExpiredPair(field.fieldKey, dynamicValues);
+  }, [field.fieldKey, dynamicValues]);
+  const isExpiredNumber = numberFieldValidity?.status === "expired";
+  const errorBorder = hasError ? "border-red-500 ring-1 ring-red-500" : isExpiredNumber ? "border-red-500/60 bg-red-500/10 ring-1 ring-red-500/30" : "";
   return (
     <div className="space-y-1">
-      <Label className={`text-xs truncate block ${hasError ? "text-red-500" : "text-muted-foreground"}`}>
+      <Label className={`text-xs truncate block ${hasError ? "text-red-500" : isExpiredNumber ? "text-red-500 font-semibold" : "text-muted-foreground"}`}>
         {field.shortLabel ? (
           <>
             <span className="hidden lg:inline">{field.label || field.fieldKey}</span>
@@ -1297,6 +1335,7 @@ function DynamicFieldInput({ field, dynamicValues, setDynamicValues, hasError, d
           <span>{field.label || field.fieldKey}</span>
         )}
         {field.isRequired ? " *" : ""}
+        {isExpiredNumber && <span className="ml-1 text-red-500 text-[9px]">(neplatný doklad)</span>}
       </Label>
       {field.fieldType === "long_text" ? (
         <Textarea
@@ -1349,21 +1388,10 @@ function DynamicFieldInput({ field, dynamicValues, setDynamicValues, hasError, d
       ) : field.fieldType === "date" ? (
         (() => {
           const dateVal = dynamicValues[field.fieldKey] || "";
-          let validityClass = "";
-          let validityLabel = "";
-          if (field.fieldKey === "platnost_dokladu" && dateVal) {
-            const expiry = new Date(dateVal);
-            const now = new Date();
-            const threeMonths = new Date();
-            threeMonths.setMonth(threeMonths.getMonth() + 3);
-            if (expiry < now) {
-              validityClass = "border-red-500 bg-red-500/10 ring-1 ring-red-500";
-              validityLabel = "Neplatný";
-            } else if (expiry < threeMonths) {
-              validityClass = "border-orange-500 bg-orange-500/10 ring-1 ring-orange-500";
-              validityLabel = "Končiaci";
-            }
-          }
+          const isValidity = isValidityField(field.fieldKey);
+          const validity = isValidity && dateVal ? getDocumentValidityStatus(dateVal) : null;
+          const validityClass = validity ? `${validity.borderClass} ${validity.bgClass}` : "";
+          const validityLabel = validity?.label || "";
           return (
             <div className="relative">
               <Input
@@ -1375,11 +1403,12 @@ function DynamicFieldInput({ field, dynamicValues, setDynamicValues, hasError, d
                 className={cn(errorBorder || validityClass, disabled && "bg-muted/50 cursor-default", validityLabel && "pr-[5.5rem]")}
                 data-testid={`input-dynamic-${field.fieldKey}`}
               />
-              {validityLabel && (
+              {validity && validity.status !== "unknown" && (
                 <span className={cn(
-                  "absolute right-8 top-1/2 -translate-y-1/2 text-[10px] font-semibold pointer-events-none select-none",
-                  validityLabel === "Neplatný" ? "text-red-500" : "text-orange-500"
+                  "absolute right-8 top-1/2 -translate-y-1/2 text-[10px] font-semibold pointer-events-none select-none flex items-center gap-1",
+                  validity.textClass
                 )} data-testid={`validity-status-${field.fieldKey}`}>
+                  <span className={cn("w-2 h-2 rounded-full shrink-0", validity.dotClass)} />
                   {validityLabel}
                 </span>
               )}
@@ -1897,19 +1926,8 @@ function FullPageEditor({
                   setDocuments(prev => prev.filter(d => d.id !== docId));
                 };
 
-                const isDocExpired = (validUntil?: string) => {
-                  if (!validUntil) return false;
-                  const exp = new Date(validUntil);
-                  return exp < new Date();
-                };
-
-                const isDocExpiringSoon = (validUntil?: string) => {
-                  if (!validUntil) return false;
-                  const exp = new Date(validUntil);
-                  const now = new Date();
-                  const diff = exp.getTime() - now.getTime();
-                  return diff > 0 && diff < 90 * 24 * 60 * 60 * 1000;
-                };
+                const isDocExpired = (validUntil?: string) => getDocumentValidityStatus(validUntil).status === "expired";
+                const isDocExpiringSoon = (validUntil?: string) => getDocumentValidityStatus(validUntil).status === "expiring";
 
                 const getFieldWidthClass = (fieldKey: string): string => {
                   switch (fieldKey) {
