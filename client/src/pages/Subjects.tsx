@@ -973,8 +973,7 @@ function SubjectObjectsTab({ subjectId }: { subjectId: number }) {
     <div className="space-y-2">
       <div className="flex items-center justify-between mb-3">
         <h3 className="text-sm font-semibold text-slate-400 uppercase tracking-wider flex items-center gap-2">
-          <Boxes className="w-4 h-4" /> Modul B: Majetok a Objekty
-          <Badge variant="outline" className="text-[8px] px-1 py-0 border-primary/30 text-primary">OBJEKT → SEKTOR → ODVETVIE → PRODUKT</Badge>
+          <Boxes className="w-4 h-4" /> Majetok a Objekty
         </h3>
         <div className="flex items-center gap-3 text-xs text-slate-500">
           <Lock className="w-3.5 h-3.5" /> <span>Len na čítanie</span>
@@ -1495,11 +1494,11 @@ function SubjectDetailPanel({ subject, onClose }: { subject: Subject; onClose: (
         <TabsList data-testid="tabs-subject-detail">
           <TabsTrigger value="profil_subjektu" data-testid="tab-subject-profil">
             <ShieldCheck className="w-3.5 h-3.5 mr-1" />
-            Modul C: Profil
+            Profil subjektu
           </TabsTrigger>
           <TabsTrigger value="objekty" data-testid="tab-subject-objekty">
             <Boxes className="w-3.5 h-3.5 mr-1" />
-            Modul B: Majetok
+            Objekty
           </TabsTrigger>
           <TabsTrigger value="udaje" data-testid="tab-subject-udaje">
             <FileTextIcon className="w-3.5 h-3.5 mr-1" />

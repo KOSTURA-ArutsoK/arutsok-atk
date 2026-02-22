@@ -177,7 +177,14 @@ function CollapsibleMenu({
   setOpenMenuId: (id: string | null) => void;
   moduleBadge?: string;
 }) {
-  const isAnyActive = items.some(item => location === item.href);
+  const matchesHref = (href: string) => {
+    if (href.includes("?")) {
+      const [path, query] = href.split("?");
+      return location === path && window.location.search.includes(query);
+    }
+    return location === href;
+  };
+  const isAnyActive = items.some(item => matchesHref(item.href));
   const isOpen = openMenuId === menuId;
 
   return (
@@ -206,7 +213,7 @@ function CollapsibleMenu({
               <SidebarMenuSubItem key={item.href}>
                 <SidebarMenuSubButton
                   asChild
-                  isActive={location === item.href}
+                  isActive={matchesHref(item.href)}
                   data-testid={`nav-${item.label.toLowerCase().replace(/\s/g, '-')}`}
                 >
                   <Link href={item.href}>
@@ -409,6 +416,7 @@ export function AppSidebar() {
                 items={[
                   { href: "/sektory-subjektov", icon: Database, label: "Sektory Subjektov" },
                   { href: "/sektory-zmluv", icon: FileText, label: "Sektory Zmlúv" },
+                  { href: "/subjects?tab=profil", icon: Users, label: "Profil subjektu" },
                 ]}
                 location={location}
                 testId="nav-sektory"
@@ -444,21 +452,7 @@ export function AppSidebar() {
                 menuId="klienti"
                 openMenuId={openMenuId}
                 setOpenMenuId={setOpenMenuId}
-                moduleBadge="B"
               />
-              <SidebarMenuItem>
-                <SidebarMenuButton
-                  asChild
-                  isActive={location === "/subjects" && window.location.search.includes("tab=profil")}
-                  data-testid="nav-menu-modul-c"
-                >
-                  <Link href="/subjects?tab=profil">
-                    <ShieldCheck className="w-4 h-4" />
-                    <span className="flex-1">Modul C: Profil subjektu</span>
-                    <Badge variant="outline" className="text-[8px] px-1 py-0 border-primary/30 text-primary ml-1">C</Badge>
-                  </Link>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
               <Collapsible
                 open={isZmluvyOpen}
                 onOpenChange={(val) => setOpenMenuId(val ? "zmluvy" : null)}
@@ -472,7 +466,6 @@ export function AppSidebar() {
                     >
                       <FileText className="w-4 h-4" />
                       <span className="flex-1">Zmluvy</span>
-                      <Badge variant="outline" className="text-[8px] px-1 py-0 border-primary/30 text-primary ml-1">A</Badge>
                       <ChevronRight className={`w-3.5 h-3.5 text-muted-foreground transition-transform duration-200 ${isZmluvyOpen ? "rotate-90" : ""}`} />
                     </SidebarMenuButton>
                   </CollapsibleTrigger>
