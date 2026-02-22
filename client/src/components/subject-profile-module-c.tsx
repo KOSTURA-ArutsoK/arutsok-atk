@@ -501,6 +501,15 @@ export function SubjectProfileModuleC({ subject }: ModuleCProps) {
   });
 
   const [documents, setDocuments] = useState<DocumentEntry[]>(existingDocuments);
+  const [activeDocTab, setActiveDocTab] = useState<string>(existingDocuments.length > 0 ? existingDocuments[0].id : "");
+
+  useEffect(() => {
+    if (documents.length > 0 && !documents.find(d => d.id === activeDocTab)) {
+      setActiveDocTab(documents[0].id);
+    } else if (documents.length === 0) {
+      setActiveDocTab("");
+    }
+  }, [documents, activeDocTab]);
   const [contacts, setContacts] = useState<ContactEntry[]>(() => {
     if (existingContacts.length > 0) return existingContacts;
     return [{ id: crypto.randomUUID(), type: "phone", value: subject.phone || "", label: "Primárny", isPrimary: true }];
@@ -767,6 +776,7 @@ export function SubjectProfileModuleC({ subject }: ModuleCProps) {
       issuingAuthorityCode: "",
     };
     setDocuments(prev => [...prev, newDoc]);
+    setActiveDocTab(newDoc.id);
   };
 
   const updateDocument = (docId: string, field: keyof DocumentEntry, value: string) => {
@@ -774,7 +784,13 @@ export function SubjectProfileModuleC({ subject }: ModuleCProps) {
   };
 
   const removeDocument = (docId: string) => {
-    setDocuments(prev => prev.filter(d => d.id !== docId));
+    setDocuments(prev => {
+      const remaining = prev.filter(d => d.id !== docId);
+      if (activeDocTab === docId) {
+        setActiveDocTab(remaining.length > 0 ? remaining[0].id : "");
+      }
+      return remaining;
+    });
   };
 
   const isDocExpired = (validUntil?: string) => getDocumentValidityStatus(validUntil).status === "expired";
@@ -1467,7 +1483,8 @@ export function SubjectProfileModuleC({ subject }: ModuleCProps) {
               </Card>
               {sortedPovinneRows.map((rowKeys, rowIdx) => renderFieldRow(rowKeys, rowIdx))}
 
-              <Card data-testid="panel-doklady-totoznosti">
+              <Card className="relative" data-testid="panel-doklady-totoznosti">
+                {isArchitectMode && <ArchitectFieldOverlay fieldKey="doklady_panel" sectionCategory="osobne" />}
                 <CardContent className="p-4 space-y-3">
                   <div className="flex items-center justify-between gap-2 flex-wrap">
                     <div className="flex items-center gap-2">
@@ -1491,105 +1508,154 @@ export function SubjectProfileModuleC({ subject }: ModuleCProps) {
                     </div>
                   )}
 
-                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
-                    {documents.map((doc, docIdx) => {
-                      const expired = isDocExpired(doc.validUntil);
-                      const expiringSoon = isDocExpiringSoon(doc.validUntil);
-                      const borderColor = expired ? "border-red-500/50" : expiringSoon ? "border-orange-500/50" : "border-border";
-                      return (
-                        <Card key={doc.id} className={cn("relative", borderColor)} data-testid={`card-document-${docIdx}`}>
-                          <CardContent className="p-3 space-y-2">
-                            <div className="flex items-center justify-between gap-2 flex-wrap">
-                              <div className="flex items-center gap-1.5">
-                                {expired && <Badge variant="destructive" className="text-[10px]"><span className={cn("w-2 h-2 rounded-full inline-block mr-1", "bg-red-500")} />Expirovaný</Badge>}
-                                {expiringSoon && !expired && <Badge className="text-[10px] bg-orange-500/20 text-orange-400 border-orange-500/30"><span className={cn("w-2 h-2 rounded-full inline-block mr-1", "bg-orange-500")} />Expiruje čoskoro</Badge>}
-                                {!expired && !expiringSoon && doc.validUntil && <Badge variant="secondary" className="text-[10px]"><span className={cn("w-2 h-2 rounded-full inline-block mr-1", "bg-emerald-500")} />Platný</Badge>}
-                              </div>
-                              {isEditing && (
-                                <Button type="button" variant="ghost" size="icon" onClick={() => removeDocument(doc.id)} data-testid={`button-remove-document-${docIdx}`}>
-                                  <Trash2 className="w-3.5 h-3.5 text-destructive" />
-                                </Button>
+                  {documents.length > 0 && (
+                    <div data-testid="documents-tab-container">
+                      <div className="flex items-center gap-1 overflow-x-auto pb-1 scrollbar-thin" data-testid="documents-tab-bar">
+                        {documents.map((doc, docIdx) => {
+                          const validity = getDocumentValidityStatus(doc.validUntil);
+                          const isActive = activeDocTab === doc.id;
+                          const tabLabel = doc.documentType
+                            ? (doc.documentType === "Občiansky preukaz" ? "OP"
+                              : doc.documentType === "Cestovný pas" ? "PAS"
+                              : doc.documentType === "Vodičský preukaz" ? "VP"
+                              : doc.documentType === "Povolenie na pobyt" ? "PP"
+                              : doc.documentType === "Preukaz diplomata" ? "DIP"
+                              : doc.documentType === "Iný" ? (doc.customDocType || "INÝ")
+                              : doc.documentType)
+                            : `Doklad ${docIdx + 1}`;
+                          return (
+                            <button
+                              key={doc.id}
+                              type="button"
+                              onClick={() => setActiveDocTab(doc.id)}
+                              className={cn(
+                                "relative flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-t-md border border-b-0 whitespace-nowrap shrink-0 transition-colors",
+                                isActive
+                                  ? "bg-card text-foreground border-border z-10"
+                                  : "bg-muted/50 text-muted-foreground border-transparent hover:bg-muted hover:text-foreground"
                               )}
-                            </div>
+                              data-testid={`doc-tab-${docIdx}`}
+                            >
+                              <span
+                                className={cn("w-2.5 h-2.5 rounded-full shrink-0", validity.dotClass)}
+                                title={validity.label || "Bez platnosti"}
+                                data-testid={`doc-semaphore-${docIdx}`}
+                              />
+                              {tabLabel}
+                              {doc.documentNumber && (
+                                <span className="text-[10px] text-muted-foreground ml-0.5">({doc.documentNumber})</span>
+                              )}
+                            </button>
+                          );
+                        })}
+                      </div>
 
-                            <div className="flex flex-wrap gap-3 items-end">
-                              <div className="space-y-1 flex-1 min-w-[140px]">
-                                <Label className="text-xs text-muted-foreground">Typ dokladu *</Label>
-                                <Select value={doc.documentType || ""} onValueChange={val => updateDocument(doc.id, "documentType", val)} disabled={!isEditing}>
-                                  <SelectTrigger data-testid={`select-doc-type-${docIdx}`}>
-                                    <SelectValue placeholder="Vyberte typ" />
-                                  </SelectTrigger>
-                                  <SelectContent>
-                                    {DOCUMENT_TYPES.map(t => (
-                                      <SelectItem key={t} value={t}>{t}</SelectItem>
-                                    ))}
-                                  </SelectContent>
-                                </Select>
+                      <div className="border rounded-b-md rounded-tr-md p-3 max-h-[220px] overflow-y-auto scrollbar-thin" data-testid="documents-tab-content">
+                        {documents.map((doc, docIdx) => {
+                          if (doc.id !== activeDocTab) return null;
+                          const expired = isDocExpired(doc.validUntil);
+                          const expiringSoon = isDocExpiringSoon(doc.validUntil);
+                          const validity = getDocumentValidityStatus(doc.validUntil);
+                          return (
+                            <div key={doc.id} className="space-y-3" data-testid={`card-document-${docIdx}`}>
+                              <div className="flex items-center justify-between gap-2 flex-wrap">
+                                <div className="flex items-center gap-1.5">
+                                  <span className={cn("w-2.5 h-2.5 rounded-full", validity.dotClass)} />
+                                  {expired && <Badge variant="destructive" className="text-[10px]">Expirovaný</Badge>}
+                                  {expiringSoon && !expired && <Badge className="text-[10px] bg-orange-500/20 text-orange-400 border-orange-500/30">Expiruje čoskoro</Badge>}
+                                  {!expired && !expiringSoon && doc.validUntil && <Badge variant="secondary" className="text-[10px]">Platný</Badge>}
+                                  {validity.daysRemaining !== null && (
+                                    <span className={cn("text-[10px]", validity.textClass)}>
+                                      {validity.daysRemaining <= 0 ? `${Math.abs(validity.daysRemaining)}d po` : `${validity.daysRemaining}d`}
+                                    </span>
+                                  )}
+                                </div>
+                                {isEditing && (
+                                  <Button type="button" variant="ghost" size="icon" onClick={() => removeDocument(doc.id)} data-testid={`button-remove-document-${docIdx}`}>
+                                    <Trash2 className="w-3.5 h-3.5 text-destructive" />
+                                  </Button>
+                                )}
                               </div>
 
-                              {doc.documentType === "Iný" && (
+                              <div className="flex flex-wrap gap-3 items-end">
                                 <div className="space-y-1 flex-1 min-w-[140px]">
-                                  <Label className={cn("text-xs", !doc.customDocType ? "text-orange-500 font-semibold" : "text-muted-foreground")}>Špecifikácia dokladu *</Label>
+                                  <Label className="text-xs text-muted-foreground">Typ dokladu *</Label>
+                                  <Select value={doc.documentType || ""} onValueChange={val => updateDocument(doc.id, "documentType", val)} disabled={!isEditing}>
+                                    <SelectTrigger data-testid={`select-doc-type-${docIdx}`}>
+                                      <SelectValue placeholder="Vyberte typ" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                      {DOCUMENT_TYPES.map(t => (
+                                        <SelectItem key={t} value={t}>{t}</SelectItem>
+                                      ))}
+                                    </SelectContent>
+                                  </Select>
+                                </div>
+
+                                {doc.documentType === "Iný" && (
+                                  <div className="space-y-1 flex-1 min-w-[140px]">
+                                    <Label className={cn("text-xs", !doc.customDocType ? "text-orange-500 font-semibold" : "text-muted-foreground")}>Špecifikácia dokladu *</Label>
+                                    <Input
+                                      value={doc.customDocType || ""}
+                                      onChange={e => updateDocument(doc.id, "customDocType", e.target.value)}
+                                      placeholder="Uveďte typ dokladu"
+                                      className={!doc.customDocType ? "border-orange-500/50" : ""}
+                                      disabled={!isEditing}
+                                      data-testid={`input-doc-custom-type-${docIdx}`}
+                                    />
+                                  </div>
+                                )}
+                              </div>
+
+                              <div className="flex flex-wrap gap-3 items-end">
+                                <div className="space-y-1 flex-1 min-w-[140px]">
+                                  <Label className="text-xs text-muted-foreground">Číslo dokladu *</Label>
                                   <Input
-                                    value={doc.customDocType || ""}
-                                    onChange={e => updateDocument(doc.id, "customDocType", e.target.value)}
-                                    placeholder="Uveďte typ dokladu"
-                                    className={!doc.customDocType ? "border-orange-500/50" : ""}
+                                    value={doc.documentNumber || ""}
+                                    onChange={e => updateDocument(doc.id, "documentNumber", e.target.value)}
                                     disabled={!isEditing}
-                                    data-testid={`input-doc-custom-type-${docIdx}`}
+                                    data-testid={`input-doc-number-${docIdx}`}
                                   />
                                 </div>
-                              )}
-                            </div>
+                                <div className="space-y-1 w-[160px] min-w-[140px] shrink-0">
+                                  <Label className={cn("text-xs", expired ? "text-red-500 font-semibold" : expiringSoon ? "text-orange-500" : "text-muted-foreground")}>Platnosť do</Label>
+                                  <Input
+                                    type="date"
+                                    value={doc.validUntil || ""}
+                                    onChange={e => updateDocument(doc.id, "validUntil", e.target.value)}
+                                    className={expired ? "border-red-500/50" : expiringSoon ? "border-orange-500/50" : ""}
+                                    disabled={!isEditing}
+                                    data-testid={`input-doc-valid-${docIdx}`}
+                                  />
+                                </div>
+                              </div>
 
-                            <div className="flex flex-wrap gap-3 items-end">
-                              <div className="space-y-1 flex-1 min-w-[140px]">
-                                <Label className="text-xs text-muted-foreground">Číslo dokladu *</Label>
-                                <Input
-                                  value={doc.documentNumber || ""}
-                                  onChange={e => updateDocument(doc.id, "documentNumber", e.target.value)}
-                                  disabled={!isEditing}
-                                  data-testid={`input-doc-number-${docIdx}`}
-                                />
-                              </div>
-                              <div className="space-y-1 w-[160px] min-w-[140px] shrink-0">
-                                <Label className={cn("text-xs", expired ? "text-red-500 font-semibold" : expiringSoon ? "text-orange-500" : "text-muted-foreground")}>Platnosť do</Label>
-                                <Input
-                                  type="date"
-                                  value={doc.validUntil || ""}
-                                  onChange={e => updateDocument(doc.id, "validUntil", e.target.value)}
-                                  className={expired ? "border-red-500/50" : expiringSoon ? "border-orange-500/50" : ""}
-                                  disabled={!isEditing}
-                                  data-testid={`input-doc-valid-${docIdx}`}
-                                />
-                              </div>
-                            </div>
-
-                            <div className="flex flex-wrap gap-3 items-end">
-                              <div className="space-y-1 flex-1 min-w-[140px]">
-                                <Label className="text-xs text-muted-foreground">Vydávajúci orgán</Label>
-                                <Input
-                                  value={doc.issuedBy || ""}
-                                  onChange={e => updateDocument(doc.id, "issuedBy", e.target.value)}
-                                  disabled={!isEditing}
-                                  data-testid={`input-doc-issued-${docIdx}`}
-                                />
-                              </div>
-                              <div className="space-y-1 flex-1 min-w-[120px]">
-                                <Label className="text-xs text-muted-foreground">Kód orgánu</Label>
-                                <Input
-                                  value={doc.issuingAuthorityCode || ""}
-                                  onChange={e => updateDocument(doc.id, "issuingAuthorityCode", e.target.value)}
-                                  disabled={!isEditing}
-                                  data-testid={`input-doc-authority-${docIdx}`}
-                                />
+                              <div className="flex flex-wrap gap-3 items-end">
+                                <div className="space-y-1 flex-1 min-w-[140px]">
+                                  <Label className="text-xs text-muted-foreground">Vydávajúci orgán</Label>
+                                  <Input
+                                    value={doc.issuedBy || ""}
+                                    onChange={e => updateDocument(doc.id, "issuedBy", e.target.value)}
+                                    disabled={!isEditing}
+                                    data-testid={`input-doc-issued-${docIdx}`}
+                                  />
+                                </div>
+                                <div className="space-y-1 flex-1 min-w-[120px]">
+                                  <Label className="text-xs text-muted-foreground">Kód orgánu</Label>
+                                  <Input
+                                    value={doc.issuingAuthorityCode || ""}
+                                    onChange={e => updateDocument(doc.id, "issuingAuthorityCode", e.target.value)}
+                                    disabled={!isEditing}
+                                    data-testid={`input-doc-authority-${docIdx}`}
+                                  />
+                                </div>
                               </div>
                             </div>
-                          </CardContent>
-                        </Card>
-                      );
-                    })}
-                  </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
                 </CardContent>
               </Card>
 
