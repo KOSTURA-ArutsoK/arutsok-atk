@@ -50,7 +50,6 @@ import {
   Database,
   LayoutGrid,
   Zap,
-  Boxes,
 } from "lucide-react";
 import {
   Sidebar,
@@ -436,32 +435,17 @@ export function AppSidebar() {
                 openMenuId={openMenuId}
                 setOpenMenuId={setOpenMenuId}
               />
-              <SidebarMenuItem>
-                <SidebarMenuButton
-                  asChild
-                  isActive={location === "/subjects" && !window.location.search.includes("tab=objekty")}
-                  data-testid="nav-menu-modul-c"
-                >
-                  <Link href="/subjects?tab=profil">
-                    <ShieldCheck className="w-4 h-4" />
-                    <span className="flex-1">Modul C: Profil subjektu</span>
-                    <Badge variant="outline" className="text-[8px] px-1 py-0 border-primary/30 text-primary ml-1">C</Badge>
-                  </Link>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-              <SidebarMenuItem>
-                <SidebarMenuButton
-                  asChild
-                  isActive={location === "/subjects" && window.location.search.includes("tab=objekty")}
-                  data-testid="nav-menu-modul-b"
-                >
-                  <Link href="/subjects?tab=objekty">
-                    <Boxes className="w-4 h-4" />
-                    <span className="flex-1">Modul B: Majetok a Objekty</span>
-                    <Badge variant="outline" className="text-[8px] px-1 py-0 border-primary/30 text-primary ml-1">B</Badge>
-                  </Link>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
+              <CollapsibleMenu
+                label="Subjekty"
+                icon={Users}
+                items={klientiItems}
+                location={location}
+                testId="nav-menu-klienti"
+                menuId="klienti"
+                openMenuId={openMenuId}
+                setOpenMenuId={setOpenMenuId}
+                moduleBadge="B"
+              />
               <Collapsible
                 open={isZmluvyOpen}
                 onOpenChange={(val) => setOpenMenuId(val ? "zmluvy" : null)}
@@ -474,7 +458,7 @@ export function AppSidebar() {
                       className={isZmluvyActive ? "text-sidebar-accent-foreground font-medium" : ""}
                     >
                       <FileText className="w-4 h-4" />
-                      <span className="flex-1">Modul A: Spravovanie zmlúv</span>
+                      <span className="flex-1">Zmluvy</span>
                       <Badge variant="outline" className="text-[8px] px-1 py-0 border-primary/30 text-primary ml-1">A</Badge>
                       <ChevronRight className={`w-3.5 h-3.5 text-muted-foreground transition-transform duration-200 ${isZmluvyOpen ? "rotate-90" : ""}`} />
                     </SidebarMenuButton>
