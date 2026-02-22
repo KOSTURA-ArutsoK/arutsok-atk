@@ -3818,10 +3818,11 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getSubjectParamSections(clientTypeId?: number): Promise<SubjectParamSection[]> {
+    const notMerged = sql`${subjectParamSections.name} NOT LIKE '[ZLÚČENÉ]%'`;
     if (clientTypeId) {
-      return db.select().from(subjectParamSections).where(eq(subjectParamSections.clientTypeId, clientTypeId)).orderBy(asc(subjectParamSections.sortOrder));
+      return db.select().from(subjectParamSections).where(and(eq(subjectParamSections.clientTypeId, clientTypeId), notMerged)).orderBy(asc(subjectParamSections.sortOrder));
     }
-    return db.select().from(subjectParamSections).orderBy(asc(subjectParamSections.sortOrder));
+    return db.select().from(subjectParamSections).where(notMerged).orderBy(asc(subjectParamSections.sortOrder));
   }
 
   async createSubjectParamSection(data: InsertSubjectParamSection): Promise<SubjectParamSection> {
