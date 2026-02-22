@@ -992,80 +992,103 @@ export default function KniznicaParametrov() {
                 )}
               </div>
 
-              {bindingTemplateId && (
+              {bindingTemplateId && (() => {
+                const groupedByPanel = new Map<string, { panelName: string; items: typeof templateParams }>();
+                templateParams.forEach(tp => {
+                  const param = parameters.find(p => p.id === tp.parameterId);
+                  const panel = param?.panelId ? sections.find(s => s.id === param.panelId) : null;
+                  const key = panel ? String(panel.id) : "unassigned";
+                  const panelName = panel?.name || "Nepriradené";
+                  if (!groupedByPanel.has(key)) {
+                    groupedByPanel.set(key, { panelName, items: [] });
+                  }
+                  groupedByPanel.get(key)!.items.push(tp);
+                });
+
+                return (
                 <Card data-testid="template-bindings-panel">
                   <CardHeader className="py-3 px-4">
                     <CardTitle className="text-sm">
                       Parametre šablóny: {templates.find(t => t.id === bindingTemplateId)?.name}
                     </CardTitle>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      {templateParams.length} parametrov v {groupedByPanel.size} paneloch
+                    </p>
                   </CardHeader>
-                  <CardContent className="pt-0 pb-3 px-4 space-y-3">
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead className="text-xs">Parameter</TableHead>
-                          <TableHead className="text-xs">Platné od</TableHead>
-                          <TableHead className="text-xs">Platné do</TableHead>
-                          <TableHead className="text-xs w-20">Akcie</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {templateParams.map(tp => {
-                          const param = parameters.find(p => p.id === tp.parameterId);
-                          return (
-                            <TableRow key={tp.id} data-testid={`row-binding-${tp.id}`}>
-                              <TableCell className="text-xs">{param?.label || `ID ${tp.parameterId}`}</TableCell>
-                              <TableCell className="text-xs">
-                                <Input
-                                  type="date"
-                                  className="h-7 text-xs w-32"
-                                  defaultValue={tp.validFrom?.split("T")[0] || ""}
-                                  onBlur={(e) => {
-                                    updateTemplateParamMutation.mutate({
-                                      id: tp.id,
-                                      validFrom: e.target.value || null,
-                                    });
-                                  }}
-                                  data-testid={`input-valid-from-${tp.id}`}
-                                />
-                              </TableCell>
-                              <TableCell className="text-xs">
-                                <Input
-                                  type="date"
-                                  className="h-7 text-xs w-32"
-                                  defaultValue={tp.validTo?.split("T")[0] || ""}
-                                  onBlur={(e) => {
-                                    updateTemplateParamMutation.mutate({
-                                      id: tp.id,
-                                      validTo: e.target.value || null,
-                                    });
-                                  }}
-                                  data-testid={`input-valid-to-${tp.id}`}
-                                />
-                              </TableCell>
-                              <TableCell>
-                                <Button
-                                  variant="ghost"
-                                  size="icon"
-                                  className="h-6 w-6 text-destructive"
-                                  onClick={() => removeTemplateParamMutation.mutate(tp.id)}
-                                  data-testid={`button-remove-binding-${tp.id}`}
-                                >
-                                  <Trash2 className="w-3 h-3" />
-                                </Button>
-                              </TableCell>
+                  <CardContent className="pt-0 pb-3 px-4 space-y-4">
+                    {Array.from(groupedByPanel.entries()).map(([panelKey, group], gIdx) => (
+                      <div key={panelKey} className={gIdx > 0 ? "border-t-2 border-border pt-4" : ""} data-testid={`panel-group-${panelKey}`}>
+                        <div className="flex items-center gap-2 mb-3 pb-2 border-b border-dashed border-muted-foreground/30">
+                          <LayoutTemplate className="w-3.5 h-3.5 text-primary" />
+                          <h4 className="text-xs font-bold uppercase tracking-wider text-primary">{group.panelName}</h4>
+                          <Badge variant="outline" className="text-[9px] ml-auto">{group.items.length} param.</Badge>
+                        </div>
+                        <Table>
+                          <TableHeader>
+                            <TableRow>
+                              <TableHead className="text-xs">Parameter</TableHead>
+                              <TableHead className="text-xs">Kód</TableHead>
+                              <TableHead className="text-xs">Platné od</TableHead>
+                              <TableHead className="text-xs">Platné do</TableHead>
+                              <TableHead className="text-xs w-20">Akcie</TableHead>
                             </TableRow>
-                          );
-                        })}
-                        {templateParams.length === 0 && (
-                          <TableRow>
-                            <TableCell colSpan={4} className="text-xs text-muted-foreground text-center">
-                              Žiadne parametre priradené
-                            </TableCell>
-                          </TableRow>
-                        )}
-                      </TableBody>
-                    </Table>
+                          </TableHeader>
+                          <TableBody>
+                            {group.items.map(tp => {
+                              const param = parameters.find(p => p.id === tp.parameterId);
+                              return (
+                                <TableRow key={tp.id} data-testid={`row-binding-${tp.id}`}>
+                                  <TableCell className="text-xs">{param?.label || `ID ${tp.parameterId}`}</TableCell>
+                                  <TableCell className="text-xs font-mono text-muted-foreground">{param?.code || "-"}</TableCell>
+                                  <TableCell className="text-xs">
+                                    <Input
+                                      type="date"
+                                      className="h-7 text-xs w-32"
+                                      defaultValue={tp.validFrom?.split("T")[0] || ""}
+                                      onBlur={(e) => {
+                                        updateTemplateParamMutation.mutate({
+                                          id: tp.id,
+                                          validFrom: e.target.value || null,
+                                        });
+                                      }}
+                                      data-testid={`input-valid-from-${tp.id}`}
+                                    />
+                                  </TableCell>
+                                  <TableCell className="text-xs">
+                                    <Input
+                                      type="date"
+                                      className="h-7 text-xs w-32"
+                                      defaultValue={tp.validTo?.split("T")[0] || ""}
+                                      onBlur={(e) => {
+                                        updateTemplateParamMutation.mutate({
+                                          id: tp.id,
+                                          validTo: e.target.value || null,
+                                        });
+                                      }}
+                                      data-testid={`input-valid-to-${tp.id}`}
+                                    />
+                                  </TableCell>
+                                  <TableCell>
+                                    <Button
+                                      variant="ghost"
+                                      size="icon"
+                                      className="h-6 w-6 text-destructive"
+                                      onClick={() => removeTemplateParamMutation.mutate(tp.id)}
+                                      data-testid={`button-remove-binding-${tp.id}`}
+                                    >
+                                      <Trash2 className="w-3 h-3" />
+                                    </Button>
+                                  </TableCell>
+                                </TableRow>
+                              );
+                            })}
+                          </TableBody>
+                        </Table>
+                      </div>
+                    ))}
+                    {templateParams.length === 0 && (
+                      <p className="text-xs text-muted-foreground text-center py-4">Žiadne parametre priradené</p>
+                    )}
 
                     <div className="border-t pt-3">
                       <Label className="text-xs mb-1 block">Pridať parameter do šablóny</Label>
@@ -1096,7 +1119,8 @@ export default function KniznicaParametrov() {
                     </div>
                   </CardContent>
                 </Card>
-              )}
+                );
+              })()}
             </div>
           )}
         </TabsContent>
