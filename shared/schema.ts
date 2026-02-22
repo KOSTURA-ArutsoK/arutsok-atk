@@ -1416,6 +1416,33 @@ export const insertClientMarketingConsentSchema = createInsertSchema(clientMarke
 export type ClientMarketingConsent = typeof clientMarketingConsents.$inferSelect;
 export type InsertClientMarketingConsent = z.infer<typeof insertClientMarketingConsentSchema>;
 
+// === SUBJECT ADDRESSES (collection with temporal validity) ===
+export const subjectAddresses = pgTable("subject_addresses", {
+  id: serial("id").primaryKey(),
+  subjectId: integer("subject_id").notNull().references(() => subjects.id),
+  addressType: text("address_type").notNull(),
+  ulica: text("ulica"),
+  supisneCislo: text("supisne_cislo"),
+  orientacneCislo: text("orientacne_cislo"),
+  obecMesto: text("obec_mesto"),
+  psc: text("psc"),
+  stat: text("stat").default("Slovensko"),
+  isHlavna: boolean("is_hlavna").default(false),
+  isActive: boolean("is_active").default(true),
+  validFrom: timestamp("valid_from").defaultNow(),
+  validTo: timestamp("valid_to"),
+  createdByUserId: integer("created_by_user_id").references(() => appUsers.id),
+  createdByName: text("created_by_name"),
+  updatedByUserId: integer("updated_by_user_id").references(() => appUsers.id),
+  updatedByName: text("updated_by_name"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertSubjectAddressSchema = createInsertSchema(subjectAddresses).omit({ id: true, createdAt: true, updatedAt: true });
+export type SubjectAddress = typeof subjectAddresses.$inferSelect;
+export type InsertSubjectAddress = z.infer<typeof insertSubjectAddressSchema>;
+
 // === SUBJECT FIELD HISTORY (granular versioning per field) ===
 export const subjectFieldHistory = pgTable("subject_field_history", {
   id: serial("id").primaryKey(),

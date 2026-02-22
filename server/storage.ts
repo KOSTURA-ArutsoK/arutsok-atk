@@ -103,6 +103,8 @@ import {
   type ClientMarketingConsent, type InsertClientMarketingConsent,
   subjectPointsLog,
   type SubjectPointsLog, type InsertSubjectPointsLog,
+  subjectAddresses,
+  type SubjectAddress, type InsertSubjectAddress,
   subjectFieldHistory,
   type SubjectFieldHistory, type InsertSubjectFieldHistory,
   subjectCollaborators,
@@ -188,6 +190,12 @@ export interface IStorage {
 
   getClientDocumentHistory(subjectId: number): Promise<ClientDocumentHistory[]>;
   createClientDocumentHistory(data: InsertClientDocumentHistory): Promise<ClientDocumentHistory>;
+
+  getSubjectAddresses(subjectId: number): Promise<SubjectAddress[]>;
+  createSubjectAddress(data: InsertSubjectAddress, userId: number, userName: string): Promise<SubjectAddress>;
+  updateSubjectAddress(id: number, subjectId: number, updates: Partial<InsertSubjectAddress>, userId: number, userName: string): Promise<SubjectAddress>;
+  deleteSubjectAddress(id: number, subjectId: number): Promise<void>;
+  setHlavnaAddress(id: number, subjectId: number, userId: number, userName: string): Promise<void>;
 
   getSubjectFieldHistory(subjectId: number, fieldKey?: string): Promise<SubjectFieldHistory[]>;
   getSubjectFieldHistoryKeys(subjectId: number): Promise<string[]>;
@@ -1277,6 +1285,119 @@ export class DatabaseStorage implements IStorage {
     }).returning();
 
     return restoreLog;
+  }
+
+  async getSubjectAddresses(subjectId: number): Promise<SubjectAddress[]> {
+    return db.select().from(subjectAddresses)
+      .where(and(eq(subjectAddresses.subjectId, subjectId), eq(subjectAddresses.isActive, true)))
+      .orderBy(subjectAddresses.addressType);
+  }
+
+  async createSubjectAddress(data: InsertSubjectAddress, userId: number, userName: string): Promise<SubjectAddress> {
+    const existing = await db.select().from(subjectAddresses)
+      .where(and(eq(subjectAddresses.subjectId, data.subjectId), eq(subjectAddresses.addressType, data.addressType), eq(subjectAddresses.isActive, true)));
+    if (existing.length > 0) throw new Error(`Adresa typu '${data.addressType}' už existuje`);
+
+    const addressData = {
+      ...data,
+      createdByUserId: userId,
+      createdByName: userName,
+      updatedByUserId: userId,
+      updatedByName: userName,
+    };
+    const [created] = await db.insert(subjectAddresses).values(addressData).returning();
+
+    const ADDRESS_FIELD_LABELS: Record<string, string> = {
+      ulica: "Ulica", supisneCislo: "Súpisné číslo", orientacneCislo: "Orientačné číslo",
+      obecMesto: "Obec/Mesto", psc: "PSČ", stat: "Štát",
+    };
+    const typeLabel = data.addressType === "trvaly" ? "Trvalý pobyt" : data.addressType === "prechodny" ? "Prechodný pobyt" : "Korešpondenčná";
+    const addrFields = ["ulica", "supisneCislo", "orientacneCislo", "obecMesto", "psc", "stat"] as const;
+    const historyEntries: InsertSubjectFieldHistory[] = [];
+    for (const f of addrFields) {
+      const val = (data as any)[f];
+      if (val) {
+        historyEntries.push({
+          subjectId: data.subjectId,
+          fieldKey: `addr_${data.addressType}_${f}`,
+          fieldSource: "address",
+          oldValue: null,
+          newValue: val,
+          changedByUserId: userId,
+          changedByName: userName,
+          changeReason: `Vytvorenie adresy: ${typeLabel} – ${ADDRESS_FIELD_LABELS[f]}`,
+        });
+      }
+    }
+    if (historyEntries.length > 0) {
+      await db.insert(subjectFieldHistory).values(historyEntries);
+    }
+    return created;
+  }
+
+  async updateSubjectAddress(id: number, subjectId: number, updates: Partial<InsertSubjectAddress>, userId: number, userName: string): Promise<SubjectAddress> {
+    const [existing] = await db.select().from(subjectAddresses)
+      .where(and(eq(subjectAddresses.id, id), eq(subjectAddresses.subjectId, subjectId)));
+    if (!existing) throw new Error("Adresa neexistuje");
+
+    const ADDRESS_FIELD_LABELS: Record<string, string> = {
+      ulica: "Ulica", supisneCislo: "Súpisné číslo", orientacneCislo: "Orientačné číslo",
+      obecMesto: "Obec/Mesto", psc: "PSČ", stat: "Štát",
+    };
+    const typeLabel = existing.addressType === "trvaly" ? "Trvalý pobyt" : existing.addressType === "prechodny" ? "Prechodný pobyt" : "Korešpondenčná";
+    const addrFields = ["ulica", "supisneCislo", "orientacneCislo", "obecMesto", "psc", "stat"] as const;
+    const historyEntries: InsertSubjectFieldHistory[] = [];
+    for (const f of addrFields) {
+      if (f in updates) {
+        const oldVal = (existing as any)[f];
+        const newVal = (updates as any)[f];
+        if (String(oldVal || "") !== String(newVal || "")) {
+          historyEntries.push({
+            subjectId,
+            fieldKey: `addr_${existing.addressType}_${f}`,
+            fieldSource: "address",
+            oldValue: oldVal || null,
+            newValue: newVal || null,
+            changedByUserId: userId,
+            changedByName: userName,
+            changeReason: `Zmena adresy: ${typeLabel} – ${ADDRESS_FIELD_LABELS[f]}`,
+          });
+        }
+      }
+    }
+    if (historyEntries.length > 0) {
+      await db.insert(subjectFieldHistory).values(historyEntries);
+    }
+
+    const [updated] = await db.update(subjectAddresses).set({
+      ...updates,
+      updatedByUserId: userId,
+      updatedByName: userName,
+      updatedAt: new Date(),
+    }).where(and(eq(subjectAddresses.id, id), eq(subjectAddresses.subjectId, subjectId))).returning();
+    return updated;
+  }
+
+  async deleteSubjectAddress(id: number, subjectId: number): Promise<void> {
+    await db.update(subjectAddresses).set({ isActive: false }).where(and(eq(subjectAddresses.id, id), eq(subjectAddresses.subjectId, subjectId)));
+  }
+
+  async setHlavnaAddress(id: number, subjectId: number, userId: number, userName: string): Promise<void> {
+    await db.update(subjectAddresses).set({ isHlavna: false })
+      .where(and(eq(subjectAddresses.subjectId, subjectId), eq(subjectAddresses.isActive, true)));
+    await db.update(subjectAddresses).set({ isHlavna: true, updatedByUserId: userId, updatedByName: userName, updatedAt: new Date() })
+      .where(and(eq(subjectAddresses.id, id), eq(subjectAddresses.subjectId, subjectId)));
+
+    await db.insert(subjectFieldHistory).values({
+      subjectId,
+      fieldKey: `addr_hlavna`,
+      fieldSource: "address",
+      oldValue: null,
+      newValue: String(id),
+      changedByUserId: userId,
+      changedByName: userName,
+      changeReason: `Hlavná adresa zmenená používateľom ${userName}`,
+    });
   }
 
   async anonymizeSubject(id: number, userId: number): Promise<Subject> {

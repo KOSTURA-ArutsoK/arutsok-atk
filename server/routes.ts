@@ -6390,6 +6390,87 @@ export async function registerRoutes(
     }
   });
 
+  // === SUBJECT ADDRESSES COLLECTION ===
+  app.get("/api/subjects/:id/addresses", isAuthenticated, async (req: any, res) => {
+    try {
+      const subjectId = Number(req.params.id);
+      if (!await checkKlientiSubjectAccess(req.appUser, subjectId)) return res.status(403).json({ message: "Prístup zamietnutý" });
+      const addresses = await storage.getSubjectAddresses(subjectId);
+      res.json(addresses);
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  app.post("/api/subjects/:id/addresses", isAuthenticated, async (req: any, res) => {
+    try {
+      const appUser = req.appUser;
+      if (!appUser) return res.status(401).json({ message: "Unauthorized" });
+      const subjectId = Number(req.params.id);
+      if (!await checkKlientiSubjectAccess(req.appUser, subjectId)) return res.status(403).json({ message: "Prístup zamietnutý" });
+      const { addressType, ulica, supisneCislo, orientacneCislo, obecMesto, psc, stat, isHlavna } = req.body;
+      if (!addressType || !["trvaly", "prechodny", "korespondencna"].includes(addressType)) {
+        return res.status(400).json({ message: "Neplatný typ adresy" });
+      }
+      const userName = [appUser.firstName, appUser.lastName].filter(Boolean).join(' ') || appUser.email || 'Neznámy';
+      const created = await storage.createSubjectAddress({
+        subjectId, addressType, ulica, supisneCislo, orientacneCislo, obecMesto, psc, stat: stat || "Slovensko", isHlavna: isHlavna || false,
+      }, appUser.id, userName);
+      await logAudit(req, { action: "Vytvorenie", module: "Adresy", entityId: created.id, entityName: `Adresa ${addressType} pre subjekt #${subjectId}`, newData: req.body });
+      res.json(created);
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  app.patch("/api/subjects/:id/addresses/:addressId", isAuthenticated, async (req: any, res) => {
+    try {
+      const appUser = req.appUser;
+      if (!appUser) return res.status(401).json({ message: "Unauthorized" });
+      const subjectId = Number(req.params.id);
+      const addressId = Number(req.params.addressId);
+      if (!await checkKlientiSubjectAccess(req.appUser, subjectId)) return res.status(403).json({ message: "Prístup zamietnutý" });
+      const userName = [appUser.firstName, appUser.lastName].filter(Boolean).join(' ') || appUser.email || 'Neznámy';
+      const { ulica, supisneCislo, orientacneCislo, obecMesto, psc, stat } = req.body;
+      const updated = await storage.updateSubjectAddress(addressId, subjectId, { ulica, supisneCislo, orientacneCislo, obecMesto, psc, stat }, appUser.id, userName);
+      await logAudit(req, { action: "Uprava", module: "Adresy", entityId: addressId, entityName: `Adresa ${updated.addressType} pre subjekt #${subjectId}`, newData: req.body });
+      res.json(updated);
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  app.delete("/api/subjects/:id/addresses/:addressId", isAuthenticated, async (req: any, res) => {
+    try {
+      const appUser = req.appUser;
+      if (!appUser) return res.status(401).json({ message: "Unauthorized" });
+      const subjectId = Number(req.params.id);
+      const addressId = Number(req.params.addressId);
+      if (!await checkKlientiSubjectAccess(req.appUser, subjectId)) return res.status(403).json({ message: "Prístup zamietnutý" });
+      await storage.deleteSubjectAddress(addressId, subjectId);
+      await logAudit(req, { action: "Vymazanie", module: "Adresy", entityId: addressId, entityName: `Adresa pre subjekt #${subjectId}` });
+      res.json({ success: true });
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  app.post("/api/subjects/:id/addresses/:addressId/set-hlavna", isAuthenticated, async (req: any, res) => {
+    try {
+      const appUser = req.appUser;
+      if (!appUser) return res.status(401).json({ message: "Unauthorized" });
+      const subjectId = Number(req.params.id);
+      const addressId = Number(req.params.addressId);
+      if (!await checkKlientiSubjectAccess(req.appUser, subjectId)) return res.status(403).json({ message: "Prístup zamietnutý" });
+      const userName = [appUser.firstName, appUser.lastName].filter(Boolean).join(' ') || appUser.email || 'Neznámy';
+      await storage.setHlavnaAddress(addressId, subjectId, appUser.id, userName);
+      await logAudit(req, { action: "Uprava", module: "Adresy", entityId: addressId, entityName: `Nastavenie hlavnej adresy pre subjekt #${subjectId}` });
+      res.json({ success: true });
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
   app.post("/api/subjects/:id/anonymize", isAuthenticated, async (req: any, res) => {
     try {
       const appUser = req.appUser;

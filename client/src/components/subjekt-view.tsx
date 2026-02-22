@@ -4,7 +4,7 @@ import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { useMyCompanies } from "@/hooks/use-companies";
 import { useAppUser } from "@/hooks/use-app-user";
-import type { Subject, ClientDataTab, ClientDataCategory, ClientMarketingConsent, ClientType, SubjectCollaborator, SubjectFieldHistory } from "@shared/schema";
+import type { Subject, ClientDataTab, ClientDataCategory, ClientMarketingConsent, ClientType, SubjectCollaborator, SubjectFieldHistory, SubjectAddress } from "@shared/schema";
 import { getFieldsForClientTypeId, getSectionsForClientTypeId, type StaticField } from "@/lib/staticFieldDefs";
 import { getDocumentValidityStatus, isValidityField, isNumberFieldWithExpiredPair } from "@/lib/document-validity";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -15,7 +15,7 @@ import { Switch } from "@/components/ui/switch";
 import { Separator } from "@/components/ui/separator";
 import { Card, CardContent } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Loader2, UserCheck, Scale, Users, Wallet, BarChart3, Wifi, Archive, FileText, Eye, EyeOff, ChevronRight, Check, X, Plus, AlertTriangle, ShieldAlert, Ban, Link2, Building2, User, ArrowLeftRight, History, UserPlus, ShieldCheck, Clock, Pencil, Save, MessageSquare, FileDown } from "lucide-react";
+import { Loader2, UserCheck, Scale, Users, Wallet, BarChart3, Wifi, Archive, FileText, Eye, EyeOff, ChevronRight, Check, X, Plus, AlertTriangle, ShieldAlert, Ban, Link2, Building2, User, ArrowLeftRight, History, UserPlus, ShieldCheck, Clock, Pencil, Save, MessageSquare, FileDown, MapPin, Mail, Trash2, Star } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
@@ -977,6 +977,10 @@ export function SubjektView({ subject, showPdfSidebar = false, isClientView = fa
                   </>
                 )}
 
+                {tab.code === "identita" && (
+                  <AddressCollectionBlock subjectId={subject.id} isClientView={isClientView} />
+                )}
+
                 {tab.code === "servis" && (
                   <FieldHistorySection subjectId={subject.id} history={fieldHistory || []} />
                 )}
@@ -1327,6 +1331,356 @@ function CollaboratorsSection({ subjectId, collaborators }: { subjectId: number;
             ))}
           </div>
         )}
+      </CardContent>
+    </Card>
+  );
+}
+
+const ADDRESS_TYPE_LABELS: Record<string, string> = {
+  trvaly: "Trvalý pobyt",
+  prechodny: "Prechodný pobyt",
+  korespondencna: "Korešpondenčná adresa",
+};
+
+const ADDRESS_FIELD_LABELS: Record<string, string> = {
+  ulica: "Ulica",
+  supisneCislo: "Súpisné číslo",
+  orientacneCislo: "Orientačné číslo",
+  obecMesto: "Obec/Mesto",
+  psc: "PSČ",
+  stat: "Štát",
+};
+
+function AddressCollectionBlock({ subjectId, isClientView }: { subjectId: number; isClientView?: boolean }) {
+  const { toast } = useToast();
+  const [addingType, setAddingType] = useState<string | null>(null);
+  const [editingId, setEditingId] = useState<number | null>(null);
+  const [formData, setFormData] = useState<Record<string, string>>({});
+  const [historyOpen, setHistoryOpen] = useState<number | null>(null);
+
+  const { data: addresses, isLoading } = useQuery<SubjectAddress[]>({
+    queryKey: ["/api/subjects", subjectId, "addresses"],
+    queryFn: () => apiRequest("GET", `/api/subjects/${subjectId}/addresses`).then(r => r.json()),
+  });
+
+  const { data: fieldHistory } = useQuery<SubjectFieldHistory[]>({
+    queryKey: ["/api/subjects", subjectId, "field-history"],
+    queryFn: () => apiRequest("GET", `/api/subjects/${subjectId}/field-history`).then(r => r.json()),
+  });
+
+  const createAddress = useMutation({
+    mutationFn: async (data: Record<string, any>) => {
+      return apiRequest("POST", `/api/subjects/${subjectId}/addresses`, data).then(r => r.json());
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/subjects", subjectId, "addresses"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/subjects", subjectId, "field-history"] });
+      toast({ title: "Adresa vytvorená" });
+      setAddingType(null);
+      setFormData({});
+    },
+    onError: (err: any) => toast({ title: "Chyba", description: err.message, variant: "destructive" }),
+  });
+
+  const updateAddress = useMutation({
+    mutationFn: async ({ id, data }: { id: number; data: Record<string, any> }) => {
+      return apiRequest("PATCH", `/api/subjects/${subjectId}/addresses/${id}`, data).then(r => r.json());
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/subjects", subjectId, "addresses"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/subjects", subjectId, "field-history"] });
+      toast({ title: "Adresa aktualizovaná" });
+      setEditingId(null);
+      setFormData({});
+    },
+    onError: (err: any) => toast({ title: "Chyba", description: err.message, variant: "destructive" }),
+  });
+
+  const deleteAddress = useMutation({
+    mutationFn: async (id: number) => {
+      return apiRequest("DELETE", `/api/subjects/${subjectId}/addresses/${id}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/subjects", subjectId, "addresses"] });
+      toast({ title: "Adresa odstránená" });
+    },
+    onError: (err: any) => toast({ title: "Chyba", description: err.message, variant: "destructive" }),
+  });
+
+  const setHlavna = useMutation({
+    mutationFn: async (id: number) => {
+      return apiRequest("POST", `/api/subjects/${subjectId}/addresses/${id}/set-hlavna`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/subjects", subjectId, "addresses"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/subjects", subjectId, "field-history"] });
+      toast({ title: "Hlavná adresa nastavená" });
+    },
+    onError: (err: any) => toast({ title: "Chyba", description: err.message, variant: "destructive" }),
+  });
+
+  const startAdd = (type: string) => {
+    setAddingType(type);
+    setEditingId(null);
+    setFormData({ stat: "Slovensko" });
+  };
+
+  const startEdit = (addr: SubjectAddress) => {
+    setEditingId(addr.id);
+    setAddingType(null);
+    setFormData({
+      ulica: addr.ulica || "",
+      supisneCislo: addr.supisneCislo || "",
+      orientacneCislo: addr.orientacneCislo || "",
+      obecMesto: addr.obecMesto || "",
+      psc: addr.psc || "",
+      stat: addr.stat || "Slovensko",
+    });
+  };
+
+  const cancelForm = () => {
+    setAddingType(null);
+    setEditingId(null);
+    setFormData({});
+  };
+
+  const submitAdd = () => {
+    if (!addingType) return;
+    createAddress.mutate({ addressType: addingType, ...formData });
+  };
+
+  const submitEdit = () => {
+    if (!editingId) return;
+    updateAddress.mutate({ id: editingId, data: formData });
+  };
+
+  const getHistoryForAddress = (addressType: string) => {
+    if (!fieldHistory) return [];
+    const prefix = `addr_${addressType}_`;
+    return fieldHistory.filter(h => h.fieldKey.startsWith(prefix) || (h.fieldKey === "addr_hlavna"));
+  };
+
+  const existingTypes = useMemo(() => new Set((addresses || []).map(a => a.addressType)), [addresses]);
+
+  const addrFields = ["ulica", "supisneCislo", "orientacneCislo", "obecMesto", "psc", "stat"] as const;
+
+  const renderForm = () => (
+    <div className="grid grid-cols-3 gap-2 mt-2" data-testid="address-form">
+      <div className="col-span-2">
+        <Label className="text-[10px] text-muted-foreground">Ulica</Label>
+        <Input className="h-8 text-xs" value={formData.ulica || ""} onChange={e => setFormData(p => ({ ...p, ulica: e.target.value }))} data-testid="input-addr-ulica" />
+      </div>
+      <div>
+        <Label className="text-[10px] text-muted-foreground">Súpisné č.</Label>
+        <Input className="h-8 text-xs" value={formData.supisneCislo || ""} onChange={e => setFormData(p => ({ ...p, supisneCislo: e.target.value }))} data-testid="input-addr-supisne" />
+      </div>
+      <div>
+        <Label className="text-[10px] text-muted-foreground">Orientačné č.</Label>
+        <Input className="h-8 text-xs" value={formData.orientacneCislo || ""} onChange={e => setFormData(p => ({ ...p, orientacneCislo: e.target.value }))} data-testid="input-addr-orientacne" />
+      </div>
+      <div>
+        <Label className="text-[10px] text-muted-foreground">Obec/Mesto</Label>
+        <Input className="h-8 text-xs" value={formData.obecMesto || ""} onChange={e => setFormData(p => ({ ...p, obecMesto: e.target.value }))} data-testid="input-addr-obec" />
+      </div>
+      <div>
+        <Label className="text-[10px] text-muted-foreground">PSČ</Label>
+        <Input className="h-8 text-xs" value={formData.psc || ""} onChange={e => setFormData(p => ({ ...p, psc: e.target.value }))} data-testid="input-addr-psc" />
+      </div>
+      <div className="col-span-3">
+        <Label className="text-[10px] text-muted-foreground">Štát</Label>
+        <Input className="h-8 text-xs" value={formData.stat || "Slovensko"} onChange={e => setFormData(p => ({ ...p, stat: e.target.value }))} data-testid="input-addr-stat" />
+      </div>
+      <div className="col-span-3 flex items-center gap-2 mt-1">
+        <Button size="sm" onClick={addingType ? submitAdd : submitEdit} disabled={createAddress.isPending || updateAddress.isPending} data-testid="button-save-address">
+          {(createAddress.isPending || updateAddress.isPending) ? <Loader2 className="w-3 h-3 animate-spin mr-1" /> : <Save className="w-3 h-3 mr-1" />}
+          Uložiť
+        </Button>
+        <Button size="sm" variant="ghost" onClick={cancelForm} data-testid="button-cancel-address">
+          <X className="w-3 h-3 mr-1" /> Zrušiť
+        </Button>
+      </div>
+    </div>
+  );
+
+  if (isLoading) {
+    return (
+      <Card className="mb-4" data-testid="address-collection-block">
+        <CardContent className="p-4 flex items-center justify-center py-8">
+          <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
+        </CardContent>
+      </Card>
+    );
+  }
+
+  return (
+    <Card className="mb-4" data-testid="address-collection-block">
+      <CardContent className="p-4 space-y-3">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <MapPin className="w-4 h-4 text-primary" />
+            <span className="text-sm font-semibold">Adresy</span>
+            <Badge variant="outline" className="text-[10px]">{(addresses || []).length} adries</Badge>
+          </div>
+          {!isClientView && (
+            <div className="flex items-center gap-1">
+              {!existingTypes.has("trvaly") && (
+                <Button size="sm" variant="outline" className="text-[10px] h-7" onClick={() => startAdd("trvaly")} data-testid="button-add-trvaly">
+                  <Plus className="w-3 h-3 mr-1" /> Trvalý pobyt
+                </Button>
+              )}
+              {!existingTypes.has("prechodny") && (
+                <Button size="sm" variant="outline" className="text-[10px] h-7" onClick={() => startAdd("prechodny")} data-testid="button-add-prechodny">
+                  <Plus className="w-3 h-3 mr-1" /> Prechodný pobyt
+                </Button>
+              )}
+              {!existingTypes.has("korespondencna") && (
+                <Button size="sm" variant="outline" className="text-[10px] h-7" onClick={() => startAdd("korespondencna")} data-testid="button-add-korespondencna">
+                  <Plus className="w-3 h-3 mr-1" /> Korešpondenčná
+                </Button>
+              )}
+            </div>
+          )}
+        </div>
+
+        {addingType && (
+          <div className="rounded-md border border-blue-500/50 bg-blue-500/5 p-3" data-testid="address-add-form">
+            <div className="flex items-center gap-2 mb-2">
+              <MapPin className="w-3.5 h-3.5 text-blue-400" />
+              <span className="text-xs font-semibold text-blue-300">{ADDRESS_TYPE_LABELS[addingType]}</span>
+              <Badge variant="outline" className="text-[9px] border-blue-500/50">Nová</Badge>
+            </div>
+            {renderForm()}
+          </div>
+        )}
+
+        {(!addresses || addresses.length === 0) && !addingType && (
+          <p className="text-xs text-muted-foreground text-center py-3">Žiadne adresy. Pridajte adresu pomocou tlačidiel vyššie.</p>
+        )}
+
+        {(addresses || []).map(addr => {
+          const isEditing = editingId === addr.id;
+          const addrHistory = getHistoryForAddress(addr.addressType);
+          const isHistoryOpen = historyOpen === addr.id;
+          return (
+            <div
+              key={addr.id}
+              className={`rounded-md border p-3 ${addr.isHlavna ? "border-amber-500/60 bg-amber-500/5" : "border-border bg-muted/20"}`}
+              data-testid={`address-card-${addr.id}`}
+            >
+              <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center gap-2">
+                  <MapPin className={`w-3.5 h-3.5 ${addr.isHlavna ? "text-amber-400" : "text-muted-foreground"}`} />
+                  <span className="text-xs font-semibold">{ADDRESS_TYPE_LABELS[addr.addressType] || addr.addressType}</span>
+                  {addr.isHlavna && (
+                    <Badge className="text-[9px] bg-amber-600/80 text-white" data-testid={`badge-hlavna-${addr.id}`}>
+                      <Mail className="w-2.5 h-2.5 mr-0.5" /> Hlavná
+                    </Badge>
+                  )}
+                </div>
+                {!isClientView && (
+                  <div className="flex items-center gap-1">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-6 w-6 p-0"
+                      onClick={() => setHistoryOpen(isHistoryOpen ? null : addr.id)}
+                      title="História zmien"
+                      data-testid={`button-history-${addr.id}`}
+                    >
+                      <Clock className={`w-3.5 h-3.5 ${isHistoryOpen ? "text-blue-400" : "text-muted-foreground"}`} />
+                    </Button>
+                    {!addr.isHlavna && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-6 w-6 p-0"
+                        onClick={() => setHlavna.mutate(addr.id)}
+                        disabled={setHlavna.isPending}
+                        title="Nastaviť ako hlavnú"
+                        data-testid={`button-set-hlavna-${addr.id}`}
+                      >
+                        <Star className="w-3.5 h-3.5 text-muted-foreground hover:text-amber-400" />
+                      </Button>
+                    )}
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-6 w-6 p-0"
+                      onClick={() => isEditing ? cancelForm() : startEdit(addr)}
+                      data-testid={`button-edit-${addr.id}`}
+                    >
+                      <Pencil className={`w-3.5 h-3.5 ${isEditing ? "text-blue-400" : "text-muted-foreground"}`} />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-6 w-6 p-0 text-red-400 hover:text-red-300"
+                      onClick={() => { if (confirm("Naozaj odstrániť túto adresu?")) deleteAddress.mutate(addr.id); }}
+                      disabled={deleteAddress.isPending}
+                      data-testid={`button-delete-${addr.id}`}
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </Button>
+                  </div>
+                )}
+              </div>
+
+              {isEditing ? (
+                renderForm()
+              ) : (
+                <div className="grid grid-cols-3 gap-x-4 gap-y-1">
+                  {addrFields.map(f => {
+                    const val = (addr as any)[f];
+                    if (!val && f !== "stat") return null;
+                    return (
+                      <div key={f} className={f === "ulica" ? "col-span-2" : ""}>
+                        <span className="text-[10px] text-muted-foreground">{ADDRESS_FIELD_LABELS[f]}: </span>
+                        <span className="text-xs font-medium">{val || "-"}</span>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+
+              {addr.updatedByName && (
+                <div className="mt-1.5 text-[10px] text-muted-foreground">
+                  Posledná zmena: {addr.updatedByName} {addr.updatedAt ? `• ${formatDateSlovak(String(addr.updatedAt))}` : ""}
+                </div>
+              )}
+
+              {isHistoryOpen && addrHistory.length > 0 && (
+                <div className="mt-2 border-t border-border pt-2 space-y-1" data-testid={`address-history-${addr.id}`}>
+                  <div className="flex items-center gap-1.5 mb-1">
+                    <History className="w-3 h-3 text-blue-400" />
+                    <span className="text-[10px] font-semibold text-blue-300">História zmien ({addrHistory.length})</span>
+                  </div>
+                  {addrHistory.slice(0, 10).map(h => {
+                    const fieldSuffix = h.fieldKey.replace(`addr_${addr.addressType}_`, "");
+                    const label = ADDRESS_FIELD_LABELS[fieldSuffix] || h.fieldKey;
+                    return (
+                      <div key={h.id} className="flex items-start gap-2 text-[10px] py-0.5" data-testid={`addr-history-entry-${h.id}`}>
+                        <span className="text-muted-foreground whitespace-nowrap">{h.changedAt ? formatDateSlovak(String(h.changedAt)) : ""}</span>
+                        <span className="font-medium">{label}:</span>
+                        <span className="text-red-400">{h.oldValue || "–"}</span>
+                        <span className="text-muted-foreground">→</span>
+                        <span className="text-green-400">{h.newValue || "–"}</span>
+                        {h.changedByName && <span className="text-muted-foreground ml-auto">({h.changedByName})</span>}
+                      </div>
+                    );
+                  })}
+                  {addrHistory.length > 10 && (
+                    <p className="text-[10px] text-muted-foreground">...a {addrHistory.length - 10} ďalších záznamov</p>
+                  )}
+                </div>
+              )}
+              {isHistoryOpen && addrHistory.length === 0 && (
+                <div className="mt-2 border-t border-border pt-2" data-testid={`address-history-${addr.id}`}>
+                  <p className="text-[10px] text-muted-foreground">Žiadna história zmien pre túto adresu.</p>
+                </div>
+              )}
+            </div>
+          );
+        })}
       </CardContent>
     </Card>
   );
