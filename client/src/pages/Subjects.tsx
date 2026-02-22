@@ -1349,12 +1349,13 @@ function EntityLinksTab({ subject }: { subject: Subject }) {
 }
 
 function SubjectDetailPanel({ subject, onClose }: { subject: Subject; onClose: () => void }) {
-  const urlTab = useMemo(() => {
+  const [activeTab, setActiveTab] = useState(() => {
     const params = new URLSearchParams(window.location.search);
     const t = params.get("tab");
+    if (t === "profil") return "profil_subjektu";
     if (t === "objekty") return "objekty";
-    return "profil_subjektu";
-  }, []);
+    return "udaje";
+  });
   const { data: careerHistory, isLoading } = useSubjectCareerHistory(subject.id);
   const { data: companies } = useMyCompanies();
   const { data: appUser } = useAppUser();
@@ -1490,7 +1491,7 @@ function SubjectDetailPanel({ subject, onClose }: { subject: Subject; onClose: (
           ))}
         </div>
       )}
-      <Tabs defaultValue={urlTab} className="flex-1">
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1">
         <TabsList data-testid="tabs-subject-detail">
           <TabsTrigger value="profil_subjektu" data-testid="tab-subject-profil">
             <ShieldCheck className="w-3.5 h-3.5 mr-1" />

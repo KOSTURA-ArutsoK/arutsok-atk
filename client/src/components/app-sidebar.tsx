@@ -446,6 +446,19 @@ export function AppSidebar() {
                 setOpenMenuId={setOpenMenuId}
                 moduleBadge="B"
               />
+              <SidebarMenuItem>
+                <SidebarMenuButton
+                  asChild
+                  isActive={location === "/subjects" && window.location.search.includes("tab=profil")}
+                  data-testid="nav-menu-modul-c"
+                >
+                  <Link href="/subjects?tab=profil">
+                    <ShieldCheck className="w-4 h-4" />
+                    <span className="flex-1">Modul C: Profil subjektu</span>
+                    <Badge variant="outline" className="text-[8px] px-1 py-0 border-primary/30 text-primary ml-1">C</Badge>
+                  </Link>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
               <Collapsible
                 open={isZmluvyOpen}
                 onOpenChange={(val) => setOpenMenuId(val ? "zmluvy" : null)}
