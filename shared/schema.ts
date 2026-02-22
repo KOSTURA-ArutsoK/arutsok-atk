@@ -2132,6 +2132,23 @@ export const insertObjectDataSourceSchema = createInsertSchema(objectDataSources
 export type ObjectDataSource = typeof objectDataSources.$inferSelect;
 export type InsertObjectDataSource = z.infer<typeof insertObjectDataSourceSchema>;
 
+// === FIELD LAYOUT CONFIGS (Architect Mode) ===
+export const fieldLayoutConfigs = pgTable("field_layout_configs", {
+  id: serial("id").primaryKey(),
+  fieldKey: varchar("field_key", { length: 100 }).notNull(),
+  clientType: varchar("client_type", { length: 20 }).notNull().default("person"),
+  sectionCategory: varchar("section_category", { length: 30 }).notNull().default("povinne"),
+  sortOrder: integer("sort_order").notNull().default(0),
+  widthClass: varchar("width_class", { length: 50 }).default("flex-1 min-w-[140px]"),
+  rowGroup: integer("row_group").default(0),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertFieldLayoutConfigSchema = createInsertSchema(fieldLayoutConfigs).omit({ id: true, createdAt: true, updatedAt: true });
+export type FieldLayoutConfig = typeof fieldLayoutConfigs.$inferSelect;
+export type InsertFieldLayoutConfig = z.infer<typeof insertFieldLayoutConfigSchema>;
+
 export type CreateSubjectRequest = InsertSubject;
 export type UpdateSubjectRequest = Partial<InsertSubject> & { changeReason?: string };
 export type UpdateMyCompanyRequest = Partial<InsertMyCompany> & { changeReason?: string };

@@ -26,8 +26,9 @@ import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, Command
 import { Check, ChevronsUpDown, Plus, Trash2, Users, CreditCard, CheckCircle2 } from "lucide-react";
 import {
   Loader2, Pencil, Save, X, AlertTriangle, Shield,
-  ShieldCheck, ListPlus, Eye,
+  ShieldCheck, ListPlus, Eye, ArrowUp, ArrowDown, Settings2,
 } from "lucide-react";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 
 const FOLDER_CATEGORY_LABELS: Record<string, string> = {
   povinne: "POVINNE UDAJE",
@@ -375,6 +376,80 @@ export function SubjectProfileModuleC({ subject }: ModuleCProps) {
     enabled: subject.id > 0,
   });
 
+  const [isArchitectMode, setIsArchitectMode] = useState(false);
+  const [fieldLayouts, setFieldLayouts] = useState<Record<string, { sortOrder: number; widthClass: string; rowGroup: number }>>({});
+
+  const { data: savedLayouts } = useQuery<any[]>({
+    queryKey: ["/api/field-layout-configs"],
+  });
+
+  useEffect(() => {
+    if (savedLayouts && savedLayouts.length > 0) {
+      const map: Record<string, { sortOrder: number; widthClass: string; rowGroup: number }> = {};
+      for (const cfg of savedLayouts) {
+        map[`${cfg.clientType}::${cfg.sectionCategory}::${cfg.fieldKey}`] = {
+          sortOrder: cfg.sortOrder,
+          widthClass: cfg.widthClass,
+          rowGroup: cfg.rowGroup,
+        };
+      }
+      setFieldLayouts(map);
+    }
+  }, [savedLayouts]);
+
+  const saveLayoutMutation = useMutation({
+    mutationFn: async () => {
+      const configs = Object.entries(fieldLayouts).map(([key, val]) => {
+        const [clientType, sectionCategory, fieldKey] = key.split("::");
+        return { clientType, sectionCategory, fieldKey, ...val };
+      });
+      return apiRequest("POST", "/api/field-layout-configs/save", { configs });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/field-layout-configs"] });
+      toast({ title: "Layout uložený", description: "Pozície a rozmery polí boli uložené." });
+    },
+    onError: (err: any) => {
+      toast({ title: "Chyba", description: err.message, variant: "destructive" });
+    },
+  });
+
+  const WIDTH_OPTIONS = [
+    { label: "XS", value: "w-[80px] min-w-[60px] shrink-0" },
+    { label: "S", value: "w-[120px] min-w-[100px] shrink-0" },
+    { label: "M", value: "w-[180px] min-w-[140px] shrink-0" },
+    { label: "L", value: "flex-1 min-w-[180px]" },
+    { label: "XL", value: "flex-1 min-w-[250px]" },
+    { label: "FULL", value: "w-full" },
+  ];
+
+  function getLayoutKey(fieldKey: string, sectionCategory: string = "povinne"): string {
+    return `${activeClientType}::${sectionCategory}::${fieldKey}`;
+  }
+
+  function getFieldLayout(fieldKey: string, sectionCategory: string = "povinne") {
+    return fieldLayouts[getLayoutKey(fieldKey, sectionCategory)];
+  }
+
+  function updateFieldLayout(fieldKey: string, sectionCategory: string, updates: Partial<{ sortOrder: number; widthClass: string; rowGroup: number }>) {
+    const key = `${activeClientType}::${sectionCategory}::${fieldKey}`;
+    setFieldLayouts(prev => ({
+      ...prev,
+      [key]: {
+        sortOrder: prev[key]?.sortOrder ?? 0,
+        widthClass: prev[key]?.widthClass ?? "flex-1 min-w-[140px]",
+        rowGroup: prev[key]?.rowGroup ?? 0,
+        ...updates,
+      },
+    }));
+  }
+
+  function moveField(fieldKey: string, sectionCategory: string, direction: "up" | "down") {
+    const key = getLayoutKey(fieldKey, sectionCategory);
+    const current = fieldLayouts[key]?.sortOrder ?? 0;
+    updateFieldLayout(fieldKey, sectionCategory, { sortOrder: current + (direction === "up" ? -1 : 1) });
+  }
+
   const isPerson = subject.type === "person";
   const typeFields = getFieldsForClientTypeId(clientTypeId);
   const typeSections = getSectionsForClientTypeId(clientTypeId);
@@ -580,6 +655,39 @@ export function SubjectProfileModuleC({ subject }: ModuleCProps) {
     return "valid";
   }, [documents, dynamicValues]);
 
+  const sortedPovinneRows = useMemo(() => {
+    const allKeys = FO_POVINNE_ROWS.flatMap(r => r.keys);
+    const sorted = [...allKeys].sort((a, b) => {
+      const la = getFieldLayout(a, "povinne");
+      const lb = getFieldLayout(b, "povinne");
+      const sa = la?.sortOrder ?? allKeys.indexOf(a);
+      const sb = lb?.sortOrder ?? allKeys.indexOf(b);
+      return sa - sb;
+    });
+    const rows: string[][] = [];
+    let currentRow: string[] = [];
+    for (const key of sorted) {
+      currentRow.push(key);
+      const origRow = FO_POVINNE_ROWS.find(r => r.keys.includes(key));
+      if (origRow && currentRow.length >= origRow.keys.length) {
+        rows.push(currentRow);
+        currentRow = [];
+      }
+    }
+    if (currentRow.length > 0) rows.push(currentRow);
+    return rows;
+  }, [fieldLayouts, activeClientType]);
+
+  const sortFieldsByLayout = (fields: StaticField[], category: string) => {
+    return [...fields].sort((a, b) => {
+      const la = getFieldLayout(a.fieldKey, category);
+      const lb = getFieldLayout(b.fieldKey, category);
+      const sa = la?.sortOrder ?? (a.sortOrder || 0);
+      const sb = lb?.sortOrder ?? (b.sortOrder || 0);
+      return sa - sb;
+    });
+  };
+
   const renderFieldRow = (rowKeys: string[], rowIdx: number) => {
     const rowEntries = rowKeys
       .map(k => ({ key: k, field: povinneFields.find(f => f.fieldKey === k) }));
@@ -590,9 +698,11 @@ export function SubjectProfileModuleC({ subject }: ModuleCProps) {
       <div key={rowIdx} className="flex flex-wrap gap-4 items-end" data-testid={`row-povinne-${rowIdx}`}>
         {rowEntries.map(({ key, field }) => {
           const widthClass = getFieldWidthClass(key);
+          const savedLayout = getFieldLayout(key, "povinne");
+          const effectiveWidthClass = savedLayout?.widthClass || widthClass;
 
           if (isFieldHiddenByType(key)) {
-            return <div key={key} className={cn("space-y-1 min-w-0", widthClass)} style={{ display: "none" }} />;
+            return <div key={key} className={cn("space-y-1 min-w-0", effectiveWidthClass)} style={{ display: "none" }} />;
           }
 
           if (key === "statna_prislusnost") {
@@ -600,7 +710,8 @@ export function SubjectProfileModuleC({ subject }: ModuleCProps) {
             const prioritySet = new Set(PRIORITY_COUNTRY_NAMES);
             const restCountries = ALL_COUNTRY_NAMES.filter(c => !prioritySet.has(c));
             return (
-              <div key={key} className={cn("space-y-1 min-w-0", widthClass)}>
+              <div key={key} className={cn("space-y-1 min-w-0 relative", effectiveWidthClass)}>
+                <ArchitectFieldOverlay fieldKey={key} sectionCategory="povinne" />
                 <Label className="text-xs block text-muted-foreground">
                   {label}
                 </Label>
@@ -652,7 +763,8 @@ export function SubjectProfileModuleC({ subject }: ModuleCProps) {
             const overriddenLabel = getOverriddenLabel(resolvedField);
             const overriddenShortLabel = getOverriddenShortLabel(resolvedField);
             return (
-              <div key={key} className={cn("space-y-1 min-w-0", widthClass)} style={!isVisibleByRule ? { display: "none" } : undefined}>
+              <div key={key} className={cn("space-y-1 min-w-0 relative", effectiveWidthClass)} style={!isVisibleByRule ? { display: "none" } : undefined}>
+                <ArchitectFieldOverlay fieldKey={key} sectionCategory="povinne" />
                 <div className="flex items-center gap-1">
                   <Label className="text-xs block text-muted-foreground">
                     {overriddenShortLabel ? (
@@ -876,22 +988,52 @@ export function SubjectProfileModuleC({ subject }: ModuleCProps) {
     );
   };
 
+  const ArchitectFieldOverlay = ({ fieldKey, sectionCategory }: { fieldKey: string; sectionCategory: string }) => {
+    if (!isArchitectMode) return null;
+    const layout = getFieldLayout(fieldKey, sectionCategory);
+    const currentWidth = layout?.widthClass || "flex-1 min-w-[140px]";
+
+    return (
+      <div className="absolute -top-1 -right-1 z-10 flex items-center gap-0.5 bg-amber-500/90 rounded px-1 py-0.5 shadow-md" data-testid={`architect-controls-${fieldKey}`}>
+        <button onClick={() => moveField(fieldKey, sectionCategory, "up")} className="text-black hover:text-white p-0.5" title="Posunúť hore"><ArrowUp className="w-3 h-3" /></button>
+        <button onClick={() => moveField(fieldKey, sectionCategory, "down")} className="text-black hover:text-white p-0.5" title="Posunúť dole"><ArrowDown className="w-3 h-3" /></button>
+        <select
+          value={currentWidth}
+          onChange={e => updateFieldLayout(fieldKey, sectionCategory, { widthClass: e.target.value })}
+          className="h-4 text-[9px] bg-transparent text-black border-0 outline-none cursor-pointer"
+          data-testid={`architect-width-${fieldKey}`}
+        >
+          {WIDTH_OPTIONS.map(w => (
+            <option key={w.label} value={w.value}>{w.label}</option>
+          ))}
+        </select>
+      </div>
+    );
+  };
+
   return (
     <div className="space-y-4" data-testid="module-c-profile">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <Shield className="w-5 h-5 text-primary" />
           <h2 className="text-base font-semibold">Profil subjektu</h2>
-          <Select value={activeClientType} onValueChange={setActiveClientType}>
-            <SelectTrigger className="h-7 w-[160px] text-xs" data-testid="select-client-type">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {CLIENT_TYPE_OPTIONS.map(opt => (
-                <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <Button
+            size="sm"
+            variant={isArchitectMode ? "default" : "ghost"}
+            onClick={() => setIsArchitectMode(!isArchitectMode)}
+            className="h-7 px-2"
+            data-testid="btn-architect-mode"
+            title="Režim Architekt"
+          >
+            <Settings2 className="w-3.5 h-3.5" />
+          </Button>
+          <ToggleGroup type="single" value={activeClientType} onValueChange={(val) => { if (val) setActiveClientType(val); }} className="h-7" data-testid="toggle-client-type">
+            {CLIENT_TYPE_OPTIONS.map(opt => (
+              <ToggleGroupItem key={opt.value} value={opt.value} className="h-7 px-3 text-xs data-[state=on]:bg-primary data-[state=on]:text-primary-foreground" data-testid={`toggle-type-${opt.value}`}>
+                {opt.short}
+              </ToggleGroupItem>
+            ))}
+          </ToggleGroup>
         </div>
         <div className="flex items-center gap-2">
           {isEditing ? (
@@ -939,6 +1081,25 @@ export function SubjectProfileModuleC({ subject }: ModuleCProps) {
 
       <Separator />
 
+      {isArchitectMode && (
+        <div className="flex items-center justify-between p-2 rounded-md bg-amber-500/10 border border-amber-500/30" data-testid="architect-bar">
+          <div className="flex items-center gap-2">
+            <Settings2 className="w-4 h-4 text-amber-500" />
+            <span className="text-xs font-semibold text-amber-500">REŽIM ARCHITEKT</span>
+            <span className="text-xs text-muted-foreground">Použite šípky a veľkosť pre zmenu rozloženia polí</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <Button size="sm" variant="outline" onClick={() => setIsArchitectMode(false)} className="h-7 text-xs" data-testid="btn-architect-cancel">
+              Zrušiť
+            </Button>
+            <Button size="sm" onClick={() => { saveLayoutMutation.mutate(); setIsArchitectMode(false); }} disabled={saveLayoutMutation.isPending} className="h-7 text-xs bg-amber-500 hover:bg-amber-600 text-black" data-testid="btn-architect-accept">
+              {saveLayoutMutation.isPending ? <Loader2 className="w-3 h-3 mr-1 animate-spin" /> : <Check className="w-3 h-3 mr-1" />}
+              Akceptovať zmeny
+            </Button>
+          </div>
+        </div>
+      )}
+
       {isPerson ? (
         <Accordion type="multiple" defaultValue={["povinne", "doplnkove", "volitelne"]} className="space-y-2">
           <AccordionItem value="povinne" className="border rounded-md px-3" data-testid="editor-accordion-povinne">
@@ -971,7 +1132,7 @@ export function SubjectProfileModuleC({ subject }: ModuleCProps) {
               <Card data-testid="panel-osobne-udaje">
                 <CardContent className="p-4 space-y-2">
                   <p className="text-sm font-semibold">Osobné údaje</p>
-                  {FO_POVINNE_ROWS.map((row, rowIdx) => renderFieldRow(row.keys, rowIdx))}
+                  {sortedPovinneRows.map((rowKeys, rowIdx) => renderFieldRow(rowKeys, rowIdx))}
                 </CardContent>
               </Card>
 
@@ -1171,7 +1332,7 @@ export function SubjectProfileModuleC({ subject }: ModuleCProps) {
                     )}
                   </div>
 
-                  <div className="space-y-2">
+                  <div className="space-y-2 max-h-[240px] overflow-y-auto pr-1 scrollbar-thin" data-testid="contacts-scroll-container">
                     {contacts.map((contact, cIdx) => (
                       <div key={contact.id} className="flex flex-wrap gap-3 items-end p-2 rounded-md border border-border bg-muted/20" data-testid={`contact-row-${cIdx}`}>
                         <div className="space-y-1 w-[100px] min-w-[80px] shrink-0">
@@ -1269,7 +1430,7 @@ export function SubjectProfileModuleC({ subject }: ModuleCProps) {
                       <div key={section.id} className="space-y-2">
                         <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide border-b border-border pb-1" style={{ display: groups.length > 1 ? 'block' : 'none' }}>{section.name}</p>
                         <div className="flex flex-wrap gap-4 items-end">
-                          {fields.map((field: StaticField) => {
+                          {sortFieldsByLayout(fields, category).map((field: StaticField) => {
                             const fk = field.fieldKey;
                             let wCls = "flex-1 min-w-[140px]";
                             if (fk === "titul_pred" || fk === "titul_za") wCls = "w-[100px] min-w-[80px] shrink-0";
@@ -1277,8 +1438,11 @@ export function SubjectProfileModuleC({ subject }: ModuleCProps) {
                             else if (fk === "pohlavie") wCls = "w-[130px] min-w-[100px] shrink-0";
                             else if (fk === "datum_narodenia" || fk === "platnost_dokladu") wCls = "w-[160px] min-w-[140px] shrink-0";
                             else if (fk === "meno" || fk === "priezvisko" || fk === "rodne_priezvisko") wCls = "flex-1 min-w-[150px]";
+                            const savedLayout = getFieldLayout(fk, category);
+                            const effectiveWCls = savedLayout?.widthClass || wCls;
                             return (
-                              <div key={field.id} className={cn("min-w-0", wCls)}>
+                              <div key={field.id} className={cn("min-w-0 relative", effectiveWCls)}>
+                                <ArchitectFieldOverlay fieldKey={fk} sectionCategory={category} />
                                 <DynamicFieldInput field={field} dynamicValues={dynamicValues} setDynamicValues={setDynamicValues} disabled={!isEditing} subjectId={subject.id} />
                               </div>
                             );
@@ -1326,14 +1490,17 @@ export function SubjectProfileModuleC({ subject }: ModuleCProps) {
                       <div key={section.id} className="space-y-2">
                         <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide border-b border-border pb-1" style={{ display: editorFieldGroups.length > 1 ? 'block' : 'none' }}>{section.name}</p>
                         <div className="flex flex-wrap gap-4 items-end">
-                          {fields.map((field: StaticField) => {
+                          {sortFieldsByLayout(fields, category).map((field: StaticField) => {
                             const fk = field.fieldKey;
                             let wCls = "flex-1 min-w-[140px]";
                             if (fk === "titul_pred" || fk === "titul_za") wCls = "w-[100px] min-w-[80px] shrink-0";
                             else if (fk === "vek") wCls = "w-[80px] min-w-[60px] shrink-0";
                             else if (fk === "pohlavie") wCls = "w-[130px] min-w-[100px] shrink-0";
+                            const savedLayout = getFieldLayout(fk, category);
+                            const effectiveWCls = savedLayout?.widthClass || wCls;
                             return (
-                              <div key={field.id} className={cn("min-w-0", wCls)}>
+                              <div key={field.id} className={cn("min-w-0 relative", effectiveWCls)}>
+                                <ArchitectFieldOverlay fieldKey={fk} sectionCategory={category} />
                                 <DynamicFieldInput field={field} dynamicValues={dynamicValues} setDynamicValues={setDynamicValues} disabled={!isEditing} subjectId={subject.id} />
                               </div>
                             );

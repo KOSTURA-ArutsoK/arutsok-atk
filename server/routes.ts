@@ -4,7 +4,7 @@ import { storage } from "./storage";
 import { api } from "@shared/routes";
 import { setupAuth, registerAuthRoutes, isAuthenticated } from "./replit_integrations/auth";
 import { z } from "zod";
-import { continents, states, myCompanies, appUsers, clientTypes, clientSubGroups, clientGroupMembers, productFolderAssignments, folderPanels, panelParameters, userClientGroupMemberships, clientGroups, permissionGroups, insertCareerLevelSchema, insertProductPointRateSchema, careerLevels, importLogs, commissions, contracts, contractStatuses, contractStatusChangeLogs, clientDataTabs, clientDataCategories, subjects, subjectPointsLog, subjectFieldHistory, subjectCollaborators, clientMarketingConsents, clientDocumentHistory, contractAcquirers, contractPasswords, contractRewardDistributions, contractParameterValues, subjectArchive, auditLogs, globalCounters, subjectPhotos, activityEvents, subjectParamSections, subjectParameters, subjectTemplates, subjectTemplateParams, commissionCalculationLogs, parameterSynonyms, dataConflictAlerts, transactionDedupLog, relationRoleTypes, subjectRelations, maturityAlerts, inheritancePrompts, guardianshipArchive, households, householdMembers, householdAssets, privacyBlocks, accessConsentLog, maturityEvents, addressGroups, addressGroupMembers, companySubjectRoles, notificationQueue, batchJobs, subjectObjects, objectDataSources, sectors, sections, sectorProducts, parameters, panels, productPanels, contractFolders } from "@shared/schema";
+import { continents, states, myCompanies, appUsers, clientTypes, clientSubGroups, clientGroupMembers, productFolderAssignments, folderPanels, panelParameters, userClientGroupMemberships, clientGroups, permissionGroups, insertCareerLevelSchema, insertProductPointRateSchema, careerLevels, importLogs, commissions, contracts, contractStatuses, contractStatusChangeLogs, clientDataTabs, clientDataCategories, subjects, subjectPointsLog, subjectFieldHistory, subjectCollaborators, clientMarketingConsents, clientDocumentHistory, contractAcquirers, contractPasswords, contractRewardDistributions, contractParameterValues, subjectArchive, auditLogs, globalCounters, subjectPhotos, activityEvents, subjectParamSections, subjectParameters, subjectTemplates, subjectTemplateParams, commissionCalculationLogs, parameterSynonyms, dataConflictAlerts, transactionDedupLog, relationRoleTypes, subjectRelations, maturityAlerts, inheritancePrompts, guardianshipArchive, households, householdMembers, householdAssets, privacyBlocks, accessConsentLog, maturityEvents, addressGroups, addressGroupMembers, companySubjectRoles, notificationQueue, batchJobs, subjectObjects, objectDataSources, sectors, sections, sectorProducts, parameters, panels, productPanels, contractFolders, fieldLayoutConfigs } from "@shared/schema";
 import { seedSubjectParameters } from "./seed-subject-params";
 import sharp from "sharp";
 import { db } from "./db";
@@ -7846,6 +7846,57 @@ export async function registerRoutes(
       const matches = await storage.matchParameterBySynonym(text);
       res.json(matches);
     } catch (err) { res.status(500).json({ message: "Internal error" }); }
+  });
+
+  // === FIELD LAYOUT CONFIGS (Architect Mode) ===
+  app.get("/api/field-layout-configs", isAuthenticated, async (req, res) => {
+    try {
+      const configs = await db.select().from(fieldLayoutConfigs);
+      res.json(configs);
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  app.post("/api/field-layout-configs/save", isAuthenticated, async (req, res) => {
+    try {
+      const configs = req.body.configs as any[];
+      if (!Array.isArray(configs)) return res.status(400).json({ message: "configs must be an array" });
+
+      for (const config of configs) {
+        const existing = await db.select().from(fieldLayoutConfigs)
+          .where(and(
+            eq(fieldLayoutConfigs.fieldKey, config.fieldKey),
+            eq(fieldLayoutConfigs.clientType, config.clientType),
+            eq(fieldLayoutConfigs.sectionCategory, config.sectionCategory)
+          ))
+          .limit(1);
+
+        if (existing.length > 0) {
+          await db.update(fieldLayoutConfigs)
+            .set({
+              sortOrder: config.sortOrder,
+              widthClass: config.widthClass,
+              rowGroup: config.rowGroup,
+              updatedAt: new Date(),
+            })
+            .where(eq(fieldLayoutConfigs.id, existing[0].id));
+        } else {
+          await db.insert(fieldLayoutConfigs).values({
+            fieldKey: config.fieldKey,
+            clientType: config.clientType,
+            sectionCategory: config.sectionCategory,
+            sortOrder: config.sortOrder,
+            widthClass: config.widthClass,
+            rowGroup: config.rowGroup,
+          });
+        }
+      }
+
+      res.json({ ok: true, saved: configs.length });
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
   });
 
   // AI Field Extraction - maps document text to parameters via synonyms + regex hints
