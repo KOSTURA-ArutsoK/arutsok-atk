@@ -23,7 +23,7 @@ import { formatDateSlovak } from "@/lib/utils";
 import { PRIORITY_COUNTRY_NAMES, ALL_COUNTRY_NAMES } from "@/lib/countries";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
-import { Check, ChevronsUpDown, Plus, Trash2, Users, CreditCard, CheckCircle2 } from "lucide-react";
+import { Check, ChevronsUpDown, Plus, Trash2, Users, CreditCard, CheckCircle2, Camera, FileSignature, FileImage, Archive, ChevronLeft, ChevronRight, User } from "lucide-react";
 import {
   Loader2, Pencil, Save, X, AlertTriangle, Shield,
   ShieldCheck, ListPlus, Eye, ArrowUp, ArrowDown, Settings2,
@@ -501,6 +501,138 @@ export function SubjectProfileModuleC({ subject }: ModuleCProps) {
     if (existingContacts.length > 0) return existingContacts;
     return [{ id: crypto.randomUUID(), type: "phone", value: subject.phone || "", label: "Primárny", isPrimary: true }];
   });
+
+  const { data: activePhoto } = useQuery<any>({
+    queryKey: ["/api/subjects", subject.id, "active-photo"],
+    enabled: subject.id > 0,
+  });
+
+  const { data: allPhotos } = useQuery<any[]>({
+    queryKey: ["/api/subjects", subject.id, "photos"],
+    enabled: subject.id > 0,
+  });
+
+  const [showArchive, setShowArchive] = useState(false);
+  const [archiveIndex, setArchiveIndex] = useState(0);
+  const [showWebcam, setShowWebcam] = useState(false);
+  const webcamRef = useRef<HTMLVideoElement>(null);
+  const webcamStreamRef = useRef<MediaStream | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const profilePhotos = useMemo(() => {
+    return (allPhotos || []).filter(p => p.fileType === "profile").sort((a: any, b: any) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime());
+  }, [allPhotos]);
+
+  const signaturePhotos = useMemo(() => {
+    return (allPhotos || []).filter(p => p.fileType === "signature").sort((a: any, b: any) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime());
+  }, [allPhotos]);
+
+  const uploadPhotoMutation = useMutation({
+    mutationFn: async (formData: FormData) => {
+      const response = await fetch(`/api/subjects/${subject.id}/photos/upload`, {
+        method: "POST",
+        body: formData,
+        credentials: "include",
+      });
+      if (!response.ok) throw new Error("Upload failed");
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/subjects", subject.id, "photos"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/subjects", subject.id, "active-photo"] });
+      toast({ title: "Fotka nahraná", description: "Profilová fotka bola úspešne aktualizovaná." });
+    },
+    onError: () => {
+      toast({ title: "Chyba", description: "Nepodarilo sa nahrať fotku.", variant: "destructive" });
+    },
+  });
+
+  const activatePhotoMutation = useMutation({
+    mutationFn: async (photoId: number) => {
+      return apiRequest("PATCH", `/api/subjects/${subject.id}/photos/${photoId}/activate`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/subjects", subject.id, "photos"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/subjects", subject.id, "active-photo"] });
+      toast({ title: "Fotka aktivovaná" });
+    },
+  });
+
+  const startWebcam = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "user", width: 640, height: 480 } });
+      webcamStreamRef.current = stream;
+      setShowWebcam(true);
+      setTimeout(() => {
+        if (webcamRef.current) webcamRef.current.srcObject = stream;
+      }, 100);
+    } catch (err) {
+      toast({ title: "Chyba", description: "Nepodarilo sa spustiť webkameru.", variant: "destructive" });
+    }
+  };
+
+  const captureWebcam = () => {
+    if (!webcamRef.current) return;
+    const canvas = document.createElement("canvas");
+    canvas.width = webcamRef.current.videoWidth || 640;
+    canvas.height = webcamRef.current.videoHeight || 480;
+    canvas.getContext("2d")?.drawImage(webcamRef.current, 0, 0);
+    canvas.toBlob(blob => {
+      if (!blob) return;
+      const formData = new FormData();
+      formData.append("photo", blob, `webcam-${Date.now()}.jpg`);
+      formData.append("source", "manual");
+      formData.append("fileType", "profile");
+      formData.append("cropFace", "true");
+      uploadPhotoMutation.mutate(formData);
+      stopWebcam();
+    }, "image/jpeg", 0.9);
+  };
+
+  const stopWebcam = useCallback(() => {
+    webcamStreamRef.current?.getTracks().forEach(t => t.stop());
+    webcamStreamRef.current = null;
+    setShowWebcam(false);
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      webcamStreamRef.current?.getTracks().forEach(t => t.stop());
+      webcamStreamRef.current = null;
+    };
+  }, []);
+
+  useEffect(() => {
+    const len = (allPhotos || []).length;
+    if (archiveIndex >= len && len > 0) setArchiveIndex(len - 1);
+    else if (len === 0) setArchiveIndex(0);
+  }, [allPhotos, archiveIndex]);
+
+  const docFileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleDocUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const formData = new FormData();
+    formData.append("photo", file);
+    formData.append("source", "document");
+    formData.append("fileType", "profile");
+    formData.append("cropFace", "true");
+    uploadPhotoMutation.mutate(formData);
+    e.target.value = "";
+  };
+
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const formData = new FormData();
+    formData.append("photo", file);
+    formData.append("source", "manual");
+    formData.append("fileType", "profile");
+    formData.append("cropFace", "true");
+    uploadPhotoMutation.mutate(formData);
+    e.target.value = "";
+  };
 
   useEffect(() => {
     if (!isPerson) return;
@@ -1153,6 +1285,182 @@ export function SubjectProfileModuleC({ subject }: ModuleCProps) {
               </div>
             </AccordionTrigger>
             <AccordionContent className="pb-4 space-y-2">
+              <Card data-testid="panel-identifikacia-dokumentacie">
+                <CardContent className="p-4 space-y-3">
+                  <div className="flex items-center gap-2">
+                    <Camera className="w-4 h-4 text-primary" />
+                    <p className="text-sm font-semibold">Identifikácia dokumentácie</p>
+                  </div>
+
+                  <div className="relative">
+                    {isArchitectMode && <ArchitectFieldOverlay fieldKey="photo_panel" sectionCategory="osobne" />}
+                    <div className="flex flex-col sm:flex-row gap-4 items-start">
+                      <div className="flex flex-col items-center gap-2 shrink-0">
+                        <div className="w-[120px] h-[150px] rounded-md border-2 border-dashed border-border bg-muted/30 flex items-center justify-center overflow-hidden" data-testid="photo-container">
+                          {activePhoto?.filePath ? (
+                            <img src={activePhoto.filePath} alt="Profilová fotka" className="w-full h-full object-cover rounded-md" data-testid="img-profile-photo" />
+                          ) : (
+                            <div className="text-center text-muted-foreground">
+                              <User className="w-10 h-10 mx-auto mb-1 opacity-30" />
+                              <span className="text-[10px]">Bez fotky</span>
+                            </div>
+                          )}
+                        </div>
+                        {isEditing && (
+                          <div className="flex flex-wrap gap-1 justify-center max-w-[160px]">
+                            <input type="file" ref={fileInputRef} accept="image/*" className="hidden" onChange={handleFileUpload} data-testid="input-photo-file" />
+                            <input type="file" ref={docFileInputRef} accept="image/*" className="hidden" onChange={handleDocUpload} data-testid="input-doc-photo-file" />
+                            <Button type="button" variant="outline" size="sm" className="text-[11px]" onClick={() => fileInputRef.current?.click()} disabled={uploadPhotoMutation.isPending || subject.id === 0} title="Nahrať fotku" data-testid="btn-upload-photo">
+                              <Camera className="w-3 h-3 mr-0.5" />
+                              Fotka
+                            </Button>
+                            <Button type="button" variant="outline" size="sm" className="text-[11px]" onClick={() => docFileInputRef.current?.click()} disabled={uploadPhotoMutation.isPending || subject.id === 0} title="Vybrať z dokumentov" data-testid="btn-from-docs">
+                              <FileImage className="w-3 h-3 mr-0.5" />
+                              Z dokumentov
+                            </Button>
+                            <Button type="button" variant="outline" size="sm" className="text-[11px]" onClick={() => setShowArchive(true)} disabled={subject.id === 0} title="Archív fotiek" data-testid="btn-photo-archive">
+                              <Archive className="w-3 h-3 mr-0.5" />
+                              Archív
+                            </Button>
+                          </div>
+                        )}
+                        {!isEditing && activePhoto && (
+                          <Button type="button" variant="ghost" size="sm" className="text-[11px] text-muted-foreground" onClick={() => setShowArchive(true)} disabled={subject.id === 0} data-testid="btn-photo-archive-view">
+                            <Archive className="w-3 h-3 mr-0.5" />
+                            Archív
+                          </Button>
+                        )}
+                      </div>
+
+                      <div className="flex flex-col gap-2 flex-1 min-w-0">
+                        <div className="space-y-1">
+                          <Label className="text-xs text-muted-foreground">Vzorový podpis</Label>
+                          <div className="w-full h-[60px] rounded-md border border-dashed border-border bg-muted/20 flex items-center justify-center overflow-hidden" data-testid="signature-container">
+                            {signaturePhotos.length > 0 && signaturePhotos[0].filePath ? (
+                              <img src={signaturePhotos[0].filePath} alt="Podpis" className="max-w-full max-h-full object-contain" data-testid="img-signature" />
+                            ) : (
+                              <span className="text-[10px] text-muted-foreground">Bez podpisu</span>
+                            )}
+                          </div>
+                        </div>
+
+                        {isEditing && (
+                          <div className="flex flex-wrap gap-1">
+                            <Button type="button" variant="outline" size="sm" className="text-[11px]" onClick={() => {
+                              const input = document.createElement("input");
+                              input.type = "file";
+                              input.accept = "image/*";
+                              input.onchange = (ev) => {
+                                const f = (ev.target as HTMLInputElement).files?.[0];
+                                if (!f) return;
+                                const fd = new FormData();
+                                fd.append("photo", f);
+                                fd.append("source", "manual");
+                                fd.append("fileType", "signature");
+                                uploadPhotoMutation.mutate(fd);
+                              };
+                              input.click();
+                            }} disabled={uploadPhotoMutation.isPending || subject.id === 0} title="Nahrať podpis" data-testid="btn-upload-signature">
+                              <FileSignature className="w-3 h-3 mr-0.5" />
+                              Podpis
+                            </Button>
+                          </div>
+                        )}
+
+                        {activePhoto && (
+                          <div className="text-[10px] text-muted-foreground space-y-0.5">
+                            <p>Aktívna od: {activePhoto.createdAt ? new Date(activePhoto.createdAt).toLocaleDateString("sk-SK") : "—"}</p>
+                            <p>Zdroj: {activePhoto.source === "manual" ? "Manuálne" : activePhoto.source === "id_card" ? "Občiansky preukaz" : activePhoto.source === "passport" ? "Pas" : activePhoto.source}</p>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  {showWebcam && (
+                    <div className="space-y-2 border rounded-md p-3 bg-muted/20" data-testid="webcam-panel">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-semibold">Webkamera</span>
+                        <Button type="button" variant="ghost" size="sm" onClick={stopWebcam} data-testid="btn-webcam-cancel">
+                          <X className="w-3 h-3 mr-1" />
+                          Zavrieť
+                        </Button>
+                      </div>
+                      <div className="flex justify-center">
+                        <video ref={webcamRef} autoPlay playsInline muted className="w-[320px] h-[240px] rounded-md border border-border bg-black" data-testid="video-webcam" />
+                      </div>
+                      <div className="flex justify-center">
+                        <Button type="button" size="sm" onClick={captureWebcam} disabled={uploadPhotoMutation.isPending} data-testid="btn-webcam-capture">
+                          <Camera className="w-3.5 h-3.5 mr-1" />
+                          {uploadPhotoMutation.isPending ? "Nahrávam..." : "Odfotiť"}
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+
+                  {showArchive && (
+                    <div className="space-y-2 border rounded-md p-3 bg-muted/20" data-testid="photo-archive-panel">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <Archive className="w-3.5 h-3.5 text-primary" />
+                          <span className="text-xs font-semibold">Archív fotiek a podpisov</span>
+                          <Badge variant="secondary" className="text-[10px]">{(allPhotos || []).length}</Badge>
+                        </div>
+                        <Button type="button" variant="ghost" size="sm" onClick={() => setShowArchive(false)} data-testid="btn-archive-close">
+                          <X className="w-3 h-3 mr-1" />
+                          Zavrieť
+                        </Button>
+                      </div>
+                      {(allPhotos || []).length === 0 ? (
+                        <div className="text-center py-4 text-muted-foreground">
+                          <Archive className="w-6 h-6 mx-auto mb-1 opacity-30" />
+                          <p className="text-xs">Žiadne fotky v archíve</p>
+                        </div>
+                      ) : (
+                        <div className="space-y-2">
+                          <div className="flex items-center justify-center gap-2">
+                            <Button type="button" variant="ghost" size="icon" className="h-7 w-7" onClick={() => setArchiveIndex(Math.max(0, archiveIndex - 1))} disabled={archiveIndex === 0} data-testid="btn-archive-prev">
+                              <ChevronLeft className="w-4 h-4" />
+                            </Button>
+                            <span className="text-xs text-muted-foreground">{archiveIndex + 1} / {(allPhotos || []).length}</span>
+                            <Button type="button" variant="ghost" size="icon" className="h-7 w-7" onClick={() => setArchiveIndex(Math.min((allPhotos || []).length - 1, archiveIndex + 1))} disabled={archiveIndex >= (allPhotos || []).length - 1} data-testid="btn-archive-next">
+                              <ChevronRight className="w-4 h-4" />
+                            </Button>
+                          </div>
+                          {(() => {
+                            const sortedAll = [...(allPhotos || [])].sort((a: any, b: any) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime());
+                            const photo = sortedAll[archiveIndex];
+                            if (!photo) return null;
+                            return (
+                              <div className="flex flex-col items-center gap-2">
+                                <div className="w-[200px] h-[200px] rounded-md border border-border bg-muted/30 flex items-center justify-center overflow-hidden">
+                                  <img src={photo.filePath} alt={photo.fileType} className="max-w-full max-h-full object-contain" data-testid={`img-archive-${archiveIndex}`} />
+                                </div>
+                                <div className="text-center space-y-0.5">
+                                  <Badge variant={photo.isActive ? "default" : "secondary"} className="text-[10px]">
+                                    {photo.isActive ? "Aktívna" : "Neaktívna"}
+                                  </Badge>
+                                  <Badge variant="outline" className="text-[10px] ml-1">
+                                    {photo.fileType === "profile" ? "Fotka" : photo.fileType === "signature" ? "Podpis" : photo.fileType === "id_scan" ? "Sken dokladu" : photo.fileType}
+                                  </Badge>
+                                  <p className="text-[10px] text-muted-foreground">{photo.createdAt ? new Date(photo.createdAt).toLocaleDateString("sk-SK") : "—"}</p>
+                                  <p className="text-[10px] text-muted-foreground">Zdroj: {photo.source === "manual" ? "Manuálne" : photo.source === "id_card" ? "OP" : photo.source === "passport" ? "Pas" : photo.source}</p>
+                                </div>
+                                {isEditing && !photo.isActive && photo.fileType === "profile" && (
+                                  <Button type="button" variant="outline" size="sm" className="text-[11px]" onClick={() => activatePhotoMutation.mutate(photo.id)} disabled={activatePhotoMutation.isPending} data-testid={`btn-activate-photo-${archiveIndex}`}>
+                                    <CheckCircle2 className="w-3 h-3 mr-0.5" />
+                                    Aktivovať
+                                  </Button>
+                                )}
+                              </div>
+                            );
+                          })()}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
               {sortedPovinneRows.map((rowKeys, rowIdx) => renderFieldRow(rowKeys, rowIdx))}
 
               <Card data-testid="panel-doklady-totoznosti">
