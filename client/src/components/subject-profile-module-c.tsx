@@ -259,7 +259,7 @@ export function SubjectProfileModuleC({ subject }: ModuleCProps) {
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <Shield className="w-5 h-5 text-primary" />
-          <h2 className="text-base font-semibold">Profil subjektu – Modul C</h2>
+          <h2 className="text-base font-semibold">Modul C: Profil subjektu (Master Data)</h2>
           <Badge variant="outline" className="text-[10px]">
             {subject.type === "person" ? "FO" : subject.type === "szco" ? "SZČO" : "PO"}
           </Badge>

@@ -10,7 +10,7 @@ import { useColumnVisibility, type ColumnDef } from "@/hooks/use-column-visibili
 import { ColumnManager } from "@/components/column-manager";
 import type { Contract, ContractStatus, ContractStatusChangeLog, ContractTemplate, ContractInventory, Subject, Partner, Product, MyCompany, Sector, Section, SectorProduct, ContractPassword, ContractParameterValue, ContractFieldSetting, ClientType, ContractAcquirer, AppUser, ContractRewardDistribution } from "@shared/schema";
 import { getFieldsForClientTypeId, type StaticField } from "@/lib/staticFieldDefs";
-import { ArrowLeft, Save, Loader2, LayoutGrid, KeyRound, Plus, Trash2, FileText, Users, ClipboardList, FolderOpen, FolderClosed, DollarSign, BarChart3, ListChecks, PieChart, ChevronLeft, ChevronRight, MessageSquare, Paperclip, Upload, X, Eye, Settings2, Calendar, UserCheck, Check, Link2, CreditCard, Flag, History, AlertTriangle } from "lucide-react";
+import { ArrowLeft, Save, Loader2, LayoutGrid, KeyRound, Plus, Trash2, FileText, Users, ClipboardList, FolderOpen, FolderClosed, DollarSign, BarChart3, ListChecks, PieChart, ChevronLeft, ChevronRight, MessageSquare, Paperclip, Upload, X, Eye, Settings2, Calendar, UserCheck, Check, Link2, CreditCard, Flag, History, AlertTriangle, Shield, Lock } from "lucide-react";
 import { getContractAnniversaryStatus, isContractAnniversaryParam, getGapInsuranceStatus, isGapParam, CONTRACT_END_PARAM_ID } from "@/lib/document-validity";
 import { SubjektView } from "@/components/subjekt-view";
 import type { DocumentEntry } from "@shared/schema";
@@ -84,7 +84,7 @@ type FolderWithPanels = {
 
 const TABS = [
   { key: "vseobecne", label: "Vseobecne", icon: FileText },
-  { key: "udaje-klient", label: "Udaje o klientovi", icon: Users },
+  { key: "udaje-klient", label: "Údaje o klientovi (Svätyňa)", icon: Users },
   { key: "udaje-zmluva", label: "Udaje o zmluve", icon: ClipboardList },
   { key: "dokumenty", label: "Dokumenty", icon: FolderOpen },
   { key: "ziskatelia", label: "Ziskatelia", icon: UserCheck },
@@ -1750,6 +1750,13 @@ export default function ContractForm() {
 
           <div style={{ display: activeTab === "udaje-klient" ? 'block' : 'none' }}>
             <div className="space-y-3" data-testid="section-udaje-klient">
+              <div className="flex items-center gap-2 mb-2">
+                <Shield className="w-4 h-4 text-amber-400" />
+                <h2 className="text-sm font-semibold">Priečinok: Údaje o klientovi (Svätyňa)</h2>
+                <Badge variant="outline" className="text-[8px] px-1 py-0 border-amber-500/30 text-amber-400">Statický priečinok</Badge>
+                <Lock className="w-3 h-3 text-slate-500 ml-auto" />
+                <span className="text-[10px] text-slate-500">Len na čítanie — editácia cez Modul C</span>
+              </div>
               <div className="grid grid-cols-2 gap-3">
                 <CompactField label="Klient">
                   <Select value={subjectId} onValueChange={setSubjectId}>
@@ -1793,7 +1800,7 @@ export default function ContractForm() {
 
           <div style={{ display: activeTab === "udaje-zmluva" ? 'block' : 'none' }}>
             <div className="space-y-3" data-testid="section-udaje-zmluva">
-              <h2 className="text-base font-semibold">Údaje o zmluve — Sektor › Odvetvie › Produkt</h2>
+              <h2 className="text-base font-semibold">Modul A: Údaje o zmluve — Sektor → Odvetvie → Produkt → Priečinok</h2>
 
               <div className="grid grid-cols-3 gap-3">
                 <CompactField label="Sektor">

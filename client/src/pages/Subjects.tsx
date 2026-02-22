@@ -973,7 +973,8 @@ function SubjectObjectsTab({ subjectId }: { subjectId: number }) {
     <div className="space-y-2">
       <div className="flex items-center justify-between mb-3">
         <h3 className="text-sm font-semibold text-slate-400 uppercase tracking-wider flex items-center gap-2">
-          <Boxes className="w-4 h-4" /> Modul B — Hierarchia objektov
+          <Boxes className="w-4 h-4" /> Modul B: Majetok a Objekty
+          <Badge variant="outline" className="text-[8px] px-1 py-0 border-primary/30 text-primary">OBJEKT → SEKTOR → ODVETVIE → PRODUKT</Badge>
         </h3>
         <div className="flex items-center gap-3 text-xs text-slate-500">
           <Lock className="w-3.5 h-3.5" /> <span>Len na čítanie</span>
@@ -1348,6 +1349,12 @@ function EntityLinksTab({ subject }: { subject: Subject }) {
 }
 
 function SubjectDetailPanel({ subject, onClose }: { subject: Subject; onClose: () => void }) {
+  const urlTab = useMemo(() => {
+    const params = new URLSearchParams(window.location.search);
+    const t = params.get("tab");
+    if (t === "objekty") return "objekty";
+    return "profil_subjektu";
+  }, []);
   const { data: careerHistory, isLoading } = useSubjectCareerHistory(subject.id);
   const { data: companies } = useMyCompanies();
   const { data: appUser } = useAppUser();
@@ -1483,11 +1490,19 @@ function SubjectDetailPanel({ subject, onClose }: { subject: Subject; onClose: (
           ))}
         </div>
       )}
-      <Tabs defaultValue="udaje" className="flex-1">
+      <Tabs defaultValue={urlTab} className="flex-1">
         <TabsList data-testid="tabs-subject-detail">
+          <TabsTrigger value="profil_subjektu" data-testid="tab-subject-profil">
+            <ShieldCheck className="w-3.5 h-3.5 mr-1" />
+            Modul C: Profil
+          </TabsTrigger>
+          <TabsTrigger value="objekty" data-testid="tab-subject-objekty">
+            <Boxes className="w-3.5 h-3.5 mr-1" />
+            Modul B: Majetok
+          </TabsTrigger>
           <TabsTrigger value="udaje" data-testid="tab-subject-udaje">
-            <FileText className="w-3.5 h-3.5 mr-1" />
-            Udaje klienta
+            <FileTextIcon className="w-3.5 h-3.5 mr-1" />
+            Údaje klienta
           </TabsTrigger>
           <TabsTrigger value="detail" data-testid="tab-subject-info">
             <User className="w-3.5 h-3.5 mr-1" />
@@ -1495,7 +1510,7 @@ function SubjectDetailPanel({ subject, onClose }: { subject: Subject; onClose: (
           </TabsTrigger>
           <TabsTrigger value="historia" data-testid="tab-subject-historia">
             <History className="w-3.5 h-3.5 mr-1" />
-            Historia
+            História
           </TabsTrigger>
           <TabsTrigger value="financie" data-testid="tab-subject-financie">
             <Wallet className="w-3.5 h-3.5 mr-1" />
@@ -1503,17 +1518,17 @@ function SubjectDetailPanel({ subject, onClose }: { subject: Subject; onClose: (
           </TabsTrigger>
           <TabsTrigger value="vztahy" data-testid="tab-subject-vztahy">
             <Link2 className="w-3.5 h-3.5 mr-1" />
-            Vztahy
-          </TabsTrigger>
-          <TabsTrigger value="objekty" data-testid="tab-subject-objekty">
-            <Boxes className="w-3.5 h-3.5 mr-1" />
-            Objekty
-          </TabsTrigger>
-          <TabsTrigger value="profil_subjektu" data-testid="tab-subject-profil">
-            <ShieldCheck className="w-3.5 h-3.5 mr-1" />
-            Profil subjektu
+            Vzťahy
           </TabsTrigger>
         </TabsList>
+
+        <TabsContent value="profil_subjektu" className="mt-3">
+          <SubjectProfileModuleC subject={subject} />
+        </TabsContent>
+
+        <TabsContent value="objekty" className="mt-3">
+          <SubjectObjectsTab subjectId={subject.id} />
+        </TabsContent>
 
         <TabsContent value="udaje" className="mt-3">
           <SubjektView subject={subject} showPdfSidebar />
@@ -1673,13 +1688,6 @@ function SubjectDetailPanel({ subject, onClose }: { subject: Subject; onClose: (
           <EntityLinksTab subject={subject} />
         </TabsContent>
 
-        <TabsContent value="objekty" className="mt-3">
-          <SubjectObjectsTab subjectId={subject.id} />
-        </TabsContent>
-
-        <TabsContent value="profil_subjektu" className="mt-3">
-          <SubjectProfileModuleC subject={subject} />
-        </TabsContent>
       </Tabs>
     </div>
   );
