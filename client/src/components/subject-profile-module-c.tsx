@@ -688,6 +688,13 @@ export function SubjectProfileModuleC({ subject }: ModuleCProps) {
     });
   };
 
+  const rcDerived = useMemo(() => {
+    const rc = dynamicValues["rodne_cislo"]?.trim() || subject.birthNumber?.trim();
+    if (!rc) return false;
+    const parsed = parseRodneCislo(rc);
+    return !!(parsed.pohlavie || parsed.datumNarodenia);
+  }, [dynamicValues["rodne_cislo"], subject.birthNumber]);
+
   const renderFieldRow = (rowKeys: string[], rowIdx: number) => {
     const rowEntries = rowKeys
       .map(k => ({ key: k, field: povinneFields.find(f => f.fieldKey === k) }));
@@ -754,6 +761,7 @@ export function SubjectProfileModuleC({ subject }: ModuleCProps) {
           const rcSource = dynamicValues["rodne_cislo"]?.trim() || subject.birthNumber?.trim() || "";
           const rcParsedResult = rcSource ? parseRodneCislo(rcSource) : {};
           const isRcAuto = (key === "pohlavie" && !!rcParsedResult.pohlavie) || (key === "datum_narodenia" && !!rcParsedResult.datumNarodenia) || (key === "vek" && !!rcParsedResult.datumNarodenia);
+          const isRcDerived = rcDerived && ["datum_narodenia", "vek", "pohlavie"].includes(key);
           const rawFieldDef = (typeFields || []).find(f => f.fieldKey === key);
           const hasVisibilityRule = rawFieldDef?.visibilityRule;
           const isVisibleByRule = hasVisibilityRule ? isFieldVisible(rawFieldDef!) : true;
@@ -769,11 +777,11 @@ export function SubjectProfileModuleC({ subject }: ModuleCProps) {
                   <Label className="text-xs block text-muted-foreground">
                     {overriddenShortLabel ? (
                       <>
-                        <span className="hidden lg:inline">{overriddenLabel}</span>
-                        <span className="inline lg:hidden">{overriddenShortLabel}</span>
+                        <span className="hidden lg:inline">{overriddenLabel}{isRcDerived ? " (z RČ)" : ""}</span>
+                        <span className="inline lg:hidden">{overriddenShortLabel}{isRcDerived ? " (z RČ)" : ""}</span>
                       </>
                     ) : (
-                      <span>{overriddenLabel}</span>
+                      <span>{overriddenLabel}{isRcDerived ? " (z RČ)" : ""}</span>
                     )}
                     {resolvedField.isRequired ? " *" : ""}
                   </Label>
@@ -794,7 +802,7 @@ export function SubjectProfileModuleC({ subject }: ModuleCProps) {
                       {dynamicValues[resolvedField.fieldKey] === "muž" ? "Muž" : dynamicValues[resolvedField.fieldKey] === "žena" ? "Žena" : dynamicValues[resolvedField.fieldKey] || ""}
                     </div>
                     <div style={{ display: isRcAuto ? "none" : undefined }}>
-                      <Select value={dynamicValues[resolvedField.fieldKey] || ""} onValueChange={val => setDynamicValues(prev => ({ ...prev, [resolvedField.fieldKey]: val }))} disabled={!isEditing}>
+                      <Select value={dynamicValues[resolvedField.fieldKey] || ""} onValueChange={val => setDynamicValues(prev => ({ ...prev, [resolvedField.fieldKey]: val }))} disabled={isRcDerived || !isEditing}>
                         <SelectTrigger data-testid={`select-dynamic-${resolvedField.fieldKey}`}>
                           <SelectValue placeholder="" />
                         </SelectTrigger>
@@ -840,10 +848,10 @@ export function SubjectProfileModuleC({ subject }: ModuleCProps) {
                         <Input
                           type="date"
                           value={dateVal}
-                          onChange={e => { if (!isEditing && isRcAuto) return; setDynamicValues(prev => ({ ...prev, [resolvedField.fieldKey]: e.target.value })); }}
-                          readOnly={!isEditing && isRcAuto}
-                          tabIndex={!isEditing && isRcAuto ? -1 : undefined}
-                          disabled={!isEditing}
+                          onChange={e => { if (isRcDerived || (!isEditing && isRcAuto)) return; setDynamicValues(prev => ({ ...prev, [resolvedField.fieldKey]: e.target.value })); }}
+                          readOnly={isRcDerived || (!isEditing && isRcAuto)}
+                          tabIndex={(isRcDerived || (!isEditing && isRcAuto)) ? -1 : undefined}
+                          disabled={isRcDerived || !isEditing}
                           className={cn(validityClass, (!isEditing || isRcAuto) && "bg-muted/50 cursor-default", validityLabel && "pr-[5.5rem]")}
                           data-testid={`input-dynamic-${resolvedField.fieldKey}`}
                         />
@@ -1013,69 +1021,74 @@ export function SubjectProfileModuleC({ subject }: ModuleCProps) {
 
   return (
     <div className="space-y-4" data-testid="module-c-profile">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <Shield className="w-5 h-5 text-primary" />
-          <h2 className="text-base font-semibold">Profil subjektu</h2>
-          <Button
-            size="sm"
-            variant={isArchitectMode ? "default" : "ghost"}
-            onClick={() => setIsArchitectMode(!isArchitectMode)}
-            className="h-7 px-2"
-            data-testid="btn-architect-mode"
-            title="Režim Architekt"
-          >
-            <Settings2 className="w-3.5 h-3.5" />
-          </Button>
-          <ToggleGroup type="single" value={activeClientType} onValueChange={(val) => { if (val) setActiveClientType(val); }} className="h-7" data-testid="toggle-client-type">
-            {CLIENT_TYPE_OPTIONS.map(opt => (
-              <ToggleGroupItem key={opt.value} value={opt.value} className="h-7 px-3 text-xs data-[state=on]:bg-primary data-[state=on]:text-primary-foreground" data-testid={`toggle-type-${opt.value}`}>
-                {opt.short}
-              </ToggleGroupItem>
-            ))}
-          </ToggleGroup>
-        </div>
-        <div className="flex items-center gap-2">
-          {isEditing ? (
-            <>
-              <Input
-                value={editReason}
-                onChange={e => setEditReason(e.target.value)}
-                placeholder="Dôvod zmeny..."
-                className="h-8 text-xs w-48"
-                data-testid="edit-reason-input"
-              />
+      <div className="space-y-3" data-testid="module-c-header">
+        <div className="flex items-center justify-between gap-2 flex-wrap">
+          <div className="flex items-center gap-2 flex-wrap">
+            <Shield className="w-5 h-5 text-primary" />
+            <h2 className="text-base font-semibold">Profil subjektu</h2>
+            <Button
+              size="sm"
+              variant={isArchitectMode ? "default" : "ghost"}
+              onClick={() => setIsArchitectMode(!isArchitectMode)}
+              data-testid="btn-architect-mode"
+              title="Režim Architekt"
+            >
+              <Settings2 className="w-3.5 h-3.5" />
+            </Button>
+          </div>
+          <div className="flex items-center gap-2 flex-wrap">
+            {isEditing ? (
+              <>
+                <Input
+                  value={editReason}
+                  onChange={e => setEditReason(e.target.value)}
+                  placeholder="Dôvod zmeny..."
+                  className="h-8 text-xs w-48"
+                  data-testid="edit-reason-input"
+                />
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => { setIsEditing(false); setEditReason(""); }}
+                  data-testid="btn-cancel-edit"
+                >
+                  <X className="w-3.5 h-3.5 mr-1" />
+                  Zrušiť
+                </Button>
+                <Button
+                  size="sm"
+                  onClick={() => saveMutation.mutate()}
+                  disabled={saveMutation.isPending}
+                  data-testid="btn-save-edit"
+                >
+                  {saveMutation.isPending ? <Loader2 className="w-3.5 h-3.5 mr-1 animate-spin" /> : <Save className="w-3.5 h-3.5 mr-1" />}
+                  Uložiť
+                </Button>
+              </>
+            ) : (
               <Button
                 size="sm"
                 variant="outline"
-                onClick={() => { setIsEditing(false); setEditReason(""); }}
-                data-testid="btn-cancel-edit"
+                onClick={() => setIsEditing(true)}
+                title="Upraviť profil"
+                data-testid="btn-start-edit"
               >
-                <X className="w-3.5 h-3.5 mr-1" />
-                Zrušiť
+                <Pencil className="w-3.5 h-3.5 mr-1" />
+                Upraviť
               </Button>
-              <Button
-                size="sm"
-                onClick={() => saveMutation.mutate()}
-                disabled={saveMutation.isPending}
-                data-testid="btn-save-edit"
-              >
-                {saveMutation.isPending ? <Loader2 className="w-3.5 h-3.5 mr-1 animate-spin" /> : <Save className="w-3.5 h-3.5 mr-1" />}
-                Uložiť
-              </Button>
-            </>
-          ) : (
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={() => setIsEditing(true)}
-              title="Upraviť profil"
-              data-testid="btn-start-edit"
-            >
-              <Pencil className="w-3.5 h-3.5 mr-1" />
-              Upraviť
-            </Button>
-          )}
+            )}
+          </div>
+        </div>
+        <div className="flex justify-center">
+          <div className="inline-flex rounded-lg border-2 border-primary/30 shadow-md p-1 bg-muted/30" data-testid="toggle-client-type-wrapper">
+            <ToggleGroup type="single" value={activeClientType} onValueChange={(val) => { if (val) setActiveClientType(val); }} className="h-9" data-testid="toggle-client-type">
+              {CLIENT_TYPE_OPTIONS.map(opt => (
+                <ToggleGroupItem key={opt.value} value={opt.value} className="h-9 px-6 text-sm font-semibold data-[state=on]:bg-primary data-[state=on]:text-primary-foreground data-[state=on]:shadow-sm" data-testid={`toggle-type-${opt.value}`}>
+                  {opt.short}
+                </ToggleGroupItem>
+              ))}
+            </ToggleGroup>
+          </div>
         </div>
       </div>
 
@@ -1101,40 +1114,46 @@ export function SubjectProfileModuleC({ subject }: ModuleCProps) {
       )}
 
       {isPerson ? (
-        <Accordion type="multiple" defaultValue={["povinne", "doplnkove", "volitelne"]} className="space-y-2">
+        <Accordion type="multiple" defaultValue={["povinne", "osobne", "doplnkove", "volitelne"]} className="space-y-2">
           <AccordionItem value="povinne" className="border rounded-md px-3" data-testid="editor-accordion-povinne">
             <AccordionTrigger className="py-3 hover:no-underline">
               <div className="flex items-center gap-2">
                 <ShieldCheck className="w-4 h-4 text-destructive" />
                 <span className="text-sm font-semibold">{FOLDER_CATEGORY_LABELS["povinne"]}</span>
-                <Badge variant="secondary" className="text-[10px]">{povinneFields.length + 3}</Badge>
+                <Badge variant="secondary" className="text-[10px]">3</Badge>
+              </div>
+            </AccordionTrigger>
+            <AccordionContent className="pb-4 space-y-2">
+              <div className="flex flex-wrap gap-4 items-end" data-testid="row-system-fields">
+                <div className="space-y-1 flex-1 min-w-[160px]">
+                  <Label className="text-xs">Kód klienta</Label>
+                  <Input value={subject.uid || ""} disabled className="font-mono text-xs" data-testid="input-kod-klienta" />
+                </div>
+                <div className="space-y-1 flex-1 min-w-[160px]">
+                  <Label className="text-xs">Typ klienta</Label>
+                  <Input value={CLIENT_TYPE_OPTIONS.find(o => o.value === activeClientType)?.label || "Fyzická osoba"} disabled data-testid="input-typ-klienta" />
+                </div>
+                <div className="space-y-1 flex-1 min-w-[160px]">
+                  <Label className="text-xs">Identifikátor ({activeClientType === "po" ? "IČO" : activeClientType === "szco" ? "IČO" : "Rodné číslo"})</Label>
+                  <Input value={subject.birthNumber || ""} disabled className="font-mono" data-testid="input-identifikator" />
+                </div>
+              </div>
+            </AccordionContent>
+          </AccordionItem>
+
+          <AccordionItem value="osobne" className="border rounded-md px-3" data-testid="editor-accordion-osobne">
+            <AccordionTrigger className="py-3 hover:no-underline">
+              <div className="flex items-center gap-2">
+                <Users className="w-4 h-4 text-primary" />
+                <span className="text-sm font-semibold">OSOBNÉ ÚDAJE</span>
+                <Badge variant="secondary" className="text-[10px]">{povinneFields.length}</Badge>
                 {worstDocStatus !== "unknown" && (
                   <span className={cn("w-2.5 h-2.5 rounded-full", worstDocStatus === "expired" ? "bg-red-500" : worstDocStatus === "expiring" ? "bg-orange-500" : "bg-emerald-500")} data-testid="semaphore-povinne" title={worstDocStatus === "expired" ? "Neplatný doklad" : worstDocStatus === "expiring" ? "Doklad expiruje do 90 dní" : "Všetky doklady platné"} />
                 )}
               </div>
             </AccordionTrigger>
             <AccordionContent className="pb-4 space-y-2">
-              <div className="flex flex-wrap gap-4 items-end" data-testid="row-system-fields">
-                <div className="space-y-1 w-[200px] min-w-[160px] shrink-0">
-                  <Label className="text-xs">Kód klienta</Label>
-                  <Input value={subject.uid || ""} disabled className="font-mono text-xs" data-testid="input-kod-klienta" />
-                </div>
-                <div className="space-y-1 w-[200px] min-w-[160px] shrink-0">
-                  <Label className="text-xs">Typ klienta</Label>
-                  <Input value={CLIENT_TYPE_OPTIONS.find(o => o.value === activeClientType)?.label || "Fyzická osoba"} disabled data-testid="input-typ-klienta" />
-                </div>
-                <div className="space-y-1 flex-1 min-w-[180px]">
-                  <Label className="text-xs">Identifikátor ({activeClientType === "po" ? "IČO" : activeClientType === "szco" ? "IČO" : "Rodné číslo"})</Label>
-                  <Input value={subject.birthNumber || ""} disabled className="font-mono" data-testid="input-identifikator" />
-                </div>
-              </div>
-
-              <Card data-testid="panel-osobne-udaje">
-                <CardContent className="p-4 space-y-2">
-                  <p className="text-sm font-semibold">Osobné údaje</p>
-                  {sortedPovinneRows.map((rowKeys, rowIdx) => renderFieldRow(rowKeys, rowIdx))}
-                </CardContent>
-              </Card>
+              {sortedPovinneRows.map((rowKeys, rowIdx) => renderFieldRow(rowKeys, rowIdx))}
 
               <Card data-testid="panel-doklady-totoznosti">
                 <CardContent className="p-4 space-y-3">
@@ -1368,6 +1387,24 @@ export function SubjectProfileModuleC({ subject }: ModuleCProps) {
                             data-testid={`input-contact-label-${cIdx}`}
                           />
                         </div>
+                        <div className="space-y-1 w-[110px] min-w-[90px] shrink-0">
+                          <Label className="text-xs text-muted-foreground">Stav</Label>
+                          <Select
+                            value={(contact as any).status || "aktívny"}
+                            onValueChange={val => setContacts(prev => prev.map(c => c.id === contact.id ? { ...c, status: val } as any : c))}
+                            disabled={!isEditing}
+                          >
+                            <SelectTrigger className="h-9 text-xs" data-testid={`select-contact-status-${cIdx}`}>
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="aktívny">Aktívny</SelectItem>
+                              <SelectItem value="starý">Starý</SelectItem>
+                              <SelectItem value="neplatný">Neplatný</SelectItem>
+                              <SelectItem value="zlý">Zlý</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
                         <div className="flex items-center gap-1 pb-0.5">
                           {!contact.isPrimary && isEditing && (
                             <Button type="button" variant="ghost" size="icon" onClick={() => setContacts(prev => prev.map(c => c.type === contact.type ? { ...c, isPrimary: c.id === contact.id } : c))} title="Nastaviť ako primárny" data-testid={`button-set-primary-${cIdx}`}>
@@ -1378,16 +1415,19 @@ export function SubjectProfileModuleC({ subject }: ModuleCProps) {
                             <Badge variant="secondary" className="text-[10px]">Primárny</Badge>
                           )}
                           {contacts.length > 1 && isEditing && (
-                            <Button type="button" variant="ghost" size="icon" onClick={() => {
-                              setContacts(prev => {
-                                const remaining = prev.filter(c => c.id !== contact.id);
-                                if (contact.isPrimary) {
-                                  const nextOfType = remaining.find(c => c.type === contact.type);
-                                  if (nextOfType) nextOfType.isPrimary = true;
-                                }
-                                return [...remaining];
-                              });
-                            }} data-testid={`button-remove-contact-${cIdx}`}>
+                            <Button type="button" variant="ghost" size="icon"
+                              disabled={!!contact.value?.trim()}
+                              title={contact.value?.trim() ? "Kontakt s údajmi nemožno vymazať" : "Odstrániť kontakt"}
+                              onClick={() => {
+                                setContacts(prev => {
+                                  const remaining = prev.filter(c => c.id !== contact.id);
+                                  if (contact.isPrimary) {
+                                    const nextOfType = remaining.find(c => c.type === contact.type);
+                                    if (nextOfType) nextOfType.isPrimary = true;
+                                  }
+                                  return [...remaining];
+                                });
+                              }} data-testid={`button-remove-contact-${cIdx}`}>
                               <Trash2 className="w-3.5 h-3.5 text-destructive" />
                             </Button>
                           )}
