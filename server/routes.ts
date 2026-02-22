@@ -7750,6 +7750,25 @@ export async function registerRoutes(
     }
   });
 
+  // Parameter Synonyms field-counts
+  app.get("/api/parameter-synonyms/field-counts", isAuthenticated, async (req, res) => {
+    try {
+      const result = await db.execute(sql`
+        SELECT sp.field_key, COUNT(ps.id)::int as count
+        FROM subject_parameters sp
+        JOIN parameter_synonyms ps ON ps.parameter_id = sp.id
+        GROUP BY sp.field_key
+      `);
+      const counts: Record<string, number> = {};
+      for (const row of result.rows as any[]) {
+        counts[row.field_key] = row.count;
+      }
+      res.json(counts);
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
   // Parameter Synonyms CRUD
   app.get("/api/subject-parameters/:parameterId/synonyms", isAuthenticated, async (req, res) => {
     try {

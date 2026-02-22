@@ -57,6 +57,36 @@ const FIELD_TO_SUBJECT_COLUMN: Record<string, string> = {
 
 const INT_COLUMNS = new Set(["continentId", "stateId", "myCompanyId"]);
 
+const CLIENT_TYPE_OPTIONS = [
+  { value: "person", label: "Fyzická osoba", short: "FO" },
+  { value: "szco", label: "SZČO", short: "SZČO" },
+  { value: "po", label: "Právnická osoba", short: "PO" },
+];
+
+const FO_TO_PO_LABEL_OVERRIDES: Record<string, string> = {
+  meno: "Obchodné meno",
+  rodne_cislo: "IČO",
+  tp_ulica: "Ulica (sídlo)",
+  tp_supisne: "Súpisné číslo (sídlo)",
+  tp_orientacne: "Orientačné číslo (sídlo)",
+  tp_psc: "PSČ (sídlo)",
+  tp_mesto: "Mesto (sídlo)",
+  tp_stat: "Štát (sídlo)",
+};
+
+const FO_TO_SZCO_LABEL_OVERRIDES: Record<string, string> = {
+  meno: "Meno (konateľ)",
+  priezvisko: "Priezvisko (konateľ)",
+  rodne_cislo: "IČO",
+};
+
+const PO_HIDDEN_FIELDS = new Set([
+  "priezvisko", "titul_pred", "titul_za", "rodne_priezvisko",
+  "datum_narodenia", "vek", "pohlavie", "miesto_narodenia", "statna_prislusnost",
+]);
+
+const SZCO_HIDDEN_FIELDS = new Set<string>([]);
+
 const FO_POVINNE_ROWS: { keys: string[] }[] = [
   { keys: ["titul_pred", "meno", "priezvisko", "titul_za"] },
   { keys: ["rodne_priezvisko", "datum_narodenia", "vek", "pohlavie"] },
@@ -117,36 +147,46 @@ function parseRodneCislo(rc: string): { pohlavie?: string; datumNarodenia?: stri
   return { pohlavie, datumNarodenia: dateStr };
 }
 
-function DynamicFieldInput({ field, dynamicValues, setDynamicValues, hasError, disabled, subjectId }: {
+function DynamicFieldInput({ field, dynamicValues, setDynamicValues, hasError, disabled, subjectId, labelOverride, shortLabelOverride, synonymCount }: {
   field: StaticField;
   dynamicValues: Record<string, string>;
   setDynamicValues: React.Dispatch<React.SetStateAction<Record<string, string>>>;
   hasError?: boolean;
   disabled?: boolean;
   subjectId?: number;
+  labelOverride?: string;
+  shortLabelOverride?: string | null;
+  synonymCount?: number;
 }) {
   const numberFieldValidity = useMemo(() => {
     return isNumberFieldWithExpiredPair(field.fieldKey, dynamicValues);
   }, [field.fieldKey, dynamicValues]);
   const isExpiredNumber = numberFieldValidity?.status === "expired";
   const errorBorder = hasError ? "border-red-500 ring-1 ring-red-500" : isExpiredNumber ? "border-red-500/60 bg-red-500/10 ring-1 ring-red-500/30" : "";
+  const displayLabel = labelOverride || field.label || field.fieldKey;
+  const displayShortLabel = shortLabelOverride === null ? undefined : (shortLabelOverride || field.shortLabel);
   return (
     <div className="space-y-1">
       <div className="flex items-center gap-1">
         <Label className={`text-xs truncate block ${hasError ? "text-red-500" : isExpiredNumber ? "text-red-500 font-semibold" : "text-muted-foreground"}`}>
-          {field.shortLabel ? (
+          {displayShortLabel ? (
             <>
-              <span className="hidden lg:inline">{field.label || field.fieldKey}</span>
-              <span className="inline lg:hidden">{field.shortLabel}</span>
+              <span className="hidden lg:inline">{displayLabel}</span>
+              <span className="inline lg:hidden">{displayShortLabel}</span>
             </>
           ) : (
-            <span>{field.label || field.fieldKey}</span>
+            <span>{displayLabel}</span>
           )}
           {field.isRequired ? " *" : ""}
           {isExpiredNumber && <span className="ml-1 text-red-500 text-[9px]">(neplatný doklad)</span>}
         </Label>
         {subjectId && (
-          <FieldHistoryIndicator subjectId={subjectId} fieldKey={field.fieldKey} fieldLabel={field.label || field.fieldKey} />
+          <FieldHistoryIndicator subjectId={subjectId} fieldKey={field.fieldKey} fieldLabel={displayLabel} />
+        )}
+        {synonymCount !== undefined && synonymCount > 0 && (
+          <Badge variant="outline" className="text-[8px] px-1 py-0 h-3.5 font-mono text-blue-400 border-blue-400/30" title={`${synonymCount} AI synoným`} data-testid={`synonym-count-${field.fieldKey}`}>
+            AI:{synonymCount}
+          </Badge>
         )}
       </div>
       {field.fieldType === "long_text" ? (
@@ -299,6 +339,42 @@ export function SubjectProfileModuleC({ subject }: ModuleCProps) {
     return 4;
   }, [subject]);
 
+  const [activeClientType, setActiveClientType] = useState<string>(subject.type);
+
+  useEffect(() => {
+    setActiveClientType(subject.type);
+  }, [subject.type]);
+
+  const labelOverrides = useMemo(() => {
+    if (activeClientType === "po") return FO_TO_PO_LABEL_OVERRIDES;
+    if (activeClientType === "szco") return FO_TO_SZCO_LABEL_OVERRIDES;
+    return {};
+  }, [activeClientType]);
+
+  const hiddenFieldKeys = useMemo(() => {
+    if (activeClientType === "po") return PO_HIDDEN_FIELDS;
+    if (activeClientType === "szco") return SZCO_HIDDEN_FIELDS;
+    return new Set<string>();
+  }, [activeClientType]);
+
+  function getOverriddenLabel(field: StaticField): string {
+    return labelOverrides[field.fieldKey] || field.label || field.fieldKey;
+  }
+
+  function getOverriddenShortLabel(field: StaticField): string | undefined {
+    if (labelOverrides[field.fieldKey]) return undefined;
+    return field.shortLabel;
+  }
+
+  function isFieldHiddenByType(fieldKey: string): boolean {
+    return hiddenFieldKeys.has(fieldKey);
+  }
+
+  const { data: synonymCounts } = useQuery<Record<string, number>>({
+    queryKey: ["/api/parameter-synonyms/field-counts"],
+    enabled: subject.id > 0,
+  });
+
   const isPerson = subject.type === "person";
   const typeFields = getFieldsForClientTypeId(clientTypeId);
   const typeSections = getSectionsForClientTypeId(clientTypeId);
@@ -413,6 +489,9 @@ export function SubjectProfileModuleC({ subject }: ModuleCProps) {
 
   const saveMutation = useMutation({
     mutationFn: async () => {
+      if (subject.id === 0) {
+        throw new Error("Nie je možné uložiť prázdny profil. Najprv vyberte alebo vytvorte subjekt.");
+      }
       const payload: Record<string, any> = {};
       const cleanDynamic = { ...dynamicValues };
 
@@ -481,6 +560,17 @@ export function SubjectProfileModuleC({ subject }: ModuleCProps) {
   const isDocExpired = (validUntil?: string) => getDocumentValidityStatus(validUntil).status === "expired";
   const isDocExpiringSoon = (validUntil?: string) => getDocumentValidityStatus(validUntil).status === "expiring";
 
+  const worstDocStatus = useMemo(() => {
+    const allDates = documents.map(d => d.validUntil).filter(Boolean);
+    const dynValidity = dynamicValues["platnost_dokladu"];
+    if (dynValidity) allDates.push(dynValidity);
+    if (allDates.length === 0) return "unknown";
+    const statuses = allDates.map(d => getDocumentValidityStatus(d));
+    if (statuses.some(s => s.status === "expired")) return "expired";
+    if (statuses.some(s => s.status === "expiring")) return "expiring";
+    return "valid";
+  }, [documents, dynamicValues]);
+
   const renderFieldRow = (rowKeys: string[], rowIdx: number) => {
     const rowEntries = rowKeys
       .map(k => ({ key: k, field: povinneFields.find(f => f.fieldKey === k) }));
@@ -491,6 +581,10 @@ export function SubjectProfileModuleC({ subject }: ModuleCProps) {
       <div key={rowIdx} className="flex flex-wrap gap-4 items-end" data-testid={`row-povinne-${rowIdx}`}>
         {rowEntries.map(({ key, field }) => {
           const widthClass = getFieldWidthClass(key);
+
+          if (isFieldHiddenByType(key)) {
+            return <div key={key} className={cn("space-y-1 min-w-0", widthClass)} style={{ display: "none" }} />;
+          }
 
           if (key === "statna_prislusnost") {
             const label = field?.label || "Štátna príslušnosť";
@@ -546,21 +640,28 @@ export function SubjectProfileModuleC({ subject }: ModuleCProps) {
           const resolvedField = field || (hasVisibilityRule ? rawFieldDef : null);
 
           if (resolvedField) {
+            const overriddenLabel = getOverriddenLabel(resolvedField);
+            const overriddenShortLabel = getOverriddenShortLabel(resolvedField);
             return (
               <div key={key} className={cn("space-y-1 min-w-0", widthClass)} style={!isVisibleByRule ? { display: "none" } : undefined}>
                 <div className="flex items-center gap-1">
                   <Label className="text-xs block text-muted-foreground">
-                    {resolvedField.shortLabel ? (
+                    {overriddenShortLabel ? (
                       <>
-                        <span className="hidden lg:inline">{resolvedField.label || key}</span>
-                        <span className="inline lg:hidden">{resolvedField.shortLabel}</span>
+                        <span className="hidden lg:inline">{overriddenLabel}</span>
+                        <span className="inline lg:hidden">{overriddenShortLabel}</span>
                       </>
                     ) : (
-                      <span>{resolvedField.label || key}</span>
+                      <span>{overriddenLabel}</span>
                     )}
                     {resolvedField.isRequired ? " *" : ""}
                   </Label>
-                  <FieldHistoryIndicator subjectId={subject.id} fieldKey={key} fieldLabel={resolvedField.label || key} />
+                  <FieldHistoryIndicator subjectId={subject.id} fieldKey={key} fieldLabel={overriddenLabel} />
+                  {synonymCounts && synonymCounts[key] > 0 && (
+                    <Badge variant="outline" className="text-[8px] px-1 py-0 h-3.5 font-mono text-blue-400 border-blue-400/30" title={`${synonymCounts[key]} AI synoným`} data-testid={`synonym-count-${key}`}>
+                      AI:{synonymCounts[key]}
+                    </Badge>
+                  )}
                 </div>
                 {resolvedField.fieldType === "number" && resolvedField.fieldKey === "vek" ? (
                   <div className="h-9 w-full flex items-center px-3 rounded-md bg-muted/50 border border-border text-sm font-medium text-foreground cursor-default select-none whitespace-nowrap" data-testid={`input-dynamic-${resolvedField.fieldKey}`}>
@@ -698,7 +799,7 @@ export function SubjectProfileModuleC({ subject }: ModuleCProps) {
     return (
       <Card className={`${disabled ? "opacity-50 pointer-events-none" : ""}`} data-testid={`panel-address-${prefix}`}>
         <CardContent className="p-4 space-y-2">
-          <p className="text-sm font-semibold truncate" title={panelDef.label}>{panelDef.label}</p>
+          <p className="text-sm font-semibold truncate" title={activeClientType === "po" && prefix === "tp" ? "Sídlo spoločnosti" : panelDef.label}>{activeClientType === "po" && prefix === "tp" ? "Sídlo spoločnosti" : panelDef.label}</p>
           {fUlica && (
             <div data-testid={`addr-row-ulica-${prefix}`}>
               {renderAddrField(fUlica.key, fUlica.field, fUlica.suffix)}
@@ -772,9 +873,16 @@ export function SubjectProfileModuleC({ subject }: ModuleCProps) {
         <div className="flex items-center gap-2">
           <Shield className="w-5 h-5 text-primary" />
           <h2 className="text-base font-semibold">Profil subjektu</h2>
-          <Badge variant="outline" className="text-[10px]">
-            {subject.type === "person" ? "FO" : subject.type === "szco" ? "SZČO" : "PO"}
-          </Badge>
+          <Select value={activeClientType} onValueChange={setActiveClientType}>
+            <SelectTrigger className="h-7 w-[160px] text-xs" data-testid="select-client-type">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {CLIENT_TYPE_OPTIONS.map(opt => (
+                <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
         <div className="flex items-center gap-2">
           {isEditing ? (
@@ -798,7 +906,7 @@ export function SubjectProfileModuleC({ subject }: ModuleCProps) {
               <Button
                 size="sm"
                 onClick={() => saveMutation.mutate()}
-                disabled={saveMutation.isPending}
+                disabled={saveMutation.isPending || subject.id === 0}
                 data-testid="btn-save-edit"
               >
                 {saveMutation.isPending ? <Loader2 className="w-3.5 h-3.5 mr-1 animate-spin" /> : <Save className="w-3.5 h-3.5 mr-1" />}
@@ -810,6 +918,8 @@ export function SubjectProfileModuleC({ subject }: ModuleCProps) {
               size="sm"
               variant="outline"
               onClick={() => setIsEditing(true)}
+              disabled={subject.id === 0}
+              title={subject.id === 0 ? "Najprv vyberte subjekt" : "Upraviť profil"}
               data-testid="btn-start-edit"
             >
               <Pencil className="w-3.5 h-3.5 mr-1" />
@@ -829,6 +939,9 @@ export function SubjectProfileModuleC({ subject }: ModuleCProps) {
                 <ShieldCheck className="w-4 h-4 text-destructive" />
                 <span className="text-sm font-semibold">{FOLDER_CATEGORY_LABELS["povinne"]}</span>
                 <Badge variant="secondary" className="text-[10px]">{povinneFields.length + 3}</Badge>
+                {worstDocStatus !== "unknown" && (
+                  <span className={cn("w-2.5 h-2.5 rounded-full", worstDocStatus === "expired" ? "bg-red-500" : worstDocStatus === "expiring" ? "bg-orange-500" : "bg-emerald-500")} data-testid="semaphore-povinne" title={worstDocStatus === "expired" ? "Neplatný doklad" : worstDocStatus === "expiring" ? "Doklad expiruje do 90 dní" : "Všetky doklady platné"} />
+                )}
               </div>
             </AccordionTrigger>
             <AccordionContent className="pb-4 space-y-2">
@@ -839,10 +952,10 @@ export function SubjectProfileModuleC({ subject }: ModuleCProps) {
                 </div>
                 <div className="space-y-1 w-[200px] min-w-[160px] shrink-0">
                   <Label className="text-xs">Typ klienta</Label>
-                  <Input value="Fyzická osoba" disabled data-testid="input-typ-klienta" />
+                  <Input value={CLIENT_TYPE_OPTIONS.find(o => o.value === activeClientType)?.label || "Fyzická osoba"} disabled data-testid="input-typ-klienta" />
                 </div>
                 <div className="space-y-1 flex-1 min-w-[180px]">
-                  <Label className="text-xs">Identifikátor (Rodné číslo)</Label>
+                  <Label className="text-xs">Identifikátor ({activeClientType === "po" ? "IČO" : activeClientType === "szco" ? "IČO" : "Rodné číslo"})</Label>
                   <Input value={subject.birthNumber || ""} disabled className="font-mono" data-testid="input-identifikator" />
                 </div>
               </div>
@@ -888,9 +1001,9 @@ export function SubjectProfileModuleC({ subject }: ModuleCProps) {
                           <CardContent className="p-3 space-y-2">
                             <div className="flex items-center justify-between gap-2 flex-wrap">
                               <div className="flex items-center gap-1.5">
-                                {expired && <Badge variant="destructive" className="text-[10px]">Expirovaný</Badge>}
-                                {expiringSoon && !expired && <Badge className="text-[10px] bg-orange-500/20 text-orange-400 border-orange-500/30">Expiruje čoskoro</Badge>}
-                                {!expired && !expiringSoon && doc.validUntil && <Badge variant="secondary" className="text-[10px]">Platný</Badge>}
+                                {expired && <Badge variant="destructive" className="text-[10px]"><span className={cn("w-2 h-2 rounded-full inline-block mr-1", "bg-red-500")} />Expirovaný</Badge>}
+                                {expiringSoon && !expired && <Badge className="text-[10px] bg-orange-500/20 text-orange-400 border-orange-500/30"><span className={cn("w-2 h-2 rounded-full inline-block mr-1", "bg-orange-500")} />Expiruje čoskoro</Badge>}
+                                {!expired && !expiringSoon && doc.validUntil && <Badge variant="secondary" className="text-[10px]"><span className={cn("w-2 h-2 rounded-full inline-block mr-1", "bg-emerald-500")} />Platný</Badge>}
                               </div>
                               {isEditing && (
                                 <Button type="button" variant="ghost" size="icon" onClick={() => removeDocument(doc.id)} data-testid={`button-remove-document-${docIdx}`}>
