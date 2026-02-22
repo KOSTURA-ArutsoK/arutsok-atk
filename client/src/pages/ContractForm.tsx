@@ -10,7 +10,7 @@ import { useColumnVisibility, type ColumnDef } from "@/hooks/use-column-visibili
 import { ColumnManager } from "@/components/column-manager";
 import type { Contract, ContractStatus, ContractStatusChangeLog, ContractTemplate, ContractInventory, Subject, Partner, Product, MyCompany, Sector, Section, SectorProduct, ContractPassword, ContractParameterValue, ContractFieldSetting, ClientType, ContractAcquirer, AppUser, ContractRewardDistribution } from "@shared/schema";
 import { getFieldsForClientTypeId, type StaticField } from "@/lib/staticFieldDefs";
-import { ArrowLeft, Save, Loader2, LayoutGrid, KeyRound, Plus, Trash2, FileText, Users, ClipboardList, FolderOpen, FolderClosed, DollarSign, BarChart3, ListChecks, PieChart, ChevronLeft, ChevronRight, MessageSquare, Paperclip, Upload, X, Eye, Settings2, Calendar, UserCheck, Check, Link2, CreditCard, Flag, History } from "lucide-react";
+import { ArrowLeft, Save, Loader2, LayoutGrid, KeyRound, Plus, Trash2, FileText, Users, ClipboardList, FolderOpen, FolderClosed, DollarSign, BarChart3, ListChecks, PieChart, ChevronLeft, ChevronRight, MessageSquare, Paperclip, Upload, X, Eye, Settings2, Calendar, UserCheck, Check, Link2, CreditCard, Flag, History, AlertTriangle } from "lucide-react";
 import { getContractAnniversaryStatus, isContractAnniversaryParam, getGapInsuranceStatus, isGapParam, CONTRACT_END_PARAM_ID } from "@/lib/document-validity";
 import { SubjektView } from "@/components/subjekt-view";
 import type { DocumentEntry } from "@shared/schema";
@@ -1054,6 +1054,36 @@ export default function ContractForm() {
   const matchedClientTypeCode = selectedSubject?.type ? subjectTypeToClientCode[selectedSubject.type] || null : null;
   const matchedClientType = matchedClientTypeCode ? clientTypes?.find(ct => ct.code === matchedClientTypeCode) : null;
 
+  const PARAM_TO_SUBJECT_MAP: Record<string, { field: keyof Subject; label: string }> = {
+    "Rodné číslo": { field: "birthNumber" as keyof Subject, label: "Rodné číslo" },
+    "Meno": { field: "firstName" as keyof Subject, label: "Meno" },
+    "Priezvisko": { field: "lastName" as keyof Subject, label: "Priezvisko" },
+    "Dátum narodenia": { field: "dateOfBirth" as keyof Subject, label: "Dátum narodenia" },
+    "Email": { field: "email" as keyof Subject, label: "Email" },
+    "Telefón": { field: "phone" as keyof Subject, label: "Telefón" },
+    "IČO": { field: "ico" as keyof Subject, label: "IČO" },
+    "DIČ": { field: "dic" as keyof Subject, label: "DIČ" },
+    "Titul": { field: "titleBefore" as keyof Subject, label: "Titul pred menom" },
+    "Ulica": { field: "street" as keyof Subject, label: "Ulica" },
+    "Mesto": { field: "city" as keyof Subject, label: "Mesto" },
+    "PSČ": { field: "postalCode" as keyof Subject, label: "PSČ" },
+    "IBAN": { field: "iban" as keyof Subject, label: "IBAN" },
+    "Názov spoločnosti": { field: "companyName" as keyof Subject, label: "Názov spoločnosti" },
+  };
+
+  const getNezhoda = (paramName: string, contractValue: string): string | null => {
+    if (!selectedSubject || !contractValue) return null;
+    const mapping = PARAM_TO_SUBJECT_MAP[paramName];
+    if (!mapping) return null;
+    const masterValue = String((selectedSubject as any)[mapping.field] || "");
+    if (!masterValue) return null;
+    const norm = (s: string) => s.trim().toLowerCase().replace(/\s+/g, " ");
+    if (norm(contractValue) !== norm(masterValue)) {
+      return masterValue;
+    }
+    return null;
+  };
+
   const urlQueryParams = typeof window !== "undefined" ? new URLSearchParams(window.location.search) : new URLSearchParams();
   const urlPartnerId = urlQueryParams.get("partnerId") || "";
   const urlProductId = urlQueryParams.get("productId") || "";
@@ -1358,14 +1388,32 @@ export default function ContractForm() {
     return entries;
   }
 
-  function handleSubmit() {
-    const rewardTotal = getRewardTotalPercentage();
-    if (rewardTotal > 100) {
-      toast({ title: "Chyba", description: `Celkovy sucet odmien je ${rewardTotal}%, nesmie presiahnuť 100 %`, variant: "destructive" });
-      return;
+  const CRITICAL_PARAM_NAMES = ["Rodné číslo", "Meno", "Priezvisko"];
+  const [justificationModalOpen, setJustificationModalOpen] = useState(false);
+  const [justificationText, setJustificationText] = useState("");
+  const [criticalChanges, setCriticalChanges] = useState<{ paramName: string; oldValue: string; newValue: string }[]>([]);
+  const pendingPayloadRef = useRef<any>(null);
+
+  function getCriticalFieldChanges(): { paramName: string; oldValue: string; newValue: string }[] {
+    if (!selectedSubject || !productPanels) return [];
+    const changes: { paramName: string; oldValue: string; newValue: string }[] = [];
+    for (const panel of productPanels) {
+      for (const param of panel.parameters) {
+        if (CRITICAL_PARAM_NAMES.includes(param.name)) {
+          const val = panelValues[`${panel.id}_${param.id}`] || "";
+          const masterVal = getNezhoda(param.name, val);
+          if (masterVal && val) {
+            changes.push({ paramName: param.name, oldValue: masterVal, newValue: val });
+          }
+        }
+      }
     }
+    return changes;
+  }
+
+  function buildPayload() {
     const processingTimeSec = Math.round((performance.now() - timerRef.current) / 1000);
-    const payload = {
+    return {
       contractNumber: contractNumber || null,
       proposalNumber: proposalNumber || null,
       subjectId: subjectId ? parseInt(subjectId) : null,
@@ -1393,12 +1441,35 @@ export default function ContractForm() {
         ? { ...panelValues, ...Object.fromEntries(Object.entries(clientTypeFieldValues).map(([k, v]) => [`ct_${k}`, v])) }
         : undefined,
     };
+  }
 
+  function executeSubmit(payload: any, justification?: string) {
+    if (justification) {
+      payload.criticalFieldJustification = justification;
+    }
     if (isEditing) {
       updateMutation.mutate(payload);
     } else {
       createMutation.mutate(payload);
     }
+  }
+
+  function handleSubmit() {
+    const rewardTotal = getRewardTotalPercentage();
+    if (rewardTotal > 100) {
+      toast({ title: "Chyba", description: `Celkovy sucet odmien je ${rewardTotal}%, nesmie presiahnuť 100 %`, variant: "destructive" });
+      return;
+    }
+    const payload = buildPayload();
+    const changes = getCriticalFieldChanges();
+    if (changes.length > 0 && isEditing) {
+      setCriticalChanges(changes);
+      pendingPayloadRef.current = payload;
+      setJustificationText("");
+      setJustificationModalOpen(true);
+      return;
+    }
+    executeSubmit(payload);
   }
 
   const isPending = createMutation.isPending || updateMutation.isPending;
@@ -1907,6 +1978,16 @@ export default function ContractForm() {
                                   }
                                   return null;
                                 })()}
+                                {(() => {
+                                  const val = panelValues[`${panel.id}_${param.id}`] || "";
+                                  const masterVal = getNezhoda(param.name, val);
+                                  if (!masterVal) return null;
+                                  return (
+                                    <span className="shrink-0" title={`Pozor: V Master Data je evidovaná iná hodnota: ${masterVal}`} data-testid={`nezhoda-${param.id}`}>
+                                      <AlertTriangle className="w-4 h-4 text-orange-400" />
+                                    </span>
+                                  );
+                                })()}
                               </div>
                             </div>
                             <div style={{ display: param.helpText ? 'block' : 'none' }}><p className="text-xs text-muted-foreground">{param.helpText}</p></div>
@@ -2325,6 +2406,62 @@ export default function ContractForm() {
           />
         </div>
       </div>
+
+      <Dialog open={justificationModalOpen} onOpenChange={setJustificationModalOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-orange-400">
+              <AlertTriangle className="w-5 h-5" />
+              Zmena kritických údajov
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            <p className="text-sm text-muted-foreground">
+              Zistili sme zmeny v kritických poliach klienta. Tieto zmeny sa líšia od Master Data a vyžadujú odôvodnenie.
+            </p>
+            <div className="space-y-2 border border-orange-500/20 rounded p-3 bg-orange-500/5">
+              {criticalChanges.map((c, i) => (
+                <div key={i} className="text-sm">
+                  <span className="font-medium text-orange-300">{c.paramName}</span>
+                  <div className="text-xs text-slate-400 mt-0.5">
+                    Master Data: <span className="font-mono">{c.oldValue}</span> → Zmluva: <span className="font-mono text-orange-300">{c.newValue}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-sm font-medium">Odôvodnenie zmeny *</label>
+              <Textarea
+                value={justificationText}
+                onChange={e => setJustificationText(e.target.value)}
+                placeholder="Uveďte dôvod zmeny kritických údajov..."
+                rows={3}
+                data-testid="input-justification"
+              />
+            </div>
+            <div className="flex gap-2 justify-end">
+              <Button variant="outline" size="sm" onClick={() => { setJustificationModalOpen(false); pendingPayloadRef.current = null; }} data-testid="button-cancel-justification">
+                Zrušiť
+              </Button>
+              <Button
+                size="sm"
+                className="bg-orange-600 hover:bg-orange-700 text-white"
+                disabled={justificationText.trim().length < 5}
+                onClick={() => {
+                  setJustificationModalOpen(false);
+                  if (pendingPayloadRef.current) {
+                    executeSubmit(pendingPayloadRef.current, justificationText.trim());
+                    pendingPayloadRef.current = null;
+                  }
+                }}
+                data-testid="button-confirm-justification"
+              >
+                Potvrdiť a uložiť
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

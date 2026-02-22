@@ -8,7 +8,7 @@ import { apiRequest, queryClient } from "@/lib/queryClient";
 import { formatDateSlovak, formatDateTimeSlovak } from "@/lib/utils";
 import { getDocumentValidityStatus, isValidityField, isNumberFieldWithExpiredPair, type ValidityResult } from "@/lib/document-validity";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, Search, User, Building2, AlertTriangle, Eye, Calendar, Briefcase, ArrowRight, ArrowLeft, ExternalLink, History, Clock, Wallet, Loader2, CheckCircle2, Pencil, Lock, Users, X, Info, Link2, Unlink, Trash2, CreditCard, Archive, Ban, Boxes, Car, Home, Landmark } from "lucide-react";
+import { Plus, Search, User, Building2, AlertTriangle, Eye, Calendar, Briefcase, ArrowRight, ArrowLeft, ExternalLink, History, Clock, Wallet, Loader2, CheckCircle2, Pencil, Lock, Users, X, Info, Link2, Unlink, Trash2, CreditCard, Archive, Ban, Boxes, Car, Home, Landmark, ChevronRight, ChevronDown, FolderOpen, Tag, Hash, Package, FileText as FileTextIcon, SquareIcon } from "lucide-react";
 import { SubjectPhotoThumbnail } from "@/components/subject-profile-photo";
 import { ActivityTimeline } from "@/components/activity-timeline";
 import { FieldHistoryIndicator } from "@/components/field-history-indicator";
@@ -894,44 +894,71 @@ function getSubjectLabel(s: { type: string; firstName: string | null; lastName: 
   return s.companyName || 'Bez nazvu';
 }
 
+function TreeToggle({ isOpen, onToggle, children, level = 0, icon, label, badge, badgeColor, extra }: {
+  isOpen: boolean; onToggle: () => void; children: React.ReactNode;
+  level?: number; icon: React.ReactNode; label: string; badge?: string; badgeColor?: string; extra?: React.ReactNode;
+}) {
+  return (
+    <div style={{ paddingLeft: `${level * 16}px` }}>
+      <div
+        className="flex items-center gap-1.5 py-1.5 px-2 rounded cursor-pointer hover:bg-slate-800/50 transition-colors group"
+        onClick={onToggle}
+        data-testid={`tree-node-${label.replace(/\s+/g, '-').toLowerCase()}`}
+      >
+        {isOpen ? <ChevronDown className="w-3.5 h-3.5 text-slate-500 shrink-0" /> : <ChevronRight className="w-3.5 h-3.5 text-slate-500 shrink-0" />}
+        {icon}
+        <span className="text-sm font-medium truncate">{label}</span>
+        {badge && <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium ml-1 ${badgeColor || "bg-slate-700 text-slate-300"}`}>{badge}</span>}
+        {extra}
+      </div>
+      {isOpen && <div className="ml-2">{children}</div>}
+    </div>
+  );
+}
+
 function SubjectObjectsTab({ subjectId }: { subjectId: number }) {
-  const [selectedObjectId, setSelectedObjectId] = useState<number | null>(null);
+  const [expanded, setExpanded] = useState<Record<string, boolean>>({});
 
-  const { data: objects, isLoading } = useQuery<any[]>({
-    queryKey: ["/api/subjects", subjectId, "objects"],
-    queryFn: () => fetch(`/api/subjects/${subjectId}/objects`).then(r => r.json()),
+  const { data: hierarchy, isLoading } = useQuery<any>({
+    queryKey: ["/api/subjects", subjectId, "object-hierarchy"],
+    queryFn: () => fetch(`/api/subjects/${subjectId}/object-hierarchy`).then(r => r.json()),
   });
 
-  const { data: sources } = useQuery<any[]>({
-    queryKey: ["/api/objects", selectedObjectId, "sources"],
-    queryFn: () => selectedObjectId ? fetch(`/api/objects/${selectedObjectId}/sources`).then(r => r.json()) : Promise.resolve([]),
-    enabled: !!selectedObjectId,
-  });
+  const toggle = (key: string) => setExpanded(prev => ({ ...prev, [key]: !prev[key] }));
 
   const getObjectIcon = (type: string) => {
     switch (type) {
-      case "VOZIDLO": return <Car className="w-5 h-5 text-blue-400" />;
-      case "NEHNUTEĽNOSŤ": return <Home className="w-5 h-5 text-emerald-400" />;
-      case "PARCELA": return <Landmark className="w-5 h-5 text-amber-400" />;
-      default: return <Boxes className="w-5 h-5 text-slate-400" />;
+      case "VOZIDLO": return <Car className="w-4 h-4 text-blue-400" />;
+      case "NEHNUTEĽNOSŤ": return <Home className="w-4 h-4 text-emerald-400" />;
+      case "PARCELA": return <Landmark className="w-4 h-4 text-amber-400" />;
+      default: return <Package className="w-4 h-4 text-slate-400" />;
     }
   };
 
-  const getFreshnessSemaphore = (updatedAt: string | null) => {
-    if (!updatedAt) return { color: "bg-slate-500", label: "Neznámy" };
+  const getFreshness = (updatedAt: string | null) => {
+    if (!updatedAt) return { color: "bg-slate-500", label: "?" };
     const days = Math.floor((Date.now() - new Date(updatedAt).getTime()) / (1000 * 60 * 60 * 24));
     if (days <= 30) return { color: "bg-green-500", label: `${days}d` };
     if (days <= 90) return { color: "bg-yellow-500", label: `${days}d` };
     return { color: "bg-red-500", label: `${days}d` };
   };
 
-  const selectedObject = objects?.find(o => o.id === selectedObjectId);
+  const conflictMap = new Map<string, any[]>();
+  if (hierarchy?.conflicts) {
+    for (const c of hierarchy.conflicts) {
+      conflictMap.set(`${c.objectId}-${c.paramName}`, c.values);
+    }
+  }
 
   if (isLoading) {
     return <div className="flex items-center justify-center p-8"><Loader2 className="w-6 h-6 animate-spin text-slate-400" /></div>;
   }
 
-  if (!objects?.length) {
+  const objects = hierarchy?.objects || [];
+  const noObj = hierarchy?.noObjectProducts || [];
+  const hasData = objects.length > 0 || noObj.length > 0;
+
+  if (!hasData) {
     return (
       <div className="text-center py-12 text-slate-500">
         <Boxes className="w-12 h-12 mx-auto mb-3 opacity-30" />
@@ -942,117 +969,174 @@ function SubjectObjectsTab({ subjectId }: { subjectId: number }) {
   }
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-      <div className="space-y-2">
-        <h3 className="text-sm font-semibold text-slate-400 uppercase tracking-wider mb-3">
-          Modul B — Objekty ({objects.length})
+    <div className="space-y-2">
+      <div className="flex items-center justify-between mb-3">
+        <h3 className="text-sm font-semibold text-slate-400 uppercase tracking-wider flex items-center gap-2">
+          <Boxes className="w-4 h-4" /> Modul B — Hierarchia objektov
         </h3>
-        {objects.map((obj: any) => {
-          const keys = (obj.keyValues || {}) as Record<string, string>;
-          const keyDisplay = Object.entries(keys).map(([k, v]) => `${k}: ${v}`).join(", ");
-          return (
-            <div
-              key={obj.id}
-              data-testid={`object-card-${obj.id}`}
-              onClick={() => setSelectedObjectId(obj.id)}
-              className={`p-3 rounded border cursor-pointer transition-colors ${
-                selectedObjectId === obj.id
-                  ? "border-blue-500 bg-blue-500/10"
-                  : "border-slate-700 bg-slate-800/50 hover:border-slate-600"
-              }`}
-            >
-              <div className="flex items-center gap-2">
-                {getObjectIcon(obj.objectType)}
-                <div className="flex-1 min-w-0">
-                  <div className="font-medium text-sm truncate">{obj.objectLabel}</div>
-                  <div className="text-xs text-slate-500">{obj.uid} · {obj.objectType}</div>
-                </div>
-                <Lock className="w-3.5 h-3.5 text-slate-600" />
-                <span className={`w-2 h-2 rounded-full ${getFreshnessSemaphore(obj.updatedAt).color}`} />
-              </div>
-              {keyDisplay && (
-                <div className="mt-1.5 text-xs text-slate-400 font-mono truncate">{keyDisplay}</div>
-              )}
-            </div>
-          );
-        })}
+        <div className="flex items-center gap-3 text-xs text-slate-500">
+          <Lock className="w-3.5 h-3.5" /> <span>Len na čítanie</span>
+          <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-green-500" /> &lt;30d</span>
+          <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-yellow-500" /> 30-90d</span>
+          <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-red-500" /> &gt;90d</span>
+        </div>
       </div>
 
-      <div className="lg:col-span-2">
-        {selectedObject ? (
-          <div className="space-y-4">
-            <div className="flex items-center gap-2 mb-2">
-              {getObjectIcon(selectedObject.objectType)}
-              <h3 className="font-semibold">{selectedObject.objectLabel}</h3>
-              <div className="flex items-center gap-2 ml-auto">
-                <Lock className="w-3.5 h-3.5 text-slate-500" />
-                <span className="text-xs text-slate-500">Len na čítanie</span>
-                <span className={`w-2.5 h-2.5 rounded-full ${getFreshnessSemaphore(selectedObject.updatedAt).color}`} />
-                <span className="text-xs text-slate-500">{getFreshnessSemaphore(selectedObject.updatedAt).label}</span>
+      {hierarchy?.conflicts?.length > 0 && (
+        <div className="border border-orange-500/30 bg-orange-500/5 rounded p-3 mb-3">
+          <div className="flex items-center gap-2 text-orange-400 text-sm font-medium mb-1">
+            <AlertTriangle className="w-4 h-4" /> Zistené nezhody ({hierarchy.conflicts.length})
+          </div>
+          <div className="space-y-1">
+            {hierarchy.conflicts.map((c: any, i: number) => (
+              <div key={i} className="text-xs text-slate-400">
+                <span className="font-medium text-orange-300">{c.paramName}</span>: {c.values.map((v: any) => `${v.productName}="${v.value}"`).join(" vs ")}
               </div>
-            </div>
-            <div className="flex items-center gap-4 text-xs text-slate-500 mb-3">
-              <span>{selectedObject.uid}</span>
-              <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-green-500" /> &lt;30d</span>
-              <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-yellow-500" /> 30-90d</span>
-              <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-red-500" /> &gt;90d</span>
-            </div>
+            ))}
+          </div>
+        </div>
+      )}
 
-            <div className="border border-slate-700 rounded p-3">
-              <h4 className="text-sm font-semibold text-slate-400 mb-2 uppercase tracking-wider">Kľúčové hodnoty</h4>
-              <div className="grid grid-cols-2 gap-2">
-                {Object.entries((selectedObject.keyValues || {}) as Record<string, string>).map(([k, v]) => (
-                  <div key={k} className="flex items-center gap-2">
-                    <span className="text-xs text-slate-500 font-mono">{k}:</span>
-                    <span className="text-sm font-medium">{v}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            <div className="border border-slate-700 rounded p-3">
-              <h4 className="text-sm font-semibold text-slate-400 mb-2 uppercase tracking-wider">Agregované dáta</h4>
-              {Object.keys((selectedObject.aggregatedData || {}) as Record<string, string>).length > 0 ? (
-                <div className="grid grid-cols-2 gap-2">
-                  {Object.entries((selectedObject.aggregatedData || {}) as Record<string, string>).map(([k, v]) => (
-                    <div key={k} className="flex flex-col">
-                      <span className="text-xs text-slate-500">{k}</span>
-                      <span className="text-sm">{v}</span>
-                    </div>
-                  ))}
+      <div className="border border-slate-700 rounded divide-y divide-slate-800">
+        {objects.map((obj: any) => {
+          const freshness = getFreshness(obj.updatedAt);
+          const objKey = `obj-${obj.id}`;
+          const keyDisplay = Object.entries((obj.keyValues || {}) as Record<string, string>).map(([k, v]) => `${k}: ${v}`).join(" · ");
+          return (
+            <TreeToggle
+              key={obj.id}
+              isOpen={expanded[objKey] ?? false}
+              onToggle={() => toggle(objKey)}
+              icon={getObjectIcon(obj.objectType)}
+              label={obj.objectLabel}
+              badge={obj.objectType}
+              badgeColor="bg-blue-500/20 text-blue-300"
+              extra={
+                <div className="flex items-center gap-1.5 ml-auto">
+                  <Lock className="w-3 h-3 text-slate-600" />
+                  <span className={`w-2 h-2 rounded-full ${freshness.color}`} />
+                  <span className="text-[10px] text-slate-500">{freshness.label}</span>
+                  <span className="text-[10px] text-slate-600 font-mono">{obj.uid}</span>
                 </div>
-              ) : (
-                <p className="text-xs text-slate-500">Žiadne agregované dáta</p>
+              }
+            >
+              {keyDisplay && (
+                <div className="text-xs text-slate-500 font-mono px-2 py-1 bg-slate-800/30 rounded mx-2 mb-1">{keyDisplay}</div>
               )}
-            </div>
+              {obj.sectors.map((sector: any) => {
+                const secKey = `${objKey}-sec-${sector.id}`;
+                return (
+                  <TreeToggle key={sector.id} isOpen={expanded[secKey] ?? false} onToggle={() => toggle(secKey)}
+                    level={1} icon={<FolderOpen className="w-4 h-4 text-purple-400" />} label={sector.name} badge="SEKTOR" badgeColor="bg-purple-500/20 text-purple-300">
+                    {sector.sections.map((section: any) => {
+                      const odvKey = `${secKey}-odv-${section.id}`;
+                      return (
+                        <TreeToggle key={section.id} isOpen={expanded[odvKey] ?? false} onToggle={() => toggle(odvKey)}
+                          level={2} icon={<FileTextIcon className="w-4 h-4 text-cyan-400" />} label={section.name} badge="ODVETVIE" badgeColor="bg-cyan-500/20 text-cyan-300">
+                          {section.products.map((product: any) => {
+                            const prodKey = `${odvKey}-prod-${product.id}-${product.contractId}`;
+                            return (
+                              <TreeToggle key={prodKey} isOpen={expanded[prodKey] ?? false} onToggle={() => toggle(prodKey)}
+                                level={3} icon={<Tag className="w-4 h-4 text-amber-400" />} label={product.name}
+                                badge="PRODUKT" badgeColor="bg-amber-500/20 text-amber-300"
+                                extra={<span className="text-[10px] text-slate-600 ml-auto">Zmluva #{product.contractId}</span>}>
+                                {product.folders.map((folder: any) => {
+                                  const foldKey = `${prodKey}-fold-${folder.id}`;
+                                  return (
+                                    <TreeToggle key={foldKey} isOpen={expanded[foldKey] ?? false} onToggle={() => toggle(foldKey)}
+                                      level={4} icon={<FolderOpen className="w-3.5 h-3.5 text-slate-400" />} label={folder.name}
+                                      badge="PRIEČINOK" badgeColor="bg-slate-600 text-slate-300">
+                                      {folder.panels.map((panel: any) => {
+                                        const panKey = `${foldKey}-pan-${panel.id}`;
+                                        return (
+                                          <TreeToggle key={panKey} isOpen={expanded[panKey] ?? true} onToggle={() => toggle(panKey)}
+                                            level={5} icon={<SquareIcon className="w-3.5 h-3.5 text-slate-500" />} label={panel.name}
+                                            badge="PANEL" badgeColor="bg-slate-700 text-slate-400">
+                                            <div className="ml-6 space-y-0.5 py-1">
+                                              {panel.params.map((param: any) => {
+                                                const conflictKey = `${obj.id}-${param.name}`;
+                                                const conflicts = conflictMap.get(conflictKey);
+                                                const hasConflict = !!conflicts;
+                                                return (
+                                                  <div key={`${param.id}-${param.contractId}`}
+                                                    className={`flex items-center gap-2 py-0.5 px-2 rounded text-sm ${hasConflict ? "bg-orange-500/10 border border-orange-500/20" : ""}`}
+                                                    data-testid={`param-${param.id}`}>
+                                                    <Hash className="w-3 h-3 text-slate-600 shrink-0" />
+                                                    <span className="text-slate-400 text-xs min-w-[120px]">{param.name}</span>
+                                                    <span className="font-medium text-sm">{param.value}</span>
+                                                    <span className="text-[10px] text-slate-600 ml-auto">zdroj: {param.productName}</span>
+                                                    {hasConflict && (
+                                                      <span className="text-orange-400 flex items-center gap-0.5" data-testid={`conflict-${param.name}`}>
+                                                        <AlertTriangle className="w-3 h-3" />
+                                                        <span className="text-[10px]">
+                                                          {conflicts!.filter(v => v.value !== param.value).map(v => `${v.productName}: ${v.value}`).join(", ")}
+                                                        </span>
+                                                      </span>
+                                                    )}
+                                                  </div>
+                                                );
+                                              })}
+                                            </div>
+                                          </TreeToggle>
+                                        );
+                                      })}
+                                    </TreeToggle>
+                                  );
+                                })}
+                              </TreeToggle>
+                            );
+                          })}
+                        </TreeToggle>
+                      );
+                    })}
+                  </TreeToggle>
+                );
+              })}
+            </TreeToggle>
+          );
+        })}
 
-            {sources && sources.length > 0 && (
-              <div className="border border-slate-700 rounded p-3">
-                <h4 className="text-sm font-semibold text-slate-400 mb-2 uppercase tracking-wider">Zdroje dát ({sources.length})</h4>
-                <div className="space-y-2">
-                  {sources.map((src: any) => (
-                    <div key={src.id} className="flex items-center gap-2 text-sm p-2 bg-slate-800/50 rounded">
-                      <Briefcase className="w-4 h-4 text-slate-500" />
-                      <div className="flex-1">
-                        <div className="font-medium">{src.productName || `Zmluva #${src.contractId}`}</div>
-                        <div className="text-xs text-slate-500">
-                          {[src.sectorName, src.sectionName].filter(Boolean).join(" › ")}
-                          {src.lastSyncAt && ` · ${new Date(src.lastSyncAt).toLocaleDateString('sk-SK')}`}
+        {noObj.length > 0 && (
+          <TreeToggle
+            isOpen={expanded["no-obj"] ?? false}
+            onToggle={() => toggle("no-obj")}
+            icon={<Briefcase className="w-4 h-4 text-slate-500" />}
+            label="Ostatné služby (bez objektu)"
+            badge={`${noObj.length}`}
+            badgeColor="bg-slate-700 text-slate-400"
+          >
+            {noObj.map((item: any, idx: number) => {
+              const noKey = `no-obj-${idx}`;
+              return (
+                <div key={idx} className="ml-4 py-1">
+                  <div className="flex items-center gap-2 text-sm px-2 py-1">
+                    <Tag className="w-3.5 h-3.5 text-slate-500" />
+                    <span className="text-slate-300">{item.sectorName} › {item.sectionName} › </span>
+                    <span className="font-medium">{item.productName}</span>
+                    <span className="text-[10px] text-slate-600 ml-auto">Zmluva #{item.contractId}</span>
+                  </div>
+                  {item.folders.map((folder: any) => (
+                    <TreeToggle key={`${noKey}-f-${folder.id}`} isOpen={expanded[`${noKey}-f-${folder.id}`] ?? false}
+                      onToggle={() => toggle(`${noKey}-f-${folder.id}`)}
+                      level={2} icon={<FolderOpen className="w-3.5 h-3.5 text-slate-400" />} label={folder.name}>
+                      {folder.panels.map((panel: any) => (
+                        <div key={panel.id} className="ml-6 space-y-0.5 py-1">
+                          <div className="text-xs text-slate-500 font-medium px-2">{panel.name}</div>
+                          {panel.params.map((param: any) => (
+                            <div key={`${param.id}-${param.contractId}`} className="flex items-center gap-2 py-0.5 px-2 text-sm">
+                              <Hash className="w-3 h-3 text-slate-600" />
+                              <span className="text-slate-400 text-xs min-w-[120px]">{param.name}</span>
+                              <span className="font-medium">{param.value}</span>
+                            </div>
+                          ))}
                         </div>
-                      </div>
-                      <span className="text-xs text-slate-600">
-                        {Object.keys((src.contributedFields || {}) as Record<string, string>).length} polí
-                      </span>
-                    </div>
+                      ))}
+                    </TreeToggle>
                   ))}
                 </div>
-              </div>
-            )}
-          </div>
-        ) : (
-          <div className="flex items-center justify-center h-full text-slate-500 text-sm">
-            Vyberte objekt pre zobrazenie detailu
-          </div>
+              );
+            })}
+          </TreeToggle>
         )}
       </div>
     </div>

@@ -4,11 +4,11 @@ import { storage } from "./storage";
 import { api } from "@shared/routes";
 import { setupAuth, registerAuthRoutes, isAuthenticated } from "./replit_integrations/auth";
 import { z } from "zod";
-import { continents, states, myCompanies, appUsers, clientTypes, clientSubGroups, clientGroupMembers, productFolderAssignments, folderPanels, panelParameters, userClientGroupMemberships, clientGroups, permissionGroups, insertCareerLevelSchema, insertProductPointRateSchema, careerLevels, importLogs, commissions, contracts, contractStatuses, contractStatusChangeLogs, clientDataTabs, clientDataCategories, subjects, subjectPointsLog, subjectFieldHistory, subjectCollaborators, clientMarketingConsents, clientDocumentHistory, contractAcquirers, contractPasswords, contractRewardDistributions, contractParameterValues, subjectArchive, auditLogs, globalCounters, subjectPhotos, activityEvents, subjectParamSections, subjectParameters, subjectTemplates, subjectTemplateParams, commissionCalculationLogs, parameterSynonyms, dataConflictAlerts, transactionDedupLog, relationRoleTypes, subjectRelations, maturityAlerts, inheritancePrompts, guardianshipArchive, households, householdMembers, householdAssets, privacyBlocks, accessConsentLog, maturityEvents, addressGroups, addressGroupMembers, companySubjectRoles, notificationQueue, batchJobs } from "@shared/schema";
+import { continents, states, myCompanies, appUsers, clientTypes, clientSubGroups, clientGroupMembers, productFolderAssignments, folderPanels, panelParameters, userClientGroupMemberships, clientGroups, permissionGroups, insertCareerLevelSchema, insertProductPointRateSchema, careerLevels, importLogs, commissions, contracts, contractStatuses, contractStatusChangeLogs, clientDataTabs, clientDataCategories, subjects, subjectPointsLog, subjectFieldHistory, subjectCollaborators, clientMarketingConsents, clientDocumentHistory, contractAcquirers, contractPasswords, contractRewardDistributions, contractParameterValues, subjectArchive, auditLogs, globalCounters, subjectPhotos, activityEvents, subjectParamSections, subjectParameters, subjectTemplates, subjectTemplateParams, commissionCalculationLogs, parameterSynonyms, dataConflictAlerts, transactionDedupLog, relationRoleTypes, subjectRelations, maturityAlerts, inheritancePrompts, guardianshipArchive, households, householdMembers, householdAssets, privacyBlocks, accessConsentLog, maturityEvents, addressGroups, addressGroupMembers, companySubjectRoles, notificationQueue, batchJobs, subjectObjects, objectDataSources, sectors, sections, sectorProducts, parameters, panels, productPanels, contractFolders } from "@shared/schema";
 import { seedSubjectParameters } from "./seed-subject-params";
 import sharp from "sharp";
 import { db } from "./db";
-import { eq, and, or, isNotNull, sql } from "drizzle-orm";
+import { eq, and, or, isNotNull, sql, inArray, desc, asc } from "drizzle-orm";
 import multer from "multer";
 import ExcelJS from "exceljs";
 import { parse as csvParse } from "csv-parse/sync";
@@ -3289,7 +3289,10 @@ export async function registerRoutes(
 
   app.put(api.contractsApi.update.path, isAuthenticated, async (req: any, res) => {
     try {
-      const input = api.contractsApi.update.input.parse(req.body);
+      const criticalFieldJustification = req.body?.criticalFieldJustification;
+      const bodyWithoutJustification = { ...req.body };
+      delete bodyWithoutJustification.criticalFieldJustification;
+      const input = api.contractsApi.update.input.parse(bodyWithoutJustification);
       const old = await storage.getContract(Number(req.params.id));
       if (!old) return res.status(404).json({ message: "Contract not found" });
       const appUser = req.appUser;
@@ -3313,7 +3316,13 @@ export async function registerRoutes(
           parameterValues: {},
         });
       }
-      await logAudit(req, { action: "UPDATE", module: "zmluvy", entityId: Number(req.params.id), oldData: old, newData: input });
+      const auditNewData = criticalFieldJustification
+        ? { ...input, _criticalFieldJustification: criticalFieldJustification }
+        : input;
+      const auditEntityName = criticalFieldJustification
+        ? `Zmena kritických údajov - Odôvodnenie: ${criticalFieldJustification}`
+        : undefined;
+      await logAudit(req, { action: "UPDATE", module: "zmluvy", entityId: Number(req.params.id), oldData: old, newData: auditNewData, entityName: auditEntityName });
       res.json(updated);
     } catch (err) {
       if (err instanceof z.ZodError) return res.status(400).json({ message: err.errors[0].message });
@@ -6680,6 +6689,212 @@ export async function registerRoutes(
       await storage.syncObjectFromContract(contractId, subjectId);
       res.json({ success: true });
     } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  app.get("/api/subjects/:id/object-hierarchy", isAuthenticated, async (req: any, res) => {
+    try {
+      const subjectId = Number(req.params.id);
+
+      const subjectContracts = await db.select().from(contracts).where(eq(contracts.subjectId, subjectId));
+      if (!subjectContracts.length) return res.json({ objects: [], noObjectProducts: [] });
+
+      const objectKeyParams = await db.select().from(subjectParameters).where(eq(subjectParameters.isObjectKey, true));
+      const objectKeyFieldKeys = new Set(objectKeyParams.map(p => p.fieldKey));
+
+      const allObjects = await db.select().from(subjectObjects)
+        .where(and(eq(subjectObjects.subjectId, subjectId), eq(subjectObjects.isActive, true)));
+
+      const allSources = allObjects.length > 0
+        ? await db.select().from(objectDataSources)
+            .where(inArray(objectDataSources.objectId, allObjects.map(o => o.id)))
+        : [];
+
+      type ParamNode = { id: number; name: string; value: string; productName: string; productId: number; contractId: number };
+      type PanelNode = { id: number; name: string; params: ParamNode[] };
+      type FolderNode = { id: number; name: string; panels: PanelNode[] };
+      type ProductNode = { id: number; name: string; contractId: number; folders: FolderNode[] };
+      type SectionNode = { id: number; name: string; products: ProductNode[] };
+      type SectorNode = { id: number; name: string; sections: SectionNode[] };
+      type ObjectNode = { id: number; uid: string; objectType: string; objectLabel: string; keyValues: Record<string, string>; updatedAt: string | null; sectors: SectorNode[] };
+
+      const objectMap = new Map<number, ObjectNode>();
+      for (const obj of allObjects) {
+        objectMap.set(obj.id, {
+          id: obj.id,
+          uid: obj.uid,
+          objectType: obj.objectType,
+          objectLabel: obj.objectLabel,
+          keyValues: (obj.keyValues || {}) as Record<string, string>,
+          updatedAt: obj.updatedAt?.toISOString() || null,
+          sectors: [],
+        });
+      }
+
+      const noObjectProducts: { contractId: number; productName: string; sectorName: string; sectionName: string; folders: FolderNode[] }[] = [];
+
+      for (const contract of subjectContracts) {
+        if (!contract.sectorProductId) continue;
+
+        const [sp] = await db.select().from(sectorProducts).where(eq(sectorProducts.id, contract.sectorProductId));
+        if (!sp) continue;
+        const [section] = await db.select().from(sections).where(eq(sections.id, sp.sectionId));
+        if (!section) continue;
+        const [sector] = await db.select().from(sectors).where(eq(sectors.id, section.sectorId));
+        if (!sector) continue;
+
+        const paramValues = await db.select().from(contractParameterValues)
+          .where(eq(contractParameterValues.contractId, contract.id));
+
+        const paramIds = paramValues.map(pv => pv.parameterId);
+        const allParams = paramIds.length > 0
+          ? await db.select().from(parameters).where(inArray(parameters.id, paramIds))
+          : [];
+
+        const ppList = await db.select().from(productPanels)
+          .where(eq(productPanels.sectorProductId, sp.id));
+        const panelIds = ppList.map(pp => pp.panelId);
+
+        const panelRows = panelIds.length > 0
+          ? await db.select().from(panels).where(inArray(panels.id, panelIds))
+          : [];
+
+        const fpList = panelIds.length > 0
+          ? await db.select().from(folderPanels).where(inArray(folderPanels.panelId, panelIds))
+          : [];
+        const folderIds = [...new Set(fpList.map(fp => fp.folderId))];
+        const folderRows = folderIds.length > 0
+          ? await db.select().from(contractFolders).where(inArray(contractFolders.id, folderIds))
+          : [];
+
+        const ppParams = panelIds.length > 0
+          ? await db.select().from(panelParameters).where(inArray(panelParameters.panelId, panelIds))
+          : [];
+
+        const folderNodeMap = new Map<number, FolderNode>();
+        for (const folder of folderRows) {
+          folderNodeMap.set(folder.id, { id: folder.id, name: folder.name, panels: [] });
+        }
+
+        const unassignedFolder: FolderNode = { id: 0, name: "Ostatné", panels: [] };
+
+        for (const panelRow of panelRows) {
+          const panelParamList = ppParams.filter(pp => pp.panelId === panelRow.id);
+          const panelNode: PanelNode = { id: panelRow.id, name: panelRow.name, params: [] };
+
+          for (const pp of panelParamList) {
+            const pv = paramValues.find(v => v.parameterId === pp.parameterId);
+            if (!pv?.value) continue;
+            const param = allParams.find(p => p.id === pp.parameterId);
+            if (!param) continue;
+            panelNode.params.push({
+              id: param.id,
+              name: param.name,
+              value: pv.value,
+              productName: sp.name,
+              productId: sp.id,
+              contractId: contract.id,
+            });
+          }
+
+          if (panelNode.params.length === 0) continue;
+
+          const fp = fpList.find(f => f.panelId === panelRow.id);
+          if (fp && folderNodeMap.has(fp.folderId)) {
+            folderNodeMap.get(fp.folderId)!.panels.push(panelNode);
+          } else {
+            unassignedFolder.panels.push(panelNode);
+          }
+        }
+
+        const contractFolderNodes: FolderNode[] = [
+          ...Array.from(folderNodeMap.values()).filter(f => f.panels.length > 0),
+          ...(unassignedFolder.panels.length > 0 ? [unassignedFolder] : []),
+        ];
+
+        const matchingSource = allSources.find(s => s.contractId === contract.id);
+        const objectId = matchingSource?.objectId;
+
+        let hasObjectKey = false;
+        for (const pv of paramValues) {
+          const param = allParams.find(p => p.id === pv.parameterId);
+          if (param) {
+            const targetKey = param.targetFieldKey || param.name;
+            if (objectKeyFieldKeys.has(targetKey) && pv.value) {
+              hasObjectKey = true;
+              break;
+            }
+          }
+        }
+
+        if (objectId && objectMap.has(objectId)) {
+          const objNode = objectMap.get(objectId)!;
+          let sectorNode = objNode.sectors.find(s => s.id === sector.id);
+          if (!sectorNode) {
+            sectorNode = { id: sector.id, name: sector.name, sections: [] };
+            objNode.sectors.push(sectorNode);
+          }
+          let sectionNode = sectorNode.sections.find(s => s.id === section.id);
+          if (!sectionNode) {
+            sectionNode = { id: section.id, name: section.name, products: [] };
+            sectorNode.sections.push(sectionNode);
+          }
+          sectionNode.products.push({
+            id: sp.id,
+            name: sp.name,
+            contractId: contract.id,
+            folders: contractFolderNodes,
+          });
+        } else if (!hasObjectKey) {
+          noObjectProducts.push({
+            contractId: contract.id,
+            productName: sp.name,
+            sectorName: sector.name,
+            sectionName: section.name,
+            folders: contractFolderNodes,
+          });
+        } else {
+          noObjectProducts.push({
+            contractId: contract.id,
+            productName: sp.name,
+            sectorName: sector.name,
+            sectionName: section.name,
+            folders: contractFolderNodes,
+          });
+        }
+      }
+
+      const objectNodes = Array.from(objectMap.values()).filter(o => o.sectors.length > 0);
+
+      const conflicts: { objectId: number; paramName: string; values: { productName: string; value: string; contractId: number }[] }[] = [];
+      for (const obj of objectNodes) {
+        const paramByName = new Map<string, { productName: string; value: string; contractId: number }[]>();
+        for (const sector of obj.sectors) {
+          for (const section of sector.sections) {
+            for (const product of section.products) {
+              for (const folder of product.folders) {
+                for (const panel of folder.panels) {
+                  for (const param of panel.params) {
+                    if (!paramByName.has(param.name)) paramByName.set(param.name, []);
+                    paramByName.get(param.name)!.push({ productName: product.name, value: param.value, contractId: product.contractId });
+                  }
+                }
+              }
+            }
+          }
+        }
+        for (const [paramName, entries] of paramByName) {
+          const uniqueVals = new Set(entries.map(e => e.value));
+          if (uniqueVals.size > 1) {
+            conflicts.push({ objectId: obj.id, paramName, values: entries });
+          }
+        }
+      }
+
+      res.json({ objects: objectNodes, noObjectProducts, conflicts });
+    } catch (err: any) {
+      console.error("Object hierarchy error:", err);
       res.status(500).json({ message: err.message });
     }
   });
