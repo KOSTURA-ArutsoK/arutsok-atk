@@ -3261,7 +3261,9 @@ export async function registerRoutes(
       const { values } = req.body;
       if (!Array.isArray(values)) return res.status(400).json({ message: "Values array required" });
       const contractId = Number(req.params.contractId);
-      await storage.saveContractParameterValues(contractId, values);
+      const userId = req.user?.appUserId || null;
+      const userName = req.user?.displayName || req.user?.firstName || null;
+      await storage.saveContractParameterValues(contractId, values, userId, userName);
 
       try {
         const contract = await storage.getContract(contractId);
@@ -3303,6 +3305,18 @@ export async function registerRoutes(
       
       await logAudit(req, { action: "UPDATE", module: "contract_parameter_values", entityId: contractId, entityName: "parameter values saved" });
       res.json({ success: true });
+    } catch (err) {
+      res.status(500).json({ message: "Internal error" });
+    }
+  });
+
+  // === CONTRACT PARAMETER VALUE HISTORY ===
+  app.get("/api/contracts/:contractId/parameter-value-history", isAuthenticated, async (req: any, res) => {
+    try {
+      const contractId = Number(req.params.contractId);
+      const parameterId = req.query.parameterId ? Number(req.query.parameterId) : undefined;
+      const history = await storage.getContractParameterValueHistory(contractId, parameterId);
+      res.json(history);
     } catch (err) {
       res.status(500).json({ message: "Internal error" });
     }

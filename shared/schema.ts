@@ -1663,6 +1663,24 @@ export const insertUnknownExtractedFieldSchema = createInsertSchema(unknownExtra
 export type UnknownExtractedField = typeof unknownExtractedFields.$inferSelect;
 export type InsertUnknownExtractedField = z.infer<typeof insertUnknownExtractedFieldSchema>;
 
+// === CONTRACT PARAMETER VALUE HISTORY (versioning for contract field changes) ===
+export const contractParameterValueHistory = pgTable("contract_parameter_value_history", {
+  id: serial("id").primaryKey(),
+  contractId: integer("contract_id").notNull().references(() => contracts.id),
+  parameterId: integer("parameter_id").notNull().references(() => parameters.id),
+  oldValue: text("old_value"),
+  newValue: text("new_value"),
+  parameterName: text("parameter_name"),
+  changedByUserId: integer("changed_by_user_id").references(() => appUsers.id),
+  changedByName: text("changed_by_name"),
+  changedAt: timestamp("changed_at").defaultNow(),
+  changeReason: text("change_reason"),
+});
+
+export const insertContractParameterValueHistorySchema = createInsertSchema(contractParameterValueHistory).omit({ id: true, changedAt: true });
+export type ContractParameterValueHistory = typeof contractParameterValueHistory.$inferSelect;
+export type InsertContractParameterValueHistory = z.infer<typeof insertContractParameterValueHistorySchema>;
+
 export type CreateSubjectRequest = InsertSubject;
 export type UpdateSubjectRequest = Partial<InsertSubject> & { changeReason?: string };
 export type UpdateMyCompanyRequest = Partial<InsertMyCompany> & { changeReason?: string };

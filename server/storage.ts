@@ -43,6 +43,7 @@ import {
   type Contract, type InsertContract,
   type ContractPassword, type InsertContractPassword,
   type ContractParameterValue, type InsertContractParameterValue,
+  contractParameterValueHistory, type ContractParameterValueHistory,
   clientGroups, clientSubGroups, clientGroupMembers, userClientGroupMemberships,
   type ClientGroup, type InsertClientGroup,
   type ClientSubGroup, type InsertClientSubGroup,
@@ -362,7 +363,8 @@ export interface IStorage {
   deleteContractPassword(id: number): Promise<void>;
 
   getContractParameterValues(contractId: number): Promise<ContractParameterValue[]>;
-  saveContractParameterValues(contractId: number, values: { parameterId: number; value: string; snapshotLabel?: string; snapshotType?: string; snapshotOptions?: string[]; snapshotHelpText?: string }[]): Promise<void>;
+  saveContractParameterValues(contractId: number, values: { parameterId: number; value: string; snapshotLabel?: string; snapshotType?: string; snapshotOptions?: string[]; snapshotHelpText?: string }[], changedByUserId?: number, changedByName?: string): Promise<void>;
+  getContractParameterValueHistory(contractId: number, parameterId?: number): Promise<ContractParameterValueHistory[]>;
 
   getContractRewardDistributions(contractId: number): Promise<ContractRewardDistribution[]>;
   saveContractRewardDistributions(contractId: number, distributions: InsertContractRewardDistribution[]): Promise<ContractRewardDistribution[]>;
@@ -2520,7 +2522,41 @@ export class DatabaseStorage implements IStorage {
       .where(eq(contractParameterValues.contractId, contractId));
   }
 
-  async saveContractParameterValues(contractId: number, values: { parameterId: number; value: string; snapshotLabel?: string; snapshotType?: string; snapshotOptions?: string[]; snapshotHelpText?: string }[]): Promise<void> {
+  async saveContractParameterValues(contractId: number, values: { parameterId: number; value: string; snapshotLabel?: string; snapshotType?: string; snapshotOptions?: string[]; snapshotHelpText?: string }[], changedByUserId?: number, changedByName?: string): Promise<void> {
+    const existing = await db.select().from(contractParameterValues)
+      .where(eq(contractParameterValues.contractId, contractId));
+    const oldMap = new Map(existing.map(e => [e.parameterId, e.value]));
+
+    const historyEntries: { contractId: number; parameterId: number; oldValue: string | null; newValue: string | null; parameterName: string | null; changedByUserId: number | null; changedByName: string | null }[] = [];
+    for (const v of values) {
+      const oldVal = oldMap.get(v.parameterId) ?? null;
+      const newVal = v.value || null;
+      if (oldVal !== newVal) {
+        historyEntries.push({
+          contractId,
+          parameterId: v.parameterId,
+          oldValue: oldVal,
+          newValue: newVal,
+          parameterName: v.snapshotLabel || null,
+          changedByUserId: changedByUserId || null,
+          changedByName: changedByName || null,
+        });
+      }
+    }
+    oldMap.forEach((oldVal, paramId) => {
+      if (!values.find(v => v.parameterId === paramId)) {
+        historyEntries.push({
+          contractId,
+          parameterId: paramId,
+          oldValue: oldVal,
+          newValue: null,
+          parameterName: null,
+          changedByUserId: changedByUserId || null,
+          changedByName: changedByName || null,
+        });
+      }
+    });
+
     await db.delete(contractParameterValues).where(eq(contractParameterValues.contractId, contractId));
     if (values.length > 0) {
       await db.insert(contractParameterValues).values(
@@ -2535,6 +2571,20 @@ export class DatabaseStorage implements IStorage {
         }))
       );
     }
+
+    if (historyEntries.length > 0) {
+      await db.insert(contractParameterValueHistory).values(historyEntries);
+    }
+  }
+
+  async getContractParameterValueHistory(contractId: number, parameterId?: number): Promise<ContractParameterValueHistory[]> {
+    const conditions = [eq(contractParameterValueHistory.contractId, contractId)];
+    if (parameterId) {
+      conditions.push(eq(contractParameterValueHistory.parameterId, parameterId));
+    }
+    return await db.select().from(contractParameterValueHistory)
+      .where(and(...conditions))
+      .orderBy(desc(contractParameterValueHistory.changedAt));
   }
 
   async getContractRewardDistributions(contractId: number): Promise<ContractRewardDistribution[]> {

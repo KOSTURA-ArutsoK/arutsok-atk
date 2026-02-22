@@ -10,7 +10,7 @@ import { useColumnVisibility, type ColumnDef } from "@/hooks/use-column-visibili
 import { ColumnManager } from "@/components/column-manager";
 import type { Contract, ContractStatus, ContractStatusChangeLog, ContractTemplate, ContractInventory, Subject, Partner, Product, MyCompany, Sector, Section, SectorProduct, ContractPassword, ContractParameterValue, ContractFieldSetting, ClientType, ContractAcquirer, AppUser, ContractRewardDistribution } from "@shared/schema";
 import { getFieldsForClientTypeId, type StaticField } from "@/lib/staticFieldDefs";
-import { ArrowLeft, Save, Loader2, LayoutGrid, KeyRound, Plus, Trash2, FileText, Users, ClipboardList, FolderOpen, FolderClosed, DollarSign, BarChart3, ListChecks, PieChart, ChevronLeft, ChevronRight, MessageSquare, Paperclip, Upload, X, Eye, Settings2, Calendar, UserCheck, Check, Link2, CreditCard, Flag } from "lucide-react";
+import { ArrowLeft, Save, Loader2, LayoutGrid, KeyRound, Plus, Trash2, FileText, Users, ClipboardList, FolderOpen, FolderClosed, DollarSign, BarChart3, ListChecks, PieChart, ChevronLeft, ChevronRight, MessageSquare, Paperclip, Upload, X, Eye, Settings2, Calendar, UserCheck, Check, Link2, CreditCard, Flag, History } from "lucide-react";
 import { SubjektView } from "@/components/subjekt-view";
 import type { DocumentEntry } from "@shared/schema";
 import StatusDocUpload, { type StatusDocUploadHandle } from "@/components/StatusDocUpload";
@@ -94,6 +94,36 @@ const TABS = [
 ] as const;
 
 type TabKey = typeof TABS[number]["key"];
+
+function ParamValueHistoryInline({ contractId, panelParams }: { contractId: number; panelParams: { id: number; name: string }[] }) {
+  const paramIds = panelParams.map(p => p.id);
+  const { data: history, isLoading } = useQuery<{ id: number; contractId: number; parameterId: number; oldValue: string | null; newValue: string | null; parameterName: string | null; changedByName: string | null; changedAt: string | null; changeReason: string | null }[]>({
+    queryKey: ["/api/contracts", contractId, "parameter-value-history"],
+    enabled: !!contractId,
+  });
+
+  const filtered = (history || []).filter(h => paramIds.includes(h.parameterId));
+
+  if (isLoading) return <div className="text-xs text-muted-foreground py-1">Načítavam históriu...</div>;
+  if (filtered.length === 0) return <div className="text-xs text-muted-foreground py-1 mb-2">Žiadne zmeny parametrov</div>;
+
+  return (
+    <div className="mb-2 max-h-40 overflow-y-auto border rounded p-1.5 bg-muted/20 space-y-1" data-testid="param-value-history">
+      {filtered.slice(0, 20).map(h => {
+        const paramName = h.parameterName || panelParams.find(p => p.id === h.parameterId)?.name || `Param ${h.parameterId}`;
+        return (
+          <div key={h.id} className="text-xs flex items-start gap-1.5 py-0.5 border-b border-border/40 last:border-0" data-testid={`history-row-${h.id}`}>
+            <span className="text-muted-foreground whitespace-nowrap" data-testid={`history-date-${h.id}`}>{h.changedAt ? formatDateTimeSlovak(h.changedAt) : "-"}</span>
+            <span className="font-medium" data-testid={`history-param-${h.id}`}>{paramName}:</span>
+            <span className="text-red-400 line-through" data-testid={`history-old-${h.id}`}>{h.oldValue || "-"}</span>
+            <span className="text-green-500" data-testid={`history-new-${h.id}`}>{h.newValue || "-"}</span>
+            {h.changedByName && <span className="text-muted-foreground ml-auto" data-testid={`history-user-${h.id}`}>({h.changedByName})</span>}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
 
 function normalizeDecimalInput(value: string): string {
   return value.replace(/,/g, ".");
@@ -804,6 +834,7 @@ export default function ContractForm() {
   const [sectorProductId, setSectorProductIdRaw] = useState<string>("");
   const [panelValues, setPanelValues] = useState<Record<string, string>>({});
   const [clientTypeFieldValues, setClientTypeFieldValues] = useState<Record<string, string>>({});
+  const [historyPanelId, setHistoryPanelId] = useState<number | null>(null);
 
   const setSectorProductId = useCallback((val: string) => {
     setSectorProductIdRaw(val);
@@ -1771,7 +1802,23 @@ export default function ContractForm() {
                     <div className="flex items-center gap-2 mb-1">
                       <span className="text-sm font-semibold">{panel.name}</span>
                       <span style={{ display: panel.description ? 'inline' : 'none' }}><span className="text-xs text-muted-foreground">({panel.description})</span></span>
+                      {contractId && (
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          className="ml-auto"
+                          onClick={() => setHistoryPanelId(historyPanelId === panel.id ? null : panel.id)}
+                          title="História zmien parametrov"
+                          data-testid={`btn-param-history-${panel.id}`}
+                        >
+                          <History className="w-4 h-4" />
+                        </Button>
+                      )}
                     </div>
+                    {historyPanelId === panel.id && contractId && (
+                      <ParamValueHistoryInline contractId={contractId} panelParams={panel.parameters} />
+                    )}
                     <div style={{ display: panel.parameters.length > 0 ? 'block' : 'none' }}>
                       <div className="flex flex-wrap gap-2">
                         {panel.parameters.map(param => (
