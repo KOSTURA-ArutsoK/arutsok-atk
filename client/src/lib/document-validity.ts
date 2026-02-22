@@ -185,6 +185,65 @@ export function isContractAnniversaryParam(parameterId: number): boolean {
   return parameterId in CONTRACT_ANNIVERSARY_PARAMS;
 }
 
+const GAP_PARAM_ID = 73;
+const CONTRACT_END_PARAM_ID = 50;
+
+export function getGapInsuranceStatus(gapEndDate: string | null | undefined, contractEndDate: string | null | undefined): ValidityResult | null {
+  if (!gapEndDate) return null;
+  const gapEnd = new Date(gapEndDate);
+  if (isNaN(gapEnd.getTime())) return null;
+
+  const now = new Date();
+  const diffFromNow = Math.ceil((gapEnd.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+
+  if (diffFromNow <= 0) {
+    return {
+      status: "expired",
+      label: `GAP poistenie – vypršané`,
+      daysRemaining: diffFromNow,
+      colorClass: "text-red-500",
+      borderClass: "border-red-500 ring-1 ring-red-500/50",
+      bgClass: "bg-red-500/10",
+      dotClass: "bg-red-500",
+      textClass: "text-red-500",
+    };
+  }
+
+  if (contractEndDate) {
+    const contractEnd = new Date(contractEndDate);
+    if (!isNaN(contractEnd.getTime()) && gapEnd < contractEnd) {
+      const gapBeforeContract = Math.ceil((contractEnd.getTime() - gapEnd.getTime()) / (1000 * 60 * 60 * 24));
+      return {
+        status: "expiring",
+        label: `GAP končí ${gapBeforeContract} dní pred zmluvou`,
+        daysRemaining: diffFromNow,
+        colorClass: "text-orange-500",
+        borderClass: "border-orange-500 ring-1 ring-orange-500/50",
+        bgClass: "bg-orange-500/10",
+        dotClass: "bg-orange-500",
+        textClass: "text-orange-500",
+      };
+    }
+  }
+
+  return {
+    status: "valid",
+    label: `GAP poistenie – platné (${diffFromNow} dní)`,
+    daysRemaining: diffFromNow,
+    colorClass: "text-emerald-500",
+    borderClass: "border-emerald-500/50",
+    bgClass: "",
+    dotClass: "bg-emerald-500",
+    textClass: "text-emerald-500",
+  };
+}
+
+export function isGapParam(parameterId: number): boolean {
+  return parameterId === GAP_PARAM_ID;
+}
+
+export { GAP_PARAM_ID, CONTRACT_END_PARAM_ID };
+
 const VALIDITY_FIELD_KEYS = new Set(Object.keys(DOCUMENT_PAIRS));
 
 export function isValidityField(fieldKey: string): boolean {

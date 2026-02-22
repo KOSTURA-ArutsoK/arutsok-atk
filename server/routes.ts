@@ -7288,6 +7288,8 @@ export async function registerRoutes(
         "Živnostenský list": ["ičo", "predmet podnikania", "obchodné meno", "živnostenské oprávnenie", "miesto podnikania"],
         "Zmluva o poistení zodpovednosti": ["zodpovednosť", "limit plnenia", "spoluúčasť", "územná platnosť", "predmet činnosti", "profesijná zodpovednosť", "všeobecná zodpovednosť", "regresy"],
         "Flotilová zmluva": ["flotila", "hromadná zmluva", "počet vozidiel", "referent flotily", "fleet", "správca flotily", "kapacita flotily"],
+        "Prílohy k zmluve": ["asistenčné služby", "odtiahnutie", "náhradné vozidlo", "ubytovanie v núdzi", "právna ochrana", "gap poistenie", "vernostné zľavy", "bonusy", "doplnkové poistenie"],
+        "Doplnkové poistenia": ["doplnkové poistenie", "gap", "právna ochrana", "asistencia", "odtiahnutie vozidla", "náhradné vozidlo", "úroveň asistencie", "premium asistencia", "rozšírená asistencia"],
       };
       const lowerText = text.toLowerCase();
       let detectedDocumentType: string | null = null;

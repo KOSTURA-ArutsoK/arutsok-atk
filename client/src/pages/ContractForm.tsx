@@ -11,7 +11,7 @@ import { ColumnManager } from "@/components/column-manager";
 import type { Contract, ContractStatus, ContractStatusChangeLog, ContractTemplate, ContractInventory, Subject, Partner, Product, MyCompany, Sector, Section, SectorProduct, ContractPassword, ContractParameterValue, ContractFieldSetting, ClientType, ContractAcquirer, AppUser, ContractRewardDistribution } from "@shared/schema";
 import { getFieldsForClientTypeId, type StaticField } from "@/lib/staticFieldDefs";
 import { ArrowLeft, Save, Loader2, LayoutGrid, KeyRound, Plus, Trash2, FileText, Users, ClipboardList, FolderOpen, FolderClosed, DollarSign, BarChart3, ListChecks, PieChart, ChevronLeft, ChevronRight, MessageSquare, Paperclip, Upload, X, Eye, Settings2, Calendar, UserCheck, Check, Link2, CreditCard, Flag, History } from "lucide-react";
-import { getContractAnniversaryStatus, isContractAnniversaryParam } from "@/lib/document-validity";
+import { getContractAnniversaryStatus, isContractAnniversaryParam, getGapInsuranceStatus, isGapParam, CONTRACT_END_PARAM_ID } from "@/lib/document-validity";
 import { SubjektView } from "@/components/subjekt-view";
 import type { DocumentEntry } from "@shared/schema";
 import StatusDocUpload, { type StatusDocUploadHandle } from "@/components/StatusDocUpload";
@@ -1823,10 +1823,12 @@ export default function ContractForm() {
                     <div style={{ display: panel.parameters.length > 0 ? 'block' : 'none' }}>
                       <div className="flex flex-wrap gap-2">
                         {panel.parameters.map(param => {
-                          const vinkulaciaHidden = (param.id === 56 || param.id === 57) &&
-                            panelValues[`${panel.id}_55`]?.toLowerCase() !== "ano";
+                          const conditionalHidden =
+                            ((param.id === 56 || param.id === 57) && panelValues[`${panel.id}_55`]?.toLowerCase() !== "ano") ||
+                            (param.id === 70 && panelValues[`${panel.id}_69`]?.toLowerCase() !== "ano") ||
+                            (param.id === 72 && panelValues[`${panel.id}_71`]?.toLowerCase() !== "ano");
                           return (
-                          <div key={param.id} className="space-y-0.5 flex-1 min-w-[calc(50%-0.25rem)]" style={{ display: vinkulaciaHidden ? 'none' : undefined }}>
+                          <div key={param.id} className="space-y-0.5 flex-1 min-w-[calc(50%-0.25rem)]" style={{ display: conditionalHidden ? 'none' : undefined }}>
                             <label className="text-xs font-medium">
                               {param.name}
                               <span style={{ display: param.isRequired ? 'inline' : 'none' }}><span className="text-destructive ml-1">*</span></span>
@@ -1894,16 +1896,16 @@ export default function ContractForm() {
                                   data-testid={`input-panel-param-${panel.id}-${param.id}`}
                                 />
                                 {(() => {
-                                  const annivStatus = isContractAnniversaryParam(param.id)
-                                    ? getContractAnniversaryStatus(param.id, panelValues[`${panel.id}_${param.id}`])
-                                    : null;
-                                  return annivStatus ? (
-                                    <span
-                                      className={`w-3 h-3 rounded-full shrink-0 ${annivStatus.dotClass}`}
-                                      title={annivStatus.label}
-                                      data-testid={`anniversary-dot-${param.id}`}
-                                    />
-                                  ) : null;
+                                  if (isContractAnniversaryParam(param.id)) {
+                                    const s = getContractAnniversaryStatus(param.id, panelValues[`${panel.id}_${param.id}`]);
+                                    return s ? <span className={`w-3 h-3 rounded-full shrink-0 ${s.dotClass}`} title={s.label} data-testid={`anniversary-dot-${param.id}`} /> : null;
+                                  }
+                                  if (isGapParam(param.id)) {
+                                    const contractEndVal = Object.entries(panelValues).find(([k]) => k.endsWith(`_${CONTRACT_END_PARAM_ID}`))?.[1];
+                                    const s = getGapInsuranceStatus(panelValues[`${panel.id}_${param.id}`], contractEndVal);
+                                    return s ? <span className={`w-3 h-3 rounded-full shrink-0 ${s.dotClass}`} title={s.label} data-testid={`gap-dot-${param.id}`} /> : null;
+                                  }
+                                  return null;
                                 })()}
                               </div>
                             </div>
