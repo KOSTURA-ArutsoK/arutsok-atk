@@ -16,7 +16,7 @@ import { Switch } from "@/components/ui/switch";
 import { Separator } from "@/components/ui/separator";
 import { Card, CardContent } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Loader2, UserCheck, Scale, Users, Wallet, BarChart3, Wifi, Archive, FileText, Eye, EyeOff, ChevronRight, Check, X, Plus, AlertTriangle, ShieldAlert, Ban, Link2, Building2, User, ArrowLeftRight, History, UserPlus, ShieldCheck, Clock, Pencil, Save, MessageSquare, FileDown, MapPin, Mail, Trash2, Star } from "lucide-react";
+import { Loader2, UserCheck, Scale, Users, Wallet, BarChart3, Wifi, Archive, FileText, Eye, EyeOff, ChevronRight, Check, X, Plus, AlertTriangle, ShieldAlert, Ban, Link2, Building2, User, ArrowLeftRight, History, UserPlus, ShieldCheck, Clock, Pencil, Save, MessageSquare, FileDown, MapPin, Mail, Trash2, Star, Network, ExternalLink } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
@@ -1317,7 +1317,23 @@ export function SubjektView({ subject, showPdfSidebar = false, isClientView = fa
                 </TabsTrigger>
               );
             })}
+            {!isClientView && (
+              <TabsTrigger
+                value="__relacie__"
+                className="text-xs px-3 py-2 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-md data-[state=active]:font-semibold transition-all"
+                data-testid="tab-relacie"
+              >
+                <Network className="w-3.5 h-3.5 mr-1.5" />
+                Relácie
+              </TabsTrigger>
+            )}
           </TabsList>
+
+          {!isClientView && (
+            <TabsContent value="__relacie__" className="mt-3" data-testid="tabcontent-relacie">
+              <SubjectRelationsSection subjectId={subject.id} />
+            </TabsContent>
+          )}
 
           {displayTabs.map(tab => {
             const rawTabCats = categoriesByTab[tab.id] || [];
@@ -2046,6 +2062,282 @@ function AddressCollectionBlock({ subjectId, isClientView }: { subjectId: number
             </div>
           );
         })}
+      </CardContent>
+    </Card>
+  );
+}
+
+function SubjectRelationsSection({ subjectId }: { subjectId: number }) {
+  const { toast } = useToast();
+  const [showAddDialog, setShowAddDialog] = useState(false);
+  const [selectedCategory, setSelectedCategory] = useState("");
+  const [selectedRoleId, setSelectedRoleId] = useState("");
+  const [targetSubjectSearch, setTargetSubjectSearch] = useState("");
+  const [selectedTargetId, setSelectedTargetId] = useState<number | null>(null);
+  const [contextSector, setContextSector] = useState("");
+
+  const { data: relationsData, isLoading } = useQuery<any>({
+    queryKey: [`/api/subject-relations/${subjectId}`],
+  });
+
+  const { data: roleTypes } = useQuery<any[]>({
+    queryKey: ["/api/relation-role-types"],
+  });
+
+  const { data: summaryData } = useQuery<any>({
+    queryKey: [`/api/subject-relations-summary/${subjectId}`],
+  });
+
+  const { data: searchResults } = useQuery<any[]>({
+    queryKey: [`/api/subjects?search=${encodeURIComponent(targetSubjectSearch)}`],
+    enabled: targetSubjectSearch.length >= 2,
+  });
+
+  const addRelation = useMutation({
+    mutationFn: async (data: any) => {
+      const res = await apiRequest("POST", "/api/subject-relations", data);
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [`/api/subject-relations/${subjectId}`] });
+      queryClient.invalidateQueries({ queryKey: [`/api/subject-relations-summary/${subjectId}`] });
+      setShowAddDialog(false);
+      setSelectedCategory("");
+      setSelectedRoleId("");
+      setTargetSubjectSearch("");
+      setSelectedTargetId(null);
+      setContextSector("");
+      toast({ title: "Relácia pridaná" });
+    },
+    onError: (err: any) => toast({ title: "Chyba", description: err.message, variant: "destructive" }),
+  });
+
+  const deactivateRelation = useMutation({
+    mutationFn: async (id: number) => {
+      const res = await apiRequest("DELETE", `/api/subject-relations/${id}`);
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [`/api/subject-relations/${subjectId}`] });
+      queryClient.invalidateQueries({ queryKey: [`/api/subject-relations-summary/${subjectId}`] });
+      toast({ title: "Relácia deaktivovaná" });
+    },
+  });
+
+  const createDraftAndLink = useMutation({
+    mutationFn: async (data: { firstName?: string; lastName?: string; companyName?: string; type: string }) => {
+      const roleType = roleTypes?.find((r: any) => String(r.id) === selectedRoleId);
+      const res = await apiRequest("POST", "/api/subjects/draft", {
+        ...data,
+        sourceSubjectId: subjectId,
+        sourceRelationRoleCode: roleType?.code,
+        sourceContext: contextSector || undefined,
+      });
+      return res.json();
+    },
+    onSuccess: (data: any) => {
+      if (data.isDuplicate) {
+        toast({ title: "Subjekt už existuje", description: "Vyberte existujúci subjekt zo zoznamu", variant: "destructive" });
+      } else {
+        queryClient.invalidateQueries({ queryKey: [`/api/subject-relations/${subjectId}`] });
+        queryClient.invalidateQueries({ queryKey: [`/api/subject-relations-summary/${subjectId}`] });
+        setShowAddDialog(false);
+        toast({ title: "Draft subjekt vytvorený a prepojený" });
+      }
+    },
+  });
+
+  const categoryLabels: Record<string, string> = {
+    zmluvna_strana: "Zmluvná strana",
+    predmet_zaujmu: "Predmet záujmu",
+    beneficient: "Beneficient",
+    kontakt: "Kontakt",
+  };
+
+  const categoryIcons: Record<string, any> = {
+    zmluvna_strana: Scale,
+    predmet_zaujmu: User,
+    beneficient: UserCheck,
+    kontakt: Users,
+  };
+
+  const filteredRoles = roleTypes?.filter((r: any) => !selectedCategory || r.category === selectedCategory) || [];
+
+  const handleAddRelation = () => {
+    if (!selectedTargetId || !selectedRoleId) return;
+    const roleType = roleTypes?.find((r: any) => String(r.id) === selectedRoleId);
+    addRelation.mutate({
+      sourceSubjectId: subjectId,
+      targetSubjectId: selectedTargetId,
+      roleTypeId: parseInt(selectedRoleId),
+      category: roleType?.category || selectedCategory,
+      contextSector: contextSector || null,
+    });
+  };
+
+  if (isLoading) return <div className="flex items-center gap-2 p-4"><Loader2 className="w-4 h-4 animate-spin" /> Načítavam relácie...</div>;
+
+  const categories = relationsData?.categories || {};
+  const allRelations = Object.values(categories).flatMap((c: any) => c.relations || []);
+
+  return (
+    <Card className="mb-4" data-testid="subject-relations-section">
+      <CardContent className="p-4 space-y-4">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Network className="w-4 h-4 text-primary" />
+            <span className="text-sm font-semibold">Relácie subjektu</span>
+            <Badge variant="outline" className="text-[10px]">{allRelations.length} väzieb</Badge>
+          </div>
+          <Dialog open={showAddDialog} onOpenChange={setShowAddDialog}>
+            <DialogTrigger asChild>
+              <Button size="sm" variant="outline" className="text-xs" data-testid="btn-add-relation">
+                <Plus className="w-3 h-3 mr-1" /> Pridať reláciu
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="max-w-lg" data-testid="dialog-add-relation">
+              <DialogHeader>
+                <DialogTitle>Pridať reláciu</DialogTitle>
+              </DialogHeader>
+              <div className="space-y-3">
+                <div>
+                  <Label className="text-xs">Kategória roly</Label>
+                  <Select value={selectedCategory} onValueChange={setSelectedCategory}>
+                    <SelectTrigger className="h-8 text-xs" data-testid="select-relation-category"><SelectValue placeholder="Vyberte kategóriu" /></SelectTrigger>
+                    <SelectContent>
+                      {Object.entries(categoryLabels).map(([k, v]) => (
+                        <SelectItem key={k} value={k}>{v}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label className="text-xs">Rola</Label>
+                  <Select value={selectedRoleId} onValueChange={setSelectedRoleId}>
+                    <SelectTrigger className="h-8 text-xs" data-testid="select-relation-role"><SelectValue placeholder="Vyberte rolu" /></SelectTrigger>
+                    <SelectContent>
+                      {filteredRoles.map((r: any) => (
+                        <SelectItem key={r.id} value={String(r.id)}>{r.label}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label className="text-xs">Kontext / Sektor</Label>
+                  <Input className="h-8 text-xs" placeholder="napr. Poistenie, Reality, Investície..." value={contextSector} onChange={e => setContextSector(e.target.value)} data-testid="input-context-sector" />
+                </div>
+                <div>
+                  <Label className="text-xs">Hľadať subjekt</Label>
+                  <Input className="h-8 text-xs" placeholder="Meno, priezvisko alebo názov firmy..." value={targetSubjectSearch} onChange={e => { setTargetSubjectSearch(e.target.value); setSelectedTargetId(null); }} data-testid="input-search-target-subject" />
+                  {searchResults && searchResults.length > 0 && !selectedTargetId && (
+                    <div className="border border-border rounded mt-1 max-h-32 overflow-y-auto">
+                      {searchResults.slice(0, 8).map((s: any) => (
+                        <div key={s.id} className="px-2 py-1 text-xs cursor-pointer hover:bg-muted/50 flex items-center gap-2"
+                          onClick={() => { setSelectedTargetId(s.id); setTargetSubjectSearch(s.companyName || `${s.firstName || ""} ${s.lastName || ""}`.trim()); }}
+                          data-testid={`search-result-${s.id}`}>
+                          <User className="w-3 h-3" />
+                          <span>{s.companyName || `${s.firstName || ""} ${s.lastName || ""}`.trim()}</span>
+                          <Badge variant="outline" className="text-[9px] ml-auto">{s.uid}</Badge>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  {selectedTargetId && (
+                    <Badge variant="secondary" className="mt-1 text-[10px]">Vybraný: ID {selectedTargetId}</Badge>
+                  )}
+                </div>
+                <div className="flex gap-2">
+                  <Button size="sm" className="text-xs" onClick={handleAddRelation} disabled={!selectedTargetId || !selectedRoleId || addRelation.isPending} data-testid="btn-confirm-add-relation">
+                    {addRelation.isPending ? <Loader2 className="w-3 h-3 animate-spin mr-1" /> : <Link2 className="w-3 h-3 mr-1" />}
+                    Prepojiť
+                  </Button>
+                  <Button size="sm" variant="outline" className="text-xs" onClick={() => {
+                    if (!targetSubjectSearch.trim()) return;
+                    const parts = targetSubjectSearch.trim().split(" ");
+                    createDraftAndLink.mutate({ firstName: parts[0], lastName: parts.slice(1).join(" ") || undefined, type: "FO" });
+                  }} disabled={!targetSubjectSearch.trim() || !selectedRoleId || createDraftAndLink.isPending} data-testid="btn-create-draft-subject">
+                    {createDraftAndLink.isPending ? <Loader2 className="w-3 h-3 animate-spin mr-1" /> : <UserPlus className="w-3 h-3 mr-1" />}
+                    Vytvoriť draft
+                  </Button>
+                </div>
+              </div>
+            </DialogContent>
+          </Dialog>
+        </div>
+
+        {summaryData?.summary && (
+          <div className="bg-muted/30 border border-border rounded p-2" data-testid="relations-summary">
+            <p className="text-xs text-muted-foreground">
+              <span className="font-medium text-foreground">Prehľad:</span> {summaryData.summary || "Žiadne relácie"}
+            </p>
+          </div>
+        )}
+
+        {Object.entries(categories).map(([catKey, catData]: [string, any]) => {
+          if (!catData.relations || catData.relations.length === 0) return null;
+          const CatIcon = categoryIcons[catKey] || Users;
+          return (
+            <div key={catKey} className="space-y-1" data-testid={`relation-category-${catKey}`}>
+              <div className="flex items-center gap-2 mb-1">
+                <CatIcon className="w-3.5 h-3.5 text-primary" />
+                <span className="text-xs font-semibold">{categoryLabels[catKey] || catKey}</span>
+                <Badge variant="outline" className="text-[9px]">{catData.relations.length}</Badge>
+              </div>
+              <Table>
+                <TableHeader>
+                  <TableRow className="text-[10px]">
+                    <TableHead className="py-1 px-2">Rola</TableHead>
+                    <TableHead className="py-1 px-2">Prepojený subjekt</TableHead>
+                    <TableHead className="py-1 px-2">Smer</TableHead>
+                    <TableHead className="py-1 px-2">Sektor</TableHead>
+                    <TableHead className="py-1 px-2 w-10"></TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {catData.relations.map((rel: any) => {
+                    const linked = rel.linkedSubject;
+                    const name = linked?.companyName || `${linked?.firstName || ""} ${linked?.lastName || ""}`.trim() || "—";
+                    return (
+                      <TableRow key={rel.id} className="text-xs" data-testid={`relation-row-${rel.id}`}>
+                        <TableCell className="py-1 px-2">
+                          <Badge variant="secondary" className="text-[10px]">{rel.roleLabel}</Badge>
+                          {rel.isDraft && <Badge variant="outline" className="text-[9px] ml-1 text-orange-500 border-orange-300">Draft</Badge>}
+                        </TableCell>
+                        <TableCell className="py-1 px-2 font-medium">
+                          <div className="flex items-center gap-1">
+                            {name}
+                            <span className="text-[9px] text-muted-foreground">({linked?.uid})</span>
+                          </div>
+                        </TableCell>
+                        <TableCell className="py-1 px-2">
+                          <Badge variant="outline" className="text-[9px]">
+                            {rel.direction === "outgoing" ? "→ Odchádzajúca" : "← Prichádzajúca"}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="py-1 px-2 text-muted-foreground">
+                          {rel.contextSector || "—"}
+                        </TableCell>
+                        <TableCell className="py-1 px-2">
+                          <Button variant="ghost" size="sm" className="h-5 w-5 p-0 text-destructive hover:text-destructive"
+                            onClick={() => deactivateRelation.mutate(rel.id)} data-testid={`btn-deactivate-relation-${rel.id}`}>
+                            <Trash2 className="w-3 h-3" />
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
+            </div>
+          );
+        })}
+
+        {allRelations.length === 0 && (
+          <div className="text-center py-4 text-xs text-muted-foreground" data-testid="no-relations">
+            <Network className="w-6 h-6 mx-auto mb-2 opacity-30" />
+            Žiadne relácie. Kliknite &quot;Pridať reláciu&quot; pre vytvorenie väzby.
+          </div>
+        )}
       </CardContent>
     </Card>
   );

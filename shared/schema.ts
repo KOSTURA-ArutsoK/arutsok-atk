@@ -1724,6 +1724,50 @@ export const insertTransactionDedupLogSchema = createInsertSchema(transactionDed
 export type TransactionDedupLog = typeof transactionDedupLog.$inferSelect;
 export type InsertTransactionDedupLog = z.infer<typeof insertTransactionDedupLogSchema>;
 
+// === RELATION ROLE TYPES (Global codebook of subject roles) ===
+export const relationRoleTypes = pgTable("relation_role_types", {
+  id: serial("id").primaryKey(),
+  category: text("category").notNull(),
+  code: text("code").notNull().unique(),
+  label: text("label").notNull(),
+  labelEn: text("label_en"),
+  description: text("description"),
+  isActive: boolean("is_active").default(true),
+  sortOrder: integer("sort_order").default(0),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertRelationRoleTypeSchema = createInsertSchema(relationRoleTypes).omit({ id: true, createdAt: true });
+export type RelationRoleType = typeof relationRoleTypes.$inferSelect;
+export type InsertRelationRoleType = z.infer<typeof insertRelationRoleTypeSchema>;
+
+// === SUBJECT RELATIONS (Global cross-entity links between subjects) ===
+export const subjectRelations = pgTable("subject_relations", {
+  id: serial("id").primaryKey(),
+  sourceSubjectId: integer("source_subject_id").notNull().references(() => subjects.id),
+  targetSubjectId: integer("target_subject_id").notNull().references(() => subjects.id),
+  roleTypeId: integer("role_type_id").notNull().references(() => relationRoleTypes.id),
+  category: text("category").notNull(),
+  contextSector: text("context_sector"),
+  contextSectionCode: text("context_section_code"),
+  contextPanelCode: text("context_panel_code"),
+  collectionIndex: integer("collection_index"),
+  fieldKey: text("field_key"),
+  relationMeta: jsonb("relation_meta").default({}),
+  validFrom: timestamp("valid_from").defaultNow(),
+  validTo: timestamp("valid_to"),
+  isActive: boolean("is_active").default(true),
+  isDraft: boolean("is_draft").default(false),
+  createdByUserId: integer("created_by_user_id").references(() => appUsers.id),
+  createdByName: text("created_by_name"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertSubjectRelationSchema = createInsertSchema(subjectRelations).omit({ id: true, createdAt: true, updatedAt: true });
+export type SubjectRelation = typeof subjectRelations.$inferSelect;
+export type InsertSubjectRelation = z.infer<typeof insertSubjectRelationSchema>;
+
 export type CreateSubjectRequest = InsertSubject;
 export type UpdateSubjectRequest = Partial<InsertSubject> & { changeReason?: string };
 export type UpdateMyCompanyRequest = Partial<InsertMyCompany> & { changeReason?: string };

@@ -4,11 +4,11 @@ import { storage } from "./storage";
 import { api } from "@shared/routes";
 import { setupAuth, registerAuthRoutes, isAuthenticated } from "./replit_integrations/auth";
 import { z } from "zod";
-import { continents, states, myCompanies, appUsers, clientTypes, clientSubGroups, clientGroupMembers, productFolderAssignments, folderPanels, panelParameters, userClientGroupMemberships, clientGroups, permissionGroups, insertCareerLevelSchema, insertProductPointRateSchema, careerLevels, importLogs, commissions, contracts, contractStatuses, contractStatusChangeLogs, clientDataTabs, clientDataCategories, subjects, subjectPointsLog, subjectFieldHistory, subjectCollaborators, clientMarketingConsents, clientDocumentHistory, contractAcquirers, contractPasswords, contractRewardDistributions, contractParameterValues, subjectArchive, auditLogs, globalCounters, subjectPhotos, activityEvents, subjectParamSections, subjectParameters, subjectTemplates, subjectTemplateParams, commissionCalculationLogs, parameterSynonyms, dataConflictAlerts, transactionDedupLog } from "@shared/schema";
+import { continents, states, myCompanies, appUsers, clientTypes, clientSubGroups, clientGroupMembers, productFolderAssignments, folderPanels, panelParameters, userClientGroupMemberships, clientGroups, permissionGroups, insertCareerLevelSchema, insertProductPointRateSchema, careerLevels, importLogs, commissions, contracts, contractStatuses, contractStatusChangeLogs, clientDataTabs, clientDataCategories, subjects, subjectPointsLog, subjectFieldHistory, subjectCollaborators, clientMarketingConsents, clientDocumentHistory, contractAcquirers, contractPasswords, contractRewardDistributions, contractParameterValues, subjectArchive, auditLogs, globalCounters, subjectPhotos, activityEvents, subjectParamSections, subjectParameters, subjectTemplates, subjectTemplateParams, commissionCalculationLogs, parameterSynonyms, dataConflictAlerts, transactionDedupLog, relationRoleTypes, subjectRelations } from "@shared/schema";
 import { seedSubjectParameters } from "./seed-subject-params";
 import sharp from "sharp";
 import { db } from "./db";
-import { eq, and, isNotNull, sql } from "drizzle-orm";
+import { eq, and, or, isNotNull, sql } from "drizzle-orm";
 import multer from "multer";
 import ExcelJS from "exceljs";
 import { parse as csvParse } from "csv-parse/sync";
@@ -7879,6 +7879,344 @@ export async function registerRoutes(
       res.json({ conflictsFound: conflicts.length, conflicts });
     } catch (err: any) {
       res.status(500).json({ message: err?.message || "Chyba pri detekcii konfliktov" });
+    }
+  });
+
+  // === RELATION ROLE TYPES (Číselník rolí) ===
+  app.get("/api/relation-role-types", isAuthenticated, async (_req, res) => {
+    try {
+      const roles = await db.select().from(relationRoleTypes).where(eq(relationRoleTypes.isActive, true));
+      res.json(roles);
+    } catch (err: any) {
+      res.status(500).json({ message: err?.message || "Chyba pri načítaní rolí" });
+    }
+  });
+
+  app.get("/api/relation-role-types/:category", isAuthenticated, async (req, res) => {
+    try {
+      const roles = await db.select().from(relationRoleTypes).where(
+        and(eq(relationRoleTypes.category, req.params.category), eq(relationRoleTypes.isActive, true))
+      );
+      res.json(roles);
+    } catch (err: any) {
+      res.status(500).json({ message: err?.message || "Chyba pri načítaní rolí" });
+    }
+  });
+
+  // === SUBJECT RELATIONS (Global cross-entity links) ===
+  const createRelationSchema = z.object({
+    sourceSubjectId: z.number().int().positive(),
+    targetSubjectId: z.number().int().positive(),
+    roleTypeId: z.number().int().positive(),
+    category: z.string().min(1),
+    contextSector: z.string().optional().nullable(),
+    contextSectionCode: z.string().optional().nullable(),
+    contextPanelCode: z.string().optional().nullable(),
+    collectionIndex: z.number().int().optional().nullable(),
+    fieldKey: z.string().optional().nullable(),
+    relationMeta: z.record(z.any()).optional(),
+    validFrom: z.string().optional().nullable(),
+    validTo: z.string().optional().nullable(),
+    isDraft: z.boolean().optional(),
+  });
+
+  app.get("/api/subject-relations/:subjectId", isAuthenticated, async (req, res) => {
+    try {
+      const subjectId = parseInt(req.params.subjectId);
+      if (isNaN(subjectId)) return res.status(400).json({ message: "Neplatné ID subjektu" });
+      if (!await checkKlientiSubjectAccess((req as any).appUser, subjectId)) return res.status(403).json({ message: "Prístup zamietnutý" });
+
+      const asSource = await db.select({
+        relation: subjectRelations,
+        roleType: relationRoleTypes,
+        targetSubject: {
+          id: subjects.id,
+          uid: subjects.uid,
+          firstName: subjects.firstName,
+          lastName: subjects.lastName,
+          companyName: subjects.companyName,
+          type: subjects.type,
+        },
+      })
+        .from(subjectRelations)
+        .innerJoin(relationRoleTypes, eq(subjectRelations.roleTypeId, relationRoleTypes.id))
+        .innerJoin(subjects, eq(subjectRelations.targetSubjectId, subjects.id))
+        .where(and(eq(subjectRelations.sourceSubjectId, subjectId), eq(subjectRelations.isActive, true)));
+
+      const asTarget = await db.select({
+        relation: subjectRelations,
+        roleType: relationRoleTypes,
+        sourceSubject: {
+          id: subjects.id,
+          uid: subjects.uid,
+          firstName: subjects.firstName,
+          lastName: subjects.lastName,
+          companyName: subjects.companyName,
+          type: subjects.type,
+        },
+      })
+        .from(subjectRelations)
+        .innerJoin(relationRoleTypes, eq(subjectRelations.roleTypeId, relationRoleTypes.id))
+        .innerJoin(subjects, eq(subjectRelations.sourceSubjectId, subjects.id))
+        .where(and(eq(subjectRelations.targetSubjectId, subjectId), eq(subjectRelations.isActive, true)));
+
+      const categories: Record<string, { label: string; relations: any[] }> = {
+        zmluvna_strana: { label: "Zmluvná strana", relations: [] },
+        predmet_zaujmu: { label: "Predmet záujmu", relations: [] },
+        beneficient: { label: "Beneficient", relations: [] },
+        kontakt: { label: "Kontakt", relations: [] },
+      };
+
+      for (const r of asSource) {
+        const cat = r.relation.category;
+        if (categories[cat]) {
+          categories[cat].relations.push({
+            ...r.relation,
+            roleLabel: r.roleType.label,
+            roleCode: r.roleType.code,
+            direction: "outgoing",
+            linkedSubject: r.targetSubject,
+          });
+        }
+      }
+
+      for (const r of asTarget) {
+        const cat = r.relation.category;
+        if (categories[cat]) {
+          categories[cat].relations.push({
+            ...r.relation,
+            roleLabel: r.roleType.label,
+            roleCode: r.roleType.code,
+            direction: "incoming",
+            linkedSubject: r.sourceSubject,
+          });
+        }
+      }
+
+      const summary = {
+        totalRelations: asSource.length + asTarget.length,
+        byCategory: Object.entries(categories).map(([key, val]) => ({
+          category: key,
+          label: val.label,
+          count: val.relations.length,
+        })),
+      };
+
+      res.json({ categories, summary, asSource: asSource.length, asTarget: asTarget.length });
+    } catch (err: any) {
+      res.status(500).json({ message: err?.message || "Chyba pri načítaní relácií" });
+    }
+  });
+
+  app.post("/api/subject-relations", isAuthenticated, async (req, res) => {
+    try {
+      const parsed = createRelationSchema.parse(req.body);
+      if (!await checkKlientiSubjectAccess((req as any).appUser, parsed.sourceSubjectId)) return res.status(403).json({ message: "Prístup zamietnutý" });
+
+      const user = (req as any).user;
+      const [relation] = await db.insert(subjectRelations).values({
+        ...parsed,
+        validFrom: parsed.validFrom ? new Date(parsed.validFrom) : new Date(),
+        validTo: parsed.validTo ? new Date(parsed.validTo) : null,
+        createdByUserId: user?.id || null,
+        createdByName: user?.username || "system",
+      }).returning();
+      res.json(relation);
+    } catch (err: any) {
+      if (err instanceof z.ZodError) return res.status(400).json({ message: "Neplatné dáta", errors: err.errors });
+      res.status(500).json({ message: err?.message || "Chyba pri vytváraní relácie" });
+    }
+  });
+
+  app.patch("/api/subject-relations/:id", isAuthenticated, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) return res.status(400).json({ message: "Neplatné ID" });
+
+      const { roleTypeId, category, contextSector, contextSectionCode, validTo, isActive, relationMeta } = req.body;
+      const updateData: any = { updatedAt: new Date() };
+      if (roleTypeId !== undefined) updateData.roleTypeId = roleTypeId;
+      if (category !== undefined) updateData.category = category;
+      if (contextSector !== undefined) updateData.contextSector = contextSector;
+      if (contextSectionCode !== undefined) updateData.contextSectionCode = contextSectionCode;
+      if (validTo !== undefined) updateData.validTo = validTo ? new Date(validTo) : null;
+      if (isActive !== undefined) updateData.isActive = isActive;
+      if (relationMeta !== undefined) updateData.relationMeta = relationMeta;
+
+      const [updated] = await db.update(subjectRelations).set(updateData).where(eq(subjectRelations.id, id)).returning();
+      if (!updated) return res.status(404).json({ message: "Relácia nenájdená" });
+      res.json(updated);
+    } catch (err: any) {
+      res.status(500).json({ message: err?.message || "Chyba pri úprave relácie" });
+    }
+  });
+
+  app.delete("/api/subject-relations/:id", isAuthenticated, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) return res.status(400).json({ message: "Neplatné ID" });
+
+      const [deactivated] = await db.update(subjectRelations)
+        .set({ isActive: false, updatedAt: new Date() })
+        .where(eq(subjectRelations.id, id))
+        .returning();
+      if (!deactivated) return res.status(404).json({ message: "Relácia nenájdená" });
+      res.json({ message: "Relácia deaktivovaná", relation: deactivated });
+    } catch (err: any) {
+      res.status(500).json({ message: err?.message || "Chyba pri deaktivácii relácie" });
+    }
+  });
+
+  // === CROSS-ENTITY INTELLIGENCE (Summary of all relations for a subject) ===
+  app.get("/api/subject-relations-summary/:subjectId", isAuthenticated, async (req, res) => {
+    try {
+      const subjectId = parseInt(req.params.subjectId);
+      if (isNaN(subjectId)) return res.status(400).json({ message: "Neplatné ID subjektu" });
+      if (!await checkKlientiSubjectAccess((req as any).appUser, subjectId)) return res.status(403).json({ message: "Prístup zamietnutý" });
+
+      const allRelations = await db.select({
+        roleLabel: relationRoleTypes.label,
+        roleCode: relationRoleTypes.code,
+        category: subjectRelations.category,
+        contextSector: subjectRelations.contextSector,
+        contextSectionCode: subjectRelations.contextSectionCode,
+        direction: sql<string>`CASE WHEN ${subjectRelations.sourceSubjectId} = ${subjectId} THEN 'outgoing' ELSE 'incoming' END`,
+      })
+        .from(subjectRelations)
+        .innerJoin(relationRoleTypes, eq(subjectRelations.roleTypeId, relationRoleTypes.id))
+        .where(and(
+          or(
+            eq(subjectRelations.sourceSubjectId, subjectId),
+            eq(subjectRelations.targetSubjectId, subjectId)
+          ),
+          eq(subjectRelations.isActive, true)
+        ));
+
+      const grouped: Record<string, { count: number; roles: string[] }> = {};
+      for (const r of allRelations) {
+        const key = r.roleLabel;
+        if (!grouped[key]) grouped[key] = { count: 0, roles: [] };
+        grouped[key].count++;
+        if (r.contextSector && !grouped[key].roles.includes(r.contextSector)) {
+          grouped[key].roles.push(r.contextSector);
+        }
+      }
+
+      const sentences = Object.entries(grouped).map(([role, data]) => {
+        const sectorInfo = data.roles.length > 0 ? ` (${data.roles.join(", ")})` : "";
+        return `${role} pri ${data.count} záznamoch${sectorInfo}`;
+      });
+
+      res.json({
+        subjectId,
+        totalRelations: allRelations.length,
+        summary: sentences.join(", "),
+        details: grouped,
+      });
+    } catch (err: any) {
+      res.status(500).json({ message: err?.message || "Chyba pri generovaní súhrnu" });
+    }
+  });
+
+  // === DRAFT SUBJECT CREATION (Auto-create when unknown name detected) ===
+  const createDraftSubjectSchema = z.object({
+    firstName: z.string().optional().nullable(),
+    lastName: z.string().optional().nullable(),
+    companyName: z.string().optional().nullable(),
+    type: z.enum(["FO", "PO", "SZCO"]).default("FO"),
+    sourceContext: z.string().optional(),
+    sourceRelationRoleCode: z.string().optional(),
+    sourceSubjectId: z.number().int().optional(),
+  });
+
+  app.post("/api/subjects/draft", isAuthenticated, async (req, res) => {
+    try {
+      const parsed = createDraftSubjectSchema.parse(req.body);
+
+      if (!parsed.firstName && !parsed.lastName && !parsed.companyName) {
+        return res.status(400).json({ message: "Meno alebo názov firmy je povinný" });
+      }
+
+      const searchName = parsed.companyName
+        ? parsed.companyName.toLowerCase().trim()
+        : `${(parsed.firstName || "").toLowerCase().trim()} ${(parsed.lastName || "").toLowerCase().trim()}`.trim();
+
+      const existingSubjects = await db.select().from(subjects).where(
+        and(
+          eq(subjects.isActive, true),
+          parsed.companyName
+            ? sql`LOWER(${subjects.companyName}) = ${searchName}`
+            : sql`LOWER(CONCAT(COALESCE(${subjects.firstName},''), ' ', COALESCE(${subjects.lastName},''))) = ${searchName}`
+        )
+      );
+
+      if (existingSubjects.length > 0) {
+        return res.json({
+          isDuplicate: true,
+          existingSubjects: existingSubjects.map(s => ({
+            id: s.id,
+            uid: s.uid,
+            firstName: s.firstName,
+            lastName: s.lastName,
+            companyName: s.companyName,
+            type: s.type,
+          })),
+          message: "Subjekt s týmto menom už existuje",
+        });
+      }
+
+      const [counterRow] = await db
+        .update(globalCounters)
+        .set({ currentValue: sql`${globalCounters.currentValue} + 1` })
+        .where(eq(globalCounters.counterName, "subject_uid"))
+        .returning();
+
+      let uidNum = counterRow?.currentValue || 1;
+      const uid = String(uidNum).padStart(12, "0");
+      const user = (req as any).user;
+
+      const [newSubject] = await db.insert(subjects).values({
+        uid,
+        type: parsed.type,
+        firstName: parsed.firstName,
+        lastName: parsed.lastName,
+        companyName: parsed.companyName,
+        isActive: true,
+        details: { isDraft: true, draftSource: parsed.sourceContext || "relation_auto" },
+        registeredByUserId: user?.id || null,
+      }).returning();
+
+      if (parsed.sourceSubjectId && parsed.sourceRelationRoleCode) {
+        const [roleType] = await db.select().from(relationRoleTypes).where(eq(relationRoleTypes.code, parsed.sourceRelationRoleCode));
+        if (roleType) {
+          await db.insert(subjectRelations).values({
+            sourceSubjectId: parsed.sourceSubjectId,
+            targetSubjectId: newSubject.id,
+            roleTypeId: roleType.id,
+            category: roleType.category,
+            contextSector: parsed.sourceContext,
+            isDraft: true,
+            createdByUserId: user?.id || null,
+            createdByName: user?.username || "system",
+          });
+        }
+      }
+
+      res.json({
+        isDuplicate: false,
+        subject: {
+          id: newSubject.id,
+          uid: newSubject.uid,
+          firstName: newSubject.firstName,
+          lastName: newSubject.lastName,
+          companyName: newSubject.companyName,
+          type: newSubject.type,
+          isDraft: true,
+        },
+      });
+    } catch (err: any) {
+      if (err instanceof z.ZodError) return res.status(400).json({ message: "Neplatné dáta", errors: err.errors });
+      res.status(500).json({ message: err?.message || "Chyba pri vytváraní draft subjektu" });
     }
   });
 
