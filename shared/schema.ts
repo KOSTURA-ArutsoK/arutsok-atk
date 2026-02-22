@@ -1768,6 +1768,51 @@ export const insertSubjectRelationSchema = createInsertSchema(subjectRelations).
 export type SubjectRelation = typeof subjectRelations.$inferSelect;
 export type InsertSubjectRelation = z.infer<typeof insertSubjectRelationSchema>;
 
+// === MATURITY ALERTS (Semafor dospelosti - 18th birthday tracking) ===
+export const maturityAlerts = pgTable("maturity_alerts", {
+  id: serial("id").primaryKey(),
+  subjectId: integer("subject_id").notNull().references(() => subjects.id),
+  dateOfBirth: timestamp("date_of_birth").notNull(),
+  maturityDate: timestamp("maturity_date").notNull(),
+  parentSubjectId: integer("parent_subject_id").references(() => subjects.id),
+  guardianRelationId: integer("guardian_relation_id").references(() => subjectRelations.id),
+  alertType: text("alert_type").notNull().default("approaching"),
+  daysUntilMaturity: integer("days_until_maturity"),
+  status: text("status").notNull().default("pending"),
+  resolvedAt: timestamp("resolved_at"),
+  resolvedByUserId: integer("resolved_by_user_id").references(() => appUsers.id),
+  resolvedByName: text("resolved_by_name"),
+  resolution: text("resolution"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertMaturityAlertSchema = createInsertSchema(maturityAlerts).omit({ id: true, createdAt: true, updatedAt: true });
+export type MaturityAlert = typeof maturityAlerts.$inferSelect;
+export type InsertMaturityAlert = z.infer<typeof insertMaturityAlertSchema>;
+
+// === INHERITANCE PROMPTS (Parameter propagation between family members) ===
+export const inheritancePrompts = pgTable("inheritance_prompts", {
+  id: serial("id").primaryKey(),
+  sourceSubjectId: integer("source_subject_id").notNull().references(() => subjects.id),
+  targetSubjectId: integer("target_subject_id").notNull().references(() => subjects.id),
+  relationId: integer("relation_id").notNull().references(() => subjectRelations.id),
+  fieldKeys: text("field_keys").array().notNull(),
+  fieldLabels: text("field_labels").array(),
+  oldValues: jsonb("old_values").default({}),
+  newValues: jsonb("new_values").default({}),
+  status: text("status").notNull().default("pending"),
+  resolvedAt: timestamp("resolved_at"),
+  resolvedByUserId: integer("resolved_by_user_id").references(() => appUsers.id),
+  resolvedByName: text("resolved_by_name"),
+  resolution: text("resolution"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertInheritancePromptSchema = createInsertSchema(inheritancePrompts).omit({ id: true, createdAt: true });
+export type InheritancePrompt = typeof inheritancePrompts.$inferSelect;
+export type InsertInheritancePrompt = z.infer<typeof insertInheritancePromptSchema>;
+
 export type CreateSubjectRequest = InsertSubject;
 export type UpdateSubjectRequest = Partial<InsertSubject> & { changeReason?: string };
 export type UpdateMyCompanyRequest = Partial<InsertMyCompany> & { changeReason?: string };

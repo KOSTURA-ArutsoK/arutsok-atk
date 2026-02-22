@@ -4,7 +4,7 @@ import { storage } from "./storage";
 import { api } from "@shared/routes";
 import { setupAuth, registerAuthRoutes, isAuthenticated } from "./replit_integrations/auth";
 import { z } from "zod";
-import { continents, states, myCompanies, appUsers, clientTypes, clientSubGroups, clientGroupMembers, productFolderAssignments, folderPanels, panelParameters, userClientGroupMemberships, clientGroups, permissionGroups, insertCareerLevelSchema, insertProductPointRateSchema, careerLevels, importLogs, commissions, contracts, contractStatuses, contractStatusChangeLogs, clientDataTabs, clientDataCategories, subjects, subjectPointsLog, subjectFieldHistory, subjectCollaborators, clientMarketingConsents, clientDocumentHistory, contractAcquirers, contractPasswords, contractRewardDistributions, contractParameterValues, subjectArchive, auditLogs, globalCounters, subjectPhotos, activityEvents, subjectParamSections, subjectParameters, subjectTemplates, subjectTemplateParams, commissionCalculationLogs, parameterSynonyms, dataConflictAlerts, transactionDedupLog, relationRoleTypes, subjectRelations } from "@shared/schema";
+import { continents, states, myCompanies, appUsers, clientTypes, clientSubGroups, clientGroupMembers, productFolderAssignments, folderPanels, panelParameters, userClientGroupMemberships, clientGroups, permissionGroups, insertCareerLevelSchema, insertProductPointRateSchema, careerLevels, importLogs, commissions, contracts, contractStatuses, contractStatusChangeLogs, clientDataTabs, clientDataCategories, subjects, subjectPointsLog, subjectFieldHistory, subjectCollaborators, clientMarketingConsents, clientDocumentHistory, contractAcquirers, contractPasswords, contractRewardDistributions, contractParameterValues, subjectArchive, auditLogs, globalCounters, subjectPhotos, activityEvents, subjectParamSections, subjectParameters, subjectTemplates, subjectTemplateParams, commissionCalculationLogs, parameterSynonyms, dataConflictAlerts, transactionDedupLog, relationRoleTypes, subjectRelations, maturityAlerts, inheritancePrompts } from "@shared/schema";
 import { seedSubjectParameters } from "./seed-subject-params";
 import sharp from "sharp";
 import { db } from "./db";
@@ -1319,6 +1319,53 @@ export async function registerRoutes(
           username: appUser.username,
           ipAddress: typeof fieldIp === 'string' ? fieldIp : JSON.stringify(fieldIp),
         });
+      }
+
+      // === FAMILY INHERITANCE CHECK: Detect address changes on parent subjects ===
+      try {
+        if (changedFields['details']) {
+          const oldDet = (changedFields['details'].old as any) || {};
+          const newDet = (changedFields['details'].new as any) || {};
+          const oldDyn = oldDet.dynamicFields || oldDet;
+          const newDyn = newDet.dynamicFields || newDet;
+          const addrFields = ['adr_ulica', 'adr_cislo_domu', 'adr_obec', 'adr_psc', 'adr_okres', 'adr_kraj', 'adr_stat'];
+          const changedAddr: Record<string, any> = {};
+          const changedAddrOld: Record<string, any> = {};
+          for (const fk of addrFields) {
+            if (newDyn[fk] !== undefined && String(newDyn[fk] || '') !== String(oldDyn[fk] || '')) {
+              changedAddr[fk] = newDyn[fk];
+              changedAddrOld[fk] = oldDyn[fk] || null;
+            }
+          }
+          if (Object.keys(changedAddr).length > 0) {
+            const childLinks = await db.select({
+              relation: subjectRelations,
+              roleType: relationRoleTypes,
+            })
+              .from(subjectRelations)
+              .innerJoin(relationRoleTypes, eq(subjectRelations.roleTypeId, relationRoleTypes.id))
+              .where(and(
+                eq(subjectRelations.sourceSubjectId, subjectId),
+                eq(subjectRelations.isActive, true),
+                eq(relationRoleTypes.category, "rodina"),
+                sql`${relationRoleTypes.code} IN ('dieta_opravnena_osoba', 'vnuk_vnucka')`,
+              ));
+            for (const cl of childLinks) {
+              await db.insert(inheritancePrompts).values({
+                sourceSubjectId: subjectId,
+                targetSubjectId: cl.relation.targetSubjectId,
+                relationId: cl.relation.id,
+                fieldKeys: Object.keys(changedAddr),
+                fieldLabels: Object.keys(changedAddr).map(k => k.replace('adr_', 'Adresa: ')),
+                oldValues: changedAddrOld,
+                newValues: changedAddr,
+                status: "pending",
+              });
+            }
+          }
+        }
+      } catch (inhErr) {
+        console.error("[INHERITANCE CHECK ERROR]", inhErr);
       }
 
       res.json(maskSubjectBirthNumber(updated, appUser));
@@ -8217,6 +8264,529 @@ export async function registerRoutes(
     } catch (err: any) {
       if (err instanceof z.ZodError) return res.status(400).json({ message: "Neplatné dáta", errors: err.errors });
       res.status(500).json({ message: err?.message || "Chyba pri vytváraní draft subjektu" });
+    }
+  });
+
+  // === FAMILY RELATIONS: MATURITY SEMAPHORE (Semafor dospelosti) ===
+  const FAMILY_ROLE_CODES = ['rodic_zakonny_zastupca', 'dieta_opravnena_osoba', 'manzel_manzelka', 'partner_druh', 'stary_rodic', 'vnuk_vnucka', 'surodenc', 'iny_pribuzny'];
+  const GUARDIAN_ROLE_CODES = ['rodic_zakonny_zastupca', 'stary_rodic'];
+  const CHILD_ROLE_CODES = ['dieta_opravnena_osoba', 'vnuk_vnucka'];
+  const INHERITABLE_ADDRESS_FIELDS = [
+    'adr_ulica', 'adr_cislo_domu', 'adr_obec', 'adr_psc', 'adr_okres', 'adr_kraj', 'adr_stat',
+    'adr_koresp_ulica', 'adr_koresp_cislo', 'adr_koresp_obec', 'adr_koresp_psc',
+    'adr_koresp_okres', 'adr_koresp_kraj', 'adr_koresp_stat'
+  ];
+
+  async function refreshMaturityAlerts(): Promise<number> {
+    try {
+      const familyRelations = await db.select({
+        relation: subjectRelations,
+        roleType: relationRoleTypes,
+        childSubject: {
+          id: subjects.id,
+          firstName: subjects.firstName,
+          lastName: subjects.lastName,
+          details: subjects.details,
+          type: subjects.type,
+        },
+      })
+        .from(subjectRelations)
+        .innerJoin(relationRoleTypes, eq(subjectRelations.roleTypeId, relationRoleTypes.id))
+        .innerJoin(subjects, eq(subjectRelations.targetSubjectId, subjects.id))
+        .where(and(
+          eq(subjectRelations.isActive, true),
+          eq(relationRoleTypes.category, "rodina"),
+          sql`${relationRoleTypes.code} IN ('dieta_opravnena_osoba', 'vnuk_vnucka')`,
+          eq(subjects.isActive, true)
+        ));
+
+      let alertCount = 0;
+      const now = new Date();
+
+      for (const fr of familyRelations) {
+        const details = (fr.childSubject.details as any) || {};
+        const dynFields = details.dynamicFields || details;
+        const dobStr = dynFields.datum_narodenia || dynFields.p_datum_nar;
+        if (!dobStr) continue;
+
+        const dob = new Date(dobStr);
+        if (isNaN(dob.getTime())) continue;
+
+        const maturityDate = new Date(dob);
+        maturityDate.setFullYear(maturityDate.getFullYear() + 18);
+
+        const diffMs = maturityDate.getTime() - now.getTime();
+        const daysUntil = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
+
+        let alertType: string;
+        if (daysUntil <= 0) alertType = "reached";
+        else if (daysUntil <= 30) alertType = "imminent";
+        else if (daysUntil <= 90) alertType = "approaching";
+        else if (daysUntil <= 365) alertType = "upcoming";
+        else continue;
+
+        const existing = await db.select().from(maturityAlerts).where(
+          and(
+            eq(maturityAlerts.subjectId, fr.childSubject.id),
+            eq(maturityAlerts.status, "pending")
+          )
+        );
+
+        if (existing.length > 0) {
+          await db.update(maturityAlerts).set({
+            alertType,
+            daysUntilMaturity: daysUntil,
+            updatedAt: new Date(),
+          }).where(eq(maturityAlerts.id, existing[0].id));
+        } else {
+          await db.insert(maturityAlerts).values({
+            subjectId: fr.childSubject.id,
+            dateOfBirth: dob,
+            maturityDate,
+            parentSubjectId: fr.relation.sourceSubjectId,
+            guardianRelationId: fr.relation.id,
+            alertType,
+            daysUntilMaturity: daysUntil,
+            status: "pending",
+          });
+        }
+        alertCount++;
+      }
+
+      console.log(`[MATURITY SEMAPHORE] Refreshed ${alertCount} maturity alerts`);
+      return alertCount;
+    } catch (err) {
+      console.error("[MATURITY SEMAPHORE ERROR]", err);
+      return 0;
+    }
+  }
+
+  refreshMaturityAlerts().catch(err => console.error("[MATURITY SEMAPHORE INIT ERROR]", err));
+  setInterval(() => {
+    refreshMaturityAlerts().catch(err => console.error("[MATURITY SEMAPHORE CRON ERROR]", err));
+  }, 60 * 60 * 1000);
+
+  app.get("/api/maturity-alerts", isAuthenticated, async (req, res) => {
+    try {
+      const status = (req.query.status as string) || "pending";
+      const alerts = await db.select({
+        alert: maturityAlerts,
+        childSubject: {
+          id: subjects.id,
+          uid: subjects.uid,
+          firstName: subjects.firstName,
+          lastName: subjects.lastName,
+          type: subjects.type,
+        },
+      })
+        .from(maturityAlerts)
+        .innerJoin(subjects, eq(maturityAlerts.subjectId, subjects.id))
+        .where(eq(maturityAlerts.status, status))
+        .orderBy(maturityAlerts.daysUntilMaturity);
+
+      const enriched = [];
+      for (const a of alerts) {
+        let parentName = null;
+        if (a.alert.parentSubjectId) {
+          const [parent] = await db.select({ firstName: subjects.firstName, lastName: subjects.lastName, uid: subjects.uid })
+            .from(subjects).where(eq(subjects.id, a.alert.parentSubjectId));
+          if (parent) parentName = `${parent.firstName || ""} ${parent.lastName || ""}`.trim();
+        }
+        enriched.push({
+          ...a.alert,
+          childName: `${a.childSubject.firstName || ""} ${a.childSubject.lastName || ""}`.trim(),
+          childUid: a.childSubject.uid,
+          childType: a.childSubject.type,
+          parentName,
+        });
+      }
+
+      res.json(enriched);
+    } catch (err: any) {
+      res.status(500).json({ message: err?.message || "Chyba pri načítaní alertov dospelosti" });
+    }
+  });
+
+  app.get("/api/maturity-alerts/subject/:subjectId", isAuthenticated, async (req, res) => {
+    try {
+      const subjectId = parseInt(req.params.subjectId);
+      if (isNaN(subjectId)) return res.status(400).json({ message: "Neplatné ID" });
+      if (!await checkKlientiSubjectAccess((req as any).appUser, subjectId)) return res.status(403).json({ message: "Prístup zamietnutý" });
+
+      const alerts = await db.select().from(maturityAlerts).where(
+        and(
+          or(eq(maturityAlerts.subjectId, subjectId), eq(maturityAlerts.parentSubjectId, subjectId)),
+          eq(maturityAlerts.status, "pending")
+        )
+      );
+
+      const childAlerts = alerts.filter(a => a.subjectId === subjectId);
+      const parentAlerts = alerts.filter(a => a.parentSubjectId === subjectId);
+
+      res.json({ childAlerts, parentAlerts, total: alerts.length });
+    } catch (err: any) {
+      res.status(500).json({ message: err?.message || "Chyba pri načítaní alertov" });
+    }
+  });
+
+  app.patch("/api/maturity-alerts/:id/resolve", isAuthenticated, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) return res.status(400).json({ message: "Neplatné ID" });
+
+      const { resolution } = req.body;
+      const user = (req as any).appUser;
+      const [updated] = await db.update(maturityAlerts).set({
+        status: "resolved",
+        resolution: resolution || "manually_resolved",
+        resolvedAt: new Date(),
+        resolvedByUserId: user?.id,
+        resolvedByName: user?.username,
+        updatedAt: new Date(),
+      }).where(eq(maturityAlerts.id, id)).returning();
+
+      if (!updated) return res.status(404).json({ message: "Alert nenájdený" });
+      res.json(updated);
+    } catch (err: any) {
+      res.status(500).json({ message: err?.message || "Chyba pri riešení alertu" });
+    }
+  });
+
+  // === FAMILY RELATIONS: PARAMETER INHERITANCE ===
+  app.post("/api/family/check-inheritance", isAuthenticated, async (req, res) => {
+    try {
+      const { sourceSubjectId, changedFields } = req.body;
+      if (!sourceSubjectId || !changedFields) return res.status(400).json({ message: "Chýbajú povinné parametre" });
+      if (!await checkKlientiSubjectAccess((req as any).appUser, sourceSubjectId)) return res.status(403).json({ message: "Prístup zamietnutý" });
+
+      const addressChanged = Object.keys(changedFields).filter(k => INHERITABLE_ADDRESS_FIELDS.includes(k));
+      if (addressChanged.length === 0) return res.json({ hasInheritableChanges: false, children: [] });
+
+      const childRelations = await db.select({
+        relation: subjectRelations,
+        roleType: relationRoleTypes,
+        childSubject: {
+          id: subjects.id,
+          uid: subjects.uid,
+          firstName: subjects.firstName,
+          lastName: subjects.lastName,
+          details: subjects.details,
+        },
+      })
+        .from(subjectRelations)
+        .innerJoin(relationRoleTypes, eq(subjectRelations.roleTypeId, relationRoleTypes.id))
+        .innerJoin(subjects, eq(subjectRelations.targetSubjectId, subjects.id))
+        .where(and(
+          eq(subjectRelations.sourceSubjectId, sourceSubjectId),
+          eq(subjectRelations.isActive, true),
+          eq(relationRoleTypes.category, "rodina"),
+          sql`${relationRoleTypes.code} IN ('dieta_opravnena_osoba', 'vnuk_vnucka')`,
+          eq(subjects.isActive, true)
+        ));
+
+      if (childRelations.length === 0) return res.json({ hasInheritableChanges: false, children: [] });
+
+      const children = childRelations.map(cr => {
+        const childDetails = (cr.childSubject.details as any) || {};
+        const childDyn = childDetails.dynamicFields || childDetails;
+        const currentValues: Record<string, any> = {};
+        for (const fk of addressChanged) {
+          currentValues[fk] = childDyn[fk] || null;
+        }
+        return {
+          subjectId: cr.childSubject.id,
+          uid: cr.childSubject.uid,
+          name: `${cr.childSubject.firstName || ""} ${cr.childSubject.lastName || ""}`.trim(),
+          relationId: cr.relation.id,
+          roleLabel: cr.roleType.label,
+          currentValues,
+        };
+      });
+
+      res.json({
+        hasInheritableChanges: true,
+        changedFields: addressChanged,
+        newValues: Object.fromEntries(addressChanged.map(k => [k, changedFields[k]])),
+        children,
+      });
+    } catch (err: any) {
+      res.status(500).json({ message: err?.message || "Chyba pri kontrole dedičnosti" });
+    }
+  });
+
+  app.post("/api/family/apply-inheritance", isAuthenticated, async (req, res) => {
+    try {
+      const { sourceSubjectId, targetSubjectIds, fieldKeys, newValues } = req.body;
+      if (!sourceSubjectId || !targetSubjectIds?.length || !fieldKeys?.length || !newValues) {
+        return res.status(400).json({ message: "Chýbajú povinné parametre" });
+      }
+      if (!await checkKlientiSubjectAccess((req as any).appUser, sourceSubjectId)) return res.status(403).json({ message: "Prístup zamietnutý" });
+
+      const user = (req as any).appUser;
+      const results = [];
+
+      for (const targetId of targetSubjectIds) {
+        const [target] = await db.select().from(subjects).where(eq(subjects.id, targetId));
+        if (!target) continue;
+
+        const targetDetails = (target.details as any) || {};
+        const targetDyn = targetDetails.dynamicFields || targetDetails;
+        const oldValues: Record<string, any> = {};
+
+        for (const fk of fieldKeys) {
+          oldValues[fk] = targetDyn[fk] || null;
+          targetDyn[fk] = newValues[fk];
+        }
+
+        if (targetDetails.dynamicFields) {
+          targetDetails.dynamicFields = targetDyn;
+        }
+
+        await db.update(subjects).set({
+          details: targetDetails.dynamicFields ? targetDetails : targetDyn,
+        }).where(eq(subjects.id, targetId));
+
+        for (const fk of fieldKeys) {
+          await db.insert(subjectFieldHistory).values({
+            subjectId: targetId,
+            fieldKey: fk,
+            fieldSource: "inheritance",
+            oldValue: oldValues[fk] != null ? String(oldValues[fk]) : null,
+            newValue: newValues[fk] != null ? String(newValues[fk]) : null,
+            changedByUserId: user?.id,
+            changedByName: user?.username || "system",
+            changeReason: `Zdedené od rodiča (subjekt #${sourceSubjectId})`,
+          });
+        }
+
+        results.push({ subjectId: targetId, updated: true, fieldsUpdated: fieldKeys.length });
+      }
+
+      res.json({ success: true, results });
+    } catch (err: any) {
+      res.status(500).json({ message: err?.message || "Chyba pri aplikovaní dedičnosti" });
+    }
+  });
+
+  app.get("/api/inheritance-prompts/:subjectId", isAuthenticated, async (req, res) => {
+    try {
+      const subjectId = parseInt(req.params.subjectId);
+      if (isNaN(subjectId)) return res.status(400).json({ message: "Neplatné ID" });
+      if (!await checkKlientiSubjectAccess((req as any).appUser, subjectId)) return res.status(403).json({ message: "Prístup zamietnutý" });
+
+      const prompts = await db.select().from(inheritancePrompts).where(
+        and(
+          or(eq(inheritancePrompts.sourceSubjectId, subjectId), eq(inheritancePrompts.targetSubjectId, subjectId)),
+          eq(inheritancePrompts.status, "pending")
+        )
+      );
+      res.json(prompts);
+    } catch (err: any) {
+      res.status(500).json({ message: err?.message || "Chyba pri načítaní promptov dedičnosti" });
+    }
+  });
+
+  // === FAMILY RELATIONS: AI EXTRACTION HINTS FOR CHILDREN'S INSURANCE ===
+  app.get("/api/family/extraction-rules", isAuthenticated, async (_req, res) => {
+    res.json({
+      contractTypes: [
+        {
+          pattern: "Detské poistenie|Detské životné|Detské sporenie|Sporenie pre deti|Junior sporenie|Detský investičný",
+          roles: {
+            poistnik: { familyRole: "rodic_zakonny_zastupca", direction: "parent_is_poistnik" },
+            poisteny: { familyRole: "dieta_opravnena_osoba", direction: "child_is_poisteny" },
+          },
+          autoCreateRelation: true,
+          description: "Detské poistenie - rodič je poistník, dieťa je poistený",
+        },
+        {
+          pattern: "Sporenie|III\\. pilier|Doplnkové dôchodkové|DDS",
+          roles: {
+            poistnik: { familyRole: "stary_rodic", direction: "grandparent_may_be_poistnik" },
+            poisteny: { familyRole: "vnuk_vnucka", direction: "grandchild_is_beneficiary" },
+          },
+          autoCreateRelation: true,
+          description: "Sporenie - starý rodič môže byť poistník, vnuk/vnučka je oprávnená osoba",
+        },
+        {
+          pattern: "Životné poistenie|Kapitálové životné|Investičné životné|IŽP|KŽP",
+          roles: {
+            poistnik: { familyRole: "manzel_manzelka", direction: "spouse_may_be_beneficiary" },
+            opravnena_osoba: { familyRole: "dieta_opravnena_osoba", direction: "child_as_beneficiary" },
+          },
+          autoCreateRelation: true,
+          description: "Životné poistenie - manžel/ka ako oprávnená osoba, deti ako beneficienti",
+        },
+      ],
+      fieldMappings: {
+        poistnik_meno: ["meno poistníka", "poistník meno", "policyholder name", "zákonný zástupca"],
+        poistnik_rod_cislo: ["rodné číslo poistníka", "RČ poistníka"],
+        poisteny_meno: ["meno poisteného", "poistený meno", "insured name", "meno dieťaťa"],
+        poisteny_rod_cislo: ["rodné číslo poisteného", "RČ poisteného", "RČ dieťaťa"],
+        opravnena_osoba_meno: ["oprávnená osoba", "beneficient", "beneficiary"],
+      },
+    });
+  });
+
+  app.post("/api/family/auto-link-from-contract", isAuthenticated, async (req, res) => {
+    try {
+      const { contractType, poistnikSubjectId, poistenySubjectId, sectorCode } = req.body;
+      if (!poistnikSubjectId || !poistenySubjectId) {
+        return res.status(400).json({ message: "Poistník aj poistený subjekt sú povinné" });
+      }
+
+      const rules = [
+        { pattern: /Detské poistenie|Detské životné|Detské sporenie|Sporenie pre deti|Junior/i, parentRole: "rodic_zakonny_zastupca", childRole: "dieta_opravnena_osoba" },
+        { pattern: /Sporenie|III\. pilier|Doplnkové dôchodkové|DDS/i, parentRole: "stary_rodic", childRole: "vnuk_vnucka" },
+        { pattern: /Životné poistenie|Kapitálové životné|IŽP|KŽP/i, parentRole: "rodic_zakonny_zastupca", childRole: "dieta_opravnena_osoba" },
+      ];
+
+      let parentRoleCode = "rodic_zakonny_zastupca";
+      let childRoleCode = "dieta_opravnena_osoba";
+      for (const rule of rules) {
+        if (rule.pattern.test(contractType || "")) {
+          parentRoleCode = rule.parentRole;
+          childRoleCode = rule.childRole;
+          break;
+        }
+      }
+
+      const existingRelation = await db.select().from(subjectRelations).where(
+        and(
+          eq(subjectRelations.sourceSubjectId, poistnikSubjectId),
+          eq(subjectRelations.targetSubjectId, poistenySubjectId),
+          eq(subjectRelations.isActive, true),
+          eq(subjectRelations.category, "rodina")
+        )
+      );
+
+      if (existingRelation.length > 0) {
+        return res.json({ alreadyLinked: true, relation: existingRelation[0], message: "Rodinná väzba už existuje" });
+      }
+
+      const [parentRoleType] = await db.select().from(relationRoleTypes).where(eq(relationRoleTypes.code, parentRoleCode));
+      if (!parentRoleType) return res.status(400).json({ message: "Rola nenájdená" });
+
+      const user = (req as any).appUser;
+      const [relation] = await db.insert(subjectRelations).values({
+        sourceSubjectId: poistnikSubjectId,
+        targetSubjectId: poistenySubjectId,
+        roleTypeId: parentRoleType.id,
+        category: "rodina",
+        contextSector: sectorCode || "Poistenie",
+        relationMeta: { autoCreated: true, contractType, aiExtracted: true },
+        createdByUserId: user?.id,
+        createdByName: user?.username || "ai_extraction",
+      }).returning();
+
+      res.json({ created: true, relation, message: "Rodinná väzba automaticky vytvorená z kontraktu" });
+    } catch (err: any) {
+      res.status(500).json({ message: err?.message || "Chyba pri automatickom prepojení" });
+    }
+  });
+
+  // === FAMILY SPIDER: Get family tree for a subject ===
+  app.get("/api/family/tree/:subjectId", isAuthenticated, async (req, res) => {
+    try {
+      const subjectId = parseInt(req.params.subjectId);
+      if (isNaN(subjectId)) return res.status(400).json({ message: "Neplatné ID" });
+      if (!await checkKlientiSubjectAccess((req as any).appUser, subjectId)) return res.status(403).json({ message: "Prístup zamietnutý" });
+
+      const outgoing = await db.select({
+        relation: subjectRelations,
+        roleType: relationRoleTypes,
+        linkedSubject: {
+          id: subjects.id,
+          uid: subjects.uid,
+          firstName: subjects.firstName,
+          lastName: subjects.lastName,
+          type: subjects.type,
+          details: subjects.details,
+        },
+      })
+        .from(subjectRelations)
+        .innerJoin(relationRoleTypes, eq(subjectRelations.roleTypeId, relationRoleTypes.id))
+        .innerJoin(subjects, eq(subjectRelations.targetSubjectId, subjects.id))
+        .where(and(
+          eq(subjectRelations.sourceSubjectId, subjectId),
+          eq(subjectRelations.isActive, true),
+          eq(relationRoleTypes.category, "rodina")
+        ));
+
+      const incoming = await db.select({
+        relation: subjectRelations,
+        roleType: relationRoleTypes,
+        linkedSubject: {
+          id: subjects.id,
+          uid: subjects.uid,
+          firstName: subjects.firstName,
+          lastName: subjects.lastName,
+          type: subjects.type,
+          details: subjects.details,
+        },
+      })
+        .from(subjectRelations)
+        .innerJoin(relationRoleTypes, eq(subjectRelations.roleTypeId, relationRoleTypes.id))
+        .innerJoin(subjects, eq(subjectRelations.sourceSubjectId, subjects.id))
+        .where(and(
+          eq(subjectRelations.targetSubjectId, subjectId),
+          eq(subjectRelations.isActive, true),
+          eq(relationRoleTypes.category, "rodina")
+        ));
+
+      const computeAge = (details: any) => {
+        const dyn = details?.dynamicFields || details || {};
+        const dob = dyn.datum_narodenia || dyn.p_datum_nar;
+        if (!dob) return null;
+        const d = new Date(dob);
+        if (isNaN(d.getTime())) return null;
+        const now = new Date();
+        let age = now.getFullYear() - d.getFullYear();
+        if (now.getMonth() < d.getMonth() || (now.getMonth() === d.getMonth() && now.getDate() < d.getDate())) age--;
+        return age;
+      };
+
+      const mapRelation = (r: any, direction: string) => {
+        const age = computeAge(r.linkedSubject.details);
+        return {
+          relationId: r.relation.id,
+          subjectId: r.linkedSubject.id,
+          uid: r.linkedSubject.uid,
+          name: `${r.linkedSubject.firstName || ""} ${r.linkedSubject.lastName || ""}`.trim(),
+          type: r.linkedSubject.type,
+          roleCode: r.roleType.code,
+          roleLabel: r.roleType.label,
+          direction,
+          age,
+          isMinor: age !== null && age < 18,
+          contextSector: r.relation.contextSector,
+          meta: r.relation.relationMeta,
+        };
+      };
+
+      const familyMembers = [
+        ...outgoing.map(r => mapRelation(r, "outgoing")),
+        ...incoming.map(r => mapRelation(r, "incoming")),
+      ];
+
+      const parents = familyMembers.filter(m => ['rodic_zakonny_zastupca', 'stary_rodic'].includes(m.roleCode) && m.direction === "incoming");
+      const children = familyMembers.filter(m => ['dieta_opravnena_osoba', 'vnuk_vnucka'].includes(m.roleCode) && m.direction === "outgoing");
+      const spouses = familyMembers.filter(m => ['manzel_manzelka', 'partner_druh'].includes(m.roleCode));
+      const siblings = familyMembers.filter(m => m.roleCode === 'surodenc');
+      const others = familyMembers.filter(m => m.roleCode === 'iny_pribuzny');
+
+      res.json({
+        subjectId,
+        totalFamilyMembers: familyMembers.length,
+        parents,
+        children,
+        spouses,
+        siblings,
+        others,
+        allMembers: familyMembers,
+      });
+    } catch (err: any) {
+      res.status(500).json({ message: err?.message || "Chyba pri načítaní rodinného stromu" });
     }
   });
 

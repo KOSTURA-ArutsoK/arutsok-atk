@@ -16,7 +16,7 @@ import { Switch } from "@/components/ui/switch";
 import { Separator } from "@/components/ui/separator";
 import { Card, CardContent } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Loader2, UserCheck, Scale, Users, Wallet, BarChart3, Wifi, Archive, FileText, Eye, EyeOff, ChevronRight, Check, X, Plus, AlertTriangle, ShieldAlert, Ban, Link2, Building2, User, ArrowLeftRight, History, UserPlus, ShieldCheck, Clock, Pencil, Save, MessageSquare, FileDown, MapPin, Mail, Trash2, Star, Network, ExternalLink } from "lucide-react";
+import { Loader2, UserCheck, Scale, Users, Wallet, BarChart3, Wifi, Archive, FileText, Eye, EyeOff, ChevronRight, Check, X, Plus, AlertTriangle, ShieldAlert, Ban, Link2, Building2, User, ArrowLeftRight, History, UserPlus, ShieldCheck, Clock, Pencil, Save, MessageSquare, FileDown, MapPin, Mail, Trash2, Star, Network, ExternalLink, Heart, Baby, Crown, TreePine, Home, Bell, CheckCircle } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
@@ -2152,6 +2152,7 @@ function SubjectRelationsSection({ subjectId }: { subjectId: number }) {
     predmet_zaujmu: "Predmet záujmu",
     beneficient: "Beneficient",
     kontakt: "Kontakt",
+    rodina: "Rodinné väzby",
   };
 
   const categoryIcons: Record<string, any> = {
@@ -2159,6 +2160,18 @@ function SubjectRelationsSection({ subjectId }: { subjectId: number }) {
     predmet_zaujmu: User,
     beneficient: UserCheck,
     kontakt: Users,
+    rodina: Heart,
+  };
+
+  const familyRoleIcons: Record<string, any> = {
+    rodic_zakonny_zastupca: Crown,
+    dieta_opravnena_osoba: Baby,
+    manzel_manzelka: Heart,
+    partner_druh: Heart,
+    stary_rodic: TreePine,
+    vnuk_vnucka: Baby,
+    surodenc: Users,
+    iny_pribuzny: User,
   };
 
   const filteredRoles = roleTypes?.filter((r: any) => !selectedCategory || r.category === selectedCategory) || [];
@@ -2338,8 +2351,265 @@ function SubjectRelationsSection({ subjectId }: { subjectId: number }) {
             Žiadne relácie. Kliknite &quot;Pridať reláciu&quot; pre vytvorenie väzby.
           </div>
         )}
+
+        <FamilySpiderSection subjectId={subjectId} />
+        <MaturityAlertsSection subjectId={subjectId} />
+        <InheritanceSection subjectId={subjectId} />
       </CardContent>
     </Card>
+  );
+}
+
+function FamilySpiderSection({ subjectId }: { subjectId: number }) {
+  const { data: familyTree, isLoading } = useQuery<any>({
+    queryKey: [`/api/family/tree/${subjectId}`],
+  });
+
+  if (isLoading) return null;
+  if (!familyTree || familyTree.totalFamilyMembers === 0) return null;
+
+  const roleIcons: Record<string, any> = {
+    rodic_zakonny_zastupca: Crown,
+    dieta_opravnena_osoba: Baby,
+    manzel_manzelka: Heart,
+    partner_druh: Heart,
+    stary_rodic: TreePine,
+    vnuk_vnucka: Baby,
+    surodenc: Users,
+    iny_pribuzny: User,
+  };
+
+  const sections = [
+    { key: "parents", label: "Rodičia / Zákonní zástupcovia", members: familyTree.parents, icon: Crown },
+    { key: "spouses", label: "Manžel / Manželka / Partner", members: familyTree.spouses, icon: Heart },
+    { key: "children", label: "Deti / Oprávnené osoby", members: familyTree.children, icon: Baby },
+    { key: "siblings", label: "Súrodenci", members: familyTree.siblings, icon: Users },
+    { key: "others", label: "Iní príbuzní", members: familyTree.others, icon: User },
+  ].filter(s => s.members && s.members.length > 0);
+
+  if (sections.length === 0) return null;
+
+  return (
+    <div className="mt-3 border border-pink-500/20 rounded p-3 bg-pink-500/5" data-testid="family-spider-section">
+      <div className="flex items-center gap-2 mb-3">
+        <Heart className="w-4 h-4 text-pink-400" />
+        <span className="text-sm font-semibold text-pink-300">Rodinný pavúk</span>
+        <Badge variant="outline" className="text-[10px] border-pink-500/30 text-pink-400">{familyTree.totalFamilyMembers} členov</Badge>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+        {sections.map(section => {
+          const SectionIcon = section.icon;
+          return (
+            <div key={section.key} className="space-y-1" data-testid={`family-section-${section.key}`}>
+              <div className="flex items-center gap-1.5 mb-1">
+                <SectionIcon className="w-3 h-3 text-pink-400" />
+                <span className="text-[11px] font-medium text-pink-300">{section.label}</span>
+              </div>
+              {section.members.map((m: any) => {
+                const RoleIcon = roleIcons[m.roleCode] || User;
+                return (
+                  <div key={m.relationId} className="flex items-center gap-2 bg-background/50 rounded px-2 py-1.5 border border-border/50" data-testid={`family-member-${m.subjectId}`}>
+                    <RoleIcon className="w-3.5 h-3.5 text-pink-400 shrink-0" />
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-xs font-medium truncate">{m.name || "—"}</span>
+                        <span className="text-[9px] text-muted-foreground">({m.uid})</span>
+                      </div>
+                      <div className="flex items-center gap-1.5 mt-0.5">
+                        <Badge variant="outline" className="text-[9px] border-pink-500/30">{m.roleLabel}</Badge>
+                        {m.isMinor && (
+                          <Badge variant="outline" className="text-[9px] border-orange-500/30 text-orange-400">
+                            <AlertTriangle className="w-2.5 h-2.5 mr-0.5" /> Neplnoletý ({m.age} r.)
+                          </Badge>
+                        )}
+                        {m.age !== null && !m.isMinor && (
+                          <span className="text-[9px] text-muted-foreground">{m.age} rokov</span>
+                        )}
+                        {m.contextSector && (
+                          <span className="text-[9px] text-muted-foreground">{m.contextSector}</span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function MaturityAlertsSection({ subjectId }: { subjectId: number }) {
+  const { toast } = useToast();
+  const { data: alertsData } = useQuery<any>({
+    queryKey: [`/api/maturity-alerts/subject/${subjectId}`],
+  });
+
+  const resolveAlert = useMutation({
+    mutationFn: async ({ id, resolution }: { id: number; resolution: string }) => {
+      const res = await apiRequest("PATCH", `/api/maturity-alerts/${id}/resolve`, { resolution });
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [`/api/maturity-alerts/subject/${subjectId}`] });
+      toast({ title: "Alert vyriešený" });
+    },
+  });
+
+  if (!alertsData || alertsData.total === 0) return null;
+
+  const allAlerts = [...(alertsData.childAlerts || []), ...(alertsData.parentAlerts || [])];
+
+  const alertTypeConfig: Record<string, { color: string; label: string; icon: any }> = {
+    reached: { color: "border-red-500/30 bg-red-500/10 text-red-400", label: "DOSIAHNUTÁ DOSPELOSŤ", icon: Bell },
+    imminent: { color: "border-orange-500/30 bg-orange-500/10 text-orange-400", label: "Do 30 dní", icon: AlertTriangle },
+    approaching: { color: "border-yellow-500/30 bg-yellow-500/10 text-yellow-400", label: "Do 90 dní", icon: Clock },
+    upcoming: { color: "border-blue-500/30 bg-blue-500/10 text-blue-300", label: "Do 1 roka", icon: Clock },
+  };
+
+  return (
+    <div className="mt-3 border border-orange-500/20 rounded p-3 bg-orange-500/5" data-testid="maturity-alerts-section">
+      <div className="flex items-center gap-2 mb-2">
+        <Bell className="w-4 h-4 text-orange-400" />
+        <span className="text-sm font-semibold text-orange-300">Semafor dospelosti</span>
+        <Badge variant="outline" className="text-[10px] border-orange-500/30 text-orange-400">{allAlerts.length} alertov</Badge>
+      </div>
+
+      <div className="space-y-2">
+        {allAlerts.map((alert: any) => {
+          const config = alertTypeConfig[alert.alertType] || alertTypeConfig.upcoming;
+          const AlertIcon = config.icon;
+          const dob = alert.dateOfBirth ? new Date(alert.dateOfBirth).toLocaleDateString("sk-SK") : "—";
+          const matDate = alert.maturityDate ? new Date(alert.maturityDate).toLocaleDateString("sk-SK") : "—";
+
+          return (
+            <div key={alert.id} className={`flex items-start gap-2 rounded px-3 py-2 border ${config.color}`} data-testid={`maturity-alert-${alert.id}`}>
+              <AlertIcon className="w-4 h-4 mt-0.5 shrink-0" />
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-semibold">{config.label}</span>
+                  {alert.daysUntilMaturity !== null && alert.daysUntilMaturity > 0 && (
+                    <span className="text-[10px]">({alert.daysUntilMaturity} dní)</span>
+                  )}
+                </div>
+                <p className="text-[11px] mt-0.5">
+                  Dátum narodenia: <span className="font-medium">{dob}</span> • 18. narodeniny: <span className="font-medium">{matDate}</span>
+                </p>
+                {alert.alertType === "reached" && (
+                  <p className="text-[10px] mt-1 font-medium">
+                    Subjekt dosiahol dospelosť. Aktualizujte zmluvy — zmena zákonného zástupcu na priameho vlastníka.
+                  </p>
+                )}
+              </div>
+              {alert.status === "pending" && (
+                <Button size="sm" variant="outline" className="text-[10px] h-6 shrink-0"
+                  onClick={() => resolveAlert.mutate({ id: alert.id, resolution: "contract_updated" })}
+                  disabled={resolveAlert.isPending}
+                  data-testid={`btn-resolve-maturity-${alert.id}`}>
+                  <CheckCircle className="w-3 h-3 mr-1" /> Vyriešené
+                </Button>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function InheritanceSection({ subjectId }: { subjectId: number }) {
+  const { toast } = useToast();
+  const { data: prompts } = useQuery<any[]>({
+    queryKey: [`/api/inheritance-prompts/${subjectId}`],
+  });
+
+  const [showDialog, setShowDialog] = useState(false);
+  const [selectedPrompt, setSelectedPrompt] = useState<any>(null);
+
+  const applyInheritance = useMutation({
+    mutationFn: async (data: any) => {
+      const res = await apiRequest("POST", "/api/family/apply-inheritance", data);
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [`/api/inheritance-prompts/${subjectId}`] });
+      setShowDialog(false);
+      toast({ title: "Údaje prenesené na dieťa" });
+    },
+  });
+
+  if (!prompts || prompts.length === 0) return null;
+
+  return (
+    <div className="mt-3 border border-blue-500/20 rounded p-3 bg-blue-500/5" data-testid="inheritance-section">
+      <div className="flex items-center gap-2 mb-2">
+        <Home className="w-4 h-4 text-blue-400" />
+        <span className="text-sm font-semibold text-blue-300">Dedičnosť parametrov</span>
+        <Badge variant="outline" className="text-[10px] border-blue-500/30 text-blue-400">{prompts.length} čakajúcich</Badge>
+      </div>
+
+      <div className="space-y-1">
+        {prompts.map((p: any) => (
+          <div key={p.id} className="flex items-center gap-2 bg-background/50 rounded px-2 py-1.5 border border-border/50" data-testid={`inheritance-prompt-${p.id}`}>
+            <ArrowLeftRight className="w-3.5 h-3.5 text-blue-400" />
+            <div className="flex-1 text-xs">
+              <span className="font-medium">{(p.fieldKeys || []).length} polí</span>
+              <span className="text-muted-foreground"> čaká na prenos (adresa, kontakt)</span>
+            </div>
+            <Button size="sm" variant="outline" className="text-[10px] h-6"
+              onClick={() => { setSelectedPrompt(p); setShowDialog(true); }}
+              data-testid={`btn-review-inheritance-${p.id}`}>
+              Skontrolovať
+            </Button>
+          </div>
+        ))}
+      </div>
+
+      <Dialog open={showDialog} onOpenChange={setShowDialog}>
+        <DialogContent className="max-w-md" data-testid="dialog-inheritance-review">
+          <DialogHeader>
+            <DialogTitle>Prenos údajov na prepojené dieťa</DialogTitle>
+          </DialogHeader>
+          {selectedPrompt && (
+            <div className="space-y-3">
+              <p className="text-xs text-muted-foreground">
+                Zmena adresy u rodiča bola detekovaná. Chcete preniesť tieto údaje aj na prepojené dieťa?
+              </p>
+              <div className="space-y-1">
+                {(selectedPrompt.fieldKeys || []).map((fk: string, i: number) => (
+                  <div key={fk} className="flex items-center justify-between bg-muted/30 rounded px-2 py-1 text-xs">
+                    <span className="font-medium">{(selectedPrompt.fieldLabels || [])[i] || fk}</span>
+                    <div className="flex items-center gap-2">
+                      <span className="text-red-400 line-through">{(selectedPrompt.oldValues as any)?.[fk] || "—"}</span>
+                      <span className="text-green-400">{(selectedPrompt.newValues as any)?.[fk] || "—"}</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <div className="flex gap-2 pt-2">
+                <Button size="sm" className="text-xs" onClick={() => {
+                  applyInheritance.mutate({
+                    sourceSubjectId: selectedPrompt.sourceSubjectId,
+                    targetSubjectIds: [selectedPrompt.targetSubjectId],
+                    fieldKeys: selectedPrompt.fieldKeys,
+                    newValues: selectedPrompt.newValues,
+                  });
+                }} disabled={applyInheritance.isPending} data-testid="btn-apply-inheritance">
+                  {applyInheritance.isPending ? <Loader2 className="w-3 h-3 animate-spin mr-1" /> : <Check className="w-3 h-3 mr-1" />}
+                  Preniesť na dieťa
+                </Button>
+                <Button size="sm" variant="outline" className="text-xs" onClick={() => setShowDialog(false)} data-testid="btn-cancel-inheritance">
+                  Preskočiť
+                </Button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+    </div>
   );
 }
 
