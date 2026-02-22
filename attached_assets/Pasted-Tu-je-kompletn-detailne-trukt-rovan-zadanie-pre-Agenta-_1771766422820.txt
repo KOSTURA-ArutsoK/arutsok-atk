@@ -1,0 +1,72 @@
+Tu je kompletné, detailne štruktúrované zadanie pre Agenta. Je napísané tak, aby pochopil technickú logiku aj tvoje nové názvoslovie. Stačí mu to skopírovať a poslať:
+
+🏗️ ZADANIE PRE IMPLEMENTÁCIU: ARCHITEKTÚRA ARUTSOK (ATK) 2026
+Cieľ: Prebudovať systém na dvojblokovú štruktúru s inteligentným zrkadlením dát a objektovým prepájaním pre potreby Business Intelligence.
+
+1. MODULÁRNE ROZDELENIE SYSTÉMU
+Rozdeľ systém na dva hlavné moduly s odlišnou logikou zobrazenia:
+
+MODUL A: SPRAVOVANIE ZMLÚV (Vstupný modul)
+
+Slúži na detailné nahadzovanie obchodných prípadov podľa produktov.
+
+Hierarchia:
+
+SEKTOR (napr. Poistenie, Dôchodky, Agro, Reality)
+
+ODVETVIE (napr. PZP, SDS, Dotácie, Prenájom)
+
+PRODUKT (napr. Allianz Moje Auto, VÚB Generali Klasik)
+
+PRIEČINOK (Vizuálna záložka v UI, napr. Údaje o vozidle)
+
+PANEL (Biely ohraničený box v UI)
+
+PARAMETER (Konkrétne dátové pole)
+
+MODUL B: SPRAVOVANIE SUBJEKTOV (Agregačný modul)
+
+Slúži na prehľad o klientovi a jeho majetku. Tu sa dáta zlievajú.
+
+Hierarchia:
+
+SEKTOR (rovnaký ako v Module A)
+
+ODVETVIE (rovnaký ako v Module A)
+
+OBJEKT (Dynamické zoskupenie dát podľa unikátneho kľúča)
+
+PRIEČINOK (Agregované dáta zo všetkých produktov)
+
+PANEL (Biely box)
+
+PARAMETER (Aktuálna hodnota + ikona hodín pre Archív/Históriu)
+
+2. LOGIKA "OBJEKTOV" A UNIKÁTNYCH KĽÚČOV
+Aby systém v Module B dokázal zlievať dáta z viacerých zmlúv (napr. PZP a KASKO) do jedného pohľadu, implementuj:
+
+Vlastnosť parametra: V knižnici parametrov pridaj atribút is_object_key (boolean).
+
+Nastavenie kľúčov: Označ ako kľúče tieto parametre:
+
+Auto: ŠPZ (EČV) a VIN.
+
+Reality: Súpisné číslo a Číslo LV.
+
+Agro: Číslo parcely (LPIS).
+
+Automatické zlučovanie: Ak systém v Module A nájde v rôznych produktoch rovnaký kľúč (napr. rovnakú ŠPZ), v Module B (Subjekty) ich musí zobraziť pod jedným spoločným Objektom.
+
+3. ROZDELENIE SEKTOROV PARAMETROV (STAV VS. TRANSAKCIA)
+Parametre, ktoré si už analyzoval, rozdeľ nasledovne:
+
+Do profilu SUBJEKTU (Modul B - trvalé): Povinné údaje, Ekonomika, SZČO, Firmy, Marketing & GDPR, Zdravotný a Investičný profil.
+
+Do portfólia ZMLÚV (Modul A - transakčné): SDS, Vozidlá, Reality, Agro, Prenájom, Retail. (Tieto sa následne zrkadlia do Modulu B pod "Majetok a Služby").
+
+4. BEZPEČNOSŤ A HISTÓRIA
+Auditná stopa: Pri každom parametri v oboch moduloch zachovaj 90-dňový semafor platnosti a kompletnú históriu zmien (kto, kedy, pôvodná hodnota).
+
+UI Prvky: Ak pole obsahuje dáta, zobraziť zámok. Ak je prázdne a povolené na mazanie, zobraziť kôš s potvrdením.
+
+Potvrď mi, prosím, prijatie tohto nového názvoslovia (Priečinok, Panel, Objekt) a potvrď, že rozumieš logike vynechania úrovne PRODUKT v Module Subjektov pre potreby zlievania dát.
