@@ -472,67 +472,69 @@ function ModuleCField({
     setEditVal(rawValue || "");
   };
 
-  if (editing) {
-    return (
-      <div className="rounded-md border-2 border-blue-500 bg-white dark:bg-slate-900 p-2 shadow-sm" data-testid={`modulec-field-edit-${fieldKey}`}>
-        <span className="text-[10px] text-muted-foreground block mb-1">{label}</span>
-        <input
-          ref={inputRef}
-          type={fieldType === "date" ? "date" : fieldType === "phone" ? "tel" : "text"}
-          className="w-full bg-transparent outline-none text-sm font-medium"
-          value={editVal}
-          onChange={e => setEditVal(e.target.value)}
-          onKeyDown={e => { if (e.key === "Enter") commitEdit(); if (e.key === "Escape") { setEditing(false); setEditVal(rawValue); } }}
-          onBlur={commitEdit}
-          data-testid={`modulec-field-input-${fieldKey}`}
-        />
-      </div>
-    );
-  }
-
   const hasExpiry = validity && (validity.status === "expired" || validity.status === "expiring");
   const isExpiringSoon = validity && validity.status === "expiring" && validity.daysRemaining !== null && validity.daysRemaining <= 30;
   const isExpired = validity && validity.status === "expired";
 
-  const borderClass = isExpired
-    ? "border-red-500/60 bg-red-500/10"
-    : isExpiringSoon
-      ? "border-orange-500/60 bg-orange-500/10"
-      : hasExpiry
-        ? `${validity!.borderClass} ${validity!.bgClass}`
-        : "border-border bg-muted/30 hover:bg-muted/50";
+  const borderClass = editing
+    ? "border-2 border-blue-500 bg-white dark:bg-slate-900 shadow-sm"
+    : isExpired
+      ? "border-red-500/60 bg-red-500/10"
+      : isExpiringSoon
+        ? "border-orange-500/60 bg-orange-500/10"
+        : hasExpiry
+          ? `${validity!.borderClass} ${validity!.bgClass}`
+          : "border-border bg-muted/30 hover:bg-muted/50";
 
   return (
     <div
-      className={`rounded-md border p-2.5 transition-colors cursor-pointer select-none ${borderClass}`}
-      onDoubleClick={handleDoubleClick}
-      title={validity?.label || `Dvojklik pre úpravu`}
+      className={`rounded-md border p-2.5 transition-colors select-none ${editing ? "" : "cursor-pointer"} ${borderClass}`}
+      onDoubleClick={editing ? undefined : handleDoubleClick}
+      title={editing ? undefined : (validity?.label || `Dvojklik pre úpravu`)}
       data-testid={`modulec-field-${fieldKey}`}
     >
-      <div className="flex items-center justify-between mb-0.5">
-        <span className="text-[10px] text-muted-foreground font-medium">{label}</span>
-        <div className="flex items-center gap-1">
-          <FieldHistoryIndicator subjectId={subjectId} fieldKey={fieldKey} fieldLabel={fieldLabel} />
-          {validity && validity.status !== "unknown" && rawValue && (
-            <span className={`w-2 h-2 rounded-full shrink-0 ${validity.dotClass}`} data-testid={`validity-dot-${fieldKey}`} />
-          )}
-        </div>
-      </div>
-      <div className="flex items-center gap-1.5">
-        <span className={`text-sm font-medium truncate ${validity?.textClass || ""}`}>
-          {value || "—"}
-        </span>
-        {(isExpired || isExpiringSoon) && (
-          <span className="flex items-center gap-0.5 shrink-0" data-testid={`expiry-warning-${fieldKey}`}>
-            <AlertTriangle className={`w-3.5 h-3.5 ${isExpired ? "text-red-500" : "text-orange-500"}`} />
-            <span className={`text-[10px] font-medium ${isExpired ? "text-red-500" : "text-orange-500"}`}>
-              {isExpired
-                ? "Neplatný!"
-                : `${validity!.daysRemaining}d`}
+      {editing ? (
+        <>
+          <span className="text-[10px] text-muted-foreground block mb-1">{label}</span>
+          <input
+            ref={inputRef}
+            type={fieldType === "date" ? "date" : fieldType === "phone" ? "tel" : "text"}
+            className="w-full bg-transparent outline-none text-sm font-medium"
+            value={editVal}
+            onChange={e => setEditVal(e.target.value)}
+            onKeyDown={e => { if (e.key === "Enter") commitEdit(); if (e.key === "Escape") { setEditing(false); setEditVal(rawValue); } }}
+            onBlur={commitEdit}
+            data-testid={`modulec-field-input-${fieldKey}`}
+          />
+        </>
+      ) : (
+        <>
+          <div className="flex items-center justify-between mb-0.5">
+            <span className="text-[10px] text-muted-foreground font-medium">{label}</span>
+            <div className="flex items-center gap-1">
+              <FieldHistoryIndicator subjectId={subjectId} fieldKey={fieldKey} fieldLabel={fieldLabel} />
+              {validity && validity.status !== "unknown" && rawValue && (
+                <span className={`w-2 h-2 rounded-full shrink-0 ${validity.dotClass}`} data-testid={`validity-dot-${fieldKey}`} />
+              )}
+            </div>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <span className={`text-sm font-medium truncate ${validity?.textClass || ""}`}>
+              {value || "—"}
             </span>
-          </span>
-        )}
-      </div>
+            {(isExpired || isExpiringSoon) && (
+              <span className="flex items-center gap-0.5 shrink-0" data-testid={`expiry-warning-${fieldKey}`}>
+                <AlertTriangle className={`w-3.5 h-3.5 ${isExpired ? "text-red-500" : "text-orange-500"}`} />
+                <span className={`text-[10px] font-medium ${isExpired ? "text-red-500" : "text-orange-500"}`}>
+                  {isExpired
+                    ? "Neplatný!"
+                    : `${validity!.daysRemaining}d`}
+                </span>
+              </span>
+            )}
+          </div>
+        </>
+      )}
     </div>
   );
 }
