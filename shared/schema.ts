@@ -1459,6 +1459,7 @@ export const subjectFieldHistory = pgTable("subject_field_history", {
   restoredFromDate: timestamp("restored_from_date"),
   validFrom: timestamp("valid_from"),
   validTo: timestamp("valid_to"),
+  changeContext: text("change_context"),
 });
 
 export const insertSubjectFieldHistorySchema = createInsertSchema(subjectFieldHistory).omit({ id: true, changedAt: true });
