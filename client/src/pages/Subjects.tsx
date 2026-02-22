@@ -4216,6 +4216,9 @@ export default function Subjects() {
                             <Button size="icon" variant="ghost" onClick={() => setViewTarget(subject)} data-testid={`button-view-subject-${subject.id}`}>
                               <Eye className="w-4 h-4" />
                             </Button>
+                            <Button size="icon" variant="ghost" onClick={() => { window.location.href = `/profil-subjektu?id=${subject.id}`; }} title="Zobraziť profil" data-testid={`button-profil-subject-${subject.id}`}>
+                              <ShieldCheck className="w-4 h-4" />
+                            </Button>
                             <Button
                               size="icon"
                               variant="ghost"

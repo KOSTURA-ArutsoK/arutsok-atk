@@ -53,6 +53,7 @@ import Body from "@/pages/Body";
 import BulkImport from "@/pages/BulkImport";
 import ImportArchive from "@/pages/ImportArchive";
 import BulkActions from "@/pages/BulkActions";
+import ProfilSubjektu from "@/pages/ProfilSubjektu";
 import { AppShell } from "@/components/layout/AppShell";
 
 function PrivateRoute({ children }: { children: React.ReactNode }) {
@@ -137,6 +138,7 @@ const PrivateSettingsStates = () => <PrivateRoute><SettingsStates /></PrivateRou
 const PrivateBulkImport = () => <PrivateRoute><BulkImport /></PrivateRoute>;
 const PrivateImportArchive = () => <PrivateRoute><ImportArchive /></PrivateRoute>;
 const PrivateBulkActions = () => <PrivateRoute><BulkActions /></PrivateRoute>;
+const PrivateProfilSubjektu = () => <PrivateRoute><ProfilSubjektu /></PrivateRoute>;
 const PrivateClientProfile = () => <PrivateRoute><ClientProfilePage /></PrivateRoute>;
 
 function Router() {
@@ -190,6 +192,7 @@ function Router() {
       <Route path="/bulk-import" component={PrivateBulkImport} />
       <Route path="/import-archive" component={PrivateImportArchive} />
       <Route path="/bulk-actions" component={PrivateBulkActions} />
+      <Route path="/profil-subjektu" component={PrivateProfilSubjektu} />
       <Route component={NotFound} />
     </Switch>
   );

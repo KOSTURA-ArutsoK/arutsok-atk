@@ -416,7 +416,7 @@ export function AppSidebar() {
                 items={[
                   { href: "/sektory-subjektov", icon: Database, label: "Sektory Subjektov" },
                   { href: "/sektory-zmluv", icon: FileText, label: "Sektory Zmlúv" },
-                  { href: "/subjects?tab=profil", icon: Users, label: "Profil subjektu" },
+                  { href: "/profil-subjektu", icon: Users, label: "Profil subjektu" },
                 ]}
                 location={location}
                 testId="nav-sektory"
