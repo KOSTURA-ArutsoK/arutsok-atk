@@ -53,7 +53,7 @@ const SECTOR_FILTER_COLUMNS: SmartColumnDef[] = [
 ];
 
 const SECTION_FILTER_COLUMNS: SmartColumnDef[] = [
-  { key: "name", label: "Nazov sekcie", type: "text" },
+  { key: "name", label: "Nazov odvetvia", type: "text" },
   { key: "description", label: "Popis", type: "text" },
 ];
 
@@ -83,7 +83,7 @@ const SECTOR_COLUMNS: ColumnDef[] = [
 ];
 
 const SECTION_COLUMNS: ColumnDef[] = [
-  { key: "name", label: "Nazov sekcie" },
+  { key: "name", label: "Nazov odvetvia" },
   { key: "sectorId", label: "Sektor" },
   { key: "productCount", label: "Produkty" },
   { key: "description", label: "Popis" },
@@ -92,7 +92,7 @@ const SECTION_COLUMNS: ColumnDef[] = [
 const SECTOR_PRODUCT_COLUMNS: ColumnDef[] = [
   { key: "name", label: "Nazov produktu" },
   { key: "abbreviation", label: "Skratka produktu" },
-  { key: "sectionId", label: "Sekcia" },
+  { key: "sectionId", label: "Odvetvie" },
   { key: "folderCount", label: "Priecinky" },
 ];
 
@@ -485,7 +485,7 @@ function SectorProductFormDialog({
       return;
     }
     if (!sectionId) {
-      toast({ title: "Chyba", description: "Vyberte sekciu", variant: "destructive" });
+      toast({ title: "Chyba", description: "Vyberte odvetvie", variant: "destructive" });
       return;
     }
     const payload = { sectionId: parseInt(sectionId), name, abbreviation, partnerId: partnerId ? parseInt(partnerId) : null };
@@ -509,10 +509,10 @@ function SectorProductFormDialog({
         </DialogHeader>
         <div className="space-y-4">
           <div className="space-y-2">
-            <label className="text-sm font-medium">Sekcia *</label>
+            <label className="text-sm font-medium">Odvetvie *</label>
             <Select value={sectionId} onValueChange={setSectionId}>
               <SelectTrigger data-testid="select-sector-product-section">
-                <SelectValue placeholder="Vyberte sekciu" />
+                <SelectValue placeholder="Vyberte odvetvie" />
               </SelectTrigger>
               <SelectContent>
                 {sections.map(s => (
@@ -1066,10 +1066,10 @@ function SectionFormDialog({
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/sections"] });
-      toast({ title: "Uspech", description: "Sekcia vytvorena" });
+      toast({ title: "Uspech", description: "Odvetvie vytvorené" });
       onOpenChange(false);
     },
-    onError: () => toast({ title: "Chyba", description: "Nepodarilo sa vytvorit sekciu", variant: "destructive" }),
+    onError: () => toast({ title: "Chyba", description: "Nepodarilo sa vytvorit odvetvie", variant: "destructive" }),
   });
 
   const updateMutation = useMutation({
@@ -1078,10 +1078,10 @@ function SectionFormDialog({
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/sections"] });
-      toast({ title: "Uspech", description: "Sekcia aktualizovana" });
+      toast({ title: "Uspech", description: "Odvetvie aktualizované" });
       onOpenChange(false);
     },
-    onError: () => toast({ title: "Chyba", description: "Nepodarilo sa aktualizovat sekciu", variant: "destructive" }),
+    onError: () => toast({ title: "Chyba", description: "Nepodarilo sa aktualizovat odvetvie", variant: "destructive" }),
   });
 
   useEffect(() => {
@@ -1128,12 +1128,12 @@ function SectionFormDialog({
         <form onSubmit={(e) => { e.preventDefault(); handleSubmit(); }}>
         <DialogHeader>
           <DialogTitle data-testid="text-section-dialog-title">
-            {editingSection ? "Upravit sekciu" : "Pridat sekciu"}
+            {editingSection ? "Upravit odvetvie" : "Pridat odvetvie"}
           </DialogTitle>
         </DialogHeader>
         <div className="space-y-4">
           <div className="space-y-2">
-            <label className="text-sm font-medium">Nazov sekcie *</label>
+            <label className="text-sm font-medium">Nazov odvetvia *</label>
             <Input value={name} onChange={e => setName(e.target.value)} data-testid="input-section-name" />
           </div>
           <div className="space-y-2">
@@ -1187,10 +1187,10 @@ function SectionsTab() {
     mutationFn: () => apiRequest("DELETE", `/api/sections/${deleteTarget!.id}`),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/sections"] });
-      toast({ title: "Uspech", description: "Sekcia vymazana" });
+      toast({ title: "Uspech", description: "Odvetvie vymazané" });
       setDeleteTarget(null);
     },
-    onError: () => toast({ title: "Chyba", description: "Nepodarilo sa vymazat sekciu", variant: "destructive" }),
+    onError: () => toast({ title: "Chyba", description: "Nepodarilo sa vymazat odvetvie", variant: "destructive" }),
   });
 
   function getSectorName(sectorId: number): string {
@@ -1222,7 +1222,7 @@ function SectionsTab() {
         </Select>
         <ColumnManager columnVisibility={columnVisibility} />
         <Button onClick={() => { setEditingSection(null); setDialogOpen(true); }} data-testid="button-add-section">
-          <Plus className="w-4 h-4 mr-2" /> Pridat sekciu
+          <Plus className="w-4 h-4 mr-2" /> Pridat odvetvie
         </Button>
       </div>
 
@@ -1236,7 +1236,7 @@ function SectionsTab() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  {columnVisibility.isVisible("name") && <TableHead sortKey="name" sortDirection={sectionSortKey === "name" ? sectionSortDirection : null} onSort={sectionRequestSort}>Nazov sekcie</TableHead>}
+                  {columnVisibility.isVisible("name") && <TableHead sortKey="name" sortDirection={sectionSortKey === "name" ? sectionSortDirection : null} onSort={sectionRequestSort}>Nazov odvetvia</TableHead>}
                   {columnVisibility.isVisible("sectorId") && <TableHead sortKey="sectorId" sortDirection={sectionSortKey === "sectorId" ? sectionSortDirection : null} onSort={sectionRequestSort}>Sektor</TableHead>}
                   {columnVisibility.isVisible("productCount") && <TableHead>Produkty</TableHead>}
                   {columnVisibility.isVisible("description") && <TableHead sortKey="description" sortDirection={sectionSortKey === "description" ? sectionSortDirection : null} onSort={sectionRequestSort}>Popis</TableHead>}
@@ -1247,7 +1247,7 @@ function SectionsTab() {
                 {sectionTableFilter.filteredData.length === 0 ? (
                   <TableRow>
                     <TableCell colSpan={5} className="text-center text-muted-foreground py-8" data-testid="text-no-sections">
-                      Ziadne sekcie
+                      Ziadne odvetvia
                     </TableCell>
                   </TableRow>
                 ) : (
@@ -1299,7 +1299,7 @@ function SectionsTab() {
       <DeleteConfirmDialog
         open={!!deleteTarget}
         onOpenChange={(isOpen) => { if (!isOpen) setDeleteTarget(null); }}
-        title={`Naozaj chcete vymazat sekciu "${deleteTarget?.name}"?`}
+        title={`Naozaj chcete vymazat odvetvie "${deleteTarget?.name}"?`}
         onConfirm={() => deleteMutation.mutate()}
         isPending={deleteMutation.isPending}
       />
@@ -1489,10 +1489,10 @@ function ProductsTab() {
         </div>
         <Select value={filterSectionId} onValueChange={setFilterSectionId}>
           <SelectTrigger className="w-[200px]" data-testid="select-filter-section">
-            <SelectValue placeholder="Vsetky sekcie" />
+            <SelectValue placeholder="Vsetky odvetvia" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">Vsetky sekcie</SelectItem>
+            <SelectItem value="all">Vsetky odvetvia</SelectItem>
             {sections?.map(s => (
               <SelectItem key={s.id} value={s.id.toString()}>{s.name}</SelectItem>
             ))}
@@ -1516,7 +1516,7 @@ function ProductsTab() {
                 <TableRow>
                   {columnVisibility.isVisible("name") && <TableHead sortKey="name" sortDirection={prodSortKey === "name" ? prodSortDirection : null} onSort={prodRequestSort}>Nazov produktu</TableHead>}
                   {columnVisibility.isVisible("abbreviation") && <TableHead sortKey="abbreviation" sortDirection={prodSortKey === "abbreviation" ? prodSortDirection : null} onSort={prodRequestSort}>Skratka produktu</TableHead>}
-                  {columnVisibility.isVisible("sectionId") && <TableHead sortKey="sectionId" sortDirection={prodSortKey === "sectionId" ? prodSortDirection : null} onSort={prodRequestSort}>Sekcia</TableHead>}
+                  {columnVisibility.isVisible("sectionId") && <TableHead sortKey="sectionId" sortDirection={prodSortKey === "sectionId" ? prodSortDirection : null} onSort={prodRequestSort}>Odvetvie</TableHead>}
                   {columnVisibility.isVisible("folderCount") && <TableHead>Priecinky</TableHead>}
                   <TableHead>Akcie</TableHead>
                 </TableRow>
@@ -2560,7 +2560,7 @@ export default function Sectors() {
     <div className="p-6 space-y-6">
       <div className="flex items-center gap-3">
         <FileText className="w-6 h-6 text-primary" />
-        <h1 className="text-2xl font-bold" data-testid="text-page-title">Sektory Zmlúv</h1>
+        <h1 className="text-2xl font-bold" data-testid="text-page-title">Sektory a Odvetvia Zmlúv</h1>
       </div>
       <ContractSectorsContent />
     </div>

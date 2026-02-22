@@ -1573,6 +1573,8 @@ export const subjectParameters = pgTable("subject_parameters", {
   rowNumber: integer("row_number").default(0),
   widthPercent: integer("width_percent").default(100),
   isActive: boolean("is_active").default(true),
+  isObjectKey: boolean("is_object_key").default(false),
+  parameterScope: text("parameter_scope").notNull().default("subject"),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
@@ -2084,6 +2086,51 @@ export const batchJobs = pgTable("batch_jobs", {
 export const insertBatchJobSchema = createInsertSchema(batchJobs).omit({ id: true, createdAt: true, updatedAt: true });
 export type BatchJob = typeof batchJobs.$inferSelect;
 export type InsertBatchJob = z.infer<typeof insertBatchJobSchema>;
+
+// === OBJECTS (Module B - aggregated data objects by unique keys) ===
+export const subjectObjects = pgTable("subject_objects", {
+  id: serial("id").primaryKey(),
+  uid: text("uid").notNull().unique(),
+  subjectId: integer("subject_id").notNull().references(() => subjects.id),
+  objectType: text("object_type").notNull(),
+  objectLabel: text("object_label"),
+  keyValues: jsonb("key_values").$type<Record<string, string>>().default({}),
+  sectorId: integer("sector_id").references(() => sectors.id),
+  sectionId: integer("section_id"),
+  aggregatedData: jsonb("aggregated_data").$type<Record<string, string>>().default({}),
+  isActive: boolean("is_active").default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("idx_so_subject_id").on(table.subjectId),
+  index("idx_so_object_type").on(table.objectType),
+  index("idx_so_sector_id").on(table.sectorId),
+]);
+
+export const insertSubjectObjectSchema = createInsertSchema(subjectObjects).omit({ id: true, createdAt: true, updatedAt: true });
+export type SubjectObject = typeof subjectObjects.$inferSelect;
+export type InsertSubjectObject = z.infer<typeof insertSubjectObjectSchema>;
+
+// === OBJECT DATA SOURCES (links objects to contracts/products that contributed data) ===
+export const objectDataSources = pgTable("object_data_sources", {
+  id: serial("id").primaryKey(),
+  objectId: integer("object_id").notNull().references(() => subjectObjects.id, { onDelete: "cascade" }),
+  contractId: integer("contract_id").references(() => contracts.id),
+  sectorProductId: integer("sector_product_id").references(() => sectorProducts.id),
+  productName: text("product_name"),
+  sectorName: text("sector_name"),
+  sectionName: text("section_name"),
+  contributedFields: jsonb("contributed_fields").$type<Record<string, string>>().default({}),
+  lastSyncAt: timestamp("last_sync_at").defaultNow(),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("idx_ods_object_id").on(table.objectId),
+  index("idx_ods_contract_id").on(table.contractId),
+]);
+
+export const insertObjectDataSourceSchema = createInsertSchema(objectDataSources).omit({ id: true, createdAt: true });
+export type ObjectDataSource = typeof objectDataSources.$inferSelect;
+export type InsertObjectDataSource = z.infer<typeof insertObjectDataSourceSchema>;
 
 export type CreateSubjectRequest = InsertSubject;
 export type UpdateSubjectRequest = Partial<InsertSubject> & { changeReason?: string };

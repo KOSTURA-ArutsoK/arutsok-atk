@@ -3,6 +3,7 @@ import { Link, useLocation } from "wouter";
 import { useAppUser } from "@/hooks/use-app-user";
 import { useHelp } from "@/contexts/help-context";
 import { RankBadge } from "@/components/rank-badge";
+import { Badge } from "@/components/ui/badge";
 import { useQuery } from "@tanstack/react-query";
 import type { CircleConfig } from "@shared/schema";
 import {
@@ -164,6 +165,7 @@ function CollapsibleMenu({
   menuId,
   openMenuId,
   setOpenMenuId,
+  moduleBadge,
 }: {
   label: string;
   icon: React.ElementType;
@@ -173,6 +175,7 @@ function CollapsibleMenu({
   menuId: string;
   openMenuId: string | null;
   setOpenMenuId: (id: string | null) => void;
+  moduleBadge?: string;
 }) {
   const isAnyActive = items.some(item => location === item.href);
   const isOpen = openMenuId === menuId;
@@ -191,6 +194,9 @@ function CollapsibleMenu({
           >
             <Icon className="w-4 h-4" />
             <span className="flex-1">{label}</span>
+            {moduleBadge && (
+              <Badge variant="outline" className="text-[8px] px-1 py-0 border-primary/30 text-primary ml-1">{moduleBadge}</Badge>
+            )}
             <ChevronRight className={`w-3.5 h-3.5 text-muted-foreground transition-transform duration-200 ${isOpen ? "rotate-90" : ""}`} />
           </SidebarMenuButton>
         </CollapsibleTrigger>
@@ -430,7 +436,7 @@ export function AppSidebar() {
                 setOpenMenuId={setOpenMenuId}
               />
               <CollapsibleMenu
-                label="Klienti"
+                label="Subjekty"
                 icon={Users}
                 items={klientiItems}
                 location={location}
@@ -438,6 +444,7 @@ export function AppSidebar() {
                 menuId="klienti"
                 openMenuId={openMenuId}
                 setOpenMenuId={setOpenMenuId}
+                moduleBadge="B"
               />
               <Collapsible
                 open={isZmluvyOpen}
@@ -452,6 +459,7 @@ export function AppSidebar() {
                     >
                       <FileText className="w-4 h-4" />
                       <span className="flex-1">Zmluvy</span>
+                      <Badge variant="outline" className="text-[8px] px-1 py-0 border-primary/30 text-primary ml-1">A</Badge>
                       <ChevronRight className={`w-3.5 h-3.5 text-muted-foreground transition-transform duration-200 ${isZmluvyOpen ? "rotate-90" : ""}`} />
                     </SidebarMenuButton>
                   </CollapsibleTrigger>

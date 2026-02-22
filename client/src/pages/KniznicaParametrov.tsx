@@ -627,7 +627,15 @@ export default function KniznicaParametrov() {
                               )}
                             </TableCell>
                             <TableCell>
-                              <div className={`w-2 h-2 rounded-full ${p.isActive ? "bg-green-500" : "bg-red-500"}`} />
+                              <div className="flex items-center gap-1.5">
+                                <div className={`w-2 h-2 rounded-full ${p.isActive ? "bg-green-500" : "bg-red-500"}`} />
+                                {(p as any).isObjectKey && (
+                                  <Badge variant="outline" className="text-[9px] border-amber-500/40 text-amber-500 px-1" data-testid={`badge-object-key-${p.id}`}>Kľúč</Badge>
+                                )}
+                                {(p as any).parameterScope === "contract" && (
+                                  <Badge variant="outline" className="text-[9px] border-cyan-500/40 text-cyan-500 px-1" data-testid={`badge-scope-contract-${p.id}`}>Zmluva</Badge>
+                                )}
+                              </div>
                             </TableCell>
                             <TableCell>
                               <div className="flex items-center gap-1">
@@ -1547,6 +1555,8 @@ function ParameterDialog({
   const [fieldType, setFieldType] = useState("short_text");
   const [isRequired, setIsRequired] = useState(false);
   const [isCollection, setIsCollection] = useState(false);
+  const [isObjectKey, setIsObjectKey] = useState(false);
+  const [parameterScope, setParameterScope] = useState("subject");
   const [clientTypeId, setClientTypeId] = useState("1");
   const [sectionId, setSectionId] = useState<string>("");
   const [panelId, setPanelId] = useState<string>("");
@@ -1567,6 +1577,8 @@ function ParameterDialog({
       setFieldType(editParam.fieldType);
       setIsRequired(editParam.isRequired);
       setIsCollection((editParam as any).isCollection || false);
+      setIsObjectKey((editParam as any).isObjectKey || false);
+      setParameterScope((editParam as any).parameterScope || "subject");
       setClientTypeId(String(editParam.clientTypeId));
       setSectionId(editParam.sectionId ? String(editParam.sectionId) : "");
       setPanelId(editParam.panelId ? String(editParam.panelId) : "");
@@ -1586,6 +1598,8 @@ function ParameterDialog({
       setFieldType("short_text");
       setIsRequired(false);
       setIsCollection(false);
+      setIsObjectKey(false);
+      setParameterScope("subject");
       setClientTypeId("1");
       setSectionId("");
       setPanelId("");
@@ -1616,6 +1630,8 @@ function ParameterDialog({
       fieldType,
       isRequired,
       isCollection,
+      isObjectKey,
+      parameterScope,
       clientTypeId: Number(clientTypeId),
       sectionId: sectionId ? Number(sectionId) : null,
       panelId: panelId ? Number(panelId) : null,
@@ -1733,6 +1749,29 @@ function ParameterDialog({
               <span>Kolekcia (viac hodnôt)</span>
               <span className="text-xs text-muted-foreground font-normal">napr. telefóny, emaily, adresy</span>
             </Label>
+          </div>
+          <div className="flex items-center gap-3 pt-5">
+            <Switch
+              checked={isObjectKey}
+              onCheckedChange={setIsObjectKey}
+              data-testid="switch-object-key"
+            />
+            <Label className="flex flex-col">
+              <span>Kľúč objektu</span>
+              <span className="text-xs text-muted-foreground font-normal">ŠPZ, VIN, č. LV - zlučuje dáta v Module B</span>
+            </Label>
+          </div>
+          <div className="space-y-1.5">
+            <Label>Rozsah parametra</Label>
+            <Select value={parameterScope} onValueChange={setParameterScope}>
+              <SelectTrigger data-testid="select-parameter-scope">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="subject">Profil subjektu (trvalý)</SelectItem>
+                <SelectItem value="contract">Portfólio zmlúv (transakčný)</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
           <div className="space-y-1.5">
             <Label>Poradie (sortOrder)</Label>

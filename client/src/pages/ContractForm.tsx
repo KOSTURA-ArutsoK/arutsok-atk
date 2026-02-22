@@ -439,7 +439,7 @@ function StatusTabContent(props: StatusTabContentProps) {
                         <p className="text-sm text-muted-foreground">Ziadne stavy nie su k dispozicii.</p>
                         <div id="status-hint-hierarchy" data-testid="hint-set-hierarchy">
                           <div style={{ display: !contractSectorId && !contractSectionId && !sectorProductId ? 'block' : 'none' }}>
-                            <p className="text-xs text-muted-foreground mt-1">Nastavte sektor, sekciu a produkt v karte "Udaje o zmluve".</p>
+                            <p className="text-xs text-muted-foreground mt-1">Nastavte sektor, odvetvie a produkt v karte "Údaje o zmluve".</p>
                           </div>
                         </div>
                       </div>
@@ -1722,7 +1722,7 @@ export default function ContractForm() {
 
           <div style={{ display: activeTab === "udaje-zmluva" ? 'block' : 'none' }}>
             <div className="space-y-3" data-testid="section-udaje-zmluva">
-              <h2 className="text-base font-semibold">Udaje o zmluve - Produkt a parametre</h2>
+              <h2 className="text-base font-semibold">Údaje o zmluve — Sektor › Odvetvie › Produkt</h2>
 
               <div className="grid grid-cols-3 gap-3">
                 <CompactField label="Sektor">
@@ -1737,10 +1737,10 @@ export default function ContractForm() {
                     </SelectContent>
                   </Select>
                 </CompactField>
-                <CompactField label="Sekcia">
+                <CompactField label="Odvetvie">
                   <Select value={contractSectionId} onValueChange={setContractSectionIdCascade} disabled={!contractSectorId}>
                     <SelectTrigger data-testid="select-contract-section">
-                      <SelectValue placeholder="Vyberte sekciu" />
+                      <SelectValue placeholder="Vyberte odvetvie" />
                     </SelectTrigger>
                     <SelectContent>
                       {contractSections?.map(s => (
@@ -1925,7 +1925,7 @@ export default function ContractForm() {
                   <div className="space-y-3" data-testid="section-contract-panels">
                     <div className="flex items-center gap-2 mb-1">
                       <LayoutGrid className="w-4 h-4 text-primary" />
-                      <span className="text-sm font-semibold">Parametre produktu</span>
+                      <span className="text-sm font-semibold">Priečinky a panely produktu</span>
                     </div>
                     {foldersWithMatchingPanels.map(folder => (
                       <Card key={`folder-${folder.id}`} className="p-3" data-testid={`folder-section-${folder.id}`}>

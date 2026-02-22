@@ -8,7 +8,7 @@ import { apiRequest, queryClient } from "@/lib/queryClient";
 import { formatDateSlovak, formatDateTimeSlovak } from "@/lib/utils";
 import { getDocumentValidityStatus, isValidityField, isNumberFieldWithExpiredPair, type ValidityResult } from "@/lib/document-validity";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, Search, User, Building2, AlertTriangle, Eye, Calendar, Briefcase, ArrowRight, ArrowLeft, ExternalLink, History, Clock, Wallet, Loader2, CheckCircle2, Pencil, Lock, Users, X, Info, Link2, Unlink, Trash2, CreditCard, Archive, Ban } from "lucide-react";
+import { Plus, Search, User, Building2, AlertTriangle, Eye, Calendar, Briefcase, ArrowRight, ArrowLeft, ExternalLink, History, Clock, Wallet, Loader2, CheckCircle2, Pencil, Lock, Users, X, Info, Link2, Unlink, Trash2, CreditCard, Archive, Ban, Boxes, Car, Home, Landmark } from "lucide-react";
 import { SubjectPhotoThumbnail } from "@/components/subject-profile-photo";
 import { ActivityTimeline } from "@/components/activity-timeline";
 import { FieldHistoryIndicator } from "@/components/field-history-indicator";
@@ -894,6 +894,171 @@ function getSubjectLabel(s: { type: string; firstName: string | null; lastName: 
   return s.companyName || 'Bez nazvu';
 }
 
+function SubjectObjectsTab({ subjectId }: { subjectId: number }) {
+  const [selectedObjectId, setSelectedObjectId] = useState<number | null>(null);
+
+  const { data: objects, isLoading } = useQuery<any[]>({
+    queryKey: ["/api/subjects", subjectId, "objects"],
+    queryFn: () => fetch(`/api/subjects/${subjectId}/objects`).then(r => r.json()),
+  });
+
+  const { data: sources } = useQuery<any[]>({
+    queryKey: ["/api/objects", selectedObjectId, "sources"],
+    queryFn: () => selectedObjectId ? fetch(`/api/objects/${selectedObjectId}/sources`).then(r => r.json()) : Promise.resolve([]),
+    enabled: !!selectedObjectId,
+  });
+
+  const getObjectIcon = (type: string) => {
+    switch (type) {
+      case "VOZIDLO": return <Car className="w-5 h-5 text-blue-400" />;
+      case "NEHNUTEĽNOSŤ": return <Home className="w-5 h-5 text-emerald-400" />;
+      case "PARCELA": return <Landmark className="w-5 h-5 text-amber-400" />;
+      default: return <Boxes className="w-5 h-5 text-slate-400" />;
+    }
+  };
+
+  const getFreshnessSemaphore = (updatedAt: string | null) => {
+    if (!updatedAt) return { color: "bg-slate-500", label: "Neznámy" };
+    const days = Math.floor((Date.now() - new Date(updatedAt).getTime()) / (1000 * 60 * 60 * 24));
+    if (days <= 30) return { color: "bg-green-500", label: `${days}d` };
+    if (days <= 90) return { color: "bg-yellow-500", label: `${days}d` };
+    return { color: "bg-red-500", label: `${days}d` };
+  };
+
+  const selectedObject = objects?.find(o => o.id === selectedObjectId);
+
+  if (isLoading) {
+    return <div className="flex items-center justify-center p-8"><Loader2 className="w-6 h-6 animate-spin text-slate-400" /></div>;
+  }
+
+  if (!objects?.length) {
+    return (
+      <div className="text-center py-12 text-slate-500">
+        <Boxes className="w-12 h-12 mx-auto mb-3 opacity-30" />
+        <p className="font-medium">Žiadne objekty</p>
+        <p className="text-sm mt-1">Objekty sa vytvárajú automaticky zo zmlúv na základe kľúčových parametrov (EČV, VIN, LV číslo...)</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+      <div className="space-y-2">
+        <h3 className="text-sm font-semibold text-slate-400 uppercase tracking-wider mb-3">
+          Modul B — Objekty ({objects.length})
+        </h3>
+        {objects.map((obj: any) => {
+          const keys = (obj.keyValues || {}) as Record<string, string>;
+          const keyDisplay = Object.entries(keys).map(([k, v]) => `${k}: ${v}`).join(", ");
+          return (
+            <div
+              key={obj.id}
+              data-testid={`object-card-${obj.id}`}
+              onClick={() => setSelectedObjectId(obj.id)}
+              className={`p-3 rounded border cursor-pointer transition-colors ${
+                selectedObjectId === obj.id
+                  ? "border-blue-500 bg-blue-500/10"
+                  : "border-slate-700 bg-slate-800/50 hover:border-slate-600"
+              }`}
+            >
+              <div className="flex items-center gap-2">
+                {getObjectIcon(obj.objectType)}
+                <div className="flex-1 min-w-0">
+                  <div className="font-medium text-sm truncate">{obj.objectLabel}</div>
+                  <div className="text-xs text-slate-500">{obj.uid} · {obj.objectType}</div>
+                </div>
+                <Lock className="w-3.5 h-3.5 text-slate-600" />
+                <span className={`w-2 h-2 rounded-full ${getFreshnessSemaphore(obj.updatedAt).color}`} />
+              </div>
+              {keyDisplay && (
+                <div className="mt-1.5 text-xs text-slate-400 font-mono truncate">{keyDisplay}</div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+
+      <div className="lg:col-span-2">
+        {selectedObject ? (
+          <div className="space-y-4">
+            <div className="flex items-center gap-2 mb-2">
+              {getObjectIcon(selectedObject.objectType)}
+              <h3 className="font-semibold">{selectedObject.objectLabel}</h3>
+              <div className="flex items-center gap-2 ml-auto">
+                <Lock className="w-3.5 h-3.5 text-slate-500" />
+                <span className="text-xs text-slate-500">Len na čítanie</span>
+                <span className={`w-2.5 h-2.5 rounded-full ${getFreshnessSemaphore(selectedObject.updatedAt).color}`} />
+                <span className="text-xs text-slate-500">{getFreshnessSemaphore(selectedObject.updatedAt).label}</span>
+              </div>
+            </div>
+            <div className="flex items-center gap-4 text-xs text-slate-500 mb-3">
+              <span>{selectedObject.uid}</span>
+              <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-green-500" /> &lt;30d</span>
+              <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-yellow-500" /> 30-90d</span>
+              <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-red-500" /> &gt;90d</span>
+            </div>
+
+            <div className="border border-slate-700 rounded p-3">
+              <h4 className="text-sm font-semibold text-slate-400 mb-2 uppercase tracking-wider">Kľúčové hodnoty</h4>
+              <div className="grid grid-cols-2 gap-2">
+                {Object.entries((selectedObject.keyValues || {}) as Record<string, string>).map(([k, v]) => (
+                  <div key={k} className="flex items-center gap-2">
+                    <span className="text-xs text-slate-500 font-mono">{k}:</span>
+                    <span className="text-sm font-medium">{v}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="border border-slate-700 rounded p-3">
+              <h4 className="text-sm font-semibold text-slate-400 mb-2 uppercase tracking-wider">Agregované dáta</h4>
+              {Object.keys((selectedObject.aggregatedData || {}) as Record<string, string>).length > 0 ? (
+                <div className="grid grid-cols-2 gap-2">
+                  {Object.entries((selectedObject.aggregatedData || {}) as Record<string, string>).map(([k, v]) => (
+                    <div key={k} className="flex flex-col">
+                      <span className="text-xs text-slate-500">{k}</span>
+                      <span className="text-sm">{v}</span>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-xs text-slate-500">Žiadne agregované dáta</p>
+              )}
+            </div>
+
+            {sources && sources.length > 0 && (
+              <div className="border border-slate-700 rounded p-3">
+                <h4 className="text-sm font-semibold text-slate-400 mb-2 uppercase tracking-wider">Zdroje dát ({sources.length})</h4>
+                <div className="space-y-2">
+                  {sources.map((src: any) => (
+                    <div key={src.id} className="flex items-center gap-2 text-sm p-2 bg-slate-800/50 rounded">
+                      <Briefcase className="w-4 h-4 text-slate-500" />
+                      <div className="flex-1">
+                        <div className="font-medium">{src.productName || `Zmluva #${src.contractId}`}</div>
+                        <div className="text-xs text-slate-500">
+                          {[src.sectorName, src.sectionName].filter(Boolean).join(" › ")}
+                          {src.lastSyncAt && ` · ${new Date(src.lastSyncAt).toLocaleDateString('sk-SK')}`}
+                        </div>
+                      </div>
+                      <span className="text-xs text-slate-600">
+                        {Object.keys((src.contributedFields || {}) as Record<string, string>).length} polí
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        ) : (
+          <div className="flex items-center justify-center h-full text-slate-500 text-sm">
+            Vyberte objekt pre zobrazenie detailu
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function EntityLinksTab({ subject }: { subject: Subject }) {
   const { toast } = useToast();
   const [showAddDialog, setShowAddDialog] = useState(false);
@@ -1255,6 +1420,10 @@ function SubjectDetailPanel({ subject, onClose }: { subject: Subject; onClose: (
             <Link2 className="w-3.5 h-3.5 mr-1" />
             Vztahy
           </TabsTrigger>
+          <TabsTrigger value="objekty" data-testid="tab-subject-objekty">
+            <Boxes className="w-3.5 h-3.5 mr-1" />
+            Objekty
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="udaje" className="mt-3">
@@ -1413,6 +1582,10 @@ function SubjectDetailPanel({ subject, onClose }: { subject: Subject; onClose: (
 
         <TabsContent value="vztahy" className="mt-3">
           <EntityLinksTab subject={subject} />
+        </TabsContent>
+
+        <TabsContent value="objekty" className="mt-3">
+          <SubjectObjectsTab subjectId={subject.id} />
         </TabsContent>
       </Tabs>
     </div>

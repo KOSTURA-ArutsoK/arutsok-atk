@@ -3446,6 +3446,15 @@ export async function registerRoutes(
       } catch (mapErr) {
         console.error("Parameter → Category mapping error:", mapErr);
       }
+
+      try {
+        const contractForSync = await storage.getContract(contractId);
+        if (contractForSync?.subjectId) {
+          await storage.syncObjectFromContract(contractId, contractForSync.subjectId);
+        }
+      } catch (syncErr) {
+        console.error("Object sync error:", syncErr);
+      }
       
       await logAudit(req, { action: "UPDATE", module: "contract_parameter_values", entityId: contractId, entityName: "parameter values saved" });
       res.json({ success: true });
@@ -6627,6 +6636,48 @@ export async function registerRoutes(
       const userName = [appUser.firstName, appUser.lastName].filter(Boolean).join(' ') || appUser.email || 'Neznámy';
       await storage.setHlavnaAddress(addressId, subjectId, appUser.id, userName);
       await logAudit(req, { action: "Uprava", module: "Adresy", entityId: addressId, entityName: `Nastavenie hlavnej adresy pre subjekt #${subjectId}` });
+      res.json({ success: true });
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  // === SUBJECT OBJECTS (Module B - aggregated objects) ===
+  app.get("/api/subjects/:id/objects", isAuthenticated, async (req: any, res) => {
+    try {
+      const subjectId = Number(req.params.id);
+      const objects = await storage.getSubjectObjects(subjectId);
+      res.json(objects);
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  app.get("/api/objects/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const obj = await storage.getSubjectObject(Number(req.params.id));
+      if (!obj) return res.status(404).json({ message: "Objekt neexistuje" });
+      res.json(obj);
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  app.get("/api/objects/:id/sources", isAuthenticated, async (req: any, res) => {
+    try {
+      const sources = await storage.getObjectDataSources(Number(req.params.id));
+      res.json(sources);
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  app.post("/api/contracts/:id/sync-objects", isAuthenticated, async (req: any, res) => {
+    try {
+      const contractId = Number(req.params.id);
+      const { subjectId } = req.body;
+      if (!subjectId) return res.status(400).json({ message: "subjectId je povinný" });
+      await storage.syncObjectFromContract(contractId, subjectId);
       res.json({ success: true });
     } catch (err: any) {
       res.status(500).json({ message: err.message });

@@ -119,6 +119,9 @@ import {
   type ParameterSynonym, type InsertParameterSynonym,
   type UnknownExtractedField, type InsertUnknownExtractedField,
   type SynonymConfirmationLog, type InsertSynonymConfirmationLog,
+  subjectObjects, objectDataSources,
+  type SubjectObject, type InsertSubjectObject,
+  type ObjectDataSource, type InsertObjectDataSource,
 } from "@shared/schema";
 import { eq, and, or, ne, like, sql, lte, gte, gt, desc, asc, isNull, isNotNull, inArray } from "drizzle-orm";
 
@@ -602,6 +605,14 @@ export interface IStorage {
   createUnknownExtractedField(data: InsertUnknownExtractedField): Promise<UnknownExtractedField>;
   updateUnknownExtractedField(id: number, data: Partial<InsertUnknownExtractedField>): Promise<UnknownExtractedField>;
   deleteUnknownExtractedField(id: number): Promise<void>;
+
+  getSubjectObjects(subjectId: number): Promise<SubjectObject[]>;
+  getSubjectObject(id: number): Promise<SubjectObject | undefined>;
+  createOrMergeObject(subjectId: number, objectType: string, keyValues: Record<string, string>, sectorId?: number, sectionId?: number): Promise<SubjectObject>;
+  updateObjectAggregatedData(objectId: number, data: Record<string, string>): Promise<SubjectObject>;
+  addObjectDataSource(objectId: number, contractId: number, sectorProductId?: number, productName?: string, sectorName?: string, sectionName?: string, fields?: Record<string, string>): Promise<ObjectDataSource>;
+  getObjectDataSources(objectId: number): Promise<ObjectDataSource[]>;
+  syncObjectFromContract(contractId: number, subjectId: number): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -4095,6 +4106,174 @@ export class DatabaseStorage implements IStorage {
 
   async deleteUnknownExtractedField(id: number): Promise<void> {
     await db.delete(unknownExtractedFields).where(eq(unknownExtractedFields.id, id));
+  }
+
+  async getSubjectObjects(subjectId: number): Promise<SubjectObject[]> {
+    return db.select().from(subjectObjects)
+      .where(and(eq(subjectObjects.subjectId, subjectId), eq(subjectObjects.isActive, true)))
+      .orderBy(asc(subjectObjects.objectType), asc(subjectObjects.createdAt));
+  }
+
+  async getSubjectObject(id: number): Promise<SubjectObject | undefined> {
+    const [obj] = await db.select().from(subjectObjects).where(eq(subjectObjects.id, id));
+    return obj;
+  }
+
+  async createOrMergeObject(
+    subjectId: number,
+    objectType: string,
+    keyValues: Record<string, string>,
+    sectorId?: number,
+    sectionId?: number
+  ): Promise<SubjectObject> {
+    const existing = await db.select().from(subjectObjects)
+      .where(and(
+        eq(subjectObjects.subjectId, subjectId),
+        eq(subjectObjects.objectType, objectType),
+        eq(subjectObjects.isActive, true)
+      ));
+
+    for (const obj of existing) {
+      const objKeys = (obj.keyValues || {}) as Record<string, string>;
+      const hasMatch = Object.entries(keyValues).some(([k, v]) => objKeys[k] && objKeys[k] === v && v !== "");
+      if (hasMatch) {
+        const mergedKeys = { ...objKeys, ...keyValues };
+        const [updated] = await db.update(subjectObjects)
+          .set({ keyValues: mergedKeys, updatedAt: new Date() })
+          .where(eq(subjectObjects.id, obj.id))
+          .returning();
+        return updated;
+      }
+    }
+
+    const counterName = "object_uid";
+    const nextVal = await this.getNextCounterValue(counterName);
+    const uid = `OBJ-${nextVal.toString().padStart(6, '0')}`;
+
+    const keyStr = Object.values(keyValues).filter(Boolean).join(" / ");
+    const label = keyStr || `${objectType} #${nextVal}`;
+
+    const [created] = await db.insert(subjectObjects).values({
+      uid,
+      subjectId,
+      objectType,
+      objectLabel: label,
+      keyValues,
+      sectorId: sectorId ?? null,
+      sectionId: sectionId ?? null,
+      aggregatedData: {},
+    }).returning();
+    return created;
+  }
+
+  async updateObjectAggregatedData(objectId: number, data: Record<string, string>): Promise<SubjectObject> {
+    const obj = await this.getSubjectObject(objectId);
+    if (!obj) throw new Error("Object not found");
+    const merged = { ...((obj.aggregatedData || {}) as Record<string, string>), ...data };
+    const [updated] = await db.update(subjectObjects)
+      .set({ aggregatedData: merged, updatedAt: new Date() })
+      .where(eq(subjectObjects.id, objectId))
+      .returning();
+    return updated;
+  }
+
+  async addObjectDataSource(
+    objectId: number,
+    contractId: number,
+    sectorProductId?: number,
+    productName?: string,
+    sectorName?: string,
+    sectionName?: string,
+    fields?: Record<string, string>
+  ): Promise<ObjectDataSource> {
+    const existing = await db.select().from(objectDataSources)
+      .where(and(eq(objectDataSources.objectId, objectId), eq(objectDataSources.contractId, contractId)));
+
+    if (existing.length > 0) {
+      const merged = { ...((existing[0].contributedFields || {}) as Record<string, string>), ...(fields || {}) };
+      const [updated] = await db.update(objectDataSources)
+        .set({ contributedFields: merged, lastSyncAt: new Date(), productName, sectorName, sectionName })
+        .where(eq(objectDataSources.id, existing[0].id))
+        .returning();
+      return updated;
+    }
+
+    const [source] = await db.insert(objectDataSources).values({
+      objectId,
+      contractId,
+      sectorProductId: sectorProductId ?? null,
+      productName: productName ?? null,
+      sectorName: sectorName ?? null,
+      sectionName: sectionName ?? null,
+      contributedFields: fields || {},
+    }).returning();
+    return source;
+  }
+
+  async getObjectDataSources(objectId: number): Promise<ObjectDataSource[]> {
+    return db.select().from(objectDataSources)
+      .where(eq(objectDataSources.objectId, objectId))
+      .orderBy(desc(objectDataSources.lastSyncAt));
+  }
+
+  async syncObjectFromContract(contractId: number, subjectId: number): Promise<void> {
+    const contract = await db.select().from(contracts).where(eq(contracts.id, contractId));
+    if (!contract.length || !contract[0].sectorProductId) return;
+
+    const spId = contract[0].sectorProductId;
+    const paramValues = await db.select().from(contractParameterValues)
+      .where(eq(contractParameterValues.contractId, contractId));
+
+    if (!paramValues.length) return;
+
+    const paramIds = paramValues.map(pv => pv.parameterId);
+    const allParams = await db.select().from(parameters).where(inArray(parameters.id, paramIds));
+
+    const objectKeyParams = await db.select().from(subjectParameters)
+      .where(eq(subjectParameters.isObjectKey, true));
+
+    const objectKeyFieldKeys = new Set(objectKeyParams.map(p => p.fieldKey));
+
+    const keyFields: Record<string, string> = {};
+    const dataFields: Record<string, string> = {};
+
+    for (const pv of paramValues) {
+      const param = allParams.find(p => p.id === pv.parameterId);
+      if (!param || !pv.value) continue;
+      const targetKey = param.targetFieldKey || param.name;
+      if (objectKeyFieldKeys.has(targetKey)) {
+        keyFields[targetKey] = pv.value;
+      }
+      dataFields[targetKey] = pv.value;
+    }
+
+    if (Object.keys(keyFields).length === 0) return;
+
+    const sp = await db.select().from(sectorProducts).where(eq(sectorProducts.id, spId));
+    if (!sp.length) return;
+    const section = await db.select().from(sections).where(eq(sections.id, sp[0].sectionId));
+    const sector = section.length ? await db.select().from(sectors).where(eq(sectors.id, section[0].sectorId)) : [];
+
+    let objectType = "OBJEKT";
+    if (objectKeyFieldKeys.has("voz_ecv") || objectKeyFieldKeys.has("voz_vin")) objectType = "VOZIDLO";
+    else if (objectKeyFieldKeys.has("real_cislo_lv") || objectKeyFieldKeys.has("real_supisne_cislo")) objectType = "NEHNUTEĽNOSŤ";
+    else if (objectKeyFieldKeys.has("agro_lpis_cislo") || objectKeyFieldKeys.has("agro_cislo_parcely")) objectType = "PARCELA";
+
+    const obj = await this.createOrMergeObject(
+      subjectId, objectType, keyFields,
+      sector.length ? sector[0].id : undefined,
+      section.length ? section[0].id : undefined
+    );
+
+    await this.updateObjectAggregatedData(obj.id, dataFields);
+
+    await this.addObjectDataSource(
+      obj.id, contractId, spId,
+      sp[0].name,
+      sector.length ? sector[0].name : undefined,
+      section.length ? section[0].name : undefined,
+      dataFields
+    );
   }
 }
 
