@@ -26,7 +26,7 @@ import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, Command
 import { Check, ChevronsUpDown, Plus, Trash2, Users, CreditCard, CheckCircle2, Camera, FileSignature, FileImage, Archive, ChevronLeft, ChevronRight, User } from "lucide-react";
 import {
   Loader2, Pencil, Save, X, AlertTriangle, Shield,
-  ShieldCheck, ListPlus, Eye, ArrowUp, ArrowDown, Settings2,
+  ShieldCheck, ListPlus, Eye, ArrowUp, ArrowDown, Settings2, MoreHorizontal,
 } from "lucide-react";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 
@@ -34,15 +34,17 @@ const FOLDER_CATEGORY_LABELS: Record<string, string> = {
   povinne: "POVINNE UDAJE",
   doplnkove: "DOPLNKOVE UDAJE",
   volitelne: "VOLITELNE / DOBROVOLNE UDAJE",
+  ine: "INÉ ÚDAJE",
 };
 
 const FOLDER_CATEGORY_ICONS: Record<string, any> = {
   povinne: ShieldCheck,
   doplnkove: ListPlus,
   volitelne: Eye,
+  ine: MoreHorizontal,
 };
 
-const FOLDER_CATEGORY_ORDER = ["povinne", "doplnkove", "volitelne"];
+const FOLDER_CATEGORY_ORDER = ["povinne", "doplnkove", "volitelne", "ine"];
 
 const FIELD_TO_SUBJECT_COLUMN: Record<string, string> = {
   meno: "firstName",
@@ -1246,7 +1248,7 @@ export function SubjectProfileModuleC({ subject }: ModuleCProps) {
       )}
 
       {isPerson ? (
-        <Accordion type="multiple" defaultValue={["povinne", "osobne", "doplnkove", "volitelne"]} className="space-y-2">
+        <Accordion type="multiple" defaultValue={["povinne", "osobne", "doplnkove", "volitelne", "ine"]} className="space-y-2">
           <AccordionItem value="povinne" className="border rounded-md px-3" data-testid="editor-accordion-povinne">
             <AccordionTrigger className="py-3 hover:no-underline">
               <div className="flex items-center gap-2">
@@ -1758,7 +1760,7 @@ export function SubjectProfileModuleC({ subject }: ModuleCProps) {
             </AccordionContent>
           </AccordionItem>
 
-          {(["doplnkove", "volitelne"] as const).map(category => {
+          {(["doplnkove", "volitelne", "ine"] as const).map(category => {
             const Icon = FOLDER_CATEGORY_ICONS[category];
             const groups = nonPovinneGroups.filter(g => (g.section as any).folderCategory === category);
             const totalFields = groups.reduce((acc, g) => acc + g.fields.length, 0);
@@ -1767,7 +1769,7 @@ export function SubjectProfileModuleC({ subject }: ModuleCProps) {
               <AccordionItem key={category} value={category} className="border rounded-md px-3" data-testid={`editor-accordion-${category}`}>
                 <AccordionTrigger className="py-3 hover:no-underline">
                   <div className="flex items-center gap-2">
-                    <Icon className={`w-4 h-4 ${category === 'doplnkove' ? 'text-primary' : 'text-muted-foreground'}`} />
+                    <Icon className={`w-4 h-4 ${category === 'doplnkove' ? 'text-primary' : category === 'ine' ? 'text-muted-foreground' : 'text-muted-foreground'}`} />
                     <span className="text-sm font-semibold">{FOLDER_CATEGORY_LABELS[category]}</span>
                     <Badge variant="secondary" className="text-[10px]">{totalFields}</Badge>
                   </div>
@@ -1805,7 +1807,7 @@ export function SubjectProfileModuleC({ subject }: ModuleCProps) {
           })}
         </Accordion>
       ) : (
-        <Accordion type="multiple" defaultValue={["povinne", "doplnkove"]} className="space-y-2">
+        <Accordion type="multiple" defaultValue={["povinne", "doplnkove", "ine"]} className="space-y-2">
           {FOLDER_CATEGORY_ORDER.map(category => {
             const Icon = FOLDER_CATEGORY_ICONS[category];
             const editorFieldGroups: { section: any; fields: StaticField[] }[] = [];

@@ -96,10 +96,15 @@ const PO_PANEL_ZAKONNE = 36;
 const PO_PANEL_ZMLUVNE = 37;
 const PO_PANEL_STATUTARI = 38;
 
+const FO_SECTION_INE = 80;
+const SZCO_SECTION_INE = 81;
+const PO_SECTION_INE = 82;
+
 export const FO_SECTIONS: StaticSection[] = [
   { id: FO_SECTION_POVINNE, clientTypeId: 1, name: "POVINNÉ ÚDAJE", folderCategory: "povinne", sortOrder: 0 },
   { id: FO_SECTION_DOPLNKOVE, clientTypeId: 1, name: "DOPLNKOVÉ ÚDAJE", folderCategory: "doplnkove", sortOrder: 1 },
   { id: FO_SECTION_VOLITELNE, clientTypeId: 1, name: "VOLITEĽNÉ ÚDAJE", folderCategory: "volitelne", sortOrder: 2 },
+  { id: FO_SECTION_INE, clientTypeId: 1, name: "INÉ ÚDAJE", folderCategory: "ine", sortOrder: 3 },
 ];
 
 export const FO_PANELS: StaticPanel[] = [
@@ -296,12 +301,21 @@ export const FO_FIELDS: StaticField[] = [
 
   // === VOLITEĽNÉ === CGN Rating
   { id: 209, clientTypeId: 1, sectionId: FO_SECTION_VOLITELNE, panelId: null, fieldKey: "cgn_rating", label: "CGN Rating", shortLabel: "CGN", fieldType: "jedna_moznost", isRequired: false, isHidden: false, options: ["A", "B", "C", "D", "E"], defaultValue: null, visibilityRule: null, unit: null, decimalPlaces: 2, fieldCategory: "volitelne", categoryCode: "bonita", sortOrder: 10, rowNumber: 0, widthPercent: 100 },
+
+  // === INÉ ÚDAJE ===
+  { id: 900, clientTypeId: 1, sectionId: FO_SECTION_INE, panelId: null, fieldKey: "poznamka_interna", label: "Interná poznámka", shortLabel: "Poznámka", fieldType: "long_text", isRequired: false, isHidden: false, options: [], defaultValue: null, visibilityRule: null, unit: null, decimalPlaces: 2, fieldCategory: "ine", categoryCode: "ine", sortOrder: 10, rowNumber: 0, widthPercent: 100 },
+  { id: 901, clientTypeId: 1, sectionId: FO_SECTION_INE, panelId: null, fieldKey: "tagy", label: "Značky / Tagy", shortLabel: "Tagy", fieldType: "text", isRequired: false, isHidden: false, options: [], defaultValue: null, visibilityRule: null, unit: null, decimalPlaces: 2, fieldCategory: "ine", categoryCode: "ine", sortOrder: 20, rowNumber: 1, widthPercent: 50 },
+  { id: 902, clientTypeId: 1, sectionId: FO_SECTION_INE, panelId: null, fieldKey: "zdroj_klienta", label: "Zdroj klienta", shortLabel: "Zdroj", fieldType: "jedna_moznost", isRequired: false, isHidden: false, options: ["Odporúčanie", "Web", "Sociálne siete", "Osobný kontakt", "Reklama", "Iné"], defaultValue: null, visibilityRule: null, unit: null, decimalPlaces: 2, fieldCategory: "ine", categoryCode: "ine", sortOrder: 30, rowNumber: 1, widthPercent: 50 },
+  { id: 903, clientTypeId: 1, sectionId: FO_SECTION_INE, panelId: null, fieldKey: "datum_prvej_schodzky", label: "Dátum prvej schôdzky", shortLabel: "1. schôdzka", fieldType: "date", isRequired: false, isHidden: false, options: [], defaultValue: null, visibilityRule: null, unit: null, decimalPlaces: 2, fieldCategory: "ine", categoryCode: "ine", sortOrder: 40, rowNumber: 2, widthPercent: 33 },
+  { id: 904, clientTypeId: 1, sectionId: FO_SECTION_INE, panelId: null, fieldKey: "preferovany_kontakt", label: "Preferovaný spôsob kontaktu", shortLabel: "Pref. kontakt", fieldType: "jedna_moznost", isRequired: false, isHidden: false, options: ["Telefón", "Email", "SMS", "Osobne", "WhatsApp"], defaultValue: null, visibilityRule: null, unit: null, decimalPlaces: 2, fieldCategory: "ine", categoryCode: "ine", sortOrder: 50, rowNumber: 2, widthPercent: 33 },
+  { id: 905, clientTypeId: 1, sectionId: FO_SECTION_INE, panelId: null, fieldKey: "jazyk_komunikacie", label: "Jazyk komunikácie", shortLabel: "Jazyk", fieldType: "jedna_moznost", isRequired: false, isHidden: false, options: ["Slovenčina", "Čeština", "Angličtina", "Maďarčina", "Nemčina", "Iný"], defaultValue: null, visibilityRule: null, unit: null, decimalPlaces: 2, fieldCategory: "ine", categoryCode: "ine", sortOrder: 60, rowNumber: 2, widthPercent: 34 },
 ];
 
 export const SZCO_SECTIONS: StaticSection[] = [
   { id: SZCO_SECTION_POVINNE, clientTypeId: 3, name: "POVINNÉ ÚDAJE", folderCategory: "povinne", sortOrder: 0 },
   { id: SZCO_SECTION_DOPLNKOVE, clientTypeId: 3, name: "DOPLNKOVÉ ÚDAJE", folderCategory: "doplnkove", sortOrder: 1 },
   { id: SZCO_SECTION_VOLITELNE, clientTypeId: 3, name: "VOLITEĽNÉ ÚDAJE", folderCategory: "volitelne", sortOrder: 2 },
+  { id: SZCO_SECTION_INE, clientTypeId: 3, name: "INÉ ÚDAJE", folderCategory: "ine", sortOrder: 3 },
 ];
 
 export const SZCO_PANELS: StaticPanel[] = [
@@ -405,12 +419,21 @@ export const SZCO_FIELDS: StaticField[] = [
 
   // === VOLITEĽNÉ === CGN Rating
   { id: 210, clientTypeId: 3, sectionId: SZCO_SECTION_VOLITELNE, panelId: null, fieldKey: "cgn_rating", label: "CGN Rating", shortLabel: "CGN", fieldType: "jedna_moznost", isRequired: false, isHidden: false, options: ["A", "B", "C", "D", "E"], defaultValue: null, visibilityRule: null, unit: null, decimalPlaces: 2, fieldCategory: "volitelne", categoryCode: "bonita", sortOrder: 10, rowNumber: 0, widthPercent: 100 },
+
+  // === INÉ ÚDAJE ===
+  { id: 910, clientTypeId: 3, sectionId: SZCO_SECTION_INE, panelId: null, fieldKey: "poznamka_interna", label: "Interná poznámka", shortLabel: "Poznámka", fieldType: "long_text", isRequired: false, isHidden: false, options: [], defaultValue: null, visibilityRule: null, unit: null, decimalPlaces: 2, fieldCategory: "ine", categoryCode: "ine", sortOrder: 10, rowNumber: 0, widthPercent: 100 },
+  { id: 911, clientTypeId: 3, sectionId: SZCO_SECTION_INE, panelId: null, fieldKey: "tagy", label: "Značky / Tagy", shortLabel: "Tagy", fieldType: "text", isRequired: false, isHidden: false, options: [], defaultValue: null, visibilityRule: null, unit: null, decimalPlaces: 2, fieldCategory: "ine", categoryCode: "ine", sortOrder: 20, rowNumber: 1, widthPercent: 50 },
+  { id: 912, clientTypeId: 3, sectionId: SZCO_SECTION_INE, panelId: null, fieldKey: "zdroj_klienta", label: "Zdroj klienta", shortLabel: "Zdroj", fieldType: "jedna_moznost", isRequired: false, isHidden: false, options: ["Odporúčanie", "Web", "Sociálne siete", "Osobný kontakt", "Reklama", "Iné"], defaultValue: null, visibilityRule: null, unit: null, decimalPlaces: 2, fieldCategory: "ine", categoryCode: "ine", sortOrder: 30, rowNumber: 1, widthPercent: 50 },
+  { id: 913, clientTypeId: 3, sectionId: SZCO_SECTION_INE, panelId: null, fieldKey: "datum_prvej_schodzky", label: "Dátum prvej schôdzky", shortLabel: "1. schôdzka", fieldType: "date", isRequired: false, isHidden: false, options: [], defaultValue: null, visibilityRule: null, unit: null, decimalPlaces: 2, fieldCategory: "ine", categoryCode: "ine", sortOrder: 40, rowNumber: 2, widthPercent: 33 },
+  { id: 914, clientTypeId: 3, sectionId: SZCO_SECTION_INE, panelId: null, fieldKey: "preferovany_kontakt", label: "Preferovaný spôsob kontaktu", shortLabel: "Pref. kontakt", fieldType: "jedna_moznost", isRequired: false, isHidden: false, options: ["Telefón", "Email", "SMS", "Osobne", "WhatsApp"], defaultValue: null, visibilityRule: null, unit: null, decimalPlaces: 2, fieldCategory: "ine", categoryCode: "ine", sortOrder: 50, rowNumber: 2, widthPercent: 33 },
+  { id: 915, clientTypeId: 3, sectionId: SZCO_SECTION_INE, panelId: null, fieldKey: "jazyk_komunikacie", label: "Jazyk komunikácie", shortLabel: "Jazyk", fieldType: "jedna_moznost", isRequired: false, isHidden: false, options: ["Slovenčina", "Čeština", "Angličtina", "Maďarčina", "Nemčina", "Iný"], defaultValue: null, visibilityRule: null, unit: null, decimalPlaces: 2, fieldCategory: "ine", categoryCode: "ine", sortOrder: 60, rowNumber: 2, widthPercent: 34 },
 ];
 
 export const PO_SECTIONS: StaticSection[] = [
   { id: PO_SECTION_POVINNE, clientTypeId: 4, name: "POVINNÉ ÚDAJE", folderCategory: "povinne", sortOrder: 0 },
   { id: PO_SECTION_DOPLNKOVE, clientTypeId: 4, name: "DOPLNKOVÉ ÚDAJE", folderCategory: "doplnkove", sortOrder: 1 },
   { id: PO_SECTION_VOLITELNE, clientTypeId: 4, name: "VOLITEĽNÉ ÚDAJE", folderCategory: "volitelne", sortOrder: 2 },
+  { id: PO_SECTION_INE, clientTypeId: 4, name: "INÉ ÚDAJE", folderCategory: "ine", sortOrder: 3 },
 ];
 
 export const PO_PANELS: StaticPanel[] = [
@@ -489,6 +512,14 @@ export const PO_FIELDS: StaticField[] = [
 
   // === VOLITEĽNÉ === CGN Rating
   { id: 211, clientTypeId: 4, sectionId: PO_SECTION_VOLITELNE, panelId: null, fieldKey: "cgn_rating", label: "CGN Rating", shortLabel: "CGN", fieldType: "jedna_moznost", isRequired: false, isHidden: false, options: ["A", "B", "C", "D", "E"], defaultValue: null, visibilityRule: null, unit: null, decimalPlaces: 2, fieldCategory: "volitelne", categoryCode: "bonita", sortOrder: 10, rowNumber: 0, widthPercent: 100 },
+
+  // === INÉ ÚDAJE ===
+  { id: 920, clientTypeId: 4, sectionId: PO_SECTION_INE, panelId: null, fieldKey: "poznamka_interna", label: "Interná poznámka", shortLabel: "Poznámka", fieldType: "long_text", isRequired: false, isHidden: false, options: [], defaultValue: null, visibilityRule: null, unit: null, decimalPlaces: 2, fieldCategory: "ine", categoryCode: "ine", sortOrder: 10, rowNumber: 0, widthPercent: 100 },
+  { id: 921, clientTypeId: 4, sectionId: PO_SECTION_INE, panelId: null, fieldKey: "tagy", label: "Značky / Tagy", shortLabel: "Tagy", fieldType: "text", isRequired: false, isHidden: false, options: [], defaultValue: null, visibilityRule: null, unit: null, decimalPlaces: 2, fieldCategory: "ine", categoryCode: "ine", sortOrder: 20, rowNumber: 1, widthPercent: 50 },
+  { id: 922, clientTypeId: 4, sectionId: PO_SECTION_INE, panelId: null, fieldKey: "zdroj_klienta", label: "Zdroj klienta", shortLabel: "Zdroj", fieldType: "jedna_moznost", isRequired: false, isHidden: false, options: ["Odporúčanie", "Web", "Sociálne siete", "Osobný kontakt", "Reklama", "Iné"], defaultValue: null, visibilityRule: null, unit: null, decimalPlaces: 2, fieldCategory: "ine", categoryCode: "ine", sortOrder: 30, rowNumber: 1, widthPercent: 50 },
+  { id: 923, clientTypeId: 4, sectionId: PO_SECTION_INE, panelId: null, fieldKey: "datum_prvej_schodzky", label: "Dátum prvej schôdzky", shortLabel: "1. schôdzka", fieldType: "date", isRequired: false, isHidden: false, options: [], defaultValue: null, visibilityRule: null, unit: null, decimalPlaces: 2, fieldCategory: "ine", categoryCode: "ine", sortOrder: 40, rowNumber: 2, widthPercent: 33 },
+  { id: 924, clientTypeId: 4, sectionId: PO_SECTION_INE, panelId: null, fieldKey: "preferovany_kontakt", label: "Preferovaný spôsob kontaktu", shortLabel: "Pref. kontakt", fieldType: "jedna_moznost", isRequired: false, isHidden: false, options: ["Telefón", "Email", "SMS", "Osobne", "WhatsApp"], defaultValue: null, visibilityRule: null, unit: null, decimalPlaces: 2, fieldCategory: "ine", categoryCode: "ine", sortOrder: 50, rowNumber: 2, widthPercent: 33 },
+  { id: 925, clientTypeId: 4, sectionId: PO_SECTION_INE, panelId: null, fieldKey: "jazyk_komunikacie", label: "Jazyk komunikácie", shortLabel: "Jazyk", fieldType: "jedna_moznost", isRequired: false, isHidden: false, options: ["Slovenčina", "Čeština", "Angličtina", "Maďarčina", "Nemčina", "Iný"], defaultValue: null, visibilityRule: null, unit: null, decimalPlaces: 2, fieldCategory: "ine", categoryCode: "ine", sortOrder: 60, rowNumber: 2, widthPercent: 34 },
 ];
 
 export function getFieldsForType(clientType: string): StaticField[] {
