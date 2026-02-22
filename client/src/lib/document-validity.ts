@@ -77,6 +77,65 @@ const DOCUMENT_PAIRS: Record<string, string> = {
   voz_ek_platnost: "voz_ecv",
 };
 
+const VALIDITY_FROM_DATE_FIELDS: Record<string, { validDays: number; label: string }> = {
+  inv_datum_dotaznika: { validDays: 365, label: "Revízia investičného dotazníka" },
+};
+
+export function getValidityFromDateStatus(fieldKey: string, dateValue: string | null | undefined): ValidityResult | null {
+  const config = VALIDITY_FROM_DATE_FIELDS[fieldKey];
+  if (!config || !dateValue) return null;
+
+  const filledDate = new Date(dateValue);
+  const expiryDate = new Date(filledDate);
+  expiryDate.setDate(expiryDate.getDate() + config.validDays);
+  expiryDate.setHours(23, 59, 59, 999);
+
+  const now = new Date();
+  const diffMs = expiryDate.getTime() - now.getTime();
+  const daysRemaining = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
+
+  if (daysRemaining <= 0) {
+    return {
+      status: "expired",
+      label: `${config.label} – expirovaný`,
+      daysRemaining,
+      colorClass: "text-red-500",
+      borderClass: "border-red-500 ring-1 ring-red-500/50",
+      bgClass: "bg-red-500/10",
+      dotClass: "bg-red-500",
+      textClass: "text-red-500 font-semibold",
+    };
+  }
+
+  if (daysRemaining <= 90) {
+    return {
+      status: "expiring",
+      label: `${config.label} – o ${daysRemaining}d`,
+      daysRemaining,
+      colorClass: "text-orange-500",
+      borderClass: "border-orange-500 ring-1 ring-orange-500/50",
+      bgClass: "bg-orange-500/10",
+      dotClass: "bg-orange-500",
+      textClass: "text-orange-500",
+    };
+  }
+
+  return {
+    status: "valid",
+    label: "Platný",
+    daysRemaining,
+    colorClass: "text-emerald-500",
+    borderClass: "border-emerald-500/50",
+    bgClass: "",
+    dotClass: "bg-emerald-500",
+    textClass: "text-emerald-500",
+  };
+}
+
+export function isValidityFromDateField(fieldKey: string): boolean {
+  return fieldKey in VALIDITY_FROM_DATE_FIELDS;
+}
+
 const VALIDITY_FIELD_KEYS = new Set(Object.keys(DOCUMENT_PAIRS));
 
 export function isValidityField(fieldKey: string): boolean {

@@ -66,6 +66,9 @@ const FO_PANEL_REAL_ZAKLAD = 60;
 const FO_PANEL_REAL_TECH = 61;
 const FO_PANEL_REAL_ZABEZP = 62;
 
+const FO_PANEL_ZDRAVOTNY = 70;
+const FO_PANEL_INVESTICNY = 71;
+
 const SZCO_SECTION_POVINNE = 11;
 const SZCO_SECTION_DOPLNKOVE = 18;
 const SZCO_SECTION_VOLITELNE = 12;
@@ -120,6 +123,8 @@ export const FO_PANELS: StaticPanel[] = [
   { id: FO_PANEL_REAL_ZAKLAD, clientTypeId: 1, sectionId: FO_SECTION_DOPLNKOVE, name: "Základná identifikácia nehnuteľnosti", gridColumns: 3, sortOrder: 12 },
   { id: FO_PANEL_REAL_TECH, clientTypeId: 1, sectionId: FO_SECTION_DOPLNKOVE, name: "Technický stav", gridColumns: 4, sortOrder: 13 },
   { id: FO_PANEL_REAL_ZABEZP, clientTypeId: 1, sectionId: FO_SECTION_DOPLNKOVE, name: "Zabezpečenie", gridColumns: 3, sortOrder: 14 },
+  { id: FO_PANEL_ZDRAVOTNY, clientTypeId: 1, sectionId: FO_SECTION_DOPLNKOVE, name: "Zdravotný profil", gridColumns: 3, sortOrder: 15 },
+  { id: FO_PANEL_INVESTICNY, clientTypeId: 1, sectionId: FO_SECTION_DOPLNKOVE, name: "Investičný profil", gridColumns: 3, sortOrder: 16 },
 ];
 
 export const FO_FIELDS: StaticField[] = [
@@ -276,6 +281,18 @@ export const FO_FIELDS: StaticField[] = [
   { id: 842, clientTypeId: 1, sectionId: FO_SECTION_DOPLNKOVE, panelId: FO_PANEL_REAL_ZABEZP, fieldKey: "real_typ_dveri", label: "Typ dverí (bezpečnostná trieda)", shortLabel: "Typ dverí", fieldType: "short_text", isRequired: false, isHidden: false, options: [], defaultValue: null, visibilityRule: null, unit: null, decimalPlaces: 2, fieldCategory: "doplnkove", categoryCode: "reality", sortOrder: 130, rowNumber: 0, widthPercent: 50 },
   { id: 843, clientTypeId: 1, sectionId: FO_SECTION_DOPLNKOVE, panelId: FO_PANEL_REAL_ZABEZP, fieldKey: "real_elektro_zabezpecenie", label: "Elektronické zabezpečenie", shortLabel: "El. zabezpeč.", fieldType: "jedna_moznost", isRequired: false, isHidden: false, options: ["Alarm na PCO", "Lokálny alarm", "Kamery"], defaultValue: null, visibilityRule: null, unit: null, decimalPlaces: 2, fieldCategory: "doplnkove", categoryCode: "reality", sortOrder: 140, rowNumber: 0, widthPercent: 50 },
   { id: 844, clientTypeId: 1, sectionId: FO_SECTION_DOPLNKOVE, panelId: FO_PANEL_REAL_ZABEZP, fieldKey: "real_protipoz_ochrana", label: "Protipožiarna ochrana", shortLabel: "Protipož.", fieldType: "short_text", isRequired: false, isHidden: false, options: [], defaultValue: null, visibilityRule: null, unit: null, decimalPlaces: 2, fieldCategory: "doplnkove", categoryCode: "reality", sortOrder: 150, rowNumber: 1, widthPercent: 100 },
+
+  // === PANEL: Zdravotný profil ===
+  { id: 850, clientTypeId: 1, sectionId: FO_SECTION_DOPLNKOVE, panelId: FO_PANEL_ZDRAVOTNY, fieldKey: "zdrav_vyska", label: "Výška", shortLabel: "Výška", fieldType: "number", isRequired: false, isHidden: false, options: [], defaultValue: null, visibilityRule: null, unit: "cm", decimalPlaces: 0, fieldCategory: "doplnkove", categoryCode: "zdravotny", sortOrder: 10, rowNumber: 0, widthPercent: 33 },
+  { id: 851, clientTypeId: 1, sectionId: FO_SECTION_DOPLNKOVE, panelId: FO_PANEL_ZDRAVOTNY, fieldKey: "zdrav_vaha", label: "Váha", shortLabel: "Váha", fieldType: "number", isRequired: false, isHidden: false, options: [], defaultValue: null, visibilityRule: null, unit: "kg", decimalPlaces: 0, fieldCategory: "doplnkove", categoryCode: "zdravotny", sortOrder: 20, rowNumber: 0, widthPercent: 33 },
+  { id: 852, clientTypeId: 1, sectionId: FO_SECTION_DOPLNKOVE, panelId: FO_PANEL_ZDRAVOTNY, fieldKey: "zdrav_fajciar", label: "Fajčiar", fieldType: "jedna_moznost", isRequired: false, isHidden: false, options: ["Áno", "Nie", "Bývalý"], defaultValue: null, visibilityRule: null, unit: null, decimalPlaces: 2, fieldCategory: "doplnkove", categoryCode: "zdravotny", sortOrder: 30, rowNumber: 0, widthPercent: 34 },
+  { id: 853, clientTypeId: 1, sectionId: FO_SECTION_DOPLNKOVE, panelId: FO_PANEL_ZDRAVOTNY, fieldKey: "zdrav_rizikovy_sport", label: "Riziková športová činnosť", shortLabel: "Riz. šport", fieldType: "short_text", isRequired: false, isHidden: false, options: [], defaultValue: null, visibilityRule: null, unit: null, decimalPlaces: 2, fieldCategory: "doplnkove", categoryCode: "zdravotny", sortOrder: 40, rowNumber: 1, widthPercent: 50 },
+  { id: 854, clientTypeId: 1, sectionId: FO_SECTION_DOPLNKOVE, panelId: FO_PANEL_ZDRAVOTNY, fieldKey: "zdrav_diagnozy", label: "Závažné diagnózy v minulosti", shortLabel: "Diagnózy", fieldType: "long_text", isRequired: false, isHidden: false, options: [], defaultValue: null, visibilityRule: null, unit: null, decimalPlaces: 2, fieldCategory: "doplnkove", categoryCode: "zdravotny", sortOrder: 50, rowNumber: 2, widthPercent: 100 },
+
+  // === PANEL: Investičný profil ===
+  { id: 860, clientTypeId: 1, sectionId: FO_SECTION_DOPLNKOVE, panelId: FO_PANEL_INVESTICNY, fieldKey: "inv_typ_investora", label: "Typ investora", fieldType: "jedna_moznost", isRequired: false, isHidden: false, options: ["Konzervatívny", "Vyvážený", "Dynamický"], defaultValue: null, visibilityRule: null, unit: null, decimalPlaces: 2, fieldCategory: "doplnkove", categoryCode: "investicny", sortOrder: 10, rowNumber: 0, widthPercent: 33 },
+  { id: 861, clientTypeId: 1, sectionId: FO_SECTION_DOPLNKOVE, panelId: FO_PANEL_INVESTICNY, fieldKey: "inv_datum_dotaznika", label: "Dátum vyplnenia investičného dotazníka", shortLabel: "Dát. dotazníka", fieldType: "date", isRequired: false, isHidden: false, options: [], defaultValue: null, visibilityRule: null, unit: null, decimalPlaces: 2, fieldCategory: "doplnkove", categoryCode: "investicny", sortOrder: 20, rowNumber: 0, widthPercent: 34 },
+  { id: 862, clientTypeId: 1, sectionId: FO_SECTION_DOPLNKOVE, panelId: FO_PANEL_INVESTICNY, fieldKey: "inv_skusenosti", label: "Skúsenosti s investovaním", shortLabel: "Skúsenosti", fieldType: "jedna_moznost", isRequired: false, isHidden: false, options: ["Žiadne", "Základné", "Pokročilé"], defaultValue: null, visibilityRule: null, unit: null, decimalPlaces: 2, fieldCategory: "doplnkove", categoryCode: "investicny", sortOrder: 30, rowNumber: 0, widthPercent: 33 },
 
   // === VOLITEĽNÉ === CGN Rating
   { id: 209, clientTypeId: 1, sectionId: FO_SECTION_VOLITELNE, panelId: null, fieldKey: "cgn_rating", label: "CGN Rating", shortLabel: "CGN", fieldType: "jedna_moznost", isRequired: false, isHidden: false, options: ["A", "B", "C", "D", "E"], defaultValue: null, visibilityRule: null, unit: null, decimalPlaces: 2, fieldCategory: "volitelne", categoryCode: "bonita", sortOrder: 10, rowNumber: 0, widthPercent: 100 },

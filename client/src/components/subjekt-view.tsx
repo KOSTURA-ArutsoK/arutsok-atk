@@ -6,7 +6,7 @@ import { useMyCompanies } from "@/hooks/use-companies";
 import { useAppUser } from "@/hooks/use-app-user";
 import type { Subject, ClientDataTab, ClientDataCategory, ClientMarketingConsent, ClientType, SubjectCollaborator, SubjectFieldHistory, SubjectAddress } from "@shared/schema";
 import { getFieldsForClientTypeId, getSectionsForClientTypeId, type StaticField } from "@/lib/staticFieldDefs";
-import { getDocumentValidityStatus, isValidityField, isNumberFieldWithExpiredPair } from "@/lib/document-validity";
+import { getDocumentValidityStatus, isValidityField, isNumberFieldWithExpiredPair, getValidityFromDateStatus, isValidityFromDateField } from "@/lib/document-validity";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Badge } from "@/components/ui/badge";
@@ -139,9 +139,17 @@ const FIELD_HINTS: Record<string, string> = {
   real_typ_dveri: "Bezpečnostná trieda vstupných dverí (RC2–RC6) – zľava na poistnom",
   real_elektro_zabezpecenie: "Elektronický zabezpečovací systém – zľava na poistnom",
   real_protipoz_ochrana: "Protipožiarne zariadenia (senzory dymu/plynu, hasiace prístroje)",
+  zdrav_vyska: "Výška klienta v centimetroch – údaj zo zdravotného dotazníka",
+  zdrav_vaha: "Váha klienta v kilogramoch – údaj zo zdravotného dotazníka",
+  zdrav_fajciar: "Fajčiarsky status klienta – ovplyvňuje sadzby životného poistenia",
+  zdrav_rizikovy_sport: "Rizikové športové aktivity (paragliding, potápanie, motoršport) – príplatok k poistnému",
+  zdrav_diagnozy: "Závažné zdravotné diagnózy v minulosti – citlivý údaj s obmedzeným prístupom",
+  inv_typ_investora: "Profil investora podľa investičného dotazníka – určuje vhodnú investičnú stratégiu",
+  inv_datum_dotaznika: "Dátum vyplnenia investičného dotazníka – semafor: zelená <12 mes., oranžová >12 mes. (zákonná revízia)",
+  inv_skusenosti: "Úroveň skúseností klienta s investovaním podľa MiFID II",
 };
 
-const HINTED_CATEGORIES = new Set(["aml", "marketingove", "bonita", "behavioralne", "ekonomika", "vozidla", "reality"]);
+const HINTED_CATEGORIES = new Set(["aml", "marketingove", "bonita", "behavioralne", "ekonomika", "vozidla", "reality", "zdravotny", "investicny"]);
 
 const CATEGORY_HINTS: Record<string, string> = {
   aml: "Údaje vyžadované zákonom o AML (297/2008 Z.z.) – identifikácia konečných užívateľov výhod a politicky exponovaných osôb",
@@ -152,6 +160,8 @@ const CATEGORY_HINTS: Record<string, string> = {
   ekonomika: "Ekonomický profil klienta – zamestnanie, príjmy, finančné údaje a AML legislatívny status. Každá zmena príjmu alebo zamestnávateľa je sledovaná v histórii.",
   vozidla: "Údaje o vozidle z technického preukazu. Platnosť STK a EK je sledovaná semaforom (zelená >90d, oranžová ≤90d, červená = neplatná). Každá zmena sa zapisuje do histórie.",
   reality: "Údaje o nehnuteľnostiach klienta z poistnej zmluvy na majetok alebo znaleckého posudku. Technický stav a zabezpečenie ovplyvňujú výpočet poistného. Každá zmena sa zapisuje do histórie.",
+  zdravotny: "Zdravotný profil klienta zo zdravotného dotazníka alebo poistnej zmluvy na život. Citlivé údaje (diagnózy) majú obmedzený prístup. Fajčiarsky status a rizikové športy ovplyvňujú sadzby poistného.",
+  investicny: "Investičný profil klienta podľa MiFID II. Dátum dotazníka je sledovaný semaforom – po 12 mesiacoch vyžaduje zákonná revízia opätovné vyplnenie. Každá zmena profilu sa zapisuje do histórie.",
 };
 
 const FIELD_TO_CATEGORY: Record<string, string> = {
@@ -198,6 +208,9 @@ const FIELD_TO_CATEGORY: Record<string, string> = {
   real_rekon_strecha: "reality", real_rekon_rozvody: "reality", real_rekon_kurenie: "reality",
   real_rozloha: "reality", real_pocet_podlazi: "reality", real_typ_konstrukcie: "reality",
   real_typ_dveri: "reality", real_elektro_zabezpecenie: "reality", real_protipoz_ochrana: "reality",
+  zdrav_vyska: "zdravotny", zdrav_vaha: "zdravotny", zdrav_fajciar: "zdravotny",
+  zdrav_rizikovy_sport: "zdravotny", zdrav_diagnozy: "zdravotny",
+  inv_typ_investora: "investicny", inv_datum_dotaznika: "investicny", inv_skusenosti: "investicny",
 };
 
 const CONSENT_TYPES = [
@@ -258,6 +271,8 @@ function SubjectViewField({
 
   const isValField = isValidityField(field.fieldKey);
   const validity = isValField && value ? getDocumentValidityStatus(value) : null;
+  const fromDateValidity = isValidityFromDateField(field.fieldKey) && value ? getValidityFromDateStatus(field.fieldKey, value) : null;
+  const activeValidity = validity || fromDateValidity;
   const numValidity = allFieldValues ? isNumberFieldWithExpiredPair(field.fieldKey, allFieldValues) : null;
   const isExpiredNumber = numValidity?.status === "expired";
 
@@ -309,22 +324,22 @@ function SubjectViewField({
     ? "border-blue-400/60 bg-blue-500/10 dark:bg-blue-500/15"
     : isExpiredNumber
       ? "border-red-500/60 bg-red-500/10"
-      : validity && validity.status !== "unknown"
-        ? `${validity.borderClass} ${validity.bgClass}`
+      : activeValidity && activeValidity.status !== "unknown"
+        ? `${activeValidity.borderClass} ${activeValidity.bgClass}`
         : isSummary ? "border-primary/50 bg-primary/5" : "border-border bg-muted/30";
 
   return (
     <div
       className={`h-10 flex items-center gap-2 px-3 rounded-md border transition-colors duration-150 select-none cursor-pointer ${borderCls}`}
-      title={hasNote ? `Poznámka: ${noteText}` : validity ? validity.label : undefined}
+      title={hasNote ? `Poznámka: ${noteText}` : activeValidity ? activeValidity.label : undefined}
       data-testid={`field-${field.fieldKey}`}
       onClick={handleClick}
       onDoubleClick={handleDoubleClick}
     >
       <span className="text-xs text-muted-foreground whitespace-nowrap">{field.shortLabel || field.label}:</span>
-      <span className={`text-sm font-medium truncate max-w-[200px] ${validity?.textClass || ""} ${isExpiredNumber ? "text-red-500" : ""}`}>{displayValue}</span>
-      {validity && validity.status !== "unknown" && value && (
-        <span className={`w-2.5 h-2.5 rounded-full shrink-0 ${validity.dotClass}`} data-testid={`validity-dot-${field.fieldKey}`} />
+      <span className={`text-sm font-medium truncate max-w-[200px] ${activeValidity?.textClass || ""} ${isExpiredNumber ? "text-red-500" : ""}`}>{displayValue}</span>
+      {activeValidity && activeValidity.status !== "unknown" && value && (
+        <span className={`w-2.5 h-2.5 rounded-full shrink-0 ${activeValidity.dotClass}`} data-testid={`validity-dot-${field.fieldKey}`} />
       )}
       {verified && <Check className="w-3 h-3 text-blue-500 flex-none" />}
       {hasNote && !verified && <MessageSquare className="w-3 h-3 text-amber-400 shrink-0" />}
