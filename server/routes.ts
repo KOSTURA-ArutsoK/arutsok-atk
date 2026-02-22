@@ -7286,6 +7286,8 @@ export async function registerRoutes(
         "Cestovný pas": ["passport", "číslo pasu", "pas č", "platnosť pasu", "miesto vydania"],
         "Poistná zmluva": ["poistné", "poistná suma", "poisťovňa", "poistená osoba", "poistná doba", "poistné obdobie", "výška poistného"],
         "Živnostenský list": ["ičo", "predmet podnikania", "obchodné meno", "živnostenské oprávnenie", "miesto podnikania"],
+        "Zmluva o poistení zodpovednosti": ["zodpovednosť", "limit plnenia", "spoluúčasť", "územná platnosť", "predmet činnosti", "profesijná zodpovednosť", "všeobecná zodpovednosť", "regresy"],
+        "Flotilová zmluva": ["flotila", "hromadná zmluva", "počet vozidiel", "referent flotily", "fleet", "správca flotily", "kapacita flotily"],
       };
       const lowerText = text.toLowerCase();
       let detectedDocumentType: string | null = null;
