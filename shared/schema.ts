@@ -1813,6 +1813,30 @@ export const insertInheritancePromptSchema = createInsertSchema(inheritancePromp
 export type InheritancePrompt = typeof inheritancePrompts.$inferSelect;
 export type InsertInheritancePrompt = z.infer<typeof insertInheritancePromptSchema>;
 
+// === GUARDIANSHIP ARCHIVE (History of legal guardianship) ===
+export const guardianshipArchive = pgTable("guardianship_archive", {
+  id: serial("id").primaryKey(),
+  guardianSubjectId: integer("guardian_subject_id").notNull().references(() => subjects.id),
+  wardSubjectId: integer("ward_subject_id").notNull().references(() => subjects.id),
+  relationId: integer("relation_id").references(() => subjectRelations.id),
+  guardianType: text("guardian_type").notNull().default("fo"),
+  roleCode: text("role_code").notNull(),
+  roleLabel: text("role_label"),
+  legalBasis: text("legal_basis"),
+  startedAt: timestamp("started_at"),
+  endedAt: timestamp("ended_at"),
+  endReason: text("end_reason"),
+  archivalTrigger: text("archival_trigger").notNull().default("maturity"),
+  archivedByUserId: integer("archived_by_user_id").references(() => appUsers.id),
+  archivedByName: text("archived_by_name"),
+  meta: jsonb("meta").default({}),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertGuardianshipArchiveSchema = createInsertSchema(guardianshipArchive).omit({ id: true, createdAt: true });
+export type GuardianshipArchive = typeof guardianshipArchive.$inferSelect;
+export type InsertGuardianshipArchive = z.infer<typeof insertGuardianshipArchiveSchema>;
+
 export type CreateSubjectRequest = InsertSubject;
 export type UpdateSubjectRequest = Partial<InsertSubject> & { changeReason?: string };
 export type UpdateMyCompanyRequest = Partial<InsertMyCompany> & { changeReason?: string };

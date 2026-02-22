@@ -4,7 +4,7 @@ import { storage } from "./storage";
 import { api } from "@shared/routes";
 import { setupAuth, registerAuthRoutes, isAuthenticated } from "./replit_integrations/auth";
 import { z } from "zod";
-import { continents, states, myCompanies, appUsers, clientTypes, clientSubGroups, clientGroupMembers, productFolderAssignments, folderPanels, panelParameters, userClientGroupMemberships, clientGroups, permissionGroups, insertCareerLevelSchema, insertProductPointRateSchema, careerLevels, importLogs, commissions, contracts, contractStatuses, contractStatusChangeLogs, clientDataTabs, clientDataCategories, subjects, subjectPointsLog, subjectFieldHistory, subjectCollaborators, clientMarketingConsents, clientDocumentHistory, contractAcquirers, contractPasswords, contractRewardDistributions, contractParameterValues, subjectArchive, auditLogs, globalCounters, subjectPhotos, activityEvents, subjectParamSections, subjectParameters, subjectTemplates, subjectTemplateParams, commissionCalculationLogs, parameterSynonyms, dataConflictAlerts, transactionDedupLog, relationRoleTypes, subjectRelations, maturityAlerts, inheritancePrompts } from "@shared/schema";
+import { continents, states, myCompanies, appUsers, clientTypes, clientSubGroups, clientGroupMembers, productFolderAssignments, folderPanels, panelParameters, userClientGroupMemberships, clientGroups, permissionGroups, insertCareerLevelSchema, insertProductPointRateSchema, careerLevels, importLogs, commissions, contracts, contractStatuses, contractStatusChangeLogs, clientDataTabs, clientDataCategories, subjects, subjectPointsLog, subjectFieldHistory, subjectCollaborators, clientMarketingConsents, clientDocumentHistory, contractAcquirers, contractPasswords, contractRewardDistributions, contractParameterValues, subjectArchive, auditLogs, globalCounters, subjectPhotos, activityEvents, subjectParamSections, subjectParameters, subjectTemplates, subjectTemplateParams, commissionCalculationLogs, parameterSynonyms, dataConflictAlerts, transactionDedupLog, relationRoleTypes, subjectRelations, maturityAlerts, inheritancePrompts, guardianshipArchive } from "@shared/schema";
 import { seedSubjectParameters } from "./seed-subject-params";
 import sharp from "sharp";
 import { db } from "./db";
@@ -66,7 +66,21 @@ async function isKlientiUser(appUser: any): Promise<boolean> {
 
 async function checkKlientiSubjectAccess(appUser: any, subjectId: number): Promise<boolean> {
   if (!await isKlientiUser(appUser)) return true;
-  return appUser.linkedSubjectId === subjectId;
+  if (appUser.linkedSubjectId === subjectId) return true;
+
+  const guardianWardLink = await db.select({ id: subjectRelations.id })
+    .from(subjectRelations)
+    .innerJoin(relationRoleTypes, eq(subjectRelations.roleTypeId, relationRoleTypes.id))
+    .where(and(
+      eq(subjectRelations.sourceSubjectId, appUser.linkedSubjectId),
+      eq(subjectRelations.targetSubjectId, subjectId),
+      eq(subjectRelations.isActive, true),
+      eq(relationRoleTypes.category, "rodina"),
+      sql`${relationRoleTypes.code} IN ('rodic_zakonny_zastupca', 'stary_rodic')`
+    ))
+    .limit(1);
+
+  return guardianWardLink.length > 0;
 }
 
 const UPLOADS_DIR = path.join(process.cwd(), "uploads");
@@ -8434,8 +8448,12 @@ export async function registerRoutes(
       const id = parseInt(req.params.id);
       if (isNaN(id)) return res.status(400).json({ message: "Neplatné ID" });
 
-      const { resolution } = req.body;
+      const { resolution, legalBasis } = req.body;
       const user = (req as any).appUser;
+
+      const [alert] = await db.select().from(maturityAlerts).where(eq(maturityAlerts.id, id));
+      if (!alert) return res.status(404).json({ message: "Alert nenájdený" });
+
       const [updated] = await db.update(maturityAlerts).set({
         status: "resolved",
         resolution: resolution || "manually_resolved",
@@ -8445,10 +8463,293 @@ export async function registerRoutes(
         updatedAt: new Date(),
       }).where(eq(maturityAlerts.id, id)).returning();
 
-      if (!updated) return res.status(404).json({ message: "Alert nenájdený" });
+      if (alert.guardianRelationId && (resolution === "detach" || resolution === "retain")) {
+        const [relation] = await db.select({
+          rel: subjectRelations,
+          roleType: relationRoleTypes,
+        }).from(subjectRelations)
+          .innerJoin(relationRoleTypes, eq(subjectRelations.roleTypeId, relationRoleTypes.id))
+          .where(eq(subjectRelations.id, alert.guardianRelationId));
+
+        if (relation) {
+          const guardianSubject = await db.select({ type: subjects.type }).from(subjects)
+            .where(eq(subjects.id, relation.rel.sourceSubjectId));
+          const guardianType = guardianSubject[0]?.type === "company" ? "po" : "fo";
+
+          await db.insert(guardianshipArchive).values({
+            guardianSubjectId: relation.rel.sourceSubjectId,
+            wardSubjectId: alert.subjectId,
+            relationId: alert.guardianRelationId,
+            guardianType,
+            roleCode: relation.roleType.code,
+            roleLabel: relation.roleType.label,
+            legalBasis: legalBasis || null,
+            startedAt: relation.rel.validFrom || relation.rel.createdAt,
+            endedAt: new Date(),
+            endReason: resolution === "detach" ? "maturity_reached_detach" : "maturity_reached_retain",
+            archivalTrigger: "maturity",
+            archivedByUserId: user?.id,
+            archivedByName: user?.username,
+            meta: { alertId: alert.id, alertType: alert.alertType, daysUntilMaturity: alert.daysUntilMaturity },
+          });
+
+          if (resolution === "detach") {
+            await db.update(subjectRelations).set({
+              isActive: false,
+              validTo: new Date(),
+              updatedAt: new Date(),
+              relationMeta: sql`COALESCE(relation_meta, '{}'::jsonb) || ${JSON.stringify({ deactivatedReason: "maturity_detach", deactivatedAt: new Date().toISOString(), deactivatedBy: user?.username })}::jsonb`,
+            }).where(eq(subjectRelations.id, alert.guardianRelationId));
+          } else if (resolution === "retain") {
+            await db.update(subjectRelations).set({
+              updatedAt: new Date(),
+              relationMeta: sql`COALESCE(relation_meta, '{}'::jsonb) || ${JSON.stringify({ retainedAfterMaturity: true, legalBasis: legalBasis || "obmedzená spôsobilosť", retainedAt: new Date().toISOString(), retainedBy: user?.username })}::jsonb`,
+            }).where(eq(subjectRelations.id, alert.guardianRelationId));
+          }
+        }
+      }
+
       res.json(updated);
     } catch (err: any) {
       res.status(500).json({ message: err?.message || "Chyba pri riešení alertu" });
+    }
+  });
+
+  // === GUARDIANSHIP: Universal guardian access hierarchy ===
+  const GUARDIAN_ROLE_CODE_SET = ['rodic_zakonny_zastupca'];
+
+  app.get("/api/guardianship/wards/:guardianId", isAuthenticated, async (req, res) => {
+    try {
+      const guardianId = parseInt(req.params.guardianId);
+      if (isNaN(guardianId)) return res.status(400).json({ message: "Neplatné ID" });
+      if (!await checkKlientiSubjectAccess((req as any).appUser, guardianId)) return res.status(403).json({ message: "Prístup zamietnutý" });
+
+      const page = parseInt(req.query.page as string) || 1;
+      const limit = Math.min(parseInt(req.query.limit as string) || 50, 200);
+      const search = (req.query.search as string) || "";
+      const offset = (page - 1) * limit;
+
+      let wardsQuery = db.select({
+        relation: subjectRelations,
+        roleType: relationRoleTypes,
+        ward: {
+          id: subjects.id,
+          uid: subjects.uid,
+          firstName: subjects.firstName,
+          lastName: subjects.lastName,
+          companyName: subjects.companyName,
+          type: subjects.type,
+          email: subjects.email,
+          phone: subjects.phone,
+          birthNumber: subjects.birthNumber,
+          details: subjects.details,
+          isActive: subjects.isActive,
+        },
+      })
+        .from(subjectRelations)
+        .innerJoin(relationRoleTypes, eq(subjectRelations.roleTypeId, relationRoleTypes.id))
+        .innerJoin(subjects, eq(subjectRelations.targetSubjectId, subjects.id))
+        .where(and(
+          eq(subjectRelations.sourceSubjectId, guardianId),
+          eq(subjectRelations.isActive, true),
+          eq(relationRoleTypes.category, "rodina"),
+          sql`${relationRoleTypes.code} IN ('rodic_zakonny_zastupca', 'stary_rodic')`,
+          eq(subjects.isActive, true),
+          ...(search ? [sql`(${subjects.firstName} || ' ' || ${subjects.lastName}) ILIKE ${'%' + search + '%'}`] : [])
+        ))
+        .limit(limit)
+        .offset(offset);
+
+      const wards = await wardsQuery;
+
+      const [countResult] = await db.select({ count: sql<number>`count(*)::int` })
+        .from(subjectRelations)
+        .innerJoin(relationRoleTypes, eq(subjectRelations.roleTypeId, relationRoleTypes.id))
+        .innerJoin(subjects, eq(subjectRelations.targetSubjectId, subjects.id))
+        .where(and(
+          eq(subjectRelations.sourceSubjectId, guardianId),
+          eq(subjectRelations.isActive, true),
+          eq(relationRoleTypes.category, "rodina"),
+          sql`${relationRoleTypes.code} IN ('rodic_zakonny_zastupca', 'stary_rodic')`,
+          eq(subjects.isActive, true),
+          ...(search ? [sql`(${subjects.firstName} || ' ' || ${subjects.lastName}) ILIKE ${'%' + search + '%'}`] : [])
+        ));
+
+      const computeAge = (details: any) => {
+        const dyn = details?.dynamicFields || details || {};
+        const dob = dyn.datum_narodenia || dyn.p_datum_nar;
+        if (!dob) return null;
+        const d = new Date(dob);
+        if (isNaN(d.getTime())) return null;
+        const now = new Date();
+        let age = now.getFullYear() - d.getFullYear();
+        if (now.getMonth() < d.getMonth() || (now.getMonth() === d.getMonth() && now.getDate() < d.getDate())) age--;
+        return age;
+      };
+
+      const wardsList = wards.map(w => {
+        const age = computeAge(w.ward.details);
+        const dyn = (w.ward.details as any)?.dynamicFields || (w.ward.details as any) || {};
+        return {
+          relationId: w.relation.id,
+          subjectId: w.ward.id,
+          uid: w.ward.uid,
+          name: w.ward.companyName || `${w.ward.firstName || ""} ${w.ward.lastName || ""}`.trim(),
+          type: w.ward.type,
+          email: w.ward.email,
+          phone: w.ward.phone,
+          birthNumber: w.ward.birthNumber,
+          roleCode: w.roleType.code,
+          roleLabel: w.roleType.label,
+          age,
+          isMinor: age !== null && age < 18,
+          dateOfBirth: dyn.datum_narodenia || dyn.p_datum_nar || null,
+          contextSector: w.relation.contextSector,
+          validFrom: w.relation.validFrom,
+          meta: w.relation.relationMeta,
+        };
+      });
+
+      res.json({
+        wards: wardsList,
+        total: countResult?.count || 0,
+        page,
+        limit,
+        totalPages: Math.ceil((countResult?.count || 0) / limit),
+      });
+    } catch (err: any) {
+      res.status(500).json({ message: err?.message || "Chyba pri načítaní zastupovaných osôb" });
+    }
+  });
+
+  app.get("/api/guardianship/guardians/:wardId", isAuthenticated, async (req, res) => {
+    try {
+      const wardId = parseInt(req.params.wardId);
+      if (isNaN(wardId)) return res.status(400).json({ message: "Neplatné ID" });
+      if (!await checkKlientiSubjectAccess((req as any).appUser, wardId)) return res.status(403).json({ message: "Prístup zamietnutý" });
+
+      const guardians = await db.select({
+        relation: subjectRelations,
+        roleType: relationRoleTypes,
+        guardian: {
+          id: subjects.id,
+          uid: subjects.uid,
+          firstName: subjects.firstName,
+          lastName: subjects.lastName,
+          companyName: subjects.companyName,
+          type: subjects.type,
+          email: subjects.email,
+          phone: subjects.phone,
+        },
+      })
+        .from(subjectRelations)
+        .innerJoin(relationRoleTypes, eq(subjectRelations.roleTypeId, relationRoleTypes.id))
+        .innerJoin(subjects, eq(subjectRelations.sourceSubjectId, subjects.id))
+        .where(and(
+          eq(subjectRelations.targetSubjectId, wardId),
+          eq(subjectRelations.isActive, true),
+          eq(relationRoleTypes.category, "rodina"),
+          sql`${relationRoleTypes.code} IN ('rodic_zakonny_zastupca', 'stary_rodic')`,
+          eq(subjects.isActive, true)
+        ));
+
+      const guardiansList = guardians.map(g => ({
+        relationId: g.relation.id,
+        subjectId: g.guardian.id,
+        uid: g.guardian.uid,
+        name: g.guardian.companyName || `${g.guardian.firstName || ""} ${g.guardian.lastName || ""}`.trim(),
+        type: g.guardian.type,
+        email: g.guardian.email,
+        phone: g.guardian.phone,
+        roleCode: g.roleType.code,
+        roleLabel: g.roleType.label,
+        validFrom: g.relation.validFrom,
+        meta: g.relation.relationMeta,
+      }));
+
+      res.json({ guardians: guardiansList, total: guardiansList.length });
+    } catch (err: any) {
+      res.status(500).json({ message: err?.message || "Chyba pri načítaní zákonných zástupcov" });
+    }
+  });
+
+  app.get("/api/guardianship/history/:subjectId", isAuthenticated, async (req, res) => {
+    try {
+      const subjectId = parseInt(req.params.subjectId);
+      if (isNaN(subjectId)) return res.status(400).json({ message: "Neplatné ID" });
+      if (!await checkKlientiSubjectAccess((req as any).appUser, subjectId)) return res.status(403).json({ message: "Prístup zamietnutý" });
+
+      const history = await db.select().from(guardianshipArchive).where(
+        or(
+          eq(guardianshipArchive.guardianSubjectId, subjectId),
+          eq(guardianshipArchive.wardSubjectId, subjectId)
+        )
+      ).orderBy(sql`${guardianshipArchive.createdAt} DESC`);
+
+      const enriched = [];
+      for (const h of history) {
+        let guardianName = null, wardName = null;
+        const [gSubj] = await db.select({ firstName: subjects.firstName, lastName: subjects.lastName, companyName: subjects.companyName, type: subjects.type })
+          .from(subjects).where(eq(subjects.id, h.guardianSubjectId));
+        const [wSubj] = await db.select({ firstName: subjects.firstName, lastName: subjects.lastName, companyName: subjects.companyName, type: subjects.type })
+          .from(subjects).where(eq(subjects.id, h.wardSubjectId));
+        if (gSubj) guardianName = gSubj.companyName || `${gSubj.firstName || ""} ${gSubj.lastName || ""}`.trim();
+        if (wSubj) wardName = wSubj.companyName || `${wSubj.firstName || ""} ${wSubj.lastName || ""}`.trim();
+        enriched.push({ ...h, guardianName, wardName });
+      }
+
+      res.json(enriched);
+    } catch (err: any) {
+      res.status(500).json({ message: err?.message || "Chyba pri načítaní histórie zastupovania" });
+    }
+  });
+
+  app.post("/api/guardianship/detach", isAuthenticated, async (req, res) => {
+    try {
+      const { relationId, reason, legalBasis } = req.body;
+      if (!relationId) return res.status(400).json({ message: "Chýba ID relácie" });
+
+      const user = (req as any).appUser;
+      const [relation] = await db.select({
+        rel: subjectRelations,
+        roleType: relationRoleTypes,
+      }).from(subjectRelations)
+        .innerJoin(relationRoleTypes, eq(subjectRelations.roleTypeId, relationRoleTypes.id))
+        .where(eq(subjectRelations.id, relationId));
+
+      if (!relation) return res.status(404).json({ message: "Relácia nenájdená" });
+      if (!await checkKlientiSubjectAccess(user, relation.rel.sourceSubjectId)) return res.status(403).json({ message: "Prístup zamietnutý" });
+
+      const guardianSubject = await db.select({ type: subjects.type }).from(subjects)
+        .where(eq(subjects.id, relation.rel.sourceSubjectId));
+      const guardianType = guardianSubject[0]?.type === "company" ? "po" : "fo";
+
+      await db.insert(guardianshipArchive).values({
+        guardianSubjectId: relation.rel.sourceSubjectId,
+        wardSubjectId: relation.rel.targetSubjectId,
+        relationId,
+        guardianType,
+        roleCode: relation.roleType.code,
+        roleLabel: relation.roleType.label,
+        legalBasis: legalBasis || null,
+        startedAt: relation.rel.validFrom || relation.rel.createdAt,
+        endedAt: new Date(),
+        endReason: reason || "manual_detach",
+        archivalTrigger: "manual",
+        archivedByUserId: user?.id,
+        archivedByName: user?.username,
+      });
+
+      await db.update(subjectRelations).set({
+        isActive: false,
+        validTo: new Date(),
+        updatedAt: new Date(),
+        relationMeta: sql`COALESCE(relation_meta, '{}'::jsonb) || ${JSON.stringify({ deactivatedReason: reason || "manual_detach", deactivatedAt: new Date().toISOString(), deactivatedBy: user?.username })}::jsonb`,
+      }).where(eq(subjectRelations.id, relationId));
+
+      res.json({ success: true, message: "Zastupovanie ukončené a archivované" });
+    } catch (err: any) {
+      res.status(500).json({ message: err?.message || "Chyba pri ukončení zastupovania" });
     }
   });
 

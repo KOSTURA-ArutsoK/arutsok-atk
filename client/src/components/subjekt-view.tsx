@@ -16,7 +16,7 @@ import { Switch } from "@/components/ui/switch";
 import { Separator } from "@/components/ui/separator";
 import { Card, CardContent } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Loader2, UserCheck, Scale, Users, Wallet, BarChart3, Wifi, Archive, FileText, Eye, EyeOff, ChevronRight, Check, X, Plus, AlertTriangle, ShieldAlert, Ban, Link2, Building2, User, ArrowLeftRight, History, UserPlus, ShieldCheck, Clock, Pencil, Save, MessageSquare, FileDown, MapPin, Mail, Trash2, Star, Network, ExternalLink, Heart, Baby, Crown, TreePine, Home, Bell, CheckCircle } from "lucide-react";
+import { Loader2, UserCheck, Scale, Users, Wallet, BarChart3, Wifi, Archive, FileText, Eye, EyeOff, ChevronRight, Check, X, Plus, AlertTriangle, ShieldAlert, Ban, Link2, Unlink, Building2, User, ArrowLeftRight, History, UserPlus, ShieldCheck, Clock, Pencil, Save, MessageSquare, FileDown, MapPin, Mail, Trash2, Star, Network, ExternalLink, Heart, Baby, Crown, TreePine, Home, Bell, CheckCircle, Search, Shield, BookOpen } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
@@ -2352,11 +2352,224 @@ function SubjectRelationsSection({ subjectId }: { subjectId: number }) {
           </div>
         )}
 
+        <GuardianshipSection subjectId={subjectId} />
         <FamilySpiderSection subjectId={subjectId} />
         <MaturityAlertsSection subjectId={subjectId} />
         <InheritanceSection subjectId={subjectId} />
       </CardContent>
     </Card>
+  );
+}
+
+function GuardianshipSection({ subjectId }: { subjectId: number }) {
+  const { toast } = useToast();
+  const [wardSearch, setWardSearch] = useState("");
+  const [currentPage, setCurrentPage] = useState(1);
+  const [showHistoryDialog, setShowHistoryDialog] = useState(false);
+  const [showDetachDialog, setShowDetachDialog] = useState(false);
+  const [selectedRelationId, setSelectedRelationId] = useState<number | null>(null);
+  const [detachReason, setDetachReason] = useState("");
+
+  const searchParam = wardSearch.length >= 2 ? `&search=${encodeURIComponent(wardSearch)}` : "";
+  const { data: wardsData } = useQuery<any>({
+    queryKey: ['/api/guardianship/wards', subjectId, currentPage, wardSearch],
+    queryFn: async () => {
+      const res = await apiRequest("GET", `/api/guardianship/wards/${subjectId}?page=${currentPage}&limit=50${searchParam}`);
+      return res.json();
+    },
+  });
+
+  const { data: guardiansData } = useQuery<any>({
+    queryKey: [`/api/guardianship/guardians/${subjectId}`],
+  });
+
+  const { data: historyData } = useQuery<any[]>({
+    queryKey: [`/api/guardianship/history/${subjectId}`],
+  });
+
+  const detachGuardianship = useMutation({
+    mutationFn: async (data: { relationId: number; reason: string }) => {
+      const res = await apiRequest("POST", "/api/guardianship/detach", data);
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/guardianship/wards', subjectId] });
+      queryClient.invalidateQueries({ queryKey: [`/api/guardianship/guardians/${subjectId}`] });
+      queryClient.invalidateQueries({ queryKey: [`/api/guardianship/history/${subjectId}`] });
+      queryClient.invalidateQueries({ queryKey: [`/api/family/tree/${subjectId}`] });
+      queryClient.invalidateQueries({ queryKey: [`/api/subject-relations/${subjectId}`] });
+      setShowDetachDialog(false);
+      setSelectedRelationId(null);
+      setDetachReason("");
+      toast({ title: "Zastupovanie ukončené a archivované" });
+    },
+  });
+
+  const hasWards = wardsData?.wards?.length > 0;
+  const hasGuardians = guardiansData?.guardians?.length > 0;
+  const hasHistory = historyData && historyData.length > 0;
+
+  if (!hasWards && !hasGuardians && !hasHistory) return null;
+
+  return (
+    <div className="mt-3 border border-emerald-500/20 rounded p-3 bg-emerald-500/5" data-testid="guardianship-section">
+      <div className="flex items-center gap-2 mb-3">
+        <Shield className="w-4 h-4 text-emerald-400" />
+        <span className="text-sm font-semibold text-emerald-300">Zákonné zastupovanie</span>
+        {hasWards && <Badge variant="outline" className="text-[10px] border-emerald-500/30 text-emerald-400">{wardsData.total} zastupovaných</Badge>}
+        {hasGuardians && <Badge variant="outline" className="text-[10px] border-emerald-500/30 text-emerald-400">{guardiansData.total} zástupcov</Badge>}
+        {hasHistory && (
+          <Button size="sm" variant="ghost" className="text-[10px] ml-auto text-muted-foreground"
+            onClick={() => setShowHistoryDialog(true)} data-testid="btn-guardianship-history">
+            <BookOpen className="w-3 h-3 mr-1" /> História
+          </Button>
+        )}
+      </div>
+
+      {hasGuardians && (
+        <div className="mb-3" data-testid="guardians-list">
+          <p className="text-[10px] font-medium text-emerald-400 mb-1.5">Zákonní zástupcovia tohto subjektu:</p>
+          <div className="space-y-1">
+            {guardiansData.guardians.map((g: any) => (
+              <div key={g.relationId} className="flex items-center gap-2 bg-background/50 rounded px-2 py-1.5 border border-border/50" data-testid={`guardian-${g.subjectId}`}>
+                {g.type === "company" ? <Building2 className="w-3.5 h-3.5 text-emerald-400 shrink-0" /> : <Crown className="w-3.5 h-3.5 text-emerald-400 shrink-0" />}
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-xs font-medium truncate">{g.name}</span>
+                    <span className="text-[9px] text-muted-foreground">({g.uid})</span>
+                    <Badge variant="outline" className="text-[9px] border-emerald-500/30">{g.roleLabel}</Badge>
+                    {g.type === "company" && <Badge variant="outline" className="text-[9px] border-blue-500/30 text-blue-400">PO</Badge>}
+                    {g.meta?.retainedAfterMaturity && <Badge variant="outline" className="text-[9px] border-yellow-500/30 text-yellow-400">Po dospelosti</Badge>}
+                  </div>
+                  {(g.email || g.phone) && (
+                    <div className="flex items-center gap-2 mt-0.5">
+                      {g.email && <span className="text-[9px] text-muted-foreground">{g.email}</span>}
+                      {g.phone && <span className="text-[9px] text-muted-foreground">{g.phone}</span>}
+                    </div>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {hasWards && (
+        <div data-testid="wards-list">
+          <div className="flex items-center gap-2 mb-1.5">
+            <p className="text-[10px] font-medium text-emerald-400">Zastupované osoby:</p>
+            {(wardsData.total || 0) > 10 && (
+              <div className="relative flex-1 max-w-48">
+                <Search className="w-3 h-3 absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground" />
+                <Input className="text-[10px] pl-6" placeholder="Hľadať zastupovaného..."
+                  value={wardSearch} onChange={e => { setWardSearch(e.target.value); setCurrentPage(1); }}
+                  data-testid="input-ward-search" />
+              </div>
+            )}
+          </div>
+          <div className="space-y-1">
+            {wardsData.wards.map((w: any) => (
+              <div key={w.relationId} className="flex items-center gap-2 bg-background/50 rounded px-2 py-1.5 border border-border/50" data-testid={`ward-${w.subjectId}`}>
+                <Baby className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-xs font-medium truncate">{w.name}</span>
+                    <span className="text-[9px] text-muted-foreground">({w.uid})</span>
+                    <Badge variant="outline" className="text-[9px] border-emerald-500/30">{w.roleLabel}</Badge>
+                    {w.isMinor && <Badge variant="outline" className="text-[9px] border-orange-500/30 text-orange-400">{w.age} r.</Badge>}
+                    {!w.isMinor && w.age !== null && <Badge variant="outline" className="text-[9px] border-green-500/30 text-green-400">{w.age} r. (dospelý)</Badge>}
+                    {w.meta?.retainedAfterMaturity && <Badge variant="outline" className="text-[9px] border-yellow-500/30 text-yellow-400">Zachované</Badge>}
+                  </div>
+                  <div className="flex items-center gap-2 mt-0.5">
+                    {w.dateOfBirth && <span className="text-[9px] text-muted-foreground">Nar.: {new Date(w.dateOfBirth).toLocaleDateString("sk-SK")}</span>}
+                    {w.email && <span className="text-[9px] text-muted-foreground">{w.email}</span>}
+                    {w.phone && <span className="text-[9px] text-muted-foreground">{w.phone}</span>}
+                  </div>
+                </div>
+                <Button variant="ghost" size="icon" className="p-0 text-destructive shrink-0"
+                  onClick={() => { setSelectedRelationId(w.relationId); setShowDetachDialog(true); }}
+                  data-testid={`btn-detach-ward-${w.subjectId}`}>
+                  <Unlink className="w-3 h-3" />
+                </Button>
+              </div>
+            ))}
+          </div>
+          {wardsData.totalPages > 1 && (
+            <div className="flex items-center justify-center gap-2 mt-2">
+              <Button size="sm" variant="outline" className="text-[10px]" disabled={currentPage <= 1}
+                onClick={() => setCurrentPage(p => p - 1)} data-testid="btn-wards-prev">Predchádzajúca</Button>
+              <span className="text-[10px] text-muted-foreground">{currentPage} / {wardsData.totalPages}</span>
+              <Button size="sm" variant="outline" className="text-[10px]" disabled={currentPage >= wardsData.totalPages}
+                onClick={() => setCurrentPage(p => p + 1)} data-testid="btn-wards-next">Ďalšia</Button>
+            </div>
+          )}
+        </div>
+      )}
+
+      <Dialog open={showDetachDialog} onOpenChange={setShowDetachDialog}>
+        <DialogContent className="max-w-sm" data-testid="dialog-detach-guardianship">
+          <DialogHeader>
+            <DialogTitle>Ukončiť zastupovanie</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            <p className="text-xs text-muted-foreground">
+              Ukončenie zákonného zastupovania archivuje históriu väzby. Táto akcia je nevratná.
+            </p>
+            <div>
+              <Label className="text-[10px]">Dôvod ukončenia (voliteľné)</Label>
+              <Input className="text-xs mt-1" placeholder="napr. Dospelosť, Súdne rozhodnutie..."
+                value={detachReason} onChange={e => setDetachReason(e.target.value)}
+                data-testid="input-detach-reason" />
+            </div>
+            <div className="flex gap-2">
+              <Button size="sm" variant="destructive" className="text-xs"
+                onClick={() => selectedRelationId && detachGuardianship.mutate({ relationId: selectedRelationId, reason: detachReason || "manual_detach" })}
+                disabled={detachGuardianship.isPending}
+                data-testid="btn-confirm-detach">
+                {detachGuardianship.isPending ? <Loader2 className="w-3 h-3 animate-spin mr-1" /> : <Unlink className="w-3 h-3 mr-1" />}
+                Ukončiť
+              </Button>
+              <Button size="sm" variant="outline" className="text-xs" onClick={() => setShowDetachDialog(false)}>Zrušiť</Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={showHistoryDialog} onOpenChange={setShowHistoryDialog}>
+        <DialogContent className="max-w-lg" data-testid="dialog-guardianship-history">
+          <DialogHeader>
+            <DialogTitle>História zastupovania</DialogTitle>
+          </DialogHeader>
+          {historyData && historyData.length > 0 ? (
+            <div className="space-y-2 max-h-80 overflow-y-auto">
+              {historyData.map((h: any) => (
+                <div key={h.id} className="border border-border rounded p-2 bg-muted/20 text-xs" data-testid={`history-entry-${h.id}`}>
+                  <div className="flex items-center gap-2">
+                    <Shield className="w-3 h-3 text-muted-foreground" />
+                    <span className="font-medium">{h.guardianName}</span>
+                    <ArrowLeftRight className="w-3 h-3 text-muted-foreground" />
+                    <span className="font-medium">{h.wardName}</span>
+                    <Badge variant="outline" className="text-[9px]">{h.roleLabel}</Badge>
+                  </div>
+                  <div className="flex items-center gap-3 mt-1 text-[10px] text-muted-foreground">
+                    {h.guardianType === "po" && <Badge variant="outline" className="text-[8px] border-blue-500/30 text-blue-400">Organizácia</Badge>}
+                    {h.startedAt && <span>Od: {new Date(h.startedAt).toLocaleDateString("sk-SK")}</span>}
+                    {h.endedAt && <span>Do: {new Date(h.endedAt).toLocaleDateString("sk-SK")}</span>}
+                    <span>Dôvod: {h.endReason === "maturity_reached_detach" ? "Dospelosť - oddelenie" : h.endReason === "maturity_reached_retain" ? "Dospelosť - zachovanie" : h.endReason || "—"}</span>
+                    {h.legalBasis && <span>Základ: {h.legalBasis}</span>}
+                  </div>
+                  <div className="text-[9px] text-muted-foreground mt-0.5">
+                    Archivoval: {h.archivedByName || "—"} • {h.createdAt ? new Date(h.createdAt).toLocaleString("sk-SK") : "—"}
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="text-xs text-muted-foreground text-center py-4">Žiadna história zastupovania</p>
+          )}
+        </DialogContent>
+      </Dialog>
+    </div>
   );
 }
 
@@ -2444,18 +2657,30 @@ function FamilySpiderSection({ subjectId }: { subjectId: number }) {
 
 function MaturityAlertsSection({ subjectId }: { subjectId: number }) {
   const { toast } = useToast();
+  const [showResolveDialog, setShowResolveDialog] = useState(false);
+  const [selectedAlert, setSelectedAlert] = useState<any>(null);
+  const [legalBasis, setLegalBasis] = useState("");
+
   const { data: alertsData } = useQuery<any>({
     queryKey: [`/api/maturity-alerts/subject/${subjectId}`],
   });
 
   const resolveAlert = useMutation({
-    mutationFn: async ({ id, resolution }: { id: number; resolution: string }) => {
-      const res = await apiRequest("PATCH", `/api/maturity-alerts/${id}/resolve`, { resolution });
+    mutationFn: async ({ id, resolution, legalBasis }: { id: number; resolution: string; legalBasis?: string }) => {
+      const res = await apiRequest("PATCH", `/api/maturity-alerts/${id}/resolve`, { resolution, legalBasis });
       return res.json();
     },
-    onSuccess: () => {
+    onSuccess: (_data, vars) => {
       queryClient.invalidateQueries({ queryKey: [`/api/maturity-alerts/subject/${subjectId}`] });
-      toast({ title: "Alert vyriešený" });
+      queryClient.invalidateQueries({ queryKey: ['/api/guardianship/wards', subjectId] });
+      queryClient.invalidateQueries({ queryKey: [`/api/guardianship/guardians/${subjectId}`] });
+      queryClient.invalidateQueries({ queryKey: [`/api/family/tree/${subjectId}`] });
+      queryClient.invalidateQueries({ queryKey: [`/api/guardianship/history/${subjectId}`] });
+      setShowResolveDialog(false);
+      setSelectedAlert(null);
+      setLegalBasis("");
+      const msg = vars.resolution === "detach" ? "Zastupovanie ukončené a archivované" : vars.resolution === "retain" ? "Zastupovanie zachované s právnym základom" : "Alert vyriešený";
+      toast({ title: msg });
     },
   });
 
@@ -2500,22 +2725,78 @@ function MaturityAlertsSection({ subjectId }: { subjectId: number }) {
                 </p>
                 {alert.alertType === "reached" && (
                   <p className="text-[10px] mt-1 font-medium">
-                    Subjekt dosiahol dospelosť. Aktualizujte zmluvy — zmena zákonného zástupcu na priameho vlastníka.
+                    Subjekt dosiahol dospelosť. Skontrolujte právny stav a rozhodnite o zastupovaní.
                   </p>
                 )}
               </div>
               {alert.status === "pending" && (
-                <Button size="sm" variant="outline" className="text-[10px] h-6 shrink-0"
-                  onClick={() => resolveAlert.mutate({ id: alert.id, resolution: "contract_updated" })}
-                  disabled={resolveAlert.isPending}
-                  data-testid={`btn-resolve-maturity-${alert.id}`}>
-                  <CheckCircle className="w-3 h-3 mr-1" /> Vyriešené
-                </Button>
+                <div className="flex gap-1 shrink-0">
+                  {(alert.alertType === "reached" || alert.alertType === "imminent") && alert.guardianRelationId && (
+                    <Button size="sm" variant="outline" className="text-[10px]"
+                      onClick={() => { setSelectedAlert(alert); setShowResolveDialog(true); }}
+                      data-testid={`btn-maturity-action-${alert.id}`}>
+                      <Scale className="w-3 h-3 mr-1" /> Rozhodnúť
+                    </Button>
+                  )}
+                  <Button size="sm" variant="outline" className="text-[10px]"
+                    onClick={() => resolveAlert.mutate({ id: alert.id, resolution: "contract_updated" })}
+                    disabled={resolveAlert.isPending}
+                    data-testid={`btn-resolve-maturity-${alert.id}`}>
+                    <CheckCircle className="w-3 h-3 mr-1" /> Vyriešené
+                  </Button>
+                </div>
               )}
             </div>
           );
         })}
       </div>
+
+      <Dialog open={showResolveDialog} onOpenChange={setShowResolveDialog}>
+        <DialogContent className="max-w-md" data-testid="dialog-maturity-resolve">
+          <DialogHeader>
+            <DialogTitle>Kontrola právneho stavu - Dospelosť</DialogTitle>
+          </DialogHeader>
+          {selectedAlert && (
+            <div className="space-y-4">
+              <p className="text-xs text-muted-foreground">
+                Subjekt dosiahol/dosiahne dospelosť. Vyberte, ako naložiť so zákonným zastupovaním:
+              </p>
+              <div className="space-y-2">
+                <div className="border border-border rounded p-3 bg-muted/20">
+                  <p className="text-xs font-medium mb-1">Možnosť 1: Oddeliť subjekt</p>
+                  <p className="text-[10px] text-muted-foreground mb-2">
+                    Ukončí zákonné zastupovanie. Subjekt bude samostatný. Vhodné pre osoby, ktoré dosiahli plnú právnu spôsobilosť.
+                  </p>
+                  <Button size="sm" variant="destructive" className="text-[10px]"
+                    onClick={() => resolveAlert.mutate({ id: selectedAlert.id, resolution: "detach" })}
+                    disabled={resolveAlert.isPending}
+                    data-testid="btn-detach-guardianship">
+                    <Unlink className="w-3 h-3 mr-1" /> Oddeliť (ukončiť zastupovanie)
+                  </Button>
+                </div>
+                <div className="border border-border rounded p-3 bg-muted/20">
+                  <p className="text-xs font-medium mb-1">Možnosť 2: Zachovať väzbu</p>
+                  <p className="text-[10px] text-muted-foreground mb-2">
+                    Ponechá zákonné zastupovanie aj po dosiahnutí dospelosti. Vhodné pre osoby s obmedzenou právnou spôsobilosťou.
+                  </p>
+                  <div className="mb-2">
+                    <Label className="text-[10px]">Právny základ (voliteľné)</Label>
+                    <Input className="text-xs mt-1" placeholder="napr. Obmedzená spôsobilosť, Súdne rozhodnutie..."
+                      value={legalBasis} onChange={e => setLegalBasis(e.target.value)}
+                      data-testid="input-legal-basis" />
+                  </div>
+                  <Button size="sm" variant="outline" className="text-[10px]"
+                    onClick={() => resolveAlert.mutate({ id: selectedAlert.id, resolution: "retain", legalBasis: legalBasis || "obmedzená spôsobilosť" })}
+                    disabled={resolveAlert.isPending}
+                    data-testid="btn-retain-guardianship">
+                    <Link2 className="w-3 h-3 mr-1" /> Zachovať zastupovanie
+                  </Button>
+                </div>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
