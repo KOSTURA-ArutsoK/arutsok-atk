@@ -489,9 +489,6 @@ export function SubjectProfileModuleC({ subject }: ModuleCProps) {
 
   const saveMutation = useMutation({
     mutationFn: async () => {
-      if (subject.id === 0) {
-        throw new Error("Nie je možné uložiť prázdny profil. Najprv vyberte alebo vytvorte subjekt.");
-      }
       const payload: Record<string, any> = {};
       const cleanDynamic = { ...dynamicValues };
 
@@ -521,11 +518,23 @@ export function SubjectProfileModuleC({ subject }: ModuleCProps) {
         dynamicFields: dynWithDocs,
       };
 
+      if (subject.id === 0) {
+        payload.type = activeClientType || "person";
+        payload.changeReason = editReason || "Vytvorenie cez Profil subjektu";
+        const res = await apiRequest("POST", "/api/subjects", payload);
+        return res;
+      }
+
       payload.changeReason = editReason || "Úprava cez Profil subjektu";
       return apiRequest("PATCH", `/api/subjects/${subject.id}`, payload);
     },
-    onSuccess: () => {
+    onSuccess: (data: any) => {
       queryClient.invalidateQueries({ queryKey: ["/api/subjects"] });
+      if (subject.id === 0 && data?.id) {
+        toast({ title: "Subjekt vytvorený", description: "Nový subjekt bol úspešne vytvorený." });
+        window.location.href = `/profil-subjektu?id=${data.id}`;
+        return;
+      }
       queryClient.invalidateQueries({ queryKey: ["/api/subjects", subject.id] });
       queryClient.invalidateQueries({ queryKey: ["/api/subjects", subject.id, "field-history"] });
       toast({ title: "Zmeny uložené", description: "Všetky zmeny boli úspešne zapísané do profilu." });
@@ -906,7 +915,7 @@ export function SubjectProfileModuleC({ subject }: ModuleCProps) {
               <Button
                 size="sm"
                 onClick={() => saveMutation.mutate()}
-                disabled={saveMutation.isPending || subject.id === 0}
+                disabled={saveMutation.isPending}
                 data-testid="btn-save-edit"
               >
                 {saveMutation.isPending ? <Loader2 className="w-3.5 h-3.5 mr-1 animate-spin" /> : <Save className="w-3.5 h-3.5 mr-1" />}
@@ -918,8 +927,7 @@ export function SubjectProfileModuleC({ subject }: ModuleCProps) {
               size="sm"
               variant="outline"
               onClick={() => setIsEditing(true)}
-              disabled={subject.id === 0}
-              title={subject.id === 0 ? "Najprv vyberte subjekt" : "Upraviť profil"}
+              title="Upraviť profil"
               data-testid="btn-start-edit"
             >
               <Pencil className="w-3.5 h-3.5 mr-1" />
