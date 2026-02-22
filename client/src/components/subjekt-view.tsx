@@ -24,6 +24,53 @@ import { Label } from "@/components/ui/label";
 import { formatDateSlovak } from "@/lib/utils";
 import { SubjectProfilePhoto } from "@/components/subject-profile-photo";
 
+const SK_BANK_CODES: Record<string, string> = {
+  "0200": "Všeobecná úverová banka (VÚB)",
+  "0720": "Národná banka Slovenska",
+  "0900": "Slovenská sporiteľňa",
+  "1100": "Tatra banka",
+  "1111": "UniCredit Bank",
+  "3000": "Slovenská záručná a rozvojová banka",
+  "3100": "Sberbank Slovensko",
+  "5200": "OTP Banka Slovensko",
+  "5600": "Prima banka Slovensko",
+  "5900": "Prvá stavebná sporiteľňa",
+  "6500": "Poštová banka",
+  "7500": "Československá obchodná banka (ČSOB)",
+  "8050": "Commerzbank",
+  "8100": "Komerční banka",
+  "8120": "Privatbanka",
+  "8130": "Citibank Europe",
+  "8160": "EXIMBANKA SR",
+  "8170": "Komerční banka Bratislava",
+  "8180": "Štátna pokladnica",
+  "8320": "OTP Banka",
+  "8330": "Fio banka",
+  "8360": "mBank",
+  "8370": "Oberbank",
+  "8410": "365.bank",
+};
+
+function getBankFromIban(iban: string): string | null {
+  const cleaned = iban.replace(/\s/g, "").toUpperCase();
+  if (!cleaned.startsWith("SK") || cleaned.length !== 24) return null;
+  const bankCode = cleaned.substring(4, 8);
+  return SK_BANK_CODES[bankCode] || null;
+}
+
+function validateIban(iban: string): boolean {
+  const cleaned = iban.replace(/\s/g, "").toUpperCase();
+  if (cleaned.length < 15 || cleaned.length > 34) return false;
+  if (!/^[A-Z]{2}[0-9]{2}[A-Z0-9]+$/.test(cleaned)) return false;
+  const rearranged = cleaned.substring(4) + cleaned.substring(0, 4);
+  const numStr = rearranged.replace(/[A-Z]/g, ch => String(ch.charCodeAt(0) - 55));
+  let remainder = 0;
+  for (let i = 0; i < numStr.length; i++) {
+    remainder = (remainder * 10 + parseInt(numStr[i])) % 97;
+  }
+  return remainder === 1;
+}
+
 const TAB_ICONS: Record<string, typeof UserCheck> = {
   UserCheck, Scale, Users, Wallet, BarChart3, Wifi, Archive,
   FileText, Shield: Scale, Heart: Users, Building2,
@@ -53,9 +100,20 @@ const FIELD_HINTS: Record<string, string> = {
   data_processing: "Súhlas so spracovaním osobných údajov nad rámec zmluvy",
   third_party: "Súhlas s poskytnutím údajov partnerským spoločnostiam",
   profiling: "Súhlas s automatizovaným profilovaním na základe správania",
+  ekon_pracovny_pomer: "Aktuálny pracovný pomer klienta – dôležitý pre posudzovanie bonity",
+  ekon_zamestnavatel: "Názov zamestnávateľa alebo vlastnej firmy (SZČO/SRO)",
+  ekon_pozicia: "Pracovná pozícia u zamestnávateľa",
+  ekon_datum_nastupu: "Dátum nástupu do pracovného pomeru",
+  ekon_cisty_prijem: "Čistý mesačný príjem po zdanení a odvodoch",
+  ekon_zdroj_prijmu: "Zdroj príjmu (mzda, predaj majetku, dedičstvo) – dôležité pre AML",
+  ekon_hlavny_iban: "Hlavný bankový účet klienta vo formáte IBAN (napr. SK31 1200 0000 1987 4263 7541)",
+  ekon_banka: "Názov banky – automaticky doplnený podľa IBAN kódu",
+  ekon_peo: "Politicky exponovaná osoba podľa AML zákona – verejná funkcia alebo vzťah k nej",
+  ekon_peo_zdovodnenie: "Zdôvodnenie PEO statusu – konkrétna funkcia alebo vzťah",
+  ekon_kuv: "Konečný užívateľ výhod – osoba profitujúca z obchodného vzťahu",
 };
 
-const HINTED_CATEGORIES = new Set(["aml", "marketingove", "bonita", "behavioralne"]);
+const HINTED_CATEGORIES = new Set(["aml", "marketingove", "bonita", "behavioralne", "ekonomika"]);
 
 const CATEGORY_HINTS: Record<string, string> = {
   aml: "Údaje vyžadované zákonom o AML (297/2008 Z.z.) – identifikácia konečných užívateľov výhod a politicky exponovaných osôb",
@@ -63,6 +121,7 @@ const CATEGORY_HINTS: Record<string, string> = {
   bonita: "Bodový systém hodnotenia klienta – automatický výpočet na základe histórie zmlúv",
   behavioralne: "Sledovanie správania klienta v digitálnom prostredí pre personalizáciu služieb",
   nezatriedene: "Údaje zo zmlúv, ktoré nie sú priradené do žiadnej štandardnej kategórie. Ak sa typ údaja vyskytne u viac ako 20 klientov, je označený ako nový trend.",
+  ekonomika: "Ekonomický profil klienta – zamestnanie, príjmy, finančné údaje a AML legislatívny status. Každá zmena príjmu alebo zamestnávateľa je sledovaná v histórii.",
 };
 
 const FIELD_TO_CATEGORY: Record<string, string> = {
@@ -98,6 +157,9 @@ const FIELD_TO_CATEGORY: Record<string, string> = {
   statutar_meno_1: "pravne", statutar_rc_1: "pravne", statutar_funkcia_1: "pravne",
   statutar_meno_2: "pravne", statutar_rc_2: "pravne", statutar_funkcia_2: "pravne",
   cgn_rating: "bonita",
+  ekon_pracovny_pomer: "ekonomika", ekon_zamestnavatel: "ekonomika", ekon_pozicia: "ekonomika", ekon_datum_nastupu: "ekonomika",
+  ekon_cisty_prijem: "ekonomika", ekon_zdroj_prijmu: "ekonomika", ekon_hlavny_iban: "ekonomika", ekon_banka: "ekonomika",
+  ekon_peo: "ekonomika", ekon_peo_zdovodnenie: "ekonomika", ekon_kuv: "ekonomika",
 };
 
 const CONSENT_TYPES = [
@@ -165,7 +227,9 @@ function SubjectViewField({
     ? value === "true" ? "Áno" : value === "false" ? "Nie" : "-"
     : field.fieldType === "date" && value
       ? formatDateSlovak(value)
-      : value || "-";
+      : field.unit && value
+        ? `${value} ${field.unit}`
+        : value || "-";
 
   const commitEdit = () => {
     setEditing(false);
@@ -319,6 +383,10 @@ function CategoriesAccordion({
               ) : isEditing ? (
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                   {catFields.map(field => {
+                    if (field.visibilityRule) {
+                      const depVal = getEditableValue(field.visibilityRule.dependsOn);
+                      if (depVal !== field.visibilityRule.value) return null;
+                    }
                     const currentVal = getEditableValue(field.fieldKey);
                     const isModified = editValues[field.fieldKey] !== undefined && editValues[field.fieldKey] !== getFieldValue(field.fieldKey);
                     const fieldHint = HINTED_CATEGORIES.has(cat.code) ? FIELD_HINTS[field.fieldKey] : undefined;
@@ -361,7 +429,7 @@ function CategoriesAccordion({
                             />
                             <span className="text-xs text-muted-foreground">{currentVal === "true" ? "Áno" : "Nie"}</span>
                           </div>
-                        ) : field.fieldType === "select" && field.options.length > 0 ? (
+                        ) : (field.fieldType === "select" || field.fieldType === "jedna_moznost") && field.options.length > 0 ? (
                           <Select value={currentVal} onValueChange={v => setEditFieldValue(field.fieldKey, v)}>
                             <SelectTrigger className="h-9 text-xs" data-testid={`select-edit-${field.fieldKey}`}>
                               <SelectValue placeholder="Vyberte..." />
@@ -380,13 +448,42 @@ function CategoriesAccordion({
                             className="text-xs"
                             data-testid={`textarea-edit-${field.fieldKey}`}
                           />
+                        ) : field.fieldKey === "ekon_hlavny_iban" ? (
+                          <div className="space-y-1">
+                            <Input
+                              type="text"
+                              value={currentVal}
+                              onChange={e => {
+                                const raw = e.target.value;
+                                setEditFieldValue(field.fieldKey, raw);
+                                const bank = getBankFromIban(raw);
+                                if (bank) {
+                                  setEditFieldValue("ekon_banka", bank);
+                                } else if (raw && validateIban(raw)) {
+                                  setEditFieldValue("ekon_banka", "");
+                                } else if (!raw) {
+                                  setEditFieldValue("ekon_banka", "");
+                                }
+                              }}
+                              className={`h-9 text-xs ${isModified ? "border-primary/60" : ""} ${currentVal && !validateIban(currentVal) ? "border-red-500/80" : currentVal && validateIban(currentVal) ? "border-emerald-500/80" : ""}`}
+                              placeholder="SK31 1200 0000 1987 4263 7541"
+                              data-testid={`input-edit-${field.fieldKey}`}
+                            />
+                            {currentVal && !validateIban(currentVal) && (
+                              <p className="text-[10px] text-red-400" data-testid="iban-validation-error">Neplatný formát IBAN</p>
+                            )}
+                            {currentVal && validateIban(currentVal) && (
+                              <p className="text-[10px] text-emerald-400" data-testid="iban-validation-ok">IBAN je platný {getBankFromIban(currentVal) ? `– ${getBankFromIban(currentVal)}` : ""}</p>
+                            )}
+                          </div>
                         ) : (
                           <Input
-                            type={field.fieldType === "date" ? "date" : "text"}
+                            type={field.fieldType === "date" ? "date" : field.fieldType === "number" || field.fieldType === "desatinne_cislo" ? "number" : "text"}
                             value={currentVal}
                             onChange={e => setEditFieldValue(field.fieldKey, e.target.value)}
                             className={`h-9 text-xs ${isModified ? "border-primary/60" : ""}`}
                             placeholder={field.label}
+                            step={field.fieldType === "desatinne_cislo" ? "0.01" : undefined}
                             data-testid={`input-edit-${field.fieldKey}`}
                           />
                         )}
@@ -397,6 +494,10 @@ function CategoriesAccordion({
               ) : (
                 <div className="flex flex-wrap gap-2">
                   {catFields.map(field => {
+                    if (field.visibilityRule) {
+                      const depVal = getFieldValue(field.visibilityRule.dependsOn);
+                      if (depVal !== field.visibilityRule.value) return null;
+                    }
                     const value = getFieldValue(field.fieldKey);
                     if (!value) return null;
                     const allVals: Record<string, string> = {};

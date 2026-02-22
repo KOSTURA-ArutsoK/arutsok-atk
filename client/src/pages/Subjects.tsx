@@ -179,6 +179,17 @@ const STATIC_FIELD_LABELS: Record<string, string> = {
   addr_korespondencna_psc: "Korešpondenčná – PSČ",
   addr_korespondencna_stat: "Korešpondenčná – Štát",
   addr_hlavna: "Hlavná adresa",
+  ekon_pracovny_pomer: "Pracovný pomer",
+  ekon_zamestnavatel: "Zamestnávateľ / Názov firmy",
+  ekon_pozicia: "Pracovná pozícia",
+  ekon_datum_nastupu: "Dátum nástupu",
+  ekon_cisty_prijem: "Čistý mesačný príjem",
+  ekon_zdroj_prijmu: "Zdroj príjmu",
+  ekon_hlavny_iban: "Hlavný IBAN",
+  ekon_banka: "Banka",
+  ekon_peo: "PEO (Politicky exponovaná osoba)",
+  ekon_peo_zdovodnenie: "PEO – Zdôvodnenie",
+  ekon_kuv: "Konečný užívateľ výhod",
 };
 
 function getFieldLabel(fieldKey: string, allFields?: StaticField[]): string {

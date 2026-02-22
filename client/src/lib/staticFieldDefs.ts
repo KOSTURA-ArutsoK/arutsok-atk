@@ -54,6 +54,10 @@ const FO_PANEL_ZAKONNE = 25;
 const FO_PANEL_ZMLUVNE = 26;
 const FO_PANEL_MAJETKOVE = 27;
 
+const FO_PANEL_EKON_ZAMESTNANIE = 40;
+const FO_PANEL_EKON_PRIJMY = 41;
+const FO_PANEL_EKON_AML = 42;
+
 const SZCO_SECTION_POVINNE = 11;
 const SZCO_SECTION_DOPLNKOVE = 18;
 const SZCO_SECTION_VOLITELNE = 12;
@@ -99,6 +103,9 @@ export const FO_PANELS: StaticPanel[] = [
   { id: FO_PANEL_ZAKONNE, clientTypeId: 1, sectionId: FO_SECTION_DOPLNKOVE, name: "Zákonné údaje", gridColumns: 2, sortOrder: 3 },
   { id: FO_PANEL_ZMLUVNE, clientTypeId: 1, sectionId: FO_SECTION_DOPLNKOVE, name: "Bankové údaje", gridColumns: 3, sortOrder: 4 },
   { id: FO_PANEL_MAJETKOVE, clientTypeId: 1, sectionId: FO_SECTION_DOPLNKOVE, name: "Majetkové údaje", gridColumns: 2, sortOrder: 5 },
+  { id: FO_PANEL_EKON_ZAMESTNANIE, clientTypeId: 1, sectionId: FO_SECTION_DOPLNKOVE, name: "Zamestnanie", gridColumns: 4, sortOrder: 6 },
+  { id: FO_PANEL_EKON_PRIJMY, clientTypeId: 1, sectionId: FO_SECTION_DOPLNKOVE, name: "Príjmy a financie", gridColumns: 4, sortOrder: 7 },
+  { id: FO_PANEL_EKON_AML, clientTypeId: 1, sectionId: FO_SECTION_DOPLNKOVE, name: "Legislatívny status (AML)", gridColumns: 2, sortOrder: 8 },
 ];
 
 export const FO_FIELDS: StaticField[] = [
@@ -198,6 +205,23 @@ export const FO_FIELDS: StaticField[] = [
   // === DOPLNKOVÉ: Majetkové === ŠPZ | VIN (vedľa seba)
   { id: 530, clientTypeId: 1, sectionId: FO_SECTION_DOPLNKOVE, panelId: FO_PANEL_MAJETKOVE, fieldKey: "spz", label: "ŠPZ / EČV", shortLabel: "ŠPZ", fieldType: "short_text", isRequired: false, isHidden: false, options: [], defaultValue: null, visibilityRule: null, unit: null, decimalPlaces: 2, fieldCategory: "doplnkove", categoryCode: "majetkove", sortOrder: 10, rowNumber: 0, widthPercent: 50 },
   { id: 531, clientTypeId: 1, sectionId: FO_SECTION_DOPLNKOVE, panelId: FO_PANEL_MAJETKOVE, fieldKey: "vin", label: "VIN", fieldType: "short_text", isRequired: false, isHidden: false, options: [], defaultValue: null, visibilityRule: null, unit: null, decimalPlaces: 2, fieldCategory: "doplnkove", categoryCode: "majetkove", sortOrder: 20, rowNumber: 0, widthPercent: 50 },
+
+  // === EKONOMIKA: Zamestnanie === Pracovný pomer → Zamestnávateľ → Pozícia → Dátum nástupu
+  { id: 600, clientTypeId: 1, sectionId: FO_SECTION_DOPLNKOVE, panelId: FO_PANEL_EKON_ZAMESTNANIE, fieldKey: "ekon_pracovny_pomer", label: "Pracovný pomer", shortLabel: "Prac. pomer", fieldType: "jedna_moznost", isRequired: false, isHidden: false, options: ["Zamestnanec", "Podnikateľ - SZČO", "Konateľ SRO", "Študent", "Dôchodca", "Nezamestnaný"], defaultValue: null, visibilityRule: null, unit: null, decimalPlaces: 2, fieldCategory: "doplnkove", categoryCode: "ekonomika", sortOrder: 10, rowNumber: 0, widthPercent: 25 },
+  { id: 601, clientTypeId: 1, sectionId: FO_SECTION_DOPLNKOVE, panelId: FO_PANEL_EKON_ZAMESTNANIE, fieldKey: "ekon_zamestnavatel", label: "Zamestnávateľ / Názov firmy", shortLabel: "Zamestnávateľ", fieldType: "short_text", isRequired: false, isHidden: false, options: [], defaultValue: null, visibilityRule: null, unit: null, decimalPlaces: 2, fieldCategory: "doplnkove", categoryCode: "ekonomika", sortOrder: 20, rowNumber: 0, widthPercent: 25 },
+  { id: 602, clientTypeId: 1, sectionId: FO_SECTION_DOPLNKOVE, panelId: FO_PANEL_EKON_ZAMESTNANIE, fieldKey: "ekon_pozicia", label: "Pracovná pozícia", shortLabel: "Pozícia", fieldType: "short_text", isRequired: false, isHidden: false, options: [], defaultValue: null, visibilityRule: null, unit: null, decimalPlaces: 2, fieldCategory: "doplnkove", categoryCode: "ekonomika", sortOrder: 30, rowNumber: 0, widthPercent: 25 },
+  { id: 603, clientTypeId: 1, sectionId: FO_SECTION_DOPLNKOVE, panelId: FO_PANEL_EKON_ZAMESTNANIE, fieldKey: "ekon_datum_nastupu", label: "Dátum nástupu", shortLabel: "Dát. nástupu", fieldType: "date", isRequired: false, isHidden: false, options: [], defaultValue: null, visibilityRule: null, unit: null, decimalPlaces: 2, fieldCategory: "doplnkove", categoryCode: "ekonomika", sortOrder: 40, rowNumber: 0, widthPercent: 25 },
+
+  // === EKONOMIKA: Príjmy a financie === Čistý mes. príjem → Zdroj príjmu → Hlavný IBAN → Banka
+  { id: 610, clientTypeId: 1, sectionId: FO_SECTION_DOPLNKOVE, panelId: FO_PANEL_EKON_PRIJMY, fieldKey: "ekon_cisty_prijem", label: "Čistý mesačný príjem", shortLabel: "Čistý príjem", fieldType: "desatinne_cislo", isRequired: false, isHidden: false, options: [], defaultValue: null, visibilityRule: null, unit: "€", decimalPlaces: 2, fieldCategory: "doplnkove", categoryCode: "ekonomika", sortOrder: 50, rowNumber: 0, widthPercent: 25 },
+  { id: 611, clientTypeId: 1, sectionId: FO_SECTION_DOPLNKOVE, panelId: FO_PANEL_EKON_PRIJMY, fieldKey: "ekon_zdroj_prijmu", label: "Zdroj príjmu", shortLabel: "Zdroj príjmu", fieldType: "short_text", isRequired: false, isHidden: false, options: [], defaultValue: null, visibilityRule: null, unit: null, decimalPlaces: 2, fieldCategory: "doplnkove", categoryCode: "ekonomika", sortOrder: 60, rowNumber: 0, widthPercent: 25 },
+  { id: 612, clientTypeId: 1, sectionId: FO_SECTION_DOPLNKOVE, panelId: FO_PANEL_EKON_PRIJMY, fieldKey: "ekon_hlavny_iban", label: "Hlavný IBAN", shortLabel: "IBAN", fieldType: "short_text", isRequired: false, isHidden: false, options: [], defaultValue: null, visibilityRule: null, unit: null, decimalPlaces: 2, fieldCategory: "doplnkove", categoryCode: "ekonomika", sortOrder: 70, rowNumber: 0, widthPercent: 25 },
+  { id: 613, clientTypeId: 1, sectionId: FO_SECTION_DOPLNKOVE, panelId: FO_PANEL_EKON_PRIJMY, fieldKey: "ekon_banka", label: "Banka", shortLabel: "Banka", fieldType: "short_text", isRequired: false, isHidden: false, options: [], defaultValue: null, visibilityRule: null, unit: null, decimalPlaces: 2, fieldCategory: "doplnkove", categoryCode: "ekonomika", sortOrder: 80, rowNumber: 0, widthPercent: 25 },
+
+  // === EKONOMIKA: Legislatívny status (AML) === PEO Áno/Nie → PEO zdôvodnenie → Konečný užívateľ výhod
+  { id: 620, clientTypeId: 1, sectionId: FO_SECTION_DOPLNKOVE, panelId: FO_PANEL_EKON_AML, fieldKey: "ekon_peo", label: "PEO (Politicky exponovaná osoba)", shortLabel: "PEO", fieldType: "jedna_moznost", isRequired: false, isHidden: false, options: ["Áno", "Nie"], defaultValue: "Nie", visibilityRule: null, unit: null, decimalPlaces: 2, fieldCategory: "doplnkove", categoryCode: "ekonomika", sortOrder: 90, rowNumber: 0, widthPercent: 50 },
+  { id: 621, clientTypeId: 1, sectionId: FO_SECTION_DOPLNKOVE, panelId: FO_PANEL_EKON_AML, fieldKey: "ekon_peo_zdovodnenie", label: "PEO – Zdôvodnenie", shortLabel: "PEO zdôvodnenie", fieldType: "short_text", isRequired: false, isHidden: false, options: [], defaultValue: null, visibilityRule: { dependsOn: "ekon_peo", value: "Áno" }, unit: null, decimalPlaces: 2, fieldCategory: "doplnkove", categoryCode: "ekonomika", sortOrder: 100, rowNumber: 0, widthPercent: 50 },
+  { id: 622, clientTypeId: 1, sectionId: FO_SECTION_DOPLNKOVE, panelId: FO_PANEL_EKON_AML, fieldKey: "ekon_kuv", label: "Konečný užívateľ výhod", shortLabel: "KUV", fieldType: "short_text", isRequired: false, isHidden: false, options: [], defaultValue: null, visibilityRule: null, unit: null, decimalPlaces: 2, fieldCategory: "doplnkove", categoryCode: "ekonomika", sortOrder: 110, rowNumber: 1, widthPercent: 100 },
 
   // === VOLITEĽNÉ === CGN Rating
   { id: 209, clientTypeId: 1, sectionId: FO_SECTION_VOLITELNE, panelId: null, fieldKey: "cgn_rating", label: "CGN Rating", shortLabel: "CGN", fieldType: "jedna_moznost", isRequired: false, isHidden: false, options: ["A", "B", "C", "D", "E"], defaultValue: null, visibilityRule: null, unit: null, decimalPlaces: 2, fieldCategory: "volitelne", categoryCode: "bonita", sortOrder: 10, rowNumber: 0, widthPercent: 100 },
