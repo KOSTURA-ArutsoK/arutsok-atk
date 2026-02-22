@@ -6192,7 +6192,7 @@ export async function registerRoutes(
         return res.status(403).json({ message: "Subjekt nepatrí do vašej aktívnej spoločnosti" });
       }
 
-      const { changeReason, details, ...rawFields } = req.body;
+      const { changeReason, changeContext, details, ...rawFields } = req.body;
 
       const updates: Record<string, any> = {};
       for (const [key, val] of Object.entries(rawFields)) {
@@ -6211,7 +6211,11 @@ export async function registerRoutes(
 
       if (changeReason) updates.changeReason = changeReason;
 
-      const updated = await storage.updateSubject(subjectId, updates);
+      const appUser = req.appUser;
+      const userName = appUser ? [appUser.firstName, appUser.lastName].filter(Boolean).join(' ') || appUser.email || 'Neznámy' : undefined;
+      const userId = appUser?.id;
+
+      const updated = await storage.updateSubject(subjectId, updates, userId, userName, changeContext);
       await logAudit(req, {
         action: "UPDATE",
         module: "subjects",

@@ -1118,7 +1118,7 @@ export class DatabaseStorage implements IStorage {
     return subject;
   }
 
-  async updateSubject(id: number, updates: UpdateSubjectRequest) {
+  async updateSubject(id: number, updates: UpdateSubjectRequest, userId?: number, userName?: string, changeContext?: string) {
     const original = await this.getSubject(id);
     if (!original) throw new Error("Subject not found");
     
@@ -1131,7 +1131,7 @@ export class DatabaseStorage implements IStorage {
 
     const { changeReason, ...subjectUpdates } = updates;
 
-    await this.recordFieldChanges(id, original, subjectUpdates, undefined, changeReason);
+    await this.recordFieldChanges(id, original, subjectUpdates, userId, changeReason, userName, changeContext);
 
     const [updated] = await db.update(subjects).set(subjectUpdates).where(eq(subjects.id, id)).returning();
     return updated;
@@ -1181,6 +1181,7 @@ export class DatabaseStorage implements IStorage {
       restoredFromDate: subjectFieldHistory.restoredFromDate,
       validFrom: subjectFieldHistory.validFrom,
       validTo: subjectFieldHistory.validTo,
+      changeContext: subjectFieldHistory.changeContext,
     })
       .from(subjectFieldHistory)
       .leftJoin(appUsers, eq(subjectFieldHistory.changedByUserId, appUsers.id))
@@ -1197,7 +1198,7 @@ export class DatabaseStorage implements IStorage {
     return rows.map(r => r.fieldKey);
   }
 
-  async recordFieldChanges(subjectId: number, original: any, updated: any, userId?: number, reason?: string, userName?: string): Promise<void> {
+  async recordFieldChanges(subjectId: number, original: any, updated: any, userId?: number, reason?: string, userName?: string, changeContext?: string): Promise<void> {
     const historyEntries: InsertSubjectFieldHistory[] = [];
     const staticKeys = ['firstName', 'lastName', 'companyName', 'email', 'phone', 'birthNumber',
       'idCardNumber', 'iban', 'swift', 'kikId', 'commissionLevel', 'listStatus', 'cgnRating',
@@ -1216,6 +1217,7 @@ export class DatabaseStorage implements IStorage {
           changedByUserId: userId ?? null,
           changedByName: userName ?? null,
           changeReason: reason ?? null,
+          changeContext: changeContext ?? null,
         });
       }
     }
@@ -1238,6 +1240,7 @@ export class DatabaseStorage implements IStorage {
           changedByUserId: userId ?? null,
           changedByName: userName ?? null,
           changeReason: reason ?? null,
+          changeContext: changeContext ?? null,
         });
       }
     }
