@@ -11,6 +11,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Plus, Search, User, Building2, AlertTriangle, Eye, Calendar, Briefcase, ArrowRight, ArrowLeft, ExternalLink, History, Clock, Wallet, Loader2, CheckCircle2, Pencil, Lock, Users, X, Info, Link2, Unlink, Trash2, CreditCard, Archive, Ban } from "lucide-react";
 import { SubjectPhotoThumbnail } from "@/components/subject-profile-photo";
 import { ActivityTimeline } from "@/components/activity-timeline";
+import { FieldHistoryIndicator } from "@/components/field-history-indicator";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -347,6 +348,11 @@ function SubjectFieldHistoryPanel({ subjectId, clientTypeId }: { subjectId: numb
                   <span className="font-semibold text-foreground">{label}</span>
                   <span className="text-muted-foreground">•</span>
                   <span className="text-muted-foreground">{changedDate}</span>
+                  {entry.changeContext && (
+                    <Badge variant="outline" className="text-[10px] border-cyan-500/40 text-cyan-600" data-testid={`badge-context-${entry.id}`}>
+                      {entry.changeContext}
+                    </Badge>
+                  )}
                 </div>
 
                 <div className="flex items-center gap-2 flex-wrap">
@@ -1603,12 +1609,13 @@ function InitialRegistrationModal({
   );
 }
 
-function DynamicFieldInput({ field, dynamicValues, setDynamicValues, hasError, disabled }: {
+function DynamicFieldInput({ field, dynamicValues, setDynamicValues, hasError, disabled, subjectId }: {
   field: StaticField;
   dynamicValues: Record<string, string>;
   setDynamicValues: React.Dispatch<React.SetStateAction<Record<string, string>>>;
   hasError?: boolean;
   disabled?: boolean;
+  subjectId?: number;
 }) {
   const numberFieldValidity = useMemo(() => {
     return isNumberFieldWithExpiredPair(field.fieldKey, dynamicValues);
@@ -1617,18 +1624,23 @@ function DynamicFieldInput({ field, dynamicValues, setDynamicValues, hasError, d
   const errorBorder = hasError ? "border-red-500 ring-1 ring-red-500" : isExpiredNumber ? "border-red-500/60 bg-red-500/10 ring-1 ring-red-500/30" : "";
   return (
     <div className="space-y-1">
-      <Label className={`text-xs truncate block ${hasError ? "text-red-500" : isExpiredNumber ? "text-red-500 font-semibold" : "text-muted-foreground"}`}>
-        {field.shortLabel ? (
-          <>
-            <span className="hidden lg:inline">{field.label || field.fieldKey}</span>
-            <span className="inline lg:hidden">{field.shortLabel}</span>
-          </>
-        ) : (
-          <span>{field.label || field.fieldKey}</span>
+      <div className="flex items-center gap-1">
+        <Label className={`text-xs truncate block ${hasError ? "text-red-500" : isExpiredNumber ? "text-red-500 font-semibold" : "text-muted-foreground"}`}>
+          {field.shortLabel ? (
+            <>
+              <span className="hidden lg:inline">{field.label || field.fieldKey}</span>
+              <span className="inline lg:hidden">{field.shortLabel}</span>
+            </>
+          ) : (
+            <span>{field.label || field.fieldKey}</span>
+          )}
+          {field.isRequired ? " *" : ""}
+          {isExpiredNumber && <span className="ml-1 text-red-500 text-[9px]">(neplatný doklad)</span>}
+        </Label>
+        {subjectId && (
+          <FieldHistoryIndicator subjectId={subjectId} fieldKey={field.fieldKey} fieldLabel={field.label || field.fieldKey} />
         )}
-        {field.isRequired ? " *" : ""}
-        {isExpiredNumber && <span className="ml-1 text-red-500 text-[9px]">(neplatný doklad)</span>}
-      </Label>
+      </div>
       {field.fieldType === "long_text" ? (
         <Textarea
           value={dynamicValues[field.fieldKey] || ""}
@@ -3352,7 +3364,7 @@ function SubjectEditModal({ subject, onClose }: { subject: Subject; onClose: () 
                     const augField = isReq(key) && !field.isRequired ? { ...field, isRequired: true } as StaticField : field;
                     return (
                       <div key={key} style={{ pointerEvents: disabled ? "none" : "auto" }}>
-                        <DynamicFieldInput field={augField} dynamicValues={dynamicValues} setDynamicValues={setDynamicValues} />
+                        <DynamicFieldInput field={augField} dynamicValues={dynamicValues} setDynamicValues={setDynamicValues} subjectId={subject.id} />
                       </div>
                     );
                   }
@@ -3483,7 +3495,7 @@ function SubjectEditModal({ subject, onClose }: { subject: Subject; onClose: () 
                                               else if (fk === "meno" || fk === "priezvisko" || fk === "rodne_priezvisko") wCls = "flex-1 min-w-[150px]";
                                               return (
                                                 <div key={field.id} className={cn("min-w-0", wCls)}>
-                                                  <DynamicFieldInput field={field} dynamicValues={dynamicValues} setDynamicValues={setDynamicValues} />
+                                                  <DynamicFieldInput field={field} dynamicValues={dynamicValues} setDynamicValues={setDynamicValues} subjectId={subject.id} />
                                                 </div>
                                               );
                                             })}

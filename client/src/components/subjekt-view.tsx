@@ -25,6 +25,7 @@ import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { formatDateSlovak } from "@/lib/utils";
 import { SubjectProfilePhoto } from "@/components/subject-profile-photo";
+import { FieldHistoryIndicator } from "@/components/field-history-indicator";
 
 const SK_BANK_CODES: Record<string, string> = {
   "0200": "Všeobecná úverová banka (VÚB)",
@@ -255,12 +256,13 @@ function UnclassifiedTrendsNotice() {
 }
 
 function SubjectViewField({
-  field, value, isSummary, hasNote, noteText, pdfSidebarOpen, toggleSummaryField, onInlineSave, allFieldValues,
+  field, value, isSummary, hasNote, noteText, pdfSidebarOpen, toggleSummaryField, onInlineSave, allFieldValues, subjectId,
 }: {
   field: StaticField; value: string; isSummary: boolean; hasNote: boolean; noteText?: string;
   pdfSidebarOpen: boolean; toggleSummaryField: (key: string) => void;
   onInlineSave?: (fieldKey: string, newValue: string) => void;
   allFieldValues?: Record<string, string>;
+  subjectId?: number;
 }) {
   const [verified, setVerified] = useState(false);
   const [editing, setEditing] = useState(false);
@@ -340,6 +342,9 @@ function SubjectViewField({
     >
       <span className="text-xs text-muted-foreground whitespace-nowrap">{field.shortLabel || field.label}:</span>
       <span className={`text-sm font-medium truncate max-w-[200px] ${activeValidity?.textClass || ""} ${isExpiredNumber ? "text-red-500" : ""}`}>{displayValue}</span>
+      {subjectId && (
+        <FieldHistoryIndicator subjectId={subjectId} fieldKey={field.fieldKey} fieldLabel={field.label || field.fieldKey} />
+      )}
       {activeValidity && activeValidity.status !== "unknown" && value && (
         <span className={`w-2.5 h-2.5 rounded-full shrink-0 ${activeValidity.dotClass}`} data-testid={`validity-dot-${field.fieldKey}`} />
       )}
@@ -380,6 +385,7 @@ interface CategoriesAccordionProps {
   onCollectionAdd?: (sectionCode: string) => void;
   onCollectionRemove?: (sectionCode: string, instanceIndex: number) => void;
   collectionCounts?: Record<string, number>;
+  subjectId?: number;
 }
 
 function CategoriesAccordion({
@@ -388,7 +394,7 @@ function CategoriesAccordion({
   summaryFields, pdfSidebarOpen, toggleSummaryField,
   isSuperAdmin, fieldNotes, onFieldNoteChange, onInlineSave,
   activeFieldHints, collectionCategories, dynamicFields,
-  onCollectionAdd, onCollectionRemove, collectionCounts,
+  onCollectionAdd, onCollectionRemove, collectionCounts, subjectId,
 }: CategoriesAccordionProps) {
   const visibleCats = useMemo(() => {
     if (isEditing) return tabCats;
@@ -724,6 +730,7 @@ function CategoriesAccordion({
                         toggleSummaryField={toggleSummaryField}
                         onInlineSave={onInlineSave}
                         allFieldValues={allVals}
+                        subjectId={subjectId}
                       />
                     );
                   })}
@@ -1396,6 +1403,7 @@ export function SubjektView({ subject, showPdfSidebar = false, isClientView = fa
                   onCollectionAdd={handleCollectionAdd}
                   onCollectionRemove={handleCollectionRemove}
                   collectionCounts={collectionCounts}
+                  subjectId={subject.id}
                 />
               </TabsContent>
             );
