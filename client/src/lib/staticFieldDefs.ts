@@ -58,6 +58,10 @@ const FO_PANEL_EKON_ZAMESTNANIE = 40;
 const FO_PANEL_EKON_PRIJMY = 41;
 const FO_PANEL_EKON_AML = 42;
 
+const FO_PANEL_VOZ_TP = 50;
+const FO_PANEL_VOZ_PLATNOST = 51;
+const FO_PANEL_VOZ_DOPLNKY = 52;
+
 const SZCO_SECTION_POVINNE = 11;
 const SZCO_SECTION_DOPLNKOVE = 18;
 const SZCO_SECTION_VOLITELNE = 12;
@@ -106,6 +110,9 @@ export const FO_PANELS: StaticPanel[] = [
   { id: FO_PANEL_EKON_ZAMESTNANIE, clientTypeId: 1, sectionId: FO_SECTION_DOPLNKOVE, name: "Zamestnanie", gridColumns: 4, sortOrder: 6 },
   { id: FO_PANEL_EKON_PRIJMY, clientTypeId: 1, sectionId: FO_SECTION_DOPLNKOVE, name: "Príjmy a financie", gridColumns: 4, sortOrder: 7 },
   { id: FO_PANEL_EKON_AML, clientTypeId: 1, sectionId: FO_SECTION_DOPLNKOVE, name: "Legislatívny status (AML)", gridColumns: 2, sortOrder: 8 },
+  { id: FO_PANEL_VOZ_TP, clientTypeId: 1, sectionId: FO_SECTION_DOPLNKOVE, name: "Technický preukaz", gridColumns: 3, sortOrder: 9 },
+  { id: FO_PANEL_VOZ_PLATNOST, clientTypeId: 1, sectionId: FO_SECTION_DOPLNKOVE, name: "Platnosť a stav", gridColumns: 3, sortOrder: 10 },
+  { id: FO_PANEL_VOZ_DOPLNKY, clientTypeId: 1, sectionId: FO_SECTION_DOPLNKOVE, name: "Doplnkové údaje vozidla", gridColumns: 2, sortOrder: 11 },
 ];
 
 export const FO_FIELDS: StaticField[] = [
@@ -222,6 +229,25 @@ export const FO_FIELDS: StaticField[] = [
   { id: 620, clientTypeId: 1, sectionId: FO_SECTION_DOPLNKOVE, panelId: FO_PANEL_EKON_AML, fieldKey: "ekon_peo", label: "PEO (Politicky exponovaná osoba)", shortLabel: "PEO", fieldType: "jedna_moznost", isRequired: false, isHidden: false, options: ["Áno", "Nie"], defaultValue: "Nie", visibilityRule: null, unit: null, decimalPlaces: 2, fieldCategory: "doplnkove", categoryCode: "ekonomika", sortOrder: 90, rowNumber: 0, widthPercent: 50 },
   { id: 621, clientTypeId: 1, sectionId: FO_SECTION_DOPLNKOVE, panelId: FO_PANEL_EKON_AML, fieldKey: "ekon_peo_zdovodnenie", label: "PEO – Zdôvodnenie", shortLabel: "PEO zdôvodnenie", fieldType: "short_text", isRequired: false, isHidden: false, options: [], defaultValue: null, visibilityRule: { dependsOn: "ekon_peo", value: "Áno" }, unit: null, decimalPlaces: 2, fieldCategory: "doplnkove", categoryCode: "ekonomika", sortOrder: 100, rowNumber: 0, widthPercent: 50 },
   { id: 622, clientTypeId: 1, sectionId: FO_SECTION_DOPLNKOVE, panelId: FO_PANEL_EKON_AML, fieldKey: "ekon_kuv", label: "Konečný užívateľ výhod", shortLabel: "KUV", fieldType: "short_text", isRequired: false, isHidden: false, options: [], defaultValue: null, visibilityRule: null, unit: null, decimalPlaces: 2, fieldCategory: "doplnkove", categoryCode: "ekonomika", sortOrder: 110, rowNumber: 1, widthPercent: 100 },
+
+  // === VOZIDLÁ: Technický preukaz === EČV → VIN → Číslo TP → Značka → Model → Výkon → Objem → Hmotnosť → Palivo
+  { id: 800, clientTypeId: 1, sectionId: FO_SECTION_DOPLNKOVE, panelId: FO_PANEL_VOZ_TP, fieldKey: "voz_ecv", label: "Evidenčné číslo vozidla (EČV)", shortLabel: "EČV", fieldType: "short_text", isRequired: false, isHidden: false, options: [], defaultValue: null, visibilityRule: null, unit: null, decimalPlaces: 2, fieldCategory: "doplnkove", categoryCode: "vozidla", sortOrder: 10, rowNumber: 0, widthPercent: 33 },
+  { id: 801, clientTypeId: 1, sectionId: FO_SECTION_DOPLNKOVE, panelId: FO_PANEL_VOZ_TP, fieldKey: "voz_vin", label: "VIN (identifikačné číslo vozidla)", shortLabel: "VIN", fieldType: "short_text", isRequired: false, isHidden: false, options: [], defaultValue: null, visibilityRule: null, unit: null, decimalPlaces: 2, fieldCategory: "doplnkove", categoryCode: "vozidla", sortOrder: 20, rowNumber: 0, widthPercent: 34 },
+  { id: 802, clientTypeId: 1, sectionId: FO_SECTION_DOPLNKOVE, panelId: FO_PANEL_VOZ_TP, fieldKey: "voz_cislo_tp", label: "Číslo technického preukazu", shortLabel: "Číslo TP", fieldType: "short_text", isRequired: false, isHidden: false, options: [], defaultValue: null, visibilityRule: null, unit: null, decimalPlaces: 2, fieldCategory: "doplnkove", categoryCode: "vozidla", sortOrder: 30, rowNumber: 0, widthPercent: 33 },
+  { id: 803, clientTypeId: 1, sectionId: FO_SECTION_DOPLNKOVE, panelId: FO_PANEL_VOZ_TP, fieldKey: "voz_znacka", label: "Značka vozidla", shortLabel: "Značka", fieldType: "short_text", isRequired: false, isHidden: false, options: [], defaultValue: null, visibilityRule: null, unit: null, decimalPlaces: 2, fieldCategory: "doplnkove", categoryCode: "vozidla", sortOrder: 40, rowNumber: 1, widthPercent: 33 },
+  { id: 804, clientTypeId: 1, sectionId: FO_SECTION_DOPLNKOVE, panelId: FO_PANEL_VOZ_TP, fieldKey: "voz_model", label: "Model vozidla", shortLabel: "Model", fieldType: "short_text", isRequired: false, isHidden: false, options: [], defaultValue: null, visibilityRule: null, unit: null, decimalPlaces: 2, fieldCategory: "doplnkove", categoryCode: "vozidla", sortOrder: 50, rowNumber: 1, widthPercent: 34 },
+  { id: 805, clientTypeId: 1, sectionId: FO_SECTION_DOPLNKOVE, panelId: FO_PANEL_VOZ_TP, fieldKey: "voz_vykon", label: "Výkon motora", shortLabel: "Výkon", fieldType: "desatinne_cislo", isRequired: false, isHidden: false, options: [], defaultValue: null, visibilityRule: null, unit: "kW", decimalPlaces: 0, fieldCategory: "doplnkove", categoryCode: "vozidla", sortOrder: 60, rowNumber: 1, widthPercent: 33 },
+  { id: 806, clientTypeId: 1, sectionId: FO_SECTION_DOPLNKOVE, panelId: FO_PANEL_VOZ_TP, fieldKey: "voz_objem", label: "Objem motora", shortLabel: "Objem", fieldType: "desatinne_cislo", isRequired: false, isHidden: false, options: [], defaultValue: null, visibilityRule: null, unit: "cm³", decimalPlaces: 0, fieldCategory: "doplnkove", categoryCode: "vozidla", sortOrder: 70, rowNumber: 2, widthPercent: 33 },
+  { id: 807, clientTypeId: 1, sectionId: FO_SECTION_DOPLNKOVE, panelId: FO_PANEL_VOZ_TP, fieldKey: "voz_hmotnost", label: "Celková hmotnosť", shortLabel: "Hmotnosť", fieldType: "desatinne_cislo", isRequired: false, isHidden: false, options: [], defaultValue: null, visibilityRule: null, unit: "kg", decimalPlaces: 0, fieldCategory: "doplnkove", categoryCode: "vozidla", sortOrder: 80, rowNumber: 2, widthPercent: 34 },
+  { id: 808, clientTypeId: 1, sectionId: FO_SECTION_DOPLNKOVE, panelId: FO_PANEL_VOZ_TP, fieldKey: "voz_palivo", label: "Druh paliva", shortLabel: "Palivo", fieldType: "jedna_moznost", isRequired: false, isHidden: false, options: ["Benzín", "Nafta", "LPG", "CNG", "Elektro", "Hybrid benzín", "Hybrid nafta"], defaultValue: null, visibilityRule: null, unit: null, decimalPlaces: 2, fieldCategory: "doplnkove", categoryCode: "vozidla", sortOrder: 90, rowNumber: 2, widthPercent: 33 },
+
+  // === VOZIDLÁ: Platnosť a stav === STK platnosť (semafor) → EK platnosť (semafor)
+  { id: 810, clientTypeId: 1, sectionId: FO_SECTION_DOPLNKOVE, panelId: FO_PANEL_VOZ_PLATNOST, fieldKey: "voz_stk_platnost", label: "Platnosť STK do", shortLabel: "STK do", fieldType: "date", isRequired: false, isHidden: false, options: [], defaultValue: null, visibilityRule: null, unit: null, decimalPlaces: 2, fieldCategory: "doplnkove", categoryCode: "vozidla", sortOrder: 100, rowNumber: 0, widthPercent: 50 },
+  { id: 811, clientTypeId: 1, sectionId: FO_SECTION_DOPLNKOVE, panelId: FO_PANEL_VOZ_PLATNOST, fieldKey: "voz_ek_platnost", label: "Platnosť emisnej kontroly do", shortLabel: "EK do", fieldType: "date", isRequired: false, isHidden: false, options: [], defaultValue: null, visibilityRule: null, unit: null, decimalPlaces: 2, fieldCategory: "doplnkove", categoryCode: "vozidla", sortOrder: 110, rowNumber: 0, widthPercent: 50 },
+
+  // === VOZIDLÁ: Doplnkové === Tachometer → Zabezpečenie
+  { id: 820, clientTypeId: 1, sectionId: FO_SECTION_DOPLNKOVE, panelId: FO_PANEL_VOZ_DOPLNKY, fieldKey: "voz_tachometer", label: "Stav tachometra", shortLabel: "Tachometer", fieldType: "desatinne_cislo", isRequired: false, isHidden: false, options: [], defaultValue: null, visibilityRule: null, unit: "km", decimalPlaces: 0, fieldCategory: "doplnkove", categoryCode: "vozidla", sortOrder: 120, rowNumber: 0, widthPercent: 50 },
+  { id: 821, clientTypeId: 1, sectionId: FO_SECTION_DOPLNKOVE, panelId: FO_PANEL_VOZ_DOPLNKY, fieldKey: "voz_zabezpecenie", label: "Zabezpečenie vozidla", shortLabel: "Zabezpečenie", fieldType: "short_text", isRequired: false, isHidden: false, options: [], defaultValue: null, visibilityRule: null, unit: null, decimalPlaces: 2, fieldCategory: "doplnkove", categoryCode: "vozidla", sortOrder: 130, rowNumber: 0, widthPercent: 50 },
 
   // === VOLITEĽNÉ === CGN Rating
   { id: 209, clientTypeId: 1, sectionId: FO_SECTION_VOLITELNE, panelId: null, fieldKey: "cgn_rating", label: "CGN Rating", shortLabel: "CGN", fieldType: "jedna_moznost", isRequired: false, isHidden: false, options: ["A", "B", "C", "D", "E"], defaultValue: null, visibilityRule: null, unit: null, decimalPlaces: 2, fieldCategory: "volitelne", categoryCode: "bonita", sortOrder: 10, rowNumber: 0, widthPercent: 100 },

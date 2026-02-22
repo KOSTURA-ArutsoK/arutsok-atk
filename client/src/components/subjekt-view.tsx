@@ -111,9 +111,22 @@ const FIELD_HINTS: Record<string, string> = {
   ekon_peo: "Politicky exponovaná osoba podľa AML zákona – verejná funkcia alebo vzťah k nej",
   ekon_peo_zdovodnenie: "Zdôvodnenie PEO statusu – konkrétna funkcia alebo vzťah",
   ekon_kuv: "Konečný užívateľ výhod – osoba profitujúca z obchodného vzťahu",
+  voz_ecv: "Evidenčné číslo vozidla (ŠPZ) – povinný údaj z technického preukazu",
+  voz_vin: "Identifikačné číslo vozidla – 17-miestny kód z technického preukazu",
+  voz_cislo_tp: "Číslo technického preukazu (osvedčenia o evidencii vozidla)",
+  voz_znacka: "Značka (výrobca) vozidla z technického preukazu",
+  voz_model: "Model (typ) vozidla z technického preukazu",
+  voz_vykon: "Najväčší čistý výkon motora v kW z technického preukazu",
+  voz_objem: "Zdvihový objem motora v cm³ z technického preukazu",
+  voz_hmotnost: "Najväčšia prípustná celková hmotnosť vozidla v kg",
+  voz_palivo: "Druh paliva/pohonu vozidla z technického preukazu",
+  voz_stk_platnost: "Dátum platnosti STK – semafor: zelená >90d, oranžová ≤90d, červená = neplatná",
+  voz_ek_platnost: "Dátum platnosti emisnej kontroly – semafor: zelená >90d, oranžová ≤90d, červená = neplatná",
+  voz_tachometer: "Aktuálny stav tachometra v km pri poslednej kontrole",
+  voz_zabezpecenie: "Typ zabezpečenia vozidla (napr. VAM, Pandora, Jablotron, GPS lokátor)",
 };
 
-const HINTED_CATEGORIES = new Set(["aml", "marketingove", "bonita", "behavioralne", "ekonomika"]);
+const HINTED_CATEGORIES = new Set(["aml", "marketingove", "bonita", "behavioralne", "ekonomika", "vozidla"]);
 
 const CATEGORY_HINTS: Record<string, string> = {
   aml: "Údaje vyžadované zákonom o AML (297/2008 Z.z.) – identifikácia konečných užívateľov výhod a politicky exponovaných osôb",
@@ -122,6 +135,7 @@ const CATEGORY_HINTS: Record<string, string> = {
   behavioralne: "Sledovanie správania klienta v digitálnom prostredí pre personalizáciu služieb",
   nezatriedene: "Údaje zo zmlúv, ktoré nie sú priradené do žiadnej štandardnej kategórie. Ak sa typ údaja vyskytne u viac ako 20 klientov, je označený ako nový trend.",
   ekonomika: "Ekonomický profil klienta – zamestnanie, príjmy, finančné údaje a AML legislatívny status. Každá zmena príjmu alebo zamestnávateľa je sledovaná v histórii.",
+  vozidla: "Údaje o vozidle z technického preukazu. Platnosť STK a EK je sledovaná semaforom (zelená >90d, oranžová ≤90d, červená = neplatná). Každá zmena sa zapisuje do histórie.",
 };
 
 const FIELD_TO_CATEGORY: Record<string, string> = {
@@ -160,6 +174,9 @@ const FIELD_TO_CATEGORY: Record<string, string> = {
   ekon_pracovny_pomer: "ekonomika", ekon_zamestnavatel: "ekonomika", ekon_pozicia: "ekonomika", ekon_datum_nastupu: "ekonomika",
   ekon_cisty_prijem: "ekonomika", ekon_zdroj_prijmu: "ekonomika", ekon_hlavny_iban: "ekonomika", ekon_banka: "ekonomika",
   ekon_peo: "ekonomika", ekon_peo_zdovodnenie: "ekonomika", ekon_kuv: "ekonomika",
+  voz_ecv: "vozidla", voz_vin: "vozidla", voz_cislo_tp: "vozidla", voz_znacka: "vozidla", voz_model: "vozidla",
+  voz_vykon: "vozidla", voz_objem: "vozidla", voz_hmotnost: "vozidla", voz_palivo: "vozidla",
+  voz_stk_platnost: "vozidla", voz_ek_platnost: "vozidla", voz_tachometer: "vozidla", voz_zabezpecenie: "vozidla",
 };
 
 const CONSENT_TYPES = [

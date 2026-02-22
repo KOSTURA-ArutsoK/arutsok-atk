@@ -73,6 +73,8 @@ const DOCUMENT_PAIRS: Record<string, string> = {
   op_platnost: "op_cislo",
   pas_platnost: "pas_cislo",
   platnost_dokladu: "cislo_dokladu",
+  voz_stk_platnost: "voz_ecv",
+  voz_ek_platnost: "voz_ecv",
 };
 
 const VALIDITY_FIELD_KEYS = new Set(Object.keys(DOCUMENT_PAIRS));

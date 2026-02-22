@@ -190,6 +190,19 @@ const STATIC_FIELD_LABELS: Record<string, string> = {
   ekon_peo: "PEO (Politicky exponovaná osoba)",
   ekon_peo_zdovodnenie: "PEO – Zdôvodnenie",
   ekon_kuv: "Konečný užívateľ výhod",
+  voz_ecv: "EČV (Evidenčné číslo vozidla)",
+  voz_vin: "VIN",
+  voz_cislo_tp: "Číslo technického preukazu",
+  voz_znacka: "Značka vozidla",
+  voz_model: "Model vozidla",
+  voz_vykon: "Výkon motora",
+  voz_objem: "Objem motora",
+  voz_hmotnost: "Celková hmotnosť",
+  voz_palivo: "Druh paliva",
+  voz_stk_platnost: "Platnosť STK do",
+  voz_ek_platnost: "Platnosť emisnej kontroly do",
+  voz_tachometer: "Stav tachometra",
+  voz_zabezpecenie: "Zabezpečenie vozidla",
 };
 
 function getFieldLabel(fieldKey: string, allFields?: StaticField[]): string {
