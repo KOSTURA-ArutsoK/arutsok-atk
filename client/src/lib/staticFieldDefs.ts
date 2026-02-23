@@ -575,3 +575,81 @@ export function getPanelsForClientTypeId(clientTypeId: number): StaticPanel[] {
     default: return FO_PANELS;
   }
 }
+
+export type SubjectCategoryKey = "identita" | "legislativa" | "rodina" | "financie" | "profil" | "digitalna" | "servis" | "relacie";
+
+export interface SubjectCategory {
+  key: SubjectCategoryKey;
+  label: string;
+  icon: string;
+  color: string;
+  panelIds: number[];
+  includeIneFields?: boolean;
+}
+
+const FO_CATEGORIES: SubjectCategory[] = [
+  { key: "identita", label: "Identita", icon: "User", color: "blue", panelIds: [4, 3, 20] },
+  { key: "legislativa", label: "Legislatíva", icon: "Shield", color: "red", panelIds: [24, 25, 42] },
+  { key: "rodina", label: "Rodina a vzťahy", icon: "Users", color: "pink", panelIds: [22] },
+  { key: "financie", label: "Financie a majetok", icon: "CreditCard", color: "emerald", panelIds: [26, 27, 40, 41, 71, 60] },
+  { key: "profil", label: "Profil a marketing", icon: "Star", color: "amber", panelIds: [70], includeIneFields: true },
+  { key: "digitalna", label: "Digitálna stopa", icon: "Phone", color: "cyan", panelIds: [6, 23] },
+  { key: "servis", label: "Servis a archív", icon: "Archive", color: "slate", panelIds: [5, 50, 51, 52, 61, 62] },
+  { key: "relacie", label: "Relácie", icon: "Link", color: "violet", panelIds: [] },
+];
+
+const SZCO_CATEGORIES: SubjectCategory[] = [
+  { key: "identita", label: "Identita", icon: "User", color: "blue", panelIds: [7, 8, 9, 21] },
+  { key: "legislativa", label: "Legislatíva", icon: "Shield", color: "red", panelIds: [30, 34] },
+  { key: "rodina", label: "Rodina a vzťahy", icon: "Users", color: "pink", panelIds: [] },
+  { key: "financie", label: "Financie a majetok", icon: "CreditCard", color: "emerald", panelIds: [35] },
+  { key: "profil", label: "Profil a marketing", icon: "Star", color: "amber", panelIds: [31], includeIneFields: true },
+  { key: "digitalna", label: "Digitálna stopa", icon: "Phone", color: "cyan", panelIds: [11, 10] },
+  { key: "servis", label: "Servis a archív", icon: "Archive", color: "slate", panelIds: [] },
+  { key: "relacie", label: "Relácie", icon: "Link", color: "violet", panelIds: [] },
+];
+
+const PO_CATEGORIES: SubjectCategory[] = [
+  { key: "identita", label: "Identita", icon: "User", color: "blue", panelIds: [13, 14] },
+  { key: "legislativa", label: "Legislatíva", icon: "Shield", color: "red", panelIds: [32, 36] },
+  { key: "rodina", label: "Rodina a vzťahy", icon: "Users", color: "pink", panelIds: [38] },
+  { key: "financie", label: "Financie a majetok", icon: "CreditCard", color: "emerald", panelIds: [37] },
+  { key: "profil", label: "Profil a marketing", icon: "Star", color: "amber", panelIds: [33], includeIneFields: true },
+  { key: "digitalna", label: "Digitálna stopa", icon: "Phone", color: "cyan", panelIds: [15] },
+  { key: "servis", label: "Servis a archív", icon: "Archive", color: "slate", panelIds: [] },
+  { key: "relacie", label: "Relácie", icon: "Link", color: "violet", panelIds: [] },
+];
+
+export function getCategoriesForClientType(clientTypeId: number): SubjectCategory[] {
+  switch (clientTypeId) {
+    case 1: return FO_CATEGORIES;
+    case 3: return SZCO_CATEGORIES;
+    case 4: return PO_CATEGORIES;
+    default: return FO_CATEGORIES;
+  }
+}
+
+export function getCategoryFieldCounts(clientTypeId: number): Record<SubjectCategoryKey, number> {
+  const fields = getFieldsForClientTypeId(clientTypeId);
+  const categories = getCategoriesForClientType(clientTypeId);
+  const counts: Record<string, number> = {};
+
+  for (const cat of categories) {
+    if (cat.key === "relacie") {
+      counts[cat.key] = 0;
+      continue;
+    }
+    let count = 0;
+    for (const f of fields) {
+      if (cat.panelIds.includes(f.panelId as number)) {
+        count++;
+      }
+    }
+    if (cat.includeIneFields) {
+      count += fields.filter(f => f.fieldCategory === "ine").length;
+    }
+    counts[cat.key] = count;
+  }
+
+  return counts as Record<SubjectCategoryKey, number>;
+}

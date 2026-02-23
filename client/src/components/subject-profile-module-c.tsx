@@ -3,7 +3,7 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import type { Subject, DocumentEntry, ContactEntry } from "@shared/schema";
-import { getFieldsForClientTypeId, getSectionsForClientTypeId, type StaticField, type StaticSection } from "@/lib/staticFieldDefs";
+import { getFieldsForClientTypeId, getSectionsForClientTypeId, getCategoriesForClientType, getCategoryFieldCounts, type StaticField, type StaticSection, type SubjectCategoryKey } from "@/lib/staticFieldDefs";
 import { getDocumentValidityStatus, isValidityField, isNumberFieldWithExpiredPair } from "@/lib/document-validity";
 import { FieldHistoryIndicator } from "@/components/field-history-indicator";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
@@ -23,7 +23,7 @@ import { formatDateSlovak } from "@/lib/utils";
 import { PRIORITY_COUNTRY_NAMES, ALL_COUNTRY_NAMES } from "@/lib/countries";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
-import { Check, ChevronsUpDown, Plus, Trash2, Users, CreditCard, CheckCircle2, Camera, FileSignature, FileImage, Archive, ChevronLeft, ChevronRight, User, MapPin, Phone, FileSearch, Lock, Ban, AlertOctagon, Star, Brain, Layers, LayoutGrid, Database, Zap } from "lucide-react";
+import { Check, ChevronsUpDown, Plus, Trash2, Users, CreditCard, CheckCircle2, Camera, FileSignature, FileImage, Archive, ChevronLeft, ChevronRight, User, MapPin, Phone, FileSearch, Lock, Ban, AlertOctagon, Star, Brain, Layers, LayoutGrid, Database, Zap, Link2 } from "lucide-react";
 import {
   Loader2, Pencil, Save, X, AlertTriangle, Shield,
   ShieldCheck, ListPlus, Eye, ArrowUp, ArrowDown, Settings2, MoreHorizontal,
@@ -1979,78 +1979,96 @@ export function SubjectProfileModuleC({ subject }: ModuleCProps) {
               </div>
             </AccordionTrigger>
             <AccordionContent className="pb-4">
-              <div className="space-y-3" data-testid="panel-extrahovane-stats">
-                <Card className="relative border-blue-500/20 bg-blue-500/5" data-testid="stat-ai-motor">
-                  {isArchitectMode && <ArchitectFieldOverlay fieldKey="ai_motor" sectionCategory="extrahovane" />}
-                  <CardContent className="p-3">
-                    <div className="flex items-center gap-3">
-                      <div className="flex items-center justify-center w-9 h-9 rounded-lg bg-blue-500/10 shrink-0">
-                        <Zap className="w-5 h-5 text-blue-400" />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-[11px] text-muted-foreground uppercase tracking-wider font-medium">AI Motor</p>
-                        <div className="flex items-center gap-2 mt-0.5">
-                          <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-                          <p className="text-sm font-semibold text-foreground" data-testid="ai-motor-status">
-                            {(synonymCounts && Object.keys(synonymCounts).some(k => synonymCounts[k] > 0)) ? "Aktívny" : "Čaká na dáta"}
-                          </p>
+              {(() => {
+                const ctId = clientTypeId;
+                const categories = getCategoriesForClientType(ctId);
+                const fieldCounts = getCategoryFieldCounts(ctId);
+                const totalFields = Object.values(fieldCounts).reduce((a, b) => a + b, 0);
+                const filledCategories = categories.filter(c => fieldCounts[c.key] > 0 || c.key === "relacie").length;
+
+                const CATEGORY_ICONS: Record<string, typeof User> = {
+                  User, Shield, Users, CreditCard, Star, Phone, Archive, Link2,
+                };
+                const ICON_MAP: Record<string, string> = {
+                  identita: "User", legislativa: "Shield", rodina: "Users",
+                  financie: "CreditCard", profil: "Star", digitalna: "Phone",
+                  servis: "Archive", relacie: "Link2",
+                };
+                const COLOR_CLASSES: Record<string, { border: string; bg: string; text: string }> = {
+                  blue: { border: "border-blue-500/20", bg: "bg-blue-500/10", text: "text-blue-400" },
+                  red: { border: "border-red-500/20", bg: "bg-red-500/10", text: "text-red-400" },
+                  pink: { border: "border-pink-500/20", bg: "bg-pink-500/10", text: "text-pink-400" },
+                  emerald: { border: "border-emerald-500/20", bg: "bg-emerald-500/10", text: "text-emerald-400" },
+                  amber: { border: "border-amber-500/20", bg: "bg-amber-500/10", text: "text-amber-400" },
+                  cyan: { border: "border-cyan-500/20", bg: "bg-cyan-500/10", text: "text-cyan-400" },
+                  slate: { border: "border-slate-500/20", bg: "bg-slate-500/10", text: "text-slate-400" },
+                  violet: { border: "border-violet-500/20", bg: "bg-violet-500/10", text: "text-violet-400" },
+                };
+
+                return (
+                  <div className="space-y-3" data-testid="panel-extrahovane-stats">
+                    <Card className="relative border-blue-500/20 bg-blue-500/5" data-testid="stat-ai-motor">
+                      {isArchitectMode && <ArchitectFieldOverlay fieldKey="ai_motor" sectionCategory="extrahovane" />}
+                      <CardContent className="p-3">
+                        <div className="flex items-center gap-3">
+                          <div className="flex items-center justify-center w-9 h-9 rounded-lg bg-blue-500/10 shrink-0">
+                            <Zap className="w-5 h-5 text-blue-400" />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-[11px] text-muted-foreground uppercase tracking-wider font-medium">AI Motor</p>
+                            <div className="flex items-center gap-2 mt-0.5">
+                              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                              <p className="text-sm font-semibold text-foreground" data-testid="ai-motor-status">
+                                {(synonymCounts && Object.keys(synonymCounts).some(k => synonymCounts[k] > 0)) ? "Aktívny" : "Čaká na dáta"}
+                              </p>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2 shrink-0">
+                            <Badge variant="outline" className="text-[9px] border-emerald-400/30 text-emerald-400">{filledCategories}/{categories.length} kat.</Badge>
+                            <Badge variant="outline" className="text-[9px] border-blue-400/30 text-blue-400">{totalFields} polí</Badge>
+                            <Badge variant="outline" className="text-[9px] border-blue-400/30 text-blue-400">v1.0</Badge>
+                          </div>
                         </div>
-                      </div>
-                      <Badge variant="outline" className="text-[9px] border-blue-400/30 text-blue-400 shrink-0">v1.0</Badge>
+                      </CardContent>
+                    </Card>
+
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2" data-testid="category-cards-grid">
+                      {categories.map((cat) => {
+                        const colors = COLOR_CLASSES[cat.color] || COLOR_CLASSES.slate;
+                        const IconComp = CATEGORY_ICONS[ICON_MAP[cat.key] || "User"];
+                        const count = fieldCounts[cat.key];
+                        const isRelacie = cat.key === "relacie";
+
+                        return (
+                          <Card
+                            key={cat.key}
+                            className={cn("relative", colors.border, count > 0 || isRelacie ? "" : "opacity-50")}
+                            data-testid={`category-card-${cat.key}`}
+                          >
+                            {isArchitectMode && <ArchitectFieldOverlay fieldKey={`cat_${cat.key}`} sectionCategory="extrahovane" />}
+                            <CardContent className="p-2.5">
+                              <div className="flex items-center gap-2">
+                                <div className={cn("flex items-center justify-center w-7 h-7 rounded-md shrink-0", colors.bg)}>
+                                  <IconComp className={cn("w-4 h-4", colors.text)} />
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                  <p className="text-[10px] text-muted-foreground font-medium truncate">{cat.label}</p>
+                                  <p className="text-lg font-bold text-foreground leading-tight" data-testid={`category-count-${cat.key}`}>
+                                    {isRelacie ? "—" : count}
+                                  </p>
+                                </div>
+                              </div>
+                              <p className="text-[9px] text-muted-foreground mt-1.5 leading-tight">
+                                {isRelacie ? "Prepojenia subjektov" : `${count} ${count === 1 ? "pole" : count >= 2 && count <= 4 ? "polia" : "polí"} v kategórii`}
+                              </p>
+                            </CardContent>
+                          </Card>
+                        );
+                      })}
                     </div>
-                  </CardContent>
-                </Card>
-
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                  <Card className="relative border-violet-500/20" data-testid="stat-kategorie">
-                    {isArchitectMode && <ArchitectFieldOverlay fieldKey="ai_kategorie" sectionCategory="extrahovane" />}
-                    <CardContent className="p-3">
-                      <div className="flex items-center gap-3">
-                        <div className="flex items-center justify-center w-9 h-9 rounded-lg bg-violet-500/10 shrink-0">
-                          <Layers className="w-5 h-5 text-violet-400" />
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <p className="text-[11px] text-muted-foreground uppercase tracking-wider font-medium">Kategórie</p>
-                          <p className="text-xl font-bold text-foreground mt-0.5">{synonymCounts ? Object.keys(synonymCounts).filter(k => synonymCounts[k] > 0).length : 0}</p>
-                        </div>
-                      </div>
-                      <p className="text-[10px] text-muted-foreground mt-2">Počet nájdených kategórií</p>
-                    </CardContent>
-                  </Card>
-
-                  <Card className="relative border-amber-500/20" data-testid="stat-zalozky">
-                    {isArchitectMode && <ArchitectFieldOverlay fieldKey="ai_zalozky" sectionCategory="extrahovane" />}
-                    <CardContent className="p-3">
-                      <div className="flex items-center gap-3">
-                        <div className="flex items-center justify-center w-9 h-9 rounded-lg bg-amber-500/10 shrink-0">
-                          <LayoutGrid className="w-5 h-5 text-amber-400" />
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <p className="text-[11px] text-muted-foreground uppercase tracking-wider font-medium">Záložky</p>
-                          <p className="text-xl font-bold text-foreground mt-0.5">{nonPovinneGroups.length + (povinneFields.length > 0 ? 1 : 0)}</p>
-                        </div>
-                      </div>
-                      <p className="text-[10px] text-muted-foreground mt-2">Aktívne záložky sekcií</p>
-                    </CardContent>
-                  </Card>
-
-                  <Card className="relative border-emerald-500/20" data-testid="stat-polia">
-                    {isArchitectMode && <ArchitectFieldOverlay fieldKey="ai_polia" sectionCategory="extrahovane" />}
-                    <CardContent className="p-3">
-                      <div className="flex items-center gap-3">
-                        <div className="flex items-center justify-center w-9 h-9 rounded-lg bg-emerald-500/10 shrink-0">
-                          <Database className="w-5 h-5 text-emerald-400" />
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <p className="text-[11px] text-muted-foreground uppercase tracking-wider font-medium">Polia</p>
-                          <p className="text-xl font-bold text-foreground mt-0.5">{povinneFields.length + nonPovinneGroups.reduce((acc, g) => acc + g.fields.length, 0)}</p>
-                        </div>
-                      </div>
-                      <p className="text-[10px] text-muted-foreground mt-2">Celkový počet polí</p>
-                    </CardContent>
-                  </Card>
-                </div>
-              </div>
+                  </div>
+                );
+              })()}
             </AccordionContent>
           </AccordionItem>
         </Accordion>
