@@ -1043,191 +1043,200 @@ export function SubjectProfileModuleC({ subject }: ModuleCProps) {
 
   return (
     <div className="space-y-4" data-testid="module-c-profile">
-      <div className="space-y-3" data-testid="module-c-header">
-        <div className="flex items-center justify-between gap-2 flex-wrap">
-          <div className="flex items-center gap-2 flex-wrap">
-            <Shield className="w-5 h-5 text-primary" />
-            <h2 className="text-base font-semibold">Profil subjektu<sup className="text-[9px] text-primary/70 font-medium ml-0.5">(C)</sup></h2>
-            <Button
-              size="sm"
-              variant={isArchitectMode ? "default" : "ghost"}
-              onClick={() => setIsArchitectMode(!isArchitectMode)}
-              data-testid="btn-architect-mode"
-              title="Režim Architekt"
-            >
-              <Settings2 className="w-3.5 h-3.5" />
-            </Button>
-          </div>
-          <div className="flex items-center gap-2 flex-wrap">
-            {isEditing ? (
-              <>
-                <Input
-                  value={editReason}
-                  onChange={e => setEditReason(e.target.value)}
-                  placeholder="Dôvod zmeny..."
-                  className="h-8 text-xs w-48"
-                  data-testid="edit-reason-input"
-                />
+
+      <Card className="border border-border/60 bg-card/30" data-testid="module-c-header">
+        <CardContent className="p-4 space-y-3">
+          <div className="flex items-center justify-between gap-2 flex-wrap">
+            <div className="flex items-center gap-2 flex-wrap">
+              <Shield className="w-5 h-5 text-primary" />
+              <h2 className="text-base font-semibold">Profil subjektu<sup className="text-[9px] text-primary/70 font-medium ml-0.5">(C)</sup></h2>
+              <Button
+                size="sm"
+                variant={isArchitectMode ? "default" : "ghost"}
+                onClick={() => setIsArchitectMode(!isArchitectMode)}
+                data-testid="btn-architect-mode"
+                title="Režim Architekt"
+              >
+                <Settings2 className="w-3.5 h-3.5" />
+              </Button>
+            </div>
+            <div className="flex items-center gap-2 flex-wrap">
+              {isEditing ? (
+                <>
+                  <Input
+                    value={editReason}
+                    onChange={e => setEditReason(e.target.value)}
+                    placeholder="Dôvod zmeny..."
+                    className="h-8 text-xs w-48"
+                    data-testid="edit-reason-input"
+                  />
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => { setIsEditing(false); setEditReason(""); }}
+                    data-testid="btn-cancel-edit"
+                  >
+                    <X className="w-3.5 h-3.5 mr-1" />
+                    Zrušiť
+                  </Button>
+                  <Button
+                    size="sm"
+                    onClick={() => saveMutation.mutate()}
+                    disabled={saveMutation.isPending}
+                    data-testid="btn-save-edit"
+                  >
+                    {saveMutation.isPending ? <Loader2 className="w-3.5 h-3.5 mr-1 animate-spin" /> : <Save className="w-3.5 h-3.5 mr-1" />}
+                    Uložiť
+                  </Button>
+                </>
+              ) : (
                 <Button
                   size="sm"
                   variant="outline"
-                  onClick={() => { setIsEditing(false); setEditReason(""); }}
-                  data-testid="btn-cancel-edit"
+                  onClick={() => setIsEditing(true)}
+                  title="Upraviť profil"
+                  data-testid="btn-start-edit"
                 >
-                  <X className="w-3.5 h-3.5 mr-1" />
-                  Zrušiť
+                  <Pencil className="w-3.5 h-3.5 mr-1" />
+                  Upraviť
                 </Button>
-                <Button
-                  size="sm"
-                  onClick={() => saveMutation.mutate()}
-                  disabled={saveMutation.isPending}
-                  data-testid="btn-save-edit"
-                >
-                  {saveMutation.isPending ? <Loader2 className="w-3.5 h-3.5 mr-1 animate-spin" /> : <Save className="w-3.5 h-3.5 mr-1" />}
-                  Uložiť
-                </Button>
-              </>
-            ) : (
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={() => setIsEditing(true)}
-                title="Upraviť profil"
-                data-testid="btn-start-edit"
-              >
-                <Pencil className="w-3.5 h-3.5 mr-1" />
-                Upraviť
-              </Button>
-            )}
-          </div>
-        </div>
-        <div className="flex items-center gap-4">
-          {subject.id > 0 && (
-            <div className="shrink-0" data-testid="module-c-photo">
-              <SubjectProfilePhoto subjectId={subject.id} size="lg" editable={isEditing} showHistory />
+              )}
             </div>
-          )}
-          <div className="flex-1 space-y-2">
+          </div>
+
+          <div className="flex items-start gap-4">
             {subject.id > 0 && (
-              <div className="flex items-center gap-2 flex-wrap" data-testid="profile-name-bar">
-                <CgnIndicator isCgnActive={isCgnActive} size="md" />
-                <span className={cn("text-lg font-bold", isCgnActive && "text-orange-400")} data-testid="text-subject-name">{displayName}</span>
-                {behaviorAlert.hasLegalIncapacity && (
-                  <span
-                    className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-red-600/20 border-2 border-red-500/50 cursor-help animate-pulse"
-                    title={behaviorAlert.legalAlertText}
-                    data-testid="legal-incapacity-alert"
-                  >
-                    <AlertTriangle className="w-5 h-5 text-red-500" />
-                    <span className="text-xs font-bold text-red-400">NESPÔSOBILÝ</span>
-                  </span>
-                )}
-                {behaviorAlert.hasAlert && (
-                  <span
-                    className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-red-500/15 border border-red-500/30 cursor-help"
-                    title={behaviorAlert.alertText}
-                    data-testid="behavior-alert-badge"
-                  >
-                    <AlertTriangle className="w-3.5 h-3.5 text-red-500" />
-                    <span className="text-[10px] font-semibold text-red-400">POZOR</span>
-                  </span>
-                )}
-                <SubjectTagBadges tags={subjectTags} />
-                {isArchitectMode && (
-                  <button
-                    onClick={() => cgnMutation.mutate(!isCgnActive)}
-                    className={cn(
-                      "inline-flex items-center gap-1 px-2 py-0.5 rounded-full border text-[10px] font-semibold transition-colors",
-                      isCgnActive
-                        ? "bg-red-500/15 border-red-500/30 text-red-400 hover:bg-red-500/25"
-                        : "bg-muted/40 border-border/40 text-muted-foreground hover:bg-muted/60"
-                    )}
-                    title={isCgnActive ? "Deaktivovať režim CGN" : "Aktivovať režim CGN – Celkom Garantovať Nemožno"}
-                    data-testid="btn-toggle-cgn"
-                  >
-                    {isCgnActive ? <TrendingDown className="w-3 h-3" /> : <TrendingUp className="w-3 h-3" />}
-                    CGN
-                  </button>
-                )}
+              <div className="shrink-0" data-testid="module-c-photo">
+                <SubjectProfilePhoto subjectId={subject.id} size="lg" editable={isEditing} showHistory />
               </div>
             )}
+            <div className="flex-1 min-w-0 space-y-2">
+              {subject.id > 0 && (
+                <div className="flex items-center gap-2 flex-wrap" data-testid="profile-name-bar">
+                  <CgnIndicator isCgnActive={isCgnActive} size="md" />
+                  <span className={cn("text-lg font-bold", isCgnActive && "text-orange-400")} data-testid="text-subject-name">{displayName}</span>
+                  {behaviorAlert.hasLegalIncapacity && (
+                    <span
+                      className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-red-600/20 border-2 border-red-500/50 cursor-help animate-pulse"
+                      title={behaviorAlert.legalAlertText}
+                      data-testid="legal-incapacity-alert"
+                    >
+                      <AlertTriangle className="w-5 h-5 text-red-500" />
+                      <span className="text-xs font-bold text-red-400">NESPÔSOBILÝ</span>
+                    </span>
+                  )}
+                  {behaviorAlert.hasAlert && (
+                    <span
+                      className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-red-500/15 border border-red-500/30 cursor-help"
+                      title={behaviorAlert.alertText}
+                      data-testid="behavior-alert-badge"
+                    >
+                      <AlertTriangle className="w-3.5 h-3.5 text-red-500" />
+                      <span className="text-[10px] font-semibold text-red-400">POZOR</span>
+                    </span>
+                  )}
+                  {isArchitectMode && (
+                    <button
+                      onClick={() => cgnMutation.mutate(!isCgnActive)}
+                      className={cn(
+                        "inline-flex items-center gap-1 px-2 py-0.5 rounded-full border text-[10px] font-semibold transition-colors",
+                        isCgnActive
+                          ? "bg-red-500/15 border-red-500/30 text-red-400 hover:bg-red-500/25"
+                          : "bg-muted/40 border-border/40 text-muted-foreground hover:bg-muted/60"
+                      )}
+                      title={isCgnActive ? "Deaktivovať režim CGN" : "Aktivovať režim CGN – Celkom Garantovať Nemožno"}
+                      data-testid="btn-toggle-cgn"
+                    >
+                      {isCgnActive ? <TrendingDown className="w-3 h-3" /> : <TrendingUp className="w-3 h-3" />}
+                      CGN
+                    </button>
+                  )}
+                </div>
+              )}
 
-            <div className="flex items-center gap-2 flex-wrap" data-testid="tag-management-bar">
-              {subjectTags.map(tag => (
-                <span key={tag} className={cn("inline-flex items-center gap-1 px-2 py-0.5 rounded-full border text-[10px] font-semibold", getTagStyle(tag).color, getTagStyle(tag).bg, getTagStyle(tag).border)}>
-                  <Tag className="w-2.5 h-2.5" />
-                  {tag}
-                  <button onClick={() => removeTag(tag)} className="ml-0.5" title="Odstrániť tag" data-testid={`btn-remove-tag-${tag}`}>
-                    <X className="w-2.5 h-2.5" />
-                  </button>
-                </span>
-              ))}
-              <div className="relative">
-                <Button size="sm" variant="ghost" className="h-6 px-1.5 text-[10px] text-muted-foreground hover:text-foreground" onClick={() => setShowTagPicker(!showTagPicker)} data-testid="btn-add-tag">
-                  <Plus className="w-3 h-3 mr-0.5" />
-                  Tag
-                </Button>
-                {showTagPicker && (
-                  <div className="absolute top-full left-0 z-50 mt-1 w-48 bg-card border rounded-md shadow-xl p-2 space-y-1" data-testid="tag-picker-dropdown">
-                    {PRESET_TAGS.filter(t => !subjectTags.includes(t.label)).map(preset => (
-                      <button
-                        key={preset.label}
-                        className={cn("w-full flex items-center gap-2 px-2 py-1 rounded text-xs hover:bg-muted/50 text-left", preset.color)}
-                        onClick={() => { addTag(preset.label); setShowTagPicker(false); }}
-                        data-testid={`btn-preset-tag-${preset.label}`}
-                      >
-                        <Tag className="w-3 h-3" />
-                        {preset.label}
-                      </button>
-                    ))}
-                    <div className="border-t border-border/40 pt-1 mt-1">
-                      <div className="flex items-center gap-1">
-                        <Input
-                          value={customTagInput}
-                          onChange={e => setCustomTagInput(e.target.value)}
-                          placeholder="Vlastný tag..."
-                          className="h-6 text-[10px] flex-1"
-                          onKeyDown={e => {
-                            if (e.key === "Enter" && customTagInput.trim()) {
+              <div className="flex items-center gap-1.5 flex-wrap" data-testid="tag-management-bar">
+                {subjectTags.map(tag => (
+                  <span key={tag} className={cn("inline-flex items-center gap-1 px-2 py-0.5 rounded-full border text-[10px] font-semibold", getTagStyle(tag).color, getTagStyle(tag).bg, getTagStyle(tag).border)}>
+                    <Tag className="w-2.5 h-2.5" />
+                    {tag}
+                    <button onClick={() => removeTag(tag)} className="ml-0.5" title="Odstrániť tag" data-testid={`btn-remove-tag-${tag}`}>
+                      <X className="w-2.5 h-2.5" />
+                    </button>
+                  </span>
+                ))}
+                <div className="relative">
+                  <Button size="sm" variant="ghost" className="h-6 px-1.5 text-[10px] text-muted-foreground hover:text-foreground" onClick={() => setShowTagPicker(!showTagPicker)} data-testid="btn-add-tag">
+                    <Plus className="w-3 h-3 mr-0.5" />
+                    Tag
+                  </Button>
+                  {showTagPicker && (
+                    <div className="absolute top-full left-0 z-50 mt-1 w-48 bg-card border rounded-md shadow-xl p-2 space-y-1" data-testid="tag-picker-dropdown">
+                      {PRESET_TAGS.filter(t => !subjectTags.includes(t.label)).map(preset => (
+                        <button
+                          key={preset.label}
+                          className={cn("w-full flex items-center gap-2 px-2 py-1 rounded text-xs hover:bg-muted/50 text-left", preset.color)}
+                          onClick={() => { addTag(preset.label); setShowTagPicker(false); }}
+                          data-testid={`btn-preset-tag-${preset.label}`}
+                        >
+                          <Tag className="w-3 h-3" />
+                          {preset.label}
+                        </button>
+                      ))}
+                      <div className="border-t border-border/40 pt-1 mt-1">
+                        <div className="flex items-center gap-1">
+                          <Input
+                            value={customTagInput}
+                            onChange={e => setCustomTagInput(e.target.value)}
+                            placeholder="Vlastný tag..."
+                            className="h-6 text-[10px] flex-1"
+                            onKeyDown={e => {
+                              if (e.key === "Enter" && customTagInput.trim()) {
+                                addTag(customTagInput.trim());
+                                setCustomTagInput("");
+                                setShowTagPicker(false);
+                              }
+                            }}
+                            data-testid="input-custom-tag"
+                          />
+                          <Button size="sm" variant="ghost" className="h-6 w-6 p-0" onClick={() => {
+                            if (customTagInput.trim()) {
                               addTag(customTagInput.trim());
                               setCustomTagInput("");
                               setShowTagPicker(false);
                             }
-                          }}
-                          data-testid="input-custom-tag"
-                        />
-                        <Button size="sm" variant="ghost" className="h-6 w-6 p-0" onClick={() => {
-                          if (customTagInput.trim()) {
-                            addTag(customTagInput.trim());
-                            setCustomTagInput("");
-                            setShowTagPicker(false);
-                          }
-                        }} data-testid="btn-add-custom-tag">
-                          <Check className="w-3 h-3" />
-                        </Button>
+                          }} data-testid="btn-add-custom-tag">
+                            <Check className="w-3 h-3" />
+                          </Button>
+                        </div>
                       </div>
                     </div>
-                  </div>
-                )}
+                  )}
+                </div>
               </div>
-            </div>
 
-            <div className="flex justify-center">
-              <div className="inline-flex rounded-lg border-2 border-primary/30 shadow-md p-1 bg-muted/30" data-testid="toggle-client-type-wrapper">
-                <ToggleGroup type="single" value={activeClientType} onValueChange={(val) => { if (val) setActiveClientType(val); }} className="h-9" data-testid="toggle-client-type">
-                  {CLIENT_TYPE_OPTIONS.map(opt => (
-                    <ToggleGroupItem key={opt.value} value={opt.value} className="h-9 px-8 text-sm font-semibold data-[state=on]:bg-primary data-[state=on]:text-primary-foreground data-[state=on]:shadow-sm" data-testid={`toggle-type-${opt.value}`}>
-                      {opt.short}
-                    </ToggleGroupItem>
-                  ))}
-                </ToggleGroup>
+              <div className="flex items-center gap-3 text-xs text-muted-foreground pt-1">
+                <span className="font-mono">{subject.uid}</span>
+                <span className="text-border">|</span>
+                <span>{CLIENT_TYPE_OPTIONS.find(o => o.value === activeClientType)?.label || "Fyzická osoba"}</span>
+                <span className="text-border">|</span>
+                <span className={cn("font-medium", subject.isActive ? "text-emerald-400" : "text-red-400")}>{subject.isActive ? "Aktívny" : "Neaktívny"}</span>
               </div>
             </div>
           </div>
-        </div>
-      </div>
 
-      <Separator />
+          <div className="flex justify-center pt-1">
+            <div className="inline-flex rounded-lg border-2 border-primary/30 shadow-md p-1 bg-muted/30" data-testid="toggle-client-type-wrapper">
+              <ToggleGroup type="single" value={activeClientType} onValueChange={(val) => { if (val) setActiveClientType(val); }} className="h-9" data-testid="toggle-client-type">
+                {CLIENT_TYPE_OPTIONS.map(opt => (
+                  <ToggleGroupItem key={opt.value} value={opt.value} className="h-9 px-8 text-sm font-semibold data-[state=on]:bg-primary data-[state=on]:text-primary-foreground data-[state=on]:shadow-sm" data-testid={`toggle-type-${opt.value}`}>
+                    {opt.short}
+                  </ToggleGroupItem>
+                ))}
+              </ToggleGroup>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
 
       {isArchitectMode && (
         <div className="flex items-center justify-between p-2 rounded-md bg-amber-500/10 border border-amber-500/30" data-testid="architect-bar">
@@ -1276,7 +1285,7 @@ export function SubjectProfileModuleC({ subject }: ModuleCProps) {
               const meta = CATEGORY_META[catKey] || CATEGORY_META.ine;
               const CatIcon = meta.icon;
               const catLabel = FOLDER_CATEGORY_LABELS[catKey] || catKey.toUpperCase();
-              const paramCount = catKey === "povinne" ? 3 + totalParamCount(nodes) : totalParamCount(nodes);
+              const paramCount = totalParamCount(nodes);
 
               return (
                 <Accordion type="multiple" key={catKey} defaultValue={[]} className="space-y-1 mb-3">
@@ -1289,23 +1298,6 @@ export function SubjectProfileModuleC({ subject }: ModuleCProps) {
                       </div>
                     </AccordionTrigger>
                     <AccordionContent className="pb-4 space-y-3">
-                      {catKey === "povinne" && (
-                        <div className="flex flex-wrap gap-4 items-end" data-testid="row-system-fields">
-                          <div className="space-y-1 flex-1 min-w-[160px]">
-                            <Label className="text-xs">Kód klienta</Label>
-                            <Input value={subject.uid || ""} disabled className="font-mono text-xs" data-testid="input-kod-klienta" />
-                          </div>
-                          <div className="space-y-1 flex-1 min-w-[160px]">
-                            <Label className="text-xs">Typ klienta</Label>
-                            <Input value={CLIENT_TYPE_OPTIONS.find(o => o.value === activeClientType)?.label || "Fyzická osoba"} disabled data-testid="input-typ-klienta" />
-                          </div>
-                          <div className="space-y-1 flex-1 min-w-[160px]">
-                            <Label className="text-xs">Identifikátor ({activeClientType === "po" ? "IČO" : activeClientType === "szco" ? "IČO" : "Rodné číslo"})</Label>
-                            <Input value={subject.birthNumber || ""} disabled className="font-mono" data-testid="input-identifikator" />
-                          </div>
-                        </div>
-                      )}
-
                       {nodes.length === 0 ? (
                         <p className="text-sm text-muted-foreground text-center py-4">Žiadne parametre v šablóne (B)</p>
                       ) : (
@@ -1315,13 +1307,13 @@ export function SubjectProfileModuleC({ subject }: ModuleCProps) {
                           const sectionParamCount = panelNodes.reduce((s, p) => s + p.parameters.length, 0);
 
                           return (
-                            <Card key={section.id} className="border border-border/60 bg-card/50" data-testid={`section-card-${section.id}`}>
+                            <Card key={section.id} className="border border-border/50 bg-muted/10 shadow-sm" data-testid={`section-card-${section.id}`}>
                               <div
-                                className="flex items-center gap-2 px-3 py-2.5 cursor-pointer select-none hover:bg-muted/30 transition-colors"
+                                className="flex items-center gap-2 px-4 py-3 cursor-pointer select-none hover:bg-muted/20 transition-colors rounded-t-lg border-b border-border/30"
                                 onClick={() => toggleSection(sectionKey)}
                                 data-testid={`section-toggle-${section.id}`}
                               >
-                                {isSectionExpanded ? <ChevronDown className="w-4 h-4 text-muted-foreground shrink-0" /> : <ChevronRight className="w-4 h-4 text-muted-foreground shrink-0" />}
+                                {isSectionExpanded ? <ChevronDown className="w-4 h-4 text-primary/60 shrink-0" /> : <ChevronRight className="w-4 h-4 text-primary/60 shrink-0" />}
                                 <FolderOpen className="w-4 h-4 text-primary/70 shrink-0" />
                                 {isArchitectMode && renamingSection === section.id ? (
                                   <div className="flex items-center gap-1 flex-1" onClick={e => e.stopPropagation()}>
@@ -1363,7 +1355,7 @@ export function SubjectProfileModuleC({ subject }: ModuleCProps) {
                                 )}
                               </div>
                               {isSectionExpanded && (
-                                <CardContent className="px-3 pb-3 pt-0 space-y-3">
+                                <CardContent className="px-4 pb-4 pt-2 space-y-4">
                                   {isArchitectMode ? (
                                     <DndContext
                                       sensors={dndSensors}
@@ -1455,12 +1447,12 @@ export function SubjectProfileModuleC({ subject }: ModuleCProps) {
                                     </DndContext>
                                   ) : (
                                     panelNodes.map(({ panel, parameters }) => (
-                                      <div key={panel.id} className="space-y-2" data-testid={`panel-group-${panel.id}`}>
-                                        <div className="flex items-center gap-2 border-b border-border/40 pb-1">
-                                          <GripVertical className="w-3 h-3 text-muted-foreground/50" />
-                                          <p className="text-[11px] font-medium text-muted-foreground tracking-wide flex-1">
+                                      <div key={panel.id} className="space-y-2 rounded-lg border border-border/20 bg-card/40 p-3" data-testid={`panel-group-${panel.id}`}>
+                                        <div className="flex items-center gap-2 pb-1.5 mb-1 border-b border-border/30">
+                                          <GripVertical className="w-3 h-3 text-muted-foreground/40" />
+                                          <p className="text-[11px] font-semibold text-muted-foreground/80 tracking-wider uppercase flex-1">
                                             {panel.name}
-                                            <span className="ml-2 text-[9px] text-muted-foreground/60">({parameters.length})</span>
+                                            <span className="ml-2 text-[9px] text-muted-foreground/50 font-normal normal-case">({parameters.length} polí)</span>
                                           </p>
                                         </div>
                                         <div
