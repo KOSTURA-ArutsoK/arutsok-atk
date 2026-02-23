@@ -30,6 +30,7 @@ import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 
 const FOLDER_CATEGORY_LABELS: Record<string, string> = {
   povinne: "POVINNÉ ÚDAJE",
+  osobne: "OSOBNÉ ÚDAJE",
   doplnkove: "DOPLNKOVÉ ÚDAJE",
   volitelne: "VOLITEĽNÉ / DOBROVOĽNÉ ÚDAJE",
   ine: "INÉ ÚDAJE",
@@ -653,7 +654,7 @@ export function SubjectProfileModuleC({ subject }: ModuleCProps) {
         </div>
       )}
 
-      <Accordion type="multiple" defaultValue={["povinne", "doplnkove", "volitelne", "ine", "extrahovane"]} className="space-y-2">
+      <Accordion type="multiple" defaultValue={["povinne", "osobne", "doplnkove", "volitelne", "ine", "extrahovane"]} className="space-y-2">
         <AccordionItem value="povinne" className="border rounded-md px-3" data-testid="editor-accordion-povinne">
           <AccordionTrigger className="py-3 hover:no-underline">
             <div className="flex items-center gap-2">
@@ -696,6 +697,40 @@ export function SubjectProfileModuleC({ subject }: ModuleCProps) {
                 </div>
               </div>
             ))}
+          </AccordionContent>
+        </AccordionItem>
+
+        <AccordionItem value="osobne" className="border rounded-md px-3" data-testid="editor-accordion-osobne">
+          <AccordionTrigger className="py-3 hover:no-underline">
+            <div className="flex items-center gap-2">
+              <User className="w-4 h-4 text-cyan-400" />
+              <span className="text-sm font-semibold">OSOBNÉ ÚDAJE</span>
+              <Badge variant="secondary" className="text-[10px]">
+                {(dbGroupedByCategory["osobne"] || []).reduce((sum, g) => sum + g.fields.length, 0)}
+              </Badge>
+            </div>
+          </AccordionTrigger>
+          <AccordionContent className="pb-4 space-y-3">
+            {(dbGroupedByCategory["osobne"] || []).length === 0 ? (
+              <p className="text-sm text-muted-foreground text-center py-4">Žiadne osobné parametre v šablóne (B)</p>
+            ) : (
+              (dbGroupedByCategory["osobne"] || []).map(({ section, fields }) => (
+                <div key={section.id} className="space-y-2">
+                  <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide border-b border-border pb-1">{section.name}</p>
+                  <div className="flex flex-wrap gap-4 items-end">
+                    {fields.map(param => {
+                      const field = dbParamToStaticField(param);
+                      return (
+                        <div key={field.id} className={cn("min-w-0 relative", "flex-1 min-w-[140px]")}>
+                          <ArchitectFieldOverlay fieldKey={field.fieldKey} sectionCategory="osobne" />
+                          <DynamicFieldInput field={field} dynamicValues={dynamicValues} setDynamicValues={setDynamicValues} disabled={!isEditing} subjectId={subject.id} synonymCount={synonymCounts?.[field.fieldKey]} />
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              ))
+            )}
           </AccordionContent>
         </AccordionItem>
 
@@ -884,6 +919,18 @@ export function SubjectProfileModuleC({ subject }: ModuleCProps) {
                       const fieldCount = cc[cat.key]?.fields || 0;
                       const isRelacie = cat.key === "relacie";
 
+                      const SOURCE_MAP: Record<string, { sources: string[]; label: string }> = {
+                        identita: { sources: ["B"], label: "Profil (B)" },
+                        legislativa: { sources: ["B"], label: "Profil (B)" },
+                        rodina: { sources: ["B"], label: "Profil (B)" },
+                        financie: { sources: ["A", "B"], label: "Zmluvy (A) + Profil (B)" },
+                        profil: { sources: ["B"], label: "Profil (B)" },
+                        digitalna: { sources: ["B"], label: "Profil (B)" },
+                        servis: { sources: ["A", "B"], label: "Zmluvy (A) + Profil (B)" },
+                        relacie: { sources: ["A", "B"], label: "Zmluvy (A) + Profil (B)" },
+                      };
+                      const sourceInfo = SOURCE_MAP[cat.key] || { sources: ["B"], label: "Profil (B)" };
+
                       return (
                         <Card
                           key={cat.key}
@@ -897,7 +944,24 @@ export function SubjectProfileModuleC({ subject }: ModuleCProps) {
                                 <IconComp className={cn("w-4 h-4", colors.text)} />
                               </div>
                               <div className="flex-1 min-w-0">
-                                <p className="text-[10px] text-muted-foreground font-medium truncate">{cat.label}</p>
+                                <div className="flex items-center gap-1">
+                                  <p className="text-[10px] text-muted-foreground font-medium truncate">{cat.label}</p>
+                                  <div className="flex gap-0.5 shrink-0">
+                                    {sourceInfo.sources.map(s => (
+                                      <sup
+                                        key={s}
+                                        className={cn(
+                                          "text-[8px] font-bold px-0.5 rounded leading-none",
+                                          s === "A" ? "text-amber-400 bg-amber-500/15" : "text-blue-400 bg-blue-500/15"
+                                        )}
+                                        title={s === "A" ? "Dáta zo Zmlúv (Modul A)" : "Dáta z Profilu (Modul B)"}
+                                        data-testid={`source-badge-${cat.key}-${s}`}
+                                      >
+                                        ({s})
+                                      </sup>
+                                    ))}
+                                  </div>
+                                </div>
                                 <p className="text-lg font-bold text-foreground leading-tight" data-testid={`category-count-${cat.key}`}>
                                   {isRelacie ? "—" : count.toLocaleString("sk-SK")}
                                 </p>

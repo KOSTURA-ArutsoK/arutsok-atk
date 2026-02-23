@@ -1381,6 +1381,7 @@ export default function KniznicaParametrov() {
         onOpenChange={setIsParamDialogOpen}
         editParam={editParam}
         sections={sections}
+        allParameters={parameters}
         onSave={(data) => saveParamMutation.mutate(data)}
         isPending={saveParamMutation.isPending}
       />
@@ -1534,11 +1535,29 @@ function SynonymManager({ parameterId, parameterLabel }: { parameterId: number; 
   );
 }
 
+const TRANSACTIONAL_KEYWORDS = [
+  "splatnost", "splátka", "splátky", "suma_zmluvy", "suma_poistenia", "poistné",
+  "provízia", "odmena", "platba", "faktúra", "inkaso", "dátum_platby",
+  "datum_splatnosti", "celková_suma", "mesačná_splátka", "ročná_splátka",
+  "poistna_suma", "výška_provície", "výška_odmeny", "zmluvná_suma",
+  "datum_uzavretia", "datum_ukonenia", "datum_zaciatku", "platnost_od",
+  "platnost_do", "trvanie_zmluvy", "frekvencia_platby",
+];
+
+function isTransactionalField(fieldKey: string, label: string): boolean {
+  const lowerKey = fieldKey.toLowerCase();
+  const lowerLabel = label.toLowerCase();
+  return TRANSACTIONAL_KEYWORDS.some(kw =>
+    lowerKey.includes(kw) || lowerLabel.includes(kw)
+  );
+}
+
 function ParameterDialog({
   open,
   onOpenChange,
   editParam,
   sections,
+  allParameters,
   onSave,
   isPending,
 }: {
@@ -1546,6 +1565,7 @@ function ParameterDialog({
   onOpenChange: (v: boolean) => void;
   editParam: SubjectParameter | null;
   sections: SubjectParamSection[];
+  allParameters: SubjectParameter[];
   onSave: (data: any) => void;
   isPending: boolean;
 }) {
@@ -1616,7 +1636,43 @@ function ParameterDialog({
 
   const handleOpenChange = (v: boolean) => {
     if (v) resetForm();
+    setDuplicateWarning(null);
+    setDuplicateAcknowledged(false);
+    setTransactionalWarning(false);
+    setTransactionalAcknowledged(false);
     onOpenChange(v);
+  };
+
+  const [duplicateWarning, setDuplicateWarning] = useState<{ existingParam: SubjectParameter; existingSection: SubjectParamSection | undefined } | null>(null);
+  const [transactionalWarning, setTransactionalWarning] = useState(false);
+  const [duplicateAcknowledged, setDuplicateAcknowledged] = useState(false);
+  const [transactionalAcknowledged, setTransactionalAcknowledged] = useState(false);
+
+  const checkDuplicate = (currentFieldKey: string, currentLabel: string, currentSectionId: string) => {
+    if (!currentFieldKey && !currentLabel) { setDuplicateWarning(null); return; }
+    const lowerKey = currentFieldKey.toLowerCase();
+    const lowerLabel = currentLabel.toLowerCase();
+    const existing = allParameters.find(p => {
+      if (editParam && p.id === editParam.id) return false;
+      const keyMatch = lowerKey && p.fieldKey.toLowerCase() === lowerKey;
+      const labelMatch = lowerLabel && p.label.toLowerCase() === lowerLabel;
+      if (!keyMatch && !labelMatch) return false;
+      if (currentSectionId && p.sectionId === Number(currentSectionId)) return false;
+      return true;
+    });
+    if (existing) {
+      const sec = sections.find(s => s.id === existing.sectionId);
+      setDuplicateWarning({ existingParam: existing, existingSection: sec });
+      setDuplicateAcknowledged(false);
+    } else {
+      setDuplicateWarning(null);
+    }
+  };
+
+  const checkTransactional = (currentFieldKey: string, currentLabel: string) => {
+    const isTx = isTransactionalField(currentFieldKey, currentLabel);
+    setTransactionalWarning(isTx);
+    if (!isTx) setTransactionalAcknowledged(false);
   };
 
   const filteredSections = sections.filter(s => s.clientTypeId === Number(clientTypeId) && !s.isPanel);
@@ -1624,6 +1680,10 @@ function ParameterDialog({
 
   const handleSubmit = () => {
     if (!label) return;
+    if (duplicateWarning && !duplicateAcknowledged) return;
+    if (transactionalWarning && !transactionalAcknowledged) {
+      setParameterScope("contract");
+    }
     const data: any = {
       label,
       shortLabel: shortLabel || null,
@@ -1663,7 +1723,7 @@ function ParameterDialog({
             <Label>Názov parametra *</Label>
             <Input
               value={label}
-              onChange={e => setLabel(e.target.value)}
+              onChange={e => { setLabel(e.target.value); checkDuplicate(fieldKey, e.target.value, sectionId); checkTransactional(fieldKey, e.target.value); }}
               placeholder="napr. Rodné číslo, Meno klienta..."
               data-testid="input-field-label"
             />
@@ -1705,7 +1765,7 @@ function ParameterDialog({
           </div>
           <div className="space-y-1.5">
             <Label>Sekcia (priečinok)</Label>
-            <Select value={sectionId} onValueChange={setSectionId}>
+            <Select value={sectionId} onValueChange={(val) => { setSectionId(val); checkDuplicate(fieldKey, label, val); }}>
               <SelectTrigger data-testid="select-section">
                 <SelectValue placeholder="Vybrať sekciu" />
               </SelectTrigger>
@@ -1763,7 +1823,7 @@ function ParameterDialog({
           </div>
           <div className="space-y-1.5">
             <Label>Rozsah parametra</Label>
-            <Select value={parameterScope} onValueChange={setParameterScope}>
+            <Select value={parameterScope} onValueChange={(val) => { setParameterScope(val); if (val === "contract") setTransactionalAcknowledged(true); }}>
               <SelectTrigger data-testid="select-parameter-scope">
                 <SelectValue />
               </SelectTrigger>
@@ -1867,6 +1927,81 @@ function ParameterDialog({
           </div>
         </div>
 
+        {duplicateWarning && (
+          <div className="rounded-md border border-amber-500/40 bg-amber-500/10 p-3 space-y-2" data-testid="duplicate-warning">
+            <div className="flex items-center gap-2">
+              <AlertTriangle className="w-4 h-4 text-amber-500 shrink-0" />
+              <p className="text-sm font-medium text-amber-500">Duplicitný parameter</p>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Tento údaj už existuje v sekcii <strong>{duplicateWarning.existingSection?.name || "Bez sekcie"}</strong> ako <strong>"{duplicateWarning.existingParam.label}"</strong> (kód: {duplicateWarning.existingParam.fieldKey}).
+            </p>
+            <div className="flex items-center gap-3">
+              <Button
+                size="sm"
+                variant="outline"
+                className="text-xs border-amber-500/40 text-amber-500 hover:bg-amber-500/20"
+                onClick={() => { setDuplicateAcknowledged(true); }}
+                data-testid="btn-duplicate-allow"
+              >
+                <Copy className="w-3 h-3 mr-1" />
+                Duplikovať
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                className="text-xs"
+                onClick={() => { setDuplicateWarning(null); setDuplicateAcknowledged(false); }}
+                data-testid="btn-duplicate-cancel"
+              >
+                Zrušiť
+              </Button>
+            </div>
+            {duplicateAcknowledged && (
+              <p className="text-[10px] text-emerald-400 flex items-center gap-1">
+                <CheckCircle2 className="w-3 h-3" /> Duplikácia povolená
+              </p>
+            )}
+          </div>
+        )}
+
+        {transactionalWarning && (
+          <div className="rounded-md border border-red-500/40 bg-red-500/10 p-3 space-y-2" data-testid="transactional-warning">
+            <div className="flex items-center gap-2">
+              <Lock className="w-4 h-4 text-red-500 shrink-0" />
+              <p className="text-sm font-medium text-red-500">Transakčný parameter</p>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Tento parameter vyzerá ako transakčný údaj (dátumy splatnosti, sumy zmluvy, provízie). Transakčné parametre patria do Modulu A (Portfólio zmlúv), nie do šablón subjektu (B).
+            </p>
+            <div className="flex items-center gap-3">
+              <Button
+                size="sm"
+                variant="outline"
+                className="text-xs border-red-500/40 text-red-500 hover:bg-red-500/20"
+                onClick={() => { setParameterScope("contract"); setTransactionalAcknowledged(true); }}
+                data-testid="btn-transactional-redirect"
+              >
+                Presmerovať do Modulu A
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                className="text-xs"
+                onClick={() => { setTransactionalAcknowledged(true); }}
+                data-testid="btn-transactional-override"
+              >
+                Ponechať v (B)
+              </Button>
+            </div>
+            {transactionalAcknowledged && (
+              <p className="text-[10px] text-emerald-400 flex items-center gap-1">
+                <CheckCircle2 className="w-3 h-3" /> Smerovanie potvrdené — rozsah: {parameterScope === "contract" ? "Portfólio zmlúv (A)" : "Profil subjektu (B)"}
+              </p>
+            )}
+          </div>
+        )}
+
         {editParam && (
           <SynonymManager parameterId={editParam.id} parameterLabel={editParam.label} />
         )}
@@ -1877,7 +2012,7 @@ function ParameterDialog({
           </Button>
           <Button
             onClick={handleSubmit}
-            disabled={isPending || !label}
+            disabled={isPending || !label || (duplicateWarning !== null && !duplicateAcknowledged) || (transactionalWarning && !transactionalAcknowledged)}
             data-testid="button-save-param"
           >
             {isPending ? <Loader2 className="w-4 h-4 animate-spin mr-1" /> : null}
@@ -1907,6 +2042,7 @@ function SectionDialog({
   const [name, setName] = useState("");
   const [code, setCode] = useState("");
   const [clientTypeId, setClientTypeId] = useState("1");
+  const [folderCategory, setFolderCategory] = useState("povinne");
   const [isPanel, setIsPanel] = useState(false);
   const [parentSectionId, setParentSectionId] = useState<string>("");
   const [sortOrder, setSortOrder] = useState("0");
@@ -1918,6 +2054,7 @@ function SectionDialog({
       setName(editSection.name);
       setCode(editSection.code);
       setClientTypeId(String(editSection.clientTypeId));
+      setFolderCategory(editSection.folderCategory || "povinne");
       setIsPanel(editSection.isPanel);
       setParentSectionId(editSection.parentSectionId ? String(editSection.parentSectionId) : "");
       setSortOrder(String(editSection.sortOrder));
@@ -1927,6 +2064,7 @@ function SectionDialog({
       setName("");
       setCode("");
       setClientTypeId("1");
+      setFolderCategory("povinne");
       setIsPanel(false);
       setParentSectionId("");
       setSortOrder("0");
@@ -1947,6 +2085,7 @@ function SectionDialog({
     const data: any = {
       name,
       clientTypeId: Number(clientTypeId),
+      folderCategory: isPanel ? undefined : folderCategory,
       isPanel,
       parentSectionId: isPanel && parentSectionId ? Number(parentSectionId) : null,
       sortOrder: Number(sortOrder),
@@ -1984,6 +2123,23 @@ function SectionDialog({
             <Label>Poradie</Label>
             <Input type="number" value={sortOrder} onChange={e => setSortOrder(e.target.value)} data-testid="input-section-sort" />
           </div>
+          {!isPanel && (
+            <div className="col-span-2 space-y-1.5">
+              <Label>Priečinková kategória (Accordion v profile)</Label>
+              <Select value={folderCategory} onValueChange={setFolderCategory}>
+                <SelectTrigger data-testid="select-folder-category">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="povinne">Povinné údaje</SelectItem>
+                  <SelectItem value="osobne">Osobné údaje</SelectItem>
+                  <SelectItem value="doplnkove">Doplnkové údaje</SelectItem>
+                  <SelectItem value="volitelne">Voliteľné údaje</SelectItem>
+                  <SelectItem value="ine">Iné údaje</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          )}
           <div className="col-span-2 flex items-center gap-2">
             <Switch checked={isPanel} onCheckedChange={setIsPanel} data-testid="switch-is-panel" />
             <Label>Je panel (vnorený v sekcii)</Label>
