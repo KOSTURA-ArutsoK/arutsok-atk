@@ -5,7 +5,7 @@ import { api } from "@shared/routes";
 import { setupAuth, registerAuthRoutes, isAuthenticated } from "./replit_integrations/auth";
 import { z } from "zod";
 import { continents, states, myCompanies, appUsers, clientTypes, clientSubGroups, clientGroupMembers, productFolderAssignments, folderPanels, panelParameters, userClientGroupMemberships, clientGroups, permissionGroups, insertCareerLevelSchema, insertProductPointRateSchema, careerLevels, importLogs, commissions, contracts, contractStatuses, contractStatusChangeLogs, clientDataTabs, clientDataCategories, subjects, subjectPointsLog, subjectFieldHistory, subjectCollaborators, clientMarketingConsents, clientDocumentHistory, contractAcquirers, contractPasswords, contractRewardDistributions, contractParameterValues, subjectArchive, auditLogs, globalCounters, subjectPhotos, activityEvents, subjectParamSections, subjectParameters, subjectTemplates, subjectTemplateParams, commissionCalculationLogs, parameterSynonyms, dataConflictAlerts, transactionDedupLog, relationRoleTypes, subjectRelations, maturityAlerts, inheritancePrompts, guardianshipArchive, households, householdMembers, householdAssets, privacyBlocks, accessConsentLog, maturityEvents, addressGroups, addressGroupMembers, companySubjectRoles, notificationQueue, batchJobs, subjectObjects, objectDataSources, sectors, sections, sectorProducts, parameters, panels, productPanels, contractFolders, fieldLayoutConfigs, sectorCategoryMapping, suggestedRelations, statusEvidence } from "@shared/schema";
-import { seedSubjectParameters, seedAssetPanels } from "./seed-subject-params";
+import { seedSubjectParameters, seedAssetPanels, seedEventAndEntityPanels } from "./seed-subject-params";
 import sharp from "sharp";
 import { db } from "./db";
 import { eq, and, or, isNotNull, sql, inArray, desc, asc } from "drizzle-orm";
@@ -178,6 +178,7 @@ export async function registerRoutes(
   registerAuthRoutes(app);
 
   seedAssetPanels().catch(err => console.error("[SEED-ASSETS ERROR]", err));
+  seedEventAndEntityPanels().catch(err => console.error("[SEED-EVENTS ERROR]", err));
 
   app.use((req: any, _res, next) => {
     req._auditStartTime = performance.now();
@@ -11247,6 +11248,41 @@ export async function registerRoutes(
       res.status(500).json({ message: err?.message || "Chyba pri načítaní rodinného stromu" });
     }
   });
+
+  setInterval(async () => {
+    try {
+      const today = new Date().toISOString().split('T')[0];
+      const expiredEvents = await db.execute(sql`
+        SELECT s.id, s.details FROM subjects s 
+        WHERE s.is_active = true AND s.deleted_at IS NULL 
+        AND s.details IS NOT NULL
+      `);
+      let archiveCount = 0;
+      for (const row of expiredEvents.rows) {
+        const details = typeof row.details === 'string' ? JSON.parse(row.details) : row.details;
+        if (!details) continue;
+        const eventDateDo = details.event_datum_do;
+        const eventStatus = details.event_status;
+        if (eventDateDo && eventStatus && eventStatus !== "Archív" && eventStatus !== "Ukončené") {
+          if (eventDateDo < today) {
+            const updatedDetails = { ...details, event_status: "Archív" };
+            await db.update(subjects).set({ details: updatedDetails }).where(eq(subjects.id, row.id as number));
+            await db.insert(auditLogs).values({
+              userId: 0,
+              action: "event_auto_archive",
+              entityType: "subject",
+              entityId: String(row.id),
+              details: { fieldKey: "event_status", oldValue: eventStatus, newValue: "Archív", reason: "Auto-archív: podujatie uplynulo", author: "ArutsoK" },
+            });
+            archiveCount++;
+          }
+        }
+      }
+      if (archiveCount > 0) console.log(`[CRON] Auto-archived ${archiveCount} expired events`);
+    } catch (err) {
+      console.error("[CRON] Event auto-archive error:", err);
+    }
+  }, 60 * 60 * 1000);
 
   return httpServer;
 }

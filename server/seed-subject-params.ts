@@ -876,3 +876,83 @@ export async function seedAssetPanels(): Promise<{ sectionsCount: number; parame
   console.log(`[SEED-ASSETS] Created 3 sections, ${insertedPanels.length} panels, ${paramCount} parameters`);
   return { sectionsCount: 3 + insertedPanels.length, parametersCount: paramCount };
 }
+
+export async function seedEventAndEntityPanels(): Promise<{ sectionsCount: number; parametersCount: number }> {
+  const checkExisting = await db.select({ id: subjectParamSections.id }).from(subjectParamSections)
+    .where(eq(subjectParamSections.code, "fo_eventy")).limit(1);
+  if (checkExisting.length > 0) {
+    console.log("[SEED] Event/Entity panels already exist, skipping.");
+    return { sectionsCount: 0, parametersCount: 0 };
+  }
+
+  const getVolSectionId = async (code: string) => {
+    const rows = await db.select({ id: subjectParamSections.id }).from(subjectParamSections)
+      .where(eq(subjectParamSections.code, code)).limit(1);
+    return rows[0]?.id;
+  };
+
+  const foVolId = await getVolSectionId("fo_volitelne");
+  const szcoVolId = await getVolSectionId("szco_volitelne");
+  const poVolId = await getVolSectionId("po_volitelne");
+  const poPovinneId = await getVolSectionId("pravne_subjekty");
+
+  if (!foVolId || !szcoVolId || !poVolId || !poPovinneId) {
+    console.log("[SEED] Missing parent sections for event/entity panels, skipping.");
+    return { sectionsCount: 0, parametersCount: 0 };
+  }
+
+  const panelInserts = [
+    { clientTypeId: 1, name: "🎭 Poistenie podujatí", code: "fo_eventy", folderCategory: "volitelne", sortOrder: 2, isPanel: true, parentSectionId: foVolId, gridColumns: 3 },
+    { clientTypeId: 3, name: "🎭 Poistenie podujatí", code: "szco_eventy", folderCategory: "volitelne", sortOrder: 3, isPanel: true, parentSectionId: szcoVolId, gridColumns: 3 },
+    { clientTypeId: 4, name: "🎭 Poistenie podujatí", code: "po_eventy", folderCategory: "volitelne", sortOrder: 3, isPanel: true, parentSectionId: poVolId, gridColumns: 3 },
+    { clientTypeId: 4, name: "🏛️ Špecifický typ organizácie", code: "po_spec_subjekt", folderCategory: "povinne", sortOrder: 3, isPanel: true, parentSectionId: poPovinneId, gridColumns: 3 },
+  ];
+
+  const insertedPanels = await db.insert(subjectParamSections).values(panelInserts).returning({ id: subjectParamSections.id, code: subjectParamSections.code });
+  const panelMap: Record<string, number> = {};
+  insertedPanels.forEach((p, i) => { panelMap[panelInserts[i].code] = p.id; });
+
+  const eventFields = (clientTypeId: number, sectionId: number, panelCode: string) => [
+    { clientTypeId, sectionId, panelId: panelMap[panelCode], fieldKey: "event_nazov", label: "Názov podujatia", shortLabel: "Názov", fieldType: "short_text", isRequired: false, isHidden: false, isActive: true, options: [], sortOrder: 10, rowNumber: 0, widthPercent: 34, fieldCategory: "volitelne" },
+    { clientTypeId, sectionId, panelId: panelMap[panelCode], fieldKey: "event_typ", label: "Typ podujatia", shortLabel: "Typ", fieldType: "jedna_moznost", isRequired: false, isHidden: false, isActive: true, options: ["Vernisáž", "Koncert / Turné", "Festival", "Konferencia", "Výstava", "Športové podujatie", "Súkromná akcia", "Iné"], sortOrder: 20, rowNumber: 0, widthPercent: 33, fieldCategory: "volitelne" },
+    { clientTypeId, sectionId, panelId: panelMap[panelCode], fieldKey: "event_miesto", label: "Miesto konania", shortLabel: "Miesto", fieldType: "short_text", isRequired: false, isHidden: false, isActive: true, options: [], sortOrder: 30, rowNumber: 0, widthPercent: 33, fieldCategory: "volitelne" },
+    { clientTypeId, sectionId, panelId: panelMap[panelCode], fieldKey: "event_datum_od", label: "Dátum začiatku", shortLabel: "Od", fieldType: "date", isRequired: false, isHidden: false, isActive: true, options: [], sortOrder: 40, rowNumber: 1, widthPercent: 33, fieldCategory: "volitelne" },
+    { clientTypeId, sectionId, panelId: panelMap[panelCode], fieldKey: "event_datum_do", label: "Dátum ukončenia", shortLabel: "Do", fieldType: "date", isRequired: false, isHidden: false, isActive: true, options: [], sortOrder: 50, rowNumber: 1, widthPercent: 33, fieldCategory: "volitelne" },
+    { clientTypeId, sectionId, panelId: panelMap[panelCode], fieldKey: "event_status", label: "Status podujatia", shortLabel: "Status", fieldType: "jedna_moznost", isRequired: false, isHidden: false, isActive: true, options: ["Príprava", "Aktívne", "Prebieha", "Ukončené", "Archív"], defaultValue: "Príprava", sortOrder: 60, rowNumber: 1, widthPercent: 34, fieldCategory: "volitelne" },
+    { clientTypeId, sectionId, panelId: panelMap[panelCode], fieldKey: "event_zodpovednost", label: "Zodpovednosť za návštevníkov", shortLabel: "Zodpovednosť", fieldType: "jedna_moznost", isRequired: false, isHidden: false, isActive: true, options: ["Áno – poistenie zodpovednosti", "Nie", "Čiastočne"], sortOrder: 70, rowNumber: 2, widthPercent: 33, fieldCategory: "volitelne" },
+    { clientTypeId, sectionId, panelId: panelMap[panelCode], fieldKey: "event_poistenie_storna", label: "Poistenie storna", shortLabel: "Storno poist.", fieldType: "jedna_moznost", isRequired: false, isHidden: false, isActive: true, options: ["Áno", "Nie"], sortOrder: 80, rowNumber: 2, widthPercent: 34, fieldCategory: "volitelne" },
+    { clientTypeId, sectionId, panelId: panelMap[panelCode], fieldKey: "event_poistna_suma", label: "Poistná suma (€)", shortLabel: "Poistná suma", fieldType: "number", isRequired: false, isHidden: false, isActive: true, options: [], unit: "€", sortOrder: 90, rowNumber: 2, widthPercent: 33, fieldCategory: "volitelne" },
+    { clientTypeId, sectionId, panelId: panelMap[panelCode], fieldKey: "event_poznamka", label: "Poznámka k podujatiu", shortLabel: "Poznámka", fieldType: "long_text", isRequired: false, isHidden: false, isActive: true, options: [], sortOrder: 100, rowNumber: 3, widthPercent: 100, fieldCategory: "volitelne" },
+  ];
+
+  const specSubjektFields = (sectionId: number) => [
+    { clientTypeId: 4, sectionId, panelId: panelMap["po_spec_subjekt"], fieldKey: "typ_organizacie", label: "Typ organizácie", shortLabel: "Typ org.", fieldType: "jedna_moznost", isRequired: false, isHidden: false, isActive: true, options: ["Obchodná spoločnosť", "Štátna inštitúcia", "Nadácia", "Občianske združenie (OZ)", "Cirkevná organizácia", "Nezisková organizácia", "Príspevková organizácia", "Iné"], defaultValue: "Obchodná spoločnosť", sortOrder: 10, rowNumber: 0, widthPercent: 50, fieldCategory: "povinne" },
+    { clientTypeId: 4, sectionId, panelId: panelMap["po_spec_subjekt"], fieldKey: "zriadovatel", label: "Zriaďovateľ", shortLabel: "Zriaďovateľ", fieldType: "short_text", isRequired: false, isHidden: false, isActive: true, options: [], visibilityRule: { dependsOn: "typ_organizacie", value: "Štátna inštitúcia" }, sortOrder: 20, rowNumber: 0, widthPercent: 50, fieldCategory: "povinne" },
+    { clientTypeId: 4, sectionId, panelId: panelMap["po_spec_subjekt"], fieldKey: "rozpoctova_kapitola", label: "Rozpočtová kapitola", shortLabel: "Rozpoč. kap.", fieldType: "short_text", isRequired: false, isHidden: false, isActive: true, options: [], visibilityRule: { dependsOn: "typ_organizacie", value: "Štátna inštitúcia" }, sortOrder: 30, rowNumber: 1, widthPercent: 50, fieldCategory: "povinne" },
+    { clientTypeId: 4, sectionId, panelId: panelMap["po_spec_subjekt"], fieldKey: "statna_sprava_uroven", label: "Úroveň štátnej správy", shortLabel: "Úroveň ŠS", fieldType: "jedna_moznost", isRequired: false, isHidden: false, isActive: true, options: ["Ústredný orgán", "Krajský úrad", "Okresný úrad", "Obec / Mesto", "Iné"], visibilityRule: { dependsOn: "typ_organizacie", value: "Štátna inštitúcia" }, sortOrder: 40, rowNumber: 1, widthPercent: 50, fieldCategory: "povinne" },
+    { clientTypeId: 4, sectionId, panelId: panelMap["po_spec_subjekt"], fieldKey: "ucel_nadacie", label: "Účel nadácie / OZ", shortLabel: "Účel", fieldType: "long_text", isRequired: false, isHidden: false, isActive: true, options: [], visibilityRule: { dependsOn: "typ_organizacie", value: "Nadácia" }, sortOrder: 50, rowNumber: 2, widthPercent: 50, fieldCategory: "povinne" },
+    { clientTypeId: 4, sectionId, panelId: panelMap["po_spec_subjekt"], fieldKey: "statutar_nadacie", label: "Štatutár nadácie / OZ", shortLabel: "Štatutár", fieldType: "short_text", isRequired: false, isHidden: false, isActive: true, options: [], visibilityRule: { dependsOn: "typ_organizacie", value: "Nadácia" }, sortOrder: 60, rowNumber: 2, widthPercent: 50, fieldCategory: "povinne" },
+    { clientTypeId: 4, sectionId, panelId: panelMap["po_spec_subjekt"], fieldKey: "verejna_zbierka", label: "Oprávnenie na verejnú zbierku", shortLabel: "Ver. zbierka", fieldType: "jedna_moznost", isRequired: false, isHidden: false, isActive: true, options: ["Áno", "Nie"], visibilityRule: { dependsOn: "typ_organizacie", value: "Nadácia" }, sortOrder: 70, rowNumber: 3, widthPercent: 33, fieldCategory: "povinne" },
+    { clientTypeId: 4, sectionId, panelId: panelMap["po_spec_subjekt"], fieldKey: "registracny_organ", label: "Registračný orgán", shortLabel: "Reg. orgán", fieldType: "short_text", isRequired: false, isHidden: false, isActive: true, options: [], visibilityRule: { dependsOn: "typ_organizacie", value: "Občianske združenie (OZ)" }, sortOrder: 80, rowNumber: 2, widthPercent: 50, fieldCategory: "povinne" },
+    { clientTypeId: 4, sectionId, panelId: panelMap["po_spec_subjekt"], fieldKey: "datum_registracie", label: "Dátum registrácie", shortLabel: "Dát. reg.", fieldType: "date", isRequired: false, isHidden: false, isActive: true, options: [], visibilityRule: { dependsOn: "typ_organizacie", value: "Občianske združenie (OZ)" }, sortOrder: 90, rowNumber: 2, widthPercent: 50, fieldCategory: "povinne" },
+    { clientTypeId: 4, sectionId, panelId: panelMap["po_spec_subjekt"], fieldKey: "opravnenie_konanie", label: "Oprávnenie na konanie v mene subjektu", shortLabel: "Oprávnenie", fieldType: "jedna_moznost", isRequired: false, isHidden: false, isActive: true, options: ["Samostatne", "Spoločne", "Na základe plnej moci", "Iné"], sortOrder: 100, rowNumber: 3, widthPercent: 34, fieldCategory: "povinne" },
+    { clientTypeId: 4, sectionId, panelId: panelMap["po_spec_subjekt"], fieldKey: "cirkevna_registracia", label: "Registrácia (cirkev)", shortLabel: "Cirkev. reg.", fieldType: "short_text", isRequired: false, isHidden: false, isActive: true, options: [], visibilityRule: { dependsOn: "typ_organizacie", value: "Cirkevná organizácia" }, sortOrder: 110, rowNumber: 3, widthPercent: 33, fieldCategory: "povinne" },
+  ];
+
+  const allParams: any[] = [
+    ...eventFields(1, foVolId, "fo_eventy"),
+    ...eventFields(3, szcoVolId, "szco_eventy"),
+    ...eventFields(4, poVolId, "po_eventy"),
+    ...specSubjektFields(poPovinneId),
+  ];
+
+  let paramCount = 0;
+  for (let i = 0; i < allParams.length; i += 20) {
+    const batch = allParams.slice(i, i + 20);
+    await db.insert(subjectParameters).values(batch);
+    paramCount += batch.length;
+  }
+
+  console.log(`[SEED-EVENTS] Created ${insertedPanels.length} panels, ${paramCount} parameters`);
+  return { sectionsCount: insertedPanels.length, parametersCount: paramCount };
+}

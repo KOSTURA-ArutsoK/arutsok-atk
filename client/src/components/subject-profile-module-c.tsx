@@ -3,7 +3,7 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import type { Subject } from "@shared/schema";
-import { type StaticField } from "@/lib/staticFieldDefs";
+import { type StaticField, PHOTO_REQUIRED_FIELD_KEYS } from "@/lib/staticFieldDefs";
 import { getCategoriesForClientType } from "@/lib/staticFieldDefs";
 import { getDocumentValidityStatus, isValidityField, isNumberFieldWithExpiredPair } from "@/lib/document-validity";
 import { FieldHistoryIndicator } from "@/components/field-history-indicator";
@@ -285,6 +285,11 @@ function DynamicFieldInput({ field, dynamicValues, setDynamicValues, hasError, d
           {field.isRequired ? " *" : ""}
           {isExpiredNumber && <span className="ml-1 text-red-500 text-[9px]">(neplatný doklad)</span>}
         </Label>
+        {PHOTO_REQUIRED_FIELD_KEYS.has(field.fieldKey) && dynamicValues[field.fieldKey] && !disabled && (
+          <span title="📸 Vizuálna evidencia – odporúčame priložiť fotografiu" className="text-amber-500" data-testid={`photo-required-${field.fieldKey}`}>
+            <Camera className="w-3.5 h-3.5" />
+          </span>
+        )}
       </div>
       {field.fieldType === "long_text" ? (
         <div className="relative">
@@ -1613,6 +1618,10 @@ export function SubjectProfileModuleC({ subject }: ModuleCProps) {
                                                 >
                                                   {parameters.map(param => {
                                                     const field = dbParamToStaticField(param);
+                                                    if (field.visibilityRule && field.visibilityRule.dependsOn) {
+                                                      const depVal = dynamicValues[field.visibilityRule.dependsOn];
+                                                      if (!depVal || depVal !== field.visibilityRule.value) return null;
+                                                    }
                                                     return (
                                                       <SortableFieldItem key={field.id} id={String(field.id)} isArchitectMode>
                                                         <div className="pl-4">
@@ -1680,6 +1689,10 @@ export function SubjectProfileModuleC({ subject }: ModuleCProps) {
                                         >
                                           {parameters.map(param => {
                                             const field = dbParamToStaticField(param);
+                                            if (field.visibilityRule && field.visibilityRule.dependsOn) {
+                                              const depVal = dynamicValues[field.visibilityRule.dependsOn];
+                                              if (!depVal || depVal !== field.visibilityRule.value) return null;
+                                            }
                                             return (
                                               <div key={field.id} className="min-w-0 relative">
                                                 <DynamicFieldInput field={field} dynamicValues={dynamicValues} setDynamicValues={setDynamicValues} disabled={!isEditing} subjectId={subject.id} />

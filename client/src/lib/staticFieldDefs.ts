@@ -19,7 +19,13 @@ export interface StaticField {
   sortOrder: number;
   rowNumber: number;
   widthPercent: number;
+  photoRequired?: boolean;
 }
+
+export const PHOTO_REQUIRED_FIELD_KEYS = new Set([
+  "spec_nazov", "spec_typ_aktiva", "spec_reg_cislo", "spec_pristav",
+  "spec_autor", "spec_hodnota", "spec_typ_plavidla", "spec_typ_lietadla",
+]);
 
 export interface StaticSection {
   id: number;
@@ -70,6 +76,7 @@ const FO_PANEL_ZDRAVOTNY = 70;
 const FO_PANEL_INVESTICNY = 71;
 const FO_PANEL_SPEC_AKTIVA = 90;
 const FO_PANEL_SPEC_RIZIKA = 92;
+const FO_PANEL_EVENTY = 99;
 
 const SZCO_SECTION_POVINNE = 11;
 const SZCO_SECTION_DOPLNKOVE = 18;
@@ -88,6 +95,7 @@ const SZCO_PANEL_ZMLUVNE = 35;
 const SZCO_PANEL_SPEC_AKTIVA = 93;
 const SZCO_PANEL_FIREMNE_PORTF = 94;
 const SZCO_PANEL_SPEC_RIZIKA = 95;
+const SZCO_PANEL_EVENTY = 100;
 
 const PO_SECTION_POVINNE = 15;
 const PO_SECTION_DOPLNKOVE = 19;
@@ -103,6 +111,8 @@ const PO_PANEL_STATUTARI = 38;
 const PO_PANEL_SPEC_AKTIVA = 96;
 const PO_PANEL_FIREMNE_PORTF = 97;
 const PO_PANEL_SPEC_RIZIKA = 98;
+const PO_PANEL_EVENTY = 101;
+const PO_PANEL_SPEC_SUBJEKT = 102;
 
 const FO_SECTION_INE = 80;
 const SZCO_SECTION_INE = 81;
@@ -140,6 +150,7 @@ export const FO_PANELS: StaticPanel[] = [
   { id: FO_PANEL_INVESTICNY, clientTypeId: 1, sectionId: FO_SECTION_DOPLNKOVE, name: "Investičný profil", gridColumns: 3, sortOrder: 16 },
   { id: FO_PANEL_SPEC_AKTIVA, clientTypeId: 1, sectionId: FO_SECTION_VOLITELNE, name: "⛵ Špeciálne aktíva", gridColumns: 3, sortOrder: 0 },
   { id: FO_PANEL_SPEC_RIZIKA, clientTypeId: 1, sectionId: FO_SECTION_VOLITELNE, name: "💎 Špecifické riziká", gridColumns: 3, sortOrder: 1 },
+  { id: FO_PANEL_EVENTY, clientTypeId: 1, sectionId: FO_SECTION_VOLITELNE, name: "🎭 Poistenie podujatí", gridColumns: 3, sortOrder: 2 },
 ];
 
 export const FO_FIELDS: StaticField[] = [
@@ -341,6 +352,18 @@ export const FO_FIELDS: StaticField[] = [
   { id: 1923, clientTypeId: 1, sectionId: FO_SECTION_VOLITELNE, panelId: FO_PANEL_SPEC_RIZIKA, fieldKey: "riziko_poistovatel", label: "Poisťovateľ", shortLabel: "Poisťovateľ", fieldType: "short_text", isRequired: false, isHidden: false, options: [], defaultValue: null, visibilityRule: null, unit: null, decimalPlaces: 2, fieldCategory: "volitelne", sortOrder: 40, rowNumber: 1, widthPercent: 34 },
   { id: 1924, clientTypeId: 1, sectionId: FO_SECTION_VOLITELNE, panelId: FO_PANEL_SPEC_RIZIKA, fieldKey: "riziko_cislo_zmluvy", label: "Číslo zmluvy", shortLabel: "Č. zmluvy", fieldType: "short_text", isRequired: false, isHidden: false, options: [], defaultValue: null, visibilityRule: null, unit: null, decimalPlaces: 2, fieldCategory: "volitelne", sortOrder: 50, rowNumber: 1, widthPercent: 33 },
   { id: 1925, clientTypeId: 1, sectionId: FO_SECTION_VOLITELNE, panelId: FO_PANEL_SPEC_RIZIKA, fieldKey: "riziko_poznamka", label: "Poznámka k riziku", shortLabel: "Poznámka", fieldType: "long_text", isRequired: false, isHidden: false, options: [], defaultValue: null, visibilityRule: null, unit: null, decimalPlaces: 2, fieldCategory: "volitelne", sortOrder: 60, rowNumber: 2, widthPercent: 100 },
+
+  // === VOLITEĽNÉ: Poistenie podujatí (🎭 Vernisáže, Koncerty) ===
+  { id: 2000, clientTypeId: 1, sectionId: FO_SECTION_VOLITELNE, panelId: FO_PANEL_EVENTY, fieldKey: "event_nazov", label: "Názov podujatia", shortLabel: "Názov", fieldType: "short_text", isRequired: false, isHidden: false, options: [], defaultValue: null, visibilityRule: null, unit: null, decimalPlaces: 2, fieldCategory: "volitelne", sortOrder: 10, rowNumber: 0, widthPercent: 34 },
+  { id: 2001, clientTypeId: 1, sectionId: FO_SECTION_VOLITELNE, panelId: FO_PANEL_EVENTY, fieldKey: "event_typ", label: "Typ podujatia", shortLabel: "Typ", fieldType: "jedna_moznost", isRequired: false, isHidden: false, options: ["Vernisáž", "Koncert / Turné", "Festival", "Konferencia", "Výstava", "Športové podujatie", "Súkromná akcia", "Iné"], defaultValue: null, visibilityRule: null, unit: null, decimalPlaces: 2, fieldCategory: "volitelne", sortOrder: 20, rowNumber: 0, widthPercent: 33 },
+  { id: 2002, clientTypeId: 1, sectionId: FO_SECTION_VOLITELNE, panelId: FO_PANEL_EVENTY, fieldKey: "event_miesto", label: "Miesto konania", shortLabel: "Miesto", fieldType: "short_text", isRequired: false, isHidden: false, options: [], defaultValue: null, visibilityRule: null, unit: null, decimalPlaces: 2, fieldCategory: "volitelne", sortOrder: 30, rowNumber: 0, widthPercent: 33 },
+  { id: 2003, clientTypeId: 1, sectionId: FO_SECTION_VOLITELNE, panelId: FO_PANEL_EVENTY, fieldKey: "event_datum_od", label: "Dátum začiatku", shortLabel: "Od", fieldType: "date", isRequired: false, isHidden: false, options: [], defaultValue: null, visibilityRule: null, unit: null, decimalPlaces: 2, fieldCategory: "volitelne", sortOrder: 40, rowNumber: 1, widthPercent: 33 },
+  { id: 2004, clientTypeId: 1, sectionId: FO_SECTION_VOLITELNE, panelId: FO_PANEL_EVENTY, fieldKey: "event_datum_do", label: "Dátum ukončenia", shortLabel: "Do", fieldType: "date", isRequired: false, isHidden: false, options: [], defaultValue: null, visibilityRule: null, unit: null, decimalPlaces: 2, fieldCategory: "volitelne", sortOrder: 50, rowNumber: 1, widthPercent: 33 },
+  { id: 2005, clientTypeId: 1, sectionId: FO_SECTION_VOLITELNE, panelId: FO_PANEL_EVENTY, fieldKey: "event_status", label: "Status podujatia", shortLabel: "Status", fieldType: "jedna_moznost", isRequired: false, isHidden: false, options: ["Príprava", "Aktívne", "Prebieha", "Ukončené", "Archív"], defaultValue: "Príprava", visibilityRule: null, unit: null, decimalPlaces: 2, fieldCategory: "volitelne", sortOrder: 60, rowNumber: 1, widthPercent: 34 },
+  { id: 2006, clientTypeId: 1, sectionId: FO_SECTION_VOLITELNE, panelId: FO_PANEL_EVENTY, fieldKey: "event_zodpovednost", label: "Zodpovednosť za návštevníkov", shortLabel: "Zodpovednosť", fieldType: "jedna_moznost", isRequired: false, isHidden: false, options: ["Áno – poistenie zodpovednosti", "Nie", "Čiastočne"], defaultValue: null, visibilityRule: null, unit: null, decimalPlaces: 2, fieldCategory: "volitelne", sortOrder: 70, rowNumber: 2, widthPercent: 33 },
+  { id: 2007, clientTypeId: 1, sectionId: FO_SECTION_VOLITELNE, panelId: FO_PANEL_EVENTY, fieldKey: "event_poistenie_storna", label: "Poistenie storna", shortLabel: "Storno poist.", fieldType: "jedna_moznost", isRequired: false, isHidden: false, options: ["Áno", "Nie"], defaultValue: null, visibilityRule: null, unit: null, decimalPlaces: 2, fieldCategory: "volitelne", sortOrder: 80, rowNumber: 2, widthPercent: 34 },
+  { id: 2008, clientTypeId: 1, sectionId: FO_SECTION_VOLITELNE, panelId: FO_PANEL_EVENTY, fieldKey: "event_poistna_suma", label: "Poistná suma (€)", shortLabel: "Poistná suma", fieldType: "number", isRequired: false, isHidden: false, options: [], defaultValue: null, visibilityRule: null, unit: "€", decimalPlaces: 2, fieldCategory: "volitelne", sortOrder: 90, rowNumber: 2, widthPercent: 33 },
+  { id: 2009, clientTypeId: 1, sectionId: FO_SECTION_VOLITELNE, panelId: FO_PANEL_EVENTY, fieldKey: "event_poznamka", label: "Poznámka k podujatiu", shortLabel: "Poznámka", fieldType: "long_text", isRequired: false, isHidden: false, options: [], defaultValue: null, visibilityRule: null, unit: null, decimalPlaces: 2, fieldCategory: "volitelne", sortOrder: 100, rowNumber: 3, widthPercent: 100 },
 ];
 
 export const SZCO_SECTIONS: StaticSection[] = [
@@ -364,6 +387,7 @@ export const SZCO_PANELS: StaticPanel[] = [
   { id: SZCO_PANEL_SPEC_AKTIVA, clientTypeId: 3, sectionId: SZCO_SECTION_VOLITELNE, name: "⛵ Špeciálne aktíva", gridColumns: 3, sortOrder: 0 },
   { id: SZCO_PANEL_FIREMNE_PORTF, clientTypeId: 3, sectionId: SZCO_SECTION_VOLITELNE, name: "🏗️ Firemné portfólio", gridColumns: 3, sortOrder: 1 },
   { id: SZCO_PANEL_SPEC_RIZIKA, clientTypeId: 3, sectionId: SZCO_SECTION_VOLITELNE, name: "💎 Špecifické riziká", gridColumns: 3, sortOrder: 2 },
+  { id: SZCO_PANEL_EVENTY, clientTypeId: 3, sectionId: SZCO_SECTION_VOLITELNE, name: "🎭 Poistenie podujatí", gridColumns: 3, sortOrder: 3 },
 ];
 
 export const SZCO_FIELDS: StaticField[] = [
@@ -489,6 +513,18 @@ export const SZCO_FIELDS: StaticField[] = [
   { id: 953, clientTypeId: 3, sectionId: SZCO_SECTION_VOLITELNE, panelId: SZCO_PANEL_SPEC_RIZIKA, fieldKey: "riziko_poistovatel", label: "Poisťovateľ", shortLabel: "Poisťovateľ", fieldType: "short_text", isRequired: false, isHidden: false, options: [], defaultValue: null, visibilityRule: null, unit: null, decimalPlaces: 2, fieldCategory: "volitelne", sortOrder: 40, rowNumber: 1, widthPercent: 34 },
   { id: 954, clientTypeId: 3, sectionId: SZCO_SECTION_VOLITELNE, panelId: SZCO_PANEL_SPEC_RIZIKA, fieldKey: "riziko_cislo_zmluvy", label: "Číslo zmluvy", shortLabel: "Č. zmluvy", fieldType: "short_text", isRequired: false, isHidden: false, options: [], defaultValue: null, visibilityRule: null, unit: null, decimalPlaces: 2, fieldCategory: "volitelne", sortOrder: 50, rowNumber: 1, widthPercent: 33 },
   { id: 955, clientTypeId: 3, sectionId: SZCO_SECTION_VOLITELNE, panelId: SZCO_PANEL_SPEC_RIZIKA, fieldKey: "riziko_poznamka", label: "Poznámka k riziku", shortLabel: "Poznámka", fieldType: "long_text", isRequired: false, isHidden: false, options: [], defaultValue: null, visibilityRule: null, unit: null, decimalPlaces: 2, fieldCategory: "volitelne", sortOrder: 60, rowNumber: 2, widthPercent: 100 },
+
+  // === VOLITEĽNÉ: Poistenie podujatí (🎭) ===
+  { id: 2020, clientTypeId: 3, sectionId: SZCO_SECTION_VOLITELNE, panelId: SZCO_PANEL_EVENTY, fieldKey: "event_nazov", label: "Názov podujatia", shortLabel: "Názov", fieldType: "short_text", isRequired: false, isHidden: false, options: [], defaultValue: null, visibilityRule: null, unit: null, decimalPlaces: 2, fieldCategory: "volitelne", sortOrder: 10, rowNumber: 0, widthPercent: 34 },
+  { id: 2021, clientTypeId: 3, sectionId: SZCO_SECTION_VOLITELNE, panelId: SZCO_PANEL_EVENTY, fieldKey: "event_typ", label: "Typ podujatia", shortLabel: "Typ", fieldType: "jedna_moznost", isRequired: false, isHidden: false, options: ["Vernisáž", "Koncert / Turné", "Festival", "Konferencia", "Výstava", "Športové podujatie", "Súkromná akcia", "Iné"], defaultValue: null, visibilityRule: null, unit: null, decimalPlaces: 2, fieldCategory: "volitelne", sortOrder: 20, rowNumber: 0, widthPercent: 33 },
+  { id: 2022, clientTypeId: 3, sectionId: SZCO_SECTION_VOLITELNE, panelId: SZCO_PANEL_EVENTY, fieldKey: "event_miesto", label: "Miesto konania", shortLabel: "Miesto", fieldType: "short_text", isRequired: false, isHidden: false, options: [], defaultValue: null, visibilityRule: null, unit: null, decimalPlaces: 2, fieldCategory: "volitelne", sortOrder: 30, rowNumber: 0, widthPercent: 33 },
+  { id: 2023, clientTypeId: 3, sectionId: SZCO_SECTION_VOLITELNE, panelId: SZCO_PANEL_EVENTY, fieldKey: "event_datum_od", label: "Dátum začiatku", shortLabel: "Od", fieldType: "date", isRequired: false, isHidden: false, options: [], defaultValue: null, visibilityRule: null, unit: null, decimalPlaces: 2, fieldCategory: "volitelne", sortOrder: 40, rowNumber: 1, widthPercent: 33 },
+  { id: 2024, clientTypeId: 3, sectionId: SZCO_SECTION_VOLITELNE, panelId: SZCO_PANEL_EVENTY, fieldKey: "event_datum_do", label: "Dátum ukončenia", shortLabel: "Do", fieldType: "date", isRequired: false, isHidden: false, options: [], defaultValue: null, visibilityRule: null, unit: null, decimalPlaces: 2, fieldCategory: "volitelne", sortOrder: 50, rowNumber: 1, widthPercent: 33 },
+  { id: 2025, clientTypeId: 3, sectionId: SZCO_SECTION_VOLITELNE, panelId: SZCO_PANEL_EVENTY, fieldKey: "event_status", label: "Status podujatia", shortLabel: "Status", fieldType: "jedna_moznost", isRequired: false, isHidden: false, options: ["Príprava", "Aktívne", "Prebieha", "Ukončené", "Archív"], defaultValue: "Príprava", visibilityRule: null, unit: null, decimalPlaces: 2, fieldCategory: "volitelne", sortOrder: 60, rowNumber: 1, widthPercent: 34 },
+  { id: 2026, clientTypeId: 3, sectionId: SZCO_SECTION_VOLITELNE, panelId: SZCO_PANEL_EVENTY, fieldKey: "event_zodpovednost", label: "Zodpovednosť za návštevníkov", shortLabel: "Zodpovednosť", fieldType: "jedna_moznost", isRequired: false, isHidden: false, options: ["Áno – poistenie zodpovednosti", "Nie", "Čiastočne"], defaultValue: null, visibilityRule: null, unit: null, decimalPlaces: 2, fieldCategory: "volitelne", sortOrder: 70, rowNumber: 2, widthPercent: 33 },
+  { id: 2027, clientTypeId: 3, sectionId: SZCO_SECTION_VOLITELNE, panelId: SZCO_PANEL_EVENTY, fieldKey: "event_poistenie_storna", label: "Poistenie storna", shortLabel: "Storno poist.", fieldType: "jedna_moznost", isRequired: false, isHidden: false, options: ["Áno", "Nie"], defaultValue: null, visibilityRule: null, unit: null, decimalPlaces: 2, fieldCategory: "volitelne", sortOrder: 80, rowNumber: 2, widthPercent: 34 },
+  { id: 2028, clientTypeId: 3, sectionId: SZCO_SECTION_VOLITELNE, panelId: SZCO_PANEL_EVENTY, fieldKey: "event_poistna_suma", label: "Poistná suma (€)", shortLabel: "Poistná suma", fieldType: "number", isRequired: false, isHidden: false, options: [], defaultValue: null, visibilityRule: null, unit: "€", decimalPlaces: 2, fieldCategory: "volitelne", sortOrder: 90, rowNumber: 2, widthPercent: 33 },
+  { id: 2029, clientTypeId: 3, sectionId: SZCO_SECTION_VOLITELNE, panelId: SZCO_PANEL_EVENTY, fieldKey: "event_poznamka", label: "Poznámka k podujatiu", shortLabel: "Poznámka", fieldType: "long_text", isRequired: false, isHidden: false, options: [], defaultValue: null, visibilityRule: null, unit: null, decimalPlaces: 2, fieldCategory: "volitelne", sortOrder: 100, rowNumber: 3, widthPercent: 100 },
 ];
 
 export const PO_SECTIONS: StaticSection[] = [
@@ -510,6 +546,8 @@ export const PO_PANELS: StaticPanel[] = [
   { id: PO_PANEL_SPEC_AKTIVA, clientTypeId: 4, sectionId: PO_SECTION_VOLITELNE, name: "⛵ Špeciálne aktíva", gridColumns: 3, sortOrder: 0 },
   { id: PO_PANEL_FIREMNE_PORTF, clientTypeId: 4, sectionId: PO_SECTION_VOLITELNE, name: "🏗️ Firemné portfólio", gridColumns: 3, sortOrder: 1 },
   { id: PO_PANEL_SPEC_RIZIKA, clientTypeId: 4, sectionId: PO_SECTION_VOLITELNE, name: "💎 Špecifické riziká", gridColumns: 3, sortOrder: 2 },
+  { id: PO_PANEL_EVENTY, clientTypeId: 4, sectionId: PO_SECTION_VOLITELNE, name: "🎭 Poistenie podujatí", gridColumns: 3, sortOrder: 3 },
+  { id: PO_PANEL_SPEC_SUBJEKT, clientTypeId: 4, sectionId: PO_SECTION_POVINNE, name: "🏛️ Špecifický typ organizácie", gridColumns: 3, sortOrder: 3 },
 ];
 
 export const PO_FIELDS: StaticField[] = [
@@ -612,6 +650,31 @@ export const PO_FIELDS: StaticField[] = [
   { id: 983, clientTypeId: 4, sectionId: PO_SECTION_VOLITELNE, panelId: PO_PANEL_SPEC_RIZIKA, fieldKey: "riziko_poistovatel", label: "Poisťovateľ", shortLabel: "Poisťovateľ", fieldType: "short_text", isRequired: false, isHidden: false, options: [], defaultValue: null, visibilityRule: null, unit: null, decimalPlaces: 2, fieldCategory: "volitelne", sortOrder: 40, rowNumber: 1, widthPercent: 34 },
   { id: 984, clientTypeId: 4, sectionId: PO_SECTION_VOLITELNE, panelId: PO_PANEL_SPEC_RIZIKA, fieldKey: "riziko_cislo_zmluvy", label: "Číslo zmluvy", shortLabel: "Č. zmluvy", fieldType: "short_text", isRequired: false, isHidden: false, options: [], defaultValue: null, visibilityRule: null, unit: null, decimalPlaces: 2, fieldCategory: "volitelne", sortOrder: 50, rowNumber: 1, widthPercent: 33 },
   { id: 985, clientTypeId: 4, sectionId: PO_SECTION_VOLITELNE, panelId: PO_PANEL_SPEC_RIZIKA, fieldKey: "riziko_poznamka", label: "Poznámka k riziku", shortLabel: "Poznámka", fieldType: "long_text", isRequired: false, isHidden: false, options: [], defaultValue: null, visibilityRule: null, unit: null, decimalPlaces: 2, fieldCategory: "volitelne", sortOrder: 60, rowNumber: 2, widthPercent: 100 },
+
+  // === VOLITEĽNÉ: Poistenie podujatí (🎭) ===
+  { id: 2040, clientTypeId: 4, sectionId: PO_SECTION_VOLITELNE, panelId: PO_PANEL_EVENTY, fieldKey: "event_nazov", label: "Názov podujatia", shortLabel: "Názov", fieldType: "short_text", isRequired: false, isHidden: false, options: [], defaultValue: null, visibilityRule: null, unit: null, decimalPlaces: 2, fieldCategory: "volitelne", sortOrder: 10, rowNumber: 0, widthPercent: 34 },
+  { id: 2041, clientTypeId: 4, sectionId: PO_SECTION_VOLITELNE, panelId: PO_PANEL_EVENTY, fieldKey: "event_typ", label: "Typ podujatia", shortLabel: "Typ", fieldType: "jedna_moznost", isRequired: false, isHidden: false, options: ["Vernisáž", "Koncert / Turné", "Festival", "Konferencia", "Výstava", "Športové podujatie", "Súkromná akcia", "Iné"], defaultValue: null, visibilityRule: null, unit: null, decimalPlaces: 2, fieldCategory: "volitelne", sortOrder: 20, rowNumber: 0, widthPercent: 33 },
+  { id: 2042, clientTypeId: 4, sectionId: PO_SECTION_VOLITELNE, panelId: PO_PANEL_EVENTY, fieldKey: "event_miesto", label: "Miesto konania", shortLabel: "Miesto", fieldType: "short_text", isRequired: false, isHidden: false, options: [], defaultValue: null, visibilityRule: null, unit: null, decimalPlaces: 2, fieldCategory: "volitelne", sortOrder: 30, rowNumber: 0, widthPercent: 33 },
+  { id: 2043, clientTypeId: 4, sectionId: PO_SECTION_VOLITELNE, panelId: PO_PANEL_EVENTY, fieldKey: "event_datum_od", label: "Dátum začiatku", shortLabel: "Od", fieldType: "date", isRequired: false, isHidden: false, options: [], defaultValue: null, visibilityRule: null, unit: null, decimalPlaces: 2, fieldCategory: "volitelne", sortOrder: 40, rowNumber: 1, widthPercent: 33 },
+  { id: 2044, clientTypeId: 4, sectionId: PO_SECTION_VOLITELNE, panelId: PO_PANEL_EVENTY, fieldKey: "event_datum_do", label: "Dátum ukončenia", shortLabel: "Do", fieldType: "date", isRequired: false, isHidden: false, options: [], defaultValue: null, visibilityRule: null, unit: null, decimalPlaces: 2, fieldCategory: "volitelne", sortOrder: 50, rowNumber: 1, widthPercent: 33 },
+  { id: 2045, clientTypeId: 4, sectionId: PO_SECTION_VOLITELNE, panelId: PO_PANEL_EVENTY, fieldKey: "event_status", label: "Status podujatia", shortLabel: "Status", fieldType: "jedna_moznost", isRequired: false, isHidden: false, options: ["Príprava", "Aktívne", "Prebieha", "Ukončené", "Archív"], defaultValue: "Príprava", visibilityRule: null, unit: null, decimalPlaces: 2, fieldCategory: "volitelne", sortOrder: 60, rowNumber: 1, widthPercent: 34 },
+  { id: 2046, clientTypeId: 4, sectionId: PO_SECTION_VOLITELNE, panelId: PO_PANEL_EVENTY, fieldKey: "event_zodpovednost", label: "Zodpovednosť za návštevníkov", shortLabel: "Zodpovednosť", fieldType: "jedna_moznost", isRequired: false, isHidden: false, options: ["Áno – poistenie zodpovednosti", "Nie", "Čiastočne"], defaultValue: null, visibilityRule: null, unit: null, decimalPlaces: 2, fieldCategory: "volitelne", sortOrder: 70, rowNumber: 2, widthPercent: 33 },
+  { id: 2047, clientTypeId: 4, sectionId: PO_SECTION_VOLITELNE, panelId: PO_PANEL_EVENTY, fieldKey: "event_poistenie_storna", label: "Poistenie storna", shortLabel: "Storno poist.", fieldType: "jedna_moznost", isRequired: false, isHidden: false, options: ["Áno", "Nie"], defaultValue: null, visibilityRule: null, unit: null, decimalPlaces: 2, fieldCategory: "volitelne", sortOrder: 80, rowNumber: 2, widthPercent: 34 },
+  { id: 2048, clientTypeId: 4, sectionId: PO_SECTION_VOLITELNE, panelId: PO_PANEL_EVENTY, fieldKey: "event_poistna_suma", label: "Poistná suma (€)", shortLabel: "Poistná suma", fieldType: "number", isRequired: false, isHidden: false, options: [], defaultValue: null, visibilityRule: null, unit: "€", decimalPlaces: 2, fieldCategory: "volitelne", sortOrder: 90, rowNumber: 2, widthPercent: 33 },
+  { id: 2049, clientTypeId: 4, sectionId: PO_SECTION_VOLITELNE, panelId: PO_PANEL_EVENTY, fieldKey: "event_poznamka", label: "Poznámka k podujatiu", shortLabel: "Poznámka", fieldType: "long_text", isRequired: false, isHidden: false, options: [], defaultValue: null, visibilityRule: null, unit: null, decimalPlaces: 2, fieldCategory: "volitelne", sortOrder: 100, rowNumber: 3, widthPercent: 100 },
+
+  // === POVINNÉ: Špecifický typ organizácie (🏛️ Štát / 🤝 Neziskový sektor) ===
+  { id: 2060, clientTypeId: 4, sectionId: PO_SECTION_POVINNE, panelId: PO_PANEL_SPEC_SUBJEKT, fieldKey: "typ_organizacie", label: "Typ organizácie", shortLabel: "Typ org.", fieldType: "jedna_moznost", isRequired: false, isHidden: false, options: ["Obchodná spoločnosť", "Štátna inštitúcia", "Nadácia", "Občianske združenie (OZ)", "Cirkevná organizácia", "Nezisková organizácia", "Príspevková organizácia", "Iné"], defaultValue: "Obchodná spoločnosť", visibilityRule: null, unit: null, decimalPlaces: 2, fieldCategory: "povinne", sortOrder: 10, rowNumber: 0, widthPercent: 50 },
+  { id: 2061, clientTypeId: 4, sectionId: PO_SECTION_POVINNE, panelId: PO_PANEL_SPEC_SUBJEKT, fieldKey: "zriadovatel", label: "Zriaďovateľ", shortLabel: "Zriaďovateľ", fieldType: "short_text", isRequired: false, isHidden: false, options: [], defaultValue: null, visibilityRule: { dependsOn: "typ_organizacie", value: "Štátna inštitúcia" }, unit: null, decimalPlaces: 2, fieldCategory: "povinne", sortOrder: 20, rowNumber: 0, widthPercent: 50 },
+  { id: 2062, clientTypeId: 4, sectionId: PO_SECTION_POVINNE, panelId: PO_PANEL_SPEC_SUBJEKT, fieldKey: "rozpoctova_kapitola", label: "Rozpočtová kapitola", shortLabel: "Rozpoč. kap.", fieldType: "short_text", isRequired: false, isHidden: false, options: [], defaultValue: null, visibilityRule: { dependsOn: "typ_organizacie", value: "Štátna inštitúcia" }, unit: null, decimalPlaces: 2, fieldCategory: "povinne", sortOrder: 30, rowNumber: 1, widthPercent: 50 },
+  { id: 2063, clientTypeId: 4, sectionId: PO_SECTION_POVINNE, panelId: PO_PANEL_SPEC_SUBJEKT, fieldKey: "statna_sprava_uroven", label: "Úroveň štátnej správy", shortLabel: "Úroveň ŠS", fieldType: "jedna_moznost", isRequired: false, isHidden: false, options: ["Ústredný orgán", "Krajský úrad", "Okresný úrad", "Obec / Mesto", "Iné"], defaultValue: null, visibilityRule: { dependsOn: "typ_organizacie", value: "Štátna inštitúcia" }, unit: null, decimalPlaces: 2, fieldCategory: "povinne", sortOrder: 40, rowNumber: 1, widthPercent: 50 },
+  { id: 2064, clientTypeId: 4, sectionId: PO_SECTION_POVINNE, panelId: PO_PANEL_SPEC_SUBJEKT, fieldKey: "ucel_nadacie", label: "Účel nadácie / OZ", shortLabel: "Účel", fieldType: "long_text", isRequired: false, isHidden: false, options: [], defaultValue: null, visibilityRule: { dependsOn: "typ_organizacie", value: "Nadácia" }, unit: null, decimalPlaces: 2, fieldCategory: "povinne", sortOrder: 50, rowNumber: 2, widthPercent: 50 },
+  { id: 2065, clientTypeId: 4, sectionId: PO_SECTION_POVINNE, panelId: PO_PANEL_SPEC_SUBJEKT, fieldKey: "statutar_nadacie", label: "Štatutár nadácie / OZ", shortLabel: "Štatutár", fieldType: "short_text", isRequired: false, isHidden: false, options: [], defaultValue: null, visibilityRule: { dependsOn: "typ_organizacie", value: "Nadácia" }, unit: null, decimalPlaces: 2, fieldCategory: "povinne", sortOrder: 60, rowNumber: 2, widthPercent: 50 },
+  { id: 2066, clientTypeId: 4, sectionId: PO_SECTION_POVINNE, panelId: PO_PANEL_SPEC_SUBJEKT, fieldKey: "verejna_zbierka", label: "Oprávnenie na verejnú zbierku", shortLabel: "Ver. zbierka", fieldType: "jedna_moznost", isRequired: false, isHidden: false, options: ["Áno", "Nie"], defaultValue: null, visibilityRule: { dependsOn: "typ_organizacie", value: "Nadácia" }, unit: null, decimalPlaces: 2, fieldCategory: "povinne", sortOrder: 70, rowNumber: 3, widthPercent: 33 },
+  { id: 2067, clientTypeId: 4, sectionId: PO_SECTION_POVINNE, panelId: PO_PANEL_SPEC_SUBJEKT, fieldKey: "registracny_organ", label: "Registračný orgán", shortLabel: "Reg. orgán", fieldType: "short_text", isRequired: false, isHidden: false, options: [], defaultValue: null, visibilityRule: { dependsOn: "typ_organizacie", value: "Občianske združenie (OZ)" }, unit: null, decimalPlaces: 2, fieldCategory: "povinne", sortOrder: 80, rowNumber: 2, widthPercent: 50 },
+  { id: 2068, clientTypeId: 4, sectionId: PO_SECTION_POVINNE, panelId: PO_PANEL_SPEC_SUBJEKT, fieldKey: "datum_registracie", label: "Dátum registrácie", shortLabel: "Dát. reg.", fieldType: "date", isRequired: false, isHidden: false, options: [], defaultValue: null, visibilityRule: { dependsOn: "typ_organizacie", value: "Občianske združenie (OZ)" }, unit: null, decimalPlaces: 2, fieldCategory: "povinne", sortOrder: 90, rowNumber: 2, widthPercent: 50 },
+  { id: 2069, clientTypeId: 4, sectionId: PO_SECTION_POVINNE, panelId: PO_PANEL_SPEC_SUBJEKT, fieldKey: "opravnenie_konanie", label: "Oprávnenie na konanie v mene subjektu", shortLabel: "Oprávnenie", fieldType: "jedna_moznost", isRequired: false, isHidden: false, options: ["Samostatne", "Spoločne", "Na základe plnej moci", "Iné"], defaultValue: null, visibilityRule: null, unit: null, decimalPlaces: 2, fieldCategory: "povinne", sortOrder: 100, rowNumber: 3, widthPercent: 34 },
+  { id: 2070, clientTypeId: 4, sectionId: PO_SECTION_POVINNE, panelId: PO_PANEL_SPEC_SUBJEKT, fieldKey: "cirkevna_registracia", label: "Registrácia (cirkev)", shortLabel: "Cirkev. reg.", fieldType: "short_text", isRequired: false, isHidden: false, options: [], defaultValue: null, visibilityRule: { dependsOn: "typ_organizacie", value: "Cirkevná organizácia" }, unit: null, decimalPlaces: 2, fieldCategory: "povinne", sortOrder: 110, rowNumber: 3, widthPercent: 33 },
 ];
 
 export function getFieldsForType(clientType: string): StaticField[] {
@@ -683,7 +746,7 @@ const FO_CATEGORIES: SubjectCategory[] = [
   { key: "identita", label: "Identita", icon: "User", color: "blue", panelIds: [4, 3, 20] },
   { key: "legislativa", label: "Legislatíva", icon: "Shield", color: "red", panelIds: [24, 25, 42] },
   { key: "rodina", label: "Rodina a vzťahy", icon: "Users", color: "pink", panelIds: [22] },
-  { key: "financie", label: "Financie a majetok", icon: "CreditCard", color: "emerald", panelIds: [26, 27, 40, 41, 71, 60, 90, 92] },
+  { key: "financie", label: "Financie a majetok", icon: "CreditCard", color: "emerald", panelIds: [26, 27, 40, 41, 71, 60, 90, 92, 99] },
   { key: "profil", label: "Profil a marketing", icon: "Star", color: "amber", panelIds: [70], includeIneFields: true },
   { key: "digitalna", label: "Digitálna stopa", icon: "Phone", color: "cyan", panelIds: [6, 23] },
   { key: "servis", label: "Servis a archív", icon: "Archive", color: "slate", panelIds: [5, 50, 51, 52, 61, 62] },
@@ -694,7 +757,7 @@ const SZCO_CATEGORIES: SubjectCategory[] = [
   { key: "identita", label: "Identita", icon: "User", color: "blue", panelIds: [7, 8, 9, 21] },
   { key: "legislativa", label: "Legislatíva", icon: "Shield", color: "red", panelIds: [30, 34] },
   { key: "rodina", label: "Rodina a vzťahy", icon: "Users", color: "pink", panelIds: [] },
-  { key: "financie", label: "Financie a majetok", icon: "CreditCard", color: "emerald", panelIds: [35, 93, 94, 95] },
+  { key: "financie", label: "Financie a majetok", icon: "CreditCard", color: "emerald", panelIds: [35, 93, 94, 95, 100] },
   { key: "profil", label: "Profil a marketing", icon: "Star", color: "amber", panelIds: [31], includeIneFields: true },
   { key: "digitalna", label: "Digitálna stopa", icon: "Phone", color: "cyan", panelIds: [11, 10] },
   { key: "servis", label: "Servis a archív", icon: "Archive", color: "slate", panelIds: [] },
@@ -702,10 +765,10 @@ const SZCO_CATEGORIES: SubjectCategory[] = [
 ];
 
 const PO_CATEGORIES: SubjectCategory[] = [
-  { key: "identita", label: "Identita", icon: "User", color: "blue", panelIds: [13, 14] },
+  { key: "identita", label: "Identita", icon: "User", color: "blue", panelIds: [13, 14, 102] },
   { key: "legislativa", label: "Legislatíva", icon: "Shield", color: "red", panelIds: [32, 36] },
   { key: "rodina", label: "Rodina a vzťahy", icon: "Users", color: "pink", panelIds: [38] },
-  { key: "financie", label: "Financie a majetok", icon: "CreditCard", color: "emerald", panelIds: [37, 96, 97, 98] },
+  { key: "financie", label: "Financie a majetok", icon: "CreditCard", color: "emerald", panelIds: [37, 96, 97, 98, 101] },
   { key: "profil", label: "Profil a marketing", icon: "Star", color: "amber", panelIds: [33], includeIneFields: true },
   { key: "digitalna", label: "Digitálna stopa", icon: "Phone", color: "cyan", panelIds: [15] },
   { key: "servis", label: "Servis a archív", icon: "Archive", color: "slate", panelIds: [] },
@@ -769,5 +832,21 @@ export const AI_KEYWORD_ROUTING: Record<string, { targetPanel: string; targetFie
     { targetPanel: "spec_rizika", targetField: "riziko_typ", keywords: ["environmentálne riziko", "ekologická škoda", "kontaminácia", "únik chemikálií"] },
     { targetPanel: "spec_rizika", targetField: "riziko_typ", keywords: ["profesná zodpovednosť", "zodpovednosť za škodu", "chyba v poradenstve"] },
     { targetPanel: "spec_rizika", targetField: "riziko_typ", keywords: ["poistenie zbierok", "poistenie drahých kovov", "poistenie cenností"] },
+  ],
+  eventy: [
+    { targetPanel: "eventy", targetField: "event_typ", keywords: ["vernisáž", "výstava", "galéria", "galériová akcia", "umelecká výstava"] },
+    { targetPanel: "eventy", targetField: "event_typ", keywords: ["koncert", "turné", "festival", "hudobná akcia", "vystúpenie"] },
+    { targetPanel: "eventy", targetField: "event_typ", keywords: ["konferencia", "seminár", "workshop", "školenie", "kongres"] },
+    { targetPanel: "eventy", targetField: "event_miesto", keywords: ["miesto konania", "venue", "hala", "štadión", "galéria"] },
+    { targetPanel: "eventy", targetField: "event_datum_od", keywords: ["dátum podujatia", "začiatok akcie", "dátum konania"] },
+    { targetPanel: "eventy", targetField: "event_poistenie_storna", keywords: ["poistenie storna", "storno poistenie", "zrušenie akcie"] },
+  ],
+  spec_subjekt: [
+    { targetPanel: "spec_subjekt", targetField: "typ_organizacie", keywords: ["štátna inštitúcia", "ministerstvo", "úrad", "orgán štátnej správy"] },
+    { targetPanel: "spec_subjekt", targetField: "typ_organizacie", keywords: ["nadácia", "nezisková organizácia", "občianske združenie", "OZ", "NGO"] },
+    { targetPanel: "spec_subjekt", targetField: "typ_organizacie", keywords: ["cirkev", "cirkevná organizácia", "farnosť", "biskupstvo"] },
+    { targetPanel: "spec_subjekt", targetField: "zriadovatel", keywords: ["zriaďovateľ", "zriaďovacia listina", "štatút"] },
+    { targetPanel: "spec_subjekt", targetField: "rozpoctova_kapitola", keywords: ["rozpočtová kapitola", "kapitola rozpočtu", "štátny rozpočet"] },
+    { targetPanel: "spec_subjekt", targetField: "opravnenie_konanie", keywords: ["oprávnenie konať", "spôsob konania", "podpisové právo", "plná moc"] },
   ],
 };
