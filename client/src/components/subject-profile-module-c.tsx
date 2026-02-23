@@ -108,18 +108,35 @@ export function CgnIndicator({ isCgnActive, size = "sm" }: { isCgnActive: boolea
   );
 }
 
-function hasBehaviorAlert(dynamicValues: Record<string, string>): { hasAlert: boolean; alertText: string } {
+function hasBehaviorAlert(dynamicValues: Record<string, string>): { hasAlert: boolean; alertText: string; hasLegalIncapacity: boolean; legalAlertText: string } {
   const commType = dynamicValues["typ_komunikacie"] || "";
   const note = dynamicValues["poznamka_pristup"] || "";
   const isAggressive = commType.toLowerCase().includes("agresívna");
   const hasNote = note.trim().length > 0;
-  if (isAggressive || hasNote) {
-    const parts: string[] = [];
-    if (isAggressive) parts.push(`Typ komunikácie: ${commType}`);
-    if (hasNote) parts.push(`Poznámka: ${note}`);
-    return { hasAlert: true, alertText: parts.join("\n") };
+  const legalCapacity = dynamicValues["sposobilost_pravne_ukony"] || "";
+  const hasLegalIncapacity = legalCapacity === "false";
+  const legalAlertText = hasLegalIncapacity ? "POZOR: Subjekt nie je spôsobilý na právne úkony! Vyžaduje sa zákonný zástupca." : "";
+  const hasAlert = isAggressive || hasNote;
+  const parts: string[] = [];
+  if (isAggressive) parts.push(`Typ komunikácie: ${commType}`);
+  if (hasNote) parts.push(`Poznámka: ${note}`);
+  return { hasAlert, alertText: parts.join("\n"), hasLegalIncapacity, legalAlertText };
+}
+
+function computeAgeCategory(dynamicValues: Record<string, string>): "Dieťa" | "Dospelý" | "Dôchodca" | null {
+  const dob = dynamicValues["datum_narodenia"];
+  if (!dob) return null;
+  const birthDate = new Date(dob);
+  if (isNaN(birthDate.getTime())) return null;
+  const today = new Date();
+  let age = today.getFullYear() - birthDate.getFullYear();
+  const monthDiff = today.getMonth() - birthDate.getMonth();
+  if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
+    age--;
   }
-  return { hasAlert: false, alertText: "" };
+  if (age < 18) return "Dieťa";
+  if (age >= 65) return "Dôchodca";
+  return "Dospelý";
 }
 
 const FIELD_TO_SUBJECT_COLUMN: Record<string, string> = {
@@ -269,6 +286,16 @@ function DynamicFieldInput({ field, dynamicValues, setDynamicValues, hasError, d
           disabled={disabled}
           data-testid={`input-dynamic-${field.fieldKey}`}
         />
+      ) : field.fieldKey === "vekova_kategoria" ? (
+        <div
+          className="h-9 w-full flex items-center px-3 rounded-md bg-muted/50 border border-border text-sm font-medium text-foreground cursor-default select-none"
+          data-testid={`input-dynamic-${field.fieldKey}`}
+        >
+          {dynamicValues[field.fieldKey] || "—"}
+          {dynamicValues[field.fieldKey] && (
+            <span className="ml-2 text-[9px] text-muted-foreground/70">(automaticky z dátumu narodenia)</span>
+          )}
+        </div>
       ) : field.fieldType === "combobox" || field.fieldType === "jedna_moznost" ? (
         <Select
           value={dynamicValues[field.fieldKey] || ""}
@@ -853,6 +880,31 @@ export function SubjectProfileModuleC({ subject }: ModuleCProps) {
   const behaviorAlert = useMemo(() => hasBehaviorAlert(dynamicValues), [dynamicValues]);
   const displayName = useMemo(() => [subject.firstName, subject.lastName].filter(Boolean).join(" ") || subject.companyName || "", [subject.firstName, subject.lastName, subject.companyName]);
 
+  const ageCategory = useMemo(() => computeAgeCategory(dynamicValues), [dynamicValues]);
+
+  useEffect(() => {
+    if (!ageCategory) return;
+    setDynamicValues(prev => {
+      if (prev["vekova_kategoria"] === ageCategory) return prev;
+      return { ...prev, vekova_kategoria: ageCategory };
+    });
+  }, [ageCategory]);
+
+  useEffect(() => {
+    if (!ageCategory || subject.id <= 0) return;
+    const AGE_TAGS = ["Dieťa", "Dôchodca"];
+    const currentTags = subjectTags;
+    let newTags = currentTags.filter(t => !AGE_TAGS.includes(t));
+    if (ageCategory === "Dieťa" && !newTags.includes("Dieťa")) {
+      newTags = [...newTags, "Dieťa"];
+    } else if (ageCategory === "Dôchodca" && !newTags.includes("Dôchodca")) {
+      newTags = [...newTags, "Dôchodca"];
+    }
+    if (JSON.stringify(newTags) !== JSON.stringify(currentTags)) {
+      tagsMutation.mutate(newTags);
+    }
+  }, [ageCategory, subject.id]);
+
   const saveMutation = useMutation({
     mutationFn: async () => {
       const payload: Record<string, any> = {};
@@ -1002,6 +1054,16 @@ export function SubjectProfileModuleC({ subject }: ModuleCProps) {
               <div className="flex items-center gap-2 flex-wrap" data-testid="profile-name-bar">
                 <CgnIndicator isCgnActive={isCgnActive} size="md" />
                 <span className={cn("text-lg font-bold", isCgnActive && "text-orange-400")} data-testid="text-subject-name">{displayName}</span>
+                {behaviorAlert.hasLegalIncapacity && (
+                  <span
+                    className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-red-600/20 border-2 border-red-500/50 cursor-help animate-pulse"
+                    title={behaviorAlert.legalAlertText}
+                    data-testid="legal-incapacity-alert"
+                  >
+                    <AlertTriangle className="w-5 h-5 text-red-500" />
+                    <span className="text-xs font-bold text-red-400">NESPÔSOBILÝ</span>
+                  </span>
+                )}
                 {behaviorAlert.hasAlert && (
                   <span
                     className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-red-500/15 border border-red-500/30 cursor-help"
