@@ -1258,6 +1258,16 @@ export function SubjectProfileModuleC({ subject }: ModuleCProps) {
       )}
 
       {(() => {
+        const HEADER_RENDERED_KEYS = new Set([
+          "meno", "priezvisko", "zi_meno", "zi_priezvisko",
+          "rodne_cislo", "zi_rodne_cislo",
+          "email", "telefon",
+          "f_interny_kod_arutsok_i1j8",
+        ]);
+
+        const filterParams = (params: any[]) =>
+          params.filter(p => !HEADER_RENDERED_KEYS.has(p.fieldKey));
+
         const CATEGORY_META: Record<string, { icon: typeof ShieldCheck; color: string }> = {
           povinne: { icon: ShieldCheck, color: "text-destructive" },
           osobne: { icon: User, color: "text-cyan-400" },
@@ -1275,7 +1285,7 @@ export function SubjectProfileModuleC({ subject }: ModuleCProps) {
         };
 
         const totalParamCount = (nodes: HierarchyNode[]) =>
-          nodes.reduce((sum, n) => sum + n.panels.reduce((s, p) => s + p.parameters.length, 0), 0);
+          nodes.reduce((sum, n) => sum + n.panels.reduce((s, p) => s + filterParams(p.parameters).length, 0), 0);
 
         return (
           <>
@@ -1304,7 +1314,7 @@ export function SubjectProfileModuleC({ subject }: ModuleCProps) {
                         nodes.map(({ section, panels: panelNodes }) => {
                           const sectionKey = `section-${section.id}`;
                           const isSectionExpanded = expandedSections.includes(sectionKey);
-                          const sectionParamCount = panelNodes.reduce((s, p) => s + p.parameters.length, 0);
+                          const sectionParamCount = panelNodes.reduce((s, p) => s + filterParams(p.parameters).length, 0);
 
                           return (
                             <Card key={section.id} className="border border-border/50 bg-muted/10 shadow-sm" data-testid={`section-card-${section.id}`}>
@@ -1363,7 +1373,8 @@ export function SubjectProfileModuleC({ subject }: ModuleCProps) {
                                       onDragStart={handleGlobalDragStart}
                                       onDragEnd={handleGlobalDragEnd(panelNodes.map(pn => ({ panelId: pn.panel.id, parameters: pn.parameters })))}
                                     >
-                                      {panelNodes.map(({ panel, parameters }) => {
+                                      {panelNodes.map(({ panel, parameters: rawParameters }) => {
+                                        const parameters = filterParams(rawParameters);
                                         const allSortableIds = parameters.map(p => String(p.id));
                                         return (
                                           <DroppablePanelZone key={panel.id} panelId={panel.id}>
@@ -1446,7 +1457,10 @@ export function SubjectProfileModuleC({ subject }: ModuleCProps) {
                                       </DragOverlay>
                                     </DndContext>
                                   ) : (
-                                    panelNodes.map(({ panel, parameters }) => (
+                                    panelNodes.map(({ panel, parameters: rawParameters }) => {
+                                      const parameters = filterParams(rawParameters);
+                                      if (parameters.length === 0) return null;
+                                      return (
                                       <div key={panel.id} className="space-y-2 rounded-lg border border-border/20 bg-card/40 p-3" data-testid={`panel-group-${panel.id}`}>
                                         <div className="flex items-center gap-2 pb-1.5 mb-1 border-b border-border/30">
                                           <GripVertical className="w-3 h-3 text-muted-foreground/40" />
@@ -1469,7 +1483,8 @@ export function SubjectProfileModuleC({ subject }: ModuleCProps) {
                                           })}
                                         </div>
                                       </div>
-                                    ))
+                                      );
+                                    })
                                   )}
                                 </CardContent>
                               )}
