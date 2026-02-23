@@ -764,3 +764,115 @@ export async function seedSubjectParameters(): Promise<{ sectionsCount: number; 
     synonymsCount,
   };
 }
+
+export async function seedAssetPanels(): Promise<{ sectionsCount: number; parametersCount: number }> {
+  const checkExisting = await db.select({ id: subjectParamSections.id }).from(subjectParamSections)
+    .where(eq(subjectParamSections.code, "fo_spec_aktiva")).limit(1);
+  if (checkExisting.length > 0) {
+    console.log("[SEED] Asset panels already exist, skipping.");
+    return { sectionsCount: 0, parametersCount: 0 };
+  }
+
+  const foVolSection = await db.select({ id: subjectParamSections.id }).from(subjectParamSections)
+    .where(eq(subjectParamSections.code, "fo_volitelne")).limit(1);
+  const szcoVolSection = await db.select({ id: subjectParamSections.id }).from(subjectParamSections)
+    .where(eq(subjectParamSections.code, "szco_volitelne")).limit(1);
+  const poVolSection = await db.select({ id: subjectParamSections.id }).from(subjectParamSections)
+    .where(eq(subjectParamSections.code, "po_volitelne")).limit(1);
+
+  let foVolId: number, szcoVolId: number, poVolId: number;
+
+  if (foVolSection.length === 0) {
+    const [foVol] = await db.insert(subjectParamSections).values({
+      clientTypeId: 1, name: "VOLITEĽNÉ ÚDAJE", code: "fo_volitelne", folderCategory: "volitelne", sortOrder: 3, isPanel: false, gridColumns: 1
+    }).returning({ id: subjectParamSections.id });
+    foVolId = foVol.id;
+  } else { foVolId = foVolSection[0].id; }
+
+  if (szcoVolSection.length === 0) {
+    const [szcoVol] = await db.insert(subjectParamSections).values({
+      clientTypeId: 3, name: "VOLITEĽNÉ ÚDAJE", code: "szco_volitelne", folderCategory: "volitelne", sortOrder: 3, isPanel: false, gridColumns: 1
+    }).returning({ id: subjectParamSections.id });
+    szcoVolId = szcoVol.id;
+  } else { szcoVolId = szcoVolSection[0].id; }
+
+  if (poVolSection.length === 0) {
+    const [poVol] = await db.insert(subjectParamSections).values({
+      clientTypeId: 4, name: "VOLITEĽNÉ ÚDAJE", code: "po_volitelne", folderCategory: "volitelne", sortOrder: 3, isPanel: false, gridColumns: 1
+    }).returning({ id: subjectParamSections.id });
+    poVolId = poVol.id;
+  } else { poVolId = poVolSection[0].id; }
+
+  const panelInserts = [
+    { clientTypeId: 1, name: "⛵ Špeciálne aktíva", code: "fo_spec_aktiva", folderCategory: "volitelne", sortOrder: 0, isPanel: true, parentSectionId: foVolId, gridColumns: 3 },
+    { clientTypeId: 1, name: "💎 Špecifické riziká", code: "fo_spec_rizika", folderCategory: "volitelne", sortOrder: 1, isPanel: true, parentSectionId: foVolId, gridColumns: 3 },
+    { clientTypeId: 3, name: "⛵ Špeciálne aktíva", code: "szco_spec_aktiva", folderCategory: "volitelne", sortOrder: 0, isPanel: true, parentSectionId: szcoVolId, gridColumns: 3 },
+    { clientTypeId: 3, name: "🏗️ Firemné portfólio", code: "szco_firemne_portfolio", folderCategory: "volitelne", sortOrder: 1, isPanel: true, parentSectionId: szcoVolId, gridColumns: 3 },
+    { clientTypeId: 3, name: "💎 Špecifické riziká", code: "szco_spec_rizika", folderCategory: "volitelne", sortOrder: 2, isPanel: true, parentSectionId: szcoVolId, gridColumns: 3 },
+    { clientTypeId: 4, name: "⛵ Špeciálne aktíva", code: "po_spec_aktiva", folderCategory: "volitelne", sortOrder: 0, isPanel: true, parentSectionId: poVolId, gridColumns: 3 },
+    { clientTypeId: 4, name: "🏗️ Firemné portfólio", code: "po_firemne_portfolio", folderCategory: "volitelne", sortOrder: 1, isPanel: true, parentSectionId: poVolId, gridColumns: 3 },
+    { clientTypeId: 4, name: "💎 Špecifické riziká", code: "po_spec_rizika", folderCategory: "volitelne", sortOrder: 2, isPanel: true, parentSectionId: poVolId, gridColumns: 3 },
+  ];
+
+  const insertedPanels = await db.insert(subjectParamSections).values(panelInserts).returning({ id: subjectParamSections.id, code: subjectParamSections.code });
+  const panelMap: Record<string, number> = {};
+  insertedPanels.forEach((p, i) => { panelMap[panelInserts[i].code] = p.id; });
+
+  const specAktivaFields = (clientTypeId: number, sectionId: number, panelCode: string) => [
+    { clientTypeId, sectionId, panelId: panelMap[panelCode], fieldKey: "spec_typ_aktiva", label: "Typ aktíva", shortLabel: "Typ", fieldType: "jedna_moznost", isRequired: false, isHidden: false, isActive: true, options: ["Plavidlo / Loď", "Lietadlo / Dron", "Umelecké dielo", "Drahé kovy", "Zbierka / Kolekcia", "Iné"], sortOrder: 10, rowNumber: 0, widthPercent: 33, fieldCategory: "volitelne" },
+    { clientTypeId, sectionId, panelId: panelMap[panelCode], fieldKey: "spec_nazov", label: "Názov / Označenie", shortLabel: "Názov", fieldType: "short_text", isRequired: false, isHidden: false, isActive: true, options: [], sortOrder: 20, rowNumber: 0, widthPercent: 34, fieldCategory: "volitelne" },
+    { clientTypeId, sectionId, panelId: panelMap[panelCode], fieldKey: "spec_reg_cislo", label: "Registračné číslo", shortLabel: "Reg. č.", fieldType: "short_text", isRequired: false, isHidden: false, isActive: true, options: [], sortOrder: 30, rowNumber: 0, widthPercent: 33, fieldCategory: "volitelne" },
+    { clientTypeId, sectionId, panelId: panelMap[panelCode], fieldKey: "spec_typ_plavidla", label: "Typ plavidla", shortLabel: "Typ plav.", fieldType: "jedna_moznost", isRequired: false, isHidden: false, isActive: true, options: ["Motorová jachta", "Plachetnica", "Katamaran", "Motorový čln", "Hausbót", "Iné"], visibilityRule: { dependsOn: "spec_typ_aktiva", value: "Plavidlo / Loď" }, sortOrder: 40, rowNumber: 1, widthPercent: 33, fieldCategory: "volitelne" },
+    { clientTypeId, sectionId, panelId: panelMap[panelCode], fieldKey: "spec_pristav", label: "Prístav kotvenia", shortLabel: "Prístav", fieldType: "short_text", isRequired: false, isHidden: false, isActive: true, options: [], visibilityRule: { dependsOn: "spec_typ_aktiva", value: "Plavidlo / Loď" }, sortOrder: 50, rowNumber: 1, widthPercent: 34, fieldCategory: "volitelne" },
+    { clientTypeId, sectionId, panelId: panelMap[panelCode], fieldKey: "spec_vytlak", label: "Výtlak (BRT)", shortLabel: "Výtlak", fieldType: "number", isRequired: false, isHidden: false, isActive: true, options: [], visibilityRule: { dependsOn: "spec_typ_aktiva", value: "Plavidlo / Loď" }, unit: "BRT", sortOrder: 60, rowNumber: 1, widthPercent: 33, fieldCategory: "volitelne" },
+    { clientTypeId, sectionId, panelId: panelMap[panelCode], fieldKey: "spec_motor_parametre", label: "Parametre motora", shortLabel: "Motor", fieldType: "short_text", isRequired: false, isHidden: false, isActive: true, options: [], visibilityRule: { dependsOn: "spec_typ_aktiva", value: "Plavidlo / Loď" }, sortOrder: 70, rowNumber: 2, widthPercent: 50, fieldCategory: "volitelne" },
+    { clientTypeId, sectionId, panelId: panelMap[panelCode], fieldKey: "spec_typ_lietadla", label: "Typ lietadla / dronu", shortLabel: "Typ liet.", fieldType: "jedna_moznost", isRequired: false, isHidden: false, isActive: true, options: ["Jednomotorové", "Viacmotorové", "Vrtuľník", "Dron (komerčný)", "Dron (hobby)", "Iné"], visibilityRule: { dependsOn: "spec_typ_aktiva", value: "Lietadlo / Dron" }, sortOrder: 80, rowNumber: 1, widthPercent: 50, fieldCategory: "volitelne" },
+    { clientTypeId, sectionId, panelId: panelMap[panelCode], fieldKey: "spec_autor", label: "Autor / Pôvod", shortLabel: "Autor", fieldType: "short_text", isRequired: false, isHidden: false, isActive: true, options: [], visibilityRule: { dependsOn: "spec_typ_aktiva", value: "Umelecké dielo" }, sortOrder: 90, rowNumber: 1, widthPercent: 50, fieldCategory: "volitelne" },
+    { clientTypeId, sectionId, panelId: panelMap[panelCode], fieldKey: "spec_hodnota", label: "Odhadovaná hodnota (€)", shortLabel: "Hodnota", fieldType: "number", isRequired: false, isHidden: false, isActive: true, options: [], unit: "€", sortOrder: 100, rowNumber: 2, widthPercent: 50, fieldCategory: "volitelne" },
+    { clientTypeId, sectionId, panelId: panelMap[panelCode], fieldKey: "spec_poistna_zmluva", label: "Číslo poistnej zmluvy", shortLabel: "Č. poistky", fieldType: "short_text", isRequired: false, isHidden: false, isActive: true, options: [], sortOrder: 110, rowNumber: 3, widthPercent: 50, fieldCategory: "volitelne" },
+    { clientTypeId, sectionId, panelId: panelMap[panelCode], fieldKey: "spec_poznamka", label: "Poznámka k aktívu", shortLabel: "Poznámka", fieldType: "long_text", isRequired: false, isHidden: false, isActive: true, options: [], sortOrder: 120, rowNumber: 3, widthPercent: 50, fieldCategory: "volitelne" },
+  ];
+
+  const firmPortfolioFields = (clientTypeId: number, sectionId: number, panelCode: string) => [
+    { clientTypeId, sectionId, panelId: panelMap[panelCode], fieldKey: "firm_typ_majetku", label: "Typ firemného majetku", shortLabel: "Typ", fieldType: "jedna_moznost", isRequired: false, isHidden: false, isActive: true, options: ["Stroj / Zariadenie", "Budova / Prevádzka", "Technológia", "Vozový park", "Zásoby", "Iné"], sortOrder: 10, rowNumber: 0, widthPercent: 33, fieldCategory: "volitelne" },
+    { clientTypeId, sectionId, panelId: panelMap[panelCode], fieldKey: "firm_nazov", label: "Názov / Identifikátor", shortLabel: "Názov", fieldType: "short_text", isRequired: false, isHidden: false, isActive: true, options: [], sortOrder: 20, rowNumber: 0, widthPercent: 34, fieldCategory: "volitelne" },
+    { clientTypeId, sectionId, panelId: panelMap[panelCode], fieldKey: "firm_inventarne_cislo", label: "Inventárne číslo", shortLabel: "Inv. č.", fieldType: "short_text", isRequired: false, isHidden: false, isActive: true, options: [], sortOrder: 30, rowNumber: 0, widthPercent: 33, fieldCategory: "volitelne" },
+    { clientTypeId, sectionId, panelId: panelMap[panelCode], fieldKey: "firm_adresa_prevadzky", label: "Adresa prevádzky", shortLabel: "Adresa", fieldType: "short_text", isRequired: false, isHidden: false, isActive: true, options: [], sortOrder: 40, rowNumber: 1, widthPercent: 50, fieldCategory: "volitelne" },
+    { clientTypeId, sectionId, panelId: panelMap[panelCode], fieldKey: "firm_uctovna_hodnota", label: "Účtovná hodnota (€)", shortLabel: "Hodnota", fieldType: "number", isRequired: false, isHidden: false, isActive: true, options: [], unit: "€", sortOrder: 50, rowNumber: 1, widthPercent: 25, fieldCategory: "volitelne" },
+    { clientTypeId, sectionId, panelId: panelMap[panelCode], fieldKey: "firm_datum_nadobudnutia", label: "Dátum nadobudnutia", shortLabel: "Dátum", fieldType: "date", isRequired: false, isHidden: false, isActive: true, options: [], sortOrder: 60, rowNumber: 1, widthPercent: 25, fieldCategory: "volitelne" },
+    { clientTypeId, sectionId, panelId: panelMap[panelCode], fieldKey: "firm_odpisova_skupina", label: "Odpisová skupina", shortLabel: "Odpis. sk.", fieldType: "jedna_moznost", isRequired: false, isHidden: false, isActive: true, options: ["1", "2", "3", "4", "5", "6"], sortOrder: 70, rowNumber: 2, widthPercent: 25, fieldCategory: "volitelne" },
+    { clientTypeId, sectionId, panelId: panelMap[panelCode], fieldKey: "firm_poistna_zmluva", label: "Číslo poistnej zmluvy", shortLabel: "Č. poistky", fieldType: "short_text", isRequired: false, isHidden: false, isActive: true, options: [], sortOrder: 80, rowNumber: 2, widthPercent: 25, fieldCategory: "volitelne" },
+    { clientTypeId, sectionId, panelId: panelMap[panelCode], fieldKey: "firm_stav", label: "Stav majetku", shortLabel: "Stav", fieldType: "jedna_moznost", isRequired: false, isHidden: false, isActive: true, options: ["Nový", "Používaný", "V oprave", "Vyradený"], sortOrder: 90, rowNumber: 2, widthPercent: 25, fieldCategory: "volitelne" },
+    { clientTypeId, sectionId, panelId: panelMap[panelCode], fieldKey: "firm_poznamka", label: "Poznámka", shortLabel: "Poznámka", fieldType: "long_text", isRequired: false, isHidden: false, isActive: true, options: [], sortOrder: 100, rowNumber: 2, widthPercent: 25, fieldCategory: "volitelne" },
+  ];
+
+  const specRizikaFields = (clientTypeId: number, sectionId: number, panelCode: string) => [
+    { clientTypeId, sectionId, panelId: panelMap[panelCode], fieldKey: "riziko_typ", label: "Typ rizika", shortLabel: "Typ", fieldType: "jedna_moznost", isRequired: false, isHidden: false, isActive: true, options: ["Kybernetické riziko", "Poistenie drahých kovov", "Environmentálne riziko", "Profesná zodpovednosť", "Poistenie zbierok", "Iné"], sortOrder: 10, rowNumber: 0, widthPercent: 33, fieldCategory: "volitelne" },
+    { clientTypeId, sectionId, panelId: panelMap[panelCode], fieldKey: "riziko_popis", label: "Popis rizika", shortLabel: "Popis", fieldType: "long_text", isRequired: false, isHidden: false, isActive: true, options: [], sortOrder: 20, rowNumber: 0, widthPercent: 67, fieldCategory: "volitelne" },
+    { clientTypeId, sectionId, panelId: panelMap[panelCode], fieldKey: "riziko_poistna_suma", label: "Poistná suma (€)", shortLabel: "Poistná suma", fieldType: "number", isRequired: false, isHidden: false, isActive: true, options: [], unit: "€", sortOrder: 30, rowNumber: 1, widthPercent: 33, fieldCategory: "volitelne" },
+    { clientTypeId, sectionId, panelId: panelMap[panelCode], fieldKey: "riziko_poistovatel", label: "Poisťovateľ", shortLabel: "Poisťovateľ", fieldType: "short_text", isRequired: false, isHidden: false, isActive: true, options: [], sortOrder: 40, rowNumber: 1, widthPercent: 34, fieldCategory: "volitelne" },
+    { clientTypeId, sectionId, panelId: panelMap[panelCode], fieldKey: "riziko_cislo_zmluvy", label: "Číslo zmluvy", shortLabel: "Č. zmluvy", fieldType: "short_text", isRequired: false, isHidden: false, isActive: true, options: [], sortOrder: 50, rowNumber: 1, widthPercent: 33, fieldCategory: "volitelne" },
+    { clientTypeId, sectionId, panelId: panelMap[panelCode], fieldKey: "riziko_poznamka", label: "Poznámka k riziku", shortLabel: "Poznámka", fieldType: "long_text", isRequired: false, isHidden: false, isActive: true, options: [], sortOrder: 60, rowNumber: 2, widthPercent: 100, fieldCategory: "volitelne" },
+  ];
+
+  const allParams: any[] = [
+    ...specAktivaFields(1, foVolId, "fo_spec_aktiva"),
+    ...specRizikaFields(1, foVolId, "fo_spec_rizika"),
+    ...specAktivaFields(3, szcoVolId, "szco_spec_aktiva"),
+    ...firmPortfolioFields(3, szcoVolId, "szco_firemne_portfolio"),
+    ...specRizikaFields(3, szcoVolId, "szco_spec_rizika"),
+    ...specAktivaFields(4, poVolId, "po_spec_aktiva"),
+    ...firmPortfolioFields(4, poVolId, "po_firemne_portfolio"),
+    ...specRizikaFields(4, poVolId, "po_spec_rizika"),
+  ];
+
+  let paramCount = 0;
+  for (let i = 0; i < allParams.length; i += 20) {
+    const batch = allParams.slice(i, i + 20);
+    await db.insert(subjectParameters).values(batch);
+    paramCount += batch.length;
+  }
+
+  console.log(`[SEED-ASSETS] Created 3 sections, ${insertedPanels.length} panels, ${paramCount} parameters`);
+  return { sectionsCount: 3 + insertedPanels.length, parametersCount: paramCount };
+}

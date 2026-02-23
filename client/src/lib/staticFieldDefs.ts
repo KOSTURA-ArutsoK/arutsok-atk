@@ -68,6 +68,8 @@ const FO_PANEL_REAL_ZABEZP = 62;
 
 const FO_PANEL_ZDRAVOTNY = 70;
 const FO_PANEL_INVESTICNY = 71;
+const FO_PANEL_SPEC_AKTIVA = 90;
+const FO_PANEL_SPEC_RIZIKA = 92;
 
 const SZCO_SECTION_POVINNE = 11;
 const SZCO_SECTION_DOPLNKOVE = 18;
@@ -83,6 +85,9 @@ const SZCO_PANEL_AML = 30;
 const SZCO_PANEL_FIREMNY = 31;
 const SZCO_PANEL_ZAKONNE = 34;
 const SZCO_PANEL_ZMLUVNE = 35;
+const SZCO_PANEL_SPEC_AKTIVA = 93;
+const SZCO_PANEL_FIREMNE_PORTF = 94;
+const SZCO_PANEL_SPEC_RIZIKA = 95;
 
 const PO_SECTION_POVINNE = 15;
 const PO_SECTION_DOPLNKOVE = 19;
@@ -95,6 +100,9 @@ const PO_PANEL_FIREMNY = 33;
 const PO_PANEL_ZAKONNE = 36;
 const PO_PANEL_ZMLUVNE = 37;
 const PO_PANEL_STATUTARI = 38;
+const PO_PANEL_SPEC_AKTIVA = 96;
+const PO_PANEL_FIREMNE_PORTF = 97;
+const PO_PANEL_SPEC_RIZIKA = 98;
 
 const FO_SECTION_INE = 80;
 const SZCO_SECTION_INE = 81;
@@ -130,6 +138,8 @@ export const FO_PANELS: StaticPanel[] = [
   { id: FO_PANEL_REAL_ZABEZP, clientTypeId: 1, sectionId: FO_SECTION_DOPLNKOVE, name: "Zabezpečenie", gridColumns: 3, sortOrder: 14 },
   { id: FO_PANEL_ZDRAVOTNY, clientTypeId: 1, sectionId: FO_SECTION_DOPLNKOVE, name: "Zdravotný profil", gridColumns: 3, sortOrder: 15 },
   { id: FO_PANEL_INVESTICNY, clientTypeId: 1, sectionId: FO_SECTION_DOPLNKOVE, name: "Investičný profil", gridColumns: 3, sortOrder: 16 },
+  { id: FO_PANEL_SPEC_AKTIVA, clientTypeId: 1, sectionId: FO_SECTION_VOLITELNE, name: "⛵ Špeciálne aktíva", gridColumns: 3, sortOrder: 0 },
+  { id: FO_PANEL_SPEC_RIZIKA, clientTypeId: 1, sectionId: FO_SECTION_VOLITELNE, name: "💎 Špecifické riziká", gridColumns: 3, sortOrder: 1 },
 ];
 
 export const FO_FIELDS: StaticField[] = [
@@ -309,6 +319,28 @@ export const FO_FIELDS: StaticField[] = [
   { id: 903, clientTypeId: 1, sectionId: FO_SECTION_INE, panelId: null, fieldKey: "datum_prvej_schodzky", label: "Dátum prvej schôdzky", shortLabel: "1. schôdzka", fieldType: "date", isRequired: false, isHidden: false, options: [], defaultValue: null, visibilityRule: null, unit: null, decimalPlaces: 2, fieldCategory: "ine", categoryCode: "ine", sortOrder: 40, rowNumber: 2, widthPercent: 33 },
   { id: 904, clientTypeId: 1, sectionId: FO_SECTION_INE, panelId: null, fieldKey: "preferovany_kontakt", label: "Preferovaný spôsob kontaktu", shortLabel: "Pref. kontakt", fieldType: "jedna_moznost", isRequired: false, isHidden: false, options: ["Telefón", "Email", "SMS", "Osobne", "WhatsApp"], defaultValue: null, visibilityRule: null, unit: null, decimalPlaces: 2, fieldCategory: "ine", categoryCode: "ine", sortOrder: 50, rowNumber: 2, widthPercent: 33 },
   { id: 905, clientTypeId: 1, sectionId: FO_SECTION_INE, panelId: null, fieldKey: "jazyk_komunikacie", label: "Jazyk komunikácie", shortLabel: "Jazyk", fieldType: "jedna_moznost", isRequired: false, isHidden: false, options: ["Slovenčina", "Čeština", "Angličtina", "Maďarčina", "Nemčina", "Iný"], defaultValue: null, visibilityRule: null, unit: null, decimalPlaces: 2, fieldCategory: "ine", categoryCode: "ine", sortOrder: 60, rowNumber: 2, widthPercent: 34 },
+
+  // === VOLITEĽNÉ: Špeciálne aktíva (⛵ Lode, Lietadlá, Umenie) ===
+  { id: 1900, clientTypeId: 1, sectionId: FO_SECTION_VOLITELNE, panelId: FO_PANEL_SPEC_AKTIVA, fieldKey: "spec_typ_aktiva", label: "Typ aktíva", shortLabel: "Typ", fieldType: "jedna_moznost", isRequired: false, isHidden: false, options: ["Plavidlo / Loď", "Lietadlo / Dron", "Umelecké dielo", "Drahé kovy", "Zbierka / Kolekcia", "Iné"], defaultValue: null, visibilityRule: null, unit: null, decimalPlaces: 2, fieldCategory: "volitelne", sortOrder: 10, rowNumber: 0, widthPercent: 33 },
+  { id: 1901, clientTypeId: 1, sectionId: FO_SECTION_VOLITELNE, panelId: FO_PANEL_SPEC_AKTIVA, fieldKey: "spec_nazov", label: "Názov / Označenie", shortLabel: "Názov", fieldType: "short_text", isRequired: false, isHidden: false, options: [], defaultValue: null, visibilityRule: null, unit: null, decimalPlaces: 2, fieldCategory: "volitelne", sortOrder: 20, rowNumber: 0, widthPercent: 34 },
+  { id: 1902, clientTypeId: 1, sectionId: FO_SECTION_VOLITELNE, panelId: FO_PANEL_SPEC_AKTIVA, fieldKey: "spec_reg_cislo", label: "Registračné číslo", shortLabel: "Reg. č.", fieldType: "short_text", isRequired: false, isHidden: false, options: [], defaultValue: null, visibilityRule: null, unit: null, decimalPlaces: 2, fieldCategory: "volitelne", sortOrder: 30, rowNumber: 0, widthPercent: 33 },
+  { id: 1903, clientTypeId: 1, sectionId: FO_SECTION_VOLITELNE, panelId: FO_PANEL_SPEC_AKTIVA, fieldKey: "spec_typ_plavidla", label: "Typ plavidla", shortLabel: "Typ plav.", fieldType: "jedna_moznost", isRequired: false, isHidden: false, options: ["Motorová jachta", "Plachetnica", "Katamaran", "Motorový čln", "Hausbót", "Iné"], defaultValue: null, visibilityRule: { dependsOn: "spec_typ_aktiva", value: "Plavidlo / Loď" }, unit: null, decimalPlaces: 2, fieldCategory: "volitelne", sortOrder: 40, rowNumber: 1, widthPercent: 33 },
+  { id: 1904, clientTypeId: 1, sectionId: FO_SECTION_VOLITELNE, panelId: FO_PANEL_SPEC_AKTIVA, fieldKey: "spec_pristav", label: "Prístav kotvenia", shortLabel: "Prístav", fieldType: "short_text", isRequired: false, isHidden: false, options: [], defaultValue: null, visibilityRule: { dependsOn: "spec_typ_aktiva", value: "Plavidlo / Loď" }, unit: null, decimalPlaces: 2, fieldCategory: "volitelne", sortOrder: 50, rowNumber: 1, widthPercent: 34 },
+  { id: 1905, clientTypeId: 1, sectionId: FO_SECTION_VOLITELNE, panelId: FO_PANEL_SPEC_AKTIVA, fieldKey: "spec_vytlak", label: "Výtlak (BRT)", shortLabel: "Výtlak", fieldType: "number", isRequired: false, isHidden: false, options: [], defaultValue: null, visibilityRule: { dependsOn: "spec_typ_aktiva", value: "Plavidlo / Loď" }, unit: "BRT", decimalPlaces: 2, fieldCategory: "volitelne", sortOrder: 60, rowNumber: 1, widthPercent: 33 },
+  { id: 1906, clientTypeId: 1, sectionId: FO_SECTION_VOLITELNE, panelId: FO_PANEL_SPEC_AKTIVA, fieldKey: "spec_motor_parametre", label: "Parametre motora", shortLabel: "Motor", fieldType: "short_text", isRequired: false, isHidden: false, options: [], defaultValue: null, visibilityRule: { dependsOn: "spec_typ_aktiva", value: "Plavidlo / Loď" }, unit: null, decimalPlaces: 2, fieldCategory: "volitelne", sortOrder: 70, rowNumber: 2, widthPercent: 50 },
+  { id: 1907, clientTypeId: 1, sectionId: FO_SECTION_VOLITELNE, panelId: FO_PANEL_SPEC_AKTIVA, fieldKey: "spec_typ_lietadla", label: "Typ lietadla / dronu", shortLabel: "Typ liet.", fieldType: "jedna_moznost", isRequired: false, isHidden: false, options: ["Jednomotorové", "Viacmotorové", "Vrtuľník", "Dron (komerčný)", "Dron (hobby)", "Iné"], defaultValue: null, visibilityRule: { dependsOn: "spec_typ_aktiva", value: "Lietadlo / Dron" }, unit: null, decimalPlaces: 2, fieldCategory: "volitelne", sortOrder: 80, rowNumber: 1, widthPercent: 50 },
+  { id: 1908, clientTypeId: 1, sectionId: FO_SECTION_VOLITELNE, panelId: FO_PANEL_SPEC_AKTIVA, fieldKey: "spec_autor", label: "Autor / Pôvod", shortLabel: "Autor", fieldType: "short_text", isRequired: false, isHidden: false, options: [], defaultValue: null, visibilityRule: { dependsOn: "spec_typ_aktiva", value: "Umelecké dielo" }, unit: null, decimalPlaces: 2, fieldCategory: "volitelne", sortOrder: 90, rowNumber: 1, widthPercent: 50 },
+  { id: 1909, clientTypeId: 1, sectionId: FO_SECTION_VOLITELNE, panelId: FO_PANEL_SPEC_AKTIVA, fieldKey: "spec_hodnota", label: "Odhadovaná hodnota (€)", shortLabel: "Hodnota", fieldType: "number", isRequired: false, isHidden: false, options: [], defaultValue: null, visibilityRule: null, unit: "€", decimalPlaces: 2, fieldCategory: "volitelne", sortOrder: 100, rowNumber: 2, widthPercent: 50 },
+  { id: 1910, clientTypeId: 1, sectionId: FO_SECTION_VOLITELNE, panelId: FO_PANEL_SPEC_AKTIVA, fieldKey: "spec_poistna_zmluva", label: "Číslo poistnej zmluvy", shortLabel: "Č. poistky", fieldType: "short_text", isRequired: false, isHidden: false, options: [], defaultValue: null, visibilityRule: null, unit: null, decimalPlaces: 2, fieldCategory: "volitelne", sortOrder: 110, rowNumber: 3, widthPercent: 50 },
+  { id: 1911, clientTypeId: 1, sectionId: FO_SECTION_VOLITELNE, panelId: FO_PANEL_SPEC_AKTIVA, fieldKey: "spec_poznamka", label: "Poznámka k aktívu", shortLabel: "Poznámka", fieldType: "long_text", isRequired: false, isHidden: false, options: [], defaultValue: null, visibilityRule: null, unit: null, decimalPlaces: 2, fieldCategory: "volitelne", sortOrder: 120, rowNumber: 3, widthPercent: 50 },
+
+  // === VOLITEĽNÉ: Špecifické riziká (💎 Kybernetické, Drahé kovy) ===
+  { id: 1920, clientTypeId: 1, sectionId: FO_SECTION_VOLITELNE, panelId: FO_PANEL_SPEC_RIZIKA, fieldKey: "riziko_typ", label: "Typ rizika", shortLabel: "Typ", fieldType: "jedna_moznost", isRequired: false, isHidden: false, options: ["Kybernetické riziko", "Poistenie drahých kovov", "Environmentálne riziko", "Profesná zodpovednosť", "Poistenie zbierok", "Iné"], defaultValue: null, visibilityRule: null, unit: null, decimalPlaces: 2, fieldCategory: "volitelne", sortOrder: 10, rowNumber: 0, widthPercent: 33 },
+  { id: 1921, clientTypeId: 1, sectionId: FO_SECTION_VOLITELNE, panelId: FO_PANEL_SPEC_RIZIKA, fieldKey: "riziko_popis", label: "Popis rizika", shortLabel: "Popis", fieldType: "long_text", isRequired: false, isHidden: false, options: [], defaultValue: null, visibilityRule: null, unit: null, decimalPlaces: 2, fieldCategory: "volitelne", sortOrder: 20, rowNumber: 0, widthPercent: 67 },
+  { id: 1922, clientTypeId: 1, sectionId: FO_SECTION_VOLITELNE, panelId: FO_PANEL_SPEC_RIZIKA, fieldKey: "riziko_poistna_suma", label: "Poistná suma (€)", shortLabel: "Poistná suma", fieldType: "number", isRequired: false, isHidden: false, options: [], defaultValue: null, visibilityRule: null, unit: "€", decimalPlaces: 2, fieldCategory: "volitelne", sortOrder: 30, rowNumber: 1, widthPercent: 33 },
+  { id: 1923, clientTypeId: 1, sectionId: FO_SECTION_VOLITELNE, panelId: FO_PANEL_SPEC_RIZIKA, fieldKey: "riziko_poistovatel", label: "Poisťovateľ", shortLabel: "Poisťovateľ", fieldType: "short_text", isRequired: false, isHidden: false, options: [], defaultValue: null, visibilityRule: null, unit: null, decimalPlaces: 2, fieldCategory: "volitelne", sortOrder: 40, rowNumber: 1, widthPercent: 34 },
+  { id: 1924, clientTypeId: 1, sectionId: FO_SECTION_VOLITELNE, panelId: FO_PANEL_SPEC_RIZIKA, fieldKey: "riziko_cislo_zmluvy", label: "Číslo zmluvy", shortLabel: "Č. zmluvy", fieldType: "short_text", isRequired: false, isHidden: false, options: [], defaultValue: null, visibilityRule: null, unit: null, decimalPlaces: 2, fieldCategory: "volitelne", sortOrder: 50, rowNumber: 1, widthPercent: 33 },
+  { id: 1925, clientTypeId: 1, sectionId: FO_SECTION_VOLITELNE, panelId: FO_PANEL_SPEC_RIZIKA, fieldKey: "riziko_poznamka", label: "Poznámka k riziku", shortLabel: "Poznámka", fieldType: "long_text", isRequired: false, isHidden: false, options: [], defaultValue: null, visibilityRule: null, unit: null, decimalPlaces: 2, fieldCategory: "volitelne", sortOrder: 60, rowNumber: 2, widthPercent: 100 },
 ];
 
 export const SZCO_SECTIONS: StaticSection[] = [
@@ -329,6 +361,9 @@ export const SZCO_PANELS: StaticPanel[] = [
   { id: SZCO_PANEL_FIREMNY, clientTypeId: 3, sectionId: SZCO_SECTION_DOPLNKOVE, name: "Firemný profil", gridColumns: 3, sortOrder: 3 },
   { id: SZCO_PANEL_ZAKONNE, clientTypeId: 3, sectionId: SZCO_SECTION_DOPLNKOVE, name: "Zákonné údaje", gridColumns: 2, sortOrder: 0 },
   { id: SZCO_PANEL_ZMLUVNE, clientTypeId: 3, sectionId: SZCO_SECTION_DOPLNKOVE, name: "Bankové údaje", gridColumns: 3, sortOrder: 1 },
+  { id: SZCO_PANEL_SPEC_AKTIVA, clientTypeId: 3, sectionId: SZCO_SECTION_VOLITELNE, name: "⛵ Špeciálne aktíva", gridColumns: 3, sortOrder: 0 },
+  { id: SZCO_PANEL_FIREMNE_PORTF, clientTypeId: 3, sectionId: SZCO_SECTION_VOLITELNE, name: "🏗️ Firemné portfólio", gridColumns: 3, sortOrder: 1 },
+  { id: SZCO_PANEL_SPEC_RIZIKA, clientTypeId: 3, sectionId: SZCO_SECTION_VOLITELNE, name: "💎 Špecifické riziká", gridColumns: 3, sortOrder: 2 },
 ];
 
 export const SZCO_FIELDS: StaticField[] = [
@@ -427,6 +462,33 @@ export const SZCO_FIELDS: StaticField[] = [
   { id: 913, clientTypeId: 3, sectionId: SZCO_SECTION_INE, panelId: null, fieldKey: "datum_prvej_schodzky", label: "Dátum prvej schôdzky", shortLabel: "1. schôdzka", fieldType: "date", isRequired: false, isHidden: false, options: [], defaultValue: null, visibilityRule: null, unit: null, decimalPlaces: 2, fieldCategory: "ine", categoryCode: "ine", sortOrder: 40, rowNumber: 2, widthPercent: 33 },
   { id: 914, clientTypeId: 3, sectionId: SZCO_SECTION_INE, panelId: null, fieldKey: "preferovany_kontakt", label: "Preferovaný spôsob kontaktu", shortLabel: "Pref. kontakt", fieldType: "jedna_moznost", isRequired: false, isHidden: false, options: ["Telefón", "Email", "SMS", "Osobne", "WhatsApp"], defaultValue: null, visibilityRule: null, unit: null, decimalPlaces: 2, fieldCategory: "ine", categoryCode: "ine", sortOrder: 50, rowNumber: 2, widthPercent: 33 },
   { id: 915, clientTypeId: 3, sectionId: SZCO_SECTION_INE, panelId: null, fieldKey: "jazyk_komunikacie", label: "Jazyk komunikácie", shortLabel: "Jazyk", fieldType: "jedna_moznost", isRequired: false, isHidden: false, options: ["Slovenčina", "Čeština", "Angličtina", "Maďarčina", "Nemčina", "Iný"], defaultValue: null, visibilityRule: null, unit: null, decimalPlaces: 2, fieldCategory: "ine", categoryCode: "ine", sortOrder: 60, rowNumber: 2, widthPercent: 34 },
+
+  // === VOLITEĽNÉ: Špeciálne aktíva (⛵ Lode, Lietadlá, Umenie) ===
+  { id: 930, clientTypeId: 3, sectionId: SZCO_SECTION_VOLITELNE, panelId: SZCO_PANEL_SPEC_AKTIVA, fieldKey: "spec_typ_aktiva", label: "Typ aktíva", shortLabel: "Typ", fieldType: "jedna_moznost", isRequired: false, isHidden: false, options: ["Plavidlo / Loď", "Lietadlo / Dron", "Umelecké dielo", "Drahé kovy", "Zbierka / Kolekcia", "Iné"], defaultValue: null, visibilityRule: null, unit: null, decimalPlaces: 2, fieldCategory: "volitelne", sortOrder: 10, rowNumber: 0, widthPercent: 33 },
+  { id: 931, clientTypeId: 3, sectionId: SZCO_SECTION_VOLITELNE, panelId: SZCO_PANEL_SPEC_AKTIVA, fieldKey: "spec_nazov", label: "Názov / Označenie", shortLabel: "Názov", fieldType: "short_text", isRequired: false, isHidden: false, options: [], defaultValue: null, visibilityRule: null, unit: null, decimalPlaces: 2, fieldCategory: "volitelne", sortOrder: 20, rowNumber: 0, widthPercent: 34 },
+  { id: 932, clientTypeId: 3, sectionId: SZCO_SECTION_VOLITELNE, panelId: SZCO_PANEL_SPEC_AKTIVA, fieldKey: "spec_reg_cislo", label: "Registračné číslo", shortLabel: "Reg. č.", fieldType: "short_text", isRequired: false, isHidden: false, options: [], defaultValue: null, visibilityRule: null, unit: null, decimalPlaces: 2, fieldCategory: "volitelne", sortOrder: 30, rowNumber: 0, widthPercent: 33 },
+  { id: 933, clientTypeId: 3, sectionId: SZCO_SECTION_VOLITELNE, panelId: SZCO_PANEL_SPEC_AKTIVA, fieldKey: "spec_typ_plavidla", label: "Typ plavidla", shortLabel: "Typ plav.", fieldType: "jedna_moznost", isRequired: false, isHidden: false, options: ["Motorová jachta", "Plachetnica", "Katamaran", "Motorový čln", "Hausbót", "Iné"], defaultValue: null, visibilityRule: { dependsOn: "spec_typ_aktiva", value: "Plavidlo / Loď" }, unit: null, decimalPlaces: 2, fieldCategory: "volitelne", sortOrder: 40, rowNumber: 1, widthPercent: 33 },
+  { id: 934, clientTypeId: 3, sectionId: SZCO_SECTION_VOLITELNE, panelId: SZCO_PANEL_SPEC_AKTIVA, fieldKey: "spec_pristav", label: "Prístav kotvenia", shortLabel: "Prístav", fieldType: "short_text", isRequired: false, isHidden: false, options: [], defaultValue: null, visibilityRule: { dependsOn: "spec_typ_aktiva", value: "Plavidlo / Loď" }, unit: null, decimalPlaces: 2, fieldCategory: "volitelne", sortOrder: 50, rowNumber: 1, widthPercent: 34 },
+  { id: 935, clientTypeId: 3, sectionId: SZCO_SECTION_VOLITELNE, panelId: SZCO_PANEL_SPEC_AKTIVA, fieldKey: "spec_vytlak", label: "Výtlak (BRT)", shortLabel: "Výtlak", fieldType: "number", isRequired: false, isHidden: false, options: [], defaultValue: null, visibilityRule: { dependsOn: "spec_typ_aktiva", value: "Plavidlo / Loď" }, unit: "BRT", decimalPlaces: 2, fieldCategory: "volitelne", sortOrder: 60, rowNumber: 1, widthPercent: 33 },
+  { id: 936, clientTypeId: 3, sectionId: SZCO_SECTION_VOLITELNE, panelId: SZCO_PANEL_SPEC_AKTIVA, fieldKey: "spec_hodnota", label: "Odhadovaná hodnota (€)", shortLabel: "Hodnota", fieldType: "number", isRequired: false, isHidden: false, options: [], defaultValue: null, visibilityRule: null, unit: "€", decimalPlaces: 2, fieldCategory: "volitelne", sortOrder: 100, rowNumber: 2, widthPercent: 50 },
+  { id: 937, clientTypeId: 3, sectionId: SZCO_SECTION_VOLITELNE, panelId: SZCO_PANEL_SPEC_AKTIVA, fieldKey: "spec_poistna_zmluva", label: "Číslo poistnej zmluvy", shortLabel: "Č. poistky", fieldType: "short_text", isRequired: false, isHidden: false, options: [], defaultValue: null, visibilityRule: null, unit: null, decimalPlaces: 2, fieldCategory: "volitelne", sortOrder: 110, rowNumber: 2, widthPercent: 50 },
+
+  // === VOLITEĽNÉ: Firemné portfólio (🏗️ Stroje, Budovy, Zásoby) ===
+  { id: 940, clientTypeId: 3, sectionId: SZCO_SECTION_VOLITELNE, panelId: SZCO_PANEL_FIREMNE_PORTF, fieldKey: "firm_typ_majetku", label: "Typ firemného majetku", shortLabel: "Typ", fieldType: "jedna_moznost", isRequired: false, isHidden: false, options: ["Stroj / Zariadenie", "Budova / Prevádzka", "Technológia", "Vozový park", "Zásoby", "Iné"], defaultValue: null, visibilityRule: null, unit: null, decimalPlaces: 2, fieldCategory: "volitelne", sortOrder: 10, rowNumber: 0, widthPercent: 33 },
+  { id: 941, clientTypeId: 3, sectionId: SZCO_SECTION_VOLITELNE, panelId: SZCO_PANEL_FIREMNE_PORTF, fieldKey: "firm_nazov", label: "Názov / Identifikátor", shortLabel: "Názov", fieldType: "short_text", isRequired: false, isHidden: false, options: [], defaultValue: null, visibilityRule: null, unit: null, decimalPlaces: 2, fieldCategory: "volitelne", sortOrder: 20, rowNumber: 0, widthPercent: 34 },
+  { id: 942, clientTypeId: 3, sectionId: SZCO_SECTION_VOLITELNE, panelId: SZCO_PANEL_FIREMNE_PORTF, fieldKey: "firm_inventarne_cislo", label: "Inventárne číslo", shortLabel: "Inv. č.", fieldType: "short_text", isRequired: false, isHidden: false, options: [], defaultValue: null, visibilityRule: null, unit: null, decimalPlaces: 2, fieldCategory: "volitelne", sortOrder: 30, rowNumber: 0, widthPercent: 33 },
+  { id: 943, clientTypeId: 3, sectionId: SZCO_SECTION_VOLITELNE, panelId: SZCO_PANEL_FIREMNE_PORTF, fieldKey: "firm_adresa_prevadzky", label: "Adresa prevádzky", shortLabel: "Adresa prev.", fieldType: "short_text", isRequired: false, isHidden: false, options: [], defaultValue: null, visibilityRule: null, unit: null, decimalPlaces: 2, fieldCategory: "volitelne", sortOrder: 40, rowNumber: 1, widthPercent: 50 },
+  { id: 944, clientTypeId: 3, sectionId: SZCO_SECTION_VOLITELNE, panelId: SZCO_PANEL_FIREMNE_PORTF, fieldKey: "firm_hodnota", label: "Účtovná hodnota (€)", shortLabel: "Hodnota", fieldType: "number", isRequired: false, isHidden: false, options: [], defaultValue: null, visibilityRule: null, unit: "€", decimalPlaces: 2, fieldCategory: "volitelne", sortOrder: 50, rowNumber: 1, widthPercent: 25 },
+  { id: 945, clientTypeId: 3, sectionId: SZCO_SECTION_VOLITELNE, panelId: SZCO_PANEL_FIREMNE_PORTF, fieldKey: "firm_poistenie_zodp", label: "Poistenie zodpovednosti", shortLabel: "Poist. zodp.", fieldType: "short_text", isRequired: false, isHidden: false, options: [], defaultValue: null, visibilityRule: null, unit: null, decimalPlaces: 2, fieldCategory: "volitelne", sortOrder: 60, rowNumber: 1, widthPercent: 25 },
+  { id: 946, clientTypeId: 3, sectionId: SZCO_SECTION_VOLITELNE, panelId: SZCO_PANEL_FIREMNE_PORTF, fieldKey: "firm_poznamka", label: "Poznámka k majetku", shortLabel: "Poznámka", fieldType: "long_text", isRequired: false, isHidden: false, options: [], defaultValue: null, visibilityRule: null, unit: null, decimalPlaces: 2, fieldCategory: "volitelne", sortOrder: 70, rowNumber: 2, widthPercent: 100 },
+
+  // === VOLITEĽNÉ: Špecifické riziká (💎 Kybernetické, Drahé kovy) ===
+  { id: 950, clientTypeId: 3, sectionId: SZCO_SECTION_VOLITELNE, panelId: SZCO_PANEL_SPEC_RIZIKA, fieldKey: "riziko_typ", label: "Typ rizika", shortLabel: "Typ", fieldType: "jedna_moznost", isRequired: false, isHidden: false, options: ["Kybernetické riziko", "Poistenie drahých kovov", "Environmentálne riziko", "Profesná zodpovednosť", "Poistenie zbierok", "Poistenie zodpovednosti za škodu prevádzkou", "Iné"], defaultValue: null, visibilityRule: null, unit: null, decimalPlaces: 2, fieldCategory: "volitelne", sortOrder: 10, rowNumber: 0, widthPercent: 33 },
+  { id: 951, clientTypeId: 3, sectionId: SZCO_SECTION_VOLITELNE, panelId: SZCO_PANEL_SPEC_RIZIKA, fieldKey: "riziko_popis", label: "Popis rizika", shortLabel: "Popis", fieldType: "long_text", isRequired: false, isHidden: false, options: [], defaultValue: null, visibilityRule: null, unit: null, decimalPlaces: 2, fieldCategory: "volitelne", sortOrder: 20, rowNumber: 0, widthPercent: 67 },
+  { id: 952, clientTypeId: 3, sectionId: SZCO_SECTION_VOLITELNE, panelId: SZCO_PANEL_SPEC_RIZIKA, fieldKey: "riziko_poistna_suma", label: "Poistná suma (€)", shortLabel: "Poistná suma", fieldType: "number", isRequired: false, isHidden: false, options: [], defaultValue: null, visibilityRule: null, unit: "€", decimalPlaces: 2, fieldCategory: "volitelne", sortOrder: 30, rowNumber: 1, widthPercent: 33 },
+  { id: 953, clientTypeId: 3, sectionId: SZCO_SECTION_VOLITELNE, panelId: SZCO_PANEL_SPEC_RIZIKA, fieldKey: "riziko_poistovatel", label: "Poisťovateľ", shortLabel: "Poisťovateľ", fieldType: "short_text", isRequired: false, isHidden: false, options: [], defaultValue: null, visibilityRule: null, unit: null, decimalPlaces: 2, fieldCategory: "volitelne", sortOrder: 40, rowNumber: 1, widthPercent: 34 },
+  { id: 954, clientTypeId: 3, sectionId: SZCO_SECTION_VOLITELNE, panelId: SZCO_PANEL_SPEC_RIZIKA, fieldKey: "riziko_cislo_zmluvy", label: "Číslo zmluvy", shortLabel: "Č. zmluvy", fieldType: "short_text", isRequired: false, isHidden: false, options: [], defaultValue: null, visibilityRule: null, unit: null, decimalPlaces: 2, fieldCategory: "volitelne", sortOrder: 50, rowNumber: 1, widthPercent: 33 },
+  { id: 955, clientTypeId: 3, sectionId: SZCO_SECTION_VOLITELNE, panelId: SZCO_PANEL_SPEC_RIZIKA, fieldKey: "riziko_poznamka", label: "Poznámka k riziku", shortLabel: "Poznámka", fieldType: "long_text", isRequired: false, isHidden: false, options: [], defaultValue: null, visibilityRule: null, unit: null, decimalPlaces: 2, fieldCategory: "volitelne", sortOrder: 60, rowNumber: 2, widthPercent: 100 },
 ];
 
 export const PO_SECTIONS: StaticSection[] = [
@@ -445,6 +507,9 @@ export const PO_PANELS: StaticPanel[] = [
   { id: PO_PANEL_ZAKONNE, clientTypeId: 4, sectionId: PO_SECTION_DOPLNKOVE, name: "Zákonné údaje", gridColumns: 2, sortOrder: 0 },
   { id: PO_PANEL_ZMLUVNE, clientTypeId: 4, sectionId: PO_SECTION_DOPLNKOVE, name: "Bankové údaje", gridColumns: 3, sortOrder: 1 },
   { id: PO_PANEL_STATUTARI, clientTypeId: 4, sectionId: PO_SECTION_DOPLNKOVE, name: "Štatutárni zástupcovia", gridColumns: 3, sortOrder: 4 },
+  { id: PO_PANEL_SPEC_AKTIVA, clientTypeId: 4, sectionId: PO_SECTION_VOLITELNE, name: "⛵ Špeciálne aktíva", gridColumns: 3, sortOrder: 0 },
+  { id: PO_PANEL_FIREMNE_PORTF, clientTypeId: 4, sectionId: PO_SECTION_VOLITELNE, name: "🏗️ Firemné portfólio", gridColumns: 3, sortOrder: 1 },
+  { id: PO_PANEL_SPEC_RIZIKA, clientTypeId: 4, sectionId: PO_SECTION_VOLITELNE, name: "💎 Špecifické riziká", gridColumns: 3, sortOrder: 2 },
 ];
 
 export const PO_FIELDS: StaticField[] = [
@@ -520,6 +585,33 @@ export const PO_FIELDS: StaticField[] = [
   { id: 923, clientTypeId: 4, sectionId: PO_SECTION_INE, panelId: null, fieldKey: "datum_prvej_schodzky", label: "Dátum prvej schôdzky", shortLabel: "1. schôdzka", fieldType: "date", isRequired: false, isHidden: false, options: [], defaultValue: null, visibilityRule: null, unit: null, decimalPlaces: 2, fieldCategory: "ine", categoryCode: "ine", sortOrder: 40, rowNumber: 2, widthPercent: 33 },
   { id: 924, clientTypeId: 4, sectionId: PO_SECTION_INE, panelId: null, fieldKey: "preferovany_kontakt", label: "Preferovaný spôsob kontaktu", shortLabel: "Pref. kontakt", fieldType: "jedna_moznost", isRequired: false, isHidden: false, options: ["Telefón", "Email", "SMS", "Osobne", "WhatsApp"], defaultValue: null, visibilityRule: null, unit: null, decimalPlaces: 2, fieldCategory: "ine", categoryCode: "ine", sortOrder: 50, rowNumber: 2, widthPercent: 33 },
   { id: 925, clientTypeId: 4, sectionId: PO_SECTION_INE, panelId: null, fieldKey: "jazyk_komunikacie", label: "Jazyk komunikácie", shortLabel: "Jazyk", fieldType: "jedna_moznost", isRequired: false, isHidden: false, options: ["Slovenčina", "Čeština", "Angličtina", "Maďarčina", "Nemčina", "Iný"], defaultValue: null, visibilityRule: null, unit: null, decimalPlaces: 2, fieldCategory: "ine", categoryCode: "ine", sortOrder: 60, rowNumber: 2, widthPercent: 34 },
+
+  // === VOLITEĽNÉ: Špeciálne aktíva (⛵ Lode, Lietadlá, Umenie) ===
+  { id: 960, clientTypeId: 4, sectionId: PO_SECTION_VOLITELNE, panelId: PO_PANEL_SPEC_AKTIVA, fieldKey: "spec_typ_aktiva", label: "Typ aktíva", shortLabel: "Typ", fieldType: "jedna_moznost", isRequired: false, isHidden: false, options: ["Plavidlo / Loď", "Lietadlo / Dron", "Umelecké dielo", "Drahé kovy", "Zbierka / Kolekcia", "Iné"], defaultValue: null, visibilityRule: null, unit: null, decimalPlaces: 2, fieldCategory: "volitelne", sortOrder: 10, rowNumber: 0, widthPercent: 33 },
+  { id: 961, clientTypeId: 4, sectionId: PO_SECTION_VOLITELNE, panelId: PO_PANEL_SPEC_AKTIVA, fieldKey: "spec_nazov", label: "Názov / Označenie", shortLabel: "Názov", fieldType: "short_text", isRequired: false, isHidden: false, options: [], defaultValue: null, visibilityRule: null, unit: null, decimalPlaces: 2, fieldCategory: "volitelne", sortOrder: 20, rowNumber: 0, widthPercent: 34 },
+  { id: 962, clientTypeId: 4, sectionId: PO_SECTION_VOLITELNE, panelId: PO_PANEL_SPEC_AKTIVA, fieldKey: "spec_reg_cislo", label: "Registračné číslo", shortLabel: "Reg. č.", fieldType: "short_text", isRequired: false, isHidden: false, options: [], defaultValue: null, visibilityRule: null, unit: null, decimalPlaces: 2, fieldCategory: "volitelne", sortOrder: 30, rowNumber: 0, widthPercent: 33 },
+  { id: 963, clientTypeId: 4, sectionId: PO_SECTION_VOLITELNE, panelId: PO_PANEL_SPEC_AKTIVA, fieldKey: "spec_typ_plavidla", label: "Typ plavidla", shortLabel: "Typ plav.", fieldType: "jedna_moznost", isRequired: false, isHidden: false, options: ["Motorová jachta", "Plachetnica", "Katamaran", "Motorový čln", "Hausbót", "Iné"], defaultValue: null, visibilityRule: { dependsOn: "spec_typ_aktiva", value: "Plavidlo / Loď" }, unit: null, decimalPlaces: 2, fieldCategory: "volitelne", sortOrder: 40, rowNumber: 1, widthPercent: 33 },
+  { id: 964, clientTypeId: 4, sectionId: PO_SECTION_VOLITELNE, panelId: PO_PANEL_SPEC_AKTIVA, fieldKey: "spec_pristav", label: "Prístav kotvenia", shortLabel: "Prístav", fieldType: "short_text", isRequired: false, isHidden: false, options: [], defaultValue: null, visibilityRule: { dependsOn: "spec_typ_aktiva", value: "Plavidlo / Loď" }, unit: null, decimalPlaces: 2, fieldCategory: "volitelne", sortOrder: 50, rowNumber: 1, widthPercent: 34 },
+  { id: 965, clientTypeId: 4, sectionId: PO_SECTION_VOLITELNE, panelId: PO_PANEL_SPEC_AKTIVA, fieldKey: "spec_vytlak", label: "Výtlak (BRT)", shortLabel: "Výtlak", fieldType: "number", isRequired: false, isHidden: false, options: [], defaultValue: null, visibilityRule: { dependsOn: "spec_typ_aktiva", value: "Plavidlo / Loď" }, unit: "BRT", decimalPlaces: 2, fieldCategory: "volitelne", sortOrder: 60, rowNumber: 1, widthPercent: 33 },
+  { id: 966, clientTypeId: 4, sectionId: PO_SECTION_VOLITELNE, panelId: PO_PANEL_SPEC_AKTIVA, fieldKey: "spec_hodnota", label: "Odhadovaná hodnota (€)", shortLabel: "Hodnota", fieldType: "number", isRequired: false, isHidden: false, options: [], defaultValue: null, visibilityRule: null, unit: "€", decimalPlaces: 2, fieldCategory: "volitelne", sortOrder: 100, rowNumber: 2, widthPercent: 50 },
+  { id: 967, clientTypeId: 4, sectionId: PO_SECTION_VOLITELNE, panelId: PO_PANEL_SPEC_AKTIVA, fieldKey: "spec_poistna_zmluva", label: "Číslo poistnej zmluvy", shortLabel: "Č. poistky", fieldType: "short_text", isRequired: false, isHidden: false, options: [], defaultValue: null, visibilityRule: null, unit: null, decimalPlaces: 2, fieldCategory: "volitelne", sortOrder: 110, rowNumber: 2, widthPercent: 50 },
+
+  // === VOLITEĽNÉ: Firemné portfólio (🏗️ Stroje, Budovy, Zásoby) ===
+  { id: 970, clientTypeId: 4, sectionId: PO_SECTION_VOLITELNE, panelId: PO_PANEL_FIREMNE_PORTF, fieldKey: "firm_typ_majetku", label: "Typ firemného majetku", shortLabel: "Typ", fieldType: "jedna_moznost", isRequired: false, isHidden: false, options: ["Stroj / Zariadenie", "Budova / Prevádzka", "Technológia", "Vozový park", "Zásoby", "Iné"], defaultValue: null, visibilityRule: null, unit: null, decimalPlaces: 2, fieldCategory: "volitelne", sortOrder: 10, rowNumber: 0, widthPercent: 33 },
+  { id: 971, clientTypeId: 4, sectionId: PO_SECTION_VOLITELNE, panelId: PO_PANEL_FIREMNE_PORTF, fieldKey: "firm_nazov", label: "Názov / Identifikátor", shortLabel: "Názov", fieldType: "short_text", isRequired: false, isHidden: false, options: [], defaultValue: null, visibilityRule: null, unit: null, decimalPlaces: 2, fieldCategory: "volitelne", sortOrder: 20, rowNumber: 0, widthPercent: 34 },
+  { id: 972, clientTypeId: 4, sectionId: PO_SECTION_VOLITELNE, panelId: PO_PANEL_FIREMNE_PORTF, fieldKey: "firm_inventarne_cislo", label: "Inventárne číslo", shortLabel: "Inv. č.", fieldType: "short_text", isRequired: false, isHidden: false, options: [], defaultValue: null, visibilityRule: null, unit: null, decimalPlaces: 2, fieldCategory: "volitelne", sortOrder: 30, rowNumber: 0, widthPercent: 33 },
+  { id: 973, clientTypeId: 4, sectionId: PO_SECTION_VOLITELNE, panelId: PO_PANEL_FIREMNE_PORTF, fieldKey: "firm_adresa_prevadzky", label: "Adresa prevádzky", shortLabel: "Adresa prev.", fieldType: "short_text", isRequired: false, isHidden: false, options: [], defaultValue: null, visibilityRule: null, unit: null, decimalPlaces: 2, fieldCategory: "volitelne", sortOrder: 40, rowNumber: 1, widthPercent: 50 },
+  { id: 974, clientTypeId: 4, sectionId: PO_SECTION_VOLITELNE, panelId: PO_PANEL_FIREMNE_PORTF, fieldKey: "firm_hodnota", label: "Účtovná hodnota (€)", shortLabel: "Hodnota", fieldType: "number", isRequired: false, isHidden: false, options: [], defaultValue: null, visibilityRule: null, unit: "€", decimalPlaces: 2, fieldCategory: "volitelne", sortOrder: 50, rowNumber: 1, widthPercent: 25 },
+  { id: 975, clientTypeId: 4, sectionId: PO_SECTION_VOLITELNE, panelId: PO_PANEL_FIREMNE_PORTF, fieldKey: "firm_poistenie_zodp", label: "Poistenie zodpovednosti", shortLabel: "Poist. zodp.", fieldType: "short_text", isRequired: false, isHidden: false, options: [], defaultValue: null, visibilityRule: null, unit: null, decimalPlaces: 2, fieldCategory: "volitelne", sortOrder: 60, rowNumber: 1, widthPercent: 25 },
+  { id: 976, clientTypeId: 4, sectionId: PO_SECTION_VOLITELNE, panelId: PO_PANEL_FIREMNE_PORTF, fieldKey: "firm_poznamka", label: "Poznámka k majetku", shortLabel: "Poznámka", fieldType: "long_text", isRequired: false, isHidden: false, options: [], defaultValue: null, visibilityRule: null, unit: null, decimalPlaces: 2, fieldCategory: "volitelne", sortOrder: 70, rowNumber: 2, widthPercent: 100 },
+
+  // === VOLITEĽNÉ: Špecifické riziká (💎 Kybernetické, Drahé kovy) ===
+  { id: 980, clientTypeId: 4, sectionId: PO_SECTION_VOLITELNE, panelId: PO_PANEL_SPEC_RIZIKA, fieldKey: "riziko_typ", label: "Typ rizika", shortLabel: "Typ", fieldType: "jedna_moznost", isRequired: false, isHidden: false, options: ["Kybernetické riziko", "Poistenie drahých kovov", "Environmentálne riziko", "Profesná zodpovednosť", "Poistenie zbierok", "Poistenie zodpovednosti za škodu prevádzkou", "Iné"], defaultValue: null, visibilityRule: null, unit: null, decimalPlaces: 2, fieldCategory: "volitelne", sortOrder: 10, rowNumber: 0, widthPercent: 33 },
+  { id: 981, clientTypeId: 4, sectionId: PO_SECTION_VOLITELNE, panelId: PO_PANEL_SPEC_RIZIKA, fieldKey: "riziko_popis", label: "Popis rizika", shortLabel: "Popis", fieldType: "long_text", isRequired: false, isHidden: false, options: [], defaultValue: null, visibilityRule: null, unit: null, decimalPlaces: 2, fieldCategory: "volitelne", sortOrder: 20, rowNumber: 0, widthPercent: 67 },
+  { id: 982, clientTypeId: 4, sectionId: PO_SECTION_VOLITELNE, panelId: PO_PANEL_SPEC_RIZIKA, fieldKey: "riziko_poistna_suma", label: "Poistná suma (€)", shortLabel: "Poistná suma", fieldType: "number", isRequired: false, isHidden: false, options: [], defaultValue: null, visibilityRule: null, unit: "€", decimalPlaces: 2, fieldCategory: "volitelne", sortOrder: 30, rowNumber: 1, widthPercent: 33 },
+  { id: 983, clientTypeId: 4, sectionId: PO_SECTION_VOLITELNE, panelId: PO_PANEL_SPEC_RIZIKA, fieldKey: "riziko_poistovatel", label: "Poisťovateľ", shortLabel: "Poisťovateľ", fieldType: "short_text", isRequired: false, isHidden: false, options: [], defaultValue: null, visibilityRule: null, unit: null, decimalPlaces: 2, fieldCategory: "volitelne", sortOrder: 40, rowNumber: 1, widthPercent: 34 },
+  { id: 984, clientTypeId: 4, sectionId: PO_SECTION_VOLITELNE, panelId: PO_PANEL_SPEC_RIZIKA, fieldKey: "riziko_cislo_zmluvy", label: "Číslo zmluvy", shortLabel: "Č. zmluvy", fieldType: "short_text", isRequired: false, isHidden: false, options: [], defaultValue: null, visibilityRule: null, unit: null, decimalPlaces: 2, fieldCategory: "volitelne", sortOrder: 50, rowNumber: 1, widthPercent: 33 },
+  { id: 985, clientTypeId: 4, sectionId: PO_SECTION_VOLITELNE, panelId: PO_PANEL_SPEC_RIZIKA, fieldKey: "riziko_poznamka", label: "Poznámka k riziku", shortLabel: "Poznámka", fieldType: "long_text", isRequired: false, isHidden: false, options: [], defaultValue: null, visibilityRule: null, unit: null, decimalPlaces: 2, fieldCategory: "volitelne", sortOrder: 60, rowNumber: 2, widthPercent: 100 },
 ];
 
 export function getFieldsForType(clientType: string): StaticField[] {
@@ -591,7 +683,7 @@ const FO_CATEGORIES: SubjectCategory[] = [
   { key: "identita", label: "Identita", icon: "User", color: "blue", panelIds: [4, 3, 20] },
   { key: "legislativa", label: "Legislatíva", icon: "Shield", color: "red", panelIds: [24, 25, 42] },
   { key: "rodina", label: "Rodina a vzťahy", icon: "Users", color: "pink", panelIds: [22] },
-  { key: "financie", label: "Financie a majetok", icon: "CreditCard", color: "emerald", panelIds: [26, 27, 40, 41, 71, 60] },
+  { key: "financie", label: "Financie a majetok", icon: "CreditCard", color: "emerald", panelIds: [26, 27, 40, 41, 71, 60, 90, 92] },
   { key: "profil", label: "Profil a marketing", icon: "Star", color: "amber", panelIds: [70], includeIneFields: true },
   { key: "digitalna", label: "Digitálna stopa", icon: "Phone", color: "cyan", panelIds: [6, 23] },
   { key: "servis", label: "Servis a archív", icon: "Archive", color: "slate", panelIds: [5, 50, 51, 52, 61, 62] },
@@ -602,7 +694,7 @@ const SZCO_CATEGORIES: SubjectCategory[] = [
   { key: "identita", label: "Identita", icon: "User", color: "blue", panelIds: [7, 8, 9, 21] },
   { key: "legislativa", label: "Legislatíva", icon: "Shield", color: "red", panelIds: [30, 34] },
   { key: "rodina", label: "Rodina a vzťahy", icon: "Users", color: "pink", panelIds: [] },
-  { key: "financie", label: "Financie a majetok", icon: "CreditCard", color: "emerald", panelIds: [35] },
+  { key: "financie", label: "Financie a majetok", icon: "CreditCard", color: "emerald", panelIds: [35, 93, 94, 95] },
   { key: "profil", label: "Profil a marketing", icon: "Star", color: "amber", panelIds: [31], includeIneFields: true },
   { key: "digitalna", label: "Digitálna stopa", icon: "Phone", color: "cyan", panelIds: [11, 10] },
   { key: "servis", label: "Servis a archív", icon: "Archive", color: "slate", panelIds: [] },
@@ -613,7 +705,7 @@ const PO_CATEGORIES: SubjectCategory[] = [
   { key: "identita", label: "Identita", icon: "User", color: "blue", panelIds: [13, 14] },
   { key: "legislativa", label: "Legislatíva", icon: "Shield", color: "red", panelIds: [32, 36] },
   { key: "rodina", label: "Rodina a vzťahy", icon: "Users", color: "pink", panelIds: [38] },
-  { key: "financie", label: "Financie a majetok", icon: "CreditCard", color: "emerald", panelIds: [37] },
+  { key: "financie", label: "Financie a majetok", icon: "CreditCard", color: "emerald", panelIds: [37, 96, 97, 98] },
   { key: "profil", label: "Profil a marketing", icon: "Star", color: "amber", panelIds: [33], includeIneFields: true },
   { key: "digitalna", label: "Digitálna stopa", icon: "Phone", color: "cyan", panelIds: [15] },
   { key: "servis", label: "Servis a archív", icon: "Archive", color: "slate", panelIds: [] },
@@ -653,3 +745,29 @@ export function getCategoryFieldCounts(clientTypeId: number): Record<SubjectCate
 
   return counts as Record<SubjectCategoryKey, number>;
 }
+
+export const AI_KEYWORD_ROUTING: Record<string, { targetPanel: string; targetField: string; keywords: string[] }[]> = {
+  spec_aktiva: [
+    { targetPanel: "spec_aktiva", targetField: "spec_typ_aktiva", keywords: ["plavidlo", "jachta", "loď", "čln", "katamaran", "hausbót", "motorový čln", "plachetnica"] },
+    { targetPanel: "spec_aktiva", targetField: "spec_typ_aktiva", keywords: ["lietadlo", "dron", "vrtuľník", "letúň", "UAV", "vzdušné plavidlo"] },
+    { targetPanel: "spec_aktiva", targetField: "spec_typ_aktiva", keywords: ["umelecké dielo", "obraz", "socha", "zbierka", "kolekcia", "starožitnosť", "antikvita"] },
+    { targetPanel: "spec_aktiva", targetField: "spec_typ_aktiva", keywords: ["drahé kovy", "zlato", "striebro", "platina", "diamant", "šperky", "klenoty"] },
+    { targetPanel: "spec_aktiva", targetField: "spec_reg_cislo", keywords: ["registračné číslo plavidla", "MMSI", "IMO číslo", "poznávacia značka lietadla"] },
+    { targetPanel: "spec_aktiva", targetField: "spec_pristav", keywords: ["prístav", "marina", "kotvisko", "prístavisko", "kotvenie"] },
+    { targetPanel: "spec_aktiva", targetField: "spec_vytlak", keywords: ["výtlak", "BRT", "tonáž", "brutto registrovaná tonáž"] },
+  ],
+  firemne_portfolio: [
+    { targetPanel: "firemne_portfolio", targetField: "firm_typ_majetku", keywords: ["výrobná hala", "prevádzka", "budova", "sklad", "dielňa", "administratívna budova"] },
+    { targetPanel: "firemne_portfolio", targetField: "firm_typ_majetku", keywords: ["stroj", "zariadenie", "CNC", "lis", "sústruh", "fréza", "kompresor", "generátor"] },
+    { targetPanel: "firemne_portfolio", targetField: "firm_typ_majetku", keywords: ["technológia", "server", "IT infraštruktúra", "softvér", "licencia"] },
+    { targetPanel: "firemne_portfolio", targetField: "firm_typ_majetku", keywords: ["vozový park", "nákladné auto", "dodávka", "kamión", "vysokozdvižný vozík"] },
+    { targetPanel: "firemne_portfolio", targetField: "firm_inventarne_cislo", keywords: ["inventárne číslo", "majetkové číslo", "evidenčné číslo"] },
+    { targetPanel: "firemne_portfolio", targetField: "firm_adresa_prevadzky", keywords: ["adresa prevádzky", "sídlo prevádzky", "miesto podnikania"] },
+  ],
+  spec_rizika: [
+    { targetPanel: "spec_rizika", targetField: "riziko_typ", keywords: ["kybernetické riziko", "kyber poistenie", "cyber", "ransomware", "phishing", "DDoS"] },
+    { targetPanel: "spec_rizika", targetField: "riziko_typ", keywords: ["environmentálne riziko", "ekologická škoda", "kontaminácia", "únik chemikálií"] },
+    { targetPanel: "spec_rizika", targetField: "riziko_typ", keywords: ["profesná zodpovednosť", "zodpovednosť za škodu", "chyba v poradenstve"] },
+    { targetPanel: "spec_rizika", targetField: "riziko_typ", keywords: ["poistenie zbierok", "poistenie drahých kovov", "poistenie cenností"] },
+  ],
+};
