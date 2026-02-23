@@ -63,9 +63,7 @@ export default function SektorySubjektov() {
       <div className="flex items-center gap-3">
         <Database className="w-6 h-6 text-primary" />
         <h1 className="text-2xl font-bold" data-testid="text-page-title">Sektory Subjektov</h1>
-        <Badge variant="outline" className="text-[9px] border-blue-400/30 text-blue-400">
-          <sup className="text-[7px] text-blue-400 mr-0.5">B</sup> Modul B
-        </Badge>
+        <sup className="text-[9px] text-blue-400 font-medium ml-1">(B)</sup>
       </div>
 
       {mappings && mappings.length > 0 && (
@@ -86,7 +84,7 @@ export default function SektorySubjektov() {
                   <div className="flex items-center gap-1.5 shrink-0 min-w-[140px]">
                     <Layers className="w-3.5 h-3.5 text-muted-foreground" />
                     <span className="text-xs font-medium">{sectorName}</span>
-                    <Badge variant="outline" className="text-[7px] border-blue-400/20 text-blue-400">A</Badge>
+                    <sup className="text-[8px] text-blue-400 font-medium">(A)</sup>
                   </div>
                   <ArrowRight className="w-3 h-3 text-muted-foreground shrink-0 mt-0.5" />
                   <div className="flex flex-wrap gap-1">

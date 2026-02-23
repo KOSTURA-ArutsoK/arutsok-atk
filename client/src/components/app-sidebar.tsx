@@ -99,7 +99,7 @@ const partneriProduktyItems = [
 ];
 
 const klientiItems: { href: string; icon: React.ElementType; label: string; moduleBadge?: string }[] = [
-  { href: "/subjects", icon: Users, label: "Zoznam klientov", moduleBadge: "B" },
+  { href: "/subjects", icon: Users, label: "Zoznam klientov" },
   { href: "/client-groups", icon: UsersRound, label: "Skupiny klientov" },
 ];
 
@@ -417,8 +417,8 @@ export function AppSidebar() {
                 label="Sektory"
                 icon={LayoutGrid}
                 items={[
-                  { href: "/sektory-subjektov", icon: Database, label: "Sektory Subjektov" },
                   { href: "/sektory-zmluv", icon: FileText, label: "Sektory Zmlúv", moduleBadge: "A" },
+                  { href: "/sektory-subjektov", icon: Database, label: "Sektory Subjektov", moduleBadge: "B" },
                   { href: "/profil-subjektu", icon: Users, label: "Profil subjektu", moduleBadge: "C" },
                 ]}
                 location={location}

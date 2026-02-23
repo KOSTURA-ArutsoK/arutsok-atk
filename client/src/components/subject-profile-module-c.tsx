@@ -381,11 +381,12 @@ export function SubjectProfileModuleC({ subject }: ModuleCProps) {
   });
 
   interface UnifiedCatalogData {
-    dynamicCounts: { category_code: string; count: string }[];
-    contractCounts: { target_category_code: string; count: string }[];
+    categoryCounts: Record<string, { fields: number; dataPoints: number }>;
+    activeSubjects: number;
+    totalFields: number;
+    totalDataPoints: number;
     totalDynamic: number;
     totalContract: number;
-    mappings: any[];
   }
 
   const { data: unifiedCatalog } = useQuery<UnifiedCatalogData>({
@@ -1993,61 +1994,20 @@ export function SubjectProfileModuleC({ subject }: ModuleCProps) {
             </AccordionTrigger>
             <AccordionContent className="pb-4">
               {(() => {
-                const ctId = clientTypeId;
-                const categories = getCategoriesForClientType(ctId);
-                const staticCounts = getCategoryFieldCounts(ctId);
+                const categories = getCategoriesForClientType(clientTypeId);
+                const cc = unifiedCatalog?.categoryCounts || {};
+                const activeSubjects = unifiedCatalog?.activeSubjects || 0;
 
-                const dynamicCountMap: Record<string, number> = {};
-                if (unifiedCatalog?.dynamicCounts) {
-                  for (const row of unifiedCatalog.dynamicCounts) {
-                    if (row.category_code) {
-                      dynamicCountMap[row.category_code] = (dynamicCountMap[row.category_code] || 0) + Number(row.count);
-                    }
-                  }
-                }
-                const contractCountMap: Record<string, number> = {};
-                if (unifiedCatalog?.contractCounts) {
-                  for (const row of unifiedCatalog.contractCounts) {
-                    if (row.target_category_code) {
-                      contractCountMap[row.target_category_code] = (contractCountMap[row.target_category_code] || 0) + Number(row.count);
-                    }
-                  }
-                }
-
-                const CATEGORY_CODE_TO_KEY: Record<string, string> = {
-                  identita: "identita", doklady: "identita", adresa: "identita",
-                  legislativa: "legislativa", aml: "legislativa",
-                  rodina: "rodina",
-                  financie: "financie", ekonomika: "financie", majetok: "financie", reality: "financie", prenajom: "financie",
-                  profil: "profil", zdravotny: "profil", investicny: "profil",
-                  digitalna: "digitalna", kontakt: "digitalna",
-                  servis: "servis", vozidla: "servis", polnohospodarstvo: "servis", retail: "servis",
-                  marketing: "profil",
-                };
-
-                const fieldCounts: Record<string, number> = {};
+                const dataPoints: Record<string, number> = {};
                 for (const cat of categories) {
-                  fieldCounts[cat.key] = staticCounts[cat.key] || 0;
+                  dataPoints[cat.key] = cc[cat.key]?.dataPoints || 0;
                 }
 
-                for (const [catCode, cnt] of Object.entries(dynamicCountMap)) {
-                  const mappedKey = CATEGORY_CODE_TO_KEY[catCode] || "servis";
-                  if (fieldCounts[mappedKey] !== undefined) {
-                    fieldCounts[mappedKey] += cnt;
-                  }
-                }
-
-                for (const [catCode, cnt] of Object.entries(contractCountMap)) {
-                  const mappedKey = CATEGORY_CODE_TO_KEY[catCode] || "servis";
-                  if (fieldCounts[mappedKey] !== undefined) {
-                    fieldCounts[mappedKey] += cnt;
-                  }
-                }
-
-                const totalFields = Object.values(fieldCounts).reduce((a, b) => a + b, 0);
+                const totalDataPoints = unifiedCatalog?.totalDataPoints || 0;
+                const totalFields = unifiedCatalog?.totalFields || 0;
                 const totalDynamic = unifiedCatalog?.totalDynamic || 0;
                 const totalContract = unifiedCatalog?.totalContract || 0;
-                const filledCategories = categories.filter(c => fieldCounts[c.key] > 0 || c.key === "relacie").length;
+                const filledCategories = categories.filter(c => dataPoints[c.key] > 0 || c.key === "relacie").length;
 
                 const CATEGORY_ICONS: Record<string, typeof User> = {
                   User, Shield, Users, CreditCard, Star, Phone, Archive, Link2,
@@ -2088,17 +2048,15 @@ export function SubjectProfileModuleC({ subject }: ModuleCProps) {
                           </div>
                           <div className="flex items-center gap-2 shrink-0">
                             <Badge variant="outline" className="text-[9px] border-emerald-400/30 text-emerald-400">{filledCategories}/{categories.length} kat.</Badge>
-                            <Badge variant="outline" className="text-[9px] border-blue-400/30 text-blue-400">{totalFields} polí</Badge>
-                            {totalDynamic > 0 && (
-                              <Badge variant="outline" className="text-[9px] border-amber-400/30 text-amber-400" data-testid="badge-dynamic-count">
-                                <sup className="text-[7px] text-blue-400 mr-0.5">B</sup>{totalDynamic} dyn.
-                              </Badge>
-                            )}
-                            {totalContract > 0 && (
-                              <Badge variant="outline" className="text-[9px] border-violet-400/30 text-violet-400" data-testid="badge-contract-count">
-                                <sup className="text-[7px] text-blue-400 mr-0.5">A</sup>{totalContract} zml.
-                              </Badge>
-                            )}
+                            <Badge variant="outline" className="text-[9px] border-blue-400/30 text-blue-400" data-testid="badge-total-datapoints">
+                              {totalDataPoints.toLocaleString("sk-SK")} údajov
+                            </Badge>
+                            <Badge variant="outline" className="text-[9px] border-amber-400/30 text-amber-400" data-testid="badge-field-count">
+                              {totalFields} polí
+                            </Badge>
+                            <Badge variant="outline" className="text-[9px] border-slate-400/30 text-slate-400" data-testid="badge-subject-count">
+                              {activeSubjects} subjektov
+                            </Badge>
                             <Badge variant="outline" className="text-[9px] border-blue-400/30 text-blue-400">v1.0</Badge>
                           </div>
                         </div>
@@ -2109,7 +2067,8 @@ export function SubjectProfileModuleC({ subject }: ModuleCProps) {
                       {categories.map((cat) => {
                         const colors = COLOR_CLASSES[cat.color] || COLOR_CLASSES.slate;
                         const IconComp = CATEGORY_ICONS[ICON_MAP[cat.key] || "User"];
-                        const count = fieldCounts[cat.key];
+                        const count = dataPoints[cat.key] || 0;
+                        const fieldCount = cc[cat.key]?.fields || 0;
                         const isRelacie = cat.key === "relacie";
 
                         return (
@@ -2127,12 +2086,14 @@ export function SubjectProfileModuleC({ subject }: ModuleCProps) {
                                 <div className="flex-1 min-w-0">
                                   <p className="text-[10px] text-muted-foreground font-medium truncate">{cat.label}</p>
                                   <p className="text-lg font-bold text-foreground leading-tight" data-testid={`category-count-${cat.key}`}>
-                                    {isRelacie ? "—" : count}
+                                    {isRelacie ? "—" : count.toLocaleString("sk-SK")}
                                   </p>
                                 </div>
                               </div>
                               <p className="text-[9px] text-muted-foreground mt-1.5 leading-tight">
-                                {isRelacie ? "Prepojenia subjektov" : `${count} ${count === 1 ? "pole" : count >= 2 && count <= 4 ? "polia" : "polí"} v kategórii`}
+                                {isRelacie
+                                  ? "Prepojenia subjektov"
+                                  : `${fieldCount} polí × ${activeSubjects} subjektov`}
                               </p>
                             </CardContent>
                           </Card>

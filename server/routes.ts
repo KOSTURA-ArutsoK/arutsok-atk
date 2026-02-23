@@ -7591,8 +7591,18 @@ export async function registerRoutes(
   app.get("/api/unified-catalog/counts", isAuthenticated, async (req, res) => {
     try {
       const clientTypeId = req.query.clientTypeId ? Number(req.query.clientTypeId) : 1;
-      const dynamicCounts = await db.execute(sql`
-        SELECT sp.category_code, COUNT(*) as count
+
+      const typeMap: Record<number, string> = { 1: "person", 3: "szco", 4: "company" };
+      const subjectType = typeMap[clientTypeId] || "person";
+
+      const subjectCount = await db.execute(sql`
+        SELECT COUNT(*) as count FROM subjects
+        WHERE deleted_at IS NULL AND type = ${subjectType}
+      `);
+      const activeSubjects = Number(subjectCount.rows[0]?.count || 0);
+
+      const dynamicFieldsPerCategory = await db.execute(sql`
+        SELECT sp.category_code, COUNT(*) as field_count
         FROM subject_parameters sp
         WHERE sp.client_type_id = ${clientTypeId}
           AND sp.is_active = true
@@ -7601,8 +7611,8 @@ export async function registerRoutes(
         GROUP BY sp.category_code
       `);
 
-      const contractParamCounts = await db.execute(sql`
-        SELECT scm.target_category_code, COUNT(DISTINCT p.id) as count
+      const contractFieldsPerCategory = await db.execute(sql`
+        SELECT scm.target_category_code as category_code, COUNT(DISTINCT p.id) as field_count
         FROM sector_category_mapping scm
         JOIN sections sec ON sec.id = scm.section_id
         JOIN sector_products sp ON sp.section_id = sec.id AND sp.deleted_at IS NULL
@@ -7611,6 +7621,53 @@ export async function registerRoutes(
         WHERE scm.is_active = true
         GROUP BY scm.target_category_code
       `);
+
+      const CATEGORY_CODE_TO_KEY: Record<string, string> = {
+        identita: "identita", doklady: "identita", adresa: "identita",
+        legislativa: "legislativa", aml: "legislativa",
+        rodina: "rodina",
+        financie: "financie", ekonomika: "financie", majetok: "financie", reality: "financie", prenajom: "financie",
+        profil: "profil", zdravotny: "profil", investicny: "profil", marketing: "profil",
+        digitalna: "digitalna", kontakt: "digitalna",
+        servis: "servis", vozidla: "servis", polnohospodarstvo: "servis", retail: "servis", agro: "servis",
+      };
+
+      const categoryCounts: Record<string, { fields: number; dataPoints: number }> = {
+        identita: { fields: 0, dataPoints: 0 },
+        legislativa: { fields: 0, dataPoints: 0 },
+        rodina: { fields: 0, dataPoints: 0 },
+        financie: { fields: 0, dataPoints: 0 },
+        profil: { fields: 0, dataPoints: 0 },
+        digitalna: { fields: 0, dataPoints: 0 },
+        servis: { fields: 0, dataPoints: 0 },
+        relacie: { fields: 0, dataPoints: 0 },
+      };
+
+      for (const row of dynamicFieldsPerCategory.rows as any[]) {
+        const key = CATEGORY_CODE_TO_KEY[row.category_code] || "servis";
+        if (categoryCounts[key]) {
+          categoryCounts[key].fields += Number(row.field_count);
+        }
+      }
+
+      for (const row of contractFieldsPerCategory.rows as any[]) {
+        const key = CATEGORY_CODE_TO_KEY[row.category_code] || "servis";
+        if (categoryCounts[key]) {
+          categoryCounts[key].fields += Number(row.field_count);
+        }
+      }
+
+      for (const key of Object.keys(categoryCounts)) {
+        categoryCounts[key].dataPoints = categoryCounts[key].fields * activeSubjects;
+      }
+
+      const relationCount = await db.execute(sql`
+        SELECT COUNT(*) as count FROM subject_relations WHERE is_active = true
+      `);
+      categoryCounts.relacie.dataPoints = Number(relationCount.rows[0]?.count || 0);
+
+      const totalFields = Object.values(categoryCounts).reduce((sum, c) => sum + c.fields, 0);
+      const totalDataPoints = Object.values(categoryCounts).reduce((sum, c) => sum + c.dataPoints, 0);
 
       const totalDynamic = await db.execute(sql`
         SELECT COUNT(*) as count FROM subject_parameters
@@ -7622,21 +7679,13 @@ export async function registerRoutes(
         FROM parameters p WHERE p.deleted_at IS NULL
       `);
 
-      const mappings = await db.execute(sql`
-        SELECT scm.*, s.name as sector_name, sec.name as section_name
-        FROM sector_category_mapping scm
-        LEFT JOIN sectors s ON s.id = scm.sector_id
-        LEFT JOIN sections sec ON sec.id = scm.section_id
-        WHERE scm.is_active = true
-        ORDER BY scm.sort_order
-      `);
-
       res.json({
-        dynamicCounts: dynamicCounts.rows,
-        contractCounts: contractParamCounts.rows,
+        categoryCounts,
+        activeSubjects,
+        totalFields,
+        totalDataPoints,
         totalDynamic: Number(totalDynamic.rows[0]?.count || 0),
         totalContract: Number(totalContract.rows[0]?.count || 0),
-        mappings: mappings.rows,
       });
     } catch (err: any) {
       console.error("Error in unified catalog counts:", err?.message || err);
