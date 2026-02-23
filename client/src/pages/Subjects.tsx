@@ -59,7 +59,6 @@ import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, Command
 import { PRIORITY_COUNTRY_NAMES, ALL_COUNTRY_NAMES, DEFAULT_COUNTRY, getDefaultCountryForState } from "@/lib/countries";
 import { Check, ChevronsUpDown } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { SubjektView } from "@/components/subjekt-view";
 import { SubjectProfileModuleC } from "@/components/subject-profile-module-c";
 import { z } from "zod";
 import {
@@ -1351,26 +1350,11 @@ function SubjectDetailPanel({ subject, onClose }: { subject: Subject; onClose: (
   const [activeTab, setActiveTab] = useState(() => {
     const params = new URLSearchParams(window.location.search);
     const t = params.get("tab");
-    if (t === "profil") return "profil_subjektu";
     if (t === "objekty") return "objekty";
-    return "udaje";
+    if (t === "historia") return "historia";
+    if (t === "vztahy") return "vztahy";
+    return "profil_subjektu";
   });
-  const { data: careerHistory, isLoading } = useSubjectCareerHistory(subject.id);
-  const { data: companies } = useMyCompanies();
-  const { data: appUser } = useAppUser();
-  const { toast } = useToast();
-  const managingCompany = companies?.find(c => c.id === subject.myCompanyId);
-
-  const isSuperAdmin = useMemo(() => {
-    const name = (appUser as any)?.permissionGroup?.name?.toLowerCase() || "";
-    return name.includes("superadmin") || name.includes("prezident");
-  }, [appUser]);
-
-  const { data: bonitaSummary } = useQuery<any>({
-    queryKey: ["/api/subjects", subject.id, "bonita-summary"],
-    queryFn: () => apiRequest("GET", `/api/subjects/${subject.id}/bonita-summary`).then(r => r.json()),
-  });
-
   const { data: riskData } = useQuery<{
     riskLinks: Array<{ subjectId: number; name: string; uid: string; listStatus: string; matchType: string; matchValue: string }>;
     foPoRisks: Array<{ subjectId: number; name: string; uid: string; listStatus: string; relationship: string }>;
@@ -1378,22 +1362,6 @@ function SubjectDetailPanel({ subject, onClose }: { subject: Subject; onClose: (
     queryKey: ["/api/subjects", subject.id, "risk-links"],
     queryFn: () => apiRequest("GET", `/api/subjects/${subject.id}/risk-links`).then(r => r.json()),
   });
-
-  const toggleListStatus = useMutation({
-    mutationFn: async (data: { listStatus: string | null; reason?: string }) => {
-      return apiRequest("PATCH", `/api/subjects/${subject.id}/list-status`, data);
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/subjects"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/subjects", subject.id, "bonita-summary"] });
-      toast({ title: "Stav zoznamu aktualizovaný" });
-    },
-    onError: (err: any) => {
-      toast({ title: "Chyba", description: err.message || "Nepodarilo sa zmeniť stav", variant: "destructive" });
-    },
-  });
-
-  const formatDate = (d: string | null) => d ? formatDateSlovak(d) : null;
 
   return (
     <div className="w-full space-y-4">
@@ -1494,27 +1462,15 @@ function SubjectDetailPanel({ subject, onClose }: { subject: Subject; onClose: (
         <TabsList data-testid="tabs-subject-detail">
           <TabsTrigger value="profil_subjektu" data-testid="tab-subject-profil">
             <ShieldCheck className="w-3.5 h-3.5 mr-1" />
-            Profil subjektu
+            Profil subjektu<sup className="text-[8px] ml-0.5">(C)</sup>
           </TabsTrigger>
           <TabsTrigger value="objekty" data-testid="tab-subject-objekty">
             <Boxes className="w-3.5 h-3.5 mr-1" />
-            Objekty
-          </TabsTrigger>
-          <TabsTrigger value="udaje" data-testid="tab-subject-udaje">
-            <FileTextIcon className="w-3.5 h-3.5 mr-1" />
-            Údaje klienta
-          </TabsTrigger>
-          <TabsTrigger value="detail" data-testid="tab-subject-info">
-            <User className="w-3.5 h-3.5 mr-1" />
-            Detail
+            Objekty<sup className="text-[8px] ml-0.5">(B)</sup>
           </TabsTrigger>
           <TabsTrigger value="historia" data-testid="tab-subject-historia">
             <History className="w-3.5 h-3.5 mr-1" />
             História
-          </TabsTrigger>
-          <TabsTrigger value="financie" data-testid="tab-subject-financie">
-            <Wallet className="w-3.5 h-3.5 mr-1" />
-            Financie
           </TabsTrigger>
           <TabsTrigger value="vztahy" data-testid="tab-subject-vztahy">
             <Link2 className="w-3.5 h-3.5 mr-1" />
@@ -1528,134 +1484,6 @@ function SubjectDetailPanel({ subject, onClose }: { subject: Subject; onClose: (
 
         <TabsContent value="objekty" className="mt-3">
           <SubjectObjectsTab subjectId={subject.id} />
-        </TabsContent>
-
-        <TabsContent value="udaje" className="mt-3">
-          <SubjektView subject={subject} showPdfSidebar />
-        </TabsContent>
-
-        <TabsContent value="detail" className="mt-3">
-          <div className="space-y-4">
-            <div className="flex flex-wrap gap-4 items-end">
-              <div className="flex-1 min-w-[140px]">
-                <span className="text-xs text-muted-foreground">Typ entity</span>
-                <p className="text-sm">{subject.type === 'person' ? 'Fyzicka osoba' : subject.type === 'szco' ? 'SZCO' : 'Pravnicka osoba'}</p>
-              </div>
-              <div className="flex-1 min-w-[140px]">
-                <span className="text-xs text-muted-foreground">Spravujuca firma</span>
-                <p className="text-sm">{(subject as any).companyName || managingCompany?.name || '-'}</p>
-              </div>
-            </div>
-
-            <Separator />
-
-            <div>
-              <div className="flex items-center gap-2 mb-3 flex-wrap">
-                <Briefcase className="w-4 h-4 text-primary" />
-                <h3 className="text-sm font-semibold">Historia kariery v systeme</h3>
-              </div>
-
-              {isLoading ? (
-                <p className="text-sm text-muted-foreground text-center py-4">Nacitavam historiu...</p>
-              ) : !careerHistory || careerHistory.length === 0 ? (
-                <p className="text-sm text-muted-foreground text-center py-4" data-testid="text-no-career-history">
-                  Ziadna historia vazby v systeme
-                </p>
-              ) : (
-                <div className="relative space-y-0">
-                  <div className="absolute left-4 top-3 bottom-3 w-px bg-border" />
-                  {careerHistory.map((entry, idx) => (
-                    <div key={idx} className="relative pl-10 py-3" data-testid={`career-entry-${idx}`}>
-                      <div className={`absolute left-2.5 top-4 w-3 h-3 rounded-full border-2 ${
-                        entry.isActive 
-                          ? 'bg-primary border-primary' 
-                          : 'bg-muted border-muted-foreground/40'
-                      }`} />
-                      <div className="flex items-start gap-2 flex-wrap">
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2 flex-wrap">
-                            <span className="text-sm font-medium">{entry.entityName}</span>
-                            <Badge variant={entry.type === 'internal' ? 'default' : 'outline'}>
-                              {entry.type === 'internal' ? 'Interny' : 'Externy'}
-                            </Badge>
-                            <Badge variant="secondary" style={{ display: entry.isActive ? 'inline-flex' : 'none' }}>Aktivny</Badge>
-                          </div>
-                          <p className="text-xs text-muted-foreground mt-0.5">{entry.role}</p>
-                          <div className="flex items-center gap-1 mt-1 text-xs text-muted-foreground">
-                            <Calendar className="w-3 h-3" />
-                            <span>{formatDate(entry.validFrom) || "-"}</span>
-                            <ArrowRight className="w-3 h-3" />
-                            <span>{entry.isActive && !entry.validTo ? "Sucasnost" : (formatDate(entry.validTo) || "-")}</span>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            <Separator />
-
-            <div>
-              <div className="flex items-center gap-2 mb-3 flex-wrap">
-                <ShieldCheck className="w-4 h-4 text-primary" />
-                <h3 className="text-sm font-semibold">Bonita a Disciplína</h3>
-              </div>
-
-              <div className="grid grid-cols-3 gap-4 mb-4">
-                <div className="rounded border p-3">
-                  <span className="text-xs text-muted-foreground block mb-1">Body celkom</span>
-                  <span className={`text-lg font-bold ${(bonitaSummary?.totalPoints ?? 0) < 0 ? "text-red-400" : (bonitaSummary?.totalPoints ?? 0) > 0 ? "text-green-400" : ""}`} data-testid="text-bonita-points">
-                    {bonitaSummary?.totalPoints ?? 0}
-                  </span>
-                </div>
-                <div className="rounded border p-3">
-                  <span className="text-xs text-muted-foreground block mb-1">CGN Rating</span>
-                  <span className="text-lg font-bold" data-testid="text-cgn-rating">{bonitaSummary?.cgnRating || "-"}</span>
-                </div>
-                <div className="rounded border p-3">
-                  <span className="text-xs text-muted-foreground block mb-1">Stav zoznamu</span>
-                  <span data-testid="text-list-status" className={`text-sm font-semibold ${bonitaSummary?.listStatus === "cierny" ? "text-red-400" : bonitaSummary?.listStatus === "cerveny" ? "text-orange-400" : "text-green-400"}`}>
-                    {bonitaSummary?.listStatus === "cierny" ? "Čierny zoznam" : bonitaSummary?.listStatus === "cerveny" ? "Červený zoznam" : "Čistý"}
-                  </span>
-                </div>
-              </div>
-
-              {bonitaSummary?.crossCompanyCount > 1 && (
-                <div className="text-xs text-muted-foreground mb-3" data-testid="text-cross-company-count">
-                  Subjekt evidovaný v {bonitaSummary.crossCompanyCount} firmách (globálny výpočet bodov)
-                </div>
-              )}
-
-              {isSuperAdmin && (
-                <div className="flex items-center gap-2 flex-wrap" data-testid="section-list-status-controls">
-                  {(subject as any).listStatus === "cierny" ? (
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => toggleListStatus.mutate({ listStatus: null, reason: "Manuálne zrušenie SuperAdminom" })}
-                      disabled={toggleListStatus.isPending}
-                      data-testid="button-remove-blacklist"
-                    >
-                      Zrušiť Čierny zoznam
-                    </Button>
-                  ) : (
-                    <Button
-                      variant="destructive"
-                      size="sm"
-                      onClick={() => toggleListStatus.mutate({ listStatus: "cierny", reason: "Manuálne zaradenie SuperAdminom" })}
-                      disabled={toggleListStatus.isPending}
-                      data-testid="button-add-blacklist"
-                    >
-                      <Ban className="w-3.5 h-3.5 mr-1" />
-                      Zaradiť na Čierny zoznam
-                    </Button>
-                  )}
-                </div>
-              )}
-            </div>
-          </div>
         </TabsContent>
 
         <TabsContent value="historia" className="mt-3">
@@ -1678,10 +1506,6 @@ function SubjectDetailPanel({ subject, onClose }: { subject: Subject; onClose: (
               <SubjectHistoryTab subjectId={subject.id} />
             </div>
           </div>
-        </TabsContent>
-
-        <TabsContent value="financie" className="mt-3">
-          <SubjectFinanceTab subject={subject} />
         </TabsContent>
 
         <TabsContent value="vztahy" className="mt-3">

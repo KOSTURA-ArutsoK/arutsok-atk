@@ -7,6 +7,7 @@ import { type StaticField } from "@/lib/staticFieldDefs";
 import { getCategoriesForClientType } from "@/lib/staticFieldDefs";
 import { getDocumentValidityStatus, isValidityField, isNumberFieldWithExpiredPair } from "@/lib/document-validity";
 import { FieldHistoryIndicator } from "@/components/field-history-indicator";
+import { SubjectProfilePhoto } from "@/components/subject-profile-photo";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -611,15 +612,22 @@ export function SubjectProfileModuleC({ subject }: ModuleCProps) {
             )}
           </div>
         </div>
-        <div className="flex justify-center">
-          <div className="inline-flex rounded-lg border-2 border-primary/30 shadow-md p-1 bg-muted/30" data-testid="toggle-client-type-wrapper">
-            <ToggleGroup type="single" value={activeClientType} onValueChange={(val) => { if (val) setActiveClientType(val); }} className="h-9" data-testid="toggle-client-type">
-              {CLIENT_TYPE_OPTIONS.map(opt => (
-                <ToggleGroupItem key={opt.value} value={opt.value} className="h-9 px-8 text-sm font-semibold data-[state=on]:bg-primary data-[state=on]:text-primary-foreground data-[state=on]:shadow-sm" data-testid={`toggle-type-${opt.value}`}>
-                  {opt.short}
-                </ToggleGroupItem>
-              ))}
-            </ToggleGroup>
+        <div className="flex items-center gap-4">
+          {subject.id > 0 && (
+            <div className="shrink-0" data-testid="module-c-photo">
+              <SubjectProfilePhoto subjectId={subject.id} size="lg" editable={isEditing} showHistory />
+            </div>
+          )}
+          <div className="flex-1 flex justify-center">
+            <div className="inline-flex rounded-lg border-2 border-primary/30 shadow-md p-1 bg-muted/30" data-testid="toggle-client-type-wrapper">
+              <ToggleGroup type="single" value={activeClientType} onValueChange={(val) => { if (val) setActiveClientType(val); }} className="h-9" data-testid="toggle-client-type">
+                {CLIENT_TYPE_OPTIONS.map(opt => (
+                  <ToggleGroupItem key={opt.value} value={opt.value} className="h-9 px-8 text-sm font-semibold data-[state=on]:bg-primary data-[state=on]:text-primary-foreground data-[state=on]:shadow-sm" data-testid={`toggle-type-${opt.value}`}>
+                    {opt.short}
+                  </ToggleGroupItem>
+                ))}
+              </ToggleGroup>
+            </div>
           </div>
         </div>
       </div>
