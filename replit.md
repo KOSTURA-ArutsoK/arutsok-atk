@@ -44,6 +44,7 @@ The system utilizes a modern full-stack architecture with a focus on data integr
 - **Address Groups (Adresná skupina - Objekt XY)**: Groups unrelated subjects by shared address or contract without implying cross-profile access.
 - **PO Structure (Company Subject Roles)**: Defines a deep role hierarchy for companies (`Štatutár`, `UBO`, `Zamestnanec`, `Operátor`) with section-level access control.
 - **Bulk Notification Queue**: Async batch processing for notifications with real-time progress tracking and a dedicated UI for batch actions.
+- **Behavioral Profile & Smart Tags**: Panel "Behaviorálny & Zdravotný kódex" under OSOBNÉ with communication type, specific needs (multi-select), and access notes. Tag system stored in `subjects.details.tags` (JSONB array) with preset colored tags (VIP, Vozičkár, Pozor, Problémový, Neaktívny, Prioritný) + custom tags. Red behavior alert (POZOR) appears at subject name when communication is "Agresívna" or access note is filled. Tags and alerts visible in both Profile (C) and Subjects list. `SubjectTagBadges` component exported for reuse.
 
 ## External Dependencies
 - **Replit OIDC Auth**: Authentication.

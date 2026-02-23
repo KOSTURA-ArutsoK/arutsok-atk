@@ -6221,8 +6221,10 @@ export async function registerRoutes(
         const existingDetails = (existing.details || {}) as Record<string, any>;
         const existingDynamic = existingDetails.dynamicFields || {};
         const incomingDynamic = details.dynamicFields || {};
+        const { dynamicFields: _df, ...otherIncoming } = details;
         updates.details = {
           ...existingDetails,
+          ...otherIncoming,
           dynamicFields: { ...existingDynamic, ...incomingDynamic },
         };
       }
