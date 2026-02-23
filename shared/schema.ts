@@ -2169,6 +2169,29 @@ export const insertSectorCategoryMappingSchema = createInsertSchema(sectorCatego
 export type SectorCategoryMapping = typeof sectorCategoryMapping.$inferSelect;
 export type InsertSectorCategoryMapping = z.infer<typeof insertSectorCategoryMappingSchema>;
 
+// === SUGGESTED RELATIONS (AI-detected relationship suggestions for manual confirmation) ===
+export const suggestedRelations = pgTable("suggested_relations", {
+  id: serial("id").primaryKey(),
+  sourceSubjectId: integer("source_subject_id").notNull().references(() => subjects.id),
+  detectedName: text("detected_name").notNull(),
+  detectedRole: text("detected_role"),
+  contractId: integer("contract_id").references(() => contracts.id),
+  matchedSubjectId: integer("matched_subject_id").references(() => subjects.id),
+  status: text("status").$type<"pending" | "confirmed" | "rejected" | "auto_confirmed">().notNull().default("pending"),
+  confirmCount: integer("confirm_count").notNull().default(0),
+  lastConfirmedAt: timestamp("last_confirmed_at"),
+  lastConfirmedByUserId: integer("last_confirmed_by_user_id").references(() => appUsers.id),
+  lastConfirmedByName: text("last_confirmed_by_name"),
+  createdBy: text("created_by").notNull().default("ai"),
+  autoPromotedRelationId: integer("auto_promoted_relation_id").references(() => subjectRelations.id),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertSuggestedRelationSchema = createInsertSchema(suggestedRelations).omit({ id: true, createdAt: true, updatedAt: true });
+export type SuggestedRelation = typeof suggestedRelations.$inferSelect;
+export type InsertSuggestedRelation = z.infer<typeof insertSuggestedRelationSchema>;
+
 export type CreateSubjectRequest = InsertSubject;
 export type UpdateSubjectRequest = Partial<InsertSubject> & { changeReason?: string };
 export type UpdateMyCompanyRequest = Partial<InsertMyCompany> & { changeReason?: string };
