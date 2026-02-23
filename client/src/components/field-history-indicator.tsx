@@ -3,7 +3,7 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { formatDateTimeSlovak } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
-import { Clock, RotateCcw, ArrowRight, User, Loader2, Info } from "lucide-react";
+import { RotateCcw, ArrowRight, User, Loader2, Info } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -22,23 +22,25 @@ interface FieldHistoryIndicatorProps {
   subjectId: number;
   fieldKey: string;
   fieldLabel: string;
+  inline?: boolean;
 }
 
-export function FieldHistoryIndicator({ subjectId, fieldKey, fieldLabel }: FieldHistoryIndicatorProps) {
+export function FieldHistoryIndicator({ subjectId, fieldKey, fieldLabel, inline = false }: FieldHistoryIndicatorProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [confirmRestoreId, setConfirmRestoreId] = useState<number | null>(null);
   const { toast } = useToast();
 
-  const { data: historyKeys = [] } = useQuery<string[]>({
-    queryKey: ["/api/subjects", subjectId, "field-history", "keys"],
+  const { data: historyCounts = {} } = useQuery<Record<string, number>>({
+    queryKey: ["/api/subjects", subjectId, "field-history", "counts"],
     queryFn: async () => {
-      const res = await fetch(`/api/subjects/${subjectId}/field-history/keys`, { credentials: "include" });
+      const res = await fetch(`/api/subjects/${subjectId}/field-history/counts`, { credentials: "include" });
       if (!res.ok) throw new Error("Failed");
       return res.json();
     },
   });
 
-  const hasHistory = historyKeys.includes(fieldKey);
+  const versionCount = historyCounts[fieldKey] || 0;
+  const hasHistory = versionCount > 0;
 
   const { data: history = [], isLoading } = useQuery<any[]>({
     queryKey: ["/api/subjects", subjectId, "field-history", fieldKey],
@@ -68,22 +70,37 @@ export function FieldHistoryIndicator({ subjectId, fieldKey, fieldLabel }: Field
 
   if (!hasHistory) return null;
 
+  const triggerButton = inline ? (
+    <button
+      type="button"
+      onClick={(e) => { e.preventDefault(); e.stopPropagation(); setIsOpen(true); }}
+      className="absolute right-2 top-1/2 -translate-y-1/2 z-10 inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-medium text-amber-500 hover:bg-amber-500/10 transition-colors cursor-pointer"
+      data-testid={`btn-field-history-${fieldKey}`}
+    >
+      <span className="text-xs">🕰️</span>
+      <span>{versionCount}</span>
+    </button>
+  ) : (
+    <button
+      type="button"
+      onClick={(e) => { e.stopPropagation(); setIsOpen(true); }}
+      className="inline-flex items-center gap-0.5 px-1 py-0.5 rounded text-[10px] font-medium text-amber-500 hover:bg-amber-500/10 transition-colors cursor-pointer"
+      data-testid={`btn-field-history-${fieldKey}`}
+    >
+      <span className="text-xs">🕰️</span>
+      <span>{versionCount}</span>
+    </button>
+  );
+
   return (
     <>
       <TooltipProvider>
         <Tooltip>
           <TooltipTrigger asChild>
-            <button
-              type="button"
-              onClick={(e) => { e.stopPropagation(); setIsOpen(true); }}
-              className="inline-flex items-center justify-center w-5 h-5 rounded-full hover:bg-muted transition-colors text-amber-500"
-              data-testid={`btn-field-history-${fieldKey}`}
-            >
-              <Clock className="w-3.5 h-3.5" />
-            </button>
+            {triggerButton}
           </TooltipTrigger>
           <TooltipContent side="top" className="text-xs">
-            <p>Toto pole má historické záznamy. Kliknutím zobrazíte časovú os zmien.</p>
+            <p>{versionCount} {versionCount === 1 ? 'zmena' : versionCount < 5 ? 'zmeny' : 'zmien'} v histórii. Kliknutím zobrazíte časovú os.</p>
           </TooltipContent>
         </Tooltip>
       </TooltipProvider>
@@ -92,11 +109,11 @@ export function FieldHistoryIndicator({ subjectId, fieldKey, fieldLabel }: Field
         <DialogContent className="max-w-lg max-h-[80vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-base">
-              <Clock className="w-4 h-4 text-amber-500" />
-              Časová os zmien: {fieldLabel}
+              <span>🕰️</span>
+              Stroj času: {fieldLabel}
             </DialogTitle>
             <DialogDescription>
-              Kompletná história zmien pre pole "{fieldLabel}"
+              {versionCount} {versionCount === 1 ? 'záznam' : versionCount < 5 ? 'záznamy' : 'záznamov'} v histórii zmien
             </DialogDescription>
           </DialogHeader>
 
@@ -113,13 +130,12 @@ export function FieldHistoryIndicator({ subjectId, fieldKey, fieldLabel }: Field
                 const isRestoreEntry = entry.isRestore;
                 const changedDate = entry.changedAt ? formatDateTimeSlovak(entry.changedAt) : '-';
                 const isLatest = idx === 0;
+                const sourceLabel = entry.changeContext === "AI" ? "AI" : entry.changeContext === "import" ? "Import" : "Manuálne";
 
                 return (
                   <div
                     key={entry.id}
-                    className={cn(
-                      "relative pb-4",
-                    )}
+                    className="relative pb-4"
                     data-testid={`timeline-entry-${entry.id}`}
                   >
                     <div className={cn(
@@ -151,11 +167,14 @@ export function FieldHistoryIndicator({ subjectId, fieldKey, fieldLabel }: Field
                           {isRestoreEntry ? "Obnova" : isLatest ? "Aktuálna zmena" : "Zmena"}
                         </Badge>
                         <span className="text-muted-foreground">{changedDate}</span>
-                        {entry.changeContext && (
-                          <Badge variant="outline" className="text-[10px] border-cyan-500/40 text-cyan-600">
-                            {entry.changeContext}
-                          </Badge>
-                        )}
+                        <Badge variant="outline" className={cn(
+                          "text-[10px]",
+                          sourceLabel === "AI" ? "border-purple-500/40 text-purple-500" :
+                          sourceLabel === "Import" ? "border-cyan-500/40 text-cyan-600" :
+                          "border-muted-foreground/30 text-muted-foreground"
+                        )}>
+                          {sourceLabel}
+                        </Badge>
                       </div>
 
                       <div className="flex items-center gap-2">
@@ -220,30 +239,5 @@ export function FieldHistoryIndicator({ subjectId, fieldKey, fieldLabel }: Field
         </AlertDialogContent>
       </AlertDialog>
     </>
-  );
-}
-
-interface FieldHistoryCountBadgeProps {
-  subjectId: number;
-  fieldKey: string;
-}
-
-export function FieldHistoryCountBadge({ subjectId, fieldKey }: FieldHistoryCountBadgeProps) {
-  const { data: historyKeys = [] } = useQuery<string[]>({
-    queryKey: ["/api/subjects", subjectId, "field-history", "keys"],
-    queryFn: async () => {
-      const res = await fetch(`/api/subjects/${subjectId}/field-history/keys`, { credentials: "include" });
-      if (!res.ok) throw new Error("Failed");
-      return res.json();
-    },
-  });
-
-  if (!historyKeys.includes(fieldKey)) return null;
-
-  return (
-    <Badge variant="outline" className="text-[9px] h-4 px-1 border-amber-500/40 text-amber-600" data-testid={`badge-has-history-${fieldKey}`}>
-      <Clock className="w-2.5 h-2.5 mr-0.5" />
-      Verzované
-    </Badge>
   );
 }

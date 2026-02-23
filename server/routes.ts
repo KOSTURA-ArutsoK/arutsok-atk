@@ -6547,6 +6547,28 @@ export async function registerRoutes(
     }
   });
 
+  app.get("/api/subjects/:id/field-history/counts", isAuthenticated, async (req: any, res) => {
+    try {
+      const subjectId = Number(req.params.id);
+      if (!await checkKlientiSubjectAccess(req.appUser, subjectId)) return res.status(403).json({ message: "Prístup zamietnutý" });
+      const counts = await storage.getSubjectFieldHistoryCounts(subjectId);
+      res.json(counts);
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  app.get("/api/subjects/:id/field-history/freshness", isAuthenticated, async (req: any, res) => {
+    try {
+      const subjectId = Number(req.params.id);
+      if (!await checkKlientiSubjectAccess(req.appUser, subjectId)) return res.status(403).json({ message: "Prístup zamietnutý" });
+      const freshness = await storage.getSubjectFieldHistoryFreshness(subjectId);
+      res.json(freshness);
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
   app.post("/api/subjects/:id/field-history/restore", isAuthenticated, async (req: any, res) => {
     try {
       const appUser = req.appUser;

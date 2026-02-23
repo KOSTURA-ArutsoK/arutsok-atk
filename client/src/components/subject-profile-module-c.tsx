@@ -273,19 +273,19 @@ function DynamicFieldInput({ field, dynamicValues, setDynamicValues, hasError, d
           {field.isRequired ? " *" : ""}
           {isExpiredNumber && <span className="ml-1 text-red-500 text-[9px]">(neplatný doklad)</span>}
         </Label>
-        {subjectId && (
-          <FieldHistoryIndicator subjectId={subjectId} fieldKey={field.fieldKey} fieldLabel={displayLabel} />
-        )}
       </div>
       {field.fieldType === "long_text" ? (
-        <Textarea
-          value={dynamicValues[field.fieldKey] || ""}
-          onChange={e => setDynamicValues(prev => ({ ...prev, [field.fieldKey]: e.target.value }))}
-          rows={2}
-          className={errorBorder}
-          disabled={disabled}
-          data-testid={`input-dynamic-${field.fieldKey}`}
-        />
+        <div className="relative">
+          <Textarea
+            value={dynamicValues[field.fieldKey] || ""}
+            onChange={e => setDynamicValues(prev => ({ ...prev, [field.fieldKey]: e.target.value }))}
+            rows={2}
+            className={cn(errorBorder, "pr-12")}
+            disabled={disabled}
+            data-testid={`input-dynamic-${field.fieldKey}`}
+          />
+          {subjectId && <FieldHistoryIndicator subjectId={subjectId} fieldKey={field.fieldKey} fieldLabel={displayLabel} inline />}
+        </div>
       ) : field.fieldKey === "parameter_cgn" ? (
         <div className={cn(
           "rounded-md transition-colors",
@@ -330,20 +330,23 @@ function DynamicFieldInput({ field, dynamicValues, setDynamicValues, hasError, d
           )}
         </div>
       ) : field.fieldType === "combobox" || field.fieldType === "jedna_moznost" ? (
-        <Select
-          value={dynamicValues[field.fieldKey] || ""}
-          onValueChange={val => setDynamicValues(prev => ({ ...prev, [field.fieldKey]: val }))}
-          disabled={disabled}
-        >
-          <SelectTrigger className={cn(errorBorder, disabled && "bg-muted/50 cursor-default opacity-100")} data-testid={`select-dynamic-${field.fieldKey}`}>
-            <SelectValue placeholder="" />
-          </SelectTrigger>
-          <SelectContent>
-            {(field.options || []).map((opt: string) => (
-              <SelectItem key={opt} value={opt}>{opt}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        <div className="relative">
+          <Select
+            value={dynamicValues[field.fieldKey] || ""}
+            onValueChange={val => setDynamicValues(prev => ({ ...prev, [field.fieldKey]: val }))}
+            disabled={disabled}
+          >
+            <SelectTrigger className={cn(errorBorder, disabled && "bg-muted/50 cursor-default opacity-100", "pr-12")} data-testid={`select-dynamic-${field.fieldKey}`}>
+              <SelectValue placeholder="" />
+            </SelectTrigger>
+            <SelectContent>
+              {(field.options || []).map((opt: string) => (
+                <SelectItem key={opt} value={opt}>{opt}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          {subjectId && <FieldHistoryIndicator subjectId={subjectId} fieldKey={field.fieldKey} fieldLabel={displayLabel} inline />}
+        </div>
       ) : field.fieldType === "viac_moznosti" ? (
         <MultiSelectCheckboxes
           paramId={field.fieldKey}
@@ -360,6 +363,7 @@ function DynamicFieldInput({ field, dynamicValues, setDynamicValues, hasError, d
             data-testid={`switch-dynamic-${field.fieldKey}`}
           />
           <span className="text-xs text-muted-foreground">{dynamicValues[field.fieldKey] === "true" ? "Ano" : "Nie"}</span>
+          {subjectId && <FieldHistoryIndicator subjectId={subjectId} fieldKey={field.fieldKey} fieldLabel={displayLabel} />}
         </div>
       ) : field.fieldType === "checkbox" ? (
         <div className="flex items-center gap-2 pt-1">
@@ -370,6 +374,7 @@ function DynamicFieldInput({ field, dynamicValues, setDynamicValues, hasError, d
             data-testid={`checkbox-dynamic-${field.fieldKey}`}
           />
           <span className="text-xs text-muted-foreground">{dynamicValues[field.fieldKey] === "true" ? "Ano" : "Nie"}</span>
+          {subjectId && <FieldHistoryIndicator subjectId={subjectId} fieldKey={field.fieldKey} fieldLabel={displayLabel} />}
         </div>
       ) : field.fieldType === "date" ? (
         (() => {
@@ -397,6 +402,7 @@ function DynamicFieldInput({ field, dynamicValues, setDynamicValues, hasError, d
                   {validityLabel}
                 </span>
               )}
+              {subjectId && !validity && <FieldHistoryIndicator subjectId={subjectId} fieldKey={field.fieldKey} fieldLabel={displayLabel} inline />}
             </div>
           );
         })()
@@ -418,49 +424,64 @@ function DynamicFieldInput({ field, dynamicValues, setDynamicValues, hasError, d
           />
         )
       ) : field.fieldType === "number" ? (
-        <Input
-          type="number"
-          value={dynamicValues[field.fieldKey] || ""}
-          onChange={e => setDynamicValues(prev => ({ ...prev, [field.fieldKey]: e.target.value }))}
-          className={errorBorder}
-          disabled={disabled}
-          data-testid={`input-dynamic-${field.fieldKey}`}
-        />
+        <div className="relative">
+          <Input
+            type="number"
+            value={dynamicValues[field.fieldKey] || ""}
+            onChange={e => setDynamicValues(prev => ({ ...prev, [field.fieldKey]: e.target.value }))}
+            className={cn(errorBorder, "pr-12")}
+            disabled={disabled}
+            data-testid={`input-dynamic-${field.fieldKey}`}
+          />
+          {subjectId && <FieldHistoryIndicator subjectId={subjectId} fieldKey={field.fieldKey} fieldLabel={displayLabel} inline />}
+        </div>
       ) : field.fieldType === "email" ? (
-        <Input
-          type="email"
-          value={dynamicValues[field.fieldKey] || ""}
-          onChange={e => setDynamicValues(prev => ({ ...prev, [field.fieldKey]: e.target.value }))}
-          className={errorBorder}
-          disabled={disabled}
-          data-testid={`input-dynamic-${field.fieldKey}`}
-        />
+        <div className="relative">
+          <Input
+            type="email"
+            value={dynamicValues[field.fieldKey] || ""}
+            onChange={e => setDynamicValues(prev => ({ ...prev, [field.fieldKey]: e.target.value }))}
+            className={cn(errorBorder, "pr-12")}
+            disabled={disabled}
+            data-testid={`input-dynamic-${field.fieldKey}`}
+          />
+          {subjectId && <FieldHistoryIndicator subjectId={subjectId} fieldKey={field.fieldKey} fieldLabel={displayLabel} inline />}
+        </div>
       ) : field.fieldType === "phone" ? (
-        <Input
-          type="tel"
-          value={dynamicValues[field.fieldKey] || ""}
-          onChange={e => setDynamicValues(prev => ({ ...prev, [field.fieldKey]: e.target.value }))}
-          className={errorBorder}
-          disabled={disabled}
-          data-testid={`input-dynamic-${field.fieldKey}`}
-        />
+        <div className="relative">
+          <Input
+            type="tel"
+            value={dynamicValues[field.fieldKey] || ""}
+            onChange={e => setDynamicValues(prev => ({ ...prev, [field.fieldKey]: e.target.value }))}
+            className={cn(errorBorder, "pr-12")}
+            disabled={disabled}
+            data-testid={`input-dynamic-${field.fieldKey}`}
+          />
+          {subjectId && <FieldHistoryIndicator subjectId={subjectId} fieldKey={field.fieldKey} fieldLabel={displayLabel} inline />}
+        </div>
       ) : field.fieldType === "iban" ? (
-        <Input
-          value={dynamicValues[field.fieldKey] || ""}
-          onChange={e => setDynamicValues(prev => ({ ...prev, [field.fieldKey]: e.target.value.toUpperCase() }))}
-          placeholder="SK00 0000 0000 0000 0000 0000"
-          className={`font-mono ${errorBorder}`}
-          disabled={disabled}
-          data-testid={`input-dynamic-${field.fieldKey}`}
-        />
+        <div className="relative">
+          <Input
+            value={dynamicValues[field.fieldKey] || ""}
+            onChange={e => setDynamicValues(prev => ({ ...prev, [field.fieldKey]: e.target.value.toUpperCase() }))}
+            placeholder="SK00 0000 0000 0000 0000 0000"
+            className={cn(`font-mono ${errorBorder}`, "pr-12")}
+            disabled={disabled}
+            data-testid={`input-dynamic-${field.fieldKey}`}
+          />
+          {subjectId && <FieldHistoryIndicator subjectId={subjectId} fieldKey={field.fieldKey} fieldLabel={displayLabel} inline />}
+        </div>
       ) : (
-        <Input
-          value={dynamicValues[field.fieldKey] || ""}
-          onChange={e => setDynamicValues(prev => ({ ...prev, [field.fieldKey]: e.target.value }))}
-          className={errorBorder}
-          disabled={disabled}
-          data-testid={`input-dynamic-${field.fieldKey}`}
-        />
+        <div className="relative">
+          <Input
+            value={dynamicValues[field.fieldKey] || ""}
+            onChange={e => setDynamicValues(prev => ({ ...prev, [field.fieldKey]: e.target.value }))}
+            className={cn(errorBorder, "pr-12")}
+            disabled={disabled}
+            data-testid={`input-dynamic-${field.fieldKey}`}
+          />
+          {subjectId && <FieldHistoryIndicator subjectId={subjectId} fieldKey={field.fieldKey} fieldLabel={displayLabel} inline />}
+        </div>
       )}
     </div>
   );
@@ -500,6 +521,42 @@ function DroppablePanelZone({ panelId, children, isOver }: { panelId: number; ch
   );
 }
 
+function getPanelHeatmapClass(parameters: { fieldKey: string }[], fieldFreshness: Record<string, string>): string {
+  let latestDate: Date | null = null;
+  for (const p of parameters) {
+    const dateStr = fieldFreshness[p.fieldKey];
+    if (dateStr) {
+      const d = new Date(dateStr);
+      if (!latestDate || d > latestDate) latestDate = d;
+    }
+  }
+  if (!latestDate) return "";
+  const now = new Date();
+  const diffHours = (now.getTime() - latestDate.getTime()) / (1000 * 60 * 60);
+  if (diffHours <= 24) return "border-blue-500/50 bg-blue-500/15 shadow-blue-500/10 shadow-sm";
+  if (diffHours <= 72) return "border-blue-400/30 bg-blue-400/8";
+  if (diffHours <= 168) return "border-blue-300/20 bg-blue-300/5";
+  return "";
+}
+
+function getHeatmapLabel(parameters: { fieldKey: string }[], fieldFreshness: Record<string, string>): string | null {
+  let latestDate: Date | null = null;
+  for (const p of parameters) {
+    const dateStr = fieldFreshness[p.fieldKey];
+    if (dateStr) {
+      const d = new Date(dateStr);
+      if (!latestDate || d > latestDate) latestDate = d;
+    }
+  }
+  if (!latestDate) return null;
+  const now = new Date();
+  const diffHours = (now.getTime() - latestDate.getTime()) / (1000 * 60 * 60);
+  if (diffHours <= 24) return "Zmena < 24h";
+  if (diffHours <= 72) return "Zmena < 3 dni";
+  if (diffHours <= 168) return "Zmena < 7 dní";
+  return null;
+}
+
 export function SubjectProfileModuleC({ subject }: ModuleCProps) {
   const { toast } = useToast();
   const [isEditing, setIsEditing] = useState(false);
@@ -537,6 +594,16 @@ export function SubjectProfileModuleC({ subject }: ModuleCProps) {
 
   const { data: unifiedCatalog } = useQuery<UnifiedCatalogData>({
     queryKey: [`/api/unified-catalog/counts?clientTypeId=${clientTypeId}`],
+    enabled: subject.id > 0,
+  });
+
+  const { data: fieldFreshness = {} } = useQuery<Record<string, string>>({
+    queryKey: ["/api/subjects", subject.id, "field-history", "freshness"],
+    queryFn: async () => {
+      const res = await fetch(`/api/subjects/${subject.id}/field-history/freshness`, { credentials: "include" });
+      if (!res.ok) throw new Error("Failed");
+      return res.json();
+    },
     enabled: subject.id > 0,
   });
 
@@ -1389,9 +1456,11 @@ export function SubjectProfileModuleC({ subject }: ModuleCProps) {
                                     >
                                       {filteredPanelNodes.map(({ panel, parameters }) => {
                                         const allSortableIds = parameters.map(p => String(p.id));
+                                        const heatmapClass = getPanelHeatmapClass(parameters, fieldFreshness);
+                                        const heatmapLabel = getHeatmapLabel(parameters, fieldFreshness);
                                         return (
                                           <DroppablePanelZone key={panel.id} panelId={panel.id}>
-                                            <div className="space-y-2" data-testid={`panel-group-${panel.id}`}>
+                                            <div className={cn("space-y-2 rounded-lg border p-3 transition-colors", heatmapClass || "border-border/20 bg-card/40")} data-testid={`panel-group-${panel.id}`}>
                                               <div className="flex items-center gap-2 border-b border-border/40 pb-1">
                                                 <GripVertical className="w-3 h-3 text-muted-foreground/50" />
                                                 {renamingSection === panel.id ? (
@@ -1412,6 +1481,11 @@ export function SubjectProfileModuleC({ subject }: ModuleCProps) {
                                                     {panel.name}
                                                     <span className="ml-2 text-[9px] text-muted-foreground/60">({parameters.length})</span>
                                                   </p>
+                                                )}
+                                                {heatmapLabel && (
+                                                  <Badge variant="outline" className="text-[9px] h-4 px-1.5 border-blue-400/40 text-blue-400 shrink-0" data-testid={`heatmap-badge-${panel.id}`}>
+                                                    {heatmapLabel}
+                                                  </Badge>
                                                 )}
                                                 {renamingSection !== panel.id && (
                                                   <Button size="sm" variant="ghost" className="h-5 px-1 text-amber-500" onClick={() => { setRenamingSection(panel.id); setRenameValue(panel.name); }}>
@@ -1471,14 +1545,21 @@ export function SubjectProfileModuleC({ subject }: ModuleCProps) {
                                     </DndContext>
                                   ) : (
                                     filteredPanelNodes.map(({ panel, parameters }) => {
+                                      const heatmapClass = getPanelHeatmapClass(parameters, fieldFreshness);
+                                      const heatmapLabel = getHeatmapLabel(parameters, fieldFreshness);
                                       return (
-                                      <div key={panel.id} className="space-y-2 rounded-lg border border-border/20 bg-card/40 p-3" data-testid={`panel-group-${panel.id}`}>
+                                      <div key={panel.id} className={cn("space-y-2 rounded-lg border p-3 transition-colors", heatmapClass || "border-border/20 bg-card/40")} data-testid={`panel-group-${panel.id}`}>
                                         <div className="flex items-center gap-2 pb-1.5 mb-1 border-b border-border/30">
                                           <GripVertical className="w-3 h-3 text-muted-foreground/40" />
                                           <p className="text-[11px] font-semibold text-muted-foreground/80 tracking-wider uppercase flex-1">
                                             {panel.name}
                                             <span className="ml-2 text-[9px] text-muted-foreground/50 font-normal normal-case">({parameters.length} polí)</span>
                                           </p>
+                                          {heatmapLabel && (
+                                            <Badge variant="outline" className="text-[9px] h-4 px-1.5 border-blue-400/40 text-blue-400 shrink-0" data-testid={`heatmap-badge-${panel.id}`}>
+                                              {heatmapLabel}
+                                            </Badge>
+                                          )}
                                         </div>
                                         <div
                                           className="grid gap-4 items-end"

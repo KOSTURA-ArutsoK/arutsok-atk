@@ -203,6 +203,8 @@ export interface IStorage {
 
   getSubjectFieldHistory(subjectId: number, fieldKey?: string): Promise<SubjectFieldHistory[]>;
   getSubjectFieldHistoryKeys(subjectId: number): Promise<string[]>;
+  getSubjectFieldHistoryCounts(subjectId: number): Promise<Record<string, number>>;
+  getSubjectFieldHistoryFreshness(subjectId: number): Promise<Record<string, string>>;
   recordFieldChanges(subjectId: number, original: any, updated: any, userId?: number, reason?: string, userName?: string): Promise<void>;
   restoreFieldValue(subjectId: number, historyEntryId: number, userId: number, userName: string): Promise<SubjectFieldHistory>;
 
@@ -1207,6 +1209,36 @@ export class DatabaseStorage implements IStorage {
       .where(eq(subjectFieldHistory.subjectId, subjectId))
       .orderBy(subjectFieldHistory.fieldKey);
     return rows.map(r => r.fieldKey);
+  }
+
+  async getSubjectFieldHistoryCounts(subjectId: number): Promise<Record<string, number>> {
+    const rows = await db.select({
+      fieldKey: subjectFieldHistory.fieldKey,
+      count: sql<number>`count(*)::int`,
+    })
+      .from(subjectFieldHistory)
+      .where(eq(subjectFieldHistory.subjectId, subjectId))
+      .groupBy(subjectFieldHistory.fieldKey);
+    const result: Record<string, number> = {};
+    for (const r of rows) {
+      result[r.fieldKey] = r.count;
+    }
+    return result;
+  }
+
+  async getSubjectFieldHistoryFreshness(subjectId: number): Promise<Record<string, string>> {
+    const rows = await db.select({
+      fieldKey: subjectFieldHistory.fieldKey,
+      latestChange: sql<string>`max(${subjectFieldHistory.changedAt})::text`,
+    })
+      .from(subjectFieldHistory)
+      .where(eq(subjectFieldHistory.subjectId, subjectId))
+      .groupBy(subjectFieldHistory.fieldKey);
+    const result: Record<string, string> = {};
+    for (const r of rows) {
+      result[r.fieldKey] = r.latestChange;
+    }
+    return result;
   }
 
   async recordFieldChanges(subjectId: number, original: any, updated: any, userId?: number, reason?: string, userName?: string, changeContext?: string): Promise<void> {
