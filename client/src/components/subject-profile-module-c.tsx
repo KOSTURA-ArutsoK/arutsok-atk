@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, useCallback } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -25,9 +25,18 @@ import {
   Loader2, Pencil, Save, X, Shield,
   ShieldCheck, ListPlus, Eye, ArrowUp, ArrowDown, Settings2, MoreHorizontal,
   Check, User, Phone, Star, Brain, Zap, Link2, Archive, CreditCard, Users,
-  ChevronDown, ChevronRight, GripVertical, FolderOpen,
+  ChevronDown, ChevronRight, GripVertical, FolderOpen, ArrowRightLeft,
 } from "lucide-react";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
+import {
+  DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors,
+  type DragEndEvent,
+} from "@dnd-kit/core";
+import {
+  arrayMove, SortableContext, sortableKeyboardCoordinates,
+  useSortable, rectSortingStrategy,
+} from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
 
 const FOLDER_CATEGORY_LABELS: Record<string, string> = {
   povinne: "POVINNÉ ÚDAJE",
@@ -129,7 +138,7 @@ function dbParamToStaticField(p: DbParameter): StaticField {
   };
 }
 
-function DynamicFieldInput({ field, dynamicValues, setDynamicValues, hasError, disabled, subjectId, labelOverride, shortLabelOverride, synonymCount }: {
+function DynamicFieldInput({ field, dynamicValues, setDynamicValues, hasError, disabled, subjectId, labelOverride, shortLabelOverride }: {
   field: StaticField;
   dynamicValues: Record<string, string>;
   setDynamicValues: React.Dispatch<React.SetStateAction<Record<string, string>>>;
@@ -138,7 +147,6 @@ function DynamicFieldInput({ field, dynamicValues, setDynamicValues, hasError, d
   subjectId?: number;
   labelOverride?: string;
   shortLabelOverride?: string | null;
-  synonymCount?: number;
 }) {
   const numberFieldValidity = useMemo(() => {
     return isNumberFieldWithExpiredPair(field.fieldKey, dynamicValues);
@@ -164,11 +172,6 @@ function DynamicFieldInput({ field, dynamicValues, setDynamicValues, hasError, d
         </Label>
         {subjectId && (
           <FieldHistoryIndicator subjectId={subjectId} fieldKey={field.fieldKey} fieldLabel={displayLabel} />
-        )}
-        {synonymCount !== undefined && synonymCount > 0 && (
-          <Badge variant="outline" className="text-[8px] px-1 py-0 h-3.5 font-mono text-blue-400 border-blue-400/30" title={`${synonymCount} AI synoným`} data-testid={`synonym-count-${field.fieldKey}`}>
-            AI:{synonymCount}
-          </Badge>
         )}
       </div>
       {field.fieldType === "long_text" ? (
@@ -253,12 +256,22 @@ function DynamicFieldInput({ field, dynamicValues, setDynamicValues, hasError, d
           );
         })()
       ) : field.fieldType === "number" && field.fieldKey === "vek" ? (
-        <div
-          className="h-9 w-full flex items-center px-3 rounded-md bg-muted/50 border border-border text-sm font-medium text-foreground cursor-default select-none whitespace-nowrap"
-          data-testid={`input-dynamic-${field.fieldKey}`}
-        >
-          {dynamicValues[field.fieldKey] ? `${dynamicValues[field.fieldKey]} rokov` : ""}
-        </div>
+        disabled ? (
+          <div
+            className="h-9 w-full flex items-center px-3 rounded-md bg-muted/50 border border-border text-sm font-medium text-foreground cursor-default select-none whitespace-nowrap"
+            data-testid={`input-dynamic-${field.fieldKey}`}
+          >
+            {dynamicValues[field.fieldKey] ? `${dynamicValues[field.fieldKey]} rokov` : ""}
+          </div>
+        ) : (
+          <Input
+            type="number"
+            value={dynamicValues[field.fieldKey] || ""}
+            onChange={e => setDynamicValues(prev => ({ ...prev, [field.fieldKey]: e.target.value }))}
+            className={errorBorder}
+            data-testid={`input-dynamic-${field.fieldKey}`}
+          />
+        )
       ) : field.fieldType === "number" ? (
         <Input
           type="number"
@@ -308,10 +321,31 @@ function DynamicFieldInput({ field, dynamicValues, setDynamicValues, hasError, d
   );
 }
 
+function SortableFieldItem({ id, children, isArchitectMode }: { id: string; children: React.ReactNode; isArchitectMode: boolean }) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id, disabled: !isArchitectMode });
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+    position: "relative" as const,
+  };
+  return (
+    <div ref={setNodeRef} style={style} {...attributes} className="min-w-0 relative">
+      {isArchitectMode && (
+        <div {...listeners} className="absolute -left-1 top-1/2 -translate-y-1/2 z-20 cursor-grab active:cursor-grabbing p-0.5 rounded hover:bg-amber-500/20" data-testid={`drag-handle-${id}`}>
+          <GripVertical className="w-3 h-3 text-amber-500/70" />
+        </div>
+      )}
+      {children}
+    </div>
+  );
+}
+
 export function SubjectProfileModuleC({ subject }: ModuleCProps) {
   const { toast } = useToast();
   const [isEditing, setIsEditing] = useState(false);
   const [editReason, setEditReason] = useState("");
+  const [transferParam, setTransferParam] = useState<{ paramId: number; paramLabel: string; currentPanelId: number } | null>(null);
 
   const clientTypeId = useMemo(() => {
     const ctId = (subject as any).clientTypeId;
@@ -330,6 +364,7 @@ export function SubjectProfileModuleC({ subject }: ModuleCProps) {
   const { data: synonymCounts } = useQuery<Record<string, number>>({
     queryKey: ["/api/parameter-synonyms/field-counts"],
     enabled: subject.id > 0,
+    staleTime: Infinity,
   });
 
   interface UnifiedCatalogData {
@@ -455,6 +490,48 @@ export function SubjectProfileModuleC({ subject }: ModuleCProps) {
       toast({ title: "Accordion zmenený", description: "Sekcia presunutá, zmena zapísaná do šablóny (B)." });
     },
   });
+
+  const batchReorderMutation = useMutation({
+    mutationFn: async (items: { id: number; sortOrder: number; panelId?: number }[]) => {
+      return apiRequest("POST", "/api/subject-parameters/batch-reorder", { items });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/subject-parameters"] });
+      toast({ title: "Poradie uložené", description: "Zmena zapísaná do šablóny (B)." });
+    },
+  });
+
+  const transferParamMutation = useMutation({
+    mutationFn: async ({ paramId, targetPanelId }: { paramId: number; targetPanelId: number }) => {
+      return apiRequest("PATCH", `/api/subject-parameters/${paramId}`, { panelId: targetPanelId });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/subject-parameters"] });
+      setTransferParam(null);
+      toast({ title: "Parameter presunutý", description: "Presun do nového panelu zapísaný v šablóne (B)." });
+    },
+  });
+
+  const dndSensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
+  );
+
+  const handleDragEnd = useCallback((panelId: number, parameters: DbParameter[]) => (event: DragEndEvent) => {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+    const oldIndex = parameters.findIndex(p => String(p.id) === String(active.id));
+    const newIndex = parameters.findIndex(p => String(p.id) === String(over.id));
+    if (oldIndex === -1 || newIndex === -1) return;
+    const reordered = arrayMove(parameters, oldIndex, newIndex);
+    const items = reordered.map((p, i) => ({ id: p.id, sortOrder: (i + 1) * 10 }));
+    batchReorderMutation.mutate(items);
+  }, [batchReorderMutation]);
+
+  const allPanels = useMemo(() => {
+    if (!dbSections) return [];
+    return dbSections.filter(s => s.isPanel && s.id > 0).sort((a, b) => a.name.localeCompare(b.name, "sk"));
+  }, [dbSections]);
 
   const { data: savedLayouts } = useQuery<any[]>({
     queryKey: ["/api/field-layout-configs"],
@@ -876,20 +953,53 @@ export function SubjectProfileModuleC({ subject }: ModuleCProps) {
                                           </Button>
                                         )}
                                       </div>
-                                      <div
-                                        className="grid gap-4 items-end"
-                                        style={{ gridTemplateColumns: `repeat(${panel.gridColumns || 3}, minmax(0, 1fr))` }}
-                                      >
-                                        {parameters.map(param => {
-                                          const field = dbParamToStaticField(param);
-                                          return (
-                                            <div key={field.id} className="min-w-0 relative">
-                                              <ArchitectFieldOverlay fieldKey={field.fieldKey} sectionCategory={catKey} />
-                                              <DynamicFieldInput field={field} dynamicValues={dynamicValues} setDynamicValues={setDynamicValues} disabled={!isEditing} subjectId={subject.id} synonymCount={synonymCounts?.[field.fieldKey]} />
+                                      {isArchitectMode ? (
+                                        <DndContext sensors={dndSensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd(panel.id, parameters)}>
+                                          <SortableContext items={parameters.map(p => String(p.id))} strategy={rectSortingStrategy}>
+                                            <div
+                                              className="grid gap-4 items-end"
+                                              style={{ gridTemplateColumns: `repeat(${panel.gridColumns || 3}, minmax(0, 1fr))` }}
+                                            >
+                                              {parameters.map(param => {
+                                                const field = dbParamToStaticField(param);
+                                                return (
+                                                  <SortableFieldItem key={field.id} id={String(field.id)} isArchitectMode={isArchitectMode}>
+                                                    <div className="pl-4">
+                                                      <DynamicFieldInput field={field} dynamicValues={dynamicValues} setDynamicValues={setDynamicValues} disabled={!isEditing} subjectId={subject.id} />
+                                                      <div className="flex items-center gap-1 mt-0.5">
+                                                        <Button
+                                                          size="sm"
+                                                          variant="ghost"
+                                                          className="h-4 px-1 text-[9px] text-amber-500 hover:text-amber-400"
+                                                          onClick={() => setTransferParam({ paramId: param.id, paramLabel: param.label, currentPanelId: panel.id })}
+                                                          data-testid={`btn-transfer-${param.id}`}
+                                                        >
+                                                          <ArrowRightLeft className="w-2.5 h-2.5 mr-0.5" />
+                                                          Presunúť
+                                                        </Button>
+                                                      </div>
+                                                    </div>
+                                                  </SortableFieldItem>
+                                                );
+                                              })}
                                             </div>
-                                          );
-                                        })}
-                                      </div>
+                                          </SortableContext>
+                                        </DndContext>
+                                      ) : (
+                                        <div
+                                          className="grid gap-4 items-end"
+                                          style={{ gridTemplateColumns: `repeat(${panel.gridColumns || 3}, minmax(0, 1fr))` }}
+                                        >
+                                          {parameters.map(param => {
+                                            const field = dbParamToStaticField(param);
+                                            return (
+                                              <div key={field.id} className="min-w-0 relative">
+                                                <DynamicFieldInput field={field} dynamicValues={dynamicValues} setDynamicValues={setDynamicValues} disabled={!isEditing} subjectId={subject.id} />
+                                              </div>
+                                            );
+                                          })}
+                                        </div>
+                                      )}
                                     </div>
                                   ))}
                                 </CardContent>
@@ -1057,6 +1167,52 @@ export function SubjectProfileModuleC({ subject }: ModuleCProps) {
           </AccordionContent>
         </AccordionItem>
       </Accordion>
+
+      {transferParam && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60" onClick={() => setTransferParam(null)} data-testid="transfer-dialog-overlay">
+          <Card className="w-96 max-h-[80vh] overflow-y-auto" onClick={e => e.stopPropagation()} data-testid="transfer-dialog">
+            <CardContent className="p-4 space-y-3">
+              <div className="flex items-center justify-between">
+                <h3 className="text-sm font-semibold">Presunúť parameter</h3>
+                <Button size="sm" variant="ghost" className="h-6 w-6 p-0" onClick={() => setTransferParam(null)}>
+                  <X className="w-4 h-4" />
+                </Button>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                <span className="font-medium text-foreground">{transferParam.paramLabel}</span> — vyberte cieľový panel:
+              </p>
+              <div className="space-y-1 max-h-60 overflow-y-auto">
+                {allPanels
+                  .filter(p => p.id !== transferParam.currentPanelId)
+                  .map(panel => {
+                    const parentSection = dbSections?.find(s => s.id === panel.parentSectionId);
+                    return (
+                      <Button
+                        key={panel.id}
+                        variant="ghost"
+                        className="w-full justify-start text-xs h-8 hover:bg-amber-500/10"
+                        onClick={() => transferParamMutation.mutate({ paramId: transferParam.paramId, targetPanelId: panel.id })}
+                        disabled={transferParamMutation.isPending}
+                        data-testid={`transfer-target-${panel.id}`}
+                      >
+                        <FolderOpen className="w-3 h-3 mr-2 text-primary/70 shrink-0" />
+                        <span className="truncate">
+                          {parentSection ? `${parentSection.name} → ` : ""}{panel.name}
+                        </span>
+                      </Button>
+                    );
+                  })}
+              </div>
+              {transferParamMutation.isPending && (
+                <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                  <Loader2 className="w-3 h-3 animate-spin" />
+                  Presúvam...
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </div>
+      )}
     </div>
   );
 }

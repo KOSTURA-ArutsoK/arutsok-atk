@@ -7850,6 +7850,19 @@ export async function registerRoutes(
     }
   });
 
+  app.post("/api/subject-parameters/batch-reorder", isAuthenticated, async (req, res) => {
+    try {
+      const { items } = req.body;
+      if (!Array.isArray(items)) return res.status(400).json({ message: "items must be array" });
+      for (const item of items) {
+        const updates: any = { sortOrder: item.sortOrder };
+        if (item.panelId !== undefined) updates.panelId = item.panelId;
+        await storage.updateSubjectParameter(item.id, updates);
+      }
+      res.json({ success: true, updated: items.length });
+    } catch (err) { res.status(500).json({ message: "Internal error" }); }
+  });
+
   app.patch("/api/subject-parameters/:id", isAuthenticated, async (req, res) => {
     try {
       const param = await storage.updateSubjectParameter(Number(req.params.id), req.body);
