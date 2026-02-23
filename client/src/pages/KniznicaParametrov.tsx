@@ -23,6 +23,7 @@ import {
   ThumbsUp,
   ThumbsDown,
   Lock,
+  Shield,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -153,6 +154,7 @@ export default function KniznicaParametrov() {
   const [expandedSections, setExpandedSections] = useState<Set<number>>(new Set());
   const [isSectionDialogOpen, setIsSectionDialogOpen] = useState(false);
   const [editSection, setEditSection] = useState<SubjectParamSection | null>(null);
+  const [isModuleBProtected, setIsModuleBProtected] = useState(true);
   const [isTemplateDialogOpen, setIsTemplateDialogOpen] = useState(false);
   const [editTemplate, setEditTemplate] = useState<SubjectTemplate | null>(null);
   const [bindingTemplateId, setBindingTemplateId] = useState<number | null>(null);
@@ -717,6 +719,21 @@ export default function KniznicaParametrov() {
         </TabsContent>
 
         <TabsContent value="sections" className="space-y-4">
+          <div className="flex items-center gap-2 p-2.5 rounded-md bg-amber-500/5 border border-amber-500/20 mb-2" data-testid="module-b-readonly-banner">
+            <Shield className="w-4 h-4 text-amber-500 shrink-0" />
+            <span className="text-xs font-semibold text-amber-500">CHRÁNENÁ ZÓNA</span>
+            <span className="text-xs text-muted-foreground flex-1">Šablónu (B) spravujte cez Režim Architekt v Profile subjektu (C). Tu je len náhľad.</span>
+            <Button
+              size="sm"
+              variant={isModuleBProtected ? "outline" : "destructive"}
+              className="h-6 text-[10px] shrink-0"
+              onClick={() => setIsModuleBProtected(!isModuleBProtected)}
+              data-testid="btn-toggle-protection"
+            >
+              <Lock className="w-3 h-3 mr-1" />
+              {isModuleBProtected ? "Odomknúť editáciu" : "Zamknúť"}
+            </Button>
+          </div>
           <div className="flex items-center gap-3 flex-wrap">
             <Select value={selectedClientType} onValueChange={setSelectedClientType}>
               <SelectTrigger className="w-48" data-testid="select-section-client-type">
@@ -732,6 +749,7 @@ export default function KniznicaParametrov() {
             <Button
               size="sm"
               onClick={() => { setEditSection(null); setIsSectionDialogOpen(true); }}
+              disabled={isModuleBProtected}
               data-testid="button-add-section"
             >
               <Plus className="w-4 h-4 mr-1" />
@@ -741,7 +759,7 @@ export default function KniznicaParametrov() {
               size="sm"
               variant="outline"
               onClick={() => cleanupMutation.mutate()}
-              disabled={cleanupMutation.isPending}
+              disabled={cleanupMutation.isPending || isModuleBProtected}
               data-testid="button-cleanup"
             >
               {cleanupMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin mr-1" /> : <Wand2 className="w-4 h-4 mr-1" />}
@@ -786,6 +804,7 @@ export default function KniznicaParametrov() {
                             size="icon"
                             className="h-6 w-6"
                             onClick={() => { setEditSection(folder); setIsSectionDialogOpen(true); }}
+                            disabled={isModuleBProtected}
                             data-testid={`button-edit-section-${folder.id}`}
                           >
                             <Pencil className="w-3 h-3" />
@@ -821,6 +840,7 @@ export default function KniznicaParametrov() {
                                 size="icon"
                                 className="h-6 w-6 text-destructive"
                                 onClick={() => setDeleteConfirm({ type: "section", id: folder.id, name: folder.name })}
+                                disabled={isModuleBProtected}
                                 data-testid={`button-delete-section-${folder.id}`}
                               >
                                 <Trash2 className="w-3 h-3" />
@@ -859,6 +879,7 @@ export default function KniznicaParametrov() {
                                       size="icon"
                                       className="h-6 w-6"
                                       onClick={() => { setEditSection(panel); setIsSectionDialogOpen(true); }}
+                                      disabled={isModuleBProtected}
                                       data-testid={`button-edit-panel-${panel.id}`}
                                     >
                                       <Pencil className="w-3 h-3" />
@@ -894,6 +915,7 @@ export default function KniznicaParametrov() {
                                           size="icon"
                                           className="h-6 w-6 text-destructive"
                                           onClick={() => setDeleteConfirm({ type: "section", id: panel.id, name: panel.name })}
+                                          disabled={isModuleBProtected}
                                           data-testid={`button-delete-panel-${panel.id}`}
                                         >
                                           <Trash2 className="w-3 h-3" />

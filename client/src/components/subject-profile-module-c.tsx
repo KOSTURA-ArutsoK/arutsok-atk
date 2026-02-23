@@ -25,6 +25,7 @@ import {
   Loader2, Pencil, Save, X, Shield,
   ShieldCheck, ListPlus, Eye, ArrowUp, ArrowDown, Settings2, MoreHorizontal,
   Check, User, Phone, Star, Brain, Zap, Link2, Archive, CreditCard, Users,
+  ChevronDown, ChevronRight, GripVertical, FolderOpen,
 } from "lucide-react";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 
@@ -67,12 +68,16 @@ interface DbSection {
   folderCategory: string;
   sortOrder: number;
   clientTypeId: number;
+  isPanel: boolean;
+  parentSectionId: number | null;
+  code: string | null;
 }
 
 interface DbParameter {
   id: number;
   clientTypeId: number;
   sectionId: number | null;
+  panelId: number | null;
   fieldKey: string;
   label: string;
   shortLabel: string | null;
@@ -93,12 +98,17 @@ interface DbParameter {
   code: string | null;
 }
 
+interface HierarchyNode {
+  section: DbSection;
+  panels: { panel: DbSection; parameters: DbParameter[] }[];
+}
+
 function dbParamToStaticField(p: DbParameter): StaticField {
   return {
     id: p.id,
     clientTypeId: p.clientTypeId,
     sectionId: p.sectionId,
-    panelId: null,
+    panelId: p.panelId ?? null,
     fieldKey: p.fieldKey,
     label: p.label,
     shortLabel: p.shortLabel || undefined,
@@ -353,24 +363,63 @@ export function SubjectProfileModuleC({ subject }: ModuleCProps) {
     },
   });
 
-  const dbGroupedByCategory = useMemo(() => {
-    if (!dbSections || !dbParameters) return {};
+  const hierarchyByCategory = useMemo(() => {
+    if (!dbSections || !dbParameters) return {} as Record<string, HierarchyNode[]>;
 
     const activeParams = dbParameters.filter(p => p.isActive && !p.isHidden);
-    const result: Record<string, { section: DbSection; fields: DbParameter[] }[]> = {};
+    const allSections = [...dbSections].sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0));
 
-    const sortedSections = [...dbSections].sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0));
+    const sections = allSections.filter(s => !s.isPanel);
+    const panels = allSections.filter(s => s.isPanel);
 
-    for (const section of sortedSections) {
+    const result: Record<string, HierarchyNode[]> = {};
+    const assignedParamIds = new Set<number>();
+
+    for (const section of sections) {
       const category = section.folderCategory || "doplnkove";
-      const sectionFields = activeParams
-        .filter(p => p.sectionId === section.id)
+      const childPanels = panels
+        .filter(p => p.parentSectionId === section.id)
+        .sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0));
+
+      const panelNodes = childPanels.map(panel => {
+        const panelParams = activeParams
+          .filter(p => p.panelId === panel.id)
+          .sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0));
+        panelParams.forEach(p => assignedParamIds.add(p.id));
+        return { panel, parameters: panelParams };
+      }).filter(pn => pn.parameters.length > 0);
+
+      const sectionLevelParams = activeParams
+        .filter(p => p.sectionId === section.id && !p.panelId && !assignedParamIds.has(p.id))
         .sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0));
 
-      if (sectionFields.length === 0) continue;
+      if (sectionLevelParams.length > 0) {
+        const virtualPanel: DbSection = {
+          id: -section.id,
+          name: section.name,
+          folderCategory: section.folderCategory,
+          sortOrder: -999,
+          clientTypeId: section.clientTypeId,
+          isPanel: true,
+          parentSectionId: section.id,
+          code: null,
+        };
+        panelNodes.unshift({ panel: virtualPanel, parameters: sectionLevelParams });
+        sectionLevelParams.forEach(p => assignedParamIds.add(p.id));
+      }
+
+      if (panelNodes.length === 0) continue;
 
       if (!result[category]) result[category] = [];
-      result[category].push({ section, fields: sectionFields });
+      result[category].push({ section, panels: panelNodes });
+    }
+
+    const orphanParams = activeParams.filter(p => !assignedParamIds.has(p.id));
+    if (orphanParams.length > 0) {
+      const orphanSection: DbSection = { id: -9999, name: "Nezaradené parametre", folderCategory: "ine", sortOrder: 9999, clientTypeId: 0, isPanel: false, parentSectionId: null, code: null };
+      const orphanPanel: DbSection = { id: -9998, name: "Nezaradené", folderCategory: "ine", sortOrder: 0, clientTypeId: 0, isPanel: true, parentSectionId: -9999, code: null };
+      if (!result["ine"]) result["ine"] = [];
+      result["ine"].push({ section: orphanSection, panels: [{ panel: orphanPanel, parameters: orphanParams }] });
     }
 
     return result;
@@ -378,6 +427,32 @@ export function SubjectProfileModuleC({ subject }: ModuleCProps) {
 
   const [isArchitectMode, setIsArchitectMode] = useState(false);
   const [fieldLayouts, setFieldLayouts] = useState<Record<string, { sortOrder: number; widthClass: string; rowGroup: number }>>({});
+  const [expandedSections, setExpandedSections] = useState<string[]>([]);
+  const [renamingSection, setRenamingSection] = useState<number | null>(null);
+  const [renameValue, setRenameValue] = useState("");
+
+  const renameSectionMutation = useMutation({
+    mutationFn: async ({ id, name }: { id: number; name: string }) => {
+      return apiRequest("PATCH", `/api/subject-param-sections/${id}`, { name });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/subject-param-sections"] });
+      setRenamingSection(null);
+      setRenameValue("");
+      toast({ title: "Sekcia premenovaná", description: "Zmena sa prejavila aj v šablóne (B)." });
+    },
+  });
+
+  const moveSectionCategoryMutation = useMutation({
+    mutationFn: async ({ id, folderCategory }: { id: number; folderCategory: string }) => {
+      return apiRequest("PATCH", `/api/subject-param-sections/${id}`, { folderCategory });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/subject-param-sections"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/subject-parameters"] });
+      toast({ title: "Accordion zmenený", description: "Sekcia presunutá, zmena zapísaná do šablóny (B)." });
+    },
+  });
 
   const { data: savedLayouts } = useQuery<any[]>({
     queryKey: ["/api/field-layout-configs"],
@@ -654,186 +729,180 @@ export function SubjectProfileModuleC({ subject }: ModuleCProps) {
         </div>
       )}
 
-      <Accordion type="multiple" defaultValue={["povinne", "osobne", "doplnkove", "volitelne", "ine", "extrahovane"]} className="space-y-2">
-        <AccordionItem value="povinne" className="border rounded-md px-3" data-testid="editor-accordion-povinne">
-          <AccordionTrigger className="py-3 hover:no-underline">
-            <div className="flex items-center gap-2">
-              <ShieldCheck className="w-4 h-4 text-destructive" />
-              <span className="text-sm font-semibold">POVINNÉ ÚDAJE</span>
-              <Badge variant="secondary" className="text-[10px]">
-                {3 + (dbGroupedByCategory["povinne"] || []).reduce((sum, g) => sum + g.fields.length, 0)}
-              </Badge>
-            </div>
-          </AccordionTrigger>
-          <AccordionContent className="pb-4 space-y-3">
-            <div className="flex flex-wrap gap-4 items-end" data-testid="row-system-fields">
-              <div className="space-y-1 flex-1 min-w-[160px]">
-                <Label className="text-xs">Kód klienta</Label>
-                <Input value={subject.uid || ""} disabled className="font-mono text-xs" data-testid="input-kod-klienta" />
-              </div>
-              <div className="space-y-1 flex-1 min-w-[160px]">
-                <Label className="text-xs">Typ klienta</Label>
-                <Input value={CLIENT_TYPE_OPTIONS.find(o => o.value === activeClientType)?.label || "Fyzická osoba"} disabled data-testid="input-typ-klienta" />
-              </div>
-              <div className="space-y-1 flex-1 min-w-[160px]">
-                <Label className="text-xs">Identifikátor ({activeClientType === "po" ? "IČO" : activeClientType === "szco" ? "IČO" : "Rodné číslo"})</Label>
-                <Input value={subject.birthNumber || ""} disabled className="font-mono" data-testid="input-identifikator" />
-              </div>
-            </div>
+      {(() => {
+        const CATEGORY_META: Record<string, { icon: typeof ShieldCheck; color: string }> = {
+          povinne: { icon: ShieldCheck, color: "text-destructive" },
+          osobne: { icon: User, color: "text-cyan-400" },
+          doplnkove: { icon: ListPlus, color: "text-primary" },
+          volitelne: { icon: Eye, color: "text-muted-foreground" },
+          ine: { icon: MoreHorizontal, color: "text-muted-foreground" },
+        };
 
-            {(dbGroupedByCategory["povinne"] || []).map(({ section, fields }) => (
-              <div key={section.id} className="space-y-2">
-                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide border-b border-border pb-1">{section.name}</p>
-                <div className="flex flex-wrap gap-4 items-end">
-                  {fields.map(param => {
-                    const field = dbParamToStaticField(param);
-                    return (
-                      <div key={field.id} className={cn("min-w-0 relative", "flex-1 min-w-[140px]")}>
-                        <ArchitectFieldOverlay fieldKey={field.fieldKey} sectionCategory="povinne" />
-                        <DynamicFieldInput field={field} dynamicValues={dynamicValues} setDynamicValues={setDynamicValues} disabled={!isEditing} subjectId={subject.id} synonymCount={synonymCounts?.[field.fieldKey]} />
+        const categoryOrder = ["povinne", "osobne", "doplnkove", "volitelne", "ine"];
+
+        const toggleSection = (key: string) => {
+          setExpandedSections(prev =>
+            prev.includes(key) ? prev.filter(k => k !== key) : [...prev, key]
+          );
+        };
+
+        const totalParamCount = (nodes: HierarchyNode[]) =>
+          nodes.reduce((sum, n) => sum + n.panels.reduce((s, p) => s + p.parameters.length, 0), 0);
+
+        return (
+          <>
+            {categoryOrder.map(catKey => {
+              const nodes = hierarchyByCategory[catKey] || [];
+              if (nodes.length === 0 && catKey !== "povinne") return null;
+              const meta = CATEGORY_META[catKey] || CATEGORY_META.ine;
+              const CatIcon = meta.icon;
+              const catLabel = FOLDER_CATEGORY_LABELS[catKey] || catKey.toUpperCase();
+              const paramCount = catKey === "povinne" ? 3 + totalParamCount(nodes) : totalParamCount(nodes);
+
+              return (
+                <Accordion type="multiple" key={catKey} defaultValue={[]} className="space-y-1 mb-3">
+                  <AccordionItem value={catKey} className="border rounded-md px-3" data-testid={`editor-accordion-${catKey}`}>
+                    <AccordionTrigger className="py-3 hover:no-underline">
+                      <div className="flex items-center gap-2">
+                        <CatIcon className={cn("w-4 h-4", meta.color)} />
+                        <span className="text-sm font-semibold">{catLabel}</span>
+                        <Badge variant="secondary" className="text-[10px]">{paramCount}</Badge>
                       </div>
-                    );
-                  })}
-                </div>
-              </div>
-            ))}
-          </AccordionContent>
-        </AccordionItem>
-
-        <AccordionItem value="osobne" className="border rounded-md px-3" data-testid="editor-accordion-osobne">
-          <AccordionTrigger className="py-3 hover:no-underline">
-            <div className="flex items-center gap-2">
-              <User className="w-4 h-4 text-cyan-400" />
-              <span className="text-sm font-semibold">OSOBNÉ ÚDAJE</span>
-              <Badge variant="secondary" className="text-[10px]">
-                {(dbGroupedByCategory["osobne"] || []).reduce((sum, g) => sum + g.fields.length, 0)}
-              </Badge>
-            </div>
-          </AccordionTrigger>
-          <AccordionContent className="pb-4 space-y-3">
-            {(dbGroupedByCategory["osobne"] || []).length === 0 ? (
-              <p className="text-sm text-muted-foreground text-center py-4">Žiadne osobné parametre v šablóne (B)</p>
-            ) : (
-              (dbGroupedByCategory["osobne"] || []).map(({ section, fields }) => (
-                <div key={section.id} className="space-y-2">
-                  <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide border-b border-border pb-1">{section.name}</p>
-                  <div className="flex flex-wrap gap-4 items-end">
-                    {fields.map(param => {
-                      const field = dbParamToStaticField(param);
-                      return (
-                        <div key={field.id} className={cn("min-w-0 relative", "flex-1 min-w-[140px]")}>
-                          <ArchitectFieldOverlay fieldKey={field.fieldKey} sectionCategory="osobne" />
-                          <DynamicFieldInput field={field} dynamicValues={dynamicValues} setDynamicValues={setDynamicValues} disabled={!isEditing} subjectId={subject.id} synonymCount={synonymCounts?.[field.fieldKey]} />
+                    </AccordionTrigger>
+                    <AccordionContent className="pb-4 space-y-3">
+                      {catKey === "povinne" && (
+                        <div className="flex flex-wrap gap-4 items-end" data-testid="row-system-fields">
+                          <div className="space-y-1 flex-1 min-w-[160px]">
+                            <Label className="text-xs">Kód klienta</Label>
+                            <Input value={subject.uid || ""} disabled className="font-mono text-xs" data-testid="input-kod-klienta" />
+                          </div>
+                          <div className="space-y-1 flex-1 min-w-[160px]">
+                            <Label className="text-xs">Typ klienta</Label>
+                            <Input value={CLIENT_TYPE_OPTIONS.find(o => o.value === activeClientType)?.label || "Fyzická osoba"} disabled data-testid="input-typ-klienta" />
+                          </div>
+                          <div className="space-y-1 flex-1 min-w-[160px]">
+                            <Label className="text-xs">Identifikátor ({activeClientType === "po" ? "IČO" : activeClientType === "szco" ? "IČO" : "Rodné číslo"})</Label>
+                            <Input value={subject.birthNumber || ""} disabled className="font-mono" data-testid="input-identifikator" />
+                          </div>
                         </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              ))
-            )}
-          </AccordionContent>
-        </AccordionItem>
+                      )}
 
-        <AccordionItem value="doplnkove" className="border rounded-md px-3" data-testid="editor-accordion-doplnkove">
-          <AccordionTrigger className="py-3 hover:no-underline">
-            <div className="flex items-center gap-2">
-              <ListPlus className="w-4 h-4 text-primary" />
-              <span className="text-sm font-semibold">DOPLNKOVÉ ÚDAJE</span>
-              <Badge variant="secondary" className="text-[10px]">
-                {(dbGroupedByCategory["doplnkove"] || []).reduce((sum, g) => sum + g.fields.length, 0)}
-              </Badge>
-            </div>
-          </AccordionTrigger>
-          <AccordionContent className="pb-4 space-y-3">
-            {(dbGroupedByCategory["doplnkove"] || []).length === 0 ? (
-              <p className="text-sm text-muted-foreground text-center py-4">Žiadne doplnkové parametre v šablóne (B)</p>
-            ) : (
-              (dbGroupedByCategory["doplnkove"] || []).map(({ section, fields }) => (
-                <div key={section.id} className="space-y-2">
-                  <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide border-b border-border pb-1">{section.name}</p>
-                  <div className="flex flex-wrap gap-4 items-end">
-                    {fields.map(param => {
-                      const field = dbParamToStaticField(param);
-                      return (
-                        <div key={field.id} className={cn("min-w-0 relative", "flex-1 min-w-[140px]")}>
-                          <ArchitectFieldOverlay fieldKey={field.fieldKey} sectionCategory="doplnkove" />
-                          <DynamicFieldInput field={field} dynamicValues={dynamicValues} setDynamicValues={setDynamicValues} disabled={!isEditing} subjectId={subject.id} synonymCount={synonymCounts?.[field.fieldKey]} />
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              ))
-            )}
-          </AccordionContent>
-        </AccordionItem>
+                      {nodes.length === 0 ? (
+                        <p className="text-sm text-muted-foreground text-center py-4">Žiadne parametre v šablóne (B)</p>
+                      ) : (
+                        nodes.map(({ section, panels: panelNodes }) => {
+                          const sectionKey = `section-${section.id}`;
+                          const isSectionExpanded = expandedSections.includes(sectionKey);
+                          const sectionParamCount = panelNodes.reduce((s, p) => s + p.parameters.length, 0);
 
-        <AccordionItem value="volitelne" className="border rounded-md px-3" data-testid="editor-accordion-volitelne">
-          <AccordionTrigger className="py-3 hover:no-underline">
-            <div className="flex items-center gap-2">
-              <Eye className="w-4 h-4 text-muted-foreground" />
-              <span className="text-sm font-semibold">VOLITEĽNÉ / DOBROVOĽNÉ ÚDAJE</span>
-              <Badge variant="secondary" className="text-[10px]">
-                {(dbGroupedByCategory["volitelne"] || []).reduce((sum, g) => sum + g.fields.length, 0)}
-              </Badge>
-            </div>
-          </AccordionTrigger>
-          <AccordionContent className="pb-4 space-y-3">
-            {(dbGroupedByCategory["volitelne"] || []).length === 0 ? (
-              <p className="text-sm text-muted-foreground text-center py-4">Žiadne voliteľné parametre v šablóne (B)</p>
-            ) : (
-              (dbGroupedByCategory["volitelne"] || []).map(({ section, fields }) => (
-                <div key={section.id} className="space-y-2">
-                  <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide border-b border-border pb-1">{section.name}</p>
-                  <div className="flex flex-wrap gap-4 items-end">
-                    {fields.map(param => {
-                      const field = dbParamToStaticField(param);
-                      return (
-                        <div key={field.id} className={cn("min-w-0 relative", "flex-1 min-w-[140px]")}>
-                          <ArchitectFieldOverlay fieldKey={field.fieldKey} sectionCategory="volitelne" />
-                          <DynamicFieldInput field={field} dynamicValues={dynamicValues} setDynamicValues={setDynamicValues} disabled={!isEditing} subjectId={subject.id} synonymCount={synonymCounts?.[field.fieldKey]} />
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              ))
-            )}
-          </AccordionContent>
-        </AccordionItem>
+                          return (
+                            <Card key={section.id} className="border border-border/60 bg-card/50" data-testid={`section-card-${section.id}`}>
+                              <div
+                                className="flex items-center gap-2 px-3 py-2.5 cursor-pointer select-none hover:bg-muted/30 transition-colors"
+                                onClick={() => toggleSection(sectionKey)}
+                                data-testid={`section-toggle-${section.id}`}
+                              >
+                                {isSectionExpanded ? <ChevronDown className="w-4 h-4 text-muted-foreground shrink-0" /> : <ChevronRight className="w-4 h-4 text-muted-foreground shrink-0" />}
+                                <FolderOpen className="w-4 h-4 text-primary/70 shrink-0" />
+                                {isArchitectMode && renamingSection === section.id ? (
+                                  <div className="flex items-center gap-1 flex-1" onClick={e => e.stopPropagation()}>
+                                    <Input
+                                      value={renameValue}
+                                      onChange={e => setRenameValue(e.target.value)}
+                                      className="h-6 text-xs flex-1"
+                                      autoFocus
+                                      onKeyDown={e => { if (e.key === "Enter") renameSectionMutation.mutate({ id: section.id, name: renameValue }); if (e.key === "Escape") setRenamingSection(null); }}
+                                      data-testid={`rename-input-${section.id}`}
+                                    />
+                                    <Button size="sm" variant="ghost" className="h-6 w-6 p-0" onClick={() => renameSectionMutation.mutate({ id: section.id, name: renameValue })} data-testid={`rename-save-${section.id}`}>
+                                      <Check className="w-3 h-3" />
+                                    </Button>
+                                    <Button size="sm" variant="ghost" className="h-6 w-6 p-0" onClick={() => setRenamingSection(null)}>
+                                      <X className="w-3 h-3" />
+                                    </Button>
+                                  </div>
+                                ) : (
+                                  <span className="text-xs font-semibold uppercase tracking-wide flex-1">{section.name}</span>
+                                )}
+                                <Badge variant="outline" className="text-[9px] shrink-0">{sectionParamCount} polí</Badge>
+                                {isArchitectMode && renamingSection !== section.id && (
+                                  <div className="flex items-center gap-1 shrink-0" onClick={e => e.stopPropagation()}>
+                                    <Button size="sm" variant="ghost" className="h-6 px-1.5 text-[10px] text-amber-500" onClick={() => { setRenamingSection(section.id); setRenameValue(section.name); }} data-testid={`btn-rename-section-${section.id}`}>
+                                      <Pencil className="w-3 h-3" />
+                                    </Button>
+                                    <Select value={catKey} onValueChange={val => moveSectionCategoryMutation.mutate({ id: section.id, folderCategory: val })}>
+                                      <SelectTrigger className="h-6 w-24 text-[10px] border-amber-500/30 text-amber-500" data-testid={`move-section-${section.id}`}>
+                                        <SelectValue />
+                                      </SelectTrigger>
+                                      <SelectContent>
+                                        {categoryOrder.map(ck => (
+                                          <SelectItem key={ck} value={ck}>{FOLDER_CATEGORY_LABELS[ck]?.replace(" ÚDAJE", "")}</SelectItem>
+                                        ))}
+                                      </SelectContent>
+                                    </Select>
+                                  </div>
+                                )}
+                              </div>
+                              {isSectionExpanded && (
+                                <CardContent className="px-3 pb-3 pt-0 space-y-3">
+                                  {panelNodes.map(({ panel, parameters }) => (
+                                    <div key={panel.id} className="space-y-2" data-testid={`panel-group-${panel.id}`}>
+                                      <div className="flex items-center gap-2 border-b border-border/40 pb-1">
+                                        <GripVertical className="w-3 h-3 text-muted-foreground/50" />
+                                        {isArchitectMode && renamingSection === panel.id ? (
+                                          <div className="flex items-center gap-1 flex-1" onClick={e => e.stopPropagation()}>
+                                            <Input
+                                              value={renameValue}
+                                              onChange={e => setRenameValue(e.target.value)}
+                                              className="h-5 text-[10px] flex-1"
+                                              autoFocus
+                                              onKeyDown={e => { if (e.key === "Enter") renameSectionMutation.mutate({ id: panel.id, name: renameValue }); if (e.key === "Escape") setRenamingSection(null); }}
+                                            />
+                                            <Button size="sm" variant="ghost" className="h-5 w-5 p-0" onClick={() => renameSectionMutation.mutate({ id: panel.id, name: renameValue })}>
+                                              <Check className="w-2.5 h-2.5" />
+                                            </Button>
+                                          </div>
+                                        ) : (
+                                          <p className="text-[11px] font-medium text-muted-foreground tracking-wide flex-1">
+                                            {panel.name}
+                                            <span className="ml-2 text-[9px] text-muted-foreground/60">({parameters.length})</span>
+                                          </p>
+                                        )}
+                                        {isArchitectMode && renamingSection !== panel.id && (
+                                          <Button size="sm" variant="ghost" className="h-5 px-1 text-amber-500" onClick={() => { setRenamingSection(panel.id); setRenameValue(panel.name); }}>
+                                            <Pencil className="w-2.5 h-2.5" />
+                                          </Button>
+                                        )}
+                                      </div>
+                                      <div className="flex flex-wrap gap-4 items-end">
+                                        {parameters.map(param => {
+                                          const field = dbParamToStaticField(param);
+                                          return (
+                                            <div key={field.id} className={cn("min-w-0 relative", "flex-1 min-w-[140px]")}>
+                                              <ArchitectFieldOverlay fieldKey={field.fieldKey} sectionCategory={catKey} />
+                                              <DynamicFieldInput field={field} dynamicValues={dynamicValues} setDynamicValues={setDynamicValues} disabled={!isEditing} subjectId={subject.id} synonymCount={synonymCounts?.[field.fieldKey]} />
+                                            </div>
+                                          );
+                                        })}
+                                      </div>
+                                    </div>
+                                  ))}
+                                </CardContent>
+                              )}
+                            </Card>
+                          );
+                        })
+                      )}
+                    </AccordionContent>
+                  </AccordionItem>
+                </Accordion>
+              );
+            })}
+          </>
+        );
+      })()}
 
-        {(dbGroupedByCategory["ine"] || []).length > 0 && (
-          <AccordionItem value="ine" className="border rounded-md px-3" data-testid="editor-accordion-ine">
-            <AccordionTrigger className="py-3 hover:no-underline">
-              <div className="flex items-center gap-2">
-                <MoreHorizontal className="w-4 h-4 text-muted-foreground" />
-                <span className="text-sm font-semibold">INÉ ÚDAJE</span>
-                <Badge variant="secondary" className="text-[10px]">
-                  {(dbGroupedByCategory["ine"] || []).reduce((sum, g) => sum + g.fields.length, 0)}
-                </Badge>
-              </div>
-            </AccordionTrigger>
-            <AccordionContent className="pb-4 space-y-3">
-              {(dbGroupedByCategory["ine"] || []).map(({ section, fields }) => (
-                <div key={section.id} className="space-y-2">
-                  <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide border-b border-border pb-1">{section.name}</p>
-                  <div className="flex flex-wrap gap-4 items-end">
-                    {fields.map(param => {
-                      const field = dbParamToStaticField(param);
-                      return (
-                        <div key={field.id} className={cn("min-w-0 relative", "flex-1 min-w-[140px]")}>
-                          <ArchitectFieldOverlay fieldKey={field.fieldKey} sectionCategory="ine" />
-                          <DynamicFieldInput field={field} dynamicValues={dynamicValues} setDynamicValues={setDynamicValues} disabled={!isEditing} subjectId={subject.id} synonymCount={synonymCounts?.[field.fieldKey]} />
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              ))}
-            </AccordionContent>
-          </AccordionItem>
-        )}
-
+      <Accordion type="multiple" defaultValue={[]} className="space-y-1">
         <AccordionItem value="extrahovane" className="border rounded-md px-3" data-testid="editor-accordion-extrahovane">
           <AccordionTrigger className="py-3 hover:no-underline">
             <div className="flex items-center gap-2">
