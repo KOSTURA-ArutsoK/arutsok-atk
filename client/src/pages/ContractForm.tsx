@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback, useEffect } from "react";
+import { useState, useRef, useCallback, useEffect, useMemo } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { formatDateTimeSlovak, formatDateSlovak } from "@/lib/utils";
@@ -702,7 +702,7 @@ function StatusTabContent(props: StatusTabContentProps) {
                             <div className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: logStatus?.color || "transparent" }} />
                             <span className="text-sm font-medium">{statusName} {iteration}</span>
                             {logStatus?.definesContractEnd && (
-                              <Flag className="w-3.5 h-3.5 text-destructive shrink-0" title="Tento stav ukoncil zmluvu" data-testid={`icon-defines-end-${log.id}`} />
+                              <span title="Tento stav ukoncil zmluvu"><Flag className="w-3.5 h-3.5 text-destructive shrink-0" data-testid={`icon-defines-end-${log.id}`} /></span>
                             )}
                           </div>
                         </TableCell>}
@@ -930,6 +930,46 @@ export default function ContractForm() {
     queryKey: ["/api/contract-statuses", statusFormStatusId, "parameters"],
     enabled: !!statusFormStatusId,
   });
+
+  const { data: fieldFreshness } = useQuery<Record<string, string>>({
+    queryKey: ["/api/subjects", subjectId ? parseInt(subjectId) : 0, "field-history", "freshness"],
+    queryFn: async () => {
+      if (!subjectId) return {};
+      const res = await fetch(`/api/subjects/${subjectId}/field-history/freshness`, { credentials: "include" });
+      if (!res.ok) return {};
+      return res.json();
+    },
+    enabled: !!subjectId,
+  });
+
+  const { data: subjectRelations } = useQuery<{ categories: Record<string, { label: string; count: number; relations: Array<{ id: number; relationType: string; relatedSubjectName: string; relatedSubjectId: number; direction: string }> }> }>({
+    queryKey: ["/api/subject-relations", subjectId ? parseInt(subjectId) : 0],
+    queryFn: async () => {
+      if (!subjectId) return { categories: {} };
+      const res = await fetch(`/api/subject-relations/${subjectId}`, { credentials: "include" });
+      if (!res.ok) return { categories: {} };
+      return res.json();
+    },
+    enabled: !!subjectId,
+  });
+
+  const selectedSubject = useMemo(() => {
+    return subjects?.find(s => s.id === (subjectId ? parseInt(subjectId) : -1)) || null;
+  }, [subjects, subjectId]);
+
+  const svatynaHeatmapClass = useMemo(() => {
+    if (!fieldFreshness || Object.keys(fieldFreshness).length === 0) return "";
+    const now = Date.now();
+    const timestamps = Object.values(fieldFreshness).map(ts => new Date(ts).getTime()).filter(t => !isNaN(t));
+    if (timestamps.length === 0) return "";
+    const mostRecent = Math.max(...timestamps);
+    const hoursAgo = (now - mostRecent) / (1000 * 60 * 60);
+    if (hoursAgo <= 24) return "bg-blue-500/10 border-blue-500/20";
+    if (hoursAgo <= 72) return "bg-blue-400/5 border-blue-400/10";
+    if (hoursAgo <= 168) return "bg-blue-300/3";
+    return "";
+  }, [fieldFreshness]);
+
   const statusFormSubmit = useMutation({
     mutationFn: async () => {
       const uploadHashes = statusDocUploadRef.current?.getFileHashes() || {};
@@ -1049,7 +1089,6 @@ export default function ContractForm() {
     queryKey: ["/api/client-types"],
   });
 
-  const selectedSubject = subjects?.find(s => s.id === (subjectId ? parseInt(subjectId) : -1));
   const subjectTypeToClientCode: Record<string, string> = { person: "FO", company: "PO", szco: "SZCO" };
   const matchedClientTypeCode = selectedSubject?.type ? subjectTypeToClientCode[selectedSubject.type] || null : null;
   const matchedClientType = matchedClientTypeCode ? clientTypes?.find(ct => ct.code === matchedClientTypeCode) : null;
@@ -1749,11 +1788,29 @@ export default function ContractForm() {
           </div>
 
           <div style={{ display: activeTab === "udaje-klient" ? 'block' : 'none' }}>
-            <div className="space-y-3" data-testid="section-udaje-klient">
-              <div className="flex items-center gap-2 mb-2">
+            <div className={`space-y-3 rounded-md border p-3 ${svatynaHeatmapClass}`} data-testid="section-udaje-klient">
+              <div className="flex items-center gap-2 mb-2 flex-wrap">
                 <Shield className="w-4 h-4 text-amber-400" />
                 <h2 className="text-sm font-semibold">Priečinok: Údaje o klientovi (Svätyňa)</h2>
                 <Badge variant="outline" className="text-[8px] px-1 py-0 border-amber-500/30 text-amber-400">Statický priečinok</Badge>
+                {selectedSubject && (
+                  <Badge variant="outline" className="text-[8px] px-1 py-0 border-cyan-500/30 text-cyan-400" data-testid="badge-stroj-casu">
+                    <History className="w-2.5 h-2.5 mr-0.5" /> Stroj času aktívny
+                  </Badge>
+                )}
+                {selectedSubject && selectedSubject.isDeceased && (
+                  <Badge variant="outline" className="border-purple-500/40 text-purple-400 text-[9px] px-1.5 animate-pulse" data-testid="badge-in-memoriam">
+                    <span className="mr-1">In Memoriam</span>
+                  </Badge>
+                )}
+                {selectedSubject && (selectedSubject.lifecycleStatus === "zaniknuta" || selectedSubject.lifecycleStatus === "v_likvidacii") && (
+                  <Badge variant="outline" className="border-red-500/40 text-red-400 text-[9px] px-1.5" data-testid="badge-lifecycle-status">
+                    {selectedSubject.lifecycleStatus === "zaniknuta" ? "Zaniknutá" : "V likvidácii"}
+                  </Badge>
+                )}
+                {selectedSubject && !selectedSubject.isDeceased && selectedSubject.lifecycleStatus !== "zaniknuta" && selectedSubject.lifecycleStatus !== "v_likvidacii" && (
+                  <span className="w-2 h-2 rounded-full bg-emerald-500 shrink-0" data-testid="indicator-active" />
+                )}
                 <Lock className="w-3 h-3 text-slate-500 ml-auto" />
                 <span className="text-[10px] text-slate-500">Len na čítanie — editácia cez Modul C</span>
               </div>
@@ -1772,7 +1829,7 @@ export default function ContractForm() {
                     </SelectContent>
                   </Select>
                 </CompactField>
-                <CompactField label="Partner">
+                <CompactField label="Partner zmluvy">
                   <Select value={partnerId} onValueChange={setPartnerId}>
                     <SelectTrigger data-testid="select-contract-partner">
                       <SelectValue placeholder="Vyberte partnera" />
@@ -1786,15 +1843,38 @@ export default function ContractForm() {
                 </CompactField>
               </div>
 
-              {(() => {
-                const selectedSubject = subjects?.find(s => s.id === (subjectId ? parseInt(subjectId) : -1));
-                if (!selectedSubject) return (
-                  <div className="text-center py-8 text-sm text-muted-foreground" data-testid="no-client-selected">
-                    Vyberte klienta z rozbaľovacieho zoznamu vyššie
+              {selectedSubject && subjectRelations && (() => {
+                const allRelations = Object.values(subjectRelations.categories || {}).flatMap(cat => cat.relations || []);
+                if (allRelations.length === 0) return null;
+                return (
+                  <div className="rounded-md border border-border/50 bg-muted/20 p-2.5 space-y-1.5" data-testid="section-relacie">
+                    <div className="flex items-center gap-1.5">
+                      <Link2 className="w-3.5 h-3.5 text-blue-400" />
+                      <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Relácie (Modul C)</span>
+                      <Badge variant="outline" className="text-[9px] px-1 py-0">{allRelations.length}</Badge>
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-1">
+                      {allRelations.slice(0, 8).map(rel => (
+                        <div key={rel.id} className="flex items-center gap-1.5 text-xs px-2 py-1 rounded bg-muted/30" data-testid={`relation-${rel.id}`}>
+                          <Users className="w-3 h-3 text-muted-foreground shrink-0" />
+                          <span className="text-muted-foreground">{rel.relationType}:</span>
+                          <span className="font-medium truncate">{rel.relatedSubjectName}</span>
+                        </div>
+                      ))}
+                    </div>
+                    {allRelations.length > 8 && (
+                      <span className="text-[10px] text-muted-foreground">+{allRelations.length - 8} ďalších relácií</span>
+                    )}
                   </div>
                 );
-                return <SubjektView subject={selectedSubject} />;
               })()}
+
+              {!selectedSubject && (
+                <div className="text-center py-8 text-sm text-muted-foreground" data-testid="no-client-selected">
+                  Vyberte klienta z rozbaľovacieho zoznamu vyššie
+                </div>
+              )}
+              {selectedSubject && <SubjektView subject={selectedSubject} />}
             </div>
           </div>
 

@@ -9205,6 +9205,71 @@ export async function registerRoutes(
     }
   });
 
+  // === SUBJECT RELATIONS (Relácie subjektu pre Svätyňu) ===
+  app.get("/api/subject-relations/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const subjectId = parseInt(req.params.id);
+      if (isNaN(subjectId)) return res.status(400).json({ categories: {} });
+
+      if (!await checkKlientiSubjectAccess(req.appUser, subjectId)) {
+        return res.status(403).json({ categories: {} });
+      }
+
+      const outgoing = await db.select({
+        relation: subjectRelations,
+        roleType: relationRoleTypes,
+      })
+        .from(subjectRelations)
+        .innerJoin(relationRoleTypes, eq(subjectRelations.roleTypeId, relationRoleTypes.id))
+        .where(and(eq(subjectRelations.sourceSubjectId, subjectId), eq(subjectRelations.isActive, true)));
+
+      const incoming = await db.select({
+        relation: subjectRelations,
+        roleType: relationRoleTypes,
+      })
+        .from(subjectRelations)
+        .innerJoin(relationRoleTypes, eq(subjectRelations.roleTypeId, relationRoleTypes.id))
+        .where(and(eq(subjectRelations.targetSubjectId, subjectId), eq(subjectRelations.isActive, true)));
+
+      const allSubjectIds = new Set<number>();
+      outgoing.forEach(r => allSubjectIds.add(r.relation.targetSubjectId));
+      incoming.forEach(r => allSubjectIds.add(r.relation.sourceSubjectId));
+
+      const subjectNames: Record<number, string> = {};
+      if (allSubjectIds.size > 0) {
+        const subs = await db.select({ id: subjects.id, firstName: subjects.firstName, lastName: subjects.lastName, companyName: subjects.companyName, type: subjects.type })
+          .from(subjects)
+          .where(inArray(subjects.id, [...allSubjectIds]));
+        subs.forEach(s => {
+          subjectNames[s.id] = s.type === "person" ? `${s.firstName || ""} ${s.lastName || ""}`.trim() : (s.companyName || `ID ${s.id}`);
+        });
+      }
+
+      const categories: Record<string, { label: string; count: number; relations: Array<{ id: number; relationType: string; relatedSubjectName: string; relatedSubjectId: number; direction: string }> }> = {};
+
+      const addRelation = (r: any, direction: string, relatedId: number) => {
+        const cat = r.roleType.category || "ostatne";
+        const catLabel = cat === "rodina" ? "Rodina" : cat === "obchod" ? "Obchod" : cat === "pravne" ? "Právne" : "Ostatné";
+        if (!categories[cat]) categories[cat] = { label: catLabel, count: 0, relations: [] };
+        categories[cat].relations.push({
+          id: r.relation.id,
+          relationType: r.roleType.label || r.roleType.code,
+          relatedSubjectName: subjectNames[relatedId] || `ID ${relatedId}`,
+          relatedSubjectId: relatedId,
+          direction,
+        });
+        categories[cat].count++;
+      };
+
+      outgoing.forEach(r => addRelation(r, "outgoing", r.relation.targetSubjectId));
+      incoming.forEach(r => addRelation(r, "incoming", r.relation.sourceSubjectId));
+
+      res.json({ categories });
+    } catch (err: any) {
+      res.status(500).json({ categories: {} });
+    }
+  });
+
   // === AI SUGGESTED RELATIONS (Navrhované prepojenia) ===
   app.get("/api/subjects/:id/suggested-relations", isAuthenticated, async (req, res) => {
     try {
