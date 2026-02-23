@@ -26,6 +26,7 @@ import {
   ShieldCheck, ListPlus, Eye, ArrowUp, ArrowDown, Settings2, MoreHorizontal,
   Check, User, Phone, Star, Brain, Zap, Link2, Archive, CreditCard, Users,
   ChevronDown, ChevronRight, GripVertical, FolderOpen, ArrowRightLeft,
+  AlertTriangle, Plus, Tag,
 } from "lucide-react";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import {
@@ -46,6 +47,52 @@ const FOLDER_CATEGORY_LABELS: Record<string, string> = {
   ine: "INÉ ÚDAJE",
   extrahovane: "EXTRAHOVANÉ ÚDAJE",
 };
+
+const PRESET_TAGS: { label: string; color: string; bg: string; border: string }[] = [
+  { label: "VIP", color: "text-amber-400", bg: "bg-amber-500/15", border: "border-amber-500/30" },
+  { label: "Vozičkár", color: "text-blue-400", bg: "bg-blue-500/15", border: "border-blue-500/30" },
+  { label: "Pozor", color: "text-red-400", bg: "bg-red-500/15", border: "border-red-500/30" },
+  { label: "Problémový", color: "text-orange-400", bg: "bg-orange-500/15", border: "border-orange-500/30" },
+  { label: "Neaktívny", color: "text-slate-400", bg: "bg-slate-500/15", border: "border-slate-500/30" },
+  { label: "Prioritný", color: "text-emerald-400", bg: "bg-emerald-500/15", border: "border-emerald-500/30" },
+];
+
+function getTagStyle(tagLabel: string) {
+  const preset = PRESET_TAGS.find(t => t.label === tagLabel);
+  if (preset) return preset;
+  return { label: tagLabel, color: "text-violet-400", bg: "bg-violet-500/15", border: "border-violet-500/30" };
+}
+
+export function SubjectTagBadges({ tags }: { tags: string[] }) {
+  if (!tags || tags.length === 0) return null;
+  return (
+    <span className="inline-flex items-center gap-1 flex-wrap">
+      {tags.map(tag => {
+        const style = getTagStyle(tag);
+        return (
+          <span key={tag} className={cn("inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full border text-[9px] font-semibold", style.color, style.bg, style.border)} data-testid={`tag-badge-${tag}`}>
+            <Tag className="w-2.5 h-2.5" />
+            {tag}
+          </span>
+        );
+      })}
+    </span>
+  );
+}
+
+function hasBehaviorAlert(dynamicValues: Record<string, string>): { hasAlert: boolean; alertText: string } {
+  const commType = dynamicValues["typ_komunikacie"] || "";
+  const note = dynamicValues["poznamka_pristup"] || "";
+  const isAggressive = commType.toLowerCase().includes("agresívna");
+  const hasNote = note.trim().length > 0;
+  if (isAggressive || hasNote) {
+    const parts: string[] = [];
+    if (isAggressive) parts.push(`Typ komunikácie: ${commType}`);
+    if (hasNote) parts.push(`Poznámka: ${note}`);
+    return { hasAlert: true, alertText: parts.join("\n") };
+  }
+  return { hasAlert: false, alertText: "" };
+}
 
 const FIELD_TO_SUBJECT_COLUMN: Record<string, string> = {
   meno: "firstName",
@@ -536,6 +583,42 @@ export function SubjectProfileModuleC({ subject }: ModuleCProps) {
     },
   });
 
+  const subjectTags = useMemo(() => {
+    const det = (subject.details || {}) as Record<string, any>;
+    return Array.isArray(det.tags) ? det.tags as string[] : [];
+  }, [subject.details]);
+
+  const [showTagPicker, setShowTagPicker] = useState(false);
+  const [customTagInput, setCustomTagInput] = useState("");
+
+  const tagsMutation = useMutation({
+    mutationFn: async (newTags: string[]) => {
+      const existingDetails = (subject.details || {}) as Record<string, any>;
+      return apiRequest("PATCH", `/api/subjects/${subject.id}`, {
+        details: { ...existingDetails, tags: newTags },
+        changeReason: "Zmena tagov",
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/subjects"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/subjects", subject.id] });
+      toast({ title: "Tagy aktualizované" });
+    },
+  });
+
+  const addTag = (tag: string) => {
+    const normalized = tag.trim().replace(/\s+/g, " ");
+    if (!normalized) return;
+    const exists = subjectTags.some(t => t.toLowerCase() === normalized.toLowerCase());
+    if (!exists) {
+      tagsMutation.mutate([...subjectTags, normalized]);
+    }
+  };
+
+  const removeTag = (tag: string) => {
+    tagsMutation.mutate(subjectTags.filter(t => t !== tag));
+  };
+
   const [activeDragId, setActiveDragId] = useState<string | null>(null);
 
   const dndSensors = useSensors(
@@ -850,15 +933,98 @@ export function SubjectProfileModuleC({ subject }: ModuleCProps) {
               <SubjectProfilePhoto subjectId={subject.id} size="lg" editable={isEditing} showHistory />
             </div>
           )}
-          <div className="flex-1 flex justify-center">
-            <div className="inline-flex rounded-lg border-2 border-primary/30 shadow-md p-1 bg-muted/30" data-testid="toggle-client-type-wrapper">
-              <ToggleGroup type="single" value={activeClientType} onValueChange={(val) => { if (val) setActiveClientType(val); }} className="h-9" data-testid="toggle-client-type">
-                {CLIENT_TYPE_OPTIONS.map(opt => (
-                  <ToggleGroupItem key={opt.value} value={opt.value} className="h-9 px-8 text-sm font-semibold data-[state=on]:bg-primary data-[state=on]:text-primary-foreground data-[state=on]:shadow-sm" data-testid={`toggle-type-${opt.value}`}>
-                    {opt.short}
-                  </ToggleGroupItem>
-                ))}
-              </ToggleGroup>
+          <div className="flex-1 space-y-2">
+            {subject.id > 0 && (() => {
+              const alert = hasBehaviorAlert(dynamicValues);
+              const displayName = [subject.firstName, subject.lastName].filter(Boolean).join(" ") || subject.companyName || "";
+              return (
+                <div className="flex items-center gap-2 flex-wrap" data-testid="profile-name-bar">
+                  <span className="text-lg font-bold" data-testid="text-subject-name">{displayName}</span>
+                  {alert.hasAlert && (
+                    <span
+                      className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-red-500/15 border border-red-500/30 cursor-help"
+                      title={alert.alertText}
+                      data-testid="behavior-alert-badge"
+                    >
+                      <AlertTriangle className="w-3.5 h-3.5 text-red-500" />
+                      <span className="text-[10px] font-semibold text-red-400">POZOR</span>
+                    </span>
+                  )}
+                  <SubjectTagBadges tags={subjectTags} />
+                </div>
+              );
+            })()}
+
+            <div className="flex items-center gap-2 flex-wrap" data-testid="tag-management-bar">
+              {subjectTags.map(tag => (
+                <span key={tag} className={cn("inline-flex items-center gap-1 px-2 py-0.5 rounded-full border text-[10px] font-semibold", getTagStyle(tag).color, getTagStyle(tag).bg, getTagStyle(tag).border)}>
+                  <Tag className="w-2.5 h-2.5" />
+                  {tag}
+                  <button onClick={() => removeTag(tag)} className="ml-0.5" title="Odstrániť tag" data-testid={`btn-remove-tag-${tag}`}>
+                    <X className="w-2.5 h-2.5" />
+                  </button>
+                </span>
+              ))}
+              <div className="relative">
+                <Button size="sm" variant="ghost" className="h-6 px-1.5 text-[10px] text-muted-foreground hover:text-foreground" onClick={() => setShowTagPicker(!showTagPicker)} data-testid="btn-add-tag">
+                  <Plus className="w-3 h-3 mr-0.5" />
+                  Tag
+                </Button>
+                {showTagPicker && (
+                  <div className="absolute top-full left-0 z-50 mt-1 w-48 bg-card border rounded-md shadow-xl p-2 space-y-1" data-testid="tag-picker-dropdown">
+                    {PRESET_TAGS.filter(t => !subjectTags.includes(t.label)).map(preset => (
+                      <button
+                        key={preset.label}
+                        className={cn("w-full flex items-center gap-2 px-2 py-1 rounded text-xs hover:bg-muted/50 text-left", preset.color)}
+                        onClick={() => { addTag(preset.label); setShowTagPicker(false); }}
+                        data-testid={`btn-preset-tag-${preset.label}`}
+                      >
+                        <Tag className="w-3 h-3" />
+                        {preset.label}
+                      </button>
+                    ))}
+                    <div className="border-t border-border/40 pt-1 mt-1">
+                      <div className="flex items-center gap-1">
+                        <Input
+                          value={customTagInput}
+                          onChange={e => setCustomTagInput(e.target.value)}
+                          placeholder="Vlastný tag..."
+                          className="h-6 text-[10px] flex-1"
+                          onKeyDown={e => {
+                            if (e.key === "Enter" && customTagInput.trim()) {
+                              addTag(customTagInput.trim());
+                              setCustomTagInput("");
+                              setShowTagPicker(false);
+                            }
+                          }}
+                          data-testid="input-custom-tag"
+                        />
+                        <Button size="sm" variant="ghost" className="h-6 w-6 p-0" onClick={() => {
+                          if (customTagInput.trim()) {
+                            addTag(customTagInput.trim());
+                            setCustomTagInput("");
+                            setShowTagPicker(false);
+                          }
+                        }} data-testid="btn-add-custom-tag">
+                          <Check className="w-3 h-3" />
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div className="flex justify-center">
+              <div className="inline-flex rounded-lg border-2 border-primary/30 shadow-md p-1 bg-muted/30" data-testid="toggle-client-type-wrapper">
+                <ToggleGroup type="single" value={activeClientType} onValueChange={(val) => { if (val) setActiveClientType(val); }} className="h-9" data-testid="toggle-client-type">
+                  {CLIENT_TYPE_OPTIONS.map(opt => (
+                    <ToggleGroupItem key={opt.value} value={opt.value} className="h-9 px-8 text-sm font-semibold data-[state=on]:bg-primary data-[state=on]:text-primary-foreground data-[state=on]:shadow-sm" data-testid={`toggle-type-${opt.value}`}>
+                      {opt.short}
+                    </ToggleGroupItem>
+                  ))}
+                </ToggleGroup>
+              </div>
             </div>
           </div>
         </div>

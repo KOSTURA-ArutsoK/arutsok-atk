@@ -10,6 +10,7 @@ import { getDocumentValidityStatus, isValidityField, isNumberFieldWithExpiredPai
 import { useToast } from "@/hooks/use-toast";
 import { Plus, Search, User, Building2, AlertTriangle, Eye, Calendar, Briefcase, ArrowRight, ArrowLeft, ExternalLink, History, Clock, Wallet, Loader2, CheckCircle2, Pencil, Lock, Users, X, Info, Link2, Unlink, Trash2, CreditCard, Archive, Ban, Boxes, Car, Home, Landmark, ChevronRight, ChevronDown, FolderOpen, Tag, Hash, Package, FileText as FileTextIcon, SquareIcon } from "lucide-react";
 import { SubjectPhotoThumbnail } from "@/components/subject-profile-photo";
+import { SubjectTagBadges } from "@/components/subject-profile-module-c";
 import { ActivityTimeline } from "@/components/activity-timeline";
 import { FieldHistoryIndicator } from "@/components/field-history-indicator";
 import { Input } from "@/components/ui/input";
@@ -4019,11 +4020,28 @@ export default function Subjects() {
                         </TableCell>}
                         {columnVisibility.isVisible("titul") && <TableCell className="text-xs text-muted-foreground align-middle" data-testid={`text-titul-${subject.id}`}>{titulCompact}</TableCell>}
                         {columnVisibility.isVisible("firstName") && <TableCell className="font-medium align-middle" data-testid={`text-fullname-${subject.id}`}>
-                          <span className="flex items-center gap-1.5">
-                            {fullName}
-                            {(subject as any).listStatus === "cierny" && <span title="Čierny zoznam"><Ban className="w-3.5 h-3.5 text-red-500 shrink-0" /></span>}
-                            {(subject as any).listStatus === "cerveny" && <span title="Červený zoznam"><AlertTriangle className="w-3.5 h-3.5 text-orange-500 shrink-0" /></span>}
-                          </span>
+                          <div className="flex flex-col gap-0.5">
+                            <span className="flex items-center gap-1.5">
+                              {fullName}
+                              {(subject as any).listStatus === "cierny" && <span title="Čierny zoznam"><Ban className="w-3.5 h-3.5 text-red-500 shrink-0" /></span>}
+                              {(subject as any).listStatus === "cerveny" && <span title="Červený zoznam"><AlertTriangle className="w-3.5 h-3.5 text-orange-500 shrink-0" /></span>}
+                              {(() => {
+                                const df = dynFields;
+                                const commType = df.typ_komunikacie || "";
+                                const noteAccess = df.poznamka_pristup || "";
+                                const isAgr = commType.toLowerCase().includes("agresívna");
+                                if (isAgr || noteAccess.trim()) {
+                                  const hoverText = [isAgr ? `Komunikácia: ${commType}` : "", noteAccess.trim() ? `Poznámka: ${noteAccess}` : ""].filter(Boolean).join("\n");
+                                  return <span title={hoverText} data-testid={`alert-behavior-${subject.id}`}><AlertTriangle className="w-3.5 h-3.5 text-red-500 shrink-0 animate-pulse" /></span>;
+                                }
+                                return null;
+                              })()}
+                            </span>
+                            {(() => {
+                              const subTags = Array.isArray(details.tags) ? details.tags as string[] : [];
+                              return subTags.length > 0 ? <SubjectTagBadges tags={subTags} /> : null;
+                            })()}
+                          </div>
                         </TableCell>}
                         {columnVisibility.isVisible("ulica") && <TableCell className="text-xs text-muted-foreground align-middle" data-testid={`text-ulica-${subject.id}`}>{ulicaVal}</TableCell>}
                         {columnVisibility.isVisible("type") && <TableCell className="align-middle">
