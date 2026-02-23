@@ -30,7 +30,7 @@ import {
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import {
   DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors,
-  type DragEndEvent,
+  type DragEndEvent, type DragStartEvent, DragOverlay, useDroppable,
 } from "@dnd-kit/core";
 import {
   arrayMove, SortableContext, sortableKeyboardCoordinates,
@@ -113,6 +113,17 @@ interface HierarchyNode {
   panels: { panel: DbSection; parameters: DbParameter[] }[];
 }
 
+function stripAiPrefix(label: string): string {
+  return label.replace(/\s*AI:\d+/g, "").trim();
+}
+
+const SEMAPHORE_KEYWORDS = /platnost|platnosť|koniec|_do$|_do_|op_|pas_|stk|preukaz.*platnosť|platnosť.*do/i;
+const SEMAPHORE_LABEL_KEYWORDS = /platnosť|koniec|do\b|OP|Pas|STK|preukaz/i;
+
+function isSemaphoreDate(fieldKey: string, label: string): boolean {
+  return SEMAPHORE_KEYWORDS.test(fieldKey) || SEMAPHORE_LABEL_KEYWORDS.test(label);
+}
+
 function dbParamToStaticField(p: DbParameter): StaticField {
   return {
     id: p.id,
@@ -120,8 +131,8 @@ function dbParamToStaticField(p: DbParameter): StaticField {
     sectionId: p.sectionId,
     panelId: p.panelId ?? null,
     fieldKey: p.fieldKey,
-    label: p.label,
-    shortLabel: p.shortLabel || undefined,
+    label: stripAiPrefix(p.label),
+    shortLabel: p.shortLabel ? stripAiPrefix(p.shortLabel) : undefined,
     fieldType: p.fieldType,
     isRequired: p.isRequired,
     isHidden: p.isHidden,
@@ -228,7 +239,7 @@ function DynamicFieldInput({ field, dynamicValues, setDynamicValues, hasError, d
       ) : field.fieldType === "date" ? (
         (() => {
           const dateVal = dynamicValues[field.fieldKey] || "";
-          const isValidity = isValidityField(field.fieldKey);
+          const isValidity = isValidityField(field.fieldKey) || isSemaphoreDate(field.fieldKey, displayLabel);
           const validity = isValidity && dateVal ? getDocumentValidityStatus(dateVal) : null;
           const validityClass = validity ? `${validity.borderClass} ${validity.bgClass}` : "";
           const validityLabel = validity?.label || "";
@@ -237,10 +248,9 @@ function DynamicFieldInput({ field, dynamicValues, setDynamicValues, hasError, d
               <Input
                 type="date"
                 value={dateVal}
-                onChange={e => { if (disabled) return; setDynamicValues(prev => ({ ...prev, [field.fieldKey]: e.target.value })); }}
-                readOnly={disabled}
-                tabIndex={disabled ? -1 : undefined}
-                className={cn(errorBorder || validityClass, disabled && "bg-muted/50 cursor-default", validityLabel && "pr-[5.5rem]")}
+                onChange={e => setDynamicValues(prev => ({ ...prev, [field.fieldKey]: e.target.value }))}
+                disabled={disabled}
+                className={cn(errorBorder || validityClass, validityLabel && "pr-[5.5rem]")}
                 data-testid={`input-dynamic-${field.fieldKey}`}
               />
               {validity && validity.status !== "unknown" && (
@@ -322,11 +332,15 @@ function DynamicFieldInput({ field, dynamicValues, setDynamicValues, hasError, d
 }
 
 function SortableFieldItem({ id, children, isArchitectMode }: { id: string; children: React.ReactNode; isArchitectMode: boolean }) {
-  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id, disabled: !isArchitectMode });
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
+    id,
+    disabled: !isArchitectMode,
+    data: { type: "field" },
+  });
   const style = {
     transform: CSS.Transform.toString(transform),
     transition,
-    opacity: isDragging ? 0.5 : 1,
+    opacity: isDragging ? 0.4 : 1,
     position: "relative" as const,
   };
   return (
@@ -336,6 +350,16 @@ function SortableFieldItem({ id, children, isArchitectMode }: { id: string; chil
           <GripVertical className="w-3 h-3 text-amber-500/70" />
         </div>
       )}
+      {children}
+    </div>
+  );
+}
+
+function DroppablePanelZone({ panelId, children, isOver }: { panelId: number; children: React.ReactNode; isOver?: boolean }) {
+  const { setNodeRef, isOver: dropIsOver } = useDroppable({ id: `panel-drop-${panelId}`, data: { type: "panel", panelId } });
+  const highlight = isOver || dropIsOver;
+  return (
+    <div ref={setNodeRef} className={cn("transition-colors rounded-md", highlight && "ring-2 ring-amber-500/50 bg-amber-500/5")} data-testid={`droppable-panel-${panelId}`}>
       {children}
     </div>
   );
@@ -512,20 +536,73 @@ export function SubjectProfileModuleC({ subject }: ModuleCProps) {
     },
   });
 
+  const [activeDragId, setActiveDragId] = useState<string | null>(null);
+
   const dndSensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
   );
 
-  const handleDragEnd = useCallback((panelId: number, parameters: DbParameter[]) => (event: DragEndEvent) => {
+  const handleGlobalDragStart = useCallback((event: DragStartEvent) => {
+    setActiveDragId(String(event.active.id));
+  }, []);
+
+  const handleGlobalDragEnd = useCallback((allPanelParams: { panelId: number; parameters: DbParameter[] }[]) => (event: DragEndEvent) => {
+    setActiveDragId(null);
     const { active, over } = event;
-    if (!over || active.id === over.id) return;
-    const oldIndex = parameters.findIndex(p => String(p.id) === String(active.id));
-    const newIndex = parameters.findIndex(p => String(p.id) === String(over.id));
-    if (oldIndex === -1 || newIndex === -1) return;
-    const reordered = arrayMove(parameters, oldIndex, newIndex);
-    const items = reordered.map((p, i) => ({ id: p.id, sortOrder: (i + 1) * 10 }));
-    batchReorderMutation.mutate(items);
+    if (!over) return;
+
+    const activeParamId = Number(active.id);
+    const overIdStr = String(over.id);
+
+    let sourcePanelId: number | null = null;
+    let sourceParams: DbParameter[] = [];
+    for (const pp of allPanelParams) {
+      const found = pp.parameters.find(p => p.id === activeParamId);
+      if (found) {
+        sourcePanelId = pp.panelId;
+        sourceParams = pp.parameters;
+        break;
+      }
+    }
+    if (sourcePanelId === null) return;
+
+    if (overIdStr.startsWith("panel-drop-")) {
+      const targetPanelId = Number(overIdStr.replace("panel-drop-", ""));
+      if (targetPanelId !== sourcePanelId && targetPanelId > 0) {
+        const targetPanel = allPanelParams.find(pp => pp.panelId === targetPanelId);
+        const newSortOrder = targetPanel ? (targetPanel.parameters.length + 1) * 10 : 10;
+        batchReorderMutation.mutate([{ id: activeParamId, sortOrder: newSortOrder, panelId: targetPanelId }]);
+        return;
+      }
+    }
+
+    const overParamId = Number(over.id);
+    let targetPanelId: number | null = null;
+    let targetParams: DbParameter[] = [];
+    for (const pp of allPanelParams) {
+      if (pp.parameters.some(p => p.id === overParamId)) {
+        targetPanelId = pp.panelId;
+        targetParams = pp.parameters;
+        break;
+      }
+    }
+
+    if (targetPanelId === null) return;
+
+    if (targetPanelId === sourcePanelId) {
+      if (active.id === over.id) return;
+      const oldIndex = sourceParams.findIndex(p => p.id === activeParamId);
+      const newIndex = sourceParams.findIndex(p => p.id === overParamId);
+      if (oldIndex === -1 || newIndex === -1) return;
+      const reordered = arrayMove(sourceParams, oldIndex, newIndex);
+      const items = reordered.map((p, i) => ({ id: p.id, sortOrder: (i + 1) * 10 }));
+      batchReorderMutation.mutate(items);
+    } else {
+      const dropIndex = targetParams.findIndex(p => p.id === overParamId);
+      const newSortOrder = dropIndex >= 0 ? (dropIndex + 1) * 10 - 5 : (targetParams.length + 1) * 10;
+      batchReorderMutation.mutate([{ id: activeParamId, sortOrder: newSortOrder, panelId: targetPanelId }]);
+    }
   }, [batchReorderMutation]);
 
   const allPanels = useMemo(() => {
@@ -924,68 +1001,105 @@ export function SubjectProfileModuleC({ subject }: ModuleCProps) {
                               </div>
                               {isSectionExpanded && (
                                 <CardContent className="px-3 pb-3 pt-0 space-y-3">
-                                  {panelNodes.map(({ panel, parameters }) => (
-                                    <div key={panel.id} className="space-y-2" data-testid={`panel-group-${panel.id}`}>
-                                      <div className="flex items-center gap-2 border-b border-border/40 pb-1">
-                                        <GripVertical className="w-3 h-3 text-muted-foreground/50" />
-                                        {isArchitectMode && renamingSection === panel.id ? (
-                                          <div className="flex items-center gap-1 flex-1" onClick={e => e.stopPropagation()}>
-                                            <Input
-                                              value={renameValue}
-                                              onChange={e => setRenameValue(e.target.value)}
-                                              className="h-5 text-[10px] flex-1"
-                                              autoFocus
-                                              onKeyDown={e => { if (e.key === "Enter") renameSectionMutation.mutate({ id: panel.id, name: renameValue }); if (e.key === "Escape") setRenamingSection(null); }}
-                                            />
-                                            <Button size="sm" variant="ghost" className="h-5 w-5 p-0" onClick={() => renameSectionMutation.mutate({ id: panel.id, name: renameValue })}>
-                                              <Check className="w-2.5 h-2.5" />
-                                            </Button>
-                                          </div>
-                                        ) : (
+                                  {isArchitectMode ? (
+                                    <DndContext
+                                      sensors={dndSensors}
+                                      collisionDetection={closestCenter}
+                                      onDragStart={handleGlobalDragStart}
+                                      onDragEnd={handleGlobalDragEnd(panelNodes.map(pn => ({ panelId: pn.panel.id, parameters: pn.parameters })))}
+                                    >
+                                      {panelNodes.map(({ panel, parameters }) => {
+                                        const allSortableIds = parameters.map(p => String(p.id));
+                                        return (
+                                          <DroppablePanelZone key={panel.id} panelId={panel.id}>
+                                            <div className="space-y-2" data-testid={`panel-group-${panel.id}`}>
+                                              <div className="flex items-center gap-2 border-b border-border/40 pb-1">
+                                                <GripVertical className="w-3 h-3 text-muted-foreground/50" />
+                                                {renamingSection === panel.id ? (
+                                                  <div className="flex items-center gap-1 flex-1" onClick={e => e.stopPropagation()}>
+                                                    <Input
+                                                      value={renameValue}
+                                                      onChange={e => setRenameValue(e.target.value)}
+                                                      className="h-5 text-[10px] flex-1"
+                                                      autoFocus
+                                                      onKeyDown={e => { if (e.key === "Enter") renameSectionMutation.mutate({ id: panel.id, name: renameValue }); if (e.key === "Escape") setRenamingSection(null); }}
+                                                    />
+                                                    <Button size="sm" variant="ghost" className="h-5 w-5 p-0" onClick={() => renameSectionMutation.mutate({ id: panel.id, name: renameValue })}>
+                                                      <Check className="w-2.5 h-2.5" />
+                                                    </Button>
+                                                  </div>
+                                                ) : (
+                                                  <p className="text-[11px] font-medium text-muted-foreground tracking-wide flex-1">
+                                                    {panel.name}
+                                                    <span className="ml-2 text-[9px] text-muted-foreground/60">({parameters.length})</span>
+                                                  </p>
+                                                )}
+                                                {renamingSection !== panel.id && (
+                                                  <Button size="sm" variant="ghost" className="h-5 px-1 text-amber-500" onClick={() => { setRenamingSection(panel.id); setRenameValue(panel.name); }}>
+                                                    <Pencil className="w-2.5 h-2.5" />
+                                                  </Button>
+                                                )}
+                                              </div>
+                                              <SortableContext items={allSortableIds} strategy={rectSortingStrategy}>
+                                                <div
+                                                  className="grid gap-4 items-end"
+                                                  style={{ gridTemplateColumns: `repeat(${panel.gridColumns || 3}, minmax(0, 1fr))` }}
+                                                >
+                                                  {parameters.map(param => {
+                                                    const field = dbParamToStaticField(param);
+                                                    return (
+                                                      <SortableFieldItem key={field.id} id={String(field.id)} isArchitectMode>
+                                                        <div className="pl-4">
+                                                          <DynamicFieldInput field={field} dynamicValues={dynamicValues} setDynamicValues={setDynamicValues} disabled={!isEditing} subjectId={subject.id} />
+                                                          <div className="flex items-center gap-1 mt-0.5">
+                                                            <Button
+                                                              size="sm"
+                                                              variant="ghost"
+                                                              className="h-4 px-1 text-[9px] text-amber-500 hover:text-amber-400"
+                                                              onClick={() => setTransferParam({ paramId: param.id, paramLabel: stripAiPrefix(param.label), currentPanelId: panel.id })}
+                                                              data-testid={`btn-transfer-${param.id}`}
+                                                            >
+                                                              <ArrowRightLeft className="w-2.5 h-2.5 mr-0.5" />
+                                                              Presunúť
+                                                            </Button>
+                                                          </div>
+                                                        </div>
+                                                      </SortableFieldItem>
+                                                    );
+                                                  })}
+                                                </div>
+                                              </SortableContext>
+                                              {parameters.length === 0 && (
+                                                <div className="py-4 text-center text-xs text-muted-foreground border-2 border-dashed border-amber-500/20 rounded-md">
+                                                  Presuňte sem parameter
+                                                </div>
+                                              )}
+                                            </div>
+                                          </DroppablePanelZone>
+                                        );
+                                      })}
+                                      <DragOverlay>
+                                        {activeDragId && (() => {
+                                          const param = dbParameters?.find(p => String(p.id) === activeDragId);
+                                          if (!param) return null;
+                                          return (
+                                            <div className="bg-card border-2 border-amber-500 rounded-md p-2 shadow-xl opacity-90 max-w-[200px]">
+                                              <p className="text-xs font-medium truncate">{stripAiPrefix(param.label)}</p>
+                                            </div>
+                                          );
+                                        })()}
+                                      </DragOverlay>
+                                    </DndContext>
+                                  ) : (
+                                    panelNodes.map(({ panel, parameters }) => (
+                                      <div key={panel.id} className="space-y-2" data-testid={`panel-group-${panel.id}`}>
+                                        <div className="flex items-center gap-2 border-b border-border/40 pb-1">
+                                          <GripVertical className="w-3 h-3 text-muted-foreground/50" />
                                           <p className="text-[11px] font-medium text-muted-foreground tracking-wide flex-1">
                                             {panel.name}
                                             <span className="ml-2 text-[9px] text-muted-foreground/60">({parameters.length})</span>
                                           </p>
-                                        )}
-                                        {isArchitectMode && renamingSection !== panel.id && (
-                                          <Button size="sm" variant="ghost" className="h-5 px-1 text-amber-500" onClick={() => { setRenamingSection(panel.id); setRenameValue(panel.name); }}>
-                                            <Pencil className="w-2.5 h-2.5" />
-                                          </Button>
-                                        )}
-                                      </div>
-                                      {isArchitectMode ? (
-                                        <DndContext sensors={dndSensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd(panel.id, parameters)}>
-                                          <SortableContext items={parameters.map(p => String(p.id))} strategy={rectSortingStrategy}>
-                                            <div
-                                              className="grid gap-4 items-end"
-                                              style={{ gridTemplateColumns: `repeat(${panel.gridColumns || 3}, minmax(0, 1fr))` }}
-                                            >
-                                              {parameters.map(param => {
-                                                const field = dbParamToStaticField(param);
-                                                return (
-                                                  <SortableFieldItem key={field.id} id={String(field.id)} isArchitectMode={isArchitectMode}>
-                                                    <div className="pl-4">
-                                                      <DynamicFieldInput field={field} dynamicValues={dynamicValues} setDynamicValues={setDynamicValues} disabled={!isEditing} subjectId={subject.id} />
-                                                      <div className="flex items-center gap-1 mt-0.5">
-                                                        <Button
-                                                          size="sm"
-                                                          variant="ghost"
-                                                          className="h-4 px-1 text-[9px] text-amber-500 hover:text-amber-400"
-                                                          onClick={() => setTransferParam({ paramId: param.id, paramLabel: param.label, currentPanelId: panel.id })}
-                                                          data-testid={`btn-transfer-${param.id}`}
-                                                        >
-                                                          <ArrowRightLeft className="w-2.5 h-2.5 mr-0.5" />
-                                                          Presunúť
-                                                        </Button>
-                                                      </div>
-                                                    </div>
-                                                  </SortableFieldItem>
-                                                );
-                                              })}
-                                            </div>
-                                          </SortableContext>
-                                        </DndContext>
-                                      ) : (
+                                        </div>
                                         <div
                                           className="grid gap-4 items-end"
                                           style={{ gridTemplateColumns: `repeat(${panel.gridColumns || 3}, minmax(0, 1fr))` }}
@@ -999,9 +1113,9 @@ export function SubjectProfileModuleC({ subject }: ModuleCProps) {
                                             );
                                           })}
                                         </div>
-                                      )}
-                                    </div>
-                                  ))}
+                                      </div>
+                                    ))
+                                  )}
                                 </CardContent>
                               )}
                             </Card>
