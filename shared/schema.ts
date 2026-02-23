@@ -2149,6 +2149,23 @@ export const insertFieldLayoutConfigSchema = createInsertSchema(fieldLayoutConfi
 export type FieldLayoutConfig = typeof fieldLayoutConfigs.$inferSelect;
 export type InsertFieldLayoutConfig = z.infer<typeof insertFieldLayoutConfigSchema>;
 
+// === SECTOR CATEGORY MAPPING (Unified A ↔ B ↔ C architecture) ===
+export const sectorCategoryMapping = pgTable("sector_category_mapping", {
+  id: serial("id").primaryKey(),
+  sectorId: integer("sector_id").references(() => sectors.id),
+  sectionId: integer("section_id").references(() => sections.id),
+  targetCategoryCode: text("target_category_code").notNull(),
+  targetSectionId: integer("target_section_id").references(() => subjectParamSections.id),
+  moduleSource: text("module_source").notNull().default("A"),
+  isActive: boolean("is_active").default(true),
+  sortOrder: integer("sort_order").default(0),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertSectorCategoryMappingSchema = createInsertSchema(sectorCategoryMapping).omit({ id: true, createdAt: true });
+export type SectorCategoryMapping = typeof sectorCategoryMapping.$inferSelect;
+export type InsertSectorCategoryMapping = z.infer<typeof insertSectorCategoryMappingSchema>;
+
 export type CreateSubjectRequest = InsertSubject;
 export type UpdateSubjectRequest = Partial<InsertSubject> & { changeReason?: string };
 export type UpdateMyCompanyRequest = Partial<InsertMyCompany> & { changeReason?: string };

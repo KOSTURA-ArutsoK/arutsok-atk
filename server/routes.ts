@@ -4,7 +4,7 @@ import { storage } from "./storage";
 import { api } from "@shared/routes";
 import { setupAuth, registerAuthRoutes, isAuthenticated } from "./replit_integrations/auth";
 import { z } from "zod";
-import { continents, states, myCompanies, appUsers, clientTypes, clientSubGroups, clientGroupMembers, productFolderAssignments, folderPanels, panelParameters, userClientGroupMemberships, clientGroups, permissionGroups, insertCareerLevelSchema, insertProductPointRateSchema, careerLevels, importLogs, commissions, contracts, contractStatuses, contractStatusChangeLogs, clientDataTabs, clientDataCategories, subjects, subjectPointsLog, subjectFieldHistory, subjectCollaborators, clientMarketingConsents, clientDocumentHistory, contractAcquirers, contractPasswords, contractRewardDistributions, contractParameterValues, subjectArchive, auditLogs, globalCounters, subjectPhotos, activityEvents, subjectParamSections, subjectParameters, subjectTemplates, subjectTemplateParams, commissionCalculationLogs, parameterSynonyms, dataConflictAlerts, transactionDedupLog, relationRoleTypes, subjectRelations, maturityAlerts, inheritancePrompts, guardianshipArchive, households, householdMembers, householdAssets, privacyBlocks, accessConsentLog, maturityEvents, addressGroups, addressGroupMembers, companySubjectRoles, notificationQueue, batchJobs, subjectObjects, objectDataSources, sectors, sections, sectorProducts, parameters, panels, productPanels, contractFolders, fieldLayoutConfigs } from "@shared/schema";
+import { continents, states, myCompanies, appUsers, clientTypes, clientSubGroups, clientGroupMembers, productFolderAssignments, folderPanels, panelParameters, userClientGroupMemberships, clientGroups, permissionGroups, insertCareerLevelSchema, insertProductPointRateSchema, careerLevels, importLogs, commissions, contracts, contractStatuses, contractStatusChangeLogs, clientDataTabs, clientDataCategories, subjects, subjectPointsLog, subjectFieldHistory, subjectCollaborators, clientMarketingConsents, clientDocumentHistory, contractAcquirers, contractPasswords, contractRewardDistributions, contractParameterValues, subjectArchive, auditLogs, globalCounters, subjectPhotos, activityEvents, subjectParamSections, subjectParameters, subjectTemplates, subjectTemplateParams, commissionCalculationLogs, parameterSynonyms, dataConflictAlerts, transactionDedupLog, relationRoleTypes, subjectRelations, maturityAlerts, inheritancePrompts, guardianshipArchive, households, householdMembers, householdAssets, privacyBlocks, accessConsentLog, maturityEvents, addressGroups, addressGroupMembers, companySubjectRoles, notificationQueue, batchJobs, subjectObjects, objectDataSources, sectors, sections, sectorProducts, parameters, panels, productPanels, contractFolders, fieldLayoutConfigs, sectorCategoryMapping } from "@shared/schema";
 import { seedSubjectParameters } from "./seed-subject-params";
 import sharp from "sharp";
 import { db } from "./db";
@@ -7582,6 +7582,102 @@ export async function registerRoutes(
       });
     } catch (err: any) {
       console.error("Error fetching AI parameter map:", err?.message || err);
+      res.status(500).json({ message: "Internal error" });
+    }
+  });
+
+  // === UNIFIED CATALOG API (A ↔ B ↔ C Architecture) ===
+
+  app.get("/api/unified-catalog/counts", isAuthenticated, async (req, res) => {
+    try {
+      const clientTypeId = req.query.clientTypeId ? Number(req.query.clientTypeId) : 1;
+      const dynamicCounts = await db.execute(sql`
+        SELECT sp.category_code, COUNT(*) as count
+        FROM subject_parameters sp
+        WHERE sp.client_type_id = ${clientTypeId}
+          AND sp.is_active = true
+          AND sp.category_code IS NOT NULL
+          AND sp.category_code != ''
+        GROUP BY sp.category_code
+      `);
+
+      const contractParamCounts = await db.execute(sql`
+        SELECT scm.target_category_code, COUNT(DISTINCT p.id) as count
+        FROM sector_category_mapping scm
+        JOIN sections sec ON sec.id = scm.section_id
+        JOIN sector_products sp ON sp.section_id = sec.id AND sp.deleted_at IS NULL
+        JOIN sector_product_parameters spp ON spp.sector_product_id = sp.id
+        JOIN parameters p ON p.id = spp.parameter_id AND p.deleted_at IS NULL
+        WHERE scm.is_active = true
+        GROUP BY scm.target_category_code
+      `);
+
+      const totalDynamic = await db.execute(sql`
+        SELECT COUNT(*) as count FROM subject_parameters
+        WHERE client_type_id = ${clientTypeId} AND is_active = true
+      `);
+
+      const totalContract = await db.execute(sql`
+        SELECT COUNT(DISTINCT p.id) as count
+        FROM parameters p WHERE p.deleted_at IS NULL
+      `);
+
+      const mappings = await db.execute(sql`
+        SELECT scm.*, s.name as sector_name, sec.name as section_name
+        FROM sector_category_mapping scm
+        LEFT JOIN sectors s ON s.id = scm.sector_id
+        LEFT JOIN sections sec ON sec.id = scm.section_id
+        WHERE scm.is_active = true
+        ORDER BY scm.sort_order
+      `);
+
+      res.json({
+        dynamicCounts: dynamicCounts.rows,
+        contractCounts: contractParamCounts.rows,
+        totalDynamic: Number(totalDynamic.rows[0]?.count || 0),
+        totalContract: Number(totalContract.rows[0]?.count || 0),
+        mappings: mappings.rows,
+      });
+    } catch (err: any) {
+      console.error("Error in unified catalog counts:", err?.message || err);
+      res.status(500).json({ message: "Internal error" });
+    }
+  });
+
+  app.get("/api/sector-category-mappings", isAuthenticated, async (req, res) => {
+    try {
+      const mappings = await db.execute(sql`
+        SELECT scm.*, s.name as sector_name, sec.name as section_name,
+               sps.name as target_section_name
+        FROM sector_category_mapping scm
+        LEFT JOIN sectors s ON s.id = scm.sector_id
+        LEFT JOIN sections sec ON sec.id = scm.section_id
+        LEFT JOIN subject_param_sections sps ON sps.id = scm.target_section_id
+        WHERE scm.is_active = true
+        ORDER BY scm.sort_order
+      `);
+      res.json(mappings.rows);
+    } catch (err: any) {
+      console.error("Error fetching sector-category mappings:", err?.message || err);
+      res.status(500).json({ message: "Internal error" });
+    }
+  });
+
+  app.post("/api/sector-category-mappings", isAuthenticated, async (req, res) => {
+    try {
+      const { sectorId, sectionId, targetCategoryCode, targetSectionId, moduleSource } = req.body;
+      if (!targetCategoryCode) return res.status(400).json({ message: "targetCategoryCode required" });
+      const result = await db.insert(sectorCategoryMapping).values({
+        sectorId: sectorId || null,
+        sectionId: sectionId || null,
+        targetCategoryCode,
+        targetSectionId: targetSectionId || null,
+        moduleSource: moduleSource || "A",
+        sortOrder: req.body.sortOrder || 0,
+      }).returning();
+      res.json(result[0]);
+    } catch (err: any) {
+      console.error("Error creating sector-category mapping:", err?.message || err);
       res.status(500).json({ message: "Internal error" });
     }
   });

@@ -380,6 +380,19 @@ export function SubjectProfileModuleC({ subject }: ModuleCProps) {
     enabled: subject.id > 0,
   });
 
+  interface UnifiedCatalogData {
+    dynamicCounts: { category_code: string; count: string }[];
+    contractCounts: { target_category_code: string; count: string }[];
+    totalDynamic: number;
+    totalContract: number;
+    mappings: any[];
+  }
+
+  const { data: unifiedCatalog } = useQuery<UnifiedCatalogData>({
+    queryKey: [`/api/unified-catalog/counts?clientTypeId=${clientTypeId}`],
+    enabled: subject.id > 0,
+  });
+
   const [isArchitectMode, setIsArchitectMode] = useState(false);
   const [fieldLayouts, setFieldLayouts] = useState<Record<string, { sortOrder: number; widthClass: string; rowGroup: number }>>({});
 
@@ -1982,8 +1995,58 @@ export function SubjectProfileModuleC({ subject }: ModuleCProps) {
               {(() => {
                 const ctId = clientTypeId;
                 const categories = getCategoriesForClientType(ctId);
-                const fieldCounts = getCategoryFieldCounts(ctId);
+                const staticCounts = getCategoryFieldCounts(ctId);
+
+                const dynamicCountMap: Record<string, number> = {};
+                if (unifiedCatalog?.dynamicCounts) {
+                  for (const row of unifiedCatalog.dynamicCounts) {
+                    if (row.category_code) {
+                      dynamicCountMap[row.category_code] = (dynamicCountMap[row.category_code] || 0) + Number(row.count);
+                    }
+                  }
+                }
+                const contractCountMap: Record<string, number> = {};
+                if (unifiedCatalog?.contractCounts) {
+                  for (const row of unifiedCatalog.contractCounts) {
+                    if (row.target_category_code) {
+                      contractCountMap[row.target_category_code] = (contractCountMap[row.target_category_code] || 0) + Number(row.count);
+                    }
+                  }
+                }
+
+                const CATEGORY_CODE_TO_KEY: Record<string, string> = {
+                  identita: "identita", doklady: "identita", adresa: "identita",
+                  legislativa: "legislativa", aml: "legislativa",
+                  rodina: "rodina",
+                  financie: "financie", ekonomika: "financie", majetok: "financie", reality: "financie", prenajom: "financie",
+                  profil: "profil", zdravotny: "profil", investicny: "profil",
+                  digitalna: "digitalna", kontakt: "digitalna",
+                  servis: "servis", vozidla: "servis", polnohospodarstvo: "servis", retail: "servis",
+                  marketing: "profil",
+                };
+
+                const fieldCounts: Record<string, number> = {};
+                for (const cat of categories) {
+                  fieldCounts[cat.key] = staticCounts[cat.key] || 0;
+                }
+
+                for (const [catCode, cnt] of Object.entries(dynamicCountMap)) {
+                  const mappedKey = CATEGORY_CODE_TO_KEY[catCode] || "servis";
+                  if (fieldCounts[mappedKey] !== undefined) {
+                    fieldCounts[mappedKey] += cnt;
+                  }
+                }
+
+                for (const [catCode, cnt] of Object.entries(contractCountMap)) {
+                  const mappedKey = CATEGORY_CODE_TO_KEY[catCode] || "servis";
+                  if (fieldCounts[mappedKey] !== undefined) {
+                    fieldCounts[mappedKey] += cnt;
+                  }
+                }
+
                 const totalFields = Object.values(fieldCounts).reduce((a, b) => a + b, 0);
+                const totalDynamic = unifiedCatalog?.totalDynamic || 0;
+                const totalContract = unifiedCatalog?.totalContract || 0;
                 const filledCategories = categories.filter(c => fieldCounts[c.key] > 0 || c.key === "relacie").length;
 
                 const CATEGORY_ICONS: Record<string, typeof User> = {
@@ -2026,6 +2089,16 @@ export function SubjectProfileModuleC({ subject }: ModuleCProps) {
                           <div className="flex items-center gap-2 shrink-0">
                             <Badge variant="outline" className="text-[9px] border-emerald-400/30 text-emerald-400">{filledCategories}/{categories.length} kat.</Badge>
                             <Badge variant="outline" className="text-[9px] border-blue-400/30 text-blue-400">{totalFields} polí</Badge>
+                            {totalDynamic > 0 && (
+                              <Badge variant="outline" className="text-[9px] border-amber-400/30 text-amber-400" data-testid="badge-dynamic-count">
+                                <sup className="text-[7px] text-blue-400 mr-0.5">B</sup>{totalDynamic} dyn.
+                              </Badge>
+                            )}
+                            {totalContract > 0 && (
+                              <Badge variant="outline" className="text-[9px] border-violet-400/30 text-violet-400" data-testid="badge-contract-count">
+                                <sup className="text-[7px] text-blue-400 mr-0.5">A</sup>{totalContract} zml.
+                              </Badge>
+                            )}
                             <Badge variant="outline" className="text-[9px] border-blue-400/30 text-blue-400">v1.0</Badge>
                           </div>
                         </div>
