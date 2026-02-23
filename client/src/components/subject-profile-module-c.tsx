@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect, useCallback } from "react";
+import { useState, useMemo, useEffect, useCallback, useRef } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -286,6 +286,39 @@ function DynamicFieldInput({ field, dynamicValues, setDynamicValues, hasError, d
           disabled={disabled}
           data-testid={`input-dynamic-${field.fieldKey}`}
         />
+      ) : field.fieldKey === "parameter_cgn" ? (
+        <div className={cn(
+          "rounded-md transition-colors",
+          dynamicValues[field.fieldKey] === "CGN / Negarantované" && "bg-red-500/10 ring-1 ring-red-500/30 p-1"
+        )}>
+          <Select
+            value={dynamicValues[field.fieldKey] || "Garantované / Overené"}
+            onValueChange={val => setDynamicValues(prev => ({ ...prev, [field.fieldKey]: val }))}
+            disabled={disabled}
+          >
+            <SelectTrigger className={cn(
+              dynamicValues[field.fieldKey] === "CGN / Negarantované"
+                ? "border-red-500/50 text-red-400"
+                : "border-emerald-500/40 text-emerald-400"
+            )} data-testid={`select-dynamic-${field.fieldKey}`}>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="Garantované / Overené">
+                <span className="inline-flex items-center gap-2">
+                  <TrendingUp className="w-4 h-4 text-emerald-500" />
+                  <span className="text-emerald-400 font-medium">Garantované / Overené</span>
+                </span>
+              </SelectItem>
+              <SelectItem value="CGN / Negarantované">
+                <span className="inline-flex items-center gap-2">
+                  <TrendingDown className="w-4 h-4 text-red-500" />
+                  <span className="text-red-400 font-medium">CGN / Negarantované</span>
+                </span>
+              </SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
       ) : field.fieldKey === "vekova_kategoria" ? (
         <div
           className="h-9 w-full flex items-center px-3 rounded-md bg-muted/50 border border-border text-sm font-medium text-foreground cursor-default select-none"
@@ -868,6 +901,10 @@ export function SubjectProfileModuleC({ subject }: ModuleCProps) {
         initial[key] = String(val || "");
       });
     }
+    const det = (subject.details || {}) as Record<string, any>;
+    if (!initial["parameter_cgn"]) {
+      initial["parameter_cgn"] = det.cgnActive === true ? "CGN / Negarantované" : "Garantované / Overené";
+    }
     if (subject.firstName && !initial["meno"]) initial["meno"] = subject.firstName;
     if (subject.lastName && !initial["priezvisko"]) initial["priezvisko"] = subject.lastName;
     if (subject.birthNumber && !initial["rodne_cislo"]) initial["rodne_cislo"] = subject.birthNumber;
@@ -904,6 +941,27 @@ export function SubjectProfileModuleC({ subject }: ModuleCProps) {
       tagsMutation.mutate(newTags);
     }
   }, [ageCategory, subject.id]);
+
+  const cgnDropdownValue = dynamicValues["parameter_cgn"] || "Garantované / Overené";
+  const cgnDropdownIsCgn = cgnDropdownValue === "CGN / Negarantované";
+
+  useEffect(() => {
+    const expected = isCgnActive ? "CGN / Negarantované" : "Garantované / Overené";
+    setDynamicValues(prev => {
+      if (prev["parameter_cgn"] === expected) return prev;
+      return { ...prev, parameter_cgn: expected };
+    });
+  }, [isCgnActive]);
+
+  const cgnSyncRef = useRef(cgnDropdownIsCgn);
+  useEffect(() => {
+    if (subject.id <= 0) return;
+    if (cgnSyncRef.current === cgnDropdownIsCgn) return;
+    cgnSyncRef.current = cgnDropdownIsCgn;
+    if (cgnDropdownIsCgn !== isCgnActive) {
+      cgnMutation.mutate(cgnDropdownIsCgn);
+    }
+  }, [cgnDropdownIsCgn]);
 
   const saveMutation = useMutation({
     mutationFn: async () => {
