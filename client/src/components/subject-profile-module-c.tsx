@@ -71,6 +71,7 @@ interface DbSection {
   isPanel: boolean;
   parentSectionId: number | null;
   code: string | null;
+  gridColumns?: number;
 }
 
 interface DbParameter {
@@ -403,6 +404,7 @@ export function SubjectProfileModuleC({ subject }: ModuleCProps) {
           isPanel: true,
           parentSectionId: section.id,
           code: null,
+          gridColumns: section.gridColumns,
         };
         panelNodes.unshift({ panel: virtualPanel, parameters: sectionLevelParams });
         sectionLevelParams.forEach(p => assignedParamIds.add(p.id));
@@ -874,11 +876,14 @@ export function SubjectProfileModuleC({ subject }: ModuleCProps) {
                                           </Button>
                                         )}
                                       </div>
-                                      <div className="flex flex-wrap gap-4 items-end">
+                                      <div
+                                        className="grid gap-4 items-end"
+                                        style={{ gridTemplateColumns: `repeat(${panel.gridColumns || 3}, minmax(0, 1fr))` }}
+                                      >
                                         {parameters.map(param => {
                                           const field = dbParamToStaticField(param);
                                           return (
-                                            <div key={field.id} className={cn("min-w-0 relative", "flex-1 min-w-[140px]")}>
+                                            <div key={field.id} className="min-w-0 relative">
                                               <ArchitectFieldOverlay fieldKey={field.fieldKey} sectionCategory={catKey} />
                                               <DynamicFieldInput field={field} dynamicValues={dynamicValues} setDynamicValues={setDynamicValues} disabled={!isEditing} subjectId={subject.id} synonymCount={synonymCounts?.[field.fieldKey]} />
                                             </div>
