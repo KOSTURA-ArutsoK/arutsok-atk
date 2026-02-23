@@ -4,7 +4,7 @@ import { storage } from "./storage";
 import { api } from "@shared/routes";
 import { setupAuth, registerAuthRoutes, isAuthenticated } from "./replit_integrations/auth";
 import { z } from "zod";
-import { continents, states, myCompanies, appUsers, clientTypes, clientSubGroups, clientGroupMembers, productFolderAssignments, folderPanels, panelParameters, userClientGroupMemberships, clientGroups, permissionGroups, insertCareerLevelSchema, insertProductPointRateSchema, careerLevels, importLogs, commissions, contracts, contractStatuses, contractStatusChangeLogs, clientDataTabs, clientDataCategories, subjects, subjectPointsLog, subjectFieldHistory, subjectCollaborators, clientMarketingConsents, clientDocumentHistory, contractAcquirers, contractPasswords, contractRewardDistributions, contractParameterValues, subjectArchive, auditLogs, globalCounters, subjectPhotos, activityEvents, subjectParamSections, subjectParameters, subjectTemplates, subjectTemplateParams, commissionCalculationLogs, parameterSynonyms, dataConflictAlerts, transactionDedupLog, relationRoleTypes, subjectRelations, maturityAlerts, inheritancePrompts, guardianshipArchive, households, householdMembers, householdAssets, privacyBlocks, accessConsentLog, maturityEvents, addressGroups, addressGroupMembers, companySubjectRoles, notificationQueue, batchJobs, subjectObjects, objectDataSources, sectors, sections, sectorProducts, parameters, panels, productPanels, contractFolders, fieldLayoutConfigs, sectorCategoryMapping } from "@shared/schema";
+import { continents, states, myCompanies, appUsers, clientTypes, clientSubGroups, clientGroupMembers, productFolderAssignments, folderPanels, panelParameters, userClientGroupMemberships, clientGroups, permissionGroups, insertCareerLevelSchema, insertProductPointRateSchema, careerLevels, importLogs, commissions, contracts, contractStatuses, contractStatusChangeLogs, clientDataTabs, clientDataCategories, subjects, subjectPointsLog, subjectFieldHistory, subjectCollaborators, clientMarketingConsents, clientDocumentHistory, contractAcquirers, contractPasswords, contractRewardDistributions, contractParameterValues, subjectArchive, auditLogs, globalCounters, subjectPhotos, activityEvents, subjectParamSections, subjectParameters, subjectTemplates, subjectTemplateParams, commissionCalculationLogs, parameterSynonyms, dataConflictAlerts, transactionDedupLog, relationRoleTypes, subjectRelations, maturityAlerts, inheritancePrompts, guardianshipArchive, households, householdMembers, householdAssets, privacyBlocks, accessConsentLog, maturityEvents, addressGroups, addressGroupMembers, companySubjectRoles, notificationQueue, batchJobs, subjectObjects, objectDataSources, sectors, sections, sectorProducts, parameters, panels, productPanels, contractFolders, fieldLayoutConfigs, sectorCategoryMapping, suggestedRelations } from "@shared/schema";
 import { seedSubjectParameters } from "./seed-subject-params";
 import sharp from "sharp";
 import { db } from "./db";
@@ -8933,6 +8933,284 @@ export async function registerRoutes(
       });
     } catch (err: any) {
       res.status(500).json({ message: err?.message || "Chyba pri generovaní súhrnu" });
+    }
+  });
+
+  // === FAMILY CLUSTER (Rodinný klaster - subjects with matching surname + address) ===
+  app.get("/api/subjects/:id/family-cluster", isAuthenticated, async (req, res) => {
+    try {
+      const subjectId = parseInt(req.params.id);
+      if (isNaN(subjectId)) return res.status(400).json({ message: "Neplatné ID" });
+      if (!await checkKlientiSubjectAccess((req as any).appUser, subjectId)) return res.status(403).json({ message: "Prístup zamietnutý" });
+
+      const [subject] = await db.select().from(subjects).where(eq(subjects.id, subjectId));
+      if (!subject) return res.status(404).json({ message: "Subjekt nenájdený" });
+
+      const lastName = subject.lastName?.trim().toLowerCase();
+      const details = subject.details as Record<string, any> || {};
+      const address = (details.trvaly_pobyt || details.adresa || "").trim().toLowerCase();
+
+      if (!lastName) return res.json({ members: [], totalFamilyWealth: 0, totalContracts: 0 });
+
+      const allSubjects = await db.select({
+        id: subjects.id,
+        uid: subjects.uid,
+        firstName: subjects.firstName,
+        lastName: subjects.lastName,
+        type: subjects.type,
+        email: subjects.email,
+        phone: subjects.phone,
+        details: subjects.details,
+        isActive: subjects.isActive,
+        lifecycleStatus: subjects.lifecycleStatus,
+      }).from(subjects).where(and(
+        sql`LOWER(TRIM(${subjects.lastName})) = ${lastName}`,
+        eq(subjects.isActive, true),
+      ));
+
+      const members = allSubjects.filter(s => {
+        if (s.id === subjectId) return false;
+        if (!address) return true;
+        const sDetails = s.details as Record<string, any> || {};
+        const sAddress = (sDetails.trvaly_pobyt || sDetails.adresa || "").trim().toLowerCase();
+        if (!sAddress) return true;
+        return sAddress.includes(address) || address.includes(sAddress);
+      });
+
+      const memberIds = [subjectId, ...members.map(m => m.id)];
+
+      let totalFamilyWealth = 0;
+      let totalContracts = 0;
+      if (memberIds.length > 0) {
+        const contractData = await db.select({
+          totalPremium: sql<number>`COALESCE(SUM(${contracts.annualPremium}), 0)`,
+          count: sql<number>`COUNT(*)::int`,
+        }).from(contracts).where(and(
+          inArray(contracts.subjectId, memberIds),
+          sql`${contracts.isDeleted} = false`,
+        ));
+        totalFamilyWealth = Number(contractData[0]?.totalPremium || 0);
+        totalContracts = Number(contractData[0]?.count || 0);
+      }
+
+      const subjectContract = await db.select({
+        totalPremium: sql<number>`COALESCE(SUM(${contracts.annualPremium}), 0)`,
+        count: sql<number>`COUNT(*)::int`,
+      }).from(contracts).where(and(
+        eq(contracts.subjectId, subjectId),
+        sql`${contracts.isDeleted} = false`,
+      ));
+
+      const membersWithContracts = await Promise.all(members.map(async m => {
+        const mc = await db.select({
+          totalPremium: sql<number>`COALESCE(SUM(${contracts.annualPremium}), 0)`,
+          count: sql<number>`COUNT(*)::int`,
+        }).from(contracts).where(and(
+          eq(contracts.subjectId, m.id),
+          sql`${contracts.isDeleted} = false`,
+        ));
+        return {
+          ...m,
+          contractCount: Number(mc[0]?.count || 0),
+          annualPremium: Number(mc[0]?.totalPremium || 0),
+        };
+      }));
+
+      res.json({
+        members: membersWithContracts,
+        currentSubject: {
+          contractCount: Number(subjectContract[0]?.count || 0),
+          annualPremium: Number(subjectContract[0]?.totalPremium || 0),
+        },
+        totalFamilyWealth,
+        totalContracts,
+      });
+    } catch (err: any) {
+      res.status(500).json({ message: err?.message || "Chyba pri načítaní rodinného klastra" });
+    }
+  });
+
+  // === SUBJECT PORTFOLIO (Osobné portfólio subjektu - all contracts for a subject) ===
+  app.get("/api/subjects/:id/portfolio", isAuthenticated, async (req, res) => {
+    try {
+      const subjectId = parseInt(req.params.id);
+      if (isNaN(subjectId)) return res.status(400).json({ message: "Neplatné ID" });
+      if (!await checkKlientiSubjectAccess((req as any).appUser, subjectId)) return res.status(403).json({ message: "Prístup zamietnutý" });
+
+      const subjectContracts = await db.select({
+        id: contracts.id,
+        uid: contracts.uid,
+        contractNumber: contracts.contractNumber,
+        proposalNumber: contracts.proposalNumber,
+        contractType: contracts.contractType,
+        premiumAmount: contracts.premiumAmount,
+        annualPremium: contracts.annualPremium,
+        currency: contracts.currency,
+        signedDate: contracts.signedDate,
+        effectiveDate: contracts.effectiveDate,
+        expiryDate: contracts.expiryDate,
+        statusName: contractStatuses.name,
+        statusColor: contractStatuses.color,
+        partnerName: sql<string>`(SELECT name FROM partners WHERE id = ${contracts.partnerId})`,
+        productName: sql<string>`(SELECT name FROM products WHERE id = ${contracts.productId})`,
+        sectorName: sql<string>`(SELECT s.name FROM sector_products sp JOIN sectors s ON sp.sector_id = s.id WHERE sp.id = ${contracts.sectorProductId})`,
+      })
+        .from(contracts)
+        .leftJoin(contractStatuses, eq(contracts.statusId, contractStatuses.id))
+        .where(and(
+          eq(contracts.subjectId, subjectId),
+          sql`${contracts.isDeleted} = false`,
+        ))
+        .orderBy(desc(contracts.createdAt));
+
+      const totalPremium = subjectContracts.reduce((sum, c) => sum + (c.annualPremium || 0), 0);
+
+      res.json({
+        contracts: subjectContracts,
+        totalContracts: subjectContracts.length,
+        totalAnnualPremium: totalPremium,
+      });
+    } catch (err: any) {
+      res.status(500).json({ message: err?.message || "Chyba pri načítaní portfólia" });
+    }
+  });
+
+  // === AI SUGGESTED RELATIONS (Navrhované prepojenia) ===
+  app.get("/api/subjects/:id/suggested-relations", isAuthenticated, async (req, res) => {
+    try {
+      const subjectId = parseInt(req.params.id);
+      if (isNaN(subjectId)) return res.status(400).json({ message: "Neplatné ID" });
+
+      const suggestions = await db.select({
+        suggestion: suggestedRelations,
+        matchedSubject: {
+          id: subjects.id,
+          firstName: subjects.firstName,
+          lastName: subjects.lastName,
+          companyName: subjects.companyName,
+          type: subjects.type,
+        },
+      })
+        .from(suggestedRelations)
+        .leftJoin(subjects, eq(suggestedRelations.matchedSubjectId, subjects.id))
+        .where(and(
+          eq(suggestedRelations.sourceSubjectId, subjectId),
+          or(
+            eq(suggestedRelations.status, "pending"),
+            eq(suggestedRelations.status, "confirmed"),
+          ),
+        ))
+        .orderBy(desc(suggestedRelations.createdAt));
+
+      res.json(suggestions);
+    } catch (err: any) {
+      res.status(500).json({ message: err?.message || "Chyba pri načítaní návrhov" });
+    }
+  });
+
+  app.post("/api/suggested-relations", isAuthenticated, async (req, res) => {
+    try {
+      const schema = z.object({
+        sourceSubjectId: z.number().int(),
+        detectedName: z.string().min(1),
+        detectedRole: z.string().optional(),
+        contractId: z.number().int().optional(),
+        matchedSubjectId: z.number().int().optional(),
+      });
+      const parsed = schema.parse(req.body);
+
+      const [suggestion] = await db.insert(suggestedRelations).values({
+        sourceSubjectId: parsed.sourceSubjectId,
+        detectedName: parsed.detectedName,
+        detectedRole: parsed.detectedRole || null,
+        contractId: parsed.contractId || null,
+        matchedSubjectId: parsed.matchedSubjectId || null,
+        createdBy: "ai",
+      }).returning();
+
+      res.json(suggestion);
+    } catch (err: any) {
+      if (err instanceof z.ZodError) return res.status(400).json({ message: "Neplatné dáta", errors: err.errors });
+      res.status(500).json({ message: err?.message || "Chyba pri vytváraní návrhu" });
+    }
+  });
+
+  app.post("/api/suggested-relations/:id/confirm", isAuthenticated, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) return res.status(400).json({ message: "Neplatné ID" });
+
+      const user = (req as any).appUser || (req as any).user;
+
+      const [existing] = await db.select().from(suggestedRelations).where(eq(suggestedRelations.id, id));
+      if (!existing) return res.status(404).json({ message: "Návrh nenájdený" });
+
+      const newCount = (existing.confirmCount || 0) + 1;
+      const autoPromote = newCount >= 5;
+
+      let autoPromotedRelationId = existing.autoPromotedRelationId;
+
+      if (autoPromote && !existing.autoPromotedRelationId) {
+        const familyRoleType = await db.select().from(relationRoleTypes)
+          .where(eq(relationRoleTypes.code, "rodinny_prislusnik"))
+          .limit(1);
+
+        let roleTypeId = familyRoleType[0]?.id;
+        if (!roleTypeId) {
+          const [newRole] = await db.insert(relationRoleTypes).values({
+            category: "family",
+            code: "rodinny_prislusnik",
+            label: "Rodinný príslušník",
+            labelEn: "Family member",
+            isActive: true,
+            sortOrder: 100,
+          }).returning();
+          roleTypeId = newRole.id;
+        }
+
+        if (existing.matchedSubjectId) {
+          const [relation] = await db.insert(subjectRelations).values({
+            sourceSubjectId: existing.sourceSubjectId,
+            targetSubjectId: existing.matchedSubjectId,
+            roleTypeId,
+            category: "family",
+            createdByUserId: user?.id || null,
+            createdByName: user?.username || "system",
+          }).returning();
+          autoPromotedRelationId = relation.id;
+        }
+      }
+
+      const [updated] = await db.update(suggestedRelations).set({
+        confirmCount: newCount,
+        status: autoPromote ? "auto_confirmed" : "confirmed",
+        lastConfirmedAt: new Date(),
+        lastConfirmedByUserId: user?.id || null,
+        lastConfirmedByName: user?.username || "system",
+        autoPromotedRelationId,
+        updatedAt: new Date(),
+      }).where(eq(suggestedRelations.id, id)).returning();
+
+      res.json({ suggestion: updated, autoPromoted: autoPromote });
+    } catch (err: any) {
+      res.status(500).json({ message: err?.message || "Chyba pri potvrdení návrhu" });
+    }
+  });
+
+  app.post("/api/suggested-relations/:id/reject", isAuthenticated, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) return res.status(400).json({ message: "Neplatné ID" });
+
+      const [updated] = await db.update(suggestedRelations).set({
+        status: "rejected",
+        updatedAt: new Date(),
+      }).where(eq(suggestedRelations.id, id)).returning();
+
+      if (!updated) return res.status(404).json({ message: "Návrh nenájdený" });
+      res.json(updated);
+    } catch (err: any) {
+      res.status(500).json({ message: err?.message || "Chyba pri zamietnutí návrhu" });
     }
   });
 

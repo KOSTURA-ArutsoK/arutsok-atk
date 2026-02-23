@@ -31,6 +31,7 @@ import {
   Check, User, Phone, Star, Brain, Zap, Link2, Archive, CreditCard, Users,
   ChevronDown, ChevronRight, GripVertical, FolderOpen, ArrowRightLeft,
   AlertTriangle, Plus, Tag, TrendingUp, TrendingDown,
+  Home, Briefcase, FileText, ThumbsUp, ThumbsDown, ExternalLink,
 } from "lucide-react";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import {
@@ -616,6 +617,75 @@ export function SubjectProfileModuleC({ subject }: ModuleCProps) {
     enabled: subject.id > 0,
   });
 
+  const { data: familyCluster } = useQuery<{
+    members: Array<{ id: number; uid: string; firstName: string; lastName: string; type: string; email?: string; phone?: string; contractCount: number; annualPremium: number; lifecycleStatus?: string }>;
+    currentSubject: { contractCount: number; annualPremium: number };
+    totalFamilyWealth: number;
+    totalContracts: number;
+  }>({
+    queryKey: ["/api/subjects", subject.id, "family-cluster"],
+    queryFn: async () => {
+      const res = await fetch(`/api/subjects/${subject.id}/family-cluster`, { credentials: "include" });
+      if (!res.ok) throw new Error("Failed");
+      return res.json();
+    },
+    enabled: subject.id > 0,
+  });
+
+  const { data: subjectPortfolio } = useQuery<{
+    contracts: Array<{ id: number; uid?: string; contractNumber?: string; contractType?: string; premiumAmount?: number; annualPremium?: number; currency?: string; statusName?: string; statusColor?: string; partnerName?: string; productName?: string; sectorName?: string; signedDate?: string; expiryDate?: string }>;
+    totalContracts: number;
+    totalAnnualPremium: number;
+  }>({
+    queryKey: ["/api/subjects", subject.id, "portfolio"],
+    queryFn: async () => {
+      const res = await fetch(`/api/subjects/${subject.id}/portfolio`, { credentials: "include" });
+      if (!res.ok) throw new Error("Failed");
+      return res.json();
+    },
+    enabled: subject.id > 0,
+  });
+
+  const { data: suggestedRelationsData } = useQuery<Array<{
+    suggestion: { id: number; detectedName: string; detectedRole?: string; status: string; confirmCount: number; matchedSubjectId?: number };
+    matchedSubject?: { id: number; firstName?: string; lastName?: string; companyName?: string; type: string };
+  }>>({
+    queryKey: ["/api/subjects", subject.id, "suggested-relations"],
+    queryFn: async () => {
+      const res = await fetch(`/api/subjects/${subject.id}/suggested-relations`, { credentials: "include" });
+      if (!res.ok) throw new Error("Failed");
+      return res.json();
+    },
+    enabled: subject.id > 0,
+  });
+
+  const confirmSuggestionMutation = useMutation({
+    mutationFn: async (suggestionId: number) => {
+      const res = await apiRequest("POST", `/api/suggested-relations/${suggestionId}/confirm`);
+      return res.json();
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/subjects", subject.id, "suggested-relations"] });
+      if (data.autoPromoted) {
+        queryClient.invalidateQueries({ queryKey: ["/api/subject-relations"] });
+        toast({ title: "Relácia automaticky vytvorená", description: "Potvrdenie dosiahlo 5x - relácia bola automaticky vytvorená." });
+      } else {
+        toast({ title: "Potvrdené", description: `Potvrdenie ${data.suggestion.confirmCount}/5` });
+      }
+    },
+  });
+
+  const rejectSuggestionMutation = useMutation({
+    mutationFn: async (suggestionId: number) => {
+      const res = await apiRequest("POST", `/api/suggested-relations/${suggestionId}/reject`);
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/subjects", subject.id, "suggested-relations"] });
+      toast({ title: "Zamietnuté" });
+    },
+  });
+
   const { data: dbSections } = useQuery<DbSection[]>({
     queryKey: ["/api/subject-param-sections", { clientTypeId }],
     queryFn: async () => {
@@ -700,6 +770,11 @@ export function SubjectProfileModuleC({ subject }: ModuleCProps) {
   const [isArchitectMode, setIsArchitectMode] = useState(false);
   const [fieldLayouts, setFieldLayouts] = useState<Record<string, { sortOrder: number; widthClass: string; rowGroup: number }>>({});
   const [expandedSections, setExpandedSections] = useState<string[]>([]);
+  const toggleSection = useCallback((key: string) => {
+    setExpandedSections(prev =>
+      prev.includes(key) ? prev.filter(k => k !== key) : [...prev, key]
+    );
+  }, []);
   const [renamingSection, setRenamingSection] = useState<number | null>(null);
   const [renameValue, setRenameValue] = useState("");
 
@@ -1377,12 +1452,6 @@ export function SubjectProfileModuleC({ subject }: ModuleCProps) {
 
         const categoryOrder = ["povinne", "osobne", "doplnkove", "volitelne", "ine"];
 
-        const toggleSection = (key: string) => {
-          setExpandedSections(prev =>
-            prev.includes(key) ? prev.filter(k => k !== key) : [...prev, key]
-          );
-        };
-
         const totalParamCount = (nodes: HierarchyNode[]) =>
           nodes.reduce((sum, n) => sum + filterPanels(n.panels).reduce((s, p) => s + p.parameters.length, 0), 0);
 
@@ -1862,6 +1931,243 @@ export function SubjectProfileModuleC({ subject }: ModuleCProps) {
           </AccordionContent>
         </AccordionItem>
       </Accordion>
+
+      {subject.id > 0 && (
+        <Accordion type="multiple" defaultValue={[]} className="space-y-1">
+          <AccordionItem value="relacie-panels" className="border rounded-md px-3 border-violet-500/20" data-testid="accordion-relacie-panels">
+            <AccordionTrigger className="py-3 hover:no-underline">
+              <div className="flex items-center gap-2">
+                <Users className="w-4 h-4 text-violet-400" />
+                <span className="text-sm font-semibold">{"REL\u00c1CIE A PORTF\u00d3LIO"}</span>
+                <Badge variant="outline" className="text-[10px] border-violet-400/40 text-violet-400">AI</Badge>
+              </div>
+            </AccordionTrigger>
+            <AccordionContent className="pb-4 space-y-3">
+
+              <Card className="border border-pink-500/20 bg-pink-500/5" data-testid="panel-rodinny-klaster">
+                <div
+                  className="flex items-center gap-2 px-4 py-3 cursor-pointer select-none hover:bg-pink-500/10 transition-colors rounded-t-lg border-b border-pink-500/20"
+                  onClick={() => toggleSection("section-family-cluster")}
+                  data-testid="section-toggle-family-cluster"
+                >
+                  {expandedSections.includes("section-family-cluster") ? <ChevronDown className="w-4 h-4 text-pink-400 shrink-0" /> : <ChevronRight className="w-4 h-4 text-pink-400 shrink-0" />}
+                  <Home className="w-4 h-4 text-pink-400 shrink-0" />
+                  <span className="text-xs font-semibold uppercase tracking-wide flex-1">Rodinný klaster</span>
+                  <Badge variant="outline" className="text-[9px] shrink-0 border-pink-500/30 text-pink-400">
+                    {familyCluster?.members.length || 0} osôb
+                  </Badge>
+                </div>
+                {expandedSections.includes("section-family-cluster") && (
+                  <CardContent className="px-4 pb-4 pt-3 space-y-3">
+                    {(!familyCluster || familyCluster.members.length === 0) ? (
+                      <p className="text-sm text-muted-foreground text-center py-4" data-testid="family-cluster-empty">Nebol nájdený žiadny rodinný klaster (zhodné priezvisko)</p>
+                    ) : (
+                      <>
+                        <div className="space-y-2" data-testid="family-cluster-members">
+                          {familyCluster.members.map(member => (
+                            <div key={member.id} className="flex items-center gap-3 p-2.5 rounded-lg border border-pink-500/15 bg-card/40 hover:bg-pink-500/5 transition-colors" data-testid={`family-member-${member.id}`}>
+                              <Home className="w-4 h-4 text-pink-400 shrink-0" />
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-2">
+                                  <span className="text-sm font-medium truncate" data-testid={`family-member-name-${member.id}`}>
+                                    {member.firstName} {member.lastName}
+                                  </span>
+                                  <Badge variant="outline" className="text-[8px] h-4 px-1 shrink-0">{member.type}</Badge>
+                                  {member.lifecycleStatus === "in_memoriam" && (
+                                    <span className="text-xs text-purple-400" title="In Memoriam" data-testid={`family-member-in-memoriam-${member.id}`}>In Mem.</span>
+                                  )}
+                                </div>
+                                <p className="text-[10px] text-muted-foreground mt-0.5" data-testid={`family-member-stats-${member.id}`}>
+                                  {member.contractCount} zmlúv &middot; {(member.annualPremium / 100).toLocaleString("sk-SK", { minimumFractionDigits: 2 })} EUR/rok
+                                </p>
+                              </div>
+                              <Button size="sm" variant="ghost" className="h-7 px-2 text-pink-400 hover:text-pink-300 shrink-0" onClick={() => window.open(`/subjects/${member.id}`, "_blank")} data-testid={`btn-view-member-${member.id}`}>
+                                <ExternalLink className="w-3 h-3" />
+                              </Button>
+                            </div>
+                          ))}
+                        </div>
+                        <div className="flex items-center gap-2 p-2.5 rounded-lg border border-emerald-500/20 bg-emerald-500/5" data-testid="family-wealth-total">
+                          <CreditCard className="w-4 h-4 text-emerald-400 shrink-0" />
+                          <div className="flex-1">
+                            <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Celkový majetok rodiny</p>
+                            <p className="text-sm font-bold text-emerald-400" data-testid="text-family-wealth">
+                              {((familyCluster.totalFamilyWealth || 0) / 100).toLocaleString("sk-SK", { minimumFractionDigits: 2 })} EUR
+                            </p>
+                          </div>
+                          <Badge variant="outline" className="text-[9px] border-emerald-400/30 text-emerald-400 shrink-0">
+                            {familyCluster.totalContracts} zmlúv
+                          </Badge>
+                        </div>
+                      </>
+                    )}
+                  </CardContent>
+                )}
+              </Card>
+
+              <Card className="border border-blue-500/20 bg-blue-500/5" data-testid="panel-portfolio">
+                <div
+                  className="flex items-center gap-2 px-4 py-3 cursor-pointer select-none hover:bg-blue-500/10 transition-colors rounded-t-lg border-b border-blue-500/20"
+                  onClick={() => toggleSection("section-portfolio")}
+                  data-testid="section-toggle-portfolio"
+                >
+                  {expandedSections.includes("section-portfolio") ? <ChevronDown className="w-4 h-4 text-blue-400 shrink-0" /> : <ChevronRight className="w-4 h-4 text-blue-400 shrink-0" />}
+                  <FileText className="w-4 h-4 text-blue-400 shrink-0" />
+                  <span className="text-xs font-semibold uppercase tracking-wide flex-1">Osobné portfólio subjektu</span>
+                  <Badge variant="outline" className="text-[9px] shrink-0 border-blue-500/30 text-blue-400">
+                    {subjectPortfolio?.totalContracts || 0} zmlúv
+                  </Badge>
+                </div>
+                {expandedSections.includes("section-portfolio") && (
+                  <CardContent className="px-4 pb-4 pt-3 space-y-3">
+                    {(!subjectPortfolio || subjectPortfolio.contracts.length === 0) ? (
+                      <p className="text-sm text-muted-foreground text-center py-4" data-testid="portfolio-empty">Žiadne zmluvy prepojené na tento subjekt</p>
+                    ) : (
+                      <>
+                        <div className="space-y-2" data-testid="portfolio-contracts">
+                          {subjectPortfolio.contracts.map(c => (
+                            <div key={c.id} className="flex items-center gap-3 p-2.5 rounded-lg border border-blue-500/15 bg-card/40 hover:bg-blue-500/5 transition-colors" data-testid={`portfolio-contract-${c.id}`}>
+                              <FileText className="w-4 h-4 text-blue-400 shrink-0" />
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-2 flex-wrap">
+                                  <span className="text-sm font-medium truncate" data-testid={`contract-number-${c.id}`}>
+                                    {c.contractNumber || c.uid || `#${c.id}`}
+                                  </span>
+                                  {c.statusName && (
+                                    <Badge variant="outline" className="text-[8px] h-4 px-1 shrink-0" style={{ borderColor: `${c.statusColor}40`, color: c.statusColor || undefined }}>
+                                      {c.statusName}
+                                    </Badge>
+                                  )}
+                                  {c.contractType && (
+                                    <Badge variant="outline" className="text-[8px] h-4 px-1 shrink-0">{c.contractType}</Badge>
+                                  )}
+                                </div>
+                                <p className="text-[10px] text-muted-foreground mt-0.5">
+                                  {c.partnerName && <span>{c.partnerName}</span>}
+                                  {c.productName && <span> &middot; {c.productName}</span>}
+                                  {c.sectorName && <span> &middot; {c.sectorName}</span>}
+                                </p>
+                              </div>
+                              <div className="text-right shrink-0">
+                                <p className="text-xs font-semibold text-blue-400" data-testid={`contract-premium-${c.id}`}>
+                                  {c.annualPremium ? `${(c.annualPremium / 100).toLocaleString("sk-SK", { minimumFractionDigits: 2 })} EUR` : "—"}
+                                </p>
+                                <p className="text-[9px] text-muted-foreground">/rok</p>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                        <div className="flex items-center gap-2 p-2.5 rounded-lg border border-blue-500/20 bg-blue-500/10" data-testid="portfolio-total">
+                          <CreditCard className="w-4 h-4 text-blue-400 shrink-0" />
+                          <div className="flex-1">
+                            <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Celkové ročné poistné</p>
+                            <p className="text-sm font-bold text-blue-400" data-testid="text-portfolio-total">
+                              {((subjectPortfolio.totalAnnualPremium || 0) / 100).toLocaleString("sk-SK", { minimumFractionDigits: 2 })} EUR
+                            </p>
+                          </div>
+                        </div>
+                      </>
+                    )}
+                  </CardContent>
+                )}
+              </Card>
+
+              <Card className="border border-amber-500/20 bg-amber-500/5" data-testid="panel-suggested-relations">
+                <div
+                  className="flex items-center gap-2 px-4 py-3 cursor-pointer select-none hover:bg-amber-500/10 transition-colors rounded-t-lg border-b border-amber-500/20"
+                  onClick={() => toggleSection("section-suggested-relations")}
+                  data-testid="section-toggle-suggested-relations"
+                >
+                  {expandedSections.includes("section-suggested-relations") ? <ChevronDown className="w-4 h-4 text-amber-400 shrink-0" /> : <ChevronRight className="w-4 h-4 text-amber-400 shrink-0" />}
+                  <Briefcase className="w-4 h-4 text-amber-400 shrink-0" />
+                  <span className="text-xs font-semibold uppercase tracking-wide flex-1">Navrhované prepojenia (AI)</span>
+                  <Badge variant="outline" className="text-[9px] shrink-0 border-amber-500/30 text-amber-400">
+                    {suggestedRelationsData?.filter(s => s.suggestion.status === "pending").length || 0} nových
+                  </Badge>
+                </div>
+                {expandedSections.includes("section-suggested-relations") && (
+                  <CardContent className="px-4 pb-4 pt-3 space-y-3">
+                    {(!suggestedRelationsData || suggestedRelationsData.length === 0) ? (
+                      <p className="text-sm text-muted-foreground text-center py-4" data-testid="suggested-empty">Žiadne navrhované prepojenia. AI motor analyzuje zmluvy a automaticky deteguje tretie osoby.</p>
+                    ) : (
+                      <div className="space-y-2" data-testid="suggested-relations-list">
+                        {suggestedRelationsData.map(({ suggestion, matchedSubject }) => (
+                          <div key={suggestion.id} className="flex items-center gap-3 p-2.5 rounded-lg border border-amber-500/15 bg-card/40" data-testid={`suggested-relation-${suggestion.id}`}>
+                            {suggestion.detectedRole?.toLowerCase().includes("manžel") || suggestion.detectedRole?.toLowerCase().includes("rodič") || suggestion.detectedRole?.toLowerCase().includes("dieťa")
+                              ? <Home className="w-4 h-4 text-pink-400 shrink-0" />
+                              : suggestion.detectedRole?.toLowerCase().includes("firma") || suggestion.detectedRole?.toLowerCase().includes("spoločn")
+                                ? <Briefcase className="w-4 h-4 text-amber-400 shrink-0" />
+                                : <Link2 className="w-4 h-4 text-violet-400 shrink-0" />
+                            }
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2">
+                                <span className="text-sm font-medium truncate" data-testid={`suggested-name-${suggestion.id}`}>
+                                  {suggestion.detectedName}
+                                </span>
+                                {suggestion.detectedRole && (
+                                  <Badge variant="outline" className="text-[8px] h-4 px-1 shrink-0">{suggestion.detectedRole}</Badge>
+                                )}
+                                {matchedSubject && (
+                                  <Badge variant="outline" className="text-[8px] h-4 px-1 shrink-0 border-emerald-400/30 text-emerald-400">
+                                    Nájdený v systéme
+                                  </Badge>
+                                )}
+                              </div>
+                              <div className="flex items-center gap-2 mt-0.5">
+                                <p className="text-[10px] text-muted-foreground" data-testid={`suggestion-confirm-count-${suggestion.id}`}>
+                                  Potvrdenie: {suggestion.confirmCount}/5
+                                </p>
+                                <div className="flex gap-0.5" data-testid={`suggestion-progress-${suggestion.id}`}>
+                                  {Array.from({ length: 5 }).map((_, i) => (
+                                    <div key={i} className={cn("w-1.5 h-1.5 rounded-full", i < suggestion.confirmCount ? "bg-emerald-500" : "bg-muted-foreground/20")} />
+                                  ))}
+                                </div>
+                                {suggestion.status === "auto_confirmed" && (
+                                  <Badge variant="outline" className="text-[8px] h-4 px-1 shrink-0 border-emerald-500/40 text-emerald-400">Automaticky potvrdené</Badge>
+                                )}
+                              </div>
+                            </div>
+                            {suggestion.status === "pending" && (
+                              <div className="flex items-center gap-1 shrink-0">
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  className="h-7 px-2 text-emerald-400 hover:text-emerald-300 hover:bg-emerald-500/10"
+                                  onClick={() => confirmSuggestionMutation.mutate(suggestion.id)}
+                                  disabled={confirmSuggestionMutation.isPending}
+                                  data-testid={`btn-confirm-suggestion-${suggestion.id}`}
+                                >
+                                  <ThumbsUp className="w-3.5 h-3.5" />
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  className="h-7 px-2 text-red-400 hover:text-red-300 hover:bg-red-500/10"
+                                  onClick={() => rejectSuggestionMutation.mutate(suggestion.id)}
+                                  disabled={rejectSuggestionMutation.isPending}
+                                  data-testid={`btn-reject-suggestion-${suggestion.id}`}
+                                >
+                                  <ThumbsDown className="w-3.5 h-3.5" />
+                                </Button>
+                              </div>
+                            )}
+                            {matchedSubject && (
+                              <Button size="sm" variant="ghost" className="h-7 px-2 text-violet-400 hover:text-violet-300 shrink-0" onClick={() => window.open(`/subjects/${matchedSubject.id}`, "_blank")} data-testid={`btn-view-suggested-${suggestion.id}`}>
+                                <ExternalLink className="w-3 h-3" />
+                              </Button>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </CardContent>
+                )}
+              </Card>
+
+            </AccordionContent>
+          </AccordionItem>
+        </Accordion>
+      )}
 
       {transferParam && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60" onClick={() => setTransferParam(null)} data-testid="transfer-dialog-overlay">
