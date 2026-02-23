@@ -850,6 +850,9 @@ export function SubjectProfileModuleC({ subject }: ModuleCProps) {
     return initial;
   });
 
+  const behaviorAlert = useMemo(() => hasBehaviorAlert(dynamicValues), [dynamicValues]);
+  const displayName = useMemo(() => [subject.firstName, subject.lastName].filter(Boolean).join(" ") || subject.companyName || "", [subject.firstName, subject.lastName, subject.companyName]);
+
   const saveMutation = useMutation({
     mutationFn: async () => {
       const payload: Record<string, any> = {};
@@ -995,43 +998,39 @@ export function SubjectProfileModuleC({ subject }: ModuleCProps) {
             </div>
           )}
           <div className="flex-1 space-y-2">
-            {subject.id > 0 && (() => {
-              const alert = hasBehaviorAlert(dynamicValues);
-              const displayName = [subject.firstName, subject.lastName].filter(Boolean).join(" ") || subject.companyName || "";
-              return (
-                <div className="flex items-center gap-2 flex-wrap" data-testid="profile-name-bar">
-                  <CgnIndicator isCgnActive={isCgnActive} size="md" />
-                  <span className={cn("text-lg font-bold", isCgnActive && "text-orange-400")} data-testid="text-subject-name">{displayName}</span>
-                  {alert.hasAlert && (
-                    <span
-                      className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-red-500/15 border border-red-500/30 cursor-help"
-                      title={alert.alertText}
-                      data-testid="behavior-alert-badge"
-                    >
-                      <AlertTriangle className="w-3.5 h-3.5 text-red-500" />
-                      <span className="text-[10px] font-semibold text-red-400">POZOR</span>
-                    </span>
-                  )}
-                  <SubjectTagBadges tags={subjectTags} />
-                  {isArchitectMode && (
-                    <button
-                      onClick={() => cgnMutation.mutate(!isCgnActive)}
-                      className={cn(
-                        "inline-flex items-center gap-1 px-2 py-0.5 rounded-full border text-[10px] font-semibold transition-colors",
-                        isCgnActive
-                          ? "bg-red-500/15 border-red-500/30 text-red-400 hover:bg-red-500/25"
-                          : "bg-muted/40 border-border/40 text-muted-foreground hover:bg-muted/60"
-                      )}
-                      title={isCgnActive ? "Deaktivovať režim CGN" : "Aktivovať režim CGN – Celkom Garantovať Nemožno"}
-                      data-testid="btn-toggle-cgn"
-                    >
-                      {isCgnActive ? <TrendingDown className="w-3 h-3" /> : <TrendingUp className="w-3 h-3" />}
-                      CGN
-                    </button>
-                  )}
-                </div>
-              );
-            })()}
+            {subject.id > 0 && (
+              <div className="flex items-center gap-2 flex-wrap" data-testid="profile-name-bar">
+                <CgnIndicator isCgnActive={isCgnActive} size="md" />
+                <span className={cn("text-lg font-bold", isCgnActive && "text-orange-400")} data-testid="text-subject-name">{displayName}</span>
+                {behaviorAlert.hasAlert && (
+                  <span
+                    className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-red-500/15 border border-red-500/30 cursor-help"
+                    title={behaviorAlert.alertText}
+                    data-testid="behavior-alert-badge"
+                  >
+                    <AlertTriangle className="w-3.5 h-3.5 text-red-500" />
+                    <span className="text-[10px] font-semibold text-red-400">POZOR</span>
+                  </span>
+                )}
+                <SubjectTagBadges tags={subjectTags} />
+                {isArchitectMode && (
+                  <button
+                    onClick={() => cgnMutation.mutate(!isCgnActive)}
+                    className={cn(
+                      "inline-flex items-center gap-1 px-2 py-0.5 rounded-full border text-[10px] font-semibold transition-colors",
+                      isCgnActive
+                        ? "bg-red-500/15 border-red-500/30 text-red-400 hover:bg-red-500/25"
+                        : "bg-muted/40 border-border/40 text-muted-foreground hover:bg-muted/60"
+                    )}
+                    title={isCgnActive ? "Deaktivovať režim CGN" : "Aktivovať režim CGN – Celkom Garantovať Nemožno"}
+                    data-testid="btn-toggle-cgn"
+                  >
+                    {isCgnActive ? <TrendingDown className="w-3 h-3" /> : <TrendingUp className="w-3 h-3" />}
+                    CGN
+                  </button>
+                )}
+              </div>
+            )}
 
             <div className="flex items-center gap-2 flex-wrap" data-testid="tag-management-bar">
               {subjectTags.map(tag => (
