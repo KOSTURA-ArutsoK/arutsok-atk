@@ -149,7 +149,16 @@ const FIELD_TO_SUBJECT_COLUMN: Record<string, string> = {
   op_cislo: "idCardNumber",
   iban: "iban",
   bic: "swift",
+  lifecycle_status: "lifecycleStatus",
+  death_date: "deathDate",
+  death_certificate_number: "deathCertificateNumber",
 };
+
+const LIFECYCLE_STATUS_OPTIONS = [
+  { value: "active", label: "Aktívny", color: "text-emerald-400", bg: "bg-emerald-500/10", border: "border-emerald-500/30" },
+  { value: "inactive", label: "Neaktívny", color: "text-slate-400", bg: "bg-slate-500/10", border: "border-slate-500/30" },
+  { value: "in_memoriam", label: "In Memoriam (Nebohý)", color: "text-purple-400", bg: "bg-purple-500/10", border: "border-purple-500/30" },
+];
 
 const INT_COLUMNS = new Set(["continentId", "stateId", "myCompanyId"]);
 
@@ -978,8 +987,13 @@ export function SubjectProfileModuleC({ subject }: ModuleCProps) {
     if (subject.email && !initial["email"]) initial["email"] = subject.email;
     if (subject.phone && !initial["telefon"]) initial["telefon"] = subject.phone;
     if (subject.idCardNumber && !initial["cislo_dokladu"]) initial["cislo_dokladu"] = subject.idCardNumber;
+    initial["lifecycle_status"] = (subject as any).lifecycleStatus || "active";
+    if ((subject as any).deathDate) initial["death_date"] = (subject as any).deathDate;
+    if ((subject as any).deathCertificateNumber) initial["death_certificate_number"] = (subject as any).deathCertificateNumber;
     return initial;
   });
+
+  const isInMemoriam = dynamicValues["lifecycle_status"] === "in_memoriam";
 
   const behaviorAlert = useMemo(() => hasBehaviorAlert(dynamicValues), [dynamicValues]);
   const displayName = useMemo(() => [subject.firstName, subject.lastName].filter(Boolean).join(" ") || subject.companyName || "", [subject.firstName, subject.lastName, subject.companyName]);
@@ -1173,7 +1187,7 @@ export function SubjectProfileModuleC({ subject }: ModuleCProps) {
 
           <div className="flex items-start gap-4">
             {subject.id > 0 && (
-              <div className="shrink-0" data-testid="module-c-photo">
+              <div className={cn("shrink-0", isInMemoriam && "grayscale")} data-testid="module-c-photo">
                 <SubjectProfilePhoto subjectId={subject.id} size="lg" editable={isEditing} showHistory />
               </div>
             )}
@@ -1181,7 +1195,13 @@ export function SubjectProfileModuleC({ subject }: ModuleCProps) {
               {subject.id > 0 && (
                 <div className="flex items-center gap-2 flex-wrap" data-testid="profile-name-bar">
                   <CgnIndicator isCgnActive={isCgnActive} size="md" />
-                  <span className={cn("text-lg font-bold", isCgnActive && "text-orange-400")} data-testid="text-subject-name">{displayName}</span>
+                  {isInMemoriam && <span className="text-xl" title="In Memoriam" data-testid="in-memoriam-candle">🕯️</span>}
+                  <span className={cn("text-lg font-bold", isCgnActive && "text-orange-400", isInMemoriam && "text-purple-300")} data-testid="text-subject-name">{displayName}</span>
+                  {isInMemoriam && (
+                    <Badge variant="outline" className="border-purple-500/40 text-purple-400 text-[10px]" data-testid="badge-in-memoriam">
+                      In Memoriam
+                    </Badge>
+                  )}
                   {behaviorAlert.hasLegalIncapacity && (
                     <span
                       className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-red-600/20 border-2 border-red-500/50 cursor-help animate-pulse"
@@ -1583,6 +1603,105 @@ export function SubjectProfileModuleC({ subject }: ModuleCProps) {
                             </Card>
                           );
                         })
+                      )}
+
+                      {catKey === "povinne" && subject.id > 0 && (
+                        <Card className="border border-purple-500/30 bg-purple-500/5 shadow-sm" data-testid="section-lifecycle-status">
+                          <div
+                            className="flex items-center gap-2 px-4 py-3 cursor-pointer select-none hover:bg-purple-500/10 transition-colors rounded-t-lg border-b border-purple-500/20"
+                            onClick={() => toggleSection("section-lifecycle")}
+                            data-testid="section-toggle-lifecycle"
+                          >
+                            {expandedSections.includes("section-lifecycle") ? <ChevronDown className="w-4 h-4 text-purple-400 shrink-0" /> : <ChevronRight className="w-4 h-4 text-purple-400 shrink-0" />}
+                            <FolderOpen className="w-4 h-4 text-purple-400 shrink-0" />
+                            <span className="text-xs font-semibold uppercase tracking-wide flex-1">Status životného cyklu</span>
+                            <Badge variant="outline" className="text-[9px] shrink-0 border-purple-500/30 text-purple-400">{isInMemoriam ? "3 polí" : "1 pole"}</Badge>
+                          </div>
+                          {expandedSections.includes("section-lifecycle") && (
+                            <CardContent className="px-4 pb-4 pt-3 space-y-4">
+                              <div className="space-y-2 rounded-lg border border-purple-500/20 bg-card/40 p-3">
+                                <div className="flex items-center gap-2 pb-1.5 mb-1 border-b border-purple-500/15">
+                                  <p className="text-[11px] font-semibold text-purple-400/80 tracking-wider uppercase flex-1">Stav subjektu</p>
+                                </div>
+                                <div className="grid gap-4 items-end" style={{ gridTemplateColumns: isInMemoriam ? "repeat(3, minmax(0, 1fr))" : "1fr" }}>
+                                  <div className="min-w-0">
+                                    <Label className="text-[11px] text-muted-foreground mb-1 block">Stav subjektu</Label>
+                                    <Select
+                                      value={dynamicValues["lifecycle_status"] || "active"}
+                                      onValueChange={val => setDynamicValues(prev => ({ ...prev, lifecycle_status: val }))}
+                                      disabled={!isEditing}
+                                    >
+                                      <SelectTrigger
+                                        className={cn(
+                                          LIFECYCLE_STATUS_OPTIONS.find(o => o.value === dynamicValues["lifecycle_status"])?.border || "border-emerald-500/30",
+                                          LIFECYCLE_STATUS_OPTIONS.find(o => o.value === dynamicValues["lifecycle_status"])?.color || "text-emerald-400"
+                                        )}
+                                        data-testid="select-lifecycle-status"
+                                      >
+                                        <SelectValue />
+                                      </SelectTrigger>
+                                      <SelectContent>
+                                        {LIFECYCLE_STATUS_OPTIONS.map(opt => (
+                                          <SelectItem key={opt.value} value={opt.value}>
+                                            <span className={cn("font-medium", opt.color)}>{opt.label}</span>
+                                          </SelectItem>
+                                        ))}
+                                      </SelectContent>
+                                    </Select>
+                                  </div>
+                                  {isInMemoriam && (
+                                    <>
+                                      <div className="min-w-0">
+                                        <Label className="text-[11px] text-muted-foreground mb-1 block">Dátum úmrtia</Label>
+                                        <div className="relative">
+                                          <Input
+                                            type="date"
+                                            value={dynamicValues["death_date"] || ""}
+                                            onChange={e => setDynamicValues(prev => ({ ...prev, death_date: e.target.value }))}
+                                            disabled={!isEditing}
+                                            className="pr-12"
+                                            data-testid="input-death-date"
+                                          />
+                                          {subject.id > 0 && <FieldHistoryIndicator subjectId={subject.id} fieldKey="death_date" fieldLabel="Dátum úmrtia" inline />}
+                                        </div>
+                                      </div>
+                                      <div className="min-w-0">
+                                        <Label className="text-[11px] text-muted-foreground mb-1 block">Číslo úmrtného listu</Label>
+                                        <div className="relative">
+                                          <Input
+                                            value={dynamicValues["death_certificate_number"] || ""}
+                                            onChange={e => setDynamicValues(prev => ({ ...prev, death_certificate_number: e.target.value }))}
+                                            disabled={!isEditing}
+                                            placeholder="Nepovinné"
+                                            className="pr-12"
+                                            data-testid="input-death-certificate"
+                                          />
+                                          {subject.id > 0 && <FieldHistoryIndicator subjectId={subject.id} fieldKey="death_certificate_number" fieldLabel="Číslo úmrtného listu" inline />}
+                                        </div>
+                                      </div>
+                                    </>
+                                  )}
+                                </div>
+                                {isInMemoriam && (
+                                  <div className="mt-3 space-y-2">
+                                    <div className="flex items-center gap-2 p-2 rounded-md bg-red-500/10 border border-red-500/20" data-testid="lifecycle-legal-capacity-alert">
+                                      <AlertTriangle className="w-4 h-4 text-red-500 shrink-0" />
+                                      <span className="text-[11px] text-red-400">Právna spôsobilosť: <strong>Nie</strong> (automaticky nastavené)</span>
+                                    </div>
+                                    <div className="flex items-center gap-2 p-2 rounded-md bg-amber-500/10 border border-amber-500/20" data-testid="lifecycle-gdpr-notice">
+                                      <Shield className="w-4 h-4 text-amber-500 shrink-0" />
+                                      <span className="text-[11px] text-amber-400">Marketingové súhlasy: automaticky zrušené</span>
+                                    </div>
+                                    <div className="flex items-center gap-2 p-2 rounded-md bg-emerald-500/10 border border-emerald-500/20" data-testid="lifecycle-contracts-notice">
+                                      <CreditCard className="w-4 h-4 text-emerald-500 shrink-0" />
+                                      <span className="text-[11px] text-emerald-400">Zmluvy: vytváranie nových zmlúv povolené (PZP, dedičské konania)</span>
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+                            </CardContent>
+                          )}
+                        </Card>
                       )}
                     </AccordionContent>
                   </AccordionItem>

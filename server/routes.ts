@@ -6195,6 +6195,7 @@ export async function registerRoutes(
     "firstName", "lastName", "companyName", "email", "phone",
     "birthNumber", "idCardNumber", "iban", "swift",
     "continentId", "stateId", "myCompanyId", "type",
+    "lifecycleStatus", "deathDate", "deathCertificateNumber", "isDeceased",
   ]);
 
   app.patch("/api/subjects/:id", isAuthenticated, async (req: any, res) => {
@@ -6234,6 +6235,32 @@ export async function registerRoutes(
       const appUser = req.appUser;
       const userName = appUser ? [appUser.firstName, appUser.lastName].filter(Boolean).join(' ') || appUser.email || 'Neznámy' : undefined;
       const userId = appUser?.id;
+
+      if (updates.lifecycleStatus === "in_memoriam" && existing.lifecycleStatus !== "in_memoriam") {
+        updates.isDeceased = true;
+        updates.isActive = false;
+        try {
+          await db.update(clientMarketingConsents)
+            .set({ isGranted: false, revokedAt: new Date(), note: "Automaticky zrušené - In Memoriam" })
+            .where(and(
+              eq(clientMarketingConsents.subjectId, subjectId),
+              eq(clientMarketingConsents.isGranted, true)
+            ));
+        } catch (e) {}
+        const existDet = (updates.details || existing.details || {}) as Record<string, any>;
+        const existDyn = existDet.dynamicFields || {};
+        updates.details = {
+          ...existDet,
+          dynamicFields: {
+            ...existDyn,
+            pravna_sposobilost: "Nie",
+          },
+        };
+      }
+
+      if (updates.lifecycleStatus === "active" && existing.lifecycleStatus === "in_memoriam") {
+        updates.isDeceased = false;
+      }
 
       const updated = await storage.updateSubject(subjectId, updates, userId, userName, changeContext);
       await logAudit(req, {
