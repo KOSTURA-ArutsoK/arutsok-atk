@@ -19,6 +19,10 @@ import { Switch } from "@/components/ui/switch";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Card, CardContent } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
+import {
+  AlertDialog, AlertDialogAction, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { MultiSelectCheckboxes } from "@/components/multi-select-checkboxes";
 import { cn } from "@/lib/utils";
 import {
@@ -26,7 +30,7 @@ import {
   ShieldCheck, ListPlus, Eye, ArrowUp, ArrowDown, Settings2, MoreHorizontal,
   Check, User, Phone, Star, Brain, Zap, Link2, Archive, CreditCard, Users,
   ChevronDown, ChevronRight, GripVertical, FolderOpen, ArrowRightLeft,
-  AlertTriangle, Plus, Tag,
+  AlertTriangle, Plus, Tag, TrendingUp, TrendingDown,
 } from "lucide-react";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import {
@@ -76,6 +80,30 @@ export function SubjectTagBadges({ tags }: { tags: string[] }) {
           </span>
         );
       })}
+    </span>
+  );
+}
+
+export function CgnIndicator({ isCgnActive, size = "sm" }: { isCgnActive: boolean; size?: "sm" | "md" }) {
+  const iconSize = size === "sm" ? "w-3.5 h-3.5" : "w-4 h-4";
+  if (isCgnActive) {
+    return (
+      <span
+        className="inline-flex items-center gap-0.5 cursor-help"
+        title="Vyžaduje zvýšenú ostražitosť (CGN)"
+        data-testid="cgn-indicator-active"
+      >
+        <TrendingDown className={cn(iconSize, "text-red-500 animate-pulse drop-shadow-[0_0_4px_rgba(239,68,68,0.6)]")} />
+      </span>
+    );
+  }
+  return (
+    <span
+      className="inline-flex items-center gap-0.5 cursor-help"
+      title="Stabilný profil"
+      data-testid="cgn-indicator-stable"
+    >
+      <TrendingUp className={cn(iconSize, "text-emerald-500")} />
     </span>
   );
 }
@@ -619,6 +647,39 @@ export function SubjectProfileModuleC({ subject }: ModuleCProps) {
     tagsMutation.mutate(subjectTags.filter(t => t !== tag));
   };
 
+  const isCgnActive = useMemo(() => {
+    const det = (subject.details || {}) as Record<string, any>;
+    return det.cgnActive === true;
+  }, [subject.details]);
+
+  const [showCgnAlert, setShowCgnAlert] = useState(false);
+
+  useEffect(() => {
+    if (!isCgnActive || subject.id <= 0) return;
+    const storageKey = `cgn_alert_${subject.id}`;
+    const today = new Date().toISOString().slice(0, 10);
+    const lastShown = localStorage.getItem(storageKey);
+    if (lastShown !== today) {
+      setShowCgnAlert(true);
+      localStorage.setItem(storageKey, today);
+    }
+  }, [isCgnActive, subject.id]);
+
+  const cgnMutation = useMutation({
+    mutationFn: async (active: boolean) => {
+      const existingDetails = (subject.details || {}) as Record<string, any>;
+      return apiRequest("PATCH", `/api/subjects/${subject.id}`, {
+        details: { ...existingDetails, cgnActive: active },
+        changeReason: active ? "Aktivácia režimu CGN" : "Deaktivácia režimu CGN",
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/subjects"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/subjects", subject.id] });
+      toast({ title: isCgnActive ? "CGN režim deaktivovaný" : "CGN režim aktivovaný" });
+    },
+  });
+
   const [activeDragId, setActiveDragId] = useState<string | null>(null);
 
   const dndSensors = useSensors(
@@ -939,7 +1000,8 @@ export function SubjectProfileModuleC({ subject }: ModuleCProps) {
               const displayName = [subject.firstName, subject.lastName].filter(Boolean).join(" ") || subject.companyName || "";
               return (
                 <div className="flex items-center gap-2 flex-wrap" data-testid="profile-name-bar">
-                  <span className="text-lg font-bold" data-testid="text-subject-name">{displayName}</span>
+                  <CgnIndicator isCgnActive={isCgnActive} size="md" />
+                  <span className={cn("text-lg font-bold", isCgnActive && "text-orange-400")} data-testid="text-subject-name">{displayName}</span>
                   {alert.hasAlert && (
                     <span
                       className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-red-500/15 border border-red-500/30 cursor-help"
@@ -951,6 +1013,22 @@ export function SubjectProfileModuleC({ subject }: ModuleCProps) {
                     </span>
                   )}
                   <SubjectTagBadges tags={subjectTags} />
+                  {isArchitectMode && (
+                    <button
+                      onClick={() => cgnMutation.mutate(!isCgnActive)}
+                      className={cn(
+                        "inline-flex items-center gap-1 px-2 py-0.5 rounded-full border text-[10px] font-semibold transition-colors",
+                        isCgnActive
+                          ? "bg-red-500/15 border-red-500/30 text-red-400 hover:bg-red-500/25"
+                          : "bg-muted/40 border-border/40 text-muted-foreground hover:bg-muted/60"
+                      )}
+                      title={isCgnActive ? "Deaktivovať režim CGN" : "Aktivovať režim CGN – Celkom Garantovať Nemožno"}
+                      data-testid="btn-toggle-cgn"
+                    >
+                      {isCgnActive ? <TrendingDown className="w-3 h-3" /> : <TrendingUp className="w-3 h-3" />}
+                      CGN
+                    </button>
+                  )}
                 </div>
               );
             })()}
@@ -1493,6 +1571,26 @@ export function SubjectProfileModuleC({ subject }: ModuleCProps) {
           </Card>
         </div>
       )}
+
+      <AlertDialog open={showCgnAlert} onOpenChange={setShowCgnAlert}>
+        <AlertDialogContent className="border-orange-500/30 bg-card">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2 text-orange-400">
+              <TrendingDown className="w-5 h-5 text-red-500 animate-pulse" />
+              Upozornenie: Režim zvýšenej kontroly (CGN)
+            </AlertDialogTitle>
+            <AlertDialogDescription className="text-sm">
+              Subjekt je v režime zvýšenej kontroly (CGN – Celkom Garantovať Nemožno).
+              Overte aktuálnosť údajov a platobnú disciplínu pred akoukoľvek akciou.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogAction onClick={() => setShowCgnAlert(false)} data-testid="btn-cgn-alert-ok">
+              Rozumiem
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

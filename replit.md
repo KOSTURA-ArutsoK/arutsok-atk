@@ -45,6 +45,7 @@ The system utilizes a modern full-stack architecture with a focus on data integr
 - **PO Structure (Company Subject Roles)**: Defines a deep role hierarchy for companies (`Štatutár`, `UBO`, `Zamestnanec`, `Operátor`) with section-level access control.
 - **Bulk Notification Queue**: Async batch processing for notifications with real-time progress tracking and a dedicated UI for batch actions.
 - **Behavioral Profile & Smart Tags**: Panel "Behaviorálny & Zdravotný kódex" under OSOBNÉ with communication type, specific needs (multi-select), and access notes. Tag system stored in `subjects.details.tags` (JSONB array) with preset colored tags (VIP, Vozičkár, Pozor, Problémový, Neaktívny, Prioritný) + custom tags. Red behavior alert (POZOR) appears at subject name when communication is "Agresívna" or access note is filled. Tags and alerts visible in both Profile (C) and Subjects list. `SubjectTagBadges` component exported for reuse.
+- **CGN Module (Interná Segmentácia)**: Risk segmentation via `subjects.details.cgnActive` (boolean). Visual indicators: 📈 (TrendingUp, green) for stable profiles, 📉 (TrendingDown, red pulsing) for CGN-flagged subjects. High-Alert Mode: orange subject name, daily warning dialog on first CGN subject access, CGN toggle in Architect mode. Subjects list has CGN column with filter button. `CgnIndicator` component exported for reuse.
 
 ## External Dependencies
 - **Replit OIDC Auth**: Authentication.

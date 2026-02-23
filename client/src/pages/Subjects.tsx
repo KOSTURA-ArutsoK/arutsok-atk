@@ -8,9 +8,9 @@ import { apiRequest, queryClient } from "@/lib/queryClient";
 import { formatDateSlovak, formatDateTimeSlovak } from "@/lib/utils";
 import { getDocumentValidityStatus, isValidityField, isNumberFieldWithExpiredPair, type ValidityResult } from "@/lib/document-validity";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, Search, User, Building2, AlertTriangle, Eye, Calendar, Briefcase, ArrowRight, ArrowLeft, ExternalLink, History, Clock, Wallet, Loader2, CheckCircle2, Pencil, Lock, Users, X, Info, Link2, Unlink, Trash2, CreditCard, Archive, Ban, Boxes, Car, Home, Landmark, ChevronRight, ChevronDown, FolderOpen, Tag, Hash, Package, FileText as FileTextIcon, SquareIcon } from "lucide-react";
+import { Plus, Search, User, Building2, AlertTriangle, Eye, Calendar, Briefcase, ArrowRight, ArrowLeft, ExternalLink, History, Clock, Wallet, Loader2, CheckCircle2, Pencil, Lock, Users, X, Info, Link2, Unlink, Trash2, CreditCard, Archive, Ban, Boxes, Car, Home, Landmark, ChevronRight, ChevronDown, FolderOpen, Tag, Hash, Package, FileText as FileTextIcon, SquareIcon, TrendingDown } from "lucide-react";
 import { SubjectPhotoThumbnail } from "@/components/subject-profile-photo";
-import { SubjectTagBadges } from "@/components/subject-profile-module-c";
+import { SubjectTagBadges, CgnIndicator } from "@/components/subject-profile-module-c";
 import { ActivityTimeline } from "@/components/activity-timeline";
 import { FieldHistoryIndicator } from "@/components/field-history-indicator";
 import { Input } from "@/components/ui/input";
@@ -3748,6 +3748,7 @@ const FILTER_ORDER: SubjectStatusCategory[] = ["other_company", "deceased", "no_
 const SUBJECTS_COLUMNS: ColumnDef[] = [
   { key: "uid", label: "UID" },
   { key: "status", label: "Status" },
+  { key: "cgn", label: "CGN" },
   { key: "titul", label: "Titul" },
   { key: "firstName", label: "Cele meno / Nazov" },
   { key: "ulica", label: "Ulica" },
@@ -3780,6 +3781,7 @@ export default function Subjects() {
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
   const [bulkAssignOpen, setBulkAssignOpen] = useState(false);
   const [activeFilters, setActiveFilters] = useState<Set<SubjectStatusCategory>>(new Set());
+  const [cgnFilterActive, setCgnFilterActive] = useState(false);
   const { data: appUser } = useAppUser();
   const activeCompanyId = appUser?.activeCompanyId ?? undefined;
 
@@ -3789,7 +3791,14 @@ export default function Subjects() {
     activeCompanyId,
   });
   const tableFilter = useSmartFilter(subjects || [], SUBJECTS_FILTER_COLUMNS, "subjects");
-  const { sortedData, sortKey, sortDirection, requestSort } = useTableSort(tableFilter.filteredData);
+  const cgnFiltered = useMemo(() => {
+    if (!cgnFilterActive) return tableFilter.filteredData;
+    return tableFilter.filteredData.filter((s: any) => {
+      const det = (s.details || {}) as Record<string, any>;
+      return det.cgnActive === true;
+    });
+  }, [tableFilter.filteredData, cgnFilterActive]);
+  const { sortedData, sortKey, sortDirection, requestSort } = useTableSort(cgnFiltered);
   const { data: companies } = useMyCompanies();
   const { data: clientTypes } = useQuery<ClientType[]>({ queryKey: ["/api/client-types"] });
   const { data: clientGroups } = useQuery<any[]>({ queryKey: ["/api/client-groups"] });
@@ -3895,6 +3904,22 @@ export default function Subjects() {
                   </button>
                 );
               })}
+              <button
+                type="button"
+                onClick={() => setCgnFilterActive(!cgnFilterActive)}
+                aria-pressed={cgnFilterActive}
+                className={`
+                  flex items-center gap-2 px-3 py-1.5 rounded-md border-2 text-xs font-medium transition-all duration-200 cursor-pointer select-none
+                  ${cgnFilterActive
+                    ? "border-red-500/50 bg-red-500/10 shadow-[0_0_8px_rgba(239,68,68,0.2)] shadow-md"
+                    : "border-border/40 bg-muted/30 opacity-60 hover:opacity-80"
+                  }
+                `}
+                data-testid="button-filter-cgn"
+              >
+                <TrendingDown className="w-3.5 h-3.5 text-red-500" />
+                <span>CGN</span>
+              </button>
             </div>
             <div className="relative w-full sm:w-64 shrink-0">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
@@ -3942,6 +3967,7 @@ export default function Subjects() {
                     </TableHead>
                     {columnVisibility.isVisible("uid") && <TableHead sortKey="uid" sortDirection={sortKey === "uid" ? sortDirection : null} onSort={requestSort}>UID</TableHead>}
                     {columnVisibility.isVisible("status") && <TableHead style={{ maxWidth: '150px' }}>Status</TableHead>}
+                    {columnVisibility.isVisible("cgn") && <TableHead className="w-10 text-center">CGN</TableHead>}
                     {columnVisibility.isVisible("titul") && <TableHead>Titul</TableHead>}
                     {columnVisibility.isVisible("firstName") && <TableHead sortKey="firstName" sortDirection={sortKey === "firstName" ? sortDirection : null} onSort={requestSort}>Cele meno / Nazov</TableHead>}
                     {columnVisibility.isVisible("ulica") && <TableHead>Ulica</TableHead>}
@@ -4017,6 +4043,9 @@ export default function Subjects() {
                               </span>
                             );
                           })()}
+                        </TableCell>}
+                        {columnVisibility.isVisible("cgn") && <TableCell className="text-center align-middle" data-testid={`cgn-cell-${subject.id}`}>
+                          <CgnIndicator isCgnActive={details.cgnActive === true} />
                         </TableCell>}
                         {columnVisibility.isVisible("titul") && <TableCell className="text-xs text-muted-foreground align-middle" data-testid={`text-titul-${subject.id}`}>{titulCompact}</TableCell>}
                         {columnVisibility.isVisible("firstName") && <TableCell className="font-medium align-middle" data-testid={`text-fullname-${subject.id}`}>
