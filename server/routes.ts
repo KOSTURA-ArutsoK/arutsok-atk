@@ -8382,6 +8382,54 @@ export async function registerRoutes(
     }
   });
 
+  app.post("/api/admin/cleanup-orphan-panels", isAuthenticated, async (_req, res) => {
+    try {
+      const allSections = await db.execute(sql`SELECT id, name, folder_category, is_panel, parent_section_id FROM subject_param_sections`);
+      const rows = allSections.rows as any[];
+      const sectionMap = new Map(rows.map(r => [r.id, r]));
+      let fixed = 0;
+      let deleted = 0;
+
+      for (const row of rows) {
+        if (row.is_panel && row.parent_section_id) {
+          const parent = sectionMap.get(row.parent_section_id);
+          if (parent && row.folder_category !== parent.folder_category) {
+            await db.execute(sql`UPDATE subject_param_sections SET folder_category = ${parent.folder_category} WHERE id = ${row.id}`);
+            fixed++;
+          }
+        }
+        if (row.is_panel && !row.parent_section_id) {
+          const paramCount = await db.execute(sql`SELECT COUNT(*) as cnt FROM subject_parameters WHERE panel_id = ${row.id}`);
+          const cnt = Number((paramCount.rows[0] as any)?.cnt || 0);
+          if (cnt === 0) {
+            await db.execute(sql`DELETE FROM subject_param_sections WHERE id = ${row.id}`);
+            deleted++;
+          }
+        }
+      }
+
+      const orphanParams = await db.execute(sql`
+        UPDATE subject_parameters sp
+        SET field_category = sps.folder_category
+        FROM subject_param_sections sps
+        WHERE sp.panel_id = sps.id
+          AND sps.folder_category IS NOT NULL
+          AND sp.field_category <> sps.folder_category
+      `);
+      const paramFixed = (orphanParams as any).rowCount || 0;
+
+      res.json({
+        message: "Upratovanie dokončené",
+        panelCategoryFixed: fixed,
+        orphanPanelsDeleted: deleted,
+        paramCategoryFixed: paramFixed,
+      });
+    } catch (err: any) {
+      console.error("[CLEANUP ERROR]", err);
+      res.status(500).json({ message: err?.message || "Internal error" });
+    }
+  });
+
   app.get("/api/document-validity/statuses", isAuthenticated, async (_req, res) => {
     try {
       const statuses = await db.execute(sql`

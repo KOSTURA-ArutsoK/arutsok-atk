@@ -395,6 +395,21 @@ export default function KniznicaParametrov() {
     },
   });
 
+  const cleanupMutation = useMutation({
+    mutationFn: async () => {
+      const res = await apiRequest("POST", "/api/admin/cleanup-orphan-panels");
+      return res.json();
+    },
+    onSuccess: (data: any) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/subject-param-sections"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/subject-parameters"] });
+      toast({ title: `Upratovanie: ${data.panelCategoryFixed} kategórií opravených, ${data.orphanPanelsDeleted} sirôt zmazaných, ${data.paramCategoryFixed} parametrov opravených` });
+    },
+    onError: () => {
+      toast({ title: "Chyba pri upratovaní", variant: "destructive" });
+    },
+  });
+
   const unknownDeleteMutation = useMutation({
     mutationFn: async (id: number) => {
       await apiRequest("DELETE", `/api/unknown-extracted-fields/${id}`);
@@ -722,6 +737,16 @@ export default function KniznicaParametrov() {
               <Plus className="w-4 h-4 mr-1" />
               Nová sekcia/panel
             </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => cleanupMutation.mutate()}
+              disabled={cleanupMutation.isPending}
+              data-testid="button-cleanup"
+            >
+              {cleanupMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin mr-1" /> : <Wand2 className="w-4 h-4 mr-1" />}
+              Upratať hierarchiu
+            </Button>
           </div>
 
           {isLoading ? (
@@ -748,6 +773,9 @@ export default function KniznicaParametrov() {
                         <CardTitle className="text-sm font-semibold">{folder.name}</CardTitle>
                         <Badge variant="outline" className="text-[10px]">
                           {CLIENT_TYPE_MAP[folder.clientTypeId] || `Typ ${folder.clientTypeId}`}
+                        </Badge>
+                        <Badge className="text-[10px] bg-blue-500/20 text-blue-400 border-blue-500/30" variant="outline">
+                          {folder.folderCategory || "—"}
                         </Badge>
                         <Badge variant="secondary" className="text-[10px]">
                           {childPanels.length} panelov
@@ -804,12 +832,14 @@ export default function KniznicaParametrov() {
                     </CardHeader>
                     {isExpanded && (
                       <CardContent className="pt-0 pb-3 px-4">
-                        <div className="space-y-2 ml-6">
+                        <div className="space-y-2 ml-6 border-l-2 border-blue-500/20 pl-3">
                           {childPanels.map(panel => {
                             const panelParams = parameters.filter(p => p.panelId === panel.id);
+                            const categoryMismatch = panel.folderCategory && panel.folderCategory !== folder.folderCategory;
                             return (
-                              <div key={panel.id} className="border rounded p-3" data-testid={`panel-${panel.id}`}>
+                              <div key={panel.id} className={`border rounded p-3 ${categoryMismatch ? "border-amber-500/40 bg-amber-500/5" : ""}`} data-testid={`panel-${panel.id}`}>
                                 <div className="flex items-center gap-2 mb-2">
+                                  <span className="text-muted-foreground text-xs">└</span>
                                   <Layers className="w-3.5 h-3.5 text-muted-foreground" />
                                   <span className="text-sm font-medium">{panel.name}</span>
                                   <Badge variant="outline" className="text-[10px]">
@@ -818,6 +848,11 @@ export default function KniznicaParametrov() {
                                   <span className="text-[10px] text-muted-foreground">
                                     Grid: {panel.gridColumns} stĺpce
                                   </span>
+                                  {categoryMismatch && (
+                                    <Badge className="text-[9px] bg-amber-500/20 text-amber-500 border-amber-500/30" variant="outline">
+                                      ⚠ {panel.folderCategory} ≠ {folder.folderCategory}
+                                    </Badge>
+                                  )}
                                   <div className="ml-auto flex items-center gap-1">
                                     <Button
                                       variant="ghost"
@@ -1676,14 +1711,21 @@ function ParameterDialog({
   };
 
   const filteredSections = sections.filter(s => s.clientTypeId === Number(clientTypeId) && !s.isPanel);
-  const filteredPanels = sections.filter(s => s.clientTypeId === Number(clientTypeId) && s.isPanel);
+  const filteredPanels = sections.filter(s => s.clientTypeId === Number(clientTypeId) && s.isPanel && (!sectionId || s.parentSectionId === Number(sectionId)));
+  const allPanelsForType = sections.filter(s => s.clientTypeId === Number(clientTypeId) && s.isPanel);
+  const selectedPanel = panelId ? allPanelsForType.find(p => p.id === Number(panelId)) : null;
+  const panelParentSection = selectedPanel ? filteredSections.find(s => s.id === selectedPanel.parentSectionId) : null;
+  const resolvedFieldCategory = panelParentSection?.folderCategory || (sectionId ? filteredSections.find(s => s.id === Number(sectionId))?.folderCategory : null) || "povinne";
+  const paramMissingPanel = !panelId || panelId === "none";
 
   const handleSubmit = () => {
     if (!label) return;
+    if (paramMissingPanel) return;
     if (duplicateWarning && !duplicateAcknowledged) return;
     if (transactionalWarning && !transactionalAcknowledged) {
       setParameterScope("contract");
     }
+    const resolvedSectionId = selectedPanel?.parentSectionId || (sectionId ? Number(sectionId) : null);
     const data: any = {
       label,
       shortLabel: shortLabel || null,
@@ -1693,8 +1735,8 @@ function ParameterDialog({
       isObjectKey,
       parameterScope,
       clientTypeId: Number(clientTypeId),
-      sectionId: sectionId ? Number(sectionId) : null,
-      panelId: panelId ? Number(panelId) : null,
+      sectionId: resolvedSectionId,
+      panelId: Number(panelId),
       sortOrder: Number(sortOrder),
       rowNumber: Number(rowNumber),
       widthPercent: Number(widthPercent),
@@ -1702,7 +1744,7 @@ function ParameterDialog({
       unit: unit || null,
       decimalPlaces: Number(decimalPlaces),
       isHidden: false,
-      fieldCategory: "povinne",
+      fieldCategory: resolvedFieldCategory,
       defaultValue: null,
       visibilityRule: null,
       categoryCode: null,
@@ -1778,18 +1820,35 @@ function ParameterDialog({
             </Select>
           </div>
           <div className="space-y-1.5">
-            <Label>Panel</Label>
+            <Label>Panel *</Label>
             <Select value={panelId} onValueChange={setPanelId}>
-              <SelectTrigger data-testid="select-panel">
+              <SelectTrigger data-testid="select-panel" className={paramMissingPanel ? "border-red-500" : ""}>
                 <SelectValue placeholder="Vybrať panel" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="none">Žiadny</SelectItem>
-                {filteredPanels.map(s => (
-                  <SelectItem key={s.id} value={String(s.id)}>{s.name}</SelectItem>
-                ))}
+                {filteredPanels.map(s => {
+                  const parentSec = filteredSections.find(sec => sec.id === s.parentSectionId);
+                  return (
+                    <SelectItem key={s.id} value={String(s.id)}>
+                      {parentSec ? `${parentSec.name} → ` : ""}{s.name}
+                    </SelectItem>
+                  );
+                })}
+                {filteredPanels.length === 0 && (
+                  <SelectItem value="__empty" disabled>Žiadne panely{sectionId ? " v tejto sekcii" : ""}</SelectItem>
+                )}
               </SelectContent>
             </Select>
+            {paramMissingPanel && (
+              <p className="text-xs text-red-500 flex items-center gap-1" data-testid="error-missing-panel">
+                <AlertTriangle className="w-3 h-3" /> Parameter musí patriť do panelu
+              </p>
+            )}
+            {selectedPanel && (
+              <p className="text-xs text-muted-foreground" data-testid="param-category-info">
+                Kategória: <strong>{resolvedFieldCategory}</strong> (zdedená z nadradenej sekcie)
+              </p>
+            )}
           </div>
           <div className="flex items-center gap-3 pt-5">
             <Switch
@@ -2012,7 +2071,7 @@ function ParameterDialog({
           </Button>
           <Button
             onClick={handleSubmit}
-            disabled={isPending || !label || (duplicateWarning !== null && !duplicateAcknowledged) || (transactionalWarning && !transactionalAcknowledged)}
+            disabled={isPending || !label || paramMissingPanel || (duplicateWarning !== null && !duplicateAcknowledged) || (transactionalWarning && !transactionalAcknowledged)}
             data-testid="button-save-param"
           >
             {isPending ? <Loader2 className="w-4 h-4 animate-spin mr-1" /> : null}
@@ -2080,12 +2139,18 @@ function SectionDialog({
 
   const folderSections = sections.filter(s => !s.isPanel && s.clientTypeId === Number(clientTypeId));
 
+  const parentSection = parentSectionId ? folderSections.find(s => s.id === Number(parentSectionId)) : null;
+  const inheritedCategory = isPanel && parentSection ? parentSection.folderCategory : null;
+  const panelMissingParent = isPanel && !parentSectionId;
+
   const handleSubmit = () => {
     if (!name) return;
+    if (isPanel && !parentSectionId) return;
+    const resolvedCategory = isPanel ? (inheritedCategory || "povinne") : folderCategory;
     const data: any = {
       name,
       clientTypeId: Number(clientTypeId),
-      folderCategory: isPanel ? undefined : folderCategory,
+      folderCategory: resolvedCategory,
       isPanel,
       parentSectionId: isPanel && parentSectionId ? Number(parentSectionId) : null,
       sortOrder: Number(sortOrder),
@@ -2123,6 +2188,10 @@ function SectionDialog({
             <Label>Poradie</Label>
             <Input type="number" value={sortOrder} onChange={e => setSortOrder(e.target.value)} data-testid="input-section-sort" />
           </div>
+          <div className="col-span-2 flex items-center gap-2">
+            <Switch checked={isPanel} onCheckedChange={setIsPanel} data-testid="switch-is-panel" />
+            <Label>Je panel (vnorený v sekcii)</Label>
+          </div>
           {!isPanel && (
             <div className="col-span-2 space-y-1.5">
               <Label>Priečinková kategória (Accordion v profile)</Label>
@@ -2140,21 +2209,29 @@ function SectionDialog({
               </Select>
             </div>
           )}
-          <div className="col-span-2 flex items-center gap-2">
-            <Switch checked={isPanel} onCheckedChange={setIsPanel} data-testid="switch-is-panel" />
-            <Label>Je panel (vnorený v sekcii)</Label>
-          </div>
           {isPanel && (
             <div className="col-span-2 space-y-1.5">
-              <Label>Nadradená sekcia</Label>
+              <Label>Nadradená sekcia *</Label>
               <Select value={parentSectionId} onValueChange={setParentSectionId}>
-                <SelectTrigger data-testid="select-parent-section"><SelectValue placeholder="Vybrať..." /></SelectTrigger>
+                <SelectTrigger data-testid="select-parent-section" className={panelMissingParent ? "border-red-500" : ""}>
+                  <SelectValue placeholder="Vybrať sekciu..." />
+                </SelectTrigger>
                 <SelectContent>
                   {folderSections.map(s => (
-                    <SelectItem key={s.id} value={String(s.id)}>{s.name}</SelectItem>
+                    <SelectItem key={s.id} value={String(s.id)}>{s.name} ({s.folderCategory})</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
+              {panelMissingParent && (
+                <p className="text-xs text-red-500 flex items-center gap-1" data-testid="error-missing-parent">
+                  <AlertTriangle className="w-3 h-3" /> Panel musí patriť do sekcie
+                </p>
+              )}
+              {inheritedCategory && (
+                <p className="text-xs text-muted-foreground" data-testid="inherited-category-info">
+                  Kategória automaticky zdedená: <strong>{inheritedCategory}</strong>
+                </p>
+              )}
             </div>
           )}
           <div className="space-y-1.5">
@@ -2168,7 +2245,7 @@ function SectionDialog({
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)} data-testid="button-cancel-section">Zrušiť</Button>
-          <Button onClick={handleSubmit} disabled={isPending || !name} data-testid="button-save-section">
+          <Button onClick={handleSubmit} disabled={isPending || !name || panelMissingParent} data-testid="button-save-section">
             {isPending ? <Loader2 className="w-4 h-4 animate-spin mr-1" /> : null}
             {editSection ? "Uložiť zmeny" : "Vytvoriť"}
           </Button>
