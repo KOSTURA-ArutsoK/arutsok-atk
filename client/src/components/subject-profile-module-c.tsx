@@ -1177,7 +1177,7 @@ export function SubjectProfileModuleC({ subject }: ModuleCProps) {
         <div className="flex items-center justify-between gap-2 flex-wrap">
           <div className="flex items-center gap-2 flex-wrap">
             <Shield className="w-5 h-5 text-primary" />
-            <h2 className="text-base font-semibold">Profil subjektu</h2>
+            <h2 className="text-base font-semibold">Profil subjektu<sup className="text-[9px] text-primary/70 font-medium ml-0.5">(C)</sup></h2>
             <Button
               size="sm"
               variant={isArchitectMode ? "default" : "ghost"}

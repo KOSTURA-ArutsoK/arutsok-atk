@@ -98,8 +98,8 @@ const partneriProduktyItems = [
   { href: "/partner-contacts", icon: Contact, label: "Kontaktne osoby" },
 ];
 
-const klientiItems = [
-  { href: "/subjects", icon: Users, label: "Zoznam klientov" },
+const klientiItems: { href: string; icon: React.ElementType; label: string; moduleBadge?: string }[] = [
+  { href: "/subjects", icon: Users, label: "Zoznam klientov", moduleBadge: "B" },
   { href: "/client-groups", icon: UsersRound, label: "Skupiny klientov" },
 ];
 
@@ -169,7 +169,7 @@ function CollapsibleMenu({
 }: {
   label: string;
   icon: React.ElementType;
-  items: { href: string; icon: React.ElementType; label: string }[];
+  items: { href: string; icon: React.ElementType; label: string; moduleBadge?: string }[];
   location: string;
   testId: string;
   menuId: string;
@@ -219,6 +219,9 @@ function CollapsibleMenu({
                   <Link href={item.href}>
                     <item.icon className="w-3.5 h-3.5" />
                     <span>{item.label}</span>
+                    {item.moduleBadge && (
+                      <sup className="text-[9px] text-primary/70 font-medium ml-0.5 -mt-1">({item.moduleBadge})</sup>
+                    )}
                   </Link>
                 </SidebarMenuSubButton>
               </SidebarMenuSubItem>
@@ -415,8 +418,8 @@ export function AppSidebar() {
                 icon={LayoutGrid}
                 items={[
                   { href: "/sektory-subjektov", icon: Database, label: "Sektory Subjektov" },
-                  { href: "/sektory-zmluv", icon: FileText, label: "Sektory Zmlúv" },
-                  { href: "/profil-subjektu", icon: Users, label: "Profil subjektu" },
+                  { href: "/sektory-zmluv", icon: FileText, label: "Sektory Zmlúv", moduleBadge: "A" },
+                  { href: "/profil-subjektu", icon: Users, label: "Profil subjektu", moduleBadge: "C" },
                 ]}
                 location={location}
                 testId="nav-sektory"
