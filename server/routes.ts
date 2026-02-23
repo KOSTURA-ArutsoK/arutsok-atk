@@ -4,7 +4,7 @@ import { storage } from "./storage";
 import { api } from "@shared/routes";
 import { setupAuth, registerAuthRoutes, isAuthenticated } from "./replit_integrations/auth";
 import { z } from "zod";
-import { continents, states, myCompanies, appUsers, clientTypes, clientSubGroups, clientGroupMembers, productFolderAssignments, folderPanels, panelParameters, userClientGroupMemberships, clientGroups, permissionGroups, insertCareerLevelSchema, insertProductPointRateSchema, careerLevels, importLogs, commissions, contracts, contractStatuses, contractStatusChangeLogs, clientDataTabs, clientDataCategories, subjects, subjectPointsLog, subjectFieldHistory, subjectCollaborators, clientMarketingConsents, clientDocumentHistory, contractAcquirers, contractPasswords, contractRewardDistributions, contractParameterValues, subjectArchive, auditLogs, globalCounters, subjectPhotos, activityEvents, subjectParamSections, subjectParameters, subjectTemplates, subjectTemplateParams, commissionCalculationLogs, parameterSynonyms, dataConflictAlerts, transactionDedupLog, relationRoleTypes, subjectRelations, maturityAlerts, inheritancePrompts, guardianshipArchive, households, householdMembers, householdAssets, privacyBlocks, accessConsentLog, maturityEvents, addressGroups, addressGroupMembers, companySubjectRoles, notificationQueue, batchJobs, subjectObjects, objectDataSources, sectors, sections, sectorProducts, parameters, panels, productPanels, contractFolders, fieldLayoutConfigs, sectorCategoryMapping, suggestedRelations } from "@shared/schema";
+import { continents, states, myCompanies, appUsers, clientTypes, clientSubGroups, clientGroupMembers, productFolderAssignments, folderPanels, panelParameters, userClientGroupMemberships, clientGroups, permissionGroups, insertCareerLevelSchema, insertProductPointRateSchema, careerLevels, importLogs, commissions, contracts, contractStatuses, contractStatusChangeLogs, clientDataTabs, clientDataCategories, subjects, subjectPointsLog, subjectFieldHistory, subjectCollaborators, clientMarketingConsents, clientDocumentHistory, contractAcquirers, contractPasswords, contractRewardDistributions, contractParameterValues, subjectArchive, auditLogs, globalCounters, subjectPhotos, activityEvents, subjectParamSections, subjectParameters, subjectTemplates, subjectTemplateParams, commissionCalculationLogs, parameterSynonyms, dataConflictAlerts, transactionDedupLog, relationRoleTypes, subjectRelations, maturityAlerts, inheritancePrompts, guardianshipArchive, households, householdMembers, householdAssets, privacyBlocks, accessConsentLog, maturityEvents, addressGroups, addressGroupMembers, companySubjectRoles, notificationQueue, batchJobs, subjectObjects, objectDataSources, sectors, sections, sectorProducts, parameters, panels, productPanels, contractFolders, fieldLayoutConfigs, sectorCategoryMapping, suggestedRelations, statusEvidence } from "@shared/schema";
 import { seedSubjectParameters } from "./seed-subject-params";
 import sharp from "sharp";
 import { db } from "./db";
@@ -6262,7 +6262,91 @@ export async function registerRoutes(
         updates.isDeceased = false;
       }
 
+      // === DÔKAZNÝ MATERIÁL: Auto-generate evidence for zaniknutá/v_likvidácii (PO/SZČO only) ===
+      const isCompanyType = existing.type === "company" || existing.type === "szco";
+      const isTerminationStatus = updates.lifecycleStatus === "zaniknuta" || updates.lifecycleStatus === "v_likvidacii";
+      const statusChanged = updates.lifecycleStatus && updates.lifecycleStatus !== existing.lifecycleStatus;
+      let evidenceCreated: any = null;
+
+      if (isCompanyType && isTerminationStatus && statusChanged) {
+        updates.isActive = false;
+        const registryType: "orsr" | "zrsr" = existing.type === "company" ? "orsr" : "zrsr";
+        const registryName = registryType === "orsr" ? "Obchodný register SR (ORSR)" : "Živnostenský register SR (ŽRSR)";
+        const evidenceChangeReason = `Status overený z ${registryName}. Zmenu statusu overil a zdokumentoval: ArutsoK`;
+        if (!updates.changeReason) updates.changeReason = evidenceChangeReason;
+      }
+
       const updated = await storage.updateSubject(subjectId, updates, userId, userName, changeContext);
+
+      // Create evidence record AFTER the update (to link to field history)
+      if (isCompanyType && isTerminationStatus && statusChanged) {
+        try {
+          const registryType: "orsr" | "zrsr" = existing.type === "company" ? "orsr" : "zrsr";
+          const registryName = registryType === "orsr" ? "Obchodný register SR (ORSR)" : "Živnostenský register SR (ŽRSR)";
+          const registryUrl = registryType === "orsr" ? "https://www.orsr.sk" : "https://www.zrsr.sk";
+          const statusLabel = updates.lifecycleStatus === "zaniknuta" ? "Zaniknutá" : "V likvidácii";
+          const subjectName = existing.companyName || [existing.firstName, existing.lastName].filter(Boolean).join(" ") || "Neznámy subjekt";
+          const captureTime = new Date().toISOString();
+
+          // Find the field history entry for this change
+          const [historyEntry] = await db.select()
+            .from(subjectFieldHistory)
+            .where(and(
+              eq(subjectFieldHistory.subjectId, subjectId),
+              eq(subjectFieldHistory.fieldKey, "lifecycle_status")
+            ))
+            .orderBy(desc(subjectFieldHistory.changedAt))
+            .limit(1);
+
+          const evidenceHtml = `
+<div style="font-family: 'Segoe UI', sans-serif; background: #0a0e17; color: #e0e0e0; padding: 32px; border: 2px solid #374151; border-radius: 8px; max-width: 720px;">
+  <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; padding-bottom: 16px; border-bottom: 1px solid #374151;">
+    <div>
+      <h2 style="margin: 0; color: #f59e0b; font-size: 18px;">📸 Dôkazný materiál – ${registryName}</h2>
+      <p style="margin: 4px 0 0; color: #9ca3af; font-size: 12px;">Automatický záznam z overenia statusu</p>
+    </div>
+    <div style="text-align: right;">
+      <span style="background: #7c3aed; color: white; padding: 4px 12px; border-radius: 4px; font-size: 11px; font-weight: 600;">ArutsoK v1.0</span>
+    </div>
+  </div>
+  <table style="width: 100%; border-collapse: collapse; font-size: 13px;">
+    <tr><td style="padding: 8px 12px; color: #9ca3af; width: 180px;">Subjekt:</td><td style="padding: 8px 12px; font-weight: 600;">${subjectName}</td></tr>
+    <tr><td style="padding: 8px 12px; color: #9ca3af;">IČO:</td><td style="padding: 8px 12px;">${(existing as any).ico || (existing as any).birthNumber || "–"}</td></tr>
+    <tr><td style="padding: 8px 12px; color: #9ca3af;">Register:</td><td style="padding: 8px 12px;">${registryName}</td></tr>
+    <tr><td style="padding: 8px 12px; color: #9ca3af;">URL registra:</td><td style="padding: 8px 12px;"><a href="${registryUrl}" style="color: #60a5fa;">${registryUrl}</a></td></tr>
+    <tr style="background: ${updates.lifecycleStatus === "zaniknuta" ? "rgba(239,68,68,0.1)" : "rgba(245,158,11,0.1)"};">
+      <td style="padding: 8px 12px; color: #9ca3af;">Zistený status:</td>
+      <td style="padding: 8px 12px; font-weight: 700; color: ${updates.lifecycleStatus === "zaniknuta" ? "#ef4444" : "#f59e0b"};">🚫 ${statusLabel}</td>
+    </tr>
+    <tr><td style="padding: 8px 12px; color: #9ca3af;">Dátum overenia:</td><td style="padding: 8px 12px;">${new Date().toLocaleDateString("sk-SK", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" })}</td></tr>
+  </table>
+  <div style="margin-top: 24px; padding-top: 16px; border-top: 1px solid #374151; display: flex; justify-content: space-between; align-items: center;">
+    <p style="margin: 0; font-size: 11px; color: #6b7280;">Zmenu statusu overil a zdokumentoval: <strong style="color: #a78bfa;">ArutsoK</strong></p>
+    <p style="margin: 0; font-size: 10px; color: #4b5563;">ID: ${existing.uid || subjectId}</p>
+  </div>
+</div>`.trim();
+
+          const [evidence] = await db.insert(statusEvidence).values({
+            subjectId,
+            lifecycleStatus: updates.lifecycleStatus!,
+            registryType,
+            evidenceHtml,
+            verifiedByName: "ArutsoK",
+            fieldHistoryId: historyEntry?.id || null,
+            metadata: {
+              subjectName,
+              ico: (existing as any).ico || undefined,
+              registryUrl,
+              statusFound: statusLabel,
+              captureTimestamp: captureTime,
+            },
+          }).returning();
+          evidenceCreated = evidence;
+        } catch (e) {
+          console.error("[STATUS EVIDENCE] Error creating evidence:", e);
+        }
+      }
+
       await logAudit(req, {
         action: "UPDATE",
         module: "subjects",
@@ -8933,6 +9017,49 @@ export async function registerRoutes(
       });
     } catch (err: any) {
       res.status(500).json({ message: err?.message || "Chyba pri generovaní súhrnu" });
+    }
+  });
+
+  // === STATUS EVIDENCE (Dôkazný materiál ORSR/ŽRSR) ===
+  app.get("/api/subjects/:id/status-evidence", isAuthenticated, async (req, res) => {
+    try {
+      const subjectId = Number(req.params.id);
+      if (isNaN(subjectId)) return res.status(400).json({ message: "Neplatné ID" });
+      const evidence = await db.select().from(statusEvidence)
+        .where(eq(statusEvidence.subjectId, subjectId))
+        .orderBy(desc(statusEvidence.capturedAt));
+      res.json(evidence);
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  app.get("/api/status-evidence/:id", isAuthenticated, async (req, res) => {
+    try {
+      const evidenceId = Number(req.params.id);
+      if (isNaN(evidenceId)) return res.status(400).json({ message: "Neplatné ID" });
+      const [evidence] = await db.select().from(statusEvidence)
+        .where(eq(statusEvidence.id, evidenceId));
+      if (!evidence) return res.status(404).json({ message: "Dôkaz nenájdený" });
+      res.json(evidence);
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  app.get("/api/subjects/:id/status-evidence/by-history/:historyId", isAuthenticated, async (req, res) => {
+    try {
+      const subjectId = Number(req.params.id);
+      const historyId = Number(req.params.historyId);
+      if (isNaN(subjectId) || isNaN(historyId)) return res.status(400).json({ message: "Neplatné ID" });
+      const [evidence] = await db.select().from(statusEvidence)
+        .where(and(
+          eq(statusEvidence.subjectId, subjectId),
+          eq(statusEvidence.fieldHistoryId, historyId)
+        ));
+      res.json(evidence || null);
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
     }
   });
 

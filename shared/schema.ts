@@ -245,7 +245,7 @@ export const subjects = pgTable("subjects", {
   processingTimeSec: integer("processing_time_sec").default(0),
   isActive: boolean("is_active").default(true),
   isDeceased: boolean("is_deceased").default(false),
-  lifecycleStatus: text("lifecycle_status").$type<"active" | "inactive" | "in_memoriam">().default("active"),
+  lifecycleStatus: text("lifecycle_status").$type<"active" | "inactive" | "in_memoriam" | "zaniknuta" | "v_likvidacii">().default("active"),
   deathDate: text("death_date"),
   deathCertificateNumber: text("death_certificate_number"),
   listStatus: text("list_status").$type<"cerveny" | "cierny" | null>(),
@@ -2191,6 +2191,30 @@ export const suggestedRelations = pgTable("suggested_relations", {
 export const insertSuggestedRelationSchema = createInsertSchema(suggestedRelations).omit({ id: true, createdAt: true, updatedAt: true });
 export type SuggestedRelation = typeof suggestedRelations.$inferSelect;
 export type InsertSuggestedRelation = z.infer<typeof insertSuggestedRelationSchema>;
+
+// === STATUS EVIDENCE (ORSR/ŽRSR documentation for PO/SZČO status changes) ===
+export const statusEvidence = pgTable("status_evidence", {
+  id: serial("id").primaryKey(),
+  subjectId: integer("subject_id").notNull().references(() => subjects.id),
+  lifecycleStatus: text("lifecycle_status").notNull(),
+  registryType: text("registry_type").notNull().$type<"orsr" | "zrsr">(),
+  evidenceHtml: text("evidence_html"),
+  capturedAt: timestamp("captured_at").defaultNow(),
+  verifiedByName: text("verified_by_name").notNull().default("ArutsoK"),
+  fieldHistoryId: integer("field_history_id").references(() => subjectFieldHistory.id),
+  metadata: jsonb("metadata").$type<{
+    subjectName: string;
+    ico?: string;
+    registryUrl?: string;
+    statusFound: string;
+    captureTimestamp: string;
+  }>(),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertStatusEvidenceSchema = createInsertSchema(statusEvidence).omit({ id: true, createdAt: true, capturedAt: true });
+export type StatusEvidence = typeof statusEvidence.$inferSelect;
+export type InsertStatusEvidence = z.infer<typeof insertStatusEvidenceSchema>;
 
 export type CreateSubjectRequest = InsertSubject;
 export type UpdateSubjectRequest = Partial<InsertSubject> & { changeReason?: string };

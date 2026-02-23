@@ -30,7 +30,7 @@ import {
   ShieldCheck, ListPlus, Eye, ArrowUp, ArrowDown, Settings2, MoreHorizontal,
   Check, User, Phone, Star, Brain, Zap, Link2, Archive, CreditCard, Users,
   ChevronDown, ChevronRight, GripVertical, FolderOpen, ArrowRightLeft,
-  AlertTriangle, Plus, Tag, TrendingUp, TrendingDown,
+  AlertTriangle, Plus, Tag, TrendingUp, TrendingDown, Camera, Ban,
   Home, Briefcase, FileText, ThumbsUp, ThumbsDown, ExternalLink,
 } from "lucide-react";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
@@ -156,9 +156,11 @@ const FIELD_TO_SUBJECT_COLUMN: Record<string, string> = {
 };
 
 const LIFECYCLE_STATUS_OPTIONS = [
-  { value: "active", label: "Aktívny", color: "text-emerald-400", bg: "bg-emerald-500/10", border: "border-emerald-500/30" },
-  { value: "inactive", label: "Neaktívny", color: "text-slate-400", bg: "bg-slate-500/10", border: "border-slate-500/30" },
-  { value: "in_memoriam", label: "In Memoriam (Nebohý)", color: "text-purple-400", bg: "bg-purple-500/10", border: "border-purple-500/30" },
+  { value: "active", label: "Aktívny", color: "text-emerald-400", bg: "bg-emerald-500/10", border: "border-emerald-500/30", forTypes: ["person", "szco", "company", "po"] },
+  { value: "inactive", label: "Neaktívny", color: "text-slate-400", bg: "bg-slate-500/10", border: "border-slate-500/30", forTypes: ["person", "szco", "company", "po"] },
+  { value: "in_memoriam", label: "In Memoriam (Nebohý)", color: "text-purple-400", bg: "bg-purple-500/10", border: "border-purple-500/30", forTypes: ["person"] },
+  { value: "zaniknuta", label: "Zaniknutá", color: "text-red-400", bg: "bg-red-500/10", border: "border-red-500/30", forTypes: ["szco", "company", "po"] },
+  { value: "v_likvidacii", label: "V likvidácii", color: "text-amber-400", bg: "bg-amber-500/10", border: "border-amber-500/30", forTypes: ["szco", "company", "po"] },
 ];
 
 const INT_COLUMNS = new Set(["continentId", "stateId", "myCompanyId"]);
@@ -1069,6 +1071,21 @@ export function SubjectProfileModuleC({ subject }: ModuleCProps) {
   });
 
   const isInMemoriam = dynamicValues["lifecycle_status"] === "in_memoriam";
+  const isZaniknuta = dynamicValues["lifecycle_status"] === "zaniknuta";
+  const isVLikvidacii = dynamicValues["lifecycle_status"] === "v_likvidacii";
+  const isTerminated = isZaniknuta || isVLikvidacii;
+  const subjectType = (subject as any).type || "person";
+
+  const { data: statusEvidenceList = [] } = useQuery<any[]>({
+    queryKey: ["/api/subjects", subject.id, "status-evidence"],
+    queryFn: async () => {
+      const res = await fetch(`/api/subjects/${subject.id}/status-evidence`, { credentials: "include" });
+      if (!res.ok) return [];
+      return res.json();
+    },
+    enabled: subject.id > 0,
+  });
+  const hasEvidence = statusEvidenceList.length > 0 && isTerminated;
 
   const behaviorAlert = useMemo(() => hasBehaviorAlert(dynamicValues), [dynamicValues]);
   const displayName = useMemo(() => [subject.firstName, subject.lastName].filter(Boolean).join(" ") || subject.companyName || "", [subject.firstName, subject.lastName, subject.companyName]);
@@ -1275,6 +1292,13 @@ export function SubjectProfileModuleC({ subject }: ModuleCProps) {
                   {isInMemoriam && (
                     <Badge variant="outline" className="border-purple-500/40 text-purple-400 text-[10px]" data-testid="badge-in-memoriam">
                       In Memoriam
+                    </Badge>
+                  )}
+                  {isTerminated && (
+                    <Badge variant="outline" className={cn("text-[10px] flex items-center gap-1", isZaniknuta ? "border-red-500/40 text-red-400" : "border-amber-500/40 text-amber-400")} data-testid="badge-terminated">
+                      <Ban className="w-3 h-3" />
+                      {isZaniknuta ? "Zaniknutá" : "V likvidácii"}
+                      {hasEvidence && <Camera className="w-3 h-3 ml-0.5" data-testid="badge-evidence-camera" />}
                     </Badge>
                   )}
                   {behaviorAlert.hasLegalIncapacity && (
@@ -1684,7 +1708,7 @@ export function SubjectProfileModuleC({ subject }: ModuleCProps) {
                             {expandedSections.includes("section-lifecycle") ? <ChevronDown className="w-4 h-4 text-purple-400 shrink-0" /> : <ChevronRight className="w-4 h-4 text-purple-400 shrink-0" />}
                             <FolderOpen className="w-4 h-4 text-purple-400 shrink-0" />
                             <span className="text-xs font-semibold uppercase tracking-wide flex-1">Status životného cyklu</span>
-                            <Badge variant="outline" className="text-[9px] shrink-0 border-purple-500/30 text-purple-400">{isInMemoriam ? "3 polí" : "1 pole"}</Badge>
+                            <Badge variant="outline" className="text-[9px] shrink-0 border-purple-500/30 text-purple-400">{isInMemoriam ? "3 polí" : isTerminated ? "1 pole + dôkaz" : "1 pole"}</Badge>
                           </div>
                           {expandedSections.includes("section-lifecycle") && (
                             <CardContent className="px-4 pb-4 pt-3 space-y-4">
@@ -1710,7 +1734,7 @@ export function SubjectProfileModuleC({ subject }: ModuleCProps) {
                                         <SelectValue />
                                       </SelectTrigger>
                                       <SelectContent>
-                                        {LIFECYCLE_STATUS_OPTIONS.map(opt => (
+                                        {LIFECYCLE_STATUS_OPTIONS.filter(opt => opt.forTypes.includes(subjectType)).map(opt => (
                                           <SelectItem key={opt.value} value={opt.value}>
                                             <span className={cn("font-medium", opt.color)}>{opt.label}</span>
                                           </SelectItem>
@@ -1764,6 +1788,36 @@ export function SubjectProfileModuleC({ subject }: ModuleCProps) {
                                     <div className="flex items-center gap-2 p-2 rounded-md bg-emerald-500/10 border border-emerald-500/20" data-testid="lifecycle-contracts-notice">
                                       <CreditCard className="w-4 h-4 text-emerald-500 shrink-0" />
                                       <span className="text-[11px] text-emerald-400">Zmluvy: vytváranie nových zmlúv povolené (PZP, dedičské konania)</span>
+                                    </div>
+                                  </div>
+                                )}
+                                {isTerminated && (
+                                  <div className="mt-3 space-y-2" data-testid="lifecycle-termination-section">
+                                    <div className="flex items-center gap-2 p-2 rounded-md bg-red-500/10 border border-red-500/20" data-testid="lifecycle-termination-alert">
+                                      <div className="relative shrink-0" data-testid="evidence-icon-container">
+                                        <Ban className="w-4 h-4 text-red-500" />
+                                        {hasEvidence && <Camera className="w-2.5 h-2.5 text-amber-400 absolute -bottom-0.5 -right-0.5" data-testid="evidence-camera-icon" />}
+                                      </div>
+                                      <span className="text-[11px] text-red-400">
+                                        {isZaniknuta ? "Subjekt zanikol" : "Subjekt je v likvidácii"} – zmluvy sú pozastavené
+                                      </span>
+                                    </div>
+                                    {hasEvidence && (
+                                      <div className="flex items-center gap-2 p-2 rounded-md bg-amber-500/10 border border-amber-500/20" data-testid="lifecycle-evidence-notice">
+                                        <Camera className="w-4 h-4 text-amber-400 shrink-0" />
+                                        <span className="text-[11px] text-amber-400">
+                                          Dôkazný materiál z {statusEvidenceList[0]?.registryType === "orsr" ? "ORSR" : "ŽRSR"} priložený ({statusEvidenceList.length} {statusEvidenceList.length === 1 ? "záznam" : "záznamy"})
+                                        </span>
+                                        <Badge variant="outline" className="text-[8px] h-4 px-1 shrink-0 border-amber-500/30 text-amber-400">
+                                          ArutsoK
+                                        </Badge>
+                                      </div>
+                                    )}
+                                    <div className="flex items-center gap-2 p-2 rounded-md bg-slate-500/10 border border-slate-500/20" data-testid="lifecycle-register-info">
+                                      <Shield className="w-4 h-4 text-slate-400 shrink-0" />
+                                      <span className="text-[11px] text-slate-400">
+                                        Overené z: {subjectType === "company" || subjectType === "po" ? "Obchodný register SR (ORSR)" : "Živnostenský register SR (ŽRSR)"}
+                                      </span>
                                     </div>
                                   </div>
                                 )}
