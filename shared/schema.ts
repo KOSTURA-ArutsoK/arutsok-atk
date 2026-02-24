@@ -619,6 +619,17 @@ export const contractStatusChangeLogs = pgTable("contract_status_change_logs", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
+// === CONTRACT LIFECYCLE PHASE HISTORY (Stroj času fáz) ===
+export const contractLifecycleHistory = pgTable("contract_lifecycle_history", {
+  id: serial("id").primaryKey(),
+  contractId: integer("contract_id").notNull().references(() => contracts.id),
+  phase: integer("phase").notNull(),
+  phaseName: text("phase_name").notNull(),
+  changedByUserId: integer("changed_by_user_id").references(() => appUsers.id),
+  changedAt: timestamp("changed_at").defaultNow(),
+  note: text("note"),
+});
+
 // === CONTRACT TEMPLATES (Sablony zmluv) ===
 export const contractTemplates = pgTable("contract_templates", {
   id: serial("id").primaryKey(),
@@ -706,6 +717,11 @@ export const contracts = pgTable("contracts", {
   lockedBy: text("locked_by"),
   lockedAt: timestamp("locked_at"),
   lockedBySupiskaId: integer("locked_by_supiska_id"),
+  lifecyclePhase: integer("lifecycle_phase").default(0),
+  objectionEnteredAt: timestamp("objection_entered_at"),
+  receivedByCentralAt: timestamp("received_by_central_at"),
+  receivedByPartnerAt: timestamp("received_by_partner_at"),
+  sentToPartnerAt: timestamp("sent_to_partner_at"),
   incompleteData: boolean("incomplete_data").default(false),
   incompleteDataReason: text("incomplete_data_reason"),
   importedAt: timestamp("imported_at"),

@@ -4,7 +4,7 @@ import { storage } from "./storage";
 import { api } from "@shared/routes";
 import { setupAuth, registerAuthRoutes, isAuthenticated } from "./replit_integrations/auth";
 import { z } from "zod";
-import { continents, states, myCompanies, appUsers, clientTypes, clientSubGroups, clientGroupMembers, productFolderAssignments, folderPanels, panelParameters, userClientGroupMemberships, clientGroups, permissionGroups, insertCareerLevelSchema, insertProductPointRateSchema, careerLevels, importLogs, commissions, contracts, contractStatuses, contractStatusChangeLogs, clientDataTabs, clientDataCategories, subjects, subjectPointsLog, subjectFieldHistory, subjectCollaborators, clientMarketingConsents, clientDocumentHistory, contractAcquirers, contractPasswords, contractRewardDistributions, contractParameterValues, subjectArchive, auditLogs, globalCounters, subjectPhotos, activityEvents, subjectParamSections, subjectParameters, subjectTemplates, subjectTemplateParams, commissionCalculationLogs, parameterSynonyms, dataConflictAlerts, transactionDedupLog, relationRoleTypes, subjectRelations, maturityAlerts, inheritancePrompts, guardianshipArchive, households, householdMembers, householdAssets, privacyBlocks, accessConsentLog, maturityEvents, addressGroups, addressGroupMembers, companySubjectRoles, notificationQueue, batchJobs, subjectObjects, objectDataSources, sectors, sections, sectorProducts, parameters, panels, productPanels, contractFolders, fieldLayoutConfigs, sectorCategoryMapping, suggestedRelations, statusEvidence } from "@shared/schema";
+import { continents, states, myCompanies, appUsers, clientTypes, clientSubGroups, clientGroupMembers, productFolderAssignments, folderPanels, panelParameters, userClientGroupMemberships, clientGroups, permissionGroups, insertCareerLevelSchema, insertProductPointRateSchema, careerLevels, importLogs, commissions, contracts, contractStatuses, contractStatusChangeLogs, clientDataTabs, clientDataCategories, subjects, subjectPointsLog, subjectFieldHistory, subjectCollaborators, clientMarketingConsents, clientDocumentHistory, contractAcquirers, contractPasswords, contractRewardDistributions, contractParameterValues, subjectArchive, auditLogs, globalCounters, subjectPhotos, activityEvents, subjectParamSections, subjectParameters, subjectTemplates, subjectTemplateParams, commissionCalculationLogs, parameterSynonyms, dataConflictAlerts, transactionDedupLog, relationRoleTypes, subjectRelations, maturityAlerts, inheritancePrompts, guardianshipArchive, households, householdMembers, householdAssets, privacyBlocks, accessConsentLog, maturityEvents, addressGroups, addressGroupMembers, companySubjectRoles, notificationQueue, batchJobs, subjectObjects, objectDataSources, sectors, sections, sectorProducts, parameters, panels, productPanels, contractFolders, fieldLayoutConfigs, sectorCategoryMapping, suggestedRelations, statusEvidence, contractLifecycleHistory, partners, products } from "@shared/schema";
 import { seedSubjectParameters, seedAssetPanels, seedEventAndEntityPanels } from "./seed-subject-params";
 import sharp from "sharp";
 import { db } from "./db";
@@ -174,6 +174,19 @@ export async function registerRoutes(
   app: Express
 ): Promise<Server> {
   
+  const LIFECYCLE_PHASES: Record<number, string> = {
+    1: "Čakajúce na odoslanie",
+    2: "Odoslané na sprievodke",
+    3: "Neprijaté zmluvy – výhrady",
+    4: "Archív zmlúv (z výhradami)",
+    5: "Prijaté do centrály",
+    6: "Kontrakt v spracovaní",
+    7: "Interná intervencia ku zmluve",
+    8: "Pripravené na odoslanie",
+    9: "Odoslané obch. partnerovi",
+    10: "Prijaté obch. partnerom",
+  };
+
   await setupAuth(app);
   registerAuthRoutes(app);
 
@@ -2341,6 +2354,153 @@ export async function registerRoutes(
       res.json({ duplicates });
     } catch (err) {
       res.status(500).json({ message: "Internal error" });
+    }
+  });
+
+  // === CONTRACTS BY LIFECYCLE PHASE ===
+  app.get("/api/contracts/by-phase/:phase", isAuthenticated, async (req: any, res) => {
+    try {
+      const phase = Number(req.params.phase);
+      if (isNaN(phase) || phase < 0 || phase > 10) {
+        return res.status(400).json({ message: "Neplatná fáza životného cyklu" });
+      }
+      const companyId = req.appUser?.activeCompanyId || undefined;
+      const conditions: any[] = [eq(contracts.lifecyclePhase, phase), eq(contracts.isDeleted, false)];
+      if (companyId) conditions.push(eq(contracts.companyId, companyId));
+
+      const result = await db
+        .select({
+          contract: contracts,
+          subjectFirstName: subjects.firstName,
+          subjectLastName: subjects.lastName,
+          subjectUid: subjects.uid,
+          partnerName: partners.name,
+          productName: products.name,
+        })
+        .from(contracts)
+        .leftJoin(subjects, eq(contracts.subjectId, subjects.id))
+        .leftJoin(partners, eq(contracts.partnerId, partners.id))
+        .leftJoin(products, eq(contracts.productId, products.id))
+        .where(and(...conditions))
+        .orderBy(desc(contracts.createdAt));
+
+      res.json(result.map(r => ({
+        ...r.contract,
+        subjectName: [r.subjectFirstName, r.subjectLastName].filter(Boolean).join(" ") || null,
+        subjectUid: r.subjectUid,
+        partnerName: r.partnerName,
+        productName: r.productName,
+      })));
+    } catch (err: any) {
+      console.error("Get contracts by phase error:", err);
+      res.status(500).json({ message: err?.message || "Internal error" });
+    }
+  });
+
+  // === CONTRACT LIFECYCLE PHASE CHANGE ===
+  app.patch("/api/contracts/:id/lifecycle-phase", isAuthenticated, async (req: any, res) => {
+    try {
+      const contractId = Number(req.params.id);
+      const { phase, note } = req.body;
+
+      if (!phase || phase < 1 || phase > 10) {
+        return res.status(400).json({ message: "Fáza musí byť medzi 1 a 10" });
+      }
+
+      const [contract] = await db.select().from(contracts).where(eq(contracts.id, contractId));
+      if (!contract) return res.status(404).json({ message: "Zmluva nenájdená" });
+
+      const updateData: Record<string, any> = {
+        lifecyclePhase: phase,
+        updatedAt: new Date(),
+      };
+
+      if (phase === 3) {
+        updateData.objectionEnteredAt = new Date();
+      }
+
+      if (phase === 5) {
+        updateData.receivedByCentralAt = new Date();
+        if (!contract.contractNumber) {
+          const maxResult = await db.select({ max: sql<number>`COALESCE(MAX(CAST(contract_number AS INTEGER)), 0)` }).from(contracts).where(sql`contract_number ~ '^[0-9]+$'`);
+          const nextNumber = (maxResult[0]?.max || 0) + 1;
+          updateData.contractNumber = String(nextNumber);
+        }
+        if (contract.subjectId) {
+          const subj = await db.select().from(subjects).where(eq(subjects.id, contract.subjectId)).limit(1);
+          if (subj[0] && !subj[0].uid) {
+            const maxUid = await db.select({ max: sql<string>`MAX(uid)` }).from(subjects).where(sql`uid LIKE '421%'`);
+            const lastNum = maxUid[0]?.max ? parseInt(maxUid[0].max) : 421000000000000;
+            const nextUid = String(lastNum + 1);
+            await db.update(subjects).set({ uid: nextUid }).where(eq(subjects.id, contract.subjectId));
+          }
+        }
+      }
+
+      if (phase === 9) {
+        updateData.sentToPartnerAt = new Date();
+      }
+
+      if (phase === 10) {
+        updateData.receivedByPartnerAt = new Date();
+      }
+
+      const [updated] = await db.update(contracts).set(updateData).where(eq(contracts.id, contractId)).returning();
+
+      const appUser = req.appUser;
+      await db.insert(contractLifecycleHistory).values({
+        contractId,
+        phase,
+        phaseName: LIFECYCLE_PHASES[phase] || `Fáza ${phase}`,
+        changedByUserId: appUser?.id || null,
+        note: note || null,
+      });
+
+      await logAudit(req, {
+        action: "LIFECYCLE_PHASE_CHANGE",
+        module: "zmluvy",
+        entityId: contractId,
+        entityName: contract.contractNumber || contract.proposalNumber || `ID ${contractId}`,
+        oldData: { lifecyclePhase: contract.lifecyclePhase },
+        newData: { lifecyclePhase: phase, phaseName: LIFECYCLE_PHASES[phase] },
+      });
+
+      res.json(updated);
+    } catch (err: any) {
+      console.error("Lifecycle phase change error:", err);
+      res.status(500).json({ message: err?.message || "Internal error" });
+    }
+  });
+
+  // === CONTRACT LIFECYCLE HISTORY (Stroj času) ===
+  app.get("/api/contracts/:id/lifecycle-history", isAuthenticated, async (req: any, res) => {
+    try {
+      const contractId = Number(req.params.id);
+      const history = await db
+        .select({
+          id: contractLifecycleHistory.id,
+          contractId: contractLifecycleHistory.contractId,
+          phase: contractLifecycleHistory.phase,
+          phaseName: contractLifecycleHistory.phaseName,
+          changedByUserId: contractLifecycleHistory.changedByUserId,
+          changedAt: contractLifecycleHistory.changedAt,
+          note: contractLifecycleHistory.note,
+          changerFirstName: appUsers.firstName,
+          changerLastName: appUsers.lastName,
+          changerUsername: appUsers.username,
+        })
+        .from(contractLifecycleHistory)
+        .leftJoin(appUsers, eq(contractLifecycleHistory.changedByUserId, appUsers.id))
+        .where(eq(contractLifecycleHistory.contractId, contractId))
+        .orderBy(desc(contractLifecycleHistory.changedAt));
+
+      res.json(history.map(h => ({
+        ...h,
+        changerName: [h.changerFirstName, h.changerLastName].filter(Boolean).join(" ") || h.changerUsername || "System",
+      })));
+    } catch (err: any) {
+      console.error("Get lifecycle history error:", err);
+      res.status(500).json({ message: err?.message || "Internal error" });
     }
   });
 
@@ -11346,6 +11506,88 @@ export async function registerRoutes(
       if (archiveCount > 0) console.log(`[CRON] Auto-archived ${archiveCount} expired events`);
     } catch (err) {
       console.error("[CRON] Event auto-archive error:", err);
+    }
+  }, 60 * 60 * 1000);
+
+  // === CRON: 100-day auto-archive (výhrady -> archív) ===
+  setInterval(async () => {
+    try {
+      const cutoffDate = new Date();
+      cutoffDate.setDate(cutoffDate.getDate() - 100);
+
+      const expiredObjections = await db.select()
+        .from(contracts)
+        .where(and(
+          eq(contracts.lifecyclePhase, 3),
+          eq(contracts.isDeleted, false),
+          sql`${contracts.objectionEnteredAt} IS NOT NULL AND ${contracts.objectionEnteredAt} < ${cutoffDate.toISOString()}`
+        ));
+
+      let archiveCount = 0;
+      for (const contract of expiredObjections) {
+        await db.update(contracts).set({
+          lifecyclePhase: 4,
+          updatedAt: new Date(),
+        }).where(eq(contracts.id, contract.id));
+
+        await db.insert(contractLifecycleHistory).values({
+          contractId: contract.id,
+          phase: 4,
+          phaseName: LIFECYCLE_PHASES[4],
+          changedByUserId: null,
+          note: "Automatický presun do archívu po 100 dňoch výhrad",
+        });
+
+        await db.insert(auditLogs).values({
+          username: "ArutsoK System",
+          action: "LIFECYCLE_AUTO_ARCHIVE",
+          module: "zmluvy",
+          entityId: contract.id,
+          entityName: contract.contractNumber || contract.proposalNumber || `ID ${contract.id}`,
+          oldData: { lifecyclePhase: 3 },
+          newData: { lifecyclePhase: 4 },
+        });
+
+        archiveCount++;
+      }
+      if (archiveCount > 0) console.log(`[CRON] Lifecycle auto-archive: ${archiveCount} contracts moved from phase 3 to phase 4`);
+    } catch (err) {
+      console.error("[CRON] Lifecycle auto-archive error:", err);
+    }
+  }, 60 * 60 * 1000);
+
+  // === CRON: 365-day permanent delete (archív older than 465 days total) ===
+  setInterval(async () => {
+    try {
+      const cutoffDate = new Date();
+      cutoffDate.setDate(cutoffDate.getDate() - 465);
+
+      const expiredArchive = await db.select()
+        .from(contracts)
+        .where(and(
+          eq(contracts.lifecyclePhase, 4),
+          eq(contracts.isDeleted, false),
+          sql`${contracts.objectionEnteredAt} IS NOT NULL AND ${contracts.objectionEnteredAt} < ${cutoffDate.toISOString()}`
+        ));
+
+      let deleteCount = 0;
+      for (const contract of expiredArchive) {
+        await db.insert(auditLogs).values({
+          username: "ArutsoK System",
+          action: "LIFECYCLE_PERMANENT_DELETE",
+          module: "zmluvy",
+          entityId: contract.id,
+          entityName: contract.contractNumber || contract.proposalNumber || `ID ${contract.id}`,
+          oldData: contract,
+          newData: null,
+        });
+
+        await db.delete(contracts).where(eq(contracts.id, contract.id));
+        deleteCount++;
+      }
+      if (deleteCount > 0) console.log(`[CRON] Lifecycle permanent delete: ${deleteCount} contracts permanently deleted after 465 days`);
+    } catch (err) {
+      console.error("[CRON] Lifecycle permanent delete error:", err);
     }
   }, 60 * 60 * 1000);
 

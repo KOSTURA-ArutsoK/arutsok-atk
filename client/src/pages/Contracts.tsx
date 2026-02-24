@@ -11,7 +11,7 @@ import type { SmartColumnDef } from "@/hooks/use-smart-filter";
 import { SmartFilterBar } from "@/components/smart-filter-bar";
 import { useLocation } from "wouter";
 import type { Contract, ContractStatus, ContractTemplate, ContractInventory, Subject, Partner, Product, MyCompany, Sector, Section, SectorProduct, ClientGroup, ClientType, AppUser, ContractAcquirer } from "@shared/schema";
-import { Plus, Pencil, Trash2, Eye, FileText, Loader2, Lock, LayoutGrid, Send, Upload, Inbox, CheckCircle2, ChevronDown, ChevronRight, Printer, Search, Archive, AlertTriangle, Calendar, XCircle, MessageSquare, Paperclip, X, Users, Check, Award, Percent, History } from "lucide-react";
+import { Plus, Pencil, Trash2, Eye, FileText, Loader2, Lock, LayoutGrid, Send, Upload, Inbox, CheckCircle2, ChevronDown, ChevronRight, Printer, Search, Archive, AlertTriangle, Calendar, XCircle, MessageSquare, Paperclip, X, Users, Check, Award, Percent, History, ListChecks, ArrowRight, Clock } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ActivityTimeline } from "@/components/activity-timeline";
 import { cn } from "@/lib/utils";
@@ -51,6 +51,19 @@ import { Label } from "@/components/ui/label";
 import { useColumnVisibility, type ColumnDef } from "@/hooks/use-column-visibility";
 import { ColumnManager } from "@/components/column-manager";
 
+const LIFECYCLE_PHASE_NAMES: Record<number, string> = {
+  1: "Čakajúce",
+  2: "Odoslané",
+  3: "Výhrady",
+  4: "Archív",
+  5: "Prijaté CK",
+  6: "V spracovaní",
+  7: "Intervencia",
+  8: "Pripravené",
+  9: "Odoslané OP",
+  10: "Prijaté OP",
+};
+
 const CONTRACTS_COLUMNS: ColumnDef[] = [
   { key: "contractNumber", label: "Cislo zmluvy" },
   { key: "proposalNumber", label: "Cislo navrhu" },
@@ -59,6 +72,7 @@ const CONTRACTS_COLUMNS: ColumnDef[] = [
   { key: "partnerId", label: "Partner" },
   { key: "productId", label: "Produkt" },
   { key: "status", label: "Stav" },
+  { key: "lifecyclePhase", label: "Aktuálny stav" },
   { key: "inventoryId", label: "Sprievodka" },
   { key: "annualPremium", label: "Rocne poistne" },
   { key: "signedDate", label: "Vytvorenie zmluvy" },
@@ -73,6 +87,7 @@ const CONTRACTS_EVIDENCIA_COLUMNS: ColumnDef[] = [
   { key: "partnerId", label: "Partner" },
   { key: "productId", label: "Produkt" },
   { key: "status", label: "Stav" },
+  { key: "lifecyclePhase", label: "Aktuálny stav" },
   { key: "annualPremium", label: "Rocne poistne" },
   { key: "signedDate", label: "Vytvorenie zmluvy" },
   { key: "premiumAmount", label: "Lehotne poistne" },
@@ -1317,6 +1332,72 @@ function ContractFormDialog({
   );
 }
 
+function ContractLifecycleTimeline({ contractId }: { contractId: number }) {
+  const { data: history, isLoading } = useQuery<{
+    id: number;
+    contractId: number;
+    fromPhase: number | null;
+    toPhase: number;
+    changedBy: string | null;
+    note: string | null;
+    createdAt: string;
+  }[]>({
+    queryKey: ["/api/contracts", contractId, "lifecycle-history"],
+    queryFn: async () => {
+      const res = await fetch(`/api/contracts/${contractId}/lifecycle-history`, { credentials: "include" });
+      if (!res.ok) return [];
+      return res.json();
+    },
+  });
+
+  const phaseNames: Record<number, string> = {
+    0: "Nový záznam",
+    1: "Čakajúce na odoslanie",
+    2: "Odoslané na sprievodke",
+    3: "Výhrady",
+    4: "Archív",
+    5: "Prijaté do centrály",
+    6: "V spracovaní",
+    7: "Intervencia",
+    8: "Pripravené",
+    9: "Odoslané OP",
+    10: "Prijaté OP",
+  };
+
+  if (isLoading) return <div className="flex justify-center py-6"><Loader2 className="w-5 h-5 animate-spin" /></div>;
+  if (!history || history.length === 0) return <p className="text-sm text-muted-foreground text-center py-6" data-testid="text-no-lifecycle">Žiadna história životného cyklu</p>;
+
+  return (
+    <div className="space-y-0" data-testid="lifecycle-timeline">
+      {history.map((entry, idx) => (
+        <div key={entry.id} className="flex gap-3 pb-4" data-testid={`lifecycle-entry-${entry.id}`}>
+          <div className="flex flex-col items-center">
+            <div className={`w-3 h-3 rounded-full shrink-0 mt-1 ${entry.toPhase <= 5 ? "bg-amber-500" : "bg-cyan-500"}`} />
+            {idx < history.length - 1 && <div className="w-px flex-1 bg-border mt-1" />}
+          </div>
+          <div className="flex-1 min-w-0 pb-1">
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="text-xs font-semibold">
+                {phaseNames[entry.fromPhase ?? 0] || `Fáza ${entry.fromPhase}`}
+              </span>
+              <ArrowRight className="w-3 h-3 text-muted-foreground shrink-0" />
+              <Badge variant="outline" className={`text-[10px] ${entry.toPhase <= 5 ? "border-amber-500/40 text-amber-400" : "border-cyan-500/40 text-cyan-400"}`}>
+                {phaseNames[entry.toPhase] || `Fáza ${entry.toPhase}`}
+              </Badge>
+            </div>
+            <div className="flex items-center gap-2 mt-0.5 text-[10px] text-muted-foreground">
+              <Clock className="w-2.5 h-2.5" />
+              <span>{new Date(entry.createdAt).toLocaleString("sk-SK")}</span>
+              {entry.changedBy && <span>• {entry.changedBy}</span>}
+            </div>
+            {entry.note && <p className="text-[11px] text-muted-foreground mt-1 italic">"{entry.note}"</p>}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 function ContractDetailDialog({
   contract,
   open,
@@ -1389,6 +1470,9 @@ function ContractDetailDialog({
           <TabsList data-testid="tabs-contract-detail">
             <TabsTrigger value="detail" data-testid="tab-contract-detail">
               <FileText className="w-3.5 h-3.5 mr-1" /> Detail
+            </TabsTrigger>
+            <TabsTrigger value="lifecycle" data-testid="tab-contract-lifecycle">
+              <Clock className="w-3.5 h-3.5 mr-1" /> 🕰️ Stroj času
             </TabsTrigger>
             <TabsTrigger value="historia" data-testid="tab-contract-historia">
               <History className="w-3.5 h-3.5 mr-1" /> História
@@ -1480,6 +1564,10 @@ function ContractDetailDialog({
                 <span>Vytvorene: {formatDateSlovak(contract.createdAt)}</span>
               </div>
             </div>
+          </TabsContent>
+
+          <TabsContent value="lifecycle" className="mt-3">
+            <ContractLifecycleTimeline contractId={contract.id} />
           </TabsContent>
 
           <TabsContent value="historia" className="mt-3">
@@ -1670,6 +1758,56 @@ export default function Contracts() {
     enabled: isEvidencia,
   });
 
+  const { data: phase6Contracts = [] } = useQuery<Contract[]>({
+    queryKey: ["/api/contracts/by-phase", 6],
+    queryFn: async () => {
+      const res = await fetch("/api/contracts/by-phase/6", { credentials: "include" });
+      if (!res.ok) return [];
+      return res.json();
+    },
+    enabled: isEvidencia,
+  });
+
+  const { data: phase7Contracts = [] } = useQuery<Contract[]>({
+    queryKey: ["/api/contracts/by-phase", 7],
+    queryFn: async () => {
+      const res = await fetch("/api/contracts/by-phase/7", { credentials: "include" });
+      if (!res.ok) return [];
+      return res.json();
+    },
+    enabled: isEvidencia,
+  });
+
+  const { data: phase8Contracts = [] } = useQuery<Contract[]>({
+    queryKey: ["/api/contracts/by-phase", 8],
+    queryFn: async () => {
+      const res = await fetch("/api/contracts/by-phase/8", { credentials: "include" });
+      if (!res.ok) return [];
+      return res.json();
+    },
+    enabled: isEvidencia,
+  });
+
+  const { data: phase9Contracts = [] } = useQuery<Contract[]>({
+    queryKey: ["/api/contracts/by-phase", 9],
+    queryFn: async () => {
+      const res = await fetch("/api/contracts/by-phase/9", { credentials: "include" });
+      if (!res.ok) return [];
+      return res.json();
+    },
+    enabled: isEvidencia,
+  });
+
+  const { data: phase10Contracts = [] } = useQuery<Contract[]>({
+    queryKey: ["/api/contracts/by-phase", 10],
+    queryFn: async () => {
+      const res = await fetch("/api/contracts/by-phase/10", { credentials: "include" });
+      if (!res.ok) return [];
+      return res.json();
+    },
+    enabled: isEvidencia,
+  });
+
   const { data: subjects } = useQuery<Subject[]>({ queryKey: ["/api/subjects"] });
   const { data: partners } = useQuery<Partner[]>({ queryKey: ["/api/partners"] });
   const { data: products } = useQuery<Product[]>({ queryKey: ["/api/products"] });
@@ -1739,6 +1877,9 @@ export default function Contracts() {
     queryClient.invalidateQueries({ queryKey: ["/api/contracts/rejected"] });
     queryClient.invalidateQueries({ queryKey: ["/api/contracts/archived"] });
     queryClient.invalidateQueries({ queryKey: ["/api/contract-inventories"] });
+    for (let p = 6; p <= 10; p++) {
+      queryClient.invalidateQueries({ queryKey: ["/api/contracts/by-phase", p] });
+    }
   }
 
   const dispatchMutation = useMutation({
@@ -1777,6 +1918,18 @@ export default function Contracts() {
       setAcceptedSprievodkaIds({});
     },
     onError: () => toast({ title: "Chyba", description: "Nepodarilo sa schvalit zmluvy", variant: "destructive" }),
+  });
+
+  const lifecyclePhaseMutation = useMutation({
+    mutationFn: async ({ contractId, phase, note }: { contractId: number; phase: number; note?: string }) => {
+      const res = await apiRequest("PATCH", `/api/contracts/${contractId}/lifecycle-phase`, { phase, note });
+      return res.json();
+    },
+    onSuccess: () => {
+      invalidateContractCaches();
+      toast({ title: "Fáza aktualizovaná" });
+    },
+    onError: () => toast({ title: "Chyba pri zmene fázy", variant: "destructive" }),
   });
 
   function toggleSelect(id: number) {
@@ -1907,8 +2060,17 @@ export default function Contracts() {
   const folderDefs = [
     { id: 1, label: "Čakajúce na odoslanie", icon: Inbox, color: "text-amber-500", bgColor: "bg-amber-500/15", count: activeContracts.length },
     { id: 2, label: "Odoslané na sprievodke", icon: Send, color: "text-blue-500", bgColor: "bg-blue-500/15", count: activeDispatched.length },
-    { id: 3, label: "Neprijaté zmluvy – výhrady", icon: CheckCircle2, color: "text-red-500", bgColor: "bg-red-500/15", count: activeRejected.length },
-    { id: 4, label: "Archív zmlúv", icon: Archive, color: "text-muted-foreground", bgColor: "bg-muted/30", count: activeArchived.length },
+    { id: 3, label: "Neprijaté zmluvy – výhrady", icon: XCircle, color: "text-red-500", bgColor: "bg-red-500/15", count: activeRejected.length },
+    { id: 4, label: "Archív zmlúv (z výhradami)", icon: Archive, color: "text-muted-foreground", bgColor: "bg-muted/30", count: activeArchived.length },
+    { id: 5, label: "Prijaté do centrály", icon: CheckCircle2, color: "text-green-500", bgColor: "bg-green-500/15", count: activeAccepted.length },
+  ];
+
+  const row2FolderDefs = [
+    { id: 6, label: "Kontrakt v spracovaní", icon: LayoutGrid, color: "text-cyan-500", bgColor: "bg-cyan-500/15", count: phase6Contracts.length },
+    { id: 7, label: "Interná intervencia", icon: AlertTriangle, color: "text-orange-500", bgColor: "bg-orange-500/15", count: phase7Contracts.length },
+    { id: 8, label: "Pripravené na odoslanie", icon: ListChecks, color: "text-emerald-500", bgColor: "bg-emerald-500/15", count: phase8Contracts.length },
+    { id: 9, label: "Odoslané obch. partnerovi", icon: Send, color: "text-indigo-500", bgColor: "bg-indigo-500/15", count: phase9Contracts.length },
+    { id: 10, label: "Prijaté obch. partnerom", icon: Award, color: "text-purple-500", bgColor: "bg-purple-500/15", count: phase10Contracts.length },
   ];
 
   function filterBySearch(list: Contract[]) {
@@ -1945,6 +2107,7 @@ export default function Contracts() {
             {showOrder && <TableHead className="w-[40px] text-center">#</TableHead>}
             {evidenciaColumnVisibility.isVisible("contractNumber") && <TableHead sortKey="contractNumber" sortDirection={sk === "contractNumber" ? sd : null} onSort={rs}>Cislo zmluvy</TableHead>}
             {showStatus && evidenciaColumnVisibility.isVisible("status") && <TableHead style={{ minWidth: 140 }}>Stav</TableHead>}
+            {evidenciaColumnVisibility.isVisible("lifecyclePhase") && <TableHead>Aktuálny stav</TableHead>}
             {evidenciaColumnVisibility.isVisible("proposalNumber") && <TableHead sortKey="proposalNumber" sortDirection={sk === "proposalNumber" ? sd : null} onSort={rs}>Cislo navrhu</TableHead>}
             {showRegistration && evidenciaColumnVisibility.isVisible("globalNumber") && <TableHead sortKey="globalNumber" sortDirection={sk === "globalNumber" ? sd : null} onSort={rs}>Poradove cislo</TableHead>}
             {evidenciaColumnVisibility.isVisible("partnerId") && <TableHead sortKey="partnerId" sortDirection={sk === "partnerId" ? sd : null} onSort={rs}>Partner</TableHead>}
@@ -1995,6 +2158,15 @@ export default function Contracts() {
                     </div>
                   </TableCell>
                 )}
+                {evidenciaColumnVisibility.isVisible("lifecyclePhase") && <TableCell className="py-1" data-testid={`text-contract-lifecycle-${contract.id}`}>
+                  {contract.lifecyclePhase && contract.lifecyclePhase > 0 ? (
+                    <Badge variant="outline" className={`text-[10px] px-1.5 ${contract.lifecyclePhase <= 5 ? "border-amber-500/40 text-amber-400" : "border-cyan-500/40 text-cyan-400"}`}>
+                      {LIFECYCLE_PHASE_NAMES[contract.lifecyclePhase as keyof typeof LIFECYCLE_PHASE_NAMES] || `Fáza ${contract.lifecyclePhase}`}
+                    </Badge>
+                  ) : (
+                    <span className="text-xs text-muted-foreground">-</span>
+                  )}
+                </TableCell>}
                 {evidenciaColumnVisibility.isVisible("proposalNumber") && <TableCell className="text-sm font-mono py-1" data-testid={`text-contract-proposal-${contract.id}`}>{contract.proposalNumber || "-"}</TableCell>}
                 {showRegistration && evidenciaColumnVisibility.isVisible("globalNumber") && (
                   <TableCell className="font-mono text-sm py-1" data-testid={`text-contract-registration-${contract.id}`}>
@@ -2460,29 +2632,51 @@ export default function Contracts() {
           </div>
         </div>
 
-        <div className="grid grid-cols-4 gap-3" data-testid="folder-tabs">
-          {folderDefs.map(f => {
-            const FIcon = f.icon;
-            const isActive = activeFolder === f.id;
-            return (
-              <Card
-                key={f.id}
-                className={`cursor-pointer transition-colors ${isActive ? "border-primary" : ""}`}
-                onClick={() => setActiveFolder(f.id)}
-                data-testid={`folder-tab-${f.id}`}
-              >
-                <div className="flex items-center gap-3 p-3">
-                  <div className={`w-8 h-8 rounded-md ${f.bgColor} flex items-center justify-center shrink-0`}>
-                    <FIcon className={`w-4 h-4 ${f.color}`} />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-xs font-semibold truncate">{f.label}</p>
-                    <p className="text-lg font-bold">{f.count}</p>
-                  </div>
-                </div>
-              </Card>
-            );
-          })}
+        <div className="space-y-3" data-testid="folder-tabs">
+          <div>
+            <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-1.5">Riadok 1: Logistika (Sledovanie papiera)</p>
+            <div className="grid grid-cols-5 gap-2">
+              {folderDefs.map(f => {
+                const FIcon = f.icon;
+                const isActive = activeFolder === f.id;
+                return (
+                  <Card key={f.id} className={`cursor-pointer transition-colors ${isActive ? "border-primary" : ""}`} onClick={() => setActiveFolder(f.id)} data-testid={`folder-tab-${f.id}`}>
+                    <div className="flex items-center gap-2 p-2">
+                      <div className={`w-7 h-7 rounded-md ${f.bgColor} flex items-center justify-center shrink-0`}>
+                        <FIcon className={`w-3.5 h-3.5 ${f.color}`} />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-[10px] font-semibold truncate leading-tight">{f.label}</p>
+                        <p className="text-base font-bold">{f.count}</p>
+                      </div>
+                    </div>
+                  </Card>
+                );
+              })}
+            </div>
+          </div>
+          <div>
+            <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-1.5">Riadok 2: Spracovanie (Dátová kvalita)</p>
+            <div className="grid grid-cols-5 gap-2">
+              {row2FolderDefs.map(f => {
+                const FIcon = f.icon;
+                const isActive = activeFolder === f.id;
+                return (
+                  <Card key={f.id} className={`cursor-pointer transition-colors ${isActive ? "border-primary" : ""}`} onClick={() => setActiveFolder(f.id)} data-testid={`folder-tab-${f.id}`}>
+                    <div className="flex items-center gap-2 p-2">
+                      <div className={`w-7 h-7 rounded-md ${f.bgColor} flex items-center justify-center shrink-0`}>
+                        <FIcon className={`w-3.5 h-3.5 ${f.color}`} />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-[10px] font-semibold truncate leading-tight">{f.label}</p>
+                        <p className="text-base font-bold">{f.count}</p>
+                      </div>
+                    </div>
+                  </Card>
+                );
+              })}
+            </div>
+          </div>
         </div>
 
         <div className="flex items-center gap-2">
@@ -2632,9 +2826,15 @@ export default function Contracts() {
         <div id="folder-3-wrapper" style={{ display: activeFolder === 3 ? 'block' : 'none' }}>
           <Card data-testid="folder-neprijate">
             <div className="flex items-center gap-3 p-3 border-b">
-              <CheckCircle2 className="w-4 h-4 text-red-500 shrink-0" />
+              <XCircle className="w-4 h-4 text-red-500 shrink-0" />
               <p className="text-xs text-muted-foreground">Zmluvy, ktore neboli zaskrtnute pri prijati sprievodky.</p>
             </div>
+            {activeRejected.length > 0 && (
+              <div className="px-3 py-1.5 text-[10px] text-amber-500 flex items-center gap-1">
+                <Calendar className="w-3 h-3" />
+                <span>100-dňový timer: Zmluvy vo výhradách viac ako 100 dní budú automaticky archivované.</span>
+              </div>
+            )}
             <CardContent className="p-0">
               {isLoadingRejected ? (
                 <div className="flex items-center justify-center py-8"><Loader2 className="w-5 h-5 animate-spin" /></div>
@@ -2660,6 +2860,49 @@ export default function Contracts() {
             </CardContent>
           </Card>
         </div>
+
+        <div id="folder-5-wrapper" style={{ display: activeFolder === 5 ? 'block' : 'none' }}>
+          <Card data-testid="folder-prijate-centrala">
+            <div className="flex items-center gap-3 p-3 border-b">
+              <CheckCircle2 className="w-4 h-4 text-green-500 shrink-0" />
+              <p className="text-xs text-muted-foreground">Zmluvy prijaté do centrály. Tu sa zo zmluvy stáva kontrakt.</p>
+            </div>
+            <CardContent className="p-0">
+              {isLoadingAccepted ? (
+                <div className="flex items-center justify-center py-8"><Loader2 className="w-5 h-5 animate-spin" /></div>
+              ) : activeAccepted.length === 0 ? (
+                <p className="text-sm text-muted-foreground text-center py-8" data-testid="text-no-prijate">Žiadne zmluvy prijaté do centrály</p>
+              ) : renderContractTable(activeAccepted, { showStatus: true, showRegistration: true, showActions: true })}
+            </CardContent>
+          </Card>
+        </div>
+
+        {[6, 7, 8, 9, 10].map(phaseId => {
+          const phaseContracts = phaseId === 6 ? phase6Contracts : phaseId === 7 ? phase7Contracts : phaseId === 8 ? phase8Contracts : phaseId === 9 ? phase9Contracts : phase10Contracts;
+          const phaseDef = row2FolderDefs.find(f => f.id === phaseId);
+          const phaseLabels: Record<number, string> = {
+            6: "Prebieha skenovanie a OCR extrakcia. Dopĺňajú sa chýbajúce parametre.",
+            7: "Chýba údaj (napr. kópia OP). Kontrakt je blokovaný pre súpisky.",
+            8: "Kontrakt je čistý a validovaný. Čaká na hromadné odoslanie partnerovi.",
+            9: "Generovanie súpisky s QR kódom (max 25 ks / 1 partner / 1 produkt).",
+            10: "Doplní sa dátum prijatia partnerom. Kontrakt definitívne vypadáva z dashboardu.",
+          };
+          return (
+            <div key={phaseId} id={`folder-${phaseId}-wrapper`} style={{ display: activeFolder === phaseId ? 'block' : 'none' }}>
+              <Card data-testid={`folder-phase-${phaseId}`}>
+                <div className="flex items-center gap-3 p-3 border-b">
+                  {phaseDef && (() => { const I = phaseDef.icon; return <I className={`w-4 h-4 ${phaseDef.color} shrink-0`} />; })()}
+                  <p className="text-xs text-muted-foreground flex-1">{phaseLabels[phaseId]}</p>
+                </div>
+                <CardContent className="p-0">
+                  {phaseContracts.length === 0 ? (
+                    <p className="text-sm text-muted-foreground text-center py-8" data-testid={`text-no-phase-${phaseId}`}>Žiadne kontrakty v tejto fáze</p>
+                  ) : renderContractTable(phaseContracts, { showStatus: true, showRegistration: true, showActions: true })}
+                </CardContent>
+              </Card>
+            </div>
+          );
+        })}
 
         <Dialog open={sprievodkaDialogOpen} onOpenChange={setSprievodkaDialogOpen}>
           <DialogContent size="sm">
@@ -2809,6 +3052,7 @@ export default function Contracts() {
                 <TableRow>
                   {columnVisibility.isVisible("contractNumber") && <TableHead sortKey="contractNumber" sortDirection={skMain === "contractNumber" ? sdMain : null} onSort={rsMain}>Cislo zmluvy</TableHead>}
                   {columnVisibility.isVisible("status") && <TableHead style={{ minWidth: 140 }}>Stav</TableHead>}
+                  {columnVisibility.isVisible("lifecyclePhase") && <TableHead>Aktuálny stav</TableHead>}
                   {columnVisibility.isVisible("proposalNumber") && <TableHead sortKey="proposalNumber" sortDirection={skMain === "proposalNumber" ? sdMain : null} onSort={rsMain}>Cislo navrhu</TableHead>}
                   {columnVisibility.isVisible("globalNumber") && <TableHead sortKey="globalNumber" sortDirection={skMain === "globalNumber" ? sdMain : null} onSort={rsMain}>Poradove cislo</TableHead>}
                   {columnVisibility.isVisible("partnerId") && <TableHead sortKey="partnerId" sortDirection={skMain === "partnerId" ? sdMain : null} onSort={rsMain}>Partner</TableHead>}
@@ -2846,6 +3090,15 @@ export default function Contracts() {
                             </span>
                           ) : "-"}
                         </div>
+                      </TableCell>}
+                      {columnVisibility.isVisible("lifecyclePhase") && <TableCell className="py-1" data-testid={`text-contract-lifecycle-${contract.id}`}>
+                        {contract.lifecyclePhase && contract.lifecyclePhase > 0 ? (
+                          <Badge variant="outline" className={`text-[10px] px-1.5 ${contract.lifecyclePhase <= 5 ? "border-amber-500/40 text-amber-400" : "border-cyan-500/40 text-cyan-400"}`}>
+                            {LIFECYCLE_PHASE_NAMES[contract.lifecyclePhase as keyof typeof LIFECYCLE_PHASE_NAMES] || `Fáza ${contract.lifecyclePhase}`}
+                          </Badge>
+                        ) : (
+                          <span className="text-xs text-muted-foreground">-</span>
+                        )}
                       </TableCell>}
                       {columnVisibility.isVisible("proposalNumber") && <TableCell className="text-sm font-mono py-1" data-testid={`text-contract-proposal-${contract.id}`}>{contract.proposalNumber || "-"}</TableCell>}
                       {columnVisibility.isVisible("globalNumber") && <TableCell className="font-mono text-sm py-1" data-testid={`text-contract-registration-${contract.id}`}>

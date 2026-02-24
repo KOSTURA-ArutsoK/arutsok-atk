@@ -1979,105 +1979,109 @@ export default function ContractForm() {
                       <ParamValueHistoryInline contractId={contractId} panelParams={panel.parameters} />
                     )}
                     <div style={{ display: panel.parameters.length > 0 ? 'block' : 'none' }}>
-                      <div className="flex flex-wrap gap-2">
+                      <div className="space-y-2">
                         {panel.parameters.map(param => {
                           const conditionalHidden =
                             ((param.id === 56 || param.id === 57) && panelValues[`${panel.id}_55`]?.toLowerCase() !== "ano") ||
                             (param.id === 70 && panelValues[`${panel.id}_69`]?.toLowerCase() !== "ano") ||
                             (param.id === 72 && panelValues[`${panel.id}_71`]?.toLowerCase() !== "ano");
                           return (
-                          <div key={param.id} className="space-y-0.5 flex-1 min-w-[calc(50%-0.25rem)]" style={{ display: conditionalHidden ? 'none' : undefined }}>
-                            <label className="text-xs font-medium">
-                              {param.name}
-                              <span style={{ display: param.isRequired ? 'inline' : 'none' }}><span className="text-destructive ml-1">*</span></span>
-                            </label>
-                            <div style={{ display: param.paramType === "textarea" ? 'block' : 'none' }}>
-                              <Textarea
-                                value={panelValues[`${panel.id}_${param.id}`] || param.defaultValue || ""}
-                                onChange={e => setPanelValues(prev => ({ ...prev, [`${panel.id}_${param.id}`]: e.target.value }))}
-                                rows={2}
-                                data-testid={`input-panel-param-${panel.id}-${param.id}`}
-                              />
+                          <div key={param.id} className="grid grid-cols-4 gap-2 items-start" style={{ display: conditionalHidden ? 'none' : undefined }}>
+                            <div className="col-span-3">
+                              <label className="text-xs font-medium">
+                                {param.name}
+                                <span style={{ display: param.isRequired ? 'inline' : 'none' }}><span className="text-destructive ml-1">*</span></span>
+                              </label>
+                              <div style={{ display: param.helpText ? 'block' : 'none' }}><p className="text-xs text-muted-foreground">{param.helpText}</p></div>
                             </div>
-                            <div style={{ display: param.paramType === "boolean" ? 'block' : 'none' }}>
-                              <Select
-                                value={panelValues[`${panel.id}_${param.id}`] || param.defaultValue || ""}
-                                onValueChange={val => setPanelValues(prev => ({ ...prev, [`${panel.id}_${param.id}`]: val }))}
-                              >
-                                <SelectTrigger data-testid={`select-panel-param-${panel.id}-${param.id}`}>
-                                  <SelectValue placeholder="Vyberte" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                  <SelectItem value="ano">Ano</SelectItem>
-                                  <SelectItem value="nie">Nie</SelectItem>
-                                </SelectContent>
-                              </Select>
-                            </div>
-                            <div style={{ display: (param.paramType === "combobox" || param.paramType === "jedna_moznost") && param.options?.length > 0 ? 'block' : 'none' }}>
-                              <Select
-                                value={panelValues[`${panel.id}_${param.id}`] || param.defaultValue || ""}
-                                onValueChange={val => setPanelValues(prev => ({ ...prev, [`${panel.id}_${param.id}`]: val }))}
-                              >
-                                <SelectTrigger data-testid={`select-panel-param-${panel.id}-${param.id}`}>
-                                  <SelectValue placeholder="Vyberte" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                  {(param.options || []).map(opt => (
-                                    <SelectItem key={opt} value={opt}>{opt}</SelectItem>
-                                  ))}
-                                </SelectContent>
-                              </Select>
-                            </div>
-                            <div style={{ display: param.paramType === "viac_moznosti" && param.options?.length > 0 ? 'block' : 'none' }}>
-                              <MultiSelectCheckboxes
-                                paramId={`${panel.id}_${param.id}`}
-                                options={param.options || []}
-                                value={panelValues[`${panel.id}_${param.id}`] || param.defaultValue || ""}
-                                onChange={(val) => setPanelValues(prev => ({ ...prev, [`${panel.id}_${param.id}`]: val }))}
-                              />
-                            </div>
-                            <div style={{ display: param.paramType === "decimal" ? 'block' : 'none' }}>
-                              <DecimalInput
-                                value={panelValues[`${panel.id}_${param.id}`] || param.defaultValue || ""}
-                                onChange={val => setPanelValues(prev => ({ ...prev, [`${panel.id}_${param.id}`]: val }))}
-                                unit={param.unit}
-                                decimalPlaces={param.decimalPlaces}
-                                testId={`input-panel-param-${panel.id}-${param.id}`}
-                              />
-                            </div>
-                            <div style={{ display: param.paramType !== "textarea" && param.paramType !== "boolean" && param.paramType !== "decimal" && !((param.paramType === "combobox" || param.paramType === "jedna_moznost") && param.options?.length > 0) && param.paramType !== "viac_moznosti" ? 'block' : 'none' }}>
-                              <div className="flex items-center gap-1.5">
-                                <Input
-                                  type={param.paramType === "number" || param.paramType === "currency" || param.paramType === "percent" ? "number" : param.paramType === "date" ? "date" : param.paramType === "datetime" ? "datetime-local" : param.paramType === "email" ? "email" : param.paramType === "url" ? "url" : "text"}
+                            <div className="col-span-1">
+                              <div style={{ display: param.paramType === "textarea" ? 'block' : 'none' }}>
+                                <Textarea
                                   value={panelValues[`${panel.id}_${param.id}`] || param.defaultValue || ""}
                                   onChange={e => setPanelValues(prev => ({ ...prev, [`${panel.id}_${param.id}`]: e.target.value }))}
+                                  rows={2}
                                   data-testid={`input-panel-param-${panel.id}-${param.id}`}
                                 />
-                                {(() => {
-                                  if (isContractAnniversaryParam(param.id)) {
-                                    const s = getContractAnniversaryStatus(param.id, panelValues[`${panel.id}_${param.id}`]);
-                                    return s ? <span className={`w-3 h-3 rounded-full shrink-0 ${s.dotClass}`} title={s.label} data-testid={`anniversary-dot-${param.id}`} /> : null;
-                                  }
-                                  if (isGapParam(param.id)) {
-                                    const contractEndVal = Object.entries(panelValues).find(([k]) => k.endsWith(`_${CONTRACT_END_PARAM_ID}`))?.[1];
-                                    const s = getGapInsuranceStatus(panelValues[`${panel.id}_${param.id}`], contractEndVal);
-                                    return s ? <span className={`w-3 h-3 rounded-full shrink-0 ${s.dotClass}`} title={s.label} data-testid={`gap-dot-${param.id}`} /> : null;
-                                  }
-                                  return null;
-                                })()}
-                                {(() => {
-                                  const val = panelValues[`${panel.id}_${param.id}`] || "";
-                                  const masterVal = getNezhoda(param.name, val);
-                                  if (!masterVal) return null;
-                                  return (
-                                    <span className="shrink-0" title={`Pozor: V Master Data je evidovaná iná hodnota: ${masterVal}`} data-testid={`nezhoda-${param.id}`}>
-                                      <AlertTriangle className="w-4 h-4 text-orange-400" />
-                                    </span>
-                                  );
-                                })()}
+                              </div>
+                              <div style={{ display: param.paramType === "boolean" ? 'block' : 'none' }}>
+                                <Select
+                                  value={panelValues[`${panel.id}_${param.id}`] || param.defaultValue || ""}
+                                  onValueChange={val => setPanelValues(prev => ({ ...prev, [`${panel.id}_${param.id}`]: val }))}
+                                >
+                                  <SelectTrigger data-testid={`select-panel-param-${panel.id}-${param.id}`}>
+                                    <SelectValue placeholder="Vyberte" />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    <SelectItem value="ano">Ano</SelectItem>
+                                    <SelectItem value="nie">Nie</SelectItem>
+                                  </SelectContent>
+                                </Select>
+                              </div>
+                              <div style={{ display: (param.paramType === "combobox" || param.paramType === "jedna_moznost") && param.options?.length > 0 ? 'block' : 'none' }}>
+                                <Select
+                                  value={panelValues[`${panel.id}_${param.id}`] || param.defaultValue || ""}
+                                  onValueChange={val => setPanelValues(prev => ({ ...prev, [`${panel.id}_${param.id}`]: val }))}
+                                >
+                                  <SelectTrigger data-testid={`select-panel-param-${panel.id}-${param.id}`}>
+                                    <SelectValue placeholder="Vyberte" />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    {(param.options || []).map(opt => (
+                                      <SelectItem key={opt} value={opt}>{opt}</SelectItem>
+                                    ))}
+                                  </SelectContent>
+                                </Select>
+                              </div>
+                              <div style={{ display: param.paramType === "viac_moznosti" && param.options?.length > 0 ? 'block' : 'none' }}>
+                                <MultiSelectCheckboxes
+                                  paramId={`${panel.id}_${param.id}`}
+                                  options={param.options || []}
+                                  value={panelValues[`${panel.id}_${param.id}`] || param.defaultValue || ""}
+                                  onChange={(val) => setPanelValues(prev => ({ ...prev, [`${panel.id}_${param.id}`]: val }))}
+                                />
+                              </div>
+                              <div style={{ display: param.paramType === "decimal" ? 'block' : 'none' }}>
+                                <DecimalInput
+                                  value={panelValues[`${panel.id}_${param.id}`] || param.defaultValue || ""}
+                                  onChange={val => setPanelValues(prev => ({ ...prev, [`${panel.id}_${param.id}`]: val }))}
+                                  unit={param.unit}
+                                  decimalPlaces={param.decimalPlaces}
+                                  testId={`input-panel-param-${panel.id}-${param.id}`}
+                                />
+                              </div>
+                              <div style={{ display: param.paramType !== "textarea" && param.paramType !== "boolean" && param.paramType !== "decimal" && !((param.paramType === "combobox" || param.paramType === "jedna_moznost") && param.options?.length > 0) && param.paramType !== "viac_moznosti" ? 'block' : 'none' }}>
+                                <div className="flex items-center gap-1.5">
+                                  <Input
+                                    type={param.paramType === "number" || param.paramType === "currency" || param.paramType === "percent" ? "number" : param.paramType === "date" ? "date" : param.paramType === "datetime" ? "datetime-local" : param.paramType === "email" ? "email" : param.paramType === "url" ? "url" : "text"}
+                                    value={panelValues[`${panel.id}_${param.id}`] || param.defaultValue || ""}
+                                    onChange={e => setPanelValues(prev => ({ ...prev, [`${panel.id}_${param.id}`]: e.target.value }))}
+                                    data-testid={`input-panel-param-${panel.id}-${param.id}`}
+                                  />
+                                  {(() => {
+                                    if (isContractAnniversaryParam(param.id)) {
+                                      const s = getContractAnniversaryStatus(param.id, panelValues[`${panel.id}_${param.id}`]);
+                                      return s ? <span className={`w-3 h-3 rounded-full shrink-0 ${s.dotClass}`} title={s.label} data-testid={`anniversary-dot-${param.id}`} /> : null;
+                                    }
+                                    if (isGapParam(param.id)) {
+                                      const contractEndVal = Object.entries(panelValues).find(([k]) => k.endsWith(`_${CONTRACT_END_PARAM_ID}`))?.[1];
+                                      const s = getGapInsuranceStatus(panelValues[`${panel.id}_${param.id}`], contractEndVal);
+                                      return s ? <span className={`w-3 h-3 rounded-full shrink-0 ${s.dotClass}`} title={s.label} data-testid={`gap-dot-${param.id}`} /> : null;
+                                    }
+                                    return null;
+                                  })()}
+                                  {(() => {
+                                    const val = panelValues[`${panel.id}_${param.id}`] || "";
+                                    const masterVal = getNezhoda(param.name, val);
+                                    if (!masterVal) return null;
+                                    return (
+                                      <span className="shrink-0" title={`Pozor: V Master Data je evidovaná iná hodnota: ${masterVal}`} data-testid={`nezhoda-${param.id}`}>
+                                        <AlertTriangle className="w-4 h-4 text-orange-400" />
+                                      </span>
+                                    );
+                                  })()}
+                                </div>
                               </div>
                             </div>
-                            <div style={{ display: param.helpText ? 'block' : 'none' }}><p className="text-xs text-muted-foreground">{param.helpText}</p></div>
                           </div>
                           );
                         })}
