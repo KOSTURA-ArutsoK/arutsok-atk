@@ -15,7 +15,10 @@ export function MultiSelectCheckboxes({ paramId, options, value, onChange }: Mul
   const [searchTerm, setSearchTerm] = useState("");
 
   const selectedValues: string[] = value ? (() => {
-    try { return JSON.parse(value); } catch { return value.split(",").map(v => v.trim()).filter(Boolean); }
+    try {
+      const parsed = JSON.parse(value);
+      return Array.isArray(parsed) ? parsed : [String(parsed)];
+    } catch { return value.split(",").map(v => v.trim()).filter(Boolean); }
   })() : [];
 
   function toggleOption(opt: string) {
