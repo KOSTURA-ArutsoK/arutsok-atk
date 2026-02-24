@@ -2441,10 +2441,11 @@ export default function ContractForm() {
                   <History className="w-4 h-4" />
                   Historia stavov ({(statusChangeLogs || []).length})
                 </h3>
-                {(!statusChangeLogs || statusChangeLogs.length === 0) && (
-                  <p className="text-sm text-muted-foreground text-center py-4" data-testid="text-no-status-history">
-                    Ziadna historia zmien stavov
-                  </p>
+                {(!statusChangeLogs || statusChangeLogs.length === 0) && contractId && (
+                  <div className="text-center py-6" data-testid="text-no-status-history">
+                    <History className="w-8 h-8 text-muted-foreground/30 mx-auto mb-2" />
+                    <p className="text-sm text-muted-foreground">Zatiaľ žiadne zmeny stavov</p>
+                  </div>
                 )}
                 {statusChangeLogs && statusChangeLogs.length > 0 && (
                   <div className="relative pl-6 space-y-3">
@@ -2466,7 +2467,8 @@ export default function ContractForm() {
                             <div className="w-3 h-3 rounded-full border-2 border-background shrink-0" style={{ backgroundColor: logStatus?.color || "#6b7280" }} />
                           </div>
                           <Card
-                            className={`shadow-sm transition-all min-h-[52px] ${hasDetails ? "cursor-pointer hover:shadow-md" : ""}`}
+                            className={`shadow-sm transition-all min-h-[56px] border-l-[3px] ${hasDetails ? "cursor-pointer hover:shadow-md" : ""}`}
+                            style={{ borderLeftColor: logStatus?.color || "#6b7280" }}
                             onClick={() => hasDetails && setExpandedStatusLogs(prev => { const next = new Set(prev); next.has(log.id) ? next.delete(log.id) : next.add(log.id); return next; })}
                             data-testid={`status-history-trigger-${log.id}`}
                           >
@@ -2480,7 +2482,7 @@ export default function ContractForm() {
                                   <Badge variant="secondary" className="text-[10px] h-4">×{log.statusIteration}</Badge>
                                 )}
                                 <div className="ml-auto flex items-center gap-2">
-                                  {docs.length > 0 && <Badge variant="secondary" className="text-[10px] h-4"><Paperclip className="w-2.5 h-2.5 mr-0.5" />{docs.length}</Badge>}
+                                  {docs.length > 0 && <Badge variant="secondary" className="text-[10px] h-4"><FileText className="w-2.5 h-2.5 mr-0.5" />{docs.length} {docs.length === 1 ? "dokument" : docs.length < 5 ? "dokumenty" : "dokumentov"}</Badge>}
                                   {log.statusNote && <MessageSquare className="w-3 h-3 text-blue-400" />}
                                   <span className="text-xs text-muted-foreground" data-testid={`status-history-date-${log.id}`}>
                                     {log.changedAt ? formatDateTimeSlovak(log.changedAt) : "-"}
