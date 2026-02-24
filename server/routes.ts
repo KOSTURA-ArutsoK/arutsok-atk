@@ -2282,6 +2282,18 @@ export async function registerRoutes(
 
       await storage.updateContract(contractId, contractUpdate);
 
+      if (docs.length > 0) {
+        const freshContract = await storage.getContract(contractId);
+        const existingDocs = Array.isArray((freshContract as any)?.documents) ? (freshContract as any).documents : [];
+        const statusName = status?.name || `Stav #${newStatusId}`;
+        const syncedDocs = docs.map((d: any) => ({
+          ...d,
+          sourceStatusChangeLogId: changeLog.id,
+          sourceStatusName: statusName,
+        }));
+        await storage.updateContract(contractId, { documents: [...existingDocs, ...syncedDocs] } as any);
+      }
+
       if (status?.assignsNumber && !contract.globalNumber) {
         const counter = await storage.getNextCounterValue("global_contract_number");
         await storage.updateContract(contractId, { globalNumber: counter } as any);
@@ -9669,7 +9681,7 @@ export async function registerRoutes(
     }
   });
 
-  // === SUBJECT RELATIONS (Relácie subjektu pre Svätyňu) ===
+  // === SUBJECT RELATIONS (Relácie subjektu) ===
   app.get("/api/subject-relations/:id", isAuthenticated, async (req: any, res) => {
     try {
       const subjectId = parseInt(req.params.id);

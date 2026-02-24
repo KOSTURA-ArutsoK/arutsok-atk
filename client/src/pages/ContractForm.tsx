@@ -85,7 +85,7 @@ type FolderWithPanels = {
 
 const TABS = [
   { key: "vseobecne", label: "Vseobecne", icon: FileText },
-  { key: "udaje-klient", label: "Údaje o klientovi (Svätyňa)", icon: Users },
+  { key: "udaje-klient", label: "Klientsky profil", icon: Users },
   { key: "udaje-zmluva", label: "Udaje o zmluve", icon: ClipboardList },
   { key: "dokumenty", label: "Dokumenty", icon: FolderOpen },
   { key: "ziskatelia", label: "Ziskatelia", icon: UserCheck },
@@ -1832,7 +1832,7 @@ export default function ContractForm() {
             <div className={`space-y-3 rounded-md border p-3 ${svatynaHeatmapClass}`} data-testid="section-udaje-klient">
               <div className="flex items-center gap-2 mb-2 flex-wrap">
                 <Shield className="w-4 h-4 text-amber-400" />
-                <h2 className="text-sm font-semibold">Priečinok: Údaje o klientovi (Svätyňa)</h2>
+                <h2 className="text-sm font-semibold">Klientsky profil</h2>
                 <Badge variant="outline" className="text-[8px] px-1 py-0 border-amber-500/30 text-amber-400">Statický priečinok</Badge>
                 {selectedSubject && (
                   <Badge variant="outline" className="text-[8px] px-1 py-0 border-cyan-500/30 text-cyan-400" data-testid="badge-stroj-casu">
@@ -1921,7 +1921,7 @@ export default function ContractForm() {
 
           <div style={{ display: activeTab === "udaje-zmluva" ? 'block' : 'none' }}>
             <div className="space-y-3" data-testid="section-udaje-zmluva">
-              <h2 className="text-base font-semibold">Modul A: Údaje o zmluve — Sektor → Odvetvie → Produkt → Priečinok</h2>
+              <h2 className="text-base font-semibold">Údaje o zmluve</h2>
 
               <div className="grid grid-cols-3 gap-3">
                 <CompactField label="Sektor">
@@ -2181,14 +2181,56 @@ export default function ContractForm() {
           <div style={{ display: activeTab === "dokumenty" ? 'block' : 'none' }}>
             <div className="space-y-3" data-testid="section-dokumenty">
               <h2 className="text-base font-semibold">Dokumenty</h2>
-              <Card>
-                <CardContent className="p-4 text-center">
-                  <FolderOpen className="w-10 h-10 text-muted-foreground mx-auto mb-2" />
-                  <p className="text-sm text-muted-foreground" data-testid="text-dokumenty-placeholder">
-                    Modul dokumentov bude dostupny v dalsej verzii.
-                  </p>
-                </CardContent>
-              </Card>
+              {(() => {
+                const allDocs = Array.isArray((existingContract as any)?.documents) ? (existingContract as any).documents as any[] : [];
+                if (allDocs.length === 0) {
+                  return (
+                    <Card>
+                      <CardContent className="p-6 text-center">
+                        <FolderOpen className="w-10 h-10 text-muted-foreground/30 mx-auto mb-2" />
+                        <p className="text-sm text-muted-foreground" data-testid="text-dokumenty-empty">
+                          Žiadne dokumenty
+                        </p>
+                        <p className="text-[10px] text-muted-foreground/60 mt-1">
+                          Dokumenty pridané pri zmene stavu sa tu automaticky zobrazia
+                        </p>
+                      </CardContent>
+                    </Card>
+                  );
+                }
+                return (
+                  <Card>
+                    <CardContent className="p-4">
+                      <div className="flex items-center justify-between mb-3">
+                        <span className="text-xs text-muted-foreground">{allDocs.length} {allDocs.length === 1 ? "dokument" : allDocs.length < 5 ? "dokumenty" : "dokumentov"}</span>
+                      </div>
+                      <div className="space-y-1.5">
+                        {allDocs.map((doc: any, idx: number) => (
+                          <a
+                            key={doc.id || idx}
+                            href={doc.url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="flex items-center gap-3 px-3 py-2.5 rounded-lg bg-muted/30 hover:bg-muted/60 transition-colors group"
+                            data-testid={`doc-item-${idx}`}
+                          >
+                            <FileText className="w-4 h-4 text-blue-400 shrink-0" />
+                            <div className="flex-1 min-w-0">
+                              <div className="text-sm font-medium truncate">{doc.name || `Dokument ${idx + 1}`}</div>
+                              <div className="flex gap-2 text-[10px] text-muted-foreground">
+                                {doc.sourceStatusName && <span>Stav: {doc.sourceStatusName}</span>}
+                                {doc.uploadedAt && <span>{new Date(doc.uploadedAt).toLocaleDateString("sk-SK")}</span>}
+                                {doc.fileSize && <span>{(doc.fileSize / 1024).toFixed(0)} KB</span>}
+                              </div>
+                            </div>
+                            <Eye className="w-3.5 h-3.5 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
+                          </a>
+                        ))}
+                      </div>
+                    </CardContent>
+                  </Card>
+                );
+              })()}
             </div>
           </div>
 
@@ -2453,10 +2495,10 @@ export default function ContractForm() {
                           <div className="text-center py-3">
                             <Eye className="w-5 h-5 text-muted-foreground/30 mx-auto mb-1.5" />
                             <p className="text-xs text-muted-foreground">
-                              Žiadne polia označené v Svätyni
+                              Žiadne polia označené v profile
                             </p>
                             <p className="text-[10px] text-muted-foreground/60 mt-0.5">
-                              Označte polia ikonou oka v záložke „Údaje o klientovi" a zobrazia sa tu
+                              Označte polia ikonou oka v záložke „Klientsky profil" a zobrazia sa tu
                             </p>
                           </div>
                         )}
