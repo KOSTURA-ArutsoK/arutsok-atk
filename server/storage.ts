@@ -343,7 +343,8 @@ export interface IStorage {
   reorderContractInventories(items: { id: number; sortOrder: number }[]): Promise<void>;
 
   // Contracts
-  getContracts(filters?: { stateId?: number; statusId?: number; inventoryId?: number; templateId?: number; includeDeleted?: boolean; unprocessed?: boolean; dispatched?: boolean; companyId?: number }): Promise<Contract[]>;
+  getContracts(filters?: { stateId?: number; statusId?: number; inventoryId?: number; templateId?: number; includeDeleted?: boolean; unprocessed?: boolean; dispatched?: boolean; companyId?: number; limit?: number; offset?: number }): Promise<Contract[]>;
+  getContractsPaginated(filters?: { stateId?: number; statusId?: number; inventoryId?: number; templateId?: number; includeDeleted?: boolean; unprocessed?: boolean; dispatched?: boolean; companyId?: number; limit?: number; offset?: number }): Promise<{ data: Contract[]; total: number }>;
   getDispatchedContracts(companyId?: number, stateId?: number): Promise<Contract[]>;
   getSystemContractStatus(): Promise<ContractStatus | undefined>;
   getContract(id: number): Promise<Contract | undefined>;
@@ -2395,6 +2396,37 @@ export class DatabaseStorage implements IStorage {
       return await db.select().from(contracts).where(and(...conditions)).orderBy(sql`${contracts.createdAt} DESC`);
     }
     return await db.select().from(contracts).orderBy(sql`${contracts.createdAt} DESC`);
+  }
+
+  async getContractsPaginated(filters?: { stateId?: number; statusId?: number; inventoryId?: number; templateId?: number; includeDeleted?: boolean; unprocessed?: boolean; dispatched?: boolean; companyId?: number; limit?: number; offset?: number }): Promise<{ data: Contract[]; total: number }> {
+    const conditions = [];
+    if (!filters?.includeDeleted) {
+      conditions.push(eq(contracts.isDeleted, false));
+    }
+    if (filters?.stateId) {
+      conditions.push(eq(contracts.stateId, filters.stateId));
+    }
+    if (filters?.statusId) {
+      conditions.push(eq(contracts.statusId, filters.statusId));
+    }
+    if (filters?.inventoryId) {
+      conditions.push(eq(contracts.inventoryId, filters.inventoryId));
+    }
+    if (filters?.templateId) {
+      conditions.push(eq(contracts.templateId, filters.templateId));
+    }
+    if (filters?.unprocessed) {
+      conditions.push(isNull(contracts.inventoryId));
+    }
+    if (filters?.companyId) {
+      conditions.push(eq(contracts.companyId, filters.companyId));
+    }
+    const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
+    const [countResult, data] = await Promise.all([
+      db.select({ count: sql<number>`count(*)::int` }).from(contracts).where(whereClause),
+      db.select().from(contracts).where(whereClause).orderBy(sql`${contracts.createdAt} DESC`).limit(filters?.limit ?? 50).offset(filters?.offset ?? 0),
+    ]);
+    return { data, total: countResult[0]?.count ?? 0 };
   }
 
   async getDispatchedContracts(companyId?: number, stateId?: number): Promise<Contract[]> {

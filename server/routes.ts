@@ -3021,6 +3021,10 @@ export async function registerRoutes(
 
   app.get(api.contractsApi.list.path, isAuthenticated, async (req: any, res) => {
     const appUser = req.appUser;
+    const parsedLimit = req.query.limit ? parseInt(req.query.limit as string) : 50;
+    const parsedOffset = req.query.offset ? parseInt(req.query.offset as string) : 0;
+    const limit = isNaN(parsedLimit) ? 50 : Math.min(parsedLimit, 200);
+    const offset = isNaN(parsedOffset) ? 0 : Math.max(parsedOffset, 0);
     const filters = {
       stateId: getEnforcedStateId(req),
       statusId: req.query.statusId ? parseInt(req.query.statusId as string) : undefined,
@@ -3028,8 +3032,10 @@ export async function registerRoutes(
       includeDeleted: req.query.includeDeleted === 'true',
       unprocessed: req.query.unprocessed === 'true',
       companyId: appUser?.activeCompanyId || undefined,
+      limit,
+      offset,
     };
-    const allContracts = await storage.getContracts(filters);
+    const { data: allContracts, total } = await storage.getContractsPaginated(filters);
     if (appUser) {
       const userUid = appUser.uid;
       let userIco: string | null = null;
@@ -3049,9 +3055,9 @@ export async function registerRoutes(
         ...c,
         accessRole: getContractAccessRole(c, userUid, appUser.role, userIco, userBirthNumber),
       }));
-      return res.json(contractsWithAccess);
+      return res.json({ data: contractsWithAccess, total, limit, offset });
     }
-    res.json(allContracts);
+    res.json({ data: allContracts, total, limit, offset });
   });
 
   app.get(api.contractsApi.get.path, isAuthenticated, async (req: any, res) => {

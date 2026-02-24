@@ -1816,7 +1816,12 @@ export default function Contracts() {
   const { data: allClientTypes } = useQuery<ClientType[]>({ queryKey: ["/api/client-types"] });
   const activeClientTypes = (allClientTypes || []).filter(ct => ct.isActive).sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0));
 
-  const contractsParams = (() => {
+  const PAGE_SIZE = 50;
+  const [contractPages, setContractPages] = useState<Contract[]>([]);
+  const [contractsTotal, setContractsTotal] = useState(0);
+  const [contractsOffset, setContractsOffset] = useState(0);
+
+  const contractsFilterParams = (() => {
     if (isEvidencia) {
       return { unprocessed: "true" } as Record<string, string>;
     }
@@ -1826,17 +1831,50 @@ export default function Contracts() {
     return p;
   })();
 
-  const contractsQueryKey = ["/api/contracts", contractsParams];
+  const contractsFilterKey = JSON.stringify(contractsFilterParams);
 
-  const { data: contracts, isLoading } = useQuery<Contract[]>({
+  useEffect(() => {
+    setContractPages([]);
+    setContractsTotal(0);
+    setContractsOffset(0);
+  }, [contractsFilterKey]);
+
+  const contractsQueryKey = ["/api/contracts", contractsFilterParams, contractsOffset];
+
+  const { data: contractsPage, isLoading: isLoadingContracts, isFetching: isFetchingContracts } = useQuery<{ data: Contract[]; total: number; limit: number; offset: number }>({
     queryKey: contractsQueryKey,
     queryFn: async () => {
-      const qs = new URLSearchParams(contractsParams).toString();
-      const res = await fetch(`/api/contracts${qs ? `?${qs}` : ""}`, { credentials: "include" });
+      const params = new URLSearchParams(contractsFilterParams);
+      params.set("limit", String(PAGE_SIZE));
+      params.set("offset", String(contractsOffset));
+      const res = await fetch(`/api/contracts?${params.toString()}`, { credentials: "include" });
       if (!res.ok) throw new Error("Failed");
       return res.json();
     },
   });
+
+  useEffect(() => {
+    if (!contractsPage) return;
+    setContractsTotal(contractsPage.total);
+    if (contractsOffset === 0) {
+      setContractPages(contractsPage.data);
+    } else {
+      setContractPages(prev => {
+        const existingIds = new Set(prev.map(c => c.id));
+        const newContracts = contractsPage.data.filter(c => !existingIds.has(c.id));
+        return [...prev, ...newContracts];
+      });
+    }
+  }, [contractsPage, contractsOffset]);
+
+  const isLoading = isLoadingContracts && contractsOffset === 0;
+  const isLoadingMore = isFetchingContracts && contractsOffset > 0;
+  const contracts = contractPages;
+  const hasMoreContracts = contractPages.length < contractsTotal;
+
+  const loadMoreContracts = useCallback(() => {
+    setContractsOffset(prev => prev + PAGE_SIZE);
+  }, []);
 
   const { data: dispatchedContracts, isLoading: isLoadingDispatched } = useQuery<Contract[]>({
     queryKey: ["/api/contracts/dispatched"],
@@ -1971,6 +2009,9 @@ export default function Contracts() {
   })();
 
   function invalidateContractCaches() {
+    setContractPages([]);
+    setContractsTotal(0);
+    setContractsOffset(0);
     queryClient.invalidateQueries({ queryKey: ["/api/contracts"] });
     queryClient.invalidateQueries({ queryKey: ["/api/contracts/dispatched"] });
     queryClient.invalidateQueries({ queryKey: ["/api/contracts/accepted"] });
@@ -2837,6 +2878,9 @@ export default function Contracts() {
           <Card data-testid="folder-nahravanie">
             <div className="flex items-center gap-3 p-3 border-b flex-wrap">
               <div className="flex-1">
+                <p className="text-xs text-muted-foreground" data-testid="text-contracts-counter">
+                  Zobrazených <span className="font-semibold text-foreground">{contracts.length}</span> z celkového počtu <span className="font-semibold text-foreground">{contractsTotal}</span> zmlúv
+                </p>
                 <p className="text-xs text-red-400 italic" data-testid="text-ordering-note">Poznamka: Zmluvy budu na sprievodke zoradene podla poradia, v akom ich oznacite.</p>
               </div>
               <span id="selected-dispatch-wrapper" style={{ display: selectedIds.length > 0 ? 'inline' : 'none' }}>
@@ -2854,7 +2898,19 @@ export default function Contracts() {
                 <div className="flex items-center justify-center py-8"><Loader2 className="w-5 h-5 animate-spin" /></div>
               ) : filteredNahravanie.length === 0 ? (
                 <p className="text-sm text-muted-foreground text-center py-8" data-testid="text-no-nahravanie">Ziadne zmluvy na nahravanie</p>
-              ) : renderContractTable(sortedNahravanie, { showCheckbox: true, showOrder: true, sortState: { sortKey: skNahr, sortDirection: sdNahr, requestSort: rsNahr } })}
+              ) : (
+                <>
+                  {renderContractTable(sortedNahravanie, { showCheckbox: true, showOrder: true, sortState: { sortKey: skNahr, sortDirection: sdNahr, requestSort: rsNahr } })}
+                  {hasMoreContracts && (
+                    <div className="flex items-center justify-center py-4 border-t">
+                      <Button variant="outline" size="sm" onClick={loadMoreContracts} disabled={isLoadingMore} data-testid="button-load-more">
+                        {isLoadingMore ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
+                        Načítať ďalšie ({contracts.length} / {contractsTotal})
+                      </Button>
+                    </div>
+                  )}
+                </>
+              )}
             </CardContent>
           </Card>
         </div>

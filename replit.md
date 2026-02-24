@@ -66,7 +66,8 @@ The system utilizes a modern full-stack architecture with a focus on data integr
 - **Security**: Removed hardcoded fallback secrets in `crypto.ts` and `routes.ts` (archive password)
 - **Security**: Moved `ARCHIVE_RESTORE_PASSWORD` from env var to encrypted secret
 - **Performance**: Added 13 database indexes on contracts, contract_lifecycle_history, contract_parameter_values tables (defined in Drizzle schema)
-- **Known Items**: 65 TypeScript type warnings in routes.ts (non-blocking, mostly `string | string[]` from req.params); unbounded `getContracts()` calls (17 places) identified for future pagination
+- **Pagination**: Main contracts list endpoint now paginated (limit/offset, default 50, max 200). Frontend uses "Načítať ďalšie" button with accumulated pages. Counter shows "Zobrazených X z Y zmlúv". Filters reset pagination.
+- **Known Items**: 65 TypeScript type warnings in routes.ts (non-blocking, mostly `string | string[]` from req.params)
 
 ## External Dependencies
 - **Replit OIDC Auth**: Authentication.
