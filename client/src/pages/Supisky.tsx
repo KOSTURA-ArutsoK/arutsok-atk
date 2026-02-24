@@ -211,11 +211,11 @@ function SupiskaDetailDialog({
     onError: () => toast({ title: "Chyba", description: "Nepodarilo sa zmenit stav", variant: "destructive" }),
   });
 
+  const { sortedData: sortedLinkedContracts, sortKey: sortKeyLinked, sortDirection: sortDirLinked, requestSort: requestSortLinked } = useTableSort(linkedContracts);
+
   if (!supiska) return null;
 
   const isSent = supiska.status === "Odoslana";
-
-  const { sortedData: sortedLinkedContracts, sortKey: sortKeyLinked, sortDirection: sortDirLinked, requestSort: requestSortLinked } = useTableSort(linkedContracts);
 
   const getSubjectName = (subjectId: number | null) => {
     if (!subjectId) return "";
