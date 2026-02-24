@@ -1,0 +1,40 @@
+PRÍKAZ PRE AGENTA: KOMPLETNÝ ŽIVOTNÝ CYKLUS ZMLUVY/KONTRAKTU
+Agent, implementuj v systéme ArutsoK (ATK) nasledovnú štruktúru životného cyklu zmluvy. Systém bude rozdelený na dve línie záložiek v Module (B) a globálny Zoznam zmlúv.
+
+1. RIADOK: LOGISTIKA (Sledovanie papiera)
+ČAKAJÚCE NA ODOSLANIE: Vstupný bod. Špecialista nahral: Číslo návrhu/zmluvy, titul, meno, priezvisko, titul za menom, produkt, partner, RČ/IČO.
+
+ODOSLANÉ NA SPRIEVODKE: Moment vygenerovania sprievodky. Zmluva je fyzicky na ceste na centrálu.
+
+NEPRIJATÉ ZMLUVY – VÝHRADY: Zmluvy, ktoré neboli fyzicky nájdené v doručenej zásielke na centrále.
+
+ARCHÍV ZMLÚV (Z VÝHRADAMI): * Ak je zmluva vo výhradách viac ako 100 dní, automaticky padá sem.
+
+Spusti vizuálny 100-dňový timer pri každej zmluve v riadku 1.
+
+Po 365 dňoch v tejto zložke sa záznam nenávratne vymaže.
+
+PRIJATÉ DO CENTRÁLY: Fyzické potvrdenie prijatia. Kritický moment: Tu sa zo Zmluvy stáva Kontrakt. Systém pridelí Číslo kontraktu a vygeneruje kód subjektu 421 000 000 000 XXX (ak ešte neexistuje).
+
+2. RIADOK: SPRACOVANIE (Dátová kvalita)
+KONTRAKT V SPRACOVANÍ: Prebieha skenovanie a OCR extrakcia (využi 3:1 grid layout). Dopĺňajú sa chýbajúce parametre.
+
+INTERNÁ INTERVENCIA KU ZMLUVE: Stav, ak chýba údaj (napr. kópia OP). Kontrakt je blokovaný pre súpisky.
+
+PRIPRAVENÉ NA ODOSLANIE: Kontrakt je čistý a validovaný. Čaká na hromadné odoslanie partnerovi.
+
+ODOSLANÉ OBCH. PARTNEROVI: Generovanie súpisky s QR kódom (max 25 ks / 1 partner / 1 produkt).
+
+PRIJATÉ OBCH. PARTNEROM: Doplní sa dátum prijatia partnerom. Kontrakt definitívne vypadáva z tohto procesného dashboardu.
+
+3. GLOBÁLNY ZOZNAM ZMLÚV (Zrkadlo procesu)
+Viditeľnosť: Akonáhle je zmluve v 5. fáze pridelené číslo kontraktu, musí sa okamžite objaviť v Zozname zmlúv.
+
+Stavy: V Zozname zmlúv zobrazuj stĺpec "Aktuálny stav", ktorý sa mení podľa toho, v ktorej fáze (6 až 10) sa kontrakt nachádza.
+
+História (Stroj času 🕰️): Ku každému kontraktu vytvor záznam všetkých stavov, ktorými prešiel (napr. 24.02. Prijaté -> 25.02. Intervencia -> 26.02. Pripravené).
+
+4. VIZUÁLNE ŠTANDARDY
+Súpiska: Na súpisku pre partnera (Fáza 9) umiestni pod podpis do stredu QR kód. Zachovaj pôvodný dizajn 1:1.
+
+Parametre (C): Všetky parametre v detaile kontraktu zobrazuj v pomere 3:1 (Názov vľavo 75 % / Hodnota vpravo 25 %).
