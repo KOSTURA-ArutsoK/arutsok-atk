@@ -44,4 +44,3 @@ integrations = ["javascript_log_in_with_replit:2.0.0"]
 [userenv]
 
 [userenv.shared]
-ARCHIVE_RESTORE_PASSWORD = "ArutsoK2025!Restore"

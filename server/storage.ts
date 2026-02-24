@@ -343,7 +343,7 @@ export interface IStorage {
   reorderContractInventories(items: { id: number; sortOrder: number }[]): Promise<void>;
 
   // Contracts
-  getContracts(filters?: { stateId?: number; statusId?: number; inventoryId?: number; includeDeleted?: boolean; unprocessed?: boolean; dispatched?: boolean; companyId?: number }): Promise<Contract[]>;
+  getContracts(filters?: { stateId?: number; statusId?: number; inventoryId?: number; templateId?: number; includeDeleted?: boolean; unprocessed?: boolean; dispatched?: boolean; companyId?: number }): Promise<Contract[]>;
   getDispatchedContracts(companyId?: number, stateId?: number): Promise<Contract[]>;
   getSystemContractStatus(): Promise<ContractStatus | undefined>;
   getContract(id: number): Promise<Contract | undefined>;
@@ -2368,7 +2368,7 @@ export class DatabaseStorage implements IStorage {
 
   // === Contracts ===
 
-  async getContracts(filters?: { stateId?: number; statusId?: number; inventoryId?: number; includeDeleted?: boolean; unprocessed?: boolean; dispatched?: boolean; companyId?: number }): Promise<Contract[]> {
+  async getContracts(filters?: { stateId?: number; statusId?: number; inventoryId?: number; templateId?: number; includeDeleted?: boolean; unprocessed?: boolean; dispatched?: boolean; companyId?: number }): Promise<Contract[]> {
     const conditions = [];
     if (!filters?.includeDeleted) {
       conditions.push(eq(contracts.isDeleted, false));
@@ -2381,6 +2381,9 @@ export class DatabaseStorage implements IStorage {
     }
     if (filters?.inventoryId) {
       conditions.push(eq(contracts.inventoryId, filters.inventoryId));
+    }
+    if (filters?.templateId) {
+      conditions.push(eq(contracts.templateId, filters.templateId));
     }
     if (filters?.unprocessed) {
       conditions.push(isNull(contracts.inventoryId));

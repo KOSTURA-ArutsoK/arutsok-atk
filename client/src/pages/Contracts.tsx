@@ -1146,7 +1146,7 @@ function ContractFormDialog({
                 <LayoutGrid className="w-4 h-4 text-primary" />
                 <span className="text-sm font-semibold">Parametre produktu</span>
               </div>
-              {productPanels.map(panel => (
+              {productPanels?.map(panel => (
                 <Card key={panel.id} className="p-3" data-testid={`panel-section-${panel.id}`}>
                   <div className="flex items-center gap-2 mb-2">
                     <span className="text-sm font-semibold">{panel.name}</span>

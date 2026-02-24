@@ -5,7 +5,10 @@ const IV_LENGTH = 12;
 const TAG_LENGTH = 16;
 
 function getEncryptionKey(): Buffer {
-  const secret = process.env.SESSION_SECRET || "default-encryption-key-change-me";
+  const secret = process.env.SESSION_SECRET;
+  if (!secret) {
+    throw new Error("SESSION_SECRET must be set for encryption");
+  }
   return crypto.createHash("sha256").update(secret).digest();
 }
 
