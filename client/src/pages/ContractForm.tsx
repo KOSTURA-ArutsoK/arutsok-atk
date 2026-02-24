@@ -13,6 +13,7 @@ import { getFieldsForClientTypeId, type StaticField } from "@/lib/staticFieldDef
 import { ArrowLeft, Save, Loader2, LayoutGrid, KeyRound, Plus, Trash2, FileText, Users, ClipboardList, FolderOpen, FolderClosed, DollarSign, BarChart3, ListChecks, PieChart, ChevronLeft, ChevronRight, MessageSquare, Paperclip, Upload, X, Eye, Settings2, Calendar, UserCheck, Check, Link2, CreditCard, Flag, History, AlertTriangle, Shield, Lock } from "lucide-react";
 import { getContractAnniversaryStatus, isContractAnniversaryParam, getGapInsuranceStatus, isGapParam, CONTRACT_END_PARAM_ID } from "@/lib/document-validity";
 import { SubjektView } from "@/components/subjekt-view";
+import { SubjectProfilePhoto } from "@/components/subject-profile-photo";
 import type { DocumentEntry } from "@shared/schema";
 import StatusDocUpload, { type StatusDocUploadHandle } from "@/components/StatusDocUpload";
 import { Card, CardContent } from "@/components/ui/card";
@@ -761,6 +762,7 @@ export default function ContractForm() {
   const [contractNumber, setContractNumber] = useState("");
   const [proposalNumber, setProposalNumber] = useState("");
   const [subjectId, setSubjectId] = useState<string>("");
+  const [expandedStatusLogs, setExpandedStatusLogs] = useState<Set<number>>(new Set());
   const [partnerId, setPartnerId] = useState<string>("");
   const [statusId, setStatusId] = useState<string>("");
   const [statusFormStatusId, setStatusFormStatusId] = useState<string>("");
@@ -2362,17 +2364,30 @@ export default function ContractForm() {
 
               {selectedSubject && (
                 <Card className="border-blue-500/30 bg-blue-500/5">
-                  <CardContent className="p-4 space-y-2">
-                    <h3 className="text-sm font-semibold mb-2 flex items-center gap-2">
-                      <Users className="w-4 h-4 text-blue-400" />
-                      Subjekt
-                    </h3>
-                    <div className="flex flex-wrap gap-2">
-                      <SummaryField label="Meno" value={`${selectedSubject.firstName || ""} ${selectedSubject.lastName || ""}`.trim() || selectedSubject.companyName || "-"} testId="summary-subject-name" />
-                      {selectedSubject.uid && <SummaryField label="ID subjektu" value={selectedSubject.uid} testId="summary-subject-uid" mono />}
-                      {selectedSubject.type && <SummaryField label="Typ" value={selectedSubject.type} testId="summary-subject-type" />}
-                      {selectedSubject.email && <SummaryField label="Email" value={selectedSubject.email} testId="summary-subject-email" />}
-                      {selectedSubject.phone && <SummaryField label="Telefón" value={selectedSubject.phone} testId="summary-subject-phone" />}
+                  <CardContent className="p-4">
+                    <div className="flex items-start gap-4">
+                      <SubjectProfilePhoto subjectId={selectedSubject.id} size="md" />
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-baseline gap-2 flex-wrap mb-1">
+                          <span className="text-base font-bold" data-testid="summary-subject-name">
+                            {`${selectedSubject.firstName || ""} ${selectedSubject.lastName || ""}`.trim() || selectedSubject.companyName || "-"}
+                          </span>
+                          {selectedSubject.uid && (
+                            <span className="text-xs font-mono text-blue-400" data-testid="summary-subject-uid">{selectedSubject.uid}</span>
+                          )}
+                          {selectedSubject.type && (
+                            <Badge variant="outline" className="text-[10px] h-4" data-testid="summary-subject-type">{selectedSubject.type}</Badge>
+                          )}
+                        </div>
+                        <div className="flex flex-wrap gap-x-4 gap-y-0.5 text-xs text-muted-foreground">
+                          {selectedSubject.email && (
+                            <span data-testid="summary-subject-email">{selectedSubject.email}</span>
+                          )}
+                          {selectedSubject.phone && (
+                            <span data-testid="summary-subject-phone">{selectedSubject.phone}</span>
+                          )}
+                        </div>
+                      </div>
                     </div>
                   </CardContent>
                 </Card>
@@ -2432,7 +2447,7 @@ export default function ContractForm() {
                   </p>
                 )}
                 {statusChangeLogs && statusChangeLogs.length > 0 && (
-                  <div className="relative pl-6 space-y-4">
+                  <div className="relative pl-6 space-y-3">
                     <div className="absolute left-[11px] top-2 bottom-2 w-0.5 bg-border" />
                     {[...statusChangeLogs].reverse().map((log, idx) => {
                       const logStatus = statuses?.find(s => s.id === log.newStatusId);
@@ -2442,14 +2457,20 @@ export default function ContractForm() {
                       const paramVals = (log.parameterValues as Record<string, string>) || {};
                       const hasParamValues = Object.keys(paramVals).filter(k => paramVals[k]?.trim()).length > 0;
                       const rowNumber = idx + 1;
+                      const isExpanded = expandedStatusLogs.has(log.id);
+                      const hasDetails = !!log.statusNote || hasParamValues || docs.length > 0 || !!oldStatus;
 
                       return (
                         <div key={log.id} className="relative" data-testid={`status-history-row-${log.id}`}>
-                          <div className="absolute -left-6 top-4 w-[22px] flex items-center justify-center">
+                          <div className="absolute -left-6 top-5 w-[22px] flex items-center justify-center">
                             <div className="w-3 h-3 rounded-full border-2 border-background shrink-0" style={{ backgroundColor: logStatus?.color || "#6b7280" }} />
                           </div>
-                          <Card className="shadow-sm hover:shadow-md transition-shadow">
-                            <CardContent className="p-4 space-y-3">
+                          <Card
+                            className={`shadow-sm transition-all min-h-[52px] ${hasDetails ? "cursor-pointer hover:shadow-md" : ""}`}
+                            onClick={() => hasDetails && setExpandedStatusLogs(prev => { const next = new Set(prev); next.has(log.id) ? next.delete(log.id) : next.add(log.id); return next; })}
+                            data-testid={`status-history-trigger-${log.id}`}
+                          >
+                            <CardContent className="p-4">
                               <div className="flex items-center gap-2 flex-wrap">
                                 <Badge variant="outline" className="text-xs font-mono h-5 w-5 p-0 flex items-center justify-center shrink-0">{rowNumber}</Badge>
                                 <span className="font-semibold text-sm" style={{ color: logStatus?.color }} data-testid={`status-history-name-${log.id}`}>
@@ -2458,57 +2479,69 @@ export default function ContractForm() {
                                 {log.statusIteration && log.statusIteration > 1 && (
                                   <Badge variant="secondary" className="text-[10px] h-4">×{log.statusIteration}</Badge>
                                 )}
-                                <span className="text-xs text-muted-foreground ml-auto" data-testid={`status-history-date-${log.id}`}>
-                                  {log.changedAt ? formatDateTimeSlovak(log.changedAt) : "-"}
-                                </span>
-                              </div>
-
-                              <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
-                                {oldStatus && (
-                                  <span data-testid={`status-history-old-${log.id}`}>
-                                    <span className="opacity-60">Z:</span> {oldStatus.name}
+                                <div className="ml-auto flex items-center gap-2">
+                                  {docs.length > 0 && <Badge variant="secondary" className="text-[10px] h-4"><Paperclip className="w-2.5 h-2.5 mr-0.5" />{docs.length}</Badge>}
+                                  {log.statusNote && <MessageSquare className="w-3 h-3 text-blue-400" />}
+                                  <span className="text-xs text-muted-foreground" data-testid={`status-history-date-${log.id}`}>
+                                    {log.changedAt ? formatDateTimeSlovak(log.changedAt) : "-"}
                                   </span>
-                                )}
-                                <span data-testid={`status-history-user-${log.id}`}>
-                                  <span className="opacity-60">Zmenil:</span> {changedByUser ? `${changedByUser.firstName || ""} ${changedByUser.lastName || ""}`.trim() || changedByUser.username : `ID ${log.changedByUserId || "-"}`}
-                                </span>
-                                {log.visibleToClient && (
-                                  <Badge variant="outline" className="text-[10px] h-4 text-green-500 border-green-500/30">Viditeľné klientovi</Badge>
-                                )}
+                                  {hasDetails && (
+                                    <ChevronRight className={`w-3.5 h-3.5 text-muted-foreground transition-transform ${isExpanded ? "rotate-90" : ""}`} />
+                                  )}
+                                </div>
                               </div>
 
-                              {log.statusNote && (
-                                <div className="flex gap-2 items-start">
-                                  <MessageSquare className="w-3.5 h-3.5 text-blue-400 mt-0.5 shrink-0" />
-                                  <p className="text-sm bg-muted/40 rounded-lg px-3 py-2 flex-1" data-testid={`status-history-note-${log.id}`}>{log.statusNote}</p>
-                                </div>
-                              )}
+                              {isExpanded && (
+                                <div className="mt-3 pt-3 border-t border-border/50 space-y-3" onClick={e => e.stopPropagation()}>
+                                  <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
+                                    {oldStatus && (
+                                      <span data-testid={`status-history-old-${log.id}`}>
+                                        <span className="opacity-60">Z:</span> {oldStatus.name}
+                                      </span>
+                                    )}
+                                    <span data-testid={`status-history-user-${log.id}`}>
+                                      <span className="opacity-60">Zmenil:</span> {changedByUser ? `${changedByUser.firstName || ""} ${changedByUser.lastName || ""}`.trim() || changedByUser.username : `ID ${log.changedByUserId || "-"}`}
+                                    </span>
+                                    {log.visibleToClient && (
+                                      <Badge variant="outline" className="text-[10px] h-4 text-green-500 border-green-500/30">Viditeľné klientovi</Badge>
+                                    )}
+                                  </div>
 
-                              {hasParamValues && (
-                                <div className="flex flex-wrap gap-1.5">
-                                  {Object.entries(paramVals).filter(([, val]) => val?.trim()).map(([key, val]) => (
-                                    <Badge key={key} variant="secondary" className="text-[10px] font-normal" data-testid={`status-history-param-${log.id}-${key}`}>
-                                      {key}: {val}
-                                    </Badge>
-                                  ))}
-                                </div>
-                              )}
+                                  {log.statusNote && (
+                                    <div className="flex gap-2 items-start">
+                                      <MessageSquare className="w-3.5 h-3.5 text-blue-400 mt-0.5 shrink-0" />
+                                      <p className="text-sm bg-muted/40 rounded-lg px-3 py-2 flex-1" data-testid={`status-history-note-${log.id}`}>{log.statusNote}</p>
+                                    </div>
+                                  )}
 
-                              {docs.length > 0 && (
-                                <div className="flex flex-wrap gap-2">
-                                  {docs.map((doc: any, docIdx: number) => (
-                                    <a
-                                      key={docIdx}
-                                      href={doc.url}
-                                      target="_blank"
-                                      rel="noopener noreferrer"
-                                      className="inline-flex items-center gap-1.5 text-xs bg-muted/40 hover:bg-muted/60 rounded-lg px-3 py-1.5 transition-colors"
-                                      data-testid={`status-history-doc-${log.id}-${docIdx}`}
-                                    >
-                                      <Paperclip className="w-3 h-3 shrink-0 text-amber-400" />
-                                      <span className="truncate max-w-[160px]">{doc.name || `Dokument ${docIdx + 1}`}</span>
-                                    </a>
-                                  ))}
+                                  {hasParamValues && (
+                                    <div className="flex flex-wrap gap-1.5">
+                                      {Object.entries(paramVals).filter(([, val]) => val?.trim()).map(([key, val]) => (
+                                        <Badge key={key} variant="secondary" className="text-[10px] font-normal" data-testid={`status-history-param-${log.id}-${key}`}>
+                                          {key}: {val}
+                                        </Badge>
+                                      ))}
+                                    </div>
+                                  )}
+
+                                  {docs.length > 0 && (
+                                    <div className="flex flex-wrap gap-2">
+                                      {docs.map((doc: any, docIdx: number) => (
+                                        <a
+                                          key={docIdx}
+                                          href={doc.url}
+                                          target="_blank"
+                                          rel="noopener noreferrer"
+                                          className="inline-flex items-center gap-1.5 text-xs bg-muted/40 hover:bg-muted/60 rounded-lg px-3 py-1.5 transition-colors"
+                                          data-testid={`status-history-doc-${log.id}-${docIdx}`}
+                                          onClick={e => e.stopPropagation()}
+                                        >
+                                          <Paperclip className="w-3 h-3 shrink-0 text-amber-400" />
+                                          <span className="truncate max-w-[160px]">{doc.name || `Dokument ${docIdx + 1}`}</span>
+                                        </a>
+                                      ))}
+                                    </div>
+                                  )}
                                 </div>
                               )}
                             </CardContent>
@@ -2520,9 +2553,6 @@ export default function ContractForm() {
                 )}
               </div>
 
-              {subjectId && subjects?.find(s => s.id === parseInt(subjectId)) && (
-                <SubjektView subject={subjects.find(s => s.id === parseInt(subjectId))!} />
-              )}
             </div>
           </div>
 
