@@ -77,7 +77,17 @@ const CONTRACTS_COLUMNS: ColumnDef[] = [
   { key: "annualPremium", label: "Rocne poistne" },
   { key: "signedDate", label: "Vytvorenie zmluvy" },
   { key: "premiumAmount", label: "Lehotne poistne" },
+  { key: "freshness", label: "Čerstvosť" },
 ];
+
+function getFreshnessSemaphore(updatedAt: string | Date | null | undefined): { color: string; label: string; blink: boolean } {
+  if (!updatedAt) return { color: "#6b7280", label: "Neznáme", blink: false };
+  const days = Math.floor((Date.now() - new Date(updatedAt).getTime()) / (1000 * 60 * 60 * 24));
+  if (days < 30) return { color: "#22c55e", label: `${days}d`, blink: false };
+  if (days < 60) return { color: "#f59e0b", label: `${days}d`, blink: false };
+  if (days <= 90) return { color: "#ef4444", label: `${days}d`, blink: false };
+  return { color: "#ef4444", label: `${days}d`, blink: true };
+}
 
 const CONTRACTS_EVIDENCIA_COLUMNS: ColumnDef[] = [
   { key: "contractNumber", label: "Cislo zmluvy" },
@@ -3402,6 +3412,7 @@ export default function Contracts() {
                   {columnVisibility.isVisible("annualPremium") && <TableHead sortKey="annualPremium" sortDirection={skMain === "annualPremium" ? sdMain : null} onSort={rsMain}>Rocne poistne</TableHead>}
                   {columnVisibility.isVisible("signedDate") && <TableHead sortKey="signedDate" sortDirection={skMain === "signedDate" ? sdMain : null} onSort={rsMain}>Vytvorenie zmluvy</TableHead>}
                   {columnVisibility.isVisible("premiumAmount") && <TableHead sortKey="premiumAmount" sortDirection={skMain === "premiumAmount" ? sdMain : null} onSort={rsMain}>Lehotne poistne</TableHead>}
+                  {columnVisibility.isVisible("freshness") && <TableHead>Čerstvosť</TableHead>}
                   <TableHead className="text-right">Akcie</TableHead>
                 </TableRow>
               </TableHeader>
@@ -3409,6 +3420,7 @@ export default function Contracts() {
                 {sortedMain.map(contract => {
                   const status = statuses?.find(s => s.id === contract.statusId);
                   const inventoryName = inventories?.find(i => i.id === contract.inventoryId)?.name || "-";
+                  const freshness = getFreshnessSemaphore(contract.updatedAt);
 
                   return (
                     <TableRow key={contract.id} data-testid={`row-contract-${contract.id}`} onRowClick={() => openEdit(contract)}>
@@ -3468,6 +3480,20 @@ export default function Contracts() {
                       </TableCell>}
                       {columnVisibility.isVisible("premiumAmount") && <TableCell className="text-sm font-mono py-1" data-testid={`text-contract-amount-${contract.id}`}>
                         {formatAmount(contract.premiumAmount, contract.currency)}
+                      </TableCell>}
+                      {columnVisibility.isVisible("freshness") && <TableCell className="py-1" data-testid={`text-freshness-${contract.id}`}>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <div className="flex items-center gap-1.5">
+                              <div
+                                className={`w-2.5 h-2.5 rounded-full shrink-0${freshness.blink ? " animate-pulse" : ""}`}
+                                style={{ backgroundColor: freshness.color }}
+                              />
+                              <span className="text-xs text-muted-foreground">{freshness.label}</span>
+                            </div>
+                          </TooltipTrigger>
+                          <TooltipContent>Posledná aktualizácia: {freshness.label} dozadu</TooltipContent>
+                        </Tooltip>
                       </TableCell>}
                       <TableCell className="text-right py-1">
                         <div className="flex items-center justify-end gap-0.5 flex-nowrap">

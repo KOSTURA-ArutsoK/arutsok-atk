@@ -18,6 +18,7 @@ import StatusDocUpload, { type StatusDocUploadHandle } from "@/components/Status
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Accordion, AccordionItem, AccordionTrigger, AccordionContent } from "@/components/ui/accordion";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
@@ -1683,7 +1684,8 @@ export default function ContractForm() {
                   <Input value={proposalNumber} onChange={e => setProposalNumber(e.target.value)} data-testid="input-contract-proposal" />
                 </CompactField>
                 <CompactField label="Cislo zmluvy">
-                  <Input value={contractNumber} onChange={e => setContractNumber(e.target.value)} data-testid="input-contract-number" />
+                  <Input value={contractNumber} onChange={e => setContractNumber(e.target.value)} data-testid="input-contract-number" disabled={!!existingContract?.isStamped} />
+                  {existingContract?.isStamped && <span className="text-[10px] text-amber-500 flex items-center gap-1 mt-0.5"><Lock className="w-3 h-3" /> Fixované</span>}
                 </CompactField>
               </div>
 
@@ -2383,7 +2385,167 @@ export default function ContractForm() {
                     <SummaryField label="Koniec zmluvy" value={expiryDate || "-"} testId="summary-expiry" onEdit={v => setExpiryDate(v)} />
                     <SummaryField label="Spolocnost" value={currentCompany?.name || "-"} testId="summary-company" />
                     <SummaryField label="Stat" value={allStates?.find(s => s.id === (stateId ? parseInt(stateId) : -1))?.name || "-"} testId="summary-state" />
+                    {existingContract?.isStamped && (
+                      <SummaryField label="Opečiatkované" value={existingContract?.stampedAt ? new Date(existingContract.stampedAt).toLocaleString("sk-SK", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" }) : "-"} testId="summary-stamped" />
+                    )}
                   </div>
+                  {existingContract?.updatedAt && (() => {
+                    const days = Math.floor((Date.now() - new Date(existingContract.updatedAt).getTime()) / (1000 * 60 * 60 * 24));
+                    const sem = days < 30 ? { color: "#22c55e", label: "Čerstvé", desc: `${days} dní` }
+                      : days < 60 ? { color: "#f59e0b", label: "Starnúce", desc: `${days} dní` }
+                      : days <= 90 ? { color: "#ef4444", label: "Zastarané", desc: `${days} dní` }
+                      : { color: "#ef4444", label: "Expirované", desc: `${days} dní`, blink: true };
+                    return (
+                      <div className="flex items-center gap-2 mt-2 px-1" data-testid="freshness-semaphore-detail">
+                        <div className={`w-3 h-3 rounded-full shrink-0${(sem as any).blink ? " animate-pulse" : ""}`} style={{ backgroundColor: sem.color }} />
+                        <span className="text-xs font-medium" style={{ color: sem.color }}>{sem.label}</span>
+                        <span className="text-xs text-muted-foreground">({sem.desc} od poslednej aktualizácie)</span>
+                      </div>
+                    );
+                  })()}
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardContent className="p-3 space-y-2">
+                  <h3 className="text-sm font-semibold mb-2 flex items-center gap-1.5">
+                    <History className="w-4 h-4" />
+                    Historia stavov ({(statusChangeLogs || []).length})
+                  </h3>
+                  {(!statusChangeLogs || statusChangeLogs.length === 0) && (
+                    <p className="text-sm text-muted-foreground py-2" data-testid="text-no-status-history">
+                      Ziadna historia zmien stavov
+                    </p>
+                  )}
+                  {statusChangeLogs && statusChangeLogs.length > 0 && (
+                    <Accordion type="multiple" className="w-full">
+                      {[...statusChangeLogs].reverse().map((log, idx) => {
+                        const logStatus = statuses?.find(s => s.id === log.newStatusId);
+                        const oldStatus = log.oldStatusId ? statuses?.find(s => s.id === log.oldStatusId) : null;
+                        const changedByUser = allAppUsers?.find(u => u.id === log.changedByUserId);
+                        const docs = (log.statusChangeDocuments as any[]) || [];
+                        const paramVals = (log.parameterValues as Record<string, string>) || {};
+                        const hasParamValues = Object.keys(paramVals).length > 0;
+                        const rowNumber = idx + 1;
+
+                        return (
+                          <AccordionItem key={log.id} value={`log-${log.id}`} data-testid={`status-history-row-${log.id}`}>
+                            <AccordionTrigger className="py-2 text-sm" data-testid={`status-history-trigger-${log.id}`}>
+                              <div className="flex items-center gap-2 flex-wrap text-left flex-1 mr-2">
+                                <Badge variant="outline" className="text-xs font-mono">{rowNumber}</Badge>
+                                {logStatus && (
+                                  <div className="flex items-center gap-1.5">
+                                    <div className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: logStatus.color }} />
+                                    <span className="font-medium" data-testid={`status-history-name-${log.id}`}>{logStatus.name}</span>
+                                  </div>
+                                )}
+                                {!logStatus && (
+                                  <span className="font-medium text-muted-foreground" data-testid={`status-history-name-${log.id}`}>Stav #{log.newStatusId}</span>
+                                )}
+                                <span className="text-xs text-muted-foreground" data-testid={`status-history-date-${log.id}`}>
+                                  {log.changedAt ? formatDateTimeSlovak(log.changedAt) : "-"}
+                                </span>
+                                {docs.length > 0 && (
+                                  <Badge variant="secondary" className="text-xs">
+                                    <Paperclip className="w-3 h-3 mr-0.5" />{docs.length}
+                                  </Badge>
+                                )}
+                              </div>
+                            </AccordionTrigger>
+                            <AccordionContent className="pb-3">
+                              <div className="space-y-2 pl-1">
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm">
+                                  {oldStatus && (
+                                    <div>
+                                      <span className="text-muted-foreground">Predch. stav: </span>
+                                      <span className="font-medium" data-testid={`status-history-old-${log.id}`}>{oldStatus.name}</span>
+                                    </div>
+                                  )}
+                                  <div>
+                                    <span className="text-muted-foreground">Novy stav: </span>
+                                    <span className="font-medium" data-testid={`status-history-new-${log.id}`}>{logStatus?.name || `#${log.newStatusId}`}</span>
+                                  </div>
+                                  <div>
+                                    <span className="text-muted-foreground">Datum zmeny: </span>
+                                    <span data-testid={`status-history-timestamp-${log.id}`}>{log.changedAt ? formatDateTimeSlovak(log.changedAt) : "-"}</span>
+                                  </div>
+                                  <div>
+                                    <span className="text-muted-foreground">Zmenil: </span>
+                                    <span data-testid={`status-history-user-${log.id}`}>
+                                      {changedByUser ? `${changedByUser.firstName || ""} ${changedByUser.lastName || ""}`.trim() || changedByUser.username : `ID ${log.changedByUserId || "-"}`}
+                                    </span>
+                                  </div>
+                                  {log.statusIteration && log.statusIteration > 1 && (
+                                    <div>
+                                      <span className="text-muted-foreground">Iteracia: </span>
+                                      <span>{log.statusIteration}</span>
+                                    </div>
+                                  )}
+                                  <div>
+                                    <span className="text-muted-foreground">Viditelne pre klienta: </span>
+                                    <span>{log.visibleToClient ? "Ano" : "Nie"}</span>
+                                  </div>
+                                </div>
+
+                                {log.statusNote && (
+                                  <div className="text-sm">
+                                    <span className="text-muted-foreground flex items-center gap-1 mb-0.5">
+                                      <MessageSquare className="w-3 h-3" /> Poznamka:
+                                    </span>
+                                    <p className="bg-muted/30 rounded p-2 text-sm" data-testid={`status-history-note-${log.id}`}>{log.statusNote}</p>
+                                  </div>
+                                )}
+
+                                {hasParamValues && (
+                                  <div className="text-sm">
+                                    <span className="text-muted-foreground flex items-center gap-1 mb-0.5">
+                                      <Settings2 className="w-3 h-3" /> Parametre:
+                                    </span>
+                                    <div className="bg-muted/30 rounded p-2 space-y-0.5">
+                                      {Object.entries(paramVals).map(([key, val]) => (
+                                        <div key={key} className="text-xs" data-testid={`status-history-param-${log.id}-${key}`}>
+                                          <span className="text-muted-foreground">{key}: </span>
+                                          <span>{val}</span>
+                                        </div>
+                                      ))}
+                                    </div>
+                                  </div>
+                                )}
+
+                                {docs.length > 0 && (
+                                  <div className="text-sm">
+                                    <span className="text-muted-foreground flex items-center gap-1 mb-1">
+                                      <FileText className="w-3 h-3" /> Dokumenty ({docs.length}):
+                                    </span>
+                                    <div className="space-y-1">
+                                      {docs.map((doc: any, docIdx: number) => (
+                                        <a
+                                          key={docIdx}
+                                          href={doc.url}
+                                          target="_blank"
+                                          rel="noopener noreferrer"
+                                          className="flex items-center gap-1.5 text-xs text-blue-600 dark:text-blue-400 hover:underline"
+                                          data-testid={`status-history-doc-${log.id}-${docIdx}`}
+                                        >
+                                          <Paperclip className="w-3 h-3 shrink-0" />
+                                          <span className="truncate">{doc.name || `Dokument ${docIdx + 1}`}</span>
+                                          {doc.uploadedAt && (
+                                            <span className="text-muted-foreground ml-auto shrink-0">
+                                              {formatDateTimeSlovak(doc.uploadedAt)}
+                                            </span>
+                                          )}
+                                        </a>
+                                      ))}
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+                            </AccordionContent>
+                          </AccordionItem>
+                        );
+                      })}
+                    </Accordion>
+                  )}
                 </CardContent>
               </Card>
 

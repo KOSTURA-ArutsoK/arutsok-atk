@@ -2437,8 +2437,17 @@ export async function registerRoutes(
         updateData.objectionEnteredAt = migrationOn ? (contract.signedDate || now) : now;
       }
 
+      if (contract.isStamped && contract.lifecyclePhase === 5 && phase < 5) {
+        updateData.isStamped = false;
+        updateData.stampedAt = null;
+        updateData.contractNumber = null;
+        updateData.receivedByCentralAt = null;
+      }
+
       if (phase === 5) {
         updateData.receivedByCentralAt = migrationOn ? (contract.signedDate || now) : now;
+        updateData.stampedAt = migrationOn ? (contract.signedDate || now) : now;
+        updateData.isStamped = true;
         if (!contract.contractNumber) {
           const maxResult = await db.select({ max: sql<number>`COALESCE(MAX(CAST(contract_number AS INTEGER)), 0)` }).from(contracts).where(sql`contract_number ~ '^[0-9]+$'`);
           const nextNumber = (maxResult[0]?.max || 0) + 1;
@@ -3729,6 +3738,15 @@ export async function registerRoutes(
         return res.status(400).json({ message: "Globalne poradove cislo zmluvy nie je mozne zmenit" });
       }
       delete input.globalNumber;
+
+      if (old.isStamped && appUser?.role !== 'superadmin') {
+        if (input.contractNumber !== undefined && input.contractNumber !== old.contractNumber) {
+          return res.status(403).json({ message: "Číslo zmluvy je fixované po opečiatkovaní a nie je možné ho zmeniť" });
+        }
+        if (input.statusId !== undefined && input.statusId !== old.statusId) {
+          return res.status(403).json({ message: "Stav zmluvy je fixovaný po opečiatkovaní a nie je možné ho zmeniť" });
+        }
+      }
 
       const migrationOn = await isMigrationModeOn();
       const updateData: any = { ...input };

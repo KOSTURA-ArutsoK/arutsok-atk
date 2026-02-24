@@ -724,6 +724,8 @@ export const contracts = pgTable("contracts", {
   lifecyclePhase: integer("lifecycle_phase").default(0),
   objectionEnteredAt: timestamp("objection_entered_at"),
   receivedByCentralAt: timestamp("received_by_central_at"),
+  stampedAt: timestamp("stamped_at"),
+  isStamped: boolean("is_stamped").default(false),
   receivedByPartnerAt: timestamp("received_by_partner_at"),
   sentToPartnerAt: timestamp("sent_to_partner_at"),
   incompleteData: boolean("incomplete_data").default(false),
