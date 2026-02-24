@@ -330,7 +330,7 @@ function SubjectViewField({
       ? "border-red-500/60 bg-red-500/10"
       : activeValidity && activeValidity.status !== "unknown"
         ? `${activeValidity.borderClass} ${activeValidity.bgClass}`
-        : isSummary ? "border-primary/50 bg-primary/5" : "border-border bg-muted/30";
+        : isSummary ? "border-emerald-500/50 bg-emerald-500/10 dark:bg-emerald-500/15" : "border-border bg-muted/30";
 
   return (
     <div
@@ -350,15 +350,14 @@ function SubjectViewField({
       )}
       {verified && <Check className="w-3 h-3 text-blue-500 flex-none" />}
       {hasNote && !verified && <MessageSquare className="w-3 h-3 text-amber-400 shrink-0" />}
-      {pdfSidebarOpen && (
-        <button
-          onClick={e => { e.stopPropagation(); toggleSummaryField(field.fieldKey); }}
-          className="ml-1 opacity-60 hover:opacity-100"
-          data-testid={`toggle-summary-${field.fieldKey}`}
-        >
-          {isSummary ? <Eye className="w-3 h-3 text-primary" /> : <EyeOff className="w-3 h-3" />}
-        </button>
-      )}
+      <button
+        onClick={e => { e.stopPropagation(); toggleSummaryField(field.fieldKey); }}
+        className={`ml-auto shrink-0 transition-opacity ${isSummary ? "opacity-100" : "opacity-30 hover:opacity-70"}`}
+        data-testid={`toggle-summary-${field.fieldKey}`}
+        title={isSummary ? "Odstrániť zo zhrnutia" : "Pridať do zhrnutia"}
+      >
+        {isSummary ? <Eye className="w-3.5 h-3.5 text-emerald-500" /> : <EyeOff className="w-3 h-3" />}
+      </button>
     </div>
   );
 }
@@ -1414,18 +1413,18 @@ export function SubjektView({ subject, showPdfSidebar = false, isClientView = fa
       {pdfSidebarOpen && (
         <div className="w-64 border-l border-border pl-4 space-y-3" data-testid="pdf-summary-sidebar">
           <div className="flex items-center gap-2">
-            <FileText className="w-4 h-4 text-primary" />
-            <span className="text-sm font-semibold">PDF Export polia</span>
+            <Eye className="w-4 h-4 text-emerald-500" />
+            <span className="text-sm font-semibold">Aktívne polia</span>
           </div>
           <p className="text-xs text-muted-foreground">
-            Polia označené ikonou oka sa exportujú do &quot;Záznam zo sprostredkovania&quot;
+            Polia označené zelenou ikonou sa zobrazia v Zhrnutí kontraktu
           </p>
           <Separator />
           <div className="space-y-1 max-h-[50vh] overflow-y-auto">
             {typeFields
               .filter(f => summaryFields[f.fieldKey])
               .map(f => (
-                <div key={f.id} className="flex items-center justify-between py-1 px-2 rounded bg-primary/5 border border-primary/20">
+                <div key={f.id} className="flex items-center justify-between py-1 px-2 rounded bg-emerald-500/10 border border-emerald-500/20">
                   <span className="text-xs truncate">{f.shortLabel || f.label}</span>
                   <button onClick={() => toggleSummaryField(f.fieldKey)} className="text-destructive hover:opacity-80">
                     <X className="w-3 h-3" />
@@ -1434,12 +1433,12 @@ export function SubjektView({ subject, showPdfSidebar = false, isClientView = fa
               ))}
             {Object.values(summaryFields).filter(Boolean).length === 0 && (
               <p className="text-xs text-muted-foreground text-center py-4">
-                Žiadne polia vybrané pre export
+                Žiadne polia označené pre zhrnutie
               </p>
             )}
           </div>
           <div className="text-xs text-muted-foreground">
-            Celkom: {Object.values(summaryFields).filter(Boolean).length} polí
+            Celkom: {Object.values(summaryFields).filter(Boolean).length} polí v zhrnutí
           </div>
         </div>
       )}
