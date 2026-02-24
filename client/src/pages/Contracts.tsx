@@ -11,7 +11,7 @@ import type { SmartColumnDef } from "@/hooks/use-smart-filter";
 import { SmartFilterBar } from "@/components/smart-filter-bar";
 import { useLocation } from "wouter";
 import type { Contract, ContractStatus, ContractTemplate, ContractInventory, Subject, Partner, Product, MyCompany, Sector, Section, SectorProduct, ClientGroup, ClientType, AppUser, ContractAcquirer } from "@shared/schema";
-import { Plus, Pencil, Trash2, Eye, FileText, Loader2, Lock, LayoutGrid, Send, Upload, Inbox, CheckCircle2, ChevronDown, ChevronRight, Printer, Search, Archive, AlertTriangle, Calendar, XCircle, MessageSquare, Paperclip, X, Users, Check, Award, Percent, History, ListChecks, ArrowRight, Clock } from "lucide-react";
+import { Plus, Pencil, Trash2, Eye, FileText, Loader2, Lock, LayoutGrid, Send, Upload, Inbox, CheckCircle2, ChevronDown, ChevronRight, Printer, Search, Archive, AlertTriangle, Calendar, XCircle, MessageSquare, Paperclip, X, Users, Check, Award, Percent, History, ListChecks, ArrowRight, Clock, Ghost } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ActivityTimeline } from "@/components/activity-timeline";
 import { cn } from "@/lib/utils";
@@ -389,6 +389,22 @@ function ContractFormDialog({
   const [notes, setNotes] = useState("");
   const [duplicateWarning, setDuplicateWarning] = useState<string | null>(null);
 
+  const { data: migrationModeData } = useQuery<{ value: string | null }>({
+    queryKey: ["/api/system-settings", "MIGRATION_MODE"],
+    queryFn: async () => {
+      const res = await fetch("/api/system-settings/MIGRATION_MODE");
+      return res.json();
+    },
+  });
+  const isMigrationMode = migrationModeData?.value === "ON";
+
+  const [migReceivedByCentral, setMigReceivedByCentral] = useState("");
+  const [migSentToPartner, setMigSentToPartner] = useState("");
+  const [migReceivedByPartner, setMigReceivedByPartner] = useState("");
+  const [migObjectionEnteredAt, setMigObjectionEnteredAt] = useState("");
+  const [migDispatchedAt, setMigDispatchedAt] = useState("");
+  const [migLifecyclePhase, setMigLifecyclePhase] = useState("");
+
   type PanelWithParams = {
     id: number;
     name: string;
@@ -508,6 +524,12 @@ function ContractFormDialog({
         setCommissionAmount(editingContract.commissionAmount?.toString() || "");
         setCurrency(editingContract.currency || "EUR");
         setNotes(editingContract.notes || "");
+        setMigReceivedByCentral(editingContract.receivedByCentralAt ? new Date(editingContract.receivedByCentralAt).toISOString().split("T")[0] : "");
+        setMigSentToPartner(editingContract.sentToPartnerAt ? new Date(editingContract.sentToPartnerAt).toISOString().split("T")[0] : "");
+        setMigReceivedByPartner(editingContract.receivedByPartnerAt ? new Date(editingContract.receivedByPartnerAt).toISOString().split("T")[0] : "");
+        setMigObjectionEnteredAt(editingContract.objectionEnteredAt ? new Date(editingContract.objectionEnteredAt).toISOString().split("T")[0] : "");
+        setMigDispatchedAt(editingContract.dispatchedAt ? new Date(editingContract.dispatchedAt).toISOString().split("T")[0] : "");
+        setMigLifecyclePhase(editingContract.lifecyclePhase?.toString() || "0");
         setClientGroupId((editingContract as any).clientGroupId?.toString() || "");
         setIdentifierType((editingContract as any).identifierType || "");
         setIdentifierValue((editingContract as any).identifierValue || "");
@@ -553,6 +575,12 @@ function ContractFormDialog({
         setCommissionAmount("");
         setCurrency("EUR");
         setNotes("");
+        setMigReceivedByCentral("");
+        setMigSentToPartner("");
+        setMigReceivedByPartner("");
+        setMigObjectionEnteredAt("");
+        setMigDispatchedAt("");
+        setMigLifecyclePhase("0");
         setClientGroupId("");
         setIdentifierType("");
         setIdentifierValue("");
@@ -635,6 +663,16 @@ function ContractFormDialog({
       notes: notes || null,
       processingTimeSec,
       dynamicPanelValues: Object.keys(panelValues).length > 0 ? panelValues : undefined,
+      ...(isMigrationMode ? {
+        _migrationDates: {
+          receivedByCentralAt: migReceivedByCentral ? new Date(migReceivedByCentral).toISOString() : null,
+          sentToPartnerAt: migSentToPartner ? new Date(migSentToPartner).toISOString() : null,
+          receivedByPartnerAt: migReceivedByPartner ? new Date(migReceivedByPartner).toISOString() : null,
+          objectionEnteredAt: migObjectionEnteredAt ? new Date(migObjectionEnteredAt).toISOString() : null,
+          dispatchedAt: migDispatchedAt ? new Date(migDispatchedAt).toISOString() : null,
+          lifecyclePhase: migLifecyclePhase ? parseInt(migLifecyclePhase) : undefined,
+        },
+      } : {}),
     };
 
     if (editingContract) {
@@ -1296,6 +1334,55 @@ function ContractFormDialog({
             </div>
           </div>
 
+          {isMigrationMode && (
+            <div className="border border-purple-500/30 rounded-md p-3 bg-purple-950/10 space-y-3">
+              <div className="flex items-center gap-2 text-purple-400 text-xs font-medium">
+                <Ghost className="w-3 h-3" />
+                Ghost Mode - Procesné dátumy (migrácia)
+              </div>
+              <div className="grid grid-cols-3 gap-3">
+                <div className="space-y-1">
+                  <label className="text-xs text-muted-foreground">Prijatie na centrálu</label>
+                  <Input type="date" value={migReceivedByCentral} onChange={e => setMigReceivedByCentral(e.target.value)} className="h-8 text-xs" data-testid="input-mig-received-central" />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs text-muted-foreground">Odoslanie partnerovi</label>
+                  <Input type="date" value={migSentToPartner} onChange={e => setMigSentToPartner(e.target.value)} className="h-8 text-xs" data-testid="input-mig-sent-partner" />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs text-muted-foreground">Prijatie partnerom</label>
+                  <Input type="date" value={migReceivedByPartner} onChange={e => setMigReceivedByPartner(e.target.value)} className="h-8 text-xs" data-testid="input-mig-received-partner" />
+                </div>
+              </div>
+              <div className="grid grid-cols-3 gap-3">
+                <div className="space-y-1">
+                  <label className="text-xs text-muted-foreground">Dátum výhrady</label>
+                  <Input type="date" value={migObjectionEnteredAt} onChange={e => setMigObjectionEnteredAt(e.target.value)} className="h-8 text-xs" data-testid="input-mig-objection" />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs text-muted-foreground">Dátum odoslania</label>
+                  <Input type="date" value={migDispatchedAt} onChange={e => setMigDispatchedAt(e.target.value)} className="h-8 text-xs" data-testid="input-mig-dispatched" />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs text-muted-foreground">Fáza životného cyklu</label>
+                  <select value={migLifecyclePhase} onChange={e => setMigLifecyclePhase(e.target.value)} className="flex h-8 w-full rounded-md border border-input bg-background px-2 text-xs" data-testid="select-mig-lifecycle">
+                    <option value="0">0 - Nová</option>
+                    <option value="1">1 - Evidencia</option>
+                    <option value="2">2 - Sprievodka</option>
+                    <option value="3">3 - Výhrady</option>
+                    <option value="4">4 - Archív</option>
+                    <option value="5">5 - Centrum</option>
+                    <option value="6">6 - Spracovanie</option>
+                    <option value="7">7 - Kontrola</option>
+                    <option value="8">8 - Schválenie</option>
+                    <option value="9">9 - Odoslanie</option>
+                    <option value="10">10 - Doručenie</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+          )}
+
           <div className="grid grid-cols-4 gap-4">
             <div className="space-y-2">
               <label className="text-sm font-medium">Suma poistneho</label>
@@ -1684,6 +1771,10 @@ export default function Contracts() {
 
   const [acceptedSprievodkaIds, setAcceptedSprievodkaIds] = useState<Record<number, Set<number>>>({});
   const [expandedSprievodky, setExpandedSprievodky] = useState<Set<number>>(new Set());
+  const [bulkDateDialogOpen, setBulkDateDialogOpen] = useState(false);
+  const [bulkDateTarget, setBulkDateTarget] = useState<{ type: "inventory" | "template"; id: number; name: string } | null>(null);
+  const [bulkLogisticDate, setBulkLogisticDate] = useState("");
+  const [bulkOnlyMissing, setBulkOnlyMissing] = useState(true);
   const [activeFolder, setActiveFolder] = useState<number>(1);
   const [searchQuery, setSearchQuery] = useState("");
   const [duplicateModal, setDuplicateModal] = useState<{ open: boolean; subjectName?: string }>({ open: false });
@@ -1918,6 +2009,26 @@ export default function Contracts() {
       setAcceptedSprievodkaIds({});
     },
     onError: () => toast({ title: "Chyba", description: "Nepodarilo sa schvalit zmluvy", variant: "destructive" }),
+  });
+
+  const bulkDateMutation = useMutation({
+    mutationFn: async ({ type, id, logisticOperationDate, onlyMissing }: { type: string; id: number; logisticOperationDate: string; onlyMissing: boolean }) => {
+      const endpoint = type === "inventory"
+        ? `/api/contract-inventories/${id}/bulk-apply-date`
+        : `/api/contract-templates/${id}/bulk-apply-date`;
+      const res = await apiRequest("POST", endpoint, { logisticDate: logisticOperationDate, onlyMissing });
+      return res.json();
+    },
+    onSuccess: (data: any) => {
+      invalidateContractCaches();
+      queryClient.invalidateQueries({ queryKey: ["/api/contract-inventories"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/contract-templates"] });
+      toast({ title: "Dátumy aplikované", description: `Aktualizovaných: ${data.updated || 0} zmlúv` });
+      setBulkDateDialogOpen(false);
+      setBulkLogisticDate("");
+      setBulkDateTarget(null);
+    },
+    onError: () => toast({ title: "Chyba", description: "Nepodarilo sa aplikovať dátumy", variant: "destructive" }),
   });
 
   const lifecyclePhaseMutation = useMutation({
@@ -2764,10 +2875,26 @@ export default function Contracts() {
                           <FileText className="w-4 h-4 text-amber-500 shrink-0" />
                           <span className="text-sm font-medium flex-1" data-testid={`text-sprievodka-name-${group.inventoryId}`}>
                             {group.inventory?.name || `Sprievodka #${group.inventoryId}`}
+                            {group.inventory?.logisticOperationDate && (
+                              <span className="ml-2 text-xs text-muted-foreground font-normal">
+                                ({formatDateSlovak(group.inventory.logisticOperationDate)})
+                              </span>
+                            )}
                           </span>
                           <Badge variant="outline" data-testid={`badge-sprievodka-count-${group.inventoryId}`}>
                             {group.contracts.length} {group.contracts.length === 1 ? "zmluva" : group.contracts.length < 5 ? "zmluvy" : "zmluv"}
                           </Badge>
+                          {isMigrationMode && (
+                            <Button size="sm" variant="outline" className="border-purple-500/30 text-purple-400 hover:bg-purple-950/20" onClick={(e) => {
+                              e.stopPropagation();
+                              setBulkDateTarget({ type: "inventory", id: group.inventoryId, name: group.inventory?.name || `Sprievodka #${group.inventoryId}` });
+                              setBulkLogisticDate(group.inventory?.logisticOperationDate ? new Date(group.inventory.logisticOperationDate).toISOString().split("T")[0] : "");
+                              setBulkDateDialogOpen(true);
+                            }} data-testid={`button-bulk-dates-sprievodka-${group.inventoryId}`}>
+                              <Ghost className="w-3.5 h-3.5 mr-1.5" />
+                              Hromadné dátumy
+                            </Button>
+                          )}
                           <Button size="sm" variant="outline" onClick={(e) => { e.stopPropagation(); }} data-testid={`button-print-sprievodka-${group.inventoryId}`}>
                             <Printer className="w-3.5 h-3.5 mr-1.5" />
                             Tlacit sprievodku
@@ -3198,6 +3325,49 @@ export default function Contracts() {
         states={allStates || []}
       />
       {importDialog}
+
+      <Dialog open={bulkDateDialogOpen} onOpenChange={setBulkDateDialogOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-purple-400">
+              <Ghost className="w-4 h-4" />
+              Hromadné dátumy - {bulkDateTarget?.name}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Dátum logistickej operácie</label>
+              <Input type="date" value={bulkLogisticDate} onChange={e => setBulkLogisticDate(e.target.value)} data-testid="input-bulk-logistic-date" />
+              <p className="text-xs text-muted-foreground">Tento dátum sa zdedí do všetkých zmlúv v tejto {bulkDateTarget?.type === "inventory" ? "sprievodke" : "súpiske"}</p>
+            </div>
+            <div className="flex items-center gap-2">
+              <Checkbox checked={bulkOnlyMissing} onCheckedChange={(v) => setBulkOnlyMissing(!!v)} data-testid="checkbox-bulk-only-missing" />
+              <label className="text-sm">Len chýbajúce dátumy (neprepísať existujúce)</label>
+            </div>
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" onClick={() => setBulkDateDialogOpen(false)} data-testid="button-bulk-cancel">Zrušiť</Button>
+              <Button
+                className="bg-purple-600 hover:bg-purple-700"
+                disabled={!bulkLogisticDate || bulkDateMutation.isPending}
+                onClick={() => {
+                  if (bulkDateTarget) {
+                    bulkDateMutation.mutate({
+                      type: bulkDateTarget.type,
+                      id: bulkDateTarget.id,
+                      logisticOperationDate: new Date(bulkLogisticDate).toISOString(),
+                      onlyMissing: bulkOnlyMissing,
+                    });
+                  }
+                }}
+                data-testid="button-bulk-apply"
+              >
+                {bulkDateMutation.isPending ? <Loader2 className="w-4 h-4 mr-1.5 animate-spin" /> : null}
+                Aplikovať dátumy
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

@@ -22,6 +22,15 @@ function stripBallast(str: string): string {
   return str.replace(/[\s\-\+\(\)\/\.]/g, "");
 }
 
+async function isMigrationModeOn(): Promise<boolean> {
+  try {
+    const val = await storage.getSystemSetting("MIGRATION_MODE");
+    return val === "ON";
+  } catch {
+    return false;
+  }
+}
+
 async function logAudit(req: any, params: {
   action: string;
   module: string;
@@ -32,6 +41,7 @@ async function logAudit(req: any, params: {
   processingTimeSec?: number;
 }) {
   try {
+    const migrationOn = await isMigrationModeOn();
     const replitUserId = req.user?.claims?.sub;
     let appUser: any = null;
     if (replitUserId) {
@@ -43,8 +53,8 @@ async function logAudit(req: any, params: {
     const processingTime = params.processingTimeSec || clientProcessingTime || serverTimeSec;
 
     await storage.createAuditLog({
-      userId: appUser?.id || null,
-      username: appUser?.username || req.user?.claims?.email || 'system',
+      userId: migrationOn ? null : (appUser?.id || null),
+      username: migrationOn ? "Systémový import" : (appUser?.username || req.user?.claims?.email || 'system'),
       action: params.action,
       module: params.module,
       entityId: params.entityId || null,
@@ -52,7 +62,7 @@ async function logAudit(req: any, params: {
       oldData: params.oldData || null,
       newData: params.newData || null,
       processingTimeSec: processingTime,
-      ipAddress: typeof ip === 'string' ? ip : JSON.stringify(ip),
+      ipAddress: migrationOn ? "migration" : (typeof ip === 'string' ? ip : JSON.stringify(ip)),
     });
   } catch (err) {
     console.error("Audit log error:", err);
@@ -2416,17 +2426,19 @@ export async function registerRoutes(
       const [contract] = await db.select().from(contracts).where(eq(contracts.id, contractId));
       if (!contract) return res.status(404).json({ message: "Zmluva nenájdená" });
 
+      const migrationOn = await isMigrationModeOn();
+      const now = new Date();
       const updateData: Record<string, any> = {
         lifecyclePhase: phase,
-        updatedAt: new Date(),
+        updatedAt: migrationOn ? (contract.signedDate || now) : now,
       };
 
       if (phase === 3) {
-        updateData.objectionEnteredAt = new Date();
+        updateData.objectionEnteredAt = migrationOn ? (contract.signedDate || now) : now;
       }
 
       if (phase === 5) {
-        updateData.receivedByCentralAt = new Date();
+        updateData.receivedByCentralAt = migrationOn ? (contract.signedDate || now) : now;
         if (!contract.contractNumber) {
           const maxResult = await db.select({ max: sql<number>`COALESCE(MAX(CAST(contract_number AS INTEGER)), 0)` }).from(contracts).where(sql`contract_number ~ '^[0-9]+$'`);
           const nextNumber = (maxResult[0]?.max || 0) + 1;
@@ -2444,11 +2456,11 @@ export async function registerRoutes(
       }
 
       if (phase === 9) {
-        updateData.sentToPartnerAt = new Date();
+        updateData.sentToPartnerAt = migrationOn ? (contract.signedDate || now) : now;
       }
 
       if (phase === 10) {
-        updateData.receivedByPartnerAt = new Date();
+        updateData.receivedByPartnerAt = migrationOn ? (contract.signedDate || now) : now;
       }
 
       const [updated] = await db.update(contracts).set(updateData).where(eq(contracts.id, contractId)).returning();
@@ -2471,7 +2483,7 @@ export async function registerRoutes(
         newData: { lifecyclePhase: phase, phaseName: LIFECYCLE_PHASES[phase] },
       });
 
-      if (phase === 3) {
+      if (phase === 3 && !(await isMigrationModeOn())) {
         const limits = await getProductDaysLimits(contract.sectorProductId);
         notifyObjectionCreated(contractId, limits.objectionDays).catch(err =>
           console.error("[EMAIL] Objection notification error:", err)
@@ -2792,6 +2804,110 @@ export async function registerRoutes(
     }
   });
 
+  // === GHOST MODE: Bulk date inheritance for Sprievodky ===
+  app.post("/api/contract-inventories/:id/bulk-apply-date", isAuthenticated, async (req: any, res) => {
+    try {
+      const appUser = req.appUser;
+      if (!appUser || appUser.role !== "superadmin") {
+        return res.status(403).json({ message: "Ghost Mode: len pre superadmina" });
+      }
+      const migrationOn = await isMigrationModeOn();
+      if (!migrationOn) {
+        return res.status(403).json({ message: "Hromadné pečiatkovanie je dostupné len v migračnom režime" });
+      }
+      const inventoryId = Number(req.params.id);
+      const { logisticDate, onlyMissing } = req.body;
+      if (!logisticDate) {
+        return res.status(400).json({ message: "Dátum logistickej operácie je povinný" });
+      }
+      const dateVal = new Date(logisticDate);
+      await db.update(contractInventories).set({
+        logisticOperationDate: dateVal,
+        updatedAt: new Date(),
+      }).where(eq(contractInventories.id, inventoryId));
+      const inventoryContracts = await storage.getContracts({ inventoryId });
+      const batch = inventoryContracts.slice(0, 25);
+      let updatedCount = 0;
+      for (const contract of batch) {
+        const shouldUpdate = onlyMissing
+          ? !contract.signedDate && !contract.receivedByCentralAt && !contract.sentToPartnerAt && !contract.receivedByPartnerAt
+          : true;
+        if (shouldUpdate) {
+          await db.update(contracts).set({
+            signedDate: (onlyMissing && contract.signedDate) ? contract.signedDate : dateVal,
+            receivedByCentralAt: (onlyMissing && contract.receivedByCentralAt) ? contract.receivedByCentralAt : dateVal,
+            sentToPartnerAt: (onlyMissing && contract.sentToPartnerAt) ? contract.sentToPartnerAt : dateVal,
+            receivedByPartnerAt: (onlyMissing && contract.receivedByPartnerAt) ? contract.receivedByPartnerAt : dateVal,
+            createdAt: dateVal,
+            updatedAt: dateVal,
+          }).where(eq(contracts.id, contract.id));
+          updatedCount++;
+        }
+      }
+      await logAudit(req, {
+        action: "MIGRATION_BULK_DATE",
+        module: "zmluvy",
+        entityName: `Hromadné pečiatkovanie - Súpiska #${inventoryId}`,
+        newData: { logisticDate, onlyMissing, updatedCount, totalInBatch: batch.length },
+      });
+      res.json({ success: true, updatedCount, totalInBatch: batch.length, skipped: batch.length - updatedCount });
+    } catch (err: any) {
+      res.status(500).json({ message: err?.message || "Chyba pri hromadnom pečiatkovaní" });
+    }
+  });
+
+  // === GHOST MODE: Bulk date inheritance for Súpisky ===
+  app.post("/api/contract-templates/:id/bulk-apply-date", isAuthenticated, async (req: any, res) => {
+    try {
+      const appUser = req.appUser;
+      if (!appUser || appUser.role !== "superadmin") {
+        return res.status(403).json({ message: "Ghost Mode: len pre superadmina" });
+      }
+      const migrationOn = await isMigrationModeOn();
+      if (!migrationOn) {
+        return res.status(403).json({ message: "Hromadné pečiatkovanie je dostupné len v migračnom režime" });
+      }
+      const templateId = Number(req.params.id);
+      const { logisticDate, onlyMissing } = req.body;
+      if (!logisticDate) {
+        return res.status(400).json({ message: "Dátum logistickej operácie je povinný" });
+      }
+      const dateVal = new Date(logisticDate);
+      await db.update(contractTemplates).set({
+        logisticOperationDate: dateVal,
+        updatedAt: new Date(),
+      }).where(eq(contractTemplates.id, templateId));
+      const templateContracts = await storage.getContracts({ templateId });
+      const batch = templateContracts.slice(0, 25);
+      let updatedCount = 0;
+      for (const contract of batch) {
+        const shouldUpdate = onlyMissing
+          ? !contract.signedDate && !contract.receivedByCentralAt && !contract.sentToPartnerAt && !contract.receivedByPartnerAt
+          : true;
+        if (shouldUpdate) {
+          await db.update(contracts).set({
+            signedDate: (onlyMissing && contract.signedDate) ? contract.signedDate : dateVal,
+            receivedByCentralAt: (onlyMissing && contract.receivedByCentralAt) ? contract.receivedByCentralAt : dateVal,
+            sentToPartnerAt: (onlyMissing && contract.sentToPartnerAt) ? contract.sentToPartnerAt : dateVal,
+            receivedByPartnerAt: (onlyMissing && contract.receivedByPartnerAt) ? contract.receivedByPartnerAt : dateVal,
+            createdAt: dateVal,
+            updatedAt: dateVal,
+          }).where(eq(contracts.id, contract.id));
+          updatedCount++;
+        }
+      }
+      await logAudit(req, {
+        action: "MIGRATION_BULK_DATE",
+        module: "zmluvy",
+        entityName: `Hromadné pečiatkovanie - Sprievodka #${templateId}`,
+        newData: { logisticDate, onlyMissing, updatedCount, totalInBatch: batch.length },
+      });
+      res.json({ success: true, updatedCount, totalInBatch: batch.length, skipped: batch.length - updatedCount });
+    } catch (err: any) {
+      res.status(500).json({ message: err?.message || "Chyba pri hromadnom pečiatkovaní" });
+    }
+  });
+
   // ArutsoK 45 - Get dispatched contracts (pending acceptance)
   app.get("/api/contracts/dispatched", isAuthenticated, async (req: any, res) => {
     try {
@@ -2964,9 +3080,12 @@ export async function registerRoutes(
 
   app.post(api.contractsApi.create.path, isAuthenticated, async (req: any, res) => {
     try {
-      const input = api.contractsApi.create.input.parse(req.body);
+      const migrationDates = req.body?._migrationDates;
+      const bodyClean = { ...req.body };
+      delete bodyClean._migrationDates;
+      const input = api.contractsApi.create.input.parse(bodyClean);
       const appUser = req.appUser;
-      const createData = { ...input, uploadedByUserId: appUser?.id || null };
+      const createData = { ...input, uploadedByUserId: appUser?.id || null } as any;
       if (appUser?.activeStateId) {
         createData.stateId = appUser.activeStateId;
       }
@@ -2980,8 +3099,30 @@ export async function registerRoutes(
         }
       }
       const nextGlobalNumber = await storage.getNextCounterValue("contract_global_number");
-      (createData as any).globalNumber = nextGlobalNumber;
-      const created = await storage.createContract(createData as any);
+      createData.globalNumber = nextGlobalNumber;
+
+      const migrationOn = await isMigrationModeOn();
+      if (migrationOn && migrationDates && appUser?.role === "superadmin") {
+        if (migrationDates.receivedByCentralAt) createData.receivedByCentralAt = new Date(migrationDates.receivedByCentralAt);
+        if (migrationDates.sentToPartnerAt) createData.sentToPartnerAt = new Date(migrationDates.sentToPartnerAt);
+        if (migrationDates.receivedByPartnerAt) createData.receivedByPartnerAt = new Date(migrationDates.receivedByPartnerAt);
+        if (migrationDates.objectionEnteredAt) createData.objectionEnteredAt = new Date(migrationDates.objectionEnteredAt);
+        if (migrationDates.dispatchedAt) createData.dispatchedAt = new Date(migrationDates.dispatchedAt);
+        if (migrationDates.acceptedAt) createData.acceptedAt = new Date(migrationDates.acceptedAt);
+        if (typeof migrationDates.lifecyclePhase === "number" && migrationDates.lifecyclePhase >= 0 && migrationDates.lifecyclePhase <= 10) {
+          createData.lifecyclePhase = migrationDates.lifecyclePhase;
+        }
+        const historicalDate = createData.signedDate
+          || createData.receivedByCentralAt
+          || createData.sentToPartnerAt
+          || (migrationDates.receivedByCentralAt ? new Date(migrationDates.receivedByCentralAt) : null);
+        if (historicalDate) {
+          createData.createdAt = new Date(historicalDate);
+          createData.updatedAt = new Date(historicalDate);
+        }
+      }
+
+      const created = await storage.createContract(createData);
       if (created.statusId) {
         await storage.createContractStatusChangeLog({
           contractId: created.id,
@@ -3466,9 +3607,11 @@ export async function registerRoutes(
   app.put(api.contractsApi.update.path, isAuthenticated, async (req: any, res) => {
     try {
       const criticalFieldJustification = req.body?.criticalFieldJustification;
-      const bodyWithoutJustification = { ...req.body };
-      delete bodyWithoutJustification.criticalFieldJustification;
-      const input = api.contractsApi.update.input.parse(bodyWithoutJustification);
+      const migrationDates = req.body?._migrationDates;
+      const bodyWithoutExtras = { ...req.body };
+      delete bodyWithoutExtras.criticalFieldJustification;
+      delete bodyWithoutExtras._migrationDates;
+      const input = api.contractsApi.update.input.parse(bodyWithoutExtras);
       const old = await storage.getContract(Number(req.params.id));
       if (!old) return res.status(404).json({ message: "Contract not found" });
       const appUser = req.appUser;
@@ -3482,7 +3625,30 @@ export async function registerRoutes(
         return res.status(400).json({ message: "Globalne poradove cislo zmluvy nie je mozne zmenit" });
       }
       delete input.globalNumber;
-      const updated = await storage.updateContract(Number(req.params.id), input);
+
+      const migrationOn = await isMigrationModeOn();
+      const updateData: any = { ...input };
+      if (migrationOn && migrationDates && appUser?.role === "superadmin") {
+        if (migrationDates.receivedByCentralAt !== undefined) updateData.receivedByCentralAt = migrationDates.receivedByCentralAt ? new Date(migrationDates.receivedByCentralAt) : null;
+        if (migrationDates.sentToPartnerAt !== undefined) updateData.sentToPartnerAt = migrationDates.sentToPartnerAt ? new Date(migrationDates.sentToPartnerAt) : null;
+        if (migrationDates.receivedByPartnerAt !== undefined) updateData.receivedByPartnerAt = migrationDates.receivedByPartnerAt ? new Date(migrationDates.receivedByPartnerAt) : null;
+        if (migrationDates.objectionEnteredAt !== undefined) updateData.objectionEnteredAt = migrationDates.objectionEnteredAt ? new Date(migrationDates.objectionEnteredAt) : null;
+        if (migrationDates.dispatchedAt !== undefined) updateData.dispatchedAt = migrationDates.dispatchedAt ? new Date(migrationDates.dispatchedAt) : null;
+        if (migrationDates.acceptedAt !== undefined) updateData.acceptedAt = migrationDates.acceptedAt ? new Date(migrationDates.acceptedAt) : null;
+        if (typeof migrationDates.lifecyclePhase === "number" && migrationDates.lifecyclePhase >= 0 && migrationDates.lifecyclePhase <= 10) {
+          updateData.lifecyclePhase = migrationDates.lifecyclePhase;
+        }
+        const historicalDate = updateData.signedDate
+          || updateData.receivedByCentralAt
+          || updateData.sentToPartnerAt
+          || old.signedDate;
+        if (historicalDate) {
+          updateData.createdAt = new Date(historicalDate);
+          updateData.updatedAt = new Date(historicalDate);
+        }
+      }
+
+      const updated = await storage.updateContract(Number(req.params.id), updateData);
       if (input.statusId && input.statusId !== old.statusId) {
         await storage.createContractStatusChangeLog({
           contractId: Number(req.params.id),
@@ -4475,6 +4641,9 @@ export async function registerRoutes(
       const { key, value } = req.body;
       if (!key || typeof value !== "string") {
         return res.status(400).json({ message: "Key and value required" });
+      }
+      if (key === "MIGRATION_MODE" && appUser.role !== "superadmin") {
+        return res.status(403).json({ message: "Ghost Mode je dostupný len pre superadmina" });
       }
       const setting = await storage.setSystemSetting(key, value);
       await logAudit(req, { action: "UPDATE", module: "nastavenia", entityName: `Setting: ${key}` });
@@ -11525,6 +11694,7 @@ export async function registerRoutes(
   // === CRON: Dynamic auto-archive (výhrady -> archív, per-product limit) ===
   setInterval(async () => {
     try {
+      if (await isMigrationModeOn()) return;
       const objectionsInPhase3 = await db.select()
         .from(contracts)
         .where(and(
@@ -11575,6 +11745,7 @@ export async function registerRoutes(
   // === CRON: Dynamic permanent delete + 24h pre-deletion notification ===
   setInterval(async () => {
     try {
+      if (await isMigrationModeOn()) return;
       const archiveContracts = await db.select()
         .from(contracts)
         .where(and(

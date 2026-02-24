@@ -7,8 +7,9 @@ import { apiRequest } from "@/lib/queryClient";
 import {
   Settings as SettingsIcon, Shield, Database, Info, Building2, Globe,
   Lock, Phone, Save, Clock, LayoutDashboard, Plus, Trash2, Eye,
-  AlertTriangle, Upload, FileSpreadsheet, Loader2
+  AlertTriangle, Upload, FileSpreadsheet, Loader2, Ghost
 } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
@@ -50,6 +51,34 @@ export default function Settings() {
 
   const { data: dashboardPrefs } = useQuery<DashboardPreference[]>({
     queryKey: ["/api/dashboard-preferences"],
+  });
+
+  const { data: migrationModeData } = useQuery<{ value: string | null }>({
+    queryKey: ["/api/system-settings", "MIGRATION_MODE"],
+    queryFn: async () => {
+      const res = await fetch("/api/system-settings/MIGRATION_MODE");
+      return res.json();
+    },
+  });
+
+  const migrationModeOn = migrationModeData?.value === "ON";
+
+  const toggleMigrationMutation = useMutation({
+    mutationFn: async (newValue: string) => {
+      await apiRequest("POST", "/api/system-settings", { key: "MIGRATION_MODE", value: newValue });
+    },
+    onSuccess: () => {
+      toast({
+        title: migrationModeOn ? "Migračný režim VYPNUTÝ" : "Migračný režim ZAPNUTÝ",
+        description: migrationModeOn
+          ? "Systém prešiel do ostrej prevádzky. Manuálne dátumy sú uzamknuté."
+          : "Ghost Mode aktívny. Automatické procesy sú pozastavené.",
+      });
+      queryClient.invalidateQueries({ queryKey: ["/api/system-settings", "MIGRATION_MODE"] });
+    },
+    onError: () => {
+      toast({ title: "Chyba", description: "Nepodarilo sa zmeniť režim.", variant: "destructive" });
+    },
   });
 
   const [supportPhone, setSupportPhone] = useState<string | null>(null);
@@ -521,6 +550,48 @@ export default function Settings() {
           </CardContent>
         </Card>
       </div>
+
+      {isSuperAdmin && (
+        <Card className={`border ${migrationModeOn ? 'border-purple-500/70 bg-purple-950/20' : 'border-muted'}`} data-testid="card-ghost-mode">
+          <CardHeader className="flex flex-row items-center justify-between gap-2 space-y-0 pb-2">
+            <CardTitle className="text-base flex items-center gap-2">
+              <Ghost className={`h-4 w-4 ${migrationModeOn ? 'text-purple-400' : 'text-muted-foreground'}`} />
+              Ghost Mode (Migračný režim)
+            </CardTitle>
+            <Switch
+              checked={migrationModeOn}
+              onCheckedChange={(checked) => {
+                if (!checked) {
+                  if (!confirm("POZOR: Vypnutím migračného režimu prejde systém do ostrej prevádzky. Manuálne dátumy sa uzamknú a automatické procesy sa aktivujú. Pokračovať?")) return;
+                }
+                toggleMigrationMutation.mutate(checked ? "ON" : "OFF");
+              }}
+              disabled={toggleMigrationMutation.isPending}
+              data-testid="switch-migration-mode"
+            />
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <p className="text-xs text-muted-foreground">
+              Umožňuje manuálne nahodenie historických zmlúv. Počas migračného režimu:
+            </p>
+            <ul className="text-xs text-muted-foreground space-y-1 ml-4 list-disc">
+              <li>Manuálna editácia všetkých procesných dátumov (podpis, prijatie, odoslanie)</li>
+              <li>Systémové dátumy (created_at, updated_at) sa nastavia na historický dátum</li>
+              <li>Automatické e-maily a timery sú vypnuté</li>
+              <li>V auditnej stope sa zobrazuje "Systémový import" namiesto mena administrátora</li>
+              <li>Hromadné pečiatkovanie cez Súpisky a Sprievodky (max 25 zmlúv)</li>
+            </ul>
+            <div className="flex items-center gap-2 mt-2">
+              <Badge variant={migrationModeOn ? "default" : "outline"} className={migrationModeOn ? "bg-purple-600" : ""} data-testid="badge-migration-status">
+                {migrationModeOn ? "AKTÍVNY" : "NEAKTÍVNY"}
+              </Badge>
+              {migrationModeOn && (
+                <span className="text-xs text-purple-400">Automatické procesy sú pozastavené</span>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {isSuperAdmin && (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
