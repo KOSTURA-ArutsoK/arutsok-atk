@@ -628,7 +628,9 @@ export const contractLifecycleHistory = pgTable("contract_lifecycle_history", {
   changedByUserId: integer("changed_by_user_id").references(() => appUsers.id),
   changedAt: timestamp("changed_at").defaultNow(),
   note: text("note"),
-});
+}, (table) => ({
+  contractIdx: index("idx_contract_lifecycle_history_contract_id").on(table.contractId),
+}));
 
 // === CONTRACT TEMPLATES (Sablony zmluv) ===
 export const contractTemplates = pgTable("contract_templates", {
@@ -734,7 +736,17 @@ export const contracts = pgTable("contracts", {
   deletedFromIp: text("deleted_from_ip"),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
-});
+}, (table) => ({
+  stateIdx: index("idx_contracts_state_id").on(table.stateId),
+  statusIdx: index("idx_contracts_status_id").on(table.statusId),
+  inventoryIdx: index("idx_contracts_inventory_id").on(table.inventoryId),
+  templateIdx: index("idx_contracts_template_id").on(table.templateId),
+  companyIdx: index("idx_contracts_company_id").on(table.companyId),
+  subjectIdx: index("idx_contracts_subject_id").on(table.subjectId),
+  lifecyclePhaseIdx: index("idx_contracts_lifecycle_phase").on(table.lifecyclePhase),
+  isDeletedIdx: index("idx_contracts_is_deleted").on(table.isDeleted),
+  createdAtIdx: index("idx_contracts_created_at").on(table.createdAt),
+}));
 
 // === CONTRACT ACQUIRERS (Ziskatelov k zmluve) - ArutsoK 47 ===
 export const contractAcquirers = pgTable("contract_acquirers", {
@@ -774,7 +786,9 @@ export const contractParameterValues = pgTable("contract_parameter_values", {
   snapshotType: text("snapshot_type"),
   snapshotOptions: text("snapshot_options").array().default([]),
   snapshotHelpText: text("snapshot_help_text"),
-});
+}, (table) => ({
+  contractIdx: index("idx_contract_parameter_values_contract_id").on(table.contractId),
+}));
 
 // === SUPISKY (Settlement Sheets) ===
 export const supisky = pgTable("supisky", {

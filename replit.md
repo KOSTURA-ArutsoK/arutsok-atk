@@ -59,6 +59,15 @@ The system utilizes a modern full-stack architecture with a focus on data integr
 - **Dynamic Product Lifecycle Limits**: `sector_products` table has `objection_days_limit` (default 100) and `archive_days_before_delete` (default 365) fields configurable per product in admin UI. Cron jobs use per-product limits instead of fixed values. Timer in Výhrady folder shows dynamic countdown with color coding: green (>50% remaining), amber (>30%), red (<30% or short-limit products like SDS).
 - **Ghost Mode (Migration Mode)**: Superadmin-only toggle (`MIGRATION_MODE` system setting) for bulk historical contract import. When ON: (1) All lifecycle cron jobs are gated/skipped (auto-archive, permanent delete, email notifications), (2) Contract create/update accepts `_migrationDates` parameter for manual lifecycle timestamp override (receivedByCentralAt, sentToPartnerAt, receivedByPartnerAt, objectionEnteredAt, dispatchedAt, lifecyclePhase), (3) System timestamps (created_at, updated_at) are set to earliest historical date, (4) Audit trail shows "Systémový import" instead of actual administrator. Bulk date inheritance endpoints for Sprievodky/Súpisky with batch limit (max 25) and "overwrite missing only" toggle. `logisticOperationDate` field on `contractInventories` and `contractTemplates` for logistic operation date tracking. Purple-themed UI in Settings and contract edit dialog.
 
+## Recent Changes (KTA2 Audit - Feb 2026)
+- **LSP Fix**: `productPanels?.map()` optional chaining in Contracts.tsx
+- **Import Fix**: Added `contractInventories`, `contractTemplates` to routes.ts imports (Ghost Mode runtime fix)
+- **Filter Fix**: Added `templateId` filter to `getContracts()` storage interface + implementation
+- **Security**: Removed hardcoded fallback secrets in `crypto.ts` and `routes.ts` (archive password)
+- **Security**: Moved `ARCHIVE_RESTORE_PASSWORD` from env var to encrypted secret
+- **Performance**: Added 13 database indexes on contracts, contract_lifecycle_history, contract_parameter_values tables (defined in Drizzle schema)
+- **Known Items**: 65 TypeScript type warnings in routes.ts (non-blocking, mostly `string | string[]` from req.params); unbounded `getContracts()` calls (17 places) identified for future pagination
+
 ## External Dependencies
 - **Replit OIDC Auth**: Authentication.
 - **PostgreSQL (Neon)**: Database.
