@@ -18,7 +18,6 @@ import StatusDocUpload, { type StatusDocUploadHandle } from "@/components/Status
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Accordion, AccordionItem, AccordionTrigger, AccordionContent } from "@/components/ui/accordion";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
@@ -2360,31 +2359,47 @@ export default function ContractForm() {
           <div style={{ display: activeTab === "zhrnutie" ? 'block' : 'none' }}>
             <div className="space-y-3" data-testid="section-zhrnutie">
               <h2 className="text-base font-semibold">Zhrnutie zmluvy</h2>
+
+              {selectedSubject && (
+                <Card className="border-blue-500/30 bg-blue-500/5">
+                  <CardContent className="p-4 space-y-2">
+                    <h3 className="text-sm font-semibold mb-2 flex items-center gap-2">
+                      <Users className="w-4 h-4 text-blue-400" />
+                      Subjekt
+                    </h3>
+                    <div className="flex flex-wrap gap-2">
+                      <SummaryField label="Meno" value={`${selectedSubject.firstName || ""} ${selectedSubject.lastName || ""}`.trim() || selectedSubject.companyName || "-"} testId="summary-subject-name" />
+                      {selectedSubject.uid && <SummaryField label="ID subjektu" value={selectedSubject.uid} testId="summary-subject-uid" mono />}
+                      {selectedSubject.type && <SummaryField label="Typ" value={selectedSubject.type} testId="summary-subject-type" />}
+                      {selectedSubject.email && <SummaryField label="Email" value={selectedSubject.email} testId="summary-subject-email" />}
+                      {selectedSubject.phone && <SummaryField label="Telefón" value={selectedSubject.phone} testId="summary-subject-phone" />}
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+
               <Card>
-                <CardContent className="p-3 space-y-2">
+                <CardContent className="p-4 space-y-2">
                   <h3 className="text-sm font-semibold mb-2">Zmluva</h3>
                   <div className="flex flex-wrap gap-2">
-                    <SummaryField label="Cislo zmluvy" value={contractNumber || "-"} testId="summary-contract-number" onEdit={v => setContractNumber(v)} />
-                    <SummaryField label="Cislo navrhu" value={proposalNumber || "-"} testId="summary-proposal" onEdit={v => setProposalNumber(v)} />
+                    {(contractNumber) && <SummaryField label="Cislo zmluvy" value={contractNumber} testId="summary-contract-number" onEdit={v => setContractNumber(v)} />}
+                    {(proposalNumber) && <SummaryField label="Cislo navrhu" value={proposalNumber} testId="summary-proposal" onEdit={v => setProposalNumber(v)} />}
                     <SummaryField label="Cislo kontraktu" value={existingContract?.globalNumber?.toString() || "Pridelene pri ulozeni"} testId="summary-global-number" />
-                    <SummaryField label="Typ zmluvy" value={contractType || "-"} testId="summary-type" />
-                    <SummaryField label="Miesto podpisu" value={signingPlace || "-"} testId="summary-signing-place" onEdit={v => setSigningPlace(v)} />
-                    <SummaryField label="Partner" value={partners?.find(p => p.id === (partnerId ? parseInt(partnerId) : -1))?.name || "-"} testId="summary-partner" />
-                    <SummaryField label="Produkt" value={(() => {
-                      const sp = allSPForEdit?.find(p => p.id === (sectorProductId ? parseInt(sectorProductId) : -1));
-                      return sp ? `${sp.name}${sp.abbreviation ? ` (${sp.abbreviation})` : ''}` : "-";
-                    })()} testId="summary-product" />
-                    <SummaryField label="Stav" value={statuses?.find(s => s.id === (statusId ? parseInt(statusId) : -1))?.name || "-"} testId="summary-status" />
-                    <SummaryField label="Sablona" value={templates?.find(t => t.id === (templateId ? parseInt(templateId) : -1))?.name || "-"} testId="summary-template" />
-                    <SummaryField label="Frekvencia platenia" value={PAYMENT_FREQUENCIES.find(f => f.value === paymentFrequency)?.label || "-"} testId="summary-frequency" />
-                    <SummaryField label="Lehotne poistne" value={premiumAmount ? `${premiumAmount} ${currency}` : "-"} testId="summary-premium" mono onEdit={v => setPremiumAmount(v.replace(/[^0-9.,]/g, ""))} />
-                    <SummaryField label="Rocne poistne" value={annualPremium ? `${annualPremium} ${currency}` : "-"} testId="summary-annual" mono onEdit={v => { setAnnualPremium(v.replace(/[^0-9.,]/g, "")); setAnnualPremiumUserEdited(true); }} />
-                    {(existingContract as any)?.accessRole !== 'klient' && <SummaryField label="Suma provizie" value={commissionAmount ? `${commissionAmount} ${currency}` : "-"} testId="summary-commission" mono onEdit={v => setCommissionAmount(v.replace(/[^0-9.,]/g, ""))} />}
-                    <SummaryField label="Datum podpisu" value={signedDate || "-"} testId="summary-signed" onEdit={v => setSignedDate(v)} />
-                    <SummaryField label="Ucinnost od" value={effectiveDate || "-"} testId="summary-effective" onEdit={v => setEffectiveDate(v)} />
-                    <SummaryField label="Koniec zmluvy" value={expiryDate || "-"} testId="summary-expiry" onEdit={v => setExpiryDate(v)} />
-                    <SummaryField label="Spolocnost" value={currentCompany?.name || "-"} testId="summary-company" />
-                    <SummaryField label="Stat" value={allStates?.find(s => s.id === (stateId ? parseInt(stateId) : -1))?.name || "-"} testId="summary-state" />
+                    {(contractType) && <SummaryField label="Typ zmluvy" value={contractType} testId="summary-type" />}
+                    {(signingPlace) && <SummaryField label="Miesto podpisu" value={signingPlace} testId="summary-signing-place" onEdit={v => setSigningPlace(v)} />}
+                    {(() => { const v = partners?.find(p => p.id === (partnerId ? parseInt(partnerId) : -1))?.name; return v ? <SummaryField label="Partner" value={v} testId="summary-partner" /> : null; })()}
+                    {(() => { const sp = allSPForEdit?.find(p => p.id === (sectorProductId ? parseInt(sectorProductId) : -1)); return sp ? <SummaryField label="Produkt" value={`${sp.name}${sp.abbreviation ? ` (${sp.abbreviation})` : ''}`} testId="summary-product" /> : null; })()}
+                    {(() => { const v = statuses?.find(s => s.id === (statusId ? parseInt(statusId) : -1))?.name; return v ? <SummaryField label="Stav" value={v} testId="summary-status" /> : null; })()}
+                    {(() => { const v = templates?.find(t => t.id === (templateId ? parseInt(templateId) : -1))?.name; return v ? <SummaryField label="Sablona" value={v} testId="summary-template" /> : null; })()}
+                    {(() => { const v = PAYMENT_FREQUENCIES.find(f => f.value === paymentFrequency)?.label; return v ? <SummaryField label="Frekvencia platenia" value={v} testId="summary-frequency" /> : null; })()}
+                    {(premiumAmount) && <SummaryField label="Lehotne poistne" value={`${premiumAmount} ${currency}`} testId="summary-premium" mono onEdit={v => setPremiumAmount(v.replace(/[^0-9.,]/g, ""))} />}
+                    {(annualPremium) && <SummaryField label="Rocne poistne" value={`${annualPremium} ${currency}`} testId="summary-annual" mono onEdit={v => { setAnnualPremium(v.replace(/[^0-9.,]/g, "")); setAnnualPremiumUserEdited(true); }} />}
+                    {(existingContract as any)?.accessRole !== 'klient' && commissionAmount && <SummaryField label="Suma provizie" value={`${commissionAmount} ${currency}`} testId="summary-commission" mono onEdit={v => setCommissionAmount(v.replace(/[^0-9.,]/g, ""))} />}
+                    {(signedDate) && <SummaryField label="Datum podpisu" value={signedDate} testId="summary-signed" onEdit={v => setSignedDate(v)} />}
+                    {(effectiveDate) && <SummaryField label="Ucinnost od" value={effectiveDate} testId="summary-effective" onEdit={v => setEffectiveDate(v)} />}
+                    {(expiryDate) && <SummaryField label="Koniec zmluvy" value={expiryDate} testId="summary-expiry" onEdit={v => setExpiryDate(v)} />}
+                    {currentCompany?.name && <SummaryField label="Spolocnost" value={currentCompany.name} testId="summary-company" />}
+                    {(() => { const v = allStates?.find(s => s.id === (stateId ? parseInt(stateId) : -1))?.name; return v ? <SummaryField label="Stat" value={v} testId="summary-state" /> : null; })()}
                     {existingContract?.isStamped && (
                       <SummaryField label="Opečiatkované" value={existingContract?.stampedAt ? new Date(existingContract.stampedAt).toLocaleString("sk-SK", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" }) : "-"} testId="summary-stamped" />
                     )}
@@ -2406,148 +2421,104 @@ export default function ContractForm() {
                 </CardContent>
               </Card>
 
-              <Card>
-                <CardContent className="p-3 space-y-2">
-                  <h3 className="text-sm font-semibold mb-2 flex items-center gap-1.5">
-                    <History className="w-4 h-4" />
-                    Historia stavov ({(statusChangeLogs || []).length})
-                  </h3>
-                  {(!statusChangeLogs || statusChangeLogs.length === 0) && (
-                    <p className="text-sm text-muted-foreground py-2" data-testid="text-no-status-history">
-                      Ziadna historia zmien stavov
-                    </p>
-                  )}
-                  {statusChangeLogs && statusChangeLogs.length > 0 && (
-                    <Accordion type="multiple" className="w-full">
-                      {[...statusChangeLogs].reverse().map((log, idx) => {
-                        const logStatus = statuses?.find(s => s.id === log.newStatusId);
-                        const oldStatus = log.oldStatusId ? statuses?.find(s => s.id === log.oldStatusId) : null;
-                        const changedByUser = allAppUsers?.find(u => u.id === log.changedByUserId);
-                        const docs = (log.statusChangeDocuments as any[]) || [];
-                        const paramVals = (log.parameterValues as Record<string, string>) || {};
-                        const hasParamValues = Object.keys(paramVals).length > 0;
-                        const rowNumber = idx + 1;
+              <div>
+                <h3 className="text-sm font-semibold mb-3 flex items-center gap-1.5">
+                  <History className="w-4 h-4" />
+                  Historia stavov ({(statusChangeLogs || []).length})
+                </h3>
+                {(!statusChangeLogs || statusChangeLogs.length === 0) && (
+                  <p className="text-sm text-muted-foreground text-center py-4" data-testid="text-no-status-history">
+                    Ziadna historia zmien stavov
+                  </p>
+                )}
+                {statusChangeLogs && statusChangeLogs.length > 0 && (
+                  <div className="relative pl-6 space-y-4">
+                    <div className="absolute left-[11px] top-2 bottom-2 w-0.5 bg-border" />
+                    {[...statusChangeLogs].reverse().map((log, idx) => {
+                      const logStatus = statuses?.find(s => s.id === log.newStatusId);
+                      const oldStatus = log.oldStatusId ? statuses?.find(s => s.id === log.oldStatusId) : null;
+                      const changedByUser = allAppUsers?.find(u => u.id === log.changedByUserId);
+                      const docs = (log.statusChangeDocuments as any[]) || [];
+                      const paramVals = (log.parameterValues as Record<string, string>) || {};
+                      const hasParamValues = Object.keys(paramVals).filter(k => paramVals[k]?.trim()).length > 0;
+                      const rowNumber = idx + 1;
 
-                        return (
-                          <AccordionItem key={log.id} value={`log-${log.id}`} data-testid={`status-history-row-${log.id}`}>
-                            <AccordionTrigger className="py-2 text-sm" data-testid={`status-history-trigger-${log.id}`}>
-                              <div className="flex items-center gap-2 flex-wrap text-left flex-1 mr-2">
-                                <Badge variant="outline" className="text-xs font-mono">{rowNumber}</Badge>
-                                {logStatus && (
-                                  <div className="flex items-center gap-1.5">
-                                    <div className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: logStatus.color }} />
-                                    <span className="font-medium" data-testid={`status-history-name-${log.id}`}>{logStatus.name}</span>
-                                  </div>
+                      return (
+                        <div key={log.id} className="relative" data-testid={`status-history-row-${log.id}`}>
+                          <div className="absolute -left-6 top-4 w-[22px] flex items-center justify-center">
+                            <div className="w-3 h-3 rounded-full border-2 border-background shrink-0" style={{ backgroundColor: logStatus?.color || "#6b7280" }} />
+                          </div>
+                          <Card className="shadow-sm hover:shadow-md transition-shadow">
+                            <CardContent className="p-4 space-y-3">
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <Badge variant="outline" className="text-xs font-mono h-5 w-5 p-0 flex items-center justify-center shrink-0">{rowNumber}</Badge>
+                                <span className="font-semibold text-sm" style={{ color: logStatus?.color }} data-testid={`status-history-name-${log.id}`}>
+                                  {logStatus?.name || `Stav #${log.newStatusId}`}
+                                </span>
+                                {log.statusIteration && log.statusIteration > 1 && (
+                                  <Badge variant="secondary" className="text-[10px] h-4">×{log.statusIteration}</Badge>
                                 )}
-                                {!logStatus && (
-                                  <span className="font-medium text-muted-foreground" data-testid={`status-history-name-${log.id}`}>Stav #{log.newStatusId}</span>
-                                )}
-                                <span className="text-xs text-muted-foreground" data-testid={`status-history-date-${log.id}`}>
+                                <span className="text-xs text-muted-foreground ml-auto" data-testid={`status-history-date-${log.id}`}>
                                   {log.changedAt ? formatDateTimeSlovak(log.changedAt) : "-"}
                                 </span>
-                                {docs.length > 0 && (
-                                  <Badge variant="secondary" className="text-xs">
-                                    <Paperclip className="w-3 h-3 mr-0.5" />{docs.length}
-                                  </Badge>
+                              </div>
+
+                              <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
+                                {oldStatus && (
+                                  <span data-testid={`status-history-old-${log.id}`}>
+                                    <span className="opacity-60">Z:</span> {oldStatus.name}
+                                  </span>
+                                )}
+                                <span data-testid={`status-history-user-${log.id}`}>
+                                  <span className="opacity-60">Zmenil:</span> {changedByUser ? `${changedByUser.firstName || ""} ${changedByUser.lastName || ""}`.trim() || changedByUser.username : `ID ${log.changedByUserId || "-"}`}
+                                </span>
+                                {log.visibleToClient && (
+                                  <Badge variant="outline" className="text-[10px] h-4 text-green-500 border-green-500/30">Viditeľné klientovi</Badge>
                                 )}
                               </div>
-                            </AccordionTrigger>
-                            <AccordionContent className="pb-3">
-                              <div className="space-y-2 pl-1">
-                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm">
-                                  {oldStatus && (
-                                    <div>
-                                      <span className="text-muted-foreground">Predch. stav: </span>
-                                      <span className="font-medium" data-testid={`status-history-old-${log.id}`}>{oldStatus.name}</span>
-                                    </div>
-                                  )}
-                                  <div>
-                                    <span className="text-muted-foreground">Novy stav: </span>
-                                    <span className="font-medium" data-testid={`status-history-new-${log.id}`}>{logStatus?.name || `#${log.newStatusId}`}</span>
-                                  </div>
-                                  <div>
-                                    <span className="text-muted-foreground">Datum zmeny: </span>
-                                    <span data-testid={`status-history-timestamp-${log.id}`}>{log.changedAt ? formatDateTimeSlovak(log.changedAt) : "-"}</span>
-                                  </div>
-                                  <div>
-                                    <span className="text-muted-foreground">Zmenil: </span>
-                                    <span data-testid={`status-history-user-${log.id}`}>
-                                      {changedByUser ? `${changedByUser.firstName || ""} ${changedByUser.lastName || ""}`.trim() || changedByUser.username : `ID ${log.changedByUserId || "-"}`}
-                                    </span>
-                                  </div>
-                                  {log.statusIteration && log.statusIteration > 1 && (
-                                    <div>
-                                      <span className="text-muted-foreground">Iteracia: </span>
-                                      <span>{log.statusIteration}</span>
-                                    </div>
-                                  )}
-                                  <div>
-                                    <span className="text-muted-foreground">Viditelne pre klienta: </span>
-                                    <span>{log.visibleToClient ? "Ano" : "Nie"}</span>
-                                  </div>
+
+                              {log.statusNote && (
+                                <div className="flex gap-2 items-start">
+                                  <MessageSquare className="w-3.5 h-3.5 text-blue-400 mt-0.5 shrink-0" />
+                                  <p className="text-sm bg-muted/40 rounded-lg px-3 py-2 flex-1" data-testid={`status-history-note-${log.id}`}>{log.statusNote}</p>
                                 </div>
+                              )}
 
-                                {log.statusNote && (
-                                  <div className="text-sm">
-                                    <span className="text-muted-foreground flex items-center gap-1 mb-0.5">
-                                      <MessageSquare className="w-3 h-3" /> Poznamka:
-                                    </span>
-                                    <p className="bg-muted/30 rounded p-2 text-sm" data-testid={`status-history-note-${log.id}`}>{log.statusNote}</p>
-                                  </div>
-                                )}
+                              {hasParamValues && (
+                                <div className="flex flex-wrap gap-1.5">
+                                  {Object.entries(paramVals).filter(([, val]) => val?.trim()).map(([key, val]) => (
+                                    <Badge key={key} variant="secondary" className="text-[10px] font-normal" data-testid={`status-history-param-${log.id}-${key}`}>
+                                      {key}: {val}
+                                    </Badge>
+                                  ))}
+                                </div>
+                              )}
 
-                                {hasParamValues && (
-                                  <div className="text-sm">
-                                    <span className="text-muted-foreground flex items-center gap-1 mb-0.5">
-                                      <Settings2 className="w-3 h-3" /> Parametre:
-                                    </span>
-                                    <div className="bg-muted/30 rounded p-2 space-y-0.5">
-                                      {Object.entries(paramVals).map(([key, val]) => (
-                                        <div key={key} className="text-xs" data-testid={`status-history-param-${log.id}-${key}`}>
-                                          <span className="text-muted-foreground">{key}: </span>
-                                          <span>{val}</span>
-                                        </div>
-                                      ))}
-                                    </div>
-                                  </div>
-                                )}
-
-                                {docs.length > 0 && (
-                                  <div className="text-sm">
-                                    <span className="text-muted-foreground flex items-center gap-1 mb-1">
-                                      <FileText className="w-3 h-3" /> Dokumenty ({docs.length}):
-                                    </span>
-                                    <div className="space-y-1">
-                                      {docs.map((doc: any, docIdx: number) => (
-                                        <a
-                                          key={docIdx}
-                                          href={doc.url}
-                                          target="_blank"
-                                          rel="noopener noreferrer"
-                                          className="flex items-center gap-1.5 text-xs text-blue-600 dark:text-blue-400 hover:underline"
-                                          data-testid={`status-history-doc-${log.id}-${docIdx}`}
-                                        >
-                                          <Paperclip className="w-3 h-3 shrink-0" />
-                                          <span className="truncate">{doc.name || `Dokument ${docIdx + 1}`}</span>
-                                          {doc.uploadedAt && (
-                                            <span className="text-muted-foreground ml-auto shrink-0">
-                                              {formatDateTimeSlovak(doc.uploadedAt)}
-                                            </span>
-                                          )}
-                                        </a>
-                                      ))}
-                                    </div>
-                                  </div>
-                                )}
-                              </div>
-                            </AccordionContent>
-                          </AccordionItem>
-                        );
-                      })}
-                    </Accordion>
-                  )}
-                </CardContent>
-              </Card>
+                              {docs.length > 0 && (
+                                <div className="flex flex-wrap gap-2">
+                                  {docs.map((doc: any, docIdx: number) => (
+                                    <a
+                                      key={docIdx}
+                                      href={doc.url}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className="inline-flex items-center gap-1.5 text-xs bg-muted/40 hover:bg-muted/60 rounded-lg px-3 py-1.5 transition-colors"
+                                      data-testid={`status-history-doc-${log.id}-${docIdx}`}
+                                    >
+                                      <Paperclip className="w-3 h-3 shrink-0 text-amber-400" />
+                                      <span className="truncate max-w-[160px]">{doc.name || `Dokument ${docIdx + 1}`}</span>
+                                    </a>
+                                  ))}
+                                </div>
+                              )}
+                            </CardContent>
+                          </Card>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
 
               {subjectId && subjects?.find(s => s.id === parseInt(subjectId)) && (
                 <SubjektView subject={subjects.find(s => s.id === parseInt(subjectId))!} />
