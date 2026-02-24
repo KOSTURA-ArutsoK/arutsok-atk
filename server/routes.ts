@@ -1949,7 +1949,7 @@ export async function registerRoutes(
   app.get("/api/files/:section/:filename", isAuthenticated, (req, res) => {
     const section = req.params.section as string;
     const filename = req.params.filename as string;
-    if (!["official", "work", "logos", "amendments", "profiles", "flags"].includes(section)) return res.status(400).json({ message: "Invalid section" });
+    if (!["official", "work", "logos", "amendments", "profiles", "flags", "status-change-docs"].includes(section)) return res.status(400).json({ message: "Invalid section" });
     const filePath = path.join(UPLOADS_DIR, section, filename);
     if (!fs.existsSync(filePath)) return res.status(404).json({ message: "File not found" });
     res.sendFile(filePath);
