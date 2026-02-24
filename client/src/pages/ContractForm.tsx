@@ -1855,35 +1855,6 @@ export default function ContractForm() {
                 <Lock className="w-3 h-3 text-slate-500 ml-auto" />
                 <span className="text-[10px] text-slate-500">Len na čítanie — editácia cez Modul C</span>
               </div>
-              <div className="grid grid-cols-2 gap-3">
-                <CompactField label="Klient">
-                  <Select value={subjectId} onValueChange={setSubjectId}>
-                    <SelectTrigger data-testid="select-contract-subject">
-                      <SelectValue placeholder="Vyberte klienta" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {subjects?.filter(s => s.isActive).map(s => (
-                        <SelectItem key={s.id} value={s.id.toString()} data-testid={`select-item-subject-${s.id}`}>
-                          {s.type === "person" ? `${s.firstName} ${s.lastName}` : s.companyName} ({s.uid})
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </CompactField>
-                <CompactField label="Partner zmluvy">
-                  <Select value={partnerId} onValueChange={setPartnerId}>
-                    <SelectTrigger data-testid="select-contract-partner">
-                      <SelectValue placeholder="Vyberte partnera" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {partners?.filter(p => !p.isDeleted).map(p => (
-                        <SelectItem key={p.id} value={p.id.toString()}>{p.name}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </CompactField>
-              </div>
-
               {selectedSubject && subjectRelations && (() => {
                 const allRelations = Object.values(subjectRelations.categories || {}).flatMap(cat => cat.relations || []);
                 if (allRelations.length === 0) return null;
