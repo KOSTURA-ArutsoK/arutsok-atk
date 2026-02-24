@@ -1733,6 +1733,15 @@ export default function Contracts() {
 
   const isEvidencia = location === "/evidencia-zmluv";
 
+  const { data: migrationModeMainData } = useQuery<{ value: string | null }>({
+    queryKey: ["/api/system-settings", "MIGRATION_MODE"],
+    queryFn: async () => {
+      const res = await fetch("/api/system-settings/MIGRATION_MODE");
+      return res.json();
+    },
+  });
+  const isMigrationMode = migrationModeMainData?.value === "ON";
+
   const columnVisibility = useColumnVisibility("contracts", CONTRACTS_COLUMNS);
   const evidenciaColumnVisibility = useColumnVisibility("contracts-evidencia", CONTRACTS_EVIDENCIA_COLUMNS);
   const sprievodkaColumnVisibility = useColumnVisibility("contracts-sprievodka", CONTRACTS_SPRIEVODKA_COLUMNS);
