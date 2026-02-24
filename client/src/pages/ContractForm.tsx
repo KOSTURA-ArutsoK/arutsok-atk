@@ -763,6 +763,7 @@ export default function ContractForm() {
   const [proposalNumber, setProposalNumber] = useState("");
   const [subjectId, setSubjectId] = useState<string>("");
   const [expandedStatusLogs, setExpandedStatusLogs] = useState<Set<number>>(new Set());
+  const [subjectAccordionOpen, setSubjectAccordionOpen] = useState(false);
   const [partnerId, setPartnerId] = useState<string>("");
   const [statusId, setStatusId] = useState<string>("");
   const [statusFormStatusId, setStatusFormStatusId] = useState<string>("");
@@ -1094,6 +1095,43 @@ export default function ContractForm() {
   const subjectTypeToClientCode: Record<string, string> = { person: "FO", company: "PO", szco: "SZCO" };
   const matchedClientTypeCode = selectedSubject?.type ? subjectTypeToClientCode[selectedSubject.type] || null : null;
   const matchedClientType = matchedClientTypeCode ? clientTypes?.find(ct => ct.code === matchedClientTypeCode) : null;
+
+  const SUBJECT_FIELD_TO_COLUMN: Record<string, string> = {
+    meno: "firstName", priezvisko: "lastName", nazov_organizacie: "companyName",
+    email: "email", telefon: "phone", rodne_cislo: "birthNumber",
+    cislo_dokladu: "idCardNumber", iban: "iban", bic: "swift",
+    firstName: "firstName", lastName: "lastName", companyName: "companyName",
+    phone: "phone", birthNumber: "birthNumber", idCardNumber: "idCardNumber",
+    swift: "swift",
+  };
+
+  const subjectSummaryItems = useMemo(() => {
+    if (!selectedSubject || !matchedClientType) return [];
+    const prefs = (selectedSubject as any).uiPreferences as { summary_fields?: Record<string, boolean> } | null;
+    const pinned = prefs?.summary_fields || {};
+    const pinnedKeys = Object.entries(pinned).filter(([, v]) => v).map(([k]) => k);
+    if (pinnedKeys.length === 0) return [];
+
+    const allFields = getFieldsForClientTypeId(matchedClientType.id);
+    const dynamicFields = ((selectedSubject as any).details?.dynamicFields || {}) as Record<string, string>;
+    const details = ((selectedSubject as any).details || {}) as Record<string, string>;
+
+    return pinnedKeys.map(key => {
+      const fieldDef = allFields.find(f => f.fieldKey === key);
+      const label = fieldDef?.shortLabel || fieldDef?.label || key;
+      const col = SUBJECT_FIELD_TO_COLUMN[key];
+      let value = "";
+      if (col) {
+        const v = (selectedSubject as any)[col];
+        value = v != null ? String(v) : "";
+      } else if (dynamicFields[key] !== undefined) {
+        value = String(dynamicFields[key] || "");
+      } else if (details[key] !== undefined) {
+        value = String(details[key] || "");
+      }
+      return { key, label, value };
+    }).filter(item => item.value.trim() !== "");
+  }, [selectedSubject, matchedClientType]);
 
   const PARAM_TO_SUBJECT_MAP: Record<string, { field: keyof Subject; label: string }> = {
     "Rodné číslo": { field: "birthNumber" as keyof Subject, label: "Rodné číslo" },
@@ -2363,7 +2401,11 @@ export default function ContractForm() {
               <h2 className="text-base font-semibold">Zhrnutie zmluvy</h2>
 
               {selectedSubject && (
-                <Card className="border-blue-500/30 bg-blue-500/5">
+                <Card
+                  className={`border-blue-500/30 bg-blue-500/5 cursor-pointer transition-all hover:shadow-md ${subjectAccordionOpen ? "ring-1 ring-blue-500/20" : ""}`}
+                  onClick={() => setSubjectAccordionOpen(prev => !prev)}
+                  data-testid="summary-subject-accordion"
+                >
                   <CardContent className="p-4">
                     <div className="flex items-start gap-4">
                       <SubjectProfilePhoto subjectId={selectedSubject.id} size="md" />
@@ -2388,7 +2430,38 @@ export default function ContractForm() {
                           )}
                         </div>
                       </div>
+                      <div className="flex items-center gap-1.5 shrink-0 mt-1">
+                        {subjectSummaryItems.length > 0 && (
+                          <Badge variant="secondary" className="text-[10px] h-4">{subjectSummaryItems.length} {subjectSummaryItems.length === 1 ? "pole" : subjectSummaryItems.length < 5 ? "polia" : "polí"}</Badge>
+                        )}
+                        <ChevronRight className={`w-4 h-4 text-muted-foreground transition-transform ${subjectAccordionOpen ? "rotate-90" : ""}`} />
+                      </div>
                     </div>
+
+                    {subjectAccordionOpen && (
+                      <div className="mt-4 pt-3 border-t border-blue-500/20" onClick={e => e.stopPropagation()}>
+                        {subjectSummaryItems.length > 0 ? (
+                          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                            {subjectSummaryItems.map(item => (
+                              <div key={item.key} className="bg-background/60 rounded-lg px-3 py-2 border border-border/50" data-testid={`summary-pinned-${item.key}`}>
+                                <div className="text-[10px] text-muted-foreground uppercase tracking-wider mb-0.5">{item.label}</div>
+                                <div className="text-sm font-medium truncate">{item.value}</div>
+                              </div>
+                            ))}
+                          </div>
+                        ) : (
+                          <div className="text-center py-3">
+                            <Eye className="w-5 h-5 text-muted-foreground/30 mx-auto mb-1.5" />
+                            <p className="text-xs text-muted-foreground">
+                              Žiadne polia označené v Svätyni
+                            </p>
+                            <p className="text-[10px] text-muted-foreground/60 mt-0.5">
+                              Označte polia ikonou oka v záložke „Údaje o klientovi" a zobrazia sa tu
+                            </p>
+                          </div>
+                        )}
+                      </div>
+                    )}
                   </CardContent>
                 </Card>
               )}
