@@ -4,7 +4,8 @@ import { storage } from "./storage";
 import { api } from "@shared/routes";
 import { setupAuth, registerAuthRoutes, isAuthenticated } from "./replit_integrations/auth";
 import { z } from "zod";
-import { continents, states, myCompanies, appUsers, clientTypes, clientSubGroups, clientGroupMembers, productFolderAssignments, folderPanels, panelParameters, userClientGroupMemberships, clientGroups, permissionGroups, insertCareerLevelSchema, insertProductPointRateSchema, careerLevels, importLogs, commissions, contracts, contractStatuses, contractStatusChangeLogs, clientDataTabs, clientDataCategories, subjects, subjectPointsLog, subjectFieldHistory, subjectCollaborators, clientMarketingConsents, clientDocumentHistory, contractAcquirers, contractPasswords, contractRewardDistributions, contractParameterValues, subjectArchive, auditLogs, globalCounters, subjectPhotos, activityEvents, subjectParamSections, subjectParameters, subjectTemplates, subjectTemplateParams, commissionCalculationLogs, parameterSynonyms, dataConflictAlerts, transactionDedupLog, relationRoleTypes, subjectRelations, maturityAlerts, inheritancePrompts, guardianshipArchive, households, householdMembers, householdAssets, privacyBlocks, accessConsentLog, maturityEvents, addressGroups, addressGroupMembers, companySubjectRoles, notificationQueue, batchJobs, subjectObjects, objectDataSources, sectors, sections, sectorProducts, parameters, panels, productPanels, contractFolders, fieldLayoutConfigs, sectorCategoryMapping, suggestedRelations, statusEvidence, contractLifecycleHistory, partners, products } from "@shared/schema";
+import { continents, states, myCompanies, appUsers, clientTypes, clientSubGroups, clientGroupMembers, productFolderAssignments, folderPanels, panelParameters, userClientGroupMemberships, clientGroups, permissionGroups, insertCareerLevelSchema, insertProductPointRateSchema, careerLevels, importLogs, commissions, contracts, contractStatuses, contractStatusChangeLogs, clientDataTabs, clientDataCategories, subjects, subjectPointsLog, subjectFieldHistory, subjectCollaborators, clientMarketingConsents, clientDocumentHistory, contractAcquirers, contractPasswords, contractRewardDistributions, contractParameterValues, subjectArchive, auditLogs, globalCounters, subjectPhotos, activityEvents, subjectParamSections, subjectParameters, subjectTemplates, subjectTemplateParams, commissionCalculationLogs, parameterSynonyms, dataConflictAlerts, transactionDedupLog, relationRoleTypes, subjectRelations, maturityAlerts, inheritancePrompts, guardianshipArchive, households, householdMembers, householdAssets, privacyBlocks, accessConsentLog, maturityEvents, addressGroups, addressGroupMembers, companySubjectRoles, notificationQueue, batchJobs, subjectObjects, objectDataSources, sectors, sections, sectorProducts, parameters, panels, productPanels, contractFolders, fieldLayoutConfigs, sectorCategoryMapping, suggestedRelations, statusEvidence, contractLifecycleHistory, systemNotifications, partners, products } from "@shared/schema";
+import { notifyObjectionCreated, notifyPreDeletion, getProductDaysLimits } from "./email";
 import { seedSubjectParameters, seedAssetPanels, seedEventAndEntityPanels } from "./seed-subject-params";
 import sharp from "sharp";
 import { db } from "./db";
@@ -2376,11 +2377,14 @@ export async function registerRoutes(
           subjectUid: subjects.uid,
           partnerName: partners.name,
           productName: products.name,
+          objectionDaysLimit: sectorProducts.objectionDaysLimit,
+          archiveDaysBeforeDelete: sectorProducts.archiveDaysBeforeDelete,
         })
         .from(contracts)
         .leftJoin(subjects, eq(contracts.subjectId, subjects.id))
         .leftJoin(partners, eq(contracts.partnerId, partners.id))
         .leftJoin(products, eq(contracts.productId, products.id))
+        .leftJoin(sectorProducts, eq(contracts.sectorProductId, sectorProducts.id))
         .where(and(...conditions))
         .orderBy(desc(contracts.createdAt));
 
@@ -2390,6 +2394,8 @@ export async function registerRoutes(
         subjectUid: r.subjectUid,
         partnerName: r.partnerName,
         productName: r.productName,
+        objectionDaysLimit: r.objectionDaysLimit ?? 100,
+        archiveDaysBeforeDelete: r.archiveDaysBeforeDelete ?? 365,
       })));
     } catch (err: any) {
       console.error("Get contracts by phase error:", err);
@@ -2464,6 +2470,13 @@ export async function registerRoutes(
         oldData: { lifecyclePhase: contract.lifecyclePhase },
         newData: { lifecyclePhase: phase, phaseName: LIFECYCLE_PHASES[phase] },
       });
+
+      if (phase === 3) {
+        const limits = await getProductDaysLimits(contract.sectorProductId);
+        notifyObjectionCreated(contractId, limits.objectionDays).catch(err =>
+          console.error("[EMAIL] Objection notification error:", err)
+        );
+      }
 
       res.json(updated);
     } catch (err: any) {
@@ -11509,87 +11522,150 @@ export async function registerRoutes(
     }
   }, 60 * 60 * 1000);
 
-  // === CRON: 100-day auto-archive (výhrady -> archív) ===
+  // === CRON: Dynamic auto-archive (výhrady -> archív, per-product limit) ===
   setInterval(async () => {
     try {
-      const cutoffDate = new Date();
-      cutoffDate.setDate(cutoffDate.getDate() - 100);
-
-      const expiredObjections = await db.select()
+      const objectionsInPhase3 = await db.select()
         .from(contracts)
         .where(and(
           eq(contracts.lifecyclePhase, 3),
           eq(contracts.isDeleted, false),
-          sql`${contracts.objectionEnteredAt} IS NOT NULL AND ${contracts.objectionEnteredAt} < ${cutoffDate.toISOString()}`
+          sql`${contracts.objectionEnteredAt} IS NOT NULL`
         ));
 
       let archiveCount = 0;
-      for (const contract of expiredObjections) {
-        await db.update(contracts).set({
-          lifecyclePhase: 4,
-          updatedAt: new Date(),
-        }).where(eq(contracts.id, contract.id));
+      for (const contract of objectionsInPhase3) {
+        const limits = await getProductDaysLimits(contract.sectorProductId);
+        const cutoffDate = new Date();
+        cutoffDate.setDate(cutoffDate.getDate() - limits.objectionDays);
 
-        await db.insert(contractLifecycleHistory).values({
-          contractId: contract.id,
-          phase: 4,
-          phaseName: LIFECYCLE_PHASES[4],
-          changedByUserId: null,
-          note: "Automatický presun do archívu po 100 dňoch výhrad",
-        });
+        if (new Date(contract.objectionEnteredAt!) < cutoffDate) {
+          await db.update(contracts).set({
+            lifecyclePhase: 4,
+            updatedAt: new Date(),
+          }).where(eq(contracts.id, contract.id));
 
-        await db.insert(auditLogs).values({
-          username: "ArutsoK System",
-          action: "LIFECYCLE_AUTO_ARCHIVE",
-          module: "zmluvy",
-          entityId: contract.id,
-          entityName: contract.contractNumber || contract.proposalNumber || `ID ${contract.id}`,
-          oldData: { lifecyclePhase: 3 },
-          newData: { lifecyclePhase: 4 },
-        });
+          await db.insert(contractLifecycleHistory).values({
+            contractId: contract.id,
+            phase: 4,
+            phaseName: LIFECYCLE_PHASES[4],
+            changedByUserId: null,
+            note: `Automatický presun do archívu po ${limits.objectionDays} dňoch výhrad`,
+          });
 
-        archiveCount++;
+          await db.insert(auditLogs).values({
+            username: "ArutsoK System",
+            action: "LIFECYCLE_AUTO_ARCHIVE",
+            module: "zmluvy",
+            entityId: contract.id,
+            entityName: contract.contractNumber || contract.proposalNumber || `ID ${contract.id}`,
+            oldData: { lifecyclePhase: 3 },
+            newData: { lifecyclePhase: 4, objectionDaysLimit: limits.objectionDays },
+          });
+
+          archiveCount++;
+        }
       }
-      if (archiveCount > 0) console.log(`[CRON] Lifecycle auto-archive: ${archiveCount} contracts moved from phase 3 to phase 4`);
+      if (archiveCount > 0) console.log(`[CRON] Lifecycle auto-archive: ${archiveCount} contracts moved from phase 3 to phase 4 (dynamic limits)`);
     } catch (err) {
       console.error("[CRON] Lifecycle auto-archive error:", err);
     }
   }, 60 * 60 * 1000);
 
-  // === CRON: 365-day permanent delete (archív older than 465 days total) ===
+  // === CRON: Dynamic permanent delete + 24h pre-deletion notification ===
   setInterval(async () => {
     try {
-      const cutoffDate = new Date();
-      cutoffDate.setDate(cutoffDate.getDate() - 465);
-
-      const expiredArchive = await db.select()
+      const archiveContracts = await db.select()
         .from(contracts)
         .where(and(
           eq(contracts.lifecyclePhase, 4),
           eq(contracts.isDeleted, false),
-          sql`${contracts.objectionEnteredAt} IS NOT NULL AND ${contracts.objectionEnteredAt} < ${cutoffDate.toISOString()}`
+          sql`${contracts.objectionEnteredAt} IS NOT NULL`
         ));
 
+      const contractsToNotify: { id: number; sectorProductId: number | null }[] = [];
       let deleteCount = 0;
-      for (const contract of expiredArchive) {
-        await db.insert(auditLogs).values({
-          username: "ArutsoK System",
-          action: "LIFECYCLE_PERMANENT_DELETE",
-          module: "zmluvy",
-          entityId: contract.id,
-          entityName: contract.contractNumber || contract.proposalNumber || `ID ${contract.id}`,
-          oldData: contract,
-          newData: null,
-        });
 
-        await db.delete(contracts).where(eq(contracts.id, contract.id));
-        deleteCount++;
+      for (const contract of archiveContracts) {
+        const limits = await getProductDaysLimits(contract.sectorProductId);
+        const totalDays = limits.objectionDays + limits.archiveDays;
+        const notifyDays = totalDays - 1;
+
+        const deleteCutoff = new Date();
+        deleteCutoff.setDate(deleteCutoff.getDate() - totalDays);
+
+        const notifyCutoff = new Date();
+        notifyCutoff.setDate(notifyCutoff.getDate() - notifyDays);
+
+        const objDate = new Date(contract.objectionEnteredAt!);
+
+        if (objDate < deleteCutoff) {
+          await db.insert(auditLogs).values({
+            username: "ArutsoK System",
+            action: "LIFECYCLE_PERMANENT_DELETE",
+            module: "zmluvy",
+            entityId: contract.id,
+            entityName: contract.contractNumber || contract.proposalNumber || `ID ${contract.id}`,
+            oldData: contract,
+            newData: null,
+          });
+
+          await db.delete(contracts).where(eq(contracts.id, contract.id));
+          deleteCount++;
+        } else if (objDate < notifyCutoff && objDate >= deleteCutoff) {
+          const alreadyNotified = await db.select({ id: systemNotifications.id })
+            .from(systemNotifications)
+            .where(and(
+              eq(systemNotifications.relatedContractId, contract.id),
+              eq(systemNotifications.notificationType, "pre_deletion_warning")
+            ))
+            .limit(1);
+
+          if (alreadyNotified.length === 0) {
+            contractsToNotify.push({ id: contract.id, sectorProductId: contract.sectorProductId });
+          }
+        }
       }
-      if (deleteCount > 0) console.log(`[CRON] Lifecycle permanent delete: ${deleteCount} contracts permanently deleted after 465 days`);
+
+      if (contractsToNotify.length > 0) {
+        notifyPreDeletion(contractsToNotify).catch(err =>
+          console.error("[EMAIL] Pre-deletion notification error:", err)
+        );
+      }
+
+      if (deleteCount > 0) console.log(`[CRON] Lifecycle permanent delete: ${deleteCount} contracts permanently deleted (dynamic limits)`);
     } catch (err) {
       console.error("[CRON] Lifecycle permanent delete error:", err);
     }
   }, 60 * 60 * 1000);
+
+  // === API: System notifications (admin view) ===
+  app.get("/api/system-notifications", isAuthenticated, async (req: any, res) => {
+    try {
+      const limit = Number(req.query.limit) || 50;
+      const notifications = await db.select()
+        .from(systemNotifications)
+        .orderBy(desc(systemNotifications.createdAt))
+        .limit(limit);
+      res.json(notifications);
+    } catch (err: any) {
+      res.status(500).json({ message: err?.message || "Error" });
+    }
+  });
+
+  app.get("/api/system-notifications/stats", isAuthenticated, async (req: any, res) => {
+    try {
+      const stats = await db.select({
+        status: systemNotifications.status,
+        count: sql<number>`COUNT(*)::int`,
+      })
+        .from(systemNotifications)
+        .groupBy(systemNotifications.status);
+      res.json(stats);
+    } catch (err: any) {
+      res.status(500).json({ message: err?.message || "Error" });
+    }
+  });
 
   return httpServer;
 }

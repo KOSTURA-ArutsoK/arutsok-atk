@@ -1047,6 +1047,8 @@ export const sectorProducts = pgTable("sector_products", {
   abbreviation: text("abbreviation").default(""),
   partnerId: integer("partner_id"),
   sortOrder: integer("sort_order").default(0),
+  objectionDaysLimit: integer("objection_days_limit").default(100),
+  archiveDaysBeforeDelete: integer("archive_days_before_delete").default(365),
   createdAt: timestamp("created_at").defaultNow(),
   deletedAt: timestamp("deleted_at"),
 });
@@ -2231,6 +2233,31 @@ export const statusEvidence = pgTable("status_evidence", {
 export const insertStatusEvidenceSchema = createInsertSchema(statusEvidence).omit({ id: true, createdAt: true, capturedAt: true });
 export type StatusEvidence = typeof statusEvidence.$inferSelect;
 export type InsertStatusEvidence = z.infer<typeof insertStatusEvidenceSchema>;
+
+// === SYSTEM NOTIFICATIONS (Email queue for lifecycle events) ===
+export const systemNotifications = pgTable("system_notifications", {
+  id: serial("id").primaryKey(),
+  recipientEmail: text("recipient_email").notNull(),
+  recipientName: text("recipient_name"),
+  recipientUserId: integer("recipient_user_id").references(() => appUsers.id),
+  subject: text("subject").notNull(),
+  bodyHtml: text("body_html").notNull(),
+  status: text("status").notNull().default("pending"),
+  notificationType: text("notification_type").notNull(),
+  relatedContractId: integer("related_contract_id").references(() => contracts.id),
+  batchId: text("batch_id"),
+  sentAt: timestamp("sent_at"),
+  errorDetails: text("error_details"),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("idx_sn_status").on(table.status),
+  index("idx_sn_type").on(table.notificationType),
+  index("idx_sn_contract").on(table.relatedContractId),
+]);
+
+export const insertSystemNotificationSchema = createInsertSchema(systemNotifications).omit({ id: true, createdAt: true });
+export type SystemNotification = typeof systemNotifications.$inferSelect;
+export type InsertSystemNotification = z.infer<typeof insertSystemNotificationSchema>;
 
 export type CreateSubjectRequest = InsertSubject;
 export type UpdateSubjectRequest = Partial<InsertSubject> & { changeReason?: string };

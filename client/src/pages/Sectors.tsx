@@ -401,6 +401,8 @@ function SectorProductFormDialog({
   const [name, setName] = useState("");
   const [abbreviation, setAbbreviation] = useState("");
   const [partnerId, setPartnerId] = useState<string>("");
+  const [objectionDaysLimit, setObjectionDaysLimit] = useState("100");
+  const [archiveDaysBeforeDelete, setArchiveDaysBeforeDelete] = useState("365");
   const [selectedFolderIds, setSelectedFolderIds] = useState<number[]>([]);
 
   const { data: allFolders } = useQuery<ContractFolder[]>({
@@ -459,11 +461,15 @@ function SectorProductFormDialog({
         setName(editingProduct.name || "");
         setAbbreviation(editingProduct.abbreviation || "");
         setPartnerId(editingProduct.partnerId?.toString() || "");
+        setObjectionDaysLimit((editingProduct as any).objectionDaysLimit?.toString() || "100");
+        setArchiveDaysBeforeDelete((editingProduct as any).archiveDaysBeforeDelete?.toString() || "365");
       } else {
         setSectionId(preSelectedSectionId?.toString() || "");
         setName("");
         setAbbreviation("");
         setPartnerId("");
+        setObjectionDaysLimit("100");
+        setArchiveDaysBeforeDelete("365");
         setSelectedFolderIds([]);
       }
     }
@@ -488,7 +494,7 @@ function SectorProductFormDialog({
       toast({ title: "Chyba", description: "Vyberte odvetvie", variant: "destructive" });
       return;
     }
-    const payload = { sectionId: parseInt(sectionId), name, abbreviation, partnerId: partnerId ? parseInt(partnerId) : null };
+    const payload = { sectionId: parseInt(sectionId), name, abbreviation, partnerId: partnerId ? parseInt(partnerId) : null, objectionDaysLimit: parseInt(objectionDaysLimit) || 100, archiveDaysBeforeDelete: parseInt(archiveDaysBeforeDelete) || 365 };
     if (editingProduct) {
       updateMutation.mutate(payload);
     } else {
@@ -542,6 +548,35 @@ function SectorProductFormDialog({
                 ))}
               </SelectContent>
             </Select>
+          </div>
+          <div className="border border-amber-500/30 rounded p-3 space-y-3 bg-amber-500/5">
+            <p className="text-xs font-semibold text-amber-400 uppercase tracking-wider">Dynamické lehoty životného cyklu</p>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <label className="text-xs font-medium text-muted-foreground">Dni do výhrady</label>
+                <Input
+                  type="number"
+                  min="1"
+                  value={objectionDaysLimit}
+                  onChange={e => setObjectionDaysLimit(e.target.value)}
+                  className="font-mono"
+                  data-testid="input-objection-days-limit"
+                />
+                <p className="text-[10px] text-muted-foreground">Predvolené: 100 dní</p>
+              </div>
+              <div className="space-y-1">
+                <label className="text-xs font-medium text-muted-foreground">Dni v archíve pred zmazaním</label>
+                <Input
+                  type="number"
+                  min="1"
+                  value={archiveDaysBeforeDelete}
+                  onChange={e => setArchiveDaysBeforeDelete(e.target.value)}
+                  className="font-mono"
+                  data-testid="input-archive-days-limit"
+                />
+                <p className="text-[10px] text-muted-foreground">Predvolené: 365 dní</p>
+              </div>
+            </div>
           </div>
           <div className="space-y-2">
             <label className="text-sm font-medium">Priečinky</label>

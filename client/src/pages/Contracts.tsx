@@ -2085,8 +2085,8 @@ export default function Contracts() {
     );
   }
 
-  function renderContractTable(list: Contract[], options?: { showCheckbox?: boolean; showOrder?: boolean; showStatus?: boolean; showRegistration?: boolean; showActions?: boolean; sortState?: { sortKey: string | null; sortDirection: "asc" | "desc" | null; requestSort: (key: string) => void } }) {
-    const { showCheckbox, showOrder, showStatus, showRegistration, showActions = true, sortState } = options || {};
+  function renderContractTable(list: Contract[], options?: { showCheckbox?: boolean; showOrder?: boolean; showStatus?: boolean; showRegistration?: boolean; showActions?: boolean; showTimer?: boolean; sortState?: { sortKey: string | null; sortDirection: "asc" | "desc" | null; requestSort: (key: string) => void } }) {
+    const { showCheckbox, showOrder, showStatus, showRegistration, showActions = true, showTimer, sortState } = options || {};
     const sk = sortState?.sortKey ?? null;
     const sd = sortState?.sortDirection ?? null;
     const rs = sortState?.requestSort;
@@ -2108,6 +2108,7 @@ export default function Contracts() {
             {evidenciaColumnVisibility.isVisible("contractNumber") && <TableHead sortKey="contractNumber" sortDirection={sk === "contractNumber" ? sd : null} onSort={rs}>Cislo zmluvy</TableHead>}
             {showStatus && evidenciaColumnVisibility.isVisible("status") && <TableHead style={{ minWidth: 140 }}>Stav</TableHead>}
             {evidenciaColumnVisibility.isVisible("lifecyclePhase") && <TableHead>Aktuálny stav</TableHead>}
+            {showTimer && <TableHead>Zostáva dní</TableHead>}
             {evidenciaColumnVisibility.isVisible("proposalNumber") && <TableHead sortKey="proposalNumber" sortDirection={sk === "proposalNumber" ? sd : null} onSort={rs}>Cislo navrhu</TableHead>}
             {showRegistration && evidenciaColumnVisibility.isVisible("globalNumber") && <TableHead sortKey="globalNumber" sortDirection={sk === "globalNumber" ? sd : null} onSort={rs}>Poradove cislo</TableHead>}
             {evidenciaColumnVisibility.isVisible("partnerId") && <TableHead sortKey="partnerId" sortDirection={sk === "partnerId" ? sd : null} onSort={rs}>Partner</TableHead>}
@@ -2166,6 +2167,23 @@ export default function Contracts() {
                   ) : (
                     <span className="text-xs text-muted-foreground">-</span>
                   )}
+                </TableCell>}
+                {showTimer && <TableCell className="py-1" data-testid={`text-contract-timer-${contract.id}`}>
+                  {(() => {
+                    const c = contract as any;
+                    const limit = c.objectionDaysLimit ?? 100;
+                    const enteredAt = c.objectionEnteredAt;
+                    if (!enteredAt) return <span className="text-xs text-muted-foreground">-</span>;
+                    const daysPassed = Math.floor((Date.now() - new Date(enteredAt).getTime()) / (1000 * 60 * 60 * 24));
+                    const remaining = Math.max(0, limit - daysPassed);
+                    const isUrgent = remaining <= Math.min(limit * 0.3, 10) || limit <= 30;
+                    const isWarning = remaining <= limit * 0.5;
+                    return (
+                      <span className={`text-xs font-mono font-bold ${isUrgent ? "text-red-500" : isWarning ? "text-amber-500" : "text-green-400"}`}>
+                        {remaining > 0 ? `${remaining} dní` : "EXPIROVANÉ"}
+                      </span>
+                    );
+                  })()}
                 </TableCell>}
                 {evidenciaColumnVisibility.isVisible("proposalNumber") && <TableCell className="text-sm font-mono py-1" data-testid={`text-contract-proposal-${contract.id}`}>{contract.proposalNumber || "-"}</TableCell>}
                 {showRegistration && evidenciaColumnVisibility.isVisible("globalNumber") && (
@@ -2832,7 +2850,7 @@ export default function Contracts() {
             {activeRejected.length > 0 && (
               <div className="px-3 py-1.5 text-[10px] text-amber-500 flex items-center gap-1">
                 <Calendar className="w-3 h-3" />
-                <span>100-dňový timer: Zmluvy vo výhradách viac ako 100 dní budú automaticky archivované.</span>
+                <span>Dynamický timer: Lehota výhrady závisí od nastavenia produktu. Zmluvy po uplynutí lehoty budú automaticky archivované.</span>
               </div>
             )}
             <CardContent className="p-0">
@@ -2840,7 +2858,7 @@ export default function Contracts() {
                 <div className="flex items-center justify-center py-8"><Loader2 className="w-5 h-5 animate-spin" /></div>
               ) : filteredRejected.length === 0 ? (
                 <p className="text-sm text-muted-foreground text-center py-8" data-testid="text-no-neprijate">Ziadne neprijate zmluvy</p>
-              ) : renderContractTable(sortedRejected, { showStatus: true, showRegistration: true, showActions: true, sortState: { sortKey: skRej, sortDirection: sdRej, requestSort: rsRej } })}
+              ) : renderContractTable(sortedRejected, { showStatus: true, showRegistration: true, showActions: true, showTimer: true, sortState: { sortKey: skRej, sortDirection: sdRej, requestSort: rsRej } })}
             </CardContent>
           </Card>
         </div>
@@ -2849,7 +2867,7 @@ export default function Contracts() {
           <Card data-testid="folder-archiv">
             <div className="flex items-center gap-3 p-3 border-b">
               <Archive className="w-4 h-4 text-muted-foreground shrink-0" />
-              <p className="text-xs text-muted-foreground">Neprijate zmluvy starsie ako 100 dni.</p>
+              <p className="text-xs text-muted-foreground">Neprijaté zmluvy po uplynutí lehoty výhrady (podľa produktu).</p>
             </div>
             <CardContent className="p-0">
               {isLoadingArchived ? (
