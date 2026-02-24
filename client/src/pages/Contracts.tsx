@@ -2320,7 +2320,7 @@ export default function Contracts() {
               </TableHead>
             )}
             {showRerouteCheckbox && (
-              <TableHead className="w-[40px]">
+              <TableHead resizable={false} style={{ width: 40, minWidth: 40, maxWidth: 40, padding: '0 8px' }}>
                 <Checkbox
                   checked={rerouteSelectedIds.length === list.length && list.length > 0}
                   onCheckedChange={() => toggleRerouteSelectAll(list)}
@@ -2359,7 +2359,7 @@ export default function Contracts() {
                   </TableCell>
                 )}
                 {showRerouteCheckbox && (
-                  <TableCell>
+                  <TableCell style={{ width: 40, minWidth: 40, maxWidth: 40, padding: '0 8px' }}>
                     <Checkbox
                       checked={rerouteSelectedIds.includes(contract.id)}
                       onCheckedChange={() => toggleRerouteSelect(contract.id)}
