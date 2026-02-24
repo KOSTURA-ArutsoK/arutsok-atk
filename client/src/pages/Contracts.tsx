@@ -2103,7 +2103,8 @@ export default function Contracts() {
     },
     onSuccess: (data: any) => {
       invalidateContractCaches();
-      toast({ title: "Presmerovanie úspešné", description: `Presmerovaných: ${data.rerouted} zmlúv` });
+      queryClient.invalidateQueries({ queryKey: ["/api/contract-inventories"] });
+      toast({ title: "Presmerovanie úspešné", description: `Presmerovaných: ${data.rerouted} zmlúv → Sprievodka č. ${data.sequenceNumber}` });
       setRerouteSelectedIds([]);
       setRerouteDialogOpen(false);
       setRerouteSource(null);
@@ -3110,12 +3111,6 @@ export default function Contracts() {
             <div className="flex items-center gap-3 p-3 border-b">
               <XCircle className="w-4 h-4 text-red-500 shrink-0" />
               <p className="text-xs text-muted-foreground flex-1">Zmluvy, ktore neboli zaskrtnute pri prijati sprievodky.</p>
-              <span style={{ display: rerouteSelectedIds.length > 0 && activeFolder === 3 ? 'inline-flex' : 'none' }} className="items-center gap-2">
-                <span className="text-xs text-muted-foreground">Vybraných: <span className="font-semibold text-foreground">{rerouteSelectedIds.length}</span></span>
-                <Button size="sm" variant="outline" className="h-7 text-xs border-amber-500/50 text-amber-400 hover:bg-amber-500/10" onClick={() => handleReroute("neprijate")} data-testid="button-reroute-neprijate">
-                  <Send className="w-3 h-3 mr-1" />Odoslať späť
-                </Button>
-              </span>
             </div>
             {activeRejected.length > 0 && (
               <div className="px-3 py-1.5 text-[10px] text-amber-500 flex items-center gap-1">
@@ -3130,6 +3125,14 @@ export default function Contracts() {
                 <p className="text-sm text-muted-foreground text-center py-8" data-testid="text-no-neprijate">Ziadne neprijate zmluvy</p>
               ) : renderContractTable(sortedRejected, { showStatus: true, showRegistration: true, showActions: true, showTimer: true, showRerouteCheckbox: true, sortState: { sortKey: skRej, sortDirection: sdRej, requestSort: rsRej } })}
             </CardContent>
+            {rerouteSelectedIds.length > 0 && activeFolder === 3 && (
+              <div className="flex items-center justify-between p-3 border-t bg-amber-500/5">
+                <span className="text-sm text-muted-foreground">Vybraných zmlúv: <span className="font-bold text-foreground">{rerouteSelectedIds.length}</span></span>
+                <Button variant="default" className="bg-amber-600 hover:bg-amber-700 text-white" onClick={() => handleReroute("neprijate")} data-testid="button-reroute-neprijate">
+                  <Send className="w-4 h-4 mr-2" />Odoslať späť na sprievodku
+                </Button>
+              </div>
+            )}
           </Card>
         </div>
 
@@ -3138,12 +3141,6 @@ export default function Contracts() {
             <div className="flex items-center gap-3 p-3 border-b">
               <Archive className="w-4 h-4 text-muted-foreground shrink-0" />
               <p className="text-xs text-muted-foreground flex-1">Neprijaté zmluvy po uplynutí lehoty výhrady (podľa produktu).</p>
-              <span style={{ display: rerouteSelectedIds.length > 0 && activeFolder === 4 ? 'inline-flex' : 'none' }} className="items-center gap-2">
-                <span className="text-xs text-muted-foreground">Vybraných: <span className="font-semibold text-foreground">{rerouteSelectedIds.length}</span></span>
-                <Button size="sm" variant="outline" className="h-7 text-xs border-cyan-500/50 text-cyan-400 hover:bg-cyan-500/10" onClick={() => handleReroute("archiv")} data-testid="button-reroute-archiv">
-                  <Send className="w-3 h-3 mr-1" />Odoslať do spracovania
-                </Button>
-              </span>
             </div>
             <CardContent className="p-0">
               {isLoadingArchived ? (
@@ -3152,6 +3149,14 @@ export default function Contracts() {
                 <p className="text-sm text-muted-foreground text-center py-8" data-testid="text-no-archiv">Ziadne archivovane zmluvy</p>
               ) : renderContractTable(sortedArchived, { showStatus: true, showRegistration: true, showActions: false, showRerouteCheckbox: true, sortState: { sortKey: skArch, sortDirection: sdArch, requestSort: rsArch } })}
             </CardContent>
+            {rerouteSelectedIds.length > 0 && activeFolder === 4 && (
+              <div className="flex items-center justify-between p-3 border-t bg-cyan-500/5">
+                <span className="text-sm text-muted-foreground">Vybraných zmlúv: <span className="font-bold text-foreground">{rerouteSelectedIds.length}</span></span>
+                <Button variant="default" className="bg-cyan-600 hover:bg-cyan-700 text-white" onClick={() => handleReroute("archiv")} data-testid="button-reroute-archiv">
+                  <Send className="w-4 h-4 mr-2" />Odoslať do spracovania
+                </Button>
+              </div>
+            )}
           </Card>
         </div>
 
@@ -3188,20 +3193,20 @@ export default function Contracts() {
                 <div className="flex items-center gap-3 p-3 border-b">
                   {phaseDef && (() => { const I = phaseDef.icon; return <I className={`w-4 h-4 ${phaseDef.color} shrink-0`} />; })()}
                   <p className="text-xs text-muted-foreground flex-1">{phaseLabels[phaseId]}</p>
-                  {isSpracovanie && (
-                    <span style={{ display: rerouteSelectedIds.length > 0 && activeFolder === 6 ? 'inline-flex' : 'none' }} className="items-center gap-2">
-                      <span className="text-xs text-muted-foreground">Vybraných: <span className="font-semibold text-foreground">{rerouteSelectedIds.length}</span></span>
-                      <Button size="sm" variant="outline" className="h-7 text-xs border-green-500/50 text-green-400 hover:bg-green-500/10" onClick={() => handleReroute("spracovanie")} data-testid="button-reroute-spracovanie">
-                        <Send className="w-3 h-3 mr-1" />Odoslať na pripravené
-                      </Button>
-                    </span>
-                  )}
                 </div>
                 <CardContent className="p-0">
                   {phaseContracts.length === 0 ? (
                     <p className="text-sm text-muted-foreground text-center py-8" data-testid={`text-no-phase-${phaseId}`}>Žiadne kontrakty v tejto fáze</p>
                   ) : renderContractTable(phaseContracts, { showStatus: true, showRegistration: true, showActions: true, showRerouteCheckbox: isSpracovanie })}
                 </CardContent>
+                {isSpracovanie && rerouteSelectedIds.length > 0 && activeFolder === 6 && (
+                  <div className="flex items-center justify-between p-3 border-t bg-green-500/5">
+                    <span className="text-sm text-muted-foreground">Vybraných zmlúv: <span className="font-bold text-foreground">{rerouteSelectedIds.length}</span></span>
+                    <Button variant="default" className="bg-green-600 hover:bg-green-700 text-white" onClick={() => handleReroute("spracovanie")} data-testid="button-reroute-spracovanie">
+                      <Send className="w-4 h-4 mr-2" />Odoslať na pripravené
+                    </Button>
+                  </div>
+                )}
               </Card>
             </div>
           );
@@ -3249,7 +3254,7 @@ export default function Contracts() {
                 </div>
               )}
               <p className="text-xs text-amber-400" data-testid="text-reroute-preserve-note">
-                Pôvodné číslo sprievodky bude zachované. Nová sprievodka sa NEGENERUJE.
+                Systém vytvorí NOVÚ súpisku s novým poradovým číslom. Pôvodné číslo sprievodky bude archivované v histórii.
               </p>
               <div className="flex items-center justify-end gap-3 flex-wrap">
                 <Button variant="outline" onClick={() => { setRerouteDialogOpen(false); setRerouteSource(null); }} data-testid="button-reroute-cancel">

@@ -2520,14 +2520,34 @@ export async function registerRoutes(
 
       const appUser = req.appUser;
       const now = new Date();
+
+      const newInventory = await storage.createContractInventory({
+        name: `OPV Oprava ${now.toISOString().slice(0, 10)}`,
+        stateId: 1,
+        sortOrder: 0,
+        isClosed: false,
+      });
+
+      const seqNum = await storage.getNextCounterValue("sprievodka_sequence");
+      await storage.updateContractInventory(newInventory.id, {
+        sequenceNumber: seqNum,
+        name: `Sprievodka č. ${seqNum} (OPV Oprava)`,
+        isDispatched: true,
+      } as any);
+
       const results: any[] = [];
 
-      for (const cid of contractIds) {
+      for (let i = 0; i < contractIds.length; i++) {
+        const cid = contractIds[i];
         const [contract] = await db.select().from(contracts).where(eq(contracts.id, Number(cid)));
         if (!contract) continue;
 
+        const oldInventoryId = contract.inventoryId;
+
         const updateData: Record<string, any> = {
           lifecyclePhase: targetPhase,
+          inventoryId: newInventory.id,
+          sortOrderInInventory: i + 1,
           updatedAt: now,
         };
 
@@ -2545,7 +2565,7 @@ export async function registerRoutes(
           phase: targetPhase,
           phaseName: LIFECYCLE_PHASES[targetPhase] || `Fáza ${targetPhase}`,
           changedByUserId: appUser?.id || null,
-          note: `OPV Oprava: presmerovanie z ${sourceFolder} (pôvodná sprievodka zachovaná)`,
+          note: `OPV Oprava: presmerovanie z ${sourceFolder}, pôvodná sprievodka ID ${oldInventoryId || 'žiadna'} → nová sprievodka č. ${seqNum}`,
         });
 
         await logAudit(req, {
@@ -2553,14 +2573,22 @@ export async function registerRoutes(
           module: "zmluvy",
           entityId: Number(cid),
           entityName: contract.contractNumber || contract.proposalNumber || `ID ${cid}`,
-          oldData: { lifecyclePhase: contract.lifecyclePhase, inventoryId: contract.inventoryId },
-          newData: { lifecyclePhase: targetPhase, inventoryId: contract.inventoryId, sourceFolder },
+          oldData: { lifecyclePhase: contract.lifecyclePhase, inventoryId: oldInventoryId },
+          newData: { lifecyclePhase: targetPhase, inventoryId: newInventory.id, newSequenceNumber: seqNum, sourceFolder },
         });
 
         results.push(updated);
       }
 
-      res.json({ rerouted: results.length, contracts: results });
+      await logAudit(req, {
+        action: "CREATE",
+        module: "opv_reroute_sprievodka",
+        entityId: newInventory.id,
+        entityName: `Sprievodka č. ${seqNum} (OPV Oprava)`,
+        newData: { contractIds, sequenceNumber: seqNum, sourceFolder, targetPhase },
+      });
+
+      res.json({ rerouted: results.length, sequenceNumber: seqNum, inventoryId: newInventory.id, contracts: results });
     } catch (err: any) {
       console.error("Bulk reroute error:", err);
       res.status(500).json({ message: err?.message || "Internal error" });

@@ -72,3 +72,7 @@ The system employs a modern full-stack architecture prioritizing data integrity,
 - **Multer**: Middleware for handling `multipart/form-data`, primarily for file uploads.
 - **ExcelJS**: Library for reading, writing, and manipulating XLSX, CSV, and JSON files.
 - **Sharp**: High-performance Node.js image processing library.
+
+## Recent Changes
+- **Pagination**: Main contracts list endpoint paginated (limit/offset, default 50, max 200). Frontend "Načítať ďalšie" button with accumulated pages.
+- **OPV Opravy**: Bulk reroute endpoint (`POST /api/contracts/bulk-reroute`) creates NEW inventory with next sequence number, assigns selected contracts. Old inventoryId archived in history + audit. Checkboxes (fixed 40px, non-resizable) in Neprijaté/Archív/Spracovanie. "Odoslať" buttons below table with color-coded backgrounds. Routing: Neprijaté→phase 2, Archív→phase 6, Spracovanie→phase 8.
