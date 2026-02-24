@@ -2497,6 +2497,76 @@ export async function registerRoutes(
     }
   });
 
+  // === OPV OPRAVY: BULK REROUTE (preserves original slip_id/inventoryId) ===
+  app.post("/api/contracts/bulk-reroute", isAuthenticated, async (req: any, res) => {
+    try {
+      const { contractIds, targetPhase, sourceFolder } = req.body;
+      if (!Array.isArray(contractIds) || contractIds.length === 0) {
+        return res.status(400).json({ message: "Žiadne zmluvy na presmerovanie" });
+      }
+      if (!targetPhase || targetPhase < 1 || targetPhase > 10) {
+        return res.status(400).json({ message: "Neplatná cieľová fáza" });
+      }
+
+      const ALLOWED_ROUTES: Record<string, number> = {
+        "neprijate": 2,
+        "archiv": 6,
+        "spracovanie": 8,
+      };
+
+      if (!sourceFolder || !ALLOWED_ROUTES[sourceFolder] || ALLOWED_ROUTES[sourceFolder] !== targetPhase) {
+        return res.status(400).json({ message: "Nepovolená kombinácia smerovania" });
+      }
+
+      const appUser = req.appUser;
+      const now = new Date();
+      const results: any[] = [];
+
+      for (const cid of contractIds) {
+        const [contract] = await db.select().from(contracts).where(eq(contracts.id, Number(cid)));
+        if (!contract) continue;
+
+        const updateData: Record<string, any> = {
+          lifecyclePhase: targetPhase,
+          updatedAt: now,
+        };
+
+        if (targetPhase === 5) {
+          updateData.receivedByCentralAt = now;
+        }
+
+        const [updated] = await db.update(contracts)
+          .set(updateData)
+          .where(eq(contracts.id, Number(cid)))
+          .returning();
+
+        await db.insert(contractLifecycleHistory).values({
+          contractId: Number(cid),
+          phase: targetPhase,
+          phaseName: LIFECYCLE_PHASES[targetPhase] || `Fáza ${targetPhase}`,
+          changedByUserId: appUser?.id || null,
+          note: `OPV Oprava: presmerovanie z ${sourceFolder} (pôvodná sprievodka zachovaná)`,
+        });
+
+        await logAudit(req, {
+          action: "OPV_REROUTE",
+          module: "zmluvy",
+          entityId: Number(cid),
+          entityName: contract.contractNumber || contract.proposalNumber || `ID ${cid}`,
+          oldData: { lifecyclePhase: contract.lifecyclePhase, inventoryId: contract.inventoryId },
+          newData: { lifecyclePhase: targetPhase, inventoryId: contract.inventoryId, sourceFolder },
+        });
+
+        results.push(updated);
+      }
+
+      res.json({ rerouted: results.length, contracts: results });
+    } catch (err: any) {
+      console.error("Bulk reroute error:", err);
+      res.status(500).json({ message: err?.message || "Internal error" });
+    }
+  });
+
   // === CONTRACT LIFECYCLE HISTORY (Stroj času) ===
   app.get("/api/contracts/:id/lifecycle-history", isAuthenticated, async (req: any, res) => {
     try {
