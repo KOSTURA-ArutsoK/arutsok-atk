@@ -2750,50 +2750,6 @@ export async function registerRoutes(
     res.json(await storage.getContractInventories(getEnforcedStateId(req)));
   });
 
-  app.get("/api/contract-inventories/summary", isAuthenticated, async (req: any, res) => {
-    try {
-      const inventories = await storage.getContractInventories(getEnforcedStateId(req));
-      const allContracts = await storage.getContracts({});
-      const contractsByInventory = new Map<number, Array<{ lifecyclePhase: number; isDeleted: boolean }>>();
-      for (const c of allContracts) {
-        if (!c.inventoryId) continue;
-        if (!contractsByInventory.has(c.inventoryId)) contractsByInventory.set(c.inventoryId, []);
-        contractsByInventory.get(c.inventoryId)!.push({
-          lifecyclePhase: (c as any).lifecyclePhase ?? 0,
-          isDeleted: !!(c as any).isDeleted,
-        });
-      }
-      const result = inventories.map((inv: any) => {
-        const cList = contractsByInventory.get(inv.id) || [];
-        let semaphoreColor = "gray";
-        if (cList.length > 0) {
-          const hasPhase3 = cList.some(c => c.lifecyclePhase === 3);
-          const hasPhase7 = cList.some(c => c.lifecyclePhase === 7);
-          const allPhase2 = cList.every(c => c.lifecyclePhase === 2);
-          const allArchived = cList.every(c => c.lifecyclePhase === 4 || c.isDeleted);
-          const allAccepted = cList.every(c => c.lifecyclePhase >= 5 && c.lifecyclePhase !== 7 && !c.isDeleted);
-          if (hasPhase3) semaphoreColor = "red";
-          else if (hasPhase7) semaphoreColor = "orange";
-          else if (allPhase2) semaphoreColor = "blue";
-          else if (allArchived) semaphoreColor = "black";
-          else if (allAccepted) semaphoreColor = "green";
-        }
-        return {
-          id: inv.id,
-          name: inv.name,
-          sequenceNumber: inv.sequenceNumber,
-          createdAt: inv.createdAt,
-          semaphoreColor,
-        };
-      });
-      result.sort((a: any, b: any) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-      res.json(result);
-    } catch (err) {
-      console.error("Inventory summary error:", err);
-      res.status(500).json({ message: "Internal error" });
-    }
-  });
-
   app.post(api.contractInventoriesApi.create.path, isAuthenticated, async (req: any, res) => {
     try {
       const input = api.contractInventoriesApi.create.input.parse(req.body);
