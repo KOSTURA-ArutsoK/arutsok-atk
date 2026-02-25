@@ -7,6 +7,7 @@ import { SmartFilterBar } from "@/components/smart-filter-bar";
 import { useColumnVisibility, type ColumnDef } from "@/hooks/use-column-visibility";
 import { ColumnManager } from "@/components/column-manager";
 import type { Partner, PartnerContact } from "@shared/schema";
+import { formatPhone } from "@/lib/utils";
 import { Loader2, Phone, Mail, Shield, User } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -138,7 +139,7 @@ export default function PartnerContacts() {
                       {contact.phone ? (
                         <div className="flex items-center gap-1">
                           <Phone className="w-3 h-3 text-muted-foreground" />
-                          <span className="text-sm">{contact.phone}</span>
+                          <span className="text-sm">{formatPhone(contact.phone)}</span>
                         </div>
                       ) : "-"}
                     </TableCell>}

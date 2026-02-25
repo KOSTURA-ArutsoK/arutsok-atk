@@ -2023,7 +2023,6 @@ export async function registerRoutes(
   function getEnforcedStateId(req: any): number | undefined {
     const queryStateId = req.query.stateId ? parseInt(req.query.stateId as string) : undefined;
     const appUser = req.appUser;
-    if (appUser?.role === 'superadmin') return queryStateId;
     return queryStateId || appUser?.activeStateId || undefined;
   }
 

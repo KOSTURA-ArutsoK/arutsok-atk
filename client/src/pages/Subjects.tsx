@@ -5,7 +5,7 @@ import { useMyCompanies } from "@/hooks/use-companies";
 import { useAppUser } from "@/hooks/use-app-user";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import { formatDateSlovak, formatDateTimeSlovak } from "@/lib/utils";
+import { formatDateSlovak, formatDateTimeSlovak, formatPhone } from "@/lib/utils";
 import { getDocumentValidityStatus, isValidityField, isNumberFieldWithExpiredPair, type ValidityResult } from "@/lib/document-validity";
 import { useToast } from "@/hooks/use-toast";
 import { Plus, Search, User, Building2, AlertTriangle, Eye, Calendar, Briefcase, ArrowRight, ArrowLeft, ExternalLink, History, Clock, Wallet, Loader2, CheckCircle2, Pencil, Lock, Users, X, Info, Link2, Unlink, Trash2, CreditCard, Archive, Ban, Boxes, Car, Home, Landmark, ChevronRight, ChevronDown, FolderOpen, Tag, Hash, Package, FileText as FileTextIcon, SquareIcon, TrendingDown } from "lucide-react";
@@ -600,7 +600,7 @@ function SubjectDataTab({ subject }: { subject: Subject }) {
         </div>
         <div className="h-10 flex items-center gap-2 px-3 rounded-md border border-border bg-muted/30">
           <span className="text-xs text-muted-foreground whitespace-nowrap">Telefon:</span>
-          <span className="text-sm font-medium">{subject.phone || '-'}</span>
+          <span className="text-sm font-medium">{formatPhone(subject.phone)}</span>
         </div>
       </div>
 

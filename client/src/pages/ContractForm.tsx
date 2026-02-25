@@ -1,7 +1,7 @@
 import { useState, useRef, useCallback, useEffect, useMemo } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import { formatDateTimeSlovak, formatDateSlovak } from "@/lib/utils";
+import { formatDateTimeSlovak, formatDateSlovak, formatPhone } from "@/lib/utils";
 import { useAppUser } from "@/hooks/use-app-user";
 import { useStates } from "@/hooks/use-hierarchy";
 import { useToast } from "@/hooks/use-toast";
@@ -2442,7 +2442,7 @@ export default function ContractForm() {
                             <span data-testid="summary-subject-email">{selectedSubject.email}</span>
                           )}
                           {selectedSubject.phone && (
-                            <span data-testid="summary-subject-phone">{selectedSubject.phone}</span>
+                            <span data-testid="summary-subject-phone">{formatPhone(selectedSubject.phone)}</span>
                           )}
                         </div>
                       </div>

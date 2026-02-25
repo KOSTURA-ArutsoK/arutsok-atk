@@ -2,7 +2,7 @@ import { useState, useRef, useCallback, useEffect } from "react";
 import { usePartners, useCreatePartner, useUpdatePartner, useDeletePartner, usePartnerContacts, usePartnerProducts, useCreatePartnerContact, useCreatePartnerProduct } from "@/hooks/use-partners";
 import { useStates } from "@/hooks/use-hierarchy";
 import { useAppUser } from "@/hooks/use-app-user";
-import { formatDateSlovak } from "@/lib/utils";
+import { formatDateSlovak, formatPhone } from "@/lib/utils";
 import { Plus, Briefcase, Pencil, Trash2, Clock, Users, Package, Calendar, Archive, MapPin } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -493,7 +493,7 @@ function PartnerUnifiedDialog({
                               <Users className="w-4 h-4 text-muted-foreground flex-shrink-0" />
                               <div className="flex-1 min-w-0">
                                 <p className="font-medium truncate">{c.titleBefore ? `${c.titleBefore} ` : ""}{c.firstName} {c.lastName}{c.titleAfter ? `, ${c.titleAfter}` : ""}</p>
-                                <p className="text-xs text-muted-foreground">{c.position || ""} {c.email ? `| ${c.email}` : ""} {c.phone ? `| ${c.phone}` : ""}</p>
+                                <p className="text-xs text-muted-foreground">{c.position || ""} {c.email ? `| ${c.email}` : ""} {c.phone ? `| ${formatPhone(c.phone)}` : ""}</p>
                                 <div className="flex items-center gap-1 mt-1 text-xs text-muted-foreground">
                                   <Calendar className="w-3 h-3" />
                                   <span>Od: {formatDateSlovak(c.validFrom)}</span>
@@ -526,7 +526,7 @@ function PartnerUnifiedDialog({
                               <Users className="w-4 h-4 text-muted-foreground flex-shrink-0" />
                               <div className="flex-1 min-w-0">
                                 <p className="font-medium truncate">{c.titleBefore ? `${c.titleBefore} ` : ""}{c.firstName} {c.lastName}{c.titleAfter ? `, ${c.titleAfter}` : ""}</p>
-                                <p className="text-xs text-muted-foreground">{c.position || ""} {c.email ? `| ${c.email}` : ""} {c.phone ? `| ${c.phone}` : ""}</p>
+                                <p className="text-xs text-muted-foreground">{c.position || ""} {c.email ? `| ${c.email}` : ""} {c.phone ? `| ${formatPhone(c.phone)}` : ""}</p>
                                 <div className="flex items-center gap-1 mt-1 text-xs text-muted-foreground">
                                   <Calendar className="w-3 h-3" />
                                   <span>Od: {formatDateSlovak(c.validFrom)}</span>

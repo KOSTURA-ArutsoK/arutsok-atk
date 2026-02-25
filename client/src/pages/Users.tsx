@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import { formatPhone } from "@/lib/utils";
 import { Loader2, Plus, Pencil, Users as UsersIcon, Shield } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -556,7 +557,7 @@ export default function UsersPage() {
                       {user.email || "-"}
                     </TableCell>}
                     {columnVisibility.isVisible("phone") && <TableCell data-testid={`text-user-phone-${user.id}`}>
-                      {user.phone || "-"}
+                      {formatPhone(user.phone)}
                     </TableCell>}
                     {columnVisibility.isVisible("role") && <TableCell>
                       <Badge variant="secondary" data-testid={`badge-user-role-${user.id}`}>

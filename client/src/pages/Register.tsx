@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Link } from "wouter";
+import { formatPhone } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 import { Badge } from "@/components/ui/badge";
 
@@ -463,7 +464,7 @@ export default function RegisterPage() {
                 <div className="flex items-center justify-between gap-2 flex-wrap">
                   <span className="text-sm text-muted-foreground">Telefon</span>
                   <span className="text-sm font-medium" data-testid="text-welcome-phone">
-                    {clientData.phone || "—"}
+                    {formatPhone(clientData.phone)}
                   </span>
                 </div>
                 {clientData.companyName && (
