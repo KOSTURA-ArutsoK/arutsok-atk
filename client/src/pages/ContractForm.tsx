@@ -3092,11 +3092,7 @@ function getSmartStatusColor(statusColor: string | undefined, expiryDate: string
   if (!expiryDate) return statusColor;
   const expiry = new Date(expiryDate);
   if (isNaN(expiry.getTime())) return statusColor;
-  const now = new Date();
-  const daysUntilExpiry = Math.floor((expiry.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
-  if (daysUntilExpiry < 0) return "#6b7280";
-  if (daysUntilExpiry <= 30) return "#f97316";
-  return statusColor;
+  return "#ef4444";
 }
 
 function CompactField({ label, children }: { label: string; children: React.ReactNode }) {
