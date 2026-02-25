@@ -114,7 +114,8 @@ const nastaveniaSablonChildren = [
   { href: "/contract-field-settings", icon: Sliders, label: "Nastavenie evidencie" },
 ];
 
-const protokolyStaticChildren = [
+const protokolyChildren = [
+  { href: "/contract-inventories", icon: FileStack, label: "Sprievodky" },
   { href: "/supisky", icon: ClipboardList, label: "Supisky" },
 ];
 
@@ -127,8 +128,7 @@ const importItems = [
 const allZmluvyHrefs = [
   ...zmluvyFlatItems.map(i => i.href),
   ...nastaveniaSablonChildren.map(i => i.href),
-  "/contract-inventories",
-  ...protokolyStaticChildren.map(i => i.href),
+  ...protokolyChildren.map(i => i.href),
   ...importItems.map(i => i.href),
 ];
 
@@ -155,51 +155,6 @@ const allNastavenieHrefs = [
   ...specifikacieItems.map(i => i.href),
   ...nastavenieDirectItems.map(i => i.href),
 ];
-
-const SEMAPHORE_COLORS: Record<string, string> = {
-  red: "bg-red-500",
-  orange: "bg-orange-500",
-  blue: "bg-blue-500",
-  black: "bg-black dark:bg-gray-300",
-  green: "bg-green-500",
-  gray: "bg-gray-400",
-};
-
-function SidebarInventoryList() {
-  const { data: summaries } = useQuery<{
-    id: number;
-    name: string;
-    sequenceNumber: number | null;
-    createdAt: string;
-    semaphoreColor: string;
-  }[]>({
-    queryKey: ["/api/contract-inventories/summary"],
-    refetchInterval: 60000,
-  });
-
-  if (!summaries || summaries.length === 0) return null;
-
-  return (
-    <>
-      {summaries.map(inv => (
-        <SidebarMenuSubItem key={inv.id}>
-          <SidebarMenuSubButton
-            asChild
-            className="pl-4 py-0.5 h-auto min-h-[24px]"
-            data-testid={`nav-sprievodka-${inv.id}`}
-          >
-            <Link href="/contract-inventories">
-              <span className={`w-2 h-2 rounded-full shrink-0 ${SEMAPHORE_COLORS[inv.semaphoreColor] || SEMAPHORE_COLORS.gray}`} />
-              <span className="text-[11px] text-muted-foreground truncate">
-                {inv.sequenceNumber ? `č. ${inv.sequenceNumber}` : inv.name}
-              </span>
-            </Link>
-          </SidebarMenuSubButton>
-        </SidebarMenuSubItem>
-      ))}
-    </>
-  );
-}
 
 function CollapsibleMenu({
   label,
@@ -293,7 +248,7 @@ export function AppSidebar() {
     { id: "specifikacie", items: specifikacieItems },
     { id: "partneri", items: partneriProduktyItems },
     { id: "klienti", items: klientiItems },
-    { id: "zmluvy", items: [...zmluvyFlatItems, ...nastaveniaSablonChildren, ...protokolyStaticChildren, ...importItems] },
+    { id: "zmluvy", items: [...zmluvyFlatItems, ...nastaveniaSablonChildren, ...protokolyChildren, ...importItems] },
     { id: "financie", items: financieItems },
     { id: "informacie", items: informacieItems },
   ];
@@ -309,7 +264,7 @@ export function AppSidebar() {
   const isZmluvyActive = allZmluvyHrefs.includes(location);
   const isZmluvyOpen = openMenuId === "zmluvy";
   const zmluvyInitialSub = nastaveniaSablonChildren.some(i => i.href === location) ? "sablony"
-    : (protokolyStaticChildren.some(i => i.href === location) || location === "/contract-inventories") ? "protokoly"
+    : protokolyChildren.some(i => i.href === location) ? "protokoly"
     : importItems.some(i => i.href === location) ? "import" : null;
   const [zmluvySubId, setZmluvySubId] = useState<string | null>(zmluvyInitialSub);
 
@@ -587,20 +542,7 @@ export function AppSidebar() {
                           </CollapsibleTrigger>
                           <CollapsibleContent>
                             <div className="ml-2 border-l border-border pl-1.5 mt-1 space-y-0.5">
-                              <SidebarMenuSubItem>
-                                <SidebarMenuSubButton
-                                  asChild
-                                  isActive={location === "/contract-inventories"}
-                                  data-testid="nav-sprievodky"
-                                >
-                                  <Link href="/contract-inventories">
-                                    <FileStack className="w-3.5 h-3.5" />
-                                    <span>Sprievodky</span>
-                                  </Link>
-                                </SidebarMenuSubButton>
-                              </SidebarMenuSubItem>
-                              <SidebarInventoryList />
-                              {protokolyStaticChildren.map(item => (
+                              {protokolyChildren.map(item => (
                                 <SidebarMenuSubItem key={item.href}>
                                   <SidebarMenuSubButton
                                     asChild
