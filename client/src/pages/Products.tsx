@@ -243,6 +243,7 @@ function ProductFormDialog({
         </DialogHeader>
         <div className="flex gap-1 border-b mb-3">
           <button
+            type="button"
             className={`px-3 py-1.5 text-sm font-medium border-b-2 transition-colors ${activeTab === "info" ? "border-primary text-primary" : "border-transparent text-muted-foreground"}`}
             onClick={() => setActiveTab("info")}
             data-testid="tab-product-info"
@@ -250,6 +251,7 @@ function ProductFormDialog({
             Informacie
           </button>
           <button
+            type="button"
             className={`px-3 py-1.5 text-sm font-medium border-b-2 transition-colors flex items-center gap-1.5 ${activeTab === "dokumentacia" ? "border-primary text-primary" : "border-transparent text-muted-foreground"}`}
             onClick={() => setActiveTab("dokumentacia")}
             data-testid="tab-product-dokumentacia"
