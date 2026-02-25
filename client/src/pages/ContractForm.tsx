@@ -2520,148 +2520,114 @@ export default function ContractForm() {
 
                         <div className="grid grid-cols-2 gap-[clamp(0.5rem,1vw,1rem)]">
                           <CompactField label="Sprievodka - Preberací protokol">
-                            <div className="flex items-center h-9 px-3 border rounded-md bg-muted/50 text-sm font-mono" data-testid="summary-sprievodka">
-                              {inventoryId ? (inventories?.find(i => i.id.toString() === inventoryId)?.sequenceNumber?.toString() || "Pridelené pri uložení") : <span className="text-muted-foreground/40 italic">—</span>}
+                            <div className="flex items-center h-9 px-3 border rounded-md bg-muted/50 text-sm cursor-default font-mono" data-testid="summary-sprievodka">
+                              {inventoryId ? (inventories?.find(i => i.id.toString() === inventoryId)?.sequenceNumber?.toString() || "Pridelené pri uložení") : ""}
                             </div>
                           </CompactField>
                           <CompactField label="Súpiska - Odovzdávací protokol">
-                            <div className="flex items-center h-9 px-3 border rounded-md bg-muted/50 text-sm" data-testid="summary-supiska">
-                              {inventoryId ? (inventories?.find(i => i.id.toString() === inventoryId)?.name || <span className="text-muted-foreground/40 italic">—</span>) : <span className="text-muted-foreground/40 italic">—</span>}
+                            <div className="flex items-center h-9 px-3 border rounded-md bg-muted/50 text-sm cursor-default" data-testid="summary-supiska">
+                              {inventoryId ? (inventories?.find(i => i.id.toString() === inventoryId)?.name || "") : ""}
                             </div>
                           </CompactField>
                         </div>
 
                         <div className="grid grid-cols-2 gap-[clamp(0.5rem,1vw,1rem)]">
                           <CompactField label="Pôvod zmluvy">
-                            <div className="flex items-center h-9 px-3 border rounded-md bg-muted/50 text-sm" data-testid="summary-origin">
-                              <span className="text-muted-foreground/40 italic">—</span>
+                            <div className="flex items-center h-9 px-3 border rounded-md bg-muted/50 text-sm text-muted-foreground cursor-default" data-testid="summary-origin">
+                              Vyberte kalkulačku
                             </div>
                           </CompactField>
                           <CompactField label="Šablóna zmluvy">
-                            <div className="flex items-center h-9 px-3 border rounded-md bg-muted/50 text-sm" data-testid="summary-template">
-                              {templates?.find(t => t.id === (templateId ? parseInt(templateId) : -1))?.name || <span className="text-muted-foreground/40 italic">—</span>}
+                            <div className="flex items-center h-9 px-3 border rounded-md bg-muted/50 text-sm cursor-default" data-testid="summary-template">
+                              {templates?.find(t => t.id === (templateId ? parseInt(templateId) : -1))?.name || <span className="text-muted-foreground">Vyberte šablónu</span>}
                             </div>
                           </CompactField>
                         </div>
 
                         <div className="grid grid-cols-3 gap-[clamp(0.5rem,1vw,1rem)]">
                           <CompactField label="Číslo kontraktu">
-                            <div className="flex items-center h-9 px-3 border rounded-md bg-muted/50 text-sm font-mono" data-testid="summary-global-number">
-                              {existingContract?.globalNumber?.toString() || <span className="text-muted-foreground/40 italic">Pridelené pri uložení</span>}
+                            <div className="flex items-center h-9 px-3 border rounded-md bg-muted/50 text-sm cursor-default" data-testid="summary-global-number">
+                              {existingContract?.globalNumber?.toString() || "Pridelené pri uložení"}
                             </div>
                           </CompactField>
-                          <CompactField label="Číslo návrhu">
-                            <div className="flex items-center h-9 px-3 border rounded-md bg-muted/50 text-sm font-mono" data-testid="summary-proposal">
-                              {proposalNumber || <span className="text-muted-foreground/40 italic">—</span>}
+                          <CompactField label={`Číslo návrhu${isFieldRequired("proposalNumber") ? " *" : ""}`}>
+                            <div className="flex items-center h-9 px-3 border rounded-md bg-muted/50 text-sm cursor-default" data-testid="summary-proposal">
+                              {proposalNumber}
                             </div>
                           </CompactField>
                           <CompactField label="Číslo zmluvy">
-                            <div className="flex items-center h-9 px-3 border rounded-md bg-muted/50 text-sm font-mono" data-testid="summary-contract-number">
-                              {contractNumber || <span className="text-muted-foreground/40 italic">—</span>}
+                            <div className={`flex items-center h-9 px-3 border rounded-md bg-muted/50 text-sm cursor-default${existingContract?.isStamped ? " opacity-60" : ""}`} data-testid="summary-contract-number">
+                              {contractNumber}
                             </div>
                             {existingContract?.isStamped && <span className="text-[10px] text-amber-500 flex items-center gap-1 mt-0.5"><Lock className="w-3 h-3" /> Fixované</span>}
                           </CompactField>
                         </div>
 
                         <div className="grid grid-cols-3 gap-[clamp(0.5rem,1vw,1rem)]">
-                          <CompactField label="Miesto podpisu">
-                            <div className="flex items-center h-9 px-3 border rounded-md bg-muted/50 text-sm" data-testid="summary-signing-place">
-                              {signingPlace || <span className="text-muted-foreground/40 italic">—</span>}
+                          <CompactField label={`Miesto podpisu${isFieldRequired("signingPlace") ? " *" : ""}`}>
+                            <div className="flex items-center h-9 px-3 border rounded-md bg-muted/50 text-sm cursor-default" data-testid="summary-signing-place">
+                              {signingPlace}
                             </div>
                           </CompactField>
-                          <CompactField label="Typ zmluvy">
-                            <div className="flex items-center h-9 px-3 border rounded-md bg-muted/50 text-sm" data-testid="summary-type">
-                              {contractType ? (CONTRACT_TYPES.find(t => t.value === contractType)?.label || contractType) : <span className="text-muted-foreground/40 italic">—</span>}
+                          <CompactField label={`Typ zmluvy${isFieldRequired("contractType") ? " *" : ""}`}>
+                            <div className="flex items-center h-9 px-3 border rounded-md bg-muted/50 text-sm cursor-default" data-testid="summary-type">
+                              {contractType ? (CONTRACT_TYPES.find(t => t.value === contractType)?.label || contractType) : <span className="text-muted-foreground">Vyberte typ</span>}
                             </div>
                           </CompactField>
                           <CompactField label="Stav zmluvy">
-                            <div className="flex items-center gap-2 h-9 px-3 border rounded-md bg-muted/50" data-testid="summary-status">
+                            <div className="flex items-center gap-2 h-9 px-3 border rounded-md bg-muted/30 cursor-default" data-testid="summary-status">
                               {statuses?.find(s => s.id === (statusId ? parseInt(statusId) : -1)) ? (
                                 <div className="flex items-center gap-2">
                                   <div className="w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: statuses?.find(s => s.id === (statusId ? parseInt(statusId) : -1))?.color }} />
                                   <span className="text-sm">{statuses?.find(s => s.id === (statusId ? parseInt(statusId) : -1))?.name}</span>
                                 </div>
                               ) : (
-                                <span className="text-sm text-muted-foreground/40 italic">—</span>
+                                <span className="text-sm text-muted-foreground">Bez stavu</span>
                               )}
                             </div>
                           </CompactField>
                         </div>
 
                         <div className="grid grid-cols-3 gap-[clamp(0.5rem,1vw,1rem)]">
-                          <CompactField label="Dátum podpisu">
-                            <div className="flex items-center h-9 px-3 border rounded-md bg-muted/50 text-sm" data-testid="summary-signed">
-                              {signedDate || <span className="text-muted-foreground/40 italic">—</span>}
+                          <CompactField label="Dátum podpisu *">
+                            <div className="flex items-center h-9 px-3 border rounded-md bg-muted/50 text-sm cursor-default" data-testid="summary-signed">
+                              {signedDate}
                             </div>
                           </CompactField>
-                          <CompactField label="Účinnosť od">
-                            <div className="flex items-center h-9 px-3 border rounded-md bg-muted/50 text-sm" data-testid="summary-effective">
-                              {effectiveDate || <span className="text-muted-foreground/40 italic">—</span>}
+                          <CompactField label="Účinnosť od *">
+                            <div className="flex items-center h-9 px-3 border rounded-md bg-muted/50 text-sm cursor-default" data-testid="summary-effective">
+                              {effectiveDate}
                             </div>
                           </CompactField>
                           <CompactField label="Koniec zmluvy">
-                            <div className="flex items-center h-9 px-3 border rounded-md bg-muted/50 text-sm" data-testid="summary-expiry">
-                              {expiryDate || <span className="text-muted-foreground/40 italic">—</span>}
+                            <div className="flex items-center h-9 px-3 border rounded-md bg-muted/50 text-sm cursor-default" data-testid="summary-expiry">
+                              {expiryDate}
                             </div>
                           </CompactField>
                         </div>
 
-                        <div className="grid grid-cols-3 gap-[clamp(0.5rem,1vw,1rem)]">
-                          <CompactField label="Frekvencia platenia">
-                            <div className="flex items-center h-9 px-3 border rounded-md bg-muted/50 text-sm" data-testid="summary-frequency">
-                              {PAYMENT_FREQUENCIES.find(f => f.value === paymentFrequency)?.label || <span className="text-muted-foreground/40 italic">—</span>}
+                        <div className="grid grid-cols-4 gap-[clamp(0.5rem,1vw,1rem)]">
+                          <CompactField label={`Frekvencia platenia${isFieldRequired("paymentFrequency") ? " *" : ""}`}>
+                            <div className="flex items-center h-9 px-3 border rounded-md bg-muted/50 text-sm cursor-default" data-testid="summary-frequency">
+                              {PAYMENT_FREQUENCIES.find(f => f.value === paymentFrequency)?.label || <span className="text-muted-foreground">Vyberte frekvenciu</span>}
                             </div>
                           </CompactField>
-                          <CompactField label="Lehotné poistné">
-                            <div className="flex items-center h-9 px-3 border rounded-md bg-muted/50 text-sm font-mono" data-testid="summary-premium">
-                              {premiumAmount ? `${premiumAmount} ${currency}` : <span className="text-muted-foreground/40 italic font-sans">—</span>}
+                          <CompactField label="Lehotné poistné *">
+                            <div className="flex items-center h-9 px-3 border rounded-md bg-muted/50 text-sm font-mono cursor-default" data-testid="summary-premium">
+                              {premiumAmount}
                             </div>
                           </CompactField>
-                          <CompactField label="Ročné poistné">
-                            <div className="flex items-center h-9 px-3 border rounded-md bg-muted/50 text-sm font-mono" data-testid="summary-annual">
-                              {annualPremium ? `${annualPremium} ${currency}` : <span className="text-muted-foreground/40 italic font-sans">—</span>}
+                          <CompactField label={`Ročné poistné${isFieldRequired("annualPremium") ? " *" : ""}`}>
+                            <div className="flex items-center h-9 px-3 border rounded-md bg-muted/50 text-sm font-mono cursor-default" data-testid="summary-annual">
+                              {annualPremium}
                             </div>
                           </CompactField>
+                          <div className="flex items-end">
+                            <div className="flex items-center justify-center h-9 px-3 border rounded-md bg-muted/30 text-sm text-muted-foreground cursor-default w-full" data-testid="summary-passwords-placeholder">
+                              Heslá k zmluvám
+                            </div>
+                          </div>
                         </div>
-
-                        {(() => {
-                          const extraFields: { label: string; value: string; testId: string }[] = [];
-                          const partnerName = partners?.find(p => p.id === (partnerId ? parseInt(partnerId) : -1))?.name;
-                          if (partnerName || currentCompany?.name) {
-                            extraFields.push(
-                              { label: "Partner", value: partnerName || "", testId: "summary-partner" },
-                              { label: "Spoločnosť", value: currentCompany?.name || "", testId: "summary-company" },
-                            );
-                          }
-                          const stateName = allStates?.find(s => s.id === (stateId ? parseInt(stateId) : -1))?.name;
-                          const productSP = allSPForEdit?.find(p => p.id === (sectorProductId ? parseInt(sectorProductId) : -1));
-                          if (stateName || productSP) {
-                            extraFields.push(
-                              { label: "Produkt", value: productSP ? `${productSP.name}${productSP.abbreviation ? ` (${productSP.abbreviation})` : ''}` : "", testId: "summary-product" },
-                              { label: "Štát", value: stateName || "", testId: "summary-state" },
-                            );
-                          }
-                          if ((existingContract as any)?.accessRole !== 'klient' && commissionAmount) {
-                            extraFields.push({ label: "Suma provízií", value: `${commissionAmount} ${currency}`, testId: "summary-commission" });
-                          }
-                          if (existingContract?.isStamped) {
-                            extraFields.push({ label: "Opečiatkované", value: existingContract?.stampedAt ? new Date(existingContract.stampedAt).toLocaleString("sk-SK", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" }) : "—", testId: "summary-stamped" });
-                          }
-                          if (extraFields.length === 0) return null;
-                          const rows: { label: string; value: string; testId: string }[][] = [];
-                          for (let i = 0; i < extraFields.length; i += 3) rows.push(extraFields.slice(i, i + 3));
-                          return rows.map((row, ri) => (
-                            <div key={ri} className={`grid grid-cols-${row.length === 1 ? '3' : row.length} gap-[clamp(0.5rem,1vw,1rem)]`}>
-                              {row.map(f => (
-                                <CompactField key={f.testId} label={f.label}>
-                                  <div className="flex items-center h-9 px-3 border rounded-md bg-muted/50 text-sm" data-testid={f.testId}>
-                                    {f.value || <span className="text-muted-foreground/40 italic">—</span>}
-                                  </div>
-                                </CompactField>
-                              ))}
-                            </div>
-                          ));
-                        })()}
 
                       </div>
                     </div>
@@ -2698,93 +2664,106 @@ export default function ContractForm() {
 
                         <div className="grid grid-cols-3 gap-[clamp(0.5rem,1vw,1rem)]">
                           <CompactField label="Číslo kontraktu">
-                            <div className="flex items-center h-9 px-3 border rounded-md bg-muted/50 text-sm font-mono" data-testid="udaje-global-number">
-                              {existingContract?.globalNumber?.toString() || <span className="text-muted-foreground/40 italic font-sans">Pridelené pri uložení</span>}
+                            <div className="flex items-center h-9 px-3 border rounded-md bg-muted/50 text-sm cursor-default" data-testid="udaje-global-number">
+                              {existingContract?.globalNumber?.toString() || "Pridelené pri uložení"}
                             </div>
                           </CompactField>
-                          <CompactField label="Číslo návrhu">
-                            <div className="flex items-center h-9 px-3 border rounded-md bg-muted/50 text-sm font-mono" data-testid="udaje-proposal">
-                              {proposalNumber || <span className="text-muted-foreground/40 italic font-sans">—</span>}
+                          <CompactField label={`Číslo návrhu${isFieldRequired("proposalNumber") ? " *" : ""}`}>
+                            <div className="flex items-center h-9 px-3 border rounded-md bg-muted/50 text-sm cursor-default" data-testid="udaje-proposal">
+                              {proposalNumber}
                             </div>
                           </CompactField>
                           <CompactField label="Číslo zmluvy">
-                            <div className="flex items-center h-9 px-3 border rounded-md bg-muted/50 text-sm font-mono" data-testid="udaje-contract-number">
-                              {contractNumber || <span className="text-muted-foreground/40 italic font-sans">—</span>}
+                            <div className={`flex items-center h-9 px-3 border rounded-md bg-muted/50 text-sm cursor-default${existingContract?.isStamped ? " opacity-60" : ""}`} data-testid="udaje-contract-number">
+                              {contractNumber}
                             </div>
                             {existingContract?.isStamped && <span className="text-[10px] text-amber-500 flex items-center gap-1 mt-0.5"><Lock className="w-3 h-3" /> Fixované</span>}
                           </CompactField>
                         </div>
 
                         <div className="grid grid-cols-3 gap-[clamp(0.5rem,1vw,1rem)]">
-                          <CompactField label="Typ zmluvy">
-                            <div className="flex items-center h-9 px-3 border rounded-md bg-muted/50 text-sm" data-testid="udaje-type">
-                              {contractType ? (CONTRACT_TYPES.find(t => t.value === contractType)?.label || contractType) : <span className="text-muted-foreground/40 italic">—</span>}
+                          <CompactField label={`Miesto podpisu${isFieldRequired("signingPlace") ? " *" : ""}`}>
+                            <div className="flex items-center h-9 px-3 border rounded-md bg-muted/50 text-sm cursor-default" data-testid="udaje-signing-place">
+                              {signingPlace}
                             </div>
                           </CompactField>
-                          <CompactField label="Miesto podpisu">
-                            <div className="flex items-center h-9 px-3 border rounded-md bg-muted/50 text-sm" data-testid="udaje-signing-place">
-                              {signingPlace || <span className="text-muted-foreground/40 italic">—</span>}
+                          <CompactField label={`Typ zmluvy${isFieldRequired("contractType") ? " *" : ""}`}>
+                            <div className="flex items-center h-9 px-3 border rounded-md bg-muted/50 text-sm cursor-default" data-testid="udaje-type">
+                              {contractType ? (CONTRACT_TYPES.find(t => t.value === contractType)?.label || contractType) : <span className="text-muted-foreground">Vyberte typ</span>}
                             </div>
                           </CompactField>
-                          <CompactField label="Produkt">
-                            <div className="flex items-center h-9 px-3 border rounded-md bg-muted/50 text-sm" data-testid="udaje-product">
-                              {(() => { const sp = allSPForEdit?.find(p => p.id === (sectorProductId ? parseInt(sectorProductId) : -1)); return sp ? `${sp.name}${sp.abbreviation ? ` (${sp.abbreviation})` : ''}` : <span className="text-muted-foreground/40 italic">—</span>; })()}
+                          <CompactField label="Stav zmluvy">
+                            <div className="flex items-center gap-2 h-9 px-3 border rounded-md bg-muted/30 cursor-default" data-testid="udaje-status">
+                              {statuses?.find(s => s.id === (statusId ? parseInt(statusId) : -1)) ? (
+                                <div className="flex items-center gap-2">
+                                  <div className="w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: statuses?.find(s => s.id === (statusId ? parseInt(statusId) : -1))?.color }} />
+                                  <span className="text-sm">{statuses?.find(s => s.id === (statusId ? parseInt(statusId) : -1))?.name}</span>
+                                </div>
+                              ) : (
+                                <span className="text-sm text-muted-foreground">Bez stavu</span>
+                              )}
                             </div>
                           </CompactField>
                         </div>
 
                         <div className="grid grid-cols-3 gap-[clamp(0.5rem,1vw,1rem)]">
-                          <CompactField label="Dátum podpisu">
-                            <div className="flex items-center h-9 px-3 border rounded-md bg-muted/50 text-sm" data-testid="udaje-signed">
-                              {signedDate || <span className="text-muted-foreground/40 italic">—</span>}
+                          <CompactField label="Dátum podpisu *">
+                            <div className="flex items-center h-9 px-3 border rounded-md bg-muted/50 text-sm cursor-default" data-testid="udaje-signed">
+                              {signedDate}
                             </div>
                           </CompactField>
-                          <CompactField label="Účinnosť od">
-                            <div className="flex items-center h-9 px-3 border rounded-md bg-muted/50 text-sm" data-testid="udaje-effective">
-                              {effectiveDate || <span className="text-muted-foreground/40 italic">—</span>}
+                          <CompactField label="Účinnosť od *">
+                            <div className="flex items-center h-9 px-3 border rounded-md bg-muted/50 text-sm cursor-default" data-testid="udaje-effective">
+                              {effectiveDate}
                             </div>
                           </CompactField>
                           <CompactField label="Koniec zmluvy">
-                            <div className="flex items-center h-9 px-3 border rounded-md bg-muted/50 text-sm" data-testid="udaje-expiry">
-                              {expiryDate || <span className="text-muted-foreground/40 italic">—</span>}
+                            <div className="flex items-center h-9 px-3 border rounded-md bg-muted/50 text-sm cursor-default" data-testid="udaje-expiry">
+                              {expiryDate}
                             </div>
                           </CompactField>
                         </div>
 
-                        <div className="grid grid-cols-3 gap-[clamp(0.5rem,1vw,1rem)]">
-                          <CompactField label="Frekvencia platenia">
-                            <div className="flex items-center h-9 px-3 border rounded-md bg-muted/50 text-sm" data-testid="udaje-frequency">
-                              {PAYMENT_FREQUENCIES.find(f => f.value === paymentFrequency)?.label || <span className="text-muted-foreground/40 italic">—</span>}
+                        <div className="grid grid-cols-4 gap-[clamp(0.5rem,1vw,1rem)]">
+                          <CompactField label={`Frekvencia platenia${isFieldRequired("paymentFrequency") ? " *" : ""}`}>
+                            <div className="flex items-center h-9 px-3 border rounded-md bg-muted/50 text-sm cursor-default" data-testid="udaje-frequency">
+                              {PAYMENT_FREQUENCIES.find(f => f.value === paymentFrequency)?.label || <span className="text-muted-foreground">Vyberte frekvenciu</span>}
                             </div>
                           </CompactField>
-                          <CompactField label="Lehotné poistné">
-                            <div className="flex items-center h-9 px-3 border rounded-md bg-muted/50 text-sm font-mono" data-testid="udaje-premium">
-                              {premiumAmount ? `${premiumAmount} ${currency}` : <span className="text-muted-foreground/40 italic font-sans">—</span>}
+                          <CompactField label="Lehotné poistné *">
+                            <div className="flex items-center h-9 px-3 border rounded-md bg-muted/50 text-sm font-mono cursor-default" data-testid="udaje-premium">
+                              {premiumAmount}
                             </div>
                           </CompactField>
-                          <CompactField label="Ročné poistné">
-                            <div className="flex items-center h-9 px-3 border rounded-md bg-muted/50 text-sm font-mono" data-testid="udaje-annual">
-                              {annualPremium ? `${annualPremium} ${currency}` : <span className="text-muted-foreground/40 italic font-sans">—</span>}
+                          <CompactField label={`Ročné poistné${isFieldRequired("annualPremium") ? " *" : ""}`}>
+                            <div className="flex items-center h-9 px-3 border rounded-md bg-muted/50 text-sm font-mono cursor-default" data-testid="udaje-annual">
+                              {annualPremium}
                             </div>
                           </CompactField>
-                        </div>
-
-                        {(existingContract as any)?.accessRole !== 'klient' && (
-                          <div className="grid grid-cols-3 gap-[clamp(0.5rem,1vw,1rem)]">
+                          {(existingContract as any)?.accessRole !== 'klient' && (
                             <CompactField label="Suma provízií">
-                              <div className="flex items-center h-9 px-3 border rounded-md bg-muted/50 text-sm font-mono" data-testid="udaje-commission">
-                                {commissionAmount ? `${commissionAmount} ${currency}` : <span className="text-muted-foreground/40 italic font-sans">—</span>}
+                              <div className="flex items-center h-9 px-3 border rounded-md bg-muted/50 text-sm font-mono cursor-default" data-testid="udaje-commission">
+                                {commissionAmount ? `${commissionAmount} ${currency}` : ""}
                               </div>
                             </CompactField>
-                            {existingContract?.isStamped && (
-                              <CompactField label="Opečiatkované">
-                                <div className="flex items-center h-9 px-3 border rounded-md bg-muted/50 text-sm" data-testid="udaje-stamped">
-                                  {existingContract?.stampedAt ? new Date(existingContract.stampedAt).toLocaleString("sk-SK", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" }) : "—"}
-                                </div>
-                              </CompactField>
-                            )}
+                          )}
+                        </div>
+
+                        {existingContract?.isStamped && (
+                          <div className="grid grid-cols-3 gap-[clamp(0.5rem,1vw,1rem)]">
+                            <CompactField label="Opečiatkované">
+                              <div className="flex items-center h-9 px-3 border rounded-md bg-muted/50 text-sm cursor-default" data-testid="udaje-stamped">
+                                {existingContract?.stampedAt ? new Date(existingContract.stampedAt).toLocaleString("sk-SK", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" }) : ""}
+                              </div>
+                            </CompactField>
                           </div>
                         )}
+
+                        <CompactField label="Produkt">
+                          <div className="flex items-center h-9 px-3 border rounded-md bg-muted/50 text-sm cursor-default" data-testid="udaje-product">
+                            {(() => { const sp = allSPForEdit?.find(p => p.id === (sectorProductId ? parseInt(sectorProductId) : -1)); return sp ? `${sp.name}${sp.abbreviation ? ` (${sp.abbreviation})` : ''}` : ""; })()}
+                          </div>
+                        </CompactField>
 
                       </div>
                       {existingContract?.updatedAt && (() => {
