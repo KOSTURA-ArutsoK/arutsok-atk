@@ -1949,7 +1949,7 @@ export async function registerRoutes(
   app.get("/api/files/:section/:filename", isAuthenticated, (req, res) => {
     const section = req.params.section as string;
     const filename = req.params.filename as string;
-    if (!["official", "work", "logos", "amendments", "profiles", "flags", "status-change-docs"].includes(section)) return res.status(400).json({ message: "Invalid section" });
+    if (!["official", "work", "logos", "amendments", "profiles", "flags", "status-change-docs", "generated-docs"].includes(section)) return res.status(400).json({ message: "Invalid section" });
     const filePath = path.join(UPLOADS_DIR, section, filename);
     if (!fs.existsSync(filePath)) return res.status(404).json({ message: "File not found" });
     res.sendFile(filePath);
@@ -6946,6 +6946,268 @@ export async function registerRoutes(
       res.setHeader('Content-Disposition', `attachment; filename="gdpr-export-${subject.uid?.replace(/\s/g, '')}-${new Date().toISOString().split('T')[0]}.json"`);
       res.json(legalExport);
     } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  // === SUBJECT DOCUMENTS (Generated PDFs) ===
+  app.get("/api/subjects/:id/documents", isAuthenticated, async (req: any, res) => {
+    try {
+      const subjectId = Number(req.params.id);
+      const docs = await storage.getSubjectDocuments(subjectId);
+      res.json(docs);
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  app.post("/api/subjects/:id/documents/:docId/audit-view", isAuthenticated, async (req: any, res) => {
+    try {
+      const subjectId = Number(req.params.id);
+      const appUser = await storage.getAppUserByReplitId(req.user.claims.sub);
+      if (!appUser) return res.status(401).json({ message: "Unauthorized" });
+      await storage.createAuditLog({
+        userId: appUser.id, username: appUser.username, action: "DOCUMENT_VIEWED",
+        module: "dokumentacia", entityId: subjectId,
+        entityName: `Zobrazenie dokumentu #${req.params.docId} subjektu #${subjectId}`,
+      });
+      res.json({ ok: true });
+    } catch (err: any) { res.status(500).json({ message: err.message }); }
+  });
+
+  app.post("/api/subjects/:id/documents/:docId/audit-print", isAuthenticated, async (req: any, res) => {
+    try {
+      const subjectId = Number(req.params.id);
+      const appUser = await storage.getAppUserByReplitId(req.user.claims.sub);
+      if (!appUser) return res.status(401).json({ message: "Unauthorized" });
+      await storage.createAuditLog({
+        userId: appUser.id, username: appUser.username, action: "DOCUMENT_PRINTED",
+        module: "dokumentacia", entityId: subjectId,
+        entityName: `Tlač dokumentu #${req.params.docId} subjektu #${subjectId}`,
+      });
+      res.json({ ok: true });
+    } catch (err: any) { res.status(500).json({ message: err.message }); }
+  });
+
+  app.post("/api/subjects/:id/generate-doc/:docType", isAuthenticated, async (req: any, res) => {
+    try {
+      const PDFDocument = (await import("pdfkit")).default;
+      const subjectId = Number(req.params.id);
+      const docType = req.params.docType as string;
+      if (!["aml", "gdpr", "client-card"].includes(docType)) {
+        return res.status(400).json({ message: "Neplatný typ dokumentu" });
+      }
+
+      const appUser = await storage.getAppUserByReplitId(req.user.claims.sub);
+      if (!appUser) return res.status(401).json({ message: "Unauthorized" });
+
+      const subject = await storage.getSubject(subjectId);
+      if (!subject) return res.status(404).json({ message: "Subjekt nenájdený" });
+
+      const auditCode = `DOC-${Date.now()}-${crypto.randomBytes(4).toString("hex").toUpperCase()}`;
+      const now = new Date();
+      const formattedDate = `${String(now.getDate()).padStart(2, '0')}.${String(now.getMonth() + 1).padStart(2, '0')}.${now.getFullYear()} ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+      const subjectName = subject.type === "company" ? (subject.companyName || "—") : `${subject.firstName || ""} ${subject.lastName || ""}`.trim() || "—";
+
+      const doc = new PDFDocument({ size: "A4", margin: 50, info: { Title: `ArutsoK - ${docType}`, Author: appUser.username } });
+      const filename = `${docType}-${subjectId}-${Date.now()}.pdf`;
+      const filePath = path.join(UPLOADS_DIR, "generated-docs", filename);
+      const writeStream = fs.createWriteStream(filePath);
+      doc.pipe(writeStream);
+
+      const drawHeader = (title: string) => {
+        doc.fontSize(18).font("Helvetica-Bold").text("ArutsoK", 50, 50);
+        doc.fontSize(10).font("Helvetica").text(`UID: ${subject.uid || "—"}`, 50, 72);
+        doc.moveTo(50, 90).lineTo(545, 90).stroke("#333333");
+        doc.fontSize(14).font("Helvetica-Bold").text(title, 50, 100);
+        doc.moveDown(0.5);
+        doc.fontSize(10).font("Helvetica").text(`Subjekt: ${subjectName}`, 50);
+        doc.text(`Typ: ${subject.type === "person" ? "Fyzická osoba" : subject.type === "szco" ? "SZČO" : "Právnická osoba"}`);
+        doc.moveDown(1);
+      };
+
+      const drawFooter = () => {
+        const pageH = doc.page.height;
+        doc.moveTo(50, pageH - 80).lineTo(545, pageH - 80).stroke("#cccccc");
+        doc.fontSize(8).font("Helvetica")
+          .text(`Audit kód: ${auditCode}`, 50, pageH - 70)
+          .text(`Vygenerované: ${formattedDate}`, 50, pageH - 58)
+          .text(`Používateľ: ${appUser.username} (ID: ${appUser.id})`, 50, pageH - 46)
+          .text("Dokument vygenerovaný systémom ArutsoK. Dôverný materiál.", 50, pageH - 34);
+      };
+
+      const drawTable = (rows: [string, string][], startY?: number) => {
+        let y = startY || doc.y;
+        for (const [label, value] of rows) {
+          if (y > doc.page.height - 120) { doc.addPage(); drawFooter(); y = 50; }
+          doc.fontSize(9).font("Helvetica-Bold").text(label, 50, y, { width: 200 });
+          doc.fontSize(9).font("Helvetica").text(value || "—", 260, y, { width: 280 });
+          y += 18;
+        }
+        doc.y = y;
+      };
+
+      const details = (subject.details || {}) as Record<string, any>;
+      const dynFields = details.dynamicFields || {};
+
+      if (docType === "aml") {
+        drawHeader("Záznam o AML preverení");
+        doc.fontSize(11).font("Helvetica-Bold").text("PEP & Compliance status", 50);
+        doc.moveDown(0.5);
+        const pepVal = dynFields.pep || "Nevyplnené";
+        const peoVal = dynFields.ekon_peo || "Nevyplnené";
+        drawTable([
+          ["PEP (Politicky exponovaná osoba)", pepVal],
+          ["PEP – verejná funkcia", dynFields.pep_funkcia || ""],
+          ["PEP – vzťah k PEP osobe", dynFields.pep_vztah || ""],
+          ["PEO (Politicky exponovaná osoba)", peoVal],
+          ["PEO – zdôvodnenie", dynFields.ekon_peo_zdovodnenie || ""],
+          ["Konečný užívateľ výhod", dynFields.ekon_kuv || ""],
+        ]);
+        doc.moveDown(1);
+        doc.fontSize(11).font("Helvetica-Bold").text("KUV (Koneční užívatelia výhod)", 50);
+        doc.moveDown(0.5);
+        for (let i = 1; i <= 3; i++) {
+          const meno = dynFields[`kuv_meno_${i}`];
+          if (meno) {
+            drawTable([
+              [`KUV ${i} – Meno`, meno],
+              [`KUV ${i} – Rodné číslo`, dynFields[`kuv_rc_${i}`] || ""],
+              [`KUV ${i} – % podiel`, dynFields[`kuv_podiel_${i}`] || ""],
+            ]);
+            doc.moveDown(0.3);
+          }
+        }
+        doc.moveDown(1);
+        doc.fontSize(10).font("Helvetica").text(`Dátum kontroly: ${formattedDate}`);
+        const amlFields = ["pep", "pep_funkcia", "pep_vztah", "kuv_meno_1", "ekon_peo"];
+        const filled = amlFields.filter(k => !!dynFields[k]).length;
+        doc.text(`AML kompletnosť: ${filled}/${amlFields.length} polí vyplnených`);
+        const semafor = filled > 0 && dynFields.pep ? "ZELENÝ (kompletné)" : "ORANŽOVÝ (nekompletné)";
+        doc.text(`Semafor: ${semafor}`);
+      } else if (docType === "gdpr") {
+        drawHeader("GDPR doložka klienta");
+        doc.fontSize(11).font("Helvetica-Bold").text("Osobné údaje", 50);
+        doc.moveDown(0.5);
+        drawTable([
+          ["Meno", `${subject.firstName || ""} ${subject.lastName || ""}`.trim()],
+          ["UID", subject.uid || ""],
+          ["Email", subject.email || ""],
+          ["Telefón", subject.phone || ""],
+          ["Rodné číslo", subject.birthNumber ? "***" : "Nevyplnené"],
+          ["Dátum narodenia", dynFields.datum_narodenia || ""],
+          ["Štátna príslušnosť", dynFields.statna_prislusnost || ""],
+        ]);
+        doc.moveDown(1);
+        doc.fontSize(11).font("Helvetica-Bold").text("Marketingové súhlasy", 50);
+        doc.moveDown(0.5);
+        const consents = await storage.getClientMarketingConsents(subjectId);
+        if (consents.length === 0) {
+          doc.fontSize(9).font("Helvetica").text("Žiadne marketingové súhlasy neboli zaznamenané.");
+        } else {
+          for (const c of consents) {
+            const status = (c as any).isGranted ? "UDELENÝ" : "ODVOLANÝ";
+            const date = (c as any).grantedAt ? new Date((c as any).grantedAt).toLocaleDateString("sk-SK") : "—";
+            drawTable([
+              ["Typ súhlasu", (c as any).consentType || "marketing"],
+              ["Stav", status],
+              ["Dátum udelenia", date],
+            ]);
+            doc.moveDown(0.3);
+          }
+        }
+        doc.moveDown(1);
+        doc.fontSize(11).font("Helvetica-Bold").text("Spracúvané údaje", 50);
+        doc.moveDown(0.5);
+        const processedFields = Object.keys(dynFields).filter(k => !!dynFields[k]);
+        doc.fontSize(9).font("Helvetica").text(`Počet spracúvaných polí: ${processedFields.length}`);
+        if (processedFields.length > 0) {
+          doc.text(`Polia: ${processedFields.slice(0, 20).join(", ")}${processedFields.length > 20 ? "..." : ""}`);
+        }
+      } else if (docType === "client-card") {
+        drawHeader("Karta subjektu");
+        doc.fontSize(11).font("Helvetica-Bold").text("Identita", 50);
+        doc.moveDown(0.5);
+        drawTable([
+          ["Meno", `${subject.firstName || ""} ${subject.lastName || ""}`.trim()],
+          ["Firma", subject.companyName || ""],
+          ["UID", subject.uid || ""],
+          ["Typ", subject.type === "person" ? "FO" : subject.type === "szco" ? "SZČO" : "PO"],
+          ["Email", subject.email || ""],
+          ["Telefón", subject.phone || ""],
+          ["IBAN", (subject as any).iban || ""],
+          ["Dátum narodenia", dynFields.datum_narodenia || ""],
+          ["Miesto narodenia", dynFields.miesto_narodenia || ""],
+          ["Rodné priezvisko", dynFields.rodne_priezvisko || ""],
+        ]);
+        doc.moveDown(1);
+        doc.fontSize(11).font("Helvetica-Bold").text("Adresa", 50);
+        doc.moveDown(0.5);
+        drawTable([
+          ["Ulica", dynFields.tp_ulica || ""],
+          ["Mesto", dynFields.tp_mesto || ""],
+          ["PSČ", dynFields.tp_psc || ""],
+          ["Štát", dynFields.tp_stat || ""],
+        ]);
+        doc.moveDown(1);
+        doc.fontSize(11).font("Helvetica-Bold").text("AML Status", 50);
+        doc.moveDown(0.5);
+        drawTable([
+          ["PEP", dynFields.pep || "Nevyplnené"],
+          ["PEO", dynFields.ekon_peo || "Nevyplnené"],
+        ]);
+        doc.moveDown(1);
+        doc.fontSize(11).font("Helvetica-Bold").text("Prepojené zmluvy", 50);
+        doc.moveDown(0.5);
+        const allContracts = await storage.getContracts();
+        const subjectContracts = allContracts.filter((c: any) => c.subjectId === subjectId);
+        if (subjectContracts.length === 0) {
+          doc.fontSize(9).font("Helvetica").text("Žiadne prepojené zmluvy.");
+        } else {
+          for (const c of subjectContracts.slice(0, 20)) {
+            drawTable([
+              ["Číslo zmluvy", (c as any).contractNumber || "—"],
+              ["Stav", (c as any).statusName || `ID: ${(c as any).statusId}`],
+              ["Partner", (c as any).partnerName || "—"],
+            ]);
+            doc.moveDown(0.2);
+          }
+          if (subjectContracts.length > 20) {
+            doc.fontSize(9).font("Helvetica").text(`... a ďalších ${subjectContracts.length - 20} zmlúv`);
+          }
+        }
+      }
+
+      drawFooter();
+      doc.end();
+
+      await new Promise<void>((resolve, reject) => {
+        writeStream.on("finish", resolve);
+        writeStream.on("error", reject);
+      });
+
+      const stats = fs.statSync(filePath);
+      const dbDocType = docType === "client-card" ? "client_card" : docType === "aml" ? "aml_record" : "gdpr_card";
+      const savedDoc = await storage.createSubjectDocument({
+        subjectId,
+        docType: dbDocType,
+        filename,
+        auditCode,
+        generatedByUserId: appUser.id,
+        generatedByUsername: appUser.username,
+        fileSize: stats.size,
+      });
+
+      await storage.createAuditLog({
+        userId: appUser.id, username: appUser.username, action: "DOCUMENT_GENERATED",
+        module: "dokumentacia", entityId: subjectId,
+        entityName: `Generovanie ${dbDocType} dokumentu pre subjekt #${subjectId}`,
+        newData: { docType: dbDocType, auditCode, filename },
+      });
+
+      res.json(savedDoc);
+    } catch (err: any) {
+      console.error("PDF generation error:", err);
       res.status(500).json({ message: err.message });
     }
   });

@@ -122,6 +122,8 @@ import {
   subjectObjects, objectDataSources,
   type SubjectObject, type InsertSubjectObject,
   type ObjectDataSource, type InsertObjectDataSource,
+  subjectDocuments,
+  type SubjectDocument, type InsertSubjectDocument,
 } from "@shared/schema";
 import { eq, and, or, ne, like, sql, lte, gte, gt, desc, asc, isNull, isNotNull, inArray } from "drizzle-orm";
 
@@ -220,6 +222,10 @@ export interface IStorage {
   getEntityLinks(subjectId: number): Promise<EntityLink[]>;
   createEntityLink(data: InsertEntityLink): Promise<EntityLink>;
   closeEntityLink(id: number): Promise<EntityLink>;
+
+  getSubjectDocuments(subjectId: number): Promise<SubjectDocument[]>;
+  createSubjectDocument(data: InsertSubjectDocument): Promise<SubjectDocument>;
+  getLatestDocByType(subjectId: number, docType: string): Promise<SubjectDocument | undefined>;
   
   getProducts(includeDeleted?: boolean): Promise<Product[]>;
   getProduct(id: number): Promise<Product | undefined>;
@@ -1585,6 +1591,25 @@ export class DatabaseStorage implements IStorage {
       .where(eq(entityLinks.id, id))
       .returning();
     return link;
+  }
+
+  async getSubjectDocuments(subjectId: number): Promise<SubjectDocument[]> {
+    return await db.select().from(subjectDocuments)
+      .where(eq(subjectDocuments.subjectId, subjectId))
+      .orderBy(desc(subjectDocuments.generatedAt));
+  }
+
+  async createSubjectDocument(data: InsertSubjectDocument): Promise<SubjectDocument> {
+    const [doc] = await db.insert(subjectDocuments).values(data).returning();
+    return doc;
+  }
+
+  async getLatestDocByType(subjectId: number, docType: string): Promise<SubjectDocument | undefined> {
+    const [doc] = await db.select().from(subjectDocuments)
+      .where(and(eq(subjectDocuments.subjectId, subjectId), eq(subjectDocuments.docType, docType)))
+      .orderBy(desc(subjectDocuments.generatedAt))
+      .limit(1);
+    return doc;
   }
 
   async getProducts(includeDeleted?: boolean) {

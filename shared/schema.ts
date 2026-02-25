@@ -2277,6 +2277,23 @@ export const insertSystemNotificationSchema = createInsertSchema(systemNotificat
 export type SystemNotification = typeof systemNotifications.$inferSelect;
 export type InsertSystemNotification = z.infer<typeof insertSystemNotificationSchema>;
 
+// === SUBJECT DOCUMENTS (Generated PDF documents) ===
+export const subjectDocuments = pgTable("subject_documents", {
+  id: serial("id").primaryKey(),
+  subjectId: integer("subject_id").notNull().references(() => subjects.id),
+  docType: text("doc_type").notNull(),
+  filename: text("filename").notNull(),
+  auditCode: text("audit_code").notNull(),
+  generatedByUserId: integer("generated_by_user_id"),
+  generatedByUsername: text("generated_by_username"),
+  generatedAt: timestamp("generated_at").defaultNow(),
+  fileSize: integer("file_size").default(0),
+});
+
+export const insertSubjectDocumentSchema = createInsertSchema(subjectDocuments).omit({ id: true, generatedAt: true });
+export type SubjectDocument = typeof subjectDocuments.$inferSelect;
+export type InsertSubjectDocument = z.infer<typeof insertSubjectDocumentSchema>;
+
 export type CreateSubjectRequest = InsertSubject;
 export type UpdateSubjectRequest = Partial<InsertSubject> & { changeReason?: string };
 export type UpdateMyCompanyRequest = Partial<InsertMyCompany> & { changeReason?: string };

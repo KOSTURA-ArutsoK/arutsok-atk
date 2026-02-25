@@ -16,7 +16,7 @@ import { Switch } from "@/components/ui/switch";
 import { Separator } from "@/components/ui/separator";
 import { Card, CardContent } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Loader2, UserCheck, Scale, Users, Wallet, BarChart3, Wifi, Archive, FileText, Eye, EyeOff, ChevronRight, Check, X, Plus, AlertTriangle, ShieldAlert, Ban, Link2, Unlink, Building2, User, ArrowLeftRight, History, UserPlus, ShieldCheck, Clock, Pencil, Save, MessageSquare, FileDown, MapPin, Mail, Trash2, Star, Network, ExternalLink, Heart, Baby, Crown, TreePine, Home, Bell, CheckCircle, Search, Shield, BookOpen } from "lucide-react";
+import { Loader2, UserCheck, Scale, Users, Wallet, BarChart3, Wifi, Archive, FileText, Eye, EyeOff, ChevronRight, Check, X, Plus, AlertTriangle, ShieldAlert, Ban, Link2, Unlink, Building2, User, ArrowLeftRight, History, UserPlus, ShieldCheck, Clock, Pencil, Save, MessageSquare, FileDown, MapPin, Mail, Trash2, Star, Network, ExternalLink, Heart, Baby, Crown, TreePine, Home, Bell, CheckCircle, Search, Shield, BookOpen, Printer, FilePlus } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
@@ -818,6 +818,11 @@ export function SubjektView({ subject, showPdfSidebar = false, isClientView = fa
     queryFn: () => apiRequest("GET", `/api/subjects/${subject.id}/field-history`).then(r => r.json()),
   });
 
+  const { data: subjectDocs } = useQuery<any[]>({
+    queryKey: ["/api/subjects", subject.id, "documents"],
+    queryFn: () => apiRequest("GET", `/api/subjects/${subject.id}/documents`).then(r => r.json()),
+  });
+
   const upsertConsent = useMutation({
     mutationFn: async (data: { consentType: string; isGranted: boolean; companyId: number }) => {
       return apiRequest("POST", `/api/subjects/${subject.id}/marketing-consents`, data);
@@ -1334,6 +1339,23 @@ export function SubjektView({ subject, showPdfSidebar = false, isClientView = fa
                 Relácie
               </TabsTrigger>
             )}
+            <TabsTrigger
+              value="__dokumentacia__"
+              className="text-xs px-3 py-2 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-md data-[state=active]:font-semibold transition-all"
+              data-testid="tab-dokumentacia"
+            >
+              <BookOpen className="w-3.5 h-3.5 mr-1.5" />
+              Dokumentácia
+              {(() => {
+                const hasAmlDoc = subjectDocs?.some((d: any) => d.docType === "aml_record");
+                const pepVal = getFieldValue("pep");
+                const amlComplete = !!pepVal && pepVal !== "";
+                if (hasAmlDoc && amlComplete) {
+                  return <CheckCircle className="w-3 h-3 ml-1 text-emerald-500" />;
+                }
+                return <div className="w-2 h-2 rounded-full bg-amber-500 ml-1.5" />;
+              })()}
+            </TabsTrigger>
           </TabsList>
 
           {!isClientView && (
@@ -1341,6 +1363,15 @@ export function SubjektView({ subject, showPdfSidebar = false, isClientView = fa
               <SubjectRelationsSection subjectId={subject.id} />
             </TabsContent>
           )}
+
+          <TabsContent value="__dokumentacia__" className="mt-3" data-testid="tabcontent-dokumentacia">
+            <SubjectDocumentationTab
+              subjectId={subject.id}
+              subjectDocs={subjectDocs || []}
+              isClientView={isClientView}
+              getFieldValue={getFieldValue}
+            />
+          </TabsContent>
 
           {displayTabs.map(tab => {
             const rawTabCats = categoriesByTab[tab.id] || [];
@@ -1606,6 +1637,221 @@ function AmlCompliancePanel({
         </CardContent>
       )}
     </Card>
+  );
+}
+
+const DOC_TYPE_CONFIG = [
+  { docType: "aml_record", apiType: "aml", label: "Záznam o AML preverení", description: "PEP status, KUV údaje, dátum kontroly", icon: Shield, color: "text-amber-500" },
+  { docType: "gdpr_card", apiType: "gdpr", label: "GDPR doložka klienta", description: "Zoznam súhlasov, účel spracúvania", icon: FileDown, color: "text-blue-500" },
+  { docType: "client_card", apiType: "client-card", label: "Karta subjektu", description: "Kompletný výpis údajov z modulov B a C", icon: User, color: "text-emerald-500" },
+] as const;
+
+function SubjectDocumentationTab({
+  subjectId,
+  subjectDocs,
+  isClientView,
+  getFieldValue,
+}: {
+  subjectId: number;
+  subjectDocs: any[];
+  isClientView: boolean;
+  getFieldValue: (key: string) => string;
+}) {
+  const { toast } = useToast();
+  const [generatingType, setGeneratingType] = useState<string | null>(null);
+
+  const generateDoc = useMutation({
+    mutationFn: async (apiType: string) => {
+      setGeneratingType(apiType);
+      const res = await apiRequest("POST", `/api/subjects/${subjectId}/generate-doc/${apiType}`);
+      return res.json();
+    },
+    onSuccess: (data: any) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/subjects", subjectId, "documents"] });
+      toast({ title: "Dokument vygenerovaný", description: `Audit kód: ${data.auditCode}` });
+      setGeneratingType(null);
+    },
+    onError: (err: any) => {
+      toast({ title: "Chyba pri generovaní", description: err.message, variant: "destructive" });
+      setGeneratingType(null);
+    },
+  });
+
+  const auditView = useMutation({
+    mutationFn: async (docId: number) => {
+      await apiRequest("POST", `/api/subjects/${subjectId}/documents/${docId}/audit-view`);
+    },
+  });
+
+  const auditPrint = useMutation({
+    mutationFn: async (docId: number) => {
+      await apiRequest("POST", `/api/subjects/${subjectId}/documents/${docId}/audit-print`);
+    },
+  });
+
+  const handleView = (doc: any) => {
+    auditView.mutate(doc.id);
+    window.open(`/api/files/generated-docs/${doc.filename}`, "_blank");
+  };
+
+  const handlePrint = (doc: any) => {
+    auditPrint.mutate(doc.id);
+    const printWindow = window.open(`/api/files/generated-docs/${doc.filename}`, "_blank");
+    if (printWindow) {
+      printWindow.addEventListener("load", () => printWindow.print());
+    }
+  };
+
+  return (
+    <div className="space-y-4" data-testid="documentation-tab-content">
+      <div className="flex items-center gap-2 mb-3">
+        <BookOpen className="w-4 h-4 text-primary" />
+        <span className="text-sm font-semibold">Priečinok subjektu</span>
+        <Badge variant="secondary" className="text-[10px]">{subjectDocs.length} dokumentov</Badge>
+      </div>
+
+      <div className="grid gap-3">
+        {DOC_TYPE_CONFIG.map(cfg => {
+          const latestDoc = subjectDocs.find((d: any) => d.docType === cfg.docType);
+          const allDocsOfType = subjectDocs.filter((d: any) => d.docType === cfg.docType);
+          const IconComponent = cfg.icon;
+          const isGenerating = generatingType === cfg.apiType;
+
+          return (
+            <Card key={cfg.docType} className="border-border/60" data-testid={`doc-card-${cfg.docType}`}>
+              <div className="px-4 py-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <IconComponent className={`w-5 h-5 ${cfg.color}`} />
+                    <div>
+                      <div className="text-sm font-semibold">{cfg.label}</div>
+                      <div className="text-[11px] text-muted-foreground">{cfg.description}</div>
+                    </div>
+                    {latestDoc && (
+                      <Badge variant="secondary" className="text-[10px] h-4">
+                        v{allDocsOfType.length}
+                      </Badge>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {latestDoc ? (
+                      <>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="text-xs h-7"
+                          onClick={() => handleView(latestDoc)}
+                          data-testid={`btn-view-${cfg.docType}`}
+                        >
+                          <Eye className="w-3 h-3 mr-1" />
+                          Zobraziť
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="text-xs h-7"
+                          onClick={() => handlePrint(latestDoc)}
+                          data-testid={`btn-print-${cfg.docType}`}
+                        >
+                          <Printer className="w-3 h-3 mr-1" />
+                          Tlačiť
+                        </Button>
+                        {!isClientView && (
+                          <Button
+                            variant="secondary"
+                            size="sm"
+                            className="text-xs h-7"
+                            onClick={() => generateDoc.mutate(cfg.apiType)}
+                            disabled={isGenerating}
+                            data-testid={`btn-regen-${cfg.docType}`}
+                          >
+                            {isGenerating ? <Loader2 className="w-3 h-3 animate-spin" /> : <FilePlus className="w-3 h-3 mr-1" />}
+                            Nová verzia
+                          </Button>
+                        )}
+                      </>
+                    ) : (
+                      !isClientView && (
+                        <Button
+                          variant="default"
+                          size="sm"
+                          className="text-xs h-7"
+                          onClick={() => generateDoc.mutate(cfg.apiType)}
+                          disabled={isGenerating}
+                          data-testid={`btn-generate-${cfg.docType}`}
+                        >
+                          {isGenerating ? <Loader2 className="w-3 h-3 mr-1 animate-spin" /> : <FilePlus className="w-3 h-3 mr-1" />}
+                          Generovať PDF
+                        </Button>
+                      )
+                    )}
+                  </div>
+                </div>
+                {latestDoc && (
+                  <div className="mt-2 pt-2 border-t border-border/30 flex items-center gap-4 text-[10px] text-muted-foreground">
+                    <span>Posledná verzia: {new Date(latestDoc.generatedAt).toLocaleDateString("sk-SK")} {new Date(latestDoc.generatedAt).toLocaleTimeString("sk-SK", { hour: "2-digit", minute: "2-digit" })}</span>
+                    <span>Používateľ: {latestDoc.generatedByUsername}</span>
+                    <span className="font-mono">Audit: {latestDoc.auditCode}</span>
+                    <span>{Math.round((latestDoc.fileSize || 0) / 1024)} KB</span>
+                  </div>
+                )}
+              </div>
+            </Card>
+          );
+        })}
+      </div>
+
+      {!isClientView && (
+        <div className="mt-3 p-3 bg-muted/30 rounded-md border border-border/40">
+          <div className="flex items-center gap-2 text-xs text-muted-foreground">
+            <AlertTriangle className="w-3.5 h-3.5 text-amber-500 shrink-0" />
+            <span>Úprava AML údajov je možná len v paneli AML & Compliance (Sektor B). Tu môžete dokumenty generovať, prezerať a tlačiť.</span>
+          </div>
+        </div>
+      )}
+
+      {subjectDocs.length > 0 && (
+        <div className="mt-4">
+          <div className="text-xs font-semibold mb-2">História dokumentov</div>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead className="text-xs">Typ</TableHead>
+                <TableHead className="text-xs">Dátum</TableHead>
+                <TableHead className="text-xs">Používateľ</TableHead>
+                <TableHead className="text-xs">Audit kód</TableHead>
+                <TableHead className="text-xs">Veľkosť</TableHead>
+                <TableHead className="text-xs">Akcie</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {subjectDocs.map((doc: any) => {
+                const cfg = DOC_TYPE_CONFIG.find(c => c.docType === doc.docType);
+                return (
+                  <TableRow key={doc.id}>
+                    <TableCell className="text-xs">{cfg?.label || doc.docType}</TableCell>
+                    <TableCell className="text-xs">{new Date(doc.generatedAt).toLocaleDateString("sk-SK")} {new Date(doc.generatedAt).toLocaleTimeString("sk-SK", { hour: "2-digit", minute: "2-digit" })}</TableCell>
+                    <TableCell className="text-xs">{doc.generatedByUsername}</TableCell>
+                    <TableCell className="text-xs font-mono">{doc.auditCode}</TableCell>
+                    <TableCell className="text-xs">{Math.round((doc.fileSize || 0) / 1024)} KB</TableCell>
+                    <TableCell>
+                      <div className="flex items-center gap-1">
+                        <Button variant="ghost" size="sm" className="h-6 w-6 p-0" onClick={() => handleView(doc)} data-testid={`btn-hist-view-${doc.id}`}>
+                          <Eye className="w-3 h-3" />
+                        </Button>
+                        <Button variant="ghost" size="sm" className="h-6 w-6 p-0" onClick={() => handlePrint(doc)} data-testid={`btn-hist-print-${doc.id}`}>
+                          <Printer className="w-3 h-3" />
+                        </Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
+            </TableBody>
+          </Table>
+        </div>
+      )}
+    </div>
   );
 }
 
