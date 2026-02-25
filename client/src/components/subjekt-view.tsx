@@ -1408,6 +1408,18 @@ export function SubjektView({ subject, showPdfSidebar = false, isClientView = fa
             );
           })}
         </Tabs>
+
+        {!isClientView && (
+          <AmlCompliancePanel
+            subject={subject}
+            getFieldValue={getFieldValue}
+            typeFields={typeFields}
+            isEditing={isEditing}
+            editValues={editValues}
+            setEditFieldValue={setEditFieldValue}
+            getEditableValue={getEditableValue}
+          />
+        )}
       </div>
 
       {pdfSidebarOpen && (
@@ -1443,6 +1455,157 @@ export function SubjektView({ subject, showPdfSidebar = false, isClientView = fa
         </div>
       )}
     </div>
+  );
+}
+
+const AML_FIELD_KEYS = [
+  "pep", "pep_funkcia", "pep_vztah",
+  "kuv_meno_1", "kuv_rc_1", "kuv_podiel_1",
+  "kuv_meno_2", "kuv_rc_2", "kuv_podiel_2",
+  "kuv_meno_3", "kuv_rc_3", "kuv_podiel_3",
+  "ekon_peo", "ekon_peo_zdovodnenie", "ekon_kuv",
+];
+
+const AML_FIELD_LABELS: Record<string, string> = {
+  pep: "PEP (Politicky exponovaná osoba)",
+  pep_funkcia: "PEP – verejná funkcia",
+  pep_vztah: "PEP – vzťah k PEP osobe",
+  kuv_meno_1: "KUV 1 – Meno a priezvisko",
+  kuv_rc_1: "KUV 1 – Rodné číslo",
+  kuv_podiel_1: "KUV 1 – % podiel",
+  kuv_meno_2: "KUV 2 – Meno a priezvisko",
+  kuv_rc_2: "KUV 2 – Rodné číslo",
+  kuv_podiel_2: "KUV 2 – % podiel",
+  kuv_meno_3: "KUV 3 – Meno a priezvisko",
+  kuv_rc_3: "KUV 3 – Rodné číslo",
+  kuv_podiel_3: "KUV 3 – % podiel",
+  ekon_peo: "PEO (Politicky exponovaná osoba)",
+  ekon_peo_zdovodnenie: "PEO – zdôvodnenie",
+  ekon_kuv: "Konečný užívateľ výhod",
+};
+
+function AmlCompliancePanel({
+  subject,
+  getFieldValue,
+  typeFields,
+  isEditing,
+  editValues,
+  setEditFieldValue,
+  getEditableValue,
+}: {
+  subject: Subject;
+  getFieldValue: (key: string) => string;
+  typeFields: StaticField[];
+  isEditing: boolean;
+  editValues: Record<string, string>;
+  setEditFieldValue: (key: string, value: string) => void;
+  getEditableValue: (key: string) => string;
+}) {
+  const [isOpen, setIsOpen] = useState(false);
+
+  const relevantFields = useMemo(() => {
+    return AML_FIELD_KEYS.filter(k => {
+      return typeFields.some(f => f.fieldKey === k);
+    });
+  }, [typeFields]);
+
+  const filledCount = useMemo(() => {
+    return relevantFields.filter(k => !!getFieldValue(k)).length;
+  }, [relevantFields, getFieldValue]);
+
+  const pepValue = getFieldValue("pep");
+  const peoValue = getFieldValue("ekon_peo");
+  const isPep = pepValue === "Áno";
+  const isPeo = peoValue === "Áno";
+
+  const isComplete = filledCount > 0 && (relevantFields.includes("pep") ? !!pepValue : true);
+  const semaphoreColor = isComplete ? "#22c55e" : "#f97316";
+
+  if (relevantFields.length === 0) return null;
+
+  return (
+    <Card className="mt-4 border-border/60" data-testid="panel-aml-compliance">
+      <div
+        className="flex items-center justify-between px-4 py-3 cursor-pointer hover:bg-muted/30 transition-colors"
+        onClick={() => setIsOpen(!isOpen)}
+        data-testid="panel-aml-toggle"
+      >
+        <div className="flex items-center gap-3">
+          <Shield className="w-4 h-4 text-amber-500" />
+          <span className="text-sm font-semibold">AML & Compliance</span>
+          <div
+            className="w-2.5 h-2.5 rounded-full shrink-0"
+            style={{ backgroundColor: semaphoreColor }}
+            title={isComplete ? "AML údaje kompletné" : "AML údaje nekompletné"}
+          />
+          <Badge variant="secondary" className="text-[10px] h-4">
+            {filledCount}/{relevantFields.length}
+          </Badge>
+          {isPep && (
+            <Badge className="text-[10px] h-4 bg-red-500/20 text-red-400 border-red-500/30">
+              PEP
+            </Badge>
+          )}
+          {isPeo && (
+            <Badge className="text-[10px] h-4 bg-red-500/20 text-red-400 border-red-500/30">
+              PEO
+            </Badge>
+          )}
+        </div>
+        <ChevronRight className={`w-4 h-4 text-muted-foreground transition-transform ${isOpen ? "rotate-90" : ""}`} />
+      </div>
+
+      {isOpen && (
+        <CardContent className="pt-0 pb-4 px-4 border-t border-border/40" data-testid="panel-aml-content">
+          <p className="text-[11px] text-muted-foreground mb-3 mt-2">
+            Preverenie identity, PEP status a história overenia. Údaje sú citlivé a prístupné len oprávneným používateľom.
+          </p>
+          <div className="grid grid-cols-3 gap-3">
+            {relevantFields.map(fieldKey => {
+              const label = AML_FIELD_LABELS[fieldKey] || fieldKey;
+              const value = isEditing ? getEditableValue(fieldKey) : getFieldValue(fieldKey);
+              return (
+                <div key={fieldKey} className="space-y-0.5" data-testid={`aml-field-${fieldKey}`}>
+                  <label className="text-xs font-medium text-muted-foreground">{label}</label>
+                  {isEditing ? (
+                    fieldKey === "pep" || fieldKey === "ekon_peo" ? (
+                      <Select value={value || "Nie"} onValueChange={v => setEditFieldValue(fieldKey, v)}>
+                        <SelectTrigger className="h-8 text-xs" data-testid={`aml-select-${fieldKey}`}>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="Áno">Áno</SelectItem>
+                          <SelectItem value="Nie">Nie</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    ) : (
+                      <Input
+                        className="h-8 text-xs"
+                        value={value}
+                        onChange={e => setEditFieldValue(fieldKey, e.target.value)}
+                        data-testid={`aml-input-${fieldKey}`}
+                      />
+                    )
+                  ) : (
+                    <div className="h-8 px-3 border rounded-md bg-muted/50 flex items-center text-xs" data-testid={`aml-display-${fieldKey}`}>
+                      {value ? (
+                        <span className={
+                          (fieldKey === "pep" || fieldKey === "ekon_peo") && value === "Áno"
+                            ? "text-red-400 font-semibold"
+                            : ""
+                        }>{value}</span>
+                      ) : (
+                        <span className="text-muted-foreground/50">—</span>
+                      )}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </CardContent>
+      )}
+    </Card>
   );
 }
 
