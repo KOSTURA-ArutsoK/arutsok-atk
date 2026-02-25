@@ -765,11 +765,13 @@ export function SubjektView({ subject, showPdfSidebar = false, isClientView = fa
   const [editReason, setEditReason] = useState("");
   const [fieldNotes, setFieldNotes] = useState<Record<string, string>>(() => {
     const prefs = (subject as any).uiPreferences;
-    return prefs?.field_notes || {};
+    const fn = prefs?.field_notes;
+    return (fn && typeof fn === "object" && !Array.isArray(fn)) ? fn : {};
   });
   const [summaryFields, setSummaryFields] = useState<Record<string, boolean>>(() => {
     const prefs = (subject as any).uiPreferences;
-    return prefs?.summary_fields || {};
+    const sf = prefs?.summary_fields;
+    return (sf && typeof sf === "object" && !Array.isArray(sf)) ? sf : {};
   });
 
   const isSuperAdmin = useMemo(() => {

@@ -1111,7 +1111,8 @@ export default function ContractForm() {
   const subjectSummaryItems = useMemo(() => {
     if (!selectedSubject || !matchedClientType) return [];
     const prefs = (selectedSubject as any).uiPreferences as { summary_fields?: Record<string, boolean> } | null;
-    const pinned = prefs?.summary_fields || {};
+    const sf = prefs?.summary_fields;
+    const pinned = (sf && typeof sf === "object" && !Array.isArray(sf)) ? sf : {};
     const pinnedKeys = Object.entries(pinned).filter(([, v]) => v).map(([k]) => k);
     if (pinnedKeys.length === 0) return [];
 
@@ -1133,7 +1134,7 @@ export default function ContractForm() {
         value = String(details[key] || "");
       }
       return { key, label, value };
-    }).filter(item => item.value.trim() !== "");
+    }).filter(item => item.value !== "" && item.value !== "undefined" && item.value !== "null");
   }, [selectedSubject, matchedClientType]);
 
   const PARAM_TO_SUBJECT_MAP: Record<string, { field: keyof Subject; label: string }> = {
