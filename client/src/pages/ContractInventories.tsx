@@ -37,7 +37,6 @@ import {
 } from "@/components/ui/select";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { ProcessingSaveButton } from "@/components/processing-save-button";
-import { SortableTableRow, SortableContext_Wrapper } from "@/components/sortable-list";
 import { useSmartFilter } from "@/hooks/use-smart-filter";
 import type { SmartColumnDef } from "@/hooks/use-smart-filter";
 import { SmartFilterBar } from "@/components/smart-filter-bar";
@@ -646,111 +645,93 @@ export default function ContractInventories() {
 
       <SmartFilterBar filter={tableFilter} />
 
-      <Card>
-        <CardContent className="p-0">
-          {isLoading ? (
-            <div className="flex items-center justify-center py-12">
-              <Loader2 className="w-6 h-6 animate-spin" />
-            </div>
-          ) : tableFilter.filteredData.length === 0 ? (
-            <p className="text-sm text-muted-foreground text-center py-12" data-testid="text-no-inventories">
-              Ziadne supisky
-            </p>
-          ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="w-10"></TableHead>
-                  {columnVisibility.isVisible("sortOrder") && <TableHead className="w-20">Poradie</TableHead>}
-                  {columnVisibility.isVisible("name") && <TableHead>Nazov</TableHead>}
-                  {columnVisibility.isVisible("sequenceNumber") && <TableHead>Cislo</TableHead>}
-                  {columnVisibility.isVisible("description") && <TableHead>Popis</TableHead>}
-                  {columnVisibility.isVisible("status") && <TableHead className="w-32">Stav</TableHead>}
-                  <TableHead className="w-24 text-right">Akcie</TableHead>
-                </TableRow>
-              </TableHeader>
-              <SortableContext_Wrapper items={tableFilter.filteredData} onReorder={handleReorder}>
-                <TableBody>
-                  {tableFilter.filteredData.map((inventory) => {
-                    const isExpanded = expandedIds.has(inventory.id);
-                    return (
-                      <>
-                        <SortableTableRow
-                          key={inventory.id}
-                          id={inventory.id}
-                          onRowClick={() => toggleExpand(inventory)}
-                          data-testid={`row-inventory-${inventory.id}`}
+      {isLoading ? (
+        <div className="flex items-center justify-center py-12">
+          <Loader2 className="w-6 h-6 animate-spin" />
+        </div>
+      ) : tableFilter.filteredData.length === 0 ? (
+        <p className="text-sm text-muted-foreground text-center py-12" data-testid="text-no-inventories">
+          Žiadne sprievodky
+        </p>
+      ) : (
+        <div className="space-y-4">
+          {tableFilter.filteredData.map((inventory) => {
+            const isExpanded = expandedIds.has(inventory.id);
+            return (
+              <div
+                key={inventory.id}
+                className={`rounded-lg border transition-all duration-200 ${
+                  isExpanded
+                    ? "border-border shadow-md bg-muted/20 dark:bg-muted/10 ring-1 ring-black/5 dark:ring-white/5"
+                    : "border-border/50 bg-card hover:border-border hover:shadow-sm"
+                }`}
+                data-testid={`row-inventory-${inventory.id}`}
+              >
+                <div
+                  className="flex items-center gap-3 px-4 py-3 cursor-pointer select-none"
+                  onClick={() => toggleExpand(inventory)}
+                >
+                  <ChevronDown className={`w-4 h-4 text-muted-foreground transition-transform duration-200 shrink-0 ${isExpanded ? "rotate-0" : "-rotate-90"}`} />
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-3 flex-wrap">
+                      <span className={`text-sm ${isExpanded ? "font-bold" : "font-semibold"}`} data-testid={`text-inventory-name-${inventory.id}`}>
+                        {inventory.name}
+                      </span>
+                      {columnVisibility.isVisible("sequenceNumber") && inventory.sequenceNumber && (
+                        <span className="font-mono text-xs text-muted-foreground" data-testid={`text-inventory-seq-${inventory.id}`}>
+                          č. {inventory.sequenceNumber}
+                        </span>
+                      )}
+                      {columnVisibility.isVisible("description") && inventory.description && (
+                        <span className="text-xs text-muted-foreground truncate max-w-[200px]" data-testid={`text-inventory-description-${inventory.id}`}>
+                          {inventory.description}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                  {columnVisibility.isVisible("status") && (
+                    <div className="flex items-center gap-1 shrink-0" data-testid={`badge-inventory-status-${inventory.id}`}>
+                      {inventory.isClosed ? (
+                        <Badge variant="destructive" className="text-[10px] px-1.5 py-0">Uzavretá</Badge>
+                      ) : (
+                        <Badge className="bg-green-600 text-white text-[10px] px-1.5 py-0">Otvorená</Badge>
+                      )}
+                      {inventory.isAccepted && (
+                        <Badge variant="outline" className="text-[10px] px-1.5 py-0 border-blue-500 text-blue-500">Prijatá</Badge>
+                      )}
+                      {inventory.isDispatched && !inventory.isAccepted && (
+                        <Badge variant="outline" className="text-[10px] px-1.5 py-0 border-amber-500 text-amber-500">Odoslaná</Badge>
+                      )}
+                    </div>
+                  )}
+                  <div className="flex items-center gap-0.5 shrink-0" onClick={e => e.stopPropagation()}>
+                    <PrintButton inventory={inventory} />
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          className="h-7 w-7"
+                          onClick={() => openEdit(inventory)}
+                          data-testid={`button-edit-inventory-${inventory.id}`}
                         >
-                          {columnVisibility.isVisible("sortOrder") && <TableCell className="font-mono text-sm" data-testid={`text-sort-order-${inventory.id}`}>
-                            {inventory.sortOrder}
-                          </TableCell>}
-                          {columnVisibility.isVisible("name") && <TableCell data-testid={`text-inventory-name-${inventory.id}`}>
-                            <div className="flex items-center gap-2">
-                              <ChevronDown className={`w-3.5 h-3.5 text-muted-foreground transition-transform duration-200 shrink-0 ${isExpanded ? "rotate-0" : "-rotate-90"}`} />
-                              <span>{inventory.name}</span>
-                            </div>
-                          </TableCell>}
-                          {columnVisibility.isVisible("sequenceNumber") && <TableCell className="font-mono text-sm" data-testid={`text-inventory-seq-${inventory.id}`}>
-                            {inventory.sequenceNumber ? `c. ${inventory.sequenceNumber}` : "-"}
-                          </TableCell>}
-                          {columnVisibility.isVisible("description") && <TableCell className="text-sm text-muted-foreground" data-testid={`text-inventory-description-${inventory.id}`}>
-                            {inventory.description || "—"}
-                          </TableCell>}
-                          {columnVisibility.isVisible("status") && <TableCell data-testid={`badge-inventory-status-${inventory.id}`}>
-                            <div className="flex items-center gap-1 flex-wrap">
-                              {inventory.isClosed ? (
-                                <Badge variant="destructive" className="text-xs">Uzavreta</Badge>
-                              ) : (
-                                <Badge className="bg-green-600 text-white text-xs">Otvorena</Badge>
-                              )}
-                              {inventory.isAccepted && (
-                                <Badge variant="outline" className="text-xs border-blue-500 text-blue-500">Prijata</Badge>
-                              )}
-                              {inventory.isDispatched && !inventory.isAccepted && (
-                                <Badge variant="outline" className="text-xs border-amber-500 text-amber-500">Odoslana</Badge>
-                              )}
-                            </div>
-                          </TableCell>}
-                          <TableCell className="text-right">
-                            <div className="flex items-center justify-end gap-0.5">
-                              <PrintButton inventory={inventory} />
-                              <Tooltip>
-                                <TooltipTrigger asChild>
-                                  <Button
-                                    size="icon"
-                                    variant="ghost"
-                                    className="h-7 w-7"
-                                    onClick={(e) => { e.stopPropagation(); openEdit(inventory); }}
-                                    data-testid={`button-edit-inventory-${inventory.id}`}
-                                  >
-                                    <Pencil className="w-3.5 h-3.5" />
-                                  </Button>
-                                </TooltipTrigger>
-                                <TooltipContent>Upraviť sprievodku</TooltipContent>
-                              </Tooltip>
-                            </div>
-                          </TableCell>
-                        </SortableTableRow>
-                        {isExpanded && (
-                          <TableRow key={`detail-${inventory.id}`} className="hover:bg-transparent border-0">
-                            <TableCell colSpan={99} className="p-0 border-0">
-                              <div className="mx-3 mb-3 mt-0 rounded-lg border border-border/60 bg-muted/30 dark:bg-muted/15 shadow-md ring-1 ring-black/5 dark:ring-white/5 overflow-hidden">
-                                <div className="px-5 py-4">
-                                  <InlineInventoryDetail inventory={inventory} />
-                                </div>
-                              </div>
-                            </TableCell>
-                          </TableRow>
-                        )}
-                      </>
-                    );
-                  })}
-                </TableBody>
-              </SortableContext_Wrapper>
-            </Table>
-          )}
-        </CardContent>
-      </Card>
+                          <Pencil className="w-3.5 h-3.5" />
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent>Upraviť sprievodku</TooltipContent>
+                    </Tooltip>
+                  </div>
+                </div>
+                {isExpanded && (
+                  <div className="border-t border-border/60 px-5 py-4 bg-muted/10 dark:bg-muted/5 rounded-b-lg">
+                    <InlineInventoryDetail inventory={inventory} />
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
 
       <InventoryFormDialog
         open={dialogOpen}
