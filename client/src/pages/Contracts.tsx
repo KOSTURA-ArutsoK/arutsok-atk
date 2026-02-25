@@ -3143,26 +3143,6 @@ export default function Contracts() {
             <div className="flex items-center gap-3 p-3 border-b">
               <XCircle className="w-4 h-4 text-red-500 shrink-0" />
               <p className="text-xs text-muted-foreground flex-1">Zmluvy, ktore neboli zaskrtnute pri prijati sprievodky.</p>
-              {activeRejected.length > 0 && (
-                <Button
-                  variant="default"
-                  size="sm"
-                  className="bg-blue-600 hover:bg-blue-700 text-white shrink-0"
-                  disabled={createSprievodkaFromObjMutation.isPending}
-                  onClick={() => {
-                    const ids = rerouteSelectedIds.length > 0 ? rerouteSelectedIds : activeRejected.map(c => c.id);
-                    createSprievodkaFromObjMutation.mutate(ids);
-                  }}
-                  data-testid="button-create-sprievodka-from-objections"
-                >
-                  {createSprievodkaFromObjMutation.isPending ? (
-                    <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" />
-                  ) : (
-                    <Plus className="w-3.5 h-3.5 mr-1.5" />
-                  )}
-                  Vytvoriť novú sprievodku z výhrad{rerouteSelectedIds.length > 0 ? ` (${rerouteSelectedIds.length})` : ` (${activeRejected.length})`}
-                </Button>
-              )}
             </div>
             {activeRejected.length > 0 && (
               <div className="px-3 py-1.5 text-[10px] text-amber-500 flex items-center gap-1">
@@ -3178,10 +3158,21 @@ export default function Contracts() {
               ) : renderContractTable(sortedRejected, { showStatus: true, showRegistration: true, showActions: true, showTimer: true, showRerouteCheckbox: true, sortState: { sortKey: skRej, sortDirection: sdRej, requestSort: rsRej } })}
             </CardContent>
             {rerouteSelectedIds.length > 0 && activeFolder === 3 && (
-              <div className="flex items-center justify-between p-3 border-t bg-amber-500/5">
+              <div className="flex items-center justify-between p-3 border-t bg-blue-500/10">
                 <span className="text-sm text-muted-foreground">Vybraných zmlúv: <span className="font-bold text-foreground">{rerouteSelectedIds.length}</span></span>
-                <Button variant="default" className="bg-amber-600 hover:bg-amber-700 text-white" onClick={() => handleReroute("neprijate")} data-testid="button-reroute-neprijate">
-                  <Send className="w-4 h-4 mr-2" />Odoslať späť na sprievodku
+                <Button
+                  variant="default"
+                  className="bg-blue-600 hover:bg-blue-700 text-white"
+                  disabled={createSprievodkaFromObjMutation.isPending}
+                  onClick={() => createSprievodkaFromObjMutation.mutate(rerouteSelectedIds)}
+                  data-testid="button-create-sprievodka-from-objections"
+                >
+                  {createSprievodkaFromObjMutation.isPending ? (
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  ) : (
+                    <Plus className="w-4 h-4 mr-2" />
+                  )}
+                  Vytvoriť novú sprievodku z výhrad ({rerouteSelectedIds.length})
                 </Button>
               </div>
             )}
