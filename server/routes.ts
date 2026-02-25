@@ -3455,7 +3455,7 @@ export async function registerRoutes(
     const contract = await storage.getContract(Number(req.params.id));
     if (!contract) return res.status(404).json({ message: "Contract not found" });
     const appUser = req.appUser;
-    if (appUser && appUser.activeStateId && contract.stateId && contract.stateId !== appUser.activeStateId && appUser.role !== 'superadmin') {
+    if (appUser && appUser.activeStateId && contract.stateId && contract.stateId !== appUser.activeStateId) {
       return res.status(403).json({ message: "Pristup k zmluve z ineho statu nie je povoleny" });
     }
     let userIco: string | null = null;
@@ -4026,7 +4026,7 @@ export async function registerRoutes(
       const old = await storage.getContract(Number(req.params.id));
       if (!old) return res.status(404).json({ message: "Contract not found" });
       const appUser = req.appUser;
-      if (appUser && appUser.activeStateId && old.stateId && old.stateId !== appUser.activeStateId && appUser.role !== 'superadmin') {
+      if (appUser && appUser.activeStateId && old.stateId && old.stateId !== appUser.activeStateId) {
         return res.status(403).json({ message: "Uprava zmluvy z ineho statu nie je povolena" });
       }
       if (old.isLocked && appUser && appUser.role !== 'admin' && appUser.role !== 'superadmin') {
@@ -4091,7 +4091,7 @@ export async function registerRoutes(
       if (!appUser) return res.status(404).json({ message: "User not found" });
       const contract = await storage.getContract(Number(req.params.id));
       if (!contract) return res.status(404).json({ message: "Contract not found" });
-      if (appUser.activeStateId && contract.stateId && contract.stateId !== appUser.activeStateId && appUser.role !== 'superadmin') {
+      if (appUser.activeStateId && contract.stateId && contract.stateId !== appUser.activeStateId) {
         return res.status(403).json({ message: "Vymazanie zmluvy z ineho statu nie je povolene" });
       }
       const ip = req.ip || req.headers['x-forwarded-for'] || req.socket.remoteAddress;
@@ -8577,7 +8577,7 @@ export async function registerRoutes(
       if (!contract) return res.status(404).json({ message: "Zmluva nenajdena" });
 
       const appUser = req.appUser;
-      if (appUser && appUser.activeStateId && contract.stateId && contract.stateId !== appUser.activeStateId && appUser.role !== 'superadmin') {
+      if (appUser && appUser.activeStateId && contract.stateId && contract.stateId !== appUser.activeStateId) {
         return res.status(403).json({ message: "Uprava zmluvy z ineho statu nie je povolena" });
       }
 
