@@ -1,0 +1,35 @@
+Tu je kompletný, podrobný a technicky špecifikovaný výstup z KTA 8, ktorý je pripravený priamo na vloženie do Replitu pre Agenta. Týmto kapitolu KTA 8 uzatvárame ako finálne zadefinovanú.
+
+🚩 VÝSTUP Z KTA 8: Archívna integrita a AML workflow
+Cieľ: Implementácia absolútnej zodpovednosti za dáta, zákaz prepisovania histórie a integrácia AML preverovania pri zachovaní maximálnej jednoduchosti systému (ATK Minimalist).
+
+📝 Inštrukcie pre Agenta:
+1. Pravidlo nemennosti (No-Overwrite Policy):
+
+Striktné verziovanie: Žiadne pole v systéme (Zmluvy, Subjekty, AML, GDPR) nesmie byť pri aktualizácii fyzicky prepísané.
+
+Database Logic: Každý UPDATE musí v skutočnosti vytvoriť nový záznam s inkrementovaným version_id. Pôvodná verzia (napr. pôvodný import z roku 2011) musí zostať v databáze navždy označená ako Version 1.
+
+Prístup k histórii: V rozhraní subjektu sprístupni prepínač verzií (Timeline), aby bolo možné vidieť stav dát v ktoromkoľvek bode v minulosti.
+
+2. Manuálna certifikácia a zodpovednosť:
+
+Zákaz hromadného schvaľovania: Odstraňujeme akékoľvek funkcie pre hromadné (bulk) potvrdzovanie AML. Každý záznam musí potvrdiť používateľ individuálne.
+
+Tlačidlo zodpovednosti: V paneli "AML & Compliance" (Sektor B) implementuj tlačidlo "Potvrdiť preverenie a prevziať zodpovednosť".
+
+Auditný zápis: Kliknutie na toto tlačidlo musí vygenerovať záznam do auditnej stopy (bubliny): "Používateľ [MENO] manuálne overil a prevzal zodpovednosť za AML/GDPR údaje dňa [DÁTUM]".
+
+3. Hybridný AML Workflow (Tichý pomocník):
+
+Background Check: Pri otvorení detailu subjektu systém na pozadí (ticho) vykoná cross-check voči napojeným registrom (RPO, Sankčné zoznamy, Interný blacklist).
+
+Vizuálna pomoc: Používateľovi sa v AML paneli zobrazia výsledky (Zelená/Oranžová/Červená), ktoré slúžia ako podklad pre jeho manuálne rozhodnutie o certifikácii.
+
+Legacy Mode: Záznamy migrované z historických databáz (napr. rok 2011) označ príznakom "Migrovaný záznam – čaká na manuálne overenie". Tieto záznamy nebudú agresívne hlásiť chybu, kým ich používateľ reálne neotvorí na prácu.
+
+4. Dokumentácia a Archív:
+
+Po manuálnom potvrdení (kliknutí na tlačidlo) systém automaticky vygeneruje PDF záznam (AML/GDPR), ktorý sa uloží do záložky "Dokumentácia" v Module (C).
+
+Tento PDF súbor je finálny a imutabilný. Ak sa údaje o klientovi v budúcnosti zmenia, musí sa vygenerovať nový dokument (verzia 2), pričom pôvodný v záložke Dokumentácia zostáva ako historický archív.
