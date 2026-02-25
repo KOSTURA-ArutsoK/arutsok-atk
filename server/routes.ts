@@ -2762,6 +2762,38 @@ export async function registerRoutes(
     }
   });
 
+  app.get("/api/contract-inventories/:id/contracts", isAuthenticated, async (req: any, res) => {
+    try {
+      const inventoryId = Number(req.params.id);
+      const contractsInInventory = await storage.getContracts({ inventoryId });
+      const allSubjects = await storage.getSubjects();
+      const subjectMap = new Map(allSubjects.map((s: any) => [s.id, s]));
+      const enriched = contractsInInventory.map((c: any) => {
+        const subj = c.subjectId ? subjectMap.get(c.subjectId) : null;
+        return {
+          id: c.id,
+          contractNumber: c.contractNumber,
+          proposalNumber: c.proposalNumber,
+          contractType: c.contractType,
+          lifecyclePhase: c.lifecyclePhase,
+          statusId: c.statusId,
+          sortOrderInInventory: c.sortOrderInInventory,
+          isDeleted: c.isDeleted,
+          subjectName: subj
+            ? (subj.type === 'person'
+              ? `${subj.lastName || ''}, ${subj.firstName || ''}`.replace(/^, |, $/g, '')
+              : subj.companyName || '')
+            : '—',
+          subjectUid: subj?.uid || null,
+        };
+      });
+      enriched.sort((a: any, b: any) => (a.sortOrderInInventory || 0) - (b.sortOrderInInventory || 0));
+      res.json(enriched);
+    } catch (err) {
+      res.status(500).json({ message: "Internal error" });
+    }
+  });
+
   app.put("/api/contract-inventories/reorder", isAuthenticated, async (req: any, res) => {
     try {
       const { items } = req.body;
