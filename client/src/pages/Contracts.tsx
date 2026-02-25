@@ -2130,6 +2130,20 @@ export default function Contracts() {
     onError: () => toast({ title: "Chyba", description: "Nepodarilo sa presmerovať zmluvy", variant: "destructive" }),
   });
 
+  const createSprievodkaFromObjMutation = useMutation({
+    mutationFn: async (contractIds: number[]) => {
+      const res = await apiRequest("POST", "/api/contract-inventories/reroute-objections", { contractIds });
+      return res.json();
+    },
+    onSuccess: (data: any) => {
+      invalidateContractCaches();
+      queryClient.invalidateQueries({ queryKey: ["/api/contract-inventories"] });
+      toast({ title: "Úspech", description: `Vytvorená nová sprievodka č. ${data.sequenceNumber} s ${data.rerouted} zmluvami` });
+      setRerouteSelectedIds([]);
+    },
+    onError: () => toast({ title: "Chyba", description: "Nepodarilo sa vytvoriť novú sprievodku", variant: "destructive" }),
+  });
+
   const REROUTE_CONFIG: Record<string, { targetPhase: number; targetLabel: string }> = {
     neprijate: { targetPhase: 2, targetLabel: "Odoslané na sprievodke (pôvodné ID)" },
     archiv: { targetPhase: 6, targetLabel: "Kontrakt v spracovaní" },
@@ -3129,6 +3143,26 @@ export default function Contracts() {
             <div className="flex items-center gap-3 p-3 border-b">
               <XCircle className="w-4 h-4 text-red-500 shrink-0" />
               <p className="text-xs text-muted-foreground flex-1">Zmluvy, ktore neboli zaskrtnute pri prijati sprievodky.</p>
+              {activeRejected.length > 0 && (
+                <Button
+                  variant="default"
+                  size="sm"
+                  className="bg-blue-600 hover:bg-blue-700 text-white shrink-0"
+                  disabled={createSprievodkaFromObjMutation.isPending}
+                  onClick={() => {
+                    const ids = rerouteSelectedIds.length > 0 ? rerouteSelectedIds : activeRejected.map(c => c.id);
+                    createSprievodkaFromObjMutation.mutate(ids);
+                  }}
+                  data-testid="button-create-sprievodka-from-objections"
+                >
+                  {createSprievodkaFromObjMutation.isPending ? (
+                    <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" />
+                  ) : (
+                    <Plus className="w-3.5 h-3.5 mr-1.5" />
+                  )}
+                  Vytvoriť novú sprievodku z výhrad{rerouteSelectedIds.length > 0 ? ` (${rerouteSelectedIds.length})` : ` (${activeRejected.length})`}
+                </Button>
+              )}
             </div>
             {activeRejected.length > 0 && (
               <div className="px-3 py-1.5 text-[10px] text-amber-500 flex items-center gap-1">
