@@ -256,9 +256,9 @@ function UnclassifiedTrendsNotice() {
 }
 
 function SubjectViewField({
-  field, value, isSummary, hasNote, noteText, pdfSidebarOpen, toggleSummaryField, onInlineSave, allFieldValues, subjectId,
+  field, value, isEmpty, isSummary, hasNote, noteText, pdfSidebarOpen, toggleSummaryField, onInlineSave, allFieldValues, subjectId,
 }: {
-  field: StaticField; value: string; isSummary: boolean; hasNote: boolean; noteText?: string;
+  field: StaticField; value: string; isEmpty?: boolean; isSummary: boolean; hasNote: boolean; noteText?: string;
   pdfSidebarOpen: boolean; toggleSummaryField: (key: string) => void;
   onInlineSave?: (fieldKey: string, newValue: string) => void;
   allFieldValues?: Record<string, string>;
@@ -341,7 +341,7 @@ function SubjectViewField({
       onDoubleClick={handleDoubleClick}
     >
       <span className="text-xs text-muted-foreground whitespace-nowrap">{field.shortLabel || field.label}:</span>
-      <span className={`text-sm font-medium truncate max-w-[200px] ${activeValidity?.textClass || ""} ${isExpiredNumber ? "text-red-500" : ""}`}>{displayValue}</span>
+      <span className={`text-sm font-medium truncate max-w-[200px] ${isEmpty ? "text-muted-foreground/50 italic font-normal" : ""} ${activeValidity?.textClass || ""} ${isExpiredNumber ? "text-red-500" : ""}`}>{displayValue}</span>
       {subjectId && (
         <FieldHistoryIndicator subjectId={subjectId} fieldKey={field.fieldKey} fieldLabel={field.label || field.fieldKey} />
       )}
@@ -395,9 +395,12 @@ function CategoriesAccordion({
   activeFieldHints, collectionCategories, dynamicFields,
   onCollectionAdd, onCollectionRemove, collectionCounts, subjectId,
 }: CategoriesAccordionProps) {
+  const ALWAYS_VISIBLE_CATEGORIES = new Set(["povinne"]);
+
   const visibleCats = useMemo(() => {
     if (isEditing) return tabCats;
     return tabCats.filter(cat => {
+      if (ALWAYS_VISIBLE_CATEGORIES.has(cat.code)) return true;
       const catFields = fieldsByCategory[cat.code] || [];
       if (catFields.length === 0) return false;
       return catFields.some(f => !!getFieldValue(f.fieldKey));
@@ -714,14 +717,16 @@ function CategoriesAccordion({
                       if (depVal !== field.visibilityRule.value) return null;
                     }
                     const value = getFieldValue(field.fieldKey);
-                    if (!value) return null;
+                    const isEssentialCategory = ALWAYS_VISIBLE_CATEGORIES.has(cat.code);
+                    if (!value && !isEssentialCategory) return null;
                     const allVals: Record<string, string> = {};
                     Object.values(fieldsByCategory).flat().forEach(f => { const v = getFieldValue(f.fieldKey); if (v) allVals[f.fieldKey] = v; });
                     return (
                       <SubjectViewField
                         key={field.fieldKey}
                         field={field}
-                        value={value}
+                        value={value || "Nezadané"}
+                        isEmpty={!value}
                         isSummary={!!summaryFields[field.fieldKey]}
                         hasNote={!!(isSuperAdmin && fieldNotes?.[field.fieldKey])}
                         noteText={fieldNotes?.[field.fieldKey]}
@@ -1350,7 +1355,12 @@ export function SubjektView({ subject, showPdfSidebar = false, isClientView = fa
                 const hasAmlDoc = subjectDocs?.some((d: any) => d.docType === "aml_record");
                 const pepVal = getFieldValue("pep");
                 const amlComplete = !!pepVal && pepVal !== "";
-                if (hasAmlDoc && amlComplete) {
+                const essentialKeys = ["meno", "priezvisko", "rodne_cislo", "datum_narodenia", "cislo_dokladu"];
+                const essentialFilled = essentialKeys.every(k => {
+                  const v = getFieldValue(k);
+                  return !!v && v !== "";
+                });
+                if (hasAmlDoc && amlComplete && essentialFilled) {
                   return <CheckCircle className="w-3 h-3 ml-1 text-emerald-500" />;
                 }
                 return <div className="w-2 h-2 rounded-full bg-amber-500 ml-1.5" />;
