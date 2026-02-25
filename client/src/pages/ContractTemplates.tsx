@@ -306,9 +306,10 @@ export default function ContractTemplates() {
     queryKey: ["/api/contract-templates"],
   });
 
-  const { data: allContracts } = useQuery<any[]>({
+  const { data: allContractsData } = useQuery<any>({
     queryKey: ["/api/contracts"],
   });
+  const allContracts: any[] = Array.isArray(allContractsData) ? allContractsData : (allContractsData?.contracts || []);
 
   const uploadMutation = useMutation({
     mutationFn: async ({ id, file }: { id: number; file: File }) => {
