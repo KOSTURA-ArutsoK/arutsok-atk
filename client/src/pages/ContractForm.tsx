@@ -764,6 +764,9 @@ export default function ContractForm() {
   const [subjectId, setSubjectId] = useState<string>("");
   const [expandedStatusLogs, setExpandedStatusLogs] = useState<Set<number>>(new Set());
   const [subjectAccordionOpen, setSubjectAccordionOpen] = useState(false);
+  const [vseobecneAccordionOpen, setVseobecneAccordionOpen] = useState(false);
+  const [udajeAccordionOpen, setUdajeAccordionOpen] = useState(false);
+  const [historiaAccordionOpen, setHistoriaAccordionOpen] = useState(true);
   const [partnerId, setPartnerId] = useState<string>("");
   const [statusId, setStatusId] = useState<string>("");
   const [statusFormStatusId, setStatusFormStatusId] = useState<string>("");
@@ -2411,8 +2414,6 @@ export default function ContractForm() {
 
           <div style={{ display: activeTab === "zhrnutie" ? 'block' : 'none' }}>
             <div className="space-y-3" data-testid="section-zhrnutie">
-              <h2 className="text-base font-semibold">Zhrnutie zmluvy</h2>
-
               {selectedSubject && (
                 <Card
                   className={`border-blue-500/30 bg-blue-500/5 cursor-pointer transition-all hover:shadow-md ${subjectAccordionOpen ? "ring-1 ring-blue-500/20" : ""}`}
@@ -2479,85 +2480,144 @@ export default function ContractForm() {
                 </Card>
               )}
 
-              <Card>
-                <CardContent className="p-4 space-y-2">
-                  <h3 className="text-sm font-semibold mb-2 flex items-center gap-1.5">
-                    <LayoutGrid className="w-3.5 h-3.5" />
-                    Všeobecné
-                  </h3>
-                  <div className="flex flex-wrap gap-2">
-                    {(() => {
-                      const inv = inventoryId ? inventories?.find(i => i.id.toString() === inventoryId) : null;
-                      return inv?.sequenceNumber ? <SummaryField label="Sprievodka" value={`#${inv.sequenceNumber}`} testId="summary-sprievodka" /> : null;
-                    })()}
-                    {(() => {
-                      const inv = inventoryId ? inventories?.find(i => i.id.toString() === inventoryId) : null;
-                      return inv?.name ? <SummaryField label="Súpiska" value={inv.name} testId="summary-supiska" /> : null;
-                    })()}
-                    {(() => { const v = partners?.find(p => p.id === (partnerId ? parseInt(partnerId) : -1))?.name; return v ? <SummaryField label="Partner" value={v} testId="summary-partner" /> : null; })()}
-                    {currentCompany?.name && <SummaryField label="Spoločnosť" value={currentCompany.name} testId="summary-company" />}
-                    {(() => { const v = templates?.find(t => t.id === (templateId ? parseInt(templateId) : -1))?.name; return v ? <SummaryField label="Šablóna" value={v} testId="summary-template" /> : null; })()}
-                    {(() => {
-                      const s = statuses?.find(s => s.id === (statusId ? parseInt(statusId) : -1));
-                      return s ? (
-                        <div className="inline-flex items-center gap-1.5 bg-muted/40 rounded-lg px-3 py-1.5 border border-border/50" data-testid="summary-status">
-                          <div className="text-[10px] text-muted-foreground uppercase tracking-wider">Stav</div>
-                          <div className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: s.color }} />
-                          <span className="text-sm font-semibold" style={{ color: s.color }}>{s.name}</span>
-                        </div>
-                      ) : null;
-                    })()}
-                    {(() => { const v = allStates?.find(s => s.id === (stateId ? parseInt(stateId) : -1))?.name; return v ? <SummaryField label="Štát" value={v} testId="summary-state" /> : null; })()}
+              <Card
+                className={`cursor-pointer transition-all hover:shadow-md ${vseobecneAccordionOpen ? "ring-1 ring-border/40" : ""}`}
+                onClick={() => setVseobecneAccordionOpen(prev => !prev)}
+                data-testid="summary-vseobecne-accordion"
+              >
+                <CardContent className="p-4">
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-sm font-semibold flex items-center gap-1.5">
+                      <LayoutGrid className="w-3.5 h-3.5" />
+                      Všeobecné
+                    </h3>
+                    <div className="flex items-center gap-2">
+                      {!vseobecneAccordionOpen && (() => {
+                        const s = statuses?.find(s => s.id === (statusId ? parseInt(statusId) : -1));
+                        return s ? (
+                          <div className="flex items-center gap-1.5">
+                            <div className="w-2 h-2 rounded-full" style={{ backgroundColor: s.color }} />
+                            <span className="text-xs font-medium" style={{ color: s.color }}>{s.name}</span>
+                          </div>
+                        ) : null;
+                      })()}
+                      {!vseobecneAccordionOpen && (() => { const v = partners?.find(p => p.id === (partnerId ? parseInt(partnerId) : -1))?.name; return v ? <span className="text-xs text-muted-foreground">{v}</span> : null; })()}
+                      <ChevronRight className={`w-4 h-4 text-muted-foreground transition-transform ${vseobecneAccordionOpen ? "rotate-90" : ""}`} />
+                    </div>
                   </div>
-                </CardContent>
-              </Card>
 
-              <Card>
-                <CardContent className="p-4 space-y-2">
-                  <h3 className="text-sm font-semibold mb-2 flex items-center gap-1.5">
-                    <ClipboardList className="w-3.5 h-3.5" />
-                    Údaje o zmluve
-                  </h3>
-                  <div className="flex flex-wrap gap-2">
-                    {(contractNumber) && <SummaryField label="Číslo zmluvy" value={contractNumber} testId="summary-contract-number" onEdit={v => setContractNumber(v)} />}
-                    {(proposalNumber) && <SummaryField label="Číslo návrhu" value={proposalNumber} testId="summary-proposal" onEdit={v => setProposalNumber(v)} />}
-                    <SummaryField label="Číslo kontraktu" value={existingContract?.globalNumber?.toString() || "Pridelené pri uložení"} testId="summary-global-number" />
-                    {(contractType) && <SummaryField label="Typ zmluvy" value={contractType} testId="summary-type" />}
-                    {(signingPlace) && <SummaryField label="Miesto podpisu" value={signingPlace} testId="summary-signing-place" onEdit={v => setSigningPlace(v)} />}
-                    {(() => { const sp = allSPForEdit?.find(p => p.id === (sectorProductId ? parseInt(sectorProductId) : -1)); return sp ? <SummaryField label="Produkt" value={`${sp.name}${sp.abbreviation ? ` (${sp.abbreviation})` : ''}`} testId="summary-product" /> : null; })()}
-                    {(() => { const v = PAYMENT_FREQUENCIES.find(f => f.value === paymentFrequency)?.label; return v ? <SummaryField label="Frekvencia platenia" value={v} testId="summary-frequency" /> : null; })()}
-                    {(premiumAmount) && <SummaryField label="Lehotné poistné" value={`${premiumAmount} ${currency}`} testId="summary-premium" mono onEdit={v => setPremiumAmount(v.replace(/[^0-9.,]/g, ""))} />}
-                    {(annualPremium) && <SummaryField label="Ročné poistné" value={`${annualPremium} ${currency}`} testId="summary-annual" mono onEdit={v => { setAnnualPremium(v.replace(/[^0-9.,]/g, "")); setAnnualPremiumUserEdited(true); }} />}
-                    {(existingContract as any)?.accessRole !== 'klient' && commissionAmount && <SummaryField label="Suma provízií" value={`${commissionAmount} ${currency}`} testId="summary-commission" mono onEdit={v => setCommissionAmount(v.replace(/[^0-9.,]/g, ""))} />}
-                    {(signedDate) && <SummaryField label="Dátum podpisu" value={signedDate} testId="summary-signed" onEdit={v => setSignedDate(v)} />}
-                    {(effectiveDate) && <SummaryField label="Účinnosť od" value={effectiveDate} testId="summary-effective" onEdit={v => setEffectiveDate(v)} />}
-                    {(expiryDate) && <SummaryField label="Koniec zmluvy" value={expiryDate} testId="summary-expiry" onEdit={v => setExpiryDate(v)} />}
-                    {existingContract?.isStamped && (
-                      <SummaryField label="Opečiatkované" value={existingContract?.stampedAt ? new Date(existingContract.stampedAt).toLocaleString("sk-SK", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" }) : "-"} testId="summary-stamped" />
-                    )}
-                  </div>
-                  {existingContract?.updatedAt && (() => {
-                    const days = Math.floor((Date.now() - new Date(existingContract.updatedAt).getTime()) / (1000 * 60 * 60 * 24));
-                    const sem = days < 30 ? { color: "#22c55e", label: "Čerstvé", desc: `${days} dní` }
-                      : days < 60 ? { color: "#f59e0b", label: "Starnúce", desc: `${days} dní` }
-                      : days <= 90 ? { color: "#ef4444", label: "Zastarané", desc: `${days} dní` }
-                      : { color: "#ef4444", label: "Expirované", desc: `${days} dní`, blink: true };
-                    return (
-                      <div className="flex items-center gap-2 mt-2 px-1" data-testid="freshness-semaphore-detail">
-                        <div className={`w-3 h-3 rounded-full shrink-0${(sem as any).blink ? " animate-pulse" : ""}`} style={{ backgroundColor: sem.color }} />
-                        <span className="text-xs font-medium" style={{ color: sem.color }}>{sem.label}</span>
-                        <span className="text-xs text-muted-foreground">({sem.desc} od poslednej aktualizácie)</span>
+                  {vseobecneAccordionOpen && (
+                    <div className="mt-3 pt-3 border-t border-border/50" onClick={e => e.stopPropagation()}>
+                      <div className="flex flex-wrap gap-2">
+                        {(() => {
+                          const inv = inventoryId ? inventories?.find(i => i.id.toString() === inventoryId) : null;
+                          return inv?.sequenceNumber ? <SummaryField label="Sprievodka" value={`#${inv.sequenceNumber}`} testId="summary-sprievodka" /> : null;
+                        })()}
+                        {(() => {
+                          const inv = inventoryId ? inventories?.find(i => i.id.toString() === inventoryId) : null;
+                          return inv?.name ? <SummaryField label="Súpiska" value={inv.name} testId="summary-supiska" /> : null;
+                        })()}
+                        {(() => { const v = partners?.find(p => p.id === (partnerId ? parseInt(partnerId) : -1))?.name; return v ? <SummaryField label="Partner" value={v} testId="summary-partner" /> : null; })()}
+                        {currentCompany?.name && <SummaryField label="Spoločnosť" value={currentCompany.name} testId="summary-company" />}
+                        {(() => { const v = templates?.find(t => t.id === (templateId ? parseInt(templateId) : -1))?.name; return v ? <SummaryField label="Šablóna" value={v} testId="summary-template" /> : null; })()}
+                        {(() => {
+                          const s = statuses?.find(s => s.id === (statusId ? parseInt(statusId) : -1));
+                          return s ? (
+                            <div className="inline-flex items-center gap-1.5 bg-muted/40 rounded-lg px-3 py-1.5 border border-border/50" data-testid="summary-status">
+                              <div className="text-[10px] text-muted-foreground uppercase tracking-wider">Stav</div>
+                              <div className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: s.color }} />
+                              <span className="text-sm font-semibold" style={{ color: s.color }}>{s.name}</span>
+                            </div>
+                          ) : null;
+                        })()}
+                        {(() => { const v = allStates?.find(s => s.id === (stateId ? parseInt(stateId) : -1))?.name; return v ? <SummaryField label="Štát" value={v} testId="summary-state" /> : null; })()}
                       </div>
-                    );
-                  })()}
+                    </div>
+                  )}
                 </CardContent>
               </Card>
 
-              <div>
-                <h3 className="text-sm font-semibold mb-3 flex items-center gap-1.5">
-                  <History className="w-4 h-4" />
-                  Historia stavov ({(statusChangeLogs || []).length})
-                </h3>
+              <Card
+                className={`cursor-pointer transition-all hover:shadow-md ${udajeAccordionOpen ? "ring-1 ring-border/40" : ""}`}
+                onClick={() => setUdajeAccordionOpen(prev => !prev)}
+                data-testid="summary-udaje-accordion"
+              >
+                <CardContent className="p-4">
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-sm font-semibold flex items-center gap-1.5">
+                      <ClipboardList className="w-3.5 h-3.5" />
+                      Údaje o zmluve
+                    </h3>
+                    <div className="flex items-center gap-2">
+                      {!udajeAccordionOpen && contractNumber && <span className="text-xs font-mono text-muted-foreground">{contractNumber}</span>}
+                      {!udajeAccordionOpen && premiumAmount && <span className="text-xs font-mono text-muted-foreground">{premiumAmount} {currency}</span>}
+                      {!udajeAccordionOpen && existingContract?.updatedAt && (() => {
+                        const days = Math.floor((Date.now() - new Date(existingContract.updatedAt).getTime()) / (1000 * 60 * 60 * 24));
+                        const color = days < 30 ? "#22c55e" : days < 60 ? "#f59e0b" : "#ef4444";
+                        return <div className={`w-2.5 h-2.5 rounded-full shrink-0${days > 90 ? " animate-pulse" : ""}`} style={{ backgroundColor: color }} />;
+                      })()}
+                      <ChevronRight className={`w-4 h-4 text-muted-foreground transition-transform ${udajeAccordionOpen ? "rotate-90" : ""}`} />
+                    </div>
+                  </div>
+
+                  {udajeAccordionOpen && (
+                    <div className="mt-3 pt-3 border-t border-border/50 space-y-2" onClick={e => e.stopPropagation()}>
+                      <div className="flex flex-wrap gap-2">
+                        {(contractNumber) && <SummaryField label="Číslo zmluvy" value={contractNumber} testId="summary-contract-number" onEdit={v => setContractNumber(v)} />}
+                        {(proposalNumber) && <SummaryField label="Číslo návrhu" value={proposalNumber} testId="summary-proposal" onEdit={v => setProposalNumber(v)} />}
+                        <SummaryField label="Číslo kontraktu" value={existingContract?.globalNumber?.toString() || "Pridelené pri uložení"} testId="summary-global-number" />
+                        {(contractType) && <SummaryField label="Typ zmluvy" value={contractType} testId="summary-type" />}
+                        {(signingPlace) && <SummaryField label="Miesto podpisu" value={signingPlace} testId="summary-signing-place" onEdit={v => setSigningPlace(v)} />}
+                        {(() => { const sp = allSPForEdit?.find(p => p.id === (sectorProductId ? parseInt(sectorProductId) : -1)); return sp ? <SummaryField label="Produkt" value={`${sp.name}${sp.abbreviation ? ` (${sp.abbreviation})` : ''}`} testId="summary-product" /> : null; })()}
+                        {(() => { const v = PAYMENT_FREQUENCIES.find(f => f.value === paymentFrequency)?.label; return v ? <SummaryField label="Frekvencia platenia" value={v} testId="summary-frequency" /> : null; })()}
+                        {(premiumAmount) && <SummaryField label="Lehotné poistné" value={`${premiumAmount} ${currency}`} testId="summary-premium" mono onEdit={v => setPremiumAmount(v.replace(/[^0-9.,]/g, ""))} />}
+                        {(annualPremium) && <SummaryField label="Ročné poistné" value={`${annualPremium} ${currency}`} testId="summary-annual" mono onEdit={v => { setAnnualPremium(v.replace(/[^0-9.,]/g, "")); setAnnualPremiumUserEdited(true); }} />}
+                        {(existingContract as any)?.accessRole !== 'klient' && commissionAmount && <SummaryField label="Suma provízií" value={`${commissionAmount} ${currency}`} testId="summary-commission" mono onEdit={v => setCommissionAmount(v.replace(/[^0-9.,]/g, ""))} />}
+                        {(signedDate) && <SummaryField label="Dátum podpisu" value={signedDate} testId="summary-signed" onEdit={v => setSignedDate(v)} />}
+                        {(effectiveDate) && <SummaryField label="Účinnosť od" value={effectiveDate} testId="summary-effective" onEdit={v => setEffectiveDate(v)} />}
+                        {(expiryDate) && <SummaryField label="Koniec zmluvy" value={expiryDate} testId="summary-expiry" onEdit={v => setExpiryDate(v)} />}
+                        {existingContract?.isStamped && (
+                          <SummaryField label="Opečiatkované" value={existingContract?.stampedAt ? new Date(existingContract.stampedAt).toLocaleString("sk-SK", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" }) : "-"} testId="summary-stamped" />
+                        )}
+                      </div>
+                      {existingContract?.updatedAt && (() => {
+                        const days = Math.floor((Date.now() - new Date(existingContract.updatedAt).getTime()) / (1000 * 60 * 60 * 24));
+                        const sem = days < 30 ? { color: "#22c55e", label: "Čerstvé", desc: `${days} dní` }
+                          : days < 60 ? { color: "#f59e0b", label: "Starnúce", desc: `${days} dní` }
+                          : days <= 90 ? { color: "#ef4444", label: "Zastarané", desc: `${days} dní` }
+                          : { color: "#ef4444", label: "Expirované", desc: `${days} dní`, blink: true };
+                        return (
+                          <div className="flex items-center gap-2 mt-2 px-1" data-testid="freshness-semaphore-detail">
+                            <div className={`w-3 h-3 rounded-full shrink-0${(sem as any).blink ? " animate-pulse" : ""}`} style={{ backgroundColor: sem.color }} />
+                            <span className="text-xs font-medium" style={{ color: sem.color }}>{sem.label}</span>
+                            <span className="text-xs text-muted-foreground">({sem.desc} od poslednej aktualizácie)</span>
+                          </div>
+                        );
+                      })()}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+
+              <Card
+                className={`cursor-pointer transition-all hover:shadow-md ${historiaAccordionOpen ? "ring-1 ring-border/40" : ""}`}
+                onClick={() => setHistoriaAccordionOpen(prev => !prev)}
+                data-testid="summary-historia-accordion"
+              >
+                <CardContent className="p-4">
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-sm font-semibold flex items-center gap-1.5">
+                      <History className="w-4 h-4" />
+                      História stavov
+                    </h3>
+                    <div className="flex items-center gap-2">
+                      <Badge variant="secondary" className="text-[10px] h-4">{(statusChangeLogs || []).length} {(statusChangeLogs || []).length === 1 ? "zmena" : (statusChangeLogs || []).length < 5 ? "zmeny" : "zmien"}</Badge>
+                      <ChevronRight className={`w-4 h-4 text-muted-foreground transition-transform ${historiaAccordionOpen ? "rotate-90" : ""}`} />
+                    </div>
+                  </div>
+
+                  {historiaAccordionOpen && (
+                    <div className="mt-3 pt-3 border-t border-border/50" onClick={e => e.stopPropagation()}>
                 {(!statusChangeLogs || statusChangeLogs.length === 0) && contractId && (
                   <div className="text-center py-6" data-testid="text-no-status-history">
                     <History className="w-8 h-8 text-muted-foreground/30 mx-auto mb-2" />
@@ -2668,9 +2728,12 @@ export default function ContractForm() {
                         </div>
                       );
                     })}
-                  </div>
-                )}
-              </div>
+                      </div>
+                    )}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
 
             </div>
           </div>
