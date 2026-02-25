@@ -2138,6 +2138,7 @@ export default function Contracts() {
     onSuccess: (data: any) => {
       invalidateContractCaches();
       queryClient.invalidateQueries({ queryKey: ["/api/contract-inventories"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/contract-inventories/summary"] });
       toast({ title: "Úspech", description: `Vytvorená nová sprievodka č. ${data.sequenceNumber} s ${data.rerouted} zmluvami` });
       setRerouteSelectedIds([]);
     },
@@ -2392,7 +2393,7 @@ export default function Contracts() {
                   </TableCell>
                 )}
                 {showRerouteCheckbox && (
-                  <TableCell style={{ width: 40, minWidth: 40, maxWidth: 40, padding: '0 8px' }}>
+                  <TableCell style={{ width: 40, minWidth: 40, maxWidth: 40, padding: '0 8px' }} onClick={e => e.stopPropagation()}>
                     <Checkbox
                       checked={rerouteSelectedIds.includes(contract.id)}
                       onCheckedChange={() => toggleRerouteSelect(contract.id)}
@@ -3150,15 +3151,8 @@ export default function Contracts() {
                 <span>Dynamický timer: Lehota výhrady závisí od nastavenia produktu. Zmluvy po uplynutí lehoty budú automaticky archivované.</span>
               </div>
             )}
-            <CardContent className="p-0">
-              {isLoadingRejected ? (
-                <div className="flex items-center justify-center py-8"><Loader2 className="w-5 h-5 animate-spin" /></div>
-              ) : filteredRejected.length === 0 ? (
-                <p className="text-sm text-muted-foreground text-center py-8" data-testid="text-no-neprijate">Ziadne neprijate zmluvy</p>
-              ) : renderContractTable(sortedRejected, { showStatus: true, showRegistration: true, showActions: true, showTimer: true, showRerouteCheckbox: true, sortState: { sortKey: skRej, sortDirection: sdRej, requestSort: rsRej } })}
-            </CardContent>
             {rerouteSelectedIds.length > 0 && activeFolder === 3 && (
-              <div className="flex items-center justify-between p-3 border-t bg-blue-500/10">
+              <div className="flex items-center justify-between p-3 border-b bg-blue-500/10">
                 <span className="text-sm text-muted-foreground">Vybraných zmlúv: <span className="font-bold text-foreground">{rerouteSelectedIds.length}</span></span>
                 <Button
                   variant="default"
@@ -3176,6 +3170,13 @@ export default function Contracts() {
                 </Button>
               </div>
             )}
+            <CardContent className="p-0">
+              {isLoadingRejected ? (
+                <div className="flex items-center justify-center py-8"><Loader2 className="w-5 h-5 animate-spin" /></div>
+              ) : filteredRejected.length === 0 ? (
+                <p className="text-sm text-muted-foreground text-center py-8" data-testid="text-no-neprijate">Ziadne neprijate zmluvy</p>
+              ) : renderContractTable(sortedRejected, { showStatus: true, showRegistration: true, showActions: true, showTimer: true, showRerouteCheckbox: true, sortState: { sortKey: skRej, sortDirection: sdRej, requestSort: rsRej } })}
+            </CardContent>
           </Card>
         </div>
 
