@@ -242,22 +242,6 @@ export function AppSidebar() {
     staleTime: 1000 * 60 * 5,
   });
 
-  type InventorySummary = { id: number; name: string; sequenceNumber: number | null; createdAt: string | null; semaphoreColor: string };
-  const { data: inventorySummaries } = useQuery<InventorySummary[]>({
-    queryKey: ["/api/contract-inventories/summary"],
-    queryFn: () => fetch("/api/contract-inventories/summary", { credentials: "include" }).then(r => r.json()),
-    staleTime: 1000 * 30,
-  });
-
-  const SEMAPHORE_BG: Record<string, string> = {
-    red: "bg-red-500",
-    orange: "bg-orange-500",
-    blue: "bg-blue-500",
-    black: "bg-black dark:bg-gray-300",
-    green: "bg-green-500",
-    gray: "bg-gray-400",
-  };
-
   const allMenus = [
     { id: "nastavenia", items: [...spravaPristupovItems, ...specifikacieItems, ...nastavenieDirectItems] },
     { id: "sprava-pristupov", items: spravaPristupovItems },
@@ -558,49 +542,20 @@ export function AppSidebar() {
                           </CollapsibleTrigger>
                           <CollapsibleContent>
                             <div className="ml-2 border-l border-border pl-1.5 mt-1 space-y-0.5">
-                              <SidebarMenuSubItem>
-                                <SidebarMenuSubButton
-                                  asChild
-                                  isActive={location === "/contract-inventories"}
-                                  data-testid="nav-sprievodky"
-                                >
-                                  <Link href="/contract-inventories">
-                                    <FileStack className="w-3.5 h-3.5" />
-                                    <span>Sprievodky</span>
-                                  </Link>
-                                </SidebarMenuSubButton>
-                              </SidebarMenuSubItem>
-                              {inventorySummaries && inventorySummaries.length > 0 && (
-                                <div className="ml-3 border-l border-border/50 pl-1.5 space-y-0.5">
-                                  {inventorySummaries.map(inv => (
-                                    <SidebarMenuSubItem key={inv.id}>
-                                      <SidebarMenuSubButton
-                                        asChild
-                                        data-testid={`nav-inventory-${inv.id}`}
-                                      >
-                                        <Link href="/contract-inventories">
-                                          <span className={`w-2 h-2 rounded-full shrink-0 ${SEMAPHORE_BG[inv.semaphoreColor] || "bg-gray-400"}`} />
-                                          <span className="text-xs truncate">
-                                            {inv.sequenceNumber ? `Sprievodka č. ${inv.sequenceNumber}` : inv.name}
-                                          </span>
-                                        </Link>
-                                      </SidebarMenuSubButton>
-                                    </SidebarMenuSubItem>
-                                  ))}
-                                </div>
-                              )}
-                              <SidebarMenuSubItem>
-                                <SidebarMenuSubButton
-                                  asChild
-                                  isActive={location === "/supisky"}
-                                  data-testid="nav-supisky"
-                                >
-                                  <Link href="/supisky">
-                                    <ClipboardList className="w-3.5 h-3.5" />
-                                    <span>Supisky</span>
-                                  </Link>
-                                </SidebarMenuSubButton>
-                              </SidebarMenuSubItem>
+                              {protokolyChildren.map(item => (
+                                <SidebarMenuSubItem key={item.href}>
+                                  <SidebarMenuSubButton
+                                    asChild
+                                    isActive={location === item.href}
+                                    data-testid={`nav-${item.label.toLowerCase().replace(/\s/g, '-')}`}
+                                  >
+                                    <Link href={item.href}>
+                                      <item.icon className="w-3.5 h-3.5" />
+                                      <span>{item.label}</span>
+                                    </Link>
+                                  </SidebarMenuSubButton>
+                                </SidebarMenuSubItem>
+                              ))}
                             </div>
                           </CollapsibleContent>
                         </Collapsible>

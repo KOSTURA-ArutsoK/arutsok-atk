@@ -473,7 +473,7 @@ export default function ContractInventories() {
 
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingInventory, setEditingInventory] = useState<ContractInventory | null>(null);
-  const [expandedId, setExpandedId] = useState<number | null>(null);
+  const [expandedIds, setExpandedIds] = useState<Set<number>>(new Set());
 
   const { data: inventories, isLoading } = useQuery<ContractInventory[]>({
     queryKey: ["/api/contract-inventories"],
@@ -513,7 +513,15 @@ export default function ContractInventories() {
   }
 
   function toggleExpand(inventory: ContractInventory) {
-    setExpandedId(prev => prev === inventory.id ? null : inventory.id);
+    setExpandedIds(prev => {
+      const next = new Set(prev);
+      if (next.has(inventory.id)) {
+        next.delete(inventory.id);
+      } else {
+        next.add(inventory.id);
+      }
+      return next;
+    });
   }
 
   return (
@@ -551,7 +559,7 @@ export default function ContractInventories() {
               <SortableContext_Wrapper items={tableFilter.filteredData} onReorder={handleReorder}>
                 <TableBody>
                   {tableFilter.filteredData.map((inventory) => {
-                    const isExpanded = expandedId === inventory.id;
+                    const isExpanded = expandedIds.has(inventory.id);
                     return (
                       <>
                         <SortableTableRow
