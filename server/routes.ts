@@ -4558,7 +4558,7 @@ export async function registerRoutes(
     const group = await storage.getClientGroup(Number(req.params.id));
     if (!group) return res.status(404).json({ message: "Skupina nenajdena" });
     const enforcedState = getEnforcedStateId(req);
-    if (enforcedState && group.stateId !== enforcedState) {
+    if (enforcedState && group.stateId !== null && group.stateId !== enforcedState) {
       return res.status(403).json({ message: "Pristup zamietnuty" });
     }
     res.json(group);
@@ -4583,7 +4583,7 @@ export async function registerRoutes(
       if (enforcedState && items && items.length > 0) {
         for (const item of items) {
           const group = await storage.getClientGroup(item.id);
-          if (!group || group.stateId !== enforcedState) {
+          if (!group || (group.stateId !== null && group.stateId !== enforcedState)) {
             return res.status(403).json({ message: "Pristup zamietnuty" });
           }
         }
@@ -4601,7 +4601,7 @@ export async function registerRoutes(
       const existing = await storage.getClientGroup(Number(req.params.id));
       if (!existing) return res.status(404).json({ message: "Skupina nenajdena" });
       const enforcedState = getEnforcedStateId(req);
-      if (enforcedState && existing.stateId !== enforcedState) {
+      if (enforcedState && existing.stateId !== null && existing.stateId !== enforcedState) {
         return res.status(403).json({ message: "Pristup zamietnuty" });
       }
       const input = api.clientGroupsApi.update.input.parse(req.body);
@@ -4622,7 +4622,7 @@ export async function registerRoutes(
         return res.status(403).json({ message: "Systémovú skupinu nie je možné zmazať" });
       }
       const enforcedState = getEnforcedStateId(req);
-      if (enforcedState && existing.stateId !== enforcedState) {
+      if (enforcedState && existing.stateId !== null && existing.stateId !== enforcedState) {
         return res.status(403).json({ message: "Pristup zamietnuty" });
       }
       const members = await storage.getClientGroupMembers(Number(req.params.id));
@@ -4642,7 +4642,7 @@ export async function registerRoutes(
     const group = await storage.getClientGroup(Number(req.params.groupId));
     if (!group) return res.status(404).json({ message: "Skupina nenajdena" });
     const enforcedState = getEnforcedStateId(req);
-    if (enforcedState && group.stateId !== enforcedState) {
+    if (enforcedState && group.stateId !== null && group.stateId !== enforcedState) {
       return res.status(403).json({ message: "Pristup zamietnuty" });
     }
     const subGroups = await storage.getClientSubGroups(Number(req.params.groupId));
@@ -4658,7 +4658,7 @@ export async function registerRoutes(
       const group = await storage.getClientGroup(Number(req.params.groupId));
       if (!group) return res.status(404).json({ message: "Skupina nenajdena" });
       const enforcedState = getEnforcedStateId(req);
-      if (enforcedState && group.stateId !== enforcedState) {
+      if (enforcedState && group.stateId !== null && group.stateId !== enforcedState) {
         return res.status(403).json({ message: "Pristup zamietnuty" });
       }
       const data = { ...req.body, groupId: Number(req.params.groupId) };
@@ -4677,7 +4677,7 @@ export async function registerRoutes(
       const group = await storage.getClientGroup(subGroup.groupId);
       if (!group) return res.status(404).json({ message: "Skupina nenajdena" });
       const enforcedState = getEnforcedStateId(req);
-      if (enforcedState && group.stateId !== enforcedState) {
+      if (enforcedState && group.stateId !== null && group.stateId !== enforcedState) {
         return res.status(403).json({ message: "Pristup zamietnuty" });
       }
       await storage.deleteClientSubGroup(Number(req.params.id));
@@ -4697,7 +4697,7 @@ export async function registerRoutes(
           const sg = await db.select().from(clientSubGroups).where(eq(clientSubGroups.id, item.id)).then(r => r[0]);
           if (!sg) return res.status(404).json({ message: "Podskupina nenajdena" });
           const group = await storage.getClientGroup(sg.groupId);
-          if (!group || group.stateId !== enforcedState) {
+          if (!group || (group.stateId !== null && group.stateId !== enforcedState)) {
             return res.status(403).json({ message: "Pristup zamietnuty" });
           }
         }
@@ -4714,7 +4714,7 @@ export async function registerRoutes(
     const group = await storage.getClientGroup(Number(req.params.groupId));
     if (!group) return res.status(404).json({ message: "Skupina nenajdena" });
     const enforcedState = getEnforcedStateId(req);
-    if (enforcedState && group.stateId !== enforcedState) {
+    if (enforcedState && group.stateId !== null && group.stateId !== enforcedState) {
       return res.status(403).json({ message: "Pristup zamietnuty" });
     }
     const members = await storage.getClientGroupMembers(Number(req.params.groupId));
@@ -4726,7 +4726,7 @@ export async function registerRoutes(
       const group = await storage.getClientGroup(Number(req.params.groupId));
       if (!group) return res.status(404).json({ message: "Skupina nenajdena" });
       const enforcedState = getEnforcedStateId(req);
-      if (enforcedState && group.stateId !== enforcedState) {
+      if (enforcedState && group.stateId !== null && group.stateId !== enforcedState) {
         return res.status(403).json({ message: "Pristup zamietnuty" });
       }
       const data = { ...req.body, groupId: Number(req.params.groupId) };
@@ -4745,7 +4745,7 @@ export async function registerRoutes(
       const group = await storage.getClientGroup(member.groupId);
       if (!group) return res.status(404).json({ message: "Skupina nenajdena" });
       const enforcedState = getEnforcedStateId(req);
-      if (enforcedState && group.stateId !== enforcedState) {
+      if (enforcedState && group.stateId !== null && group.stateId !== enforcedState) {
         return res.status(403).json({ message: "Pristup zamietnuty" });
       }
       await storage.removeClientGroupMember(Number(req.params.id));
@@ -4762,7 +4762,7 @@ export async function registerRoutes(
       const group = await storage.getClientGroup(Number(req.params.groupId));
       if (!group) return res.status(404).json({ message: "Skupina nenajdena" });
       const enforcedState = getEnforcedStateId(req);
-      if (enforcedState && group.stateId !== enforcedState) {
+      if (enforcedState && group.stateId !== null && group.stateId !== enforcedState) {
         return res.status(403).json({ message: "Pristup zamietnuty" });
       }
       const { subjectIds } = req.body;
