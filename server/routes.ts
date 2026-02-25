@@ -2762,6 +2762,62 @@ export async function registerRoutes(
     }
   });
 
+  app.get("/api/contract-inventories/summary", isAuthenticated, async (req: any, res) => {
+    try {
+      const stateId = getEnforcedStateId(req);
+      const allInventories = await storage.getContractInventories(stateId);
+
+      const allContracts = await db.select({
+        id: contracts.id,
+        inventoryId: contracts.inventoryId,
+        lifecyclePhase: contracts.lifecyclePhase,
+        isDeleted: contracts.isDeleted,
+      }).from(contracts).where(isNotNull(contracts.inventoryId));
+
+      const contractsByInventory = new Map<number, { lifecyclePhase: number | null; isDeleted: boolean }[]>();
+      for (const c of allContracts) {
+        if (!c.inventoryId) continue;
+        if (!contractsByInventory.has(c.inventoryId)) contractsByInventory.set(c.inventoryId, []);
+        contractsByInventory.get(c.inventoryId)!.push(c);
+      }
+
+      const result = allInventories
+        .sort((a, b) => {
+          const aT = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+          const bT = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+          return bT - aT;
+        })
+        .map(inv => {
+          const invContracts = contractsByInventory.get(inv.id) || [];
+          let semaphoreColor = "gray";
+          if (invContracts.length > 0) {
+            const hasPhase3 = invContracts.some(c => !c.isDeleted && c.lifecyclePhase === 3);
+            const hasPhase7 = invContracts.some(c => !c.isDeleted && c.lifecyclePhase === 7);
+            const allPhase2 = invContracts.every(c => c.lifecyclePhase === 2 && !c.isDeleted);
+            const allArchiv = invContracts.every(c => c.isDeleted || c.lifecyclePhase === 4);
+            const allGreen = invContracts.every(c => !c.isDeleted && (c.lifecyclePhase || 0) >= 5 && c.lifecyclePhase !== 7);
+
+            if (hasPhase3) semaphoreColor = "red";
+            else if (hasPhase7) semaphoreColor = "orange";
+            else if (allPhase2) semaphoreColor = "blue";
+            else if (allArchiv) semaphoreColor = "black";
+            else if (allGreen) semaphoreColor = "green";
+          }
+          return {
+            id: inv.id,
+            name: inv.name,
+            sequenceNumber: inv.sequenceNumber,
+            createdAt: inv.createdAt,
+            semaphoreColor,
+          };
+        });
+
+      res.json(result);
+    } catch (err) {
+      res.status(500).json({ message: "Internal error" });
+    }
+  });
+
   app.get("/api/contract-inventories/:id/contracts", isAuthenticated, async (req: any, res) => {
     try {
       const inventoryId = Number(req.params.id);

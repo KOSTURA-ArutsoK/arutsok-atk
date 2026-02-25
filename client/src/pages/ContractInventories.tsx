@@ -7,7 +7,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useColumnVisibility, type ColumnDef } from "@/hooks/use-column-visibility";
 import { ColumnManager } from "@/components/column-manager";
 import type { ContractInventory } from "@shared/schema";
-import { Pencil, Trash2, Loader2, Eye, Printer, Circle } from "lucide-react";
+import { Pencil, Loader2, Printer, Circle, ChevronDown } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -109,46 +109,111 @@ type InventoryContractRow = {
   subjectUid: string | null;
 };
 
-function InventoryDetailDialog({
-  inventory,
-  open,
-  onOpenChange,
-}: {
-  inventory: ContractInventory;
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-}) {
+function InlineInventoryDetail({ inventory }: { inventory: ContractInventory }) {
   const { data: contracts, isLoading } = useQuery<InventoryContractRow[]>({
     queryKey: ["/api/contract-inventories", inventory.id, "contracts"],
     queryFn: () => fetch(`/api/contract-inventories/${inventory.id}/contracts`, { credentials: "include" }).then(r => r.json()),
-    enabled: open,
   });
 
-  const printRef = useRef<HTMLDivElement>(null);
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center py-4">
+        <Loader2 className="w-4 h-4 animate-spin mr-2" />
+        <span className="text-xs text-muted-foreground">Načítavam zmluvy...</span>
+      </div>
+    );
+  }
 
-  function handlePrint() {
-    const content = printRef.current;
-    if (!content) return;
-    const printWindow = window.open("", "_blank", "width=800,height=600");
-    if (!printWindow) return;
+  if (!contracts || contracts.length === 0) {
+    return (
+      <p className="text-xs text-muted-foreground text-center py-4" data-testid="text-no-inventory-contracts">
+        Žiadne zmluvy v tejto sprievodke
+      </p>
+    );
+  }
 
-    const rows = (contracts || []).map((c, i) => {
-      const sem = getContractSemaphore(c);
-      return `<tr>
-        <td style="padding:6px 10px;border-bottom:1px solid #ddd;text-align:center;">${i + 1}</td>
-        <td style="padding:6px 10px;border-bottom:1px solid #ddd;">
-          <span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:${sem.color};margin-right:6px;vertical-align:middle;"></span>
-          ${c.contractNumber || c.proposalNumber || "—"}
-        </td>
-        <td style="padding:6px 10px;border-bottom:1px solid #ddd;">${c.subjectName}</td>
-        <td style="padding:6px 10px;border-bottom:1px solid #ddd;">${c.contractType || "—"}</td>
-        <td style="padding:6px 10px;border-bottom:1px solid #ddd;">${sem.label}</td>
-      </tr>`;
-    }).join("");
+  return (
+    <div className="space-y-2">
+      <Table>
+        <TableHeader>
+          <TableRow className="hover:bg-transparent">
+            <TableHead className="w-8 text-[10px] py-1">#</TableHead>
+            <TableHead className="w-6 text-[10px] py-1"></TableHead>
+            <TableHead className="text-[10px] py-1">Číslo zmluvy</TableHead>
+            <TableHead className="text-[10px] py-1">Klient</TableHead>
+            <TableHead className="text-[10px] py-1">Typ</TableHead>
+            <TableHead className="text-[10px] py-1">Stav</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {contracts.map((c, idx) => {
+            const sem = getContractSemaphore(c);
+            return (
+              <TableRow key={c.id} className="hover:bg-muted/30" data-testid={`row-inventory-contract-${c.id}`}>
+                <TableCell className="text-[10px] text-muted-foreground font-mono py-1">{idx + 1}</TableCell>
+                <TableCell className="px-1 py-1">
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Circle className={`w-2.5 h-2.5 fill-current ${sem.cssClass}`} data-testid={`semaphore-contract-${c.id}`} />
+                    </TooltipTrigger>
+                    <TooltipContent side="right" className="text-xs">{sem.label}</TooltipContent>
+                  </Tooltip>
+                </TableCell>
+                <TableCell className="font-mono text-xs py-1" data-testid={`text-inv-contract-number-${c.id}`}>
+                  {c.contractNumber || c.proposalNumber || "—"}
+                </TableCell>
+                <TableCell className="py-1" data-testid={`text-inv-contract-client-${c.id}`}>
+                  <span className="text-xs">{c.subjectName}</span>
+                  {c.subjectUid && (
+                    <span className="text-[9px] text-muted-foreground ml-1 font-mono">{c.subjectUid}</span>
+                  )}
+                </TableCell>
+                <TableCell className="text-xs py-1" data-testid={`text-inv-contract-type-${c.id}`}>
+                  {c.contractType || "—"}
+                </TableCell>
+                <TableCell className="py-1" data-testid={`text-inv-contract-phase-${c.id}`}>
+                  <Badge variant="outline" className={`text-[9px] px-1 py-0 ${sem.cssClass} border-current`}>
+                    {LIFECYCLE_PHASE_NAMES[c.lifecyclePhase as number] || `Fáza ${c.lifecyclePhase || 0}`}
+                  </Badge>
+                </TableCell>
+              </TableRow>
+            );
+          })}
+        </TableBody>
+      </Table>
+      <div className="flex items-center gap-4 text-[10px] text-muted-foreground px-2 pb-1">
+        <span className="flex items-center gap-1"><Circle className="w-2 h-2 fill-blue-500 text-blue-500" /> Odoslané</span>
+        <span className="flex items-center gap-1"><Circle className="w-2 h-2 fill-red-500 text-red-500" /> Neprijaté</span>
+        <span className="flex items-center gap-1"><Circle className="w-2 h-2 fill-orange-500 text-orange-500" /> Intervencia</span>
+        <span className="flex items-center gap-1"><Circle className="w-2 h-2 fill-black dark:fill-gray-400 text-black dark:text-gray-400" /> Archív</span>
+        <span className="flex items-center gap-1"><Circle className="w-2 h-2 fill-green-500 text-green-500" /> Prijatá</span>
+        <span className="ml-auto">{contracts.length} zmlúv</span>
+      </div>
+    </div>
+  );
+}
 
-    const today = new Date().toLocaleDateString("sk-SK");
+function handlePrintInventory(inventory: ContractInventory, contracts: InventoryContractRow[]) {
+  const printWindow = window.open("", "_blank", "width=800,height=600");
+  if (!printWindow) return;
 
-    printWindow.document.write(`<!DOCTYPE html>
+  const rows = contracts.map((c, i) => {
+    const sem = getContractSemaphore(c);
+    return `<tr>
+      <td style="padding:6px 10px;border-bottom:1px solid #ddd;text-align:center;">${i + 1}</td>
+      <td style="padding:6px 10px;border-bottom:1px solid #ddd;">
+        <span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:${sem.color};margin-right:6px;vertical-align:middle;"></span>
+        ${c.contractNumber || c.proposalNumber || "—"}
+      </td>
+      <td style="padding:6px 10px;border-bottom:1px solid #ddd;">${c.subjectName}</td>
+      <td style="padding:6px 10px;border-bottom:1px solid #ddd;">${c.contractType || "—"}</td>
+      <td style="padding:6px 10px;border-bottom:1px solid #ddd;">${sem.label}</td>
+    </tr>`;
+  }).join("");
+
+  const today = new Date().toLocaleDateString("sk-SK");
+
+  printWindow.document.write(`<!DOCTYPE html>
 <html>
 <head>
   <meta charset="utf-8">
@@ -178,7 +243,7 @@ function InventoryDetailDialog({
     </div>
     <div class="meta">
       <div>Dátum tlače: ${today}</div>
-      <div>Počet zmlúv: ${(contracts || []).length}</div>
+      <div>Počet zmlúv: ${contracts.length}</div>
       ${inventory.sequenceNumber ? `<div>Číslo sprievodky: ${inventory.sequenceNumber}</div>` : ""}
     </div>
   </div>
@@ -206,104 +271,34 @@ function InventoryDetailDialog({
   </div>
 </body>
 </html>`);
-    printWindow.document.close();
-    setTimeout(() => printWindow.print(), 300);
-  }
+  printWindow.document.close();
+  setTimeout(() => printWindow.print(), 300);
+}
+
+function PrintButton({ inventory }: { inventory: ContractInventory }) {
+  const { data: contracts } = useQuery<InventoryContractRow[]>({
+    queryKey: ["/api/contract-inventories", inventory.id, "contracts"],
+    queryFn: () => fetch(`/api/contract-inventories/${inventory.id}/contracts`, { credentials: "include" }).then(r => r.json()),
+  });
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent size="xl">
-        <DialogHeader>
-          <div className="flex items-center justify-between gap-4 flex-wrap">
-            <div>
-              <DialogTitle data-testid="text-inventory-detail-title" className="text-base">
-                {inventory.name}
-              </DialogTitle>
-              <p className="text-xs text-muted-foreground mt-0.5">
-                {inventory.sequenceNumber ? `Č. ${inventory.sequenceNumber}` : "Bez čísla"}
-                {inventory.description ? ` — ${inventory.description}` : ""}
-              </p>
-            </div>
-            <Button size="sm" variant="outline" onClick={handlePrint} data-testid="button-print-inventory">
-              <Printer className="w-3.5 h-3.5 mr-1.5" />
-              Tlačiť sprievodku
-            </Button>
-          </div>
-        </DialogHeader>
-        <Separator className="my-2" />
-        <div ref={printRef}>
-          {isLoading ? (
-            <div className="flex items-center justify-center py-8">
-              <Loader2 className="w-5 h-5 animate-spin" />
-            </div>
-          ) : !contracts || contracts.length === 0 ? (
-            <p className="text-sm text-muted-foreground text-center py-8" data-testid="text-no-inventory-contracts">
-              Žiadne zmluvy v tejto sprievodke
-            </p>
-          ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="w-10">#</TableHead>
-                  <TableHead className="w-8"></TableHead>
-                  <TableHead>Číslo zmluvy</TableHead>
-                  <TableHead>Klient</TableHead>
-                  <TableHead>Typ zmluvy</TableHead>
-                  <TableHead>Stav</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {contracts.map((c, idx) => {
-                  const sem = getContractSemaphore(c);
-                  return (
-                    <TableRow key={c.id} data-testid={`row-inventory-contract-${c.id}`}>
-                      <TableCell className="text-xs text-muted-foreground font-mono">{idx + 1}</TableCell>
-                      <TableCell className="px-1">
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <Circle className={`w-3 h-3 fill-current ${sem.cssClass}`} data-testid={`semaphore-contract-${c.id}`} />
-                          </TooltipTrigger>
-                          <TooltipContent side="right" className="text-xs">{sem.label}</TooltipContent>
-                        </Tooltip>
-                      </TableCell>
-                      <TableCell className="font-mono text-sm" data-testid={`text-inv-contract-number-${c.id}`}>
-                        {c.contractNumber || c.proposalNumber || "—"}
-                      </TableCell>
-                      <TableCell data-testid={`text-inv-contract-client-${c.id}`}>
-                        <div>
-                          <span className="text-sm">{c.subjectName}</span>
-                          {c.subjectUid && (
-                            <span className="text-[10px] text-muted-foreground ml-1.5 font-mono">{c.subjectUid}</span>
-                          )}
-                        </div>
-                      </TableCell>
-                      <TableCell className="text-sm" data-testid={`text-inv-contract-type-${c.id}`}>
-                        {c.contractType || "—"}
-                      </TableCell>
-                      <TableCell data-testid={`text-inv-contract-phase-${c.id}`}>
-                        <Badge variant="outline" className={`text-[10px] px-1.5 ${sem.cssClass} border-current`}>
-                          {LIFECYCLE_PHASE_NAMES[c.lifecyclePhase as number] || `Fáza ${c.lifecyclePhase || 0}`}
-                        </Badge>
-                      </TableCell>
-                    </TableRow>
-                  );
-                })}
-              </TableBody>
-            </Table>
-          )}
-        </div>
-        <div className="flex items-center justify-between mt-3 text-xs text-muted-foreground">
-          <div className="flex items-center gap-4">
-            <span className="flex items-center gap-1"><Circle className="w-2.5 h-2.5 fill-blue-500 text-blue-500" /> Odoslané</span>
-            <span className="flex items-center gap-1"><Circle className="w-2.5 h-2.5 fill-red-500 text-red-500" /> Neprijaté</span>
-            <span className="flex items-center gap-1"><Circle className="w-2.5 h-2.5 fill-orange-500 text-orange-500" /> Intervencia</span>
-            <span className="flex items-center gap-1"><Circle className="w-2.5 h-2.5 fill-black dark:fill-gray-400 text-black dark:text-gray-400" /> Archív/Vymazaná</span>
-            <span className="flex items-center gap-1"><Circle className="w-2.5 h-2.5 fill-green-500 text-green-500" /> Prijatá</span>
-          </div>
-          <span>{contracts?.length || 0} zmlúv</span>
-        </div>
-      </DialogContent>
-    </Dialog>
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <Button
+          size="icon"
+          variant="ghost"
+          className="h-7 w-7"
+          onClick={(e) => {
+            e.stopPropagation();
+            handlePrintInventory(inventory, contracts || []);
+          }}
+          data-testid={`button-print-inventory-${inventory.id}`}
+        >
+          <Printer className="w-3.5 h-3.5" />
+        </Button>
+      </TooltipTrigger>
+      <TooltipContent>Tlačiť sprievodku</TooltipContent>
+    </Tooltip>
   );
 }
 
@@ -471,64 +466,6 @@ function InventoryFormDialog({
   );
 }
 
-function DeleteInventoryDialog({
-  inventory,
-  open,
-  onOpenChange,
-}: {
-  inventory: ContractInventory;
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-}) {
-  const { toast } = useToast();
-
-  const deleteMutation = useMutation({
-    mutationFn: () => apiRequest("DELETE", `/api/contract-inventories/${inventory.id}`),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/contract-inventories"] });
-      toast({ title: "Uspech", description: "Supiska vymazana" });
-      onOpenChange(false);
-    },
-    onError: () => toast({ title: "Chyba", description: "Nepodarilo sa vymazat supisku", variant: "destructive" }),
-  });
-
-  return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent size="sm">
-        <DialogHeader>
-          <DialogTitle data-testid="text-delete-dialog-title">Vymazat supisku</DialogTitle>
-        </DialogHeader>
-        <div className="space-y-4">
-          <p className="text-sm text-muted-foreground" data-testid="text-delete-confirmation">
-            Naozaj chcete vymazat supisku <span className="font-semibold text-foreground">{inventory.name}</span>? Tuto akciu nie je mozne vratit.
-          </p>
-          <div className="flex items-center justify-end gap-3 flex-wrap">
-            <Button type="button" variant="outline" onClick={() => onOpenChange(false)} data-testid="button-delete-cancel">
-              Zrusit
-            </Button>
-            <Button
-              type="button"
-              variant="destructive"
-              onClick={() => deleteMutation.mutate()}
-              disabled={deleteMutation.isPending}
-              data-testid="button-delete-confirm"
-            >
-              {deleteMutation.isPending ? (
-                <>
-                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                  Mazem...
-                </>
-              ) : (
-                "Vymazat"
-              )}
-            </Button>
-          </div>
-        </div>
-      </DialogContent>
-    </Dialog>
-  );
-}
-
 export default function ContractInventories() {
   const { toast } = useToast();
   const { data: appUser } = useAppUser();
@@ -536,10 +473,7 @@ export default function ContractInventories() {
 
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingInventory, setEditingInventory] = useState<ContractInventory | null>(null);
-  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
-  const [deletingInventory, setDeletingInventory] = useState<ContractInventory | null>(null);
-  const [detailInventory, setDetailInventory] = useState<ContractInventory | null>(null);
-  const [detailOpen, setDetailOpen] = useState(false);
+  const [expandedId, setExpandedId] = useState<number | null>(null);
 
   const { data: inventories, isLoading } = useQuery<ContractInventory[]>({
     queryKey: ["/api/contract-inventories"],
@@ -578,14 +512,8 @@ export default function ContractInventories() {
     setDialogOpen(true);
   }
 
-  function openDelete(inventory: ContractInventory) {
-    setDeletingInventory(inventory);
-    setDeleteDialogOpen(true);
-  }
-
-  function openDetail(inventory: ContractInventory) {
-    setDetailInventory(inventory);
-    setDetailOpen(true);
+  function toggleExpand(inventory: ContractInventory) {
+    setExpandedId(prev => prev === inventory.id ? null : inventory.id);
   }
 
   return (
@@ -617,85 +545,83 @@ export default function ContractInventories() {
                   {columnVisibility.isVisible("sequenceNumber") && <TableHead>Cislo</TableHead>}
                   {columnVisibility.isVisible("description") && <TableHead>Popis</TableHead>}
                   {columnVisibility.isVisible("status") && <TableHead className="w-32">Stav</TableHead>}
-                  <TableHead className="w-40 text-right">Akcie</TableHead>
+                  <TableHead className="w-24 text-right">Akcie</TableHead>
                 </TableRow>
               </TableHeader>
               <SortableContext_Wrapper items={tableFilter.filteredData} onReorder={handleReorder}>
                 <TableBody>
-                  {tableFilter.filteredData.map((inventory) => (
-                    <SortableTableRow
-                      key={inventory.id}
-                      id={inventory.id}
-                      onRowClick={() => openDetail(inventory)}
-                      data-testid={`row-inventory-${inventory.id}`}
-                    >
-                      {columnVisibility.isVisible("sortOrder") && <TableCell className="font-mono text-sm" data-testid={`text-sort-order-${inventory.id}`}>
-                        {inventory.sortOrder}
-                      </TableCell>}
-                      {columnVisibility.isVisible("name") && <TableCell data-testid={`text-inventory-name-${inventory.id}`}>
-                        {inventory.name}
-                      </TableCell>}
-                      {columnVisibility.isVisible("sequenceNumber") && <TableCell className="font-mono text-sm" data-testid={`text-inventory-seq-${inventory.id}`}>
-                        {inventory.sequenceNumber ? `c. ${inventory.sequenceNumber}` : "-"}
-                      </TableCell>}
-                      {columnVisibility.isVisible("description") && <TableCell className="text-sm text-muted-foreground" data-testid={`text-inventory-description-${inventory.id}`}>
-                        {inventory.description || "—"}
-                      </TableCell>}
-                      {columnVisibility.isVisible("status") && <TableCell data-testid={`badge-inventory-status-${inventory.id}`}>
-                        <div className="flex items-center gap-1 flex-wrap">
-                          {inventory.isClosed ? (
-                            <Badge variant="destructive" className="text-xs">Uzavreta</Badge>
-                          ) : (
-                            <Badge className="bg-green-600 text-white text-xs">Otvorena</Badge>
-                          )}
-                          {inventory.isAccepted && (
-                            <Badge variant="outline" className="text-xs border-blue-500 text-blue-500">Prijata</Badge>
-                          )}
-                          {inventory.isDispatched && !inventory.isAccepted && (
-                            <Badge variant="outline" className="text-xs border-amber-500 text-amber-500">Odoslana</Badge>
-                          )}
-                        </div>
-                      </TableCell>}
-                      <TableCell className="text-right">
-                        <div className="flex items-center justify-end gap-1 flex-wrap">
-                          <Tooltip>
-                            <TooltipTrigger asChild>
-                              <Button
-                                size="icon"
-                                variant="ghost"
-                                onClick={(e) => { e.stopPropagation(); openDetail(inventory); }}
-                                data-testid={`button-detail-inventory-${inventory.id}`}
-                              >
-                                <Eye className="w-4 h-4" />
-                              </Button>
-                            </TooltipTrigger>
-                            <TooltipContent>Detail sprievodky</TooltipContent>
-                          </Tooltip>
-                          <Button
-                            size="icon"
-                            variant="ghost"
-                            onClick={(e) => { e.stopPropagation(); openEdit(inventory); }}
-                            data-testid={`button-edit-inventory-${inventory.id}`}
-                          >
-                            <Pencil className="w-4 h-4" />
-                          </Button>
-                          <Tooltip>
-                            <TooltipTrigger asChild>
-                              <Button
-                                size="icon"
-                                variant="ghost"
-                                onClick={(e) => { e.stopPropagation(); openDelete(inventory); }}
-                                data-testid={`button-delete-inventory-${inventory.id}`}
-                              >
-                                <Trash2 className="w-4 h-4" />
-                              </Button>
-                            </TooltipTrigger>
-                            <TooltipContent>Zmazať prázdny záznam</TooltipContent>
-                          </Tooltip>
-                        </div>
-                      </TableCell>
-                    </SortableTableRow>
-                  ))}
+                  {tableFilter.filteredData.map((inventory) => {
+                    const isExpanded = expandedId === inventory.id;
+                    return (
+                      <>
+                        <SortableTableRow
+                          key={inventory.id}
+                          id={inventory.id}
+                          onRowClick={() => toggleExpand(inventory)}
+                          data-testid={`row-inventory-${inventory.id}`}
+                        >
+                          {columnVisibility.isVisible("sortOrder") && <TableCell className="font-mono text-sm" data-testid={`text-sort-order-${inventory.id}`}>
+                            {inventory.sortOrder}
+                          </TableCell>}
+                          {columnVisibility.isVisible("name") && <TableCell data-testid={`text-inventory-name-${inventory.id}`}>
+                            <div className="flex items-center gap-2">
+                              <ChevronDown className={`w-3.5 h-3.5 text-muted-foreground transition-transform duration-200 shrink-0 ${isExpanded ? "rotate-0" : "-rotate-90"}`} />
+                              <span>{inventory.name}</span>
+                            </div>
+                          </TableCell>}
+                          {columnVisibility.isVisible("sequenceNumber") && <TableCell className="font-mono text-sm" data-testid={`text-inventory-seq-${inventory.id}`}>
+                            {inventory.sequenceNumber ? `c. ${inventory.sequenceNumber}` : "-"}
+                          </TableCell>}
+                          {columnVisibility.isVisible("description") && <TableCell className="text-sm text-muted-foreground" data-testid={`text-inventory-description-${inventory.id}`}>
+                            {inventory.description || "—"}
+                          </TableCell>}
+                          {columnVisibility.isVisible("status") && <TableCell data-testid={`badge-inventory-status-${inventory.id}`}>
+                            <div className="flex items-center gap-1 flex-wrap">
+                              {inventory.isClosed ? (
+                                <Badge variant="destructive" className="text-xs">Uzavreta</Badge>
+                              ) : (
+                                <Badge className="bg-green-600 text-white text-xs">Otvorena</Badge>
+                              )}
+                              {inventory.isAccepted && (
+                                <Badge variant="outline" className="text-xs border-blue-500 text-blue-500">Prijata</Badge>
+                              )}
+                              {inventory.isDispatched && !inventory.isAccepted && (
+                                <Badge variant="outline" className="text-xs border-amber-500 text-amber-500">Odoslana</Badge>
+                              )}
+                            </div>
+                          </TableCell>}
+                          <TableCell className="text-right">
+                            <div className="flex items-center justify-end gap-0.5">
+                              <PrintButton inventory={inventory} />
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <Button
+                                    size="icon"
+                                    variant="ghost"
+                                    className="h-7 w-7"
+                                    onClick={(e) => { e.stopPropagation(); openEdit(inventory); }}
+                                    data-testid={`button-edit-inventory-${inventory.id}`}
+                                  >
+                                    <Pencil className="w-3.5 h-3.5" />
+                                  </Button>
+                                </TooltipTrigger>
+                                <TooltipContent>Upraviť sprievodku</TooltipContent>
+                              </Tooltip>
+                            </div>
+                          </TableCell>
+                        </SortableTableRow>
+                        {isExpanded && (
+                          <TableRow key={`detail-${inventory.id}`} className="hover:bg-transparent">
+                            <TableCell colSpan={99} className="p-0">
+                              <div className="bg-muted/30 border-t border-b border-border/50 px-4 py-2">
+                                <InlineInventoryDetail inventory={inventory} />
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        )}
+                      </>
+                    );
+                  })}
                 </TableBody>
               </SortableContext_Wrapper>
             </Table>
@@ -709,28 +635,6 @@ export default function ContractInventories() {
         editingInventory={editingInventory}
         activeStateId={activeStateId}
       />
-
-      {deletingInventory && (
-        <DeleteInventoryDialog
-          inventory={deletingInventory}
-          open={deleteDialogOpen}
-          onOpenChange={(isOpen) => {
-            setDeleteDialogOpen(isOpen);
-            if (!isOpen) setDeletingInventory(null);
-          }}
-        />
-      )}
-
-      {detailInventory && (
-        <InventoryDetailDialog
-          inventory={detailInventory}
-          open={detailOpen}
-          onOpenChange={(isOpen) => {
-            setDetailOpen(isOpen);
-            if (!isOpen) setDetailInventory(null);
-          }}
-        />
-      )}
     </div>
   );
 }
