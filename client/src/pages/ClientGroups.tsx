@@ -12,6 +12,10 @@ import {
   Calculator, LogIn, UserPlus, UserMinus, Search, ChevronRight, Building2, Shield, Lock,
 } from "lucide-react";
 import { ConditionalDelete } from "@/components/conditional-delete";
+import {
+  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { MoreVertical, Trash2, Eye } from "lucide-react";
 import { SortableTableRow, SortableContext_Wrapper } from "@/components/sortable-list";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -706,17 +710,33 @@ export default function ClientGroups() {
                         <Badge variant="secondary" data-testid={`badge-count-${group.id}`}>{group.memberCount}</Badge>
                       </TableCell>}
                       <TableCell>
-                        <div className="flex items-center gap-1">
-                          <Button
-                            size="icon"
-                            variant="ghost"
-                            onClick={() => { setEditingGroup(group); setDialogOpen(true); }}
-                            data-testid={`button-edit-group-${group.id}`}
-                          >
-                            <Pencil className="w-4 h-4" />
-                          </Button>
-                          {!(group as any).isSystem && <ConditionalDelete canDelete={group.memberCount === 0} onClick={() => setDeletingGroup(group)} testId={`button-delete-group-${group.id}`} />}
-                        </div>
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button size="icon" variant="ghost" data-testid={`button-actions-group-${group.id}`}>
+                              <MoreVertical className="w-4 h-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuItem
+                              onClick={() => { setEditingGroup(group); setDialogOpen(true); }}
+                              data-testid={`menu-edit-group-${group.id}`}
+                            >
+                              <Pencil className="w-4 h-4 mr-2" />
+                              Upraviť
+                            </DropdownMenuItem>
+                            {!(group as any).isSystem && (
+                              <DropdownMenuItem
+                                onClick={() => setDeletingGroup(group)}
+                                disabled={group.memberCount > 0}
+                                className="text-destructive focus:text-destructive"
+                                data-testid={`menu-delete-group-${group.id}`}
+                              >
+                                <Trash2 className="w-4 h-4 mr-2" />
+                                Vymazať
+                              </DropdownMenuItem>
+                            )}
+                          </DropdownMenuContent>
+                        </DropdownMenu>
                       </TableCell>
                     </SortableTableRow>
                   ))}

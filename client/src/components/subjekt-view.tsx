@@ -1096,7 +1096,7 @@ export function SubjektView({ subject, showPdfSidebar = false, isClientView = fa
   const displayTabs = isClientView ? sortedTabs.filter(t => !HIDDEN_CLIENT_TABS.has(t.code)) : sortedTabs;
   const activeCompanyId = appUser?.activeCompanyId;
 
-  const listStatus = (subject as any).listStatus as string | null;
+  const listStatus = (subject as any).effectiveListStatus as string | null;
 
   return (
     <div className="flex gap-4">
