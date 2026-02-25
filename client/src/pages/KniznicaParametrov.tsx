@@ -1640,7 +1640,8 @@ function ParameterDialog({
   const [sortOrder, setSortOrder] = useState("0");
   const [rowNumber, setRowNumber] = useState("0");
   const [widthPercent, setWidthPercent] = useState("100");
-  const [optionsStr, setOptionsStr] = useState("");
+  const [optionsList, setOptionsList] = useState<string[]>([]);
+  const [newOption, setNewOption] = useState("");
   const [unit, setUnit] = useState("");
   const [decimalPlaces, setDecimalPlaces] = useState("2");
   const [hintRegex, setHintRegex] = useState("");
@@ -1662,7 +1663,8 @@ function ParameterDialog({
       setSortOrder(String(editParam.sortOrder));
       setRowNumber(String(editParam.rowNumber));
       setWidthPercent(String(editParam.widthPercent));
-      setOptionsStr(editParam.options?.join(", ") || "");
+      setOptionsList(editParam.options || []);
+      setNewOption("");
       setUnit(editParam.unit || "");
       setDecimalPlaces(String(editParam.decimalPlaces));
       const hints = (editParam as any).extractionHints;
@@ -1683,7 +1685,8 @@ function ParameterDialog({
       setSortOrder("0");
       setRowNumber("0");
       setWidthPercent("100");
-      setOptionsStr("");
+      setOptionsList([]);
+      setNewOption("");
       setUnit("");
       setDecimalPlaces("2");
       setHintRegex("");
@@ -1762,7 +1765,7 @@ function ParameterDialog({
       sortOrder: Number(sortOrder),
       rowNumber: Number(rowNumber),
       widthPercent: Number(widthPercent),
-      options: optionsStr ? optionsStr.split(",").map(o => o.trim()).filter(Boolean) : [],
+      options: (fieldType === "jedna_moznost" || fieldType === "viac_moznosti") ? optionsList.filter(Boolean) : [],
       unit: unit || null,
       decimalPlaces: Number(decimalPlaces),
       isHidden: false,
@@ -1942,14 +1945,74 @@ function ParameterDialog({
             />
           </div>
           {(fieldType === "jedna_moznost" || fieldType === "viac_moznosti") && (
-            <div className="col-span-2 space-y-1.5">
-              <Label>Možnosti (oddelené čiarkou)</Label>
-              <Input
-                value={optionsStr}
-                onChange={e => setOptionsStr(e.target.value)}
-                placeholder="Možnosť 1, Možnosť 2, ..."
-                data-testid="input-options"
-              />
+            <div className="col-span-2 space-y-2">
+              <Label>Možnosti výberu *</Label>
+              {optionsList.length > 0 && (
+                <div className="space-y-1.5">
+                  {optionsList.map((opt, idx) => (
+                    <div key={idx} className="flex items-center gap-2">
+                      <Input
+                        value={opt}
+                        onChange={e => {
+                          const updated = [...optionsList];
+                          updated[idx] = e.target.value;
+                          setOptionsList(updated);
+                        }}
+                        className="h-8 text-sm"
+                        data-testid={`input-option-${idx}`}
+                      />
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 shrink-0 text-red-500 hover:text-red-600"
+                        onClick={() => setOptionsList(prev => prev.filter((_, i) => i !== idx))}
+                        data-testid={`button-remove-option-${idx}`}
+                      >
+                        <X className="w-3.5 h-3.5" />
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              )}
+              <div className="flex items-center gap-2">
+                <Input
+                  value={newOption}
+                  onChange={e => setNewOption(e.target.value)}
+                  onKeyDown={e => {
+                    if (e.key === "Enter" && newOption.trim()) {
+                      e.preventDefault();
+                      setOptionsList(prev => [...prev, newOption.trim()]);
+                      setNewOption("");
+                    }
+                  }}
+                  placeholder="Zadajte novú možnosť..."
+                  className="h-8 text-sm"
+                  data-testid="input-new-option"
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="shrink-0 h-8"
+                  disabled={!newOption.trim()}
+                  onClick={() => {
+                    if (newOption.trim()) {
+                      setOptionsList(prev => [...prev, newOption.trim()]);
+                      setNewOption("");
+                    }
+                  }}
+                  data-testid="button-add-option"
+                >
+                  <Plus className="w-3.5 h-3.5 mr-1" />
+                  Pridať
+                </Button>
+              </div>
+              {optionsList.length === 0 && (
+                <p className="text-xs text-amber-500 flex items-center gap-1">
+                  <AlertTriangle className="w-3 h-3" /> Zadajte aspoň jednu možnosť
+                </p>
+              )}
             </div>
           )}
           {(fieldType === "desatinne_cislo" || fieldType === "number") && (

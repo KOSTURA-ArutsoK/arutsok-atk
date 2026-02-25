@@ -2936,7 +2936,7 @@ export async function registerRoutes(
         })
         .map(inv => {
           const invContracts = contractsByInventory.get(inv.id) || [];
-          let semaphoreColor = "blue";
+          let semaphoreColor = "gray";
           if (invContracts.length > 0) {
             const hasPhase3 = invContracts.some(c => !c.isDeleted && c.effectivePhase === 3);
             const hasPhase7 = invContracts.some(c => !c.isDeleted && c.effectivePhase === 7);

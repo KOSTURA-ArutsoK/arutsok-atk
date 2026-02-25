@@ -242,6 +242,11 @@ export function AppSidebar() {
     staleTime: 1000 * 60 * 5,
   });
 
+  const { data: inventorySummary } = useQuery<{ id: number; name: string; sequenceNumber: number | null; createdAt: string; semaphoreColor: string }[]>({
+    queryKey: ["/api/contract-inventories/summary"],
+    staleTime: 1000 * 30,
+  });
+
   const allMenus = [
     { id: "nastavenia", items: [...spravaPristupovItems, ...specifikacieItems, ...nastavenieDirectItems] },
     { id: "sprava-pristupov", items: spravaPristupovItems },
@@ -542,20 +547,72 @@ export function AppSidebar() {
                           </CollapsibleTrigger>
                           <CollapsibleContent>
                             <div className="ml-2 border-l border-border pl-1.5 mt-1 space-y-0.5">
-                              {protokolyChildren.map(item => (
-                                <SidebarMenuSubItem key={item.href}>
-                                  <SidebarMenuSubButton
-                                    asChild
-                                    isActive={location === item.href}
-                                    data-testid={`nav-${item.label.toLowerCase().replace(/\s/g, '-')}`}
-                                  >
-                                    <Link href={item.href}>
-                                      <item.icon className="w-3.5 h-3.5" />
-                                      <span>{item.label}</span>
-                                    </Link>
-                                  </SidebarMenuSubButton>
-                                </SidebarMenuSubItem>
-                              ))}
+                              <SidebarMenuSubItem>
+                                <Collapsible
+                                  open={zmluvySubId === "protokoly"}
+                                  onOpenChange={() => {}}
+                                >
+                                  <CollapsibleTrigger asChild>
+                                    <SidebarMenuSubButton
+                                      asChild
+                                      isActive={location === "/contract-inventories"}
+                                      data-testid="nav-sprievodky"
+                                    >
+                                      <Link href="/contract-inventories">
+                                        <FileStack className="w-3.5 h-3.5" />
+                                        <span className="flex-1">Sprievodky</span>
+                                        {inventorySummary && inventorySummary.length > 0 && (
+                                          <span className="text-[10px] text-muted-foreground ml-auto">{inventorySummary.length}</span>
+                                        )}
+                                      </Link>
+                                    </SidebarMenuSubButton>
+                                  </CollapsibleTrigger>
+                                  <CollapsibleContent>
+                                    <div className="ml-2 border-l border-border/50 pl-1.5 mt-0.5 space-y-0.5 max-h-[200px] overflow-y-auto">
+                                      {inventorySummary && inventorySummary.length > 0 ? (
+                                        inventorySummary.map(inv => {
+                                          const semaphoreClasses: Record<string, string> = {
+                                            red: "bg-red-500",
+                                            orange: "bg-orange-500",
+                                            blue: "bg-blue-500",
+                                            black: "bg-black dark:bg-gray-300",
+                                            green: "bg-green-500",
+                                          };
+                                          const dotClass = semaphoreClasses[inv.semaphoreColor] || "bg-gray-400";
+                                          const displayName = inv.sequenceNumber ? `Sprievodka č. ${inv.sequenceNumber}` : inv.name;
+                                          return (
+                                            <SidebarMenuSubItem key={inv.id}>
+                                              <SidebarMenuSubButton
+                                                asChild
+                                                data-testid={`nav-inventory-${inv.id}`}
+                                              >
+                                                <Link href="/contract-inventories">
+                                                  <span className={`w-2 h-2 rounded-full shrink-0 ${dotClass}`} />
+                                                  <span className="truncate text-xs">{displayName}</span>
+                                                </Link>
+                                              </SidebarMenuSubButton>
+                                            </SidebarMenuSubItem>
+                                          );
+                                        })
+                                      ) : (
+                                        <p className="text-[10px] text-muted-foreground px-2 py-1">Žiadne sprievodky</p>
+                                      )}
+                                    </div>
+                                  </CollapsibleContent>
+                                </Collapsible>
+                              </SidebarMenuSubItem>
+                              <SidebarMenuSubItem>
+                                <SidebarMenuSubButton
+                                  asChild
+                                  isActive={location === "/supisky"}
+                                  data-testid="nav-supisky"
+                                >
+                                  <Link href="/supisky">
+                                    <ClipboardList className="w-3.5 h-3.5" />
+                                    <span>Supisky</span>
+                                  </Link>
+                                </SidebarMenuSubButton>
+                              </SidebarMenuSubItem>
                             </div>
                           </CollapsibleContent>
                         </Collapsible>
