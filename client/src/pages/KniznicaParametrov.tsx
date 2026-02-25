@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -151,6 +151,7 @@ export default function KniznicaParametrov() {
   const [searchQuery, setSearchQuery] = useState("");
   const [editParam, setEditParam] = useState<SubjectParameter | null>(null);
   const [isParamDialogOpen, setIsParamDialogOpen] = useState(false);
+  const [paramFormResetKey, setParamFormResetKey] = useState(0);
   const [expandedSections, setExpandedSections] = useState<Set<number>>(new Set());
   const [isSectionDialogOpen, setIsSectionDialogOpen] = useState(false);
   const [editSection, setEditSection] = useState<SubjectParamSection | null>(null);
@@ -450,16 +451,23 @@ export default function KniznicaParametrov() {
 
   const saveParamMutation = useMutation({
     mutationFn: async (data: Partial<SubjectParameter> & { id?: number }) => {
+      const isEdit = !!data.id;
       if (data.id) {
         await apiRequest("PATCH", `/api/subject-parameters/${data.id}`, data);
       } else {
         await apiRequest("POST", "/api/subject-parameters", data);
       }
+      return { isEdit };
     },
-    onSuccess: () => {
+    onSuccess: (result) => {
       queryClient.invalidateQueries({ queryKey: ["/api/subject-parameters"] });
-      setIsParamDialogOpen(false);
-      setEditParam(null);
+      if (result.isEdit) {
+        setIsParamDialogOpen(false);
+        setEditParam(null);
+      } else {
+        setEditParam(null);
+        setParamFormResetKey(k => k + 1);
+      }
       toast({ title: "Parameter uložený" });
     },
     onError: () => {
@@ -1441,6 +1449,7 @@ export default function KniznicaParametrov() {
         allParameters={parameters}
         onSave={(data) => saveParamMutation.mutate(data)}
         isPending={saveParamMutation.isPending}
+        resetKey={paramFormResetKey}
       />
 
       <SectionDialog
@@ -1617,6 +1626,7 @@ function ParameterDialog({
   allParameters,
   onSave,
   isPending,
+  resetKey = 0,
 }: {
   open: boolean;
   onOpenChange: (v: boolean) => void;
@@ -1625,6 +1635,7 @@ function ParameterDialog({
   allParameters: SubjectParameter[];
   onSave: (data: any) => void;
   isPending: boolean;
+  resetKey?: number;
 }) {
   const [fieldKey, setFieldKey] = useState("");
   const [label, setLabel] = useState("");
@@ -1693,6 +1704,16 @@ function ParameterDialog({
       setHintFormat("");
     }
   };
+
+  useEffect(() => {
+    if (resetKey > 0 && !editParam) {
+      resetForm();
+      setDuplicateWarning(null);
+      setDuplicateAcknowledged(false);
+      setTransactionalWarning(false);
+      setTransactionalAcknowledged(false);
+    }
+  }, [resetKey]);
 
   const handleOpenChange = (v: boolean) => {
     if (v) resetForm();
