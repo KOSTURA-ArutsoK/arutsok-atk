@@ -75,25 +75,25 @@ function getContractSemaphore(contract: { lifecyclePhase: number | null; isDelet
     return { color: "#000000", label: "Vymazaná z archívu", cssClass: "text-black dark:text-gray-400" };
   }
 
-  const phase = contract.lifecyclePhase || 0;
+  const phase = contract.lifecyclePhase ?? 0;
 
-  if (phase === 2) {
-    return { color: "#3b82f6", label: "Odoslané na sprievodke", cssClass: "text-blue-500" };
-  }
   if (phase === 3) {
     return { color: "#ef4444", label: "Neprijaté – výhrady", cssClass: "text-red-500" };
-  }
-  if (phase === 4) {
-    return { color: "#000000", label: "Archív s výhradami", cssClass: "text-black dark:text-gray-400" };
   }
   if (phase === 7) {
     return { color: "#f97316", label: "Interná intervencia", cssClass: "text-orange-500" };
   }
+  if (phase === 4) {
+    return { color: "#000000", label: "Archív s výhradami", cssClass: "text-black dark:text-gray-400" };
+  }
   if (phase >= 5) {
     return { color: "#22c55e", label: "Prijatá / Spracovaná", cssClass: "text-green-500" };
   }
+  if (phase === 2) {
+    return { color: "#3b82f6", label: "Odoslané na sprievodke", cssClass: "text-blue-500" };
+  }
 
-  return { color: "#6b7280", label: "Čakajúce", cssClass: "text-gray-500" };
+  return { color: "#3b82f6", label: "Čakajúce", cssClass: "text-blue-500" };
 }
 
 type InventoryContractRow = {

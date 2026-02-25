@@ -2793,15 +2793,14 @@ export async function registerRoutes(
           if (invContracts.length > 0) {
             const hasPhase3 = invContracts.some(c => !c.isDeleted && c.lifecyclePhase === 3);
             const hasPhase7 = invContracts.some(c => !c.isDeleted && c.lifecyclePhase === 7);
-            const allPhase2 = invContracts.every(c => c.lifecyclePhase === 2 && !c.isDeleted);
             const allArchiv = invContracts.every(c => c.isDeleted || c.lifecyclePhase === 4);
-            const allGreen = invContracts.every(c => !c.isDeleted && (c.lifecyclePhase || 0) >= 5 && c.lifecyclePhase !== 7);
+            const allGreen = invContracts.every(c => !c.isDeleted && (c.lifecyclePhase ?? 0) >= 5 && c.lifecyclePhase !== 7);
 
             if (hasPhase3) semaphoreColor = "red";
             else if (hasPhase7) semaphoreColor = "orange";
-            else if (allPhase2) semaphoreColor = "blue";
             else if (allArchiv) semaphoreColor = "black";
             else if (allGreen) semaphoreColor = "green";
+            else semaphoreColor = "blue";
           }
           return {
             id: inv.id,
