@@ -7,7 +7,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useColumnVisibility, type ColumnDef } from "@/hooks/use-column-visibility";
 import { ColumnManager } from "@/components/column-manager";
 import type { ContractInventory } from "@shared/schema";
-import { Pencil, Loader2, Printer, Circle, ChevronDown, Plus } from "lucide-react";
+import { Pencil, Loader2, Printer, Circle, ChevronDown, Plus, Search } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -566,6 +566,7 @@ export default function ContractInventories() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingInventory, setEditingInventory] = useState<ContractInventory | null>(null);
   const [expandedIds, setExpandedIds] = useState<Set<number>>(new Set());
+  const [searchQuery, setSearchQuery] = useState("");
 
   const { data: inventories, isLoading } = useQuery<ContractInventory[]>({
     queryKey: ["/api/contract-inventories"],
@@ -587,7 +588,16 @@ export default function ContractInventories() {
         return bTime - aTime;
       })
     : [];
-  const tableFilter = useSmartFilter(sorted, INVENTORY_FILTER_COLUMNS, "contract-inventories");
+
+  const searchFiltered = searchQuery.trim()
+    ? sorted.filter(inv => {
+        const q = searchQuery.trim().toLowerCase();
+        return (inv.name || "").toLowerCase().includes(q)
+          || String(inv.sequenceNumber || "").includes(q);
+      })
+    : sorted;
+
+  const tableFilter = useSmartFilter(searchFiltered, INVENTORY_FILTER_COLUMNS, "contract-inventories");
   const columnVisibility = useColumnVisibility("contract-inventories", INVENTORY_COLUMNS);
 
   const handleReorder = (items: { id: number | string; sortOrder: number }[]) => {
@@ -621,6 +631,17 @@ export default function ContractInventories() {
       <div className="flex items-center justify-between gap-4 flex-wrap">
         <h1 className="text-2xl font-bold" data-testid="text-page-title">Zoznam sprievodiek</h1>
         <ColumnManager columnVisibility={columnVisibility} />
+      </div>
+
+      <div className="relative max-w-sm">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
+        <Input
+          value={searchQuery}
+          onChange={e => setSearchQuery(e.target.value)}
+          placeholder="Vyhľadať sprievodku podľa názvu alebo čísla..."
+          className="pl-9 h-9"
+          data-testid="input-search-inventories"
+        />
       </div>
 
       <SmartFilterBar filter={tableFilter} />
@@ -711,10 +732,12 @@ export default function ContractInventories() {
                           </TableCell>
                         </SortableTableRow>
                         {isExpanded && (
-                          <TableRow key={`detail-${inventory.id}`} className="hover:bg-transparent">
-                            <TableCell colSpan={99} className="p-0">
-                              <div className="bg-muted/40 dark:bg-muted/20 border-t-2 border-b-2 border-border ml-6 mr-2 my-1 rounded px-4 py-3 shadow-inner">
-                                <InlineInventoryDetail inventory={inventory} />
+                          <TableRow key={`detail-${inventory.id}`} className="hover:bg-transparent border-0">
+                            <TableCell colSpan={99} className="p-0 border-0">
+                              <div className="mx-3 mb-3 mt-0 rounded-lg border border-border/60 bg-muted/30 dark:bg-muted/15 shadow-md ring-1 ring-black/5 dark:ring-white/5 overflow-hidden">
+                                <div className="px-5 py-4">
+                                  <InlineInventoryDetail inventory={inventory} />
+                                </div>
                               </div>
                             </TableCell>
                           </TableRow>
