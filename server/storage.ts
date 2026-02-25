@@ -1300,7 +1300,7 @@ export class DatabaseStorage implements IStorage {
     }
   }
 
-  async restoreFieldValue(subjectId: number, historyEntryId: number, userId: number, userName: string): Promise<SubjectFieldHistory> {
+  async restoreFieldValue(subjectId: number, historyEntryId: number, userId: number, userName: string): Promise<SubjectFieldHistory | { skipped: true; message: string }> {
     const [historyEntry] = await db.select().from(subjectFieldHistory)
       .where(and(eq(subjectFieldHistory.id, historyEntryId), eq(subjectFieldHistory.subjectId, subjectId)));
     if (!historyEntry) throw new Error("Záznam histórie nebol nájdený");
@@ -1317,13 +1317,23 @@ export class DatabaseStorage implements IStorage {
 
     if (fieldSource === 'static') {
       currentValue = (subject as any)[fieldKey] != null ? String((subject as any)[fieldKey]) : null;
+    } else {
+      const details = (subject.details as any) || {};
+      const dynamicFields = details.dynamicFields || {};
+      currentValue = dynamicFields[fieldKey] != null ? String(dynamicFields[fieldKey]) : null;
+    }
+
+    if (String(currentValue ?? '') === String(valueToRestore ?? '')) {
+      return { skipped: true, message: "Hodnota je už aktuálna" };
+    }
+
+    if (fieldSource === 'static') {
       const updateData: any = {};
       updateData[fieldKey] = valueToRestore;
       await db.update(subjects).set(updateData).where(eq(subjects.id, subjectId));
     } else {
       const details = (subject.details as any) || {};
       const dynamicFields = details.dynamicFields || {};
-      currentValue = dynamicFields[fieldKey] != null ? String(dynamicFields[fieldKey]) : null;
       dynamicFields[fieldKey] = valueToRestore;
       await db.update(subjects).set({ details: { ...details, dynamicFields } }).where(eq(subjects.id, subjectId));
     }

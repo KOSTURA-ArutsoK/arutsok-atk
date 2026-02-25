@@ -230,6 +230,17 @@ function getFieldLabel(fieldKey: string, allFields?: StaticField[]): string {
   return fieldKey.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
 }
 
+const BOOLEAN_FIELD_KEYS = new Set(["isActive", "isDeceased", "isStamped", "cgnActive", "pepStatus", "isResident"]);
+
+function formatHistoryValue(fieldKey: string, value: string | null | undefined): string {
+  if (value == null || value === '') return '(prázdne)';
+  if (BOOLEAN_FIELD_KEYS.has(fieldKey)) {
+    if (value === "true") return "Áno";
+    if (value === "false") return "Nie";
+  }
+  return value;
+}
+
 function SubjectFieldHistoryPanel({ subjectId, clientTypeId }: { subjectId: number; clientTypeId?: number }) {
   const [selectedField, setSelectedField] = useState<string>("__all__");
   const { toast } = useToast();
@@ -266,10 +277,14 @@ function SubjectFieldHistoryPanel({ subjectId, clientTypeId }: { subjectId: numb
       const res = await apiRequest("POST", `/api/subjects/${subjectId}/field-history/restore`, { historyEntryId });
       return res.json();
     },
-    onSuccess: (data) => {
-      toast({ title: "Hodnota obnovená", description: `Pole '${getFieldLabel(data.fieldKey, allFields)}' bolo obnovené` });
-      queryClient.invalidateQueries({ queryKey: ["/api/subjects", subjectId, "field-history"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/subjects"] });
+    onSuccess: (data: any) => {
+      if (data?.skipped) {
+        toast({ title: "Hodnota je už aktuálna", description: "Pole už obsahuje túto hodnotu, obnova nie je potrebná" });
+      } else {
+        toast({ title: "Hodnota obnovená", description: `Pole '${getFieldLabel(data.fieldKey, allFields)}' bolo obnovené` });
+        queryClient.invalidateQueries({ queryKey: ["/api/subjects", subjectId, "field-history"] });
+        queryClient.invalidateQueries({ queryKey: ["/api/subjects"] });
+      }
     },
     onError: () => {
       toast({ title: "Chyba pri obnove hodnoty", variant: "destructive" });
@@ -366,14 +381,14 @@ function SubjectFieldHistoryPanel({ subjectId, clientTypeId }: { subjectId: numb
                   <div className="flex items-center gap-1.5 min-w-0">
                     <span className="text-muted-foreground shrink-0">Pred:</span>
                     <span className={cn("font-mono break-all", entry.oldValue ? "text-red-400 line-through" : "text-muted-foreground italic")}>
-                      {entry.oldValue || '(prázdne)'}
+                      {formatHistoryValue(entry.fieldKey, entry.oldValue)}
                     </span>
                   </div>
                   <ArrowRight className="w-3 h-3 text-muted-foreground shrink-0 mt-0.5" />
                   <div className="flex items-center gap-1.5 min-w-0">
                     <span className="text-muted-foreground shrink-0">Po:</span>
                     <span className={cn("font-mono break-all", entry.newValue ? "text-emerald-400 font-semibold" : "text-muted-foreground italic")}>
-                      {entry.newValue || '(prázdne)'}
+                      {formatHistoryValue(entry.fieldKey, entry.newValue)}
                     </span>
                   </div>
                 </div>

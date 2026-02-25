@@ -20,6 +20,17 @@ import { cn } from "@/lib/utils";
 
 const EVIDENCE_STATUS_VALUES = ["zaniknuta", "v_likvidacii", "Zaniknutá", "V likvidácii"];
 
+const BOOLEAN_FIELD_KEYS = new Set(["isActive", "isDeceased", "isStamped", "cgnActive", "pepStatus", "isResident"]);
+
+function formatHistoryValue(fieldKey: string, value: string | null | undefined): string {
+  if (value == null || value === '') return '(prázdne)';
+  if (BOOLEAN_FIELD_KEYS.has(fieldKey)) {
+    if (value === "true") return "Áno";
+    if (value === "false") return "Nie";
+  }
+  return value;
+}
+
 interface FieldHistoryIndicatorProps {
   subjectId: number;
   fieldKey: string;
@@ -82,10 +93,14 @@ export function FieldHistoryIndicator({ subjectId, fieldKey, fieldLabel, inline 
       const res = await apiRequest("POST", `/api/subjects/${subjectId}/field-history/restore`, { historyEntryId });
       return res.json();
     },
-    onSuccess: () => {
-      toast({ title: "Hodnota obnovená", description: `Pole '${fieldLabel}' bolo obnovené na predchádzajúcu hodnotu` });
-      queryClient.invalidateQueries({ queryKey: ["/api/subjects", subjectId, "field-history"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/subjects"] });
+    onSuccess: (data: any) => {
+      if (data?.skipped) {
+        toast({ title: "Hodnota je už aktuálna", description: "Pole už obsahuje túto hodnotu, obnova nie je potrebná" });
+      } else {
+        toast({ title: "Hodnota obnovená", description: `Pole '${fieldLabel}' bolo obnovené na predchádzajúcu hodnotu` });
+        queryClient.invalidateQueries({ queryKey: ["/api/subjects", subjectId, "field-history"] });
+        queryClient.invalidateQueries({ queryKey: ["/api/subjects"] });
+      }
       setConfirmRestoreId(null);
     },
     onError: () => {
@@ -227,9 +242,9 @@ export function FieldHistoryIndicator({ subjectId, fieldKey, fieldLabel, inline 
                       </div>
 
                       <div className="flex items-center gap-2">
-                        <span className="text-muted-foreground line-through">{entry.oldValue || '(prázdne)'}</span>
+                        <span className="text-muted-foreground line-through">{formatHistoryValue(entry.fieldKey, entry.oldValue)}</span>
                         <ArrowRight className="w-3 h-3 text-muted-foreground shrink-0" />
-                        <span className="font-medium text-foreground">{entry.newValue || '(prázdne)'}</span>
+                        <span className="font-medium text-foreground">{formatHistoryValue(entry.fieldKey, entry.newValue)}</span>
                       </div>
 
                       <div className="flex items-center justify-between">

@@ -7721,7 +7721,11 @@ export async function registerRoutes(
         return res.status(400).json({ message: "historyEntryId musí byť platné celé číslo" });
       }
       const userName = [appUser.firstName, appUser.lastName].filter(Boolean).join(' ') || appUser.email || 'Neznámy';
-      const restoreLog = await storage.restoreFieldValue(subjectId, historyEntryId, appUser.id, userName);
+      const restoreResult = await storage.restoreFieldValue(subjectId, historyEntryId, appUser.id, userName);
+      if ('skipped' in restoreResult && restoreResult.skipped) {
+        return res.json({ skipped: true, message: restoreResult.message });
+      }
+      const restoreLog = restoreResult as any;
       await logAudit(req, {
         action: "RESTORE",
         module: "subjekty",
@@ -12114,16 +12118,20 @@ export async function registerRoutes(
         }).where(eq(subjects.id, targetId));
 
         for (const fk of fieldKeys) {
-          await db.insert(subjectFieldHistory).values({
-            subjectId: targetId,
-            fieldKey: fk,
-            fieldSource: "inheritance",
-            oldValue: oldValues[fk] != null ? String(oldValues[fk]) : null,
-            newValue: newValues[fk] != null ? String(newValues[fk]) : null,
-            changedByUserId: user?.id,
-            changedByName: user?.username || "system",
-            changeReason: `Zdedené od rodiča (subjekt #${sourceSubjectId})`,
-          });
+          const oldStr = oldValues[fk] != null ? String(oldValues[fk]) : '';
+          const newStr = newValues[fk] != null ? String(newValues[fk]) : '';
+          if (oldStr !== newStr) {
+            await db.insert(subjectFieldHistory).values({
+              subjectId: targetId,
+              fieldKey: fk,
+              fieldSource: "inheritance",
+              oldValue: oldValues[fk] != null ? String(oldValues[fk]) : null,
+              newValue: newValues[fk] != null ? String(newValues[fk]) : null,
+              changedByUserId: user?.id,
+              changedByName: user?.username || "system",
+              changeReason: `Zdedené od rodiča (subjekt #${sourceSubjectId})`,
+            });
+          }
         }
 
         results.push({ subjectId: targetId, updated: true, fieldsUpdated: fieldKeys.length });
