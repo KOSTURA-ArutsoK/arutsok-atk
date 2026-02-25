@@ -2516,7 +2516,7 @@ export default function ContractForm() {
 
                   {vseobecneAccordionOpen && (
                     <div className="mt-3 pt-3 border-t border-border/50" onClick={e => e.stopPropagation()}>
-                      <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                      <div className="rounded-lg border border-border/50 overflow-hidden">
                         {(() => {
                           const inv = inventoryId ? inventories?.find(i => i.id.toString() === inventoryId) : null;
                           const allFields: { label: string; value: string; testId: string; color?: string; isMono?: boolean }[] = [
@@ -2540,19 +2540,25 @@ export default function ContractForm() {
                             { label: "Ročné poistné", value: annualPremium ? `${annualPremium} ${currency}` : "", testId: "summary-annual", isMono: true },
                             { label: "Štát", value: allStates?.find(s => s.id === (stateId ? parseInt(stateId) : -1))?.name || "", testId: "summary-state" },
                           ];
-                          return allFields.map(f => (
-                            <div key={f.testId} className={`rounded-lg px-3 py-2 border ${f.value ? "bg-background/60 border-border/50" : "bg-muted/20 border-dashed border-border/30"}`} data-testid={f.testId}>
-                              <div className="text-[10px] text-muted-foreground uppercase tracking-wider mb-0.5">{f.label}</div>
-                              {f.color && f.value ? (
-                                <div className="flex items-center gap-1.5">
-                                  <div className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: f.color }} />
-                                  <span className="text-sm font-semibold" style={{ color: f.color }}>{f.value}</span>
-                                </div>
-                              ) : (
-                                <div className={`text-sm truncate ${f.value ? (f.isMono ? "font-mono font-medium" : "font-medium") : "text-muted-foreground/40 italic"}`}>
-                                  {f.value || "—"}
-                                </div>
-                              )}
+                          return allFields.map((f, idx) => (
+                            <div
+                              key={f.testId}
+                              className={`flex items-center min-h-[36px] px-4 ${idx % 2 === 0 ? "bg-muted/15" : "bg-background"} ${idx < allFields.length - 1 ? "border-b border-border/30" : ""}`}
+                              data-testid={f.testId}
+                            >
+                              <div className="w-1/2 text-xs text-muted-foreground py-2 pr-3 shrink-0">{f.label}</div>
+                              <div className="w-1/2 py-2 pl-3 border-l border-border/20">
+                                {f.color && f.value ? (
+                                  <div className="flex items-center gap-1.5">
+                                    <div className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: f.color }} />
+                                    <span className="text-sm font-semibold" style={{ color: f.color }}>{f.value}</span>
+                                  </div>
+                                ) : (
+                                  <span className={`text-sm ${f.value ? (f.isMono ? "font-mono font-medium" : "font-medium") : "text-muted-foreground/40 italic"}`}>
+                                    {f.value || "—"}
+                                  </span>
+                                )}
+                              </div>
                             </div>
                           ));
                         })()}
@@ -2587,23 +2593,40 @@ export default function ContractForm() {
 
                   {udajeAccordionOpen && (
                     <div className="mt-3 pt-3 border-t border-border/50 space-y-2" onClick={e => e.stopPropagation()}>
-                      <div className="flex flex-wrap gap-2">
-                        {(contractNumber) && <SummaryField label="Číslo zmluvy" value={contractNumber} testId="summary-contract-number" onEdit={v => setContractNumber(v)} />}
-                        {(proposalNumber) && <SummaryField label="Číslo návrhu" value={proposalNumber} testId="summary-proposal" onEdit={v => setProposalNumber(v)} />}
-                        <SummaryField label="Číslo kontraktu" value={existingContract?.globalNumber?.toString() || "Pridelené pri uložení"} testId="summary-global-number" />
-                        {(contractType) && <SummaryField label="Typ zmluvy" value={contractType} testId="summary-type" />}
-                        {(signingPlace) && <SummaryField label="Miesto podpisu" value={signingPlace} testId="summary-signing-place" onEdit={v => setSigningPlace(v)} />}
-                        {(() => { const sp = allSPForEdit?.find(p => p.id === (sectorProductId ? parseInt(sectorProductId) : -1)); return sp ? <SummaryField label="Produkt" value={`${sp.name}${sp.abbreviation ? ` (${sp.abbreviation})` : ''}`} testId="summary-product" /> : null; })()}
-                        {(() => { const v = PAYMENT_FREQUENCIES.find(f => f.value === paymentFrequency)?.label; return v ? <SummaryField label="Frekvencia platenia" value={v} testId="summary-frequency" /> : null; })()}
-                        {(premiumAmount) && <SummaryField label="Lehotné poistné" value={`${premiumAmount} ${currency}`} testId="summary-premium" mono onEdit={v => setPremiumAmount(v.replace(/[^0-9.,]/g, ""))} />}
-                        {(annualPremium) && <SummaryField label="Ročné poistné" value={`${annualPremium} ${currency}`} testId="summary-annual" mono onEdit={v => { setAnnualPremium(v.replace(/[^0-9.,]/g, "")); setAnnualPremiumUserEdited(true); }} />}
-                        {(existingContract as any)?.accessRole !== 'klient' && commissionAmount && <SummaryField label="Suma provízií" value={`${commissionAmount} ${currency}`} testId="summary-commission" mono onEdit={v => setCommissionAmount(v.replace(/[^0-9.,]/g, ""))} />}
-                        {(signedDate) && <SummaryField label="Dátum podpisu" value={signedDate} testId="summary-signed" onEdit={v => setSignedDate(v)} />}
-                        {(effectiveDate) && <SummaryField label="Účinnosť od" value={effectiveDate} testId="summary-effective" onEdit={v => setEffectiveDate(v)} />}
-                        {(expiryDate) && <SummaryField label="Koniec zmluvy" value={expiryDate} testId="summary-expiry" onEdit={v => setExpiryDate(v)} />}
-                        {existingContract?.isStamped && (
-                          <SummaryField label="Opečiatkované" value={existingContract?.stampedAt ? new Date(existingContract.stampedAt).toLocaleString("sk-SK", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" }) : "-"} testId="summary-stamped" />
-                        )}
+                      <div className="rounded-lg border border-border/50 overflow-hidden">
+                        {(() => {
+                          const sp = allSPForEdit?.find(p => p.id === (sectorProductId ? parseInt(sectorProductId) : -1));
+                          const udajeFields: { label: string; value: string; testId: string; isMono?: boolean; color?: string }[] = [
+                            { label: "Číslo zmluvy", value: contractNumber || "", testId: "udaje-contract-number", isMono: true },
+                            { label: "Číslo návrhu", value: proposalNumber || "", testId: "udaje-proposal", isMono: true },
+                            { label: "Číslo kontraktu", value: existingContract?.globalNumber?.toString() || "", testId: "udaje-global-number", isMono: true },
+                            { label: "Typ zmluvy", value: contractType ? (CONTRACT_TYPES.find(t => t.value === contractType)?.label || contractType) : "", testId: "udaje-type" },
+                            { label: "Miesto podpisu", value: signingPlace || "", testId: "udaje-signing-place" },
+                            { label: "Produkt", value: sp ? `${sp.name}${sp.abbreviation ? ` (${sp.abbreviation})` : ''}` : "", testId: "udaje-product" },
+                            { label: "Frekvencia platenia", value: PAYMENT_FREQUENCIES.find(f => f.value === paymentFrequency)?.label || "", testId: "udaje-frequency" },
+                            { label: "Lehotné poistné", value: premiumAmount ? `${premiumAmount} ${currency}` : "", testId: "udaje-premium", isMono: true },
+                            { label: "Ročné poistné", value: annualPremium ? `${annualPremium} ${currency}` : "", testId: "udaje-annual", isMono: true },
+                            ...((existingContract as any)?.accessRole !== 'klient' ? [{ label: "Suma provízií", value: commissionAmount ? `${commissionAmount} ${currency}` : "", testId: "udaje-commission", isMono: true }] : []),
+                            { label: "Dátum podpisu", value: signedDate || "", testId: "udaje-signed" },
+                            { label: "Účinnosť od", value: effectiveDate || "", testId: "udaje-effective" },
+                            { label: "Koniec zmluvy", value: expiryDate || "", testId: "udaje-expiry" },
+                            ...(existingContract?.isStamped ? [{ label: "Opečiatkované", value: existingContract?.stampedAt ? new Date(existingContract.stampedAt).toLocaleString("sk-SK", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" }) : "—", testId: "udaje-stamped" }] : []),
+                          ];
+                          return udajeFields.map((f, idx) => (
+                            <div
+                              key={f.testId}
+                              className={`flex items-center min-h-[36px] px-4 ${idx % 2 === 0 ? "bg-muted/15" : "bg-background"} ${idx < udajeFields.length - 1 ? "border-b border-border/30" : ""}`}
+                              data-testid={f.testId}
+                            >
+                              <div className="w-1/2 text-xs text-muted-foreground py-2 pr-3 shrink-0">{f.label}</div>
+                              <div className="w-1/2 py-2 pl-3 border-l border-border/20">
+                                <span className={`text-sm ${f.value ? (f.isMono ? "font-mono font-medium" : "font-medium") : "text-muted-foreground/40 italic"}`}>
+                                  {f.value || "—"}
+                                </span>
+                              </div>
+                            </div>
+                          ));
+                        })()}
                       </div>
                       {existingContract?.updatedAt && (() => {
                         const days = Math.floor((Date.now() - new Date(existingContract.updatedAt).getTime()) / (1000 * 60 * 60 * 24));
