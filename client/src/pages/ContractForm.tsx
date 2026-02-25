@@ -1751,8 +1751,8 @@ export default function ContractForm() {
                     <div id="contract-status-display" className="flex items-center gap-2 h-9 px-3 border rounded-md bg-muted/30" data-testid="display-contract-status">
                       {statuses?.find(s => s.id === (statusId ? parseInt(statusId) : -1)) ? (
                         <div className="flex items-center gap-2">
-                          <div className="w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: statuses?.find(s => s.id === (statusId ? parseInt(statusId) : -1))?.color }} />
-                          <span className="text-sm">{statuses?.find(s => s.id === (statusId ? parseInt(statusId) : -1))?.name}</span>
+                          <div className="w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: getSmartStatusColor(statuses?.find(s => s.id === (statusId ? parseInt(statusId) : -1))?.color, expiryDate) }} />
+                          <span className="text-sm" style={{ color: getSmartStatusColor(statuses?.find(s => s.id === (statusId ? parseInt(statusId) : -1))?.color, expiryDate) }}>{statuses?.find(s => s.id === (statusId ? parseInt(statusId) : -1))?.name}</span>
                         </div>
                       ) : (
                         <span className="text-sm text-muted-foreground">Bez stavu</span>
@@ -2502,12 +2502,14 @@ export default function ContractForm() {
                       })()}
                       {!vseobecneAccordionOpen && (() => {
                         const s = statuses?.find(s => s.id === (statusId ? parseInt(statusId) : -1));
-                        return s ? (
+                        if (!s) return null;
+                        const sc = getSmartStatusColor(s.color, expiryDate);
+                        return (
                           <div className="flex items-center gap-1.5">
-                            <div className="w-2 h-2 rounded-full" style={{ backgroundColor: s.color }} />
-                            <span className="text-xs font-medium" style={{ color: s.color }}>{s.name}</span>
+                            <div className="w-2 h-2 rounded-full" style={{ backgroundColor: sc }} />
+                            <span className="text-xs font-medium" style={{ color: sc }}>{s.name}</span>
                           </div>
-                        ) : null;
+                        );
                       })()}
                       <ChevronRight className={`w-4 h-4 text-muted-foreground transition-transform ${vseobecneAccordionOpen ? "rotate-90" : ""}`} />
                     </div>
@@ -2576,8 +2578,8 @@ export default function ContractForm() {
                             <div className="flex items-center gap-2 h-9 px-3 border rounded-md bg-muted/30 cursor-default" data-testid="summary-status">
                               {statuses?.find(s => s.id === (statusId ? parseInt(statusId) : -1)) ? (
                                 <div className="flex items-center gap-2">
-                                  <div className="w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: statuses?.find(s => s.id === (statusId ? parseInt(statusId) : -1))?.color }} />
-                                  <span className="text-sm">{statuses?.find(s => s.id === (statusId ? parseInt(statusId) : -1))?.name}</span>
+                                  <div className="w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: getSmartStatusColor(statuses?.find(s => s.id === (statusId ? parseInt(statusId) : -1))?.color, expiryDate) }} />
+                                  <span className="text-sm" style={{ color: getSmartStatusColor(statuses?.find(s => s.id === (statusId ? parseInt(statusId) : -1))?.color, expiryDate) }}>{statuses?.find(s => s.id === (statusId ? parseInt(statusId) : -1))?.name}</span>
                                 </div>
                               ) : (
                                 <span className="text-sm text-muted-foreground">Bez stavu</span>
@@ -2693,8 +2695,8 @@ export default function ContractForm() {
                             <div className="flex items-center gap-2 h-9 px-3 border rounded-md bg-muted/30 cursor-default" data-testid="udaje-status">
                               {statuses?.find(s => s.id === (statusId ? parseInt(statusId) : -1)) ? (
                                 <div className="flex items-center gap-2">
-                                  <div className="w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: statuses?.find(s => s.id === (statusId ? parseInt(statusId) : -1))?.color }} />
-                                  <span className="text-sm">{statuses?.find(s => s.id === (statusId ? parseInt(statusId) : -1))?.name}</span>
+                                  <div className="w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: getSmartStatusColor(statuses?.find(s => s.id === (statusId ? parseInt(statusId) : -1))?.color, expiryDate) }} />
+                                  <span className="text-sm" style={{ color: getSmartStatusColor(statuses?.find(s => s.id === (statusId ? parseInt(statusId) : -1))?.color, expiryDate) }}>{statuses?.find(s => s.id === (statusId ? parseInt(statusId) : -1))?.name}</span>
                                 </div>
                               ) : (
                                 <span className="text-sm text-muted-foreground">Bez stavu</span>
@@ -3083,6 +3085,18 @@ export default function ContractForm() {
       </Dialog>
     </div>
   );
+}
+
+function getSmartStatusColor(statusColor: string | undefined, expiryDate: string | Date | null | undefined): string {
+  if (!statusColor) return "#6b7280";
+  if (!expiryDate) return statusColor;
+  const expiry = new Date(expiryDate);
+  if (isNaN(expiry.getTime())) return statusColor;
+  const now = new Date();
+  const daysUntilExpiry = Math.floor((expiry.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+  if (daysUntilExpiry < 0) return "#6b7280";
+  if (daysUntilExpiry <= 30) return "#f97316";
+  return statusColor;
 }
 
 function CompactField({ label, children }: { label: string; children: React.ReactNode }) {

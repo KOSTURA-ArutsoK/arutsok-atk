@@ -89,6 +89,18 @@ function getFreshnessSemaphore(updatedAt: string | Date | null | undefined): { c
   return { color: "#ef4444", label: `${days}d`, blink: true };
 }
 
+function getSmartStatusColor(statusColor: string | undefined, expiryDate: string | Date | null | undefined): string {
+  if (!statusColor) return "#6b7280";
+  if (!expiryDate) return statusColor;
+  const expiry = new Date(expiryDate);
+  if (isNaN(expiry.getTime())) return statusColor;
+  const now = new Date();
+  const daysUntilExpiry = Math.floor((expiry.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+  if (daysUntilExpiry < 0) return "#6b7280";
+  if (daysUntilExpiry <= 30) return "#f97316";
+  return statusColor;
+}
+
 const CONTRACTS_EVIDENCIA_COLUMNS: ColumnDef[] = [
   { key: "contractNumber", label: "Cislo zmluvy" },
   { key: "proposalNumber", label: "Cislo navrhu" },
@@ -1552,7 +1564,7 @@ function ContractDetailDialog({
               <div className="flex items-center gap-2 mt-1 flex-wrap">
                 <span
                   className="inline-flex items-center px-2 py-0.5 rounded-full border text-[11px] font-medium"
-                  style={{ borderColor: status?.color, color: status?.color, backgroundColor: status ? `${status.color}15` : 'transparent', display: status ? 'inline-flex' : 'none' }}
+                  style={{ borderColor: getSmartStatusColor(status?.color, contract?.expiryDate), color: getSmartStatusColor(status?.color, contract?.expiryDate), backgroundColor: status ? `${getSmartStatusColor(status?.color, contract?.expiryDate)}15` : 'transparent', display: status ? 'inline-flex' : 'none' }}
                   data-testid="badge-detail-status"
                 >
                   {status?.name}
@@ -2395,7 +2407,7 @@ export default function Contracts() {
                       {status ? (
                         <span
                           className="inline-flex items-center justify-center px-2.5 py-0.5 rounded-md border text-[11px] font-medium leading-tight text-center whitespace-normal"
-                          style={{ borderColor: status.color, color: status.color, backgroundColor: `${status.color}15`, wordBreak: 'normal', overflowWrap: 'break-word' }}
+                          style={{ borderColor: getSmartStatusColor(status.color, contract.expiryDate), color: getSmartStatusColor(status.color, contract.expiryDate), backgroundColor: `${getSmartStatusColor(status.color, contract.expiryDate)}15`, wordBreak: 'normal', overflowWrap: 'break-word' }}
                         >{status.name}</span>
                       ) : "-"}
                       <MessageSquare className="w-3.5 h-3.5 text-blue-400 shrink-0" data-testid={`icon-note-${contract.id}`} style={{ display: statusChangeMeta?.[contract.id]?.hasNote ? 'block' : 'none' }} />
@@ -3435,7 +3447,7 @@ export default function Contracts() {
                           {status ? (
                             <span
                               className="inline-flex items-center justify-center px-2.5 py-0.5 rounded-md border text-[11px] font-medium leading-tight text-center whitespace-normal"
-                              style={{ borderColor: status.color, color: status.color, backgroundColor: `${status.color}15`, wordBreak: 'normal', overflowWrap: 'break-word' }}
+                              style={{ borderColor: getSmartStatusColor(status.color, contract.expiryDate), color: getSmartStatusColor(status.color, contract.expiryDate), backgroundColor: `${getSmartStatusColor(status.color, contract.expiryDate)}15`, wordBreak: 'normal', overflowWrap: 'break-word' }}
                               data-testid={`badge-contract-status-${contract.id}`}
                             >
                               {status.name}
