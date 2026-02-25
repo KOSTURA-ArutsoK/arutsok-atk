@@ -7,7 +7,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useColumnVisibility, type ColumnDef } from "@/hooks/use-column-visibility";
 import { ColumnManager } from "@/components/column-manager";
 import type { ContractInventory } from "@shared/schema";
-import { Pencil, Loader2, Printer, Circle, ChevronDown } from "lucide-react";
+import { Pencil, Loader2, Printer, Circle, ChevronDown, Plus } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -110,9 +110,24 @@ type InventoryContractRow = {
 };
 
 function InlineInventoryDetail({ inventory }: { inventory: ContractInventory }) {
+  const { toast } = useToast();
   const { data: contracts, isLoading } = useQuery<InventoryContractRow[]>({
     queryKey: ["/api/contract-inventories", inventory.id, "contracts"],
     queryFn: () => fetch(`/api/contract-inventories/${inventory.id}/contracts`, { credentials: "include" }).then(r => r.json()),
+  });
+
+  const [selectedObjIds, setSelectedObjIds] = useState<Set<number>>(new Set());
+
+  const rerouteMutation = useMutation({
+    mutationFn: (contractIds: number[]) =>
+      apiRequest("POST", "/api/contract-inventories/reroute-objections", { contractIds }),
+    onSuccess: (data: any) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/contract-inventories"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/contract-inventories", inventory.id, "contracts"] });
+      setSelectedObjIds(new Set());
+      toast({ title: "Úspech", description: `Vytvorená nová sprievodka č. ${data.sequenceNumber} s ${data.rerouted} zmluvami` });
+    },
+    onError: () => toast({ title: "Chyba", description: "Nepodarilo sa vytvoriť novú sprievodku", variant: "destructive" }),
   });
 
   if (isLoading) {
@@ -132,8 +147,27 @@ function InlineInventoryDetail({ inventory }: { inventory: ContractInventory }) 
     );
   }
 
+  const objectionContracts = contracts.filter(c => c.lifecyclePhase === 3);
+  const hasObjections = objectionContracts.length > 0;
+
+  function toggleObjSelection(id: number) {
+    setSelectedObjIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  }
+
+  function toggleAllObjections() {
+    if (selectedObjIds.size === objectionContracts.length) {
+      setSelectedObjIds(new Set());
+    } else {
+      setSelectedObjIds(new Set(objectionContracts.map(c => c.id)));
+    }
+  }
+
   return (
-    <div className="space-y-2">
+    <div className="space-y-3">
       <Table>
         <TableHeader>
           <TableRow className="hover:bg-transparent">
@@ -181,6 +215,64 @@ function InlineInventoryDetail({ inventory }: { inventory: ContractInventory }) 
           })}
         </TableBody>
       </Table>
+
+      {hasObjections && (
+        <div className="border border-red-500/30 rounded bg-red-500/5 dark:bg-red-900/10 p-3 space-y-2">
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2">
+              <Circle className="w-2.5 h-2.5 fill-red-500 text-red-500" />
+              <span className="text-xs font-semibold text-red-600 dark:text-red-400">
+                Neprijaté zmluvy – výhrady ({objectionContracts.length})
+              </span>
+            </div>
+            <div className="flex items-center gap-2">
+              <Button
+                size="sm"
+                variant="ghost"
+                className="h-6 text-[10px] px-2"
+                onClick={toggleAllObjections}
+                data-testid="button-toggle-all-objections"
+              >
+                {selectedObjIds.size === objectionContracts.length ? "Odznačiť všetky" : "Označiť všetky"}
+              </Button>
+              <Button
+                size="sm"
+                variant="default"
+                className="h-6 text-[10px] px-2 bg-red-600 hover:bg-red-700"
+                disabled={selectedObjIds.size === 0 || rerouteMutation.isPending}
+                onClick={() => rerouteMutation.mutate(Array.from(selectedObjIds))}
+                data-testid="button-reroute-objections"
+              >
+                {rerouteMutation.isPending ? (
+                  <Loader2 className="w-3 h-3 animate-spin mr-1" />
+                ) : (
+                  <Plus className="w-3 h-3 mr-1" />
+                )}
+                Vytvoriť novú sprievodku ({selectedObjIds.size})
+              </Button>
+            </div>
+          </div>
+          <div className="space-y-0.5">
+            {objectionContracts.map(c => (
+              <label
+                key={c.id}
+                className="flex items-center gap-2 py-0.5 px-1 rounded hover:bg-red-500/10 cursor-pointer"
+                data-testid={`checkbox-objection-${c.id}`}
+              >
+                <Checkbox
+                  checked={selectedObjIds.has(c.id)}
+                  onCheckedChange={() => toggleObjSelection(c.id)}
+                  className="w-3.5 h-3.5"
+                />
+                <Circle className="w-2 h-2 fill-red-500 text-red-500 shrink-0" />
+                <span className="text-xs font-mono">{c.contractNumber || c.proposalNumber || "—"}</span>
+                <span className="text-[10px] text-muted-foreground">— {c.subjectName}</span>
+              </label>
+            ))}
+          </div>
+        </div>
+      )}
+
       <div className="flex items-center gap-4 text-[10px] text-muted-foreground px-2 pb-1">
         <span className="flex items-center gap-1"><Circle className="w-2 h-2 fill-blue-500 text-blue-500" /> Odoslané</span>
         <span className="flex items-center gap-1"><Circle className="w-2 h-2 fill-red-500 text-red-500" /> Neprijaté</span>
@@ -621,7 +713,7 @@ export default function ContractInventories() {
                         {isExpanded && (
                           <TableRow key={`detail-${inventory.id}`} className="hover:bg-transparent">
                             <TableCell colSpan={99} className="p-0">
-                              <div className="bg-muted/30 border-t border-b border-border/50 px-4 py-2">
+                              <div className="bg-muted/40 dark:bg-muted/20 border-t-2 border-b-2 border-border ml-6 mr-2 my-1 rounded px-4 py-3 shadow-inner">
                                 <InlineInventoryDetail inventory={inventory} />
                               </div>
                             </TableCell>

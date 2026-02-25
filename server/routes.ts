@@ -2616,6 +2616,72 @@ export async function registerRoutes(
     }
   });
 
+  app.post("/api/contract-inventories/reroute-objections", isAuthenticated, async (req: any, res) => {
+    try {
+      const { contractIds } = req.body;
+      if (!Array.isArray(contractIds) || contractIds.length === 0) {
+        return res.status(400).json({ message: "Žiadne zmluvy na presmerovanie" });
+      }
+
+      const appUser = req.appUser;
+      const now = new Date();
+
+      const seqNum = await storage.getNextCounterValue("sprievodka_sequence");
+      const newInventory = await storage.createContractInventory({
+        name: `Sprievodka č. ${seqNum}`,
+        stateId: appUser?.activeStateId || 1,
+        sortOrder: 0,
+        isClosed: false,
+      });
+      await storage.updateContractInventory(newInventory.id, {
+        sequenceNumber: seqNum,
+        isDispatched: true,
+      } as any);
+
+      const results: any[] = [];
+      for (let i = 0; i < contractIds.length; i++) {
+        const cid = Number(contractIds[i]);
+        const [contract] = await db.select().from(contracts).where(eq(contracts.id, cid));
+        if (!contract) continue;
+
+        const oldInventoryId = contract.inventoryId;
+        const [updated] = await db.update(contracts)
+          .set({
+            lifecyclePhase: 2,
+            inventoryId: newInventory.id,
+            sortOrderInInventory: i + 1,
+            updatedAt: now,
+          })
+          .where(eq(contracts.id, cid))
+          .returning();
+
+        await db.insert(contractLifecycleHistory).values({
+          contractId: cid,
+          phase: 2,
+          phaseName: LIFECYCLE_PHASES[2] || "Odoslané",
+          changedByUserId: appUser?.id || null,
+          note: `Re-sprievodkovanie: výhrada → nová sprievodka č. ${seqNum}, pôvodná sprievodka ID ${oldInventoryId || 'žiadna'}`,
+        });
+
+        await logAudit(req, {
+          action: "REROUTE_OBJECTION",
+          module: "zmluvy",
+          entityId: cid,
+          entityName: contract.contractNumber || contract.proposalNumber || `ID ${cid}`,
+          oldData: { lifecyclePhase: contract.lifecyclePhase, inventoryId: oldInventoryId },
+          newData: { lifecyclePhase: 2, inventoryId: newInventory.id, newSequenceNumber: seqNum },
+        });
+
+        results.push(updated);
+      }
+
+      res.json({ rerouted: results.length, sequenceNumber: seqNum, inventoryId: newInventory.id });
+    } catch (err: any) {
+      console.error("Reroute objections error:", err);
+      res.status(500).json({ message: err?.message || "Internal error" });
+    }
+  });
+
   // === CONTRACT LIFECYCLE HISTORY (Stroj času) ===
   app.get("/api/contracts/:id/lifecycle-history", isAuthenticated, async (req: any, res) => {
     try {
