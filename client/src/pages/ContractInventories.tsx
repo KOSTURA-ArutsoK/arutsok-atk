@@ -86,6 +86,9 @@ function getContractSemaphore(contract: { lifecyclePhase: number | null; isDelet
   if (phase === 4) {
     return { color: "#000000", label: "Archív s výhradami", cssClass: "text-black dark:text-gray-400" };
   }
+  if (phase === 7) {
+    return { color: "#f97316", label: "Interná intervencia", cssClass: "text-orange-500" };
+  }
   if (phase >= 5) {
     return { color: "#22c55e", label: "Prijatá / Spracovaná", cssClass: "text-green-500" };
   }
@@ -194,6 +197,7 @@ function InventoryDetailDialog({
   <div class="legend">
     <div class="legend-item"><span class="dot" style="background:#3b82f6"></span> Odoslané</div>
     <div class="legend-item"><span class="dot" style="background:#ef4444"></span> Neprijaté</div>
+    <div class="legend-item"><span class="dot" style="background:#f97316"></span> Intervencia</div>
     <div class="legend-item"><span class="dot" style="background:#000000"></span> Archív/Vymazaná</div>
     <div class="legend-item"><span class="dot" style="background:#22c55e"></span> Prijatá/Spracovaná</div>
   </div>
@@ -292,6 +296,7 @@ function InventoryDetailDialog({
           <div className="flex items-center gap-4">
             <span className="flex items-center gap-1"><Circle className="w-2.5 h-2.5 fill-blue-500 text-blue-500" /> Odoslané</span>
             <span className="flex items-center gap-1"><Circle className="w-2.5 h-2.5 fill-red-500 text-red-500" /> Neprijaté</span>
+            <span className="flex items-center gap-1"><Circle className="w-2.5 h-2.5 fill-orange-500 text-orange-500" /> Intervencia</span>
             <span className="flex items-center gap-1"><Circle className="w-2.5 h-2.5 fill-black dark:fill-gray-400 text-black dark:text-gray-400" /> Archív/Vymazaná</span>
             <span className="flex items-center gap-1"><Circle className="w-2.5 h-2.5 fill-green-500 text-green-500" /> Prijatá</span>
           </div>
