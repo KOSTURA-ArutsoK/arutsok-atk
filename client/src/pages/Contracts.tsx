@@ -11,7 +11,7 @@ import type { SmartColumnDef } from "@/hooks/use-smart-filter";
 import { SmartFilterBar } from "@/components/smart-filter-bar";
 import { useLocation } from "wouter";
 import type { Contract, ContractStatus, ContractTemplate, ContractInventory, Subject, Partner, Product, MyCompany, Sector, Section, SectorProduct, ClientGroup, ClientType, AppUser, ContractAcquirer } from "@shared/schema";
-import { Plus, Pencil, Trash2, Eye, FileText, Loader2, Lock, LayoutGrid, Send, Upload, Inbox, CheckCircle2, ChevronDown, ChevronRight, Printer, Search, Archive, AlertTriangle, Calendar, XCircle, MessageSquare, Paperclip, X, Users, Check, Award, Percent, History, ListChecks, ArrowRight, Clock, Ghost } from "lucide-react";
+import { Plus, Pencil, Trash2, Eye, FileText, Loader2, Lock, LayoutGrid, Send, Upload, Inbox, CheckCircle2, ChevronDown, ChevronRight, Printer, Search, Archive, AlertTriangle, Calendar, XCircle, MessageSquare, Paperclip, X, Users, Check, Award, Percent, History, ListChecks, ArrowRight, Clock, Ghost, Ban } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ActivityTimeline } from "@/components/activity-timeline";
 import { cn } from "@/lib/utils";
@@ -1593,8 +1593,10 @@ function ContractDetailDialog({
                 </div>
                 <div>
                   <span className="text-xs text-muted-foreground">Klient</span>
-                  <p className="text-sm" data-testid="text-detail-subject">
+                  <p className="text-sm flex items-center gap-1.5" data-testid="text-detail-subject">
                     {subjectName ? (subjectName.type === "person" ? `${subjectName.firstName} ${subjectName.lastName}` : subjectName.companyName) : "-"}
+                    {(subjectName as any)?.effectiveListStatus === "cierny" && <span title="Globálny čierny zoznam"><Ban className="w-3.5 h-3.5 text-red-500 shrink-0" /></span>}
+                    {(subjectName as any)?.effectiveListStatus === "cerveny" && <span title="Lokálny červený zoznam"><AlertTriangle className="w-3.5 h-3.5 text-orange-500 shrink-0" /></span>}
                   </p>
                 </div>
                 <div>
@@ -2255,11 +2257,27 @@ export default function Contracts() {
     acceptMutation.mutate({ inventoryId, contractIds: Array.from(ids) });
   }
 
-  function getSubjectDisplay(subjectId: number | null) {
+  function getSubjectDisplayName(subjectId: number | null) {
     if (!subjectId) return "-";
     const s = subjects?.find(sub => sub.id === subjectId);
     if (!s) return "-";
     return s.type === "person" ? `${s.firstName} ${s.lastName}` : s.type === "szco" ? `${s.companyName || ""} - ${s.firstName} ${s.lastName}` : (s.companyName || "-");
+  }
+
+  function getSubjectDisplay(subjectId: number | null) {
+    if (!subjectId) return "-";
+    const s = subjects?.find(sub => sub.id === subjectId);
+    if (!s) return "-";
+    const name = s.type === "person" ? `${s.firstName} ${s.lastName}` : s.type === "szco" ? `${s.companyName || ""} - ${s.firstName} ${s.lastName}` : (s.companyName || "-");
+    const eff = (s as any).effectiveListStatus;
+    if (!eff) return name;
+    return (
+      <span className="inline-flex items-center gap-1">
+        {name}
+        {eff === "cierny" && <Ban className="w-3 h-3 text-red-500 shrink-0" />}
+        {eff === "cerveny" && <AlertTriangle className="w-3 h-3 text-orange-500 shrink-0" />}
+      </span>
+    );
   }
 
   async function handleExcelImport() {
@@ -2342,7 +2360,7 @@ export default function Contracts() {
     return list.filter(c =>
       (c.contractNumber || "").toLowerCase().includes(q) ||
       (c.globalNumber ? String(c.globalNumber) : "").includes(q) ||
-      getSubjectDisplay(c.subjectId).toLowerCase().includes(q) ||
+      getSubjectDisplayName(c.subjectId).toLowerCase().includes(q) ||
       getPartnerName(c).toLowerCase().includes(q) ||
       getProductName(c).toLowerCase().includes(q)
     );

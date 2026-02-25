@@ -1094,6 +1094,13 @@ export async function registerRoutes(
         delete prefs.field_notes;
         masked.uiPreferences = prefs;
       }
+      if (s.listStatus === "cierny") {
+        masked.effectiveListStatus = "cierny";
+      } else if (s.listStatus === "cerveny") {
+        masked.effectiveListStatus = (!s.redListCompanyId || s.redListCompanyId === activeCompanyId) ? "cerveny" : null;
+      } else {
+        masked.effectiveListStatus = null;
+      }
       return masked;
     }));
   });
@@ -1117,6 +1124,14 @@ export async function registerRoutes(
     const subject = await storage.getSubject(subjectId);
     if (!subject) return res.status(404).json({ message: "Subject not found" });
     const masked = maskSubjectBirthNumber(subject, req.appUser);
+    const activeCompanyId = req.appUser?.activeCompanyId;
+    if (subject.listStatus === "cierny") {
+      (masked as any).effectiveListStatus = "cierny";
+    } else if (subject.listStatus === "cerveny") {
+      (masked as any).effectiveListStatus = (!subject.redListCompanyId || subject.redListCompanyId === activeCompanyId) ? "cerveny" : null;
+    } else {
+      (masked as any).effectiveListStatus = null;
+    }
     if (subject.linkedFoId) {
       const linkedFo = await storage.getSubject(subject.linkedFoId);
       if (linkedFo) {
@@ -3009,6 +3024,8 @@ export async function registerRoutes(
               : subj.companyName || '')
             : '—',
           subjectUid: subj?.uid || null,
+          subjectListStatus: subj?.listStatus || null,
+          subjectRedListCompanyId: subj?.redListCompanyId || null,
         };
       });
       enriched.sort((a: any, b: any) => (a.sortOrderInInventory || 0) - (b.sortOrderInInventory || 0));
@@ -3466,6 +3483,13 @@ export async function registerRoutes(
       delete bodyClean._migrationDates;
       const input = api.contractsApi.create.input.parse(bodyClean);
       const appUser = req.appUser;
+
+      if (input.subjectId) {
+        const subj = await storage.getSubject(input.subjectId);
+        if (subj?.listStatus === "cierny") {
+          return res.status(403).json({ message: "Subjekt je na Globálnom čiernom zozname — operácia zakázaná" });
+        }
+      }
       const createData = { ...input, uploadedByUserId: appUser?.id || null } as any;
       if (appUser?.activeStateId) {
         createData.stateId = appUser.activeStateId;
@@ -3514,6 +3538,13 @@ export async function registerRoutes(
         });
       }
       await logAudit(req, { action: "CREATE", module: "zmluvy", entityId: created.id, entityName: created.contractNumber || `Zmluva #${created.id}`, newData: input });
+
+      if (input.subjectId) {
+        try {
+          await storage.ensureSubjectInGroup(input.subjectId, "group_klient");
+        } catch (e) { /* silent — group may not exist yet */ }
+      }
+
       res.status(201).json(created);
     } catch (err) {
       if (err instanceof z.ZodError) return res.status(400).json({ message: err.errors[0].message });
@@ -4588,6 +4619,9 @@ export async function registerRoutes(
     try {
       const existing = await storage.getClientGroup(Number(req.params.id));
       if (!existing) return res.status(404).json({ message: "Skupina nenajdena" });
+      if ((existing as any).isSystem) {
+        return res.status(403).json({ message: "Systémovú skupinu nie je možné zmazať" });
+      }
       const enforcedState = getEnforcedStateId(req);
       if (enforcedState && existing.stateId !== enforcedState) {
         return res.status(403).json({ message: "Pristup zamietnuty" });
@@ -7550,6 +7584,12 @@ export async function registerRoutes(
         .reduce((sum: number, l: any) => sum + l.points, 0);
       await db.update(subjects).set({ bonitaPoints: newTotal }).where(eq(subjects.id, subjectId));
 
+      if (newTotal <= -5 && subject.listStatus !== "cerveny" && subject.listStatus !== "cierny") {
+        const companyId = req.appUser?.activeCompanyId || null;
+        await storage.updateSubjectListStatus(subjectId, "cerveny", req.appUser?.id || 0, `Automatický červený zoznam: bonita ${newTotal} bodov`, companyId);
+        await logAudit(req, { action: "UPDATE", module: "subjekty", entityId: subjectId, entityName: `Auto červený zoznam (bonita ${newTotal})`, oldData: {}, newData: { listStatus: "cerveny", trigger: "bonita_threshold" } });
+      }
+
       await logAudit(req, { action: "ADD_POINT", module: "subjekty_bonita", entityId: subjectId, entityName: `${pointType} bod (${points}) pre subjekt #${subject.uid}: ${reason}` });
       res.json({ totalPoints: newTotal });
     } catch (err: any) {
@@ -7576,7 +7616,8 @@ export async function registerRoutes(
         return res.status(400).json({ message: "Neplatný stav zoznamu" });
       }
 
-      const updated = await storage.updateSubjectListStatus(subjectId, listStatus, appUser?.id || 0, reason);
+      const redListCompanyId = listStatus === "cerveny" ? (appUser?.activeCompanyId || null) : null;
+      const updated = await storage.updateSubjectListStatus(subjectId, listStatus, appUser?.id || 0, reason, redListCompanyId);
 
       await logAudit(req, {
         action: "UPDATE",
@@ -7584,7 +7625,7 @@ export async function registerRoutes(
         entityId: subjectId,
         entityName: `Zmena listu: ${listStatus || 'zrušený'}`,
         oldData: {},
-        newData: { listStatus, reason },
+        newData: { listStatus, reason, redListCompanyId },
       });
 
       res.json(updated);
@@ -8263,6 +8304,22 @@ export async function registerRoutes(
       }
     }
     if (synced > 0) console.log(`[SYNC] Auto-created ${synced} client groups from permission groups`);
+  }
+
+  {
+    const systemGroups = [
+      { name: "Klienti", groupCode: "group_klient" },
+      { name: "Registrovaní klienti", groupCode: "group_registrovany" },
+    ];
+    for (const sg of systemGroups) {
+      const existing = await db.select().from(clientGroups).where(eq(clientGroups.groupCode, sg.groupCode));
+      if (existing.length === 0) {
+        await db.insert(clientGroups).values({ name: sg.name, groupCode: sg.groupCode, isSystem: true, permissionLevel: 1 });
+        console.log(`[SEED] Created system group: ${sg.name}`);
+      } else if (!existing[0].isSystem) {
+        await db.update(clientGroups).set({ isSystem: true }).where(eq(clientGroups.id, existing[0].id));
+      }
+    }
   }
 
   await storage.autoArchiveExpiredBindings();

@@ -8,7 +8,7 @@ import { useMyCompanies } from "@/hooks/use-companies";
 import type { ClientGroup, Subject, PermissionGroup } from "@shared/schema";
 import {
   Plus, Pencil, Loader2, Check, X,
-  Calculator, LogIn, UserPlus, UserMinus, Search, ChevronRight, Building2, Shield,
+  Calculator, LogIn, UserPlus, UserMinus, Search, ChevronRight, Building2, Shield, Lock,
 } from "lucide-react";
 import { ConditionalDelete } from "@/components/conditional-delete";
 import { SortableTableRow, SortableContext_Wrapper } from "@/components/sortable-list";
@@ -62,10 +62,14 @@ function GroupDetailDialog({
   const [permissionGroupId, setPermissionGroupId] = useState("");
   const [subGroupName, setSubGroupName] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
+  const [customFields, setCustomFields] = useState<Array<{ name: string; type: string }>>([]);
+  const [newFieldName, setNewFieldName] = useState("");
+  const [newFieldType, setNewFieldType] = useState("text");
   const timerRef = useRef<number>(0);
   const startTimeRef = useRef<number>(Date.now());
 
   const isEditing = !!group;
+  const isSystem = !!(group as any)?.isSystem;
 
   useEffect(() => {
     if (open) {
@@ -75,16 +79,20 @@ function GroupDetailDialog({
         setAllowLogin(group.allowLogin ?? true);
         setAllowCalculators(group.allowCalculators ?? true);
         setPermissionGroupId(group.permissionGroupId ? String(group.permissionGroupId) : "");
+        setCustomFields(Array.isArray((group as any).customFields) ? (group as any).customFields : []);
       } else {
         setName("");
         setEntityType("fyzicka_osoba");
         setAllowLogin(true);
         setAllowCalculators(true);
         setPermissionGroupId("");
+        setCustomFields([]);
       }
       setActiveTab("vseobecne");
       setSubGroupName("");
       setSearchQuery("");
+      setNewFieldName("");
+      setNewFieldType("text");
       startTimeRef.current = Date.now();
     }
   }, [open, group]);
@@ -195,12 +203,23 @@ function GroupDetailDialog({
 
   const handleSave = () => {
     const processingTimeSec = Math.floor((Date.now() - startTimeRef.current) / 1000);
-    const data: any = { name, entityType, allowLogin, allowCalculators, permissionGroupId: permissionGroupId ? parseInt(permissionGroupId) : null };
+    const data: any = { name, entityType, allowLogin, allowCalculators, permissionGroupId: permissionGroupId ? parseInt(permissionGroupId) : null, customFields };
     if (isEditing) {
       updateMutation.mutate(data);
     } else {
       createMutation.mutate(data);
     }
+  };
+
+  const addCustomField = () => {
+    if (!newFieldName.trim()) return;
+    setCustomFields([...customFields, { name: newFieldName.trim(), type: newFieldType }]);
+    setNewFieldName("");
+    setNewFieldType("text");
+  };
+
+  const removeCustomField = (index: number) => {
+    setCustomFields(customFields.filter((_, i) => i !== index));
   };
 
   const existingMemberIds = new Set(members?.map(m => m.subjectId) || []);
@@ -212,15 +231,20 @@ function GroupDetailDialog({
       <DialogContent size="md" className="flex flex-col" data-testid="dialog-client-group">
         <DialogHeader>
           <DialogTitle data-testid="text-group-dialog-title">
-            {isEditing ? `Uprava skupiny: ${group?.name}` : "Nova skupina klientov"}
+            <span className="inline-flex items-center gap-2">
+              {isSystem && <Lock className="w-4 h-4 text-amber-500" />}
+              {isEditing ? `Uprava skupiny: ${group?.name}` : "Nova skupina klientov"}
+              {isSystem && <Badge variant="outline" className="text-[10px] border-amber-500/50 text-amber-500">Systemova</Badge>}
+            </span>
           </DialogTitle>
         </DialogHeader>
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col">
-          <TabsList className="grid w-full grid-cols-3" data-testid="tabs-group-detail">
+          <TabsList className="grid w-full grid-cols-4" data-testid="tabs-group-detail">
             <TabsTrigger value="vseobecne" data-testid="tab-vseobecne">Vseobecne</TabsTrigger>
             <TabsTrigger value="podskupiny" disabled={!isEditing} data-testid="tab-podskupiny">Podskupiny</TabsTrigger>
-            <TabsTrigger value="klienti" disabled={!isEditing} data-testid="tab-klienti">Zoznam klientov</TabsTrigger>
+            <TabsTrigger value="klienti" disabled={!isEditing} data-testid="tab-klienti">Klienti</TabsTrigger>
+            <TabsTrigger value="polia" disabled={!isEditing} data-testid="tab-polia">Vlastné polia</TabsTrigger>
           </TabsList>
 
           <TabsContent value="vseobecne" className="flex-1 space-y-4 mt-4">
@@ -460,6 +484,77 @@ function GroupDetailDialog({
               </Table>
             )}
           </TabsContent>
+
+          <TabsContent value="polia" className="flex-1 space-y-4 mt-4">
+            <div className="flex items-end gap-2">
+              <div className="flex-1 space-y-1">
+                <Label htmlFor="new-field-name">Nazov polia</Label>
+                <Input
+                  id="new-field-name"
+                  value={newFieldName}
+                  onChange={(e) => setNewFieldName(e.target.value)}
+                  placeholder="Napr. Cislo dokladu"
+                  data-testid="input-custom-field-name"
+                  onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addCustomField(); } }}
+                />
+              </div>
+              <div className="w-36 space-y-1">
+                <Label>Typ</Label>
+                <Select value={newFieldType} onValueChange={setNewFieldType}>
+                  <SelectTrigger data-testid="select-custom-field-type">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="text">Text</SelectItem>
+                    <SelectItem value="number">Cislo</SelectItem>
+                    <SelectItem value="date">Datum</SelectItem>
+                    <SelectItem value="boolean">Ano/Nie</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <Button type="button" onClick={addCustomField} disabled={!newFieldName.trim()} data-testid="button-add-custom-field">
+                <Plus className="w-4 h-4" />
+              </Button>
+            </div>
+
+            {customFields.length > 0 ? (
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Nazov polia</TableHead>
+                    <TableHead className="w-28">Typ</TableHead>
+                    <TableHead className="w-16"></TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {customFields.map((field, i) => (
+                    <TableRow key={i} data-testid={`row-custom-field-${i}`}>
+                      <TableCell className="font-medium">{field.name}</TableCell>
+                      <TableCell>
+                        <Badge variant="outline" className="text-xs">{field.type === "text" ? "Text" : field.type === "number" ? "Cislo" : field.type === "date" ? "Datum" : "Ano/Nie"}</Badge>
+                      </TableCell>
+                      <TableCell>
+                        <Button size="icon" variant="ghost" onClick={() => removeCustomField(i)} data-testid={`button-remove-field-${i}`}>
+                          <X className="w-4 h-4 text-destructive" />
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            ) : (
+              <div className="text-center text-muted-foreground py-8 text-sm">
+                Ziadne vlastne polia
+              </div>
+            )}
+
+            <div className="flex justify-end pt-2">
+              <ProcessingSaveButton
+                isPending={updateMutation.isPending}
+                onClick={handleSave}
+              />
+            </div>
+          </TabsContent>
         </Tabs>
       </DialogContent>
     </Dialog>
@@ -579,7 +674,11 @@ export default function ClientGroups() {
                         className="font-medium cursor-pointer hover-elevate"
                         onClick={() => { setEditingGroup(group); setDialogOpen(true); }}
                       >
-                        {group.name}
+                        <span className="inline-flex items-center gap-1.5">
+                          {(group as any).isSystem && <Lock className="w-3.5 h-3.5 text-amber-500 shrink-0" />}
+                          {group.name}
+                          {(group as any).isSystem && <Badge variant="outline" className="text-[9px] h-4 border-amber-500/50 text-amber-500">Systémová</Badge>}
+                        </span>
                       </TableCell>}
                       {columnVisibility.isVisible("permissionGroup") && <TableCell className="text-center">
                         <Badge variant="outline" data-testid={`badge-level-${group.id}`}>
@@ -615,7 +714,7 @@ export default function ClientGroups() {
                           >
                             <Pencil className="w-4 h-4" />
                           </Button>
-                          <ConditionalDelete canDelete={group.memberCount === 0} onClick={() => setDeletingGroup(group)} testId={`button-delete-group-${group.id}`} />
+                          {!(group as any).isSystem && <ConditionalDelete canDelete={group.memberCount === 0} onClick={() => setDeletingGroup(group)} testId={`button-delete-group-${group.id}`} />}
                         </div>
                       </TableCell>
                     </SortableTableRow>

@@ -7,7 +7,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useColumnVisibility, type ColumnDef } from "@/hooks/use-column-visibility";
 import { ColumnManager } from "@/components/column-manager";
 import type { ContractInventory } from "@shared/schema";
-import { Pencil, Loader2, Printer, Circle, ChevronDown, Plus, Search } from "lucide-react";
+import { Pencil, Loader2, Printer, Circle, ChevronDown, Plus, Search, Ban, AlertTriangle } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -106,6 +106,8 @@ type InventoryContractRow = {
   isDeleted: boolean;
   subjectName: string;
   subjectUid: string | null;
+  subjectListStatus: string | null;
+  subjectRedListCompanyId: number | null;
 };
 
 function InlineInventoryDetail({ inventory }: { inventory: ContractInventory }) {
@@ -196,7 +198,11 @@ function InlineInventoryDetail({ inventory }: { inventory: ContractInventory }) 
                   {c.contractNumber || c.proposalNumber || "—"}
                 </TableCell>
                 <TableCell className="py-1" data-testid={`text-inv-contract-client-${c.id}`}>
-                  <span className="text-xs">{c.subjectName}</span>
+                  <span className="text-xs inline-flex items-center gap-1">
+                    {c.subjectName}
+                    {c.subjectListStatus === "cierny" && <Ban className="w-3 h-3 text-red-500 shrink-0" />}
+                    {c.subjectListStatus === "cerveny" && <AlertTriangle className="w-3 h-3 text-orange-500 shrink-0" />}
+                  </span>
                   {c.subjectUid && (
                     <span className="text-[9px] text-muted-foreground ml-1 font-mono">{c.subjectUid}</span>
                   )}
@@ -265,7 +271,11 @@ function InlineInventoryDetail({ inventory }: { inventory: ContractInventory }) 
                 />
                 <Circle className="w-2 h-2 fill-red-500 text-red-500 shrink-0" />
                 <span className="text-xs font-mono">{c.contractNumber || c.proposalNumber || "—"}</span>
-                <span className="text-[10px] text-muted-foreground">— {c.subjectName}</span>
+                <span className="text-[10px] text-muted-foreground inline-flex items-center gap-0.5">
+                  — {c.subjectName}
+                  {c.subjectListStatus === "cierny" && <Ban className="w-2.5 h-2.5 text-red-500" />}
+                  {c.subjectListStatus === "cerveny" && <AlertTriangle className="w-2.5 h-2.5 text-orange-500" />}
+                </span>
               </label>
             ))}
           </div>

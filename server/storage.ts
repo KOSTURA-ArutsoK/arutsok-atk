@@ -3722,14 +3722,49 @@ export class DatabaseStorage implements IStorage {
     });
   }
 
-  async updateSubjectListStatus(subjectId: number, listStatus: "cerveny" | "cierny" | null, changedByUserId: number, reason?: string): Promise<Subject> {
-    const [updated] = await db.update(subjects).set({
+  async updateSubjectListStatus(subjectId: number, listStatus: "cerveny" | "cierny" | null, changedByUserId: number, reason?: string, redListCompanyId?: number | null): Promise<Subject> {
+    const setData: any = {
       listStatus,
       listStatusChangedBy: changedByUserId,
       listStatusChangedAt: new Date(),
       listStatusReason: reason || null,
-    }).where(eq(subjects.id, subjectId)).returning();
+    };
+    if (listStatus === "cerveny" && redListCompanyId !== undefined) {
+      setData.redListCompanyId = redListCompanyId;
+    }
+    if (listStatus === "cierny" || listStatus === null) {
+      setData.redListCompanyId = null;
+    }
+    const [updated] = await db.update(subjects).set(setData).where(eq(subjects.id, subjectId)).returning();
     return updated;
+  }
+
+  async getClientGroupByCode(groupCode: string): Promise<ClientGroup | undefined> {
+    const [group] = await db.select().from(clientGroups).where(eq(clientGroups.groupCode, groupCode));
+    return group;
+  }
+
+  async ensureSubjectInGroup(subjectId: number, groupCode: string): Promise<void> {
+    const group = await this.getClientGroupByCode(groupCode);
+    if (!group) return;
+    const existing = await db.select().from(clientGroupMembers)
+      .where(and(eq(clientGroupMembers.groupId, group.id), eq(clientGroupMembers.subjectId, subjectId)))
+      .then(r => r[0]);
+    if (!existing) {
+      await db.insert(clientGroupMembers).values({ groupId: group.id, subjectId } as any);
+    }
+  }
+
+  async removeSubjectFromGroup(subjectId: number, groupCode: string): Promise<void> {
+    const group = await this.getClientGroupByCode(groupCode);
+    if (!group) return;
+    await db.delete(clientGroupMembers)
+      .where(and(eq(clientGroupMembers.groupId, group.id), eq(clientGroupMembers.subjectId, subjectId)));
+  }
+
+  async moveSubjectBetweenGroups(subjectId: number, fromCode: string, toCode: string): Promise<void> {
+    await this.removeSubjectFromGroup(subjectId, fromCode);
+    await this.ensureSubjectInGroup(subjectId, toCode);
   }
 
   async findRiskLinks(subjectId: number): Promise<Array<{ subjectId: number; name: string; uid: string; listStatus: string; matchType: string; matchValue: string }>> {

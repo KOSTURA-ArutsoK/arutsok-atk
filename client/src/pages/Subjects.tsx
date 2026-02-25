@@ -1441,21 +1441,21 @@ function SubjectDetailPanel({ subject, onClose }: { subject: Subject; onClose: (
         </div>
       </div>
 
-      {(subject as any).listStatus === "cierny" && (
+      {(subject as any).effectiveListStatus === "cierny" && (
         <div className="flex items-center gap-3 rounded border border-red-900 bg-red-950/80 px-4 py-3 text-red-200" data-testid="dialog-banner-cierny-zoznam">
           <Ban className="w-5 h-5 text-red-400 shrink-0" />
           <div>
             <span className="font-bold text-red-300 uppercase tracking-wide">ČIERNY ZOZNAM</span>
-            <span className="ml-2 text-sm">Subjekt je na čiernom zozname. Zmluvná činnosť je zakázaná.</span>
+            <span className="ml-2 text-sm">Subjekt je na globálnom čiernom zozname. Zmluvná činnosť je zakázaná.</span>
           </div>
         </div>
       )}
-      {(subject as any).listStatus === "cerveny" && (
+      {(subject as any).effectiveListStatus === "cerveny" && (
         <div className="flex items-center gap-3 rounded border border-orange-700 bg-orange-950/80 px-4 py-3 text-orange-200" data-testid="dialog-banner-cerveny-zoznam">
           <AlertTriangle className="w-5 h-5 text-orange-400 shrink-0" />
           <div>
             <span className="font-bold text-orange-300 uppercase tracking-wide">ČERVENÝ ZOZNAM</span>
-            <span className="ml-2 text-sm">Subjekt dosiahol -5 bodov za posledných 10 rokov. Zvýšená opatrnosť.</span>
+            <span className="ml-2 text-sm">Lokálny červený zoznam — subjekt dosiahol -5 bodov. Zvýšená opatrnosť.</span>
           </div>
         </div>
       )}
@@ -4075,8 +4075,8 @@ export default function Subjects() {
                           <div className="flex flex-col gap-0.5">
                             <span className="flex items-center gap-1.5">
                               {fullName}
-                              {(subject as any).listStatus === "cierny" && <span title="Čierny zoznam"><Ban className="w-3.5 h-3.5 text-red-500 shrink-0" /></span>}
-                              {(subject as any).listStatus === "cerveny" && <span title="Červený zoznam"><AlertTriangle className="w-3.5 h-3.5 text-orange-500 shrink-0" /></span>}
+                              {(subject as any).effectiveListStatus === "cierny" && <span title="Globálny čierny zoznam"><Ban className="w-3.5 h-3.5 text-red-500 shrink-0" /></span>}
+                              {(subject as any).effectiveListStatus === "cerveny" && <span title="Lokálny červený zoznam"><AlertTriangle className="w-3.5 h-3.5 text-orange-500 shrink-0" /></span>}
                               {(() => {
                                 const df = dynFields;
                                 const commType = df.typ_komunikacie || "";

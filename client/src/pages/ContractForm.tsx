@@ -10,7 +10,7 @@ import { useColumnVisibility, type ColumnDef } from "@/hooks/use-column-visibili
 import { ColumnManager } from "@/components/column-manager";
 import type { Contract, ContractStatus, ContractStatusChangeLog, ContractTemplate, ContractInventory, Subject, Partner, Product, MyCompany, Sector, Section, SectorProduct, ContractPassword, ContractParameterValue, ContractFieldSetting, ClientType, ContractAcquirer, AppUser, ContractRewardDistribution } from "@shared/schema";
 import { getFieldsForClientTypeId, type StaticField } from "@/lib/staticFieldDefs";
-import { ArrowLeft, Save, Loader2, LayoutGrid, KeyRound, Plus, Trash2, FileText, Users, ClipboardList, FolderOpen, FolderClosed, DollarSign, BarChart3, ListChecks, PieChart, ChevronLeft, ChevronRight, MessageSquare, Paperclip, Upload, X, Eye, Settings2, Calendar, UserCheck, Check, Link2, CreditCard, Flag, History, AlertTriangle, Shield, Lock } from "lucide-react";
+import { ArrowLeft, Save, Loader2, LayoutGrid, KeyRound, Plus, Trash2, FileText, Users, ClipboardList, FolderOpen, FolderClosed, DollarSign, BarChart3, ListChecks, PieChart, ChevronLeft, ChevronRight, MessageSquare, Paperclip, Upload, X, Eye, Settings2, Calendar, UserCheck, Check, Link2, CreditCard, Flag, History, AlertTriangle, Shield, Lock, Ban } from "lucide-react";
 import { getContractAnniversaryStatus, isContractAnniversaryParam, getGapInsuranceStatus, isGapParam, CONTRACT_END_PARAM_ID } from "@/lib/document-validity";
 import { SubjektView } from "@/components/subjekt-view";
 import { SubjectProfilePhoto } from "@/components/subject-profile-photo";
@@ -2425,8 +2425,10 @@ export default function ContractForm() {
                       <SubjectProfilePhoto subjectId={selectedSubject.id} size="md" />
                       <div className="flex-1 min-w-0">
                         <div className="flex items-baseline gap-2 flex-wrap mb-1">
-                          <span className="text-base font-bold" data-testid="summary-subject-name">
+                          <span className="text-base font-bold flex items-center gap-1.5" data-testid="summary-subject-name">
                             {`${selectedSubject.firstName || ""} ${selectedSubject.lastName || ""}`.trim() || selectedSubject.companyName || "-"}
+                            {(selectedSubject as any).effectiveListStatus === "cierny" && <Ban className="w-4 h-4 text-red-500 shrink-0" />}
+                            {(selectedSubject as any).effectiveListStatus === "cerveny" && <AlertTriangle className="w-4 h-4 text-orange-500 shrink-0" />}
                           </span>
                           {selectedSubject.uid && (
                             <span className="text-xs font-mono text-blue-400" data-testid="summary-subject-uid">{selectedSubject.uid}</span>
