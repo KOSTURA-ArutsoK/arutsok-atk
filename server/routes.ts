@@ -2552,7 +2552,7 @@ export async function registerRoutes(
       const seqNum = await storage.getNextCounterValue("sprievodka_sequence");
       await storage.updateContractInventory(newInventory.id, {
         sequenceNumber: seqNum,
-        name: `Sprievodka č. ${seqNum} (OPV Oprava)`,
+        name: `Odovzdávací protokol - Sprievodka č. ${seqNum} (OPV Oprava)`,
         isDispatched: true,
       } as any);
 
@@ -2628,7 +2628,7 @@ export async function registerRoutes(
 
       const seqNum = await storage.getNextCounterValue("sprievodka_sequence");
       const newInventory = await storage.createContractInventory({
-        name: `Sprievodka č. ${seqNum}`,
+        name: `Odovzdávací protokol - Sprievodka č. ${seqNum}`,
         stateId: appUser?.activeStateId || 1,
         sortOrder: 0,
         isClosed: false,
@@ -3067,7 +3067,7 @@ export async function registerRoutes(
       const seqNum = await storage.getNextCounterValue("sprievodka_sequence");
       await storage.updateContractInventory(inventoryId, { 
         sequenceNumber: seqNum, 
-        name: `Sprievodka c. ${seqNum}`,
+        name: `Odovzdávací protokol - Sprievodka č. ${seqNum}`,
         isDispatched: true 
       } as any);
       const dispatchStatus = await storage.getSystemContractStatusByName("Odoslana na sprievodke");

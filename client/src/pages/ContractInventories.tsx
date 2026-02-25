@@ -124,9 +124,9 @@ function InlineInventoryDetail({ inventory }: { inventory: ContractInventory }) 
       queryClient.invalidateQueries({ queryKey: ["/api/contract-inventories"] });
       queryClient.invalidateQueries({ queryKey: ["/api/contract-inventories", inventory.id, "contracts"] });
       setSelectedObjIds(new Set());
-      toast({ title: "Úspech", description: `Vytvorená nová sprievodka č. ${data.sequenceNumber} s ${data.rerouted} zmluvami` });
+      toast({ title: "Úspech", description: `Vytvorený nový odovzdávací protokol - Sprievodka č. ${data.sequenceNumber} s ${data.rerouted} zmluvami` });
     },
-    onError: () => toast({ title: "Chyba", description: "Nepodarilo sa vytvoriť novú sprievodku", variant: "destructive" }),
+    onError: () => toast({ title: "Chyba", description: "Nepodarilo sa vytvoriť nový protokol", variant: "destructive" }),
   });
 
   if (isLoading) {
@@ -308,7 +308,7 @@ function handlePrintInventory(inventory: ContractInventory, contracts: Inventory
 <html>
 <head>
   <meta charset="utf-8">
-  <title>Sprievodka č. ${inventory.sequenceNumber || inventory.id}</title>
+  <title>Odovzdávací protokol - Sprievodka č. ${inventory.sequenceNumber || inventory.id}</title>
   <style>
     body { font-family: Arial, sans-serif; margin: 30px; color: #222; }
     h1 { font-size: 18px; margin-bottom: 4px; }
@@ -628,7 +628,7 @@ export default function ContractInventories() {
   return (
     <div className="p-6 space-y-6">
       <div className="flex items-center justify-between gap-4 flex-wrap">
-        <h1 className="text-2xl font-bold" data-testid="text-page-title">Zoznam sprievodiek</h1>
+        <h1 className="text-2xl font-bold" data-testid="text-page-title">Odovzdávacie protokoly - Sprievodky</h1>
         <ColumnManager columnVisibility={columnVisibility} />
       </div>
 
@@ -637,7 +637,7 @@ export default function ContractInventories() {
         <Input
           value={searchQuery}
           onChange={e => setSearchQuery(e.target.value)}
-          placeholder="Vyhľadať sprievodku podľa názvu alebo čísla..."
+          placeholder="Vyhľadať protokol podľa názvu alebo čísla..."
           className="pl-9 h-9"
           data-testid="input-search-inventories"
         />
@@ -651,7 +651,7 @@ export default function ContractInventories() {
         </div>
       ) : tableFilter.filteredData.length === 0 ? (
         <p className="text-sm text-muted-foreground text-center py-12" data-testid="text-no-inventories">
-          Žiadne sprievodky
+          Žiadne odovzdávacie protokoly
         </p>
       ) : (
         <div className="space-y-4">
