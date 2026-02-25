@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
+import { formatUid } from "@/lib/utils";
 import { useTableSort } from "@/hooks/use-table-sort";
 import { useToast } from "@/hooks/use-toast";
 import { useAppUser } from "@/hooks/use-app-user";
@@ -431,7 +432,7 @@ function GroupDetailDialog({
                           <span className="font-medium">
                             {s.firstName} {s.lastName} {s.companyName}
                           </span>
-                          <span className="text-xs text-muted-foreground ml-2">{s.uid}</span>
+                          <span className="text-xs text-muted-foreground ml-2">{formatUid(s.uid)}</span>
                         </div>
                         <UserPlus className="w-4 h-4 text-primary" />
                       </div>
@@ -459,7 +460,7 @@ function GroupDetailDialog({
                         {m.subject?.firstName} {m.subject?.lastName} {m.subject?.companyName}
                       </TableCell>
                       <TableCell>
-                        <span className="font-mono text-xs">{m.subject?.uid || "-"}</span>
+                        <span className="font-mono text-xs">{formatUid(m.subject?.uid) || "-"}</span>
                       </TableCell>
                       <TableCell>
                         <Button

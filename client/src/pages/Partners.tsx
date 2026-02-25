@@ -2,7 +2,7 @@ import { useState, useRef, useCallback, useEffect } from "react";
 import { usePartners, useCreatePartner, useUpdatePartner, useDeletePartner, usePartnerContacts, usePartnerProducts, useCreatePartnerContact, useCreatePartnerProduct } from "@/hooks/use-partners";
 import { useStates } from "@/hooks/use-hierarchy";
 import { useAppUser } from "@/hooks/use-app-user";
-import { formatDateSlovak, formatPhone } from "@/lib/utils";
+import { formatDateSlovak, formatPhone, formatUid } from "@/lib/utils";
 import { Plus, Briefcase, Pencil, Trash2, Clock, Users, Package, Calendar, Archive, MapPin } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -297,7 +297,7 @@ function PartnerUnifiedDialog({
               <div style={{ display: editingPartner ? undefined : 'none' }} className="flex items-center gap-2 mt-1 flex-wrap">
                 {editingPartner?.code && <Badge variant="secondary" className="font-mono">{editingPartner.code}</Badge>}
                 {editingPartner?.specialization && <Badge variant="outline">{editingPartner.specialization}</Badge>}
-                {editingPartner?.uid && <span className="text-xs font-mono text-muted-foreground">{editingPartner.uid}</span>}
+                {editingPartner?.uid && <span className="text-xs font-mono text-muted-foreground">{formatUid(editingPartner.uid)}</span>}
               </div>
             </div>
           </div>
@@ -712,7 +712,7 @@ export default function Partners() {
                   data-testid={`row-partner-${partner.id}`}
                   onRowClick={() => openPartner(partner)}
                 >
-                  {columnVisibility.isVisible("uid") && <TableCell className="font-mono text-xs text-muted-foreground">{partner.uid || "-"}</TableCell>}
+                  {columnVisibility.isVisible("uid") && <TableCell className="font-mono text-xs text-muted-foreground">{formatUid(partner.uid) || "-"}</TableCell>}
                   {columnVisibility.isVisible("name") && <TableCell className="font-medium">{partner.name}</TableCell>}
                   {columnVisibility.isVisible("code") && <TableCell>{partner.code ? <Badge variant="secondary" className="font-mono">{partner.code}</Badge> : "-"}</TableCell>}
                   {columnVisibility.isVisible("specialization") && <TableCell className="text-sm">{partner.specialization || "-"}</TableCell>}

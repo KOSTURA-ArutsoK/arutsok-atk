@@ -1,7 +1,7 @@
 import { useState, useRef, useCallback, useEffect, useMemo } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import { formatDateSlovak } from "@/lib/utils";
+import { formatDateSlovak, formatUid } from "@/lib/utils";
 import { useAppUser } from "@/hooks/use-app-user";
 import { useStates } from "@/hooks/use-hierarchy";
 import { useToast } from "@/hooks/use-toast";
@@ -826,7 +826,7 @@ function ContractFormDialog({
                 <SelectContent>
                   {subjects?.filter(s => s.isActive).map(s => (
                     <SelectItem key={s.id} value={s.id.toString()}>
-                      {s.type === "person" ? `${s.firstName} ${s.lastName}` : s.companyName} ({s.uid})
+                      {s.type === "person" ? `${s.firstName} ${s.lastName}` : s.companyName} ({formatUid(s.uid)})
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -910,7 +910,7 @@ function ContractFormDialog({
                                 data-testid={`row-specialist-suggestion-${u.id}`}
                               >
                                 <span className="font-medium text-xs">{u.firstName || ""} {u.lastName || ""}</span>
-                                <span className="text-xs text-muted-foreground font-mono ml-auto">{u.uid || ""}</span>
+                                <span className="text-xs text-muted-foreground font-mono ml-auto">{formatUid(u.uid)}</span>
                               </div>
                             ))}
                           </div>
@@ -998,7 +998,7 @@ function ContractFormDialog({
                                   data-testid={`row-recommender-suggestion-${u.id}`}
                                 >
                                   <span className="font-medium text-xs">{u.firstName || ""} {u.lastName || ""}</span>
-                                  <span className="text-xs text-muted-foreground font-mono ml-auto">{u.uid || ""}</span>
+                                  <span className="text-xs text-muted-foreground font-mono ml-auto">{formatUid(u.uid)}</span>
                                 </div>
                               ))}
                             </div>
@@ -1064,8 +1064,8 @@ function ContractFormDialog({
                     return (
                       <div key={`${rec.uid}-${idx}`} className="flex items-center gap-2 px-3 py-1.5 border rounded-md bg-muted/30" data-testid={`row-recommender-${idx}`}>
                         <Users className="w-3.5 h-3.5 text-primary flex-shrink-0" />
-                        <span className="text-sm font-medium">{user ? `${user.firstName || ""} ${user.lastName || ""}`.trim() || user.username : rec.uid}</span>
-                        <span className="text-xs text-muted-foreground font-mono">{rec.uid}</span>
+                        <span className="text-sm font-medium">{user ? `${user.firstName || ""} ${user.lastName || ""}`.trim() || user.username : formatUid(rec.uid)}</span>
+                        <span className="text-xs text-muted-foreground font-mono">{formatUid(rec.uid)}</span>
                         <div className="flex items-center gap-1 ml-auto">
                           <Input
                             type="number"
@@ -1556,7 +1556,7 @@ function ContractDetailDialog({
               <FileText className="w-5 h-5 text-primary" />
             </div>
             <div className="min-w-0">
-              <DialogTitle data-testid="text-contract-detail-title">Zmluva {contract.contractNumber || contract.uid}</DialogTitle>
+              <DialogTitle data-testid="text-contract-detail-title">Zmluva {contract.contractNumber || formatUid(contract.uid)}</DialogTitle>
               <div className="flex items-center gap-2 mt-1 flex-wrap">
                 <span
                   className="inline-flex items-center px-2 py-0.5 rounded-full border text-[11px] font-medium"
@@ -2884,7 +2884,7 @@ export default function Contracts() {
                               <Badge variant="outline" className="text-[10px] px-1.5 flex-shrink-0" data-testid={`badge-preselect-subject-type-${s.id}`}>{typeLabel}</Badge>
                             </div>
                             <div className="flex items-center gap-3 text-xs text-muted-foreground">
-                              <span className="font-mono">{s.uid}</span>
+                              <span className="font-mono">{formatUid(s.uid)}</span>
                               <span style={{ display: identifier ? 'inline' : 'none' }}>{s.type === "company" ? "ICO" : "RC"}: {identifier}</span>
                             </div>
                           </div>

@@ -1,7 +1,7 @@
 import { useState, useRef, useCallback, useEffect, useMemo } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import { formatDateTimeSlovak, formatDateSlovak, formatPhone } from "@/lib/utils";
+import { formatDateTimeSlovak, formatDateSlovak, formatPhone, formatUid } from "@/lib/utils";
 import { useAppUser } from "@/hooks/use-app-user";
 import { useStates } from "@/hooks/use-hierarchy";
 import { useToast } from "@/hooks/use-toast";
@@ -1633,12 +1633,12 @@ export default function ContractForm() {
         </h1>
         {!isEditing && appUser && (
           <span className="text-xs text-muted-foreground ml-6" data-testid="text-form-user-name">
-            {appUser.uid ? `${appUser.uid} - ` : ""}{[appUser.firstName, appUser.lastName].filter(Boolean).join(" ") || appUser.username}
+            {appUser.uid ? `${formatUid(appUser.uid)} - ` : ""}{[appUser.firstName, appUser.lastName].filter(Boolean).join(" ") || appUser.username}
           </span>
         )}
         <div data-testid="badge-uid-container">
           <span style={{ display: existingContract?.uid ? 'inline' : 'none' }}>
-            <Badge variant="outline" data-testid="badge-contract-uid">{existingContract?.uid}</Badge>
+            <Badge variant="outline" data-testid="badge-contract-uid">{formatUid(existingContract?.uid)}</Badge>
           </span>
         </div>
       </div>
@@ -2431,7 +2431,7 @@ export default function ContractForm() {
                             {(selectedSubject as any).effectiveListStatus === "cerveny" && <AlertTriangle className="w-4 h-4 text-orange-500 shrink-0" />}
                           </span>
                           {selectedSubject.uid && (
-                            <span className="text-xs font-mono text-blue-400" data-testid="summary-subject-uid">{selectedSubject.uid}</span>
+                            <span className="text-xs font-mono text-blue-400" data-testid="summary-subject-uid">{formatUid(selectedSubject.uid)}</span>
                           )}
                           {selectedSubject.type && (
                             <Badge variant="outline" className="text-[10px] h-4" data-testid="summary-subject-type">{selectedSubject.type}</Badge>

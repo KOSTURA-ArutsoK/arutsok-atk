@@ -23,7 +23,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
-import { formatDateSlovak } from "@/lib/utils";
+import { formatDateSlovak, formatUid } from "@/lib/utils";
 import { SubjectProfilePhoto } from "@/components/subject-profile-photo";
 import { FieldHistoryIndicator } from "@/components/field-history-indicator";
 
@@ -1184,7 +1184,7 @@ export function SubjektView({ subject, showPdfSidebar = false, isClientView = fa
                 <Badge variant="outline" className="text-xs">
                   {isPerson ? "FO" : isSzco ? "SZČO" : "PO"}
                 </Badge>
-                <span className="text-xs text-muted-foreground font-mono">{subject.uid}</span>
+                <span className="text-xs text-muted-foreground font-mono">{formatUid(subject.uid)}</span>
                 {(subject as any).supplementaryIndex && (
                   <Badge variant="outline" className="text-[10px] border-blue-600 text-blue-300" data-testid="badge-supplementary-index">
                     Index: {(subject as any).supplementaryIndex}
@@ -1927,7 +1927,7 @@ function RelationshipSection({
             <Badge variant="outline" className="text-[9px] px-1 py-0">
               {s.type === "company" ? "PO" : s.type === "szco" ? "SZČO" : "FO"}
             </Badge>
-            <span className="text-[10px] text-muted-foreground font-mono">{s.uid}</span>
+            <span className="text-[10px] text-muted-foreground font-mono">{formatUid(s.uid)}</span>
           </div>
           <span className="text-[10px] text-muted-foreground mt-0.5 block">{role}</span>
         </div>
@@ -2679,7 +2679,7 @@ function SubjectRelationsSection({ subjectId }: { subjectId: number }) {
                           data-testid={`search-result-${s.id}`}>
                           <User className="w-3 h-3" />
                           <span>{s.companyName || `${s.firstName || ""} ${s.lastName || ""}`.trim()}</span>
-                          <Badge variant="outline" className="text-[9px] ml-auto">{s.uid}</Badge>
+                          <Badge variant="outline" className="text-[9px] ml-auto">{formatUid(s.uid)}</Badge>
                         </div>
                       ))}
                     </div>
@@ -2748,7 +2748,7 @@ function SubjectRelationsSection({ subjectId }: { subjectId: number }) {
                         <TableCell className="py-1 px-2 font-medium">
                           <div className="flex items-center gap-1">
                             {name}
-                            <span className="text-[9px] text-muted-foreground">({linked?.uid})</span>
+                            <span className="text-[9px] text-muted-foreground">({formatUid(linked?.uid)})</span>
                           </div>
                         </TableCell>
                         <TableCell className="py-1 px-2">
@@ -2907,7 +2907,7 @@ function HouseholdSection({ subjectId }: { subjectId: number }) {
               <div className="flex items-center gap-2 mb-1.5">
                 <Home className="w-3.5 h-3.5 text-purple-400" />
                 <span className="text-xs font-medium">{h.name}</span>
-                <span className="text-[9px] text-muted-foreground">({h.uid})</span>
+                <span className="text-[9px] text-muted-foreground">({formatUid(h.uid)})</span>
                 <Badge variant="outline" className="text-[9px]">{h.myRole}</Badge>
                 <div className="ml-auto flex gap-1">
                   <Button size="sm" variant="ghost" className="text-[10px]"
@@ -3288,7 +3288,7 @@ function GuardianshipSection({ subjectId }: { subjectId: number }) {
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-1.5">
                     <span className="text-xs font-medium truncate">{g.name}</span>
-                    <span className="text-[9px] text-muted-foreground">({g.uid})</span>
+                    <span className="text-[9px] text-muted-foreground">({formatUid(g.uid)})</span>
                     <Badge variant="outline" className="text-[9px] border-emerald-500/30">{g.roleLabel}</Badge>
                     {g.type === "company" && <Badge variant="outline" className="text-[9px] border-blue-500/30 text-blue-400">PO</Badge>}
                     {g.meta?.retainedAfterMaturity && <Badge variant="outline" className="text-[9px] border-yellow-500/30 text-yellow-400">Po dospelosti</Badge>}
@@ -3326,7 +3326,7 @@ function GuardianshipSection({ subjectId }: { subjectId: number }) {
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-1.5">
                     <span className="text-xs font-medium truncate">{w.name}</span>
-                    <span className="text-[9px] text-muted-foreground">({w.uid})</span>
+                    <span className="text-[9px] text-muted-foreground">({formatUid(w.uid)})</span>
                     <Badge variant="outline" className="text-[9px] border-emerald-500/30">{w.roleLabel}</Badge>
                     {w.isMinor && <Badge variant="outline" className="text-[9px] border-orange-500/30 text-orange-400">{w.age} r.</Badge>}
                     {!w.isMinor && w.age !== null && <Badge variant="outline" className="text-[9px] border-green-500/30 text-green-400">{w.age} r. (dospelý)</Badge>}
@@ -3479,7 +3479,7 @@ function FamilySpiderSection({ subjectId }: { subjectId: number }) {
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-1.5">
                         <span className="text-xs font-medium truncate">{m.name || "—"}</span>
-                        <span className="text-[9px] text-muted-foreground">({m.uid})</span>
+                        <span className="text-[9px] text-muted-foreground">({formatUid(m.uid)})</span>
                       </div>
                       <div className="flex items-center gap-1.5 mt-0.5">
                         <Badge variant="outline" className="text-[9px] border-pink-500/30">{m.roleLabel}</Badge>
@@ -3830,7 +3830,7 @@ function AddressGroupSection({ subjectId }: { subjectId: number }) {
               <div className="flex items-center gap-2 mb-1.5">
                 <Home className="w-3.5 h-3.5 text-cyan-400" />
                 <span className="text-xs font-medium">{g.name}</span>
-                <span className="text-[9px] text-muted-foreground">({g.uid})</span>
+                <span className="text-[9px] text-muted-foreground">({formatUid(g.uid)})</span>
                 <Badge variant="outline" className="text-[9px]">{groupTypeLabels[g.groupType] || g.groupType}</Badge>
                 <div className="ml-auto flex gap-1">
                   <Button size="sm" variant="ghost" className="text-[10px]"
@@ -3851,7 +3851,7 @@ function AddressGroupSection({ subjectId }: { subjectId: number }) {
                       <div key={m.id} className="flex items-center gap-1 text-[9px] bg-muted/30 rounded px-1.5 py-0.5" data-testid={`group-member-${m.subjectId}`}>
                         <User className="w-2.5 h-2.5" />
                         <span>{m.name}</span>
-                        <Badge variant="outline" className="text-[8px]">{m.uid}</Badge>
+                        <Badge variant="outline" className="text-[8px]">{formatUid(m.uid)}</Badge>
                         {m.type && (
                           <Badge variant="outline" className="text-[8px]">{m.type === "company" ? "PO" : m.type === "szco" ? "SZČO" : "FO"}</Badge>
                         )}

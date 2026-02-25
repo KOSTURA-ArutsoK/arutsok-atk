@@ -2,6 +2,7 @@ import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 import type { Subject } from "@shared/schema";
+import { formatUid } from "@/lib/utils";
 import { SubjectProfileModuleC } from "@/components/subject-profile-module-c";
 import { Loader2, ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -93,7 +94,7 @@ export default function ProfilSubjektu() {
           </Button>
           <span className="text-xs text-muted-foreground">|</span>
           <span className="text-sm font-medium">
-            {resolvedSubject.companyName || `${resolvedSubject.firstName || ""} ${resolvedSubject.lastName || ""}`.trim() || resolvedSubject.uid}
+            {resolvedSubject.companyName || `${resolvedSubject.firstName || ""} ${resolvedSubject.lastName || ""}`.trim() || formatUid(resolvedSubject.uid)}
           </span>
         </div>
       )}

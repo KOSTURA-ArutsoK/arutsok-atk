@@ -2,7 +2,7 @@ import { useState, useRef, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
-import { formatPhone } from "@/lib/utils";
+import { formatPhone, formatUid } from "@/lib/utils";
 import { Loader2, Plus, Pencil, Users as UsersIcon, Shield } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -551,7 +551,7 @@ export default function UsersPage() {
                       {user.lastName || "-"}
                     </TableCell>}
                     {columnVisibility.isVisible("uid") && <TableCell data-testid={`text-user-uid-${user.id}`}>
-                      <span className="font-mono text-xs">{user.uid || "-"}</span>
+                      <span className="font-mono text-xs">{formatUid(user.uid) || "-"}</span>
                     </TableCell>}
                     {columnVisibility.isVisible("email") && <TableCell data-testid={`text-user-email-${user.id}`}>
                       {user.email || "-"}

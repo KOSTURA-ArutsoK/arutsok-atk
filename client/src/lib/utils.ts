@@ -27,6 +27,17 @@ export const formatDateTimeSlovak = (date: string | Date | null | undefined): st
   return `${day}.${month}.${year} ${hours}:${minutes}`;
 };
 
+export const formatUid = (uid: string | null | undefined): string => {
+  if (!uid) return '-';
+  const digits = uid.replace(/\D/g, '');
+  if (!digits.length) return uid;
+  const groups: string[] = [];
+  for (let i = 0; i < digits.length; i += 3) {
+    groups.push(digits.slice(i, i + 3));
+  }
+  return groups.join(' ');
+};
+
 export const formatPhone = (phone: string | null | undefined): string => {
   if (!phone) return '-';
   let digits = phone.replace(/\s+/g, '');

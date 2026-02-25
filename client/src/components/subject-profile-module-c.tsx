@@ -24,7 +24,7 @@ import {
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { MultiSelectCheckboxes } from "@/components/multi-select-checkboxes";
-import { cn } from "@/lib/utils";
+import { cn, formatUid } from "@/lib/utils";
 import {
   Loader2, Pencil, Save, X, Shield,
   ShieldCheck, ListPlus, Eye, ArrowUp, ArrowDown, Settings2, MoreHorizontal,
@@ -1406,7 +1406,7 @@ export function SubjectProfileModuleC({ subject }: ModuleCProps) {
               </div>
 
               <div className="flex items-center gap-3 text-xs text-muted-foreground pt-1">
-                <span className="font-mono">{subject.uid}</span>
+                <span className="font-mono">{formatUid(subject.uid)}</span>
                 <span className="text-border">|</span>
                 <span>{CLIENT_TYPE_OPTIONS.find(o => o.value === activeClientType)?.label || "Fyzická osoba"}</span>
                 <span className="text-border">|</span>
@@ -2098,7 +2098,7 @@ export function SubjectProfileModuleC({ subject }: ModuleCProps) {
                               <div className="flex-1 min-w-0">
                                 <div className="flex items-center gap-2 flex-wrap">
                                   <span className="text-sm font-medium truncate" data-testid={`contract-number-${c.id}`}>
-                                    {c.contractNumber || c.uid || `#${c.id}`}
+                                    {c.contractNumber || formatUid(c.uid) || `#${c.id}`}
                                   </span>
                                   {c.statusName && (
                                     <Badge variant="outline" className="text-[8px] h-4 px-1 shrink-0" style={{ borderColor: `${c.statusColor}40`, color: c.statusColor || undefined }}>

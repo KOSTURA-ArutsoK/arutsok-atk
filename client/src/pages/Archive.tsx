@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
-import { formatDateTimeSlovak } from "@/lib/utils";
+import { formatDateTimeSlovak, formatUid } from "@/lib/utils";
 import { useAppUser } from "@/hooks/use-app-user";
 import { useToast } from "@/hooks/use-toast";
 import { useTableSort } from "@/hooks/use-table-sort";
@@ -321,12 +321,12 @@ export default function Archive() {
                       {contracts.map((c: any) => (
                         <TableRow key={`contract-${c.id}`} data-testid={`row-archive-all-contract-${c.id}`}>
                           {columnVisibility.isVisible("type") && <TableCell><Badge variant="secondary">Zmluva</Badge></TableCell>}
-                          {columnVisibility.isVisible("name") && <TableCell className="font-medium">{c.contractNumber || c.uid || `#${c.id}`}</TableCell>}
+                          {columnVisibility.isVisible("name") && <TableCell className="font-medium">{c.contractNumber || formatUid(c.uid) || `#${c.id}`}</TableCell>}
                           {columnVisibility.isVisible("deletedAt") && <TableCell>{formatDate(c.deletedAt)}</TableCell>}
                           {isAdmin && (
                             <TableCell className="text-right">
                               <div className="flex items-center justify-end gap-1">
-                                <Button size="sm" variant="outline" onClick={() => handleRestoreClick("contract", c.id, c.contractNumber || c.uid || `#${c.id}`)} data-testid={`button-restore-all-contract-${c.id}`}>
+                                <Button size="sm" variant="outline" onClick={() => handleRestoreClick("contract", c.id, c.contractNumber || formatUid(c.uid) || `#${c.id}`)} data-testid={`button-restore-all-contract-${c.id}`}>
                                   <RotateCcw className="w-3 h-3 mr-1" />
                                   Obnovit
                                 </Button>
@@ -533,11 +533,11 @@ export default function Archive() {
                     {sortedContracts.map((c: any) => (
                       <TableRow key={c.id} data-testid={`row-archive-contract-${c.id}`}>
                         {columnVisibility.isVisible("contractNumber") && <TableCell className="font-medium">{c.contractNumber || "-"}</TableCell>}
-                        {columnVisibility.isVisible("uid") && <TableCell>{c.uid || "-"}</TableCell>}
+                        {columnVisibility.isVisible("uid") && <TableCell>{formatUid(c.uid) || "-"}</TableCell>}
                         {columnVisibility.isVisible("deletedAt") && <TableCell>{formatDate(c.deletedAt)}</TableCell>}
                         {isAdmin && (
                           <TableCell className="text-right">
-                            <Button size="sm" variant="outline" onClick={() => handleRestoreClick("contract", c.id, c.contractNumber || c.uid || `#${c.id}`)} data-testid={`button-restore-contract-${c.id}`}>
+                            <Button size="sm" variant="outline" onClick={() => handleRestoreClick("contract", c.id, c.contractNumber || formatUid(c.uid) || `#${c.id}`)} data-testid={`button-restore-contract-${c.id}`}>
                               <RotateCcw className="w-3 h-3 mr-1" />
                               Obnovit
                             </Button>

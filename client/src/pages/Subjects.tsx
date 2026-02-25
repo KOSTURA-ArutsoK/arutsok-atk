@@ -5,7 +5,7 @@ import { useMyCompanies } from "@/hooks/use-companies";
 import { useAppUser } from "@/hooks/use-app-user";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import { formatDateSlovak, formatDateTimeSlovak, formatPhone } from "@/lib/utils";
+import { formatDateSlovak, formatDateTimeSlovak, formatPhone, formatUid } from "@/lib/utils";
 import { getDocumentValidityStatus, isValidityField, isNumberFieldWithExpiredPair, type ValidityResult } from "@/lib/document-validity";
 import { useToast } from "@/hooks/use-toast";
 import { Plus, Search, User, Building2, AlertTriangle, Eye, Calendar, Briefcase, ArrowRight, ArrowLeft, ExternalLink, History, Clock, Wallet, Loader2, CheckCircle2, Pencil, Lock, Users, X, Info, Link2, Unlink, Trash2, CreditCard, Archive, Ban, Boxes, Car, Home, Landmark, ChevronRight, ChevronDown, FolderOpen, Tag, Hash, Package, FileText as FileTextIcon, SquareIcon, TrendingDown } from "lucide-react";
@@ -614,7 +614,7 @@ function SubjectDataTab({ subject }: { subject: Subject }) {
             <div className="flex flex-wrap gap-2">
               <div className="h-10 flex items-center gap-2 px-3 rounded-md border border-border bg-muted/30">
                 <span className="text-xs text-muted-foreground whitespace-nowrap">UID:</span>
-                <span className="text-sm font-medium font-mono">{(subject as any).linkedFo.uid}</span>
+                <span className="text-sm font-medium font-mono">{formatUid((subject as any).linkedFo.uid)}</span>
               </div>
               <div className="h-10 flex items-center gap-2 px-3 rounded-md border border-border bg-muted/30">
                 <span className="text-xs text-muted-foreground whitespace-nowrap">Meno:</span>
@@ -1016,7 +1016,7 @@ function SubjectObjectsTab({ subjectId }: { subjectId: number }) {
                   <Lock className="w-3 h-3 text-slate-600" />
                   <span className={`w-2 h-2 rounded-full ${freshness.color}`} />
                   <span className="text-[10px] text-slate-500">{freshness.label}</span>
-                  <span className="text-[10px] text-slate-600 font-mono">{obj.uid}</span>
+                  <span className="text-[10px] text-slate-600 font-mono">{formatUid(obj.uid)}</span>
                 </div>
               }
             >
@@ -1241,7 +1241,7 @@ function EntityLinksTab({ subject }: { subject: Subject }) {
                         <div className="min-w-0">
                           <p className="text-sm font-medium truncate" data-testid={`text-link-name-${link.id}`}>{getSubjectLabel(other)}</p>
                           <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                            <span className="font-mono">{other?.uid}</span>
+                            <span className="font-mono">{formatUid(other?.uid)}</span>
                             <span>od {formatDate(link.dateFrom)}</span>
                           </div>
                         </div>
@@ -1284,7 +1284,7 @@ function EntityLinksTab({ subject }: { subject: Subject }) {
                       <div className="min-w-0">
                         <p className="text-sm font-medium truncate" data-testid={`text-link-history-name-${link.id}`}>{getSubjectLabel(other)}</p>
                         <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                          <span className="font-mono">{other?.uid}</span>
+                          <span className="font-mono">{formatUid(other?.uid)}</span>
                           <span>{formatDate(link.dateFrom)} - {formatDate(link.dateTo)}</span>
                         </div>
                       </div>
@@ -1328,7 +1328,7 @@ function EntityLinksTab({ subject }: { subject: Subject }) {
                         <p className="text-sm font-medium truncate">
                           {s.type === 'company' ? (s.companyName || 'Bez nazvu') : `${s.lastName || ''}, ${s.firstName || ''}`}
                         </p>
-                        <span className="text-xs text-muted-foreground font-mono">{s.uid}</span>
+                        <span className="text-xs text-muted-foreground font-mono">{formatUid(s.uid)}</span>
                       </div>
                     </div>
                     <Plus className="w-4 h-4 text-primary flex-shrink-0" />
@@ -1382,7 +1382,7 @@ function SubjectDetailPanel({ subject, onClose }: { subject: Subject; onClose: (
                   ? `${subject.lastName}, ${subject.firstName}`
                   : subject.companyName}
               </h2>
-              <span className="text-xs font-mono text-muted-foreground shrink-0">{subject.uid}</span>
+              <span className="text-xs font-mono text-muted-foreground shrink-0">{formatUid(subject.uid)}</span>
               {(() => {
                 const status = getSubjectStatus(subject);
                 return (
@@ -1692,7 +1692,7 @@ function InitialRegistrationModal({
                 <span className="text-sm font-semibold text-destructive">Klient uz existuje</span>
               </div>
               <p className="text-sm text-muted-foreground">
-                {duplicateInfo?.name} <span className="font-mono text-xs">[ {duplicateInfo?.uid} ]</span>
+                {duplicateInfo?.name} <span className="font-mono text-xs">[ {formatUid(duplicateInfo?.uid)} ]</span>
                 <span style={{ display: duplicateInfo?.matchedField ? 'inline' : 'none' }} className="text-xs ml-1">(zhoda: {duplicateInfo?.matchedField})</span>
               </p>
               <Button
@@ -3370,7 +3370,7 @@ function SubjectEditModal({ subject, onClose }: { subject: Subject; onClose: () 
                   Editacia subjektu
                 </DialogTitle>
                 <DialogDescription>
-                  <span className="font-mono text-xs">{subject.uid}</span>
+                  <span className="font-mono text-xs">{formatUid(subject.uid)}</span>
                   <span className="mx-2">|</span>
                   {isPerson ? `${subject.lastName}, ${subject.firstName}` : subject.companyName}
                 </DialogDescription>
@@ -3387,7 +3387,7 @@ function SubjectEditModal({ subject, onClose }: { subject: Subject; onClose: () 
               <div className="flex flex-wrap gap-4 items-end">
                 <div className="w-[200px] min-w-[160px] shrink-0">
                   <Label className="text-xs text-muted-foreground">UID</Label>
-                  <Input value={subject.uid} disabled className="mt-1 font-mono text-xs" data-testid="input-edit-uid-locked" />
+                  <Input value={formatUid(subject.uid)} disabled className="mt-1 font-mono text-xs" data-testid="input-edit-uid-locked" />
                 </div>
                 {isPerson ? (
                   <div className="w-[200px] min-w-[160px] shrink-0">
@@ -3411,7 +3411,7 @@ function SubjectEditModal({ subject, onClose }: { subject: Subject; onClose: () 
                 <Info className="w-4 h-4 text-blue-400 flex-shrink-0" />
                 <div>
                   <p className="text-xs font-medium">Osobne udaje prevzate z FO</p>
-                  <p className="text-xs text-muted-foreground">{linkedFo.firstName} {linkedFo.lastName} ({linkedFo.uid})</p>
+                  <p className="text-xs text-muted-foreground">{linkedFo.firstName} {linkedFo.lastName} ({formatUid(linkedFo.uid)})</p>
                   <p className="text-[10px] text-muted-foreground mt-0.5">Meno, priezvisko a rodne cislo su prevzate z prepojenej Fyzickej osoby a nie je mozne ich tu menit.</p>
                 </div>
               </div>
@@ -4050,7 +4050,7 @@ export default function Subjects() {
                         {columnVisibility.isVisible("uid") && <TableCell className="font-mono text-xs align-middle">
                           <div className="flex items-center gap-2">
                             <SubjectPhotoThumbnail subjectId={subject.id} photoPath={batchPhotos?.[subject.id]?.filePath} />
-                            {subject.uid}
+                            {formatUid(subject.uid)}
                           </div>
                         </TableCell>}
                         {columnVisibility.isVisible("status") && <TableCell className="align-middle !overflow-visible" style={{ maxWidth: '150px', whiteSpace: 'normal', wordBreak: 'break-word', textOverflow: 'clip' }}>
