@@ -2516,52 +2516,153 @@ export default function ContractForm() {
 
                   {vseobecneAccordionOpen && (
                     <div className="mt-3 pt-3 border-t border-border/50" onClick={e => e.stopPropagation()}>
-                      <div className="rounded-lg border border-border/50 overflow-hidden">
+                      <div className="space-y-[clamp(0.35rem,0.8vh,0.75rem)]">
+
+                        <div className="grid grid-cols-2 gap-[clamp(0.5rem,1vw,1rem)]">
+                          <CompactField label="Sprievodka - Preberací protokol">
+                            <div className="flex items-center h-9 px-3 border rounded-md bg-muted/50 text-sm font-mono" data-testid="summary-sprievodka">
+                              {inventoryId ? (inventories?.find(i => i.id.toString() === inventoryId)?.sequenceNumber?.toString() || "Pridelené pri uložení") : <span className="text-muted-foreground/40 italic">—</span>}
+                            </div>
+                          </CompactField>
+                          <CompactField label="Súpiska - Odovzdávací protokol">
+                            <div className="flex items-center h-9 px-3 border rounded-md bg-muted/50 text-sm" data-testid="summary-supiska">
+                              {inventoryId ? (inventories?.find(i => i.id.toString() === inventoryId)?.name || <span className="text-muted-foreground/40 italic">—</span>) : <span className="text-muted-foreground/40 italic">—</span>}
+                            </div>
+                          </CompactField>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-[clamp(0.5rem,1vw,1rem)]">
+                          <CompactField label="Pôvod zmluvy">
+                            <div className="flex items-center h-9 px-3 border rounded-md bg-muted/50 text-sm" data-testid="summary-origin">
+                              <span className="text-muted-foreground/40 italic">—</span>
+                            </div>
+                          </CompactField>
+                          <CompactField label="Šablóna zmluvy">
+                            <div className="flex items-center h-9 px-3 border rounded-md bg-muted/50 text-sm" data-testid="summary-template">
+                              {templates?.find(t => t.id === (templateId ? parseInt(templateId) : -1))?.name || <span className="text-muted-foreground/40 italic">—</span>}
+                            </div>
+                          </CompactField>
+                        </div>
+
+                        <div className="grid grid-cols-3 gap-[clamp(0.5rem,1vw,1rem)]">
+                          <CompactField label="Číslo kontraktu">
+                            <div className="flex items-center h-9 px-3 border rounded-md bg-muted/50 text-sm font-mono" data-testid="summary-global-number">
+                              {existingContract?.globalNumber?.toString() || <span className="text-muted-foreground/40 italic">Pridelené pri uložení</span>}
+                            </div>
+                          </CompactField>
+                          <CompactField label="Číslo návrhu">
+                            <div className="flex items-center h-9 px-3 border rounded-md bg-muted/50 text-sm font-mono" data-testid="summary-proposal">
+                              {proposalNumber || <span className="text-muted-foreground/40 italic">—</span>}
+                            </div>
+                          </CompactField>
+                          <CompactField label="Číslo zmluvy">
+                            <div className="flex items-center h-9 px-3 border rounded-md bg-muted/50 text-sm font-mono" data-testid="summary-contract-number">
+                              {contractNumber || <span className="text-muted-foreground/40 italic">—</span>}
+                            </div>
+                            {existingContract?.isStamped && <span className="text-[10px] text-amber-500 flex items-center gap-1 mt-0.5"><Lock className="w-3 h-3" /> Fixované</span>}
+                          </CompactField>
+                        </div>
+
+                        <div className="grid grid-cols-3 gap-[clamp(0.5rem,1vw,1rem)]">
+                          <CompactField label="Miesto podpisu">
+                            <div className="flex items-center h-9 px-3 border rounded-md bg-muted/50 text-sm" data-testid="summary-signing-place">
+                              {signingPlace || <span className="text-muted-foreground/40 italic">—</span>}
+                            </div>
+                          </CompactField>
+                          <CompactField label="Typ zmluvy">
+                            <div className="flex items-center h-9 px-3 border rounded-md bg-muted/50 text-sm" data-testid="summary-type">
+                              {contractType ? (CONTRACT_TYPES.find(t => t.value === contractType)?.label || contractType) : <span className="text-muted-foreground/40 italic">—</span>}
+                            </div>
+                          </CompactField>
+                          <CompactField label="Stav zmluvy">
+                            <div className="flex items-center gap-2 h-9 px-3 border rounded-md bg-muted/50" data-testid="summary-status">
+                              {statuses?.find(s => s.id === (statusId ? parseInt(statusId) : -1)) ? (
+                                <div className="flex items-center gap-2">
+                                  <div className="w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: statuses?.find(s => s.id === (statusId ? parseInt(statusId) : -1))?.color }} />
+                                  <span className="text-sm">{statuses?.find(s => s.id === (statusId ? parseInt(statusId) : -1))?.name}</span>
+                                </div>
+                              ) : (
+                                <span className="text-sm text-muted-foreground/40 italic">—</span>
+                              )}
+                            </div>
+                          </CompactField>
+                        </div>
+
+                        <div className="grid grid-cols-3 gap-[clamp(0.5rem,1vw,1rem)]">
+                          <CompactField label="Dátum podpisu">
+                            <div className="flex items-center h-9 px-3 border rounded-md bg-muted/50 text-sm" data-testid="summary-signed">
+                              {signedDate || <span className="text-muted-foreground/40 italic">—</span>}
+                            </div>
+                          </CompactField>
+                          <CompactField label="Účinnosť od">
+                            <div className="flex items-center h-9 px-3 border rounded-md bg-muted/50 text-sm" data-testid="summary-effective">
+                              {effectiveDate || <span className="text-muted-foreground/40 italic">—</span>}
+                            </div>
+                          </CompactField>
+                          <CompactField label="Koniec zmluvy">
+                            <div className="flex items-center h-9 px-3 border rounded-md bg-muted/50 text-sm" data-testid="summary-expiry">
+                              {expiryDate || <span className="text-muted-foreground/40 italic">—</span>}
+                            </div>
+                          </CompactField>
+                        </div>
+
+                        <div className="grid grid-cols-3 gap-[clamp(0.5rem,1vw,1rem)]">
+                          <CompactField label="Frekvencia platenia">
+                            <div className="flex items-center h-9 px-3 border rounded-md bg-muted/50 text-sm" data-testid="summary-frequency">
+                              {PAYMENT_FREQUENCIES.find(f => f.value === paymentFrequency)?.label || <span className="text-muted-foreground/40 italic">—</span>}
+                            </div>
+                          </CompactField>
+                          <CompactField label="Lehotné poistné">
+                            <div className="flex items-center h-9 px-3 border rounded-md bg-muted/50 text-sm font-mono" data-testid="summary-premium">
+                              {premiumAmount ? `${premiumAmount} ${currency}` : <span className="text-muted-foreground/40 italic font-sans">—</span>}
+                            </div>
+                          </CompactField>
+                          <CompactField label="Ročné poistné">
+                            <div className="flex items-center h-9 px-3 border rounded-md bg-muted/50 text-sm font-mono" data-testid="summary-annual">
+                              {annualPremium ? `${annualPremium} ${currency}` : <span className="text-muted-foreground/40 italic font-sans">—</span>}
+                            </div>
+                          </CompactField>
+                        </div>
+
                         {(() => {
-                          const inv = inventoryId ? inventories?.find(i => i.id.toString() === inventoryId) : null;
-                          const allFields: { label: string; value: string; testId: string; color?: string; isMono?: boolean }[] = [
-                            { label: "Sprievodka", value: inv?.sequenceNumber ? `#${inv.sequenceNumber}` : "", testId: "summary-sprievodka", isMono: true },
-                            { label: "Súpiska", value: inv?.name || "", testId: "summary-supiska" },
-                            { label: "Partner", value: partners?.find(p => p.id === (partnerId ? parseInt(partnerId) : -1))?.name || "", testId: "summary-partner" },
-                            { label: "Spoločnosť", value: currentCompany?.name || "", testId: "summary-company" },
-                            { label: "Pôvod zmluvy", value: "", testId: "summary-origin" },
-                            { label: "Šablóna zmluvy", value: templates?.find(t => t.id === (templateId ? parseInt(templateId) : -1))?.name || "", testId: "summary-template" },
-                            { label: "Číslo kontraktu", value: existingContract?.globalNumber?.toString() || "", testId: "summary-global-number", isMono: true },
-                            { label: "Číslo návrhu", value: proposalNumber || "", testId: "summary-proposal", isMono: true },
-                            { label: "Číslo zmluvy", value: contractNumber || "", testId: "summary-contract-number", isMono: true },
-                            { label: "Miesto podpisu", value: signingPlace || "", testId: "summary-signing-place" },
-                            { label: "Typ zmluvy", value: contractType ? (CONTRACT_TYPES.find(t => t.value === contractType)?.label || contractType) : "", testId: "summary-type" },
-                            { label: "Stav zmluvy", value: statuses?.find(s => s.id === (statusId ? parseInt(statusId) : -1))?.name || "", testId: "summary-status", color: statuses?.find(s => s.id === (statusId ? parseInt(statusId) : -1))?.color },
-                            { label: "Dátum podpisu", value: signedDate || "", testId: "summary-signed" },
-                            { label: "Účinnosť od", value: effectiveDate || "", testId: "summary-effective" },
-                            { label: "Koniec zmluvy", value: expiryDate || "", testId: "summary-expiry" },
-                            { label: "Frekvencia platenia", value: PAYMENT_FREQUENCIES.find(f => f.value === paymentFrequency)?.label || "", testId: "summary-frequency" },
-                            { label: "Lehotné poistné", value: premiumAmount ? `${premiumAmount} ${currency}` : "", testId: "summary-premium", isMono: true },
-                            { label: "Ročné poistné", value: annualPremium ? `${annualPremium} ${currency}` : "", testId: "summary-annual", isMono: true },
-                            { label: "Štát", value: allStates?.find(s => s.id === (stateId ? parseInt(stateId) : -1))?.name || "", testId: "summary-state" },
-                          ];
-                          return allFields.map((f, idx) => (
-                            <div
-                              key={f.testId}
-                              className={`flex items-center min-h-[36px] px-4 ${idx % 2 === 0 ? "bg-muted/15" : "bg-background"} ${idx < allFields.length - 1 ? "border-b border-border/30" : ""}`}
-                              data-testid={f.testId}
-                            >
-                              <div className="w-1/2 text-xs text-muted-foreground py-2 pr-3 shrink-0">{f.label}</div>
-                              <div className="w-1/2 py-2 pl-3 border-l border-border/20">
-                                {f.color && f.value ? (
-                                  <div className="flex items-center gap-1.5">
-                                    <div className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: f.color }} />
-                                    <span className="text-sm font-semibold" style={{ color: f.color }}>{f.value}</span>
+                          const extraFields: { label: string; value: string; testId: string }[] = [];
+                          const partnerName = partners?.find(p => p.id === (partnerId ? parseInt(partnerId) : -1))?.name;
+                          if (partnerName || currentCompany?.name) {
+                            extraFields.push(
+                              { label: "Partner", value: partnerName || "", testId: "summary-partner" },
+                              { label: "Spoločnosť", value: currentCompany?.name || "", testId: "summary-company" },
+                            );
+                          }
+                          const stateName = allStates?.find(s => s.id === (stateId ? parseInt(stateId) : -1))?.name;
+                          const productSP = allSPForEdit?.find(p => p.id === (sectorProductId ? parseInt(sectorProductId) : -1));
+                          if (stateName || productSP) {
+                            extraFields.push(
+                              { label: "Produkt", value: productSP ? `${productSP.name}${productSP.abbreviation ? ` (${productSP.abbreviation})` : ''}` : "", testId: "summary-product" },
+                              { label: "Štát", value: stateName || "", testId: "summary-state" },
+                            );
+                          }
+                          if ((existingContract as any)?.accessRole !== 'klient' && commissionAmount) {
+                            extraFields.push({ label: "Suma provízií", value: `${commissionAmount} ${currency}`, testId: "summary-commission" });
+                          }
+                          if (existingContract?.isStamped) {
+                            extraFields.push({ label: "Opečiatkované", value: existingContract?.stampedAt ? new Date(existingContract.stampedAt).toLocaleString("sk-SK", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" }) : "—", testId: "summary-stamped" });
+                          }
+                          if (extraFields.length === 0) return null;
+                          const rows: { label: string; value: string; testId: string }[][] = [];
+                          for (let i = 0; i < extraFields.length; i += 3) rows.push(extraFields.slice(i, i + 3));
+                          return rows.map((row, ri) => (
+                            <div key={ri} className={`grid grid-cols-${row.length === 1 ? '3' : row.length} gap-[clamp(0.5rem,1vw,1rem)]`}>
+                              {row.map(f => (
+                                <CompactField key={f.testId} label={f.label}>
+                                  <div className="flex items-center h-9 px-3 border rounded-md bg-muted/50 text-sm" data-testid={f.testId}>
+                                    {f.value || <span className="text-muted-foreground/40 italic">—</span>}
                                   </div>
-                                ) : (
-                                  <span className={`text-sm ${f.value ? (f.isMono ? "font-mono font-medium" : "font-medium") : "text-muted-foreground/40 italic"}`}>
-                                    {f.value || "—"}
-                                  </span>
-                                )}
-                              </div>
+                                </CompactField>
+                              ))}
                             </div>
                           ));
                         })()}
+
                       </div>
                     </div>
                   )}
@@ -2593,40 +2694,98 @@ export default function ContractForm() {
 
                   {udajeAccordionOpen && (
                     <div className="mt-3 pt-3 border-t border-border/50 space-y-2" onClick={e => e.stopPropagation()}>
-                      <div className="rounded-lg border border-border/50 overflow-hidden">
-                        {(() => {
-                          const sp = allSPForEdit?.find(p => p.id === (sectorProductId ? parseInt(sectorProductId) : -1));
-                          const udajeFields: { label: string; value: string; testId: string; isMono?: boolean; color?: string }[] = [
-                            { label: "Číslo zmluvy", value: contractNumber || "", testId: "udaje-contract-number", isMono: true },
-                            { label: "Číslo návrhu", value: proposalNumber || "", testId: "udaje-proposal", isMono: true },
-                            { label: "Číslo kontraktu", value: existingContract?.globalNumber?.toString() || "", testId: "udaje-global-number", isMono: true },
-                            { label: "Typ zmluvy", value: contractType ? (CONTRACT_TYPES.find(t => t.value === contractType)?.label || contractType) : "", testId: "udaje-type" },
-                            { label: "Miesto podpisu", value: signingPlace || "", testId: "udaje-signing-place" },
-                            { label: "Produkt", value: sp ? `${sp.name}${sp.abbreviation ? ` (${sp.abbreviation})` : ''}` : "", testId: "udaje-product" },
-                            { label: "Frekvencia platenia", value: PAYMENT_FREQUENCIES.find(f => f.value === paymentFrequency)?.label || "", testId: "udaje-frequency" },
-                            { label: "Lehotné poistné", value: premiumAmount ? `${premiumAmount} ${currency}` : "", testId: "udaje-premium", isMono: true },
-                            { label: "Ročné poistné", value: annualPremium ? `${annualPremium} ${currency}` : "", testId: "udaje-annual", isMono: true },
-                            ...((existingContract as any)?.accessRole !== 'klient' ? [{ label: "Suma provízií", value: commissionAmount ? `${commissionAmount} ${currency}` : "", testId: "udaje-commission", isMono: true }] : []),
-                            { label: "Dátum podpisu", value: signedDate || "", testId: "udaje-signed" },
-                            { label: "Účinnosť od", value: effectiveDate || "", testId: "udaje-effective" },
-                            { label: "Koniec zmluvy", value: expiryDate || "", testId: "udaje-expiry" },
-                            ...(existingContract?.isStamped ? [{ label: "Opečiatkované", value: existingContract?.stampedAt ? new Date(existingContract.stampedAt).toLocaleString("sk-SK", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" }) : "—", testId: "udaje-stamped" }] : []),
-                          ];
-                          return udajeFields.map((f, idx) => (
-                            <div
-                              key={f.testId}
-                              className={`flex items-center min-h-[36px] px-4 ${idx % 2 === 0 ? "bg-muted/15" : "bg-background"} ${idx < udajeFields.length - 1 ? "border-b border-border/30" : ""}`}
-                              data-testid={f.testId}
-                            >
-                              <div className="w-1/2 text-xs text-muted-foreground py-2 pr-3 shrink-0">{f.label}</div>
-                              <div className="w-1/2 py-2 pl-3 border-l border-border/20">
-                                <span className={`text-sm ${f.value ? (f.isMono ? "font-mono font-medium" : "font-medium") : "text-muted-foreground/40 italic"}`}>
-                                  {f.value || "—"}
-                                </span>
-                              </div>
+                      <div className="space-y-[clamp(0.35rem,0.8vh,0.75rem)]">
+
+                        <div className="grid grid-cols-3 gap-[clamp(0.5rem,1vw,1rem)]">
+                          <CompactField label="Číslo kontraktu">
+                            <div className="flex items-center h-9 px-3 border rounded-md bg-muted/50 text-sm font-mono" data-testid="udaje-global-number">
+                              {existingContract?.globalNumber?.toString() || <span className="text-muted-foreground/40 italic font-sans">Pridelené pri uložení</span>}
                             </div>
-                          ));
-                        })()}
+                          </CompactField>
+                          <CompactField label="Číslo návrhu">
+                            <div className="flex items-center h-9 px-3 border rounded-md bg-muted/50 text-sm font-mono" data-testid="udaje-proposal">
+                              {proposalNumber || <span className="text-muted-foreground/40 italic font-sans">—</span>}
+                            </div>
+                          </CompactField>
+                          <CompactField label="Číslo zmluvy">
+                            <div className="flex items-center h-9 px-3 border rounded-md bg-muted/50 text-sm font-mono" data-testid="udaje-contract-number">
+                              {contractNumber || <span className="text-muted-foreground/40 italic font-sans">—</span>}
+                            </div>
+                            {existingContract?.isStamped && <span className="text-[10px] text-amber-500 flex items-center gap-1 mt-0.5"><Lock className="w-3 h-3" /> Fixované</span>}
+                          </CompactField>
+                        </div>
+
+                        <div className="grid grid-cols-3 gap-[clamp(0.5rem,1vw,1rem)]">
+                          <CompactField label="Typ zmluvy">
+                            <div className="flex items-center h-9 px-3 border rounded-md bg-muted/50 text-sm" data-testid="udaje-type">
+                              {contractType ? (CONTRACT_TYPES.find(t => t.value === contractType)?.label || contractType) : <span className="text-muted-foreground/40 italic">—</span>}
+                            </div>
+                          </CompactField>
+                          <CompactField label="Miesto podpisu">
+                            <div className="flex items-center h-9 px-3 border rounded-md bg-muted/50 text-sm" data-testid="udaje-signing-place">
+                              {signingPlace || <span className="text-muted-foreground/40 italic">—</span>}
+                            </div>
+                          </CompactField>
+                          <CompactField label="Produkt">
+                            <div className="flex items-center h-9 px-3 border rounded-md bg-muted/50 text-sm" data-testid="udaje-product">
+                              {(() => { const sp = allSPForEdit?.find(p => p.id === (sectorProductId ? parseInt(sectorProductId) : -1)); return sp ? `${sp.name}${sp.abbreviation ? ` (${sp.abbreviation})` : ''}` : <span className="text-muted-foreground/40 italic">—</span>; })()}
+                            </div>
+                          </CompactField>
+                        </div>
+
+                        <div className="grid grid-cols-3 gap-[clamp(0.5rem,1vw,1rem)]">
+                          <CompactField label="Dátum podpisu">
+                            <div className="flex items-center h-9 px-3 border rounded-md bg-muted/50 text-sm" data-testid="udaje-signed">
+                              {signedDate || <span className="text-muted-foreground/40 italic">—</span>}
+                            </div>
+                          </CompactField>
+                          <CompactField label="Účinnosť od">
+                            <div className="flex items-center h-9 px-3 border rounded-md bg-muted/50 text-sm" data-testid="udaje-effective">
+                              {effectiveDate || <span className="text-muted-foreground/40 italic">—</span>}
+                            </div>
+                          </CompactField>
+                          <CompactField label="Koniec zmluvy">
+                            <div className="flex items-center h-9 px-3 border rounded-md bg-muted/50 text-sm" data-testid="udaje-expiry">
+                              {expiryDate || <span className="text-muted-foreground/40 italic">—</span>}
+                            </div>
+                          </CompactField>
+                        </div>
+
+                        <div className="grid grid-cols-3 gap-[clamp(0.5rem,1vw,1rem)]">
+                          <CompactField label="Frekvencia platenia">
+                            <div className="flex items-center h-9 px-3 border rounded-md bg-muted/50 text-sm" data-testid="udaje-frequency">
+                              {PAYMENT_FREQUENCIES.find(f => f.value === paymentFrequency)?.label || <span className="text-muted-foreground/40 italic">—</span>}
+                            </div>
+                          </CompactField>
+                          <CompactField label="Lehotné poistné">
+                            <div className="flex items-center h-9 px-3 border rounded-md bg-muted/50 text-sm font-mono" data-testid="udaje-premium">
+                              {premiumAmount ? `${premiumAmount} ${currency}` : <span className="text-muted-foreground/40 italic font-sans">—</span>}
+                            </div>
+                          </CompactField>
+                          <CompactField label="Ročné poistné">
+                            <div className="flex items-center h-9 px-3 border rounded-md bg-muted/50 text-sm font-mono" data-testid="udaje-annual">
+                              {annualPremium ? `${annualPremium} ${currency}` : <span className="text-muted-foreground/40 italic font-sans">—</span>}
+                            </div>
+                          </CompactField>
+                        </div>
+
+                        {(existingContract as any)?.accessRole !== 'klient' && (
+                          <div className="grid grid-cols-3 gap-[clamp(0.5rem,1vw,1rem)]">
+                            <CompactField label="Suma provízií">
+                              <div className="flex items-center h-9 px-3 border rounded-md bg-muted/50 text-sm font-mono" data-testid="udaje-commission">
+                                {commissionAmount ? `${commissionAmount} ${currency}` : <span className="text-muted-foreground/40 italic font-sans">—</span>}
+                              </div>
+                            </CompactField>
+                            {existingContract?.isStamped && (
+                              <CompactField label="Opečiatkované">
+                                <div className="flex items-center h-9 px-3 border rounded-md bg-muted/50 text-sm" data-testid="udaje-stamped">
+                                  {existingContract?.stampedAt ? new Date(existingContract.stampedAt).toLocaleString("sk-SK", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" }) : "—"}
+                                </div>
+                              </CompactField>
+                            )}
+                          </div>
+                        )}
+
                       </div>
                       {existingContract?.updatedAt && (() => {
                         const days = Math.floor((Date.now() - new Date(existingContract.updatedAt).getTime()) / (1000 * 60 * 60 * 24));
