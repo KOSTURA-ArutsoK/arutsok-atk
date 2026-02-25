@@ -2766,19 +2766,44 @@ export async function registerRoutes(
     try {
       const stateId = getEnforcedStateId(req);
       const allInventories = await storage.getContractInventories(stateId);
+      const allStatuses = await storage.getContractStatuses();
+
+      const STATUS_PHASE_MAP: Record<string, number> = {
+        "neprijata": 3, "vyhrady": 3, "nedodana": 3, "chybna": 3,
+        "odoslana": 2, "sprievodke": 2,
+        "prijata": 5, "vybavena": 5, "spracovana": 5, "schvalenie": 5,
+        "zrusena": 4, "prestup": 4,
+        "nahrata": 1, "caka": 1, "doplnit": 1, "bonus": 1, "malus": 1, "nedorucena": 1,
+      };
+
+      function derivePhase(lp: number | null, statusId: number | null): number {
+        if (lp && lp > 0) return lp;
+        if (!statusId) return 1;
+        const status = allStatuses.find((s: any) => s.id === statusId);
+        if (!status) return 1;
+        const nameLower = (status.name || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+        for (const [keyword, phase] of Object.entries(STATUS_PHASE_MAP)) {
+          if (nameLower.includes(keyword)) return phase;
+        }
+        return 1;
+      }
 
       const allContracts = await db.select({
         id: contracts.id,
         inventoryId: contracts.inventoryId,
         lifecyclePhase: contracts.lifecyclePhase,
+        statusId: contracts.statusId,
         isDeleted: contracts.isDeleted,
       }).from(contracts).where(isNotNull(contracts.inventoryId));
 
-      const contractsByInventory = new Map<number, { lifecyclePhase: number | null; isDeleted: boolean }[]>();
+      const contractsByInventory = new Map<number, { effectivePhase: number; isDeleted: boolean }[]>();
       for (const c of allContracts) {
         if (!c.inventoryId) continue;
         if (!contractsByInventory.has(c.inventoryId)) contractsByInventory.set(c.inventoryId, []);
-        contractsByInventory.get(c.inventoryId)!.push(c);
+        contractsByInventory.get(c.inventoryId)!.push({
+          effectivePhase: derivePhase(c.lifecyclePhase, c.statusId),
+          isDeleted: c.isDeleted,
+        });
       }
 
       const result = allInventories
@@ -2789,12 +2814,12 @@ export async function registerRoutes(
         })
         .map(inv => {
           const invContracts = contractsByInventory.get(inv.id) || [];
-          let semaphoreColor = "gray";
+          let semaphoreColor = "blue";
           if (invContracts.length > 0) {
-            const hasPhase3 = invContracts.some(c => !c.isDeleted && c.lifecyclePhase === 3);
-            const hasPhase7 = invContracts.some(c => !c.isDeleted && c.lifecyclePhase === 7);
-            const allArchiv = invContracts.every(c => c.isDeleted || c.lifecyclePhase === 4);
-            const allGreen = invContracts.every(c => !c.isDeleted && (c.lifecyclePhase ?? 0) >= 5 && c.lifecyclePhase !== 7);
+            const hasPhase3 = invContracts.some(c => !c.isDeleted && c.effectivePhase === 3);
+            const hasPhase7 = invContracts.some(c => !c.isDeleted && c.effectivePhase === 7);
+            const allArchiv = invContracts.every(c => c.isDeleted || c.effectivePhase === 4);
+            const allGreen = invContracts.every(c => !c.isDeleted && c.effectivePhase >= 5 && c.effectivePhase !== 7);
 
             if (hasPhase3) semaphoreColor = "red";
             else if (hasPhase7) semaphoreColor = "orange";
@@ -2822,15 +2847,37 @@ export async function registerRoutes(
       const inventoryId = Number(req.params.id);
       const contractsInInventory = await storage.getContracts({ inventoryId });
       const allSubjects = await storage.getSubjects();
+      const allStatuses = await storage.getContractStatuses();
       const subjectMap = new Map(allSubjects.map((s: any) => [s.id, s]));
+
+      const STATUS_PHASE_MAP: Record<string, number> = {
+        "neprijata": 3, "vyhrady": 3, "nedodana": 3, "chybna": 3,
+        "odoslana": 2, "sprievodke": 2,
+        "prijata": 5, "vybavena": 5, "spracovana": 5, "schvalenie": 5,
+        "zrusena": 4, "prestup": 4,
+        "nahrata": 1, "caka": 1, "doplnit": 1, "bonus": 1, "malus": 1, "nedorucena": 1,
+      };
+
+      function derivePhaseFromStatus(statusId: number | null): number {
+        if (!statusId) return 1;
+        const status = allStatuses.find((s: any) => s.id === statusId);
+        if (!status) return 1;
+        const nameLower = (status.name || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+        for (const [keyword, phase] of Object.entries(STATUS_PHASE_MAP)) {
+          if (nameLower.includes(keyword)) return phase;
+        }
+        return 1;
+      }
+
       const enriched = contractsInInventory.map((c: any) => {
         const subj = c.subjectId ? subjectMap.get(c.subjectId) : null;
+        const effectivePhase = (c.lifecyclePhase && c.lifecyclePhase > 0) ? c.lifecyclePhase : derivePhaseFromStatus(c.statusId);
         return {
           id: c.id,
           contractNumber: c.contractNumber,
           proposalNumber: c.proposalNumber,
           contractType: c.contractType,
-          lifecyclePhase: c.lifecyclePhase,
+          lifecyclePhase: effectivePhase,
           statusId: c.statusId,
           sortOrderInInventory: c.sortOrderInInventory,
           isDeleted: c.isDeleted,
