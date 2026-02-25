@@ -1,0 +1,48 @@
+ARCHITEKTÚRA MODULU: SKUPINY KLIENTOV A REPUTAČNÝ SYSTÉM
+Agent, toto zadanie musíš implementovať presne podľa týchto bodov. Nič nevynechaj, nič nemeň.
+
+1. Logika Exkluzivity Skupín (Status subjektu)
+Implementuj automatický trigger na zmenu základnej skupiny:
+
+SKUPINA: KLIENTI (ID: group_klient)
+
+Podmienka: Subjekt má v DB aspoň jednu zmluvu.
+
+SKUPINA: REGISTROVANÍ KLIENTI (ID: group_registrovaný)
+
+Podmienka: Subjekt prešiel procesom registrácie (Login + súhlas s podmienkami).
+
+STRIKTNÉ PRAVIDLO: Subjekt nesmie patriť do oboch skupín súčasne. Ak sa subjekt zo skupiny "Klienti" zaregistruje, musíš ho zo skupiny "Klienti" odstrániť a pridať do "Registrovaní klienti". (Status upgrade).
+
+2. Reputačné zoznamy (Overlay Tags)
+Tieto zoznamy fungujú ako príznaky (labels) nad základnou skupinou (Klient/Registrovaný neodchádza, len dostane "nálepku").
+
+LOKÁLNY ČERVENÝ ZOZNAM (Local Red Flag):
+
+Spúšťač: Dosiahnutie 5 červených bodov (logika storna/neplatiča).
+
+Rozsah (Scope): Dáta musia byť filtrované podľa company_id (z hornej lišty).
+
+Správanie: Ak je subjekt na červenom zozname vo Firme A, pri prepnutí na Firmu B musí tento príznak zmiznúť (ak tam nemá vlastných 5 bodov).
+
+GLOBÁLNY ČIERNY ZOZNAM (Global Blacklist):
+
+Spúšťač: Manuálne označenie adminom (Podvodník).
+
+Rozsah (Scope): CELÝ SYSTÉM (všetky company_id, všetky štáty).
+
+Dopad: Ak je subjekt na tomto zozname, systém musí hodiť Error/Block pri akomkoľvek pokuse o vytvorenie novej zmluvy alebo operácie s týmto subjektom kdekoľvek v systéme.
+
+3. Používateľské rozhranie (UI/UX)
+Sekcia Skupiny klientov: Tu umožni definovať vlastné "Custom Fields" (voliteľné polia) pre každú skupinu.
+
+Vizuálna signalizácia: Pri zobrazení subjektu v akomkoľvek detaile (zmluva, sprievodka) musí byť vedľa mena jasná ikona:
+
+🔴 (Červený bod) pre Lokálny zoznam.
+
+💀 (alebo čierna ikona) pre Globálny blacklist.
+
+4. Technická kontrola
+Zabezpeč, aby prepnutie firmy v hornej lište okamžite prepočítalo príslušnosť k Červenému zoznamu.
+
+Zabezpeč, aby sa pri zápise do Čierneho zoznamu zapísal záznam do auditnej stopy (kto a kedy ho tam dal).
