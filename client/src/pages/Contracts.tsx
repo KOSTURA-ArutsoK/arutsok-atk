@@ -2145,6 +2145,20 @@ export default function Contracts() {
     onError: () => toast({ title: "Chyba", description: "Nepodarilo sa vytvoriť novú sprievodku", variant: "destructive" }),
   });
 
+  const sendToCentralMutation = useMutation({
+    mutationFn: async (contractIds: number[]) => {
+      const res = await apiRequest("POST", "/api/contracts/send-to-central", { contractIds });
+      return res.json();
+    },
+    onSuccess: (data: any) => {
+      invalidateContractCaches();
+      queryClient.invalidateQueries({ queryKey: ["/api/contract-inventories/summary"] });
+      toast({ title: "Odoslané do centrály", description: `Odoslaných: ${data.sent} zmlúv` });
+      setRerouteSelectedIds([]);
+    },
+    onError: () => toast({ title: "Chyba", description: "Nepodarilo sa odoslať zmluvy do centrály", variant: "destructive" }),
+  });
+
   const REROUTE_CONFIG: Record<string, { targetPhase: number; targetLabel: string }> = {
     neprijate: { targetPhase: 2, targetLabel: "Odoslané na sprievodke (pôvodné ID)" },
     archiv: { targetPhase: 6, targetLabel: "Kontrakt v spracovaní" },
@@ -3152,22 +3166,38 @@ export default function Contracts() {
               </div>
             )}
             {rerouteSelectedIds.length > 0 && activeFolder === 3 && (
-              <div className="flex items-center justify-between p-3 border-b bg-blue-500/10">
+              <div className="flex items-center justify-between gap-2 p-3 border-b bg-blue-500/10 flex-wrap">
                 <span className="text-sm text-muted-foreground">Vybraných zmlúv: <span className="font-bold text-foreground">{rerouteSelectedIds.length}</span></span>
-                <Button
-                  variant="default"
-                  className="bg-blue-600 hover:bg-blue-700 text-white"
-                  disabled={createSprievodkaFromObjMutation.isPending}
-                  onClick={() => createSprievodkaFromObjMutation.mutate(rerouteSelectedIds)}
-                  data-testid="button-create-sprievodka-from-objections"
-                >
-                  {createSprievodkaFromObjMutation.isPending ? (
-                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                  ) : (
-                    <Plus className="w-4 h-4 mr-2" />
-                  )}
-                  Vytvoriť novú sprievodku z výhrad ({rerouteSelectedIds.length})
-                </Button>
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="default"
+                    className="bg-blue-600 hover:bg-blue-700 text-white"
+                    disabled={createSprievodkaFromObjMutation.isPending}
+                    onClick={() => createSprievodkaFromObjMutation.mutate(rerouteSelectedIds)}
+                    data-testid="button-create-sprievodka-from-objections"
+                  >
+                    {createSprievodkaFromObjMutation.isPending ? (
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    ) : (
+                      <Plus className="w-4 h-4 mr-2" />
+                    )}
+                    Vytvoriť novú sprievodku z výhrad ({rerouteSelectedIds.length})
+                  </Button>
+                  <Button
+                    variant="default"
+                    className="bg-green-600 hover:bg-green-700 text-white"
+                    disabled={sendToCentralMutation.isPending}
+                    onClick={() => sendToCentralMutation.mutate(rerouteSelectedIds)}
+                    data-testid="button-send-to-central"
+                  >
+                    {sendToCentralMutation.isPending ? (
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    ) : (
+                      <Send className="w-4 h-4 mr-2" />
+                    )}
+                    Odoslať do centrály ({rerouteSelectedIds.length})
+                  </Button>
+                </div>
               </div>
             )}
             <CardContent className="p-0">

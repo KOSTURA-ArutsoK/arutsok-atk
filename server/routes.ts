@@ -2682,6 +2682,62 @@ export async function registerRoutes(
     }
   });
 
+  app.post("/api/contracts/send-to-central", isAuthenticated, async (req: any, res) => {
+    try {
+      const { contractIds } = req.body;
+      if (!Array.isArray(contractIds) || contractIds.length === 0) {
+        return res.status(400).json({ message: "Žiadne zmluvy na odoslanie" });
+      }
+
+      const appUser = req.appUser;
+      const now = new Date();
+      const odoslanaStatus = await storage.getSystemContractStatusByName("Odoslana na sprievodke");
+      if (!odoslanaStatus) {
+        return res.status(500).json({ message: "Systémový stav 'Odoslana na sprievodke' nebol nájdený" });
+      }
+
+      let sent = 0;
+      for (const cid of contractIds) {
+        const id = Number(cid);
+        const [contract] = await db.select().from(contracts).where(eq(contracts.id, id));
+        if (!contract) continue;
+
+        await db.update(contracts)
+          .set({
+            statusId: odoslanaStatus.id,
+            lifecyclePhase: 2,
+            updatedAt: now,
+          })
+          .where(eq(contracts.id, id));
+
+        await db.insert(contractLifecycleHistory).values({
+          contractId: id,
+          phase: 2,
+          phaseName: LIFECYCLE_PHASES[2] || "Odoslané",
+          changedByUserId: appUser?.id || null,
+          note: `Odoslané do centrály z výhrad — stav zmenený na "${odoslanaStatus.name}"`,
+        });
+
+        await logAudit(req, {
+          action: "SEND_TO_CENTRAL",
+          module: "zmluvy",
+          entityId: id,
+          entityName: contract.contractNumber || contract.proposalNumber || `ID ${id}`,
+          oldData: { statusId: contract.statusId },
+          newData: { statusId: odoslanaStatus.id },
+        });
+
+        sent++;
+      }
+
+      res.json({ sent });
+    } catch (err: any) {
+      console.error("Send to central error:", err);
+      res.status(500).json({ message: err?.message || "Internal error" });
+    }
+  });
+
+
   // === CONTRACT LIFECYCLE HISTORY (Stroj času) ===
   app.get("/api/contracts/:id/lifecycle-history", isAuthenticated, async (req: any, res) => {
     try {
