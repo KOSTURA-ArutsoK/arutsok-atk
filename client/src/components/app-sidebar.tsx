@@ -114,10 +114,14 @@ const nastaveniaSablonChildren = [
   { href: "/contract-field-settings", icon: Sliders, label: "Nastavenie evidencie" },
 ];
 
-const protokolyChildren = [
-  { href: "/contract-inventories", icon: FileStack, label: "Sprievodky" },
-  { href: "/supisky", icon: ClipboardList, label: "Supisky" },
-];
+const SEMAPHORE_COLORS: Record<string, string> = {
+  red: "bg-red-500",
+  orange: "bg-orange-500",
+  blue: "bg-blue-500",
+  black: "bg-black dark:bg-gray-300",
+  green: "bg-green-500",
+  gray: "bg-gray-400",
+};
 
 const importItems = [
   { href: "/bulk-import", icon: FileSpreadsheet, label: "Hromadný import" },
@@ -128,7 +132,7 @@ const importItems = [
 const allZmluvyHrefs = [
   ...zmluvyFlatItems.map(i => i.href),
   ...nastaveniaSablonChildren.map(i => i.href),
-  ...protokolyChildren.map(i => i.href),
+  "/contract-inventories", "/supisky",
   ...importItems.map(i => i.href),
 ];
 
@@ -242,13 +246,18 @@ export function AppSidebar() {
     staleTime: 1000 * 60 * 5,
   });
 
+  const { data: inventorySummary } = useQuery<Array<{ id: number; name: string; sequenceNumber: number | null; createdAt: string; semaphoreColor: string }>>({
+    queryKey: ["/api/contract-inventories/summary"],
+    staleTime: 1000 * 60 * 2,
+  });
+
   const allMenus = [
     { id: "nastavenia", items: [...spravaPristupovItems, ...specifikacieItems, ...nastavenieDirectItems] },
     { id: "sprava-pristupov", items: spravaPristupovItems },
     { id: "specifikacie", items: specifikacieItems },
     { id: "partneri", items: partneriProduktyItems },
     { id: "klienti", items: klientiItems },
-    { id: "zmluvy", items: [...zmluvyFlatItems, ...nastaveniaSablonChildren, ...protokolyChildren, ...importItems] },
+    { id: "zmluvy", items: [...zmluvyFlatItems, ...nastaveniaSablonChildren, { href: "/contract-inventories", icon: FileStack, label: "Sprievodky" }, { href: "/supisky", icon: ClipboardList, label: "Supisky" }, ...importItems] },
     { id: "financie", items: financieItems },
     { id: "informacie", items: informacieItems },
   ];
@@ -264,7 +273,7 @@ export function AppSidebar() {
   const isZmluvyActive = allZmluvyHrefs.includes(location);
   const isZmluvyOpen = openMenuId === "zmluvy";
   const zmluvyInitialSub = nastaveniaSablonChildren.some(i => i.href === location) ? "sablony"
-    : protokolyChildren.some(i => i.href === location) ? "protokoly"
+    : ["/contract-inventories", "/supisky"].includes(location) ? "protokoly"
     : importItems.some(i => i.href === location) ? "import" : null;
   const [zmluvySubId, setZmluvySubId] = useState<string | null>(zmluvyInitialSub);
 
@@ -533,7 +542,7 @@ export function AppSidebar() {
                           <CollapsibleTrigger asChild>
                             <SidebarMenuSubButton
                               data-testid="nav-submenu-zoznam-protokolov"
-                              className={`cursor-pointer ${protokolyChildren.some(i => i.href === location) ? "text-sidebar-accent-foreground font-medium" : ""}`}
+                              className={`cursor-pointer ${location === "/contract-inventories" || location === "/supisky" ? "text-sidebar-accent-foreground font-medium" : ""}`}
                             >
                               <FileStack className="w-3.5 h-3.5" />
                               <span className="flex-1">Zoznam protokolov</span>
@@ -542,20 +551,50 @@ export function AppSidebar() {
                           </CollapsibleTrigger>
                           <CollapsibleContent>
                             <div className="ml-2 border-l border-border pl-1.5 mt-1 space-y-0.5">
-                              {protokolyChildren.map(item => (
-                                <SidebarMenuSubItem key={item.href}>
-                                  <SidebarMenuSubButton
-                                    asChild
-                                    isActive={location === item.href}
-                                    data-testid={`nav-${item.label.toLowerCase().replace(/\s/g, '-')}`}
-                                  >
-                                    <Link href={item.href}>
-                                      <item.icon className="w-3.5 h-3.5" />
-                                      <span>{item.label}</span>
-                                    </Link>
-                                  </SidebarMenuSubButton>
-                                </SidebarMenuSubItem>
-                              ))}
+                              <SidebarMenuSubItem>
+                                <SidebarMenuSubButton
+                                  asChild
+                                  isActive={location === "/contract-inventories"}
+                                  data-testid="nav-sprievodky"
+                                >
+                                  <Link href="/contract-inventories">
+                                    <FileStack className="w-3.5 h-3.5" />
+                                    <span>Sprievodky</span>
+                                  </Link>
+                                </SidebarMenuSubButton>
+                              </SidebarMenuSubItem>
+                              {inventorySummary && inventorySummary.length > 0 && (
+                                <div className="ml-3 border-l border-border/50 pl-1.5 space-y-px">
+                                  {inventorySummary.map((inv: any) => (
+                                    <SidebarMenuSubItem key={inv.id}>
+                                      <SidebarMenuSubButton
+                                        asChild
+                                        className="cursor-pointer h-6 text-[11px]"
+                                        data-testid={`nav-inventory-${inv.id}`}
+                                      >
+                                        <Link href="/contract-inventories">
+                                          <span className={`w-2 h-2 rounded-full shrink-0 ${SEMAPHORE_COLORS[inv.semaphoreColor] || SEMAPHORE_COLORS.gray}`} />
+                                          <span className="truncate">
+                                            {inv.sequenceNumber ? `Sprievodka č. ${inv.sequenceNumber}` : inv.name}
+                                          </span>
+                                        </Link>
+                                      </SidebarMenuSubButton>
+                                    </SidebarMenuSubItem>
+                                  ))}
+                                </div>
+                              )}
+                              <SidebarMenuSubItem>
+                                <SidebarMenuSubButton
+                                  asChild
+                                  isActive={location === "/supisky"}
+                                  data-testid="nav-supisky"
+                                >
+                                  <Link href="/supisky">
+                                    <ClipboardList className="w-3.5 h-3.5" />
+                                    <span>Supisky</span>
+                                  </Link>
+                                </SidebarMenuSubButton>
+                              </SidebarMenuSubItem>
                             </div>
                           </CollapsibleContent>
                         </Collapsible>
