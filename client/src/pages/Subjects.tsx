@@ -20,7 +20,6 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { Label } from "@/components/ui/label";
 import { MultiSelectCheckboxes } from "@/components/multi-select-checkboxes";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogScrollContent,
 } from "@/components/ui/dialog";
@@ -1375,25 +1374,69 @@ function SubjectDetailPanel({ subject, onClose }: { subject: Subject; onClose: (
         <div className="w-10 h-10 rounded-md bg-primary/10 flex items-center justify-center flex-shrink-0">
           {subject.type === 'person' ? <User className="w-5 h-5 text-primary" /> : <Building2 className="w-5 h-5 text-primary" />}
         </div>
-        <div className="min-w-0">
-          <h2 className="text-lg font-semibold" data-testid="text-subject-detail-name">
-            {subject.type === 'person'
-              ? `${subject.lastName}, ${subject.firstName}`
-              : subject.companyName}
-          </h2>
-          <div className="flex items-center gap-2 mt-0.5 flex-wrap">
-            <span className="text-xs font-mono text-muted-foreground">{subject.uid}</span>
-            {(() => {
-              const status = getSubjectStatus(subject);
-              return (
-                <span
-                  className={`inline-flex items-center px-2 py-0.5 rounded-full border text-[11px] font-medium ${status.bgColor} ${status.borderColor} ${status.textColor}`}
-                  data-testid={`status-dialog-subject-${subject.id}`}
-                >
-                  {status.label}
-                </span>
-              );
-            })()}
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-3 flex-wrap justify-between">
+            <div className="flex items-center gap-2 min-w-0">
+              <h2 className="text-lg font-semibold truncate" data-testid="text-subject-detail-name">
+                {subject.type === 'person'
+                  ? `${subject.lastName}, ${subject.firstName}`
+                  : subject.companyName}
+              </h2>
+              <span className="text-xs font-mono text-muted-foreground shrink-0">{subject.uid}</span>
+              {(() => {
+                const status = getSubjectStatus(subject);
+                return (
+                  <span
+                    className={`inline-flex items-center px-2 py-0.5 rounded-full border text-[11px] font-medium shrink-0 ${status.bgColor} ${status.borderColor} ${status.textColor}`}
+                    data-testid={`status-dialog-subject-${subject.id}`}
+                  >
+                    {status.label}
+                  </span>
+                );
+              })()}
+            </div>
+            <div className="flex items-center gap-1 shrink-0">
+              <Button
+                variant={activeTab === "profil_subjektu" ? "default" : "ghost"}
+                size="sm"
+                className="h-7 text-xs px-2.5"
+                onClick={() => setActiveTab("profil_subjektu")}
+                data-testid="tab-subject-profil"
+              >
+                <ShieldCheck className="w-3.5 h-3.5 mr-1" />
+                Profil<sup className="text-[7px] ml-0.5">(C)</sup>
+              </Button>
+              <Button
+                variant={activeTab === "objekty" ? "default" : "ghost"}
+                size="sm"
+                className="h-7 text-xs px-2.5"
+                onClick={() => setActiveTab("objekty")}
+                data-testid="tab-subject-objekty"
+              >
+                <Boxes className="w-3.5 h-3.5 mr-1" />
+                Objekty<sup className="text-[7px] ml-0.5">(B)</sup>
+              </Button>
+              <Button
+                variant={activeTab === "historia" ? "default" : "ghost"}
+                size="sm"
+                className="h-7 text-xs px-2.5"
+                onClick={() => setActiveTab("historia")}
+                data-testid="tab-subject-historia"
+              >
+                <History className="w-3.5 h-3.5 mr-1" />
+                História
+              </Button>
+              <Button
+                variant={activeTab === "vztahy" ? "default" : "ghost"}
+                size="sm"
+                className="h-7 text-xs px-2.5"
+                onClick={() => setActiveTab("vztahy")}
+                data-testid="tab-subject-vztahy"
+              >
+                <Link2 className="w-3.5 h-3.5 mr-1" />
+                Vzťahy
+              </Button>
+            </div>
           </div>
         </div>
       </div>
@@ -1459,35 +1502,16 @@ function SubjectDetailPanel({ subject, onClose }: { subject: Subject; onClose: (
           ))}
         </div>
       )}
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1">
-        <TabsList data-testid="tabs-subject-detail">
-          <TabsTrigger value="profil_subjektu" data-testid="tab-subject-profil">
-            <ShieldCheck className="w-3.5 h-3.5 mr-1" />
-            Profil subjektu<sup className="text-[8px] ml-0.5">(C)</sup>
-          </TabsTrigger>
-          <TabsTrigger value="objekty" data-testid="tab-subject-objekty">
-            <Boxes className="w-3.5 h-3.5 mr-1" />
-            Objekty<sup className="text-[8px] ml-0.5">(B)</sup>
-          </TabsTrigger>
-          <TabsTrigger value="historia" data-testid="tab-subject-historia">
-            <History className="w-3.5 h-3.5 mr-1" />
-            História
-          </TabsTrigger>
-          <TabsTrigger value="vztahy" data-testid="tab-subject-vztahy">
-            <Link2 className="w-3.5 h-3.5 mr-1" />
-            Vzťahy
-          </TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="profil_subjektu" className="mt-3">
+      <div className="mt-3">
+        {activeTab === "profil_subjektu" && (
           <SubjectProfileModuleC subject={subject} />
-        </TabsContent>
+        )}
 
-        <TabsContent value="objekty" className="mt-3">
+        {activeTab === "objekty" && (
           <SubjectObjectsTab subjectId={subject.id} />
-        </TabsContent>
+        )}
 
-        <TabsContent value="historia" className="mt-3">
+        {activeTab === "historia" && (
           <div className="space-y-6">
             <div>
               <SubjectFieldHistoryPanel subjectId={subject.id} clientTypeId={(subject as any).clientTypeId ?? undefined} />
@@ -1507,13 +1531,12 @@ function SubjectDetailPanel({ subject, onClose }: { subject: Subject; onClose: (
               <SubjectHistoryTab subjectId={subject.id} />
             </div>
           </div>
-        </TabsContent>
+        )}
 
-        <TabsContent value="vztahy" className="mt-3">
+        {activeTab === "vztahy" && (
           <EntityLinksTab subject={subject} />
-        </TabsContent>
-
-      </Tabs>
+        )}
+      </div>
     </div>
   );
 }
