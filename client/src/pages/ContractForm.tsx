@@ -2481,26 +2481,57 @@ export default function ContractForm() {
 
               <Card>
                 <CardContent className="p-4 space-y-2">
-                  <h3 className="text-sm font-semibold mb-2">Zmluva</h3>
+                  <h3 className="text-sm font-semibold mb-2 flex items-center gap-1.5">
+                    <LayoutGrid className="w-3.5 h-3.5" />
+                    Všeobecné
+                  </h3>
                   <div className="flex flex-wrap gap-2">
-                    {(contractNumber) && <SummaryField label="Cislo zmluvy" value={contractNumber} testId="summary-contract-number" onEdit={v => setContractNumber(v)} />}
-                    {(proposalNumber) && <SummaryField label="Cislo navrhu" value={proposalNumber} testId="summary-proposal" onEdit={v => setProposalNumber(v)} />}
-                    <SummaryField label="Cislo kontraktu" value={existingContract?.globalNumber?.toString() || "Pridelene pri ulozeni"} testId="summary-global-number" />
+                    {(() => {
+                      const inv = inventoryId ? inventories?.find(i => i.id.toString() === inventoryId) : null;
+                      return inv?.sequenceNumber ? <SummaryField label="Sprievodka" value={`#${inv.sequenceNumber}`} testId="summary-sprievodka" /> : null;
+                    })()}
+                    {(() => {
+                      const inv = inventoryId ? inventories?.find(i => i.id.toString() === inventoryId) : null;
+                      return inv?.name ? <SummaryField label="Súpiska" value={inv.name} testId="summary-supiska" /> : null;
+                    })()}
+                    {(() => { const v = partners?.find(p => p.id === (partnerId ? parseInt(partnerId) : -1))?.name; return v ? <SummaryField label="Partner" value={v} testId="summary-partner" /> : null; })()}
+                    {currentCompany?.name && <SummaryField label="Spoločnosť" value={currentCompany.name} testId="summary-company" />}
+                    {(() => { const v = templates?.find(t => t.id === (templateId ? parseInt(templateId) : -1))?.name; return v ? <SummaryField label="Šablóna" value={v} testId="summary-template" /> : null; })()}
+                    {(() => {
+                      const s = statuses?.find(s => s.id === (statusId ? parseInt(statusId) : -1));
+                      return s ? (
+                        <div className="inline-flex items-center gap-1.5 bg-muted/40 rounded-lg px-3 py-1.5 border border-border/50" data-testid="summary-status">
+                          <div className="text-[10px] text-muted-foreground uppercase tracking-wider">Stav</div>
+                          <div className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: s.color }} />
+                          <span className="text-sm font-semibold" style={{ color: s.color }}>{s.name}</span>
+                        </div>
+                      ) : null;
+                    })()}
+                    {(() => { const v = allStates?.find(s => s.id === (stateId ? parseInt(stateId) : -1))?.name; return v ? <SummaryField label="Štát" value={v} testId="summary-state" /> : null; })()}
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardContent className="p-4 space-y-2">
+                  <h3 className="text-sm font-semibold mb-2 flex items-center gap-1.5">
+                    <ClipboardList className="w-3.5 h-3.5" />
+                    Údaje o zmluve
+                  </h3>
+                  <div className="flex flex-wrap gap-2">
+                    {(contractNumber) && <SummaryField label="Číslo zmluvy" value={contractNumber} testId="summary-contract-number" onEdit={v => setContractNumber(v)} />}
+                    {(proposalNumber) && <SummaryField label="Číslo návrhu" value={proposalNumber} testId="summary-proposal" onEdit={v => setProposalNumber(v)} />}
+                    <SummaryField label="Číslo kontraktu" value={existingContract?.globalNumber?.toString() || "Pridelené pri uložení"} testId="summary-global-number" />
                     {(contractType) && <SummaryField label="Typ zmluvy" value={contractType} testId="summary-type" />}
                     {(signingPlace) && <SummaryField label="Miesto podpisu" value={signingPlace} testId="summary-signing-place" onEdit={v => setSigningPlace(v)} />}
-                    {(() => { const v = partners?.find(p => p.id === (partnerId ? parseInt(partnerId) : -1))?.name; return v ? <SummaryField label="Partner" value={v} testId="summary-partner" /> : null; })()}
                     {(() => { const sp = allSPForEdit?.find(p => p.id === (sectorProductId ? parseInt(sectorProductId) : -1)); return sp ? <SummaryField label="Produkt" value={`${sp.name}${sp.abbreviation ? ` (${sp.abbreviation})` : ''}`} testId="summary-product" /> : null; })()}
-                    {(() => { const v = statuses?.find(s => s.id === (statusId ? parseInt(statusId) : -1))?.name; return v ? <SummaryField label="Stav" value={v} testId="summary-status" /> : null; })()}
-                    {(() => { const v = templates?.find(t => t.id === (templateId ? parseInt(templateId) : -1))?.name; return v ? <SummaryField label="Sablona" value={v} testId="summary-template" /> : null; })()}
                     {(() => { const v = PAYMENT_FREQUENCIES.find(f => f.value === paymentFrequency)?.label; return v ? <SummaryField label="Frekvencia platenia" value={v} testId="summary-frequency" /> : null; })()}
-                    {(premiumAmount) && <SummaryField label="Lehotne poistne" value={`${premiumAmount} ${currency}`} testId="summary-premium" mono onEdit={v => setPremiumAmount(v.replace(/[^0-9.,]/g, ""))} />}
-                    {(annualPremium) && <SummaryField label="Rocne poistne" value={`${annualPremium} ${currency}`} testId="summary-annual" mono onEdit={v => { setAnnualPremium(v.replace(/[^0-9.,]/g, "")); setAnnualPremiumUserEdited(true); }} />}
-                    {(existingContract as any)?.accessRole !== 'klient' && commissionAmount && <SummaryField label="Suma provizie" value={`${commissionAmount} ${currency}`} testId="summary-commission" mono onEdit={v => setCommissionAmount(v.replace(/[^0-9.,]/g, ""))} />}
-                    {(signedDate) && <SummaryField label="Datum podpisu" value={signedDate} testId="summary-signed" onEdit={v => setSignedDate(v)} />}
-                    {(effectiveDate) && <SummaryField label="Ucinnost od" value={effectiveDate} testId="summary-effective" onEdit={v => setEffectiveDate(v)} />}
+                    {(premiumAmount) && <SummaryField label="Lehotné poistné" value={`${premiumAmount} ${currency}`} testId="summary-premium" mono onEdit={v => setPremiumAmount(v.replace(/[^0-9.,]/g, ""))} />}
+                    {(annualPremium) && <SummaryField label="Ročné poistné" value={`${annualPremium} ${currency}`} testId="summary-annual" mono onEdit={v => { setAnnualPremium(v.replace(/[^0-9.,]/g, "")); setAnnualPremiumUserEdited(true); }} />}
+                    {(existingContract as any)?.accessRole !== 'klient' && commissionAmount && <SummaryField label="Suma provízií" value={`${commissionAmount} ${currency}`} testId="summary-commission" mono onEdit={v => setCommissionAmount(v.replace(/[^0-9.,]/g, ""))} />}
+                    {(signedDate) && <SummaryField label="Dátum podpisu" value={signedDate} testId="summary-signed" onEdit={v => setSignedDate(v)} />}
+                    {(effectiveDate) && <SummaryField label="Účinnosť od" value={effectiveDate} testId="summary-effective" onEdit={v => setEffectiveDate(v)} />}
                     {(expiryDate) && <SummaryField label="Koniec zmluvy" value={expiryDate} testId="summary-expiry" onEdit={v => setExpiryDate(v)} />}
-                    {currentCompany?.name && <SummaryField label="Spolocnost" value={currentCompany.name} testId="summary-company" />}
-                    {(() => { const v = allStates?.find(s => s.id === (stateId ? parseInt(stateId) : -1))?.name; return v ? <SummaryField label="Stat" value={v} testId="summary-state" /> : null; })()}
                     {existingContract?.isStamped && (
                       <SummaryField label="Opečiatkované" value={existingContract?.stampedAt ? new Date(existingContract.stampedAt).toLocaleString("sk-SK", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" }) : "-"} testId="summary-stamped" />
                     )}
