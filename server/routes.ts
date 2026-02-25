@@ -3751,14 +3751,7 @@ export async function registerRoutes(
       }
       delete input.globalNumber;
 
-      if (old.isStamped && appUser?.role !== 'superadmin') {
-        if (input.contractNumber !== undefined && input.contractNumber !== old.contractNumber) {
-          return res.status(403).json({ message: "Číslo zmluvy je fixované po opečiatkovaní a nie je možné ho zmeniť" });
-        }
-        if (input.statusId !== undefined && input.statusId !== old.statusId) {
-          return res.status(403).json({ message: "Stav zmluvy je fixovaný po opečiatkovaní a nie je možné ho zmeniť" });
-        }
-      }
+
 
       const migrationOn = await isMigrationModeOn();
       const updateData: any = { ...input };

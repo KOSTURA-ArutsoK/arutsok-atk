@@ -1726,8 +1726,7 @@ export default function ContractForm() {
                   <Input value={proposalNumber} onChange={e => setProposalNumber(e.target.value)} data-testid="input-contract-proposal" />
                 </CompactField>
                 <CompactField label="Cislo zmluvy">
-                  <Input value={contractNumber} onChange={e => setContractNumber(e.target.value)} data-testid="input-contract-number" disabled={!!existingContract?.isStamped} />
-                  {existingContract?.isStamped && <span className="text-[10px] text-amber-500 flex items-center gap-1 mt-0.5"><Lock className="w-3 h-3" /> Fixované</span>}
+                  <Input value={contractNumber} onChange={e => setContractNumber(e.target.value)} data-testid="input-contract-number" />
                 </CompactField>
               </div>
 
@@ -2556,10 +2555,9 @@ export default function ContractForm() {
                             </div>
                           </CompactField>
                           <CompactField label="Číslo zmluvy">
-                            <div className={`flex items-center h-9 px-3 border rounded-md bg-muted/50 text-sm cursor-default${existingContract?.isStamped ? " opacity-60" : ""}`} data-testid="summary-contract-number">
+                            <div className="flex items-center h-9 px-3 border rounded-md bg-muted/50 text-sm cursor-default" data-testid="summary-contract-number">
                               {contractNumber}
                             </div>
-                            {existingContract?.isStamped && <span className="text-[10px] text-amber-500 flex items-center gap-1 mt-0.5"><Lock className="w-3 h-3" /> Fixované</span>}
                           </CompactField>
                         </div>
 
@@ -2674,10 +2672,9 @@ export default function ContractForm() {
                             </div>
                           </CompactField>
                           <CompactField label="Číslo zmluvy">
-                            <div className={`flex items-center h-9 px-3 border rounded-md bg-muted/50 text-sm cursor-default${existingContract?.isStamped ? " opacity-60" : ""}`} data-testid="udaje-contract-number">
+                            <div className="flex items-center h-9 px-3 border rounded-md bg-muted/50 text-sm cursor-default" data-testid="udaje-contract-number">
                               {contractNumber}
                             </div>
-                            {existingContract?.isStamped && <span className="text-[10px] text-amber-500 flex items-center gap-1 mt-0.5"><Lock className="w-3 h-3" /> Fixované</span>}
                           </CompactField>
                         </div>
 
