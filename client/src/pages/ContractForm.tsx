@@ -2493,6 +2493,15 @@ export default function ContractForm() {
                     </h3>
                     <div className="flex items-center gap-2">
                       {!vseobecneAccordionOpen && (() => {
+                        const filled = [
+                          inventoryId, partners?.find(p => p.id === (partnerId ? parseInt(partnerId) : -1))?.name,
+                          currentCompany?.name, templateId, existingContract?.globalNumber, proposalNumber,
+                          contractNumber, signingPlace, contractType, statusId, signedDate, effectiveDate,
+                          expiryDate, paymentFrequency, premiumAmount, annualPremium, stateId
+                        ].filter(Boolean).length;
+                        return <Badge variant="secondary" className="text-[10px] h-4">{filled}/19</Badge>;
+                      })()}
+                      {!vseobecneAccordionOpen && (() => {
                         const s = statuses?.find(s => s.id === (statusId ? parseInt(statusId) : -1));
                         return s ? (
                           <div className="flex items-center gap-1.5">
@@ -2501,36 +2510,52 @@ export default function ContractForm() {
                           </div>
                         ) : null;
                       })()}
-                      {!vseobecneAccordionOpen && (() => { const v = partners?.find(p => p.id === (partnerId ? parseInt(partnerId) : -1))?.name; return v ? <span className="text-xs text-muted-foreground">{v}</span> : null; })()}
                       <ChevronRight className={`w-4 h-4 text-muted-foreground transition-transform ${vseobecneAccordionOpen ? "rotate-90" : ""}`} />
                     </div>
                   </div>
 
                   {vseobecneAccordionOpen && (
                     <div className="mt-3 pt-3 border-t border-border/50" onClick={e => e.stopPropagation()}>
-                      <div className="flex flex-wrap gap-2">
+                      <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                         {(() => {
                           const inv = inventoryId ? inventories?.find(i => i.id.toString() === inventoryId) : null;
-                          return inv?.sequenceNumber ? <SummaryField label="Sprievodka" value={`#${inv.sequenceNumber}`} testId="summary-sprievodka" /> : null;
-                        })()}
-                        {(() => {
-                          const inv = inventoryId ? inventories?.find(i => i.id.toString() === inventoryId) : null;
-                          return inv?.name ? <SummaryField label="Súpiska" value={inv.name} testId="summary-supiska" /> : null;
-                        })()}
-                        {(() => { const v = partners?.find(p => p.id === (partnerId ? parseInt(partnerId) : -1))?.name; return v ? <SummaryField label="Partner" value={v} testId="summary-partner" /> : null; })()}
-                        {currentCompany?.name && <SummaryField label="Spoločnosť" value={currentCompany.name} testId="summary-company" />}
-                        {(() => { const v = templates?.find(t => t.id === (templateId ? parseInt(templateId) : -1))?.name; return v ? <SummaryField label="Šablóna" value={v} testId="summary-template" /> : null; })()}
-                        {(() => {
-                          const s = statuses?.find(s => s.id === (statusId ? parseInt(statusId) : -1));
-                          return s ? (
-                            <div className="inline-flex items-center gap-1.5 bg-muted/40 rounded-lg px-3 py-1.5 border border-border/50" data-testid="summary-status">
-                              <div className="text-[10px] text-muted-foreground uppercase tracking-wider">Stav</div>
-                              <div className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: s.color }} />
-                              <span className="text-sm font-semibold" style={{ color: s.color }}>{s.name}</span>
+                          const allFields: { label: string; value: string; testId: string; color?: string; isMono?: boolean }[] = [
+                            { label: "Sprievodka", value: inv?.sequenceNumber ? `#${inv.sequenceNumber}` : "", testId: "summary-sprievodka", isMono: true },
+                            { label: "Súpiska", value: inv?.name || "", testId: "summary-supiska" },
+                            { label: "Partner", value: partners?.find(p => p.id === (partnerId ? parseInt(partnerId) : -1))?.name || "", testId: "summary-partner" },
+                            { label: "Spoločnosť", value: currentCompany?.name || "", testId: "summary-company" },
+                            { label: "Pôvod zmluvy", value: "", testId: "summary-origin" },
+                            { label: "Šablóna zmluvy", value: templates?.find(t => t.id === (templateId ? parseInt(templateId) : -1))?.name || "", testId: "summary-template" },
+                            { label: "Číslo kontraktu", value: existingContract?.globalNumber?.toString() || "", testId: "summary-global-number", isMono: true },
+                            { label: "Číslo návrhu", value: proposalNumber || "", testId: "summary-proposal", isMono: true },
+                            { label: "Číslo zmluvy", value: contractNumber || "", testId: "summary-contract-number", isMono: true },
+                            { label: "Miesto podpisu", value: signingPlace || "", testId: "summary-signing-place" },
+                            { label: "Typ zmluvy", value: contractType ? (CONTRACT_TYPES.find(t => t.value === contractType)?.label || contractType) : "", testId: "summary-type" },
+                            { label: "Stav zmluvy", value: statuses?.find(s => s.id === (statusId ? parseInt(statusId) : -1))?.name || "", testId: "summary-status", color: statuses?.find(s => s.id === (statusId ? parseInt(statusId) : -1))?.color },
+                            { label: "Dátum podpisu", value: signedDate || "", testId: "summary-signed" },
+                            { label: "Účinnosť od", value: effectiveDate || "", testId: "summary-effective" },
+                            { label: "Koniec zmluvy", value: expiryDate || "", testId: "summary-expiry" },
+                            { label: "Frekvencia platenia", value: PAYMENT_FREQUENCIES.find(f => f.value === paymentFrequency)?.label || "", testId: "summary-frequency" },
+                            { label: "Lehotné poistné", value: premiumAmount ? `${premiumAmount} ${currency}` : "", testId: "summary-premium", isMono: true },
+                            { label: "Ročné poistné", value: annualPremium ? `${annualPremium} ${currency}` : "", testId: "summary-annual", isMono: true },
+                            { label: "Štát", value: allStates?.find(s => s.id === (stateId ? parseInt(stateId) : -1))?.name || "", testId: "summary-state" },
+                          ];
+                          return allFields.map(f => (
+                            <div key={f.testId} className={`rounded-lg px-3 py-2 border ${f.value ? "bg-background/60 border-border/50" : "bg-muted/20 border-dashed border-border/30"}`} data-testid={f.testId}>
+                              <div className="text-[10px] text-muted-foreground uppercase tracking-wider mb-0.5">{f.label}</div>
+                              {f.color && f.value ? (
+                                <div className="flex items-center gap-1.5">
+                                  <div className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: f.color }} />
+                                  <span className="text-sm font-semibold" style={{ color: f.color }}>{f.value}</span>
+                                </div>
+                              ) : (
+                                <div className={`text-sm truncate ${f.value ? (f.isMono ? "font-mono font-medium" : "font-medium") : "text-muted-foreground/40 italic"}`}>
+                                  {f.value || "—"}
+                                </div>
+                              )}
                             </div>
-                          ) : null;
+                          ));
                         })()}
-                        {(() => { const v = allStates?.find(s => s.id === (stateId ? parseInt(stateId) : -1))?.name; return v ? <SummaryField label="Štát" value={v} testId="summary-state" /> : null; })()}
                       </div>
                     </div>
                   )}
