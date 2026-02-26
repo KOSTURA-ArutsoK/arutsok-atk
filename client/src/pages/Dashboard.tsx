@@ -1,7 +1,7 @@
 import { useState, useCallback, useMemo, useEffect } from "react";
 import { useMyCompanies } from "@/hooks/use-companies";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { Users, Building2, ShieldAlert, TrendingUp, Briefcase, Package, History, Calendar, Clock, GripVertical, Pencil, Save, X, FileText, FileCheck, AlertCircle, Banknote, AlertTriangle, ArrowRight, CheckCircle2, Loader2 } from "lucide-react";
+import { Users, Building2, ShieldAlert, TrendingUp, Briefcase, Package, History, Calendar, Clock, GripVertical, Pencil, Save, X, FileText, FileCheck, AlertCircle, Banknote, AlertTriangle, ArrowRight, CheckCircle2, Loader2, Ban } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useAppUser } from "@/hooks/use-app-user";
@@ -30,7 +30,7 @@ import {
 import { CSS } from "@dnd-kit/utilities";
 import { cn, formatUid } from "@/lib/utils";
 
-const WIDGET_KEYS = ["stats", "recent_subjects", "my_companies", "recent_partners", "recent_products", "audit_activity", "upcoming_events", "red_list_recent"];
+const WIDGET_KEYS = ["stats", "recent_subjects", "my_companies", "recent_partners", "recent_products", "audit_activity", "upcoming_events", "red_list_recent", "black_list_recent"];
 
 
 function SortableWidget({ id, isEditing, children }: { id: string; isEditing: boolean; children: React.ReactNode }) {
@@ -116,6 +116,11 @@ export default function Dashboard() {
 
   const { data: recentRedListConfirmed } = useQuery<any[]>({
     queryKey: ["/api/red-list-alerts/recent-confirmed"],
+    enabled: isAdminUser,
+  });
+
+  const { data: recentBlackList } = useQuery<any[]>({
+    queryKey: ["/api/black-list/recent"],
     enabled: isAdminUser,
   });
 
@@ -481,6 +486,44 @@ export default function Dashboard() {
                   </div>
                   <Badge variant="outline" className="border-orange-700 text-orange-400 text-[10px]">
                     {item.bonitaPoints} bodov
+                  </Badge>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="text-sm text-muted-foreground py-6 text-center">Žiadne posledné presuny</p>
+          )}
+        </CardContent>
+      </Card>
+    ) : null,
+
+    black_list_recent: () => isAdminUser ? (
+      <Card data-testid="widget-black-list-recent">
+        <CardHeader>
+          <CardTitle className="text-base flex items-center gap-2">
+            <Ban className="w-4 h-4 text-red-500" />
+            Čierny zoznam — posledné presuny
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          {recentBlackList && recentBlackList.length > 0 ? (
+            <div className="space-y-3">
+              {recentBlackList.map((item: any) => (
+                <div key={item.id} className="flex items-start gap-3 text-sm border-l-2 border-red-700 pl-3">
+                  <div className="flex-1 min-w-0">
+                    <p className="font-semibold truncate text-red-300">{item.subjectName}</p>
+                    <p className="text-xs text-muted-foreground font-mono">{formatUid(item.subjectUid)}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {item.addedAt ? new Date(item.addedAt).toLocaleDateString("sk-SK", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" }) : ""}
+                      {item.addedByName ? ` — ${item.addedByName}` : ""}
+                    </p>
+                    {item.reason && (
+                      <p className="text-xs text-red-400/80 mt-1 truncate" title={item.reason}>{item.reason}</p>
+                    )}
+                  </div>
+                  <Badge variant="outline" className="border-red-800 text-red-400 text-[10px] shrink-0">
+                    <Ban className="w-3 h-3 mr-1" />
+                    Blokovaný
                   </Badge>
                 </div>
               ))}

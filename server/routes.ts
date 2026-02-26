@@ -4731,9 +4731,73 @@ export async function registerRoutes(
       if (enforcedState && group.stateId !== null && group.stateId !== enforcedState) {
         return res.status(403).json({ message: "Pristup zamietnuty" });
       }
+
+      const isBlacklist = group.groupCode === "group_cierny_zoznam";
+      if (isBlacklist && (!req.body.reason || !req.body.reason.trim())) {
+        return res.status(400).json({ message: "Dôvod zaradenia na čierny zoznam je povinný" });
+      }
+
       const data = { ...req.body, groupId: Number(req.params.groupId) };
+      delete data.reason;
       const created = await storage.addClientGroupMember(data);
       await logAudit(req, { action: "CREATE", module: "clenovia_skupiny", entityId: created.id });
+
+      if (isBlacklist) {
+        const subjectId = req.body.subjectId;
+        const subject = await storage.getSubject(subjectId);
+        const details = subject?.details as any;
+        const titleBefore = subject?.titleBefore || details?.dynamicFields?.titul_pred || "";
+        const titleAfter = subject?.titleAfter || details?.dynamicFields?.titul_za || "";
+        const fullName = subject?.type === "person"
+          ? `${titleBefore ? titleBefore + " " : ""}${subject?.firstName || ""} ${subject?.lastName || ""}${titleAfter ? ", " + titleAfter : ""}`
+          : subject?.companyName || "";
+        const formattedUid = subject?.uid ? subject.uid.replace(/(\d{3})(?=\d)/g, "$1 ") : "";
+        const confirmedAt = new Date();
+        const confirmedAtStr = confirmedAt.toLocaleDateString("sk-SK", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" });
+        const appUser = req.appUser;
+        const addedByName = appUser?.fullName || appUser?.username || "Systém";
+        const reason = req.body.reason.trim();
+
+        await logAudit(req, {
+          action: "BLACKLIST",
+          module: "cierny_zoznam",
+          entityId: subjectId,
+          entityName: `Zaradenie na Čierny zoznam: ${fullName} (UID: ${formattedUid})`,
+          oldData: null,
+          newData: { subjectId, subjectUid: formattedUid, subjectName: fullName, reason, addedByUserId: appUser?.id, addedByUsername: addedByName, addedAt: confirmedAt.toISOString() },
+        });
+
+        const subjectContracts = await db.select().from(contracts)
+          .where(and(eq(contracts.subjectId, subjectId), isNull(contracts.deletedAt)));
+        const acquirerUserIds = new Set<number>();
+        for (const c of subjectContracts) {
+          const acqs = await storage.getContractAcquirers(c.id);
+          for (const a of acqs) acquirerUserIds.add(a.userId);
+          if (c.ziskatelUid) {
+            const [user] = await db.select().from(appUsers).where(eq(appUsers.uid, c.ziskatelUid));
+            if (user) acquirerUserIds.add(user.id);
+          }
+        }
+
+        for (const userId of acquirerUserIds) {
+          await db.insert(notificationQueue).values({
+            recipientUserId: userId,
+            notificationType: "black_list_confirmed",
+            title: "Subjekt presunutý na ČIERNY zoznam",
+            message: JSON.stringify({
+              subjectId,
+              subjectUid: formattedUid,
+              subjectName: fullName,
+              confirmedAt: confirmedAtStr,
+              reason: `${reason} — Spoločnosť s daným subjektom už neuzavrie žiadnu zmluvu.`,
+              addedBy: addedByName,
+            }),
+            priority: "high",
+            status: "sent",
+          });
+        }
+      }
+
       res.status(201).json(created);
     } catch (err) {
       res.status(500).json({ message: "Internal error" });
@@ -4767,12 +4831,76 @@ export async function registerRoutes(
       if (enforcedState && group.stateId !== null && group.stateId !== enforcedState) {
         return res.status(403).json({ message: "Pristup zamietnuty" });
       }
+      const isBlacklist = group.groupCode === "group_cierny_zoznam";
+      if (isBlacklist && (!req.body.reason || !req.body.reason.trim())) {
+        return res.status(400).json({ message: "Dôvod zaradenia na čierny zoznam je povinný" });
+      }
       const { subjectIds } = req.body;
       if (!Array.isArray(subjectIds) || subjectIds.length === 0) {
         return res.status(400).json({ message: "Ziadni klienti na priradenie" });
       }
       const added = await storage.bulkAddClientGroupMembers(Number(req.params.groupId), subjectIds);
       await logAudit(req, { action: "CREATE", module: "clenovia_skupiny", entityName: `Hromadne priradenie ${added} klientov` });
+
+      if (isBlacklist) {
+        const appUser = req.appUser;
+        const addedByName = appUser?.fullName || appUser?.username || "Systém";
+        const reason = req.body.reason.trim();
+        const confirmedAt = new Date();
+        const confirmedAtStr = confirmedAt.toLocaleDateString("sk-SK", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" });
+
+        for (const subjectId of subjectIds) {
+          const subject = await storage.getSubject(subjectId);
+          if (!subject) continue;
+          const details = subject?.details as any;
+          const titleBefore = subject?.titleBefore || details?.dynamicFields?.titul_pred || "";
+          const titleAfter = subject?.titleAfter || details?.dynamicFields?.titul_za || "";
+          const fullName = subject?.type === "person"
+            ? `${titleBefore ? titleBefore + " " : ""}${subject?.firstName || ""} ${subject?.lastName || ""}${titleAfter ? ", " + titleAfter : ""}`
+            : subject?.companyName || "";
+          const formattedUid = subject?.uid ? subject.uid.replace(/(\d{3})(?=\d)/g, "$1 ") : "";
+
+          await logAudit(req, {
+            action: "BLACKLIST",
+            module: "cierny_zoznam",
+            entityId: subjectId,
+            entityName: `Zaradenie na Čierny zoznam: ${fullName} (UID: ${formattedUid})`,
+            oldData: null,
+            newData: { subjectId, subjectUid: formattedUid, subjectName: fullName, reason, addedByUserId: appUser?.id, addedByUsername: addedByName, addedAt: confirmedAt.toISOString() },
+          });
+
+          const subjectContracts = await db.select().from(contracts)
+            .where(and(eq(contracts.subjectId, subjectId), isNull(contracts.deletedAt)));
+          const acquirerUserIds = new Set<number>();
+          for (const c of subjectContracts) {
+            const acqs = await storage.getContractAcquirers(c.id);
+            for (const a of acqs) acquirerUserIds.add(a.userId);
+            if (c.ziskatelUid) {
+              const [user] = await db.select().from(appUsers).where(eq(appUsers.uid, c.ziskatelUid));
+              if (user) acquirerUserIds.add(user.id);
+            }
+          }
+
+          for (const userId of acquirerUserIds) {
+            await db.insert(notificationQueue).values({
+              recipientUserId: userId,
+              notificationType: "black_list_confirmed",
+              title: "Subjekt presunutý na ČIERNY zoznam",
+              message: JSON.stringify({
+                subjectId,
+                subjectUid: formattedUid,
+                subjectName: fullName,
+                confirmedAt: confirmedAtStr,
+                reason: `${reason} — Spoločnosť s daným subjektom už neuzavrie žiadnu zmluvu.`,
+                addedBy: addedByName,
+              }),
+              priority: "high",
+              status: "sent",
+            });
+          }
+        }
+      }
+
       res.json({ success: true, added });
     } catch (err) {
       res.status(500).json({ message: "Internal error" });
@@ -7807,6 +7935,67 @@ export async function registerRoutes(
     }
   });
 
+  // === BLACK LIST RECENT (Čierny zoznam - posledné presuny) ===
+  app.get("/api/black-list/recent", isAuthenticated, async (req: any, res) => {
+    try {
+      const appUser = req.appUser;
+      const isAdmin = appUser?.role === 'admin' || appUser?.role === 'superadmin' || appUser?.role === 'prezident';
+      const pgName = (appUser?.permissionGroup?.name || "").toLowerCase();
+      const isAdminPg = pgName.includes("admin") || pgName.includes("superadmin") || pgName.includes("prezident");
+      if (!isAdmin && !isAdminPg) return res.status(403).json({ message: "Len admin/superadmin" });
+
+      const blacklistGroup = await db.select().from(clientGroups).where(eq(clientGroups.groupCode, "group_cierny_zoznam")).then(r => r[0]);
+      if (!blacklistGroup) return res.json([]);
+
+      const recentMembers = await db.select().from(clientGroupMembers)
+        .where(eq(clientGroupMembers.groupId, blacklistGroup.id))
+        .orderBy(desc(clientGroupMembers.createdAt))
+        .limit(10);
+
+      const enriched = await Promise.all(recentMembers.map(async (member) => {
+        const subject = await storage.getSubject(member.subjectId);
+        const details = subject?.details as any;
+        const titleBefore = subject?.titleBefore || details?.dynamicFields?.titul_pred || "";
+        const titleAfter = subject?.titleAfter || details?.dynamicFields?.titul_za || "";
+        const subjectName = subject?.type === "person"
+          ? `${titleBefore ? titleBefore + " " : ""}${subject?.firstName || ""} ${subject?.lastName || ""}${titleAfter ? ", " + titleAfter : ""}`
+          : subject?.companyName || "";
+
+        const auditEntry = await db.select().from(auditLogs)
+          .where(and(
+            eq(auditLogs.module, "cierny_zoznam"),
+            eq(auditLogs.action, "BLACKLIST"),
+            eq(auditLogs.entityId, member.subjectId)
+          ))
+          .orderBy(desc(auditLogs.createdAt))
+          .limit(1)
+          .then(r => r[0]);
+
+        let addedByName = "";
+        let reason = "";
+        if (auditEntry) {
+          const newData = auditEntry.newData as any;
+          addedByName = newData?.addedByUsername || "";
+          reason = newData?.reason || "";
+        }
+
+        return {
+          id: member.id,
+          subjectId: member.subjectId,
+          subjectUid: subject?.uid || "",
+          subjectName,
+          addedAt: member.createdAt,
+          addedByName,
+          reason,
+        };
+      }));
+
+      res.json(enriched);
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
   // === CGN RATING UPDATE ===
   app.patch("/api/subjects/:id/cgn-rating", isAuthenticated, async (req: any, res) => {
     try {
@@ -8484,18 +8673,23 @@ export async function registerRoutes(
   }
 
   {
-    const systemGroups = [
+    const systemGroups: Array<{ name: string; groupCode: string; allowLogin?: boolean }> = [
       { name: "Klienti", groupCode: "group_klient" },
       { name: "Registrovaní klienti", groupCode: "group_registrovany" },
-      { name: "Čierny zoznam - Podvodníci", groupCode: "group_cierny_zoznam" },
+      { name: "Čierny zoznam - Podvodníci", groupCode: "group_cierny_zoznam", allowLogin: false },
     ];
     for (const sg of systemGroups) {
       const existing = await db.select().from(clientGroups).where(eq(clientGroups.groupCode, sg.groupCode));
       if (existing.length === 0) {
-        await db.insert(clientGroups).values({ name: sg.name, groupCode: sg.groupCode, isSystem: true, permissionLevel: 1 });
+        await db.insert(clientGroups).values({ name: sg.name, groupCode: sg.groupCode, isSystem: true, permissionLevel: 1, ...(sg.allowLogin !== undefined ? { allowLogin: sg.allowLogin } : {}) });
         console.log(`[SEED] Created system group: ${sg.name}`);
-      } else if (!existing[0].isSystem) {
-        await db.update(clientGroups).set({ isSystem: true }).where(eq(clientGroups.id, existing[0].id));
+      } else {
+        const updates: any = {};
+        if (!existing[0].isSystem) updates.isSystem = true;
+        if (sg.allowLogin !== undefined && existing[0].allowLogin !== sg.allowLogin) updates.allowLogin = sg.allowLogin;
+        if (Object.keys(updates).length > 0) {
+          await db.update(clientGroups).set(updates).where(eq(clientGroups.id, existing[0].id));
+        }
       }
     }
   }

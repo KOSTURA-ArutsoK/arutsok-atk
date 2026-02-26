@@ -9,7 +9,7 @@ import { useMyCompanies } from "@/hooks/use-companies";
 import type { ClientGroup, Subject, PermissionGroup } from "@shared/schema";
 import {
   Plus, Pencil, Loader2, Check, X,
-  Calculator, LogIn, UserPlus, UserMinus, Search, ChevronRight, Building2, Shield, Lock,
+  Calculator, LogIn, UserPlus, UserMinus, Search, ChevronRight, Building2, Shield, Lock, Ban,
 } from "lucide-react";
 import { ConditionalDelete } from "@/components/conditional-delete";
 import {
@@ -21,6 +21,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -67,6 +68,7 @@ function GroupDetailDialog({
   const [permissionGroupId, setPermissionGroupId] = useState("");
   const [subGroupName, setSubGroupName] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
+  const [blacklistReason, setBlacklistReason] = useState("");
   const [customFields, setCustomFields] = useState<Array<{ name: string; type: string }>>([]);
   const [newFieldName, setNewFieldName] = useState("");
   const [newFieldType, setNewFieldType] = useState("text");
@@ -75,6 +77,7 @@ function GroupDetailDialog({
 
   const isEditing = !!group;
   const isSystem = !!(group as any)?.isSystem;
+  const isBlacklist = (group as any)?.groupCode === "group_cierny_zoznam";
 
   useEffect(() => {
     if (open) {
@@ -96,6 +99,7 @@ function GroupDetailDialog({
       setActiveTab("vseobecne");
       setSubGroupName("");
       setSearchQuery("");
+      setBlacklistReason("");
       setNewFieldName("");
       setNewFieldType("text");
       startTimeRef.current = Date.now();
@@ -179,14 +183,25 @@ function GroupDetailDialog({
   });
 
   const addMemberMutation = useMutation({
-    mutationFn: (data: any) => apiRequest("POST", `/api/client-groups/${group?.id}/members`, data),
+    mutationFn: (data: any) => {
+      const body = isBlacklist ? { ...data, reason: blacklistReason } : data;
+      return apiRequest("POST", `/api/client-groups/${group?.id}/members`, body);
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/client-groups", group?.id, "members"] });
       queryClient.invalidateQueries({ queryKey: ["/api/client-groups"] });
-      toast({ title: "Uspech", description: "Klient pridany do skupiny" });
+      queryClient.invalidateQueries({ queryKey: ["/api/black-list/recent"] });
+      toast({ title: "Uspech", description: isBlacklist ? "Subjekt zaradený na čierny zoznam" : "Klient pridany do skupiny" });
       setSearchQuery("");
+      if (isBlacklist) setBlacklistReason("");
     },
-    onError: () => toast({ title: "Chyba", description: "Nepodarilo sa pridat klienta", variant: "destructive" }),
+    onError: async (error: any) => {
+      let msg = "Nepodarilo sa pridat klienta";
+      try {
+        if (error?.message) msg = error.message;
+      } catch {}
+      toast({ title: "Chyba", description: msg, variant: "destructive" });
+    },
   });
 
   const removeMemberMutation = useMutation({
@@ -410,6 +425,24 @@ function GroupDetailDialog({
           </TabsContent>
 
           <TabsContent value="klienti" className="flex-1 space-y-4 mt-4">
+            {isBlacklist && (
+              <div className="space-y-2 p-3 rounded border-2 border-red-800 bg-red-950/30">
+                <Label className="text-red-300 font-semibold text-sm flex items-center gap-1.5">
+                  <Ban className="w-3.5 h-3.5" />
+                  Dôvod zaradenia na čierny zoznam *
+                </Label>
+                <Textarea
+                  value={blacklistReason}
+                  onChange={(e) => setBlacklistReason(e.target.value)}
+                  placeholder="Uveďte dôvod zaradenia subjektu na čierny zoznam..."
+                  className="min-h-[60px] border-red-800/50"
+                  data-testid="input-blacklist-reason"
+                />
+                {!blacklistReason.trim() && (
+                  <p className="text-xs text-red-400">Dôvod je povinný pred pridaním subjektu</p>
+                )}
+              </div>
+            )}
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
               <Input
@@ -418,6 +451,7 @@ function GroupDetailDialog({
                 placeholder="Vyhladat klienta podla mena alebo KIK ID..."
                 className="pl-9"
                 data-testid="input-search-client"
+                disabled={isBlacklist && !blacklistReason.trim()}
               />
             </div>
 
@@ -429,7 +463,13 @@ function GroupDetailDialog({
                       <div
                         key={s.id}
                         className="flex items-center justify-between p-2 rounded-md hover-elevate cursor-pointer"
-                        onClick={() => addMemberMutation.mutate({ subjectId: s.id })}
+                        onClick={() => {
+                          if (isBlacklist && !blacklistReason.trim()) {
+                            toast({ title: "Chyba", description: "Najprv vyplňte dôvod zaradenia na čierny zoznam", variant: "destructive" });
+                            return;
+                          }
+                          addMemberMutation.mutate({ subjectId: s.id });
+                        }}
                         data-testid={`search-result-${s.id}`}
                       >
                         <div>
