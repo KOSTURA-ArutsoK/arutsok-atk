@@ -7845,6 +7845,10 @@ export async function registerRoutes(
       const companyId = appUser?.activeCompanyId || null;
       await storage.updateSubjectListStatus(alert.subjectId, "cerveny", appUser?.id || 0, `Potvrdený červený zoznam adminom: bonita ${alert.bonitaPoints} bodov`, companyId);
 
+      try {
+        await storage.ensureSubjectInGroup(alert.subjectId, "group_cerveny_zoznam");
+      } catch (e) { /* group may not exist yet */ }
+
       await logAudit(req, {
         action: "UPDATE",
         module: "red_list_alerts",
@@ -8676,6 +8680,7 @@ export async function registerRoutes(
     const systemGroups: Array<{ name: string; groupCode: string; allowLogin?: boolean }> = [
       { name: "Klienti", groupCode: "group_klient" },
       { name: "Registrovaní klienti", groupCode: "group_registrovany" },
+      { name: "Červený zoznam", groupCode: "group_cerveny_zoznam" },
       { name: "Čierny zoznam - Podvodníci", groupCode: "group_cierny_zoznam", allowLogin: false },
     ];
     for (const sg of systemGroups) {
