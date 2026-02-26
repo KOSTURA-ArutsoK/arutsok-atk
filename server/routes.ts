@@ -730,7 +730,8 @@ export async function registerRoutes(
   // === PARTNERS ===
   app.get(api.partners.list.path, isAuthenticated, async (req: any, res) => {
     const includeDeleted = req.query.includeDeleted === 'true';
-    res.json(await storage.getPartners(includeDeleted));
+    const stateId = getEnforcedStateId(req);
+    res.json(await storage.getPartners(includeDeleted, stateId || undefined));
   });
 
   app.get(api.partners.get.path, isAuthenticated, async (req, res) => {
@@ -778,6 +779,97 @@ export async function registerRoutes(
     } catch (err) {
       if (err instanceof Error && err.message === "Partner not found") return res.status(404).json({ message: err.message });
       throw err;
+    }
+  });
+
+  // === PARTNER LIFECYCLE STATUS ===
+  app.patch("/api/partners/:id/lifecycle-status", isAuthenticated, async (req: any, res) => {
+    try {
+      const id = Number(req.params.id);
+      const { status, startDate, endDate } = req.body;
+      const validStatuses = ["record", "fast_forward", "play", "pause", "eject", "stop"];
+      if (!validStatuses.includes(status)) {
+        return res.status(400).json({ message: "Neplatný stav životného cyklu" });
+      }
+      if (status === "fast_forward" && !startDate) {
+        return res.status(400).json({ message: "Stav 'Budúci štart' vyžaduje dátum štartu" });
+      }
+      if (status === "eject" && !endDate) {
+        return res.status(400).json({ message: "Stav 'Dobiehanie' vyžaduje dátum ukončenia" });
+      }
+      const oldPartner = await storage.getPartner(id);
+      if (!oldPartner) return res.status(404).json({ message: "Partner nenájdený" });
+      const statusLabels: Record<string, string> = { record: "⏺️ Príprava", fast_forward: "⏭️ Budúci štart", play: "▶️ Aktívne", pause: "⏸️ Pozastavené", eject: "⏏️ Dobiehanie", stop: "⏹️ Ukončené" };
+      const updated = await storage.updatePartnerLifecycleStatus(
+        id,
+        status,
+        startDate ? new Date(startDate) : null,
+        endDate ? new Date(endDate) : null
+      );
+      await logAudit(req, {
+        action: "LIFECYCLE_STATUS_CHANGE",
+        module: "partneri",
+        entityId: id,
+        entityName: oldPartner.name,
+        oldData: { lifecycleStatus: oldPartner.lifecycleStatus, label: statusLabels[oldPartner.lifecycleStatus || "record"] },
+        newData: { lifecycleStatus: status, label: statusLabels[status] },
+      });
+      if (status === "stop" || status === "pause") {
+        const affectedProducts = await storage.bulkUpdateProductsLifecycleByPartner(id, status);
+        for (const product of affectedProducts) {
+          await logAudit(req, {
+            action: "LIFECYCLE_STATUS_CHANGE",
+            module: "SektoroveProdukty",
+            entityId: product.id,
+            entityName: product.name,
+            oldData: { lifecycleStatus: "inherited" },
+            newData: { lifecycleStatus: status, label: statusLabels[status], reason: `Dedičnosť z partnera ${oldPartner.name}` },
+          });
+        }
+      }
+      res.json(updated);
+    } catch (err) {
+      console.error("Partner lifecycle status error:", err);
+      res.status(500).json({ message: "Internal error" });
+    }
+  });
+
+  // === SECTOR PRODUCT LIFECYCLE STATUS ===
+  app.patch("/api/sector-products/:id/lifecycle-status", isAuthenticated, async (req: any, res) => {
+    try {
+      const id = Number(req.params.id);
+      const { status, startDate, endDate } = req.body;
+      const validStatuses = ["record", "fast_forward", "play", "pause", "eject", "stop"];
+      if (!validStatuses.includes(status)) {
+        return res.status(400).json({ message: "Neplatný stav životného cyklu" });
+      }
+      if (status === "fast_forward" && !startDate) {
+        return res.status(400).json({ message: "Stav 'Budúci štart' vyžaduje dátum štartu" });
+      }
+      if (status === "eject" && !endDate) {
+        return res.status(400).json({ message: "Stav 'Dobiehanie' vyžaduje dátum ukončenia" });
+      }
+      const oldProduct = await storage.getSectorProduct(id);
+      if (!oldProduct) return res.status(404).json({ message: "Produkt nenájdený" });
+      const statusLabels: Record<string, string> = { record: "⏺️ Príprava", fast_forward: "⏭️ Budúci štart", play: "▶️ Aktívne", pause: "⏸️ Pozastavené", eject: "⏏️ Dobiehanie", stop: "⏹️ Ukončené" };
+      const updated = await storage.updateSectorProductLifecycleStatus(
+        id,
+        status,
+        startDate ? new Date(startDate) : null,
+        endDate ? new Date(endDate) : null
+      );
+      await logAudit(req, {
+        action: "LIFECYCLE_STATUS_CHANGE",
+        module: "SektoroveProdukty",
+        entityId: id,
+        entityName: oldProduct.name,
+        oldData: { lifecycleStatus: oldProduct.lifecycleStatus, label: statusLabels[oldProduct.lifecycleStatus || "record"] },
+        newData: { lifecycleStatus: status, label: statusLabels[status] },
+      });
+      res.json(updated);
+    } catch (err) {
+      console.error("Sector product lifecycle status error:", err);
+      res.status(500).json({ message: "Internal error" });
     }
   });
 
@@ -6093,7 +6185,8 @@ export async function registerRoutes(
   app.get("/api/sector-products", isAuthenticated, async (req, res) => {
     try {
       const sectionId = req.query.sectionId ? Number(req.query.sectionId) : undefined;
-      const sectorProducts = await storage.getSectorProducts(sectionId);
+      const forContractForm = req.query.forContractForm === 'true';
+      const sectorProducts = await storage.getSectorProducts(sectionId, forContractForm);
       res.json(sectorProducts);
     } catch (err) {
       console.error("Get sector products error:", err);
@@ -13312,6 +13405,56 @@ export async function registerRoutes(
       res.status(500).json({ message: err?.message || "Error" });
     }
   });
+
+  // === CRON: Lifecycle eject→stop auto-transition (daily) ===
+  setInterval(async () => {
+    try {
+      if (await isMigrationModeOn()) return;
+      const expiredProducts = await storage.getEjectExpiredProducts();
+      for (const product of expiredProducts) {
+        await storage.updateSectorProductLifecycleStatus(product.id, "stop", null, product.statusEndDate);
+        await db.insert(auditLogs).values({
+          username: "ArutsoK System",
+          action: "LIFECYCLE_AUTO_STOP",
+          module: "SektoroveProdukty",
+          entityId: product.id,
+          entityName: product.name,
+          oldData: { lifecycleStatus: "eject" },
+          newData: { lifecycleStatus: "stop", reason: "Automatický prechod: dátum ukončenia prekročený" },
+        });
+      }
+      const expiredPartners = await storage.getEjectExpiredPartners();
+      for (const partner of expiredPartners) {
+        await storage.updatePartnerLifecycleStatus(partner.id, "stop", null, partner.statusEndDate);
+        const affectedProducts = await storage.bulkUpdateProductsLifecycleByPartner(partner.id, "stop");
+        await db.insert(auditLogs).values({
+          username: "ArutsoK System",
+          action: "LIFECYCLE_AUTO_STOP",
+          module: "partneri",
+          entityId: partner.id,
+          entityName: partner.name,
+          oldData: { lifecycleStatus: "eject" },
+          newData: { lifecycleStatus: "stop", reason: "Automatický prechod: dátum ukončenia prekročený" },
+        });
+        for (const product of affectedProducts) {
+          await db.insert(auditLogs).values({
+            username: "ArutsoK System",
+            action: "LIFECYCLE_AUTO_STOP",
+            module: "SektoroveProdukty",
+            entityId: product.id,
+            entityName: product.name,
+            oldData: { lifecycleStatus: "inherited" },
+            newData: { lifecycleStatus: "stop", reason: `Dedičnosť z partnera ${partner.name}` },
+          });
+        }
+      }
+      if (expiredProducts.length > 0 || expiredPartners.length > 0) {
+        console.log(`[CRON] Lifecycle eject→stop: ${expiredProducts.length} products, ${expiredPartners.length} partners auto-stopped`);
+      }
+    } catch (err) {
+      console.error("[CRON] Lifecycle eject→stop error:", err);
+    }
+  }, 24 * 60 * 60 * 1000);
 
   return httpServer;
 }

@@ -156,10 +156,11 @@ export interface IStorage {
   autoArchiveExpiredBindings(): Promise<void>;
   autoMoveUndeliveredContracts(): Promise<number>;
   
-  getPartners(includeDeleted?: boolean): Promise<Partner[]>;
+  getPartners(includeDeleted?: boolean, stateId?: number): Promise<Partner[]>;
   getPartner(id: number): Promise<Partner | undefined>;
   createPartner(partner: InsertPartner): Promise<Partner>;
   updatePartner(id: number, updates: UpdatePartnerRequest): Promise<Partner>;
+  updatePartnerLifecycleStatus(id: number, status: string, startDate?: Date | null, endDate?: Date | null): Promise<Partner>;
   softDeletePartner(id: number, deletedBy: string, ip: string): Promise<void>;
   restorePartner(id: number): Promise<void>;
 
@@ -465,10 +466,14 @@ export interface IStorage {
   deleteParameter(id: number): Promise<void>;
 
   // Sector Products (ArutsoK 28 - now linked via sectionId)
-  getSectorProducts(sectionId?: number): Promise<SectorProduct[]>;
+  getSectorProducts(sectionId?: number, forContractForm?: boolean): Promise<SectorProduct[]>;
   getSectorProduct(id: number): Promise<SectorProduct | undefined>;
   createSectorProduct(data: InsertSectorProduct): Promise<SectorProduct>;
   updateSectorProduct(id: number, data: Partial<InsertSectorProduct>): Promise<SectorProduct>;
+  updateSectorProductLifecycleStatus(id: number, status: string, startDate?: Date | null, endDate?: Date | null): Promise<SectorProduct>;
+  bulkUpdateProductsLifecycleByPartner(partnerId: number, status: string): Promise<SectorProduct[]>;
+  getEjectExpiredProducts(): Promise<SectorProduct[]>;
+  getEjectExpiredPartners(): Promise<Partner[]>;
   deleteSectorProduct(id: number): Promise<void>;
 
   // Sector-Product-Parameter assignments (ArutsoK 25)
@@ -863,11 +868,18 @@ export class DatabaseStorage implements IStorage {
     return movedCount;
   }
 
-  async getPartners(includeDeleted?: boolean) {
-    if (includeDeleted) {
+  async getPartners(includeDeleted?: boolean, stateId?: number) {
+    const conditions: any[] = [];
+    if (!includeDeleted) {
+      conditions.push(eq(partners.isDeleted, false));
+    }
+    if (stateId !== undefined) {
+      conditions.push(eq(partners.stateId, stateId));
+    }
+    if (conditions.length === 0) {
       return await db.select().from(partners).orderBy(asc(partners.name));
     }
-    return await db.select().from(partners).where(eq(partners.isDeleted, false)).orderBy(asc(partners.name));
+    return await db.select().from(partners).where(and(...conditions)).orderBy(asc(partners.name));
   }
 
   async getPartner(id: number) {
@@ -926,6 +938,16 @@ export class DatabaseStorage implements IStorage {
       deletedAt: null,
       deletedFromIp: null,
     }).where(eq(partners.id, id));
+  }
+
+  async updatePartnerLifecycleStatus(id: number, status: string, startDate?: Date | null, endDate?: Date | null): Promise<Partner> {
+    const [updated] = await db.update(partners).set({
+      lifecycleStatus: status,
+      statusStartDate: startDate ?? null,
+      statusEndDate: endDate ?? null,
+      updatedAt: new Date(),
+    }).where(eq(partners.id, id)).returning();
+    return updated;
   }
 
   async getPartnerContracts(partnerId: number) {
@@ -3189,11 +3211,15 @@ export class DatabaseStorage implements IStorage {
   }
 
   // === Sector Products CRUD (ArutsoK 28 - now linked via sectionId) ===
-  async getSectorProducts(sectionId?: number): Promise<SectorProduct[]> {
+  async getSectorProducts(sectionId?: number, forContractForm?: boolean): Promise<SectorProduct[]> {
+    const conditions: any[] = [isNull(sectorProducts.deletedAt)];
     if (sectionId !== undefined) {
-      return await db.select().from(sectorProducts).where(and(eq(sectorProducts.sectionId, sectionId), isNull(sectorProducts.deletedAt))).orderBy(desc(sectorProducts.id));
+      conditions.push(eq(sectorProducts.sectionId, sectionId));
     }
-    return await db.select().from(sectorProducts).where(isNull(sectorProducts.deletedAt)).orderBy(desc(sectorProducts.id));
+    if (forContractForm) {
+      conditions.push(inArray(sectorProducts.lifecycleStatus, ["play", "eject"]));
+    }
+    return await db.select().from(sectorProducts).where(and(...conditions)).orderBy(desc(sectorProducts.id));
   }
 
   async getSectorProduct(id: number): Promise<SectorProduct | undefined> {
@@ -3213,6 +3239,39 @@ export class DatabaseStorage implements IStorage {
 
   async deleteSectorProduct(id: number): Promise<void> {
     await db.update(sectorProducts).set({ deletedAt: new Date() }).where(eq(sectorProducts.id, id));
+  }
+
+  async updateSectorProductLifecycleStatus(id: number, status: string, startDate?: Date | null, endDate?: Date | null): Promise<SectorProduct> {
+    const [sp] = await db.update(sectorProducts).set({
+      lifecycleStatus: status,
+      statusStartDate: startDate ?? null,
+      statusEndDate: endDate ?? null,
+    }).where(eq(sectorProducts.id, id)).returning();
+    return sp;
+  }
+
+  async bulkUpdateProductsLifecycleByPartner(partnerId: number, status: string): Promise<SectorProduct[]> {
+    return await db.update(sectorProducts).set({
+      lifecycleStatus: status,
+      statusStartDate: null,
+      statusEndDate: null,
+    }).where(and(eq(sectorProducts.partnerId, partnerId), isNull(sectorProducts.deletedAt))).returning();
+  }
+
+  async getEjectExpiredProducts(): Promise<SectorProduct[]> {
+    return await db.select().from(sectorProducts).where(and(
+      eq(sectorProducts.lifecycleStatus, "eject"),
+      isNull(sectorProducts.deletedAt),
+      lte(sectorProducts.statusEndDate, new Date())
+    ));
+  }
+
+  async getEjectExpiredPartners(): Promise<Partner[]> {
+    return await db.select().from(partners).where(and(
+      eq(partners.lifecycleStatus, "eject"),
+      eq(partners.isDeleted, false),
+      lte(partners.statusEndDate, new Date())
+    ));
   }
 
   // === Sector-Product-Parameter assignments (ArutsoK 25) ===

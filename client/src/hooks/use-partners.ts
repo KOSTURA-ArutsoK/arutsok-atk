@@ -134,6 +134,25 @@ export function useCreatePartnerProduct() {
   });
 }
 
+export function useUpdatePartnerLifecycleStatus() {
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+  return useMutation({
+    mutationFn: async ({ id, data }: { id: number; data: { status: string; startDate?: string; endDate?: string } }) => {
+      const res = await apiRequest("PATCH", `/api/partners/${id}/lifecycle-status`, data);
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/partners"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/sector-products"] });
+      toast({ title: "Status aktualizovany", description: "Lifecycle status partnera bol zmeneny." });
+    },
+    onError: () => {
+      toast({ title: "Chyba", description: "Nepodarilo sa zmenit lifecycle status.", variant: "destructive" });
+    },
+  });
+}
+
 export function useCommunicationMatrix(partnerId: number | null) {
   return useQuery<CommunicationMatrixEntry[]>({
     queryKey: ["/api/partners", partnerId, "matrix"],

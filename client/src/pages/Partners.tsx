@@ -1,9 +1,8 @@
 import { useState, useRef, useCallback, useEffect } from "react";
-import { usePartners, useCreatePartner, useUpdatePartner, useDeletePartner, usePartnerContacts, usePartnerProducts, useCreatePartnerContact, useCreatePartnerProduct } from "@/hooks/use-partners";
-import { useStates } from "@/hooks/use-hierarchy";
+import { usePartners, useCreatePartner, useUpdatePartner, useDeletePartner, usePartnerContacts, usePartnerProducts, useCreatePartnerContact, useCreatePartnerProduct, useUpdatePartnerLifecycleStatus } from "@/hooks/use-partners";
 import { useAppUser } from "@/hooks/use-app-user";
 import { formatDateSlovak, formatPhone, formatUid } from "@/lib/utils";
-import { Plus, Briefcase, Pencil, Trash2, Clock, Users, Package, Calendar, Archive, MapPin } from "lucide-react";
+import { Plus, Briefcase, Pencil, Trash2, Clock, Users, Package, Calendar, Archive, MapPin, Circle, FastForward, Play, Pause, SkipForward, Square } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -56,6 +55,7 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { useToast } from "@/hooks/use-toast";
 import { RichTextEditor } from "@/components/rich-text-editor";
 import { ProcessingSaveButton } from "@/components/processing-save-button";
 import { useTableSort } from "@/hooks/use-table-sort";
@@ -65,6 +65,30 @@ import { useSmartFilter } from "@/hooks/use-smart-filter";
 import type { SmartColumnDef } from "@/hooks/use-smart-filter";
 import { SmartFilterBar } from "@/components/smart-filter-bar";
 
+const LIFECYCLE_STATUS_CONFIG: Record<string, { label: string; Icon: typeof Circle; colorClass: string }> = {
+  record: { label: "Priprava", Icon: Circle, colorClass: "text-gray-400" },
+  fast_forward: { label: "Buduci start", Icon: FastForward, colorClass: "text-blue-500" },
+  play: { label: "Aktivne", Icon: Play, colorClass: "text-emerald-500" },
+  pause: { label: "Pozastavene", Icon: Pause, colorClass: "text-yellow-500" },
+  eject: { label: "Dobiehanie", Icon: SkipForward, colorClass: "text-orange-500" },
+  stop: { label: "Ukoncene", Icon: Square, colorClass: "text-red-500" },
+};
+
+function LifecycleStatusIcon({ status }: { status: string | null | undefined }) {
+  const config = LIFECYCLE_STATUS_CONFIG[status || "record"] || LIFECYCLE_STATUS_CONFIG.record;
+  const IconComp = config.Icon;
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <span className="inline-flex" data-testid={`status-lifecycle-${status || "record"}`}>
+          <IconComp className={`w-4 h-4 ${config.colorClass}`} />
+        </span>
+      </TooltipTrigger>
+      <TooltipContent>{config.label}</TooltipContent>
+    </Tooltip>
+  );
+}
+
 const PARTNER_COLUMNS: ColumnDef[] = [
   { key: "uid", label: "UID" },
   { key: "name", label: "Nazov" },
@@ -72,7 +96,7 @@ const PARTNER_COLUMNS: ColumnDef[] = [
   { key: "specialization", label: "Zameranie" },
   { key: "ico", label: "ICO" },
   { key: "city", label: "Mesto" },
-  { key: "stateId", label: "Stat" },
+  { key: "lifecycleStatus", label: "Stav" },
   { key: "collaborationDate", label: "Datum spoluprace" },
 ];
 
@@ -108,21 +132,23 @@ function PartnerUnifiedDialog({
   open,
   onOpenChange,
   partnerId,
-  getStateName,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   partnerId: number | null;
-  getStateName: (id: number | null) => string;
 }) {
+  const { toast } = useToast();
   const createMutation = useCreatePartner();
   const updateMutation = useUpdatePartner();
+  const lifecycleMutation = useUpdatePartnerLifecycleStatus();
   const { data: allPartners } = usePartners();
-  const { data: allStates } = useStates();
   const { data: appUser } = useAppUser();
   const timerRef = useRef<number>(0);
   const [notesHtml, setNotesHtml] = useState("");
   const [activeTab, setActiveTab] = useState("info");
+  const [lifecycleStatus, setLifecycleStatus] = useState("record");
+  const [statusStartDate, setStatusStartDate] = useState("");
+  const [statusEndDate, setStatusEndDate] = useState("");
 
   const editingPartner = partnerId
     ? allPartners?.find(p => p.id === partnerId) || null
@@ -190,6 +216,9 @@ function PartnerUnifiedDialog({
           collaborationDate: editingPartner.collaborationDate ? new Date(editingPartner.collaborationDate).toISOString().split("T")[0] : "",
         });
         setNotesHtml(editingPartner.notes || "");
+        setLifecycleStatus(editingPartner.lifecycleStatus || "record");
+        setStatusStartDate(editingPartner.statusStartDate ? new Date(editingPartner.statusStartDate).toISOString().split("T")[0] : "");
+        setStatusEndDate(editingPartner.statusEndDate ? new Date(editingPartner.statusEndDate).toISOString().split("T")[0] : "");
       } else {
         form.reset({
           name: "",
@@ -209,6 +238,9 @@ function PartnerUnifiedDialog({
           collaborationDate: undefined,
         });
         setNotesHtml("");
+        setLifecycleStatus("record");
+        setStatusStartDate("");
+        setStatusEndDate("");
       }
       setNewContactFirst("");
       setNewContactLast("");
@@ -238,10 +270,41 @@ function PartnerUnifiedDialog({
       collaborationDate: collaborationDate ? new Date(collaborationDate) : null,
     };
 
+    if (lifecycleStatus === "fast_forward" && !statusStartDate) {
+      toast({ title: "Chyba", description: "Stav 'Budúci štart' vyžaduje dátum štartu", variant: "destructive" });
+      return;
+    }
+    if (lifecycleStatus === "eject" && !statusEndDate) {
+      toast({ title: "Chyba", description: "Stav 'Dobiehanie' vyžaduje dátum ukončenia", variant: "destructive" });
+      return;
+    }
+
     if (editingPartner) {
+      const oldStatus = editingPartner.lifecycleStatus || "record";
+      const statusChanged = lifecycleStatus !== oldStatus
+        || (lifecycleStatus === "fast_forward" && statusStartDate !== (editingPartner.statusStartDate ? new Date(editingPartner.statusStartDate).toISOString().split("T")[0] : ""))
+        || (lifecycleStatus === "eject" && statusEndDate !== (editingPartner.statusEndDate ? new Date(editingPartner.statusEndDate).toISOString().split("T")[0] : ""));
       updateMutation.mutate(
         { id: editingPartner.id, data: { ...payload, changeReason: "User edit" } },
-        { onSuccess: () => handleOpenChange(false) }
+        {
+          onSuccess: () => {
+            if (statusChanged) {
+              const statusData: { status: string; startDate?: string; endDate?: string } = { status: lifecycleStatus };
+              if (lifecycleStatus === "fast_forward" && statusStartDate) {
+                statusData.startDate = new Date(statusStartDate).toISOString();
+              }
+              if (lifecycleStatus === "eject" && statusEndDate) {
+                statusData.endDate = new Date(statusEndDate).toISOString();
+              }
+              lifecycleMutation.mutate({ id: editingPartner.id, data: statusData }, {
+                onSuccess: () => handleOpenChange(false),
+                onError: () => toast({ title: "Chyba", description: "Nepodarilo sa zmeniť stav životného cyklu", variant: "destructive" }),
+              });
+            } else {
+              handleOpenChange(false);
+            }
+          },
+        }
       );
     } else {
       createMutation.mutate(payload as InsertPartner, {
@@ -280,7 +343,7 @@ function PartnerUnifiedDialog({
     setNewProductCode("");
   }
 
-  const isPending = createMutation.isPending || updateMutation.isPending;
+  const isPending = createMutation.isPending || updateMutation.isPending || lifecycleMutation.isPending;
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
@@ -437,29 +500,60 @@ function PartnerUnifiedDialog({
                       <FormMessage />
                     </FormItem>
                   )} />
-                  <FormField control={form.control} name="stateId" render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Stat</FormLabel>
-                      <Select
-                        onValueChange={(val) => field.onChange(parseInt(val))}
-                        value={field.value?.toString() || ""}
-                      >
-                        <FormControl>
-                          <SelectTrigger data-testid="select-partner-state">
-                            <SelectValue placeholder="Vyberte stat" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          {allStates?.map(s => (
-                            <SelectItem key={s.id} value={s.id.toString()}>
-                              {s.name} ({s.code})
+                </div>
+
+                <Separator />
+                <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                  <Play className="w-3 h-3" />
+                  <span>Lifecycle status</span>
+                </div>
+
+                <div className="space-y-4">
+                  <div>
+                    <label className="text-sm font-medium">Stav partnera</label>
+                    <Select value={lifecycleStatus} onValueChange={setLifecycleStatus}>
+                      <SelectTrigger data-testid="select-partner-lifecycle-status">
+                        <SelectValue placeholder="Vyberte stav" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {Object.entries(LIFECYCLE_STATUS_CONFIG).map(([key, cfg]) => {
+                          const IconComp = cfg.Icon;
+                          return (
+                            <SelectItem key={key} value={key}>
+                              <span className="flex items-center gap-2">
+                                <IconComp className={`w-4 h-4 ${cfg.colorClass}`} />
+                                {cfg.label}
+                              </span>
                             </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )} />
+                          );
+                        })}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  {lifecycleStatus === "fast_forward" && (
+                    <div>
+                      <label className="text-sm font-medium">Datum startu <span className="text-destructive">*</span></label>
+                      <Input
+                        type="date"
+                        value={statusStartDate}
+                        onChange={(e) => setStatusStartDate(e.target.value)}
+                        data-testid="input-partner-status-start-date"
+                      />
+                    </div>
+                  )}
+
+                  {lifecycleStatus === "eject" && (
+                    <div>
+                      <label className="text-sm font-medium">Datum ukoncenia <span className="text-destructive">*</span></label>
+                      <Input
+                        type="date"
+                        value={statusEndDate}
+                        onChange={(e) => setStatusEndDate(e.target.value)}
+                        data-testid="input-partner-status-end-date"
+                      />
+                    </div>
+                  )}
                 </div>
 
                 <div style={{ display: isEditing ? undefined : 'none' }}>
@@ -638,17 +732,10 @@ export default function Partners() {
   const tableFilter = useSmartFilter(partners || [], PARTNER_FILTER_COLUMNS, "partners");
   const { sortedData, sortKey, sortDirection, requestSort } = useTableSort(tableFilter.filteredData);
   const columnVisibility = useColumnVisibility("partners", PARTNER_COLUMNS);
-  const { data: allStates } = useStates();
   const deleteMutation = useDeletePartner();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingPartnerId, setEditingPartnerId] = useState<number | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Partner | null>(null);
-
-  function getStateName(stateId: number | null): string {
-    if (!stateId || !allStates) return "-";
-    const state = allStates.find(s => s.id === stateId);
-    return state ? `${state.name} (${state.code})` : "-";
-  }
 
   function openCreate() {
     setEditingPartnerId(null);
@@ -688,7 +775,7 @@ export default function Partners() {
                 {columnVisibility.isVisible("specialization") && <TableHead sortKey="specialization" sortDirection={sortKey === "specialization" ? sortDirection : null} onSort={requestSort}>Zameranie</TableHead>}
                 {columnVisibility.isVisible("ico") && <TableHead sortKey="ico" sortDirection={sortKey === "ico" ? sortDirection : null} onSort={requestSort}>ICO</TableHead>}
                 {columnVisibility.isVisible("city") && <TableHead sortKey="city" sortDirection={sortKey === "city" ? sortDirection : null} onSort={requestSort}>Mesto</TableHead>}
-                {columnVisibility.isVisible("stateId") && <TableHead>Stat</TableHead>}
+                {columnVisibility.isVisible("lifecycleStatus") && <TableHead>Stav</TableHead>}
                 {columnVisibility.isVisible("collaborationDate") && <TableHead sortKey="collaborationDate" sortDirection={sortKey === "collaborationDate" ? sortDirection : null} onSort={requestSort}>Datum spoluprace</TableHead>}
                 <TableHead className="w-[80px]">Akcie</TableHead>
               </TableRow>
@@ -718,12 +805,13 @@ export default function Partners() {
                   {columnVisibility.isVisible("specialization") && <TableCell className="text-sm">{partner.specialization || "-"}</TableCell>}
                   {columnVisibility.isVisible("ico") && <TableCell className="text-sm">{partner.ico || "-"}</TableCell>}
                   {columnVisibility.isVisible("city") && <TableCell className="text-sm">{partner.city || "-"}</TableCell>}
-                  {columnVisibility.isVisible("stateId") && <TableCell className="text-sm">{getStateName(partner.stateId)}</TableCell>}
+                  {columnVisibility.isVisible("lifecycleStatus") && <TableCell><LifecycleStatusIcon status={partner.lifecycleStatus} /></TableCell>}
                   {columnVisibility.isVisible("collaborationDate") && <TableCell className="text-xs text-muted-foreground">
                     {formatDateSlovak(partner.collaborationDate)}
                   </TableCell>}
                   <TableCell>
                     <div className="flex items-center gap-1">
+                      <LifecycleStatusIcon status={partner.lifecycleStatus} />
                       <Button size="icon" variant="ghost" onClick={(e) => { e.stopPropagation(); openPartner(partner); }} data-testid={`button-edit-partner-${partner.id}`}>
                         <Pencil className="w-4 h-4" />
                       </Button>
@@ -748,7 +836,6 @@ export default function Partners() {
         open={dialogOpen}
         onOpenChange={setDialogOpen}
         partnerId={editingPartnerId}
-        getStateName={getStateName}
       />
 
       <AlertDialog open={!!deleteTarget} onOpenChange={() => setDeleteTarget(null)}>

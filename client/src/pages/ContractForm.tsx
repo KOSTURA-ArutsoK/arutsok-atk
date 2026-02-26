@@ -1054,9 +1054,9 @@ export default function ContractForm() {
   });
 
   const { data: contractSectorProducts } = useQuery<SectorProduct[]>({
-    queryKey: ["/api/sector-products", { sectionId: contractSectionId }],
+    queryKey: ["/api/sector-products", { sectionId: contractSectionId, forContractForm: true }],
     queryFn: async () => {
-      const res = await fetch(`/api/sector-products?sectionId=${contractSectionId}`, { credentials: "include" });
+      const res = await fetch(`/api/sector-products?sectionId=${contractSectionId}&forContractForm=true`, { credentials: "include" });
       if (!res.ok) throw new Error("Failed");
       return res.json();
     },
@@ -1929,7 +1929,13 @@ export default function ContractForm() {
                     </SelectTrigger>
                     <SelectContent>
                       {contractSectorProducts?.map(p => (
-                        <SelectItem key={p.id} value={p.id.toString()}>{p.name} {p.abbreviation ? `(${p.abbreviation})` : ''}</SelectItem>
+                        <SelectItem key={p.id} value={p.id.toString()} data-testid={`option-contract-product-${p.id}`}>
+                          <div className="flex items-center gap-2">
+                            {(p as any).lifecycleStatus === "eject" && <AlertTriangle className="w-4 h-4 text-orange-500 shrink-0" />}
+                            <span>{p.name} {p.abbreviation ? `(${p.abbreviation})` : ''}</span>
+                            {(p as any).lifecycleStatus === "eject" && <span className="text-xs text-orange-500">Dobiehanie</span>}
+                          </div>
+                        </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>

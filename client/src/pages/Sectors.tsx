@@ -8,7 +8,7 @@ import { SmartFilterBar } from "@/components/smart-filter-bar";
 import { useToast } from "@/hooks/use-toast";
 import { usePartners } from "@/hooks/use-partners";
 import type { Sector, Parameter, SectorProduct, SectorProductParameter, Panel, PanelParameter, ProductPanel, Section, ContractFolder, FolderPanel } from "@shared/schema";
-import { Plus, Pencil, Trash2, Loader2, Search, Layers, Settings2, ChevronsUpDown, X, Check, FolderOpen, List, Package, Info, LayoutGrid, FolderClosed, Hash, ArrowRight, FileText } from "lucide-react";
+import { Plus, Pencil, Trash2, Loader2, Search, Layers, Settings2, ChevronsUpDown, X, Check, FolderOpen, List, Package, Info, LayoutGrid, FolderClosed, Hash, ArrowRight, FileText, Circle, SkipForward, Play, Pause, Upload, Square, AlertTriangle } from "lucide-react";
 import { ConditionalDelete } from "@/components/conditional-delete";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -131,6 +131,19 @@ function useHierarchyCounts() {
   return useQuery<HierarchyCounts>({
     queryKey: ["/api/hierarchy/counts"],
   });
+}
+
+const LIFECYCLE_STATUSES = [
+  { value: "record", label: "Priprava", icon: Circle, color: "text-gray-400", bg: "bg-gray-400/15" },
+  { value: "fast_forward", label: "Buduci start", icon: SkipForward, color: "text-blue-500", bg: "bg-blue-500/15" },
+  { value: "play", label: "Aktivne", icon: Play, color: "text-green-500", bg: "bg-green-500/15" },
+  { value: "pause", label: "Pozastavene", icon: Pause, color: "text-yellow-500", bg: "bg-yellow-500/15" },
+  { value: "eject", label: "Dobiehanie", icon: Upload, color: "text-orange-500", bg: "bg-orange-500/15" },
+  { value: "stop", label: "Ukoncene", icon: Square, color: "text-red-500", bg: "bg-red-500/15" },
+] as const;
+
+function getLifecycleInfo(status: string | null | undefined) {
+  return LIFECYCLE_STATUSES.find(s => s.value === status) || LIFECYCLE_STATUSES[0];
 }
 
 const PARAM_TYPES = [
@@ -404,6 +417,9 @@ function SectorProductFormDialog({
   const [objectionDaysLimit, setObjectionDaysLimit] = useState("100");
   const [archiveDaysBeforeDelete, setArchiveDaysBeforeDelete] = useState("365");
   const [selectedFolderIds, setSelectedFolderIds] = useState<number[]>([]);
+  const [lifecycleStatus, setLifecycleStatus] = useState("record");
+  const [statusStartDate, setStatusStartDate] = useState("");
+  const [statusEndDate, setStatusEndDate] = useState("");
 
   const { data: allFolders } = useQuery<ContractFolder[]>({
     queryKey: ["/api/contract-folders"],
@@ -443,6 +459,13 @@ function SectorProductFormDialog({
       await apiRequest("PUT", `/api/sector-products/${editingProduct!.id}/folders`, {
         assignments: selectedFolderIds.map((fid, idx) => ({ folderId: fid, sortOrder: idx }))
       });
+      if (editingProduct && lifecycleStatus !== (editingProduct as any).lifecycleStatus) {
+        await apiRequest("PATCH", `/api/sector-products/${editingProduct.id}/lifecycle-status`, {
+          status: lifecycleStatus,
+          startDate: lifecycleStatus === "fast_forward" && statusStartDate ? statusStartDate : undefined,
+          endDate: lifecycleStatus === "eject" && statusEndDate ? statusEndDate : undefined,
+        });
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/sector-products"] });
@@ -463,6 +486,11 @@ function SectorProductFormDialog({
         setPartnerId(editingProduct.partnerId?.toString() || "");
         setObjectionDaysLimit((editingProduct as any).objectionDaysLimit?.toString() || "100");
         setArchiveDaysBeforeDelete((editingProduct as any).archiveDaysBeforeDelete?.toString() || "365");
+        setLifecycleStatus((editingProduct as any).lifecycleStatus || "record");
+        const startD = (editingProduct as any).statusStartDate;
+        setStatusStartDate(startD ? new Date(startD).toISOString().slice(0, 10) : "");
+        const endD = (editingProduct as any).statusEndDate;
+        setStatusEndDate(endD ? new Date(endD).toISOString().slice(0, 10) : "");
       } else {
         setSectionId(preSelectedSectionId?.toString() || "");
         setName("");
@@ -471,6 +499,9 @@ function SectorProductFormDialog({
         setObjectionDaysLimit("100");
         setArchiveDaysBeforeDelete("365");
         setSelectedFolderIds([]);
+        setLifecycleStatus("record");
+        setStatusStartDate("");
+        setStatusEndDate("");
       }
     }
   }, [open, editingProduct, preSelectedSectionId]);
@@ -492,6 +523,14 @@ function SectorProductFormDialog({
     }
     if (!sectionId) {
       toast({ title: "Chyba", description: "Vyberte odvetvie", variant: "destructive" });
+      return;
+    }
+    if (lifecycleStatus === "fast_forward" && !statusStartDate) {
+      toast({ title: "Chyba", description: "Datum startu je povinny pre stav Buduci start", variant: "destructive" });
+      return;
+    }
+    if (lifecycleStatus === "eject" && !statusEndDate) {
+      toast({ title: "Chyba", description: "Datum ukoncenia je povinny pre stav Dobiehanie", variant: "destructive" });
       return;
     }
     const payload = { sectionId: parseInt(sectionId), name, abbreviation, partnerId: partnerId ? parseInt(partnerId) : null, objectionDaysLimit: parseInt(objectionDaysLimit) || 100, archiveDaysBeforeDelete: parseInt(archiveDaysBeforeDelete) || 365 };
@@ -549,6 +588,49 @@ function SectorProductFormDialog({
               </SelectContent>
             </Select>
           </div>
+          <div className="space-y-2">
+            <label className="text-sm font-medium">Stav produktu (lifecycle)</label>
+            <Select value={lifecycleStatus} onValueChange={setLifecycleStatus}>
+              <SelectTrigger data-testid="select-product-lifecycle-status">
+                <SelectValue placeholder="Vyberte stav" />
+              </SelectTrigger>
+              <SelectContent>
+                {LIFECYCLE_STATUSES.map(s => {
+                  const Icon = s.icon;
+                  return (
+                    <SelectItem key={s.value} value={s.value} data-testid={`option-lifecycle-${s.value}`}>
+                      <div className="flex items-center gap-2">
+                        <Icon className={`w-4 h-4 ${s.color}`} />
+                        {s.label}
+                      </div>
+                    </SelectItem>
+                  );
+                })}
+              </SelectContent>
+            </Select>
+          </div>
+          {lifecycleStatus === "fast_forward" && (
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Datum startu *</label>
+              <Input
+                type="date"
+                value={statusStartDate}
+                onChange={e => setStatusStartDate(e.target.value)}
+                data-testid="input-product-start-date"
+              />
+            </div>
+          )}
+          {lifecycleStatus === "eject" && (
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Datum ukoncenia *</label>
+              <Input
+                type="date"
+                value={statusEndDate}
+                onChange={e => setStatusEndDate(e.target.value)}
+                data-testid="input-product-end-date"
+              />
+            </div>
+          )}
           <div className="border border-amber-500/30 rounded p-3 space-y-3 bg-amber-500/5">
             <p className="text-xs font-semibold text-amber-400 uppercase tracking-wider">Dynamické lehoty životného cyklu</p>
             <div className="grid grid-cols-2 gap-3">
@@ -1622,8 +1704,15 @@ function ProductTableRow({
   onDelete: () => void;
   columnVisibility: ReturnType<typeof useColumnVisibility>;
 }) {
+  const lc = getLifecycleInfo((product as any).lifecycleStatus);
+  const LcIcon = lc.icon;
+  const isDimmed = lc.value === "stop" || lc.value === "pause";
+  const isEject = lc.value === "eject";
+  const endDate = (product as any).statusEndDate;
+  const daysLeft = isEject && endDate ? Math.ceil((new Date(endDate).getTime() - Date.now()) / (1000 * 60 * 60 * 24)) : null;
+
   return (
-    <TableRow data-testid={`row-sector-product-${product.id}`}>
+    <TableRow data-testid={`row-sector-product-${product.id}`} className={isDimmed ? "opacity-50 grayscale" : ""}>
       {columnVisibility.isVisible("name") && <TableCell className="font-medium">{product.name}</TableCell>}
       {columnVisibility.isVisible("abbreviation") && <TableCell className="font-mono text-sm">{product.abbreviation || "-"}</TableCell>}
       {columnVisibility.isVisible("sectionId") && <TableCell>
@@ -1634,6 +1723,25 @@ function ProductTableRow({
       </TableCell>}
       <TableCell>
         <div className="flex items-center gap-1">
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <div className={`flex items-center justify-center w-7 h-7 rounded-md ${lc.bg}`} data-testid={`status-product-lifecycle-${product.id}`}>
+                <LcIcon className={`w-4 h-4 ${lc.color}`} />
+              </div>
+            </TooltipTrigger>
+            <TooltipContent>
+              {lc.label}
+              {isEject && daysLeft !== null && ` (${daysLeft > 0 ? `${daysLeft} dni do konca` : "Expiroval"})`}
+            </TooltipContent>
+          </Tooltip>
+          {isEject && (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <AlertTriangle className="w-4 h-4 text-orange-500" data-testid={`warning-eject-${product.id}`} />
+              </TooltipTrigger>
+              <TooltipContent>Produkt v dobiehani{daysLeft !== null && daysLeft > 0 ? ` - ${daysLeft} dni` : ""}</TooltipContent>
+            </Tooltip>
+          )}
           <Button
             size="icon"
             variant="ghost"
