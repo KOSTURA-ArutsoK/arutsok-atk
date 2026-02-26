@@ -1,0 +1,44 @@
+EXPERTNÉ ZADANIE PRE AGENTA: Inteligentný Dashboard ArutsoK (ATK)
+Kontext: Dashboard je riadiace centrum pre 13 000 zmlúv. Súčasné riešenie (1 koláč, 1 stĺpec, slabý filter) je neprijateľné. Prerob Dashboard na modulárny, dynamický a analytický systém.
+
+1. ARCHITEKTÚRA DASHBOARDU (Dynamic Grid):
+
+Zruš statické komponenty: Odstráň fixný PieChart a BarChart.
+
+Grid System: Implementuj responzívnu mriežku (Grid), kde sa grafy (Karty) vykresľujú dynamicky podľa dát v databáze.
+
+Empty State: Ak nie sú dáta, zobraz čistý placeholder, nie prázdny graf.
+
+2. ANALYTICKÉ MODULY (Povinné grafy):
+
+Trend Skenovania (Area Chart): Os X = čas (dni/týždne), Os Y = počet zmlúv. Musí zobrazovať kumulatívny prírastok nahraných zmlúv, aby bolo vidieť tempo plnenia databázy.
+
+Distribúcia Fáz (Donut Chart): Rozdelenie všetkých zmlúv podľa lifecyclePhase.
+
+Striktné farby: Phase 5+ (Zelená), Phase 3 (Červená), Phase 2 (Modrá), Phase 7 (Oranžová), Ostatné (Sivá).
+
+Kvalita Procesu (Stacked Bar Chart): Pomer "Prijatých" (Zelená) vs. "Výhrad" (Červená) v čase. Tento graf musí jasne identifikovať kritické dni, kedy bolo vrátených priveľa zmlúv.
+
+Aktivita Protokolov (Bar Chart): Počet vytvorených "Odovzdávacích protokolov - Sprievodiek" po mesiacoch.
+
+3. REVOLÚCIA FILTROVANIA (Smart Filter Bar):
+
+Zruš tlačidlo "+ Pridať filter": Nahrať ho fixnou lištou filtrov nad grafmi.
+
+Časový filter (Master Date Picker): Preddefinované voľby (Dnes, Posledných 7 dní, 30 dní, Kvartál, Vlastný rozsah).
+
+Globálny Filter: Výber konkrétneho stavu (Phase) alebo konkrétnej Sprievodky.
+
+Reaktivita: Zmena akéhokoľvek filtra musí okamžite (bez reloadu stránky) prepočítať a prekresliť VŠETKY grafy na dashboarde.
+
+4. VIZUÁLNA IDENTITA ARUTSOK (ATK):
+
+Každý graf musí byť v samostatnej "Bubline" (Card) s bielym/svetlosivým pozadím, jemným tieňom a zaoblenými rohmi.
+
+Legendy grafov musia byť jasné a čitateľné.
+
+Pridaj "Quick Stats" (Karty s číslami) nad grafy: Celkový počet zmlúv, Počet nevybavených výhrad, Počet sprievodiek.
+
+5. TECHNICKÁ POŽIADAVKA:
+
+Dáta pre grafy ťahaj cez optimalizované API endpointy (agregácie v databáze), aby sa Dashboard načítaval okamžite aj pri 130 000 stranách dokumentov.
