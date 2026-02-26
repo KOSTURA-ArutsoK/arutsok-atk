@@ -8748,7 +8748,7 @@ export async function registerRoutes(
         subjectId: contracts.subjectId,
         partnerId: contracts.partnerId,
         statusId: contracts.statusId,
-        dynamicFields: contracts.dynamicFields,
+        dynamicPanelValues: contracts.dynamicPanelValues,
       }).from(contracts)
         .where(and(...conditions))
         .orderBy(desc(contracts.id))
@@ -8794,7 +8794,7 @@ export async function registerRoutes(
       const records = filtered.map((c: any) => {
         const subject = c.subjectId ? subjectMap.get(c.subjectId) : null;
         const st = c.statusId ? statusMap.get(c.statusId) : null;
-        const df = c.dynamicFields as any;
+        const df = c.dynamicPanelValues as any;
         return {
           contractUid: c.uid || c.contractNumber || `#${c.id}`,
           globalNumber: c.globalNumber,
