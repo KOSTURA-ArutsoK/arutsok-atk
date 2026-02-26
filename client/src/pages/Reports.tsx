@@ -203,15 +203,6 @@ export default function Reports() {
   const { data: statuses } = useQuery<ContractStatus[]>({ queryKey: ["/api/contract-statuses"] });
   const { data: agents } = useQuery<any[]>({ queryKey: ["/api/app-users"] });
 
-  if (!isAdmin) {
-    return (
-      <div className="flex items-center justify-center py-20">
-        <ShieldAlert className="w-8 h-8 text-destructive mr-3" />
-        <span className="text-lg font-semibold">Prístup zamietnutý</span>
-      </div>
-    );
-  }
-
   const handleGenerate = () => setFiltersApplied(true);
 
   const handleReset = () => {
@@ -267,6 +258,15 @@ export default function Reports() {
     }
     return items;
   }, [from, to, partnerId, agentId, status, contractType, dynamicFilters, partners, agents, statuses]);
+
+  if (!isAdmin) {
+    return (
+      <div className="flex items-center justify-center py-20">
+        <ShieldAlert className="w-8 h-8 text-destructive mr-3" />
+        <span className="text-lg font-semibold">Prístup zamietnutý</span>
+      </div>
+    );
+  }
 
   const generatePDF = () => {
     if (!reportData || !appUser) return;
