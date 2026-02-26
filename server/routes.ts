@@ -4,7 +4,7 @@ import { storage } from "./storage";
 import { api } from "@shared/routes";
 import { setupAuth, registerAuthRoutes, isAuthenticated } from "./replit_integrations/auth";
 import { z } from "zod";
-import { continents, states, myCompanies, appUsers, clientTypes, clientSubGroups, clientGroupMembers, productFolderAssignments, folderPanels, panelParameters, userClientGroupMemberships, clientGroups, permissionGroups, insertCareerLevelSchema, insertProductPointRateSchema, careerLevels, importLogs, commissions, contracts, contractStatuses, contractStatusChangeLogs, clientDataTabs, clientDataCategories, subjects, subjectPointsLog, subjectFieldHistory, subjectCollaborators, clientMarketingConsents, clientDocumentHistory, contractAcquirers, contractPasswords, contractRewardDistributions, contractParameterValues, subjectArchive, auditLogs, globalCounters, subjectPhotos, activityEvents, subjectParamSections, subjectParameters, subjectTemplates, subjectTemplateParams, commissionCalculationLogs, parameterSynonyms, dataConflictAlerts, transactionDedupLog, relationRoleTypes, subjectRelations, maturityAlerts, inheritancePrompts, guardianshipArchive, households, householdMembers, householdAssets, privacyBlocks, accessConsentLog, maturityEvents, addressGroups, addressGroupMembers, companySubjectRoles, notificationQueue, batchJobs, subjectObjects, objectDataSources, sectors, sections, sectorProducts, parameters, panels, productPanels, contractFolders, fieldLayoutConfigs, sectorCategoryMapping, suggestedRelations, statusEvidence, contractLifecycleHistory, systemNotifications, partners, products, contractInventories, contractTemplates, redListAlerts } from "@shared/schema";
+import { continents, states, myCompanies, appUsers, clientTypes, clientSubGroups, clientGroupMembers, productFolderAssignments, folderPanels, panelParameters, userClientGroupMemberships, clientGroups, permissionGroups, insertCareerLevelSchema, insertProductPointRateSchema, careerLevels, importLogs, commissions, contracts, contractStatuses, contractStatusChangeLogs, clientDataTabs, clientDataCategories, subjects, subjectPointsLog, subjectFieldHistory, subjectCollaborators, clientMarketingConsents, clientDocumentHistory, contractAcquirers, contractPasswords, contractRewardDistributions, contractParameterValues, subjectArchive, auditLogs, globalCounters, subjectPhotos, activityEvents, subjectParamSections, subjectParameters, subjectTemplates, subjectTemplateParams, commissionCalculationLogs, parameterSynonyms, dataConflictAlerts, transactionDedupLog, relationRoleTypes, subjectRelations, maturityAlerts, inheritancePrompts, guardianshipArchive, households, householdMembers, householdAssets, privacyBlocks, accessConsentLog, maturityEvents, addressGroups, addressGroupMembers, companySubjectRoles, notificationQueue, batchJobs, subjectObjects, objectDataSources, sectors, sections, sectorProducts, parameters, panels, productPanels, contractFolders, fieldLayoutConfigs, sectorCategoryMapping, suggestedRelations, statusEvidence, contractLifecycleHistory, systemNotifications, partners, products, contractInventories, contractTemplates, redListAlerts, subjectAddresses } from "@shared/schema";
 import { notifyObjectionCreated, notifyPreDeletion, getProductDaysLimits } from "./email";
 import { seedSubjectParameters, seedAssetPanels, seedEventAndEntityPanels } from "./seed-subject-params";
 import sharp from "sharp";
@@ -8718,6 +8718,14 @@ export async function registerRoutes(
       const filterAgentId = req.query.agentId ? Number(req.query.agentId) : undefined;
       const filterStatus = req.query.status ? Number(req.query.status) : undefined;
       const filterContractType = req.query.contractType as string | undefined;
+      const filterPremiumMin = req.query.premiumMin ? Number(req.query.premiumMin) : undefined;
+      const filterPremiumMax = req.query.premiumMax ? Number(req.query.premiumMax) : undefined;
+      const filterPaymentFrequency = req.query.paymentFrequency as string | undefined;
+      const filterExpiryFrom = req.query.expiryFrom as string | undefined;
+      const filterExpiryTo = req.query.expiryTo as string | undefined;
+      const filterListStatus = req.query.listStatus as string | undefined;
+      const filterSubjectType = req.query.subjectType as string | undefined;
+      const filterPsc = req.query.psc as string | undefined;
 
       const conditions: any[] = [eq(contracts.isDeleted, false)];
       if (stateId) conditions.push(eq(contracts.stateId, stateId));
@@ -8726,6 +8734,24 @@ export async function registerRoutes(
       if (filterContractType) conditions.push(eq(contracts.contractType, filterContractType));
       if (filterFrom) conditions.push(gte(contracts.signedDate, new Date(filterFrom)));
       if (filterTo) conditions.push(lte(contracts.signedDate, new Date(filterTo)));
+      if (filterPremiumMin) conditions.push(gte(contracts.premiumAmount, filterPremiumMin));
+      if (filterPremiumMax) conditions.push(lte(contracts.premiumAmount, filterPremiumMax));
+      if (filterPaymentFrequency) conditions.push(eq(contracts.paymentFrequency, filterPaymentFrequency));
+      if (filterExpiryFrom) conditions.push(gte(contracts.expiryDate, new Date(filterExpiryFrom)));
+      if (filterExpiryTo) conditions.push(lte(contracts.expiryDate, new Date(filterExpiryTo)));
+
+      if (filterPsc) {
+        const pscSubjectRows = await db.select({ subjectId: subjectAddresses.subjectId })
+          .from(subjectAddresses)
+          .where(eq(subjectAddresses.psc, filterPsc));
+        const pscSubjectIds = pscSubjectRows.map((r: any) => r.subjectId);
+        if (pscSubjectIds.length > 0) {
+          conditions.push(inArray(contracts.subjectId, pscSubjectIds));
+        } else {
+          return res.json({ kpi: { totalPremium: 0, stornoCount: 0, stornoAmount: 0, actualCashflow: 0, netProduction: 0, crossSellPotential: 0, redListCount: 0 }, records: [], totalRecords: 0, partnerBreakdown: [], monthlyTrend: [], contractTypes: [] });
+        }
+      }
+
       if (filterAgentId) {
         const agentContractIdRows = await db.select({ contractId: contractAcquirers.contractId })
           .from(contractAcquirers)
@@ -8734,7 +8760,7 @@ export async function registerRoutes(
         if (agentContractIdSet.length > 0) {
           conditions.push(inArray(contracts.id, agentContractIdSet));
         } else {
-          return res.json({ kpi: { totalPremium: 0, stornoCount: 0, stornoAmount: 0, actualCashflow: 0, netProduction: 0 }, records: [], totalRecords: 0 });
+          return res.json({ kpi: { totalPremium: 0, stornoCount: 0, stornoAmount: 0, actualCashflow: 0, netProduction: 0, crossSellPotential: 0, redListCount: 0 }, records: [], totalRecords: 0, partnerBreakdown: [], monthlyTrend: [], contractTypes: [] });
         }
       }
 
@@ -8747,10 +8773,12 @@ export async function registerRoutes(
         annualPremium: contracts.annualPremium,
         commissionAmount: contracts.commissionAmount,
         signedDate: contracts.signedDate,
+        expiryDate: contracts.expiryDate,
         subjectId: contracts.subjectId,
         partnerId: contracts.partnerId,
         statusId: contracts.statusId,
         contractType: contracts.contractType,
+        paymentFrequency: contracts.paymentFrequency,
         dynamicPanelValues: contracts.dynamicPanelValues,
       }).from(contracts)
         .where(and(...conditions))
@@ -8794,7 +8822,46 @@ export async function registerRoutes(
         if (p) partnerMap.set(pid, p);
       }
 
-      const records = filtered.map((c: any) => {
+      let postFilteredContracts = filtered;
+      if (filterListStatus) {
+        const targetStatus = filterListStatus === 'clean' ? null : filterListStatus;
+        postFilteredContracts = postFilteredContracts.filter((c: any) => {
+          const subj = c.subjectId ? subjectMap.get(c.subjectId) : null;
+          if (!subj) return false;
+          return targetStatus === null ? (!subj.listStatus) : subj.listStatus === targetStatus;
+        });
+      }
+      if (filterSubjectType) {
+        postFilteredContracts = postFilteredContracts.filter((c: any) => {
+          const subj = c.subjectId ? subjectMap.get(c.subjectId) : null;
+          return subj?.type === filterSubjectType;
+        });
+      }
+
+      const subjectContractCounts = new Map<number, { count: number; hasLife: boolean }>();
+      for (const c of postFilteredContracts) {
+        if (!c.subjectId) continue;
+        const existing = subjectContractCounts.get(c.subjectId) || { count: 0, hasLife: false };
+        existing.count++;
+        const ct = (c.contractType || '').toLowerCase();
+        if (ct.includes('život') || ct.includes('zivot') || ct === 'life') existing.hasLife = true;
+        subjectContractCounts.set(c.subjectId, existing);
+      }
+      let crossSellPotential = 0;
+      for (const [, data] of subjectContractCounts) {
+        if (data.count >= 3 && !data.hasLife) crossSellPotential++;
+      }
+
+      let redListCount = 0;
+      const redListSubjectIds = new Set<number>();
+      for (const [sid, subj] of subjectMap) {
+        if (subj.listStatus === 'cerveny') {
+          redListCount++;
+          redListSubjectIds.add(sid);
+        }
+      }
+
+      const records = postFilteredContracts.map((c: any) => {
         const subject = c.subjectId ? subjectMap.get(c.subjectId) : null;
         const st = c.statusId ? statusMap.get(c.statusId) : null;
         const df = c.dynamicPanelValues as any;
@@ -8809,7 +8876,12 @@ export async function registerRoutes(
           statusName: st?.name || '',
           statusColor: st?.color || null,
           signedDate: c.signedDate,
+          expiryDate: c.expiryDate,
           partnerName: c.partnerId ? partnerMap.get(c.partnerId)?.name || '' : '',
+          contractType: c.contractType || '',
+          paymentFrequency: c.paymentFrequency || '',
+          subjectType: subject?.type || '',
+          listStatus: subject?.listStatus || null,
         };
       });
 
@@ -8817,7 +8889,7 @@ export async function registerRoutes(
       const monthlyPremiums = new Map<string, number>();
       const contractTypeSet = new Set<string>();
 
-      for (const c of filtered) {
+      for (const c of postFilteredContracts) {
         const premium = c.premiumAmount || c.annualPremium || 0;
         const pName = c.partnerId ? (partnerMap.get(c.partnerId)?.name || 'Neznámy') : 'Bez partnera';
         const existing = partnerPremiums.get(pName) || { totalPremium: 0, count: 0 };
@@ -8842,17 +8914,18 @@ export async function registerRoutes(
         .map(([month, totalPremium]) => ({ month, totalPremium }))
         .sort((a, b) => a.month.localeCompare(b.month));
 
-      if (records.length > 500) {
+      const usedModuleC = !!(filterPsc || filterPaymentFrequency || filterPremiumMin || filterPremiumMax);
+      if (records.length > 500 || usedModuleC) {
         await logAudit(req, {
-          action: "MASSIVE_DATA_ACCESS",
+          action: usedModuleC ? "DEEP_DIVE_ACCESS" : "MASSIVE_DATA_ACCESS",
           module: "reports",
-          entityName: `Production report: ${records.length} records`,
-          newData: { recordCount: records.length, filters: { from: filterFrom, to: filterTo, partnerId: filterPartnerId, agentId: filterAgentId, status: filterStatus, stateId } },
+          entityName: `Production report: ${records.length} records${usedModuleC ? ' [Module C filters]' : ''}`,
+          newData: { recordCount: records.length, filters: { from: filterFrom, to: filterTo, partnerId: filterPartnerId, agentId: filterAgentId, status: filterStatus, contractType: filterContractType, premiumMin: filterPremiumMin, premiumMax: filterPremiumMax, paymentFrequency: filterPaymentFrequency, listStatus: filterListStatus, subjectType: filterSubjectType, psc: filterPsc, stateId } },
         });
       }
 
       res.json({
-        kpi: { totalPremium, stornoCount, stornoAmount, actualCashflow, netProduction },
+        kpi: { totalPremium, stornoCount, stornoAmount, actualCashflow, netProduction, crossSellPotential, redListCount },
         records,
         totalRecords: records.length,
         partnerBreakdown,
