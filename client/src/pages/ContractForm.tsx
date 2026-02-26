@@ -1636,11 +1636,11 @@ export default function ContractForm() {
             {appUser.uid ? `${formatUid(appUser.uid)} - ` : ""}{[appUser.firstName, appUser.lastName].filter(Boolean).join(" ") || appUser.username}
           </span>
         )}
-        <div data-testid="badge-uid-container">
-          <span style={{ display: existingContract?.uid ? 'inline' : 'none' }}>
-            <Badge variant="outline" data-testid="badge-contract-uid">{formatUid(existingContract?.uid)}</Badge>
+        {isEditing && existingContract && (
+          <span className="text-2xl font-black tracking-tight tabular-nums ml-auto" data-testid="text-contract-number">
+            {(existingContract as any).globalNumber || existingContract.contractNumber || `#${existingContract.id}`}
           </span>
-        </div>
+        )}
       </div>
 
       <div className="flex-none border-b border-border bg-card/50">
