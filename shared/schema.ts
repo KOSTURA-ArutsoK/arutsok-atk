@@ -2298,6 +2298,21 @@ export const insertSubjectDocumentSchema = createInsertSchema(subjectDocuments).
 export type SubjectDocument = typeof subjectDocuments.$inferSelect;
 export type InsertSubjectDocument = z.infer<typeof insertSubjectDocumentSchema>;
 
+export const redListAlerts = pgTable("red_list_alerts", {
+  id: serial("id").primaryKey(),
+  subjectId: integer("subject_id").notNull().references(() => subjects.id),
+  bonitaPoints: integer("bonita_points").notNull(),
+  status: text("status").notNull().default("pending"),
+  dismissCount: integer("dismiss_count").notNull().default(0),
+  createdAt: timestamp("created_at").defaultNow(),
+  resolvedAt: timestamp("resolved_at"),
+  resolvedByUserId: integer("resolved_by_user_id").references(() => appUsers.id),
+});
+
+export const insertRedListAlertSchema = createInsertSchema(redListAlerts).omit({ id: true, createdAt: true });
+export type RedListAlert = typeof redListAlerts.$inferSelect;
+export type InsertRedListAlert = z.infer<typeof insertRedListAlertSchema>;
+
 export type CreateSubjectRequest = InsertSubject;
 export type UpdateSubjectRequest = Partial<InsertSubject> & { changeReason?: string };
 export type UpdateMyCompanyRequest = Partial<InsertMyCompany> & { changeReason?: string };

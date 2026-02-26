@@ -124,6 +124,7 @@ import {
   type ObjectDataSource, type InsertObjectDataSource,
   subjectDocuments,
   type SubjectDocument, type InsertSubjectDocument,
+  redListAlerts,
 } from "@shared/schema";
 import { eq, and, or, ne, like, sql, lte, gte, gt, desc, asc, isNull, isNotNull, inArray } from "drizzle-orm";
 
@@ -3709,12 +3710,18 @@ export class DatabaseStorage implements IStorage {
     const allSubjects = await this.findSubjectsByIdentifier(identifierType, identifierValue);
     for (const s of allSubjects) {
       await db.update(subjects).set({ bonitaPoints: total }).where(eq(subjects.id, s.id));
-      if (total <= -5 && s.listStatus !== "cierny") {
-        await db.update(subjects).set({
-          listStatus: "cerveny",
-          listStatusReason: `Automaticky: bodové saldo ${total} (prah -5)`,
-          listStatusChangedAt: new Date(),
-        }).where(and(eq(subjects.id, s.id), isNull(subjects.listStatus)));
+      if (total <= -5 && s.listStatus !== "cerveny") {
+        const existingAlert = await db.select().from(redListAlerts)
+          .where(and(eq(redListAlerts.subjectId, s.id), eq(redListAlerts.status, "pending")))
+          .then(r => r[0]);
+        if (!existingAlert) {
+          await db.insert(redListAlerts).values({
+            subjectId: s.id,
+            bonitaPoints: total,
+            status: "pending",
+            dismissCount: 0,
+          });
+        }
       }
     }
     return total;
@@ -3752,6 +3759,24 @@ export class DatabaseStorage implements IStorage {
   async getClientGroupByCode(groupCode: string): Promise<ClientGroup | undefined> {
     const [group] = await db.select().from(clientGroups).where(eq(clientGroups.groupCode, groupCode));
     return group;
+  }
+
+  async isSubjectInGroup(subjectId: number, groupCode: string): Promise<boolean> {
+    const group = await this.getClientGroupByCode(groupCode);
+    if (!group) return false;
+    const existing = await db.select().from(clientGroupMembers)
+      .where(and(eq(clientGroupMembers.groupId, group.id), eq(clientGroupMembers.subjectId, subjectId)))
+      .then(r => r[0]);
+    return !!existing;
+  }
+
+  async getGroupMemberSubjectIds(groupCode: string): Promise<Set<number>> {
+    const group = await this.getClientGroupByCode(groupCode);
+    if (!group) return new Set();
+    const members = await db.select({ subjectId: clientGroupMembers.subjectId })
+      .from(clientGroupMembers)
+      .where(eq(clientGroupMembers.groupId, group.id));
+    return new Set(members.map(m => m.subjectId));
   }
 
   async ensureSubjectInGroup(subjectId: number, groupCode: string): Promise<void> {

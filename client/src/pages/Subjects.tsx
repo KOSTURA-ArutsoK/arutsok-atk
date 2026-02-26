@@ -1372,10 +1372,6 @@ function SubjectDetailPanel({ subject, onClose }: { subject: Subject; onClose: (
     if (t === "vztahy") return "vztahy";
     return "profil_subjektu";
   });
-  const [listStatusDialogOpen, setListStatusDialogOpen] = useState(false);
-  const [listStatusValue, setListStatusValue] = useState<string>("none");
-  const [listStatusReason, setListStatusReason] = useState("");
-
   const isSuperAdmin = useMemo(() => {
     const name = (appUser as any)?.permissionGroup?.name?.toLowerCase() || "";
     return name.includes("superadmin") || name.includes("prezident");
@@ -1387,35 +1383,6 @@ function SubjectDetailPanel({ subject, onClose }: { subject: Subject; onClose: (
   });
   const displaySubject = freshSubject || subject;
   const effectiveListStatus = (displaySubject as any).effectiveListStatus as string | null;
-
-  useEffect(() => {
-    if (listStatusDialogOpen) {
-      setListStatusValue((displaySubject as any).listStatus || "none");
-      setListStatusReason("");
-    }
-  }, [listStatusDialogOpen, subject.id]);
-
-  const listStatusMutation = useMutation({
-    mutationFn: async () => {
-      const status = listStatusValue === "none" ? null : listStatusValue;
-      return apiRequest("PATCH", `/api/subjects/${subject.id}/list-status`, {
-        listStatus: status,
-        reason: listStatusReason || undefined,
-      });
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/subjects"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/subjects", subject.id] });
-      toast({ title: "Status zoznamu aktualizovaný" });
-      setListStatusDialogOpen(false);
-      setListStatusReason("");
-    },
-    onError: async (err: any) => {
-      let msg = "Chyba pri zmene statusu";
-      try { const body = await err.json?.(); if (body?.message) msg = body.message; } catch {}
-      toast({ title: msg, variant: "destructive" });
-    },
-  });
 
   const { data: riskData } = useQuery<{
     riskLinks: Array<{ subjectId: number; name: string; uid: string; listStatus: string; matchType: string; matchValue: string }>;
@@ -1458,63 +1425,16 @@ function SubjectDetailPanel({ subject, onClose }: { subject: Subject; onClose: (
               })()}
             </div>
             <div className="flex items-center gap-1 shrink-0">
-              <Dialog open={listStatusDialogOpen} onOpenChange={setListStatusDialogOpen}>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className={`h-7 text-xs px-2 ${effectiveListStatus === "cierny" ? "border-red-700 text-red-400" : effectiveListStatus === "cerveny" ? "border-orange-700 text-orange-400" : ""}`}
-                  onClick={() => setListStatusDialogOpen(true)}
-                  data-testid="btn-list-status"
+              {effectiveListStatus && (
+                <Badge
+                  variant={effectiveListStatus === "cierny" ? "destructive" : "secondary"}
+                  className={effectiveListStatus === "cierny" ? "bg-red-900 text-red-200" : "bg-orange-900 text-orange-200"}
+                  data-testid="badge-list-status"
                 >
-                  {effectiveListStatus === "cierny" ? <Ban className="w-3.5 h-3.5 mr-1" /> : effectiveListStatus === "cerveny" ? <AlertTriangle className="w-3.5 h-3.5 mr-1" /> : <Shield className="w-3.5 h-3.5 mr-1" />}
-                  {effectiveListStatus === "cierny" ? "Čierny zoznam" : effectiveListStatus === "cerveny" ? "Červený zoznam" : "Zoznam"}
-                </Button>
-                <DialogContent className="max-w-sm">
-                  <DialogHeader>
-                    <DialogTitle>Zmeniť status zoznamu</DialogTitle>
-                  </DialogHeader>
-                  <div className="space-y-4 pt-2">
-                    <div className="space-y-2">
-                      <Label>Status</Label>
-                      <Select value={listStatusValue} onValueChange={setListStatusValue}>
-                        <SelectTrigger data-testid="select-list-status">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="none">Žiadny zoznam</SelectItem>
-                          <SelectItem value="cerveny">Červený zoznam</SelectItem>
-                          <SelectItem value="cierny">Čierny zoznam</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div className="space-y-2">
-                      <Label>Dôvod zmeny</Label>
-                      <Textarea
-                        value={listStatusReason}
-                        onChange={e => setListStatusReason(e.target.value)}
-                        placeholder="Uveďte dôvod..."
-                        className="h-20"
-                        data-testid="input-list-status-reason"
-                      />
-                    </div>
-                    {listStatusValue === "cierny" && !isSuperAdmin && (
-                      <div className="flex items-center gap-2 text-xs text-amber-400 bg-amber-950/50 border border-amber-700 rounded px-3 py-2">
-                        <AlertTriangle className="w-4 h-4 shrink-0" />
-                        Čierny zoznam môže nastaviť len SuperAdmin/Prezident
-                      </div>
-                    )}
-                    <Button
-                      onClick={() => listStatusMutation.mutate()}
-                      disabled={listStatusMutation.isPending || (!isSuperAdmin && (listStatusValue === "cierny" || (listStatusValue === "none" && (displaySubject as any).listStatus === "cierny")))}
-                      className="w-full"
-                      data-testid="btn-save-list-status"
-                    >
-                      {listStatusMutation.isPending ? <Loader2 className="w-4 h-4 mr-1 animate-spin" /> : <Save className="w-4 h-4 mr-1" />}
-                      Uložiť
-                    </Button>
-                  </div>
-                </DialogContent>
-              </Dialog>
+                  {effectiveListStatus === "cierny" ? <Ban className="w-3.5 h-3.5 mr-1" /> : <AlertTriangle className="w-3.5 h-3.5 mr-1" />}
+                  {effectiveListStatus === "cierny" ? "Čierny zoznam" : "Červený zoznam"}
+                </Badge>
+              )}
               <Button
                 variant={activeTab === "profil_subjektu" ? "default" : "ghost"}
                 size="sm"
@@ -1565,7 +1485,7 @@ function SubjectDetailPanel({ subject, onClose }: { subject: Subject; onClose: (
           <Ban className="w-5 h-5 text-red-400 shrink-0" />
           <div>
             <span className="font-bold text-red-300 uppercase tracking-wide">ČIERNY ZOZNAM</span>
-            <span className="ml-2 text-sm">Subjekt je na globálnom čiernom zozname. Zmluvná činnosť je zakázaná.</span>
+            <span className="ml-2 text-sm">Doživotné ukončenie spolupráce. Spravované cez Skupiny klientov.</span>
           </div>
         </div>
       )}
@@ -1574,7 +1494,7 @@ function SubjectDetailPanel({ subject, onClose }: { subject: Subject; onClose: (
           <AlertTriangle className="w-5 h-5 text-orange-400 shrink-0" />
           <div>
             <span className="font-bold text-orange-300 uppercase tracking-wide">ČERVENÝ ZOZNAM</span>
-            <span className="ml-2 text-sm">Lokálny červený zoznam — subjekt dosiahol -5 bodov. Zvýšená opatrnosť.</span>
+            <span className="ml-2 text-sm">Automaticky zaradený (bonita ≤ -5 bodov). Potvrdené adminom.</span>
           </div>
         </div>
       )}

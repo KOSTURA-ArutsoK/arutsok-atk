@@ -1,7 +1,7 @@
-import { useState, useCallback, useMemo } from "react";
+import { useState, useCallback, useMemo, useEffect } from "react";
 import { useMyCompanies } from "@/hooks/use-companies";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { Users, Building2, ShieldAlert, TrendingUp, Briefcase, Package, History, Calendar, Clock, GripVertical, Pencil, Save, X, FileText, FileCheck, AlertCircle, Banknote } from "lucide-react";
+import { Users, Building2, ShieldAlert, TrendingUp, Briefcase, Package, History, Calendar, Clock, GripVertical, Pencil, Save, X, FileText, FileCheck, AlertCircle, Banknote, AlertTriangle, ArrowRight, CheckCircle2, Loader2 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useAppUser } from "@/hooks/use-app-user";
@@ -10,6 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { useLocation } from "wouter";
 import { apiRequest, queryClient } from "@/lib/queryClient";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import {
   DndContext,
   closestCenter,
@@ -29,7 +30,7 @@ import {
 import { CSS } from "@dnd-kit/utilities";
 import { cn, formatUid } from "@/lib/utils";
 
-const WIDGET_KEYS = ["stats", "recent_subjects", "my_companies", "recent_partners", "recent_products", "audit_activity", "upcoming_events"];
+const WIDGET_KEYS = ["stats", "recent_subjects", "my_companies", "recent_partners", "recent_products", "audit_activity", "upcoming_events", "red_list_recent"];
 
 
 function SortableWidget({ id, isEditing, children }: { id: string; isEditing: boolean; children: React.ReactNode }) {
@@ -100,6 +101,50 @@ export default function Dashboard() {
   const { toast } = useToast();
   const [isEditing, setIsEditing] = useState(false);
   const [editOrder, setEditOrder] = useState<string[]>([]);
+  const [redListDialogOpen, setRedListDialogOpen] = useState(false);
+
+  const isAdminUser = useMemo(() => {
+    const role = appUser?.role || "";
+    const pgName = ((appUser as any)?.permissionGroup?.name || "").toLowerCase();
+    return role === "admin" || role === "superadmin" || role === "prezident" || pgName.includes("admin") || pgName.includes("superadmin") || pgName.includes("prezident");
+  }, [appUser]);
+
+  const { data: redListAlerts, refetch: refetchAlerts } = useQuery<any[]>({
+    queryKey: ["/api/red-list-alerts/pending"],
+    enabled: isAdminUser,
+  });
+
+  const { data: recentRedListConfirmed } = useQuery<any[]>({
+    queryKey: ["/api/red-list-alerts/recent-confirmed"],
+    enabled: isAdminUser,
+  });
+
+  useEffect(() => {
+    if (redListAlerts && redListAlerts.length > 0 && isAdminUser) {
+      setRedListDialogOpen(true);
+    }
+  }, [redListAlerts, isAdminUser]);
+
+  const dismissAlertMutation = useMutation({
+    mutationFn: async (alertId: number) => {
+      return apiRequest("POST", `/api/red-list-alerts/${alertId}/dismiss`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/red-list-alerts/pending"] });
+    },
+  });
+
+  const confirmAlertMutation = useMutation({
+    mutationFn: async (alertId: number) => {
+      return apiRequest("POST", `/api/red-list-alerts/${alertId}/confirm`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/red-list-alerts/pending"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/red-list-alerts/recent-confirmed"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/subjects"] });
+      toast({ title: "Subjekt presunutý na červený zoznam" });
+    },
+  });
 
   const hasPrefs = dashboardPrefs && dashboardPrefs.length > 0;
   const enabledWidgets = new Set(
@@ -413,10 +458,95 @@ export default function Dashboard() {
         </CardContent>
       </Card>
     ),
+    red_list_recent: () => isAdminUser ? (
+      <Card data-testid="widget-red-list-recent">
+        <CardHeader>
+          <CardTitle className="text-base flex items-center gap-2">
+            <AlertTriangle className="w-4 h-4 text-orange-500" />
+            Posledné presuny na červený zoznam
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          {recentRedListConfirmed && recentRedListConfirmed.length > 0 ? (
+            <div className="space-y-3">
+              {recentRedListConfirmed.map((item: any) => (
+                <div key={item.id} className="flex items-center gap-3 text-sm border-l-2 border-orange-500 pl-3">
+                  <div className="flex-1 min-w-0">
+                    <p className="font-medium truncate text-orange-300">{item.subjectName}</p>
+                    <p className="text-xs text-muted-foreground font-mono">{formatUid(item.subjectUid)}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {item.resolvedAt ? new Date(item.resolvedAt).toLocaleDateString("sk-SK", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" }) : ""}
+                      {item.resolvedByName ? ` — ${item.resolvedByName}` : ""}
+                    </p>
+                  </div>
+                  <Badge variant="outline" className="border-orange-700 text-orange-400 text-[10px]">
+                    {item.bonitaPoints} bodov
+                  </Badge>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="text-sm text-muted-foreground py-6 text-center">Žiadne posledné presuny</p>
+          )}
+        </CardContent>
+      </Card>
+    ) : null,
   };
 
   return (
     <div className="space-y-6">
+      <Dialog open={redListDialogOpen} onOpenChange={setRedListDialogOpen}>
+        <DialogContent className="max-w-lg max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-orange-400">
+              <AlertTriangle className="w-5 h-5" />
+              Upozornenie — Červený zoznam
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 pt-2">
+            <p className="text-sm text-muted-foreground">
+              Nasledujúce subjekty dosiahli bonita skóre ≤ -5 bodov a čakajú na vaše rozhodnutie o zaradení na červený zoznam.
+            </p>
+            {(redListAlerts || []).map((alert: any) => (
+              <div key={alert.id} className="rounded border border-orange-800 bg-orange-950/50 p-4 space-y-3" data-testid={`red-list-alert-card-${alert.id}`}>
+                <div className="space-y-1">
+                  <p className="text-sm font-semibold text-orange-300">{alert.subjectName}</p>
+                  <p className="text-xs font-mono text-muted-foreground">{formatUid(alert.subjectUid)}</p>
+                  <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                    <span>Bonita: <span className="text-orange-400 font-semibold">{alert.bonitaPoints} bodov</span></span>
+                    <span>Odložené: <span className="font-semibold">{alert.dismissCount}×</span></span>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="flex-1 text-xs"
+                    onClick={() => dismissAlertMutation.mutate(alert.id)}
+                    disabled={dismissAlertMutation.isPending}
+                    data-testid={`btn-dismiss-alert-${alert.id}`}
+                  >
+                    {dismissAlertMutation.isPending ? <Loader2 className="w-3.5 h-3.5 mr-1 animate-spin" /> : null}
+                    OK, ideme ďalej
+                  </Button>
+                  <Button
+                    variant="default"
+                    size="sm"
+                    className="flex-1 text-xs bg-orange-700 hover:bg-orange-600"
+                    onClick={() => confirmAlertMutation.mutate(alert.id)}
+                    disabled={confirmAlertMutation.isPending}
+                    data-testid={`btn-confirm-redlist-${alert.id}`}
+                  >
+                    {confirmAlertMutation.isPending ? <Loader2 className="w-3.5 h-3.5 mr-1 animate-spin" /> : <ArrowRight className="w-3.5 h-3.5 mr-1" />}
+                    Presunúť do červeného zoznamu
+                  </Button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </DialogContent>
+      </Dialog>
+
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div>
           <h2 className="text-2xl font-bold" data-testid="text-dashboard-title">Prehlad</h2>

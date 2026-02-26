@@ -4,7 +4,7 @@ import { storage } from "./storage";
 import { api } from "@shared/routes";
 import { setupAuth, registerAuthRoutes, isAuthenticated } from "./replit_integrations/auth";
 import { z } from "zod";
-import { continents, states, myCompanies, appUsers, clientTypes, clientSubGroups, clientGroupMembers, productFolderAssignments, folderPanels, panelParameters, userClientGroupMemberships, clientGroups, permissionGroups, insertCareerLevelSchema, insertProductPointRateSchema, careerLevels, importLogs, commissions, contracts, contractStatuses, contractStatusChangeLogs, clientDataTabs, clientDataCategories, subjects, subjectPointsLog, subjectFieldHistory, subjectCollaborators, clientMarketingConsents, clientDocumentHistory, contractAcquirers, contractPasswords, contractRewardDistributions, contractParameterValues, subjectArchive, auditLogs, globalCounters, subjectPhotos, activityEvents, subjectParamSections, subjectParameters, subjectTemplates, subjectTemplateParams, commissionCalculationLogs, parameterSynonyms, dataConflictAlerts, transactionDedupLog, relationRoleTypes, subjectRelations, maturityAlerts, inheritancePrompts, guardianshipArchive, households, householdMembers, householdAssets, privacyBlocks, accessConsentLog, maturityEvents, addressGroups, addressGroupMembers, companySubjectRoles, notificationQueue, batchJobs, subjectObjects, objectDataSources, sectors, sections, sectorProducts, parameters, panels, productPanels, contractFolders, fieldLayoutConfigs, sectorCategoryMapping, suggestedRelations, statusEvidence, contractLifecycleHistory, systemNotifications, partners, products, contractInventories, contractTemplates } from "@shared/schema";
+import { continents, states, myCompanies, appUsers, clientTypes, clientSubGroups, clientGroupMembers, productFolderAssignments, folderPanels, panelParameters, userClientGroupMemberships, clientGroups, permissionGroups, insertCareerLevelSchema, insertProductPointRateSchema, careerLevels, importLogs, commissions, contracts, contractStatuses, contractStatusChangeLogs, clientDataTabs, clientDataCategories, subjects, subjectPointsLog, subjectFieldHistory, subjectCollaborators, clientMarketingConsents, clientDocumentHistory, contractAcquirers, contractPasswords, contractRewardDistributions, contractParameterValues, subjectArchive, auditLogs, globalCounters, subjectPhotos, activityEvents, subjectParamSections, subjectParameters, subjectTemplates, subjectTemplateParams, commissionCalculationLogs, parameterSynonyms, dataConflictAlerts, transactionDedupLog, relationRoleTypes, subjectRelations, maturityAlerts, inheritancePrompts, guardianshipArchive, households, householdMembers, householdAssets, privacyBlocks, accessConsentLog, maturityEvents, addressGroups, addressGroupMembers, companySubjectRoles, notificationQueue, batchJobs, subjectObjects, objectDataSources, sectors, sections, sectorProducts, parameters, panels, productPanels, contractFolders, fieldLayoutConfigs, sectorCategoryMapping, suggestedRelations, statusEvidence, contractLifecycleHistory, systemNotifications, partners, products, contractInventories, contractTemplates, redListAlerts } from "@shared/schema";
 import { notifyObjectionCreated, notifyPreDeletion, getProductDaysLimits } from "./email";
 import { seedSubjectParameters, seedAssetPanels, seedEventAndEntityPanels } from "./seed-subject-params";
 import sharp from "sharp";
@@ -1087,6 +1087,7 @@ export async function registerRoutes(
     }
     const canSeeNotes = isSuperAdminUser || pgNameForList.includes('superadmin') || pgNameForList.includes('prezident');
     
+    const blacklistMemberIds = await storage.getGroupMemberSubjectIds("group_cierny_zoznam");
     res.json(allSubjects.map((s: any) => {
       const masked = maskSubjectBirthNumber(s, appUser);
       if (!canSeeNotes && masked.uiPreferences) {
@@ -1094,7 +1095,7 @@ export async function registerRoutes(
         delete prefs.field_notes;
         masked.uiPreferences = prefs;
       }
-      if (s.listStatus === "cierny") {
+      if (blacklistMemberIds.has(s.id)) {
         masked.effectiveListStatus = "cierny";
       } else if (s.listStatus === "cerveny") {
         masked.effectiveListStatus = (!s.redListCompanyId || s.redListCompanyId === activeCompanyId) ? "cerveny" : null;
@@ -1125,7 +1126,8 @@ export async function registerRoutes(
     if (!subject) return res.status(404).json({ message: "Subject not found" });
     const masked = maskSubjectBirthNumber(subject, req.appUser);
     const activeCompanyId = req.appUser?.activeCompanyId;
-    if (subject.listStatus === "cierny") {
+    const isCierny = await storage.isSubjectInGroup(subjectId, "group_cierny_zoznam");
+    if (isCierny) {
       (masked as any).effectiveListStatus = "cierny";
     } else if (subject.listStatus === "cerveny") {
       (masked as any).effectiveListStatus = (!subject.redListCompanyId || subject.redListCompanyId === activeCompanyId) ? "cerveny" : null;
@@ -3484,8 +3486,8 @@ export async function registerRoutes(
       const appUser = req.appUser;
 
       if (input.subjectId) {
-        const subj = await storage.getSubject(input.subjectId);
-        if (subj?.listStatus === "cierny") {
+        const isCierny = await storage.isSubjectInGroup(input.subjectId, "group_cierny_zoznam");
+        if (isCierny) {
           return res.status(403).json({ message: "Subjekt je na Globálnom čiernom zozname — operácia zakázaná" });
         }
       }
@@ -7583,10 +7585,19 @@ export async function registerRoutes(
         .reduce((sum: number, l: any) => sum + l.points, 0);
       await db.update(subjects).set({ bonitaPoints: newTotal }).where(eq(subjects.id, subjectId));
 
-      if (newTotal <= -5 && subject.listStatus !== "cerveny" && subject.listStatus !== "cierny") {
-        const companyId = req.appUser?.activeCompanyId || null;
-        await storage.updateSubjectListStatus(subjectId, "cerveny", req.appUser?.id || 0, `Automatický červený zoznam: bonita ${newTotal} bodov`, companyId);
-        await logAudit(req, { action: "UPDATE", module: "subjekty", entityId: subjectId, entityName: `Auto červený zoznam (bonita ${newTotal})`, oldData: {}, newData: { listStatus: "cerveny", trigger: "bonita_threshold" } });
+      if (newTotal <= -5 && subject.listStatus !== "cerveny") {
+        const existingAlert = await db.select().from(redListAlerts)
+          .where(and(eq(redListAlerts.subjectId, subjectId), eq(redListAlerts.status, "pending")))
+          .then(r => r[0]);
+        if (!existingAlert) {
+          await db.insert(redListAlerts).values({
+            subjectId,
+            bonitaPoints: newTotal,
+            status: "pending",
+            dismissCount: 0,
+          });
+          await logAudit(req, { action: "CREATE", module: "red_list_alerts", entityId: subjectId, entityName: `Červený zoznam alert: bonita ${newTotal} bodov`, oldData: {}, newData: { bonitaPoints: newTotal, trigger: "bonita_threshold" } });
+        }
       }
 
       await logAudit(req, { action: "ADD_POINT", module: "subjekty_bonita", entityId: subjectId, entityName: `${pointType} bod (${points}) pre subjekt #${subject.uid}: ${reason}` });
@@ -7603,12 +7614,10 @@ export async function registerRoutes(
       const subjectId = Number(req.params.id);
       const { listStatus, reason } = req.body;
 
-      if (listStatus === "cierny" || listStatus === null) {
-        const userPerms = appUser?.permissionGroup;
-        const isSuperAdmin = userPerms?.name?.toLowerCase().includes("superadmin") || userPerms?.name?.toLowerCase().includes("prezident");
-        if (!isSuperAdmin) {
-          return res.status(403).json({ message: "Len SuperAdmin/Prezident môže meniť Čierny zoznam" });
-        }
+      const userPerms = appUser?.permissionGroup;
+      const isSuperAdmin = userPerms?.name?.toLowerCase().includes("superadmin") || userPerms?.name?.toLowerCase().includes("prezident");
+      if (!isSuperAdmin) {
+        return res.status(403).json({ message: "Len SuperAdmin/Prezident môže meniť stav zoznamu" });
       }
 
       if (listStatus !== "cerveny" && listStatus !== "cierny" && listStatus !== null) {
@@ -7628,6 +7637,171 @@ export async function registerRoutes(
       });
 
       res.json(updated);
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  // === RED LIST ALERTS (Červený zoznam - upozornenia) ===
+  app.get("/api/red-list-alerts/pending", isAuthenticated, async (req: any, res) => {
+    try {
+      const appUser = req.appUser;
+      const isAdmin = appUser?.role === 'admin' || appUser?.role === 'superadmin' || appUser?.role === 'prezident';
+      const pgName = (appUser?.permissionGroup?.name || "").toLowerCase();
+      const isAdminPg = pgName.includes("admin") || pgName.includes("superadmin") || pgName.includes("prezident");
+      if (!isAdmin && !isAdminPg) return res.status(403).json({ message: "Len admin/superadmin" });
+
+      const alerts = await db.select().from(redListAlerts)
+        .where(eq(redListAlerts.status, "pending"))
+        .orderBy(desc(redListAlerts.createdAt));
+
+      const enriched = await Promise.all(alerts.map(async (alert) => {
+        const subject = await storage.getSubject(alert.subjectId);
+        const details = subject?.details as any;
+        const titleBefore = subject?.titleBefore || details?.dynamicFields?.titul_pred || "";
+        const titleAfter = subject?.titleAfter || details?.dynamicFields?.titul_za || "";
+        return {
+          ...alert,
+          subjectUid: subject?.uid || "",
+          subjectName: subject?.type === "person"
+            ? `${titleBefore ? titleBefore + " " : ""}${subject?.firstName || ""} ${subject?.lastName || ""}${titleAfter ? ", " + titleAfter : ""}`
+            : subject?.companyName || "",
+          subjectType: subject?.type || "person",
+        };
+      }));
+
+      res.json(enriched);
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  app.post("/api/red-list-alerts/:id/dismiss", isAuthenticated, async (req: any, res) => {
+    try {
+      const appUser = req.appUser;
+      const isAdmin = appUser?.role === 'admin' || appUser?.role === 'superadmin' || appUser?.role === 'prezident';
+      const pgName = (appUser?.permissionGroup?.name || "").toLowerCase();
+      const isAdminPg = pgName.includes("admin") || pgName.includes("superadmin") || pgName.includes("prezident");
+      if (!isAdmin && !isAdminPg) return res.status(403).json({ message: "Len admin/superadmin" });
+
+      const alertId = Number(req.params.id);
+      const [updated] = await db.update(redListAlerts)
+        .set({ dismissCount: sql`${redListAlerts.dismissCount} + 1` })
+        .where(and(eq(redListAlerts.id, alertId), eq(redListAlerts.status, "pending")))
+        .returning();
+
+      if (!updated) return res.status(404).json({ message: "Alert nenájdený" });
+      res.json(updated);
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  app.post("/api/red-list-alerts/:id/confirm", isAuthenticated, async (req: any, res) => {
+    try {
+      const appUser = req.appUser;
+      const isAdmin = appUser?.role === 'admin' || appUser?.role === 'superadmin' || appUser?.role === 'prezident';
+      const pgName = (appUser?.permissionGroup?.name || "").toLowerCase();
+      const isAdminPg = pgName.includes("admin") || pgName.includes("superadmin") || pgName.includes("prezident");
+      if (!isAdmin && !isAdminPg) return res.status(403).json({ message: "Len admin/superadmin" });
+
+      const alertId = Number(req.params.id);
+      const alert = await db.select().from(redListAlerts).where(eq(redListAlerts.id, alertId)).then(r => r[0]);
+      if (!alert || alert.status !== "pending") return res.status(404).json({ message: "Alert nenájdený alebo už vyriešený" });
+
+      const [updated] = await db.update(redListAlerts)
+        .set({ status: "confirmed", resolvedAt: new Date(), resolvedByUserId: appUser?.id || null })
+        .where(eq(redListAlerts.id, alertId))
+        .returning();
+
+      const companyId = appUser?.activeCompanyId || null;
+      await storage.updateSubjectListStatus(alert.subjectId, "cerveny", appUser?.id || 0, `Potvrdený červený zoznam adminom: bonita ${alert.bonitaPoints} bodov`, companyId);
+
+      await logAudit(req, {
+        action: "UPDATE",
+        module: "red_list_alerts",
+        entityId: alert.subjectId,
+        entityName: `Červený zoznam potvrdený pre subjekt #${alert.subjectId}`,
+        oldData: { status: "pending" },
+        newData: { status: "confirmed", listStatus: "cerveny" },
+      });
+
+      const subject = await storage.getSubject(alert.subjectId);
+      const details = subject?.details as any;
+      const titleBefore = subject?.titleBefore || details?.dynamicFields?.titul_pred || "";
+      const titleAfter = subject?.titleAfter || details?.dynamicFields?.titul_za || "";
+      const fullName = subject?.type === "person"
+        ? `${titleBefore ? titleBefore + " " : ""}${subject?.firstName || ""} ${subject?.lastName || ""}${titleAfter ? ", " + titleAfter : ""}`
+        : subject?.companyName || "";
+      const formattedUid = subject?.uid ? subject.uid.replace(/(\d{3})(?=\d)/g, "$1 ") : "";
+      const confirmedAt = new Date();
+      const confirmedAtStr = confirmedAt.toLocaleDateString("sk-SK", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" });
+
+      const subjectContracts = await db.select().from(contracts)
+        .where(and(eq(contracts.subjectId, alert.subjectId), isNull(contracts.deletedAt)));
+      const acquirerUserIds = new Set<number>();
+      for (const c of subjectContracts) {
+        const acqs = await storage.getContractAcquirers(c.id);
+        for (const a of acqs) acquirerUserIds.add(a.userId);
+        if (c.ziskatelUid) {
+          const [user] = await db.select().from(appUsers).where(eq(appUsers.uid, c.ziskatelUid));
+          if (user) acquirerUserIds.add(user.id);
+        }
+      }
+
+      for (const userId of acquirerUserIds) {
+        await db.insert(notificationQueue).values({
+          recipientUserId: userId,
+          notificationType: "red_list_confirmed",
+          title: "Subjekt presunutý na červený zoznam",
+          message: JSON.stringify({
+            subjectId: alert.subjectId,
+            subjectUid: formattedUid,
+            subjectName: fullName,
+            confirmedAt: confirmedAtStr,
+            reason: `Bonita skóre kleslo na ${alert.bonitaPoints} bodov (prah -5). Subjekt mal viacero stornovaných zmlúv kratších ako 1 rok.`,
+          }),
+          priority: "high",
+          status: "sent",
+        });
+      }
+
+      res.json(updated);
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  app.get("/api/red-list-alerts/recent-confirmed", isAuthenticated, async (req: any, res) => {
+    try {
+      const appUser = req.appUser;
+      const isAdmin = appUser?.role === 'admin' || appUser?.role === 'superadmin' || appUser?.role === 'prezident';
+      const pgName = (appUser?.permissionGroup?.name || "").toLowerCase();
+      const isAdminPg = pgName.includes("admin") || pgName.includes("superadmin") || pgName.includes("prezident");
+      if (!isAdmin && !isAdminPg) return res.status(403).json({ message: "Len admin/superadmin" });
+
+      const confirmed = await db.select().from(redListAlerts)
+        .where(eq(redListAlerts.status, "confirmed"))
+        .orderBy(desc(redListAlerts.resolvedAt))
+        .limit(10);
+
+      const enriched = await Promise.all(confirmed.map(async (alert) => {
+        const subject = await storage.getSubject(alert.subjectId);
+        const resolver = alert.resolvedByUserId ? await db.select().from(appUsers).where(eq(appUsers.id, alert.resolvedByUserId)).then(r => r[0]) : null;
+        const details = subject?.details as any;
+        const titleBefore = subject?.titleBefore || details?.dynamicFields?.titul_pred || "";
+        const titleAfter = subject?.titleAfter || details?.dynamicFields?.titul_za || "";
+        return {
+          ...alert,
+          subjectUid: subject?.uid || "",
+          subjectName: subject?.type === "person"
+            ? `${titleBefore ? titleBefore + " " : ""}${subject?.firstName || ""} ${subject?.lastName || ""}${titleAfter ? ", " + titleAfter : ""}`
+            : subject?.companyName || "",
+          resolvedByName: resolver ? `${resolver.firstName || ""} ${resolver.lastName || ""}`.trim() : "",
+        };
+      }));
+
+      res.json(enriched);
     } catch (err: any) {
       res.status(500).json({ message: err.message });
     }
@@ -8313,6 +8487,7 @@ export async function registerRoutes(
     const systemGroups = [
       { name: "Klienti", groupCode: "group_klient" },
       { name: "Registrovaní klienti", groupCode: "group_registrovany" },
+      { name: "Čierny zoznam - Podvodníci", groupCode: "group_cierny_zoznam" },
     ];
     for (const sg of systemGroups) {
       const existing = await db.select().from(clientGroups).where(eq(clientGroups.groupCode, sg.groupCode));

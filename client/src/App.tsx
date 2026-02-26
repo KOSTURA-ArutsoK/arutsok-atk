@@ -55,6 +55,7 @@ import ImportArchive from "@/pages/ImportArchive";
 import BulkActions from "@/pages/BulkActions";
 import ProfilSubjektu from "@/pages/ProfilSubjektu";
 import { AppShell } from "@/components/layout/AppShell";
+import { RedListNotificationPopup } from "@/components/red-list-notification-popup";
 
 function PrivateRoute({ children }: { children: React.ReactNode }) {
   const { user, isLoading } = useAuth();
@@ -206,6 +207,7 @@ function App() {
           <TTSProvider>
             <TooltipProvider>
               <Toaster />
+              <RedListNotificationPopup />
               <Router />
             </TooltipProvider>
           </TTSProvider>
