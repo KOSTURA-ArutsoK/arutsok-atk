@@ -1,7 +1,7 @@
 import { useState, useCallback, useMemo, useEffect } from "react";
 import { useMyCompanies } from "@/hooks/use-companies";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { Users, Building2, ShieldAlert, TrendingUp, Briefcase, Package, History, Calendar, Clock, GripVertical, Pencil, Save, X, FileText, FileCheck, AlertCircle, Banknote, AlertTriangle, ArrowRight, CheckCircle2, Loader2, Ban, BarChart3, PieChart as PieChartIcon, Activity, Send, Filter, CalendarDays, ChevronDown, LayoutGrid } from "lucide-react";
+import { Users, Building2, ShieldAlert, TrendingUp, Briefcase, Package, History, Calendar, Clock, GripVertical, Pencil, Save, X, FileText, FileCheck, AlertCircle, Banknote, AlertTriangle, ArrowRight, Loader2, Ban } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useAppUser } from "@/hooks/use-app-user";
@@ -11,9 +11,6 @@ import { useToast } from "@/hooks/use-toast";
 import { useLocation } from "wouter";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import {
   DndContext,
   closestCenter,
@@ -32,64 +29,8 @@ import {
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { cn, formatUid } from "@/lib/utils";
-import {
-  AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend,
-  PieChart, Pie, Cell,
-  BarChart, Bar,
-} from "recharts";
 
 const WIDGET_KEYS = ["stats", "recent_subjects", "my_companies", "recent_partners", "recent_products", "audit_activity", "upcoming_events", "red_list_recent", "black_list_recent"];
-
-const LIFECYCLE_PHASES: Record<number, string> = {
-  1: "Čakajúce na odoslanie",
-  2: "Odoslané na sprievodke",
-  3: "Neprijaté – výhrady",
-  4: "Archív (z výhradami)",
-  5: "Prijaté do centrály",
-  6: "Kontrakt v spracovaní",
-  7: "Interná intervencia",
-  8: "Pripravené na odoslanie",
-  9: "Odoslané partnerovi",
-  10: "Prijaté partnerom",
-};
-
-const TIME_PRESETS = [
-  { label: "Dnes", value: "today" },
-  { label: "7 dní", value: "7d" },
-  { label: "30 dní", value: "30d" },
-  { label: "Kvartál", value: "quarter" },
-  { label: "Rok", value: "year" },
-  { label: "Všetko", value: "all" },
-  { label: "Vlastný", value: "custom" },
-];
-
-function getDateRange(preset: string): { from: string; to: string } {
-  const now = new Date();
-  const to = now.toISOString().slice(0, 10);
-  switch (preset) {
-    case "today": return { from: to, to };
-    case "7d": { const d = new Date(now); d.setDate(d.getDate() - 7); return { from: d.toISOString().slice(0, 10), to }; }
-    case "30d": { const d = new Date(now); d.setDate(d.getDate() - 30); return { from: d.toISOString().slice(0, 10), to }; }
-    case "quarter": { const d = new Date(now); d.setMonth(d.getMonth() - 3); return { from: d.toISOString().slice(0, 10), to }; }
-    case "year": { const d = new Date(now); d.setFullYear(d.getFullYear() - 1); return { from: d.toISOString().slice(0, 10), to }; }
-    default: return { from: "", to: "" };
-  }
-}
-
-function formatMonthLabel(m: string): string {
-  const [year, month] = m.split("-");
-  const months = ["Jan", "Feb", "Mar", "Apr", "Máj", "Jún", "Júl", "Aug", "Sep", "Okt", "Nov", "Dec"];
-  return `${months[parseInt(month, 10) - 1]} ${year?.slice(2)}`;
-}
-
-interface AnalyticsData {
-  quickStats: { totalContracts: number; pendingObjections: number; sprievodkyCount: number };
-  scanTrend: { date: string; cumulative: number }[];
-  phaseDistribution: { phase: number; count: number; label: string; color: string }[];
-  qualityProcess: { period: string; accepted: number; objections: number }[];
-  protocolActivity: { month: string; count: number }[];
-  inventories: { id: number; name: string }[];
-}
 
 function SortableWidget({ id, isEditing, children }: { id: string; isEditing: boolean; children: React.ReactNode }) {
   const {
@@ -142,15 +83,6 @@ interface ContractStats {
   interventionStatusIds: number[];
 }
 
-function EmptyChartState({ message }: { message?: string }) {
-  return (
-    <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
-      <BarChart3 className="w-10 h-10 mb-2 opacity-30" />
-      <p className="text-sm">{message || "Žiadne dáta pre zvolené filtre"}</p>
-    </div>
-  );
-}
-
 export default function Dashboard() {
   const { data: appUser } = useAppUser();
   const [, navigate] = useLocation();
@@ -169,39 +101,6 @@ export default function Dashboard() {
   const [isEditing, setIsEditing] = useState(false);
   const [editOrder, setEditOrder] = useState<string[]>([]);
   const [redListDialogOpen, setRedListDialogOpen] = useState(false);
-
-  const [timePreset, setTimePreset] = useState("all");
-  const [customFrom, setCustomFrom] = useState("");
-  const [customTo, setCustomTo] = useState("");
-  const [phaseFilter, setPhaseFilter] = useState("");
-  const [inventoryFilter, setInventoryFilter] = useState("");
-
-  const analyticsParams = useMemo(() => {
-    const p = new URLSearchParams();
-    if (timePreset === "custom") {
-      if (customFrom) p.set("dateFrom", customFrom);
-      if (customTo) p.set("dateTo", customTo);
-    } else if (timePreset !== "all") {
-      const range = getDateRange(timePreset);
-      if (range.from) p.set("dateFrom", range.from);
-      if (range.to) p.set("dateTo", range.to);
-    }
-    if (phaseFilter && phaseFilter !== "all") p.set("phase", phaseFilter);
-    if (inventoryFilter && inventoryFilter !== "all") p.set("inventoryId", inventoryFilter);
-    return p;
-  }, [timePreset, customFrom, customTo, phaseFilter, inventoryFilter]);
-
-  const { data: analytics, isLoading: analyticsLoading } = useQuery<AnalyticsData>({
-    queryKey: ["/api/dashboard/analytics", analyticsParams.toString()],
-    queryFn: async () => {
-      const r = await fetch(`/api/dashboard/analytics?${analyticsParams.toString()}`, { credentials: "include" });
-      if (r.status === 401) { window.location.href = "/"; throw new Error("Session expired"); }
-      if (!r.ok) throw new Error(`HTTP ${r.status}`);
-      return r.json();
-    },
-    retry: 1,
-    placeholderData: (prev: any) => prev,
-  });
 
   const isAdminUser = useMemo(() => {
     const role = appUser?.role || "";
@@ -372,13 +271,6 @@ export default function Dashboard() {
   ];
 
   const recentLogs = auditLogs.slice(0, 5);
-
-  const qs = analytics?.quickStats;
-  const scanTrend = analytics?.scanTrend || [];
-  const phaseDistribution = analytics?.phaseDistribution || [];
-  const qualityProcess = analytics?.qualityProcess || [];
-  const protocolActivity = analytics?.protocolActivity || [];
-  const inventories = analytics?.inventories || [];
 
   const widgetRenderers: Record<string, () => React.ReactNode> = {
     stats: () => (
@@ -643,14 +535,6 @@ export default function Dashboard() {
     ) : null,
   };
 
-  const customTooltipStyle = {
-    backgroundColor: "hsl(var(--card))",
-    border: "1px solid hsl(var(--border))",
-    borderRadius: "6px",
-    fontSize: "12px",
-    color: "hsl(var(--foreground))",
-  };
-
   return (
     <div className="space-y-6">
       <Dialog open={redListDialogOpen} onOpenChange={setRedListDialogOpen}>
@@ -731,252 +615,6 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* === SMART FILTER BAR === */}
-      <Card data-testid="card-filter-bar">
-        <CardContent className="pt-4 pb-3">
-          <div className="flex items-center gap-2 mb-3">
-            <Filter className="w-4 h-4 text-muted-foreground" />
-            <span className="text-sm font-semibold">Filtre analytiky</span>
-            {analyticsLoading && <Loader2 className="w-3.5 h-3.5 animate-spin text-muted-foreground ml-auto" />}
-          </div>
-          <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-3 items-end">
-            <div>
-              <Label className="text-xs">Časové obdobie</Label>
-              <Select value={timePreset} onValueChange={setTimePreset}>
-                <SelectTrigger data-testid="select-time-preset">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {TIME_PRESETS.map(p => (
-                    <SelectItem key={p.value} value={p.value}>{p.label}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            {timePreset === "custom" && (
-              <>
-                <div>
-                  <Label className="text-xs">Od</Label>
-                  <Input type="date" value={customFrom} onChange={e => setCustomFrom(e.target.value)} data-testid="input-custom-from" />
-                </div>
-                <div>
-                  <Label className="text-xs">Do</Label>
-                  <Input type="date" value={customTo} onChange={e => setCustomTo(e.target.value)} data-testid="input-custom-to" />
-                </div>
-              </>
-            )}
-
-            <div>
-              <Label className="text-xs">Fáza životného cyklu</Label>
-              <Select value={phaseFilter} onValueChange={setPhaseFilter}>
-                <SelectTrigger data-testid="select-phase-filter">
-                  <SelectValue placeholder="Všetky fázy" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Všetky fázy</SelectItem>
-                  {Object.entries(LIFECYCLE_PHASES).map(([k, v]) => (
-                    <SelectItem key={k} value={k}>{`F${k}: ${v}`}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div>
-              <Label className="text-xs">Sprievodka</Label>
-              <Select value={inventoryFilter} onValueChange={setInventoryFilter}>
-                <SelectTrigger data-testid="select-inventory-filter">
-                  <SelectValue placeholder="Všetky" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Všetky sprievodky</SelectItem>
-                  {inventories.map(inv => (
-                    <SelectItem key={inv.id} value={String(inv.id)}>{inv.name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* === QUICK STATS === */}
-      <div className="grid gap-4 grid-cols-1 sm:grid-cols-3" data-testid="quick-stats">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between gap-2 space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Celkový počet zmlúv</CardTitle>
-            <div className="p-2 rounded-md bg-blue-500/10 text-blue-500">
-              <FileText className="h-4 w-4" />
-            </div>
-          </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-bold" data-testid="text-qs-total">{qs?.totalContracts ?? 0}</div>
-            <p className="text-xs text-muted-foreground mt-1">vo filtrovanom období</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between gap-2 space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Nevybavené výhrady</CardTitle>
-            <div className="p-2 rounded-md bg-red-500/10 text-red-500">
-              <AlertTriangle className="h-4 w-4" />
-            </div>
-          </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-bold text-red-400" data-testid="text-qs-objections">{qs?.pendingObjections ?? 0}</div>
-            <p className="text-xs text-muted-foreground mt-1">zmluvy vo fáze 3</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between gap-2 space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Počet sprievodiek</CardTitle>
-            <div className="p-2 rounded-md bg-emerald-500/10 text-emerald-500">
-              <Send className="h-4 w-4" />
-            </div>
-          </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-bold" data-testid="text-qs-sprievodky">{qs?.sprievodkyCount ?? 0}</div>
-            <p className="text-xs text-muted-foreground mt-1">aktívnych protokolov</p>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* === ANALYTICS CHARTS === */}
-      <div className="grid gap-4 grid-cols-1 lg:grid-cols-2">
-        {/* Trend Skenovania - Area Chart */}
-        <Card className="lg:col-span-2" data-testid="chart-scan-trend">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-base flex items-center gap-2">
-              <Activity className="w-4 h-4 text-blue-500" />
-              Trend skenovania zmlúv
-            </CardTitle>
-            <p className="text-xs text-muted-foreground">Kumulatívny prírastok nahraných zmlúv v čase</p>
-          </CardHeader>
-          <CardContent>
-            {scanTrend.length > 0 ? (
-              <ResponsiveContainer width="100%" height={280}>
-                <AreaChart data={scanTrend}>
-                  <defs>
-                    <linearGradient id="gradientBlue" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.3} />
-                      <stop offset="95%" stopColor="#3b82f6" stopOpacity={0} />
-                    </linearGradient>
-                  </defs>
-                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                  <XAxis dataKey="date" tick={{ fontSize: 11 }} stroke="hsl(var(--muted-foreground))" tickFormatter={d => { const parts = d.split("-"); return `${parts[2]}.${parts[1]}`; }} />
-                  <YAxis tick={{ fontSize: 11 }} stroke="hsl(var(--muted-foreground))" />
-                  <Tooltip contentStyle={customTooltipStyle} labelFormatter={d => `Dátum: ${d}`} formatter={(v: number) => [`${v} zmlúv`, "Kumulatívne"]} />
-                  <Area type="monotone" dataKey="cumulative" stroke="#3b82f6" fill="url(#gradientBlue)" strokeWidth={2} />
-                </AreaChart>
-              </ResponsiveContainer>
-            ) : (
-              <EmptyChartState />
-            )}
-          </CardContent>
-        </Card>
-
-        {/* Distribúcia Fáz - Donut Chart */}
-        <Card data-testid="chart-phase-distribution">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-base flex items-center gap-2">
-              <PieChartIcon className="w-4 h-4 text-emerald-500" />
-              Distribúcia fáz
-            </CardTitle>
-            <p className="text-xs text-muted-foreground">Rozdelenie zmlúv podľa životného cyklu</p>
-          </CardHeader>
-          <CardContent>
-            {phaseDistribution.length > 0 ? (
-              <div className="flex flex-col items-center">
-                <ResponsiveContainer width="100%" height={260}>
-                  <PieChart>
-                    <Pie
-                      data={phaseDistribution}
-                      dataKey="count"
-                      nameKey="label"
-                      cx="50%"
-                      cy="50%"
-                      innerRadius={55}
-                      outerRadius={95}
-                      paddingAngle={2}
-                      label={({ label, count }) => `${count}`}
-                    >
-                      {phaseDistribution.map((entry, i) => (
-                        <Cell key={i} fill={entry.color} />
-                      ))}
-                    </Pie>
-                    <Tooltip contentStyle={customTooltipStyle} formatter={(v: number, name: string) => [`${v} zmlúv`, name]} />
-                  </PieChart>
-                </ResponsiveContainer>
-                <div className="flex flex-wrap gap-x-4 gap-y-1 justify-center mt-2">
-                  {phaseDistribution.map((entry, i) => (
-                    <div key={i} className="flex items-center gap-1.5 text-xs">
-                      <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: entry.color }} />
-                      <span className="text-muted-foreground">F{entry.phase}: {entry.count}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            ) : (
-              <EmptyChartState />
-            )}
-          </CardContent>
-        </Card>
-
-        {/* Kvalita Procesu - Stacked Bar Chart */}
-        <Card data-testid="chart-quality-process">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-base flex items-center gap-2">
-              <CheckCircle2 className="w-4 h-4 text-emerald-500" />
-              Kvalita procesu
-            </CardTitle>
-            <p className="text-xs text-muted-foreground">Prijaté vs. výhrady v čase</p>
-          </CardHeader>
-          <CardContent>
-            {qualityProcess.length > 0 ? (
-              <ResponsiveContainer width="100%" height={260}>
-                <BarChart data={qualityProcess}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                  <XAxis dataKey="period" tick={{ fontSize: 11 }} stroke="hsl(var(--muted-foreground))" tickFormatter={formatMonthLabel} />
-                  <YAxis tick={{ fontSize: 11 }} stroke="hsl(var(--muted-foreground))" />
-                  <Tooltip contentStyle={customTooltipStyle} labelFormatter={formatMonthLabel} />
-                  <Legend wrapperStyle={{ fontSize: 12 }} />
-                  <Bar dataKey="accepted" name="Prijaté" stackId="a" fill="#22c55e" radius={[0, 0, 0, 0]} />
-                  <Bar dataKey="objections" name="Výhrady" stackId="a" fill="#ef4444" radius={[4, 4, 0, 0]} />
-                </BarChart>
-              </ResponsiveContainer>
-            ) : (
-              <EmptyChartState />
-            )}
-          </CardContent>
-        </Card>
-
-        {/* Aktivita Protokolov - Bar Chart */}
-        <Card className="lg:col-span-2" data-testid="chart-protocol-activity">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-base flex items-center gap-2">
-              <Send className="w-4 h-4 text-violet-500" />
-              Aktivita sprievodiek
-            </CardTitle>
-            <p className="text-xs text-muted-foreground">Počet vytvorených odovzdávacích protokolov po mesiacoch</p>
-          </CardHeader>
-          <CardContent>
-            {protocolActivity.length > 0 ? (
-              <ResponsiveContainer width="100%" height={260}>
-                <BarChart data={protocolActivity}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                  <XAxis dataKey="month" tick={{ fontSize: 11 }} stroke="hsl(var(--muted-foreground))" tickFormatter={formatMonthLabel} />
-                  <YAxis tick={{ fontSize: 11 }} stroke="hsl(var(--muted-foreground))" allowDecimals={false} />
-                  <Tooltip contentStyle={customTooltipStyle} labelFormatter={formatMonthLabel} formatter={(v: number) => [`${v} sprievodiek`, "Počet"]} />
-                  <Bar dataKey="count" name="Sprievodky" fill="#8b5cf6" radius={[4, 4, 0, 0]} />
-                </BarChart>
-              </ResponsiveContainer>
-            ) : (
-              <EmptyChartState />
-            )}
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* === EXISTING WIDGETS === */}
       <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
         <SortableContext items={displayOrder} strategy={rectSortingStrategy}>
           <div className="grid gap-4 grid-cols-1 lg:grid-cols-2">
