@@ -2,7 +2,7 @@ import { useState, useRef, useCallback, useEffect } from "react";
 import { usePartners, useCreatePartner, useUpdatePartner, useDeletePartner, usePartnerContacts, usePartnerProducts, useCreatePartnerContact, useCreatePartnerProduct, useUpdatePartnerLifecycleStatus } from "@/hooks/use-partners";
 import { useAppUser } from "@/hooks/use-app-user";
 import { formatDateSlovak, formatPhone, formatUid } from "@/lib/utils";
-import { Plus, Briefcase, Pencil, Trash2, Clock, Users, Package, Calendar, Archive, MapPin, Circle, FastForward, Play, Pause, SkipForward, Square } from "lucide-react";
+import { Plus, Briefcase, Pencil, Trash2, Clock, Users, Package, Calendar, Archive, MapPin, Circle, FastForward, Play, Pause, Upload, Square } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -65,13 +65,13 @@ import { useSmartFilter } from "@/hooks/use-smart-filter";
 import type { SmartColumnDef } from "@/hooks/use-smart-filter";
 import { SmartFilterBar } from "@/components/smart-filter-bar";
 
-const LIFECYCLE_STATUS_CONFIG: Record<string, { label: string; Icon: typeof Circle; colorClass: string }> = {
-  record: { label: "Priprava", Icon: Circle, colorClass: "text-gray-400" },
-  fast_forward: { label: "Buduci start", Icon: FastForward, colorClass: "text-blue-500" },
-  play: { label: "Aktivne", Icon: Play, colorClass: "text-emerald-500" },
-  pause: { label: "Pozastavene", Icon: Pause, colorClass: "text-yellow-500" },
-  eject: { label: "Dobiehanie", Icon: SkipForward, colorClass: "text-orange-500" },
-  stop: { label: "Ukoncene", Icon: Square, colorClass: "text-red-500" },
+const LIFECYCLE_STATUS_CONFIG: Record<string, { label: string; Icon: typeof Circle; colorClass: string; filled?: boolean }> = {
+  record: { label: "Príprava", Icon: Circle, colorClass: "text-gray-400", filled: true },
+  fast_forward: { label: "Budúci štart", Icon: FastForward, colorClass: "text-blue-500" },
+  play: { label: "Aktívne", Icon: Play, colorClass: "text-emerald-500", filled: true },
+  pause: { label: "Pozastavené", Icon: Pause, colorClass: "text-yellow-500" },
+  eject: { label: "Dobiehanie", Icon: Upload, colorClass: "text-orange-500" },
+  stop: { label: "Ukončené", Icon: Square, colorClass: "text-red-500", filled: true },
 };
 
 function LifecycleStatusIcon({ status }: { status: string | null | undefined }) {
@@ -81,7 +81,7 @@ function LifecycleStatusIcon({ status }: { status: string | null | undefined }) 
     <Tooltip>
       <TooltipTrigger asChild>
         <span className="inline-flex" data-testid={`status-lifecycle-${status || "record"}`}>
-          <IconComp className={`w-4 h-4 ${config.colorClass}`} />
+          <IconComp className={`w-5 h-5 ${config.colorClass}`} fill={config.filled ? "currentColor" : "none"} />
         </span>
       </TooltipTrigger>
       <TooltipContent>{config.label}</TooltipContent>
@@ -521,7 +521,7 @@ function PartnerUnifiedDialog({
                           return (
                             <SelectItem key={key} value={key}>
                               <span className="flex items-center gap-2">
-                                <IconComp className={`w-4 h-4 ${cfg.colorClass}`} />
+                                <IconComp className={`w-4 h-4 ${cfg.colorClass}`} fill={cfg.filled ? "currentColor" : "none"} />
                                 {cfg.label}
                               </span>
                             </SelectItem>

@@ -8,7 +8,7 @@ import { SmartFilterBar } from "@/components/smart-filter-bar";
 import { useToast } from "@/hooks/use-toast";
 import { usePartners } from "@/hooks/use-partners";
 import type { Sector, Parameter, SectorProduct, SectorProductParameter, Panel, PanelParameter, ProductPanel, Section, ContractFolder, FolderPanel } from "@shared/schema";
-import { Plus, Pencil, Trash2, Loader2, Search, Layers, Settings2, ChevronsUpDown, X, Check, FolderOpen, List, Package, Info, LayoutGrid, FolderClosed, Hash, ArrowRight, FileText, Circle, SkipForward, Play, Pause, Upload, Square, AlertTriangle } from "lucide-react";
+import { Plus, Pencil, Trash2, Loader2, Search, Layers, Settings2, ChevronsUpDown, X, Check, FolderOpen, List, Package, Info, LayoutGrid, FolderClosed, Hash, ArrowRight, FileText, Circle, FastForward, Play, Pause, Upload, Square, AlertTriangle } from "lucide-react";
 import { ConditionalDelete } from "@/components/conditional-delete";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -134,12 +134,12 @@ function useHierarchyCounts() {
 }
 
 const LIFECYCLE_STATUSES = [
-  { value: "record", label: "Priprava", icon: Circle, color: "text-gray-400", bg: "bg-gray-400/15" },
-  { value: "fast_forward", label: "Buduci start", icon: SkipForward, color: "text-blue-500", bg: "bg-blue-500/15" },
-  { value: "play", label: "Aktivne", icon: Play, color: "text-green-500", bg: "bg-green-500/15" },
-  { value: "pause", label: "Pozastavene", icon: Pause, color: "text-yellow-500", bg: "bg-yellow-500/15" },
-  { value: "eject", label: "Dobiehanie", icon: Upload, color: "text-orange-500", bg: "bg-orange-500/15" },
-  { value: "stop", label: "Ukoncene", icon: Square, color: "text-red-500", bg: "bg-red-500/15" },
+  { value: "record", label: "Príprava", icon: Circle, color: "text-gray-400", bg: "bg-gray-400/15", filled: true },
+  { value: "fast_forward", label: "Budúci štart", icon: FastForward, color: "text-blue-500", bg: "bg-blue-500/15", filled: false },
+  { value: "play", label: "Aktívne", icon: Play, color: "text-green-500", bg: "bg-green-500/15", filled: true },
+  { value: "pause", label: "Pozastavené", icon: Pause, color: "text-yellow-500", bg: "bg-yellow-500/15", filled: false },
+  { value: "eject", label: "Dobiehanie", icon: Upload, color: "text-orange-500", bg: "bg-orange-500/15", filled: false },
+  { value: "stop", label: "Ukončené", icon: Square, color: "text-red-500", bg: "bg-red-500/15", filled: true },
 ] as const;
 
 function getLifecycleInfo(status: string | null | undefined) {
@@ -600,7 +600,7 @@ function SectorProductFormDialog({
                   return (
                     <SelectItem key={s.value} value={s.value} data-testid={`option-lifecycle-${s.value}`}>
                       <div className="flex items-center gap-2">
-                        <Icon className={`w-4 h-4 ${s.color}`} />
+                        <Icon className={`w-4 h-4 ${s.color}`} fill={s.filled ? "currentColor" : "none"} />
                         {s.label}
                       </div>
                     </SelectItem>
@@ -1726,7 +1726,7 @@ function ProductTableRow({
           <Tooltip>
             <TooltipTrigger asChild>
               <div className={`flex items-center justify-center w-7 h-7 rounded-md ${lc.bg}`} data-testid={`status-product-lifecycle-${product.id}`}>
-                <LcIcon className={`w-4 h-4 ${lc.color}`} />
+                <LcIcon className={`w-4 h-4 ${lc.color}`} fill={lc.filled ? "currentColor" : "none"} />
               </div>
             </TooltipTrigger>
             <TooltipContent>
