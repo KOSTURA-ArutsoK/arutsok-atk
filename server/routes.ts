@@ -5324,6 +5324,157 @@ export async function registerRoutes(
     }
   });
 
+  // === DASHBOARD ANALYTICS (Inteligentný Dashboard) ===
+  app.get("/api/dashboard/analytics", isAuthenticated, async (req: any, res) => {
+    try {
+      const appUser = req.appUser;
+      if (!appUser) return res.status(401).json({ message: "Unauthorized" });
+
+      const stateId = getEnforcedStateId(req);
+      const companyId = appUser.activeCompanyId || undefined;
+      const dateFrom = req.query.dateFrom as string | undefined;
+      const dateTo = req.query.dateTo as string | undefined;
+      const phase = req.query.phase ? Number(req.query.phase) : undefined;
+      const inventoryId = req.query.inventoryId ? Number(req.query.inventoryId) : undefined;
+
+      const conditions: any[] = [eq(contracts.isDeleted, false)];
+      if (stateId) conditions.push(eq(contracts.stateId, stateId));
+      if (companyId) conditions.push(eq(contracts.companyId, companyId));
+      if (dateFrom) conditions.push(gte(contracts.createdAt, new Date(dateFrom)));
+      if (dateTo) {
+        const endOfDay = new Date(dateTo);
+        endOfDay.setHours(23, 59, 59, 999);
+        conditions.push(lte(contracts.createdAt, endOfDay));
+      }
+      if (phase) conditions.push(eq(contracts.lifecyclePhase, phase));
+      if (inventoryId) conditions.push(eq(contracts.inventoryId, inventoryId));
+
+      const whereClause = and(...conditions);
+
+      const allStatuses = await storage.getContractStatuses(stateId);
+      const STATUS_PHASE_MAP: Record<string, number> = {
+        "neprijata": 3, "vyhrady": 3, "nedodana": 3, "chybna": 3,
+        "odoslana": 2, "sprievodke": 2,
+        "prijata": 5, "vybavena": 5, "spracovana": 5, "schvalenie": 5,
+        "intervencia": 7, "riesenie": 7,
+      };
+      function derivePhaseLocal(lp: number | null, statusId: number | null): number {
+        if (lp && lp > 0) return lp;
+        if (!statusId) return 1;
+        const st = allStatuses.find((s: any) => s.id === statusId);
+        if (!st) return 1;
+        const nameLower = (st.name || "").toLowerCase();
+        for (const [keyword, p] of Object.entries(STATUS_PHASE_MAP)) {
+          if (nameLower.includes(keyword)) return p;
+        }
+        return 1;
+      }
+
+      const PHASE_COLORS: Record<number, string> = {
+        1: "#6b7280", 2: "#3b82f6", 3: "#ef4444", 4: "#6b7280",
+        5: "#22c55e", 6: "#22c55e", 7: "#f59e0b", 8: "#22c55e",
+        9: "#22c55e", 10: "#22c55e",
+      };
+
+      const filtered = await db.select({
+        id: contracts.id,
+        lifecyclePhase: contracts.lifecyclePhase,
+        statusId: contracts.statusId,
+        createdAt: contracts.createdAt,
+        inventoryId: contracts.inventoryId,
+      }).from(contracts).where(whereClause).orderBy(asc(contracts.createdAt)).limit(50000);
+
+      const objectionStatusIds = new Set(
+        allStatuses.filter(s => s.isIntervention || (s.name || "").toLowerCase().includes("vyhrady") || (s.name || "").toLowerCase().includes("neprijata")).map(s => s.id)
+      );
+      const acceptedStatusIds = new Set(
+        allStatuses.filter(s => (s.name || "").toLowerCase().includes("prijata") && !(s.name || "").toLowerCase().includes("neprijata")).map(s => s.id)
+      );
+
+      const totalContracts = filtered.length;
+      const pendingObjections = filtered.filter(c => {
+        const p = derivePhaseLocal(c.lifecyclePhase, c.statusId);
+        return p === 3;
+      }).length;
+
+      const inventoryIds = new Set(filtered.filter(c => c.inventoryId).map(c => c.inventoryId));
+      const sprievodkyCount = inventoryIds.size;
+
+      const scanTrendMap = new Map<string, number>();
+      for (const c of filtered) {
+        const d = c.createdAt ? new Date(c.createdAt).toISOString().slice(0, 10) : null;
+        if (d) scanTrendMap.set(d, (scanTrendMap.get(d) || 0) + 1);
+      }
+      const sortedDays = [...scanTrendMap.entries()].sort((a, b) => a[0].localeCompare(b[0]));
+      let cumulative = 0;
+      const scanTrend = sortedDays.map(([date, count]) => {
+        cumulative += count;
+        return { date, cumulative };
+      });
+
+      const phaseCountMap = new Map<number, number>();
+      for (const c of filtered) {
+        const p = derivePhaseLocal(c.lifecyclePhase, c.statusId);
+        phaseCountMap.set(p, (phaseCountMap.get(p) || 0) + 1);
+      }
+      const phaseDistribution = [...phaseCountMap.entries()]
+        .sort((a, b) => a[0] - b[0])
+        .map(([p, count]) => ({
+          phase: p,
+          count,
+          label: LIFECYCLE_PHASES[p] || `Fáza ${p}`,
+          color: PHASE_COLORS[p] || "#6b7280",
+        }));
+
+      const qualityMap = new Map<string, { accepted: number; objections: number }>();
+      for (const c of filtered) {
+        const d = c.createdAt ? new Date(c.createdAt).toISOString().slice(0, 7) : null;
+        if (!d) continue;
+        if (!qualityMap.has(d)) qualityMap.set(d, { accepted: 0, objections: 0 });
+        const entry = qualityMap.get(d)!;
+        if (c.statusId && objectionStatusIds.has(c.statusId)) entry.objections++;
+        else if (c.statusId && acceptedStatusIds.has(c.statusId)) entry.accepted++;
+        else {
+          const p = derivePhaseLocal(c.lifecyclePhase, c.statusId);
+          if (p === 3) entry.objections++;
+          else if (p >= 5) entry.accepted++;
+        }
+      }
+      const qualityProcess = [...qualityMap.entries()]
+        .sort((a, b) => a[0].localeCompare(b[0]))
+        .map(([period, data]) => ({ period, ...data }));
+
+      const protocolMap = new Map<string, Set<number>>();
+      for (const c of filtered) {
+        if (!c.inventoryId) continue;
+        const d = c.createdAt ? new Date(c.createdAt).toISOString().slice(0, 7) : null;
+        if (!d) continue;
+        if (!protocolMap.has(d)) protocolMap.set(d, new Set());
+        protocolMap.get(d)!.add(c.inventoryId);
+      }
+      const protocolActivity = [...protocolMap.entries()]
+        .sort((a, b) => a[0].localeCompare(b[0]))
+        .map(([month, ids]) => ({ month, count: ids.size }));
+
+      const inventories = await db.select({
+        id: contractInventories.id,
+        name: contractInventories.name,
+      }).from(contractInventories).orderBy(asc(contractInventories.name)).limit(500);
+
+      res.json({
+        quickStats: { totalContracts, pendingObjections, sprievodkyCount },
+        scanTrend,
+        phaseDistribution,
+        qualityProcess,
+        protocolActivity,
+        inventories,
+      });
+    } catch (err: any) {
+      console.error("Dashboard analytics error:", err);
+      res.status(500).json({ message: err.message });
+    }
+  });
+
   // === DASHBOARD PREFERENCES ===
   app.get("/api/dashboard-preferences", isAuthenticated, async (req: any, res) => {
     try {
