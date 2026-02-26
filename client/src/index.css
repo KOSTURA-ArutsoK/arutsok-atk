@@ -4,6 +4,10 @@
 @tailwind components;
 @tailwind utilities;
 
+@media print {
+  .report-table { display: none !important; }
+}
+
 :root {
   --font-sans: 'Inter', sans-serif;
   --font-mono: 'JetBrains Mono', monospace;

@@ -50,6 +50,7 @@ import {
   Database,
   LayoutGrid,
   Zap,
+  BarChart3,
 } from "lucide-react";
 import {
   Sidebar,
@@ -620,6 +621,19 @@ export function AppSidebar() {
                 openMenuId={openMenuId}
                 setOpenMenuId={setOpenMenuId}
               />
+              {(appUser?.role === 'admin' || appUser?.role === 'superadmin') && (
+                <SidebarMenuItem>
+                  <Link href="/analytika">
+                    <SidebarMenuButton
+                      isActive={location === "/analytika"}
+                      data-testid="nav-analytika"
+                    >
+                      <BarChart3 className="w-4 h-4" />
+                      <span>Analytika a Reporty</span>
+                    </SidebarMenuButton>
+                  </Link>
+                </SidebarMenuItem>
+              )}
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>

@@ -9,7 +9,7 @@ import { notifyObjectionCreated, notifyPreDeletion, getProductDaysLimits } from 
 import { seedSubjectParameters, seedAssetPanels, seedEventAndEntityPanels } from "./seed-subject-params";
 import sharp from "sharp";
 import { db } from "./db";
-import { eq, and, or, isNotNull, sql, inArray, desc, asc } from "drizzle-orm";
+import { eq, and, or, isNotNull, sql, inArray, desc, asc, gte, lte } from "drizzle-orm";
 import multer from "multer";
 import ExcelJS from "exceljs";
 import { parse as csvParse } from "csv-parse/sync";
@@ -8703,6 +8703,132 @@ export async function registerRoutes(
   setInterval(() => storage.autoArchiveExpiredBindings(), 60 * 60 * 1000);
 
   scheduleUndeliveredContractsCheck();
+
+  // === ANALYTICS & REPORTING ===
+  app.get("/api/reports/production", isAuthenticated, async (req: any, res) => {
+    try {
+      const appUser = req.appUser;
+      const isAdmin = appUser?.role === 'admin' || appUser?.role === 'superadmin';
+      if (!isAdmin) return res.status(403).json({ message: "Len admin/superadmin" });
+
+      const stateId = getEnforcedStateId(req);
+      const filterFrom = req.query.from as string | undefined;
+      const filterTo = req.query.to as string | undefined;
+      const filterPartnerId = req.query.partnerId ? Number(req.query.partnerId) : undefined;
+      const filterAgentId = req.query.agentId ? Number(req.query.agentId) : undefined;
+      const filterStatus = req.query.status ? Number(req.query.status) : undefined;
+
+      const conditions: any[] = [eq(contracts.isDeleted, false)];
+      if (stateId) conditions.push(eq(contracts.stateId, stateId));
+      if (filterPartnerId) conditions.push(eq(contracts.partnerId, filterPartnerId));
+      if (filterStatus) conditions.push(eq(contracts.statusId, filterStatus));
+      if (filterFrom) conditions.push(gte(contracts.signedDate, new Date(filterFrom)));
+      if (filterTo) conditions.push(lte(contracts.signedDate, new Date(filterTo)));
+      if (filterAgentId) {
+        const agentContractIdRows = await db.select({ contractId: contractAcquirers.contractId })
+          .from(contractAcquirers)
+          .where(eq(contractAcquirers.acquirerUserId, filterAgentId));
+        const agentContractIdSet = agentContractIdRows.map((r: any) => r.contractId);
+        if (agentContractIdSet.length > 0) {
+          conditions.push(inArray(contracts.id, agentContractIdSet));
+        } else {
+          return res.json({ kpi: { totalPremium: 0, stornoCount: 0, stornoAmount: 0, actualCashflow: 0, netProduction: 0 }, records: [], totalRecords: 0 });
+        }
+      }
+
+      const filtered: any[] = await db.select({
+        id: contracts.id,
+        uid: contracts.uid,
+        globalNumber: contracts.globalNumber,
+        contractNumber: contracts.contractNumber,
+        premiumAmount: contracts.premiumAmount,
+        annualPremium: contracts.annualPremium,
+        commissionAmount: contracts.commissionAmount,
+        signedDate: contracts.signedDate,
+        subjectId: contracts.subjectId,
+        partnerId: contracts.partnerId,
+        statusId: contracts.statusId,
+        dynamicFields: contracts.dynamicFields,
+      }).from(contracts)
+        .where(and(...conditions))
+        .orderBy(desc(contracts.id))
+        .limit(2000);
+
+      const allStatuses = await storage.getContractStatuses(stateId);
+      const statusMap = new Map(allStatuses.map((s: any) => [s.id, s]));
+      const stornoStatusIds = new Set(allStatuses.filter((s: any) => s.isStorno).map((s: any) => s.id));
+
+      let totalPremium = 0;
+      let stornoCount = 0;
+      let stornoAmount = 0;
+      let actualCashflow = 0;
+
+      for (const c of filtered) {
+        const premium = c.premiumAmount || c.annualPremium || 0;
+        const isStorno = c.statusId ? stornoStatusIds.has(c.statusId) : false;
+        if (isStorno) {
+          stornoCount++;
+          stornoAmount += premium;
+        } else {
+          totalPremium += premium;
+        }
+        actualCashflow += c.commissionAmount || 0;
+      }
+
+      const netProduction = totalPremium - stornoAmount;
+
+      const subjectIds = [...new Set(filtered.map((c: any) => c.subjectId).filter(Boolean))];
+      const subjectMap = new Map<number, any>();
+      for (const sid of subjectIds) {
+        const s = await storage.getSubject(sid);
+        if (s) subjectMap.set(sid, s);
+      }
+
+      const partnerIds = [...new Set(filtered.map((c: any) => c.partnerId).filter(Boolean))];
+      const partnerMap = new Map<number, any>();
+      for (const pid of partnerIds) {
+        const p = await storage.getPartner(pid);
+        if (p) partnerMap.set(pid, p);
+      }
+
+      const records = filtered.map((c: any) => {
+        const subject = c.subjectId ? subjectMap.get(c.subjectId) : null;
+        const st = c.statusId ? statusMap.get(c.statusId) : null;
+        const df = c.dynamicFields as any;
+        return {
+          contractUid: c.uid || c.contractNumber || `#${c.id}`,
+          globalNumber: c.globalNumber,
+          clientName: subject ? (subject.type === 'person'
+            ? `${subject.titleBefore ? subject.titleBefore + ' ' : ''}${subject.firstName || ''} ${subject.lastName || ''}${subject.titleAfter ? ', ' + subject.titleAfter : ''}`.trim()
+            : subject.companyName || '') : '',
+          licensePlate: df?.spz || df?.SPZ || df?.ecv || df?.ECV || '',
+          premiumAmount: c.premiumAmount || c.annualPremium || 0,
+          statusName: st?.name || '',
+          statusColor: st?.color || null,
+          signedDate: c.signedDate,
+          partnerName: c.partnerId ? partnerMap.get(c.partnerId)?.name || '' : '',
+        };
+      });
+
+      if (records.length > 500) {
+        await logAudit(req, {
+          action: "MASSIVE_DATA_ACCESS",
+          module: "reports",
+          entityName: `Production report: ${records.length} records`,
+          newData: { recordCount: records.length, filters: { from: filterFrom, to: filterTo, partnerId: filterPartnerId, agentId: filterAgentId, status: filterStatus, stateId } },
+        });
+      }
+
+      res.json({
+        kpi: { totalPremium, stornoCount, stornoAmount, actualCashflow, netProduction },
+        records,
+        totalRecords: records.length,
+      });
+    } catch (err: any) {
+      console.error("Reports production error:", err);
+      res.status(500).json({ message: err.message });
+    }
+  });
 
   // === SUBJECT PHOTOS (Profile Photo with Versioning) ===
   app.get("/api/subjects/:id/photos", isAuthenticated, async (req: any, res) => {

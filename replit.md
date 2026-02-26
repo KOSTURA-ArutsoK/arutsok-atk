@@ -72,3 +72,7 @@ The system employs a modern full-stack architecture prioritizing data integrity,
 - **Multer**: Middleware for handling `multipart/form-data`.
 - **ExcelJS**: Library for reading, writing, and manipulating XLSX, CSV, and JSON files.
 - **Sharp**: High-performance Node.js image processing library.
+- **jsPDF**: Client-side PDF generation library.
+
+## Recent Features
+- **Analytics & Reporting Module**: Admin/SuperAdmin-only module at `/analytika`. Sidebar item "Analytika a Reporty" (BarChart3 icon) below Informácie section. Backend `GET /api/reports/production` endpoint with filters (dateRange, partner, agent, status), state isolation via `getEnforcedStateId`. 4 KPI cards (Celková produkcia, Čistá produkcia, Skutočný cashflow, Storno Analýza with red styling). Dynamic table with Contract UID, Client Name, ŠPZ, Premium, Status, Date and sticky footer sum. MASSIVE_DATA_ACCESS audit trigger for >500 records. Manager Summary PDF via jsPDF with diagonal watermark (email + timestamp). No xlsx/csv/json export. `@media print` hides report-table class. SQL limit 2000 records.
