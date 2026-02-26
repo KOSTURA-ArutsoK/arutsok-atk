@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect, useCallback } from "react";
+import { useState, useMemo, useEffect, useCallback, useRef } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useAppUser } from "@/hooks/use-app-user";
 import { Card, CardContent } from "@/components/ui/card";
@@ -137,6 +137,9 @@ export default function Reports() {
   const [showAddFilter, setShowAddFilter] = useState(false);
   const [deepDiveOpen, setDeepDiveOpen] = useState(true);
   const [autoRefreshKey, setAutoRefreshKey] = useState(0);
+  const [selectedMonth, setSelectedMonth] = useState<string | null>(null);
+  const pieChartRef = useRef<HTMLDivElement>(null);
+  const barChartRef = useRef<HTMLDivElement>(null);
 
   const addDynamicFilter = useCallback((opt: typeof DYNAMIC_FILTER_OPTIONS[0]) => {
     const already = dynamicFilters.find(f => f.field === opt.field);
@@ -210,6 +213,7 @@ export default function Reports() {
     setFrom(""); setTo(""); setPartnerId(""); setAgentId("");
     setStatus(""); setContractType(""); setFiltersApplied(false);
     setSearchText(""); setDynamicFilters([]); setAutoRefreshKey(0);
+    setSelectedMonth(null);
   };
 
   const kpi = reportData?.kpi;
@@ -219,17 +223,28 @@ export default function Reports() {
   const availableContractTypes = reportData?.contractTypes || [];
 
   const filteredRecords = useMemo(() => {
-    if (!searchText.trim()) return records;
-    const q = searchText.toLowerCase().trim();
-    return records.filter(r =>
-      (r.clientName || "").toLowerCase().includes(q) ||
-      (r.licensePlate || "").toLowerCase().includes(q) ||
-      (r.contractUid || "").toLowerCase().includes(q) ||
-      (r.globalNumber && String(r.globalNumber).includes(q)) ||
-      (r.contractType || "").toLowerCase().includes(q) ||
-      (r.paymentFrequency || "").toLowerCase().includes(q)
-    );
-  }, [records, searchText]);
+    let result = records;
+    if (selectedMonth) {
+      result = result.filter(r => {
+        if (!r.signedDate) return false;
+        const d = new Date(r.signedDate);
+        const mk = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+        return mk === selectedMonth;
+      });
+    }
+    if (searchText.trim()) {
+      const q = searchText.toLowerCase().trim();
+      result = result.filter(r =>
+        (r.clientName || "").toLowerCase().includes(q) ||
+        (r.licensePlate || "").toLowerCase().includes(q) ||
+        (r.contractUid || "").toLowerCase().includes(q) ||
+        (r.globalNumber && String(r.globalNumber).includes(q)) ||
+        (r.contractType || "").toLowerCase().includes(q) ||
+        (r.paymentFrequency || "").toLowerCase().includes(q)
+      );
+    }
+    return result;
+  }, [records, searchText, selectedMonth]);
 
   const tableSum = filteredRecords.reduce((acc, r) => acc + r.premiumAmount, 0);
 
@@ -243,7 +258,7 @@ export default function Reports() {
   }, [partnerBreakdown]);
 
   const barData = useMemo(() =>
-    monthlyTrend.map(m => ({ name: formatMonthLabel(m.month), value: m.totalPremium })),
+    monthlyTrend.map(m => ({ name: formatMonthLabel(m.month), value: m.totalPremium, monthKey: m.month })),
     [monthlyTrend]
   );
 
@@ -269,7 +284,29 @@ export default function Reports() {
     );
   }
 
-  const generatePDF = () => {
+  const svgToDataUrl = (containerRef: React.RefObject<HTMLDivElement | null>): string | null => {
+    if (!containerRef.current) return null;
+    const svg = containerRef.current.querySelector("svg");
+    if (!svg) return null;
+    try {
+      const cloned = svg.cloneNode(true) as SVGElement;
+      cloned.setAttribute("xmlns", "http://www.w3.org/2000/svg");
+      if (!cloned.getAttribute("width")) cloned.setAttribute("width", String(svg.clientWidth || 400));
+      if (!cloned.getAttribute("height")) cloned.setAttribute("height", String(svg.clientHeight || 280));
+      cloned.querySelectorAll("text").forEach(t => {
+        if (!t.getAttribute("fill")) t.setAttribute("fill", "#666666");
+      });
+      cloned.querySelectorAll("[stroke]").forEach(el => {
+        const s = el.getAttribute("stroke");
+        if (s && s.startsWith("hsl(var(")) el.setAttribute("stroke", "#cccccc");
+      });
+      const serializer = new XMLSerializer();
+      const svgStr = serializer.serializeToString(cloned);
+      return "data:image/svg+xml;base64," + btoa(unescape(encodeURIComponent(svgStr)));
+    } catch { return null; }
+  };
+
+  const generatePDF = async () => {
     if (!reportData || !appUser) return;
     const doc = new jsPDF();
     const now = new Date();
@@ -289,12 +326,44 @@ export default function Reports() {
       doc.setTextColor(0, 0, 0);
     };
 
+    const addChartImage = (dataUrl: string, yStart: number): Promise<number> => {
+      return new Promise((resolve) => {
+        const img = new Image();
+        img.onload = () => {
+          const canvas = document.createElement("canvas");
+          const scale = 2;
+          canvas.width = img.width * scale;
+          canvas.height = img.height * scale;
+          const ctx = canvas.getContext("2d");
+          if (ctx) {
+            ctx.fillStyle = "#ffffff";
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            ctx.scale(scale, scale);
+            ctx.drawImage(img, 0, 0);
+          }
+          const pngUrl = canvas.toDataURL("image/png");
+          const chartW = 170;
+          const chartH = (img.height / img.width) * chartW;
+          if (yStart + chartH > 260) {
+            doc.addPage();
+            yStart = 20;
+            addWatermark();
+          }
+          doc.addImage(pngUrl, "PNG", 14, yStart, chartW, chartH);
+          resolve(yStart + chartH + 6);
+        };
+        img.onerror = () => resolve(yStart);
+        img.src = dataUrl;
+      });
+    };
+
     addWatermark();
     doc.setFontSize(16);
     doc.text("ArutsoK - Manager Summary", 14, 20);
     doc.setFontSize(10);
     doc.text(`Generovane: ${timestamp}`, 14, 28);
     if (from || to) doc.text(`Obdobie: ${from || "..."} - ${to || "..."}`, 14, 34);
+    if (selectedMonth) doc.text(`Vybrany mesiac: ${formatMonthLabel(selectedMonth)}`, 100, 34);
 
     let yPos = 46;
 
@@ -333,7 +402,24 @@ export default function Reports() {
     }
 
     yPos += 6;
-    if (partnerBreakdown.length > 0) {
+    const pieDataUrl = svgToDataUrl(pieChartRef);
+    if (pieDataUrl && pieData.length > 0) {
+      if (yPos > 180) { doc.addPage(); yPos = 20; addWatermark(); }
+      doc.setFontSize(12);
+      doc.text("Podiel partnerov", 14, yPos);
+      yPos += 4;
+      yPos = await addChartImage(pieDataUrl, yPos);
+      const totalAll = partnerBreakdown.reduce((s, p) => s + p.totalPremium, 0);
+      for (const p of partnerBreakdown) {
+        if (yPos > 270) { doc.addPage(); yPos = 20; addWatermark(); }
+        const pct = totalAll > 0 ? ((p.totalPremium / totalAll) * 100).toFixed(1) : "0";
+        doc.setFontSize(9);
+        doc.text(p.partnerName, 14, yPos);
+        doc.text(`${formatCurrency(p.totalPremium)}  (${pct}%)`, 80, yPos);
+        doc.text(`${p.count} zmluv`, 150, yPos);
+        yPos += 6;
+      }
+    } else if (partnerBreakdown.length > 0) {
       if (yPos > 240) { doc.addPage(); yPos = 20; addWatermark(); }
       doc.setFontSize(12);
       doc.text("Podiel partnerov", 14, yPos);
@@ -348,10 +434,31 @@ export default function Reports() {
         doc.text(`${p.count} zmluv`, 150, yPos);
         yPos += 6;
       }
+    } else {
+      if (yPos > 260) { doc.addPage(); yPos = 20; addWatermark(); }
+      doc.setFontSize(10);
+      doc.setTextColor(150, 150, 150);
+      doc.text("Podiel partnerov: Ziadne data pre zvolene filtre", 14, yPos);
+      doc.setTextColor(0, 0, 0);
+      yPos += 8;
     }
 
     yPos += 6;
-    if (monthlyTrend.length > 0) {
+    const barDataUrl = svgToDataUrl(barChartRef);
+    if (barDataUrl && barData.length > 0) {
+      if (yPos > 180) { doc.addPage(); yPos = 20; addWatermark(); }
+      doc.setFontSize(12);
+      doc.text("Mesacny trend produkcie", 14, yPos);
+      yPos += 4;
+      yPos = await addChartImage(barDataUrl, yPos);
+      for (const m of monthlyTrend) {
+        if (yPos > 275) { doc.addPage(); yPos = 20; addWatermark(); }
+        doc.setFontSize(9);
+        doc.text(formatMonthLabel(m.month), 14, yPos);
+        doc.text(formatCurrency(m.totalPremium), 80, yPos);
+        yPos += 6;
+      }
+    } else if (monthlyTrend.length > 0) {
       if (yPos > 240) { doc.addPage(); yPos = 20; addWatermark(); }
       doc.setFontSize(12);
       doc.text("Mesacny trend produkcie", 14, yPos);
@@ -363,6 +470,13 @@ export default function Reports() {
         doc.text(formatCurrency(m.totalPremium), 80, yPos);
         yPos += 6;
       }
+    } else {
+      if (yPos > 260) { doc.addPage(); yPos = 20; addWatermark(); }
+      doc.setFontSize(10);
+      doc.setTextColor(150, 150, 150);
+      doc.text("Mesacny trend: Ziadne data pre zvolene filtre", 14, yPos);
+      doc.setTextColor(0, 0, 0);
+      yPos += 8;
     }
 
     yPos += 10;
@@ -671,12 +785,12 @@ export default function Reports() {
             </Card>
           </div>
 
-          {(pieData.length > 0 || barData.length > 0) && (
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4" data-testid="charts-section">
-              {pieData.length > 0 && (
-                <Card data-testid="chart-partner-share">
-                  <CardContent className="pt-4 pb-3">
-                    <h3 className="text-sm font-semibold mb-3">Podiel partnerov</h3>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4" data-testid="charts-section">
+            {pieData.length > 0 ? (
+              <Card data-testid="chart-partner-share">
+                <CardContent className="pt-4 pb-3">
+                  <h3 className="text-sm font-semibold mb-3">Podiel partnerov</h3>
+                  <div ref={pieChartRef}>
                     <ResponsiveContainer width="100%" height={280}>
                       <PieChart>
                         <Pie data={pieData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={100} labelLine={false} label={PieLabelRenderer}>
@@ -686,27 +800,60 @@ export default function Reports() {
                         <Legend wrapperStyle={{ fontSize: "11px" }} formatter={(value: string) => <span className="text-foreground text-xs">{value}</span>} />
                       </PieChart>
                     </ResponsiveContainer>
-                  </CardContent>
-                </Card>
-              )}
-              {barData.length > 0 && (
-                <Card data-testid="chart-monthly-trend">
-                  <CardContent className="pt-4 pb-3">
-                    <h3 className="text-sm font-semibold mb-3">Trend produkcie</h3>
+                  </div>
+                </CardContent>
+              </Card>
+            ) : (
+              <Card data-testid="chart-partner-share-empty">
+                <CardContent className="pt-4 pb-3">
+                  <h3 className="text-sm font-semibold mb-3">Podiel partnerov</h3>
+                  <div className="flex flex-col items-center justify-center h-[280px] text-muted-foreground">
+                    <BarChart3 className="w-10 h-10 mb-2 opacity-30" />
+                    <p className="text-sm">Žiadne dáta pre zvolené filtre</p>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+            {barData.length > 0 ? (
+              <Card data-testid="chart-monthly-trend">
+                <CardContent className="pt-4 pb-3">
+                  <div className="flex items-center justify-between mb-3">
+                    <h3 className="text-sm font-semibold">Trend produkcie</h3>
+                    {selectedMonth && (
+                      <Badge variant="outline" className="text-xs gap-1 cursor-pointer" onClick={() => setSelectedMonth(null)} data-testid="badge-selected-month">
+                        {formatMonthLabel(selectedMonth)}
+                        <X className="w-3 h-3" />
+                      </Badge>
+                    )}
+                  </div>
+                  <p className="text-[10px] text-muted-foreground mb-1">Kliknite na stĺpec pre filtrovanie tabuľky</p>
+                  <div ref={barChartRef}>
                     <ResponsiveContainer width="100%" height={280}>
-                      <BarChart data={barData}>
+                      <BarChart data={barData} style={{ cursor: "pointer" }}>
                         <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
                         <XAxis dataKey="name" tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }} />
                         <YAxis tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }} tickFormatter={(v) => v >= 1000 ? `${(v / 1000).toFixed(0)}k` : String(v)} />
                         <ReTooltip content={<CustomTooltip />} />
-                        <Bar dataKey="value" fill="#3b82f6" radius={[4, 4, 0, 0]} />
+                        <Bar dataKey="value" radius={[4, 4, 0, 0]} cursor="pointer" onClick={(_data: any, _index: number) => { const entry = barData[_index]; if (entry?.monthKey) setSelectedMonth((prev: string | null) => prev === entry.monthKey ? null : entry.monthKey); }}>
+                          {barData.map((entry, i) => <Cell key={i} fill={selectedMonth === entry.monthKey ? "#f59e0b" : "#3b82f6"} />)}
+                        </Bar>
                       </BarChart>
                     </ResponsiveContainer>
-                  </CardContent>
-                </Card>
-              )}
-            </div>
-          )}
+                  </div>
+                </CardContent>
+              </Card>
+            ) : (
+              <Card data-testid="chart-monthly-trend-empty">
+                <CardContent className="pt-4 pb-3">
+                  <h3 className="text-sm font-semibold mb-3">Trend produkcie</h3>
+                  <div className="flex flex-col items-center justify-center h-[280px] text-muted-foreground">
+                    <BarChart3 className="w-10 h-10 mb-2 opacity-30" />
+                    <p className="text-sm">Žiadne dáta pre zvolené filtre</p>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+          </div>
 
           {activeFiltersSummary.length > 0 && (
             <Card data-testid="deep-dive-section">
@@ -745,11 +892,17 @@ export default function Reports() {
           ) : (
             <Card>
               <CardContent className="p-0">
-                <div className="px-3 pt-3 pb-2">
+                <div className="px-3 pt-3 pb-2 flex items-center gap-3 flex-wrap">
                   <div className="relative max-w-xs">
                     <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
                     <Input placeholder="Hľadať meno, ŠPZ, číslo zmluvy..." value={searchText} onChange={e => setSearchText(e.target.value)} className="pl-9 h-9 text-sm" data-testid="input-fulltext-search" />
                   </div>
+                  {selectedMonth && (
+                    <Badge variant="outline" className="text-xs gap-1 cursor-pointer border-amber-500 text-amber-400" onClick={() => setSelectedMonth(null)} data-testid="badge-table-month-filter">
+                      Mesiac: {formatMonthLabel(selectedMonth)}
+                      <X className="w-3 h-3" />
+                    </Badge>
+                  )}
                 </div>
                 <div className="overflow-auto max-h-[600px]">
                   <table className="w-full text-sm report-table">
