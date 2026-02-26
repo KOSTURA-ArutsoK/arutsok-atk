@@ -1,0 +1,60 @@
+MASTER KTA: ARCHITEKTÚRA ŽIVOTNÉHO CYKLU PARTNEROV A PRODUKTOV (V12)
+Agent, tvojou úlohou je implementovať kompletný systém riadenia stavov pre Partnerov a Produkty v ArutsoK (ATK). Tento systém musí byť postavený na "Media-Player" logike (Play/Pause/Stop/Record/Eject/FF) s prísnou dátovou integritou a automatizáciou.
+
+1. Odstránenie redundancie (Lokalizácia)
+Zrušenie poľa: Z databázovej schémy aj z UI (modálne okná/formuláre) odstráň manuálny výber "Štát" pre Partnerov aj Produkty.
+
+Globálna logika: Zoznamy sa musia riadiť výhradne globálnym selektorom v hornej lište (SK/CZ). Ak používateľ prepne na SK, v celom systéme (Modul A, Katalóg, Modul B) vidí len slovenské dáta.
+
+2. Definícia stavovej šestky (Enum & UI)
+Implementuj nasledujúcich 6 stavov, ktoré musia byť vizuálne reprezentované farebnými emotikonmi v tabuľkách aj detailoch:
+
+⏺️ (Sivá) - RECORD (Príprava):
+
+Význam: Interné nahadzovanie partnera/produktu, ladenie OCR šablón v Module C.
+
+Viditeľnosť: Iba v Module A (Správa partnerov). Skryté v Katalógu aj v Module B.
+
+⏭️ (Modrá) - FAST FORWARD (Budúci štart):
+
+Logika: Vyžaduje povinné pole startDate.
+
+Viditeľnosť: V Katalógu svieti s info o štarte. V Module B sa automaticky "odomkne" až v daný dátum.
+
+▶️ (Zelená) - PLAY (Aktívne):
+
+Význam: Plná ostrá prevádzka.
+
+Viditeľnosť: Plne dostupné všade (Katalóg, Modul B).
+
+⏸️ (Žltá) - PAUSE (Pozastavené):
+
+Význam: Okamžitá manuálna stopka (technický výpadok, zmena podmienok).
+
+Viditeľnosť: V Module B produkt okamžite zmizne zo selektora.
+
+⏏️ (Oranžová) - EJECT (Dobiehanie):
+
+Logika: Vyžaduje povinné pole endDate.
+
+Správanie: V Module B je produkt stále aktívny, ale systém zobrazuje varovanie o blížiacom sa konci.
+
+⏹️ (Červená) - STOP (Ukončené):
+
+Význam: Definitívny koniec/Archív.
+
+Viditeľnosť: V Katalógu ostáva v šedej (grayscale) verzii, v Module B je navždy skrytý.
+
+3. Logika prepojenia (Dátová integrita)
+Dedičnosť (Top-Down): Ak sa zmení stav Partnera na ⏹️ (STOP) alebo ⏸️ (PAUSE), systém musí automaticky vykonať hromadnú aktualizáciu (Bulk Update) všetkých jeho Produktov na rovnaký stav.
+
+Automatický Kill-switch: Implementuj denný skript (Cron job), ktorý o 00:00 skontroluje produkty so stavom ⏏️ (EJECT). Ak je currentDate > endDate, systém automaticky prepne stav na ⏹️ (STOP).
+
+Dostupnosť v Module B: Selektor produktov pri tvorbe novej zmluvy smie zobrazovať len produkty v stave ▶️ (PLAY) a ⏏️ (EJECT).
+
+4. UX a Vizuálna stránka
+Tooltips: Každá ikona v zozname musí pri hoveri zobraziť jasný textový popis (napr. "Vysúvanie produktu z ponuky").
+
+Zarovnanie: Ikony stavov musia byť v tabuľkách v samostatnom stĺpci hneď vedľa ikony ceruzky (Editácia).
+
+Audit Trail: Každá zmena stavu musí byť zapísaná do auditnej stopy: [Dátum][User][Akcia: Zmena stavu z ▶️ na ⏏️].
