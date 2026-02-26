@@ -8,7 +8,7 @@ import { apiRequest, queryClient } from "@/lib/queryClient";
 import { formatDateSlovak, formatDateTimeSlovak, formatPhone, formatUid } from "@/lib/utils";
 import { getDocumentValidityStatus, isValidityField, isNumberFieldWithExpiredPair, type ValidityResult } from "@/lib/document-validity";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, Search, User, Building2, AlertTriangle, Eye, Calendar, Briefcase, ArrowRight, ArrowLeft, ExternalLink, History, Clock, Wallet, Loader2, CheckCircle2, Pencil, Lock, Users, X, Info, Link2, Unlink, Trash2, CreditCard, Archive, Ban, Boxes, Car, Home, Landmark, ChevronRight, ChevronDown, FolderOpen, Tag, Hash, Package, FileText as FileTextIcon, SquareIcon, TrendingDown } from "lucide-react";
+import { Plus, Search, User, Building2, AlertTriangle, Eye, Calendar, Briefcase, ArrowRight, ArrowLeft, ExternalLink, History, Clock, Wallet, Loader2, CheckCircle2, Pencil, Lock, Users, X, Info, Link2, Unlink, Trash2, CreditCard, Archive, Ban, Boxes, Car, Home, Landmark, ChevronRight, ChevronDown, FolderOpen, Tag, Hash, Package, FileText as FileTextIcon, SquareIcon, TrendingDown, Shield, Save } from "lucide-react";
 import { SubjectPhotoThumbnail } from "@/components/subject-profile-photo";
 import { SubjectTagBadges, CgnIndicator } from "@/components/subject-profile-module-c";
 import { ActivityTimeline } from "@/components/activity-timeline";
@@ -1362,6 +1362,8 @@ function EntityLinksTab({ subject }: { subject: Subject }) {
 }
 
 function SubjectDetailPanel({ subject, onClose }: { subject: Subject; onClose: () => void }) {
+  const { toast } = useToast();
+  const { data: appUser } = useAppUser();
   const [activeTab, setActiveTab] = useState(() => {
     const params = new URLSearchParams(window.location.search);
     const t = params.get("tab");
@@ -1370,6 +1372,51 @@ function SubjectDetailPanel({ subject, onClose }: { subject: Subject; onClose: (
     if (t === "vztahy") return "vztahy";
     return "profil_subjektu";
   });
+  const [listStatusDialogOpen, setListStatusDialogOpen] = useState(false);
+  const [listStatusValue, setListStatusValue] = useState<string>("none");
+  const [listStatusReason, setListStatusReason] = useState("");
+
+  const isSuperAdmin = useMemo(() => {
+    const name = (appUser as any)?.permissionGroup?.name?.toLowerCase() || "";
+    return name.includes("superadmin") || name.includes("prezident");
+  }, [appUser]);
+
+  const { data: freshSubject } = useQuery<Subject>({
+    queryKey: ["/api/subjects", subject.id],
+    queryFn: () => apiRequest("GET", `/api/subjects/${subject.id}`).then(r => r.json()),
+  });
+  const displaySubject = freshSubject || subject;
+  const effectiveListStatus = (displaySubject as any).effectiveListStatus as string | null;
+
+  useEffect(() => {
+    if (listStatusDialogOpen) {
+      setListStatusValue((displaySubject as any).listStatus || "none");
+      setListStatusReason("");
+    }
+  }, [listStatusDialogOpen, subject.id]);
+
+  const listStatusMutation = useMutation({
+    mutationFn: async () => {
+      const status = listStatusValue === "none" ? null : listStatusValue;
+      return apiRequest("PATCH", `/api/subjects/${subject.id}/list-status`, {
+        listStatus: status,
+        reason: listStatusReason || undefined,
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/subjects"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/subjects", subject.id] });
+      toast({ title: "Status zoznamu aktualizovaný" });
+      setListStatusDialogOpen(false);
+      setListStatusReason("");
+    },
+    onError: async (err: any) => {
+      let msg = "Chyba pri zmene statusu";
+      try { const body = await err.json?.(); if (body?.message) msg = body.message; } catch {}
+      toast({ title: msg, variant: "destructive" });
+    },
+  });
+
   const { data: riskData } = useQuery<{
     riskLinks: Array<{ subjectId: number; name: string; uid: string; listStatus: string; matchType: string; matchValue: string }>;
     foPoRisks: Array<{ subjectId: number; name: string; uid: string; listStatus: string; relationship: string }>;
@@ -1411,6 +1458,63 @@ function SubjectDetailPanel({ subject, onClose }: { subject: Subject; onClose: (
               })()}
             </div>
             <div className="flex items-center gap-1 shrink-0">
+              <Dialog open={listStatusDialogOpen} onOpenChange={setListStatusDialogOpen}>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className={`h-7 text-xs px-2 ${effectiveListStatus === "cierny" ? "border-red-700 text-red-400" : effectiveListStatus === "cerveny" ? "border-orange-700 text-orange-400" : ""}`}
+                  onClick={() => setListStatusDialogOpen(true)}
+                  data-testid="btn-list-status"
+                >
+                  {effectiveListStatus === "cierny" ? <Ban className="w-3.5 h-3.5 mr-1" /> : effectiveListStatus === "cerveny" ? <AlertTriangle className="w-3.5 h-3.5 mr-1" /> : <Shield className="w-3.5 h-3.5 mr-1" />}
+                  {effectiveListStatus === "cierny" ? "Čierny zoznam" : effectiveListStatus === "cerveny" ? "Červený zoznam" : "Zoznam"}
+                </Button>
+                <DialogContent className="max-w-sm">
+                  <DialogHeader>
+                    <DialogTitle>Zmeniť status zoznamu</DialogTitle>
+                  </DialogHeader>
+                  <div className="space-y-4 pt-2">
+                    <div className="space-y-2">
+                      <Label>Status</Label>
+                      <Select value={listStatusValue} onValueChange={setListStatusValue}>
+                        <SelectTrigger data-testid="select-list-status">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="none">Žiadny zoznam</SelectItem>
+                          <SelectItem value="cerveny">Červený zoznam</SelectItem>
+                          <SelectItem value="cierny">Čierny zoznam</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Dôvod zmeny</Label>
+                      <Textarea
+                        value={listStatusReason}
+                        onChange={e => setListStatusReason(e.target.value)}
+                        placeholder="Uveďte dôvod..."
+                        className="h-20"
+                        data-testid="input-list-status-reason"
+                      />
+                    </div>
+                    {listStatusValue === "cierny" && !isSuperAdmin && (
+                      <div className="flex items-center gap-2 text-xs text-amber-400 bg-amber-950/50 border border-amber-700 rounded px-3 py-2">
+                        <AlertTriangle className="w-4 h-4 shrink-0" />
+                        Čierny zoznam môže nastaviť len SuperAdmin/Prezident
+                      </div>
+                    )}
+                    <Button
+                      onClick={() => listStatusMutation.mutate()}
+                      disabled={listStatusMutation.isPending || (!isSuperAdmin && (listStatusValue === "cierny" || (listStatusValue === "none" && (displaySubject as any).listStatus === "cierny")))}
+                      className="w-full"
+                      data-testid="btn-save-list-status"
+                    >
+                      {listStatusMutation.isPending ? <Loader2 className="w-4 h-4 mr-1 animate-spin" /> : <Save className="w-4 h-4 mr-1" />}
+                      Uložiť
+                    </Button>
+                  </div>
+                </DialogContent>
+              </Dialog>
               <Button
                 variant={activeTab === "profil_subjektu" ? "default" : "ghost"}
                 size="sm"
@@ -1456,7 +1560,7 @@ function SubjectDetailPanel({ subject, onClose }: { subject: Subject; onClose: (
         </div>
       </div>
 
-      {(subject as any).effectiveListStatus === "cierny" && (
+      {effectiveListStatus === "cierny" && (
         <div className="flex items-center gap-3 rounded border border-red-900 bg-red-950/80 px-4 py-3 text-red-200" data-testid="dialog-banner-cierny-zoznam">
           <Ban className="w-5 h-5 text-red-400 shrink-0" />
           <div>
@@ -1465,7 +1569,7 @@ function SubjectDetailPanel({ subject, onClose }: { subject: Subject; onClose: (
           </div>
         </div>
       )}
-      {(subject as any).effectiveListStatus === "cerveny" && (
+      {effectiveListStatus === "cerveny" && (
         <div className="flex items-center gap-3 rounded border border-orange-700 bg-orange-950/80 px-4 py-3 text-orange-200" data-testid="dialog-banner-cerveny-zoznam">
           <AlertTriangle className="w-5 h-5 text-orange-400 shrink-0" />
           <div>

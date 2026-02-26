@@ -467,14 +467,16 @@ function GroupDetailDialog({
                         <span className="font-mono text-xs">{formatUid(m.subject?.uid) || "-"}</span>
                       </TableCell>
                       <TableCell>
-                        <Button
-                          size="icon"
-                          variant="ghost"
-                          onClick={() => removeMemberMutation.mutate(m.id)}
-                          data-testid={`button-remove-member-${m.id}`}
-                        >
-                          <UserMinus className="w-4 h-4 text-destructive" />
-                        </Button>
+                        {!isSystem && (
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            onClick={() => removeMemberMutation.mutate(m.id)}
+                            data-testid={`button-remove-member-${m.id}`}
+                          >
+                            <UserMinus className="w-4 h-4 text-destructive" />
+                          </Button>
+                        )}
                       </TableCell>
                     </TableRow>
                   ))}
