@@ -893,7 +893,11 @@ export const contractsRelations = relations(contracts, ({ one }) => ({
 // === ZOD SCHEMAS ===
 export const insertSubjectSchema = createInsertSchema(subjects).omit({ id: true, uid: true, createdAt: true });
 export const insertMyCompanySchema = createInsertSchema(myCompanies).omit({ id: true, createdAt: true, updatedAt: true, isDeleted: true, uid: true, deletedBy: true, deletedAt: true, deletedFromIp: true });
-export const insertPartnerSchema = createInsertSchema(partners).omit({ id: true, createdAt: true, updatedAt: true, isDeleted: true, uid: true, deletedBy: true, deletedAt: true, deletedFromIp: true });
+export const insertPartnerSchema = createInsertSchema(partners).omit({ id: true, createdAt: true, updatedAt: true, isDeleted: true, uid: true, deletedBy: true, deletedAt: true, deletedFromIp: true }).extend({
+  collaborationDate: z.union([z.string(), z.date(), z.null()]).optional().transform(v => v ? (typeof v === 'string' ? new Date(v) : v) : null),
+  statusStartDate: z.union([z.string(), z.date(), z.null()]).optional().transform(v => v ? (typeof v === 'string' ? new Date(v) : v) : null),
+  statusEndDate: z.union([z.string(), z.date(), z.null()]).optional().transform(v => v ? (typeof v === 'string' ? new Date(v) : v) : null),
+});
 export const insertContactSchema = createInsertSchema(contacts).omit({ id: true });
 export const insertProductSchema = createInsertSchema(products).omit({ id: true, createdAt: true, updatedAt: true, isDeleted: true, deletedBy: true, deletedAt: true, deletedFromIp: true, displayName: true });
 export const insertCommissionSchemeSchema = createInsertSchema(commissionSchemes).omit({ id: true, createdAt: true });
@@ -1081,7 +1085,11 @@ export const sectorProducts = pgTable("sector_products", {
   deletedAt: timestamp("deleted_at"),
 });
 
-export const insertSectorProductSchema = createInsertSchema(sectorProducts).omit({ id: true, createdAt: true });
+export const insertSectorProductSchema = createInsertSchema(sectorProducts).omit({ id: true, createdAt: true }).extend({
+  statusStartDate: z.union([z.string(), z.date(), z.null()]).optional().transform(v => v ? (typeof v === 'string' ? new Date(v) : v) : null),
+  statusEndDate: z.union([z.string(), z.date(), z.null()]).optional().transform(v => v ? (typeof v === 'string' ? new Date(v) : v) : null),
+  deletedAt: z.union([z.string(), z.date(), z.null()]).optional().transform(v => v ? (typeof v === 'string' ? new Date(v) : v) : null),
+});
 
 // === PARAMETERS ===
 export const parameters = pgTable("parameters", {
