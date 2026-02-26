@@ -8717,17 +8717,19 @@ export async function registerRoutes(
       const filterPartnerId = req.query.partnerId ? Number(req.query.partnerId) : undefined;
       const filterAgentId = req.query.agentId ? Number(req.query.agentId) : undefined;
       const filterStatus = req.query.status ? Number(req.query.status) : undefined;
+      const filterContractType = req.query.contractType as string | undefined;
 
       const conditions: any[] = [eq(contracts.isDeleted, false)];
       if (stateId) conditions.push(eq(contracts.stateId, stateId));
       if (filterPartnerId) conditions.push(eq(contracts.partnerId, filterPartnerId));
       if (filterStatus) conditions.push(eq(contracts.statusId, filterStatus));
+      if (filterContractType) conditions.push(eq(contracts.contractType, filterContractType));
       if (filterFrom) conditions.push(gte(contracts.signedDate, new Date(filterFrom)));
       if (filterTo) conditions.push(lte(contracts.signedDate, new Date(filterTo)));
       if (filterAgentId) {
         const agentContractIdRows = await db.select({ contractId: contractAcquirers.contractId })
           .from(contractAcquirers)
-          .where(eq(contractAcquirers.acquirerUserId, filterAgentId));
+          .where(eq(contractAcquirers.userId, filterAgentId));
         const agentContractIdSet = agentContractIdRows.map((r: any) => r.contractId);
         if (agentContractIdSet.length > 0) {
           conditions.push(inArray(contracts.id, agentContractIdSet));
@@ -8748,6 +8750,7 @@ export async function registerRoutes(
         subjectId: contracts.subjectId,
         partnerId: contracts.partnerId,
         statusId: contracts.statusId,
+        contractType: contracts.contractType,
         dynamicPanelValues: contracts.dynamicPanelValues,
       }).from(contracts)
         .where(and(...conditions))
@@ -8810,6 +8813,35 @@ export async function registerRoutes(
         };
       });
 
+      const partnerPremiums = new Map<string, { totalPremium: number; count: number }>();
+      const monthlyPremiums = new Map<string, number>();
+      const contractTypeSet = new Set<string>();
+
+      for (const c of filtered) {
+        const premium = c.premiumAmount || c.annualPremium || 0;
+        const pName = c.partnerId ? (partnerMap.get(c.partnerId)?.name || 'Neznámy') : 'Bez partnera';
+        const existing = partnerPremiums.get(pName) || { totalPremium: 0, count: 0 };
+        existing.totalPremium += premium;
+        existing.count++;
+        partnerPremiums.set(pName, existing);
+
+        if (c.signedDate) {
+          const d = new Date(c.signedDate);
+          const monthKey = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+          monthlyPremiums.set(monthKey, (monthlyPremiums.get(monthKey) || 0) + premium);
+        }
+
+        if (c.contractType) contractTypeSet.add(c.contractType);
+      }
+
+      const partnerBreakdown = [...partnerPremiums.entries()]
+        .map(([name, data]) => ({ partnerName: name, totalPremium: data.totalPremium, count: data.count }))
+        .sort((a, b) => b.totalPremium - a.totalPremium);
+
+      const monthlyTrend = [...monthlyPremiums.entries()]
+        .map(([month, totalPremium]) => ({ month, totalPremium }))
+        .sort((a, b) => a.month.localeCompare(b.month));
+
       if (records.length > 500) {
         await logAudit(req, {
           action: "MASSIVE_DATA_ACCESS",
@@ -8823,6 +8855,9 @@ export async function registerRoutes(
         kpi: { totalPremium, stornoCount, stornoAmount, actualCashflow, netProduction },
         records,
         totalRecords: records.length,
+        partnerBreakdown,
+        monthlyTrend,
+        contractTypes: [...contractTypeSet].sort(),
       });
     } catch (err: any) {
       console.error("Reports production error:", err);

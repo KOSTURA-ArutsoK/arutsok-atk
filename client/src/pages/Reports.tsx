@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useAppUser } from "@/hooks/use-app-user";
 import { Card, CardContent } from "@/components/ui/card";
@@ -7,7 +7,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, BarChart3, TrendingUp, TrendingDown, Banknote, AlertTriangle, FileText, ShieldAlert } from "lucide-react";
+import { Loader2, BarChart3, TrendingUp, Banknote, AlertTriangle, FileText, ShieldAlert, Search } from "lucide-react";
+import { PieChart, Pie, Cell, Tooltip as ReTooltip, Legend, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid } from "recharts";
 import type { Partner, ContractStatus } from "@shared/schema";
 import jsPDF from "jspdf";
 
@@ -31,11 +32,31 @@ interface ReportRecord {
   partnerName: string;
 }
 
+interface PartnerBreakdown {
+  partnerName: string;
+  totalPremium: number;
+  count: number;
+}
+
+interface MonthlyTrend {
+  month: string;
+  totalPremium: number;
+}
+
 interface ReportData {
   kpi: KPI;
   records: ReportRecord[];
   totalRecords: number;
+  partnerBreakdown: PartnerBreakdown[];
+  monthlyTrend: MonthlyTrend[];
+  contractTypes: string[];
 }
+
+const CHART_COLORS = [
+  "#3b82f6", "#10b981", "#f59e0b", "#ef4444", "#8b5cf6",
+  "#ec4899", "#06b6d4", "#f97316", "#84cc16", "#6366f1",
+  "#14b8a6", "#e11d48",
+];
 
 function formatCurrency(val: number): string {
   return new Intl.NumberFormat("sk-SK", { style: "currency", currency: "EUR", minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(val);
@@ -48,6 +69,12 @@ function formatDate(d: string | null): string {
   } catch { return "-"; }
 }
 
+function formatMonthLabel(m: string): string {
+  const [year, month] = m.split("-");
+  const months = ["Jan", "Feb", "Mar", "Apr", "Máj", "Jún", "Júl", "Aug", "Sep", "Okt", "Nov", "Dec"];
+  return `${months[parseInt(month, 10) - 1]} ${year.slice(2)}`;
+}
+
 export default function Reports() {
   const { data: appUser } = useAppUser();
   const isAdmin = appUser?.role === "admin" || appUser?.role === "superadmin";
@@ -57,7 +84,9 @@ export default function Reports() {
   const [partnerId, setPartnerId] = useState("");
   const [agentId, setAgentId] = useState("");
   const [status, setStatus] = useState("");
+  const [contractType, setContractType] = useState("");
   const [filtersApplied, setFiltersApplied] = useState(false);
+  const [searchText, setSearchText] = useState("");
 
   const queryParams = new URLSearchParams();
   if (from) queryParams.set("from", from);
@@ -65,9 +94,10 @@ export default function Reports() {
   if (partnerId && partnerId !== "all") queryParams.set("partnerId", partnerId);
   if (agentId && agentId !== "all") queryParams.set("agentId", agentId);
   if (status && status !== "all") queryParams.set("status", status);
+  if (contractType && contractType !== "all") queryParams.set("contractType", contractType);
 
   const { data: reportData, isLoading, isError } = useQuery<ReportData>({
-    queryKey: ["/api/reports/production", from, to, partnerId, agentId, status, filtersApplied],
+    queryKey: ["/api/reports/production", from, to, partnerId, agentId, status, contractType, filtersApplied],
     queryFn: async () => {
       const r = await fetch(`/api/reports/production?${queryParams.toString()}`, { credentials: "include" });
       if (!r.ok) throw new Error(`HTTP ${r.status}`);
@@ -90,9 +120,7 @@ export default function Reports() {
     );
   }
 
-  const handleGenerate = () => {
-    setFiltersApplied(true);
-  };
+  const handleGenerate = () => setFiltersApplied(true);
 
   const handleReset = () => {
     setFrom("");
@@ -100,8 +128,43 @@ export default function Reports() {
     setPartnerId("");
     setAgentId("");
     setStatus("");
+    setContractType("");
     setFiltersApplied(false);
+    setSearchText("");
   };
+
+  const kpi = reportData?.kpi;
+  const records = reportData?.records || [];
+  const partnerBreakdown = reportData?.partnerBreakdown || [];
+  const monthlyTrend = reportData?.monthlyTrend || [];
+  const availableContractTypes = reportData?.contractTypes || [];
+
+  const filteredRecords = useMemo(() => {
+    if (!searchText.trim()) return records;
+    const q = searchText.toLowerCase().trim();
+    return records.filter(r =>
+      (r.clientName || "").toLowerCase().includes(q) ||
+      (r.licensePlate || "").toLowerCase().includes(q) ||
+      (r.contractUid || "").toLowerCase().includes(q) ||
+      (r.globalNumber && String(r.globalNumber).includes(q))
+    );
+  }, [records, searchText]);
+
+  const tableSum = filteredRecords.reduce((acc, r) => acc + r.premiumAmount, 0);
+
+  const pieData = useMemo(() => {
+    const totalAll = partnerBreakdown.reduce((s, p) => s + p.totalPremium, 0);
+    return partnerBreakdown.map(p => ({
+      name: p.partnerName,
+      value: p.totalPremium,
+      percent: totalAll > 0 ? ((p.totalPremium / totalAll) * 100).toFixed(1) : "0",
+    }));
+  }, [partnerBreakdown]);
+
+  const barData = useMemo(() =>
+    monthlyTrend.map(m => ({ name: formatMonthLabel(m.month), value: m.totalPremium })),
+    [monthlyTrend]
+  );
 
   const generatePDF = () => {
     if (!reportData || !appUser) return;
@@ -125,21 +188,21 @@ export default function Reports() {
     doc.setFontSize(16);
     doc.text("ArutsoK - Manager Summary", 14, 20);
     doc.setFontSize(10);
-    doc.text(`Generované: ${timestamp}`, 14, 28);
+    doc.text(`Generovane: ${timestamp}`, 14, 28);
     if (from || to) doc.text(`Obdobie: ${from || "..."} - ${to || "..."}`, 14, 34);
 
     let yPos = 48;
 
     const kpiItems = [
-      { label: "Celková produkcia", value: formatCurrency(reportData.kpi.totalPremium) },
-      { label: "Čistá produkcia", value: formatCurrency(reportData.kpi.netProduction) },
-      { label: "Skutočný cashflow", value: formatCurrency(reportData.kpi.actualCashflow) },
-      { label: "Storno - počet", value: String(reportData.kpi.stornoCount) },
+      { label: "Celkova produkcia", value: formatCurrency(reportData.kpi.totalPremium) },
+      { label: "Cista produkcia", value: formatCurrency(reportData.kpi.netProduction) },
+      { label: "Skutocny cashflow", value: formatCurrency(reportData.kpi.actualCashflow) },
+      { label: "Storno - pocet", value: String(reportData.kpi.stornoCount) },
       { label: "Storno - objem", value: formatCurrency(reportData.kpi.stornoAmount) },
     ];
 
     doc.setFontSize(12);
-    doc.text("KPI Prehľad", 14, yPos);
+    doc.text("KPI Prehlad", 14, yPos);
     yPos += 8;
 
     for (const item of kpiItems) {
@@ -151,19 +214,100 @@ export default function Reports() {
     }
 
     yPos += 10;
+    if (partnerBreakdown.length > 0) {
+      doc.setFontSize(12);
+      doc.setTextColor(0, 0, 0);
+      doc.text("Podiel partnerov", 14, yPos);
+      yPos += 8;
+
+      const totalAll = partnerBreakdown.reduce((s, p) => s + p.totalPremium, 0);
+      for (const p of partnerBreakdown) {
+        if (yPos > 270) {
+          doc.addPage();
+          yPos = 20;
+          doc.saveGraphicsState();
+          doc.setGState(new (doc as any).GState({ opacity: 0.15 }));
+          doc.setFontSize(8);
+          doc.setTextColor(200, 200, 200);
+          for (let wy = 40; wy < 280; wy += 50) {
+            doc.text(watermarkText, 105, wy, { angle: 45, align: "center" });
+          }
+          doc.restoreGraphicsState();
+          doc.setTextColor(0, 0, 0);
+        }
+        const pct = totalAll > 0 ? ((p.totalPremium / totalAll) * 100).toFixed(1) : "0";
+        doc.setFontSize(9);
+        doc.text(`${p.partnerName}`, 14, yPos);
+        doc.text(`${formatCurrency(p.totalPremium)}  (${pct}%)`, 80, yPos);
+        doc.text(`${p.count} zmluv`, 150, yPos);
+        yPos += 6;
+      }
+    }
+
+    yPos += 8;
+    if (monthlyTrend.length > 0) {
+      if (yPos > 240) {
+        doc.addPage();
+        yPos = 20;
+        doc.saveGraphicsState();
+        doc.setGState(new (doc as any).GState({ opacity: 0.15 }));
+        doc.setFontSize(8);
+        doc.setTextColor(200, 200, 200);
+        for (let wy = 40; wy < 280; wy += 50) {
+          doc.text(watermarkText, 105, wy, { angle: 45, align: "center" });
+        }
+        doc.restoreGraphicsState();
+        doc.setTextColor(0, 0, 0);
+      }
+      doc.setFontSize(12);
+      doc.text("Mesacny trend produkcie", 14, yPos);
+      yPos += 8;
+
+      for (const m of monthlyTrend) {
+        if (yPos > 275) {
+          doc.addPage();
+          yPos = 20;
+        }
+        doc.setFontSize(9);
+        doc.text(formatMonthLabel(m.month), 14, yPos);
+        doc.text(formatCurrency(m.totalPremium), 80, yPos);
+        yPos += 6;
+      }
+    }
+
+    yPos += 10;
+    if (yPos > 270) { doc.addPage(); yPos = 20; }
     doc.setFontSize(9);
     doc.setTextColor(120, 120, 120);
-    doc.text(`Celkový počet záznamov: ${reportData.totalRecords}`, 14, yPos);
+    doc.text(`Celkovy pocet zaznamov: ${reportData.totalRecords}`, 14, yPos);
     yPos += 6;
-    doc.text("Poznámka: Detailná tabuľka nie je súčasťou tohto reportu z bezpečnostných dôvodov.", 14, yPos);
+    doc.text("Poznamka: Detailna tabulka nie je sucastou tohto reportu z bezpecnostnych dovodov.", 14, yPos);
 
     doc.save(`ArutsoK_Report_${now.toISOString().slice(0, 10)}.pdf`);
   };
 
-  const kpi = reportData?.kpi;
-  const records = reportData?.records || [];
+  const CustomTooltip = ({ active, payload }: any) => {
+    if (!active || !payload?.length) return null;
+    return (
+      <div className="bg-card border border-border rounded px-3 py-2 shadow-lg text-sm">
+        <p className="font-medium">{payload[0].name || payload[0].payload?.name}</p>
+        <p className="tabular-nums">{formatCurrency(payload[0].value)}</p>
+      </div>
+    );
+  };
 
-  const tableSum = records.reduce((acc, r) => acc + r.premiumAmount, 0);
+  const PieLabelRenderer = ({ cx, cy, midAngle, innerRadius, outerRadius, percent }: any) => {
+    if (percent < 0.05) return null;
+    const RADIAN = Math.PI / 180;
+    const radius = innerRadius + (outerRadius - innerRadius) * 0.5;
+    const x = cx + radius * Math.cos(-midAngle * RADIAN);
+    const y = cy + radius * Math.sin(-midAngle * RADIAN);
+    return (
+      <text x={x} y={y} fill="white" textAnchor="middle" dominantBaseline="central" fontSize={11} fontWeight={700}>
+        {`${(percent * 100).toFixed(0)}%`}
+      </text>
+    );
+  };
 
   return (
     <div className="flex flex-col gap-4 p-4 max-w-[1400px] mx-auto">
@@ -174,7 +318,7 @@ export default function Reports() {
 
       <Card>
         <CardContent className="pt-4 pb-3">
-          <div className="grid grid-cols-2 md:grid-cols-5 gap-3 items-end">
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 items-end">
             <div>
               <Label className="text-xs">Od</Label>
               <Input type="date" value={from} onChange={e => setFrom(e.target.value)} data-testid="input-date-from" />
@@ -214,6 +358,19 @@ export default function Reports() {
                 <SelectContent>
                   <SelectItem value="all">Všetky</SelectItem>
                   {statuses?.map(s => <SelectItem key={s.id} value={String(s.id)}>{s.name}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label className="text-xs">Typ zmluvy</Label>
+              <Select value={contractType} onValueChange={setContractType}>
+                <SelectTrigger data-testid="select-contract-type"><SelectValue placeholder="Všetky" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Všetky</SelectItem>
+                  {(availableContractTypes.length > 0
+                    ? availableContractTypes
+                    : ["Nova", "PZP", "KASKO", "Život", "Majetok", "Úraz", "Cestovné"]
+                  ).map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}
                 </SelectContent>
               </Select>
             </div>
@@ -293,6 +450,61 @@ export default function Reports() {
             </Card>
           </div>
 
+          {(pieData.length > 0 || barData.length > 0) && (
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4" data-testid="charts-section">
+              {pieData.length > 0 && (
+                <Card data-testid="chart-partner-share">
+                  <CardContent className="pt-4 pb-3">
+                    <h3 className="text-sm font-semibold mb-3">Podiel partnerov</h3>
+                    <ResponsiveContainer width="100%" height={280}>
+                      <PieChart>
+                        <Pie
+                          data={pieData}
+                          dataKey="value"
+                          nameKey="name"
+                          cx="50%"
+                          cy="50%"
+                          outerRadius={100}
+                          labelLine={false}
+                          label={PieLabelRenderer}
+                        >
+                          {pieData.map((_, i) => (
+                            <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />
+                          ))}
+                        </Pie>
+                        <ReTooltip content={<CustomTooltip />} />
+                        <Legend
+                          wrapperStyle={{ fontSize: "11px" }}
+                          formatter={(value: string) => <span className="text-foreground text-xs">{value}</span>}
+                        />
+                      </PieChart>
+                    </ResponsiveContainer>
+                  </CardContent>
+                </Card>
+              )}
+
+              {barData.length > 0 && (
+                <Card data-testid="chart-monthly-trend">
+                  <CardContent className="pt-4 pb-3">
+                    <h3 className="text-sm font-semibold mb-3">Trend produkcie</h3>
+                    <ResponsiveContainer width="100%" height={280}>
+                      <BarChart data={barData}>
+                        <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                        <XAxis dataKey="name" tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }} />
+                        <YAxis
+                          tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }}
+                          tickFormatter={(v) => v >= 1000 ? `${(v / 1000).toFixed(0)}k` : String(v)}
+                        />
+                        <ReTooltip content={<CustomTooltip />} />
+                        <Bar dataKey="value" fill="#3b82f6" radius={[4, 4, 0, 0]} />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </CardContent>
+                </Card>
+              )}
+            </div>
+          )}
+
           {records.length === 0 ? (
             <Card>
               <CardContent className="py-12 text-center">
@@ -302,6 +514,18 @@ export default function Reports() {
           ) : (
             <Card>
               <CardContent className="p-0">
+                <div className="px-3 pt-3 pb-2">
+                  <div className="relative max-w-xs">
+                    <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                    <Input
+                      placeholder="Hľadať meno, ŠPZ, číslo zmluvy..."
+                      value={searchText}
+                      onChange={e => setSearchText(e.target.value)}
+                      className="pl-9 h-9 text-sm"
+                      data-testid="input-fulltext-search"
+                    />
+                  </div>
+                </div>
                 <div className="overflow-auto max-h-[600px]">
                   <table className="w-full text-sm report-table">
                     <thead className="sticky top-0 bg-card z-10 border-b">
@@ -315,7 +539,7 @@ export default function Reports() {
                       </tr>
                     </thead>
                     <tbody>
-                      {records.map((r, i) => (
+                      {filteredRecords.map((r, i) => (
                         <tr key={i} className="border-b border-border/50" data-testid={`row-report-${i}`}>
                           <td className="px-3 py-2 font-mono text-xs">{r.globalNumber || r.contractUid}</td>
                           <td className="px-3 py-2">{r.clientName}</td>
@@ -333,7 +557,7 @@ export default function Reports() {
                     <tfoot className="sticky bottom-0 bg-card border-t-2 border-primary/30">
                       <tr>
                         <td className="px-3 py-2 text-xs font-bold" colSpan={3}>
-                          Celkom ({records.length} záznamov)
+                          Celkom ({filteredRecords.length}{searchText ? ` z ${records.length}` : ""} záznamov)
                         </td>
                         <td className="px-3 py-2 text-right tabular-nums font-black" data-testid="text-table-sum">
                           {formatCurrency(tableSum)}
