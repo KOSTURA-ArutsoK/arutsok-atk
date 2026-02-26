@@ -1,0 +1,51 @@
+TECHNICAL SPECIFICATION: MODULE ANALYTICS & REPORTING (V5-FINAL)
+Agent, implement the following requirements with zero deviations. Security and data isolation are the top priorities.
+
+1. Sidebar & Access Control
+Location: Insert new item "Analytika a Reporty" (icon: BarChart3) in Sidebar.tsx, exactly below the "Informácie" section.
+
+RBAC: Wrap this menu item in a conditional check: appUser.role === 'admin' || appUser.role === 'superadmin'.
+
+State Isolation: Ensure the reports always filter data based on the currently selected stateId from the global header.
+
+2. Backend & Data Layer (server/routes.ts & storage.ts)
+New Endpoint: GET /api/reports/production
+
+Query Parameters: from, to, partnerId, agentId, status.
+
+Business Logic:
+
+Calculate totalPremium (sum of active/in-process).
+
+Calculate stornoCount and stornoAmount (sum of premium where status is 'storno').
+
+Calculate actualCashflow (sum of confirmed commissions).
+
+Calculate netProduction: totalPremium - stornoAmount.
+
+Audit Trigger: If the query returns > 500 records, immediately insert a record into field_history or audit_logs with type: 'MASSIVE_DATA_ACCESS', including the userId and timestamp.
+
+3. Frontend Dashboard (client/src/pages/Reports.tsx)
+KPI Cards: 4 distinct cards at the top. The "Storno Analýza" card must have a red border/background and red text.
+
+Filters: Implementation of a DateRange picker and dropdowns for Partner/Agent/Status.
+
+Dynamic Table: Columns: Contract UID, Client Name, License Plate (ŠPZ), Premium, Status, Date.
+
+Footer Sum: Sticky footer in the table showing the calculated sums for the current view.
+
+4. Security & Export Policy (CRITICAL)
+Export Lockdown: Ensure NO xlsx, csv, or json export buttons are present.
+
+Print Restriction: * Disable standard browser print via CSS: @media print { .report-table { display: none; } }.
+
+Implement a "Manager Summary PDF" button using jspdf or react-to-pdf.
+
+PDF Content: Include ONLY the KPI Cards and Charts. The table with client names/license plates MUST NOT be included in the PDF.
+
+Watermark Implementation: All generated PDFs must have a diagonal, semi-transparent text overlay: [USER_EMAIL] | [IP_ADDRESS] | [TIMESTAMP].
+
+5. User Feedback
+When a report is generated, show a loading spinner.
+
+If no data matches the filters, show a "Žiadne dáta pre zvolené kritériá" message.
