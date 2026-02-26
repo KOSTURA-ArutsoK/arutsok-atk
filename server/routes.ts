@@ -8832,9 +8832,10 @@ export async function registerRoutes(
         });
       }
       if (filterSubjectType) {
+        const allowedTypes = filterSubjectType.split(",").map((t: string) => t.trim()).filter(Boolean);
         postFilteredContracts = postFilteredContracts.filter((c: any) => {
           const subj = c.subjectId ? subjectMap.get(c.subjectId) : null;
-          return subj?.type === filterSubjectType;
+          return subj?.type && allowedTypes.includes(subj.type);
         });
       }
 

@@ -66,7 +66,7 @@ interface DynamicFilter {
   module: "A" | "B" | "C";
   value: string;
   value2?: string;
-  type: "select" | "text" | "range" | "dateRange";
+  type: "select" | "text" | "range" | "dateRange" | "multiselect";
 }
 
 const CHART_COLORS = [
@@ -76,7 +76,7 @@ const CHART_COLORS = [
 ];
 
 const DYNAMIC_FILTER_OPTIONS = [
-  { field: "subjectType", label: "Typ subjektu (FO/PO/SZČO)", module: "A" as const, type: "select" as const },
+  { field: "subjectType", label: "Typ subjektu (FO/PO/SZČO)", module: "A" as const, type: "multiselect" as const },
   { field: "listStatus", label: "Reputačný status", module: "A" as const, type: "select" as const },
   { field: "psc", label: "PSČ", module: "A" as const, type: "text" as const },
   { field: "premium", label: "Lehotné poistné (rozsah)", module: "B" as const, type: "range" as const },
@@ -106,8 +106,9 @@ function getFilterDisplayValue(f: DynamicFilter): string {
   if (f.type === "range") return `${f.value || "..."} - ${f.value2 || "..."}`;
   if (f.type === "dateRange") return `${f.value || "..."} - ${f.value2 || "..."}`;
   if (f.field === "subjectType") {
-    const map: Record<string, string> = { person: "Fyzická osoba", company: "Právnická osoba", szco: "SZČO" };
-    return map[f.value] || f.value;
+    const map: Record<string, string> = { person: "FO", company: "PO", szco: "SZČO" };
+    if (!f.value) return "...";
+    return f.value.split(",").map(v => map[v] || v).join(", ");
   }
   if (f.field === "listStatus") {
     const map: Record<string, string> = { cerveny: "Červený zoznam", cierny: "Čierny zoznam", clean: "Čistý" };
@@ -473,15 +474,31 @@ export default function Reports() {
                 <div key={f.id} className="flex items-center gap-1.5 bg-muted/50 border border-border rounded-md px-2 py-1.5" data-testid={`dynamic-filter-${f.field}`}>
                   <Badge variant="outline" className={`${MODULE_COLORS[f.module]} text-white text-[9px] px-1 py-0`}>{f.module}</Badge>
                   <span className="text-xs font-medium">{f.label}:</span>
-                  {f.type === "select" && f.field === "subjectType" && (
-                    <Select value={f.value} onValueChange={v => updateDynamicFilter(f.id, "value", v)}>
-                      <SelectTrigger className="h-7 w-32 text-xs"><SelectValue placeholder="Vybrať" /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="person">Fyzická osoba</SelectItem>
-                        <SelectItem value="company">Právnická osoba</SelectItem>
-                        <SelectItem value="szco">SZČO</SelectItem>
-                      </SelectContent>
-                    </Select>
+                  {f.type === "multiselect" && f.field === "subjectType" && (
+                    <div className="flex gap-1">
+                      {[
+                        { val: "person", label: "FO" },
+                        { val: "company", label: "PO" },
+                        { val: "szco", label: "SZČO" },
+                      ].map(opt => {
+                        const selected = f.value.split(",").filter(Boolean);
+                        const isActive = selected.includes(opt.val);
+                        return (
+                          <button
+                            key={opt.val}
+                            data-testid={`toggle-subject-type-${opt.val}`}
+                            className={`px-2 py-0.5 text-xs rounded border transition-colors ${isActive ? "bg-primary text-primary-foreground border-primary" : "bg-muted/50 text-muted-foreground border-border hover:bg-muted"}`}
+                            onClick={() => {
+                              const cur = f.value.split(",").filter(Boolean);
+                              const next = isActive ? cur.filter(v => v !== opt.val) : [...cur, opt.val];
+                              updateDynamicFilter(f.id, "value", next.join(","));
+                            }}
+                          >
+                            {opt.label}
+                          </button>
+                        );
+                      })}
+                    </div>
                   )}
                   {f.type === "select" && f.field === "listStatus" && (
                     <Select value={f.value} onValueChange={v => updateDynamicFilter(f.id, "value", v)}>
