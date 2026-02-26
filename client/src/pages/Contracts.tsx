@@ -1773,16 +1773,20 @@ export default function Contracts() {
   const [filterStatusId, setFilterStatusId] = useState<string>("all");
   const [filterStatusIds, setFilterStatusIds] = useState<number[]>([]);
   const [filterInventoryId, setFilterInventoryId] = useState<string>("all");
+  const [filterNeedsManualVerification, setFilterNeedsManualVerification] = useState(false);
 
   useEffect(() => {
     const search = window.location.search;
     if (!search) {
       setFilterStatusIds([]);
+      setFilterNeedsManualVerification(false);
       return;
     }
     const params = new URLSearchParams(search);
     const singleId = params.get("statusId");
     const multiIds = params.get("statusIds");
+    const needsManual = params.get("needsManualVerification") === "true";
+    setFilterNeedsManualVerification(needsManual);
     if (multiIds) {
       const ids = multiIds.split(",").map(Number).filter(n => !isNaN(n));
       setFilterStatusIds(ids);
@@ -1849,7 +1853,12 @@ export default function Contracts() {
       return { unprocessed: "true" } as Record<string, string>;
     }
     const p: Record<string, string> = {};
-    if (filterStatusId && filterStatusId !== "all") p.statusId = filterStatusId;
+    if (filterStatusIds.length > 0) {
+      p.statusIds = filterStatusIds.join(",");
+    } else if (filterStatusId && filterStatusId !== "all") {
+      p.statusId = filterStatusId;
+    }
+    if (filterNeedsManualVerification) p.needsManualVerification = "true";
     if (filterInventoryId && filterInventoryId !== "all") p.inventoryId = filterInventoryId;
     return p;
   })();
@@ -2007,7 +2016,6 @@ export default function Contracts() {
   const activeContracts = contracts?.filter(c => {
     if (c.isDeleted) return false;
     if (!isEvidencia && nahratadoSystemuStatusId && c.statusId === nahratadoSystemuStatusId) return false;
-    if (filterStatusIds.length > 0 && c.statusId && !filterStatusIds.includes(c.statusId)) return false;
     return true;
   }) || [];
   const activeDispatched = dispatchedContracts?.filter(c => !c.isDeleted) || [];

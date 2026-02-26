@@ -81,6 +81,7 @@ interface ContractStats {
   totalAnnualPremium: number;
   activeStatusIds: number[];
   interventionStatusIds: number[];
+  hasManualVerification: boolean;
 }
 
 export default function Dashboard() {
@@ -253,11 +254,11 @@ export default function Dashboard() {
       clickable: true,
       onClick: () => {
         const ids = contractStats?.interventionStatusIds;
-        if (ids && ids.length > 0) {
-          navigate(`/contracts?statusIds=${ids.join(",")}`);
-        } else {
-          navigate("/contracts");
-        }
+        const hasManual = contractStats?.hasManualVerification;
+        const parts: string[] = [];
+        if (ids && ids.length > 0) parts.push(`statusIds=${ids.join(",")}`);
+        if (hasManual) parts.push("needsManualVerification=true");
+        navigate(parts.length > 0 ? `/contracts?${parts.join("&")}` : "/contracts");
       },
     },
     {

@@ -351,7 +351,7 @@ export interface IStorage {
 
   // Contracts
   getContracts(filters?: { stateId?: number; statusId?: number; inventoryId?: number; templateId?: number; includeDeleted?: boolean; unprocessed?: boolean; dispatched?: boolean; companyId?: number; limit?: number; offset?: number }): Promise<Contract[]>;
-  getContractsPaginated(filters?: { stateId?: number; statusId?: number; inventoryId?: number; templateId?: number; includeDeleted?: boolean; unprocessed?: boolean; dispatched?: boolean; companyId?: number; limit?: number; offset?: number }): Promise<{ data: Contract[]; total: number }>;
+  getContractsPaginated(filters?: { stateId?: number; statusId?: number; statusIds?: number[]; needsManualVerification?: boolean; inventoryId?: number; templateId?: number; includeDeleted?: boolean; unprocessed?: boolean; dispatched?: boolean; companyId?: number; limit?: number; offset?: number }): Promise<{ data: Contract[]; total: number }>;
   getDispatchedContracts(companyId?: number, stateId?: number): Promise<Contract[]>;
   getSystemContractStatus(): Promise<ContractStatus | undefined>;
   getContract(id: number): Promise<Contract | undefined>;
@@ -2434,7 +2434,7 @@ export class DatabaseStorage implements IStorage {
     return await db.select().from(contracts).orderBy(sql`${contracts.createdAt} DESC`);
   }
 
-  async getContractsPaginated(filters?: { stateId?: number; statusId?: number; inventoryId?: number; templateId?: number; includeDeleted?: boolean; unprocessed?: boolean; dispatched?: boolean; companyId?: number; limit?: number; offset?: number }): Promise<{ data: Contract[]; total: number }> {
+  async getContractsPaginated(filters?: { stateId?: number; statusId?: number; statusIds?: number[]; needsManualVerification?: boolean; inventoryId?: number; templateId?: number; includeDeleted?: boolean; unprocessed?: boolean; dispatched?: boolean; companyId?: number; limit?: number; offset?: number }): Promise<{ data: Contract[]; total: number }> {
     const conditions = [];
     if (!filters?.includeDeleted) {
       conditions.push(eq(contracts.isDeleted, false));
@@ -2442,7 +2442,16 @@ export class DatabaseStorage implements IStorage {
     if (filters?.stateId) {
       conditions.push(eq(contracts.stateId, filters.stateId));
     }
-    if (filters?.statusId) {
+    if (filters?.statusIds && filters.statusIds.length > 0 && filters?.needsManualVerification) {
+      conditions.push(or(
+        inArray(contracts.statusId, filters.statusIds),
+        eq(contracts.needsManualVerification, true)
+      )!);
+    } else if (filters?.statusIds && filters.statusIds.length > 0) {
+      conditions.push(inArray(contracts.statusId, filters.statusIds));
+    } else if (filters?.needsManualVerification) {
+      conditions.push(eq(contracts.needsManualVerification, true));
+    } else if (filters?.statusId) {
       conditions.push(eq(contracts.statusId, filters.statusId));
     }
     if (filters?.inventoryId) {

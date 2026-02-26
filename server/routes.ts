@@ -3418,9 +3418,13 @@ export async function registerRoutes(
     const parsedOffset = req.query.offset ? parseInt(req.query.offset as string) : 0;
     const limit = isNaN(parsedLimit) ? 50 : Math.min(parsedLimit, 200);
     const offset = isNaN(parsedOffset) ? 0 : Math.max(parsedOffset, 0);
+    const statusIdsParam = req.query.statusIds as string | undefined;
+    const statusIds = statusIdsParam ? statusIdsParam.split(",").map(Number).filter(n => !isNaN(n)) : undefined;
     const filters = {
       stateId: getEnforcedStateId(req),
-      statusId: req.query.statusId ? parseInt(req.query.statusId as string) : undefined,
+      statusId: !statusIds ? (req.query.statusId ? parseInt(req.query.statusId as string) : undefined) : undefined,
+      statusIds: statusIds && statusIds.length > 0 ? statusIds : undefined,
+      needsManualVerification: req.query.needsManualVerification === 'true' ? true : undefined,
       inventoryId: req.query.inventoryId ? parseInt(req.query.inventoryId as string) : undefined,
       includeDeleted: req.query.includeDeleted === 'true',
       unprocessed: req.query.unprocessed === 'true',
@@ -5310,6 +5314,7 @@ export async function registerRoutes(
 
       const activeStatusIdList = Array.from(activeStatusIds);
       const interventionStatusIdList = Array.from(interventionStatusIds);
+      const hasManualVerification = allContracts.some(c => c.needsManualVerification === true);
 
       res.json({
         totalContracts,
@@ -5318,6 +5323,7 @@ export async function registerRoutes(
         totalAnnualPremium,
         activeStatusIds: activeStatusIdList,
         interventionStatusIds: interventionStatusIdList,
+        hasManualVerification,
       });
     } catch (err: any) {
       res.status(500).json({ message: err.message });
