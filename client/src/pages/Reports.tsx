@@ -136,7 +136,6 @@ export default function Reports() {
   const [dynamicFilters, setDynamicFilters] = useState<DynamicFilter[]>([]);
   const [showAddFilter, setShowAddFilter] = useState(false);
   const [deepDiveOpen, setDeepDiveOpen] = useState(true);
-  const [autoRefreshKey, setAutoRefreshKey] = useState(0);
   const [selectedMonth, setSelectedMonth] = useState<string | null>(null);
   const pieChartRef = useRef<HTMLDivElement>(null);
   const barChartRef = useRef<HTMLDivElement>(null);
@@ -184,23 +183,22 @@ export default function Reports() {
     if (ef) p.set("expiryFrom", ef);
     if (et) p.set("expiryTo", et);
     return p;
-  }, [from, to, partnerId, agentId, status, contractType, dynamicFilters, autoRefreshKey]);
-
-  useEffect(() => {
-    if (filtersApplied) {
-      setAutoRefreshKey(k => k + 1);
-    }
-  }, [dynamicFilters, partnerId, agentId, status, contractType]);
+  }, [from, to, partnerId, agentId, status, contractType, dynamicFilters]);
 
   const { data: reportData, isLoading, isError } = useQuery<ReportData>({
-    queryKey: ["/api/reports/production", queryParams.toString(), filtersApplied, autoRefreshKey],
+    queryKey: ["/api/reports/production", queryParams.toString(), filtersApplied],
     queryFn: async () => {
       const r = await fetch(`/api/reports/production?${queryParams.toString()}`, { credentials: "include" });
+      if (r.status === 401) {
+        window.location.href = "/";
+        throw new Error("Session expired");
+      }
       if (!r.ok) throw new Error(`HTTP ${r.status}`);
       return r.json();
     },
     enabled: isAdmin && filtersApplied,
-    retry: false,
+    retry: 1,
+    placeholderData: (prev: any) => prev,
   });
 
   const { data: partners } = useQuery<Partner[]>({ queryKey: ["/api/partners"] });
@@ -212,7 +210,7 @@ export default function Reports() {
   const handleReset = () => {
     setFrom(""); setTo(""); setPartnerId(""); setAgentId("");
     setStatus(""); setContractType(""); setFiltersApplied(false);
-    setSearchText(""); setDynamicFilters([]); setAutoRefreshKey(0);
+    setSearchText(""); setDynamicFilters([]);
     setSelectedMonth(null);
   };
 
