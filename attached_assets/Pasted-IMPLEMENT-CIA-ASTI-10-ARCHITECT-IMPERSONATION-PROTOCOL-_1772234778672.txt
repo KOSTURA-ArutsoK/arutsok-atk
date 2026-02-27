@@ -1,0 +1,30 @@
+IMPLEMENTÁCIA ČASTI 10: ARCHITECT IMPERSONATION PROTOCOL
+
+Magnus, musíš implementovať modul pre bezpečné prepínanie identít (Impersonation). Tento nástroj umožní Architektovi vstúpiť do systému pod identitou iného používateľa bez toho, aby poznal jeho heslo.
+
+1. Striktné Oprávnenia (Kto a Koho)
+Spúšťač: Povolené výhradne pre používateľov s securityLevel >= 8 (Architekt / Majiteľ).
+
+Cieľ: Možnosť simulovať akúkoľvek úroveň L1 až L7 a L9.
+
+Zámok: Architekt nemôže impersonovať iného Architekta (L8) ani Úroveň 10 (Holding), aby sa zachovala integrita najvyššieho velenia.
+
+2. Technický mechanizmus (Context Switching)
+Session Hijacking (Safe): Po kliknutí na "Login ako..." systém vygeneruje dočasný token, ktorý nahradí aktuálnu identitu v session, ale v pozadí si zapamätá pôvodné ID Architekta.
+
+Prepínanie kontextov: Pri vstupe do simulácie sa musia automaticky zmeniť aj naše kontextové bubliny v hornej lište (Štát / Spoločnosť / Divízia) na tie, ktoré má priradené daný používateľ.
+
+3. Vizuálny Alert (Critical UI)
+Aby Architekt nikdy nezabudol, že nie je vo svojom profile, implementuj tieto prvky:
+
+Červený varovný banner: Po celom obvode obrazovky (alebo v hornej lište) musí svietiť výrazný červený pruh s textom: "SIMULÁCIA IDENTITY: Práve ste prihlásený ako [Meno] (L[Úroveň])".
+
+Exit Button: V pravom hornom rohu musí byť fixné tlačidlo "❌ UKONČIŤ SIMULÁCIU", ktoré okamžite vráti Architekta do jeho pôvodného L8 profilu.
+
+4. Auditná stopa (Deep Logging)
+Identifikácia: Každý zápis do DB (vytvorenie subjektu, zmena zmluvy) vykonaný počas simulácie musí v tabuľke audit_logs obsahovať dvoch aktérov: performed_by_id (ID simulovaného používateľa) a impersonated_by_id (ID Architekta).
+
+Transparentnosť: V histórii úprav musí byť jasne vidieť: "Zmenené používateľom [Obchodník], simulovaným Architektom."
+
+5. Bezpečnostné obmedzenia v simulácii
+Admin Lock: Počas impersonácie sú pre Architekta zablokované funkcie správy používateľov a zmena bezpečnostných úrovní. Nemôžeš meniť systémové nastavenia "v koži" obchodníka.

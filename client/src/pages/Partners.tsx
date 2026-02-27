@@ -1,7 +1,7 @@
 import { useState, useRef, useCallback, useEffect } from "react";
 import { usePartners, useCreatePartner, useUpdatePartner, useDeletePartner, usePartnerContacts, usePartnerProducts, useCreatePartnerContact, useCreatePartnerProduct, useUpdatePartnerLifecycleStatus } from "@/hooks/use-partners";
 import { useAppUser } from "@/hooks/use-app-user";
-import { formatDateSlovak, formatPhone, formatUid } from "@/lib/utils";
+import { formatDateSlovak, formatPhone, formatUid, canCreateRecords, canEditRecords, canDeleteRecords } from "@/lib/utils";
 import { Plus, Briefcase, Pencil, Trash2, Clock, Users, Package, Calendar, Archive, MapPin, Circle, FastForward, Play, Pause, Upload, Square } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -756,10 +756,12 @@ export default function Partners() {
         <div className="flex items-center gap-2 flex-wrap">
           <SmartFilterBar filter={tableFilter} />
           <ColumnManager columnVisibility={columnVisibility} />
-          <Button onClick={openCreate} data-testid="button-add-partner">
-            <Plus className="w-4 h-4 mr-2" />
-            Pridat noveho partnera
-          </Button>
+          {canCreateRecords(appUser) && (
+            <Button onClick={openCreate} data-testid="button-add-partner">
+              <Plus className="w-4 h-4 mr-2" />
+              Pridat noveho partnera
+            </Button>
+          )}
         </div>
       </div>
 
@@ -809,17 +811,21 @@ export default function Partners() {
                   <TableCell>
                     <div className="flex items-center gap-1">
                       <LifecycleStatusIcon status={partner.lifecycleStatus} />
-                      <Button size="icon" variant="ghost" onClick={(e) => { e.stopPropagation(); openPartner(partner); }} data-testid={`button-edit-partner-${partner.id}`}>
-                        <Pencil className="w-4 h-4" />
-                      </Button>
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <Button size="icon" variant="ghost" onClick={(e) => { e.stopPropagation(); setDeleteTarget(partner); }} data-testid={`button-delete-partner-${partner.id}`}>
-                            <Trash2 className="w-4 h-4 text-destructive" />
-                          </Button>
-                        </TooltipTrigger>
-                        <TooltipContent>Zmazat partnera</TooltipContent>
-                      </Tooltip>
+                      {canEditRecords(appUser) && (
+                        <Button size="icon" variant="ghost" onClick={(e) => { e.stopPropagation(); openPartner(partner); }} data-testid={`button-edit-partner-${partner.id}`}>
+                          <Pencil className="w-4 h-4" />
+                        </Button>
+                      )}
+                      {canDeleteRecords(appUser) && (
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Button size="icon" variant="ghost" onClick={(e) => { e.stopPropagation(); setDeleteTarget(partner); }} data-testid={`button-delete-partner-${partner.id}`}>
+                              <Trash2 className="w-4 h-4 text-destructive" />
+                            </Button>
+                          </TooltipTrigger>
+                          <TooltipContent>Zmazat partnera</TooltipContent>
+                        </Tooltip>
+                      )}
                     </div>
                   </TableCell>
                 </TableRow>

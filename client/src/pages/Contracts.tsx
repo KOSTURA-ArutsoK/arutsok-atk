@@ -1,7 +1,7 @@
 import { useState, useRef, useCallback, useEffect, useMemo } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import { formatDateSlovak, formatUid, getDateSemaphore, getDateSemaphoreClasses } from "@/lib/utils";
+import { formatDateSlovak, formatUid, getDateSemaphore, getDateSemaphoreClasses, canCreateRecords, canDeleteRecords, canEditRecords } from "@/lib/utils";
 import { useAppUser } from "@/hooks/use-app-user";
 import { useStates } from "@/hooks/use-hierarchy";
 import { useToast } from "@/hooks/use-toast";
@@ -2528,17 +2528,21 @@ export default function Contracts() {
                       <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => openView(contract)} data-testid={`button-view-contract-${contract.id}`}>
                         <Eye className="w-3.5 h-3.5" />
                       </Button>
-                      <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => openEdit(contract)} data-testid={`button-edit-contract-${contract.id}`}>
-                        <Pencil className="w-3.5 h-3.5" />
-                      </Button>
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => openDelete(contract)} data-testid={`button-delete-contract-${contract.id}`}>
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </Button>
-                        </TooltipTrigger>
-                        <TooltipContent>Zmazať prázdny záznam</TooltipContent>
-                      </Tooltip>
+                      {canEditRecords(appUser) && (
+                        <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => openEdit(contract)} data-testid={`button-edit-contract-${contract.id}`}>
+                          <Pencil className="w-3.5 h-3.5" />
+                        </Button>
+                      )}
+                      {canDeleteRecords(appUser) && (
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => openDelete(contract)} data-testid={`button-delete-contract-${contract.id}`}>
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </Button>
+                          </TooltipTrigger>
+                          <TooltipContent>Zmazať prázdny záznam</TooltipContent>
+                        </Tooltip>
+                      )}
                     </div>
                   </TableCell>
                 )}
@@ -2960,14 +2964,18 @@ export default function Contracts() {
             <HelpIcon text="Prehled vsetkych zmluv v systeme. Zmluvy sa viazu na klientov, produkty a partnerov." side="right" />
           </div>
           <div className="flex items-center gap-2">
-            <Button variant="outline" onClick={() => { setImportFile(null); setImportResult(null); setImportDialogOpen(true); }} data-testid="button-import-excel">
-              <Upload className="w-4 h-4 mr-2" />
-              Import z Excelu
-            </Button>
-            <Button onClick={handleOpenPreSelect} data-testid="button-create-contract">
-              <Plus className="w-4 h-4 mr-2" />
-              Pridat zmluvu
-            </Button>
+            {canCreateRecords(appUser) && (
+              <>
+                <Button variant="outline" onClick={() => { setImportFile(null); setImportResult(null); setImportDialogOpen(true); }} data-testid="button-import-excel">
+                  <Upload className="w-4 h-4 mr-2" />
+                  Import z Excelu
+                </Button>
+                <Button onClick={handleOpenPreSelect} data-testid="button-create-contract">
+                  <Plus className="w-4 h-4 mr-2" />
+                  Pridat zmluvu
+                </Button>
+              </>
+            )}
           </div>
         </div>
 
@@ -3439,14 +3447,18 @@ export default function Contracts() {
           <HelpIcon text="Prehled vsetkych zmluv v systeme. Zmluvy sa viazu na klientov, produkty a partnerov." side="right" />
         </div>
         <div className="flex items-center gap-2">
-          <Button variant="outline" onClick={() => setImportDialogOpen(true)} data-testid="button-bulk-import">
-            <Upload className="w-4 h-4 mr-2" />
-            Hromadný import
-          </Button>
-          <Button onClick={() => navigate("/evidencia-zmluv")} data-testid="button-create-contract">
-            <Plus className="w-4 h-4 mr-2" />
-            Evidovať zmluvu
-          </Button>
+          {canCreateRecords(appUser) && (
+            <>
+              <Button variant="outline" onClick={() => setImportDialogOpen(true)} data-testid="button-bulk-import">
+                <Upload className="w-4 h-4 mr-2" />
+                Hromadný import
+              </Button>
+              <Button onClick={() => navigate("/evidencia-zmluv")} data-testid="button-create-contract">
+                <Plus className="w-4 h-4 mr-2" />
+                Evidovať zmluvu
+              </Button>
+            </>
+          )}
         </div>
       </div>
 
@@ -3604,17 +3616,21 @@ export default function Contracts() {
                           <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => openView(contract)} data-testid={`button-view-contract-${contract.id}`}>
                             <Eye className="w-3.5 h-3.5" />
                           </Button>
-                          <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => openEdit(contract)} data-testid={`button-edit-contract-${contract.id}`}>
-                            <Pencil className="w-3.5 h-3.5" />
-                          </Button>
-                          <Tooltip>
-                            <TooltipTrigger asChild>
-                              <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => openDelete(contract)} data-testid={`button-delete-contract-${contract.id}`}>
-                                <Trash2 className="w-3.5 h-3.5" />
-                              </Button>
-                            </TooltipTrigger>
-                            <TooltipContent>Zmazať prázdny záznam</TooltipContent>
-                          </Tooltip>
+                          {canEditRecords(appUser) && (
+                            <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => openEdit(contract)} data-testid={`button-edit-contract-${contract.id}`}>
+                              <Pencil className="w-3.5 h-3.5" />
+                            </Button>
+                          )}
+                          {canDeleteRecords(appUser) && (
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => openDelete(contract)} data-testid={`button-delete-contract-${contract.id}`}>
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </Button>
+                              </TooltipTrigger>
+                              <TooltipContent>Zmazať prázdny záznam</TooltipContent>
+                            </Tooltip>
+                          )}
                         </div>
                       </TableCell>
                     </TableRow>

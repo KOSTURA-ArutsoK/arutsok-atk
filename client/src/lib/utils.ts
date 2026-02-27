@@ -95,3 +95,23 @@ export function isAuditorReadOnly(appUser: any): boolean {
   if (!appUser) return false;
   return (appUser.sentinelLevel ?? appUser.securityLevel ?? 0) === 9;
 }
+
+export function getSentinelLevel(appUser: any): number {
+  if (!appUser) return 0;
+  return appUser.sentinelLevel ?? appUser.securityLevel ?? 4;
+}
+
+export function canCreateRecords(appUser: any): boolean {
+  const level = getSentinelLevel(appUser);
+  return level >= 4 && level !== 9;
+}
+
+export function canDeleteRecords(appUser: any): boolean {
+  const level = getSentinelLevel(appUser);
+  return level >= 7 && level !== 9;
+}
+
+export function canEditRecords(appUser: any): boolean {
+  const level = getSentinelLevel(appUser);
+  return level >= 4 && level !== 9;
+}

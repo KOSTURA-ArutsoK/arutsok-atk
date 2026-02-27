@@ -961,6 +961,15 @@ export function SubjektView({ subject, showPdfSidebar = false, isClientView = fa
   useEffect(() => {
     if (subject?.id) {
       apiRequest("POST", `/api/subjects/${subject.id}/log-view`).catch(() => {});
+      const sensitiveFields: string[] = [];
+      if (subject.birthNumber && subject.birthNumber !== "******") sensitiveFields.push("birthNumber");
+      if (subject.iban && !String(subject.iban).endsWith("****")) sensitiveFields.push("iban");
+      if (subject.phone && !String(subject.phone).startsWith("****")) sensitiveFields.push("phone");
+      if (subject.email && !String(subject.email).includes("****")) sensitiveFields.push("email");
+      if (subject.idCardNumber && subject.idCardNumber !== "******") sensitiveFields.push("idCardNumber");
+      if (sensitiveFields.length > 0) {
+        apiRequest("POST", `/api/subjects/${subject.id}/log-field-access`, { fields: sensitiveFields }).catch(() => {});
+      }
     }
   }, [subject?.id]);
 

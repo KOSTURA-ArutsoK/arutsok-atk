@@ -9,7 +9,7 @@ import { notifyObjectionCreated, notifyPreDeletion, getProductDaysLimits } from 
 import { seedSubjectParameters, seedAssetPanels, seedEventAndEntityPanels } from "./seed-subject-params";
 import sharp from "sharp";
 import { db } from "./db";
-import { eq, and, or, isNotNull, sql, inArray, desc, asc, gte, lte } from "drizzle-orm";
+import { eq, and, or, isNotNull, sql, inArray, desc, asc, gte, lte, lt } from "drizzle-orm";
 import multer from "multer";
 import ExcelJS from "exceljs";
 import { parse as csvParse } from "csv-parse/sync";
@@ -426,6 +426,49 @@ export async function registerRoutes(
       }
     }
     req._sentinelLevel = level;
+    next();
+  });
+
+  app.use((req: any, res: any, next: any) => {
+    if (!req.appUser) return next();
+    const level = req._sentinelLevel ?? getSecurityLevel(req.appUser);
+    const method = req.method.toUpperCase();
+    if (method === "GET" || method === "HEAD" || method === "OPTIONS") return next();
+
+    const isAuthPath = req.path.startsWith("/api/auth") || req.path.startsWith("/api/login");
+    const isClickLog = req.path === "/api/click-log" || req.path.startsWith("/api/activity-events");
+    const isSetActive = req.path === "/api/app-user/set-active";
+    if (isAuthPath || isClickLog || isSetActive) return next();
+
+    if (level >= SENTINEL_LEVELS.L7_REVIZNA) return next();
+
+    const isModulePath = req.path.startsWith("/api/subjects") || req.path.startsWith("/api/contracts")
+      || req.path.startsWith("/api/partners") || req.path.startsWith("/api/products")
+      || req.path.startsWith("/api/companies") || req.path.startsWith("/api/sectors")
+      || req.path.startsWith("/api/sections") || req.path.startsWith("/api/settlement");
+
+    if (!isModulePath) return next();
+
+    if (level <= SENTINEL_LEVELS.L3_AKVIZICNA) {
+      const isSubjectCreate = req.path === "/api/subjects" && method === "POST";
+      if (level === SENTINEL_LEVELS.L3_AKVIZICNA && isSubjectCreate) return next();
+      return res.status(403).json({ message: "Vaša bezpečnostná úroveň neumožňuje túto operáciu (Sentinel L" + level + ")" });
+    }
+
+    if (level === SENTINEL_LEVELS.L4_OPERATIVNA) {
+      if (method === "DELETE") {
+        return res.status(403).json({ message: "Obchodník nemá oprávnenie mazať záznamy (Sentinel L4)" });
+      }
+      return next();
+    }
+
+    if (level === SENTINEL_LEVELS.L5_MANAZERSKA || level === SENTINEL_LEVELS.L6_STRATEGICKA) {
+      if (method === "DELETE") {
+        return res.status(403).json({ message: "Mazanie záznamov vyžaduje úroveň 7+ (Backoffice)" });
+      }
+      return next();
+    }
+
     next();
   });
 
@@ -1516,6 +1559,17 @@ export async function registerRoutes(
     const enforcedState = getEnforcedStateId(req);
     if (enforcedState) {
       allSubjects = allSubjects.filter((s: any) => s.stateId === enforcedState);
+    }
+
+    const callerLevel = getSecurityLevel(appUser);
+    if (callerLevel >= SENTINEL_LEVELS.L4_OPERATIVNA && callerLevel <= SENTINEL_LEVELS.L6_STRATEGICKA) {
+      const filtered: any[] = [];
+      for (const s of allSubjects) {
+        if (s.registeredByUserId === appUser.id) { filtered.push(s); continue; }
+        if (appUser.linkedSubjectId && appUser.linkedSubjectId === s.id) { filtered.push(s); continue; }
+        if (await isInManagerChain(appUser.id, s.registeredByUserId, appUser.activeCompanyId)) { filtered.push(s); continue; }
+      }
+      allSubjects = filtered;
     }
 
     const allCompanies = await storage.getMyCompanies();
@@ -3965,7 +4019,19 @@ export async function registerRoutes(
       limit,
       offset,
     };
-    const { data: allContracts, total } = await storage.getContractsPaginated(filters);
+    let { data: allContracts, total } = await storage.getContractsPaginated(filters);
+
+    const contractCallerLevel = getSecurityLevel(appUser);
+    if (contractCallerLevel >= SENTINEL_LEVELS.L4_OPERATIVNA && contractCallerLevel <= SENTINEL_LEVELS.L6_STRATEGICKA && appUser) {
+      const contractFiltered: any[] = [];
+      for (const c of allContracts) {
+        if (c.uploadedByUserId === appUser.id) { contractFiltered.push(c); continue; }
+        if (await isInManagerChain(appUser.id, c.uploadedByUserId, appUser.activeCompanyId)) { contractFiltered.push(c); continue; }
+      }
+      allContracts = contractFiltered;
+      total = allContracts.length;
+    }
+
     if (appUser) {
       const userUid = appUser.uid;
       let userIco: string | null = null;
@@ -4620,7 +4686,18 @@ export async function registerRoutes(
       }
       delete input.globalNumber;
 
-
+      if (input.statusId && input.statusId !== old.statusId) {
+        const allStatuses = await storage.getContractStatuses();
+        const newStatus = allStatuses.find((s: any) => s.id === input.statusId);
+        if (newStatus) {
+          const approvalKeywords = ["schválen", "schvalena", "approved", "finalize", "finalizovan"];
+          const statusNameLower = (newStatus.name || "").toLowerCase();
+          const isApprovalStatus = approvalKeywords.some(kw => statusNameLower.includes(kw));
+          if (isApprovalStatus && getSecurityLevel(appUser) < SENTINEL_LEVELS.L7_REVIZNA) {
+            return res.status(403).json({ message: "Schválenie zmluvy vyžaduje úroveň 7+ (Backoffice)" });
+          }
+        }
+      }
 
       const migrationOn = await isMigrationModeOn();
       const updateData: any = { ...input };
@@ -9507,6 +9584,28 @@ export async function registerRoutes(
     }
   });
 
+  app.post("/api/subjects/:id/log-field-access", isAuthenticated, async (req: any, res) => {
+    try {
+      const subjectId = Number(req.params.id);
+      const { fields } = req.body;
+      if (!Array.isArray(fields) || fields.length === 0) return res.json({ ok: true });
+      const appUser = req.appUser;
+      if (!appUser) return res.status(401).json({ message: "Unauthorized" });
+      await storage.createAuditLog({
+        userId: appUser.id,
+        username: appUser.username,
+        action: "FIELD_VIEW",
+        module: "subjekty",
+        entityId: subjectId,
+        entityName: `Zobrazenie citlivých polí: ${fields.join(", ")}`,
+        newData: { fields },
+      });
+      res.json({ ok: true });
+    } catch (err: any) {
+      res.status(500).json({ message: err.message || "Internal error" });
+    }
+  });
+
   app.post("/api/admin/recalculate-all-bonita", isAuthenticated, async (req: any, res) => {
     try {
       const appUser = req.appUser;
@@ -12304,16 +12403,15 @@ export async function registerRoutes(
 
   async function deactivateExpiredAuditors() {
     try {
-      const now = new Date();
       const expired = await db.select({ id: appUsers.id, username: appUsers.username })
         .from(appUsers)
         .where(and(
           eq(appUsers.securityLevel, SENTINEL_LEVELS.L9_AUDITORSKA),
-          eq(appUsers.isActive, true),
-          sql`${appUsers.accessExpiresAt} IS NOT NULL AND ${appUsers.accessExpiresAt} < ${now}`
+          isNotNull(appUsers.accessExpiresAt),
+          lt(appUsers.accessExpiresAt, new Date())
         ));
       for (const u of expired) {
-        await db.update(appUsers).set({ isActive: false }).where(eq(appUsers.id, u.id));
+        await db.update(appUsers).set({ securityLevel: SENTINEL_LEVELS.L2_REGISTERED, role: 'user' }).where(eq(appUsers.id, u.id));
         console.log(`[SENTINEL WATCHDOG] Deactivated expired L9 auditor: ${u.username} (id=${u.id})`);
       }
       if (expired.length > 0) {

@@ -1,7 +1,7 @@
 import { useState, useRef, useCallback, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import { formatDateSlovak } from "@/lib/utils";
+import { formatDateSlovak, canCreateRecords, canEditRecords, canDeleteRecords } from "@/lib/utils";
 import { useTableSort } from "@/hooks/use-table-sort";
 import { useSmartFilter } from "@/hooks/use-smart-filter";
 import type { SmartColumnDef } from "@/hooks/use-smart-filter";
@@ -887,9 +887,11 @@ export default function Products() {
         <div className="flex items-center gap-2 flex-wrap">
           <SmartFilterBar filter={tableFilter} />
           <ColumnManager columnVisibility={columnVisibility} />
-          <Button onClick={handleAdd} data-testid="button-add-product">
-            <Plus className="w-4 h-4 mr-1" /> Pridat produkt
-          </Button>
+          {canCreateRecords(appUser) && (
+            <Button onClick={handleAdd} data-testid="button-add-product">
+              <Plus className="w-4 h-4 mr-1" /> Pridat produkt
+            </Button>
+          )}
         </div>
       </div>
 
@@ -941,10 +943,14 @@ export default function Products() {
                         <Button size="icon" variant="ghost" onClick={() => setDetailProduct(product)} data-testid={`button-view-product-${product.id}`}>
                           <Eye className="w-4 h-4" />
                         </Button>
-                        <Button size="icon" variant="ghost" onClick={() => handleEdit(product)} data-testid={`button-edit-product-${product.id}`}>
-                          <Pencil className="w-4 h-4" />
-                        </Button>
-                        <ConditionalDelete canDelete={true} onClick={() => handleDelete(product)} testId={`button-delete-product-${product.id}`} />
+                        {canEditRecords(appUser) && (
+                          <Button size="icon" variant="ghost" onClick={() => handleEdit(product)} data-testid={`button-edit-product-${product.id}`}>
+                            <Pencil className="w-4 h-4" />
+                          </Button>
+                        )}
+                        {canDeleteRecords(appUser) && (
+                          <ConditionalDelete canDelete={true} onClick={() => handleDelete(product)} testId={`button-delete-product-${product.id}`} />
+                        )}
                       </div>
                     </TableCell>
                   </TableRow>
