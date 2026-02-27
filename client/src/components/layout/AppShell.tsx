@@ -9,7 +9,7 @@ import { useTheme } from "@/components/theme-provider";
 import { useAuth } from "@/hooks/use-auth";
 import { useTTSContext } from "@/contexts/tts-context";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Moon, Sun, ChevronDown, Globe, Building2, Upload, LogOut, AlertTriangle, Timer, Volume2, VolumeX, Shield, Layers, X } from "lucide-react";
+import { Moon, Sun, ChevronDown, Globe, Building2, Upload, LogOut, AlertTriangle, Timer, Volume2, VolumeX, Shield, Layers, X, LayoutGrid } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 
 import { Button } from "@/components/ui/button";
@@ -27,6 +27,7 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 
 const SIDEBAR_STORAGE_KEY = "arutsok-sidebar-open";
 
@@ -395,15 +396,73 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               <ChevronDown className="w-3 h-3 text-muted-foreground" />
             </Button>
 
-            {activeDivisions && activeDivisions.length > 0 && (
-              <Button variant="ghost" size="sm" className="gap-1.5" onClick={openDivisionSelector} data-testid="button-division-switcher">
-                <Layers className="w-4 h-4 text-muted-foreground" />
-                <span className="text-sm font-medium truncate max-w-[160px]">
-                  {activeDivision?.division?.name || activeDivision?.name || "Všetky divízie"}
-                </span>
-                <ChevronDown className="w-3 h-3 text-muted-foreground" />
-              </Button>
-            )}
+            {activeDivisions && activeDivisions.length > 0 && !isClientUser && (() => {
+              const divCount = activeDivisions.length;
+              if (divCount <= 5) {
+                return (
+                  <div className="flex items-center gap-1" data-testid="division-emoji-bar">
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <button
+                          type="button"
+                          onClick={() => handleContextSelectDivision(null)}
+                          className={`w-8 h-8 rounded-full flex items-center justify-center text-sm transition-all ${
+                            !activeDivisionId
+                              ? "ring-2 ring-primary bg-primary/10"
+                              : "hover:bg-muted/50"
+                          }`}
+                          data-testid="division-emoji-all"
+                        >
+                          <LayoutGrid className="w-4 h-4 text-muted-foreground" />
+                        </button>
+                      </TooltipTrigger>
+                      <TooltipContent>Všetky divízie</TooltipContent>
+                    </Tooltip>
+                    {activeDivisions.map((cd: any) => {
+                      const divId = cd.divisionId || cd.division?.id;
+                      const divName = cd.division?.name || cd.name || "Divízia";
+                      const divEmoji = cd.division?.emoji || cd.emoji;
+                      const isActive = divId === activeDivisionId;
+                      return (
+                        <Tooltip key={divId}>
+                          <TooltipTrigger asChild>
+                            <button
+                              type="button"
+                              onClick={() => handleContextSelectDivision(divId)}
+                              className={`w-8 h-8 rounded-full flex items-center justify-center text-lg transition-all ${
+                                isActive
+                                  ? "ring-2 ring-primary bg-primary/10"
+                                  : "hover:bg-muted/50"
+                              }`}
+                              data-testid={`division-emoji-${divId}`}
+                            >
+                              {divEmoji || (
+                                <span className="text-[10px] font-bold text-muted-foreground">
+                                  {(cd.division?.code || cd.code || divName).slice(0, 2).toUpperCase()}
+                                </span>
+                              )}
+                            </button>
+                          </TooltipTrigger>
+                          <TooltipContent>{divName}</TooltipContent>
+                        </Tooltip>
+                      );
+                    })}
+                  </div>
+                );
+              }
+              return (
+                <Button variant="ghost" size="sm" className="gap-1.5" onClick={openDivisionSelector} data-testid="button-division-switcher">
+                  {(() => {
+                    const ae = activeDivision?.division?.emoji || activeDivision?.emoji;
+                    return ae ? <span className="text-lg">{ae}</span> : <Layers className="w-4 h-4 text-muted-foreground" />;
+                  })()}
+                  <span className="text-sm font-medium truncate max-w-[160px]">
+                    {activeDivision?.division?.name || activeDivision?.name || "Všetky divízie"}
+                  </span>
+                  <ChevronDown className="w-3 h-3 text-muted-foreground" />
+                </Button>
+              );
+            })()}
 
             <div className="flex-1" />
 

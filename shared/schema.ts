@@ -85,6 +85,7 @@ export const divisions = pgTable("divisions", {
   id: serial("id").primaryKey(),
   name: text("name").notNull(),
   code: text("code"),
+  emoji: text("emoji"),
   description: text("description"),
   isActive: boolean("is_active").default(true),
   createdAt: timestamp("created_at").defaultNow(),

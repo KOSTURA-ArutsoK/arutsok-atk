@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import type { MyCompany, LogoEntry } from "@shared/schema";
 
 type StateItem = { id: number; name: string; code: string; flagUrl: string | null; continentId: number };
-type DivisionItem = { id: number; name: string; code: string | null; divisionId: number };
+type DivisionItem = { id: number; name: string; code: string | null; emoji?: string | null; divisionId: number; division?: { id: number; name: string; code: string | null; emoji?: string | null } };
 
 function StateFlagImage({ src, alt, code, className }: { src: string | null | undefined; alt: string; code?: string; className?: string }) {
   const [failed, setFailed] = useState(false);
@@ -225,6 +225,7 @@ export function ContextSelectorOverlay({
               {companyDivisions.map(cd => {
                 const divId = cd.divisionId || cd.division?.id;
                 const divName = cd.division?.name || cd.name || "Divízia";
+                const divEmoji = cd.division?.emoji || cd.emoji;
                 return (
                   <button
                     key={divId}
@@ -234,7 +235,11 @@ export function ContextSelectorOverlay({
                     data-testid={`context-division-${divId}`}
                   >
                     <div className="w-16 h-16 rounded-md bg-muted flex items-center justify-center overflow-hidden">
-                      <Layers className="w-8 h-8 text-muted-foreground" />
+                      {divEmoji ? (
+                        <span className="text-3xl">{divEmoji}</span>
+                      ) : (
+                        <Layers className="w-8 h-8 text-muted-foreground" />
+                      )}
                     </div>
                     <span className="text-sm font-medium text-foreground text-center leading-tight group-hover:text-primary transition-colors">
                       {divName}

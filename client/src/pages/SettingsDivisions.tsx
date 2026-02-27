@@ -48,6 +48,7 @@ import type { Division, MyCompany } from "@shared/schema";
 
 const DIVISION_COLUMNS: ColumnDef[] = [
   { key: "id", label: "ID" },
+  { key: "emoji", label: "Emoji" },
   { key: "name", label: "Nazov" },
   { key: "code", label: "Kod" },
   { key: "description", label: "Popis" },
@@ -114,6 +115,7 @@ export default function SettingsDivisions() {
               <TableHeader>
                 <TableRow>
                   {columnVisibility.isVisible("id") && <TableHead sortKey="id" sortDirection={sortKey === "id" ? sortDirection : null} onSort={requestSort}>ID</TableHead>}
+                  {columnVisibility.isVisible("emoji") && <TableHead className="w-12 text-center">Emoji</TableHead>}
                   {columnVisibility.isVisible("name") && <TableHead sortKey="name" sortDirection={sortKey === "name" ? sortDirection : null} onSort={requestSort}>Nazov</TableHead>}
                   {columnVisibility.isVisible("code") && <TableHead sortKey="code" sortDirection={sortKey === "code" ? sortDirection : null} onSort={requestSort}>Kod</TableHead>}
                   {columnVisibility.isVisible("description") && <TableHead>Popis</TableHead>}
@@ -125,6 +127,7 @@ export default function SettingsDivisions() {
                 {sortedData.map((div: Division) => (
                   <TableRow key={div.id} className={!div.isActive ? "opacity-50" : ""}>
                     {columnVisibility.isVisible("id") && <TableCell data-testid={`text-division-id-${div.id}`}>{div.id}</TableCell>}
+                    {columnVisibility.isVisible("emoji") && <TableCell className="text-center text-lg" data-testid={`text-division-emoji-${div.id}`}>{(div as any).emoji || "-"}</TableCell>}
                     {columnVisibility.isVisible("name") && <TableCell className="font-medium" data-testid={`text-division-name-${div.id}`}>{div.name}</TableCell>}
                     {columnVisibility.isVisible("code") && <TableCell><Badge variant="secondary" className="font-mono">{div.code || "-"}</Badge></TableCell>}
                     {columnVisibility.isVisible("description") && <TableCell className="text-sm text-muted-foreground max-w-[200px] truncate">{div.description || "-"}</TableCell>}
@@ -201,6 +204,7 @@ function DivisionFormDialog({
   const { toast } = useToast();
   const [name, setName] = useState("");
   const [code, setCode] = useState("");
+  const [emoji, setEmoji] = useState("");
   const [description, setDescription] = useState("");
   const [isActive, setIsActive] = useState(true);
 
@@ -229,11 +233,13 @@ function DivisionFormDialog({
       if (editingDivision) {
         setName(editingDivision.name);
         setCode(editingDivision.code || "");
+        setEmoji((editingDivision as any).emoji || "");
         setDescription(editingDivision.description || "");
         setIsActive(editingDivision.isActive ?? true);
       } else {
         setName("");
         setCode("");
+        setEmoji("");
         setDescription("");
         setIsActive(true);
       }
@@ -245,7 +251,7 @@ function DivisionFormDialog({
       toast({ title: "Chyba", description: "Nazov je povinny", variant: "destructive" });
       return;
     }
-    const payload = { name, code: code || null, description: description || null, isActive };
+    const payload = { name, code: code || null, emoji: emoji || null, description: description || null, isActive };
     if (editingDivision) {
       updateMutation.mutate(payload);
     } else {
@@ -268,9 +274,15 @@ function DivisionFormDialog({
             <label className="text-sm font-medium">Nazov <span className="text-destructive">*</span></label>
             <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="napr. Financny trh" data-testid="input-division-name" />
           </div>
-          <div className="space-y-2">
-            <label className="text-sm font-medium">Kod</label>
-            <Input value={code} onChange={(e) => setCode(e.target.value)} placeholder="napr. FIN" data-testid="input-division-code" />
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Kod</label>
+              <Input value={code} onChange={(e) => setCode(e.target.value)} placeholder="napr. FIN" data-testid="input-division-code" />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Emoji</label>
+              <Input value={emoji} onChange={(e) => setEmoji(e.target.value)} placeholder="napr. 🏦" data-testid="input-division-emoji" className="text-lg" />
+            </div>
           </div>
           <div className="space-y-2">
             <label className="text-sm font-medium">Popis</label>

@@ -59,7 +59,8 @@ The system utilizes a modern full-stack architecture, emphasizing data integrity
 - **Dynamic Product Lifecycle Limits**: `sector_products` table allows configurable `objection_days_limit` and `archive_days_before_delete`.
 - **Ghost Mode (Migration Mode)**: Superadmin-only toggle for bulk historical contract import, managing lifecycle cron jobs and timestamps.
 - **Partner & Product Lifecycle (Media-Player System)**: 6-state lifecycle for `partners` and `sector_products` via `lifecycle_status` column, with top-down inheritance and cron-driven auto-transitions.
-- **Holding Structure (Kostura OS)**: Unified ID system with dynamic country prefix, extended `states` table with `currency`, and `divisions` table for holding divisions.
+- **Holding Structure (Kostura OS)**: Unified ID system with dynamic country prefix, extended `states` table with `currency`, and `divisions` table for holding divisions. Divisions have `emoji` field for visual identification.
+- **Adaptive Division Header**: Division switcher in header uses emoji bar (≤5 divisions) with colored ring for active division and tooltips, or dropdown menu (6+ divisions). Hidden for Klienti users. Emoji displayed in Context Selector Overlay tiles.
 - **9-Level Hierarchy**: Full data path: Štát → Spoločnosť → Divízia → Sektor → Sekcia → Produkt → Priečinok → Panel → Parameter, with `sectorId` linked to `divisionId` and `sectionType`.
 - **Majiteľský Sentinel & Impersonation**: `architekt` role (L7) for highest privilege, with impersonation functionality for auditing and support.
 - **Dashboard (Prehľad)**: Simple overview at `/` with drag-and-drop widget layout for contract stats, recent subjects, companies, partners, products, audit activity, and events.
