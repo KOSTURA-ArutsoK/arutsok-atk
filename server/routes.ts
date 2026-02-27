@@ -9965,6 +9965,368 @@ export async function registerRoutes(
     }
   });
 
+  // === HOLDING DASHBOARD — MODULE C ===
+
+  let ecbRateCache: { rate: number; timestamp: number } | null = null;
+  const ECB_CACHE_DURATION = 24 * 60 * 60 * 1000;
+  const ECB_FALLBACK_RATE = 25.2;
+
+  async function fetchEcbRate(): Promise<number> {
+    if (ecbRateCache && (Date.now() - ecbRateCache.timestamp) < ECB_CACHE_DURATION) {
+      return ecbRateCache.rate;
+    }
+    try {
+      const resp = await fetch("https://www.ecb.europa.eu/stats/eurofxref/eurofxref-daily.xml");
+      const text = await resp.text();
+      const match = text.match(/currency='CZK'\s+rate='([0-9.]+)'/);
+      if (match) {
+        const rate = parseFloat(match[1]);
+        ecbRateCache = { rate, timestamp: Date.now() };
+        return rate;
+      }
+    } catch (err) {
+      console.error("[ECB] Failed to fetch rate:", err);
+    }
+    if (ecbRateCache) return ecbRateCache.rate;
+    ecbRateCache = { rate: ECB_FALLBACK_RATE, timestamp: Date.now() };
+    return ECB_FALLBACK_RATE;
+  }
+
+  const holdingExportCounters = new Map<number, { count: number; firstAt: number }>();
+
+  function checkExportLimit(userId: number): { allowed: boolean; count: number } {
+    const now = Date.now();
+    const entry = holdingExportCounters.get(userId);
+    if (!entry || (now - entry.firstAt) > 3600000) {
+      holdingExportCounters.set(userId, { count: 1, firstAt: now });
+      return { allowed: true, count: 1 };
+    }
+    entry.count++;
+    if (entry.count > 3) {
+      return { allowed: false, count: entry.count };
+    }
+    return { allowed: true, count: entry.count };
+  }
+
+  function enforceHoldingAccess(req: any, res: any): { level: number; isHolding: boolean } | null {
+    const level = getSecurityLevel(req.appUser);
+    if (level < SENTINEL_LEVELS.L7_REVIZNA || level === SENTINEL_LEVELS.L9_AUDITORSKA) {
+      res.status(403).json({ message: "Modul C vyžaduje minimálne úroveň L7 (Backoffice)" });
+      return null;
+    }
+    const isHolding = level >= SENTINEL_LEVELS.L8_ARCHITEKTONICKA && level !== SENTINEL_LEVELS.L9_AUDITORSKA;
+    if (!isHolding && !req.appUser.activeCompanyId) {
+      res.status(400).json({ message: "Vyberte aktívnu spoločnosť v holdingom kontexte pred prístupom k Modulu C" });
+      return null;
+    }
+    return { level, isHolding };
+  }
+
+  app.get("/api/holding-dashboard/kpi", isAuthenticated, async (req: any, res) => {
+    try {
+      const access = enforceHoldingAccess(req, res);
+      if (!access) return;
+
+      const companyFilter = access.isHolding && req.query.allCompanies === "true"
+        ? sql`1=1`
+        : req.appUser.activeCompanyId
+          ? eq(contracts.companyId, req.appUser.activeCompanyId)
+          : sql`1=1`;
+
+      const subjectCompanyFilter = access.isHolding && req.query.allCompanies === "true"
+        ? sql`1=1`
+        : req.appUser.activeCompanyId
+          ? eq(subjects.myCompanyId, req.appUser.activeCompanyId)
+          : sql`1=1`;
+
+      const [subjectCount] = await db.select({
+        count: sql<number>`count(*)::int`
+      }).from(subjects).where(and(
+        eq(subjects.isActive, true),
+        eq(subjects.isDeleted, false),
+        subjectCompanyFilter
+      ));
+
+      const allStatuses = await db.select().from(contractStatuses);
+      const stornoStatusIds = allStatuses.filter(s => s.isStorno).map(s => s.id);
+
+      const [contractStats] = await db.select({
+        totalCount: sql<number>`count(*)::int`,
+        totalPremium: sql<number>`COALESCE(sum(COALESCE(premium_amount, annual_premium, 0)), 0)::int`,
+        stornoCount: sql<number>`count(*) FILTER (WHERE ${stornoStatusIds.length > 0 ? inArray(contracts.statusId, stornoStatusIds) : sql`false`})::int`,
+      }).from(contracts).where(and(
+        eq(contracts.isDeleted, false),
+        companyFilter
+      ));
+
+      const [crossSellData] = await db.select({
+        totalSubjectsWithContracts: sql<number>`count(DISTINCT subject_id)::int`,
+        totalContracts: sql<number>`count(*)::int`,
+      }).from(contracts).where(and(
+        eq(contracts.isDeleted, false),
+        companyFilter,
+        isNotNull(contracts.subjectId)
+      ));
+
+      const crossSellIndex = crossSellData.totalSubjectsWithContracts > 0
+        ? Math.round((crossSellData.totalContracts / crossSellData.totalSubjectsWithContracts) * 100) / 100
+        : 0;
+
+      const stornoRate = contractStats.totalCount > 0
+        ? Math.round((contractStats.stornoCount / contractStats.totalCount) * 10000) / 100
+        : 0;
+
+      res.json({
+        totalSubjects: subjectCount.count,
+        totalContracts: contractStats.totalCount,
+        gwp: contractStats.totalPremium,
+        crossSellIndex,
+        stornoRate,
+        stornoCount: contractStats.stornoCount,
+        isHoldingView: access.isHolding && req.query.allCompanies === "true",
+      });
+    } catch (err: any) {
+      console.error("[HOLDING-KPI]", err);
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  app.get("/api/holding-dashboard/crosssell", isAuthenticated, async (req: any, res) => {
+    try {
+      const access = enforceHoldingAccess(req, res);
+      if (!access) return;
+
+      const companyFilter = access.isHolding && req.query.allCompanies === "true"
+        ? sql`1=1`
+        : req.appUser.activeCompanyId
+          ? eq(contracts.companyId, req.appUser.activeCompanyId)
+          : sql`1=1`;
+
+      const allSectors = await db.select().from(sectors).where(eq(sectors.isActive, true));
+
+      const sectorEmojis: Record<number, string> = {};
+      const EMOJI_MAP: Record<string, string> = {
+        "poistenie": "🛡️", "zivotne": "❤️", "majetok": "🏠", "auto": "🚗", "pzp": "🚗",
+        "kasko": "🚙", "cestovne": "✈️", "zodpovednost": "⚖️", "uver": "💰", "hypo": "🏦",
+        "investic": "📈", "sporenie": "🐷", "dochodok": "👴", "uraz": "🩹", "nehnutel": "🏗️",
+        "priemysel": "🏭", "flot": "🚛", "zdravot": "🏥", "pravne": "📋", "energia": "⚡",
+      };
+      for (const sec of allSectors) {
+        const nameLower = sec.name.toLowerCase();
+        let emoji = "📄";
+        for (const [key, em] of Object.entries(EMOJI_MAP)) {
+          if (nameLower.includes(key)) { emoji = em; break; }
+        }
+        sectorEmojis[sec.id] = emoji;
+      }
+
+      const contractsWithSectors = await db.select({
+        subjectId: contracts.subjectId,
+        sectorProductId: contracts.sectorProductId,
+        productId: contracts.productId,
+      }).from(contracts).where(and(
+        eq(contracts.isDeleted, false),
+        isNotNull(contracts.subjectId),
+        companyFilter
+      ));
+
+      const allSectorProducts = await db.select().from(sectorProducts);
+      const spSectorMap = new Map(allSectorProducts.map(sp => [sp.id, sp.sectionId]));
+      const allSections = await db.select().from(sections);
+      const sectionSectorMap = new Map(allSections.map(sec => [sec.id, sec.sectorId]));
+
+      const subjectSectorCoverage = new Map<number, Set<number>>();
+      for (const c of contractsWithSectors) {
+        if (!c.subjectId) continue;
+        let sectorId: number | null = null;
+        if (c.sectorProductId) {
+          const sectionId = spSectorMap.get(c.sectorProductId);
+          if (sectionId) sectorId = sectionSectorMap.get(sectionId) || null;
+        }
+        if (!sectorId) continue;
+        if (!subjectSectorCoverage.has(c.subjectId)) subjectSectorCoverage.set(c.subjectId, new Set());
+        subjectSectorCoverage.get(c.subjectId)!.add(sectorId);
+      }
+
+      const sectorCoverage: Record<number, number> = {};
+      const sectorGaps: Record<number, number> = {};
+      const totalSubjects = subjectSectorCoverage.size;
+
+      for (const sec of allSectors) {
+        sectorCoverage[sec.id] = 0;
+        sectorGaps[sec.id] = 0;
+      }
+
+      for (const [, coveredSectors] of subjectSectorCoverage) {
+        for (const sec of allSectors) {
+          if (coveredSectors.has(sec.id)) {
+            sectorCoverage[sec.id]++;
+          } else {
+            sectorGaps[sec.id]++;
+          }
+        }
+      }
+
+      const matrix = allSectors.map(sec => ({
+        sectorId: sec.id,
+        sectorName: sec.name,
+        emoji: sectorEmojis[sec.id] || "📄",
+        covered: sectorCoverage[sec.id] || 0,
+        gaps: sectorGaps[sec.id] || 0,
+        coveragePercent: totalSubjects > 0 ? Math.round((sectorCoverage[sec.id] / totalSubjects) * 100) : 0,
+      }));
+
+      res.json({
+        totalSubjectsWithContracts: totalSubjects,
+        sectors: matrix,
+      });
+    } catch (err: any) {
+      console.error("[HOLDING-CROSSSELL]", err);
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  app.get("/api/holding-dashboard/divisions", isAuthenticated, async (req: any, res) => {
+    try {
+      const access = enforceHoldingAccess(req, res);
+      if (!access) return;
+
+      const allDivisions = await db.select().from(divisions).where(eq(divisions.isActive, true));
+      const allSectors = await db.select().from(sectors).where(eq(sectors.isActive, true));
+      const sectorDivisionMap = new Map(allSectors.map(s => [s.id, s.divisionId]));
+
+      const allSectorProducts = await db.select().from(sectorProducts);
+      const spSectionMap = new Map(allSectorProducts.map(sp => [sp.id, sp.sectionId]));
+      const allSections = await db.select().from(sections);
+      const sectionSectorMap2 = new Map(allSections.map(sec => [sec.id, sec.sectorId]));
+
+      const companyFilter = access.isHolding && req.query.allCompanies === "true"
+        ? sql`1=1`
+        : req.appUser.activeCompanyId
+          ? eq(contracts.companyId, req.appUser.activeCompanyId)
+          : sql`1=1`;
+
+      const allContracts = await db.select({
+        id: contracts.id,
+        sectorProductId: contracts.sectorProductId,
+        premiumAmount: contracts.premiumAmount,
+        annualPremium: contracts.annualPremium,
+        statusId: contracts.statusId,
+        currency: contracts.currency,
+      }).from(contracts).where(and(
+        eq(contracts.isDeleted, false),
+        companyFilter
+      ));
+
+      const allStatuses = await db.select().from(contractStatuses);
+      const stornoStatusIds2 = new Set(allStatuses.filter(s => s.isStorno).map(s => s.id));
+
+      const divisionStats = new Map<number, { production: number; count: number; storno: number }>();
+      for (const div of allDivisions) {
+        divisionStats.set(div.id, { production: 0, count: 0, storno: 0 });
+      }
+
+      for (const c of allContracts) {
+        let divisionId: number | null = null;
+        if (c.sectorProductId) {
+          const sectionId = spSectionMap.get(c.sectorProductId);
+          if (sectionId) {
+            const sectorId = sectionSectorMap2.get(sectionId);
+            if (sectorId) divisionId = sectorDivisionMap.get(sectorId) || null;
+          }
+        }
+        if (!divisionId) continue;
+        const stats = divisionStats.get(divisionId);
+        if (!stats) continue;
+        stats.count++;
+        stats.production += c.premiumAmount || c.annualPremium || 0;
+        if (c.statusId && stornoStatusIds2.has(c.statusId)) stats.storno++;
+      }
+
+      const heatmap = allDivisions.map(div => {
+        const stats = divisionStats.get(div.id) || { production: 0, count: 0, storno: 0 };
+        return {
+          divisionId: div.id,
+          divisionName: div.name,
+          emoji: div.emoji || "📁",
+          production: stats.production,
+          contractCount: stats.count,
+          stornoCount: stats.storno,
+          stornoRate: stats.count > 0 ? Math.round((stats.storno / stats.count) * 10000) / 100 : 0,
+        };
+      });
+
+      res.json({ divisions: heatmap });
+    } catch (err: any) {
+      console.error("[HOLDING-DIVISIONS]", err);
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  app.get("/api/holding-dashboard/exchange-rate", isAuthenticated, async (req: any, res) => {
+    try {
+      const access = enforceHoldingAccess(req, res);
+      if (!access) return;
+
+      const rate = await fetchEcbRate();
+      res.json({
+        eurCzk: rate,
+        czkEur: Math.round((1 / rate) * 1000000) / 1000000,
+        cachedAt: ecbRateCache?.timestamp ? new Date(ecbRateCache.timestamp).toISOString() : null,
+        source: "ECB",
+      });
+    } catch (err: any) {
+      console.error("[ECB-RATE]", err);
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  app.post("/api/holding-dashboard/export-log", isAuthenticated, async (req: any, res) => {
+    try {
+      const access = enforceHoldingAccess(req, res);
+      if (!access) return;
+
+      const appUser = req.appUser;
+      const { exportType, reportName } = req.body;
+
+      const { allowed, count } = checkExportLimit(appUser.id);
+
+      await logAudit(req, {
+        action: "HOLDING_EXPORT",
+        module: "holding_dashboard",
+        entityName: reportName || "Holding Export",
+        newData: { exportType, reportName, exportCount: count, limitExceeded: !allowed },
+      });
+
+      if (!allowed) {
+        const architects = await db.select().from(appUsers).where(
+          and(eq(appUsers.role, "architekt"))
+        );
+        for (const arch of architects) {
+          try {
+            await db.insert(systemNotifications).values({
+              recipientUserId: arch.id,
+              type: "anti_mass_export",
+              subject: "Anti-Mass-Export upozornenie",
+              body: `Používateľ ${appUser.username} (L${access.level}) vygeneroval ${count} holdingových reportov za poslednú hodinu. Limit 3/h prekročený.`,
+              status: "pending",
+            } as any);
+          } catch {}
+        }
+
+        return res.status(429).json({
+          message: "Prekročili ste limit 3 veľkých holdingových reportov za hodinu. Sentinel (L8) bol notifikovaný.",
+          count,
+        });
+      }
+
+      res.json({ success: true, count });
+    } catch (err: any) {
+      console.error("[HOLDING-EXPORT]", err);
+      res.status(500).json({ message: err.message });
+    }
+  });
+
   // === SUBJECT PHOTOS (Profile Photo with Versioning) ===
   app.get("/api/subjects/:id/photos", isAuthenticated, async (req: any, res) => {
     try {

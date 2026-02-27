@@ -56,6 +56,7 @@ import ImportArchive from "@/pages/ImportArchive";
 import BulkActions from "@/pages/BulkActions";
 import ProfilSubjektu from "@/pages/ProfilSubjektu";
 import Reports from "@/pages/Reports";
+import HoldingDashboard from "@/pages/HoldingDashboard";
 import { AppShell } from "@/components/layout/AppShell";
 import { RedListNotificationPopup } from "@/components/red-list-notification-popup";
 import { BlackListNotificationPopup } from "@/components/black-list-notification-popup";
@@ -145,6 +146,7 @@ const PrivateImportArchive = () => <PrivateRoute><ImportArchive /></PrivateRoute
 const PrivateBulkActions = () => <PrivateRoute><BulkActions /></PrivateRoute>;
 const PrivateProfilSubjektu = () => <PrivateRoute><ProfilSubjektu /></PrivateRoute>;
 const PrivateReports = () => <PrivateRoute><Reports /></PrivateRoute>;
+const PrivateHoldingDashboard = () => <PrivateRoute><HoldingDashboard /></PrivateRoute>;
 const PrivateClientProfile = () => <PrivateRoute><ClientProfilePage /></PrivateRoute>;
 
 function Router() {
@@ -193,6 +195,7 @@ function Router() {
       <Route path="/doba-prihlasenia" component={PrivateDobaPrihlasenia} />
       <Route path="/support" component={PrivatePodpora} />
       <Route path="/analytika" component={PrivateReports} />
+      <Route path="/holding-dashboard" component={PrivateHoldingDashboard} />
       <Route path="/dashboard-settings" component={PrivateNastaveniePrehladov} />
       <Route path="/settings-states" component={PrivateSettingsStates} />
       <Route path="/settings-divisions" component={PrivateSettingsDivisions} />

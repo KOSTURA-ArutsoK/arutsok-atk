@@ -635,6 +635,20 @@ export function AppSidebar() {
                   </Link>
                 </SidebarMenuItem>
               )}
+              {(appUser?.sentinelLevel ?? 0) >= 7 && (appUser?.sentinelLevel ?? 0) !== 9 && (
+                <SidebarMenuItem>
+                  <Link href="/holding-dashboard">
+                    <SidebarMenuButton
+                      isActive={location === "/holding-dashboard"}
+                      data-testid="nav-holding-dashboard"
+                    >
+                      <TrendingUp className="w-4 h-4" />
+                      <span>Holding Dashboard</span>
+                      <Badge variant="outline" className="text-[8px] px-1 py-0 border-primary/30 text-primary ml-1">C</Badge>
+                    </SidebarMenuButton>
+                  </Link>
+                </SidebarMenuItem>
+              )}
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
