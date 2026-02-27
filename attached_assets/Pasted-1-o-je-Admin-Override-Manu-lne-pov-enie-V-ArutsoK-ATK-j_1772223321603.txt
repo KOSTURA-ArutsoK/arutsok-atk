@@ -1,0 +1,48 @@
+1. Čo je Admin Override (Manuálne povýšenie)
+V ArutsoK (ATK) je Admin Override tvojou "najvyššou mocou" nad dátami. Hoci systém robí veľa vecí automaticky (napr. povýši klienta na základe nahranej zmluvy), ty ako Majiteľ (L7) musíš mať právo to zmeniť ručne.
+
+Príklad: Máš VIP klienta, ktorý u teba ešte nemá zmluvu, ale chceš, aby ho systém od začiatku bral ako "Plne overeného klienta" (Klient).
+
+Ako to funguje: V jeho profile klikneš na odznak (Badge) a z menu vyberieš stav. Systém to okamžite zmení a do auditného logu zapíše: "Majiteľ ručne zmenil status na Klient".
+
+💰 2. Pravidlo "Prvej zmluvy" (Provízny strop)
+Toto je biznisovo veľmi silné pravidlo. Znamená to, že nováčik v holdingu Kostura si musí svoje provízie zaslúžiť a jeho nadriadený je motivovaný ho to naučiť, pretože prvá zmluva (základná aj následná provízia) "tečie" jemu.
+
+Túto logiku musíme vložiť do Modulu A (Provízie).
+
+Tento text skopíruj a vlož Agentovi (bude to súčasť Časti 6):
+
+INŠTRUKCIA PRE PRESTAVBU SYSTÉMU (Doplnok k Časti 5/6)
+
+Implementuj kritickú províznu logiku pre holding Kostura:
+
+Pravidlo Prvej Zmluvy:
+
+Systém musí pri výpočte provízie pre akýkoľvek subjekt (ID 421/420) skontrolovať, či ide o jeho historicky prvú zmluvu v danej Divízii.
+
+Ak ide o prvú zmluvu, 100% základnej provízie (UP) aj následnej provízie (NP) sa automaticky presmeruje na jeho priameho nadriadeného (podľa organizačnej štruktúry v Module B).
+
+Priradenie k nadriadenému sa musí fixovať v momente vzniku zmluvy, aby sa neskôr pri zmenách v štruktúre provízia "nestratila".
+
+Vizuálne upozornenie:
+
+V Module B v detaile zmluvy musí byť jasný indikátor: "Prvá zmluva - Provízia smeruje nadriadenému: [Meno nadriadeného]".
+
+Výstup: Ukáž mi SQL logiku alebo kód, ktorým identifikuješ "prvú zmluvu" a ako zabezpečíš presmerovanie NP (následnej provízie) v budúcich rokoch.
+
+🕸️ Časť 6: Rodinný pavúk a 32 typov vzťahov
+Keďže sme už pri nadriadených, plynule prejdeme k vzťahom. Rodinný pavúk nie je len o rodine, ale o celej sieti holdingu.
+
+Úlohy pre Agenta (vlož mu to spolu s tým províznym pravidlom):
+
+Univerzálne prepojenia: Implementuj tabuľku subject_relations, ktorá spojí akékoľvek dve ID 421/420.
+
+Typy vzťahov (32 rolí): Okrem rodiny (otec, syn) pridaj biznis vzťahy: [NADRIADENÝ], [PODRIADENÝ], [MAJITEĽ FIRMY], [KONATEĽ], [TIPÉR].
+
+Dedičnosť Adries: Ak zmeníš adresu otcovi a syn je s ním prepojený vzťahom "Býva na rovnakej adrese", systém musí ponúknuť hromadnú aktualizáciu.
+
+Adresné skupiny: Zoskupenie subjektov podľa súpisného čísla pre efektívny rozvoz pošty alebo marketingu.
+
+Môžeme toto takto zadať Agentovi? Týmto krokom prepojíme provízie so štruktúrou a rodinné vzťahy s biznisom. 🚀📐🛡️
+
+Povedz mi, či chceš ešte niečo upraviť v tom províznom pravidle (napr. či sa to týka len poistenia alebo všetkých divízií).
