@@ -1184,6 +1184,45 @@ export function SubjektView({ subject, showPdfSidebar = false, isClientView = fa
                 <Badge variant="outline" className="text-xs">
                   {isPerson ? "FO" : isSzco ? "SZČO" : "PO"}
                 </Badge>
+                {(() => {
+                  const rs = (subject as any).registrationStatus || 'tiper';
+                  const cfg: Record<string, { label: string; cls: string }> = {
+                    potencialny: { label: "Potenciálny", cls: "text-[10px] border-gray-400/50 text-gray-400" },
+                    tiper: { label: "Tipér", cls: "text-[10px] border-blue-500/50 text-blue-500" },
+                    klient: { label: "Klient", cls: "text-[10px] border-green-500/50 text-green-500" },
+                  };
+                  const c = cfg[rs] || cfg.tiper;
+                  const isAdmin = (() => {
+                    const role = (appUser as any)?.role || "";
+                    return role === "admin" || role === "superadmin" || role === "prezident" || role === "architekt";
+                  })();
+                  if (isAdmin && !isClientView) {
+                    return (
+                      <Select
+                        value={rs}
+                        onValueChange={(val) => {
+                          apiRequest("PATCH", `/api/subjects/${subject.id}/registration-status`, { registrationStatus: val })
+                            .then(() => {
+                              queryClient.invalidateQueries({ queryKey: ["/api/subjects"] });
+                              queryClient.invalidateQueries({ queryKey: ["/api/subjects", subject.id] });
+                              toast({ title: "Stav overenia zmenený" });
+                            })
+                            .catch(() => toast({ title: "Chyba", variant: "destructive" }));
+                        }}
+                      >
+                        <SelectTrigger className="h-5 w-auto px-1.5 py-0 border-0 bg-transparent" data-testid="select-profile-registration-status">
+                          <Badge variant="outline" className={c.cls}>{c.label}</Badge>
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="potencialny">Potenciálny</SelectItem>
+                          <SelectItem value="tiper">Tipér</SelectItem>
+                          <SelectItem value="klient">Klient</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    );
+                  }
+                  return <Badge variant="outline" className={c.cls} data-testid="badge-profile-registration-status">{c.label}</Badge>;
+                })()}
                 <span className="text-xs text-muted-foreground font-mono">{formatUid(subject.uid)}</span>
                 {(subject as any).supplementaryIndex && (
                   <Badge variant="outline" className="text-[10px] border-blue-600 text-blue-300" data-testid="badge-supplementary-index">

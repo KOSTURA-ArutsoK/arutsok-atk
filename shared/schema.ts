@@ -281,6 +281,7 @@ export const subjects = pgTable("subjects", {
   anonymizedAt: timestamp("anonymized_at"),
   anonymizedByUserId: integer("anonymized_by_user_id").references(() => appUsers.id),
   anonymizedData: text("anonymized_data"),
+  registrationStatus: text("registration_status").$type<"potencialny" | "tiper" | "klient">().default("tiper"),
   supplementaryIndex: text("supplementary_index"),
   createdAt: timestamp("created_at").defaultNow(),
   deletedAt: timestamp("deleted_at"),

@@ -1555,6 +1555,19 @@ export async function registerRoutes(
         input.registeredByUserId = req.appUser.id;
       }
 
+      if (!input.registrationStatus) {
+        const hasName = !!(input.firstName || input.companyName);
+        const hasContact = !!(input.email || input.phone);
+        const hasType = !!(input.type && input.type !== '');
+        if (hasType && hasName) {
+          input.registrationStatus = 'tiper';
+        } else if (hasName && hasContact) {
+          input.registrationStatus = 'potencialny';
+        } else {
+          input.registrationStatus = 'tiper';
+        }
+      }
+
       if (input.type === 'szco') {
         if (input.birthNumber) {
           input.birthNumber = encryptField(input.birthNumber);
@@ -3814,6 +3827,16 @@ export async function registerRoutes(
         try {
           await storage.ensureSubjectInGroup(input.subjectId, "group_klient");
         } catch (e) { /* silent — group may not exist yet */ }
+
+        try {
+          const [subj] = await db.select().from(subjects).where(eq(subjects.id, input.subjectId));
+          if (subj && subj.registrationStatus !== 'klient') {
+            const oldStatus = subj.registrationStatus || 'tiper';
+            await db.update(subjects).set({ registrationStatus: 'klient' }).where(eq(subjects.id, input.subjectId));
+            await storage.recordFieldChanges(input.subjectId, { registrationStatus: oldStatus }, { registrationStatus: 'klient' }, appUser?.id, 'Automaticky upgrade pri vytvoreni zmluvy', appUser?.firstName + ' ' + appUser?.lastName);
+            await logAudit(req, { action: "UPDATE", module: "subjekty", entityId: input.subjectId, entityName: `${subj.firstName || ''} ${subj.lastName || subj.companyName || ''}`.trim(), oldData: { registrationStatus: oldStatus }, newData: { registrationStatus: 'klient' } });
+          }
+        } catch (e) { /* silent */ }
       }
 
       res.status(201).json(created);
@@ -8952,6 +8975,32 @@ export async function registerRoutes(
       res.json({ success: true, supplementaryIndex });
     } catch (err) {
       console.error("Supplementary index error:", err);
+      res.status(500).json({ message: "Internal error" });
+    }
+  });
+
+  app.patch("/api/subjects/:id/registration-status", isAuthenticated, async (req: any, res) => {
+    try {
+      const id = Number(req.params.id);
+      const { registrationStatus } = req.body;
+      const valid = ["potencialny", "tiper", "klient"];
+      if (!valid.includes(registrationStatus)) {
+        return res.status(400).json({ message: "Neplatný status: " + registrationStatus });
+      }
+      const appUser = req.appUser;
+      if (!hasAdminAccess(appUser)) {
+        return res.status(403).json({ message: "Nedostatočné oprávnenia" });
+      }
+      const [subj] = await db.select().from(subjects).where(eq(subjects.id, id)).limit(1);
+      if (!subj) return res.status(404).json({ message: "Subjekt neexistuje" });
+      const oldStatus = subj.registrationStatus || "tiper";
+      if (oldStatus === registrationStatus) return res.json({ success: true });
+      await db.update(subjects).set({ registrationStatus }).where(eq(subjects.id, id));
+      await storage.recordFieldChanges(id, { registrationStatus: oldStatus }, { registrationStatus }, appUser?.id, "Manuálna zmena stavu overenia", appUser?.firstName + " " + appUser?.lastName);
+      await logAudit(req, { action: "UPDATE", module: "subjekty", entityId: id, entityName: `${subj.firstName || ""} ${subj.lastName || subj.companyName || ""}`.trim(), oldData: { registrationStatus: oldStatus }, newData: { registrationStatus } });
+      res.json({ success: true, registrationStatus });
+    } catch (err) {
+      console.error("Registration status update error:", err);
       res.status(500).json({ message: "Internal error" });
     }
   });

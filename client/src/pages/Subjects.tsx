@@ -1413,6 +1413,16 @@ function SubjectDetailPanel({ subject, onClose }: { subject: Subject; onClose: (
               </h2>
               <span className="text-xs font-mono text-muted-foreground shrink-0">{formatUid(subject.uid)}</span>
               {(() => {
+                const rs = (displaySubject as any).registrationStatus || 'tiper';
+                const cfg: Record<string, { label: string; cls: string }> = {
+                  potencialny: { label: "Potenciálny", cls: "text-[10px] border-gray-400/50 text-gray-400" },
+                  tiper: { label: "Tipér", cls: "text-[10px] border-blue-500/50 text-blue-500" },
+                  klient: { label: "Klient", cls: "text-[10px] border-green-500/50 text-green-500" },
+                };
+                const c = cfg[rs] || cfg.tiper;
+                return <Badge variant="outline" className={c.cls} data-testid="badge-detail-registration-status">{c.label}</Badge>;
+              })()}
+              {(() => {
                 const status = getSubjectStatus(subject);
                 return (
                   <span
@@ -3809,6 +3819,7 @@ const FILTER_ORDER: SubjectStatusCategory[] = ["other_company", "deceased", "no_
 
 const SUBJECTS_COLUMNS: ColumnDef[] = [
   { key: "uid", label: "UID" },
+  { key: "registrationStatus", label: "Overenie" },
   { key: "status", label: "Status" },
   { key: "cgn", label: "CGN" },
   { key: "titul", label: "Titul" },
@@ -3818,10 +3829,17 @@ const SUBJECTS_COLUMNS: ColumnDef[] = [
   { key: "managingCompany", label: "Spravujuca firma" },
 ];
 
+const REGISTRATION_STATUS_LABELS: Record<string, { label: string; variant: "secondary" | "default" | "outline"; className: string }> = {
+  potencialny: { label: "Potenciálny", variant: "outline", className: "text-[10px] border-gray-400/50 text-gray-400" },
+  tiper: { label: "Tipér", variant: "outline", className: "text-[10px] border-blue-500/50 text-blue-500" },
+  klient: { label: "Klient", variant: "outline", className: "text-[10px] border-green-500/50 text-green-500" },
+};
+
 const SUBJECTS_FILTER_COLUMNS: SmartColumnDef[] = [
   { key: "uid", label: "UID", type: "text" },
   { key: "firstName", label: "Cele meno / Nazov", type: "text" },
   { key: "type", label: "Typ subjektu", type: "text" },
+  { key: "registrationStatus", label: "Overenie", type: "text" },
 ];
 
 export default function Subjects() {
@@ -4028,6 +4046,7 @@ export default function Subjects() {
                       />
                     </TableHead>
                     {columnVisibility.isVisible("uid") && <TableHead sortKey="uid" sortDirection={sortKey === "uid" ? sortDirection : null} onSort={requestSort}>UID</TableHead>}
+                    {columnVisibility.isVisible("registrationStatus") && <TableHead>Overenie</TableHead>}
                     {columnVisibility.isVisible("status") && <TableHead style={{ maxWidth: '150px' }}>Status</TableHead>}
                     {columnVisibility.isVisible("cgn") && <TableHead className="w-10 text-center">CGN</TableHead>}
                     {columnVisibility.isVisible("titul") && <TableHead>Titul</TableHead>}
@@ -4091,6 +4110,13 @@ export default function Subjects() {
                             <SubjectPhotoThumbnail subjectId={subject.id} photoPath={batchPhotos?.[subject.id]?.filePath} />
                             {formatUid(subject.uid)}
                           </div>
+                        </TableCell>}
+                        {columnVisibility.isVisible("registrationStatus") && <TableCell className="align-middle">
+                          {(() => {
+                            const rs = (subject as any).registrationStatus || 'tiper';
+                            const config = REGISTRATION_STATUS_LABELS[rs] || REGISTRATION_STATUS_LABELS.tiper;
+                            return <Badge variant={config.variant} className={config.className} data-testid={`badge-registration-status-${subject.id}`}>{config.label}</Badge>;
+                          })()}
                         </TableCell>}
                         {columnVisibility.isVisible("status") && <TableCell className="align-middle !overflow-visible" style={{ maxWidth: '150px', whiteSpace: 'normal', wordBreak: 'break-word', textOverflow: 'clip' }}>
                           {(() => {

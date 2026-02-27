@@ -1352,7 +1352,7 @@ export class DatabaseStorage implements IStorage {
     const historyEntries: InsertSubjectFieldHistory[] = [];
     const staticKeys = ['firstName', 'lastName', 'companyName', 'email', 'phone', 'birthNumber',
       'idCardNumber', 'iban', 'swift', 'kikId', 'commissionLevel', 'listStatus', 'cgnRating',
-      'isActive', 'isDeceased', 'type', 'linkedFoId'];
+      'isActive', 'isDeceased', 'type', 'linkedFoId', 'registrationStatus'];
 
     for (const key of staticKeys) {
       const oldVal = original[key];

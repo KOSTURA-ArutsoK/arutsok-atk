@@ -24,6 +24,7 @@ interface UIDInputProps {
   subjectName: string | null;
   isLoadingSubject: boolean;
   placeholder?: string;
+  onPrefixDetected?: (prefix: string) => void;
   "data-testid"?: string;
 }
 
@@ -34,10 +35,12 @@ export function UIDInput({
   subjectName,
   isLoadingSubject,
   placeholder = "UID kód",
+  onPrefixDetected,
   "data-testid": testId,
 }: UIDInputProps) {
   const [manualOverride, setManualOverride] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
+  const lastDetectedPrefix = useRef<string>("");
 
   const effectivePrefix = manualOverride ? "" : prefix;
   const rawValue = stripSpaces(value);
@@ -52,11 +55,19 @@ export function UIDInput({
     if (manualOverride || !effectivePrefix) {
       const capped = digitsOnly.slice(0, 15);
       onChange(capped);
+
+      if (onPrefixDetected && manualOverride && capped.length >= 3) {
+        const detectedPrefix = capped.slice(0, 3);
+        if (detectedPrefix !== lastDetectedPrefix.current) {
+          lastDetectedPrefix.current = detectedPrefix;
+          onPrefixDetected(detectedPrefix);
+        }
+      }
     } else {
       const suffixDigits = digitsOnly.replace(/\D/g, "").slice(0, 15 - effectivePrefix.length);
       onChange(effectivePrefix + suffixDigits);
     }
-  }, [manualOverride, effectivePrefix, onChange]);
+  }, [manualOverride, effectivePrefix, onChange, onPrefixDetected]);
 
   const toggleOverride = useCallback(() => {
     setManualOverride(prev => {

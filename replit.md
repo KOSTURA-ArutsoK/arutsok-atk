@@ -29,6 +29,7 @@ The system utilizes a modern full-stack architecture, emphasizing data integrity
 - **Settlement Sheets Module**: Handles settlement sheets and contracts, including locking mechanisms and status workflows.
 - **Repeatable Collections**: Enables repeatable field groups within forms, storing data in JSONB.
 - **Client Management**: Features multi-step registration, granular ownership, Bonita Point System, risk linking, and an AML module.
+- **Subject Registration Status**: Three-state lifecycle (`potencialny` → `tiper` → `klient`) tracked via `subjects.registrationStatus`. Auto-upgraded to `klient` on first contract creation. Visual badges in subject table (Overenie column) and detail panel. Admins can manually change status via profile header dropdown. All changes tracked in `subject_field_history`.
 - **Client Portal**: Provides a restricted, read-only interface for clients.
 - **Reporting & Administration**: Offers system settings, customizable dashboards, global table resizing, universal column management, and dedicated CRUD pages.
 - **Excel Importer**: Advanced tool for auto-creating/updating subjects, handling incomplete contracts, and duplicate detection.
