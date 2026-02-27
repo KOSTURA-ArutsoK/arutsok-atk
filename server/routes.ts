@@ -68,15 +68,30 @@ async function logAudit(req: any, params: {
     const serverTimeSec = req._auditStartTime ? Math.round((performance.now() - req._auditStartTime) / 1000) : 0;
     const processingTime = params.processingTimeSec || clientProcessingTime || serverTimeSec;
 
+    const isImpersonating = !!req.originalAppUser;
+    const impersonationMeta = isImpersonating ? {
+      _impersonatedBy: {
+        architectId: req.originalAppUser.id,
+        architectUsername: req.originalAppUser.username,
+        architectLevel: getSecurityLevel(req.originalAppUser),
+      }
+    } : {};
+
+    const newDataWithImpersonation = params.newData
+      ? { ...params.newData, ...impersonationMeta }
+      : (isImpersonating ? impersonationMeta : null);
+
     await storage.createAuditLog({
       userId: migrationOn ? null : (appUser?.id || null),
-      username: migrationOn ? "Systémový import" : (appUser?.username || req.user?.claims?.email || 'system'),
+      username: migrationOn ? "Systémový import" : (isImpersonating
+        ? `${appUser?.username || 'unknown'} [simulovaný Architektom ${req.originalAppUser.username}]`
+        : (appUser?.username || req.user?.claims?.email || 'system')),
       action: params.action,
       module: params.module,
       entityId: params.entityId || null,
       entityName: params.entityName || null,
       oldData: params.oldData || null,
-      newData: params.newData || null,
+      newData: newDataWithImpersonation,
       processingTimeSec: processingTime,
       ipAddress: migrationOn ? "migration" : (typeof ip === 'string' ? ip : JSON.stringify(ip)),
     });
@@ -666,8 +681,9 @@ export async function registerRoutes(
   app.post("/api/impersonate/:userId", isAuthenticated, async (req: any, res) => {
     try {
       const realUser = req.originalAppUser || req.appUser;
-      if (!isArchitekt(realUser)) {
-        return res.status(403).json({ message: "Len Architekt (L7) môže použiť túto funkciu" });
+      const realLevel = getSecurityLevel(realUser);
+      if (realLevel < SENTINEL_LEVELS.L8_ARCHITEKTONICKA) {
+        return res.status(403).json({ message: "Len Architekt (L8+) môže použiť túto funkciu" });
       }
 
       const targetUserId = parseInt(req.params.userId);
@@ -676,6 +692,11 @@ export async function registerRoutes(
 
       const [targetUser] = await db.select().from(appUsers).where(eq(appUsers.id, targetUserId));
       if (!targetUser) return res.status(404).json({ message: "Používateľ nebol nájdený" });
+
+      const targetLevel = getSecurityLevel(targetUser);
+      if (targetLevel >= SENTINEL_LEVELS.L8_ARCHITEKTONICKA && targetLevel !== SENTINEL_LEVELS.L9_AUDITORSKA) {
+        return res.status(403).json({ message: "Nemôžete impersonovať používateľa na úrovni L8+ alebo L10" });
+      }
 
       await db.update(appUsers).set({ impersonatingUserId: targetUserId }).where(eq(appUsers.id, realUser.id));
 
@@ -686,10 +707,15 @@ export async function registerRoutes(
         entityId: targetUserId,
         entityName: `${targetUser.firstName} ${targetUser.lastName}`,
         oldData: null,
-        newData: { message: `Admin ${realUser.uid || realUser.id} prevzal kontext používateľa ${targetUser.uid || targetUser.id} dňa ${now}` },
+        newData: {
+          message: `Architekt ${realUser.username} (ID:${realUser.id}) prevzal kontext používateľa ${targetUser.username} (ID:${targetUser.id}, L${targetLevel}) dňa ${now}`,
+          architectId: realUser.id,
+          architectUsername: realUser.username,
+          targetLevel,
+        },
       });
 
-      res.json({ success: true, impersonatedUser: { id: targetUser.id, firstName: targetUser.firstName, lastName: targetUser.lastName } });
+      res.json({ success: true, impersonatedUser: { id: targetUser.id, firstName: targetUser.firstName, lastName: targetUser.lastName, sentinelLevel: targetLevel } });
     } catch (err: any) {
       console.error("Impersonate error:", err);
       res.status(500).json({ message: err?.message || "Chyba" });
