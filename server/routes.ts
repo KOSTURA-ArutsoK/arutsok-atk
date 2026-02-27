@@ -4,7 +4,7 @@ import { storage } from "./storage";
 import { api } from "@shared/routes";
 import { setupAuth, registerAuthRoutes, isAuthenticated } from "./replit_integrations/auth";
 import { z } from "zod";
-import { continents, states, myCompanies, appUsers, clientTypes, clientSubGroups, clientGroupMembers, productFolderAssignments, folderPanels, panelParameters, userClientGroupMemberships, clientGroups, permissionGroups, insertCareerLevelSchema, insertProductPointRateSchema, careerLevels, importLogs, commissions, contracts, contractStatuses, contractStatusChangeLogs, clientDataTabs, clientDataCategories, subjects, subjectPointsLog, subjectFieldHistory, subjectCollaborators, clientMarketingConsents, clientDocumentHistory, contractAcquirers, contractPasswords, contractRewardDistributions, contractParameterValues, subjectArchive, auditLogs, globalCounters, subjectPhotos, activityEvents, subjectParamSections, subjectParameters, subjectTemplates, subjectTemplateParams, commissionCalculationLogs, parameterSynonyms, dataConflictAlerts, transactionDedupLog, relationRoleTypes, subjectRelations, maturityAlerts, inheritancePrompts, guardianshipArchive, households, householdMembers, householdAssets, privacyBlocks, accessConsentLog, maturityEvents, addressGroups, addressGroupMembers, companySubjectRoles, notificationQueue, batchJobs, subjectObjects, objectDataSources, sectors, sections, sectorProducts, parameters, panels, productPanels, contractFolders, fieldLayoutConfigs, sectorCategoryMapping, suggestedRelations, statusEvidence, contractLifecycleHistory, systemNotifications, partners, products, contractInventories, contractTemplates, redListAlerts, subjectAddresses, divisions, companyDivisions, insertDivisionSchema } from "@shared/schema";
+import { continents, states, myCompanies, appUsers, clientTypes, clientSubGroups, clientGroupMembers, productFolderAssignments, folderPanels, panelParameters, userClientGroupMemberships, clientGroups, permissionGroups, insertCareerLevelSchema, insertProductPointRateSchema, careerLevels, importLogs, commissions, contracts, contractStatuses, contractStatusChangeLogs, clientDataTabs, clientDataCategories, subjects, subjectPointsLog, subjectFieldHistory, subjectCollaborators, clientMarketingConsents, clientDocumentHistory, contractAcquirers, contractPasswords, contractRewardDistributions, contractParameterValues, subjectArchive, auditLogs, globalCounters, subjectPhotos, activityEvents, subjectParamSections, subjectParameters, subjectTemplates, subjectTemplateParams, commissionCalculationLogs, parameterSynonyms, dataConflictAlerts, transactionDedupLog, relationRoleTypes, subjectRelations, maturityAlerts, inheritancePrompts, guardianshipArchive, households, householdMembers, householdAssets, privacyBlocks, accessConsentLog, maturityEvents, addressGroups, addressGroupMembers, companySubjectRoles, notificationQueue, batchJobs, subjectObjects, objectDataSources, sectors, sections, sectorProducts, parameters, panels, productPanels, contractFolders, fieldLayoutConfigs, sectorCategoryMapping, suggestedRelations, statusEvidence, contractLifecycleHistory, systemNotifications, partners, products, contractInventories, contractTemplates, redListAlerts, subjectAddresses, divisions, companyDivisions, insertDivisionSchema, SENTINEL_LEVELS, ROLE_TO_SENTINEL, SENTINEL_LEVEL_LABELS } from "@shared/schema";
 import { notifyObjectionCreated, notifyPreDeletion, getProductDaysLimits } from "./email";
 import { seedSubjectParameters, seedAssetPanels, seedEventAndEntityPanels } from "./seed-subject-params";
 import sharp from "sharp";
@@ -91,6 +91,70 @@ function isArchitekt(appUser: any): boolean {
 
 function hasAdminAccess(appUser: any): boolean {
   return appUser?.role === 'admin' || appUser?.role === 'superadmin' || appUser?.role === 'prezident' || appUser?.role === 'architekt';
+}
+
+function getSecurityLevel(appUser: any): number {
+  if (!appUser) return SENTINEL_LEVELS.L0_PUBLIC;
+  if (appUser.securityLevel != null && appUser.securityLevel !== 1) {
+    return appUser.securityLevel;
+  }
+  return ROLE_TO_SENTINEL[appUser.role] ?? SENTINEL_LEVELS.L3_OBCHODNIK;
+}
+
+function isSubjectOwner(appUser: any, subject: any): boolean {
+  if (!appUser || !subject) return false;
+  if (subject.uploadedByUserId === appUser.id) return true;
+  if (appUser.linkedSubjectId && appUser.linkedSubjectId === subject.id) return true;
+  return false;
+}
+
+function maskIban(iban: string | null | undefined): string {
+  if (!iban) return "";
+  const clean = iban.replace(/\s/g, "");
+  if (clean.length <= 4) return "****";
+  return clean.slice(0, 4) + " **** **** **** " + clean.slice(-4);
+}
+
+function maskSensitiveFields(subject: any, appUser: any): any {
+  if (!subject) return subject;
+  const level = getSecurityLevel(appUser);
+  if (level >= SENTINEL_LEVELS.L6_BACKOFFICE) {
+    const decrypted = subject.birthNumber ? decryptField(subject.birthNumber) : null;
+    return { ...subject, birthNumber: decrypted || subject.birthNumber };
+  }
+  if (isSubjectOwner(appUser, subject)) {
+    const decrypted = subject.birthNumber ? decryptField(subject.birthNumber) : null;
+    return { ...subject, birthNumber: decrypted || subject.birthNumber };
+  }
+  const masked = { ...subject };
+  masked.birthNumber = subject.birthNumber ? "******" : null;
+  if (masked.iban) masked.iban = maskIban(masked.iban);
+  if (masked.details) {
+    const details = { ...masked.details };
+    const sensitiveKeys = ["ekon_cislo_uctu", "ekon_hlavny_iban", "ekon_iban", "eko_cislo_uctu", "eko_hlavny_iban", "eko_iban"];
+    const dyn = details.dynamicFields ? { ...details.dynamicFields } : {};
+    for (const key of Object.keys(dyn)) {
+      if (sensitiveKeys.includes(key) || key.includes("iban") || key.includes("cislo_uctu") || key.includes("account")) {
+        dyn[key] = key.includes("iban") ? maskIban(dyn[key]) : "**** ****";
+      }
+    }
+    if (details.dynamicFields) details.dynamicFields = dyn;
+    masked.details = details;
+  }
+  masked._sensitiveFieldsMasked = true;
+  return masked;
+}
+
+function checkIpRestriction(req: any, appUser: any): { allowed: boolean; clientIp?: string } {
+  if (!appUser?.allowedIps) return { allowed: true };
+  const ipList = appUser.allowedIps.split(/[,\n]/).map((ip: string) => ip.trim()).filter(Boolean);
+  if (ipList.length === 0) return { allowed: true };
+  const clientIp = (req.ip || req.socket?.remoteAddress || '').replace(/^::ffff:/, '');
+  const allowed = ipList.some((ip: string) => {
+    const normalizedAllowed = ip.replace(/^::ffff:/, '').trim();
+    return clientIp === normalizedAllowed;
+  });
+  return { allowed, clientIp };
 }
 
 async function isKlientiUser(appUser: any): Promise<boolean> {
@@ -261,6 +325,32 @@ export async function registerRoutes(
     next();
   });
 
+  app.use((req: any, res: any, next: any) => {
+    if (!req.appUser) return next();
+    const { allowed, clientIp } = checkIpRestriction(req, req.appUser);
+    if (!allowed) {
+      console.warn(`[IP LOCK] Blocked ${clientIp} for user ${req.appUser.username} (allowed: ${req.appUser.allowedIps})`);
+      return res.status(403).json({ message: `Prístup z IP adresy ${clientIp} nie je povolený` });
+    }
+    next();
+  });
+
+  app.use((req: any, res: any, next: any) => {
+    if (!req.appUser) return next();
+    const level = getSecurityLevel(req.appUser);
+    if (level === SENTINEL_LEVELS.L8_AUDITOR) {
+      const method = req.method.toUpperCase();
+      if (method !== "GET" && method !== "HEAD" && method !== "OPTIONS") {
+        const isAuthPath = req.path.startsWith("/api/auth") || req.path.startsWith("/api/login") || req.path.startsWith("/api/activity-events");
+        if (!isAuthPath) {
+          return res.status(403).json({ message: "Auditor má iba ReadOnly prístup" });
+        }
+      }
+    }
+    req._sentinelLevel = level;
+    next();
+  });
+
   app.get("/api/subjects/count", isAuthenticated, async (req: any, res: any) => {
     try {
       const user = req.appUser;
@@ -368,7 +458,9 @@ export async function registerRoutes(
         uid: req.originalAppUser.uid,
       } : null;
 
-      res.json({ ...appUser, effectiveSessionTimeoutSeconds: effectiveTimeout, careerLevel, permissionGroup, isImpersonating, originalUser });
+      const sentinelLevel = getSecurityLevel(appUser);
+      const sentinelLabel = SENTINEL_LEVEL_LABELS[sentinelLevel] || `L${sentinelLevel}`;
+      res.json({ ...appUser, effectiveSessionTimeoutSeconds: effectiveTimeout, careerLevel, permissionGroup, isImpersonating, originalUser, sentinelLevel, sentinelLabel });
     } catch (err) {
       console.error("Error in /api/app-user/me:", err);
       res.status(500).json({ message: "Internal error" });
@@ -1325,7 +1417,7 @@ export async function registerRoutes(
     if (await isKlientiUser(appUser)) {
       if (!appUser.linkedSubjectId) return res.json([]);
       const own = await storage.getSubject(appUser.linkedSubjectId);
-      return res.json(own ? [maskSubjectBirthNumber(own, appUser)] : []);
+      return res.json(own ? [maskSensitiveFields(own, appUser)] : []);
     }
     
     const activeCompanyId = appUser?.activeCompanyId || (req.query.activeCompanyId ? Number(req.query.activeCompanyId) : undefined);
@@ -1371,7 +1463,7 @@ export async function registerRoutes(
     
     const blacklistMemberIds = await storage.getGroupMemberSubjectIds("group_cierny_zoznam");
     res.json(allSubjects.map((s: any) => {
-      const masked = maskSubjectBirthNumber(s, appUser);
+      const masked = maskSensitiveFields(s, appUser);
       if (!canSeeNotes && masked.uiPreferences) {
         const prefs = { ...(masked.uiPreferences as any) };
         delete prefs.field_notes;
@@ -1406,7 +1498,7 @@ export async function registerRoutes(
     }
     const subject = await storage.getSubject(subjectId);
     if (!subject) return res.status(404).json({ message: "Subject not found" });
-    const masked = maskSubjectBirthNumber(subject, req.appUser);
+    const masked = maskSensitiveFields(subject, req.appUser);
     const activeCompanyId = req.appUser?.activeCompanyId;
     const isCierny = await storage.isSubjectInGroup(subjectId, "group_cierny_zoznam");
     if (isCierny) {
@@ -1447,18 +1539,6 @@ export async function registerRoutes(
     return appUser.role === 'superadmin' || appUser.role === 'prezident' || appUser.role === 'admin';
   }
 
-  function maskSubjectBirthNumber(subject: any, appUser: any): any {
-    if (!subject || !subject.birthNumber) return subject;
-    if (canViewBirthNumber(appUser)) {
-      const decrypted = decryptField(subject.birthNumber);
-      return { ...subject, birthNumber: decrypted || "***" };
-    }
-    if (appUser?.subjectId && subject.id === appUser.subjectId) {
-      const decrypted = decryptField(subject.birthNumber);
-      return { ...subject, birthNumber: decrypted || "***" };
-    }
-    return { ...subject, birthNumber: "***" };
-  }
 
   app.get("/api/subjects/search-fo", isAuthenticated, async (req: any, res) => {
     try {
@@ -1591,14 +1671,14 @@ export async function registerRoutes(
         if (!input.linkedFoId) input.linkedFoId = null;
         const created = await storage.createSubject(input);
         await logAudit(req, { action: "CREATE", module: "subjekty", entityId: created.id, entityName: created.companyName || `${created.firstName} ${created.lastName} - SZCO #${created.uid}`, newData: { ...input, birthNumber: undefined } });
-        res.status(201).json(maskSubjectBirthNumber(created, req.appUser));
+        res.status(201).json(maskSensitiveFields(created, req.appUser));
       } else {
         if (input.birthNumber) {
           input.birthNumber = encryptField(input.birthNumber);
         }
         const created = await storage.createSubject(input);
         await logAudit(req, { action: "CREATE", module: "subjekty", entityId: created.id, entityName: (created.firstName ? created.firstName + ' ' + created.lastName : created.companyName) || undefined, newData: { ...input, birthNumber: input.birthNumber ? '***' : undefined } });
-        res.status(201).json(maskSubjectBirthNumber(created, req.appUser));
+        res.status(201).json(maskSensitiveFields(created, req.appUser));
       }
     } catch (err) {
       if (err instanceof z.ZodError) return res.status(400).json({ message: err.errors[0].message });
@@ -1788,7 +1868,7 @@ export async function registerRoutes(
         console.error("[INHERITANCE CHECK ERROR]", inhErr);
       }
 
-      res.json(maskSubjectBirthNumber(updated, appUser));
+      res.json(maskSensitiveFields(updated, appUser));
     } catch (err) {
       if (err instanceof z.ZodError) return res.status(400).json({ message: err.errors[0].message });
       if (err instanceof Error && err.message === "Subject not found") return res.status(404).json({ message: err.message });

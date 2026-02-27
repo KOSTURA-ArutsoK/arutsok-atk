@@ -398,6 +398,48 @@ export const permissions = pgTable("permissions", {
   canDelete: boolean("can_delete").default(false),
 });
 
+// === SENTINEL SECURITY PYRAMID (10-Level Access Control) ===
+export const SENTINEL_LEVELS = {
+  L0_PUBLIC: 0,
+  L1_POTENTIAL: 1,
+  L2_TIPER: 2,
+  L3_OBCHODNIK: 3,
+  L4_MANAZER: 4,
+  L5_RIADITEL: 5,
+  L6_BACKOFFICE: 6,
+  L7_ARCHITEKT: 7,
+  L8_AUDITOR: 8,
+  L9_SYSTEM: 9,
+} as const;
+
+export const SENTINEL_LEVEL_LABELS: Record<number, string> = {
+  0: "L0 · Verejnosť",
+  1: "L1 · Potenciálny partner",
+  2: "L2 · Tipér",
+  3: "L3 · Obchodník",
+  4: "L4 · Manažér",
+  5: "L5 · Riaditeľ",
+  6: "L6 · Backoffice",
+  7: "L7 · Architekt",
+  8: "L8 · Auditor",
+  9: "L9 · Systém",
+};
+
+export const SENTINEL_LEVEL_SHORT: Record<number, string> = {
+  0: "L0", 1: "L1", 2: "L2", 3: "L3", 4: "L4",
+  5: "L5", 6: "L6", 7: "L7", 8: "L8", 9: "L9",
+};
+
+export const ROLE_TO_SENTINEL: Record<string, number> = {
+  user: 3,
+  admin: 6,
+  superadmin: 7,
+  prezident: 7,
+  architekt: 7,
+  auditor: 8,
+  system: 9,
+};
+
 // === APP USERS & SECURITY ===
 export const appUsers = pgTable("app_users", {
   id: serial("id").primaryKey(),
@@ -423,6 +465,7 @@ export const appUsers = pgTable("app_users", {
   careerLevelId: integer("career_level_id").references(() => careerLevels.id),
   linkedSubjectId: integer("linked_subject_id"),
   impersonatingUserId: integer("impersonating_user_id"),
+  allowedIps: text("allowed_ips"),
   createdAt: timestamp("created_at").defaultNow(),
 });
 

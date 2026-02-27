@@ -3,11 +3,13 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { formatPhone, formatUid } from "@/lib/utils";
+import { SENTINEL_LEVEL_LABELS, SENTINEL_LEVEL_SHORT } from "@shared/schema";
 import { Loader2, Plus, Pencil, Users as UsersIcon, Shield, LogIn } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import {
   Dialog,
@@ -113,6 +115,7 @@ interface UserFormData {
   securityLevel: number;
   permissionGroupId: number | null;
   adminCode: string;
+  allowedIps: string;
 }
 
 const emptyForm: UserFormData = {
@@ -127,6 +130,7 @@ const emptyForm: UserFormData = {
   securityLevel: 1,
   permissionGroupId: null,
   adminCode: "",
+  allowedIps: "",
 };
 
 function UserFormDialog({
@@ -220,6 +224,7 @@ function UserFormDialog({
           securityLevel: editingUser.securityLevel || 1,
           permissionGroupId: editingUser.permissionGroupId || null,
           adminCode: editingUser.adminCode || "",
+          allowedIps: editingUser.allowedIps || "",
         });
       } else {
         setForm({ ...emptyForm });
@@ -247,6 +252,7 @@ function UserFormDialog({
       securityLevel: form.securityLevel,
       permissionGroupId: form.permissionGroupId,
       adminCode: form.adminCode || null,
+      allowedIps: form.allowedIps || null,
       processingTimeSec,
     };
 
@@ -362,7 +368,7 @@ function UserFormDialog({
 
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label>Bezpecnostna uroven</Label>
+              <Label>Sentinel úroveň</Label>
               <Select
                 value={form.securityLevel.toString()}
                 onValueChange={val => setForm(f => ({ ...f, securityLevel: parseInt(val) }))}
@@ -371,10 +377,9 @@ function UserFormDialog({
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="1">1</SelectItem>
-                  <SelectItem value="2">2</SelectItem>
-                  <SelectItem value="3">3</SelectItem>
-                  <SelectItem value="4">4</SelectItem>
+                  {Object.entries(SENTINEL_LEVEL_LABELS).map(([val, label]) => (
+                    <SelectItem key={val} value={val}>{label}</SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
@@ -404,6 +409,19 @@ function UserFormDialog({
               onChange={e => setForm(f => ({ ...f, adminCode: e.target.value }))}
               data-testid="input-user-admin-code"
             />
+          </div>
+
+          <div className="space-y-2">
+            <Label>IP Locking (povolene IP adresy)</Label>
+            <Textarea
+              value={form.allowedIps}
+              onChange={e => setForm(f => ({ ...f, allowedIps: e.target.value }))}
+              placeholder="Jedna IP na riadok, napr.&#10;192.168.1.100&#10;10.0.0.50"
+              rows={3}
+              className="text-xs font-mono"
+              data-testid="input-user-allowed-ips"
+            />
+            <p className="text-[10px] text-muted-foreground">Ak je vyplnene, uzivatel sa moze prihlasit len z tychto IP adries. Prazdne = bez obmedzenia.</p>
           </div>
 
           <div className="space-y-2" style={{ display: editingUser ? 'block' : 'none' }}>
@@ -637,9 +655,14 @@ export default function UsersPage() {
                       {MFA_LABELS[user.mfaType || "none"] || user.mfaType}
                     </TableCell>}
                     {columnVisibility.isVisible("securityLevel") && <TableCell>
-                      <Badge variant="outline" data-testid={`badge-user-sl-${user.id}`}>
+                      <Badge variant="outline" className={`${
+                        (user.securityLevel ?? 1) >= 7 ? "border-red-500/40 text-red-400" :
+                        (user.securityLevel ?? 1) >= 6 ? "border-yellow-500/40 text-yellow-400" :
+                        (user.securityLevel ?? 1) >= 3 ? "border-blue-500/40 text-blue-400" :
+                        ""
+                      }`} data-testid={`badge-user-sl-${user.id}`}>
                         <Shield className="w-3 h-3 mr-1" />
-                        SL{user.securityLevel || 1}
+                        {SENTINEL_LEVEL_SHORT[user.securityLevel ?? 1] || `L${user.securityLevel || 1}`}
                       </Badge>
                     </TableCell>}
                     {columnVisibility.isVisible("permissionGroupId") && <TableCell data-testid={`text-user-group-${user.id}`}>
