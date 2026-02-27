@@ -1,7 +1,7 @@
 import { useState, useRef, useCallback, useEffect, useMemo } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import { formatDateSlovak, formatUid } from "@/lib/utils";
+import { formatDateSlovak, formatUid, getDateSemaphore, getDateSemaphoreClasses } from "@/lib/utils";
 import { useAppUser } from "@/hooks/use-app-user";
 import { useStates } from "@/hooks/use-hierarchy";
 import { useToast } from "@/hooks/use-toast";
@@ -1348,7 +1348,7 @@ function ContractFormDialog({
             </div>
             <div className="space-y-2">
               <label className="text-sm font-medium">Datum expiracie</label>
-              <Input type="date" value={expiryDate} onChange={e => setExpiryDate(e.target.value)} data-testid="input-contract-expiry-date" />
+              <Input type="date" value={expiryDate} onChange={e => setExpiryDate(e.target.value)} className={getDateSemaphoreClasses(getDateSemaphore(expiryDate))} data-testid="input-contract-expiry-date" />
             </div>
           </div>
 
@@ -1657,7 +1657,7 @@ function ContractDetailDialog({
                 </div>
                 <div>
                   <span className="text-xs text-muted-foreground">Datum expiracie</span>
-                  <p className="text-sm" data-testid="text-detail-expiry-date">{formatDate(contract.expiryDate)}</p>
+                  <p className={`text-sm ${getDateSemaphore(contract.expiryDate) === "expired" ? "text-red-500 font-medium" : getDateSemaphore(contract.expiryDate) === "warning" ? "text-orange-500 font-medium" : ""}`} data-testid="text-detail-expiry-date">{formatDate(contract.expiryDate)}</p>
                 </div>
               </div>
 

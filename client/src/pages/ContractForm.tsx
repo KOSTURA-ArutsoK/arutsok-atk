@@ -1,7 +1,7 @@
 import { useState, useRef, useCallback, useEffect, useMemo } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import { formatDateTimeSlovak, formatDateSlovak, formatPhone, formatUid } from "@/lib/utils";
+import { formatDateTimeSlovak, formatDateSlovak, formatPhone, formatUid, getDateSemaphore, getDateSemaphoreClasses } from "@/lib/utils";
 import { useAppUser } from "@/hooks/use-app-user";
 import { useStates } from "@/hooks/use-hierarchy";
 import { useToast } from "@/hooks/use-toast";
@@ -1797,7 +1797,7 @@ export default function ContractForm() {
                   <Input type="date" value={effectiveDate} onChange={e => setEffectiveDate(e.target.value)} data-testid="input-effective-date" />
                 </CompactField>
                 <CompactField label="Koniec zmluvy">
-                  <Input type="date" value={expiryDate} onChange={e => setExpiryDate(e.target.value)} data-testid="input-expiry-date" />
+                  <Input type="date" value={expiryDate} onChange={e => setExpiryDate(e.target.value)} className={getDateSemaphoreClasses(getDateSemaphore(expiryDate))} data-testid="input-expiry-date" />
                 </CompactField>
               </div>
 

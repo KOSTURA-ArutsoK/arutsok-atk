@@ -23,7 +23,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
-import { formatDateSlovak, formatUid } from "@/lib/utils";
+import { formatDateSlovak, formatUid, getDateSemaphore, getDateSemaphoreClasses, isSemaphoreDateField } from "@/lib/utils";
 import { SubjectProfilePhoto } from "@/components/subject-profile-photo";
 import { FieldHistoryIndicator } from "@/components/field-history-indicator";
 
@@ -541,7 +541,7 @@ function CategoriesAccordion({
                                     type={field.fieldType === "date" ? "date" : field.fieldType === "number" || field.fieldType === "desatinne_cislo" ? "number" : "text"}
                                     value={currentVal}
                                     onChange={e => setEditFieldValue(indexedKey, e.target.value)}
-                                    className={`h-9 text-xs ${isModified ? "border-primary/60" : ""}`}
+                                    className={`h-9 text-xs ${isModified ? "border-primary/60" : ""} ${field.fieldType === "date" && currentVal && isSemaphoreDateField(field.fieldKey) ? getDateSemaphoreClasses(getDateSemaphore(currentVal)) : ""}`}
                                     placeholder={field.label}
                                     step={field.fieldType === "desatinne_cislo" ? "0.01" : undefined}
                                   />
@@ -699,7 +699,7 @@ function CategoriesAccordion({
                             type={field.fieldType === "date" ? "date" : field.fieldType === "number" || field.fieldType === "desatinne_cislo" ? "number" : "text"}
                             value={currentVal}
                             onChange={e => setEditFieldValue(field.fieldKey, e.target.value)}
-                            className={`h-9 text-xs ${isModified ? "border-primary/60" : ""}`}
+                            className={`h-9 text-xs ${isModified ? "border-primary/60" : ""} ${field.fieldType === "date" && currentVal && isSemaphoreDateField(field.fieldKey) ? getDateSemaphoreClasses(getDateSemaphore(currentVal)) : ""}`}
                             placeholder={field.label}
                             step={field.fieldType === "desatinne_cislo" ? "0.01" : undefined}
                             data-testid={`input-edit-${field.fieldKey}`}

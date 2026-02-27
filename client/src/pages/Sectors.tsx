@@ -1737,60 +1737,125 @@ function ProductTableRow({
   onDelete: () => void;
   columnVisibility: ReturnType<typeof useColumnVisibility>;
 }) {
+  const { toast } = useToast();
   const lc = getLifecycleInfo((product as any).lifecycleStatus);
   const LcIcon = lc.icon;
   const isDimmed = lc.value === "stop" || lc.value === "pause";
   const isEject = lc.value === "eject";
   const endDate = (product as any).statusEndDate;
   const daysLeft = isEject && endDate ? Math.ceil((new Date(endDate).getTime() - Date.now()) / (1000 * 60 * 60 * 24)) : null;
+  const [confirmStop, setConfirmStop] = useState(false);
+
+  const lifecycleMutation = useMutation({
+    mutationFn: async (status: string) => {
+      await apiRequest("PATCH", `/api/sector-products/${product.id}/lifecycle-status`, { status });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/sector-products"] });
+      toast({ title: "Stav zmenený" });
+    },
+    onError: () => toast({ title: "Chyba", description: "Nepodarilo sa zmeniť stav", variant: "destructive" }),
+  });
+
+  const handleInlineLifecycle = (status: string) => {
+    if (status === "stop" && lc.value !== "stop") {
+      setConfirmStop(true);
+      return;
+    }
+    if (lc.value === status) return;
+    lifecycleMutation.mutate(status);
+  };
+
+  const mediaButtons = [
+    { status: "record", icon: Circle, color: "text-gray-400", activeColor: "text-gray-300 bg-gray-400/20", label: "Príprava", filled: true },
+    { status: "play", icon: Play, color: "text-green-500", activeColor: "text-green-400 bg-green-500/20", label: "Aktívne", filled: true },
+    { status: "stop", icon: Square, color: "text-red-500", activeColor: "text-red-400 bg-red-500/20", label: "Ukončené", filled: true },
+  ];
 
   return (
-    <TableRow data-testid={`row-sector-product-${product.id}`} className={isDimmed ? "opacity-50 grayscale" : ""}>
-      {columnVisibility.isVisible("name") && <TableCell className="font-medium">{product.name}</TableCell>}
-      {columnVisibility.isVisible("abbreviation") && <TableCell className="font-mono text-sm">{product.abbreviation || "-"}</TableCell>}
-      {columnVisibility.isVisible("sectionId") && <TableCell>
-        <Badge variant="outline">{sectionName}</Badge>
-      </TableCell>}
-      {columnVisibility.isVisible("folderCount") && <TableCell>
-        <Badge variant="secondary" data-testid={`badge-product-folder-count-${product.id}`}>{folderCount}</Badge>
-      </TableCell>}
-      <TableCell>
-        <div className="flex items-center gap-1">
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <div className={`flex items-center justify-center w-7 h-7 rounded-md ${lc.bg}`} data-testid={`status-product-lifecycle-${product.id}`}>
-                <LcIcon className={`w-4 h-4 ${lc.color}`} fill={lc.filled ? "currentColor" : "none"} />
-              </div>
-            </TooltipTrigger>
-            <TooltipContent>
-              {lc.label}
-              {isEject && daysLeft !== null && ` (${daysLeft > 0 ? `${daysLeft} dni do konca` : "Expiroval"})`}
-            </TooltipContent>
-          </Tooltip>
-          {isEject && (
+    <>
+      <TableRow data-testid={`row-sector-product-${product.id}`} className={isDimmed ? "opacity-50 grayscale" : ""}>
+        {columnVisibility.isVisible("name") && <TableCell className="font-medium">{product.name}</TableCell>}
+        {columnVisibility.isVisible("abbreviation") && <TableCell className="font-mono text-sm">{product.abbreviation || "-"}</TableCell>}
+        {columnVisibility.isVisible("sectionId") && <TableCell>
+          <Badge variant="outline">{sectionName}</Badge>
+        </TableCell>}
+        {columnVisibility.isVisible("folderCount") && <TableCell>
+          <Badge variant="secondary" data-testid={`badge-product-folder-count-${product.id}`}>{folderCount}</Badge>
+        </TableCell>}
+        <TableCell>
+          <div className="flex items-center gap-1">
             <Tooltip>
               <TooltipTrigger asChild>
-                <AlertTriangle className="w-4 h-4 text-orange-500" data-testid={`warning-eject-${product.id}`} />
+                <div className={`flex items-center justify-center w-7 h-7 rounded-md ${lc.bg}`} data-testid={`status-product-lifecycle-${product.id}`}>
+                  <LcIcon className={`w-4 h-4 ${lc.color}`} fill={lc.filled ? "currentColor" : "none"} />
+                </div>
               </TooltipTrigger>
-              <TooltipContent>Produkt v dobiehani{daysLeft !== null && daysLeft > 0 ? ` - ${daysLeft} dni` : ""}</TooltipContent>
+              <TooltipContent>
+                {lc.label}
+                {isEject && daysLeft !== null && ` (${daysLeft > 0 ? `${daysLeft} dni do konca` : "Expiroval"})`}
+              </TooltipContent>
             </Tooltip>
-          )}
-          <Button
-            size="icon"
-            variant="ghost"
-            onClick={onEdit}
-            data-testid={`button-edit-sector-product-${product.id}`}
-          >
-            <Pencil className="w-4 h-4" />
-          </Button>
-          <ConditionalDelete
-            canDelete={folderCount === 0}
-            onClick={onDelete}
-            testId={`button-delete-sector-product-${product.id}`}
-          />
-        </div>
-      </TableCell>
-    </TableRow>
+            <div className="flex items-center border border-border rounded-md ml-1" data-testid={`media-player-${product.id}`}>
+              {mediaButtons.map(btn => {
+                const BtnIcon = btn.icon;
+                const isActive = lc.value === btn.status;
+                return (
+                  <Tooltip key={btn.status}>
+                    <TooltipTrigger asChild>
+                      <button
+                        className={`flex items-center justify-center w-7 h-7 transition-colors ${isActive ? btn.activeColor : "text-muted-foreground hover:text-foreground hover:bg-muted"} ${btn.status === "record" ? "rounded-l-md" : btn.status === "stop" ? "rounded-r-md" : ""}`}
+                        onClick={() => handleInlineLifecycle(btn.status)}
+                        disabled={lifecycleMutation.isPending}
+                        data-testid={`btn-lifecycle-${btn.status}-${product.id}`}
+                      >
+                        <BtnIcon className="w-3.5 h-3.5" fill={isActive ? "currentColor" : "none"} />
+                      </button>
+                    </TooltipTrigger>
+                    <TooltipContent>{btn.label}</TooltipContent>
+                  </Tooltip>
+                );
+              })}
+            </div>
+            {isEject && (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <AlertTriangle className="w-4 h-4 text-orange-500" data-testid={`warning-eject-${product.id}`} />
+                </TooltipTrigger>
+                <TooltipContent>Produkt v dobiehani{daysLeft !== null && daysLeft > 0 ? ` - ${daysLeft} dni` : ""}</TooltipContent>
+              </Tooltip>
+            )}
+            <Button
+              size="icon"
+              variant="ghost"
+              onClick={onEdit}
+              data-testid={`button-edit-sector-product-${product.id}`}
+            >
+              <Pencil className="w-4 h-4" />
+            </Button>
+            <ConditionalDelete
+              canDelete={folderCount === 0}
+              onClick={onDelete}
+              testId={`button-delete-sector-product-${product.id}`}
+            />
+          </div>
+        </TableCell>
+      </TableRow>
+      <Dialog open={confirmStop} onOpenChange={setConfirmStop}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Ukončiť produkt?</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground">Naozaj chcete ukončiť produkt <strong>{product.name}</strong>? Ukončené produkty sa nezobrazia pri tvorbe nových zmlúv.</p>
+          <div className="flex justify-end gap-2 mt-4">
+            <Button variant="outline" onClick={() => setConfirmStop(false)} data-testid={`btn-cancel-stop-${product.id}`}>Zrušiť</Button>
+            <Button variant="destructive" onClick={() => { setConfirmStop(false); lifecycleMutation.mutate("stop"); }} data-testid={`btn-confirm-stop-${product.id}`}>
+              <Square className="w-4 h-4 mr-1" fill="currentColor" /> Ukončiť
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }
 
