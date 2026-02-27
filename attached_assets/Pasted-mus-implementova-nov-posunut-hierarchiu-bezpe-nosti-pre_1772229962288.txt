@@ -1,0 +1,47 @@
+musíš implementovať novú, posunutú hierarchiu bezpečnosti pre holding Kostura. Táto štruktúra nahrádza staré role a zavádza striktnú číselnú logiku (0 – 10).
+
+1. Definícia Bezpečnostných úrovní (Stupnica 0 - 10)
+V UI (sekcia Správa prihlásenia) použiť nadpis "Bezpečnostná úroveň" a formát "Číslo – Prívlastok (Rola)".
+
+Úroveň 0 – BLACKLIST (Čierny zoznam): Absolútna stopka. Žiadne prihlásenie, zablokované RČ/IČO pre akékoľvek nové registrácie.
+
+Úroveň 1 – Bežný klient: Pasívny záznam v DB bez prístupových údajov (hasLogin = false).
+
+Úroveň 2 – Registrovaný klient: Aktívna klientska zóna. Vidí iba svoje zmluvy cez subject_id.
+
+Úroveň 3 – Akvizičná (Partner / Tipér): Prístup k zadávaniu tipov a sledovaniu vlastných odmien.
+
+Úroveň 4 – Operatívna (Obchodník): Prístup k vlastnému klientskemu kmeňu.
+
+Úroveň 5 – Manažérska (Manažér): Dohľad nad zmluvami a dátami svojho tímu.
+
+Úroveň 6 – Strategická (Riaditeľ): Správa a dohľad nad celou divíziou.
+
+Úroveň 7 – Revízna (Backoffice / Kontrola): Zlomová úroveň. Koniec maskovania dát. Plný prístup k RČ a IBAN kvôli auditu.
+
+Úroveň 8 – Architektonická (Architekt - Majiteľ): Master Key. Plná kontrola nad holdingom a nastaveniami systému.
+
+Úroveň 9 – Audítorská (Externý dozor): Read-only prístup k celému systému bez možnosti editácie.
+
+Úroveň 10 – Holdingová (Multi-entity): Najvyšší kľúč pre správu viacerých firiem pod holdingom Kostura.
+
+2. Logika "Vlastník vs. Cudzí kmeň" (Privacy Filter)
+Uprav applyPrivacyFilter na serveri tak, aby:
+
+Vlastník záznamu (obchodník L4, ktorý klienta priniesol alebo je jeho správcom) a jeho nadriadení v línii vidia plné dáta.
+
+Cudzí prístup (Level < 7): Ak používateľ nie je vlastník/nadriadený, citlivé polia (birthNumber, accountNumber, email, phone, rodne_priezvisko a presná adresa) sa maskujú hviezdičkami ****.
+
+Level 7 a viac: Vidia vždy plné dáta.
+
+3. Automatizácia Čierneho a Červeného zoznamu
+Čierny zoznam: Ak je subjekt blacklisted, jeho úroveň sa fixne nastaví na 0. Prihlásenie je blokované. Pri registrácii nového subjektu musí prebehnúť check na RČ/IČO v tomto zozname – ak existuje zhoda, registrácia je zakázaná.
+
+Červený zoznam (Kvalita): Implementuj trigger: 5 zlých zmlúv (storno/neplatič) = automatický príznak requires_approval. Každá nová zmluva takéhoto subjektu musí byť manuálne schválená Úrovňou 7 alebo 8.
+
+4. UI a IP Sentinel
+Legenda: Pri kliknutí na pole "Bezpečnostná úroveň" zobraz Popover/Tooltip s popisom všetkých úrovní (0-10).
+
+IP Locking: Implementuj middleware pre Úroveň 7 a vyššie. Ak je v profile vyplnené allowedIps, prístup z inej IP adresy bude zamietnutý.
+
+Výstup: Ukáž upravený server/routes.ts s logikou maskovania podľa vlastníctva a middleware pre blokáciu Úrovne 0.
