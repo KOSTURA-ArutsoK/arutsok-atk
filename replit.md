@@ -21,7 +21,8 @@ The system utilizes a modern full-stack architecture, emphasizing data integrity
 - **Data Integrity & Auditability**: Achieved through immutable records, soft deletion, audit logs, field history, and document validity indicators.
 - **Temporal Validity**: Implemented using `validFrom`, `validTo`, `isActive` fields, and hourly archiving cron jobs.
 - **Role-Based Access Control (RBAC)**: Granular permissions managed via `permission_groups`.
-- **UI/UX & Interaction**: Includes a two-step context selector, dynamic dialog sizing, smart filter bar, row-click navigation, Tiptap rich text editing, dual document management, drag & drop reordering, consistent status indicators, and Web Speech API integration.
+- **UI/UX & Interaction**: Includes a Holding Context Bubble (unified header selector with Country/Company/Division badges), dynamic dialog sizing, smart filter bar, row-click navigation, Tiptap rich text editing, dual document management, drag & drop reordering, consistent status indicators, and Web Speech API integration.
+- **Holding Context Bubble**: Unified header container (`data-testid="holding-context-bubble"`) with three inline badges: Country (bg-muted/40), Company (bg-background/60), Division (emoji bar ≤5, dropdown 6+). Badges are interactive dropdowns for L7+ users; locked with Lock icon for <L7. State change cascades to reset Company and Division.
 - **Security & Workflow**: Features a two-phase idle timeout with auto-logout, an archive module with password-protected restore, and a processing time protocol.
 - **Module A/B Architecture**: Module A (Contract Management) uses a SEKTOR→ODVETVIE→PRODUKT→PRIEČINOK→PANEL→PARAMETER hierarchy. Module B (Subject Management) provides an aggregated client view and data provenance.
 - **Dynamic Parameter System (EAV Architecture)**: A 4-level hierarchy (Sectors → Sections → Products → Parameters) allows dynamic configuration of contract fields and form generation, with AI synonym mapping.
