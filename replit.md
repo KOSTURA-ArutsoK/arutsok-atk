@@ -1,7 +1,7 @@
 # ArutsoK
 
 ## Overview
-ArutsoK is a multi-tenant CRM and commission tracking system for financial services and real estate. It offers comprehensive client and partner management, precise commission calculations, and emphasizes data integrity, auditability, and temporal validity. The platform aims to be a robust, secure, and leading solution for complex business relationships and financial transactions, with significant market potential.
+ArutsoK is a multi-tenant CRM and commission tracking system designed for the financial services and real estate sectors. Its primary purpose is to provide robust client and partner management, precise commission calculations, and ensure high data integrity, auditability, and temporal validity. The platform aims to become a leading, secure solution for managing complex business relationships and financial transactions, with significant market potential.
 
 ## User Preferences
 - Dark mode default with military/security aesthetic
@@ -9,7 +9,7 @@ ArutsoK is a multi-tenant CRM and commission tracking system for financial servi
 - Sharp borders, small border radius
 
 ## System Architecture
-The system employs a modern full-stack architecture prioritizing data integrity, security, and auditability. It features immutable historical records, soft deletion with audit trails, granular Role-Based Access Control (RBAC), and temporal validity managed through specific date fields and cron jobs. All entities are assigned unique 12-digit global identifiers.
+The system utilizes a modern full-stack architecture, emphasizing data integrity, security, and auditability. Key features include immutable historical records, soft deletion with audit trails, granular Role-Based Access Control (RBAC), and temporal validity managed through date fields and cron jobs. All entities are assigned unique 12-digit global identifiers.
 
 **Core Technologies:**
 - **Frontend**: React with Vite, Tailwind CSS, `shadcn/ui`, `wouter`.
@@ -18,49 +18,51 @@ The system employs a modern full-stack architecture prioritizing data integrity,
 - **Authentication**: Replit OIDC Auth.
 
 **Key Architectural Decisions & Features:**
-- **Data Integrity & Auditability**: Achieved via immutable historical records, soft deletion, `audit_logs`, `subject_field_history`, and document validity indicators.
+- **Data Integrity & Auditability**: Achieved through immutable records, soft deletion, audit logs, field history, and document validity indicators.
 - **Temporal Validity**: Implemented using `validFrom`, `validTo`, `isActive` fields, and hourly archiving cron jobs.
-- **Role-Based Access Control (RBAC)**: Granular permissions managed through `permission_groups`.
-- **UI/UX & Interaction**: Features a two-step context selector, dynamic dialog sizing, smart filter bar, row-click navigation, Tiptap rich text editing, dual document management, drag & drop reordering, consistent status indicators, and Web Speech API voice assistance.
-- **Security & Workflow**: Includes a two-phase idle timeout with auto-logout, an archive module with password-protected restore, and a processing time protocol.
-- **Module A/B Architecture**: Comprises Module A (Contract Management) with a SEKTOR→ODVETVIE→PRODUKT→PRIEČINOK→PANEL→PARAMETER hierarchy, and Module B (Subject Management) offering an aggregated client view, automatic object creation, and data provenance tracking.
-- **Dynamic Parameter System (EAV Architecture)**: A 4-level hierarchy (Sectors → Sections → Products → Parameters) for dynamic, database-driven configuration of contract fields and form generation. Supports AI synonym mapping and tracks unknown extracted fields.
-- **Commission Brain & Calculation Engine**: Manages `commission_rates` with temporal validity and supports various calculation types, logging all calculations.
+- **Role-Based Access Control (RBAC)**: Granular permissions managed via `permission_groups`.
+- **UI/UX & Interaction**: Includes a two-step context selector, dynamic dialog sizing, smart filter bar, row-click navigation, Tiptap rich text editing, dual document management, drag & drop reordering, consistent status indicators, and Web Speech API integration.
+- **Security & Workflow**: Features a two-phase idle timeout with auto-logout, an archive module with password-protected restore, and a processing time protocol.
+- **Module A/B Architecture**: Module A (Contract Management) uses a SEKTOR→ODVETVIE→PRODUKT→PRIEČINOK→PANEL→PARAMETER hierarchy. Module B (Subject Management) provides an aggregated client view and data provenance.
+- **Dynamic Parameter System (EAV Architecture)**: A 4-level hierarchy (Sectors → Sections → Products → Parameters) allows dynamic configuration of contract fields and form generation, with AI synonym mapping.
+- **Commission Brain & Calculation Engine**: Manages `commission_rates` with temporal validity, supports various calculation types, and logs all calculations.
 - **Settlement Sheets Module**: Handles settlement sheets and contracts, including locking mechanisms and status workflows.
-- **Repeatable Collections**: Enables repeatable groups of fields within forms, with data stored in JSONB.
-- **Subject & Contract Parameter Systems**: Defines active parameters for subjects and contracts across sectors with AI extraction hints.
-- **Client Management**: Includes multi-step registration, granular ownership and visibility rules, Bonita Point System, risk linking, and an AML module.
-- **Client Portal**: Provides a restricted, read-only interface.
+- **Repeatable Collections**: Enables repeatable field groups within forms, storing data in JSONB.
+- **Client Management**: Features multi-step registration, granular ownership, Bonita Point System, risk linking, and an AML module.
+- **Client Portal**: Provides a restricted, read-only interface for clients.
 - **Reporting & Administration**: Offers system settings, customizable dashboards, global table resizing, universal column management, and dedicated CRUD pages.
-- **Excel Importer**: Advanced importer for auto-creating/updating subjects, handling incomplete contracts, and duplicate detection.
+- **Excel Importer**: Advanced tool for auto-creating/updating subjects, handling incomplete contracts, and duplicate detection.
 - **Profile Photo System**: Manages `subject_photos` with versioning, smart cropping, authenticated serving, and classification.
-- **AI Feedback Loop**: Uses `parameter_synonyms` to enhance AI document text extraction through user confirmations.
-- **Global Subject Relations System**: Universal cross-entity linking via `subject_relations` with 32 `relation_role_types`, supporting temporal validity and context-aware relations.
-- **Family Relations (Rodinný pavúk)**: Defines 8 family-specific roles, features a family spider visualization, parameter inheritance, maturity semaphore tracking, and AI extraction rules.
-- **Universal Guardian Access Hierarchy**: Allows individuals and organizations as legal guardians, with features for ward management, enhanced maturity alerts, and automatic read-only access.
-- **Blbuvzdornosť (Foolproof) System**: Implements `data_conflict_alerts` with resolution workflows, `transaction_dedup_log` for duplicate detection, Zod validation, and subject-level authorization checks.
-- **GDPR & Privacy System**: Comprehensive privacy controls, household management, privacy blocks, and access consent logging. Includes an 18+ privacy trigger.
-- **Full-Auto Adult Transition (Autopilot)**: Automated 18+ transition for wards, revoking guardian consents, creating privacy blocks, archiving relations, and sending notifications.
+- **AI Feedback Loop**: Enhances AI document text extraction through user-confirmed `parameter_synonyms`.
+- **Global Subject Relations System**: Universal cross-entity linking via `subject_relations` with 32 `relation_role_types`, temporal validity, and context-aware relations.
+- **Family Relations (Rodinný pavúk)**: Defines 8 family-specific roles, features a family spider visualization, parameter inheritance, and AI extraction rules.
+- **Universal Guardian Access Hierarchy**: Manages legal guardians for individuals and organizations, with ward management and enhanced maturity alerts.
+- **Blbuvzdornosť (Foolproof) System**: Implements `data_conflict_alerts`, `transaction_dedup_log`, Zod validation, and subject-level authorization.
+- **GDPR & Privacy System**: Comprehensive privacy controls, household management, privacy blocks, and access consent logging.
+- **Full-Auto Adult Transition (Autopilot)**: Automated 18+ transition for wards, managing consents, archiving relations, and notifications.
 - **Address Groups (Adresná skupina - Objekt XY)**: Groups unrelated subjects by shared address or contract.
 - **PO Structure (Company Subject Roles)**: Defines a deep role hierarchy for companies with section-level access control.
-- **Bulk Notification Queue**: Asynchronous batch processing for notifications with real-time progress tracking and a dedicated UI.
-- **Behavioral Profile & Smart Tags**: Panel for behavioral and medical codes, communication types, specific needs, and access notes. Tag system in `subjects.details.tags` (JSONB array) with preset colored tags and custom tags. Red behavior alert for "Agresívna" communication or filled access notes. Tags and alerts visible in Profile and Subjects list.
-- **CGN Module (Interná Segmentácia)**: Risk segmentation via `subjects.details.cgnActive` (boolean). Visual indicators for stable and CGN-flagged subjects. High-Alert Mode with orange subject name, daily warning dialog, and CGN toggle in Architect mode.
-- **Globálny Stroj času (🕰️)**: Inline version count indicator inside every input field, showing history and allowing restoration.
-- **Heatmapa čerstvých dát (7-dňový cyklus)**: Panels automatically change background color based on data freshness.
-- **Dôkazný materiál (ORSR/ŽRSR)**: Auto-generates styled evidence documents for company lifecycle status changes (e.g., "Zaniknutá", "V likvidácii") from state registers.
-- **Relations Integration (Relácie a portfólio)**: Three AI-driven panels: Rodinný klaster, Osobné portfólio subjektu, Navrhované prepojenia AI.
+- **Bulk Notification Queue**: Asynchronous batch processing for notifications with real-time progress tracking.
+- **Behavioral Profile & Smart Tags**: Panel for behavioral/medical codes, communication types, and needs. Tag system in `subjects.details.tags` (JSONB) with preset and custom tags.
+- **CGN Module (Interná Segmentácia)**: Risk segmentation via `subjects.details.cgnActive` with visual indicators and a high-alert mode.
+- **Globálny Stroj času (🕰️)**: Inline version count indicator in input fields, showing history and allowing restoration.
+- **Heatmapa čerstvých dát (7-dňový cyklus)**: Panels change background color based on data freshness.
+- **Dôkazný materiál (ORSR/ŽRSR)**: Auto-generates styled evidence documents for company lifecycle status changes from state registers.
+- **Relations Integration (Relácie a portfólio)**: AI-driven panels for Rodinný klaster, Osobné portfólio subjektu, and Navrhované prepojenia AI.
 - **Asset Panels (⛵🏗️💎)**: Specialized panels for Špeciálne aktíva, Firemné portfólio, and Špecifické riziká.
-- **📸 Vizuálna evidencia exkluzívnych aktív**: Orange Camera icon semaphore on asset fields when data exists but no photo attached, advising documentation of high-value assets.
-- **🎭 Poistenie podujatí**: Event insurance panel for all client types with event details and status. Auto-expiry cron job archives events past their end date.
-- **🏛️ Špecifické subjekty**: PO-only panel for state institutions, foundations, NGOs with conditional fields based on organization type.
-- **Visibility Rules**: Fields with `visibilityRule` conditionally render based on another field's value.
-- **System Notifications (Email Queue)**: `system_notifications` table stores all lifecycle email notifications with recipient, subject, body, and status.
-- **Dynamic Product Lifecycle Limits**: `sector_products` table allows configurable `objection_days_limit` and `archive_days_before_delete` per product, utilized by cron jobs.
-- **Ghost Mode (Migration Mode)**: Superadmin-only toggle for bulk historical contract import, which gates/skips lifecycle cron jobs, allows manual lifecycle timestamp overrides, sets system timestamps to the earliest historical date, and audits trail logs "Systémový import".
-- **Partner & Product Lifecycle (Media-Player System)**: 6-state lifecycle for both `partners` and `sector_products` tables via `lifecycle_status` column. States: ⏺️ record (Príprava spolupráce/grey), ⏭️ fast_forward (Štart spolupráce – zmluva podpísaná/blue, requires `status_start_date`), ▶️ play (Aktívna spolupráca/green), ⏸️ pause (Pozastavená spolupráca/yellow), ⏏️ eject (Výpoveď zmluvy/orange, requires `status_end_date`), ⏹️ stop (Ukončená spolupráca/red). Top-down inheritance: partner→stop or partner→pause bulk-updates all products to same status. Daily cron auto-transitions eject→stop when `status_end_date < now()`. ContractForm only shows play+eject products (`forContractForm=true` filter). Manual "Štát" field removed from partner form — global state selector controls filtering. Endpoints: `PATCH /api/partners/:id/lifecycle-status`, `PATCH /api/sector-products/:id/lifecycle-status`. Full audit trail for all status changes.
-- **Holding Structure (Kostura OS)**: Unified ID system with dynamic country prefix (`421` SK, `420` CZ) from `states.code`. `states` table extended with `currency` field (EUR/CZK/USD). New `divisions` table for holding divisions (Finančný trh, Reality, Obchod). M:N relationship `company_divisions` between `my_companies` and `divisions`. CRUD API: `GET/POST/PUT/DELETE /api/divisions`, `GET/POST /api/companies/:id/divisions`, `DELETE /api/company-divisions/:id`. Frontend pages: `SettingsDivisions.tsx` at `/settings-divisions` in Špecifikácie sidebar. Companies form has "Divízie" tab for M:N assignment.
-- **9-Level Hierarchy (Part 2/12)**: Full data path: Štát → Spoločnosť → Divízia → Sektor → Sekcia → Produkt → Priečinok → Panel → Parameter. `sectors` table extended with `divisionId` FK to `divisions`. `sections` table extended with `sectionType` field (`"product"` or `"geographic"`) for distinguishing product vs. geographic sections (e.g., PZP vs. Prešov). `app_users` extended with `activeDivisionId`. Context selector expanded to 3-step flow: Štát → Spoločnosť → Divízia (auto-skip if 0-1 divisions). Division button in header with Layers icon. Portfolio filtering: `/api/subjects/:id/portfolio` filters contracts by active division through `sector_products → sections → sectors.divisionId` chain. Sector form has division dropdown. Section form has type selector (Produktová/Geografická).
+- **📸 Vizuálna evidencia exkluzívnych aktív**: Orange Camera icon semaphore on asset fields advising photo documentation.
+- **🎭 Poistenie podujatí**: Event insurance panel with event details and status. Auto-expiry cron job archives events.
+- **🏛️ Špecifické subjekty**: PO-only panel for state institutions, foundations, NGOs with conditional fields.
+- **Visibility Rules**: Conditional rendering of fields based on other field values.
+- **System Notifications (Email Queue)**: `system_notifications` table stores lifecycle email notifications.
+- **Dynamic Product Lifecycle Limits**: `sector_products` table allows configurable `objection_days_limit` and `archive_days_before_delete`.
+- **Ghost Mode (Migration Mode)**: Superadmin-only toggle for bulk historical contract import, managing lifecycle cron jobs and timestamps.
+- **Partner & Product Lifecycle (Media-Player System)**: 6-state lifecycle for `partners` and `sector_products` via `lifecycle_status` column, with top-down inheritance and cron-driven auto-transitions.
+- **Holding Structure (Kostura OS)**: Unified ID system with dynamic country prefix, extended `states` table with `currency`, and `divisions` table for holding divisions.
+- **9-Level Hierarchy**: Full data path: Štát → Spoločnosť → Divízia → Sektor → Sekcia → Produkt → Priečinok → Panel → Parameter, with `sectorId` linked to `divisionId` and `sectionType`.
+- **Majiteľský Sentinel & Impersonation**: `architekt` role (L7) for highest privilege, with impersonation functionality for auditing and support.
+- **Dashboard (Prehľad)**: Simple overview at `/` with drag-and-drop widget layout for contract stats, recent subjects, companies, partners, products, audit activity, and events.
+- **Analytics & Reporting Module**: Admin/SuperAdmin module at `/analytika` with KPI cards (Production, Cashflow, Storno Analysis, Cross-sell potential, Red list), a dynamic filter system, charts (PieChart, BarChart), and PDF manager summaries.
 
 ## External Dependencies
 - **Replit OIDC Auth**: Authentication service.
@@ -76,7 +78,3 @@ The system employs a modern full-stack architecture prioritizing data integrity,
 - **ExcelJS**: Library for reading, writing, and manipulating XLSX, CSV, and JSON files.
 - **Sharp**: High-performance Node.js image processing library.
 - **jsPDF**: Client-side PDF generation library.
-
-## Recent Features
-- **Dashboard (Prehľad)**: Simple overview at `/` with drag-and-drop widget layout. Widgets: contract stats tiles (4 cards), recent subjects, my companies, recent partners, recent products, audit activity, upcoming events, red list recent, black list recent. Layout editing with save/cancel. Red list alert dialog for admins. Backend endpoint `GET /api/dashboard/analytics` available for future use.
-- **Analytics & Reporting Module**: Admin/SuperAdmin-only module at `/analytika`. Sidebar item "Analytika a Reporty" (BarChart3 icon) below Informácie section. Backend `GET /api/reports/production` endpoint with filters (dateRange, partner, agent, status, contractType, premiumMin/Max, paymentFrequency, expiryFrom/To, listStatus, subjectType, PSČ), state isolation via `getEnforcedStateId`. **6 KPI cards**: Celková produkcia, Čistá produkcia, Skutočný cashflow, Storno Analýza (red), Cross-sell potenciál (green, 3+ contracts without life insurance), Červený zoznam count (orange). **Dynamic filter system**: „+ Pridať filter" button with Module A (Klientsky kmeň: typ subjektu, reputačný status, PSČ), Module B (Zmluvy: lehotné poistné min/max, frekvencia platenia, dátum expirácie), Module C (placeholder for OCR fields). Filters appear as chips with module badge and ✕ removal. Auto-update on filter change. **Hĺbkový prieskum** collapsible section showing active filters with module badges. **Charts**: PieChart (Partner Share) and BarChart (Monthly trend) using recharts. **Interactive bar chart**: click on bar filters table by selected month (amber highlight), badge with ✕ to clear. **Zero state**: empty placeholder when no chart data for current filters. **Extended table** with Typ zmluvy, Frekvencia, Expirácia columns + červený zoznam badge. **Fulltext search** in table. Response includes `partnerBreakdown`, `monthlyTrend`, `contractTypes`. MASSIVE_DATA_ACCESS audit for >500 records, DEEP_DIVE_ACCESS audit for Module C filters. Manager Summary PDF via jsPDF with diagonal watermark, includes **visual chart images** (SVG→Canvas→PNG export) + KPI + active filters + partner breakdown + monthly trend. No xlsx/csv/json export. `@media print` hides report-table class. SQL limit 2000 records.

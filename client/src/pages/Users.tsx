@@ -3,7 +3,7 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { formatPhone, formatUid } from "@/lib/utils";
-import { Loader2, Plus, Pencil, Users as UsersIcon, Shield } from "lucide-react";
+import { Loader2, Plus, Pencil, Users as UsersIcon, Shield, LogIn } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -35,6 +35,17 @@ import { Checkbox } from "@/components/ui/checkbox";
 import type { AppUser, PermissionGroup, ClientGroup } from "@shared/schema";
 import { ProcessingSaveButton } from "@/components/processing-save-button";
 import { HelpIcon } from "@/components/help-icon";
+import { useAppUser } from "@/hooks/use-app-user";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { useTableSort } from "@/hooks/use-table-sort";
 import { useColumnVisibility, type ColumnDef } from "@/hooks/use-column-visibility";
 import { ColumnManager } from "@/components/column-manager";
@@ -65,9 +76,10 @@ const USER_FILTER_COLUMNS: SmartColumnDef[] = [
   { key: "securityLevel", label: "Bezp. uroven", type: "number" },
 ];
 
-const ROLES = ["superadmin", "admin", "backoffice", "manager", "user"] as const;
+const ROLES = ["architekt", "superadmin", "admin", "backoffice", "manager", "user"] as const;
 
 const ROLE_LABELS: Record<string, string> = {
+  architekt: "Architekt (L7)",
   superadmin: "Superadmin",
   admin: "Admin",
   backoffice: "Backoffice",
@@ -459,7 +471,64 @@ function UserFormDialog({
   );
 }
 
+function ImpersonateButton({ targetUser, currentUser }: { targetUser: AppUser; currentUser: any }) {
+  const { toast } = useToast();
+  const [confirmOpen, setConfirmOpen] = useState(false);
+
+  const impersonateMutation = useMutation({
+    mutationFn: async () => {
+      const res = await apiRequest("POST", `/api/impersonate/${targetUser.id}`);
+      return res.json();
+    },
+    onSuccess: () => {
+      toast({ title: "Impersonation aktivovaná", description: `Vstupujete do kontextu: ${targetUser.firstName} ${targetUser.lastName}` });
+      setTimeout(() => window.location.reload(), 500);
+    },
+    onError: () => toast({ title: "Chyba", description: "Nepodarilo sa aktivovať impersonation", variant: "destructive" }),
+  });
+
+  if (!currentUser || currentUser.role !== "architekt") return null;
+  if (targetUser.id === currentUser.id) return null;
+
+  return (
+    <>
+      <Button
+        size="icon"
+        variant="ghost"
+        onClick={() => setConfirmOpen(true)}
+        title="Vstúpiť ako..."
+        data-testid={`button-impersonate-user-${targetUser.id}`}
+      >
+        <LogIn className="w-4 h-4 text-orange-500" />
+      </Button>
+      <AlertDialog open={confirmOpen} onOpenChange={setConfirmOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Vstúpiť ako...</AlertDialogTitle>
+            <AlertDialogDescription>
+              Naozaj chcete vstúpiť do kontextu používateľa <strong>{targetUser.firstName} {targetUser.lastName}</strong>?
+              Uvidíte systém presne tak, ako ho vidí tento používateľ. Táto akcia bude zaznamenaná v auditnom logu.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel data-testid="button-impersonate-cancel">Zrušiť</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => impersonateMutation.mutate()}
+              className="bg-orange-600 hover:bg-orange-700"
+              data-testid="button-impersonate-confirm"
+            >
+              {impersonateMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
+              Vstúpiť ako {targetUser.firstName}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </>
+  );
+}
+
 export default function UsersPage() {
+  const { data: currentAppUser } = useAppUser();
   const { data: users, isLoading } = useQuery<AppUser[]>({
     queryKey: ["/api/app-users"],
   });
@@ -577,14 +646,17 @@ export default function UsersPage() {
                       {getGroupName(user.permissionGroupId)}
                     </TableCell>}
                     <TableCell>
-                      <Button
-                        size="icon"
-                        variant="ghost"
-                        onClick={() => openEdit(user)}
-                        data-testid={`button-edit-user-${user.id}`}
-                      >
-                        <Pencil className="w-4 h-4" />
-                      </Button>
+                      <div className="flex items-center gap-1">
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          onClick={() => openEdit(user)}
+                          data-testid={`button-edit-user-${user.id}`}
+                        >
+                          <Pencil className="w-4 h-4" />
+                        </Button>
+                        <ImpersonateButton targetUser={user} currentUser={currentAppUser} />
+                      </div>
                     </TableCell>
                   </TableRow>
                 ))

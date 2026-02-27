@@ -9,7 +9,8 @@ import { useTheme } from "@/components/theme-provider";
 import { useAuth } from "@/hooks/use-auth";
 import { useTTSContext } from "@/contexts/tts-context";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Moon, Sun, ChevronDown, Globe, Building2, Upload, LogOut, AlertTriangle, Timer, Volume2, VolumeX, Shield, Layers } from "lucide-react";
+import { Moon, Sun, ChevronDown, Globe, Building2, Upload, LogOut, AlertTriangle, Timer, Volume2, VolumeX, Shield, Layers, X } from "lucide-react";
+import { apiRequest } from "@/lib/queryClient";
 
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -467,6 +468,32 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               </DropdownMenuContent>
             </DropdownMenu>
           </header>
+
+          {(appUser as any)?.isImpersonating && (
+            <div className="bg-red-600 text-white px-4 py-2 flex items-center justify-between flex-shrink-0" data-testid="banner-impersonation">
+              <div className="flex items-center gap-2">
+                <AlertTriangle className="w-4 h-4" />
+                <span className="text-sm font-medium">
+                  Režim Impersonation — Nachádzate sa v kontexte: {appUser?.firstName} {appUser?.lastName}
+                </span>
+              </div>
+              <Button
+                size="sm"
+                variant="ghost"
+                className="text-white hover:bg-red-700 gap-1.5"
+                onClick={async () => {
+                  try {
+                    await apiRequest("POST", "/api/impersonate/stop");
+                    window.location.reload();
+                  } catch {}
+                }}
+                data-testid="button-impersonate-stop"
+              >
+                <X className="w-4 h-4" />
+                Návrat do L7 profilu
+              </Button>
+            </div>
+          )}
 
           <main className="flex-1 overflow-y-auto p-4 md:p-6">
             {children}

@@ -69,6 +69,14 @@ async function logAudit(req: any, params: {
   }
 }
 
+function isArchitekt(appUser: any): boolean {
+  return appUser?.role === 'architekt';
+}
+
+function hasAdminAccess(appUser: any): boolean {
+  return appUser?.role === 'admin' || appUser?.role === 'superadmin' || appUser?.role === 'prezident' || appUser?.role === 'architekt';
+}
+
 async function isKlientiUser(appUser: any): Promise<boolean> {
   if (!appUser?.permissionGroupId) return false;
   const [pg] = await db.select().from(permissionGroups).where(eq(permissionGroups.id, appUser.permissionGroupId));
@@ -214,7 +222,22 @@ export async function registerRoutes(
       if (req.isAuthenticated && req.isAuthenticated() && req.user?.claims?.sub) {
         const appUser = await storage.getAppUserByReplitId(req.user.claims.sub);
         if (appUser) {
-          req.appUser = appUser;
+          if (appUser.impersonatingUserId && !isArchitekt(appUser)) {
+            await db.update(appUsers).set({ impersonatingUserId: null }).where(eq(appUsers.id, appUser.id));
+            appUser.impersonatingUserId = null;
+          }
+          if (appUser.impersonatingUserId && isArchitekt(appUser)) {
+            const [impersonated] = await db.select().from(appUsers).where(eq(appUsers.id, appUser.impersonatingUserId));
+            if (impersonated) {
+              req.originalAppUser = appUser;
+              req.appUser = impersonated;
+            } else {
+              await db.update(appUsers).set({ impersonatingUserId: null }).where(eq(appUsers.id, appUser.id));
+              req.appUser = appUser;
+            }
+          } else {
+            req.appUser = appUser;
+          }
         }
       }
     } catch (err) {
@@ -320,7 +343,16 @@ export async function registerRoutes(
         if (pg) permissionGroup = pg;
       }
 
-      res.json({ ...appUser, effectiveSessionTimeoutSeconds: effectiveTimeout, careerLevel, permissionGroup });
+      const isImpersonating = !!req.originalAppUser;
+      const originalUser = req.originalAppUser ? {
+        id: req.originalAppUser.id,
+        firstName: req.originalAppUser.firstName,
+        lastName: req.originalAppUser.lastName,
+        role: req.originalAppUser.role,
+        uid: req.originalAppUser.uid,
+      } : null;
+
+      res.json({ ...appUser, effectiveSessionTimeoutSeconds: effectiveTimeout, careerLevel, permissionGroup, isImpersonating, originalUser });
     } catch (err) {
       console.error("Error in /api/app-user/me:", err);
       res.status(500).json({ message: "Internal error" });
@@ -366,6 +398,65 @@ export async function registerRoutes(
     } catch (err) {
       if (err instanceof z.ZodError) return res.status(400).json({ message: err.errors[0].message });
       res.status(500).json({ message: "Internal error" });
+    }
+  });
+
+  // === IMPERSONATION ===
+  app.post("/api/impersonate/stop", isAuthenticated, async (req: any, res) => {
+    try {
+      const realUser = req.originalAppUser;
+      if (!realUser) return res.status(400).json({ message: "Nie ste v režime impersonation" });
+
+      const impersonatedUser = req.appUser;
+      await db.update(appUsers).set({ impersonatingUserId: null }).where(eq(appUsers.id, realUser.id));
+
+      const now = new Date().toLocaleString("sk-SK", { timeZone: "Europe/Bratislava" });
+      await logAudit(req, {
+        action: "IMPERSONATE_STOP",
+        module: "pouzivatelia",
+        entityId: impersonatedUser.id,
+        entityName: `${impersonatedUser.firstName} ${impersonatedUser.lastName}`,
+        oldData: { impersonatingUserId: impersonatedUser.id },
+        newData: { message: `Admin ${realUser.uid || realUser.id} ukončil prevzatie kontextu používateľa ${impersonatedUser.uid || impersonatedUser.id} dňa ${now}` },
+      });
+
+      res.json({ success: true });
+    } catch (err: any) {
+      console.error("Impersonate stop error:", err);
+      res.status(500).json({ message: err?.message || "Chyba" });
+    }
+  });
+
+  app.post("/api/impersonate/:userId", isAuthenticated, async (req: any, res) => {
+    try {
+      const realUser = req.originalAppUser || req.appUser;
+      if (!isArchitekt(realUser)) {
+        return res.status(403).json({ message: "Len Architekt (L7) môže použiť túto funkciu" });
+      }
+
+      const targetUserId = parseInt(req.params.userId);
+      if (isNaN(targetUserId)) return res.status(400).json({ message: "Neplatné ID používateľa" });
+      if (targetUserId === realUser.id) return res.status(400).json({ message: "Nemôžete prevziať vlastný kontext" });
+
+      const [targetUser] = await db.select().from(appUsers).where(eq(appUsers.id, targetUserId));
+      if (!targetUser) return res.status(404).json({ message: "Používateľ nebol nájdený" });
+
+      await db.update(appUsers).set({ impersonatingUserId: targetUserId }).where(eq(appUsers.id, realUser.id));
+
+      const now = new Date().toLocaleString("sk-SK", { timeZone: "Europe/Bratislava" });
+      await logAudit(req, {
+        action: "IMPERSONATE_START",
+        module: "pouzivatelia",
+        entityId: targetUserId,
+        entityName: `${targetUser.firstName} ${targetUser.lastName}`,
+        oldData: null,
+        newData: { message: `Admin ${realUser.uid || realUser.id} prevzal kontext používateľa ${targetUser.uid || targetUser.id} dňa ${now}` },
+      });
+
+      res.json({ success: true, impersonatedUser: { id: targetUser.id, firstName: targetUser.firstName, lastName: targetUser.lastName } });
+    } catch (err: any) {
+      console.error("Impersonate error:", err);
+      res.status(500).json({ message: err?.message || "Chyba" });
     }
   });
 
