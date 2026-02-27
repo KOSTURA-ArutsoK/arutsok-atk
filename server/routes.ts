@@ -2811,6 +2811,15 @@ export async function registerRoutes(
       const contract = await storage.getContract(contractId);
       if (!contract) return res.status(404).json({ message: "Zmluva nenajdena" });
 
+      const secLvl = getSecurityLevel(appUser);
+      if (secLvl >= 4 && secLvl < 7) {
+        const isOwner = contract.uploadedByUserId === appUser.id;
+        const inChain = await isInManagerChain(appUser.id, contract.uploadedByUserId, appUser.activeCompanyId);
+        if (!isOwner && !inChain) {
+          return res.status(403).json({ message: "Nemáte oprávnenie meniť túto zmluvu" });
+        }
+      }
+
       const { newStatusId, changedAt, visibleToClient, statusNote, parameterValues } = req.body;
       if (!newStatusId) return res.status(400).json({ message: "Novy stav je povinny" });
 
@@ -3040,6 +3049,15 @@ export async function registerRoutes(
 
       const [contract] = await db.select().from(contracts).where(eq(contracts.id, contractId));
       if (!contract) return res.status(404).json({ message: "Zmluva nenájdená" });
+
+      const secLvl = getSecurityLevel(req.appUser);
+      if (secLvl >= 4 && secLvl < 7) {
+        const isOwner = contract.uploadedByUserId === req.appUser?.id;
+        const inChain = await isInManagerChain(req.appUser.id, contract.uploadedByUserId, req.appUser.activeCompanyId);
+        if (!isOwner && !inChain) {
+          return res.status(403).json({ message: "Nemáte oprávnenie meniť túto zmluvu" });
+        }
+      }
 
       const migrationOn = await isMigrationModeOn();
       const now = new Date();
@@ -7947,6 +7965,14 @@ export async function registerRoutes(
       const userCompanyId = req.appUser?.activeCompanyId;
       if (userCompanyId && existing.myCompanyId != null && Number(existing.myCompanyId) !== Number(userCompanyId)) {
         return res.status(403).json({ message: "Subjekt nepatrí do vašej aktívnej spoločnosti" });
+      }
+
+      const secLevel = getSecurityLevel(req.appUser);
+      if (secLevel >= 4 && secLevel < 7) {
+        const accessible = await isSubjectAccessible(req.appUser, existing);
+        if (!accessible) {
+          return res.status(403).json({ message: "Nemáte oprávnenie upravovať tento subjekt" });
+        }
       }
 
       const { changeReason, changeContext, details, ...rawFields } = req.body;

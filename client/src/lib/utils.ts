@@ -106,6 +106,11 @@ export function canCreateRecords(appUser: any): boolean {
   return level >= 4 && level !== 9;
 }
 
+export function canCreateSubjects(appUser: any): boolean {
+  const level = getSentinelLevel(appUser);
+  return level >= 3 && level !== 9;
+}
+
 export function canDeleteRecords(appUser: any): boolean {
   const level = getSentinelLevel(appUser);
   return level >= 7 && level !== 9;
