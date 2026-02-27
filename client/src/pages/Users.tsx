@@ -390,16 +390,44 @@ function UserFormDialog({
             <div className="space-y-2">
               <div className="flex items-center gap-2">
                 <Label>Bezpečnostná úroveň</Label>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Info className="w-3.5 h-3.5 text-muted-foreground cursor-help" data-testid="icon-sentinel-info" />
-                  </TooltipTrigger>
-                  <TooltipContent side="right" className="max-w-xs text-xs space-y-0.5 p-3" data-testid="tooltip-sentinel-levels">
-                    {Object.entries(SENTINEL_LEVEL_LABELS).map(([val, label]) => (
-                      <p key={val} className={parseInt(val) === form.securityLevel ? "font-bold text-primary" : ""}>{label}</p>
-                    ))}
-                  </TooltipContent>
-                </Tooltip>
+                {[7, 8, 10].includes(currentUser?.sentinelLevel ?? 0) && (
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Info className="w-3.5 h-3.5 text-muted-foreground cursor-help" data-testid="icon-sentinel-info" />
+                    </TooltipTrigger>
+                    <TooltipContent side="right" sideOffset={8} className="max-w-sm text-[11px] p-3 space-y-0" data-testid="tooltip-sentinel-levels">
+                      <p className="font-semibold text-xs mb-1.5 text-foreground">Sentinel Pyramída (0–10)</p>
+                      {([
+                        { l: 0, desc: "Blokovaný prístup — žiadne API volania" },
+                        { l: 1, desc: "Bežný klient — základný prístup" },
+                        { l: 2, desc: "Registrovaný — rozšírený klientský prístup" },
+                        { l: 3, desc: "Akvizičná — partner / tipér" },
+                        { l: 4, desc: "Operatívna — štandard pre obchodníkov" },
+                        { l: 5, desc: "Manažérska — správa tímu" },
+                        { l: 6, desc: "Strategická — riaditeľská úroveň" },
+                      ] as const).map(({ l, desc }) => (
+                        <p key={l} className={`py-0.5 ${l === form.securityLevel ? "font-bold text-primary" : "text-muted-foreground"}`}>
+                          <span className="font-mono text-[10px] mr-1">L{l}</span> {desc}
+                        </p>
+                      ))}
+                      <div className="flex items-center gap-2 my-1.5">
+                        <div className="flex-1 border-t border-dashed border-amber-500/60" />
+                        <span className="text-[9px] font-semibold text-amber-400 uppercase whitespace-nowrap">Maskovacia hranica</span>
+                        <div className="flex-1 border-t border-dashed border-amber-500/60" />
+                      </div>
+                      {([
+                        { l: 7, desc: "Revízna — plný prístup k dátam (bez maskovania)" },
+                        { l: 8, desc: "Architektonická — správa bezpečnosti, security edit" },
+                        { l: 9, desc: "Audítorská — ReadOnly, max 8h, bez RČ, Silo" },
+                        { l: 10, desc: "Holdingová — systémová multi-entity úroveň" },
+                      ] as const).map(({ l, desc }) => (
+                        <p key={l} className={`py-0.5 ${l === form.securityLevel ? "font-bold text-primary" : "text-muted-foreground"}`}>
+                          <span className="font-mono text-[10px] mr-1">L{l}</span> {desc}
+                        </p>
+                      ))}
+                    </TooltipContent>
+                  </Tooltip>
+                )}
               </div>
               <Select
                 value={form.securityLevel.toString()}
