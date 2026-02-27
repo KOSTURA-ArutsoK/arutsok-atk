@@ -2215,6 +2215,10 @@ function AddressCollectionBlock({ subjectId, isClientView }: { subjectId: number
   const [addingType, setAddingType] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [formData, setFormData] = useState<Record<string, string>>({});
+  const [showAddressInheritance, setShowAddressInheritance] = useState(false);
+  const [inheritanceCandidates, setInheritanceCandidates] = useState<any[]>([]);
+  const [selectedInheritanceIds, setSelectedInheritanceIds] = useState<number[]>([]);
+  const [pendingAddressData, setPendingAddressData] = useState<{ addressType: string; fields: Record<string, string> } | null>(null);
   const [historyOpen, setHistoryOpen] = useState<number | null>(null);
 
   const { data: addresses, isLoading } = useQuery<SubjectAddress[]>({
@@ -2242,15 +2246,47 @@ function AddressCollectionBlock({ subjectId, isClientView }: { subjectId: number
   });
 
   const updateAddress = useMutation({
-    mutationFn: async ({ id, data }: { id: number; data: Record<string, any> }) => {
-      return apiRequest("PATCH", `/api/subjects/${subjectId}/addresses/${id}`, data).then(r => r.json());
+    mutationFn: async ({ id, data, addressType }: { id: number; data: Record<string, any>; addressType?: string }) => {
+      const result = await apiRequest("PATCH", `/api/subjects/${subjectId}/addresses/${id}`, data).then(r => r.json());
+      return { result, addressType: addressType || 'trvaly', fields: data };
     },
-    onSuccess: () => {
+    onSuccess: async ({ addressType, fields }) => {
       queryClient.invalidateQueries({ queryKey: ["/api/subjects", subjectId, "addresses"] });
       queryClient.invalidateQueries({ queryKey: ["/api/subjects", subjectId, "field-history"] });
       toast({ title: "Adresa aktualizovaná" });
       setEditingId(null);
       setFormData({});
+      try {
+        const res = await fetch(`/api/subjects/${subjectId}/address-inheritance-candidates`, { credentials: "include" });
+        if (res.ok) {
+          const candidates = await res.json();
+          if (candidates.length > 0) {
+            setInheritanceCandidates(candidates);
+            setSelectedInheritanceIds(candidates.map((c: any) => c.subjectId));
+            setPendingAddressData({ addressType, fields });
+            setShowAddressInheritance(true);
+          }
+        }
+      } catch {}
+    },
+    onError: (err: any) => toast({ title: "Chyba", description: err.message, variant: "destructive" }),
+  });
+
+  const propagateAddress = useMutation({
+    mutationFn: async () => {
+      if (!pendingAddressData) throw new Error("Žiadne dáta na propagáciu");
+      return apiRequest("POST", `/api/subjects/${subjectId}/propagate-address`, {
+        targetSubjectIds: selectedInheritanceIds,
+        addressType: pendingAddressData.addressType,
+        addressFields: pendingAddressData.fields,
+      }).then(r => r.json());
+    },
+    onSuccess: (data: any) => {
+      toast({ title: `Adresa propagovaná pre ${data.propagatedCount} subjektov` });
+      setShowAddressInheritance(false);
+      setInheritanceCandidates([]);
+      setSelectedInheritanceIds([]);
+      setPendingAddressData(null);
     },
     onError: (err: any) => toast({ title: "Chyba", description: err.message, variant: "destructive" }),
   });
@@ -2310,7 +2346,8 @@ function AddressCollectionBlock({ subjectId, isClientView }: { subjectId: number
 
   const submitEdit = () => {
     if (!editingId) return;
-    updateAddress.mutate({ id: editingId, data: formData });
+    const editingAddr = (addresses || []).find(a => a.id === editingId);
+    updateAddress.mutate({ id: editingId, data: formData, addressType: editingAddr?.addressType });
   };
 
   const getHistoryForAddress = (addressType: string) => {
@@ -2541,6 +2578,59 @@ function AddressCollectionBlock({ subjectId, isClientView }: { subjectId: number
           );
         })}
       </CardContent>
+
+      {showAddressInheritance && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" data-testid="dialog-address-inheritance">
+          <div className="bg-card border border-border rounded-md shadow-lg w-full max-w-md p-4 space-y-3">
+            <div className="flex items-center gap-2">
+              <MapPin className="w-4 h-4 text-primary" />
+              <h3 className="text-sm font-semibold">Dedičnosť adries</h3>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Adresa bola zmenená. Chcete aktualizovať adresu aj pre tieto prepojené subjekty?
+            </p>
+            <div className="space-y-1 max-h-48 overflow-auto">
+              {inheritanceCandidates.map((c: any) => (
+                <label key={c.subjectId} className="flex items-center gap-2 p-2 rounded hover:bg-muted/50 cursor-pointer text-xs" data-testid={`checkbox-inherit-${c.subjectId}`}>
+                  <input
+                    type="checkbox"
+                    checked={selectedInheritanceIds.includes(c.subjectId)}
+                    onChange={(e) => {
+                      if (e.target.checked) {
+                        setSelectedInheritanceIds(prev => [...prev, c.subjectId]);
+                      } else {
+                        setSelectedInheritanceIds(prev => prev.filter(id => id !== c.subjectId));
+                      }
+                    }}
+                    className="rounded border-border"
+                  />
+                  <span className="font-medium">{c.name}</span>
+                  <span className="text-muted-foreground">({c.relationLabel})</span>
+                </label>
+              ))}
+            </div>
+            <div className="flex items-center gap-2 justify-end pt-2 border-t border-border">
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() => { setShowAddressInheritance(false); setPendingAddressData(null); }}
+                data-testid="button-cancel-inheritance"
+              >
+                Preskočiť
+              </Button>
+              <Button
+                size="sm"
+                onClick={() => propagateAddress.mutate()}
+                disabled={selectedInheritanceIds.length === 0 || propagateAddress.isPending}
+                data-testid="button-propagate-address"
+              >
+                {propagateAddress.isPending ? <Loader2 className="w-3 h-3 animate-spin mr-1" /> : null}
+                Aktualizovať ({selectedInheritanceIds.length})
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </Card>
   );
 }

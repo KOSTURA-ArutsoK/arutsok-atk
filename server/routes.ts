@@ -22,6 +22,22 @@ function stripBallast(str: string): string {
   return str.replace(/[\s\-\+\(\)\/\.]/g, "");
 }
 
+async function isFirstContractInDivision(uploadedByUserId: number, divisionId: number | null, companyId: number | null): Promise<boolean> {
+  if (!divisionId || !companyId) return false;
+  try {
+    const result = await db.execute(sql`
+      SELECT COUNT(*)::int as count FROM contracts 
+      WHERE uploaded_by_user_id = ${uploadedByUserId}
+      AND company_id = ${companyId}
+      AND is_deleted = false
+    `);
+    const count = (result as any).rows?.[0]?.count || 0;
+    return count === 0;
+  } catch {
+    return false;
+  }
+}
+
 async function isMigrationModeOn(): Promise<boolean> {
   try {
     const val = await storage.getSystemSetting("MIGRATION_MODE");
@@ -2020,37 +2036,75 @@ export async function registerRoutes(
       const pointsFactor = parseFloat(rate.pointsFactor || "1");
       const pointsEarned = Math.round(premium * pointsFactor / 100 * 10000) / 10000;
 
+      let isRedirected = false;
+      let redirectReason: string | null = null;
+      let effectiveManagerId = managerId;
+      let effectiveManagerLevel = managerLevel;
+
+      if ((contract as any).isFirstContract && (contract as any).commissionRedirectedToUserId) {
+        isRedirected = true;
+        redirectReason = "Pravidlo prvej zmluvy v divízii — 100% UP+NP presmerované na nadriadeného";
+        effectiveManagerId = (contract as any).commissionRedirectedToUserId;
+        const allUsers = await storage.getAppUsers();
+        const redirectedManager = allUsers.find((u: any) => u.id === effectiveManagerId);
+        if (redirectedManager) {
+          effectiveManagerLevel = redirectedManager.commissionLevel || 1;
+        }
+      }
+
       const logData = {
         contractId,
         contractNumber: contract.contractNumber,
         rateId: rate.id,
         agentId: agentId || null,
         agentLevel,
-        managerId,
-        managerLevel,
+        managerId: isRedirected ? effectiveManagerId : managerId,
+        managerLevel: isRedirected ? effectiveManagerLevel : managerLevel,
         premiumAmount: String(premium),
         rateType: rate.rateType,
         rateValue: rate.rateValue,
-        baseCommission: String(baseCommission),
-        differentialCommission: String(differentialCommission),
-        totalCommission: String(baseCommission + differentialCommission),
-        pointsEarned: String(pointsEarned),
+        baseCommission: isRedirected ? "0" : String(baseCommission),
+        differentialCommission: isRedirected ? "0" : String(differentialCommission),
+        totalCommission: isRedirected ? "0" : String(baseCommission + differentialCommission),
+        pointsEarned: isRedirected ? "0" : String(pointsEarned),
         actorId: appUser?.id || null,
         actorUsername: appUser?.username || "system",
         processingTimeSec: processingTimeSec ? Math.round(processingTimeSec) : 0,
-        inputSnapshot: { contractId, agentId, rateId: rate.id, premium, rateValue, agentLevel, managerLevel },
+        isRedirected,
+        redirectReason,
+        inputSnapshot: { contractId, agentId, rateId: rate.id, premium, rateValue, agentLevel, managerLevel, isRedirected, redirectedTo: (contract as any).commissionRedirectedToName || null },
       };
 
       const calcLog = await storage.createCommissionCalculationLog(logData);
+
+      if (isRedirected && effectiveManagerId) {
+        const managerLogData = {
+          ...logData,
+          agentId: effectiveManagerId,
+          agentLevel: effectiveManagerLevel,
+          managerId: null as number | null,
+          managerLevel: null as number | null,
+          baseCommission: String(baseCommission),
+          differentialCommission: String(differentialCommission),
+          totalCommission: String(baseCommission + differentialCommission),
+          pointsEarned: String(pointsEarned),
+          isRedirected: true,
+          redirectReason: `Prevzaté z prvej zmluvy agenta (pôvodný agent ID: ${agentId})`,
+        };
+        await storage.createCommissionCalculationLog(managerLogData);
+      }
+
       await logAudit(req, { action: "CALCULATE", module: "provizie", entityId: contractId, newData: logData });
 
       res.json({
         success: true,
         calculation: calcLog,
-        baseCommission,
-        differentialCommission,
-        totalCommission: baseCommission + differentialCommission,
-        pointsEarned,
+        baseCommission: isRedirected ? 0 : baseCommission,
+        differentialCommission: isRedirected ? 0 : differentialCommission,
+        totalCommission: isRedirected ? 0 : baseCommission + differentialCommission,
+        pointsEarned: isRedirected ? 0 : pointsEarned,
+        isRedirected,
+        redirectedTo: isRedirected ? (contract as any).commissionRedirectedToName : null,
       });
     } catch (err: any) {
       console.error("Commission calculation error:", err);
@@ -3811,6 +3865,27 @@ export async function registerRoutes(
         }
       }
 
+      let firstContractData: { isFirst: boolean; redirectUserId: number | null; redirectUserName: string | null } = { isFirst: false, redirectUserId: null, redirectUserName: null };
+      if (appUser?.id && appUser?.activeDivisionId) {
+        try {
+          const isFirst = await isFirstContractInDivision(appUser.id, appUser.activeDivisionId, createData.companyId || appUser.activeCompanyId);
+          if (isFirst) {
+            firstContractData.isFirst = true;
+            if (appUser.managerId) {
+              const allUsers = await storage.getAppUsers();
+              const manager = allUsers.find((u: any) => u.id === appUser.managerId);
+              if (manager) {
+                firstContractData.redirectUserId = manager.id;
+                firstContractData.redirectUserName = [manager.firstName, manager.lastName].filter(Boolean).join(' ') || manager.username || 'Nadriadený';
+              }
+            }
+            createData.isFirstContract = true;
+            createData.commissionRedirectedToUserId = firstContractData.redirectUserId;
+            createData.commissionRedirectedToName = firstContractData.redirectUserName;
+          }
+        } catch (e) { console.error("[FIRST_CONTRACT] Error:", e); }
+      }
+
       const created = await storage.createContract(createData);
       if (created.statusId) {
         await storage.createContractStatusChangeLog({
@@ -3821,6 +3896,11 @@ export async function registerRoutes(
           parameterValues: {},
         });
       }
+
+      if (firstContractData.isFirst && firstContractData.redirectUserName) {
+        await logAudit(req, { action: "SYSTEM", module: "provizie", entityId: created.id, entityName: created.contractNumber || `Zmluva #${created.id}`, newData: { isFirstContract: true, commissionRedirectedToName: firstContractData.redirectUserName, reason: "Pravidlo prvej zmluvy v divízii" } });
+      }
+
       await logAudit(req, { action: "CREATE", module: "zmluvy", entityId: created.id, entityName: created.contractNumber || `Zmluva #${created.id}`, newData: input });
 
       if (input.subjectId) {
@@ -8638,6 +8718,85 @@ export async function registerRoutes(
     }
   });
 
+  app.get("/api/subjects/:id/address-inheritance-candidates", isAuthenticated, async (req: any, res) => {
+    try {
+      const subjectId = Number(req.params.id);
+      if (!await checkKlientiSubjectAccess(req.appUser, subjectId)) return res.status(403).json({ message: "Prístup zamietnutý" });
+
+      const inheritanceRoles = ['byva_spolu', 'rodic_zakonny_zastupca', 'manzel_manzelka', 'partner_druh', 'dieta_opravnena_osoba'];
+      const result = await db.execute(sql`
+        SELECT DISTINCT s.id, s.uid, s.first_name, s.last_name, s.company_name, s.type,
+               rrt.label as relation_label, rrt.code as relation_code
+        FROM subject_relations sr
+        JOIN relation_role_types rrt ON sr.role_type_id = rrt.id
+        JOIN subjects s ON s.id = CASE 
+          WHEN sr.source_subject_id = ${subjectId} THEN sr.target_subject_id
+          ELSE sr.source_subject_id
+        END
+        WHERE (sr.source_subject_id = ${subjectId} OR sr.target_subject_id = ${subjectId})
+        AND sr.is_active = true
+        AND rrt.code IN (${sql.join(inheritanceRoles.map(r => sql`${r}`), sql`, `)})
+        AND s.is_active = true
+        AND s.id != ${subjectId}
+      `);
+      const candidates = ((result as any).rows || []).map((r: any) => ({
+        subjectId: r.id,
+        uid: r.uid,
+        name: r.type === 'person' ? [r.first_name, r.last_name].filter(Boolean).join(' ') : (r.company_name || ''),
+        relationLabel: r.relation_label,
+        relationCode: r.relation_code,
+      }));
+      res.json(candidates);
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  app.post("/api/subjects/:id/propagate-address", isAuthenticated, async (req: any, res) => {
+    try {
+      const appUser = req.appUser;
+      if (!appUser) return res.status(401).json({ message: "Unauthorized" });
+      const sourceSubjectId = Number(req.params.id);
+      const { targetSubjectIds, addressType, addressFields } = req.body;
+
+      if (!Array.isArray(targetSubjectIds) || targetSubjectIds.length === 0) {
+        return res.status(400).json({ message: "Neboli vybrané žiadne subjekty" });
+      }
+      if (!addressFields || typeof addressFields !== 'object') {
+        return res.status(400).json({ message: "Chýbajú adresné polia" });
+      }
+
+      const userName = [appUser.firstName, appUser.lastName].filter(Boolean).join(' ') || appUser.email || 'Neznámy';
+      const results: any[] = [];
+
+      for (const targetId of targetSubjectIds) {
+        try {
+          const existingAddresses = await storage.getSubjectAddresses(targetId);
+          const existing = existingAddresses.find((a: any) => a.addressType === (addressType || 'trvaly'));
+
+          if (existing) {
+            const updated = await storage.updateSubjectAddress(existing.id, targetId, addressFields, appUser.id, userName);
+            results.push({ subjectId: targetId, action: 'updated', addressId: updated.id });
+          } else {
+            const created = await storage.createSubjectAddress({
+              subjectId: targetId,
+              addressType: addressType || 'trvaly',
+              ...addressFields,
+            }, appUser.id, userName);
+            results.push({ subjectId: targetId, action: 'created', addressId: created.id });
+          }
+          await logAudit(req, { action: "PROPAGATE", module: "Adresy", entityId: targetId, entityName: `Propagácia adresy zo subjektu #${sourceSubjectId}`, newData: addressFields });
+        } catch (e: any) {
+          results.push({ subjectId: targetId, action: 'error', error: e.message });
+        }
+      }
+
+      res.json({ success: true, results, propagatedCount: results.filter(r => r.action !== 'error').length });
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
   // === SUBJECT OBJECTS (Module B - aggregated objects) ===
   app.get("/api/subjects/:id/objects", isAuthenticated, async (req: any, res) => {
     try {
@@ -11059,6 +11218,25 @@ export async function registerRoutes(
         createdByUserId: user?.id || null,
         createdByName: user?.username || "system",
       }).returning();
+
+      if (parsed.roleTypeId) {
+        try {
+          const [roleType] = await db.select().from(relationRoleTypes).where(eq(relationRoleTypes.id, parsed.roleTypeId));
+          if (roleType && (roleType.code === 'nadriadeny' || roleType.code === 'podriadeny')) {
+            const sourceId = parsed.sourceSubjectId;
+            const targetId = parsed.targetSubjectId;
+            const nadriadeId = roleType.code === 'nadriadeny' ? sourceId : targetId;
+            const podriadeId = roleType.code === 'nadriadeny' ? targetId : sourceId;
+            const allUsers = await storage.getAppUsers();
+            const nadriadeUser = allUsers.find((u: any) => u.subjectId === nadriadeId);
+            const podriadeUser = allUsers.find((u: any) => u.subjectId === podriadeId);
+            if (nadriadeUser && podriadeUser) {
+              await db.update(appUsers).set({ managerId: nadriadeUser.id }).where(eq(appUsers.id, podriadeUser.id));
+            }
+          }
+        } catch (e) { console.error("[RELATION_SYNC] Error syncing manager_id:", e); }
+      }
+
       res.json(relation);
     } catch (err: any) {
       if (err instanceof z.ZodError) return res.status(400).json({ message: "Neplatné dáta", errors: err.errors });

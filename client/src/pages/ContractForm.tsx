@@ -1643,6 +1643,15 @@ export default function ContractForm() {
         )}
       </div>
 
+      {isEditing && existingContract && (existingContract as any).isFirstContract && (
+        <div className="flex-none px-3 py-2 bg-red-900/20 border-b border-red-500/50" data-testid="banner-first-contract">
+          <div className="flex items-center gap-2 text-red-400 text-sm font-medium">
+            <span className="text-base">🛑</span>
+            <span>Provízny stop — Prvá zmluva v divízii. Beneficient: <strong>{(existingContract as any).commissionRedirectedToName || "Nadriadený neurčený"}</strong></span>
+          </div>
+        </div>
+      )}
+
       <div className="flex-none border-b border-border bg-card/50">
         <div className="flex items-center gap-0.5 px-2 flex-wrap">
           {TABS.filter(tab => {

@@ -1565,6 +1565,9 @@ function ContractDetailDialog({
                 >
                   {status?.name}
                 </span>
+                {(contract as any).isFirstContract && (
+                  <span className="inline-flex items-center px-1.5 py-0.5 rounded border border-red-500/40 text-red-400 text-[10px] font-semibold" data-testid="badge-detail-first-contract">1. ZMLUVA</span>
+                )}
               </div>
             </div>
           </div>
@@ -1585,6 +1588,14 @@ function ContractDetailDialog({
           </TabsList>
 
           <TabsContent value="detail" className="mt-3">
+            {(contract as any).isFirstContract && (
+              <div className="mb-3 px-3 py-2 bg-red-900/20 border border-red-500/50 rounded" data-testid="banner-detail-first-contract">
+                <div className="flex items-center gap-2 text-red-400 text-xs font-medium">
+                  <span>🛑</span>
+                  <span>Provízny stop — Prvá zmluva v divízii. Beneficient: <strong>{(contract as any).commissionRedirectedToName || "Nadriadený neurčený"}</strong></span>
+                </div>
+              </div>
+            )}
             <div className="space-y-4">
               <div className="grid grid-cols-4 gap-4">
                 <div>
@@ -2450,6 +2461,9 @@ export default function Contracts() {
                   <span className="flex items-center gap-1">
                     <Lock className="w-3 h-3 text-amber-500 shrink-0" style={{ display: contract.isLocked ? 'block' : 'none' }} />
                     {contract.contractNumber || "-"}
+                    {(contract as any).isFirstContract && (
+                      <span className="inline-flex items-center px-1.5 py-0.5 rounded border border-red-500/40 text-red-400 text-[10px] font-semibold whitespace-nowrap" data-testid={`badge-first-contract-${contract.id}`}>1. ZMLUVA</span>
+                    )}
                   </span>
                 </TableCell>}
                 {showStatus && evidenciaColumnVisibility.isVisible("status") && (
