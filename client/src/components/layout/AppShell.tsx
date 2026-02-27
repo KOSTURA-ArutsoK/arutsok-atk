@@ -9,7 +9,7 @@ import { useTheme } from "@/components/theme-provider";
 import { useAuth } from "@/hooks/use-auth";
 import { useTTSContext } from "@/contexts/tts-context";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Moon, Sun, ChevronDown, Globe, Building2, Upload, LogOut, AlertTriangle, Timer, Volume2, VolumeX, Shield } from "lucide-react";
+import { Moon, Sun, ChevronDown, Globe, Building2, Upload, LogOut, AlertTriangle, Timer, Volume2, VolumeX, Shield, Layers } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -56,8 +56,10 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     try { localStorage.setItem(SIDEBAR_STORAGE_KEY, String(open)); } catch {}
   }, []);
   const [contextOverlayOpen, setContextOverlayOpen] = useState(false);
-  const [contextStep, setContextStep] = useState<"state" | "company">("state");
+  const [contextStep, setContextStep] = useState<"state" | "company" | "division">("state");
   const [pendingStateId, setPendingStateId] = useState<number | null>(null);
+  const [pendingCompanyId, setPendingCompanyId] = useState<number | null>(null);
+  const [companyDivisions, setCompanyDivisions] = useState<any[]>([]);
   const contextInitRef = useRef(false);
 
   const isClientUser = useMemo(() => {
@@ -84,13 +86,31 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         setPendingStateId(appUser.activeStateId || null);
         setContextStep(appUser.activeStateId ? "company" : "state");
         setContextOverlayOpen(true);
+      } else if (!(appUser as any).activeDivisionId && appUser.activeCompanyId) {
+        (async () => {
+          try {
+            const res = await fetch(`/api/companies/${appUser.activeCompanyId}/divisions`, { credentials: "include" });
+            if (res.ok) {
+              const divs = await res.json();
+              if (divs.length > 1) {
+                setPendingCompanyId(appUser.activeCompanyId);
+                setCompanyDivisions(divs);
+                setContextStep("division");
+                setContextOverlayOpen(true);
+              } else if (divs.length === 1) {
+                const divId = divs[0].divisionId || divs[0].division?.id;
+                setActive.mutate({ activeDivisionId: divId });
+              }
+            }
+          } catch {}
+        })();
       }
     }
   }, [appUser, isClientUser]);
 
   const handleContextSelectState = useCallback((stateId: number) => {
     setPendingStateId(stateId);
-    setActive.mutate({ activeStateId: stateId, activeCompanyId: null }, {
+    setActive.mutate({ activeStateId: stateId, activeCompanyId: null, activeDivisionId: null }, {
       onSuccess: () => {
         setContextStep("company");
       },
@@ -100,8 +120,36 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     });
   }, [setActive]);
 
-  const handleContextSelectCompany = useCallback((companyId: number) => {
-    setActive.mutate({ activeCompanyId: companyId }, {
+  const handleContextSelectCompany = useCallback(async (companyId: number) => {
+    setPendingCompanyId(companyId);
+    setActive.mutate({ activeCompanyId: companyId, activeDivisionId: null }, {
+      onSuccess: async () => {
+        try {
+          const res = await fetch(`/api/companies/${companyId}/divisions`, { credentials: "include" });
+          if (res.ok) {
+            const divisions = await res.json();
+            if (divisions.length === 0) {
+              setActive.mutate({ activeDivisionId: null });
+              setContextOverlayOpen(false);
+            } else if (divisions.length === 1) {
+              setActive.mutate({ activeDivisionId: divisions[0].divisionId || divisions[0].division?.id });
+              setContextOverlayOpen(false);
+            } else {
+              setCompanyDivisions(divisions);
+              setContextStep("division");
+            }
+          } else {
+            setContextOverlayOpen(false);
+          }
+        } catch {
+          setContextOverlayOpen(false);
+        }
+      }
+    });
+  }, [setActive]);
+
+  const handleContextSelectDivision = useCallback((divisionId: number | null) => {
+    setActive.mutate({ activeDivisionId: divisionId }, {
       onSuccess: () => {
         setContextOverlayOpen(false);
       }
@@ -109,9 +157,14 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   }, [setActive]);
 
   const handleContextBack = useCallback(() => {
+    if (contextStep === "division") {
+      setContextStep("company");
+      setCompanyDivisions([]);
+      return;
+    }
     setContextStep("state");
     setPendingStateId(null);
-  }, []);
+  }, [contextStep]);
 
   const openStateSelector = useCallback(() => {
     setPendingStateId(null);
@@ -128,6 +181,25 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     setContextStep("company");
     setContextOverlayOpen(true);
   }, [appUser?.activeStateId, openStateSelector]);
+
+  const openDivisionSelector = useCallback(async () => {
+    if (!appUser?.activeCompanyId) {
+      openCompanySelector();
+      return;
+    }
+    try {
+      const res = await fetch(`/api/companies/${appUser.activeCompanyId}/divisions`, { credentials: "include" });
+      if (res.ok) {
+        const divisions = await res.json();
+        if (divisions.length > 0) {
+          setPendingCompanyId(appUser.activeCompanyId);
+          setCompanyDivisions(divisions);
+          setContextStep("division");
+          setContextOverlayOpen(true);
+        }
+      }
+    } catch {}
+  }, [appUser?.activeCompanyId, openCompanySelector]);
 
   const defaultTimeout = (appUser as any)?.effectiveSessionTimeoutSeconds ?? 1800;
 
@@ -163,6 +235,13 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
   const activeCompany = companies?.find(c => c.id === appUser?.activeCompanyId);
   const activeState = allStates?.find(s => s.id === appUser?.activeStateId);
+  const activeDivisionId = (appUser as any)?.activeDivisionId;
+
+  const { data: activeDivisions } = useQuery<any[]>({
+    queryKey: [`/api/companies/${appUser?.activeCompanyId}/divisions`],
+    enabled: !!appUser?.activeCompanyId,
+  });
+  const activeDivision = activeDivisions?.find((d: any) => (d.divisionId || d.division?.id) === activeDivisionId);
 
   const displayName = appUser
     ? `${appUser.firstName || ""} ${appUser.lastName || ""}`.trim() || appUser.username
@@ -315,6 +394,16 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               <ChevronDown className="w-3 h-3 text-muted-foreground" />
             </Button>
 
+            {activeDivisions && activeDivisions.length > 0 && (
+              <Button variant="ghost" size="sm" className="gap-1.5" onClick={openDivisionSelector} data-testid="button-division-switcher">
+                <Layers className="w-4 h-4 text-muted-foreground" />
+                <span className="text-sm font-medium truncate max-w-[160px]">
+                  {activeDivision?.division?.name || activeDivision?.name || "Všetky divízie"}
+                </span>
+                <ChevronDown className="w-3 h-3 text-muted-foreground" />
+              </Button>
+            )}
+
             <div className="flex-1" />
 
             <div
@@ -389,9 +478,12 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         step={contextStep}
         states={allStates || []}
         companies={companies || []}
+        companyDivisions={companyDivisions}
         currentStateId={pendingStateId}
+        currentCompanyId={pendingCompanyId}
         onSelectState={handleContextSelectState}
         onSelectCompany={handleContextSelectCompany}
+        onSelectDivision={handleContextSelectDivision}
         onBack={handleContextBack}
       />
       {warningOverlay}

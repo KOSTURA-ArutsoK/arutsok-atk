@@ -355,9 +355,11 @@ export async function registerRoutes(
       const updates: Record<string, any> = {};
       if (validated.activeCompanyId !== undefined) updates.activeCompanyId = validated.activeCompanyId;
       if (validated.activeStateId !== undefined) updates.activeStateId = validated.activeStateId;
+      if (validated.activeDivisionId !== undefined) updates.activeDivisionId = validated.activeDivisionId;
       if (validated.activeCompanyId === null) updates.activeCompanyId = null;
+      if (validated.activeDivisionId === null) updates.activeDivisionId = null;
       
-      const oldData = { activeCompanyId: appUser.activeCompanyId, activeStateId: appUser.activeStateId };
+      const oldData = { activeCompanyId: appUser.activeCompanyId, activeStateId: appUser.activeStateId, activeDivisionId: (appUser as any).activeDivisionId };
       const updated = await storage.updateAppUser(appUser.id, updates);
       await logAudit(req, { action: "UPDATE", module: "nastavenia", entityId: appUser.id, entityName: appUser.username, oldData, newData: updates });
       res.json(updated);
@@ -6110,10 +6112,12 @@ export async function registerRoutes(
     }
   });
 
-  app.get("/api/sectors", isAuthenticated, async (_req, res) => {
+  app.get("/api/sectors", isAuthenticated, async (req: any, res) => {
     try {
-      const sectors = await storage.getSectors();
-      res.json(sectors);
+      const divisionId = req.query.divisionId ? Number(req.query.divisionId) : undefined;
+      const allSectors = await storage.getSectors();
+      const filtered = divisionId ? allSectors.filter(s => s.divisionId === divisionId) : allSectors;
+      res.json(filtered);
     } catch (err) {
       console.error("Get sectors error:", err);
       res.status(500).json({ message: "Internal error" });
@@ -6165,7 +6169,9 @@ export async function registerRoutes(
   app.get("/api/sections", isAuthenticated, async (req, res) => {
     try {
       const sectorId = req.query.sectorId ? Number(req.query.sectorId) : undefined;
-      const sectionsList = await storage.getSections(sectorId);
+      const sectionType = req.query.sectionType as string | undefined;
+      let sectionsList = await storage.getSections(sectorId);
+      if (sectionType) sectionsList = sectionsList.filter(s => (s as any).sectionType === sectionType);
       res.json(sectionsList);
     } catch (err) {
       console.error("Get sections error:", err);
@@ -11154,6 +11160,24 @@ export async function registerRoutes(
       if (isNaN(subjectId)) return res.status(400).json({ message: "Neplatné ID" });
       if (!await checkKlientiSubjectAccess((req as any).appUser, subjectId)) return res.status(403).json({ message: "Prístup zamietnutý" });
 
+      const activeDivisionId = (req as any).appUser?.activeDivisionId;
+
+      const conditions: any[] = [
+        eq(contracts.subjectId, subjectId),
+        sql`${contracts.isDeleted} = false`,
+      ];
+
+      if (activeDivisionId) {
+        conditions.push(
+          sql`${contracts.sectorProductId} IN (
+            SELECT sp.id FROM sector_products sp
+            JOIN sections sec ON sp.section_id = sec.id
+            JOIN sectors s ON sec.sector_id = s.id
+            WHERE s.division_id = ${activeDivisionId}
+          )`
+        );
+      }
+
       const subjectContracts = await db.select({
         id: contracts.id,
         uid: contracts.uid,
@@ -11174,10 +11198,7 @@ export async function registerRoutes(
       })
         .from(contracts)
         .leftJoin(contractStatuses, eq(contracts.statusId, contractStatuses.id))
-        .where(and(
-          eq(contracts.subjectId, subjectId),
-          sql`${contracts.isDeleted} = false`,
-        ))
+        .where(and(...conditions))
         .orderBy(desc(contracts.createdAt));
 
       const totalPremium = subjectContracts.reduce((sum, c) => sum + (c.annualPremium || 0), 0);

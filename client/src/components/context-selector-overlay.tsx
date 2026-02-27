@@ -1,10 +1,11 @@
 import { useState, useEffect } from "react";
 import { createPortal } from "react-dom";
-import { Globe, Building2, ArrowLeft } from "lucide-react";
+import { Globe, Building2, ArrowLeft, Layers } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import type { MyCompany, LogoEntry } from "@shared/schema";
 
 type StateItem = { id: number; name: string; code: string; flagUrl: string | null; continentId: number };
+type DivisionItem = { id: number; name: string; code: string | null; divisionId: number };
 
 function StateFlagImage({ src, alt, code, className }: { src: string | null | undefined; alt: string; code?: string; className?: string }) {
   const [failed, setFailed] = useState(false);
@@ -33,12 +34,15 @@ function StateFlagImage({ src, alt, code, className }: { src: string | null | un
 
 interface ContextSelectorOverlayProps {
   open: boolean;
-  step: "state" | "company";
+  step: "state" | "company" | "division";
   states: StateItem[];
   companies: MyCompany[];
+  companyDivisions: DivisionItem[];
   currentStateId: number | null;
+  currentCompanyId: number | null;
   onSelectState: (stateId: number) => void;
   onSelectCompany: (companyId: number) => void;
+  onSelectDivision: (divisionId: number | null) => void;
   onBack: () => void;
 }
 
@@ -55,9 +59,12 @@ export function ContextSelectorOverlay({
   step,
   states,
   companies,
+  companyDivisions,
   currentStateId,
+  currentCompanyId,
   onSelectState,
   onSelectCompany,
+  onSelectDivision,
   onBack,
 }: ContextSelectorOverlayProps) {
   const [animating, setAnimating] = useState(false);
@@ -74,6 +81,7 @@ export function ContextSelectorOverlay({
 
   const filteredCompanies = companies.filter(c => !c.isDeleted && c.stateId === currentStateId);
   const selectedState = states.find(s => s.id === currentStateId);
+  const selectedCompany = companies.find(c => c.id === currentCompanyId);
 
   return createPortal(
     <div
@@ -115,7 +123,7 @@ export function ContextSelectorOverlay({
               )}
             </div>
           </>
-        ) : (
+        ) : step === "company" ? (
           <>
             <div className="flex items-center gap-3">
               <Button
@@ -174,6 +182,70 @@ export function ContextSelectorOverlay({
                   <Button variant="outline" size="sm" onClick={onBack} data-testid="button-context-back-empty">
                     Zmenit stat
                   </Button>
+                </div>
+              )}
+            </div>
+          </>
+        ) : (
+          <>
+            <div className="flex items-center gap-3">
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={onBack}
+                data-testid="button-context-back-division"
+              >
+                <ArrowLeft className="w-5 h-5" />
+              </Button>
+              <Layers className="w-10 h-10 text-primary" />
+            </div>
+            <h2 className="text-2xl font-bold tracking-tight" data-testid="text-context-title">
+              Vyberte divíziu
+            </h2>
+            <p className="text-sm text-muted-foreground">
+              {selectedCompany ? (
+                <span>{selectedCompany.name} &mdash; zvolte divíziu</span>
+              ) : "Zvolte divíziu pre vasu pracovnu relaciu"}
+            </p>
+
+            <div className="flex flex-wrap justify-center gap-4 mt-4">
+              <button
+                type="button"
+                onClick={() => onSelectDivision(null)}
+                className="flex flex-col items-center gap-3 p-5 rounded-md border border-border bg-card min-w-[160px] max-w-[200px] transition-all duration-200 hover:border-primary hover:shadow-lg hover:shadow-primary/20 hover:scale-[1.02] group"
+                data-testid="context-division-all"
+              >
+                <div className="w-16 h-16 rounded-md bg-muted flex items-center justify-center overflow-hidden">
+                  <Layers className="w-8 h-8 text-muted-foreground" />
+                </div>
+                <span className="text-sm font-medium text-foreground text-center leading-tight group-hover:text-primary transition-colors">
+                  Všetky divízie
+                </span>
+              </button>
+              {companyDivisions.map(cd => {
+                const divId = cd.divisionId || cd.division?.id;
+                const divName = cd.division?.name || cd.name || "Divízia";
+                return (
+                  <button
+                    key={divId}
+                    type="button"
+                    onClick={() => onSelectDivision(divId)}
+                    className="flex flex-col items-center gap-3 p-5 rounded-md border border-border bg-card min-w-[160px] max-w-[200px] transition-all duration-200 hover:border-primary hover:shadow-lg hover:shadow-primary/20 hover:scale-[1.02] group"
+                    data-testid={`context-division-${divId}`}
+                  >
+                    <div className="w-16 h-16 rounded-md bg-muted flex items-center justify-center overflow-hidden">
+                      <Layers className="w-8 h-8 text-muted-foreground" />
+                    </div>
+                    <span className="text-sm font-medium text-foreground text-center leading-tight group-hover:text-primary transition-colors">
+                      {divName}
+                    </span>
+                  </button>
+                );
+              })}
+              {companyDivisions.length === 0 && (
+                <div className="flex flex-col items-center gap-2 py-8">
+                  <Layers className="w-8 h-8 text-muted-foreground" />
+                  <p className="text-muted-foreground text-sm">Ziadne divízie pre túto spolocnost</p>
                 </div>
               )}
             </div>

@@ -19,7 +19,7 @@ export function useAppUser() {
 export function useSetActiveContext() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async (data: { activeCompanyId?: number | null; activeStateId?: number }) => {
+    mutationFn: async (data: { activeCompanyId?: number | null; activeStateId?: number; activeDivisionId?: number | null }) => {
       const res = await apiRequest("PUT", "/api/app-user/active", data);
       return res.json();
     },
@@ -38,6 +38,7 @@ export function useSetActiveContext() {
       queryClient.invalidateQueries({ queryKey: ["/api/supisky"] });
       queryClient.invalidateQueries({ queryKey: ["/api/commission-rates"] });
       queryClient.invalidateQueries({ queryKey: ["/api/partners"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/sectors"] });
     },
   });
 }

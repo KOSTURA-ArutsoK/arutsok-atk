@@ -7,7 +7,7 @@ import type { SmartColumnDef } from "@/hooks/use-smart-filter";
 import { SmartFilterBar } from "@/components/smart-filter-bar";
 import { useToast } from "@/hooks/use-toast";
 import { usePartners } from "@/hooks/use-partners";
-import type { Sector, Parameter, SectorProduct, SectorProductParameter, Panel, PanelParameter, ProductPanel, Section, ContractFolder, FolderPanel } from "@shared/schema";
+import type { Sector, Parameter, SectorProduct, SectorProductParameter, Panel, PanelParameter, ProductPanel, Section, ContractFolder, FolderPanel, Division } from "@shared/schema";
 import { Plus, Pencil, Trash2, Loader2, Search, Layers, Settings2, ChevronsUpDown, X, Check, FolderOpen, List, Package, Info, LayoutGrid, FolderClosed, Hash, ArrowRight, FileText, Circle, FastForward, Play, Pause, Upload, Square, AlertTriangle } from "lucide-react";
 import { ConditionalDelete } from "@/components/conditional-delete";
 import { Card, CardContent } from "@/components/ui/card";
@@ -218,10 +218,12 @@ function SectorFormDialog({
   const { toast } = useToast();
   const timerRef = useRef<number>(0);
   const { data: partners } = usePartners();
+  const { data: allDivisions } = useQuery<Division[]>({ queryKey: ["/api/divisions"] });
 
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [sectorType, setSectorType] = useState("general");
+  const [divisionId, setDivisionId] = useState<string>("");
   const [selectedPartnerIds, setSelectedPartnerIds] = useState<number[]>([]);
 
   const createMutation = useMutation({
@@ -256,11 +258,13 @@ function SectorFormDialog({
         setName(editingSector.name || "");
         setDescription(editingSector.description || "");
         setSectorType(editingSector.sectorType || "general");
+        setDivisionId((editingSector as any).divisionId?.toString() || "");
         setSelectedPartnerIds(editingSector.partnerIds || []);
       } else {
         setName("");
         setDescription("");
         setSectorType("general");
+        setDivisionId("");
         setSelectedPartnerIds([]);
       }
     }
@@ -275,7 +279,7 @@ function SectorFormDialog({
       toast({ title: "Chyba", description: "Nazov je povinny", variant: "destructive" });
       return;
     }
-    const payload = { name, description, sectorType, partnerIds: selectedPartnerIds };
+    const payload = { name, description, sectorType, divisionId: divisionId && divisionId !== "none" ? parseInt(divisionId) : null, partnerIds: selectedPartnerIds };
     if (editingSector) {
       updateMutation.mutate(payload);
     } else {
@@ -313,6 +317,20 @@ function SectorFormDialog({
               <SelectContent>
                 <SelectItem value="general">Vseobecny</SelectItem>
                 <SelectItem value="params">Parametricky</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-2">
+            <label className="text-sm font-medium">Divízia</label>
+            <Select value={divisionId} onValueChange={setDivisionId}>
+              <SelectTrigger data-testid="select-sector-division">
+                <SelectValue placeholder="Vyberte divíziu (voliteľné)" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="none">Bez divízie</SelectItem>
+                {(allDivisions || []).filter(d => d.isActive).map(d => (
+                  <SelectItem key={d.id} value={d.id.toString()}>{d.name}</SelectItem>
+                ))}
               </SelectContent>
             </Select>
           </div>
@@ -1175,6 +1193,7 @@ function SectionFormDialog({
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [sectorId, setSectorId] = useState<string>("");
+  const [sectionType, setSectionType] = useState<string>("product");
 
   const createMutation = useMutation({
     mutationFn: async (data: any) => {
@@ -1208,10 +1227,12 @@ function SectionFormDialog({
         setName(editingSection.name || "");
         setDescription(editingSection.description || "");
         setSectorId(editingSection.sectorId?.toString() || "");
+        setSectionType((editingSection as any).sectionType || "product");
       } else {
         setName("");
         setDescription("");
         setSectorId("");
+        setSectionType("product");
       }
     }
   }, [open, editingSection]);
@@ -1229,7 +1250,7 @@ function SectionFormDialog({
       toast({ title: "Chyba", description: "Vyberte sektor", variant: "destructive" });
       return;
     }
-    const payload = { name, description, sectorId: parseInt(sectorId) };
+    const payload = { name, description, sectorId: parseInt(sectorId), sectionType };
     if (editingSection) {
       updateMutation.mutate(payload);
     } else {
@@ -1267,6 +1288,18 @@ function SectionFormDialog({
                 {sectors.map(s => (
                   <SelectItem key={s.id} value={s.id.toString()}>{s.name}</SelectItem>
                 ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-2">
+            <label className="text-sm font-medium">Typ sekcie</label>
+            <Select value={sectionType} onValueChange={setSectionType}>
+              <SelectTrigger data-testid="select-section-type">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="product">Produktová (napr. PZP, Životné poistenie)</SelectItem>
+                <SelectItem value="geographic">Geografická (napr. Prešov, Bratislava)</SelectItem>
               </SelectContent>
             </Select>
           </div>
