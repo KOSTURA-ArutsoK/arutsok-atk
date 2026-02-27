@@ -94,11 +94,11 @@ function hasAdminAccess(appUser: any): boolean {
 }
 
 function getSecurityLevel(appUser: any): number {
-  if (!appUser) return SENTINEL_LEVELS.L0_PUBLIC;
-  if (appUser.securityLevel != null && appUser.securityLevel !== 1) {
+  if (!appUser) return SENTINEL_LEVELS.L0_BLACKLIST;
+  if (appUser.securityLevel !== null && appUser.securityLevel !== undefined) {
     return appUser.securityLevel;
   }
-  return ROLE_TO_SENTINEL[appUser.role] ?? SENTINEL_LEVELS.L3_OBCHODNIK;
+  return ROLE_TO_SENTINEL[appUser.role] ?? SENTINEL_LEVELS.L4_OPERATIVNA;
 }
 
 function isSubjectOwner(appUser: any, subject: any): boolean {
@@ -145,10 +145,21 @@ function maskIban(iban: string | null | undefined): string {
   return clean.slice(0, 4) + " **** **** **** " + clean.slice(-4);
 }
 
+function maskEmail(email: string | null | undefined): string {
+  if (!email) return "";
+  const parts = email.split("@");
+  if (parts.length !== 2) return "****";
+  const local = parts[0].length > 2 ? parts[0].slice(0, 2) + "****" : "****";
+  const domParts = parts[1].split(".");
+  const domain = domParts[0].length > 2 ? domParts[0].slice(0, 2) + "****" : "****";
+  const ext = domParts.length > 1 ? domParts[domParts.length - 1] : "***";
+  return `${local}@${domain}.${ext}`;
+}
+
 async function maskSensitiveFields(subject: any, appUser: any): Promise<any> {
   if (!subject) return subject;
   const level = getSecurityLevel(appUser);
-  if (level >= SENTINEL_LEVELS.L6_BACKOFFICE) {
+  if (level >= SENTINEL_LEVELS.L7_REVIZNA) {
     const decrypted = subject.birthNumber ? decryptField(subject.birthNumber) : null;
     return { ...subject, birthNumber: decrypted || subject.birthNumber };
   }
@@ -161,16 +172,26 @@ async function maskSensitiveFields(subject: any, appUser: any): Promise<any> {
   masked.birthNumber = subject.birthNumber ? "******" : null;
   if (masked.iban) masked.iban = maskIban(masked.iban);
   if (masked.phone) masked.phone = maskPhone(masked.phone);
+  if (masked.email) masked.email = maskEmail(masked.email);
+  if (masked.idCardNumber) masked.idCardNumber = "******";
+  if (masked.szcoIco) masked.szcoIco = "**** ****";
   if (masked.details) {
     const details = { ...masked.details };
-    const sensitiveKeys = ["ekon_cislo_uctu", "ekon_hlavny_iban", "ekon_iban", "eko_cislo_uctu", "eko_hlavny_iban", "eko_iban"];
     const dyn = details.dynamicFields ? { ...details.dynamicFields } : {};
     for (const key of Object.keys(dyn)) {
-      if (sensitiveKeys.includes(key) || key.includes("iban") || key.includes("cislo_uctu") || key.includes("account")) {
-        dyn[key] = key.includes("iban") ? maskIban(dyn[key]) : "**** ****";
-      }
-      if (key.includes("phone") || key.includes("telefon") || key.includes("mobil")) {
+      const kl = key.toLowerCase();
+      if (kl.includes("iban") || kl.includes("cislo_uctu") || kl.includes("account")) {
+        dyn[key] = kl.includes("iban") ? maskIban(dyn[key]) : "**** ****";
+      } else if (kl.includes("phone") || kl.includes("telefon") || kl.includes("mobil")) {
         dyn[key] = maskPhone(dyn[key]);
+      } else if (kl.includes("email") || kl.includes("e_mail")) {
+        dyn[key] = maskEmail(dyn[key]);
+      } else if (kl.includes("ico") || kl === "ico") {
+        dyn[key] = "**** ****";
+      } else if (kl.includes("rodne_priezvisko") || kl.includes("maiden") || kl === "rodne") {
+        dyn[key] = "****";
+      } else if (kl.includes("ulica") || kl.includes("street") || kl.includes("cislo_domu") || kl.includes("street_number")) {
+        dyn[key] = "****";
       }
     }
     if (details.dynamicFields) details.dynamicFields = dyn;
@@ -380,7 +401,15 @@ export async function registerRoutes(
   app.use((req: any, res: any, next: any) => {
     if (!req.appUser) return next();
     const level = getSecurityLevel(req.appUser);
-    if (level === SENTINEL_LEVELS.L8_AUDITOR) {
+
+    if (level === SENTINEL_LEVELS.L0_BLACKLIST) {
+      const isAuthPath = req.path.startsWith("/api/auth") || req.path.startsWith("/api/login");
+      if (!isAuthPath) {
+        return res.status(403).json({ message: "Prístup zablokovaný (BLACKLIST)" });
+      }
+    }
+
+    if (level === SENTINEL_LEVELS.L9_AUDITORSKA) {
       const method = req.method.toUpperCase();
       if (method !== "GET" && method !== "HEAD" && method !== "OPTIONS") {
         const isAuthPath = req.path.startsWith("/api/auth") || req.path.startsWith("/api/login") || req.path.startsWith("/api/activity-events");
@@ -1684,6 +1713,17 @@ export async function registerRoutes(
   app.post(api.subjects.create.path, async (req: any, res) => {
     try {
       const input = api.subjects.create.input.parse(req.body);
+
+      if (input.birthNumber || (input as any).szcoIco) {
+        const dupCheck = await storage.checkDuplicateSubject({ birthNumber: input.birthNumber || undefined, ico: (input as any).szcoIco || undefined });
+        if (dupCheck) {
+          const isBlacklisted = await storage.isSubjectInGroup(dupCheck.id, "group_cierny_zoznam");
+          if (isBlacklisted) {
+            return res.status(403).json({ message: "Registrácia zakázaná — subjekt na čiernom zozname" });
+          }
+        }
+      }
+
       if (req.appUser?.activeCompanyId) {
         input.myCompanyId = req.appUser.activeCompanyId;
       }
@@ -2342,9 +2382,15 @@ export async function registerRoutes(
     res.json(await storage.getAppUsers());
   });
 
-  app.post(api.appUserAdmin.create.path, isAuthenticated, async (req, res) => {
+  app.post(api.appUserAdmin.create.path, isAuthenticated, async (req: any, res) => {
     try {
       const input = api.appUserAdmin.create.input.parse(req.body);
+      const callerLevel = getSecurityLevel(req.appUser);
+      if ((input as any).securityLevel !== undefined || (input as any).allowedIps !== undefined) {
+        if (callerLevel < SENTINEL_LEVELS.L8_ARCHITEKTONICKA) {
+          return res.status(403).json({ message: "Zmena bezpečnostnej úrovne vyžaduje Sentinel 8+ (Architekt)" });
+        }
+      }
       const created = await storage.createAppUser(input);
       await logAudit(req, { action: "CREATE", module: "pouzivatelia", entityName: input.username });
       res.status(201).json(created);
@@ -2354,9 +2400,15 @@ export async function registerRoutes(
     }
   });
 
-  app.put(api.appUserAdmin.update.path, isAuthenticated, async (req, res) => {
+  app.put(api.appUserAdmin.update.path, isAuthenticated, async (req: any, res) => {
     try {
       const input = api.appUserAdmin.update.input.parse(req.body);
+      const callerLevel = getSecurityLevel(req.appUser);
+      if ((input as any).securityLevel !== undefined || (input as any).allowedIps !== undefined || (input as any).adminCode !== undefined) {
+        if (callerLevel < SENTINEL_LEVELS.L8_ARCHITEKTONICKA) {
+          return res.status(403).json({ message: "Zmena bezpečnostnej úrovne vyžaduje Sentinel 8+ (Architekt)" });
+        }
+      }
       const updated = await storage.updateAppUserWithArchive(Number(req.params.id), input, "User profile update");
       await logAudit(req, { action: "UPDATE", module: "pouzivatelia", entityId: Number(req.params.id) });
       res.json(updated);
@@ -3949,6 +4001,14 @@ export async function registerRoutes(
         const isCierny = await storage.isSubjectInGroup(input.subjectId, "group_cierny_zoznam");
         if (isCierny) {
           return res.status(403).json({ message: "Subjekt je na Globálnom čiernom zozname — operácia zakázaná" });
+        }
+
+        const subjectForCheck = await storage.getSubject(input.subjectId);
+        if (subjectForCheck?.listStatus === "cerveny") {
+          const userLevel = getSecurityLevel(appUser);
+          if (userLevel < SENTINEL_LEVELS.L7_REVIZNA) {
+            return res.status(403).json({ message: "Subjekt na červenom zozname — zmluva vyžaduje schválenie Úrovňou 7 alebo 8" });
+          }
         }
       }
       const createData = { ...input, uploadedByUserId: appUser?.id || null } as any;
@@ -6085,13 +6145,42 @@ export async function registerRoutes(
   });
 
   // === DUPLICATE CHECK ===
-  app.post("/api/subjects/check-duplicate", isAuthenticated, async (req, res) => {
+  app.post("/api/subjects/check-duplicate", isAuthenticated, async (req: any, res) => {
     try {
       const { birthNumber, ico, spz, vin } = req.body;
       const existing = await storage.checkDuplicateSubject({ birthNumber, ico });
       if (existing) {
+        const isBlacklisted = await storage.isSubjectInGroup(existing.id, "group_cierny_zoznam");
+        if (isBlacklisted) {
+          res.json({
+            isDuplicate: true,
+            isBlacklisted: true,
+            subject: {
+              id: existing.id,
+              uid: existing.uid,
+              name: existing.name,
+              type: existing.type,
+              matchedField: existing.matchedField,
+            },
+            message: "Registrácia zakázaná — subjekt na čiernom zozname",
+          });
+          return;
+        }
+
+        let managerName: string | null = null;
+        let managerId: number | null = null;
+        if (existing.uploadedByUserId) {
+          const allUsers = await storage.getAppUsers();
+          const manager = allUsers.find((u: any) => u.id === existing.uploadedByUserId);
+          if (manager) {
+            managerId = manager.id;
+            managerName = [manager.firstName, manager.lastName].filter(Boolean).join(' ') || manager.username || null;
+          }
+        }
+
         res.json({
           isDuplicate: true,
+          isBlacklisted: false,
           subject: {
             id: existing.id,
             uid: existing.uid,
@@ -6099,6 +6188,8 @@ export async function registerRoutes(
             type: existing.type,
             matchedField: existing.matchedField,
           },
+          managerId,
+          managerName,
         });
         return;
       }

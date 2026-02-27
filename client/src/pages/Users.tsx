@@ -4,7 +4,8 @@ import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { formatPhone, formatUid } from "@/lib/utils";
 import { SENTINEL_LEVEL_LABELS, SENTINEL_LEVEL_SHORT } from "@shared/schema";
-import { Loader2, Plus, Pencil, Users as UsersIcon, Shield, LogIn } from "lucide-react";
+import { Loader2, Plus, Pencil, Users as UsersIcon, Shield, LogIn, Info, Lock } from "lucide-react";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -81,12 +82,14 @@ const USER_FILTER_COLUMNS: SmartColumnDef[] = [
 const ROLES = ["architekt", "superadmin", "admin", "backoffice", "manager", "user"] as const;
 
 const ROLE_LABELS: Record<string, string> = {
-  architekt: "Architekt (L7)",
-  superadmin: "Superadmin",
-  admin: "Admin",
+  architekt: "Architekt (L8)",
+  auditor: "Audítor (L9)",
+  prezident: "Prezident (L7)",
+  superadmin: "Riaditeľ (L6)",
+  admin: "Manažér (L5)",
   backoffice: "Backoffice",
   manager: "Manager",
-  user: "Pouzivatel",
+  user: "Obchodník (L4)",
 };
 
 const MFA_OPTIONS = [
@@ -143,8 +146,10 @@ function UserFormDialog({
   editingUser: AppUser | null;
 }) {
   const { toast } = useToast();
+  const { data: currentUser } = useAppUser();
   const [form, setForm] = useState<UserFormData>(emptyForm);
   const timerRef = useRef<number>(0);
+  const canEditSecurity = (currentUser?.sentinelLevel ?? 0) >= 8;
 
   const { data: permGroups } = useQuery<PermissionGroup[]>({
     queryKey: ["/api/permission-groups"],
@@ -274,104 +279,122 @@ function UserFormDialog({
             {editingUser ? "Upravit pouzivatela" : "Pridat pouzivatela"}
           </DialogTitle>
         </DialogHeader>
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label>Pouzivatelske meno *</Label>
-              <Input
-                value={form.username}
-                onChange={e => setForm(f => ({ ...f, username: e.target.value }))}
-                data-testid="input-user-username"
-              />
+        <form onSubmit={handleSubmit} className="space-y-4 max-h-[70vh] overflow-y-auto pr-1">
+          <div className="space-y-3">
+            <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground border-b border-border pb-1" data-testid="section-basic-info">Základné údaje</h4>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Pouzivatelske meno *</Label>
+                <Input
+                  value={form.username}
+                  onChange={e => setForm(f => ({ ...f, username: e.target.value }))}
+                  data-testid="input-user-username"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>UID (421...)</Label>
+                <Input
+                  value={form.uid}
+                  onChange={e => setForm(f => ({ ...f, uid: e.target.value }))}
+                  placeholder="01-KFS-421-..."
+                  className="font-mono"
+                  data-testid="input-user-uid"
+                />
+              </div>
             </div>
-            <div className="space-y-2">
-              <Label>UID (421...)</Label>
-              <Input
-                value={form.uid}
-                onChange={e => setForm(f => ({ ...f, uid: e.target.value }))}
-                placeholder="01-KFS-421-..."
-                className="font-mono"
-                data-testid="input-user-uid"
-              />
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Meno</Label>
+                <Input
+                  value={form.firstName}
+                  onChange={e => setForm(f => ({ ...f, firstName: e.target.value }))}
+                  data-testid="input-user-firstname"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Priezvisko</Label>
+                <Input
+                  value={form.lastName}
+                  onChange={e => setForm(f => ({ ...f, lastName: e.target.value }))}
+                  data-testid="input-user-lastname"
+                />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Email</Label>
+                <Input
+                  type="email"
+                  value={form.email}
+                  onChange={e => setForm(f => ({ ...f, email: e.target.value }))}
+                  data-testid="input-user-email"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Telefon</Label>
+                <Input
+                  value={form.phone}
+                  onChange={e => setForm(f => ({ ...f, phone: e.target.value }))}
+                  data-testid="input-user-phone"
+                />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Rola</Label>
+                <Select value={form.role} onValueChange={val => setForm(f => ({ ...f, role: val }))}>
+                  <SelectTrigger data-testid="select-user-role">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {ROLES.map(r => (
+                      <SelectItem key={r} value={r}>{ROLE_LABELS[r]}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label>MFA Typ</Label>
+                <RadioGroup
+                  value={form.mfaType}
+                  onValueChange={val => setForm(f => ({ ...f, mfaType: val }))}
+                  className="flex items-center gap-4 flex-wrap"
+                  data-testid="radio-user-mfa"
+                >
+                  {MFA_OPTIONS.map(opt => (
+                    <div key={opt.value} className="flex items-center gap-2">
+                      <RadioGroupItem value={opt.value} id={`mfa-${opt.value}`} data-testid={`radio-mfa-${opt.value}`} />
+                      <Label htmlFor={`mfa-${opt.value}`} className="cursor-pointer text-sm">{opt.label}</Label>
+                    </div>
+                  ))}
+                </RadioGroup>
+              </div>
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="space-y-3">
+            <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground border-b border-border pb-1 flex items-center gap-2" data-testid="section-security">
+              <Shield className="w-3.5 h-3.5" />
+              Správa prihlásenia a bezpečnosť
+            </h4>
             <div className="space-y-2">
-              <Label>Meno</Label>
-              <Input
-                value={form.firstName}
-                onChange={e => setForm(f => ({ ...f, firstName: e.target.value }))}
-                data-testid="input-user-firstname"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>Priezvisko</Label>
-              <Input
-                value={form.lastName}
-                onChange={e => setForm(f => ({ ...f, lastName: e.target.value }))}
-                data-testid="input-user-lastname"
-              />
-            </div>
-          </div>
-
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label>Email</Label>
-              <Input
-                type="email"
-                value={form.email}
-                onChange={e => setForm(f => ({ ...f, email: e.target.value }))}
-                data-testid="input-user-email"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>Telefon</Label>
-              <Input
-                value={form.phone}
-                onChange={e => setForm(f => ({ ...f, phone: e.target.value }))}
-                data-testid="input-user-phone"
-              />
-            </div>
-          </div>
-
-          <div className="space-y-2">
-            <Label>Rola</Label>
-            <Select value={form.role} onValueChange={val => setForm(f => ({ ...f, role: val }))}>
-              <SelectTrigger data-testid="select-user-role">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {ROLES.map(r => (
-                  <SelectItem key={r} value={r}>{ROLE_LABELS[r]}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div className="space-y-2">
-            <Label>MFA Typ</Label>
-            <RadioGroup
-              value={form.mfaType}
-              onValueChange={val => setForm(f => ({ ...f, mfaType: val }))}
-              className="flex items-center gap-4 flex-wrap"
-              data-testid="radio-user-mfa"
-            >
-              {MFA_OPTIONS.map(opt => (
-                <div key={opt.value} className="flex items-center gap-2">
-                  <RadioGroupItem value={opt.value} id={`mfa-${opt.value}`} data-testid={`radio-mfa-${opt.value}`} />
-                  <Label htmlFor={`mfa-${opt.value}`} className="cursor-pointer text-sm">{opt.label}</Label>
-                </div>
-              ))}
-            </RadioGroup>
-          </div>
-
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label>Sentinel úroveň</Label>
+              <div className="flex items-center gap-2">
+                <Label>Bezpečnostná úroveň</Label>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Info className="w-3.5 h-3.5 text-muted-foreground cursor-help" data-testid="icon-sentinel-info" />
+                  </TooltipTrigger>
+                  <TooltipContent side="right" className="max-w-xs text-xs space-y-0.5 p-3" data-testid="tooltip-sentinel-levels">
+                    {Object.entries(SENTINEL_LEVEL_LABELS).map(([val, label]) => (
+                      <p key={val} className={parseInt(val) === form.securityLevel ? "font-bold text-primary" : ""}>{label}</p>
+                    ))}
+                  </TooltipContent>
+                </Tooltip>
+              </div>
               <Select
                 value={form.securityLevel.toString()}
                 onValueChange={val => setForm(f => ({ ...f, securityLevel: parseInt(val) }))}
+                disabled={!canEditSecurity}
               >
                 <SelectTrigger data-testid="select-user-security-level">
                   <SelectValue />
@@ -382,9 +405,44 @@ function UserFormDialog({
                   ))}
                 </SelectContent>
               </Select>
+              {!canEditSecurity && (
+                <p className="text-[10px] text-muted-foreground flex items-center gap-1"><Lock className="w-3 h-3" /> Zmena vyžaduje úroveň 8 (Architekt)</p>
+              )}
             </div>
             <div className="space-y-2">
-              <Label>Skupina pravomoci</Label>
+              <Label className="flex items-center gap-2">
+                <Lock className="w-3.5 h-3.5" />
+                IP Locking (Sentinel)
+              </Label>
+              <Textarea
+                value={form.allowedIps}
+                onChange={e => setForm(f => ({ ...f, allowedIps: e.target.value }))}
+                placeholder="Jedna IP na riadok, napr.&#10;192.168.1.100&#10;10.0.0.50"
+                rows={3}
+                className="text-xs font-mono"
+                disabled={!canEditSecurity}
+                data-testid="input-user-allowed-ips"
+              />
+              <p className="text-[10px] text-muted-foreground">Ak je vyplnene, uzivatel sa moze prihlasit len z tychto IP adries. Prazdne = bez obmedzenia.</p>
+              {form.securityLevel >= 7 && !form.allowedIps?.trim() && (
+                <p className="text-[11px] text-orange-400 font-medium" data-testid="warning-ip-required">Úroveň 7+ (Backoffice) vyžaduje IP Locking</p>
+              )}
+            </div>
+            <div className="space-y-2">
+              <Label>Admin kód (voliteľné)</Label>
+              <Input
+                value={form.adminCode}
+                onChange={e => setForm(f => ({ ...f, adminCode: e.target.value }))}
+                disabled={!canEditSecurity}
+                data-testid="input-user-admin-code"
+              />
+            </div>
+          </div>
+
+          <div className="space-y-3">
+            <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground border-b border-border pb-1" data-testid="section-organization">Organizačné zaradenie</h4>
+            <div className="space-y-2">
+              <Label>Skupina pravomocí</Label>
               <Select
                 value={form.permissionGroupId?.toString() || "none"}
                 onValueChange={val => setForm(f => ({ ...f, permissionGroupId: val === "none" ? null : parseInt(val) }))}
@@ -400,78 +458,52 @@ function UserFormDialog({
                 </SelectContent>
               </Select>
             </div>
-          </div>
-
-          <div className="space-y-2">
-            <Label>Admin kod (volitelne)</Label>
-            <Input
-              value={form.adminCode}
-              onChange={e => setForm(f => ({ ...f, adminCode: e.target.value }))}
-              data-testid="input-user-admin-code"
-            />
-          </div>
-
-          <div className="space-y-2">
-            <Label>IP Locking (povolene IP adresy)</Label>
-            <Textarea
-              value={form.allowedIps}
-              onChange={e => setForm(f => ({ ...f, allowedIps: e.target.value }))}
-              placeholder="Jedna IP na riadok, napr.&#10;192.168.1.100&#10;10.0.0.50"
-              rows={3}
-              className="text-xs font-mono"
-              data-testid="input-user-allowed-ips"
-            />
-            <p className="text-[10px] text-muted-foreground">Ak je vyplnene, uzivatel sa moze prihlasit len z tychto IP adries. Prazdne = bez obmedzenia.</p>
-            {form.securityLevel === 6 && !form.allowedIps?.trim() && (
-              <p className="text-[11px] text-orange-400 font-medium" data-testid="warning-l6-ip-required">L6 Backoffice vyžaduje IP Locking</p>
-            )}
-          </div>
-
-          <div className="space-y-2" style={{ display: editingUser ? 'block' : 'none' }}>
-            <Label>Skupiny klientov (multi-priradenie)</Label>
-            <div className="border rounded-md p-3 space-y-2 max-h-[200px] overflow-y-auto" data-testid="section-user-client-groups">
-              {allClientGroups && allClientGroups.length > 0 ? (
-                allClientGroups.map(g => (
-                  <div key={g.id} className="flex items-center gap-3">
-                    <Checkbox
-                      id={`ucg-${g.id}`}
-                      checked={selectedGroupIds.includes(g.id)}
-                      onCheckedChange={(checked) => {
-                        if (checked) {
-                          setSelectedGroupIds(prev => [...prev, g.id]);
-                        } else {
-                          setSelectedGroupIds(prev => prev.filter(id => id !== g.id));
-                        }
-                      }}
-                      data-testid={`checkbox-group-${g.id}`}
-                    />
-                    <Label htmlFor={`ucg-${g.id}`} className="cursor-pointer text-sm flex items-center gap-2 flex-wrap">
-                      {g.name}
-                      <Badge variant="outline" className="text-xs">
-                        {g.permissionGroupId
-                          ? permGroups?.find(pg => pg.id === g.permissionGroupId)?.name || "—"
-                          : "—"}
-                      </Badge>
-                    </Label>
-                  </div>
-                ))
-              ) : (
-                <p className="text-xs text-muted-foreground">Ziadne skupiny klientov</p>
-              )}
-            </div>
-            <div style={{ display: selectedGroupIds.length > 0 ? 'flex' : 'none' }} className="items-center gap-2 flex-wrap">
-              <span className="text-xs text-muted-foreground">Skupiny pravomoci:</span>
-              {(() => {
-                const linkedPgIds = new Set<number>();
-                selectedGroupIds.forEach(id => {
-                  const cg = allClientGroups?.find(g => g.id === id);
-                  if (cg?.permissionGroupId) linkedPgIds.add(cg.permissionGroupId);
-                });
-                const pgNames = Array.from(linkedPgIds).map(pgId => permGroups?.find(pg => pg.id === pgId)?.name).filter(Boolean);
-                return pgNames.length > 0 ? pgNames.map((n, i) => (
-                  <Badge key={i} variant="secondary" data-testid={`badge-perm-group-${i}`}>{n}</Badge>
-                )) : <Badge variant="secondary" data-testid="badge-effective-level">—</Badge>;
-              })()}
+            <div className="space-y-2" style={{ display: editingUser ? 'block' : 'none' }}>
+              <Label>Skupiny klientov (multi-priradenie)</Label>
+              <div className="border rounded-md p-3 space-y-2 max-h-[200px] overflow-y-auto" data-testid="section-user-client-groups">
+                {allClientGroups && allClientGroups.length > 0 ? (
+                  allClientGroups.map(g => (
+                    <div key={g.id} className="flex items-center gap-3">
+                      <Checkbox
+                        id={`ucg-${g.id}`}
+                        checked={selectedGroupIds.includes(g.id)}
+                        onCheckedChange={(checked) => {
+                          if (checked) {
+                            setSelectedGroupIds(prev => [...prev, g.id]);
+                          } else {
+                            setSelectedGroupIds(prev => prev.filter(id => id !== g.id));
+                          }
+                        }}
+                        data-testid={`checkbox-group-${g.id}`}
+                      />
+                      <Label htmlFor={`ucg-${g.id}`} className="cursor-pointer text-sm flex items-center gap-2 flex-wrap">
+                        {g.name}
+                        <Badge variant="outline" className="text-xs">
+                          {g.permissionGroupId
+                            ? permGroups?.find(pg => pg.id === g.permissionGroupId)?.name || "—"
+                            : "—"}
+                        </Badge>
+                      </Label>
+                    </div>
+                  ))
+                ) : (
+                  <p className="text-xs text-muted-foreground">Ziadne skupiny klientov</p>
+                )}
+              </div>
+              <div style={{ display: selectedGroupIds.length > 0 ? 'flex' : 'none' }} className="items-center gap-2 flex-wrap">
+                <span className="text-xs text-muted-foreground">Skupiny pravomoci:</span>
+                {(() => {
+                  const linkedPgIds = new Set<number>();
+                  selectedGroupIds.forEach(id => {
+                    const cg = allClientGroups?.find(g => g.id === id);
+                    if (cg?.permissionGroupId) linkedPgIds.add(cg.permissionGroupId);
+                  });
+                  const pgNames = Array.from(linkedPgIds).map(pgId => permGroups?.find(pg => pg.id === pgId)?.name).filter(Boolean);
+                  return pgNames.length > 0 ? pgNames.map((n, i) => (
+                    <Badge key={i} variant="secondary" data-testid={`badge-perm-group-${i}`}>{n}</Badge>
+                  )) : <Badge variant="secondary" data-testid="badge-effective-level">—</Badge>;
+                })()}
+              </div>
             </div>
           </div>
 
@@ -659,9 +691,9 @@ export default function UsersPage() {
                     </TableCell>}
                     {columnVisibility.isVisible("securityLevel") && <TableCell>
                       <Badge variant="outline" className={`${
-                        (user.securityLevel ?? 1) >= 7 ? "border-amber-500/40 text-amber-400" :
-                        (user.securityLevel ?? 1) >= 6 ? "border-yellow-500/40 text-yellow-400" :
-                        (user.securityLevel ?? 1) >= 3 ? "border-blue-500/40 text-blue-400" :
+                        (user.securityLevel ?? 4) >= 8 ? "border-amber-500/40 text-amber-400" :
+                        (user.securityLevel ?? 4) >= 7 ? "border-yellow-500/40 text-yellow-400" :
+                        (user.securityLevel ?? 4) >= 4 ? "border-blue-500/40 text-blue-400" :
                         ""
                       }`} data-testid={`badge-user-sl-${user.id}`}>
                         <Shield className="w-3 h-3 mr-1" />

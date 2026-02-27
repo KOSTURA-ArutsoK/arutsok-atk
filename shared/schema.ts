@@ -398,46 +398,48 @@ export const permissions = pgTable("permissions", {
   canDelete: boolean("can_delete").default(false),
 });
 
-// === SENTINEL SECURITY PYRAMID (10-Level Access Control) ===
+// === SENTINEL SECURITY PYRAMID (11-Level Access Control: 0-10) ===
 export const SENTINEL_LEVELS = {
-  L0_PUBLIC: 0,
-  L1_POTENTIAL: 1,
-  L2_TIPER: 2,
-  L3_OBCHODNIK: 3,
-  L4_MANAZER: 4,
-  L5_RIADITEL: 5,
-  L6_BACKOFFICE: 6,
-  L7_ARCHITEKT: 7,
-  L8_AUDITOR: 8,
-  L9_SYSTEM: 9,
+  L0_BLACKLIST: 0,
+  L1_KLIENT: 1,
+  L2_REGISTERED: 2,
+  L3_AKVIZICNA: 3,
+  L4_OPERATIVNA: 4,
+  L5_MANAZERSKA: 5,
+  L6_STRATEGICKA: 6,
+  L7_REVIZNA: 7,
+  L8_ARCHITEKTONICKA: 8,
+  L9_AUDITORSKA: 9,
+  L10_HOLDINGOVA: 10,
 } as const;
 
 export const SENTINEL_LEVEL_LABELS: Record<number, string> = {
-  0: "L0 · Verejnosť",
-  1: "L1 · Potenciálny partner",
-  2: "L2 · Tipér",
-  3: "L3 · Obchodník",
-  4: "L4 · Manažér",
-  5: "L5 · Riaditeľ",
-  6: "L6 · Backoffice",
-  7: "L7 · Architekt",
-  8: "L8 · Auditor",
-  9: "L9 · Systém",
+  0: "0 – BLACKLIST (Čierny zoznam)",
+  1: "1 – Bežný klient",
+  2: "2 – Registrovaný klient",
+  3: "3 – Akvizičná (Partner/Tipér)",
+  4: "4 – Operatívna (Obchodník)",
+  5: "5 – Manažérska (Manažér)",
+  6: "6 – Strategická (Riaditeľ)",
+  7: "7 – Revízna (Backoffice)",
+  8: "8 – Architektonická (Architekt)",
+  9: "9 – Audítorská (Externý dozor)",
+  10: "10 – Holdingová (Multi-entity)",
 };
 
 export const SENTINEL_LEVEL_SHORT: Record<number, string> = {
   0: "L0", 1: "L1", 2: "L2", 3: "L3", 4: "L4",
-  5: "L5", 6: "L6", 7: "L7", 8: "L8", 9: "L9",
+  5: "L5", 6: "L6", 7: "L7", 8: "L8", 9: "L9", 10: "L10",
 };
 
 export const ROLE_TO_SENTINEL: Record<string, number> = {
-  user: 3,
+  user: 4,
   admin: 5,
-  superadmin: 5,
-  prezident: 6,
-  architekt: 7,
-  auditor: 8,
-  system: 9,
+  superadmin: 6,
+  prezident: 7,
+  architekt: 8,
+  auditor: 9,
+  system: 10,
 };
 
 // === APP USERS & SECURITY ===

@@ -1607,7 +1607,7 @@ function InitialRegistrationModal({
   const [selectedType, setSelectedType] = useState("");
   const [baseValue, setBaseValue] = useState("");
   const [checking, setChecking] = useState(false);
-  const [duplicateInfo, setDuplicateInfo] = useState<{ name: string; uid: string; id: number; matchedField?: string } | null>(null);
+  const [duplicateInfo, setDuplicateInfo] = useState<{ name: string; uid: string; id: number; matchedField?: string; managerName?: string | null; managerId?: number | null; isBlacklisted?: boolean; blacklistMessage?: string } | null>(null);
   const [duplicateChecked, setDuplicateChecked] = useState(false);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const baseInputRef = useRef<HTMLInputElement>(null);
@@ -1629,7 +1629,7 @@ function InitialRegistrationModal({
       const res = await apiRequest("POST", "/api/subjects/check-duplicate", body);
       const data = await res.json();
       if (data.isDuplicate) {
-        setDuplicateInfo({ name: data.subject.name, uid: data.subject.uid, id: data.subject.id, matchedField: data.subject.matchedField });
+        setDuplicateInfo({ name: data.subject.name, uid: data.subject.uid, id: data.subject.id, matchedField: data.subject.matchedField, managerName: data.managerName, managerId: data.managerId, isBlacklisted: data.isBlacklisted, blacklistMessage: data.message });
       } else {
         setDuplicateInfo(null);
       }
@@ -1735,29 +1735,56 @@ function InitialRegistrationModal({
           </div>
 
           <div style={{ display: duplicateInfo ? 'block' : 'none' }}>
-            <div className="bg-destructive/10 border border-destructive/30 rounded-md p-3 space-y-2">
+            <div className={`${duplicateInfo?.isBlacklisted ? 'bg-red-900/20 border-red-500/50' : 'bg-destructive/10 border-destructive/30'} border rounded-md p-3 space-y-2`}>
               <div className="flex items-center gap-2">
-                <AlertTriangle className="w-4 h-4 text-destructive flex-shrink-0" />
-                <span className="text-sm font-semibold text-destructive">Klient uz existuje</span>
+                <AlertTriangle className={`w-4 h-4 flex-shrink-0 ${duplicateInfo?.isBlacklisted ? 'text-red-500' : 'text-destructive'}`} />
+                <span className={`text-sm font-semibold ${duplicateInfo?.isBlacklisted ? 'text-red-500' : 'text-destructive'}`}>
+                  {duplicateInfo?.isBlacklisted ? 'BLACKLIST — Registrácia zakázaná' : 'Klient uz existuje'}
+                </span>
               </div>
               <p className="text-sm text-muted-foreground">
                 {duplicateInfo?.name} <span className="font-mono text-xs">[ {formatUid(duplicateInfo?.uid)} ]</span>
                 <span style={{ display: duplicateInfo?.matchedField ? 'inline' : 'none' }} className="text-xs ml-1">(zhoda: {duplicateInfo?.matchedField})</span>
               </p>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => {
-                  if (duplicateInfo) {
-                    onOpenChange(false);
-                    onViewSubject(duplicateInfo.id);
-                  }
-                }}
-                data-testid="button-go-to-client"
-              >
-                <ExternalLink className="w-3 h-3 mr-1" />
-                Prejst na kartu klienta
-              </Button>
+              {duplicateInfo?.isBlacklisted && (
+                <p className="text-xs text-red-400 font-medium" data-testid="text-blacklist-message">{duplicateInfo.blacklistMessage}</p>
+              )}
+              {duplicateInfo?.managerName && !duplicateInfo?.isBlacklisted && (
+                <p className="text-xs text-muted-foreground" data-testid="text-duplicate-manager">Správca: <span className="font-semibold text-foreground">{duplicateInfo.managerName}</span></p>
+              )}
+              <div className="flex items-center gap-2 flex-wrap">
+                {!duplicateInfo?.isBlacklisted && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      if (duplicateInfo) {
+                        onOpenChange(false);
+                        onViewSubject(duplicateInfo.id);
+                      }
+                    }}
+                    data-testid="button-go-to-client"
+                  >
+                    <ExternalLink className="w-3 h-3 mr-1" />
+                    Prejst na kartu klienta
+                  </Button>
+                )}
+                {duplicateInfo?.managerName && !duplicateInfo?.isBlacklisted && (
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    onClick={() => {
+                      if (duplicateInfo) {
+                        onOpenChange(false);
+                        onViewSubject(duplicateInfo.id);
+                      }
+                    }}
+                    data-testid="button-contact-manager"
+                  >
+                    Kontaktovať správcu {duplicateInfo.managerName} o zdieľanie klienta
+                  </Button>
+                )}
+              </div>
             </div>
           </div>
 
