@@ -1,0 +1,74 @@
+Tu je finálny, detailný technický protokol pre Magnusa, ktorý sumarizuje celú logiku Pevnosti Sentinel so zameraním na inštitucionálny audit a 11-úrovňovú hierarchiu.
+
+🛡️ ARCHITEKTÚRA SENTINEL: FINÁLNY PROTOKOL (Časť 8.17)
+Magnus, toto je tvoj "Master Plan" pre implementáciu bezpečnosti v holdingu Kostura. Vykonaj nasledujúce zmeny v jadre systému ArutsoK (ATK).
+
+1. Rekonštrukcia Bezpečnostnej Pyramídy (0 - 10)
+Prestav celú logiku securityLevel na novú stupnicu. Každá úroveň musí mať v UI jasný názov:
+
+Úroveň 0 – BLACKLIST: Absolútny zákaz (Hard Lock). Identita je zablokovaná pre celý holding.
+
+Úroveň 1 – Bežný klient: Pasívny záznam, bez prístupu k login-u.
+
+Úroveň 2 – Registrovaný klient: Aktívny prístup len k vlastným dátam (ClientCode).
+
+Úroveň 3 – Akvizičná (Partner / Tipér): Prístup k zadávaniu tipov.
+
+Úroveň 4 – Operatívna (Obchodník): Správa vlastného kmeňa.
+
+Úroveň 5 – Manažérska (Manažér): Vidí svoj tím (manager_id chain).
+
+Úroveň 6 – Strategická (Riaditeľ): Správa divízie.
+
+Úroveň 7 – Revízna (Backoffice): Zlomová úroveň (Koncovka maskovania).
+
+Úroveň 8 – Architektonická (Architekt/Majiteľ): Master Key (Zlatý badge).
+
+Úroveň 9 – Audítorská (Externý dozor): Dočasný, izolovaný prístup.
+
+Úroveň 10 – Holdingová (Multi-entity): Správa viacerých firiem pod Kostura Holding.
+
+2. Špecifický protokol pre Úroveň 9 (Audítor)
+Implementuj mechanizmus "Priehľadnej steny", ktorý je nezávislý od osobnej identity:
+
+A. Identita a registrácia
+No Personal ID: Pri vytváraní L9 zakáž požiadavku na Rodné číslo.
+
+Povinné polia: email (služobný), institution_name (napr. NBS), credential_number (číslo poverenia).
+
+Silo Isolation: L9 po vytvorení nevidí nič. Prístup musí byť manuálne priradený cez Assigned_Company_IDs.
+
+B. Striktný Read-Only a UI
+Zablokuj/skry všetky POST, PUT, DELETE endpointy pre túto úroveň.
+
+V UI odstráň všetky tlačidlá "Uložiť", "Upraviť", "Zmazať" a "Pridať".
+
+C. Časový zámok (Hard Limit 8h)
+Max Duration: Pole access_expires_at nesmie pri vytvorení prekročiť +8 hodín od now().
+
+Sentinel Watchdog: Implementuj server-side check. Ak now() > access_expires_at:
+
+Okamžite ukonči všetky aktívne sessions (Session Kill).
+
+Nastav isActive = false.
+
+Profil nepresúvaj na L0 ani L1. Ponechaj ho ako deaktivovanú auditnú stopu.
+
+3. Ochranné mechanizmy "Sentinel"
+Blacklist (Úroveň 0)
+Ak je subjekt označený ako blacklisted, jeho securityLevel je natvrdo 0.
+
+Pri registrácii nového subjektu implementuj Pre-registration Check: Ak sa zadané RČ/IČO zhoduje so záznamom na Úrovni 0, vráť chybu: "Registráciu nie je možné dokončiť. Kontaktujte správcu (Sentinel Block)."
+
+Červený zoznam (Kvalita)
+Trigger: Ak má subjekt v systéme 5 zlých zmlúv (storno/neplatič), nastav príznak requires_approval = true.
+
+Workflow: Každá nová zmluva takéhoto subjektu musí byť schválená používateľom s Úrovňou 7 alebo 8.
+
+Inteligentný Masking
+Pre všetky úrovne < 7 (okrem priameho vlastníka/manažérskej línie) maskuj: email, phone, accountNumber, birthNumber, rodne_priezvisko a presnú adresu (ponechaj len mesto).
+
+4. Výstup pre Architekta
+Magnus, po implementácii priprav vizuálnu legendu do sekcie Správa prihlásenia, kde pri kliknutí na úroveň zobrazíš popover s týmto novým rozdelením.
+
+Magnus, môžeš začať. Systém musí byť nepriestrelný.
