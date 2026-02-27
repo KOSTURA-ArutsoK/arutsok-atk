@@ -662,13 +662,13 @@ export function AppSidebar() {
       <SidebarFooter className="p-3 space-y-2">
         {appUser?.sentinelLevel != null && (
           <div className={`flex items-center gap-2 px-2 py-1.5 rounded-md border ${
-            (appUser.sentinelLevel ?? 0) >= 7 ? "border-red-500/30 bg-red-500/10" :
+            (appUser.sentinelLevel ?? 0) >= 7 ? "border-amber-500/30 bg-amber-500/10" :
             (appUser.sentinelLevel ?? 0) >= 6 ? "border-yellow-500/30 bg-yellow-500/10" :
             (appUser.sentinelLevel ?? 0) >= 3 ? "border-blue-500/30 bg-blue-500/10" :
             "border-muted bg-muted/30"
           }`} data-testid="sentinel-badge">
             <Shield className={`w-4 h-4 ${
-              (appUser.sentinelLevel ?? 0) >= 7 ? "text-red-500" :
+              (appUser.sentinelLevel ?? 0) >= 7 ? "text-amber-500" :
               (appUser.sentinelLevel ?? 0) >= 6 ? "text-yellow-500" :
               (appUser.sentinelLevel ?? 0) >= 3 ? "text-blue-500" :
               "text-muted-foreground"

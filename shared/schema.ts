@@ -432,9 +432,9 @@ export const SENTINEL_LEVEL_SHORT: Record<number, string> = {
 
 export const ROLE_TO_SENTINEL: Record<string, number> = {
   user: 3,
-  admin: 6,
-  superadmin: 7,
-  prezident: 7,
+  admin: 5,
+  superadmin: 5,
+  prezident: 6,
   architekt: 7,
   auditor: 8,
   system: 9,

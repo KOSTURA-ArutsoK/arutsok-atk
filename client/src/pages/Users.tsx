@@ -422,6 +422,9 @@ function UserFormDialog({
               data-testid="input-user-allowed-ips"
             />
             <p className="text-[10px] text-muted-foreground">Ak je vyplnene, uzivatel sa moze prihlasit len z tychto IP adries. Prazdne = bez obmedzenia.</p>
+            {form.securityLevel === 6 && !form.allowedIps?.trim() && (
+              <p className="text-[11px] text-orange-400 font-medium" data-testid="warning-l6-ip-required">L6 Backoffice vyžaduje IP Locking</p>
+            )}
           </div>
 
           <div className="space-y-2" style={{ display: editingUser ? 'block' : 'none' }}>
@@ -656,7 +659,7 @@ export default function UsersPage() {
                     </TableCell>}
                     {columnVisibility.isVisible("securityLevel") && <TableCell>
                       <Badge variant="outline" className={`${
-                        (user.securityLevel ?? 1) >= 7 ? "border-red-500/40 text-red-400" :
+                        (user.securityLevel ?? 1) >= 7 ? "border-amber-500/40 text-amber-400" :
                         (user.securityLevel ?? 1) >= 6 ? "border-yellow-500/40 text-yellow-400" :
                         (user.securityLevel ?? 1) >= 3 ? "border-blue-500/40 text-blue-400" :
                         ""

@@ -108,6 +108,36 @@ function isSubjectOwner(appUser: any, subject: any): boolean {
   return false;
 }
 
+async function isInManagerChain(appUserId: number, uploadedByUserId: number | null, companyId?: number | null): Promise<boolean> {
+  if (!uploadedByUserId || !appUserId) return false;
+  if (uploadedByUserId === appUserId) return true;
+  const allUsers = await storage.getAppUsers();
+  const userMap = new Map<number, { managerId: number | null; companyId: number | null }>();
+  for (const u of allUsers) {
+    userMap.set(u.id, { managerId: (u as any).managerId ?? null, companyId: (u as any).activeCompanyId ?? null });
+  }
+  const appUserEntry = userMap.get(appUserId);
+  const effectiveCompanyId = companyId ?? appUserEntry?.companyId ?? null;
+  let currentId: number | null = uploadedByUserId;
+  const visited = new Set<number>();
+  for (let depth = 0; depth < 10 && currentId != null; depth++) {
+    if (visited.has(currentId)) break;
+    visited.add(currentId);
+    const entry = userMap.get(currentId);
+    if (!entry) break;
+    if (effectiveCompanyId && entry.companyId && entry.companyId !== effectiveCompanyId) break;
+    if (entry.managerId === appUserId) return true;
+    currentId = entry.managerId;
+  }
+  return false;
+}
+
+async function isSubjectAccessible(appUser: any, subject: any): Promise<boolean> {
+  if (!appUser || !subject) return false;
+  if (isSubjectOwner(appUser, subject)) return true;
+  return isInManagerChain(appUser.id, subject.uploadedByUserId, subject.companyId || appUser.activeCompanyId);
+}
+
 function maskIban(iban: string | null | undefined): string {
   if (!iban) return "";
   const clean = iban.replace(/\s/g, "");
@@ -115,20 +145,22 @@ function maskIban(iban: string | null | undefined): string {
   return clean.slice(0, 4) + " **** **** **** " + clean.slice(-4);
 }
 
-function maskSensitiveFields(subject: any, appUser: any): any {
+async function maskSensitiveFields(subject: any, appUser: any): Promise<any> {
   if (!subject) return subject;
   const level = getSecurityLevel(appUser);
   if (level >= SENTINEL_LEVELS.L6_BACKOFFICE) {
     const decrypted = subject.birthNumber ? decryptField(subject.birthNumber) : null;
     return { ...subject, birthNumber: decrypted || subject.birthNumber };
   }
-  if (isSubjectOwner(appUser, subject)) {
+  const accessible = await isSubjectAccessible(appUser, subject);
+  if (accessible) {
     const decrypted = subject.birthNumber ? decryptField(subject.birthNumber) : null;
     return { ...subject, birthNumber: decrypted || subject.birthNumber };
   }
   const masked = { ...subject };
   masked.birthNumber = subject.birthNumber ? "******" : null;
   if (masked.iban) masked.iban = maskIban(masked.iban);
+  if (masked.phone) masked.phone = maskPhone(masked.phone);
   if (masked.details) {
     const details = { ...masked.details };
     const sensitiveKeys = ["ekon_cislo_uctu", "ekon_hlavny_iban", "ekon_iban", "eko_cislo_uctu", "eko_hlavny_iban", "eko_iban"];
@@ -136,6 +168,9 @@ function maskSensitiveFields(subject: any, appUser: any): any {
     for (const key of Object.keys(dyn)) {
       if (sensitiveKeys.includes(key) || key.includes("iban") || key.includes("cislo_uctu") || key.includes("account")) {
         dyn[key] = key.includes("iban") ? maskIban(dyn[key]) : "**** ****";
+      }
+      if (key.includes("phone") || key.includes("telefon") || key.includes("mobil")) {
+        dyn[key] = maskPhone(dyn[key]);
       }
     }
     if (details.dynamicFields) details.dynamicFields = dyn;
@@ -155,6 +190,13 @@ function checkIpRestriction(req: any, appUser: any): { allowed: boolean; clientI
     return clientIp === normalizedAllowed;
   });
   return { allowed, clientIp };
+}
+
+function maskPhone(phone: string | null | undefined): string {
+  if (!phone) return "";
+  const digits = phone.replace(/\D/g, "");
+  if (digits.length <= 4) return "****";
+  return "**** ** " + digits.slice(-4);
 }
 
 async function isKlientiUser(appUser: any): Promise<boolean> {
@@ -330,7 +372,7 @@ export async function registerRoutes(
     const { allowed, clientIp } = checkIpRestriction(req, req.appUser);
     if (!allowed) {
       console.warn(`[IP LOCK] Blocked ${clientIp} for user ${req.appUser.username} (allowed: ${req.appUser.allowedIps})`);
-      return res.status(403).json({ message: `Prístup z IP adresy ${clientIp} nie je povolený` });
+      return res.status(403).json({ message: `Prístup z tejto lokality je zakázaný (Sentinel IP Lockout)` });
     }
     next();
   });
@@ -1417,7 +1459,7 @@ export async function registerRoutes(
     if (await isKlientiUser(appUser)) {
       if (!appUser.linkedSubjectId) return res.json([]);
       const own = await storage.getSubject(appUser.linkedSubjectId);
-      return res.json(own ? [maskSensitiveFields(own, appUser)] : []);
+      return res.json(own ? [await maskSensitiveFields(own, appUser)] : []);
     }
     
     const activeCompanyId = appUser?.activeCompanyId || (req.query.activeCompanyId ? Number(req.query.activeCompanyId) : undefined);
@@ -1462,8 +1504,8 @@ export async function registerRoutes(
     const canSeeNotes = isSuperAdminUser || pgNameForList.includes('superadmin') || pgNameForList.includes('prezident');
     
     const blacklistMemberIds = await storage.getGroupMemberSubjectIds("group_cierny_zoznam");
-    res.json(allSubjects.map((s: any) => {
-      const masked = maskSensitiveFields(s, appUser);
+    const maskedSubjects = await Promise.all(allSubjects.map(async (s: any) => {
+      const masked = await maskSensitiveFields(s, appUser);
       if (!canSeeNotes && masked.uiPreferences) {
         const prefs = { ...(masked.uiPreferences as any) };
         delete prefs.field_notes;
@@ -1478,6 +1520,7 @@ export async function registerRoutes(
       }
       return masked;
     }));
+    res.json(maskedSubjects);
   });
 
   function getSubjectStatusCategory(subject: any, activeCompanyId?: number): string {
@@ -1498,7 +1541,7 @@ export async function registerRoutes(
     }
     const subject = await storage.getSubject(subjectId);
     if (!subject) return res.status(404).json({ message: "Subject not found" });
-    const masked = maskSensitiveFields(subject, req.appUser);
+    const masked = await maskSensitiveFields(subject, req.appUser);
     const activeCompanyId = req.appUser?.activeCompanyId;
     const isCierny = await storage.isSubjectInGroup(subjectId, "group_cierny_zoznam");
     if (isCierny) {
@@ -1671,14 +1714,14 @@ export async function registerRoutes(
         if (!input.linkedFoId) input.linkedFoId = null;
         const created = await storage.createSubject(input);
         await logAudit(req, { action: "CREATE", module: "subjekty", entityId: created.id, entityName: created.companyName || `${created.firstName} ${created.lastName} - SZCO #${created.uid}`, newData: { ...input, birthNumber: undefined } });
-        res.status(201).json(maskSensitiveFields(created, req.appUser));
+        res.status(201).json(await maskSensitiveFields(created, req.appUser));
       } else {
         if (input.birthNumber) {
           input.birthNumber = encryptField(input.birthNumber);
         }
         const created = await storage.createSubject(input);
         await logAudit(req, { action: "CREATE", module: "subjekty", entityId: created.id, entityName: (created.firstName ? created.firstName + ' ' + created.lastName : created.companyName) || undefined, newData: { ...input, birthNumber: input.birthNumber ? '***' : undefined } });
-        res.status(201).json(maskSensitiveFields(created, req.appUser));
+        res.status(201).json(await maskSensitiveFields(created, req.appUser));
       }
     } catch (err) {
       if (err instanceof z.ZodError) return res.status(400).json({ message: err.errors[0].message });
@@ -1868,7 +1911,7 @@ export async function registerRoutes(
         console.error("[INHERITANCE CHECK ERROR]", inhErr);
       }
 
-      res.json(maskSensitiveFields(updated, appUser));
+      res.json(await maskSensitiveFields(updated, appUser));
     } catch (err) {
       if (err instanceof z.ZodError) return res.status(400).json({ message: err.errors[0].message });
       if (err instanceof Error && err.message === "Subject not found") return res.status(404).json({ message: err.message });
