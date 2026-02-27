@@ -2,9 +2,11 @@ import { useState, useRef, useCallback, useEffect } from "react";
 import { useMyCompanies, useCreateMyCompany, useUpdateMyCompany, useDeleteMyCompany } from "@/hooks/use-companies";
 import { useStates } from "@/hooks/use-hierarchy";
 import { Plus, Building2, Pencil, Trash2, Eye, Upload, FileText, X, Download, Clock, MapPin, FileCheck, Image } from "lucide-react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation } from "@tanstack/react-query";
+import { queryClient, apiRequest } from "@/lib/queryClient";
 import { formatDateSlovak, formatDateTimeSlovak } from "@/lib/utils";
-import type { CompanyLogoHistory } from "@shared/schema";
+import { useToast as useToastCompanyDiv } from "@/hooks/use-toast";
+import type { CompanyLogoHistory, Division } from "@shared/schema";
 
 import { useColumnVisibility, type ColumnDef } from "@/hooks/use-column-visibility";
 import { ColumnManager } from "@/components/column-manager";
@@ -375,9 +377,10 @@ function CompanyFormDialog({
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)}>
             <Tabs defaultValue="basic" className="w-full">
-              <TabsList className="w-full grid grid-cols-4">
+              <TabsList className="w-full grid grid-cols-5">
                 <TabsTrigger value="basic" data-testid="tab-basic">Zakladne udaje</TabsTrigger>
                 <TabsTrigger value="address" data-testid="tab-address">Adresa</TabsTrigger>
+                <TabsTrigger value="divisions" data-testid="tab-divisions">Divizie</TabsTrigger>
                 <TabsTrigger value="docs" data-testid="tab-docs">Dokumenty</TabsTrigger>
                 <TabsTrigger value="notes" data-testid="tab-notes">Poznamky</TabsTrigger>
               </TabsList>
@@ -517,6 +520,10 @@ function CompanyFormDialog({
                     </FormItem>
                   )} />
                 </div>
+              </TabsContent>
+
+              <TabsContent value="divisions" className="mt-4">
+                <CompanyDivisionsTab companyId={editingCompany?.id || null} />
               </TabsContent>
 
               <TabsContent value="docs" className="mt-4 space-y-6">
@@ -946,6 +953,92 @@ export default function Companies() {
         company={logoHistoryTarget}
         onClose={() => setLogoHistoryTarget(null)}
       />
+    </div>
+  );
+}
+
+function CompanyDivisionsTab({ companyId }: { companyId: number | null }) {
+  const { toast } = useToastCompanyDiv();
+  const [selectedDivisionId, setSelectedDivisionId] = useState("");
+
+  const { data: companyDivisions, isLoading } = useQuery<any[]>({
+    queryKey: [`/api/companies/${companyId}/divisions`],
+    enabled: !!companyId,
+  });
+
+  const { data: allDivisions } = useQuery<Division[]>({
+    queryKey: ["/api/divisions"],
+    enabled: !!companyId,
+  });
+
+  const linkedDivisionIds = (companyDivisions || []).map((cd: any) => cd.division?.id || cd.divisionId);
+  const availableDivisions = (allDivisions || []).filter(d => d.isActive && !linkedDivisionIds.includes(d.id));
+
+  const addMutation = useMutation({
+    mutationFn: () => apiRequest("POST", `/api/companies/${companyId}/divisions`, { divisionId: parseInt(selectedDivisionId) }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [`/api/companies/${companyId}/divisions`] });
+      toast({ title: "Uspech", description: "Divizia priradena" });
+      setSelectedDivisionId("");
+    },
+    onError: () => toast({ title: "Chyba", description: "Nepodarilo sa priradit diviziu", variant: "destructive" }),
+  });
+
+  const removeMutation = useMutation({
+    mutationFn: (linkId: number) => apiRequest("DELETE", `/api/company-divisions/${linkId}`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [`/api/companies/${companyId}/divisions`] });
+      toast({ title: "Uspech", description: "Prepojenie odstranene" });
+    },
+    onError: () => toast({ title: "Chyba", description: "Nepodarilo sa odstranit prepojenie", variant: "destructive" }),
+  });
+
+  if (!companyId) {
+    return <div className="text-sm text-muted-foreground py-4">Najprv ulozte spolocnost, potom priradite divizie.</div>;
+  }
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center gap-2">
+        <Select value={selectedDivisionId} onValueChange={setSelectedDivisionId}>
+          <SelectTrigger className="flex-1" data-testid="select-company-division">
+            <SelectValue placeholder="Vyberte diviziu na priradenie" />
+          </SelectTrigger>
+          <SelectContent>
+            {availableDivisions.map(d => (
+              <SelectItem key={d.id} value={d.id.toString()}>{d.name}{d.code ? ` (${d.code})` : ""}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <Button
+          onClick={() => addMutation.mutate()}
+          disabled={!selectedDivisionId || addMutation.isPending}
+          size="sm"
+          data-testid="button-add-division-to-company"
+        >
+          <Plus className="w-4 h-4 mr-1" /> Priradit
+        </Button>
+      </div>
+
+      {isLoading ? (
+        <div className="text-center text-muted-foreground py-2">Nacitavam...</div>
+      ) : !(companyDivisions || []).length ? (
+        <div className="text-center text-muted-foreground py-2">Ziadne priradene divizie</div>
+      ) : (
+        <div className="space-y-2">
+          {(companyDivisions || []).map((link: any) => (
+            <div key={link.id} className="flex items-center justify-between p-2 border rounded">
+              <div>
+                <span className="font-medium" data-testid={`text-company-division-${link.id}`}>{link.division?.name || "-"}</span>
+                {link.division?.code && <Badge variant="secondary" className="ml-2 font-mono">{link.division.code}</Badge>}
+              </div>
+              <Button size="icon" variant="ghost" onClick={() => removeMutation.mutate(link.id)} data-testid={`button-remove-division-${link.id}`}>
+                <X className="w-4 h-4 text-destructive" />
+              </Button>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

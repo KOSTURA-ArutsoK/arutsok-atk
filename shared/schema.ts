@@ -45,6 +45,7 @@ export const states = pgTable("states", {
   continentId: integer("continent_id").notNull(),
   name: text("name").notNull(),
   code: text("code").notNull(),
+  currency: text("currency").default("EUR"),
   flagUrl: text("flag_url"),
 });
 
@@ -77,6 +78,23 @@ export const myCompanies = pgTable("my_companies", {
   isDeleted: boolean("is_deleted").default(false),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// === DIVISIONS (Divízie) ===
+export const divisions = pgTable("divisions", {
+  id: serial("id").primaryKey(),
+  name: text("name").notNull(),
+  code: text("code"),
+  description: text("description"),
+  isActive: boolean("is_active").default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const companyDivisions = pgTable("company_divisions", {
+  id: serial("id").primaryKey(),
+  companyId: integer("company_id").notNull().references(() => myCompanies.id),
+  divisionId: integer("division_id").notNull().references(() => divisions.id),
+  createdAt: timestamp("created_at").defaultNow(),
 });
 
 // === COMPANY OFFICERS (Konatelia / Vlastnici) ===
@@ -1275,6 +1293,14 @@ export type CompanyLogoHistory = typeof companyLogoHistory.$inferSelect;
 export const insertStateSchema = createInsertSchema(states).omit({ id: true });
 export type State = typeof states.$inferSelect;
 export type InsertState = z.infer<typeof insertStateSchema>;
+
+export const insertDivisionSchema = createInsertSchema(divisions).omit({ id: true, createdAt: true });
+export type Division = typeof divisions.$inferSelect;
+export type InsertDivision = z.infer<typeof insertDivisionSchema>;
+
+export const insertCompanyDivisionSchema = createInsertSchema(companyDivisions).omit({ id: true, createdAt: true });
+export type CompanyDivision = typeof companyDivisions.$inferSelect;
+export type InsertCompanyDivision = z.infer<typeof insertCompanyDivisionSchema>;
 
 // === PRODUCT FOLDER ASSIGNMENTS (ArutsoK 38 - folders assigned to products with sort_order) ===
 export const productFolderAssignments = pgTable("product_folder_assignments", {

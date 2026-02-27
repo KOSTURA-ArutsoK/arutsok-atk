@@ -69,6 +69,9 @@ import {
   stateFlagHistory, companyLogoHistory,
   type StateFlagHistory, type CompanyLogoHistory,
   type State, type InsertState,
+  divisions, companyDivisions,
+  type Division, type InsertDivision,
+  type CompanyDivision, type InsertCompanyDivision,
   contractFolders, folderPanels,
   type ContractFolder, type InsertContractFolder,
   type FolderPanel, type InsertFolderPanel,
@@ -142,6 +145,16 @@ export interface IStorage {
   getCompanyLogoHistory(companyId: number): Promise<CompanyLogoHistory[]>;
   addCompanyLogoHistory(companyId: number, logoUrl: string, originalName?: string): Promise<CompanyLogoHistory>;
   
+  getDivisions(): Promise<Division[]>;
+  getDivision(id: number): Promise<Division | undefined>;
+  createDivision(data: InsertDivision): Promise<Division>;
+  updateDivision(id: number, data: Partial<InsertDivision>): Promise<Division>;
+  deleteDivision(id: number): Promise<void>;
+  getCompanyDivisions(companyId: number): Promise<(CompanyDivision & { division: Division })[]>;
+  addCompanyDivision(companyId: number, divisionId: number): Promise<CompanyDivision>;
+  removeCompanyDivision(id: number): Promise<void>;
+  getDivisionCompanies(divisionId: number): Promise<(CompanyDivision & { company: MyCompany })[]>;
+
   getMyCompanies(includeDeleted?: boolean): Promise<MyCompany[]>;
   getMyCompany(id: number): Promise<MyCompany | undefined>;
   createMyCompany(company: InsertMyCompany): Promise<MyCompany>;
@@ -636,7 +649,8 @@ export class DatabaseStorage implements IStorage {
     const counterName = `uid_global`;
     const nextValue = await this.getNextCounterValue(counterName);
     const padded = nextValue.toString().padStart(12, '0');
-    return `421${padded}`;
+    const prefix = stateCode && /^\d{2,3}$/.test(stateCode) ? stateCode : '421';
+    return `${prefix}${padded}`;
   }
 
   async getContinents() {
@@ -685,6 +699,65 @@ export class DatabaseStorage implements IStorage {
   async addCompanyLogoHistory(companyId: number, logoUrl: string, originalName?: string): Promise<CompanyLogoHistory> {
     const [entry] = await db.insert(companyLogoHistory).values({ companyId, logoUrl, originalName: originalName || null }).returning();
     return entry;
+  }
+
+  async getDivisions(): Promise<Division[]> {
+    return await db.select().from(divisions).orderBy(asc(divisions.name));
+  }
+
+  async getDivision(id: number): Promise<Division | undefined> {
+    const [division] = await db.select().from(divisions).where(eq(divisions.id, id));
+    return division;
+  }
+
+  async createDivision(data: InsertDivision): Promise<Division> {
+    const [division] = await db.insert(divisions).values(data).returning();
+    return division;
+  }
+
+  async updateDivision(id: number, data: Partial<InsertDivision>): Promise<Division> {
+    const [updated] = await db.update(divisions).set(data).where(eq(divisions.id, id)).returning();
+    return updated;
+  }
+
+  async deleteDivision(id: number): Promise<void> {
+    await db.delete(companyDivisions).where(eq(companyDivisions.divisionId, id));
+    await db.delete(divisions).where(eq(divisions.id, id));
+  }
+
+  async getCompanyDivisions(companyId: number): Promise<(CompanyDivision & { division: Division })[]> {
+    const rows = await db.select({
+      id: companyDivisions.id,
+      companyId: companyDivisions.companyId,
+      divisionId: companyDivisions.divisionId,
+      createdAt: companyDivisions.createdAt,
+      division: divisions,
+    }).from(companyDivisions)
+      .innerJoin(divisions, eq(companyDivisions.divisionId, divisions.id))
+      .where(eq(companyDivisions.companyId, companyId));
+    return rows.map(r => ({ ...r, division: r.division })) as any;
+  }
+
+  async addCompanyDivision(companyId: number, divisionId: number): Promise<CompanyDivision> {
+    const [entry] = await db.insert(companyDivisions).values({ companyId, divisionId }).returning();
+    return entry;
+  }
+
+  async removeCompanyDivision(id: number): Promise<void> {
+    await db.delete(companyDivisions).where(eq(companyDivisions.id, id));
+  }
+
+  async getDivisionCompanies(divisionId: number): Promise<(CompanyDivision & { company: MyCompany })[]> {
+    const rows = await db.select({
+      id: companyDivisions.id,
+      companyId: companyDivisions.companyId,
+      divisionId: companyDivisions.divisionId,
+      createdAt: companyDivisions.createdAt,
+      company: myCompanies,
+    }).from(companyDivisions)
+      .innerJoin(myCompanies, eq(companyDivisions.companyId, myCompanies.id))
+      .where(eq(companyDivisions.divisionId, divisionId));
+    return rows.map(r => ({ ...r, company: r.company })) as any;
   }
 
   async getMyCompanies(includeDeleted?: boolean) {
@@ -888,7 +961,11 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createPartner(partner: InsertPartner) {
-    const stateCode = partner.code || '000';
+    let stateCode = '421';
+    if (partner.stateId) {
+      const state = await this.getState(partner.stateId);
+      if (state) stateCode = state.code;
+    }
     const uid = await this.generateUID(stateCode);
     const [newPartner] = await db.insert(partners).values({ ...partner, uid } as any).returning();
     return newPartner;

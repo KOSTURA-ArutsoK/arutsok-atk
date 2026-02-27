@@ -52,6 +52,7 @@ const STATE_COLUMNS: ColumnDef[] = [
   { key: "id", label: "ID" },
   { key: "name", label: "Nazov" },
   { key: "code", label: "Skratka" },
+  { key: "currency", label: "Mena" },
   { key: "continentId", label: "Kontinent" },
   { key: "flagUrl", label: "Vlajka" },
 ];
@@ -111,6 +112,7 @@ function StateFormDialog({
   const timerRef = useRef<number>(0);
   const [name, setName] = useState("");
   const [code, setCode] = useState("");
+  const [currency, setCurrency] = useState("EUR");
   const [continentId, setContinentId] = useState("1");
 
   const { data: continents } = useQuery<{ id: number; name: string; code: string }[]>({
@@ -143,10 +145,12 @@ function StateFormDialog({
       if (editingState) {
         setName(editingState.name);
         setCode(editingState.code);
+        setCurrency((editingState as any).currency || "EUR");
         setContinentId(editingState.continentId.toString());
       } else {
         setName("");
         setCode("");
+        setCurrency("EUR");
         setContinentId("1");
       }
     }
@@ -158,7 +162,7 @@ function StateFormDialog({
       return;
     }
     const processingTimeSec = Math.round((performance.now() - timerRef.current) / 1000);
-    const payload = { name, code, continentId: parseInt(continentId), processingTimeSec };
+    const payload = { name, code, currency, continentId: parseInt(continentId), processingTimeSec };
 
     if (editingState) {
       updateMutation.mutate(payload);
@@ -195,6 +199,22 @@ function StateFormDialog({
               placeholder="napr. 421"
               data-testid="input-state-code"
             />
+          </div>
+          <div className="space-y-2">
+            <label className="text-sm font-medium">Mena</label>
+            <Select value={currency} onValueChange={setCurrency}>
+              <SelectTrigger data-testid="select-state-currency">
+                <SelectValue placeholder="Vyberte menu" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="EUR">EUR</SelectItem>
+                <SelectItem value="CZK">CZK</SelectItem>
+                <SelectItem value="USD">USD</SelectItem>
+                <SelectItem value="GBP">GBP</SelectItem>
+                <SelectItem value="PLN">PLN</SelectItem>
+                <SelectItem value="HUF">HUF</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
           <div className="space-y-2">
             <label className="text-sm font-medium">Kontinent</label>
@@ -440,6 +460,7 @@ export default function SettingsStates() {
                   {columnVisibility.isVisible("id") && <TableHead sortKey="id" sortDirection={sortKey === "id" ? sortDirection : null} onSort={requestSort}>ID</TableHead>}
                   {columnVisibility.isVisible("name") && <TableHead sortKey="name" sortDirection={sortKey === "name" ? sortDirection : null} onSort={requestSort}>Nazov</TableHead>}
                   {columnVisibility.isVisible("code") && <TableHead sortKey="code" sortDirection={sortKey === "code" ? sortDirection : null} onSort={requestSort}>Skratka</TableHead>}
+                  {columnVisibility.isVisible("currency") && <TableHead>Mena</TableHead>}
                   {columnVisibility.isVisible("continentId") && <TableHead sortKey="continentId" sortDirection={sortKey === "continentId" ? sortDirection : null} onSort={requestSort}>Kontinent</TableHead>}
                   {columnVisibility.isVisible("flagUrl") && <TableHead>Vlajka</TableHead>}
                   <TableHead className="text-right">Akcie</TableHead>
@@ -456,6 +477,9 @@ export default function SettingsStates() {
                     </TableCell>}
                     {columnVisibility.isVisible("code") && <TableCell data-testid={`text-state-code-${state.id}`}>
                       {state.code}
+                    </TableCell>}
+                    {columnVisibility.isVisible("currency") && <TableCell data-testid={`text-state-currency-${state.id}`}>
+                      <Badge variant="outline">{(state as any).currency || "EUR"}</Badge>
                     </TableCell>}
                     {columnVisibility.isVisible("continentId") && <TableCell>{getContinentName(state.continentId)}</TableCell>}
                     {columnVisibility.isVisible("flagUrl") && <TableCell>

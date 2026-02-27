@@ -47,6 +47,7 @@ import DobaPrihlasenia from "@/pages/DobaPrihlasenia";
 import PodporaRegistracia from "@/pages/PodporaRegistracia";
 import NastaveniePrehladov from "@/pages/NastaveniePrehladov";
 import SettingsStates from "@/pages/SettingsStates";
+import SettingsDivisions from "@/pages/SettingsDivisions";
 import ContractForm from "@/pages/ContractForm";
 import ContractFieldSettings from "@/pages/ContractFieldSettings";
 import Body from "@/pages/Body";
@@ -138,6 +139,7 @@ const PrivateDobaPrihlasenia = () => <PrivateRoute><DobaPrihlasenia /></PrivateR
 const PrivatePodpora = () => <PrivateRoute><PodporaRegistracia /></PrivateRoute>;
 const PrivateNastaveniePrehladov = () => <PrivateRoute><NastaveniePrehladov /></PrivateRoute>;
 const PrivateSettingsStates = () => <PrivateRoute><SettingsStates /></PrivateRoute>;
+const PrivateSettingsDivisions = () => <PrivateRoute><SettingsDivisions /></PrivateRoute>;
 const PrivateBulkImport = () => <PrivateRoute><BulkImport /></PrivateRoute>;
 const PrivateImportArchive = () => <PrivateRoute><ImportArchive /></PrivateRoute>;
 const PrivateBulkActions = () => <PrivateRoute><BulkActions /></PrivateRoute>;
@@ -193,6 +195,7 @@ function Router() {
       <Route path="/analytika" component={PrivateReports} />
       <Route path="/dashboard-settings" component={PrivateNastaveniePrehladov} />
       <Route path="/settings-states" component={PrivateSettingsStates} />
+      <Route path="/settings-divisions" component={PrivateSettingsDivisions} />
       <Route path="/settings-companies" component={PrivateCompanies} />
       <Route path="/bulk-import" component={PrivateBulkImport} />
       <Route path="/import-archive" component={PrivateImportArchive} />

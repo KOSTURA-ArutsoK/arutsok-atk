@@ -4,7 +4,7 @@ import { storage } from "./storage";
 import { api } from "@shared/routes";
 import { setupAuth, registerAuthRoutes, isAuthenticated } from "./replit_integrations/auth";
 import { z } from "zod";
-import { continents, states, myCompanies, appUsers, clientTypes, clientSubGroups, clientGroupMembers, productFolderAssignments, folderPanels, panelParameters, userClientGroupMemberships, clientGroups, permissionGroups, insertCareerLevelSchema, insertProductPointRateSchema, careerLevels, importLogs, commissions, contracts, contractStatuses, contractStatusChangeLogs, clientDataTabs, clientDataCategories, subjects, subjectPointsLog, subjectFieldHistory, subjectCollaborators, clientMarketingConsents, clientDocumentHistory, contractAcquirers, contractPasswords, contractRewardDistributions, contractParameterValues, subjectArchive, auditLogs, globalCounters, subjectPhotos, activityEvents, subjectParamSections, subjectParameters, subjectTemplates, subjectTemplateParams, commissionCalculationLogs, parameterSynonyms, dataConflictAlerts, transactionDedupLog, relationRoleTypes, subjectRelations, maturityAlerts, inheritancePrompts, guardianshipArchive, households, householdMembers, householdAssets, privacyBlocks, accessConsentLog, maturityEvents, addressGroups, addressGroupMembers, companySubjectRoles, notificationQueue, batchJobs, subjectObjects, objectDataSources, sectors, sections, sectorProducts, parameters, panels, productPanels, contractFolders, fieldLayoutConfigs, sectorCategoryMapping, suggestedRelations, statusEvidence, contractLifecycleHistory, systemNotifications, partners, products, contractInventories, contractTemplates, redListAlerts, subjectAddresses } from "@shared/schema";
+import { continents, states, myCompanies, appUsers, clientTypes, clientSubGroups, clientGroupMembers, productFolderAssignments, folderPanels, panelParameters, userClientGroupMemberships, clientGroups, permissionGroups, insertCareerLevelSchema, insertProductPointRateSchema, careerLevels, importLogs, commissions, contracts, contractStatuses, contractStatusChangeLogs, clientDataTabs, clientDataCategories, subjects, subjectPointsLog, subjectFieldHistory, subjectCollaborators, clientMarketingConsents, clientDocumentHistory, contractAcquirers, contractPasswords, contractRewardDistributions, contractParameterValues, subjectArchive, auditLogs, globalCounters, subjectPhotos, activityEvents, subjectParamSections, subjectParameters, subjectTemplates, subjectTemplateParams, commissionCalculationLogs, parameterSynonyms, dataConflictAlerts, transactionDedupLog, relationRoleTypes, subjectRelations, maturityAlerts, inheritancePrompts, guardianshipArchive, households, householdMembers, householdAssets, privacyBlocks, accessConsentLog, maturityEvents, addressGroups, addressGroupMembers, companySubjectRoles, notificationQueue, batchJobs, subjectObjects, objectDataSources, sectors, sections, sectorProducts, parameters, panels, productPanels, contractFolders, fieldLayoutConfigs, sectorCategoryMapping, suggestedRelations, statusEvidence, contractLifecycleHistory, systemNotifications, partners, products, contractInventories, contractTemplates, redListAlerts, subjectAddresses, divisions, companyDivisions, insertDivisionSchema } from "@shared/schema";
 import { notifyObjectionCreated, notifyPreDeletion, getProductDaysLimits } from "./email";
 import { seedSubjectParameters, seedAssetPanels, seedEventAndEntityPanels } from "./seed-subject-params";
 import sharp from "sharp";
@@ -487,6 +487,87 @@ export async function registerRoutes(
   // === COMPANY LOGO HISTORY (ArutsoK 31) ===
   app.get("/api/my-companies/:id/logo-history", isAuthenticated, async (req, res) => {
     res.json(await storage.getCompanyLogoHistory(Number(req.params.id)));
+  });
+
+  // === DIVISIONS (Divízie) ===
+  app.get("/api/divisions", isAuthenticated, async (_req, res) => {
+    try {
+      res.json(await storage.getDivisions());
+    } catch (err) { res.status(500).json({ message: String(err) }); }
+  });
+
+  app.get("/api/divisions/:id", isAuthenticated, async (req, res) => {
+    try {
+      const division = await storage.getDivision(Number(req.params.id));
+      if (!division) return res.status(404).json({ message: "Divízia nenájdená" });
+      res.json(division);
+    } catch (err) { res.status(500).json({ message: String(err) }); }
+  });
+
+  app.post("/api/divisions", isAuthenticated, async (req: any, res) => {
+    try {
+      const input = insertDivisionSchema.parse(req.body);
+      const division = await storage.createDivision(input);
+      await logAudit(req, { action: "CREATE", module: "divisions", entityId: division.id, newData: input });
+      res.status(201).json(division);
+    } catch (err) { res.status(400).json({ message: String(err) }); }
+  });
+
+  app.put("/api/divisions/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const old = await storage.getDivision(Number(req.params.id));
+      if (!old) return res.status(404).json({ message: "Divízia nenájdená" });
+      const input = insertDivisionSchema.partial().parse(req.body);
+      const division = await storage.updateDivision(Number(req.params.id), input);
+      await logAudit(req, { action: "UPDATE", module: "divisions", entityId: division.id, oldData: old, newData: input });
+      res.json(division);
+    } catch (err) { res.status(400).json({ message: String(err) }); }
+  });
+
+  app.delete("/api/divisions/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const old = await storage.getDivision(Number(req.params.id));
+      await storage.deleteDivision(Number(req.params.id));
+      await logAudit(req, { action: "DELETE", module: "divisions", entityId: Number(req.params.id), oldData: old });
+      res.json({ success: true });
+    } catch (err) { res.status(500).json({ message: String(err) }); }
+  });
+
+  app.get("/api/companies/:id/divisions", isAuthenticated, async (req, res) => {
+    try {
+      res.json(await storage.getCompanyDivisions(Number(req.params.id)));
+    } catch (err) { res.status(500).json({ message: String(err) }); }
+  });
+
+  app.post("/api/companies/:id/divisions", isAuthenticated, async (req: any, res) => {
+    try {
+      const companyId = Number(req.params.id);
+      const divisionId = Number(req.body.divisionId);
+      if (!divisionId) return res.status(400).json({ message: "divisionId je povinné" });
+      const company = await storage.getMyCompany(companyId);
+      if (!company) return res.status(404).json({ message: "Spoločnosť nenájdená" });
+      const division = await storage.getDivision(divisionId);
+      if (!division) return res.status(404).json({ message: "Divízia nenájdená" });
+      const existing = await storage.getCompanyDivisions(companyId);
+      if (existing.some(e => e.divisionId === divisionId)) return res.status(400).json({ message: "Divízia je už priradená" });
+      const entry = await storage.addCompanyDivision(companyId, divisionId);
+      await logAudit(req, { action: "CREATE", module: "company_divisions", entityId: entry.id, newData: { companyId, divisionId } });
+      res.status(201).json(entry);
+    } catch (err) { res.status(400).json({ message: String(err) }); }
+  });
+
+  app.delete("/api/company-divisions/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      await storage.removeCompanyDivision(Number(req.params.id));
+      await logAudit(req, { action: "DELETE", module: "company_divisions", entityId: Number(req.params.id) });
+      res.json({ success: true });
+    } catch (err) { res.status(500).json({ message: String(err) }); }
+  });
+
+  app.get("/api/divisions/:id/companies", isAuthenticated, async (req, res) => {
+    try {
+      res.json(await storage.getDivisionCompanies(Number(req.params.id)));
+    } catch (err) { res.status(500).json({ message: String(err) }); }
   });
 
   // === AUDIT LOGS ===
@@ -13560,9 +13641,9 @@ async function seedDatabase() {
     const [namerica] = await db.insert(continents).values({ name: "Severn\u00e1 Amerika", code: "02" }).returning();
     
     const [slovakia] = await db.insert(states).values([
-      { continentId: europe.id, name: "Slovensko", code: "421", flagUrl: "https://flagcdn.com/w40/sk.png" },
-      { continentId: europe.id, name: "\u010cesko", code: "420", flagUrl: "https://flagcdn.com/w40/cz.png" },
-      { continentId: namerica.id, name: "USA", code: "001", flagUrl: "https://flagcdn.com/w40/us.png" },
+      { continentId: europe.id, name: "Slovensko", code: "421", currency: "EUR", flagUrl: "https://flagcdn.com/w40/sk.png" },
+      { continentId: europe.id, name: "\u010cesko", code: "420", currency: "CZK", flagUrl: "https://flagcdn.com/w40/cz.png" },
+      { continentId: namerica.id, name: "USA", code: "001", currency: "USD", flagUrl: "https://flagcdn.com/w40/us.png" },
     ]).returning();
     
     const [company1] = await db.insert(myCompanies).values([

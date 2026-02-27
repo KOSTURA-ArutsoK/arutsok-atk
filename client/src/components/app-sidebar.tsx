@@ -142,6 +142,7 @@ const spravaPristupovItems = [
 const specifikacieItems = [
   { href: "/settings-states", icon: Globe, label: "Staty" },
   { href: "/settings-companies", icon: Building, label: "Spolocnosti" },
+  { href: "/settings-divisions", icon: Layers, label: "Divizie" },
 ];
 
 const nastavenieDirectItems = [
