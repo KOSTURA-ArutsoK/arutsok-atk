@@ -90,3 +90,8 @@ export const formatPhone = (phone: string | null | undefined): string => {
   }
   return phone;
 };
+
+export function isAuditorReadOnly(appUser: any): boolean {
+  if (!appUser) return false;
+  return (appUser.sentinelLevel ?? appUser.securityLevel ?? 0) === 9;
+}

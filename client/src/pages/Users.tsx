@@ -119,6 +119,8 @@ interface UserFormData {
   permissionGroupId: number | null;
   adminCode: string;
   allowedIps: string;
+  institutionName: string;
+  credentialNumber: string;
 }
 
 const emptyForm: UserFormData = {
@@ -134,6 +136,8 @@ const emptyForm: UserFormData = {
   permissionGroupId: null,
   adminCode: "",
   allowedIps: "",
+  institutionName: "",
+  credentialNumber: "",
 };
 
 function UserFormDialog({
@@ -230,6 +234,8 @@ function UserFormDialog({
           permissionGroupId: editingUser.permissionGroupId || null,
           adminCode: editingUser.adminCode || "",
           allowedIps: editingUser.allowedIps || "",
+          institutionName: (editingUser as any).institutionName || "",
+          credentialNumber: (editingUser as any).credentialNumber || "",
         });
       } else {
         setForm({ ...emptyForm });
@@ -260,6 +266,10 @@ function UserFormDialog({
       allowedIps: form.allowedIps || null,
       processingTimeSec,
     };
+    if (form.securityLevel === 9) {
+      payload.institutionName = form.institutionName || null;
+      payload.credentialNumber = form.credentialNumber || null;
+    }
 
     if (editingUser) {
       updateMutation.mutate({ id: editingUser.id, data: { ...payload, changeReason: "User edit" } });
@@ -428,15 +438,50 @@ function UserFormDialog({
                 <p className="text-[11px] text-orange-400 font-medium" data-testid="warning-ip-required">Úroveň 7+ (Backoffice) vyžaduje IP Locking</p>
               )}
             </div>
-            <div className="space-y-2">
-              <Label>Admin kód (voliteľné)</Label>
-              <Input
-                value={form.adminCode}
-                onChange={e => setForm(f => ({ ...f, adminCode: e.target.value }))}
-                disabled={!canEditSecurity}
-                data-testid="input-user-admin-code"
-              />
-            </div>
+            {form.securityLevel !== 9 && (
+              <div className="space-y-2">
+                <Label>Admin kód (voliteľné)</Label>
+                <Input
+                  value={form.adminCode}
+                  onChange={e => setForm(f => ({ ...f, adminCode: e.target.value }))}
+                  disabled={!canEditSecurity}
+                  data-testid="input-user-admin-code"
+                />
+              </div>
+            )}
+            {form.securityLevel === 9 && (
+              <>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label>Názov inštitúcie *</Label>
+                    <Input
+                      value={form.institutionName}
+                      onChange={e => setForm(f => ({ ...f, institutionName: e.target.value }))}
+                      placeholder="napr. NBS, Deloitte"
+                      data-testid="input-user-institution"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Číslo poverenia *</Label>
+                    <Input
+                      value={form.credentialNumber}
+                      onChange={e => setForm(f => ({ ...f, credentialNumber: e.target.value }))}
+                      placeholder="Audítorské poverenie"
+                      data-testid="input-user-credential"
+                    />
+                  </div>
+                </div>
+                {editingUser && (editingUser as any).accessExpiresAt && (
+                  <div className="space-y-1">
+                    <Label className="text-muted-foreground">Expirácia prístupu (Hard Limit 8h)</Label>
+                    <p className="text-sm font-mono bg-muted/50 px-3 py-1.5 rounded-md" data-testid="text-access-expires">
+                      {new Date((editingUser as any).accessExpiresAt).toLocaleString('sk-SK')}
+                    </p>
+                  </div>
+                )}
+                <p className="text-[10px] text-amber-400">L9 Audítor: Prístup max 8h, ReadOnly, bez Rodného čísla</p>
+              </>
+            )}
           </div>
 
           <div className="space-y-3">

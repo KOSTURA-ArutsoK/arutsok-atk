@@ -9,7 +9,7 @@ import { useTheme } from "@/components/theme-provider";
 import { useAuth } from "@/hooks/use-auth";
 import { useTTSContext } from "@/contexts/tts-context";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Moon, Sun, ChevronDown, Globe, Building2, Upload, LogOut, AlertTriangle, Timer, Volume2, VolumeX, Shield, Layers, X, LayoutGrid } from "lucide-react";
+import { Moon, Sun, ChevronDown, Globe, Building2, Upload, LogOut, AlertTriangle, Timer, Volume2, VolumeX, Shield, Layers, X, LayoutGrid, Lock } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 
 import { Button } from "@/components/ui/button";
@@ -554,6 +554,18 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             </div>
           )}
 
+          {(appUser as any)?.sentinelLevel === 9 && (
+            <div className="bg-amber-600/20 border-b border-amber-500/30 px-4 py-2 flex items-center gap-2 flex-shrink-0" data-testid="banner-auditor-readonly">
+              <Lock className="w-4 h-4 text-amber-400" />
+              <span className="text-sm font-medium text-amber-300">Audítorský režim — iba čítanie</span>
+              {(appUser as any)?.accessExpiresAt && (
+                <span className="text-xs text-amber-400/70 ml-2 font-mono">
+                  Expirácia: {new Date((appUser as any).accessExpiresAt).toLocaleString('sk-SK')}
+                </span>
+              )}
+            </div>
+          )}
+
           <main className="flex-1 overflow-y-auto p-4 md:p-6">
             {children}
           </main>
@@ -563,7 +575,16 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         open={contextOverlayOpen}
         step={contextStep}
         states={allStates || []}
-        companies={companies || []}
+        companies={(() => {
+          const all = companies || [];
+          if ((appUser as any)?.sentinelLevel === 9 && (appUser as any)?.allowedCompanyIds?.length) {
+            return all.filter((c: any) => (appUser as any).allowedCompanyIds.includes(c.id));
+          }
+          if ((appUser as any)?.sentinelLevel === 9 && (!(appUser as any)?.allowedCompanyIds || (appUser as any)?.allowedCompanyIds?.length === 0)) {
+            return [];
+          }
+          return all;
+        })()}
         companyDivisions={companyDivisions}
         currentStateId={pendingStateId}
         currentCompanyId={pendingCompanyId}

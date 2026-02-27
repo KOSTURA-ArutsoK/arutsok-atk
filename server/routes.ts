@@ -410,6 +410,13 @@ export async function registerRoutes(
     }
 
     if (level === SENTINEL_LEVELS.L9_AUDITORSKA) {
+      if (req.appUser.accessExpiresAt) {
+        const expiresAt = new Date(req.appUser.accessExpiresAt);
+        if (new Date() > expiresAt) {
+          db.update(appUsers).set({ isActive: false }).where(eq(appUsers.id, req.appUser.id)).execute().catch(() => {});
+          return res.status(403).json({ message: "Audítorský prístup vypršal (Hard Limit)" });
+        }
+      }
       const method = req.method.toUpperCase();
       if (method !== "GET" && method !== "HEAD" && method !== "OPTIONS") {
         const isAuthPath = req.path.startsWith("/api/auth") || req.path.startsWith("/api/login") || req.path.startsWith("/api/activity-events");
@@ -562,6 +569,13 @@ export async function registerRoutes(
       const replitUserId = req.user?.claims?.sub;
       const appUser = await storage.getAppUserByReplitId(replitUserId);
       if (!appUser) return res.status(404).json({ message: "User not found" });
+
+      if (getSecurityLevel(appUser) === SENTINEL_LEVELS.L9_AUDITORSKA && validated.activeCompanyId) {
+        const allowed = (appUser as any).allowedCompanyIds as number[] | null;
+        if (allowed && allowed.length > 0 && !allowed.includes(validated.activeCompanyId)) {
+          return res.status(403).json({ message: "Audítor nemá prístup k tejto entite (Silo Isolation)" });
+        }
+      }
       
       const updates: Record<string, any> = {};
       if (validated.activeCompanyId !== undefined) updates.activeCompanyId = validated.activeCompanyId;
@@ -1719,7 +1733,7 @@ export async function registerRoutes(
         if (dupCheck) {
           const isBlacklisted = await storage.isSubjectInGroup(dupCheck.id, "group_cierny_zoznam");
           if (isBlacklisted) {
-            return res.status(403).json({ message: "Registrácia zakázaná — subjekt na čiernom zozname" });
+            return res.status(403).json({ message: "Registráciu nie je možné dokončiť. Kontaktujte správcu (Sentinel Block)." });
           }
         }
       }
@@ -2391,7 +2405,18 @@ export async function registerRoutes(
           return res.status(403).json({ message: "Zmena bezpečnostnej úrovne vyžaduje Sentinel 8+ (Architekt)" });
         }
       }
-      const created = await storage.createAppUser(input);
+      const createData: any = { ...input };
+      if ((createData.securityLevel ?? (ROLE_TO_SENTINEL[createData.role] || 4)) === SENTINEL_LEVELS.L9_AUDITORSKA) {
+        if (!createData.email?.trim()) return res.status(400).json({ message: "L9 Audítor vyžaduje služobný email" });
+        if (!createData.institutionName?.trim()) return res.status(400).json({ message: "L9 Audítor vyžaduje názov inštitúcie" });
+        if (!createData.credentialNumber?.trim()) return res.status(400).json({ message: "L9 Audítor vyžaduje číslo poverenia" });
+        delete createData.birthNumber;
+        const maxExpiry = new Date(Date.now() + 8 * 60 * 60 * 1000);
+        if (!createData.accessExpiresAt || new Date(createData.accessExpiresAt) > maxExpiry) {
+          createData.accessExpiresAt = maxExpiry;
+        }
+      }
+      const created = await storage.createAppUser(createData);
       await logAudit(req, { action: "CREATE", module: "pouzivatelia", entityName: input.username });
       res.status(201).json(created);
     } catch (err) {
@@ -6162,7 +6187,7 @@ export async function registerRoutes(
               type: existing.type,
               matchedField: existing.matchedField,
             },
-            message: "Registrácia zakázaná — subjekt na čiernom zozname",
+            message: "Registráciu nie je možné dokončiť. Kontaktujte správcu (Sentinel Block).",
           });
           return;
         }
@@ -12276,6 +12301,30 @@ export async function registerRoutes(
     refreshMaturityAlerts().catch(err => console.error("[MATURITY SEMAPHORE CRON ERROR]", err));
     processAutoAdultTransitions().catch(err => console.error("[AUTO ADULT TRANSITION CRON ERROR]", err));
   }, 60 * 60 * 1000);
+
+  async function deactivateExpiredAuditors() {
+    try {
+      const now = new Date();
+      const expired = await db.select({ id: appUsers.id, username: appUsers.username })
+        .from(appUsers)
+        .where(and(
+          eq(appUsers.securityLevel, SENTINEL_LEVELS.L9_AUDITORSKA),
+          eq(appUsers.isActive, true),
+          sql`${appUsers.accessExpiresAt} IS NOT NULL AND ${appUsers.accessExpiresAt} < ${now}`
+        ));
+      for (const u of expired) {
+        await db.update(appUsers).set({ isActive: false }).where(eq(appUsers.id, u.id));
+        console.log(`[SENTINEL WATCHDOG] Deactivated expired L9 auditor: ${u.username} (id=${u.id})`);
+      }
+      if (expired.length > 0) {
+        console.log(`[SENTINEL WATCHDOG] Deactivated ${expired.length} expired auditor(s)`);
+      }
+    } catch (err) {
+      console.error("[SENTINEL WATCHDOG ERROR]", err);
+    }
+  }
+  deactivateExpiredAuditors().catch(err => console.error("[SENTINEL WATCHDOG INIT ERROR]", err));
+  setInterval(() => deactivateExpiredAuditors(), 5 * 60 * 1000);
 
   app.get("/api/maturity-alerts", isAuthenticated, async (req, res) => {
     try {

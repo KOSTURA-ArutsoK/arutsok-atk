@@ -468,6 +468,9 @@ export const appUsers = pgTable("app_users", {
   linkedSubjectId: integer("linked_subject_id"),
   impersonatingUserId: integer("impersonating_user_id"),
   allowedIps: text("allowed_ips"),
+  institutionName: text("institution_name"),
+  credentialNumber: text("credential_number"),
+  accessExpiresAt: timestamp("access_expires_at"),
   createdAt: timestamp("created_at").defaultNow(),
 });
 
