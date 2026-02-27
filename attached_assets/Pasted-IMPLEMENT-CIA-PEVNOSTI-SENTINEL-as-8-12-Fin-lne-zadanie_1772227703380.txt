@@ -1,0 +1,45 @@
+IMPLEMENTÁCIA PEVNOSTI SENTINEL (Časť 8/12 - Finálne zadanie)
+Magnus, tvojou úlohou je vybudovať bezpečnostnú architektúru holdingu Kostura. Musíme spojiť hierarchickú moc s ochranou klientskych dát pri zachovaní akcieschopnosti obchodníkov.
+
+1. Aktivácia 10 úrovní (securityLevel L0 - L9)
+Prepoj existujúce role s číselnou úrovňou securityLevel:
+
+L7 (Architekt): Absolútny prístup (Master Key).
+
+L6 (Prezident/Backoffice): Globálny dohľad a kontrola (vidí všetko).
+
+L5 (Superadmin/Admin): Manažment systému.
+
+L4 (Riaditeľ): Správa celej divízie.
+
+L3 (Obchodník/SFA): Prístup k vlastnému kmeňu.
+
+L2 (Tipér), L1 (Partner), L0 (Verejnosť).
+
+2. Pravidlá pre "Cudzí kmeň" (Protected View)
+Ak používateľ s Level < 6 pristupuje k subjektu, ktorého nie je správcom (subject.manager_id != user.id), Magnus aplikuje tieto pravidlá zobrazenia:
+
+Základná identifikácia (VIDÍ): Meno, Priezvisko, Mesto/Obec, ID (421...), Meno priradeného správcu.
+
+Kontaktné údaje (MASKUJE - ****): Telefón, E-mail, Presná adresa (ulica a číslo).
+
+Citlivé údaje (STRIKTNE MASKUJE - ****): Rodné číslo, Rodné priezvisko, IBAN, IČO.
+
+Výnimka: Ak je používateľ správcom subjektu (Vlastný kmeň), vidí všetky údaje v plnom znení kvôli AML a GDPR povinnostiam.
+
+3. Anti-duplicitný systém a Rodné priezvisko
+Rodné číslo: Hlavný unikátny kľúč. Systém technicky nepovolí vytvoriť subjekt s existujúcim RČ.
+
+Rodné priezvisko: Slúži ako overovací kľúč. Obchodník ho môže zadať do vyhľadávania (overenie z dokladov), ale vo výsledkoch vyhľadávania pre "Cudzí kmeň" musí byť zamaskované, aby sa predišlo dedukcii identity u mužov.
+
+Akcia pri zhode: Ak systém nájde zhodu pri hľadaní, ponúkne tlačidlo: "Kontaktovať správcu [Meno] o zdieľanie klienta".
+
+4. IP Locking (Digitálna brána)
+Implementuj middleware pre POST /api/login.
+
+Ak má používateľ (najmä L6 Backoffice) v profile vyplnené allowedIps a prihlasuje sa z inej IP, prístup bude zamietnutý s hláškou: "Sentinel IP Lockout".
+
+5. UI Indikátor
+V detaile používateľa zobraz pri mene jeho bezpečnostný odznak (napr. šedý L3 pre obchodníka, zlatý L7 pre architekta).
+
+Výstup: Magnus, ukáž kód pre applyPrivacyFilter, ktorý dynamicky maskuje polia na základe vzťahu user.id == subject.manager_id, a middleware pre IP Locking.
