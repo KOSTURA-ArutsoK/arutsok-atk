@@ -1,0 +1,57 @@
+IMPLEMENTÁCIA ČASTI 9: SENTINEL PERMISSION MATRIX (Hardcoded Logic)
+
+Magnus, v tejto fáze musíš implementovať nekompromisnú maticu oprávnení. Táto logika musí byť „hardcoded“ na serveri, aby ju nikto nemohol obísť cez frontend.
+
+1. Striktné funkčné zámky (CRUD Matrix)
+Pre každú úroveň implementuj tieto pravidlá prístupu k Modulom A, B a C:
+
+L0 (Blacklist): Deny All. Okamžité ukončenie relácie.
+
+L1 – L3 (Klienti/Partneri): * Read len vlastné záznamy (subject_id).
+
+Create zakázané (okrem tipov pre L3).
+
+Update/Delete zakázané.
+
+L4 (Obchodník): * Create subjektov a zmlúv povolené.
+
+Read len vlastný kmeň (vlastník/manager_id).
+
+Update povolené (okrem polí zamknutých Backofficeom).
+
+Delete prísne zakázané.
+
+L5 – L6 (Manažment): * Read všetko v línii riadenia.
+
+Delete zakázané.
+
+L7 (Revízna/Backoffice): * Bod zlomu: Koniec maskovania. Read plné dáta (RČ, IBAN).
+
+Finalize – len L7+ môže zmluvu prepnúť do stavu "Schválená".
+
+L8 (Architekt - Ty): * Full Access. Jediný, kto môže meniť securityLevel ostatných používateľov.
+
+L9 (Audítor): * Read Only na všetko pridelené. Všetky zápisové operácie vracajú 403 Forbidden.
+
+2. Časový semafor platnosti (90 dní)
+Implementuj logiku, ktorú sme si dohodli pre všetky dátumové polia v Moduloch A a B:
+
+Každý dátum v systéme musí mať príznak validity.
+
+Ak je dátum starší ako 90 dní od posledného potvrdenia/aktualizácie, systém pri ňom zobrazí oranžový semafor.
+
+Používateľ je vyzvaný na overenie aktuálnosti údajov pri najbližšom otvorení subjektu.
+
+3. Auditná stopa (Deep Logging)
+Implementuj detailné trasovanie podľa zadania:
+
+Každý prístup (zobrazenie detailu) k citlivému poľu (RČ, IBAN, Telefón) musí vygenerovať záznam v audit_logs.
+
+Záznam obsahuje: userID, timestamp, action (View/Edit), field_name, old_value, new_value a IP_address.
+
+4. Automatizácia synoným (AI Learning)
+Implementuj pravidlo „5 manuálnych potvrdení“:
+
+Ak systém narazí na neznáme pole v OCR (Modul B), vyžiada si manuálne zaradenie.
+
+Až po 5. manuálnom potvrdení rovnakého vzťahu (napr. „Contract No.“ = „Číslo zmluvy“) sa toto synonymum stáva automatickým pre AI učenie.
