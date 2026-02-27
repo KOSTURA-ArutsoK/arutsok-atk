@@ -66,12 +66,12 @@ import type { SmartColumnDef } from "@/hooks/use-smart-filter";
 import { SmartFilterBar } from "@/components/smart-filter-bar";
 
 const LIFECYCLE_STATUS_CONFIG: Record<string, { label: string; Icon: typeof Circle; colorClass: string; filled?: boolean }> = {
-  record: { label: "Príprava", Icon: Circle, colorClass: "text-gray-400", filled: true },
-  fast_forward: { label: "Budúci štart", Icon: FastForward, colorClass: "text-blue-500" },
-  play: { label: "Aktívne", Icon: Play, colorClass: "text-emerald-500", filled: true },
-  pause: { label: "Pozastavené", Icon: Pause, colorClass: "text-yellow-500" },
-  eject: { label: "Dobiehanie", Icon: Upload, colorClass: "text-orange-500" },
-  stop: { label: "Ukončené", Icon: Square, colorClass: "text-red-500", filled: true },
+  record: { label: "Príprava spolupráce s obchodným partnerom", Icon: Circle, colorClass: "text-gray-400", filled: true },
+  fast_forward: { label: "Štart spolupráce – zmluva podpísaná", Icon: FastForward, colorClass: "text-blue-500" },
+  play: { label: "Aktívna spolupráca", Icon: Play, colorClass: "text-emerald-500", filled: true },
+  pause: { label: "Pozastavená spolupráca", Icon: Pause, colorClass: "text-yellow-500" },
+  eject: { label: "Výpoveď zmluvy s obchodným partnerom", Icon: Upload, colorClass: "text-orange-500" },
+  stop: { label: "Ukončená spolupráca s obchodným partnerom", Icon: Square, colorClass: "text-red-500", filled: true },
 };
 
 function LifecycleStatusIcon({ status }: { status: string | null | undefined }) {
@@ -96,7 +96,6 @@ const PARTNER_COLUMNS: ColumnDef[] = [
   { key: "specialization", label: "Zameranie" },
   { key: "ico", label: "ICO" },
   { key: "city", label: "Mesto" },
-  { key: "lifecycleStatus", label: "Stav" },
   { key: "collaborationDate", label: "Datum spoluprace" },
 ];
 
@@ -271,11 +270,11 @@ function PartnerUnifiedDialog({
     };
 
     if (lifecycleStatus === "fast_forward" && !statusStartDate) {
-      toast({ title: "Chyba", description: "Stav 'Budúci štart' vyžaduje dátum štartu", variant: "destructive" });
+      toast({ title: "Chyba", description: "Stav 'Štart spolupráce' vyžaduje dátum štartu", variant: "destructive" });
       return;
     }
     if (lifecycleStatus === "eject" && !statusEndDate) {
-      toast({ title: "Chyba", description: "Stav 'Dobiehanie' vyžaduje dátum ukončenia", variant: "destructive" });
+      toast({ title: "Chyba", description: "Stav 'Výpoveď zmluvy' vyžaduje dátum ukončenia", variant: "destructive" });
       return;
     }
 
@@ -775,7 +774,6 @@ export default function Partners() {
                 {columnVisibility.isVisible("specialization") && <TableHead sortKey="specialization" sortDirection={sortKey === "specialization" ? sortDirection : null} onSort={requestSort}>Zameranie</TableHead>}
                 {columnVisibility.isVisible("ico") && <TableHead sortKey="ico" sortDirection={sortKey === "ico" ? sortDirection : null} onSort={requestSort}>ICO</TableHead>}
                 {columnVisibility.isVisible("city") && <TableHead sortKey="city" sortDirection={sortKey === "city" ? sortDirection : null} onSort={requestSort}>Mesto</TableHead>}
-                {columnVisibility.isVisible("lifecycleStatus") && <TableHead>Stav</TableHead>}
                 {columnVisibility.isVisible("collaborationDate") && <TableHead sortKey="collaborationDate" sortDirection={sortKey === "collaborationDate" ? sortDirection : null} onSort={requestSort}>Datum spoluprace</TableHead>}
                 <TableHead className="w-[80px]">Akcie</TableHead>
               </TableRow>
@@ -805,7 +803,6 @@ export default function Partners() {
                   {columnVisibility.isVisible("specialization") && <TableCell className="text-sm">{partner.specialization || "-"}</TableCell>}
                   {columnVisibility.isVisible("ico") && <TableCell className="text-sm">{partner.ico || "-"}</TableCell>}
                   {columnVisibility.isVisible("city") && <TableCell className="text-sm">{partner.city || "-"}</TableCell>}
-                  {columnVisibility.isVisible("lifecycleStatus") && <TableCell><LifecycleStatusIcon status={partner.lifecycleStatus} /></TableCell>}
                   {columnVisibility.isVisible("collaborationDate") && <TableCell className="text-xs text-muted-foreground">
                     {formatDateSlovak(partner.collaborationDate)}
                   </TableCell>}
