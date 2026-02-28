@@ -10330,7 +10330,7 @@ export async function registerRoutes(
         count: sql<number>`count(*)::int`
       }).from(subjects).where(and(
         eq(subjects.isActive, true),
-        eq(subjects.isDeleted, false),
+        isNull(subjects.deletedAt),
         subjectCompanyFilter
       ));
 

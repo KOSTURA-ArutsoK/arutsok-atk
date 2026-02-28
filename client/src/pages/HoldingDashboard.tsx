@@ -373,9 +373,9 @@ export default function HoldingDashboard() {
               </CardTitle>
             </CardHeader>
             <CardContent className="px-4 pb-3">
-              <div className="text-2xl font-bold" data-testid="text-kpi-subjects">{kpi.totalSubjects.toLocaleString("sk-SK")}</div>
+              <div className="text-2xl font-bold" data-testid="text-kpi-subjects">{(kpi.totalSubjects ?? 0).toLocaleString("sk-SK")}</div>
               <div className="text-xs text-muted-foreground">
-                subjektov · <span className="font-medium text-foreground" data-testid="text-kpi-contracts">{kpi.totalContracts.toLocaleString("sk-SK")}</span> zmlúv
+                subjektov · <span className="font-medium text-foreground" data-testid="text-kpi-contracts">{(kpi.totalContracts ?? 0).toLocaleString("sk-SK")}</span> zmlúv
               </div>
             </CardContent>
           </Card>
@@ -389,7 +389,7 @@ export default function HoldingDashboard() {
             </CardHeader>
             <CardContent className="px-4 pb-3">
               <div className="text-2xl font-bold" data-testid="text-kpi-gwp">
-                {formatCurrency(convertAmount(kpi.gwp), displayCurrency)}
+                {formatCurrency(convertAmount(kpi.gwp ?? 0), displayCurrency)}
               </div>
               <div className="text-xs text-muted-foreground">predpísané poistné/investície</div>
             </CardContent>
@@ -403,10 +403,10 @@ export default function HoldingDashboard() {
               </CardTitle>
             </CardHeader>
             <CardContent className="px-4 pb-3">
-              <div className="text-2xl font-bold" data-testid="text-kpi-crosssell">{kpi.crossSellIndex.toFixed(2)}</div>
+              <div className="text-2xl font-bold" data-testid="text-kpi-crosssell">{(kpi.crossSellIndex ?? 0).toFixed(2)}</div>
               <div className="text-xs text-muted-foreground">
                 produktov/klient ·
-                <span className={kpi.crossSellIndex >= 2.5 ? "text-emerald-500" : kpi.crossSellIndex >= 1.5 ? "text-yellow-500" : "text-red-500"}>
+                <span className={(kpi.crossSellIndex ?? 0) >= 2.5 ? "text-emerald-500" : (kpi.crossSellIndex ?? 0) >= 1.5 ? "text-yellow-500" : "text-red-500"}>
                   {" "}cieľ: 2.50
                 </span>
               </div>
@@ -421,11 +421,11 @@ export default function HoldingDashboard() {
               </CardTitle>
             </CardHeader>
             <CardContent className="px-4 pb-3">
-              <div className={`text-2xl font-bold ${getStornoColor(kpi.stornoRate)}`} data-testid="text-kpi-storno">
-                {kpi.stornoRate.toFixed(2)}%
+              <div className={`text-2xl font-bold ${getStornoColor(kpi.stornoRate ?? 0)}`} data-testid="text-kpi-storno">
+                {(kpi.stornoRate ?? 0).toFixed(2)}%
               </div>
               <div className="text-xs text-muted-foreground">
-                {kpi.stornoCount} zrušených zmlúv
+                {kpi.stornoCount ?? 0} zrušených zmlúv
               </div>
             </CardContent>
           </Card>
