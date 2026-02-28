@@ -19,6 +19,8 @@ import { AppSidebar } from "@/components/app-sidebar";
 import { useToast } from "@/hooks/use-toast";
 import { useUserProfile } from "@/hooks/use-user-profile";
 import { ContextSelectorOverlay } from "@/components/context-selector-overlay";
+import { DlpWatermark } from "@/components/DlpWatermark";
+import { DlpChallenge } from "@/components/DlpChallenge";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -618,6 +620,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           </main>
         </div>
       </div>
+      <DlpWatermark />
+      <DlpChallenge />
       <ContextSelectorOverlay
         open={contextOverlayOpen}
         step={contextStep}

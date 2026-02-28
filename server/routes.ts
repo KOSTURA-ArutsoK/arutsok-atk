@@ -4,7 +4,7 @@ import { storage } from "./storage";
 import { api } from "@shared/routes";
 import { setupAuth, registerAuthRoutes, isAuthenticated } from "./replit_integrations/auth";
 import { z } from "zod";
-import { continents, states, myCompanies, appUsers, clientTypes, clientSubGroups, clientGroupMembers, productFolderAssignments, folderPanels, panelParameters, userClientGroupMemberships, clientGroups, permissionGroups, insertCareerLevelSchema, insertProductPointRateSchema, careerLevels, importLogs, commissions, contracts, contractStatuses, contractStatusChangeLogs, clientDataTabs, clientDataCategories, subjects, subjectPointsLog, subjectFieldHistory, subjectCollaborators, clientMarketingConsents, clientDocumentHistory, contractAcquirers, contractPasswords, contractRewardDistributions, contractParameterValues, subjectArchive, auditLogs, globalCounters, subjectPhotos, activityEvents, subjectParamSections, subjectParameters, subjectTemplates, subjectTemplateParams, commissionCalculationLogs, parameterSynonyms, dataConflictAlerts, transactionDedupLog, relationRoleTypes, subjectRelations, maturityAlerts, inheritancePrompts, guardianshipArchive, households, householdMembers, householdAssets, privacyBlocks, accessConsentLog, maturityEvents, addressGroups, addressGroupMembers, companySubjectRoles, notificationQueue, batchJobs, subjectObjects, objectDataSources, sectors, sections, sectorProducts, parameters, panels, productPanels, contractFolders, fieldLayoutConfigs, sectorCategoryMapping, suggestedRelations, statusEvidence, contractLifecycleHistory, systemNotifications, partners, products, contractInventories, contractTemplates, redListAlerts, subjectAddresses, divisions, companyDivisions, insertDivisionSchema, SENTINEL_LEVELS, ROLE_TO_SENTINEL, SENTINEL_LEVEL_LABELS } from "@shared/schema";
+import { continents, states, myCompanies, appUsers, clientTypes, clientSubGroups, clientGroupMembers, productFolderAssignments, folderPanels, panelParameters, userClientGroupMemberships, clientGroups, permissionGroups, insertCareerLevelSchema, insertProductPointRateSchema, careerLevels, importLogs, commissions, contracts, contractStatuses, contractStatusChangeLogs, clientDataTabs, clientDataCategories, subjects, subjectPointsLog, subjectFieldHistory, subjectCollaborators, clientMarketingConsents, clientDocumentHistory, contractAcquirers, contractPasswords, contractRewardDistributions, contractParameterValues, subjectArchive, auditLogs, globalCounters, subjectPhotos, activityEvents, subjectParamSections, subjectParameters, subjectTemplates, subjectTemplateParams, commissionCalculationLogs, parameterSynonyms, dataConflictAlerts, transactionDedupLog, relationRoleTypes, subjectRelations, maturityAlerts, inheritancePrompts, guardianshipArchive, households, householdMembers, householdAssets, privacyBlocks, accessConsentLog, maturityEvents, addressGroups, addressGroupMembers, companySubjectRoles, notificationQueue, batchJobs, subjectObjects, objectDataSources, sectors, sections, sectorProducts, parameters, panels, productPanels, contractFolders, fieldLayoutConfigs, sectorCategoryMapping, suggestedRelations, statusEvidence, contractLifecycleHistory, systemNotifications, partners, products, contractInventories, contractTemplates, redListAlerts, subjectAddresses, divisions, companyDivisions, insertDivisionSchema, dlpExportCounters, dlpSuspiciousActivity, SENTINEL_LEVELS, ROLE_TO_SENTINEL, SENTINEL_LEVEL_LABELS } from "@shared/schema";
 import { notifyObjectionCreated, notifyPreDeletion, getProductDaysLimits } from "./email";
 import { seedSubjectParameters, seedAssetPanels, seedEventAndEntityPanels } from "./seed-subject-params";
 import sharp from "sharp";
@@ -36,6 +36,31 @@ async function isFirstContractInDivision(uploadedByUserId: number, divisionId: n
   } catch {
     return false;
   }
+}
+
+function computeAuditHash(entry: {
+  userId: number | null;
+  action: string;
+  module: string;
+  entityId: number | null;
+  oldData: any;
+  newData: any;
+  ipAddress: string;
+  createdAt: string;
+}): string {
+  const secret = process.env.SESSION_SECRET;
+  if (!secret) throw new Error("SESSION_SECRET is required for audit integrity signing");
+  const payload = JSON.stringify({
+    u: entry.userId,
+    a: entry.action,
+    m: entry.module,
+    e: entry.entityId,
+    o: entry.oldData,
+    n: entry.newData,
+    ip: entry.ipAddress,
+    t: entry.createdAt,
+  });
+  return crypto.createHmac("sha256", secret).update(payload).digest("hex");
 }
 
 async function isMigrationModeOn(): Promise<boolean> {
@@ -81,7 +106,8 @@ async function logAudit(req: any, params: {
       ? { ...params.newData, ...impersonationMeta }
       : (isImpersonating ? impersonationMeta : null);
 
-    await storage.createAuditLog({
+    const now = new Date();
+    const auditEntry = {
       userId: migrationOn ? null : (appUser?.id || null),
       username: migrationOn ? "Systémový import" : (isImpersonating
         ? `${appUser?.username || 'unknown'} [simulovaný Architektom ${req.originalAppUser.username}]`
@@ -94,7 +120,19 @@ async function logAudit(req: any, params: {
       newData: newDataWithImpersonation,
       processingTimeSec: processingTime,
       ipAddress: migrationOn ? "migration" : (typeof ip === 'string' ? ip : JSON.stringify(ip)),
+      createdAt: now,
+    };
+    const integrityHash = computeAuditHash({
+      userId: auditEntry.userId,
+      action: auditEntry.action,
+      module: auditEntry.module,
+      entityId: auditEntry.entityId,
+      oldData: auditEntry.oldData,
+      newData: auditEntry.newData,
+      ipAddress: auditEntry.ipAddress,
+      createdAt: now.toISOString(),
     });
+    await storage.createAuditLog({ ...auditEntry, integrityHash });
   } catch (err) {
     console.error("Audit log error:", err);
   }
@@ -486,6 +524,215 @@ export async function registerRoutes(
 
     next();
   });
+
+  // === DLP: DATA LEAKAGE PREVENTION SYSTEM ===
+  const DLP_DAILY_EXPORT_LIMIT = 50;
+  const DLP_RAPID_ACCESS_THRESHOLD = 20;
+  const DLP_RAPID_ACCESS_WINDOW_MS = 10000;
+
+  const dlpSubjectAccessLog: Map<number, number[]> = new Map();
+  const dlpBlockedUsers: Map<number, { blockedAt: number; challengeAnswer: number; attempts: number }> = new Map();
+
+  function trackSubjectAccess(userId: number): boolean {
+    const now = Date.now();
+    let timestamps = dlpSubjectAccessLog.get(userId) || [];
+    timestamps = timestamps.filter(t => now - t < DLP_RAPID_ACCESS_WINDOW_MS);
+    timestamps.push(now);
+    dlpSubjectAccessLog.set(userId, timestamps);
+    return timestamps.length >= DLP_RAPID_ACCESS_THRESHOLD;
+  }
+
+  async function blockUserDlp(userId: number, username: string, ip: string, reason: string) {
+    const a = Math.floor(Math.random() * 20) + 1;
+    const b = Math.floor(Math.random() * 20) + 1;
+    dlpBlockedUsers.set(userId, { blockedAt: Date.now(), challengeAnswer: a + b, attempts: 0 });
+
+    await db.insert(dlpSuspiciousActivity).values({
+      userId,
+      username,
+      activityType: "rapid_subject_access",
+      actionTaken: "dlp_block",
+      details: { reason, threshold: DLP_RAPID_ACCESS_THRESHOLD, windowMs: DLP_RAPID_ACCESS_WINDOW_MS },
+      ipAddress: ip,
+    });
+
+    const architektUsers = await db.select().from(appUsers).where(eq(appUsers.role, "architekt"));
+    for (const arch of architektUsers) {
+      if (arch.email) {
+        await db.insert(systemNotifications).values({
+          recipientEmail: arch.email,
+          recipientName: arch.firstName ? `${arch.firstName} ${arch.lastName || ""}` : arch.username,
+          recipientUserId: arch.id,
+          subject: "⚠️ DLP ALERT: Podozrivá aktivita detegovaná",
+          bodyHtml: `<p>⚠️ VAROVANIE: Používateľ <strong>${username}</strong> (ID: ${userId}) vykazuje podozrivú aktivitu — rýchle prehliadanie subjektov (${DLP_RAPID_ACCESS_THRESHOLD}+ za ${DLP_RAPID_ACCESS_WINDOW_MS / 1000}s). IP: ${ip}. Prístup dočasne pozastavený.</p>`,
+          status: "pending",
+          notificationType: "dlp_suspicious_activity",
+        });
+      }
+    }
+  }
+
+  async function checkDlpExportLimit(userId: number, username: string, level: number, exportCount: number, ip: string): Promise<{ allowed: boolean; remaining: number; message?: string }> {
+    if (level >= SENTINEL_LEVELS.L7_REVIZNA && level !== SENTINEL_LEVELS.L9_AUDITORSKA) {
+      return { allowed: true, remaining: Infinity };
+    }
+
+    const today = new Date().toISOString().split("T")[0];
+
+    const result = await db.execute(sql`
+      INSERT INTO dlp_export_counters (user_id, exported_count, reset_date, last_export_at)
+      VALUES (${userId}, ${exportCount}, ${today}, NOW())
+      ON CONFLICT (user_id, reset_date) DO UPDATE
+      SET exported_count = dlp_export_counters.exported_count + ${exportCount},
+          last_export_at = NOW()
+      RETURNING exported_count
+    `).catch(async () => {
+      const [counter] = await db.select().from(dlpExportCounters).where(
+        and(eq(dlpExportCounters.userId, userId), eq(dlpExportCounters.resetDate, today))
+      );
+      if (counter) {
+        const newCount = counter.exportedCount + exportCount;
+        await db.update(dlpExportCounters).set({ exportedCount: newCount, lastExportAt: new Date() }).where(eq(dlpExportCounters.id, counter.id));
+        return { rows: [{ exported_count: newCount }] };
+      } else {
+        await db.insert(dlpExportCounters).values({ userId, exportedCount: exportCount, resetDate: today, lastExportAt: new Date() });
+        return { rows: [{ exported_count: exportCount }] };
+      }
+    });
+
+    const newTotal = (result as any).rows?.[0]?.exported_count || exportCount;
+
+    if (newTotal > DLP_DAILY_EXPORT_LIMIT) {
+      const architektUsers = await db.select().from(appUsers).where(eq(appUsers.role, "architekt"));
+      for (const arch of architektUsers) {
+        if (arch.email) {
+          await db.insert(systemNotifications).values({
+            recipientEmail: arch.email,
+            recipientName: arch.firstName ? `${arch.firstName} ${arch.lastName || ""}` : arch.username,
+            recipientUserId: arch.id,
+            subject: "⚠️ VAROVANIE: Pokus o hromadný export dát",
+            bodyHtml: `<p>⚠️ VAROVANIE: Používateľ <strong>${username}</strong> (L${level}) sa pokúsil o hromadný export dát (${newTotal} záznamov, limit ${DLP_DAILY_EXPORT_LIMIT}/deň). IP: ${ip}. Prístup dočasne pozastavený.</p>`,
+            status: "pending",
+            notificationType: "dlp_mass_export_attempt",
+          });
+        }
+      }
+      return { allowed: false, remaining: 0, message: `Denný limit exportu (${DLP_DAILY_EXPORT_LIMIT} záznamov) bol prekročený. Architekt bol notifikovaný.` };
+    }
+
+    return { allowed: true, remaining: DLP_DAILY_EXPORT_LIMIT - newTotal };
+  }
+
+  app.use((req: any, res: any, next: any) => {
+    if (!req.appUser) return next();
+    const userId = req.appUser.id;
+    if (dlpBlockedUsers.has(userId)) {
+      const isDlpEndpoint = req.path === "/api/dlp/status" || req.path === "/api/dlp/verify-challenge";
+      const isAuthPath = req.path.startsWith("/api/auth") || req.path.startsWith("/api/login") || req.path.startsWith("/api/app-user");
+      if (!isDlpEndpoint && !isAuthPath) {
+        return res.status(423).json({ message: "DLP: Prístup dočasne zablokovaný — vyžaduje sa overenie", dlpBlocked: true });
+      }
+    }
+    next();
+  });
+
+  app.get("/api/dlp/status", isAuthenticated, async (req: any, res) => {
+    const userId = req.appUser?.id;
+    if (!userId) return res.json({ blocked: false });
+    const block = dlpBlockedUsers.get(userId);
+    if (!block) return res.json({ blocked: false });
+    const a = block.challengeAnswer - Math.floor(Math.random() * 10);
+    const b = block.challengeAnswer - a;
+    return res.json({ blocked: true, challenge: { a, b, question: `Koľko je ${a} + ${b}?` } });
+  });
+
+  app.post("/api/dlp/verify-challenge", isAuthenticated, async (req: any, res) => {
+    const userId = req.appUser?.id;
+    if (!userId) return res.status(401).json({ message: "Unauthorized" });
+    const block = dlpBlockedUsers.get(userId);
+    if (!block) return res.json({ success: true, message: "Nie ste blokovaný" });
+
+    const { answer } = req.body;
+    if (Number(answer) === block.challengeAnswer) {
+      dlpBlockedUsers.delete(userId);
+      dlpSubjectAccessLog.delete(userId);
+      await logAudit(req, { action: "DLP_CHALLENGE_PASSED", module: "dlp", entityId: userId, entityName: req.appUser.username });
+      return res.json({ success: true, message: "Overenie úspešné — prístup obnovený" });
+    }
+
+    block.attempts++;
+    if (block.attempts >= 3) {
+      await logAudit(req, { action: "DLP_CHALLENGE_FAILED_MAX", module: "dlp", entityId: userId, entityName: req.appUser.username, newData: { attempts: block.attempts } });
+      return res.status(403).json({ success: false, message: "Príliš veľa neúspešných pokusov. Kontaktujte Architekta.", locked: true });
+    }
+
+    return res.status(400).json({ success: false, message: `Nesprávna odpoveď (pokus ${block.attempts}/3)`, attemptsLeft: 3 - block.attempts });
+  });
+
+  app.get("/api/dlp/user-ip", isAuthenticated, async (req: any, res) => {
+    const ip = req.ip || req.headers['x-forwarded-for'] || req.socket?.remoteAddress || 'unknown';
+    res.json({ ip: typeof ip === 'string' ? ip : JSON.stringify(ip) });
+  });
+
+  app.get("/api/audit-logs/integrity-check", isAuthenticated, async (req: any, res) => {
+    const level = getSecurityLevel(req.appUser);
+    if (level < SENTINEL_LEVELS.L8_ARCHITEKTONICKA) {
+      return res.status(403).json({ message: "Vyžaduje sa úroveň L8+" });
+    }
+    try {
+      const limit = Math.min(Number(req.query.limit) || 100, 500);
+      const logs = await db.select().from(auditLogs).orderBy(desc(auditLogs.id)).limit(limit);
+      let valid = 0;
+      let invalid = 0;
+      let noHash = 0;
+      const invalidEntries: number[] = [];
+      for (const log of logs) {
+        if (!log.integrityHash) { noHash++; continue; }
+        const expected = computeAuditHash({
+          userId: log.userId,
+          action: log.action,
+          module: log.module,
+          entityId: log.entityId,
+          oldData: log.oldData,
+          newData: log.newData,
+          ipAddress: log.ipAddress || "",
+          createdAt: log.createdAt?.toISOString() || "",
+        });
+        if (expected === log.integrityHash) { valid++; } else { invalid++; invalidEntries.push(log.id); }
+      }
+      await logAudit(req, { action: "INTEGRITY_CHECK", module: "dlp", newData: { checked: logs.length, valid, invalid, noHash } });
+      res.json({ checked: logs.length, valid, invalid, noHash, invalidEntries, status: invalid === 0 ? "OK" : "TAMPERED" });
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  app.use((req: any, res: any, next: any) => {
+    if (!req.appUser) return next();
+    if (req.method === "DELETE" && req.path.startsWith("/api/audit-logs")) {
+      const level = getSecurityLevel(req.appUser);
+      (async () => {
+        const architektUsers = await db.select().from(appUsers).where(eq(appUsers.role, "architekt"));
+        for (const arch of architektUsers) {
+          if (arch.email && arch.id !== req.appUser.id) {
+            await db.insert(systemNotifications).values({
+              recipientEmail: arch.email,
+              recipientName: arch.firstName ? `${arch.firstName} ${arch.lastName || ""}` : arch.username,
+              recipientUserId: arch.id,
+              subject: "🚨 SENTINEL: Pokus o vymazanie audit stopy",
+              bodyHtml: `<p>🚨 Používateľ <strong>${req.appUser.username}</strong> (L${level}) sa pokúsil vymazať auditný záznam. Akcia bola zablokovaná.</p>`,
+              status: "pending",
+              notificationType: "audit_delete_attempt",
+            });
+          }
+        }
+      })().catch(() => {});
+      return res.status(403).json({ message: "Vymazanie auditných záznamov je zakázané. Architekt bol notifikovaný." });
+    }
+    next();
+  });
+
+  // === END DLP SYSTEM ===
 
   app.get("/api/subjects/count", isAuthenticated, async (req: any, res: any) => {
     try {
@@ -1656,6 +1903,18 @@ export async function registerRoutes(
 
   app.get(api.subjects.get.path, async (req: any, res) => {
     const subjectId = Number(req.params.id);
+    if (req.appUser?.id) {
+      const level = getSecurityLevel(req.appUser);
+      if (level < SENTINEL_LEVELS.L7_REVIZNA) {
+        const isSuspicious = trackSubjectAccess(req.appUser.id);
+        if (isSuspicious && !dlpBlockedUsers.has(req.appUser.id)) {
+          const ip = req.ip || req.headers['x-forwarded-for'] || '';
+          await blockUserDlp(req.appUser.id, req.appUser.username, typeof ip === 'string' ? ip : JSON.stringify(ip), "rapid_subject_detail_access");
+          await logAudit(req, { action: "DLP_BLOCK", module: "dlp", entityId: req.appUser.id, entityName: req.appUser.username, newData: { reason: "rapid_subject_access", threshold: DLP_RAPID_ACCESS_THRESHOLD } });
+          return res.status(423).json({ message: "DLP: Podozrivá aktivita detegovaná — prístup dočasne pozastavený", dlpBlocked: true });
+        }
+      }
+    }
     if (req.appUser?.permissionGroupId) {
       const [pg] = await db.select().from(permissionGroups).where(eq(permissionGroups.id, req.appUser.permissionGroupId));
       if (pg?.name === 'Klienti' && req.appUser.linkedSubjectId !== subjectId) {
@@ -5169,6 +5428,15 @@ export async function registerRoutes(
       const contractIds = links.map(l => l.contractId);
       const allContracts = await storage.getContracts();
       const contractList = allContracts.filter(c => contractIds.includes(c.id));
+
+      const dlpLevel = getSecurityLevel(req.appUser);
+      const ip = req.ip || req.headers['x-forwarded-for'] || '';
+      const dlpCheck = await checkDlpExportLimit(req.appUser.id, req.appUser.username, dlpLevel, contractList.length, typeof ip === 'string' ? ip : JSON.stringify(ip));
+      if (!dlpCheck.allowed) {
+        await logAudit(req, { action: "DLP_EXPORT_BLOCKED", module: "supisky", entityId: supiska.id, newData: { count: contractList.length, limit: DLP_DAILY_EXPORT_LIMIT, remaining: dlpCheck.remaining } });
+        return res.status(429).json({ message: dlpCheck.message });
+      }
+      await logAudit(req, { action: "DLP_EXPORT", module: "supisky", entityId: supiska.id, newData: { count: contractList.length, remaining: dlpCheck.remaining, exportedIds: contractIds } });
       const subjects = await storage.getSubjects();
       const partnersData = await storage.getPartners();
       const productsData = await storage.getProducts();
@@ -5219,6 +5487,16 @@ export async function registerRoutes(
       const contractIds = links.map(l => l.contractId);
       const allContracts = await storage.getContracts();
       const contractList = allContracts.filter(c => contractIds.includes(c.id));
+
+      const dlpLevel = getSecurityLevel(req.appUser);
+      const ip = req.ip || req.headers['x-forwarded-for'] || '';
+      const dlpCheck = await checkDlpExportLimit(req.appUser.id, req.appUser.username, dlpLevel, contractList.length, typeof ip === 'string' ? ip : JSON.stringify(ip));
+      if (!dlpCheck.allowed) {
+        await logAudit(req, { action: "DLP_EXPORT_BLOCKED", module: "supisky", entityId: supiska.id, newData: { count: contractList.length, limit: DLP_DAILY_EXPORT_LIMIT } });
+        return res.status(429).json({ message: dlpCheck.message });
+      }
+      await logAudit(req, { action: "DLP_EXPORT", module: "supisky-csv", entityId: supiska.id, newData: { count: contractList.length, remaining: dlpCheck.remaining, exportedIds: contractIds } });
+
       const subjects = await storage.getSubjects();
       const partnersData = await storage.getPartners();
       const productsData = await storage.getProducts();
@@ -8183,6 +8461,15 @@ export async function registerRoutes(
       if (!await checkKlientiSubjectAccess(appUser, subjectId)) {
         return res.status(403).json({ message: "Prístup zamietnutý" });
       }
+
+      const dlpLevel = getSecurityLevel(appUser);
+      const ip = req.ip || req.headers['x-forwarded-for'] || '';
+      const dlpCheck = await checkDlpExportLimit(appUser.id, appUser.username, dlpLevel, 1, typeof ip === 'string' ? ip : JSON.stringify(ip));
+      if (!dlpCheck.allowed) {
+        await logAudit(req, { action: "DLP_EXPORT_BLOCKED", module: "gdpr-export", entityId: subjectId, newData: { limit: DLP_DAILY_EXPORT_LIMIT } });
+        return res.status(429).json({ message: dlpCheck.message });
+      }
+      await logAudit(req, { action: "DLP_EXPORT", module: "gdpr-export", entityId: subjectId, newData: { subjectId, remaining: dlpCheck.remaining } });
       
       const subject = await storage.getSubject(subjectId);
       if (!subject) return res.status(404).json({ message: "Subjekt nenájdený" });

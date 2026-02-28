@@ -522,6 +522,7 @@ export const auditLogs = pgTable("audit_logs", {
   newData: jsonb("new_data"),
   processingTimeSec: integer("processing_time_sec").default(0),
   ipAddress: text("ip_address"),
+  integrityHash: text("integrity_hash"),
   createdAt: timestamp("created_at").defaultNow(),
 });
 
@@ -2411,6 +2412,27 @@ export const redListAlerts = pgTable("red_list_alerts", {
 export const insertRedListAlertSchema = createInsertSchema(redListAlerts).omit({ id: true, createdAt: true });
 export type RedListAlert = typeof redListAlerts.$inferSelect;
 export type InsertRedListAlert = z.infer<typeof insertRedListAlertSchema>;
+
+// === DLP EXPORT COUNTERS ===
+export const dlpExportCounters = pgTable("dlp_export_counters", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").notNull().references(() => appUsers.id),
+  exportedCount: integer("exported_count").notNull().default(0),
+  resetDate: text("reset_date").notNull(),
+  lastExportAt: timestamp("last_export_at"),
+});
+
+// === DLP SUSPICIOUS ACTIVITY ===
+export const dlpSuspiciousActivity = pgTable("dlp_suspicious_activity", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").notNull().references(() => appUsers.id),
+  username: text("username"),
+  activityType: text("activity_type").notNull(),
+  actionTaken: text("action_taken").notNull(),
+  details: jsonb("details"),
+  ipAddress: text("ip_address"),
+  detectedAt: timestamp("detected_at").defaultNow(),
+});
 
 export type CreateSubjectRequest = InsertSubject;
 export type UpdateSubjectRequest = Partial<InsertSubject> & { changeReason?: string };
