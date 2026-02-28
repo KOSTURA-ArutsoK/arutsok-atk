@@ -131,10 +131,11 @@ function ContractsSection() {
 function SynonymsSection() {
   const { toast } = useToast();
 
-  const { data: fieldCounts, isLoading: loadingCounts } = useQuery<any[]>({
+  const { data: fieldCountsRaw, isLoading: loadingCounts } = useQuery<any>({
     queryKey: ["/api/parameter-synonyms/field-counts"],
   });
 
+  const fieldCounts: any[] = Array.isArray(fieldCountsRaw) ? fieldCountsRaw : [];
   const [expandedParam, setExpandedParam] = useState<number | null>(null);
 
   const { data: synonyms, isLoading: loadingSynonyms } = useQuery<ParameterSynonym[]>({
