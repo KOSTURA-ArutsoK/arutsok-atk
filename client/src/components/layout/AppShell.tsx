@@ -384,21 +384,21 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               const hasDivisions = activeDivisions && activeDivisions.length > 0 && !isClientUser;
 
               return (
-                <div className="flex items-center border border-border/60 rounded-md bg-muted/20 dark:bg-muted/10 h-9 overflow-hidden" data-testid="holding-context-bubble">
+                <div className="flex items-center gap-1.5 border border-border/50 rounded-full bg-muted/15 dark:bg-muted/10 h-9 px-1.5" data-testid="holding-context-bubble">
                   <Tooltip>
                     <TooltipTrigger asChild>
                       <button
                         type="button"
                         onClick={canSwitch ? openStateSelector : undefined}
-                        className={`flex items-center gap-1.5 px-2.5 h-full bg-muted/40 dark:bg-muted/20 border-r border-border/40 transition-colors ${canSwitch ? "hover:bg-muted/70 dark:hover:bg-muted/40 cursor-pointer" : "cursor-default"}`}
+                        className={`flex items-center gap-1.5 px-2.5 h-7 rounded-full border border-border/40 bg-muted/40 dark:bg-muted/25 transition-colors ${canSwitch ? "hover:bg-muted/70 dark:hover:bg-muted/40 cursor-pointer" : "cursor-default"}`}
                         data-testid="button-state-switcher"
                       >
                         {activeState?.flagUrl ? (
                           <img src={activeState.flagUrl} alt={activeState.name} className="w-5 h-3.5 object-cover rounded-sm flex-shrink-0" />
                         ) : (
-                          <Globe className="w-4 h-4 text-muted-foreground flex-shrink-0" />
+                          <Globe className="w-3.5 h-3.5 text-muted-foreground flex-shrink-0" />
                         )}
-                        <span className="text-xs font-medium hidden sm:inline whitespace-nowrap">
+                        <span className="text-[11px] font-medium hidden sm:inline whitespace-nowrap">
                           {activeState?.name || "Štát"}
                         </span>
                         {canSwitch ? (
@@ -416,11 +416,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                       <button
                         type="button"
                         onClick={canSwitch ? openCompanySelector : undefined}
-                        className={`flex items-center gap-1.5 px-2.5 h-full bg-background/60 dark:bg-background/30 border-r border-border/40 transition-colors ${canSwitch ? "hover:bg-muted/50 dark:hover:bg-muted/30 cursor-pointer" : "cursor-default"}`}
+                        className={`flex items-center gap-1.5 px-2.5 h-7 rounded-full border border-border/40 bg-background/60 dark:bg-background/20 transition-colors ${canSwitch ? "hover:bg-muted/50 dark:hover:bg-muted/30 cursor-pointer" : "cursor-default"}`}
                         data-testid="button-company-switcher"
                       >
                         <Building2 className="w-3.5 h-3.5 text-muted-foreground flex-shrink-0" />
-                        <span className="text-xs font-medium truncate max-w-[140px]">
+                        <span className="text-[11px] font-medium truncate max-w-[140px]">
                           {activeCompany?.name || "Firma"}
                         </span>
                         {canSwitch ? (
@@ -434,22 +434,22 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                   </Tooltip>
 
                   {hasDivisions && (
-                    <div className="flex items-center h-full">
+                    <>
                       {activeDivisions!.length <= 5 ? (
-                        <div className="flex items-center gap-0.5 px-1.5 h-full" data-testid="division-emoji-bar">
+                        <div className="flex items-center gap-0.5 h-7 px-1 rounded-full border border-border/40 bg-background/40 dark:bg-background/15" data-testid="division-emoji-bar">
                           <Tooltip>
                             <TooltipTrigger asChild>
                               <button
                                 type="button"
                                 onClick={() => handleContextSelectDivision(null)}
-                                className={`w-7 h-7 rounded-full flex items-center justify-center text-sm transition-all ${
+                                className={`w-6 h-6 rounded-full flex items-center justify-center text-sm transition-all ${
                                   !activeDivisionId
                                     ? "ring-2 ring-primary bg-primary/10"
                                     : "hover:bg-muted/50"
                                 }`}
                                 data-testid="division-emoji-all"
                               >
-                                <LayoutGrid className="w-3.5 h-3.5 text-muted-foreground" />
+                                <LayoutGrid className="w-3 h-3 text-muted-foreground" />
                               </button>
                             </TooltipTrigger>
                             <TooltipContent>Všetky divízie</TooltipContent>
@@ -465,7 +465,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                                   <button
                                     type="button"
                                     onClick={() => handleContextSelectDivision(divId)}
-                                    className={`w-7 h-7 rounded-full flex items-center justify-center text-base transition-all ${
+                                    className={`w-6 h-6 rounded-full flex items-center justify-center text-sm transition-all ${
                                       isActiveDivision
                                         ? "ring-2 ring-primary bg-primary/10"
                                         : "hover:bg-muted/50"
@@ -473,7 +473,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                                     data-testid={`division-emoji-${divId}`}
                                   >
                                     {divEmoji || (
-                                      <span className="text-[9px] font-bold text-muted-foreground">
+                                      <span className="text-[8px] font-bold text-muted-foreground">
                                         {(cd.division?.code || cd.code || divName).slice(0, 2).toUpperCase()}
                                       </span>
                                     )}
@@ -490,15 +490,15 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                             <button
                               type="button"
                               onClick={openDivisionSelector}
-                              className="flex items-center gap-1.5 px-2.5 h-full transition-colors hover:bg-muted/50 dark:hover:bg-muted/30 cursor-pointer"
+                              className="flex items-center gap-1.5 px-2.5 h-7 rounded-full border border-border/40 bg-background/40 dark:bg-background/15 transition-colors hover:bg-muted/50 dark:hover:bg-muted/30 cursor-pointer"
                               data-testid="button-division-switcher"
                             >
                               {activeDivEmoji ? (
-                                <span className="text-base">{activeDivEmoji}</span>
+                                <span className="text-sm">{activeDivEmoji}</span>
                               ) : (
                                 <Layers className="w-3.5 h-3.5 text-muted-foreground flex-shrink-0" />
                               )}
-                              <span className="text-xs font-medium truncate max-w-[120px]">
+                              <span className="text-[11px] font-medium truncate max-w-[120px]">
                                 {activeDivName || "Všetky divízie"}
                               </span>
                               <ChevronDown className="w-3 h-3 text-muted-foreground flex-shrink-0" />
@@ -507,7 +507,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                           <TooltipContent>Zmeniť divíziu</TooltipContent>
                         </Tooltip>
                       )}
-                    </div>
+                    </>
                   )}
                 </div>
               );
