@@ -182,10 +182,10 @@ export default function HoldingDashboard() {
     doc.text("KPI Prehľad", 10, 52);
     doc.setFontSize(11);
     if (kpi) {
-      doc.text(`Celkový Kmeň: ${kpi.totalSubjects} subjektov, ${kpi.totalContracts} zmlúv`, 14, 60);
-      doc.text(`Produkcia (GWP): ${formatCurrency(convertAmount(kpi.gwp), displayCurrency)}`, 14, 67);
-      doc.text(`Cross-sell Index: ${kpi.crossSellIndex.toFixed(2)}`, 14, 74);
-      doc.text(`Storno Rate: ${kpi.stornoRate.toFixed(2)}% (${kpi.stornoCount} storno)`, 14, 81);
+      doc.text(`Celkový Kmeň: ${kpi.totalSubjects ?? 0} subjektov, ${kpi.totalContracts ?? 0} zmlúv`, 14, 60);
+      doc.text(`Produkcia (GWP): ${formatCurrency(convertAmount(kpi.gwp ?? 0), displayCurrency)}`, 14, 67);
+      doc.text(`Cross-sell Index: ${(kpi.crossSellIndex ?? 0).toFixed(2)}`, 14, 74);
+      doc.text(`Storno Rate: ${(kpi.stornoRate ?? 0).toFixed(2)}% (${kpi.stornoCount ?? 0} storno)`, 14, 81);
     }
 
     if (crossSell?.sectors?.length) {
@@ -223,11 +223,11 @@ export default function HoldingDashboard() {
 
     let csv = "Sekcia;Metrika;Hodnota\n";
     if (kpi) {
-      csv += `KPI;Celkový Kmeň (Subjekty);${kpi.totalSubjects}\n`;
-      csv += `KPI;Celkový Kmeň (Zmluvy);${kpi.totalContracts}\n`;
-      csv += `KPI;Produkcia GWP (${displayCurrency});${convertAmount(kpi.gwp)}\n`;
-      csv += `KPI;Cross-sell Index;${kpi.crossSellIndex}\n`;
-      csv += `KPI;Storno Rate (%);${kpi.stornoRate}\n`;
+      csv += `KPI;Celkový Kmeň (Subjekty);${kpi.totalSubjects ?? 0}\n`;
+      csv += `KPI;Celkový Kmeň (Zmluvy);${kpi.totalContracts ?? 0}\n`;
+      csv += `KPI;Produkcia GWP (${displayCurrency});${convertAmount(kpi.gwp ?? 0)}\n`;
+      csv += `KPI;Cross-sell Index;${kpi.crossSellIndex ?? 0}\n`;
+      csv += `KPI;Storno Rate (%);${kpi.stornoRate ?? 0}\n`;
     }
     if (crossSell?.sectors) {
       csv += "\nSektor;Emoji;Pokrytie %;Kryté;Príležitosti\n";
