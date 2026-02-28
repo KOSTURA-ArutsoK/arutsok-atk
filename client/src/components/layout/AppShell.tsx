@@ -387,11 +387,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
               return (
                 <div
-                  className="flex items-center gap-2 rounded-full h-11 px-2.5"
+                  className="flex items-center gap-1.5 rounded-full h-10 px-1.5"
                   style={{
-                    background: "linear-gradient(180deg, hsl(222 47% 9%) 0%, hsl(222 47% 12%) 100%)",
-                    border: "1px solid hsl(222 47% 22%)",
-                    boxShadow: "inset 0 2px 6px rgba(0,0,0,0.5), 0 2px 8px rgba(0,0,0,0.3), 0 1px 0 rgba(255,255,255,0.03)"
+                    background: "hsl(220 15% 13%)",
+                    border: "1px solid hsl(220 10% 20%)",
+                    boxShadow: "inset 0 1px 4px rgba(0,0,0,0.4), 0 1px 2px rgba(0,0,0,0.2)"
                   }}
                   data-testid="holding-context-bubble"
                 >
@@ -400,26 +400,26 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                       <button
                         type="button"
                         onClick={canSwitch ? openStateSelector : undefined}
-                        className={`flex items-center gap-1.5 px-3 h-7 rounded-full transition-all ${canSwitch ? "hover:brightness-110 cursor-pointer" : "cursor-default"}`}
+                        className={`flex items-center gap-1.5 px-2.5 h-7 rounded-full transition-all ${canSwitch ? "hover:brightness-110 cursor-pointer" : "cursor-default"}`}
                         style={{
-                          background: "linear-gradient(180deg, hsl(160 60% 18%) 0%, hsl(160 60% 14%) 100%)",
-                          border: "1px solid hsl(160 60% 30%)",
-                          boxShadow: "0 3px 8px rgba(16,185,129,0.25), 0 1px 3px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.08)"
+                          background: "hsl(220 10% 19%)",
+                          border: "1px solid hsl(220 10% 28%)",
+                          boxShadow: "0 1px 3px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.04)"
                         }}
                         data-testid="button-state-switcher"
                       >
                         {activeState?.flagUrl ? (
                           <img src={activeState.flagUrl} alt={activeState.name} className="w-5 h-3.5 object-cover rounded-sm flex-shrink-0" />
                         ) : (
-                          <Globe className="w-3.5 h-3.5 text-emerald-300 flex-shrink-0" />
+                          <Globe className="w-3.5 h-3.5 text-muted-foreground flex-shrink-0" />
                         )}
-                        <span className="text-[11px] font-medium hidden sm:inline whitespace-nowrap text-emerald-100">
+                        <span className="text-[11px] font-medium hidden sm:inline whitespace-nowrap text-zinc-300">
                           {activeState?.name || "Štát"}
                         </span>
                         {canSwitch ? (
-                          <ChevronDown className="w-3 h-3 text-emerald-300/70 flex-shrink-0" />
+                          <ChevronDown className="w-3 h-3 text-zinc-500 flex-shrink-0" />
                         ) : (
-                          <Lock className="w-3 h-3 text-emerald-300/40 flex-shrink-0" />
+                          <Lock className="w-3 h-3 text-zinc-600 flex-shrink-0" />
                         )}
                       </button>
                     </TooltipTrigger>
@@ -431,22 +431,22 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                       <button
                         type="button"
                         onClick={canSwitch ? openCompanySelector : undefined}
-                        className={`flex items-center gap-1.5 px-3 h-7 rounded-full transition-all ${canSwitch ? "hover:brightness-110 cursor-pointer" : "cursor-default"}`}
+                        className={`flex items-center gap-1.5 px-2.5 h-7 rounded-full transition-all ${canSwitch ? "hover:brightness-110 cursor-pointer" : "cursor-default"}`}
                         style={{
-                          background: "linear-gradient(180deg, hsl(38 70% 18%) 0%, hsl(38 70% 14%) 100%)",
-                          border: "1px solid hsl(38 70% 30%)",
-                          boxShadow: "0 3px 8px rgba(245,158,11,0.25), 0 1px 3px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.08)"
+                          background: "hsl(220 10% 19%)",
+                          border: "1px solid hsl(220 10% 28%)",
+                          boxShadow: "0 1px 3px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.04)"
                         }}
                         data-testid="button-company-switcher"
                       >
-                        <Building2 className="w-3.5 h-3.5 text-amber-300 flex-shrink-0" />
-                        <span className="text-[11px] font-medium truncate max-w-[140px] text-amber-100">
+                        <Building2 className="w-3.5 h-3.5 text-muted-foreground flex-shrink-0" />
+                        <span className="text-[11px] font-medium truncate max-w-[140px] text-zinc-300">
                           {activeCompany?.name || "Firma"}
                         </span>
                         {canSwitch ? (
-                          <ChevronDown className="w-3 h-3 text-amber-300/70 flex-shrink-0" />
+                          <ChevronDown className="w-3 h-3 text-zinc-500 flex-shrink-0" />
                         ) : (
-                          <Lock className="w-3 h-3 text-amber-300/40 flex-shrink-0" />
+                          <Lock className="w-3 h-3 text-zinc-600 flex-shrink-0" />
                         )}
                       </button>
                     </TooltipTrigger>
@@ -459,9 +459,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                         <div
                           className="flex items-center gap-0.5 h-7 px-1.5 rounded-full"
                           style={{
-                            background: "linear-gradient(180deg, hsl(263 60% 18%) 0%, hsl(263 60% 14%) 100%)",
-                            border: "1px solid hsl(263 60% 30%)",
-                            boxShadow: "0 3px 8px rgba(139,92,246,0.25), 0 1px 3px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.08)"
+                            background: "hsl(220 10% 19%)",
+                            border: "1px solid hsl(220 10% 28%)",
+                            boxShadow: "0 1px 3px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.04)"
                           }}
                           data-testid="division-emoji-bar"
                         >
@@ -478,13 +478,13 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                                     onClick={() => handleContextSelectDivision(divId)}
                                     className={`w-6 h-6 rounded-full flex items-center justify-center text-sm transition-all ${
                                       isActiveDivision
-                                        ? "ring-2 ring-violet-400 bg-violet-500/30"
-                                        : "hover:bg-violet-500/20"
+                                        ? "ring-2 ring-zinc-400 bg-zinc-500/20"
+                                        : "hover:bg-zinc-500/15"
                                     }`}
                                     data-testid={`division-emoji-${divId}`}
                                   >
                                     {divEmoji || (
-                                      <span className="text-[8px] font-bold text-violet-300">
+                                      <span className="text-[8px] font-bold text-zinc-400">
                                         {(cd.division?.code || cd.code || divName).slice(0, 2).toUpperCase()}
                                       </span>
                                     )}
@@ -501,23 +501,23 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                             <button
                               type="button"
                               onClick={openDivisionSelector}
-                              className="flex items-center gap-1.5 px-3 h-7 rounded-full transition-all hover:brightness-110 cursor-pointer"
+                              className="flex items-center gap-1.5 px-2.5 h-7 rounded-full transition-all hover:brightness-110 cursor-pointer"
                               style={{
-                                background: "linear-gradient(180deg, hsl(263 60% 18%) 0%, hsl(263 60% 14%) 100%)",
-                                border: "1px solid hsl(263 60% 30%)",
-                                boxShadow: "0 3px 8px rgba(139,92,246,0.25), 0 1px 3px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.08)"
+                                background: "hsl(220 10% 19%)",
+                                border: "1px solid hsl(220 10% 28%)",
+                                boxShadow: "0 1px 3px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.04)"
                               }}
                               data-testid="button-division-switcher"
                             >
                               {activeDivEmoji ? (
                                 <span className="text-sm">{activeDivEmoji}</span>
                               ) : (
-                                <Layers className="w-3.5 h-3.5 text-violet-300 flex-shrink-0" />
+                                <Layers className="w-3.5 h-3.5 text-muted-foreground flex-shrink-0" />
                               )}
-                              <span className="text-[11px] font-medium truncate max-w-[120px] text-violet-100">
+                              <span className="text-[11px] font-medium truncate max-w-[120px] text-zinc-300">
                                 {activeDivName || "Divízie"}
                               </span>
-                              <ChevronDown className="w-3 h-3 text-violet-300/70 flex-shrink-0" />
+                              <ChevronDown className="w-3 h-3 text-zinc-500 flex-shrink-0" />
                             </button>
                           </TooltipTrigger>
                           <TooltipContent>Zmeniť divíziu</TooltipContent>
