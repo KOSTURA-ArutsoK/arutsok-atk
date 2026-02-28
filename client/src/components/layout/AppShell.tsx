@@ -387,11 +387,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
               return (
                 <div
-                  className="flex items-center gap-1.5 rounded-full h-10 px-1.5"
+                  className="flex items-center gap-1.5 rounded-full h-10 px-2"
                   style={{
-                    background: "hsl(220 15% 13%)",
-                    border: "1px solid hsl(220 10% 20%)",
-                    boxShadow: "inset 0 1px 4px rgba(0,0,0,0.4), 0 1px 2px rgba(0,0,0,0.2)"
+                    background: "hsl(222 20% 20%)",
+                    border: "1px solid hsl(222 15% 28%)",
+                    boxShadow: "inset 0 1px 3px rgba(0,0,0,0.25)"
                   }}
                   data-testid="holding-context-bubble"
                 >
@@ -402,24 +402,24 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                         onClick={canSwitch ? openStateSelector : undefined}
                         className={`flex items-center gap-1.5 px-2.5 h-7 rounded-full transition-all ${canSwitch ? "hover:brightness-110 cursor-pointer" : "cursor-default"}`}
                         style={{
-                          background: "hsl(220 10% 19%)",
-                          border: "1px solid hsl(220 10% 28%)",
-                          boxShadow: "0 1px 3px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.04)"
+                          background: "hsl(222 15% 28%)",
+                          border: "1px solid hsl(222 12% 36%)",
+                          boxShadow: "0 2px 4px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.06)"
                         }}
                         data-testid="button-state-switcher"
                       >
                         {activeState?.flagUrl ? (
                           <img src={activeState.flagUrl} alt={activeState.name} className="w-5 h-3.5 object-cover rounded-sm flex-shrink-0" />
                         ) : (
-                          <Globe className="w-3.5 h-3.5 text-muted-foreground flex-shrink-0" />
+                          <Globe className="w-3.5 h-3.5 text-zinc-400 flex-shrink-0" />
                         )}
-                        <span className="text-[11px] font-medium hidden sm:inline whitespace-nowrap text-zinc-300">
+                        <span className="text-[11px] font-medium hidden sm:inline whitespace-nowrap text-zinc-200">
                           {activeState?.name || "Štát"}
                         </span>
                         {canSwitch ? (
-                          <ChevronDown className="w-3 h-3 text-zinc-500 flex-shrink-0" />
+                          <ChevronDown className="w-3 h-3 text-zinc-400 flex-shrink-0" />
                         ) : (
-                          <Lock className="w-3 h-3 text-zinc-600 flex-shrink-0" />
+                          <Lock className="w-3 h-3 text-zinc-500 flex-shrink-0" />
                         )}
                       </button>
                     </TooltipTrigger>
@@ -433,20 +433,20 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                         onClick={canSwitch ? openCompanySelector : undefined}
                         className={`flex items-center gap-1.5 px-2.5 h-7 rounded-full transition-all ${canSwitch ? "hover:brightness-110 cursor-pointer" : "cursor-default"}`}
                         style={{
-                          background: "hsl(220 10% 19%)",
-                          border: "1px solid hsl(220 10% 28%)",
-                          boxShadow: "0 1px 3px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.04)"
+                          background: "hsl(222 15% 28%)",
+                          border: "1px solid hsl(222 12% 36%)",
+                          boxShadow: "0 2px 4px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.06)"
                         }}
                         data-testid="button-company-switcher"
                       >
-                        <Building2 className="w-3.5 h-3.5 text-muted-foreground flex-shrink-0" />
-                        <span className="text-[11px] font-medium truncate max-w-[140px] text-zinc-300">
+                        <Building2 className="w-3.5 h-3.5 text-zinc-400 flex-shrink-0" />
+                        <span className="text-[11px] font-medium truncate max-w-[140px] text-zinc-200">
                           {activeCompany?.name || "Firma"}
                         </span>
                         {canSwitch ? (
-                          <ChevronDown className="w-3 h-3 text-zinc-500 flex-shrink-0" />
+                          <ChevronDown className="w-3 h-3 text-zinc-400 flex-shrink-0" />
                         ) : (
-                          <Lock className="w-3 h-3 text-zinc-600 flex-shrink-0" />
+                          <Lock className="w-3 h-3 text-zinc-500 flex-shrink-0" />
                         )}
                       </button>
                     </TooltipTrigger>
@@ -459,9 +459,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                         <div
                           className="flex items-center gap-0.5 h-7 px-1.5 rounded-full"
                           style={{
-                            background: "hsl(220 10% 19%)",
-                            border: "1px solid hsl(220 10% 28%)",
-                            boxShadow: "0 1px 3px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.04)"
+                            background: "hsl(222 15% 28%)",
+                            border: "1px solid hsl(222 12% 36%)",
+                            boxShadow: "0 2px 4px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.06)"
                           }}
                           data-testid="division-emoji-bar"
                         >
@@ -478,13 +478,13 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                                     onClick={() => handleContextSelectDivision(divId)}
                                     className={`w-6 h-6 rounded-full flex items-center justify-center text-sm transition-all ${
                                       isActiveDivision
-                                        ? "ring-2 ring-zinc-400 bg-zinc-500/20"
-                                        : "hover:bg-zinc-500/15"
+                                        ? "ring-2 ring-zinc-400 bg-zinc-400/20"
+                                        : "hover:bg-zinc-400/15"
                                     }`}
                                     data-testid={`division-emoji-${divId}`}
                                   >
                                     {divEmoji || (
-                                      <span className="text-[8px] font-bold text-zinc-400">
+                                      <span className="text-[8px] font-bold text-zinc-300">
                                         {(cd.division?.code || cd.code || divName).slice(0, 2).toUpperCase()}
                                       </span>
                                     )}
@@ -503,21 +503,21 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                               onClick={openDivisionSelector}
                               className="flex items-center gap-1.5 px-2.5 h-7 rounded-full transition-all hover:brightness-110 cursor-pointer"
                               style={{
-                                background: "hsl(220 10% 19%)",
-                                border: "1px solid hsl(220 10% 28%)",
-                                boxShadow: "0 1px 3px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.04)"
+                                background: "hsl(222 15% 28%)",
+                                border: "1px solid hsl(222 12% 36%)",
+                                boxShadow: "0 2px 4px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.06)"
                               }}
                               data-testid="button-division-switcher"
                             >
                               {activeDivEmoji ? (
                                 <span className="text-sm">{activeDivEmoji}</span>
                               ) : (
-                                <Layers className="w-3.5 h-3.5 text-muted-foreground flex-shrink-0" />
+                                <Layers className="w-3.5 h-3.5 text-zinc-400 flex-shrink-0" />
                               )}
-                              <span className="text-[11px] font-medium truncate max-w-[120px] text-zinc-300">
+                              <span className="text-[11px] font-medium truncate max-w-[120px] text-zinc-200">
                                 {activeDivName || "Divízie"}
                               </span>
-                              <ChevronDown className="w-3 h-3 text-zinc-500 flex-shrink-0" />
+                              <ChevronDown className="w-3 h-3 text-zinc-400 flex-shrink-0" />
                             </button>
                           </TooltipTrigger>
                           <TooltipContent>Zmeniť divíziu</TooltipContent>
