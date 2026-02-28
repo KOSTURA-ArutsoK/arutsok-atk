@@ -386,13 +386,13 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               const hasDivisions = activeDivisions && activeDivisions.length > 0 && !isClientUser;
 
               return (
-                <div className="flex items-center gap-1.5 border border-indigo-500/30 dark:border-indigo-400/25 rounded-full bg-indigo-500/8 dark:bg-indigo-400/6 h-9 px-1.5 shadow-sm shadow-indigo-500/10" data-testid="holding-context-bubble">
+                <div className="flex items-center gap-1.5 border border-indigo-500/30 dark:border-indigo-400/20 rounded-full bg-muted/60 dark:bg-muted/35 h-9 px-1.5 shadow-md shadow-black/15 dark:shadow-black/30" data-testid="holding-context-bubble">
                   <Tooltip>
                     <TooltipTrigger asChild>
                       <button
                         type="button"
                         onClick={canSwitch ? openStateSelector : undefined}
-                        className={`flex items-center gap-1.5 px-2.5 h-7 rounded-full border border-emerald-500/30 dark:border-emerald-400/25 bg-emerald-500/10 dark:bg-emerald-400/8 transition-colors ${canSwitch ? "hover:bg-emerald-500/20 dark:hover:bg-emerald-400/15 cursor-pointer" : "cursor-default"}`}
+                        className={`flex items-center gap-1.5 px-2.5 h-7 rounded-full border border-emerald-500/30 dark:border-emerald-400/25 bg-emerald-500/10 dark:bg-emerald-400/8 shadow-sm shadow-emerald-500/15 dark:shadow-emerald-400/10 transition-colors ${canSwitch ? "hover:bg-emerald-500/20 dark:hover:bg-emerald-400/15 cursor-pointer" : "cursor-default"}`}
                         data-testid="button-state-switcher"
                       >
                         {activeState?.flagUrl ? (
@@ -418,7 +418,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                       <button
                         type="button"
                         onClick={canSwitch ? openCompanySelector : undefined}
-                        className={`flex items-center gap-1.5 px-2.5 h-7 rounded-full border border-amber-500/30 dark:border-amber-400/25 bg-amber-500/10 dark:bg-amber-400/8 transition-colors ${canSwitch ? "hover:bg-amber-500/20 dark:hover:bg-amber-400/15 cursor-pointer" : "cursor-default"}`}
+                        className={`flex items-center gap-1.5 px-2.5 h-7 rounded-full border border-amber-500/30 dark:border-amber-400/25 bg-amber-500/10 dark:bg-amber-400/8 shadow-sm shadow-amber-500/15 dark:shadow-amber-400/10 transition-colors ${canSwitch ? "hover:bg-amber-500/20 dark:hover:bg-amber-400/15 cursor-pointer" : "cursor-default"}`}
                         data-testid="button-company-switcher"
                       >
                         <Building2 className="w-3.5 h-3.5 text-muted-foreground flex-shrink-0" />
@@ -438,24 +438,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                   {hasDivisions && (
                     <>
                       {activeDivisions!.length <= 5 ? (
-                        <div className="flex items-center gap-0.5 h-7 px-1 rounded-full border border-violet-500/30 dark:border-violet-400/25 bg-violet-500/10 dark:bg-violet-400/8" data-testid="division-emoji-bar">
-                          <Tooltip>
-                            <TooltipTrigger asChild>
-                              <button
-                                type="button"
-                                onClick={() => handleContextSelectDivision(null)}
-                                className={`w-6 h-6 rounded-full flex items-center justify-center text-sm transition-all ${
-                                  !activeDivisionId
-                                    ? "ring-2 ring-primary bg-primary/10"
-                                    : "hover:bg-muted/50"
-                                }`}
-                                data-testid="division-emoji-all"
-                              >
-                                <LayoutGrid className="w-3 h-3 text-muted-foreground" />
-                              </button>
-                            </TooltipTrigger>
-                            <TooltipContent>Všetky divízie</TooltipContent>
-                          </Tooltip>
+                        <div className="flex items-center gap-0.5 h-7 px-1 rounded-full border border-violet-500/30 dark:border-violet-400/25 bg-violet-500/10 dark:bg-violet-400/8 shadow-sm shadow-violet-500/15 dark:shadow-violet-400/10" data-testid="division-emoji-bar">
                           {activeDivisions!.map((cd: any) => {
                             const divId = cd.divisionId || cd.division?.id;
                             const divName = cd.division?.name || cd.name || "Divízia";
@@ -492,7 +475,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                             <button
                               type="button"
                               onClick={openDivisionSelector}
-                              className="flex items-center gap-1.5 px-2.5 h-7 rounded-full border border-violet-500/30 dark:border-violet-400/25 bg-violet-500/10 dark:bg-violet-400/8 transition-colors hover:bg-violet-500/20 dark:hover:bg-violet-400/15 cursor-pointer"
+                              className="flex items-center gap-1.5 px-2.5 h-7 rounded-full border border-violet-500/30 dark:border-violet-400/25 bg-violet-500/10 dark:bg-violet-400/8 shadow-sm shadow-violet-500/15 dark:shadow-violet-400/10 transition-colors hover:bg-violet-500/20 dark:hover:bg-violet-400/15 cursor-pointer"
                               data-testid="button-division-switcher"
                             >
                               {activeDivEmoji ? (
