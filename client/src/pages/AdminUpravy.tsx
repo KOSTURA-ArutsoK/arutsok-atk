@@ -35,11 +35,12 @@ function formatDate(d: string | null | undefined): string {
 function ContractsSection() {
   const [search, setSearch] = useState("");
 
-  const { data: contracts, isLoading } = useQuery<any[]>({
+  const { data: contractsRaw, isLoading } = useQuery<any>({
     queryKey: ["/api/contracts"],
   });
 
-  const filtered = (contracts || []).filter((c: any) => {
+  const contractsList: any[] = Array.isArray(contractsRaw) ? contractsRaw : (contractsRaw?.data || contractsRaw?.contracts || []);
+  const filtered = contractsList.filter((c: any) => {
     if (!search.trim()) return true;
     const q = search.toLowerCase();
     return (
