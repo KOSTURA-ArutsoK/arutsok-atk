@@ -376,6 +376,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           <header className="h-14 border-b border-border bg-card flex items-center px-3 gap-2 flex-shrink-0">
             <SidebarTrigger data-testid="button-sidebar-toggle" />
 
+            <div className="flex-1" />
+
             {(() => {
               const sentinelLevel = appUser?.sentinelLevel ?? appUser?.securityLevel ?? 4;
               const canSwitch = sentinelLevel >= 7 && sentinelLevel !== 9;
@@ -384,13 +386,13 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               const hasDivisions = activeDivisions && activeDivisions.length > 0 && !isClientUser;
 
               return (
-                <div className="flex items-center gap-1.5 border border-border/50 rounded-full bg-muted/15 dark:bg-muted/10 h-9 px-1.5" data-testid="holding-context-bubble">
+                <div className="flex items-center gap-1.5 border border-indigo-500/30 dark:border-indigo-400/25 rounded-full bg-indigo-500/8 dark:bg-indigo-400/6 h-9 px-1.5 shadow-sm shadow-indigo-500/10" data-testid="holding-context-bubble">
                   <Tooltip>
                     <TooltipTrigger asChild>
                       <button
                         type="button"
                         onClick={canSwitch ? openStateSelector : undefined}
-                        className={`flex items-center gap-1.5 px-2.5 h-7 rounded-full border border-border/40 bg-muted/40 dark:bg-muted/25 transition-colors ${canSwitch ? "hover:bg-muted/70 dark:hover:bg-muted/40 cursor-pointer" : "cursor-default"}`}
+                        className={`flex items-center gap-1.5 px-2.5 h-7 rounded-full border border-emerald-500/30 dark:border-emerald-400/25 bg-emerald-500/10 dark:bg-emerald-400/8 transition-colors ${canSwitch ? "hover:bg-emerald-500/20 dark:hover:bg-emerald-400/15 cursor-pointer" : "cursor-default"}`}
                         data-testid="button-state-switcher"
                       >
                         {activeState?.flagUrl ? (
@@ -416,7 +418,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                       <button
                         type="button"
                         onClick={canSwitch ? openCompanySelector : undefined}
-                        className={`flex items-center gap-1.5 px-2.5 h-7 rounded-full border border-border/40 bg-background/60 dark:bg-background/20 transition-colors ${canSwitch ? "hover:bg-muted/50 dark:hover:bg-muted/30 cursor-pointer" : "cursor-default"}`}
+                        className={`flex items-center gap-1.5 px-2.5 h-7 rounded-full border border-amber-500/30 dark:border-amber-400/25 bg-amber-500/10 dark:bg-amber-400/8 transition-colors ${canSwitch ? "hover:bg-amber-500/20 dark:hover:bg-amber-400/15 cursor-pointer" : "cursor-default"}`}
                         data-testid="button-company-switcher"
                       >
                         <Building2 className="w-3.5 h-3.5 text-muted-foreground flex-shrink-0" />
@@ -436,7 +438,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                   {hasDivisions && (
                     <>
                       {activeDivisions!.length <= 5 ? (
-                        <div className="flex items-center gap-0.5 h-7 px-1 rounded-full border border-border/40 bg-background/40 dark:bg-background/15" data-testid="division-emoji-bar">
+                        <div className="flex items-center gap-0.5 h-7 px-1 rounded-full border border-violet-500/30 dark:border-violet-400/25 bg-violet-500/10 dark:bg-violet-400/8" data-testid="division-emoji-bar">
                           <Tooltip>
                             <TooltipTrigger asChild>
                               <button
@@ -490,7 +492,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                             <button
                               type="button"
                               onClick={openDivisionSelector}
-                              className="flex items-center gap-1.5 px-2.5 h-7 rounded-full border border-border/40 bg-background/40 dark:bg-background/15 transition-colors hover:bg-muted/50 dark:hover:bg-muted/30 cursor-pointer"
+                              className="flex items-center gap-1.5 px-2.5 h-7 rounded-full border border-violet-500/30 dark:border-violet-400/25 bg-violet-500/10 dark:bg-violet-400/8 transition-colors hover:bg-violet-500/20 dark:hover:bg-violet-400/15 cursor-pointer"
                               data-testid="button-division-switcher"
                             >
                               {activeDivEmoji ? (
