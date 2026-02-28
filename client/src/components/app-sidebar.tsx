@@ -419,8 +419,8 @@ export function AppSidebar() {
                 label="Sektory"
                 icon={LayoutGrid}
                 items={[
-                  { href: "/sektory-zmluv", icon: FileText, label: "Sektory Zmlúv", moduleBadge: "A" },
-                  { href: "/sektory-subjektov", icon: Database, label: "Sektory Subjektov", moduleBadge: "B" },
+                  { href: "/sektory-zmluv", icon: FileText, label: "Import & Identita", moduleBadge: "A" },
+                  { href: "/sektory-subjektov", icon: Database, label: "OCR & Digitalizácia", moduleBadge: "B" },
                   { href: "/profil-subjektu", icon: Users, label: "Profil subjektu", moduleBadge: "C" },
                 ]}
                 location={location}
@@ -622,15 +622,16 @@ export function AppSidebar() {
                 openMenuId={openMenuId}
                 setOpenMenuId={setOpenMenuId}
               />
-              {(appUser?.role === 'admin' || appUser?.role === 'superadmin') && (
+              {(appUser?.role === 'admin' || appUser?.role === 'superadmin' || (appUser?.sentinelLevel ?? 0) >= 5) && (
                 <SidebarMenuItem>
-                  <Link href="/analytika">
+                  <Link href="/admin-upravy">
                     <SidebarMenuButton
-                      isActive={location === "/analytika"}
-                      data-testid="nav-analytika"
+                      isActive={location === "/admin-upravy"}
+                      data-testid="nav-admin-upravy"
                     >
                       <BarChart3 className="w-4 h-4" />
-                      <span>Analytika a Reporty</span>
+                      <span>Administrácia & Úpravy</span>
+                      <Badge variant="outline" className="text-[8px] px-1 py-0 border-primary/30 text-primary ml-1">D</Badge>
                     </SidebarMenuButton>
                   </Link>
                 </SidebarMenuItem>

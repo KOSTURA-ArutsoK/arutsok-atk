@@ -23,7 +23,14 @@ The system employs a modern full-stack architecture emphasizing data integrity, 
 - **Role-Based Access Control (RBAC)**: Granular permissions are controlled through `permission_groups`.
 - **UI/UX & Interaction**: Includes a Holding Context Bubble (unified header selector), dynamic dialog sizing, smart filter bar, row-click navigation, Tiptap rich text editing, dual document management, drag & drop reordering, consistent status indicators, and Web Speech API integration.
 - **Security & Workflow**: Features a two-phase idle timeout with auto-logout, an archive module with password-protected restore, and a processing time protocol.
-- **Module A/B Architecture**: Module A (Contract Management) follows a SEKTOR→ODVETVIE→PRODUKT→PRIEČINOK→PANEL→PARAMETER hierarchy. Module B (Subject Management) provides an aggregated client view with data provenance.
+- **4-Module Architecture (Kostura OS)**:
+  - Module A: Import & Identita (klienti, kódy, SEKTOR→ODVETVIE→PRODUKT→PRIEČINOK→PANEL→PARAMETER hierarchy)
+  - Module B: OCR & Digitalizácia (skenovanie 13k zmlúv, subject sectors)
+  - Module C: Holding Dashboard (KPI, GWP, cross-sell, divízna výkonnosť, DB status Bratislava)
+  - Module D: Administrácia & Úpravy (manuálne editovanie zmlúv, správa synonym, AI 5× pravidlo)
+- **Sensitive Field Audit**: Every access to subject detail (birthNumber, idCardNumber, iban, email, phone) creates an audit log entry with action `sensitive_field_access`.
+- **Global Field Versioning**: All field changes on subjects and contracts are automatically diffed and recorded in `subject_field_history` / `contract_parameter_value_history`.
+- **DB Status Endpoint**: `GET /api/system/db-status` returns connection info (host, database, label: "Bratislava").
 - **Dynamic Parameter System (EAV Architecture)**: A 4-level hierarchy (Sectors → Sections → Products → Parameters) allows dynamic configuration of contract fields and form generation, supported by AI synonym mapping.
 - **Commission Brain & Calculation Engine**: Manages `commission_rates` with temporal validity and supports various calculation types with logging.
 - **Settlement Sheets Module**: Handles settlement sheets and contracts, including locking mechanisms and status workflows.

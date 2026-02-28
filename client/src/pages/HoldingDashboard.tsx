@@ -12,13 +12,20 @@ import { apiRequest } from "@/lib/queryClient";
 import {
   Loader2, Users, FileText, TrendingUp, AlertTriangle, ShieldAlert,
   Download, FileSpreadsheet, ArrowRightLeft, Globe, Building,
-  BarChart3, Lock,
+  BarChart3, Lock, Server,
 } from "lucide-react";
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as ReTooltip,
   ResponsiveContainer, Cell,
 } from "recharts";
 import jsPDF from "jspdf";
+
+interface DbStatusData {
+  host: string;
+  database: string;
+  status: string;
+  label: string;
+}
 
 interface KPIData {
   totalSubjects: number;
@@ -122,6 +129,12 @@ export default function HoldingDashboard() {
     queryKey: ["/api/holding-dashboard/exchange-rate"],
     enabled: canViewHolding,
     refetchInterval: 3600000,
+  });
+
+  const { data: dbStatus } = useQuery<DbStatusData>({
+    queryKey: ["/api/system/db-status"],
+    enabled: canViewHolding,
+    refetchInterval: 30000,
   });
 
   const exportMutation = useMutation({
@@ -277,6 +290,20 @@ export default function HoldingDashboard() {
           <h1 className="text-xl font-bold flex items-center gap-2" data-testid="heading-module-c">
             <BarChart3 className="w-5 h-5" />
             Modul C — Holding Dashboard
+            {dbStatus && (
+              <Badge
+                variant="outline"
+                className={`ml-2 text-[10px] gap-1 ${
+                  dbStatus.status === "connected"
+                    ? "border-emerald-500/50 text-emerald-600 dark:text-emerald-400"
+                    : "border-red-500/50 text-red-600 dark:text-red-400"
+                }`}
+                data-testid="badge-db-status"
+              >
+                <Server className="w-3 h-3" />
+                Server: {dbStatus.label} — {dbStatus.status === "connected" ? "pripojený" : "odpojený"}
+              </Badge>
+            )}
           </h1>
           <p className="text-sm text-muted-foreground mt-0.5">
             Analytický prehľad {kpi?.isHoldingView ? "celého holdingu" : "aktívnej spoločnosti"}

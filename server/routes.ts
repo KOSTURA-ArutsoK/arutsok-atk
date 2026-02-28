@@ -636,6 +636,32 @@ export async function registerRoutes(
     next();
   });
 
+  app.get("/api/system/db-status", isAuthenticated, async (_req: any, res) => {
+    try {
+      const dbUrl = process.env.DATABASE_URL || "";
+      const prodServerIp = process.env.PROD_SERVER_IP || "";
+      let host = "unknown";
+      let database = "unknown";
+      let label = "Bratislava";
+
+      if (prodServerIp) {
+        host = prodServerIp;
+      }
+
+      try {
+        const url = new URL(dbUrl);
+        host = prodServerIp || url.hostname;
+        database = url.pathname.replace(/^\//, "") || "unknown";
+      } catch {}
+
+      await db.execute(sql`SELECT 1`);
+
+      return res.json({ host, database, status: "connected", label });
+    } catch (err: any) {
+      return res.json({ host: "unknown", database: "unknown", status: "disconnected", label: "Bratislava" });
+    }
+  });
+
   app.get("/api/dlp/status", isAuthenticated, async (req: any, res) => {
     const userId = req.appUser?.id;
     if (!userId) return res.json({ blocked: false });
@@ -1932,6 +1958,18 @@ export async function registerRoutes(
       (masked as any).effectiveListStatus = (!subject.redListCompanyId || subject.redListCompanyId === activeCompanyId) ? "cerveny" : null;
     } else {
       (masked as any).effectiveListStatus = null;
+    }
+    const SENSITIVE_FIELDS = ['birthNumber', 'idCardNumber', 'iban', 'email', 'phone'];
+    const hasSensitiveData = SENSITIVE_FIELDS.some(f => (subject as any)[f]);
+    if (hasSensitiveData && req.appUser) {
+      const accessedFields = SENSITIVE_FIELDS.filter(f => (subject as any)[f]);
+      logAudit(req, {
+        action: "sensitive_field_access",
+        module: "subjects",
+        entityId: subjectId,
+        entityName: subject.uid || `Subject #${subjectId}`,
+        newData: { accessedSensitiveFields: accessedFields },
+      }).catch(() => {});
     }
     if (subject.linkedFoId) {
       const linkedFo = await storage.getSubject(subject.linkedFoId);
@@ -5034,13 +5072,56 @@ export async function registerRoutes(
           parameterValues: {},
         });
       }
+      const contractId = Number(req.params.id);
+      const contractDiffFields = [
+        'contractNumber', 'proposalNumber', 'kik', 'subjectId', 'partnerId', 'productId',
+        'statusId', 'templateId', 'inventoryId', 'stateId', 'companyId', 'signingPlace',
+        'contractType', 'paymentFrequency', 'premiumAmount', 'annualPremium', 'commissionAmount',
+        'currency', 'notes', 'klientUid', 'ziskatelUid', 'specialistaUid',
+        'zakonnyZastupcaUid', 'konatelUid', 'szcoUid', 'szcoRodneCislo', 'szcoIco',
+        'identifierType', 'identifierValue',
+      ];
+      const contractChanges: Array<{ fieldKey: string; oldValue: string | null; newValue: string | null }> = [];
+      for (const field of contractDiffFields) {
+        const oldVal = (old as any)[field];
+        const newVal = (input as any)[field];
+        if (newVal !== undefined && String(oldVal ?? '') !== String(newVal ?? '')) {
+          contractChanges.push({
+            fieldKey: field,
+            oldValue: oldVal != null ? String(oldVal) : null,
+            newValue: newVal != null ? String(newVal) : null,
+          });
+        }
+      }
+
+      if (contractChanges.length > 0 && old.subjectId) {
+        try {
+          const appUser = req.appUser;
+          const userName = appUser ? [appUser.firstName, appUser.lastName].filter(Boolean).join(' ') || appUser.username || 'Neznámy' : 'Systém';
+          const historyEntries = contractChanges.map(change => ({
+            subjectId: old.subjectId!,
+            fieldKey: `contract.${change.fieldKey}`,
+            fieldSource: 'contract' as const,
+            oldValue: change.oldValue,
+            newValue: change.newValue,
+            changedByUserId: appUser?.id ?? null,
+            changedByName: userName,
+            changeReason: criticalFieldJustification || null,
+            changeContext: `contract_${contractId}`,
+          }));
+          await db.insert(subjectFieldHistory).values(historyEntries);
+        } catch (e) {
+          console.error("[CONTRACT FIELD HISTORY] Error:", e);
+        }
+      }
+
       const auditNewData = criticalFieldJustification
         ? { ...input, _criticalFieldJustification: criticalFieldJustification }
         : input;
       const auditEntityName = criticalFieldJustification
         ? `Zmena kritických údajov - Odôvodnenie: ${criticalFieldJustification}`
         : undefined;
-      await logAudit(req, { action: "UPDATE", module: "zmluvy", entityId: Number(req.params.id), oldData: old, newData: auditNewData, entityName: auditEntityName });
+      await logAudit(req, { action: "UPDATE", module: "zmluvy", entityId: contractId, oldData: old, newData: auditNewData, entityName: auditEntityName });
       res.json(updated);
     } catch (err) {
       if (err instanceof z.ZodError) return res.status(400).json({ message: err.errors[0].message });
@@ -8415,6 +8496,14 @@ export async function registerRoutes(
         }
       }
 
+      const SENSITIVE_AUDIT_FIELDS = ['birthNumber', 'idCardNumber', 'iban', 'email', 'phone'];
+      const sensitiveChanges: Record<string, { old: any; new: any }> = {};
+      for (const field of SENSITIVE_AUDIT_FIELDS) {
+        if (updates[field] !== undefined && String((existing as any)[field] ?? '') !== String(updates[field] ?? '')) {
+          sensitiveChanges[field] = { old: (existing as any)[field], new: updates[field] };
+        }
+      }
+
       await logAudit(req, {
         action: "UPDATE",
         module: "subjects",
@@ -8423,6 +8512,18 @@ export async function registerRoutes(
         oldData: existing,
         newData: updated,
       });
+
+      if (Object.keys(sensitiveChanges).length > 0) {
+        logAudit(req, {
+          action: "sensitive_field_change",
+          module: "subjects",
+          entityId: subjectId,
+          entityName: existing.uid || `Subject #${subjectId}`,
+          oldData: Object.fromEntries(Object.entries(sensitiveChanges).map(([k, v]) => [k, v.old])),
+          newData: Object.fromEntries(Object.entries(sensitiveChanges).map(([k, v]) => [k, v.new])),
+        }).catch(() => {});
+      }
+
       res.json(updated);
     } catch (err: any) {
       res.status(500).json({ message: err.message });
@@ -14938,7 +15039,170 @@ export async function registerRoutes(
     }
   }, 24 * 60 * 60 * 1000);
 
+  app.post("/api/seed/test-contracts", isAuthenticated, async (req: any, res) => {
+    if (req.user?.role !== 'admin' && req.user?.role !== 'superadmin') {
+      return res.status(403).json({ message: "Prístup zamietnutý" });
+    }
+    try {
+      const result = await seedTestContracts();
+      res.json(result);
+    } catch (err: any) {
+      console.error("[SEED TEST CONTRACTS ERROR]", err);
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  if (process.env.NODE_ENV === 'development') {
+    seedTestContracts().catch(err => console.error("[AUTO-SEED TEST CONTRACTS ERROR]", err));
+  }
+
   return httpServer;
+}
+
+async function seedTestContracts() {
+  const existingContracts = await db.select({ id: contracts.id }).from(contracts).where(eq(contracts.isDeleted, false)).limit(5);
+  if (existingContracts.length >= 5) {
+    return { message: "Už existuje 5+ zmlúv, seed preskočený", count: existingContracts.length };
+  }
+
+  const allSubjects = await db.select().from(subjects).limit(10);
+  const allPartners = await db.select().from(partners).where(eq(partners.isDeleted, false)).limit(10);
+  const allProducts = await db.select().from(products).where(eq(products.isDeleted, false)).limit(10);
+  const allStatuses = await db.select().from(contractStatuses).limit(10);
+  const allCompanies = await db.select().from(myCompanies).where(eq(myCompanies.isDeleted, false)).limit(5);
+
+  const subjectId = allSubjects.length > 0 ? allSubjects[0].id : null;
+  const subjectId2 = allSubjects.length > 1 ? allSubjects[1].id : subjectId;
+  const subjectId3 = allSubjects.length > 2 ? allSubjects[2].id : subjectId;
+  const partnerId = allPartners.length > 0 ? allPartners[0].id : null;
+  const partnerId2 = allPartners.length > 1 ? allPartners[1].id : partnerId;
+  const productId = allProducts.length > 0 ? allProducts[0].id : null;
+  const productId2 = allProducts.length > 1 ? allProducts[1].id : productId;
+  const statusId = allStatuses.length > 0 ? allStatuses[0].id : null;
+  const statusId2 = allStatuses.length > 1 ? allStatuses[1].id : statusId;
+  const companyId = allCompanies.length > 0 ? allCompanies[0].id : null;
+
+  const now = new Date();
+  const daysMs = 24 * 60 * 60 * 1000;
+
+  const testContracts = [
+    {
+      contractNumber: "TST-2025-001",
+      proposalNumber: "NAV-001",
+      subjectId,
+      partnerId,
+      productId,
+      statusId,
+      companyId,
+      contractType: "Nova",
+      paymentFrequency: "mesačne",
+      signedDate: new Date(now.getTime() - 365 * daysMs),
+      effectiveDate: new Date(now.getTime() - 360 * daysMs),
+      expiryDate: new Date(now.getTime() + 60 * daysMs),
+      premiumAmount: 15000,
+      annualPremium: 18000,
+      commissionAmount: 2500,
+      currency: "EUR",
+      notes: "Testovacia zmluva - blížiaca sa expirácia (60 dní)",
+      lifecyclePhase: 5,
+      isDeleted: false,
+    },
+    {
+      contractNumber: "TST-2025-002",
+      proposalNumber: "NAV-002",
+      subjectId: subjectId2,
+      partnerId: partnerId2,
+      productId: productId2,
+      statusId: statusId2,
+      companyId,
+      contractType: "Nova",
+      paymentFrequency: "štvrťročne",
+      signedDate: new Date(now.getTime() - 400 * daysMs),
+      effectiveDate: new Date(now.getTime() - 395 * daysMs),
+      expiryDate: new Date(now.getTime() + 30 * daysMs),
+      premiumAmount: 25000,
+      annualPremium: 30000,
+      commissionAmount: 4000,
+      currency: "EUR",
+      notes: "Testovacia zmluva - blížiaca sa expirácia (30 dní)",
+      lifecyclePhase: 6,
+      isDeleted: false,
+    },
+    {
+      contractNumber: "TST-2025-003",
+      proposalNumber: "NAV-003",
+      subjectId: subjectId3,
+      partnerId,
+      productId,
+      statusId,
+      companyId,
+      contractType: "Nova",
+      paymentFrequency: "ročne",
+      signedDate: new Date(now.getTime() - 730 * daysMs),
+      effectiveDate: new Date(now.getTime() - 725 * daysMs),
+      expiryDate: new Date(now.getTime() - 45 * daysMs),
+      premiumAmount: 50000,
+      annualPremium: 50000,
+      commissionAmount: 7500,
+      currency: "EUR",
+      notes: "Testovacia zmluva - expirovaná",
+      lifecyclePhase: 10,
+      isDeleted: false,
+    },
+    {
+      contractNumber: "TST-2025-004",
+      proposalNumber: "NAV-004",
+      subjectId,
+      partnerId: partnerId2,
+      productId: productId2,
+      statusId: statusId2,
+      companyId,
+      contractType: "Nova",
+      paymentFrequency: "mesačne",
+      signedDate: new Date(now.getTime() - 180 * daysMs),
+      effectiveDate: new Date(now.getTime() - 175 * daysMs),
+      expiryDate: new Date(now.getTime() + 550 * daysMs),
+      premiumAmount: 12000,
+      annualPremium: 14400,
+      commissionAmount: 1800,
+      currency: "EUR",
+      notes: "Testovacia zmluva - aktívna",
+      lifecyclePhase: 5,
+      isDeleted: false,
+    },
+    {
+      contractNumber: "TST-2025-005",
+      proposalNumber: "NAV-005",
+      subjectId: subjectId2,
+      partnerId,
+      productId,
+      statusId,
+      companyId,
+      contractType: "Nova",
+      paymentFrequency: "polročne",
+      signedDate: new Date(now.getTime() - 90 * daysMs),
+      effectiveDate: new Date(now.getTime() - 85 * daysMs),
+      expiryDate: new Date(now.getTime() + 1000 * daysMs),
+      premiumAmount: 35000,
+      annualPremium: 42000,
+      commissionAmount: 5200,
+      currency: "EUR",
+      notes: "Testovacia zmluva - aktívna",
+      lifecyclePhase: 5,
+      isDeleted: false,
+    },
+  ];
+
+  const inserted = [];
+  for (const c of testContracts) {
+    const existing = await db.select({ id: contracts.id }).from(contracts).where(eq(contracts.contractNumber, c.contractNumber!)).limit(1);
+    if (existing.length > 0) continue;
+    const [row] = await db.insert(contracts).values(c as any).returning();
+    inserted.push(row);
+  }
+
+  console.log(`[SEED] Vytvorených ${inserted.length} testovacích zmlúv`);
+  return { message: `Vytvorených ${inserted.length} testovacích zmlúv`, count: inserted.length, ids: inserted.map(r => r.id) };
 }
 
 async function refreshDocumentStatuses(): Promise<number> {
