@@ -44,7 +44,7 @@ The system employs a modern full-stack architecture emphasizing data integrity, 
 - **90-Day Date Semaphore**: A utility that highlights expired dates in red and upcoming dates (≤90 days) in orange for contract expiry and key subject date fields.
 - **Contract Parameter Versioning (`Stroj času`)**: Tracks all changes to contract parameter values, allowing history viewing and restoration.
 - **Holding Structure**: A unified ID system with dynamic country prefixes, extended `states` table, and `divisions` table for holding divisions, each with an `emoji` for visual identification.
-- **Context Selector Overlay**: Responsive grid layout (2-5 columns) with fixed header for state/company/division selection. Scrollable area with `max-h-[60vh]`.
+- **Context Selector Overlay**: Full-screen blurred backdrop (no popup box) on all 3 steps. State: circular flags with sky-blue ring borders, centered row. Company: back arrow+text top-left, state flag centered, logos in rounded-xl squares. Division: back arrow+text top-left, emoji in rounded-xl squares. No X button, no "Všetky divízie". Backdrop click closes.
 - **Dashboard & Analytics**: Customizable overview with drag-and-drop widgets, KPI cards, dynamic filters, charts, and PDF summaries. Holding Dashboard for admin-only analytics with cross-sell and division performance heatmaps.
 
 ## Important Technical Notes

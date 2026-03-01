@@ -1,7 +1,6 @@
 import { useState, useEffect } from "react";
 import { createPortal } from "react-dom";
 import { Building2, ArrowLeft, Layers } from "lucide-react";
-import { Button } from "@/components/ui/button";
 import type { MyCompany, LogoEntry } from "@shared/schema";
 
 type StateItem = { id: number; name: string; code: string; flagUrl: string | null; continentId: number };
@@ -127,39 +126,36 @@ export function ContextSelectorOverlay({
       )}
 
       {step === "company" && (
-        <div
-          className="relative z-10 flex flex-col w-[92vw] max-w-4xl bg-card border border-border rounded-lg shadow-2xl"
-          style={{ maxHeight: "80vh" }}
-        >
-          <div className="flex flex-col items-center gap-2 px-5 py-5 border-b border-border shrink-0 relative">
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={onBack}
-              data-testid="button-context-back"
-              className="absolute left-3 top-3 h-8 w-8"
-            >
-              <ArrowLeft className="w-4 h-4" />
-            </Button>
-            {selectedState && (
-              <div className="rounded-full p-1 border-2 border-sky-400/30">
-                <StateFlagImage
-                  src={selectedState.flagUrl}
-                  alt={selectedState.name}
-                  code={selectedState.code}
-                  className="w-14 h-14 object-cover rounded-full"
-                />
-              </div>
-            )}
-            <h2 className="text-base font-bold text-foreground tracking-tight text-center" data-testid="text-context-title">
+        <div className="relative z-10 flex flex-col items-center gap-6 max-w-4xl w-full px-6" style={{ maxHeight: "90vh" }}>
+          <button
+            onClick={onBack}
+            data-testid="button-context-back"
+            className="fixed left-6 top-6 z-20 flex items-center gap-2 text-white/70 hover:text-white transition-colors cursor-pointer"
+          >
+            <ArrowLeft className="w-5 h-5" />
+            <span className="text-sm font-medium">Späť na výber štátu</span>
+          </button>
+
+          {selectedState && (
+            <div className="rounded-full p-1.5 border-2 border-sky-400/30">
+              <StateFlagImage
+                src={selectedState.flagUrl}
+                alt={selectedState.name}
+                code={selectedState.code}
+                className="w-16 h-16 object-cover rounded-full"
+              />
+            </div>
+          )}
+          <div className="flex flex-col items-center gap-1">
+            <h2 className="text-xl font-bold text-white tracking-tight text-center" data-testid="text-context-title">
               {selectedState?.name || "Štát"}
             </h2>
-            <p className="text-xs text-muted-foreground text-center">Zvoľte spoločnosť</p>
+            <p className="text-sm text-white/60 text-center">Zvoľte spoločnosť</p>
           </div>
 
-          <div className="overflow-y-auto flex-1 p-6" style={{ maxHeight: "calc(80vh - 120px)" }}>
+          <div className="overflow-y-auto w-full max-w-3xl" style={{ maxHeight: "calc(90vh - 200px)" }}>
             {filteredCompanies.length > 0 ? (
-              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+              <div className="flex flex-wrap items-start justify-center gap-6">
                 {[...filteredCompanies].sort((a, b) => a.name.localeCompare(b.name, "sk")).map(c => {
                   const logoUrl = getPrimaryLogo(c.logos as LogoEntry[] | null);
                   return (
@@ -167,33 +163,30 @@ export function ContextSelectorOverlay({
                       key={c.id}
                       type="button"
                       onClick={() => onSelectCompany(c.id)}
-                      className="flex flex-col items-center gap-3 p-4 rounded-lg border border-border bg-background transition-all duration-200 hover:border-primary hover:shadow-lg hover:shadow-primary/20 hover:scale-[1.02] group"
+                      className="flex flex-col items-center gap-3 group cursor-pointer w-28"
                       data-testid={`context-company-${c.id}`}
                     >
-                      <div className="w-14 h-14 rounded-xl bg-muted flex items-center justify-center overflow-hidden">
+                      <div className="w-16 h-16 rounded-xl bg-white/10 border border-white/20 flex items-center justify-center overflow-hidden transition-all duration-200 group-hover:border-sky-400 group-hover:shadow-lg group-hover:shadow-sky-400/30 group-hover:scale-105">
                         {logoUrl ? (
-                          <img src={logoUrl} alt={c.name} className="w-full h-full object-contain p-1" />
+                          <img src={logoUrl} alt={c.name} className="w-full h-full object-contain p-1.5" />
                         ) : (
-                          <Building2 className="w-7 h-7 text-muted-foreground" />
+                          <Building2 className="w-7 h-7 text-white/50" />
                         )}
                       </div>
-                      <span className="text-sm font-medium text-foreground text-center leading-tight group-hover:text-primary transition-colors">
+                      <span className="text-sm font-medium text-white/80 group-hover:text-white transition-colors text-center leading-tight">
                         {c.name}
                       </span>
                       {c.specialization && (
-                        <span className="text-[10px] text-muted-foreground text-center">{c.specialization}</span>
+                        <span className="text-[10px] text-white/40 text-center">{c.specialization}</span>
                       )}
                     </button>
                   );
                 })}
               </div>
             ) : (
-              <div className="flex flex-col items-center gap-2 py-8">
-                <Building2 className="w-8 h-8 text-muted-foreground" />
-                <p className="text-muted-foreground text-sm">Žiadne spoločnosti pre tento štát</p>
-                <Button variant="outline" size="sm" onClick={onBack} data-testid="button-context-back-empty">
-                  Zmeniť štát
-                </Button>
+              <div className="flex flex-col items-center gap-3 py-8">
+                <Building2 className="w-8 h-8 text-white/40" />
+                <p className="text-white/60 text-sm">Žiadne spoločnosti pre tento štát</p>
               </div>
             )}
           </div>
@@ -201,28 +194,25 @@ export function ContextSelectorOverlay({
       )}
 
       {step === "division" && (
-        <div
-          className="relative z-10 flex flex-col w-[92vw] max-w-4xl bg-card border border-border rounded-lg shadow-2xl"
-          style={{ maxHeight: "80vh" }}
-        >
-          <div className="flex flex-col items-center gap-1 px-5 py-5 border-b border-border shrink-0 relative">
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={onBack}
-              data-testid="button-context-back"
-              className="absolute left-3 top-3 h-8 w-8"
-            >
-              <ArrowLeft className="w-4 h-4" />
-            </Button>
-            <h2 className="text-base font-bold text-foreground tracking-tight text-center" data-testid="text-context-title">
+        <div className="relative z-10 flex flex-col items-center gap-6 max-w-4xl w-full px-6" style={{ maxHeight: "90vh" }}>
+          <button
+            onClick={onBack}
+            data-testid="button-context-back"
+            className="fixed left-6 top-6 z-20 flex items-center gap-2 text-white/70 hover:text-white transition-colors cursor-pointer"
+          >
+            <ArrowLeft className="w-5 h-5" />
+            <span className="text-sm font-medium">Späť na výber spoločnosti</span>
+          </button>
+
+          <div className="flex flex-col items-center gap-1">
+            <h2 className="text-xl font-bold text-white tracking-tight text-center" data-testid="text-context-title">
               {selectedCompany?.name || "Spoločnosť"}
             </h2>
-            <p className="text-xs text-muted-foreground text-center">Zvoľte divíziu</p>
+            <p className="text-sm text-white/60 text-center">Zvoľte divíziu</p>
           </div>
 
-          <div className="overflow-y-auto flex-1 p-6" style={{ maxHeight: "calc(80vh - 90px)" }}>
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+          <div className="overflow-y-auto w-full max-w-3xl" style={{ maxHeight: "calc(90vh - 140px)" }}>
+            <div className="flex flex-wrap items-start justify-center gap-6">
               {companyDivisions.map(cd => {
                 const divId = cd.divisionId || cd.division?.id;
                 const divName = cd.division?.name || cd.name || "Divízia";
@@ -232,17 +222,17 @@ export function ContextSelectorOverlay({
                     key={divId}
                     type="button"
                     onClick={() => onSelectDivision(divId)}
-                    className="flex flex-col items-center gap-3 p-4 rounded-lg border border-border bg-background transition-all duration-200 hover:border-primary hover:shadow-lg hover:shadow-primary/20 hover:scale-[1.02] group"
+                    className="flex flex-col items-center gap-3 group cursor-pointer w-28"
                     data-testid={`context-division-${divId}`}
                   >
-                    <div className="w-14 h-14 rounded-xl bg-muted flex items-center justify-center overflow-hidden">
+                    <div className="w-16 h-16 rounded-xl bg-white/10 border border-white/20 flex items-center justify-center overflow-hidden transition-all duration-200 group-hover:border-sky-400 group-hover:shadow-lg group-hover:shadow-sky-400/30 group-hover:scale-105">
                       {divEmoji ? (
                         <span className="text-2xl">{divEmoji}</span>
                       ) : (
-                        <Layers className="w-7 h-7 text-muted-foreground" />
+                        <Layers className="w-7 h-7 text-white/50" />
                       )}
                     </div>
-                    <span className="text-sm font-medium text-foreground text-center leading-tight group-hover:text-primary transition-colors">
+                    <span className="text-sm font-medium text-white/80 group-hover:text-white transition-colors text-center leading-tight">
                       {divName}
                     </span>
                   </button>
@@ -250,9 +240,9 @@ export function ContextSelectorOverlay({
               })}
             </div>
             {companyDivisions.length === 0 && (
-              <div className="flex flex-col items-center gap-2 py-8">
-                <Layers className="w-8 h-8 text-muted-foreground" />
-                <p className="text-muted-foreground text-sm">Žiadne divízie pre túto spoločnosť</p>
+              <div className="flex flex-col items-center gap-3 py-8">
+                <Layers className="w-8 h-8 text-white/40" />
+                <p className="text-white/60 text-sm">Žiadne divízie pre túto spoločnosť</p>
               </div>
             )}
           </div>
