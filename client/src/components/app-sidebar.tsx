@@ -475,21 +475,6 @@ export function AppSidebar() {
                   </CollapsibleTrigger>
                   <CollapsibleContent>
                     <SidebarMenuSub className="mx-2 px-2">
-                      {zmluvyFlatItems.map(item => (
-                        <SidebarMenuSubItem key={item.href}>
-                          <SidebarMenuSubButton
-                            asChild
-                            isActive={location === item.href}
-                            data-testid={`nav-${item.label.toLowerCase().replace(/\s/g, '-')}`}
-                          >
-                            <Link href={item.href}>
-                              <item.icon className="w-3.5 h-3.5" />
-                              <span>{item.label}</span>
-                            </Link>
-                          </SidebarMenuSubButton>
-                        </SidebarMenuSubItem>
-                      ))}
-
                       <SidebarMenuSubItem>
                         <Collapsible
                           open={zmluvySubId === "spracovanie"}
@@ -525,6 +510,21 @@ export function AppSidebar() {
                           </CollapsibleContent>
                         </Collapsible>
                       </SidebarMenuSubItem>
+
+                      {zmluvyFlatItems.map(item => (
+                        <SidebarMenuSubItem key={item.href}>
+                          <SidebarMenuSubButton
+                            asChild
+                            isActive={location === item.href}
+                            data-testid={`nav-${item.label.toLowerCase().replace(/\s/g, '-')}`}
+                          >
+                            <Link href={item.href}>
+                              <item.icon className="w-3.5 h-3.5" />
+                              <span>{item.label}</span>
+                            </Link>
+                          </SidebarMenuSubButton>
+                        </SidebarMenuSubItem>
+                      ))}
 
                       <SidebarMenuSubItem>
                         <Collapsible
