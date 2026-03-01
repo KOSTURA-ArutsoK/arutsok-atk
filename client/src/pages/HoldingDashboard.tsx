@@ -12,20 +12,13 @@ import { apiRequest } from "@/lib/queryClient";
 import {
   Loader2, Users, FileText, TrendingUp, AlertTriangle, ShieldAlert,
   Download, FileSpreadsheet, ArrowRightLeft, Globe, Building,
-  BarChart3, Lock, Server,
+  BarChart3, Lock,
 } from "lucide-react";
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as ReTooltip,
   ResponsiveContainer, Cell,
 } from "recharts";
 import jsPDF from "jspdf";
-
-interface DbStatusData {
-  host: string;
-  database: string;
-  status: string;
-  label: string;
-}
 
 interface KPIData {
   totalSubjects: number;
@@ -100,9 +93,9 @@ export default function HoldingDashboard() {
   const [displayCurrency, setDisplayCurrency] = useState<"EUR" | "CZK">("EUR");
   const chartRef = useRef<HTMLDivElement>(null);
 
-  const sentinelLevel = (appUser as any)?.sentinelLevel ?? 0;
-  const canViewHolding = sentinelLevel >= 7 && sentinelLevel !== 9;
-  const canToggleHolding = sentinelLevel >= 8 && sentinelLevel !== 9;
+  const isAdmin = ['admin', 'superadmin', 'prezident', 'architekt'].includes(appUser?.role || '');
+  const canViewHolding = isAdmin;
+  const canToggleHolding = isAdmin;
 
   const queryParams = allCompanies && canToggleHolding ? "?allCompanies=true" : "";
 
@@ -131,11 +124,6 @@ export default function HoldingDashboard() {
     refetchInterval: 3600000,
   });
 
-  const { data: dbStatus } = useQuery<DbStatusData>({
-    queryKey: ["/api/system/db-status"],
-    enabled: canViewHolding,
-    refetchInterval: 30000,
-  });
 
   const exportMutation = useMutation({
     mutationFn: async (params: { exportType: string; reportName: string }) => {
@@ -185,7 +173,7 @@ export default function HoldingDashboard() {
 
     doc.setTextColor(0);
     doc.setFontSize(18);
-    doc.text("Holding Dashboard — Modul C", 10, 20);
+    doc.text("Holding Dashboard", 10, 20);
     doc.setFontSize(10);
     doc.text(`Generované: ${now}`, 10, 28);
     doc.text(`Režim: ${allCompanies ? "Holdingový pohľad" : "Aktívna spoločnosť"}`, 10, 34);
@@ -278,7 +266,7 @@ export default function HoldingDashboard() {
       <div className="flex flex-col items-center justify-center min-h-[400px] gap-4" data-testid="holding-access-denied">
         <Lock className="w-12 h-12 text-muted-foreground" />
         <h2 className="text-lg font-semibold">Prístup zamietnutý</h2>
-        <p className="text-muted-foreground text-sm">Modul C vyžaduje minimálne Sentinel úroveň L7 (Backoffice)</p>
+        <p className="text-muted-foreground text-sm">Prístup len pre administrátorov</p>
       </div>
     );
   }
@@ -287,23 +275,9 @@ export default function HoldingDashboard() {
     <div className="p-4 space-y-6 max-w-[1400px] mx-auto" data-testid="holding-dashboard">
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
-          <h1 className="text-xl font-bold flex items-center gap-2" data-testid="heading-module-c">
+          <h1 className="text-xl font-bold flex items-center gap-2" data-testid="heading-holding-dashboard">
             <BarChart3 className="w-5 h-5" />
-            Modul C — Holding Dashboard
-            {dbStatus && (
-              <Badge
-                variant="outline"
-                className={`ml-2 text-[10px] gap-1 ${
-                  dbStatus.status === "connected"
-                    ? "border-emerald-500/50 text-emerald-600 dark:text-emerald-400"
-                    : "border-red-500/50 text-red-600 dark:text-red-400"
-                }`}
-                data-testid="badge-db-status"
-              >
-                <Server className="w-3 h-3" />
-                Server: {dbStatus.label} — {dbStatus.status === "connected" ? "pripojený" : "odpojený"}
-              </Badge>
-            )}
+            Holding Dashboard
           </h1>
           <p className="text-sm text-muted-foreground mt-0.5">
             Analytický prehľad {kpi?.isHoldingView ? "celého holdingu" : "aktívnej spoločnosti"}

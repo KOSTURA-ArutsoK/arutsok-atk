@@ -5,7 +5,7 @@ import { useMyCompanies } from "@/hooks/use-companies";
 import { useAppUser } from "@/hooks/use-app-user";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import { formatDateSlovak, formatDateTimeSlovak, formatPhone, formatUid, isAuditorReadOnly, canCreateSubjects, canEditRecords } from "@/lib/utils";
+import { formatDateSlovak, formatDateTimeSlovak, formatPhone, formatUid, canCreateSubjects, canEditRecords } from "@/lib/utils";
 import { getDocumentValidityStatus, isValidityField, isNumberFieldWithExpiredPair, type ValidityResult } from "@/lib/document-validity";
 import { useToast } from "@/hooks/use-toast";
 import { Plus, Search, User, Building2, AlertTriangle, Eye, Calendar, Briefcase, ArrowRight, ArrowLeft, ExternalLink, History, Clock, Wallet, Loader2, CheckCircle2, Pencil, Lock, Users, X, Info, Link2, Unlink, Trash2, CreditCard, Archive, Ban, Boxes, Car, Home, Landmark, ChevronRight, ChevronDown, FolderOpen, Tag, Hash, Package, FileText as FileTextIcon, SquareIcon, TrendingDown, Shield, Save } from "lucide-react";
@@ -1739,7 +1739,7 @@ function InitialRegistrationModal({
               <div className="flex items-center gap-2">
                 <AlertTriangle className={`w-4 h-4 flex-shrink-0 ${duplicateInfo?.isBlacklisted ? 'text-red-500' : 'text-destructive'}`} />
                 <span className={`text-sm font-semibold ${duplicateInfo?.isBlacklisted ? 'text-red-500' : 'text-destructive'}`}>
-                  {duplicateInfo?.isBlacklisted ? 'Registráciu nie je možné dokončiť (Sentinel Block)' : 'Klient uz existuje'}
+                  {duplicateInfo?.isBlacklisted ? 'Registráciu nie je možné dokončiť' : 'Klient uz existuje'}
                 </span>
               </div>
               <p className="text-sm text-muted-foreground">

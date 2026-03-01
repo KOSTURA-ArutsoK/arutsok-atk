@@ -91,32 +91,28 @@ export const formatPhone = (phone: string | null | undefined): string => {
   return phone;
 };
 
-export function isAuditorReadOnly(appUser: any): boolean {
+export function isAdmin(appUser: any): boolean {
   if (!appUser) return false;
-  return (appUser.sentinelLevel ?? appUser.securityLevel ?? 0) === 9;
+  return ['admin', 'superadmin', 'prezident', 'architekt'].includes(appUser.role);
 }
 
-export function getSentinelLevel(appUser: any): number {
-  if (!appUser) return 0;
-  return appUser.sentinelLevel ?? appUser.securityLevel ?? 4;
+export function isArchitekt(appUser: any): boolean {
+  if (!appUser) return false;
+  return appUser.role === 'architekt' || appUser.role === 'superadmin' || appUser.role === 'prezident';
 }
 
 export function canCreateRecords(appUser: any): boolean {
-  const level = getSentinelLevel(appUser);
-  return level >= 4 && level !== 9;
+  return !!appUser;
 }
 
 export function canCreateSubjects(appUser: any): boolean {
-  const level = getSentinelLevel(appUser);
-  return level >= 3 && level !== 9;
+  return !!appUser;
 }
 
 export function canDeleteRecords(appUser: any): boolean {
-  const level = getSentinelLevel(appUser);
-  return level >= 7 && level !== 9;
+  return isAdmin(appUser);
 }
 
 export function canEditRecords(appUser: any): boolean {
-  const level = getSentinelLevel(appUser);
-  return level >= 4 && level !== 9;
+  return !!appUser;
 }

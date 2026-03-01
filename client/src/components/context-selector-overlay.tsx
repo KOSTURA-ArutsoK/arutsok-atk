@@ -54,6 +54,36 @@ function getPrimaryLogo(logos: LogoEntry[] | null | undefined): string | null {
   return first?.url || null;
 }
 
+function StepHeader({ icon, title, subtitle, onBack }: {
+  icon: React.ReactNode;
+  title: string;
+  subtitle: React.ReactNode;
+  onBack?: () => void;
+}) {
+  return (
+    <div className="sticky top-0 z-10 bg-background/80 backdrop-blur-sm pb-4 pt-2 flex flex-col items-center gap-3 border-b border-border/50 mb-4">
+      <div className="flex items-center gap-3">
+        {onBack && (
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={onBack}
+            data-testid="button-context-back"
+            className="shrink-0"
+          >
+            <ArrowLeft className="w-5 h-5" />
+          </Button>
+        )}
+        {icon}
+      </div>
+      <h2 className="text-2xl font-bold tracking-tight" data-testid="text-context-title">
+        {title}
+      </h2>
+      <p className="text-sm text-muted-foreground">{subtitle}</p>
+    </div>
+  );
+}
+
 export function ContextSelectorOverlay({
   open,
   step,
@@ -90,97 +120,87 @@ export function ContextSelectorOverlay({
     >
       <div className="absolute inset-0 bg-background/70 backdrop-blur-xl" />
 
-      <div className="relative z-10 flex flex-col items-center gap-6 max-w-3xl w-full px-6">
+      <div className="relative z-10 flex flex-col w-full max-w-4xl mx-4 max-h-[85vh]">
         {step === "state" ? (
           <>
-            <Globe className="w-10 h-10 text-primary" />
-            <h2 className="text-2xl font-bold tracking-tight" data-testid="text-context-title">
-              Vyberte stat
-            </h2>
-            <p className="text-sm text-muted-foreground">
-              Zvolte krajinu pre vasu pracovnu relaciu
-            </p>
-
-            <div className="flex flex-wrap justify-center gap-6 mt-4">
-              {[...states].sort((a, b) => a.name.localeCompare(b.name, "sk")).map(s => (
-                <button
-                  key={s.id}
-                  type="button"
-                  onClick={() => onSelectState(s.id)}
-                  className="flex flex-col items-center gap-3 group"
-                  data-testid={`context-state-${s.id}`}
-                >
-                  <div className="w-24 h-24 rounded-full border-2 border-border bg-card flex items-center justify-center overflow-hidden transition-all duration-200 group-hover:border-primary group-hover:shadow-lg group-hover:shadow-primary/20 group-hover:scale-105">
-                    <StateFlagImage src={s.flagUrl} alt={s.name} code={s.code} className="w-16 h-12 object-cover rounded-sm" />
-                  </div>
-                  <span className="text-sm font-medium text-foreground group-hover:text-primary transition-colors">
-                    {s.name}
-                  </span>
-                </button>
-              ))}
+            <StepHeader
+              icon={<Globe className="w-10 h-10 text-primary" />}
+              title="Vyberte štát"
+              subtitle="Zvoľte krajinu pre vašu pracovnú reláciu"
+            />
+            <div className="overflow-y-auto max-h-[60vh] px-2">
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4 justify-items-center">
+                {[...states].sort((a, b) => a.name.localeCompare(b.name, "sk")).map(s => (
+                  <button
+                    key={s.id}
+                    type="button"
+                    onClick={() => onSelectState(s.id)}
+                    className="flex flex-col items-center gap-3 p-4 rounded-md border border-border bg-card w-full transition-all duration-200 hover:border-primary hover:shadow-lg hover:shadow-primary/20 hover:scale-[1.02] group"
+                    data-testid={`context-state-${s.id}`}
+                  >
+                    <div className="w-20 h-20 rounded-full border-2 border-border bg-card flex items-center justify-center overflow-hidden transition-all duration-200 group-hover:border-primary">
+                      <StateFlagImage src={s.flagUrl} alt={s.name} code={s.code} className="w-14 h-10 object-cover rounded-sm" />
+                    </div>
+                    <span className="text-sm font-medium text-foreground group-hover:text-primary transition-colors text-center">
+                      {s.name}
+                    </span>
+                  </button>
+                ))}
+              </div>
               {states.length === 0 && (
-                <p className="text-muted-foreground text-sm">Ziadne staty k dispozicii</p>
+                <p className="text-muted-foreground text-sm text-center py-8">Žiadne štáty k dispozícii</p>
               )}
             </div>
           </>
         ) : step === "company" ? (
           <>
-            <div className="flex items-center gap-3">
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={onBack}
-                data-testid="button-context-back"
-              >
-                <ArrowLeft className="w-5 h-5" />
-              </Button>
-              <Building2 className="w-10 h-10 text-primary" />
-            </div>
-            <h2 className="text-2xl font-bold tracking-tight" data-testid="text-context-title">
-              Vyberte spolocnost
-            </h2>
-            <p className="text-sm text-muted-foreground">
-              {selectedState ? (
+            <StepHeader
+              icon={<Building2 className="w-10 h-10 text-primary" />}
+              title="Vyberte spoločnosť"
+              subtitle={selectedState ? (
                 <span className="flex items-center gap-1.5">
                   <StateFlagImage src={selectedState.flagUrl} alt="" code={selectedState.code} className="w-4 h-3 object-cover rounded-sm inline" />
-                  {selectedState.name} &mdash; zvolte spolocnost
+                  {selectedState.name} — zvoľte spoločnosť
                 </span>
-              ) : "Zvolte spolocnost pre vasu pracovnu relaciu"}
-            </p>
-
-            <div className="flex flex-wrap justify-center gap-4 mt-4">
-              {[...filteredCompanies].sort((a, b) => a.name.localeCompare(b.name, "sk")).map(c => {
-                const logoUrl = getPrimaryLogo(c.logos as LogoEntry[] | null);
-                return (
-                  <button
-                    key={c.id}
-                    type="button"
-                    onClick={() => onSelectCompany(c.id)}
-                    className="flex flex-col items-center gap-3 p-5 rounded-md border border-border bg-card min-w-[160px] max-w-[200px] transition-all duration-200 hover:border-primary hover:shadow-lg hover:shadow-primary/20 hover:scale-[1.02] group"
-                    data-testid={`context-company-${c.id}`}
-                  >
-                    <div className="w-16 h-16 rounded-md bg-muted flex items-center justify-center overflow-hidden">
-                      {logoUrl ? (
-                        <img src={logoUrl} alt={c.name} className="w-full h-full object-contain p-1" />
-                      ) : (
-                        <Building2 className="w-8 h-8 text-muted-foreground" />
-                      )}
-                    </div>
-                    <span className="text-sm font-medium text-foreground text-center leading-tight group-hover:text-primary transition-colors">
-                      {c.name}
-                    </span>
-                    {c.specialization && (
-                      <span className="text-xs text-muted-foreground">{c.specialization}</span>
-                    )}
-                  </button>
-                );
-              })}
-              {filteredCompanies.length === 0 && (
+              ) : "Zvoľte spoločnosť pre vašu pracovnú reláciu"}
+              onBack={onBack}
+            />
+            <div className="overflow-y-auto max-h-[60vh] px-2">
+              {filteredCompanies.length > 0 ? (
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+                  {[...filteredCompanies].sort((a, b) => a.name.localeCompare(b.name, "sk")).map(c => {
+                    const logoUrl = getPrimaryLogo(c.logos as LogoEntry[] | null);
+                    return (
+                      <button
+                        key={c.id}
+                        type="button"
+                        onClick={() => onSelectCompany(c.id)}
+                        className="flex flex-col items-center gap-3 p-4 rounded-md border border-border bg-card w-full transition-all duration-200 hover:border-primary hover:shadow-lg hover:shadow-primary/20 hover:scale-[1.02] group"
+                        data-testid={`context-company-${c.id}`}
+                      >
+                        <div className="w-16 h-16 rounded-md bg-muted flex items-center justify-center overflow-hidden">
+                          {logoUrl ? (
+                            <img src={logoUrl} alt={c.name} className="w-full h-full object-contain p-1" />
+                          ) : (
+                            <Building2 className="w-8 h-8 text-muted-foreground" />
+                          )}
+                        </div>
+                        <span className="text-sm font-medium text-foreground text-center leading-tight group-hover:text-primary transition-colors">
+                          {c.name}
+                        </span>
+                        {c.specialization && (
+                          <span className="text-xs text-muted-foreground text-center">{c.specialization}</span>
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+              ) : (
                 <div className="flex flex-col items-center gap-2 py-8">
                   <Building2 className="w-8 h-8 text-muted-foreground" />
-                  <p className="text-muted-foreground text-sm">Ziadne spolocnosti pre tento stat</p>
+                  <p className="text-muted-foreground text-sm">Žiadne spoločnosti pre tento štát</p>
                   <Button variant="outline" size="sm" onClick={onBack} data-testid="button-context-back-empty">
-                    Zmenit stat
+                    Zmeniť štát
                   </Button>
                 </div>
               )}
@@ -188,69 +208,59 @@ export function ContextSelectorOverlay({
           </>
         ) : (
           <>
-            <div className="flex items-center gap-3">
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={onBack}
-                data-testid="button-context-back-division"
-              >
-                <ArrowLeft className="w-5 h-5" />
-              </Button>
-              <Layers className="w-10 h-10 text-primary" />
-            </div>
-            <h2 className="text-2xl font-bold tracking-tight" data-testid="text-context-title">
-              Vyberte divíziu
-            </h2>
-            <p className="text-sm text-muted-foreground">
-              {selectedCompany ? (
-                <span>{selectedCompany.name} &mdash; zvolte divíziu</span>
-              ) : "Zvolte divíziu pre vasu pracovnu relaciu"}
-            </p>
-
-            <div className="flex flex-wrap justify-center gap-4 mt-4">
-              <button
-                type="button"
-                onClick={() => onSelectDivision(null)}
-                className="flex flex-col items-center gap-3 p-5 rounded-md border border-border bg-card min-w-[160px] max-w-[200px] transition-all duration-200 hover:border-primary hover:shadow-lg hover:shadow-primary/20 hover:scale-[1.02] group"
-                data-testid="context-division-all"
-              >
-                <div className="w-16 h-16 rounded-md bg-muted flex items-center justify-center overflow-hidden">
-                  <Layers className="w-8 h-8 text-muted-foreground" />
-                </div>
-                <span className="text-sm font-medium text-foreground text-center leading-tight group-hover:text-primary transition-colors">
-                  Všetky divízie
-                </span>
-              </button>
-              {companyDivisions.map(cd => {
-                const divId = cd.divisionId || cd.division?.id;
-                const divName = cd.division?.name || cd.name || "Divízia";
-                const divEmoji = cd.division?.emoji || cd.emoji;
-                return (
-                  <button
-                    key={divId}
-                    type="button"
-                    onClick={() => onSelectDivision(divId)}
-                    className="flex flex-col items-center gap-3 p-5 rounded-md border border-border bg-card min-w-[160px] max-w-[200px] transition-all duration-200 hover:border-primary hover:shadow-lg hover:shadow-primary/20 hover:scale-[1.02] group"
-                    data-testid={`context-division-${divId}`}
-                  >
-                    <div className="w-16 h-16 rounded-md bg-muted flex items-center justify-center overflow-hidden">
-                      {divEmoji ? (
-                        <span className="text-3xl">{divEmoji}</span>
-                      ) : (
-                        <Layers className="w-8 h-8 text-muted-foreground" />
-                      )}
-                    </div>
-                    <span className="text-sm font-medium text-foreground text-center leading-tight group-hover:text-primary transition-colors">
-                      {divName}
-                    </span>
-                  </button>
-                );
-              })}
+            <StepHeader
+              icon={<Layers className="w-10 h-10 text-primary" />}
+              title="Vyberte divíziu"
+              subtitle={selectedCompany ? (
+                <span>{selectedCompany.name} — zvoľte divíziu</span>
+              ) : "Zvoľte divíziu pre vašu pracovnú reláciu"}
+              onBack={onBack}
+            />
+            <div className="overflow-y-auto max-h-[60vh] px-2">
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+                <button
+                  type="button"
+                  onClick={() => onSelectDivision(null)}
+                  className="flex flex-col items-center gap-3 p-4 rounded-md border border-border bg-card w-full transition-all duration-200 hover:border-primary hover:shadow-lg hover:shadow-primary/20 hover:scale-[1.02] group"
+                  data-testid="context-division-all"
+                >
+                  <div className="w-16 h-16 rounded-md bg-muted flex items-center justify-center overflow-hidden">
+                    <Layers className="w-8 h-8 text-muted-foreground" />
+                  </div>
+                  <span className="text-sm font-medium text-foreground text-center leading-tight group-hover:text-primary transition-colors">
+                    Všetky divízie
+                  </span>
+                </button>
+                {companyDivisions.map(cd => {
+                  const divId = cd.divisionId || cd.division?.id;
+                  const divName = cd.division?.name || cd.name || "Divízia";
+                  const divEmoji = cd.division?.emoji || cd.emoji;
+                  return (
+                    <button
+                      key={divId}
+                      type="button"
+                      onClick={() => onSelectDivision(divId)}
+                      className="flex flex-col items-center gap-3 p-4 rounded-md border border-border bg-card w-full transition-all duration-200 hover:border-primary hover:shadow-lg hover:shadow-primary/20 hover:scale-[1.02] group"
+                      data-testid={`context-division-${divId}`}
+                    >
+                      <div className="w-16 h-16 rounded-md bg-muted flex items-center justify-center overflow-hidden">
+                        {divEmoji ? (
+                          <span className="text-3xl">{divEmoji}</span>
+                        ) : (
+                          <Layers className="w-8 h-8 text-muted-foreground" />
+                        )}
+                      </div>
+                      <span className="text-sm font-medium text-foreground text-center leading-tight group-hover:text-primary transition-colors">
+                        {divName}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
               {companyDivisions.length === 0 && (
                 <div className="flex flex-col items-center gap-2 py-8">
                   <Layers className="w-8 h-8 text-muted-foreground" />
-                  <p className="text-muted-foreground text-sm">Ziadne divízie pre túto spolocnost</p>
+                  <p className="text-muted-foreground text-sm">Žiadne divízie pre túto spoločnosť</p>
                 </div>
               )}
             </div>

@@ -4,7 +4,7 @@ import { storage } from "./storage";
 import { api } from "@shared/routes";
 import { setupAuth, registerAuthRoutes, isAuthenticated } from "./replit_integrations/auth";
 import { z } from "zod";
-import { continents, states, myCompanies, appUsers, clientTypes, clientSubGroups, clientGroupMembers, productFolderAssignments, folderPanels, panelParameters, userClientGroupMemberships, clientGroups, permissionGroups, insertCareerLevelSchema, insertProductPointRateSchema, careerLevels, importLogs, commissions, contracts, contractStatuses, contractStatusChangeLogs, clientDataTabs, clientDataCategories, subjects, subjectPointsLog, subjectFieldHistory, subjectCollaborators, clientMarketingConsents, clientDocumentHistory, contractAcquirers, contractPasswords, contractRewardDistributions, contractParameterValues, subjectArchive, auditLogs, globalCounters, subjectPhotos, activityEvents, subjectParamSections, subjectParameters, subjectTemplates, subjectTemplateParams, commissionCalculationLogs, parameterSynonyms, dataConflictAlerts, transactionDedupLog, relationRoleTypes, subjectRelations, maturityAlerts, inheritancePrompts, guardianshipArchive, households, householdMembers, householdAssets, privacyBlocks, accessConsentLog, maturityEvents, addressGroups, addressGroupMembers, companySubjectRoles, notificationQueue, batchJobs, subjectObjects, objectDataSources, sectors, sections, sectorProducts, parameters, panels, productPanels, contractFolders, fieldLayoutConfigs, sectorCategoryMapping, suggestedRelations, statusEvidence, contractLifecycleHistory, systemNotifications, partners, products, contractInventories, contractTemplates, redListAlerts, subjectAddresses, divisions, companyDivisions, insertDivisionSchema, dlpExportCounters, dlpSuspiciousActivity, SENTINEL_LEVELS, ROLE_TO_SENTINEL, SENTINEL_LEVEL_LABELS } from "@shared/schema";
+import { continents, states, myCompanies, appUsers, clientTypes, clientSubGroups, clientGroupMembers, productFolderAssignments, folderPanels, panelParameters, userClientGroupMemberships, clientGroups, permissionGroups, insertCareerLevelSchema, insertProductPointRateSchema, careerLevels, importLogs, commissions, contracts, contractStatuses, contractStatusChangeLogs, clientDataTabs, clientDataCategories, subjects, subjectPointsLog, subjectFieldHistory, subjectCollaborators, clientMarketingConsents, clientDocumentHistory, contractAcquirers, contractPasswords, contractRewardDistributions, contractParameterValues, subjectArchive, auditLogs, globalCounters, subjectPhotos, activityEvents, subjectParamSections, subjectParameters, subjectTemplates, subjectTemplateParams, commissionCalculationLogs, parameterSynonyms, dataConflictAlerts, transactionDedupLog, relationRoleTypes, subjectRelations, maturityAlerts, inheritancePrompts, guardianshipArchive, households, householdMembers, householdAssets, privacyBlocks, accessConsentLog, maturityEvents, addressGroups, addressGroupMembers, companySubjectRoles, notificationQueue, batchJobs, subjectObjects, objectDataSources, sectors, sections, sectorProducts, parameters, panels, productPanels, contractFolders, fieldLayoutConfigs, sectorCategoryMapping, suggestedRelations, statusEvidence, contractLifecycleHistory, systemNotifications, partners, products, contractInventories, contractTemplates, redListAlerts, subjectAddresses, divisions, companyDivisions, insertDivisionSchema } from "@shared/schema";
 import { notifyObjectionCreated, notifyPreDeletion, getProductDaysLimits } from "./email";
 import { seedSubjectParameters, seedAssetPanels, seedEventAndEntityPanels } from "./seed-subject-params";
 import sharp from "sharp";
@@ -38,30 +38,6 @@ async function isFirstContractInDivision(uploadedByUserId: number, divisionId: n
   }
 }
 
-function computeAuditHash(entry: {
-  userId: number | null;
-  action: string;
-  module: string;
-  entityId: number | null;
-  oldData: any;
-  newData: any;
-  ipAddress: string;
-  createdAt: string;
-}): string {
-  const secret = process.env.SESSION_SECRET;
-  if (!secret) throw new Error("SESSION_SECRET is required for audit integrity signing");
-  const payload = JSON.stringify({
-    u: entry.userId,
-    a: entry.action,
-    m: entry.module,
-    e: entry.entityId,
-    o: entry.oldData,
-    n: entry.newData,
-    ip: entry.ipAddress,
-    t: entry.createdAt,
-  });
-  return crypto.createHmac("sha256", secret).update(payload).digest("hex");
-}
 
 async function isMigrationModeOn(): Promise<boolean> {
   try {
@@ -98,7 +74,6 @@ async function logAudit(req: any, params: {
       _impersonatedBy: {
         architectId: req.originalAppUser.id,
         architectUsername: req.originalAppUser.username,
-        architectLevel: getSecurityLevel(req.originalAppUser),
       }
     } : {};
 
@@ -122,17 +97,7 @@ async function logAudit(req: any, params: {
       ipAddress: migrationOn ? "migration" : (typeof ip === 'string' ? ip : JSON.stringify(ip)),
       createdAt: now,
     };
-    const integrityHash = computeAuditHash({
-      userId: auditEntry.userId,
-      action: auditEntry.action,
-      module: auditEntry.module,
-      entityId: auditEntry.entityId,
-      oldData: auditEntry.oldData,
-      newData: auditEntry.newData,
-      ipAddress: auditEntry.ipAddress,
-      createdAt: now.toISOString(),
-    });
-    await storage.createAuditLog({ ...auditEntry, integrityHash });
+    await storage.createAuditLog({ ...auditEntry, integrityHash: null });
   } catch (err) {
     console.error("Audit log error:", err);
   }
@@ -146,12 +111,9 @@ function hasAdminAccess(appUser: any): boolean {
   return appUser?.role === 'admin' || appUser?.role === 'superadmin' || appUser?.role === 'prezident' || appUser?.role === 'architekt';
 }
 
-function getSecurityLevel(appUser: any): number {
-  if (!appUser) return SENTINEL_LEVELS.L0_BLACKLIST;
-  if (appUser.securityLevel !== null && appUser.securityLevel !== undefined) {
-    return appUser.securityLevel;
-  }
-  return ROLE_TO_SENTINEL[appUser.role] ?? SENTINEL_LEVELS.L4_OPERATIVNA;
+function isAdmin(appUser: any): boolean {
+  if (!appUser) return false;
+  return appUser.role === 'admin' || appUser.role === 'superadmin' || appUser.role === 'prezident' || appUser.role === 'architekt';
 }
 
 function isSubjectOwner(appUser: any, subject: any): boolean {
@@ -191,67 +153,10 @@ async function isSubjectAccessible(appUser: any, subject: any): Promise<boolean>
   return isInManagerChain(appUser.id, subject.uploadedByUserId, subject.companyId || appUser.activeCompanyId);
 }
 
-function maskIban(iban: string | null | undefined): string {
-  if (!iban) return "";
-  const clean = iban.replace(/\s/g, "");
-  if (clean.length <= 4) return "****";
-  return clean.slice(0, 4) + " **** **** **** " + clean.slice(-4);
-}
-
-function maskEmail(email: string | null | undefined): string {
-  if (!email) return "";
-  const parts = email.split("@");
-  if (parts.length !== 2) return "****";
-  const local = parts[0].length > 2 ? parts[0].slice(0, 2) + "****" : "****";
-  const domParts = parts[1].split(".");
-  const domain = domParts[0].length > 2 ? domParts[0].slice(0, 2) + "****" : "****";
-  const ext = domParts.length > 1 ? domParts[domParts.length - 1] : "***";
-  return `${local}@${domain}.${ext}`;
-}
-
-async function maskSensitiveFields(subject: any, appUser: any): Promise<any> {
+function decryptBirthNumber(subject: any): any {
   if (!subject) return subject;
-  const level = getSecurityLevel(appUser);
-  if (level >= SENTINEL_LEVELS.L7_REVIZNA) {
-    const decrypted = subject.birthNumber ? decryptField(subject.birthNumber) : null;
-    return { ...subject, birthNumber: decrypted || subject.birthNumber };
-  }
-  const accessible = await isSubjectAccessible(appUser, subject);
-  if (accessible) {
-    const decrypted = subject.birthNumber ? decryptField(subject.birthNumber) : null;
-    return { ...subject, birthNumber: decrypted || subject.birthNumber };
-  }
-  const masked = { ...subject };
-  masked.birthNumber = subject.birthNumber ? "******" : null;
-  if (masked.iban) masked.iban = maskIban(masked.iban);
-  if (masked.phone) masked.phone = maskPhone(masked.phone);
-  if (masked.email) masked.email = maskEmail(masked.email);
-  if (masked.idCardNumber) masked.idCardNumber = "******";
-  if (masked.szcoIco) masked.szcoIco = "**** ****";
-  if (masked.details) {
-    const details = { ...masked.details };
-    const dyn = details.dynamicFields ? { ...details.dynamicFields } : {};
-    for (const key of Object.keys(dyn)) {
-      const kl = key.toLowerCase();
-      if (kl.includes("iban") || kl.includes("cislo_uctu") || kl.includes("account")) {
-        dyn[key] = kl.includes("iban") ? maskIban(dyn[key]) : "**** ****";
-      } else if (kl.includes("phone") || kl.includes("telefon") || kl.includes("mobil")) {
-        dyn[key] = maskPhone(dyn[key]);
-      } else if (kl.includes("email") || kl.includes("e_mail")) {
-        dyn[key] = maskEmail(dyn[key]);
-      } else if (kl.includes("ico") || kl === "ico") {
-        dyn[key] = "**** ****";
-      } else if (kl.includes("rodne_priezvisko") || kl.includes("maiden") || kl === "rodne") {
-        dyn[key] = "****";
-      } else if (kl.includes("ulica") || kl.includes("street") || kl.includes("cislo_domu") || kl.includes("street_number")) {
-        dyn[key] = "****";
-      }
-    }
-    if (details.dynamicFields) details.dynamicFields = dyn;
-    masked.details = details;
-  }
-  masked._sensitiveFieldsMasked = true;
-  return masked;
+  const decrypted = subject.birthNumber ? decryptField(subject.birthNumber) : null;
+  return { ...subject, birthNumber: decrypted || subject.birthNumber };
 }
 
 function checkIpRestriction(req: any, appUser: any): { allowed: boolean; clientIp?: string } {
@@ -266,12 +171,6 @@ function checkIpRestriction(req: any, appUser: any): { allowed: boolean; clientI
   return { allowed, clientIp };
 }
 
-function maskPhone(phone: string | null | undefined): string {
-  if (!phone) return "";
-  const digits = phone.replace(/\D/g, "");
-  if (digits.length <= 4) return "****";
-  return "**** ** " + digits.slice(-4);
-}
 
 async function isKlientiUser(appUser: any): Promise<boolean> {
   if (!appUser?.permissionGroupId) return false;
@@ -446,192 +345,7 @@ export async function registerRoutes(
     const { allowed, clientIp } = checkIpRestriction(req, req.appUser);
     if (!allowed) {
       console.warn(`[IP LOCK] Blocked ${clientIp} for user ${req.appUser.username} (allowed: ${req.appUser.allowedIps})`);
-      return res.status(403).json({ message: `Prístup z tejto lokality je zakázaný (Sentinel IP Lockout)` });
-    }
-    next();
-  });
-
-  app.use((req: any, res: any, next: any) => {
-    if (!req.appUser) return next();
-    const level = getSecurityLevel(req.appUser);
-
-    if (level === SENTINEL_LEVELS.L0_BLACKLIST) {
-      const isAuthPath = req.path.startsWith("/api/auth") || req.path.startsWith("/api/login");
-      if (!isAuthPath) {
-        return res.status(403).json({ message: "Prístup zablokovaný (BLACKLIST)" });
-      }
-    }
-
-    if (level === SENTINEL_LEVELS.L9_AUDITORSKA) {
-      if (req.appUser.accessExpiresAt) {
-        const expiresAt = new Date(req.appUser.accessExpiresAt);
-        if (new Date() > expiresAt) {
-          db.update(appUsers).set({ isActive: false }).where(eq(appUsers.id, req.appUser.id)).execute().catch(() => {});
-          return res.status(403).json({ message: "Audítorský prístup vypršal (Hard Limit)" });
-        }
-      }
-      const method = req.method.toUpperCase();
-      if (method !== "GET" && method !== "HEAD" && method !== "OPTIONS") {
-        const isAuthPath = req.path.startsWith("/api/auth") || req.path.startsWith("/api/login") || req.path.startsWith("/api/activity-events");
-        if (!isAuthPath) {
-          return res.status(403).json({ message: "Auditor má iba ReadOnly prístup" });
-        }
-      }
-    }
-    req._sentinelLevel = level;
-    next();
-  });
-
-  app.use((req: any, res: any, next: any) => {
-    if (!req.appUser) return next();
-    const level = req._sentinelLevel ?? getSecurityLevel(req.appUser);
-    const method = req.method.toUpperCase();
-    if (method === "GET" || method === "HEAD" || method === "OPTIONS") return next();
-
-    const isAuthPath = req.path.startsWith("/api/auth") || req.path.startsWith("/api/login");
-    const isClickLog = req.path === "/api/click-log" || req.path.startsWith("/api/activity-events");
-    const isSetActive = req.path === "/api/app-user/set-active";
-    if (isAuthPath || isClickLog || isSetActive) return next();
-
-    if (level >= SENTINEL_LEVELS.L7_REVIZNA) return next();
-
-    const isModulePath = req.path.startsWith("/api/subjects") || req.path.startsWith("/api/contracts")
-      || req.path.startsWith("/api/partners") || req.path.startsWith("/api/products")
-      || req.path.startsWith("/api/companies") || req.path.startsWith("/api/sectors")
-      || req.path.startsWith("/api/sections") || req.path.startsWith("/api/settlement");
-
-    if (!isModulePath) return next();
-
-    if (level <= SENTINEL_LEVELS.L3_AKVIZICNA) {
-      const isSubjectCreate = req.path === "/api/subjects" && method === "POST";
-      if (level === SENTINEL_LEVELS.L3_AKVIZICNA && isSubjectCreate) return next();
-      return res.status(403).json({ message: "Vaša bezpečnostná úroveň neumožňuje túto operáciu (Sentinel L" + level + ")" });
-    }
-
-    if (level === SENTINEL_LEVELS.L4_OPERATIVNA) {
-      if (method === "DELETE") {
-        return res.status(403).json({ message: "Obchodník nemá oprávnenie mazať záznamy (Sentinel L4)" });
-      }
-      return next();
-    }
-
-    if (level === SENTINEL_LEVELS.L5_MANAZERSKA || level === SENTINEL_LEVELS.L6_STRATEGICKA) {
-      if (method === "DELETE") {
-        return res.status(403).json({ message: "Mazanie záznamov vyžaduje úroveň 7+ (Backoffice)" });
-      }
-      return next();
-    }
-
-    next();
-  });
-
-  // === DLP: DATA LEAKAGE PREVENTION SYSTEM ===
-  const DLP_DAILY_EXPORT_LIMIT = 50;
-  const DLP_RAPID_ACCESS_THRESHOLD = 20;
-  const DLP_RAPID_ACCESS_WINDOW_MS = 10000;
-
-  const dlpSubjectAccessLog: Map<number, number[]> = new Map();
-  const dlpBlockedUsers: Map<number, { blockedAt: number; challengeAnswer: number; attempts: number }> = new Map();
-
-  function trackSubjectAccess(userId: number): boolean {
-    const now = Date.now();
-    let timestamps = dlpSubjectAccessLog.get(userId) || [];
-    timestamps = timestamps.filter(t => now - t < DLP_RAPID_ACCESS_WINDOW_MS);
-    timestamps.push(now);
-    dlpSubjectAccessLog.set(userId, timestamps);
-    return timestamps.length >= DLP_RAPID_ACCESS_THRESHOLD;
-  }
-
-  async function blockUserDlp(userId: number, username: string, ip: string, reason: string) {
-    const a = Math.floor(Math.random() * 20) + 1;
-    const b = Math.floor(Math.random() * 20) + 1;
-    dlpBlockedUsers.set(userId, { blockedAt: Date.now(), challengeAnswer: a + b, attempts: 0 });
-
-    await db.insert(dlpSuspiciousActivity).values({
-      userId,
-      username,
-      activityType: "rapid_subject_access",
-      actionTaken: "dlp_block",
-      details: { reason, threshold: DLP_RAPID_ACCESS_THRESHOLD, windowMs: DLP_RAPID_ACCESS_WINDOW_MS },
-      ipAddress: ip,
-    });
-
-    const architektUsers = await db.select().from(appUsers).where(eq(appUsers.role, "architekt"));
-    for (const arch of architektUsers) {
-      if (arch.email) {
-        await db.insert(systemNotifications).values({
-          recipientEmail: arch.email,
-          recipientName: arch.firstName ? `${arch.firstName} ${arch.lastName || ""}` : arch.username,
-          recipientUserId: arch.id,
-          subject: "⚠️ DLP ALERT: Podozrivá aktivita detegovaná",
-          bodyHtml: `<p>⚠️ VAROVANIE: Používateľ <strong>${username}</strong> (ID: ${userId}) vykazuje podozrivú aktivitu — rýchle prehliadanie subjektov (${DLP_RAPID_ACCESS_THRESHOLD}+ za ${DLP_RAPID_ACCESS_WINDOW_MS / 1000}s). IP: ${ip}. Prístup dočasne pozastavený.</p>`,
-          status: "pending",
-          notificationType: "dlp_suspicious_activity",
-        });
-      }
-    }
-  }
-
-  async function checkDlpExportLimit(userId: number, username: string, level: number, exportCount: number, ip: string): Promise<{ allowed: boolean; remaining: number; message?: string }> {
-    if (level >= SENTINEL_LEVELS.L7_REVIZNA && level !== SENTINEL_LEVELS.L9_AUDITORSKA) {
-      return { allowed: true, remaining: Infinity };
-    }
-
-    const today = new Date().toISOString().split("T")[0];
-
-    const result = await db.execute(sql`
-      INSERT INTO dlp_export_counters (user_id, exported_count, reset_date, last_export_at)
-      VALUES (${userId}, ${exportCount}, ${today}, NOW())
-      ON CONFLICT (user_id, reset_date) DO UPDATE
-      SET exported_count = dlp_export_counters.exported_count + ${exportCount},
-          last_export_at = NOW()
-      RETURNING exported_count
-    `).catch(async () => {
-      const [counter] = await db.select().from(dlpExportCounters).where(
-        and(eq(dlpExportCounters.userId, userId), eq(dlpExportCounters.resetDate, today))
-      );
-      if (counter) {
-        const newCount = counter.exportedCount + exportCount;
-        await db.update(dlpExportCounters).set({ exportedCount: newCount, lastExportAt: new Date() }).where(eq(dlpExportCounters.id, counter.id));
-        return { rows: [{ exported_count: newCount }] };
-      } else {
-        await db.insert(dlpExportCounters).values({ userId, exportedCount: exportCount, resetDate: today, lastExportAt: new Date() });
-        return { rows: [{ exported_count: exportCount }] };
-      }
-    });
-
-    const newTotal = (result as any).rows?.[0]?.exported_count || exportCount;
-
-    if (newTotal > DLP_DAILY_EXPORT_LIMIT) {
-      const architektUsers = await db.select().from(appUsers).where(eq(appUsers.role, "architekt"));
-      for (const arch of architektUsers) {
-        if (arch.email) {
-          await db.insert(systemNotifications).values({
-            recipientEmail: arch.email,
-            recipientName: arch.firstName ? `${arch.firstName} ${arch.lastName || ""}` : arch.username,
-            recipientUserId: arch.id,
-            subject: "⚠️ VAROVANIE: Pokus o hromadný export dát",
-            bodyHtml: `<p>⚠️ VAROVANIE: Používateľ <strong>${username}</strong> (L${level}) sa pokúsil o hromadný export dát (${newTotal} záznamov, limit ${DLP_DAILY_EXPORT_LIMIT}/deň). IP: ${ip}. Prístup dočasne pozastavený.</p>`,
-            status: "pending",
-            notificationType: "dlp_mass_export_attempt",
-          });
-        }
-      }
-      return { allowed: false, remaining: 0, message: `Denný limit exportu (${DLP_DAILY_EXPORT_LIMIT} záznamov) bol prekročený. Architekt bol notifikovaný.` };
-    }
-
-    return { allowed: true, remaining: DLP_DAILY_EXPORT_LIMIT - newTotal };
-  }
-
-  app.use((req: any, res: any, next: any) => {
-    if (!req.appUser) return next();
-    const userId = req.appUser.id;
-    if (dlpBlockedUsers.has(userId)) {
-      const isDlpEndpoint = req.path === "/api/dlp/status" || req.path === "/api/dlp/verify-challenge";
-      const isAuthPath = req.path.startsWith("/api/auth") || req.path.startsWith("/api/login") || req.path.startsWith("/api/app-user");
-      if (!isDlpEndpoint && !isAuthPath) {
-        return res.status(423).json({ message: "DLP: Prístup dočasne zablokovaný — vyžaduje sa overenie", dlpBlocked: true });
-      }
+      return res.status(403).json({ message: `Prístup z tejto lokality je zakázaný` });
     }
     next();
   });
@@ -639,126 +353,30 @@ export async function registerRoutes(
   app.get("/api/system/db-status", isAuthenticated, async (_req: any, res) => {
     try {
       const dbUrl = process.env.DATABASE_URL || "";
-      const prodServerIp = process.env.PROD_SERVER_IP || "";
       let host = "unknown";
       let database = "unknown";
-      let label = "Bratislava";
-
-      if (prodServerIp) {
-        host = prodServerIp;
-      }
 
       try {
         const url = new URL(dbUrl);
-        host = prodServerIp || url.hostname;
+        host = url.hostname;
         database = url.pathname.replace(/^\//, "") || "unknown";
       } catch {}
 
       await db.execute(sql`SELECT 1`);
 
-      return res.json({ host, database, status: "connected", label });
+      return res.json({ host, database, status: "connected" });
     } catch (err: any) {
-      return res.json({ host: "unknown", database: "unknown", status: "disconnected", label: "Bratislava" });
-    }
-  });
-
-  app.get("/api/dlp/status", isAuthenticated, async (req: any, res) => {
-    const userId = req.appUser?.id;
-    if (!userId) return res.json({ blocked: false });
-    const block = dlpBlockedUsers.get(userId);
-    if (!block) return res.json({ blocked: false });
-    const a = block.challengeAnswer - Math.floor(Math.random() * 10);
-    const b = block.challengeAnswer - a;
-    return res.json({ blocked: true, challenge: { a, b, question: `Koľko je ${a} + ${b}?` } });
-  });
-
-  app.post("/api/dlp/verify-challenge", isAuthenticated, async (req: any, res) => {
-    const userId = req.appUser?.id;
-    if (!userId) return res.status(401).json({ message: "Unauthorized" });
-    const block = dlpBlockedUsers.get(userId);
-    if (!block) return res.json({ success: true, message: "Nie ste blokovaný" });
-
-    const { answer } = req.body;
-    if (Number(answer) === block.challengeAnswer) {
-      dlpBlockedUsers.delete(userId);
-      dlpSubjectAccessLog.delete(userId);
-      await logAudit(req, { action: "DLP_CHALLENGE_PASSED", module: "dlp", entityId: userId, entityName: req.appUser.username });
-      return res.json({ success: true, message: "Overenie úspešné — prístup obnovený" });
-    }
-
-    block.attempts++;
-    if (block.attempts >= 3) {
-      await logAudit(req, { action: "DLP_CHALLENGE_FAILED_MAX", module: "dlp", entityId: userId, entityName: req.appUser.username, newData: { attempts: block.attempts } });
-      return res.status(403).json({ success: false, message: "Príliš veľa neúspešných pokusov. Kontaktujte Architekta.", locked: true });
-    }
-
-    return res.status(400).json({ success: false, message: `Nesprávna odpoveď (pokus ${block.attempts}/3)`, attemptsLeft: 3 - block.attempts });
-  });
-
-  app.get("/api/dlp/user-ip", isAuthenticated, async (req: any, res) => {
-    const ip = req.ip || req.headers['x-forwarded-for'] || req.socket?.remoteAddress || 'unknown';
-    res.json({ ip: typeof ip === 'string' ? ip : JSON.stringify(ip) });
-  });
-
-  app.get("/api/audit-logs/integrity-check", isAuthenticated, async (req: any, res) => {
-    const level = getSecurityLevel(req.appUser);
-    if (level < SENTINEL_LEVELS.L8_ARCHITEKTONICKA) {
-      return res.status(403).json({ message: "Vyžaduje sa úroveň L8+" });
-    }
-    try {
-      const limit = Math.min(Number(req.query.limit) || 100, 500);
-      const logs = await db.select().from(auditLogs).orderBy(desc(auditLogs.id)).limit(limit);
-      let valid = 0;
-      let invalid = 0;
-      let noHash = 0;
-      const invalidEntries: number[] = [];
-      for (const log of logs) {
-        if (!log.integrityHash) { noHash++; continue; }
-        const expected = computeAuditHash({
-          userId: log.userId,
-          action: log.action,
-          module: log.module,
-          entityId: log.entityId,
-          oldData: log.oldData,
-          newData: log.newData,
-          ipAddress: log.ipAddress || "",
-          createdAt: log.createdAt?.toISOString() || "",
-        });
-        if (expected === log.integrityHash) { valid++; } else { invalid++; invalidEntries.push(log.id); }
-      }
-      await logAudit(req, { action: "INTEGRITY_CHECK", module: "dlp", newData: { checked: logs.length, valid, invalid, noHash } });
-      res.json({ checked: logs.length, valid, invalid, noHash, invalidEntries, status: invalid === 0 ? "OK" : "TAMPERED" });
-    } catch (err: any) {
-      res.status(500).json({ message: err.message });
+      return res.json({ host: "unknown", database: "unknown", status: "disconnected" });
     }
   });
 
   app.use((req: any, res: any, next: any) => {
     if (!req.appUser) return next();
     if (req.method === "DELETE" && req.path.startsWith("/api/audit-logs")) {
-      const level = getSecurityLevel(req.appUser);
-      (async () => {
-        const architektUsers = await db.select().from(appUsers).where(eq(appUsers.role, "architekt"));
-        for (const arch of architektUsers) {
-          if (arch.email && arch.id !== req.appUser.id) {
-            await db.insert(systemNotifications).values({
-              recipientEmail: arch.email,
-              recipientName: arch.firstName ? `${arch.firstName} ${arch.lastName || ""}` : arch.username,
-              recipientUserId: arch.id,
-              subject: "🚨 SENTINEL: Pokus o vymazanie audit stopy",
-              bodyHtml: `<p>🚨 Používateľ <strong>${req.appUser.username}</strong> (L${level}) sa pokúsil vymazať auditný záznam. Akcia bola zablokovaná.</p>`,
-              status: "pending",
-              notificationType: "audit_delete_attempt",
-            });
-          }
-        }
-      })().catch(() => {});
-      return res.status(403).json({ message: "Vymazanie auditných záznamov je zakázané. Architekt bol notifikovaný." });
+      return res.status(403).json({ message: "Vymazanie auditných záznamov je zakázané." });
     }
     next();
   });
-
-  // === END DLP SYSTEM ===
 
   app.get("/api/subjects/count", isAuthenticated, async (req: any, res: any) => {
     try {
@@ -867,9 +485,7 @@ export async function registerRoutes(
         uid: req.originalAppUser.uid,
       } : null;
 
-      const sentinelLevel = getSecurityLevel(appUser);
-      const sentinelLabel = SENTINEL_LEVEL_LABELS[sentinelLevel] || `L${sentinelLevel}`;
-      res.json({ ...appUser, effectiveSessionTimeoutSeconds: effectiveTimeout, careerLevel, permissionGroup, isImpersonating, originalUser, sentinelLevel, sentinelLabel });
+      res.json({ ...appUser, effectiveSessionTimeoutSeconds: effectiveTimeout, careerLevel, permissionGroup, isImpersonating, originalUser });
     } catch (err) {
       console.error("Error in /api/app-user/me:", err);
       res.status(500).json({ message: "Internal error" });
@@ -901,12 +517,6 @@ export async function registerRoutes(
       const appUser = await storage.getAppUserByReplitId(replitUserId);
       if (!appUser) return res.status(404).json({ message: "User not found" });
 
-      if (getSecurityLevel(appUser) === SENTINEL_LEVELS.L9_AUDITORSKA && validated.activeCompanyId) {
-        const allowed = (appUser as any).allowedCompanyIds as number[] | null;
-        if (allowed && allowed.length > 0 && !allowed.includes(validated.activeCompanyId)) {
-          return res.status(403).json({ message: "Audítor nemá prístup k tejto entite (Silo Isolation)" });
-        }
-      }
       
       const updates: Record<string, any> = {};
       if (validated.activeCompanyId !== undefined) updates.activeCompanyId = validated.activeCompanyId;
@@ -954,9 +564,8 @@ export async function registerRoutes(
   app.post("/api/impersonate/:userId", isAuthenticated, async (req: any, res) => {
     try {
       const realUser = req.originalAppUser || req.appUser;
-      const realLevel = getSecurityLevel(realUser);
-      if (realLevel < SENTINEL_LEVELS.L8_ARCHITEKTONICKA) {
-        return res.status(403).json({ message: "Len Architekt (L8+) môže použiť túto funkciu" });
+      if (!isArchitekt(realUser)) {
+        return res.status(403).json({ message: "Len Architekt môže použiť túto funkciu" });
       }
 
       const targetUserId = parseInt(req.params.userId);
@@ -966,9 +575,8 @@ export async function registerRoutes(
       const [targetUser] = await db.select().from(appUsers).where(eq(appUsers.id, targetUserId));
       if (!targetUser) return res.status(404).json({ message: "Používateľ nebol nájdený" });
 
-      const targetLevel = getSecurityLevel(targetUser);
-      if (targetLevel >= SENTINEL_LEVELS.L8_ARCHITEKTONICKA && targetLevel !== SENTINEL_LEVELS.L9_AUDITORSKA) {
-        return res.status(403).json({ message: "Nemôžete impersonovať používateľa na úrovni L8+ alebo L10" });
+      if (isArchitekt(targetUser)) {
+        return res.status(403).json({ message: "Nemôžete impersonovať Architekta" });
       }
 
       await db.update(appUsers).set({ impersonatingUserId: targetUserId }).where(eq(appUsers.id, realUser.id));
@@ -981,14 +589,13 @@ export async function registerRoutes(
         entityName: `${targetUser.firstName} ${targetUser.lastName}`,
         oldData: null,
         newData: {
-          message: `Architekt ${realUser.username} (ID:${realUser.id}) prevzal kontext používateľa ${targetUser.username} (ID:${targetUser.id}, L${targetLevel}) dňa ${now}`,
+          message: `Architekt ${realUser.username} (ID:${realUser.id}) prevzal kontext používateľa ${targetUser.username} (ID:${targetUser.id}) dňa ${now}`,
           architectId: realUser.id,
           architectUsername: realUser.username,
-          targetLevel,
         },
       });
 
-      res.json({ success: true, impersonatedUser: { id: targetUser.id, firstName: targetUser.firstName, lastName: targetUser.lastName, sentinelLevel: targetLevel } });
+      res.json({ success: true, impersonatedUser: { id: targetUser.id, firstName: targetUser.firstName, lastName: targetUser.lastName, role: targetUser.role } });
     } catch (err: any) {
       console.error("Impersonate error:", err);
       res.status(500).json({ message: err?.message || "Chyba" });
@@ -1844,7 +1451,7 @@ export async function registerRoutes(
     if (await isKlientiUser(appUser)) {
       if (!appUser.linkedSubjectId) return res.json([]);
       const own = await storage.getSubject(appUser.linkedSubjectId);
-      return res.json(own ? [await maskSensitiveFields(own, appUser)] : []);
+      return res.json(own ? [decryptBirthNumber(own)] : []);
     }
     
     const activeCompanyId = appUser?.activeCompanyId || (req.query.activeCompanyId ? Number(req.query.activeCompanyId) : undefined);
@@ -1860,8 +1467,7 @@ export async function registerRoutes(
       allSubjects = allSubjects.filter((s: any) => s.stateId === enforcedState);
     }
 
-    const callerLevel = getSecurityLevel(appUser);
-    if (callerLevel >= SENTINEL_LEVELS.L4_OPERATIVNA && callerLevel <= SENTINEL_LEVELS.L6_STRATEGICKA) {
+    if (!isAdmin(appUser)) {
       const filtered: any[] = [];
       for (const s of allSubjects) {
         if (s.registeredByUserId === appUser.id) { filtered.push(s); continue; }
@@ -1900,23 +1506,23 @@ export async function registerRoutes(
     const canSeeNotes = isSuperAdminUser || pgNameForList.includes('superadmin') || pgNameForList.includes('prezident');
     
     const blacklistMemberIds = await storage.getGroupMemberSubjectIds("group_cierny_zoznam");
-    const maskedSubjects = await Promise.all(allSubjects.map(async (s: any) => {
-      const masked = await maskSensitiveFields(s, appUser);
-      if (!canSeeNotes && masked.uiPreferences) {
-        const prefs = { ...(masked.uiPreferences as any) };
+    const processedSubjects = allSubjects.map((s: any) => {
+      const processed = decryptBirthNumber(s);
+      if (!canSeeNotes && processed.uiPreferences) {
+        const prefs = { ...(processed.uiPreferences as any) };
         delete prefs.field_notes;
-        masked.uiPreferences = prefs;
+        processed.uiPreferences = prefs;
       }
       if (blacklistMemberIds.has(s.id)) {
-        masked.effectiveListStatus = "cierny";
+        processed.effectiveListStatus = "cierny";
       } else if (s.listStatus === "cerveny") {
-        masked.effectiveListStatus = (!s.redListCompanyId || s.redListCompanyId === activeCompanyId) ? "cerveny" : null;
+        processed.effectiveListStatus = (!s.redListCompanyId || s.redListCompanyId === activeCompanyId) ? "cerveny" : null;
       } else {
-        masked.effectiveListStatus = null;
+        processed.effectiveListStatus = null;
       }
-      return masked;
-    }));
-    res.json(maskedSubjects);
+      return processed;
+    });
+    res.json(processedSubjects);
   });
 
   function getSubjectStatusCategory(subject: any, activeCompanyId?: number): string {
@@ -1929,18 +1535,6 @@ export async function registerRoutes(
 
   app.get(api.subjects.get.path, async (req: any, res) => {
     const subjectId = Number(req.params.id);
-    if (req.appUser?.id) {
-      const level = getSecurityLevel(req.appUser);
-      if (level < SENTINEL_LEVELS.L7_REVIZNA) {
-        const isSuspicious = trackSubjectAccess(req.appUser.id);
-        if (isSuspicious && !dlpBlockedUsers.has(req.appUser.id)) {
-          const ip = req.ip || req.headers['x-forwarded-for'] || '';
-          await blockUserDlp(req.appUser.id, req.appUser.username, typeof ip === 'string' ? ip : JSON.stringify(ip), "rapid_subject_detail_access");
-          await logAudit(req, { action: "DLP_BLOCK", module: "dlp", entityId: req.appUser.id, entityName: req.appUser.username, newData: { reason: "rapid_subject_access", threshold: DLP_RAPID_ACCESS_THRESHOLD } });
-          return res.status(423).json({ message: "DLP: Podozrivá aktivita detegovaná — prístup dočasne pozastavený", dlpBlocked: true });
-        }
-      }
-    }
     if (req.appUser?.permissionGroupId) {
       const [pg] = await db.select().from(permissionGroups).where(eq(permissionGroups.id, req.appUser.permissionGroupId));
       if (pg?.name === 'Klienti' && req.appUser.linkedSubjectId !== subjectId) {
@@ -1949,7 +1543,7 @@ export async function registerRoutes(
     }
     const subject = await storage.getSubject(subjectId);
     if (!subject) return res.status(404).json({ message: "Subject not found" });
-    const masked = await maskSensitiveFields(subject, req.appUser);
+    const masked = decryptBirthNumber(subject);
     const activeCompanyId = req.appUser?.activeCompanyId;
     const isCierny = await storage.isSubjectInGroup(subjectId, "group_cierny_zoznam");
     if (isCierny) {
@@ -2110,7 +1704,7 @@ export async function registerRoutes(
         if (dupCheck) {
           const isBlacklisted = await storage.isSubjectInGroup(dupCheck.id, "group_cierny_zoznam");
           if (isBlacklisted) {
-            return res.status(403).json({ message: "Registráciu nie je možné dokončiť. Kontaktujte správcu (Sentinel Block)." });
+            return res.status(403).json({ message: "Registráciu nie je možné dokončiť. Kontaktujte správcu." });
           }
         }
       }
@@ -2145,14 +1739,14 @@ export async function registerRoutes(
         if (!input.linkedFoId) input.linkedFoId = null;
         const created = await storage.createSubject(input);
         await logAudit(req, { action: "CREATE", module: "subjekty", entityId: created.id, entityName: created.companyName || `${created.firstName} ${created.lastName} - SZCO #${created.uid}`, newData: { ...input, birthNumber: undefined } });
-        res.status(201).json(await maskSensitiveFields(created, req.appUser));
+        res.status(201).json(decryptBirthNumber(created));
       } else {
         if (input.birthNumber) {
           input.birthNumber = encryptField(input.birthNumber);
         }
         const created = await storage.createSubject(input);
         await logAudit(req, { action: "CREATE", module: "subjekty", entityId: created.id, entityName: (created.firstName ? created.firstName + ' ' + created.lastName : created.companyName) || undefined, newData: { ...input, birthNumber: input.birthNumber ? '***' : undefined } });
-        res.status(201).json(await maskSensitiveFields(created, req.appUser));
+        res.status(201).json(decryptBirthNumber(created));
       }
     } catch (err) {
       if (err instanceof z.ZodError) return res.status(400).json({ message: err.errors[0].message });
@@ -2342,7 +1936,7 @@ export async function registerRoutes(
         console.error("[INHERITANCE CHECK ERROR]", inhErr);
       }
 
-      res.json(await maskSensitiveFields(updated, appUser));
+      res.json(decryptBirthNumber(updated));
     } catch (err) {
       if (err instanceof z.ZodError) return res.status(400).json({ message: err.errors[0].message });
       if (err instanceof Error && err.message === "Subject not found") return res.status(404).json({ message: err.message });
@@ -2776,23 +2370,12 @@ export async function registerRoutes(
   app.post(api.appUserAdmin.create.path, isAuthenticated, async (req: any, res) => {
     try {
       const input = api.appUserAdmin.create.input.parse(req.body);
-      const callerLevel = getSecurityLevel(req.appUser);
       if ((input as any).securityLevel !== undefined || (input as any).allowedIps !== undefined) {
-        if (callerLevel < SENTINEL_LEVELS.L8_ARCHITEKTONICKA) {
-          return res.status(403).json({ message: "Zmena bezpečnostnej úrovne vyžaduje Sentinel 8+ (Architekt)" });
+        if (!isArchitekt(req.appUser)) {
+          return res.status(403).json({ message: "Zmena bezpečnostnej úrovne vyžaduje Architekta" });
         }
       }
       const createData: any = { ...input };
-      if ((createData.securityLevel ?? (ROLE_TO_SENTINEL[createData.role] || 4)) === SENTINEL_LEVELS.L9_AUDITORSKA) {
-        if (!createData.email?.trim()) return res.status(400).json({ message: "L9 Audítor vyžaduje služobný email" });
-        if (!createData.institutionName?.trim()) return res.status(400).json({ message: "L9 Audítor vyžaduje názov inštitúcie" });
-        if (!createData.credentialNumber?.trim()) return res.status(400).json({ message: "L9 Audítor vyžaduje číslo poverenia" });
-        delete createData.birthNumber;
-        const maxExpiry = new Date(Date.now() + 8 * 60 * 60 * 1000);
-        if (!createData.accessExpiresAt || new Date(createData.accessExpiresAt) > maxExpiry) {
-          createData.accessExpiresAt = maxExpiry;
-        }
-      }
       const created = await storage.createAppUser(createData);
       await logAudit(req, { action: "CREATE", module: "pouzivatelia", entityName: input.username });
       res.status(201).json(created);
@@ -2805,10 +2388,9 @@ export async function registerRoutes(
   app.put(api.appUserAdmin.update.path, isAuthenticated, async (req: any, res) => {
     try {
       const input = api.appUserAdmin.update.input.parse(req.body);
-      const callerLevel = getSecurityLevel(req.appUser);
       if ((input as any).securityLevel !== undefined || (input as any).allowedIps !== undefined || (input as any).adminCode !== undefined) {
-        if (callerLevel < SENTINEL_LEVELS.L8_ARCHITEKTONICKA) {
-          return res.status(403).json({ message: "Zmena bezpečnostnej úrovne vyžaduje Sentinel 8+ (Architekt)" });
+        if (!isArchitekt(req.appUser)) {
+          return res.status(403).json({ message: "Zmena bezpečnostnej úrovne vyžaduje Architekta" });
         }
       }
       const updated = await storage.updateAppUserWithArchive(Number(req.params.id), input, "User profile update");
@@ -3134,8 +2716,7 @@ export async function registerRoutes(
       const contract = await storage.getContract(contractId);
       if (!contract) return res.status(404).json({ message: "Zmluva nenajdena" });
 
-      const secLvl = getSecurityLevel(appUser);
-      if (secLvl >= 4 && secLvl < 7) {
+      if (!isAdmin(appUser)) {
         const isOwner = contract.uploadedByUserId === appUser.id;
         const inChain = await isInManagerChain(appUser.id, contract.uploadedByUserId, appUser.activeCompanyId);
         if (!isOwner && !inChain) {
@@ -3373,8 +2954,7 @@ export async function registerRoutes(
       const [contract] = await db.select().from(contracts).where(eq(contracts.id, contractId));
       if (!contract) return res.status(404).json({ message: "Zmluva nenájdená" });
 
-      const secLvl = getSecurityLevel(req.appUser);
-      if (secLvl >= 4 && secLvl < 7) {
+      if (!isAdmin(req.appUser)) {
         const isOwner = contract.uploadedByUserId === req.appUser?.id;
         const inChain = await isInManagerChain(req.appUser.id, contract.uploadedByUserId, req.appUser.activeCompanyId);
         if (!isOwner && !inChain) {
@@ -4362,8 +3942,7 @@ export async function registerRoutes(
     };
     let { data: allContracts, total } = await storage.getContractsPaginated(filters);
 
-    const contractCallerLevel = getSecurityLevel(appUser);
-    if (contractCallerLevel >= SENTINEL_LEVELS.L4_OPERATIVNA && contractCallerLevel <= SENTINEL_LEVELS.L6_STRATEGICKA && appUser) {
+    if (!isAdmin(appUser) && appUser) {
       const contractFiltered: any[] = [];
       for (const c of allContracts) {
         if (c.uploadedByUserId === appUser.id) { contractFiltered.push(c); continue; }
@@ -4437,9 +4016,8 @@ export async function registerRoutes(
 
         const subjectForCheck = await storage.getSubject(input.subjectId);
         if (subjectForCheck?.listStatus === "cerveny") {
-          const userLevel = getSecurityLevel(appUser);
-          if (userLevel < SENTINEL_LEVELS.L7_REVIZNA) {
-            return res.status(403).json({ message: "Subjekt na červenom zozname — zmluva vyžaduje schválenie Úrovňou 7 alebo 8" });
+          if (!isAdmin(appUser)) {
+            return res.status(403).json({ message: "Subjekt na červenom zozname — zmluva vyžaduje schválenie administrátorom" });
           }
         }
       }
@@ -5034,8 +4612,8 @@ export async function registerRoutes(
           const approvalKeywords = ["schválen", "schvalena", "approved", "finalize", "finalizovan"];
           const statusNameLower = (newStatus.name || "").toLowerCase();
           const isApprovalStatus = approvalKeywords.some(kw => statusNameLower.includes(kw));
-          if (isApprovalStatus && getSecurityLevel(appUser) < SENTINEL_LEVELS.L7_REVIZNA) {
-            return res.status(403).json({ message: "Schválenie zmluvy vyžaduje úroveň 7+ (Backoffice)" });
+          if (isApprovalStatus && !isAdmin(appUser)) {
+            return res.status(403).json({ message: "Schválenie zmluvy vyžaduje administrátora" });
           }
         }
       }
@@ -5510,14 +5088,7 @@ export async function registerRoutes(
       const allContracts = await storage.getContracts();
       const contractList = allContracts.filter(c => contractIds.includes(c.id));
 
-      const dlpLevel = getSecurityLevel(req.appUser);
-      const ip = req.ip || req.headers['x-forwarded-for'] || '';
-      const dlpCheck = await checkDlpExportLimit(req.appUser.id, req.appUser.username, dlpLevel, contractList.length, typeof ip === 'string' ? ip : JSON.stringify(ip));
-      if (!dlpCheck.allowed) {
-        await logAudit(req, { action: "DLP_EXPORT_BLOCKED", module: "supisky", entityId: supiska.id, newData: { count: contractList.length, limit: DLP_DAILY_EXPORT_LIMIT, remaining: dlpCheck.remaining } });
-        return res.status(429).json({ message: dlpCheck.message });
-      }
-      await logAudit(req, { action: "DLP_EXPORT", module: "supisky", entityId: supiska.id, newData: { count: contractList.length, remaining: dlpCheck.remaining, exportedIds: contractIds } });
+      await logAudit(req, { action: "EXPORT", module: "supisky", entityId: supiska.id, newData: { count: contractList.length, exportedIds: contractIds } });
       const subjects = await storage.getSubjects();
       const partnersData = await storage.getPartners();
       const productsData = await storage.getProducts();
@@ -5569,14 +5140,7 @@ export async function registerRoutes(
       const allContracts = await storage.getContracts();
       const contractList = allContracts.filter(c => contractIds.includes(c.id));
 
-      const dlpLevel = getSecurityLevel(req.appUser);
-      const ip = req.ip || req.headers['x-forwarded-for'] || '';
-      const dlpCheck = await checkDlpExportLimit(req.appUser.id, req.appUser.username, dlpLevel, contractList.length, typeof ip === 'string' ? ip : JSON.stringify(ip));
-      if (!dlpCheck.allowed) {
-        await logAudit(req, { action: "DLP_EXPORT_BLOCKED", module: "supisky", entityId: supiska.id, newData: { count: contractList.length, limit: DLP_DAILY_EXPORT_LIMIT } });
-        return res.status(429).json({ message: dlpCheck.message });
-      }
-      await logAudit(req, { action: "DLP_EXPORT", module: "supisky-csv", entityId: supiska.id, newData: { count: contractList.length, remaining: dlpCheck.remaining, exportedIds: contractIds } });
+      await logAudit(req, { action: "EXPORT", module: "supisky-csv", entityId: supiska.id, newData: { count: contractList.length, exportedIds: contractIds } });
 
       const subjects = await storage.getSubjects();
       const partnersData = await storage.getPartners();
@@ -6667,7 +6231,7 @@ export async function registerRoutes(
               type: existing.type,
               matchedField: existing.matchedField,
             },
-            message: "Registráciu nie je možné dokončiť. Kontaktujte správcu (Sentinel Block).",
+            message: "Registráciu nie je možné dokončiť. Kontaktujte správcu.",
           });
           return;
         }
@@ -8352,8 +7916,7 @@ export async function registerRoutes(
         return res.status(403).json({ message: "Subjekt nepatrí do vašej aktívnej spoločnosti" });
       }
 
-      const secLevel = getSecurityLevel(req.appUser);
-      if (secLevel >= 4 && secLevel < 7) {
+      if (!isAdmin(req.appUser)) {
         const accessible = await isSubjectAccessible(req.appUser, existing);
         if (!accessible) {
           return res.status(403).json({ message: "Nemáte oprávnenie upravovať tento subjekt" });
@@ -8563,14 +8126,7 @@ export async function registerRoutes(
         return res.status(403).json({ message: "Prístup zamietnutý" });
       }
 
-      const dlpLevel = getSecurityLevel(appUser);
-      const ip = req.ip || req.headers['x-forwarded-for'] || '';
-      const dlpCheck = await checkDlpExportLimit(appUser.id, appUser.username, dlpLevel, 1, typeof ip === 'string' ? ip : JSON.stringify(ip));
-      if (!dlpCheck.allowed) {
-        await logAudit(req, { action: "DLP_EXPORT_BLOCKED", module: "gdpr-export", entityId: subjectId, newData: { limit: DLP_DAILY_EXPORT_LIMIT } });
-        return res.status(429).json({ message: dlpCheck.message });
-      }
-      await logAudit(req, { action: "DLP_EXPORT", module: "gdpr-export", entityId: subjectId, newData: { subjectId, remaining: dlpCheck.remaining } });
+      await logAudit(req, { action: "EXPORT", module: "gdpr-export", entityId: subjectId });
       
       const subject = await storage.getSubject(subjectId);
       if (!subject) return res.status(404).json({ message: "Subjekt nenájdený" });
@@ -10396,18 +9952,17 @@ export async function registerRoutes(
     return { allowed: true, count: entry.count };
   }
 
-  function enforceHoldingAccess(req: any, res: any): { level: number; isHolding: boolean } | null {
-    const level = getSecurityLevel(req.appUser);
-    if (level < SENTINEL_LEVELS.L7_REVIZNA || level === SENTINEL_LEVELS.L9_AUDITORSKA) {
-      res.status(403).json({ message: "Modul C vyžaduje minimálne úroveň L7 (Backoffice)" });
+  function enforceHoldingAccess(req: any, res: any): { isHolding: boolean } | null {
+    if (!isAdmin(req.appUser)) {
+      res.status(403).json({ message: "Prístup vyžaduje administrátora" });
       return null;
     }
-    const isHolding = level >= SENTINEL_LEVELS.L8_ARCHITEKTONICKA && level !== SENTINEL_LEVELS.L9_AUDITORSKA;
+    const isHolding = isArchitekt(req.appUser);
     if (!isHolding && !req.appUser.activeCompanyId) {
-      res.status(400).json({ message: "Vyberte aktívnu spoločnosť v holdingom kontexte pred prístupom k Modulu C" });
+      res.status(400).json({ message: "Vyberte aktívnu spoločnosť pred prístupom k dashboardu" });
       return null;
     }
-    return { level, isHolding };
+    return { isHolding };
   }
 
   app.get("/api/holding-dashboard/kpi", isAuthenticated, async (req: any, res) => {
@@ -10696,14 +10251,14 @@ export async function registerRoutes(
               recipientUserId: arch.id,
               type: "anti_mass_export",
               subject: "Anti-Mass-Export upozornenie",
-              body: `Používateľ ${appUser.username} (L${access.level}) vygeneroval ${count} holdingových reportov za poslednú hodinu. Limit 3/h prekročený.`,
+              body: `Používateľ ${appUser.username} vygeneroval ${count} holdingových reportov za poslednú hodinu. Limit 3/h prekročený.`,
               status: "pending",
             } as any);
           } catch {}
         }
 
         return res.status(429).json({
-          message: "Prekročili ste limit 3 veľkých holdingových reportov za hodinu. Sentinel (L8) bol notifikovaný.",
+          message: "Prekročili ste limit 3 veľkých holdingových reportov za hodinu. Architekt bol notifikovaný.",
           count,
         });
       }
@@ -13203,28 +12758,6 @@ export async function registerRoutes(
     processAutoAdultTransitions().catch(err => console.error("[AUTO ADULT TRANSITION CRON ERROR]", err));
   }, 60 * 60 * 1000);
 
-  async function deactivateExpiredAuditors() {
-    try {
-      const expired = await db.select({ id: appUsers.id, username: appUsers.username })
-        .from(appUsers)
-        .where(and(
-          eq(appUsers.securityLevel, SENTINEL_LEVELS.L9_AUDITORSKA),
-          isNotNull(appUsers.accessExpiresAt),
-          lt(appUsers.accessExpiresAt, new Date())
-        ));
-      for (const u of expired) {
-        await db.update(appUsers).set({ securityLevel: SENTINEL_LEVELS.L2_REGISTERED, role: 'user' }).where(eq(appUsers.id, u.id));
-        console.log(`[SENTINEL WATCHDOG] Deactivated expired L9 auditor: ${u.username} (id=${u.id})`);
-      }
-      if (expired.length > 0) {
-        console.log(`[SENTINEL WATCHDOG] Deactivated ${expired.length} expired auditor(s)`);
-      }
-    } catch (err) {
-      console.error("[SENTINEL WATCHDOG ERROR]", err);
-    }
-  }
-  deactivateExpiredAuditors().catch(err => console.error("[SENTINEL WATCHDOG INIT ERROR]", err));
-  setInterval(() => deactivateExpiredAuditors(), 5 * 60 * 1000);
 
   app.get("/api/maturity-alerts", isAuthenticated, async (req, res) => {
     try {

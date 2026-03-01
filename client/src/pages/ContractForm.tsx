@@ -1865,7 +1865,7 @@ export default function ContractForm() {
                   <span className="w-2 h-2 rounded-full bg-emerald-500 shrink-0" data-testid="indicator-active" />
                 )}
                 <Lock className="w-3 h-3 text-slate-500 ml-auto" />
-                <span className="text-[10px] text-slate-500">Len na čítanie — editácia cez Modul C</span>
+                <span className="text-[10px] text-slate-500">Len na čítanie — editácia cez Profil subjektu</span>
               </div>
               {selectedSubject && subjectRelations && (() => {
                 const allRelations = Object.values(subjectRelations.categories || {}).flatMap(cat => cat.relations || []);
@@ -1874,7 +1874,7 @@ export default function ContractForm() {
                   <div className="rounded-md border border-border/50 bg-muted/20 p-2.5 space-y-1.5" data-testid="section-relacie">
                     <div className="flex items-center gap-1.5">
                       <Link2 className="w-3.5 h-3.5 text-blue-400" />
-                      <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Relácie (Modul C)</span>
+                      <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Relácie</span>
                       <Badge variant="outline" className="text-[9px] px-1 py-0">{allRelations.length}</Badge>
                     </div>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-1">

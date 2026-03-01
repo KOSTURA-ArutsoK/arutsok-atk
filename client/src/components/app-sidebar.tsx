@@ -3,8 +3,8 @@ import { Link, useLocation } from "wouter";
 import { useAppUser } from "@/hooks/use-app-user";
 import { useHelp } from "@/contexts/help-context";
 import { RankBadge } from "@/components/rank-badge";
-import { Badge } from "@/components/ui/badge";
 import { useQuery } from "@tanstack/react-query";
+import { isAdmin as checkIsAdmin } from "@/lib/utils";
 import type { CircleConfig } from "@shared/schema";
 import {
   LayoutDashboard,
@@ -99,7 +99,7 @@ const partneriProduktyItems = [
   { href: "/partner-contacts", icon: Contact, label: "Kontaktne osoby" },
 ];
 
-const klientiItems: { href: string; icon: React.ElementType; label: string; moduleBadge?: string }[] = [
+const klientiItems: { href: string; icon: React.ElementType; label: string }[] = [
   { href: "/subjects", icon: Users, label: "Zoznam klientov" },
   { href: "/client-groups", icon: UsersRound, label: "Skupiny klientov" },
 ];
@@ -167,17 +167,15 @@ function CollapsibleMenu({
   menuId,
   openMenuId,
   setOpenMenuId,
-  moduleBadge,
 }: {
   label: string;
   icon: React.ElementType;
-  items: { href: string; icon: React.ElementType; label: string; moduleBadge?: string }[];
+  items: { href: string; icon: React.ElementType; label: string }[];
   location: string;
   testId: string;
   menuId: string;
   openMenuId: string | null;
   setOpenMenuId: (id: string | null) => void;
-  moduleBadge?: string;
 }) {
   const matchesHref = (href: string) => {
     if (href.includes("?")) {
@@ -203,9 +201,6 @@ function CollapsibleMenu({
           >
             <Icon className="w-4 h-4" />
             <span className="flex-1">{label}</span>
-            {moduleBadge && (
-              <Badge variant="outline" className="text-[8px] px-1 py-0 border-primary/30 text-primary ml-1">{moduleBadge}</Badge>
-            )}
             <ChevronRight className={`w-3.5 h-3.5 text-muted-foreground transition-transform duration-200 ${isOpen ? "rotate-90" : ""}`} />
           </SidebarMenuButton>
         </CollapsibleTrigger>
@@ -221,9 +216,6 @@ function CollapsibleMenu({
                   <Link href={item.href}>
                     <item.icon className="w-3.5 h-3.5" />
                     <span>{item.label}</span>
-                    {item.moduleBadge && (
-                      <sup className="text-[9px] text-primary/70 font-medium ml-0.5 -mt-1">({item.moduleBadge})</sup>
-                    )}
                   </Link>
                 </SidebarMenuSubButton>
               </SidebarMenuSubItem>
@@ -416,12 +408,12 @@ export function AppSidebar() {
               </Collapsible>
 
               <CollapsibleMenu
-                label="Sektory"
+                label="Štruktúra"
                 icon={LayoutGrid}
                 items={[
-                  { href: "/sektory-zmluv", icon: FileText, label: "Import & Identita", moduleBadge: "A" },
-                  { href: "/sektory-subjektov", icon: Database, label: "OCR & Digitalizácia", moduleBadge: "B" },
-                  { href: "/profil-subjektu", icon: Users, label: "Profil subjektu", moduleBadge: "C" },
+                  { href: "/sektory-zmluv", icon: FileText, label: "Štruktúra" },
+                  { href: "/sektory-subjektov", icon: Database, label: "Skener" },
+                  { href: "/profil-subjektu", icon: Users, label: "Profil subjektu" },
                 ]}
                 location={location}
                 testId="nav-sektory"
@@ -622,21 +614,20 @@ export function AppSidebar() {
                 openMenuId={openMenuId}
                 setOpenMenuId={setOpenMenuId}
               />
-              {(appUser?.role === 'admin' || appUser?.role === 'superadmin' || (appUser?.sentinelLevel ?? 0) >= 5) && (
+              {checkIsAdmin(appUser) && (
                 <SidebarMenuItem>
-                  <Link href="/admin-upravy">
+                  <Link href="/analytika">
                     <SidebarMenuButton
-                      isActive={location === "/admin-upravy"}
-                      data-testid="nav-admin-upravy"
+                      isActive={location === "/analytika"}
+                      data-testid="nav-analytika"
                     >
                       <BarChart3 className="w-4 h-4" />
-                      <span>Administrácia & Úpravy</span>
-                      <Badge variant="outline" className="text-[8px] px-1 py-0 border-primary/30 text-primary ml-1">D</Badge>
+                      <span>Analytika</span>
                     </SidebarMenuButton>
                   </Link>
                 </SidebarMenuItem>
               )}
-              {(appUser?.sentinelLevel ?? 0) >= 7 && (appUser?.sentinelLevel ?? 0) !== 9 && (
+              {checkIsAdmin(appUser) && (
                 <SidebarMenuItem>
                   <Link href="/holding-dashboard">
                     <SidebarMenuButton
@@ -645,7 +636,6 @@ export function AppSidebar() {
                     >
                       <TrendingUp className="w-4 h-4" />
                       <span>Holding Dashboard</span>
-                      <Badge variant="outline" className="text-[8px] px-1 py-0 border-primary/30 text-primary ml-1">C</Badge>
                     </SidebarMenuButton>
                   </Link>
                 </SidebarMenuItem>
@@ -675,22 +665,6 @@ export function AppSidebar() {
       </SidebarContent>
 
       <SidebarFooter className="p-3 space-y-2">
-        {appUser?.sentinelLevel != null && (
-          <div className={`flex items-center gap-2 px-2 py-1.5 rounded-md border ${
-            (appUser.sentinelLevel ?? 0) >= 8 ? "border-amber-500/30 bg-amber-500/10" :
-            (appUser.sentinelLevel ?? 0) >= 7 ? "border-yellow-500/30 bg-yellow-500/10" :
-            (appUser.sentinelLevel ?? 0) >= 4 ? "border-blue-500/30 bg-blue-500/10" :
-            "border-muted bg-muted/30"
-          }`} data-testid="sentinel-badge">
-            <Shield className={`w-4 h-4 ${
-              (appUser.sentinelLevel ?? 0) >= 8 ? "text-amber-500" :
-              (appUser.sentinelLevel ?? 0) >= 7 ? "text-yellow-500" :
-              (appUser.sentinelLevel ?? 0) >= 4 ? "text-blue-500" :
-              "text-muted-foreground"
-            }`} />
-            <span className="text-xs font-mono font-bold" data-testid="text-sentinel-level">{appUser.sentinelLabel || `L${appUser.sentinelLevel}`}</span>
-          </div>
-        )}
         <div className="border border-sidebar-border rounded-md p-2" data-testid="rank-display">
           <p className="text-xs font-semibold truncate mb-1.5" data-testid="text-rank-name">
             {appUser?.careerLevel?.positionName || "Nepriradená"} • {pointsData?.points?.toFixed(1) ?? "0"} bodov

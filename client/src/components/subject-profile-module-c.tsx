@@ -1935,16 +1935,16 @@ export function SubjectProfileModuleC({ subject }: ModuleCProps) {
                       const isRelacie = cat.key === "relacie";
 
                       const SOURCE_MAP: Record<string, { sources: string[]; label: string }> = {
-                        identita: { sources: ["B"], label: "Profil (B)" },
-                        legislativa: { sources: ["B"], label: "Profil (B)" },
-                        rodina: { sources: ["B"], label: "Profil (B)" },
-                        financie: { sources: ["A", "B"], label: "Zmluvy (A) + Profil (B)" },
-                        profil: { sources: ["B"], label: "Profil (B)" },
-                        digitalna: { sources: ["B"], label: "Profil (B)" },
-                        servis: { sources: ["A", "B"], label: "Zmluvy (A) + Profil (B)" },
-                        relacie: { sources: ["A", "B"], label: "Zmluvy (A) + Profil (B)" },
+                        identita: { sources: ["P"], label: "Profil" },
+                        legislativa: { sources: ["P"], label: "Profil" },
+                        rodina: { sources: ["P"], label: "Profil" },
+                        financie: { sources: ["Z", "P"], label: "Zmluvy + Profil" },
+                        profil: { sources: ["P"], label: "Profil" },
+                        digitalna: { sources: ["P"], label: "Profil" },
+                        servis: { sources: ["Z", "P"], label: "Zmluvy + Profil" },
+                        relacie: { sources: ["Z", "P"], label: "Zmluvy + Profil" },
                       };
-                      const sourceInfo = SOURCE_MAP[cat.key] || { sources: ["B"], label: "Profil (B)" };
+                      const sourceInfo = SOURCE_MAP[cat.key] || { sources: ["P"], label: "Profil" };
 
                       return (
                         <Card
@@ -1967,9 +1967,9 @@ export function SubjectProfileModuleC({ subject }: ModuleCProps) {
                                         key={s}
                                         className={cn(
                                           "text-[8px] font-bold px-0.5 rounded leading-none",
-                                          s === "A" ? "text-amber-400 bg-amber-500/15" : "text-blue-400 bg-blue-500/15"
+                                          s === "Z" ? "text-amber-400 bg-amber-500/15" : "text-blue-400 bg-blue-500/15"
                                         )}
-                                        title={s === "A" ? "Dáta zo Zmlúv (Modul A)" : "Dáta z Profilu (Modul B)"}
+                                        title={s === "Z" ? "Dáta zo Zmlúv" : "Dáta z Profilu"}
                                         data-testid={`source-badge-${cat.key}-${s}`}
                                       >
                                         ({s})

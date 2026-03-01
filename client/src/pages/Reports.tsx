@@ -63,7 +63,7 @@ interface DynamicFilter {
   id: string;
   field: string;
   label: string;
-  module: "A" | "B" | "C";
+  module: "klienti" | "zmluvy" | "system";
   value: string;
   value2?: string;
   type: "select" | "text" | "range" | "dateRange" | "multiselect";
@@ -76,16 +76,16 @@ const CHART_COLORS = [
 ];
 
 const DYNAMIC_FILTER_OPTIONS = [
-  { field: "subjectType", label: "Typ subjektu (FO/PO/SZČO)", module: "A" as const, type: "multiselect" as const },
-  { field: "listStatus", label: "Reputačný status", module: "A" as const, type: "select" as const },
-  { field: "psc", label: "PSČ", module: "A" as const, type: "text" as const },
-  { field: "premium", label: "Lehotné poistné (rozsah)", module: "B" as const, type: "range" as const },
-  { field: "paymentFrequency", label: "Frekvencia platenia", module: "B" as const, type: "select" as const },
-  { field: "expiry", label: "Dátum expirácie (rozsah)", module: "B" as const, type: "dateRange" as const },
+  { field: "subjectType", label: "Typ subjektu (FO/PO/SZČO)", module: "klienti" as const, type: "multiselect" as const },
+  { field: "listStatus", label: "Reputačný status", module: "klienti" as const, type: "select" as const },
+  { field: "psc", label: "PSČ", module: "klienti" as const, type: "text" as const },
+  { field: "premium", label: "Lehotné poistné (rozsah)", module: "zmluvy" as const, type: "range" as const },
+  { field: "paymentFrequency", label: "Frekvencia platenia", module: "zmluvy" as const, type: "select" as const },
+  { field: "expiry", label: "Dátum expirácie (rozsah)", module: "zmluvy" as const, type: "dateRange" as const },
 ];
 
-const MODULE_COLORS: Record<string, string> = { A: "bg-emerald-600", B: "bg-blue-600", C: "bg-orange-600" };
-const MODULE_LABELS: Record<string, string> = { A: "Klientsky kmeň", B: "Zmluvy & Produkcia", C: "Technické detaily" };
+const MODULE_COLORS: Record<string, string> = { klienti: "bg-emerald-600", zmluvy: "bg-blue-600", system: "bg-orange-600" };
+const MODULE_LABELS: Record<string, string> = { klienti: "Klientsky kmeň", zmluvy: "Zmluvy & Produkcia", system: "Systém" };
 
 function formatCurrency(val: number): string {
   return new Intl.NumberFormat("sk-SK", { style: "currency", currency: "EUR", minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(val);
@@ -123,7 +123,7 @@ function getFilterDisplayValue(f: DynamicFilter): string {
 
 export default function Reports() {
   const { data: appUser } = useAppUser();
-  const isAdmin = appUser?.role === "admin" || appUser?.role === "superadmin";
+  const isAdmin = ['admin', 'superadmin', 'prezident', 'architekt'].includes(appUser?.role || '');
 
   const [from, setFrom] = useState("");
   const [to, setTo] = useState("");
@@ -262,11 +262,11 @@ export default function Reports() {
 
   const activeFiltersSummary = useMemo(() => {
     const items: { label: string; value: string; module: string }[] = [];
-    if (from || to) items.push({ label: "Obdobie", value: `${from || "..."} - ${to || "..."}`, module: "B" });
-    if (partnerId && partnerId !== "all") items.push({ label: "Partner", value: partners?.find(p => String(p.id) === partnerId)?.name || partnerId, module: "B" });
-    if (agentId && agentId !== "all") items.push({ label: "Získateľ", value: agents?.find(a => String(a.id) === agentId)?.username || agentId, module: "B" });
-    if (status && status !== "all") items.push({ label: "Status", value: statuses?.find(s => String(s.id) === status)?.name || status, module: "B" });
-    if (contractType && contractType !== "all") items.push({ label: "Typ zmluvy", value: contractType, module: "B" });
+    if (from || to) items.push({ label: "Obdobie", value: `${from || "..."} - ${to || "..."}`, module: "zmluvy" });
+    if (partnerId && partnerId !== "all") items.push({ label: "Partner", value: partners?.find(p => String(p.id) === partnerId)?.name || partnerId, module: "zmluvy" });
+    if (agentId && agentId !== "all") items.push({ label: "Získateľ", value: agents?.find(a => String(a.id) === agentId)?.username || agentId, module: "zmluvy" });
+    if (status && status !== "all") items.push({ label: "Status", value: statuses?.find(s => String(s.id) === status)?.name || status, module: "zmluvy" });
+    if (contractType && contractType !== "all") items.push({ label: "Typ zmluvy", value: contractType, module: "zmluvy" });
     for (const f of dynamicFilters) {
       if (f.value) items.push({ label: f.label, value: getFilterDisplayValue(f), module: f.module });
     }
@@ -673,7 +673,7 @@ export default function Reports() {
               </Button>
               {showAddFilter && availableToAdd.length > 0 && (
                 <div className="absolute top-full left-0 mt-1 z-50 bg-card border border-border rounded-md shadow-lg w-64 py-1" data-testid="filter-dropdown">
-                  {(["A", "B", "C"] as const).map(mod => {
+                  {(["klienti", "zmluvy", "system"] as const).map(mod => {
                     const items = availableToAdd.filter(o => o.module === mod);
                     if (items.length === 0) return null;
                     return (
@@ -870,11 +870,6 @@ export default function Reports() {
                         {f.label}: {f.value}
                       </Badge>
                     ))}
-                    {dynamicFilters.some(f => f.module === "C") && (
-                      <Badge variant="outline" className="text-xs bg-orange-950/30 border-orange-600/50 text-orange-400">
-                        Modul C: Prístup auditovaný
-                      </Badge>
-                    )}
                   </div>
                 )}
               </CardContent>

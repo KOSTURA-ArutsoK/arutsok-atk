@@ -398,50 +398,6 @@ export const permissions = pgTable("permissions", {
   canDelete: boolean("can_delete").default(false),
 });
 
-// === SENTINEL SECURITY PYRAMID (11-Level Access Control: 0-10) ===
-export const SENTINEL_LEVELS = {
-  L0_BLACKLIST: 0,
-  L1_KLIENT: 1,
-  L2_REGISTERED: 2,
-  L3_AKVIZICNA: 3,
-  L4_OPERATIVNA: 4,
-  L5_MANAZERSKA: 5,
-  L6_STRATEGICKA: 6,
-  L7_REVIZNA: 7,
-  L8_ARCHITEKTONICKA: 8,
-  L9_AUDITORSKA: 9,
-  L10_HOLDINGOVA: 10,
-} as const;
-
-export const SENTINEL_LEVEL_LABELS: Record<number, string> = {
-  0: "0 – BLACKLIST (Čierny zoznam)",
-  1: "1 – Bežný klient",
-  2: "2 – Registrovaný klient",
-  3: "3 – Akvizičná (Partner/Tipér)",
-  4: "4 – Operatívna (Obchodník)",
-  5: "5 – Manažérska (Manažér)",
-  6: "6 – Strategická (Riaditeľ)",
-  7: "7 – Revízna (Backoffice)",
-  8: "8 – Architektonická (Architekt)",
-  9: "9 – Audítorská (Externý dozor)",
-  10: "10 – Holdingová (Multi-entity)",
-};
-
-export const SENTINEL_LEVEL_SHORT: Record<number, string> = {
-  0: "L0", 1: "L1", 2: "L2", 3: "L3", 4: "L4",
-  5: "L5", 6: "L6", 7: "L7", 8: "L8", 9: "L9", 10: "L10",
-};
-
-export const ROLE_TO_SENTINEL: Record<string, number> = {
-  user: 4,
-  admin: 5,
-  superadmin: 6,
-  prezident: 7,
-  architekt: 8,
-  auditor: 9,
-  system: 10,
-};
-
 // === APP USERS & SECURITY ===
 export const appUsers = pgTable("app_users", {
   id: serial("id").primaryKey(),
@@ -2413,26 +2369,6 @@ export const insertRedListAlertSchema = createInsertSchema(redListAlerts).omit({
 export type RedListAlert = typeof redListAlerts.$inferSelect;
 export type InsertRedListAlert = z.infer<typeof insertRedListAlertSchema>;
 
-// === DLP EXPORT COUNTERS ===
-export const dlpExportCounters = pgTable("dlp_export_counters", {
-  id: serial("id").primaryKey(),
-  userId: integer("user_id").notNull().references(() => appUsers.id),
-  exportedCount: integer("exported_count").notNull().default(0),
-  resetDate: text("reset_date").notNull(),
-  lastExportAt: timestamp("last_export_at"),
-});
-
-// === DLP SUSPICIOUS ACTIVITY ===
-export const dlpSuspiciousActivity = pgTable("dlp_suspicious_activity", {
-  id: serial("id").primaryKey(),
-  userId: integer("user_id").notNull().references(() => appUsers.id),
-  username: text("username"),
-  activityType: text("activity_type").notNull(),
-  actionTaken: text("action_taken").notNull(),
-  details: jsonb("details"),
-  ipAddress: text("ip_address"),
-  detectedAt: timestamp("detected_at").defaultNow(),
-});
 
 export type CreateSubjectRequest = InsertSubject;
 export type UpdateSubjectRequest = Partial<InsertSubject> & { changeReason?: string };

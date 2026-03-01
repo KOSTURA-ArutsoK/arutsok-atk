@@ -19,8 +19,6 @@ import { AppSidebar } from "@/components/app-sidebar";
 import { useToast } from "@/hooks/use-toast";
 import { useUserProfile } from "@/hooks/use-user-profile";
 import { ContextSelectorOverlay } from "@/components/context-selector-overlay";
-import { DlpWatermark } from "@/components/DlpWatermark";
-import { DlpChallenge } from "@/components/DlpChallenge";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -379,8 +377,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             <div className="flex-1" />
 
             {(() => {
-              const sentinelLevel = appUser?.sentinelLevel ?? appUser?.securityLevel ?? 4;
-              const canSwitch = sentinelLevel >= 7 && sentinelLevel !== 9;
+              const canSwitch = appUser?.role === 'admin' || appUser?.role === 'superadmin';
               const activeDivName = activeDivision?.division?.name || activeDivision?.name;
               const activeDivEmoji = activeDivision?.division?.emoji || activeDivision?.emoji;
               const hasDivisions = activeDivisions && activeDivisions.length > 0 && !isClientUser;
@@ -614,44 +611,22 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 data-testid="button-impersonate-stop"
               >
                 <X className="w-4 h-4" />
-                Návrat do L7 profilu
+                Návrat do profilu
               </Button>
             </div>
           )}
 
-          {(appUser as any)?.sentinelLevel === 9 && (
-            <div className="bg-amber-600/20 border-b border-amber-500/30 px-4 py-2 flex items-center gap-2 flex-shrink-0" data-testid="banner-auditor-readonly">
-              <Lock className="w-4 h-4 text-amber-400" />
-              <span className="text-sm font-medium text-amber-300">Audítorský režim — iba čítanie</span>
-              {(appUser as any)?.accessExpiresAt && (
-                <span className="text-xs text-amber-400/70 ml-2 font-mono">
-                  Expirácia: {new Date((appUser as any).accessExpiresAt).toLocaleString('sk-SK')}
-                </span>
-              )}
-            </div>
-          )}
 
           <main className="flex-1 overflow-y-auto p-4 md:p-6">
             {children}
           </main>
         </div>
       </div>
-      <DlpWatermark />
-      <DlpChallenge />
       <ContextSelectorOverlay
         open={contextOverlayOpen}
         step={contextStep}
         states={allStates || []}
-        companies={(() => {
-          const all = companies || [];
-          if ((appUser as any)?.sentinelLevel === 9 && (appUser as any)?.allowedCompanyIds?.length) {
-            return all.filter((c: any) => (appUser as any).allowedCompanyIds.includes(c.id));
-          }
-          if ((appUser as any)?.sentinelLevel === 9 && (!(appUser as any)?.allowedCompanyIds || (appUser as any)?.allowedCompanyIds?.length === 0)) {
-            return [];
-          }
-          return all;
-        })()}
+        companies={companies || []}
         companyDivisions={companyDivisions}
         currentStateId={pendingStateId}
         currentCompanyId={pendingCompanyId}

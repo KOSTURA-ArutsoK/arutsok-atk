@@ -3,8 +3,13 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { formatPhone, formatUid } from "@/lib/utils";
-import { SENTINEL_LEVEL_LABELS, SENTINEL_LEVEL_SHORT } from "@shared/schema";
-import { Loader2, Plus, Pencil, Users as UsersIcon, Shield, LogIn, Info, Lock } from "lucide-react";
+const SECURITY_LEVEL_LABELS: Record<number, string> = {
+  1: "Štandardná", 2: "Rozšírená", 3: "Plná",
+};
+const SECURITY_LEVEL_SHORT: Record<number, string> = {
+  1: "Štd", 2: "Rozš", 3: "Plná",
+};
+import { Loader2, Plus, Pencil, Users as UsersIcon, Shield, LogIn, Lock } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -153,7 +158,7 @@ function UserFormDialog({
   const { data: currentUser } = useAppUser();
   const [form, setForm] = useState<UserFormData>(emptyForm);
   const timerRef = useRef<number>(0);
-  const canEditSecurity = (currentUser?.sentinelLevel ?? 0) >= 8;
+  const canEditSecurity = currentUser?.role === 'admin' || currentUser?.role === 'superadmin' || currentUser?.role === 'architekt' || currentUser?.role === 'prezident';
 
   const { data: permGroups } = useQuery<PermissionGroup[]>({
     queryKey: ["/api/permission-groups"],
@@ -266,7 +271,7 @@ function UserFormDialog({
       allowedIps: form.allowedIps || null,
       processingTimeSec,
     };
-    if (form.securityLevel === 9) {
+    if (form.role === "auditor") {
       payload.institutionName = form.institutionName || null;
       payload.credentialNumber = form.credentialNumber || null;
     }
@@ -388,47 +393,7 @@ function UserFormDialog({
               Správa prihlásenia a bezpečnosť
             </h4>
             <div className="space-y-2">
-              <div className="flex items-center gap-2">
-                <Label>Bezpečnostná úroveň</Label>
-                {[7, 8, 10].includes(currentUser?.sentinelLevel ?? 0) && (
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Info className="w-3.5 h-3.5 text-muted-foreground cursor-help" data-testid="icon-sentinel-info" />
-                    </TooltipTrigger>
-                    <TooltipContent side="right" sideOffset={8} className="max-w-sm text-[11px] p-3 space-y-0" data-testid="tooltip-sentinel-levels">
-                      <p className="font-semibold text-xs mb-1.5 text-foreground">Sentinel Pyramída (0–10)</p>
-                      {([
-                        { l: 0, desc: "Blokovaný prístup — žiadne API volania" },
-                        { l: 1, desc: "Bežný klient — základný prístup" },
-                        { l: 2, desc: "Registrovaný — rozšírený klientský prístup" },
-                        { l: 3, desc: "Akvizičná — partner / tipér" },
-                        { l: 4, desc: "Operatívna — štandard pre obchodníkov" },
-                        { l: 5, desc: "Manažérska — správa tímu" },
-                        { l: 6, desc: "Strategická — riaditeľská úroveň" },
-                      ] as const).map(({ l, desc }) => (
-                        <p key={l} className={`py-0.5 ${l === form.securityLevel ? "font-bold text-primary" : "text-muted-foreground"}`}>
-                          <span className="font-mono text-[10px] mr-1">L{l}</span> {desc}
-                        </p>
-                      ))}
-                      <div className="flex items-center gap-2 my-1.5">
-                        <div className="flex-1 border-t border-dashed border-amber-500/60" />
-                        <span className="text-[9px] font-semibold text-amber-400 uppercase whitespace-nowrap">Maskovacia hranica</span>
-                        <div className="flex-1 border-t border-dashed border-amber-500/60" />
-                      </div>
-                      {([
-                        { l: 7, desc: "Revízna — plný prístup k dátam (bez maskovania)" },
-                        { l: 8, desc: "Architektonická — správa bezpečnosti, security edit" },
-                        { l: 9, desc: "Audítorská — ReadOnly, max 8h, bez RČ, Silo" },
-                        { l: 10, desc: "Holdingová — systémová multi-entity úroveň" },
-                      ] as const).map(({ l, desc }) => (
-                        <p key={l} className={`py-0.5 ${l === form.securityLevel ? "font-bold text-primary" : "text-muted-foreground"}`}>
-                          <span className="font-mono text-[10px] mr-1">L{l}</span> {desc}
-                        </p>
-                      ))}
-                    </TooltipContent>
-                  </Tooltip>
-                )}
-              </div>
+              <Label>Bezpečnostná úroveň</Label>
               <Select
                 value={form.securityLevel.toString()}
                 onValueChange={val => setForm(f => ({ ...f, securityLevel: parseInt(val) }))}
@@ -438,19 +403,19 @@ function UserFormDialog({
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {Object.entries(SENTINEL_LEVEL_LABELS).map(([val, label]) => (
+                  {Object.entries(SECURITY_LEVEL_LABELS).map(([val, label]) => (
                     <SelectItem key={val} value={val}>{label}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
               {!canEditSecurity && (
-                <p className="text-[10px] text-muted-foreground flex items-center gap-1"><Lock className="w-3 h-3" /> Zmena vyžaduje úroveň 8 (Architekt)</p>
+                <p className="text-[10px] text-muted-foreground flex items-center gap-1"><Lock className="w-3 h-3" /> Zmena vyžaduje admin oprávnenie</p>
               )}
             </div>
             <div className="space-y-2">
               <Label className="flex items-center gap-2">
                 <Lock className="w-3.5 h-3.5" />
-                IP Locking (Sentinel)
+                IP Locking
               </Label>
               <Textarea
                 value={form.allowedIps}
@@ -462,54 +427,16 @@ function UserFormDialog({
                 data-testid="input-user-allowed-ips"
               />
               <p className="text-[10px] text-muted-foreground">Ak je vyplnene, uzivatel sa moze prihlasit len z tychto IP adries. Prazdne = bez obmedzenia.</p>
-              {form.securityLevel >= 7 && !form.allowedIps?.trim() && (
-                <p className="text-[11px] text-orange-400 font-medium" data-testid="warning-ip-required">Úroveň 7+ (Backoffice) vyžaduje IP Locking</p>
-              )}
             </div>
-            {form.securityLevel !== 9 && (
-              <div className="space-y-2">
-                <Label>Admin kód (voliteľné)</Label>
-                <Input
-                  value={form.adminCode}
-                  onChange={e => setForm(f => ({ ...f, adminCode: e.target.value }))}
-                  disabled={!canEditSecurity}
-                  data-testid="input-user-admin-code"
-                />
-              </div>
-            )}
-            {form.securityLevel === 9 && (
-              <>
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label>Názov inštitúcie *</Label>
-                    <Input
-                      value={form.institutionName}
-                      onChange={e => setForm(f => ({ ...f, institutionName: e.target.value }))}
-                      placeholder="napr. NBS, Deloitte"
-                      data-testid="input-user-institution"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Číslo poverenia *</Label>
-                    <Input
-                      value={form.credentialNumber}
-                      onChange={e => setForm(f => ({ ...f, credentialNumber: e.target.value }))}
-                      placeholder="Audítorské poverenie"
-                      data-testid="input-user-credential"
-                    />
-                  </div>
-                </div>
-                {editingUser && (editingUser as any).accessExpiresAt && (
-                  <div className="space-y-1">
-                    <Label className="text-muted-foreground">Expirácia prístupu (Hard Limit 8h)</Label>
-                    <p className="text-sm font-mono bg-muted/50 px-3 py-1.5 rounded-md" data-testid="text-access-expires">
-                      {new Date((editingUser as any).accessExpiresAt).toLocaleString('sk-SK')}
-                    </p>
-                  </div>
-                )}
-                <p className="text-[10px] text-amber-400">L9 Audítor: Prístup max 8h, ReadOnly, bez Rodného čísla</p>
-              </>
-            )}
+            <div className="space-y-2">
+              <Label>Admin kód (voliteľné)</Label>
+              <Input
+                value={form.adminCode}
+                onChange={e => setForm(f => ({ ...f, adminCode: e.target.value }))}
+                disabled={!canEditSecurity}
+                data-testid="input-user-admin-code"
+              />
+            </div>
           </div>
 
           <div className="space-y-3">
@@ -764,13 +691,12 @@ export default function UsersPage() {
                     </TableCell>}
                     {columnVisibility.isVisible("securityLevel") && <TableCell>
                       <Badge variant="outline" className={`${
-                        (user.securityLevel ?? 4) >= 8 ? "border-amber-500/40 text-amber-400" :
-                        (user.securityLevel ?? 4) >= 7 ? "border-yellow-500/40 text-yellow-400" :
-                        (user.securityLevel ?? 4) >= 4 ? "border-blue-500/40 text-blue-400" :
-                        ""
+                        (user.securityLevel ?? 1) >= 3 ? "border-amber-500/40 text-amber-400" :
+                        (user.securityLevel ?? 1) >= 2 ? "border-blue-500/40 text-blue-400" :
+                        "border-zinc-500/40 text-zinc-400"
                       }`} data-testid={`badge-user-sl-${user.id}`}>
                         <Shield className="w-3 h-3 mr-1" />
-                        {SENTINEL_LEVEL_SHORT[user.securityLevel ?? 1] || `L${user.securityLevel || 1}`}
+                        {SECURITY_LEVEL_SHORT[user.securityLevel ?? 1] || "Štd"}
                       </Badge>
                     </TableCell>}
                     {columnVisibility.isVisible("permissionGroupId") && <TableCell data-testid={`text-user-group-${user.id}`}>
