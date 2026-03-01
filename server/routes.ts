@@ -727,7 +727,12 @@ export async function registerRoutes(
   // === DIVISIONS (Divízie) ===
   app.get("/api/divisions", isAuthenticated, async (_req, res) => {
     try {
-      res.json(await storage.getDivisions());
+      const divs = await storage.getDivisions();
+      const enriched = await Promise.all(divs.map(async (d) => {
+        const links = await storage.getDivisionCompanies(d.id);
+        return { ...d, companies: links.map(l => ({ id: l.company.id, name: l.company.name, code: (l.company as any).code || null })) };
+      }));
+      res.json(enriched);
     } catch (err) { res.status(500).json({ message: String(err) }); }
   });
 

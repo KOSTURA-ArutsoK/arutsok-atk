@@ -51,6 +51,7 @@ const DIVISION_COLUMNS: ColumnDef[] = [
   { key: "emoji", label: "Emoji" },
   { key: "name", label: "Nazov" },
   { key: "code", label: "Kod" },
+  { key: "companies", label: "Spolocnost" },
   { key: "description", label: "Popis" },
   { key: "isActive", label: "Aktivna" },
 ];
@@ -118,6 +119,7 @@ export default function SettingsDivisions() {
                   {columnVisibility.isVisible("emoji") && <TableHead className="w-12 text-center">Emoji</TableHead>}
                   {columnVisibility.isVisible("name") && <TableHead sortKey="name" sortDirection={sortKey === "name" ? sortDirection : null} onSort={requestSort}>Nazov</TableHead>}
                   {columnVisibility.isVisible("code") && <TableHead sortKey="code" sortDirection={sortKey === "code" ? sortDirection : null} onSort={requestSort}>Kod</TableHead>}
+                  {columnVisibility.isVisible("companies") && <TableHead>Spolocnost</TableHead>}
                   {columnVisibility.isVisible("description") && <TableHead>Popis</TableHead>}
                   {columnVisibility.isVisible("isActive") && <TableHead>Aktivna</TableHead>}
                   <TableHead className="text-right">Akcie</TableHead>
@@ -130,6 +132,19 @@ export default function SettingsDivisions() {
                     {columnVisibility.isVisible("emoji") && <TableCell className="text-center text-lg" data-testid={`text-division-emoji-${div.id}`}>{(div as any).emoji || "-"}</TableCell>}
                     {columnVisibility.isVisible("name") && <TableCell className="font-medium" data-testid={`text-division-name-${div.id}`}>{div.name}</TableCell>}
                     {columnVisibility.isVisible("code") && <TableCell><Badge variant="secondary" className="font-mono">{div.code || "-"}</Badge></TableCell>}
+                    {columnVisibility.isVisible("companies") && (
+                      <TableCell data-testid={`text-division-companies-${div.id}`}>
+                        {(div as any).companies?.length > 0 ? (
+                          <div className="flex flex-wrap gap-1">
+                            {(div as any).companies.map((c: any) => (
+                              <Badge key={c.id} variant="outline" className="text-xs">{c.name}</Badge>
+                            ))}
+                          </div>
+                        ) : (
+                          <span className="text-muted-foreground text-xs">-</span>
+                        )}
+                      </TableCell>
+                    )}
                     {columnVisibility.isVisible("description") && <TableCell className="text-sm text-muted-foreground max-w-[200px] truncate">{div.description || "-"}</TableCell>}
                     {columnVisibility.isVisible("isActive") && <TableCell><Badge variant={div.isActive ? "default" : "secondary"}>{div.isActive ? "Ano" : "Nie"}</Badge></TableCell>}
                     <TableCell className="text-right">
@@ -330,6 +345,7 @@ function DivisionCompaniesDialog({
       apiRequest("POST", `/api/companies/${addCompanyId}/divisions`, { divisionId }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/divisions", division?.id, "companies"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/divisions"] });
       toast({ title: "Uspech", description: "Spolocnost priradena" });
       setAddCompanyId("");
     },
@@ -340,6 +356,7 @@ function DivisionCompaniesDialog({
     mutationFn: (linkId: number) => apiRequest("DELETE", `/api/company-divisions/${linkId}`),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/divisions", division?.id, "companies"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/divisions"] });
       toast({ title: "Uspech", description: "Prepojenie odstranene" });
     },
     onError: () => toast({ title: "Chyba", description: "Nepodarilo sa odstranit prepojenie", variant: "destructive" }),

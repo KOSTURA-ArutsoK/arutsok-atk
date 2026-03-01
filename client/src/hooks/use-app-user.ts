@@ -39,6 +39,12 @@ export function useSetActiveContext() {
       queryClient.invalidateQueries({ queryKey: ["/api/commission-rates"] });
       queryClient.invalidateQueries({ queryKey: ["/api/partners"] });
       queryClient.invalidateQueries({ queryKey: ["/api/sectors"] });
+      queryClient.invalidateQueries({
+        predicate: (query) => {
+          const key = query.queryKey[0];
+          return typeof key === "string" && key.includes("/api/companies/") && key.includes("/divisions");
+        },
+      });
     },
   });
 }
