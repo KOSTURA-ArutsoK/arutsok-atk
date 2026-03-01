@@ -155,7 +155,7 @@ export function ContextSelectorOverlay({
 
           <div className="overflow-y-auto overflow-x-hidden w-full max-w-3xl py-2" style={{ maxHeight: "calc(90vh - 200px)" }}>
             {filteredCompanies.length > 0 ? (
-              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-5 p-2">
+              <div className="flex flex-wrap justify-center gap-5 p-2">
                 {[...filteredCompanies].sort((a, b) => a.name.localeCompare(b.name, "sk")).map(c => {
                   const logoUrl = getPrimaryLogo(c.logos as LogoEntry[] | null);
                   return (
@@ -163,7 +163,7 @@ export function ContextSelectorOverlay({
                       key={c.id}
                       type="button"
                       onClick={() => onSelectCompany(c.id)}
-                      className="flex flex-col items-center justify-start gap-3 p-4 rounded-xl bg-white/5 border border-white/10 transition-all duration-200 hover:border-sky-400 hover:bg-white/10 hover:shadow-lg hover:shadow-sky-400/20 group cursor-pointer h-36"
+                      className="flex flex-col items-center justify-start gap-3 p-4 rounded-xl bg-white/5 border border-white/10 transition-all duration-200 hover:border-sky-400 hover:bg-white/10 hover:shadow-lg hover:shadow-sky-400/20 group cursor-pointer w-32 h-36"
                       data-testid={`context-company-${c.id}`}
                     >
                       <div className="w-14 h-14 rounded-xl bg-white/10 flex items-center justify-center overflow-hidden shrink-0">
@@ -222,7 +222,7 @@ export function ContextSelectorOverlay({
                     key={divId}
                     type="button"
                     onClick={() => onSelectDivision(divId)}
-                    className="flex flex-col items-center gap-3 p-4 rounded-xl bg-white/5 border border-white/10 transition-all duration-200 hover:border-sky-400 hover:bg-white/10 hover:shadow-lg hover:shadow-sky-400/20 group cursor-pointer w-32"
+                    className="flex flex-col items-center justify-start gap-3 p-4 rounded-xl bg-white/5 border border-white/10 transition-all duration-200 hover:border-sky-400 hover:bg-white/10 hover:shadow-lg hover:shadow-sky-400/20 group cursor-pointer w-32 h-36"
                     data-testid={`context-division-${divId}`}
                   >
                     <div className="w-14 h-14 rounded-xl bg-white/10 flex items-center justify-center overflow-hidden">
