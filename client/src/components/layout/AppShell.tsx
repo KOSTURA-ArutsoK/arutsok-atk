@@ -11,6 +11,7 @@ import { useTTSContext } from "@/contexts/tts-context";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Moon, Sun, ChevronDown, Globe, Building2, Upload, LogOut, AlertTriangle, Timer, Volume2, VolumeX, Shield, Layers, X, LayoutGrid, Lock } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
+import { isAdmin as checkIsAdmin } from "@/lib/utils";
 
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -377,7 +378,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             <div className="flex-1" />
 
             {(() => {
-              const canSwitch = appUser?.role === 'admin' || appUser?.role === 'superadmin';
+              const canSwitch = checkIsAdmin(appUser);
               const activeDivName = activeDivision?.division?.name || activeDivision?.name;
               const activeDivEmoji = activeDivision?.division?.emoji || activeDivision?.emoji;
               const hasDivisions = activeDivisions && activeDivisions.length > 0 && !isClientUser;
