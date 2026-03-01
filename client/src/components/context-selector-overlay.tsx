@@ -13,7 +13,7 @@ function StateFlagImage({ src, alt, code, className }: { src: string | null | un
   if (!src || failed) {
     return (
       <div
-        className={`flex items-center justify-center rounded-full bg-muted border border-border ${className || "w-16 h-12"}`}
+        className={`flex items-center justify-center rounded bg-muted border border-border ${className || "w-20 h-14"}`}
         title={alt}
         data-testid={`flag-fallback-${code || "unknown"}`}
       >
@@ -26,7 +26,7 @@ function StateFlagImage({ src, alt, code, className }: { src: string | null | un
     <img
       src={src}
       alt={alt}
-      className={className || "w-16 h-12 object-cover rounded-sm"}
+      className={className || "w-20 h-14 object-cover rounded shadow-sm"}
       onError={() => setFailed(true)}
     />
   );
@@ -44,6 +44,7 @@ interface ContextSelectorOverlayProps {
   onSelectCompany: (companyId: number) => void;
   onSelectDivision: (divisionId: number | null) => void;
   onBack: () => void;
+  onClose: () => void;
 }
 
 function getPrimaryLogo(logos: LogoEntry[] | null | undefined): string | null {
@@ -66,6 +67,7 @@ export function ContextSelectorOverlay({
   onSelectCompany,
   onSelectDivision,
   onBack,
+  onClose,
 }: ContextSelectorOverlayProps) {
   const [animating, setAnimating] = useState(false);
 
@@ -105,14 +107,13 @@ export function ContextSelectorOverlay({
 
   return createPortal(
     <div
-      className={`fixed inset-0 z-[9998] flex items-center justify-center transition-opacity duration-300 ${animating ? "opacity-0" : "opacity-100"}`}
+      className={`fixed inset-0 z-50 flex items-center justify-center transition-opacity duration-300 ${animating ? "opacity-0" : "opacity-100"}`}
       data-testid="context-selector-overlay"
-      onClick={(e) => { if (e.target === e.currentTarget) onBack(); }}
     >
-      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
+      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} data-testid="context-overlay-backdrop" />
 
       <div
-        className="relative z-10 flex flex-col w-[90vw] max-w-3xl bg-card border border-border rounded-lg shadow-2xl"
+        className="relative z-10 flex flex-col w-[92vw] max-w-4xl bg-card border border-border rounded-lg shadow-2xl"
         style={{ maxHeight: "80vh" }}
       >
         <div className="flex items-center gap-3 px-5 py-4 border-b border-border shrink-0">
@@ -137,7 +138,7 @@ export function ContextSelectorOverlay({
           <Button
             variant="ghost"
             size="icon"
-            onClick={onBack}
+            onClick={onClose}
             data-testid="button-context-close"
             className="shrink-0 h-8 w-8"
           >
@@ -145,22 +146,26 @@ export function ContextSelectorOverlay({
           </Button>
         </div>
 
-        <div className="overflow-y-auto flex-1 p-5" style={{ maxHeight: "calc(80vh - 80px)" }}>
+        <div className="overflow-y-auto flex-1 p-6" style={{ maxHeight: "calc(80vh - 76px)" }}>
+
           {step === "state" && (
             <>
-              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
+              <div className="flex flex-wrap items-start justify-center gap-8 py-4">
                 {[...states].sort((a, b) => a.name.localeCompare(b.name, "sk")).map(s => (
                   <button
                     key={s.id}
                     type="button"
                     onClick={() => onSelectState(s.id)}
-                    className="flex flex-col items-center gap-2.5 p-4 rounded-md border border-border bg-background transition-all duration-200 hover:border-primary hover:shadow-lg hover:shadow-primary/20 hover:scale-[1.02] group"
+                    className="flex flex-col items-center gap-3 transition-all duration-200 hover:scale-105 group cursor-pointer"
                     data-testid={`context-state-${s.id}`}
                   >
-                    <div className="w-16 h-16 rounded-full border-2 border-border bg-card flex items-center justify-center overflow-hidden transition-all duration-200 group-hover:border-primary">
-                      <StateFlagImage src={s.flagUrl} alt={s.name} code={s.code} className="w-10 h-7 object-cover rounded-sm" />
-                    </div>
-                    <span className="text-sm font-medium text-foreground group-hover:text-primary transition-colors text-center">
+                    <StateFlagImage
+                      src={s.flagUrl}
+                      alt={s.name}
+                      code={s.code}
+                      className="w-24 h-16 object-cover rounded-md shadow-md transition-shadow duration-200 group-hover:shadow-lg group-hover:shadow-primary/30"
+                    />
+                    <span className="text-sm font-medium text-foreground group-hover:text-primary transition-colors text-center whitespace-nowrap">
                       {s.name}
                     </span>
                   </button>

@@ -635,6 +635,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         onSelectCompany={handleContextSelectCompany}
         onSelectDivision={handleContextSelectDivision}
         onBack={handleContextBack}
+        onClose={() => setContextOverlayOpen(false)}
       />
       {warningOverlay}
     </SidebarProvider>
