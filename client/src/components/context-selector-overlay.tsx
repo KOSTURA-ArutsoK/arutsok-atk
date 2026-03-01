@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { createPortal } from "react-dom";
-import { Globe, Building2, ArrowLeft, Layers, X } from "lucide-react";
+import { Globe, Building2, ArrowLeft, Layers } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import type { MyCompany, LogoEntry } from "@shared/schema";
 
@@ -13,7 +13,7 @@ function StateFlagImage({ src, alt, code, className }: { src: string | null | un
   if (!src || failed) {
     return (
       <div
-        className={`flex items-center justify-center rounded bg-muted border border-border ${className || "w-20 h-14"}`}
+        className={`flex items-center justify-center rounded-full bg-muted border border-border ${className || "w-20 h-20"}`}
         title={alt}
         data-testid={`flag-fallback-${code || "unknown"}`}
       >
@@ -26,7 +26,7 @@ function StateFlagImage({ src, alt, code, className }: { src: string | null | un
     <img
       src={src}
       alt={alt}
-      className={className || "w-20 h-14 object-cover rounded shadow-sm"}
+      className={className || "w-20 h-20 object-cover rounded-full shadow-sm"}
       onError={() => setFailed(true)}
     />
   );
@@ -135,22 +135,13 @@ export function ContextSelectorOverlay({
             </h2>
             <p className="text-xs text-muted-foreground truncate">{stepSubtitle}</p>
           </div>
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={onClose}
-            data-testid="button-context-close"
-            className="shrink-0 h-8 w-8"
-          >
-            <X className="w-4 h-4" />
-          </Button>
         </div>
 
         <div className="overflow-y-auto flex-1 p-6" style={{ maxHeight: "calc(80vh - 76px)" }}>
 
           {step === "state" && (
             <>
-              <div className="flex flex-wrap items-start justify-center gap-8 py-4">
+              <div className="flex flex-nowrap items-start justify-center gap-8 py-4 overflow-x-auto">
                 {[...states].sort((a, b) => a.name.localeCompare(b.name, "sk")).map(s => (
                   <button
                     key={s.id}
@@ -163,7 +154,7 @@ export function ContextSelectorOverlay({
                       src={s.flagUrl}
                       alt={s.name}
                       code={s.code}
-                      className="w-24 h-16 object-cover rounded-md shadow-md transition-shadow duration-200 group-hover:shadow-lg group-hover:shadow-primary/30"
+                      className="w-20 h-20 object-cover rounded-full shadow-md transition-shadow duration-200 group-hover:shadow-lg group-hover:shadow-primary/30"
                     />
                     <span className="text-sm font-medium text-foreground group-hover:text-primary transition-colors text-center whitespace-nowrap">
                       {s.name}
