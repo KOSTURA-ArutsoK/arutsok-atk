@@ -11,6 +11,7 @@ import { Loader2, BarChart3, TrendingUp, Banknote, AlertTriangle, FileText, Shie
 import { PieChart, Pie, Cell, Tooltip as ReTooltip, Legend, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid } from "recharts";
 import type { Partner, ContractStatus } from "@shared/schema";
 import jsPDF from "jspdf";
+import { formatDateTimeSlovak, formatTimestampForFile } from "@/lib/utils";
 
 interface KPI {
   totalPremium: number;
@@ -308,7 +309,7 @@ export default function Reports() {
     if (!reportData || !appUser) return;
     const doc = new jsPDF();
     const now = new Date();
-    const timestamp = now.toLocaleString("sk-SK");
+    const timestamp = formatDateTimeSlovak(now);
     const userEmail = appUser.email || appUser.username || "unknown";
     const watermarkText = `${userEmail} | ${timestamp}`;
 
@@ -485,7 +486,7 @@ export default function Reports() {
     yPos += 6;
     doc.text("Poznamka: Detailna tabulka nie je sucastou tohto reportu z bezpecnostnych dovodov.", 14, yPos);
 
-    doc.save(`ArutsoK_Report_${now.toISOString().slice(0, 10)}.pdf`);
+    doc.save(`ArutsoK_Report_${formatTimestampForFile(now)}.pdf`);
   };
 
   const CustomTooltip = ({ active, payload }: any) => {

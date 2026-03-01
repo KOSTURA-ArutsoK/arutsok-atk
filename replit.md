@@ -50,6 +50,10 @@ The system employs a modern full-stack architecture emphasizing data integrity, 
 - **Context Selector Overlay**: Full-screen blurred backdrop (no popup box) on all 3 steps. State: circular flags with sky-blue ring borders, centered row. Company: back arrow+text top-left, state flag centered, logos in rounded-xl squares. Division: back arrow+text top-left, emoji in rounded-xl squares. No X button, no "Všetky divízie". Backdrop click closes.
 - **Dashboard & Analytics**: Customizable overview with drag-and-drop widgets, KPI cards, dynamic filters, charts, and PDF summaries. Holding Dashboard for admin-only analytics with cross-sell and division performance heatmaps.
 
+- **Global Date/Time Format**: Strict `DD.MM.RRRR HH:mm:ss` everywhere (UI, DB, Logs, PDF). Server: `formatDateTimeSK()`, Frontend: `formatDateTimeSlovak()`. File naming: `RRRRMMDD_HHmmss` via `formatTimestampForFile()`. OCR dates auto-normalized via `normalizeExtractedDate()`.
+- **PDF QR Codes**: All server-generated PDFs include QR code (top-right corner) linking to subject URL + timestamp. Uses `qrcode` package. Client-side PDFs use `DD.MM.RRRR HH:mm:ss` timestamps.
+- **OCR Duplicate Guard**: Max 5 identical extracted values without manual approval (`OCR_DUPLICATE_LIMIT = 5`). Duplicates flagged with `duplicateWarning: true` and `DUPLIKÁT` badge in UI.
+
 ## Important Technical Notes
 - **subjects table**: uses `deletedAt` (timestamp, nullable) NOT `isDeleted` boolean — always filter with `isNull(subjects.deletedAt)`
 - **appUsers**: has NO `isActive` column — access controlled via role only
@@ -71,4 +75,6 @@ The system employs a modern full-stack architecture emphasizing data integrity, 
 - **ExcelJS**: For XLSX, CSV, and JSON file manipulation.
 - **Sharp**: High-performance Node.js image processing.
 - **jsPDF**: Client-side PDF generation.
+- **pdfkit**: Server-side PDF generation.
+- **qrcode**: QR code generation for PDF documents.
 - **@azure/ai-form-recognizer**: Azure AI Document Intelligence SDK for OCR.

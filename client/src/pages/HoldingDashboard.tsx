@@ -9,6 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
+import { formatDateTimeSlovak, formatTimestampForFile } from "@/lib/utils";
 import {
   Loader2, Users, FileText, TrendingUp, AlertTriangle, ShieldAlert,
   Download, FileSpreadsheet, ArrowRightLeft, Globe, Building,
@@ -166,7 +167,8 @@ export default function HoldingDashboard() {
     if (!result?.success) return;
 
     const doc = new jsPDF();
-    const now = new Date().toLocaleString("sk-SK", { timeZone: "Europe/Bratislava" });
+    const nowDate = new Date();
+    const now = (() => { const d = nowDate; const day = String(d.getDate()).padStart(2,'0'); const m = String(d.getMonth()+1).padStart(2,'0'); const y = d.getFullYear(); const h = String(d.getHours()).padStart(2,'0'); const min = String(d.getMinutes()).padStart(2,'0'); const sec = String(d.getSeconds()).padStart(2,'0'); return `${day}.${m}.${y} ${h}:${min}:${sec}`; })();
     doc.setFontSize(8);
     doc.setTextColor(200, 200, 200);
     doc.text(`${appUser?.username || "system"} | ${now}`, 10, 290);
@@ -214,7 +216,8 @@ export default function HoldingDashboard() {
       }
     }
 
-    doc.save(`holding-dashboard-${new Date().toISOString().slice(0, 10)}.pdf`);
+    const fileTs = (() => { const d = nowDate; const y = d.getFullYear(); const m = String(d.getMonth()+1).padStart(2,'0'); const dy = String(d.getDate()).padStart(2,'0'); const h = String(d.getHours()).padStart(2,'0'); const min = String(d.getMinutes()).padStart(2,'0'); const sec = String(d.getSeconds()).padStart(2,'0'); return `${y}${m}${dy}_${h}${min}${sec}`; })();
+    doc.save(`HoldingDashboard_${fileTs}.pdf`);
     toast({ title: "PDF exportovaný", description: "Report bol stiahnutý." });
   }, [kpi, crossSell, divisionData, allCompanies, displayCurrency, convertAmount, appUser, exportMutation, toast]);
 

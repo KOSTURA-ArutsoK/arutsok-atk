@@ -48,6 +48,48 @@ async function isMigrationModeOn(): Promise<boolean> {
   }
 }
 
+function formatDateTimeSK(date?: Date): string {
+  const d = date || new Date();
+  const day = String(d.getDate()).padStart(2, '0');
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const year = d.getFullYear();
+  const hours = String(d.getHours()).padStart(2, '0');
+  const minutes = String(d.getMinutes()).padStart(2, '0');
+  const seconds = String(d.getSeconds()).padStart(2, '0');
+  return `${day}.${month}.${year} ${hours}:${minutes}:${seconds}`;
+}
+
+function formatTimestampForFile(date?: Date): string {
+  const d = date || new Date();
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  const h = String(d.getHours()).padStart(2, '0');
+  const min = String(d.getMinutes()).padStart(2, '0');
+  const sec = String(d.getSeconds()).padStart(2, '0');
+  return `${y}${m}${day}_${h}${min}${sec}`;
+}
+
+function normalizeExtractedDate(value: string): string {
+  if (!value) return value;
+  const isoMatch = value.match(/^(\d{4})-(\d{2})-(\d{2})(?:[T\s](\d{2}):(\d{2})(?::(\d{2}))?)?/);
+  if (isoMatch) {
+    const [, y, m, d, h, min, sec] = isoMatch;
+    return `${d}.${m}.${y} ${h || '00'}:${min || '00'}:${sec || '00'}`;
+  }
+  const usMatch = value.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})(?:\s+(\d{2}):(\d{2})(?::(\d{2}))?)?/);
+  if (usMatch) {
+    const [, m, d, y, h, min, sec] = usMatch;
+    return `${d.padStart(2, '0')}.${m.padStart(2, '0')}.${y} ${h || '00'}:${min || '00'}:${sec || '00'}`;
+  }
+  const skMatch = value.match(/^(\d{1,2})\.(\d{1,2})\.(\d{4})(?:\s+(\d{2}):(\d{2})(?::(\d{2}))?)?/);
+  if (skMatch) {
+    const [, d, m, y, h, min, sec] = skMatch;
+    return `${d.padStart(2, '0')}.${m.padStart(2, '0')}.${y} ${h || '00'}:${min || '00'}:${sec || '00'}`;
+  }
+  return value;
+}
+
 async function logAudit(req: any, params: {
   action: string;
   module: string;
@@ -272,9 +314,10 @@ const uploadStorage = multer.diskStorage({
     cb(null, path.join(UPLOADS_DIR, dir));
   },
   filename: (_req, file, cb) => {
-    const uniqueSuffix = Date.now() + "-" + Math.round(Math.random() * 1e6);
+    const ts = formatTimestampForFile();
+    const rnd = Math.round(Math.random() * 1e4);
     const ext = path.extname(file.originalname);
-    cb(null, uniqueSuffix + ext);
+    cb(null, `${ts}_${rnd}${ext}`);
   },
 });
 
@@ -561,7 +604,7 @@ export async function registerRoutes(
       const impersonatedUser = req.appUser;
       await db.update(appUsers).set({ impersonatingUserId: null }).where(eq(appUsers.id, realUser.id));
 
-      const now = new Date().toLocaleString("sk-SK", { timeZone: "Europe/Bratislava" });
+      const now = formatDateTimeSK();
       await logAudit(req, {
         action: "IMPERSONATE_STOP",
         module: "pouzivatelia",
@@ -598,7 +641,7 @@ export async function registerRoutes(
 
       await db.update(appUsers).set({ impersonatingUserId: targetUserId }).where(eq(appUsers.id, realUser.id));
 
-      const now = new Date().toLocaleString("sk-SK", { timeZone: "Europe/Bratislava" });
+      const now = formatDateTimeSK();
       await logAudit(req, {
         action: "IMPERSONATE_START",
         module: "pouzivatelia",
@@ -5400,7 +5443,7 @@ export async function registerRoutes(
           : subject?.companyName || "";
         const formattedUid = subject?.uid ? subject.uid.replace(/(\d{3})(?=\d)/g, "$1 ") : "";
         const confirmedAt = new Date();
-        const confirmedAtStr = confirmedAt.toLocaleDateString("sk-SK", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" });
+        const confirmedAtStr = formatDateTimeSK(confirmedAt);
         const appUser = req.appUser;
         const addedByName = appUser?.fullName || appUser?.username || "Systém";
         const reason = req.body.reason.trim();
@@ -5494,7 +5537,7 @@ export async function registerRoutes(
         const addedByName = appUser?.fullName || appUser?.username || "Systém";
         const reason = req.body.reason.trim();
         const confirmedAt = new Date();
-        const confirmedAtStr = confirmedAt.toLocaleDateString("sk-SK", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" });
+        const confirmedAtStr = formatDateTimeSK(confirmedAt);
 
         for (const subjectId of subjectIds) {
           const subject = await storage.getSubject(subjectId);
@@ -8052,7 +8095,7 @@ export async function registerRoutes(
       <td style="padding: 8px 12px; color: #9ca3af;">Zistený status:</td>
       <td style="padding: 8px 12px; font-weight: 700; color: ${updates.lifecycleStatus === "zaniknuta" ? "#ef4444" : "#f59e0b"};">🚫 ${statusLabel}</td>
     </tr>
-    <tr><td style="padding: 8px 12px; color: #9ca3af;">Dátum overenia:</td><td style="padding: 8px 12px;">${new Date().toLocaleDateString("sk-SK", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" })}</td></tr>
+    <tr><td style="padding: 8px 12px; color: #9ca3af;">Dátum overenia:</td><td style="padding: 8px 12px;">${formatDateTimeSK()}</td></tr>
   </table>
   <div style="margin-top: 24px; padding-top: 16px; border-top: 1px solid #374151; display: flex; justify-content: space-between; align-items: center;">
     <p style="margin: 0; font-size: 11px; color: #6b7280;">Zmenu statusu overil a zdokumentoval: <strong style="color: #a78bfa;">ArutsoK</strong></p>
@@ -8290,19 +8333,31 @@ export async function registerRoutes(
 
       const auditCode = `DOC-${Date.now()}-${crypto.randomBytes(4).toString("hex").toUpperCase()}`;
       const now = new Date();
-      const formattedDate = `${String(now.getDate()).padStart(2, '0')}.${String(now.getMonth() + 1).padStart(2, '0')}.${now.getFullYear()} ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+      const formattedDate = formatDateTimeSK(now);
       const subjectName = subject.type === "company" ? (subject.companyName || "—") : `${subject.firstName || ""} ${subject.lastName || ""}`.trim() || "—";
 
+      const QRCode = await import("qrcode");
+      const subjectUrl = `https://secure-agent-hub.replit.app/subjekt/${subject.uid || subjectId}?ts=${formatTimestampForFile(now)}`;
+      const qrDataUrl = await QRCode.toDataURL(subjectUrl, { width: 80, margin: 1, color: { dark: "#000000", light: "#ffffff" } });
+      const qrBuffer = Buffer.from(qrDataUrl.replace(/^data:image\/png;base64,/, ""), "base64");
+
       const doc = new PDFDocument({ size: "A4", margin: 50, info: { Title: `ArutsoK - ${docType}`, Author: appUser.username } });
-      const filename = `${docType}-${subjectId}-${Date.now()}.pdf`;
+      const fileTs = formatTimestampForFile(now);
+      const filename = `${docType}_${subjectId}_${fileTs}.pdf`;
       const filePath = path.join(UPLOADS_DIR, "generated-docs", filename);
       const writeStream = fs.createWriteStream(filePath);
       doc.pipe(writeStream);
 
+      const drawQRAndTimestamp = () => {
+        doc.image(qrBuffer, 465, 10, { width: 80 });
+        doc.fontSize(7).font("Helvetica").text(formattedDate, 455, 93, { width: 90, align: "center" });
+      };
+
       const drawHeader = (title: string) => {
         doc.fontSize(18).font("Helvetica-Bold").text("ArutsoK", 50, 50);
         doc.fontSize(10).font("Helvetica").text(`UID: ${subject.uid || "—"}`, 50, 72);
-        doc.moveTo(50, 90).lineTo(545, 90).stroke("#333333");
+        drawQRAndTimestamp();
+        doc.moveTo(50, 90).lineTo(445, 90).stroke("#333333");
         doc.fontSize(14).font("Helvetica-Bold").text(title, 50, 100);
         doc.moveDown(0.5);
         doc.fontSize(10).font("Helvetica").text(`Subjekt: ${subjectName}`, 50);
@@ -8732,7 +8787,7 @@ export async function registerRoutes(
         : subject?.companyName || "";
       const formattedUid = subject?.uid ? subject.uid.replace(/(\d{3})(?=\d)/g, "$1 ") : "";
       const confirmedAt = new Date();
-      const confirmedAtStr = confirmedAt.toLocaleDateString("sk-SK", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" });
+      const confirmedAtStr = formatDateTimeSK(confirmedAt);
 
       const subjectContracts = await db.select().from(contracts)
         .where(and(eq(contracts.subjectId, alert.subjectId), isNull(contracts.deletedAt)));
@@ -11225,9 +11280,10 @@ export async function registerRoutes(
         cb(null, dir);
       },
       filename: (_req, file, cb) => {
-        const uniqueSuffix = Date.now() + "-" + Math.round(Math.random() * 1e6);
+        const ts = formatTimestampForFile();
+        const rnd = Math.round(Math.random() * 1e4);
         const ext = path.extname(file.originalname);
-        cb(null, uniqueSuffix + ext);
+        cb(null, `OCR_${ts}_${rnd}${ext}`);
       },
     }),
     limits: { fileSize: 100 * 1024 * 1024 },
@@ -11369,6 +11425,13 @@ export async function registerRoutes(
       }
 
       results.sort((a, b) => b.confidence - a.confidence);
+
+      const DATE_FIELD_KEYWORDS = ["datum", "date", "platnost", "expir", "podpis", "narod", "vydaj", "ukonc"];
+      for (const r of results) {
+        if (r.matchedValue && DATE_FIELD_KEYWORDS.some(kw => r.fieldKey?.toLowerCase().includes(kw) || r.label?.toLowerCase().includes(kw))) {
+          r.matchedValue = normalizeExtractedDate(r.matchedValue);
+        }
+      }
 
       const OCR_DUPLICATE_LIMIT = 5;
       const valueCounts = new Map<string, number>();
@@ -15017,6 +15080,13 @@ export async function registerRoutes(
         }
 
         results.sort((a, b) => b.confidence - a.confidence);
+
+        const DATE_FIELD_KEYWORDS = ["datum", "date", "platnost", "expir", "podpis", "narod", "vydaj", "ukonc"];
+        for (const r of results) {
+          if (r.matchedValue && DATE_FIELD_KEYWORDS.some(kw => r.fieldKey?.toLowerCase().includes(kw) || r.label?.toLowerCase().includes(kw))) {
+            r.matchedValue = normalizeExtractedDate(r.matchedValue);
+          }
+        }
 
         const OCR_DUPLICATE_LIMIT = 5;
         const valueCounts = new Map<string, number>();
