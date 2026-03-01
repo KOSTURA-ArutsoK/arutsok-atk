@@ -11370,6 +11370,22 @@ export async function registerRoutes(
 
       results.sort((a, b) => b.confidence - a.confidence);
 
+      const OCR_DUPLICATE_LIMIT = 5;
+      const valueCounts = new Map<string, number>();
+      const flaggedDuplicates: string[] = [];
+      for (const r of results) {
+        if (r.matchedValue) {
+          const normalizedVal = String(r.matchedValue).trim().toLowerCase();
+          const count = (valueCounts.get(normalizedVal) || 0) + 1;
+          valueCounts.set(normalizedVal, count);
+          if (count > OCR_DUPLICATE_LIMIT) {
+            r.needsConfirmation = true;
+            r.duplicateWarning = true;
+            if (!flaggedDuplicates.includes(normalizedVal)) flaggedDuplicates.push(normalizedVal);
+          }
+        }
+      }
+
       await db.update(ocrProcessingJobs).set({
         status: "completed",
         extractedText: ocrResult.text,
@@ -11382,6 +11398,7 @@ export async function registerRoutes(
         pageCount: ocrResult.pages,
         fieldsExtracted: results.length,
         keyValuePairs: ocrResult.keyValuePairs.length,
+        duplicatesOverLimit: flaggedDuplicates.length,
       });
 
       res.json({
@@ -11389,6 +11406,7 @@ export async function registerRoutes(
         status: "completed",
         pageCount: ocrResult.pages,
         extractedFields: results,
+        duplicateWarnings: flaggedDuplicates.length > 0 ? flaggedDuplicates : undefined,
         keyValuePairs: ocrResult.keyValuePairs,
         tables: ocrResult.tables,
         confirmedCount: results.filter((r: any) => !r.needsConfirmation).length,
@@ -14999,6 +15017,21 @@ export async function registerRoutes(
         }
 
         results.sort((a, b) => b.confidence - a.confidence);
+
+        const OCR_DUPLICATE_LIMIT = 5;
+        const valueCounts = new Map<string, number>();
+        for (const r of results) {
+          if (r.matchedValue) {
+            const normalizedVal = String(r.matchedValue).trim().toLowerCase();
+            const count = (valueCounts.get(normalizedVal) || 0) + 1;
+            valueCounts.set(normalizedVal, count);
+            if (count > OCR_DUPLICATE_LIMIT) {
+              r.needsConfirmation = true;
+              r.duplicateWarning = true;
+            }
+          }
+        }
+
         await db.update(ocrProcessingJobs).set({
           status: "completed", extractedText: ocrResult.text, extractedFields: JSON.stringify(results),
           pageCount: ocrResult.pages, completedAt: new Date(),

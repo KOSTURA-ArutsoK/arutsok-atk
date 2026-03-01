@@ -16,7 +16,7 @@ import { Switch } from "@/components/ui/switch";
 import { Separator } from "@/components/ui/separator";
 import { Card, CardContent } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Loader2, UserCheck, Scale, Users, Wallet, BarChart3, Wifi, Archive, FileText, Eye, EyeOff, ChevronRight, Check, X, Plus, AlertTriangle, ShieldAlert, Ban, Link2, Unlink, Building2, User, ArrowLeftRight, History, UserPlus, ShieldCheck, Clock, Pencil, Save, MessageSquare, FileDown, MapPin, Mail, Trash2, Star, Network, ExternalLink, Heart, Baby, Crown, TreePine, Home, Bell, CheckCircle, Search, Shield, BookOpen, Printer, FilePlus } from "lucide-react";
+import { Loader2, UserCheck, Scale, Users, Wallet, BarChart3, Wifi, Archive, FileText, Eye, EyeOff, ChevronRight, ChevronDown, Check, X, Plus, AlertTriangle, ShieldAlert, Ban, Link2, Unlink, Building2, User, ArrowLeftRight, History, UserPlus, ShieldCheck, Clock, Pencil, Save, MessageSquare, FileDown, MapPin, Mail, Trash2, Star, Network, ExternalLink, Heart, Baby, Crown, TreePine, Home, Bell, CheckCircle, Search, Shield, BookOpen, Printer, FilePlus } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
@@ -358,6 +358,154 @@ function SubjectViewField({
       >
         {isSummary ? <Eye className="w-3.5 h-3.5 text-emerald-500" /> : <EyeOff className="w-3 h-3" />}
       </button>
+    </div>
+  );
+}
+
+const STACKABLE_CATEGORIES = new Set(["komunikacne", "dokumentacne"]);
+const STACK_VISIBLE_LIMIT = 3;
+
+function StackedFieldsRenderer({
+  catCode, catFields, getFieldValue, isEssentialCategory,
+  fieldsByCategory, summaryFields, isSuperAdmin, fieldNotes,
+  pdfSidebarOpen, toggleSummaryField, onInlineSave, subjectId,
+}: {
+  catCode: string;
+  catFields: StaticField[];
+  getFieldValue: (key: string) => string;
+  isEssentialCategory: boolean;
+  fieldsByCategory: Record<string, StaticField[]>;
+  summaryFields: Record<string, boolean>;
+  isSuperAdmin?: boolean;
+  fieldNotes?: Record<string, string>;
+  pdfSidebarOpen: boolean;
+  toggleSummaryField: (key: string) => void;
+  onInlineSave?: (fieldKey: string, newValue: string) => void;
+  subjectId?: number;
+}) {
+  const [expanded, setExpanded] = useState(false);
+  const [showExpiredDocs, setShowExpiredDocs] = useState(false);
+
+  const allVals: Record<string, string> = {};
+  Object.values(fieldsByCategory).flat().forEach(f => { const v = getFieldValue(f.fieldKey); if (v) allVals[f.fieldKey] = v; });
+
+  const visibleFields = catFields.filter(field => {
+    if (field.visibilityRule) {
+      const depVal = getFieldValue(field.visibilityRule.dependsOn);
+      if (depVal !== field.visibilityRule.value) return null;
+    }
+    const value = getFieldValue(field.fieldKey);
+    return value || isEssentialCategory;
+  });
+
+  if (catCode === "dokumentacne") {
+    const now = new Date();
+    const DOC_GROUP_KEYS = new Set(["typ_dokladu", "typ_dokladu_iny", "cislo_dokladu", "platnost_dokladu", "vydal_organ", "kod_vydavajuceho_organu"]);
+
+    const validityValue = getFieldValue("platnost_dokladu");
+    const isDocExpired = validityValue ? new Date(validityValue) < now : false;
+
+    const docGroupFields = visibleFields.filter(f => DOC_GROUP_KEYS.has(f.fieldKey));
+    const nonDocFields = visibleFields.filter(f => !DOC_GROUP_KEYS.has(f.fieldKey));
+
+    const activeDocFields = isDocExpired ? nonDocFields : visibleFields;
+    const allExpired = isDocExpired ? docGroupFields : [];
+
+    return (
+      <div>
+        <div className="flex flex-wrap gap-2" data-testid="doc-active-fields">
+          {activeDocFields.map(field => (
+            <SubjectViewField
+              key={field.fieldKey}
+              field={field}
+              value={getFieldValue(field.fieldKey) || "Nezadané"}
+              isEmpty={!getFieldValue(field.fieldKey)}
+              isSummary={!!summaryFields[field.fieldKey]}
+              hasNote={!!(isSuperAdmin && fieldNotes?.[field.fieldKey])}
+              noteText={fieldNotes?.[field.fieldKey]}
+              pdfSidebarOpen={pdfSidebarOpen}
+              toggleSummaryField={toggleSummaryField}
+              onInlineSave={onInlineSave}
+              allFieldValues={allVals}
+              subjectId={subjectId}
+            />
+          ))}
+        </div>
+        {allExpired.length > 0 && (
+          <div className="mt-3" data-testid="doc-history-section">
+            <button
+              onClick={() => setShowExpiredDocs(!showExpiredDocs)}
+              className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors"
+              data-testid="btn-toggle-doc-history"
+            >
+              <Archive className="w-3.5 h-3.5" />
+              <span>História dokladov ({allExpired.length})</span>
+              <ChevronRight className={`w-3 h-3 transition-transform duration-200 ${showExpiredDocs ? "rotate-90" : ""}`} />
+            </button>
+            {showExpiredDocs && (
+              <div className="mt-2 border border-red-500/20 rounded p-2 bg-red-500/5" data-testid="doc-expired-list">
+                <div className="flex flex-wrap gap-2">
+                  {allExpired.map(field => (
+                    <SubjectViewField
+                      key={field.fieldKey}
+                      field={field}
+                      value={getFieldValue(field.fieldKey) || "Nezadané"}
+                      isEmpty={!getFieldValue(field.fieldKey)}
+                      isSummary={!!summaryFields[field.fieldKey]}
+                      hasNote={!!(isSuperAdmin && fieldNotes?.[field.fieldKey])}
+                      noteText={fieldNotes?.[field.fieldKey]}
+                      pdfSidebarOpen={pdfSidebarOpen}
+                      toggleSummaryField={toggleSummaryField}
+                      onInlineSave={onInlineSave}
+                      allFieldValues={allVals}
+                      subjectId={subjectId}
+                    />
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  const isStackable = STACKABLE_CATEGORIES.has(catCode);
+  const displayFields = isStackable && !expanded
+    ? visibleFields.slice(0, STACK_VISIBLE_LIMIT)
+    : visibleFields;
+  const hiddenCount = visibleFields.length - STACK_VISIBLE_LIMIT;
+
+  return (
+    <div>
+      <div className="flex flex-wrap gap-2">
+        {displayFields.map(field => (
+          <SubjectViewField
+            key={field.fieldKey}
+            field={field}
+            value={getFieldValue(field.fieldKey) || "Nezadané"}
+            isEmpty={!getFieldValue(field.fieldKey)}
+            isSummary={!!summaryFields[field.fieldKey]}
+            hasNote={!!(isSuperAdmin && fieldNotes?.[field.fieldKey])}
+            noteText={fieldNotes?.[field.fieldKey]}
+            pdfSidebarOpen={pdfSidebarOpen}
+            toggleSummaryField={toggleSummaryField}
+            onInlineSave={onInlineSave}
+            allFieldValues={allVals}
+            subjectId={subjectId}
+          />
+        ))}
+      </div>
+      {isStackable && hiddenCount > 0 && (
+        <button
+          onClick={() => setExpanded(!expanded)}
+          className="mt-2 flex items-center gap-1 text-xs text-primary hover:text-primary/80 transition-colors"
+          data-testid={`btn-show-more-${catCode}`}
+        >
+          <ChevronDown className={`w-3.5 h-3.5 transition-transform duration-200 ${expanded ? "rotate-180" : ""}`} />
+          <span>{expanded ? "Skryť" : `+ Zobraziť ďalšie (${hiddenCount})`}</span>
+        </button>
+      )}
     </div>
   );
 }
@@ -710,35 +858,20 @@ function CategoriesAccordion({
                   })}
                 </div>
               ) : (
-                <div className="flex flex-wrap gap-2">
-                  {catFields.map(field => {
-                    if (field.visibilityRule) {
-                      const depVal = getFieldValue(field.visibilityRule.dependsOn);
-                      if (depVal !== field.visibilityRule.value) return null;
-                    }
-                    const value = getFieldValue(field.fieldKey);
-                    const isEssentialCategory = ALWAYS_VISIBLE_CATEGORIES.has(cat.code);
-                    if (!value && !isEssentialCategory) return null;
-                    const allVals: Record<string, string> = {};
-                    Object.values(fieldsByCategory).flat().forEach(f => { const v = getFieldValue(f.fieldKey); if (v) allVals[f.fieldKey] = v; });
-                    return (
-                      <SubjectViewField
-                        key={field.fieldKey}
-                        field={field}
-                        value={value || "Nezadané"}
-                        isEmpty={!value}
-                        isSummary={!!summaryFields[field.fieldKey]}
-                        hasNote={!!(isSuperAdmin && fieldNotes?.[field.fieldKey])}
-                        noteText={fieldNotes?.[field.fieldKey]}
-                        pdfSidebarOpen={pdfSidebarOpen}
-                        toggleSummaryField={toggleSummaryField}
-                        onInlineSave={onInlineSave}
-                        allFieldValues={allVals}
-                        subjectId={subjectId}
-                      />
-                    );
-                  })}
-                </div>
+                <StackedFieldsRenderer
+                  catCode={cat.code}
+                  catFields={catFields}
+                  getFieldValue={getFieldValue}
+                  isEssentialCategory={ALWAYS_VISIBLE_CATEGORIES.has(cat.code)}
+                  fieldsByCategory={fieldsByCategory}
+                  summaryFields={summaryFields}
+                  isSuperAdmin={isSuperAdmin}
+                  fieldNotes={fieldNotes}
+                  pdfSidebarOpen={pdfSidebarOpen}
+                  toggleSummaryField={toggleSummaryField}
+                  onInlineSave={onInlineSave}
+                  subjectId={subjectId}
+                />
               )}
               {cat.code === "nezatriedene" && <UnclassifiedTrendsNotice />}
             </AccordionContent>

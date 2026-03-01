@@ -53,6 +53,7 @@ interface ExtractedField {
   synonymStatus?: string;
   synonymConfirmationCount?: number;
   isProposal?: boolean;
+  duplicateWarning?: boolean;
 }
 
 function getStatusIcon(status: string) {
@@ -486,8 +487,13 @@ function JobDetailView({ job, onConfirm, confirmPending }: { job: OcrJob; onConf
                         </Button>
                       )}
                     </div>
-                    <div className="mt-1 text-[10px] text-muted-foreground">
-                      Typ zhody: {field.matchType} {field.synonymId ? `• Synonymum #${field.synonymId}` : ""}
+                    <div className="mt-1 text-[10px] text-muted-foreground flex items-center gap-1.5">
+                      <span>Typ zhody: {field.matchType} {field.synonymId ? `• Synonymum #${field.synonymId}` : ""}</span>
+                      {field.duplicateWarning && (
+                        <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded border border-red-500/40 bg-red-500/10 text-red-400 text-[9px] font-semibold" data-testid={`badge-duplicate-${field.fieldKey}`}>
+                          DUPLIKÁT
+                        </span>
+                      )}
                     </div>
                   </div>
                 );
