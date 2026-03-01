@@ -24,7 +24,8 @@ The system employs a modern full-stack architecture emphasizing data integrity, 
 - **UI/UX & Interaction**: Includes a Holding Context Bubble (unified header selector with responsive grid overlay), dynamic dialog sizing, smart filter bar, row-click navigation, Tiptap rich text editing, dual document management, drag & drop reordering, consistent status indicators, and Web Speech API integration.
 - **Security & Workflow**: Features a two-phase idle timeout with auto-logout, an archive module with password-protected restore, and a processing time protocol. IP locking for restricted users.
 - **Navigation Structure**:
-  - Štruktúra (collapsible): Štruktúra sektorov (A) → `/sektory-zmluv`, UI Subjektov (B) → `/sektory-subjektov`, Profil subjektu → `/profil-subjektu`, Dátová linka → `/datova-linka`
+  - Štruktúra (collapsible): Štruktúra sektorov (A) → `/sektory-zmluv`, UI Subjektov (B) → `/sektory-subjektov`, Profil subjektu → `/profil-subjektu`
+  - Zmluvy (collapsible): Zoznam zmlúv → `/contracts`, Spracovanie zmlúv (collapsible) → { Papierové zmluvy → `/evidencia-zmluv`, Dátová linka → `/datova-linka` }
   - Analytika → `/analytika` (admin only)
   - Holding Dashboard → `/holding-dashboard` (admin only)
 - **Dátová linka (OCR Module)**: Azure AI Document Intelligence (Frankfurt, `germanywestcentral`) integration for document processing. Uses `prebuilt-layout` model with async `beginAnalyzeDocument`. Features: bulk PDF upload, background queue worker (10s interval), split-screen validation (original text vs extracted fields), synonym confirmation flow (green=confirmed, orange=learning, red=unknown). DB table: `ocr_processing_jobs`. Graceful SIGTERM handling marks processing jobs as "interrupted" for resume.
