@@ -411,8 +411,8 @@ export function AppSidebar() {
                 label="Štruktúra"
                 icon={LayoutGrid}
                 items={[
-                  { href: "/sektory-zmluv", icon: FileText, label: "Štruktúra" },
-                  { href: "/sektory-subjektov", icon: Database, label: "Skener" },
+                  { href: "/sektory-zmluv", icon: FileText, label: "Štruktúra sektorov (A)" },
+                  { href: "/sektory-subjektov", icon: Database, label: "UI Subjektov (B)" },
                   { href: "/profil-subjektu", icon: Users, label: "Profil subjektu" },
                 ]}
                 location={location}
