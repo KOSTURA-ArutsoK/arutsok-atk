@@ -56,6 +56,7 @@ import ImportArchive from "@/pages/ImportArchive";
 import BulkActions from "@/pages/BulkActions";
 import ProfilSubjektu from "@/pages/ProfilSubjektu";
 import Reports from "@/pages/Reports";
+import DatatovaLinka from "@/pages/DatatovaLinka";
 import HoldingDashboard from "@/pages/HoldingDashboard";
 import { AppShell } from "@/components/layout/AppShell";
 import { RedListNotificationPopup } from "@/components/red-list-notification-popup";
@@ -146,6 +147,7 @@ const PrivateImportArchive = () => <PrivateRoute><ImportArchive /></PrivateRoute
 const PrivateBulkActions = () => <PrivateRoute><BulkActions /></PrivateRoute>;
 const PrivateProfilSubjektu = () => <PrivateRoute><ProfilSubjektu /></PrivateRoute>;
 const PrivateReports = () => <PrivateRoute><Reports /></PrivateRoute>;
+const PrivateDatatovaLinka = () => <PrivateRoute><DatatovaLinka /></PrivateRoute>;
 const PrivateHoldingDashboard = () => <PrivateRoute><HoldingDashboard /></PrivateRoute>;
 const PrivateClientProfile = () => <PrivateRoute><ClientProfilePage /></PrivateRoute>;
 
@@ -204,6 +206,7 @@ function Router() {
       <Route path="/import-archive" component={PrivateImportArchive} />
       <Route path="/bulk-actions" component={PrivateBulkActions} />
       <Route path="/profil-subjektu" component={PrivateProfilSubjektu} />
+      <Route path="/datova-linka" component={PrivateDatatovaLinka} />
       <Route component={NotFound} />
     </Switch>
   );

@@ -47,6 +47,7 @@ export const states = pgTable("states", {
   code: text("code").notNull(),
   currency: text("currency").default("EUR"),
   flagUrl: text("flag_url"),
+  isActive: boolean("is_active").default(true),
 });
 
 // === MY FIRMS ===
@@ -283,6 +284,7 @@ export const subjects = pgTable("subjects", {
   anonymizedByUserId: integer("anonymized_by_user_id").references(() => appUsers.id),
   anonymizedData: text("anonymized_data"),
   registrationStatus: text("registration_status").$type<"potencialny" | "tiper" | "klient">().default("tiper"),
+  parentSubjectId: integer("parent_subject_id"),
   supplementaryIndex: text("supplementary_index"),
   createdAt: timestamp("created_at").defaultNow(),
   deletedAt: timestamp("deleted_at"),
@@ -440,11 +442,12 @@ export const appUserArchive = pgTable("app_user_archive", {
 });
 
 // === RELATIONS ===
-export const subjectsRelations = relations(subjects, ({ one }) => ({
+export const subjectsRelations = relations(subjects, ({ one, many }) => ({
   continent: one(continents, { fields: [subjects.continentId], references: [continents.id] }),
   state: one(states, { fields: [subjects.stateId], references: [states.id] }),
   company: one(myCompanies, { fields: [subjects.myCompanyId], references: [myCompanies.id] }),
   linkedFo: one(subjects, { fields: [subjects.linkedFoId], references: [subjects.id] }),
+  parentSubject: one(subjects, { fields: [subjects.parentSubjectId], references: [subjects.id], relationName: "parentChild" }),
 }));
 
 export const productsRelations = relations(products, ({ one }) => ({
@@ -2369,6 +2372,28 @@ export const insertRedListAlertSchema = createInsertSchema(redListAlerts).omit({
 export type RedListAlert = typeof redListAlerts.$inferSelect;
 export type InsertRedListAlert = z.infer<typeof insertRedListAlertSchema>;
 
+
+// === OCR PROCESSING JOBS (Dátová linka) ===
+export const ocrProcessingJobs = pgTable("ocr_processing_jobs", {
+  id: serial("id").primaryKey(),
+  fileName: text("file_name").notNull(),
+  originalName: text("original_name").notNull(),
+  filePath: text("file_path").notNull(),
+  status: varchar("status", { length: 20 }).default("queued").notNull(),
+  extractedText: text("extracted_text"),
+  extractedFields: text("extracted_fields"),
+  pageCount: integer("page_count"),
+  error: text("error"),
+  uploadedByUserId: integer("uploaded_by_user_id").references(() => appUsers.id),
+  uploadedByUsername: text("uploaded_by_username"),
+  createdAt: timestamp("created_at").defaultNow(),
+  startedAt: timestamp("started_at"),
+  completedAt: timestamp("completed_at"),
+});
+
+export const insertOcrProcessingJobSchema = createInsertSchema(ocrProcessingJobs).omit({ id: true, createdAt: true });
+export type OcrProcessingJob = typeof ocrProcessingJobs.$inferSelect;
+export type InsertOcrProcessingJob = z.infer<typeof insertOcrProcessingJobSchema>;
 
 export type CreateSubjectRequest = InsertSubject;
 export type UpdateSubjectRequest = Partial<InsertSubject> & { changeReason?: string };

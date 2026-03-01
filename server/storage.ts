@@ -238,6 +238,8 @@ export interface IStorage {
   createEntityLink(data: InsertEntityLink): Promise<EntityLink>;
   closeEntityLink(id: number): Promise<EntityLink>;
 
+  getSubjectHierarchy(subjectId: number): Promise<{ parents: Subject[]; children: Subject[] }>;
+
   getSubjectDocuments(subjectId: number): Promise<SubjectDocument[]>;
   createSubjectDocument(data: InsertSubjectDocument): Promise<SubjectDocument>;
   getLatestDocByType(subjectId: number, docType: string): Promise<SubjectDocument | undefined>;
@@ -1701,6 +1703,30 @@ export class DatabaseStorage implements IStorage {
       .where(eq(entityLinks.id, id))
       .returning();
     return link;
+  }
+
+  async getSubjectHierarchy(subjectId: number): Promise<{ parents: Subject[]; children: Subject[] }> {
+    const parentChain: Subject[] = [];
+    let currentId: number | null = subjectId;
+    const visited = new Set<number>();
+    
+    const [subject] = await db.select().from(subjects).where(eq(subjects.id, subjectId));
+    if (!subject) return { parents: [], children: [] };
+    
+    currentId = subject.parentSubjectId;
+    while (currentId && !visited.has(currentId)) {
+      visited.add(currentId);
+      const [parent] = await db.select().from(subjects).where(eq(subjects.id, currentId));
+      if (!parent) break;
+      parentChain.push(parent);
+      currentId = parent.parentSubjectId;
+    }
+    
+    const children = await db.select().from(subjects)
+      .where(eq(subjects.parentSubjectId, subjectId))
+      .orderBy(subjects.id);
+    
+    return { parents: parentChain, children };
   }
 
   async getSubjectDocuments(subjectId: number): Promise<SubjectDocument[]> {

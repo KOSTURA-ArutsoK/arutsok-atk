@@ -4,7 +4,7 @@ import { storage } from "./storage";
 import { api } from "@shared/routes";
 import { setupAuth, registerAuthRoutes, isAuthenticated } from "./replit_integrations/auth";
 import { z } from "zod";
-import { continents, states, myCompanies, appUsers, clientTypes, clientSubGroups, clientGroupMembers, productFolderAssignments, folderPanels, panelParameters, userClientGroupMemberships, clientGroups, permissionGroups, insertCareerLevelSchema, insertProductPointRateSchema, careerLevels, importLogs, commissions, contracts, contractStatuses, contractStatusChangeLogs, clientDataTabs, clientDataCategories, subjects, subjectPointsLog, subjectFieldHistory, subjectCollaborators, clientMarketingConsents, clientDocumentHistory, contractAcquirers, contractPasswords, contractRewardDistributions, contractParameterValues, subjectArchive, auditLogs, globalCounters, subjectPhotos, activityEvents, subjectParamSections, subjectParameters, subjectTemplates, subjectTemplateParams, commissionCalculationLogs, parameterSynonyms, dataConflictAlerts, transactionDedupLog, relationRoleTypes, subjectRelations, maturityAlerts, inheritancePrompts, guardianshipArchive, households, householdMembers, householdAssets, privacyBlocks, accessConsentLog, maturityEvents, addressGroups, addressGroupMembers, companySubjectRoles, notificationQueue, batchJobs, subjectObjects, objectDataSources, sectors, sections, sectorProducts, parameters, panels, productPanels, contractFolders, fieldLayoutConfigs, sectorCategoryMapping, suggestedRelations, statusEvidence, contractLifecycleHistory, systemNotifications, partners, products, contractInventories, contractTemplates, redListAlerts, subjectAddresses, divisions, companyDivisions, insertDivisionSchema } from "@shared/schema";
+import { continents, states, myCompanies, appUsers, clientTypes, clientSubGroups, clientGroupMembers, productFolderAssignments, folderPanels, panelParameters, userClientGroupMemberships, clientGroups, permissionGroups, insertCareerLevelSchema, insertProductPointRateSchema, careerLevels, importLogs, commissions, contracts, contractStatuses, contractStatusChangeLogs, clientDataTabs, clientDataCategories, subjects, subjectPointsLog, subjectFieldHistory, subjectCollaborators, clientMarketingConsents, clientDocumentHistory, contractAcquirers, contractPasswords, contractRewardDistributions, contractParameterValues, subjectArchive, auditLogs, globalCounters, subjectPhotos, activityEvents, subjectParamSections, subjectParameters, subjectTemplates, subjectTemplateParams, commissionCalculationLogs, parameterSynonyms, dataConflictAlerts, transactionDedupLog, relationRoleTypes, subjectRelations, maturityAlerts, inheritancePrompts, guardianshipArchive, households, householdMembers, householdAssets, privacyBlocks, accessConsentLog, maturityEvents, addressGroups, addressGroupMembers, companySubjectRoles, notificationQueue, batchJobs, subjectObjects, objectDataSources, sectors, sections, sectorProducts, parameters, panels, productPanels, contractFolders, fieldLayoutConfigs, sectorCategoryMapping, suggestedRelations, statusEvidence, contractLifecycleHistory, systemNotifications, partners, products, contractInventories, contractTemplates, redListAlerts, subjectAddresses, divisions, companyDivisions, insertDivisionSchema, ocrProcessingJobs } from "@shared/schema";
 import { notifyObjectionCreated, notifyPreDeletion, getProductDaysLimits } from "./email";
 import { seedSubjectParameters, seedAssetPanels, seedEventAndEntityPanels } from "./seed-subject-params";
 import sharp from "sharp";
@@ -267,7 +267,7 @@ fs.mkdirSync(path.join(UPLOADS_DIR, "subject-photos"), { recursive: true });
 const uploadStorage = multer.diskStorage({
   destination: (req, _file, cb) => {
     const section = (req.params as any).section || (req as any)._uploadSection;
-    const validDirs = ["official", "work", "logos", "amendments", "profiles", "flags", "status-change-docs", "subject-photos"];
+    const validDirs = ["official", "work", "logos", "amendments", "profiles", "flags", "status-change-docs", "subject-photos", "datova-linka"];
     const dir = validDirs.includes(section) ? section : "official";
     cb(null, path.join(UPLOADS_DIR, dir));
   },
@@ -306,6 +306,23 @@ export async function registerRoutes(
 
   seedAssetPanels().catch(err => console.error("[SEED-ASSETS ERROR]", err));
   seedEventAndEntityPanels().catch(err => console.error("[SEED-EVENTS ERROR]", err));
+
+  (async () => {
+    try {
+      const [existing] = await db.select().from(globalCounters).where(eq(globalCounters.counterName, 'master_root_sk'));
+      if (!existing) {
+        await db.insert(globalCounters).values({ counterName: 'master_root_sk', currentValue: 421000000000000 });
+        console.log("[SEED] Master Root SK (421 000 000 000 000) seeded into global_counters");
+      }
+      const czStates = await db.select().from(states).where(eq(states.code, '420'));
+      for (const czState of czStates) {
+        await db.update(states).set({ isActive: false }).where(eq(states.id, czState.id));
+        console.log(`[SEED] Deactivated CZ state (code 420), id=${czState.id}`);
+      }
+    } catch (err) {
+      console.error("[SEED] Master Root / CZ deactivation error:", err);
+    }
+  })();
 
   app.use((req: any, _res, next) => {
     req._auditStartTime = performance.now();
@@ -9156,6 +9173,18 @@ export async function registerRoutes(
     }
   });
 
+  app.get("/api/subjects/:id/hierarchy", isAuthenticated, async (req: any, res) => {
+    try {
+      const subjectId = Number(req.params.id);
+      if (isNaN(subjectId)) return res.status(400).json({ message: "Invalid subject ID" });
+      const hierarchy = await storage.getSubjectHierarchy(subjectId);
+      res.json(hierarchy);
+    } catch (err: any) {
+      console.error("Subject hierarchy error:", err);
+      res.status(500).json({ message: err?.message || "Error fetching hierarchy" });
+    }
+  });
+
   app.get("/api/subjects/:id/object-hierarchy", isAuthenticated, async (req: any, res) => {
     try {
       const subjectId = Number(req.params.id);
@@ -11182,6 +11211,280 @@ export async function registerRoutes(
       }
 
       res.json({ ok: true, saved: configs.length });
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  // === DÁTOVÁ LINKA (OCR Processing Module) ===
+  const dataLinkaUpload = multer({
+    storage: multer.diskStorage({
+      destination: (_req, _file, cb) => {
+        const dir = path.join(UPLOADS_DIR, "datova-linka");
+        if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+        cb(null, dir);
+      },
+      filename: (_req, file, cb) => {
+        const uniqueSuffix = Date.now() + "-" + Math.round(Math.random() * 1e6);
+        const ext = path.extname(file.originalname);
+        cb(null, uniqueSuffix + ext);
+      },
+    }),
+    limits: { fileSize: 100 * 1024 * 1024 },
+    fileFilter: (_req, file, cb) => {
+      const allowed = [".pdf", ".png", ".jpg", ".jpeg", ".tiff", ".tif", ".bmp"];
+      const ext = path.extname(file.originalname).toLowerCase();
+      cb(null, allowed.includes(ext));
+    },
+  });
+
+  app.post("/api/datova-linka/upload", isAuthenticated, dataLinkaUpload.array("documents", 100), async (req: any, res) => {
+    try {
+      const files = req.files as Express.Multer.File[];
+      if (!files || files.length === 0) return res.status(400).json({ message: "Žiadne súbory" });
+
+      const appUser = await storage.getAppUserByReplitId(req.user.claims.sub);
+      const jobs = [];
+
+      for (const file of files) {
+        const [job] = await db.insert(ocrProcessingJobs).values({
+          fileName: file.filename,
+          originalName: file.originalname,
+          filePath: file.path,
+          status: "queued",
+          uploadedByUserId: appUser?.id || null,
+          uploadedByUsername: appUser?.displayName || req.user.claims.name || "unknown",
+        }).returning();
+        jobs.push(job);
+      }
+
+      logAudit(req, "CREATE", "datova_linka", undefined, undefined, undefined, { uploadedFiles: files.length, jobIds: jobs.map(j => j.id) });
+      res.json({ jobs, totalUploaded: files.length });
+    } catch (err: any) {
+      console.error("[DATOVA LINKA UPLOAD ERROR]", err);
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  app.post("/api/datova-linka/process/:jobId", isAuthenticated, async (req: any, res) => {
+    try {
+      const jobId = Number(req.params.jobId);
+      const [job] = await db.select().from(ocrProcessingJobs).where(eq(ocrProcessingJobs.id, jobId));
+      if (!job) return res.status(404).json({ message: "Job nenájdený" });
+      if (job.status === "processing") return res.status(409).json({ message: "Job sa už spracúva" });
+      if (job.status === "completed") return res.status(200).json({ message: "Job je už dokončený", job });
+
+      await db.update(ocrProcessingJobs).set({ status: "processing", startedAt: new Date() }).where(eq(ocrProcessingJobs.id, jobId));
+
+      let ocrResult;
+      try {
+        const { analyzeDocument, isAzureConfigured } = await import("./services/azure-ocr");
+        if (!isAzureConfigured()) {
+          await db.update(ocrProcessingJobs).set({ status: "failed", error: "Azure Document Intelligence nie je nakonfigurovaný", completedAt: new Date() }).where(eq(ocrProcessingJobs.id, jobId));
+          return res.status(503).json({ message: "Azure Document Intelligence nie je nakonfigurovaný. Nastavte AZURE_DOCUMENT_INTELLIGENCE_ENDPOINT a AZURE_DOCUMENT_INTELLIGENCE_KEY." });
+        }
+        ocrResult = await analyzeDocument(job.filePath);
+      } catch (ocrErr: any) {
+        await db.update(ocrProcessingJobs).set({ status: "failed", error: ocrErr.message, completedAt: new Date() }).where(eq(ocrProcessingJobs.id, jobId));
+        return res.status(500).json({ message: "OCR spracovanie zlyhalo", error: ocrErr.message });
+      }
+
+      const allParams = await storage.getSubjectParameters();
+      const allSynonyms = await storage.getAllParameterSynonyms();
+
+      const synonymMap = new Map<number, string[]>();
+      const synonymDetailMap = new Map<string, { id: number; status: string; confirmationCount: number }>();
+      for (const syn of allSynonyms) {
+        if (!synonymMap.has(syn.parameterId)) synonymMap.set(syn.parameterId, []);
+        synonymMap.get(syn.parameterId)!.push(syn.synonym.toLowerCase());
+        synonymDetailMap.set(`${syn.parameterId}:${syn.synonym.toLowerCase()}`, {
+          id: syn.id,
+          status: syn.status,
+          confirmationCount: syn.confirmationCount,
+        });
+      }
+
+      const CONFIRMATION_THRESHOLD = 5;
+      const combinedText = ocrResult.text + "\n" + ocrResult.keyValuePairs.map(kv => `${kv.key}: ${kv.value}`).join("\n");
+      const lines = combinedText.split(/\n/);
+
+      const results: any[] = [];
+      for (const param of allParams) {
+        const searchTerms = [param.label.toLowerCase()];
+        if (param.shortLabel) searchTerms.push(param.shortLabel.toLowerCase());
+        const paramSynonyms = synonymMap.get(param.id) || [];
+        searchTerms.push(...paramSynonyms);
+
+        let bestMatch: { value: string | null; matchType: string; confidence: number; matchedTerm?: string } | null = null;
+
+        for (const line of lines) {
+          const lowerLine = line.toLowerCase().trim();
+          if (!lowerLine) continue;
+          for (const term of searchTerms) {
+            if (lowerLine.includes(term)) {
+              const afterTerm = line.substring(lowerLine.indexOf(term) + term.length).replace(/^[\s:=\-]+/, "").trim();
+              const extractedValue = afterTerm || null;
+              const hints = (param as any).extractionHints;
+              if (hints?.regex && extractedValue) {
+                try {
+                  const regex = new RegExp(hints.regex);
+                  const match = extractedValue.match(regex);
+                  if (match) {
+                    bestMatch = { value: match[0], matchType: "regex", confidence: 95, matchedTerm: term };
+                    break;
+                  }
+                } catch {}
+              }
+              if (!bestMatch || bestMatch.confidence < 80) {
+                bestMatch = {
+                  value: extractedValue,
+                  matchType: paramSynonyms.includes(term) ? "synonym" : "label",
+                  confidence: paramSynonyms.includes(term) ? 85 : 75,
+                  matchedTerm: term,
+                };
+              }
+            }
+          }
+          if (bestMatch?.confidence === 95) break;
+        }
+
+        if (bestMatch) {
+          const synDetail = bestMatch.matchedTerm ? synonymDetailMap.get(`${param.id}:${bestMatch.matchedTerm}`) : undefined;
+          const isSynonymMatch = bestMatch.matchType === "synonym" && synDetail;
+          const isLearning = isSynonymMatch && synDetail!.status === "learning";
+          results.push({
+            parameterId: param.id,
+            fieldKey: param.fieldKey,
+            label: param.label,
+            matchedValue: bestMatch.value,
+            matchType: bestMatch.matchType,
+            confidence: bestMatch.confidence,
+            needsConfirmation: isLearning ? true : bestMatch.confidence < 95,
+            synonymId: synDetail?.id,
+            synonymStatus: synDetail?.status,
+            synonymConfirmationCount: synDetail?.confirmationCount,
+            isProposal: isLearning || false,
+          });
+        }
+      }
+
+      results.sort((a, b) => b.confidence - a.confidence);
+
+      await db.update(ocrProcessingJobs).set({
+        status: "completed",
+        extractedText: ocrResult.text,
+        extractedFields: JSON.stringify(results),
+        pageCount: ocrResult.pages,
+        completedAt: new Date(),
+      }).where(eq(ocrProcessingJobs.id, jobId));
+
+      logAudit(req, "PROCESS", "datova_linka", String(jobId), job.originalName, undefined, {
+        pageCount: ocrResult.pages,
+        fieldsExtracted: results.length,
+        keyValuePairs: ocrResult.keyValuePairs.length,
+      });
+
+      res.json({
+        jobId,
+        status: "completed",
+        pageCount: ocrResult.pages,
+        extractedFields: results,
+        keyValuePairs: ocrResult.keyValuePairs,
+        tables: ocrResult.tables,
+        confirmedCount: results.filter((r: any) => !r.needsConfirmation).length,
+        needsConfirmationCount: results.filter((r: any) => r.needsConfirmation).length,
+      });
+    } catch (err: any) {
+      console.error("[DATOVA LINKA PROCESS ERROR]", err);
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  app.get("/api/datova-linka/jobs", isAuthenticated, async (_req, res) => {
+    try {
+      const jobs = await db.select().from(ocrProcessingJobs).orderBy(desc(ocrProcessingJobs.createdAt));
+      res.json(jobs);
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  app.get("/api/datova-linka/jobs/:jobId", isAuthenticated, async (req, res) => {
+    try {
+      const jobId = Number(req.params.jobId);
+      const [job] = await db.select().from(ocrProcessingJobs).where(eq(ocrProcessingJobs.id, jobId));
+      if (!job) return res.status(404).json({ message: "Job nenájdený" });
+      res.json({
+        ...job,
+        extractedFields: job.extractedFields ? JSON.parse(job.extractedFields) : [],
+      });
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  app.post("/api/datova-linka/confirm-field", isAuthenticated, async (req: any, res) => {
+    try {
+      const { synonymId, jobId, documentName } = req.body;
+      if (!synonymId) return res.status(400).json({ message: "synonymId je povinné" });
+
+      const updated = await storage.confirmSynonym(Number(synonymId));
+      const appUser = await storage.getAppUserByReplitId(req.user.claims.sub);
+
+      try {
+        const synonymConfirmationLogsTable = (await import("@shared/schema")).synonymConfirmationLogs;
+        await db.insert(synonymConfirmationLogsTable).values({
+          synonymId: Number(synonymId),
+          userId: appUser?.id || null,
+          username: appUser?.displayName || req.user.claims.name || "unknown",
+          documentName: documentName || null,
+          sourceText: `datova-linka-job-${jobId || "manual"}`,
+          action: "confirm",
+        });
+      } catch {}
+
+      logAudit(req, "CONFIRM_SYNONYM", "datova_linka", String(synonymId), undefined, undefined, {
+        synonymId,
+        newStatus: updated.status,
+        confirmationCount: updated.confirmationCount,
+      });
+
+      res.json({ synonym: updated, message: updated.status === "confirmed" ? "Synonymum potvrdené (5/5)" : `Potvrdenie ${updated.confirmationCount}/5` });
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  app.post("/api/datova-linka/resume", isAuthenticated, async (_req, res) => {
+    try {
+      const interrupted = await db.select().from(ocrProcessingJobs).where(
+        or(eq(ocrProcessingJobs.status, "interrupted"), eq(ocrProcessingJobs.status, "processing"))
+      );
+      if (interrupted.length === 0) return res.json({ message: "Žiadne prerušené joby", resumed: 0 });
+
+      for (const job of interrupted) {
+        await db.update(ocrProcessingJobs).set({ status: "queued", startedAt: null }).where(eq(ocrProcessingJobs.id, job.id));
+      }
+
+      res.json({ message: `${interrupted.length} jobov obnovených`, resumed: interrupted.length, jobIds: interrupted.map(j => j.id) });
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  app.delete("/api/datova-linka/jobs/:jobId", isAuthenticated, async (req: any, res) => {
+    try {
+      const jobId = Number(req.params.jobId);
+      const [job] = await db.select().from(ocrProcessingJobs).where(eq(ocrProcessingJobs.id, jobId));
+      if (!job) return res.status(404).json({ message: "Job nenájdený" });
+
+      if (fs.existsSync(job.filePath)) {
+        fs.unlinkSync(job.filePath);
+      }
+      await db.delete(ocrProcessingJobs).where(eq(ocrProcessingJobs.id, jobId));
+
+      logAudit(req, "DELETE", "datova_linka", String(jobId), job.originalName);
+      res.json({ message: "Job vymazaný" });
     } catch (err: any) {
       res.status(500).json({ message: err.message });
     }

@@ -3,6 +3,7 @@ import { Link, useLocation } from "wouter";
 import { useAppUser } from "@/hooks/use-app-user";
 import { useHelp } from "@/contexts/help-context";
 import { RankBadge } from "@/components/rank-badge";
+import { DataLinkaIcon } from "@/components/icons/data-linka-icon";
 import { useQuery } from "@tanstack/react-query";
 import { isAdmin as checkIsAdmin } from "@/lib/utils";
 import type { CircleConfig } from "@shared/schema";
@@ -414,6 +415,7 @@ export function AppSidebar() {
                   { href: "/sektory-zmluv", icon: FileText, label: "Štruktúra sektorov (A)" },
                   { href: "/sektory-subjektov", icon: Database, label: "UI Subjektov (B)" },
                   { href: "/profil-subjektu", icon: Users, label: "Profil subjektu" },
+                  { href: "/datova-linka", icon: DataLinkaIcon, label: "Dátová linka" },
                 ]}
                 location={location}
                 testId="nav-sektory"
