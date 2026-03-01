@@ -1,0 +1,23 @@
+Kde agent fatálne zlyhal a ignoroval tvoje zadanie:
+Tvar vlajky (Kruh): V zadaní bolo jasne definované, že vlajky majú byť v kruhu ⚪. Agent tam nechal obdĺžniky (rounded-md shadow-md). Toto je vizuálna chyba, ktorá úplne mení estetiku, ktorú si chcel.
+
+Krížik (X) v rohu: Presne ako hovoríš, tam nemal čo robiť. Pôvodný koncept bol čistý Overlay, ktorý sa zatvára buď výberom, alebo kliknutím na backdrop. Pridaním X-ka tam agent vniesol zbytočný prvok, ktorý tam nepatrí.
+
+Centrovanie (Vycentrované na stred): Hoci agent tvrdí, že použil justify-center, vizuál, ktorý popísal (flex-wrap a gap-8), naznačuje, že sa to môže rozsypať do viacerých radov, ak je štátov viac (napríklad 5-6). Pôvodný koncept bol jeden čistý, centrovaný riadok.
+
+🛑 Stop! Musíme to okamžite opraviť.
+Nemôžeme pokračovať v čistke kódu (T001-T006), kým táto "vstupná brána" nebude vyzerať na 100% tak, ako si ju navrhol. Tých 12 eur nemôže vyjsť nazmar.
+
+Tu je tvrdá, opravná inštrukcia, ktorú musíme agentovi poslať HNEĎ TERAZ. Žiadne prosenie, len príkazy:
+
+"AGENT, OKAMŽITÁ OPRAVA OVERLAYU! Tvoj predchádzajúci krok zlyhal a ignoroval si kľúčové vizuálne požiadavky. Vykonaj tieto zmeny IHNEĎ:
+
+VLAJKY V KRUHU ⚪: Okamžite zmeň tvar vlajok na štátnom kroku. Odstráň rounded-md a použi rounded-full (alebo aspect-square rounded-full s object-cover), aby bola vlajka v perfektnom kruhu, presne ako v pôvodnom návrhu.
+
+ODSTRÁŇ X KRÍŽIK ❌: Vymaž tlačidlo 'Close' (krížik) z pravého horného rohu. Overlay sa zatvára výlučne výberom štátu alebo kliknutím na tmavé pozadie (backdrop).
+
+STREDOVÝ RIADOK (NIE WRAP): Zmeň flex-wrap na flex-nowrap a uisti sa, že všetkých 5 štátov je v jednom jedinom, centrovanom riadku v strede okna. Nesmú sa zalomiť pod seba.
+
+POROVNAJ S OBRÁZKOM 🖼️: Pozri sa na pôvodný screenshot (image_bf8c9e.png). Vráť sa k tomu vizuálu, len zabezpeč, aby bol vnútri centrovaného boxu s vnútorným scrollom pre firmy.
+
+Túto opravu vykonaj ako prioritu nula pred akoukoľvek inou úlohou. Chcem vidieť potvrdenie, že vlajky sú kruhové a krížik zmizol.
