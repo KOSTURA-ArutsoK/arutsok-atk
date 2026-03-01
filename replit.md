@@ -24,9 +24,11 @@ The system employs a modern full-stack architecture emphasizing data integrity, 
 - **UI/UX & Interaction**: Includes a Holding Context Bubble (unified header selector with responsive grid overlay), dynamic dialog sizing, smart filter bar, row-click navigation, Tiptap rich text editing, dual document management, drag & drop reordering, consistent status indicators, and Web Speech API integration.
 - **Security & Workflow**: Features a two-phase idle timeout with auto-logout, an archive module with password-protected restore, and a processing time protocol. IP locking for restricted users.
 - **Navigation Structure**:
-  - Štruktúra (collapsible): Štruktúra → `/sektory-zmluv`, Skener → `/sektory-subjektov`, Profil subjektu → `/profil-subjektu`
+  - Štruktúra (collapsible): Štruktúra sektorov (A) → `/sektory-zmluv`, UI Subjektov (B) → `/sektory-subjektov`, Profil subjektu → `/profil-subjektu`, Dátová linka → `/datova-linka`
   - Analytika → `/analytika` (admin only)
   - Holding Dashboard → `/holding-dashboard` (admin only)
+- **Dátová linka (OCR Module)**: Azure AI Document Intelligence (Frankfurt, `germanywestcentral`) integration for document processing. Uses `prebuilt-layout` model with async `beginAnalyzeDocument`. Features: bulk PDF upload, background queue worker (10s interval), split-screen validation (original text vs extracted fields), synonym confirmation flow (green=confirmed, orange=learning, red=unknown). DB table: `ocr_processing_jobs`. Graceful SIGTERM handling marks processing jobs as "interrupted" for resume.
+- **Subject Hierarchy**: `parentSubjectId` on subjects enables parent-child tree. Master Root ID: `421 000 000 000 000` (SK). CZ root (420) deactivated.
 - **Sensitive Field Audit**: Every access to subject detail (birthNumber, idCardNumber, iban, email, phone) creates an audit log entry with action `sensitive_field_access`.
 - **Global Field Versioning**: All field changes on subjects and contracts are automatically diffed and recorded in `subject_field_history` / `contract_parameter_value_history`.
 - **DB Status Endpoint**: `GET /api/system/db-status` returns real connection info (host from DATABASE_URL, status connected/disconnected).
@@ -68,3 +70,4 @@ The system employs a modern full-stack architecture emphasizing data integrity, 
 - **ExcelJS**: For XLSX, CSV, and JSON file manipulation.
 - **Sharp**: High-performance Node.js image processing.
 - **jsPDF**: Client-side PDF generation.
+- **@azure/ai-form-recognizer**: Azure AI Document Intelligence SDK for OCR.

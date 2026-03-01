@@ -11472,6 +11472,15 @@ export async function registerRoutes(
     }
   });
 
+  app.post("/api/datova-linka/process-all", isAuthenticated, async (_req, res) => {
+    try {
+      const queued = await db.select().from(ocrProcessingJobs).where(eq(ocrProcessingJobs.status, "queued"));
+      res.json({ message: `${queued.length} jobov zaradených na spracovanie`, queuedCount: queued.length });
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
   app.delete("/api/datova-linka/jobs/:jobId", isAuthenticated, async (req: any, res) => {
     try {
       const jobId = Number(req.params.jobId);
@@ -14896,6 +14905,129 @@ export async function registerRoutes(
   if (process.env.NODE_ENV === 'development') {
     seedTestContracts().catch(err => console.error("[AUTO-SEED TEST CONTRACTS ERROR]", err));
   }
+
+  // === DÁTOVÁ LINKA BACKGROUND WORKER ===
+  let ocrWorkerRunning = false;
+  let ocrWorkerShutdown = false;
+
+  async function processNextOcrJob() {
+    if (ocrWorkerShutdown || ocrWorkerRunning) return;
+    ocrWorkerRunning = true;
+
+    try {
+      const [nextJob] = await db.select().from(ocrProcessingJobs)
+        .where(eq(ocrProcessingJobs.status, "queued"))
+        .orderBy(asc(ocrProcessingJobs.createdAt))
+        .limit(1);
+
+      if (!nextJob) {
+        ocrWorkerRunning = false;
+        return;
+      }
+
+      console.log(`[OCR WORKER] Spracúvam job #${nextJob.id}: ${nextJob.originalName}`);
+      await db.update(ocrProcessingJobs).set({ status: "processing", startedAt: new Date() }).where(eq(ocrProcessingJobs.id, nextJob.id));
+
+      try {
+        const { analyzeDocument, isAzureConfigured } = await import("./services/azure-ocr");
+        if (!isAzureConfigured()) {
+          await db.update(ocrProcessingJobs).set({ status: "failed", error: "Azure nie je nakonfigurovaný", completedAt: new Date() }).where(eq(ocrProcessingJobs.id, nextJob.id));
+          ocrWorkerRunning = false;
+          return;
+        }
+
+        const ocrResult = await analyzeDocument(nextJob.filePath);
+
+        if (ocrWorkerShutdown) {
+          await db.update(ocrProcessingJobs).set({ status: "interrupted" }).where(eq(ocrProcessingJobs.id, nextJob.id));
+          ocrWorkerRunning = false;
+          return;
+        }
+
+        const allParams = await storage.getSubjectParameters();
+        const allSynonyms = await storage.getAllParameterSynonyms();
+        const synonymMap = new Map<number, string[]>();
+        const synonymDetailMap = new Map<string, { id: number; status: string; confirmationCount: number }>();
+        for (const syn of allSynonyms) {
+          if (!synonymMap.has(syn.parameterId)) synonymMap.set(syn.parameterId, []);
+          synonymMap.get(syn.parameterId)!.push(syn.synonym.toLowerCase());
+          synonymDetailMap.set(`${syn.parameterId}:${syn.synonym.toLowerCase()}`, { id: syn.id, status: syn.status, confirmationCount: syn.confirmationCount });
+        }
+
+        const combinedText = ocrResult.text + "\n" + ocrResult.keyValuePairs.map(kv => `${kv.key}: ${kv.value}`).join("\n");
+        const lines = combinedText.split(/\n/);
+        const results: any[] = [];
+
+        for (const param of allParams) {
+          const searchTerms = [param.label.toLowerCase()];
+          if (param.shortLabel) searchTerms.push(param.shortLabel.toLowerCase());
+          const paramSynonyms = synonymMap.get(param.id) || [];
+          searchTerms.push(...paramSynonyms);
+          let bestMatch: any = null;
+
+          for (const line of lines) {
+            const lowerLine = line.toLowerCase().trim();
+            if (!lowerLine) continue;
+            for (const term of searchTerms) {
+              if (lowerLine.includes(term)) {
+                const afterTerm = line.substring(lowerLine.indexOf(term) + term.length).replace(/^[\s:=\-]+/, "").trim();
+                const extractedValue = afterTerm || null;
+                const hints = (param as any).extractionHints;
+                if (hints?.regex && extractedValue) {
+                  try { const m = extractedValue.match(new RegExp(hints.regex)); if (m) { bestMatch = { value: m[0], matchType: "regex", confidence: 95, matchedTerm: term }; break; } } catch {}
+                }
+                if (!bestMatch || bestMatch.confidence < 80) {
+                  bestMatch = { value: extractedValue, matchType: paramSynonyms.includes(term) ? "synonym" : "label", confidence: paramSynonyms.includes(term) ? 85 : 75, matchedTerm: term };
+                }
+              }
+            }
+            if (bestMatch?.confidence === 95) break;
+          }
+
+          if (bestMatch) {
+            const synDetail = bestMatch.matchedTerm ? synonymDetailMap.get(`${param.id}:${bestMatch.matchedTerm}`) : undefined;
+            const isSynonymMatch = bestMatch.matchType === "synonym" && synDetail;
+            const isLearning = isSynonymMatch && synDetail!.status === "learning";
+            results.push({
+              parameterId: param.id, fieldKey: param.fieldKey, label: param.label, matchedValue: bestMatch.value,
+              matchType: bestMatch.matchType, confidence: bestMatch.confidence,
+              needsConfirmation: isLearning ? true : bestMatch.confidence < 95,
+              synonymId: synDetail?.id, synonymStatus: synDetail?.status, synonymConfirmationCount: synDetail?.confirmationCount,
+              isProposal: isLearning || false,
+            });
+          }
+        }
+
+        results.sort((a, b) => b.confidence - a.confidence);
+        await db.update(ocrProcessingJobs).set({
+          status: "completed", extractedText: ocrResult.text, extractedFields: JSON.stringify(results),
+          pageCount: ocrResult.pages, completedAt: new Date(),
+        }).where(eq(ocrProcessingJobs.id, nextJob.id));
+
+        console.log(`[OCR WORKER] Job #${nextJob.id} dokončený: ${ocrResult.pages} strán, ${results.length} polí`);
+      } catch (err: any) {
+        console.error(`[OCR WORKER] Job #${nextJob.id} zlyhal:`, err.message);
+        await db.update(ocrProcessingJobs).set({ status: "failed", error: err.message, completedAt: new Date() }).where(eq(ocrProcessingJobs.id, nextJob.id));
+      }
+    } catch (err: any) {
+      console.error("[OCR WORKER] Chyba workera:", err.message);
+    } finally {
+      ocrWorkerRunning = false;
+    }
+  }
+
+  const ocrWorkerInterval = setInterval(processNextOcrJob, 10000);
+  console.log("[OCR WORKER] Background worker spustený (interval 10s)");
+
+  process.on("SIGTERM", async () => {
+    console.log("[OCR WORKER] SIGTERM prijatý, zastavujem...");
+    ocrWorkerShutdown = true;
+    clearInterval(ocrWorkerInterval);
+    const processing = await db.select().from(ocrProcessingJobs).where(eq(ocrProcessingJobs.status, "processing"));
+    for (const job of processing) {
+      await db.update(ocrProcessingJobs).set({ status: "interrupted" }).where(eq(ocrProcessingJobs.id, job.id));
+    }
+  });
 
   return httpServer;
 }

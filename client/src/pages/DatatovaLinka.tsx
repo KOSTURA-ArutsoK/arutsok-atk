@@ -150,6 +150,14 @@ export default function DatatovaLinka() {
     },
   });
 
+  const processAllMutation = useMutation({
+    mutationFn: () => apiRequest("POST", "/api/datova-linka/process-all"),
+    onSuccess: (data: any) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/datova-linka/jobs"] });
+      toast({ title: "Hromadné spracovanie", description: data.message });
+    },
+  });
+
   const confirmFieldMutation = useMutation({
     mutationFn: (params: { synonymId: number; jobId?: number; documentName?: string }) =>
       apiRequest("POST", "/api/datova-linka/confirm-field", params),
@@ -224,10 +232,15 @@ export default function DatatovaLinka() {
           <DataLinkaIcon className="w-7 h-7 text-[#6c757d]" />
           <div>
             <h1 className="text-2xl font-bold" data-testid="text-datova-linka-title">Dátová linka</h1>
-            <p className="text-sm text-muted-foreground">OCR spracovanie dokumentov • Azure Document Intelligence (Frankfurt)</p>
+            <p className="text-sm text-muted-foreground">OCR spracovanie dokumentov • Azure Document Intelligence (Frankfurt) • Automatické spracovanie každých 10s</p>
           </div>
         </div>
         <div className="flex items-center gap-2">
+          {queuedCount > 0 && (
+            <Button variant="default" size="sm" onClick={() => processAllMutation.mutate()} disabled={processAllMutation.isPending} data-testid="button-process-all">
+              <Play className="h-4 w-4 mr-1" /> Spustiť všetko ({queuedCount})
+            </Button>
+          )}
           {interruptedCount > 0 && (
             <Button variant="outline" size="sm" onClick={() => resumeMutation.mutate()} disabled={resumeMutation.isPending} data-testid="button-resume-jobs">
               <RefreshCw className="h-4 w-4 mr-1" /> Obnoviť ({interruptedCount})
