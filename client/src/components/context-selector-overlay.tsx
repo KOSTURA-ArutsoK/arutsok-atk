@@ -153,9 +153,9 @@ export function ContextSelectorOverlay({
             <p className="text-sm text-white/60 text-center">Zvoľte spoločnosť</p>
           </div>
 
-          <div className="overflow-y-auto w-full max-w-3xl" style={{ maxHeight: "calc(90vh - 200px)" }}>
+          <div className="overflow-y-auto overflow-x-hidden w-full max-w-3xl py-2" style={{ maxHeight: "calc(90vh - 200px)" }}>
             {filteredCompanies.length > 0 ? (
-              <div className="flex flex-wrap items-start justify-center gap-6">
+              <div className="flex flex-wrap items-start justify-center gap-5 p-2">
                 {[...filteredCompanies].sort((a, b) => a.name.localeCompare(b.name, "sk")).map(c => {
                   const logoUrl = getPrimaryLogo(c.logos as LogoEntry[] | null);
                   return (
@@ -163,17 +163,17 @@ export function ContextSelectorOverlay({
                       key={c.id}
                       type="button"
                       onClick={() => onSelectCompany(c.id)}
-                      className="flex flex-col items-center gap-3 group cursor-pointer w-28"
+                      className="flex flex-col items-center gap-3 p-4 rounded-xl bg-white/5 border border-white/10 transition-all duration-200 hover:border-sky-400 hover:bg-white/10 hover:shadow-lg hover:shadow-sky-400/20 group cursor-pointer w-32"
                       data-testid={`context-company-${c.id}`}
                     >
-                      <div className="w-16 h-16 rounded-xl bg-white/10 border border-white/20 flex items-center justify-center overflow-hidden transition-all duration-200 group-hover:border-sky-400 group-hover:shadow-lg group-hover:shadow-sky-400/30 group-hover:scale-105">
+                      <div className="w-14 h-14 rounded-xl bg-white/10 flex items-center justify-center overflow-hidden">
                         {logoUrl ? (
-                          <img src={logoUrl} alt={c.name} className="w-full h-full object-contain p-1.5" />
+                          <img src={logoUrl} alt={c.name} className="w-full h-full object-contain p-1.5 grayscale opacity-70 transition-all duration-200 group-hover:grayscale-0 group-hover:opacity-100" />
                         ) : (
-                          <Building2 className="w-7 h-7 text-white/50" />
+                          <Building2 className="w-7 h-7 text-white/40 transition-colors duration-200 group-hover:text-sky-400" />
                         )}
                       </div>
-                      <span className="text-sm font-medium text-white/80 group-hover:text-white transition-colors text-center leading-tight">
+                      <span className="text-sm font-medium text-white/70 group-hover:text-white transition-colors text-center leading-tight">
                         {c.name}
                       </span>
                       {c.specialization && (
@@ -211,8 +211,8 @@ export function ContextSelectorOverlay({
             <p className="text-sm text-white/60 text-center">Zvoľte divíziu</p>
           </div>
 
-          <div className="overflow-y-auto w-full max-w-3xl" style={{ maxHeight: "calc(90vh - 140px)" }}>
-            <div className="flex flex-wrap items-start justify-center gap-6">
+          <div className="overflow-y-auto overflow-x-hidden w-full max-w-3xl py-2" style={{ maxHeight: "calc(90vh - 140px)" }}>
+            <div className="flex flex-wrap items-start justify-center gap-5 p-2">
               {companyDivisions.map(cd => {
                 const divId = cd.divisionId || cd.division?.id;
                 const divName = cd.division?.name || cd.name || "Divízia";
@@ -222,17 +222,17 @@ export function ContextSelectorOverlay({
                     key={divId}
                     type="button"
                     onClick={() => onSelectDivision(divId)}
-                    className="flex flex-col items-center gap-3 group cursor-pointer w-28"
+                    className="flex flex-col items-center gap-3 p-4 rounded-xl bg-white/5 border border-white/10 transition-all duration-200 hover:border-sky-400 hover:bg-white/10 hover:shadow-lg hover:shadow-sky-400/20 group cursor-pointer w-32"
                     data-testid={`context-division-${divId}`}
                   >
-                    <div className="w-16 h-16 rounded-xl bg-white/10 border border-white/20 flex items-center justify-center overflow-hidden transition-all duration-200 group-hover:border-sky-400 group-hover:shadow-lg group-hover:shadow-sky-400/30 group-hover:scale-105">
+                    <div className="w-14 h-14 rounded-xl bg-white/10 flex items-center justify-center overflow-hidden">
                       {divEmoji ? (
                         <span className="text-2xl">{divEmoji}</span>
                       ) : (
-                        <Layers className="w-7 h-7 text-white/50" />
+                        <Layers className="w-7 h-7 text-white/40 transition-colors duration-200 group-hover:text-sky-400" />
                       )}
                     </div>
-                    <span className="text-sm font-medium text-white/80 group-hover:text-white transition-colors text-center leading-tight">
+                    <span className="text-sm font-medium text-white/70 group-hover:text-white transition-colors text-center leading-tight">
                       {divName}
                     </span>
                   </button>
