@@ -414,9 +414,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                         <span className="text-[11px] font-medium hidden sm:inline whitespace-nowrap text-zinc-200">
                           {activeState?.name || "Štát"}
                         </span>
-                        {canSwitch ? (
-                          <ChevronDown className="w-3 h-3 text-zinc-400 flex-shrink-0" />
-                        ) : (
+                        {!canSwitch && (
                           <Lock className="w-3 h-3 text-zinc-500 flex-shrink-0" />
                         )}
                       </button>
@@ -441,9 +439,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                         <span className="text-[11px] font-medium truncate max-w-[140px] text-zinc-200">
                           {activeCompany?.name || "Firma"}
                         </span>
-                        {canSwitch ? (
-                          <ChevronDown className="w-3 h-3 text-zinc-400 flex-shrink-0" />
-                        ) : (
+                        {!canSwitch && (
                           <Lock className="w-3 h-3 text-zinc-500 flex-shrink-0" />
                         )}
                       </button>
