@@ -2395,6 +2395,51 @@ export const insertOcrProcessingJobSchema = createInsertSchema(ocrProcessingJobs
 export type OcrProcessingJob = typeof ocrProcessingJobs.$inferSelect;
 export type InsertOcrProcessingJob = z.infer<typeof insertOcrProcessingJobSchema>;
 
+// === NETWORK LINKS (Financie > Sieť - ATK spider web) ===
+export const networkLinks = pgTable("network_links", {
+  id: serial("id").primaryKey(),
+  subjectId: integer("subject_id").notNull().references(() => subjects.id),
+  guarantorSubjectId: integer("guarantor_subject_id").notNull().references(() => subjects.id),
+  linkType: text("link_type").$type<"active" | "frozen" | "historical">().default("active").notNull(),
+  phase: text("phase").$type<"klient" | "tiper" | "specialist">().default("klient").notNull(),
+  sourceContractId: integer("source_contract_id"),
+  roleOnContract: text("role_on_contract"),
+  isFrozenAt: timestamp("is_frozen_at"),
+  frozenReason: text("frozen_reason"),
+  confirmedAt: timestamp("confirmed_at"),
+  confirmedByUserId: integer("confirmed_by_user_id").references(() => appUsers.id),
+  confirmedByName: text("confirmed_by_name"),
+  isActive: boolean("is_active").default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertNetworkLinkSchema = createInsertSchema(networkLinks).omit({ id: true, createdAt: true, updatedAt: true });
+export type NetworkLink = typeof networkLinks.$inferSelect;
+export type InsertNetworkLink = z.infer<typeof insertNetworkLinkSchema>;
+
+// === GUARANTOR TRANSFER REQUESTS (Prestupový protokol) ===
+export const guarantorTransferRequests = pgTable("guarantor_transfer_requests", {
+  id: serial("id").primaryKey(),
+  subjectId: integer("subject_id").notNull().references(() => subjects.id),
+  currentGuarantorId: integer("current_guarantor_id").notNull().references(() => subjects.id),
+  requestedGuarantorId: integer("requested_guarantor_id").notNull().references(() => subjects.id),
+  status: text("status").$type<"pending" | "approved" | "rejected">().default("pending").notNull(),
+  reason: text("reason").notNull(),
+  requestedByUserId: integer("requested_by_user_id").references(() => appUsers.id),
+  requestedByName: text("requested_by_name"),
+  reviewedByUserId: integer("reviewed_by_user_id").references(() => appUsers.id),
+  reviewedByName: text("reviewed_by_name"),
+  reviewedAt: timestamp("reviewed_at"),
+  reviewNote: text("review_note"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertGuarantorTransferRequestSchema = createInsertSchema(guarantorTransferRequests).omit({ id: true, createdAt: true, updatedAt: true });
+export type GuarantorTransferRequest = typeof guarantorTransferRequests.$inferSelect;
+export type InsertGuarantorTransferRequest = z.infer<typeof insertGuarantorTransferRequestSchema>;
+
 export type CreateSubjectRequest = InsertSubject;
 export type UpdateSubjectRequest = Partial<InsertSubject> & { changeReason?: string };
 export type UpdateMyCompanyRequest = Partial<InsertMyCompany> & { changeReason?: string };

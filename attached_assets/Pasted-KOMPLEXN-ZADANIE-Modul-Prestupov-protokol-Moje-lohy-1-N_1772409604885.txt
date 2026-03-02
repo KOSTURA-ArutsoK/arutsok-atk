@@ -1,0 +1,50 @@
+KOMPLEXNÉ ZADANIE: Modul 'Prestupový protokol' & 'Moje úlohy'
+1. Nová položka v menu:
+
+V ľavej lište, presne medzi sekcie Štruktúra a Partneri, vlož novú položku: "Moje úlohy".
+
+Táto sekcia bude slúžiť ako centrálny uzol pre všetky schvaľovacie procesy (červený indikátor počtu čakajúcich úloh).
+
+2. Štruktúra vo 'Financiách':
+
+Pod sekciu Financie pridaj dve nové podpoložky:
+
+Žiadosti: (Všeobecný prehľad všetkých podaných dopytov).
+
+Prestup: (Detailná správa prestupových protokolov).
+
+3. Logika 4-stupňového overenia (Prestup):
+Akonáhle Tipér/Špecialista podá žiadosť o zmenu garanta, systém vygeneruje 4 povinné notifikácie (tasky), ktoré musia byť potvrdené v tomto poradí:
+
+Žiadateľ (Tipér/Špecialista): Jeho súhlas sa berie ako automatický podaním žiadosti.
+
+Prijímajúci Garant: Ten, pod koho sa chce subjekt zaradiť, musí potvrdiť, že ho prijíma.
+
+Odchádzajúci Garant: Ten, od koho subjekt odchádza, musí potvrdiť, že uvoľňuje subjekt zo svojej aktívnej siete.
+
+Admin (Marián): Finálne schválenie, ktoré spustí fyzickú zmenu v databáze.
+
+4. Technické pravidlá procesu:
+
+Status: Kým nie sú všetky 4 súhlasy udelené, žiadosť je v stave pending_all_approvals.
+
+Blokovanie: Žiadna automatická zmena v poli 'Garant' nie je povolená.
+
+Časová pečiatka: Každý jeden zo 4 súhlasov musí mať v auditnej stope náš globálny formát: DD.MM.RRRR HH:mm:ss.
+
+Zamrznutie: Po finálnom schválení adminom sa pôvodný garant automaticky prepne na status 'Zamrznutý' a nový na 'Aktívny'.
+
+5. Výstupný dokument:
+
+Po dokončení celého reťazca súhlasov systém vygeneruje PDF Prestupový protokol.
+
+Obsah PDF: Mená všetkých 4 schvaľovateľov s ich presnými časmi súhlasu.
+
+Prvky: Globálny timestamp, unikátny QR kód pre overenie v systéme ATK a vodoznak holdingu.
+
+🛡️ Čo sme týmto dosiahli:
+Absolútna kontrola: Žiadny "únos" tipérov v rámci siete nie je možný.
+
+Prehľadnosť: V sekcii "Moje úlohy" hneď uvidíš, či prestup stojí na tvojom schválení alebo na vyjadrení niektorého z garantov.
+
+Právna čistota: Máš v rukách PDF dokument, kde sú podpísaní všetci štyria digitálnou stopou.

@@ -37,6 +37,7 @@ import {
   ArrowDownLeft,
   ArrowUpRight,
   Banknote,
+  Network,
   TrendingUp,
   Layers,
   Info,
@@ -81,6 +82,7 @@ const topItems = [
 ];
 
 const financieItems = [
+  { href: "/siet", icon: Network, label: "Sieť" },
   { href: "/body", icon: TrendingUp, label: "Body" },
   { href: "/provizie", icon: ArrowDownLeft, label: "Provizie" },
   { href: "/odmeny", icon: ArrowUpRight, label: "Odmeny" },

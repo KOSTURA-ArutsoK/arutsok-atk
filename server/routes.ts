@@ -4,7 +4,7 @@ import { storage } from "./storage";
 import { api } from "@shared/routes";
 import { setupAuth, registerAuthRoutes, isAuthenticated } from "./replit_integrations/auth";
 import { z } from "zod";
-import { continents, states, myCompanies, appUsers, clientTypes, clientSubGroups, clientGroupMembers, productFolderAssignments, folderPanels, panelParameters, userClientGroupMemberships, clientGroups, permissionGroups, insertCareerLevelSchema, insertProductPointRateSchema, careerLevels, importLogs, commissions, contracts, contractStatuses, contractStatusChangeLogs, clientDataTabs, clientDataCategories, subjects, subjectPointsLog, subjectFieldHistory, subjectCollaborators, clientMarketingConsents, clientDocumentHistory, contractAcquirers, contractPasswords, contractRewardDistributions, contractParameterValues, subjectArchive, auditLogs, globalCounters, subjectPhotos, activityEvents, subjectParamSections, subjectParameters, subjectTemplates, subjectTemplateParams, commissionCalculationLogs, parameterSynonyms, dataConflictAlerts, transactionDedupLog, relationRoleTypes, subjectRelations, maturityAlerts, inheritancePrompts, guardianshipArchive, households, householdMembers, householdAssets, privacyBlocks, accessConsentLog, maturityEvents, addressGroups, addressGroupMembers, companySubjectRoles, notificationQueue, batchJobs, subjectObjects, objectDataSources, sectors, sections, sectorProducts, parameters, panels, productPanels, contractFolders, fieldLayoutConfigs, sectorCategoryMapping, suggestedRelations, statusEvidence, contractLifecycleHistory, systemNotifications, partners, products, contractInventories, contractTemplates, redListAlerts, subjectAddresses, divisions, companyDivisions, insertDivisionSchema, ocrProcessingJobs } from "@shared/schema";
+import { continents, states, myCompanies, appUsers, clientTypes, clientSubGroups, clientGroupMembers, productFolderAssignments, folderPanels, panelParameters, userClientGroupMemberships, clientGroups, permissionGroups, insertCareerLevelSchema, insertProductPointRateSchema, careerLevels, importLogs, commissions, contracts, contractStatuses, contractStatusChangeLogs, clientDataTabs, clientDataCategories, subjects, subjectPointsLog, subjectFieldHistory, subjectCollaborators, clientMarketingConsents, clientDocumentHistory, contractAcquirers, contractPasswords, contractRewardDistributions, contractParameterValues, subjectArchive, auditLogs, globalCounters, subjectPhotos, activityEvents, subjectParamSections, subjectParameters, subjectTemplates, subjectTemplateParams, commissionCalculationLogs, parameterSynonyms, dataConflictAlerts, transactionDedupLog, relationRoleTypes, subjectRelations, maturityAlerts, inheritancePrompts, guardianshipArchive, households, householdMembers, householdAssets, privacyBlocks, accessConsentLog, maturityEvents, addressGroups, addressGroupMembers, companySubjectRoles, notificationQueue, batchJobs, subjectObjects, objectDataSources, sectors, sections, sectorProducts, parameters, panels, productPanels, contractFolders, fieldLayoutConfigs, sectorCategoryMapping, suggestedRelations, statusEvidence, contractLifecycleHistory, systemNotifications, partners, products, contractInventories, contractTemplates, redListAlerts, subjectAddresses, divisions, companyDivisions, insertDivisionSchema, ocrProcessingJobs, networkLinks, guarantorTransferRequests } from "@shared/schema";
 import { notifyObjectionCreated, notifyPreDeletion, getProductDaysLimits } from "./email";
 import { seedSubjectParameters, seedAssetPanels, seedEventAndEntityPanels } from "./seed-subject-params";
 import sharp from "sharp";
@@ -14735,6 +14735,370 @@ export async function registerRoutes(
       });
     } catch (err: any) {
       res.status(500).json({ message: err?.message || "Chyba pri načítaní rodinného stromu" });
+    }
+  });
+
+  // === NETWORK (Financie > Sieť - ATK) ===
+
+  app.get("/api/network/tree", isAuthenticated, async (req: any, res) => {
+    try {
+      const rootId = req.query.rootId ? parseInt(req.query.rootId as string) : null;
+      const SK_ROOT_UID = "421 000 000 000 000";
+
+      let rootSubject: any = null;
+      if (rootId) {
+        [rootSubject] = await db.select().from(subjects).where(and(eq(subjects.id, rootId), isNull(subjects.deletedAt))).limit(1);
+      } else {
+        [rootSubject] = await db.select().from(subjects).where(and(eq(subjects.uid, SK_ROOT_UID), isNull(subjects.deletedAt))).limit(1);
+      }
+
+      if (!rootSubject) {
+        const [firstSubject] = await db.select().from(subjects).where(
+          and(isNull(subjects.deletedAt), eq(subjects.isActive, true))
+        ).orderBy(subjects.id).limit(1);
+        rootSubject = firstSubject || null;
+      }
+      if (!rootSubject) {
+        return res.json({ root: null, links: [], subjects: [] });
+      }
+
+      const allLinks = await db.select().from(networkLinks).where(eq(networkLinks.isActive, true));
+
+      const subjectIds = new Set<number>();
+      subjectIds.add(rootSubject.id);
+      allLinks.forEach(l => {
+        subjectIds.add(l.subjectId);
+        subjectIds.add(l.guarantorSubjectId);
+      });
+
+      const allSubjects = subjectIds.size > 0
+        ? await db.select({
+            id: subjects.id,
+            uid: subjects.uid,
+            firstName: subjects.firstName,
+            lastName: subjects.lastName,
+            companyName: subjects.companyName,
+            type: subjects.type,
+            registrationStatus: subjects.registrationStatus,
+            lifecycleStatus: subjects.lifecycleStatus,
+            isActive: subjects.isActive,
+          }).from(subjects).where(
+            and(
+              inArray(subjects.id, Array.from(subjectIds)),
+              isNull(subjects.deletedAt)
+            )
+          )
+        : [];
+
+      res.json({
+        root: rootSubject,
+        links: allLinks,
+        subjects: allSubjects,
+      });
+    } catch (err: any) {
+      res.status(500).json({ message: err?.message || "Chyba pri načítaní siete" });
+    }
+  });
+
+  app.get("/api/network/links/:subjectId", isAuthenticated, async (req: any, res) => {
+    try {
+      const subjectId = parseInt(req.params.subjectId);
+      const links = await db.select().from(networkLinks).where(
+        or(
+          eq(networkLinks.subjectId, subjectId),
+          eq(networkLinks.guarantorSubjectId, subjectId)
+        )
+      );
+      res.json(links);
+    } catch (err: any) {
+      res.status(500).json({ message: err?.message || "Chyba" });
+    }
+  });
+
+  app.post("/api/network/links", isAuthenticated, async (req: any, res) => {
+    try {
+      const { subjectId, guarantorSubjectId, linkType, phase, sourceContractId, roleOnContract } = req.body;
+      if (!subjectId || !guarantorSubjectId) {
+        return res.status(400).json({ message: "subjectId a guarantorSubjectId sú povinné" });
+      }
+
+      const existing = await db.select().from(networkLinks).where(
+        and(
+          eq(networkLinks.subjectId, subjectId),
+          eq(networkLinks.guarantorSubjectId, guarantorSubjectId),
+          eq(networkLinks.isActive, true),
+          eq(networkLinks.linkType, linkType || "active")
+        )
+      ).limit(1);
+
+      if (existing.length > 0) {
+        return res.json(existing[0]);
+      }
+
+      const appUser = req.appUser;
+      const [link] = await db.insert(networkLinks).values({
+        subjectId,
+        guarantorSubjectId,
+        linkType: linkType || "active",
+        phase: phase || "klient",
+        sourceContractId: sourceContractId || null,
+        roleOnContract: roleOnContract || null,
+        confirmedByUserId: appUser?.id,
+        confirmedByName: appUser?.fullName || appUser?.username,
+      }).returning();
+
+      await db.insert(auditLogs).values({
+        userId: appUser?.id || 0,
+        action: "network_link_created",
+        entityType: "network_link",
+        entityId: String(link.id),
+        details: { subjectId, guarantorSubjectId, linkType: linkType || "active", phase: phase || "klient" },
+      });
+
+      res.json(link);
+    } catch (err: any) {
+      res.status(500).json({ message: err?.message || "Chyba pri vytváraní prepojenia" });
+    }
+  });
+
+  app.post("/api/network/confirm-guarantor", isAuthenticated, async (req: any, res) => {
+    try {
+      const { subjectId, chosenGuarantorId } = req.body;
+      if (!subjectId || !chosenGuarantorId) {
+        return res.status(400).json({ message: "subjectId a chosenGuarantorId sú povinné" });
+      }
+
+      const appUser = req.appUser;
+      const now = new Date();
+
+      const activeLinks = await db.select().from(networkLinks).where(
+        and(
+          eq(networkLinks.subjectId, subjectId),
+          eq(networkLinks.isActive, true)
+        )
+      );
+
+      for (const link of activeLinks) {
+        if (link.guarantorSubjectId === chosenGuarantorId) {
+          await db.update(networkLinks).set({
+            linkType: "active",
+            phase: "specialist",
+            confirmedAt: now,
+            confirmedByUserId: appUser?.id,
+            confirmedByName: appUser?.fullName || appUser?.username,
+            updatedAt: now,
+          }).where(eq(networkLinks.id, link.id));
+        } else {
+          await db.update(networkLinks).set({
+            linkType: "frozen",
+            isFrozenAt: now,
+            frozenReason: "Kariérna konverzia — subjekt si zvolil iného garanta",
+            updatedAt: now,
+          }).where(eq(networkLinks.id, link.id));
+        }
+      }
+
+      await db.insert(auditLogs).values({
+        userId: appUser?.id || 0,
+        action: "guarantor_confirmed",
+        entityType: "network_link",
+        entityId: String(subjectId),
+        details: { subjectId, chosenGuarantorId, frozenCount: activeLinks.filter(l => l.guarantorSubjectId !== chosenGuarantorId).length },
+      });
+
+      res.json({ message: "Garant potvrdený, ostatné prepojenia zamrznuté" });
+    } catch (err: any) {
+      res.status(500).json({ message: err?.message || "Chyba pri potvrdení garanta" });
+    }
+  });
+
+  app.get("/api/network/transfer-requests", isAuthenticated, async (req: any, res) => {
+    try {
+      const statusFilter = req.query.status || "pending";
+      const requests = await db.select().from(guarantorTransferRequests).where(
+        eq(guarantorTransferRequests.status, statusFilter as string)
+      ).orderBy(desc(guarantorTransferRequests.createdAt));
+
+      const subjectIds = new Set<number>();
+      requests.forEach(r => {
+        subjectIds.add(r.subjectId);
+        subjectIds.add(r.currentGuarantorId);
+        subjectIds.add(r.requestedGuarantorId);
+      });
+
+      const relatedSubjects = subjectIds.size > 0
+        ? await db.select({
+            id: subjects.id,
+            uid: subjects.uid,
+            firstName: subjects.firstName,
+            lastName: subjects.lastName,
+            companyName: subjects.companyName,
+            type: subjects.type,
+          }).from(subjects).where(inArray(subjects.id, Array.from(subjectIds)))
+        : [];
+
+      res.json({ requests, subjects: relatedSubjects });
+    } catch (err: any) {
+      res.status(500).json({ message: err?.message || "Chyba" });
+    }
+  });
+
+  app.post("/api/network/transfer-requests", isAuthenticated, async (req: any, res) => {
+    try {
+      const { subjectId, currentGuarantorId, requestedGuarantorId, reason } = req.body;
+      if (!subjectId || !currentGuarantorId || !requestedGuarantorId || !reason) {
+        return res.status(400).json({ message: "Všetky polia sú povinné" });
+      }
+
+      const appUser = req.appUser;
+      const [request] = await db.insert(guarantorTransferRequests).values({
+        subjectId,
+        currentGuarantorId,
+        requestedGuarantorId,
+        reason,
+        requestedByUserId: appUser?.id,
+        requestedByName: appUser?.fullName || appUser?.username,
+      }).returning();
+
+      await db.insert(auditLogs).values({
+        userId: appUser?.id || 0,
+        action: "transfer_request_created",
+        entityType: "guarantor_transfer",
+        entityId: String(request.id),
+        details: { subjectId, currentGuarantorId, requestedGuarantorId, reason },
+      });
+
+      res.json(request);
+    } catch (err: any) {
+      res.status(500).json({ message: err?.message || "Chyba pri vytváraní žiadosti" });
+    }
+  });
+
+  app.patch("/api/network/transfer-requests/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const { status, reviewNote } = req.body;
+      const appUser = req.appUser;
+
+      if (!isAdmin(appUser)) {
+        return res.status(403).json({ message: "Len administrátor môže schvaľovať prestupové žiadosti" });
+      }
+
+      if (!["approved", "rejected"].includes(status)) {
+        return res.status(400).json({ message: "Neplatný status" });
+      }
+
+      const [existing] = await db.select().from(guarantorTransferRequests).where(eq(guarantorTransferRequests.id, id)).limit(1);
+      if (!existing) return res.status(404).json({ message: "Žiadosť nenájdená" });
+      if (existing.status !== "pending") return res.status(400).json({ message: "Žiadosť už bola vybavená" });
+
+      const now = new Date();
+      const [updated] = await db.update(guarantorTransferRequests).set({
+        status,
+        reviewNote: reviewNote || null,
+        reviewedByUserId: appUser.id,
+        reviewedByName: appUser.fullName || appUser.username,
+        reviewedAt: now,
+        updatedAt: now,
+      }).where(eq(guarantorTransferRequests.id, id)).returning();
+
+      if (status === "approved") {
+        await db.update(networkLinks).set({
+          linkType: "frozen",
+          isFrozenAt: now,
+          frozenReason: "Prestupový protokol schválený",
+          updatedAt: now,
+        }).where(
+          and(
+            eq(networkLinks.subjectId, existing.subjectId),
+            eq(networkLinks.guarantorSubjectId, existing.currentGuarantorId),
+            eq(networkLinks.linkType, "active")
+          )
+        );
+
+        const existingNewLink = await db.select().from(networkLinks).where(
+          and(
+            eq(networkLinks.subjectId, existing.subjectId),
+            eq(networkLinks.guarantorSubjectId, existing.requestedGuarantorId),
+          )
+        ).limit(1);
+
+        if (existingNewLink.length > 0) {
+          await db.update(networkLinks).set({
+            linkType: "active",
+            isFrozenAt: null,
+            frozenReason: null,
+            confirmedAt: now,
+            confirmedByUserId: appUser.id,
+            confirmedByName: appUser.fullName || appUser.username,
+            updatedAt: now,
+          }).where(eq(networkLinks.id, existingNewLink[0].id));
+        } else {
+          await db.insert(networkLinks).values({
+            subjectId: existing.subjectId,
+            guarantorSubjectId: existing.requestedGuarantorId,
+            linkType: "active",
+            phase: "specialist",
+            confirmedAt: now,
+            confirmedByUserId: appUser.id,
+            confirmedByName: appUser.fullName || appUser.username,
+          });
+        }
+      }
+
+      await db.insert(auditLogs).values({
+        userId: appUser.id,
+        action: `transfer_request_${status}`,
+        entityType: "guarantor_transfer",
+        entityId: String(id),
+        details: { subjectId: existing.subjectId, currentGuarantorId: existing.currentGuarantorId, requestedGuarantorId: existing.requestedGuarantorId, reviewNote },
+      });
+
+      res.json(updated);
+    } catch (err: any) {
+      res.status(500).json({ message: err?.message || "Chyba pri spracovaní žiadosti" });
+    }
+  });
+
+  app.get("/api/network/subject-acquirers/:subjectId", isAuthenticated, async (req: any, res) => {
+    try {
+      const subjectId = parseInt(req.params.subjectId);
+
+      const subjectContracts = await db.select({
+        id: contracts.id,
+        contractNumber: contracts.contractNumber,
+        specialistaUid: contracts.specialistaUid,
+      }).from(contracts).where(
+        and(
+          eq(contracts.klientUid, String(subjectId)),
+          eq(contracts.isDeleted, false)
+        )
+      );
+
+      const acquirerUids = new Set<string>();
+      subjectContracts.forEach(c => {
+        if (c.specialistaUid) acquirerUids.add(c.specialistaUid);
+      });
+
+      const acquirers = acquirerUids.size > 0
+        ? await db.select({
+            id: subjects.id,
+            uid: subjects.uid,
+            firstName: subjects.firstName,
+            lastName: subjects.lastName,
+            companyName: subjects.companyName,
+            type: subjects.type,
+          }).from(subjects).where(
+            and(
+              inArray(subjects.uid, Array.from(acquirerUids)),
+              isNull(subjects.deletedAt)
+            )
+          )
+        : [];
+
+      res.json({ subjectId, contracts: subjectContracts, acquirers });
+    } catch (err: any) {
+      res.status(500).json({ message: err?.message || "Chyba" });
     }
   });
 

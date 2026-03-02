@@ -53,6 +53,7 @@ The system employs a modern full-stack architecture emphasizing data integrity, 
 - **Global Date/Time Format**: Strict `DD.MM.RRRR HH:mm:ss` everywhere (UI, DB, Logs, PDF). Server: `formatDateTimeSK()`, Frontend: `formatDateTimeSlovak()`. File naming: `RRRRMMDD_HHmmss` via `formatTimestampForFile()`. OCR dates auto-normalized via `normalizeExtractedDate()`.
 - **PDF QR Codes**: All server-generated PDFs include QR code (top-right corner) linking to subject URL + timestamp. Uses `qrcode` package. Client-side PDFs use `DD.MM.RRRR HH:mm:ss` timestamps.
 - **OCR Duplicate Guard**: Max 5 identical extracted values without manual approval (`OCR_DUPLICATE_LIMIT = 5`). Duplicates flagged with `duplicateWarning: true` and `DUPLIKÁT` badge in UI.
+- **Network Module (Financie > Sieť)**: ATK spider web anchored under root `421 000 000 000 000`. Tables: `network_links` (subject↔guarantor with linkType: active/frozen/historical, phase: klient/tiper/specialist), `guarantor_transfer_requests` (prestupový protokol with admin-only approval). Career conversion freezes non-chosen guarantors. Transfer requests require manual admin approval.
 
 ## Important Technical Notes
 - **subjects table**: uses `deletedAt` (timestamp, nullable) NOT `isDeleted` boolean — always filter with `isNull(subjects.deletedAt)`

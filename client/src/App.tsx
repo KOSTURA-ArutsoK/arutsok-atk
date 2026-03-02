@@ -58,6 +58,7 @@ import ProfilSubjektu from "@/pages/ProfilSubjektu";
 import Reports from "@/pages/Reports";
 import DatatovaLinka from "@/pages/DatatovaLinka";
 import HoldingDashboard from "@/pages/HoldingDashboard";
+import NetworkSiet from "@/pages/NetworkSiet";
 import { AppShell } from "@/components/layout/AppShell";
 import { RedListNotificationPopup } from "@/components/red-list-notification-popup";
 import { BlackListNotificationPopup } from "@/components/black-list-notification-popup";
@@ -149,6 +150,7 @@ const PrivateProfilSubjektu = () => <PrivateRoute><ProfilSubjektu /></PrivateRou
 const PrivateReports = () => <PrivateRoute><Reports /></PrivateRoute>;
 const PrivateDatatovaLinka = () => <PrivateRoute><DatatovaLinka /></PrivateRoute>;
 const PrivateHoldingDashboard = () => <PrivateRoute><HoldingDashboard /></PrivateRoute>;
+const PrivateNetworkSiet = () => <PrivateRoute><NetworkSiet /></PrivateRoute>;
 const PrivateClientProfile = () => <PrivateRoute><ClientProfilePage /></PrivateRoute>;
 
 function Router() {
@@ -207,6 +209,7 @@ function Router() {
       <Route path="/bulk-actions" component={PrivateBulkActions} />
       <Route path="/profil-subjektu" component={PrivateProfilSubjektu} />
       <Route path="/datova-linka" component={PrivateDatatovaLinka} />
+      <Route path="/siet" component={PrivateNetworkSiet} />
       <Route component={NotFound} />
     </Switch>
   );
