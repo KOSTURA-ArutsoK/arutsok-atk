@@ -160,17 +160,21 @@ const specifikacieItems = [
   { href: "/settings-divisions", icon: Layers, label: "Divizie" },
 ];
 
+const nastavenieSystemuItems = [
+  { href: "/dashboard-settings", icon: Eye, label: "Nastavenie prehladov" },
+  { href: "/link-settings", icon: Link2, label: "Nastavenie odkazov" },
+];
+
 const nastavenieDirectItems = [
   { href: "/history", icon: History, label: "Logy" },
   { href: "/support", icon: Phone, label: "Podpora a registracia" },
-  { href: "/dashboard-settings", icon: Eye, label: "Nastavenie prehladov" },
-  { href: "/link-settings", icon: Link2, label: "Nastavenie odkazov" },
   { href: "/archive", icon: Trash2, label: "Kos" },
 ];
 
 const allNastavenieHrefs = [
   ...spravaPristupovItems.map(i => i.href),
   ...specifikacieItems.map(i => i.href),
+  ...nastavenieSystemuItems.map(i => i.href),
   ...nastavenieDirectItems.map(i => i.href),
 ];
 
@@ -326,9 +330,10 @@ export function AppSidebar() {
   });
 
   const allMenus = [
-    { id: "nastavenia", items: [...spravaPristupovItems, ...specifikacieItems, ...nastavenieDirectItems] },
+    { id: "nastavenia", items: [...spravaPristupovItems, ...specifikacieItems, ...nastavenieSystemuItems, ...nastavenieDirectItems] },
     { id: "sprava-pristupov", items: spravaPristupovItems },
     { id: "specifikacie", items: specifikacieItems },
+    { id: "nastavenie-systemu", items: nastavenieSystemuItems },
     { id: "partneri", items: partneriProduktyItems },
     { id: "klienti", items: klientiItems },
     { id: "zmluvy", items: [...zmluvyFlatItems, ...nastaveniaSablonChildren, ...protokolyChildren, ...importItems] },
@@ -341,7 +346,8 @@ export function AppSidebar() {
   const isNastavenieActive = allNastavenieHrefs.includes(location);
   const isNastavenieOpen = openMenuId === "nastavenia";
   const nastavenieInitialSub = spravaPristupovItems.some(i => i.href === location) ? "sprava-pristupov"
-    : specifikacieItems.some(i => i.href === location) ? "specifikacie" : null;
+    : specifikacieItems.some(i => i.href === location) ? "specifikacie"
+    : nastavenieSystemuItems.some(i => i.href === location) ? "nastavenie-systemu" : null;
   const [nastavenieSubId, setNastavenieSubId] = useState<string | null>(nastavenieInitialSub);
 
   const isZmluvyActive = allZmluvyHrefs.includes(location);
@@ -468,6 +474,42 @@ export function AppSidebar() {
                                   >
                                     <Link href={item.href}>
                                       <item.icon className="w-3.5 h-3.5" />
+                                      <span>{item.label}</span>
+                                    </Link>
+                                  </SidebarMenuSubButton>
+                                </SidebarMenuSubItem>
+                              ))}
+                            </div>
+                          </CollapsibleContent>
+                        </Collapsible>
+                      </SidebarMenuSubItem>
+
+                      <SidebarMenuSubItem>
+                        <Collapsible
+                          open={nastavenieSubId === "nastavenie-systemu"}
+                          onOpenChange={(val) => setNastavenieSubId(val ? "nastavenie-systemu" : null)}
+                        >
+                          <CollapsibleTrigger asChild>
+                            <SidebarMenuSubButton
+                              data-testid="nav-submenu-nastavenie-systemu"
+                              className={`cursor-pointer ${nastavenieSystemuItems.some(i => i.href === location) ? "text-sidebar-accent-foreground font-medium" : ""}`}
+                            >
+                              <Sliders className="w-3.5 h-3.5" />
+                              <span className="flex-1">Nastavenie systemu</span>
+                              <ChevronRight className={`w-3 h-3 text-muted-foreground transition-transform duration-200 ${nastavenieSubId === "nastavenie-systemu" ? "rotate-90" : ""}`} />
+                            </SidebarMenuSubButton>
+                          </CollapsibleTrigger>
+                          <CollapsibleContent>
+                            <div className="ml-2 border-l border-border pl-1.5 mt-1 space-y-0.5">
+                              {nastavenieSystemuItems.map(item => (
+                                <SidebarMenuSubItem key={item.href}>
+                                  <SidebarMenuSubButton
+                                    asChild
+                                    isActive={location === item.href}
+                                    data-testid={`nav-${item.label.toLowerCase().replace(/\s/g, '-')}`}
+                                  >
+                                    <Link href={item.href}>
+                                      <item.icon className="w-3.5 h-3.5 shrink-0" />
                                       <span>{item.label}</span>
                                     </Link>
                                   </SidebarMenuSubButton>
