@@ -398,7 +398,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                       <button
                         type="button"
                         onClick={canSwitch ? openStateSelector : undefined}
-                        className={`flex items-center gap-1.5 px-2.5 h-7 rounded-full transition-all ${canSwitch ? "hover:brightness-110 cursor-pointer" : "cursor-default"}`}
+                        className={`flex items-center justify-center gap-1.5 px-2.5 h-7 rounded-full transition-all ${canSwitch ? "hover:brightness-110 cursor-pointer" : "cursor-default"}`}
                         style={{
                           background: "hsl(222 15% 28%)",
                           border: "1px solid hsl(222 12% 36%)",
@@ -414,9 +414,6 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                         <span className="text-[11px] font-medium hidden sm:inline whitespace-nowrap text-zinc-200">
                           {activeState?.name || "Štát"}
                         </span>
-                        {!canSwitch && (
-                          <Lock className="w-3 h-3 text-zinc-500 flex-shrink-0" />
-                        )}
                       </button>
                     </TooltipTrigger>
                     <TooltipContent>{canSwitch ? "Zmeniť štát" : `${activeState?.name || "Štát"} (fixné)`}</TooltipContent>
