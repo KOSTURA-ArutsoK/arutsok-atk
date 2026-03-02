@@ -97,7 +97,8 @@ export default function Dashboard() {
   const { data: dashboardPrefs } = useQuery<DashboardPreference[]>({ queryKey: ["/api/dashboard-preferences"] });
   const { data: savedLayout } = useQuery<UserDashboardLayout | null>({ queryKey: ["/api/dashboard-layout"] });
   const { data: contractStats } = useQuery<ContractStats>({ queryKey: ["/api/dashboard-contract-stats"] });
-  const { data: myTasks } = useQuery<any[]>({ queryKey: ["/api/my-tasks"] });
+  const { data: myTasksData } = useQuery<{ tasks: any[]; subjects: any[] }>({ queryKey: ["/api/my-tasks"] });
+  const myTasks = myTasksData?.tasks || [];
 
   const { toast } = useToast();
   const [isEditing, setIsEditing] = useState(false);
@@ -464,52 +465,61 @@ export default function Dashboard() {
         </CardContent>
       </Card>
     ),
-    my_tasks: () => (
-      <Card data-testid="widget-my-tasks">
-        <CardHeader className="flex flex-row items-center justify-between gap-2 space-y-0 pb-2">
-          <CardTitle className="text-base flex items-center gap-2">
-            <ClipboardCheck className="w-4 h-4 text-amber-500" />
-            Moje úlohy
-            {myTasks && myTasks.length > 0 && (
-              <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-red-600 text-[10px] font-bold text-white px-1">
-                {myTasks.length}
-              </span>
-            )}
-          </CardTitle>
-          <Button variant="ghost" size="sm" className="text-xs" onClick={() => navigate("/moje-ulohy")} data-testid="btn-widget-my-tasks-detail">
-            Zobraziť všetky
-            <ArrowRight className="w-3 h-3 ml-1" />
-          </Button>
-        </CardHeader>
-        <CardContent>
-          {myTasks && myTasks.length > 0 ? (
-            <div className="space-y-3">
-              {myTasks.slice(0, 5).map((task: any) => (
-                <div key={task.id} className="flex items-center gap-3 text-sm border-l-2 border-amber-500 pl-3" data-testid={`my-task-item-${task.id}`}>
-                  <div className="flex-1 min-w-0">
-                    <p className="font-medium truncate">
-                      Prestup #{task.id}
-                      {task.subjectName && ` — ${task.subjectName}`}
-                    </p>
-                    <p className="text-xs text-muted-foreground truncate">
-                      {task.taskRole}
-                    </p>
-                    <p className="text-xs text-muted-foreground">
-                      Krok {task.currentStep?.step || "?"}/4: {task.currentStep?.stepName || ""}
-                    </p>
+    my_tasks: () => {
+      const subjectsMap = new Map((myTasksData?.subjects || []).map((s: any) => [s.id, s]));
+      const getSubjectLabel = (id: number) => {
+        const s = subjectsMap.get(id);
+        if (!s) return `#${id}`;
+        if (s.firstName || s.lastName) return `${s.firstName || ""} ${s.lastName || ""}`.trim();
+        if (s.companyName) return s.companyName;
+        return s.uid || `#${id}`;
+      };
+      return (
+        <Card data-testid="widget-my-tasks">
+          <CardHeader className="flex flex-row items-center justify-between gap-2 space-y-0 pb-2">
+            <CardTitle className="text-base flex items-center gap-2">
+              <ClipboardCheck className="w-4 h-4 text-amber-500" />
+              Moje úlohy
+              {myTasks.length > 0 && (
+                <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-red-600 text-[10px] font-bold text-white px-1">
+                  {myTasks.length}
+                </span>
+              )}
+            </CardTitle>
+            <Button variant="ghost" size="sm" className="text-xs" onClick={() => navigate("/moje-ulohy")} data-testid="btn-widget-my-tasks-detail">
+              Zobraziť všetky
+              <ArrowRight className="w-3 h-3 ml-1" />
+            </Button>
+          </CardHeader>
+          <CardContent>
+            {myTasks.length > 0 ? (
+              <div className="space-y-3">
+                {myTasks.slice(0, 5).map((task: any) => (
+                  <div key={task.id} className="flex items-center gap-3 text-sm border-l-2 border-amber-500 pl-3" data-testid={`my-task-item-${task.id}`}>
+                    <div className="flex-1 min-w-0">
+                      <p className="font-medium truncate">
+                        Prestup #{task.id} — {getSubjectLabel(task.subjectId)}
+                      </p>
+                      <p className="text-xs text-muted-foreground truncate">
+                        {task.taskRole}
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        Krok {task.currentStep?.step || "?"}/4: {task.currentStep?.stepName || ""}
+                      </p>
+                    </div>
+                    <Badge variant="outline" className="border-amber-700 text-amber-400 text-[10px] shrink-0">
+                      Čaká
+                    </Badge>
                   </div>
-                  <Badge variant="outline" className="border-amber-700 text-amber-400 text-[10px] shrink-0">
-                    Čaká
-                  </Badge>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <p className="text-sm text-muted-foreground py-6 text-center" data-testid="text-no-tasks">Nemáte žiadne čakajúce úlohy</p>
-          )}
-        </CardContent>
-      </Card>
-    ),
+                ))}
+              </div>
+            ) : (
+              <p className="text-sm text-muted-foreground py-6 text-center" data-testid="text-no-tasks">Nemáte žiadne čakajúce úlohy</p>
+            )}
+          </CardContent>
+        </Card>
+      );
+    },
     red_list_recent: () => isAdminUser ? (
       <Card data-testid="widget-red-list-recent">
         <CardHeader>
