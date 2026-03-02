@@ -372,7 +372,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       <div className="flex h-screen w-full">
         <AppSidebar />
         <div className="flex flex-col flex-1 min-w-0">
-          <header className="h-14 border-b border-border bg-card flex items-center px-3 gap-2 flex-shrink-0 relative">
+          <header className="h-14 border-b border-border bg-card flex items-center px-3 gap-2 flex-shrink-0">
             <SidebarTrigger data-testid="button-sidebar-toggle" />
 
             <div className="flex-1" />
@@ -385,7 +385,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
               return (
                 <div
-                  className="absolute left-1/2 -translate-x-1/2 flex items-center gap-1.5 rounded-full h-10 px-2"
+                  className="flex items-center gap-1.5 rounded-full h-10 px-2"
                   style={{
                     background: "hsl(222 20% 20%)",
                     border: "1px solid hsl(222 15% 28%)",
