@@ -56,7 +56,6 @@ import {
   ClipboardCheck,
   FileInput,
   ArrowRightLeft,
-  Car,
   ShieldPlus,
 } from "lucide-react";
 import {
@@ -486,42 +485,28 @@ export function AppSidebar() {
                   </CollapsibleTrigger>
                   <CollapsibleContent>
                     <SidebarMenuSub>
-                      <Collapsible open={openMenuId === "uzatvorit-poistenie" || undefined}>
-                        <SidebarMenuSubItem>
-                          <CollapsibleTrigger asChild>
-                            <SidebarMenuSubButton data-testid="nav-poistenie-vozidla">
-                              <Car className="w-3.5 h-3.5" />
-                              <span>Poistenie vozidla</span>
-                              <ChevronRight className="ml-auto h-3.5 w-3.5 transition-transform" />
-                            </SidebarMenuSubButton>
-                          </CollapsibleTrigger>
-                          <CollapsibleContent>
-                            <SidebarMenuSub>
-                              <SidebarMenuSubItem>
-                                <SidebarMenuSubButton asChild isActive={location === "/poistenie/pzp"} data-testid="nav-pzp">
-                                  <Link href="/poistenie/pzp">
-                                    <span>PZP</span>
-                                  </Link>
-                                </SidebarMenuSubButton>
-                              </SidebarMenuSubItem>
-                              <SidebarMenuSubItem>
-                                <SidebarMenuSubButton asChild isActive={location === "/poistenie/havarijne"} data-testid="nav-havarijne">
-                                  <Link href="/poistenie/havarijne">
-                                    <span>Havarijné poistenie</span>
-                                  </Link>
-                                </SidebarMenuSubButton>
-                              </SidebarMenuSubItem>
-                              <SidebarMenuSubItem>
-                                <SidebarMenuSubButton asChild isActive={location === "/poistenie/gap"} data-testid="nav-gap">
-                                  <Link href="/poistenie/gap">
-                                    <span>GAP</span>
-                                  </Link>
-                                </SidebarMenuSubButton>
-                              </SidebarMenuSubItem>
-                            </SidebarMenuSub>
-                          </CollapsibleContent>
-                        </SidebarMenuSubItem>
-                      </Collapsible>
+                      <SidebarMenuSubItem>
+                        <SidebarMenuSubButton asChild data-testid="nav-pzp">
+                          <a href="https://poisti.sk/sluzby/auto/povinne-zmluvne-poistenie-vozidla-pzp/najlacnejsie-pzp/" target="_blank" rel="noopener noreferrer">
+                            <span>PZP</span>
+                            <ExternalLink className="ml-auto w-3 h-3 text-muted-foreground" />
+                          </a>
+                        </SidebarMenuSubButton>
+                      </SidebarMenuSubItem>
+                      <SidebarMenuSubItem>
+                        <SidebarMenuSubButton asChild data-testid="nav-havarijne">
+                          <a href="/poistenie/havarijne">
+                            <span>Havarijné poistenie</span>
+                          </a>
+                        </SidebarMenuSubButton>
+                      </SidebarMenuSubItem>
+                      <SidebarMenuSubItem>
+                        <SidebarMenuSubButton asChild data-testid="nav-gap">
+                          <a href="/poistenie/gap">
+                            <span>GAP</span>
+                          </a>
+                        </SidebarMenuSubButton>
+                      </SidebarMenuSubItem>
                     </SidebarMenuSub>
                   </CollapsibleContent>
                 </SidebarMenuItem>
