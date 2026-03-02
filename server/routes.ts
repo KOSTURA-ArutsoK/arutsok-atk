@@ -15266,23 +15266,18 @@ export async function registerRoutes(
         let isMyTask = false;
         let taskRole = "";
 
-        if (step.waitingFor === "receiving") {
-          const receivingUser = await db.select().from(appUsers)
-            .where(eq(appUsers.linkedSubjectId, r.requestedGuarantorId)).limit(1);
-          if (receivingUser.length > 0 && receivingUser[0].id === appUser.id) {
-            isMyTask = true;
-            taskRole = "Prijímajúci garant";
-          }
-        } else if (step.waitingFor === "leaving") {
-          const leavingUser = await db.select().from(appUsers)
-            .where(eq(appUsers.linkedSubjectId, r.currentGuarantorId)).limit(1);
-          if (leavingUser.length > 0 && leavingUser[0].id === appUser.id) {
-            isMyTask = true;
-            taskRole = "Odchádzajúci garant";
-          }
-        } else if (step.waitingFor === "admin" && isAdmin(appUser)) {
+        if (isAdmin(appUser)) {
           isMyTask = true;
-          taskRole = "Administrátor";
+          if (step.waitingFor === "receiving") taskRole = "Administrátor — čaká: Prijímajúci garant";
+          else if (step.waitingFor === "leaving") taskRole = "Administrátor — čaká: Odchádzajúci garant";
+          else if (step.waitingFor === "admin") taskRole = "Administrátor — finálne schválenie";
+          else taskRole = "Administrátor";
+        } else if (step.waitingFor === "receiving" && appUser.linkedSubjectId === r.requestedGuarantorId) {
+          isMyTask = true;
+          taskRole = "Prijímajúci garant";
+        } else if (step.waitingFor === "leaving" && appUser.linkedSubjectId === r.currentGuarantorId) {
+          isMyTask = true;
+          taskRole = "Odchádzajúci garant";
         }
 
         if (isMyTask) {
@@ -15319,15 +15314,11 @@ export async function registerRoutes(
       let count = 0;
       for (const r of pendingRequests) {
         const step = getTransferApprovalStep(r);
-        if (step.waitingFor === "receiving") {
-          const receivingUser = await db.select().from(appUsers)
-            .where(eq(appUsers.linkedSubjectId, r.requestedGuarantorId)).limit(1);
-          if (receivingUser.length > 0 && receivingUser[0].id === appUser.id) count++;
-        } else if (step.waitingFor === "leaving") {
-          const leavingUser = await db.select().from(appUsers)
-            .where(eq(appUsers.linkedSubjectId, r.currentGuarantorId)).limit(1);
-          if (leavingUser.length > 0 && leavingUser[0].id === appUser.id) count++;
-        } else if (step.waitingFor === "admin" && isAdmin(appUser)) {
+        if (isAdmin(appUser)) {
+          count++;
+        } else if (step.waitingFor === "receiving" && appUser.linkedSubjectId === r.requestedGuarantorId) {
+          count++;
+        } else if (step.waitingFor === "leaving" && appUser.linkedSubjectId === r.currentGuarantorId) {
           count++;
         }
       }
