@@ -1,14 +1,67 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { useAppUser } from "@/hooks/use-app-user";
-import { Link2, Plus, Trash2, Pencil, Loader2, ExternalLink, ChevronDown, ChevronRight, X } from "lucide-react";
+import { Link2, Plus, Trash2, Pencil, Loader2, ExternalLink, ChevronDown, ChevronRight, X, GripVertical } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import type { SidebarLinkSection, SidebarLink } from "@shared/schema";
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+} from "@dnd-kit/core";
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  useSortable,
+  verticalListSortingStrategy,
+} from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
+
+function SortableGroupItem({ id, children }: { id: string; children: React.ReactNode }) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+  };
+
+  return (
+    <div ref={setNodeRef} style={style} className="border border-border rounded" data-testid={`sortable-group-${id}`}>
+      <div className="flex items-center">
+        <button
+          type="button"
+          {...attributes}
+          {...listeners}
+          className="cursor-grab px-2 py-2 text-muted-foreground hover:text-foreground focus:outline-none focus:ring-2 focus:ring-primary rounded"
+          aria-label={`Presunúť skupinu ${id}`}
+          aria-roledescription="sortable"
+          data-testid={`grip-group-${id}`}
+        >
+          <GripVertical className="w-4 h-4" />
+        </button>
+        <div className="flex-1">{children}</div>
+      </div>
+    </div>
+  );
+}
 
 export default function NastavenieOdkazov() {
   const { toast } = useToast();
@@ -129,18 +182,74 @@ export default function NastavenieOdkazov() {
     });
   };
 
-  const getGroupedLinks = () => {
-    if (!links || !section) return {};
+  const getGroupedLinks = (): [string, SidebarLink[]][] => {
+    if (!links || !section) return [];
     const sectionLinks = links.filter(l => l.sectionId === section.id);
     const groups: Record<string, SidebarLink[]> = {};
     for (const l of sectionLinks) {
       if (!groups[l.groupName]) groups[l.groupName] = [];
       groups[l.groupName].push(l);
     }
-    return groups;
+    const entries = Object.entries(groups);
+    entries.sort((a, b) => {
+      const minA = Math.min(...a[1].map(l => l.sortOrder ?? 0));
+      const minB = Math.min(...b[1].map(l => l.sortOrder ?? 0));
+      return minA - minB;
+    });
+    return entries;
   };
 
-  const grouped = getGroupedLinks();
+  const serverGrouped = getGroupedLinks();
+  const [optimisticOrder, setOptimisticOrder] = useState<string[] | null>(null);
+  const reorderSeqRef = useRef(0);
+
+  const grouped = optimisticOrder
+    ? optimisticOrder
+        .map(name => serverGrouped.find(([g]) => g === name))
+        .filter((e): e is [string, SidebarLink[]] => !!e)
+    : serverGrouped;
+  const groupNames = grouped.map(([name]) => name);
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
+  );
+
+  const reorderGroupsMut = useMutation({
+    mutationFn: async ({ newOrder, seq }: { newOrder: string[]; seq: number }) => {
+      const allSectionLinks = links?.filter(l => l.sectionId === section?.id) || [];
+      let sortCounter = 0;
+      for (const gName of newOrder) {
+        const gLinks = allSectionLinks.filter(l => l.groupName === gName);
+        for (const link of gLinks) {
+          if (reorderSeqRef.current !== seq) return;
+          await apiRequest("PATCH", `/api/sidebar-links/${link.id}`, { sortOrder: sortCounter });
+          sortCounter++;
+        }
+      }
+    },
+    onSuccess: () => {
+      setOptimisticOrder(null);
+      invalidateAll();
+    },
+    onError: () => {
+      setOptimisticOrder(null);
+      invalidateAll();
+      toast({ title: "Chyba pri zmene poradia", variant: "destructive" });
+    },
+  });
+
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+    const oldIndex = groupNames.indexOf(active.id as string);
+    const newIndex = groupNames.indexOf(over.id as string);
+    if (oldIndex === -1 || newIndex === -1) return;
+    const reordered = arrayMove(groupNames, oldIndex, newIndex);
+    setOptimisticOrder(reordered);
+    const seq = ++reorderSeqRef.current;
+    reorderGroupsMut.mutate({ newOrder: reordered, seq });
+  };
   const isLoading = sectionsLoading || linksLoading;
   const totalLinks = links?.filter(l => l.sectionId === section?.id).length || 0;
 
@@ -224,13 +333,15 @@ export default function NastavenieOdkazov() {
               </div>
             </CardHeader>
             <CardContent className="space-y-3">
-              {Object.entries(grouped).map(([groupName, groupLinks]) => {
+              <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+              <SortableContext items={groupNames} strategy={verticalListSortingStrategy}>
+              {grouped.map(([groupName, groupLinks]) => {
                 const isExpanded = expandedGroups.has(groupName);
                 const hasLinks = groupLinks.length > 0;
                 return (
-                  <div key={groupName} className="border border-border rounded">
+                  <SortableGroupItem key={groupName} id={groupName}>
                     <div
-                      className="flex items-center gap-2 px-3 py-2 cursor-pointer hover:bg-muted/50"
+                      className="flex items-center gap-2 px-2 py-2 cursor-pointer hover:bg-muted/50"
                       onClick={() => toggleGroup(groupName)}
                       data-testid={`group-toggle-${groupName}`}
                     >
@@ -327,9 +438,11 @@ export default function NastavenieOdkazov() {
                         )}
                       </div>
                     )}
-                  </div>
+                  </SortableGroupItem>
                 );
               })}
+                </SortableContext>
+              </DndContext>
 
               {addingLink ? (
                 <div className="border border-dashed border-border rounded p-3 space-y-2">
