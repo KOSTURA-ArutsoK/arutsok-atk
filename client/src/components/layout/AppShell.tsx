@@ -436,7 +436,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               const canSwitch = checkIsAdmin(appUser);
               const activeDivName = activeDivision?.division?.name || activeDivision?.name;
               const activeDivEmoji = activeDivision?.division?.emoji || activeDivision?.emoji;
-              const hasDivisions = activeDivisions && activeDivisions.length > 0 && !isClientUser;
+              const hasDivisions = activeDivisions && activeDivisions.length > 1 && !isClientUser;
 
               return (
                 <div
