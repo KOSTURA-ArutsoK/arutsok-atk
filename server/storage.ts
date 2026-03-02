@@ -128,6 +128,9 @@ import {
   subjectDocuments,
   type SubjectDocument, type InsertSubjectDocument,
   redListAlerts,
+  sidebarLinkSections, sidebarLinks,
+  type SidebarLinkSection, type InsertSidebarLinkSection,
+  type SidebarLink, type InsertSidebarLink,
 } from "@shared/schema";
 import { eq, and, or, ne, like, sql, lte, gte, gt, desc, asc, isNull, isNotNull, inArray } from "drizzle-orm";
 
@@ -310,6 +313,16 @@ export interface IStorage {
 
   getDashboardLayout(appUserId: number): Promise<UserDashboardLayout | undefined>;
   saveDashboardLayout(appUserId: number, widgetOrder: string[]): Promise<UserDashboardLayout>;
+
+  getSidebarLinkSections(appUserId: number): Promise<SidebarLinkSection[]>;
+  createSidebarLinkSection(data: InsertSidebarLinkSection): Promise<SidebarLinkSection>;
+  updateSidebarLinkSection(id: number, data: Partial<InsertSidebarLinkSection>): Promise<SidebarLinkSection>;
+  deleteSidebarLinkSection(id: number): Promise<void>;
+  getSidebarLinks(appUserId: number): Promise<SidebarLink[]>;
+  getSidebarLinksBySection(sectionId: number): Promise<SidebarLink[]>;
+  createSidebarLink(data: InsertSidebarLink): Promise<SidebarLink>;
+  updateSidebarLink(id: number, data: Partial<InsertSidebarLink>): Promise<SidebarLink>;
+  deleteSidebarLink(id: number): Promise<void>;
 
   getClientTypes(): Promise<ClientType[]>;
   getClientType(id: number): Promise<ClientType | undefined>;
@@ -2196,6 +2209,52 @@ export class DatabaseStorage implements IStorage {
       .values({ appUserId, widgetOrder })
       .returning();
     return created;
+  }
+
+  async getSidebarLinkSections(appUserId: number): Promise<SidebarLinkSection[]> {
+    return await db.select().from(sidebarLinkSections)
+      .where(eq(sidebarLinkSections.appUserId, appUserId))
+      .orderBy(asc(sidebarLinkSections.sortOrder));
+  }
+
+  async createSidebarLinkSection(data: InsertSidebarLinkSection): Promise<SidebarLinkSection> {
+    const [created] = await db.insert(sidebarLinkSections).values(data).returning();
+    return created;
+  }
+
+  async updateSidebarLinkSection(id: number, data: Partial<InsertSidebarLinkSection>): Promise<SidebarLinkSection> {
+    const [updated] = await db.update(sidebarLinkSections).set(data).where(eq(sidebarLinkSections.id, id)).returning();
+    return updated;
+  }
+
+  async deleteSidebarLinkSection(id: number): Promise<void> {
+    await db.delete(sidebarLinkSections).where(eq(sidebarLinkSections.id, id));
+  }
+
+  async getSidebarLinks(appUserId: number): Promise<SidebarLink[]> {
+    return await db.select().from(sidebarLinks)
+      .where(eq(sidebarLinks.appUserId, appUserId))
+      .orderBy(asc(sidebarLinks.sortOrder));
+  }
+
+  async getSidebarLinksBySection(sectionId: number): Promise<SidebarLink[]> {
+    return await db.select().from(sidebarLinks)
+      .where(eq(sidebarLinks.sectionId, sectionId))
+      .orderBy(asc(sidebarLinks.sortOrder));
+  }
+
+  async createSidebarLink(data: InsertSidebarLink): Promise<SidebarLink> {
+    const [created] = await db.insert(sidebarLinks).values(data).returning();
+    return created;
+  }
+
+  async updateSidebarLink(id: number, data: Partial<InsertSidebarLink>): Promise<SidebarLink> {
+    const [updated] = await db.update(sidebarLinks).set(data).where(eq(sidebarLinks.id, id)).returning();
+    return updated;
+  }
+
+  async deleteSidebarLink(id: number): Promise<void> {
+    await db.delete(sidebarLinks).where(eq(sidebarLinks.id, id));
   }
 
   async getClientTypes(): Promise<ClientType[]> {

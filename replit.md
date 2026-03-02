@@ -26,6 +26,7 @@ The system employs a modern full-stack architecture emphasizing data integrity, 
 - **Navigation Structure**:
   - Štruktúra (collapsible): Štruktúra sektorov (A) → `/sektory-zmluv`, UI Subjektov (B) → `/sektory-subjektov`, Profil subjektu → `/profil-subjektu`
   - Moje úlohy → `/moje-ulohy` (with red badge for pending task count, auto-refresh 30s)
+  - Odkazy - linky (dynamic, per-user configurable link sections from `sidebar_link_sections` + `sidebar_links` tables, managed via `/link-settings`)
   - Zmluvy (collapsible): Zoznam zmlúv → `/contracts`, Spracovanie zmlúv (collapsible) → { Papierové zmluvy → `/evidencia-zmluv`, Dátová linka → `/datova-linka` }
   - Analytika → `/analytika` (admin only)
   - Holding Dashboard → `/holding-dashboard` (admin only)

@@ -6,7 +6,7 @@ import { RankBadge } from "@/components/rank-badge";
 import { DataLinkaIcon } from "@/components/icons/data-linka-icon";
 import { useQuery } from "@tanstack/react-query";
 import { isAdmin as checkIsAdmin } from "@/lib/utils";
-import type { CircleConfig } from "@shared/schema";
+import type { CircleConfig, SidebarLinkSection, SidebarLink } from "@shared/schema";
 import {
   LayoutDashboard,
   Building2,
@@ -57,6 +57,7 @@ import {
   FileInput,
   ArrowRightLeft,
   ShieldPlus,
+  Link2,
 } from "lucide-react";
 import {
   Sidebar,
@@ -163,6 +164,7 @@ const nastavenieDirectItems = [
   { href: "/history", icon: History, label: "Logy" },
   { href: "/support", icon: Phone, label: "Podpora a registracia" },
   { href: "/dashboard-settings", icon: Eye, label: "Nastavenie prehladov" },
+  { href: "/link-settings", icon: Link2, label: "Nastavenie odkazov" },
   { href: "/archive", icon: Trash2, label: "Kos" },
 ];
 
@@ -276,6 +278,12 @@ export function AppSidebar() {
   const { data: pointsData } = useQuery<{ points: number }>({
     queryKey: ["/api/app-users/my-points"],
     staleTime: 1000 * 60 * 5,
+  });
+  const { data: sidebarSections } = useQuery<SidebarLinkSection[]>({
+    queryKey: ["/api/sidebar-link-sections"],
+  });
+  const { data: sidebarLinksData } = useQuery<SidebarLink[]>({
+    queryKey: ["/api/sidebar-links"],
   });
 
   const allMenus = [
@@ -474,43 +482,50 @@ export function AppSidebar() {
           <SidebarGroupContent>
             <SidebarMenu>
               <MojeUlohyMenuItem location={location} />
-              <Collapsible open={openMenuId === "uzatvorit-poistenie"} onOpenChange={(open) => setOpenMenuId(open ? "uzatvorit-poistenie" : null)}>
-                <SidebarMenuItem>
-                  <CollapsibleTrigger asChild>
-                    <SidebarMenuButton data-testid="nav-menu-uzatvorit-poistenie">
-                      <ShieldPlus className="w-4 h-4" />
-                      <span>Uzatvoriť poistenie</span>
-                      <ChevronRight className={`ml-auto h-4 w-4 transition-transform ${openMenuId === "uzatvorit-poistenie" ? "rotate-90" : ""}`} />
-                    </SidebarMenuButton>
-                  </CollapsibleTrigger>
-                  <CollapsibleContent>
-                    <SidebarMenuSub>
-                      <SidebarMenuSubItem>
-                        <SidebarMenuSubButton asChild data-testid="nav-pzp">
-                          <a href="https://poisti.sk/sluzby/auto/povinne-zmluvne-poistenie-vozidla-pzp/najlacnejsie-pzp/" target="_blank" rel="noopener noreferrer">
-                            <span>PZP</span>
-                            <ExternalLink className="ml-auto w-3 h-3 text-muted-foreground" />
-                          </a>
-                        </SidebarMenuSubButton>
-                      </SidebarMenuSubItem>
-                      <SidebarMenuSubItem>
-                        <SidebarMenuSubButton asChild data-testid="nav-havarijne">
-                          <a href="/poistenie/havarijne">
-                            <span>Havarijné poistenie</span>
-                          </a>
-                        </SidebarMenuSubButton>
-                      </SidebarMenuSubItem>
-                      <SidebarMenuSubItem>
-                        <SidebarMenuSubButton asChild data-testid="nav-gap">
-                          <a href="/poistenie/gap">
-                            <span>GAP</span>
-                          </a>
-                        </SidebarMenuSubButton>
-                      </SidebarMenuSubItem>
-                    </SidebarMenuSub>
-                  </CollapsibleContent>
-                </SidebarMenuItem>
-              </Collapsible>
+              {sidebarSections && sidebarSections.length > 0 && sidebarSections.map(section => {
+                const sectionLinks = sidebarLinksData?.filter(l => l.sectionId === section.id) || [];
+                const groups: Record<string, SidebarLink[]> = {};
+                for (const l of sectionLinks) {
+                  if (!groups[l.groupName]) groups[l.groupName] = [];
+                  groups[l.groupName].push(l);
+                }
+                const menuKey = `sidebar-section-${section.id}`;
+                return (
+                  <Collapsible key={section.id} open={openMenuId === menuKey} onOpenChange={(open) => setOpenMenuId(open ? menuKey : null)}>
+                    <SidebarMenuItem>
+                      <CollapsibleTrigger asChild>
+                        <SidebarMenuButton data-testid={`nav-section-${section.id}`}>
+                          <Link2 className="w-4 h-4" />
+                          <span>{section.name}</span>
+                          <ChevronRight className={`ml-auto h-4 w-4 transition-transform ${openMenuId === menuKey ? "rotate-90" : ""}`} />
+                        </SidebarMenuButton>
+                      </CollapsibleTrigger>
+                      <CollapsibleContent>
+                        <SidebarMenuSub>
+                          {Object.entries(groups).map(([groupName, groupLinks]) => (
+                            <div key={groupName}>
+                              <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider px-2 pt-2 pb-1">{groupName}</p>
+                              {groupLinks.map(link => (
+                                <SidebarMenuSubItem key={link.id}>
+                                  <SidebarMenuSubButton asChild data-testid={`nav-link-${link.id}`}>
+                                    <a href={link.url} target="_blank" rel="noopener noreferrer">
+                                      <span>{link.name}</span>
+                                      <ExternalLink className="ml-auto w-3 h-3 text-muted-foreground" />
+                                    </a>
+                                  </SidebarMenuSubButton>
+                                </SidebarMenuSubItem>
+                              ))}
+                            </div>
+                          ))}
+                          {sectionLinks.length === 0 && (
+                            <p className="text-[10px] text-muted-foreground px-2 py-2">Žiadne odkazy</p>
+                          )}
+                        </SidebarMenuSub>
+                      </CollapsibleContent>
+                    </SidebarMenuItem>
+                  </Collapsible>
+                );
+              })}
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>

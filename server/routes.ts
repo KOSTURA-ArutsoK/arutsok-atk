@@ -6226,6 +6226,98 @@ export async function registerRoutes(
     }
   });
 
+  // === SIDEBAR LINK SECTIONS ===
+  app.get("/api/sidebar-link-sections", isAuthenticated, async (req: any, res) => {
+    try {
+      const appUser = req.appUser;
+      if (!appUser) return res.status(401).json({ message: "Unauthorized" });
+      const sections = await storage.getSidebarLinkSections(appUser.id);
+      res.json(sections);
+    } catch { res.status(500).json({ message: "Chyba pri načítaní sekcií" }); }
+  });
+
+  app.post("/api/sidebar-link-sections", isAuthenticated, async (req: any, res) => {
+    try {
+      const appUser = req.appUser;
+      if (!appUser) return res.status(401).json({ message: "Unauthorized" });
+      const { name, sortOrder } = req.body;
+      if (!name || typeof name !== "string") return res.status(400).json({ message: "Názov je povinný" });
+      const section = await storage.createSidebarLinkSection({ appUserId: appUser.id, name, sortOrder: sortOrder ?? 0 });
+      res.json(section);
+    } catch { res.status(500).json({ message: "Chyba pri vytváraní sekcie" }); }
+  });
+
+  app.patch("/api/sidebar-link-sections/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const appUser = req.appUser;
+      if (!appUser) return res.status(401).json({ message: "Unauthorized" });
+      const id = parseInt(req.params.id);
+      const sections = await storage.getSidebarLinkSections(appUser.id);
+      if (!sections.find(s => s.id === id)) return res.status(403).json({ message: "Nedostatočné oprávnenia" });
+      const updated = await storage.updateSidebarLinkSection(id, req.body);
+      res.json(updated);
+    } catch { res.status(500).json({ message: "Chyba pri aktualizácii sekcie" }); }
+  });
+
+  app.delete("/api/sidebar-link-sections/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const appUser = req.appUser;
+      if (!appUser) return res.status(401).json({ message: "Unauthorized" });
+      const id = parseInt(req.params.id);
+      const sections = await storage.getSidebarLinkSections(appUser.id);
+      if (!sections.find(s => s.id === id)) return res.status(403).json({ message: "Nedostatočné oprávnenia" });
+      await storage.deleteSidebarLinkSection(id);
+      res.json({ ok: true });
+    } catch { res.status(500).json({ message: "Chyba pri mazaní sekcie" }); }
+  });
+
+  // === SIDEBAR LINKS ===
+  app.get("/api/sidebar-links", isAuthenticated, async (req: any, res) => {
+    try {
+      const appUser = req.appUser;
+      if (!appUser) return res.status(401).json({ message: "Unauthorized" });
+      const links = await storage.getSidebarLinks(appUser.id);
+      res.json(links);
+    } catch { res.status(500).json({ message: "Chyba pri načítaní odkazov" }); }
+  });
+
+  app.post("/api/sidebar-links", isAuthenticated, async (req: any, res) => {
+    try {
+      const appUser = req.appUser;
+      if (!appUser) return res.status(401).json({ message: "Unauthorized" });
+      const { sectionId, groupName, name, url, sortOrder } = req.body;
+      if (!sectionId || !groupName || !name || !url) return res.status(400).json({ message: "Všetky polia sú povinné" });
+      const sections = await storage.getSidebarLinkSections(appUser.id);
+      if (!sections.find(s => s.id === sectionId)) return res.status(403).json({ message: "Sekcia nepatrí používateľovi" });
+      const link = await storage.createSidebarLink({ sectionId, appUserId: appUser.id, groupName, name, url, sortOrder: sortOrder ?? 0 });
+      res.json(link);
+    } catch { res.status(500).json({ message: "Chyba pri vytváraní odkazu" }); }
+  });
+
+  app.patch("/api/sidebar-links/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const appUser = req.appUser;
+      if (!appUser) return res.status(401).json({ message: "Unauthorized" });
+      const id = parseInt(req.params.id);
+      const links = await storage.getSidebarLinks(appUser.id);
+      if (!links.find(l => l.id === id)) return res.status(403).json({ message: "Nedostatočné oprávnenia" });
+      const updated = await storage.updateSidebarLink(id, req.body);
+      res.json(updated);
+    } catch { res.status(500).json({ message: "Chyba pri aktualizácii odkazu" }); }
+  });
+
+  app.delete("/api/sidebar-links/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const appUser = req.appUser;
+      if (!appUser) return res.status(401).json({ message: "Unauthorized" });
+      const id = parseInt(req.params.id);
+      const links = await storage.getSidebarLinks(appUser.id);
+      if (!links.find(l => l.id === id)) return res.status(403).json({ message: "Nedostatočné oprávnenia" });
+      await storage.deleteSidebarLink(id);
+      res.json({ ok: true });
+    } catch { res.status(500).json({ message: "Chyba pri mazaní odkazu" }); }
+  });
+
   // === CLIENT TYPES ===
   app.get("/api/client-types", isAuthenticated, async (_req, res) => {
     try {

@@ -46,6 +46,7 @@ import Kalendar from "@/pages/Kalendar";
 import DobaPrihlasenia from "@/pages/DobaPrihlasenia";
 import PodporaRegistracia from "@/pages/PodporaRegistracia";
 import NastaveniePrehladov from "@/pages/NastaveniePrehladov";
+import NastavenieOdkazov from "@/pages/NastavenieOdkazov";
 import SettingsStates from "@/pages/SettingsStates";
 import SettingsDivisions from "@/pages/SettingsDivisions";
 import ContractForm from "@/pages/ContractForm";
@@ -144,6 +145,7 @@ const PrivateKalendar = () => <PrivateRoute><Kalendar /></PrivateRoute>;
 const PrivateDobaPrihlasenia = () => <PrivateRoute><DobaPrihlasenia /></PrivateRoute>;
 const PrivatePodpora = () => <PrivateRoute><PodporaRegistracia /></PrivateRoute>;
 const PrivateNastaveniePrehladov = () => <PrivateRoute><NastaveniePrehladov /></PrivateRoute>;
+const PrivateNastavenieOdkazov = () => <PrivateRoute><NastavenieOdkazov /></PrivateRoute>;
 const PrivateSettingsStates = () => <PrivateRoute><SettingsStates /></PrivateRoute>;
 const PrivateSettingsDivisions = () => <PrivateRoute><SettingsDivisions /></PrivateRoute>;
 const PrivateBulkImport = () => <PrivateRoute><BulkImport /></PrivateRoute>;
@@ -207,6 +209,7 @@ function Router() {
       <Route path="/analytika" component={PrivateReports} />
       <Route path="/holding-dashboard" component={PrivateHoldingDashboard} />
       <Route path="/dashboard-settings" component={PrivateNastaveniePrehladov} />
+      <Route path="/link-settings" component={PrivateNastavenieOdkazov} />
       <Route path="/settings-states" component={PrivateSettingsStates} />
       <Route path="/settings-divisions" component={PrivateSettingsDivisions} />
       <Route path="/settings-companies" component={PrivateCompanies} />

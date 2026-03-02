@@ -529,6 +529,27 @@ export const userDashboardLayouts = pgTable("user_dashboard_layouts", {
   updatedAt: timestamp("updated_at").defaultNow(),
 });
 
+// === SIDEBAR LINK SECTIONS (per user custom link sections) ===
+export const sidebarLinkSections = pgTable("sidebar_link_sections", {
+  id: serial("id").primaryKey(),
+  appUserId: integer("app_user_id").notNull().references(() => appUsers.id),
+  name: text("name").notNull(),
+  sortOrder: integer("sort_order").default(0),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// === SIDEBAR LINKS (per user custom links within sections) ===
+export const sidebarLinks = pgTable("sidebar_links", {
+  id: serial("id").primaryKey(),
+  sectionId: integer("section_id").notNull().references(() => sidebarLinkSections.id, { onDelete: "cascade" }),
+  appUserId: integer("app_user_id").notNull().references(() => appUsers.id),
+  groupName: text("group_name").notNull(),
+  name: text("name").notNull(),
+  url: text("url").notNull(),
+  sortOrder: integer("sort_order").default(0),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
 // === CLIENT TYPES (Dynamic Parameter System) ===
 export const clientTypes = pgTable("client_types", {
   id: serial("id").primaryKey(),
@@ -954,6 +975,8 @@ export const insertVerificationCodeSchema = createInsertSchema(verificationCodes
 export const insertCategoryTimeoutSchema = createInsertSchema(categoryTimeouts).omit({ id: true, createdAt: true, updatedAt: true });
 export const insertDashboardPreferenceSchema = createInsertSchema(dashboardPreferences).omit({ id: true });
 export const insertUserDashboardLayoutSchema = createInsertSchema(userDashboardLayouts).omit({ id: true, updatedAt: true });
+export const insertSidebarLinkSectionSchema = createInsertSchema(sidebarLinkSections).omit({ id: true, createdAt: true });
+export const insertSidebarLinkSchema = createInsertSchema(sidebarLinks).omit({ id: true, createdAt: true });
 export const insertClientTypeSchema = createInsertSchema(clientTypes).omit({ id: true, createdAt: true });
 export const insertClientGroupSchema = createInsertSchema(clientGroups).omit({ id: true, createdAt: true, updatedAt: true });
 export const insertClientSubGroupSchema = createInsertSchema(clientSubGroups).omit({ id: true, createdAt: true });
@@ -1024,6 +1047,10 @@ export type DashboardPreference = typeof dashboardPreferences.$inferSelect;
 export type InsertDashboardPreference = z.infer<typeof insertDashboardPreferenceSchema>;
 export type UserDashboardLayout = typeof userDashboardLayouts.$inferSelect;
 export type InsertUserDashboardLayout = z.infer<typeof insertUserDashboardLayoutSchema>;
+export type SidebarLinkSection = typeof sidebarLinkSections.$inferSelect;
+export type InsertSidebarLinkSection = z.infer<typeof insertSidebarLinkSectionSchema>;
+export type SidebarLink = typeof sidebarLinks.$inferSelect;
+export type InsertSidebarLink = z.infer<typeof insertSidebarLinkSchema>;
 
 export type ClientType = typeof clientTypes.$inferSelect;
 export type InsertClientType = z.infer<typeof insertClientTypeSchema>;
