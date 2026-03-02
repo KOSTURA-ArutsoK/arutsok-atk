@@ -15065,10 +15065,12 @@ export async function registerRoutes(
 
       await db.insert(auditLogs).values({
         userId: appUser?.id || 0,
+        username: appUser?.fullName || appUser?.username || "",
         action: "transfer_request_created",
-        entityType: "guarantor_transfer",
-        entityId: String(request.id),
-        details: { subjectId, currentGuarantorId, requestedGuarantorId, reason },
+        module: "Network",
+        entityId: request.id,
+        entityName: `Transfer #${request.id}`,
+        newData: { subjectId, currentGuarantorId, requestedGuarantorId, reason },
       });
 
       res.json({ ...request, currentStep: getTransferApprovalStep(request) });
@@ -15175,10 +15177,12 @@ export async function registerRoutes(
 
       await db.insert(auditLogs).values({
         userId: appUser.id,
+        username: appUser.fullName || appUser.username || "",
         action: `transfer_step_${step.waitingFor}_approved`,
-        entityType: "guarantor_transfer",
-        entityId: String(id),
-        details: { step: step.step, stepName: step.stepName, reviewNote },
+        module: "Network",
+        entityId: id,
+        entityName: `Transfer #${id}`,
+        newData: { step: step.step, stepName: step.stepName, reviewNote },
       });
 
       res.json({ ...updated, currentStep: getTransferApprovalStep(updated) });
@@ -15220,10 +15224,12 @@ export async function registerRoutes(
 
       await db.insert(auditLogs).values({
         userId: appUser.id,
+        username: appUser.fullName || appUser.username || "",
         action: "transfer_request_rejected",
-        entityType: "guarantor_transfer",
-        entityId: String(id),
-        details: { reviewNote },
+        module: "Network",
+        entityId: id,
+        entityName: `Transfer #${id}`,
+        newData: { reviewNote },
       });
 
       res.json({ ...updated, currentStep: getTransferApprovalStep(updated) });
