@@ -70,6 +70,59 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     return pgName === 'klienti';
   }, [appUser]);
 
+  const autoCreateInFlightRef = useRef<Set<number>>(new Set());
+  const autoCreateDivisionForCompany = useCallback(async (companyId: number) => {
+    if (autoCreateInFlightRef.current.has(companyId)) return null;
+    autoCreateInFlightRef.current.add(companyId);
+    try {
+      const checkRes = await fetch(`/api/companies/${companyId}/divisions`, { credentials: "include" });
+      if (checkRes.ok) {
+        const existing = await checkRes.json();
+        if (existing.length > 0) {
+          const divId = existing[0].divisionId || existing[0].division?.id;
+          setActive.mutate({ activeDivisionId: divId });
+          return divId;
+        }
+      }
+      let companyName = companies?.find((c: any) => c.id === companyId)?.name;
+      if (!companyName) {
+        try {
+          const compRes = await fetch(`/api/my-companies/${companyId}`, { credentials: "include" });
+          if (compRes.ok) {
+            const comp = await compRes.json();
+            companyName = comp?.name;
+          }
+        } catch {}
+      }
+      if (!companyName) {
+        try {
+          const compRes = await fetch("/api/my-companies", { credentials: "include" });
+          if (compRes.ok) {
+            const allComps = await compRes.json();
+            companyName = allComps.find((c: any) => c.id === companyId)?.name;
+          }
+        } catch {}
+      }
+      companyName = companyName || "Predvolená";
+      const divRes = await apiRequest("POST", "/api/divisions", {
+        name: companyName,
+        code: companyName.substring(0, 10).toUpperCase(),
+        emoji: "🏢",
+        isActive: true,
+      });
+      const newDiv = await divRes.json();
+      await apiRequest("POST", `/api/companies/${companyId}/divisions`, { divisionId: newDiv.id });
+      setActive.mutate({ activeDivisionId: newDiv.id });
+      queryClient.invalidateQueries({ queryKey: ["/api/companies", companyId, "divisions"] });
+      return newDiv.id;
+    } catch {
+      toast({ title: "Nepodarilo sa vytvoriť predvolenú divíziu", variant: "destructive" });
+      return null;
+    } finally {
+      autoCreateInFlightRef.current.delete(companyId);
+    }
+  }, [companies, setActive, queryClient, toast]);
+
   const handleLogout = useCallback(() => {
     logout();
   }, [logout]);
@@ -103,13 +156,15 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               } else if (divs.length === 1) {
                 const divId = divs[0].divisionId || divs[0].division?.id;
                 setActive.mutate({ activeDivisionId: divId });
+              } else if (divs.length === 0) {
+                await autoCreateDivisionForCompany(appUser.activeCompanyId!);
               }
             }
           } catch {}
         })();
       }
     }
-  }, [appUser, isClientUser]);
+  }, [appUser, isClientUser, autoCreateDivisionForCompany]);
 
   const handleContextSelectState = useCallback((stateId: number) => {
     setPendingStateId(stateId);
@@ -132,7 +187,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           if (res.ok) {
             const divisions = await res.json();
             if (divisions.length === 0) {
-              setActive.mutate({ activeDivisionId: null });
+              await autoCreateDivisionForCompany(companyId);
               setContextOverlayOpen(false);
             } else if (divisions.length === 1) {
               setActive.mutate({ activeDivisionId: divisions[0].divisionId || divisions[0].division?.id });
@@ -149,7 +204,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         }
       }
     });
-  }, [setActive]);
+  }, [setActive, autoCreateDivisionForCompany]);
 
   const handleContextSelectDivision = useCallback((divisionId: number | null) => {
     setActive.mutate({ activeDivisionId: divisionId }, {
