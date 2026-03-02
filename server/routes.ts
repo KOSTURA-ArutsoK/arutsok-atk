@@ -6214,7 +6214,7 @@ export async function registerRoutes(
       if (!Array.isArray(widgetOrder) || widgetOrder.length === 0) {
         return res.status(400).json({ message: "widgetOrder must be a non-empty array of strings" });
       }
-      const validKeys = ["stats", "recent_subjects", "my_companies", "recent_partners", "recent_products", "audit_activity", "upcoming_events"];
+      const validKeys = ["stats", "recent_subjects", "my_companies", "recent_partners", "recent_products", "audit_activity", "upcoming_events", "my_tasks", "red_list_recent", "black_list_recent"];
       const allValid = widgetOrder.every((k: any) => typeof k === "string" && validKeys.includes(k));
       if (!allValid) {
         return res.status(400).json({ message: "widgetOrder contains invalid widget keys" });
