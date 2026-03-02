@@ -37,6 +37,8 @@ export default function NastavenieOdkazov() {
 
   const section = sections?.[0];
 
+  const [editingSectionName, setEditingSectionName] = useState(false);
+  const [sectionNameValue, setSectionNameValue] = useState("");
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
   const [addingLink, setAddingLink] = useState(false);
   const [newLinkGroup, setNewLinkGroup] = useState("");
@@ -52,6 +54,18 @@ export default function NastavenieOdkazov() {
     queryClient.invalidateQueries({ queryKey: ["/api/sidebar-link-sections", divisionId] });
     queryClient.invalidateQueries({ queryKey: ["/api/sidebar-links", divisionId] });
   };
+
+  const updateSectionMut = useMutation({
+    mutationFn: async ({ id, name }: { id: number; name: string }) => {
+      await apiRequest("PATCH", `/api/sidebar-link-sections/${id}`, { name });
+    },
+    onSuccess: () => {
+      toast({ title: "Názov sekcie aktualizovaný" });
+      setEditingSectionName(false);
+      invalidateAll();
+    },
+    onError: () => toast({ title: "Chyba", variant: "destructive" }),
+  });
 
   const createLinkMut = useMutation({
     mutationFn: async (data: { sectionId: number; groupName: string; name: string; url: string }) => {
@@ -172,7 +186,40 @@ export default function NastavenieOdkazov() {
             <CardHeader className="pb-2">
               <div className="flex items-center gap-2">
                 <Link2 className="w-4 h-4 text-primary" />
-                <CardTitle className="text-base flex-1">{section.name}</CardTitle>
+                {editingSectionName ? (
+                  <div className="flex items-center gap-2 flex-1">
+                    <Input
+                      value={sectionNameValue}
+                      onChange={e => setSectionNameValue(e.target.value)}
+                      className="h-8 text-sm"
+                      data-testid="input-edit-section-name"
+                    />
+                    <Button
+                      size="sm"
+                      onClick={() => sectionNameValue.trim() && updateSectionMut.mutate({ id: section.id, name: sectionNameValue.trim() })}
+                      disabled={!sectionNameValue.trim() || updateSectionMut.isPending}
+                      data-testid="btn-save-section-name"
+                    >
+                      Uložiť
+                    </Button>
+                    <Button size="sm" variant="ghost" onClick={() => setEditingSectionName(false)} data-testid="btn-cancel-section-name">
+                      <X className="w-3 h-3" />
+                    </Button>
+                  </div>
+                ) : (
+                  <>
+                    <CardTitle className="text-base flex-1">{section.name}</CardTitle>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="h-6 w-6 p-0"
+                      onClick={() => { setEditingSectionName(true); setSectionNameValue(section.name); }}
+                      data-testid="btn-edit-section-name"
+                    >
+                      <Pencil className="w-3 h-3" />
+                    </Button>
+                  </>
+                )}
                 <span className="text-xs text-muted-foreground">{totalLinks} odkazov</span>
               </div>
             </CardHeader>

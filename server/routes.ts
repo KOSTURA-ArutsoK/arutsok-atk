@@ -6234,7 +6234,7 @@ export async function registerRoutes(
       const divisionId = req.query.divisionId ? parseInt(req.query.divisionId as string) : appUser.activeDivisionId;
       let sections = await storage.getSidebarLinkSections(appUser.id, divisionId);
       if (sections.length === 0 && divisionId) {
-        const created = await storage.createSidebarLinkSection({ appUserId: appUser.id, divisionId, name: "Odkazy", sortOrder: 0 });
+        const created = await storage.createSidebarLinkSection({ appUserId: appUser.id, divisionId, name: "Odkazy - linky", sortOrder: 0 });
         sections = [created];
       }
       res.json(sections);

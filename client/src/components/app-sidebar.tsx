@@ -524,16 +524,18 @@ export function AppSidebar() {
               {(() => {
                 const allLinks = sidebarLinksData || [];
                 const section = sidebarSections?.[0];
+                const sectionName = section?.name || "Odkazy - linky";
                 const sectionLinks = section ? allLinks.filter(l => l.sectionId === section.id) : [];
+                const menuKey = "sidebar-odkazy";
                 if (sectionLinks.length === 0) {
                   return (
-                    <Collapsible open={openMenuId === "sidebar-odkazy"} onOpenChange={(open) => setOpenMenuId(open ? "sidebar-odkazy" : null)}>
+                    <Collapsible open={openMenuId === menuKey} onOpenChange={(open) => setOpenMenuId(open ? menuKey : null)}>
                       <SidebarMenuItem>
                         <CollapsibleTrigger asChild>
                           <SidebarMenuButton data-testid="nav-section-odkazy">
                             <Link2 className="w-4 h-4" />
-                            <span>Odkazy - linky</span>
-                            <ChevronRight className={`ml-auto h-4 w-4 transition-transform ${openMenuId === "sidebar-odkazy" ? "rotate-90" : ""}`} />
+                            <span>{sectionName}</span>
+                            <ChevronRight className={`ml-auto h-4 w-4 transition-transform ${openMenuId === menuKey ? "rotate-90" : ""}`} />
                           </SidebarMenuButton>
                         </CollapsibleTrigger>
                         <CollapsibleContent>
@@ -557,14 +559,13 @@ export function AppSidebar() {
                   if (!groups[l.groupName]) groups[l.groupName] = [];
                   groups[l.groupName].push(l);
                 }
-                const menuKey = "sidebar-odkazy";
                 return (
                   <Collapsible open={openMenuId === menuKey} onOpenChange={(open) => setOpenMenuId(open ? menuKey : null)}>
                     <SidebarMenuItem>
                       <CollapsibleTrigger asChild>
                         <SidebarMenuButton data-testid="nav-section-odkazy">
                           <Link2 className="w-4 h-4" />
-                          <span>Odkazy - linky</span>
+                          <span>{sectionName}</span>
                           <ChevronRight className={`ml-auto h-4 w-4 transition-transform ${openMenuId === menuKey ? "rotate-90" : ""}`} />
                         </SidebarMenuButton>
                       </CollapsibleTrigger>
