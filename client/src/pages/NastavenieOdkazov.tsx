@@ -103,6 +103,9 @@ export default function NastavenieOdkazov() {
   const [editLinkName, setEditLinkName] = useState("");
   const [editLinkUrl, setEditLinkUrl] = useState("");
 
+  const [editingGroupName, setEditingGroupName] = useState<string | null>(null);
+  const [editGroupNameValue, setEditGroupNameValue] = useState("");
+
   const invalidateAll = () => {
     queryClient.invalidateQueries({ queryKey: ["/api/sidebar-link-sections", divisionId] });
     queryClient.invalidateQueries({ queryKey: ["/api/sidebar-links", divisionId] });
@@ -171,6 +174,39 @@ export default function NastavenieOdkazov() {
       invalidateAll();
     },
     onError: () => toast({ title: "Chyba", variant: "destructive" }),
+  });
+
+  const renameGroupMut = useMutation({
+    mutationFn: async ({ oldName, newName }: { oldName: string; newName: string }) => {
+      const trimmed = newName.trim();
+      if (!trimmed || trimmed === oldName) return;
+      const groupLinks = links?.filter(l => l.groupName === oldName && l.sectionId === section?.id) || [];
+      await Promise.all(groupLinks.map(link =>
+        apiRequest("PATCH", `/api/sidebar-links/${link.id}`, { groupName: trimmed })
+      ));
+      return { oldName, newName: trimmed };
+    },
+    onSuccess: (result) => {
+      if (result) {
+        setExpandedGroups(prev => {
+          const next = new Set(prev);
+          if (next.has(result.oldName)) {
+            next.delete(result.oldName);
+            next.add(result.newName);
+          }
+          return next;
+        });
+        setOptimisticOrder(null);
+      }
+      toast({ title: "Skupina premenovaná" });
+      setEditingGroupName(null);
+      setEditGroupNameValue("");
+      invalidateAll();
+    },
+    onError: () => {
+      invalidateAll();
+      toast({ title: "Chyba pri premenovaní skupiny", variant: "destructive" });
+    },
   });
 
   const toggleGroup = (groupName: string) => {
@@ -342,7 +378,7 @@ export default function NastavenieOdkazov() {
                   <SortableGroupItem key={groupName} id={groupName}>
                     <div
                       className="flex items-center gap-2 px-2 py-2 cursor-pointer hover:bg-muted/50"
-                      onClick={() => toggleGroup(groupName)}
+                      onClick={() => editingGroupName !== groupName && toggleGroup(groupName)}
                       data-testid={`group-toggle-${groupName}`}
                     >
                       {isExpanded ? (
@@ -350,7 +386,56 @@ export default function NastavenieOdkazov() {
                       ) : (
                         <ChevronRight className="w-4 h-4 text-muted-foreground" />
                       )}
-                      <span className="text-sm font-medium flex-1">{groupName}</span>
+                      {editingGroupName === groupName ? (
+                        <div className="flex items-center gap-2 flex-1" onClick={e => e.stopPropagation()}>
+                          <Input
+                            value={editGroupNameValue}
+                            onChange={e => setEditGroupNameValue(e.target.value)}
+                            className="h-7 text-sm flex-1"
+                            autoFocus
+                            onKeyDown={e => {
+                              if (e.key === "Enter" && editGroupNameValue.trim() && editGroupNameValue.trim() !== groupName) {
+                                renameGroupMut.mutate({ oldName: groupName, newName: editGroupNameValue.trim() });
+                              } else if (e.key === "Escape") {
+                                setEditingGroupName(null);
+                                setEditGroupNameValue("");
+                              }
+                            }}
+                            data-testid={`input-edit-group-name-${groupName}`}
+                          />
+                          <Button
+                            size="sm"
+                            className="h-7 px-2 text-xs"
+                            disabled={!editGroupNameValue.trim() || editGroupNameValue.trim() === groupName || renameGroupMut.isPending}
+                            onClick={() => renameGroupMut.mutate({ oldName: groupName, newName: editGroupNameValue.trim() })}
+                            data-testid={`btn-save-group-name-${groupName}`}
+                          >
+                            Uložiť
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="h-7 w-7 p-0"
+                            onClick={() => { setEditingGroupName(null); setEditGroupNameValue(""); }}
+                            data-testid={`btn-cancel-group-name-${groupName}`}
+                          >
+                            <X className="w-3 h-3" />
+                          </Button>
+                        </div>
+                      ) : (
+                        <>
+                          <span className="text-sm font-medium flex-1">{groupName}</span>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="h-6 w-6 p-0"
+                            onClick={(e) => { e.stopPropagation(); setEditingGroupName(groupName); setEditGroupNameValue(groupName); }}
+                            data-testid={`btn-edit-group-name-${groupName}`}
+                          >
+                            <Pencil className="w-3 h-3" />
+                          </Button>
+                        </>
+                      )}
                       <span className="text-xs text-muted-foreground">{groupLinks.length}</span>
                       {!hasLinks && (
                         <Button
