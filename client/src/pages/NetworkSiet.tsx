@@ -1,4 +1,5 @@
 import { useState, useMemo, useCallback } from "react";
+import { Link } from "wouter";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -98,7 +99,7 @@ function phaseBadge(phase: string) {
 
 function transferStatusBadge(status: string) {
   switch (status) {
-    case "pending":
+    case "pending_all_approvals":
       return <Badge data-testid="badge-transfer-pending" className="bg-amber-500/20 text-amber-400 border-amber-500/30"><Clock className="w-3 h-3 mr-1" />Čaká na schválenie</Badge>;
     case "approved":
       return <Badge data-testid="badge-transfer-approved" className="bg-emerald-500/20 text-emerald-400 border-emerald-500/30"><Check className="w-3 h-3 mr-1" />Schválený</Badge>;
@@ -114,7 +115,7 @@ export default function NetworkSiet() {
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedSubjectId, setSelectedSubjectId] = useState<number | null>(null);
   const [linkTypeFilter, setLinkTypeFilter] = useState<string>("all");
-  const [transferTab, setTransferTab] = useState("pending");
+  const [transferTab, setTransferTab] = useState("pending_all_approvals");
   const [showTransferDialog, setShowTransferDialog] = useState(false);
   const [transferForm, setTransferForm] = useState({ subjectId: "", currentGuarantorId: "", requestedGuarantorId: "", reason: "" });
   const [showGuarantorDialog, setShowGuarantorDialog] = useState(false);
@@ -496,7 +497,7 @@ export default function NetworkSiet() {
               <div className="flex items-center justify-between">
                 <CardTitle className="text-sm text-zinc-400">Prestupové protokoly</CardTitle>
                 <div className="flex gap-1">
-                  {["pending", "approved", "rejected"].map(s => (
+                  {["pending_all_approvals", "approved", "rejected"].map(s => (
                     <Button
                       key={s}
                       variant={transferTab === s ? "default" : "ghost"}
@@ -505,9 +506,12 @@ export default function NetworkSiet() {
                       onClick={() => setTransferTab(s)}
                       data-testid={`btn-transfer-tab-${s}`}
                     >
-                      {s === "pending" ? "Čakajúce" : s === "approved" ? "Schválené" : "Zamietnuté"}
+                      {s === "pending_all_approvals" ? "Čakajúce" : s === "approved" ? "Schválené" : "Zamietnuté"}
                     </Button>
                   ))}
+                  <Button size="sm" variant="ghost" className="text-xs text-amber-400" asChild>
+                    <Link href="/prestup">Detailný prehľad →</Link>
+                  </Button>
                 </div>
               </div>
             </CardHeader>
@@ -519,7 +523,7 @@ export default function NetworkSiet() {
               ) : !transferData?.requests?.length ? (
                 <div className="text-center py-8 text-zinc-600">
                   <ArrowRightLeft className="w-8 h-8 mx-auto mb-2 opacity-50" />
-                  <p>Žiadne {transferTab === "pending" ? "čakajúce" : transferTab === "approved" ? "schválené" : "zamietnuté"} žiadosti</p>
+                  <p>Žiadne {transferTab === "pending_all_approvals" ? "čakajúce" : transferTab === "approved" ? "schválené" : "zamietnuté"} žiadosti</p>
                 </div>
               ) : (
                 <div className="space-y-3">
@@ -566,7 +570,7 @@ export default function NetworkSiet() {
                         {req.reviewedByName && (
                           <p className="text-xs text-zinc-600">Rozhodol: {req.reviewedByName} • {req.reviewedAt ? formatDateTimeSlovak(req.reviewedAt) : ""}</p>
                         )}
-                        {req.status === "pending" && (
+                        {req.status === "pending_all_approvals" && (
                           <div className="flex gap-2 pt-2 border-t border-zinc-800">
                             <Button
                               size="sm"

@@ -53,6 +53,9 @@ import {
   LayoutGrid,
   Zap,
   BarChart3,
+  ClipboardCheck,
+  FileInput,
+  ArrowRightLeft,
 } from "lucide-react";
 import {
   Sidebar,
@@ -83,6 +86,8 @@ const topItems = [
 
 const financieItems = [
   { href: "/siet", icon: Network, label: "Sieť" },
+  { href: "/ziadosti", icon: FileInput, label: "Žiadosti" },
+  { href: "/prestup", icon: ArrowRightLeft, label: "Prestup" },
   { href: "/body", icon: TrendingUp, label: "Body" },
   { href: "/provizie", icon: ArrowDownLeft, label: "Provizie" },
   { href: "/odmeny", icon: ArrowUpRight, label: "Odmeny" },
@@ -232,6 +237,34 @@ function CollapsibleMenu({
         </CollapsibleContent>
       </SidebarMenuItem>
     </Collapsible>
+  );
+}
+
+function MojeUlohyMenuItem({ location }: { location: string }) {
+  const { data: taskCount } = useQuery<{ count: number }>({
+    queryKey: ["/api/my-tasks/count"],
+    refetchInterval: 30000,
+  });
+  const count = taskCount?.count || 0;
+
+  return (
+    <SidebarMenuItem>
+      <SidebarMenuButton
+        asChild
+        isActive={location === "/moje-ulohy"}
+        data-testid="nav-moje-ulohy"
+      >
+        <Link href="/moje-ulohy">
+          <ClipboardCheck className="w-4 h-4" />
+          <span>Moje úlohy</span>
+          {count > 0 && (
+            <span className="ml-auto flex h-5 min-w-5 items-center justify-center rounded-full bg-red-600 text-[10px] font-bold text-white px-1" data-testid="badge-task-count">
+              {count}
+            </span>
+          )}
+        </Link>
+      </SidebarMenuButton>
+    </SidebarMenuItem>
   );
 }
 
@@ -430,6 +463,7 @@ export function AppSidebar() {
                 openMenuId={openMenuId}
                 setOpenMenuId={setOpenMenuId}
               />
+              <MojeUlohyMenuItem location={location} />
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>

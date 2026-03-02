@@ -2418,20 +2418,30 @@ export const insertNetworkLinkSchema = createInsertSchema(networkLinks).omit({ i
 export type NetworkLink = typeof networkLinks.$inferSelect;
 export type InsertNetworkLink = z.infer<typeof insertNetworkLinkSchema>;
 
-// === GUARANTOR TRANSFER REQUESTS (Prestupový protokol) ===
+// === GUARANTOR TRANSFER REQUESTS (Prestupový protokol - 4-stupňové schvaľovanie) ===
 export const guarantorTransferRequests = pgTable("guarantor_transfer_requests", {
   id: serial("id").primaryKey(),
   subjectId: integer("subject_id").notNull().references(() => subjects.id),
   currentGuarantorId: integer("current_guarantor_id").notNull().references(() => subjects.id),
   requestedGuarantorId: integer("requested_guarantor_id").notNull().references(() => subjects.id),
-  status: text("status").$type<"pending" | "approved" | "rejected">().default("pending").notNull(),
+  status: text("status").$type<"pending_all_approvals" | "approved" | "rejected">().default("pending_all_approvals").notNull(),
   reason: text("reason").notNull(),
   requestedByUserId: integer("requested_by_user_id").references(() => appUsers.id),
   requestedByName: text("requested_by_name"),
+  requesterApprovedAt: timestamp("requester_approved_at"),
+  receivingGuarantorUserId: integer("receiving_guarantor_user_id").references(() => appUsers.id),
+  receivingGuarantorName: text("receiving_guarantor_name"),
+  receivingGuarantorApprovedAt: timestamp("receiving_guarantor_approved_at"),
+  leavingGuarantorUserId: integer("leaving_guarantor_user_id").references(() => appUsers.id),
+  leavingGuarantorName: text("leaving_guarantor_name"),
+  leavingGuarantorApprovedAt: timestamp("leaving_guarantor_approved_at"),
   reviewedByUserId: integer("reviewed_by_user_id").references(() => appUsers.id),
   reviewedByName: text("reviewed_by_name"),
   reviewedAt: timestamp("reviewed_at"),
   reviewNote: text("review_note"),
+  adminApprovedAt: timestamp("admin_approved_at"),
+  pdfPath: text("pdf_path"),
+  pdfAuditCode: text("pdf_audit_code"),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });

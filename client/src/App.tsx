@@ -59,6 +59,9 @@ import Reports from "@/pages/Reports";
 import DatatovaLinka from "@/pages/DatatovaLinka";
 import HoldingDashboard from "@/pages/HoldingDashboard";
 import NetworkSiet from "@/pages/NetworkSiet";
+import MojeUlohy from "@/pages/MojeUlohy";
+import Ziadosti from "@/pages/Ziadosti";
+import Prestup from "@/pages/Prestup";
 import { AppShell } from "@/components/layout/AppShell";
 import { RedListNotificationPopup } from "@/components/red-list-notification-popup";
 import { BlackListNotificationPopup } from "@/components/black-list-notification-popup";
@@ -151,6 +154,9 @@ const PrivateReports = () => <PrivateRoute><Reports /></PrivateRoute>;
 const PrivateDatatovaLinka = () => <PrivateRoute><DatatovaLinka /></PrivateRoute>;
 const PrivateHoldingDashboard = () => <PrivateRoute><HoldingDashboard /></PrivateRoute>;
 const PrivateNetworkSiet = () => <PrivateRoute><NetworkSiet /></PrivateRoute>;
+const PrivateMojeUlohy = () => <PrivateRoute><MojeUlohy /></PrivateRoute>;
+const PrivateZiadosti = () => <PrivateRoute><Ziadosti /></PrivateRoute>;
+const PrivatePrestup = () => <PrivateRoute><Prestup /></PrivateRoute>;
 const PrivateClientProfile = () => <PrivateRoute><ClientProfilePage /></PrivateRoute>;
 
 function Router() {
@@ -210,6 +216,9 @@ function Router() {
       <Route path="/profil-subjektu" component={PrivateProfilSubjektu} />
       <Route path="/datova-linka" component={PrivateDatatovaLinka} />
       <Route path="/siet" component={PrivateNetworkSiet} />
+      <Route path="/moje-ulohy" component={PrivateMojeUlohy} />
+      <Route path="/ziadosti" component={PrivateZiadosti} />
+      <Route path="/prestup" component={PrivatePrestup} />
       <Route component={NotFound} />
     </Switch>
   );

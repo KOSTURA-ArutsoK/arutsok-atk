@@ -14912,12 +14912,111 @@ export async function registerRoutes(
     }
   });
 
+  fs.mkdirSync(path.join(UPLOADS_DIR, "transfer-protocols"), { recursive: true });
+
+  function getTransferApprovalStep(request: any): { step: number; stepName: string; waitingFor: string } {
+    if (!request.requesterApprovedAt) return { step: 1, stepName: "Žiadateľ", waitingFor: "requester" };
+    if (!request.receivingGuarantorApprovedAt) return { step: 2, stepName: "Prijímajúci garant", waitingFor: "receiving" };
+    if (!request.leavingGuarantorApprovedAt) return { step: 3, stepName: "Odchádzajúci garant", waitingFor: "leaving" };
+    if (!request.adminApprovedAt) return { step: 4, stepName: "Administrátor", waitingFor: "admin" };
+    return { step: 5, stepName: "Dokončené", waitingFor: "none" };
+  }
+
+  async function generateTransferProtocolPDF(request: any, appUser: any): Promise<{ pdfPath: string; auditCode: string }> {
+    const PDFDocument = (await import("pdfkit")).default;
+    const QRCode = await import("qrcode");
+    const now = new Date();
+    const formattedDate = formatDateTimeSK(now);
+    const auditCode = `TPR-${Date.now()}-${crypto.randomBytes(4).toString("hex").toUpperCase()}`;
+    const fileTs = formatTimestampForFile(now);
+    const filename = `prestupovy_protokol_${request.id}_${fileTs}.pdf`;
+    const filePath = path.join(UPLOADS_DIR, "transfer-protocols", filename);
+
+    const subjectIds = [request.subjectId, request.currentGuarantorId, request.requestedGuarantorId];
+    const relSubs = await db.select({
+      id: subjects.id, firstName: subjects.firstName, lastName: subjects.lastName,
+      companyName: subjects.companyName, type: subjects.type, uid: subjects.uid,
+    }).from(subjects).where(inArray(subjects.id, subjectIds));
+    const subMap = new Map(relSubs.map(s => [s.id, s]));
+    const getName = (id: number) => {
+      const s = subMap.get(id);
+      if (!s) return `ID: ${id}`;
+      return s.type === "company" ? (s.companyName || "—") : `${s.firstName || ""} ${s.lastName || ""}`.trim() || "—";
+    };
+
+    const verifyUrl = `https://secure-agent-hub.replit.app/prestup?audit=${auditCode}&ts=${fileTs}`;
+    const qrDataUrl = await QRCode.toDataURL(verifyUrl, { width: 80, margin: 1, color: { dark: "#000000", light: "#ffffff" } });
+    const qrBuffer = Buffer.from(qrDataUrl.replace(/^data:image\/png;base64,/, ""), "base64");
+
+    const doc = new PDFDocument({ size: "A4", margin: 50, info: { Title: "Prestupový protokol", Author: "ArutsoK" } });
+    const writeStream = fs.createWriteStream(filePath);
+    doc.pipe(writeStream);
+
+    doc.save();
+    doc.fontSize(60).font("Helvetica-Bold").opacity(0.04).rotate(-45, { origin: [300, 420] })
+      .text("ArutsoK HOLDING", 80, 350);
+    doc.restore();
+
+    doc.image(qrBuffer, 465, 10, { width: 80 });
+    doc.fontSize(7).font("Helvetica").text(formattedDate, 455, 93, { width: 90, align: "center" });
+
+    doc.fontSize(18).font("Helvetica-Bold").text("Prestupový protokol", 50, 50);
+    doc.moveTo(50, 75).lineTo(445, 75).stroke("#333333");
+    doc.fontSize(10).font("Helvetica").text(`Číslo žiadosti: #${request.id}`, 50, 85);
+    doc.text(`Audit kód: ${auditCode}`, 50, 100);
+    doc.moveDown(1.5);
+
+    const drawRow = (label: string, value: string) => {
+      const y = doc.y;
+      doc.fontSize(9).font("Helvetica-Bold").text(label, 50, y, { width: 200 });
+      doc.fontSize(9).font("Helvetica").text(value || "—", 260, y, { width: 280 });
+      doc.y = y + 20;
+    };
+
+    doc.fontSize(12).font("Helvetica-Bold").text("Údaje o prestupe", 50);
+    doc.moveDown(0.5);
+    drawRow("Subjekt:", getName(request.subjectId));
+    drawRow("Pôvodný garant:", getName(request.currentGuarantorId));
+    drawRow("Nový garant:", getName(request.requestedGuarantorId));
+    drawRow("Dôvod:", request.reason);
+    doc.moveDown(1);
+
+    doc.fontSize(12).font("Helvetica-Bold").text("Schvaľovací reťazec", 50);
+    doc.moveDown(0.5);
+    const steps = [
+      { label: "1. Žiadateľ", name: request.requestedByName, time: request.requesterApprovedAt },
+      { label: "2. Prijímajúci garant", name: request.receivingGuarantorName, time: request.receivingGuarantorApprovedAt },
+      { label: "3. Odchádzajúci garant", name: request.leavingGuarantorName, time: request.leavingGuarantorApprovedAt },
+      { label: "4. Administrátor", name: request.reviewedByName, time: request.adminApprovedAt },
+    ];
+    for (const step of steps) {
+      drawRow(`${step.label}:`, `${step.name || "—"} — ${step.time ? formatDateTimeSK(new Date(step.time)) : "—"}`);
+    }
+
+    const pageH = doc.page.height;
+    doc.moveTo(50, pageH - 80).lineTo(545, pageH - 80).stroke("#cccccc");
+    doc.fontSize(8).font("Helvetica")
+      .text(`Audit kód: ${auditCode}`, 50, pageH - 70)
+      .text(`Vygenerované: ${formattedDate}`, 50, pageH - 58)
+      .text(`Systém: ArutsoK — Dôverný materiál`, 50, pageH - 46);
+
+    doc.end();
+    await new Promise<void>((resolve, reject) => { writeStream.on("finish", resolve); writeStream.on("error", reject); });
+    return { pdfPath: filePath, auditCode };
+  }
+
   app.get("/api/network/transfer-requests", isAuthenticated, async (req: any, res) => {
     try {
-      const statusFilter = req.query.status || "pending";
-      const requests = await db.select().from(guarantorTransferRequests).where(
-        eq(guarantorTransferRequests.status, statusFilter as string)
-      ).orderBy(desc(guarantorTransferRequests.createdAt));
+      const statusFilter = req.query.status as string | undefined;
+      let query;
+      if (statusFilter && statusFilter !== "all") {
+        query = db.select().from(guarantorTransferRequests).where(
+          eq(guarantorTransferRequests.status, statusFilter)
+        ).orderBy(desc(guarantorTransferRequests.createdAt));
+      } else {
+        query = db.select().from(guarantorTransferRequests).orderBy(desc(guarantorTransferRequests.createdAt));
+      }
+      const requests = await query;
 
       const subjectIds = new Set<number>();
       requests.forEach(r => {
@@ -14928,16 +15027,17 @@ export async function registerRoutes(
 
       const relatedSubjects = subjectIds.size > 0
         ? await db.select({
-            id: subjects.id,
-            uid: subjects.uid,
-            firstName: subjects.firstName,
-            lastName: subjects.lastName,
-            companyName: subjects.companyName,
-            type: subjects.type,
+            id: subjects.id, uid: subjects.uid, firstName: subjects.firstName,
+            lastName: subjects.lastName, companyName: subjects.companyName, type: subjects.type,
           }).from(subjects).where(inArray(subjects.id, Array.from(subjectIds)))
         : [];
 
-      res.json({ requests, subjects: relatedSubjects });
+      const enriched = requests.map(r => ({
+        ...r,
+        currentStep: getTransferApprovalStep(r),
+      }));
+
+      res.json({ requests: enriched, subjects: relatedSubjects });
     } catch (err: any) {
       res.status(500).json({ message: err?.message || "Chyba" });
     }
@@ -14951,13 +15051,16 @@ export async function registerRoutes(
       }
 
       const appUser = req.appUser;
+      const now = new Date();
       const [request] = await db.insert(guarantorTransferRequests).values({
         subjectId,
         currentGuarantorId,
         requestedGuarantorId,
         reason,
+        status: "pending_all_approvals",
         requestedByUserId: appUser?.id,
         requestedByName: appUser?.fullName || appUser?.username,
+        requesterApprovedAt: now,
       }).returning();
 
       await db.insert(auditLogs).values({
@@ -14968,46 +15071,64 @@ export async function registerRoutes(
         details: { subjectId, currentGuarantorId, requestedGuarantorId, reason },
       });
 
-      res.json(request);
+      res.json({ ...request, currentStep: getTransferApprovalStep(request) });
     } catch (err: any) {
       res.status(500).json({ message: err?.message || "Chyba pri vytváraní žiadosti" });
     }
   });
 
-  app.patch("/api/network/transfer-requests/:id", isAuthenticated, async (req: any, res) => {
+  app.patch("/api/network/transfer-requests/:id/approve", isAuthenticated, async (req: any, res) => {
     try {
       const id = parseInt(req.params.id);
-      const { status, reviewNote } = req.body;
+      const { reviewNote } = req.body;
       const appUser = req.appUser;
-
-      if (!isAdmin(appUser)) {
-        return res.status(403).json({ message: "Len administrátor môže schvaľovať prestupové žiadosti" });
-      }
-
-      if (!["approved", "rejected"].includes(status)) {
-        return res.status(400).json({ message: "Neplatný status" });
-      }
 
       const [existing] = await db.select().from(guarantorTransferRequests).where(eq(guarantorTransferRequests.id, id)).limit(1);
       if (!existing) return res.status(404).json({ message: "Žiadosť nenájdená" });
-      if (existing.status !== "pending") return res.status(400).json({ message: "Žiadosť už bola vybavená" });
+      if (existing.status !== "pending_all_approvals") return res.status(400).json({ message: "Žiadosť už bola vybavená" });
 
+      const step = getTransferApprovalStep(existing);
       const now = new Date();
-      const [updated] = await db.update(guarantorTransferRequests).set({
-        status,
-        reviewNote: reviewNote || null,
-        reviewedByUserId: appUser.id,
-        reviewedByName: appUser.fullName || appUser.username,
-        reviewedAt: now,
-        updatedAt: now,
-      }).where(eq(guarantorTransferRequests.id, id)).returning();
+      const userName = appUser.fullName || appUser.username;
+      let updateData: any = { updatedAt: now };
 
-      if (status === "approved") {
+      if (step.waitingFor === "receiving") {
+        const isLinkedToReceiving = appUser.linkedSubjectId === existing.requestedGuarantorId;
+        if (!isLinkedToReceiving && !isAdmin(appUser)) {
+          return res.status(403).json({ message: "Nemáte oprávnenie schváliť tento krok. Len prijímajúci garant alebo admin môže schváliť." });
+        }
+        updateData.receivingGuarantorUserId = appUser.id;
+        updateData.receivingGuarantorName = userName;
+        updateData.receivingGuarantorApprovedAt = now;
+      } else if (step.waitingFor === "leaving") {
+        const isLinkedToLeaving = appUser.linkedSubjectId === existing.currentGuarantorId;
+        if (!isLinkedToLeaving && !isAdmin(appUser)) {
+          return res.status(403).json({ message: "Nemáte oprávnenie schváliť tento krok. Len odchádzajúci garant alebo admin môže schváliť." });
+        }
+        updateData.leavingGuarantorUserId = appUser.id;
+        updateData.leavingGuarantorName = userName;
+        updateData.leavingGuarantorApprovedAt = now;
+      } else if (step.waitingFor === "admin") {
+        if (!isAdmin(appUser)) {
+          return res.status(403).json({ message: "Len administrátor môže vykonať finálne schválenie" });
+        }
+        updateData.reviewedByUserId = appUser.id;
+        updateData.reviewedByName = userName;
+        updateData.reviewedAt = now;
+        updateData.adminApprovedAt = now;
+        updateData.reviewNote = reviewNote || null;
+        updateData.status = "approved";
+      } else {
+        return res.status(400).json({ message: "Žiadosť je už plne schválená" });
+      }
+
+      const [updated] = await db.update(guarantorTransferRequests).set(updateData)
+        .where(eq(guarantorTransferRequests.id, id)).returning();
+
+      if (updated.status === "approved") {
         await db.update(networkLinks).set({
-          linkType: "frozen",
-          isFrozenAt: now,
-          frozenReason: "Prestupový protokol schválený",
-          updatedAt: now,
+          linkType: "frozen", isFrozenAt: now,
+          frozenReason: "Prestupový protokol schválený", updatedAt: now,
         }).where(
           and(
             eq(networkLinks.subjectId, existing.subjectId),
@@ -15025,38 +15146,189 @@ export async function registerRoutes(
 
         if (existingNewLink.length > 0) {
           await db.update(networkLinks).set({
-            linkType: "active",
-            isFrozenAt: null,
-            frozenReason: null,
-            confirmedAt: now,
-            confirmedByUserId: appUser.id,
-            confirmedByName: appUser.fullName || appUser.username,
-            updatedAt: now,
+            linkType: "active", isFrozenAt: null, frozenReason: null,
+            confirmedAt: now, confirmedByUserId: appUser.id,
+            confirmedByName: userName, updatedAt: now,
           }).where(eq(networkLinks.id, existingNewLink[0].id));
         } else {
           await db.insert(networkLinks).values({
             subjectId: existing.subjectId,
             guarantorSubjectId: existing.requestedGuarantorId,
-            linkType: "active",
-            phase: "specialist",
-            confirmedAt: now,
-            confirmedByUserId: appUser.id,
-            confirmedByName: appUser.fullName || appUser.username,
+            linkType: "active", phase: "specialist",
+            confirmedAt: now, confirmedByUserId: appUser.id,
+            confirmedByName: userName,
           });
+        }
+
+        try {
+          const [freshRequest] = await db.select().from(guarantorTransferRequests).where(eq(guarantorTransferRequests.id, id)).limit(1);
+          const { pdfPath, auditCode } = await generateTransferProtocolPDF(freshRequest || updated, appUser);
+          await db.update(guarantorTransferRequests).set({
+            pdfPath: pdfPath, pdfAuditCode: auditCode,
+          }).where(eq(guarantorTransferRequests.id, id));
+          (updated as any).pdfPath = pdfPath;
+          (updated as any).pdfAuditCode = auditCode;
+        } catch (pdfErr: any) {
+          console.error("PDF generation error:", pdfErr);
         }
       }
 
       await db.insert(auditLogs).values({
         userId: appUser.id,
-        action: `transfer_request_${status}`,
+        action: `transfer_step_${step.waitingFor}_approved`,
         entityType: "guarantor_transfer",
         entityId: String(id),
-        details: { subjectId: existing.subjectId, currentGuarantorId: existing.currentGuarantorId, requestedGuarantorId: existing.requestedGuarantorId, reviewNote },
+        details: { step: step.step, stepName: step.stepName, reviewNote },
       });
 
-      res.json(updated);
+      res.json({ ...updated, currentStep: getTransferApprovalStep(updated) });
     } catch (err: any) {
       res.status(500).json({ message: err?.message || "Chyba pri spracovaní žiadosti" });
+    }
+  });
+
+  app.patch("/api/network/transfer-requests/:id/reject", isAuthenticated, async (req: any, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const { reviewNote } = req.body;
+      const appUser = req.appUser;
+
+      const [existing] = await db.select().from(guarantorTransferRequests).where(eq(guarantorTransferRequests.id, id)).limit(1);
+      if (!existing) return res.status(404).json({ message: "Žiadosť nenájdená" });
+      if (existing.status !== "pending_all_approvals") return res.status(400).json({ message: "Žiadosť už bola vybavená" });
+
+      const step = getTransferApprovalStep(existing);
+      const isLinkedToReceiving = appUser.linkedSubjectId === existing.requestedGuarantorId;
+      const isLinkedToLeaving = appUser.linkedSubjectId === existing.currentGuarantorId;
+      const isRequester = appUser.id === existing.requestedByUserId;
+      const canReject = isAdmin(appUser) || isLinkedToReceiving || isLinkedToLeaving || isRequester ||
+        (step.waitingFor === "receiving" && isLinkedToReceiving) ||
+        (step.waitingFor === "leaving" && isLinkedToLeaving);
+      if (!canReject) {
+        return res.status(403).json({ message: "Nemáte oprávnenie zamietnuť túto žiadosť" });
+      }
+
+      const now = new Date();
+      const [updated] = await db.update(guarantorTransferRequests).set({
+        status: "rejected",
+        reviewedByUserId: appUser.id,
+        reviewedByName: appUser.fullName || appUser.username,
+        reviewedAt: now,
+        reviewNote: reviewNote || null,
+        updatedAt: now,
+      }).where(eq(guarantorTransferRequests.id, id)).returning();
+
+      await db.insert(auditLogs).values({
+        userId: appUser.id,
+        action: "transfer_request_rejected",
+        entityType: "guarantor_transfer",
+        entityId: String(id),
+        details: { reviewNote },
+      });
+
+      res.json({ ...updated, currentStep: getTransferApprovalStep(updated) });
+    } catch (err: any) {
+      res.status(500).json({ message: err?.message || "Chyba pri zamietnutí žiadosti" });
+    }
+  });
+
+  app.get("/api/network/transfer-requests/:id/pdf", isAuthenticated, async (req: any, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const [request] = await db.select().from(guarantorTransferRequests).where(eq(guarantorTransferRequests.id, id)).limit(1);
+      if (!request) return res.status(404).json({ message: "Žiadosť nenájdená" });
+      if (!request.pdfPath) return res.status(404).json({ message: "PDF ešte nebolo vygenerované" });
+      if (!fs.existsSync(request.pdfPath)) return res.status(404).json({ message: "Súbor PDF nenájdený" });
+      res.setHeader("Content-Type", "application/pdf");
+      res.setHeader("Content-Disposition", `inline; filename="prestupovy_protokol_${id}.pdf"`);
+      fs.createReadStream(request.pdfPath).pipe(res);
+    } catch (err: any) {
+      res.status(500).json({ message: err?.message || "Chyba" });
+    }
+  });
+
+  app.get("/api/my-tasks", isAuthenticated, async (req: any, res) => {
+    try {
+      const appUser = req.appUser;
+      const pendingRequests = await db.select().from(guarantorTransferRequests)
+        .where(eq(guarantorTransferRequests.status, "pending_all_approvals"))
+        .orderBy(desc(guarantorTransferRequests.createdAt));
+
+      const tasks: any[] = [];
+      for (const r of pendingRequests) {
+        const step = getTransferApprovalStep(r);
+        let isMyTask = false;
+        let taskRole = "";
+
+        if (step.waitingFor === "receiving") {
+          const receivingUser = await db.select().from(appUsers)
+            .where(eq(appUsers.linkedSubjectId, r.requestedGuarantorId)).limit(1);
+          if (receivingUser.length > 0 && receivingUser[0].id === appUser.id) {
+            isMyTask = true;
+            taskRole = "Prijímajúci garant";
+          }
+        } else if (step.waitingFor === "leaving") {
+          const leavingUser = await db.select().from(appUsers)
+            .where(eq(appUsers.linkedSubjectId, r.currentGuarantorId)).limit(1);
+          if (leavingUser.length > 0 && leavingUser[0].id === appUser.id) {
+            isMyTask = true;
+            taskRole = "Odchádzajúci garant";
+          }
+        } else if (step.waitingFor === "admin" && isAdmin(appUser)) {
+          isMyTask = true;
+          taskRole = "Administrátor";
+        }
+
+        if (isMyTask) {
+          tasks.push({ ...r, currentStep: step, taskRole });
+        }
+      }
+
+      const subjectIds = new Set<number>();
+      tasks.forEach(t => {
+        subjectIds.add(t.subjectId);
+        subjectIds.add(t.currentGuarantorId);
+        subjectIds.add(t.requestedGuarantorId);
+      });
+
+      const relatedSubjects = subjectIds.size > 0
+        ? await db.select({
+            id: subjects.id, uid: subjects.uid, firstName: subjects.firstName,
+            lastName: subjects.lastName, companyName: subjects.companyName, type: subjects.type,
+          }).from(subjects).where(inArray(subjects.id, Array.from(subjectIds)))
+        : [];
+
+      res.json({ tasks, subjects: relatedSubjects });
+    } catch (err: any) {
+      res.status(500).json({ message: err?.message || "Chyba" });
+    }
+  });
+
+  app.get("/api/my-tasks/count", isAuthenticated, async (req: any, res) => {
+    try {
+      const appUser = req.appUser;
+      const pendingRequests = await db.select().from(guarantorTransferRequests)
+        .where(eq(guarantorTransferRequests.status, "pending_all_approvals"));
+
+      let count = 0;
+      for (const r of pendingRequests) {
+        const step = getTransferApprovalStep(r);
+        if (step.waitingFor === "receiving") {
+          const receivingUser = await db.select().from(appUsers)
+            .where(eq(appUsers.linkedSubjectId, r.requestedGuarantorId)).limit(1);
+          if (receivingUser.length > 0 && receivingUser[0].id === appUser.id) count++;
+        } else if (step.waitingFor === "leaving") {
+          const leavingUser = await db.select().from(appUsers)
+            .where(eq(appUsers.linkedSubjectId, r.currentGuarantorId)).limit(1);
+          if (leavingUser.length > 0 && leavingUser[0].id === appUser.id) count++;
+        } else if (step.waitingFor === "admin" && isAdmin(appUser)) {
+          count++;
+        }
+      }
+
+      res.json({ count });
+    } catch (err: any) {
+      res.status(500).json({ message: err?.message || "Chyba" });
     }
   });
 

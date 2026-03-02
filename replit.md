@@ -25,6 +25,7 @@ The system employs a modern full-stack architecture emphasizing data integrity, 
 - **Security & Workflow**: Features a two-phase idle timeout with auto-logout, an archive module with password-protected restore, and a processing time protocol. IP locking for restricted users.
 - **Navigation Structure**:
   - Štruktúra (collapsible): Štruktúra sektorov (A) → `/sektory-zmluv`, UI Subjektov (B) → `/sektory-subjektov`, Profil subjektu → `/profil-subjektu`
+  - Moje úlohy → `/moje-ulohy` (with red badge for pending task count, auto-refresh 30s)
   - Zmluvy (collapsible): Zoznam zmlúv → `/contracts`, Spracovanie zmlúv (collapsible) → { Papierové zmluvy → `/evidencia-zmluv`, Dátová linka → `/datova-linka` }
   - Analytika → `/analytika` (admin only)
   - Holding Dashboard → `/holding-dashboard` (admin only)
@@ -53,7 +54,9 @@ The system employs a modern full-stack architecture emphasizing data integrity, 
 - **Global Date/Time Format**: Strict `DD.MM.RRRR HH:mm:ss` everywhere (UI, DB, Logs, PDF). Server: `formatDateTimeSK()`, Frontend: `formatDateTimeSlovak()`. File naming: `RRRRMMDD_HHmmss` via `formatTimestampForFile()`. OCR dates auto-normalized via `normalizeExtractedDate()`.
 - **PDF QR Codes**: All server-generated PDFs include QR code (top-right corner) linking to subject URL + timestamp. Uses `qrcode` package. Client-side PDFs use `DD.MM.RRRR HH:mm:ss` timestamps.
 - **OCR Duplicate Guard**: Max 5 identical extracted values without manual approval (`OCR_DUPLICATE_LIMIT = 5`). Duplicates flagged with `duplicateWarning: true` and `DUPLIKÁT` badge in UI.
-- **Network Module (Financie > Sieť)**: ATK spider web anchored under root `421 000 000 000 000`. Tables: `network_links` (subject↔guarantor with linkType: active/frozen/historical, phase: klient/tiper/specialist), `guarantor_transfer_requests` (prestupový protokol with admin-only approval). Career conversion freezes non-chosen guarantors. Transfer requests require manual admin approval.
+- **Network Module (Financie > Sieť)**: ATK spider web anchored under root `421 000 000 000 000`. Tables: `network_links` (subject↔guarantor with linkType: active/frozen/historical, phase: klient/tiper/specialist), `guarantor_transfer_requests` (prestupový protokol with 4-step approval). Career conversion freezes non-chosen guarantors.
+- **Prestupový protokol — 4-stupňové schvaľovanie**: Transfer requests follow a 4-step approval chain: Žiadateľ → Prijímajúci garant → Odchádzajúci garant → Admin. Each step is timestamped. After final admin approval, a PDF protocol is auto-generated with QR code, watermark, and audit code. Status: `pending_all_approvals` | `approved` | `rejected`. Endpoints: `PATCH /api/network/transfer-requests/:id/approve`, `PATCH /api/network/transfer-requests/:id/reject`, `GET /api/network/transfer-requests/:id/pdf`.
+- **Moje úlohy module**: `GET /api/my-tasks` returns pending approval tasks for the current user (based on `linkedSubjectId` matching to guarantor subjects, or admin role for step 4). `GET /api/my-tasks/count` returns count for sidebar badge. Route: `/moje-ulohy`. Red badge in sidebar shows pending task count, auto-refreshes every 30s.
 
 ## Important Technical Notes
 - **subjects table**: uses `deletedAt` (timestamp, nullable) NOT `isDeleted` boolean — always filter with `isNull(subjects.deletedAt)`
