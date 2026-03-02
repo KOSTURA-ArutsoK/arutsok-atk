@@ -15407,9 +15407,15 @@ export async function registerRoutes(
         archivedContracts = [];
       }
 
+      const excludeIds = new Set([
+        ...rejectedContracts.map((c: any) => c.id),
+        ...archivedContracts.map((c: any) => c.id),
+      ]);
+      const dedupedInterventions = interventionContracts.filter((c: any) => !excludeIds.has(c.id));
+
       res.json({
         tasks, subjects: relatedSubjects,
-        interventions: interventionContracts, interventionStatuses: statusList,
+        interventions: dedupedInterventions, interventionStatuses: statusList,
         internalInterventions, rejectedContracts, archivedContracts,
       });
     } catch (err: any) {
@@ -15482,9 +15488,13 @@ export async function registerRoutes(
       const allRej = await storage.getRejectedContracts(cmpId, stId);
       const allArch = await storage.getArchivedContracts(cmpId, stId);
 
+      let rejectedIds: Set<number>;
+      let archivedIds: Set<number>;
       let rejectedCount = 0;
       let archivedCount = 0;
       if (isAdmin(appUser)) {
+        rejectedIds = new Set(allRej.map((c: any) => c.id));
+        archivedIds = new Set(allArch.map((c: any) => c.id));
         rejectedCount = allRej.length;
         archivedCount = allArch.length;
       } else if (appUser.linkedSubjectId) {
@@ -15495,8 +15505,37 @@ export async function registerRoutes(
           c.specialistaUid === uIdStr2 || c.klientUid === uIdStr2 ||
           (uUid2 && (c.specialistaUid === uUid2 || c.klientUid === uUid2)) ||
           c.subjectId === appUser.linkedSubjectId;
-        rejectedCount = allRej.filter(filterFn).length;
-        archivedCount = allArch.filter(filterFn).length;
+        const filteredRej = allRej.filter(filterFn);
+        const filteredArch = allArch.filter(filterFn);
+        rejectedIds = new Set(filteredRej.map((c: any) => c.id));
+        archivedIds = new Set(filteredArch.map((c: any) => c.id));
+        rejectedCount = filteredRej.length;
+        archivedCount = filteredArch.length;
+      } else {
+        rejectedIds = new Set();
+        archivedIds = new Set();
+      }
+
+      const excludeFromInterventions = new Set([...rejectedIds, ...archivedIds]);
+      if (excludeFromInterventions.size > 0 && interventionCount > 0) {
+        if (interventionStatusIds.length > 0) {
+          const allInt = await db.select({ id: contracts.id, specialistaUid: contracts.specialistaUid, klientUid: contracts.klientUid })
+            .from(contracts)
+            .where(and(inArray(contracts.statusId, interventionStatusIds), eq(contracts.isDeleted, false)));
+          if (isAdmin(appUser)) {
+            interventionCount = allInt.filter(c => !excludeFromInterventions.has(c.id)).length;
+          } else if (appUser.linkedSubjectId) {
+            const linkedSubject = await db.select({ uid: subjects.uid }).from(subjects).where(eq(subjects.id, appUser.linkedSubjectId)).limit(1);
+            const userSubjectUid = linkedSubject[0]?.uid || null;
+            const userIdStr = String(appUser.linkedSubjectId);
+            interventionCount = allInt.filter(c =>
+              !excludeFromInterventions.has(c.id) && (
+                c.specialistaUid === userIdStr || c.klientUid === userIdStr ||
+                (userSubjectUid && (c.specialistaUid === userSubjectUid || c.klientUid === userSubjectUid))
+              )
+            ).length;
+          }
+        }
       }
 
       res.json({ count: transferCount + interventionCount + internalInterventionCount + rejectedCount + archivedCount });
