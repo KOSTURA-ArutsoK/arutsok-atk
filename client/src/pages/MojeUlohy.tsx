@@ -2,12 +2,13 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { formatDateTimeSlovak } from "@/lib/utils";
-import { Loader2, Check, X, ClipboardCheck, FileText, Download } from "lucide-react";
+import { Loader2, Check, X, ClipboardCheck, FileText, Download, AlertTriangle, ExternalLink } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { useState } from "react";
+import { useLocation } from "wouter";
 
 interface TransferStep {
   step: number;
@@ -34,6 +35,26 @@ interface TransferTask {
   createdAt: string;
   currentStep: TransferStep;
   taskRole: string;
+}
+
+interface InterventionContract {
+  id: number;
+  uid: string | null;
+  contractNumber: string | null;
+  statusId: number | null;
+  klientUid: string | null;
+  specialistaUid: string | null;
+  partnerId: number | null;
+  productId: number | null;
+  incompleteData: boolean | null;
+  incompleteDataReason: string | null;
+  lastStatusUpdate: string | null;
+  createdAt: string | null;
+}
+
+interface InterventionStatus {
+  id: number;
+  name: string;
 }
 
 interface SubjectInfo {
@@ -94,10 +115,11 @@ function ApprovalStepper({ task }: { task: TransferTask }) {
 
 export default function MojeUlohy() {
   const { toast } = useToast();
+  const [, navigate] = useLocation();
   const [rejectNote, setRejectNote] = useState<Record<number, string>>({});
   const [showReject, setShowReject] = useState<Record<number, boolean>>({});
 
-  const { data, isLoading } = useQuery<{ tasks: TransferTask[]; subjects: SubjectInfo[] }>({
+  const { data, isLoading } = useQuery<{ tasks: TransferTask[]; subjects: SubjectInfo[]; interventions: InterventionContract[]; interventionStatuses: InterventionStatus[] }>({
     queryKey: ["/api/my-tasks"],
     refetchInterval: 15000,
   });
@@ -133,7 +155,11 @@ export default function MojeUlohy() {
   });
 
   const tasks = data?.tasks || [];
+  const interventions = data?.interventions || [];
+  const interventionStatuses = data?.interventionStatuses || [];
   const subjectMap = new Map((data?.subjects || []).map(s => [s.id, s]));
+  const statusMap = new Map(interventionStatuses.map(s => [s.id, s.name]));
+  const totalCount = tasks.length + interventions.length;
 
   if (isLoading) {
     return (
@@ -148,12 +174,12 @@ export default function MojeUlohy() {
       <div className="flex items-center gap-3">
         <ClipboardCheck className="w-6 h-6 text-primary" />
         <h1 className="text-2xl font-bold">Moje úlohy</h1>
-        {tasks.length > 0 && (
-          <Badge variant="destructive" data-testid="total-task-count">{tasks.length}</Badge>
+        {totalCount > 0 && (
+          <Badge variant="destructive" data-testid="total-task-count">{totalCount}</Badge>
         )}
       </div>
 
-      {tasks.length === 0 ? (
+      {totalCount === 0 ? (
         <Card>
           <CardContent className="py-12 text-center text-muted-foreground">
             <ClipboardCheck className="w-12 h-12 mx-auto mb-3 opacity-30" />
@@ -161,99 +187,158 @@ export default function MojeUlohy() {
           </CardContent>
         </Card>
       ) : (
-        <div className="space-y-4">
-          {tasks.map(task => (
-            <Card key={task.id} className="border-l-4 border-l-orange-400" data-testid={`task-card-${task.id}`}>
-              <CardHeader className="pb-2">
-                <div className="flex items-center justify-between">
-                  <CardTitle className="text-base flex items-center gap-2">
-                    <FileText className="w-4 h-4 text-muted-foreground" />
-                    Prestupový protokol #{task.id}
-                  </CardTitle>
-                  <Badge variant="outline" className="text-orange-400 border-orange-400" data-testid={`badge-role-${task.id}`}>
-                    {task.taskRole}
-                  </Badge>
-                </div>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                <div className="grid grid-cols-3 gap-4 text-sm">
-                  <div>
-                    <span className="text-muted-foreground text-xs">Subjekt:</span>
-                    <p className="font-medium" data-testid={`subject-name-${task.id}`}>{getSubjectName(subjectMap.get(task.subjectId))}</p>
-                  </div>
-                  <div>
-                    <span className="text-muted-foreground text-xs">Pôvodný garant:</span>
-                    <p className="font-medium">{getSubjectName(subjectMap.get(task.currentGuarantorId))}</p>
-                  </div>
-                  <div>
-                    <span className="text-muted-foreground text-xs">Nový garant:</span>
-                    <p className="font-medium">{getSubjectName(subjectMap.get(task.requestedGuarantorId))}</p>
-                  </div>
-                </div>
-
-                {task.reason && (
-                  <div className="text-sm">
-                    <span className="text-muted-foreground text-xs">Dôvod:</span>
-                    <p>{task.reason}</p>
-                  </div>
-                )}
-
-                <ApprovalStepper task={task} />
-
-                <div className="flex items-center gap-2 pt-2 border-t border-border/50">
-                  <Button
-                    size="sm"
-                    onClick={() => approveMutation.mutate(task.id)}
-                    disabled={approveMutation.isPending}
-                    data-testid={`btn-approve-${task.id}`}
+        <div className="space-y-8">
+          {interventions.length > 0 && (
+            <div className="space-y-4">
+              <div className="flex items-center gap-2">
+                <AlertTriangle className="w-5 h-5 text-orange-500" />
+                <h2 className="text-lg font-semibold">Intervencie</h2>
+                <Badge variant="outline" className="border-orange-500 text-orange-400" data-testid="intervention-count">{interventions.length}</Badge>
+              </div>
+              <div className="space-y-3">
+                {interventions.map(contract => (
+                  <Card
+                    key={`int-${contract.id}`}
+                    className="border-l-4 border-l-orange-500 cursor-pointer hover:bg-muted/30 transition-colors"
+                    onClick={() => navigate(`/contracts/${contract.id}/edit`)}
+                    data-testid={`intervention-card-${contract.id}`}
                   >
-                    {approveMutation.isPending ? <Loader2 className="w-3 h-3 animate-spin mr-1" /> : <Check className="w-3 h-3 mr-1" />}
-                    Schváliť
-                  </Button>
-                  {!showReject[task.id] ? (
-                    <Button
-                      size="sm"
-                      variant="destructive"
-                      onClick={() => setShowReject(prev => ({ ...prev, [task.id]: true }))}
-                      data-testid={`btn-show-reject-${task.id}`}
-                    >
-                      <X className="w-3 h-3 mr-1" />
-                      Zamietnuť
-                    </Button>
-                  ) : (
-                    <div className="flex items-center gap-2 flex-1">
-                      <Textarea
-                        value={rejectNote[task.id] || ""}
-                        onChange={e => setRejectNote(prev => ({ ...prev, [task.id]: e.target.value }))}
-                        placeholder="Dôvod zamietnutia..."
-                        className="h-8 text-sm"
-                        data-testid={`input-reject-note-${task.id}`}
-                      />
-                      <Button
-                        size="sm"
-                        variant="destructive"
-                        onClick={() => rejectMutation.mutate({ id: task.id, reviewNote: rejectNote[task.id] || "" })}
-                        disabled={rejectMutation.isPending}
-                        data-testid={`btn-confirm-reject-${task.id}`}
-                      >
-                        {rejectMutation.isPending ? <Loader2 className="w-3 h-3 animate-spin" /> : "Potvrdiť"}
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        onClick={() => setShowReject(prev => ({ ...prev, [task.id]: false }))}
-                      >
-                        Zrušiť
-                      </Button>
-                    </div>
-                  )}
-                  <span className="ml-auto text-xs text-muted-foreground">
-                    {formatDateTimeSlovak(task.createdAt)}
-                  </span>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
+                    <CardContent className="py-4">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-3 min-w-0">
+                          <AlertTriangle className="w-4 h-4 text-orange-500 shrink-0" />
+                          <div className="min-w-0">
+                            <p className="font-medium text-sm truncate" data-testid={`intervention-number-${contract.id}`}>
+                              Zmluva č. {contract.contractNumber || contract.uid || `#${contract.id}`}
+                            </p>
+                            <div className="flex items-center gap-3 text-xs text-muted-foreground mt-0.5">
+                              <span>Stav: {contract.statusId ? (statusMap.get(contract.statusId) || `#${contract.statusId}`) : "—"}</span>
+                              {contract.incompleteDataReason && (
+                                <span className="text-orange-400 truncate max-w-[300px]">Dôvod: {contract.incompleteDataReason}</span>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2 shrink-0">
+                          <Badge variant="outline" className="border-orange-500 text-orange-400 text-[10px]">
+                            Intervencia
+                          </Badge>
+                          <span className="text-xs text-muted-foreground">
+                            {contract.lastStatusUpdate ? formatDateTimeSlovak(contract.lastStatusUpdate) : contract.createdAt ? formatDateTimeSlovak(contract.createdAt) : "—"}
+                          </span>
+                          <ExternalLink className="w-3 h-3 text-muted-foreground" />
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {tasks.length > 0 && (
+            <div className="space-y-4">
+              <div className="flex items-center gap-2">
+                <FileText className="w-5 h-5 text-amber-500" />
+                <h2 className="text-lg font-semibold">Prestupové protokoly</h2>
+                <Badge variant="outline" className="border-amber-500 text-amber-400" data-testid="transfer-count">{tasks.length}</Badge>
+              </div>
+              <div className="space-y-4">
+                {tasks.map(task => (
+                  <Card key={task.id} className="border-l-4 border-l-amber-400" data-testid={`task-card-${task.id}`}>
+                    <CardHeader className="pb-2">
+                      <div className="flex items-center justify-between">
+                        <CardTitle className="text-base flex items-center gap-2">
+                          <FileText className="w-4 h-4 text-muted-foreground" />
+                          Prestupový protokol #{task.id}
+                        </CardTitle>
+                        <Badge variant="outline" className="text-orange-400 border-orange-400" data-testid={`badge-role-${task.id}`}>
+                          {task.taskRole}
+                        </Badge>
+                      </div>
+                    </CardHeader>
+                    <CardContent className="space-y-3">
+                      <div className="grid grid-cols-3 gap-4 text-sm">
+                        <div>
+                          <span className="text-muted-foreground text-xs">Subjekt:</span>
+                          <p className="font-medium" data-testid={`subject-name-${task.id}`}>{getSubjectName(subjectMap.get(task.subjectId))}</p>
+                        </div>
+                        <div>
+                          <span className="text-muted-foreground text-xs">Pôvodný garant:</span>
+                          <p className="font-medium">{getSubjectName(subjectMap.get(task.currentGuarantorId))}</p>
+                        </div>
+                        <div>
+                          <span className="text-muted-foreground text-xs">Nový garant:</span>
+                          <p className="font-medium">{getSubjectName(subjectMap.get(task.requestedGuarantorId))}</p>
+                        </div>
+                      </div>
+
+                      {task.reason && (
+                        <div className="text-sm">
+                          <span className="text-muted-foreground text-xs">Dôvod:</span>
+                          <p>{task.reason}</p>
+                        </div>
+                      )}
+
+                      <ApprovalStepper task={task} />
+
+                      <div className="flex items-center gap-2 pt-2 border-t border-border/50">
+                        <Button
+                          size="sm"
+                          onClick={() => approveMutation.mutate(task.id)}
+                          disabled={approveMutation.isPending}
+                          data-testid={`btn-approve-${task.id}`}
+                        >
+                          {approveMutation.isPending ? <Loader2 className="w-3 h-3 animate-spin mr-1" /> : <Check className="w-3 h-3 mr-1" />}
+                          Schváliť
+                        </Button>
+                        {!showReject[task.id] ? (
+                          <Button
+                            size="sm"
+                            variant="destructive"
+                            onClick={() => setShowReject(prev => ({ ...prev, [task.id]: true }))}
+                            data-testid={`btn-show-reject-${task.id}`}
+                          >
+                            <X className="w-3 h-3 mr-1" />
+                            Zamietnuť
+                          </Button>
+                        ) : (
+                          <div className="flex items-center gap-2 flex-1">
+                            <Textarea
+                              value={rejectNote[task.id] || ""}
+                              onChange={e => setRejectNote(prev => ({ ...prev, [task.id]: e.target.value }))}
+                              placeholder="Dôvod zamietnutia..."
+                              className="h-8 text-sm"
+                              data-testid={`input-reject-note-${task.id}`}
+                            />
+                            <Button
+                              size="sm"
+                              variant="destructive"
+                              onClick={() => rejectMutation.mutate({ id: task.id, reviewNote: rejectNote[task.id] || "" })}
+                              disabled={rejectMutation.isPending}
+                              data-testid={`btn-confirm-reject-${task.id}`}
+                            >
+                              {rejectMutation.isPending ? <Loader2 className="w-3 h-3 animate-spin" /> : "Potvrdiť"}
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={() => setShowReject(prev => ({ ...prev, [task.id]: false }))}
+                            >
+                              Zrušiť
+                            </Button>
+                          </div>
+                        )}
+                        <span className="ml-auto text-xs text-muted-foreground">
+                          {formatDateTimeSlovak(task.createdAt)}
+                        </span>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       )}
     </div>

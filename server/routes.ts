@@ -15299,7 +15299,53 @@ export async function registerRoutes(
           }).from(subjects).where(inArray(subjects.id, Array.from(subjectIds)))
         : [];
 
-      res.json({ tasks, subjects: relatedSubjects });
+      const interventionStatusIds = (await db.select({ id: contractStatuses.id })
+        .from(contractStatuses)
+        .where(eq(contractStatuses.isIntervention, true))
+      ).map(s => s.id);
+
+      let interventionContracts: any[] = [];
+      if (interventionStatusIds.length > 0) {
+        const allIntervention = await db.select({
+          id: contracts.id,
+          uid: contracts.uid,
+          contractNumber: contracts.contractNumber,
+          statusId: contracts.statusId,
+          klientUid: contracts.klientUid,
+          specialistaUid: contracts.specialistaUid,
+          partnerId: contracts.partnerId,
+          productId: contracts.productId,
+          incompleteData: contracts.incompleteData,
+          incompleteDataReason: contracts.incompleteDataReason,
+          lastStatusUpdate: contracts.lastStatusUpdate,
+          createdAt: contracts.createdAt,
+        }).from(contracts).where(
+          and(
+            inArray(contracts.statusId, interventionStatusIds),
+            eq(contracts.isDeleted, false)
+          )
+        ).orderBy(desc(contracts.lastStatusUpdate));
+
+        if (isAdmin(appUser)) {
+          interventionContracts = allIntervention;
+        } else if (appUser.linkedSubjectId) {
+          const linkedSubject = await db.select({ uid: subjects.uid }).from(subjects).where(eq(subjects.id, appUser.linkedSubjectId)).limit(1);
+          const userSubjectUid = linkedSubject[0]?.uid || null;
+          const userIdStr = String(appUser.linkedSubjectId);
+          interventionContracts = allIntervention.filter(c =>
+            c.specialistaUid === userIdStr || c.klientUid === userIdStr ||
+            (userSubjectUid && (c.specialistaUid === userSubjectUid || c.klientUid === userSubjectUid))
+          );
+        }
+      }
+
+      const statusList = interventionStatusIds.length > 0
+        ? await db.select({ id: contractStatuses.id, name: contractStatuses.name })
+            .from(contractStatuses)
+            .where(inArray(contractStatuses.id, interventionStatusIds))
+        : [];
+
+      res.json({ tasks, subjects: relatedSubjects, interventions: interventionContracts, interventionStatuses: statusList });
     } catch (err: any) {
       res.status(500).json({ message: err?.message || "Chyba" });
     }
@@ -15311,19 +15357,43 @@ export async function registerRoutes(
       const pendingRequests = await db.select().from(guarantorTransferRequests)
         .where(eq(guarantorTransferRequests.status, "pending_all_approvals"));
 
-      let count = 0;
+      let transferCount = 0;
       for (const r of pendingRequests) {
         const step = getTransferApprovalStep(r);
         if (isAdmin(appUser)) {
-          count++;
+          transferCount++;
         } else if (step.waitingFor === "receiving" && appUser.linkedSubjectId === r.requestedGuarantorId) {
-          count++;
+          transferCount++;
         } else if (step.waitingFor === "leaving" && appUser.linkedSubjectId === r.currentGuarantorId) {
-          count++;
+          transferCount++;
         }
       }
 
-      res.json({ count });
+      const interventionStatusIds = (await db.select({ id: contractStatuses.id })
+        .from(contractStatuses)
+        .where(eq(contractStatuses.isIntervention, true))
+      ).map(s => s.id);
+
+      let interventionCount = 0;
+      if (interventionStatusIds.length > 0) {
+        const allIntervention = await db.select({ id: contracts.id, specialistaUid: contracts.specialistaUid, klientUid: contracts.klientUid })
+          .from(contracts)
+          .where(and(inArray(contracts.statusId, interventionStatusIds), eq(contracts.isDeleted, false)));
+
+        if (isAdmin(appUser)) {
+          interventionCount = allIntervention.length;
+        } else if (appUser.linkedSubjectId) {
+          const linkedSubject = await db.select({ uid: subjects.uid }).from(subjects).where(eq(subjects.id, appUser.linkedSubjectId)).limit(1);
+          const userSubjectUid = linkedSubject[0]?.uid || null;
+          const userIdStr = String(appUser.linkedSubjectId);
+          interventionCount = allIntervention.filter(c =>
+            c.specialistaUid === userIdStr || c.klientUid === userIdStr ||
+            (userSubjectUid && (c.specialistaUid === userSubjectUid || c.klientUid === userSubjectUid))
+          ).length;
+        }
+      }
+
+      res.json({ count: transferCount + interventionCount });
     } catch (err: any) {
       res.status(500).json({ message: err?.message || "Chyba" });
     }

@@ -97,8 +97,10 @@ export default function Dashboard() {
   const { data: dashboardPrefs } = useQuery<DashboardPreference[]>({ queryKey: ["/api/dashboard-preferences"] });
   const { data: savedLayout } = useQuery<UserDashboardLayout | null>({ queryKey: ["/api/dashboard-layout"] });
   const { data: contractStats } = useQuery<ContractStats>({ queryKey: ["/api/dashboard-contract-stats"] });
-  const { data: myTasksData } = useQuery<{ tasks: any[]; subjects: any[] }>({ queryKey: ["/api/my-tasks"] });
+  const { data: myTasksData } = useQuery<{ tasks: any[]; subjects: any[]; interventions: any[]; interventionStatuses: any[] }>({ queryKey: ["/api/my-tasks"] });
   const myTasks = myTasksData?.tasks || [];
+  const myInterventions = myTasksData?.interventions || [];
+  const myTotalTasks = myTasks.length + myInterventions.length;
 
   const { toast } = useToast();
   const [isEditing, setIsEditing] = useState(false);
@@ -467,6 +469,7 @@ export default function Dashboard() {
     ),
     my_tasks: () => {
       const subjectsMap = new Map((myTasksData?.subjects || []).map((s: any) => [s.id, s]));
+      const intStatusMap = new Map((myTasksData?.interventionStatuses || []).map((s: any) => [s.id, s.name]));
       const getSubjectLabel = (id: number) => {
         const s = subjectsMap.get(id);
         if (!s) return `#${id}`;
@@ -480,9 +483,9 @@ export default function Dashboard() {
             <CardTitle className="text-base flex items-center gap-2">
               <ClipboardCheck className="w-4 h-4 text-amber-500" />
               Moje úlohy
-              {myTasks.length > 0 && (
+              {myTotalTasks > 0 && (
                 <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-red-600 text-[10px] font-bold text-white px-1">
-                  {myTasks.length}
+                  {myTotalTasks}
                 </span>
               )}
             </CardTitle>
@@ -492,9 +495,30 @@ export default function Dashboard() {
             </Button>
           </CardHeader>
           <CardContent>
-            {myTasks.length > 0 ? (
+            {myTotalTasks > 0 ? (
               <div className="space-y-3">
-                {myTasks.slice(0, 5).map((task: any) => (
+                {myInterventions.slice(0, 3).map((c: any) => (
+                  <div
+                    key={`int-${c.id}`}
+                    className="flex items-center gap-3 text-sm border-l-2 border-orange-500 pl-3 cursor-pointer hover:bg-muted/30 transition-colors rounded-r"
+                    onClick={() => navigate(`/contracts/${c.id}/edit`)}
+                    data-testid={`widget-intervention-${c.id}`}
+                  >
+                    <div className="flex-1 min-w-0">
+                      <p className="font-medium truncate">
+                        Zmluva č. {c.contractNumber || c.uid || `#${c.id}`}
+                      </p>
+                      <p className="text-xs text-muted-foreground truncate">
+                        {c.statusId ? (intStatusMap.get(c.statusId) || "Intervencia") : "Intervencia"}
+                        {c.incompleteDataReason && ` — ${c.incompleteDataReason}`}
+                      </p>
+                    </div>
+                    <Badge variant="outline" className="border-orange-600 text-orange-400 text-[10px] shrink-0">
+                      Intervencia
+                    </Badge>
+                  </div>
+                ))}
+                {myTasks.slice(0, 3).map((task: any) => (
                   <div key={task.id} className="flex items-center gap-3 text-sm border-l-2 border-amber-500 pl-3" data-testid={`my-task-item-${task.id}`}>
                     <div className="flex-1 min-w-0">
                       <p className="font-medium truncate">
