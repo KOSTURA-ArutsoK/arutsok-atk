@@ -2,7 +2,7 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { formatDateTimeSlovak } from "@/lib/utils";
-import { Loader2, Check, X, ClipboardCheck, FileText, Download, AlertTriangle, ExternalLink } from "lucide-react";
+import { Loader2, Check, X, ClipboardCheck, FileText, Download, AlertTriangle, ExternalLink, XCircle, Archive } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -37,18 +37,20 @@ interface TransferTask {
   taskRole: string;
 }
 
-interface InterventionContract {
+interface ContractItem {
   id: number;
   uid: string | null;
   contractNumber: string | null;
   statusId: number | null;
+  lifecyclePhase?: number | null;
   klientUid: string | null;
   specialistaUid: string | null;
   partnerId: number | null;
-  productId: number | null;
+  productId?: number | null;
   incompleteData: boolean | null;
   incompleteDataReason: string | null;
   lastStatusUpdate: string | null;
+  updatedAt?: string | null;
   createdAt: string | null;
 }
 
@@ -66,10 +68,82 @@ interface SubjectInfo {
   type: string;
 }
 
+interface MyTasksResponse {
+  tasks: TransferTask[];
+  subjects: SubjectInfo[];
+  interventions: ContractItem[];
+  interventionStatuses: InterventionStatus[];
+  internalInterventions: ContractItem[];
+  rejectedContracts: ContractItem[];
+  archivedContracts: ContractItem[];
+}
+
 function getSubjectName(sub: SubjectInfo | undefined): string {
   if (!sub) return "—";
   if (sub.type === "company") return sub.companyName || "—";
   return `${sub.firstName || ""} ${sub.lastName || ""}`.trim() || "—";
+}
+
+function ContractSection({ title, icon, contracts, borderColor, badgeClass, badgeLabel, statusMap, navigate, testIdPrefix }: {
+  title: string;
+  icon: React.ReactNode;
+  contracts: ContractItem[];
+  borderColor: string;
+  badgeClass: string;
+  badgeLabel: string;
+  statusMap?: Map<number, string>;
+  navigate: (path: string) => void;
+  testIdPrefix: string;
+}) {
+  if (contracts.length === 0) return null;
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center gap-2">
+        {icon}
+        <h2 className="text-lg font-semibold">{title}</h2>
+        <Badge variant="outline" className={badgeClass} data-testid={`${testIdPrefix}-count`}>{contracts.length}</Badge>
+      </div>
+      <div className="space-y-3">
+        {contracts.map(contract => (
+          <Card
+            key={`${testIdPrefix}-${contract.id}`}
+            className={`border-l-4 ${borderColor} cursor-pointer hover:bg-muted/30 transition-colors`}
+            onClick={() => navigate(`/contracts/${contract.id}/edit`)}
+            data-testid={`${testIdPrefix}-card-${contract.id}`}
+          >
+            <CardContent className="py-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3 min-w-0">
+                  <div className="min-w-0">
+                    <p className="font-medium text-sm truncate" data-testid={`${testIdPrefix}-number-${contract.id}`}>
+                      Zmluva č. {contract.contractNumber || contract.uid || `#${contract.id}`}
+                    </p>
+                    <div className="flex items-center gap-3 text-xs text-muted-foreground mt-0.5">
+                      {statusMap && contract.statusId ? (
+                        <span>Stav: {statusMap.get(contract.statusId) || `#${contract.statusId}`}</span>
+                      ) : null}
+                      {contract.incompleteDataReason && (
+                        <span className="text-orange-400 truncate max-w-[300px]">Dôvod: {contract.incompleteDataReason}</span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2 shrink-0">
+                  <Badge variant="outline" className={`${badgeClass} text-[10px]`}>
+                    {badgeLabel}
+                  </Badge>
+                  <span className="text-xs text-muted-foreground">
+                    {contract.lastStatusUpdate ? formatDateTimeSlovak(contract.lastStatusUpdate) : contract.createdAt ? formatDateTimeSlovak(contract.createdAt) : "—"}
+                  </span>
+                  <ExternalLink className="w-3 h-3 text-muted-foreground" />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+    </div>
+  );
 }
 
 function ApprovalStepper({ task }: { task: TransferTask }) {
@@ -119,7 +193,7 @@ export default function MojeUlohy() {
   const [rejectNote, setRejectNote] = useState<Record<number, string>>({});
   const [showReject, setShowReject] = useState<Record<number, boolean>>({});
 
-  const { data, isLoading } = useQuery<{ tasks: TransferTask[]; subjects: SubjectInfo[]; interventions: InterventionContract[]; interventionStatuses: InterventionStatus[] }>({
+  const { data, isLoading } = useQuery<MyTasksResponse>({
     queryKey: ["/api/my-tasks"],
     refetchInterval: 15000,
   });
@@ -157,9 +231,12 @@ export default function MojeUlohy() {
   const tasks = data?.tasks || [];
   const interventions = data?.interventions || [];
   const interventionStatuses = data?.interventionStatuses || [];
+  const internalInterventions = data?.internalInterventions || [];
+  const rejectedContracts = data?.rejectedContracts || [];
+  const archivedContracts = data?.archivedContracts || [];
   const subjectMap = new Map((data?.subjects || []).map(s => [s.id, s]));
   const statusMap = new Map(interventionStatuses.map(s => [s.id, s.name]));
-  const totalCount = tasks.length + interventions.length;
+  const totalCount = tasks.length + interventions.length + internalInterventions.length + rejectedContracts.length + archivedContracts.length;
 
   if (isLoading) {
     return (
@@ -188,53 +265,50 @@ export default function MojeUlohy() {
         </Card>
       ) : (
         <div className="space-y-8">
-          {interventions.length > 0 && (
-            <div className="space-y-4">
-              <div className="flex items-center gap-2">
-                <AlertTriangle className="w-5 h-5 text-orange-500" />
-                <h2 className="text-lg font-semibold">Intervencie</h2>
-                <Badge variant="outline" className="border-orange-500 text-orange-400" data-testid="intervention-count">{interventions.length}</Badge>
-              </div>
-              <div className="space-y-3">
-                {interventions.map(contract => (
-                  <Card
-                    key={`int-${contract.id}`}
-                    className="border-l-4 border-l-orange-500 cursor-pointer hover:bg-muted/30 transition-colors"
-                    onClick={() => navigate(`/contracts/${contract.id}/edit`)}
-                    data-testid={`intervention-card-${contract.id}`}
-                  >
-                    <CardContent className="py-4">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-3 min-w-0">
-                          <AlertTriangle className="w-4 h-4 text-orange-500 shrink-0" />
-                          <div className="min-w-0">
-                            <p className="font-medium text-sm truncate" data-testid={`intervention-number-${contract.id}`}>
-                              Zmluva č. {contract.contractNumber || contract.uid || `#${contract.id}`}
-                            </p>
-                            <div className="flex items-center gap-3 text-xs text-muted-foreground mt-0.5">
-                              <span>Stav: {contract.statusId ? (statusMap.get(contract.statusId) || `#${contract.statusId}`) : "—"}</span>
-                              {contract.incompleteDataReason && (
-                                <span className="text-orange-400 truncate max-w-[300px]">Dôvod: {contract.incompleteDataReason}</span>
-                              )}
-                            </div>
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-2 shrink-0">
-                          <Badge variant="outline" className="border-orange-500 text-orange-400 text-[10px]">
-                            Intervencia
-                          </Badge>
-                          <span className="text-xs text-muted-foreground">
-                            {contract.lastStatusUpdate ? formatDateTimeSlovak(contract.lastStatusUpdate) : contract.createdAt ? formatDateTimeSlovak(contract.createdAt) : "—"}
-                          </span>
-                          <ExternalLink className="w-3 h-3 text-muted-foreground" />
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
-            </div>
-          )}
+          <ContractSection
+            title="Intervencie"
+            icon={<AlertTriangle className="w-5 h-5 text-orange-500" />}
+            contracts={interventions}
+            borderColor="border-l-orange-500"
+            badgeClass="border-orange-500 text-orange-400"
+            badgeLabel="Intervencia"
+            statusMap={statusMap}
+            navigate={navigate}
+            testIdPrefix="intervention"
+          />
+
+          <ContractSection
+            title="Interné intervencie"
+            icon={<AlertTriangle className="w-5 h-5 text-amber-500" />}
+            contracts={internalInterventions}
+            borderColor="border-l-amber-500"
+            badgeClass="border-amber-500 text-amber-400"
+            badgeLabel="Interná intervencia"
+            navigate={navigate}
+            testIdPrefix="internal-intervention"
+          />
+
+          <ContractSection
+            title="Neprijaté zmluvy – výhrady"
+            icon={<XCircle className="w-5 h-5 text-red-500" />}
+            contracts={rejectedContracts}
+            borderColor="border-l-red-500"
+            badgeClass="border-red-500 text-red-400"
+            badgeLabel="Výhrady"
+            navigate={navigate}
+            testIdPrefix="rejected"
+          />
+
+          <ContractSection
+            title="Archív zmlúv (s výhradami)"
+            icon={<Archive className="w-5 h-5 text-muted-foreground" />}
+            contracts={archivedContracts}
+            borderColor="border-l-muted-foreground"
+            badgeClass="border-muted-foreground text-muted-foreground"
+            badgeLabel="Archív"
+            navigate={navigate}
+            testIdPrefix="archived"
+          />
 
           {tasks.length > 0 && (
             <div className="space-y-4">

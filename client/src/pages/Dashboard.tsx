@@ -97,10 +97,13 @@ export default function Dashboard() {
   const { data: dashboardPrefs } = useQuery<DashboardPreference[]>({ queryKey: ["/api/dashboard-preferences"] });
   const { data: savedLayout } = useQuery<UserDashboardLayout | null>({ queryKey: ["/api/dashboard-layout"] });
   const { data: contractStats } = useQuery<ContractStats>({ queryKey: ["/api/dashboard-contract-stats"] });
-  const { data: myTasksData } = useQuery<{ tasks: any[]; subjects: any[]; interventions: any[]; interventionStatuses: any[] }>({ queryKey: ["/api/my-tasks"] });
+  const { data: myTasksData } = useQuery<{ tasks: any[]; subjects: any[]; interventions: any[]; interventionStatuses: any[]; internalInterventions: any[]; rejectedContracts: any[]; archivedContracts: any[] }>({ queryKey: ["/api/my-tasks"] });
   const myTasks = myTasksData?.tasks || [];
   const myInterventions = myTasksData?.interventions || [];
-  const myTotalTasks = myTasks.length + myInterventions.length;
+  const myInternalInterventions = myTasksData?.internalInterventions || [];
+  const myRejectedContracts = myTasksData?.rejectedContracts || [];
+  const myArchivedContracts = myTasksData?.archivedContracts || [];
+  const myTotalTasks = myTasks.length + myInterventions.length + myInternalInterventions.length + myRejectedContracts.length + myArchivedContracts.length;
 
   const { toast } = useToast();
   const [isEditing, setIsEditing] = useState(false);
@@ -496,44 +499,50 @@ export default function Dashboard() {
           </CardHeader>
           <CardContent>
             {myTotalTasks > 0 ? (
-              <div className="space-y-3">
-                {myInterventions.slice(0, 3).map((c: any) => (
-                  <div
-                    key={`int-${c.id}`}
-                    className="flex items-center gap-3 text-sm border-l-2 border-orange-500 pl-3 cursor-pointer hover:bg-muted/30 transition-colors rounded-r"
-                    onClick={() => navigate(`/contracts/${c.id}/edit`)}
-                    data-testid={`widget-intervention-${c.id}`}
-                  >
+              <div className="space-y-2">
+                {myInterventions.slice(0, 2).map((c: any) => (
+                  <div key={`int-${c.id}`} className="flex items-center gap-3 text-sm border-l-2 border-orange-500 pl-3 cursor-pointer hover:bg-muted/30 transition-colors rounded-r" onClick={() => navigate(`/contracts/${c.id}/edit`)} data-testid={`widget-intervention-${c.id}`}>
                     <div className="flex-1 min-w-0">
-                      <p className="font-medium truncate">
-                        Zmluva č. {c.contractNumber || c.uid || `#${c.id}`}
-                      </p>
-                      <p className="text-xs text-muted-foreground truncate">
-                        {c.statusId ? (intStatusMap.get(c.statusId) || "Intervencia") : "Intervencia"}
-                        {c.incompleteDataReason && ` — ${c.incompleteDataReason}`}
-                      </p>
+                      <p className="font-medium truncate">Zmluva č. {c.contractNumber || c.uid || `#${c.id}`}</p>
+                      <p className="text-xs text-muted-foreground truncate">{c.statusId ? (intStatusMap.get(c.statusId) || "Intervencia") : "Intervencia"}</p>
                     </div>
-                    <Badge variant="outline" className="border-orange-600 text-orange-400 text-[10px] shrink-0">
-                      Intervencia
-                    </Badge>
+                    <Badge variant="outline" className="border-orange-600 text-orange-400 text-[10px] shrink-0">Intervencia</Badge>
                   </div>
                 ))}
-                {myTasks.slice(0, 3).map((task: any) => (
+                {myInternalInterventions.slice(0, 2).map((c: any) => (
+                  <div key={`iint-${c.id}`} className="flex items-center gap-3 text-sm border-l-2 border-amber-500 pl-3 cursor-pointer hover:bg-muted/30 transition-colors rounded-r" onClick={() => navigate(`/contracts/${c.id}/edit`)} data-testid={`widget-internal-intervention-${c.id}`}>
+                    <div className="flex-1 min-w-0">
+                      <p className="font-medium truncate">Zmluva č. {c.contractNumber || c.uid || `#${c.id}`}</p>
+                      <p className="text-xs text-muted-foreground truncate">Interná intervencia</p>
+                    </div>
+                    <Badge variant="outline" className="border-amber-600 text-amber-400 text-[10px] shrink-0">Interná</Badge>
+                  </div>
+                ))}
+                {myRejectedContracts.slice(0, 2).map((c: any) => (
+                  <div key={`rej-${c.id}`} className="flex items-center gap-3 text-sm border-l-2 border-red-500 pl-3 cursor-pointer hover:bg-muted/30 transition-colors rounded-r" onClick={() => navigate(`/contracts/${c.id}/edit`)} data-testid={`widget-rejected-${c.id}`}>
+                    <div className="flex-1 min-w-0">
+                      <p className="font-medium truncate">Zmluva č. {c.contractNumber || c.uid || `#${c.id}`}</p>
+                      <p className="text-xs text-muted-foreground truncate">Neprijaté – výhrady</p>
+                    </div>
+                    <Badge variant="outline" className="border-red-600 text-red-400 text-[10px] shrink-0">Výhrady</Badge>
+                  </div>
+                ))}
+                {myArchivedContracts.slice(0, 2).map((c: any) => (
+                  <div key={`arch-${c.id}`} className="flex items-center gap-3 text-sm border-l-2 border-muted-foreground pl-3 cursor-pointer hover:bg-muted/30 transition-colors rounded-r" onClick={() => navigate(`/contracts/${c.id}/edit`)} data-testid={`widget-archived-${c.id}`}>
+                    <div className="flex-1 min-w-0">
+                      <p className="font-medium truncate">Zmluva č. {c.contractNumber || c.uid || `#${c.id}`}</p>
+                      <p className="text-xs text-muted-foreground truncate">Archív s výhradami</p>
+                    </div>
+                    <Badge variant="outline" className="border-muted-foreground text-muted-foreground text-[10px] shrink-0">Archív</Badge>
+                  </div>
+                ))}
+                {myTasks.slice(0, 2).map((task: any) => (
                   <div key={task.id} className="flex items-center gap-3 text-sm border-l-2 border-amber-500 pl-3" data-testid={`my-task-item-${task.id}`}>
                     <div className="flex-1 min-w-0">
-                      <p className="font-medium truncate">
-                        Prestup #{task.id} — {getSubjectLabel(task.subjectId)}
-                      </p>
-                      <p className="text-xs text-muted-foreground truncate">
-                        {task.taskRole}
-                      </p>
-                      <p className="text-xs text-muted-foreground">
-                        Krok {task.currentStep?.step || "?"}/4: {task.currentStep?.stepName || ""}
-                      </p>
+                      <p className="font-medium truncate">Prestup #{task.id} — {getSubjectLabel(task.subjectId)}</p>
+                      <p className="text-xs text-muted-foreground truncate">{task.taskRole}</p>
                     </div>
-                    <Badge variant="outline" className="border-amber-700 text-amber-400 text-[10px] shrink-0">
-                      Čaká
-                    </Badge>
+                    <Badge variant="outline" className="border-amber-700 text-amber-400 text-[10px] shrink-0">Čaká</Badge>
                   </div>
                 ))}
               </div>

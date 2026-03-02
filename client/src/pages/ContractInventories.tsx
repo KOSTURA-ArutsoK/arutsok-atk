@@ -80,7 +80,7 @@ function getContractSemaphore(contract: { lifecyclePhase: number | null; isDelet
     return { color: "#ef4444", label: "Neprijaté – výhrady", cssClass: "text-red-500" };
   }
   if (phase === 7) {
-    return { color: "#f97316", label: "Interná intervencia", cssClass: "text-orange-500" };
+    return { color: "#f97316", label: "Interné intervencie", cssClass: "text-orange-500" };
   }
   if (phase === 4) {
     return { color: "#000000", label: "Archív s výhradami", cssClass: "text-black dark:text-gray-400" };

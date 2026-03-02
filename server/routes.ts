@@ -335,10 +335,10 @@ export async function registerRoutes(
     1: "Čakajúce na odoslanie",
     2: "Odoslané na sprievodke",
     3: "Neprijaté zmluvy – výhrady",
-    4: "Archív zmlúv (z výhradami)",
+    4: "Archív zmlúv (s výhradami)",
     5: "Prijaté do centrály",
     6: "Kontrakt v spracovaní",
-    7: "Interná intervencia ku zmluve",
+    7: "Interné intervencie ku zmluve",
     8: "Pripravené na odoslanie",
     9: "Odoslané obch. partnerovi",
     10: "Prijaté obch. partnerom",
@@ -15345,7 +15345,73 @@ export async function registerRoutes(
             .where(inArray(contractStatuses.id, interventionStatusIds))
         : [];
 
-      res.json({ tasks, subjects: relatedSubjects, interventions: interventionContracts, interventionStatuses: statusList });
+      const contractSelectFields = {
+        id: contracts.id,
+        uid: contracts.uid,
+        contractNumber: contracts.contractNumber,
+        statusId: contracts.statusId,
+        lifecyclePhase: contracts.lifecyclePhase,
+        klientUid: contracts.klientUid,
+        specialistaUid: contracts.specialistaUid,
+        subjectId: contracts.subjectId,
+        partnerId: contracts.partnerId,
+        incompleteData: contracts.incompleteData,
+        incompleteDataReason: contracts.incompleteDataReason,
+        lastStatusUpdate: contracts.lastStatusUpdate,
+        updatedAt: contracts.updatedAt,
+        createdAt: contracts.createdAt,
+      };
+
+      const allPhase7 = await db.select(contractSelectFields).from(contracts).where(
+        and(eq(contracts.lifecyclePhase, 7), eq(contracts.isDeleted, false))
+      ).orderBy(desc(contracts.lastStatusUpdate));
+
+      let internalInterventions: any[];
+      if (isAdmin(appUser)) {
+        internalInterventions = allPhase7;
+      } else if (appUser.linkedSubjectId) {
+        const lnkSub = await db.select({ uid: subjects.uid }).from(subjects).where(eq(subjects.id, appUser.linkedSubjectId)).limit(1);
+        const uUid = lnkSub[0]?.uid || null;
+        const uIdStr = String(appUser.linkedSubjectId);
+        internalInterventions = allPhase7.filter(c =>
+          c.specialistaUid === uIdStr || c.klientUid === uIdStr ||
+          (uUid && (c.specialistaUid === uUid || c.klientUid === uUid)) ||
+          c.subjectId === appUser.linkedSubjectId
+        );
+      } else {
+        internalInterventions = [];
+      }
+
+      const companyId = appUser?.activeCompanyId || undefined;
+      const stateId = appUser?.activeStateId || undefined;
+      const allRejected = await storage.getRejectedContracts(companyId, stateId);
+      const allArchived = await storage.getArchivedContracts(companyId, stateId);
+
+      let rejectedContracts: any[];
+      let archivedContracts: any[];
+      if (isAdmin(appUser)) {
+        rejectedContracts = allRejected;
+        archivedContracts = allArchived;
+      } else if (appUser.linkedSubjectId) {
+        const lnkSub2 = await db.select({ uid: subjects.uid }).from(subjects).where(eq(subjects.id, appUser.linkedSubjectId)).limit(1);
+        const uUid2 = lnkSub2[0]?.uid || null;
+        const uIdStr2 = String(appUser.linkedSubjectId);
+        const filterFn = (c: any) =>
+          c.specialistaUid === uIdStr2 || c.klientUid === uIdStr2 ||
+          (uUid2 && (c.specialistaUid === uUid2 || c.klientUid === uUid2)) ||
+          c.subjectId === appUser.linkedSubjectId;
+        rejectedContracts = allRejected.filter(filterFn);
+        archivedContracts = allArchived.filter(filterFn);
+      } else {
+        rejectedContracts = [];
+        archivedContracts = [];
+      }
+
+      res.json({
+        tasks, subjects: relatedSubjects,
+        interventions: interventionContracts, interventionStatuses: statusList,
+        internalInterventions, rejectedContracts, archivedContracts,
+      });
     } catch (err: any) {
       res.status(500).json({ message: err?.message || "Chyba" });
     }
@@ -15393,7 +15459,47 @@ export async function registerRoutes(
         }
       }
 
-      res.json({ count: transferCount + interventionCount });
+      const allPhase7Count = await db.select({ id: contracts.id, specialistaUid: contracts.specialistaUid, klientUid: contracts.klientUid, subjectId: contracts.subjectId })
+        .from(contracts)
+        .where(and(eq(contracts.lifecyclePhase, 7), eq(contracts.isDeleted, false)));
+
+      let internalInterventionCount = 0;
+      if (isAdmin(appUser)) {
+        internalInterventionCount = allPhase7Count.length;
+      } else if (appUser.linkedSubjectId) {
+        const lnkSub = await db.select({ uid: subjects.uid }).from(subjects).where(eq(subjects.id, appUser.linkedSubjectId)).limit(1);
+        const uUid = lnkSub[0]?.uid || null;
+        const uIdStr = String(appUser.linkedSubjectId);
+        internalInterventionCount = allPhase7Count.filter(c =>
+          c.specialistaUid === uIdStr || c.klientUid === uIdStr ||
+          (uUid && (c.specialistaUid === uUid || c.klientUid === uUid)) ||
+          c.subjectId === appUser.linkedSubjectId
+        ).length;
+      }
+
+      const cmpId = appUser?.activeCompanyId || undefined;
+      const stId = appUser?.activeStateId || undefined;
+      const allRej = await storage.getRejectedContracts(cmpId, stId);
+      const allArch = await storage.getArchivedContracts(cmpId, stId);
+
+      let rejectedCount = 0;
+      let archivedCount = 0;
+      if (isAdmin(appUser)) {
+        rejectedCount = allRej.length;
+        archivedCount = allArch.length;
+      } else if (appUser.linkedSubjectId) {
+        const lnkSub2 = await db.select({ uid: subjects.uid }).from(subjects).where(eq(subjects.id, appUser.linkedSubjectId)).limit(1);
+        const uUid2 = lnkSub2[0]?.uid || null;
+        const uIdStr2 = String(appUser.linkedSubjectId);
+        const filterFn = (c: any) =>
+          c.specialistaUid === uIdStr2 || c.klientUid === uIdStr2 ||
+          (uUid2 && (c.specialistaUid === uUid2 || c.klientUid === uUid2)) ||
+          c.subjectId === appUser.linkedSubjectId;
+        rejectedCount = allRej.filter(filterFn).length;
+        archivedCount = allArch.filter(filterFn).length;
+      }
+
+      res.json({ count: transferCount + interventionCount + internalInterventionCount + rejectedCount + archivedCount });
     } catch (err: any) {
       res.status(500).json({ message: err?.message || "Chyba" });
     }

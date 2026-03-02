@@ -2361,13 +2361,13 @@ export default function Contracts() {
     { id: 1, label: "Čakajúce na odoslanie", icon: Inbox, color: "text-amber-500", bgColor: "bg-amber-500/15", count: activeContracts.length },
     { id: 2, label: "Odoslané na sprievodke", icon: Send, color: "text-blue-500", bgColor: "bg-blue-500/15", count: activeDispatched.length },
     { id: 3, label: "Neprijaté zmluvy – výhrady", icon: XCircle, color: "text-red-500", bgColor: "bg-red-500/15", count: activeRejected.length },
-    { id: 4, label: "Archív zmlúv (z výhradami)", icon: Archive, color: "text-muted-foreground", bgColor: "bg-muted/30", count: activeArchived.length },
+    { id: 4, label: "Archív zmlúv (s výhradami)", icon: Archive, color: "text-muted-foreground", bgColor: "bg-muted/30", count: activeArchived.length },
     { id: 5, label: "Prijaté do centrály", icon: CheckCircle2, color: "text-green-500", bgColor: "bg-green-500/15", count: activeAccepted.length },
   ];
 
   const row2FolderDefs = [
     { id: 6, label: "Kontrakt v spracovaní", icon: LayoutGrid, color: "text-cyan-500", bgColor: "bg-cyan-500/15", count: phase6Contracts.length },
-    { id: 7, label: "Interná intervencia", icon: AlertTriangle, color: "text-orange-500", bgColor: "bg-orange-500/15", count: phase7Contracts.length },
+    { id: 7, label: "Interné intervencie", icon: AlertTriangle, color: "text-orange-500", bgColor: "bg-orange-500/15", count: phase7Contracts.length },
     { id: 8, label: "Pripravené na odoslanie", icon: ListChecks, color: "text-emerald-500", bgColor: "bg-emerald-500/15", count: phase8Contracts.length },
     { id: 9, label: "Odoslané obch. partnerovi", icon: Send, color: "text-indigo-500", bgColor: "bg-indigo-500/15", count: phase9Contracts.length },
     { id: 10, label: "Prijaté obch. partnerom", icon: Award, color: "text-purple-500", bgColor: "bg-purple-500/15", count: phase10Contracts.length },
