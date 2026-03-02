@@ -1,7 +1,7 @@
 import { useState, useCallback, useMemo, useEffect } from "react";
 import { useMyCompanies } from "@/hooks/use-companies";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { Users, Building2, ShieldAlert, TrendingUp, Briefcase, Package, History, Calendar, Clock, GripVertical, Pencil, Save, X, FileText, FileCheck, AlertCircle, Banknote, AlertTriangle, ArrowRight, Loader2, Ban } from "lucide-react";
+import { Users, Building2, ShieldAlert, TrendingUp, Briefcase, Package, History, Calendar, Clock, GripVertical, Pencil, Save, X, FileText, FileCheck, AlertCircle, Banknote, AlertTriangle, ArrowRight, Loader2, Ban, ClipboardCheck } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useAppUser } from "@/hooks/use-app-user";
@@ -30,7 +30,7 @@ import {
 import { CSS } from "@dnd-kit/utilities";
 import { cn, formatUid } from "@/lib/utils";
 
-const WIDGET_KEYS = ["stats", "recent_subjects", "my_companies", "recent_partners", "recent_products", "audit_activity", "upcoming_events", "red_list_recent", "black_list_recent"];
+const WIDGET_KEYS = ["stats", "recent_subjects", "my_companies", "recent_partners", "recent_products", "audit_activity", "upcoming_events", "my_tasks", "red_list_recent", "black_list_recent"];
 
 function SortableWidget({ id, isEditing, children }: { id: string; isEditing: boolean; children: React.ReactNode }) {
   const {
@@ -97,6 +97,7 @@ export default function Dashboard() {
   const { data: dashboardPrefs } = useQuery<DashboardPreference[]>({ queryKey: ["/api/dashboard-preferences"] });
   const { data: savedLayout } = useQuery<UserDashboardLayout | null>({ queryKey: ["/api/dashboard-layout"] });
   const { data: contractStats } = useQuery<ContractStats>({ queryKey: ["/api/dashboard-contract-stats"] });
+  const { data: myTasks } = useQuery<any[]>({ queryKey: ["/api/my-tasks"] });
 
   const { toast } = useToast();
   const [isEditing, setIsEditing] = useState(false);
@@ -460,6 +461,52 @@ export default function Dashboard() {
             </div>
           </div>
           <p className="text-sm text-muted-foreground py-6 text-center" style={{ display: upcomingEvents && upcomingEvents.length > 0 ? 'none' : 'block' }} data-testid="text-no-upcoming">Ziadne nadchadzajuce udalosti</p>
+        </CardContent>
+      </Card>
+    ),
+    my_tasks: () => (
+      <Card data-testid="widget-my-tasks">
+        <CardHeader className="flex flex-row items-center justify-between gap-2 space-y-0 pb-2">
+          <CardTitle className="text-base flex items-center gap-2">
+            <ClipboardCheck className="w-4 h-4 text-amber-500" />
+            Moje úlohy
+            {myTasks && myTasks.length > 0 && (
+              <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-red-600 text-[10px] font-bold text-white px-1">
+                {myTasks.length}
+              </span>
+            )}
+          </CardTitle>
+          <Button variant="ghost" size="sm" className="text-xs" onClick={() => navigate("/moje-ulohy")} data-testid="btn-widget-my-tasks-detail">
+            Zobraziť všetky
+            <ArrowRight className="w-3 h-3 ml-1" />
+          </Button>
+        </CardHeader>
+        <CardContent>
+          {myTasks && myTasks.length > 0 ? (
+            <div className="space-y-3">
+              {myTasks.slice(0, 5).map((task: any) => (
+                <div key={task.id} className="flex items-center gap-3 text-sm border-l-2 border-amber-500 pl-3" data-testid={`my-task-item-${task.id}`}>
+                  <div className="flex-1 min-w-0">
+                    <p className="font-medium truncate">
+                      Prestup #{task.id}
+                      {task.subjectName && ` — ${task.subjectName}`}
+                    </p>
+                    <p className="text-xs text-muted-foreground truncate">
+                      {task.taskRole}
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      Krok {task.currentStep?.step || "?"}/4: {task.currentStep?.stepName || ""}
+                    </p>
+                  </div>
+                  <Badge variant="outline" className="border-amber-700 text-amber-400 text-[10px] shrink-0">
+                    Čaká
+                  </Badge>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="text-sm text-muted-foreground py-6 text-center" data-testid="text-no-tasks">Nemáte žiadne čakajúce úlohy</p>
+          )}
         </CardContent>
       </Card>
     ),

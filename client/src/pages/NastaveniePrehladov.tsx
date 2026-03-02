@@ -15,6 +15,7 @@ const DASHBOARD_WIDGETS = [
   { key: "recent_products", label: "Posledne produkty" },
   { key: "audit_activity", label: "Posledna aktivita (audit log)" },
   { key: "upcoming_events", label: "Nadchadzajuce udalosti (kalendar)" },
+  { key: "my_tasks", label: "Moje úlohy (čakajúce schválenia)" },
 ];
 
 export default function NastaveniePrehladov() {
