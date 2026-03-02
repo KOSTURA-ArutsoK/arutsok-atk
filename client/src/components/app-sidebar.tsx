@@ -271,6 +271,32 @@ function MojeUlohyMenuItem({ location }: { location: string }) {
   );
 }
 
+function SidebarGroupCollapsible({ groupName, links }: { groupName: string; links: SidebarLink[] }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div>
+      <button
+        onClick={() => setOpen(!open)}
+        className="flex items-center gap-1 w-full px-2 pt-2 pb-1 text-[10px] font-semibold text-muted-foreground uppercase tracking-wider hover:text-foreground transition-colors"
+        data-testid={`nav-group-${groupName}`}
+      >
+        <ChevronRight className={`w-3 h-3 transition-transform ${open ? "rotate-90" : ""}`} />
+        <span>{groupName}</span>
+      </button>
+      {open && links.map(link => (
+        <SidebarMenuSubItem key={link.id}>
+          <SidebarMenuSubButton asChild data-testid={`nav-link-${link.id}`}>
+            <a href={link.url} target="_blank" rel="noopener noreferrer">
+              <span>{link.name}</span>
+              <ExternalLink className="ml-auto w-3 h-3 text-muted-foreground" />
+            </a>
+          </SidebarMenuSubButton>
+        </SidebarMenuSubItem>
+      ))}
+    </div>
+  );
+}
+
 export function AppSidebar() {
   const [location] = useLocation();
   const { data: appUser } = useAppUser();
@@ -279,11 +305,24 @@ export function AppSidebar() {
     queryKey: ["/api/app-users/my-points"],
     staleTime: 1000 * 60 * 5,
   });
+  const divisionId = appUser?.activeDivisionId;
   const { data: sidebarSections } = useQuery<SidebarLinkSection[]>({
-    queryKey: ["/api/sidebar-link-sections"],
+    queryKey: ["/api/sidebar-link-sections", divisionId],
+    queryFn: async () => {
+      const res = await fetch(`/api/sidebar-link-sections${divisionId ? `?divisionId=${divisionId}` : ""}`, { credentials: "include" });
+      if (!res.ok) throw new Error("Failed");
+      return res.json();
+    },
+    enabled: !!divisionId,
   });
   const { data: sidebarLinksData } = useQuery<SidebarLink[]>({
-    queryKey: ["/api/sidebar-links"],
+    queryKey: ["/api/sidebar-links", divisionId],
+    queryFn: async () => {
+      const res = await fetch(`/api/sidebar-links${divisionId ? `?divisionId=${divisionId}` : ""}`, { credentials: "include" });
+      if (!res.ok) throw new Error("Failed");
+      return res.json();
+    },
+    enabled: !!divisionId,
   });
 
   const allMenus = [
@@ -482,50 +521,64 @@ export function AppSidebar() {
           <SidebarGroupContent>
             <SidebarMenu>
               <MojeUlohyMenuItem location={location} />
-              {sidebarSections && sidebarSections.length > 0 && sidebarSections.map(section => {
-                const sectionLinks = sidebarLinksData?.filter(l => l.sectionId === section.id) || [];
+              {(() => {
+                const allLinks = sidebarLinksData || [];
+                const section = sidebarSections?.[0];
+                const sectionLinks = section ? allLinks.filter(l => l.sectionId === section.id) : [];
+                if (sectionLinks.length === 0) {
+                  return (
+                    <Collapsible open={openMenuId === "sidebar-odkazy"} onOpenChange={(open) => setOpenMenuId(open ? "sidebar-odkazy" : null)}>
+                      <SidebarMenuItem>
+                        <CollapsibleTrigger asChild>
+                          <SidebarMenuButton data-testid="nav-section-odkazy">
+                            <Link2 className="w-4 h-4" />
+                            <span>Odkazy - linky</span>
+                            <ChevronRight className={`ml-auto h-4 w-4 transition-transform ${openMenuId === "sidebar-odkazy" ? "rotate-90" : ""}`} />
+                          </SidebarMenuButton>
+                        </CollapsibleTrigger>
+                        <CollapsibleContent>
+                          <SidebarMenuSub>
+                            <SidebarMenuSubItem>
+                              <SidebarMenuSubButton asChild data-testid="nav-link-kostura">
+                                <a href="https://kostura.sk" target="_blank" rel="noopener noreferrer">
+                                  <span>kostura.sk</span>
+                                  <ExternalLink className="ml-auto w-3 h-3 text-muted-foreground" />
+                                </a>
+                              </SidebarMenuSubButton>
+                            </SidebarMenuSubItem>
+                          </SidebarMenuSub>
+                        </CollapsibleContent>
+                      </SidebarMenuItem>
+                    </Collapsible>
+                  );
+                }
                 const groups: Record<string, SidebarLink[]> = {};
                 for (const l of sectionLinks) {
                   if (!groups[l.groupName]) groups[l.groupName] = [];
                   groups[l.groupName].push(l);
                 }
-                const menuKey = `sidebar-section-${section.id}`;
+                const menuKey = "sidebar-odkazy";
                 return (
-                  <Collapsible key={section.id} open={openMenuId === menuKey} onOpenChange={(open) => setOpenMenuId(open ? menuKey : null)}>
+                  <Collapsible open={openMenuId === menuKey} onOpenChange={(open) => setOpenMenuId(open ? menuKey : null)}>
                     <SidebarMenuItem>
                       <CollapsibleTrigger asChild>
-                        <SidebarMenuButton data-testid={`nav-section-${section.id}`}>
+                        <SidebarMenuButton data-testid="nav-section-odkazy">
                           <Link2 className="w-4 h-4" />
-                          <span>{section.name}</span>
+                          <span>Odkazy - linky</span>
                           <ChevronRight className={`ml-auto h-4 w-4 transition-transform ${openMenuId === menuKey ? "rotate-90" : ""}`} />
                         </SidebarMenuButton>
                       </CollapsibleTrigger>
                       <CollapsibleContent>
                         <SidebarMenuSub>
                           {Object.entries(groups).map(([groupName, groupLinks]) => (
-                            <div key={groupName}>
-                              <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider px-2 pt-2 pb-1">{groupName}</p>
-                              {groupLinks.map(link => (
-                                <SidebarMenuSubItem key={link.id}>
-                                  <SidebarMenuSubButton asChild data-testid={`nav-link-${link.id}`}>
-                                    <a href={link.url} target="_blank" rel="noopener noreferrer">
-                                      <span>{link.name}</span>
-                                      <ExternalLink className="ml-auto w-3 h-3 text-muted-foreground" />
-                                    </a>
-                                  </SidebarMenuSubButton>
-                                </SidebarMenuSubItem>
-                              ))}
-                            </div>
+                            <SidebarGroupCollapsible key={groupName} groupName={groupName} links={groupLinks} />
                           ))}
-                          {sectionLinks.length === 0 && (
-                            <p className="text-[10px] text-muted-foreground px-2 py-2">Žiadne odkazy</p>
-                          )}
                         </SidebarMenuSub>
                       </CollapsibleContent>
                     </SidebarMenuItem>
                   </Collapsible>
                 );
-              })}
+              })()}
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>

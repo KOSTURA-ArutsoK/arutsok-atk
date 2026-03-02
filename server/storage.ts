@@ -314,11 +314,11 @@ export interface IStorage {
   getDashboardLayout(appUserId: number): Promise<UserDashboardLayout | undefined>;
   saveDashboardLayout(appUserId: number, widgetOrder: string[]): Promise<UserDashboardLayout>;
 
-  getSidebarLinkSections(appUserId: number): Promise<SidebarLinkSection[]>;
+  getSidebarLinkSections(appUserId: number, divisionId?: number | null): Promise<SidebarLinkSection[]>;
   createSidebarLinkSection(data: InsertSidebarLinkSection): Promise<SidebarLinkSection>;
   updateSidebarLinkSection(id: number, data: Partial<InsertSidebarLinkSection>): Promise<SidebarLinkSection>;
   deleteSidebarLinkSection(id: number): Promise<void>;
-  getSidebarLinks(appUserId: number): Promise<SidebarLink[]>;
+  getSidebarLinks(appUserId: number, divisionId?: number | null): Promise<SidebarLink[]>;
   getSidebarLinksBySection(sectionId: number): Promise<SidebarLink[]>;
   createSidebarLink(data: InsertSidebarLink): Promise<SidebarLink>;
   updateSidebarLink(id: number, data: Partial<InsertSidebarLink>): Promise<SidebarLink>;
@@ -2211,9 +2211,13 @@ export class DatabaseStorage implements IStorage {
     return created;
   }
 
-  async getSidebarLinkSections(appUserId: number): Promise<SidebarLinkSection[]> {
+  async getSidebarLinkSections(appUserId: number, divisionId?: number | null): Promise<SidebarLinkSection[]> {
+    const conditions = [eq(sidebarLinkSections.appUserId, appUserId)];
+    if (divisionId !== undefined && divisionId !== null) {
+      conditions.push(eq(sidebarLinkSections.divisionId, divisionId));
+    }
     return await db.select().from(sidebarLinkSections)
-      .where(eq(sidebarLinkSections.appUserId, appUserId))
+      .where(and(...conditions))
       .orderBy(asc(sidebarLinkSections.sortOrder));
   }
 
@@ -2231,9 +2235,13 @@ export class DatabaseStorage implements IStorage {
     await db.delete(sidebarLinkSections).where(eq(sidebarLinkSections.id, id));
   }
 
-  async getSidebarLinks(appUserId: number): Promise<SidebarLink[]> {
+  async getSidebarLinks(appUserId: number, divisionId?: number | null): Promise<SidebarLink[]> {
+    const conditions = [eq(sidebarLinks.appUserId, appUserId)];
+    if (divisionId !== undefined && divisionId !== null) {
+      conditions.push(eq(sidebarLinks.divisionId, divisionId));
+    }
     return await db.select().from(sidebarLinks)
-      .where(eq(sidebarLinks.appUserId, appUserId))
+      .where(and(...conditions))
       .orderBy(asc(sidebarLinks.sortOrder));
   }
 

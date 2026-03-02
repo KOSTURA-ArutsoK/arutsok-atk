@@ -6231,7 +6231,12 @@ export async function registerRoutes(
     try {
       const appUser = req.appUser;
       if (!appUser) return res.status(401).json({ message: "Unauthorized" });
-      const sections = await storage.getSidebarLinkSections(appUser.id);
+      const divisionId = req.query.divisionId ? parseInt(req.query.divisionId as string) : appUser.activeDivisionId;
+      let sections = await storage.getSidebarLinkSections(appUser.id, divisionId);
+      if (sections.length === 0 && divisionId) {
+        const created = await storage.createSidebarLinkSection({ appUserId: appUser.id, divisionId, name: "Odkazy", sortOrder: 0 });
+        sections = [created];
+      }
       res.json(sections);
     } catch { res.status(500).json({ message: "Chyba pri načítaní sekcií" }); }
   });
@@ -6242,7 +6247,8 @@ export async function registerRoutes(
       if (!appUser) return res.status(401).json({ message: "Unauthorized" });
       const { name, sortOrder } = req.body;
       if (!name || typeof name !== "string") return res.status(400).json({ message: "Názov je povinný" });
-      const section = await storage.createSidebarLinkSection({ appUserId: appUser.id, name, sortOrder: sortOrder ?? 0 });
+      const divisionId = appUser.activeDivisionId;
+      const section = await storage.createSidebarLinkSection({ appUserId: appUser.id, divisionId, name, sortOrder: sortOrder ?? 0 });
       res.json(section);
     } catch { res.status(500).json({ message: "Chyba pri vytváraní sekcie" }); }
   });
@@ -6276,7 +6282,8 @@ export async function registerRoutes(
     try {
       const appUser = req.appUser;
       if (!appUser) return res.status(401).json({ message: "Unauthorized" });
-      const links = await storage.getSidebarLinks(appUser.id);
+      const divisionId = req.query.divisionId ? parseInt(req.query.divisionId as string) : appUser.activeDivisionId;
+      const links = await storage.getSidebarLinks(appUser.id, divisionId);
       res.json(links);
     } catch { res.status(500).json({ message: "Chyba pri načítaní odkazov" }); }
   });
@@ -6287,9 +6294,10 @@ export async function registerRoutes(
       if (!appUser) return res.status(401).json({ message: "Unauthorized" });
       const { sectionId, groupName, name, url, sortOrder } = req.body;
       if (!sectionId || !groupName || !name || !url) return res.status(400).json({ message: "Všetky polia sú povinné" });
-      const sections = await storage.getSidebarLinkSections(appUser.id);
+      const divisionId = appUser.activeDivisionId;
+      const sections = await storage.getSidebarLinkSections(appUser.id, divisionId);
       if (!sections.find(s => s.id === sectionId)) return res.status(403).json({ message: "Sekcia nepatrí používateľovi" });
-      const link = await storage.createSidebarLink({ sectionId, appUserId: appUser.id, groupName, name, url, sortOrder: sortOrder ?? 0 });
+      const link = await storage.createSidebarLink({ sectionId, appUserId: appUser.id, divisionId, groupName, name, url, sortOrder: sortOrder ?? 0 });
       res.json(link);
     } catch { res.status(500).json({ message: "Chyba pri vytváraní odkazu" }); }
   });

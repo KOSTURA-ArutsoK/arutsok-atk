@@ -533,6 +533,7 @@ export const userDashboardLayouts = pgTable("user_dashboard_layouts", {
 export const sidebarLinkSections = pgTable("sidebar_link_sections", {
   id: serial("id").primaryKey(),
   appUserId: integer("app_user_id").notNull().references(() => appUsers.id),
+  divisionId: integer("division_id"),
   name: text("name").notNull(),
   sortOrder: integer("sort_order").default(0),
   createdAt: timestamp("created_at").defaultNow(),
@@ -543,6 +544,7 @@ export const sidebarLinks = pgTable("sidebar_links", {
   id: serial("id").primaryKey(),
   sectionId: integer("section_id").notNull().references(() => sidebarLinkSections.id, { onDelete: "cascade" }),
   appUserId: integer("app_user_id").notNull().references(() => appUsers.id),
+  divisionId: integer("division_id"),
   groupName: text("group_name").notNull(),
   name: text("name").notNull(),
   url: text("url").notNull(),

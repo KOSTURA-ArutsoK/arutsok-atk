@@ -1,7 +1,8 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
-import { Link2, Plus, Trash2, Pencil, Loader2, ExternalLink, ChevronDown, ChevronRight, FolderOpen, X } from "lucide-react";
+import { useAppUser } from "@/hooks/use-app-user";
+import { Link2, Plus, Trash2, Pencil, Loader2, ExternalLink, ChevronDown, ChevronRight, X } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -12,20 +13,32 @@ import type { SidebarLinkSection, SidebarLink } from "@shared/schema";
 export default function NastavenieOdkazov() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const { data: appUser } = useAppUser();
+  const divisionId = appUser?.activeDivisionId;
 
   const { data: sections, isLoading: sectionsLoading } = useQuery<SidebarLinkSection[]>({
-    queryKey: ["/api/sidebar-link-sections"],
+    queryKey: ["/api/sidebar-link-sections", divisionId],
+    queryFn: async () => {
+      const res = await fetch(`/api/sidebar-link-sections${divisionId ? `?divisionId=${divisionId}` : ""}`, { credentials: "include" });
+      if (!res.ok) throw new Error("Failed");
+      return res.json();
+    },
+    enabled: !!divisionId,
   });
   const { data: links, isLoading: linksLoading } = useQuery<SidebarLink[]>({
-    queryKey: ["/api/sidebar-links"],
+    queryKey: ["/api/sidebar-links", divisionId],
+    queryFn: async () => {
+      const res = await fetch(`/api/sidebar-links${divisionId ? `?divisionId=${divisionId}` : ""}`, { credentials: "include" });
+      if (!res.ok) throw new Error("Failed");
+      return res.json();
+    },
+    enabled: !!divisionId,
   });
 
-  const [newSectionName, setNewSectionName] = useState("");
-  const [expandedSections, setExpandedSections] = useState<Set<number>>(new Set());
-  const [editingSectionId, setEditingSectionId] = useState<number | null>(null);
-  const [editingSectionName, setEditingSectionName] = useState("");
+  const section = sections?.[0];
 
-  const [addingLinkToSection, setAddingLinkToSection] = useState<number | null>(null);
+  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
+  const [addingLink, setAddingLink] = useState(false);
   const [newLinkGroup, setNewLinkGroup] = useState("");
   const [newLinkName, setNewLinkName] = useState("");
   const [newLinkUrl, setNewLinkUrl] = useState("");
@@ -36,44 +49,9 @@ export default function NastavenieOdkazov() {
   const [editLinkUrl, setEditLinkUrl] = useState("");
 
   const invalidateAll = () => {
-    queryClient.invalidateQueries({ queryKey: ["/api/sidebar-link-sections"] });
-    queryClient.invalidateQueries({ queryKey: ["/api/sidebar-links"] });
+    queryClient.invalidateQueries({ queryKey: ["/api/sidebar-link-sections", divisionId] });
+    queryClient.invalidateQueries({ queryKey: ["/api/sidebar-links", divisionId] });
   };
-
-  const createSectionMut = useMutation({
-    mutationFn: async (name: string) => {
-      await apiRequest("POST", "/api/sidebar-link-sections", { name, sortOrder: (sections?.length || 0) });
-    },
-    onSuccess: () => {
-      toast({ title: "Sekcia vytvorená" });
-      setNewSectionName("");
-      invalidateAll();
-    },
-    onError: () => toast({ title: "Chyba", variant: "destructive" }),
-  });
-
-  const updateSectionMut = useMutation({
-    mutationFn: async ({ id, name }: { id: number; name: string }) => {
-      await apiRequest("PATCH", `/api/sidebar-link-sections/${id}`, { name });
-    },
-    onSuccess: () => {
-      toast({ title: "Sekcia aktualizovaná" });
-      setEditingSectionId(null);
-      invalidateAll();
-    },
-    onError: () => toast({ title: "Chyba", variant: "destructive" }),
-  });
-
-  const deleteSectionMut = useMutation({
-    mutationFn: async (id: number) => {
-      await apiRequest("DELETE", `/api/sidebar-link-sections/${id}`);
-    },
-    onSuccess: () => {
-      toast({ title: "Sekcia zmazaná" });
-      invalidateAll();
-    },
-    onError: () => toast({ title: "Chyba", variant: "destructive" }),
-  });
 
   const createLinkMut = useMutation({
     mutationFn: async (data: { sectionId: number; groupName: string; name: string; url: string }) => {
@@ -82,7 +60,7 @@ export default function NastavenieOdkazov() {
     },
     onSuccess: () => {
       toast({ title: "Odkaz pridaný" });
-      setAddingLinkToSection(null);
+      setAddingLink(false);
       setNewLinkGroup("");
       setNewLinkName("");
       setNewLinkUrl("");
@@ -114,139 +92,124 @@ export default function NastavenieOdkazov() {
     onError: () => toast({ title: "Chyba", variant: "destructive" }),
   });
 
-  const toggleSection = (id: number) => {
-    setExpandedSections(prev => {
+  const deleteGroupMut = useMutation({
+    mutationFn: async (groupName: string) => {
+      const groupLinks = links?.filter(l => l.groupName === groupName && l.sectionId === section?.id) || [];
+      for (const link of groupLinks) {
+        await apiRequest("DELETE", `/api/sidebar-links/${link.id}`);
+      }
+    },
+    onSuccess: () => {
+      toast({ title: "Skupina zmazaná" });
+      invalidateAll();
+    },
+    onError: () => toast({ title: "Chyba", variant: "destructive" }),
+  });
+
+  const toggleGroup = (groupName: string) => {
+    setExpandedGroups(prev => {
       const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
+      if (next.has(groupName)) next.delete(groupName);
+      else next.add(groupName);
       return next;
     });
   };
 
-  const getSectionLinks = (sectionId: number) => links?.filter(l => l.sectionId === sectionId) || [];
-
-  const getGroupedLinks = (sectionId: number) => {
-    const sLinks = getSectionLinks(sectionId);
+  const getGroupedLinks = () => {
+    if (!links || !section) return {};
+    const sectionLinks = links.filter(l => l.sectionId === section.id);
     const groups: Record<string, SidebarLink[]> = {};
-    for (const l of sLinks) {
+    for (const l of sectionLinks) {
       if (!groups[l.groupName]) groups[l.groupName] = [];
       groups[l.groupName].push(l);
     }
     return groups;
   };
 
+  const grouped = getGroupedLinks();
   const isLoading = sectionsLoading || linksLoading;
+  const totalLinks = links?.filter(l => l.sectionId === section?.id).length || 0;
+
+  const { data: divisionsData } = useQuery<any[]>({
+    queryKey: ["/api/companies", appUser?.activeCompanyId, "divisions"],
+    queryFn: async () => {
+      const res = await fetch(`/api/companies/${appUser?.activeCompanyId}/divisions`, { credentials: "include" });
+      if (!res.ok) throw new Error("Failed");
+      return res.json();
+    },
+    enabled: !!appUser?.activeCompanyId,
+  });
+
+  const activeDivision = divisionsData?.find((d: any) => d.divisionId === divisionId || d.division?.id === divisionId);
+  const divisionName = activeDivision?.division?.name || "";
+  const divisionEmoji = activeDivision?.division?.emoji || "";
 
   return (
     <div className="p-4 space-y-4">
       <div className="flex items-center gap-3">
         <Link2 className="w-6 h-6 text-primary" />
         <h1 className="text-2xl font-bold" data-testid="text-page-title">Nastavenie odkazov</h1>
+        {divisionEmoji && divisionName && (
+          <span className="text-sm text-muted-foreground ml-2">
+            {divisionEmoji} {divisionName}
+          </span>
+        )}
       </div>
 
-      {isLoading ? (
+      {!divisionId ? (
+        <Card>
+          <CardContent className="py-8 text-center text-sm text-muted-foreground">
+            Vyberte divíziu pre nastavenie odkazov.
+          </CardContent>
+        </Card>
+      ) : isLoading ? (
         <div className="flex items-center justify-center py-12">
           <Loader2 className="w-6 h-6 animate-spin text-primary" />
         </div>
-      ) : (
+      ) : section ? (
         <div className="space-y-4">
           <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-base">Pridať novú sekciu</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="flex gap-2">
-                <Input
-                  value={newSectionName}
-                  onChange={e => setNewSectionName(e.target.value)}
-                  placeholder="Názov sekcie (napr. Odkazy - linky)"
-                  className="flex-1"
-                  data-testid="input-new-section-name"
-                />
-                <Button
-                  onClick={() => newSectionName.trim() && createSectionMut.mutate(newSectionName.trim())}
-                  disabled={!newSectionName.trim() || createSectionMut.isPending}
-                  data-testid="btn-create-section"
-                >
-                  <Plus className="w-4 h-4 mr-1" />
-                  Pridať
-                </Button>
+            <CardHeader className="pb-2">
+              <div className="flex items-center gap-2">
+                <Link2 className="w-4 h-4 text-primary" />
+                <CardTitle className="text-base flex-1">{section.name}</CardTitle>
+                <span className="text-xs text-muted-foreground">{totalLinks} odkazov</span>
               </div>
-            </CardContent>
-          </Card>
-
-          {sections && sections.length > 0 ? (
-            sections.map(section => (
-              <Card key={section.id} data-testid={`section-card-${section.id}`}>
-                <CardHeader className="pb-2">
-                  <div className="flex items-center gap-2">
-                    <button
-                      onClick={() => toggleSection(section.id)}
-                      className="p-1 hover:bg-muted rounded"
-                      data-testid={`btn-toggle-section-${section.id}`}
+            </CardHeader>
+            <CardContent className="space-y-3">
+              {Object.entries(grouped).map(([groupName, groupLinks]) => {
+                const isExpanded = expandedGroups.has(groupName);
+                const hasLinks = groupLinks.length > 0;
+                return (
+                  <div key={groupName} className="border border-border rounded">
+                    <div
+                      className="flex items-center gap-2 px-3 py-2 cursor-pointer hover:bg-muted/50"
+                      onClick={() => toggleGroup(groupName)}
+                      data-testid={`group-toggle-${groupName}`}
                     >
-                      {expandedSections.has(section.id) ? (
-                        <ChevronDown className="w-4 h-4" />
+                      {isExpanded ? (
+                        <ChevronDown className="w-4 h-4 text-muted-foreground" />
                       ) : (
-                        <ChevronRight className="w-4 h-4" />
+                        <ChevronRight className="w-4 h-4 text-muted-foreground" />
                       )}
-                    </button>
-                    {editingSectionId === section.id ? (
-                      <div className="flex items-center gap-2 flex-1">
-                        <Input
-                          value={editingSectionName}
-                          onChange={e => setEditingSectionName(e.target.value)}
-                          className="h-8 text-sm"
-                          data-testid={`input-edit-section-${section.id}`}
-                        />
-                        <Button
-                          size="sm"
-                          onClick={() => updateSectionMut.mutate({ id: section.id, name: editingSectionName.trim() })}
-                          disabled={!editingSectionName.trim()}
-                          data-testid={`btn-save-section-${section.id}`}
-                        >
-                          Uložiť
-                        </Button>
-                        <Button size="sm" variant="ghost" onClick={() => setEditingSectionId(null)}>
-                          <X className="w-3 h-3" />
-                        </Button>
-                      </div>
-                    ) : (
-                      <>
-                        <FolderOpen className="w-4 h-4 text-primary" />
-                        <CardTitle className="text-base flex-1">{section.name}</CardTitle>
-                        <span className="text-xs text-muted-foreground">{getSectionLinks(section.id).length} odkazov</span>
+                      <span className="text-sm font-medium flex-1">{groupName}</span>
+                      <span className="text-xs text-muted-foreground">{groupLinks.length}</span>
+                      {!hasLinks && (
                         <Button
                           size="sm"
                           variant="ghost"
-                          onClick={() => { setEditingSectionId(section.id); setEditingSectionName(section.name); }}
-                          data-testid={`btn-edit-section-${section.id}`}
-                        >
-                          <Pencil className="w-3 h-3" />
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          className="text-destructive"
-                          onClick={() => deleteSectionMut.mutate(section.id)}
-                          data-testid={`btn-delete-section-${section.id}`}
+                          className="h-6 w-6 p-0 text-destructive"
+                          onClick={(e) => { e.stopPropagation(); deleteGroupMut.mutate(groupName); }}
+                          data-testid={`btn-delete-group-${groupName}`}
                         >
                           <Trash2 className="w-3 h-3" />
                         </Button>
-                      </>
-                    )}
-                  </div>
-                </CardHeader>
-
-                {expandedSections.has(section.id) && (
-                  <CardContent className="space-y-4">
-                    {Object.entries(getGroupedLinks(section.id)).map(([groupName, groupLinks]) => (
-                      <div key={groupName} className="space-y-2">
-                        <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide border-b border-border pb-1">
-                          {groupName}
-                        </p>
+                      )}
+                    </div>
+                    {isExpanded && (
+                      <div className="border-t border-border px-3 py-2 space-y-1">
                         {groupLinks.map(link => (
-                          <div key={link.id} className="flex items-center gap-2 pl-3" data-testid={`link-item-${link.id}`}>
+                          <div key={link.id} className="flex items-center gap-2 pl-2" data-testid={`link-item-${link.id}`}>
                             {editingLinkId === link.id ? (
                               <div className="flex flex-wrap items-center gap-2 flex-1">
                                 <Input
@@ -279,7 +242,7 @@ export default function NastavenieOdkazov() {
                                 >
                                   Uložiť
                                 </Button>
-                                <Button size="sm" variant="ghost" className="h-7" onClick={() => setEditingLinkId(null)}>
+                                <Button size="sm" variant="ghost" className="h-7" onClick={() => setEditingLinkId(null)} data-testid="btn-cancel-edit-link">
                                   <X className="w-3 h-3" />
                                 </Button>
                               </div>
@@ -312,86 +275,90 @@ export default function NastavenieOdkazov() {
                             )}
                           </div>
                         ))}
+                        {groupLinks.length === 0 && (
+                          <p className="text-xs text-muted-foreground py-1">Žiadne odkazy v tejto skupine</p>
+                        )}
                       </div>
-                    ))}
-
-                    {addingLinkToSection === section.id ? (
-                      <div className="border border-dashed border-border rounded p-3 space-y-2">
-                        <p className="text-xs font-medium">Nový odkaz</p>
-                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-                          <div>
-                            <Label className="text-xs">Skupina</Label>
-                            <Input
-                              value={newLinkGroup}
-                              onChange={e => setNewLinkGroup(e.target.value)}
-                              placeholder="napr. Poistenie auta"
-                              className="h-8 text-sm"
-                              data-testid="input-new-link-group"
-                            />
-                          </div>
-                          <div>
-                            <Label className="text-xs">Názov odkazu</Label>
-                            <Input
-                              value={newLinkName}
-                              onChange={e => setNewLinkName(e.target.value)}
-                              placeholder="napr. PZP"
-                              className="h-8 text-sm"
-                              data-testid="input-new-link-name"
-                            />
-                          </div>
-                          <div>
-                            <Label className="text-xs">URL adresa</Label>
-                            <Input
-                              value={newLinkUrl}
-                              onChange={e => setNewLinkUrl(e.target.value)}
-                              placeholder="https://..."
-                              className="h-8 text-sm"
-                              data-testid="input-new-link-url"
-                            />
-                          </div>
-                        </div>
-                        <div className="flex gap-2 justify-end">
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            onClick={() => { setAddingLinkToSection(null); setNewLinkGroup(""); setNewLinkName(""); setNewLinkUrl(""); }}
-                          >
-                            Zrušiť
-                          </Button>
-                          <Button
-                            size="sm"
-                            onClick={() => createLinkMut.mutate({ sectionId: section.id, groupName: newLinkGroup.trim(), name: newLinkName.trim(), url: newLinkUrl.trim() })}
-                            disabled={!newLinkGroup.trim() || !newLinkName.trim() || !newLinkUrl.trim() || createLinkMut.isPending}
-                            data-testid="btn-save-new-link"
-                          >
-                            <Plus className="w-3 h-3 mr-1" />
-                            Pridať odkaz
-                          </Button>
-                        </div>
-                      </div>
-                    ) : (
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => { setAddingLinkToSection(section.id); setExpandedSections(prev => new Set(prev).add(section.id)); }}
-                        data-testid={`btn-add-link-${section.id}`}
-                      >
-                        <Plus className="w-3 h-3 mr-1" />
-                        Pridať odkaz do sekcie
-                      </Button>
                     )}
-                  </CardContent>
-                )}
-              </Card>
-            ))
-          ) : (
-            <Card>
-              <CardContent className="py-8 text-center text-sm text-muted-foreground" data-testid="text-no-sections">
-                Zatiaľ nemáte žiadne sekcie odkazov. Vytvorte prvú sekciu vyššie.
-              </CardContent>
-            </Card>
-          )}
+                  </div>
+                );
+              })}
+
+              {addingLink ? (
+                <div className="border border-dashed border-border rounded p-3 space-y-2">
+                  <p className="text-xs font-medium">Nový odkaz</p>
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                    <div>
+                      <Label className="text-xs">Skupina</Label>
+                      <Input
+                        value={newLinkGroup}
+                        onChange={e => setNewLinkGroup(e.target.value)}
+                        placeholder="napr. Poistenie auta"
+                        className="h-8 text-sm"
+                        data-testid="input-new-link-group"
+                      />
+                    </div>
+                    <div>
+                      <Label className="text-xs">Názov odkazu</Label>
+                      <Input
+                        value={newLinkName}
+                        onChange={e => setNewLinkName(e.target.value)}
+                        placeholder="napr. PZP"
+                        className="h-8 text-sm"
+                        data-testid="input-new-link-name"
+                      />
+                    </div>
+                    <div>
+                      <Label className="text-xs">URL adresa</Label>
+                      <Input
+                        value={newLinkUrl}
+                        onChange={e => setNewLinkUrl(e.target.value)}
+                        placeholder="https://..."
+                        className="h-8 text-sm"
+                        data-testid="input-new-link-url"
+                      />
+                    </div>
+                  </div>
+                  <div className="flex gap-2 justify-end">
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => { setAddingLink(false); setNewLinkGroup(""); setNewLinkName(""); setNewLinkUrl(""); }}
+                      data-testid="btn-cancel-new-link"
+                    >
+                      Zrušiť
+                    </Button>
+                    <Button
+                      size="sm"
+                      onClick={() => createLinkMut.mutate({ sectionId: section.id, groupName: newLinkGroup.trim(), name: newLinkName.trim(), url: newLinkUrl.trim() })}
+                      disabled={!newLinkGroup.trim() || !newLinkName.trim() || !newLinkUrl.trim() || createLinkMut.isPending}
+                      data-testid="btn-save-new-link"
+                    >
+                      <Plus className="w-3 h-3 mr-1" />
+                      Pridať odkaz
+                    </Button>
+                  </div>
+                </div>
+              ) : (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => setAddingLink(true)}
+                  data-testid="btn-add-link"
+                >
+                  <Plus className="w-3 h-3 mr-1" />
+                  Pridať odkaz
+                </Button>
+              )}
+            </CardContent>
+          </Card>
         </div>
+      ) : (
+        <Card>
+          <CardContent className="py-8 text-center text-sm text-muted-foreground">
+            Načítavam sekciu odkazov...
+          </CardContent>
+        </Card>
       )}
     </div>
   );
