@@ -6,6 +6,36 @@ import type { MyCompany, LogoEntry } from "@shared/schema";
 type StateItem = { id: number; name: string; code: string; flagUrl: string | null; continentId: number };
 type DivisionItem = { id: number; name: string; code: string | null; emoji?: string | null; divisionId: number; division?: { id: number; name: string; code: string | null; emoji?: string | null } };
 
+const LEGAL_FORMS = [
+  "spol. s r. o.", "spol. s r.o.", "s. r. o.", "s.r.o.",
+  "a. s.", "a.s.",
+  "k. s.", "k.s.",
+  "v. o. s.", "v.o.s.",
+  "z. s.", "z.s.",
+  "o. z.", "o.z.",
+  "n. o.", "n.o.",
+  "SE",
+];
+
+function formatCompanyName(name: string): { main: string; legal: string | null } {
+  const trimmed = name.trim();
+  for (const form of LEGAL_FORMS) {
+    const sep = ", " + form;
+    const idx = trimmed.toLowerCase().lastIndexOf(sep.toLowerCase());
+    if (idx !== -1) {
+      return { main: trimmed.substring(0, idx).trim(), legal: trimmed.substring(idx + 2).trim() };
+    }
+  }
+  for (const form of LEGAL_FORMS) {
+    const sep = " " + form;
+    const idx = trimmed.toLowerCase().lastIndexOf(sep.toLowerCase());
+    if (idx !== -1) {
+      return { main: trimmed.substring(0, idx).trim(), legal: trimmed.substring(idx + 1).trim() };
+    }
+  }
+  return { main: trimmed, legal: null };
+}
+
 function StateFlagImage({ src, alt, code, className }: { src: string | null | undefined; alt: string; code?: string; className?: string }) {
   const [failed, setFailed] = useState(false);
 
@@ -163,7 +193,7 @@ export function ContextSelectorOverlay({
                       key={c.id}
                       type="button"
                       onClick={() => onSelectCompany(c.id)}
-                      className="flex flex-col items-center justify-start gap-3 p-4 rounded-xl bg-white/5 border border-white/10 transition-all duration-200 hover:border-sky-400 hover:bg-white/10 hover:shadow-lg hover:shadow-sky-400/20 group cursor-pointer w-32 h-36"
+                      className="flex flex-col items-center justify-center gap-2 p-4 rounded-xl bg-white/5 border border-white/10 transition-all duration-200 hover:border-sky-400 hover:bg-white/10 hover:shadow-lg hover:shadow-sky-400/20 group cursor-pointer w-32 h-36"
                       data-testid={`context-company-${c.id}`}
                     >
                       <div className="w-14 h-14 rounded-xl bg-white/10 flex items-center justify-center overflow-hidden shrink-0">
@@ -173,12 +203,15 @@ export function ContextSelectorOverlay({
                           <Building2 className="w-7 h-7 text-white/40 transition-colors duration-200 group-hover:text-sky-400" />
                         )}
                       </div>
-                      <span className="text-sm font-medium text-white/70 group-hover:text-sky-400 transition-colors text-center leading-tight">
-                        {c.name}
-                      </span>
-                      {c.specialization && (
-                        <span className="text-[10px] text-white/40 text-center">{c.specialization}</span>
-                      )}
+                      {(() => {
+                        const { main, legal } = formatCompanyName(c.name);
+                        return (
+                          <div className="text-sm font-medium text-white/70 group-hover:text-sky-400 transition-colors text-center leading-tight line-clamp-3 break-words">
+                            <span>{main}</span>
+                            {legal && <><br /><span className="text-white/50 group-hover:text-sky-400/70">{legal}</span></>}
+                          </div>
+                        );
+                      })()}
                     </button>
                   );
                 })}
