@@ -503,7 +503,7 @@ export default function Dashboard() {
                 {myInterventions.slice(0, 2).map((c: any) => (
                   <div key={`int-${c.id}`} className="flex items-center gap-3 text-sm border-l-2 border-orange-500 pl-3 cursor-pointer hover:bg-muted/30 transition-colors rounded-r" onClick={() => navigate(`/contracts/${c.id}/edit`)} data-testid={`widget-intervention-${c.id}`}>
                     <div className="flex-1 min-w-0">
-                      <p className="font-medium truncate">Zmluva č. {c.contractNumber || c.uid || `#${c.id}`}</p>
+                      <p className="font-medium truncate">Zmluva č. {c.contractNumber || c.uid || `${c.id}`}</p>
                       <p className="text-xs text-muted-foreground truncate">{c.statusId ? (intStatusMap.get(c.statusId) || "Intervencia") : "Intervencia"}</p>
                     </div>
                     <Badge variant="outline" className="border-orange-600 text-orange-400 text-[10px] shrink-0">Intervencia</Badge>
@@ -512,7 +512,7 @@ export default function Dashboard() {
                 {myInternalInterventions.slice(0, 2).map((c: any) => (
                   <div key={`iint-${c.id}`} className="flex items-center gap-3 text-sm border-l-2 border-amber-500 pl-3 cursor-pointer hover:bg-muted/30 transition-colors rounded-r" onClick={() => navigate(`/contracts/${c.id}/edit`)} data-testid={`widget-internal-intervention-${c.id}`}>
                     <div className="flex-1 min-w-0">
-                      <p className="font-medium truncate">Zmluva č. {c.contractNumber || c.uid || `#${c.id}`}</p>
+                      <p className="font-medium truncate">Zmluva č. {c.contractNumber || c.uid || `${c.id}`}</p>
                       <p className="text-xs text-muted-foreground truncate">Interná intervencia</p>
                     </div>
                     <Badge variant="outline" className="border-amber-600 text-amber-400 text-[10px] shrink-0">Interná</Badge>
@@ -521,7 +521,7 @@ export default function Dashboard() {
                 {myRejectedContracts.slice(0, 2).map((c: any) => (
                   <div key={`rej-${c.id}`} className="flex items-center gap-3 text-sm border-l-2 border-red-500 pl-3 cursor-pointer hover:bg-muted/30 transition-colors rounded-r" onClick={() => navigate(`/contracts/${c.id}/edit`)} data-testid={`widget-rejected-${c.id}`}>
                     <div className="flex-1 min-w-0">
-                      <p className="font-medium truncate">Zmluva č. {c.contractNumber || c.uid || `#${c.id}`}</p>
+                      <p className="font-medium truncate">Zmluva č. {c.contractNumber || c.uid || `${c.id}`}</p>
                       <p className="text-xs text-muted-foreground truncate">Neprijaté – výhrady</p>
                     </div>
                     <Badge variant="outline" className="border-red-600 text-red-400 text-[10px] shrink-0">Výhrady</Badge>
@@ -530,7 +530,7 @@ export default function Dashboard() {
                 {myArchivedContracts.slice(0, 2).map((c: any) => (
                   <div key={`arch-${c.id}`} className="flex items-center gap-3 text-sm border-l-2 border-muted-foreground pl-3 cursor-pointer hover:bg-muted/30 transition-colors rounded-r" onClick={() => navigate(`/contracts/${c.id}/edit`)} data-testid={`widget-archived-${c.id}`}>
                     <div className="flex-1 min-w-0">
-                      <p className="font-medium truncate">Zmluva č. {c.contractNumber || c.uid || `#${c.id}`}</p>
+                      <p className="font-medium truncate">Zmluva č. {c.contractNumber || c.uid || `${c.id}`}</p>
                       <p className="text-xs text-muted-foreground truncate">Archív s výhradami</p>
                     </div>
                     <Badge variant="outline" className="border-muted-foreground text-muted-foreground text-[10px] shrink-0">Archív</Badge>

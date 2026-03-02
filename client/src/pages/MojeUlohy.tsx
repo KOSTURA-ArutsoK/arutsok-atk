@@ -116,7 +116,7 @@ function ContractSection({ title, icon, contracts, borderColor, badgeClass, badg
                 <div className="flex items-center gap-3 min-w-0">
                   <div className="min-w-0">
                     <p className="font-medium text-sm truncate" data-testid={`${testIdPrefix}-number-${contract.id}`}>
-                      Zmluva č. {contract.contractNumber || contract.uid || `#${contract.id}`}
+                      Zmluva č. {contract.contractNumber || contract.uid || `${contract.id}`}
                     </p>
                     <div className="flex items-center gap-3 text-xs text-muted-foreground mt-0.5">
                       {statusMap && contract.statusId ? (

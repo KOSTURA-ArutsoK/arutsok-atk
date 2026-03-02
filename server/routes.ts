@@ -4156,10 +4156,10 @@ export async function registerRoutes(
       }
 
       if (firstContractData.isFirst && firstContractData.redirectUserName) {
-        await logAudit(req, { action: "SYSTEM", module: "provizie", entityId: created.id, entityName: created.contractNumber || `Zmluva #${created.id}`, newData: { isFirstContract: true, commissionRedirectedToName: firstContractData.redirectUserName, reason: "Pravidlo prvej zmluvy v divízii" } });
+        await logAudit(req, { action: "SYSTEM", module: "provizie", entityId: created.id, entityName: created.contractNumber || `Zmluva ${created.id}`, newData: { isFirstContract: true, commissionRedirectedToName: firstContractData.redirectUserName, reason: "Pravidlo prvej zmluvy v divízii" } });
       }
 
-      await logAudit(req, { action: "CREATE", module: "zmluvy", entityId: created.id, entityName: created.contractNumber || `Zmluva #${created.id}`, newData: input });
+      await logAudit(req, { action: "CREATE", module: "zmluvy", entityId: created.id, entityName: created.contractNumber || `Zmluva ${created.id}`, newData: input });
 
       if (input.subjectId) {
         try {
@@ -4243,7 +4243,7 @@ export async function registerRoutes(
       const contract = await storage.getContract(contractId);
       if (!contract) return res.status(404).json({ message: "Zmluva nenájdená" });
       const updated = await storage.updateContract(contractId, { needsManualVerification: false } as any);
-      await logAudit(req, { action: "VERIFY", module: "zmluvy", entityId: contractId, entityName: contract.contractNumber || `Zmluva #${contractId}` });
+      await logAudit(req, { action: "VERIFY", module: "zmluvy", entityId: contractId, entityName: contract.contractNumber || `Zmluva ${contractId}` });
       res.json(updated);
     } catch (err: any) {
       res.status(500).json({ message: err.message });

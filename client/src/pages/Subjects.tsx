@@ -1054,7 +1054,7 @@ function SubjectObjectsTab({ subjectId }: { subjectId: number }) {
                               <TreeToggle key={prodKey} isOpen={expanded[prodKey] ?? false} onToggle={() => toggle(prodKey)}
                                 level={3} icon={<Tag className="w-4 h-4 text-amber-400" />} label={product.name}
                                 badge="PRODUKT" badgeColor="bg-amber-500/20 text-amber-300"
-                                extra={<span className="text-[10px] text-slate-600 ml-auto">Zmluva #{product.contractId}</span>}>
+                                extra={<span className="text-[10px] text-slate-600 ml-auto">Zmluva {product.contractId}</span>}>
                                 {product.folders.map((folder: any) => {
                                   const foldKey = `${prodKey}-fold-${folder.id}`;
                                   return (
@@ -1128,7 +1128,7 @@ function SubjectObjectsTab({ subjectId }: { subjectId: number }) {
                     <Tag className="w-3.5 h-3.5 text-slate-500" />
                     <span className="text-slate-300">{item.sectorName} › {item.sectionName} › </span>
                     <span className="font-medium">{item.productName}</span>
-                    <span className="text-[10px] text-slate-600 ml-auto">Zmluva #{item.contractId}</span>
+                    <span className="text-[10px] text-slate-600 ml-auto">Zmluva {item.contractId}</span>
                   </div>
                   {item.folders.map((folder: any) => (
                     <TreeToggle key={`${noKey}-f-${folder.id}`} isOpen={expanded[`${noKey}-f-${folder.id}`] ?? false}
