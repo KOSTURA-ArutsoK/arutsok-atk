@@ -2098,7 +2098,7 @@ export function SubjectProfileModuleC({ subject }: ModuleCProps) {
                               <div className="flex-1 min-w-0">
                                 <div className="flex items-center gap-2 flex-wrap">
                                   <span className="text-sm font-medium truncate" data-testid={`contract-number-${c.id}`}>
-                                    {c.contractNumber || formatUid(c.uid) || `#${c.id}`}
+                                    {c.contractNumber || formatUid(c.uid) || `${c.id}`}
                                   </span>
                                   {c.statusName && (
                                     <Badge variant="outline" className="text-[8px] h-4 px-1 shrink-0" style={{ borderColor: `${c.statusColor}40`, color: c.statusColor || undefined }}>

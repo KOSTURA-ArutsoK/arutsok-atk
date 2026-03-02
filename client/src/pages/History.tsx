@@ -335,7 +335,7 @@ export default function History() {
                         </Badge>
                       </TableCell>}
                       {columnVisibility.isVisible("entityName") && <TableCell className="text-xs max-w-[200px] truncate">
-                        {log.entityName || (log.entityId ? `#${log.entityId}` : "-")}
+                        {log.entityName || (log.entityId ? `${log.entityId}` : "-")}
                       </TableCell>}
                       {columnVisibility.isVisible("processingTimeSec") && <TableCell className="text-right font-mono text-xs">
                         <span className="flex items-center justify-end gap-1">

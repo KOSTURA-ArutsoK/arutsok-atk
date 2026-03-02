@@ -223,7 +223,7 @@ export default function BulkActions() {
                 {(maturityEvents || []).map((ev: any) => (
                   <TableRow key={ev.id}>
                     <TableCell className="text-xs">
-                      <span className="font-medium">{ev.subjectName || `#${ev.subjectId}`}</span>
+                      <span className="font-medium">{ev.subjectName || `${ev.subjectId}`}</span>
                       {ev.subjectUid && <span className="ml-1 text-muted-foreground">{ev.subjectUid}</span>}
                     </TableCell>
                     <TableCell>{statusBadge(ev.status)}</TableCell>

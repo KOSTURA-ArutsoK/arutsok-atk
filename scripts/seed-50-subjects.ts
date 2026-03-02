@@ -178,7 +178,7 @@ async function main() {
       }).returning();
 
       createdSubjects.push({ id: subject.id, uid, type: "person", name: `${firstName} ${lastName}` });
-      console.log(`  FO #${i + 1}: ${firstName} ${lastName} (${uid})`);
+      console.log(`  FO ${i + 1}: ${firstName} ${lastName} (${uid})`);
     } else {
       const companyName = SK_COMPANY_NAMES[i - 35] || `Test Firma ${i}, s.r.o.`;
       const ico = randomICO();
@@ -201,7 +201,7 @@ async function main() {
       }).returning();
 
       createdSubjects.push({ id: subject.id, uid, type: "company", name: companyName });
-      console.log(`  PO #${i + 1}: ${companyName} (${uid})`);
+      console.log(`  PO ${i + 1}: ${companyName} (${uid})`);
     }
   }
 
@@ -242,7 +242,7 @@ async function main() {
         globalNumber: globalNum,
         klientUid: subj.uid,
         uploadedByUserId: defaultUser?.id || 1,
-        notes: `Automaticky vygenerovana testovacia zmluva #${globalNum}`,
+        notes: `Automaticky vygenerovana testovacia zmluva ${globalNum}`,
       });
       contractsCreated++;
     }

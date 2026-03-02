@@ -424,7 +424,7 @@ export default function SettingsStates() {
   });
 
   function getContinentName(id: number) {
-    return continents?.find(c => c.id === id)?.name || `#${id}`;
+    return continents?.find(c => c.id === id)?.name || `${id}`;
   }
 
   return (

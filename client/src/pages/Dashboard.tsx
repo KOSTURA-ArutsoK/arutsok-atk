@@ -475,10 +475,10 @@ export default function Dashboard() {
       const intStatusMap = new Map((myTasksData?.interventionStatuses || []).map((s: any) => [s.id, s.name]));
       const getSubjectLabel = (id: number) => {
         const s = subjectsMap.get(id);
-        if (!s) return `#${id}`;
+        if (!s) return `${id}`;
         if (s.firstName || s.lastName) return `${s.firstName || ""} ${s.lastName || ""}`.trim();
         if (s.companyName) return s.companyName;
-        return s.uid || `#${id}`;
+        return s.uid || `${id}`;
       };
       return (
         <Card data-testid="widget-my-tasks">

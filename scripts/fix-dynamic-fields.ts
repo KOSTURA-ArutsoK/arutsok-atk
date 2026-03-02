@@ -71,7 +71,7 @@ async function main() {
     const label = subj.type === "person"
       ? `${subj.firstName} ${subj.lastName}`
       : subj.companyName;
-    console.log(`  Fixed #${subj.id}: ${label} (${Object.keys(newDf).length} fields)`);
+    console.log(`  Fixed ${subj.id}: ${label} (${Object.keys(newDf).length} fields)`);
   }
 
   console.log(`\nDone! Fixed ${fixed} subjects.`);

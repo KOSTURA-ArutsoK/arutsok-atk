@@ -154,7 +154,7 @@ async function main() {
       frekvencia: randomPick(["mesačne", "štvrťročne", "ročne"]),
       mena: "EUR",
       datum_storna: i < 3 ? randomDate(2025, 2026) : "",
-      poznamky: `Automatický import – existujúca FO (RČ match) #${i + 1}`,
+      poznamky: `Automatický import – existujúca FO (RČ match) ${i + 1}`,
       tp_ulica: `${randomPick(SK_STREETS)} ${1 + Math.floor(Math.random() * 50)}`,
       tp_mesto: randomPick(SK_CITIES),
       tp_psc: `${8 + Math.floor(Math.random() * 2)}${String(Math.floor(Math.random() * 10000)).padStart(4, "0")}`,
@@ -178,7 +178,7 @@ async function main() {
       frekvencia: randomPick(["štvrťročne", "polročne", "ročne"]),
       mena: "EUR",
       datum_storna: i < 2 ? randomDate(2025, 2026) : "",
-      poznamky: `Automatický import – existujúca PO (IČO match) #${i + 1}`,
+      poznamky: `Automatický import – existujúca PO (IČO match) ${i + 1}`,
     }, `PO existujúci – IČO match (${s.companyName || s.decryptedBN}), ${i < 2 ? "má dátum storna" : "BEZ dátumu storna"}${i === 2 ? ", SHARED VIN 1 (duplicita!)" : ""}${i === 3 ? ", SHARED ŠPZ 1 (duplicita!)" : ""}`);
   }
 
@@ -204,7 +204,7 @@ async function main() {
       frekvencia: randomPick(["mesačne", "štvrťročne", "polročne", "ročne"]),
       mena: "EUR",
       datum_storna: i < 8 ? randomDate(2025, 2026) : "",
-      poznamky: `Nový FO subjekt z importu #${i + 1}`,
+      poznamky: `Nový FO subjekt z importu ${i + 1}`,
       tp_ulica: `${randomPick(SK_STREETS)} ${1 + Math.floor(Math.random() * 100)}`,
       tp_mesto: city,
       tp_psc: `${8 + Math.floor(Math.random() * 2)}${String(Math.floor(Math.random() * 10000)).padStart(4, "0")}`,
@@ -255,7 +255,7 @@ async function main() {
       frekvencia: "mesačne",
       mena: "EUR",
       datum_storna: i < 2 ? randomDate(2025, 2026) : "",
-      poznamky: `Duplicitný batch test #${i + 1} – ${i < 4 ? "rovnaký VIN" : "rovnaká ŠPZ"}`,
+      poznamky: `Duplicitný batch test ${i + 1} – ${i < 4 ? "rovnaký VIN" : "rovnaká ŠPZ"}`,
     }, `Duplicita IN-BATCH – ${firstName} ${lastName}, ${i < 4 ? `rovnaký VIN (${BATCH_VIN})` : `rovnaká ŠPZ (${BATCH_SPZ})`}, ${i < 2 ? "má storno" : "BEZ storna"}`);
   }
 
@@ -274,7 +274,7 @@ async function main() {
       lehotne_poistne: String(200 + Math.floor(Math.random() * 300)),
       frekvencia: "mesačne",
       mena: "EUR",
-      poznamky: `Neúplná zmluva #${i + 1} – chýba telefón a/alebo ŠPZ`,
+      poznamky: `Neúplná zmluva ${i + 1} – chýba telefón a/alebo ŠPZ`,
     };
 
     if (i % 2 === 0) data.telefon = randomPhone();
@@ -376,7 +376,7 @@ async function main() {
         frekvencia: randomPick(["štvrťročne", "polročne", "ročne"]),
         mena: "EUR",
         datum_storna: remaining % 2 === 0 ? randomDate(2025, 2026) : "",
-        poznamky: `Doplnkový PO subjekt #${remaining}`,
+        poznamky: `Doplnkový PO subjekt ${remaining}`,
       }, `Doplnkový PO – ${name}, ${remaining % 2 === 0 ? "má storno" : "BEZ storna"}`);
     } else {
       const isMale = Math.random() > 0.5;
@@ -395,7 +395,7 @@ async function main() {
         frekvencia: randomPick(["mesačne", "štvrťročne", "ročne"]),
         mena: "EUR",
         datum_storna: remaining % 2 === 0 ? randomDate(2025, 2026) : "",
-        poznamky: `Doplnkový FO subjekt #${remaining}`,
+        poznamky: `Doplnkový FO subjekt ${remaining}`,
         tp_ulica: `${randomPick(SK_STREETS)} ${1 + Math.floor(Math.random() * 50)}`,
         tp_mesto: randomPick(SK_CITIES),
         tp_psc: `${8 + Math.floor(Math.random() * 2)}${String(Math.floor(Math.random() * 10000)).padStart(4, "0")}`,

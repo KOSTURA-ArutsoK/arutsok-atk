@@ -1344,7 +1344,7 @@ function SectionsTab() {
   });
 
   function getSectorName(sectorId: number): string {
-    return sectors?.find(s => s.id === sectorId)?.name || `#${sectorId}`;
+    return sectors?.find(s => s.id === sectorId)?.name || `${sectorId}`;
   }
 
   const preFiltered = [...(sections || [])].filter(sec => {
@@ -1483,7 +1483,7 @@ function SectorsTab() {
 
   function getPartnerNames(ids: number[] | null): string {
     if (!ids || ids.length === 0 || !partners) return "-";
-    return ids.map(id => partners.find(p => p.id === id)?.name || `#${id}`).join(", ");
+    return ids.map(id => partners.find(p => p.id === id)?.name || `${id}`).join(", ");
   }
 
   const sectorTableFilter = useSmartFilter(sectors || [], SECTOR_FILTER_COLUMNS, "sectors");
@@ -1613,7 +1613,7 @@ function ProductsTab() {
   });
 
   function getSectionName(sectionId: number): string {
-    return sections?.find(s => s.id === sectionId)?.name || `#${sectionId}`;
+    return sections?.find(s => s.id === sectionId)?.name || `${sectionId}`;
   }
 
   const preFiltered = (sectorProds || []).filter(p => {

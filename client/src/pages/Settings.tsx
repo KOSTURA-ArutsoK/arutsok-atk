@@ -347,7 +347,7 @@ export default function Settings() {
               <div className="flex items-center justify-between gap-2 flex-wrap">
                 <span className="text-sm text-muted-foreground">Skupina opravneni</span>
                 <span className="text-sm font-medium" data-testid="text-permission-group">
-                  {appUser?.permissionGroupId ? `Skupina #${appUser.permissionGroupId}` : "Nepriradena"}
+                  {appUser?.permissionGroupId ? `Skupina ${appUser.permissionGroupId}` : "Nepriradena"}
                 </span>
               </div>
             </div>

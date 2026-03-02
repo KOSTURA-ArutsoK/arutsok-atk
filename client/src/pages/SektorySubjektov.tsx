@@ -52,7 +52,7 @@ export default function SektorySubjektov() {
   const groupedBySector: Record<string, MappingRow[]> = {};
   if (mappings) {
     for (const m of mappings) {
-      const key = m.sector_name || `Sektor #${m.sector_id}`;
+      const key = m.sector_name || `Sektor ${m.sector_id}`;
       if (!groupedBySector[key]) groupedBySector[key] = [];
       groupedBySector[key].push(m);
     }

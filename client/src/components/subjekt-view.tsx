@@ -4307,7 +4307,7 @@ function CompanyRolesSection({ subjectId }: { subjectId: number }) {
                 {isCompany ? <User className="w-3.5 h-3.5 text-indigo-400 shrink-0" /> : <Building2 className="w-3.5 h-3.5 text-indigo-400 shrink-0" />}
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-1.5 flex-wrap">
-                    <span className="text-xs font-medium truncate">{isCompany ? (r.personName || `Subjekt #${r.personSubjectId}`) : (r.companyName || `Firma #${r.companySubjectId}`)}</span>
+                    <span className="text-xs font-medium truncate">{isCompany ? (r.personName || `Subjekt ${r.personSubjectId}`) : (r.companyName || `Firma ${r.companySubjectId}`)}</span>
                     <Badge variant="outline" className={`text-[9px] ${config.className}`}>{config.label}</Badge>
                     {r.allowedSections && r.allowedSections.length > 0 && (
                       <div className="flex gap-0.5 flex-wrap">

@@ -321,12 +321,12 @@ export default function Archive() {
                       {contracts.map((c: any) => (
                         <TableRow key={`contract-${c.id}`} data-testid={`row-archive-all-contract-${c.id}`}>
                           {columnVisibility.isVisible("type") && <TableCell><Badge variant="secondary">Zmluva</Badge></TableCell>}
-                          {columnVisibility.isVisible("name") && <TableCell className="font-medium">{c.contractNumber || formatUid(c.uid) || `#${c.id}`}</TableCell>}
+                          {columnVisibility.isVisible("name") && <TableCell className="font-medium">{c.contractNumber || formatUid(c.uid) || `${c.id}`}</TableCell>}
                           {columnVisibility.isVisible("deletedAt") && <TableCell>{formatDate(c.deletedAt)}</TableCell>}
                           {isAdmin && (
                             <TableCell className="text-right">
                               <div className="flex items-center justify-end gap-1">
-                                <Button size="sm" variant="outline" onClick={() => handleRestoreClick("contract", c.id, c.contractNumber || formatUid(c.uid) || `#${c.id}`)} data-testid={`button-restore-all-contract-${c.id}`}>
+                                <Button size="sm" variant="outline" onClick={() => handleRestoreClick("contract", c.id, c.contractNumber || formatUid(c.uid) || `${c.id}`)} data-testid={`button-restore-all-contract-${c.id}`}>
                                   <RotateCcw className="w-3 h-3 mr-1" />
                                   Obnovit
                                 </Button>
@@ -537,7 +537,7 @@ export default function Archive() {
                         {columnVisibility.isVisible("deletedAt") && <TableCell>{formatDate(c.deletedAt)}</TableCell>}
                         {isAdmin && (
                           <TableCell className="text-right">
-                            <Button size="sm" variant="outline" onClick={() => handleRestoreClick("contract", c.id, c.contractNumber || formatUid(c.uid) || `#${c.id}`)} data-testid={`button-restore-contract-${c.id}`}>
+                            <Button size="sm" variant="outline" onClick={() => handleRestoreClick("contract", c.id, c.contractNumber || formatUid(c.uid) || `${c.id}`)} data-testid={`button-restore-contract-${c.id}`}>
                               <RotateCcw className="w-3 h-3 mr-1" />
                               Obnovit
                             </Button>

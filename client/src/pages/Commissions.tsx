@@ -299,7 +299,7 @@ export default function Commissions() {
                 <SelectContent>
                   <SelectItem value="all">Vsetci partneri</SelectItem>
                   {partnerOptions.map(id => (
-                    <SelectItem key={id} value={String(id)}>{partnerMap.get(id) || `#${id}`}</SelectItem>
+                    <SelectItem key={id} value={String(id)}>{partnerMap.get(id) || `${id}`}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
@@ -368,8 +368,8 @@ export default function Commissions() {
                   const status = getStatus(r);
                   return (
                     <TableRow key={r.id} data-testid={`row-rate-${r.id}`} onRowClick={() => openEdit(r)}>
-                      {columnVisibility.isVisible("partner") && <TableCell className="font-medium">{partnerMap.get(r.partnerId) || `#${r.partnerId}`}</TableCell>}
-                      {columnVisibility.isVisible("product") && <TableCell>{productMap.get(r.productId) || `#${r.productId}`}</TableCell>}
+                      {columnVisibility.isVisible("partner") && <TableCell className="font-medium">{partnerMap.get(r.partnerId) || `${r.partnerId}`}</TableCell>}
+                      {columnVisibility.isVisible("product") && <TableCell>{productMap.get(r.productId) || `${r.productId}`}</TableCell>}
                       {columnVisibility.isVisible("rateType") && <TableCell><Badge variant="secondary" className="text-[10px]">{r.rateType === "percent" ? "%" : "Fix"}</Badge></TableCell>}
                       {columnVisibility.isVisible("rateValue") && <TableCell className="text-right font-mono">{r.rateType === "percent" ? `${r.rateValue}%` : `${r.rateValue} ${r.currency}`}</TableCell>}
                       {columnVisibility.isVisible("pointsFactor") && <TableCell className="text-right font-mono text-xs">{r.pointsFactor}</TableCell>}

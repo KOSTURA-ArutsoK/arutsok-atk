@@ -1853,7 +1853,7 @@ export class DatabaseStorage implements IStorage {
       const [company] = await db.select().from(myCompanies).where(eq(myCompanies.id, o.companyId));
       history.push({
         type: 'internal',
-        entityName: company?.name || `Firma #${o.companyId}`,
+        entityName: company?.name || `Firma ${o.companyId}`,
         role: `Interny kontakt - ${o.type}`,
         validFrom: o.validFrom,
         validTo: o.validTo,
@@ -1866,7 +1866,7 @@ export class DatabaseStorage implements IStorage {
       const [partner] = await db.select().from(partners).where(eq(partners.id, c.partnerId));
       history.push({
         type: 'external',
-        entityName: partner?.name || `Partner #${c.partnerId}`,
+        entityName: partner?.name || `Partner ${c.partnerId}`,
         role: `Externy kontakt${c.position ? ` - ${c.position}` : ''}`,
         validFrom: c.validFrom,
         validTo: c.validTo,
@@ -1879,7 +1879,7 @@ export class DatabaseStorage implements IStorage {
       const [company] = await db.select().from(myCompanies).where(eq(myCompanies.id, ic.companyId));
       history.push({
         type: 'internal',
-        entityName: company?.name || `Firma #${ic.companyId}`,
+        entityName: company?.name || `Firma ${ic.companyId}`,
         role: `Interny kontakt - ${ic.contactType}`,
         validFrom: ic.validFrom,
         validTo: ic.validTo,
@@ -3824,7 +3824,7 @@ export class DatabaseStorage implements IStorage {
     for (const i of deletedContractInventories) results.push({ id: i.id, entityType: 'Supiska', name: i.name, deletedAt: i.deletedAt! });
 
     const deletedCommissionRates = await db.select().from(commissionRates).where(isNotNull(commissionRates.deletedAt));
-    for (const r of deletedCommissionRates) results.push({ id: r.id, entityType: 'Provízna sadzba', name: `Sadzba #${r.id}`, deletedAt: r.deletedAt! });
+    for (const r of deletedCommissionRates) results.push({ id: r.id, entityType: 'Provízna sadzba', name: `Sadzba ${r.id}`, deletedAt: r.deletedAt! });
 
     const deletedPermissionGroups = await db.select().from(permissionGroups).where(isNotNull(permissionGroups.deletedAt));
     for (const g of deletedPermissionGroups) results.push({ id: g.id, entityType: 'Skupina oprávnení', name: g.name, deletedAt: g.deletedAt! });
@@ -4551,7 +4551,7 @@ export class DatabaseStorage implements IStorage {
     const uid = `OBJ-${nextVal.toString().padStart(6, '0')}`;
 
     const keyStr = Object.values(keyValues).filter(Boolean).join(" / ");
-    const label = keyStr || `${objectType} #${nextVal}`;
+    const label = keyStr || `${objectType} ${nextVal}`;
 
     const [created] = await db.insert(subjectObjects).values({
       uid,

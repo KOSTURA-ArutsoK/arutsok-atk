@@ -120,7 +120,7 @@ function ContractSection({ title, icon, contracts, borderColor, badgeClass, badg
                     </p>
                     <div className="flex items-center gap-3 text-xs text-muted-foreground mt-0.5">
                       {statusMap && contract.statusId ? (
-                        <span>Stav: {statusMap.get(contract.statusId) || `#${contract.statusId}`}</span>
+                        <span>Stav: {statusMap.get(contract.statusId) || `${contract.statusId}`}</span>
                       ) : null}
                       {contract.incompleteDataReason && (
                         <span className="text-orange-400 truncate max-w-[300px]">Dôvod: {contract.incompleteDataReason}</span>

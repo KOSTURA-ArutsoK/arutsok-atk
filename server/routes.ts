@@ -1626,7 +1626,7 @@ export async function registerRoutes(
         action: "sensitive_field_access",
         module: "subjects",
         entityId: subjectId,
-        entityName: subject.uid || `Subject #${subjectId}`,
+        entityName: subject.uid || `Subject ${subjectId}`,
         newData: { accessedSensitiveFields: accessedFields },
       }).catch(() => {});
     }
@@ -1803,7 +1803,7 @@ export async function registerRoutes(
         }
         if (!input.linkedFoId) input.linkedFoId = null;
         const created = await storage.createSubject(input);
-        await logAudit(req, { action: "CREATE", module: "subjekty", entityId: created.id, entityName: created.companyName || `${created.firstName} ${created.lastName} - SZCO #${created.uid}`, newData: { ...input, birthNumber: undefined } });
+        await logAudit(req, { action: "CREATE", module: "subjekty", entityId: created.id, entityName: created.companyName || `${created.firstName} ${created.lastName} - SZCO ${created.uid}`, newData: { ...input, birthNumber: undefined } });
         res.status(201).json(decryptBirthNumber(created));
       } else {
         if (input.birthNumber) {
@@ -2866,7 +2866,7 @@ export async function registerRoutes(
       if (docs.length > 0) {
         const freshContract = await storage.getContract(contractId);
         const existingDocs = Array.isArray((freshContract as any)?.documents) ? (freshContract as any).documents : [];
-        const statusName = status?.name || `Stav #${newStatusId}`;
+        const statusName = status?.name || `Stav ${newStatusId}`;
         const syncedDocs = docs.map((d: any) => ({
           ...d,
           sourceStatusChangeLogId: changeLog.id,
@@ -2919,7 +2919,7 @@ export async function registerRoutes(
         action: "STATUS_CHANGE",
         module: "zmluvy",
         entityId: contractId,
-        entityName: `Zmena stavu zmluvy #${contractId}`,
+        entityName: `Zmena stavu zmluvy ${contractId}`,
         oldData: { statusId: contract.statusId },
         newData: { statusId: Number(newStatusId), logId: changeLog.id },
       });
@@ -3813,7 +3813,7 @@ export async function registerRoutes(
       await logAudit(req, {
         action: "MIGRATION_BULK_DATE",
         module: "zmluvy",
-        entityName: `Hromadné pečiatkovanie - Súpiska #${inventoryId}`,
+        entityName: `Hromadné pečiatkovanie - Súpiska ${inventoryId}`,
         newData: { logisticDate, onlyMissing, updatedCount, totalInBatch: batch.length },
       });
       res.json({ success: true, updatedCount, totalInBatch: batch.length, skipped: batch.length - updatedCount });
@@ -3865,7 +3865,7 @@ export async function registerRoutes(
       await logAudit(req, {
         action: "MIGRATION_BULK_DATE",
         module: "zmluvy",
-        entityName: `Hromadné pečiatkovanie - Sprievodka #${templateId}`,
+        entityName: `Hromadné pečiatkovanie - Sprievodka ${templateId}`,
         newData: { logisticDate, onlyMissing, updatedCount, totalInBatch: batch.length },
       });
       res.json({ success: true, updatedCount, totalInBatch: batch.length, skipped: batch.length - updatedCount });
@@ -5797,7 +5797,7 @@ export async function registerRoutes(
         action: "RESTORE",
         module: "kos",
         entityId: numId,
-        entityName: `${entityType} #${numId}`,
+        entityName: `${entityType} ${numId}`,
         newData: {
           authorizedByAdminId: appUser.id,
           authorizedByUsername: appUser.username,
@@ -5834,7 +5834,7 @@ export async function registerRoutes(
         action: "PERMANENT_DELETE",
         module: "kos",
         entityId: numId,
-        entityName: `${entityType} #${numId}`,
+        entityName: `${entityType} ${numId}`,
         newData: {
           authorizedByAdminId: appUser.id,
           authorizedByUsername: appUser.username,
@@ -8236,7 +8236,7 @@ export async function registerRoutes(
         action: "UPDATE",
         module: "subjects",
         entityId: subjectId,
-        entityName: existing.uid || `Subject #${subjectId}`,
+        entityName: existing.uid || `Subject ${subjectId}`,
         oldData: existing,
         newData: updated,
       });
@@ -8246,7 +8246,7 @@ export async function registerRoutes(
           action: "sensitive_field_change",
           module: "subjects",
           entityId: subjectId,
-          entityName: existing.uid || `Subject #${subjectId}`,
+          entityName: existing.uid || `Subject ${subjectId}`,
           oldData: Object.fromEntries(Object.entries(sensitiveChanges).map(([k, v]) => [k, v.old])),
           newData: Object.fromEntries(Object.entries(sensitiveChanges).map(([k, v]) => [k, v.new])),
         }).catch(() => {});
@@ -8366,7 +8366,7 @@ export async function registerRoutes(
         action: "GDPR_EXPORT",
         module: "subjects",
         entityId: subjectId,
-        entityName: `GDPR export subjektu #${subjectId}`,
+        entityName: `GDPR export subjektu ${subjectId}`,
       });
       
       res.setHeader('Content-Type', 'application/json');
@@ -8396,7 +8396,7 @@ export async function registerRoutes(
       await storage.createAuditLog({
         userId: appUser.id, username: appUser.username, action: "DOCUMENT_VIEWED",
         module: "dokumentacia", entityId: subjectId,
-        entityName: `Zobrazenie dokumentu #${req.params.docId} subjektu #${subjectId}`,
+        entityName: `Zobrazenie dokumentu ${req.params.docId} subjektu ${subjectId}`,
       });
       res.json({ ok: true });
     } catch (err: any) { res.status(500).json({ message: err.message }); }
@@ -8410,7 +8410,7 @@ export async function registerRoutes(
       await storage.createAuditLog({
         userId: appUser.id, username: appUser.username, action: "DOCUMENT_PRINTED",
         module: "dokumentacia", entityId: subjectId,
-        entityName: `Tlač dokumentu #${req.params.docId} subjektu #${subjectId}`,
+        entityName: `Tlač dokumentu ${req.params.docId} subjektu ${subjectId}`,
       });
       res.json({ ok: true });
     } catch (err: any) { res.status(500).json({ message: err.message }); }
@@ -8640,7 +8640,7 @@ export async function registerRoutes(
       await storage.createAuditLog({
         userId: appUser.id, username: appUser.username, action: "DOCUMENT_GENERATED",
         module: "dokumentacia", entityId: subjectId,
-        entityName: `Generovanie ${dbDocType} dokumentu pre subjekt #${subjectId}`,
+        entityName: `Generovanie ${dbDocType} dokumentu pre subjekt ${subjectId}`,
         newData: { docType: dbDocType, auditCode, filename },
       });
 
@@ -8748,7 +8748,7 @@ export async function registerRoutes(
         }
       }
 
-      await logAudit(req, { action: "ADD_POINT", module: "subjekty_bonita", entityId: subjectId, entityName: `${pointType} bod (${points}) pre subjekt #${subject.uid}: ${reason}` });
+      await logAudit(req, { action: "ADD_POINT", module: "subjekty_bonita", entityId: subjectId, entityName: `${pointType} bod (${points}) pre subjekt ${subject.uid}: ${reason}` });
       res.json({ totalPoints: newTotal });
     } catch (err: any) {
       res.status(500).json({ message: err.message });
@@ -8873,7 +8873,7 @@ export async function registerRoutes(
         action: "UPDATE",
         module: "red_list_alerts",
         entityId: alert.subjectId,
-        entityName: `Červený zoznam potvrdený pre subjekt #${alert.subjectId}`,
+        entityName: `Červený zoznam potvrdený pre subjekt ${alert.subjectId}`,
         oldData: { status: "pending" },
         newData: { status: "confirmed", listStatus: "cerveny" },
       });
@@ -9117,7 +9117,7 @@ export async function registerRoutes(
         action: "RESTORE",
         module: "subjekty",
         entityId: subjectId,
-        entityName: `Obnova hodnoty poľa '${restoreLog.fieldKey}' subjektu #${subjectId}`,
+        entityName: `Obnova hodnoty poľa '${restoreLog.fieldKey}' subjektu ${subjectId}`,
         newData: { fieldKey: restoreLog.fieldKey, restoredValue: restoreLog.newValue, fromDate: restoreLog.restoredFromDate },
       });
       res.json(restoreLog);
@@ -9152,7 +9152,7 @@ export async function registerRoutes(
       const created = await storage.createSubjectAddress({
         subjectId, addressType, ulica, supisneCislo, orientacneCislo, obecMesto, psc, stat: stat || "Slovensko", isHlavna: isHlavna || false,
       }, appUser.id, userName);
-      await logAudit(req, { action: "Vytvorenie", module: "Adresy", entityId: created.id, entityName: `Adresa ${addressType} pre subjekt #${subjectId}`, newData: req.body });
+      await logAudit(req, { action: "Vytvorenie", module: "Adresy", entityId: created.id, entityName: `Adresa ${addressType} pre subjekt ${subjectId}`, newData: req.body });
       res.json(created);
     } catch (err: any) {
       res.status(500).json({ message: err.message });
@@ -9169,7 +9169,7 @@ export async function registerRoutes(
       const userName = [appUser.firstName, appUser.lastName].filter(Boolean).join(' ') || appUser.email || 'Neznámy';
       const { ulica, supisneCislo, orientacneCislo, obecMesto, psc, stat } = req.body;
       const updated = await storage.updateSubjectAddress(addressId, subjectId, { ulica, supisneCislo, orientacneCislo, obecMesto, psc, stat }, appUser.id, userName);
-      await logAudit(req, { action: "Uprava", module: "Adresy", entityId: addressId, entityName: `Adresa ${updated.addressType} pre subjekt #${subjectId}`, newData: req.body });
+      await logAudit(req, { action: "Uprava", module: "Adresy", entityId: addressId, entityName: `Adresa ${updated.addressType} pre subjekt ${subjectId}`, newData: req.body });
       res.json(updated);
     } catch (err: any) {
       res.status(500).json({ message: err.message });
@@ -9184,7 +9184,7 @@ export async function registerRoutes(
       const addressId = Number(req.params.addressId);
       if (!await checkKlientiSubjectAccess(req.appUser, subjectId)) return res.status(403).json({ message: "Prístup zamietnutý" });
       await storage.deleteSubjectAddress(addressId, subjectId);
-      await logAudit(req, { action: "Vymazanie", module: "Adresy", entityId: addressId, entityName: `Adresa pre subjekt #${subjectId}` });
+      await logAudit(req, { action: "Vymazanie", module: "Adresy", entityId: addressId, entityName: `Adresa pre subjekt ${subjectId}` });
       res.json({ success: true });
     } catch (err: any) {
       res.status(500).json({ message: err.message });
@@ -9200,7 +9200,7 @@ export async function registerRoutes(
       if (!await checkKlientiSubjectAccess(req.appUser, subjectId)) return res.status(403).json({ message: "Prístup zamietnutý" });
       const userName = [appUser.firstName, appUser.lastName].filter(Boolean).join(' ') || appUser.email || 'Neznámy';
       await storage.setHlavnaAddress(addressId, subjectId, appUser.id, userName);
-      await logAudit(req, { action: "Uprava", module: "Adresy", entityId: addressId, entityName: `Nastavenie hlavnej adresy pre subjekt #${subjectId}` });
+      await logAudit(req, { action: "Uprava", module: "Adresy", entityId: addressId, entityName: `Nastavenie hlavnej adresy pre subjekt ${subjectId}` });
       res.json({ success: true });
     } catch (err: any) {
       res.status(500).json({ message: err.message });
@@ -9274,7 +9274,7 @@ export async function registerRoutes(
             }, appUser.id, userName);
             results.push({ subjectId: targetId, action: 'created', addressId: created.id });
           }
-          await logAudit(req, { action: "PROPAGATE", module: "Adresy", entityId: targetId, entityName: `Propagácia adresy zo subjektu #${sourceSubjectId}`, newData: addressFields });
+          await logAudit(req, { action: "PROPAGATE", module: "Adresy", entityId: targetId, entityName: `Propagácia adresy zo subjektu ${sourceSubjectId}`, newData: addressFields });
         } catch (e: any) {
           results.push({ subjectId: targetId, action: 'error', error: e.message });
         }
@@ -9552,7 +9552,7 @@ export async function registerRoutes(
       if (!appUser) return res.status(401).json({ message: "Unauthorized" });
       const subjectId = Number(req.params.id);
       const result = await storage.anonymizeSubject(subjectId, appUser.id);
-      await logAudit(req, { action: "ANONYMIZE", module: "subjekty", entityId: subjectId, entityName: `Anonymizácia subjektu #${result.uid}` });
+      await logAudit(req, { action: "ANONYMIZE", module: "subjekty", entityId: subjectId, entityName: `Anonymizácia subjektu ${result.uid}` });
       res.json(result);
     } catch (err: any) {
       res.status(500).json({ message: err.message });
@@ -9569,7 +9569,7 @@ export async function registerRoutes(
       }
       const subjectId = Number(req.params.id);
       const data = await storage.revealAnonymizedSubject(subjectId);
-      await logAudit(req, { action: "REVEAL", module: "subjekty", entityId: subjectId, entityName: `Odkrytie anonymizovaného subjektu #${subjectId}` });
+      await logAudit(req, { action: "REVEAL", module: "subjekty", entityId: subjectId, entityName: `Odkrytie anonymizovaného subjektu ${subjectId}` });
       res.json(data);
     } catch (err: any) {
       res.status(500).json({ message: err.message });
@@ -9603,7 +9603,7 @@ export async function registerRoutes(
         isActive: true,
         createdByUserId: req.appUser?.id || null,
       });
-      await logAudit(req, { action: "CREATE", module: "subjekty_collaborators", entityId: collab.id, entityName: `${role} pre subjekt #${subjectId}` });
+      await logAudit(req, { action: "CREATE", module: "subjekty_collaborators", entityId: collab.id, entityName: `${role} pre subjekt ${subjectId}` });
       res.status(201).json(collab);
     } catch (err: any) {
       res.status(500).json({ message: err.message });
@@ -9751,7 +9751,7 @@ export async function registerRoutes(
         action: "VIEW_PROFILE",
         module: "subjects",
         entityId: subjectId,
-        entityName: `Náhľad profilu subjektu #${subjectId}`,
+        entityName: `Náhľad profilu subjektu ${subjectId}`,
       });
 
       await db.insert(activityEvents).values({
@@ -10026,7 +10026,7 @@ export async function registerRoutes(
         const st = c.statusId ? statusMap.get(c.statusId) : null;
         const df = c.dynamicPanelValues as any;
         return {
-          contractUid: c.uid || c.contractNumber || `#${c.id}`,
+          contractUid: c.uid || c.contractNumber || `${c.id}`,
           globalNumber: c.globalNumber,
           clientName: subject ? (subject.type === 'person'
             ? `${subject.titleBefore ? subject.titleBefore + ' ' : ''}${subject.firstName || ''} ${subject.lastName || ''}${subject.titleAfter ? ', ' + subject.titleAfter : ''}`.trim()
@@ -11115,7 +11115,7 @@ export async function registerRoutes(
         action: "delete",
         module: "kniznica_parametrov",
         entityId: sectionId,
-        entityName: found?.name || `Sekcia #${sectionId}`,
+        entityName: found?.name || `Sekcia ${sectionId}`,
         oldData: found || null,
         newData: null,
       });
@@ -11211,7 +11211,7 @@ export async function registerRoutes(
         action: "delete",
         module: "kniznica_parametrov",
         entityId: paramId,
-        entityName: param?.label || `Parameter #${paramId}`,
+        entityName: param?.label || `Parameter ${paramId}`,
         oldData: param || null,
         newData: null,
       });
@@ -11912,7 +11912,7 @@ export async function registerRoutes(
         action: "delete",
         module: "kniznica_parametrov",
         entityId: templateId,
-        entityName: found?.name || `Šablóna #${templateId}`,
+        entityName: found?.name || `Šablóna ${templateId}`,
         oldData: found || null,
         newData: null,
       });
@@ -11995,7 +11995,7 @@ export async function registerRoutes(
         action: "delete",
         module: "kniznica_parametrov",
         entityId: fieldId,
-        entityName: found?.extractedKey || `Neznáme pole #${fieldId}`,
+        entityName: found?.extractedKey || `Neznáme pole ${fieldId}`,
         oldData: found || null,
         newData: null,
       });
@@ -14046,7 +14046,7 @@ export async function registerRoutes(
           grantedByName: user?.username,
         }).returning();
 
-        await logAudit(req, { action: "GRANT_ACCESS", module: "privacy", entityId: grantorSubjectId, entityName: `Súhlas udelený subjektu #${granteeSubjectId}`, newData: { consentType, scope, reason } });
+        await logAudit(req, { action: "GRANT_ACCESS", module: "privacy", entityId: grantorSubjectId, entityName: `Súhlas udelený subjektu ${granteeSubjectId}`, newData: { consentType, scope, reason } });
         res.json(consent);
       } else if (action === "revoke") {
         const revoked = await db.update(accessConsentLog).set({
@@ -14078,7 +14078,7 @@ export async function registerRoutes(
           grantedByName: user?.username,
         });
 
-        await logAudit(req, { action: "REVOKE_ACCESS", module: "privacy", entityId: grantorSubjectId, entityName: `Súhlas odobraný subjektu #${granteeSubjectId}`, oldData: { consentType }, newData: { reason } });
+        await logAudit(req, { action: "REVOKE_ACCESS", module: "privacy", entityId: grantorSubjectId, entityName: `Súhlas odobraný subjektu ${granteeSubjectId}`, oldData: { consentType }, newData: { reason } });
         res.json({ success: true, revokedCount: revoked.length });
       } else {
         return res.status(400).json({ message: "Neplatná akcia. Použite 'grant' alebo 'revoke'" });
@@ -14299,7 +14299,7 @@ export async function registerRoutes(
 
       const enriched = roles.map(r => ({
         ...r.role,
-        companyName: r.company.companyName || `Firma #${r.company.id}`,
+        companyName: r.company.companyName || `Firma ${r.company.id}`,
         companyUid: r.company.uid,
       }));
       res.json(enriched);
@@ -14333,7 +14333,7 @@ export async function registerRoutes(
       }).returning();
 
       const roleLabels: Record<string, string> = { statutar: "Štatutár", ubo: "UBO", zamestnanec: "Zamestnanec", operator: "Operátor" };
-      await logAudit(req, { action: "ASSIGN_ROLE", module: "company_roles", entityId: companySubjectId, entityName: `Rola ${roleLabels[roleType]} priradená subjektu #${personSubjectId}`, newData: { roleType, allowedSections } });
+      await logAudit(req, { action: "ASSIGN_ROLE", module: "company_roles", entityId: companySubjectId, entityName: `Rola ${roleLabels[roleType]} priradená subjektu ${personSubjectId}`, newData: { roleType, allowedSections } });
       res.json(role);
     } catch (err: any) {
       res.status(500).json({ message: err?.message || "Chyba pri priraďovaní roly" });
@@ -14488,7 +14488,7 @@ export async function registerRoutes(
       const enriched = [];
       for (const e of events) {
         const [subj] = await db.select({ id: subjects.id, uid: subjects.uid, firstName: subjects.firstName, lastName: subjects.lastName }).from(subjects).where(eq(subjects.id, e.subjectId));
-        enriched.push({ ...e, subjectName: subj ? `${subj.firstName || ""} ${subj.lastName || ""}`.trim() : `#${e.subjectId}`, subjectUid: subj?.uid });
+        enriched.push({ ...e, subjectName: subj ? `${subj.firstName || ""} ${subj.lastName || ""}`.trim() : `${e.subjectId}`, subjectUid: subj?.uid });
       }
       res.json(enriched);
     } catch (err: any) {
@@ -14602,7 +14602,7 @@ export async function registerRoutes(
               newValue: newValues[fk] != null ? String(newValues[fk]) : null,
               changedByUserId: user?.id,
               changedByName: user?.username || "system",
-              changeReason: `Zdedené od rodiča (subjekt #${sourceSubjectId})`,
+              changeReason: `Zdedené od rodiča (subjekt ${sourceSubjectId})`,
             });
           }
         }
@@ -15062,7 +15062,7 @@ export async function registerRoutes(
 
     doc.fontSize(18).font("Helvetica-Bold").text("Prestupový protokol", 50, 50);
     doc.moveTo(50, 75).lineTo(445, 75).stroke("#333333");
-    doc.fontSize(10).font("Helvetica").text(`Číslo žiadosti: #${request.id}`, 50, 85);
+    doc.fontSize(10).font("Helvetica").text(`Číslo žiadosti: ${request.id}`, 50, 85);
     doc.text(`Audit kód: ${auditCode}`, 50, 100);
     doc.moveDown(1.5);
 
@@ -15169,7 +15169,7 @@ export async function registerRoutes(
         action: "transfer_request_created",
         module: "Network",
         entityId: request.id,
-        entityName: `Transfer #${request.id}`,
+        entityName: `Transfer ${request.id}`,
         newData: { subjectId, currentGuarantorId, requestedGuarantorId, reason },
       });
 
@@ -15281,7 +15281,7 @@ export async function registerRoutes(
         action: `transfer_step_${step.waitingFor}_approved`,
         module: "Network",
         entityId: id,
-        entityName: `Transfer #${id}`,
+        entityName: `Transfer ${id}`,
         newData: { step: step.step, stepName: step.stepName, reviewNote },
       });
 
@@ -15328,7 +15328,7 @@ export async function registerRoutes(
         action: "transfer_request_rejected",
         module: "Network",
         entityId: id,
-        entityName: `Transfer #${id}`,
+        entityName: `Transfer ${id}`,
         newData: { reviewNote },
       });
 
@@ -15954,7 +15954,7 @@ export async function registerRoutes(
         return;
       }
 
-      console.log(`[OCR WORKER] Spracúvam job #${nextJob.id}: ${nextJob.originalName}`);
+      console.log(`[OCR WORKER] Spracúvam job ${nextJob.id}: ${nextJob.originalName}`);
       await db.update(ocrProcessingJobs).set({ status: "processing", startedAt: new Date() }).where(eq(ocrProcessingJobs.id, nextJob.id));
 
       try {
@@ -16055,9 +16055,9 @@ export async function registerRoutes(
           pageCount: ocrResult.pages, completedAt: new Date(),
         }).where(eq(ocrProcessingJobs.id, nextJob.id));
 
-        console.log(`[OCR WORKER] Job #${nextJob.id} dokončený: ${ocrResult.pages} strán, ${results.length} polí`);
+        console.log(`[OCR WORKER] Job ${nextJob.id} dokončený: ${ocrResult.pages} strán, ${results.length} polí`);
       } catch (err: any) {
-        console.error(`[OCR WORKER] Job #${nextJob.id} zlyhal:`, err.message);
+        console.error(`[OCR WORKER] Job ${nextJob.id} zlyhal:`, err.message);
         await db.update(ocrProcessingJobs).set({ status: "failed", error: err.message, completedAt: new Date() }).where(eq(ocrProcessingJobs.id, nextJob.id));
       }
     } catch (err: any) {

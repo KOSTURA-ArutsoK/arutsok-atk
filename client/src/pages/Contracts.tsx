@@ -3107,7 +3107,7 @@ export default function Contracts() {
                           {isExpanded ? <ChevronDown className="w-4 h-4 text-muted-foreground shrink-0" /> : <ChevronRight className="w-4 h-4 text-muted-foreground shrink-0" />}
                           <FileText className="w-4 h-4 text-amber-500 shrink-0" />
                           <span className="text-sm font-medium flex-1" data-testid={`text-sprievodka-name-${group.inventoryId}`}>
-                            {group.inventory?.name || `Sprievodka #${group.inventoryId}`}
+                            {group.inventory?.name || `Sprievodka ${group.inventoryId}`}
                             {group.inventory?.logisticOperationDate && (
                               <span className="ml-2 text-xs text-muted-foreground font-normal">
                                 ({formatDateSlovak(group.inventory.logisticOperationDate)})
@@ -3120,7 +3120,7 @@ export default function Contracts() {
                           {isMigrationMode && (
                             <Button size="sm" variant="outline" className="border-purple-500/30 text-purple-400 hover:bg-purple-950/20" onClick={(e) => {
                               e.stopPropagation();
-                              setBulkDateTarget({ type: "inventory", id: group.inventoryId, name: group.inventory?.name || `Sprievodka #${group.inventoryId}` });
+                              setBulkDateTarget({ type: "inventory", id: group.inventoryId, name: group.inventory?.name || `Sprievodka ${group.inventoryId}` });
                               setBulkLogisticDate(group.inventory?.logisticOperationDate ? new Date(group.inventory.logisticOperationDate).toISOString().split("T")[0] : "");
                               setBulkDateDialogOpen(true);
                             }} data-testid={`button-bulk-dates-sprievodka-${group.inventoryId}`}>

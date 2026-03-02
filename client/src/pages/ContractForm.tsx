@@ -388,7 +388,7 @@ function StatusTabContent(props: StatusTabContentProps) {
 
   const enrichedLogs = (statusChangeLogs || []).map(log => {
     const logStatus = statuses?.find(s => s.id === log.newStatusId);
-    return { ...log, status: logStatus?.name || `Stav #${log.newStatusId}` };
+    return { ...log, status: logStatus?.name || `Stav ${log.newStatusId}` };
   });
   const statusHistoryFilter = useSmartFilter(enrichedLogs, STATUS_HISTORY_FILTER_COLUMNS, "contract-form-status-history");
 
@@ -692,7 +692,7 @@ function StatusTabContent(props: StatusTabContentProps) {
                 <TableBody>
                   {statusHistoryFilter.filteredData.map(log => {
                     const logStatus = statuses?.find(s => s.id === log.newStatusId);
-                    const statusName = logStatus?.name || `Stav #${log.newStatusId}`;
+                    const statusName = logStatus?.name || `Stav ${log.newStatusId}`;
                     const iteration = log.statusIteration || 1;
                     const paramCount = log.parameterValues ? Object.keys(log.parameterValues).filter(k => (log.parameterValues as Record<string, string>)[k]?.trim()).length : 0;
                     const docCount = Array.isArray(log.statusChangeDocuments) ? (log.statusChangeDocuments as any[]).length : 0;
@@ -1638,7 +1638,7 @@ export default function ContractForm() {
         )}
         {isEditing && existingContract && (
           <span className="text-2xl font-black tracking-tight tabular-nums ml-auto" data-testid="text-contract-number">
-            {(existingContract as any).globalNumber || existingContract.contractNumber || `#${existingContract.id}`}
+            {(existingContract as any).globalNumber || existingContract.contractNumber || `${existingContract.id}`}
           </span>
         )}
       </div>
@@ -2856,7 +2856,7 @@ export default function ContractForm() {
                               <div className="flex items-center gap-2 flex-wrap">
                                 <Badge variant="outline" className="text-xs font-mono h-5 w-5 p-0 flex items-center justify-center shrink-0">{rowNumber}</Badge>
                                 <span className="font-semibold text-sm" style={{ color: logStatus?.color }} data-testid={`status-history-name-${log.id}`}>
-                                  {logStatus?.name || `Stav #${log.newStatusId}`}
+                                  {logStatus?.name || `Stav ${log.newStatusId}`}
                                 </span>
                                 {log.statusIteration && log.statusIteration > 1 && (
                                   <Badge variant="secondary" className="text-[10px] h-4">×{log.statusIteration}</Badge>
