@@ -11,7 +11,7 @@ import { SmartFilterBar } from "@/components/smart-filter-bar";
 import { useColumnVisibility, type ColumnDef } from "@/hooks/use-column-visibility";
 import { ColumnManager } from "@/components/column-manager";
 import type { ContractStatus, ContractStatusParameter, MyCompany, Sector, Section, SectorProduct } from "@shared/schema";
-import { Plus, Pencil, Loader2, GripVertical, Flag, MessageSquare } from "lucide-react";
+import { Plus, Pencil, Loader2, GripVertical, Flag, MessageSquare, Settings2, FileText } from "lucide-react";
 import { ConditionalDelete } from "@/components/conditional-delete";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -380,6 +380,19 @@ function StatusFormDialog({
   }
 
   const isPending = createMutation.isPending || updateMutation.isPending;
+
+  function insertSmartTag(tag: string) {
+    const ta = templateRef.current;
+    if (ta) {
+      const start = ta.selectionStart;
+      const end = ta.selectionEnd;
+      const val = notifyTemplate;
+      setNotifyTemplate(val.substring(0, start) + tag + val.substring(end));
+      setTimeout(() => { ta.focus(); ta.setSelectionRange(start + tag.length, start + tag.length); }, 0);
+    } else {
+      setNotifyTemplate(prev => prev + tag);
+    }
+  }
 
   const PARAM_TYPES = [
     { value: "text", label: "Text" },
@@ -779,74 +792,58 @@ function StatusFormDialog({
                         </div>
                       </div>
 
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <span className="text-xs text-muted-foreground mr-1">Vlozit:</span>
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          className="text-xs h-7 px-2"
-                          data-testid="button-tag-contract-number"
-                          onClick={() => {
-                            const ta = templateRef.current;
-                            if (ta) {
-                              const start = ta.selectionStart;
-                              const end = ta.selectionEnd;
-                              const val = notifyTemplate;
-                              const tag = "{{contract_number}}";
-                              setNotifyTemplate(val.substring(0, start) + tag + val.substring(end));
-                              setTimeout(() => { ta.focus(); ta.setSelectionRange(start + tag.length, start + tag.length); }, 0);
-                            } else {
-                              setNotifyTemplate(prev => prev + "{{contract_number}}");
-                            }
-                          }}
-                        >
-                          Cislo zmluvy
-                        </Button>
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          className="text-xs h-7 px-2"
-                          data-testid="button-tag-client-name"
-                          onClick={() => {
-                            const ta = templateRef.current;
-                            if (ta) {
-                              const start = ta.selectionStart;
-                              const end = ta.selectionEnd;
-                              const val = notifyTemplate;
-                              const tag = "{{client_name}}";
-                              setNotifyTemplate(val.substring(0, start) + tag + val.substring(end));
-                              setTimeout(() => { ta.focus(); ta.setSelectionRange(start + tag.length, start + tag.length); }, 0);
-                            } else {
-                              setNotifyTemplate(prev => prev + "{{client_name}}");
-                            }
-                          }}
-                        >
-                          Meno klienta
-                        </Button>
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          className="text-xs h-7 px-2"
-                          data-testid="button-tag-valid-until"
-                          onClick={() => {
-                            const ta = templateRef.current;
-                            if (ta) {
-                              const start = ta.selectionStart;
-                              const end = ta.selectionEnd;
-                              const val = notifyTemplate;
-                              const tag = "{{valid_until}}";
-                              setNotifyTemplate(val.substring(0, start) + tag + val.substring(end));
-                              setTimeout(() => { ta.focus(); ta.setSelectionRange(start + tag.length, start + tag.length); }, 0);
-                            } else {
-                              setNotifyTemplate(prev => prev + "{{valid_until}}");
-                            }
-                          }}
-                        >
-                          Datum platnosti
-                        </Button>
+                      <div className="space-y-3">
+                        <div>
+                          <p className="text-xs font-semibold text-muted-foreground mb-1.5 flex items-center gap-1" data-testid="label-system-tags">
+                            <Settings2 className="w-3 h-3" /> Systemove (z aktualnej zmluvy)
+                          </p>
+                          <div className="flex flex-wrap gap-1 w-full" data-testid="section-system-tags">
+                            {[
+                              { tag: "{{contract_number}}", label: "Cislo zmluvy", testId: "button-tag-contract-number" },
+                              { tag: "{{client_name}}", label: "Meno klienta", testId: "button-tag-client-name" },
+                              { tag: "{{valid_until}}", label: "Datum platnosti", testId: "button-tag-valid-until" },
+                            ].map(item => (
+                              <Button
+                                key={item.tag}
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                className="text-xs h-7 px-2"
+                                data-testid={item.testId}
+                                onClick={() => insertSmartTag(item.tag)}
+                              >
+                                {item.label}
+                              </Button>
+                            ))}
+                          </div>
+                        </div>
+
+                        <div>
+                          <p className="text-xs font-semibold text-muted-foreground mb-1.5 flex items-center gap-1" data-testid="label-status-tags">
+                            <FileText className="w-3 h-3" /> Moje (zo stavu)
+                          </p>
+                          {(existingParams && existingParams.length > 0) ? (
+                            <div className="flex flex-wrap gap-1 w-full" data-testid="section-status-tags">
+                              {existingParams.map(p => (
+                                <Button
+                                  key={p.id}
+                                  type="button"
+                                  variant="secondary"
+                                  size="sm"
+                                  className="text-xs h-7 px-2"
+                                  data-testid={`button-tag-param-${p.id}`}
+                                  onClick={() => insertSmartTag(`{{param_${p.name}}}`)}
+                                >
+                                  {p.name}
+                                </Button>
+                              ))}
+                            </div>
+                          ) : (
+                            <p className="text-xs text-muted-foreground italic" data-testid="text-no-status-params">
+                              {editingStatus ? "Pridajte parametre v tabe 'Parametre'" : "Najprv ulozte stav, potom pridajte parametre"}
+                            </p>
+                          )}
+                        </div>
                       </div>
 
                       <textarea
@@ -862,6 +859,9 @@ function StatusFormDialog({
                         Dostupne premenne: <code className="bg-muted px-1 py-0.5 rounded text-[10px]">{"{{contract_number}}"}</code>{" "}
                         <code className="bg-muted px-1 py-0.5 rounded text-[10px]">{"{{client_name}}"}</code>{" "}
                         <code className="bg-muted px-1 py-0.5 rounded text-[10px]">{"{{valid_until}}"}</code>
+                        {existingParams && existingParams.length > 0 && existingParams.map(p => (
+                          <span key={p.id}>{" "}<code className="bg-muted px-1 py-0.5 rounded text-[10px]">{`{{param_${p.name}}}`}</code></span>
+                        ))}
                       </p>
                     </div>
                   </>

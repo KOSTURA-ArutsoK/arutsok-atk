@@ -2932,11 +2932,18 @@ export async function registerRoutes(
             ? new Date(freshContract.expiryDate).toLocaleDateString("sk-SK", { day: "2-digit", month: "2-digit", year: "numeric" })
             : "-";
 
+          const paramNameToValue: Record<string, string> = {};
+          for (const sp of statusParams) {
+            const val = parsedParams[sp.id.toString()];
+            paramNameToValue[sp.name] = val !== undefined && val !== null ? String(val) : "";
+          }
+
           const replaceSmartTags = (text: string) =>
             text
               .replace(/\{\{contract_number\}\}/g, contractNumber)
               .replace(/\{\{client_name\}\}/g, clientName)
-              .replace(/\{\{valid_until\}\}/g, validUntil);
+              .replace(/\{\{valid_until\}\}/g, validUntil)
+              .replace(/\{\{param_(.+?)\}\}/g, (_match, paramName) => paramNameToValue[paramName] || "");
 
           const channel = (status as any).notifyChannel || "email";
           const templateBody = replaceSmartTags((status as any).notifyTemplate || "");
