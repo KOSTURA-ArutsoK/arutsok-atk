@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useAppUser } from "@/hooks/use-app-user";
@@ -11,7 +11,7 @@ import { SmartFilterBar } from "@/components/smart-filter-bar";
 import { useColumnVisibility, type ColumnDef } from "@/hooks/use-column-visibility";
 import { ColumnManager } from "@/components/column-manager";
 import type { ContractStatus, ContractStatusParameter, MyCompany, Sector, Section, SectorProduct } from "@shared/schema";
-import { Plus, Pencil, Loader2, GripVertical, Flag } from "lucide-react";
+import { Plus, Pencil, Loader2, GripVertical, Flag, MessageSquare } from "lucide-react";
 import { ConditionalDelete } from "@/components/conditional-delete";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -106,6 +106,12 @@ function StatusFormDialog({
   const [newParamOptions, setNewParamOptions] = useState("");
   const [newParamRequired, setNewParamRequired] = useState(false);
   const [newParamDefaultValue, setNewParamDefaultValue] = useState("");
+
+  const [notifyEnabled, setNotifyEnabled] = useState(false);
+  const [notifyChannel, setNotifyChannel] = useState<string>("email");
+  const [notifySubject, setNotifySubject] = useState("");
+  const [notifyTemplate, setNotifyTemplate] = useState("");
+  const templateRef = useRef<HTMLTextAreaElement>(null);
   const [editingParam, setEditingParam] = useState<ContractStatusParameter | null>(null);
 
   const { data: existingCompanies } = useQuery<{ statusId: number; companyId: number }[]>({
@@ -238,6 +244,10 @@ function StatusFormDialog({
         setDefinesContractEnd(editingStatus.definesContractEnd ?? false);
         setIsIntervention(editingStatus.isIntervention ?? false);
         setSelectedContractTypes([]);
+        setNotifyEnabled((editingStatus as any).notifyEnabled ?? false);
+        setNotifyChannel((editingStatus as any).notifyChannel || "email");
+        setNotifySubject((editingStatus as any).notifySubject || "");
+        setNotifyTemplate((editingStatus as any).notifyTemplate || "");
       } else {
         setName("");
         setColor("#3b82f6");
@@ -251,6 +261,10 @@ function StatusFormDialog({
         setSelectedCompanyIds([]);
         setVisibilityItems([]);
         setSelectedContractTypes([]);
+        setNotifyEnabled(false);
+        setNotifyChannel("email");
+        setNotifySubject("");
+        setNotifyTemplate("");
       }
       resetParamForm();
     }
@@ -296,6 +310,10 @@ function StatusFormDialog({
         assignsNumber,
         definesContractEnd,
         isIntervention,
+        notifyEnabled,
+        notifyChannel: notifyEnabled ? notifyChannel : null,
+        notifySubject: notifyEnabled && (notifyChannel === "email" || notifyChannel === "both") ? notifySubject : null,
+        notifyTemplate: notifyEnabled ? notifyTemplate : null,
       },
       companyIds: selectedCompanyIds,
       visibility: visibilityItems,
@@ -388,6 +406,7 @@ function StatusFormDialog({
           <TabsList className="w-full">
             <TabsTrigger value="vseobecne" data-testid="tab-vseobecne" className="flex-1">Vseobecne udaje</TabsTrigger>
             <TabsTrigger value="parametre" data-testid="tab-parametre" className="flex-1" disabled={!editingStatus}>Parametre</TabsTrigger>
+            <TabsTrigger value="notifikacie" data-testid="tab-notifikacie" className="flex-1">Notifikacie</TabsTrigger>
           </TabsList>
 
           <TabsContent value="vseobecne" className="space-y-4 mt-4">
@@ -699,6 +718,163 @@ function StatusFormDialog({
                 </Card>
               </>
             )}
+          </TabsContent>
+
+          <TabsContent value="notifikacie" className="space-y-4 mt-4">
+            <Card>
+              <CardContent className="p-4 space-y-4">
+                <p className="text-sm font-semibold text-muted-foreground flex items-center gap-2" data-testid="text-notify-heading">
+                  <MessageSquare className="w-4 h-4" />
+                  Komunikacny modul
+                </p>
+
+                <div className="flex items-center justify-between gap-4">
+                  <div>
+                    <p className="text-sm font-medium">Odoslat notifikaciu</p>
+                    <p className="text-xs text-muted-foreground">Pri zmene stavu zmluvy sa automaticky odosle sprava</p>
+                  </div>
+                  <Switch checked={notifyEnabled} onCheckedChange={setNotifyEnabled} data-testid="switch-notify-enabled" />
+                </div>
+
+                {notifyEnabled && (
+                  <>
+                    <div className="flex items-center justify-between gap-4 pt-3 border-t border-border">
+                      <div className="flex-1">
+                        <p className="text-sm font-medium">Kanal dorucenia</p>
+                        <p className="text-xs text-muted-foreground">Vyberte sposob dorucenia notifikacie</p>
+                      </div>
+                      <Select value={notifyChannel} onValueChange={setNotifyChannel}>
+                        <SelectTrigger className="w-[180px]" data-testid="select-notify-channel">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="sms">SMS</SelectItem>
+                          <SelectItem value="email">E-mail</SelectItem>
+                          <SelectItem value="both">Oba (SMS + E-mail)</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    {(notifyChannel === "email" || notifyChannel === "both") && (
+                      <div className="flex items-center justify-between gap-4 pt-3 border-t border-border">
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium">Predmet spravy</p>
+                          <p className="text-xs text-muted-foreground">Predmet e-mailovej notifikacie</p>
+                        </div>
+                        <Input
+                          value={notifySubject}
+                          onChange={e => setNotifySubject(e.target.value)}
+                          placeholder="Zmena stavu zmluvy"
+                          className="flex-1 max-w-[300px]"
+                          data-testid="input-notify-subject"
+                        />
+                      </div>
+                    )}
+
+                    <div className="pt-3 border-t border-border space-y-3">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="text-sm font-medium">Sablona spravy</p>
+                          <p className="text-xs text-muted-foreground">Pouzite tlacidla na vlozenie premennych zo zmluvy</p>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="text-xs text-muted-foreground mr-1">Vlozit:</span>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          className="text-xs h-7 px-2"
+                          data-testid="button-tag-contract-number"
+                          onClick={() => {
+                            const ta = templateRef.current;
+                            if (ta) {
+                              const start = ta.selectionStart;
+                              const end = ta.selectionEnd;
+                              const val = notifyTemplate;
+                              const tag = "{{contract_number}}";
+                              setNotifyTemplate(val.substring(0, start) + tag + val.substring(end));
+                              setTimeout(() => { ta.focus(); ta.setSelectionRange(start + tag.length, start + tag.length); }, 0);
+                            } else {
+                              setNotifyTemplate(prev => prev + "{{contract_number}}");
+                            }
+                          }}
+                        >
+                          Cislo zmluvy
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          className="text-xs h-7 px-2"
+                          data-testid="button-tag-client-name"
+                          onClick={() => {
+                            const ta = templateRef.current;
+                            if (ta) {
+                              const start = ta.selectionStart;
+                              const end = ta.selectionEnd;
+                              const val = notifyTemplate;
+                              const tag = "{{client_name}}";
+                              setNotifyTemplate(val.substring(0, start) + tag + val.substring(end));
+                              setTimeout(() => { ta.focus(); ta.setSelectionRange(start + tag.length, start + tag.length); }, 0);
+                            } else {
+                              setNotifyTemplate(prev => prev + "{{client_name}}");
+                            }
+                          }}
+                        >
+                          Meno klienta
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          className="text-xs h-7 px-2"
+                          data-testid="button-tag-valid-until"
+                          onClick={() => {
+                            const ta = templateRef.current;
+                            if (ta) {
+                              const start = ta.selectionStart;
+                              const end = ta.selectionEnd;
+                              const val = notifyTemplate;
+                              const tag = "{{valid_until}}";
+                              setNotifyTemplate(val.substring(0, start) + tag + val.substring(end));
+                              setTimeout(() => { ta.focus(); ta.setSelectionRange(start + tag.length, start + tag.length); }, 0);
+                            } else {
+                              setNotifyTemplate(prev => prev + "{{valid_until}}");
+                            }
+                          }}
+                        >
+                          Datum platnosti
+                        </Button>
+                      </div>
+
+                      <textarea
+                        ref={templateRef}
+                        value={notifyTemplate}
+                        onChange={e => setNotifyTemplate(e.target.value)}
+                        placeholder="Vazeny klient {{client_name}}, stav Vasej zmluvy c. {{contract_number}} bol zmeneny. Platnost: {{valid_until}}."
+                        rows={6}
+                        className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 resize-y"
+                        data-testid="textarea-notify-template"
+                      />
+                      <p className="text-xs text-muted-foreground">
+                        Dostupne premenne: <code className="bg-muted px-1 py-0.5 rounded text-[10px]">{"{{contract_number}}"}</code>{" "}
+                        <code className="bg-muted px-1 py-0.5 rounded text-[10px]">{"{{client_name}}"}</code>{" "}
+                        <code className="bg-muted px-1 py-0.5 rounded text-[10px]">{"{{valid_until}}"}</code>
+                      </p>
+                    </div>
+                  </>
+                )}
+              </CardContent>
+            </Card>
+
+            <div className="flex items-center justify-end gap-3 mt-6 flex-wrap">
+              <Button type="button" variant="outline" onClick={() => onOpenChange(false)} data-testid="button-notify-cancel">
+                Zrusit
+              </Button>
+              <ProcessingSaveButton isPending={isPending} />
+            </div>
           </TabsContent>
         </Tabs>
         </form>

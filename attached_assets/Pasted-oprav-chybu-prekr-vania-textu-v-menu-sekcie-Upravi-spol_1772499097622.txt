@@ -1,0 +1,93 @@
+oprav chybu prekrývania textu v menu sekcie 'Upraviť spoločnosť' podľa týchto striktných pravidiel:
+
+
+
+ZAKÁZANÝ SCROLL: Nepoužívaj horizontálny posuvník (overflow-x: scroll). Všetky položky musia byť viditeľné naraz.
+
+
+
+ZALAMOVANIE (Flex Wrap): Nastav menu tak, aby sa pri nedostatku miesta položky (Základné údaje, Adresa, Divízie...) automaticky zalomili do viacerých riadkov pod seba.
+
+
+
+FIXNÉ MEDZERY (Gap): Medzi položkami musí byť pevná medzera (gap). Texty sa nesmú dotýkať ani prekrývať.
+
+
+
+ROVNOMERNÉ ZAROVNANIE (Justify): Položky menu musia byť zarovnané do bloku (napr. justify-content: space-between; alebo space-around;). To znamená, že krajné položky musia lícovať s ľavým a pravým okrajom kontajnera a medzery medzi nimi sa musia automaticky rozložiť tak, aby bolo menu zarovnané vľavo aj vpravo súčasne.
+
+
+
+ROZSTUP RIADKOV: Ak sa menu zalomí do druhého/tretieho riadku, pridaj dostatočný vertikálny rozostup, aby riadky na seba neboli natlačené.
+
+
+
+JEDNOTNÝ FONT: Veľkosť písma musí zostať identická s celým systémom.
+
+
+
+Cieľ: Čitateľné, klikateľné a vizuálne vyvážené menu, ktoré dokonale vypĺňa šírku okna bez ohľadu na počet riadkov."
+
+
+
+🛡️ Prečo je toto riešenie špičkové:
+
+Symetria: Zarovnanie vľavo aj vpravo (Justified layout) dodá tvojmu ArutsoKu (ATK) moderný, „architektonický“ vzhľad.
+
+
+
+Využitie miesta: Žiadne prázdne diery na pravej strane menu – každá karta bude využívať priestor na maximum.
+
+
+
+Užívateľský komfort: Nech už máš okno akokoľvek široké, menu bude vždy symetrické a prehľadné. pre celý systém ArutsoK (ATK) zavádzaš nový vizuálny štandard:
+
+
+
+GLOBÁLNY JUSTIFIED LAYOUT: Všetky navigačné prvky, karty a ovládacie menu musia byť zarovnané do bloku (vľavo aj vpravo súčasne). Medzery medzi prvkami sa musia dynamicky prispôsobovať šírke kontajnera tak, aby krajné prvky vždy lícovali s okrajmi.
+
+
+
+ARCHITEKTONICKÝ VZHĽAD: Cieľom je dosiahnuť čistú, symetrickú štruktúru v každom module (napr. menu v 'Upraviť spoločnosť', dashboardy, zoznamy zmlúv).
+
+
+
+ZALAMOVANIE (Flex Wrap): Pri nedostatku miesta sa prvky zalamujú do nových riadkov, pričom každý riadok musí opäť dodržiavať pravidlo zarovnania vľavo aj vpravo.
+
+
+
+ROVNOMERNÉ MEDZERY: Zabezpeč, aby vertikálne aj horizontálne rozostupy boli v celom systéme identické (konzistentný 'gap').
+
+
+
+Tento štandard aplikuj okamžite na opravu menu v sekcii 'Upraviť spoločnosť' a následne ho implementuj do všetkých existujúcich aj budúcich častí systému. Agent, pre celý systém ArutsoK (ATK) zavádzaš nasledovné globálne pravidlo, ktoré musí byť dodržané pri všetkých aktuálnych aj všetkých budúcich úpravách a moduloch:
+
+
+
+GLOBÁLNY JUSTIFIED LAYOUT: Pre všetky navigačné prvky, karty a ovládacie menu platí pravidlo zarovnávania do bloku (vľavo aj vpravo súčasne).
+
+
+
+TRVALÁ PLATNOSŤ: Toto pravidlo je globálne a platí do budúcna pre každý jeden nový prvok, ktorý do systému pribudne. Krajné prvky v riadku musia vždy lícovať s ľavým a pravým okrajom kontajnera.
+
+
+
+DYNAMICKÉ MEDZERY: Pri použití Flex Wrap (zalamovaní do riadkov) sa medzery medzi prvkami musia automaticky a rovnomerne rozložiť tak, aby bola zachovaná dokonalá symetria v každom riadku.
+
+
+
+ESTETIKA: Cieľom je udržať jednotný „architektonický“ a profesionálny vzhľad holdingu Kostura naprieč celým softvérom bez výnimky.
+
+
+
+Tento štandard považuj za fixnú súčasť dizajnového manuálu systému ATK."
+
+
+
+🛡️ Prečo je toto rozhodnutie dôležité:
+
+Konzistencia: Nech Agent v budúcnosti pridá akýkoľvek modul (napr. tie tvoje Reporty alebo Skenovanie), systém bude stále pôsobiť ako jeden kompaktný celok.
+
+
+
+Žiadne opravy: Tým, že je to definované ako globálne pravidlo, Agent už nebude musieť pri každej novej sekcii skúšať rôzne zarovnania – proste použije tento tvoj štandard

@@ -10,7 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import {
   Loader2, Mail, ShieldAlert, Download, FileSpreadsheet,
-  Send, CheckCircle2, XCircle, Clock,
+  Send, CheckCircle2, XCircle, Clock, Smartphone,
 } from "lucide-react";
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as ReTooltip,
@@ -25,6 +25,8 @@ interface NotifKPI {
   sent: number;
   failed: number;
   pending: number;
+  email: number;
+  sms: number;
 }
 
 interface DailyEntry {
@@ -32,6 +34,8 @@ interface DailyEntry {
   sent: number;
   failed: number;
   pending: number;
+  email: number;
+  sms: number;
 }
 
 interface MonthlyEntry {
@@ -85,6 +89,7 @@ export default function ReportyOdosielanie() {
   const [from, setFrom] = useState("");
   const [to, setTo] = useState("");
   const [statusId, setStatusId] = useState("");
+  const [channelFilter, setChannelFilter] = useState("all");
   const [filtersApplied, setFiltersApplied] = useState(false);
   const chartRef = useRef<HTMLDivElement>(null);
 
@@ -119,6 +124,7 @@ export default function ReportyOdosielanie() {
     setFrom("");
     setTo("");
     setStatusId("");
+    setChannelFilter("all");
     setFiltersApplied(false);
   };
 
@@ -132,6 +138,8 @@ export default function ReportyOdosielanie() {
       sent: d.sent,
       failed: d.failed,
       pending: d.pending,
+      email: d.email || 0,
+      sms: d.sms || 0,
     })),
     [dailyTimeline]
   );
@@ -171,6 +179,8 @@ export default function ReportyOdosielanie() {
 
     const kpiItems = [
       { label: "Celkom odoslanych", value: String(reportData.kpi.total) },
+      { label: "E-mail", value: String(reportData.kpi.email) },
+      { label: "SMS", value: String(reportData.kpi.sms) },
       { label: "Uspesnych", value: String(reportData.kpi.sent) },
       { label: "Chybovych", value: String(reportData.kpi.failed) },
       { label: "Cakajucich", value: String(reportData.kpi.pending) },
@@ -222,6 +232,8 @@ export default function ReportyOdosielanie() {
     const wsKPI = workbook.addWorksheet("KPI");
     wsKPI.addRow(["Metrika", "Hodnota"]);
     wsKPI.addRow(["Celkom odoslanych", reportData.kpi.total]);
+    wsKPI.addRow(["E-mail", reportData.kpi.email]);
+    wsKPI.addRow(["SMS", reportData.kpi.sms]);
     wsKPI.addRow(["Uspesnych", reportData.kpi.sent]);
     wsKPI.addRow(["Chybovych", reportData.kpi.failed]);
     wsKPI.addRow(["Cakajucich", reportData.kpi.pending]);
@@ -293,7 +305,7 @@ export default function ReportyOdosielanie() {
 
       <Card>
         <CardContent className="pt-4 pb-3">
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 items-end">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 items-end">
             <div>
               <Label className="text-xs">Od</Label>
               <Input type="date" value={from} onChange={e => setFrom(e.target.value)} data-testid="input-notif-date-from" />
@@ -313,6 +325,19 @@ export default function ReportyOdosielanie() {
                   {statuses?.map(s => (
                     <SelectItem key={s.id} value={String(s.id)}>{s.name}</SelectItem>
                   ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label className="text-xs">Kanal</Label>
+              <Select value={channelFilter} onValueChange={setChannelFilter}>
+                <SelectTrigger data-testid="select-notif-channel">
+                  <SelectValue placeholder="Vsetky" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Vsetky</SelectItem>
+                  <SelectItem value="email">E-mail</SelectItem>
+                  <SelectItem value="sms">SMS</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -336,7 +361,7 @@ export default function ReportyOdosielanie() {
 
       {filtersApplied && kpi && (
         <>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
             <Card data-testid="card-kpi-total">
               <CardHeader className="pb-1 pt-3 px-4">
                 <CardTitle className="text-xs text-muted-foreground font-normal flex items-center gap-1.5">
@@ -349,6 +374,36 @@ export default function ReportyOdosielanie() {
               </CardContent>
             </Card>
 
+            <Card data-testid="card-kpi-email">
+              <CardHeader className="pb-1 pt-3 px-4">
+                <CardTitle className="text-xs text-muted-foreground font-normal flex items-center gap-1.5">
+                  <Mail className="w-3.5 h-3.5 text-blue-500" />
+                  E-mail
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="px-4 pb-3">
+                <div className="text-2xl font-bold text-blue-600 dark:text-blue-400" data-testid="text-kpi-email">
+                  {kpi.email.toLocaleString("sk-SK")}
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card data-testid="card-kpi-sms">
+              <CardHeader className="pb-1 pt-3 px-4">
+                <CardTitle className="text-xs text-muted-foreground font-normal flex items-center gap-1.5">
+                  <Smartphone className="w-3.5 h-3.5 text-violet-500" />
+                  SMS
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="px-4 pb-3">
+                <div className="text-2xl font-bold text-violet-600 dark:text-violet-400" data-testid="text-kpi-sms">
+                  {kpi.sms.toLocaleString("sk-SK")}
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <Card data-testid="card-kpi-sent">
               <CardHeader className="pb-1 pt-3 px-4">
                 <CardTitle className="text-xs text-muted-foreground font-normal flex items-center gap-1.5">
@@ -408,6 +463,8 @@ export default function ReportyOdosielanie() {
                       <YAxis tick={{ fontSize: 11 }} allowDecimals={false} />
                       <ReTooltip content={<CustomTooltip />} />
                       <Legend />
+                      <Bar dataKey="email" name="E-mail" fill="#3b82f6" radius={[2, 2, 0, 0]} />
+                      <Bar dataKey="sms" name="SMS" fill="#8b5cf6" radius={[2, 2, 0, 0]} />
                       <Bar dataKey="sent" name="Odoslane" fill="#10b981" radius={[2, 2, 0, 0]} />
                       <Bar dataKey="failed" name="Chybove" fill="#ef4444" radius={[2, 2, 0, 0]} />
                       <Bar dataKey="pending" name="Cakajuce" fill="#f59e0b" radius={[2, 2, 0, 0]} />
@@ -432,6 +489,7 @@ export default function ReportyOdosielanie() {
                     <TableHeader>
                       <TableRow>
                         <TableHead>Prijemca</TableHead>
+                        <TableHead>Kanal</TableHead>
                         <TableHead>Typ</TableHead>
                         <TableHead>Dovod chyby</TableHead>
                         <TableHead>Zmluva</TableHead>
@@ -439,13 +497,28 @@ export default function ReportyOdosielanie() {
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {failedList.map(f => (
+                      {failedList
+                        .filter(f => {
+                          if (channelFilter === "all") return true;
+                          if (channelFilter === "sms") return f.notificationType?.includes("sms");
+                          return !f.notificationType?.includes("sms");
+                        })
+                        .map(f => (
                         <TableRow key={f.id} data-testid={`row-failed-notif-${f.id}`}>
                           <TableCell className="text-xs">
                             <div>{f.recipientEmail}</div>
                             {f.recipientName && (
                               <div className="text-muted-foreground">{f.recipientName}</div>
                             )}
+                          </TableCell>
+                          <TableCell>
+                            <Badge
+                              variant="outline"
+                              className={`text-[10px] ${f.notificationType?.includes("sms") ? "border-violet-500 text-violet-600 dark:text-violet-400" : "border-blue-500 text-blue-600 dark:text-blue-400"}`}
+                              data-testid={`badge-channel-${f.id}`}
+                            >
+                              {f.notificationType?.includes("sms") ? "SMS" : "E-mail"}
+                            </Badge>
                           </TableCell>
                           <TableCell>
                             <Badge variant="outline" className="text-[10px]">

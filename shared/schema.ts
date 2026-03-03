@@ -622,6 +622,10 @@ export const contractStatuses = pgTable("contract_statuses", {
   isIntervention: boolean("is_intervention").default(false),
   isStorno: boolean("is_storno").default(false),
   stateId: integer("state_id").references(() => states.id),
+  notifyEnabled: boolean("notify_enabled").default(false),
+  notifyChannel: text("notify_channel"),
+  notifySubject: text("notify_subject"),
+  notifyTemplate: text("notify_template"),
   createdAt: timestamp("created_at").defaultNow(),
   deletedAt: timestamp("deleted_at"),
 });

@@ -2915,6 +2915,65 @@ export async function registerRoutes(
         }
       }
 
+      if (status && (status as any).notifyEnabled && (status as any).notifyTemplate) {
+        try {
+          const freshContract = await storage.getContract(contractId);
+          let clientName = "";
+          let clientEmail = "";
+          if (freshContract?.subjectId) {
+            const subject = await storage.getSubject(freshContract.subjectId);
+            if (subject) {
+              clientName = [subject.firstName, subject.lastName].filter(Boolean).join(" ") || subject.companyName || "";
+              clientEmail = (subject as any).email || "";
+            }
+          }
+          const contractNumber = freshContract?.contractNumber || freshContract?.uid || String(contractId);
+          const validUntil = freshContract?.expiryDate
+            ? new Date(freshContract.expiryDate).toLocaleDateString("sk-SK", { day: "2-digit", month: "2-digit", year: "numeric" })
+            : "-";
+
+          const replaceSmartTags = (text: string) =>
+            text
+              .replace(/\{\{contract_number\}\}/g, contractNumber)
+              .replace(/\{\{client_name\}\}/g, clientName)
+              .replace(/\{\{valid_until\}\}/g, validUntil);
+
+          const channel = (status as any).notifyChannel || "email";
+          const templateBody = replaceSmartTags((status as any).notifyTemplate || "");
+          const templateSubject = replaceSmartTags((status as any).notifySubject || `Zmena stavu zmluvy ${contractNumber}`);
+
+          const recipientEmail = clientEmail || appUser?.email || "unknown@system";
+
+          if (channel === "email" || channel === "both") {
+            await db.insert(systemNotifications).values({
+              recipientEmail,
+              recipientName: clientName || null,
+              recipientUserId: null,
+              subject: templateSubject,
+              bodyHtml: templateBody,
+              status: "pending",
+              notificationType: "status_change_email",
+              relatedContractId: contractId,
+            });
+          }
+          if (channel === "sms" || channel === "both") {
+            await db.insert(systemNotifications).values({
+              recipientEmail: recipientEmail,
+              recipientName: clientName || null,
+              recipientUserId: null,
+              subject: templateSubject,
+              bodyHtml: templateBody,
+              status: "pending",
+              notificationType: "status_change_sms",
+              relatedContractId: contractId,
+            });
+          }
+          console.log(`[NOTIFY] Status change notification queued for contract ${contractId}, channel: ${channel}`);
+        } catch (notifyErr) {
+          console.error("[NOTIFY] Error queuing status change notification:", notifyErr);
+        }
+      }
+
       await logAudit(req, {
         action: "STATUS_CHANGE",
         module: "zmluvy",
@@ -10147,21 +10206,27 @@ export async function registerRoutes(
       let sentCount = 0;
       let failedCount = 0;
       let pendingCount = 0;
+      let emailCount = 0;
+      let smsCount = 0;
 
       for (const n of allNotifications) {
         if (n.status === 'sent') sentCount++;
         else if (n.status === 'failed') failedCount++;
         else pendingCount++;
+        if (n.notificationType?.includes('sms')) smsCount++;
+        else emailCount++;
       }
 
-      const dailyMap = new Map<string, { sent: number; failed: number; pending: number }>();
+      const dailyMap = new Map<string, { sent: number; failed: number; pending: number; email: number; sms: number }>();
       for (const n of allNotifications) {
         const d = n.createdAt ? new Date(n.createdAt) : new Date();
         const dayKey = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-        const entry = dailyMap.get(dayKey) || { sent: 0, failed: 0, pending: 0 };
+        const entry = dailyMap.get(dayKey) || { sent: 0, failed: 0, pending: 0, email: 0, sms: 0 };
         if (n.status === 'sent') entry.sent++;
         else if (n.status === 'failed') entry.failed++;
         else entry.pending++;
+        if (n.notificationType?.includes('sms')) entry.sms++;
+        else entry.email++;
         dailyMap.set(dayKey, entry);
       }
 
@@ -10230,6 +10295,8 @@ export async function registerRoutes(
           sent: sentCount,
           failed: failedCount,
           pending: pendingCount,
+          email: emailCount,
+          sms: smsCount,
         },
         dailyTimeline,
         monthlyOverview,
