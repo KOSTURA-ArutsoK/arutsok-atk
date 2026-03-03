@@ -1575,7 +1575,7 @@ function ContractDetailDialog({
 
         <DialogScrollContent>
         <Tabs defaultValue="detail" className="mt-2">
-          <TabsList data-testid="tabs-contract-detail">
+          <TabsList className="w-full justify-between" data-testid="tabs-contract-detail">
             <TabsTrigger value="detail" data-testid="tab-contract-detail">
               <FileText className="w-3.5 h-3.5 mr-1" /> Detail
             </TabsTrigger>

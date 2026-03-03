@@ -332,7 +332,7 @@ export default function NetworkSiet() {
       </div>
 
       <Tabs defaultValue="tree" className="space-y-4">
-        <TabsList className="bg-zinc-900 border border-zinc-800">
+        <TabsList className="w-full justify-between bg-zinc-900 border border-zinc-800">
           <TabsTrigger value="tree" data-testid="tab-tree" className="data-[state=active]:bg-zinc-800">
             <Network className="w-4 h-4 mr-1" />Strom siete
           </TabsTrigger>

@@ -7,6 +7,7 @@ ArutsoK is a multi-tenant CRM and commission tracking system for financial servi
 - Dark mode default with military/security aesthetic
 - Slovak language throughout the application
 - Sharp borders, small border radius
+- Globálny Justified Layout: Všetky navigačné prvky, karty a menu zarovnané do bloku (vľavo aj vpravo). Flex-wrap, dynamické medzery, žiadny horizontálny scroll. TabsList: `flex flex-wrap h-auto gap-1 justify-between w-full`
 
 ## System Architecture
 The system employs a modern full-stack architecture emphasizing data integrity, security, and auditability. It features immutable historical records, soft deletion with audit trails, granular Role-Based Access Control (RBAC), and temporal validity managed through date fields and cron jobs. All entities use unique 12-digit global identifiers.

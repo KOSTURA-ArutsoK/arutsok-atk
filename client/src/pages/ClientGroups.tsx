@@ -260,7 +260,7 @@ function GroupDetailDialog({
         </DialogHeader>
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col">
-          <TabsList className="grid w-full grid-cols-4" data-testid="tabs-group-detail">
+          <TabsList className="w-full justify-between" data-testid="tabs-group-detail">
             <TabsTrigger value="vseobecne" data-testid="tab-vseobecne">Vseobecne</TabsTrigger>
             <TabsTrigger value="podskupiny" disabled={!isEditing} data-testid="tab-podskupiny">Podskupiny</TabsTrigger>
             <TabsTrigger value="klienti" disabled={!isEditing} data-testid="tab-klienti">Klienti</TabsTrigger>

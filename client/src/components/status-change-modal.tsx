@@ -121,7 +121,7 @@ export function StatusChangeModal({ open, onOpenChange, contractId, currentStatu
         </DialogHeader>
 
         <Tabs value={activeTab} onValueChange={setActiveTab}>
-          <TabsList className="w-full" data-testid="tabs-status-change">
+          <TabsList className="w-full justify-between" data-testid="tabs-status-change">
             <TabsTrigger value="vseobecne" className="flex-1 gap-1" data-testid="tab-vseobecne">
               <Settings2 className="w-3.5 h-3.5" /> Vseobecne
               {selectedStatusId && <div className="w-1.5 h-1.5 rounded-full bg-green-500" />}

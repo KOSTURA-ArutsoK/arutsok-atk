@@ -2748,7 +2748,7 @@ function FoldersTab() {
 function ContractSectorsContent() {
   return (
     <Tabs defaultValue="sectors">
-      <TabsList data-testid="tabs-sectors-products-parameters">
+      <TabsList className="w-full justify-between" data-testid="tabs-sectors-products-parameters">
         <TabsTrigger value="sectors" data-testid="tab-sectors">
           <Layers className="w-4 h-4 mr-2" />
           Sektory

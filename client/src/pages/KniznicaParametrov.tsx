@@ -528,7 +528,7 @@ export default function KniznicaParametrov() {
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList data-testid="tabs-kniznica">
+        <TabsList className="w-full justify-between" data-testid="tabs-kniznica">
           <TabsTrigger value="templates" data-testid="tab-templates">
             <LayoutTemplate className="w-3.5 h-3.5 mr-1" />
             Šablóny

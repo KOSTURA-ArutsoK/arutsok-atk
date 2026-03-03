@@ -368,7 +368,7 @@ function PartnerUnifiedDialog({
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)}>
             <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full mt-2">
-              <TabsList className="w-full grid" style={{ gridTemplateColumns: isEditing ? 'repeat(4, 1fr)' : 'repeat(2, 1fr)' }}>
+              <TabsList className="w-full justify-between">
                 <TabsTrigger value="info" data-testid="partner-tab-info">Info</TabsTrigger>
                 <TabsTrigger value="contacts" data-testid="partner-tab-contacts" disabled={!isEditing} style={{ display: isEditing ? undefined : 'none' }}>Kontakty</TabsTrigger>
                 <TabsTrigger value="products" data-testid="partner-tab-products" disabled={!isEditing} style={{ display: isEditing ? undefined : 'none' }}>Produkty</TabsTrigger>

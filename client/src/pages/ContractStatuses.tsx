@@ -403,7 +403,7 @@ function StatusFormDialog({
           </DialogTitle>
         </DialogHeader>
         <Tabs defaultValue="vseobecne" className="w-full">
-          <TabsList className="w-full">
+          <TabsList className="w-full justify-between">
             <TabsTrigger value="vseobecne" data-testid="tab-vseobecne" className="flex-1">Vseobecne udaje</TabsTrigger>
             <TabsTrigger value="parametre" data-testid="tab-parametre" className="flex-1" disabled={!editingStatus}>Parametre</TabsTrigger>
             <TabsTrigger value="notifikacie" data-testid="tab-notifikacie" className="flex-1">Notifikacie</TabsTrigger>

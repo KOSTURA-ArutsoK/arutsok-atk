@@ -377,7 +377,7 @@ function CompanyFormDialog({
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)}>
             <Tabs defaultValue="basic" className="w-full">
-              <TabsList className="w-full grid grid-cols-5">
+              <TabsList className="w-full justify-between">
                 <TabsTrigger value="basic" data-testid="tab-basic">Zakladne udaje</TabsTrigger>
                 <TabsTrigger value="address" data-testid="tab-address">Adresa</TabsTrigger>
                 <TabsTrigger value="divisions" data-testid="tab-divisions">Divizie</TabsTrigger>
@@ -622,7 +622,7 @@ function CompanyDetailDialog({
         </DialogHeader>
 
         <Tabs defaultValue="basic" className="w-full mt-2">
-          <TabsList className="w-full grid grid-cols-4">
+          <TabsList className="w-full justify-between">
             <TabsTrigger value="basic" data-testid="detail-tab-basic">Zakladne udaje</TabsTrigger>
             <TabsTrigger value="address" data-testid="detail-tab-address">Adresa</TabsTrigger>
             <TabsTrigger value="docs" data-testid="detail-tab-docs">Dokumenty</TabsTrigger>
