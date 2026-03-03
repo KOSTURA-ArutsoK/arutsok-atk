@@ -58,6 +58,8 @@ import {
   ArrowRightLeft,
   ShieldPlus,
   Link2,
+  Mail,
+  FileBarChart,
 } from "lucide-react";
 import {
   Sidebar,
@@ -94,6 +96,10 @@ const financieItems = [
   { href: "/provizie", icon: ArrowDownLeft, label: "Provizie" },
   { href: "/odmeny", icon: ArrowUpRight, label: "Odmeny" },
   { href: "/commissions", icon: Percent, label: "Sadzby" },
+];
+
+const reportyItems = [
+  { href: "/reporty-odosielanie", icon: Mail, label: "Odosielanie" },
 ];
 
 const informacieItems = [
@@ -338,6 +344,7 @@ export function AppSidebar() {
     { id: "klienti", items: klientiItems },
     { id: "zmluvy", items: [...zmluvyFlatItems, ...nastaveniaSablonChildren, ...protokolyChildren, ...importItems] },
     { id: "financie", items: financieItems },
+    { id: "reporty", items: reportyItems },
     { id: "informacie", items: informacieItems },
   ];
   const activeMenuId = allMenus.find(m => m.items.some(i => i.href === location))?.id || null;
@@ -841,6 +848,18 @@ export function AppSidebar() {
                 openMenuId={openMenuId}
                 setOpenMenuId={setOpenMenuId}
               />
+              {checkIsAdmin(appUser) && (
+                <CollapsibleMenu
+                  label="Reporty"
+                  icon={FileBarChart}
+                  items={reportyItems}
+                  location={location}
+                  testId="nav-menu-reporty"
+                  menuId="reporty"
+                  openMenuId={openMenuId}
+                  setOpenMenuId={setOpenMenuId}
+                />
+              )}
               <CollapsibleMenu
                 label="Informacie"
                 icon={Info}

@@ -10098,6 +10098,149 @@ export async function registerRoutes(
     }
   });
 
+  app.get("/api/reports/notifications", isAuthenticated, async (req: any, res) => {
+    try {
+      const appUser = req.appUser;
+      if (!isAdmin(appUser)) {
+        return res.status(403).json({ message: "Len admin/superadmin" });
+      }
+
+      const filterFrom = req.query.from as string | undefined;
+      const filterTo = req.query.to as string | undefined;
+      const filterStatusId = req.query.statusId ? Number(req.query.statusId) : undefined;
+
+      const conditions: any[] = [];
+      if (filterFrom) conditions.push(gte(systemNotifications.createdAt, new Date(filterFrom)));
+      if (filterTo) {
+        const toDate = new Date(filterTo);
+        toDate.setHours(23, 59, 59, 999);
+        conditions.push(lte(systemNotifications.createdAt, toDate));
+      }
+      if (filterStatusId) {
+        const matchingContractRows = await db.select({ id: contracts.id }).from(contracts).where(eq(contracts.statusId, filterStatusId));
+        const matchingContractIds = matchingContractRows.map(r => r.id);
+        if (matchingContractIds.length > 0) {
+          conditions.push(inArray(systemNotifications.relatedContractId, matchingContractIds));
+        } else {
+          return res.json({ kpi: { total: 0, sent: 0, failed: 0, pending: 0 }, dailyTimeline: [], monthlyOverview: [], failedList: [] });
+        }
+      }
+
+      const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
+
+      const allNotifications = await db.select({
+        id: systemNotifications.id,
+        recipientEmail: systemNotifications.recipientEmail,
+        recipientName: systemNotifications.recipientName,
+        subject: systemNotifications.subject,
+        status: systemNotifications.status,
+        notificationType: systemNotifications.notificationType,
+        relatedContractId: systemNotifications.relatedContractId,
+        errorDetails: systemNotifications.errorDetails,
+        sentAt: systemNotifications.sentAt,
+        createdAt: systemNotifications.createdAt,
+      }).from(systemNotifications)
+        .where(whereClause)
+        .orderBy(desc(systemNotifications.createdAt))
+        .limit(5000);
+
+      let sentCount = 0;
+      let failedCount = 0;
+      let pendingCount = 0;
+
+      for (const n of allNotifications) {
+        if (n.status === 'sent') sentCount++;
+        else if (n.status === 'failed') failedCount++;
+        else pendingCount++;
+      }
+
+      const dailyMap = new Map<string, { sent: number; failed: number; pending: number }>();
+      for (const n of allNotifications) {
+        const d = n.createdAt ? new Date(n.createdAt) : new Date();
+        const dayKey = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+        const entry = dailyMap.get(dayKey) || { sent: 0, failed: 0, pending: 0 };
+        if (n.status === 'sent') entry.sent++;
+        else if (n.status === 'failed') entry.failed++;
+        else entry.pending++;
+        dailyMap.set(dayKey, entry);
+      }
+
+      const dailyTimeline = [...dailyMap.entries()]
+        .map(([date, counts]) => ({ date, ...counts }))
+        .sort((a, b) => a.date.localeCompare(b.date));
+
+      const monthlyMap = new Map<string, { sent: number; failed: number; pending: number }>();
+      for (const n of allNotifications) {
+        const d = n.createdAt ? new Date(n.createdAt) : new Date();
+        const monthKey = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+        const entry = monthlyMap.get(monthKey) || { sent: 0, failed: 0, pending: 0 };
+        if (n.status === 'sent') entry.sent++;
+        else if (n.status === 'failed') entry.failed++;
+        else entry.pending++;
+        monthlyMap.set(monthKey, entry);
+      }
+
+      const monthlyOverview = [...monthlyMap.entries()]
+        .map(([month, counts]) => ({ month, ...counts }))
+        .sort((a, b) => a.month.localeCompare(b.month));
+
+      const failedNotifications = allNotifications.filter(n => n.status === 'failed');
+
+      const contractIds = [...new Set(failedNotifications.map(n => n.relatedContractId).filter(Boolean))] as number[];
+      const contractMap = new Map<number, any>();
+      if (contractIds.length > 0) {
+        const contractRows = await db.select({
+          id: contracts.id,
+          contractNumber: contracts.contractNumber,
+          uid: contracts.uid,
+          statusId: contracts.statusId,
+        }).from(contracts).where(inArray(contracts.id, contractIds));
+        for (const c of contractRows) {
+          contractMap.set(c.id, c);
+        }
+      }
+
+      const allStatuses = await storage.getContractStatuses();
+      const statusMap = new Map(allStatuses.map((s: any) => [s.id, s.name]));
+
+      const failedList = failedNotifications.map(n => {
+        const contract = n.relatedContractId ? contractMap.get(n.relatedContractId) : null;
+        return {
+          id: n.id,
+          recipientEmail: n.recipientEmail,
+          recipientName: n.recipientName,
+          notificationType: n.notificationType,
+          errorDetails: n.errorDetails,
+          contractNumber: contract?.contractNumber || contract?.uid || null,
+          contractStatusName: contract?.statusId ? statusMap.get(contract.statusId) || null : null,
+          createdAt: n.createdAt,
+        };
+      });
+
+      await logAudit(req, {
+        action: "REPORT_VIEW",
+        module: "reports",
+        entityName: `Notification report: ${allNotifications.length} records`,
+        newData: { from: filterFrom, to: filterTo, statusId: filterStatusId },
+      });
+
+      res.json({
+        kpi: {
+          total: allNotifications.length,
+          sent: sentCount,
+          failed: failedCount,
+          pending: pendingCount,
+        },
+        dailyTimeline,
+        monthlyOverview,
+        failedList,
+      });
+    } catch (err: any) {
+      console.error("Reports notifications error:", err);
+      res.status(500).json({ message: err.message });
+    }
+  });
+
   // === HOLDING DASHBOARD — MODULE C ===
 
   let ecbRateCache: { rate: number; timestamp: number } | null = null;
