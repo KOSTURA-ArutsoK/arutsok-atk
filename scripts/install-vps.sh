@@ -7,7 +7,7 @@ echo "  Verzia: 1.0.0"
 echo "=========================================="
 
 # -------- KONFIGURACIA - UPRAV PRED SPUSTENIM --------
-GIT_REPO="https://github.com/ArutsoK/arutsok-atk.git"
+GIT_REPO="https://github.com/KOSTURA-ArutsoK/arutsok-atk.git"
 DOMAIN="arutsok.sk"
 DB_NAME="arutsok"
 DB_USER="arutsok_user"
