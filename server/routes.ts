@@ -2,7 +2,7 @@ import type { Express, Request } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { api } from "@shared/routes";
-import { setupAuth, registerAuthRoutes, isAuthenticated } from "./replit_integrations/auth";
+import { setupAuth, isAuthenticated } from "./auth";
 import { z } from "zod";
 import { continents, states, myCompanies, appUsers, clientTypes, clientSubGroups, clientGroupMembers, productFolderAssignments, folderPanels, panelParameters, userClientGroupMemberships, clientGroups, permissionGroups, insertCareerLevelSchema, insertProductPointRateSchema, careerLevels, importLogs, commissions, contracts, contractStatuses, contractStatusChangeLogs, clientDataTabs, clientDataCategories, subjects, subjectPointsLog, subjectFieldHistory, subjectCollaborators, clientMarketingConsents, clientDocumentHistory, contractAcquirers, contractPasswords, contractRewardDistributions, contractParameterValues, subjectArchive, auditLogs, globalCounters, subjectPhotos, activityEvents, subjectParamSections, subjectParameters, subjectTemplates, subjectTemplateParams, commissionCalculationLogs, parameterSynonyms, dataConflictAlerts, transactionDedupLog, relationRoleTypes, subjectRelations, maturityAlerts, inheritancePrompts, guardianshipArchive, households, householdMembers, householdAssets, privacyBlocks, accessConsentLog, maturityEvents, addressGroups, addressGroupMembers, companySubjectRoles, notificationQueue, batchJobs, subjectObjects, objectDataSources, sectors, sections, sectorProducts, parameters, panels, productPanels, contractFolders, fieldLayoutConfigs, sectorCategoryMapping, suggestedRelations, statusEvidence, contractLifecycleHistory, systemNotifications, partners, products, contractInventories, contractTemplates, redListAlerts, subjectAddresses, divisions, companyDivisions, insertDivisionSchema, ocrProcessingJobs, networkLinks, guarantorTransferRequests } from "@shared/schema";
 import { notifyObjectionCreated, notifyPreDeletion, getProductDaysLimits } from "./email";
@@ -101,11 +101,7 @@ async function logAudit(req: any, params: {
 }) {
   try {
     const migrationOn = await isMigrationModeOn();
-    const replitUserId = req.user?.claims?.sub;
-    let appUser: any = null;
-    if (replitUserId) {
-      appUser = await storage.getAppUserByReplitId(replitUserId);
-    }
+    let appUser: any = req.appUser || null;
     const ip = req.ip || req.headers['x-forwarded-for'] || req.socket?.remoteAddress || '';
     const clientProcessingTime = req.body?.processingTimeSec ? Number(req.body.processingTimeSec) : 0;
     const serverTimeSec = req._auditStartTime ? Math.round((performance.now() - req._auditStartTime) / 1000) : 0;
@@ -128,7 +124,7 @@ async function logAudit(req: any, params: {
       userId: migrationOn ? null : (appUser?.id || null),
       username: migrationOn ? "Systémový import" : (isImpersonating
         ? `${appUser?.username || 'unknown'} [simulovaný Architektom ${req.originalAppUser.username}]`
-        : (appUser?.username || req.user?.claims?.email || 'system')),
+        : (appUser?.username || 'system')),
       action: params.action,
       module: params.module,
       entityId: params.entityId || null,
@@ -345,7 +341,6 @@ export async function registerRoutes(
   };
 
   await setupAuth(app);
-  registerAuthRoutes(app);
 
   seedAssetPanels().catch(err => console.error("[SEED-ASSETS ERROR]", err));
   seedEventAndEntityPanels().catch(err => console.error("[SEED-EVENTS ERROR]", err));
@@ -374,8 +369,8 @@ export async function registerRoutes(
 
   app.use(async (req: any, _res, next) => {
     try {
-      if (req.isAuthenticated && req.isAuthenticated() && req.user?.claims?.sub) {
-        const appUser = await storage.getAppUserByReplitId(req.user.claims.sub);
+      if (req.session?.userId) {
+        const [appUser] = await db.select().from(appUsers).where(eq(appUsers.id, req.session.userId));
         if (appUser) {
           if (appUser.impersonatingUserId && !isArchitekt(appUser)) {
             await db.update(appUsers).set({ impersonatingUserId: null }).where(eq(appUsers.id, appUser.id));
@@ -485,20 +480,7 @@ export async function registerRoutes(
   // === APP USER ===
   app.get(api.appUser.me.path, isAuthenticated, async (req: any, res) => {
     try {
-      const replitUserId = req.user?.claims?.sub;
-      if (!replitUserId) return res.status(404).json({ message: "No user" });
-      
-      let appUser = await storage.getAppUserByReplitId(replitUserId);
-      
-      if (!appUser) {
-        const allUsers = await db.select().from(appUsers);
-        if (allUsers.length > 0) {
-          const admin = allUsers[0];
-          await db.update(appUsers).set({ replitId: replitUserId }).where(eq(appUsers.id, admin.id));
-          appUser = await storage.getAppUserByReplitId(replitUserId);
-        }
-      }
-      
+      const appUser = req.appUser;
       if (!appUser) return res.status(404).json({ message: "App user not found" });
 
       let effectiveTimeout = 1800;
@@ -554,8 +536,7 @@ export async function registerRoutes(
 
   app.get("/api/app-users/my-points", isAuthenticated, async (req: any, res) => {
     try {
-      const replitUserId = req.user?.claims?.sub;
-      const appUser = await storage.getAppUserByReplitId(replitUserId);
+      const appUser = req.appUser;
       if (!appUser) return res.status(404).json({ message: "User not found" });
 
       const [result] = await db
@@ -573,8 +554,7 @@ export async function registerRoutes(
   app.put(api.appUser.setActive.path, isAuthenticated, async (req: any, res) => {
     try {
       const validated = api.appUser.setActive.input.parse(req.body);
-      const replitUserId = req.user?.claims?.sub;
-      const appUser = await storage.getAppUserByReplitId(replitUserId);
+      const appUser = req.appUser;
       if (!appUser) return res.status(404).json({ message: "User not found" });
 
       
@@ -906,8 +886,7 @@ export async function registerRoutes(
   // === ACTIVITY EVENTS (Timeline) ===
   app.get("/api/activity-events", isAuthenticated, async (req: any, res) => {
     try {
-      const replitUserId = req.user?.claims?.sub;
-      const appUser = await storage.getAppUserByReplitId(replitUserId);
+      const appUser = req.appUser;
       if (!appUser || !['superadmin', 'admin'].includes(appUser.role)) {
         return res.status(403).json({ message: "Pristup len pre SuperAdmin a Admin" });
       }
@@ -936,8 +915,7 @@ export async function registerRoutes(
 
   app.post("/api/activity-events", isAuthenticated, async (req: any, res) => {
     try {
-      const replitUserId = req.user?.claims?.sub;
-      const appUser = await storage.getAppUserByReplitId(replitUserId);
+      const appUser = req.appUser;
       if (!appUser || !['superadmin', 'admin'].includes(appUser.role)) {
         return res.status(403).json({ message: "Pristup len pre SuperAdmin a Admin" });
       }
@@ -964,8 +942,7 @@ export async function registerRoutes(
 
   app.post("/api/activity-events/:id/status-change", isAuthenticated, async (req: any, res) => {
     try {
-      const replitUserId = req.user?.claims?.sub;
-      const appUser = await storage.getAppUserByReplitId(replitUserId);
+      const appUser = req.appUser;
       if (!appUser || !['superadmin', 'admin'].includes(appUser.role)) {
         return res.status(403).json({ message: "Pristup len pre SuperAdmin a Admin" });
       }
@@ -1023,8 +1000,7 @@ export async function registerRoutes(
 
   app.post(api.myCompanies.create.path, isAuthenticated, async (req: any, res) => {
     try {
-      const replitUserId = req.user?.claims?.sub;
-      const appUser = await storage.getAppUserByReplitId(replitUserId);
+      const appUser = req.appUser;
       if (!appUser || (appUser.role !== 'admin' && appUser.role !== 'superadmin')) {
         return res.status(403).json({ message: "Only admins can create companies" });
       }
@@ -1056,8 +1032,7 @@ export async function registerRoutes(
   app.delete(api.myCompanies.delete.path, isAuthenticated, async (req: any, res) => {
     try {
       const companyId = Number(req.params.id);
-      const replitUserId = req.user?.claims?.sub;
-      const appUser = await storage.getAppUserByReplitId(replitUserId);
+      const appUser = req.appUser;
       const ip = req.ip || req.headers['x-forwarded-for'] || req.socket.remoteAddress;
 
       if (!appUser) return res.status(404).json({ message: "User not found" });
@@ -1149,8 +1124,7 @@ export async function registerRoutes(
 
   app.delete(api.partners.delete.path, isAuthenticated, async (req: any, res) => {
     try {
-      const replitUserId = req.user?.claims?.sub;
-      const appUser = await storage.getAppUserByReplitId(replitUserId);
+      const appUser = req.appUser;
       const ip = req.ip || req.headers['x-forwarded-for'] || req.socket.remoteAddress;
       if (!appUser) return res.status(404).json({ message: "User not found" });
 
@@ -1331,8 +1305,7 @@ export async function registerRoutes(
   // === USER PROFILE ===
   app.get(api.userProfiles.me.path, isAuthenticated, async (req: any, res) => {
     try {
-      const replitUserId = req.user?.claims?.sub;
-      const appUser = await storage.getAppUserByReplitId(replitUserId);
+      const appUser = req.appUser;
       if (!appUser) return res.json(null);
       const profile = await storage.getUserProfile(appUser.id);
       res.json(profile || null);
@@ -1346,8 +1319,7 @@ export async function registerRoutes(
     next();
   }, upload.single("photo"), async (req: any, res) => {
     try {
-      const replitUserId = req.user?.claims?.sub;
-      const appUser = await storage.getAppUserByReplitId(replitUserId);
+      const appUser = req.appUser;
       if (!appUser) return res.status(404).json({ message: "App user not found" });
 
       const file = req.file;
@@ -2087,8 +2059,7 @@ export async function registerRoutes(
 
   app.delete(api.products.delete.path, isAuthenticated, async (req: any, res) => {
     try {
-      const replitUserId = req.user?.claims?.sub;
-      const appUser = await storage.getAppUserByReplitId(replitUserId);
+      const appUser = req.appUser;
       const ip = req.ip || req.headers['x-forwarded-for'] || req.socket.remoteAddress;
       if (!appUser) return res.status(404).json({ message: "User not found" });
 
@@ -7717,8 +7688,7 @@ export async function registerRoutes(
       const { rows, mapping } = req.body;
       if (!rows || !mapping) return res.status(400).json({ message: "Chýbajú dáta alebo mapovanie" });
 
-      const replitUserId = req.user?.claims?.sub;
-      const appUser = await storage.getAppUserByReplitId(replitUserId);
+      const appUser = req.appUser;
       if (!appUser) return res.status(401).json({ message: "Používateľ nenájdený" });
 
       const companyId = appUser.activeCompanyId;
@@ -7831,8 +7801,7 @@ export async function registerRoutes(
       const { rows, mapping, fileName } = req.body;
       if (!rows || !mapping) return res.status(400).json({ message: "Chýbajú dáta alebo mapovanie" });
 
-      const replitUserId = req.user?.claims?.sub;
-      const appUser = await storage.getAppUserByReplitId(replitUserId);
+      const appUser = req.appUser;
       if (!appUser) return res.status(401).json({ message: "Používateľ nenájdený" });
 
       const companyId = appUser.activeCompanyId;
@@ -7999,8 +7968,7 @@ export async function registerRoutes(
 
   app.get("/api/bulk-import/logs", isAuthenticated, async (req: any, res) => {
     try {
-      const replitUserId = req.user?.claims?.sub;
-      const appUser = await storage.getAppUserByReplitId(replitUserId);
+      const appUser = req.appUser;
       if (!appUser) return res.status(401).json({ message: "Používateľ nenájdený" });
       const logs = await storage.getImportLogs(appUser.activeCompanyId || undefined);
       const users = await storage.getAppUsers();
@@ -8350,7 +8318,7 @@ export async function registerRoutes(
   app.get("/api/subjects/:id/gdpr-export", isAuthenticated, async (req: any, res) => {
     try {
       const subjectId = Number(req.params.id);
-      const appUser = await storage.getAppUserByReplitId(req.user.claims.sub);
+      const appUser = req.appUser;
       if (!appUser) return res.status(401).json({ message: "Unauthorized" });
       
       if (!await checkKlientiSubjectAccess(appUser, subjectId)) {
@@ -8457,7 +8425,7 @@ export async function registerRoutes(
   app.post("/api/subjects/:id/documents/:docId/audit-view", isAuthenticated, async (req: any, res) => {
     try {
       const subjectId = Number(req.params.id);
-      const appUser = await storage.getAppUserByReplitId(req.user.claims.sub);
+      const appUser = req.appUser;
       if (!appUser) return res.status(401).json({ message: "Unauthorized" });
       await storage.createAuditLog({
         userId: appUser.id, username: appUser.username, action: "DOCUMENT_VIEWED",
@@ -8471,7 +8439,7 @@ export async function registerRoutes(
   app.post("/api/subjects/:id/documents/:docId/audit-print", isAuthenticated, async (req: any, res) => {
     try {
       const subjectId = Number(req.params.id);
-      const appUser = await storage.getAppUserByReplitId(req.user.claims.sub);
+      const appUser = req.appUser;
       if (!appUser) return res.status(401).json({ message: "Unauthorized" });
       await storage.createAuditLog({
         userId: appUser.id, username: appUser.username, action: "DOCUMENT_PRINTED",
@@ -8491,7 +8459,7 @@ export async function registerRoutes(
         return res.status(400).json({ message: "Neplatný typ dokumentu" });
       }
 
-      const appUser = await storage.getAppUserByReplitId(req.user.claims.sub);
+      const appUser = req.appUser;
       if (!appUser) return res.status(401).json({ message: "Unauthorized" });
 
       const subject = await storage.getSubject(subjectId);
@@ -9800,7 +9768,7 @@ export async function registerRoutes(
   app.post("/api/subjects/:id/log-view", isAuthenticated, async (req: any, res) => {
     try {
       const subjectId = Number(req.params.id);
-      const appUser = await storage.getAppUserByReplitId(req.user.claims.sub);
+      const appUser = req.appUser;
       if (!appUser) return res.status(401).json({ message: "Unauthorized" });
 
       if (!await checkKlientiSubjectAccess(appUser, subjectId)) {
@@ -11492,15 +11460,14 @@ export async function registerRoutes(
     try {
       const synonymId = Number(req.params.id);
       const { documentName, sourceText } = req.body;
-      const replitUserId = req.user?.claims?.sub;
-      const appUser = await storage.getAppUserByReplitId(replitUserId);
+      const appUser = req.appUser;
 
       const updated = await storage.confirmSynonym(synonymId);
 
       await storage.createSynonymConfirmationLog({
         synonymId,
         userId: appUser?.id || null,
-        username: appUser?.username || req.user?.claims?.email || 'system',
+        username: appUser?.username || 'system',
         documentName: documentName || null,
         sourceText: sourceText || null,
         action: "confirm",
@@ -11616,7 +11583,7 @@ export async function registerRoutes(
       const files = req.files as Express.Multer.File[];
       if (!files || files.length === 0) return res.status(400).json({ message: "Žiadne súbory" });
 
-      const appUser = await storage.getAppUserByReplitId(req.user.claims.sub);
+      const appUser = req.appUser;
       const jobs = [];
 
       for (const file of files) {
@@ -11626,7 +11593,7 @@ export async function registerRoutes(
           filePath: file.path,
           status: "queued",
           uploadedByUserId: appUser?.id || null,
-          uploadedByUsername: appUser?.displayName || req.user.claims.name || "unknown",
+          uploadedByUsername: appUser?.username || "unknown",
         }).returning();
         jobs.push(job);
       }
@@ -11827,14 +11794,14 @@ export async function registerRoutes(
       if (!synonymId) return res.status(400).json({ message: "synonymId je povinné" });
 
       const updated = await storage.confirmSynonym(Number(synonymId));
-      const appUser = await storage.getAppUserByReplitId(req.user.claims.sub);
+      const appUser = req.appUser;
 
       try {
         const synonymConfirmationLogsTable = (await import("@shared/schema")).synonymConfirmationLogs;
         await db.insert(synonymConfirmationLogsTable).values({
           synonymId: Number(synonymId),
           userId: appUser?.id || null,
-          username: appUser?.displayName || req.user.claims.name || "unknown",
+          username: appUser?.username || "unknown",
           documentName: documentName || null,
           sourceText: `datova-linka-job-${jobId || "manual"}`,
           action: "confirm",

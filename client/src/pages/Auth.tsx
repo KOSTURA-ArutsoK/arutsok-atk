@@ -1,11 +1,18 @@
 import { useState, useEffect } from "react";
-import { Shield, Lock, AlertTriangle, UserPlus, HelpCircle } from "lucide-react";
+import { Shield, Lock, AlertTriangle, User, Eye, EyeOff } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { Link } from "wouter";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { useAuth } from "@/hooks/use-auth";
 
 export default function AuthPage() {
+  const [username, setUsername] = useState("");
+  const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [idleMessage, setIdleMessage] = useState<string | null>(null);
+  const { login, isLoggingIn } = useAuth();
 
   useEffect(() => {
     const msg = sessionStorage.getItem("idle_logout_message");
@@ -15,8 +22,25 @@ export default function AuthPage() {
     }
   }, []);
 
-  const handleLogin = () => {
-    window.location.href = "/api/login";
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError(null);
+
+    if (!username.trim() || !password.trim()) {
+      setError("Zadajte meno a heslo");
+      return;
+    }
+
+    try {
+      await login({ username: username.trim(), password });
+    } catch (err: any) {
+      const msg = err?.message || "";
+      if (msg.includes("401")) {
+        setError("Nesprávne meno alebo heslo");
+      } else {
+        setError("Chyba pri prihlásení. Skúste znova.");
+      }
+    }
   };
 
   return (
@@ -35,34 +59,73 @@ export default function AuthPage() {
               <Shield className="w-8 h-8 text-primary" />
             </div>
             <div>
-              <h1 className="text-xl font-bold">ArutsoK</h1>
+              <h1 className="text-xl font-bold" data-testid="text-app-title">ArutsoK</h1>
               <p className="text-sm text-muted-foreground mt-1">Prihlaste sa pre pristup do systemu</p>
             </div>
           </div>
 
-          <Button
-            onClick={handleLogin}
-            className="w-full bg-emerald-600 text-white border-emerald-700"
-            data-testid="button-login"
-          >
-            <Lock className="w-4 h-4 mr-2" />
-            Prihlasit sa cez Replit
-          </Button>
+          {error && (
+            <div className="flex items-center gap-2 p-3 rounded-md bg-destructive/10 border border-destructive/20" data-testid="text-login-error">
+              <AlertTriangle className="w-4 h-4 text-destructive flex-shrink-0" />
+              <p className="text-sm text-destructive">{error}</p>
+            </div>
+          )}
 
-          <div className="flex flex-col items-center gap-2">
-            <Link href="/forgot-password" data-testid="link-forgot-password">
-              <Button variant="ghost" size="sm" className="text-sky-400 hover:text-sky-300 gap-1.5">
-                <HelpCircle className="w-3.5 h-3.5" />
-                Zabudli ste heslo?
-              </Button>
-            </Link>
-            <Link href="/register" data-testid="link-register">
-              <Button variant="ghost" size="sm" className="text-muted-foreground gap-1.5">
-                <UserPlus className="w-3.5 h-3.5" />
-                Registracia
-              </Button>
-            </Link>
-          </div>
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="username">Meno</Label>
+              <div className="relative">
+                <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                <Input
+                  id="username"
+                  type="text"
+                  placeholder="Zadajte prihlasovacie meno"
+                  value={username}
+                  onChange={(e) => setUsername(e.target.value)}
+                  className="pl-10"
+                  autoComplete="username"
+                  autoFocus
+                  data-testid="input-username"
+                />
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="password">Heslo</Label>
+              <div className="relative">
+                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                <Input
+                  id="password"
+                  type={showPassword ? "text" : "password"}
+                  placeholder="Zadajte heslo"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  className="pl-10 pr-10"
+                  autoComplete="current-password"
+                  data-testid="input-password"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                  tabIndex={-1}
+                  data-testid="button-toggle-password"
+                >
+                  {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                </button>
+              </div>
+            </div>
+
+            <Button
+              type="submit"
+              className="w-full bg-emerald-600 text-white border-emerald-700"
+              disabled={isLoggingIn}
+              data-testid="button-login"
+            >
+              <Lock className="w-4 h-4 mr-2" />
+              {isLoggingIn ? "Prihlasovanie..." : "Prihlasit sa"}
+            </Button>
+          </form>
 
         </CardContent>
       </Card>

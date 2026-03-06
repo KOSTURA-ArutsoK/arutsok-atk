@@ -16,7 +16,7 @@ The system employs a modern full-stack architecture emphasizing data integrity, 
 - **Frontend**: React with Vite, Tailwind CSS, `shadcn/ui`, `wouter`.
 - **Backend**: Express.js.
 - **Database**: PostgreSQL (Neon) with Drizzle ORM.
-- **Authentication**: Replit OIDC Auth.
+- **Authentication**: Local username/password auth with bcrypt + express-session (PG session store). No Replit OIDC dependency.
 
 **Key Architectural Decisions & Features:**
 - **Data Integrity & Auditability**: Implemented via immutable records, soft deletion, audit logs, field history, and document validity indicators.
