@@ -527,7 +527,8 @@ export async function registerRoutes(
         uid: req.originalAppUser.uid,
       } : null;
 
-      res.json({ ...appUser, effectiveSessionTimeoutSeconds: effectiveTimeout, careerLevel, permissionGroup, isImpersonating, originalUser });
+      const { password: _pw, ...safeAppUser } = appUser;
+      res.json({ ...safeAppUser, effectiveSessionTimeoutSeconds: effectiveTimeout, careerLevel, permissionGroup, isImpersonating, originalUser });
     } catch (err) {
       console.error("Error in /api/app-user/me:", err);
       res.status(500).json({ message: "Internal error" });
