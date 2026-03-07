@@ -136,13 +136,49 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   }, [isClientUser, appUser]);
 
   useEffect(() => {
-    if (appUser && !contextInitRef.current && !isClientUser) {
+    if (appUser && !contextInitRef.current && !isClientUser && allStates) {
       contextInitRef.current = true;
-      if (!appUser.activeStateId || !appUser.activeCompanyId) {
-        setPendingStateId(appUser.activeStateId || null);
-        setContextStep(appUser.activeStateId ? "company" : "state");
-        setContextOverlayOpen(true);
-      } else if (!(appUser as any).activeDivisionId && appUser.activeCompanyId) {
+
+      const needsFullContext = !appUser.activeStateId || !appUser.activeCompanyId;
+      const needsDivision = !!(appUser.activeStateId && appUser.activeCompanyId && !(appUser as any).activeDivisionId);
+
+      if (needsFullContext) {
+        (async () => {
+          try {
+            const activeStates = (allStates || []).filter((s: any) => s.isActive);
+            if (activeStates.length === 1) {
+              const singleStateId = activeStates[0].id;
+              const compsRes = await fetch("/api/my-companies", { credentials: "include" });
+              if (!compsRes.ok) { setContextStep("state"); setContextOverlayOpen(true); return; }
+              const allComps = await compsRes.json();
+              const stateComps = allComps.filter((c: any) => c.stateId === singleStateId);
+              if (stateComps.length === 1) {
+                const singleCompanyId = stateComps[0].id;
+                const divsRes = await fetch(`/api/companies/${singleCompanyId}/divisions`, { credentials: "include" });
+                if (!divsRes.ok) { setContextStep("state"); setContextOverlayOpen(true); return; }
+                const divs = await divsRes.json();
+                if (divs.length === 1) {
+                  const divId = divs[0].divisionId || divs[0].division?.id;
+                  setActive.mutate({ activeStateId: singleStateId, activeCompanyId: singleCompanyId, activeDivisionId: divId });
+                  return;
+                } else if (divs.length === 0) {
+                  setActive.mutate({ activeStateId: singleStateId, activeCompanyId: singleCompanyId }, {
+                    onSuccess: () => autoCreateDivisionForCompany(singleCompanyId),
+                  });
+                  return;
+                }
+              }
+            }
+            setPendingStateId(appUser.activeStateId || null);
+            setContextStep(appUser.activeStateId ? "company" : "state");
+            setContextOverlayOpen(true);
+          } catch {
+            setPendingStateId(appUser.activeStateId || null);
+            setContextStep(appUser.activeStateId ? "company" : "state");
+            setContextOverlayOpen(true);
+          }
+        })();
+      } else if (needsDivision) {
         (async () => {
           try {
             const res = await fetch(`/api/companies/${appUser.activeCompanyId}/divisions`, { credentials: "include" });
@@ -164,7 +200,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         })();
       }
     }
-  }, [appUser, isClientUser, autoCreateDivisionForCompany]);
+  }, [appUser, isClientUser, autoCreateDivisionForCompany, allStates]);
 
   const handleContextSelectState = useCallback((stateId: number) => {
     setPendingStateId(stateId);
