@@ -728,6 +728,7 @@ function PartnerUnifiedDialog({
 
 export default function Partners() {
   const { data: partners, isLoading } = usePartners();
+  const { data: appUser } = useAppUser();
   const tableFilter = useSmartFilter(partners || [], PARTNER_FILTER_COLUMNS, "partners");
   const { sortedData, sortKey, sortDirection, requestSort } = useTableSort(tableFilter.filteredData);
   const columnVisibility = useColumnVisibility("partners", PARTNER_COLUMNS);
