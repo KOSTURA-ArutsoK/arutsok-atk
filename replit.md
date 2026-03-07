@@ -16,7 +16,7 @@ The system employs a modern full-stack architecture emphasizing data integrity, 
 - **Frontend**: React with Vite, Tailwind CSS, `shadcn/ui`, `wouter`.
 - **Backend**: Express.js.
 - **Database**: PostgreSQL (Neon) with Drizzle ORM.
-- **Authentication**: Local username/password auth with bcrypt + express-session (PG session store). No Replit OIDC dependency.
+- **Authentication**: Local e-mail/password auth with bcrypt + express-session (PG session store). Multi-step login: (1) E-mail + Heslo, (2) Subject multiplicity detection — ak viac subjektov s rovnakým e-mailom, výberový overlay, (3) Phone verification — overenie/zmena telefónneho čísla s simulovaným SMS kódom, (4) Audit trail + Context overlay. No Replit OIDC dependency.
 
 **Key Architectural Decisions & Features:**
 - **Data Integrity & Auditability**: Implemented via immutable records, soft deletion, audit logs, field history, and document validity indicators.
