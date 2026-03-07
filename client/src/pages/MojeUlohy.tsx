@@ -2,7 +2,7 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { formatDateTimeSlovak } from "@/lib/utils";
-import { Loader2, Check, X, ClipboardCheck, FileText, Download, AlertTriangle, ExternalLink, XCircle, Archive } from "lucide-react";
+import { Loader2, Check, X, ClipboardCheck, FileText, Download, AlertTriangle, ExternalLink, XCircle, Archive, CalendarDays } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -68,6 +68,16 @@ interface SubjectInfo {
   type: string;
 }
 
+interface CalendarEvent {
+  id: number;
+  title: string;
+  description: string | null;
+  startDate: string;
+  endDate: string | null;
+  allDay: boolean;
+  color: string | null;
+}
+
 interface MyTasksResponse {
   tasks: TransferTask[];
   subjects: SubjectInfo[];
@@ -76,6 +86,7 @@ interface MyTasksResponse {
   internalInterventions: ContractItem[];
   rejectedContracts: ContractItem[];
   archivedContracts: ContractItem[];
+  upcomingEvents: CalendarEvent[];
 }
 
 function getSubjectName(sub: SubjectInfo | undefined): string {
@@ -234,9 +245,11 @@ export default function MojeUlohy() {
   const internalInterventions = data?.internalInterventions || [];
   const rejectedContracts = data?.rejectedContracts || [];
   const archivedContracts = data?.archivedContracts || [];
+  const upcomingEvents = data?.upcomingEvents || [];
   const subjectMap = new Map((data?.subjects || []).map(s => [s.id, s]));
   const statusMap = new Map(interventionStatuses.map(s => [s.id, s.name]));
-  const totalCount = tasks.length + interventions.length + internalInterventions.length + rejectedContracts.length + archivedContracts.length;
+  const nonCalendarCount = tasks.length + interventions.length + internalInterventions.length + rejectedContracts.length + archivedContracts.length;
+  const totalCount = nonCalendarCount + upcomingEvents.length;
 
   if (isLoading) {
     return (
@@ -264,7 +277,7 @@ export default function MojeUlohy() {
           </CardContent>
         </Card>
       ) : (
-        <div className="space-y-8">
+        <div className="space-y-8" data-testid="tasks-container">
           <ContractSection
             title="Intervencie"
             icon={<AlertTriangle className="w-5 h-5 text-orange-500" />}
@@ -406,6 +419,43 @@ export default function MojeUlohy() {
                         <span className="ml-auto text-xs text-muted-foreground">
                           {formatDateTimeSlovak(task.createdAt)}
                         </span>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {upcomingEvents.length > 0 && (
+            <div className="space-y-4" data-testid="upcoming-events-section">
+              <div className="flex items-center gap-2">
+                <CalendarDays className="w-5 h-5 text-blue-500" />
+                <h2 className="text-lg font-semibold">Najbližšie udalosti</h2>
+                <Badge variant="outline" className="border-blue-500 text-blue-400" data-testid="upcoming-events-count">{upcomingEvents.length}</Badge>
+              </div>
+              <div className="space-y-3">
+                {upcomingEvents.map(event => (
+                  <Card key={event.id} className="border-l-4 border-l-blue-500" data-testid={`event-card-${event.id}`}>
+                    <CardContent className="py-3 px-4">
+                      <div className="flex items-center justify-between gap-4">
+                        <div className="flex items-center gap-3 min-w-0">
+                          <CalendarDays className="w-4 h-4 text-blue-400 shrink-0" />
+                          <div className="min-w-0">
+                            <span className="font-medium text-sm" data-testid={`event-title-${event.id}`}>{event.title}</span>
+                            {event.description && (
+                              <p className="text-xs text-muted-foreground mt-0.5 truncate" data-testid={`event-desc-${event.id}`}>{event.description}</p>
+                            )}
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2 shrink-0">
+                          <Badge variant="outline" className="border-blue-500 text-blue-400 text-[10px]">
+                            {event.allDay ? "Celodenná" : "Udalosť"}
+                          </Badge>
+                          <span className="text-xs text-muted-foreground" data-testid={`event-date-${event.id}`}>
+                            {formatDateTimeSlovak(event.startDate)}
+                          </span>
+                        </div>
                       </div>
                     </CardContent>
                   </Card>

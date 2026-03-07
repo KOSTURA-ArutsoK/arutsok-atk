@@ -15698,10 +15698,13 @@ export async function registerRoutes(
       ]);
       const dedupedInterventions = interventionContracts.filter((c: any) => !excludeIds.has(c.id));
 
+      const upcomingEvents = await storage.getUpcomingEvents(5);
+
       res.json({
         tasks, subjects: relatedSubjects,
         interventions: dedupedInterventions, interventionStatuses: statusList,
         internalInterventions, rejectedContracts, archivedContracts,
+        upcomingEvents,
       });
     } catch (err: any) {
       res.status(500).json({ message: err?.message || "Chyba" });
@@ -15823,7 +15826,15 @@ export async function registerRoutes(
         }
       }
 
-      res.json({ count: transferCount + interventionCount + internalInterventionCount + rejectedCount + archivedCount });
+      const upcomingEvents = await storage.getUpcomingEvents(5);
+      const upcomingEventsCount = upcomingEvents.length;
+      const nonCalendarCount = transferCount + interventionCount + internalInterventionCount + rejectedCount + archivedCount;
+
+      res.json({
+        count: nonCalendarCount + upcomingEventsCount,
+        nonCalendarCount,
+        upcomingEventsCount,
+      });
     } catch (err: any) {
       res.status(500).json({ message: err?.message || "Chyba" });
     }

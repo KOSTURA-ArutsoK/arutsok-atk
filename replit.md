@@ -27,7 +27,7 @@ The system employs a modern full-stack architecture emphasizing data integrity, 
 - **Context Security Policy (STRICT)**: Automatické bypassovanie kontextového overlay je ZAKÁZANÉ ak existuje viac ako 1 možnosť na akejkoľvek úrovni (štát/spoločnosť/divízia). Výnimka: Ak má používateľ práve 1 štát, 1 spoločnosť a 1 divíziu, systém automaticky aplikuje kontext bez overlay. Aj pri automatickom výbere sa vytvára auditná stopa cez `PUT /api/app-user/active`. Každý prístup k citlivým poliam musí zanechať nezmazateľnú auditnú stopu. Justified layout platí aj pre overlay prvky.
 - **Navigation Structure**:
   - Štruktúra (collapsible): Štruktúra sektorov (A) → `/sektory-zmluv`, UI Subjektov (B) → `/sektory-subjektov`, Profil subjektu → `/profil-subjektu`
-  - Moje úlohy → `/moje-ulohy` (with red badge for pending task count, auto-refresh 30s)
+  - Moje úlohy → `/moje-ulohy` (with dynamic badge: red=non-calendar tasks, blue=only calendar events; auto-refresh 30s; shows 5 upcoming calendar events at bottom of page)
   - Odkazy - linky (dynamic, per-user per-division configurable link sections from `sidebar_link_sections` + `sidebar_links` tables with `divisionId`, managed via `/link-settings`; one fixed "Odkazy" section auto-created per division; collapsible groups; 0 links = kostura.sk fallback)
   - Zmluvy (collapsible): Zoznam zmlúv → `/contracts`, Spracovanie zmlúv (collapsible) → { Papierové zmluvy → `/evidencia-zmluv`, Dátová linka → `/datova-linka` }
   - Reporty (collapsible, admin only): Odosielanie → `/reporty-odosielanie`
