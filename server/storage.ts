@@ -559,6 +559,7 @@ export interface IStorage {
   updateCalendarEvent(id: number, data: Partial<InsertCalendarEvent>): Promise<CalendarEvent>;
   deleteCalendarEvent(id: number): Promise<void>;
   getUpcomingEvents(limit?: number): Promise<CalendarEvent[]>;
+  getTodayEventsCount(): Promise<number>;
 
   // Career Levels
   getCareerLevels(): Promise<CareerLevel[]>;
@@ -3560,6 +3561,16 @@ export class DatabaseStorage implements IStorage {
       .where(gte(calendarEvents.startDate, today))
       .orderBy(calendarEvents.startDate)
       .limit(limit);
+  }
+
+  async getTodayEventsCount(): Promise<number> {
+    const todayStart = new Date();
+    todayStart.setHours(0, 0, 0, 0);
+    const todayEnd = new Date();
+    todayEnd.setHours(23, 59, 59, 999);
+    const result = await db.select().from(calendarEvents)
+      .where(and(gte(calendarEvents.startDate, todayStart), lte(calendarEvents.startDate, todayEnd)));
+    return result.length;
   }
 
   // === PANELS CRUD (ArutsoK 27) ===

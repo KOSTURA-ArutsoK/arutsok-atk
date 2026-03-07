@@ -15828,12 +15828,14 @@ export async function registerRoutes(
 
       const upcomingEvents = await storage.getUpcomingEvents(5);
       const upcomingEventsCount = upcomingEvents.length;
+      const todayEventsCount = await storage.getTodayEventsCount();
       const nonCalendarCount = transferCount + interventionCount + internalInterventionCount + rejectedCount + archivedCount;
 
       res.json({
-        count: nonCalendarCount + upcomingEventsCount,
+        count: nonCalendarCount > 0 ? nonCalendarCount : todayEventsCount,
         nonCalendarCount,
         upcomingEventsCount,
+        todayEventsCount,
       });
     } catch (err: any) {
       res.status(500).json({ message: err?.message || "Chyba" });

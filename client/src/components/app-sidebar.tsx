@@ -254,13 +254,15 @@ function CollapsibleMenu({
 }
 
 function MojeUlohyMenuItem({ location }: { location: string }) {
-  const { data: taskCount } = useQuery<{ count: number; nonCalendarCount: number; upcomingEventsCount: number }>({
+  const { data: taskCount } = useQuery<{ count: number; nonCalendarCount: number; upcomingEventsCount: number; todayEventsCount: number }>({
     queryKey: ["/api/my-tasks/count"],
     refetchInterval: 30000,
   });
-  const count = taskCount?.count || 0;
   const nonCalendarCount = taskCount?.nonCalendarCount || 0;
+  const todayEventsCount = taskCount?.todayEventsCount || 0;
+  const showBadge = nonCalendarCount > 0 || todayEventsCount > 0;
   const badgeColor = nonCalendarCount > 0 ? "bg-red-600" : "bg-blue-500";
+  const badgeValue = nonCalendarCount > 0 ? nonCalendarCount : todayEventsCount;
 
   return (
     <SidebarMenuItem>
@@ -272,9 +274,9 @@ function MojeUlohyMenuItem({ location }: { location: string }) {
         <Link href="/moje-ulohy">
           <ClipboardCheck className="w-4 h-4" />
           <span>Moje úlohy</span>
-          {count > 0 && (
+          {showBadge && (
             <span className={`ml-auto flex h-5 min-w-5 items-center justify-center rounded-full ${badgeColor} text-[10px] font-bold text-white px-1`} data-testid="badge-task-count">
-              {count}
+              {badgeValue}
             </span>
           )}
         </Link>
