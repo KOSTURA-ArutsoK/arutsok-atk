@@ -2126,6 +2126,8 @@ export async function registerRoutes(
         stateId: enforcedState || req.body.stateId,
         companyId: appUser?.activeCompanyId || req.body.companyId,
         createdBy: appUser?.username || "system",
+        validFrom: req.body.validFrom ? new Date(req.body.validFrom) : undefined,
+        validTo: req.body.validTo ? new Date(req.body.validTo) : undefined,
       };
       const created = await storage.createCommissionRate(data);
       await logAudit(req, { action: "CREATE", module: "sadzby", entityId: created.id, newData: data });
@@ -2141,7 +2143,10 @@ export async function registerRoutes(
       const id = Number(req.params.id);
       const old = await storage.getCommissionRate(id);
       if (!old) return res.status(404).json({ message: "Sadzba nenajdena" });
-      const updated = await storage.updateCommissionRate(id, req.body);
+      const body = { ...req.body };
+      if (body.validFrom) body.validFrom = new Date(body.validFrom);
+      if (body.validTo) body.validTo = new Date(body.validTo);
+      const updated = await storage.updateCommissionRate(id, body);
       await logAudit(req, { action: "UPDATE", module: "sadzby", entityId: id, oldData: old, newData: req.body });
       res.json(updated);
     } catch (err) {
