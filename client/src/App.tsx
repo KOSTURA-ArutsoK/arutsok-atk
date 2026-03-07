@@ -64,6 +64,7 @@ import MojeUlohy from "@/pages/MojeUlohy";
 import Ziadosti from "@/pages/Ziadosti";
 import Prestup from "@/pages/Prestup";
 import ReportyOdosielanie from "@/pages/ReportyOdosielanie";
+import ReportyNBS from "@/pages/ReportyNBS";
 import { AppShell } from "@/components/layout/AppShell";
 import { RedListNotificationPopup } from "@/components/red-list-notification-popup";
 import { BlackListNotificationPopup } from "@/components/black-list-notification-popup";
@@ -161,6 +162,7 @@ const PrivateMojeUlohy = () => <PrivateRoute><MojeUlohy /></PrivateRoute>;
 const PrivateZiadosti = () => <PrivateRoute><Ziadosti /></PrivateRoute>;
 const PrivatePrestup = () => <PrivateRoute><Prestup /></PrivateRoute>;
 const PrivateReportyOdosielanie = () => <PrivateRoute><ReportyOdosielanie /></PrivateRoute>;
+const PrivateReportyNBS = () => <PrivateRoute><ReportyNBS /></PrivateRoute>;
 const PrivateClientProfile = () => <PrivateRoute><ClientProfilePage /></PrivateRoute>;
 
 function Router() {
@@ -225,6 +227,7 @@ function Router() {
       <Route path="/ziadosti" component={PrivateZiadosti} />
       <Route path="/prestup" component={PrivatePrestup} />
       <Route path="/reporty-odosielanie" component={PrivateReportyOdosielanie} />
+      <Route path="/reporty-nbs" component={PrivateReportyNBS} />
       <Route component={NotFound} />
     </Switch>
   );

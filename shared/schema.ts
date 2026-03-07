@@ -2483,6 +2483,21 @@ export const insertGuarantorTransferRequestSchema = createInsertSchema(guarantor
 export type GuarantorTransferRequest = typeof guarantorTransferRequests.$inferSelect;
 export type InsertGuarantorTransferRequest = z.infer<typeof insertGuarantorTransferRequestSchema>;
 
+export const nbsReportStatuses = pgTable("nbs_report_statuses", {
+  id: serial("id").primaryKey(),
+  year: integer("year").notNull(),
+  period: text("period").notNull(),
+  status: text("status").notNull().default("not_sent"),
+  sentDate: text("sent_date"),
+  updatedBy: text("updated_by"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertNbsReportStatusSchema = createInsertSchema(nbsReportStatuses).omit({ id: true, createdAt: true, updatedAt: true });
+export type NbsReportStatus = typeof nbsReportStatuses.$inferSelect;
+export type InsertNbsReportStatus = z.infer<typeof insertNbsReportStatusSchema>;
+
 export type CreateSubjectRequest = InsertSubject;
 export type UpdateSubjectRequest = Partial<InsertSubject> & { changeReason?: string };
 export type UpdateMyCompanyRequest = Partial<InsertMyCompany> & { changeReason?: string };

@@ -7482,6 +7482,44 @@ export async function registerRoutes(
     }
   });
 
+  // === NBS REPORT STATUSES ===
+  app.get("/api/nbs-reports", isAuthenticated, async (req: any, res) => {
+    try {
+      const year = Number(req.query.year) || new Date().getFullYear();
+      let reports = await storage.getNbsReportsByYear(year);
+      if (reports.length === 0) {
+        const appUser = req.appUser;
+        reports = await storage.initNbsReportsForYear(year, appUser?.username || "system");
+      }
+      res.json(reports);
+    } catch (err: any) {
+      res.status(500).json({ message: err?.message || "Chyba" });
+    }
+  });
+
+  app.put("/api/nbs-reports/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const id = Number(req.params.id);
+      const appUser = req.appUser;
+      const updated = await storage.updateNbsReport(id, { ...req.body, updatedBy: appUser?.username || "system" });
+      await logAudit(req, { action: "UPDATE", module: "NBS Reporty", entityId: id, newData: req.body });
+      res.json(updated);
+    } catch (err: any) {
+      res.status(500).json({ message: err?.message || "Chyba" });
+    }
+  });
+
+  app.post("/api/nbs-reports/init/:year", isAuthenticated, async (req: any, res) => {
+    try {
+      const year = Number(req.params.year);
+      const appUser = req.appUser;
+      const reports = await storage.initNbsReportsForYear(year, appUser?.username || "system");
+      res.json(reports);
+    } catch (err: any) {
+      res.status(500).json({ message: err?.message || "Chyba" });
+    }
+  });
+
   // === CAREER LEVELS ===
   app.get("/api/career-levels", isAuthenticated, async (_req, res) => {
     try {

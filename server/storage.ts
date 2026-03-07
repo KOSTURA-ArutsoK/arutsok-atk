@@ -131,6 +131,8 @@ import {
   sidebarLinkSections, sidebarLinks,
   type SidebarLinkSection, type InsertSidebarLinkSection,
   type SidebarLink, type InsertSidebarLink,
+  nbsReportStatuses,
+  type NbsReportStatus, type InsertNbsReportStatus,
 } from "@shared/schema";
 import { eq, and, or, ne, like, sql, lte, gte, gt, desc, asc, isNull, isNotNull, inArray } from "drizzle-orm";
 
@@ -560,6 +562,12 @@ export interface IStorage {
   deleteCalendarEvent(id: number): Promise<void>;
   getUpcomingEvents(limit?: number): Promise<CalendarEvent[]>;
   getTodayEventsCount(): Promise<number>;
+
+  // NBS Report Statuses
+  getNbsReportsByYear(year: number): Promise<NbsReportStatus[]>;
+  upsertNbsReport(data: InsertNbsReportStatus): Promise<NbsReportStatus>;
+  updateNbsReport(id: number, data: Partial<InsertNbsReportStatus>): Promise<NbsReportStatus>;
+  initNbsReportsForYear(year: number, updatedBy: string): Promise<NbsReportStatus[]>;
 
   // Career Levels
   getCareerLevels(): Promise<CareerLevel[]>;
@@ -3571,6 +3579,32 @@ export class DatabaseStorage implements IStorage {
     const result = await db.select().from(calendarEvents)
       .where(and(gte(calendarEvents.startDate, todayStart), lte(calendarEvents.startDate, todayEnd)));
     return result.length;
+  }
+
+  async getNbsReportsByYear(year: number): Promise<NbsReportStatus[]> {
+    return await db.select().from(nbsReportStatuses).where(eq(nbsReportStatuses.year, year));
+  }
+
+  async upsertNbsReport(data: InsertNbsReportStatus): Promise<NbsReportStatus> {
+    const [report] = await db.insert(nbsReportStatuses).values(data).returning();
+    return report;
+  }
+
+  async updateNbsReport(id: number, data: Partial<InsertNbsReportStatus>): Promise<NbsReportStatus> {
+    const [report] = await db.update(nbsReportStatuses).set({ ...data, updatedAt: new Date() }).where(eq(nbsReportStatuses.id, id)).returning();
+    return report;
+  }
+
+  async initNbsReportsForYear(year: number, updatedBy: string): Promise<NbsReportStatus[]> {
+    const existing = await this.getNbsReportsByYear(year);
+    if (existing.length > 0) return existing;
+    const periods = ['1q', '2q', '3q', '4q', 'annual'];
+    const results: NbsReportStatus[] = [];
+    for (const period of periods) {
+      const [report] = await db.insert(nbsReportStatuses).values({ year, period, status: 'not_sent', updatedBy }).returning();
+      results.push(report);
+    }
+    return results;
   }
 
   // === PANELS CRUD (ArutsoK 27) ===

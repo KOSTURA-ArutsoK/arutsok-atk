@@ -100,6 +100,7 @@ const financieItems = [
 
 const reportyItems = [
   { href: "/reporty-odosielanie", icon: Mail, label: "Odosielanie" },
+  { href: "/reporty-nbs", icon: FileBarChart, label: "Reporty pre NBS", badge: "Špecial" },
 ];
 
 const informacieItems = [
@@ -196,7 +197,7 @@ function CollapsibleMenu({
 }: {
   label: string;
   icon: React.ElementType;
-  items: { href: string; icon: React.ElementType; label: string }[];
+  items: { href: string; icon: React.ElementType; label: string; badge?: string }[];
   location: string;
   testId: string;
   menuId: string;
@@ -242,6 +243,9 @@ function CollapsibleMenu({
                   <Link href={item.href}>
                     <item.icon className="w-3.5 h-3.5" />
                     <span>{item.label}</span>
+                    {item.badge && (
+                      <span className="ml-auto text-[9px] text-blue-400/80 font-medium">{item.badge}</span>
+                    )}
                   </Link>
                 </SidebarMenuSubButton>
               </SidebarMenuSubItem>

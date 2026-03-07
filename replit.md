@@ -30,7 +30,7 @@ The system employs a modern full-stack architecture emphasizing data integrity, 
   - Moje úlohy → `/moje-ulohy` (with dynamic badge: red=non-calendar tasks, blue=only calendar events; auto-refresh 30s; shows 5 upcoming calendar events at bottom of page)
   - Odkazy - linky (dynamic, per-user per-division configurable link sections from `sidebar_link_sections` + `sidebar_links` tables with `divisionId`, managed via `/link-settings`; one fixed "Odkazy" section auto-created per division; collapsible groups; 0 links = kostura.sk fallback)
   - Zmluvy (collapsible): Zoznam zmlúv → `/contracts`, Spracovanie zmlúv (collapsible) → { Papierové zmluvy → `/evidencia-zmluv`, Dátová linka → `/datova-linka` }
-  - Reporty (collapsible, admin only): Odosielanie → `/reporty-odosielanie`
+  - Reporty (collapsible, admin only): Odosielanie → `/reporty-odosielanie`, Reporty pre NBS → `/reporty-nbs` (badge "Špecial")
   - Analytika → `/analytika` (admin only)
   - Holding Dashboard → `/holding-dashboard` (admin only)
 - **Dátová linka (OCR Module)**: Azure AI Document Intelligence (Frankfurt, `germanywestcentral`) integration for document processing. Uses `prebuilt-layout` model with async `beginAnalyzeDocument`. Features: bulk PDF upload, background queue worker (10s interval), split-screen validation (original text vs extracted fields), synonym confirmation flow (green=confirmed, orange=learning, red=unknown). DB table: `ocr_processing_jobs`. Graceful SIGTERM handling marks processing jobs as "interrupted" for resume.
