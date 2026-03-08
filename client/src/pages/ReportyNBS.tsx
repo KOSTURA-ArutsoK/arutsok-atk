@@ -1059,6 +1059,7 @@ function NbsAnalyticsChart() {
   const [selectedPeriods, setSelectedPeriods] = useState<string[]>(["1q", "2q", "3q", "4q"]);
   const [selectedParams, setSelectedParams] = useState<string[]>(["newContracts_life", "newContracts_nonLife"]);
   const [chartOpen, setChartOpen] = useState(false);
+  const [paramsOpen, setParamsOpen] = useState(false);
 
   const periodOrder = ["1q", "2q", "3q", "4q", "annual"];
   const yearsStr = [...selectedYears].sort().join(",");
@@ -1115,7 +1116,7 @@ function NbsAnalyticsChart() {
 
         {chartOpen && (
           <div className="space-y-4 pt-2 border-t">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Roky</p>
                 <div className="flex flex-wrap gap-1">
@@ -1153,58 +1154,69 @@ function NbsAnalyticsChart() {
                   ))}
                 </div>
               </div>
-
-              <div className="space-y-2">
-                <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
-                  Parametre ({selectedParams.length})
-                </p>
-                {selectedParams.length > 0 && (
-                  <div className="flex flex-wrap gap-1 mb-1">
-                    {selectedParams.map((pk, i) => {
-                      const param = NBS_CHART_PARAMS.find(p => p.key === pk);
-                      return (
-                        <span
-                          key={pk}
-                          className="inline-flex items-center gap-1 text-[9px] px-1.5 py-0.5 rounded-full text-white"
-                          style={{ backgroundColor: CHART_COLORS[i % CHART_COLORS.length] }}
-                        >
-                          {param?.label || pk}
-                          <X className="w-2.5 h-2.5 cursor-pointer" onClick={() => toggleParam(pk)} />
-                        </span>
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
             </div>
 
-            <div className="space-y-2 border rounded p-3 bg-muted/20 max-h-[200px] overflow-y-auto">
-              <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider sticky top-0 bg-muted/20">Výber parametrov</p>
-              {sections.map(([sKey, sLabel]) => {
-                const sectionParams = NBS_CHART_PARAMS.filter(p => p.section === sKey);
-                return (
-                  <div key={sKey} className="space-y-1">
-                    <p className="text-[9px] font-bold text-muted-foreground">{sLabel}</p>
-                    <div className="flex flex-wrap gap-1">
-                      {sectionParams.map(p => (
-                        <button
-                          key={p.key}
-                          type="button"
-                          onClick={() => toggleParam(p.key)}
-                          className={`text-[9px] px-2 py-0.5 rounded border transition-all ${
-                            selectedParams.includes(p.key)
-                              ? "bg-blue-600 text-white border-blue-600"
-                              : "bg-muted/50 text-muted-foreground border-border hover:bg-muted"
-                          }`}
-                          data-testid={`chart-param-${p.key}`}
-                        >
-                          {p.label}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                );
-              })}
+            {selectedParams.length > 0 && (
+              <div className="space-y-1.5">
+                <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
+                  Vybrané parametre ({selectedParams.length})
+                </p>
+                <div className="flex flex-wrap gap-1">
+                  {selectedParams.map((pk, i) => {
+                    const param = NBS_CHART_PARAMS.find(p => p.key === pk);
+                    return (
+                      <span
+                        key={pk}
+                        className="inline-flex items-center gap-1 text-[9px] px-1.5 py-0.5 rounded-full text-white"
+                        style={{ backgroundColor: CHART_COLORS[i % CHART_COLORS.length] }}
+                      >
+                        {param?.label || pk}
+                        <X className="w-2.5 h-2.5 cursor-pointer" onClick={() => toggleParam(pk)} />
+                      </span>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            <div className="border rounded bg-muted/20">
+              <div
+                className="flex items-center justify-between px-3 py-2 cursor-pointer"
+                onClick={() => setParamsOpen(!paramsOpen)}
+                data-testid="toggle-params-panel"
+              >
+                <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Výber parametrov</p>
+                {paramsOpen ? <ChevronUp className="w-3.5 h-3.5 text-muted-foreground" /> : <ChevronDown className="w-3.5 h-3.5 text-muted-foreground" />}
+              </div>
+              {paramsOpen && (
+                <div className="px-3 pb-3 space-y-2 max-h-[200px] overflow-y-auto">
+                  {sections.map(([sKey, sLabel]) => {
+                    const sectionParams = NBS_CHART_PARAMS.filter(p => p.section === sKey);
+                    return (
+                      <div key={sKey} className="space-y-1">
+                        <p className="text-[9px] font-bold text-muted-foreground">{sLabel}</p>
+                        <div className="flex flex-wrap gap-1">
+                          {sectionParams.map(p => (
+                            <button
+                              key={p.key}
+                              type="button"
+                              onClick={() => toggleParam(p.key)}
+                              className={`text-[9px] px-2 py-0.5 rounded border transition-all ${
+                                selectedParams.includes(p.key)
+                                  ? "bg-blue-600 text-white border-blue-600"
+                                  : "bg-muted/50 text-muted-foreground border-border hover:bg-muted"
+                              }`}
+                              data-testid={`chart-param-${p.key}`}
+                            >
+                              {p.label}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
             </div>
 
             {isLoading ? (
