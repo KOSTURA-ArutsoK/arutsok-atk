@@ -15743,11 +15743,52 @@ export async function registerRoutes(
 
       const upcomingEvents = await storage.getUpcomingEvents(5);
 
+      let nbsReportTasks: any[] = [];
+      if (appUser.role === 'admin' || appUser.role === 'superadmin') {
+        const now = new Date();
+        const cy = now.getFullYear();
+        function getNbsDeadlineTask(period: string, year: number): Date {
+          switch (period) {
+            case "1q": return new Date(year, 4, 31);
+            case "2q": return new Date(year, 7, 31);
+            case "3q": return new Date(year, 10, 30);
+            case "4q": return new Date(year + 1, 1, 28);
+            case "annual": return new Date(year + 1, 2, 31);
+            default: return new Date(year, 11, 31);
+          }
+        }
+        const periodLabels: Record<string, string> = { "1q": "1Q", "2q": "2Q", "3q": "3Q", "4q": "4Q", "annual": "Ročný report" };
+        const yearsCheck = [cy, cy - 1];
+        const allNbs = await db.select().from(nbsReportStatuses)
+          .where(inArray(nbsReportStatuses.year, yearsCheck));
+        const periods = ["1q", "2q", "3q", "4q", "annual"];
+        for (const year of yearsCheck) {
+          for (const period of periods) {
+            const deadline = getNbsDeadlineTask(period, year);
+            const diffMs = deadline.getTime() - now.getTime();
+            const daysLeft = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
+            if (daysLeft < 0 || daysLeft > 25) continue;
+            const report = allNbs.find(r => r.year === year && r.period === period);
+            if (!report || report.status !== "sent") {
+              nbsReportTasks.push({
+                period,
+                periodLabel: periodLabels[period] || period.toUpperCase(),
+                year,
+                status: report?.status || "not_sent",
+                deadline: deadline.toISOString(),
+                daysLeft,
+              });
+            }
+          }
+        }
+        nbsReportTasks.sort((a, b) => a.period.localeCompare(b.period));
+      }
+
       res.json({
         tasks, subjects: relatedSubjects,
         interventions: dedupedInterventions, interventionStatuses: statusList,
         internalInterventions, rejectedContracts, archivedContracts,
-        upcomingEvents,
+        upcomingEvents, nbsReportTasks,
       });
     } catch (err: any) {
       res.status(500).json({ message: err?.message || "Chyba" });

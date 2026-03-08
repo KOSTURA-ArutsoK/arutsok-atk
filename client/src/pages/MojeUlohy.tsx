@@ -2,12 +2,12 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { formatDateTimeSlovak } from "@/lib/utils";
-import { Loader2, Check, X, ClipboardCheck, FileText, Download, AlertTriangle, ExternalLink, XCircle, Archive, CalendarDays } from "lucide-react";
+import { Loader2, Check, X, ClipboardCheck, FileText, Download, AlertTriangle, ExternalLink, XCircle, Archive, CalendarDays, FileBarChart } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useLocation } from "wouter";
 
 interface TransferStep {
@@ -78,6 +78,15 @@ interface CalendarEvent {
   color: string | null;
 }
 
+interface NbsReportTask {
+  period: string;
+  periodLabel: string;
+  year: number;
+  status: string;
+  deadline: string;
+  daysLeft: number;
+}
+
 interface MyTasksResponse {
   tasks: TransferTask[];
   subjects: SubjectInfo[];
@@ -87,6 +96,7 @@ interface MyTasksResponse {
   rejectedContracts: ContractItem[];
   archivedContracts: ContractItem[];
   upcomingEvents: CalendarEvent[];
+  nbsReportTasks?: NbsReportTask[];
 }
 
 function getSubjectName(sub: SubjectInfo | undefined): string {
@@ -198,11 +208,102 @@ function ApprovalStepper({ task }: { task: TransferTask }) {
   );
 }
 
+function NbsReportSection({ tasks, title, isUrgent, minDays, blinkActive, navigate }: {
+  tasks: NbsReportTask[];
+  title: string;
+  isUrgent: boolean;
+  minDays: number;
+  blinkActive: boolean;
+  navigate: (path: string) => void;
+}) {
+  if (tasks.length === 0) return null;
+
+  function getNbsBorderColor(daysLeft: number): string {
+    if (daysLeft <= 7) return "border-l-red-500";
+    if (daysLeft <= 14) return "border-l-orange-500";
+    return "border-l-blue-500";
+  }
+
+  function getNbsStatusLabel(status: string): string {
+    switch (status) {
+      case "sent": return "Odoslané";
+      case "checked": return "Skontrolované";
+      default: return "Neodoslané";
+    }
+  }
+
+  function formatDeadline(deadline: string): string {
+    const d = new Date(deadline);
+    const day = d.getDate().toString().padStart(2, "0");
+    const month = (d.getMonth() + 1).toString().padStart(2, "0");
+    return `${day}.${month}.${d.getFullYear()}`;
+  }
+
+  const shouldBlink = (daysLeft: number) => {
+    if (daysLeft <= 3) return blinkActive ? "animate-pulse" : "";
+    if (daysLeft <= 7) return "animate-pulse";
+    return "";
+  };
+
+  return (
+    <div className="space-y-4" data-testid={isUrgent ? "nbs-urgent-section" : "nbs-normal-section"}>
+      <div className="flex items-center gap-2">
+        <FileBarChart className={`w-5 h-5 ${isUrgent ? "text-red-500" : "text-blue-500"}`} />
+        <h2 className="text-lg font-semibold">{title}</h2>
+        <Badge variant="outline" className={isUrgent ? "border-red-500 text-red-400" : "border-blue-500 text-blue-400"} data-testid="nbs-task-count">{tasks.length}</Badge>
+      </div>
+      <div className="space-y-3">
+        {tasks.map(task => {
+          const blinkClass = shouldBlink(task.daysLeft);
+          const borderColor = getNbsBorderColor(task.daysLeft);
+          const daysColor = task.daysLeft <= 7 ? "bg-red-600 text-white" : task.daysLeft <= 14 ? "bg-orange-500 text-white" : "bg-blue-600 text-white";
+
+          return (
+            <Card
+              key={`${task.period}-${task.year}`}
+              className={`border-l-4 ${borderColor} cursor-pointer hover:bg-muted/50 transition-colors ${blinkClass}`}
+              onClick={() => navigate("/reporty-nbs")}
+              data-testid={`nbs-task-${task.period}-${task.year}`}
+            >
+              <CardContent className="py-3 px-4">
+                <div className="flex items-center justify-between gap-4">
+                  <div className="flex items-center gap-3 min-w-0">
+                    <FileBarChart className={`w-4 h-4 shrink-0 ${task.daysLeft <= 7 ? "text-red-400" : task.daysLeft <= 14 ? "text-orange-400" : "text-blue-400"}`} />
+                    <div className="min-w-0">
+                      <span className="font-medium text-sm" data-testid={`nbs-task-title-${task.period}-${task.year}`}>
+                        NBS Report — {task.periodLabel} {task.year}
+                      </span>
+                      <p className="text-xs text-muted-foreground mt-0.5">
+                        Termín: {formatDeadline(task.deadline)} • Stav: {getNbsStatusLabel(task.status)}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2 shrink-0">
+                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${daysColor}`} data-testid={`nbs-days-left-${task.period}-${task.year}`}>
+                      {task.daysLeft} dní
+                    </span>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 export default function MojeUlohy() {
   const { toast } = useToast();
   const [, navigate] = useLocation();
   const [rejectNote, setRejectNote] = useState<Record<number, string>>({});
   const [showReject, setShowReject] = useState<Record<number, boolean>>({});
+  const [nbsBlinkActive, setNbsBlinkActive] = useState(true);
+
+  useEffect(() => {
+    const timer = setTimeout(() => setNbsBlinkActive(false), 10000);
+    return () => clearTimeout(timer);
+  }, []);
 
   const { data, isLoading } = useQuery<MyTasksResponse>({
     queryKey: ["/api/my-tasks"],
@@ -246,10 +347,16 @@ export default function MojeUlohy() {
   const rejectedContracts = data?.rejectedContracts || [];
   const archivedContracts = data?.archivedContracts || [];
   const upcomingEvents = data?.upcomingEvents || [];
+  const nbsReportTasks = data?.nbsReportTasks || [];
   const subjectMap = new Map((data?.subjects || []).map(s => [s.id, s]));
   const statusMap = new Map(interventionStatuses.map(s => [s.id, s.name]));
-  const nonCalendarCount = tasks.length + interventions.length + internalInterventions.length + rejectedContracts.length + archivedContracts.length;
+  const nonCalendarCount = tasks.length + interventions.length + internalInterventions.length + rejectedContracts.length + archivedContracts.length + nbsReportTasks.length;
   const totalCount = nonCalendarCount + upcomingEvents.length;
+
+  const urgentNbs = nbsReportTasks.filter(t => t.daysLeft <= 14);
+  const normalNbs = nbsReportTasks.filter(t => t.daysLeft > 14);
+  const hasUrgentNbs = urgentNbs.length > 0;
+  const minNbsDays = nbsReportTasks.length > 0 ? Math.min(...nbsReportTasks.map(t => t.daysLeft)) : Infinity;
 
   if (isLoading) {
     return (
@@ -278,6 +385,17 @@ export default function MojeUlohy() {
         </Card>
       ) : (
         <div className="space-y-8" data-testid="tasks-container">
+          {hasUrgentNbs && (
+            <NbsReportSection
+              tasks={urgentNbs}
+              title="NBS Reporty — URGENTNÉ"
+              isUrgent={true}
+              minDays={minNbsDays}
+              blinkActive={nbsBlinkActive}
+              navigate={navigate}
+            />
+          )}
+
           <ContractSection
             title="Intervencie"
             icon={<AlertTriangle className="w-5 h-5 text-orange-500" />}
@@ -322,6 +440,17 @@ export default function MojeUlohy() {
             navigate={navigate}
             testIdPrefix="archived"
           />
+
+          {normalNbs.length > 0 && (
+            <NbsReportSection
+              tasks={normalNbs}
+              title="NBS Reporty"
+              isUrgent={false}
+              minDays={minNbsDays}
+              blinkActive={false}
+              navigate={navigate}
+            />
+          )}
 
           {tasks.length > 0 && (
             <div className="space-y-4">
