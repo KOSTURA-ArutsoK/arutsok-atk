@@ -15767,7 +15767,7 @@ export async function registerRoutes(
             const deadline = getNbsDeadlineTask(period, year);
             const diffMs = deadline.getTime() - now.getTime();
             const daysLeft = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
-            if (daysLeft < 0 || daysLeft > 25) continue;
+            if (daysLeft > 25) continue;
             const report = allNbs.find(r => r.year === year && r.period === period);
             if (!report || report.status !== "sent") {
               nbsReportTasks.push({
@@ -15943,7 +15943,7 @@ export async function registerRoutes(
             const deadline = getNbsDeadline(period, year);
             const diffMs = deadline.getTime() - now.getTime();
             const daysLeft = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
-            if (daysLeft < 0 || daysLeft > 25) continue;
+            if (daysLeft > 25) continue;
 
             const report = allNbsReports.find(r => r.year === year && r.period === period);
             if (!report || report.status !== "sent") {

@@ -280,7 +280,7 @@ function NbsReportSection({ tasks, title, isUrgent, minDays, blinkActive, naviga
                   </div>
                   <div className="flex items-center gap-2 shrink-0">
                     <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${daysColor}`} data-testid={`nbs-days-left-${task.period}-${task.year}`}>
-                      {task.daysLeft} dní
+                      {task.daysLeft >= 0 ? `${task.daysLeft} dní` : `${Math.abs(task.daysLeft)} dní po termíne`}
                     </span>
                   </div>
                 </div>
