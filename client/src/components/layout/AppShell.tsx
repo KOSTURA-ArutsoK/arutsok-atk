@@ -552,6 +552,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                             const divName = cd.division?.name || cd.name || "Divízia";
                             const divEmoji = cd.division?.emoji || cd.emoji;
                             const isActiveDivision = divId === activeDivisionId;
+                            const isDivisionInactive = cd.division?.isActive === false;
                             return (
                               <Tooltip key={divId}>
                                 <TooltipTrigger asChild>
@@ -563,6 +564,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                                         ? "ring-2 ring-zinc-400 bg-zinc-400/20"
                                         : "hover:bg-zinc-400/15"
                                     }`}
+                                    style={isDivisionInactive ? { filter: "grayscale(1)", opacity: 0.5 } : undefined}
                                     data-testid={`division-emoji-${divId}`}
                                   >
                                     {divEmoji || (

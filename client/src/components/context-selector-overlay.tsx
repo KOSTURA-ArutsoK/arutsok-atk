@@ -250,12 +250,14 @@ export function ContextSelectorOverlay({
                 const divId = cd.divisionId || cd.division?.id;
                 const divName = cd.division?.name || cd.name || "Divízia";
                 const divEmoji = cd.division?.emoji || cd.emoji;
+                const isDivisionInactive = cd.division?.isActive === false;
                 return (
                   <button
                     key={divId}
                     type="button"
                     onClick={() => onSelectDivision(divId)}
                     className="flex flex-col items-center justify-start gap-3 p-4 rounded-xl bg-white/5 border border-white/10 transition-all duration-200 hover:border-sky-400 hover:bg-white/10 hover:shadow-lg hover:shadow-sky-400/20 group cursor-pointer w-32 h-36"
+                    style={isDivisionInactive ? { filter: "grayscale(1)", opacity: 0.5 } : undefined}
                     data-testid={`context-division-${divId}`}
                   >
                     <div className="w-14 h-14 rounded-xl bg-white/10 flex items-center justify-center overflow-hidden">

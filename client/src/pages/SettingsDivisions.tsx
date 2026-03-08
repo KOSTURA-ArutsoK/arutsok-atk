@@ -223,6 +223,14 @@ function DivisionFormDialog({
   const [description, setDescription] = useState("");
   const [isActive, setIsActive] = useState(true);
 
+  const { data: allDivisions } = useQuery<Division[]>({ queryKey: ["/api/divisions"] });
+
+  const emojiDuplicate = (() => {
+    if (!emoji) return false;
+    if (!allDivisions) return false;
+    return allDivisions.some((d: any) => d.id !== editingDivision?.id && d.emoji === emoji);
+  })();
+
   const createMutation = useMutation({
     mutationFn: (data: any) => apiRequest("POST", "/api/divisions", data),
     onSuccess: () => {
@@ -230,7 +238,7 @@ function DivisionFormDialog({
       toast({ title: "Uspech", description: "Divizia vytvorena" });
       onOpenChange(false);
     },
-    onError: () => toast({ title: "Chyba", description: "Nepodarilo sa vytvorit diviziu", variant: "destructive" }),
+    onError: (err: any) => toast({ title: "Chyba", description: err?.message || "Nepodarilo sa vytvorit diviziu", variant: "destructive" }),
   });
 
   const updateMutation = useMutation({
@@ -240,7 +248,7 @@ function DivisionFormDialog({
       toast({ title: "Uspech", description: "Divizia aktualizovana" });
       onOpenChange(false);
     },
-    onError: () => toast({ title: "Chyba", description: "Nepodarilo sa aktualizovat diviziu", variant: "destructive" }),
+    onError: (err: any) => toast({ title: "Chyba", description: err?.message || "Nepodarilo sa aktualizovat diviziu", variant: "destructive" }),
   });
 
   useEffect(() => {
@@ -264,6 +272,10 @@ function DivisionFormDialog({
   function handleSubmit() {
     if (!name) {
       toast({ title: "Chyba", description: "Nazov je povinny", variant: "destructive" });
+      return;
+    }
+    if (emojiDuplicate) {
+      toast({ title: "Chyba", description: "Tento emoji sa už používa v inej divízii rovnakej spoločnosti", variant: "destructive" });
       return;
     }
     const payload = { name, code: code || null, emoji: emoji || null, description: description || null, isActive };
@@ -296,7 +308,10 @@ function DivisionFormDialog({
             </div>
             <div className="space-y-2">
               <label className="text-sm font-medium">Emoji</label>
-              <Input value={emoji} onChange={(e) => setEmoji(e.target.value)} placeholder="napr. 🏦" data-testid="input-division-emoji" className="text-lg" />
+              <Input value={emoji} onChange={(e) => setEmoji(e.target.value)} placeholder="Automaticky priradené" data-testid="input-division-emoji" className="text-lg" />
+              {emojiDuplicate && (
+                <p className="text-xs text-destructive" data-testid="text-emoji-duplicate-warning">Tento emoji sa už používa v inej divízii rovnakej spoločnosti</p>
+              )}
             </div>
           </div>
           <div className="space-y-2">

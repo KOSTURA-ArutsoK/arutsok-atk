@@ -785,9 +785,57 @@ export async function registerRoutes(
     } catch (err) { res.status(500).json({ message: String(err) }); }
   });
 
+  const DIVISION_EMOJI_POOL = ["🏢","🏗️","🏭","🏬","🏫","🏛️","🏠","🏡","🏪","🏤","🗂️","📊","📈","🔧","⚙️","🎯","🛡️","💼","📋","🔑","🏦","🏥","🏨","🏩","🏰","🗃️","📁","📂","🧩","🔶","🔷","🟢","🟡","🟣","⭐","🌐","🚀","💡","🔔","📌"];
+
+  async function getUsedEmojisForDivisionCompanies(divisionId: number | null): Promise<Set<string>> {
+    const allDivs = await storage.getDivisions();
+    const allCompanyDivs = await db.select().from(companyDivisions);
+    const targetCompanyIds = new Set<number>();
+    if (divisionId) {
+      allCompanyDivs.filter(cd => cd.divisionId === divisionId).forEach(cd => targetCompanyIds.add(cd.companyId));
+    } else {
+      allCompanyDivs.forEach(cd => targetCompanyIds.add(cd.companyId));
+    }
+    const siblingDivisionIds = new Set(
+      allCompanyDivs.filter(cd => targetCompanyIds.has(cd.companyId) && cd.divisionId !== divisionId).map(cd => cd.divisionId)
+    );
+    const usedEmojis = new Set<string>();
+    allDivs.filter(d => siblingDivisionIds.has(d.id) && (d as any).emoji).forEach(d => usedEmojis.add((d as any).emoji));
+    return usedEmojis;
+  }
+
+  async function checkEmojiUniquenessForCompany(emoji: string, divisionId: number | null): Promise<string | null> {
+    const allDivs = await storage.getDivisions();
+    const allCompanyDivs = await db.select().from(companyDivisions);
+    const targetCompanyIds = new Set<number>();
+    if (divisionId) {
+      allCompanyDivs.filter(cd => cd.divisionId === divisionId).forEach(cd => targetCompanyIds.add(cd.companyId));
+    }
+    for (const companyId of targetCompanyIds) {
+      const siblingDivIds = allCompanyDivs.filter(cd => cd.companyId === companyId && cd.divisionId !== divisionId).map(cd => cd.divisionId);
+      for (const sibId of siblingDivIds) {
+        const sib = allDivs.find(d => d.id === sibId);
+        if (sib && (sib as any).emoji === emoji) {
+          return `Emoji "${emoji}" sa už používa v inej divízii rovnakej spoločnosti`;
+        }
+      }
+    }
+    return null;
+  }
+
   app.post("/api/divisions", isAuthenticated, async (req: any, res) => {
     try {
       const input = insertDivisionSchema.parse(req.body);
+      const allDivs = await storage.getDivisions();
+      const allUsedEmojis = new Set(allDivs.filter((d: any) => d.emoji).map((d: any) => d.emoji));
+      if (input.emoji) {
+        if (allUsedEmojis.has(input.emoji)) {
+          return res.status(400).json({ message: `Emoji "${input.emoji}" sa už používa v inej divízii` });
+        }
+      } else {
+        const available = DIVISION_EMOJI_POOL.find(e => !allUsedEmojis.has(e));
+        (input as any).emoji = available || "🏢";
+      }
       const division = await storage.createDivision(input);
       await logAudit(req, { action: "CREATE", module: "divisions", entityId: division.id, newData: input });
       res.status(201).json(division);
@@ -799,6 +847,10 @@ export async function registerRoutes(
       const old = await storage.getDivision(Number(req.params.id));
       if (!old) return res.status(404).json({ message: "Divízia nenájdená" });
       const input = insertDivisionSchema.partial().parse(req.body);
+      if (input.emoji) {
+        const conflict = await checkEmojiUniquenessForCompany(input.emoji, Number(req.params.id));
+        if (conflict) return res.status(400).json({ message: conflict });
+      }
       const division = await storage.updateDivision(Number(req.params.id), input);
       await logAudit(req, { action: "UPDATE", module: "divisions", entityId: division.id, oldData: old, newData: input });
       res.json(division);
