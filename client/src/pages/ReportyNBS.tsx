@@ -482,6 +482,13 @@ export default function ReportyNBS() {
     enabled: !!selectedYear,
   });
 
+  const { data: pr1q } = useQuery<any[]>({ queryKey: ["/api/nbs-partner-reports", "list", selectedYear, "1q"], queryFn: async () => { const r = await fetch(`/api/nbs-partner-reports?year=${selectedYear}&period=1q`, { credentials: "include" }); return r.ok ? r.json() : []; }, enabled: !!selectedYear });
+  const { data: pr2q } = useQuery<any[]>({ queryKey: ["/api/nbs-partner-reports", "list", selectedYear, "2q"], queryFn: async () => { const r = await fetch(`/api/nbs-partner-reports?year=${selectedYear}&period=2q`, { credentials: "include" }); return r.ok ? r.json() : []; }, enabled: !!selectedYear });
+  const { data: pr3q } = useQuery<any[]>({ queryKey: ["/api/nbs-partner-reports", "list", selectedYear, "3q"], queryFn: async () => { const r = await fetch(`/api/nbs-partner-reports?year=${selectedYear}&period=3q`, { credentials: "include" }); return r.ok ? r.json() : []; }, enabled: !!selectedYear });
+  const { data: pr4q } = useQuery<any[]>({ queryKey: ["/api/nbs-partner-reports", "list", selectedYear, "4q"], queryFn: async () => { const r = await fetch(`/api/nbs-partner-reports?year=${selectedYear}&period=4q`, { credentials: "include" }); return r.ok ? r.json() : []; }, enabled: !!selectedYear });
+  const { data: prAnnual } = useQuery<any[]>({ queryKey: ["/api/nbs-partner-reports", "list", selectedYear, "annual"], queryFn: async () => { const r = await fetch(`/api/nbs-partner-reports?year=${selectedYear}&period=annual`, { credentials: "include" }); return r.ok ? r.json() : []; }, enabled: !!selectedYear });
+  const partnerReportCounts: Record<string, number> = { "1q": (pr1q || []).length, "2q": (pr2q || []).length, "3q": (pr3q || []).length, "4q": (pr4q || []).length, "annual": (prAnnual || []).length };
+
   const updateMutation = useMutation({
     mutationFn: async ({ id, status, sentDate }: { id: number; status: string; sentDate?: string | null }) => {
       await apiRequest("PUT", `/api/nbs-reports/${id}`, { status, sentDate });
@@ -535,23 +542,27 @@ export default function ReportyNBS() {
       {!selectedYear ? (
         <div className="space-y-4">
           <p className="text-sm text-muted-foreground">Vyberte rok:</p>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <div className="flex flex-wrap justify-center gap-4">
             {mainYears.map(year => (
-              <YearBubble key={year} year={year} currentYear={currentYear} onSelect={setSelectedYear} />
+              <div key={year} className="w-[calc(50%-0.5rem)] md:w-[calc(25%-0.75rem)]">
+                <YearBubble year={year} currentYear={currentYear} onSelect={setSelectedYear} />
+              </div>
             ))}
-            <Card
-              className="cursor-pointer border-2 border-yellow-600 bg-yellow-100 dark:bg-yellow-950/30 transition-all hover:scale-105"
-              onClick={() => setArchiveOpen(!archiveOpen)}
-              data-testid="btn-archive"
-            >
-              <CardContent className="py-8 text-center">
-                <Archive className="w-8 h-8 mx-auto mb-2 text-yellow-600 dark:text-yellow-500" />
-                <span className="text-xl font-bold text-yellow-700 dark:text-yellow-400">ARCHÍV</span>
-                <div className="mt-1">
-                  {archiveOpen ? <ChevronUp className="w-4 h-4 mx-auto text-yellow-500" /> : <ChevronDown className="w-4 h-4 mx-auto text-yellow-500" />}
-                </div>
-              </CardContent>
-            </Card>
+            <div className="w-[calc(50%-0.5rem)] md:w-[calc(25%-0.75rem)]">
+              <Card
+                className="cursor-pointer border-2 border-yellow-600 bg-yellow-100 dark:bg-yellow-950/30 transition-all hover:scale-105 h-full"
+                onClick={() => setArchiveOpen(!archiveOpen)}
+                data-testid="btn-archive"
+              >
+                <CardContent className="py-8 text-center">
+                  <Archive className="w-8 h-8 mx-auto mb-2 text-yellow-600 dark:text-yellow-500" />
+                  <span className="text-xl font-bold text-yellow-700 dark:text-yellow-400">ARCHÍV</span>
+                  <div className="mt-1">
+                    {archiveOpen ? <ChevronUp className="w-4 h-4 mx-auto text-yellow-500" /> : <ChevronDown className="w-4 h-4 mx-auto text-yellow-500" />}
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
           </div>
           {archiveOpen && (
             <div className="space-y-2 mt-4" data-testid="archive-list">
@@ -649,7 +660,7 @@ export default function ReportyNBS() {
                       <Button
                         variant="outline"
                         size="sm"
-                        className="w-full mt-3 text-xs h-7"
+                        className={`w-full mt-3 text-xs h-7 ${partnerReportCounts[p.key] > 0 ? "border-green-500 text-green-500 dark:border-green-400 dark:text-green-400" : ""}`}
                         onClick={() => {
                           setPartnerReportPeriod({ key: p.key, label: p.label });
                           setPartnerReportOpen(true);
@@ -658,6 +669,9 @@ export default function ReportyNBS() {
                       >
                         <FileText className="w-3.5 h-3.5 mr-1" />
                         Výkaz partnerov
+                        {partnerReportCounts[p.key] > 0 && (
+                          <Badge variant="secondary" className="ml-1 px-1.5 py-0 text-[9px] h-4 bg-green-600 text-white">{partnerReportCounts[p.key]}</Badge>
+                        )}
                       </Button>
                     </CardContent>
                   </Card>
