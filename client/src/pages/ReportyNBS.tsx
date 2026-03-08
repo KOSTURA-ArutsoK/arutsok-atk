@@ -1213,29 +1213,6 @@ function NbsAnalyticsChart() {
               </div>
             </div>
 
-            {selectedParams.length > 0 && (
-              <div className="space-y-1.5">
-                <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
-                  Vybrané parametre ({selectedParams.length})
-                </p>
-                <div className="flex flex-wrap gap-1 justify-between">
-                  {selectedParams.map((pk, i) => {
-                    const param = NBS_CHART_PARAMS.find(p => p.key === pk);
-                    return (
-                      <span
-                        key={pk}
-                        className="inline-flex items-center gap-1 text-[9px] px-1.5 py-0.5 rounded-full text-white flex-grow text-center justify-center"
-                        style={{ backgroundColor: CHART_COLORS[i % CHART_COLORS.length] }}
-                      >
-                        {param?.label || pk}
-                        <X className="w-2.5 h-2.5 cursor-pointer" onClick={() => toggleParam(pk)} />
-                      </span>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
-
             <div className="border rounded bg-muted/20">
               <div
                 className="flex items-center justify-between px-3 py-2 cursor-pointer"
@@ -1295,6 +1272,29 @@ function NbsAnalyticsChart() {
                 </div>
               )}
             </div>
+
+            {selectedParams.length > 0 && (
+              <div className="space-y-1.5">
+                <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
+                  Vybrané parametre ({selectedParams.length})
+                </p>
+                <div className="flex flex-wrap gap-1 justify-between">
+                  {selectedParams.map((pk, i) => {
+                    const param = NBS_CHART_PARAMS.find(p => p.key === pk);
+                    return (
+                      <span
+                        key={pk}
+                        className="inline-flex items-center gap-1 text-[9px] px-1.5 py-0.5 rounded-full text-white flex-grow text-center justify-center"
+                        style={{ backgroundColor: CHART_COLORS[i % CHART_COLORS.length] }}
+                      >
+                        {param?.label || pk}
+                        <X className="w-2.5 h-2.5 cursor-pointer" onClick={() => toggleParam(pk)} />
+                      </span>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
 
             {isLoading ? (
               <div className="flex justify-center py-8">
