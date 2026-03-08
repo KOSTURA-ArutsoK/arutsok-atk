@@ -6,7 +6,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
-import { Loader2, ChevronLeft, FileBarChart } from "lucide-react";
+import { Loader2, ChevronLeft, FileBarChart, Archive, ChevronDown, ChevronUp } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -104,9 +104,18 @@ function formatDeadlineSlovak(deadline: Date): string {
 
 export default function ReportyNBS() {
   const { toast } = useToast();
-  const currentYear = new Date().getFullYear();
-  const years = [currentYear - 1, currentYear, currentYear + 1, currentYear + 2];
+  const now = new Date();
+  const currentYear = now.getFullYear();
+  const currentMonth = now.getMonth();
+  const showNextYear = currentMonth >= 11;
+  const mainYears = [currentYear - 2, currentYear - 1, currentYear];
+  if (showNextYear) mainYears.push(currentYear + 1);
+  const archiveYears: number[] = [];
+  for (let y = currentYear - 3; y >= currentYear - 12 && y >= 2013; y--) {
+    archiveYears.push(y);
+  }
   const [selectedYear, setSelectedYear] = useState<number | null>(null);
+  const [archiveOpen, setArchiveOpen] = useState(false);
   const [sentDateInput, setSentDateInput] = useState("");
   const [sentDateDialogReport, setSentDateDialogReport] = useState<NbsReport | null>(null);
   const [confirmUnsendReport, setConfirmUnsendReport] = useState<NbsReport | null>(null);
@@ -176,27 +185,40 @@ export default function ReportyNBS() {
         <div className="space-y-4">
           <p className="text-sm text-muted-foreground">Vyberte rok:</p>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            {years.map(year => {
-              const YearCard = ({ yearReports }: { yearReports: NbsReport[] }) => {
-                const colorClass = getYearColor(yearReports, year);
-                const allSent = yearReports.length === 5 && yearReports.every(r => r.status === "sent");
-                return (
-                  <Card
-                    key={year}
-                    className={`cursor-pointer border-2 transition-all hover:scale-105 ${colorClass}`}
-                    onClick={() => setSelectedYear(year)}
-                    data-testid={`year-card-${year}`}
-                  >
-                    <CardContent className="py-8 text-center">
-                      <span className="text-3xl font-bold">{year}</span>
-                      {allSent && <p className="text-xs text-green-400 mt-2">Všetky odoslané</p>}
-                    </CardContent>
-                  </Card>
-                );
-              };
-              return <YearCardWrapper key={year} year={year} Component={YearCard} />;
-            })}
+            <Card
+              className="cursor-pointer border-2 border-yellow-600 bg-yellow-950/30 transition-all hover:scale-105"
+              onClick={() => setArchiveOpen(!archiveOpen)}
+              data-testid="btn-archive"
+            >
+              <CardContent className="py-8 text-center">
+                <Archive className="w-8 h-8 mx-auto mb-2 text-yellow-500" />
+                <span className="text-xl font-bold text-yellow-400">ARCHÍV</span>
+                <div className="mt-1">
+                  {archiveOpen ? <ChevronUp className="w-4 h-4 mx-auto text-yellow-500" /> : <ChevronDown className="w-4 h-4 mx-auto text-yellow-500" />}
+                </div>
+              </CardContent>
+            </Card>
+            {mainYears.map(year => (
+              <YearBubble key={year} year={year} currentYear={currentYear} onSelect={setSelectedYear} />
+            ))}
           </div>
+          {archiveOpen && (
+            <div className="space-y-2 mt-4" data-testid="archive-list">
+              {archiveYears.map(year => (
+                <Card
+                  key={year}
+                  className="cursor-pointer border border-yellow-600/40 bg-yellow-950/10 hover:bg-yellow-950/30 transition-all"
+                  onClick={() => setSelectedYear(year)}
+                  data-testid={`archive-year-${year}`}
+                >
+                  <CardContent className="py-3 px-5 flex items-center justify-between">
+                    <span className="text-lg font-bold text-yellow-300">{year}</span>
+                    <Archive className="w-4 h-4 text-yellow-600/60" />
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          )}
         </div>
       ) : (
         <div className="space-y-6">
@@ -318,8 +340,8 @@ export default function ReportyNBS() {
   );
 }
 
-function YearCardWrapper({ year, Component }: { year: number; Component: React.ComponentType<{ yearReports: NbsReport[] }> }) {
-  const { data } = useQuery<NbsReport[]>({
+function YearBubble({ year, currentYear, onSelect }: { year: number; currentYear: number; onSelect: (y: number) => void }) {
+  const { data: yearReports } = useQuery<NbsReport[]>({
     queryKey: ["/api/nbs-reports", year],
     queryFn: async () => {
       const res = await fetch(`/api/nbs-reports?year=${year}`, { credentials: "include" });
@@ -327,5 +349,22 @@ function YearCardWrapper({ year, Component }: { year: number; Component: React.C
       return res.json();
     },
   });
-  return <Component yearReports={data || []} />;
+  const reports = yearReports || [];
+  const colorClass = getYearColor(reports, year);
+  const allSent = reports.length === 5 && reports.every(r => r.status === "sent");
+  const label = year === currentYear ? "Aktuálny rok" : year === currentYear - 1 ? "Pred 1 rokom" : year === currentYear - 2 ? "Pred 2 rokmi" : "Nasledujúci rok";
+
+  return (
+    <Card
+      className={`cursor-pointer border-2 transition-all hover:scale-105 ${colorClass}`}
+      onClick={() => onSelect(year)}
+      data-testid={`year-card-${year}`}
+    >
+      <CardContent className="py-8 text-center">
+        <p className="text-[10px] text-muted-foreground mb-1">{label}</p>
+        <span className="text-3xl font-bold">{year}</span>
+        {allSent && <p className="text-xs text-green-400 mt-2">Všetky odoslané</p>}
+      </CardContent>
+    </Card>
+  );
 }
