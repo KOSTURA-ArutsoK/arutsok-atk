@@ -16,13 +16,6 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
@@ -187,6 +180,12 @@ function NumField({ label, value, onChange, testId }: { label: string; value: nu
   );
 }
 
+function getPartnerCategory(partner: any): "PaZ" | "SDS" {
+  const spec = (partner.specialization || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+  if (spec === "dochodok" || spec === "sds") return "SDS";
+  return "PaZ";
+}
+
 function PartnerReportDialog({ open, onOpenChange, year, period, periodLabel }: {
   open: boolean;
   onOpenChange: (o: boolean) => void;
@@ -195,44 +194,55 @@ function PartnerReportDialog({ open, onOpenChange, year, period, periodLabel }: 
   periodLabel: string;
 }) {
   const { toast } = useToast();
-  const { data: partners } = usePartners();
-  const [selectedPartnerId, setSelectedPartnerId] = useState<string>("");
+  const { data: partners, isLoading: partnersLoading } = usePartners();
+  const [selectedPartnerId, setSelectedPartnerId] = useState<number | null>(null);
   const [formData, setFormData] = useState<any>({ ...DEFAULT_REPORT_DATA });
 
   const activePartners = (partners || []).filter((p: any) => !p.isDeleted);
-  const partnerId = selectedPartnerId ? Number(selectedPartnerId) : null;
-  const partnerName = activePartners.find((p: any) => p.id === partnerId)?.name || "";
+  const pazPartners = activePartners.filter((p: any) => getPartnerCategory(p) === "PaZ");
+  const sdsPartners = activePartners.filter((p: any) => getPartnerCategory(p) === "SDS");
+  const partnerName = activePartners.find((p: any) => p.id === selectedPartnerId)?.name || "";
+
+  const { data: allPeriodReports } = useQuery<any[]>({
+    queryKey: ["/api/nbs-partner-reports", "list", year, period],
+    queryFn: async () => {
+      const r = await fetch(`/api/nbs-partner-reports?year=${year}&period=${period}`, { credentials: "include" });
+      return r.ok ? r.json() : [];
+    },
+    enabled: open,
+  });
+  const savedPartnerIds = new Set((allPeriodReports || []).map((r: any) => r.partnerId));
 
   const { data: existingReport, isLoading: loadingReport } = useQuery({
-    queryKey: ["/api/nbs-partner-reports", partnerId, year, period],
+    queryKey: ["/api/nbs-partner-reports", selectedPartnerId, year, period],
     queryFn: async () => {
-      if (!partnerId) return null;
-      const res = await fetch(`/api/nbs-partner-reports/${partnerId}?year=${year}&period=${period}`, { credentials: "include" });
+      if (!selectedPartnerId) return null;
+      const res = await fetch(`/api/nbs-partner-reports/${selectedPartnerId}?year=${year}&period=${period}`, { credentials: "include" });
       if (!res.ok) return null;
       return res.json();
     },
-    enabled: !!partnerId,
+    enabled: !!selectedPartnerId,
   });
 
   useEffect(() => {
     if (existingReport?.data) {
       setFormData({ ...DEFAULT_REPORT_DATA, ...existingReport.data });
-    } else if (partnerId) {
+    } else if (selectedPartnerId) {
       setFormData({ ...DEFAULT_REPORT_DATA });
     }
-  }, [existingReport, partnerId]);
+  }, [existingReport, selectedPartnerId]);
 
   useEffect(() => {
     if (!open) {
-      setSelectedPartnerId("");
+      setSelectedPartnerId(null);
       setFormData({ ...DEFAULT_REPORT_DATA });
     }
   }, [open]);
 
   const saveMutation = useMutation({
     mutationFn: async () => {
-      if (!partnerId) throw new Error("Vyberte partnera");
-      await apiRequest("PUT", `/api/nbs-partner-reports/${partnerId}`, { year, period, data: formData });
+      if (!selectedPartnerId) throw new Error("Vyberte partnera");
+      await apiRequest("PUT", `/api/nbs-partner-reports/${selectedPartnerId}`, { year, period, data: formData });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/nbs-partner-reports"] });
@@ -254,198 +264,234 @@ function PartnerReportDialog({ open, onOpenChange, year, period, periodLabel }: 
     setFormData((prev: any) => ({ ...prev, [field]: value }));
   }
 
+  function renderPartnerList(groupLabel: string, groupPartners: any[], groupTestId: string) {
+    if (groupPartners.length === 0) return null;
+    return (
+      <div className="space-y-2" data-testid={groupTestId}>
+        <h3 className="text-sm font-bold text-muted-foreground">{groupLabel}</h3>
+        <div className="space-y-1">
+          {groupPartners.map((p: any) => {
+            const hasSaved = savedPartnerIds.has(p.id);
+            return (
+              <div
+                key={p.id}
+                className={`flex items-center justify-between px-3 py-2 rounded border cursor-pointer transition-all hover:bg-accent ${hasSaved ? "border-green-500/50 bg-green-50 dark:bg-green-950/20" : "border-border"}`}
+                onClick={() => setSelectedPartnerId(p.id)}
+                data-testid={`partner-row-${p.id}`}
+              >
+                <span className="text-sm font-medium">{p.name}</span>
+                {hasSaved && (
+                  <Badge variant="secondary" className="text-[9px] px-1.5 h-4 bg-green-600 text-white">Vyplnené</Badge>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    );
+  }
+
+  function renderForm() {
+    return (
+      <div className="space-y-6">
+        <Button
+          variant="ghost"
+          size="sm"
+          className="flex items-center gap-1 text-muted-foreground hover:text-foreground"
+          onClick={() => setSelectedPartnerId(null)}
+          data-testid="btn-back-to-list"
+        >
+          <ChevronLeft className="w-4 h-4" />
+          Späť na zoznam partnerov
+        </Button>
+
+        <div className="border rounded-md p-4 space-y-3" data-testid="section-1">
+          <h3 className="font-bold text-sm">I. POČET ZMLÚV (ks)</h3>
+          <div>
+            <p className="text-xs font-medium mb-2">Nové zmluvy <NbsTooltip tooltipKey="newContracts" /></p>
+            <div className="grid grid-cols-3 gap-3">
+              <NumField label="Životné" value={formData.newContracts.life} onChange={v => updateNested("newContracts", "life", v)} testId="input-new-life" />
+              <NumField label="Neživotné" value={formData.newContracts.nonLife} onChange={v => updateNested("newContracts", "nonLife", v)} testId="input-new-nonlife" />
+              <NumField label="Zaistenie" value={formData.newContracts.reinsurance} onChange={v => updateNested("newContracts", "reinsurance", v)} testId="input-new-reinsurance" />
+            </div>
+          </div>
+          <div>
+            <p className="text-xs font-medium mb-2">Dodatky k zmluvám <NbsTooltip tooltipKey="amendments" /></p>
+            <div className="grid grid-cols-2 gap-3">
+              <NumField label="Životné" value={formData.amendments.life} onChange={v => updateNested("amendments", "life", v)} testId="input-amend-life" />
+              <NumField label="Neživotné" value={formData.amendments.nonLife} onChange={v => updateNested("amendments", "nonLife", v)} testId="input-amend-nonlife" />
+            </div>
+          </div>
+          <div>
+            <p className="text-xs font-medium mb-2">Skupinové zmluvy <NbsTooltip tooltipKey="groupContracts" /></p>
+            <div className="grid grid-cols-2 gap-3">
+              <NumField label="Životné" value={formData.groupContracts.life} onChange={v => updateNested("groupContracts", "life", v)} testId="input-group-life" />
+              <NumField label="Neživotné" value={formData.groupContracts.nonLife} onChange={v => updateNested("groupContracts", "nonLife", v)} testId="input-group-nonlife" />
+            </div>
+          </div>
+          <div>
+            <p className="text-xs font-medium mb-2">Prevzaté zmluvy <NbsTooltip tooltipKey="takenContracts" /></p>
+            <div className="grid grid-cols-2 gap-3">
+              <NumField label="Životné" value={formData.takenContracts.life} onChange={v => updateNested("takenContracts", "life", v)} testId="input-taken-life" />
+              <NumField label="Neživotné" value={formData.takenContracts.nonLife} onChange={v => updateNested("takenContracts", "nonLife", v)} testId="input-taken-nonlife" />
+            </div>
+          </div>
+        </div>
+
+        <div className="border rounded-md p-4 space-y-3" data-testid="section-2">
+          <h3 className="font-bold text-sm">II. OBJEM ROČNÉHO POISTNÉHO (v EUR s daňou/odvodom)</h3>
+          <div>
+            <p className="text-xs font-medium mb-2">Nové zmluvy <NbsTooltip tooltipKey="premiumNew" /></p>
+            <div className="grid grid-cols-3 gap-3">
+              <NumField label="Životné" value={formData.premiumNew.life} onChange={v => updateNested("premiumNew", "life", v)} testId="input-prem-new-life" />
+              <NumField label="Neživotné" value={formData.premiumNew.nonLife} onChange={v => updateNested("premiumNew", "nonLife", v)} testId="input-prem-new-nonlife" />
+              <NumField label="Zaistenie" value={formData.premiumNew.reinsurance} onChange={v => updateNested("premiumNew", "reinsurance", v)} testId="input-prem-new-reinsurance" />
+            </div>
+          </div>
+          <div>
+            <p className="text-xs font-medium mb-2">Skupinové zmluvy <NbsTooltip tooltipKey="premiumGroup" /></p>
+            <div className="grid grid-cols-2 gap-3">
+              <NumField label="Životné" value={formData.premiumGroup.life} onChange={v => updateNested("premiumGroup", "life", v)} testId="input-prem-group-life" />
+              <NumField label="Neživotné" value={formData.premiumGroup.nonLife} onChange={v => updateNested("premiumGroup", "nonLife", v)} testId="input-prem-group-nonlife" />
+            </div>
+          </div>
+          <div>
+            <p className="text-xs font-medium mb-2">Prevzaté zmluvy <NbsTooltip tooltipKey="premiumTaken" /></p>
+            <div className="grid grid-cols-2 gap-3">
+              <NumField label="Životné" value={formData.premiumTaken.life} onChange={v => updateNested("premiumTaken", "life", v)} testId="input-prem-taken-life" />
+              <NumField label="Neživotné" value={formData.premiumTaken.nonLife} onChange={v => updateNested("premiumTaken", "nonLife", v)} testId="input-prem-taken-nonlife" />
+            </div>
+          </div>
+        </div>
+
+        <div className="border rounded-md p-4 space-y-3" data-testid="section-3">
+          <h3 className="font-bold text-sm">III. ZRUŠENÉ ZMLUVY (ks)</h3>
+          <div>
+            <p className="text-xs font-medium mb-2">Výpoveďou do 3 rokov (§ 800) <NbsTooltip tooltipKey="cancelledNotice" /></p>
+            <div className="grid grid-cols-3 gap-3">
+              <NumField label="Životné" value={formData.cancelledNotice.life} onChange={v => updateNested("cancelledNotice", "life", v)} testId="input-cancel-notice-life" />
+              <NumField label="Neživotné" value={formData.cancelledNotice.nonLife} onChange={v => updateNested("cancelledNotice", "nonLife", v)} testId="input-cancel-notice-nonlife" />
+              <NumField label="Zaistenie" value={formData.cancelledNotice.reinsurance} onChange={v => updateNested("cancelledNotice", "reinsurance", v)} testId="input-cancel-notice-reinsurance" />
+            </div>
+          </div>
+          <div>
+            <p className="text-xs font-medium mb-2">Nezaplatením do 3 mesiacov (§ 801) <NbsTooltip tooltipKey="cancelledNonPayment" /></p>
+            <div className="grid grid-cols-3 gap-3">
+              <NumField label="Životné" value={formData.cancelledNonPayment.life} onChange={v => updateNested("cancelledNonPayment", "life", v)} testId="input-cancel-nonpay-life" />
+              <NumField label="Neživotné" value={formData.cancelledNonPayment.nonLife} onChange={v => updateNested("cancelledNonPayment", "nonLife", v)} testId="input-cancel-nonpay-nonlife" />
+              <NumField label="Zaistenie" value={formData.cancelledNonPayment.reinsurance} onChange={v => updateNested("cancelledNonPayment", "reinsurance", v)} testId="input-cancel-nonpay-reinsurance" />
+            </div>
+          </div>
+          <div>
+            <p className="text-xs font-medium mb-2">Odstúpením do 30 dní (§ 802a) <NbsTooltip tooltipKey="cancelledWithdrawal" /></p>
+            <div className="grid grid-cols-1 gap-3 max-w-xs">
+              <NumField label="Počet" value={formData.cancelledWithdrawal.count} onChange={v => updateNested("cancelledWithdrawal", "count", v)} testId="input-cancel-withdrawal" />
+            </div>
+          </div>
+        </div>
+
+        <div className="border rounded-md p-4 space-y-3" data-testid="section-4">
+          <h3 className="font-bold text-sm">IV. FINANČNÉ TOKY - PROVÍZIE (v EUR)</h3>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <p className="text-xs font-medium mb-2">Kladné finančné toky <NbsTooltip tooltipKey="commissionPositive" /></p>
+              <NumField label="Suma" value={formData.commissionPositive} onChange={v => updateFlat("commissionPositive", v)} testId="input-comm-positive" />
+            </div>
+            <div>
+              <p className="text-xs font-medium mb-2">Záporné finančné toky <NbsTooltip tooltipKey="commissionNegative" /></p>
+              <NumField label="Suma" value={formData.commissionNegative} onChange={v => updateFlat("commissionNegative", v)} testId="input-comm-negative" />
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <p className="text-xs font-medium mb-2">Započítané KLADNÉ toky <NbsTooltip tooltipKey="commissionOffsetPositive" /></p>
+              <NumField label="Suma" value={formData.commissionOffsetPositive} onChange={v => updateFlat("commissionOffsetPositive", v)} testId="input-comm-offset-pos" />
+            </div>
+            <div>
+              <p className="text-xs font-medium mb-2">Započítané ZÁPORNÉ toky <NbsTooltip tooltipKey="commissionOffsetNegative" /></p>
+              <NumField label="Suma" value={formData.commissionOffsetNegative} onChange={v => updateFlat("commissionOffsetNegative", v)} testId="input-comm-offset-neg" />
+            </div>
+          </div>
+        </div>
+
+        <div className="border rounded-md p-4 space-y-3" data-testid="section-5">
+          <h3 className="font-bold text-sm">V. PERSONÁLNE ČLENENIE (k poslednému dňu štvrťroka)</h3>
+          <div>
+            <p className="text-xs font-medium mb-2">Počet PFA podľa výkonu <NbsTooltip tooltipKey="pfaByPerformance" /></p>
+            <div className="grid grid-cols-3 gap-3">
+              <NumField label="0 zmlúv" value={formData.pfaByPerformance.zero} onChange={v => updateNested("pfaByPerformance", "zero", v)} testId="input-pfa-zero" />
+              <NumField label="1-10 zmlúv" value={formData.pfaByPerformance.low} onChange={v => updateNested("pfaByPerformance", "low", v)} testId="input-pfa-low" />
+              <NumField label="11 a viac" value={formData.pfaByPerformance.high} onChange={v => updateNested("pfaByPerformance", "high", v)} testId="input-pfa-high" />
+            </div>
+          </div>
+          <div>
+            <p className="text-xs font-medium mb-2">Počet zamestnancov podľa výkonu <NbsTooltip tooltipKey="employeesByPerformance" /></p>
+            <div className="grid grid-cols-3 gap-3">
+              <NumField label="0 zmlúv" value={formData.employeesByPerformance.zero} onChange={v => updateNested("employeesByPerformance", "zero", v)} testId="input-emp-zero" />
+              <NumField label="1-10 zmlúv" value={formData.employeesByPerformance.low} onChange={v => updateNested("employeesByPerformance", "low", v)} testId="input-emp-low" />
+              <NumField label="11 a viac" value={formData.employeesByPerformance.high} onChange={v => updateNested("employeesByPerformance", "high", v)} testId="input-emp-high" />
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto" data-testid="dialog-partner-report">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <FileText className="w-5 h-5" />
-            Výkaz pre partnera — {periodLabel} {year}
+            Výkaz partnerov — {periodLabel} {year}
           </DialogTitle>
           <DialogDescription>
-            {partnerName ? `Partner: ${partnerName}` : "Vyberte partnera zo zoznamu"}
+            {selectedPartnerId ? `Partner: ${partnerName}` : "Vyberte partnera zo zoznamu"}
           </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-6">
-          <div>
-            <label className="text-sm font-medium mb-2 block">Partner</label>
-            <Select value={selectedPartnerId} onValueChange={setSelectedPartnerId}>
-              <SelectTrigger data-testid="select-partner">
-                <SelectValue placeholder="Vyberte partnera..." />
-              </SelectTrigger>
-              <SelectContent>
-                {activePartners.map((p: any) => (
-                  <SelectItem key={p.id} value={String(p.id)}>{p.name}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          {partnerId && loadingReport && (
+          {!selectedPartnerId ? (
+            <div className="space-y-4">
+              {partnersLoading ? (
+                <div className="flex justify-center py-4">
+                  <Loader2 className="w-6 h-6 animate-spin text-primary" />
+                </div>
+              ) : (
+                <>
+                  {renderPartnerList("PaZ — Poistenie a zaistenie", pazPartners, "group-paz")}
+                  {renderPartnerList("SDS — Starobné dôchodkové sporenie", sdsPartners, "group-sds")}
+                  {pazPartners.length === 0 && sdsPartners.length === 0 && (
+                    <p className="text-sm text-muted-foreground text-center py-4">Žiadni aktívni partneri</p>
+                  )}
+                </>
+              )}
+            </div>
+          ) : loadingReport ? (
             <div className="flex justify-center py-4">
               <Loader2 className="w-6 h-6 animate-spin text-primary" />
             </div>
-          )}
-
-          {partnerId && !loadingReport && (
-            <div className="space-y-6">
-              <div className="border rounded-md p-4 space-y-3" data-testid="section-1">
-                <h3 className="font-bold text-sm">I. POČET ZMLÚV (ks)</h3>
-
-                <div>
-                  <p className="text-xs font-medium mb-2">Nové zmluvy <NbsTooltip tooltipKey="newContracts" /></p>
-                  <div className="grid grid-cols-3 gap-3">
-                    <NumField label="Životné" value={formData.newContracts.life} onChange={v => updateNested("newContracts", "life", v)} testId="input-new-life" />
-                    <NumField label="Neživotné" value={formData.newContracts.nonLife} onChange={v => updateNested("newContracts", "nonLife", v)} testId="input-new-nonlife" />
-                    <NumField label="Zaistenie" value={formData.newContracts.reinsurance} onChange={v => updateNested("newContracts", "reinsurance", v)} testId="input-new-reinsurance" />
-                  </div>
-                </div>
-
-                <div>
-                  <p className="text-xs font-medium mb-2">Dodatky k zmluvám <NbsTooltip tooltipKey="amendments" /></p>
-                  <div className="grid grid-cols-2 gap-3">
-                    <NumField label="Životné" value={formData.amendments.life} onChange={v => updateNested("amendments", "life", v)} testId="input-amend-life" />
-                    <NumField label="Neživotné" value={formData.amendments.nonLife} onChange={v => updateNested("amendments", "nonLife", v)} testId="input-amend-nonlife" />
-                  </div>
-                </div>
-
-                <div>
-                  <p className="text-xs font-medium mb-2">Skupinové zmluvy <NbsTooltip tooltipKey="groupContracts" /></p>
-                  <div className="grid grid-cols-2 gap-3">
-                    <NumField label="Životné" value={formData.groupContracts.life} onChange={v => updateNested("groupContracts", "life", v)} testId="input-group-life" />
-                    <NumField label="Neživotné" value={formData.groupContracts.nonLife} onChange={v => updateNested("groupContracts", "nonLife", v)} testId="input-group-nonlife" />
-                  </div>
-                </div>
-
-                <div>
-                  <p className="text-xs font-medium mb-2">Prevzaté zmluvy <NbsTooltip tooltipKey="takenContracts" /></p>
-                  <div className="grid grid-cols-2 gap-3">
-                    <NumField label="Životné" value={formData.takenContracts.life} onChange={v => updateNested("takenContracts", "life", v)} testId="input-taken-life" />
-                    <NumField label="Neživotné" value={formData.takenContracts.nonLife} onChange={v => updateNested("takenContracts", "nonLife", v)} testId="input-taken-nonlife" />
-                  </div>
-                </div>
-              </div>
-
-              <div className="border rounded-md p-4 space-y-3" data-testid="section-2">
-                <h3 className="font-bold text-sm">II. OBJEM ROČNÉHO POISTNÉHO (v EUR s daňou/odvodom)</h3>
-
-                <div>
-                  <p className="text-xs font-medium mb-2">Nové zmluvy <NbsTooltip tooltipKey="premiumNew" /></p>
-                  <div className="grid grid-cols-3 gap-3">
-                    <NumField label="Životné" value={formData.premiumNew.life} onChange={v => updateNested("premiumNew", "life", v)} testId="input-prem-new-life" />
-                    <NumField label="Neživotné" value={formData.premiumNew.nonLife} onChange={v => updateNested("premiumNew", "nonLife", v)} testId="input-prem-new-nonlife" />
-                    <NumField label="Zaistenie" value={formData.premiumNew.reinsurance} onChange={v => updateNested("premiumNew", "reinsurance", v)} testId="input-prem-new-reinsurance" />
-                  </div>
-                </div>
-
-                <div>
-                  <p className="text-xs font-medium mb-2">Skupinové zmluvy <NbsTooltip tooltipKey="premiumGroup" /></p>
-                  <div className="grid grid-cols-2 gap-3">
-                    <NumField label="Životné" value={formData.premiumGroup.life} onChange={v => updateNested("premiumGroup", "life", v)} testId="input-prem-group-life" />
-                    <NumField label="Neživotné" value={formData.premiumGroup.nonLife} onChange={v => updateNested("premiumGroup", "nonLife", v)} testId="input-prem-group-nonlife" />
-                  </div>
-                </div>
-
-                <div>
-                  <p className="text-xs font-medium mb-2">Prevzaté zmluvy <NbsTooltip tooltipKey="premiumTaken" /></p>
-                  <div className="grid grid-cols-2 gap-3">
-                    <NumField label="Životné" value={formData.premiumTaken.life} onChange={v => updateNested("premiumTaken", "life", v)} testId="input-prem-taken-life" />
-                    <NumField label="Neživotné" value={formData.premiumTaken.nonLife} onChange={v => updateNested("premiumTaken", "nonLife", v)} testId="input-prem-taken-nonlife" />
-                  </div>
-                </div>
-              </div>
-
-              <div className="border rounded-md p-4 space-y-3" data-testid="section-3">
-                <h3 className="font-bold text-sm">III. ZRUŠENÉ ZMLUVY (ks)</h3>
-
-                <div>
-                  <p className="text-xs font-medium mb-2">Výpoveďou do 3 rokov (§ 800) <NbsTooltip tooltipKey="cancelledNotice" /></p>
-                  <div className="grid grid-cols-3 gap-3">
-                    <NumField label="Životné" value={formData.cancelledNotice.life} onChange={v => updateNested("cancelledNotice", "life", v)} testId="input-cancel-notice-life" />
-                    <NumField label="Neživotné" value={formData.cancelledNotice.nonLife} onChange={v => updateNested("cancelledNotice", "nonLife", v)} testId="input-cancel-notice-nonlife" />
-                    <NumField label="Zaistenie" value={formData.cancelledNotice.reinsurance} onChange={v => updateNested("cancelledNotice", "reinsurance", v)} testId="input-cancel-notice-reinsurance" />
-                  </div>
-                </div>
-
-                <div>
-                  <p className="text-xs font-medium mb-2">Nezaplatením do 3 mesiacov (§ 801) <NbsTooltip tooltipKey="cancelledNonPayment" /></p>
-                  <div className="grid grid-cols-3 gap-3">
-                    <NumField label="Životné" value={formData.cancelledNonPayment.life} onChange={v => updateNested("cancelledNonPayment", "life", v)} testId="input-cancel-nonpay-life" />
-                    <NumField label="Neživotné" value={formData.cancelledNonPayment.nonLife} onChange={v => updateNested("cancelledNonPayment", "nonLife", v)} testId="input-cancel-nonpay-nonlife" />
-                    <NumField label="Zaistenie" value={formData.cancelledNonPayment.reinsurance} onChange={v => updateNested("cancelledNonPayment", "reinsurance", v)} testId="input-cancel-nonpay-reinsurance" />
-                  </div>
-                </div>
-
-                <div>
-                  <p className="text-xs font-medium mb-2">Odstúpením do 30 dní (§ 802a) <NbsTooltip tooltipKey="cancelledWithdrawal" /></p>
-                  <div className="grid grid-cols-1 gap-3 max-w-xs">
-                    <NumField label="Počet" value={formData.cancelledWithdrawal.count} onChange={v => updateNested("cancelledWithdrawal", "count", v)} testId="input-cancel-withdrawal" />
-                  </div>
-                </div>
-              </div>
-
-              <div className="border rounded-md p-4 space-y-3" data-testid="section-4">
-                <h3 className="font-bold text-sm">IV. FINANČNÉ TOKY - PROVÍZIE (v EUR)</h3>
-
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <p className="text-xs font-medium mb-2">Kladné finančné toky <NbsTooltip tooltipKey="commissionPositive" /></p>
-                    <NumField label="Suma" value={formData.commissionPositive} onChange={v => updateFlat("commissionPositive", v)} testId="input-comm-positive" />
-                  </div>
-                  <div>
-                    <p className="text-xs font-medium mb-2">Záporné finančné toky <NbsTooltip tooltipKey="commissionNegative" /></p>
-                    <NumField label="Suma" value={formData.commissionNegative} onChange={v => updateFlat("commissionNegative", v)} testId="input-comm-negative" />
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <p className="text-xs font-medium mb-2">Započítané KLADNÉ toky <NbsTooltip tooltipKey="commissionOffsetPositive" /></p>
-                    <NumField label="Suma" value={formData.commissionOffsetPositive} onChange={v => updateFlat("commissionOffsetPositive", v)} testId="input-comm-offset-pos" />
-                  </div>
-                  <div>
-                    <p className="text-xs font-medium mb-2">Započítané ZÁPORNÉ toky <NbsTooltip tooltipKey="commissionOffsetNegative" /></p>
-                    <NumField label="Suma" value={formData.commissionOffsetNegative} onChange={v => updateFlat("commissionOffsetNegative", v)} testId="input-comm-offset-neg" />
-                  </div>
-                </div>
-              </div>
-
-              <div className="border rounded-md p-4 space-y-3" data-testid="section-5">
-                <h3 className="font-bold text-sm">V. PERSONÁLNE ČLENENIE (k poslednému dňu štvrťroka)</h3>
-
-                <div>
-                  <p className="text-xs font-medium mb-2">Počet PFA podľa výkonu <NbsTooltip tooltipKey="pfaByPerformance" /></p>
-                  <div className="grid grid-cols-3 gap-3">
-                    <NumField label="0 zmlúv" value={formData.pfaByPerformance.zero} onChange={v => updateNested("pfaByPerformance", "zero", v)} testId="input-pfa-zero" />
-                    <NumField label="1-10 zmlúv" value={formData.pfaByPerformance.low} onChange={v => updateNested("pfaByPerformance", "low", v)} testId="input-pfa-low" />
-                    <NumField label="11 a viac" value={formData.pfaByPerformance.high} onChange={v => updateNested("pfaByPerformance", "high", v)} testId="input-pfa-high" />
-                  </div>
-                </div>
-
-                <div>
-                  <p className="text-xs font-medium mb-2">Počet zamestnancov podľa výkonu <NbsTooltip tooltipKey="employeesByPerformance" /></p>
-                  <div className="grid grid-cols-3 gap-3">
-                    <NumField label="0 zmlúv" value={formData.employeesByPerformance.zero} onChange={v => updateNested("employeesByPerformance", "zero", v)} testId="input-emp-zero" />
-                    <NumField label="1-10 zmlúv" value={formData.employeesByPerformance.low} onChange={v => updateNested("employeesByPerformance", "low", v)} testId="input-emp-low" />
-                    <NumField label="11 a viac" value={formData.employeesByPerformance.high} onChange={v => updateNested("employeesByPerformance", "high", v)} testId="input-emp-high" />
-                  </div>
-                </div>
-              </div>
-            </div>
+          ) : (
+            renderForm()
           )}
         </div>
 
         <DialogFooter>
-          <Button variant="ghost" onClick={() => onOpenChange(false)}>Zatvoriť</Button>
-          <Button
-            onClick={() => saveMutation.mutate()}
-            disabled={!partnerId || saveMutation.isPending}
-            data-testid="btn-save-partner-report"
-          >
-            {saveMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin mr-1" /> : <Save className="w-4 h-4 mr-1" />}
-            Uložiť
-          </Button>
+          {!selectedPartnerId ? (
+            <Button variant="ghost" onClick={() => onOpenChange(false)}>Zatvoriť</Button>
+          ) : (
+            <>
+              <Button variant="ghost" onClick={() => setSelectedPartnerId(null)}>Späť</Button>
+              <Button
+                onClick={() => saveMutation.mutate()}
+                disabled={saveMutation.isPending}
+                data-testid="btn-save-partner-report"
+              >
+                {saveMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin mr-1" /> : <Save className="w-4 h-4 mr-1" />}
+                Uložiť
+              </Button>
+            </>
+          )}
         </DialogFooter>
       </DialogContent>
     </Dialog>
@@ -542,27 +588,23 @@ export default function ReportyNBS() {
       {!selectedYear ? (
         <div className="space-y-4">
           <p className="text-sm text-muted-foreground">Vyberte rok:</p>
-          <div className="flex flex-wrap justify-center gap-4">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             {mainYears.map(year => (
-              <div key={year} className="w-[calc(50%-0.5rem)] md:w-[calc(25%-0.75rem)]">
-                <YearBubble year={year} currentYear={currentYear} onSelect={setSelectedYear} />
-              </div>
+              <YearBubble key={year} year={year} currentYear={currentYear} onSelect={setSelectedYear} />
             ))}
-            <div className="w-[calc(50%-0.5rem)] md:w-[calc(25%-0.75rem)]">
-              <Card
-                className="cursor-pointer border-2 border-yellow-600 bg-yellow-100 dark:bg-yellow-950/30 transition-all hover:scale-105 h-full"
-                onClick={() => setArchiveOpen(!archiveOpen)}
-                data-testid="btn-archive"
-              >
-                <CardContent className="py-8 text-center">
-                  <Archive className="w-8 h-8 mx-auto mb-2 text-yellow-600 dark:text-yellow-500" />
-                  <span className="text-xl font-bold text-yellow-700 dark:text-yellow-400">ARCHÍV</span>
-                  <div className="mt-1">
-                    {archiveOpen ? <ChevronUp className="w-4 h-4 mx-auto text-yellow-500" /> : <ChevronDown className="w-4 h-4 mx-auto text-yellow-500" />}
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
+            <Card
+              className="cursor-pointer border-2 border-yellow-600 bg-yellow-100 dark:bg-yellow-950/30 transition-all hover:scale-105 h-full"
+              onClick={() => setArchiveOpen(!archiveOpen)}
+              data-testid="btn-archive"
+            >
+              <CardContent className="py-5 text-center flex flex-col items-center">
+                <Archive className="w-8 h-8 mb-2 text-yellow-600 dark:text-yellow-500" />
+                <span className="text-xl font-bold text-yellow-700 dark:text-yellow-400">ARCHÍV</span>
+                <div className="mt-1">
+                  {archiveOpen ? <ChevronUp className="w-4 h-4 text-yellow-500" /> : <ChevronDown className="w-4 h-4 text-yellow-500" />}
+                </div>
+              </CardContent>
+            </Card>
           </div>
           {archiveOpen && (
             <div className="space-y-2 mt-4" data-testid="archive-list">
@@ -729,6 +771,22 @@ export default function ReportyNBS() {
   );
 }
 
+const MINI_PERIODS = [
+  { key: "1q", label: "1Q" },
+  { key: "2q", label: "2Q" },
+  { key: "3q", label: "3Q" },
+  { key: "4q", label: "4Q" },
+  { key: "annual", label: "R" },
+];
+
+function getMiniStatusColor(status: string): string {
+  switch (status) {
+    case "sent": return "bg-green-600 text-white border-green-600";
+    case "checked": return "bg-orange-500 text-white border-orange-500";
+    default: return "bg-muted text-muted-foreground border-border";
+  }
+}
+
 function YearBubble({ year, currentYear, onSelect }: { year: number; currentYear: number; onSelect: (y: number) => void }) {
   const { data: yearReports } = useQuery<NbsReport[]>({
     queryKey: ["/api/nbs-reports", year],
@@ -739,20 +797,36 @@ function YearBubble({ year, currentYear, onSelect }: { year: number; currentYear
     },
   });
   const reports = yearReports || [];
+  const reportMap = new Map(reports.map(r => [r.period, r]));
   const colorClass = getYearColor(reports, year);
-  const allSent = reports.length === 5 && reports.every(r => r.status === "sent");
   const label = year === currentYear ? "Aktuálny rok" : year === currentYear - 1 ? "Pred 1 rokom" : year === currentYear - 2 ? "Pred 2 rokmi" : "Nasledujúci rok";
 
   return (
     <Card
-      className={`cursor-pointer border-2 transition-all hover:scale-105 ${colorClass}`}
+      className={`cursor-pointer border-2 transition-all hover:scale-105 h-full ${colorClass}`}
       onClick={() => onSelect(year)}
       data-testid={`year-card-${year}`}
     >
-      <CardContent className="py-8 text-center">
+      <CardContent className="py-5 text-center flex flex-col items-center">
         <p className="text-[10px] text-muted-foreground mb-1">{label}</p>
         <span className="text-3xl font-bold">{year}</span>
-        {allSent && <p className="text-xs text-green-400 mt-2">Všetky odoslané</p>}
+        <div className="flex gap-1 mt-3" onClick={e => e.stopPropagation()}>
+          {MINI_PERIODS.map(p => {
+            const report = reportMap.get(p.key);
+            const status = report?.status || "not_sent";
+            return (
+              <span
+                key={p.key}
+                className={`text-[9px] font-bold px-1.5 py-0.5 rounded border cursor-pointer ${getMiniStatusColor(status)}`}
+                onClick={() => onSelect(year)}
+                data-testid={`mini-${p.key}-${year}`}
+                title={`${p.label}: ${status === "sent" ? "Odoslané" : status === "checked" ? "Skontrolované" : "Neodoslané"}`}
+              >
+                {p.label}
+              </span>
+            );
+          })}
+        </div>
       </CardContent>
     </Card>
   );
