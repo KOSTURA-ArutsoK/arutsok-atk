@@ -108,8 +108,7 @@ export default function ReportyNBS() {
   const currentYear = now.getFullYear();
   const currentMonth = now.getMonth();
   const showNextYear = currentMonth >= 11;
-  const mainYears = [currentYear - 2, currentYear - 1, currentYear];
-  if (showNextYear) mainYears.push(currentYear + 1);
+  const mainYears = showNextYear ? [currentYear + 1, currentYear, currentYear - 1, currentYear - 2] : [currentYear, currentYear - 1, currentYear - 2];
   const archiveYears: number[] = [];
   for (let y = currentYear - 3; y >= currentYear - 12 && y >= 2013; y--) {
     archiveYears.push(y);
@@ -185,6 +184,9 @@ export default function ReportyNBS() {
         <div className="space-y-4">
           <p className="text-sm text-muted-foreground">Vyberte rok:</p>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            {mainYears.map(year => (
+              <YearBubble key={year} year={year} currentYear={currentYear} onSelect={setSelectedYear} />
+            ))}
             <Card
               className="cursor-pointer border-2 border-yellow-600 bg-yellow-950/30 transition-all hover:scale-105"
               onClick={() => setArchiveOpen(!archiveOpen)}
@@ -198,9 +200,6 @@ export default function ReportyNBS() {
                 </div>
               </CardContent>
             </Card>
-            {mainYears.map(year => (
-              <YearBubble key={year} year={year} currentYear={currentYear} onSelect={setSelectedYear} />
-            ))}
           </div>
           {archiveOpen && (
             <div className="space-y-2 mt-4" data-testid="archive-list">
