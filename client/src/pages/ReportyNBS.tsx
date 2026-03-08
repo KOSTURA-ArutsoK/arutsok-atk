@@ -54,17 +54,17 @@ function getDaysRemaining(deadline: Date): number {
 }
 
 function getColorByDeadline(deadline: Date, status: string): string {
-  if (status === "sent") return "border-green-600 bg-green-950/30";
+  if (status === "sent") return "border-green-600 bg-green-100 dark:bg-green-950/30";
   const days = getDaysRemaining(deadline);
-  if (days <= 14) return "border-red-500 bg-red-950/30";
-  if (days <= 30) return "border-orange-500 bg-orange-950/30";
-  return "border-blue-500 bg-blue-950/30";
+  if (days <= 14) return "border-red-500 bg-red-100 dark:bg-red-950/30";
+  if (days <= 30) return "border-orange-500 bg-orange-100 dark:bg-orange-950/30";
+  return "border-blue-500 bg-blue-100 dark:bg-blue-950/30";
 }
 
 function getYearColor(reports: NbsReport[], year: number): string {
-  if (reports.length === 0) return "border-blue-500 bg-blue-950/30";
+  if (reports.length === 0) return "border-blue-500 bg-blue-100 dark:bg-blue-950/30";
   const allSent = reports.length === 5 && reports.every(r => r.status === "sent");
-  if (allSent) return "border-green-700 bg-green-950/50";
+  if (allSent) return "border-green-700 bg-green-100 dark:bg-green-950/50";
 
   let closestDays = Infinity;
   for (const r of reports) {
@@ -74,9 +74,9 @@ function getYearColor(reports: NbsReport[], year: number): string {
       if (days < closestDays) closestDays = days;
     }
   }
-  if (closestDays <= 14) return "border-red-500 bg-red-950/40";
-  if (closestDays <= 30) return "border-orange-500 bg-orange-950/40";
-  return "border-blue-500 bg-blue-950/30";
+  if (closestDays <= 14) return "border-red-500 bg-red-100 dark:bg-red-950/40";
+  if (closestDays <= 30) return "border-orange-500 bg-orange-100 dark:bg-orange-950/40";
+  return "border-blue-500 bg-blue-100 dark:bg-blue-950/30";
 }
 
 function getStatusButtonColor(status: string): string {
@@ -188,13 +188,13 @@ export default function ReportyNBS() {
               <YearBubble key={year} year={year} currentYear={currentYear} onSelect={setSelectedYear} />
             ))}
             <Card
-              className="cursor-pointer border-2 border-yellow-600 bg-yellow-950/30 transition-all hover:scale-105"
+              className="cursor-pointer border-2 border-yellow-600 bg-yellow-100 dark:bg-yellow-950/30 transition-all hover:scale-105"
               onClick={() => setArchiveOpen(!archiveOpen)}
               data-testid="btn-archive"
             >
               <CardContent className="py-8 text-center">
-                <Archive className="w-8 h-8 mx-auto mb-2 text-yellow-500" />
-                <span className="text-xl font-bold text-yellow-400">ARCHÍV</span>
+                <Archive className="w-8 h-8 mx-auto mb-2 text-yellow-600 dark:text-yellow-500" />
+                <span className="text-xl font-bold text-yellow-700 dark:text-yellow-400">ARCHÍV</span>
                 <div className="mt-1">
                   {archiveOpen ? <ChevronUp className="w-4 h-4 mx-auto text-yellow-500" /> : <ChevronDown className="w-4 h-4 mx-auto text-yellow-500" />}
                 </div>
@@ -206,13 +206,13 @@ export default function ReportyNBS() {
               {archiveYears.map(year => (
                 <Card
                   key={year}
-                  className="cursor-pointer border border-yellow-600/40 bg-yellow-950/10 hover:bg-yellow-950/30 transition-all"
+                  className="cursor-pointer border border-yellow-600/40 bg-yellow-50 dark:bg-yellow-950/10 hover:bg-yellow-100 dark:hover:bg-yellow-950/30 transition-all"
                   onClick={() => setSelectedYear(year)}
                   data-testid={`archive-year-${year}`}
                 >
                   <CardContent className="py-3 px-5 flex items-center justify-between">
-                    <span className="text-lg font-bold text-yellow-300">{year}</span>
-                    <Archive className="w-4 h-4 text-yellow-600/60" />
+                    <span className="text-lg font-bold text-yellow-700 dark:text-yellow-300">{year}</span>
+                    <Archive className="w-4 h-4 text-yellow-600 dark:text-yellow-600/60" />
                   </CardContent>
                 </Card>
               ))}

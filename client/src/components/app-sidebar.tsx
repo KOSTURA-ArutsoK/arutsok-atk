@@ -258,7 +258,7 @@ function CollapsibleMenu({
 }
 
 function MojeUlohyMenuItem({ location }: { location: string }) {
-  const { data: taskCount } = useQuery<{ count: number; nonCalendarCount: number; upcomingEventsCount: number; todayEventsCount: number }>({
+  const { data: taskCount } = useQuery<{ count: number; nonCalendarCount: number; upcomingEventsCount: number; todayEventsCount: number; nbsAlert?: { show: boolean; daysLeft: number } }>({
     queryKey: ["/api/my-tasks/count"],
     refetchInterval: 30000,
   });
@@ -267,6 +267,15 @@ function MojeUlohyMenuItem({ location }: { location: string }) {
   const showBadge = nonCalendarCount > 0 || todayEventsCount > 0;
   const badgeColor = nonCalendarCount > 0 ? "bg-red-600" : "bg-blue-500";
   const badgeValue = nonCalendarCount > 0 ? nonCalendarCount : todayEventsCount;
+
+  const nbsAlert = taskCount?.nbsAlert;
+  let nbsColorClass = "";
+  if (nbsAlert?.show) {
+    if (nbsAlert.daysLeft <= 3) nbsColorClass = "text-red-500 animate-pulse font-black";
+    else if (nbsAlert.daysLeft <= 7) nbsColorClass = "text-red-500 font-bold";
+    else if (nbsAlert.daysLeft <= 14) nbsColorClass = "text-orange-400 font-bold";
+    else nbsColorClass = "text-blue-400 font-bold";
+  }
 
   return (
     <SidebarMenuItem>
@@ -278,11 +287,18 @@ function MojeUlohyMenuItem({ location }: { location: string }) {
         <Link href="/moje-ulohy">
           <ClipboardCheck className="w-4 h-4" />
           <span>Moje úlohy</span>
-          {showBadge && (
-            <span className={`ml-auto flex h-5 min-w-5 items-center justify-center rounded-full ${badgeColor} text-[10px] font-bold text-white px-1`} data-testid="badge-task-count">
-              {badgeValue}
-            </span>
-          )}
+          <span className="ml-auto flex items-center gap-1.5">
+            {nbsAlert?.show && (
+              <span className={`text-[10px] ${nbsColorClass}`} data-testid="badge-nbs-alert">
+                NBS !
+              </span>
+            )}
+            {showBadge && (
+              <span className={`flex h-5 min-w-5 items-center justify-center rounded-full ${badgeColor} text-[10px] font-bold text-white px-1`} data-testid="badge-task-count">
+                {badgeValue}
+              </span>
+            )}
+          </span>
         </Link>
       </SidebarMenuButton>
     </SidebarMenuItem>

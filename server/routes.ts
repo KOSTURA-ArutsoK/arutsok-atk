@@ -4,7 +4,7 @@ import { storage } from "./storage";
 import { api } from "@shared/routes";
 import { setupAuth, isAuthenticated } from "./auth";
 import { z } from "zod";
-import { continents, states, myCompanies, appUsers, clientTypes, clientSubGroups, clientGroupMembers, productFolderAssignments, folderPanels, panelParameters, userClientGroupMemberships, clientGroups, permissionGroups, insertCareerLevelSchema, insertProductPointRateSchema, careerLevels, importLogs, commissions, contracts, contractStatuses, contractStatusChangeLogs, clientDataTabs, clientDataCategories, subjects, subjectPointsLog, subjectFieldHistory, subjectCollaborators, clientMarketingConsents, clientDocumentHistory, contractAcquirers, contractPasswords, contractRewardDistributions, contractParameterValues, subjectArchive, auditLogs, globalCounters, subjectPhotos, activityEvents, subjectParamSections, subjectParameters, subjectTemplates, subjectTemplateParams, commissionCalculationLogs, parameterSynonyms, dataConflictAlerts, transactionDedupLog, relationRoleTypes, subjectRelations, maturityAlerts, inheritancePrompts, guardianshipArchive, households, householdMembers, householdAssets, privacyBlocks, accessConsentLog, maturityEvents, addressGroups, addressGroupMembers, companySubjectRoles, notificationQueue, batchJobs, subjectObjects, objectDataSources, sectors, sections, sectorProducts, parameters, panels, productPanels, contractFolders, fieldLayoutConfigs, sectorCategoryMapping, suggestedRelations, statusEvidence, contractLifecycleHistory, systemNotifications, partners, products, contractInventories, contractTemplates, redListAlerts, subjectAddresses, divisions, companyDivisions, insertDivisionSchema, ocrProcessingJobs, networkLinks, guarantorTransferRequests } from "@shared/schema";
+import { continents, states, myCompanies, appUsers, clientTypes, clientSubGroups, clientGroupMembers, productFolderAssignments, folderPanels, panelParameters, userClientGroupMemberships, clientGroups, permissionGroups, insertCareerLevelSchema, insertProductPointRateSchema, careerLevels, importLogs, commissions, contracts, contractStatuses, contractStatusChangeLogs, clientDataTabs, clientDataCategories, subjects, subjectPointsLog, subjectFieldHistory, subjectCollaborators, clientMarketingConsents, clientDocumentHistory, contractAcquirers, contractPasswords, contractRewardDistributions, contractParameterValues, subjectArchive, auditLogs, globalCounters, subjectPhotos, activityEvents, subjectParamSections, subjectParameters, subjectTemplates, subjectTemplateParams, commissionCalculationLogs, parameterSynonyms, dataConflictAlerts, transactionDedupLog, relationRoleTypes, subjectRelations, maturityAlerts, inheritancePrompts, guardianshipArchive, households, householdMembers, householdAssets, privacyBlocks, accessConsentLog, maturityEvents, addressGroups, addressGroupMembers, companySubjectRoles, notificationQueue, batchJobs, subjectObjects, objectDataSources, sectors, sections, sectorProducts, parameters, panels, productPanels, contractFolders, fieldLayoutConfigs, sectorCategoryMapping, suggestedRelations, statusEvidence, contractLifecycleHistory, systemNotifications, partners, products, contractInventories, contractTemplates, redListAlerts, subjectAddresses, divisions, companyDivisions, insertDivisionSchema, ocrProcessingJobs, networkLinks, guarantorTransferRequests, nbsReportStatuses } from "@shared/schema";
 import { notifyObjectionCreated, notifyPreDeletion, getProductDaysLimits } from "./email";
 import { seedSubjectParameters, seedAssetPanels, seedEventAndEntityPanels } from "./seed-subject-params";
 import sharp from "sharp";
@@ -15874,11 +15874,54 @@ export async function registerRoutes(
       const todayEventsCount = await storage.getTodayEventsCount();
       const nonCalendarCount = transferCount + interventionCount + internalInterventionCount + rejectedCount + archivedCount;
 
+      let nbsAlert = { show: false, daysLeft: 0 };
+      if (appUser.role === 'admin' || appUser.role === 'superadmin') {
+        const now = new Date();
+        const currentYear = now.getFullYear();
+
+        function getNbsDeadline(period: string, year: number): Date {
+          switch (period) {
+            case "1q": return new Date(year, 4, 31);
+            case "2q": return new Date(year, 7, 31);
+            case "3q": return new Date(year, 10, 30);
+            case "4q": return new Date(year + 1, 1, 28);
+            case "annual": return new Date(year + 1, 2, 31);
+            default: return new Date(year, 11, 31);
+          }
+        }
+
+        const yearsToCheck = [currentYear, currentYear - 1];
+        const allNbsReports = await db.select().from(nbsReportStatuses)
+          .where(inArray(nbsReportStatuses.year, yearsToCheck));
+
+        const periods = ["1q", "2q", "3q", "4q", "annual"];
+        let closestDays = Infinity;
+
+        for (const year of yearsToCheck) {
+          for (const period of periods) {
+            const deadline = getNbsDeadline(period, year);
+            const diffMs = deadline.getTime() - now.getTime();
+            const daysLeft = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
+            if (daysLeft < 0 || daysLeft > 25) continue;
+
+            const report = allNbsReports.find(r => r.year === year && r.period === period);
+            if (!report || report.status !== "sent") {
+              if (daysLeft < closestDays) closestDays = daysLeft;
+            }
+          }
+        }
+
+        if (closestDays <= 25) {
+          nbsAlert = { show: true, daysLeft: closestDays };
+        }
+      }
+
       res.json({
         count: nonCalendarCount > 0 ? nonCalendarCount : todayEventsCount,
         nonCalendarCount,
         upcomingEventsCount,
         todayEventsCount,
+        nbsAlert,
       });
     } catch (err: any) {
       res.status(500).json({ message: err?.message || "Chyba" });
