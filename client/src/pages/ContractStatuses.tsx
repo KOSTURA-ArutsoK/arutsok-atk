@@ -1008,114 +1008,127 @@ export default function ContractStatuses() {
         </div>
       </div>
 
-      <Card>
-        <CardContent className="p-0">
-          {isLoading ? (
-            <div className="flex items-center justify-center py-12">
-              <Loader2 className="w-6 h-6 animate-spin" />
-            </div>
-          ) : sorted.length === 0 ? (
-            <p className="text-sm text-muted-foreground text-center py-12" data-testid="text-no-statuses">
-              Ziadne stavy zmluv. Pridajte prvy stav zmluvy tlacidlom vyssie.
-            </p>
-          ) : (
-            <SortableContext_Wrapper items={sortedStatuses} onReorder={handleReorder}>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="w-10"></TableHead>
-                  {columnVisibility.isVisible("sortOrder") && <TableHead sortKey="sortOrder" sortDirection={sortKey === "sortOrder" ? sortDirection : null} onSort={requestSort} className="w-20">Poradie</TableHead>}
-                  {columnVisibility.isVisible("name") && <TableHead sortKey="name" sortDirection={sortKey === "name" ? sortDirection : null} onSort={requestSort}>Nazov stavu zmluvy</TableHead>}
-                  {columnVisibility.isVisible("usageCount") && <TableHead className="w-24 text-center">Pocet zmluv</TableHead>}
-                  {columnVisibility.isVisible("definesContractEnd") && <TableHead className="w-28 text-center">Ukoncenie</TableHead>}
-                  {columnVisibility.isVisible("color") && <TableHead className="w-32">Farba stavu zmluvy</TableHead>}
-                  {columnVisibility.isVisible("properties") && <TableHead>Vlastnosti stavu zmluvy</TableHead>}
-                  <TableHead className="w-32 text-right">Akcie</TableHead>
-                </TableRow>
-              </TableHeader>
-                <TableBody>
-                  {sortedStatuses.map((status) => {
-                    const usageCount = usageCounts?.find(u => u.statusId === status.id)?.count ?? 0;
-                    return (
-                    <SortableTableRow
-                      key={status.id}
-                      id={status.id}
-                      data-testid={`row-status-${status.id}`}
-                      onRowClick={() => openEdit(status)}
-                    >
-                      {columnVisibility.isVisible("sortOrder") && <TableCell className="font-mono text-sm" data-testid={`text-sort-order-${status.id}`}>
-                        {status.sortOrder}
-                      </TableCell>}
-                      {columnVisibility.isVisible("name") && <TableCell data-testid={`text-status-name-${status.id}`}>
-                        <Badge
-                          variant="outline"
-                          style={{ borderColor: status.color, color: status.color }}
-                        >
-                          {status.name}
-                        </Badge>
-                      </TableCell>}
-                      {columnVisibility.isVisible("usageCount") && <TableCell className="text-center" data-testid={`cell-usage-count-${status.id}`}>
-                        <span
-                          className="inline-flex items-center justify-center min-w-[1.5rem] h-5 px-1.5 rounded-full text-[11px] font-semibold bg-muted text-muted-foreground"
-                          title={`Pouzite v ${usageCount} zmluvach`}
-                          data-testid={`badge-usage-count-${status.id}`}
-                        >
-                          {usageCount}
-                        </span>
-                      </TableCell>}
-                      {columnVisibility.isVisible("definesContractEnd") && <TableCell className="text-center" data-testid={`cell-defines-end-${status.id}`}>
-                        {status.definesContractEnd && (
-                          <Flag className="w-4 h-4 text-destructive mx-auto" data-testid={`icon-defines-end-${status.id}`} />
-                        )}
-                      </TableCell>}
-                      {columnVisibility.isVisible("color") && <TableCell>
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <div
-                            className="w-6 h-6 rounded-md border border-border"
-                            style={{ backgroundColor: status.color }}
-                            data-testid={`color-swatch-${status.id}`}
-                          />
-                          <span className="text-xs font-mono text-muted-foreground" data-testid={`text-color-hex-${status.id}`}>
-                            {status.color}
-                          </span>
-                        </div>
-                      </TableCell>}
-                      {columnVisibility.isVisible("properties") && <TableCell>
-                        <div className="flex items-center gap-1 flex-wrap">
-                          {status.isCommissionable && <Badge variant="secondary" className="text-xs" data-testid={`badge-commissionable-${status.id}`}>Provizna</Badge>}
-                          {status.isFinal && <Badge variant="secondary" className="text-xs" data-testid={`badge-final-${status.id}`}>Finalny</Badge>}
-                          {status.assignsNumber && <Badge variant="secondary" className="text-xs" data-testid={`badge-assigns-number-${status.id}`}>Cislo</Badge>}
-                          {status.definesContractEnd && <Badge variant="secondary" className="text-xs" data-testid={`badge-defines-end-${status.id}`}>Ukoncenie</Badge>}
-                          {status.isIntervention && <Badge variant="secondary" className="text-xs" data-testid={`badge-intervention-${status.id}`}>Intervencia</Badge>}
-                        </div>
-                      </TableCell>}
-                      <TableCell className="text-right">
-                        <div className="flex items-center justify-end gap-1 flex-wrap">
-                          {status.isSystem && (
-                            <Badge variant="secondary" className="text-xs mr-1" data-testid={`badge-system-status-${status.id}`}>System</Badge>
-                          )}
-                          <Button
-                            size="icon"
-                            variant="ghost"
-                            onClick={() => openEdit(status)}
-                            data-testid={`button-edit-status-${status.id}`}
-                          >
-                            <Pencil className="w-4 h-4" />
-                          </Button>
-                          {!status.isSystem && usageCount === 0 && (
-                            <ConditionalDelete canDelete={true} onClick={() => openDelete(status)} testId={`button-delete-status-${status.id}`} />
-                          )}
-                        </div>
-                      </TableCell>
-                    </SortableTableRow>
-                    );
-                  })}
-                </TableBody>
-            </Table>
-            </SortableContext_Wrapper>
-          )}
-        </CardContent>
-      </Card>
+      {(() => {
+        const systemStatuses = sortedStatuses.filter(s => s.isSystem);
+        const customStatuses = sortedStatuses.filter(s => !s.isSystem);
+
+        const statusTableHeader = (
+          <TableHeader>
+            <TableRow>
+              <TableHead className="w-10"></TableHead>
+              {columnVisibility.isVisible("sortOrder") && <TableHead sortKey="sortOrder" sortDirection={sortKey === "sortOrder" ? sortDirection : null} onSort={requestSort} className="w-20">Poradie</TableHead>}
+              {columnVisibility.isVisible("name") && <TableHead sortKey="name" sortDirection={sortKey === "name" ? sortDirection : null} onSort={requestSort}>Nazov stavu zmluvy</TableHead>}
+              {columnVisibility.isVisible("usageCount") && <TableHead className="w-24 text-center">Pocet zmluv</TableHead>}
+              {columnVisibility.isVisible("definesContractEnd") && <TableHead className="w-28 text-center">Ukoncenie</TableHead>}
+              {columnVisibility.isVisible("color") && <TableHead className="w-32">Farba stavu zmluvy</TableHead>}
+              {columnVisibility.isVisible("properties") && <TableHead>Vlastnosti stavu zmluvy</TableHead>}
+              <TableHead className="w-32 text-right">Akcie</TableHead>
+            </TableRow>
+          </TableHeader>
+        );
+
+        const renderStatusRow = (status: any, options: { showDragHandle?: boolean; showDelete?: boolean } = {}) => {
+          const usageCount = usageCounts?.find(u => u.statusId === status.id)?.count ?? 0;
+          return (
+            <SortableTableRow
+              key={status.id}
+              id={status.id}
+              data-testid={`row-status-${status.id}`}
+              onRowClick={() => openEdit(status)}
+            >
+              {columnVisibility.isVisible("sortOrder") && <TableCell className="font-mono text-sm" data-testid={`text-sort-order-${status.id}`}>
+                {status.sortOrder}
+              </TableCell>}
+              {columnVisibility.isVisible("name") && <TableCell data-testid={`text-status-name-${status.id}`}>
+                <Badge variant="outline" style={{ borderColor: status.color, color: status.color }}>
+                  {status.name}
+                </Badge>
+              </TableCell>}
+              {columnVisibility.isVisible("usageCount") && <TableCell className="text-center" data-testid={`cell-usage-count-${status.id}`}>
+                <span className="inline-flex items-center justify-center min-w-[1.5rem] h-5 px-1.5 rounded-full text-[11px] font-semibold bg-muted text-muted-foreground" title={`Pouzite v ${usageCount} zmluvach`} data-testid={`badge-usage-count-${status.id}`}>
+                  {usageCount}
+                </span>
+              </TableCell>}
+              {columnVisibility.isVisible("definesContractEnd") && <TableCell className="text-center" data-testid={`cell-defines-end-${status.id}`}>
+                {status.definesContractEnd && <Flag className="w-4 h-4 text-destructive mx-auto" data-testid={`icon-defines-end-${status.id}`} />}
+              </TableCell>}
+              {columnVisibility.isVisible("color") && <TableCell>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <div className="w-6 h-6 rounded-md border border-border" style={{ backgroundColor: status.color }} data-testid={`color-swatch-${status.id}`} />
+                  <span className="text-xs font-mono text-muted-foreground" data-testid={`text-color-hex-${status.id}`}>{status.color}</span>
+                </div>
+              </TableCell>}
+              {columnVisibility.isVisible("properties") && <TableCell>
+                <div className="flex items-center gap-1 flex-wrap">
+                  {status.isCommissionable && <Badge variant="secondary" className="text-xs" data-testid={`badge-commissionable-${status.id}`}>Provizna</Badge>}
+                  {status.isFinal && <Badge variant="secondary" className="text-xs" data-testid={`badge-final-${status.id}`}>Finalny</Badge>}
+                  {status.assignsNumber && <Badge variant="secondary" className="text-xs" data-testid={`badge-assigns-number-${status.id}`}>Cislo</Badge>}
+                  {status.definesContractEnd && <Badge variant="secondary" className="text-xs" data-testid={`badge-defines-end-${status.id}`}>Ukoncenie</Badge>}
+                  {status.isIntervention && <Badge variant="secondary" className="text-xs" data-testid={`badge-intervention-${status.id}`}>Intervencia</Badge>}
+                </div>
+              </TableCell>}
+              <TableCell className="text-right">
+                <div className="flex items-center justify-end gap-1 flex-wrap">
+                  <Button size="icon" variant="ghost" onClick={() => openEdit(status)} data-testid={`button-edit-status-${status.id}`}>
+                    <Pencil className="w-4 h-4" />
+                  </Button>
+                  {options.showDelete !== false && !status.isSystem && usageCount === 0 && (
+                    <ConditionalDelete canDelete={true} onClick={() => openDelete(status)} testId={`button-delete-status-${status.id}`} />
+                  )}
+                </div>
+              </TableCell>
+            </SortableTableRow>
+          );
+        };
+
+        return isLoading ? (
+          <div className="flex items-center justify-center py-12">
+            <Loader2 className="w-6 h-6 animate-spin" />
+          </div>
+        ) : sorted.length === 0 ? (
+          <p className="text-sm text-muted-foreground text-center py-12" data-testid="text-no-statuses">
+            Ziadne stavy zmluv. Pridajte prvy stav zmluvy tlacidlom vyssie.
+          </p>
+        ) : (
+          <>
+            {systemStatuses.length > 0 && (
+              <Card data-testid="card-system-statuses">
+                <CardContent className="p-0">
+                  <div className="px-4 py-3 border-b">
+                    <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider" data-testid="text-system-statuses-title">Systemove stavy</h2>
+                  </div>
+                  <Table>
+                    {statusTableHeader}
+                    <TableBody>
+                      {systemStatuses.map(s => renderStatusRow(s, { showDragHandle: false, showDelete: false }))}
+                    </TableBody>
+                  </Table>
+                </CardContent>
+              </Card>
+            )}
+
+            <Card data-testid="card-custom-statuses">
+              <CardContent className="p-0">
+                <div className="px-4 py-3 border-b">
+                  <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider" data-testid="text-custom-statuses-title">Volitelne stavy</h2>
+                </div>
+                {customStatuses.length === 0 ? (
+                  <p className="text-sm text-muted-foreground text-center py-8">Ziadne volitelne stavy. Pridajte prvy stav zmluvy tlacidlom vyssie.</p>
+                ) : (
+                  <SortableContext_Wrapper items={customStatuses} onReorder={handleReorder}>
+                    <Table>
+                      {statusTableHeader}
+                      <TableBody>
+                        {customStatuses.map(s => renderStatusRow(s, { showDragHandle: true, showDelete: true }))}
+                      </TableBody>
+                    </Table>
+                  </SortableContext_Wrapper>
+                )}
+              </CardContent>
+            </Card>
+          </>
+        );
+      })()}
 
       <StatusFormDialog
         open={dialogOpen}

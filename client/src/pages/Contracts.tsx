@@ -1840,6 +1840,9 @@ export default function Contracts() {
   const [preSelectLastName, setPreSelectLastName] = useState("");
   const [preSelectTitleAfter, setPreSelectTitleAfter] = useState("");
   const [preSelectSaving, setPreSelectSaving] = useState(false);
+  const [preSelectSubjectType, setPreSelectSubjectType] = useState<"person" | "company" | "szco">("person");
+  const [preSelectIco, setPreSelectIco] = useState("");
+  const [preSelectBusinessName, setPreSelectBusinessName] = useState("");
   const refProductTrigger = useRef<HTMLButtonElement>(null);
   const refStep1Next = useRef<HTMLButtonElement>(null);
   const refSearchInput = useRef<HTMLInputElement>(null);
@@ -2809,11 +2812,22 @@ export default function Contracts() {
     setPreSelectFirstName("");
     setPreSelectLastName("");
     setPreSelectTitleAfter("");
+    setPreSelectSubjectType("person");
+    setPreSelectIco("");
+    setPreSelectBusinessName("");
   };
 
+  const preSelectIsValid = (() => {
+    if (preSelectSubjectId) return true;
+    if (preSelectSubjectType === "person") return !!(preSelectFirstName.trim() && preSelectLastName.trim());
+    if (preSelectSubjectType === "szco") return !!(preSelectBusinessName.trim() && preSelectFirstName.trim() && preSelectLastName.trim());
+    if (preSelectSubjectType === "company") return !!preSelectBusinessName.trim();
+    return false;
+  })();
+
   const handlePreSelectConfirm = async () => {
-    if (!preSelectSubjectId && (!preSelectFirstName.trim() || !preSelectLastName.trim())) {
-      toast({ title: "Chyba", description: "Meno a priezvisko su povinne", variant: "destructive" });
+    if (!preSelectSubjectId && !preSelectIsValid) {
+      toast({ title: "Chyba", description: "Vyplnte povinne polia", variant: "destructive" });
       return;
     }
     setPreSelectSaving(true);
@@ -2821,13 +2835,20 @@ export default function Contracts() {
       let finalSubjectId = preSelectSubjectId ? parseInt(preSelectSubjectId) : null;
 
       if (!finalSubjectId) {
-        const subjectRes = await apiRequest("POST", "/api/subjects", {
-          type: "person",
-          firstName: preSelectFirstName.trim(),
-          lastName: preSelectLastName.trim(),
+        const subjectData: Record<string, any> = {
+          type: preSelectSubjectType,
+          firstName: preSelectFirstName.trim() || null,
+          lastName: preSelectLastName.trim() || null,
           titleBefore: preSelectTitleBefore.trim() || null,
           titleAfter: preSelectTitleAfter.trim() || null,
-        });
+        };
+        if (preSelectSubjectType === "szco" || preSelectSubjectType === "company") {
+          subjectData.companyName = preSelectBusinessName.trim() || null;
+          if (preSelectIco.trim()) {
+            subjectData.details = { ico: preSelectIco.trim() };
+          }
+        }
+        const subjectRes = await apiRequest("POST", "/api/subjects", subjectData);
         const newSubject = await subjectRes.json();
         finalSubjectId = newSubject.id;
         queryClient.invalidateQueries({ queryKey: ["/api/subjects"] });
@@ -2864,6 +2885,9 @@ export default function Contracts() {
       setPreSelectFirstName("");
       setPreSelectLastName("");
       setPreSelectTitleAfter("");
+      setPreSelectSubjectType("person");
+      setPreSelectIco("");
+      setPreSelectBusinessName("");
     } catch (err: any) {
       toast({ title: "Chyba", description: err.message || "Nepodarilo sa zapisat zmluvu", variant: "destructive" });
     } finally {
@@ -2885,6 +2909,9 @@ export default function Contracts() {
     setPreSelectLastName("");
     setPreSelectTitleAfter("");
     setPreSelectSaving(false);
+    setPreSelectSubjectType("person");
+    setPreSelectIco("");
+    setPreSelectBusinessName("");
     setPreSelectOpen(true);
   };
 
@@ -2906,7 +2933,7 @@ export default function Contracts() {
   })();
 
   const preSelectDialog = (
-    <Dialog open={preSelectOpen} onOpenChange={(open) => { setPreSelectOpen(open); if (!open) { setPreSelectStep(1); setPreSelectClientTypeId(""); setPreSelectNumberType("proposal"); setPreSelectNumberValue(""); setPreSelectTitleBefore(""); setPreSelectFirstName(""); setPreSelectLastName(""); setPreSelectTitleAfter(""); setPreSelectSaving(false); } }}>
+    <Dialog open={preSelectOpen} onOpenChange={(open) => { setPreSelectOpen(open); if (!open) { setPreSelectStep(1); setPreSelectClientTypeId(""); setPreSelectNumberType("proposal"); setPreSelectNumberValue(""); setPreSelectTitleBefore(""); setPreSelectFirstName(""); setPreSelectLastName(""); setPreSelectTitleAfter(""); setPreSelectSaving(false); setPreSelectSubjectType("person"); setPreSelectIco(""); setPreSelectBusinessName(""); } }}>
       <DialogContent size="xl" onCloseAutoFocus={(e) => e.preventDefault()} data-testid="dialog-pre-select-contract">
         <DialogHeader className="px-6 pt-6 pb-2">
           <DialogTitle data-testid="text-preselect-title">
@@ -3039,10 +3066,13 @@ export default function Contracts() {
                       className={`flex items-center gap-3 px-3 py-2 cursor-pointer border-b last:border-b-0 hover-elevate ${isSelected ? "bg-primary/10" : ""}`}
                       onClick={() => {
                         setPreSelectSubjectId(s.id.toString());
+                        setPreSelectSubjectType(s.type as "person" | "company" | "szco");
                         setPreSelectTitleBefore((s as any).titleBefore || "");
                         setPreSelectFirstName(s.firstName || "");
                         setPreSelectLastName(s.lastName || "");
                         setPreSelectTitleAfter((s as any).titleAfter || "");
+                        setPreSelectBusinessName(s.companyName || "");
+                        setPreSelectIco((s.details as any)?.ico || "");
                       }}
                       data-testid={`row-preselect-subject-${s.id}`}
                     >
@@ -3069,6 +3099,42 @@ export default function Contracts() {
               <p className="text-xs text-muted-foreground mb-2" data-testid="text-no-subjects">Klient nenajdeny — vyplnte udaje noveho klienta</p>
             </div>
 
+            {!preSelectSubjectId && (
+              <div className="space-y-1">
+                <label className="text-xs font-medium">Typ subjektu</label>
+                <div className="flex border rounded-md overflow-hidden" data-testid="toggle-subject-type">
+                  <button type="button" className={`flex-1 px-3 py-2 text-sm font-medium transition-colors ${preSelectSubjectType === "person" ? "bg-primary text-primary-foreground" : "bg-muted/50 text-muted-foreground hover:bg-muted"}`} onClick={() => { setPreSelectSubjectType("person"); setPreSelectBusinessName(""); setPreSelectIco(""); }} data-testid="toggle-subject-type-fo">FO</button>
+                  <button type="button" className={`flex-1 px-3 py-2 text-sm font-medium transition-colors ${preSelectSubjectType === "szco" ? "bg-primary text-primary-foreground" : "bg-muted/50 text-muted-foreground hover:bg-muted"}`} onClick={() => { setPreSelectSubjectType("szco"); }} data-testid="toggle-subject-type-szco">SZČO</button>
+                  <button type="button" className={`flex-1 px-3 py-2 text-sm font-medium transition-colors ${preSelectSubjectType === "company" ? "bg-primary text-primary-foreground" : "bg-muted/50 text-muted-foreground hover:bg-muted"}`} onClick={() => { setPreSelectSubjectType("company"); }} data-testid="toggle-subject-type-po">PO</button>
+                </div>
+              </div>
+            )}
+
+            {(preSelectSubjectType === "szco" || preSelectSubjectType === "company") && (
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <label className="text-xs font-medium">{preSelectSubjectType === "szco" ? "Nazov zivnosti" : "Nazov spolocnosti"} *</label>
+                  <Input
+                    value={preSelectBusinessName}
+                    onChange={(e) => setPreSelectBusinessName(e.target.value)}
+                    placeholder={preSelectSubjectType === "szco" ? "Nazov zivnosti" : "Nazov spolocnosti"}
+                    readOnly={!!preSelectSubjectId}
+                    data-testid="input-preselect-business-name"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs font-medium">ICO</label>
+                  <Input
+                    value={preSelectIco}
+                    onChange={(e) => setPreSelectIco(e.target.value)}
+                    placeholder="ICO"
+                    readOnly={!!preSelectSubjectId}
+                    data-testid="input-preselect-ico"
+                  />
+                </div>
+              </div>
+            )}
+
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1">
                 <label className="text-xs font-medium">Titul pred menom</label>
@@ -3081,7 +3147,7 @@ export default function Contracts() {
                 />
               </div>
               <div className="space-y-1">
-                <label className="text-xs font-medium">Meno {!preSelectSubjectId && "*"}</label>
+                <label className="text-xs font-medium">Meno {(preSelectSubjectType === "person" || preSelectSubjectType === "szco") && "*"}</label>
                 <Input
                   value={preSelectFirstName}
                   onChange={(e) => setPreSelectFirstName(e.target.value)}
@@ -3091,7 +3157,7 @@ export default function Contracts() {
                 />
               </div>
               <div className="space-y-1">
-                <label className="text-xs font-medium">Priezvisko {!preSelectSubjectId && "*"}</label>
+                <label className="text-xs font-medium">Priezvisko {(preSelectSubjectType === "person" || preSelectSubjectType === "szco") && "*"}</label>
                 <Input
                   value={preSelectLastName}
                   onChange={(e) => setPreSelectLastName(e.target.value)}
@@ -3113,14 +3179,14 @@ export default function Contracts() {
             </div>
 
             {preSelectSubjectId && (
-              <p className="text-xs text-muted-foreground">Vybrany existujuci klient — polia su len na citanie. <button type="button" className="text-primary underline" onClick={() => { setPreSelectSubjectId(""); setPreSelectTitleBefore(""); setPreSelectFirstName(""); setPreSelectLastName(""); setPreSelectTitleAfter(""); }} data-testid="button-deselect-subject">Zrusit vyber</button></p>
+              <p className="text-xs text-muted-foreground">Vybrany existujuci klient ({preSelectSubjectType === "person" ? "FO" : preSelectSubjectType === "szco" ? "SZČO" : "PO"}) — polia su len na citanie. <button type="button" className="text-primary underline" onClick={() => { setPreSelectSubjectId(""); setPreSelectSubjectType("person"); setPreSelectTitleBefore(""); setPreSelectFirstName(""); setPreSelectLastName(""); setPreSelectTitleAfter(""); setPreSelectBusinessName(""); setPreSelectIco(""); }} data-testid="button-deselect-subject">Zrusit vyber</button></p>
             )}
 
             <div className="flex justify-between gap-2">
               <Button variant="outline" tabIndex={2} onClick={handlePreSelectStep2Back} data-testid="button-preselect-back">
                 Spat
               </Button>
-              <Button ref={refStep2Confirm} tabIndex={0} onClick={handlePreSelectConfirm} disabled={(!preSelectSubjectId && (!preSelectFirstName.trim() || !preSelectLastName.trim())) || preSelectSaving} data-testid="button-preselect-confirm">
+              <Button ref={refStep2Confirm} tabIndex={0} onClick={handlePreSelectConfirm} disabled={!preSelectIsValid || preSelectSaving} data-testid="button-preselect-confirm">
                 {preSelectSaving ? "Zapisujem..." : "Zapisat zmluvu"}
               </Button>
             </div>
