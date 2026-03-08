@@ -270,11 +270,12 @@ function MojeUlohyMenuItem({ location }: { location: string }) {
 
   const nbsAlert = taskCount?.nbsAlert;
   let nbsColorClass = "";
+  let nbsFontSize = "text-[10px]";
   if (nbsAlert?.show) {
-    if (nbsAlert.daysLeft <= 3) nbsColorClass = "text-red-500 animate-pulse font-black";
-    else if (nbsAlert.daysLeft <= 7) nbsColorClass = "text-red-500 font-bold";
-    else if (nbsAlert.daysLeft <= 14) nbsColorClass = "text-orange-400 font-bold";
-    else nbsColorClass = "text-blue-400 font-bold";
+    if (nbsAlert.daysLeft <= 3) { nbsColorClass = "text-red-500 animate-pulse font-black"; nbsFontSize = "text-xs"; }
+    else if (nbsAlert.daysLeft <= 7) { nbsColorClass = "text-red-500 font-bold"; nbsFontSize = "text-xs"; }
+    else if (nbsAlert.daysLeft <= 14) { nbsColorClass = "text-orange-400 font-bold"; }
+    else { nbsColorClass = "text-blue-400 font-bold"; }
   }
 
   return (
@@ -286,19 +287,17 @@ function MojeUlohyMenuItem({ location }: { location: string }) {
       >
         <Link href="/moje-ulohy">
           <ClipboardCheck className="w-4 h-4" />
-          <span>Moje úlohy</span>
-          <span className="ml-auto flex items-center gap-1.5">
-            {nbsAlert?.show && (
-              <span className={`text-[10px] ${nbsColorClass}`} data-testid="badge-nbs-alert">
-                NBS !
-              </span>
-            )}
-            {showBadge && (
-              <span className={`flex h-5 min-w-5 items-center justify-center rounded-full ${badgeColor} text-[10px] font-bold text-white px-1`} data-testid="badge-task-count">
-                {badgeValue}
-              </span>
-            )}
-          </span>
+          <span className="flex-1">Moje úlohy</span>
+          {nbsAlert?.show && (
+            <span className={`${nbsFontSize} ${nbsColorClass}`} data-testid="badge-nbs-alert">
+              NBS !
+            </span>
+          )}
+          {showBadge && (
+            <span className={`flex h-5 min-w-5 items-center justify-center rounded-full ${badgeColor} text-[10px] font-bold text-white px-1`} data-testid="badge-task-count">
+              {badgeValue}
+            </span>
+          )}
         </Link>
       </SidebarMenuButton>
     </SidebarMenuItem>
