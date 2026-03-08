@@ -1060,6 +1060,7 @@ function NbsAnalyticsChart() {
   const [selectedParams, setSelectedParams] = useState<string[]>(["newContracts_life", "newContracts_nonLife"]);
   const [chartOpen, setChartOpen] = useState(false);
   const [paramsOpen, setParamsOpen] = useState(false);
+  const [openSection, setOpenSection] = useState<string | null>(null);
 
   const periodOrder = ["1q", "2q", "3q", "4q", "annual"];
   const yearsStr = [...selectedYears].sort().join(",");
@@ -1161,13 +1162,13 @@ function NbsAnalyticsChart() {
                 <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
                   Vybrané parametre ({selectedParams.length})
                 </p>
-                <div className="flex flex-wrap gap-1">
+                <div className="flex flex-wrap gap-1 justify-between">
                   {selectedParams.map((pk, i) => {
                     const param = NBS_CHART_PARAMS.find(p => p.key === pk);
                     return (
                       <span
                         key={pk}
-                        className="inline-flex items-center gap-1 text-[9px] px-1.5 py-0.5 rounded-full text-white"
+                        className="inline-flex items-center gap-1 text-[9px] px-1.5 py-0.5 rounded-full text-white flex-grow text-center justify-center"
                         style={{ backgroundColor: CHART_COLORS[i % CHART_COLORS.length] }}
                       >
                         {param?.label || pk}
@@ -1189,32 +1190,52 @@ function NbsAnalyticsChart() {
                 {paramsOpen ? <ChevronUp className="w-3.5 h-3.5 text-muted-foreground" /> : <ChevronDown className="w-3.5 h-3.5 text-muted-foreground" />}
               </div>
               {paramsOpen && (
-                <div className="px-3 pb-3 space-y-2 max-h-[200px] overflow-y-auto">
-                  {sections.map(([sKey, sLabel]) => {
-                    const sectionParams = NBS_CHART_PARAMS.filter(p => p.section === sKey);
-                    return (
-                      <div key={sKey} className="space-y-1">
-                        <p className="text-[9px] font-bold text-muted-foreground">{sLabel}</p>
-                        <div className="flex flex-wrap gap-1">
-                          {sectionParams.map(p => (
-                            <button
-                              key={p.key}
-                              type="button"
-                              onClick={() => toggleParam(p.key)}
-                              className={`text-[9px] px-2 py-0.5 rounded border transition-all ${
-                                selectedParams.includes(p.key)
-                                  ? "bg-blue-600 text-white border-blue-600"
-                                  : "bg-muted/50 text-muted-foreground border-border hover:bg-muted"
-                              }`}
-                              data-testid={`chart-param-${p.key}`}
-                            >
-                              {p.label}
-                            </button>
-                          ))}
-                        </div>
-                      </div>
-                    );
-                  })}
+                <div className="px-3 pb-3 space-y-2">
+                  <div className="flex flex-wrap gap-1">
+                    {sections.map(([sKey, sLabel]) => {
+                      const sectionParams = NBS_CHART_PARAMS.filter(p => p.section === sKey);
+                      const activeCount = sectionParams.filter(p => selectedParams.includes(p.key)).length;
+                      return (
+                        <button
+                          key={sKey}
+                          type="button"
+                          onClick={() => setOpenSection(openSection === sKey ? null : sKey)}
+                          className={`text-[9px] px-2.5 py-1 rounded border transition-all flex items-center gap-1 ${
+                            openSection === sKey
+                              ? "bg-blue-600 text-white border-blue-600"
+                              : "bg-muted/50 text-muted-foreground border-border hover:bg-muted"
+                          }`}
+                          data-testid={`chart-section-${sKey}`}
+                        >
+                          {sLabel}
+                          {activeCount > 0 && (
+                            <span className={`text-[8px] px-1 rounded-full ${openSection === sKey ? "bg-white/30" : "bg-blue-600 text-white"}`}>
+                              {activeCount}
+                            </span>
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
+                  {openSection && (
+                    <div className="flex flex-wrap gap-1 pt-1 border-t">
+                      {NBS_CHART_PARAMS.filter(p => p.section === openSection).map(p => (
+                        <button
+                          key={p.key}
+                          type="button"
+                          onClick={() => toggleParam(p.key)}
+                          className={`text-[9px] px-2 py-0.5 rounded border transition-all ${
+                            selectedParams.includes(p.key)
+                              ? "bg-blue-600 text-white border-blue-600"
+                              : "bg-muted/50 text-muted-foreground border-border hover:bg-muted"
+                          }`}
+                          data-testid={`chart-param-${p.key}`}
+                        >
+                          {p.label}
+                        </button>
+                      ))}
+                    </div>
+                  )}
                 </div>
               )}
             </div>
