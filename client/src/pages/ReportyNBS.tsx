@@ -1049,7 +1049,8 @@ function getValueFromPath(obj: any, path: string): number {
 
 function NbsAnalyticsChart() {
   const currentYear = new Date().getFullYear();
-  const availableYears = Array.from({ length: 5 }, (_, i) => currentYear - i);
+  const [yearsRange, setYearsRange] = useState(5);
+  const availableYears = Array.from({ length: yearsRange }, (_, i) => currentYear - i);
   const availablePeriods = [
     { key: "1q", label: "1Q" }, { key: "2q", label: "2Q" }, { key: "3q", label: "3Q" },
     { key: "4q", label: "4Q" }, { key: "annual", label: "Ročný" },
@@ -1120,7 +1121,16 @@ function NbsAnalyticsChart() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Roky</p>
-                <div className="flex flex-wrap gap-1">
+                <div className="flex flex-wrap gap-1 items-center">
+                  <button
+                    type="button"
+                    onClick={() => setYearsRange(prev => prev + 5)}
+                    className="text-xs px-1.5 py-1 rounded border bg-muted/50 text-muted-foreground border-border hover:bg-muted transition-all"
+                    data-testid="chart-years-older"
+                    title="Zobraziť staršie roky"
+                  >
+                    ◀
+                  </button>
                   {availableYears.map(y => (
                     <button
                       key={y}
@@ -1134,6 +1144,17 @@ function NbsAnalyticsChart() {
                       {y}
                     </button>
                   ))}
+                  {yearsRange > 5 && (
+                    <button
+                      type="button"
+                      onClick={() => setYearsRange(5)}
+                      className="text-xs px-1.5 py-1 rounded border bg-muted/50 text-muted-foreground border-border hover:bg-muted transition-all"
+                      data-testid="chart-years-reset"
+                      title="Zobraziť len posledných 5 rokov"
+                    >
+                      ▶
+                    </button>
+                  )}
                 </div>
               </div>
 
