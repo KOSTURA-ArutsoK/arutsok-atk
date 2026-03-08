@@ -285,16 +285,18 @@ function MojeUlohyMenuItem({ location }: { location: string }) {
         isActive={location === "/moje-ulohy"}
         data-testid="nav-moje-ulohy"
       >
-        <Link href="/moje-ulohy">
-          <ClipboardCheck className="w-4 h-4" />
-          <span className="flex-1">Moje úlohy</span>
-          {nbsAlert?.show && (
-            <span className={`${nbsFontSize} ${nbsColorClass}`} data-testid="badge-nbs-alert">
-              NBS !
-            </span>
-          )}
+        <Link href="/moje-ulohy" className="flex items-center w-full">
+          <ClipboardCheck className="w-4 h-4 shrink-0" />
+          <span className="shrink-0 ml-2">Moje úlohy</span>
+          <span className="flex-1 text-center">
+            {nbsAlert?.show && (
+              <span className={`${nbsFontSize} ${nbsColorClass}`} data-testid="badge-nbs-alert">
+                NBS !
+              </span>
+            )}
+          </span>
           {showBadge && (
-            <span className={`flex h-5 min-w-5 items-center justify-center rounded-full ${badgeColor} text-[10px] font-bold text-white px-1`} data-testid="badge-task-count">
+            <span className={`shrink-0 flex h-5 min-w-5 items-center justify-center rounded-full ${badgeColor} text-[10px] font-bold text-white px-1`} data-testid="badge-task-count">
               {badgeValue}
             </span>
           )}
