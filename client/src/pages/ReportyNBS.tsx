@@ -1049,9 +1049,11 @@ function getValueFromPath(obj: any, path: string): number {
 
 function NbsAnalyticsChart() {
   const currentYear = new Date().getFullYear();
-  const [yearFrom, setYearFrom] = useState(currentYear - 4);
-  const [yearTo, setYearTo] = useState(currentYear);
-  const availableYears = Array.from({ length: yearTo - yearFrom + 1 }, (_, i) => yearTo - i);
+  const MIN_YEAR = 2000;
+  const YEAR_WINDOW = 5;
+  const maxOffset = currentYear - MIN_YEAR - YEAR_WINDOW + 1;
+  const [yearOffset, setYearOffset] = useState(0);
+  const availableYears = Array.from({ length: YEAR_WINDOW }, (_, i) => currentYear - yearOffset - i);
   const availablePeriods = [
     { key: "1q", label: "1Q" }, { key: "2q", label: "2Q" }, { key: "3q", label: "3Q" },
     { key: "4q", label: "4Q" }, { key: "annual", label: "Ročný" },
@@ -1122,43 +1124,16 @@ function NbsAnalyticsChart() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Roky</p>
-                <div className="flex items-center gap-2 mb-1">
-                  <div className="flex items-center gap-1">
-                    <span className="text-[9px] text-muted-foreground">Od</span>
-                    <select
-                      value={yearFrom}
-                      onChange={(e) => {
-                        const v = Number(e.target.value);
-                        setYearFrom(v);
-                        if (v > yearTo) setYearTo(v);
-                      }}
-                      className="text-xs px-1.5 py-0.5 rounded border border-border bg-muted/50 text-foreground"
-                      data-testid="chart-year-from"
-                    >
-                      {Array.from({ length: currentYear - 2000 + 1 }, (_, i) => currentYear - i).map(y => (
-                        <option key={y} value={y}>{y}</option>
-                      ))}
-                    </select>
-                  </div>
-                  <div className="flex items-center gap-1">
-                    <span className="text-[9px] text-muted-foreground">Do</span>
-                    <select
-                      value={yearTo}
-                      onChange={(e) => {
-                        const v = Number(e.target.value);
-                        setYearTo(v);
-                        if (v < yearFrom) setYearFrom(v);
-                      }}
-                      className="text-xs px-1.5 py-0.5 rounded border border-border bg-muted/50 text-foreground"
-                      data-testid="chart-year-to"
-                    >
-                      {Array.from({ length: currentYear - 2000 + 1 }, (_, i) => currentYear - i).map(y => (
-                        <option key={y} value={y}>{y}</option>
-                      ))}
-                    </select>
-                  </div>
-                </div>
-                <div className="flex flex-wrap gap-1">
+                <div className="flex items-center gap-1">
+                  <button
+                    type="button"
+                    onClick={() => setYearOffset(prev => Math.max(0, prev - 1))}
+                    disabled={yearOffset === 0}
+                    className="text-xs px-1.5 py-1 rounded border bg-muted/50 text-muted-foreground border-border hover:bg-muted transition-all disabled:opacity-30 disabled:cursor-not-allowed"
+                    data-testid="chart-years-newer"
+                  >
+                    ◀
+                  </button>
                   {availableYears.map(y => (
                     <button
                       key={y}
@@ -1172,7 +1147,29 @@ function NbsAnalyticsChart() {
                       {y}
                     </button>
                   ))}
+                  <button
+                    type="button"
+                    onClick={() => setYearOffset(prev => Math.min(maxOffset, prev + 1))}
+                    disabled={yearOffset >= maxOffset}
+                    className="text-xs px-1.5 py-1 rounded border bg-muted/50 text-muted-foreground border-border hover:bg-muted transition-all disabled:opacity-30 disabled:cursor-not-allowed"
+                    data-testid="chart-years-older"
+                  >
+                    ▶
+                  </button>
                 </div>
+                {selectedYears.length > 0 && (
+                  <div className="flex flex-wrap gap-1">
+                    {[...selectedYears].sort((a, b) => b - a).map(y => (
+                      <span
+                        key={y}
+                        className="inline-flex items-center gap-1 text-[9px] px-1.5 py-0.5 rounded-full bg-blue-600 text-white"
+                      >
+                        {y}
+                        <X className="w-2.5 h-2.5 cursor-pointer" onClick={() => setSelectedYears(prev => prev.filter(x => x !== y))} />
+                      </span>
+                    ))}
+                  </div>
+                )}
               </div>
 
               <div className="space-y-2">
