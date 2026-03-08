@@ -6,7 +6,8 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
-import { Loader2, ChevronLeft, FileBarChart, Archive, ChevronDown, ChevronUp, FileText, HelpCircle, Save } from "lucide-react";
+import { Loader2, ChevronLeft, FileBarChart, Archive, ChevronDown, ChevronUp, FileText, HelpCircle, Save, BarChart3, X } from "lucide-react";
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, Legend, ResponsiveContainer } from "recharts";
 import {
   Dialog,
   DialogContent,
@@ -729,6 +730,8 @@ export default function ReportyNBS() {
           initialPartnerId={partnerReportInitialId}
         />
       )}
+
+      <NbsAnalyticsChart />
     </div>
   );
 }
@@ -974,6 +977,272 @@ function PeriodBubble({ period, report, year, isExpanded, onToggle, onStatusClic
                 )}
                 {renderTotals()}
               </>
+            )}
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+const NBS_CHART_PARAMS: { key: string; label: string; section: string; path: string }[] = [
+  { key: "newContracts_life", label: "Nové zmluvy — Životné", section: "I", path: "newContracts.life" },
+  { key: "newContracts_nonLife", label: "Nové zmluvy — Neživotné", section: "I", path: "newContracts.nonLife" },
+  { key: "newContracts_reinsurance", label: "Nové zmluvy — Zaistenie", section: "I", path: "newContracts.reinsurance" },
+  { key: "amendments_life", label: "Dodatky — Životné", section: "I", path: "amendments.life" },
+  { key: "amendments_nonLife", label: "Dodatky — Neživotné", section: "I", path: "amendments.nonLife" },
+  { key: "groupContracts_life", label: "Skupinové — Životné", section: "I", path: "groupContracts.life" },
+  { key: "groupContracts_nonLife", label: "Skupinové — Neživotné", section: "I", path: "groupContracts.nonLife" },
+  { key: "takenContracts_life", label: "Prevzaté — Životné", section: "I", path: "takenContracts.life" },
+  { key: "takenContracts_nonLife", label: "Prevzaté — Neživotné", section: "I", path: "takenContracts.nonLife" },
+  { key: "premiumNew_life", label: "Poistné nové — Životné (€)", section: "II", path: "premiumNew.life" },
+  { key: "premiumNew_nonLife", label: "Poistné nové — Neživotné (€)", section: "II", path: "premiumNew.nonLife" },
+  { key: "premiumNew_reinsurance", label: "Poistné nové — Zaistenie (€)", section: "II", path: "premiumNew.reinsurance" },
+  { key: "premiumGroup_life", label: "Poistné skupinové — Životné (€)", section: "II", path: "premiumGroup.life" },
+  { key: "premiumGroup_nonLife", label: "Poistné skupinové — Neživotné (€)", section: "II", path: "premiumGroup.nonLife" },
+  { key: "premiumTaken_life", label: "Poistné prevzaté — Životné (€)", section: "II", path: "premiumTaken.life" },
+  { key: "premiumTaken_nonLife", label: "Poistné prevzaté — Neživotné (€)", section: "II", path: "premiumTaken.nonLife" },
+  { key: "cancelledNotice_life", label: "Zrušené §800 — Životné", section: "III", path: "cancelledNotice.life" },
+  { key: "cancelledNotice_nonLife", label: "Zrušené §800 — Neživotné", section: "III", path: "cancelledNotice.nonLife" },
+  { key: "cancelledNotice_reinsurance", label: "Zrušené §800 — Zaistenie", section: "III", path: "cancelledNotice.reinsurance" },
+  { key: "cancelledNonPayment_life", label: "Nezaplatené §801 — Životné", section: "III", path: "cancelledNonPayment.life" },
+  { key: "cancelledNonPayment_nonLife", label: "Nezaplatené §801 — Neživotné", section: "III", path: "cancelledNonPayment.nonLife" },
+  { key: "cancelledNonPayment_reinsurance", label: "Nezaplatené §801 — Zaistenie", section: "III", path: "cancelledNonPayment.reinsurance" },
+  { key: "cancelledWithdrawal_count", label: "Odstúpenie §802a", section: "III", path: "cancelledWithdrawal.count" },
+  { key: "commissionPositive", label: "Kladné finančné toky (€)", section: "IV", path: "commissionPositive" },
+  { key: "commissionNegative", label: "Záporné finančné toky (€)", section: "IV", path: "commissionNegative" },
+  { key: "commissionOffsetPositive", label: "Započítané kladné (€)", section: "IV", path: "commissionOffsetPositive" },
+  { key: "commissionOffsetNegative", label: "Započítané záporné (€)", section: "IV", path: "commissionOffsetNegative" },
+  { key: "pfaByPerformance_zero", label: "PFA — 0 zmlúv", section: "V", path: "pfaByPerformance.zero" },
+  { key: "pfaByPerformance_low", label: "PFA — 1-10 zmlúv", section: "V", path: "pfaByPerformance.low" },
+  { key: "pfaByPerformance_high", label: "PFA — 11+ zmlúv", section: "V", path: "pfaByPerformance.high" },
+  { key: "employeesByPerformance_zero", label: "Zamestnanci — 0 zmlúv", section: "V", path: "employeesByPerformance.zero" },
+  { key: "employeesByPerformance_low", label: "Zamestnanci — 1-10 zmlúv", section: "V", path: "employeesByPerformance.low" },
+  { key: "employeesByPerformance_high", label: "Zamestnanci — 11+ zmlúv", section: "V", path: "employeesByPerformance.high" },
+];
+
+const CHART_COLORS = [
+  "#3b82f6", "#ef4444", "#22c55e", "#f59e0b", "#8b5cf6", "#ec4899", "#06b6d4", "#f97316",
+  "#14b8a6", "#a855f7", "#6366f1", "#d946ef", "#84cc16", "#eab308", "#0ea5e9", "#e11d48",
+];
+
+const SECTION_LABELS: Record<string, string> = {
+  "I": "I. Počet zmlúv",
+  "II": "II. Objem poistného",
+  "III": "III. Zrušené zmluvy",
+  "IV": "IV. Finančné toky",
+  "V": "V. Personálne",
+};
+
+const PERIOD_LABELS: Record<string, string> = {
+  "1q": "1Q", "2q": "2Q", "3q": "3Q", "4q": "4Q", "annual": "Ročný",
+};
+
+function getValueFromPath(obj: any, path: string): number {
+  const parts = path.split(".");
+  let val = obj;
+  for (const p of parts) {
+    val = val?.[p];
+  }
+  return Number(val) || 0;
+}
+
+function NbsAnalyticsChart() {
+  const currentYear = new Date().getFullYear();
+  const availableYears = Array.from({ length: 5 }, (_, i) => currentYear - i);
+  const availablePeriods = [
+    { key: "1q", label: "1Q" }, { key: "2q", label: "2Q" }, { key: "3q", label: "3Q" },
+    { key: "4q", label: "4Q" }, { key: "annual", label: "Ročný" },
+  ];
+
+  const [selectedYears, setSelectedYears] = useState<number[]>([currentYear]);
+  const [selectedPeriods, setSelectedPeriods] = useState<string[]>(["1q", "2q", "3q", "4q"]);
+  const [selectedParams, setSelectedParams] = useState<string[]>(["newContracts_life", "newContracts_nonLife"]);
+  const [chartOpen, setChartOpen] = useState(false);
+
+  const periodOrder = ["1q", "2q", "3q", "4q", "annual"];
+  const yearsStr = [...selectedYears].sort().join(",");
+  const periodsStr = [...selectedPeriods].sort((a, b) => periodOrder.indexOf(a) - periodOrder.indexOf(b)).join(",");
+
+  const { data: chartData, isLoading } = useQuery<any[]>({
+    queryKey: ["/api/nbs-partner-reports/chart-data", yearsStr, periodsStr],
+    queryFn: async () => {
+      const res = await fetch(`/api/nbs-partner-reports/chart-data?years=${yearsStr}&periods=${periodsStr}`, { credentials: "include" });
+      if (!res.ok) return [];
+      return res.json();
+    },
+    enabled: chartOpen && selectedYears.length > 0 && selectedPeriods.length > 0,
+  });
+
+  function toggleYear(y: number) {
+    setSelectedYears(prev => prev.includes(y) ? prev.filter(x => x !== y) : [...prev, y]);
+  }
+  function togglePeriod(p: string) {
+    setSelectedPeriods(prev => prev.includes(p) ? prev.filter(x => x !== p) : [...prev, p]);
+  }
+  function toggleParam(k: string) {
+    setSelectedParams(prev => prev.includes(k) ? prev.filter(x => x !== k) : [...prev, k]);
+  }
+
+  const barData = (chartData || []).map(item => {
+    const label = `${PERIOD_LABELS[item.period] || item.period} ${item.year}`;
+    const row: any = { name: label };
+    for (const pk of selectedParams) {
+      const param = NBS_CHART_PARAMS.find(p => p.key === pk);
+      if (param) {
+        row[pk] = getValueFromPath(item.totals, param.path);
+      }
+    }
+    return row;
+  });
+
+  const sections = Object.entries(SECTION_LABELS);
+
+  return (
+    <Card className="border-2 border-blue-600/30" data-testid="nbs-analytics-chart">
+      <CardContent className="py-4 space-y-4">
+        <div
+          className="flex items-center justify-between cursor-pointer"
+          onClick={() => setChartOpen(!chartOpen)}
+          data-testid="toggle-nbs-chart"
+        >
+          <div className="flex items-center gap-2">
+            <BarChart3 className="w-5 h-5 text-blue-500" />
+            <h3 className="text-base font-bold">Analytika NBS</h3>
+          </div>
+          {chartOpen ? <ChevronUp className="w-4 h-4 text-muted-foreground" /> : <ChevronDown className="w-4 h-4 text-muted-foreground" />}
+        </div>
+
+        {chartOpen && (
+          <div className="space-y-4 pt-2 border-t">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="space-y-2">
+                <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Roky</p>
+                <div className="flex flex-wrap gap-1">
+                  {availableYears.map(y => (
+                    <button
+                      key={y}
+                      type="button"
+                      onClick={() => toggleYear(y)}
+                      className={`text-xs px-2.5 py-1 rounded border transition-all ${
+                        selectedYears.includes(y) ? "bg-blue-600 text-white border-blue-600" : "bg-muted/50 text-muted-foreground border-border hover:bg-muted"
+                      }`}
+                      data-testid={`chart-year-${y}`}
+                    >
+                      {y}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Obdobia</p>
+                <div className="flex flex-wrap gap-1">
+                  {availablePeriods.map(p => (
+                    <button
+                      key={p.key}
+                      type="button"
+                      onClick={() => togglePeriod(p.key)}
+                      className={`text-xs px-2.5 py-1 rounded border transition-all ${
+                        selectedPeriods.includes(p.key) ? "bg-blue-600 text-white border-blue-600" : "bg-muted/50 text-muted-foreground border-border hover:bg-muted"
+                      }`}
+                      data-testid={`chart-period-${p.key}`}
+                    >
+                      {p.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
+                  Parametre ({selectedParams.length})
+                </p>
+                {selectedParams.length > 0 && (
+                  <div className="flex flex-wrap gap-1 mb-1">
+                    {selectedParams.map((pk, i) => {
+                      const param = NBS_CHART_PARAMS.find(p => p.key === pk);
+                      return (
+                        <span
+                          key={pk}
+                          className="inline-flex items-center gap-1 text-[9px] px-1.5 py-0.5 rounded-full text-white"
+                          style={{ backgroundColor: CHART_COLORS[i % CHART_COLORS.length] }}
+                        >
+                          {param?.label || pk}
+                          <X className="w-2.5 h-2.5 cursor-pointer" onClick={() => toggleParam(pk)} />
+                        </span>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div className="space-y-2 border rounded p-3 bg-muted/20 max-h-[200px] overflow-y-auto">
+              <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider sticky top-0 bg-muted/20">Výber parametrov</p>
+              {sections.map(([sKey, sLabel]) => {
+                const sectionParams = NBS_CHART_PARAMS.filter(p => p.section === sKey);
+                return (
+                  <div key={sKey} className="space-y-1">
+                    <p className="text-[9px] font-bold text-muted-foreground">{sLabel}</p>
+                    <div className="flex flex-wrap gap-1">
+                      {sectionParams.map(p => (
+                        <button
+                          key={p.key}
+                          type="button"
+                          onClick={() => toggleParam(p.key)}
+                          className={`text-[9px] px-2 py-0.5 rounded border transition-all ${
+                            selectedParams.includes(p.key)
+                              ? "bg-blue-600 text-white border-blue-600"
+                              : "bg-muted/50 text-muted-foreground border-border hover:bg-muted"
+                          }`}
+                          data-testid={`chart-param-${p.key}`}
+                        >
+                          {p.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            {isLoading ? (
+              <div className="flex justify-center py-8">
+                <Loader2 className="w-6 h-6 animate-spin text-primary" />
+              </div>
+            ) : barData.length > 0 && selectedParams.length > 0 ? (
+              <div className="w-full" style={{ height: Math.max(300, 40 * barData.length) }} data-testid="nbs-chart-container">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={barData} margin={{ top: 10, right: 20, left: 10, bottom: 5 }}>
+                    <CartesianGrid strokeDasharray="3 3" opacity={0.3} />
+                    <XAxis dataKey="name" tick={{ fontSize: 10 }} interval={0} angle={-20} textAnchor="end" height={60} />
+                    <YAxis tick={{ fontSize: 10 }} />
+                    <RechartsTooltip
+                      contentStyle={{ fontSize: 11, background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: 6 }}
+                      labelStyle={{ fontWeight: "bold", marginBottom: 4 }}
+                      formatter={(value: number, name: string) => {
+                        const param = NBS_CHART_PARAMS.find(p => p.key === name);
+                        return [value.toLocaleString("sk-SK"), param?.label || name];
+                      }}
+                    />
+                    <Legend
+                      wrapperStyle={{ fontSize: 10 }}
+                      formatter={(value: string) => {
+                        const param = NBS_CHART_PARAMS.find(p => p.key === value);
+                        return param?.label || value;
+                      }}
+                    />
+                    {selectedParams.map((pk, i) => (
+                      <Bar key={pk} dataKey={pk} fill={CHART_COLORS[i % CHART_COLORS.length]} radius={[2, 2, 0, 0]} />
+                    ))}
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            ) : (
+              <div className="text-center py-6 text-muted-foreground text-sm" data-testid="nbs-chart-empty">
+                {selectedParams.length === 0 ? "Vyberte aspoň jeden parameter" : selectedYears.length === 0 ? "Vyberte aspoň jeden rok" : "Žiadne dáta pre vybrané obdobie"}
+              </div>
             )}
           </div>
         )}

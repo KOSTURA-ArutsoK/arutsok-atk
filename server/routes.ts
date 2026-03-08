@@ -7635,6 +7635,61 @@ export async function registerRoutes(
     }
   });
 
+  app.get("/api/nbs-partner-reports/chart-data", isAuthenticated, async (req: any, res) => {
+    try {
+      if (!isAdmin(req.appUser)) return res.status(403).json({ message: "Len admin" });
+      const yearsParam = String(req.query.years || "");
+      const periodsParam = String(req.query.periods || "");
+      if (!yearsParam || !periodsParam) return res.status(400).json({ message: "years a periods su povinne" });
+      const years = yearsParam.split(",").map(Number).filter(n => !isNaN(n));
+      const periods = periodsParam.split(",").filter(Boolean);
+      if (!years.length || !periods.length) return res.status(400).json({ message: "Neplatne years alebo periods" });
+
+      const result: any[] = [];
+      for (const year of years) {
+        for (const period of periods) {
+          const reports = await db.select().from(nbsPartnerReports)
+            .where(and(eq(nbsPartnerReports.year, year), eq(nbsPartnerReports.period, period)));
+          const totals: any = {
+            newContracts: { life: 0, nonLife: 0, reinsurance: 0 },
+            amendments: { life: 0, nonLife: 0 },
+            groupContracts: { life: 0, nonLife: 0 },
+            takenContracts: { life: 0, nonLife: 0 },
+            premiumNew: { life: 0, nonLife: 0, reinsurance: 0 },
+            premiumGroup: { life: 0, nonLife: 0 },
+            premiumTaken: { life: 0, nonLife: 0 },
+            cancelledNotice: { life: 0, nonLife: 0, reinsurance: 0 },
+            cancelledNonPayment: { life: 0, nonLife: 0, reinsurance: 0 },
+            cancelledWithdrawal: { count: 0 },
+            commissionPositive: 0,
+            commissionNegative: 0,
+            commissionOffsetPositive: 0,
+            commissionOffsetNegative: 0,
+            pfaByPerformance: { zero: 0, low: 0, high: 0 },
+            employeesByPerformance: { zero: 0, low: 0, high: 0 },
+          };
+          for (const report of reports) {
+            const d = report.data as any;
+            if (!d || typeof d !== "object") continue;
+            for (const key of Object.keys(totals)) {
+              if (typeof totals[key] === "number") {
+                totals[key] += Number(d[key]) || 0;
+              } else if (typeof totals[key] === "object") {
+                for (const subKey of Object.keys(totals[key])) {
+                  totals[key][subKey] += Number(d[key]?.[subKey]) || 0;
+                }
+              }
+            }
+          }
+          result.push({ year, period, totals, partnerCount: reports.length });
+        }
+      }
+      res.json(result);
+    } catch (err: any) {
+      res.status(500).json({ message: err?.message || "Chyba" });
+    }
+  });
+
   app.get("/api/nbs-partner-reports/:partnerId", isAuthenticated, async (req: any, res) => {
     try {
       if (!isAdmin(req.appUser)) return res.status(403).json({ message: "Len admin" });
