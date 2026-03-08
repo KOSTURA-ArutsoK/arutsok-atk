@@ -827,6 +827,7 @@ function DeleteProductDialog({
 }
 
 export default function Products() {
+  const { data: appUser } = useAppUser();
   const { data: products, isLoading } = useProducts();
   const { data: partners } = usePartners();
   const { data: companies } = useMyCompanies();
