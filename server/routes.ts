@@ -4,7 +4,7 @@ import { storage } from "./storage";
 import { api } from "@shared/routes";
 import { setupAuth, isAuthenticated } from "./auth";
 import { z } from "zod";
-import { continents, states, myCompanies, appUsers, clientTypes, clientSubGroups, clientGroupMembers, productFolderAssignments, folderPanels, panelParameters, userClientGroupMemberships, clientGroups, permissionGroups, insertCareerLevelSchema, insertProductPointRateSchema, careerLevels, importLogs, commissions, contracts, contractStatuses, contractStatusChangeLogs, clientDataTabs, clientDataCategories, subjects, subjectPointsLog, subjectFieldHistory, subjectCollaborators, clientMarketingConsents, clientDocumentHistory, contractAcquirers, contractPasswords, contractRewardDistributions, contractParameterValues, subjectArchive, auditLogs, globalCounters, subjectPhotos, activityEvents, subjectParamSections, subjectParameters, subjectTemplates, subjectTemplateParams, commissionCalculationLogs, parameterSynonyms, dataConflictAlerts, transactionDedupLog, relationRoleTypes, subjectRelations, maturityAlerts, inheritancePrompts, guardianshipArchive, households, householdMembers, householdAssets, privacyBlocks, accessConsentLog, maturityEvents, addressGroups, addressGroupMembers, companySubjectRoles, notificationQueue, batchJobs, subjectObjects, objectDataSources, sectors, sections, sectorProducts, parameters, panels, productPanels, contractFolders, fieldLayoutConfigs, sectorCategoryMapping, suggestedRelations, statusEvidence, contractLifecycleHistory, systemNotifications, partners, products, contractInventories, contractTemplates, redListAlerts, subjectAddresses, divisions, companyDivisions, insertDivisionSchema, ocrProcessingJobs, networkLinks, guarantorTransferRequests, nbsReportStatuses } from "@shared/schema";
+import { continents, states, myCompanies, appUsers, clientTypes, clientSubGroups, clientGroupMembers, productFolderAssignments, folderPanels, panelParameters, userClientGroupMemberships, clientGroups, permissionGroups, insertCareerLevelSchema, insertProductPointRateSchema, careerLevels, importLogs, commissions, contracts, contractStatuses, contractStatusChangeLogs, clientDataTabs, clientDataCategories, subjects, subjectPointsLog, subjectFieldHistory, subjectCollaborators, clientMarketingConsents, clientDocumentHistory, contractAcquirers, contractPasswords, contractRewardDistributions, contractParameterValues, subjectArchive, auditLogs, globalCounters, subjectPhotos, activityEvents, subjectParamSections, subjectParameters, subjectTemplates, subjectTemplateParams, commissionCalculationLogs, parameterSynonyms, dataConflictAlerts, transactionDedupLog, relationRoleTypes, subjectRelations, maturityAlerts, inheritancePrompts, guardianshipArchive, households, householdMembers, householdAssets, privacyBlocks, accessConsentLog, maturityEvents, addressGroups, addressGroupMembers, companySubjectRoles, notificationQueue, batchJobs, subjectObjects, objectDataSources, sectors, sections, sectorProducts, parameters, panels, productPanels, contractFolders, fieldLayoutConfigs, sectorCategoryMapping, suggestedRelations, statusEvidence, contractLifecycleHistory, systemNotifications, partners, products, contractInventories, contractTemplates, redListAlerts, subjectAddresses, divisions, companyDivisions, insertDivisionSchema, ocrProcessingJobs, networkLinks, guarantorTransferRequests, nbsReportStatuses, nbsPartnerReports } from "@shared/schema";
 import { notifyObjectionCreated, notifyPreDeletion, getProductDaysLimits } from "./email";
 import { seedSubjectParameters, seedAssetPanels, seedEventAndEntityPanels } from "./seed-subject-params";
 import sharp from "sharp";
@@ -7515,6 +7515,76 @@ export async function registerRoutes(
       const appUser = req.appUser;
       const reports = await storage.initNbsReportsForYear(year, appUser?.username || "system");
       res.json(reports);
+    } catch (err: any) {
+      res.status(500).json({ message: err?.message || "Chyba" });
+    }
+  });
+
+  // === NBS PARTNER REPORTS ===
+  app.get("/api/nbs-partner-reports", isAuthenticated, async (req: any, res) => {
+    try {
+      if (!isAdmin(req.appUser)) return res.status(403).json({ message: "Len admin" });
+      const year = Number(req.query.year);
+      const period = String(req.query.period || "");
+      if (!year || !period) return res.status(400).json({ message: "year a period su povinne" });
+      const reports = await db.select().from(nbsPartnerReports)
+        .where(and(eq(nbsPartnerReports.year, year), eq(nbsPartnerReports.period, period)));
+      res.json(reports);
+    } catch (err: any) {
+      res.status(500).json({ message: err?.message || "Chyba" });
+    }
+  });
+
+  app.get("/api/nbs-partner-reports/:partnerId", isAuthenticated, async (req: any, res) => {
+    try {
+      if (!isAdmin(req.appUser)) return res.status(403).json({ message: "Len admin" });
+      const partnerId = Number(req.params.partnerId);
+      const year = Number(req.query.year);
+      const period = String(req.query.period || "");
+      if (!year || !period) return res.status(400).json({ message: "year a period su povinne" });
+      const [report] = await db.select().from(nbsPartnerReports)
+        .where(and(
+          eq(nbsPartnerReports.partnerId, partnerId),
+          eq(nbsPartnerReports.year, year),
+          eq(nbsPartnerReports.period, period)
+        )).limit(1);
+      res.json(report || null);
+    } catch (err: any) {
+      res.status(500).json({ message: err?.message || "Chyba" });
+    }
+  });
+
+  app.put("/api/nbs-partner-reports/:partnerId", isAuthenticated, async (req: any, res) => {
+    try {
+      if (!isAdmin(req.appUser)) return res.status(403).json({ message: "Len admin" });
+      const partnerId = Number(req.params.partnerId);
+      const { year, period, data } = req.body;
+      if (!year || !period || !data || typeof data !== "object") return res.status(400).json({ message: "year, period a data su povinne" });
+      const validPeriods = ["1q", "2q", "3q", "4q", "annual"];
+      if (!validPeriods.includes(period)) return res.status(400).json({ message: "Neplatne obdobie" });
+      const username = req.appUser?.username || "system";
+
+      const [existing] = await db.select().from(nbsPartnerReports)
+        .where(and(
+          eq(nbsPartnerReports.partnerId, partnerId),
+          eq(nbsPartnerReports.year, year),
+          eq(nbsPartnerReports.period, period)
+        )).limit(1);
+
+      let result;
+      if (existing) {
+        [result] = await db.update(nbsPartnerReports)
+          .set({ data, updatedBy: username, updatedAt: new Date() })
+          .where(eq(nbsPartnerReports.id, existing.id))
+          .returning();
+      } else {
+        [result] = await db.insert(nbsPartnerReports)
+          .values({ partnerId, year, period, data, updatedBy: username })
+          .returning();
+      }
+
+      await logAudit(req, { action: existing ? "UPDATE" : "CREATE", module: "NBS Partner Report", entityId: result.id, newData: { partnerId, year, period, data } });
+      res.json(result);
     } catch (err: any) {
       res.status(500).json({ message: err?.message || "Chyba" });
     }

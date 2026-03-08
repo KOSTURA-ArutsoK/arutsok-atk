@@ -2498,6 +2498,21 @@ export const insertNbsReportStatusSchema = createInsertSchema(nbsReportStatuses)
 export type NbsReportStatus = typeof nbsReportStatuses.$inferSelect;
 export type InsertNbsReportStatus = z.infer<typeof insertNbsReportStatusSchema>;
 
+export const nbsPartnerReports = pgTable("nbs_partner_reports", {
+  id: serial("id").primaryKey(),
+  partnerId: integer("partner_id").notNull(),
+  year: integer("year").notNull(),
+  period: text("period").notNull(),
+  data: jsonb("data").notNull().default({}),
+  updatedBy: text("updated_by"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertNbsPartnerReportSchema = createInsertSchema(nbsPartnerReports).omit({ id: true, createdAt: true, updatedAt: true });
+export type NbsPartnerReport = typeof nbsPartnerReports.$inferSelect;
+export type InsertNbsPartnerReport = z.infer<typeof insertNbsPartnerReportSchema>;
+
 export type CreateSubjectRequest = InsertSubject;
 export type UpdateSubjectRequest = Partial<InsertSubject> & { changeReason?: string };
 export type UpdateMyCompanyRequest = Partial<InsertMyCompany> & { changeReason?: string };

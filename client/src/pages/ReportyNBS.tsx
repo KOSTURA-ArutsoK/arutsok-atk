@@ -1,12 +1,12 @@
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
-import { Loader2, ChevronLeft, FileBarChart, Archive, ChevronDown, ChevronUp } from "lucide-react";
+import { Loader2, ChevronLeft, FileBarChart, Archive, ChevronDown, ChevronUp, FileText, HelpCircle, Save } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -15,6 +15,20 @@ import {
   DialogDescription,
   DialogFooter,
 } from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import { usePartners } from "@/hooks/use-partners";
 
 interface NbsReport {
   id: number;
@@ -102,6 +116,342 @@ function formatDeadlineSlovak(deadline: Date): string {
   return `${d}.${m}.${y}`;
 }
 
+const DEFAULT_REPORT_DATA = {
+  newContracts: { life: 0, nonLife: 0, reinsurance: 0 },
+  amendments: { life: 0, nonLife: 0 },
+  groupContracts: { life: 0, nonLife: 0 },
+  takenContracts: { life: 0, nonLife: 0 },
+  premiumNew: { life: 0, nonLife: 0, reinsurance: 0 },
+  premiumGroup: { life: 0, nonLife: 0 },
+  premiumTaken: { life: 0, nonLife: 0 },
+  cancelledNotice: { life: 0, nonLife: 0, reinsurance: 0 },
+  cancelledNonPayment: { life: 0, nonLife: 0, reinsurance: 0 },
+  cancelledWithdrawal: { count: 0 },
+  commissionPositive: 0,
+  commissionNegative: 0,
+  commissionOffsetPositive: 0,
+  commissionOffsetNegative: 0,
+  pfaByPerformance: { zero: 0, low: 0, high: 0 },
+  employeesByPerformance: { zero: 0, low: 0, high: 0 },
+};
+
+const NBS_TOOLTIPS: Record<string, string> = {
+  newContracts: "Uvádza sa počet poistných zmlúv a návrhov poistných zmlúv, ktoré boli uzavreté alebo klientom podpísané počas príslušného kalendárneho štvrťroka. Dodatkové poistenie k životnému poisteniu sa vykazuje v rámci životného poistenia.",
+  amendments: "Uvádza sa počet dodatkov k už existujúcej poistnej zmluve, ktoré boli uzavreté alebo podpísané počas štvrťroka. Za dodatok sa považuje iba taká zmena zmluvy, ktorá má vplyv na poistné krytie alebo rozsah plnenia (napr. zmena adresy sa nepovažuje za dodatok).",
+  groupContracts: "Počet poistných zmlúv uzavretých medzi finančnou inštitúciou a poistníkom, ku ktorým majú právo pristupovať ďalšie osoby ako poistené formou prihlášky. Neuvádzajú sa flotilové zmluvy (zmena súboru majetku jednej osoby).",
+  takenContracts: "Počet zmlúv, ktoré boli prevedené do správy samostatného finančného agenta od iného agenta alebo finančnej inštitúcie počas príslušného štvrťroka.",
+  premiumNew: "Objem poistného za nové zmluvy. Ak sa platí bežne, uvedie sa poistné za 12 mesiacov. Ak trvá kratšie ako rok, ročné poistné je zhodné s celkovým. Pri jednorazovom poistnom sa uvedie celá suma. Zahŕňa sa celá suma vrátane dane z poistenia a odvodu.",
+  premiumGroup: "Uvádza sa objem ročného poistného skupinových zmlúv ku koncu príslušného kalendárneho štvrťroka. Zahŕňa celú sumu vrátane daní a odvodov.",
+  premiumTaken: "Objem ročného poistného pre zmluvy prevedené od iného agenta alebo inštitúcie počas štvrťroka. Zahŕňa celú sumu vrátane daní a odvodov.",
+  cancelledNotice: "Celkový počet zmlúv, u ktorých došlo k zániku poistenia podľa § 800 Občianskeho zákonníka do troch rokov od uzavretia zmluvy.",
+  cancelledNonPayment: "Počet zmlúv zrušených nezaplatením poistného do troch mesiacov odo dňa splatnosti poistného podľa § 801 Občianskeho zákonníka.",
+  cancelledWithdrawal: "Počet zmlúv zrušených na základe odstúpenia poistníka od poistnej zmluvy podľa § 802a Občianskeho zákonníka.",
+  commissionPositive: "Objem všetkých finančných odmien, ktoré boli vyplatené agentovi počas štvrťroka finančnými inštitúciami bez ohľadu na to, ku ktorému obdobiu prislúchajú.",
+  commissionNegative: "Objem všetkých finančných odmien, ktoré boli odpísané z účtu agenta a vrátené inštitúciám, na ktoré nárok zanikol alebo nevznikol.",
+  commissionOffsetPositive: "Objem finančných odmien, ktoré neboli vykázané v 'kladných tokoch' z dôvodu započítania v rámci záporných finančných tokov.",
+  commissionOffsetNegative: "Objem vrátených odmien, ktoré neboli vykázané v 'záporných tokoch' z dôvodu započítania v rámci kladných finančných tokov.",
+  pfaByPerformance: "Počty podriadených finančných agentov k poslednému dňu štvrťroka v členení podľa počtu zmlúv, ktoré sprostredkovali.",
+  employeesByPerformance: "Počty zamestnancov k poslednému dňu štvrťroka v členení podľa počtu zmlúv, ktoré sprostredkovali.",
+};
+
+function NbsTooltip({ tooltipKey }: { tooltipKey: string }) {
+  const text = NBS_TOOLTIPS[tooltipKey];
+  if (!text) return null;
+  return (
+    <TooltipProvider delayDuration={200}>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <HelpCircle className="w-3.5 h-3.5 text-muted-foreground cursor-help inline-block ml-1" data-testid={`tooltip-${tooltipKey}`} />
+        </TooltipTrigger>
+        <TooltipContent side="top" className="max-w-sm text-xs">
+          <p>{text}</p>
+        </TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
+  );
+}
+
+function NumField({ label, value, onChange, testId }: { label: string; value: number; onChange: (v: number) => void; testId?: string }) {
+  return (
+    <div className="flex flex-col gap-1">
+      <label className="text-[10px] text-muted-foreground font-medium">{label}</label>
+      <Input
+        type="number"
+        min={0}
+        value={value || ""}
+        onChange={e => onChange(Number(e.target.value) || 0)}
+        className="h-8 text-sm"
+        data-testid={testId}
+      />
+    </div>
+  );
+}
+
+function PartnerReportDialog({ open, onOpenChange, year, period, periodLabel }: {
+  open: boolean;
+  onOpenChange: (o: boolean) => void;
+  year: number;
+  period: string;
+  periodLabel: string;
+}) {
+  const { toast } = useToast();
+  const { data: partners } = usePartners();
+  const [selectedPartnerId, setSelectedPartnerId] = useState<string>("");
+  const [formData, setFormData] = useState<any>({ ...DEFAULT_REPORT_DATA });
+
+  const activePartners = (partners || []).filter((p: any) => !p.isDeleted);
+  const partnerId = selectedPartnerId ? Number(selectedPartnerId) : null;
+  const partnerName = activePartners.find((p: any) => p.id === partnerId)?.name || "";
+
+  const { data: existingReport, isLoading: loadingReport } = useQuery({
+    queryKey: ["/api/nbs-partner-reports", partnerId, year, period],
+    queryFn: async () => {
+      if (!partnerId) return null;
+      const res = await fetch(`/api/nbs-partner-reports/${partnerId}?year=${year}&period=${period}`, { credentials: "include" });
+      if (!res.ok) return null;
+      return res.json();
+    },
+    enabled: !!partnerId,
+  });
+
+  useEffect(() => {
+    if (existingReport?.data) {
+      setFormData({ ...DEFAULT_REPORT_DATA, ...existingReport.data });
+    } else if (partnerId) {
+      setFormData({ ...DEFAULT_REPORT_DATA });
+    }
+  }, [existingReport, partnerId]);
+
+  useEffect(() => {
+    if (!open) {
+      setSelectedPartnerId("");
+      setFormData({ ...DEFAULT_REPORT_DATA });
+    }
+  }, [open]);
+
+  const saveMutation = useMutation({
+    mutationFn: async () => {
+      if (!partnerId) throw new Error("Vyberte partnera");
+      await apiRequest("PUT", `/api/nbs-partner-reports/${partnerId}`, { year, period, data: formData });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/nbs-partner-reports"] });
+      toast({ title: "Výkaz uložený" });
+    },
+    onError: (err: any) => {
+      toast({ title: "Chyba pri ukladaní", description: err.message, variant: "destructive" });
+    },
+  });
+
+  function updateNested(section: string, field: string, value: number) {
+    setFormData((prev: any) => ({
+      ...prev,
+      [section]: { ...prev[section], [field]: value },
+    }));
+  }
+
+  function updateFlat(field: string, value: number) {
+    setFormData((prev: any) => ({ ...prev, [field]: value }));
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto" data-testid="dialog-partner-report">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <FileText className="w-5 h-5" />
+            Výkaz pre partnera — {periodLabel} {year}
+          </DialogTitle>
+          <DialogDescription>
+            {partnerName ? `Partner: ${partnerName}` : "Vyberte partnera zo zoznamu"}
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="space-y-6">
+          <div>
+            <label className="text-sm font-medium mb-2 block">Partner</label>
+            <Select value={selectedPartnerId} onValueChange={setSelectedPartnerId}>
+              <SelectTrigger data-testid="select-partner">
+                <SelectValue placeholder="Vyberte partnera..." />
+              </SelectTrigger>
+              <SelectContent>
+                {activePartners.map((p: any) => (
+                  <SelectItem key={p.id} value={String(p.id)}>{p.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          {partnerId && loadingReport && (
+            <div className="flex justify-center py-4">
+              <Loader2 className="w-6 h-6 animate-spin text-primary" />
+            </div>
+          )}
+
+          {partnerId && !loadingReport && (
+            <div className="space-y-6">
+              <div className="border rounded-md p-4 space-y-3" data-testid="section-1">
+                <h3 className="font-bold text-sm">I. POČET ZMLÚV (ks)</h3>
+
+                <div>
+                  <p className="text-xs font-medium mb-2">Nové zmluvy <NbsTooltip tooltipKey="newContracts" /></p>
+                  <div className="grid grid-cols-3 gap-3">
+                    <NumField label="Životné" value={formData.newContracts.life} onChange={v => updateNested("newContracts", "life", v)} testId="input-new-life" />
+                    <NumField label="Neživotné" value={formData.newContracts.nonLife} onChange={v => updateNested("newContracts", "nonLife", v)} testId="input-new-nonlife" />
+                    <NumField label="Zaistenie" value={formData.newContracts.reinsurance} onChange={v => updateNested("newContracts", "reinsurance", v)} testId="input-new-reinsurance" />
+                  </div>
+                </div>
+
+                <div>
+                  <p className="text-xs font-medium mb-2">Dodatky k zmluvám <NbsTooltip tooltipKey="amendments" /></p>
+                  <div className="grid grid-cols-2 gap-3">
+                    <NumField label="Životné" value={formData.amendments.life} onChange={v => updateNested("amendments", "life", v)} testId="input-amend-life" />
+                    <NumField label="Neživotné" value={formData.amendments.nonLife} onChange={v => updateNested("amendments", "nonLife", v)} testId="input-amend-nonlife" />
+                  </div>
+                </div>
+
+                <div>
+                  <p className="text-xs font-medium mb-2">Skupinové zmluvy <NbsTooltip tooltipKey="groupContracts" /></p>
+                  <div className="grid grid-cols-2 gap-3">
+                    <NumField label="Životné" value={formData.groupContracts.life} onChange={v => updateNested("groupContracts", "life", v)} testId="input-group-life" />
+                    <NumField label="Neživotné" value={formData.groupContracts.nonLife} onChange={v => updateNested("groupContracts", "nonLife", v)} testId="input-group-nonlife" />
+                  </div>
+                </div>
+
+                <div>
+                  <p className="text-xs font-medium mb-2">Prevzaté zmluvy <NbsTooltip tooltipKey="takenContracts" /></p>
+                  <div className="grid grid-cols-2 gap-3">
+                    <NumField label="Životné" value={formData.takenContracts.life} onChange={v => updateNested("takenContracts", "life", v)} testId="input-taken-life" />
+                    <NumField label="Neživotné" value={formData.takenContracts.nonLife} onChange={v => updateNested("takenContracts", "nonLife", v)} testId="input-taken-nonlife" />
+                  </div>
+                </div>
+              </div>
+
+              <div className="border rounded-md p-4 space-y-3" data-testid="section-2">
+                <h3 className="font-bold text-sm">II. OBJEM ROČNÉHO POISTNÉHO (v EUR s daňou/odvodom)</h3>
+
+                <div>
+                  <p className="text-xs font-medium mb-2">Nové zmluvy <NbsTooltip tooltipKey="premiumNew" /></p>
+                  <div className="grid grid-cols-3 gap-3">
+                    <NumField label="Životné" value={formData.premiumNew.life} onChange={v => updateNested("premiumNew", "life", v)} testId="input-prem-new-life" />
+                    <NumField label="Neživotné" value={formData.premiumNew.nonLife} onChange={v => updateNested("premiumNew", "nonLife", v)} testId="input-prem-new-nonlife" />
+                    <NumField label="Zaistenie" value={formData.premiumNew.reinsurance} onChange={v => updateNested("premiumNew", "reinsurance", v)} testId="input-prem-new-reinsurance" />
+                  </div>
+                </div>
+
+                <div>
+                  <p className="text-xs font-medium mb-2">Skupinové zmluvy <NbsTooltip tooltipKey="premiumGroup" /></p>
+                  <div className="grid grid-cols-2 gap-3">
+                    <NumField label="Životné" value={formData.premiumGroup.life} onChange={v => updateNested("premiumGroup", "life", v)} testId="input-prem-group-life" />
+                    <NumField label="Neživotné" value={formData.premiumGroup.nonLife} onChange={v => updateNested("premiumGroup", "nonLife", v)} testId="input-prem-group-nonlife" />
+                  </div>
+                </div>
+
+                <div>
+                  <p className="text-xs font-medium mb-2">Prevzaté zmluvy <NbsTooltip tooltipKey="premiumTaken" /></p>
+                  <div className="grid grid-cols-2 gap-3">
+                    <NumField label="Životné" value={formData.premiumTaken.life} onChange={v => updateNested("premiumTaken", "life", v)} testId="input-prem-taken-life" />
+                    <NumField label="Neživotné" value={formData.premiumTaken.nonLife} onChange={v => updateNested("premiumTaken", "nonLife", v)} testId="input-prem-taken-nonlife" />
+                  </div>
+                </div>
+              </div>
+
+              <div className="border rounded-md p-4 space-y-3" data-testid="section-3">
+                <h3 className="font-bold text-sm">III. ZRUŠENÉ ZMLUVY (ks)</h3>
+
+                <div>
+                  <p className="text-xs font-medium mb-2">Výpoveďou do 3 rokov (§ 800) <NbsTooltip tooltipKey="cancelledNotice" /></p>
+                  <div className="grid grid-cols-3 gap-3">
+                    <NumField label="Životné" value={formData.cancelledNotice.life} onChange={v => updateNested("cancelledNotice", "life", v)} testId="input-cancel-notice-life" />
+                    <NumField label="Neživotné" value={formData.cancelledNotice.nonLife} onChange={v => updateNested("cancelledNotice", "nonLife", v)} testId="input-cancel-notice-nonlife" />
+                    <NumField label="Zaistenie" value={formData.cancelledNotice.reinsurance} onChange={v => updateNested("cancelledNotice", "reinsurance", v)} testId="input-cancel-notice-reinsurance" />
+                  </div>
+                </div>
+
+                <div>
+                  <p className="text-xs font-medium mb-2">Nezaplatením do 3 mesiacov (§ 801) <NbsTooltip tooltipKey="cancelledNonPayment" /></p>
+                  <div className="grid grid-cols-3 gap-3">
+                    <NumField label="Životné" value={formData.cancelledNonPayment.life} onChange={v => updateNested("cancelledNonPayment", "life", v)} testId="input-cancel-nonpay-life" />
+                    <NumField label="Neživotné" value={formData.cancelledNonPayment.nonLife} onChange={v => updateNested("cancelledNonPayment", "nonLife", v)} testId="input-cancel-nonpay-nonlife" />
+                    <NumField label="Zaistenie" value={formData.cancelledNonPayment.reinsurance} onChange={v => updateNested("cancelledNonPayment", "reinsurance", v)} testId="input-cancel-nonpay-reinsurance" />
+                  </div>
+                </div>
+
+                <div>
+                  <p className="text-xs font-medium mb-2">Odstúpením do 30 dní (§ 802a) <NbsTooltip tooltipKey="cancelledWithdrawal" /></p>
+                  <div className="grid grid-cols-1 gap-3 max-w-xs">
+                    <NumField label="Počet" value={formData.cancelledWithdrawal.count} onChange={v => updateNested("cancelledWithdrawal", "count", v)} testId="input-cancel-withdrawal" />
+                  </div>
+                </div>
+              </div>
+
+              <div className="border rounded-md p-4 space-y-3" data-testid="section-4">
+                <h3 className="font-bold text-sm">IV. FINANČNÉ TOKY - PROVÍZIE (v EUR)</h3>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <p className="text-xs font-medium mb-2">Kladné finančné toky <NbsTooltip tooltipKey="commissionPositive" /></p>
+                    <NumField label="Suma" value={formData.commissionPositive} onChange={v => updateFlat("commissionPositive", v)} testId="input-comm-positive" />
+                  </div>
+                  <div>
+                    <p className="text-xs font-medium mb-2">Záporné finančné toky <NbsTooltip tooltipKey="commissionNegative" /></p>
+                    <NumField label="Suma" value={formData.commissionNegative} onChange={v => updateFlat("commissionNegative", v)} testId="input-comm-negative" />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <p className="text-xs font-medium mb-2">Započítané KLADNÉ toky <NbsTooltip tooltipKey="commissionOffsetPositive" /></p>
+                    <NumField label="Suma" value={formData.commissionOffsetPositive} onChange={v => updateFlat("commissionOffsetPositive", v)} testId="input-comm-offset-pos" />
+                  </div>
+                  <div>
+                    <p className="text-xs font-medium mb-2">Započítané ZÁPORNÉ toky <NbsTooltip tooltipKey="commissionOffsetNegative" /></p>
+                    <NumField label="Suma" value={formData.commissionOffsetNegative} onChange={v => updateFlat("commissionOffsetNegative", v)} testId="input-comm-offset-neg" />
+                  </div>
+                </div>
+              </div>
+
+              <div className="border rounded-md p-4 space-y-3" data-testid="section-5">
+                <h3 className="font-bold text-sm">V. PERSONÁLNE ČLENENIE (k poslednému dňu štvrťroka)</h3>
+
+                <div>
+                  <p className="text-xs font-medium mb-2">Počet PFA podľa výkonu <NbsTooltip tooltipKey="pfaByPerformance" /></p>
+                  <div className="grid grid-cols-3 gap-3">
+                    <NumField label="0 zmlúv" value={formData.pfaByPerformance.zero} onChange={v => updateNested("pfaByPerformance", "zero", v)} testId="input-pfa-zero" />
+                    <NumField label="1-10 zmlúv" value={formData.pfaByPerformance.low} onChange={v => updateNested("pfaByPerformance", "low", v)} testId="input-pfa-low" />
+                    <NumField label="11 a viac" value={formData.pfaByPerformance.high} onChange={v => updateNested("pfaByPerformance", "high", v)} testId="input-pfa-high" />
+                  </div>
+                </div>
+
+                <div>
+                  <p className="text-xs font-medium mb-2">Počet zamestnancov podľa výkonu <NbsTooltip tooltipKey="employeesByPerformance" /></p>
+                  <div className="grid grid-cols-3 gap-3">
+                    <NumField label="0 zmlúv" value={formData.employeesByPerformance.zero} onChange={v => updateNested("employeesByPerformance", "zero", v)} testId="input-emp-zero" />
+                    <NumField label="1-10 zmlúv" value={formData.employeesByPerformance.low} onChange={v => updateNested("employeesByPerformance", "low", v)} testId="input-emp-low" />
+                    <NumField label="11 a viac" value={formData.employeesByPerformance.high} onChange={v => updateNested("employeesByPerformance", "high", v)} testId="input-emp-high" />
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+
+        <DialogFooter>
+          <Button variant="ghost" onClick={() => onOpenChange(false)}>Zatvoriť</Button>
+          <Button
+            onClick={() => saveMutation.mutate()}
+            disabled={!partnerId || saveMutation.isPending}
+            data-testid="btn-save-partner-report"
+          >
+            {saveMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin mr-1" /> : <Save className="w-4 h-4 mr-1" />}
+            Uložiť
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 export default function ReportyNBS() {
   const { toast } = useToast();
   const now = new Date();
@@ -118,6 +468,8 @@ export default function ReportyNBS() {
   const [sentDateInput, setSentDateInput] = useState("");
   const [sentDateDialogReport, setSentDateDialogReport] = useState<NbsReport | null>(null);
   const [confirmUnsendReport, setConfirmUnsendReport] = useState<NbsReport | null>(null);
+  const [partnerReportOpen, setPartnerReportOpen] = useState(false);
+  const [partnerReportPeriod, setPartnerReportPeriod] = useState<{ key: string; label: string }>({ key: "", label: "" });
 
   const { data: reports, isLoading } = useQuery<NbsReport[]>({
     queryKey: ["/api/nbs-reports", selectedYear],
@@ -293,6 +645,20 @@ export default function ReportyNBS() {
                           Odoslané: {report.sentDate}
                         </p>
                       )}
+
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="w-full mt-3 text-xs h-7"
+                        onClick={() => {
+                          setPartnerReportPeriod({ key: p.key, label: p.label });
+                          setPartnerReportOpen(true);
+                        }}
+                        data-testid={`btn-partner-report-${p.key}`}
+                      >
+                        <FileText className="w-3.5 h-3.5 mr-1" />
+                        Výkaz partnerov
+                      </Button>
                     </CardContent>
                   </Card>
                 );
@@ -335,6 +701,16 @@ export default function ReportyNBS() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {selectedYear && (
+        <PartnerReportDialog
+          open={partnerReportOpen}
+          onOpenChange={setPartnerReportOpen}
+          year={selectedYear}
+          period={partnerReportPeriod.key}
+          periodLabel={partnerReportPeriod.label}
+        />
+      )}
     </div>
   );
 }
