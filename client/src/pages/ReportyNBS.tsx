@@ -798,40 +798,119 @@ function PeriodBubble({ period, report, year, isExpanded, onToggle, onStatusClic
     );
   }
 
+  function TotalVal({ label, value, suffix }: { label: string; value: number; suffix?: string }) {
+    return (
+      <div className="flex flex-col gap-0.5">
+        <span className="text-[9px] text-muted-foreground">{label}</span>
+        <span className="text-xs font-bold">{suffix ? `${value.toLocaleString("sk-SK")} ${suffix}` : value.toLocaleString("sk-SK")}</span>
+      </div>
+    );
+  }
+
   function renderTotals() {
     if (!totalsData?.totals || totalsData.partnerCount === 0) return null;
     const t = totalsData.totals;
-    const totalContracts = (t.newContracts?.life || 0) + (t.newContracts?.nonLife || 0) + (t.newContracts?.reinsurance || 0);
-    const totalPremium = (t.premiumNew?.life || 0) + (t.premiumNew?.nonLife || 0) + (t.premiumNew?.reinsurance || 0);
-    const totalCancelled = (t.cancelledNotice?.life || 0) + (t.cancelledNotice?.nonLife || 0) + (t.cancelledNotice?.reinsurance || 0)
-      + (t.cancelledNonPayment?.life || 0) + (t.cancelledNonPayment?.nonLife || 0) + (t.cancelledNonPayment?.reinsurance || 0)
-      + (t.cancelledWithdrawal?.count || 0);
-    const totalCommission = (t.commissionPositive || 0) - (t.commissionNegative || 0);
-    const totalPfa = (t.pfaByPerformance?.zero || 0) + (t.pfaByPerformance?.low || 0) + (t.pfaByPerformance?.high || 0);
 
     return (
-      <div className="border-t border-dashed pt-3 mt-3" data-testid={`totals-${period.key}`}>
-        <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-2">Celkom pre NBS</p>
-        <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
-          <div className="text-center p-2 rounded bg-muted/50">
+      <div className="border-t border-dashed pt-3 mt-3 space-y-3" data-testid={`totals-${period.key}`}>
+        <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Celkom pre NBS ({totalsData.partnerCount} výkazov)</p>
+
+        <div className="border rounded p-3 space-y-2 bg-muted/30">
+          <p className="text-[10px] font-bold">I. POČET ZMLÚV (ks)</p>
+          <div className="space-y-1.5">
             <p className="text-[9px] text-muted-foreground">Nové zmluvy</p>
-            <p className="text-sm font-bold">{totalContracts}</p>
+            <div className="grid grid-cols-3 gap-2">
+              <TotalVal label="Životné" value={t.newContracts?.life || 0} />
+              <TotalVal label="Neživotné" value={t.newContracts?.nonLife || 0} />
+              <TotalVal label="Zaistenie" value={t.newContracts?.reinsurance || 0} />
+            </div>
+            <p className="text-[9px] text-muted-foreground">Dodatky k zmluvám</p>
+            <div className="grid grid-cols-2 gap-2">
+              <TotalVal label="Životné" value={t.amendments?.life || 0} />
+              <TotalVal label="Neživotné" value={t.amendments?.nonLife || 0} />
+            </div>
+            <p className="text-[9px] text-muted-foreground">Skupinové zmluvy</p>
+            <div className="grid grid-cols-2 gap-2">
+              <TotalVal label="Životné" value={t.groupContracts?.life || 0} />
+              <TotalVal label="Neživotné" value={t.groupContracts?.nonLife || 0} />
+            </div>
+            <p className="text-[9px] text-muted-foreground">Prevzaté zmluvy</p>
+            <div className="grid grid-cols-2 gap-2">
+              <TotalVal label="Životné" value={t.takenContracts?.life || 0} />
+              <TotalVal label="Neživotné" value={t.takenContracts?.nonLife || 0} />
+            </div>
           </div>
-          <div className="text-center p-2 rounded bg-muted/50">
-            <p className="text-[9px] text-muted-foreground">Poistné (EUR)</p>
-            <p className="text-sm font-bold">{totalPremium.toLocaleString("sk-SK")}</p>
+        </div>
+
+        <div className="border rounded p-3 space-y-2 bg-muted/30">
+          <p className="text-[10px] font-bold">II. OBJEM ROČNÉHO POISTNÉHO (EUR s daňou/odvodom)</p>
+          <div className="space-y-1.5">
+            <p className="text-[9px] text-muted-foreground">Nové zmluvy</p>
+            <div className="grid grid-cols-3 gap-2">
+              <TotalVal label="Životné" value={t.premiumNew?.life || 0} suffix="€" />
+              <TotalVal label="Neživotné" value={t.premiumNew?.nonLife || 0} suffix="€" />
+              <TotalVal label="Zaistenie" value={t.premiumNew?.reinsurance || 0} suffix="€" />
+            </div>
+            <p className="text-[9px] text-muted-foreground">Skupinové zmluvy</p>
+            <div className="grid grid-cols-2 gap-2">
+              <TotalVal label="Životné" value={t.premiumGroup?.life || 0} suffix="€" />
+              <TotalVal label="Neživotné" value={t.premiumGroup?.nonLife || 0} suffix="€" />
+            </div>
+            <p className="text-[9px] text-muted-foreground">Prevzaté zmluvy</p>
+            <div className="grid grid-cols-2 gap-2">
+              <TotalVal label="Životné" value={t.premiumTaken?.life || 0} suffix="€" />
+              <TotalVal label="Neživotné" value={t.premiumTaken?.nonLife || 0} suffix="€" />
+            </div>
           </div>
-          <div className="text-center p-2 rounded bg-muted/50">
-            <p className="text-[9px] text-muted-foreground">Zrušené</p>
-            <p className="text-sm font-bold">{totalCancelled}</p>
+        </div>
+
+        <div className="border rounded p-3 space-y-2 bg-muted/30">
+          <p className="text-[10px] font-bold">III. ZRUŠENÉ ZMLUVY (ks)</p>
+          <div className="space-y-1.5">
+            <p className="text-[9px] text-muted-foreground">Výpoveďou do 3 rokov (§ 800)</p>
+            <div className="grid grid-cols-3 gap-2">
+              <TotalVal label="Životné" value={t.cancelledNotice?.life || 0} />
+              <TotalVal label="Neživotné" value={t.cancelledNotice?.nonLife || 0} />
+              <TotalVal label="Zaistenie" value={t.cancelledNotice?.reinsurance || 0} />
+            </div>
+            <p className="text-[9px] text-muted-foreground">Nezaplatením do 3 mesiacov (§ 801)</p>
+            <div className="grid grid-cols-3 gap-2">
+              <TotalVal label="Životné" value={t.cancelledNonPayment?.life || 0} />
+              <TotalVal label="Neživotné" value={t.cancelledNonPayment?.nonLife || 0} />
+              <TotalVal label="Zaistenie" value={t.cancelledNonPayment?.reinsurance || 0} />
+            </div>
+            <p className="text-[9px] text-muted-foreground">Odstúpením do 30 dní (§ 802a)</p>
+            <div className="grid grid-cols-1 gap-2 max-w-[120px]">
+              <TotalVal label="Počet" value={t.cancelledWithdrawal?.count || 0} />
+            </div>
           </div>
-          <div className="text-center p-2 rounded bg-muted/50">
-            <p className="text-[9px] text-muted-foreground">Provízie (EUR)</p>
-            <p className="text-sm font-bold">{totalCommission.toLocaleString("sk-SK")}</p>
+        </div>
+
+        <div className="border rounded p-3 space-y-2 bg-muted/30">
+          <p className="text-[10px] font-bold">IV. FINANČNÉ TOKY — PROVÍZIE (EUR)</p>
+          <div className="grid grid-cols-2 gap-2">
+            <TotalVal label="Kladné finančné toky" value={t.commissionPositive || 0} suffix="€" />
+            <TotalVal label="Záporné finančné toky" value={t.commissionNegative || 0} suffix="€" />
+            <TotalVal label="Započítané KLADNÉ" value={t.commissionOffsetPositive || 0} suffix="€" />
+            <TotalVal label="Započítané ZÁPORNÉ" value={t.commissionOffsetNegative || 0} suffix="€" />
           </div>
-          <div className="text-center p-2 rounded bg-muted/50">
-            <p className="text-[9px] text-muted-foreground">PFA</p>
-            <p className="text-sm font-bold">{totalPfa}</p>
+        </div>
+
+        <div className="border rounded p-3 space-y-2 bg-muted/30">
+          <p className="text-[10px] font-bold">V. PERSONÁLNE ČLENENIE</p>
+          <div className="space-y-1.5">
+            <p className="text-[9px] text-muted-foreground">Počet PFA podľa výkonu</p>
+            <div className="grid grid-cols-3 gap-2">
+              <TotalVal label="0 zmlúv" value={t.pfaByPerformance?.zero || 0} />
+              <TotalVal label="1-10 zmlúv" value={t.pfaByPerformance?.low || 0} />
+              <TotalVal label="11 a viac" value={t.pfaByPerformance?.high || 0} />
+            </div>
+            <p className="text-[9px] text-muted-foreground">Počet zamestnancov podľa výkonu</p>
+            <div className="grid grid-cols-3 gap-2">
+              <TotalVal label="0 zmlúv" value={t.employeesByPerformance?.zero || 0} />
+              <TotalVal label="1-10 zmlúv" value={t.employeesByPerformance?.low || 0} />
+              <TotalVal label="11 a viac" value={t.employeesByPerformance?.high || 0} />
+            </div>
           </div>
         </div>
       </div>
