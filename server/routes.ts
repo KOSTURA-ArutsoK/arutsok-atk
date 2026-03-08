@@ -3217,7 +3217,6 @@ export async function registerRoutes(
         "neprijate": 2,
         "archiv": 6,
         "spracovanie": 8,
-        "prijateCentrala": 6,
         "intervencia": 6,
         "dokoncit": 0,
       };
@@ -3299,6 +3298,77 @@ export async function registerRoutes(
       res.json({ rerouted: results.length, sequenceNumber: seqNum, inventoryId: newInventory.id, contracts: results });
     } catch (err: any) {
       console.error("Bulk reroute error:", err);
+      res.status(500).json({ message: err?.message || "Internal error" });
+    }
+  });
+
+  app.post("/api/contracts/move-to-processing", isAuthenticated, async (req: any, res) => {
+    try {
+      const { contractIds } = req.body;
+      if (!Array.isArray(contractIds) || contractIds.length === 0) {
+        return res.status(400).json({ message: "Žiadne kontrakty na presun" });
+      }
+      const appUser = req.appUser;
+      const now = new Date();
+      const results: any[] = [];
+
+      for (const cid of contractIds) {
+        const id = Number(cid);
+        const conditions = [eq(contracts.id, id), eq(contracts.lifecyclePhase, 5)];
+        if (appUser?.activeStateId) conditions.push(eq(contracts.stateId, appUser.activeStateId));
+        if (appUser?.activeCompanyId) conditions.push(eq(contracts.companyId, appUser.activeCompanyId));
+        const [contract] = await db.select().from(contracts).where(and(...conditions));
+        if (!contract) continue;
+
+        const updateData: Record<string, any> = {
+          lifecyclePhase: 6,
+          updatedAt: now,
+          receivedByCentralAt: contract.receivedByCentralAt || now,
+          stampedAt: contract.stampedAt || now,
+          isStamped: true,
+        };
+
+        if (!contract.contractNumber) {
+          const maxResult = await db.select({ max: sql<number>`COALESCE(MAX(CAST(contract_number AS INTEGER)), 0)` }).from(contracts).where(sql`contract_number ~ '^[0-9]+$'`);
+          const nextNumber = (maxResult[0]?.max || 0) + 1;
+          updateData.contractNumber = String(nextNumber);
+        }
+
+        if (contract.subjectId) {
+          const subj = await db.select().from(subjects).where(eq(subjects.id, contract.subjectId)).limit(1);
+          if (subj[0] && !subj[0].uid) {
+            const maxUid = await db.select({ max: sql<string>`MAX(uid)` }).from(subjects).where(sql`uid LIKE '421%'`);
+            const lastNum = maxUid[0]?.max ? parseInt(maxUid[0].max) : 421000000000000;
+            const nextUid = String(lastNum + 1);
+            await db.update(subjects).set({ uid: nextUid }).where(eq(subjects.id, contract.subjectId));
+          }
+        }
+
+        const [updated] = await db.update(contracts).set(updateData).where(eq(contracts.id, id)).returning();
+
+        await db.insert(contractLifecycleHistory).values({
+          contractId: id,
+          phase: 6,
+          phaseName: LIFECYCLE_PHASES[6] || "Kontrakt v spracovaní",
+          changedByUserId: appUser?.id || null,
+          note: `Presun do spracovania, číslo kontraktu: ${updated.contractNumber || contract.contractNumber}`,
+        });
+
+        await logAudit(req, {
+          action: "MOVE_TO_PROCESSING",
+          module: "zmluvy",
+          entityId: id,
+          entityName: updated.contractNumber || contract.proposalNumber || `ID ${id}`,
+          oldData: { lifecyclePhase: 5 },
+          newData: { lifecyclePhase: 6, contractNumber: updated.contractNumber },
+        });
+
+        results.push(updated);
+      }
+
+      res.json({ moved: results.length, contracts: results });
+    } catch (err: any) {
+      console.error("Move to processing error:", err);
       res.status(500).json({ message: err?.message || "Internal error" });
     }
   });

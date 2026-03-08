@@ -2182,6 +2182,19 @@ export default function Contracts() {
     onError: () => toast({ title: "Chyba", description: "Nepodarilo sa odoslať zmluvy do centrály", variant: "destructive" }),
   });
 
+  const moveToProcessingMutation = useMutation({
+    mutationFn: async (contractIds: number[]) => {
+      const res = await apiRequest("POST", "/api/contracts/move-to-processing", { contractIds });
+      return res.json();
+    },
+    onSuccess: (data: any) => {
+      invalidateContractCaches();
+      toast({ title: "Presun do spracovania", description: `Presunutých: ${data.moved} kontraktov` });
+      setRerouteSelectedIds([]);
+    },
+    onError: () => toast({ title: "Chyba", description: "Nepodarilo sa presunúť kontrakty do spracovania", variant: "destructive" }),
+  });
+
   const { data: phase8Supisky = [] } = useQuery<any[]>({
     queryKey: ["/api/supisky/by-phase", 8],
     queryFn: async () => {
@@ -2256,7 +2269,6 @@ export default function Contracts() {
     neprijate: { targetPhase: 2, targetLabel: "Odoslané na sprievodke (pôvodné ID)" },
     archiv: { targetPhase: 6, targetLabel: "Kontrakt v spracovaní" },
     spracovanie: { targetPhase: 8, targetLabel: "Pripravené na odoslanie" },
-    prijateCentrala: { targetPhase: 6, targetLabel: "Kontrakt v spracovaní" },
     intervencia: { targetPhase: 6, targetLabel: "Kontrakt v spracovaní" },
     dokoncit: { targetPhase: 0, targetLabel: "Dokončené – vypadnutie zo spracovania" },
   };
@@ -2276,7 +2288,7 @@ export default function Contracts() {
     }
   }
 
-  function handleReroute(source: "neprijate" | "archiv" | "spracovanie" | "prijateCentrala" | "intervencia" | "dokoncit") {
+  function handleReroute(source: "neprijate" | "archiv" | "spracovanie" | "intervencia" | "dokoncit") {
     setRerouteSource(source);
     setRerouteDialogOpen(true);
   }
@@ -3373,8 +3385,9 @@ export default function Contracts() {
             {rerouteSelectedIds.length > 0 && activeFolder === 5 && (
               <div className="flex items-center justify-between p-3 border-t bg-cyan-500/5">
                 <span className="text-sm text-muted-foreground">Vybraných: <span className="font-bold text-foreground">{rerouteSelectedIds.length}</span></span>
-                <Button variant="default" className="bg-cyan-600 hover:bg-cyan-700 text-white" onClick={() => handleReroute("prijateCentrala")} data-testid="button-reroute-prijate-centrala">
-                  <ArrowRight className="w-4 h-4 mr-2" />Presunúť do spracovania ({rerouteSelectedIds.length})
+                <Button variant="default" className="bg-cyan-600 hover:bg-cyan-700 text-white" onClick={() => moveToProcessingMutation.mutate(rerouteSelectedIds)} disabled={moveToProcessingMutation.isPending} data-testid="button-move-to-processing">
+                  {moveToProcessingMutation.isPending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <ArrowRight className="w-4 h-4 mr-2" />}
+                  Presunúť do spracovania ({rerouteSelectedIds.length})
                 </Button>
               </div>
             )}
