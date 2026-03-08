@@ -4,7 +4,7 @@ import { storage } from "./storage";
 import { api } from "@shared/routes";
 import { setupAuth, isAuthenticated } from "./auth";
 import { z } from "zod";
-import { continents, states, myCompanies, appUsers, clientTypes, clientSubGroups, clientGroupMembers, productFolderAssignments, folderPanels, panelParameters, userClientGroupMemberships, clientGroups, permissionGroups, insertCareerLevelSchema, insertProductPointRateSchema, careerLevels, importLogs, commissions, contracts, contractStatuses, contractStatusChangeLogs, clientDataTabs, clientDataCategories, subjects, subjectPointsLog, subjectFieldHistory, subjectCollaborators, clientMarketingConsents, clientDocumentHistory, contractAcquirers, contractPasswords, contractRewardDistributions, contractParameterValues, subjectArchive, auditLogs, globalCounters, subjectPhotos, activityEvents, subjectParamSections, subjectParameters, subjectTemplates, subjectTemplateParams, commissionCalculationLogs, parameterSynonyms, dataConflictAlerts, transactionDedupLog, relationRoleTypes, subjectRelations, maturityAlerts, inheritancePrompts, guardianshipArchive, households, householdMembers, householdAssets, privacyBlocks, accessConsentLog, maturityEvents, addressGroups, addressGroupMembers, companySubjectRoles, notificationQueue, batchJobs, subjectObjects, objectDataSources, sectors, sections, sectorProducts, parameters, panels, productPanels, contractFolders, fieldLayoutConfigs, sectorCategoryMapping, suggestedRelations, statusEvidence, contractLifecycleHistory, systemNotifications, partners, products, contractInventories, contractTemplates, redListAlerts, subjectAddresses, divisions, companyDivisions, insertDivisionSchema, ocrProcessingJobs, networkLinks, guarantorTransferRequests, nbsReportStatuses, nbsPartnerReports } from "@shared/schema";
+import { continents, states, myCompanies, appUsers, clientTypes, clientSubGroups, clientGroupMembers, productFolderAssignments, folderPanels, panelParameters, userClientGroupMemberships, clientGroups, permissionGroups, insertCareerLevelSchema, insertProductPointRateSchema, careerLevels, importLogs, commissions, contracts, contractStatuses, contractStatusChangeLogs, clientDataTabs, clientDataCategories, subjects, subjectPointsLog, subjectFieldHistory, subjectCollaborators, clientMarketingConsents, clientDocumentHistory, contractAcquirers, contractPasswords, contractRewardDistributions, contractParameterValues, subjectArchive, auditLogs, globalCounters, subjectPhotos, activityEvents, subjectParamSections, subjectParameters, subjectTemplates, subjectTemplateParams, commissionCalculationLogs, parameterSynonyms, dataConflictAlerts, transactionDedupLog, relationRoleTypes, subjectRelations, maturityAlerts, inheritancePrompts, guardianshipArchive, households, householdMembers, householdAssets, privacyBlocks, accessConsentLog, maturityEvents, addressGroups, addressGroupMembers, companySubjectRoles, notificationQueue, batchJobs, subjectObjects, objectDataSources, sectors, sections, sectorProducts, parameters, panels, productPanels, contractFolders, fieldLayoutConfigs, sectorCategoryMapping, suggestedRelations, statusEvidence, contractLifecycleHistory, systemNotifications, partners, products, contractInventories, contractTemplates, redListAlerts, subjectAddresses, divisions, companyDivisions, insertDivisionSchema, ocrProcessingJobs, networkLinks, guarantorTransferRequests, nbsReportStatuses, nbsPartnerReports, supisky, supiskaContracts } from "@shared/schema";
 import { notifyObjectionCreated, notifyPreDeletion, getProductDaysLimits } from "./email";
 import { seedSubjectParameters, seedAssetPanels, seedEventAndEntityPanels } from "./seed-subject-params";
 import sharp from "sharp";
@@ -3209,7 +3209,7 @@ export async function registerRoutes(
       if (!Array.isArray(contractIds) || contractIds.length === 0) {
         return res.status(400).json({ message: "Žiadne zmluvy na presmerovanie" });
       }
-      if (!targetPhase || targetPhase < 1 || targetPhase > 10) {
+      if (targetPhase === undefined || targetPhase === null || targetPhase < 0 || targetPhase > 10) {
         return res.status(400).json({ message: "Neplatná cieľová fáza" });
       }
 
@@ -3217,9 +3217,12 @@ export async function registerRoutes(
         "neprijate": 2,
         "archiv": 6,
         "spracovanie": 8,
+        "prijateCentrala": 6,
+        "intervencia": 6,
+        "dokoncit": 0,
       };
 
-      if (!sourceFolder || !ALLOWED_ROUTES[sourceFolder] || ALLOWED_ROUTES[sourceFolder] !== targetPhase) {
+      if (!sourceFolder || ALLOWED_ROUTES[sourceFolder] === undefined || ALLOWED_ROUTES[sourceFolder] !== targetPhase) {
         return res.status(400).json({ message: "Nepovolená kombinácia smerovania" });
       }
 
@@ -3296,6 +3299,233 @@ export async function registerRoutes(
       res.json({ rerouted: results.length, sequenceNumber: seqNum, inventoryId: newInventory.id, contracts: results });
     } catch (err: any) {
       console.error("Bulk reroute error:", err);
+      res.status(500).json({ message: err?.message || "Internal error" });
+    }
+  });
+
+  app.post("/api/contracts/create-processing-supiska", isAuthenticated, async (req: any, res) => {
+    try {
+      const { contractIds } = req.body;
+      if (!Array.isArray(contractIds) || contractIds.length === 0) {
+        return res.status(400).json({ message: "Žiadne kontrakty na zaradenie do súpisky" });
+      }
+      const appUser = req.appUser;
+      const now = new Date();
+
+      const validContracts: any[] = [];
+      for (const cid of contractIds) {
+        const [contract] = await db.select().from(contracts).where(and(eq(contracts.id, Number(cid)), eq(contracts.lifecyclePhase, 6)));
+        if (!contract) continue;
+        validContracts.push(contract);
+      }
+      if (validContracts.length === 0) {
+        return res.status(400).json({ message: "Žiadne kontrakty v správnej fáze (6)" });
+      }
+
+      const supId = await storage.generateSupiskaId();
+      const seqNum = await storage.getNextCounterValue("supiska_processing_sequence");
+      const newSupiska = await storage.createSupiska({
+        supId,
+        name: `Súpiska č. ${seqNum} - Spracovanie`,
+        status: "Nova",
+        stateId: appUser?.activeStateId || 1,
+        companyId: appUser?.activeCompanyId || null,
+        createdBy: appUser?.fullName || "System",
+        createdByUserId: appUser?.id || null,
+        supiskaType: "processing",
+      } as any);
+
+      for (let i = 0; i < validContracts.length; i++) {
+        const contract = validContracts[i];
+        await db.update(contracts).set({
+          lifecyclePhase: 8,
+          lockedBySupiskaId: newSupiska.id,
+          updatedAt: now,
+        }).where(eq(contracts.id, contract.id));
+
+        await db.insert(supiskaContracts).values({
+          supiskaId: newSupiska.id,
+          contractId: contract.id,
+        });
+
+        await db.insert(contractLifecycleHistory).values({
+          contractId: contract.id,
+          phase: 8,
+          phaseName: LIFECYCLE_PHASES[8] || "Pripravené na odoslanie",
+          changedByUserId: appUser?.id || null,
+          note: `Zaradené do súpisky č. ${seqNum} (poradie: ${i + 1})`,
+        });
+      }
+
+      await logAudit(req, {
+        action: "CREATE",
+        module: "processing_supiska",
+        entityId: newSupiska.id,
+        entityName: `Súpiska č. ${seqNum}`,
+        newData: { contractIds: validContracts.map((c: any) => c.id), sequenceNumber: seqNum, supiskaId: newSupiska.id },
+      });
+
+      res.json({ supiskaId: newSupiska.id, sequenceNumber: seqNum, moved: validContracts.length });
+    } catch (err: any) {
+      console.error("Create processing supiska error:", err);
+      res.status(500).json({ message: err?.message || "Internal error" });
+    }
+  });
+
+  app.post("/api/supisky/:id/dispatch", isAuthenticated, async (req: any, res) => {
+    try {
+      const supiskaId = Number(req.params.id);
+      const { dispatchMethod, dispatchedAt } = req.body;
+      if (!dispatchMethod || !["osobne", "postou", "elektronicky"].includes(dispatchMethod)) {
+        return res.status(400).json({ message: "Neplatný spôsob odoslania" });
+      }
+      const dispatchDate = new Date(dispatchedAt);
+      if (isNaN(dispatchDate.getTime())) {
+        return res.status(400).json({ message: "Neplatný dátum odoslania" });
+      }
+      const supiska = await storage.getSupiska(supiskaId);
+      if (!supiska) return res.status(404).json({ message: "Súpiska nenájdená" });
+      if ((supiska as any).supiskaType !== "processing") return res.status(400).json({ message: "Súpiska nie je typu spracovanie" });
+      if (supiska.status === "Odoslana" || supiska.status === "Prijata") return res.status(409).json({ message: "Súpiska je už odoslaná alebo prijatá" });
+
+      const appUser = req.appUser;
+      const now = new Date();
+
+      await storage.updateSupiska(supiskaId, {
+        dispatchMethod,
+        dispatchedAt: dispatchDate,
+        status: "Odoslana",
+      } as any);
+
+      const links = await storage.getSupiskaContracts(supiskaId);
+      const contractIdsOnSupiska = links.map(l => l.contractId);
+      for (const cid of contractIdsOnSupiska) {
+        const [contract] = await db.select().from(contracts).where(and(eq(contracts.id, cid), eq(contracts.lifecyclePhase, 8)));
+        if (!contract) continue;
+        await db.update(contracts).set({
+          lifecyclePhase: 9,
+          updatedAt: now,
+        }).where(eq(contracts.id, cid));
+        await db.insert(contractLifecycleHistory).values({
+          contractId: cid,
+          phase: 9,
+          phaseName: LIFECYCLE_PHASES[9] || "Odoslané obch. partnerovi",
+          changedByUserId: appUser?.id || null,
+          note: `Odoslané: ${dispatchMethod}, dátum: ${dispatchDate.toISOString()}`,
+        });
+      }
+
+      await logAudit(req, {
+        action: "DISPATCH",
+        module: "processing_supiska",
+        entityId: supiskaId,
+        entityName: supiska.name,
+        newData: { dispatchMethod, dispatchedAt: dispatchDate.toISOString(), contractCount: contractIdsOnSupiska.length },
+      });
+
+      res.json({ dispatched: contractIdsOnSupiska.length, supiskaId });
+    } catch (err: any) {
+      console.error("Supiska dispatch error:", err);
+      res.status(500).json({ message: err?.message || "Internal error" });
+    }
+  });
+
+  app.post("/api/supisky/:id/receive", isAuthenticated, async (req: any, res) => {
+    try {
+      const supiskaId = Number(req.params.id);
+      const { receivedAt } = req.body;
+      const receiveDate = new Date(receivedAt);
+      if (isNaN(receiveDate.getTime())) {
+        return res.status(400).json({ message: "Neplatný dátum prijatia" });
+      }
+      const supiska = await storage.getSupiska(supiskaId);
+      if (!supiska) return res.status(404).json({ message: "Súpiska nenájdená" });
+      if ((supiska as any).supiskaType !== "processing") return res.status(400).json({ message: "Súpiska nie je typu spracovanie" });
+      if (supiska.status !== "Odoslana") return res.status(409).json({ message: "Súpiska musí byť najprv odoslaná" });
+
+      const appUser = req.appUser;
+      const now = new Date();
+
+      await storage.updateSupiska(supiskaId, {
+        receivedByPartnerAt: receiveDate,
+        status: "Prijata",
+      } as any);
+
+      const links = await storage.getSupiskaContracts(supiskaId);
+      const contractIdsOnSupiska = links.map(l => l.contractId);
+      for (const cid of contractIdsOnSupiska) {
+        const [contract] = await db.select().from(contracts).where(and(eq(contracts.id, cid), eq(contracts.lifecyclePhase, 9)));
+        if (!contract) continue;
+        await db.update(contracts).set({
+          lifecyclePhase: 10,
+          lockedBySupiskaId: null,
+          updatedAt: now,
+        }).where(eq(contracts.id, cid));
+        await db.insert(contractLifecycleHistory).values({
+          contractId: cid,
+          phase: 10,
+          phaseName: LIFECYCLE_PHASES[10] || "Prijaté obch. partnerom",
+          changedByUserId: appUser?.id || null,
+          note: `Prijaté partnerom: ${receiveDate.toISOString()}`,
+        });
+      }
+
+      await logAudit(req, {
+        action: "RECEIVE",
+        module: "processing_supiska",
+        entityId: supiskaId,
+        entityName: supiska.name,
+        newData: { receivedAt: receiveDate.toISOString(), contractCount: contractIdsOnSupiska.length },
+      });
+
+      res.json({ received: contractIdsOnSupiska.length, supiskaId });
+    } catch (err: any) {
+      console.error("Supiska receive error:", err);
+      res.status(500).json({ message: err?.message || "Internal error" });
+    }
+  });
+
+  app.get("/api/supisky/by-phase/:phase", isAuthenticated, async (req: any, res) => {
+    try {
+      const phase = Number(req.params.phase);
+      if (![8, 9].includes(phase)) return res.status(400).json({ message: "Neplatná fáza" });
+
+      const appUser = req.appUser;
+      const stateFilter = appUser?.activeStateId ? eq(supisky.stateId, appUser.activeStateId) : undefined;
+      const companyFilter = appUser?.activeCompanyId ? eq(supisky.companyId, appUser.activeCompanyId) : undefined;
+
+      const links = await db.select({
+        supiskaId: supiskaContracts.supiskaId,
+      }).from(supiskaContracts)
+        .innerJoin(contracts, eq(supiskaContracts.contractId, contracts.id))
+        .where(eq(contracts.lifecyclePhase, phase))
+        .groupBy(supiskaContracts.supiskaId);
+
+      const supiskaIds = links.map(l => l.supiskaId);
+      if (supiskaIds.length === 0) return res.json([]);
+
+      const result: any[] = [];
+      for (const sid of supiskaIds) {
+        const supiska = await storage.getSupiska(sid);
+        if (!supiska || (supiska as any).supiskaType !== "processing") continue;
+        if (stateFilter && supiska.stateId !== appUser.activeStateId) continue;
+        if (companyFilter && supiska.companyId !== appUser.activeCompanyId) continue;
+
+        const supiskaLinks = await storage.getSupiskaContracts(sid);
+        const cids = supiskaLinks.map(l => l.contractId);
+        const supiskaContractsList: any[] = [];
+        for (const cid of cids) {
+          const [c] = await db.select().from(contracts).where(and(eq(contracts.id, cid), eq(contracts.lifecyclePhase, phase)));
+          if (c) supiskaContractsList.push(c);
+        }
+        if (supiskaContractsList.length > 0) {
+          result.push({ ...supiska, contracts: supiskaContractsList });
+        }
+      }
+
+      res.json(result);
+    } catch (err: any) {
+      console.error("Supisky by phase error:", err);
       res.status(500).json({ message: err?.message || "Internal error" });
     }
   });

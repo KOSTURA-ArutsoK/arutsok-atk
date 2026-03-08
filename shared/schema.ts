@@ -875,6 +875,10 @@ export const supisky = pgTable("supisky", {
   sentBy: text("sent_by"),
   notes: text("notes"),
   processingTimeSec: integer("processing_time_sec").default(0),
+  supiskaType: text("supiska_type").default("standard"),
+  dispatchMethod: text("dispatch_method"),
+  dispatchedAt: timestamp("dispatched_at"),
+  receivedByPartnerAt: timestamp("received_by_partner_at"),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });

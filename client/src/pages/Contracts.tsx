@@ -2063,6 +2063,8 @@ export default function Contracts() {
     for (let p = 6; p <= 10; p++) {
       queryClient.invalidateQueries({ queryKey: ["/api/contracts/by-phase", p] });
     }
+    queryClient.invalidateQueries({ queryKey: ["/api/supisky/by-phase", 8] });
+    queryClient.invalidateQueries({ queryKey: ["/api/supisky/by-phase", 9] });
   }
 
   const dispatchMutation = useMutation({
@@ -2180,10 +2182,83 @@ export default function Contracts() {
     onError: () => toast({ title: "Chyba", description: "Nepodarilo sa odoslať zmluvy do centrály", variant: "destructive" }),
   });
 
+  const { data: phase8Supisky = [] } = useQuery<any[]>({
+    queryKey: ["/api/supisky/by-phase", 8],
+    queryFn: async () => {
+      const res = await fetch("/api/supisky/by-phase/8", { credentials: "include" });
+      if (!res.ok) return [];
+      return res.json();
+    },
+    enabled: isEvidencia,
+  });
+
+  const { data: phase9Supisky = [] } = useQuery<any[]>({
+    queryKey: ["/api/supisky/by-phase", 9],
+    queryFn: async () => {
+      const res = await fetch("/api/supisky/by-phase/9", { credentials: "include" });
+      if (!res.ok) return [];
+      return res.json();
+    },
+    enabled: isEvidencia,
+  });
+
+  const createProcessingSupiskaMutation = useMutation({
+    mutationFn: async (contractIds: number[]) => {
+      const res = await apiRequest("POST", "/api/contracts/create-processing-supiska", { contractIds });
+      return res.json();
+    },
+    onSuccess: (data: any) => {
+      invalidateContractCaches();
+      queryClient.invalidateQueries({ queryKey: ["/api/supisky/by-phase"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/supisky/by-phase", 8] });
+      toast({ title: "Súpiska vytvorená", description: `Súpiska č. ${data.sequenceNumber} s ${data.moved} kontraktmi` });
+      setRerouteSelectedIds([]);
+    },
+    onError: () => toast({ title: "Chyba", description: "Nepodarilo sa vytvoriť súpisku", variant: "destructive" }),
+  });
+
+  const dispatchSupiskaMutation = useMutation({
+    mutationFn: async ({ supiskaId, dispatchMethod, dispatchedAt }: { supiskaId: number; dispatchMethod: string; dispatchedAt: string }) => {
+      const res = await apiRequest("POST", `/api/supisky/${supiskaId}/dispatch`, { dispatchMethod, dispatchedAt });
+      return res.json();
+    },
+    onSuccess: () => {
+      invalidateContractCaches();
+      queryClient.invalidateQueries({ queryKey: ["/api/supisky/by-phase", 8] });
+      queryClient.invalidateQueries({ queryKey: ["/api/supisky/by-phase", 9] });
+      toast({ title: "Odoslané partnerovi" });
+    },
+    onError: () => toast({ title: "Chyba", description: "Nepodarilo sa odoslať súpisku", variant: "destructive" }),
+  });
+
+  const receiveSupiskaMutation = useMutation({
+    mutationFn: async ({ supiskaId, receivedAt }: { supiskaId: number; receivedAt: string }) => {
+      const res = await apiRequest("POST", `/api/supisky/${supiskaId}/receive`, { receivedAt });
+      return res.json();
+    },
+    onSuccess: () => {
+      invalidateContractCaches();
+      queryClient.invalidateQueries({ queryKey: ["/api/supisky/by-phase", 9] });
+      toast({ title: "Prijatie potvrdené" });
+    },
+    onError: () => toast({ title: "Chyba", description: "Nepodarilo sa potvrdiť prijatie", variant: "destructive" }),
+  });
+
+  const [dispatchDialogOpen, setDispatchDialogOpen] = useState(false);
+  const [dispatchSuopiskaId, setDispatchSuopiskaId] = useState<number | null>(null);
+  const [dispatchMethod, setDispatchMethod] = useState("");
+  const [dispatchDate, setDispatchDate] = useState("");
+  const [receiveDialogOpen, setReceiveDialogOpen] = useState(false);
+  const [receiveSuopiskaId, setReceiveSuopiskaId] = useState<number | null>(null);
+  const [receiveDate, setReceiveDate] = useState("");
+
   const REROUTE_CONFIG: Record<string, { targetPhase: number; targetLabel: string }> = {
     neprijate: { targetPhase: 2, targetLabel: "Odoslané na sprievodke (pôvodné ID)" },
     archiv: { targetPhase: 6, targetLabel: "Kontrakt v spracovaní" },
     spracovanie: { targetPhase: 8, targetLabel: "Pripravené na odoslanie" },
+    prijateCentrala: { targetPhase: 6, targetLabel: "Kontrakt v spracovaní" },
+    intervencia: { targetPhase: 6, targetLabel: "Kontrakt v spracovaní" },
+    dokoncit: { targetPhase: 0, targetLabel: "Dokončené – vypadnutie zo spracovania" },
   };
 
   function toggleRerouteSelect(id: number) {
@@ -2201,7 +2276,7 @@ export default function Contracts() {
     }
   }
 
-  function handleReroute(source: "neprijate" | "archiv" | "spracovanie") {
+  function handleReroute(source: "neprijate" | "archiv" | "spracovanie" | "prijateCentrala" | "intervencia" | "dokoncit") {
     setRerouteSource(source);
     setRerouteDialogOpen(true);
   }
@@ -3293,46 +3368,127 @@ export default function Contracts() {
                 <div className="flex items-center justify-center py-8"><Loader2 className="w-5 h-5 animate-spin" /></div>
               ) : activeAccepted.length === 0 ? (
                 <p className="text-sm text-muted-foreground text-center py-8" data-testid="text-no-prijate">Žiadne zmluvy prijaté do centrály</p>
-              ) : renderContractTable(activeAccepted, { showStatus: true, showRegistration: true, showActions: true })}
+              ) : renderContractTable(activeAccepted, { showStatus: true, showRegistration: true, showActions: true, showRerouteCheckbox: true })}
             </CardContent>
+            {rerouteSelectedIds.length > 0 && activeFolder === 5 && (
+              <div className="flex items-center justify-between p-3 border-t bg-cyan-500/5">
+                <span className="text-sm text-muted-foreground">Vybraných: <span className="font-bold text-foreground">{rerouteSelectedIds.length}</span></span>
+                <Button variant="default" className="bg-cyan-600 hover:bg-cyan-700 text-white" onClick={() => handleReroute("prijateCentrala")} data-testid="button-reroute-prijate-centrala">
+                  <ArrowRight className="w-4 h-4 mr-2" />Presunúť do spracovania ({rerouteSelectedIds.length})
+                </Button>
+              </div>
+            )}
           </Card>
         </div>
 
-        {[6, 7, 8, 9, 10].map(phaseId => {
-          const phaseContracts = phaseId === 6 ? phase6Contracts : phaseId === 7 ? phase7Contracts : phaseId === 8 ? phase8Contracts : phaseId === 9 ? phase9Contracts : phase10Contracts;
-          const phaseDef = row2FolderDefs.find(f => f.id === phaseId);
+        {(() => {
           const phaseLabels: Record<number, string> = {
             6: "Prebieha skenovanie a OCR extrakcia. Dopĺňajú sa chýbajúce parametre.",
             7: "Chýba údaj (napr. kópia OP). Kontrakt je blokovaný pre súpisky.",
             8: "Kontrakt je čistý a validovaný. Čaká na hromadné odoslanie partnerovi.",
-            9: "Generovanie súpisky s QR kódom (max 25 ks / 1 partner / 1 produkt).",
+            9: "Súpisky odoslané obchodnému partnerovi. Čaká sa na potvrdenie prijatia.",
             10: "Doplní sa dátum prijatia partnerom. Kontrakt definitívne vypadáva z dashboardu.",
           };
-          const isSpracovanie = phaseId === 6;
-          return (
-            <div key={phaseId} id={`folder-${phaseId}-wrapper`} style={{ display: activeFolder === phaseId ? 'block' : 'none' }}>
-              <Card data-testid={`folder-phase-${phaseId}`}>
-                <div className="flex items-center gap-3 p-3 border-b">
-                  {phaseDef && (() => { const I = phaseDef.icon; return <I className={`w-4 h-4 ${phaseDef.color} shrink-0`} />; })()}
-                  <p className="text-xs text-muted-foreground flex-1">{phaseLabels[phaseId]}</p>
-                </div>
-                <CardContent className="p-0">
-                  {phaseContracts.length === 0 ? (
-                    <p className="text-sm text-muted-foreground text-center py-8" data-testid={`text-no-phase-${phaseId}`}>Žiadne kontrakty v tejto fáze</p>
-                  ) : renderContractTable(phaseContracts, { showStatus: true, showRegistration: true, showActions: true, showRerouteCheckbox: isSpracovanie })}
-                </CardContent>
-                {isSpracovanie && rerouteSelectedIds.length > 0 && activeFolder === 6 && (
-                  <div className="flex items-center justify-between p-3 border-t bg-green-500/5">
-                    <span className="text-sm text-muted-foreground">Vybraných zmlúv: <span className="font-bold text-foreground">{rerouteSelectedIds.length}</span></span>
-                    <Button variant="default" className="bg-green-600 hover:bg-green-700 text-white" onClick={() => handleReroute("spracovanie")} data-testid="button-reroute-spracovanie">
-                      <Send className="w-4 h-4 mr-2" />Odoslať na pripravené
-                    </Button>
+          return [6, 7, 8, 9, 10].map(phaseId => {
+            const phaseContracts = phaseId === 6 ? phase6Contracts : phaseId === 7 ? phase7Contracts : phaseId === 8 ? phase8Contracts : phaseId === 9 ? phase9Contracts : phase10Contracts;
+            const phaseDef = row2FolderDefs.find(f => f.id === phaseId);
+            const showCheckbox = [6, 7, 10].includes(phaseId);
+            const isGroupedPhase = [8, 9].includes(phaseId);
+            const supiskyForPhase = phaseId === 8 ? phase8Supisky : phaseId === 9 ? phase9Supisky : [];
+
+            return (
+              <div key={phaseId} id={`folder-${phaseId}-wrapper`} style={{ display: activeFolder === phaseId ? 'block' : 'none' }}>
+                <Card data-testid={`folder-phase-${phaseId}`}>
+                  <div className="flex items-center gap-3 p-3 border-b">
+                    {phaseDef && (() => { const I = phaseDef.icon; return <I className={`w-4 h-4 ${phaseDef.color} shrink-0`} />; })()}
+                    <p className="text-xs text-muted-foreground flex-1">{phaseLabels[phaseId]}</p>
                   </div>
-                )}
-              </Card>
-            </div>
-          );
-        })}
+                  <CardContent className="p-0">
+                    {isGroupedPhase ? (
+                      supiskyForPhase.length === 0 ? (
+                        <p className="text-sm text-muted-foreground text-center py-8" data-testid={`text-no-phase-${phaseId}`}>Žiadne kontrakty v tejto fáze</p>
+                      ) : (
+                        <div className="divide-y">
+                          {supiskyForPhase.map((sup: any) => (
+                            <div key={sup.id} className="p-3">
+                              <div className="flex items-center justify-between mb-2">
+                                <div className="flex items-center gap-2">
+                                  <ListChecks className="w-4 h-4 text-muted-foreground" />
+                                  <span className="text-sm font-medium" data-testid={`text-supiska-name-${sup.id}`}>{sup.name}</span>
+                                  <Badge variant="outline" className="text-xs">{sup.contracts?.length || 0} kontraktov</Badge>
+                                </div>
+                                {phaseId === 8 && (
+                                  <Button
+                                    size="sm"
+                                    variant="default"
+                                    className="bg-indigo-600 hover:bg-indigo-700 text-white"
+                                    onClick={() => { setDispatchSuopiskaId(sup.id); setDispatchMethod(""); setDispatchDate(""); setDispatchDialogOpen(true); }}
+                                    data-testid={`button-dispatch-supiska-${sup.id}`}
+                                  >
+                                    <Send className="w-3 h-3 mr-1" />Odoslať partnerovi
+                                  </Button>
+                                )}
+                                {phaseId === 9 && (
+                                  <Button
+                                    size="sm"
+                                    variant="default"
+                                    className="bg-purple-600 hover:bg-purple-700 text-white"
+                                    onClick={() => { setReceiveSuopiskaId(sup.id); setReceiveDate(""); setReceiveDialogOpen(true); }}
+                                    data-testid={`button-receive-supiska-${sup.id}`}
+                                  >
+                                    <Award className="w-3 h-3 mr-1" />Potvrdiť prijatie
+                                  </Button>
+                                )}
+                              </div>
+                              {sup.dispatchMethod && (
+                                <div className="flex items-center gap-3 mb-2 text-xs text-muted-foreground">
+                                  <span>Spôsob: <span className="font-medium text-foreground">{sup.dispatchMethod}</span></span>
+                                  {sup.dispatchedAt && <span>Odoslané: <span className="font-medium text-foreground">{formatDateSlovak(sup.dispatchedAt)}</span></span>}
+                                </div>
+                              )}
+                              {sup.contracts && sup.contracts.length > 0 && renderContractTable(sup.contracts, { showStatus: true, showRegistration: true, showActions: true })}
+                            </div>
+                          ))}
+                        </div>
+                      )
+                    ) : (
+                      <>
+                        {phaseContracts.length === 0 ? (
+                          <p className="text-sm text-muted-foreground text-center py-8" data-testid={`text-no-phase-${phaseId}`}>Žiadne kontrakty v tejto fáze</p>
+                        ) : renderContractTable(phaseContracts, { showStatus: true, showRegistration: true, showActions: true, showRerouteCheckbox: showCheckbox })}
+                      </>
+                    )}
+                  </CardContent>
+                  {phaseId === 6 && rerouteSelectedIds.length > 0 && activeFolder === 6 && (
+                    <div className="flex items-center justify-between p-3 border-t bg-green-500/5">
+                      <span className="text-sm text-muted-foreground">Vybraných: <span className="font-bold text-foreground">{rerouteSelectedIds.length}</span></span>
+                      <Button variant="default" className="bg-green-600 hover:bg-green-700 text-white" onClick={() => createProcessingSupiskaMutation.mutate(rerouteSelectedIds)} disabled={createProcessingSupiskaMutation.isPending} data-testid="button-create-supiska">
+                        {createProcessingSupiskaMutation.isPending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <ListChecks className="w-4 h-4 mr-2" />}
+                        Vytvoriť súpisku ({rerouteSelectedIds.length})
+                      </Button>
+                    </div>
+                  )}
+                  {phaseId === 7 && rerouteSelectedIds.length > 0 && activeFolder === 7 && (
+                    <div className="flex items-center justify-between p-3 border-t bg-orange-500/5">
+                      <span className="text-sm text-muted-foreground">Vybraných: <span className="font-bold text-foreground">{rerouteSelectedIds.length}</span></span>
+                      <Button variant="default" className="bg-orange-600 hover:bg-orange-700 text-white" onClick={() => handleReroute("intervencia")} data-testid="button-reroute-intervencia">
+                        <ArrowRight className="w-4 h-4 mr-2" />Vrátiť do spracovania ({rerouteSelectedIds.length})
+                      </Button>
+                    </div>
+                  )}
+                  {phaseId === 10 && rerouteSelectedIds.length > 0 && activeFolder === 10 && (
+                    <div className="flex items-center justify-between p-3 border-t bg-purple-500/5">
+                      <span className="text-sm text-muted-foreground">Vybraných: <span className="font-bold text-foreground">{rerouteSelectedIds.length}</span></span>
+                      <Button variant="default" className="bg-purple-600 hover:bg-purple-700 text-white" onClick={() => handleReroute("dokoncit")} data-testid="button-dokoncit-spracovanie">
+                        <Check className="w-4 h-4 mr-2" />Dokončiť spracovanie ({rerouteSelectedIds.length})
+                      </Button>
+                    </div>
+                  )}
+                </Card>
+              </div>
+            );
+          });
+        })()}
 
         <Dialog open={sprievodkaDialogOpen} onOpenChange={setSprievodkaDialogOpen}>
           <DialogContent size="sm">
@@ -3384,6 +3540,79 @@ export default function Contracts() {
                 </Button>
                 <Button onClick={confirmReroute} disabled={rerouteMutation.isPending} data-testid="button-reroute-confirm">
                   {rerouteMutation.isPending ? (<><Loader2 className="w-4 h-4 mr-2 animate-spin" />Presmerovávam...</>) : (<><Send className="w-4 h-4 mr-2" />Presmerovať</>)}
+                </Button>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
+
+        <Dialog open={dispatchDialogOpen} onOpenChange={setDispatchDialogOpen}>
+          <DialogContent size="sm">
+            <DialogHeader>
+              <DialogTitle data-testid="text-dispatch-dialog-title">Odoslanie súpisky partnerovi</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <Label>Spôsob odoslania</Label>
+                <Select value={dispatchMethod} onValueChange={setDispatchMethod}>
+                  <SelectTrigger data-testid="select-dispatch-method">
+                    <SelectValue placeholder="Vyberte spôsob" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="osobne">Osobne</SelectItem>
+                    <SelectItem value="postou">Poštou</SelectItem>
+                    <SelectItem value="elektronicky">Elektronicky</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label>Dátum a čas odoslania</Label>
+                <Input type="datetime-local" value={dispatchDate} onChange={e => setDispatchDate(e.target.value)} data-testid="input-dispatch-date" />
+              </div>
+              <div className="flex items-center justify-end gap-3 flex-wrap">
+                <Button variant="outline" onClick={() => setDispatchDialogOpen(false)} data-testid="button-dispatch-cancel">Zrušiť</Button>
+                <Button
+                  disabled={!dispatchMethod || !dispatchDate || dispatchSupiskaMutation.isPending}
+                  onClick={() => {
+                    if (dispatchSuopiskaId && dispatchMethod && dispatchDate) {
+                      dispatchSupiskaMutation.mutate({ supiskaId: dispatchSuopiskaId, dispatchMethod, dispatchedAt: dispatchDate });
+                      setDispatchDialogOpen(false);
+                    }
+                  }}
+                  data-testid="button-dispatch-confirm"
+                >
+                  {dispatchSupiskaMutation.isPending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Send className="w-4 h-4 mr-2" />}
+                  Odoslať
+                </Button>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
+
+        <Dialog open={receiveDialogOpen} onOpenChange={setReceiveDialogOpen}>
+          <DialogContent size="sm">
+            <DialogHeader>
+              <DialogTitle data-testid="text-receive-dialog-title">Potvrdenie prijatia partnerom</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <Label>Dátum a čas prijatia</Label>
+                <Input type="datetime-local" value={receiveDate} onChange={e => setReceiveDate(e.target.value)} data-testid="input-receive-date" />
+              </div>
+              <div className="flex items-center justify-end gap-3 flex-wrap">
+                <Button variant="outline" onClick={() => setReceiveDialogOpen(false)} data-testid="button-receive-cancel">Zrušiť</Button>
+                <Button
+                  disabled={!receiveDate || receiveSupiskaMutation.isPending}
+                  onClick={() => {
+                    if (receiveSuopiskaId && receiveDate) {
+                      receiveSupiskaMutation.mutate({ supiskaId: receiveSuopiskaId, receivedAt: receiveDate });
+                      setReceiveDialogOpen(false);
+                    }
+                  }}
+                  data-testid="button-receive-confirm"
+                >
+                  {receiveSupiskaMutation.isPending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Award className="w-4 h-4 mr-2" />}
+                  Potvrdiť prijatie
                 </Button>
               </div>
             </div>
