@@ -1,0 +1,74 @@
+Tu je upravená šablóna pre agenta pre Sektor poistenia alebo zaistenia. Ku každému parametru je pridaný „otáznik“ s presnou definíciou z metodiky NBS.
+
+Šablóna výkazu pre partnera: [Názov poisťovne/partnera]
+(Vypĺňa sa samostatne pre každý kvartál a sumárne za rok)
+
+I. POČET ZMLÚV (ks)
+
+Nové zmluvy (?)
+
+Definícia: Uvádza sa počet poistných zmlúv a návrhov poistných zmlúv, ktoré boli uzavreté alebo klientom podpísané počas príslušného kalendárneho štvrťroka. Dodatkové poistenie k životnému poisteniu sa vykazuje v rámci životného poistenia.
+
+Dodatky k zmluvám (?)
+
+Definícia: Uvádza sa počet dodatkov k už existujúcej poistnej zmluve, ktoré boli uzavreté alebo podpísané počas štvrťroka. Za dodatok sa považuje iba taká zmena zmluvy, ktorá má vplyv na poistné krytie alebo rozsah plnenia (napr. zmena adresy sa nepovažuje za dodatok).
+
+Skupinové zmluvy (?)
+
+Definícia: Počet poistných zmlúv uzavretých medzi finančnou inštitúciou a poistníkom, ku ktorým majú právo pristupovať ďalšie osoby ako poistené formou prihlášky. Neuvádzajú sa flotilové zmluvy (zmena súboru majetku jednej osoby).
+
+Prevzaté zmluvy (?)
+
+Definícia: Počet zmlúv, ktoré boli prevedené do správy samostatného finančného agenta od iného agenta alebo finančnej inštitúcie počas príslušného štvrťroka.
+
+II. OBJEM ROČNÉHO POISTNÉHO (v EUR s daňou/odvodom)
+
+Nové zmluvy (?)
+
+Definícia: Objem poistného za nové zmluvy. Ak sa platí bežne, uvedie sa poistné za 12 mesiacov. Ak trvá kratšie ako rok, ročné poistné je zhodné s celkovým. Pri jednorazovom poistnom sa uvedie celá suma. Zahŕňa sa celá suma vrátane dane z poistenia a odvodu.
+
+Skupinové zmluvy (?)
+
+Definícia: Uvádza sa objem ročného poistného skupinových zmlúv ku koncu príslušného kalendárneho štvrťroka. Zahŕňa celú sumu vrátane daní a odvodov.
+
+Prevzaté zmluvy (?)
+
+Definícia: Objem ročného poistného pre zmluvy prevedené od iného agenta alebo inštitúcie počas štvrťroka. Zahŕňa celú sumu vrátane daní a odvodov.
+
+III. ZRUŠENÉ ZMLUVY (ks)
+
+Výpoveďou do 3 rokov (§ 800) (?)
+
+Definícia: Celkový počet zmlúv, u ktorých došlo k zániku poistenia podľa § 800 Občianskeho zákonníka do troch rokov od uzavretia zmluvy.
+
+Nezaplatením do 3 mesiacov (§ 801) (?)
+
+Definícia: Počet zmlúv zrušených nezaplatením poistného do troch mesiacov odo dňa splatnosti poistného podľa § 801 Občianskeho zákonníka.
+
+Odstúpením do 30 dní (§ 802a) (?)
+
+Definícia: Počet zmlúv zrušených na základe odstúpenia poistníka od poistnej zmluvy podľa § 802a Občianskeho zákonníka.
+
+IV. FINANČNÉ TOKY - PROVÍZIE (v EUR)
+
+Kladné finančné toky (?)
+
+Definícia: Objem všetkých finančných odmien, ktoré boli vyplatené agentovi počas štvrťroka finančnými inštitúciami bez ohľadu na to, ku ktorému obdobiu prislúchajú.
+
+Záporné finančné toky (?)
+
+Definícia: Objem všetkých finančných odmien, ktoré boli odpísané z účtu agenta a vrátené inštitúciám, na ktoré nárok zanikol alebo nevznikol.
+
+Suma započítaných kladných tokov (?)
+
+Definícia: Objem finančných odmien, ktoré neboli vykázané v „kladných tokoch“ z dôvodu započítania v rámci záporných finančných tokov.
+
+Suma započítaných záporných tokov (?)
+
+Definícia: Objem vrátených odmien, ktoré neboli vykázané v „záporných tokoch“ z dôvodu započítania v rámci kladných finančných tokov.
+
+V. PERSONÁLNE ČLENENIE (k poslednému dňu štvrťroka)
+
+Počet PFA / Zamestnancov podľa výkonu (?)
+
+Definícia: Počty podriadených finančných agentov a zamestnancov k poslednému dňu štvrťroka v členení podľa počtu zmlúv, ktoré sprostredkovali.
