@@ -77,6 +77,7 @@ export const myCompanies = pgTable("my_companies", {
   workDocs: jsonb("work_docs").$type<DocEntry[]>().default([]),
   processingTimeSec: integer("processing_time_sec").default(0),
   isDeleted: boolean("is_deleted").default(false),
+  foundedDate: timestamp("founded_date"),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
@@ -89,6 +90,7 @@ export const divisions = pgTable("divisions", {
   emoji: text("emoji"),
   description: text("description"),
   isActive: boolean("is_active").default(true),
+  foundedDate: timestamp("founded_date"),
   createdAt: timestamp("created_at").defaultNow(),
 });
 
@@ -954,7 +956,9 @@ export const contractsRelations = relations(contracts, ({ one }) => ({
 
 // === ZOD SCHEMAS ===
 export const insertSubjectSchema = createInsertSchema(subjects).omit({ id: true, uid: true, createdAt: true });
-export const insertMyCompanySchema = createInsertSchema(myCompanies).omit({ id: true, createdAt: true, updatedAt: true, isDeleted: true, uid: true, deletedBy: true, deletedAt: true, deletedFromIp: true });
+export const insertMyCompanySchema = createInsertSchema(myCompanies).omit({ id: true, createdAt: true, updatedAt: true, isDeleted: true, uid: true, deletedBy: true, deletedAt: true, deletedFromIp: true }).extend({
+  foundedDate: z.union([z.string(), z.date(), z.null()]).optional().transform(v => v ? (typeof v === 'string' ? new Date(v) : v) : null),
+});
 export const insertPartnerSchema = createInsertSchema(partners).omit({ id: true, createdAt: true, updatedAt: true, isDeleted: true, uid: true, deletedBy: true, deletedAt: true, deletedFromIp: true }).extend({
   collaborationDate: z.union([z.string(), z.date(), z.null()]).optional().transform(v => v ? (typeof v === 'string' ? new Date(v) : v) : null),
   statusStartDate: z.union([z.string(), z.date(), z.null()]).optional().transform(v => v ? (typeof v === 'string' ? new Date(v) : v) : null),
@@ -1346,7 +1350,9 @@ export const insertStateSchema = createInsertSchema(states).omit({ id: true });
 export type State = typeof states.$inferSelect;
 export type InsertState = z.infer<typeof insertStateSchema>;
 
-export const insertDivisionSchema = createInsertSchema(divisions).omit({ id: true, createdAt: true });
+export const insertDivisionSchema = createInsertSchema(divisions).omit({ id: true, createdAt: true }).extend({
+  foundedDate: z.union([z.string(), z.date(), z.null()]).optional().transform(v => v ? (typeof v === 'string' ? new Date(v) : v) : null),
+});
 export type Division = typeof divisions.$inferSelect;
 export type InsertDivision = z.infer<typeof insertDivisionSchema>;
 

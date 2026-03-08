@@ -222,6 +222,7 @@ function DivisionFormDialog({
   const [emoji, setEmoji] = useState("");
   const [description, setDescription] = useState("");
   const [isActive, setIsActive] = useState(true);
+  const [foundedDate, setFoundedDate] = useState("");
 
   const { data: allDivisions } = useQuery<Division[]>({ queryKey: ["/api/divisions"] });
 
@@ -259,12 +260,14 @@ function DivisionFormDialog({
         setEmoji((editingDivision as any).emoji || "");
         setDescription(editingDivision.description || "");
         setIsActive(editingDivision.isActive ?? true);
+        setFoundedDate((editingDivision as any).foundedDate ? new Date((editingDivision as any).foundedDate).toISOString().split("T")[0] : "");
       } else {
         setName("");
         setCode("");
         setEmoji("");
         setDescription("");
         setIsActive(true);
+        setFoundedDate("");
       }
     }
   }, [open, editingDivision]);
@@ -278,7 +281,7 @@ function DivisionFormDialog({
       toast({ title: "Chyba", description: "Tento emoji sa už používa v inej divízii rovnakej spoločnosti", variant: "destructive" });
       return;
     }
-    const payload = { name, code: code || null, emoji: emoji || null, description: description || null, isActive };
+    const payload = { name, code: code || null, emoji: emoji || null, description: description || null, isActive, foundedDate: foundedDate ? new Date(foundedDate).toISOString() : null };
     if (editingDivision) {
       updateMutation.mutate(payload);
     } else {
@@ -317,6 +320,10 @@ function DivisionFormDialog({
           <div className="space-y-2">
             <label className="text-sm font-medium">Popis</label>
             <Textarea value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Popis divizie" data-testid="input-division-description" rows={3} />
+          </div>
+          <div className="space-y-2">
+            <label className="text-sm font-medium">Datum vytvorenia divizie</label>
+            <Input type="date" value={foundedDate} onChange={(e) => setFoundedDate(e.target.value)} data-testid="input-division-founded-date" />
           </div>
           <div className="flex items-center gap-3">
             <Switch checked={isActive} onCheckedChange={setIsActive} data-testid="switch-division-active" />

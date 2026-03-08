@@ -100,6 +100,7 @@ const formSchema = insertMyCompanySchema.extend({
   description: z.string().min(1, "Charakteristika je povinna"),
   specialization: z.string().min(1, "Zameranie je povinne"),
   code: z.string().min(1, "Kod je povinny").max(4, "Max 4 znaky"),
+  foundedDate: z.string().nullable().optional(),
 });
 
 type FormData = z.infer<typeof formSchema>;
@@ -296,6 +297,7 @@ function CompanyFormDialog({
       stateId: undefined,
       description: "",
       notes: "",
+      foundedDate: null,
     },
   });
 
@@ -318,6 +320,7 @@ function CompanyFormDialog({
           stateId: editingCompany.stateId || undefined,
           description: editingCompany.description || "",
           notes: editingCompany.notes || "",
+          foundedDate: (editingCompany as any).foundedDate ? new Date((editingCompany as any).foundedDate).toISOString().split("T")[0] : null,
         });
         setNotesHtml(editingCompany.notes || "");
       } else {
@@ -336,6 +339,7 @@ function CompanyFormDialog({
           stateId: undefined,
           description: "",
           notes: "",
+          foundedDate: null,
         });
         setNotesHtml("");
       }
@@ -348,7 +352,7 @@ function CompanyFormDialog({
 
   function onSubmit(data: FormData) {
     const processingTimeSec = Math.round((performance.now() - timerRef.current) / 1000);
-    const payload = { ...data, notes: notesHtml, processingTimeSec };
+    const payload = { ...data, notes: notesHtml, processingTimeSec, foundedDate: data.foundedDate ? new Date(data.foundedDate).toISOString() : null };
 
     if (editingCompany) {
       updateMutation.mutate(
@@ -452,6 +456,13 @@ function CompanyFormDialog({
                   <FormItem>
                     <FormLabel>Charakteristika (Cim sa firma zaobera) *</FormLabel>
                     <FormControl><Textarea {...field} value={field.value || ""} rows={4} data-testid="input-description" /></FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )} />
+                <FormField control={form.control} name="foundedDate" render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Datum zalozenia spolocnosti</FormLabel>
+                    <FormControl><Input type="date" value={field.value || ""} onChange={(e) => field.onChange(e.target.value || null)} data-testid="input-founded-date" /></FormControl>
                     <FormMessage />
                   </FormItem>
                 )} />
@@ -636,6 +647,7 @@ function CompanyDetailDialog({
               <InfoRow label="IC DPH" value={company.icDph} testId="text-detail-icdph" />
               <InfoRow label="Zameranie" value={company.specialization} testId="text-detail-spec" />
               <InfoRow label="Kod firmy" value={company.code} mono testId="text-detail-code" />
+              <InfoRow label="Datum zalozenia" value={(company as any).foundedDate ? formatDateSlovak((company as any).foundedDate) : "-"} testId="text-detail-founded-date" />
             </div>
             {company.description && (
               <>

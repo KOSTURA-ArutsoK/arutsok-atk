@@ -51,7 +51,7 @@ The system employs a modern full-stack architecture emphasizing data integrity, 
 - **Partner & Product Lifecycle (Media-Player System)**: A 6-state lifecycle for `partners` and `sector_products` with top-down inheritance and cron-driven auto-transitions.
 - **90-Day Date Semaphore**: A utility that highlights expired dates in red and upcoming dates (≤90 days) in orange for contract expiry and key subject date fields.
 - **Contract Parameter Versioning (`Stroj času`)**: Tracks all changes to contract parameter values, allowing history viewing and restoration.
-- **Holding Structure**: A unified ID system with dynamic country prefixes, extended `states` table, and `divisions` table for holding divisions, each with an `emoji` for visual identification.
+- **Holding Structure**: A unified ID system with dynamic country prefixes, extended `states` table, and `divisions` table for holding divisions, each with an `emoji` for visual identification. Both `myCompanies` and `divisions` have `foundedDate` (timestamp, nullable) for tracking founding/creation dates. NBS Analytics Chart uses these dates as dynamic lower year limit via `/api/nbs-chart-year-bounds` endpoint.
 - **Context Selector Overlay**: Full-screen blurred backdrop (no popup box) on all 3 steps. State: circular flags with sky-blue ring borders, centered row. Company: back arrow+text top-left, state flag centered, logos in rounded-xl squares. Division: back arrow+text top-left, emoji in rounded-xl squares. No X button, no "Všetky divízie". Backdrop click closes.
 - **Dashboard & Analytics**: Customizable overview with drag-and-drop widgets, KPI cards, dynamic filters, charts, and PDF summaries. Holding Dashboard for admin-only analytics with cross-sell and division performance heatmaps.
 

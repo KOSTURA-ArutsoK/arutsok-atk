@@ -7635,6 +7635,30 @@ export async function registerRoutes(
     }
   });
 
+  app.get("/api/nbs-chart-year-bounds", isAuthenticated, async (req: any, res) => {
+    try {
+      if (!isAdmin(req.appUser)) return res.status(403).json({ message: "Len admin" });
+      const companyId = req.query.companyId ? Number(req.query.companyId) : null;
+      const divisionId = req.query.divisionId ? Number(req.query.divisionId) : null;
+      let minYear = 2000;
+      if (divisionId) {
+        const div = await storage.getDivision(divisionId);
+        if (div?.foundedDate) {
+          minYear = new Date(div.foundedDate).getFullYear();
+        }
+      }
+      if (companyId && minYear === 2000) {
+        const company = await storage.getMyCompany(companyId);
+        if (company?.foundedDate) {
+          minYear = new Date(company.foundedDate).getFullYear();
+        }
+      }
+      res.json({ minYear });
+    } catch (err: any) {
+      res.status(500).json({ message: err?.message || "Chyba" });
+    }
+  });
+
   app.get("/api/nbs-partner-reports/chart-data", isAuthenticated, async (req: any, res) => {
     try {
       if (!isAdmin(req.appUser)) return res.status(403).json({ message: "Len admin" });

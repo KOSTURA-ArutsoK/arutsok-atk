@@ -23,6 +23,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { usePartners } from "@/hooks/use-partners";
+import { useAppUser } from "@/hooks/use-app-user";
 
 interface NbsReport {
   id: number;
@@ -1049,11 +1050,31 @@ function getValueFromPath(obj: any, path: string): number {
 
 function NbsAnalyticsChart() {
   const currentYear = new Date().getFullYear();
-  const MIN_YEAR = 2000;
   const YEAR_WINDOW = 5;
-  const maxOffset = currentYear - MIN_YEAR - YEAR_WINDOW + 1;
+  const { data: appUser } = useAppUser();
+  const companyId = (appUser as any)?.activeCompanyId || null;
+  const divisionId = (appUser as any)?.activeDivisionId || null;
+  const { data: yearBounds } = useQuery<{ minYear: number }>({
+    queryKey: ["/api/nbs-chart-year-bounds", companyId, divisionId],
+    queryFn: async () => {
+      const params = new URLSearchParams();
+      if (companyId) params.set("companyId", String(companyId));
+      if (divisionId) params.set("divisionId", String(divisionId));
+      const res = await fetch(`/api/nbs-chart-year-bounds?${params}`, { credentials: "include" });
+      if (!res.ok) return { minYear: 2000 };
+      return res.json();
+    },
+  });
+  const MIN_YEAR = yearBounds?.minYear || 2000;
+  const maxOffset = Math.max(0, currentYear - MIN_YEAR - YEAR_WINDOW + 1);
   const [yearOffset, setYearOffset] = useState(0);
-  const availableYears = Array.from({ length: YEAR_WINDOW }, (_, i) => currentYear - yearOffset - i);
+  useEffect(() => {
+    if (yearOffset > maxOffset) setYearOffset(maxOffset);
+  }, [maxOffset, yearOffset]);
+  useEffect(() => {
+    setSelectedYears(prev => prev.filter(y => y >= MIN_YEAR));
+  }, [MIN_YEAR]);
+  const availableYears = Array.from({ length: YEAR_WINDOW }, (_, i) => currentYear - yearOffset - i).filter(y => y >= MIN_YEAR);
   const availablePeriods = [
     { key: "1q", label: "1Q" }, { key: "2q", label: "2Q" }, { key: "3q", label: "3Q" },
     { key: "4q", label: "4Q" }, { key: "annual", label: "Ročný" },
