@@ -186,17 +186,24 @@ function getPartnerCategory(partner: any): "PaZ" | "SDS" {
   return "PaZ";
 }
 
-function PartnerReportDialog({ open, onOpenChange, year, period, periodLabel }: {
+function PartnerReportDialog({ open, onOpenChange, year, period, periodLabel, initialPartnerId }: {
   open: boolean;
   onOpenChange: (o: boolean) => void;
   year: number;
   period: string;
   periodLabel: string;
+  initialPartnerId?: number | null;
 }) {
   const { toast } = useToast();
   const { data: partners, isLoading: partnersLoading } = usePartners();
   const [selectedPartnerId, setSelectedPartnerId] = useState<number | null>(null);
   const [formData, setFormData] = useState<any>({ ...DEFAULT_REPORT_DATA });
+
+  useEffect(() => {
+    if (open && initialPartnerId) {
+      setSelectedPartnerId(initialPartnerId);
+    }
+  }, [open, initialPartnerId]);
 
   const activePartners = (partners || []).filter((p: any) => !p.isDeleted);
   const pazPartners = activePartners.filter((p: any) => getPartnerCategory(p) === "PaZ");
@@ -516,6 +523,8 @@ export default function ReportyNBS() {
   const [confirmUnsendReport, setConfirmUnsendReport] = useState<NbsReport | null>(null);
   const [partnerReportOpen, setPartnerReportOpen] = useState(false);
   const [partnerReportPeriod, setPartnerReportPeriod] = useState<{ key: string; label: string }>({ key: "", label: "" });
+  const [partnerReportInitialId, setPartnerReportInitialId] = useState<number | null>(null);
+  const [expandedPeriod, setExpandedPeriod] = useState<string | null>(null);
 
   const { data: reports, isLoading } = useQuery<NbsReport[]>({
     queryKey: ["/api/nbs-reports", selectedYear],
@@ -527,13 +536,6 @@ export default function ReportyNBS() {
     },
     enabled: !!selectedYear,
   });
-
-  const { data: pr1q } = useQuery<any[]>({ queryKey: ["/api/nbs-partner-reports", "list", selectedYear, "1q"], queryFn: async () => { const r = await fetch(`/api/nbs-partner-reports?year=${selectedYear}&period=1q`, { credentials: "include" }); return r.ok ? r.json() : []; }, enabled: !!selectedYear });
-  const { data: pr2q } = useQuery<any[]>({ queryKey: ["/api/nbs-partner-reports", "list", selectedYear, "2q"], queryFn: async () => { const r = await fetch(`/api/nbs-partner-reports?year=${selectedYear}&period=2q`, { credentials: "include" }); return r.ok ? r.json() : []; }, enabled: !!selectedYear });
-  const { data: pr3q } = useQuery<any[]>({ queryKey: ["/api/nbs-partner-reports", "list", selectedYear, "3q"], queryFn: async () => { const r = await fetch(`/api/nbs-partner-reports?year=${selectedYear}&period=3q`, { credentials: "include" }); return r.ok ? r.json() : []; }, enabled: !!selectedYear });
-  const { data: pr4q } = useQuery<any[]>({ queryKey: ["/api/nbs-partner-reports", "list", selectedYear, "4q"], queryFn: async () => { const r = await fetch(`/api/nbs-partner-reports?year=${selectedYear}&period=4q`, { credentials: "include" }); return r.ok ? r.json() : []; }, enabled: !!selectedYear });
-  const { data: prAnnual } = useQuery<any[]>({ queryKey: ["/api/nbs-partner-reports", "list", selectedYear, "annual"], queryFn: async () => { const r = await fetch(`/api/nbs-partner-reports?year=${selectedYear}&period=annual`, { credentials: "include" }); return r.ok ? r.json() : []; }, enabled: !!selectedYear });
-  const partnerReportCounts: Record<string, number> = { "1q": (pr1q || []).length, "2q": (pr2q || []).length, "3q": (pr3q || []).length, "4q": (pr4q || []).length, "annual": (prAnnual || []).length };
 
   const updateMutation = useMutation({
     mutationFn: async ({ id, status, sentDate }: { id: number; status: string; sentDate?: string | null }) => {
@@ -654,69 +656,28 @@ export default function ReportyNBS() {
               <Loader2 className="w-8 h-8 animate-spin text-primary" />
             </div>
           ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div className="space-y-3">
               {PERIODS.map(p => {
                 const report = reportMap.get(p.key);
                 if (!report) return null;
-                const deadline = getDeadline(p.key, selectedYear);
-                const daysLeft = getDaysRemaining(deadline);
-                const colorClass = getColorByDeadline(deadline, report.status);
-                const statusBtnColor = getStatusButtonColor(report.status);
+                const isExpanded = expandedPeriod === p.key;
 
                 return (
-                  <Card key={p.key} className={`relative border-2 ${colorClass}`} data-testid={`period-card-${p.key}`}>
-                    <CardContent className="py-6 px-5">
-                      <div className="flex items-start justify-between mb-4">
-                        <div>
-                          <h3 className="text-lg font-bold">{p.label}</h3>
-                          <p className="text-xs text-muted-foreground mt-1">
-                            Termín: {formatDeadlineSlovak(deadline)}
-                          </p>
-                        </div>
-                        <div className="flex flex-col items-end gap-1">
-                          <Button
-                            size="sm"
-                            className={`text-xs px-3 py-1 h-7 ${statusBtnColor}`}
-                            onClick={() => handleStatusClick(report)}
-                            disabled={updateMutation.isPending}
-                            data-testid={`btn-status-${p.key}`}
-                          >
-                            {updateMutation.isPending ? <Loader2 className="w-3 h-3 animate-spin" /> : getStatusLabel(report.status)}
-                          </Button>
-                          {report.status !== "sent" && (
-                            <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
-                              daysLeft <= 14 ? "bg-red-600 text-white" : daysLeft <= 30 ? "bg-orange-500 text-white" : "bg-blue-600 text-white"
-                            }`} data-testid={`days-left-${p.key}`}>
-                              {daysLeft > 0 ? `${daysLeft} dní` : `${Math.abs(daysLeft)} dní po termíne`}
-                            </span>
-                          )}
-                        </div>
-                      </div>
-
-                      {report.status === "sent" && report.sentDate && (
-                        <p className="text-xs text-green-400">
-                          Odoslané: {report.sentDate}
-                        </p>
-                      )}
-
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className={`w-full mt-3 text-xs h-7 ${partnerReportCounts[p.key] > 0 ? "border-green-500 text-green-500 dark:border-green-400 dark:text-green-400" : ""}`}
-                        onClick={() => {
-                          setPartnerReportPeriod({ key: p.key, label: p.label });
-                          setPartnerReportOpen(true);
-                        }}
-                        data-testid={`btn-partner-report-${p.key}`}
-                      >
-                        <FileText className="w-3.5 h-3.5 mr-1" />
-                        Výkaz partnerov
-                        {partnerReportCounts[p.key] > 0 && (
-                          <Badge variant="secondary" className="ml-1 px-1.5 py-0 text-[9px] h-4 bg-green-600 text-white">{partnerReportCounts[p.key]}</Badge>
-                        )}
-                      </Button>
-                    </CardContent>
-                  </Card>
+                  <PeriodBubble
+                    key={p.key}
+                    period={p}
+                    report={report}
+                    year={selectedYear}
+                    isExpanded={isExpanded}
+                    onToggle={() => setExpandedPeriod(isExpanded ? null : p.key)}
+                    onStatusClick={() => handleStatusClick(report)}
+                    statusPending={updateMutation.isPending}
+                    onOpenPartnerForm={(partnerId) => {
+                      setPartnerReportPeriod({ key: p.key, label: p.label });
+                      setPartnerReportInitialId(partnerId);
+                      setPartnerReportOpen(true);
+                    }}
+                  />
                 );
               })}
             </div>
@@ -761,13 +722,184 @@ export default function ReportyNBS() {
       {selectedYear && (
         <PartnerReportDialog
           open={partnerReportOpen}
-          onOpenChange={setPartnerReportOpen}
+          onOpenChange={(o) => { setPartnerReportOpen(o); if (!o) setPartnerReportInitialId(null); }}
           year={selectedYear}
           period={partnerReportPeriod.key}
           periodLabel={partnerReportPeriod.label}
+          initialPartnerId={partnerReportInitialId}
         />
       )}
     </div>
+  );
+}
+
+function PeriodBubble({ period, report, year, isExpanded, onToggle, onStatusClick, statusPending, onOpenPartnerForm }: {
+  period: { key: string; label: string };
+  report: NbsReport;
+  year: number;
+  isExpanded: boolean;
+  onToggle: () => void;
+  onStatusClick: () => void;
+  statusPending: boolean;
+  onOpenPartnerForm: (partnerId: number) => void;
+}) {
+  const { data: partners, isLoading: partnersLoading } = usePartners();
+  const activePartners = (partners || []).filter((p: any) => !p.isDeleted);
+  const pazPartners = activePartners.filter((p: any) => getPartnerCategory(p) === "PaZ");
+  const sdsPartners = activePartners.filter((p: any) => getPartnerCategory(p) === "SDS");
+
+  const { data: periodReports } = useQuery<any[]>({
+    queryKey: ["/api/nbs-partner-reports", "list", year, period.key],
+    queryFn: async () => {
+      const r = await fetch(`/api/nbs-partner-reports?year=${year}&period=${period.key}`, { credentials: "include" });
+      return r.ok ? r.json() : [];
+    },
+    enabled: isExpanded,
+  });
+  const savedPartnerIds = new Set((periodReports || []).map((r: any) => r.partnerId));
+  const savedCount = savedPartnerIds.size;
+
+  const { data: totalsData } = useQuery<{ totals: any; partnerCount: number }>({
+    queryKey: ["/api/nbs-partner-reports", "totals", year, period.key],
+    queryFn: async () => {
+      const r = await fetch(`/api/nbs-partner-reports/totals?year=${year}&period=${period.key}`, { credentials: "include" });
+      return r.ok ? r.json() : { totals: null, partnerCount: 0 };
+    },
+    enabled: isExpanded,
+  });
+
+  const deadline = getDeadline(period.key, year);
+  const daysLeft = getDaysRemaining(deadline);
+  const colorClass = getColorByDeadline(deadline, report.status);
+  const statusBtnColor = getStatusButtonColor(report.status);
+
+  function renderPartnerGroup(label: string, groupPartners: any[], testId: string) {
+    if (groupPartners.length === 0) return null;
+    return (
+      <div className="space-y-1" data-testid={testId}>
+        <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">{label}</p>
+        {groupPartners.map((p: any) => {
+          const hasSaved = savedPartnerIds.has(p.id);
+          return (
+            <div
+              key={p.id}
+              className={`flex items-center justify-between px-3 py-1.5 rounded border cursor-pointer transition-all hover:bg-accent ${hasSaved ? "border-green-500/50 bg-green-50 dark:bg-green-950/20" : "border-border"}`}
+              onClick={(e) => { e.stopPropagation(); onOpenPartnerForm(p.id); }}
+              data-testid={`period-partner-${period.key}-${p.id}`}
+            >
+              <span className="text-xs font-medium">{p.name}</span>
+              {hasSaved && (
+                <Badge variant="secondary" className="text-[8px] px-1 h-3.5 bg-green-600 text-white">Vyplnené</Badge>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    );
+  }
+
+  function renderTotals() {
+    if (!totalsData?.totals || totalsData.partnerCount === 0) return null;
+    const t = totalsData.totals;
+    const totalContracts = (t.newContracts?.life || 0) + (t.newContracts?.nonLife || 0) + (t.newContracts?.reinsurance || 0);
+    const totalPremium = (t.premiumNew?.life || 0) + (t.premiumNew?.nonLife || 0) + (t.premiumNew?.reinsurance || 0);
+    const totalCancelled = (t.cancelledNotice?.life || 0) + (t.cancelledNotice?.nonLife || 0) + (t.cancelledNotice?.reinsurance || 0)
+      + (t.cancelledNonPayment?.life || 0) + (t.cancelledNonPayment?.nonLife || 0) + (t.cancelledNonPayment?.reinsurance || 0)
+      + (t.cancelledWithdrawal?.count || 0);
+    const totalCommission = (t.commissionPositive || 0) - (t.commissionNegative || 0);
+    const totalPfa = (t.pfaByPerformance?.zero || 0) + (t.pfaByPerformance?.low || 0) + (t.pfaByPerformance?.high || 0);
+
+    return (
+      <div className="border-t border-dashed pt-3 mt-3" data-testid={`totals-${period.key}`}>
+        <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-2">Celkom pre NBS</p>
+        <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
+          <div className="text-center p-2 rounded bg-muted/50">
+            <p className="text-[9px] text-muted-foreground">Nové zmluvy</p>
+            <p className="text-sm font-bold">{totalContracts}</p>
+          </div>
+          <div className="text-center p-2 rounded bg-muted/50">
+            <p className="text-[9px] text-muted-foreground">Poistné (EUR)</p>
+            <p className="text-sm font-bold">{totalPremium.toLocaleString("sk-SK")}</p>
+          </div>
+          <div className="text-center p-2 rounded bg-muted/50">
+            <p className="text-[9px] text-muted-foreground">Zrušené</p>
+            <p className="text-sm font-bold">{totalCancelled}</p>
+          </div>
+          <div className="text-center p-2 rounded bg-muted/50">
+            <p className="text-[9px] text-muted-foreground">Provízie (EUR)</p>
+            <p className="text-sm font-bold">{totalCommission.toLocaleString("sk-SK")}</p>
+          </div>
+          <div className="text-center p-2 rounded bg-muted/50">
+            <p className="text-[9px] text-muted-foreground">PFA</p>
+            <p className="text-sm font-bold">{totalPfa}</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <Card className={`border-2 transition-all ${colorClass}`} data-testid={`period-card-${period.key}`}>
+      <CardContent className="py-0 px-0">
+        <div
+          className="flex items-center justify-between px-5 py-3 cursor-pointer"
+          onClick={onToggle}
+          data-testid={`period-toggle-${period.key}`}
+        >
+          <div className="flex items-center gap-3">
+            {isExpanded ? <ChevronUp className="w-4 h-4 text-muted-foreground" /> : <ChevronDown className="w-4 h-4 text-muted-foreground" />}
+            <div>
+              <h3 className="text-base font-bold">{period.label}</h3>
+              <p className="text-[10px] text-muted-foreground">
+                Termín: {formatDeadlineSlovak(deadline)}
+                {report.status === "sent" && report.sentDate && ` · Odoslané: ${report.sentDate}`}
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2">
+            {savedCount > 0 && (
+              <Badge variant="secondary" className="text-[9px] px-1.5 h-4 bg-green-600 text-white">{savedCount} výkazov</Badge>
+            )}
+            {report.status !== "sent" && (
+              <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                daysLeft <= 14 ? "bg-red-600 text-white" : daysLeft <= 30 ? "bg-orange-500 text-white" : "bg-blue-600 text-white"
+              }`} data-testid={`days-left-${period.key}`}>
+                {daysLeft > 0 ? `${daysLeft} dní` : `${Math.abs(daysLeft)} dní po termíne`}
+              </span>
+            )}
+            <Button
+              size="sm"
+              className={`text-xs px-3 py-1 h-7 ${statusBtnColor}`}
+              onClick={(e) => { e.stopPropagation(); onStatusClick(); }}
+              disabled={statusPending}
+              data-testid={`btn-status-${period.key}`}
+            >
+              {statusPending ? <Loader2 className="w-3 h-3 animate-spin" /> : getStatusLabel(report.status)}
+            </Button>
+          </div>
+        </div>
+
+        {isExpanded && (
+          <div className="px-5 pb-4 pt-1 border-t space-y-3">
+            {partnersLoading ? (
+              <div className="flex justify-center py-3">
+                <Loader2 className="w-5 h-5 animate-spin text-primary" />
+              </div>
+            ) : (
+              <>
+                {renderPartnerGroup("PaZ — Poistenie a zaistenie", pazPartners, `period-group-paz-${period.key}`)}
+                {renderPartnerGroup("SDS — Starobné dôchodkové sporenie", sdsPartners, `period-group-sds-${period.key}`)}
+                {pazPartners.length === 0 && sdsPartners.length === 0 && (
+                  <p className="text-xs text-muted-foreground text-center py-2">Žiadni aktívni partneri</p>
+                )}
+                {renderTotals()}
+              </>
+            )}
+          </div>
+        )}
+      </CardContent>
+    </Card>
   );
 }
 
