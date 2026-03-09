@@ -1779,7 +1779,8 @@ function WorkflowDiagram({ folderDefs, row2FolderDefs, activeFolder, onFolderCli
       const p = cards.map(g);
       const pad = 5;
       const full = (c: HTMLElement) => {
-        const r = c.getBoundingClientRect();
+        const card = c.querySelector('[data-testid^="folder-tab-"]') as HTMLElement || c;
+        const r = card.getBoundingClientRect();
         return { l: r.left - cR.left, r: r.right - cR.left, t: r.top - cR.top, b: r.bottom - cR.top };
       };
       const f = cards.map(full);
