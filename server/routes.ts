@@ -2746,12 +2746,6 @@ export async function registerRoutes(
   app.put(api.contractStatusesApi.update.path, isAuthenticated, async (req: any, res) => {
     try {
       const input = api.contractStatusesApi.update.input.parse(req.body);
-      // ArutsoK 43 - Protect system status name from being changed
-      const statuses = await storage.getContractStatuses();
-      const target = statuses.find(s => s.id === Number(req.params.id));
-      if (target?.isSystem && input.name && input.name !== target.name) {
-        return res.status(400).json({ message: "Nazov systemoveho stavu nie je mozne zmenit" });
-      }
       const updated = await storage.updateContractStatus(Number(req.params.id), input);
       await logAudit(req, { action: "UPDATE", module: "stavy_zmluv", entityId: Number(req.params.id), newData: input });
       res.json(updated);
@@ -2764,11 +2758,6 @@ export async function registerRoutes(
   app.delete(api.contractStatusesApi.delete.path, isAuthenticated, async (req: any, res) => {
     try {
       const statusId = Number(req.params.id);
-      const statuses = await storage.getContractStatuses();
-      const target = statuses.find(s => s.id === statusId);
-      if (target?.isSystem) {
-        return res.status(400).json({ message: "Systemovy stav nie je mozne vymazat" });
-      }
       const allContracts = await storage.getContracts();
       const contractsWithStatus = allContracts.filter(c => c.statusId === statusId);
       if (contractsWithStatus.length > 0) {
@@ -3406,14 +3395,9 @@ export async function registerRoutes(
       const now = new Date();
       const results: any[] = [];
 
-      const acceptedStatus = await storage.getSystemContractStatusByName("Prijata centrom - OK");
-      if (!acceptedStatus) {
-        return res.status(400).json({ message: "Systémový status 'Prijata centrom - OK' neexistuje" });
-      }
-
       for (const cid of contractIds) {
         const id = Number(cid);
-        const conditions = [eq(contracts.id, id), eq(contracts.isDeleted, false), eq(contracts.statusId, acceptedStatus.id)];
+        const conditions = [eq(contracts.id, id), eq(contracts.isDeleted, false)];
         if (appUser?.activeStateId) conditions.push(eq(contracts.stateId, appUser.activeStateId));
         if (appUser?.activeCompanyId) conditions.push(eq(contracts.companyId, appUser.activeCompanyId));
         const [contract] = await db.select().from(contracts).where(and(...conditions));
@@ -3779,11 +3763,6 @@ export async function registerRoutes(
 
       const appUser = req.appUser;
       const now = new Date();
-      const odoslanaStatus = await storage.getSystemContractStatusByName("Odoslana na sprievodke");
-      if (!odoslanaStatus) {
-        return res.status(500).json({ message: "Systémový stav 'Odoslana na sprievodke' nebol nájdený" });
-      }
-
       let sent = 0;
       for (const cid of contractIds) {
         const id = Number(cid);
@@ -3792,7 +3771,6 @@ export async function registerRoutes(
 
         await db.update(contracts)
           .set({
-            statusId: odoslanaStatus.id,
             lifecyclePhase: 2,
             updatedAt: now,
           })
@@ -3803,17 +3781,8 @@ export async function registerRoutes(
           phase: 2,
           phaseName: LIFECYCLE_PHASES[2] || "Odoslané",
           changedByUserId: appUser?.id || null,
-          note: `Odoslané do centrály z výhrad — stav zmenený na "${odoslanaStatus.name}"`,
+          note: `Odoslané do centrály z výhrad`,
         });
-        if (contract.statusId != null) {
-          await db.insert(contractStatusChangeLogs).values({
-            contractId: id,
-            oldStatusId: contract.statusId,
-            newStatusId: odoslanaStatus.id,
-            changedByUserId: appUser?.id || null,
-            statusNote: `Fáza: ${LIFECYCLE_PHASES[2]} — stav zmenený na "${odoslanaStatus.name}"`,
-          });
-        }
 
         await logAudit(req, {
           action: "SEND_TO_CENTRAL",
@@ -3821,7 +3790,7 @@ export async function registerRoutes(
           entityId: id,
           entityName: contract.contractNumber || contract.proposalNumber || `ID ${id}`,
           oldData: { statusId: contract.statusId },
-          newData: { statusId: odoslanaStatus.id },
+          newData: { lifecyclePhase: 2 },
         });
 
         sent++;
@@ -4169,14 +4138,12 @@ export async function registerRoutes(
         name: `Odovzdávací protokol - Sprievodka č. ${seqNum}`,
         isDispatched: true 
       } as any);
-      const dispatchStatus = await storage.getSystemContractStatusByName("Odoslana na sprievodke");
       for (let i = 0; i < contractIds.length; i++) {
         const updateData: any = { 
           inventoryId, 
           sortOrderInInventory: i + 1,
           dispatchedAt: new Date(),
         };
-        if (dispatchStatus) updateData.statusId = dispatchStatus.id;
         await storage.updateContract(Number(contractIds[i]), updateData);
       }
       await logAudit(req, {
@@ -4205,63 +4172,20 @@ export async function registerRoutes(
       if (!target) {
         return res.status(404).json({ message: "Sprievodka nenajdena" });
       }
-      const acceptedStatus = await storage.getSystemContractStatusByName("Prijata centrom - OK");
-      if (!acceptedStatus) {
-        return res.status(500).json({ message: "Systemovy stav 'Prijata centrom - OK' neexistuje" });
-      }
-      let rejectedStatus = await storage.getSystemContractStatusByName("Neprijata - vyhrady");
-      if (!rejectedStatus) {
-        rejectedStatus = await storage.createContractStatus({
-          name: "Neprijata - vyhrady",
-          color: "#ef4444",
-          sortOrder: 999,
-          isCommissionable: false,
-          isFinal: false,
-          assignsNumber: false,
-          definesContractEnd: false,
-          isSystem: true,
-        } as any);
-      }
       const globalNumbers: Record<number, number> = {};
       const acceptedContractIds = contractIds.map(Number);
       for (const cId of acceptedContractIds) {
         const contract = await storage.getContract(cId);
         if (!contract) continue;
-        if (contract.statusId === acceptedStatus.id) continue;
         const updateData: any = {
-          statusId: acceptedStatus.id,
           acceptedAt: new Date(),
         };
-        if (acceptedStatus.assignsNumber && !contract.globalNumber) {
+        if (!contract.globalNumber) {
           const globalNum = await storage.getNextCounterValue("global_contract_number");
           updateData.globalNumber = globalNum;
           globalNumbers[cId] = globalNum;
         }
         await storage.updateContract(cId, updateData);
-        await storage.createContractStatusChangeLog({
-          contractId: cId,
-          oldStatusId: contract.statusId,
-          newStatusId: acceptedStatus.id,
-          changedByUserId: req.appUser?.id || null,
-          parameterValues: {},
-        });
-      }
-      const allContractsInInventory = await storage.getContracts({ inventoryId });
-      const rejectedContractIds: number[] = [];
-      for (const c of allContractsInInventory) {
-        if (!acceptedContractIds.includes(c.id) && c.statusId !== acceptedStatus.id && c.statusId !== rejectedStatus.id) {
-          await storage.updateContract(c.id, {
-            statusId: rejectedStatus.id,
-          } as any);
-          await storage.createContractStatusChangeLog({
-            contractId: c.id,
-            oldStatusId: c.statusId,
-            newStatusId: rejectedStatus.id,
-            changedByUserId: req.appUser?.id || null,
-            parameterValues: {},
-          });
-          rejectedContractIds.push(c.id);
-        }
       }
       await storage.updateContractInventory(inventoryId, { isAccepted: true } as any);
       await logAudit(req, {
@@ -4269,7 +4193,7 @@ export async function registerRoutes(
         module: "sprievodka_accept",
         entityId: inventoryId,
         entityName: target.name,
-        newData: { contractIds: acceptedContractIds, statusId: acceptedStatus.id, globalNumbers },
+        newData: { contractIds: acceptedContractIds, globalNumbers },
       });
       res.json({ success: true, acceptedCount: acceptedContractIds.length, globalNumbers });
     } catch (err: any) {
@@ -4601,12 +4525,6 @@ export async function registerRoutes(
       if (appUser?.activeCompanyId) {
         createData.companyId = appUser.activeCompanyId;
       }
-      if (!createData.statusId) {
-        const defaultStatus = await storage.getSystemContractStatusByName("Nahrata do systemu");
-        if (defaultStatus) {
-          createData.statusId = defaultStatus.id;
-        }
-      }
       const nextGlobalNumber = await storage.getNextCounterValue("contract_global_number");
       createData.globalNumber = nextGlobalNumber;
 
@@ -4826,7 +4744,6 @@ export async function registerRoutes(
 
       const results: { row: number; status: string; action?: string; contractId?: number; subjectId?: number; warnings?: string[]; error?: string }[] = [];
       const appUser = req.appUser;
-      const defaultStatus = await storage.getSystemContractStatusByName("Nahrata do systemu");
       const batchId = req.body?.batchId || `IMPORT-${Date.now()}`;
 
       for (let i = 0; i < rawRows.length; i++) {
@@ -4999,28 +4916,12 @@ export async function registerRoutes(
           }
 
           const stornoDate = rowData["datum_storna"] || rowData["storno_date"] || rowData["datum_ukoncenia"] || null;
-          let contractStatusId = defaultStatus?.id || null;
+          let contractStatusId: number | null = null;
           let pendingBonusMalus = false;
 
           if (!stornoDate) {
-            let pendingStatus = await storage.getSystemContractStatusByName("Čaká na posúdenie bonusu/malusu");
-            if (!pendingStatus) {
-              pendingStatus = await storage.createContractStatus({
-                name: "Čaká na posúdenie bonusu/malusu",
-                color: "#f59e0b",
-                sortOrder: 997,
-                isCommissionable: false,
-                isFinal: false,
-                assignsNumber: false,
-                definesContractEnd: false,
-                isSystem: true,
-              } as any);
-            }
-            if (pendingStatus) {
-              contractStatusId = pendingStatus.id;
-              pendingBonusMalus = true;
-              rowWarnings.push("Chýba dátum storna – zmluva čaká na manuálne posúdenie bonusu/malusu");
-            }
+            pendingBonusMalus = true;
+            rowWarnings.push("Chýba dátum storna – zmluva čaká na manuálne posúdenie bonusu/malusu");
           }
 
           const nextGlobalNumber = await storage.getNextCounterValue("contract_global_number");

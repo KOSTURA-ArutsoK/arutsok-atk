@@ -2039,10 +2039,8 @@ export default function Contracts() {
     enabled: allContractIds.length > 0,
   });
 
-  const nahratadoSystemuStatusId = statuses?.find(s => s.name === "Nahrata do systemu" || s.name === "Nahratá do systému")?.id;
   const activeContracts = contracts?.filter(c => {
     if (c.isDeleted) return false;
-    if (!isEvidencia && nahratadoSystemuStatusId && c.statusId === nahratadoSystemuStatusId) return false;
     return true;
   }) || [];
   const activeDispatched = dispatchedContracts?.filter(c => !c.isDeleted) || [];

@@ -418,7 +418,7 @@ function StatusTabContent(props: StatusTabContentProps) {
           </>}
           {!currentStatus && (!!contractId || !!statuses) && <>
             <span className="text-sm text-muted-foreground">Stav zmluvy:</span>
-            <span className="text-sm font-semibold" data-testid="text-current-status">Nahratá do systému</span>
+            <span className="text-sm font-semibold" data-testid="text-current-status">Bez stavu</span>
           </>}
         </div>
       </div>
@@ -1224,14 +1224,6 @@ export default function ContractForm() {
     timerRef.current = performance.now();
   }, []);
 
-  useEffect(() => {
-    if (!isEditing && statuses && statuses.length > 0 && !statusId) {
-      const defaultStatus = statuses.find(s => s.name === "Nahrata do systemu" && s.isSystem);
-      if (defaultStatus) {
-        setStatusId(defaultStatus.id.toString());
-      }
-    }
-  }, [isEditing, statuses, statusId]);
 
   useEffect(() => {
     if (existingContract && allSPForEdit && allSectionsForEdit) {

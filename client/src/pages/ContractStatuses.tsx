@@ -433,12 +433,8 @@ function StatusFormDialog({
                     value={name}
                     onChange={e => setName(e.target.value)}
                     placeholder="Zadajte nazov stavu zmluvy"
-                    disabled={editingStatus?.isSystem === true}
                     data-testid="input-status-name"
                   />
-                  {editingStatus?.isSystem && (
-                    <p className="text-xs text-muted-foreground">Systemovy stav zmluvy - nazov nie je mozne zmenit</p>
-                  )}
                   <p className="text-xs text-muted-foreground">Definuje, ako sa bude tento konkretny stav zmluvy volat v systeme.</p>
                 </div>
 
@@ -1109,7 +1105,6 @@ export default function ContractStatuses() {
   const [editingStatus, setEditingStatus] = useState<ContractStatus | null>(null);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [deletingStatus, setDeletingStatus] = useState<ContractStatus | null>(null);
-  const [systemExpanded, setSystemExpanded] = useState(false);
   const [customExpanded, setCustomExpanded] = useState(false);
   const [endingExpanded, setEndingExpanded] = useState(false);
   const [phasesExpanded, setPhasesExpanded] = useState(false);
@@ -1176,8 +1171,7 @@ export default function ContractStatuses() {
       </div>
 
       {(() => {
-        const systemStatuses = sortedStatuses.filter(s => s.isSystem && !s.definesContractEnd);
-        const customStatuses = sortedStatuses.filter(s => !s.isSystem && !s.definesContractEnd);
+        const customStatuses = sortedStatuses.filter(s => !s.definesContractEnd);
         const endingStatuses = sortedStatuses.filter(s => s.definesContractEnd);
 
         const statusTableHeader = (
@@ -1240,7 +1234,7 @@ export default function ContractStatuses() {
                   <Button size="icon" variant="ghost" onClick={() => openEdit(status)} data-testid={`button-edit-status-${status.id}`}>
                     <Pencil className="w-4 h-4" />
                   </Button>
-                  {options.showDelete !== false && !status.isSystem && usageCount === 0 && (
+                  {options.showDelete !== false && usageCount === 0 && (
                     <ConditionalDelete canDelete={true} onClick={() => openDelete(status)} testId={`button-delete-status-${status.id}`} />
                   )}
                 </div>
@@ -1259,38 +1253,14 @@ export default function ContractStatuses() {
           </p>
         ) : (
           <>
-            {(systemStatuses.length > 0 || (lifecyclePhases && lifecyclePhases.length > 0)) && (
+            {lifecyclePhases && lifecyclePhases.length > 0 && (
               <Card data-testid="card-system-statuses">
                 <CardContent className="p-0">
                   <div className="px-4 py-3 border-b">
                     <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider" data-testid="text-system-statuses-title">Systemove stavy</h2>
                   </div>
 
-                  {systemStatuses.length > 0 && (
-                    <div className="border-b">
-                      <div
-                        className="px-4 py-3 border-b flex items-center justify-between cursor-pointer select-none hover:bg-muted/50 transition-colors"
-                        onClick={() => setSystemExpanded(prev => !prev)}
-                        data-testid="header-system-statuses"
-                      >
-                        <div className="flex items-center gap-2 pl-2">
-                          {systemExpanded ? <ChevronDown className="w-4 h-4 text-muted-foreground" /> : <ChevronRight className="w-4 h-4 text-muted-foreground" />}
-                          <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Systemove stavy zmluv</h3>
-                          <Badge variant="secondary" className="text-xs" data-testid="badge-system-count">{systemStatuses.length}</Badge>
-                        </div>
-                      </div>
-                      {systemExpanded && (
-                        <Table>
-                          {statusTableHeader}
-                          <TableBody>
-                            {systemStatuses.map(s => renderStatusRow(s, { showDragHandle: false, showDelete: false }))}
-                          </TableBody>
-                        </Table>
-                      )}
-                    </div>
-                  )}
-
-                  {lifecyclePhases && lifecyclePhases.length > 0 && (
+                  {lifecyclePhases.length > 0 && (
                     <div>
                       <div
                         className="px-4 py-3 border-b flex items-center justify-between cursor-pointer select-none hover:bg-muted/50 transition-colors"
@@ -1427,7 +1397,6 @@ export default function ContractStatuses() {
                                 <Badge variant="secondary" className="text-xs">Ukoncenie</Badge>
                                 {status.isCommissionable && <Badge variant="secondary" className="text-xs">Provizna</Badge>}
                                 {status.isFinal && <Badge variant="secondary" className="text-xs">Finalny</Badge>}
-                                {status.isSystem && <Badge variant="secondary" className="text-xs">System</Badge>}
                               </div>
                             </TableCell>
                           </TableRow>

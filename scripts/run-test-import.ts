@@ -110,10 +110,10 @@ async function main() {
       isFinal: false,
       assignsNumber: false,
       definesContractEnd: false,
-      isSystem: true,
+      isSystem: false,
     }).returning();
     pendingStatus = created;
-    console.log(`Vytvorený systémový status: "Čaká na posúdenie bonusu/malusu"`);
+    console.log(`Vytvorený status: "Čaká na posúdenie bonusu/malusu"`);
   }
 
   const categoryMappings = new Map<string, string>();
