@@ -714,6 +714,26 @@ export const contractLifecycleHistory = pgTable("contract_lifecycle_history", {
   contractIdx: index("idx_contract_lifecycle_history_contract_id").on(table.contractId),
 }));
 
+export const lifecyclePhaseConfigs = pgTable("lifecycle_phase_configs", {
+  id: serial("id").primaryKey(),
+  phase: integer("phase").notNull().unique(),
+  name: text("name").notNull(),
+  color: text("color").default("#3b82f6"),
+  isCommissionable: boolean("is_commissionable").default(false),
+  isFinal: boolean("is_final").default(false),
+  definesContractEnd: boolean("defines_contract_end").default(false),
+  isIntervention: boolean("is_intervention").default(false),
+  isStorno: boolean("is_storno").default(false),
+  notifyEnabled: boolean("notify_enabled").default(false),
+  notifyChannel: text("notify_channel"),
+  notifySubject: text("notify_subject"),
+  notifyTemplate: text("notify_template"),
+});
+
+export const insertLifecyclePhaseConfigSchema = createInsertSchema(lifecyclePhaseConfigs).omit({ id: true });
+export type InsertLifecyclePhaseConfig = z.infer<typeof insertLifecyclePhaseConfigSchema>;
+export type LifecyclePhaseConfig = typeof lifecyclePhaseConfigs.$inferSelect;
+
 // === CONTRACT TEMPLATES (Sablony zmluv) ===
 export const contractTemplates = pgTable("contract_templates", {
   id: serial("id").primaryKey(),

@@ -4,7 +4,7 @@ import { storage } from "./storage";
 import { api } from "@shared/routes";
 import { setupAuth, isAuthenticated } from "./auth";
 import { z } from "zod";
-import { continents, states, myCompanies, appUsers, clientTypes, clientSubGroups, clientGroupMembers, productFolderAssignments, folderPanels, panelParameters, userClientGroupMemberships, clientGroups, permissionGroups, insertCareerLevelSchema, insertProductPointRateSchema, careerLevels, importLogs, commissions, contracts, contractStatuses, contractStatusChangeLogs, clientDataTabs, clientDataCategories, subjects, subjectPointsLog, subjectFieldHistory, subjectCollaborators, clientMarketingConsents, clientDocumentHistory, contractAcquirers, contractPasswords, contractRewardDistributions, contractParameterValues, subjectArchive, auditLogs, globalCounters, subjectPhotos, activityEvents, subjectParamSections, subjectParameters, subjectTemplates, subjectTemplateParams, commissionCalculationLogs, parameterSynonyms, dataConflictAlerts, transactionDedupLog, relationRoleTypes, subjectRelations, maturityAlerts, inheritancePrompts, guardianshipArchive, households, householdMembers, householdAssets, privacyBlocks, accessConsentLog, maturityEvents, addressGroups, addressGroupMembers, companySubjectRoles, notificationQueue, batchJobs, subjectObjects, objectDataSources, sectors, sections, sectorProducts, parameters, panels, productPanels, contractFolders, fieldLayoutConfigs, sectorCategoryMapping, suggestedRelations, statusEvidence, contractLifecycleHistory, systemNotifications, partners, products, contractInventories, contractTemplates, redListAlerts, subjectAddresses, divisions, companyDivisions, insertDivisionSchema, ocrProcessingJobs, networkLinks, guarantorTransferRequests, nbsReportStatuses, nbsPartnerReports, supisky, supiskaContracts } from "@shared/schema";
+import { continents, states, myCompanies, appUsers, clientTypes, clientSubGroups, clientGroupMembers, productFolderAssignments, folderPanels, panelParameters, userClientGroupMemberships, clientGroups, permissionGroups, insertCareerLevelSchema, insertProductPointRateSchema, careerLevels, importLogs, commissions, contracts, contractStatuses, contractStatusChangeLogs, clientDataTabs, clientDataCategories, subjects, subjectPointsLog, subjectFieldHistory, subjectCollaborators, clientMarketingConsents, clientDocumentHistory, contractAcquirers, contractPasswords, contractRewardDistributions, contractParameterValues, subjectArchive, auditLogs, globalCounters, subjectPhotos, activityEvents, subjectParamSections, subjectParameters, subjectTemplates, subjectTemplateParams, commissionCalculationLogs, parameterSynonyms, dataConflictAlerts, transactionDedupLog, relationRoleTypes, subjectRelations, maturityAlerts, inheritancePrompts, guardianshipArchive, households, householdMembers, householdAssets, privacyBlocks, accessConsentLog, maturityEvents, addressGroups, addressGroupMembers, companySubjectRoles, notificationQueue, batchJobs, subjectObjects, objectDataSources, sectors, sections, sectorProducts, parameters, panels, productPanels, contractFolders, fieldLayoutConfigs, sectorCategoryMapping, suggestedRelations, statusEvidence, contractLifecycleHistory, systemNotifications, partners, products, contractInventories, contractTemplates, redListAlerts, subjectAddresses, divisions, companyDivisions, insertDivisionSchema, ocrProcessingJobs, networkLinks, guarantorTransferRequests, nbsReportStatuses, nbsPartnerReports, supisky, supiskaContracts, lifecyclePhaseConfigs } from "@shared/schema";
 import { notifyObjectionCreated, notifyPreDeletion, getProductDaysLimits } from "./email";
 import { seedSubjectParameters, seedAssetPanels, seedEventAndEntityPanels } from "./seed-subject-params";
 import sharp from "sharp";
@@ -353,10 +353,86 @@ export async function registerRoutes(
 
   await setupAuth(app);
 
-  app.get("/api/lifecycle-phases", isAuthenticated, (_req, res) => {
-    const phases = Object.entries(LIFECYCLE_PHASES).map(([id, name]) => ({ id: Number(id), name }));
-    res.json(phases);
+  app.get("/api/lifecycle-phases", isAuthenticated, async (_req, res) => {
+    try {
+      const configs = await db.select().from(lifecyclePhaseConfigs).orderBy(asc(lifecyclePhaseConfigs.phase));
+      const configMap = new Map(configs.map(c => [c.phase, c]));
+      const result = Object.entries(LIFECYCLE_PHASES).map(([id, name]) => {
+        const phaseNum = Number(id);
+        const cfg = configMap.get(phaseNum);
+        return cfg || { id: phaseNum, phase: phaseNum, name, color: "#3b82f6", isCommissionable: false, isFinal: false, definesContractEnd: false, isIntervention: false, isStorno: false, notifyEnabled: false, notifyChannel: null, notifySubject: null, notifyTemplate: null };
+      });
+      res.json(result);
+    } catch (err: any) {
+      res.status(500).json({ message: err?.message || "Internal error" });
+    }
   });
+
+  app.put("/api/lifecycle-phase-configs/:phase", isAuthenticated, async (req: any, res) => {
+    try {
+      if (!req.appUser || !["admin", "superadmin", "prezident", "architekt"].includes(req.appUser.role)) {
+        return res.status(403).json({ message: "Nedostatočné oprávnenia" });
+      }
+      const phase = Number(req.params.phase);
+      if (!LIFECYCLE_PHASES[phase]) {
+        return res.status(400).json({ message: "Neplatná fáza" });
+      }
+      const { color, isCommissionable, isFinal, definesContractEnd, isIntervention, isStorno, notifyEnabled, notifyChannel, notifySubject, notifyTemplate } = req.body;
+      const validChannels = ["email", "sms", "both", null];
+      if (notifyChannel !== undefined && !validChannels.includes(notifyChannel)) {
+        return res.status(400).json({ message: "Neplatný kanál notifikácie" });
+      }
+      const [existing] = await db.select().from(lifecyclePhaseConfigs).where(eq(lifecyclePhaseConfigs.phase, phase));
+      if (!existing) {
+        const [created] = await db.insert(lifecyclePhaseConfigs).values({
+          phase,
+          name: LIFECYCLE_PHASES[phase],
+          color: color || "#3b82f6",
+          isCommissionable: isCommissionable ?? false,
+          isFinal: isFinal ?? false,
+          definesContractEnd: definesContractEnd ?? false,
+          isIntervention: isIntervention ?? false,
+          isStorno: isStorno ?? false,
+          notifyEnabled: notifyEnabled ?? false,
+          notifyChannel: notifyChannel || null,
+          notifySubject: notifySubject || null,
+          notifyTemplate: notifyTemplate || null,
+        }).returning();
+        return res.json(created);
+      }
+      const [updated] = await db.update(lifecyclePhaseConfigs).set({
+        color: color ?? existing.color,
+        isCommissionable: isCommissionable ?? existing.isCommissionable,
+        isFinal: isFinal ?? existing.isFinal,
+        definesContractEnd: definesContractEnd ?? existing.definesContractEnd,
+        isIntervention: isIntervention ?? existing.isIntervention,
+        isStorno: isStorno ?? existing.isStorno,
+        notifyEnabled: notifyEnabled ?? existing.notifyEnabled,
+        notifyChannel: notifyChannel !== undefined ? notifyChannel : existing.notifyChannel,
+        notifySubject: notifySubject !== undefined ? notifySubject : existing.notifySubject,
+        notifyTemplate: notifyTemplate !== undefined ? notifyTemplate : existing.notifyTemplate,
+      }).where(eq(lifecyclePhaseConfigs.phase, phase)).returning();
+      res.json(updated);
+    } catch (err: any) {
+      res.status(500).json({ message: err?.message || "Internal error" });
+    }
+  });
+
+  (async () => {
+    try {
+      const existingConfigs = await db.select().from(lifecyclePhaseConfigs);
+      const existingPhases = new Set(existingConfigs.map(c => c.phase));
+      const missing = Object.entries(LIFECYCLE_PHASES)
+        .filter(([id]) => !existingPhases.has(Number(id)))
+        .map(([id, name]) => ({ phase: Number(id), name, color: "#3b82f6" }));
+      if (missing.length > 0) {
+        await db.insert(lifecyclePhaseConfigs).values(missing);
+        console.log("[SEED] Lifecycle phase configs seeded:", missing.length, "missing phases");
+      }
+    } catch (err) {
+      console.error("[SEED] Lifecycle phase configs seed error:", err);
+    }
+  })();
 
   seedAssetPanels().catch(err => console.error("[SEED-ASSETS ERROR]", err));
   seedEventAndEntityPanels().catch(err => console.error("[SEED-EVENTS ERROR]", err));

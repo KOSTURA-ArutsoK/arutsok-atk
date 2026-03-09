@@ -10,7 +10,7 @@ import type { SmartColumnDef } from "@/hooks/use-smart-filter";
 import { SmartFilterBar } from "@/components/smart-filter-bar";
 import { useColumnVisibility, type ColumnDef } from "@/hooks/use-column-visibility";
 import { ColumnManager } from "@/components/column-manager";
-import type { ContractStatus, ContractStatusParameter, MyCompany, Sector, Section, SectorProduct } from "@shared/schema";
+import type { ContractStatus, ContractStatusParameter, MyCompany, Sector, Section, SectorProduct, LifecyclePhaseConfig } from "@shared/schema";
 import { Plus, Pencil, Loader2, GripVertical, Flag, MessageSquare, Settings2, FileText, ChevronRight, ChevronDown } from "lucide-react";
 import { ConditionalDelete } from "@/components/conditional-delete";
 import { Card, CardContent } from "@/components/ui/card";
@@ -883,6 +883,163 @@ function StatusFormDialog({
   );
 }
 
+function LifecyclePhaseFormDialog({
+  open,
+  onOpenChange,
+  phase,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  phase: LifecyclePhaseConfig | null;
+}) {
+  const { toast } = useToast();
+  const [color, setColor] = useState("#3b82f6");
+  const [isCommissionable, setIsCommissionable] = useState(false);
+  const [isFinal, setIsFinal] = useState(false);
+  const [definesContractEnd, setDefinesContractEnd] = useState(false);
+  const [isIntervention, setIsIntervention] = useState(false);
+  const [isStorno, setIsStorno] = useState(false);
+  const [notifyEnabled, setNotifyEnabled] = useState(false);
+  const [notifyChannel, setNotifyChannel] = useState("email");
+  const [notifySubject, setNotifySubject] = useState("");
+  const [notifyTemplate, setNotifyTemplate] = useState("");
+
+  useEffect(() => {
+    if (open && phase) {
+      setColor(phase.color || "#3b82f6");
+      setIsCommissionable(phase.isCommissionable ?? false);
+      setIsFinal(phase.isFinal ?? false);
+      setDefinesContractEnd(phase.definesContractEnd ?? false);
+      setIsIntervention(phase.isIntervention ?? false);
+      setIsStorno(phase.isStorno ?? false);
+      setNotifyEnabled(phase.notifyEnabled ?? false);
+      setNotifyChannel(phase.notifyChannel || "email");
+      setNotifySubject(phase.notifySubject || "");
+      setNotifyTemplate(phase.notifyTemplate || "");
+    }
+  }, [open, phase]);
+
+  const updateMutation = useMutation({
+    mutationFn: (data: any) => apiRequest("PUT", `/api/lifecycle-phase-configs/${phase!.phase}`, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/lifecycle-phases"] });
+      toast({ title: "Uspech", description: "Konfiguracia fazy aktualizovana" });
+      onOpenChange(false);
+    },
+    onError: () => toast({ title: "Chyba", description: "Nepodarilo sa aktualizovat fazu", variant: "destructive" }),
+  });
+
+  function handleSubmit() {
+    updateMutation.mutate({
+      color,
+      isCommissionable,
+      isFinal,
+      definesContractEnd,
+      isIntervention,
+      isStorno,
+      notifyEnabled,
+      notifyChannel: notifyEnabled ? notifyChannel : null,
+      notifySubject: notifyEnabled ? notifySubject : null,
+      notifyTemplate: notifyEnabled ? notifyTemplate : null,
+    });
+  }
+
+  if (!phase) return null;
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent size="md">
+        <DialogHeader>
+          <DialogTitle data-testid="text-phase-dialog-title">Faza spracovania: {phase.name}</DialogTitle>
+        </DialogHeader>
+        <div className="space-y-4">
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="text-xs font-medium text-muted-foreground">Faza</label>
+              <p className="text-sm font-mono" data-testid="text-phase-id">{phase.phase}</p>
+            </div>
+            <div>
+              <label className="text-xs font-medium text-muted-foreground">Nazov</label>
+              <p className="text-sm" data-testid="text-phase-name">{phase.name}</p>
+            </div>
+          </div>
+
+          <div>
+            <label className="text-xs font-medium text-muted-foreground">Farba</label>
+            <div className="flex items-center gap-2 mt-1">
+              <input type="color" value={color} onChange={(e) => setColor(e.target.value)} className="w-8 h-8 rounded cursor-pointer" data-testid="input-phase-color" />
+              <Input value={color} onChange={(e) => setColor(e.target.value)} className="w-32 font-mono text-xs" data-testid="input-phase-color-text" />
+            </div>
+          </div>
+
+          <div className="space-y-3">
+            <h3 className="text-xs font-semibold text-muted-foreground uppercase">Vlastnosti</h3>
+            <div className="grid grid-cols-2 gap-3">
+              <label className="flex items-center gap-2 text-sm cursor-pointer">
+                <Checkbox checked={isCommissionable} onCheckedChange={(v) => setIsCommissionable(!!v)} data-testid="checkbox-phase-commissionable" />
+                Provizna
+              </label>
+              <label className="flex items-center gap-2 text-sm cursor-pointer">
+                <Checkbox checked={isFinal} onCheckedChange={(v) => setIsFinal(!!v)} data-testid="checkbox-phase-final" />
+                Finalny stav
+              </label>
+              <label className="flex items-center gap-2 text-sm cursor-pointer">
+                <Checkbox checked={definesContractEnd} onCheckedChange={(v) => setDefinesContractEnd(!!v)} data-testid="checkbox-phase-contract-end" />
+                Ukoncenie zmluvy
+              </label>
+              <label className="flex items-center gap-2 text-sm cursor-pointer">
+                <Checkbox checked={isIntervention} onCheckedChange={(v) => setIsIntervention(!!v)} data-testid="checkbox-phase-intervention" />
+                Intervencia
+              </label>
+              <label className="flex items-center gap-2 text-sm cursor-pointer">
+                <Checkbox checked={isStorno} onCheckedChange={(v) => setIsStorno(!!v)} data-testid="checkbox-phase-storno" />
+                Storno
+              </label>
+            </div>
+          </div>
+
+          <div className="space-y-3">
+            <label className="flex items-center gap-2 text-sm cursor-pointer">
+              <Switch checked={notifyEnabled} onCheckedChange={setNotifyEnabled} data-testid="switch-phase-notify" />
+              Notifikacie
+            </label>
+            {notifyEnabled && (
+              <div className="space-y-2 pl-4 border-l-2 border-border">
+                <div>
+                  <label className="text-xs font-medium text-muted-foreground">Kanal</label>
+                  <Select value={notifyChannel} onValueChange={setNotifyChannel}>
+                    <SelectTrigger data-testid="select-phase-notify-channel"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="email">Email</SelectItem>
+                      <SelectItem value="sms">SMS</SelectItem>
+                      <SelectItem value="both">Email + SMS</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <label className="text-xs font-medium text-muted-foreground">Predmet emailu</label>
+                  <Input value={notifySubject} onChange={(e) => setNotifySubject(e.target.value)} placeholder="Predmet..." data-testid="input-phase-notify-subject" />
+                </div>
+                <div>
+                  <label className="text-xs font-medium text-muted-foreground">Sablona</label>
+                  <textarea value={notifyTemplate} onChange={(e) => setNotifyTemplate(e.target.value)} className="w-full min-h-[80px] rounded-md border border-input bg-background px-3 py-2 text-sm" placeholder="Obsah notifikacie..." data-testid="input-phase-notify-template" />
+                </div>
+              </div>
+            )}
+          </div>
+
+          <div className="flex items-center justify-end gap-3 flex-wrap">
+            <Button type="button" variant="outline" onClick={() => onOpenChange(false)} data-testid="button-phase-cancel">Zrusit</Button>
+            <Button type="button" onClick={handleSubmit} disabled={updateMutation.isPending} data-testid="button-phase-save">
+              {updateMutation.isPending ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Ukladam...</> : "Ulozit"}
+            </Button>
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 function DeleteStatusDialog({
   status,
   open,
@@ -955,6 +1112,9 @@ export default function ContractStatuses() {
   const [systemExpanded, setSystemExpanded] = useState(false);
   const [customExpanded, setCustomExpanded] = useState(false);
   const [endingExpanded, setEndingExpanded] = useState(false);
+  const [phasesExpanded, setPhasesExpanded] = useState(false);
+  const [phaseDialogOpen, setPhaseDialogOpen] = useState(false);
+  const [editingPhase, setEditingPhase] = useState<LifecyclePhaseConfig | null>(null);
 
   const { data: statuses, isLoading } = useQuery<ContractStatus[]>({
     queryKey: ["/api/contract-statuses"],
@@ -1123,25 +1283,61 @@ export default function ContractStatuses() {
                       </Table>
                       {lifecyclePhases && lifecyclePhases.length > 0 && (
                         <div className="border-t">
-                          <div className="px-4 py-3 border-b">
-                            <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider" data-testid="text-lifecycle-phases-title">Fazy spracovania</h3>
+                          <div
+                            className="px-4 py-3 border-b flex items-center justify-between cursor-pointer select-none hover:bg-muted/50 transition-colors"
+                            onClick={() => setPhasesExpanded(prev => !prev)}
+                            data-testid="header-lifecycle-phases"
+                          >
+                            <div className="flex items-center gap-2">
+                              {phasesExpanded ? <ChevronDown className="w-4 h-4 text-muted-foreground" /> : <ChevronRight className="w-4 h-4 text-muted-foreground" />}
+                              <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider" data-testid="text-lifecycle-phases-title">Systemove stavy pri spracovani papierovych zmluv</h3>
+                              <Badge variant="secondary" className="text-xs" data-testid="badge-phases-count">{lifecyclePhases.length}</Badge>
+                            </div>
                           </div>
-                          <Table>
-                            <TableHeader>
-                              <TableRow>
-                                <TableHead className="w-20">ID</TableHead>
-                                <TableHead>Nazov fazy</TableHead>
-                              </TableRow>
-                            </TableHeader>
-                            <TableBody>
-                              {lifecyclePhases.map(phase => (
-                                <TableRow key={phase.id} data-testid={`row-lifecycle-phase-${phase.id}`}>
-                                  <TableCell className="font-mono text-sm" data-testid={`text-phase-id-${phase.id}`}>{phase.id}</TableCell>
-                                  <TableCell data-testid={`text-phase-name-${phase.id}`}>{phase.name}</TableCell>
+                          {phasesExpanded && (
+                            <Table>
+                              <TableHeader>
+                                <TableRow>
+                                  <TableHead className="w-20">Faza</TableHead>
+                                  <TableHead>Nazov fazy</TableHead>
+                                  <TableHead className="w-32">Farba</TableHead>
+                                  <TableHead>Vlastnosti</TableHead>
                                 </TableRow>
-                              ))}
-                            </TableBody>
-                          </Table>
+                              </TableHeader>
+                              <TableBody>
+                                {lifecyclePhases.map((phase: any) => (
+                                  <TableRow
+                                    key={phase.id}
+                                    className="cursor-pointer hover:bg-muted/50"
+                                    onClick={() => { setEditingPhase(phase); setPhaseDialogOpen(true); }}
+                                    data-testid={`row-lifecycle-phase-${phase.phase ?? phase.id}`}
+                                  >
+                                    <TableCell className="font-mono text-sm" data-testid={`text-phase-id-${phase.phase ?? phase.id}`}>{phase.phase ?? phase.id}</TableCell>
+                                    <TableCell data-testid={`text-phase-name-${phase.phase ?? phase.id}`}>
+                                      <Badge variant="outline" style={{ borderColor: phase.color || '#3b82f6', color: phase.color || '#3b82f6' }}>
+                                        {phase.name}
+                                      </Badge>
+                                    </TableCell>
+                                    <TableCell>
+                                      <div className="flex items-center gap-2">
+                                        <div className="w-6 h-6 rounded-md border border-border" style={{ backgroundColor: phase.color || '#3b82f6' }} />
+                                        <span className="text-xs font-mono text-muted-foreground">{phase.color || '#3b82f6'}</span>
+                                      </div>
+                                    </TableCell>
+                                    <TableCell>
+                                      <div className="flex items-center gap-1 flex-wrap">
+                                        {phase.isCommissionable && <Badge variant="secondary" className="text-xs">Provizna</Badge>}
+                                        {phase.isFinal && <Badge variant="secondary" className="text-xs">Finalny</Badge>}
+                                        {phase.definesContractEnd && <Badge variant="secondary" className="text-xs">Ukoncenie</Badge>}
+                                        {phase.isIntervention && <Badge variant="secondary" className="text-xs">Intervencia</Badge>}
+                                        {phase.isStorno && <Badge variant="secondary" className="text-xs">Storno</Badge>}
+                                      </div>
+                                    </TableCell>
+                                  </TableRow>
+                                ))}
+                              </TableBody>
+                            </Table>
+                          )}
                         </div>
                       )}
                     </>
@@ -1256,6 +1452,15 @@ export default function ContractStatuses() {
           }}
         />
       )}
+
+      <LifecyclePhaseFormDialog
+        open={phaseDialogOpen}
+        onOpenChange={(isOpen) => {
+          setPhaseDialogOpen(isOpen);
+          if (!isOpen) setEditingPhase(null);
+        }}
+        phase={editingPhase}
+      />
     </div>
   );
 }
