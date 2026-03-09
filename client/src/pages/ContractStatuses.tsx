@@ -1176,8 +1176,8 @@ export default function ContractStatuses() {
       </div>
 
       {(() => {
-        const systemStatuses = sortedStatuses.filter(s => s.isSystem);
-        const customStatuses = sortedStatuses.filter(s => !s.isSystem);
+        const systemStatuses = sortedStatuses.filter(s => s.isSystem && !s.definesContractEnd);
+        const customStatuses = sortedStatuses.filter(s => !s.isSystem && !s.definesContractEnd);
         const endingStatuses = sortedStatuses.filter(s => s.definesContractEnd);
 
         const statusTableHeader = (
