@@ -1759,6 +1759,7 @@ type FolderDef = { id: number; label: string; icon: ComponentType<{ className?: 
 function WorkflowDiagram({ folderDefs, row2FolderDefs, activeFolder, onFolderClick }: { folderDefs: FolderDef[]; row2FolderDefs: FolderDef[]; activeFolder: number; onFolderClick: (id: number) => void }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [paths, setPaths] = useState<string[]>([]);
+  const [blueLPath, setBlueLPath] = useState<string>("");
 
   useEffect(() => {
     const el = containerRef.current;
@@ -1772,11 +1773,21 @@ function WorkflowDiagram({ folderDefs, row2FolderDefs, activeFolder, onFolderCli
         return { cx: r.left + r.width / 2 - cR.left, t: r.top - cR.top, b: r.bottom - cR.top };
       };
       const p = cards.map(g);
-      const newPaths: string[] = [];
-      const midY = (p[0].b + p[5].t) / 2;
-      newPaths.push(`M ${p[0].cx},${p[0].b} V ${midY} H ${p[5].cx} V ${p[5].t}`);
-      newPaths.push(`M ${p[5].cx},${midY} H ${p[6].cx} V ${p[6].t}`);
-      setPaths(newPaths);
+      const pad = 5;
+      const full = (c: HTMLElement) => {
+        const r = c.getBoundingClientRect();
+        return { l: r.left - cR.left, r: r.right - cR.left, t: r.top - cR.top, b: r.bottom - cR.top };
+      };
+      const f = cards.map(full);
+      const lTop = f[0].t - pad;
+      const lLeft = f[0].l - pad;
+      const lRight = f[0].r + pad;
+      const lBottom6 = f[5].b + pad;
+      const lRight7 = f[6].r + pad;
+      const lBottom7 = f[6].b + pad;
+      const lPath = `M ${lLeft},${lTop} H ${lRight} V ${f[5].t - pad} H ${lRight7} V ${lBottom7} H ${lLeft} Z`;
+      setBlueLPath(lPath);
+      setPaths([]);
     };
     const ro = new ResizeObserver(compute);
     ro.observe(el);
@@ -1784,16 +1795,14 @@ function WorkflowDiagram({ folderDefs, row2FolderDefs, activeFolder, onFolderCli
     return () => ro.disconnect();
   }, []);
 
-  const blueGroupIds = new Set([1, 2, 5]);
-
-  const styles = [
-    { stroke: '#3b82f6', opacity: 0.5 },
-    { stroke: '#3b82f6', opacity: 0.5 },
-  ];
+  const styles: { stroke: string; opacity: number }[] = [];
 
   return (
     <div ref={containerRef} className="relative rounded-lg border bg-card p-4 overflow-visible" data-testid="workflow-diagram">
-      <svg className="absolute inset-0 w-full pointer-events-none overflow-visible" style={{ height: 'calc(100% + 40px)', top: '-20px' }}>
+      <svg className="absolute inset-0 w-full h-full pointer-events-none overflow-visible">
+        {blueLPath && (
+          <path d={blueLPath} fill="#3b82f6" fillOpacity="0.15" stroke="#3b82f6" strokeWidth="2" strokeOpacity="0.4" strokeLinejoin="round" />
+        )}
         {paths.map((d, i) => (
           <path key={i} d={d} fill="none" stroke={styles[i]?.stroke || 'currentColor'} strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" opacity={styles[i]?.opacity || 0.3} />
         ))}
@@ -1803,9 +1812,8 @@ function WorkflowDiagram({ folderDefs, row2FolderDefs, activeFolder, onFolderCli
           {folderDefs.map(f => {
             const FIcon = f.icon;
             const isActive = activeFolder === f.id;
-            const inBlueGroup = blueGroupIds.has(f.id);
             return (
-              <div key={f.id} data-phase-card={f.id} className={`rounded-lg ${inBlueGroup ? 'p-[3px] bg-blue-500/30 ring-2 ring-blue-500/40' : ''}`}>
+              <div key={f.id} data-phase-card={f.id}>
                 <Card className={`cursor-pointer transition-colors bg-card ${isActive ? "border-primary shadow-sm" : ""}`} onClick={() => onFolderClick(f.id)} data-testid={`folder-tab-${f.id}`}>
                   <div className="flex flex-col items-center gap-1 p-2 text-center">
                     <div className={`w-8 h-8 rounded-md ${f.bgColor} flex items-center justify-center shrink-0`}>
@@ -1823,9 +1831,8 @@ function WorkflowDiagram({ folderDefs, row2FolderDefs, activeFolder, onFolderCli
           {row2FolderDefs.map(f => {
             const FIcon = f.icon;
             const isActive = activeFolder === f.id;
-            const inBlueGroup = blueGroupIds.has(f.id);
             return (
-              <div key={f.id} data-phase-card={f.id} className={`rounded-lg ${inBlueGroup ? 'p-[3px] bg-blue-500/30 ring-2 ring-blue-500/40' : ''}`}>
+              <div key={f.id} data-phase-card={f.id}>
                 <Card className={`cursor-pointer transition-colors bg-card ${isActive ? "border-primary shadow-sm" : ""}`} onClick={() => onFolderClick(f.id)} data-testid={`folder-tab-${f.id}`}>
                   <div className="flex flex-col items-center gap-1 p-2 text-center">
                     <div className={`w-8 h-8 rounded-md ${f.bgColor} flex items-center justify-center shrink-0`}>
