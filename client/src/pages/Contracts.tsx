@@ -3297,50 +3297,40 @@ export default function Contracts() {
 
             <polyline points="453,143 453,57 448,57" fill="none" stroke="#8b5cf6" strokeWidth="4" opacity="0.3" strokeLinejoin="round" markerEnd="url(#arrow-vert)" vectorEffect="non-scaling-stroke" />
           </svg>
-          <div className="relative z-10 space-y-3" data-testid="folder-tabs">
-            <div>
-              <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-1.5">Riadok 1: Logistika (Sledovanie papiera)</p>
-              <div className="grid grid-cols-5 gap-2">
-                {folderDefs.map(f => {
-                  const FIcon = f.icon;
-                  const isActive = activeFolder === f.id;
-                  return (
-                    <Card key={f.id} className={`cursor-pointer transition-colors ${isActive ? "border-primary shadow-sm" : ""}`} onClick={() => { setActiveFolder(f.id); setRerouteSelectedIds([]); }} data-testid={`folder-tab-${f.id}`}>
-                      <div className="flex items-center gap-2 p-2">
-                        <div className={`w-7 h-7 rounded-md ${f.bgColor} flex items-center justify-center shrink-0`}>
-                          <FIcon className={`w-3.5 h-3.5 ${f.color}`} />
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <p className="text-[10px] font-semibold truncate leading-tight">{f.label}</p>
-                          <p className="text-base font-bold">{f.count}</p>
-                        </div>
+          <div className="relative z-10 space-y-6" data-testid="folder-tabs">
+            <div className="grid grid-cols-5 gap-6 px-4">
+              {folderDefs.map(f => {
+                const FIcon = f.icon;
+                const isActive = activeFolder === f.id;
+                return (
+                  <Card key={f.id} className={`cursor-pointer transition-colors bg-card ${isActive ? "border-primary shadow-sm" : ""}`} onClick={() => { setActiveFolder(f.id); setRerouteSelectedIds([]); }} data-testid={`folder-tab-${f.id}`}>
+                    <div className="flex flex-col items-center gap-1 p-2 text-center">
+                      <div className={`w-8 h-8 rounded-md ${f.bgColor} flex items-center justify-center shrink-0`}>
+                        <FIcon className={`w-4 h-4 ${f.color}`} />
                       </div>
-                    </Card>
-                  );
-                })}
-              </div>
+                      <p className="text-[9px] font-semibold leading-tight">{f.label}</p>
+                      <p className="text-lg font-bold leading-none">{f.count}</p>
+                    </div>
+                  </Card>
+                );
+              })}
             </div>
-            <div>
-              <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-1.5">Riadok 2: Spracovanie (Dátová kvalita)</p>
-              <div className="grid grid-cols-5 gap-2">
-                {row2FolderDefs.map(f => {
-                  const FIcon = f.icon;
-                  const isActive = activeFolder === f.id;
-                  return (
-                    <Card key={f.id} className={`cursor-pointer transition-colors ${isActive ? "border-primary shadow-sm" : ""}`} onClick={() => { setActiveFolder(f.id); setRerouteSelectedIds([]); }} data-testid={`folder-tab-${f.id}`}>
-                      <div className="flex items-center gap-2 p-2">
-                        <div className={`w-7 h-7 rounded-md ${f.bgColor} flex items-center justify-center shrink-0`}>
-                          <FIcon className={`w-3.5 h-3.5 ${f.color}`} />
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <p className="text-[10px] font-semibold truncate leading-tight">{f.label}</p>
-                          <p className="text-base font-bold">{f.count}</p>
-                        </div>
+            <div className="grid grid-cols-5 gap-6 px-4">
+              {row2FolderDefs.map(f => {
+                const FIcon = f.icon;
+                const isActive = activeFolder === f.id;
+                return (
+                  <Card key={f.id} className={`cursor-pointer transition-colors bg-card ${isActive ? "border-primary shadow-sm" : ""}`} onClick={() => { setActiveFolder(f.id); setRerouteSelectedIds([]); }} data-testid={`folder-tab-${f.id}`}>
+                    <div className="flex flex-col items-center gap-1 p-2 text-center">
+                      <div className={`w-8 h-8 rounded-md ${f.bgColor} flex items-center justify-center shrink-0`}>
+                        <FIcon className={`w-4 h-4 ${f.color}`} />
                       </div>
-                    </Card>
-                  );
-                })}
-              </div>
+                      <p className="text-[9px] font-semibold leading-tight">{f.label}</p>
+                      <p className="text-lg font-bold leading-none">{f.count}</p>
+                    </div>
+                  </Card>
+                );
+              })}
             </div>
           </div>
         </div>
