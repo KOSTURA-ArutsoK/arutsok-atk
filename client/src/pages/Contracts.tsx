@@ -11,7 +11,7 @@ import type { SmartColumnDef } from "@/hooks/use-smart-filter";
 import { SmartFilterBar } from "@/components/smart-filter-bar";
 import { useLocation } from "wouter";
 import type { Contract, ContractStatus, ContractTemplate, ContractInventory, Subject, Partner, Product, MyCompany, Sector, Section, SectorProduct, ClientGroup, ClientType, AppUser, ContractAcquirer } from "@shared/schema";
-import { Plus, Pencil, Trash2, Eye, FileText, Loader2, Lock, LayoutGrid, Send, Upload, Inbox, CheckCircle2, ChevronDown, ChevronRight, Printer, Search, Archive, AlertTriangle, Calendar, XCircle, MessageSquare, Paperclip, X, Users, Check, Award, Percent, History, ListChecks, ArrowRight, Clock, Ghost, Ban } from "lucide-react";
+import { Plus, Pencil, Trash2, Eye, FileText, Loader2, Lock, LayoutGrid, Send, Upload, Inbox, CheckCircle2, ChevronDown, ChevronRight, Printer, Search, Archive, AlertTriangle, Calendar, XCircle, MessageSquare, Paperclip, X, Users, Check, Award, Percent, History, ListChecks, ArrowRight, Clock, Ghost, Ban, HelpCircle } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ActivityTimeline } from "@/components/activity-timeline";
 import { cn } from "@/lib/utils";
@@ -1754,7 +1754,7 @@ function DeleteContractDialog({
   );
 }
 
-type FolderDef = { id: number; label: string; icon: ComponentType<{ className?: string }>; color: string; bgColor: string; count: number };
+type FolderDef = { id: number; label: string; icon: ComponentType<{ className?: string }>; color: string; bgColor: string; count: number; tooltip?: string };
 
 function WorkflowDiagram({ folderDefs, row2FolderDefs, activeFolder, onFolderClick }: { folderDefs: FolderDef[]; row2FolderDefs: FolderDef[]; activeFolder: number; onFolderClick: (id: number) => void }) {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -1978,7 +1978,19 @@ function WorkflowDiagram({ folderDefs, row2FolderDefs, activeFolder, onFolderCli
             const isActive = activeFolder === f.id;
             return (
               <div key={f.id} data-phase-card={f.id}>
-                <Card className={`cursor-pointer transition-colors bg-card ${isActive ? "border-primary shadow-sm" : ""}`} onClick={() => onFolderClick(f.id)} data-testid={`folder-tab-${f.id}`}>
+                <Card className={`cursor-pointer transition-colors bg-card relative ${isActive ? "border-primary shadow-sm" : ""}`} onClick={() => onFolderClick(f.id)} data-testid={`folder-tab-${f.id}`}>
+                  {f.tooltip && (
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <button type="button" className="absolute top-1 right-1 z-20 rounded-full bg-muted/60 hover:bg-muted p-0.5 transition-colors" onClick={(e) => e.stopPropagation()} data-testid={`help-phase-${f.id}`}>
+                          <HelpCircle className="w-3 h-3 text-muted-foreground" />
+                        </button>
+                      </TooltipTrigger>
+                      <TooltipContent side="top" className="max-w-[220px] text-xs">
+                        {f.tooltip}
+                      </TooltipContent>
+                    </Tooltip>
+                  )}
                   <div className="flex flex-col items-center gap-1 p-2 text-center">
                     <div className={`w-8 h-8 rounded-md ${f.bgColor} flex items-center justify-center shrink-0`}>
                       <FIcon className={`w-4 h-4 ${f.color}`} />
@@ -1997,7 +2009,19 @@ function WorkflowDiagram({ folderDefs, row2FolderDefs, activeFolder, onFolderCli
             const isActive = activeFolder === f.id;
             return (
               <div key={f.id} data-phase-card={f.id}>
-                <Card className={`cursor-pointer transition-colors bg-card ${isActive ? "border-primary shadow-sm" : ""}`} onClick={() => onFolderClick(f.id)} data-testid={`folder-tab-${f.id}`}>
+                <Card className={`cursor-pointer transition-colors bg-card relative ${isActive ? "border-primary shadow-sm" : ""}`} onClick={() => onFolderClick(f.id)} data-testid={`folder-tab-${f.id}`}>
+                  {f.tooltip && (
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <button type="button" className="absolute top-1 right-1 z-20 rounded-full bg-muted/60 hover:bg-muted p-0.5 transition-colors" onClick={(e) => e.stopPropagation()} data-testid={`help-phase-${f.id}`}>
+                          <HelpCircle className="w-3 h-3 text-muted-foreground" />
+                        </button>
+                      </TooltipTrigger>
+                      <TooltipContent side="top" className="max-w-[220px] text-xs">
+                        {f.tooltip}
+                      </TooltipContent>
+                    </Tooltip>
+                  )}
                   <div className="flex flex-col items-center gap-1 p-2 text-center">
                     <div className={`w-8 h-8 rounded-md ${f.bgColor} flex items-center justify-center shrink-0`}>
                       <FIcon className={`w-4 h-4 ${f.color}`} />
@@ -2719,20 +2743,20 @@ export default function Contracts() {
   const activeArchived = archivedContracts?.filter(c => !c.isDeleted) || [];
   const activeRejected = rejectedContracts?.filter(c => !c.isDeleted) || [];
 
-  const folderDefs = [
-    { id: 1, label: "Nahratá - čaká na odoslanie", icon: Inbox, color: "text-amber-500", bgColor: "bg-amber-500/15", count: activeContracts.length },
-    { id: 3, label: "Neprijaté zmluvy – výhrady", icon: XCircle, color: "text-red-500", bgColor: "bg-red-500/15", count: activeRejected.length },
-    { id: 4, label: "Archív zmlúv (s výhradami)", icon: Archive, color: "text-muted-foreground", bgColor: "bg-muted/30", count: activeArchived.length },
-    { id: 7, label: "Interné intervencie", icon: AlertTriangle, color: "text-orange-500", bgColor: "bg-orange-500/15", count: phase7Contracts.length },
-    { id: 10, label: "Prijaté obch. partnerom", icon: Award, color: "text-purple-500", bgColor: "bg-purple-500/15", count: phase10Contracts.length },
+  const folderDefs: FolderDef[] = [
+    { id: 1, label: "Nahratá - čaká na odoslanie", icon: Inbox, color: "text-amber-500", bgColor: "bg-amber-500/15", count: activeContracts.length, tooltip: "Zmluva bola nahratá do systému a čaká na zaradenie do sprievodky a odoslanie na centrálu partnera." },
+    { id: 3, label: "Neprijaté zmluvy – výhrady", icon: XCircle, color: "text-red-500", bgColor: "bg-red-500/15", count: activeRejected.length, tooltip: "Zmluvy, ktoré boli vrátené s výhradami od obchodného partnera alebo centrály. Vyžadujú opravu a opätovné odoslanie." },
+    { id: 4, label: "Archív zmlúv (s výhradami)", icon: Archive, color: "text-muted-foreground", bgColor: "bg-muted/30", count: activeArchived.length, tooltip: "Archivované zmluvy s výhradami, ktoré neboli opravené alebo boli trvalo zamietnuté." },
+    { id: 7, label: "Interné intervencie", icon: AlertTriangle, color: "text-orange-500", bgColor: "bg-orange-500/15", count: phase7Contracts.length, tooltip: "Zmluvy vyžadujúce interný zásah — napr. chýbajúce dokumenty, nezrovnalosti v údajoch alebo eskalácia." },
+    { id: 10, label: "Prijaté obch. partnerom", icon: Award, color: "text-purple-500", bgColor: "bg-purple-500/15", count: phase10Contracts.length, tooltip: "Zmluvy úspešne prijaté a potvrdené obchodným partnerom. Konečný stav spracovania." },
   ];
 
-  const row2FolderDefs = [
-    { id: 2, label: "Odoslané na sprievodke", icon: Send, color: "text-blue-500", bgColor: "bg-blue-500/15", count: activeDispatched.length },
-    { id: 5, label: "Prijaté do centrály", icon: CheckCircle2, color: "text-green-500", bgColor: "bg-green-500/15", count: activeAccepted.length },
-    { id: 6, label: "Kontrakt v spracovaní", icon: LayoutGrid, color: "text-cyan-500", bgColor: "bg-cyan-500/15", count: phase6Contracts.length },
-    { id: 8, label: "Pripravené na odoslanie", icon: ListChecks, color: "text-emerald-500", bgColor: "bg-emerald-500/15", count: phase8Contracts.length },
-    { id: 9, label: "Odoslané obch. partnerovi", icon: Send, color: "text-indigo-500", bgColor: "bg-indigo-500/15", count: phase9Contracts.length },
+  const row2FolderDefs: FolderDef[] = [
+    { id: 2, label: "Odoslané na sprievodke", icon: Send, color: "text-blue-500", bgColor: "bg-blue-500/15", count: activeDispatched.length, tooltip: "Zmluvy zaradené do sprievodky a odoslané na centrálu obchodného partnera na spracovanie." },
+    { id: 5, label: "Prijaté do centrály", icon: CheckCircle2, color: "text-green-500", bgColor: "bg-green-500/15", count: activeAccepted.length, tooltip: "Zmluvy prijaté centrálou partnera. Čakajú na spracovanie a evidenciu v systéme partnera." },
+    { id: 6, label: "Kontrakt v spracovaní", icon: LayoutGrid, color: "text-cyan-500", bgColor: "bg-cyan-500/15", count: phase6Contracts.length, tooltip: "Zmluvy aktívne spracovávané centrálou — kontrola údajov, validácia dokumentov a evidencia." },
+    { id: 8, label: "Pripravené na odoslanie", icon: ListChecks, color: "text-emerald-500", bgColor: "bg-emerald-500/15", count: phase8Contracts.length, tooltip: "Zmluvy kompletne spracované a pripravené na odoslanie späť obchodnému partnerovi." },
+    { id: 9, label: "Odoslané obch. partnerovi", icon: Send, color: "text-indigo-500", bgColor: "bg-indigo-500/15", count: phase9Contracts.length, tooltip: "Zmluvy odoslané obchodnému partnerovi na finálne potvrdenie a prevzatie." },
   ];
 
   function filterBySearch(list: Contract[]) {
