@@ -363,6 +363,11 @@ export function AppSidebar() {
   });
   const { data: businessOpportunities } = useQuery<{ id: number; title: string }[]>({
     queryKey: ["/api/business-opportunities", divisionId],
+    queryFn: async () => {
+      const res = await fetch("/api/business-opportunities", { credentials: "include" });
+      if (!res.ok) throw new Error("Failed");
+      return res.json();
+    },
     enabled: !!appUser?.activeCompanyId,
   });
 

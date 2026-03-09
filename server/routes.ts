@@ -3312,9 +3312,14 @@ export async function registerRoutes(
       const now = new Date();
       const results: any[] = [];
 
+      const acceptedStatus = await storage.getSystemContractStatusByName("Prijata centrom - OK");
+      if (!acceptedStatus) {
+        return res.status(400).json({ message: "Systémový status 'Prijata centrom - OK' neexistuje" });
+      }
+
       for (const cid of contractIds) {
         const id = Number(cid);
-        const conditions = [eq(contracts.id, id), eq(contracts.lifecyclePhase, 5)];
+        const conditions = [eq(contracts.id, id), eq(contracts.isDeleted, false), eq(contracts.statusId, acceptedStatus.id)];
         if (appUser?.activeStateId) conditions.push(eq(contracts.stateId, appUser.activeStateId));
         if (appUser?.activeCompanyId) conditions.push(eq(contracts.companyId, appUser.activeCompanyId));
         const [contract] = await db.select().from(contracts).where(and(...conditions));
@@ -3359,7 +3364,7 @@ export async function registerRoutes(
           module: "zmluvy",
           entityId: id,
           entityName: updated.contractNumber || contract.proposalNumber || `ID ${id}`,
-          oldData: { lifecyclePhase: 5 },
+          oldData: { lifecyclePhase: contract.lifecyclePhase, statusId: contract.statusId },
           newData: { lifecyclePhase: 6, contractNumber: updated.contractNumber },
         });
 
