@@ -1784,7 +1784,7 @@ function WorkflowDiagram({ folderDefs, row2FolderDefs, activeFolder, onFolderCli
     return () => ro.disconnect();
   }, []);
 
-  const blueGroupIds = new Set([1, 6, 7]);
+  const blueGroupIds = new Set([1, 2, 5]);
 
   const styles = [
     { stroke: '#3b82f6', opacity: 0.5 },
