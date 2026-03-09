@@ -3262,34 +3262,43 @@ export default function Contracts() {
         </div>
 
         <div className="rounded-lg border bg-card p-3" data-testid="workflow-diagram">
-          <svg viewBox="0 0 500 200" xmlns="http://www.w3.org/2000/svg" style={{ width: '100%', height: 'auto' }}>
-            <rect x="80" y="10" width="240" height="60" rx="30" fill="none" stroke="currentColor" strokeWidth="3" strokeLinejoin="round" opacity="0.5" />
-
-            <circle cx="450" cy="40" r="30" fill="none" stroke="#22c55e" strokeWidth="3" />
-
-            <path d="M 420,10 H 480 V 190 H 110 V 110 H 380 V 10 Z" fill="none" stroke="#ef4444" strokeWidth="3" strokeLinejoin="round" opacity="0.7" />
-
-            <path d="M 20,10 H 80 V 140 H 220 V 190 H 20 Z" fill="none" stroke="#3b82f6" strokeWidth="3" strokeLinejoin="round" opacity="0.7" />
+          <svg viewBox="0 -20 600 280" xmlns="http://www.w3.org/2000/svg" style={{ width: '100%', height: 'auto', fontFamily: 'sans-serif' }}>
+            <path d="M 150,50 L 350,50" fill="none" stroke="currentColor" strokeWidth="35" strokeLinecap="round" strokeLinejoin="round" opacity="0.25" />
+            <path d="M 50,50 L 50,150 L 150,150" fill="none" stroke="#3b82f6" strokeWidth="35" strokeLinecap="round" strokeLinejoin="round" opacity="0.5" />
+            <path d="M 450,50 L 450,150 L 150,150" fill="none" stroke="#ef4444" strokeWidth="35" strokeLinecap="round" strokeLinejoin="round" opacity="0.4" />
+            <path d="M 150,150 L 450,150" fill="none" stroke="#ef4444" strokeWidth="35" strokeLinecap="round" strokeLinejoin="round" opacity="0.4" />
 
             {[
-              { cx: 50, cy: 40, phase: 1 },
-              { cx: 150, cy: 40, phase: 2 },
-              { cx: 250, cy: 40, phase: 3 },
-              { cx: 350, cy: 40, phase: 4 },
-              { cx: 450, cy: 40, phase: 5 },
-              { cx: 50, cy: 140, phase: 6 },
-              { cx: 150, cy: 140, phase: 7 },
-              { cx: 250, cy: 140, phase: 8 },
-              { cx: 350, cy: 140, phase: 9 },
-              { cx: 450, cy: 140, phase: 10 },
+              { x: 50, y: 50, phase: 1, short: "Nahratá" },
+              { x: 150, y: 50, phase: 2, short: "Odoslané" },
+              { x: 250, y: 50, phase: 3, short: "Neprijaté" },
+              { x: 350, y: 50, phase: 4, short: "Archív" },
+              { x: 450, y: 50, phase: 5, short: "Centrála" },
+              { x: 50, y: 150, phase: 6, short: "Spracovanie" },
+              { x: 150, y: 150, phase: 7, short: "Intervencie" },
+              { x: 250, y: 150, phase: 8, short: "Príprava" },
+              { x: 350, y: 150, phase: 9, short: "Partnerovi" },
+              { x: 450, y: 150, phase: 10, short: "Prijaté P." },
             ].map(b => {
               const isActive = activeFolder === b.phase;
-              const label = folderDefs.find(f => f.id === b.phase)?.label || row2FolderDefs.find(f => f.id === b.phase)?.label || `Fáza ${b.phase}`;
+              const fullLabels: Record<number, string> = {
+                1: "Nahratá - čaká na odoslanie",
+                2: "Odoslané na sprievodke",
+                3: "Neprijaté zmluvy – výhrady",
+                4: "Archív zmlúv (s výhradami)",
+                5: "Prijaté do centrály",
+                6: "Kontrakt v spracovaní",
+                7: "Interné intervencie",
+                8: "Pripravené na odoslanie",
+                9: "Odoslané obch. partnerovi",
+                10: "Prijaté obch. partnerom",
+              };
               return (
-                <g key={b.phase} onClick={() => { setActiveFolder(b.phase); setRerouteSelectedIds([]); }} style={{ cursor: 'pointer' }} data-testid={`workflow-bubble-${b.phase}`}>
-                  <title>{label}</title>
-                  <circle cx={b.cx} cy={b.cy} r="20" fill={isActive ? 'hsl(var(--primary))' : 'hsl(var(--muted))'} stroke={isActive ? 'hsl(var(--primary))' : 'hsl(var(--border))'} strokeWidth={isActive ? 2.5 : 1} />
-                  <text x={b.cx} y={b.cy + 5} textAnchor="middle" fontWeight="bold" fontSize="13" fill={isActive ? 'hsl(var(--primary-foreground))' : 'hsl(var(--foreground))'}>{b.phase}</text>
+                <g key={b.phase} transform={`translate(${b.x},${b.y})`} onClick={() => { setActiveFolder(b.phase); setRerouteSelectedIds([]); }} style={{ cursor: 'pointer' }} data-testid={`workflow-bubble-${b.phase}`}>
+                  <title>{fullLabels[b.phase]}</title>
+                  <circle r="22" fill={isActive ? 'hsl(var(--primary))' : 'hsl(var(--muted))'} stroke={isActive ? 'hsl(var(--primary))' : 'hsl(var(--border))'} strokeWidth={isActive ? 2.5 : 1} />
+                  <text y="5" textAnchor="middle" fontWeight="bold" fontSize="13" fill={isActive ? 'hsl(var(--primary-foreground))' : 'hsl(var(--foreground))'}>{b.phase}</text>
+                  <text y="38" textAnchor="middle" fontSize="10" fontWeight="600" fill="hsl(var(--muted-foreground))">{`${b.phase}: ${b.short}`}</text>
                 </g>
               );
             })}
