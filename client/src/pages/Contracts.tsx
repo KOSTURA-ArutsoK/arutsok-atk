@@ -3262,40 +3262,11 @@ export default function Contracts() {
         </div>
 
         <div className="relative rounded-lg border bg-card p-4" data-testid="workflow-diagram">
-          <svg className="absolute inset-0 w-full h-full pointer-events-none" viewBox="0 0 500 200" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg">
-            <defs>
-              <marker id="arrow-fwd" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
-                <path d="M 0 1 L 8 5 L 0 9 Z" fill="#3b82f6" />
-              </marker>
-              <marker id="arrow-back" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
-                <path d="M 0 1 L 8 5 L 0 9 Z" fill="#f59e0b" />
-              </marker>
-              <marker id="arrow-vert" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
-                <path d="M 0 1 L 8 5 L 0 9 Z" fill="#8b5cf6" />
-              </marker>
-            </defs>
-
-            <line x1="60" y1="50" x2="440" y2="50" stroke="#3b82f6" strokeWidth="5" opacity="0.3" markerEnd="url(#arrow-fwd)" vectorEffect="non-scaling-stroke" />
-
-            <polyline points="447,57 447,143 60,143" fill="none" stroke="#3b82f6" strokeWidth="5" opacity="0.3" strokeLinejoin="round" markerEnd="url(#arrow-fwd)" vectorEffect="non-scaling-stroke" />
-
-            <line x1="100" y1="150" x2="155" y2="150" stroke="#3b82f6" strokeWidth="5" opacity="0.3" markerEnd="url(#arrow-fwd)" vectorEffect="non-scaling-stroke" />
-
-            <polyline points="53,143 53,57 148,57" fill="none" stroke="#f59e0b" strokeWidth="4" opacity="0.3" strokeLinejoin="round" markerEnd="url(#arrow-back)" vectorEffect="non-scaling-stroke" />
-
-            <line x1="148" y1="43" x2="60" y2="43" stroke="#f59e0b" strokeWidth="4" opacity="0.3" markerEnd="url(#arrow-back)" vectorEffect="non-scaling-stroke" />
-
-            <line x1="200" y1="50" x2="245" y2="50" stroke="#3b82f6" strokeWidth="5" opacity="0.3" markerEnd="url(#arrow-fwd)" vectorEffect="non-scaling-stroke" />
-
-            <polyline points="248,35 150,35 150,15 50,15 50,43" fill="none" stroke="#f59e0b" strokeWidth="4" opacity="0.25" strokeLinejoin="round" markerEnd="url(#arrow-back)" vectorEffect="non-scaling-stroke" />
-
-            <line x1="200" y1="150" x2="245" y2="150" stroke="#3b82f6" strokeWidth="5" opacity="0.3" markerEnd="url(#arrow-fwd)" vectorEffect="non-scaling-stroke" />
-            <line x1="300" y1="150" x2="345" y2="150" stroke="#3b82f6" strokeWidth="5" opacity="0.3" markerEnd="url(#arrow-fwd)" vectorEffect="non-scaling-stroke" />
-            <line x1="400" y1="150" x2="440" y2="150" stroke="#3b82f6" strokeWidth="5" opacity="0.3" markerEnd="url(#arrow-fwd)" vectorEffect="non-scaling-stroke" />
-
-            <polyline points="353,143 353,57 348,57" fill="none" stroke="#8b5cf6" strokeWidth="4" opacity="0.3" strokeLinejoin="round" markerEnd="url(#arrow-vert)" vectorEffect="non-scaling-stroke" />
-
-            <polyline points="453,143 453,57 448,57" fill="none" stroke="#8b5cf6" strokeWidth="4" opacity="0.3" strokeLinejoin="round" markerEnd="url(#arrow-vert)" vectorEffect="non-scaling-stroke" />
+          <svg className="absolute pointer-events-none" style={{ left: 0, right: 0, top: '-12px', bottom: '-12px', width: '100%', height: 'calc(100% + 24px)' }} viewBox="0 -50 600 350" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M 60,78 V 50 H 240 V 78" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" opacity="0.3" vectorEffect="non-scaling-stroke" />
+            <path d="M 60,122 V 150 H 160 V 178" fill="none" stroke="#3b82f6" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" opacity="0.5" vectorEffect="non-scaling-stroke" />
+            <path d="M 440,78 V 35 H 160 V 178" fill="none" stroke="#ef4444" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" opacity="0.4" vectorEffect="non-scaling-stroke" />
+            <path d="M 160,222 V 240 H 440 V 222" fill="none" stroke="#ef4444" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" opacity="0.4" vectorEffect="non-scaling-stroke" />
           </svg>
           <div className="relative z-10 space-y-6" data-testid="folder-tabs">
             <div className="grid grid-cols-5 gap-6 px-4">
