@@ -3,10 +3,11 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, Save, Target } from "lucide-react";
+import { Loader2, Save, Target, Plus, Pencil, Trash2, X, Check } from "lucide-react";
 import { useAppUser } from "@/hooks/use-app-user";
 
 interface Division {
@@ -21,11 +22,28 @@ interface Division {
   };
 }
 
+interface BusinessOpportunity {
+  id: number;
+  title: string;
+  content: string;
+  divisionId: number | null;
+  companyId: number;
+  sortOrder: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export default function NastavenieObchodnychPrilezitosti() {
   const { toast } = useToast();
   const { data: appUser } = useAppUser();
-  const [text, setText] = useState("");
-  const [selectedDivisionId, setSelectedDivisionId] = useState<number | null>(null);
+  const [filterScope, setFilterScope] = useState<string>("all_divisions");
+  const [editingId, setEditingId] = useState<number | null>(null);
+  const [editTitle, setEditTitle] = useState("");
+  const [editContent, setEditContent] = useState("");
+  const [isAdding, setIsAdding] = useState(false);
+  const [newTitle, setNewTitle] = useState("");
+  const [newContent, setNewContent] = useState("");
+  const [newScope, setNewScope] = useState<string>("all_divisions");
   const lastCompanyIdRef = useRef<number | null>(null);
 
   const activeCompanyId = appUser?.activeCompanyId;
@@ -40,65 +58,93 @@ export default function NastavenieObchodnychPrilezitosti() {
     enabled: !!activeCompanyId,
   });
 
-  useEffect(() => {
-    if (!activeCompanyId || !companyDivisions) return;
-
-    if (lastCompanyIdRef.current !== activeCompanyId) {
-      lastCompanyIdRef.current = activeCompanyId;
-      setSelectedDivisionId(null);
-    }
-
-    if (selectedDivisionId) {
-      const stillValid = companyDivisions.some(d => d.divisionId === selectedDivisionId);
-      if (!stillValid) {
-        setSelectedDivisionId(null);
-      }
-    }
-
-    if (!selectedDivisionId && companyDivisions.length > 0) {
-      if (appUser?.activeDivisionId) {
-        const found = companyDivisions.find(d => d.divisionId === appUser.activeDivisionId);
-        if (found) {
-          setSelectedDivisionId(found.divisionId);
-          return;
-        }
-      }
-      setSelectedDivisionId(companyDivisions[0].divisionId);
-    }
-  }, [companyDivisions, activeCompanyId, appUser?.activeDivisionId]);
-
-  const settingsKey = selectedDivisionId ? `obchodne_prilezitosti_div_${selectedDivisionId}` : null;
-
-  const { data: setting, isLoading } = useQuery<{ value: string | null }>({
-    queryKey: ["/api/system-settings", settingsKey],
-    queryFn: async () => {
-      const res = await fetch(`/api/system-settings/${settingsKey}`, { credentials: "include" });
-      if (!res.ok) throw new Error("Failed");
-      return res.json();
-    },
-    enabled: !!settingsKey,
+  const { data: allOpportunities, isLoading } = useQuery<BusinessOpportunity[]>({
+    queryKey: ["/api/business-opportunities/all"],
+    enabled: !!activeCompanyId,
   });
 
   useEffect(() => {
-    setText(setting?.value || "");
-  }, [setting]);
+    if (activeCompanyId && lastCompanyIdRef.current !== activeCompanyId) {
+      lastCompanyIdRef.current = activeCompanyId;
+      setFilterScope("all_divisions");
+    }
+  }, [activeCompanyId]);
 
-  const saveMutation = useMutation({
-    mutationFn: async (value: string) => {
-      if (!settingsKey) throw new Error("Nie je vybrana divizia");
-      await apiRequest("POST", "/api/system-settings", {
-        key: settingsKey,
-        value,
-      });
+  const filteredOpportunities = (allOpportunities || []).filter((op) => {
+    if (filterScope === "all_divisions") return true;
+    if (filterScope === "global") return op.divisionId === null;
+    return op.divisionId === parseInt(filterScope);
+  });
+
+  const getDivisionLabel = (divisionId: number | null) => {
+    if (!divisionId) return "Vsetky divizie";
+    const cd = companyDivisions?.find(d => d.divisionId === divisionId);
+    return cd ? `${cd.division.emoji || ""} ${cd.division.name}`.trim() : `Divizia ${divisionId}`;
+  };
+
+  const createMutation = useMutation({
+    mutationFn: async (data: { title: string; content: string; divisionId: number | null }) => {
+      return await apiRequest("POST", "/api/business-opportunities", data);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/system-settings", settingsKey] });
-      toast({ title: "Ulozene", description: "Obchodne prilezitosti boli ulozene pre vybranu diviziu." });
+      queryClient.invalidateQueries({ queryKey: ["/api/business-opportunities"] });
+      toast({ title: "Vytvorene", description: "Obchodna prilezitost bola vytvorena." });
+      setIsAdding(false);
+      setNewTitle("");
+      setNewContent("");
+      setNewScope("all_divisions");
+    },
+    onError: (err: any) => {
+      toast({ title: "Chyba", description: err.message || "Nepodarilo sa vytvorit", variant: "destructive" });
+    },
+  });
+
+  const updateMutation = useMutation({
+    mutationFn: async ({ id, data }: { id: number; data: { title: string; content: string } }) => {
+      return await apiRequest("PUT", `/api/business-opportunities/${id}`, data);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/business-opportunities"] });
+      toast({ title: "Ulozene", description: "Obchodna prilezitost bola aktualizovana." });
+      setEditingId(null);
     },
     onError: (err: any) => {
       toast({ title: "Chyba", description: err.message || "Nepodarilo sa ulozit", variant: "destructive" });
     },
   });
+
+  const deleteMutation = useMutation({
+    mutationFn: async (id: number) => {
+      return await apiRequest("DELETE", `/api/business-opportunities/${id}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/business-opportunities"] });
+      toast({ title: "Vymazane", description: "Obchodna prilezitost bola vymazana." });
+    },
+    onError: (err: any) => {
+      toast({ title: "Chyba", description: err.message || "Nepodarilo sa vymazat", variant: "destructive" });
+    },
+  });
+
+  const startEdit = (op: BusinessOpportunity) => {
+    setEditingId(op.id);
+    setEditTitle(op.title);
+    setEditContent(op.content);
+  };
+
+  const handleCreate = () => {
+    if (!newTitle.trim() || !newContent.trim()) {
+      toast({ title: "Chyba", description: "Nazov aj text su povinne", variant: "destructive" });
+      return;
+    }
+    const divisionId = newScope === "global" ? null : parseInt(newScope);
+    createMutation.mutate({ title: newTitle.trim(), content: newContent.trim(), divisionId });
+  };
+
+  const handleUpdate = () => {
+    if (!editingId || !editTitle.trim() || !editContent.trim()) return;
+    updateMutation.mutate({ id: editingId, data: { title: editTitle.trim(), content: editContent.trim() } });
+  };
 
   return (
     <div className="p-6 space-y-6">
@@ -108,66 +154,156 @@ export default function NastavenieObchodnychPrilezitosti() {
       </div>
 
       <Card>
-        <CardHeader>
-          <CardTitle className="text-lg" data-testid="text-card-title">Text obchodnych prilezitosti</CardTitle>
+        <CardHeader className="flex flex-row items-center justify-between">
+          <CardTitle className="text-lg" data-testid="text-card-title">Obchodne prilezitosti</CardTitle>
+          <div className="flex items-center gap-3">
+            <Select value={filterScope} onValueChange={setFilterScope}>
+              <SelectTrigger className="w-[220px]" data-testid="select-filter-scope">
+                <SelectValue placeholder="Filter..." />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all_divisions">Vsetky zaznamy</SelectItem>
+                <SelectItem value="global">Platne pre vsetky divizie</SelectItem>
+                {companyDivisions?.map((cd) => (
+                  <SelectItem key={cd.divisionId} value={String(cd.divisionId)}>
+                    {cd.division.emoji} {cd.division.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            {!isAdding && (
+              <Button onClick={() => setIsAdding(true)} size="sm" data-testid="button-add-opportunity">
+                <Plus className="w-4 h-4 mr-1" />
+                Pridat
+              </Button>
+            )}
+          </div>
         </CardHeader>
         <CardContent className="space-y-4">
+          {isAdding && (
+            <Card className="border-primary/50">
+              <CardContent className="pt-4 space-y-3">
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Platnost pre</label>
+                  <Select value={newScope} onValueChange={setNewScope}>
+                    <SelectTrigger data-testid="select-new-scope">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="global">Vsetky divizie</SelectItem>
+                      {companyDivisions?.map((cd) => (
+                        <SelectItem key={cd.divisionId} value={String(cd.divisionId)}>
+                          {cd.division.emoji} {cd.division.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Kratky nazov (zobrazuje sa v menu)</label>
+                  <Input
+                    value={newTitle}
+                    onChange={(e) => setNewTitle(e.target.value)}
+                    placeholder="Napr. Ponuka životného poistenia Q1..."
+                    data-testid="input-new-title"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Text prilezitosti</label>
+                  <Textarea
+                    value={newContent}
+                    onChange={(e) => setNewContent(e.target.value)}
+                    placeholder="Podrobny popis obchodnej prilezitosti..."
+                    className="min-h-[150px] font-mono text-sm"
+                    data-testid="textarea-new-content"
+                  />
+                </div>
+                <div className="flex justify-end gap-2">
+                  <Button variant="outline" size="sm" onClick={() => { setIsAdding(false); setNewTitle(""); setNewContent(""); setNewScope("all_divisions"); }} data-testid="button-cancel-add">
+                    <X className="w-4 h-4 mr-1" />
+                    Zrusit
+                  </Button>
+                  <Button size="sm" onClick={handleCreate} disabled={createMutation.isPending} data-testid="button-save-new">
+                    {createMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin mr-1" /> : <Check className="w-4 h-4 mr-1" />}
+                    Ulozit
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
           {isLoading ? (
             <div className="flex items-center justify-center py-8">
               <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
             </div>
+          ) : filteredOpportunities.length === 0 ? (
+            <p className="text-muted-foreground text-sm text-center py-6" data-testid="text-no-records">
+              Ziadne obchodne prilezitosti. Kliknite na "Pridat" pre vytvorenie novej.
+            </p>
           ) : (
-            <>
-              <p className="text-sm text-muted-foreground">
-                Kazda divizia ma vlastny text obchodnych prilezitosti. Vyberte diviziu a nastavte text.
-              </p>
-
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Divizia</label>
-                <Select
-                  value={selectedDivisionId ? String(selectedDivisionId) : ""}
-                  onValueChange={(val) => setSelectedDivisionId(parseInt(val))}
-                >
-                  <SelectTrigger data-testid="select-division-trigger">
-                    <SelectValue placeholder="Vyberte diviziu..." />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {companyDivisions?.map((cd) => (
-                      <SelectItem
-                        key={cd.divisionId}
-                        value={String(cd.divisionId)}
-                        data-testid={`select-division-${cd.divisionId}`}
-                      >
-                        {cd.division.emoji} {cd.division.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <Textarea
-                value={text}
-                onChange={(e) => setText(e.target.value)}
-                placeholder="Zadajte text obchodnych prilezitosti pre vybranu diviziu..."
-                className="min-h-[300px] font-mono text-sm"
-                data-testid="textarea-prilezitosti"
-                disabled={!selectedDivisionId}
-              />
-              <div className="flex justify-end">
-                <Button
-                  onClick={() => saveMutation.mutate(text)}
-                  disabled={saveMutation.isPending || !selectedDivisionId}
-                  data-testid="button-save-prilezitosti"
-                >
-                  {saveMutation.isPending ? (
-                    <Loader2 className="w-4 h-4 animate-spin mr-2" />
-                  ) : (
-                    <Save className="w-4 h-4 mr-2" />
-                  )}
-                  Ulozit
-                </Button>
-              </div>
-            </>
+            <div className="space-y-3">
+              {filteredOpportunities.map((op) => (
+                <Card key={op.id} className="border-border/50" data-testid={`card-opportunity-${op.id}`}>
+                  <CardContent className="pt-4 space-y-2">
+                    {editingId === op.id ? (
+                      <>
+                        <Input
+                          value={editTitle}
+                          onChange={(e) => setEditTitle(e.target.value)}
+                          className="font-medium"
+                          data-testid={`input-edit-title-${op.id}`}
+                        />
+                        <Textarea
+                          value={editContent}
+                          onChange={(e) => setEditContent(e.target.value)}
+                          className="min-h-[150px] font-mono text-sm"
+                          data-testid={`textarea-edit-content-${op.id}`}
+                        />
+                        <div className="flex justify-end gap-2">
+                          <Button variant="outline" size="sm" onClick={() => setEditingId(null)} data-testid={`button-cancel-edit-${op.id}`}>
+                            <X className="w-4 h-4 mr-1" />
+                            Zrusit
+                          </Button>
+                          <Button size="sm" onClick={handleUpdate} disabled={updateMutation.isPending} data-testid={`button-save-edit-${op.id}`}>
+                            {updateMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin mr-1" /> : <Check className="w-4 h-4 mr-1" />}
+                            Ulozit
+                          </Button>
+                        </div>
+                      </>
+                    ) : (
+                      <>
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <h3 className="font-medium text-sm" data-testid={`text-title-${op.id}`}>{op.title}</h3>
+                            <span className="text-xs text-muted-foreground" data-testid={`text-scope-${op.id}`}>
+                              {getDivisionLabel(op.divisionId)}
+                            </span>
+                          </div>
+                          <div className="flex gap-1">
+                            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => startEdit(op)} data-testid={`button-edit-${op.id}`}>
+                              <Pencil className="w-3.5 h-3.5" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-7 w-7 text-destructive hover:text-destructive"
+                              onClick={() => deleteMutation.mutate(op.id)}
+                              disabled={deleteMutation.isPending}
+                              data-testid={`button-delete-${op.id}`}
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </Button>
+                          </div>
+                        </div>
+                        <p className="text-sm text-muted-foreground whitespace-pre-wrap line-clamp-3" data-testid={`text-content-preview-${op.id}`}>
+                          {op.content}
+                        </p>
+                      </>
+                    )}
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
           )}
         </CardContent>
       </Card>

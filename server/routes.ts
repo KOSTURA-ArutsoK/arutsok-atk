@@ -6302,6 +6302,101 @@ export async function registerRoutes(
     }
   });
 
+  // === BUSINESS OPPORTUNITIES ===
+  app.get("/api/business-opportunities", isAuthenticated, async (req: any, res) => {
+    try {
+      const appUser = req.appUser;
+      if (!appUser?.activeCompanyId) return res.status(400).json({ message: "Nie je vybrana spolocnost" });
+      const records = await storage.getBusinessOpportunities(appUser.activeCompanyId, appUser.activeDivisionId);
+      res.json(records);
+    } catch {
+      res.status(500).json({ message: "Failed to get business opportunities" });
+    }
+  });
+
+  app.get("/api/business-opportunities/all", isAuthenticated, async (req: any, res) => {
+    try {
+      const appUser = req.appUser;
+      if (!appUser || !isAdmin(appUser)) return res.status(403).json({ message: "Nedostatocne opravnenia" });
+      if (!appUser.activeCompanyId) return res.status(400).json({ message: "Nie je vybrana spolocnost" });
+      const records = await storage.getBusinessOpportunitiesForCompany(appUser.activeCompanyId);
+      res.json(records);
+    } catch {
+      res.status(500).json({ message: "Failed to get business opportunities" });
+    }
+  });
+
+  app.get("/api/business-opportunities/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const appUser = req.appUser;
+      const record = await storage.getBusinessOpportunity(parseInt(req.params.id));
+      if (!record) return res.status(404).json({ message: "Nenajdene" });
+      if (record.companyId !== appUser?.activeCompanyId) return res.status(403).json({ message: "Nedostatocne opravnenia" });
+      res.json(record);
+    } catch {
+      res.status(500).json({ message: "Failed to get business opportunity" });
+    }
+  });
+
+  app.post("/api/business-opportunities", isAuthenticated, async (req: any, res) => {
+    try {
+      const appUser = req.appUser;
+      if (!appUser || !isAdmin(appUser)) return res.status(403).json({ message: "Nedostatocne opravnenia" });
+      if (!appUser.activeCompanyId) return res.status(400).json({ message: "Nie je vybrana spolocnost" });
+      const { title, content, divisionId } = req.body;
+      if (!title || !content) return res.status(400).json({ message: "Title a content su povinne" });
+      const record = await storage.createBusinessOpportunity({
+        title,
+        content,
+        divisionId: divisionId || null,
+        companyId: appUser.activeCompanyId,
+        sortOrder: req.body.sortOrder || 0,
+      });
+      await logAudit(req, { action: "CREATE", module: "obchodne-prilezitosti", entityName: `Obchodna prilezitost: ${title}` });
+      res.json(record);
+    } catch {
+      res.status(500).json({ message: "Failed to create business opportunity" });
+    }
+  });
+
+  app.put("/api/business-opportunities/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const appUser = req.appUser;
+      if (!appUser || !isAdmin(appUser)) return res.status(403).json({ message: "Nedostatocne opravnenia" });
+      const id = parseInt(req.params.id);
+      const existing = await storage.getBusinessOpportunity(id);
+      if (!existing) return res.status(404).json({ message: "Nenajdene" });
+      if (existing.companyId !== appUser.activeCompanyId) return res.status(403).json({ message: "Nedostatocne opravnenia" });
+      const { title, content, divisionId, sortOrder } = req.body;
+      const record = await storage.updateBusinessOpportunity(id, {
+        ...(title !== undefined && { title }),
+        ...(content !== undefined && { content }),
+        ...(divisionId !== undefined && { divisionId: divisionId || null }),
+        ...(sortOrder !== undefined && { sortOrder }),
+      });
+      await logAudit(req, { action: "UPDATE", module: "obchodne-prilezitosti", entityName: `Obchodna prilezitost: ${record.title}` });
+      res.json(record);
+    } catch {
+      res.status(500).json({ message: "Failed to update business opportunity" });
+    }
+  });
+
+  app.delete("/api/business-opportunities/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const appUser = req.appUser;
+      if (!appUser || !isAdmin(appUser)) return res.status(403).json({ message: "Nedostatocne opravnenia" });
+      const id = parseInt(req.params.id);
+      const existing = await storage.getBusinessOpportunity(id);
+      if (!existing) return res.status(404).json({ message: "Nenajdene" });
+      if (existing.companyId !== appUser.activeCompanyId) return res.status(403).json({ message: "Nedostatocne opravnenia" });
+      await storage.deleteBusinessOpportunity(id);
+      await logAudit(req, { action: "DELETE", module: "obchodne-prilezitosti", entityName: `Obchodna prilezitost: ${existing.title}` });
+      res.json({ ok: true });
+    } catch {
+      res.status(500).json({ message: "Failed to delete business opportunity" });
+    }
+  });
+
   // === CATEGORY TIMEOUTS ===
   app.get("/api/category-timeouts", isAuthenticated, async (_req, res) => {
     try {

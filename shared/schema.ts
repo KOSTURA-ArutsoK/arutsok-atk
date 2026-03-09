@@ -495,6 +495,22 @@ export const systemSettings = pgTable("system_settings", {
   updatedAt: timestamp("updated_at").defaultNow(),
 });
 
+// === BUSINESS OPPORTUNITIES ===
+export const businessOpportunities = pgTable("business_opportunities", {
+  id: serial("id").primaryKey(),
+  title: text("title").notNull(),
+  content: text("content").notNull(),
+  divisionId: integer("division_id"),
+  companyId: integer("company_id").notNull(),
+  sortOrder: integer("sort_order").default(0),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertBusinessOpportunitySchema = createInsertSchema(businessOpportunities).omit({ id: true, createdAt: true, updatedAt: true });
+export type InsertBusinessOpportunity = z.infer<typeof insertBusinessOpportunitySchema>;
+export type BusinessOpportunity = typeof businessOpportunities.$inferSelect;
+
 // === VERIFICATION CODES (for registration MFA) ===
 export const verificationCodes = pgTable("verification_codes", {
   id: serial("id").primaryKey(),

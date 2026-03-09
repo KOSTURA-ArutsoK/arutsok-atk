@@ -361,6 +361,9 @@ export function AppSidebar() {
     },
     enabled: !!divisionId,
   });
+  const { data: businessOpportunities } = useQuery<{ id: number; title: string }[]>({
+    queryKey: ["/api/business-opportunities"],
+  });
 
   const allMenus = [
     { id: "nastavenia", items: [...spravaPristupovItems, ...specifikacieItems, ...nastavenieSystemuItems, ...nastavenieDirectItems] },
@@ -657,18 +660,57 @@ export function AppSidebar() {
                 );
               })()}
 
-              <SidebarMenuItem>
-                <SidebarMenuButton
-                  asChild
-                  isActive={location === "/obchodne-prilezitosti"}
-                  data-testid="nav-obchodne-prilezitosti"
-                >
-                  <Link href="/obchodne-prilezitosti">
-                    <Target className="w-4 h-4" />
-                    <span>Obchodne prilezitosti</span>
-                  </Link>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
+              {(() => {
+                const ops = businessOpportunities || [];
+                const menuKey = "sidebar-obch-prilezitosti";
+                const isActiveOp = location.startsWith("/obchodne-prilezitosti");
+                if (ops.length === 0) {
+                  return (
+                    <SidebarMenuItem>
+                      <SidebarMenuButton
+                        asChild
+                        isActive={isActiveOp}
+                        data-testid="nav-obchodne-prilezitosti"
+                      >
+                        <Link href="/obchodne-prilezitosti">
+                          <Target className="w-4 h-4" />
+                          <span>Obchodne prilezitosti</span>
+                        </Link>
+                      </SidebarMenuButton>
+                    </SidebarMenuItem>
+                  );
+                }
+                return (
+                  <Collapsible open={openMenuId === menuKey} onOpenChange={(open) => setOpenMenuId(open ? menuKey : null)}>
+                    <SidebarMenuItem>
+                      <CollapsibleTrigger asChild>
+                        <SidebarMenuButton data-testid="nav-obchodne-prilezitosti" className={isActiveOp ? "bg-accent text-accent-foreground" : ""}>
+                          <Target className="w-4 h-4" />
+                          <span>Obchodne prilezitosti</span>
+                          <ChevronRight className={`ml-auto h-4 w-4 transition-transform ${openMenuId === menuKey ? "rotate-90" : ""}`} />
+                        </SidebarMenuButton>
+                      </CollapsibleTrigger>
+                      <CollapsibleContent>
+                        <SidebarMenuSub>
+                          {ops.map((op) => (
+                            <SidebarMenuSubItem key={op.id}>
+                              <SidebarMenuSubButton
+                                asChild
+                                isActive={location === `/obchodne-prilezitosti?id=${op.id}`}
+                                data-testid={`nav-op-${op.id}`}
+                              >
+                                <Link href={`/obchodne-prilezitosti?id=${op.id}`}>
+                                  <span>{op.title}</span>
+                                </Link>
+                              </SidebarMenuSubButton>
+                            </SidebarMenuSubItem>
+                          ))}
+                        </SidebarMenuSub>
+                      </CollapsibleContent>
+                    </SidebarMenuItem>
+                  </Collapsible>
+                );
+              })()}
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>

@@ -133,6 +133,8 @@ import {
   type SidebarLink, type InsertSidebarLink,
   nbsReportStatuses,
   type NbsReportStatus, type InsertNbsReportStatus,
+  businessOpportunities,
+  type BusinessOpportunity, type InsertBusinessOpportunity,
 } from "@shared/schema";
 import { eq, and, or, ne, like, sql, lte, gte, gt, desc, asc, isNull, isNotNull, inArray } from "drizzle-orm";
 
@@ -298,6 +300,13 @@ export interface IStorage {
   getSystemSetting(key: string): Promise<string | null>;
   setSystemSetting(key: string, value: string): Promise<SystemSetting>;
   getAllSystemSettings(): Promise<SystemSetting[]>;
+
+  getBusinessOpportunities(companyId: number, divisionId?: number | null): Promise<BusinessOpportunity[]>;
+  getBusinessOpportunitiesForCompany(companyId: number): Promise<BusinessOpportunity[]>;
+  getBusinessOpportunity(id: number): Promise<BusinessOpportunity | undefined>;
+  createBusinessOpportunity(data: InsertBusinessOpportunity): Promise<BusinessOpportunity>;
+  updateBusinessOpportunity(id: number, data: Partial<InsertBusinessOpportunity>): Promise<BusinessOpportunity>;
+  deleteBusinessOpportunity(id: number): Promise<void>;
 
   findClientByEmailPhone(email: string, phone: string): Promise<Subject | undefined>;
   createVerificationCode(subjectId: number, channel: string, code: string, expiresAt: Date): Promise<VerificationCode>;
@@ -2101,6 +2110,51 @@ export class DatabaseStorage implements IStorage {
 
   async getAllSystemSettings(): Promise<SystemSetting[]> {
     return await db.select().from(systemSettings);
+  }
+
+  async getBusinessOpportunities(companyId: number, divisionId?: number | null): Promise<BusinessOpportunity[]> {
+    const conditions = [eq(businessOpportunities.companyId, companyId)];
+    if (divisionId) {
+      conditions.push(
+        or(
+          eq(businessOpportunities.divisionId, divisionId),
+          isNull(businessOpportunities.divisionId)
+        )! as any
+      );
+    } else {
+      conditions.push(isNull(businessOpportunities.divisionId));
+    }
+    return await db.select().from(businessOpportunities)
+      .where(and(...conditions))
+      .orderBy(asc(businessOpportunities.sortOrder), asc(businessOpportunities.id));
+  }
+
+  async getBusinessOpportunitiesForCompany(companyId: number): Promise<BusinessOpportunity[]> {
+    return await db.select().from(businessOpportunities)
+      .where(eq(businessOpportunities.companyId, companyId))
+      .orderBy(asc(businessOpportunities.sortOrder), asc(businessOpportunities.id));
+  }
+
+  async getBusinessOpportunity(id: number): Promise<BusinessOpportunity | undefined> {
+    const [result] = await db.select().from(businessOpportunities).where(eq(businessOpportunities.id, id));
+    return result;
+  }
+
+  async createBusinessOpportunity(data: InsertBusinessOpportunity): Promise<BusinessOpportunity> {
+    const [result] = await db.insert(businessOpportunities).values(data).returning();
+    return result;
+  }
+
+  async updateBusinessOpportunity(id: number, data: Partial<InsertBusinessOpportunity>): Promise<BusinessOpportunity> {
+    const [result] = await db.update(businessOpportunities)
+      .set({ ...data, updatedAt: new Date() })
+      .where(eq(businessOpportunities.id, id))
+      .returning();
+    return result;
+  }
+
+  async deleteBusinessOpportunity(id: number): Promise<void> {
+    await db.delete(businessOpportunities).where(eq(businessOpportunities.id, id));
   }
 
   async findClientByEmailPhone(email: string, phone: string): Promise<Subject | undefined> {
