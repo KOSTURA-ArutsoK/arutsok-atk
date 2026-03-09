@@ -1852,12 +1852,12 @@ function WorkflowDiagram({ folderDefs, row2FolderDefs, activeFolder, onFolderCli
       ].join(' ');
       setBlackPath(bkPath);
 
+      const aw = 6; const headW = 14; const headH = 10;
       const mkVArrow = (fromIdx: number, toIdx: number, color: string) => {
         const cx = (f[fromIdx].l + f[fromIdx].r) / 2;
         const down = f[toIdx].t > f[fromIdx].b;
         const startY = down ? f[fromIdx].b + 2 : f[fromIdx].t - 2;
         const endY = down ? f[toIdx].t - 2 : f[toIdx].b + 2;
-        const aw = 10; const headW = 20; const headH = 14;
         const bodyEndY = down ? endY - headH : endY + headH;
         return {
           color,
@@ -1885,24 +1885,21 @@ function WorkflowDiagram({ folderDefs, row2FolderDefs, activeFolder, onFolderCli
         const uy = dy / len;
         const px = -uy;
         const py = ux;
-        const startX = fromCx + ux * (f[fromIdx].r - f[fromIdx].l) / 2;
-        const startY = fromCy + uy * (f[fromIdx].b - f[fromIdx].t) / 2;
-        const endX = toCx - ux * (f[toIdx].r - f[toIdx].l) / 2;
-        const endY = toCy - uy * (f[toIdx].b - f[toIdx].t) / 2;
-        const aw = 8;
-        const headW = 18;
-        const headH = 14;
-        const tipX = endX;
-        const tipY = endY;
-        const baseX = tipX - ux * headH;
-        const baseY = tipY - uy * headH;
+        const hw = Math.min(f[fromIdx].r - f[fromIdx].l, f[fromIdx].b - f[fromIdx].t) / 2;
+        const startX = fromCx + ux * hw;
+        const startY = fromCy + uy * hw;
+        const hw2 = Math.min(f[toIdx].r - f[toIdx].l, f[toIdx].b - f[toIdx].t) / 2;
+        const endX = toCx - ux * hw2;
+        const endY = toCy - uy * hw2;
+        const baseX = endX - ux * headH;
+        const baseY = endY - uy * headH;
         return {
           color,
           d: [
             `M ${startX + px * aw},${startY + py * aw}`,
             `L ${baseX + px * aw},${baseY + py * aw}`,
             `L ${baseX + px * headW},${baseY + py * headW}`,
-            `L ${tipX},${tipY}`,
+            `L ${endX},${endY}`,
             `L ${baseX - px * headW},${baseY - py * headW}`,
             `L ${baseX - px * aw},${baseY - py * aw}`,
             `L ${startX - px * aw},${startY - py * aw}`,
@@ -1915,7 +1912,6 @@ function WorkflowDiagram({ folderDefs, row2FolderDefs, activeFolder, onFolderCli
         const right = f[toIdx].l > f[fromIdx].r;
         const startX = right ? f[fromIdx].r + 2 : f[fromIdx].l - 2;
         const endX = right ? f[toIdx].l - 2 : f[toIdx].r + 2;
-        const aw = 10; const headW = 20; const headH = 14;
         const bodyEndX = right ? endX - headH : endX + headH;
         return {
           color,
@@ -1952,28 +1948,28 @@ function WorkflowDiagram({ folderDefs, row2FolderDefs, activeFolder, onFolderCli
     return () => ro.disconnect();
   }, []);
 
-  const styles: { stroke: string; opacity: number }[] = [];
-
   return (
     <div ref={containerRef} className="relative rounded-lg border bg-card p-4 overflow-visible" data-testid="workflow-diagram">
       <svg className="absolute inset-0 w-full h-full pointer-events-none overflow-visible">
+        <defs>
+          <filter id="arrow-shadow" x="-20%" y="-20%" width="140%" height="140%">
+            <feDropShadow dx="0" dy="1" stdDeviation="1.5" floodOpacity="0.25" />
+          </filter>
+        </defs>
         {blueLPath && (
-          <path d={blueLPath} fill="#3b82f6" fillOpacity="0.15" stroke="#3b82f6" strokeWidth="2" strokeOpacity="0.4" strokeLinejoin="round" />
+          <path d={blueLPath} fill="#3b82f6" fillOpacity="0.12" stroke="#3b82f6" strokeWidth="1.5" strokeOpacity="0.35" strokeLinejoin="round" />
         )}
         {redPath && (
-          <path d={redPath} fill="#ef4444" fillOpacity="0.15" stroke="#ef4444" strokeWidth="2" strokeOpacity="0.4" strokeLinejoin="round" />
+          <path d={redPath} fill="#ef4444" fillOpacity="0.12" stroke="#ef4444" strokeWidth="1.5" strokeOpacity="0.35" strokeLinejoin="round" />
         )}
         {greenPath && (
-          <path d={greenPath} fill="#166534" fillOpacity="0.25" stroke="#166534" strokeWidth="2" strokeOpacity="0.6" strokeLinejoin="round" />
+          <path d={greenPath} fill="#166534" fillOpacity="0.2" stroke="#166534" strokeWidth="1.5" strokeOpacity="0.5" strokeLinejoin="round" />
+        )}
+        {blackPath && (
+          <path d={blackPath} fill="#ffffff" fillOpacity="0.06" stroke="#a1a1aa" strokeWidth="1.5" strokeOpacity="0.4" strokeLinejoin="round" />
         )}
         {arrows.map((a, i) => (
-          <path key={`arrow-${i}`} d={a.d} fill={a.color} fillOpacity="0.5" stroke={a.color} strokeWidth="1" strokeOpacity="0.7" strokeLinejoin="round" />
-        ))}
-        {blackPath && (
-          <path d={blackPath} fill="#ffffff" fillOpacity="0.08" stroke="#a1a1aa" strokeWidth="2" strokeOpacity="0.5" strokeLinejoin="round" />
-        )}
-        {paths.map((d, i) => (
-          <path key={i} d={d} fill="none" stroke={styles[i]?.stroke || 'currentColor'} strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" opacity={styles[i]?.opacity || 0.3} />
+          <path key={`arrow-${i}`} d={a.d} fill={a.color} fillOpacity="0.45" stroke={a.color} strokeWidth="0.5" strokeOpacity="0.6" strokeLinejoin="round" filter="url(#arrow-shadow)" />
         ))}
       </svg>
       <div className="relative z-10 space-y-6" data-testid="folder-tabs">
