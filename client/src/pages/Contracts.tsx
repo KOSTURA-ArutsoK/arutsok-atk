@@ -1763,7 +1763,7 @@ function WorkflowDiagram({ folderDefs, row2FolderDefs, activeFolder, onFolderCli
   const [redPath, setRedPath] = useState<string>("");
   const [blackPath, setBlackPath] = useState<string>("");
   const [greenPath, setGreenPath] = useState<string>("");
-  const [arrowPath, setArrowPath] = useState<string>("");
+  const [arrows, setArrows] = useState<{ d: string; color: string }[]>([]);
 
   useEffect(() => {
     const el = containerRef.current;
@@ -1852,27 +1852,59 @@ function WorkflowDiagram({ folderDefs, row2FolderDefs, activeFolder, onFolderCli
       ].join(' ');
       setBlackPath(bkPath);
 
-      const cx0 = (f[0].l + f[0].r) / 2;
-      const cx5 = (f[5].l + f[5].r) / 2;
-      const arrowStartY = f[0].b + 2;
-      const arrowEndY = f[5].t - 2;
-      const ax = (cx0 + cx5) / 2;
-      const aw = 10;
-      const headW = 20;
-      const headH = 14;
-      const tipY = arrowEndY;
-      const bodyEndY = tipY - headH;
-      const aPath = [
-        `M ${ax - aw},${arrowStartY}`,
-        `V ${bodyEndY}`,
-        `H ${ax - headW}`,
-        `L ${ax},${tipY}`,
-        `L ${ax + headW},${bodyEndY}`,
-        `H ${ax + aw}`,
-        `V ${arrowStartY}`,
-        'Z',
-      ].join(' ');
-      setArrowPath(aPath);
+      const mkVArrow = (fromIdx: number, toIdx: number, color: string) => {
+        const cx = (f[fromIdx].l + f[fromIdx].r) / 2;
+        const down = f[toIdx].t > f[fromIdx].b;
+        const startY = down ? f[fromIdx].b + 2 : f[fromIdx].t - 2;
+        const endY = down ? f[toIdx].t - 2 : f[toIdx].b + 2;
+        const aw = 10; const headW = 20; const headH = 14;
+        const bodyEndY = down ? endY - headH : endY + headH;
+        return {
+          color,
+          d: [
+            `M ${cx - aw},${startY}`,
+            `V ${bodyEndY}`,
+            `H ${cx - headW}`,
+            `L ${cx},${endY}`,
+            `L ${cx + headW},${bodyEndY}`,
+            `H ${cx + aw}`,
+            `V ${startY}`,
+            'Z',
+          ].join(' '),
+        };
+      };
+      const mkHArrow = (fromIdx: number, toIdx: number, color: string) => {
+        const cy = (f[fromIdx].t + f[fromIdx].b) / 2;
+        const right = f[toIdx].l > f[fromIdx].r;
+        const startX = right ? f[fromIdx].r + 2 : f[fromIdx].l - 2;
+        const endX = right ? f[toIdx].l - 2 : f[toIdx].r + 2;
+        const aw = 10; const headW = 20; const headH = 14;
+        const bodyEndX = right ? endX - headH : endX + headH;
+        return {
+          color,
+          d: [
+            `M ${startX},${cy - aw}`,
+            `H ${bodyEndX}`,
+            `V ${cy - headW}`,
+            `L ${endX},${cy}`,
+            `L ${bodyEndX},${cy + headW}`,
+            `V ${cy + aw}`,
+            `H ${startX}`,
+            'Z',
+          ].join(' '),
+        };
+      };
+      setArrows([
+        mkVArrow(0, 5, '#3b82f6'),
+        mkHArrow(5, 6, '#3b82f6'),
+        mkHArrow(6, 7, '#ef4444'),
+        mkHArrow(7, 8, '#ef4444'),
+        mkHArrow(8, 9, '#ef4444'),
+        mkVArrow(9, 4, '#ef4444'),
+        mkVArrow(5, 1, '#a1a1aa'),
+        mkHArrow(1, 2, '#a1a1aa'),
+        mkHArrow(1, 0, '#a1a1aa'),
+      ]);
 
       setPaths([]);
     };
@@ -1896,9 +1928,9 @@ function WorkflowDiagram({ folderDefs, row2FolderDefs, activeFolder, onFolderCli
         {greenPath && (
           <path d={greenPath} fill="#166534" fillOpacity="0.25" stroke="#166534" strokeWidth="2" strokeOpacity="0.6" strokeLinejoin="round" />
         )}
-        {arrowPath && (
-          <path d={arrowPath} fill="#3b82f6" fillOpacity="0.6" stroke="#3b82f6" strokeWidth="1" strokeOpacity="0.8" strokeLinejoin="round" />
-        )}
+        {arrows.map((a, i) => (
+          <path key={`arrow-${i}`} d={a.d} fill={a.color} fillOpacity="0.5" stroke={a.color} strokeWidth="1" strokeOpacity="0.7" strokeLinejoin="round" />
+        ))}
         {blackPath && (
           <path d={blackPath} fill="#ffffff" fillOpacity="0.08" stroke="#a1a1aa" strokeWidth="2" strokeOpacity="0.5" strokeLinejoin="round" />
         )}
