@@ -154,7 +154,7 @@ export function StatusChangeModal({ open, onOpenChange, contractId, currentStatu
               <CardContent className="p-4 space-y-4">
                 {currentStatus && (
                   <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                    <span>Aktualny stav:</span>
+                    <span>Stav zmluvy:</span>
                     <Badge variant="outline" style={{ borderColor: currentStatus.color, color: currentStatus.color }}>
                       <div className="w-2 h-2 rounded-full mr-1.5" style={{ backgroundColor: currentStatus.color }} />
                       {currentStatus.name}

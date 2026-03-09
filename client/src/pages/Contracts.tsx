@@ -72,7 +72,6 @@ const CONTRACTS_COLUMNS: ColumnDef[] = [
   { key: "partnerId", label: "Partner" },
   { key: "productId", label: "Produkt" },
   { key: "status", label: "Stav" },
-  { key: "lifecyclePhase", label: "Aktuálny stav" },
   { key: "inventoryId", label: "Sprievodka" },
   { key: "annualPremium", label: "Rocne poistne" },
   { key: "signedDate", label: "Vytvorenie zmluvy" },
@@ -105,7 +104,6 @@ const CONTRACTS_EVIDENCIA_COLUMNS: ColumnDef[] = [
   { key: "partnerId", label: "Partner" },
   { key: "productId", label: "Produkt" },
   { key: "status", label: "Stav" },
-  { key: "lifecyclePhase", label: "Aktuálny stav" },
   { key: "annualPremium", label: "Rocne poistne" },
   { key: "signedDate", label: "Vytvorenie zmluvy" },
   { key: "premiumAmount", label: "Lehotne poistne" },
@@ -2521,7 +2519,6 @@ export default function Contracts() {
             {showOrder && <TableHead className="w-[40px] text-center">#</TableHead>}
             {evidenciaColumnVisibility.isVisible("contractNumber") && <TableHead sortKey="contractNumber" sortDirection={sk === "contractNumber" ? sd : null} onSort={rs}>Cislo zmluvy</TableHead>}
             {showStatus && evidenciaColumnVisibility.isVisible("status") && <TableHead style={{ minWidth: 140 }}>Stav</TableHead>}
-            {evidenciaColumnVisibility.isVisible("lifecyclePhase") && <TableHead>Aktuálny stav</TableHead>}
             {showTimer && <TableHead>Zostáva dní</TableHead>}
             {evidenciaColumnVisibility.isVisible("proposalNumber") && <TableHead sortKey="proposalNumber" sortDirection={sk === "proposalNumber" ? sd : null} onSort={rs}>Cislo navrhu</TableHead>}
             {showRegistration && evidenciaColumnVisibility.isVisible("globalNumber") && <TableHead sortKey="globalNumber" sortDirection={sk === "globalNumber" ? sd : null} onSort={rs}>Poradove cislo</TableHead>}
@@ -2585,15 +2582,6 @@ export default function Contracts() {
                     </div>
                   </TableCell>
                 )}
-                {evidenciaColumnVisibility.isVisible("lifecyclePhase") && <TableCell className="py-1" data-testid={`text-contract-lifecycle-${contract.id}`}>
-                  {contract.lifecyclePhase && contract.lifecyclePhase > 0 ? (
-                    <Badge variant="outline" className={`text-[10px] px-1.5 ${contract.lifecyclePhase <= 5 ? "border-amber-500/40 text-amber-400" : "border-cyan-500/40 text-cyan-400"}`}>
-                      {LIFECYCLE_PHASE_NAMES[contract.lifecyclePhase as keyof typeof LIFECYCLE_PHASE_NAMES] || `Fáza ${contract.lifecyclePhase}`}
-                    </Badge>
-                  ) : (
-                    <span className="text-xs text-muted-foreground">-</span>
-                  )}
-                </TableCell>}
                 {showTimer && <TableCell className="py-1" data-testid={`text-contract-timer-${contract.id}`}>
                   {(() => {
                     const c = contract as any;
@@ -3977,7 +3965,6 @@ export default function Contracts() {
                 <TableRow>
                   {columnVisibility.isVisible("contractNumber") && <TableHead sortKey="contractNumber" sortDirection={skMain === "contractNumber" ? sdMain : null} onSort={rsMain}>Cislo zmluvy</TableHead>}
                   {columnVisibility.isVisible("status") && <TableHead style={{ minWidth: 140 }}>Stav</TableHead>}
-                  {columnVisibility.isVisible("lifecyclePhase") && <TableHead>Aktuálny stav</TableHead>}
                   {columnVisibility.isVisible("proposalNumber") && <TableHead sortKey="proposalNumber" sortDirection={skMain === "proposalNumber" ? sdMain : null} onSort={rsMain}>Cislo navrhu</TableHead>}
                   {columnVisibility.isVisible("globalNumber") && <TableHead sortKey="globalNumber" sortDirection={skMain === "globalNumber" ? sdMain : null} onSort={rsMain}>Poradove cislo</TableHead>}
                   {columnVisibility.isVisible("partnerId") && <TableHead sortKey="partnerId" sortDirection={skMain === "partnerId" ? sdMain : null} onSort={rsMain}>Partner</TableHead>}
@@ -4017,15 +4004,6 @@ export default function Contracts() {
                             </span>
                           ) : "-"}
                         </div>
-                      </TableCell>}
-                      {columnVisibility.isVisible("lifecyclePhase") && <TableCell className="py-1" data-testid={`text-contract-lifecycle-${contract.id}`}>
-                        {contract.lifecyclePhase && contract.lifecyclePhase > 0 ? (
-                          <Badge variant="outline" className={`text-[10px] px-1.5 ${contract.lifecyclePhase <= 5 ? "border-amber-500/40 text-amber-400" : "border-cyan-500/40 text-cyan-400"}`}>
-                            {LIFECYCLE_PHASE_NAMES[contract.lifecyclePhase as keyof typeof LIFECYCLE_PHASE_NAMES] || `Fáza ${contract.lifecyclePhase}`}
-                          </Badge>
-                        ) : (
-                          <span className="text-xs text-muted-foreground">-</span>
-                        )}
                       </TableCell>}
                       {columnVisibility.isVisible("proposalNumber") && <TableCell className="text-sm font-mono py-1" data-testid={`text-contract-proposal-${contract.id}`}>{contract.proposalNumber || "-"}</TableCell>}
                       {columnVisibility.isVisible("globalNumber") && <TableCell className="font-mono text-sm py-1" data-testid={`text-contract-registration-${contract.id}`}>
