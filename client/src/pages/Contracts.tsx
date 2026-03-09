@@ -3287,7 +3287,7 @@ export default function Contracts() {
 
             <line x1="200" y1="50" x2="245" y2="50" stroke="#3b82f6" strokeWidth="5" opacity="0.3" markerEnd="url(#arrow-fwd)" vectorEffect="non-scaling-stroke" />
 
-            <line x1="248" y1="43" x2="60" y2="43" stroke="#f59e0b" strokeWidth="4" opacity="0.25" markerEnd="url(#arrow-back)" vectorEffect="non-scaling-stroke" />
+            <polyline points="248,35 150,35 150,15 50,15 50,43" fill="none" stroke="#f59e0b" strokeWidth="4" opacity="0.25" strokeLinejoin="round" markerEnd="url(#arrow-back)" vectorEffect="non-scaling-stroke" />
 
             <line x1="200" y1="150" x2="245" y2="150" stroke="#3b82f6" strokeWidth="5" opacity="0.3" markerEnd="url(#arrow-fwd)" vectorEffect="non-scaling-stroke" />
             <line x1="300" y1="150" x2="345" y2="150" stroke="#3b82f6" strokeWidth="5" opacity="0.3" markerEnd="url(#arrow-fwd)" vectorEffect="non-scaling-stroke" />
