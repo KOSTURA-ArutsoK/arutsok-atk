@@ -1937,7 +1937,6 @@ function WorkflowDiagram({ folderDefs, row2FolderDefs, activeFolder, onFolderCli
         mkVArrow(6, 1, '#a1a1aa'),
         mkHArrow(1, 2, '#a1a1aa'),
         mkHArrow(1, 0, '#a1a1aa'),
-        mkDArrow(7, 3, '#a1a1aa'),
       ]);
 
       setPaths([]);
