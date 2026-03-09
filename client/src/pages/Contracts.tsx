@@ -3656,46 +3656,54 @@ export default function Contracts() {
                         <p className="text-sm text-muted-foreground text-center py-8" data-testid={`text-no-phase-${phaseId}`}>Žiadne kontrakty v tejto fáze</p>
                       ) : (
                         <div className="divide-y">
-                          {supiskyForPhase.map((sup: any) => (
-                            <div key={sup.id} className="p-3">
-                              <div className="flex items-center justify-between mb-2">
-                                <div className="flex items-center gap-2">
-                                  <ListChecks className="w-4 h-4 text-muted-foreground" />
-                                  <span className="text-sm font-medium" data-testid={`text-supiska-name-${sup.id}`}>{sup.name}</span>
+                          {supiskyForPhase.map((sup: any) => {
+                            const isSupExpanded = expandedSprievodky.has(sup.id + 100000);
+                            return (
+                              <div key={sup.id}>
+                                <div
+                                  className="flex items-center gap-3 p-3 cursor-pointer hover-elevate flex-wrap"
+                                  onClick={() => toggleSprievodkaExpanded(sup.id + 100000)}
+                                  data-testid={`button-toggle-supiska-${sup.id}`}
+                                >
+                                  {isSupExpanded ? <ChevronDown className="w-4 h-4 text-muted-foreground shrink-0" /> : <ChevronRight className="w-4 h-4 text-muted-foreground shrink-0" />}
+                                  <ListChecks className="w-4 h-4 text-muted-foreground shrink-0" />
+                                  <span className="text-sm font-medium flex-1" data-testid={`text-supiska-name-${sup.id}`}>{sup.name}</span>
                                   <Badge variant="outline" className="text-xs">{sup.contracts?.length || 0} kontraktov</Badge>
+                                  {phaseId === 8 && (
+                                    <Button
+                                      size="sm"
+                                      variant="default"
+                                      className="bg-indigo-600 hover:bg-indigo-700 text-white"
+                                      onClick={(e) => { e.stopPropagation(); setDispatchSuopiskaId(sup.id); setDispatchMethod(""); setDispatchDate(""); setDispatchDialogOpen(true); }}
+                                      data-testid={`button-dispatch-supiska-${sup.id}`}
+                                    >
+                                      <Send className="w-3 h-3 mr-1" />Odoslať partnerovi
+                                    </Button>
+                                  )}
+                                  {phaseId === 9 && (
+                                    <Button
+                                      size="sm"
+                                      variant="default"
+                                      className="bg-purple-600 hover:bg-purple-700 text-white"
+                                      onClick={(e) => { e.stopPropagation(); setReceiveSuopiskaId(sup.id); setReceiveDate(""); setReceiveDialogOpen(true); }}
+                                      data-testid={`button-receive-supiska-${sup.id}`}
+                                    >
+                                      <Award className="w-3 h-3 mr-1" />Potvrdiť prijatie
+                                    </Button>
+                                  )}
                                 </div>
-                                {phaseId === 8 && (
-                                  <Button
-                                    size="sm"
-                                    variant="default"
-                                    className="bg-indigo-600 hover:bg-indigo-700 text-white"
-                                    onClick={() => { setDispatchSuopiskaId(sup.id); setDispatchMethod(""); setDispatchDate(""); setDispatchDialogOpen(true); }}
-                                    data-testid={`button-dispatch-supiska-${sup.id}`}
-                                  >
-                                    <Send className="w-3 h-3 mr-1" />Odoslať partnerovi
-                                  </Button>
-                                )}
-                                {phaseId === 9 && (
-                                  <Button
-                                    size="sm"
-                                    variant="default"
-                                    className="bg-purple-600 hover:bg-purple-700 text-white"
-                                    onClick={() => { setReceiveSuopiskaId(sup.id); setReceiveDate(""); setReceiveDialogOpen(true); }}
-                                    data-testid={`button-receive-supiska-${sup.id}`}
-                                  >
-                                    <Award className="w-3 h-3 mr-1" />Potvrdiť prijatie
-                                  </Button>
-                                )}
+                                <div style={{ display: isSupExpanded ? 'block' : 'none' }}>
+                                  {sup.dispatchMethod && (
+                                    <div className="flex items-center gap-3 px-3 pb-2 text-xs text-muted-foreground">
+                                      <span>Spôsob: <span className="font-medium text-foreground">{sup.dispatchMethod}</span></span>
+                                      {sup.dispatchedAt && <span>Odoslané: <span className="font-medium text-foreground">{formatDateSlovak(sup.dispatchedAt)}</span></span>}
+                                    </div>
+                                  )}
+                                  {sup.contracts && sup.contracts.length > 0 && renderContractTable(sup.contracts, { showStatus: true, showRegistration: true, showActions: true })}
+                                </div>
                               </div>
-                              {sup.dispatchMethod && (
-                                <div className="flex items-center gap-3 mb-2 text-xs text-muted-foreground">
-                                  <span>Spôsob: <span className="font-medium text-foreground">{sup.dispatchMethod}</span></span>
-                                  {sup.dispatchedAt && <span>Odoslané: <span className="font-medium text-foreground">{formatDateSlovak(sup.dispatchedAt)}</span></span>}
-                                </div>
-                              )}
-                              {sup.contracts && sup.contracts.length > 0 && renderContractTable(sup.contracts, { showStatus: true, showRegistration: true, showActions: true })}
-                            </div>
-                          ))}
+                            );
+                          })}
                         </div>
                       )
                     ) : (
