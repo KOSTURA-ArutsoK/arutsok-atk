@@ -124,9 +124,6 @@ const klientiItems: { href: string; icon: React.ElementType; label: string }[] =
 
 const zmluvyFlatItems = [
   { href: "/contracts", icon: FileText, label: "Zoznam zmlúv" },
-];
-
-const spracovanieZmluvChildren = [
   { href: "/evidencia-zmluv", icon: ClipboardList, label: "Papierové zmluvy" },
   { href: "/datova-linka", icon: DataLinkaIcon, label: "Dátová linka" },
 ];
@@ -150,7 +147,6 @@ const importItems = [
 
 const allZmluvyHrefs = [
   ...zmluvyFlatItems.map(i => i.href),
-  ...spracovanieZmluvChildren.map(i => i.href),
   ...nastaveniaSablonChildren.map(i => i.href),
   ...protokolyChildren.map(i => i.href),
   ...importItems.map(i => i.href),
@@ -395,8 +391,7 @@ export function AppSidebar() {
 
   const isZmluvyActive = allZmluvyHrefs.includes(location);
   const isZmluvyOpen = openMenuId === "zmluvy";
-  const zmluvyInitialSub = spracovanieZmluvChildren.some(i => i.href === location) ? "spracovanie"
-    : nastaveniaSablonChildren.some(i => i.href === location) ? "sablony"
+  const zmluvyInitialSub = nastaveniaSablonChildren.some(i => i.href === location) ? "sablony"
     : protokolyChildren.some(i => i.href === location) ? "protokoly"
     : importItems.some(i => i.href === location) ? "import" : null;
   const [zmluvySubId, setZmluvySubId] = useState<string | null>(zmluvyInitialSub);
@@ -780,42 +775,6 @@ export function AppSidebar() {
                   </CollapsibleTrigger>
                   <CollapsibleContent>
                     <SidebarMenuSub className="mx-2 px-2">
-                      <SidebarMenuSubItem>
-                        <Collapsible
-                          open={zmluvySubId === "spracovanie"}
-                          onOpenChange={(val) => setZmluvySubId(val ? "spracovanie" : null)}
-                        >
-                          <CollapsibleTrigger asChild>
-                            <SidebarMenuSubButton
-                              data-testid="nav-submenu-spracovanie-zmluv"
-                              className={`cursor-pointer ${spracovanieZmluvChildren.some(i => i.href === location) ? "text-sidebar-accent-foreground font-medium" : ""}`}
-                            >
-                              <ClipboardList className="w-3.5 h-3.5" />
-                              <span className="flex-1">Spracovanie zmlúv</span>
-                              <ChevronRight className={`w-3 h-3 text-muted-foreground transition-transform duration-200 ${zmluvySubId === "spracovanie" ? "rotate-90" : ""}`} />
-                            </SidebarMenuSubButton>
-                          </CollapsibleTrigger>
-                          <CollapsibleContent>
-                            <div className="ml-2 border-l border-border pl-1.5 mt-1 space-y-0.5">
-                              {spracovanieZmluvChildren.map(item => (
-                                <SidebarMenuSubItem key={item.href}>
-                                  <SidebarMenuSubButton
-                                    asChild
-                                    isActive={location === item.href}
-                                    data-testid={`nav-${item.label.toLowerCase().replace(/\s/g, '-')}`}
-                                  >
-                                    <Link href={item.href}>
-                                      <item.icon className="w-3.5 h-3.5" />
-                                      <span>{item.label}</span>
-                                    </Link>
-                                  </SidebarMenuSubButton>
-                                </SidebarMenuSubItem>
-                              ))}
-                            </div>
-                          </CollapsibleContent>
-                        </Collapsible>
-                      </SidebarMenuSubItem>
-
                       {zmluvyFlatItems.map(item => (
                         <SidebarMenuSubItem key={item.href}>
                           <SidebarMenuSubButton
