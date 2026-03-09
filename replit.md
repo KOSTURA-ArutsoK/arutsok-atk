@@ -53,7 +53,7 @@ The system utilizes a modern full-stack architecture built for data integrity, s
 - **Moje úlohy module**: Displays pending approval tasks for the current user, with a dynamic sidebar badge for notification.
 - **Status Notification Templates**: Configurable email/SMS notifications based on contract status changes, using smart tags for dynamic content.
 - **Contract Processing Workflow (Phases 5→10)**: A comprehensive workflow in the `/evidencia-zmluv` module for processing contracts, including creating processing `súpisky` and managing dispatch/receipt.
-- **Business Opportunities Module**: Multi-record system for managing business opportunities (`business_opportunities` table). Records are scoped per division or "all divisions" within a company. Admin settings page (`/nastavenie-obchodnych-prilezitosti`) supports CRUD with division selector. Display page (`/obchodne-prilezitosti`) shows list/detail views. Sidebar dynamically lists opportunities as collapsible sub-items under "Obchodné príležitosti".
+- **Business Opportunities Module**: Multi-record system for managing business opportunities (`business_opportunities` table). Records use `divisionIds` (integer array) for multi-division assignment: empty array `[]` = all divisions, non-empty array = specific divisions only. Admin settings page (`/nastavenie-obchodnych-prilezitosti`) supports CRUD with multi-checkbox division selector. Display page (`/obchodne-prilezitosti`) shows list/detail views. Sidebar dynamically lists opportunities as collapsible sub-items under "Obchodné príležitosti".
 
 ## External Dependencies
 - **bcryptjs**: Password hashing.

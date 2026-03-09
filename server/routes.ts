@@ -6343,12 +6343,15 @@ export async function registerRoutes(
       const appUser = req.appUser;
       if (!appUser || !isAdmin(appUser)) return res.status(403).json({ message: "Nedostatocne opravnenia" });
       if (!appUser.activeCompanyId) return res.status(400).json({ message: "Nie je vybrana spolocnost" });
-      const { title, content, divisionId } = req.body;
+      const { title, content, divisionIds } = req.body;
       if (!title || !content) return res.status(400).json({ message: "Title a content su povinne" });
+      if (divisionIds !== undefined && (!Array.isArray(divisionIds) || !divisionIds.every((v: any) => typeof v === "number" && Number.isInteger(v)))) {
+        return res.status(400).json({ message: "divisionIds musi byt pole celych cisel" });
+      }
       const record = await storage.createBusinessOpportunity({
         title,
         content,
-        divisionId: divisionId || null,
+        divisionIds: Array.isArray(divisionIds) ? divisionIds : [],
         companyId: appUser.activeCompanyId,
         sortOrder: req.body.sortOrder || 0,
       });
@@ -6367,11 +6370,14 @@ export async function registerRoutes(
       const existing = await storage.getBusinessOpportunity(id);
       if (!existing) return res.status(404).json({ message: "Nenajdene" });
       if (existing.companyId !== appUser.activeCompanyId) return res.status(403).json({ message: "Nedostatocne opravnenia" });
-      const { title, content, divisionId, sortOrder } = req.body;
+      const { title, content, divisionIds, sortOrder } = req.body;
+      if (divisionIds !== undefined && (!Array.isArray(divisionIds) || !divisionIds.every((v: any) => typeof v === "number" && Number.isInteger(v)))) {
+        return res.status(400).json({ message: "divisionIds musi byt pole celych cisel" });
+      }
       const record = await storage.updateBusinessOpportunity(id, {
         ...(title !== undefined && { title }),
         ...(content !== undefined && { content }),
-        ...(divisionId !== undefined && { divisionId: divisionId || null }),
+        ...(divisionIds !== undefined && { divisionIds }),
         ...(sortOrder !== undefined && { sortOrder }),
       });
       await logAudit(req, { action: "UPDATE", module: "obchodne-prilezitosti", entityName: `Obchodna prilezitost: ${record.title}` });

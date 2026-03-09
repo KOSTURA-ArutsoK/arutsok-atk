@@ -2117,12 +2117,12 @@ export class DatabaseStorage implements IStorage {
     if (divisionId) {
       conditions.push(
         or(
-          eq(businessOpportunities.divisionId, divisionId),
-          isNull(businessOpportunities.divisionId)
+          sql`${businessOpportunities.divisionIds} = '{}'`,
+          sql`${divisionId} = ANY(${businessOpportunities.divisionIds})`
         )! as any
       );
     } else {
-      conditions.push(isNull(businessOpportunities.divisionId));
+      conditions.push(sql`${businessOpportunities.divisionIds} = '{}'`);
     }
     return await db.select().from(businessOpportunities)
       .where(and(...conditions))

@@ -5,9 +5,10 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, Save, Target, Plus, Pencil, Trash2, X, Check } from "lucide-react";
+import { Loader2, Target, Plus, Pencil, Trash2, X, Check } from "lucide-react";
 import { useAppUser } from "@/hooks/use-app-user";
 
 interface Division {
@@ -26,11 +27,62 @@ interface BusinessOpportunity {
   id: number;
   title: string;
   content: string;
-  divisionId: number | null;
+  divisionIds: number[];
   companyId: number;
   sortOrder: number;
   createdAt: string;
   updatedAt: string;
+}
+
+function DivisionCheckboxes({
+  companyDivisions,
+  selectedIds,
+  onChange,
+  testIdPrefix,
+}: {
+  companyDivisions: Division[];
+  selectedIds: number[];
+  onChange: (ids: number[]) => void;
+  testIdPrefix: string;
+}) {
+  const isAll = selectedIds.length === 0;
+
+  const handleAllToggle = (checked: boolean) => {
+    if (checked) {
+      onChange([]);
+    }
+  };
+
+  const handleDivisionToggle = (divId: number, checked: boolean) => {
+    if (checked) {
+      const next = [...selectedIds, divId];
+      onChange(next);
+    } else {
+      const next = selectedIds.filter(id => id !== divId);
+      onChange(next);
+    }
+  };
+
+  return (
+    <div className="space-y-2">
+      <label className="text-sm font-medium">Platnost pre divizie</label>
+      <div className="flex flex-wrap gap-3">
+        <label className="flex items-center gap-2 cursor-pointer text-sm" data-testid={`${testIdPrefix}-all`}>
+          <Checkbox checked={isAll} onCheckedChange={handleAllToggle} />
+          <span>Vsetky divizie</span>
+        </label>
+        {companyDivisions.map((cd) => (
+          <label key={cd.divisionId} className="flex items-center gap-2 cursor-pointer text-sm" data-testid={`${testIdPrefix}-${cd.divisionId}`}>
+            <Checkbox
+              checked={selectedIds.includes(cd.divisionId)}
+              onCheckedChange={(checked) => handleDivisionToggle(cd.divisionId, !!checked)}
+            />
+            <span>{cd.division.emoji} {cd.division.name}</span>
+          </label>
+        ))}
+      </div>
+    </div>
+  );
 }
 
 export default function NastavenieObchodnychPrilezitosti() {
@@ -40,10 +92,11 @@ export default function NastavenieObchodnychPrilezitosti() {
   const [editingId, setEditingId] = useState<number | null>(null);
   const [editTitle, setEditTitle] = useState("");
   const [editContent, setEditContent] = useState("");
+  const [editDivisionIds, setEditDivisionIds] = useState<number[]>([]);
   const [isAdding, setIsAdding] = useState(false);
   const [newTitle, setNewTitle] = useState("");
   const [newContent, setNewContent] = useState("");
-  const [newScope, setNewScope] = useState<string>("all_divisions");
+  const [newDivisionIds, setNewDivisionIds] = useState<number[]>([]);
   const lastCompanyIdRef = useRef<number | null>(null);
 
   const activeCompanyId = appUser?.activeCompanyId;
@@ -72,18 +125,21 @@ export default function NastavenieObchodnychPrilezitosti() {
 
   const filteredOpportunities = (allOpportunities || []).filter((op) => {
     if (filterScope === "all_divisions") return true;
-    if (filterScope === "global") return op.divisionId === null;
-    return op.divisionId === parseInt(filterScope);
+    if (filterScope === "global") return !op.divisionIds || op.divisionIds.length === 0;
+    const fId = parseInt(filterScope);
+    return op.divisionIds?.includes(fId) || (!op.divisionIds || op.divisionIds.length === 0);
   });
 
-  const getDivisionLabel = (divisionId: number | null) => {
-    if (!divisionId) return "Vsetky divizie";
-    const cd = companyDivisions?.find(d => d.divisionId === divisionId);
-    return cd ? `${cd.division.emoji || ""} ${cd.division.name}`.trim() : `Divizia ${divisionId}`;
+  const getDivisionLabels = (divisionIds: number[] | null) => {
+    if (!divisionIds || divisionIds.length === 0) return "Vsetky divizie";
+    return divisionIds.map(id => {
+      const cd = companyDivisions?.find(d => d.divisionId === id);
+      return cd ? `${cd.division.emoji || ""} ${cd.division.name}`.trim() : `Div. ${id}`;
+    }).join(", ");
   };
 
   const createMutation = useMutation({
-    mutationFn: async (data: { title: string; content: string; divisionId: number | null }) => {
+    mutationFn: async (data: { title: string; content: string; divisionIds: number[] }) => {
       return await apiRequest("POST", "/api/business-opportunities", data);
     },
     onSuccess: () => {
@@ -92,7 +148,7 @@ export default function NastavenieObchodnychPrilezitosti() {
       setIsAdding(false);
       setNewTitle("");
       setNewContent("");
-      setNewScope("all_divisions");
+      setNewDivisionIds([]);
     },
     onError: (err: any) => {
       toast({ title: "Chyba", description: err.message || "Nepodarilo sa vytvorit", variant: "destructive" });
@@ -100,7 +156,7 @@ export default function NastavenieObchodnychPrilezitosti() {
   });
 
   const updateMutation = useMutation({
-    mutationFn: async ({ id, data }: { id: number; data: { title: string; content: string } }) => {
+    mutationFn: async ({ id, data }: { id: number; data: { title: string; content: string; divisionIds: number[] } }) => {
       return await apiRequest("PUT", `/api/business-opportunities/${id}`, data);
     },
     onSuccess: () => {
@@ -130,6 +186,7 @@ export default function NastavenieObchodnychPrilezitosti() {
     setEditingId(op.id);
     setEditTitle(op.title);
     setEditContent(op.content);
+    setEditDivisionIds(op.divisionIds || []);
   };
 
   const handleCreate = () => {
@@ -137,13 +194,12 @@ export default function NastavenieObchodnychPrilezitosti() {
       toast({ title: "Chyba", description: "Nazov aj text su povinne", variant: "destructive" });
       return;
     }
-    const divisionId = newScope === "global" ? null : parseInt(newScope);
-    createMutation.mutate({ title: newTitle.trim(), content: newContent.trim(), divisionId });
+    createMutation.mutate({ title: newTitle.trim(), content: newContent.trim(), divisionIds: newDivisionIds });
   };
 
   const handleUpdate = () => {
     if (!editingId || !editTitle.trim() || !editContent.trim()) return;
-    updateMutation.mutate({ id: editingId, data: { title: editTitle.trim(), content: editContent.trim() } });
+    updateMutation.mutate({ id: editingId, data: { title: editTitle.trim(), content: editContent.trim(), divisionIds: editDivisionIds } });
   };
 
   return (
@@ -183,22 +239,12 @@ export default function NastavenieObchodnychPrilezitosti() {
           {isAdding && (
             <Card className="border-primary/50">
               <CardContent className="pt-4 space-y-3">
-                <div className="space-y-2">
-                  <label className="text-sm font-medium">Platnost pre</label>
-                  <Select value={newScope} onValueChange={setNewScope}>
-                    <SelectTrigger data-testid="select-new-scope">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="global">Vsetky divizie</SelectItem>
-                      {companyDivisions?.map((cd) => (
-                        <SelectItem key={cd.divisionId} value={String(cd.divisionId)}>
-                          {cd.division.emoji} {cd.division.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
+                <DivisionCheckboxes
+                  companyDivisions={companyDivisions || []}
+                  selectedIds={newDivisionIds}
+                  onChange={setNewDivisionIds}
+                  testIdPrefix="chk-new-div"
+                />
                 <div className="space-y-2">
                   <label className="text-sm font-medium">Kratky nazov (zobrazuje sa v menu)</label>
                   <Input
@@ -219,7 +265,7 @@ export default function NastavenieObchodnychPrilezitosti() {
                   />
                 </div>
                 <div className="flex justify-end gap-2">
-                  <Button variant="outline" size="sm" onClick={() => { setIsAdding(false); setNewTitle(""); setNewContent(""); setNewScope("all_divisions"); }} data-testid="button-cancel-add">
+                  <Button variant="outline" size="sm" onClick={() => { setIsAdding(false); setNewTitle(""); setNewContent(""); setNewDivisionIds([]); }} data-testid="button-cancel-add">
                     <X className="w-4 h-4 mr-1" />
                     Zrusit
                   </Button>
@@ -247,6 +293,12 @@ export default function NastavenieObchodnychPrilezitosti() {
                   <CardContent className="pt-4 space-y-2">
                     {editingId === op.id ? (
                       <>
+                        <DivisionCheckboxes
+                          companyDivisions={companyDivisions || []}
+                          selectedIds={editDivisionIds}
+                          onChange={setEditDivisionIds}
+                          testIdPrefix={`chk-edit-div-${op.id}`}
+                        />
                         <Input
                           value={editTitle}
                           onChange={(e) => setEditTitle(e.target.value)}
@@ -276,7 +328,7 @@ export default function NastavenieObchodnychPrilezitosti() {
                           <div>
                             <h3 className="font-medium text-sm" data-testid={`text-title-${op.id}`}>{op.title}</h3>
                             <span className="text-xs text-muted-foreground" data-testid={`text-scope-${op.id}`}>
-                              {getDivisionLabel(op.divisionId)}
+                              {getDivisionLabels(op.divisionIds)}
                             </span>
                           </div>
                           <div className="flex gap-1">

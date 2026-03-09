@@ -500,7 +500,7 @@ export const businessOpportunities = pgTable("business_opportunities", {
   id: serial("id").primaryKey(),
   title: text("title").notNull(),
   content: text("content").notNull(),
-  divisionId: integer("division_id"),
+  divisionIds: integer("division_ids").array().notNull().default([]),
   companyId: integer("company_id").notNull(),
   sortOrder: integer("sort_order").default(0),
   createdAt: timestamp("created_at").defaultNow(),
