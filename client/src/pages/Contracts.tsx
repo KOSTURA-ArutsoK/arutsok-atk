@@ -3583,7 +3583,7 @@ export default function Contracts() {
                   <span className="text-sm text-muted-foreground">Vybranych: <span className="font-semibold text-foreground">{selectedIds.length}</span></span>
                   <Button size="sm" onClick={() => setSprievodkaDialogOpen(true)} data-testid="button-dispatch">
                     <Send className="w-3.5 h-3.5 mr-1.5" />
-                    Odoslat
+                    Vytvoriť sprievodku
                   </Button>
                 </div>
               </span>
