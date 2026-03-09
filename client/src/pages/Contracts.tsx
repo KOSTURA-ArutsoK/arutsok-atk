@@ -3261,6 +3261,41 @@ export default function Contracts() {
           </div>
         </div>
 
+        <div className="rounded-lg border bg-card p-3" data-testid="workflow-diagram">
+          <svg viewBox="0 0 500 200" xmlns="http://www.w3.org/2000/svg" style={{ width: '100%', height: 'auto' }}>
+            <rect x="80" y="10" width="240" height="60" rx="30" fill="none" stroke="currentColor" strokeWidth="3" strokeLinejoin="round" opacity="0.5" />
+
+            <circle cx="450" cy="40" r="30" fill="none" stroke="#22c55e" strokeWidth="3" />
+
+            <path d="M 420,10 H 480 V 190 H 110 V 110 H 380 V 10 Z" fill="none" stroke="#ef4444" strokeWidth="3" strokeLinejoin="round" opacity="0.7" />
+
+            <path d="M 20,10 H 80 V 140 H 220 V 190 H 20 Z" fill="none" stroke="#3b82f6" strokeWidth="3" strokeLinejoin="round" opacity="0.7" />
+
+            {[
+              { cx: 50, cy: 40, phase: 1 },
+              { cx: 150, cy: 40, phase: 2 },
+              { cx: 250, cy: 40, phase: 3 },
+              { cx: 350, cy: 40, phase: 4 },
+              { cx: 450, cy: 40, phase: 5 },
+              { cx: 50, cy: 140, phase: 6 },
+              { cx: 150, cy: 140, phase: 7 },
+              { cx: 250, cy: 140, phase: 8 },
+              { cx: 350, cy: 140, phase: 9 },
+              { cx: 450, cy: 140, phase: 10 },
+            ].map(b => {
+              const isActive = activeFolder === b.phase;
+              const label = folderDefs.find(f => f.id === b.phase)?.label || row2FolderDefs.find(f => f.id === b.phase)?.label || `Fáza ${b.phase}`;
+              return (
+                <g key={b.phase} onClick={() => { setActiveFolder(b.phase); setRerouteSelectedIds([]); }} style={{ cursor: 'pointer' }} data-testid={`workflow-bubble-${b.phase}`}>
+                  <title>{label}</title>
+                  <circle cx={b.cx} cy={b.cy} r="20" fill={isActive ? 'hsl(var(--primary))' : 'hsl(var(--muted))'} stroke={isActive ? 'hsl(var(--primary))' : 'hsl(var(--border))'} strokeWidth={isActive ? 2.5 : 1} />
+                  <text x={b.cx} y={b.cy + 5} textAnchor="middle" fontWeight="bold" fontSize="13" fill={isActive ? 'hsl(var(--primary-foreground))' : 'hsl(var(--foreground))'}>{b.phase}</text>
+                </g>
+              );
+            })}
+          </svg>
+        </div>
+
         <div className="space-y-3" data-testid="folder-tabs">
           <div>
             <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-1.5">Riadok 1: Logistika (Sledovanie papiera)</p>
