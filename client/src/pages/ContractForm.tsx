@@ -406,7 +406,7 @@ function StatusTabContent(props: StatusTabContentProps) {
       <div id="status-current-display" data-testid="current-status-display">
         <div id="status-current-inner" className="flex items-center gap-2 flex-wrap">
           {currentStatus && <>
-            <span className="text-sm text-muted-foreground">Aktualny stav:</span>
+            <span className="text-sm text-muted-foreground">Stav zmluvy:</span>
             <div className="w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: currentStatus?.color }} />
             <span className="text-sm font-semibold" data-testid="text-current-status">{currentStatus?.name}</span>
             <span id="status-badge-commissionable" style={{ display: currentStatus?.isCommissionable ? 'inline' : 'none' }}><Badge variant="outline" className="text-xs">Provizna</Badge></span>
@@ -417,7 +417,7 @@ function StatusTabContent(props: StatusTabContentProps) {
             <span className="text-sm text-muted-foreground">Nacitavam stavy...</span>
           </>}
           {!currentStatus && (!!contractId || !!statuses) && <>
-            <span className="text-sm text-muted-foreground">Aktualny stav:</span>
+            <span className="text-sm text-muted-foreground">Stav zmluvy:</span>
             <span className="text-sm font-semibold" data-testid="text-current-status">Nahratá do systému</span>
           </>}
         </div>
@@ -1756,20 +1756,8 @@ export default function ContractForm() {
                     </SelectContent>
                   </Select>
                 </CompactField>
-                <CompactField label="Stav zmluvy">
-                  <div style={{ display: isEditing ? 'block' : 'none' }}>
-                    <div id="contract-status-display" className="flex items-center gap-2 h-9 px-3 border rounded-md bg-muted/30" data-testid="display-contract-status">
-                      {statuses?.find(s => s.id === (statusId ? parseInt(statusId) : -1)) ? (
-                        <div className="flex items-center gap-2">
-                          <div className="w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: getSmartStatusColor(statuses?.find(s => s.id === (statusId ? parseInt(statusId) : -1))?.color, expiryDate) }} />
-                          <span className="text-sm" style={{ color: getSmartStatusColor(statuses?.find(s => s.id === (statusId ? parseInt(statusId) : -1))?.color, expiryDate) }}>{statuses?.find(s => s.id === (statusId ? parseInt(statusId) : -1))?.name}</span>
-                        </div>
-                      ) : (
-                        <span className="text-sm text-muted-foreground">Bez stavu</span>
-                      )}
-                    </div>
-                  </div>
-                  <div style={{ display: !isEditing ? 'block' : 'none' }}>
+                {!isEditing && (
+                  <CompactField label="Stav zmluvy">
                     <Select value={statusId} onValueChange={setStatusId}>
                       <SelectTrigger data-testid="select-contract-status">
                         <SelectValue placeholder="Vyberte stav" />
@@ -1785,8 +1773,8 @@ export default function ContractForm() {
                         ))}
                       </SelectContent>
                     </Select>
-                  </div>
-                </CompactField>
+                  </CompactField>
+                )}
               </div>
 
               <div className="grid grid-cols-3 gap-[clamp(0.5rem,1vw,1rem)]">
