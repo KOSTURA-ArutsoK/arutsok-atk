@@ -1978,7 +1978,7 @@ function WorkflowDiagram({ folderDefs, row2FolderDefs, activeFolder, onFolderCli
             const isActive = activeFolder === f.id;
             return (
               <div key={f.id} data-phase-card={f.id}>
-                <Card className={`cursor-pointer transition-colors bg-card relative ${isActive ? "border-primary shadow-sm" : ""}`} onClick={() => onFolderClick(f.id)} data-testid={`folder-tab-${f.id}`}>
+                <Card className={`cursor-pointer transition-colors bg-card relative h-[100px] ${isActive ? "border-primary shadow-sm" : ""}`} onClick={() => onFolderClick(f.id)} data-testid={`folder-tab-${f.id}`}>
                   {f.tooltip && (
                     <Tooltip>
                       <TooltipTrigger asChild>
@@ -1991,7 +1991,7 @@ function WorkflowDiagram({ folderDefs, row2FolderDefs, activeFolder, onFolderCli
                       </TooltipContent>
                     </Tooltip>
                   )}
-                  <div className="flex flex-col items-center gap-1 p-2 text-center">
+                  <div className="flex flex-col items-center justify-center gap-1 p-2 text-center h-full">
                     <div className={`w-8 h-8 rounded-md ${f.bgColor} flex items-center justify-center shrink-0`}>
                       <FIcon className={`w-4 h-4 ${f.color}`} />
                     </div>
@@ -2009,7 +2009,7 @@ function WorkflowDiagram({ folderDefs, row2FolderDefs, activeFolder, onFolderCli
             const isActive = activeFolder === f.id;
             return (
               <div key={f.id} data-phase-card={f.id}>
-                <Card className={`cursor-pointer transition-colors bg-card relative ${isActive ? "border-primary shadow-sm" : ""}`} onClick={() => onFolderClick(f.id)} data-testid={`folder-tab-${f.id}`}>
+                <Card className={`cursor-pointer transition-colors bg-card relative h-[100px] ${isActive ? "border-primary shadow-sm" : ""}`} onClick={() => onFolderClick(f.id)} data-testid={`folder-tab-${f.id}`}>
                   {f.tooltip && (
                     <Tooltip>
                       <TooltipTrigger asChild>
@@ -2022,7 +2022,7 @@ function WorkflowDiagram({ folderDefs, row2FolderDefs, activeFolder, onFolderCli
                       </TooltipContent>
                     </Tooltip>
                   )}
-                  <div className="flex flex-col items-center gap-1 p-2 text-center">
+                  <div className="flex flex-col items-center justify-center gap-1 p-2 text-center h-full">
                     <div className={`w-8 h-8 rounded-md ${f.bgColor} flex items-center justify-center shrink-0`}>
                       <FIcon className={`w-4 h-4 ${f.color}`} />
                     </div>
