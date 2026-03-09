@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback, useEffect, useMemo } from "react";
+import { useState, useRef, useCallback, useEffect, useMemo, type ComponentType } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { formatDateSlovak, formatUid, getDateSemaphore, getDateSemaphoreClasses, canCreateRecords, canDeleteRecords, canEditRecords } from "@/lib/utils";
@@ -1754,6 +1754,96 @@ function DeleteContractDialog({
   );
 }
 
+type FolderDef = { id: number; label: string; icon: ComponentType<{ className?: string }>; color: string; bgColor: string; count: number };
+
+function WorkflowDiagram({ folderDefs, row2FolderDefs, activeFolder, onFolderClick }: { folderDefs: FolderDef[]; row2FolderDefs: FolderDef[]; activeFolder: number; onFolderClick: (id: number) => void }) {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [paths, setPaths] = useState<string[]>([]);
+
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    const compute = () => {
+      const cards = Array.from(el.querySelectorAll('[data-phase-card]')) as HTMLElement[];
+      if (cards.length < 10) return;
+      const cR = el.getBoundingClientRect();
+      const g = (c: HTMLElement) => {
+        const r = c.getBoundingClientRect();
+        return { cx: r.left + r.width / 2 - cR.left, t: r.top - cR.top, b: r.bottom - cR.top };
+      };
+      const p = cards.map(g);
+      const gap = 12;
+      const newPaths: string[] = [];
+      const aboveRow1 = Math.min(p[0].t, p[2].t) - gap;
+      newPaths.push(`M ${p[0].cx},${p[0].t} V ${aboveRow1} H ${p[2].cx} V ${p[2].t}`);
+      const betweenRows = (p[0].b + p[5].t) / 2;
+      newPaths.push(`M ${p[0].cx},${p[0].b} V ${betweenRows} H ${p[6].cx} V ${p[6].t}`);
+      const topMost = aboveRow1 - gap;
+      newPaths.push(`M ${p[4].cx},${p[4].t} V ${topMost} H ${p[6].cx} V ${p[6].t}`);
+      const belowRow2 = Math.max(p[6].b, p[9].b) + gap;
+      newPaths.push(`M ${p[6].cx},${p[6].b} V ${belowRow2} H ${p[9].cx} V ${p[9].b}`);
+      setPaths(newPaths);
+    };
+    const ro = new ResizeObserver(compute);
+    ro.observe(el);
+    compute();
+    return () => ro.disconnect();
+  }, []);
+
+  const styles = [
+    { stroke: 'currentColor', opacity: 0.3 },
+    { stroke: '#3b82f6', opacity: 0.5 },
+    { stroke: '#ef4444', opacity: 0.45 },
+    { stroke: '#ef4444', opacity: 0.45 },
+  ];
+
+  return (
+    <div ref={containerRef} className="relative rounded-lg border bg-card p-4 overflow-visible" data-testid="workflow-diagram">
+      <svg className="absolute inset-0 w-full pointer-events-none overflow-visible" style={{ height: 'calc(100% + 40px)', top: '-20px' }}>
+        {paths.map((d, i) => (
+          <path key={i} d={d} fill="none" stroke={styles[i]?.stroke || 'currentColor'} strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" opacity={styles[i]?.opacity || 0.3} />
+        ))}
+      </svg>
+      <div className="relative z-10 space-y-6" data-testid="folder-tabs">
+        <div className="grid grid-cols-5 gap-6 px-4">
+          {folderDefs.map(f => {
+            const FIcon = f.icon;
+            const isActive = activeFolder === f.id;
+            return (
+              <Card key={f.id} data-phase-card={f.id} className={`cursor-pointer transition-colors bg-card ${isActive ? "border-primary shadow-sm" : ""}`} onClick={() => onFolderClick(f.id)} data-testid={`folder-tab-${f.id}`}>
+                <div className="flex flex-col items-center gap-1 p-2 text-center">
+                  <div className={`w-8 h-8 rounded-md ${f.bgColor} flex items-center justify-center shrink-0`}>
+                    <FIcon className={`w-4 h-4 ${f.color}`} />
+                  </div>
+                  <p className="text-[9px] font-semibold leading-tight">{f.label}</p>
+                  <p className="text-lg font-bold leading-none">{f.count}</p>
+                </div>
+              </Card>
+            );
+          })}
+        </div>
+        <div className="grid grid-cols-5 gap-6 px-4">
+          {row2FolderDefs.map(f => {
+            const FIcon = f.icon;
+            const isActive = activeFolder === f.id;
+            return (
+              <Card key={f.id} data-phase-card={f.id} className={`cursor-pointer transition-colors bg-card ${isActive ? "border-primary shadow-sm" : ""}`} onClick={() => onFolderClick(f.id)} data-testid={`folder-tab-${f.id}`}>
+                <div className="flex flex-col items-center gap-1 p-2 text-center">
+                  <div className={`w-8 h-8 rounded-md ${f.bgColor} flex items-center justify-center shrink-0`}>
+                    <FIcon className={`w-4 h-4 ${f.color}`} />
+                  </div>
+                  <p className="text-[9px] font-semibold leading-tight">{f.label}</p>
+                  <p className="text-lg font-bold leading-none">{f.count}</p>
+                </div>
+              </Card>
+            );
+          })}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function Contracts() {
   const { data: appUser } = useAppUser();
   const activeStateId = appUser?.activeStateId ?? null;
@@ -3261,50 +3351,12 @@ export default function Contracts() {
           </div>
         </div>
 
-        <div className="relative rounded-lg border bg-card p-4" data-testid="workflow-diagram">
-          <svg className="absolute pointer-events-none" style={{ left: 0, right: 0, top: '-12px', bottom: '-12px', width: '100%', height: 'calc(100% + 24px)' }} viewBox="0 -50 600 350" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg">
-            <path d="M 60,78 V 50 H 240 V 78" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" opacity="0.3" vectorEffect="non-scaling-stroke" />
-            <path d="M 60,122 V 150 H 160 V 178" fill="none" stroke="#3b82f6" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" opacity="0.5" vectorEffect="non-scaling-stroke" />
-            <path d="M 440,78 V 35 H 160 V 178" fill="none" stroke="#ef4444" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" opacity="0.4" vectorEffect="non-scaling-stroke" />
-            <path d="M 160,222 V 240 H 440 V 222" fill="none" stroke="#ef4444" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" opacity="0.4" vectorEffect="non-scaling-stroke" />
-          </svg>
-          <div className="relative z-10 space-y-6" data-testid="folder-tabs">
-            <div className="grid grid-cols-5 gap-6 px-4">
-              {folderDefs.map(f => {
-                const FIcon = f.icon;
-                const isActive = activeFolder === f.id;
-                return (
-                  <Card key={f.id} className={`cursor-pointer transition-colors bg-card ${isActive ? "border-primary shadow-sm" : ""}`} onClick={() => { setActiveFolder(f.id); setRerouteSelectedIds([]); }} data-testid={`folder-tab-${f.id}`}>
-                    <div className="flex flex-col items-center gap-1 p-2 text-center">
-                      <div className={`w-8 h-8 rounded-md ${f.bgColor} flex items-center justify-center shrink-0`}>
-                        <FIcon className={`w-4 h-4 ${f.color}`} />
-                      </div>
-                      <p className="text-[9px] font-semibold leading-tight">{f.label}</p>
-                      <p className="text-lg font-bold leading-none">{f.count}</p>
-                    </div>
-                  </Card>
-                );
-              })}
-            </div>
-            <div className="grid grid-cols-5 gap-6 px-4">
-              {row2FolderDefs.map(f => {
-                const FIcon = f.icon;
-                const isActive = activeFolder === f.id;
-                return (
-                  <Card key={f.id} className={`cursor-pointer transition-colors bg-card ${isActive ? "border-primary shadow-sm" : ""}`} onClick={() => { setActiveFolder(f.id); setRerouteSelectedIds([]); }} data-testid={`folder-tab-${f.id}`}>
-                    <div className="flex flex-col items-center gap-1 p-2 text-center">
-                      <div className={`w-8 h-8 rounded-md ${f.bgColor} flex items-center justify-center shrink-0`}>
-                        <FIcon className={`w-4 h-4 ${f.color}`} />
-                      </div>
-                      <p className="text-[9px] font-semibold leading-tight">{f.label}</p>
-                      <p className="text-lg font-bold leading-none">{f.count}</p>
-                    </div>
-                  </Card>
-                );
-              })}
-            </div>
-          </div>
-        </div>
+        <WorkflowDiagram
+          folderDefs={folderDefs}
+          row2FolderDefs={row2FolderDefs}
+          activeFolder={activeFolder}
+          onFolderClick={(id: number) => { setActiveFolder(id); setRerouteSelectedIds([]); }}
+        />
 
         <div className="flex items-center gap-2">
           <div className="relative flex-1">
