@@ -3261,93 +3261,57 @@ export default function Contracts() {
           </div>
         </div>
 
-        <div className="rounded-lg border bg-card p-3" data-testid="workflow-diagram">
-          <svg viewBox="0 -20 600 280" xmlns="http://www.w3.org/2000/svg" style={{ width: '100%', height: 'auto', fontFamily: 'sans-serif' }}>
-            <path d="M 150,50 L 350,50" fill="none" stroke="currentColor" strokeWidth="35" strokeLinecap="round" strokeLinejoin="round" opacity="0.25" />
-            <path d="M 50,50 L 50,150 L 150,150" fill="none" stroke="#3b82f6" strokeWidth="35" strokeLinecap="round" strokeLinejoin="round" opacity="0.5" />
-            <path d="M 450,50 L 450,150 L 150,150" fill="none" stroke="#ef4444" strokeWidth="35" strokeLinecap="round" strokeLinejoin="round" opacity="0.4" />
-            <path d="M 150,150 L 450,150" fill="none" stroke="#ef4444" strokeWidth="35" strokeLinecap="round" strokeLinejoin="round" opacity="0.4" />
-
-            {[
-              { x: 50, y: 50, phase: 1, short: "Nahratá" },
-              { x: 150, y: 50, phase: 2, short: "Odoslané" },
-              { x: 250, y: 50, phase: 3, short: "Neprijaté" },
-              { x: 350, y: 50, phase: 4, short: "Archív" },
-              { x: 450, y: 50, phase: 5, short: "Centrála" },
-              { x: 50, y: 150, phase: 6, short: "Spracovanie" },
-              { x: 150, y: 150, phase: 7, short: "Intervencie" },
-              { x: 250, y: 150, phase: 8, short: "Príprava" },
-              { x: 350, y: 150, phase: 9, short: "Partnerovi" },
-              { x: 450, y: 150, phase: 10, short: "Prijaté P." },
-            ].map(b => {
-              const isActive = activeFolder === b.phase;
-              const fullLabels: Record<number, string> = {
-                1: "Nahratá - čaká na odoslanie",
-                2: "Odoslané na sprievodke",
-                3: "Neprijaté zmluvy – výhrady",
-                4: "Archív zmlúv (s výhradami)",
-                5: "Prijaté do centrály",
-                6: "Kontrakt v spracovaní",
-                7: "Interné intervencie",
-                8: "Pripravené na odoslanie",
-                9: "Odoslané obch. partnerovi",
-                10: "Prijaté obch. partnerom",
-              };
-              return (
-                <g key={b.phase} transform={`translate(${b.x},${b.y})`} onClick={() => { setActiveFolder(b.phase); setRerouteSelectedIds([]); }} style={{ cursor: 'pointer' }} data-testid={`workflow-bubble-${b.phase}`}>
-                  <title>{fullLabels[b.phase]}</title>
-                  <circle r="22" fill={isActive ? 'hsl(var(--primary))' : 'hsl(var(--muted))'} stroke={isActive ? 'hsl(var(--primary))' : 'hsl(var(--border))'} strokeWidth={isActive ? 2.5 : 1} />
-                  <text y="5" textAnchor="middle" fontWeight="bold" fontSize="13" fill={isActive ? 'hsl(var(--primary-foreground))' : 'hsl(var(--foreground))'}>{b.phase}</text>
-                  <text y="38" textAnchor="middle" fontSize="10" fontWeight="600" fill="hsl(var(--muted-foreground))">{`${b.phase}: ${b.short}`}</text>
-                </g>
-              );
-            })}
+        <div className="relative rounded-lg border bg-card p-4" data-testid="workflow-diagram">
+          <svg className="absolute inset-0 w-full h-full pointer-events-none" viewBox="0 0 100 100" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg">
+            <line x1="30" y1="25" x2="70" y2="25" stroke="currentColor" strokeWidth="8" strokeLinecap="round" opacity="0.15" vectorEffect="non-scaling-stroke" />
+            <polyline points="10,25 10,75 30,75" fill="none" stroke="#3b82f6" strokeWidth="8" strokeLinecap="round" strokeLinejoin="round" opacity="0.35" vectorEffect="non-scaling-stroke" />
+            <polyline points="90,25 90,75 30,75" fill="none" stroke="#ef4444" strokeWidth="8" strokeLinecap="round" strokeLinejoin="round" opacity="0.25" vectorEffect="non-scaling-stroke" />
+            <line x1="30" y1="75" x2="90" y2="75" stroke="#ef4444" strokeWidth="8" strokeLinecap="round" opacity="0.25" vectorEffect="non-scaling-stroke" />
           </svg>
-        </div>
-
-        <div className="space-y-3" data-testid="folder-tabs">
-          <div>
-            <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-1.5">Riadok 1: Logistika (Sledovanie papiera)</p>
-            <div className="grid grid-cols-5 gap-2">
-              {folderDefs.map(f => {
-                const FIcon = f.icon;
-                const isActive = activeFolder === f.id;
-                return (
-                  <Card key={f.id} className={`cursor-pointer transition-colors ${isActive ? "border-primary" : ""}`} onClick={() => { setActiveFolder(f.id); setRerouteSelectedIds([]); }} data-testid={`folder-tab-${f.id}`}>
-                    <div className="flex items-center gap-2 p-2">
-                      <div className={`w-7 h-7 rounded-md ${f.bgColor} flex items-center justify-center shrink-0`}>
-                        <FIcon className={`w-3.5 h-3.5 ${f.color}`} />
+          <div className="relative z-10 space-y-3" data-testid="folder-tabs">
+            <div>
+              <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-1.5">Riadok 1: Logistika (Sledovanie papiera)</p>
+              <div className="grid grid-cols-5 gap-2">
+                {folderDefs.map(f => {
+                  const FIcon = f.icon;
+                  const isActive = activeFolder === f.id;
+                  return (
+                    <Card key={f.id} className={`cursor-pointer transition-colors ${isActive ? "border-primary shadow-sm" : ""}`} onClick={() => { setActiveFolder(f.id); setRerouteSelectedIds([]); }} data-testid={`folder-tab-${f.id}`}>
+                      <div className="flex items-center gap-2 p-2">
+                        <div className={`w-7 h-7 rounded-md ${f.bgColor} flex items-center justify-center shrink-0`}>
+                          <FIcon className={`w-3.5 h-3.5 ${f.color}`} />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-[10px] font-semibold truncate leading-tight">{f.label}</p>
+                          <p className="text-base font-bold">{f.count}</p>
+                        </div>
                       </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-[10px] font-semibold truncate leading-tight">{f.label}</p>
-                        <p className="text-base font-bold">{f.count}</p>
-                      </div>
-                    </div>
-                  </Card>
-                );
-              })}
+                    </Card>
+                  );
+                })}
+              </div>
             </div>
-          </div>
-          <div>
-            <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-1.5">Riadok 2: Spracovanie (Dátová kvalita)</p>
-            <div className="grid grid-cols-5 gap-2">
-              {row2FolderDefs.map(f => {
-                const FIcon = f.icon;
-                const isActive = activeFolder === f.id;
-                return (
-                  <Card key={f.id} className={`cursor-pointer transition-colors ${isActive ? "border-primary" : ""}`} onClick={() => { setActiveFolder(f.id); setRerouteSelectedIds([]); }} data-testid={`folder-tab-${f.id}`}>
-                    <div className="flex items-center gap-2 p-2">
-                      <div className={`w-7 h-7 rounded-md ${f.bgColor} flex items-center justify-center shrink-0`}>
-                        <FIcon className={`w-3.5 h-3.5 ${f.color}`} />
+            <div>
+              <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-1.5">Riadok 2: Spracovanie (Dátová kvalita)</p>
+              <div className="grid grid-cols-5 gap-2">
+                {row2FolderDefs.map(f => {
+                  const FIcon = f.icon;
+                  const isActive = activeFolder === f.id;
+                  return (
+                    <Card key={f.id} className={`cursor-pointer transition-colors ${isActive ? "border-primary shadow-sm" : ""}`} onClick={() => { setActiveFolder(f.id); setRerouteSelectedIds([]); }} data-testid={`folder-tab-${f.id}`}>
+                      <div className="flex items-center gap-2 p-2">
+                        <div className={`w-7 h-7 rounded-md ${f.bgColor} flex items-center justify-center shrink-0`}>
+                          <FIcon className={`w-3.5 h-3.5 ${f.color}`} />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-[10px] font-semibold truncate leading-tight">{f.label}</p>
+                          <p className="text-base font-bold">{f.count}</p>
+                        </div>
                       </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-[10px] font-semibold truncate leading-tight">{f.label}</p>
-                        <p className="text-base font-bold">{f.count}</p>
-                      </div>
-                    </div>
-                  </Card>
-                );
-              })}
+                    </Card>
+                  );
+                })}
+              </div>
             </div>
           </div>
         </div>
