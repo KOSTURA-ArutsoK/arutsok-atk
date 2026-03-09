@@ -1779,21 +1779,21 @@ function WorkflowDiagram({ folderDefs, row2FolderDefs, activeFolder, onFolderCli
         return { l: r.left - cR.left, r: r.right - cR.left, t: r.top - cR.top, b: r.bottom - cR.top };
       };
       const f = cards.map(full);
-      const r = 8;
-      const t = f[0].t - pad;
-      const l = f[0].l - pad;
-      const rr = f[0].r + pad;
+      const rc = 8;
+      const left = Math.min(f[0].l, f[5].l) - pad;
+      const top1 = f[0].t - pad;
+      const right1 = f[0].r + pad;
       const cornerY = f[5].t - pad;
-      const rr7 = f[6].r + pad;
-      const b7 = f[6].b + pad;
+      const right7 = f[6].r + pad;
+      const bottom = Math.max(f[5].b, f[6].b) + pad;
       const lPath = [
-        `M ${l + r},${t}`,
-        `H ${rr - r} A ${r},${r} 0 0 1 ${rr},${t + r}`,
-        `V ${cornerY + r} A ${r},${r} 0 0 0 ${rr + r},${cornerY}`,
-        `H ${rr7 - r} A ${r},${r} 0 0 1 ${rr7},${cornerY + r}`,
-        `V ${b7 - r} A ${r},${r} 0 0 1 ${rr7 - r},${b7}`,
-        `H ${l + r} A ${r},${r} 0 0 1 ${l},${b7 - r}`,
-        `V ${t + r} A ${r},${r} 0 0 1 ${l + r},${t}`,
+        `M ${left + rc},${top1}`,
+        `H ${right1 - rc} A ${rc},${rc} 0 0 1 ${right1},${top1 + rc}`,
+        `V ${cornerY - rc} A ${rc},${rc} 0 0 0 ${right1 + rc},${cornerY}`,
+        `H ${right7 - rc} A ${rc},${rc} 0 0 1 ${right7},${cornerY + rc}`,
+        `V ${bottom - rc} A ${rc},${rc} 0 0 1 ${right7 - rc},${bottom}`,
+        `H ${left + rc} A ${rc},${rc} 0 0 1 ${left},${bottom - rc}`,
+        `V ${top1 + rc} A ${rc},${rc} 0 0 1 ${left + rc},${top1}`,
         'Z',
       ].join(' ');
       setBlueLPath(lPath);
