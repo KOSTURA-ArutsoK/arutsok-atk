@@ -60,7 +60,7 @@ export default function ObchodnePrilezitosti() {
         <Card>
           <CardContent className="pt-6">
             <p className="text-muted-foreground text-sm text-center" data-testid="text-no-content">
-              Ziadne obchodne prilezitosti nie su momentalne nastavene pre tuto diviziu.
+              Momentalne nemame ziadnu ponuku prace. Sledujte tuto sekciu, ponuky sa mozu priebezne menit.
             </p>
           </CardContent>
         </Card>

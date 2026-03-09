@@ -680,6 +680,22 @@ export function AppSidebar() {
                     </SidebarMenuItem>
                   );
                 }
+                if (ops.length === 1) {
+                  return (
+                    <SidebarMenuItem>
+                      <SidebarMenuButton
+                        asChild
+                        isActive={isActiveOp}
+                        data-testid="nav-obchodne-prilezitosti"
+                      >
+                        <Link href={`/obchodne-prilezitosti?id=${ops[0].id}`}>
+                          <Target className="w-4 h-4" />
+                          <span>Obchodna prilezitost</span>
+                        </Link>
+                      </SidebarMenuButton>
+                    </SidebarMenuItem>
+                  );
+                }
                 return (
                   <Collapsible open={openMenuId === menuKey} onOpenChange={(open) => setOpenMenuId(open ? menuKey : null)}>
                     <SidebarMenuItem>
