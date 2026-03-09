@@ -362,7 +362,8 @@ export function AppSidebar() {
     enabled: !!divisionId,
   });
   const { data: businessOpportunities } = useQuery<{ id: number; title: string }[]>({
-    queryKey: ["/api/business-opportunities"],
+    queryKey: ["/api/business-opportunities", divisionId],
+    enabled: !!appUser?.activeCompanyId,
   });
 
   const allMenus = [
