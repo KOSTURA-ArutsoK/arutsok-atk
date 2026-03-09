@@ -3262,11 +3262,40 @@ export default function Contracts() {
         </div>
 
         <div className="relative rounded-lg border bg-card p-4" data-testid="workflow-diagram">
-          <svg className="absolute inset-0 w-full h-full pointer-events-none" viewBox="0 0 100 100" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg">
-            <line x1="30" y1="25" x2="70" y2="25" stroke="currentColor" strokeWidth="8" strokeLinecap="round" opacity="0.15" vectorEffect="non-scaling-stroke" />
-            <polyline points="10,25 10,75 30,75" fill="none" stroke="#3b82f6" strokeWidth="8" strokeLinecap="round" strokeLinejoin="round" opacity="0.35" vectorEffect="non-scaling-stroke" />
-            <polyline points="90,25 90,75 30,75" fill="none" stroke="#ef4444" strokeWidth="8" strokeLinecap="round" strokeLinejoin="round" opacity="0.25" vectorEffect="non-scaling-stroke" />
-            <line x1="30" y1="75" x2="90" y2="75" stroke="#ef4444" strokeWidth="8" strokeLinecap="round" opacity="0.25" vectorEffect="non-scaling-stroke" />
+          <svg className="absolute inset-0 w-full h-full pointer-events-none" viewBox="0 0 500 200" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg">
+            <defs>
+              <marker id="arrow-fwd" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+                <path d="M 0 1 L 8 5 L 0 9 Z" fill="#3b82f6" />
+              </marker>
+              <marker id="arrow-back" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+                <path d="M 0 1 L 8 5 L 0 9 Z" fill="#f59e0b" />
+              </marker>
+              <marker id="arrow-vert" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+                <path d="M 0 1 L 8 5 L 0 9 Z" fill="#8b5cf6" />
+              </marker>
+            </defs>
+
+            <line x1="60" y1="50" x2="440" y2="50" stroke="#3b82f6" strokeWidth="5" opacity="0.3" markerEnd="url(#arrow-fwd)" vectorEffect="non-scaling-stroke" />
+
+            <polyline points="447,57 447,143 60,143" fill="none" stroke="#3b82f6" strokeWidth="5" opacity="0.3" strokeLinejoin="round" markerEnd="url(#arrow-fwd)" vectorEffect="non-scaling-stroke" />
+
+            <line x1="100" y1="150" x2="155" y2="150" stroke="#3b82f6" strokeWidth="5" opacity="0.3" markerEnd="url(#arrow-fwd)" vectorEffect="non-scaling-stroke" />
+
+            <polyline points="53,143 53,57 148,57" fill="none" stroke="#f59e0b" strokeWidth="4" opacity="0.3" strokeLinejoin="round" markerEnd="url(#arrow-back)" vectorEffect="non-scaling-stroke" />
+
+            <line x1="148" y1="43" x2="60" y2="43" stroke="#f59e0b" strokeWidth="4" opacity="0.3" markerEnd="url(#arrow-back)" vectorEffect="non-scaling-stroke" />
+
+            <line x1="200" y1="50" x2="245" y2="50" stroke="#3b82f6" strokeWidth="5" opacity="0.3" markerEnd="url(#arrow-fwd)" vectorEffect="non-scaling-stroke" />
+
+            <line x1="248" y1="43" x2="60" y2="43" stroke="#f59e0b" strokeWidth="4" opacity="0.25" markerEnd="url(#arrow-back)" vectorEffect="non-scaling-stroke" />
+
+            <line x1="200" y1="150" x2="245" y2="150" stroke="#3b82f6" strokeWidth="5" opacity="0.3" markerEnd="url(#arrow-fwd)" vectorEffect="non-scaling-stroke" />
+            <line x1="300" y1="150" x2="345" y2="150" stroke="#3b82f6" strokeWidth="5" opacity="0.3" markerEnd="url(#arrow-fwd)" vectorEffect="non-scaling-stroke" />
+            <line x1="400" y1="150" x2="440" y2="150" stroke="#3b82f6" strokeWidth="5" opacity="0.3" markerEnd="url(#arrow-fwd)" vectorEffect="non-scaling-stroke" />
+
+            <polyline points="353,143 353,57 348,57" fill="none" stroke="#8b5cf6" strokeWidth="4" opacity="0.3" strokeLinejoin="round" markerEnd="url(#arrow-vert)" vectorEffect="non-scaling-stroke" />
+
+            <polyline points="453,143 453,57 448,57" fill="none" stroke="#8b5cf6" strokeWidth="4" opacity="0.3" strokeLinejoin="round" markerEnd="url(#arrow-vert)" vectorEffect="non-scaling-stroke" />
           </svg>
           <div className="relative z-10 space-y-3" data-testid="folder-tabs">
             <div>
