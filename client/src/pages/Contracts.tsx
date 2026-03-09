@@ -1775,7 +1775,7 @@ function WorkflowDiagram({ folderDefs, row2FolderDefs, activeFolder, onFolderCli
       const newPaths: string[] = [];
       const midY = (p[0].b + p[5].t) / 2;
       newPaths.push(`M ${p[0].cx},${p[0].b} V ${midY} H ${p[5].cx} V ${p[5].t}`);
-      newPaths.push(`M ${p[5].cx},${midY} H ${p[4].cx} V ${p[4].b}`);
+      newPaths.push(`M ${p[5].cx},${midY} H ${p[6].cx} V ${p[6].t}`);
       setPaths(newPaths);
     };
     const ro = new ResizeObserver(compute);
@@ -1784,9 +1784,11 @@ function WorkflowDiagram({ folderDefs, row2FolderDefs, activeFolder, onFolderCli
     return () => ro.disconnect();
   }, []);
 
+  const blueGroupIds = new Set([1, 6, 7]);
+
   const styles = [
-    { stroke: 'currentColor', opacity: 0.35 },
-    { stroke: 'currentColor', opacity: 0.35 },
+    { stroke: '#3b82f6', opacity: 0.5 },
+    { stroke: '#3b82f6', opacity: 0.5 },
   ];
 
   return (
@@ -1801,16 +1803,19 @@ function WorkflowDiagram({ folderDefs, row2FolderDefs, activeFolder, onFolderCli
           {folderDefs.map(f => {
             const FIcon = f.icon;
             const isActive = activeFolder === f.id;
+            const inBlueGroup = blueGroupIds.has(f.id);
             return (
-              <Card key={f.id} data-phase-card={f.id} className={`cursor-pointer transition-colors bg-card ${isActive ? "border-primary shadow-sm" : ""}`} onClick={() => onFolderClick(f.id)} data-testid={`folder-tab-${f.id}`}>
-                <div className="flex flex-col items-center gap-1 p-2 text-center">
-                  <div className={`w-8 h-8 rounded-md ${f.bgColor} flex items-center justify-center shrink-0`}>
-                    <FIcon className={`w-4 h-4 ${f.color}`} />
+              <div key={f.id} className={`rounded-lg ${inBlueGroup ? 'p-[3px] bg-blue-500/30 ring-2 ring-blue-500/40' : ''}`}>
+                <Card data-phase-card={f.id} className={`cursor-pointer transition-colors bg-card ${isActive ? "border-primary shadow-sm" : ""}`} onClick={() => onFolderClick(f.id)} data-testid={`folder-tab-${f.id}`}>
+                  <div className="flex flex-col items-center gap-1 p-2 text-center">
+                    <div className={`w-8 h-8 rounded-md ${f.bgColor} flex items-center justify-center shrink-0`}>
+                      <FIcon className={`w-4 h-4 ${f.color}`} />
+                    </div>
+                    <p className="text-[9px] font-semibold leading-tight">{f.label}</p>
+                    <p className="text-lg font-bold leading-none">{f.count}</p>
                   </div>
-                  <p className="text-[9px] font-semibold leading-tight">{f.label}</p>
-                  <p className="text-lg font-bold leading-none">{f.count}</p>
-                </div>
-              </Card>
+                </Card>
+              </div>
             );
           })}
         </div>
@@ -1818,16 +1823,19 @@ function WorkflowDiagram({ folderDefs, row2FolderDefs, activeFolder, onFolderCli
           {row2FolderDefs.map(f => {
             const FIcon = f.icon;
             const isActive = activeFolder === f.id;
+            const inBlueGroup = blueGroupIds.has(f.id);
             return (
-              <Card key={f.id} data-phase-card={f.id} className={`cursor-pointer transition-colors bg-card ${isActive ? "border-primary shadow-sm" : ""}`} onClick={() => onFolderClick(f.id)} data-testid={`folder-tab-${f.id}`}>
-                <div className="flex flex-col items-center gap-1 p-2 text-center">
-                  <div className={`w-8 h-8 rounded-md ${f.bgColor} flex items-center justify-center shrink-0`}>
-                    <FIcon className={`w-4 h-4 ${f.color}`} />
+              <div key={f.id} className={`rounded-lg ${inBlueGroup ? 'p-[3px] bg-blue-500/30 ring-2 ring-blue-500/40' : ''}`}>
+                <Card data-phase-card={f.id} className={`cursor-pointer transition-colors bg-card ${isActive ? "border-primary shadow-sm" : ""}`} onClick={() => onFolderClick(f.id)} data-testid={`folder-tab-${f.id}`}>
+                  <div className="flex flex-col items-center gap-1 p-2 text-center">
+                    <div className={`w-8 h-8 rounded-md ${f.bgColor} flex items-center justify-center shrink-0`}>
+                      <FIcon className={`w-4 h-4 ${f.color}`} />
+                    </div>
+                    <p className="text-[9px] font-semibold leading-tight">{f.label}</p>
+                    <p className="text-lg font-bold leading-none">{f.count}</p>
                   </div>
-                  <p className="text-[9px] font-semibold leading-tight">{f.label}</p>
-                  <p className="text-lg font-bold leading-none">{f.count}</p>
-                </div>
-              </Card>
+                </Card>
+              </div>
             );
           })}
         </div>
