@@ -340,7 +340,23 @@ export async function registerRoutes(
     10: "Prijaté obch. partnerom",
   };
 
+  async function logLifecycleStatusChange(contractId: number, statusId: number | null, phase: number, userId: number | null) {
+    if (statusId == null) return;
+    await db.insert(contractStatusChangeLogs).values({
+      contractId,
+      oldStatusId: statusId,
+      newStatusId: statusId,
+      changedByUserId: userId,
+      statusNote: `Fáza: ${LIFECYCLE_PHASES[phase] || `Fáza ${phase}`}`,
+    });
+  }
+
   await setupAuth(app);
+
+  app.get("/api/lifecycle-phases", isAuthenticated, (_req, res) => {
+    const phases = Object.entries(LIFECYCLE_PHASES).map(([id, name]) => ({ id: Number(id), name }));
+    res.json(phases);
+  });
 
   seedAssetPanels().catch(err => console.error("[SEED-ASSETS ERROR]", err));
   seedEventAndEntityPanels().catch(err => console.error("[SEED-EVENTS ERROR]", err));
@@ -3178,6 +3194,7 @@ export async function registerRoutes(
         changedByUserId: appUser?.id || null,
         note: note || null,
       });
+      await logLifecycleStatusChange(contractId, contract.statusId, phase, appUser?.id || null);
 
       await logAudit(req, {
         action: "LIFECYCLE_PHASE_CHANGE",
@@ -3274,6 +3291,7 @@ export async function registerRoutes(
           changedByUserId: appUser?.id || null,
           note: `OPV Oprava: presmerovanie z ${sourceFolder}, pôvodná sprievodka ID ${oldInventoryId || 'žiadna'} → nová sprievodka č. ${seqNum}`,
         });
+        await logLifecycleStatusChange(Number(cid), contract.statusId, targetPhase, appUser?.id || null);
 
         await logAudit(req, {
           action: "OPV_REROUTE",
@@ -3358,6 +3376,7 @@ export async function registerRoutes(
           changedByUserId: appUser?.id || null,
           note: `Presun do spracovania, číslo kontraktu: ${updated.contractNumber || contract.contractNumber}`,
         });
+        await logLifecycleStatusChange(id, contract.statusId, 6, appUser?.id || null);
 
         await logAudit(req, {
           action: "MOVE_TO_PROCESSING",
@@ -3430,6 +3449,7 @@ export async function registerRoutes(
           changedByUserId: appUser?.id || null,
           note: `Zaradené do súpisky č. ${seqNum} (poradie: ${i + 1})`,
         });
+        await logLifecycleStatusChange(contract.id, contract.statusId, 8, appUser?.id || null);
       }
 
       await logAudit(req, {
@@ -3488,6 +3508,7 @@ export async function registerRoutes(
           changedByUserId: appUser?.id || null,
           note: `Odoslané: ${dispatchMethod}, dátum: ${dispatchDate.toISOString()}`,
         });
+        await logLifecycleStatusChange(cid, contract.statusId, 9, appUser?.id || null);
       }
 
       await logAudit(req, {
@@ -3543,6 +3564,7 @@ export async function registerRoutes(
           changedByUserId: appUser?.id || null,
           note: `Prijaté partnerom: ${receiveDate.toISOString()}`,
         });
+        await logLifecycleStatusChange(cid, contract.statusId, 10, appUser?.id || null);
       }
 
       await logAudit(req, {
@@ -3651,6 +3673,7 @@ export async function registerRoutes(
           changedByUserId: appUser?.id || null,
           note: `Re-sprievodkovanie: výhrada → nová sprievodka č. ${seqNum}, pôvodná sprievodka ID ${oldInventoryId || 'žiadna'}`,
         });
+        await logLifecycleStatusChange(cid, contract.statusId, 2, appUser?.id || null);
 
         await logAudit(req, {
           action: "REROUTE_OBJECTION",
@@ -3706,6 +3729,15 @@ export async function registerRoutes(
           changedByUserId: appUser?.id || null,
           note: `Odoslané do centrály z výhrad — stav zmenený na "${odoslanaStatus.name}"`,
         });
+        if (contract.statusId != null) {
+          await db.insert(contractStatusChangeLogs).values({
+            contractId: id,
+            oldStatusId: contract.statusId,
+            newStatusId: odoslanaStatus.id,
+            changedByUserId: appUser?.id || null,
+            statusNote: `Fáza: ${LIFECYCLE_PHASES[2]} — stav zmenený na "${odoslanaStatus.name}"`,
+          });
+        }
 
         await logAudit(req, {
           action: "SEND_TO_CENTRAL",

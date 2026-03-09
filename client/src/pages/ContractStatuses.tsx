@@ -11,7 +11,7 @@ import { SmartFilterBar } from "@/components/smart-filter-bar";
 import { useColumnVisibility, type ColumnDef } from "@/hooks/use-column-visibility";
 import { ColumnManager } from "@/components/column-manager";
 import type { ContractStatus, ContractStatusParameter, MyCompany, Sector, Section, SectorProduct } from "@shared/schema";
-import { Plus, Pencil, Loader2, GripVertical, Flag, MessageSquare, Settings2, FileText } from "lucide-react";
+import { Plus, Pencil, Loader2, GripVertical, Flag, MessageSquare, Settings2, FileText, ChevronRight, ChevronDown } from "lucide-react";
 import { ConditionalDelete } from "@/components/conditional-delete";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -952,6 +952,9 @@ export default function ContractStatuses() {
   const [editingStatus, setEditingStatus] = useState<ContractStatus | null>(null);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [deletingStatus, setDeletingStatus] = useState<ContractStatus | null>(null);
+  const [systemExpanded, setSystemExpanded] = useState(false);
+  const [customExpanded, setCustomExpanded] = useState(false);
+  const [endingExpanded, setEndingExpanded] = useState(false);
 
   const { data: statuses, isLoading } = useQuery<ContractStatus[]>({
     queryKey: ["/api/contract-statuses"],
@@ -959,6 +962,10 @@ export default function ContractStatuses() {
 
   const { data: usageCounts } = useQuery<{ statusId: number; count: number }[]>({
     queryKey: ["/api/contract-statuses/usage-counts"],
+  });
+
+  const { data: lifecyclePhases } = useQuery<{ id: number; name: string }[]>({
+    queryKey: ["/api/lifecycle-phases"],
   });
 
   const reorderMutation = useMutation({
@@ -1011,6 +1018,7 @@ export default function ContractStatuses() {
       {(() => {
         const systemStatuses = sortedStatuses.filter(s => s.isSystem);
         const customStatuses = sortedStatuses.filter(s => !s.isSystem);
+        const endingStatuses = sortedStatuses.filter(s => s.definesContractEnd);
 
         const statusTableHeader = (
           <TableHeader>
@@ -1094,38 +1102,139 @@ export default function ContractStatuses() {
             {systemStatuses.length > 0 && (
               <Card data-testid="card-system-statuses">
                 <CardContent className="p-0">
-                  <div className="px-4 py-3 border-b">
-                    <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider" data-testid="text-system-statuses-title">Systemove stavy</h2>
+                  <div
+                    className="px-4 py-3 border-b flex items-center justify-between cursor-pointer select-none hover:bg-muted/50 transition-colors"
+                    onClick={() => setSystemExpanded(prev => !prev)}
+                    data-testid="header-system-statuses"
+                  >
+                    <div className="flex items-center gap-2">
+                      {systemExpanded ? <ChevronDown className="w-4 h-4 text-muted-foreground" /> : <ChevronRight className="w-4 h-4 text-muted-foreground" />}
+                      <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider" data-testid="text-system-statuses-title">Systemove stavy</h2>
+                      <Badge variant="secondary" className="text-xs" data-testid="badge-system-count">{systemStatuses.length}</Badge>
+                    </div>
                   </div>
-                  <Table>
-                    {statusTableHeader}
-                    <TableBody>
-                      {systemStatuses.map(s => renderStatusRow(s, { showDragHandle: false, showDelete: false }))}
-                    </TableBody>
-                  </Table>
+                  {systemExpanded && (
+                    <>
+                      <Table>
+                        {statusTableHeader}
+                        <TableBody>
+                          {systemStatuses.map(s => renderStatusRow(s, { showDragHandle: false, showDelete: false }))}
+                        </TableBody>
+                      </Table>
+                      {lifecyclePhases && lifecyclePhases.length > 0 && (
+                        <div className="border-t">
+                          <div className="px-4 py-3 border-b">
+                            <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider" data-testid="text-lifecycle-phases-title">Fazy spracovania</h3>
+                          </div>
+                          <Table>
+                            <TableHeader>
+                              <TableRow>
+                                <TableHead className="w-20">ID</TableHead>
+                                <TableHead>Nazov fazy</TableHead>
+                              </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                              {lifecyclePhases.map(phase => (
+                                <TableRow key={phase.id} data-testid={`row-lifecycle-phase-${phase.id}`}>
+                                  <TableCell className="font-mono text-sm" data-testid={`text-phase-id-${phase.id}`}>{phase.id}</TableCell>
+                                  <TableCell data-testid={`text-phase-name-${phase.id}`}>{phase.name}</TableCell>
+                                </TableRow>
+                              ))}
+                            </TableBody>
+                          </Table>
+                        </div>
+                      )}
+                    </>
+                  )}
                 </CardContent>
               </Card>
             )}
 
             <Card data-testid="card-custom-statuses">
               <CardContent className="p-0">
-                <div className="px-4 py-3 border-b">
-                  <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider" data-testid="text-custom-statuses-title">Volitelne stavy</h2>
+                <div
+                  className="px-4 py-3 border-b flex items-center justify-between cursor-pointer select-none hover:bg-muted/50 transition-colors"
+                  onClick={() => setCustomExpanded(prev => !prev)}
+                  data-testid="header-custom-statuses"
+                >
+                  <div className="flex items-center gap-2">
+                    {customExpanded ? <ChevronDown className="w-4 h-4 text-muted-foreground" /> : <ChevronRight className="w-4 h-4 text-muted-foreground" />}
+                    <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider" data-testid="text-custom-statuses-title">Volitelne stavy</h2>
+                    <Badge variant="secondary" className="text-xs" data-testid="badge-custom-count">{customStatuses.length}</Badge>
+                  </div>
                 </div>
-                {customStatuses.length === 0 ? (
-                  <p className="text-sm text-muted-foreground text-center py-8">Ziadne volitelne stavy. Pridajte prvy stav zmluvy tlacidlom vyssie.</p>
-                ) : (
-                  <SortableContext_Wrapper items={customStatuses} onReorder={handleReorder}>
-                    <Table>
-                      {statusTableHeader}
-                      <TableBody>
-                        {customStatuses.map(s => renderStatusRow(s, { showDragHandle: true, showDelete: true }))}
-                      </TableBody>
-                    </Table>
-                  </SortableContext_Wrapper>
+                {customExpanded && (
+                  customStatuses.length === 0 ? (
+                    <p className="text-sm text-muted-foreground text-center py-8">Ziadne volitelne stavy. Pridajte prvy stav zmluvy tlacidlom vyssie.</p>
+                  ) : (
+                    <SortableContext_Wrapper items={customStatuses} onReorder={handleReorder}>
+                      <Table>
+                        {statusTableHeader}
+                        <TableBody>
+                          {customStatuses.map(s => renderStatusRow(s, { showDragHandle: true, showDelete: true }))}
+                        </TableBody>
+                      </Table>
+                    </SortableContext_Wrapper>
+                  )
                 )}
               </CardContent>
             </Card>
+
+            {endingStatuses.length > 0 && (
+              <Card data-testid="card-ending-statuses">
+                <CardContent className="p-0">
+                  <div
+                    className="px-4 py-3 border-b flex items-center justify-between cursor-pointer select-none hover:bg-muted/50 transition-colors"
+                    onClick={() => setEndingExpanded(prev => !prev)}
+                    data-testid="header-ending-statuses"
+                  >
+                    <div className="flex items-center gap-2">
+                      {endingExpanded ? <ChevronDown className="w-4 h-4 text-muted-foreground" /> : <ChevronRight className="w-4 h-4 text-muted-foreground" />}
+                      <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider" data-testid="text-ending-statuses-title">Stavy ukoncujuce kontrakt</h2>
+                      <Badge variant="destructive" className="text-xs" data-testid="badge-ending-count">{endingStatuses.length}</Badge>
+                    </div>
+                  </div>
+                  {endingExpanded && (
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead className="w-20">Poradie</TableHead>
+                          <TableHead>Nazov stavu</TableHead>
+                          <TableHead className="w-32">Farba</TableHead>
+                          <TableHead>Vlastnosti</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {endingStatuses.map(status => (
+                          <TableRow key={status.id} data-testid={`row-ending-status-${status.id}`}>
+                            <TableCell className="font-mono text-sm">{status.sortOrder}</TableCell>
+                            <TableCell>
+                              <Badge variant="outline" style={{ borderColor: status.color, color: status.color }}>
+                                {status.name}
+                              </Badge>
+                            </TableCell>
+                            <TableCell>
+                              <div className="flex items-center gap-2">
+                                <div className="w-6 h-6 rounded-md border border-border" style={{ backgroundColor: status.color }} />
+                                <span className="text-xs font-mono text-muted-foreground">{status.color}</span>
+                              </div>
+                            </TableCell>
+                            <TableCell>
+                              <div className="flex items-center gap-1 flex-wrap">
+                                <Badge variant="secondary" className="text-xs">Ukoncenie</Badge>
+                                {status.isCommissionable && <Badge variant="secondary" className="text-xs">Provizna</Badge>}
+                                {status.isFinal && <Badge variant="secondary" className="text-xs">Finalny</Badge>}
+                                {status.isSystem && <Badge variant="secondary" className="text-xs">System</Badge>}
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  )}
+                </CardContent>
+              </Card>
+            )}
           </>
         );
       })()}
