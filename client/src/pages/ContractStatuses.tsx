@@ -1259,88 +1259,95 @@ export default function ContractStatuses() {
           </p>
         ) : (
           <>
-            {systemStatuses.length > 0 && (
+            {(systemStatuses.length > 0 || (lifecyclePhases && lifecyclePhases.length > 0)) && (
               <Card data-testid="card-system-statuses">
                 <CardContent className="p-0">
-                  <div
-                    className="px-4 py-3 border-b flex items-center justify-between cursor-pointer select-none hover:bg-muted/50 transition-colors"
-                    onClick={() => setSystemExpanded(prev => !prev)}
-                    data-testid="header-system-statuses"
-                  >
-                    <div className="flex items-center gap-2">
-                      {systemExpanded ? <ChevronDown className="w-4 h-4 text-muted-foreground" /> : <ChevronRight className="w-4 h-4 text-muted-foreground" />}
-                      <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider" data-testid="text-system-statuses-title">Systemove stavy</h2>
-                      <Badge variant="secondary" className="text-xs" data-testid="badge-system-count">{systemStatuses.length}</Badge>
-                    </div>
+                  <div className="px-4 py-3 border-b">
+                    <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider" data-testid="text-system-statuses-title">Systemove stavy</h2>
                   </div>
-                  {systemExpanded && (
-                    <>
-                      <Table>
-                        {statusTableHeader}
-                        <TableBody>
-                          {systemStatuses.map(s => renderStatusRow(s, { showDragHandle: false, showDelete: false }))}
-                        </TableBody>
-                      </Table>
-                      {lifecyclePhases && lifecyclePhases.length > 0 && (
-                        <div className="border-t">
-                          <div
-                            className="px-4 py-3 border-b flex items-center justify-between cursor-pointer select-none hover:bg-muted/50 transition-colors"
-                            onClick={() => setPhasesExpanded(prev => !prev)}
-                            data-testid="header-lifecycle-phases"
-                          >
-                            <div className="flex items-center gap-2">
-                              {phasesExpanded ? <ChevronDown className="w-4 h-4 text-muted-foreground" /> : <ChevronRight className="w-4 h-4 text-muted-foreground" />}
-                              <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider" data-testid="text-lifecycle-phases-title">Systemove stavy pri spracovani papierovych zmluv</h3>
-                              <Badge variant="secondary" className="text-xs" data-testid="badge-phases-count">{lifecyclePhases.length}</Badge>
-                            </div>
-                          </div>
-                          {phasesExpanded && (
-                            <Table>
-                              <TableHeader>
-                                <TableRow>
-                                  <TableHead className="w-20">Faza</TableHead>
-                                  <TableHead>Nazov fazy</TableHead>
-                                  <TableHead className="w-32">Farba</TableHead>
-                                  <TableHead>Vlastnosti</TableHead>
-                                </TableRow>
-                              </TableHeader>
-                              <TableBody>
-                                {lifecyclePhases.map((phase: any) => (
-                                  <TableRow
-                                    key={phase.id}
-                                    className="cursor-pointer hover:bg-muted/50"
-                                    onClick={() => { setEditingPhase(phase); setPhaseDialogOpen(true); }}
-                                    data-testid={`row-lifecycle-phase-${phase.phase ?? phase.id}`}
-                                  >
-                                    <TableCell className="font-mono text-sm" data-testid={`text-phase-id-${phase.phase ?? phase.id}`}>{phase.phase ?? phase.id}</TableCell>
-                                    <TableCell data-testid={`text-phase-name-${phase.phase ?? phase.id}`}>
-                                      <Badge variant="outline" style={{ borderColor: phase.color || '#3b82f6', color: phase.color || '#3b82f6' }}>
-                                        {phase.name}
-                                      </Badge>
-                                    </TableCell>
-                                    <TableCell>
-                                      <div className="flex items-center gap-2">
-                                        <div className="w-6 h-6 rounded-md border border-border" style={{ backgroundColor: phase.color || '#3b82f6' }} />
-                                        <span className="text-xs font-mono text-muted-foreground">{phase.color || '#3b82f6'}</span>
-                                      </div>
-                                    </TableCell>
-                                    <TableCell>
-                                      <div className="flex items-center gap-1 flex-wrap">
-                                        {phase.isCommissionable && <Badge variant="secondary" className="text-xs">Provizna</Badge>}
-                                        {phase.isFinal && <Badge variant="secondary" className="text-xs">Finalny</Badge>}
-                                        {phase.definesContractEnd && <Badge variant="secondary" className="text-xs">Ukoncenie</Badge>}
-                                        {phase.isIntervention && <Badge variant="secondary" className="text-xs">Intervencia</Badge>}
-                                        {phase.isStorno && <Badge variant="secondary" className="text-xs">Storno</Badge>}
-                                      </div>
-                                    </TableCell>
-                                  </TableRow>
-                                ))}
-                              </TableBody>
-                            </Table>
-                          )}
+
+                  {systemStatuses.length > 0 && (
+                    <div className="border-b">
+                      <div
+                        className="px-4 py-3 border-b flex items-center justify-between cursor-pointer select-none hover:bg-muted/50 transition-colors"
+                        onClick={() => setSystemExpanded(prev => !prev)}
+                        data-testid="header-system-statuses"
+                      >
+                        <div className="flex items-center gap-2 pl-2">
+                          {systemExpanded ? <ChevronDown className="w-4 h-4 text-muted-foreground" /> : <ChevronRight className="w-4 h-4 text-muted-foreground" />}
+                          <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Systemove stavy zmluv</h3>
+                          <Badge variant="secondary" className="text-xs" data-testid="badge-system-count">{systemStatuses.length}</Badge>
                         </div>
+                      </div>
+                      {systemExpanded && (
+                        <Table>
+                          {statusTableHeader}
+                          <TableBody>
+                            {systemStatuses.map(s => renderStatusRow(s, { showDragHandle: false, showDelete: false }))}
+                          </TableBody>
+                        </Table>
                       )}
-                    </>
+                    </div>
+                  )}
+
+                  {lifecyclePhases && lifecyclePhases.length > 0 && (
+                    <div>
+                      <div
+                        className="px-4 py-3 border-b flex items-center justify-between cursor-pointer select-none hover:bg-muted/50 transition-colors"
+                        onClick={() => setPhasesExpanded(prev => !prev)}
+                        data-testid="header-lifecycle-phases"
+                      >
+                        <div className="flex items-center gap-2 pl-2">
+                          {phasesExpanded ? <ChevronDown className="w-4 h-4 text-muted-foreground" /> : <ChevronRight className="w-4 h-4 text-muted-foreground" />}
+                          <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider" data-testid="text-lifecycle-phases-title">Systemove stavy pri spracovani papierovych zmluv</h3>
+                          <Badge variant="secondary" className="text-xs" data-testid="badge-phases-count">{lifecyclePhases.length}</Badge>
+                        </div>
+                      </div>
+                      {phasesExpanded && (
+                        <Table>
+                          <TableHeader>
+                            <TableRow>
+                              <TableHead className="w-20">Faza</TableHead>
+                              <TableHead>Nazov fazy</TableHead>
+                              <TableHead className="w-32">Farba</TableHead>
+                              <TableHead>Vlastnosti</TableHead>
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                            {lifecyclePhases.map((phase: any) => (
+                              <TableRow
+                                key={phase.id}
+                                className="cursor-pointer hover:bg-muted/50"
+                                onClick={() => { setEditingPhase(phase); setPhaseDialogOpen(true); }}
+                                data-testid={`row-lifecycle-phase-${phase.phase ?? phase.id}`}
+                              >
+                                <TableCell className="font-mono text-sm" data-testid={`text-phase-id-${phase.phase ?? phase.id}`}>{phase.phase ?? phase.id}</TableCell>
+                                <TableCell data-testid={`text-phase-name-${phase.phase ?? phase.id}`}>
+                                  <Badge variant="outline" style={{ borderColor: phase.color || '#3b82f6', color: phase.color || '#3b82f6' }}>
+                                    {phase.name}
+                                  </Badge>
+                                </TableCell>
+                                <TableCell>
+                                  <div className="flex items-center gap-2">
+                                    <div className="w-6 h-6 rounded-md border border-border" style={{ backgroundColor: phase.color || '#3b82f6' }} />
+                                    <span className="text-xs font-mono text-muted-foreground">{phase.color || '#3b82f6'}</span>
+                                  </div>
+                                </TableCell>
+                                <TableCell>
+                                  <div className="flex items-center gap-1 flex-wrap">
+                                    {phase.isCommissionable && <Badge variant="secondary" className="text-xs">Provizna</Badge>}
+                                    {phase.isFinal && <Badge variant="secondary" className="text-xs">Finalny</Badge>}
+                                    {phase.definesContractEnd && <Badge variant="secondary" className="text-xs">Ukoncenie</Badge>}
+                                    {phase.isIntervention && <Badge variant="secondary" className="text-xs">Intervencia</Badge>}
+                                    {phase.isStorno && <Badge variant="secondary" className="text-xs">Storno</Badge>}
+                                  </div>
+                                </TableCell>
+                              </TableRow>
+                            ))}
+                          </TableBody>
+                        </Table>
+                      )}
+                    </div>
                   )}
                 </CardContent>
               </Card>
