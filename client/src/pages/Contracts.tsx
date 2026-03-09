@@ -1766,7 +1766,16 @@ function WorkflowDiagram({ folderDefs, row2FolderDefs, activeFolder, onFolderCli
     const compute = () => {
       const cards = Array.from(el.querySelectorAll('[data-phase-card]')) as HTMLElement[];
       if (cards.length < 10) return;
+      const cR = el.getBoundingClientRect();
+      const g = (c: HTMLElement) => {
+        const r = c.getBoundingClientRect();
+        return { cx: r.left + r.width / 2 - cR.left, t: r.top - cR.top, b: r.bottom - cR.top };
+      };
+      const p = cards.map(g);
       const newPaths: string[] = [];
+      const midY = (p[0].b + p[5].t) / 2;
+      newPaths.push(`M ${p[0].cx},${p[0].b} V ${midY} H ${p[5].cx} V ${p[5].t}`);
+      newPaths.push(`M ${p[5].cx},${midY} H ${p[4].cx} V ${p[4].b}`);
       setPaths(newPaths);
     };
     const ro = new ResizeObserver(compute);
@@ -1776,10 +1785,8 @@ function WorkflowDiagram({ folderDefs, row2FolderDefs, activeFolder, onFolderCli
   }, []);
 
   const styles = [
-    { stroke: 'currentColor', opacity: 0.3 },
-    { stroke: '#3b82f6', opacity: 0.5 },
-    { stroke: '#ef4444', opacity: 0.45 },
-    { stroke: '#ef4444', opacity: 0.45 },
+    { stroke: 'currentColor', opacity: 0.35 },
+    { stroke: 'currentColor', opacity: 0.35 },
   ];
 
   return (
