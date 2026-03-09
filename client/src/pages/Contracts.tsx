@@ -1901,7 +1901,7 @@ function WorkflowDiagram({ folderDefs, row2FolderDefs, activeFolder, onFolderCli
         mkHArrow(7, 8, '#ef4444'),
         mkHArrow(8, 9, '#ef4444'),
         mkVArrow(9, 4, '#ef4444'),
-        mkVArrow(5, 1, '#a1a1aa'),
+        mkVArrow(6, 1, '#a1a1aa'),
         mkHArrow(1, 2, '#a1a1aa'),
         mkHArrow(1, 0, '#a1a1aa'),
       ]);
