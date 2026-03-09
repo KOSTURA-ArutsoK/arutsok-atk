@@ -1805,8 +1805,8 @@ function WorkflowDiagram({ folderDefs, row2FolderDefs, activeFolder, onFolderCli
             const isActive = activeFolder === f.id;
             const inBlueGroup = blueGroupIds.has(f.id);
             return (
-              <div key={f.id} className={`rounded-lg ${inBlueGroup ? 'p-[3px] bg-blue-500/30 ring-2 ring-blue-500/40' : ''}`}>
-                <Card data-phase-card={f.id} className={`cursor-pointer transition-colors bg-card ${isActive ? "border-primary shadow-sm" : ""}`} onClick={() => onFolderClick(f.id)} data-testid={`folder-tab-${f.id}`}>
+              <div key={f.id} data-phase-card={f.id} className={`rounded-lg ${inBlueGroup ? 'p-[3px] bg-blue-500/30 ring-2 ring-blue-500/40' : ''}`}>
+                <Card className={`cursor-pointer transition-colors bg-card ${isActive ? "border-primary shadow-sm" : ""}`} onClick={() => onFolderClick(f.id)} data-testid={`folder-tab-${f.id}`}>
                   <div className="flex flex-col items-center gap-1 p-2 text-center">
                     <div className={`w-8 h-8 rounded-md ${f.bgColor} flex items-center justify-center shrink-0`}>
                       <FIcon className={`w-4 h-4 ${f.color}`} />
@@ -1825,8 +1825,8 @@ function WorkflowDiagram({ folderDefs, row2FolderDefs, activeFolder, onFolderCli
             const isActive = activeFolder === f.id;
             const inBlueGroup = blueGroupIds.has(f.id);
             return (
-              <div key={f.id} className={`rounded-lg ${inBlueGroup ? 'p-[3px] bg-blue-500/30 ring-2 ring-blue-500/40' : ''}`}>
-                <Card data-phase-card={f.id} className={`cursor-pointer transition-colors bg-card ${isActive ? "border-primary shadow-sm" : ""}`} onClick={() => onFolderClick(f.id)} data-testid={`folder-tab-${f.id}`}>
+              <div key={f.id} data-phase-card={f.id} className={`rounded-lg ${inBlueGroup ? 'p-[3px] bg-blue-500/30 ring-2 ring-blue-500/40' : ''}`}>
+                <Card className={`cursor-pointer transition-colors bg-card ${isActive ? "border-primary shadow-sm" : ""}`} onClick={() => onFolderClick(f.id)} data-testid={`folder-tab-${f.id}`}>
                   <div className="flex flex-col items-center gap-1 p-2 text-center">
                     <div className={`w-8 h-8 rounded-md ${f.bgColor} flex items-center justify-center shrink-0`}>
                       <FIcon className={`w-4 h-4 ${f.color}`} />
