@@ -1761,6 +1761,7 @@ function WorkflowDiagram({ folderDefs, row2FolderDefs, activeFolder, onFolderCli
   const [paths, setPaths] = useState<string[]>([]);
   const [blueLPath, setBlueLPath] = useState<string>("");
   const [redPath, setRedPath] = useState<string>("");
+  const [blackPath, setBlackPath] = useState<string>("");
 
   useEffect(() => {
     const el = containerRef.current;
@@ -1801,14 +1802,31 @@ function WorkflowDiagram({ folderDefs, row2FolderDefs, activeFolder, onFolderCli
       ].join(' ');
       setBlueLPath(bluePath);
 
+      const rightRed = f[9].r + pad;
+      const bottomRed = Math.max(f[7].b, f[8].b, f[9].b) + pad;
+      const topRed = cornerY;
       const rPath = [
-        `M ${mid7x},${cornerY}`,
-        `H ${right7 - rc} A ${rc},${rc} 0 0 1 ${right7},${cornerY + rc}`,
-        `V ${bottom - rc} A ${rc},${rc} 0 0 1 ${right7 - rc},${bottom}`,
+        `M ${mid7x},${topRed}`,
+        `H ${rightRed - rc} A ${rc},${rc} 0 0 1 ${rightRed},${topRed + rc}`,
+        `V ${bottomRed - rc} A ${rc},${rc} 0 0 1 ${rightRed - rc},${bottomRed}`,
         `H ${mid7x}`,
         'Z',
       ].join(' ');
       setRedPath(rPath);
+
+      const leftBlack = f[1].l - pad;
+      const topBlack = f[1].t - pad;
+      const rightBlack = f[3].r + pad;
+      const bottomBlack = Math.max(f[1].b, f[2].b, f[3].b) + pad;
+      const bkPath = [
+        `M ${leftBlack + rc},${topBlack}`,
+        `H ${rightBlack - rc} A ${rc},${rc} 0 0 1 ${rightBlack},${topBlack + rc}`,
+        `V ${bottomBlack - rc} A ${rc},${rc} 0 0 1 ${rightBlack - rc},${bottomBlack}`,
+        `H ${leftBlack + rc} A ${rc},${rc} 0 0 1 ${leftBlack},${bottomBlack - rc}`,
+        `V ${topBlack + rc} A ${rc},${rc} 0 0 1 ${leftBlack + rc},${topBlack}`,
+        'Z',
+      ].join(' ');
+      setBlackPath(bkPath);
 
       setPaths([]);
     };
@@ -1828,6 +1846,9 @@ function WorkflowDiagram({ folderDefs, row2FolderDefs, activeFolder, onFolderCli
         )}
         {redPath && (
           <path d={redPath} fill="#ef4444" fillOpacity="0.15" stroke="#ef4444" strokeWidth="2" strokeOpacity="0.4" strokeLinejoin="round" />
+        )}
+        {blackPath && (
+          <path d={blackPath} fill="#ffffff" fillOpacity="0.08" stroke="#a1a1aa" strokeWidth="2" strokeOpacity="0.5" strokeLinejoin="round" />
         )}
         {paths.map((d, i) => (
           <path key={i} d={d} fill="none" stroke={styles[i]?.stroke || 'currentColor'} strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" opacity={styles[i]?.opacity || 0.3} />
