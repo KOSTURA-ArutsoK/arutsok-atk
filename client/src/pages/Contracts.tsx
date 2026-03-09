@@ -1762,6 +1762,7 @@ function WorkflowDiagram({ folderDefs, row2FolderDefs, activeFolder, onFolderCli
   const [blueLPath, setBlueLPath] = useState<string>("");
   const [redPath, setRedPath] = useState<string>("");
   const [blackPath, setBlackPath] = useState<string>("");
+  const [greenPath, setGreenPath] = useState<string>("");
 
   useEffect(() => {
     const el = containerRef.current;
@@ -1802,17 +1803,37 @@ function WorkflowDiagram({ folderDefs, row2FolderDefs, activeFolder, onFolderCli
       ].join(' ');
       setBlueLPath(bluePath);
 
-      const rightRed = f[9].r + pad;
+      const rightRed = Math.max(f[4].r, f[9].r) + pad;
       const bottomRed = Math.max(f[7].b, f[8].b, f[9].b) + pad;
-      const topRed = cornerY;
+      const topRed5 = f[4].t - pad;
+      const left5 = f[4].l - pad;
       const rPath = [
-        `M ${mid7x},${topRed}`,
-        `H ${rightRed - rc} A ${rc},${rc} 0 0 1 ${rightRed},${topRed + rc}`,
+        `M ${left5 + rc},${topRed5}`,
+        `H ${rightRed - rc} A ${rc},${rc} 0 0 1 ${rightRed},${topRed5 + rc}`,
         `V ${bottomRed - rc} A ${rc},${rc} 0 0 1 ${rightRed - rc},${bottomRed}`,
         `H ${mid7x}`,
+        `V ${cornerY}`,
+        `H ${left5 + rc} A ${rc},${rc} 0 0 0 ${left5},${cornerY - rc}`,
+        `V ${topRed5 + rc} A ${rc},${rc} 0 0 1 ${left5 + rc},${topRed5}`,
         'Z',
       ].join(' ');
       setRedPath(rPath);
+
+      const gPad = 3;
+      const grc = 6;
+      const gL = f[4].l - gPad;
+      const gT = f[4].t - gPad;
+      const gR = f[4].r + gPad;
+      const gB = f[4].b + gPad;
+      const gPath = [
+        `M ${gL + grc},${gT}`,
+        `H ${gR - grc} A ${grc},${grc} 0 0 1 ${gR},${gT + grc}`,
+        `V ${gB - grc} A ${grc},${grc} 0 0 1 ${gR - grc},${gB}`,
+        `H ${gL + grc} A ${grc},${grc} 0 0 1 ${gL},${gB - grc}`,
+        `V ${gT + grc} A ${grc},${grc} 0 0 1 ${gL + grc},${gT}`,
+        'Z',
+      ].join(' ');
+      setGreenPath(gPath);
 
       const leftBlack = f[1].l - pad;
       const topBlack = f[1].t - pad;
@@ -1846,6 +1867,9 @@ function WorkflowDiagram({ folderDefs, row2FolderDefs, activeFolder, onFolderCli
         )}
         {redPath && (
           <path d={redPath} fill="#ef4444" fillOpacity="0.15" stroke="#ef4444" strokeWidth="2" strokeOpacity="0.4" strokeLinejoin="round" />
+        )}
+        {greenPath && (
+          <path d={greenPath} fill="#22c55e" fillOpacity="0.15" stroke="#22c55e" strokeWidth="2" strokeOpacity="0.5" strokeLinejoin="round" />
         )}
         {blackPath && (
           <path d={blackPath} fill="#ffffff" fillOpacity="0.08" stroke="#a1a1aa" strokeWidth="2" strokeOpacity="0.5" strokeLinejoin="round" />
