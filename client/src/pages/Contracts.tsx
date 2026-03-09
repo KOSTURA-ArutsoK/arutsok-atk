@@ -1779,13 +1779,23 @@ function WorkflowDiagram({ folderDefs, row2FolderDefs, activeFolder, onFolderCli
         return { l: r.left - cR.left, r: r.right - cR.left, t: r.top - cR.top, b: r.bottom - cR.top };
       };
       const f = cards.map(full);
-      const lTop = f[0].t - pad;
-      const lLeft = f[0].l - pad;
-      const lRight = f[0].r + pad;
-      const lBottom6 = f[5].b + pad;
-      const lRight7 = f[6].r + pad;
-      const lBottom7 = f[6].b + pad;
-      const lPath = `M ${lLeft},${lTop} H ${lRight} V ${f[5].t - pad} H ${lRight7} V ${lBottom7} H ${lLeft} Z`;
+      const r = 8;
+      const t = f[0].t - pad;
+      const l = f[0].l - pad;
+      const rr = f[0].r + pad;
+      const cornerY = f[5].t - pad;
+      const rr7 = f[6].r + pad;
+      const b7 = f[6].b + pad;
+      const lPath = [
+        `M ${l + r},${t}`,
+        `H ${rr - r} A ${r},${r} 0 0 1 ${rr},${t + r}`,
+        `V ${cornerY + r} A ${r},${r} 0 0 0 ${rr + r},${cornerY}`,
+        `H ${rr7 - r} A ${r},${r} 0 0 1 ${rr7},${cornerY + r}`,
+        `V ${b7 - r} A ${r},${r} 0 0 1 ${rr7 - r},${b7}`,
+        `H ${l + r} A ${r},${r} 0 0 1 ${l},${b7 - r}`,
+        `V ${t + r} A ${r},${r} 0 0 1 ${l + r},${t}`,
+        'Z',
+      ].join(' ');
       setBlueLPath(lPath);
       setPaths([]);
     };
