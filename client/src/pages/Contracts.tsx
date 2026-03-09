@@ -2964,10 +2964,7 @@ export default function Contracts() {
         </div>
 
         <div style={{ display: preSelectStep === 1 ? 'block' : 'none' }}>
-          <div className="space-y-4">
-            <p className="text-sm text-muted-foreground">
-              Vyberte partnera a produkt pre predvyplnenie zmluvy.
-            </p>
+          <div className="space-y-2">
 
             <div className="space-y-1">
               <label className="text-xs font-medium">Partner</label>
@@ -3054,10 +3051,7 @@ export default function Contracts() {
         </div>
 
         <div style={{ display: preSelectStep === 2 ? 'block' : 'none' }}>
-          <div className="space-y-4">
-            <p className="text-sm text-muted-foreground">
-              Vyhladajte existujuceho klienta alebo vyplnte udaje noveho.
-            </p>
+          <div className="space-y-2">
 
             {!preSelectSubjectId && (
               <div className="space-y-1">
@@ -3076,7 +3070,7 @@ export default function Contracts() {
                 <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <Input
                   ref={refSearchInput}
-                  placeholder="Rodne cislo / ICO / Meno..."
+                  placeholder={preSelectSubjectType === "person" ? "Rodné číslo / Meno..." : preSelectSubjectType === "szco" ? "Rodné číslo / IČO / Meno..." : "IČO / Názov..."}
                   value={preSelectSubjectSearch}
                   onChange={(e) => {
                     const val = e.target.value;
@@ -3176,7 +3170,7 @@ export default function Contracts() {
 
 
             {(preSelectShowNameFields || (preSelectSubjectType === "person" && !preSelectSubjectId)) && (
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-4 gap-2">
                 <div className="space-y-1">
                   <label className="text-xs font-medium">Titul pred menom</label>
                   <Input
