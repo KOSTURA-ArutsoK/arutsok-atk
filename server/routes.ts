@@ -6245,7 +6245,7 @@ export async function registerRoutes(
   });
 
   // === SYSTEM SETTINGS (public read, authenticated write) ===
-  app.get("/api/system-settings/:key", async (_req, res) => {
+  app.get("/api/system-settings/:key", isAuthenticated, async (_req, res) => {
     try {
       const value = await storage.getSystemSetting(_req.params.key);
       res.json({ value });

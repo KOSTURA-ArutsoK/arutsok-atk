@@ -1,10 +1,21 @@
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Loader2, Target } from "lucide-react";
+import { useAppUser } from "@/hooks/use-app-user";
 
 export default function ObchodnePrilezitosti() {
+  const { data: appUser } = useAppUser();
+  const divisionId = appUser?.activeDivisionId;
+  const settingsKey = divisionId ? `obchodne_prilezitosti_div_${divisionId}` : null;
+
   const { data: setting, isLoading } = useQuery<{ value: string | null }>({
-    queryKey: ["/api/system-settings/obchodne_prilezitosti_text"],
+    queryKey: ["/api/system-settings", settingsKey],
+    queryFn: async () => {
+      const res = await fetch(`/api/system-settings/${settingsKey}`, { credentials: "include" });
+      if (!res.ok) throw new Error("Failed to fetch");
+      return res.json();
+    },
+    enabled: !!settingsKey,
   });
 
   const content = setting?.value || "";
@@ -21,7 +32,11 @@ export default function ObchodnePrilezitosti() {
           <CardTitle className="text-lg" data-testid="text-card-title">Aktualne obchodne prilezitosti</CardTitle>
         </CardHeader>
         <CardContent>
-          {isLoading ? (
+          {!divisionId ? (
+            <p className="text-muted-foreground text-sm" data-testid="text-no-division">
+              Vyberte diviziu pre zobrazenie obchodnych prilezitosti.
+            </p>
+          ) : isLoading ? (
             <div className="flex items-center justify-center py-8">
               <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
             </div>
@@ -34,7 +49,7 @@ export default function ObchodnePrilezitosti() {
             </div>
           ) : (
             <p className="text-muted-foreground text-sm" data-testid="text-no-content">
-              Ziadne obchodne prilezitosti nie su momentalne nastavene.
+              Ziadne obchodne prilezitosti nie su momentalne nastavene pre tuto diviziu.
             </p>
           )}
         </CardContent>
