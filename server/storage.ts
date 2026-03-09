@@ -2773,8 +2773,6 @@ export class DatabaseStorage implements IStorage {
       deletedAt: new Date(),
       deletedFromIp: ip,
     }).where(eq(contracts.id, id));
-    await db.delete(contractStatusChangeLogs).where(eq(contractStatusChangeLogs.contractId, id));
-    await db.delete(contractLifecycleHistory).where(eq(contractLifecycleHistory.contractId, id));
   }
 
   async restoreContract(id: number): Promise<void> {
