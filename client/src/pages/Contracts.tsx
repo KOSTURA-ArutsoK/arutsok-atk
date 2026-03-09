@@ -1774,14 +1774,14 @@ function WorkflowDiagram({ folderDefs, row2FolderDefs, activeFolder, onFolderCli
       const p = cards.map(g);
       const gap = 12;
       const newPaths: string[] = [];
-      const aboveRow1 = Math.min(p[0].t, p[2].t) - gap;
-      newPaths.push(`M ${p[0].cx},${p[0].t} V ${aboveRow1} H ${p[2].cx} V ${p[2].t}`);
+      const aboveRow1 = Math.min(p[0].t, p[1].t) - gap;
+      newPaths.push(`M ${p[0].cx},${p[0].t} V ${aboveRow1} H ${p[1].cx} V ${p[1].t}`);
       const betweenRows = (p[0].b + p[5].t) / 2;
-      newPaths.push(`M ${p[0].cx},${p[0].b} V ${betweenRows} H ${p[6].cx} V ${p[6].t}`);
-      const topMost = aboveRow1 - gap;
-      newPaths.push(`M ${p[4].cx},${p[4].t} V ${topMost} H ${p[6].cx} V ${p[6].t}`);
-      const belowRow2 = Math.max(p[6].b, p[9].b) + gap;
-      newPaths.push(`M ${p[6].cx},${p[6].b} V ${belowRow2} H ${p[9].cx} V ${p[9].b}`);
+      newPaths.push(`M ${p[0].cx},${p[0].b} V ${betweenRows} H ${p[3].cx} V ${p[3].t}`);
+      const belowRow2 = Math.max(...p.slice(5).map(c => c.b)) + gap;
+      newPaths.push(`M ${p[6].cx},${p[6].b} V ${belowRow2} H ${p[3].cx} V ${p[3].b}`);
+      const belowRow1 = (p[3].b + p[5].t) / 2;
+      newPaths.push(`M ${p[3].cx},${p[3].b} V ${belowRow1} H ${p[4].cx} V ${p[4].b}`);
       setPaths(newPaths);
     };
     const ro = new ResizeObserver(compute);
@@ -2550,18 +2550,18 @@ export default function Contracts() {
 
   const folderDefs = [
     { id: 1, label: "Nahratá - čaká na odoslanie", icon: Inbox, color: "text-amber-500", bgColor: "bg-amber-500/15", count: activeContracts.length },
-    { id: 2, label: "Odoslané na sprievodke", icon: Send, color: "text-blue-500", bgColor: "bg-blue-500/15", count: activeDispatched.length },
     { id: 3, label: "Neprijaté zmluvy – výhrady", icon: XCircle, color: "text-red-500", bgColor: "bg-red-500/15", count: activeRejected.length },
     { id: 4, label: "Archív zmlúv (s výhradami)", icon: Archive, color: "text-muted-foreground", bgColor: "bg-muted/30", count: activeArchived.length },
-    { id: 5, label: "Prijaté do centrály", icon: CheckCircle2, color: "text-green-500", bgColor: "bg-green-500/15", count: activeAccepted.length },
+    { id: 7, label: "Interné intervencie", icon: AlertTriangle, color: "text-orange-500", bgColor: "bg-orange-500/15", count: phase7Contracts.length },
+    { id: 10, label: "Prijaté obch. partnerom", icon: Award, color: "text-purple-500", bgColor: "bg-purple-500/15", count: phase10Contracts.length },
   ];
 
   const row2FolderDefs = [
+    { id: 2, label: "Odoslané na sprievodke", icon: Send, color: "text-blue-500", bgColor: "bg-blue-500/15", count: activeDispatched.length },
+    { id: 5, label: "Prijaté do centrály", icon: CheckCircle2, color: "text-green-500", bgColor: "bg-green-500/15", count: activeAccepted.length },
     { id: 6, label: "Kontrakt v spracovaní", icon: LayoutGrid, color: "text-cyan-500", bgColor: "bg-cyan-500/15", count: phase6Contracts.length },
-    { id: 7, label: "Interné intervencie", icon: AlertTriangle, color: "text-orange-500", bgColor: "bg-orange-500/15", count: phase7Contracts.length },
     { id: 8, label: "Pripravené na odoslanie", icon: ListChecks, color: "text-emerald-500", bgColor: "bg-emerald-500/15", count: phase8Contracts.length },
     { id: 9, label: "Odoslané obch. partnerovi", icon: Send, color: "text-indigo-500", bgColor: "bg-indigo-500/15", count: phase9Contracts.length },
-    { id: 10, label: "Prijaté obch. partnerom", icon: Award, color: "text-purple-500", bgColor: "bg-purple-500/15", count: phase10Contracts.length },
   ];
 
   function filterBySearch(list: Contract[]) {
