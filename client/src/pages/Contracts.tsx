@@ -1766,22 +1766,7 @@ function WorkflowDiagram({ folderDefs, row2FolderDefs, activeFolder, onFolderCli
     const compute = () => {
       const cards = Array.from(el.querySelectorAll('[data-phase-card]')) as HTMLElement[];
       if (cards.length < 10) return;
-      const cR = el.getBoundingClientRect();
-      const g = (c: HTMLElement) => {
-        const r = c.getBoundingClientRect();
-        return { cx: r.left + r.width / 2 - cR.left, t: r.top - cR.top, b: r.bottom - cR.top };
-      };
-      const p = cards.map(g);
-      const gap = 12;
       const newPaths: string[] = [];
-      const aboveRow1 = Math.min(p[0].t, p[1].t) - gap;
-      newPaths.push(`M ${p[0].cx},${p[0].t} V ${aboveRow1} H ${p[1].cx} V ${p[1].t}`);
-      const betweenRows = (p[0].b + p[5].t) / 2;
-      newPaths.push(`M ${p[0].cx},${p[0].b} V ${betweenRows} H ${p[3].cx} V ${p[3].t}`);
-      const belowRow2 = Math.max(...p.slice(5).map(c => c.b)) + gap;
-      newPaths.push(`M ${p[6].cx},${p[6].b} V ${belowRow2} H ${p[3].cx} V ${p[3].b}`);
-      const belowRow1 = (p[3].b + p[5].t) / 2;
-      newPaths.push(`M ${p[3].cx},${p[3].b} V ${belowRow1} H ${p[4].cx} V ${p[4].b}`);
       setPaths(newPaths);
     };
     const ro = new ResizeObserver(compute);
