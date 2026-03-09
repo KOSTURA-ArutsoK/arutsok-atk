@@ -1873,6 +1873,43 @@ function WorkflowDiagram({ folderDefs, row2FolderDefs, activeFolder, onFolderCli
           ].join(' '),
         };
       };
+      const mkDArrow = (fromIdx: number, toIdx: number, color: string) => {
+        const fromCx = (f[fromIdx].l + f[fromIdx].r) / 2;
+        const fromCy = (f[fromIdx].t + f[fromIdx].b) / 2;
+        const toCx = (f[toIdx].l + f[toIdx].r) / 2;
+        const toCy = (f[toIdx].t + f[toIdx].b) / 2;
+        const dx = toCx - fromCx;
+        const dy = toCy - fromCy;
+        const len = Math.sqrt(dx * dx + dy * dy);
+        const ux = dx / len;
+        const uy = dy / len;
+        const px = -uy;
+        const py = ux;
+        const startX = fromCx + ux * (f[fromIdx].r - f[fromIdx].l) / 2;
+        const startY = fromCy + uy * (f[fromIdx].b - f[fromIdx].t) / 2;
+        const endX = toCx - ux * (f[toIdx].r - f[toIdx].l) / 2;
+        const endY = toCy - uy * (f[toIdx].b - f[toIdx].t) / 2;
+        const aw = 8;
+        const headW = 18;
+        const headH = 14;
+        const tipX = endX;
+        const tipY = endY;
+        const baseX = tipX - ux * headH;
+        const baseY = tipY - uy * headH;
+        return {
+          color,
+          d: [
+            `M ${startX + px * aw},${startY + py * aw}`,
+            `L ${baseX + px * aw},${baseY + py * aw}`,
+            `L ${baseX + px * headW},${baseY + py * headW}`,
+            `L ${tipX},${tipY}`,
+            `L ${baseX - px * headW},${baseY - py * headW}`,
+            `L ${baseX - px * aw},${baseY - py * aw}`,
+            `L ${startX - px * aw},${startY - py * aw}`,
+            'Z',
+          ].join(' '),
+        };
+      };
       const mkHArrow = (fromIdx: number, toIdx: number, color: string) => {
         const cy = (f[fromIdx].t + f[fromIdx].b) / 2;
         const right = f[toIdx].l > f[fromIdx].r;
@@ -1904,7 +1941,7 @@ function WorkflowDiagram({ folderDefs, row2FolderDefs, activeFolder, onFolderCli
         mkVArrow(6, 1, '#a1a1aa'),
         mkHArrow(1, 2, '#a1a1aa'),
         mkHArrow(1, 0, '#a1a1aa'),
-        mkVArrow(7, 3, '#a1a1aa'),
+        mkDArrow(7, 3, '#a1a1aa'),
       ]);
 
       setPaths([]);
