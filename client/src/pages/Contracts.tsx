@@ -1812,15 +1812,14 @@ function WorkflowDiagram({ folderDefs, row2FolderDefs, activeFolder, onFolderCli
         `H ${rightRed - rc} A ${rc},${rc} 0 0 1 ${rightRed},${topRed5 + rc}`,
         `V ${bottomRed - rc} A ${rc},${rc} 0 0 1 ${rightRed - rc},${bottomRed}`,
         `H ${mid7x}`,
-        `V ${cornerY}`,
-        `H ${left5 + rc} A ${rc},${rc} 0 0 0 ${left5},${cornerY - rc}`,
+        `V ${cornerY + rc} A ${rc},${rc} 0 0 0 ${left5},${cornerY}`,
         `V ${topRed5 + rc} A ${rc},${rc} 0 0 1 ${left5 + rc},${topRed5}`,
         'Z',
       ].join(' ');
       setRedPath(rPath);
 
-      const gPad = 3;
-      const grc = 6;
+      const gPad = 8;
+      const grc = 8;
       const gL = f[4].l - gPad;
       const gT = f[4].t - gPad;
       const gR = f[4].r + gPad;
@@ -1869,7 +1868,7 @@ function WorkflowDiagram({ folderDefs, row2FolderDefs, activeFolder, onFolderCli
           <path d={redPath} fill="#ef4444" fillOpacity="0.15" stroke="#ef4444" strokeWidth="2" strokeOpacity="0.4" strokeLinejoin="round" />
         )}
         {greenPath && (
-          <path d={greenPath} fill="#22c55e" fillOpacity="0.15" stroke="#22c55e" strokeWidth="2" strokeOpacity="0.5" strokeLinejoin="round" />
+          <path d={greenPath} fill="#166534" fillOpacity="0.25" stroke="#166534" strokeWidth="2" strokeOpacity="0.6" strokeLinejoin="round" />
         )}
         {blackPath && (
           <path d={blackPath} fill="#ffffff" fillOpacity="0.08" stroke="#a1a1aa" strokeWidth="2" strokeOpacity="0.5" strokeLinejoin="round" />
