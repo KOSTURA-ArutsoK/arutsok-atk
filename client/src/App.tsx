@@ -65,6 +65,8 @@ import Ziadosti from "@/pages/Ziadosti";
 import Prestup from "@/pages/Prestup";
 import ReportyOdosielanie from "@/pages/ReportyOdosielanie";
 import ReportyNBS from "@/pages/ReportyNBS";
+import ObchodnePrilezitosti from "@/pages/ObchodnePrilezitosti";
+import NastavenieObchodnychPrilezitosti from "@/pages/NastavenieObchodnychPrilezitosti";
 import { AppShell } from "@/components/layout/AppShell";
 import { RedListNotificationPopup } from "@/components/red-list-notification-popup";
 import { BlackListNotificationPopup } from "@/components/black-list-notification-popup";
@@ -163,6 +165,8 @@ const PrivateZiadosti = () => <PrivateRoute><Ziadosti /></PrivateRoute>;
 const PrivatePrestup = () => <PrivateRoute><Prestup /></PrivateRoute>;
 const PrivateReportyOdosielanie = () => <PrivateRoute><ReportyOdosielanie /></PrivateRoute>;
 const PrivateReportyNBS = () => <PrivateRoute><ReportyNBS /></PrivateRoute>;
+const PrivateObchodnePrilezitosti = () => <PrivateRoute><ObchodnePrilezitosti /></PrivateRoute>;
+const PrivateNastavenieObchodnychPrilezitosti = () => <PrivateRoute><NastavenieObchodnychPrilezitosti /></PrivateRoute>;
 const PrivateClientProfile = () => <PrivateRoute><ClientProfilePage /></PrivateRoute>;
 
 function Router() {
@@ -228,6 +232,8 @@ function Router() {
       <Route path="/prestup" component={PrivatePrestup} />
       <Route path="/reporty-odosielanie" component={PrivateReportyOdosielanie} />
       <Route path="/reporty-nbs" component={PrivateReportyNBS} />
+      <Route path="/obchodne-prilezitosti" component={PrivateObchodnePrilezitosti} />
+      <Route path="/nastavenie-obchodnych-prilezitosti" component={PrivateNastavenieObchodnychPrilezitosti} />
       <Route component={NotFound} />
     </Switch>
   );

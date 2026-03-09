@@ -6266,7 +6266,7 @@ export async function registerRoutes(
   app.post("/api/system-settings", isAuthenticated, async (req: any, res) => {
     try {
       const appUser = req.appUser;
-      if (!appUser || !["admin", "superadmin"].includes(appUser.role)) {
+      if (!appUser || !isAdmin(appUser)) {
         return res.status(403).json({ message: "Nedostatocne opravnenia" });
       }
       const { key, value } = req.body;

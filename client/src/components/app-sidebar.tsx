@@ -60,6 +60,7 @@ import {
   Link2,
   Mail,
   FileBarChart,
+  Target,
 } from "lucide-react";
 import {
   Sidebar,
@@ -170,11 +171,12 @@ const specifikacieItems = [
 const nastavenieSystemuItems = [
   { href: "/dashboard-settings", icon: Eye, label: "Nastavenie prehladov" },
   { href: "/link-settings", icon: Link2, label: "Nastavenie odkazov" },
+  { href: "/nastavenie-obchodnych-prilezitosti", icon: Target, label: "Obchodne prilezitosti" },
 ];
 
 const nastavenieDirectItems = [
-  { href: "/history", icon: History, label: "Logy" },
   { href: "/support", icon: Phone, label: "Podpora a registracia" },
+  { href: "/history", icon: History, label: "Logy" },
   { href: "/archive", icon: Trash2, label: "Kos" },
 ];
 
@@ -654,6 +656,19 @@ export function AppSidebar() {
                   </Collapsible>
                 );
               })()}
+
+              <SidebarMenuItem>
+                <SidebarMenuButton
+                  asChild
+                  isActive={location === "/obchodne-prilezitosti"}
+                  data-testid="nav-obchodne-prilezitosti"
+                >
+                  <Link href="/obchodne-prilezitosti">
+                    <Target className="w-4 h-4" />
+                    <span>Obchodne prilezitosti</span>
+                  </Link>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
