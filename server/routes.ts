@@ -328,7 +328,7 @@ export async function registerRoutes(
 ): Promise<Server> {
   
   const LIFECYCLE_PHASES: Record<number, string> = {
-    1: "Nahratá a čaká na odoslanie",
+    1: "Nahratá - čaká na odoslanie",
     2: "Odoslané na sprievodke",
     3: "Neprijaté zmluvy – výhrady",
     4: "Archív zmlúv (s výhradami)",

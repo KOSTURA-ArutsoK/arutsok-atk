@@ -1455,7 +1455,7 @@ function ContractLifecycleTimeline({ contractId }: { contractId: number }) {
 
   const phaseNames: Record<number, string> = {
     0: "Nový záznam",
-    1: "Čakajúce na odoslanie",
+    1: "Nahratá - čaká na odoslanie",
     2: "Odoslané na sprievodke",
     3: "Výhrady",
     4: "Archív",
@@ -2459,7 +2459,7 @@ export default function Contracts() {
   const activeRejected = rejectedContracts?.filter(c => !c.isDeleted) || [];
 
   const folderDefs = [
-    { id: 1, label: "Čakajúce na odoslanie", icon: Inbox, color: "text-amber-500", bgColor: "bg-amber-500/15", count: activeContracts.length },
+    { id: 1, label: "Nahratá - čaká na odoslanie", icon: Inbox, color: "text-amber-500", bgColor: "bg-amber-500/15", count: activeContracts.length },
     { id: 2, label: "Odoslané na sprievodke", icon: Send, color: "text-blue-500", bgColor: "bg-blue-500/15", count: activeDispatched.length },
     { id: 3, label: "Neprijaté zmluvy – výhrady", icon: XCircle, color: "text-red-500", bgColor: "bg-red-500/15", count: activeRejected.length },
     { id: 4, label: "Archív zmlúv (s výhradami)", icon: Archive, color: "text-muted-foreground", bgColor: "bg-muted/30", count: activeArchived.length },
