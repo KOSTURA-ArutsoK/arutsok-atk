@@ -1795,7 +1795,7 @@ function WorkflowDiagram({ folderDefs, row2FolderDefs, activeFolder, onFolderCli
       const bluePath = [
         `M ${left + rc},${top1}`,
         `H ${right1 - rc} A ${rc},${rc} 0 0 1 ${right1},${top1 + rc}`,
-        `V ${cornerY}`,
+        `V ${cornerY - rc} A ${rc},${rc} 0 0 0 ${right1 + rc},${cornerY}`,
         `H ${mid7x}`,
         `V ${bottom}`,
         `H ${left + rc} A ${rc},${rc} 0 0 1 ${left},${bottom - rc}`,
@@ -1813,8 +1813,7 @@ function WorkflowDiagram({ folderDefs, row2FolderDefs, activeFolder, onFolderCli
         `H ${rightRed - rc} A ${rc},${rc} 0 0 1 ${rightRed},${topRed5 + rc}`,
         `V ${bottomRed - rc} A ${rc},${rc} 0 0 1 ${rightRed - rc},${bottomRed}`,
         `H ${mid7x}`,
-        `V ${cornerY + rc}`,
-        `A ${rc},${rc} 0 0 1 ${mid7x + rc},${cornerY}`,
+        `V ${cornerY}`,
         `H ${left5 - rc}`,
         `A ${rc},${rc} 0 0 0 ${left5},${cornerY - rc}`,
         `V ${topRed5 + rc} A ${rc},${rc} 0 0 1 ${left5 + rc},${topRed5}`,
