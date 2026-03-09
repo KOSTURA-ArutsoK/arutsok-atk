@@ -3174,27 +3174,8 @@ export default function Contracts() {
               </div>
             )}
 
-            {preSelectSubjectType === "person" && !preSelectSubjectId && (
-              <div className="space-y-1">
-                <label className="text-xs font-medium">Rodne cislo</label>
-                <Input
-                  ref={refBirthNumberInput}
-                  value={preSelectBirthNumber}
-                  onChange={(e) => setPreSelectBirthNumber(e.target.value)}
-                  placeholder="Rodne cislo"
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") {
-                      e.preventDefault();
-                      setPreSelectShowNameFields(true);
-                      setTimeout(() => refTitleBeforeInput.current?.focus(), 50);
-                    }
-                  }}
-                  data-testid="input-preselect-birth-number"
-                />
-              </div>
-            )}
 
-            {preSelectShowNameFields && (
+            {(preSelectShowNameFields || (preSelectSubjectType === "person" && !preSelectSubjectId)) && (
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1">
                   <label className="text-xs font-medium">Titul pred menom</label>
