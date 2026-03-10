@@ -1937,7 +1937,7 @@ function WorkflowDiagram({ folderDefs, row2FolderDefs, activeFolder, onFolderCli
         mkHArrow(8, 9, '#ef4444'),
         mkVArrow(9, 4, '#ef4444'),
         mkVArrow(8, 3, '#a1a1aa', -16),
-        mkVArrow(3, 8, '#ef4444', 16),
+        mkVArrow(3, 8, '#c2410c', 16),
         mkVArrow(6, 1, '#a1a1aa'),
         mkHArrow(1, 2, '#a1a1aa'),
         mkHArrow(1, 0, '#a1a1aa'),
@@ -1972,7 +1972,7 @@ function WorkflowDiagram({ folderDefs, row2FolderDefs, activeFolder, onFolderCli
           <path d={blackPath} fill="#71717a" fillOpacity="0.18" stroke="#71717a" strokeWidth="1.5" strokeOpacity="0.35" strokeLinejoin="round" />
         )}
         {orangePath && (
-          <path d={orangePath} fill="#ca8a04" fillOpacity="0.18" stroke="#ca8a04" strokeWidth="1.5" strokeOpacity="0.4" strokeLinejoin="round" />
+          <path d={orangePath} fill="#c2410c" fillOpacity="0.18" stroke="#c2410c" strokeWidth="1.5" strokeOpacity="0.4" strokeLinejoin="round" />
         )}
         {arrows.map((a, i) => (
           <path key={`arrow-${i}`} d={a.d} fill={a.color} fillOpacity="0.45" stroke={a.color} strokeWidth="0.5" strokeOpacity="0.6" strokeLinejoin="round" filter="url(#arrow-shadow)" />
