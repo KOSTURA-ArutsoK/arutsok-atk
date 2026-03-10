@@ -1788,16 +1788,18 @@ function WorkflowDiagram({ folderDefs, row2FolderDefs, activeFolder, onFolderCli
       const rc = 8;
       const globalTop = Math.min(f[0].t, f[4].t) - pad;
       const globalBottom = Math.max(f[5].b, f[6].b, f[7].b, f[8].b, f[9].b) + pad;
+      const row1Bottom = Math.max(f[0].b, f[1].b, f[2].b, f[3].b, f[4].b);
+      const row2Top = Math.min(f[5].t, f[6].t, f[7].t, f[8].t, f[9].t);
+      const stepY = (row1Bottom + row2Top) / 2;
 
       const left = Math.min(f[0].l, f[5].l) - pad;
       const right1 = f[0].r + pad;
-      const cornerY = f[5].t - pad;
       const mid6x = (f[6].l + f[6].r) / 2;
 
       const bluePath = [
         `M ${left + rc},${globalTop}`,
         `H ${right1 - rc} A ${rc},${rc} 0 0 1 ${right1},${globalTop + rc}`,
-        `V ${cornerY - rc} A ${rc},${rc} 0 0 0 ${right1 + rc},${cornerY}`,
+        `V ${stepY - rc} A ${rc},${rc} 0 0 0 ${right1 + rc},${stepY}`,
         `H ${mid6x}`,
         `V ${globalBottom}`,
         `H ${left + rc} A ${rc},${rc} 0 0 1 ${left},${globalBottom - rc}`,
@@ -1807,18 +1809,15 @@ function WorkflowDiagram({ folderDefs, row2FolderDefs, activeFolder, onFolderCli
       setBlueLPath(bluePath);
 
       const rightRed = Math.max(f[4].r, f[9].r) + pad;
-      const bottomRedR1 = f[4].b + pad;
-      const topRedR2 = Math.min(f[7].t, f[8].t, f[9].t) - pad;
       const redLeftR1 = f[4].l - pad;
       const redLeftR2 = mid6x;
-      const innerY = (bottomRedR1 + topRedR2) / 2;
       const combinedRedPath = [
         `M ${redLeftR1 + rc},${globalTop}`,
         `H ${rightRed - rc} A ${rc},${rc} 0 0 1 ${rightRed},${globalTop + rc}`,
         `V ${globalBottom - rc} A ${rc},${rc} 0 0 1 ${rightRed - rc},${globalBottom}`,
         `H ${redLeftR2 + rc} A ${rc},${rc} 0 0 1 ${redLeftR2},${globalBottom - rc}`,
-        `V ${innerY + rc} A ${rc},${rc} 0 0 1 ${redLeftR2 + rc},${innerY}`,
-        `H ${redLeftR1 + rc} A ${rc},${rc} 0 0 0 ${redLeftR1},${innerY - rc}`,
+        `V ${stepY + rc} A ${rc},${rc} 0 0 1 ${redLeftR2 + rc},${stepY}`,
+        `H ${redLeftR1 + rc} A ${rc},${rc} 0 0 0 ${redLeftR1},${stepY - rc}`,
         `V ${globalTop + rc} A ${rc},${rc} 0 0 1 ${redLeftR1 + rc},${globalTop}`,
         'Z',
       ].join(' ');
