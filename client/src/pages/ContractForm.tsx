@@ -793,11 +793,9 @@ export default function ContractForm() {
   const [contractNumber, setContractNumber] = useState("");
   const [proposalNumber, setProposalNumber] = useState("");
   const [subjectId, setSubjectId] = useState<string>("");
-  const [expandedStatusLogs, setExpandedStatusLogs] = useState<Set<number>>(new Set());
   const [subjectAccordionOpen, setSubjectAccordionOpen] = useState(false);
   const [vseobecneAccordionOpen, setVseobecneAccordionOpen] = useState(false);
   const [udajeAccordionOpen, setUdajeAccordionOpen] = useState(false);
-  const [historiaAccordionOpen, setHistoriaAccordionOpen] = useState(true);
   const [lifecycleAccordionOpen, setLifecycleAccordionOpen] = useState(true);
   const [partnerId, setPartnerId] = useState<string>("");
   const [statusId, setStatusId] = useState<string>("");
@@ -2885,141 +2883,6 @@ export default function ContractForm() {
                 </Card>
               )}
 
-              <Card
-                className={`cursor-pointer transition-all hover:shadow-md ${historiaAccordionOpen ? "ring-1 ring-border/40" : ""}`}
-                onClick={() => setHistoriaAccordionOpen(prev => !prev)}
-                data-testid="summary-historia-accordion"
-              >
-                <CardContent className="p-4">
-                  <div className="flex items-center justify-between">
-                    <h3 className="text-sm font-semibold flex items-center gap-1.5">
-                      <History className="w-4 h-4" />
-                      História stavov
-                    </h3>
-                    <div className="flex items-center gap-2">
-                      <Badge variant="secondary" className="text-[10px] h-4">{(statusChangeLogs || []).length} {(statusChangeLogs || []).length === 1 ? "zmena" : (statusChangeLogs || []).length < 5 ? "zmeny" : "zmien"}</Badge>
-                      <ChevronRight className={`w-4 h-4 text-muted-foreground transition-transform ${historiaAccordionOpen ? "rotate-90" : ""}`} />
-                    </div>
-                  </div>
-
-                  {historiaAccordionOpen && (
-                    <div className="mt-3 pt-3 border-t border-border/50" onClick={e => e.stopPropagation()}>
-                {(!statusChangeLogs || statusChangeLogs.length === 0) && contractId && (
-                  <div className="text-center py-6" data-testid="text-no-status-history">
-                    <History className="w-8 h-8 text-muted-foreground/30 mx-auto mb-2" />
-                    <p className="text-sm text-muted-foreground">Zatiaľ žiadne zmeny stavov</p>
-                  </div>
-                )}
-                {statusChangeLogs && statusChangeLogs.length > 0 && (
-                  <div className="relative pl-6 space-y-3">
-                    <div className="absolute left-[11px] top-2 bottom-2 w-0.5 bg-border" />
-                    {[...statusChangeLogs].reverse().map((log, idx) => {
-                      const logStatus = statuses?.find(s => s.id === log.newStatusId);
-                      const oldStatus = log.oldStatusId ? statuses?.find(s => s.id === log.oldStatusId) : null;
-                      const changedByUser = allAppUsers?.find(u => u.id === log.changedByUserId);
-                      const docs = (log.statusChangeDocuments as any[]) || [];
-                      const paramVals = (log.parameterValues as Record<string, string>) || {};
-                      const hasParamValues = Object.keys(paramVals).filter(k => paramVals[k]?.trim()).length > 0;
-                      const rowNumber = idx + 1;
-                      const isExpanded = expandedStatusLogs.has(log.id);
-                      const hasDetails = !!log.statusNote || hasParamValues || docs.length > 0 || !!oldStatus;
-
-                      return (
-                        <div key={log.id} className="relative" data-testid={`status-history-row-${log.id}`}>
-                          <div className="absolute -left-6 top-5 w-[22px] flex items-center justify-center">
-                            <div className="w-3 h-3 rounded-full border-2 border-background shrink-0" style={{ backgroundColor: logStatus?.color || "#6b7280" }} />
-                          </div>
-                          <Card
-                            className={`shadow-sm transition-all min-h-[56px] border-l-[3px] ${hasDetails ? "cursor-pointer hover:shadow-md" : ""}`}
-                            style={{ borderLeftColor: logStatus?.color || "#6b7280" }}
-                            onClick={() => hasDetails && setExpandedStatusLogs(prev => { const next = new Set(prev); next.has(log.id) ? next.delete(log.id) : next.add(log.id); return next; })}
-                            data-testid={`status-history-trigger-${log.id}`}
-                          >
-                            <CardContent className="p-4">
-                              <div className="flex items-center gap-2 flex-wrap">
-                                <Badge variant="outline" className="text-xs font-mono h-5 w-5 p-0 flex items-center justify-center shrink-0">{rowNumber}</Badge>
-                                <span className="font-semibold text-sm" style={{ color: logStatus?.color }} data-testid={`status-history-name-${log.id}`}>
-                                  {logStatus?.name || `Stav ${log.newStatusId}`}
-                                </span>
-                                {log.statusIteration && log.statusIteration > 1 && (
-                                  <Badge variant="secondary" className="text-[10px] h-4">×{log.statusIteration}</Badge>
-                                )}
-                                <div className="ml-auto flex items-center gap-2">
-                                  {docs.length > 0 && <Badge variant="secondary" className="text-[10px] h-4"><FileText className="w-2.5 h-2.5 mr-0.5" />{docs.length} {docs.length === 1 ? "dokument" : docs.length < 5 ? "dokumenty" : "dokumentov"}</Badge>}
-                                  {log.statusNote && <MessageSquare className="w-3 h-3 text-blue-400" />}
-                                  <span className="text-xs text-muted-foreground" data-testid={`status-history-date-${log.id}`}>
-                                    {log.changedAt ? formatDateTimeSlovak(log.changedAt) : "-"}
-                                  </span>
-                                  {hasDetails && (
-                                    <ChevronRight className={`w-3.5 h-3.5 text-muted-foreground transition-transform ${isExpanded ? "rotate-90" : ""}`} />
-                                  )}
-                                </div>
-                              </div>
-
-                              {isExpanded && (
-                                <div className="mt-3 pt-3 border-t border-border/50 space-y-3" onClick={e => e.stopPropagation()}>
-                                  <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
-                                    {oldStatus && (
-                                      <span data-testid={`status-history-old-${log.id}`}>
-                                        <span className="opacity-60">Z:</span> {oldStatus.name}
-                                      </span>
-                                    )}
-                                    <span data-testid={`status-history-user-${log.id}`}>
-                                      <span className="opacity-60">Zmenil:</span> {changedByUser ? `${changedByUser.firstName || ""} ${changedByUser.lastName || ""}`.trim() || changedByUser.username : `ID ${log.changedByUserId || "-"}`}
-                                    </span>
-                                    {log.visibleToClient && (
-                                      <Badge variant="outline" className="text-[10px] h-4 text-green-500 border-green-500/30">Viditeľné klientovi</Badge>
-                                    )}
-                                  </div>
-
-                                  {log.statusNote && (
-                                    <div className="flex gap-2 items-start">
-                                      <MessageSquare className="w-3.5 h-3.5 text-blue-400 mt-0.5 shrink-0" />
-                                      <p className="text-sm bg-muted/40 rounded-lg px-3 py-2 flex-1" data-testid={`status-history-note-${log.id}`}>{log.statusNote}</p>
-                                    </div>
-                                  )}
-
-                                  {hasParamValues && (
-                                    <div className="flex flex-wrap gap-1.5">
-                                      {Object.entries(paramVals).filter(([, val]) => val?.trim()).map(([key, val]) => (
-                                        <Badge key={key} variant="secondary" className="text-[10px] font-normal" data-testid={`status-history-param-${log.id}-${key}`}>
-                                          {key}: {val}
-                                        </Badge>
-                                      ))}
-                                    </div>
-                                  )}
-
-                                  {docs.length > 0 && (
-                                    <div className="flex flex-wrap gap-2">
-                                      {docs.map((doc: any, docIdx: number) => (
-                                        <a
-                                          key={docIdx}
-                                          href={doc.url}
-                                          target="_blank"
-                                          rel="noopener noreferrer"
-                                          className="inline-flex items-center gap-1.5 text-xs bg-muted/40 hover:bg-muted/60 rounded-lg px-3 py-1.5 transition-colors"
-                                          data-testid={`status-history-doc-${log.id}-${docIdx}`}
-                                          onClick={e => e.stopPropagation()}
-                                        >
-                                          <Paperclip className="w-3 h-3 shrink-0 text-amber-400" />
-                                          <span className="truncate max-w-[160px]">{doc.name || `Dokument ${docIdx + 1}`}</span>
-                                        </a>
-                                      ))}
-                                    </div>
-                                  )}
-                                </div>
-                              )}
-                            </CardContent>
-                          </Card>
-                        </div>
-                      );
-                    })}
-                      </div>
-                    )}
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
 
             </div>
           </div>
