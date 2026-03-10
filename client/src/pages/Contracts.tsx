@@ -2633,14 +2633,44 @@ export default function Contracts() {
   };
 
   function toggleRerouteSelect(id: number) {
-    setRerouteSelectedIds(prev => {
-      if (prev.includes(id)) return prev.filter(x => x !== id);
-      return [...prev, id];
-    });
+    if (activeFolder === 6) {
+      setRerouteSelectedIds(prev => {
+        if (prev.includes(id)) return prev.filter(x => x !== id);
+        if (prev.length >= 25) {
+          toast({ title: "Limit dosiahnutý", description: "Na jednu sprievodku je možné zaradiť maximálne 25 zmlúv.", variant: "destructive" });
+          return prev;
+        }
+        const clickedContract = phase6Contracts.find(c => c.id === id);
+        if (!clickedContract) return prev;
+        if (prev.length > 0) {
+          const firstSelected = phase6Contracts.find(c => c.id === prev[0]);
+          if (firstSelected && (firstSelected.partnerId !== clickedContract.partnerId || firstSelected.productId !== clickedContract.productId)) {
+            toast({ title: "Iný partner alebo produkt", description: "Na jednu sprievodku je možné zaradiť len zmluvy od jedného partnera a z jedného produktu.", variant: "destructive" });
+            return prev;
+          }
+        }
+        return [...prev, id];
+      });
+    } else {
+      setRerouteSelectedIds(prev => {
+        if (prev.includes(id)) return prev.filter(x => x !== id);
+        return [...prev, id];
+      });
+    }
   }
 
   function toggleRerouteSelectAll(list: Contract[]) {
-    if (rerouteSelectedIds.length === list.length && list.length > 0) {
+    if (activeFolder === 6) {
+      if (rerouteSelectedIds.length > 0) {
+        setRerouteSelectedIds([]);
+      } else {
+        const limited = list.slice(0, 25);
+        if (list.length > 25) {
+          toast({ title: "Limit dosiahnutý", description: `Vybraných prvých 25 z ${list.length} zmlúv. Na jednu sprievodku je možné zaradiť maximálne 25 zmlúv.`, variant: "destructive" });
+        }
+        setRerouteSelectedIds(limited.map(c => c.id));
+      }
+    } else if (rerouteSelectedIds.length === list.length && list.length > 0) {
       setRerouteSelectedIds([]);
     } else {
       setRerouteSelectedIds(list.map(c => c.id));
@@ -4068,10 +4098,10 @@ export default function Contracts() {
                     <p className="text-xs text-muted-foreground flex-1">{phaseLabels[phaseId]}</p>
                     {phaseId === 6 && rerouteSelectedIds.length > 0 && activeFolder === 6 && (
                       <div className="flex items-center gap-2">
-                        <span className="text-xs text-muted-foreground">Vybraných: <span className="font-bold text-foreground">{rerouteSelectedIds.length}</span></span>
+                        <span className="text-xs text-muted-foreground">Vybraných: <span className="font-bold text-foreground">{rerouteSelectedIds.length}/25</span></span>
                         <Button size="sm" className="bg-green-600 hover:bg-green-700 text-white" onClick={() => createProcessingSupiskaMutation.mutate(rerouteSelectedIds)} disabled={createProcessingSupiskaMutation.isPending} data-testid="button-create-supiska">
                           {createProcessingSupiskaMutation.isPending ? <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" /> : <ListChecks className="w-3.5 h-3.5 mr-1.5" />}
-                          Vytvoriť súpisku ({rerouteSelectedIds.length})
+                          Vytvoriť súpisku ({rerouteSelectedIds.length}/25)
                         </Button>
                       </div>
                     )}
