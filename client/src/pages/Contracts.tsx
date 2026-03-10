@@ -1804,29 +1804,28 @@ function WorkflowDiagram({ folderDefs, row2FolderDefs, activeFolder, onFolderCli
       ].join(' ');
       setBlueLPath(bluePath);
 
-      const topRed = Math.min(f[7].t, f[8].t, f[9].t) - pad;
-      const rightRed = f[9].r + pad;
-      const bottomRed = Math.max(f[7].b, f[8].b, f[9].b) + pad;
+      const topRedR2 = Math.min(f[7].t, f[8].t, f[9].t) - pad;
+      const rightRedR2 = f[9].r + pad;
+      const bottomRedR2 = Math.max(f[7].b, f[8].b, f[9].b) + pad;
+      const topRedR1 = f[4].t - pad;
+      const rightRedR1 = f[4].r + pad;
+      const bottomRedR1 = f[4].b + pad;
       const rPath = [
-        `M ${mid6x},${topRed}`,
-        `H ${rightRed - rc} A ${rc},${rc} 0 0 1 ${rightRed},${topRed + rc}`,
-        `V ${bottomRed - rc} A ${rc},${rc} 0 0 1 ${rightRed - rc},${bottomRed}`,
-        `H ${mid6x + rc} A ${rc},${rc} 0 0 1 ${mid6x},${bottomRed - rc}`,
-        `V ${topRed}`,
+        `M ${mid6x},${topRedR2}`,
+        `H ${rightRedR2 - rc} A ${rc},${rc} 0 0 1 ${rightRedR2},${topRedR2 + rc}`,
+        `V ${bottomRedR2 - rc} A ${rc},${rc} 0 0 1 ${rightRedR2 - rc},${bottomRedR2}`,
+        `H ${mid6x + rc} A ${rc},${rc} 0 0 1 ${mid6x},${bottomRedR2 - rc}`,
+        `V ${topRedR2}`,
         'Z',
       ].join(' ');
       setRedPath(rPath);
 
-      const greenTop = f[4].t - pad;
-      const greenRight = f[4].r + pad;
-      const greenBottom = f[4].b + pad;
-      const greenLeft = f[4].l - pad;
       const gPath = [
-        `M ${greenLeft + rc},${greenTop}`,
-        `H ${greenRight - rc} A ${rc},${rc} 0 0 1 ${greenRight},${greenTop + rc}`,
-        `V ${greenBottom - rc} A ${rc},${rc} 0 0 1 ${greenRight - rc},${greenBottom}`,
-        `H ${greenLeft + rc} A ${rc},${rc} 0 0 1 ${greenLeft},${greenBottom - rc}`,
-        `V ${greenTop + rc} A ${rc},${rc} 0 0 1 ${greenLeft + rc},${greenTop}`,
+        `M ${f[4].l - pad + rc},${topRedR1}`,
+        `H ${rightRedR1 - rc} A ${rc},${rc} 0 0 1 ${rightRedR1},${topRedR1 + rc}`,
+        `V ${bottomRedR1 - rc} A ${rc},${rc} 0 0 1 ${rightRedR1 - rc},${bottomRedR1}`,
+        `H ${f[4].l - pad + rc} A ${rc},${rc} 0 0 1 ${f[4].l - pad},${bottomRedR1 - rc}`,
+        `V ${topRedR1 + rc} A ${rc},${rc} 0 0 1 ${f[4].l - pad + rc},${topRedR1}`,
         'Z',
       ].join(' ');
       setGreenPath(gPath);
@@ -1926,7 +1925,7 @@ function WorkflowDiagram({ folderDefs, row2FolderDefs, activeFolder, onFolderCli
         mkHArrow(6, 7, '#ef4444'),
         mkHArrow(7, 8, '#ef4444'),
         mkHArrow(8, 9, '#ef4444'),
-        mkDArrow(9, 4, '#8b5cf6'),
+        mkDArrow(9, 4, '#ef4444'),
         mkVArrow(6, 1, '#a1a1aa'),
         mkHArrow(1, 2, '#a1a1aa'),
         mkHArrow(1, 0, '#a1a1aa'),
@@ -1955,7 +1954,7 @@ function WorkflowDiagram({ folderDefs, row2FolderDefs, activeFolder, onFolderCli
           <path d={redPath} fill="#ef4444" fillOpacity="0.12" stroke="#ef4444" strokeWidth="1.5" strokeOpacity="0.35" strokeLinejoin="round" />
         )}
         {greenPath && (
-          <path d={greenPath} fill="#166534" fillOpacity="0.2" stroke="#166534" strokeWidth="1.5" strokeOpacity="0.5" strokeLinejoin="round" />
+          <path d={greenPath} fill="#ef4444" fillOpacity="0.12" stroke="#ef4444" strokeWidth="1.5" strokeOpacity="0.35" strokeLinejoin="round" />
         )}
         {blackPath && (
           <path d={blackPath} fill="#ffffff" fillOpacity="0.06" stroke="#a1a1aa" strokeWidth="1.5" strokeOpacity="0.4" strokeLinejoin="round" />
@@ -2792,7 +2791,7 @@ export default function Contracts() {
     { id: 3, label: "Neprijaté zmluvy – výhrady", icon: XCircle, color: "text-red-500", bgColor: "bg-red-500/15", count: activeRejected.length, tooltip: "Zmluvy, ktoré boli vrátené s výhradami od obchodného partnera alebo centrály. Vyžadujú opravu a opätovné odoslanie." },
     { id: 4, label: "Archív zmlúv (s výhradami)", icon: Archive, color: "text-muted-foreground", bgColor: "bg-muted/30", count: activeArchived.length, tooltip: "Archivované zmluvy s výhradami, ktoré neboli opravené alebo boli trvalo zamietnuté." },
     { id: 7, label: "Interné intervencie", icon: AlertTriangle, color: "text-orange-500", bgColor: "bg-orange-500/15", count: phase7Contracts.length, tooltip: "Zmluvy vyžadujúce interný zásah — napr. chýbajúce dokumenty, nezrovnalosti v údajoch alebo eskalácia." },
-    { id: 10, label: "Potvrdiť prijatie obch. partnerom", icon: Award, color: "text-purple-500", bgColor: "bg-purple-500/15", count: phase10Supisky.reduce((sum: number, s: any) => sum + (s.contracts?.length || 0), 0) || phase10Contracts.length, tooltip: "Zmluvy doručené obchodnému partnerovi — čakajú na potvrdenie prijatia." },
+    { id: 10, label: "Potvrdiť prijatie obch. partnerom", icon: Award, color: "text-red-500", bgColor: "bg-red-500/15", count: phase10Supisky.reduce((sum: number, s: any) => sum + (s.contracts?.length || 0), 0) || phase10Contracts.length, tooltip: "Zmluvy doručené obchodnému partnerovi — čakajú na potvrdenie prijatia." },
   ];
 
   const row2FolderDefs: FolderDef[] = [
