@@ -3417,7 +3417,16 @@ export default function Contracts() {
                           setPreSelectIco((s.details as any)?.ico || "");
                           setPreSelectBirthNumber(s.birthNumber || "");
                           setPreSelectShowNameFields(true);
-                          setTimeout(() => refStep2Confirm.current?.focus(), 50);
+                          setTimeout(() => {
+                            const sType = s.type as string;
+                            if (sType === "szco" || sType === "company") {
+                              const el = document.querySelector('[data-testid="input-preselect-business-name"]') as HTMLElement;
+                              if (el) { el.focus(); return; }
+                            }
+                            const el = document.querySelector('[data-testid="input-preselect-title-before"]') as HTMLElement;
+                            if (el) { el.focus(); return; }
+                            refStep2Confirm.current?.focus();
+                          }, 80);
                         } else if (e.key === "ArrowDown") {
                           e.preventDefault();
                           const next = (e.currentTarget as HTMLElement).nextElementSibling as HTMLElement;
@@ -3466,6 +3475,13 @@ export default function Contracts() {
                     onChange={(e) => setPreSelectBusinessName(e.target.value)}
                     placeholder={preSelectSubjectType === "szco" ? "Nazov zivnosti" : "Nazov spolocnosti"}
                     readOnly={!!preSelectSubjectId}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        e.preventDefault();
+                        const el = document.querySelector('[data-testid="input-preselect-ico"]') as HTMLElement;
+                        if (el) el.focus();
+                      }
+                    }}
                     data-testid="input-preselect-business-name"
                   />
                 </div>
@@ -3478,7 +3494,7 @@ export default function Contracts() {
                     placeholder="ICO"
                     readOnly={!!preSelectSubjectId}
                     onKeyDown={(e) => {
-                      if (e.key === "Enter" && !preSelectSubjectId) {
+                      if (e.key === "Enter") {
                         e.preventDefault();
                         setPreSelectShowNameFields(true);
                         setTimeout(() => refTitleBeforeInput.current?.focus(), 50);
@@ -3501,6 +3517,13 @@ export default function Contracts() {
                     onChange={(e) => setPreSelectTitleBefore(e.target.value)}
                     placeholder="napr. Ing."
                     readOnly={!!preSelectSubjectId}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        e.preventDefault();
+                        const el = document.querySelector('[data-testid="input-preselect-first-name"]') as HTMLElement;
+                        if (el) el.focus();
+                      }
+                    }}
                     data-testid="input-preselect-title-before"
                   />
                 </div>
@@ -3511,6 +3534,13 @@ export default function Contracts() {
                     onChange={(e) => setPreSelectFirstName(e.target.value)}
                     placeholder="Meno"
                     readOnly={!!preSelectSubjectId}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        e.preventDefault();
+                        const el = document.querySelector('[data-testid="input-preselect-last-name"]') as HTMLElement;
+                        if (el) el.focus();
+                      }
+                    }}
                     data-testid="input-preselect-first-name"
                   />
                 </div>
@@ -3521,6 +3551,13 @@ export default function Contracts() {
                     onChange={(e) => setPreSelectLastName(e.target.value)}
                     placeholder="Priezvisko"
                     readOnly={!!preSelectSubjectId}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        e.preventDefault();
+                        const el = document.querySelector('[data-testid="input-preselect-title-after"]') as HTMLElement;
+                        if (el) el.focus();
+                      }
+                    }}
                     data-testid="input-preselect-last-name"
                   />
                 </div>
@@ -3531,6 +3568,12 @@ export default function Contracts() {
                     onChange={(e) => setPreSelectTitleAfter(e.target.value)}
                     placeholder="napr. PhD."
                     readOnly={!!preSelectSubjectId}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        e.preventDefault();
+                        refStep2Confirm.current?.focus();
+                      }
+                    }}
                     data-testid="input-preselect-title-after"
                   />
                 </div>
