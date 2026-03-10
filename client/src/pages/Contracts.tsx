@@ -1998,16 +1998,16 @@ function WorkflowDiagram({ folderDefs, row2FolderDefs, activeFolder, onFolderCli
                       </TooltipContent>
                     </Tooltip>
                   )}
-                  <div className="flex flex-col items-center p-2 text-center h-full relative">
-                    {[4, 7, 10].includes(f.id) && (
-                      <div className="absolute left-1 top-2">
-                        <svg width="28" height="28" viewBox="0 0 28 28">
-                          <path d="M6,22 L10,18 L10,10 L18,10 L18,18 L22,22 L22,6 L6,6 Z" fill="black" transform="rotate(-45 14 14)" />
+                  <div className="flex flex-col items-center p-2 text-center h-full">
+                    <div className="flex items-center gap-0.5 shrink-0">
+                      {[4, 7, 10].includes(f.id) && (
+                        <svg width="28" height="28" viewBox="0 0 28 28" className="shrink-0">
+                          <polygon points="4,24 14,4 24,24 18,24 14,16 10,24" fill="black" transform="rotate(45 14 14)" />
                         </svg>
+                      )}
+                      <div className={`w-8 h-8 rounded-md ${f.bgColor} flex items-center justify-center shrink-0`}>
+                        <FIcon className={`w-4 h-4 ${f.color}`} />
                       </div>
-                    )}
-                    <div className={`w-8 h-8 rounded-md ${f.bgColor} flex items-center justify-center shrink-0`}>
-                      <FIcon className={`w-4 h-4 ${f.color}`} />
                     </div>
                     <div className="flex-1 flex items-center">
                       <p className="text-[9px] font-semibold leading-tight">{f.label}</p>
@@ -2038,16 +2038,16 @@ function WorkflowDiagram({ folderDefs, row2FolderDefs, activeFolder, onFolderCli
                       </TooltipContent>
                     </Tooltip>
                   )}
-                  <div className="flex flex-col items-center p-2 text-center h-full relative">
-                    {[4, 7, 10].includes(f.id) && (
-                      <div className="absolute left-1 top-2">
-                        <svg width="28" height="28" viewBox="0 0 28 28">
-                          <path d="M6,22 L10,18 L10,10 L18,10 L18,18 L22,22 L22,6 L6,6 Z" fill="black" transform="rotate(-45 14 14)" />
+                  <div className="flex flex-col items-center p-2 text-center h-full">
+                    <div className="flex items-center gap-0.5 shrink-0">
+                      {[4, 7, 10].includes(f.id) && (
+                        <svg width="28" height="28" viewBox="0 0 28 28" className="shrink-0">
+                          <polygon points="4,24 14,4 24,24 18,24 14,16 10,24" fill="black" transform="rotate(45 14 14)" />
                         </svg>
+                      )}
+                      <div className={`w-8 h-8 rounded-md ${f.bgColor} flex items-center justify-center shrink-0`}>
+                        <FIcon className={`w-4 h-4 ${f.color}`} />
                       </div>
-                    )}
-                    <div className={`w-8 h-8 rounded-md ${f.bgColor} flex items-center justify-center shrink-0`}>
-                      <FIcon className={`w-4 h-4 ${f.color}`} />
                     </div>
                     <div className="flex-1 flex items-center">
                       <p className="text-[9px] font-semibold leading-tight">{f.label}</p>
