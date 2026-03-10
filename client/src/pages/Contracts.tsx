@@ -3842,7 +3842,7 @@ export default function Contracts() {
                             data-testid={`button-approve-sprievodka-${group.inventoryId}`}
                           >
                             {approveSprievodkaMutation.isPending ? <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" /> : <Send className="w-3.5 h-3.5 mr-1.5" />}
-                            Schváliť a odoslať
+                            Schváliť a odoslať sprievodku do centrály
                           </Button>
                           <span id={`accept-btn-wrapper-${group.inventoryId}`} style={{ display: checkedIds.size > 0 ? 'inline' : 'none' }}>
                             <Button size="sm" onClick={(e) => { e.stopPropagation(); handleAccept(group.inventoryId); }} disabled={isAccepting} data-testid={`button-accept-${group.inventoryId}`}>
@@ -3955,7 +3955,7 @@ export default function Contracts() {
                     ) : (
                       <Send className="w-4 h-4 mr-2" />
                     )}
-                    Schváliť a odoslať ({rerouteSelectedIds.length})
+                    Schváliť a odoslať sprievodku do centrály ({rerouteSelectedIds.length})
                   </Button>
                 </div>
               </div>
