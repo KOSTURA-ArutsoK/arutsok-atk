@@ -1031,6 +1031,17 @@ export default function ContractForm() {
   });
   const { data: templates } = useQuery<ContractTemplate[]>({ queryKey: ["/api/contract-templates"] });
   const { data: inventories } = useQuery<ContractInventory[]>({ queryKey: ["/api/contract-inventories"] });
+
+  const lockedBySupiskaId = existingContract?.lockedBySupiskaId;
+  const { data: linkedSupiska } = useQuery<any>({
+    queryKey: ["/api/supisky", lockedBySupiskaId],
+    queryFn: async () => {
+      const res = await fetch(`/api/supisky/${lockedBySupiskaId}`, { credentials: "include" });
+      if (!res.ok) return null;
+      return res.json();
+    },
+    enabled: !!lockedBySupiskaId,
+  });
   const { data: contractSectors } = useQuery<Sector[]>({ queryKey: ["/api/sectors"] });
 
   const { data: allSPForEdit } = useQuery<SectorProduct[]>({ queryKey: ["/api/sector-products"] });
@@ -1687,9 +1698,9 @@ export default function ContractForm() {
                 </CompactField>
                 <CompactField label="Súpiska - Odovzdávací protokol">
                   <Input
-                    value={inventoryId ? (inventories?.find(i => i.id.toString() === inventoryId)?.name || "") : ""}
+                    value={linkedSupiska?.supId || "Nepridelené systémom"}
                     readOnly
-                    className="bg-muted/50 cursor-default"
+                    className="bg-muted/50 cursor-default font-mono"
                     data-testid="input-supiska-name"
                   />
                 </CompactField>
@@ -2524,8 +2535,8 @@ export default function ContractForm() {
                             </div>
                           </CompactField>
                           <CompactField label="Súpiska - Odovzdávací protokol">
-                            <div className="flex items-center h-9 px-3 border rounded-md bg-muted/50 text-sm cursor-default" data-testid="summary-supiska">
-                              {inventoryId ? (inventories?.find(i => i.id.toString() === inventoryId)?.name || "") : ""}
+                            <div className="flex items-center h-9 px-3 border rounded-md bg-muted/50 text-sm cursor-default font-mono" data-testid="summary-supiska">
+                              {linkedSupiska?.supId || "Nepridelené systémom"}
                             </div>
                           </CompactField>
                         </div>
