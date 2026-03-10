@@ -2014,7 +2014,7 @@ function WorkflowDiagram({ folderDefs, row2FolderDefs, activeFolder, onFolderCli
                   )}
                   <div className="flex flex-col items-center p-2 text-center h-full">
                     <div className="flex items-center justify-center gap-1 shrink-0">
-                      {[7, 10].includes(f.id) ? (
+                      {[4, 7, 10].includes(f.id) ? (
                         <ArrowUpRight className="w-7 h-7 text-foreground shrink-0 fill-current" strokeWidth={6} />
                       ) : (
                         <div className="w-7 h-7 shrink-0" />
@@ -2055,7 +2055,7 @@ function WorkflowDiagram({ folderDefs, row2FolderDefs, activeFolder, onFolderCli
                   )}
                   <div className="flex flex-col items-center p-2 text-center h-full">
                     <div className="flex items-center justify-center gap-1 shrink-0">
-                      {[7, 10].includes(f.id) ? (
+                      {[4, 7, 10].includes(f.id) ? (
                         <ArrowUpRight className="w-7 h-7 text-foreground shrink-0 fill-current" strokeWidth={6} />
                       ) : (
                         <div className="w-7 h-7 shrink-0" />
