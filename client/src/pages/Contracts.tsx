@@ -2626,9 +2626,9 @@ export default function Contracts() {
 
   const REROUTE_CONFIG: Record<string, { targetPhase: number; targetLabel: string }> = {
     neprijate: { targetPhase: 2, targetLabel: "Odoslané na sprievodke (pôvodné ID)" },
-    archiv: { targetPhase: 6, targetLabel: "Kontrakt v spracovaní" },
+    archiv: { targetPhase: 6, targetLabel: "Roztriedenie kontraktov" },
     spracovanie: { targetPhase: 8, targetLabel: "Pripravené na odoslanie" },
-    intervencia: { targetPhase: 6, targetLabel: "Kontrakt v spracovaní" },
+    intervencia: { targetPhase: 6, targetLabel: "Roztriedenie kontraktov" },
     dokoncit: { targetPhase: 0, targetLabel: "Dokončené – vypadnutie zo spracovania" },
   };
 
@@ -2838,7 +2838,7 @@ export default function Contracts() {
   const row2FolderDefs: FolderDef[] = [
     { id: 2, label: "Odoslať sprievodku do centrály", icon: Send, color: "text-blue-500", bgColor: "bg-blue-500/15", count: activeDispatched.length, tooltip: "Zmluvy zaradené do sprievodky a odoslané do centrály spoločnosti na spracovanie." },
     { id: 5, label: "Odoslané sprievodky a prijatie do centrály", icon: CheckCircle2, color: "text-green-500", bgColor: "bg-green-500/15", count: activeAccepted.length, tooltip: "Zmluvy prijaté centrálou partnera. Čakajú na spracovanie a evidenciu v systéme partnera." },
-    { id: 6, label: "Kontrakt v spracovaní", icon: LayoutGrid, color: "text-cyan-500", bgColor: "bg-cyan-500/15", count: phase6Contracts.length, tooltip: "Zmluvy aktívne spracovávané centrálou — kontrola údajov, validácia dokumentov a evidencia." },
+    { id: 6, label: "Roztriedenie kontraktov", icon: LayoutGrid, color: "text-cyan-500", bgColor: "bg-cyan-500/15", count: phase6Contracts.length, tooltip: "Zmluvy aktívne spracovávané centrálou — kontrola údajov, validácia dokumentov a evidencia." },
     { id: 8, label: "Pripravené na odoslanie", icon: ListChecks, color: "text-emerald-500", bgColor: "bg-emerald-500/15", count: phase8Contracts.length, tooltip: "Zmluvy kompletne spracované a pripravené na odoslanie späť obchodnému partnerovi." },
     { id: 9, label: "Odoslať obchodnému partnerovi", icon: Send, color: "text-indigo-500", bgColor: "bg-indigo-500/15", count: phase9Supisky.reduce((sum: number, s: any) => sum + (s.contracts?.length || 0), 0) || phase9Contracts.length, tooltip: "Zmluvy fyzicky odoslané obchodnému partnerovi. Čakajú na potvrdenie doručenia a prijatia." },
   ];
