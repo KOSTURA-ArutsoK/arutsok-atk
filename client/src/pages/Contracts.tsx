@@ -4061,12 +4061,12 @@ export default function Contracts() {
             9: "Zmluvy fyzicky odoslané obchodnému partnerovi. Čakajú na potvrdenie doručenia.",
             10: "Doručené partnerovi. Doplní sa dátum prijatia partnerom. Kontrakt definitívne vypadáva z dashboardu.",
           };
-          return [6, 7, 8, 9, 10].map(phaseId => {
-            const phaseContracts = phaseId === 6 ? phase6Contracts : phaseId === 7 ? phase7Contracts : phaseId === 8 ? phase8Contracts : phaseId === 9 ? phase9Contracts : phase10Contracts;
+          return [6, 7, 8, 9].map(phaseId => {
+            const phaseContracts = phaseId === 6 ? phase6Contracts : phaseId === 7 ? phase7Contracts : phaseId === 8 ? phase8Contracts : phase9Contracts;
             const phaseDef = row2FolderDefs.find(f => f.id === phaseId) || folderDefs.find(f => f.id === phaseId);
             const showCheckbox = [6, 7].includes(phaseId);
-            const isGroupedPhase = [8, 9, 10].includes(phaseId);
-            const supiskyForPhase = phaseId === 8 ? phase8Supisky : phaseId === 9 ? phase9Supisky : phaseId === 10 ? phase10Supisky : [];
+            const isGroupedPhase = [8, 9].includes(phaseId);
+            const supiskyForPhase = phaseId === 8 ? phase8Supisky : phaseId === 9 ? phase9Supisky : [];
 
             return (
               <div key={phaseId} id={`folder-${phaseId}-wrapper`} style={{ display: activeFolder === phaseId ? 'block' : 'none' }}>
@@ -4126,7 +4126,7 @@ export default function Contracts() {
                                   {(phaseId === 8 || phaseId === 9) && sup.status === "Odoslana" && (
                                     <Badge variant="outline" className="text-indigo-400 border-indigo-400/30">Odoslaná</Badge>
                                   )}
-                                  {(phaseId === 9 || phaseId === 10) && sup.status === "Odoslana" && sup.status !== "Prijata" && (
+                                  {phaseId === 9 && sup.status === "Odoslana" && sup.status !== "Prijata" && (
                                     <Button
                                       size="sm"
                                       variant="default"
@@ -4137,7 +4137,7 @@ export default function Contracts() {
                                       <Award className="w-3 h-3 mr-1" />Potvrdiť prijatie
                                     </Button>
                                   )}
-                                  {(phaseId === 9 || phaseId === 10) && sup.status === "Prijata" && (
+                                  {phaseId === 9 && sup.status === "Prijata" && (
                                     <Badge variant="outline" className="text-purple-400 border-purple-400/30" data-testid={`badge-received-supiska-${sup.id}`}>
                                       <Award className="w-3 h-3 mr-1" />Prijatá
                                     </Badge>
@@ -4183,19 +4183,23 @@ export default function Contracts() {
                       </Button>
                     </div>
                   )}
-                  {false && phaseId === 10 && rerouteSelectedIds.length > 0 && activeFolder === 10 && (
-                    <div className="flex items-center justify-between p-3 border-t bg-purple-500/5">
-                      <span className="text-sm text-muted-foreground">Vybraných: <span className="font-bold text-foreground">{rerouteSelectedIds.length}</span></span>
-                      <Button variant="default" className="bg-purple-600 hover:bg-purple-700 text-white" onClick={() => handleReroute("dokoncit")} data-testid="button-dokoncit-spracovanie-old">
-                        <Check className="w-4 h-4 mr-2" />Dokončiť spracovanie ({rerouteSelectedIds.length})
-                      </Button>
-                    </div>
-                  )}
                 </Card>
               </div>
             );
           });
         })()}
+
+        <div id="folder-10-wrapper" style={{ display: activeFolder === 10 ? 'block' : 'none' }}>
+          <Card data-testid="folder-phase-10">
+            <div className="flex items-center gap-3 p-3 border-b flex-wrap">
+              <Award className="w-4 h-4 text-red-500 shrink-0" />
+              <p className="text-xs text-muted-foreground flex-1">Doručené partnerovi. Doplní sa dátum prijatia partnerom. Kontrakt definitívne vypadáva z dashboardu.</p>
+            </div>
+            <CardContent className="p-0">
+              <p className="text-sm text-muted-foreground text-center py-8" data-testid="text-no-phase-10">Pripravuje sa...</p>
+            </CardContent>
+          </Card>
+        </div>
 
         <Dialog open={sprievodkaDialogOpen} onOpenChange={setSprievodkaDialogOpen}>
           <DialogContent size="sm">
