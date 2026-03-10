@@ -3363,6 +3363,13 @@ export default function Contracts() {
                     setPreSelectSubjectSearch(val);
                     setPreSelectSubjectId("");
                   }}
+                  onKeyDown={(e) => {
+                    if (e.key === "Tab" && preSelectSubjectSearch.trim() && preSelectFilteredSubjects.length > 0) {
+                      e.preventDefault();
+                      const firstRow = document.querySelector('[data-testid^="row-preselect-subject-"]') as HTMLElement;
+                      if (firstRow) firstRow.focus();
+                    }
+                  }}
                   className="pl-9"
                   data-testid="input-preselect-subject-search"
                 />
@@ -3383,7 +3390,8 @@ export default function Contracts() {
                   return (
                     <div
                       key={s.id}
-                      className={`flex items-center gap-3 px-3 py-2 cursor-pointer border-b last:border-b-0 hover-elevate ${isSelected ? "bg-primary/10" : ""}`}
+                      tabIndex={0}
+                      className={`flex items-center gap-3 px-3 py-2 cursor-pointer border-b last:border-b-0 hover-elevate ${isSelected ? "bg-primary/10" : ""} focus:bg-primary/10 focus:outline-none`}
                       onClick={() => {
                         setPreSelectSubjectId(s.id.toString());
                         setPreSelectSubjectType(s.type as "person" | "company" | "szco");
@@ -3395,6 +3403,34 @@ export default function Contracts() {
                         setPreSelectIco((s.details as any)?.ico || "");
                         setPreSelectBirthNumber(s.birthNumber || "");
                         setPreSelectShowNameFields(true);
+                      }}
+                      onKeyDown={(e) => {
+                        if (e.key === "Backspace" || e.key === "Enter") {
+                          e.preventDefault();
+                          setPreSelectSubjectId(s.id.toString());
+                          setPreSelectSubjectType(s.type as "person" | "company" | "szco");
+                          setPreSelectTitleBefore((s as any).titleBefore || "");
+                          setPreSelectFirstName(s.firstName || "");
+                          setPreSelectLastName(s.lastName || "");
+                          setPreSelectTitleAfter((s as any).titleAfter || "");
+                          setPreSelectBusinessName(s.companyName || "");
+                          setPreSelectIco((s.details as any)?.ico || "");
+                          setPreSelectBirthNumber(s.birthNumber || "");
+                          setPreSelectShowNameFields(true);
+                          setTimeout(() => refStep2Confirm.current?.focus(), 50);
+                        } else if (e.key === "ArrowDown") {
+                          e.preventDefault();
+                          const next = (e.currentTarget as HTMLElement).nextElementSibling as HTMLElement;
+                          if (next) next.focus();
+                        } else if (e.key === "ArrowUp") {
+                          e.preventDefault();
+                          const prev = (e.currentTarget as HTMLElement).previousElementSibling as HTMLElement;
+                          if (prev) prev.focus();
+                          else refSearchInput.current?.focus();
+                        } else if (e.key === "Escape") {
+                          e.preventDefault();
+                          refSearchInput.current?.focus();
+                        }
                       }}
                       data-testid={`row-preselect-subject-${s.id}`}
                     >
