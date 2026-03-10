@@ -1812,13 +1812,14 @@ function WorkflowDiagram({ folderDefs, row2FolderDefs, activeFolder, onFolderCli
       const bottomRedR2 = Math.max(f[7].b, f[8].b, f[9].b) + pad;
       const redLeftR1 = f[4].l - pad;
       const redLeftR2 = mid6x;
+      const innerCornerY = (bottomRedR1 + topRedR2) / 2;
       const combinedRedPath = [
         `M ${redLeftR1 + rc},${topRedR1}`,
         `H ${rightRed - rc} A ${rc},${rc} 0 0 1 ${rightRed},${topRedR1 + rc}`,
         `V ${bottomRedR2 - rc} A ${rc},${rc} 0 0 1 ${rightRed - rc},${bottomRedR2}`,
         `H ${redLeftR2 + rc} A ${rc},${rc} 0 0 1 ${redLeftR2},${bottomRedR2 - rc}`,
-        `V ${topRedR2 + rc} A ${rc},${rc} 0 0 1 ${redLeftR2 + rc},${topRedR2}`,
-        `H ${redLeftR1 - rc} A ${rc},${rc} 0 0 0 ${redLeftR1},${topRedR2 - rc}`,
+        `V ${innerCornerY + rc} A ${rc},${rc} 0 0 0 ${redLeftR2 + rc},${innerCornerY}`,
+        `H ${redLeftR1 + rc} A ${rc},${rc} 0 0 0 ${redLeftR1},${innerCornerY - rc}`,
         `V ${topRedR1 + rc} A ${rc},${rc} 0 0 1 ${redLeftR1 + rc},${topRedR1}`,
         'Z',
       ].join(' ');
