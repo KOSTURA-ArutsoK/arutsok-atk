@@ -1840,8 +1840,8 @@ function WorkflowDiagram({ folderDefs, row2FolderDefs, activeFolder, onFolderCli
       setBlackPath(bkPath);
 
       const aw = 6; const headW = 14; const headH = 10;
-      const mkVArrow = (fromIdx: number, toIdx: number, color: string) => {
-        const cx = (f[fromIdx].l + f[fromIdx].r) / 2;
+      const mkVArrow = (fromIdx: number, toIdx: number, color: string, offsetX = 0) => {
+        const cx = (f[fromIdx].l + f[fromIdx].r) / 2 + offsetX;
         const down = f[toIdx].t > f[fromIdx].b;
         const startY = down ? f[fromIdx].b + 2 : f[fromIdx].t - 2;
         const endY = down ? f[toIdx].t - 2 : f[toIdx].b + 2;
@@ -1921,8 +1921,8 @@ function WorkflowDiagram({ folderDefs, row2FolderDefs, activeFolder, onFolderCli
         mkHArrow(7, 8, '#ef4444'),
         mkHArrow(8, 9, '#ef4444'),
         mkDArrow(9, 4, '#ef4444'),
-        mkVArrow(8, 3, '#ef4444'),
-        mkVArrow(3, 8, '#ef4444'),
+        mkVArrow(8, 3, '#ef4444', -10),
+        mkVArrow(3, 8, '#ef4444', 10),
         mkVArrow(6, 1, '#a1a1aa'),
         mkHArrow(1, 2, '#a1a1aa'),
         mkHArrow(1, 0, '#a1a1aa'),
