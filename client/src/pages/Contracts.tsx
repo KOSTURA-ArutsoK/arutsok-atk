@@ -1999,10 +1999,11 @@ function WorkflowDiagram({ folderDefs, row2FolderDefs, activeFolder, onFolderCli
                     </Tooltip>
                   )}
                   <div className="flex flex-col items-center p-2 text-center h-full">
+                    {f.id === 4 && (
+                      <ArrowUp className="w-5 h-5 shrink-0 fill-current" style={{ color: '#a1a1aa' }} strokeWidth={6} />
+                    )}
                     <div className="flex items-center justify-center gap-1 shrink-0">
-                      {f.id === 4 ? (
-                        <div className="w-7 h-7 shrink-0" />
-                      ) : [7, 10].includes(f.id) ? (
+                      {[7, 10].includes(f.id) ? (
                         <ArrowUpRight className="w-7 h-7 text-foreground shrink-0 fill-current" strokeWidth={6} />
                       ) : (
                         <div className="w-7 h-7 shrink-0" />
@@ -2012,9 +2013,6 @@ function WorkflowDiagram({ folderDefs, row2FolderDefs, activeFolder, onFolderCli
                       </div>
                       <div className="w-7 h-7 shrink-0" />
                     </div>
-                    {f.id === 4 && (
-                      <ArrowUp className="w-5 h-5 shrink-0 fill-current" style={{ color: '#a1a1aa' }} strokeWidth={6} />
-                    )}
                     <div className="flex-1 flex items-center">
                       <p className="text-[9px] font-semibold leading-tight">{f.label}</p>
                     </div>
@@ -2045,10 +2043,11 @@ function WorkflowDiagram({ folderDefs, row2FolderDefs, activeFolder, onFolderCli
                     </Tooltip>
                   )}
                   <div className="flex flex-col items-center p-2 text-center h-full">
+                    {f.id === 4 && (
+                      <ArrowUp className="w-5 h-5 shrink-0 fill-current" style={{ color: '#a1a1aa' }} strokeWidth={6} />
+                    )}
                     <div className="flex items-center justify-center gap-1 shrink-0">
-                      {f.id === 4 ? (
-                        <div className="w-7 h-7 shrink-0" />
-                      ) : [7, 10].includes(f.id) ? (
+                      {[7, 10].includes(f.id) ? (
                         <ArrowUpRight className="w-7 h-7 text-foreground shrink-0 fill-current" strokeWidth={6} />
                       ) : (
                         <div className="w-7 h-7 shrink-0" />
@@ -2058,9 +2057,6 @@ function WorkflowDiagram({ folderDefs, row2FolderDefs, activeFolder, onFolderCli
                       </div>
                       <div className="w-7 h-7 shrink-0" />
                     </div>
-                    {f.id === 4 && (
-                      <ArrowUp className="w-5 h-5 shrink-0 fill-current" style={{ color: '#a1a1aa' }} strokeWidth={6} />
-                    )}
                     <div className="flex-1 flex items-center">
                       <p className="text-[9px] font-semibold leading-tight">{f.label}</p>
                     </div>
