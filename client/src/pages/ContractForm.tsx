@@ -355,6 +355,7 @@ type StatusTabContentProps = {
   contractSectionId: string;
   sectorProductId: string;
   statusChangeLogs: ContractStatusChangeLog[] | undefined;
+  lifecycleHistory: any[] | undefined;
 };
 
 const STATUS_HISTORY_FILTER_COLUMNS: SmartColumnDef[] = [
@@ -381,7 +382,7 @@ function StatusTabContent(props: StatusTabContentProps) {
     statusFormFileRef, statusFormSubmit,
     contractId, renamePrefix, setRenamePrefix, docUploadRef,
     contractSectorId, contractSectionId, sectorProductId,
-    statusChangeLogs,
+    statusChangeLogs, lifecycleHistory,
   } = props;
 
   const statusHistoryColumnVisibility = useColumnVisibility("contract-form-status-history", STATUS_HISTORY_COLUMNS);
@@ -734,6 +735,36 @@ function StatusTabContent(props: StatusTabContentProps) {
         </div>
         <div id="status-history-empty" style={{ display: !(contractId && statusChangeLogs && statusChangeLogs.length > 0) ? 'block' : 'none' }} />
       </div>
+
+      <div id="lifecycle-history-wrapper" data-testid="lifecycle-history-container">
+        <div style={{ display: contractId && lifecycleHistory && lifecycleHistory.length > 0 ? 'block' : 'none' }}>
+          <Card>
+            <CardContent className="p-3 space-y-2">
+              <h3 className="text-sm font-semibold">Priebeh spracovania zmluvy ({(lifecycleHistory || []).length})</h3>
+              <div className="max-h-[400px] overflow-y-auto">
+              <Table>
+                <TableHeader className="sticky top-0 z-10 bg-card">
+                  <TableRow>
+                    <TableHead>Fáza</TableHead>
+                    <TableHead>Dátum</TableHead>
+                    <TableHead>Poznámka</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {(lifecycleHistory || []).map((entry: any) => (
+                    <TableRow key={`lh-${entry.id}`} data-testid={`row-lifecycle-${entry.id}`}>
+                      <TableCell className="text-sm font-medium" data-testid={`text-lifecycle-phase-${entry.id}`}>{entry.phaseName}</TableCell>
+                      <TableCell className="text-sm text-muted-foreground" data-testid={`text-lifecycle-date-${entry.id}`}>{formatDateTimeSlovak(entry.changedAt)}</TableCell>
+                      <TableCell className="text-sm text-muted-foreground" data-testid={`text-lifecycle-note-${entry.id}`}>{entry.note || "—"}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
       </div>
     </div>
   );
@@ -930,6 +961,10 @@ export default function ContractForm() {
   });
   const { data: statusChangeLogs } = useQuery<ContractStatusChangeLog[]>({
     queryKey: ["/api/contracts", contractId, "status-change-logs"],
+    enabled: !!contractId,
+  });
+  const { data: lifecycleHistory } = useQuery<any[]>({
+    queryKey: ["/api/contracts", contractId, "lifecycle-history"],
     enabled: !!contractId,
   });
   const { data: statusFormParams, isLoading: statusFormParamsLoading } = useQuery<any[]>({
@@ -2415,6 +2450,7 @@ export default function ContractForm() {
               contractSectionId={contractSectionId}
               sectorProductId={sectorProductId}
               statusChangeLogs={statusChangeLogs}
+              lifecycleHistory={lifecycleHistory}
             />
           </div>
 

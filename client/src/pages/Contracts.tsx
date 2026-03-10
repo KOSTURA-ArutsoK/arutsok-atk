@@ -1770,7 +1770,7 @@ function WorkflowDiagram({ folderDefs, row2FolderDefs, activeFolder, onFolderCli
     if (!el) return;
     const compute = () => {
       const cards = Array.from(el.querySelectorAll('[data-phase-card]')) as HTMLElement[];
-      if (cards.length < 10) return;
+      if (cards.length < 9) { setPaths([]); setArrows([]); setBlueLPath(""); setRedPath(""); setBlackPath(""); setGreenPath(""); return; }
       const cR = el.getBoundingClientRect();
       const g = (c: HTMLElement) => {
         const r = c.getBoundingClientRect();
@@ -1785,19 +1785,18 @@ function WorkflowDiagram({ folderDefs, row2FolderDefs, activeFolder, onFolderCli
       };
       const f = cards.map(full);
       const rc = 8;
-      const left = Math.min(f[0].l, f[5].l) - pad;
+      const left = Math.min(f[0].l, f[4].l) - pad;
       const top1 = f[0].t - pad;
       const right1 = f[0].r + pad;
-      const cornerY = f[5].t - pad;
-      const mid7x = (f[6].l + f[6].r) / 2;
-      const right7 = f[6].r + pad;
-      const bottom = Math.max(f[5].b, f[6].b) + pad;
+      const cornerY = f[4].t - pad;
+      const mid5x = (f[5].l + f[5].r) / 2;
+      const bottom = Math.max(f[4].b, f[5].b) + pad;
 
       const bluePath = [
         `M ${left + rc},${top1}`,
         `H ${right1 - rc} A ${rc},${rc} 0 0 1 ${right1},${top1 + rc}`,
         `V ${cornerY - rc} A ${rc},${rc} 0 0 0 ${right1 + rc},${cornerY}`,
-        `H ${mid7x}`,
+        `H ${mid5x}`,
         `V ${bottom}`,
         `H ${left + rc} A ${rc},${rc} 0 0 1 ${left},${bottom - rc}`,
         `V ${top1 + rc} A ${rc},${rc} 0 0 1 ${left + rc},${top1}`,
@@ -1805,19 +1804,15 @@ function WorkflowDiagram({ folderDefs, row2FolderDefs, activeFolder, onFolderCli
       ].join(' ');
       setBlueLPath(bluePath);
 
-      const rightRed = Math.max(f[4].r, f[9].r) + pad;
-      const bottomRed = Math.max(f[7].b, f[8].b, f[9].b) + pad;
-      const topRed5 = f[4].t - pad;
-      const left5 = f[4].l - pad;
+      const topRed = Math.min(f[6].t, f[7].t, f[8].t) - pad;
+      const rightRed = f[8].r + pad;
+      const bottomRed = Math.max(f[6].b, f[7].b, f[8].b) + pad;
       const rPath = [
-        `M ${left5 + rc},${topRed5}`,
-        `H ${rightRed - rc} A ${rc},${rc} 0 0 1 ${rightRed},${topRed5 + rc}`,
+        `M ${mid5x},${topRed}`,
+        `H ${rightRed - rc} A ${rc},${rc} 0 0 1 ${rightRed},${topRed + rc}`,
         `V ${bottomRed - rc} A ${rc},${rc} 0 0 1 ${rightRed - rc},${bottomRed}`,
-        `H ${mid7x}`,
-        `V ${cornerY}`,
-        `H ${left5 - rc}`,
-        `A ${rc},${rc} 0 0 0 ${left5},${cornerY - rc}`,
-        `V ${topRed5 + rc} A ${rc},${rc} 0 0 1 ${left5 + rc},${topRed5}`,
+        `H ${mid5x + rc} A ${rc},${rc} 0 0 1 ${mid5x},${bottomRed - rc}`,
+        `V ${topRed}`,
         'Z',
       ].join(' ');
       setRedPath(rPath);
@@ -1914,13 +1909,12 @@ function WorkflowDiagram({ folderDefs, row2FolderDefs, activeFolder, onFolderCli
         };
       };
       setArrows([
-        mkVArrow(0, 5, '#3b82f6'),
-        mkHArrow(5, 6, '#3b82f6'),
+        mkVArrow(0, 4, '#3b82f6'),
+        mkHArrow(4, 5, '#3b82f6'),
+        mkHArrow(5, 6, '#ef4444'),
         mkHArrow(6, 7, '#ef4444'),
         mkHArrow(7, 8, '#ef4444'),
-        mkHArrow(8, 9, '#ef4444'),
-        mkVArrow(9, 4, '#ef4444'),
-        mkVArrow(6, 1, '#a1a1aa'),
+        mkVArrow(5, 1, '#a1a1aa'),
         mkHArrow(1, 2, '#a1a1aa'),
         mkHArrow(1, 0, '#a1a1aa'),
       ]);
@@ -2549,7 +2543,7 @@ export default function Contracts() {
     onSuccess: () => {
       invalidateContractCaches();
       queryClient.invalidateQueries({ queryKey: ["/api/supisky/by-phase", 8] });
-      queryClient.invalidateQueries({ queryKey: ["/api/supisky/by-phase", 9] });
+      queryClient.invalidateQueries({ queryKey: ["/api/supisky/by-phase", 10] });
       toast({ title: "Odoslané partnerovi" });
     },
     onError: () => toast({ title: "Chyba", description: "Nepodarilo sa odoslať súpisku", variant: "destructive" }),
@@ -2562,7 +2556,6 @@ export default function Contracts() {
     },
     onSuccess: () => {
       invalidateContractCaches();
-      queryClient.invalidateQueries({ queryKey: ["/api/supisky/by-phase", 9] });
       queryClient.invalidateQueries({ queryKey: ["/api/supisky/by-phase", 10] });
       toast({ title: "Prijatie potvrdené" });
     },
@@ -2785,7 +2778,6 @@ export default function Contracts() {
     { id: 3, label: "Neprijaté zmluvy – výhrady", icon: XCircle, color: "text-red-500", bgColor: "bg-red-500/15", count: activeRejected.length, tooltip: "Zmluvy, ktoré boli vrátené s výhradami od obchodného partnera alebo centrály. Vyžadujú opravu a opätovné odoslanie." },
     { id: 4, label: "Archív zmlúv (s výhradami)", icon: Archive, color: "text-muted-foreground", bgColor: "bg-muted/30", count: activeArchived.length, tooltip: "Archivované zmluvy s výhradami, ktoré neboli opravené alebo boli trvalo zamietnuté." },
     { id: 7, label: "Interné intervencie", icon: AlertTriangle, color: "text-orange-500", bgColor: "bg-orange-500/15", count: phase7Contracts.length, tooltip: "Zmluvy vyžadujúce interný zásah — napr. chýbajúce dokumenty, nezrovnalosti v údajoch alebo eskalácia." },
-    { id: 10, label: "Potvrdiť prijatie obch. partnerom", icon: Award, color: "text-purple-500", bgColor: "bg-purple-500/15", count: phase10Supisky.reduce((sum: number, s: any) => sum + (s.contracts?.length || 0), 0) || phase10Contracts.length, tooltip: "Zmluvy úspešne prijaté a potvrdené obchodným partnerom. Konečný stav spracovania." },
   ];
 
   const row2FolderDefs: FolderDef[] = [
@@ -2793,7 +2785,7 @@ export default function Contracts() {
     { id: 5, label: "Odoslané sprievodky a prijatie do centrály", icon: CheckCircle2, color: "text-green-500", bgColor: "bg-green-500/15", count: activeAccepted.length, tooltip: "Zmluvy prijaté centrálou partnera. Čakajú na spracovanie a evidenciu v systéme partnera." },
     { id: 6, label: "Kontrakt v spracovaní", icon: LayoutGrid, color: "text-cyan-500", bgColor: "bg-cyan-500/15", count: phase6Contracts.length, tooltip: "Zmluvy aktívne spracovávané centrálou — kontrola údajov, validácia dokumentov a evidencia." },
     { id: 8, label: "Pripravené na odoslanie", icon: ListChecks, color: "text-emerald-500", bgColor: "bg-emerald-500/15", count: phase8Contracts.length, tooltip: "Zmluvy kompletne spracované a pripravené na odoslanie späť obchodnému partnerovi." },
-    { id: 9, label: "Odoslať obchodnému partnerovi", icon: Send, color: "text-indigo-500", bgColor: "bg-indigo-500/15", count: phase9Contracts.length, tooltip: "Zmluvy odoslané obchodnému partnerovi na finálne potvrdenie a prevzatie." },
+    { id: 10, label: "Potvrdiť prijatie obch. partnerom", icon: Award, color: "text-purple-500", bgColor: "bg-purple-500/15", count: phase10Supisky.reduce((sum: number, s: any) => sum + (s.contracts?.length || 0), 0) || phase10Contracts.length, tooltip: "Zmluvy odoslané obchodnému partnerovi — čakajú na potvrdenie prijatia." },
   ];
 
   function filterBySearch(list: Contract[]) {
@@ -4003,15 +3995,14 @@ export default function Contracts() {
             6: "Prebieha skenovanie a OCR extrakcia. Dopĺňajú sa chýbajúce parametre.",
             7: "Chýba údaj (napr. kópia OP). Kontrakt je blokovaný pre súpisky.",
             8: "Kontrakt je čistý a validovaný. Čaká na hromadné odoslanie partnerovi.",
-            9: "Súpisky odoslané obchodnému partnerovi. Čaká sa na potvrdenie prijatia.",
-            10: "Doplní sa dátum prijatia partnerom. Kontrakt definitívne vypadáva z dashboardu.",
+            10: "Odoslané partnerovi. Doplní sa dátum prijatia partnerom. Kontrakt definitívne vypadáva z dashboardu.",
           };
-          return [6, 7, 8, 9, 10].map(phaseId => {
-            const phaseContracts = phaseId === 6 ? phase6Contracts : phaseId === 7 ? phase7Contracts : phaseId === 8 ? phase8Contracts : phaseId === 9 ? phase9Contracts : phase10Contracts;
+          return [6, 7, 8, 10].map(phaseId => {
+            const phaseContracts = phaseId === 6 ? phase6Contracts : phaseId === 7 ? phase7Contracts : phaseId === 8 ? phase8Contracts : phase10Contracts;
             const phaseDef = row2FolderDefs.find(f => f.id === phaseId);
             const showCheckbox = [6, 7].includes(phaseId);
-            const isGroupedPhase = [8, 9, 10].includes(phaseId);
-            const supiskyForPhase = phaseId === 8 ? phase8Supisky : phaseId === 9 ? phase9Supisky : phaseId === 10 ? phase10Supisky : [];
+            const isGroupedPhase = [8, 10].includes(phaseId);
+            const supiskyForPhase = phaseId === 8 ? phase8Supisky : phaseId === 10 ? phase10Supisky : [];
 
             return (
               <div key={phaseId} id={`folder-${phaseId}-wrapper`} style={{ display: activeFolder === phaseId ? 'block' : 'none' }}>
@@ -4071,7 +4062,7 @@ export default function Contracts() {
                                   {(phaseId === 8 || phaseId === 10) && sup.status === "Odoslana" && (
                                     <Badge variant="outline" className="text-indigo-400 border-indigo-400/30">Odoslaná</Badge>
                                   )}
-                                  {(phaseId === 9 || phaseId === 10) && sup.status !== "Prijata" && (
+                                  {phaseId === 10 && sup.status === "Odoslana" && sup.status !== "Prijata" && (
                                     <Button
                                       size="sm"
                                       variant="default"
@@ -4082,7 +4073,7 @@ export default function Contracts() {
                                       <Award className="w-3 h-3 mr-1" />Potvrdiť prijatie
                                     </Button>
                                   )}
-                                  {(phaseId === 9 || phaseId === 10) && sup.status === "Prijata" && (
+                                  {phaseId === 10 && sup.status === "Prijata" && (
                                     <Badge variant="outline" className="text-purple-400 border-purple-400/30" data-testid={`badge-received-supiska-${sup.id}`}>
                                       <Award className="w-3 h-3 mr-1" />Prijatá
                                     </Badge>
