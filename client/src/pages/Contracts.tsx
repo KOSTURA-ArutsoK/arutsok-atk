@@ -2002,7 +2002,7 @@ function WorkflowDiagram({ folderDefs, row2FolderDefs, activeFolder, onFolderCli
                     <div className="flex items-center justify-center gap-1 shrink-0">
                       {f.id === 4 ? (
                         <svg width="28" height="28" viewBox="0 0 28 28" className="shrink-0">
-                          <path d="M11.5,26 L11.5,14 L1,14 L14,1 L27,14 L16.5,14 L16.5,26 Z" fill="#a1a1aa" fillOpacity="0.45" stroke="#a1a1aa" strokeWidth="0.5" strokeOpacity="0.6" />
+                          <path d="M8,26 L8,14 L1,14 L14,1 L27,14 L20,14 L20,26 Z" fill="#a1a1aa" fillOpacity="0.45" stroke="#a1a1aa" strokeWidth="0.5" strokeOpacity="0.6" />
                         </svg>
                       ) : [7, 10].includes(f.id) ? (
                         <ArrowUpRight className="w-7 h-7 text-foreground shrink-0 fill-current" strokeWidth={6} />
@@ -2047,7 +2047,7 @@ function WorkflowDiagram({ folderDefs, row2FolderDefs, activeFolder, onFolderCli
                     <div className="flex items-center justify-center gap-1 shrink-0">
                       {f.id === 4 ? (
                         <svg width="28" height="28" viewBox="0 0 28 28" className="shrink-0">
-                          <path d="M11.5,26 L11.5,14 L1,14 L14,1 L27,14 L16.5,14 L16.5,26 Z" fill="#a1a1aa" fillOpacity="0.45" stroke="#a1a1aa" strokeWidth="0.5" strokeOpacity="0.6" />
+                          <path d="M8,26 L8,14 L1,14 L14,1 L27,14 L20,14 L20,26 Z" fill="#a1a1aa" fillOpacity="0.45" stroke="#a1a1aa" strokeWidth="0.5" strokeOpacity="0.6" />
                         </svg>
                       ) : [7, 10].includes(f.id) ? (
                         <ArrowUpRight className="w-7 h-7 text-foreground shrink-0 fill-current" strokeWidth={6} />
