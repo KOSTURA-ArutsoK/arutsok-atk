@@ -3877,9 +3877,34 @@ export default function Contracts() {
             return (
               <div key={phaseId} id={`folder-${phaseId}-wrapper`} style={{ display: activeFolder === phaseId ? 'block' : 'none' }}>
                 <Card data-testid={`folder-phase-${phaseId}`}>
-                  <div className="flex items-center gap-3 p-3 border-b">
+                  <div className="flex items-center gap-3 p-3 border-b flex-wrap">
                     {phaseDef && (() => { const I = phaseDef.icon; return <I className={`w-4 h-4 ${phaseDef.color} shrink-0`} />; })()}
                     <p className="text-xs text-muted-foreground flex-1">{phaseLabels[phaseId]}</p>
+                    {phaseId === 6 && rerouteSelectedIds.length > 0 && activeFolder === 6 && (
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs text-muted-foreground">Vybraných: <span className="font-bold text-foreground">{rerouteSelectedIds.length}</span></span>
+                        <Button size="sm" className="bg-green-600 hover:bg-green-700 text-white" onClick={() => createProcessingSupiskaMutation.mutate(rerouteSelectedIds)} disabled={createProcessingSupiskaMutation.isPending} data-testid="button-create-supiska">
+                          {createProcessingSupiskaMutation.isPending ? <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" /> : <ListChecks className="w-3.5 h-3.5 mr-1.5" />}
+                          Vytvoriť súpisku ({rerouteSelectedIds.length})
+                        </Button>
+                      </div>
+                    )}
+                    {phaseId === 7 && rerouteSelectedIds.length > 0 && activeFolder === 7 && (
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs text-muted-foreground">Vybraných: <span className="font-bold text-foreground">{rerouteSelectedIds.length}</span></span>
+                        <Button size="sm" className="bg-orange-600 hover:bg-orange-700 text-white" onClick={() => handleReroute("intervencia")} data-testid="button-reroute-intervencia">
+                          <ArrowRight className="w-3.5 h-3.5 mr-1.5" />Vrátiť do spracovania ({rerouteSelectedIds.length})
+                        </Button>
+                      </div>
+                    )}
+                    {phaseId === 10 && rerouteSelectedIds.length > 0 && activeFolder === 10 && (
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs text-muted-foreground">Vybraných: <span className="font-bold text-foreground">{rerouteSelectedIds.length}</span></span>
+                        <Button size="sm" className="bg-purple-600 hover:bg-purple-700 text-white" onClick={() => handleReroute("dokoncit")} data-testid="button-dokoncit-spracovanie">
+                          <Check className="w-3.5 h-3.5 mr-1.5" />Dokončiť spracovanie ({rerouteSelectedIds.length})
+                        </Button>
+                      </div>
+                    )}
                   </div>
                   <CardContent className="p-0">
                     {isGroupedPhase ? (
@@ -3945,27 +3970,27 @@ export default function Contracts() {
                       </>
                     )}
                   </CardContent>
-                  {phaseId === 6 && rerouteSelectedIds.length > 0 && activeFolder === 6 && (
+                  {false && phaseId === 6 && rerouteSelectedIds.length > 0 && activeFolder === 6 && (
                     <div className="flex items-center justify-between p-3 border-t bg-green-500/5">
                       <span className="text-sm text-muted-foreground">Vybraných: <span className="font-bold text-foreground">{rerouteSelectedIds.length}</span></span>
-                      <Button variant="default" className="bg-green-600 hover:bg-green-700 text-white" onClick={() => createProcessingSupiskaMutation.mutate(rerouteSelectedIds)} disabled={createProcessingSupiskaMutation.isPending} data-testid="button-create-supiska">
+                      <Button variant="default" className="bg-green-600 hover:bg-green-700 text-white" onClick={() => createProcessingSupiskaMutation.mutate(rerouteSelectedIds)} disabled={createProcessingSupiskaMutation.isPending} data-testid="button-create-supiska-old">
                         {createProcessingSupiskaMutation.isPending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <ListChecks className="w-4 h-4 mr-2" />}
                         Vytvoriť súpisku ({rerouteSelectedIds.length})
                       </Button>
                     </div>
                   )}
-                  {phaseId === 7 && rerouteSelectedIds.length > 0 && activeFolder === 7 && (
+                  {false && phaseId === 7 && rerouteSelectedIds.length > 0 && activeFolder === 7 && (
                     <div className="flex items-center justify-between p-3 border-t bg-orange-500/5">
                       <span className="text-sm text-muted-foreground">Vybraných: <span className="font-bold text-foreground">{rerouteSelectedIds.length}</span></span>
-                      <Button variant="default" className="bg-orange-600 hover:bg-orange-700 text-white" onClick={() => handleReroute("intervencia")} data-testid="button-reroute-intervencia">
+                      <Button variant="default" className="bg-orange-600 hover:bg-orange-700 text-white" onClick={() => handleReroute("intervencia")} data-testid="button-reroute-intervencia-old">
                         <ArrowRight className="w-4 h-4 mr-2" />Vrátiť do spracovania ({rerouteSelectedIds.length})
                       </Button>
                     </div>
                   )}
-                  {phaseId === 10 && rerouteSelectedIds.length > 0 && activeFolder === 10 && (
+                  {false && phaseId === 10 && rerouteSelectedIds.length > 0 && activeFolder === 10 && (
                     <div className="flex items-center justify-between p-3 border-t bg-purple-500/5">
                       <span className="text-sm text-muted-foreground">Vybraných: <span className="font-bold text-foreground">{rerouteSelectedIds.length}</span></span>
-                      <Button variant="default" className="bg-purple-600 hover:bg-purple-700 text-white" onClick={() => handleReroute("dokoncit")} data-testid="button-dokoncit-spracovanie">
+                      <Button variant="default" className="bg-purple-600 hover:bg-purple-700 text-white" onClick={() => handleReroute("dokoncit")} data-testid="button-dokoncit-spracovanie-old">
                         <Check className="w-4 h-4 mr-2" />Dokončiť spracovanie ({rerouteSelectedIds.length})
                       </Button>
                     </div>
