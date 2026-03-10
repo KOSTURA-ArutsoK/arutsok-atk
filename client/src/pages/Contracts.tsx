@@ -1823,7 +1823,7 @@ function WorkflowDiagram({ folderDefs, row2FolderDefs, activeFolder, onFolderCli
         'Z',
       ].join(' ');
       setRedPath(combinedRedPath);
-      setJunctionMask({ x: mid6x - rc, y: stepY - rc, w: rc * 2, h: globalBottom - stepY + rc * 2 });
+      setJunctionMask({ x: mid6x - 1, y: stepY, w: 2, h: globalBottom - stepY });
 
       setGreenPath("");
 
