@@ -2321,15 +2321,7 @@ export default function Contracts() {
     enabled: isEvidencia,
   });
 
-  const { data: phase10Contracts = [] } = useQuery<Contract[]>({
-    queryKey: ["/api/contracts/by-phase", 10],
-    queryFn: async () => {
-      const res = await fetch("/api/contracts/by-phase/10", { credentials: "include" });
-      if (!res.ok) return [];
-      return res.json();
-    },
-    enabled: isEvidencia,
-  });
+  const phase10Contracts: Contract[] = [];
 
   const { data: subjects } = useQuery<Subject[]>({ queryKey: ["/api/subjects"] });
   const { data: partners } = useQuery<Partner[]>({ queryKey: ["/api/partners"] });
