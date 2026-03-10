@@ -1785,18 +1785,18 @@ function WorkflowDiagram({ folderDefs, row2FolderDefs, activeFolder, onFolderCli
       };
       const f = cards.map(full);
       const rc = 8;
-      const left = Math.min(f[0].l, f[4].l) - pad;
+      const left = Math.min(f[0].l, f[5].l) - pad;
       const top1 = f[0].t - pad;
       const right1 = f[0].r + pad;
-      const cornerY = f[4].t - pad;
-      const mid5x = (f[5].l + f[5].r) / 2;
-      const bottom = Math.max(f[4].b, f[5].b) + pad;
+      const cornerY = f[5].t - pad;
+      const mid6x = (f[6].l + f[6].r) / 2;
+      const bottom = Math.max(f[5].b, f[6].b) + pad;
 
       const bluePath = [
         `M ${left + rc},${top1}`,
         `H ${right1 - rc} A ${rc},${rc} 0 0 1 ${right1},${top1 + rc}`,
         `V ${cornerY - rc} A ${rc},${rc} 0 0 0 ${right1 + rc},${cornerY}`,
-        `H ${mid5x}`,
+        `H ${mid6x}`,
         `V ${bottom}`,
         `H ${left + rc} A ${rc},${rc} 0 0 1 ${left},${bottom - rc}`,
         `V ${top1 + rc} A ${rc},${rc} 0 0 1 ${left + rc},${top1}`,
@@ -1804,20 +1804,32 @@ function WorkflowDiagram({ folderDefs, row2FolderDefs, activeFolder, onFolderCli
       ].join(' ');
       setBlueLPath(bluePath);
 
-      const topRed = Math.min(f[6].t, f[7].t, f[8].t, f[9].t) - pad;
+      const topRed = Math.min(f[7].t, f[8].t, f[9].t) - pad;
       const rightRed = f[9].r + pad;
-      const bottomRed = Math.max(f[6].b, f[7].b, f[8].b, f[9].b) + pad;
+      const bottomRed = Math.max(f[7].b, f[8].b, f[9].b) + pad;
       const rPath = [
-        `M ${mid5x},${topRed}`,
+        `M ${mid6x},${topRed}`,
         `H ${rightRed - rc} A ${rc},${rc} 0 0 1 ${rightRed},${topRed + rc}`,
         `V ${bottomRed - rc} A ${rc},${rc} 0 0 1 ${rightRed - rc},${bottomRed}`,
-        `H ${mid5x + rc} A ${rc},${rc} 0 0 1 ${mid5x},${bottomRed - rc}`,
+        `H ${mid6x + rc} A ${rc},${rc} 0 0 1 ${mid6x},${bottomRed - rc}`,
         `V ${topRed}`,
         'Z',
       ].join(' ');
       setRedPath(rPath);
 
-      setGreenPath("");
+      const greenTop = f[4].t - pad;
+      const greenRight = f[4].r + pad;
+      const greenBottom = f[4].b + pad;
+      const greenLeft = f[4].l - pad;
+      const gPath = [
+        `M ${greenLeft + rc},${greenTop}`,
+        `H ${greenRight - rc} A ${rc},${rc} 0 0 1 ${greenRight},${greenTop + rc}`,
+        `V ${greenBottom - rc} A ${rc},${rc} 0 0 1 ${greenRight - rc},${greenBottom}`,
+        `H ${greenLeft + rc} A ${rc},${rc} 0 0 1 ${greenLeft},${greenBottom - rc}`,
+        `V ${greenTop + rc} A ${rc},${rc} 0 0 1 ${greenLeft + rc},${greenTop}`,
+        'Z',
+      ].join(' ');
+      setGreenPath(gPath);
 
       const leftBlack = f[1].l - pad;
       const topBlack = f[1].t - pad;
@@ -1909,13 +1921,13 @@ function WorkflowDiagram({ folderDefs, row2FolderDefs, activeFolder, onFolderCli
         };
       };
       setArrows([
-        mkVArrow(0, 4, '#3b82f6'),
-        mkHArrow(4, 5, '#3b82f6'),
-        mkHArrow(5, 6, '#ef4444'),
+        mkVArrow(0, 5, '#3b82f6'),
+        mkHArrow(5, 6, '#3b82f6'),
         mkHArrow(6, 7, '#ef4444'),
         mkHArrow(7, 8, '#ef4444'),
         mkHArrow(8, 9, '#ef4444'),
-        mkVArrow(5, 1, '#a1a1aa'),
+        mkDArrow(9, 4, '#8b5cf6'),
+        mkVArrow(6, 1, '#a1a1aa'),
         mkHArrow(1, 2, '#a1a1aa'),
         mkHArrow(1, 0, '#a1a1aa'),
       ]);
@@ -1984,7 +1996,7 @@ function WorkflowDiagram({ folderDefs, row2FolderDefs, activeFolder, onFolderCli
             );
           })}
         </div>
-        <div className="grid grid-cols-6 gap-4 px-4">
+        <div className="grid grid-cols-5 gap-6 px-4">
           {row2FolderDefs.map(f => {
             const FIcon = f.icon;
             const isActive = activeFolder === f.id;
@@ -2780,6 +2792,7 @@ export default function Contracts() {
     { id: 3, label: "Neprijaté zmluvy – výhrady", icon: XCircle, color: "text-red-500", bgColor: "bg-red-500/15", count: activeRejected.length, tooltip: "Zmluvy, ktoré boli vrátené s výhradami od obchodného partnera alebo centrály. Vyžadujú opravu a opätovné odoslanie." },
     { id: 4, label: "Archív zmlúv (s výhradami)", icon: Archive, color: "text-muted-foreground", bgColor: "bg-muted/30", count: activeArchived.length, tooltip: "Archivované zmluvy s výhradami, ktoré neboli opravené alebo boli trvalo zamietnuté." },
     { id: 7, label: "Interné intervencie", icon: AlertTriangle, color: "text-orange-500", bgColor: "bg-orange-500/15", count: phase7Contracts.length, tooltip: "Zmluvy vyžadujúce interný zásah — napr. chýbajúce dokumenty, nezrovnalosti v údajoch alebo eskalácia." },
+    { id: 10, label: "Potvrdiť prijatie obch. partnerom", icon: Award, color: "text-purple-500", bgColor: "bg-purple-500/15", count: phase10Supisky.reduce((sum: number, s: any) => sum + (s.contracts?.length || 0), 0) || phase10Contracts.length, tooltip: "Zmluvy doručené obchodnému partnerovi — čakajú na potvrdenie prijatia." },
   ];
 
   const row2FolderDefs: FolderDef[] = [
@@ -2788,7 +2801,6 @@ export default function Contracts() {
     { id: 6, label: "Kontrakt v spracovaní", icon: LayoutGrid, color: "text-cyan-500", bgColor: "bg-cyan-500/15", count: phase6Contracts.length, tooltip: "Zmluvy aktívne spracovávané centrálou — kontrola údajov, validácia dokumentov a evidencia." },
     { id: 8, label: "Pripravené na odoslanie", icon: ListChecks, color: "text-emerald-500", bgColor: "bg-emerald-500/15", count: phase8Contracts.length, tooltip: "Zmluvy kompletne spracované a pripravené na odoslanie späť obchodnému partnerovi." },
     { id: 9, label: "Odoslané obchodnému partnerovi", icon: Send, color: "text-indigo-500", bgColor: "bg-indigo-500/15", count: phase9Supisky.reduce((sum: number, s: any) => sum + (s.contracts?.length || 0), 0) || phase9Contracts.length, tooltip: "Zmluvy fyzicky odoslané obchodnému partnerovi. Čakajú na potvrdenie doručenia a prijatia." },
-    { id: 10, label: "Potvrdiť prijatie obch. partnerom", icon: Award, color: "text-purple-500", bgColor: "bg-purple-500/15", count: phase10Supisky.reduce((sum: number, s: any) => sum + (s.contracts?.length || 0), 0) || phase10Contracts.length, tooltip: "Zmluvy doručené obchodnému partnerovi — čakajú na potvrdenie prijatia." },
   ];
 
   function filterBySearch(list: Contract[]) {
@@ -4003,7 +4015,7 @@ export default function Contracts() {
           };
           return [6, 7, 8, 9, 10].map(phaseId => {
             const phaseContracts = phaseId === 6 ? phase6Contracts : phaseId === 7 ? phase7Contracts : phaseId === 8 ? phase8Contracts : phaseId === 9 ? phase9Contracts : phase10Contracts;
-            const phaseDef = row2FolderDefs.find(f => f.id === phaseId);
+            const phaseDef = row2FolderDefs.find(f => f.id === phaseId) || folderDefs.find(f => f.id === phaseId);
             const showCheckbox = [6, 7].includes(phaseId);
             const isGroupedPhase = [8, 9, 10].includes(phaseId);
             const supiskyForPhase = phaseId === 8 ? phase8Supisky : phaseId === 9 ? phase9Supisky : phaseId === 10 ? phase10Supisky : [];
