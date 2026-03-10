@@ -1817,7 +1817,7 @@ function WorkflowDiagram({ folderDefs, row2FolderDefs, activeFolder, onFolderCli
         `V ${bottomRedR2 - rc} A ${rc},${rc} 0 0 1 ${rightRed - rc},${bottomRedR2}`,
         `H ${redLeftR2 + rc} A ${rc},${rc} 0 0 1 ${redLeftR2},${bottomRedR2 - rc}`,
         `V ${topRedR2 + rc} A ${rc},${rc} 0 0 1 ${redLeftR2 + rc},${topRedR2}`,
-        `H ${redLeftR1}`,
+        `H ${redLeftR1 + rc} A ${rc},${rc} 0 0 0 ${redLeftR1},${topRedR2 - rc}`,
         `V ${topRedR1 + rc} A ${rc},${rc} 0 0 1 ${redLeftR1 + rc},${topRedR1}`,
         'Z',
       ].join(' ');
