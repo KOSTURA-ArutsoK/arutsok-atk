@@ -3225,11 +3225,6 @@ export async function registerRoutes(
         updateData.receivedByCentralAt = migrationOn ? (contract.signedDate || now) : now;
         updateData.stampedAt = migrationOn ? (contract.signedDate || now) : now;
         updateData.isStamped = true;
-        if (!contract.contractNumber) {
-          const maxResult = await db.select({ max: sql<number>`COALESCE(MAX(CAST(contract_number AS INTEGER)), 0)` }).from(contracts).where(sql`contract_number ~ '^[0-9]+$'`);
-          const nextNumber = (maxResult[0]?.max || 0) + 1;
-          updateData.contractNumber = String(nextNumber);
-        }
         if (contract.subjectId) {
           const subj = await db.select().from(subjects).where(eq(subjects.id, contract.subjectId)).limit(1);
           if (subj[0] && !subj[0].uid) {

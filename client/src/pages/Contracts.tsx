@@ -4086,7 +4086,48 @@ export default function Contracts() {
                     
                   </div>
                   <CardContent className="p-0">
-                    {isGroupedPhase ? (
+                    {phaseId === 6 ? (
+                      phaseContracts.length === 0 ? (
+                        <p className="text-sm text-muted-foreground text-center py-8" data-testid="text-no-phase-6">Žiadne kontrakty v tejto fáze</p>
+                      ) : (() => {
+                        const groups = new Map<string, Contract[]>();
+                        phaseContracts.forEach(c => {
+                          const partnerName = partners?.find(p => p.id === c.partnerId)?.name || "Neznámy partner";
+                          const productName = products?.find(p => p.id === c.productId)?.name || allSectorProducts?.find(sp => sp.id === c.sectorProductId)?.name || "Neznámy produkt";
+                          const key = `${partnerName} - ${productName}`;
+                          if (!groups.has(key)) groups.set(key, []);
+                          groups.get(key)!.push(c);
+                        });
+                        const sortedGroups = Array.from(groups.entries()).sort((a, b) => a[0].localeCompare(b[0], "sk"));
+                        return (
+                          <div className="divide-y">
+                            {sortedGroups.map(([groupName, groupContracts]) => {
+                              const toggleKey = 300000 + Array.from(groups.keys()).indexOf(groupName);
+                              const isGroupExpanded = expandedSprievodky.has(toggleKey);
+                              return (
+                                <div key={groupName}>
+                                  <div
+                                    className="flex items-center gap-3 p-3 cursor-pointer hover-elevate flex-wrap"
+                                    onClick={() => toggleSprievodkaExpanded(toggleKey)}
+                                    data-testid={`button-toggle-group-${groupName.replace(/\s/g, '-')}`}
+                                  >
+                                    {isGroupExpanded ? <ChevronDown className="w-4 h-4 text-muted-foreground shrink-0" /> : <ChevronRight className="w-4 h-4 text-muted-foreground shrink-0" />}
+                                    <LayoutGrid className="w-4 h-4 text-cyan-500 shrink-0" />
+                                    <span className="text-sm font-medium flex-1">{groupName}</span>
+                                    <Badge variant="outline" className="text-xs">{groupContracts.length} {groupContracts.length === 1 ? "zmluva" : groupContracts.length < 5 ? "zmluvy" : "zmluv"}</Badge>
+                                  </div>
+                                  <div style={{ display: isGroupExpanded ? 'block' : 'none' }}>
+                                    <div className="border-t">
+                                      {renderContractTable(groupContracts, { showStatus: true, showRegistration: true, showActions: true, showRerouteCheckbox: true })}
+                                    </div>
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        );
+                      })()
+                    ) : isGroupedPhase ? (
                       supiskyForPhase.length === 0 ? (
                         <p className="text-sm text-muted-foreground text-center py-8" data-testid={`text-no-phase-${phaseId}`}>Žiadne kontrakty v tejto fáze</p>
                       ) : (
