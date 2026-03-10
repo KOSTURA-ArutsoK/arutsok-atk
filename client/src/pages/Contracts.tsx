@@ -2002,8 +2002,10 @@ function WorkflowDiagram({ folderDefs, row2FolderDefs, activeFolder, onFolderCli
                     <div className={`w-8 h-8 rounded-md ${f.bgColor} flex items-center justify-center shrink-0`}>
                       <FIcon className={`w-4 h-4 ${f.color}`} />
                     </div>
-                    <p className="text-[9px] font-semibold leading-tight h-[24px] flex items-center">{f.label}</p>
-                    <p className="text-lg font-bold leading-none mt-auto">{f.count}</p>
+                    <div className="flex-1 flex items-center">
+                      <p className="text-[9px] font-semibold leading-tight">{f.label}</p>
+                    </div>
+                    <p className="text-lg font-bold leading-none shrink-0">{f.count}</p>
                   </div>
                 </Card>
               </div>
@@ -2033,8 +2035,10 @@ function WorkflowDiagram({ folderDefs, row2FolderDefs, activeFolder, onFolderCli
                     <div className={`w-8 h-8 rounded-md ${f.bgColor} flex items-center justify-center shrink-0`}>
                       <FIcon className={`w-4 h-4 ${f.color}`} />
                     </div>
-                    <p className="text-[9px] font-semibold leading-tight h-[24px] flex items-center">{f.label}</p>
-                    <p className="text-lg font-bold leading-none mt-auto">{f.count}</p>
+                    <div className="flex-1 flex items-center">
+                      <p className="text-[9px] font-semibold leading-tight">{f.label}</p>
+                    </div>
+                    <p className="text-lg font-bold leading-none shrink-0">{f.count}</p>
                   </div>
                 </Card>
               </div>
