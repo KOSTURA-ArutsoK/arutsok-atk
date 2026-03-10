@@ -3873,7 +3873,7 @@ export async function registerRoutes(
         .from(contractLifecycleHistory)
         .leftJoin(appUsers, eq(contractLifecycleHistory.changedByUserId, appUsers.id))
         .where(eq(contractLifecycleHistory.contractId, contractId))
-        .orderBy(desc(contractLifecycleHistory.changedAt));
+        .orderBy(contractLifecycleHistory.changedAt);
 
       res.json(history.map(h => ({
         ...h,
