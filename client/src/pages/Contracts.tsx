@@ -1999,7 +1999,7 @@ function WorkflowDiagram({ folderDefs, row2FolderDefs, activeFolder, onFolderCli
             const isActive = activeFolder === f.id;
             return (
               <div key={f.id} data-phase-card={f.id}>
-                <Card className={`cursor-pointer transition-colors relative h-[100px] ${isActive ? "border-primary shadow-sm bg-yellow-900/30 dark:bg-yellow-400/20" : "bg-card"}`} onClick={() => onFolderClick(f.id)} data-testid={`folder-tab-${f.id}`}>
+                <Card className={`cursor-pointer transition-colors relative h-[100px] ${isActive ? "border-primary shadow-sm bg-yellow-300/40 dark:bg-yellow-500/25" : "bg-card"}`} onClick={() => onFolderClick(f.id)} data-testid={`folder-tab-${f.id}`}>
                   {f.tooltip && (
                     <Tooltip>
                       <TooltipTrigger asChild>
@@ -2040,7 +2040,7 @@ function WorkflowDiagram({ folderDefs, row2FolderDefs, activeFolder, onFolderCli
             const isActive = activeFolder === f.id;
             return (
               <div key={f.id} data-phase-card={f.id}>
-                <Card className={`cursor-pointer transition-colors relative h-[100px] ${isActive ? "border-primary shadow-sm bg-yellow-900/30 dark:bg-yellow-400/20" : "bg-card"}`} onClick={() => onFolderClick(f.id)} data-testid={`folder-tab-${f.id}`}>
+                <Card className={`cursor-pointer transition-colors relative h-[100px] ${isActive ? "border-primary shadow-sm bg-yellow-300/40 dark:bg-yellow-500/25" : "bg-card"}`} onClick={() => onFolderClick(f.id)} data-testid={`folder-tab-${f.id}`}>
                   {f.tooltip && (
                     <Tooltip>
                       <TooltipTrigger asChild>
