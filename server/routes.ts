@@ -3593,21 +3593,21 @@ export async function registerRoutes(
       const links = await storage.getSupiskaContracts(supiskaId);
       const contractIdsOnSupiska = links.map(l => l.contractId);
       for (const cid of contractIdsOnSupiska) {
-        const [contract] = await db.select().from(contracts).where(and(eq(contracts.id, cid), or(eq(contracts.lifecyclePhase, 8), eq(contracts.lifecyclePhase, 10))));
+        const [contract] = await db.select().from(contracts).where(and(eq(contracts.id, cid), or(eq(contracts.lifecyclePhase, 8), eq(contracts.lifecyclePhase, 9))));
         if (!contract) continue;
         await db.update(contracts).set({
-          lifecyclePhase: 10,
+          lifecyclePhase: 9,
           sentToPartnerAt: dispatchDate,
           updatedAt: now,
         }).where(eq(contracts.id, cid));
         await db.insert(contractLifecycleHistory).values({
           contractId: cid,
-          phase: 10,
-          phaseName: LIFECYCLE_PHASES[10] || "Odoslané obch. partnerovi",
+          phase: 9,
+          phaseName: LIFECYCLE_PHASES[9] || "Odoslané obch. partnerovi",
           changedByUserId: appUser?.id || null,
           note: `Odoslané: ${dispatchMethod}, dátum: ${dispatchDate.toISOString()}`,
         });
-        await logLifecycleStatusChange(cid, contract.statusId, 10, appUser?.id || null);
+        await logLifecycleStatusChange(cid, contract.statusId, 9, appUser?.id || null);
       }
 
       await logAudit(req, {
@@ -3649,22 +3649,21 @@ export async function registerRoutes(
       const links = await storage.getSupiskaContracts(supiskaId);
       const contractIdsOnSupiska = links.map(l => l.contractId);
       for (const cid of contractIdsOnSupiska) {
-        const [contract] = await db.select().from(contracts).where(and(eq(contracts.id, cid), eq(contracts.lifecyclePhase, 10)));
+        const [contract] = await db.select().from(contracts).where(and(eq(contracts.id, cid), or(eq(contracts.lifecyclePhase, 9), eq(contracts.lifecyclePhase, 10))));
         if (!contract) continue;
         await db.update(contracts).set({
-          lifecyclePhase: null,
-          lockedBySupiskaId: null,
+          lifecyclePhase: 10,
           receivedByPartnerAt: receiveDate,
           updatedAt: now,
         }).where(eq(contracts.id, cid));
         await db.insert(contractLifecycleHistory).values({
           contractId: cid,
-          phase: 11,
-          phaseName: "Spracovanie dokončené – prijaté obch. partnerom",
+          phase: 10,
+          phaseName: LIFECYCLE_PHASES[10] || "Prijaté obch. partnerom",
           changedByUserId: appUser?.id || null,
           note: `Prijaté partnerom: ${receiveDate.toISOString()}`,
         });
-        await logLifecycleStatusChange(cid, contract.statusId, 11, appUser?.id || null);
+        await logLifecycleStatusChange(cid, contract.statusId, 10, appUser?.id || null);
       }
 
       await logAudit(req, {

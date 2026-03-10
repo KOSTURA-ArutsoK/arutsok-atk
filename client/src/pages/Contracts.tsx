@@ -1770,7 +1770,7 @@ function WorkflowDiagram({ folderDefs, row2FolderDefs, activeFolder, onFolderCli
     if (!el) return;
     const compute = () => {
       const cards = Array.from(el.querySelectorAll('[data-phase-card]')) as HTMLElement[];
-      if (cards.length < 9) { setPaths([]); setArrows([]); setBlueLPath(""); setRedPath(""); setBlackPath(""); setGreenPath(""); return; }
+      if (cards.length < 10) { setPaths([]); setArrows([]); setBlueLPath(""); setRedPath(""); setBlackPath(""); setGreenPath(""); return; }
       const cR = el.getBoundingClientRect();
       const g = (c: HTMLElement) => {
         const r = c.getBoundingClientRect();
@@ -1804,9 +1804,9 @@ function WorkflowDiagram({ folderDefs, row2FolderDefs, activeFolder, onFolderCli
       ].join(' ');
       setBlueLPath(bluePath);
 
-      const topRed = Math.min(f[6].t, f[7].t, f[8].t) - pad;
-      const rightRed = f[8].r + pad;
-      const bottomRed = Math.max(f[6].b, f[7].b, f[8].b) + pad;
+      const topRed = Math.min(f[6].t, f[7].t, f[8].t, f[9].t) - pad;
+      const rightRed = f[9].r + pad;
+      const bottomRed = Math.max(f[6].b, f[7].b, f[8].b, f[9].b) + pad;
       const rPath = [
         `M ${mid5x},${topRed}`,
         `H ${rightRed - rc} A ${rc},${rc} 0 0 1 ${rightRed},${topRed + rc}`,
@@ -1914,6 +1914,7 @@ function WorkflowDiagram({ folderDefs, row2FolderDefs, activeFolder, onFolderCli
         mkHArrow(5, 6, '#ef4444'),
         mkHArrow(6, 7, '#ef4444'),
         mkHArrow(7, 8, '#ef4444'),
+        mkHArrow(8, 9, '#ef4444'),
         mkVArrow(5, 1, '#a1a1aa'),
         mkHArrow(1, 2, '#a1a1aa'),
         mkHArrow(1, 0, '#a1a1aa'),
@@ -1983,7 +1984,7 @@ function WorkflowDiagram({ folderDefs, row2FolderDefs, activeFolder, onFolderCli
             );
           })}
         </div>
-        <div className="grid grid-cols-5 gap-6 px-4">
+        <div className="grid grid-cols-6 gap-4 px-4">
           {row2FolderDefs.map(f => {
             const FIcon = f.icon;
             const isActive = activeFolder === f.id;
@@ -2543,7 +2544,7 @@ export default function Contracts() {
     onSuccess: () => {
       invalidateContractCaches();
       queryClient.invalidateQueries({ queryKey: ["/api/supisky/by-phase", 8] });
-      queryClient.invalidateQueries({ queryKey: ["/api/supisky/by-phase", 10] });
+      queryClient.invalidateQueries({ queryKey: ["/api/supisky/by-phase", 9] });
       toast({ title: "Odoslané partnerovi" });
     },
     onError: () => toast({ title: "Chyba", description: "Nepodarilo sa odoslať súpisku", variant: "destructive" }),
@@ -2556,6 +2557,7 @@ export default function Contracts() {
     },
     onSuccess: () => {
       invalidateContractCaches();
+      queryClient.invalidateQueries({ queryKey: ["/api/supisky/by-phase", 9] });
       queryClient.invalidateQueries({ queryKey: ["/api/supisky/by-phase", 10] });
       toast({ title: "Prijatie potvrdené" });
     },
@@ -2785,7 +2787,8 @@ export default function Contracts() {
     { id: 5, label: "Odoslané sprievodky a prijatie do centrály", icon: CheckCircle2, color: "text-green-500", bgColor: "bg-green-500/15", count: activeAccepted.length, tooltip: "Zmluvy prijaté centrálou partnera. Čakajú na spracovanie a evidenciu v systéme partnera." },
     { id: 6, label: "Kontrakt v spracovaní", icon: LayoutGrid, color: "text-cyan-500", bgColor: "bg-cyan-500/15", count: phase6Contracts.length, tooltip: "Zmluvy aktívne spracovávané centrálou — kontrola údajov, validácia dokumentov a evidencia." },
     { id: 8, label: "Pripravené na odoslanie", icon: ListChecks, color: "text-emerald-500", bgColor: "bg-emerald-500/15", count: phase8Contracts.length, tooltip: "Zmluvy kompletne spracované a pripravené na odoslanie späť obchodnému partnerovi." },
-    { id: 10, label: "Potvrdiť prijatie obch. partnerom", icon: Award, color: "text-purple-500", bgColor: "bg-purple-500/15", count: phase10Supisky.reduce((sum: number, s: any) => sum + (s.contracts?.length || 0), 0) || phase10Contracts.length, tooltip: "Zmluvy odoslané obchodnému partnerovi — čakajú na potvrdenie prijatia." },
+    { id: 9, label: "Odoslané obchodnému partnerovi", icon: Send, color: "text-indigo-500", bgColor: "bg-indigo-500/15", count: phase9Supisky.reduce((sum: number, s: any) => sum + (s.contracts?.length || 0), 0) || phase9Contracts.length, tooltip: "Zmluvy fyzicky odoslané obchodnému partnerovi. Čakajú na potvrdenie doručenia a prijatia." },
+    { id: 10, label: "Potvrdiť prijatie obch. partnerom", icon: Award, color: "text-purple-500", bgColor: "bg-purple-500/15", count: phase10Supisky.reduce((sum: number, s: any) => sum + (s.contracts?.length || 0), 0) || phase10Contracts.length, tooltip: "Zmluvy doručené obchodnému partnerovi — čakajú na potvrdenie prijatia." },
   ];
 
   function filterBySearch(list: Contract[]) {
@@ -3995,14 +3998,15 @@ export default function Contracts() {
             6: "Prebieha skenovanie a OCR extrakcia. Dopĺňajú sa chýbajúce parametre.",
             7: "Chýba údaj (napr. kópia OP). Kontrakt je blokovaný pre súpisky.",
             8: "Kontrakt je čistý a validovaný. Čaká na hromadné odoslanie partnerovi.",
-            10: "Odoslané partnerovi. Doplní sa dátum prijatia partnerom. Kontrakt definitívne vypadáva z dashboardu.",
+            9: "Zmluvy fyzicky odoslané obchodnému partnerovi. Čakajú na potvrdenie doručenia.",
+            10: "Doručené partnerovi. Doplní sa dátum prijatia partnerom. Kontrakt definitívne vypadáva z dashboardu.",
           };
-          return [6, 7, 8, 10].map(phaseId => {
-            const phaseContracts = phaseId === 6 ? phase6Contracts : phaseId === 7 ? phase7Contracts : phaseId === 8 ? phase8Contracts : phase10Contracts;
+          return [6, 7, 8, 9, 10].map(phaseId => {
+            const phaseContracts = phaseId === 6 ? phase6Contracts : phaseId === 7 ? phase7Contracts : phaseId === 8 ? phase8Contracts : phaseId === 9 ? phase9Contracts : phase10Contracts;
             const phaseDef = row2FolderDefs.find(f => f.id === phaseId);
             const showCheckbox = [6, 7].includes(phaseId);
-            const isGroupedPhase = [8, 10].includes(phaseId);
-            const supiskyForPhase = phaseId === 8 ? phase8Supisky : phaseId === 10 ? phase10Supisky : [];
+            const isGroupedPhase = [8, 9, 10].includes(phaseId);
+            const supiskyForPhase = phaseId === 8 ? phase8Supisky : phaseId === 9 ? phase9Supisky : phaseId === 10 ? phase10Supisky : [];
 
             return (
               <div key={phaseId} id={`folder-${phaseId}-wrapper`} style={{ display: activeFolder === phaseId ? 'block' : 'none' }}>
@@ -4048,7 +4052,7 @@ export default function Contracts() {
                                   <ListChecks className="w-4 h-4 text-muted-foreground shrink-0" />
                                   <span className="text-sm font-medium flex-1" data-testid={`text-supiska-name-${sup.id}`}>{sup.name}</span>
                                   <Badge variant="outline" className="text-xs">{sup.contracts?.length || 0} kontraktov</Badge>
-                                  {(phaseId === 8 || phaseId === 10) && sup.status !== "Odoslana" && sup.status !== "Prijata" && (
+                                  {phaseId === 8 && sup.status !== "Odoslana" && sup.status !== "Prijata" && (
                                     <Button
                                       size="sm"
                                       variant="default"
@@ -4059,10 +4063,10 @@ export default function Contracts() {
                                       <Send className="w-3 h-3 mr-1" />Odoslať partnerovi
                                     </Button>
                                   )}
-                                  {(phaseId === 8 || phaseId === 10) && sup.status === "Odoslana" && (
+                                  {(phaseId === 8 || phaseId === 9) && sup.status === "Odoslana" && (
                                     <Badge variant="outline" className="text-indigo-400 border-indigo-400/30">Odoslaná</Badge>
                                   )}
-                                  {phaseId === 10 && sup.status === "Odoslana" && sup.status !== "Prijata" && (
+                                  {(phaseId === 9 || phaseId === 10) && sup.status === "Odoslana" && sup.status !== "Prijata" && (
                                     <Button
                                       size="sm"
                                       variant="default"
@@ -4073,7 +4077,7 @@ export default function Contracts() {
                                       <Award className="w-3 h-3 mr-1" />Potvrdiť prijatie
                                     </Button>
                                   )}
-                                  {phaseId === 10 && sup.status === "Prijata" && (
+                                  {(phaseId === 9 || phaseId === 10) && sup.status === "Prijata" && (
                                     <Badge variant="outline" className="text-purple-400 border-purple-400/30" data-testid={`badge-received-supiska-${sup.id}`}>
                                       <Award className="w-3 h-3 mr-1" />Prijatá
                                     </Badge>
