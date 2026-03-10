@@ -1764,6 +1764,7 @@ function WorkflowDiagram({ folderDefs, row2FolderDefs, activeFolder, onFolderCli
   const [blackPath, setBlackPath] = useState<string>("");
   const [orangePath, setOrangePath] = useState<string>("");
   const [greenPath, setGreenPath] = useState<string>("");
+  const [junctionMask, setJunctionMask] = useState<{x: number; y: number; w: number; h: number} | null>(null);
   const [arrows, setArrows] = useState<{ d: string; color: string }[]>([]);
 
   useEffect(() => {
@@ -1822,6 +1823,7 @@ function WorkflowDiagram({ folderDefs, row2FolderDefs, activeFolder, onFolderCli
         'Z',
       ].join(' ');
       setRedPath(combinedRedPath);
+      setJunctionMask({ x: mid6x - 1, y: stepY, w: 2, h: globalBottom - stepY });
 
       setGreenPath("");
 
@@ -1957,12 +1959,24 @@ function WorkflowDiagram({ folderDefs, row2FolderDefs, activeFolder, onFolderCli
           <filter id="arrow-shadow" x="-20%" y="-20%" width="140%" height="140%">
             <feDropShadow dx="0" dy="1" stdDeviation="1.5" floodOpacity="0.25" />
           </filter>
+          {junctionMask && (
+            <mask id="junction-mask" maskUnits="userSpaceOnUse">
+              <rect x="0" y="0" width="100%" height="100%" fill="white" />
+              <rect x={junctionMask.x} y={junctionMask.y} width={junctionMask.w} height={junctionMask.h} fill="black" />
+            </mask>
+          )}
         </defs>
         {blueLPath && (
-          <path d={blueLPath} fill="#3b82f6" fillOpacity="0.12" stroke="#3b82f6" strokeWidth="1.5" strokeOpacity="0.35" strokeLinejoin="round" />
+          <>
+            <path d={blueLPath} fill="#3b82f6" fillOpacity="0.12" stroke="none" />
+            <path d={blueLPath} fill="none" stroke="#3b82f6" strokeWidth="1.5" strokeOpacity="0.35" strokeLinejoin="round" mask={junctionMask ? "url(#junction-mask)" : undefined} />
+          </>
         )}
         {redPath && (
-          <path d={redPath} fill="#ef4444" fillOpacity="0.12" stroke="#ef4444" strokeWidth="1.5" strokeOpacity="0.35" strokeLinejoin="round" />
+          <>
+            <path d={redPath} fill="#ef4444" fillOpacity="0.12" stroke="none" />
+            <path d={redPath} fill="none" stroke="#ef4444" strokeWidth="1.5" strokeOpacity="0.35" strokeLinejoin="round" mask={junctionMask ? "url(#junction-mask)" : undefined} />
+          </>
         )}
         {greenPath && (
           <path d={greenPath} fill="#ef4444" fillOpacity="0.12" stroke="#ef4444" strokeWidth="1.5" strokeOpacity="0.35" strokeLinejoin="round" />
