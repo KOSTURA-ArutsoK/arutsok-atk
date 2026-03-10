@@ -2007,18 +2007,14 @@ function WorkflowDiagram({ folderDefs, row2FolderDefs, activeFolder, onFolderCli
                       ) : (
                         <div className="w-7 h-7 shrink-0" />
                       )}
-                      <div className="relative shrink-0">
-                        {f.id === 4 && (
-                          <svg width="20" height="20" viewBox="0 0 28 28" className="absolute -top-5 left-1/2 -translate-x-1/2">
-                            <path d="M8,27 V10 H0 L14,0 L28,10 H20 V27 Z" fill="#a1a1aa" fillOpacity="0.45" stroke="#a1a1aa" strokeWidth="0.5" strokeOpacity="0.6" strokeLinejoin="round" />
-                          </svg>
-                        )}
-                        <div className={`w-8 h-8 rounded-md ${f.bgColor} flex items-center justify-center`}>
-                          <FIcon className={`w-4 h-4 ${f.color}`} />
-                        </div>
+                      <div className={`w-8 h-8 rounded-md ${f.bgColor} flex items-center justify-center shrink-0`}>
+                        <FIcon className={`w-4 h-4 ${f.color}`} />
                       </div>
                       <div className="w-7 h-7 shrink-0" />
                     </div>
+                    {f.id === 4 && (
+                      <ArrowUp className="w-5 h-5 shrink-0 fill-current" style={{ color: '#a1a1aa' }} strokeWidth={6} />
+                    )}
                     <div className="flex-1 flex items-center">
                       <p className="text-[9px] font-semibold leading-tight">{f.label}</p>
                     </div>
@@ -2057,18 +2053,14 @@ function WorkflowDiagram({ folderDefs, row2FolderDefs, activeFolder, onFolderCli
                       ) : (
                         <div className="w-7 h-7 shrink-0" />
                       )}
-                      <div className="relative shrink-0">
-                        {f.id === 4 && (
-                          <svg width="20" height="20" viewBox="0 0 28 28" className="absolute -top-5 left-1/2 -translate-x-1/2">
-                            <path d="M8,27 V10 H0 L14,0 L28,10 H20 V27 Z" fill="#a1a1aa" fillOpacity="0.45" stroke="#a1a1aa" strokeWidth="0.5" strokeOpacity="0.6" strokeLinejoin="round" />
-                          </svg>
-                        )}
-                        <div className={`w-8 h-8 rounded-md ${f.bgColor} flex items-center justify-center`}>
-                          <FIcon className={`w-4 h-4 ${f.color}`} />
-                        </div>
+                      <div className={`w-8 h-8 rounded-md ${f.bgColor} flex items-center justify-center shrink-0`}>
+                        <FIcon className={`w-4 h-4 ${f.color}`} />
                       </div>
                       <div className="w-7 h-7 shrink-0" />
                     </div>
+                    {f.id === 4 && (
+                      <ArrowUp className="w-5 h-5 shrink-0 fill-current" style={{ color: '#a1a1aa' }} strokeWidth={6} />
+                    )}
                     <div className="flex-1 flex items-center">
                       <p className="text-[9px] font-semibold leading-tight">{f.label}</p>
                     </div>
