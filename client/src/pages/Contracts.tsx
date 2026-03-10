@@ -3995,7 +3995,7 @@ export default function Contracts() {
                 <div className="flex items-center gap-2">
                   <span className="text-xs text-muted-foreground">Vybraných: <span className="font-bold text-foreground">{rerouteSelectedIds.length}</span></span>
                   <Button size="sm" className="bg-cyan-600 hover:bg-cyan-700 text-white" onClick={() => moveToProcessingMutation.mutate(rerouteSelectedIds)} disabled={moveToProcessingMutation.isPending} data-testid="button-move-to-processing">
-                    {moveToProcessingMutation.isPending ? <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" /> : <ArrowRight className="w-3.5 h-3.5 mr-1.5" />}
+                    {moveToProcessingMutation.isPending ? <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" /> : <span className="mr-1.5">📋</span>}
                     Potvrď zmluvy na sprievodke a daj roztriediť ({rerouteSelectedIds.length})
                   </Button>
                 </div>
