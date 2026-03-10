@@ -11,7 +11,7 @@ import type { SmartColumnDef } from "@/hooks/use-smart-filter";
 import { SmartFilterBar } from "@/components/smart-filter-bar";
 import { useLocation } from "wouter";
 import type { Contract, ContractStatus, ContractTemplate, ContractInventory, Subject, Partner, Product, MyCompany, Sector, Section, SectorProduct, ClientGroup, ClientType, AppUser, ContractAcquirer } from "@shared/schema";
-import { Plus, Pencil, Trash2, Eye, FileText, Loader2, Lock, LayoutGrid, Send, Upload, Inbox, CheckCircle2, ChevronDown, ChevronRight, Printer, Search, Archive, AlertTriangle, Calendar, XCircle, MessageSquare, Paperclip, X, Users, Check, Award, Percent, History, ListChecks, ArrowRight, Clock, Ghost, Ban, HelpCircle } from "lucide-react";
+import { Plus, Pencil, Trash2, Eye, FileText, Loader2, Lock, LayoutGrid, Send, Upload, Inbox, CheckCircle2, ChevronDown, ChevronRight, Printer, Search, Archive, AlertTriangle, Calendar, XCircle, MessageSquare, Paperclip, X, Users, Check, Award, Percent, History, ListChecks, ArrowRight, ArrowUpRight, Clock, Ghost, Ban, HelpCircle } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ActivityTimeline } from "@/components/activity-timeline";
 import { cn } from "@/lib/utils";
@@ -1999,16 +1999,12 @@ function WorkflowDiagram({ folderDefs, row2FolderDefs, activeFolder, onFolderCli
                     </Tooltip>
                   )}
                   <div className="flex flex-col items-center p-2 text-center h-full">
-                    <div className="flex items-center gap-0.5 shrink-0">
-                      {[4, 7, 10].includes(f.id) && (
-                        <svg width="28" height="28" viewBox="0 0 28 28" className="shrink-0">
-                          <polygon points="4,24 14,4 24,24 18,24 14,16 10,24" fill="black" transform="rotate(45 14 14)" />
-                        </svg>
-                      )}
-                      <div className={`w-8 h-8 rounded-md ${f.bgColor} flex items-center justify-center shrink-0`}>
-                        <FIcon className={`w-4 h-4 ${f.color}`} />
-                      </div>
+                    <div className={`w-8 h-8 rounded-md ${f.bgColor} flex items-center justify-center shrink-0`}>
+                      <FIcon className={`w-4 h-4 ${f.color}`} />
                     </div>
+                    {[4, 7, 10].includes(f.id) && (
+                      <ArrowUpRight className="w-5 h-5 text-foreground shrink-0" strokeWidth={3} />
+                    )}
                     <div className="flex-1 flex items-center">
                       <p className="text-[9px] font-semibold leading-tight">{f.label}</p>
                     </div>
@@ -2039,16 +2035,12 @@ function WorkflowDiagram({ folderDefs, row2FolderDefs, activeFolder, onFolderCli
                     </Tooltip>
                   )}
                   <div className="flex flex-col items-center p-2 text-center h-full">
-                    <div className="flex items-center gap-0.5 shrink-0">
-                      {[4, 7, 10].includes(f.id) && (
-                        <svg width="28" height="28" viewBox="0 0 28 28" className="shrink-0">
-                          <polygon points="4,24 14,4 24,24 18,24 14,16 10,24" fill="black" transform="rotate(45 14 14)" />
-                        </svg>
-                      )}
-                      <div className={`w-8 h-8 rounded-md ${f.bgColor} flex items-center justify-center shrink-0`}>
-                        <FIcon className={`w-4 h-4 ${f.color}`} />
-                      </div>
+                    <div className={`w-8 h-8 rounded-md ${f.bgColor} flex items-center justify-center shrink-0`}>
+                      <FIcon className={`w-4 h-4 ${f.color}`} />
                     </div>
+                    {[4, 7, 10].includes(f.id) && (
+                      <ArrowUpRight className="w-5 h-5 text-foreground shrink-0" strokeWidth={3} />
+                    )}
                     <div className="flex-1 flex items-center">
                       <p className="text-[9px] font-semibold leading-tight">{f.label}</p>
                     </div>
