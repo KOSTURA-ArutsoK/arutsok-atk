@@ -2349,6 +2349,30 @@ export default function Contracts() {
     }));
   })();
 
+  const acceptedBySprievodka = (() => {
+    const groups: Record<number, { inventory: ContractInventory | undefined; contracts: Contract[] }> = {};
+    const ungrouped: Contract[] = [];
+    for (const c of activeAccepted) {
+      if (!c.inventoryId) { ungrouped.push(c); continue; }
+      if (!groups[c.inventoryId]) {
+        groups[c.inventoryId] = {
+          inventory: inventories?.find(i => i.id === c.inventoryId),
+          contracts: [],
+        };
+      }
+      groups[c.inventoryId].contracts.push(c);
+    }
+    const result = Object.entries(groups).map(([key, val]) => ({
+      inventoryId: Number(key),
+      inventory: val.inventory,
+      contracts: val.contracts,
+    }));
+    if (ungrouped.length > 0) {
+      result.push({ inventoryId: 0, inventory: undefined, contracts: ungrouped });
+    }
+    return result;
+  })();
+
   function invalidateContractCaches() {
     setContractPages([]);
     setContractsTotal(0);
@@ -3935,9 +3959,43 @@ export default function Contracts() {
             <CardContent className="p-0">
               {isLoadingAccepted ? (
                 <div className="flex items-center justify-center py-8"><Loader2 className="w-5 h-5 animate-spin" /></div>
-              ) : activeAccepted.length === 0 ? (
+              ) : acceptedBySprievodka.length === 0 ? (
                 <p className="text-sm text-muted-foreground text-center py-8" data-testid="text-no-prijate">Žiadne zmluvy prijaté do centrály</p>
-              ) : renderContractTable(activeAccepted, { showStatus: true, showRegistration: true, showActions: true, showRerouteCheckbox: true })}
+              ) : (
+                <div className="divide-y">
+                  {acceptedBySprievodka.map(group => {
+                    const isExpanded = expandedSprievodky.has(group.inventoryId + 200000);
+                    return (
+                      <div key={group.inventoryId} data-testid={`accepted-sprievodka-group-${group.inventoryId}`}>
+                        <div
+                          className="flex items-center gap-3 p-3 cursor-pointer hover-elevate flex-wrap"
+                          onClick={() => toggleSprievodkaExpanded(group.inventoryId + 200000)}
+                          data-testid={`button-toggle-accepted-sprievodka-${group.inventoryId}`}
+                        >
+                          {isExpanded ? <ChevronDown className="w-4 h-4 text-muted-foreground shrink-0" /> : <ChevronRight className="w-4 h-4 text-muted-foreground shrink-0" />}
+                          <FileText className="w-4 h-4 text-green-500 shrink-0" />
+                          <span className="text-sm font-medium flex-1" data-testid={`text-accepted-sprievodka-name-${group.inventoryId}`}>
+                            {group.inventory?.name || (group.inventoryId === 0 ? "Bez sprievodky" : `Sprievodka ${group.inventoryId}`)}
+                            {group.inventory?.logisticOperationDate && (
+                              <span className="ml-2 text-xs text-muted-foreground font-normal">
+                                ({formatDateSlovak(group.inventory.logisticOperationDate)})
+                              </span>
+                            )}
+                          </span>
+                          <Badge variant="outline" data-testid={`badge-accepted-sprievodka-count-${group.inventoryId}`}>
+                            {group.contracts.length} {group.contracts.length === 1 ? "zmluva" : group.contracts.length < 5 ? "zmluvy" : "zmluv"}
+                          </Badge>
+                        </div>
+                        <div style={{ display: isExpanded ? 'block' : 'none' }}>
+                          <div className="border-t">
+                            {renderContractTable(group.contracts, { showStatus: true, showRegistration: true, showActions: true, showRerouteCheckbox: true })}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
             </CardContent>
           </Card>
         </div>
