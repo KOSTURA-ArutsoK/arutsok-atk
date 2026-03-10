@@ -2902,7 +2902,7 @@ export default function Contracts() {
           {list.map(contract => {
             const status = statuses?.find(s => s.id === contract.statusId);
             return (
-              <TableRow key={contract.id} data-testid={`row-evidencia-${contract.id}`} onRowClick={() => { if (checkboxOnly && showRerouteCheckbox) { toggleRerouteSelect(contract.id); } else if (!checkboxOnly) { openEdit(contract); } }}>
+              <TableRow key={contract.id} data-testid={`row-evidencia-${contract.id}`} onRowClick={() => { if (checkboxOnly && showRerouteCheckbox) { toggleRerouteSelect(contract.id); } else if (checkboxOnly && showCheckbox) { toggleSelect(contract.id); } else if (!checkboxOnly) { openEdit(contract); } }}>
                 {showCheckbox && (
                   <TableCell>
                     <Checkbox
@@ -3758,7 +3758,7 @@ export default function Contracts() {
                 <p className="text-sm text-muted-foreground text-center py-8" data-testid="text-no-nahravanie">Ziadne zmluvy na nahravanie</p>
               ) : (
                 <>
-                  {renderContractTable(sortedNahravanie, { showCheckbox: true, showOrder: true, sortState: { sortKey: skNahr, sortDirection: sdNahr, requestSort: rsNahr } })}
+                  {renderContractTable(sortedNahravanie, { showCheckbox: true, showOrder: true, checkboxOnly: true, sortState: { sortKey: skNahr, sortDirection: sdNahr, requestSort: rsNahr } })}
                   {hasMoreContracts && (
                     <div className="flex items-center justify-center py-4 border-t">
                       <Button variant="outline" size="sm" onClick={loadMoreContracts} disabled={isLoadingMore} data-testid="button-load-more">
@@ -3865,7 +3865,7 @@ export default function Contracts() {
                               </TableHeader>
                               <TableBody>
                                 {group.contracts.map(contract => (
-                                  <TableRow key={contract.id} data-testid={`row-cakajuce-${contract.id}`} onRowClick={() => openEdit(contract)}>
+                                  <TableRow key={contract.id} data-testid={`row-cakajuce-${contract.id}`} onRowClick={() => toggleAcceptContract(group.inventoryId, contract.id)}>
                                     <TableCell>
                                       <Checkbox checked={checkedIds.has(contract.id)} onCheckedChange={() => toggleAcceptContract(group.inventoryId, contract.id)} data-testid={`checkbox-accept-${contract.id}`} />
                                     </TableCell>
