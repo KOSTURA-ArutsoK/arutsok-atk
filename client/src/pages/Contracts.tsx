@@ -1910,8 +1910,8 @@ function WorkflowDiagram({ folderDefs, row2FolderDefs, activeFolder, onFolderCli
           ].join(' '),
         };
       };
-      const mkHArrow = (fromIdx: number, toIdx: number, color: string) => {
-        const cy = (f[fromIdx].t + f[fromIdx].b) / 2;
+      const mkHArrow = (fromIdx: number, toIdx: number, color: string, offsetY = 0) => {
+        const cy = (f[fromIdx].t + f[fromIdx].b) / 2 + offsetY;
         const right = f[toIdx].l > f[fromIdx].r;
         const startX = right ? f[fromIdx].r + 2 : f[fromIdx].l - 2;
         const endX = right ? f[toIdx].l - 2 : f[toIdx].r + 2;
@@ -1940,7 +1940,8 @@ function WorkflowDiagram({ folderDefs, row2FolderDefs, activeFolder, onFolderCli
         mkVArrow(8, 3, '#f97316', -16),
         mkVArrow(3, 8, '#ef4444', 16),
         mkVArrow(6, 1, '#a1a1aa'),
-        mkHArrow(1, 2, '#a1a1aa'),
+        mkHArrow(1, 2, '#a1a1aa', -8),
+        mkHArrow(2, 1, '#a1a1aa', 8),
         mkHArrow(1, 0, '#a1a1aa'),
       ]);
 
