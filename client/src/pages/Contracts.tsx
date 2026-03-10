@@ -2404,6 +2404,17 @@ export default function Contracts() {
     onError: () => toast({ title: "Chyba", description: "Nepodarilo sa schvalit zmluvy", variant: "destructive" }),
   });
 
+  const approveSprievodkaMutation = useMutation({
+    mutationFn: async ({ inventoryId, contractIds }: { inventoryId: number; contractIds: number[] }) => {
+      await apiRequest("POST", `/api/contract-inventories/${inventoryId}/accept`, { contractIds });
+    },
+    onSuccess: () => {
+      invalidateContractCaches();
+      toast({ title: "Úspech", description: "Sprievodka schválená a odoslaná do centrály" });
+    },
+    onError: () => toast({ title: "Chyba", description: "Nepodarilo sa schváliť a odoslať sprievodku", variant: "destructive" }),
+  });
+
   const bulkDateMutation = useMutation({
     mutationFn: async ({ type, id, logisticOperationDate, onlyMissing }: { type: string; id: number; logisticOperationDate: string; onlyMissing: boolean }) => {
       const endpoint = type === "inventory"
@@ -3657,12 +3668,26 @@ export default function Contracts() {
                           )}
                           <Button size="sm" variant="outline" onClick={(e) => { e.stopPropagation(); }} data-testid={`button-print-sprievodka-${group.inventoryId}`}>
                             <Printer className="w-3.5 h-3.5 mr-1.5" />
-                            Tlacit sprievodku
+                            Tlačiť sprievodku
+                          </Button>
+                          <Button
+                            size="sm"
+                            className="bg-green-600 hover:bg-green-700 text-white"
+                            disabled={approveSprievodkaMutation.isPending}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              const allIds = group.contracts.map(c => c.id);
+                              approveSprievodkaMutation.mutate({ inventoryId: group.inventoryId, contractIds: allIds });
+                            }}
+                            data-testid={`button-approve-sprievodka-${group.inventoryId}`}
+                          >
+                            {approveSprievodkaMutation.isPending ? <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" /> : <Send className="w-3.5 h-3.5 mr-1.5" />}
+                            Schváliť a odoslať
                           </Button>
                           <span id={`accept-btn-wrapper-${group.inventoryId}`} style={{ display: checkedIds.size > 0 ? 'inline' : 'none' }}>
                             <Button size="sm" onClick={(e) => { e.stopPropagation(); handleAccept(group.inventoryId); }} disabled={isAccepting} data-testid={`button-accept-${group.inventoryId}`}>
                               {isAccepting ? <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" /> : <CheckCircle2 className="w-3.5 h-3.5 mr-1.5" />}
-                              Schvalit a prijat ({checkedIds.size})
+                              Schváliť a prijať ({checkedIds.size})
                             </Button>
                           </span>
                         </div>
