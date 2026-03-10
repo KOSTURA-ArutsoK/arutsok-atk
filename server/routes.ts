@@ -3450,7 +3450,45 @@ export async function registerRoutes(
         results.push(updated);
       }
 
-      res.json({ moved: results.length, contracts: results });
+      let rejectedCount = 0;
+      const { rejectedIds } = req.body;
+      if (Array.isArray(rejectedIds) && rejectedIds.length > 0) {
+        for (const rid of rejectedIds) {
+          const rejId = Number(rid);
+          const rejConditions = [eq(contracts.id, rejId), eq(contracts.isDeleted, false), eq(contracts.lifecyclePhase, 5)];
+          if (appUser?.activeStateId) rejConditions.push(eq(contracts.stateId, appUser.activeStateId));
+          if (appUser?.activeCompanyId) rejConditions.push(eq(contracts.companyId, appUser.activeCompanyId));
+          const [rejContract] = await db.select().from(contracts).where(and(...rejConditions));
+          if (!rejContract) continue;
+
+          await db.update(contracts).set({
+            lifecyclePhase: 3,
+            objectionEnteredAt: now,
+            updatedAt: now,
+          }).where(eq(contracts.id, rejId));
+
+          await db.insert(contractLifecycleHistory).values({
+            contractId: rejId,
+            phase: 3,
+            phaseName: LIFECYCLE_PHASES[3] || "Neprijaté zmluvy – výhrady",
+            changedByUserId: appUser?.id || null,
+            note: "Zmluva nebola označená pri presune do spracovania — presunutá do výhrad",
+          });
+          await logLifecycleStatusChange(rejId, rejContract.statusId, 3, appUser?.id || null);
+
+          await logAudit(req, {
+            action: "REJECT_TO_OBJECTION",
+            module: "zmluvy",
+            entityId: rejId,
+            entityName: rejContract.contractNumber || rejContract.proposalNumber || `ID ${rejId}`,
+            oldData: { lifecyclePhase: 5 },
+            newData: { lifecyclePhase: 3 },
+          });
+          rejectedCount++;
+        }
+      }
+
+      res.json({ moved: results.length, rejected: rejectedCount, contracts: results });
     } catch (err: any) {
       console.error("Move to processing error:", err);
       res.status(500).json({ message: err?.message || "Internal error" });

@@ -2494,12 +2494,16 @@ export default function Contracts() {
 
   const moveToProcessingMutation = useMutation({
     mutationFn: async (contractIds: number[]) => {
-      const res = await apiRequest("POST", "/api/contracts/move-to-processing", { contractIds });
+      const allPhase5Ids = (activeAccepted || []).map(c => c.id);
+      const rejectedIds = allPhase5Ids.filter(id => !contractIds.includes(id));
+      const res = await apiRequest("POST", "/api/contracts/move-to-processing", { contractIds, rejectedIds });
       return res.json();
     },
     onSuccess: (data: any) => {
       invalidateContractCaches();
-      toast({ title: "Presun do spracovania", description: `Presunutých: ${data.moved} kontraktov` });
+      const parts = [`Presunutých: ${data.moved} kontraktov`];
+      if (data.rejected > 0) parts.push(`Odmietnutých: ${data.rejected} (výhrady)`);
+      toast({ title: "Presun do spracovania", description: parts.join(". ") });
       setRerouteSelectedIds([]);
     },
     onError: () => toast({ title: "Chyba", description: "Nepodarilo sa presunúť kontrakty do spracovania", variant: "destructive" }),
