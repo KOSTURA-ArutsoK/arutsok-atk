@@ -798,6 +798,7 @@ export default function ContractForm() {
   const [vseobecneAccordionOpen, setVseobecneAccordionOpen] = useState(false);
   const [udajeAccordionOpen, setUdajeAccordionOpen] = useState(false);
   const [historiaAccordionOpen, setHistoriaAccordionOpen] = useState(true);
+  const [lifecycleAccordionOpen, setLifecycleAccordionOpen] = useState(true);
   const [partnerId, setPartnerId] = useState<string>("");
   const [statusId, setStatusId] = useState<string>("");
   const [statusFormStatusId, setStatusFormStatusId] = useState<string>("");
@@ -2828,6 +2829,61 @@ export default function ContractForm() {
                   )}
                 </CardContent>
               </Card>
+
+              {lifecycleHistory && lifecycleHistory.length > 0 && (
+                <Card
+                  className={`cursor-pointer transition-all hover:shadow-md border-emerald-500/30 bg-emerald-500/5 ${lifecycleAccordionOpen ? "ring-1 ring-emerald-500/20" : ""}`}
+                  onClick={() => setLifecycleAccordionOpen(prev => !prev)}
+                  data-testid="summary-lifecycle-accordion"
+                >
+                  <CardContent className="p-4">
+                    <div className="flex items-center justify-between">
+                      <h3 className="text-sm font-semibold flex items-center gap-1.5">
+                        <ListChecks className="w-4 h-4 text-emerald-500" />
+                        Priebeh spracovania zmluvy
+                      </h3>
+                      <div className="flex items-center gap-2">
+                        <Badge variant="secondary" className="text-[10px] h-4">{lifecycleHistory.length} {lifecycleHistory.length === 1 ? "fáza" : lifecycleHistory.length < 5 ? "fázy" : "fáz"}</Badge>
+                        <ChevronRight className={`w-4 h-4 text-muted-foreground transition-transform ${lifecycleAccordionOpen ? "rotate-90" : ""}`} />
+                      </div>
+                    </div>
+                    {lifecycleAccordionOpen && (
+                      <div className="mt-3 pt-3 border-t border-emerald-500/20" onClick={e => e.stopPropagation()}>
+                        <div className="relative pl-6 space-y-3">
+                          <div className="absolute left-[11px] top-2 bottom-2 w-0.5 bg-emerald-500/30" />
+                          {lifecycleHistory.map((entry: any, idx: number) => (
+                            <div key={entry.id} className="relative" data-testid={`lifecycle-history-row-${entry.id}`}>
+                              <div className="absolute -left-6 top-5 w-[22px] flex items-center justify-center">
+                                <div className="w-3 h-3 rounded-full border-2 border-background bg-emerald-500 shrink-0" />
+                              </div>
+                              <Card className="shadow-sm border-l-[3px] border-l-emerald-500/40 min-h-[48px]">
+                                <CardContent className="p-3">
+                                  <div className="flex items-center gap-2 flex-wrap">
+                                    <Badge variant="outline" className="text-xs font-mono h-5 w-5 p-0 flex items-center justify-center shrink-0">{idx + 1}</Badge>
+                                    <span className="font-semibold text-sm text-emerald-400" data-testid={`lifecycle-phase-name-${entry.id}`}>{entry.phaseName}</span>
+                                    <div className="ml-auto flex items-center gap-2">
+                                      {entry.note && <MessageSquare className="w-3 h-3 text-blue-400" />}
+                                      <span className="text-xs text-muted-foreground" data-testid={`lifecycle-date-${entry.id}`}>
+                                        {entry.changedAt ? formatDateTimeSlovak(entry.changedAt) : "-"}
+                                      </span>
+                                    </div>
+                                  </div>
+                                  {entry.note && (
+                                    <p className="text-xs text-muted-foreground mt-1.5 bg-muted/40 rounded px-2 py-1" data-testid={`lifecycle-note-${entry.id}`}>{entry.note}</p>
+                                  )}
+                                  {entry.changerName && entry.changerName !== "System" && (
+                                    <p className="text-[10px] text-muted-foreground/70 mt-1">{entry.changerName}</p>
+                                  )}
+                                </CardContent>
+                              </Card>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              )}
 
               <Card
                 className={`cursor-pointer transition-all hover:shadow-md ${historiaAccordionOpen ? "ring-1 ring-border/40" : ""}`}
