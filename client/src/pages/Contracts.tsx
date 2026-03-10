@@ -1822,21 +1822,7 @@ function WorkflowDiagram({ folderDefs, row2FolderDefs, activeFolder, onFolderCli
       ].join(' ');
       setRedPath(rPath);
 
-      const gPad = 8;
-      const grc = 8;
-      const gL = f[4].l - gPad;
-      const gT = f[4].t - gPad;
-      const gR = f[4].r + gPad;
-      const gB = f[4].b + gPad;
-      const gPath = [
-        `M ${gL + grc},${gT}`,
-        `H ${gR - grc} A ${grc},${grc} 0 0 1 ${gR},${gT + grc}`,
-        `V ${gB - grc} A ${grc},${grc} 0 0 1 ${gR - grc},${gB}`,
-        `H ${gL + grc} A ${grc},${grc} 0 0 1 ${gL},${gB - grc}`,
-        `V ${gT + grc} A ${grc},${grc} 0 0 1 ${gL + grc},${gT}`,
-        'Z',
-      ].join(' ');
-      setGreenPath(gPath);
+      setGreenPath("");
 
       const leftBlack = f[1].l - pad;
       const topBlack = f[1].t - pad;
