@@ -1999,13 +1999,17 @@ function WorkflowDiagram({ folderDefs, row2FolderDefs, activeFolder, onFolderCli
                     </Tooltip>
                   )}
                   <div className="flex flex-col items-center p-2 text-center h-full relative">
-                    {[4, 7, 10].includes(f.id) && (
-                      <svg className="absolute top-1.5" style={{left: 'calc(50% - 28px)', width: 20, height: 20}} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="5" strokeLinecap="round" strokeLinejoin="round">
-                        <line x1="5" y1="19" x2="19" y2="5" /><polyline points="9,5 19,5 19,15" />
-                      </svg>
-                    )}
-                    <div className={`w-8 h-8 rounded-md ${f.bgColor} flex items-center justify-center shrink-0`}>
-                      <FIcon className={`w-4 h-4 ${f.color}`} />
+                    <div className="flex items-center gap-1 shrink-0">
+                      {[4, 7, 10].includes(f.id) && (
+                        <div className="w-8 h-8 flex items-center justify-center">
+                          <svg width="24" height="24" viewBox="0 0 24 24" className="text-foreground">
+                            <path d="M4,20 L4,17 L14,7 L17,7 L17,4 L21,8.5 L17,13 L17,10 L14,10 L7,17 L7,20 Z" fill="currentColor" fillOpacity="0.5" />
+                          </svg>
+                        </div>
+                      )}
+                      <div className={`w-8 h-8 rounded-md ${f.bgColor} flex items-center justify-center`}>
+                        <FIcon className={`w-4 h-4 ${f.color}`} />
+                      </div>
                     </div>
                     <div className="flex-1 flex items-center">
                       <p className="text-[9px] font-semibold leading-tight">{f.label}</p>
@@ -2036,14 +2040,18 @@ function WorkflowDiagram({ folderDefs, row2FolderDefs, activeFolder, onFolderCli
                       </TooltipContent>
                     </Tooltip>
                   )}
-                  <div className="flex flex-col items-center p-2 text-center h-full relative">
-                    {[4, 7, 10].includes(f.id) && (
-                      <svg className="absolute top-1.5" style={{left: 'calc(50% - 28px)', width: 20, height: 20}} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="5" strokeLinecap="round" strokeLinejoin="round">
-                        <line x1="5" y1="19" x2="19" y2="5" /><polyline points="9,5 19,5 19,15" />
-                      </svg>
-                    )}
-                    <div className={`w-8 h-8 rounded-md ${f.bgColor} flex items-center justify-center shrink-0`}>
-                      <FIcon className={`w-4 h-4 ${f.color}`} />
+                  <div className="flex flex-col items-center p-2 text-center h-full">
+                    <div className="flex items-center gap-1 shrink-0">
+                      {[4, 7, 10].includes(f.id) && (
+                        <div className="w-8 h-8 flex items-center justify-center">
+                          <svg width="24" height="24" viewBox="0 0 24 24" className="text-foreground">
+                            <path d="M4,20 L4,17 L14,7 L17,7 L17,4 L21,8.5 L17,13 L17,10 L14,10 L7,17 L7,20 Z" fill="currentColor" fillOpacity="0.5" />
+                          </svg>
+                        </div>
+                      )}
+                      <div className={`w-8 h-8 rounded-md ${f.bgColor} flex items-center justify-center`}>
+                        <FIcon className={`w-4 h-4 ${f.color}`} />
+                      </div>
                     </div>
                     <div className="flex-1 flex items-center">
                       <p className="text-[9px] font-semibold leading-tight">{f.label}</p>
