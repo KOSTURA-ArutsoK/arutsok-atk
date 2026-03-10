@@ -2024,7 +2024,7 @@ function WorkflowDiagram({ folderDefs, row2FolderDefs, activeFolder, onFolderCli
                       <div className="w-7 h-7 shrink-0" />
                     </div>
                     <div className="flex-1 flex items-center">
-                      <p className="text-[9px] font-semibold leading-tight">{f.label}</p>
+                      <p className="text-[11px] font-semibold leading-tight">{f.label}</p>
                     </div>
                     <p className="text-lg font-bold leading-none shrink-0">{f.count}</p>
                   </div>
@@ -2065,7 +2065,7 @@ function WorkflowDiagram({ folderDefs, row2FolderDefs, activeFolder, onFolderCli
                       <div className="w-7 h-7 shrink-0" />
                     </div>
                     <div className="flex-1 flex items-center">
-                      <p className="text-[9px] font-semibold leading-tight">{f.label}</p>
+                      <p className="text-[11px] font-semibold leading-tight">{f.label}</p>
                     </div>
                     <p className="text-lg font-bold leading-none shrink-0">{f.count}</p>
                   </div>
