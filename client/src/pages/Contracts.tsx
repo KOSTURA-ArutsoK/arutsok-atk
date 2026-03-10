@@ -2855,8 +2855,8 @@ export default function Contracts() {
     );
   }
 
-  function renderContractTable(list: Contract[], options?: { showCheckbox?: boolean; showOrder?: boolean; showStatus?: boolean; showRegistration?: boolean; showActions?: boolean; showTimer?: boolean; showRerouteCheckbox?: boolean; sortState?: { sortKey: string | null; sortDirection: "asc" | "desc" | null; requestSort: (key: string) => void } }) {
-    const { showCheckbox, showOrder, showStatus, showRegistration, showActions = true, showTimer, showRerouteCheckbox, sortState } = options || {};
+  function renderContractTable(list: Contract[], options?: { showCheckbox?: boolean; showOrder?: boolean; showStatus?: boolean; showRegistration?: boolean; showActions?: boolean; showTimer?: boolean; showRerouteCheckbox?: boolean; checkboxOnly?: boolean; sortState?: { sortKey: string | null; sortDirection: "asc" | "desc" | null; requestSort: (key: string) => void } }) {
+    const { showCheckbox, showOrder, showStatus, showRegistration, showActions = true, showTimer, showRerouteCheckbox, checkboxOnly, sortState } = options || {};
     const sk = sortState?.sortKey ?? null;
     const sd = sortState?.sortDirection ?? null;
     const rs = sortState?.requestSort;
@@ -2902,7 +2902,7 @@ export default function Contracts() {
           {list.map(contract => {
             const status = statuses?.find(s => s.id === contract.statusId);
             return (
-              <TableRow key={contract.id} data-testid={`row-evidencia-${contract.id}`} onRowClick={() => openEdit(contract)}>
+              <TableRow key={contract.id} data-testid={`row-evidencia-${contract.id}`} onRowClick={() => { if (checkboxOnly && showRerouteCheckbox) { toggleRerouteSelect(contract.id); } else if (!checkboxOnly) { openEdit(contract); } }}>
                 {showCheckbox && (
                   <TableCell>
                     <Checkbox
@@ -4033,7 +4033,7 @@ export default function Contracts() {
                         </div>
                         <div style={{ display: isExpanded ? 'block' : 'none' }}>
                           <div className="border-t">
-                            {renderContractTable(group.contracts, { showStatus: true, showRegistration: true, showActions: true, showRerouteCheckbox: true })}
+                            {renderContractTable(group.contracts, { showStatus: true, showRegistration: true, showActions: true, showRerouteCheckbox: true, checkboxOnly: true })}
                           </div>
                         </div>
                       </div>
