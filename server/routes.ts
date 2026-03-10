@@ -16301,6 +16301,9 @@ export async function registerRoutes(
   app.get("/api/my-tasks", isAuthenticated, async (req: any, res) => {
     try {
       const appUser = req.appUser;
+      if (!appUser) {
+        return res.status(401).json({ message: "Nie je prihlásený používateľ" });
+      }
       const pendingRequests = await db.select().from(guarantorTransferRequests)
         .where(eq(guarantorTransferRequests.status, "pending_all_approvals"))
         .orderBy(desc(guarantorTransferRequests.createdAt));
@@ -16390,7 +16393,7 @@ export async function registerRoutes(
             .where(inArray(contractStatuses.id, interventionStatusIds))
         : [];
 
-      const contractSelectFields = {
+      const allPhase7 = await db.select({
         id: contracts.id,
         uid: contracts.uid,
         contractNumber: contracts.contractNumber,
@@ -16405,9 +16408,7 @@ export async function registerRoutes(
         lastStatusUpdate: contracts.lastStatusUpdate,
         updatedAt: contracts.updatedAt,
         createdAt: contracts.createdAt,
-      };
-
-      const allPhase7 = await db.select(contractSelectFields).from(contracts).where(
+      }).from(contracts).where(
         and(eq(contracts.lifecyclePhase, 7), eq(contracts.isDeleted, false))
       ).orderBy(desc(contracts.lastStatusUpdate));
 
@@ -16508,6 +16509,7 @@ export async function registerRoutes(
         upcomingEvents, nbsReportTasks,
       });
     } catch (err: any) {
+      console.error("[MY-TASKS ERROR]", err);
       res.status(500).json({ message: err?.message || "Chyba" });
     }
   });

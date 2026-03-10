@@ -2511,12 +2511,15 @@ export class DatabaseStorage implements IStorage {
       let partnerName = null;
       let productName = null;
       if (c.subjectId) {
-        const [subj] = await db.select({ name: subjects.name, uid: subjects.uid }).from(subjects).where(eq(subjects.id, c.subjectId));
-        if (subj) { subjectName = subj.name; subjectUid = subj.uid; }
+        const [subj] = await db.select({ firstName: subjects.firstName, lastName: subjects.lastName, companyName: subjects.companyName, uid: subjects.uid, type: subjects.type }).from(subjects).where(eq(subjects.id, c.subjectId));
+        if (subj) {
+          subjectName = subj.type === "person" ? `${subj.firstName || ""} ${subj.lastName || ""}`.trim() : (subj.companyName || "");
+          subjectUid = subj.uid;
+        }
       }
       if (c.partnerId) {
-        const [p] = await db.select({ name: subjects.name }).from(subjects).where(eq(subjects.id, c.partnerId));
-        if (p) partnerName = p.name;
+        const [p] = await db.select({ firstName: subjects.firstName, lastName: subjects.lastName, companyName: subjects.companyName, type: subjects.type }).from(subjects).where(eq(subjects.id, c.partnerId));
+        if (p) partnerName = p.type === "person" ? `${p.firstName || ""} ${p.lastName || ""}`.trim() : (p.companyName || "");
       }
       if (c.productId) {
         const [prod] = await db.select({ name: sectorProducts.name }).from(sectorProducts).where(eq(sectorProducts.id, c.productId));
