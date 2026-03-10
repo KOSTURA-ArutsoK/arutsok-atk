@@ -3925,7 +3925,7 @@ export default function Contracts() {
                                   <ListChecks className="w-4 h-4 text-muted-foreground shrink-0" />
                                   <span className="text-sm font-medium flex-1" data-testid={`text-supiska-name-${sup.id}`}>{sup.name}</span>
                                   <Badge variant="outline" className="text-xs">{sup.contracts?.length || 0} kontraktov</Badge>
-                                  {phaseId === 8 && (
+                                  {phaseId === 8 && sup.status !== "Odoslana" && sup.status !== "Prijata" && (
                                     <Button
                                       size="sm"
                                       variant="default"
@@ -3935,6 +3935,9 @@ export default function Contracts() {
                                     >
                                       <Send className="w-3 h-3 mr-1" />Odoslať partnerovi
                                     </Button>
+                                  )}
+                                  {phaseId === 8 && sup.status === "Odoslana" && (
+                                    <Badge variant="outline" className="text-indigo-400 border-indigo-400/30">Odoslaná</Badge>
                                   )}
                                   {phaseId === 9 && (
                                     <Button
