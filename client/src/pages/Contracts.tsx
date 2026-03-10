@@ -2002,8 +2002,8 @@ function WorkflowDiagram({ folderDefs, row2FolderDefs, activeFolder, onFolderCli
                     <div className="flex items-center gap-1 shrink-0">
                       {[4, 7, 10].includes(f.id) && (
                         <div className="w-8 h-8 flex items-center justify-center">
-                          <svg width="24" height="24" viewBox="0 0 24 24" className="text-foreground">
-                            <path d="M4,20 L4,17 L14,7 L17,7 L17,4 L21,8.5 L17,13 L17,10 L14,10 L7,17 L7,20 Z" fill="currentColor" fillOpacity="0.5" />
+                          <svg width="28" height="28" viewBox="0 0 28 28">
+                            <path d="M4,24 L8,20 L8,14 L14,8 L20,8 L20,4 L26,14 L20,24 L20,18 L14,18 L8,24 Z" fill="black" />
                           </svg>
                         </div>
                       )}
@@ -2044,8 +2044,8 @@ function WorkflowDiagram({ folderDefs, row2FolderDefs, activeFolder, onFolderCli
                     <div className="flex items-center gap-1 shrink-0">
                       {[4, 7, 10].includes(f.id) && (
                         <div className="w-8 h-8 flex items-center justify-center">
-                          <svg width="24" height="24" viewBox="0 0 24 24" className="text-foreground">
-                            <path d="M4,20 L4,17 L14,7 L17,7 L17,4 L21,8.5 L17,13 L17,10 L14,10 L7,17 L7,20 Z" fill="currentColor" fillOpacity="0.5" />
+                          <svg width="28" height="28" viewBox="0 0 28 28">
+                            <path d="M4,24 L8,20 L8,14 L14,8 L20,8 L20,4 L26,14 L20,24 L20,18 L14,18 L8,24 Z" fill="black" />
                           </svg>
                         </div>
                       )}
