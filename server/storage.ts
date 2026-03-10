@@ -2496,7 +2496,35 @@ export class DatabaseStorage implements IStorage {
   // === Rejected Contracts (ArutsoK 49) ===
 
   async getRejectedContracts(companyId?: number, stateId?: number): Promise<Contract[]> {
-    return [];
+    const conditions = [
+      eq(contracts.lifecyclePhase, 3),
+      eq(contracts.isDeleted, false),
+    ];
+    if (companyId) conditions.push(eq(contracts.companyId, companyId));
+    if (stateId) conditions.push(eq(contracts.stateId, stateId));
+
+    const rows = await db.select().from(contracts).where(and(...conditions)).orderBy(desc(contracts.objectionEnteredAt));
+
+    const enriched = await Promise.all(rows.map(async (c) => {
+      let subjectName = null;
+      let subjectUid = null;
+      let partnerName = null;
+      let productName = null;
+      if (c.subjectId) {
+        const [subj] = await db.select({ name: subjects.name, uid: subjects.uid }).from(subjects).where(eq(subjects.id, c.subjectId));
+        if (subj) { subjectName = subj.name; subjectUid = subj.uid; }
+      }
+      if (c.partnerId) {
+        const [p] = await db.select({ name: subjects.name }).from(subjects).where(eq(subjects.id, c.partnerId));
+        if (p) partnerName = p.name;
+      }
+      if (c.productId) {
+        const [prod] = await db.select({ name: sectorProducts.name }).from(sectorProducts).where(eq(sectorProducts.id, c.productId));
+        if (prod) productName = prod.name;
+      }
+      return { ...c, subjectName, subjectUid, partnerName, productName };
+    }));
+    return enriched as any;
   }
 
   // === Contract Templates ===
