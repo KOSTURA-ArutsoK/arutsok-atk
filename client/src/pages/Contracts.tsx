@@ -1952,7 +1952,7 @@ function WorkflowDiagram({ folderDefs, row2FolderDefs, activeFolder, onFolderCli
           <path d={greenPath} fill="#ef4444" fillOpacity="0.12" stroke="#ef4444" strokeWidth="1.5" strokeOpacity="0.35" strokeLinejoin="round" />
         )}
         {blackPath && (
-          <path d={blackPath} fill="#ffffff" fillOpacity="0.06" stroke="#a1a1aa" strokeWidth="1.5" strokeOpacity="0.4" strokeLinejoin="round" />
+          <path d={blackPath} fill="#3f3f46" fillOpacity="0.35" stroke="#52525b" strokeWidth="1.5" strokeOpacity="0.5" strokeLinejoin="round" />
         )}
         {arrows.map((a, i) => (
           <path key={`arrow-${i}`} d={a.d} fill={a.color} fillOpacity="0.45" stroke={a.color} strokeWidth="0.5" strokeOpacity="0.6" strokeLinejoin="round" filter="url(#arrow-shadow)" />
