@@ -2830,7 +2830,7 @@ export default function Contracts() {
   ];
 
   const row2FolderDefs: FolderDef[] = [
-    { id: 2, label: "Vytvorenie sprievodky", icon: Send, color: "text-blue-500", bgColor: "bg-blue-500/15", count: activeDispatched.length, tooltip: "Zmluvy zaradené do sprievodky a odoslané do centrály spoločnosti na spracovanie." },
+    { id: 2, label: "Odoslať sprievodku do centrály", icon: Send, color: "text-blue-500", bgColor: "bg-blue-500/15", count: activeDispatched.length, tooltip: "Zmluvy zaradené do sprievodky a odoslané do centrály spoločnosti na spracovanie." },
     { id: 5, label: "Odoslané sprievodky a prijatie do centrály", icon: CheckCircle2, color: "text-green-500", bgColor: "bg-green-500/15", count: activeAccepted.length, tooltip: "Zmluvy prijaté centrálou partnera. Čakajú na spracovanie a evidenciu v systéme partnera." },
     { id: 6, label: "Kontrakt v spracovaní", icon: LayoutGrid, color: "text-cyan-500", bgColor: "bg-cyan-500/15", count: phase6Contracts.length, tooltip: "Zmluvy aktívne spracovávané centrálou — kontrola údajov, validácia dokumentov a evidencia." },
     { id: 8, label: "Pripravené na odoslanie", icon: ListChecks, color: "text-emerald-500", bgColor: "bg-emerald-500/15", count: phase8Contracts.length, tooltip: "Zmluvy kompletne spracované a pripravené na odoslanie späť obchodnému partnerovi." },
