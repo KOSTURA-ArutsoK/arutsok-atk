@@ -2960,7 +2960,7 @@ export default function Contracts() {
                           <Pencil className="w-3.5 h-3.5" />
                         </Button>
                       )}
-                      {canDeleteRecords(appUser) && (
+                      {canDeleteRecords(appUser) && (contract.lifecyclePhase || 0) < 5 && (
                         <Tooltip>
                           <TooltipTrigger asChild>
                             <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => openDelete(contract)} data-testid={`button-delete-contract-${contract.id}`}>

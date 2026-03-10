@@ -5229,6 +5229,9 @@ export async function registerRoutes(
       if (appUser.activeStateId && contract.stateId && contract.stateId !== appUser.activeStateId) {
         return res.status(403).json({ message: "Vymazanie zmluvy z ineho statu nie je povolene" });
       }
+      if (contract.lifecyclePhase >= 5) {
+        return res.status(403).json({ message: "Zmluvu po prijatí do centrály nie je možné vymazať" });
+      }
       const ip = req.ip || req.headers['x-forwarded-for'] || req.socket.remoteAddress;
       await storage.softDeleteContract(Number(req.params.id), appUser.username, typeof ip === 'string' ? ip : '');
       await logAudit(req, { action: "DELETE", module: "zmluvy", entityId: Number(req.params.id) });
