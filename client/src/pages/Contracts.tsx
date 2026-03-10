@@ -1786,41 +1786,40 @@ function WorkflowDiagram({ folderDefs, row2FolderDefs, activeFolder, onFolderCli
       };
       const f = cards.map(full);
       const rc = 8;
+      const globalTop = Math.min(f[0].t, f[4].t) - pad;
+      const globalBottom = Math.max(f[5].b, f[6].b, f[7].b, f[8].b, f[9].b) + pad;
+
       const left = Math.min(f[0].l, f[5].l) - pad;
-      const top1 = f[0].t - pad;
       const right1 = f[0].r + pad;
       const cornerY = f[5].t - pad;
       const mid6x = (f[6].l + f[6].r) / 2;
-      const bottom = Math.max(f[5].b, f[6].b) + pad;
 
       const bluePath = [
-        `M ${left + rc},${top1}`,
-        `H ${right1 - rc} A ${rc},${rc} 0 0 1 ${right1},${top1 + rc}`,
+        `M ${left + rc},${globalTop}`,
+        `H ${right1 - rc} A ${rc},${rc} 0 0 1 ${right1},${globalTop + rc}`,
         `V ${cornerY - rc} A ${rc},${rc} 0 0 0 ${right1 + rc},${cornerY}`,
         `H ${mid6x}`,
-        `V ${bottom}`,
-        `H ${left + rc} A ${rc},${rc} 0 0 1 ${left},${bottom - rc}`,
-        `V ${top1 + rc} A ${rc},${rc} 0 0 1 ${left + rc},${top1}`,
+        `V ${globalBottom}`,
+        `H ${left + rc} A ${rc},${rc} 0 0 1 ${left},${globalBottom - rc}`,
+        `V ${globalTop + rc} A ${rc},${rc} 0 0 1 ${left + rc},${globalTop}`,
         'Z',
       ].join(' ');
       setBlueLPath(bluePath);
 
-      const topRedR1 = f[4].t - pad;
       const rightRed = Math.max(f[4].r, f[9].r) + pad;
       const bottomRedR1 = f[4].b + pad;
       const topRedR2 = Math.min(f[7].t, f[8].t, f[9].t) - pad;
-      const bottomRedR2 = Math.max(f[7].b, f[8].b, f[9].b) + pad;
       const redLeftR1 = f[4].l - pad;
       const redLeftR2 = mid6x;
       const innerY = (bottomRedR1 + topRedR2) / 2;
       const combinedRedPath = [
-        `M ${redLeftR1 + rc},${topRedR1}`,
-        `H ${rightRed - rc} A ${rc},${rc} 0 0 1 ${rightRed},${topRedR1 + rc}`,
-        `V ${bottomRedR2 - rc} A ${rc},${rc} 0 0 1 ${rightRed - rc},${bottomRedR2}`,
-        `H ${redLeftR2 + rc} A ${rc},${rc} 0 0 1 ${redLeftR2},${bottomRedR2 - rc}`,
+        `M ${redLeftR1 + rc},${globalTop}`,
+        `H ${rightRed - rc} A ${rc},${rc} 0 0 1 ${rightRed},${globalTop + rc}`,
+        `V ${globalBottom - rc} A ${rc},${rc} 0 0 1 ${rightRed - rc},${globalBottom}`,
+        `H ${redLeftR2 + rc} A ${rc},${rc} 0 0 1 ${redLeftR2},${globalBottom - rc}`,
         `V ${innerY + rc} A ${rc},${rc} 0 0 0 ${redLeftR2 + rc},${innerY}`,
         `H ${redLeftR1 + rc} A ${rc},${rc} 0 0 0 ${redLeftR1},${innerY - rc}`,
-        `V ${topRedR1 + rc} A ${rc},${rc} 0 0 1 ${redLeftR1 + rc},${topRedR1}`,
+        `V ${globalTop + rc} A ${rc},${rc} 0 0 1 ${redLeftR1 + rc},${globalTop}`,
         'Z',
       ].join(' ');
       setRedPath(combinedRedPath);
