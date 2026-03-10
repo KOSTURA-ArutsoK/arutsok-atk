@@ -3836,9 +3836,18 @@ export default function Contracts() {
 
         <div id="folder-5-wrapper" style={{ display: activeFolder === 5 ? 'block' : 'none' }}>
           <Card data-testid="folder-prijate-centrala">
-            <div className="flex items-center gap-3 p-3 border-b">
+            <div className="flex items-center gap-3 p-3 border-b flex-wrap">
               <CheckCircle2 className="w-4 h-4 text-green-500 shrink-0" />
-              <p className="text-xs text-muted-foreground">Zmluvy prijaté do centrály. Tu sa zo zmluvy stáva kontrakt.</p>
+              <p className="text-xs text-muted-foreground flex-1">Zmluvy prijaté do centrály. Tu sa zo zmluvy stáva kontrakt.</p>
+              {rerouteSelectedIds.length > 0 && activeFolder === 5 && (
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-muted-foreground">Vybraných: <span className="font-bold text-foreground">{rerouteSelectedIds.length}</span></span>
+                  <Button size="sm" className="bg-cyan-600 hover:bg-cyan-700 text-white" onClick={() => moveToProcessingMutation.mutate(rerouteSelectedIds)} disabled={moveToProcessingMutation.isPending} data-testid="button-move-to-processing">
+                    {moveToProcessingMutation.isPending ? <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" /> : <ArrowRight className="w-3.5 h-3.5 mr-1.5" />}
+                    Presunúť do spracovania ({rerouteSelectedIds.length})
+                  </Button>
+                </div>
+              )}
             </div>
             <CardContent className="p-0">
               {isLoadingAccepted ? (
@@ -3847,15 +3856,6 @@ export default function Contracts() {
                 <p className="text-sm text-muted-foreground text-center py-8" data-testid="text-no-prijate">Žiadne zmluvy prijaté do centrály</p>
               ) : renderContractTable(activeAccepted, { showStatus: true, showRegistration: true, showActions: true, showRerouteCheckbox: true })}
             </CardContent>
-            {rerouteSelectedIds.length > 0 && activeFolder === 5 && (
-              <div className="flex items-center justify-between p-3 border-t bg-cyan-500/5">
-                <span className="text-sm text-muted-foreground">Vybraných: <span className="font-bold text-foreground">{rerouteSelectedIds.length}</span></span>
-                <Button variant="default" className="bg-cyan-600 hover:bg-cyan-700 text-white" onClick={() => moveToProcessingMutation.mutate(rerouteSelectedIds)} disabled={moveToProcessingMutation.isPending} data-testid="button-move-to-processing">
-                  {moveToProcessingMutation.isPending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <ArrowRight className="w-4 h-4 mr-2" />}
-                  Presunúť do spracovania ({rerouteSelectedIds.length})
-                </Button>
-              </div>
-            )}
           </Card>
         </div>
 
