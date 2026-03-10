@@ -1762,6 +1762,7 @@ function WorkflowDiagram({ folderDefs, row2FolderDefs, activeFolder, onFolderCli
   const [blueLPath, setBlueLPath] = useState<string>("");
   const [redPath, setRedPath] = useState<string>("");
   const [blackPath, setBlackPath] = useState<string>("");
+  const [orangePath, setOrangePath] = useState<string>("");
   const [greenPath, setGreenPath] = useState<string>("");
   const [arrows, setArrows] = useState<{ d: string; color: string }[]>([]);
 
@@ -1770,7 +1771,7 @@ function WorkflowDiagram({ folderDefs, row2FolderDefs, activeFolder, onFolderCli
     if (!el) return;
     const compute = () => {
       const cards = Array.from(el.querySelectorAll('[data-phase-card]')) as HTMLElement[];
-      if (cards.length < 10) { setPaths([]); setArrows([]); setBlueLPath(""); setRedPath(""); setBlackPath(""); setGreenPath(""); return; }
+      if (cards.length < 10) { setPaths([]); setArrows([]); setBlueLPath(""); setRedPath(""); setBlackPath(""); setOrangePath(""); setGreenPath(""); return; }
       const cR = el.getBoundingClientRect();
       const g = (c: HTMLElement) => {
         const r = c.getBoundingClientRect();
@@ -1825,19 +1826,33 @@ function WorkflowDiagram({ folderDefs, row2FolderDefs, activeFolder, onFolderCli
 
       setGreenPath("");
 
-      const leftBlack = f[1].l - pad;
-      const topBlack = f[1].t - pad;
-      const rightBlack = f[3].r + pad;
-      const bottomBlack = Math.max(f[1].b, f[2].b, f[3].b) + pad;
-      const bkPath = [
-        `M ${leftBlack + rc},${topBlack}`,
-        `H ${rightBlack - rc} A ${rc},${rc} 0 0 1 ${rightBlack},${topBlack + rc}`,
-        `V ${bottomBlack - rc} A ${rc},${rc} 0 0 1 ${rightBlack - rc},${bottomBlack}`,
-        `H ${leftBlack + rc} A ${rc},${rc} 0 0 1 ${leftBlack},${bottomBlack - rc}`,
-        `V ${topBlack + rc} A ${rc},${rc} 0 0 1 ${leftBlack + rc},${topBlack}`,
+      const leftGray = f[1].l - pad;
+      const topGray = f[1].t - pad;
+      const rightGray = f[2].r + pad;
+      const bottomGray = Math.max(f[1].b, f[2].b) + pad;
+      const grayPath = [
+        `M ${leftGray + rc},${topGray}`,
+        `H ${rightGray - rc} A ${rc},${rc} 0 0 1 ${rightGray},${topGray + rc}`,
+        `V ${bottomGray - rc} A ${rc},${rc} 0 0 1 ${rightGray - rc},${bottomGray}`,
+        `H ${leftGray + rc} A ${rc},${rc} 0 0 1 ${leftGray},${bottomGray - rc}`,
+        `V ${topGray + rc} A ${rc},${rc} 0 0 1 ${leftGray + rc},${topGray}`,
         'Z',
       ].join(' ');
-      setBlackPath(bkPath);
+      setBlackPath(grayPath);
+
+      const leftOr = f[3].l - pad;
+      const topOr = f[3].t - pad;
+      const rightOr = f[3].r + pad;
+      const bottomOr = f[3].b + pad;
+      const orPath = [
+        `M ${leftOr + rc},${topOr}`,
+        `H ${rightOr - rc} A ${rc},${rc} 0 0 1 ${rightOr},${topOr + rc}`,
+        `V ${bottomOr - rc} A ${rc},${rc} 0 0 1 ${rightOr - rc},${bottomOr}`,
+        `H ${leftOr + rc} A ${rc},${rc} 0 0 1 ${leftOr},${bottomOr - rc}`,
+        `V ${topOr + rc} A ${rc},${rc} 0 0 1 ${leftOr + rc},${topOr}`,
+        'Z',
+      ].join(' ');
+      setOrangePath(orPath);
 
       const aw = 6; const headW = 14; const headH = 10;
       const mkVArrow = (fromIdx: number, toIdx: number, color: string, offsetX = 0) => {
@@ -1955,6 +1970,9 @@ function WorkflowDiagram({ folderDefs, row2FolderDefs, activeFolder, onFolderCli
         )}
         {blackPath && (
           <path d={blackPath} fill="#71717a" fillOpacity="0.18" stroke="#71717a" strokeWidth="1.5" strokeOpacity="0.35" strokeLinejoin="round" />
+        )}
+        {orangePath && (
+          <path d={orangePath} fill="#f97316" fillOpacity="0.15" stroke="#f97316" strokeWidth="1.5" strokeOpacity="0.35" strokeLinejoin="round" />
         )}
         {arrows.map((a, i) => (
           <path key={`arrow-${i}`} d={a.d} fill={a.color} fillOpacity="0.45" stroke={a.color} strokeWidth="0.5" strokeOpacity="0.6" strokeLinejoin="round" filter="url(#arrow-shadow)" />
