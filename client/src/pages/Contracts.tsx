@@ -1804,31 +1804,26 @@ function WorkflowDiagram({ folderDefs, row2FolderDefs, activeFolder, onFolderCli
       ].join(' ');
       setBlueLPath(bluePath);
 
-      const topRedR2 = Math.min(f[7].t, f[8].t, f[9].t) - pad;
-      const rightRedR2 = f[9].r + pad;
-      const bottomRedR2 = Math.max(f[7].b, f[8].b, f[9].b) + pad;
       const topRedR1 = f[4].t - pad;
-      const rightRedR1 = f[4].r + pad;
+      const rightRed = Math.max(f[4].r, f[9].r) + pad;
       const bottomRedR1 = f[4].b + pad;
-      const rPath = [
-        `M ${mid6x},${topRedR2}`,
-        `H ${rightRedR2 - rc} A ${rc},${rc} 0 0 1 ${rightRedR2},${topRedR2 + rc}`,
-        `V ${bottomRedR2 - rc} A ${rc},${rc} 0 0 1 ${rightRedR2 - rc},${bottomRedR2}`,
-        `H ${mid6x + rc} A ${rc},${rc} 0 0 1 ${mid6x},${bottomRedR2 - rc}`,
-        `V ${topRedR2}`,
+      const topRedR2 = Math.min(f[7].t, f[8].t, f[9].t) - pad;
+      const bottomRedR2 = Math.max(f[7].b, f[8].b, f[9].b) + pad;
+      const redLeftR1 = f[4].l - pad;
+      const redLeftR2 = mid6x;
+      const combinedRedPath = [
+        `M ${redLeftR1 + rc},${topRedR1}`,
+        `H ${rightRed - rc} A ${rc},${rc} 0 0 1 ${rightRed},${topRedR1 + rc}`,
+        `V ${bottomRedR2 - rc} A ${rc},${rc} 0 0 1 ${rightRed - rc},${bottomRedR2}`,
+        `H ${redLeftR2 + rc} A ${rc},${rc} 0 0 1 ${redLeftR2},${bottomRedR2 - rc}`,
+        `V ${topRedR2 + rc} A ${rc},${rc} 0 0 1 ${redLeftR2 + rc},${topRedR2}`,
+        `H ${redLeftR1}`,
+        `V ${topRedR1 + rc} A ${rc},${rc} 0 0 1 ${redLeftR1 + rc},${topRedR1}`,
         'Z',
       ].join(' ');
-      setRedPath(rPath);
+      setRedPath(combinedRedPath);
 
-      const gPath = [
-        `M ${f[4].l - pad + rc},${topRedR1}`,
-        `H ${rightRedR1 - rc} A ${rc},${rc} 0 0 1 ${rightRedR1},${topRedR1 + rc}`,
-        `V ${bottomRedR1 - rc} A ${rc},${rc} 0 0 1 ${rightRedR1 - rc},${bottomRedR1}`,
-        `H ${f[4].l - pad + rc} A ${rc},${rc} 0 0 1 ${f[4].l - pad},${bottomRedR1 - rc}`,
-        `V ${topRedR1 + rc} A ${rc},${rc} 0 0 1 ${f[4].l - pad + rc},${topRedR1}`,
-        'Z',
-      ].join(' ');
-      setGreenPath(gPath);
+      setGreenPath("");
 
       const leftBlack = f[1].l - pad;
       const topBlack = f[1].t - pad;
