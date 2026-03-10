@@ -2349,30 +2349,6 @@ export default function Contracts() {
     }));
   })();
 
-  const acceptedBySprievodka = (() => {
-    const groups: Record<number, { inventory: ContractInventory | undefined; contracts: Contract[] }> = {};
-    const ungrouped: Contract[] = [];
-    for (const c of activeAccepted) {
-      if (!c.inventoryId) { ungrouped.push(c); continue; }
-      if (!groups[c.inventoryId]) {
-        groups[c.inventoryId] = {
-          inventory: inventories?.find(i => i.id === c.inventoryId),
-          contracts: [],
-        };
-      }
-      groups[c.inventoryId].contracts.push(c);
-    }
-    const result = Object.entries(groups).map(([key, val]) => ({
-      inventoryId: Number(key),
-      inventory: val.inventory,
-      contracts: val.contracts,
-    }));
-    if (ungrouped.length > 0) {
-      result.push({ inventoryId: 0, inventory: undefined, contracts: ungrouped });
-    }
-    return result;
-  })();
-
   function invalidateContractCaches() {
     setContractPages([]);
     setContractsTotal(0);
@@ -2779,6 +2755,30 @@ export default function Contracts() {
   const isAccepting = acceptMutation.isPending;
 
   const activeAccepted = acceptedContracts?.filter(c => !c.isDeleted) || [];
+
+  const acceptedBySprievodka = (() => {
+    const groups: Record<number, { inventory: ContractInventory | undefined; contracts: Contract[] }> = {};
+    const ungrouped: Contract[] = [];
+    for (const c of activeAccepted) {
+      if (!c.inventoryId) { ungrouped.push(c); continue; }
+      if (!groups[c.inventoryId]) {
+        groups[c.inventoryId] = {
+          inventory: inventories?.find(i => i.id === c.inventoryId),
+          contracts: [],
+        };
+      }
+      groups[c.inventoryId].contracts.push(c);
+    }
+    const result = Object.entries(groups).map(([key, val]) => ({
+      inventoryId: Number(key),
+      inventory: val.inventory,
+      contracts: val.contracts,
+    }));
+    if (ungrouped.length > 0) {
+      result.push({ inventoryId: 0, inventory: undefined, contracts: ungrouped });
+    }
+    return result;
+  })();
   const activeArchived = archivedContracts?.filter(c => !c.isDeleted) || [];
   const activeRejected = rejectedContracts?.filter(c => !c.isDeleted) || [];
 
