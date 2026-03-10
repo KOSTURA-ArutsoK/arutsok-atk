@@ -1999,9 +1999,6 @@ function WorkflowDiagram({ folderDefs, row2FolderDefs, activeFolder, onFolderCli
                     </Tooltip>
                   )}
                   <div className="flex flex-col items-center p-2 text-center h-full">
-                    {f.id === 4 && (
-                      <ArrowUp className="w-5 h-5 shrink-0 fill-current" style={{ color: '#a1a1aa' }} strokeWidth={6} />
-                    )}
                     <div className="flex items-center justify-center gap-1 shrink-0">
                       {[7, 10].includes(f.id) ? (
                         <ArrowUpRight className="w-7 h-7 text-foreground shrink-0 fill-current" strokeWidth={6} />
@@ -2043,9 +2040,6 @@ function WorkflowDiagram({ folderDefs, row2FolderDefs, activeFolder, onFolderCli
                     </Tooltip>
                   )}
                   <div className="flex flex-col items-center p-2 text-center h-full">
-                    {f.id === 4 && (
-                      <ArrowUp className="w-5 h-5 shrink-0 fill-current" style={{ color: '#a1a1aa' }} strokeWidth={6} />
-                    )}
                     <div className="flex items-center justify-center gap-1 shrink-0">
                       {[7, 10].includes(f.id) ? (
                         <ArrowUpRight className="w-7 h-7 text-foreground shrink-0 fill-current" strokeWidth={6} />
