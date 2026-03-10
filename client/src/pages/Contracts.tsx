@@ -1998,14 +1998,12 @@ function WorkflowDiagram({ folderDefs, row2FolderDefs, activeFolder, onFolderCli
                       </TooltipContent>
                     </Tooltip>
                   )}
-                  <div className="flex flex-col items-center p-2 text-center h-full">
-                    <div className="flex items-center gap-1 shrink-0">
-                      {[4, 7, 10].includes(f.id) && (
-                        <span className="text-xl font-black text-black dark:text-white leading-none">↗</span>
-                      )}
-                      <div className={`w-8 h-8 rounded-md ${f.bgColor} flex items-center justify-center`}>
-                        <FIcon className={`w-4 h-4 ${f.color}`} />
-                      </div>
+                  <div className="flex flex-col items-center p-2 text-center h-full relative">
+                    {[4, 7, 10].includes(f.id) && (
+                      <span className="absolute left-1 top-2 text-2xl font-black text-foreground leading-none" style={{fontWeight: 900}}>↗</span>
+                    )}
+                    <div className={`w-8 h-8 rounded-md ${f.bgColor} flex items-center justify-center shrink-0`}>
+                      <FIcon className={`w-4 h-4 ${f.color}`} />
                     </div>
                     <div className="flex-1 flex items-center">
                       <p className="text-[9px] font-semibold leading-tight">{f.label}</p>
@@ -2036,14 +2034,12 @@ function WorkflowDiagram({ folderDefs, row2FolderDefs, activeFolder, onFolderCli
                       </TooltipContent>
                     </Tooltip>
                   )}
-                  <div className="flex flex-col items-center p-2 text-center h-full">
-                    <div className="flex items-center gap-1 shrink-0">
-                      {[4, 7, 10].includes(f.id) && (
-                        <span className="text-xl font-black text-black dark:text-white leading-none">↗</span>
-                      )}
-                      <div className={`w-8 h-8 rounded-md ${f.bgColor} flex items-center justify-center`}>
-                        <FIcon className={`w-4 h-4 ${f.color}`} />
-                      </div>
+                  <div className="flex flex-col items-center p-2 text-center h-full relative">
+                    {[4, 7, 10].includes(f.id) && (
+                      <span className="absolute left-1 top-2 text-2xl font-black text-foreground leading-none" style={{fontWeight: 900}}>↗</span>
+                    )}
+                    <div className={`w-8 h-8 rounded-md ${f.bgColor} flex items-center justify-center shrink-0`}>
+                      <FIcon className={`w-4 h-4 ${f.color}`} />
                     </div>
                     <div className="flex-1 flex items-center">
                       <p className="text-[9px] font-semibold leading-tight">{f.label}</p>
