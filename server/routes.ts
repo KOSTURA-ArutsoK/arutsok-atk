@@ -4179,6 +4179,7 @@ export async function registerRoutes(
         if (!contract) continue;
         const updateData: any = {
           acceptedAt: new Date(),
+          lifecyclePhase: 5,
         };
         if (!contract.globalNumber) {
           const globalNum = await storage.getNextCounterValue("global_contract_number");

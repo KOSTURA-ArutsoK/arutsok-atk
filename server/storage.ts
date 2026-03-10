@@ -2758,7 +2758,16 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getAcceptedContracts(companyId?: number, stateId?: number): Promise<Contract[]> {
-    return [];
+    const conditions = [
+      eq(contracts.isDeleted, false),
+      eq(contracts.lifecyclePhase, 5),
+    ];
+    if (companyId) conditions.push(eq(contracts.companyId, companyId));
+    if (stateId) conditions.push(eq(contracts.stateId, stateId));
+    return await db.select()
+      .from(contracts)
+      .where(and(...conditions))
+      .orderBy(contracts.inventoryId, contracts.sortOrderInInventory);
   }
 
   async getArchivedContracts(companyId?: number, stateId?: number): Promise<Contract[]> {
