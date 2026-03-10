@@ -3683,7 +3683,7 @@ export async function registerRoutes(
   app.get("/api/supisky/by-phase/:phase", isAuthenticated, async (req: any, res) => {
     try {
       const phase = Number(req.params.phase);
-      if (![8, 9].includes(phase)) return res.status(400).json({ message: "Neplatná fáza" });
+      if (![8, 9, 10].includes(phase)) return res.status(400).json({ message: "Neplatná fáza" });
 
       const appUser = req.appUser;
       const stateFilter = appUser?.activeStateId ? eq(supisky.stateId, appUser.activeStateId) : undefined;

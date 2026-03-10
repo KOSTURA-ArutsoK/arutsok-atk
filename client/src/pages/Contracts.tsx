@@ -2364,6 +2364,7 @@ export default function Contracts() {
     }
     queryClient.invalidateQueries({ queryKey: ["/api/supisky/by-phase", 8] });
     queryClient.invalidateQueries({ queryKey: ["/api/supisky/by-phase", 9] });
+    queryClient.invalidateQueries({ queryKey: ["/api/supisky/by-phase", 10] });
   }
 
   const dispatchMutation = useMutation({
@@ -2529,6 +2530,16 @@ export default function Contracts() {
     enabled: isEvidencia,
   });
 
+  const { data: phase10Supisky = [] } = useQuery<any[]>({
+    queryKey: ["/api/supisky/by-phase", 10],
+    queryFn: async () => {
+      const res = await fetch("/api/supisky/by-phase/10", { credentials: "include" });
+      if (!res.ok) return [];
+      return res.json();
+    },
+    enabled: isEvidencia,
+  });
+
   const createProcessingSupiskaMutation = useMutation({
     mutationFn: async (contractIds: number[]) => {
       const res = await apiRequest("POST", "/api/contracts/create-processing-supiska", { contractIds });
@@ -2566,6 +2577,7 @@ export default function Contracts() {
     onSuccess: () => {
       invalidateContractCaches();
       queryClient.invalidateQueries({ queryKey: ["/api/supisky/by-phase", 9] });
+      queryClient.invalidateQueries({ queryKey: ["/api/supisky/by-phase", 10] });
       toast({ title: "Prijatie potvrdené" });
     },
     onError: () => toast({ title: "Chyba", description: "Nepodarilo sa potvrdiť prijatie", variant: "destructive" }),
@@ -2787,7 +2799,7 @@ export default function Contracts() {
     { id: 3, label: "Neprijaté zmluvy – výhrady", icon: XCircle, color: "text-red-500", bgColor: "bg-red-500/15", count: activeRejected.length, tooltip: "Zmluvy, ktoré boli vrátené s výhradami od obchodného partnera alebo centrály. Vyžadujú opravu a opätovné odoslanie." },
     { id: 4, label: "Archív zmlúv (s výhradami)", icon: Archive, color: "text-muted-foreground", bgColor: "bg-muted/30", count: activeArchived.length, tooltip: "Archivované zmluvy s výhradami, ktoré neboli opravené alebo boli trvalo zamietnuté." },
     { id: 7, label: "Interné intervencie", icon: AlertTriangle, color: "text-orange-500", bgColor: "bg-orange-500/15", count: phase7Contracts.length, tooltip: "Zmluvy vyžadujúce interný zásah — napr. chýbajúce dokumenty, nezrovnalosti v údajoch alebo eskalácia." },
-    { id: 10, label: "Prijaté obch. partnerom", icon: Award, color: "text-purple-500", bgColor: "bg-purple-500/15", count: phase10Contracts.length, tooltip: "Zmluvy úspešne prijaté a potvrdené obchodným partnerom. Konečný stav spracovania." },
+    { id: 10, label: "Prijaté obch. partnerom", icon: Award, color: "text-purple-500", bgColor: "bg-purple-500/15", count: phase10Supisky.reduce((sum: number, s: any) => sum + (s.contracts?.length || 0), 0) || phase10Contracts.length, tooltip: "Zmluvy úspešne prijaté a potvrdené obchodným partnerom. Konečný stav spracovania." },
   ];
 
   const row2FolderDefs: FolderDef[] = [
@@ -4011,9 +4023,9 @@ export default function Contracts() {
           return [6, 7, 8, 9, 10].map(phaseId => {
             const phaseContracts = phaseId === 6 ? phase6Contracts : phaseId === 7 ? phase7Contracts : phaseId === 8 ? phase8Contracts : phaseId === 9 ? phase9Contracts : phase10Contracts;
             const phaseDef = row2FolderDefs.find(f => f.id === phaseId);
-            const showCheckbox = [6, 7, 10].includes(phaseId);
-            const isGroupedPhase = [8, 9].includes(phaseId);
-            const supiskyForPhase = phaseId === 8 ? phase8Supisky : phaseId === 9 ? phase9Supisky : [];
+            const showCheckbox = [6, 7].includes(phaseId);
+            const isGroupedPhase = [8, 9, 10].includes(phaseId);
+            const supiskyForPhase = phaseId === 8 ? phase8Supisky : phaseId === 9 ? phase9Supisky : phaseId === 10 ? phase10Supisky : [];
 
             return (
               <div key={phaseId} id={`folder-${phaseId}-wrapper`} style={{ display: activeFolder === phaseId ? 'block' : 'none' }}>
@@ -4038,14 +4050,7 @@ export default function Contracts() {
                         </Button>
                       </div>
                     )}
-                    {phaseId === 10 && rerouteSelectedIds.length > 0 && activeFolder === 10 && (
-                      <div className="flex items-center gap-2">
-                        <span className="text-xs text-muted-foreground">Vybraných: <span className="font-bold text-foreground">{rerouteSelectedIds.length}</span></span>
-                        <Button size="sm" className="bg-purple-600 hover:bg-purple-700 text-white" onClick={() => handleReroute("dokoncit")} data-testid="button-dokoncit-spracovanie">
-                          <Check className="w-3.5 h-3.5 mr-1.5" />Dokončiť spracovanie ({rerouteSelectedIds.length})
-                        </Button>
-                      </div>
-                    )}
+                    
                   </div>
                   <CardContent className="p-0">
                     {isGroupedPhase ? (
@@ -4091,12 +4096,18 @@ export default function Contracts() {
                                       <Award className="w-3 h-3 mr-1" />Potvrdiť prijatie
                                     </Button>
                                   )}
+                                  {phaseId === 10 && (
+                                    <Badge variant="outline" className="text-purple-400 border-purple-400/30" data-testid={`badge-received-supiska-${sup.id}`}>
+                                      <Award className="w-3 h-3 mr-1" />Prijatá
+                                    </Badge>
+                                  )}
                                 </div>
                                 <div style={{ display: isSupExpanded ? 'block' : 'none' }}>
-                                  {sup.dispatchMethod && (
-                                    <div className="flex items-center gap-3 px-3 pb-2 text-xs text-muted-foreground">
-                                      <span>Spôsob: <span className="font-medium text-foreground">{sup.dispatchMethod}</span></span>
+                                  {(sup.dispatchMethod || sup.receivedByPartnerAt) && (
+                                    <div className="flex items-center gap-3 px-3 pb-2 text-xs text-muted-foreground flex-wrap">
+                                      {sup.dispatchMethod && <span>Spôsob: <span className="font-medium text-foreground">{sup.dispatchMethod}</span></span>}
                                       {sup.dispatchedAt && <span>Odoslané: <span className="font-medium text-foreground">{formatDateSlovak(sup.dispatchedAt)}</span></span>}
+                                      {sup.receivedByPartnerAt && <span>Prijaté: <span className="font-medium text-foreground">{formatDateSlovak(sup.receivedByPartnerAt)}</span></span>}
                                     </div>
                                   )}
                                   {sup.contracts && sup.contracts.length > 0 && renderContractTable(sup.contracts, { showStatus: true, showRegistration: true, showActions: true })}
