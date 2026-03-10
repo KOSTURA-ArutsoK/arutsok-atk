@@ -1998,12 +1998,12 @@ function WorkflowDiagram({ folderDefs, row2FolderDefs, activeFolder, onFolderCli
                       </TooltipContent>
                     </Tooltip>
                   )}
-                  <div className="flex flex-col items-center justify-center gap-1 p-2 text-center h-full">
+                  <div className="flex flex-col items-center p-2 text-center h-full">
                     <div className={`w-8 h-8 rounded-md ${f.bgColor} flex items-center justify-center shrink-0`}>
                       <FIcon className={`w-4 h-4 ${f.color}`} />
                     </div>
-                    <p className="text-[9px] font-semibold leading-tight">{f.label}</p>
-                    <p className="text-lg font-bold leading-none">{f.count}</p>
+                    <p className="text-[9px] font-semibold leading-tight h-[24px] flex items-center">{f.label}</p>
+                    <p className="text-lg font-bold leading-none mt-auto">{f.count}</p>
                   </div>
                 </Card>
               </div>
@@ -2029,12 +2029,12 @@ function WorkflowDiagram({ folderDefs, row2FolderDefs, activeFolder, onFolderCli
                       </TooltipContent>
                     </Tooltip>
                   )}
-                  <div className="flex flex-col items-center justify-center gap-1 p-2 text-center h-full">
+                  <div className="flex flex-col items-center p-2 text-center h-full">
                     <div className={`w-8 h-8 rounded-md ${f.bgColor} flex items-center justify-center shrink-0`}>
                       <FIcon className={`w-4 h-4 ${f.color}`} />
                     </div>
-                    <p className="text-[9px] font-semibold leading-tight">{f.label}</p>
-                    <p className="text-lg font-bold leading-none">{f.count}</p>
+                    <p className="text-[9px] font-semibold leading-tight h-[24px] flex items-center">{f.label}</p>
+                    <p className="text-lg font-bold leading-none mt-auto">{f.count}</p>
                   </div>
                 </Card>
               </div>
