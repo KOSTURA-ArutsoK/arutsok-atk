@@ -2001,8 +2001,9 @@ function WorkflowDiagram({ folderDefs, row2FolderDefs, activeFolder, onFolderCli
                   <div className="flex flex-col items-center p-2 text-center h-full">
                     <div className="flex items-center justify-center gap-1 shrink-0">
                       {f.id === 4 ? (
-                        <svg width="28" height="28" viewBox="0 0 28 28" className="shrink-0">
-                          <path d="M10,27 L10,15 L0,15 L14,1 L28,15 L18,15 L18,27 Z" fill="#a1a1aa" fillOpacity="0.45" stroke="#a1a1aa" strokeWidth="0.5" strokeOpacity="0.6" strokeLinejoin="round" />
+                        <svg width="28" height="28" viewBox="0 0 28 28" className="w-7 h-7 shrink-0">
+                          <defs><filter id="card-arrow-shadow" x="-20%" y="-20%" width="140%" height="140%"><feDropShadow dx="0" dy="1" stdDeviation="1.5" floodOpacity="0.25" /></filter></defs>
+                          <path d="M8,27 V10 H0 L14,0 L28,10 H20 V27 Z" fill="#a1a1aa" fillOpacity="0.45" stroke="#a1a1aa" strokeWidth="0.5" strokeOpacity="0.6" strokeLinejoin="round" filter="url(#card-arrow-shadow)" />
                         </svg>
                       ) : [7, 10].includes(f.id) ? (
                         <ArrowUpRight className="w-7 h-7 text-foreground shrink-0 fill-current" strokeWidth={6} />
@@ -2046,8 +2047,8 @@ function WorkflowDiagram({ folderDefs, row2FolderDefs, activeFolder, onFolderCli
                   <div className="flex flex-col items-center p-2 text-center h-full">
                     <div className="flex items-center justify-center gap-1 shrink-0">
                       {f.id === 4 ? (
-                        <svg width="28" height="28" viewBox="0 0 28 28" className="shrink-0">
-                          <path d="M10,27 L10,15 L0,15 L14,1 L28,15 L18,15 L18,27 Z" fill="#a1a1aa" fillOpacity="0.45" stroke="#a1a1aa" strokeWidth="0.5" strokeOpacity="0.6" strokeLinejoin="round" />
+                        <svg width="28" height="28" viewBox="0 0 28 28" className="w-7 h-7 shrink-0">
+                          <path d="M8,27 V10 H0 L14,0 L28,10 H20 V27 Z" fill="#a1a1aa" fillOpacity="0.45" stroke="#a1a1aa" strokeWidth="0.5" strokeOpacity="0.6" strokeLinejoin="round" filter="url(#card-arrow-shadow)" />
                         </svg>
                       ) : [7, 10].includes(f.id) ? (
                         <ArrowUpRight className="w-7 h-7 text-foreground shrink-0 fill-current" strokeWidth={6} />
