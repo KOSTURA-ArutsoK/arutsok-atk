@@ -11,7 +11,7 @@ import type { SmartColumnDef } from "@/hooks/use-smart-filter";
 import { SmartFilterBar } from "@/components/smart-filter-bar";
 import { useLocation } from "wouter";
 import type { Contract, ContractStatus, ContractTemplate, ContractInventory, Subject, Partner, Product, MyCompany, Sector, Section, SectorProduct, ClientGroup, ClientType, AppUser, ContractAcquirer } from "@shared/schema";
-import { Plus, Pencil, Trash2, Eye, FileText, Loader2, Lock, LayoutGrid, Send, Upload, Inbox, CheckCircle2, ChevronDown, ChevronRight, Printer, Search, Archive, AlertTriangle, Calendar, XCircle, MessageSquare, Paperclip, X, Users, Check, Award, Percent, History, ListChecks, ArrowRight, ArrowUpRight, Clock, Ghost, Ban, HelpCircle } from "lucide-react";
+import { Plus, Pencil, Trash2, Eye, FileText, Loader2, Lock, LayoutGrid, Send, Upload, Inbox, CheckCircle2, ChevronDown, ChevronRight, Printer, Search, Archive, AlertTriangle, Calendar, XCircle, MessageSquare, Paperclip, X, Users, Check, Award, Percent, History, ListChecks, ArrowRight, ArrowUpRight, ArrowUp, Clock, Ghost, Ban, HelpCircle } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ActivityTimeline } from "@/components/activity-timeline";
 import { cn } from "@/lib/utils";
@@ -2000,7 +2000,9 @@ function WorkflowDiagram({ folderDefs, row2FolderDefs, activeFolder, onFolderCli
                   )}
                   <div className="flex flex-col items-center p-2 text-center h-full">
                     <div className="flex items-center justify-center gap-1 shrink-0">
-                      {[4, 7, 10].includes(f.id) ? (
+                      {f.id === 4 ? (
+                        <ArrowUp className="w-7 h-7 text-muted-foreground shrink-0 fill-current" strokeWidth={6} />
+                      ) : [7, 10].includes(f.id) ? (
                         <ArrowUpRight className="w-7 h-7 text-foreground shrink-0 fill-current" strokeWidth={6} />
                       ) : (
                         <div className="w-7 h-7 shrink-0" />
@@ -2041,7 +2043,9 @@ function WorkflowDiagram({ folderDefs, row2FolderDefs, activeFolder, onFolderCli
                   )}
                   <div className="flex flex-col items-center p-2 text-center h-full">
                     <div className="flex items-center justify-center gap-1 shrink-0">
-                      {[4, 7, 10].includes(f.id) ? (
+                      {f.id === 4 ? (
+                        <ArrowUp className="w-7 h-7 text-muted-foreground shrink-0 fill-current" strokeWidth={6} />
+                      ) : [7, 10].includes(f.id) ? (
                         <ArrowUpRight className="w-7 h-7 text-foreground shrink-0 fill-current" strokeWidth={6} />
                       ) : (
                         <div className="w-7 h-7 shrink-0" />
