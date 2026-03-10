@@ -2000,7 +2000,11 @@ function WorkflowDiagram({ folderDefs, row2FolderDefs, activeFolder, onFolderCli
                   )}
                   <div className="flex flex-col items-center p-2 text-center h-full">
                     <div className="flex items-center gap-1 shrink-0">
-                      {[4, 7, 10].includes(f.id) && <span className="text-xs font-black text-muted-foreground">↗</span>}
+                      {[4, 7, 10].includes(f.id) && (
+                        <div className="w-8 h-8 rounded-md bg-black/80 flex items-center justify-center">
+                          <span className="text-lg font-black text-white leading-none">↗</span>
+                        </div>
+                      )}
                       <div className={`w-8 h-8 rounded-md ${f.bgColor} flex items-center justify-center`}>
                         <FIcon className={`w-4 h-4 ${f.color}`} />
                       </div>
@@ -2036,7 +2040,11 @@ function WorkflowDiagram({ folderDefs, row2FolderDefs, activeFolder, onFolderCli
                   )}
                   <div className="flex flex-col items-center p-2 text-center h-full">
                     <div className="flex items-center gap-1 shrink-0">
-                      {[4, 7, 10].includes(f.id) && <span className="text-xs font-black text-muted-foreground">↗</span>}
+                      {[4, 7, 10].includes(f.id) && (
+                        <div className="w-8 h-8 rounded-md bg-black/80 flex items-center justify-center">
+                          <span className="text-lg font-black text-white leading-none">↗</span>
+                        </div>
+                      )}
                       <div className={`w-8 h-8 rounded-md ${f.bgColor} flex items-center justify-center`}>
                         <FIcon className={`w-4 h-4 ${f.color}`} />
                       </div>
