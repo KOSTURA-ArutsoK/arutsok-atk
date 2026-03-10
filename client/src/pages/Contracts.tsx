@@ -1816,14 +1816,14 @@ function WorkflowDiagram({ folderDefs, row2FolderDefs, activeFolder, onFolderCli
         `M ${redLeftR1 + rc},${globalTop}`,
         `H ${rightRed - rc} A ${rc},${rc} 0 0 1 ${rightRed},${globalTop + rc}`,
         `V ${globalBottom - rc} A ${rc},${rc} 0 0 1 ${rightRed - rc},${globalBottom}`,
-        `H ${redLeftR2}`,
-        `V ${stepY}`,
-        `H ${redLeftR1}`,
+        `H ${redLeftR2 + rc} A ${rc},${rc} 0 0 1 ${redLeftR2},${globalBottom - rc}`,
+        `V ${stepY + rc} A ${rc},${rc} 0 0 1 ${redLeftR2 + rc},${stepY}`,
+        `H ${redLeftR1 - rc} A ${rc},${rc} 0 0 0 ${redLeftR1},${stepY - rc}`,
         `V ${globalTop + rc} A ${rc},${rc} 0 0 1 ${redLeftR1 + rc},${globalTop}`,
         'Z',
       ].join(' ');
       setRedPath(combinedRedPath);
-      setJunctionMask({ x: mid6x - 1, y: stepY, w: 2, h: globalBottom - stepY });
+      setJunctionMask({ x: mid6x - rc, y: stepY - rc, w: rc * 2, h: globalBottom - stepY + rc * 2 });
 
       setGreenPath("");
 
