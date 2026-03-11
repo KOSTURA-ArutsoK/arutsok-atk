@@ -3732,6 +3732,22 @@ export async function registerRoutes(
       const stateFilter = appUser?.activeStateId ? eq(supisky.stateId, appUser.activeStateId) : undefined;
       const companyFilter = appUser?.activeCompanyId ? eq(supisky.companyId, appUser.activeCompanyId) : undefined;
 
+      if (phase === 10) {
+        const allProcessing = await db.select().from(supisky).where(
+          and(
+            eq((supisky as any).supiskaType, "processing"),
+            eq(supisky.status, "Odoslana"),
+            stateFilter,
+            companyFilter,
+          )
+        );
+        const result: any[] = [];
+        for (const sup of allProcessing) {
+          result.push({ ...sup, contracts: [] });
+        }
+        return res.json(result);
+      }
+
       const links = await db.select({
         supiskaId: supiskaContracts.supiskaId,
       }).from(supiskaContracts)
