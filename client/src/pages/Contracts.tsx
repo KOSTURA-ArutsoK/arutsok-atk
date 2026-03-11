@@ -4228,30 +4228,32 @@ export default function Contracts() {
                                   <ListChecks className="w-4 h-4 text-muted-foreground shrink-0" />
                                   <span className="text-sm font-medium flex-1" data-testid={`text-supiska-name-${sup.id}`}>{sup.name}</span>
                                   <Badge variant="outline" className="text-xs">{sup.contracts?.length || 0} kontraktov</Badge>
-                                  {phaseId === 8 && sup.status !== "Odoslana" && sup.status !== "Prijata" && (
-                                    <Button
-                                      size="sm"
-                                      variant="default"
-                                      className="bg-indigo-600 hover:bg-indigo-700 text-white"
-                                      onClick={(e) => { e.stopPropagation(); setDispatchSuopiskaId(sup.id); setDispatchMethod(""); setDispatchDate(""); setDispatchDialogOpen(true); }}
-                                      data-testid={`button-dispatch-supiska-${sup.id}`}
-                                    >
-                                      <Send className="w-3 h-3 mr-1" />Odoslať obchodnému partnerovi
-                                    </Button>
-                                  )}
                                   {(phaseId === 8 || phaseId === 9 || phaseId === 10) && sup.status === "Odoslana" && (
                                     <Badge variant="outline" className="text-indigo-400 border-indigo-400/30">Odoslaná</Badge>
                                   )}
                                   {phaseId === 9 && (
-                                    <Button
-                                      size="sm"
-                                      variant="outline"
-                                      className={`${!printedSprievodkyIds.has(sup.id) ? "animate-pulse border-amber-500 text-amber-500 hover:bg-amber-500/10" : "border-green-500 text-green-500"}`}
-                                      onClick={(e) => { e.stopPropagation(); setPrintedSprievodkyIds(prev => new Set([...prev, sup.id])); window.print(); }}
-                                      data-testid={`button-print-supiska-phase9-${sup.id}`}
-                                    >
-                                      <Printer className="w-3 h-3 mr-1" />Vytlačiť súpisku
-                                    </Button>
+                                    <>
+                                      <Button
+                                        size="sm"
+                                        variant="outline"
+                                        className={`${!printedSprievodkyIds.has(sup.id) ? "animate-pulse border-amber-500 text-amber-500 hover:bg-amber-500/10" : "border-green-500 text-green-500"}`}
+                                        onClick={(e) => { e.stopPropagation(); setPrintedSprievodkyIds(prev => new Set([...prev, sup.id])); window.print(); }}
+                                        data-testid={`button-print-supiska-phase9-${sup.id}`}
+                                      >
+                                        <Printer className="w-3 h-3 mr-1" />Vytlačiť súpisku
+                                      </Button>
+                                      {sup.status !== "Odoslana" && sup.status !== "Prijata" && sup.status !== "Odpocet" && (
+                                        <Button
+                                          size="sm"
+                                          variant="default"
+                                          className="bg-indigo-600 hover:bg-indigo-700 text-white"
+                                          onClick={(e) => { e.stopPropagation(); setDispatchSuopiskaId(sup.id); setDispatchMethod(""); setDispatchDate(""); setDispatchDialogOpen(true); }}
+                                          data-testid={`button-dispatch-supiska-${sup.id}`}
+                                        >
+                                          <Send className="w-3 h-3 mr-1" />Odoslať obchodnému partnerovi
+                                        </Button>
+                                      )}
+                                    </>
                                   )}
                                   {phaseId === 10 && sup.status === "Odoslana" && (
                                     <Button
