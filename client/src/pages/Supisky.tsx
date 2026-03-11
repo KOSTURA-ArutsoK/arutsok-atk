@@ -11,7 +11,7 @@ import { SmartFilterBar } from "@/components/smart-filter-bar";
 import { useColumnVisibility, type ColumnDef } from "@/hooks/use-column-visibility";
 import { ColumnManager } from "@/components/column-manager";
 import type { Supiska, Contract } from "@shared/schema";
-import { Plus, Pencil, Loader2, Send, Undo2, FileSpreadsheet, FileDown, Lock, Unlock, X } from "lucide-react";
+import { Plus, Printer, Loader2, Send, Undo2, FileSpreadsheet, FileDown, Lock, Unlock, X } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -636,13 +636,12 @@ export default function SupiskyPage() {
                     <TableCell>
                       <div className="flex items-center gap-1">
                         <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={(e) => { e.stopPropagation(); setEditing(s); setFormOpen(true); }}
-                          disabled={s.status === "Odoslana"}
-                          data-testid={`button-edit-${s.id}`}
+                          variant="outline"
+                          size="sm"
+                          onClick={(e) => { e.stopPropagation(); window.print(); }}
+                          data-testid={`button-print-${s.id}`}
                         >
-                          <Pencil className="w-4 h-4" />
+                          <Printer className="w-4 h-4 mr-1" />Vytlačiť
                         </Button>
                       </div>
                     </TableCell>
