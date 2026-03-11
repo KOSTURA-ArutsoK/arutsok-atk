@@ -3494,25 +3494,29 @@ export default function Contracts() {
                   {val:"both", label:"Návrh + Zmluva", icon: Files, color:"amber"},
                 ];
                 const handleNumKey = (e: React.KeyboardEvent, idx: number) => {
+                  const btns = e.currentTarget.parentElement?.querySelectorAll('button[role="radio"]');
                   if (e.key === "ArrowRight" || e.key === "ArrowDown") {
                     e.preventDefault(); const next = (idx+1)%3; setPreSelectNumberType(numOpts[next].val);
-                    (e.currentTarget.parentElement?.children[next] as HTMLElement)?.focus();
+                    (btns?.[next] as HTMLElement)?.focus();
                   } else if (e.key === "ArrowLeft" || e.key === "ArrowUp") {
                     e.preventDefault(); const prev = (idx+2)%3; setPreSelectNumberType(numOpts[prev].val);
-                    (e.currentTarget.parentElement?.children[prev] as HTMLElement)?.focus();
+                    (btns?.[prev] as HTMLElement)?.focus();
                   }
                 };
                 return (
-                  <div className="flex p-1 bg-muted/40 rounded-lg border border-border" role="radiogroup" data-testid="toggle-number-type">
+                  <div className="flex items-stretch gap-0 p-1 bg-muted/40 rounded-lg border border-border" role="radiogroup" data-testid="toggle-number-type">
                     {numOpts.map((opt, idx) => {
                       const Icon = opt.icon;
                       const isActive = preSelectNumberType === opt.val;
                       const colorMap: Record<string,string> = {blue:"bg-blue-500/15 text-blue-400 ring-1 ring-blue-500/40 shadow-sm", emerald:"bg-emerald-500/15 text-emerald-400 ring-1 ring-emerald-500/40 shadow-sm", amber:"bg-amber-500/15 text-amber-400 ring-1 ring-amber-500/40 shadow-sm"};
                       return (
-                        <button key={opt.val} ref={idx===0?refNumberToggleProposal:idx===1?refNumberToggleContract:undefined} type="button" role="radio" aria-checked={isActive} tabIndex={isActive?0:-1}
-                          className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-2 text-xs font-semibold rounded-md transition-all outline-none focus-visible:ring-2 focus-visible:ring-primary ${isActive ? colorMap[opt.color] : "text-muted-foreground hover:text-foreground hover:bg-muted/60"}`}
-                          onClick={() => setPreSelectNumberType(opt.val)} onKeyDown={(e) => handleNumKey(e, idx)} data-testid={`toggle-number-type-${opt.val === "both" ? "both" : opt.val}`}
-                        ><Icon className="w-3.5 h-3.5" />{opt.label}</button>
+                        <span key={opt.val} className="contents">
+                          {idx > 0 && <div className="w-px self-stretch my-1 bg-border/60" />}
+                          <button ref={idx===0?refNumberToggleProposal:idx===1?refNumberToggleContract:undefined} type="button" role="radio" aria-checked={isActive} tabIndex={isActive?0:-1}
+                            className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-2 text-xs font-semibold rounded-md transition-all outline-none focus-visible:ring-2 focus-visible:ring-primary ${isActive ? colorMap[opt.color] : "text-muted-foreground hover:text-foreground hover:bg-muted/60"}`}
+                            onClick={() => setPreSelectNumberType(opt.val)} onKeyDown={(e) => handleNumKey(e, idx)} data-testid={`toggle-number-type-${opt.val === "both" ? "both" : opt.val}`}
+                          ><Icon className="w-3.5 h-3.5" />{opt.label}</button>
+                        </span>
                       );
                     })}
                   </div>
@@ -3593,21 +3597,25 @@ export default function Contracts() {
                       setPreSelectSubjectType(next);
                       if (next === "person") { setPreSelectBusinessName(""); setPreSelectIco(""); }
                       setPreSelectShowNameFields(false); setPreSelectBirthNumber("");
-                      (e.currentTarget.parentElement?.children[targetIdx] as HTMLElement)?.focus();
+                      const btns = e.currentTarget.parentElement?.querySelectorAll('button[role="radio"]');
+                      (btns?.[targetIdx] as HTMLElement)?.focus();
                     }
                   };
                   const colorMap: Record<string,string> = {blue:"bg-blue-500/15 text-blue-400 ring-1 ring-blue-500/40 shadow-sm", amber:"bg-amber-500/15 text-amber-400 ring-1 ring-amber-500/40 shadow-sm", purple:"bg-purple-500/15 text-purple-400 ring-1 ring-purple-500/40 shadow-sm"};
                   return (
-                    <div className="flex p-1 bg-muted/40 rounded-lg border border-border" role="radiogroup" data-testid="toggle-subject-type">
+                    <div className="flex items-stretch gap-0 p-1 bg-muted/40 rounded-lg border border-border" role="radiogroup" data-testid="toggle-subject-type">
                       {subOpts.map((opt, idx) => {
                         const Icon = opt.icon;
                         const isActive = preSelectSubjectType === opt.val;
                         return (
-                          <button key={opt.val} type="button" role="radio" aria-checked={isActive} tabIndex={isActive?0:-1}
-                            className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-2 text-xs font-semibold rounded-md transition-all outline-none focus-visible:ring-2 focus-visible:ring-primary ${isActive ? colorMap[opt.color] : "text-muted-foreground hover:text-foreground hover:bg-muted/60"}`}
-                            onClick={() => { setPreSelectSubjectType(opt.val); if (opt.val === "person") { setPreSelectBusinessName(""); setPreSelectIco(""); } setPreSelectShowNameFields(false); setPreSelectBirthNumber(""); }}
-                            onKeyDown={(e) => handleSubKey(e, idx)} data-testid={`toggle-subject-type-${opt.val === "person" ? "fo" : opt.val === "szco" ? "szco" : "po"}`}
-                          ><Icon className="w-3.5 h-3.5" />{opt.label}</button>
+                          <span key={opt.val} className="contents">
+                            {idx > 0 && <div className="w-px self-stretch my-1 bg-border/60" />}
+                            <button type="button" role="radio" aria-checked={isActive} tabIndex={isActive?0:-1}
+                              className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-2 text-xs font-semibold rounded-md transition-all outline-none focus-visible:ring-2 focus-visible:ring-primary ${isActive ? colorMap[opt.color] : "text-muted-foreground hover:text-foreground hover:bg-muted/60"}`}
+                              onClick={() => { setPreSelectSubjectType(opt.val); if (opt.val === "person") { setPreSelectBusinessName(""); setPreSelectIco(""); } setPreSelectShowNameFields(false); setPreSelectBirthNumber(""); }}
+                              onKeyDown={(e) => handleSubKey(e, idx)} data-testid={`toggle-subject-type-${opt.val === "person" ? "fo" : opt.val === "szco" ? "szco" : "po"}`}
+                            ><Icon className="w-3.5 h-3.5" />{opt.label}</button>
+                          </span>
                         );
                       })}
                     </div>
