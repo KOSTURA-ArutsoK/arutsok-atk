@@ -2566,6 +2566,18 @@ export default function Contracts() {
     onError: () => toast({ title: "Chyba", description: "Nepodarilo sa presunúť kontrakty do spracovania", variant: "destructive" }),
   });
 
+  const moveToInterventionMutation = useMutation({
+    mutationFn: async (contractId: number) => {
+      const res = await apiRequest("POST", `/api/contracts/${contractId}/move-to-internal-intervention`);
+      return res.json();
+    },
+    onSuccess: () => {
+      invalidateContractCaches();
+      toast({ title: "Interná intervencia", description: "Kontrakt bol presunutý do interných intervencií" });
+    },
+    onError: () => toast({ title: "Chyba", description: "Nepodarilo sa presunúť kontrakt do interných intervencií", variant: "destructive" }),
+  });
+
   const { data: phase8Supisky = [] } = useQuery<any[]>({
     queryKey: ["/api/supisky/by-phase", 8],
     queryFn: async () => {
@@ -3048,10 +3060,11 @@ export default function Contracts() {
                           size="sm"
                           variant="outline"
                           className="h-7 px-2 border-orange-500 text-orange-500 hover:bg-orange-500/10 hover:text-orange-400"
-                          onClick={(e) => { e.stopPropagation(); navigate(`/contracts/${contract.id}/edit`); }}
+                          onClick={(e) => { e.stopPropagation(); moveToInterventionMutation.mutate(contract.id); }}
+                          disabled={moveToInterventionMutation.isPending}
                           data-testid={`button-internal-intervention-${contract.id}`}
                         >
-                          <AlertTriangle className="w-3 h-3 mr-1" />
+                          {moveToInterventionMutation.isPending ? <Loader2 className="w-3 h-3 mr-1 animate-spin" /> : <AlertTriangle className="w-3 h-3 mr-1" />}
                           <span className="text-[11px]">Interná intervencia</span>
                         </Button>
                       )}

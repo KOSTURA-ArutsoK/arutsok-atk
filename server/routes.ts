@@ -3490,6 +3490,50 @@ export async function registerRoutes(
     }
   });
 
+  app.post("/api/contracts/:id/move-to-internal-intervention", isAuthenticated, async (req: any, res) => {
+    try {
+      const contractId = Number(req.params.id);
+      const appUser = req.appUser;
+      const now = new Date();
+
+      const conditions = [eq(contracts.id, contractId), eq(contracts.isDeleted, false)];
+      if (appUser?.activeStateId) conditions.push(eq(contracts.stateId, appUser.activeStateId));
+      if (appUser?.activeCompanyId) conditions.push(eq(contracts.companyId, appUser.activeCompanyId));
+
+      const [contract] = await db.select().from(contracts).where(and(...conditions));
+      if (!contract) return res.status(404).json({ message: "Kontrakt nenájdený" });
+      if (contract.lifecyclePhase !== 8) return res.status(400).json({ message: "Kontrakt nie je vo fáze SPRACOVANIE KONTRAKTOV" });
+
+      const [updated] = await db.update(contracts)
+        .set({ lifecyclePhase: 7, updatedAt: now })
+        .where(eq(contracts.id, contractId))
+        .returning();
+
+      await db.insert(contractLifecycleHistory).values({
+        contractId,
+        phase: 7,
+        phaseName: LIFECYCLE_PHASES[7] || "Interné intervencie",
+        changedByUserId: appUser?.id || null,
+        note: "Presun do interných intervencií zo SPRACOVANIE KONTRAKTOV",
+      });
+      await logLifecycleStatusChange(contractId, contract.statusId, 7, appUser?.id || null);
+
+      await logAudit(req, {
+        action: "MOVE_TO_INTERNAL_INTERVENTION",
+        module: "zmluvy",
+        entityId: contractId,
+        entityName: contract.contractNumber || contract.proposalNumber || `ID ${contractId}`,
+        oldData: { lifecyclePhase: 8 },
+        newData: { lifecyclePhase: 7 },
+      });
+
+      res.json(updated);
+    } catch (err: any) {
+      console.error("Move to internal intervention error:", err);
+      res.status(500).json({ message: err?.message || "Internal error" });
+    }
+  });
+
   app.post("/api/contracts/create-processing-supiska", isAuthenticated, async (req: any, res) => {
     try {
       const { contractIds } = req.body;
