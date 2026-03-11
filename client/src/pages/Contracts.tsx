@@ -11,7 +11,7 @@ import type { SmartColumnDef } from "@/hooks/use-smart-filter";
 import { SmartFilterBar } from "@/components/smart-filter-bar";
 import { useLocation } from "wouter";
 import type { Contract, ContractStatus, ContractTemplate, ContractInventory, Subject, Partner, Product, MyCompany, Sector, Section, SectorProduct, ClientGroup, ClientType, AppUser, ContractAcquirer } from "@shared/schema";
-import { Plus, Pencil, Trash2, Eye, FileText, FileCheck, Files, Loader2, Lock, LayoutGrid, Send, Upload, Inbox, CheckCircle2, ChevronDown, ChevronRight, Printer, Search, Archive, AlertTriangle, Calendar, XCircle, MessageSquare, Paperclip, X, Users, User, Check, Award, Percent, History, ListChecks, ArrowRight, ArrowUpRight, ArrowUp, Clock, Ghost, Ban, HelpCircle, ScanLine, Briefcase, Building2 } from "lucide-react";
+import { Plus, Pencil, Trash2, Eye, FileText, FileCheck, Files, Loader2, Lock, LayoutGrid, Send, Upload, Inbox, CheckCircle2, ChevronDown, ChevronRight, Printer, Search, Archive, AlertTriangle, Calendar, XCircle, MessageSquare, Paperclip, X, Users, User, Check, Award, Percent, History, ListChecks, ArrowRight, ArrowUpRight, ArrowUp, Clock, Ghost, Ban, HelpCircle, ScanLine, Briefcase, Building2, ArrowLeftRight } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ActivityTimeline } from "@/components/activity-timeline";
 import { cn } from "@/lib/utils";
@@ -2230,10 +2230,13 @@ export default function Contracts() {
   const refBirthNumberInput = useRef<HTMLInputElement>(null);
   const [importDialogOpen, setImportDialogOpen] = useState(false);
   const [importFile, setImportFile] = useState<File | null>(null);
-  const [importResult, setImportResult] = useState<{ total: number; success: number; errors: number; created?: number; updated?: number; warnings?: number; incomplete?: number; duplicityWarnings?: any[]; details: any[] } | null>(null);
+  const [importResult, setImportResult] = useState<{ total: number; success: number; errors: number; created?: number; updated?: number; warnings?: number; incomplete?: number; nameConfirmationNeeded?: number; duplicityWarnings?: any[]; details: any[] } | null>(null);
   const [importSummaryOpen, setImportSummaryOpen] = useState(false);
   const [importLoading, setImportLoading] = useState(false);
   const importFileRef = useRef<HTMLInputElement>(null);
+  const [nameConfirmOpen, setNameConfirmOpen] = useState(false);
+  const [nameConfirmContract, setNameConfirmContract] = useState<any>(null);
+  const [nameConfirmLoading, setNameConfirmLoading] = useState(false);
 
   const { data: statuses } = useQuery<ContractStatus[]>({
     queryKey: ["/api/contract-statuses"],
@@ -3046,8 +3049,10 @@ export default function Contracts() {
             const subjectFullName = sub ? [sub.titleBefore, sub.firstName, sub.lastName, sub.titleAfter].filter(Boolean).join(" ") || sub.companyName || "—" : "—";
             const isIncomplete = !!(contract as any).incompleteData;
             const incompleteReason = (contract as any).incompleteDataReason || "";
+            const needsNameConfirm = !!(contract as any).needsManualVerification;
+            const rowClass = isIncomplete ? "bg-red-500/8 hover:bg-red-500/15 border-l-2 border-l-red-500" : needsNameConfirm ? "bg-orange-500/8 hover:bg-orange-500/15 border-l-2 border-l-orange-500" : "";
             return (
-              <TableRow key={contract.id} data-testid={`row-evidencia-${contract.id}`} className={isIncomplete ? "bg-red-500/8 hover:bg-red-500/15 border-l-2 border-l-red-500" : ""} onRowClick={() => { if (checkboxOnly && showRerouteCheckbox) { toggleRerouteSelect(contract.id); } else if (checkboxOnly && showCheckbox) { if (!isIncomplete) toggleSelect(contract.id); } else if (!checkboxOnly) { if (isIncomplete) { openIncompleteEdit(contract); } else { openEdit(contract); } } }}>
+              <TableRow key={contract.id} data-testid={`row-evidencia-${contract.id}`} className={rowClass} onRowClick={() => { if (needsNameConfirm && !checkboxOnly) { setNameConfirmContract(contract); setNameConfirmOpen(true); return; } if (checkboxOnly && showRerouteCheckbox) { toggleRerouteSelect(contract.id); } else if (checkboxOnly && showCheckbox) { if (!isIncomplete) toggleSelect(contract.id); } else if (!checkboxOnly) { if (isIncomplete) { openIncompleteEdit(contract); } else { openEdit(contract); } } }}>
                 {showCheckbox && (
                   <TableCell>
                     {isIncomplete ? (
@@ -3113,6 +3118,20 @@ export default function Contracts() {
                         <TooltipContent className="max-w-[250px] text-xs">
                           <p className="font-semibold text-red-400">Neúplné údaje</p>
                           <p>{incompleteReason}</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    )}
+                    {needsNameConfirm && (
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <span className="inline-flex items-center px-1.5 py-0.5 rounded border border-orange-500/40 bg-orange-500/10 text-orange-400 text-[10px] font-semibold whitespace-nowrap cursor-pointer" data-testid={`badge-name-confirm-${contract.id}`}>
+                            <AlertTriangle className="w-3 h-3 mr-0.5 shrink-0" />
+                            Sporné meno
+                          </span>
+                        </TooltipTrigger>
+                        <TooltipContent className="max-w-[250px] text-xs">
+                          <p className="font-semibold text-orange-400">Vyžaduje potvrdenie mena</p>
+                          <p>Kliknite na riadok pre prehodenie alebo potvrdenie mena a priezviska.</p>
                         </TooltipContent>
                       </Tooltip>
                     )}
@@ -3304,6 +3323,83 @@ export default function Contracts() {
       </AlertDialogContent>
     </AlertDialog>
 
+    <Dialog open={nameConfirmOpen} onOpenChange={(open) => {
+      setNameConfirmOpen(open);
+      if (!open) setNameConfirmContract(null);
+    }}>
+      <DialogContent size="sm">
+        <DialogHeader>
+          <DialogTitle data-testid="text-name-confirm-title">Potvrdenie mena</DialogTitle>
+        </DialogHeader>
+        {nameConfirmContract && (() => {
+          const sub = subjects?.find((s: any) => s.id === nameConfirmContract.subjectId);
+          if (!sub) return <p className="text-sm text-muted-foreground">Subjekt nenájdený</p>;
+          return (
+            <div className="space-y-4">
+              <div className="border border-orange-500/30 rounded p-3 bg-orange-500/5">
+                <p className="text-xs text-orange-400 flex items-center gap-1 mb-2">
+                  <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
+                  <span className="font-semibold">Obe slová vyzerajú ako krstné meno</span>
+                </p>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <p className="text-[10px] text-muted-foreground mb-0.5">Meno</p>
+                    <p className="text-sm font-semibold" data-testid="text-confirm-firstname">{sub.firstName || "—"}</p>
+                  </div>
+                  <div>
+                    <p className="text-[10px] text-muted-foreground mb-0.5">Priezvisko</p>
+                    <p className="text-sm font-semibold" data-testid="text-confirm-lastname">{sub.lastName || "—"}</p>
+                  </div>
+                </div>
+              </div>
+              <p className="text-[11px] text-muted-foreground text-justify">
+                Ak je poradie správne, kliknite „Potvrdiť". Ak chcete prehodiť meno a priezvisko, kliknite „Prehodiť".
+              </p>
+            </div>
+          );
+        })()}
+        <DialogFooter className="flex justify-between gap-2">
+          <Button variant="outline" size="sm" disabled={nameConfirmLoading} onClick={async () => {
+            if (!nameConfirmContract) return;
+            setNameConfirmLoading(true);
+            try {
+              await apiRequest("PATCH", `/api/contracts/${nameConfirmContract.id}/confirm-name`, { swap: true });
+              queryClient.invalidateQueries({ queryKey: ["/api/contracts"] });
+              queryClient.invalidateQueries({ queryKey: ["/api/subjects"] });
+              toast({ title: "Úspech", description: "Meno a priezvisko prehodené a potvrdené" });
+              setNameConfirmOpen(false);
+              setNameConfirmContract(null);
+            } catch (err: any) {
+              toast({ title: "Chyba", description: err.message || "Nepodarilo sa prehodiť meno", variant: "destructive" });
+            } finally {
+              setNameConfirmLoading(false);
+            }
+          }} data-testid="button-swap-name">
+            <ArrowLeftRight className="w-3.5 h-3.5 mr-1" />
+            Prehodiť
+          </Button>
+          <Button size="sm" disabled={nameConfirmLoading} onClick={async () => {
+            if (!nameConfirmContract) return;
+            setNameConfirmLoading(true);
+            try {
+              await apiRequest("PATCH", `/api/contracts/${nameConfirmContract.id}/confirm-name`, { swap: false });
+              queryClient.invalidateQueries({ queryKey: ["/api/contracts"] });
+              toast({ title: "Úspech", description: "Meno potvrdené" });
+              setNameConfirmOpen(false);
+              setNameConfirmContract(null);
+            } catch (err: any) {
+              toast({ title: "Chyba", description: err.message || "Nepodarilo sa potvrdiť meno", variant: "destructive" });
+            } finally {
+              setNameConfirmLoading(false);
+            }
+          }} data-testid="button-confirm-name">
+            <Check className="w-3.5 h-3.5 mr-1" />
+            Potvrdiť
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+
     <Dialog open={importSummaryOpen} onOpenChange={(open) => {
       setImportSummaryOpen(open);
       if (!open) setImportResult(null);
@@ -3328,18 +3424,34 @@ export default function Contracts() {
               {(importResult.errors || 0) > 0 && (
                 <div className="text-center px-4 py-2 rounded border border-destructive/30 bg-destructive/5">
                   <p className="text-2xl font-bold text-destructive" data-testid="text-summary-errors">{importResult.errors}</p>
-                  <p className="text-[11px] text-muted-foreground">Neimportovaných</p>
+                  <p className="text-[11px] text-muted-foreground">Odmietnutých</p>
+                </div>
+              )}
+              {(importResult.nameConfirmationNeeded || 0) > 0 && (
+                <div className="text-center px-4 py-2 rounded border border-orange-500/30 bg-orange-500/5">
+                  <p className="text-2xl font-bold text-orange-500" data-testid="text-summary-name-confirm">{importResult.nameConfirmationNeeded}</p>
+                  <p className="text-[11px] text-muted-foreground">Sporné mená</p>
                 </div>
               )}
             </div>
 
-            {(importResult.incomplete || 0) > 0 && (
+            {(importResult.errors || 0) > 0 && (
               <div className="border border-red-500/30 rounded p-3 bg-red-500/5 text-justify">
                 <p className="text-xs text-red-400 flex items-center gap-1 mb-1">
                   <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
-                  <span className="font-semibold">Neúplné zmluvy sú zvýraznené červenou</span>
+                  <span className="font-semibold">Odmietnuté riadky — chýbajú povinné údaje</span>
                 </p>
-                <p className="text-[11px] text-muted-foreground">Doplňte chýbajúce údaje priamo v zozname. Kým nebudú všetky povinné polia vyplnené, zmluva nemôže ísť na sprievodku.</p>
+                <p className="text-[11px] text-muted-foreground">Tieto riadky neboli importované. Opravte Excel a importujte znova.</p>
+              </div>
+            )}
+
+            {(importResult.nameConfirmationNeeded || 0) > 0 && (
+              <div className="border border-orange-500/30 rounded p-3 bg-orange-500/5 text-justify">
+                <p className="text-xs text-orange-400 flex items-center gap-1 mb-1">
+                  <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
+                  <span className="font-semibold">Sporné mená vyžadujú potvrdenie</span>
+                </p>
+                <p className="text-[11px] text-muted-foreground">Riadky s oranžovým príznakom boli importované, ale meno a priezvisko mohli byť zamenené. Kliknite na riadok v zozname pre potvrdenie alebo prehodenie.</p>
               </div>
             )}
 

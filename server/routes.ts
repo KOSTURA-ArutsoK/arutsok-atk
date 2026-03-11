@@ -17,6 +17,7 @@ import path from "path";
 import fs from "fs";
 import crypto from "crypto";
 import { encryptField, decryptField } from "./crypto";
+import { detectAmbiguousName } from "./name-parser";
 
 function stripBallast(str: string): string {
   return str.replace(/[\s\-\+\(\)\/\.]/g, "");
@@ -3249,6 +3250,57 @@ export async function registerRoutes(
     }
   });
 
+  app.patch("/api/contracts/:id/confirm-name", isAuthenticated, async (req: any, res) => {
+    try {
+      const contractId = Number(req.params.id);
+      const { swap } = req.body;
+
+      const [contract] = await db.select().from(contracts).where(eq(contracts.id, contractId));
+      if (!contract) return res.status(404).json({ message: "Zmluva nenájdená" });
+
+      if (!isAdmin(req.appUser)) {
+        const isOwner = contract.uploadedByUserId === req.appUser?.id;
+        if (!isOwner) {
+          return res.status(403).json({ message: "Nemáte oprávnenie upraviť túto zmluvu" });
+        }
+      }
+
+      if (!contract.subjectId) return res.status(400).json({ message: "Zmluva nemá priradený subjekt" });
+
+      const subject = await storage.getSubject(contract.subjectId);
+      if (!subject) return res.status(404).json({ message: "Subjekt nenájdený" });
+
+      if (swap) {
+        const oldFirst = subject.firstName;
+        const oldLast = subject.lastName;
+        await storage.updateSubject(subject.id, {
+          firstName: oldLast,
+          lastName: oldFirst,
+          changeReason: "Prehodenie mena/priezviska – manuálne potvrdenie z importu",
+        });
+      }
+
+      await db.update(contracts).set({
+        needsManualVerification: false,
+        updatedAt: new Date(),
+      }).where(eq(contracts.id, contractId));
+
+      await logAudit(req, {
+        action: "NAME_CONFIRMATION",
+        module: "zmluvy",
+        entityId: contractId,
+        entityName: `Potvrdenie mena pre zmluvu #${contractId}${swap ? " (prehodené)" : ""}`,
+        newData: { contractId, subjectId: subject.id, swap, firstName: subject.firstName, lastName: subject.lastName },
+      });
+
+      const [updated] = await db.select().from(contracts).where(eq(contracts.id, contractId));
+      res.json(updated);
+    } catch (err: any) {
+      console.error("PATCH /api/contracts/:id/confirm-name error:", err);
+      res.status(500).json({ message: err.message || "Chyba pri potvrdení mena" });
+    }
+  });
+
   // === CONTRACT LIFECYCLE PHASE CHANGE ===
   app.patch("/api/contracts/:id/lifecycle-phase", isAuthenticated, async (req: any, res) => {
     try {
@@ -5193,6 +5245,7 @@ export async function registerRoutes(
       const results: { row: number; status: string; action?: string; contractId?: number; subjectId?: number; warnings?: string[]; error?: string; incompleteFields?: string[] }[] = [];
       const batchId = req.body?.batchId || `IMPORT-${Date.now()}`;
       let incompleteCount = 0;
+      let nameConfirmationNeeded = 0;
 
       for (let i = 0; i < rawRows.length; i++) {
         const rowData = rawRows[i];
@@ -5247,6 +5300,41 @@ export async function registerRoutes(
             }
           }
 
+          const firstName = rowData["meno"] || rowData["first_name"] || null;
+          const lastName = rowData["priezvisko"] || rowData["last_name"] || null;
+          const companyName = rowData["nazov_firmy"] || rowData["company_name"] || null;
+          const titleBefore = rowData["titul_pred"] || rowData["title_before"] || null;
+          const titleAfter = rowData["titul_za"] || rowData["title_after"] || null;
+
+          const cisloNavrhu = rowData["cislo_navrhu"] || rowData["proposal_number"] || null;
+          const cisloZmluvy = rowData["cislo_zmluvy"] || rowData["contract_number"] || null;
+
+          const missingFields: string[] = [];
+          if (!resolvedPartnerId) missingFields.push("Partner");
+          if (!resolvedProductId) missingFields.push("Produkt");
+          if (!cisloNavrhu && !cisloZmluvy) missingFields.push("Číslo návrhu alebo číslo zmluvy");
+          if (subjectType === "person" || subjectType === "szco") {
+            if (!rc) missingFields.push("Rodné číslo");
+            if (!firstName) missingFields.push("Meno");
+            if (!lastName) missingFields.push("Priezvisko");
+          }
+          if (subjectType === "company" || subjectType === "szco") {
+            if (!ico) missingFields.push("IČO");
+            if (!companyName) missingFields.push("Názov firmy");
+          }
+          const isIncomplete = missingFields.length > 0;
+
+          if (isIncomplete) {
+            incompleteCount++;
+            results.push({
+              row: rowNum,
+              status: "error",
+              error: `Chýba: ${missingFields.join(", ")}`,
+              incompleteFields: missingFields,
+            });
+            continue;
+          }
+
           const klientUidVal = rowData["klient_uid"] || rowData["klientuid"] || rowData["klient"] || rowData["klient_id"] || null;
           const ziskatelUidVal = rowData["ziskatel_uid"] || rowData["ziskateluid"] || rowData["ziskatel"] || rowData["ziskatel_id"] || null;
           const specialistaUidVal = rowData["specialista_uid"] || rowData["specialistauid"] || rowData["specialista"] || rowData["specialista_id"] || null;
@@ -5265,11 +5353,6 @@ export async function registerRoutes(
             subjectAction = "matched";
           }
 
-          const firstName = rowData["meno"] || rowData["first_name"] || null;
-          const lastName = rowData["priezvisko"] || rowData["last_name"] || null;
-          const companyName = rowData["nazov_firmy"] || rowData["company_name"] || null;
-          const titleBefore = rowData["titul_pred"] || rowData["title_before"] || null;
-          const titleAfter = rowData["titul_za"] || rowData["title_after"] || null;
           const email = rowData["email"] || null;
           const phone = rowData["telefon"] || rowData["phone"] || null;
 
@@ -5422,24 +5505,12 @@ export async function registerRoutes(
 
           const nextGlobalNumber = await storage.getNextCounterValue("contract_global_number");
 
-          const cisloNavrhu = rowData["cislo_navrhu"] || rowData["proposal_number"] || null;
-          const cisloZmluvy = rowData["cislo_zmluvy"] || rowData["contract_number"] || null;
-
-          const missingFields: string[] = [];
-          if (!resolvedPartnerId) missingFields.push("Partner");
-          if (!resolvedProductId) missingFields.push("Produkt");
-          if (!cisloNavrhu && !cisloZmluvy) missingFields.push("Číslo návrhu alebo číslo zmluvy");
-          if (subjectType === "person" || subjectType === "szco") {
-            if (!rc) missingFields.push("Rodné číslo");
-            if (!firstName) missingFields.push("Meno");
-            if (!lastName) missingFields.push("Priezvisko");
+          const nameCheck = detectAmbiguousName(firstName, lastName);
+          if (nameCheck.ambiguous) {
+            needsManualVerification = true;
+            nameConfirmationNeeded++;
+            rowWarnings.push(`Sporné meno: „${firstName} ${lastName}" – obe slová vyzerajú ako krstné meno. Vyžaduje manuálne potvrdenie.`);
           }
-          if (subjectType === "company" || subjectType === "szco") {
-            if (!ico) missingFields.push("IČO");
-            if (!companyName) missingFields.push("Názov firmy");
-          }
-          const isIncomplete = missingFields.length > 0;
-          if (isIncomplete) incompleteCount++;
 
           const contractData: any = {
             contractNumber: cisloZmluvy,
@@ -5466,8 +5537,8 @@ export async function registerRoutes(
             statusId: contractStatusId,
             globalNumber: nextGlobalNumber,
             uploadedByUserId: appUser?.id || null,
-            incompleteData: isIncomplete,
-            incompleteDataReason: isIncomplete ? `Chýba: ${missingFields.join(", ")}` : null,
+            incompleteData: false,
+            incompleteDataReason: null,
             importedAt: new Date(),
             importBatchId: batchId,
           };
@@ -5557,8 +5628,8 @@ export async function registerRoutes(
       await logAudit(req, {
         action: "IMPORT",
         module: "zmluvy",
-        entityName: `Import ${fileName}: ${successCount} úspešných, ${createdCount} nových subjektov, ${updatedCount} aktualizovaných, ${errorCount} chýb, ${duplicityWarnings.length} duplicitných varovaní`,
-        newData: { successCount, errorCount, createdCount, updatedCount, duplicityWarnings: duplicityWarnings.length },
+        entityName: `Import ${fileName}: ${successCount} úspešných, ${createdCount} nových subjektov, ${updatedCount} aktualizovaných, ${errorCount} chýb, ${nameConfirmationNeeded} sporných mien, ${duplicityWarnings.length} duplicitných varovaní`,
+        newData: { successCount, errorCount, createdCount, updatedCount, nameConfirmationNeeded, duplicityWarnings: duplicityWarnings.length },
       });
 
       res.json({
@@ -5569,6 +5640,7 @@ export async function registerRoutes(
         updated: updatedCount,
         warnings: warningCount,
         incomplete: incompleteCount,
+        nameConfirmationNeeded,
         duplicityWarnings,
         details: results,
       });
