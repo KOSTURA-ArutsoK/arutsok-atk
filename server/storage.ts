@@ -2620,13 +2620,14 @@ export class DatabaseStorage implements IStorage {
       const batch = uniqueIds.slice(i, i + BATCH_SIZE);
       const caseFragments = batch.map((id, batchIdx) => {
         const sortOrder = i + batchIdx + 1;
-        return sql`WHEN ${contracts.id} = ${id} THEN ${sortOrder}`;
+        return sql`WHEN ${contracts.id} = ${id} THEN ${sortOrder}::integer`;
       });
       await db.update(contracts)
         .set({
           inventoryId,
           dispatchedAt,
           updatedAt: new Date(),
+          lifecyclePhase: 1,
           sortOrderInInventory: sql`CASE ${sql.join(caseFragments, sql` `)} END`,
         } as any)
         .where(inArray(contracts.id, batch));
