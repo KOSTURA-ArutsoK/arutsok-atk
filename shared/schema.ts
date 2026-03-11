@@ -774,6 +774,7 @@ export const contracts = pgTable("contracts", {
   uid: text("uid"),
   contractNumber: text("contract_number"),
   proposalNumber: text("proposal_number"),
+  insuranceContractNumber: text("insurance_contract_number"),
   kik: text("kik"),
   subjectId: integer("subject_id").references(() => subjects.id),
   partnerId: integer("partner_id").references(() => partners.id),

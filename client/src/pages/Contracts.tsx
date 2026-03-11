@@ -3012,6 +3012,7 @@ export default function Contracts() {
             <TableHead sortKey="partnerId" sortDirection={sk === "partnerId" ? sd : null} onSort={rs}>Partner</TableHead>
             <TableHead sortKey="productId" sortDirection={sk === "productId" ? sd : null} onSort={rs}>Produkt</TableHead>
             <TableHead sortKey="proposalNumber" sortDirection={sk === "proposalNumber" ? sd : null} onSort={rs}>Číslo návrhu zmluvy</TableHead>
+            <TableHead>Číslo zmluvy</TableHead>
             <TableHead>Typ subjektu</TableHead>
             <TableHead sortKey="subjectId" sortDirection={sk === "subjectId" ? sd : null} onSort={rs}>Subjekt</TableHead>
             {showTimer && <TableHead>Zostáva dní</TableHead>}
@@ -3060,6 +3061,7 @@ export default function Contracts() {
                 <TableCell className="text-sm py-1">{getPartnerName(contract)}</TableCell>
                 <TableCell className="text-sm py-1">{getProductName(contract)}</TableCell>
                 <TableCell className="text-sm font-mono py-1" data-testid={`text-contract-proposal-${contract.id}`}>{contract.proposalNumber || "—"}</TableCell>
+                <TableCell className="text-sm font-mono py-1" data-testid={`text-contract-insurancenumber-${contract.id}`}>{contract.insuranceContractNumber || "—"}</TableCell>
                 <TableCell className="text-sm py-1">
                   <Badge variant="outline" className={`text-[10px] ${subjectType === "FO" ? "border-blue-500/50 text-blue-400" : subjectType === "SZČO" ? "border-amber-500/50 text-amber-400" : subjectType === "PO" ? "border-purple-500/50 text-purple-400" : "border-muted text-muted-foreground"}`}>{subjectType}</Badge>
                 </TableCell>
@@ -4262,6 +4264,7 @@ export default function Contracts() {
                                             <th className="p-2 text-left font-medium text-muted-foreground">Partner</th>
                                             <th className="p-2 text-left font-medium text-muted-foreground">Produkt</th>
                                             <th className="p-2 text-left font-medium text-muted-foreground">Číslo návrhu zmluvy</th>
+                                            <th className="p-2 text-left font-medium text-muted-foreground">Číslo zmluvy</th>
                                             <th className="p-2 text-left font-medium text-muted-foreground">Typ subjektu</th>
                                             <th className="p-2 text-left font-medium text-muted-foreground">Subjekt</th>
                                             <th className="p-2 text-center font-medium text-muted-foreground">OCR</th>
@@ -4291,6 +4294,7 @@ export default function Contracts() {
                                                 <td className="p-2">{getPartnerName(contract)}</td>
                                                 <td className="p-2">{getProductName(contract)}</td>
                                                 <td className="p-2 font-mono">{contract.proposalNumber || "—"}</td>
+                                                <td className="p-2 font-mono">{contract.insuranceContractNumber || "—"}</td>
                                                 <td className="p-2">
                                                   <Badge variant="outline" className={`text-[10px] ${subType6 === "FO" ? "border-blue-500/50 text-blue-400" : subType6 === "SZČO" ? "border-amber-500/50 text-amber-400" : subType6 === "PO" ? "border-purple-500/50 text-purple-400" : "border-muted text-muted-foreground"}`}>{subType6}</Badge>
                                                 </td>
