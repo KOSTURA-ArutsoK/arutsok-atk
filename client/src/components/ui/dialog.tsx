@@ -36,13 +36,15 @@ interface DialogContentProps extends React.ComponentPropsWithoutRef<typeof Dialo
 }
 
 const SIZE_CLASSES: Record<DialogSize, string> = {
-  sm: "sm:max-w-[40vw] max-w-[95vw] h-[85vh]",
-  md: "sm:max-w-[60vw] max-w-[95vw] h-[85vh]",
-  lg: "sm:max-w-[80vw] max-w-[95vw] h-[85vh]",
-  xl: "sm:max-w-[95vw] max-w-[95vw] h-[90vh]",
+  sm: "max-w-[500px] h-[600px]",
+  md: "max-w-[600px] h-[600px]",
+  lg: "max-w-[800px] h-[600px]",
+  xl: "sm:max-w-[95vw] max-w-[95vw] h-[85vh]",
   full: "max-w-[100vw] w-[100vw] h-[95vh] rounded-none",
-  auto: "sm:max-w-[700px] max-w-[95vw] h-[85vh]",
+  auto: "max-w-[500px] h-[600px]",
 };
+
+const FOOTER_DISPLAY_NAME = "DialogFooter";
 
 const DialogContent = React.forwardRef<
   React.ElementRef<typeof DialogPrimitive.Content>,
@@ -92,7 +94,7 @@ const DialogContent = React.forwardRef<
     const fieldCount = inputs.length;
 
     if (fieldCount > 15) {
-      setComputedSize("xl");
+      setComputedSize("lg");
     } else if (fieldCount > 5) {
       setComputedSize("md");
     } else {
@@ -113,6 +115,23 @@ const DialogContent = React.forwardRef<
     return () => window.removeEventListener("resize", handleResize);
   }, [size, children, computeAutoSize]);
 
+  const footerChildren: React.ReactNode[] = [];
+  const otherChildren: React.ReactNode[] = [];
+
+  React.Children.forEach(children, (child) => {
+    if (
+      React.isValidElement(child) &&
+      typeof child.type !== "string" &&
+      (child.type as any).displayName === FOOTER_DISPLAY_NAME
+    ) {
+      footerChildren.push(child);
+    } else {
+      otherChildren.push(child);
+    }
+  });
+
+  const hasFooter = footerChildren.length > 0;
+
   return (
     <DialogPortal>
       <DialogOverlay />
@@ -132,13 +151,18 @@ const DialogContent = React.forwardRef<
           }
         }}
         className={cn(
-          "fixed left-[50%] top-[5vh] z-50 w-full translate-x-[-50%] border bg-background shadow-lg duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[state=closed]:slide-out-to-left-1/2 data-[state=closed]:slide-out-to-top-[5%] data-[state=open]:slide-in-from-left-1/2 data-[state=open]:slide-in-from-top-[5%] sm:rounded-lg overflow-y-auto px-6",
+          "fixed left-[50%] top-12 z-50 w-full translate-x-[-50%] border bg-background shadow-lg duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[state=closed]:slide-out-to-left-1/2 data-[state=closed]:slide-out-to-top-[5%] data-[state=open]:slide-in-from-left-1/2 data-[state=open]:slide-in-from-top-[5%] sm:rounded-lg flex flex-col overflow-hidden",
           SIZE_CLASSES[computedSize],
           className
         )}
         {...props}
       >
-        {children}
+        <div className={cn("flex-1 min-h-0 overflow-y-auto px-6", hasFooter && "pb-0")}>
+          {otherChildren}
+        </div>
+
+        {hasFooter && footerChildren}
+
         <DialogPrimitive.Close className="absolute right-4 top-4 rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none data-[state=open]:bg-accent data-[state=open]:text-muted-foreground z-20">
           <X className="h-4 w-4" />
           <span className="sr-only">Close</span>
@@ -169,7 +193,7 @@ const DialogFooter = ({
 }: React.HTMLAttributes<HTMLDivElement>) => (
   <div
     className={cn(
-      "flex flex-col-reverse sm:flex-row sm:justify-between sm:space-x-2 sticky bottom-0 z-10 bg-background -mx-6 px-6 py-4 border-t border-border/60 mt-auto",
+      "shrink-0 h-[64px] flex items-center justify-between sm:justify-end sm:space-x-2 px-6 bg-background border-t border-border/60",
       className
     )}
     {...props}
@@ -209,7 +233,7 @@ const DialogScrollContent = ({
   ...props
 }: React.HTMLAttributes<HTMLDivElement>) => (
   <div
-    className={cn("flex-1 min-h-0 overflow-y-auto py-4", className)}
+    className={cn("py-4", className)}
     {...props}
   />
 )
