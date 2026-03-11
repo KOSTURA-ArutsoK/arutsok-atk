@@ -2802,7 +2802,10 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getArchivedContracts(companyId?: number, stateId?: number): Promise<Contract[]> {
-    return [];
+    const conditions: any[] = [eq(contracts.lifecyclePhase, 4), eq(contracts.isDeleted, false)];
+    if (companyId) conditions.push(eq(contracts.companyId, companyId));
+    if (stateId) conditions.push(eq(contracts.stateId, stateId));
+    return await db.select().from(contracts).where(and(...conditions)).orderBy(desc(contracts.updatedAt));
   }
 
   async getContractPasswords(contractId: number): Promise<ContractPassword[]> {

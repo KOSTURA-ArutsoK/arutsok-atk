@@ -16931,6 +16931,54 @@ export async function registerRoutes(
     }
   }, 60 * 60 * 1000);
 
+  // === CRON: Auto-archive phase 1 contracts after 30 days ===
+  setInterval(async () => {
+    try {
+      if (await isMigrationModeOn()) return;
+      const cutoff = new Date();
+      cutoff.setDate(cutoff.getDate() - 30);
+
+      const stalePhase1 = await db.select()
+        .from(contracts)
+        .where(and(
+          eq(contracts.lifecyclePhase, 1),
+          eq(contracts.isDeleted, false),
+          sql`${contracts.createdAt} < ${cutoff}`
+        ));
+
+      let archiveCount = 0;
+      for (const contract of stalePhase1) {
+        await db.update(contracts).set({
+          lifecyclePhase: 4,
+          updatedAt: new Date(),
+        }).where(eq(contracts.id, contract.id));
+
+        await db.insert(contractLifecycleHistory).values({
+          contractId: contract.id,
+          phase: 4,
+          phaseName: LIFECYCLE_PHASES[4] || "Archív zmlúv (s výhradami)",
+          changedByUserId: null,
+          note: `Automatický presun do archívu – zmluva bola vo fáze 1 (Nahratie) viac ako 30 dní bez odoslania`,
+        });
+
+        await db.insert(auditLogs).values({
+          username: "ArutsoK System",
+          action: "LIFECYCLE_PHASE1_AUTO_ARCHIVE",
+          module: "zmluvy",
+          entityId: contract.id,
+          entityName: contract.contractNumber || contract.proposalNumber || `ID ${contract.id}`,
+          oldData: { lifecyclePhase: 1 },
+          newData: { lifecyclePhase: 4, reason: "30 dní vo fáze 1 bez odoslania" },
+        });
+
+        archiveCount++;
+      }
+      if (archiveCount > 0) console.log(`[CRON] Phase 1 auto-archive: ${archiveCount} contracts moved to phase 4 after 30 days`);
+    } catch (err) {
+      console.error("[CRON] Phase 1 auto-archive error:", err);
+    }
+  }, 60 * 60 * 1000);
+
   // === CRON: Supiska 24h countdown finalization ===
   setInterval(async () => {
     try {
