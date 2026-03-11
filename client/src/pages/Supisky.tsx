@@ -1,8 +1,7 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { formatDateSlovak } from "@/lib/utils";
-import { useAppUser } from "@/hooks/use-app-user";
 import { useToast } from "@/hooks/use-toast";
 import { useTableSort } from "@/hooks/use-table-sort";
 import { useSmartFilter } from "@/hooks/use-smart-filter";
@@ -10,9 +9,8 @@ import type { SmartColumnDef } from "@/hooks/use-smart-filter";
 import { SmartFilterBar } from "@/components/smart-filter-bar";
 import { useColumnVisibility, type ColumnDef } from "@/hooks/use-column-visibility";
 import { ColumnManager } from "@/components/column-manager";
-import type { Supiska, Contract } from "@shared/schema";
-import { Plus, Printer, Loader2, Send, Undo2, FileSpreadsheet, FileDown, Lock, Unlock, X } from "lucide-react";
-import { Card, CardContent } from "@/components/ui/card";
+import type { Supiska } from "@shared/schema";
+import { Plus, Printer, Loader2, Send, Undo2, FileSpreadsheet, FileDown, Lock, X, ChevronDown, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -34,8 +32,6 @@ import {
 } from "@/components/ui/table";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { ProcessingSaveButton } from "@/components/processing-save-button";
-
-const STATUSES = ["Nova", "Pripravena", "Odoslana"] as const;
 
 const SUPISKY_FILTER_COLUMNS: SmartColumnDef[] = [
   { key: "supId", label: "SUP ID", type: "text" },
@@ -157,257 +153,6 @@ function SupiskaFormDialog({
   );
 }
 
-function SupiskaDetailDialog({
-  open,
-  onOpenChange,
-  supiska,
-}: {
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-  supiska: Supiska | null;
-}) {
-  const { toast } = useToast();
-  const [addDialogOpen, setAddDialogOpen] = useState(false);
-
-  const { data: linkedContracts = [], isLoading: contractsLoading } = useQuery<any[]>({
-    queryKey: ["/api/supisky", supiska?.id, "contracts"],
-    enabled: !!supiska && open,
-  });
-
-  const { data: subjects = [] } = useQuery<any[]>({
-    queryKey: ["/api/subjects"],
-    enabled: open,
-  });
-
-  const { data: partners = [] } = useQuery<any[]>({
-    queryKey: ["/api/partners"],
-    enabled: open,
-  });
-
-  const { data: products = [] } = useQuery<any[]>({
-    queryKey: ["/api/products"],
-    enabled: open,
-  });
-
-  const removeContractMutation = useMutation({
-    mutationFn: (contractId: number) =>
-      apiRequest("DELETE", `/api/supisky/${supiska?.id}/contracts/${contractId}`),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/supisky", supiska?.id, "contracts"] });
-      toast({ title: "Uspech", description: "Zmluva odobrana zo supisky" });
-    },
-    onError: (err: any) => toast({ title: "Chyba", description: err.message || "Nepodarilo sa odobrat zmluvu", variant: "destructive" }),
-  });
-
-  const statusMutation = useMutation({
-    mutationFn: (status: string) =>
-      apiRequest("PUT", `/api/supisky/${supiska?.id}`, { status }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/supisky"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/supisky", supiska?.id, "contracts"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/contracts"] });
-      toast({ title: "Uspech", description: "Stav supisky aktualizovany" });
-    },
-    onError: () => toast({ title: "Chyba", description: "Nepodarilo sa zmenit stav", variant: "destructive" }),
-  });
-
-  const { sortedData: sortedLinkedContracts, sortKey: sortKeyLinked, sortDirection: sortDirLinked, requestSort: requestSortLinked } = useTableSort(linkedContracts);
-
-  if (!supiska) return null;
-
-  const isSent = supiska.status === "Odoslana";
-
-  const getSubjectName = (subjectId: number | null) => {
-    if (!subjectId) return "";
-    const s = subjects.find((s: any) => s.id === subjectId);
-    return s ? `${s.firstName || ""} ${s.lastName || ""}`.trim() : "";
-  };
-
-  const getPartnerName = (partnerId: number | null) => {
-    if (!partnerId) return "";
-    const p = partners.find((p: any) => p.id === partnerId);
-    return p?.name || "";
-  };
-
-  const getProductName = (productId: number | null) => {
-    if (!productId) return "";
-    const p = products.find((p: any) => p.id === productId);
-    return p?.name || "";
-  };
-
-  return (
-    <>
-      <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent size="md">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2 flex-wrap">
-              <span>{supiska.name}</span>
-              <span className={`inline-flex items-center px-2 py-0.5 rounded-full border text-[11px] font-medium ${statusBadgeClasses(supiska.status)}`}>{supiska.status}</span>
-              <span className="text-sm text-muted-foreground">{supiska.supId}</span>
-            </DialogTitle>
-          </DialogHeader>
-
-          <div className="space-y-4 p-2">
-            <div className="flex items-center gap-2 flex-wrap">
-              {!isSent && (
-                <>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setAddDialogOpen(true)}
-                    data-testid="button-add-contracts"
-                  >
-                    <Plus className="w-4 h-4 mr-1" />
-                    Pridat zmluvy
-                  </Button>
-                  {supiska.status === "Nova" && (
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => statusMutation.mutate("Pripravena")}
-                      disabled={statusMutation.isPending}
-                      data-testid="button-status-pripravena"
-                    >
-                      Pripravena
-                    </Button>
-                  )}
-                  {(supiska.status === "Nova" || supiska.status === "Pripravena") && linkedContracts.length > 0 && (
-                    <Button
-                      variant="default"
-                      size="sm"
-                      onClick={() => statusMutation.mutate("Odoslana")}
-                      disabled={statusMutation.isPending}
-                      data-testid="button-status-odoslana"
-                    >
-                      <Send className="w-4 h-4 mr-1" />
-                      Odoslat
-                    </Button>
-                  )}
-                </>
-              )}
-              {isSent && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => statusMutation.mutate("Pripravena")}
-                  disabled={statusMutation.isPending}
-                  data-testid="button-status-unlock"
-                >
-                  <Undo2 className="w-4 h-4 mr-1" />
-                  Vratit na Pripravena
-                </Button>
-              )}
-
-              <div className="ml-auto flex items-center gap-2 flex-wrap">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => window.open(`/api/supisky/${supiska.id}/export/excel`, "_blank")}
-                  data-testid="button-export-excel"
-                >
-                  <FileSpreadsheet className="w-4 h-4 mr-1" />
-                  Excel
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => window.open(`/api/supisky/${supiska.id}/export/csv`, "_blank")}
-                  data-testid="button-export-csv"
-                >
-                  <FileDown className="w-4 h-4 mr-1" />
-                  CSV
-                </Button>
-              </div>
-            </div>
-
-            {supiska.notes && (
-              <p className="text-sm text-muted-foreground">{supiska.notes}</p>
-            )}
-
-            {isSent && supiska.sentAt && (
-              <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                <Lock className="w-4 h-4" />
-                <span>Odoslana {formatDateSlovak(supiska.sentAt)} uzivatelom {supiska.sentBy}</span>
-              </div>
-            )}
-
-            <div className="border rounded-md">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead sortKey="globalNumber" sortDirection={sortKeyLinked === "globalNumber" ? sortDirLinked : null} onSort={requestSortLinked}>Cislo kontraktu</TableHead>
-                    <TableHead sortKey="subjectId" sortDirection={sortKeyLinked === "subjectId" ? sortDirLinked : null} onSort={requestSortLinked}>Klient</TableHead>
-                    <TableHead sortKey="partnerId" sortDirection={sortKeyLinked === "partnerId" ? sortDirLinked : null} onSort={requestSortLinked}>Partner</TableHead>
-                    <TableHead sortKey="productId" sortDirection={sortKeyLinked === "productId" ? sortDirLinked : null} onSort={requestSortLinked}>Produkt</TableHead>
-                    <TableHead sortKey="isLocked" sortDirection={sortKeyLinked === "isLocked" ? sortDirLinked : null} onSort={requestSortLinked}>Stav</TableHead>
-                    {!isSent && <TableHead className="w-12"></TableHead>}
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {contractsLoading ? (
-                    <TableRow>
-                      <TableCell colSpan={isSent ? 5 : 6} className="text-center">
-                        <Loader2 className="w-4 h-4 animate-spin inline" />
-                      </TableCell>
-                    </TableRow>
-                  ) : linkedContracts.length === 0 ? (
-                    <TableRow>
-                      <TableCell colSpan={isSent ? 5 : 6} className="text-center text-muted-foreground">
-                        Ziadne zmluvy v supiske
-                      </TableCell>
-                    </TableRow>
-                  ) : (
-                    sortedLinkedContracts.map((c: any) => (
-                      <TableRow key={c.id} data-testid={`row-contract-${c.id}`}>
-                        <TableCell className="font-mono text-sm">{c.globalNumber || c.id}</TableCell>
-                        <TableCell>{getSubjectName(c.subjectId)}</TableCell>
-                        <TableCell>{getPartnerName(c.partnerId)}</TableCell>
-                        <TableCell>{getProductName(c.productId)}</TableCell>
-                        <TableCell>
-                          {c.isLocked ? (
-                            <Badge variant="outline" className="gap-1">
-                              <Lock className="w-3 h-3" />
-                              Zamknuta
-                            </Badge>
-                          ) : (
-                            <Badge variant="secondary">Otvorena</Badge>
-                          )}
-                        </TableCell>
-                        {!isSent && (
-                          <TableCell>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              onClick={() => removeContractMutation.mutate(c.id)}
-                              disabled={removeContractMutation.isPending}
-                              data-testid={`button-remove-contract-${c.id}`}
-                            >
-                              <X className="w-4 h-4" />
-                            </Button>
-                          </TableCell>
-                        )}
-                      </TableRow>
-                    ))
-                  )}
-                </TableBody>
-              </Table>
-            </div>
-
-            <div className="text-sm text-muted-foreground">
-              Pocet zmluv: {linkedContracts.length}
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
-
-      <AddContractsDialog
-        open={addDialogOpen}
-        onOpenChange={setAddDialogOpen}
-        supiskaId={supiska.id}
-      />
-    </>
-  );
-}
 
 function AddContractsDialog({
   open,
@@ -555,27 +300,265 @@ function AddContractsDialog({
   );
 }
 
-export default function SupiskyPage() {
-  const { data: appUser } = useAppUser();
+function InlineSupiskaDetail({ supiska }: { supiska: Supiska }) {
   const { toast } = useToast();
+  const [addDialogOpen, setAddDialogOpen] = useState(false);
+
+  const { data: linkedContracts = [], isLoading: contractsLoading } = useQuery<any[]>({
+    queryKey: ["/api/supisky", supiska.id, "contracts"],
+    enabled: true,
+  });
+
+  const { data: subjects = [] } = useQuery<any[]>({
+    queryKey: ["/api/subjects"],
+  });
+
+  const { data: partners = [] } = useQuery<any[]>({
+    queryKey: ["/api/partners"],
+  });
+
+  const { data: products = [] } = useQuery<any[]>({
+    queryKey: ["/api/products"],
+  });
+
+  const removeContractMutation = useMutation({
+    mutationFn: (contractId: number) =>
+      apiRequest("DELETE", `/api/supisky/${supiska.id}/contracts/${contractId}`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/supisky", supiska.id, "contracts"] });
+      toast({ title: "Úspech", description: "Zmluva odobratá zo súpisky" });
+    },
+    onError: (err: any) => toast({ title: "Chyba", description: err.message || "Nepodarilo sa odobrať zmluvu", variant: "destructive" }),
+  });
+
+  const statusMutation = useMutation({
+    mutationFn: (status: string) =>
+      apiRequest("PUT", `/api/supisky/${supiska.id}`, { status }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/supisky"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/supisky", supiska.id, "contracts"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/contracts"] });
+      toast({ title: "Úspech", description: "Stav súpisky aktualizovaný" });
+    },
+    onError: () => toast({ title: "Chyba", description: "Nepodarilo sa zmeniť stav", variant: "destructive" }),
+  });
+
+  const isSent = supiska.status === "Odoslana";
+
+  const getSubjectName = (subjectId: number | null) => {
+    if (!subjectId) return "";
+    const s = subjects.find((s: any) => s.id === subjectId);
+    return s ? `${s.firstName || ""} ${s.lastName || ""}`.trim() : "";
+  };
+
+  const getPartnerName = (partnerId: number | null) => {
+    if (!partnerId) return "";
+    const p = partners.find((p: any) => p.id === partnerId);
+    return p?.name || "";
+  };
+
+  const getProductName = (productId: number | null) => {
+    if (!productId) return "";
+    const p = products.find((p: any) => p.id === productId);
+    return p?.name || "";
+  };
+
+  return (
+    <div className="space-y-3">
+      <div className="flex items-center gap-2 flex-wrap">
+        {!isSent && (
+          <>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setAddDialogOpen(true)}
+              data-testid="button-add-contracts"
+            >
+              <Plus className="w-4 h-4 mr-1" />
+              Pridať zmluvy
+            </Button>
+            {supiska.status === "Nova" && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => statusMutation.mutate("Pripravena")}
+                disabled={statusMutation.isPending}
+                data-testid="button-status-pripravena"
+              >
+                Pripravená
+              </Button>
+            )}
+            {(supiska.status === "Nova" || supiska.status === "Pripravena") && linkedContracts.length > 0 && (
+              <Button
+                variant="default"
+                size="sm"
+                onClick={() => statusMutation.mutate("Odoslana")}
+                disabled={statusMutation.isPending}
+                data-testid="button-status-odoslana"
+              >
+                <Send className="w-4 h-4 mr-1" />
+                Odoslať
+              </Button>
+            )}
+          </>
+        )}
+        {isSent && (
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => statusMutation.mutate("Pripravena")}
+            disabled={statusMutation.isPending}
+            data-testid="button-status-unlock"
+          >
+            <Undo2 className="w-4 h-4 mr-1" />
+            Vrátiť na Pripravená
+          </Button>
+        )}
+
+        <div className="ml-auto flex items-center gap-2 flex-wrap">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => window.open(`/api/supisky/${supiska.id}/export/excel`, "_blank")}
+            data-testid="button-export-excel"
+          >
+            <FileSpreadsheet className="w-4 h-4 mr-1" />
+            Excel
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => window.open(`/api/supisky/${supiska.id}/export/csv`, "_blank")}
+            data-testid="button-export-csv"
+          >
+            <FileDown className="w-4 h-4 mr-1" />
+            CSV
+          </Button>
+        </div>
+      </div>
+
+      {supiska.notes && (
+        <p className="text-sm text-muted-foreground">{supiska.notes}</p>
+      )}
+
+      {isSent && supiska.sentAt && (
+        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+          <Lock className="w-4 h-4" />
+          <span>Odoslaná {formatDateSlovak(supiska.sentAt)} užívateľom {supiska.sentBy}</span>
+        </div>
+      )}
+
+      {contractsLoading ? (
+        <div className="flex items-center justify-center py-4">
+          <Loader2 className="w-4 h-4 animate-spin mr-2" />
+          <span className="text-xs text-muted-foreground">Načítavam zmluvy...</span>
+        </div>
+      ) : linkedContracts.length === 0 ? (
+        <p className="text-xs text-muted-foreground text-center py-4" data-testid="text-no-supiska-contracts">
+          Žiadne zmluvy v tejto súpiske
+        </p>
+      ) : (
+        <Table>
+          <TableHeader>
+            <TableRow className="hover:bg-transparent">
+              <TableHead className="text-[10px] py-1">Číslo kontraktu</TableHead>
+              <TableHead className="text-[10px] py-1">Klient</TableHead>
+              <TableHead className="text-[10px] py-1">Partner</TableHead>
+              <TableHead className="text-[10px] py-1">Produkt</TableHead>
+              <TableHead className="text-[10px] py-1">Stav</TableHead>
+              {!isSent && <TableHead className="w-12 text-[10px] py-1"></TableHead>}
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {linkedContracts.map((c: any) => (
+              <TableRow key={c.id} className="hover:bg-muted/30" data-testid={`row-contract-${c.id}`}>
+                <TableCell className="font-mono text-[11px] py-1">{c.globalNumber || c.id}</TableCell>
+                <TableCell className="text-[11px] py-1">{getSubjectName(c.subjectId)}</TableCell>
+                <TableCell className="text-[11px] py-1">{getPartnerName(c.partnerId)}</TableCell>
+                <TableCell className="text-[11px] py-1">{getProductName(c.productId)}</TableCell>
+                <TableCell className="py-1">
+                  {c.isLocked ? (
+                    <Badge variant="outline" className="gap-1 text-[10px] px-1.5 py-0">
+                      <Lock className="w-3 h-3" />
+                      Zamknutá
+                    </Badge>
+                  ) : (
+                    <Badge variant="secondary" className="text-[10px] px-1.5 py-0">Otvorená</Badge>
+                  )}
+                </TableCell>
+                {!isSent && (
+                  <TableCell className="py-1">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-6 w-6"
+                      onClick={() => removeContractMutation.mutate(c.id)}
+                      disabled={removeContractMutation.isPending}
+                      data-testid={`button-remove-contract-${c.id}`}
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </Button>
+                  </TableCell>
+                )}
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      )}
+
+      <div className="text-xs text-muted-foreground">
+        Počet zmlúv: {linkedContracts.length}
+      </div>
+
+      <AddContractsDialog
+        open={addDialogOpen}
+        onOpenChange={setAddDialogOpen}
+        supiskaId={supiska.id}
+      />
+    </div>
+  );
+}
+
+export default function SupiskyPage() {
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState<Supiska | null>(null);
-  const [detailOpen, setDetailOpen] = useState(false);
-  const [selectedSupiska, setSelectedSupiska] = useState<Supiska | null>(null);
+  const [expandedIds, setExpandedIds] = useState<Set<number>>(new Set());
+  const [searchQuery, setSearchQuery] = useState("");
   const columnVisibility = useColumnVisibility("supisky", SUPISKY_COLUMNS);
 
   const { data: supisky = [], isLoading } = useQuery<Supiska[]>({
     queryKey: ["/api/supisky"],
   });
 
+  const searchFiltered = searchQuery.trim()
+    ? supisky.filter(s => {
+        const q = searchQuery.trim().toLowerCase();
+        return (s.name || "").toLowerCase().includes(q)
+          || (s.supId || "").toLowerCase().includes(q)
+          || (s.status || "").toLowerCase().includes(q);
+      })
+    : supisky;
 
-  const tableFilter = useSmartFilter(supisky, SUPISKY_FILTER_COLUMNS, "supisky");
-  const { sortedData: sortedSupisky, sortKey: sortKeyMain, sortDirection: sortDirMain, requestSort: requestSortMain } = useTableSort(tableFilter.filteredData);
+  const tableFilter = useSmartFilter(searchFiltered, SUPISKY_FILTER_COLUMNS, "supisky");
+
+  const sorted = [...tableFilter.filteredData].sort((a, b) => {
+    const aTime = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+    const bTime = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+    return bTime - aTime;
+  });
+
+  function toggleExpand(id: number) {
+    setExpandedIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  }
 
   return (
-    <div className="p-4 space-y-4">
-      <div className="flex items-center justify-between gap-2 flex-wrap">
-        <h1 className="text-xl font-semibold" data-testid="text-page-title">Supisky</h1>
+    <div className="p-6 space-y-6">
+      <div className="flex items-center justify-between gap-4 flex-wrap">
+        <h1 className="text-2xl font-bold" data-testid="text-page-title">Súpisky</h1>
         <div className="flex items-center gap-2 flex-wrap">
           <ColumnManager columnVisibility={columnVisibility} />
           <Button
@@ -583,86 +566,113 @@ export default function SupiskyPage() {
             data-testid="button-create-supiska"
           >
             <Plus className="w-4 h-4 mr-1" />
-            Nova supiska
+            Nová súpiska
           </Button>
         </div>
       </div>
 
+      <div className="relative max-w-sm">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
+        <Input
+          value={searchQuery}
+          onChange={e => setSearchQuery(e.target.value)}
+          placeholder="Vyhľadať súpisku podľa názvu, ID alebo stavu..."
+          className="pl-9 h-9"
+          data-testid="input-search-supisky"
+        />
+      </div>
+
       <SmartFilterBar filter={tableFilter} />
 
-      <Card>
-        <CardContent className="p-0">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                {columnVisibility.isVisible("supId") && <TableHead sortKey="supId" sortDirection={sortKeyMain === "supId" ? sortDirMain : null} onSort={requestSortMain}>SUP ID</TableHead>}
-                {columnVisibility.isVisible("name") && <TableHead sortKey="name" sortDirection={sortKeyMain === "name" ? sortDirMain : null} onSort={requestSortMain}>Nazov</TableHead>}
-                {columnVisibility.isVisible("status") && <TableHead sortKey="status" sortDirection={sortKeyMain === "status" ? sortDirMain : null} onSort={requestSortMain}>Stav</TableHead>}
-                {columnVisibility.isVisible("createdAt") && <TableHead sortKey="createdAt" sortDirection={sortKeyMain === "createdAt" ? sortDirMain : null} onSort={requestSortMain}>Vytvorene</TableHead>}
-                {columnVisibility.isVisible("createdBy") && <TableHead sortKey="createdBy" sortDirection={sortKeyMain === "createdBy" ? sortDirMain : null} onSort={requestSortMain}>Vytvoril</TableHead>}
-                <TableHead className="w-24"></TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {isLoading ? (
-                <TableRow>
-                  <TableCell colSpan={6} className="text-center py-8">
-                    <Loader2 className="w-5 h-5 animate-spin inline" />
-                  </TableCell>
-                </TableRow>
-              ) : tableFilter.filteredData.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
-                    Ziadne supisky
-                  </TableCell>
-                </TableRow>
-              ) : (
-                sortedSupisky.map((s: Supiska) => (
-                  <TableRow
-                    key={s.id}
-                    className="hover-elevate"
-                    onRowClick={() => { setSelectedSupiska(s); setDetailOpen(true); }}
-                    data-testid={`row-supiska-${s.id}`}
-                  >
-                    {columnVisibility.isVisible("supId") && <TableCell className="font-mono text-sm">{s.supId}</TableCell>}
-                    {columnVisibility.isVisible("name") && <TableCell>{s.name}</TableCell>}
-                    {columnVisibility.isVisible("status") && <TableCell>
-                      <span className={`inline-flex items-center px-2 py-0.5 rounded-full border text-[11px] font-medium ${statusBadgeClasses(s.status)}`}>{s.status}</span>
-                    </TableCell>}
-                    {columnVisibility.isVisible("createdAt") && <TableCell className="text-sm text-muted-foreground">
-                      {s.createdAt ? formatDateSlovak(s.createdAt) : ""}
-                    </TableCell>}
-                    {columnVisibility.isVisible("createdBy") && <TableCell className="text-sm">{s.createdBy || ""}</TableCell>}
-                    <TableCell>
-                      <div className="flex items-center gap-1">
+      {isLoading ? (
+        <div className="flex items-center justify-center py-12">
+          <Loader2 className="w-6 h-6 animate-spin" />
+        </div>
+      ) : sorted.length === 0 ? (
+        <p className="text-sm text-muted-foreground text-center py-12" data-testid="text-no-supisky">
+          Žiadne súpisky
+        </p>
+      ) : (
+        <div className="space-y-4">
+          {sorted.map((s: Supiska) => {
+            const isExpanded = expandedIds.has(s.id);
+            return (
+              <div
+                key={s.id}
+                className={`rounded-lg border transition-all duration-200 ${
+                  isExpanded
+                    ? "border-border shadow-md bg-muted/20 dark:bg-muted/10 ring-1 ring-black/5 dark:ring-white/5"
+                    : "border-border/50 bg-card hover:border-border hover:shadow-sm"
+                }`}
+                data-testid={`row-supiska-${s.id}`}
+              >
+                <div
+                  className="flex items-center gap-3 px-4 py-3 cursor-pointer select-none"
+                  onClick={() => toggleExpand(s.id)}
+                >
+                  <ChevronDown className={`w-4 h-4 text-muted-foreground transition-transform duration-200 shrink-0 ${isExpanded ? "rotate-0" : "-rotate-90"}`} />
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-3 flex-wrap">
+                      <span className={`text-sm ${isExpanded ? "font-bold" : "font-semibold"}`} data-testid={`text-supiska-name-${s.id}`}>
+                        {s.name}
+                      </span>
+                      {columnVisibility.isVisible("supId") && (
+                        <span className="font-mono text-xs text-muted-foreground" data-testid={`text-supiska-supid-${s.id}`}>
+                          {s.supId}
+                        </span>
+                      )}
+                      {columnVisibility.isVisible("createdAt") && s.createdAt && (
+                        <span className="text-xs text-muted-foreground">
+                          {formatDateSlovak(s.createdAt)}
+                        </span>
+                      )}
+                      {columnVisibility.isVisible("createdBy") && s.createdBy && (
+                        <span className="text-xs text-muted-foreground truncate max-w-[200px]">
+                          {s.createdBy}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                  {columnVisibility.isVisible("status") && (
+                    <span className={`inline-flex items-center px-2 py-0.5 rounded-full border text-[10px] font-medium shrink-0 ${statusBadgeClasses(s.status)}`} data-testid={`badge-supiska-status-${s.id}`}>
+                      {s.status}
+                    </span>
+                  )}
+                  {(s as any).supiskaType === "processing" && (
+                    <Badge variant="outline" className="text-[10px] px-1.5 py-0 border-cyan-500 text-cyan-500 shrink-0">Spracovanie</Badge>
+                  )}
+                  <div className="flex items-center gap-0.5 shrink-0" onClick={e => e.stopPropagation()}>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
                         <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={(e) => { e.stopPropagation(); window.print(); }}
+                          size="icon"
+                          variant="ghost"
+                          className="h-7 w-7"
+                          onClick={() => window.print()}
                           data-testid={`button-print-${s.id}`}
                         >
-                          <Printer className="w-4 h-4 mr-1" />Vytlačiť
+                          <Printer className="w-3.5 h-3.5" />
                         </Button>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))
-              )}
-            </TableBody>
-          </Table>
-        </CardContent>
-      </Card>
+                      </TooltipTrigger>
+                      <TooltipContent>Vytlačiť súpisku</TooltipContent>
+                    </Tooltip>
+                  </div>
+                </div>
+                {isExpanded && (
+                  <div className="border-t border-border/60 px-5 py-4 bg-muted/10 dark:bg-muted/5 rounded-b-lg">
+                    <InlineSupiskaDetail supiska={s} />
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
 
       <SupiskaFormDialog
         open={formOpen}
         onOpenChange={setFormOpen}
         editing={editing}
-      />
-
-      <SupiskaDetailDialog
-        open={detailOpen}
-        onOpenChange={setDetailOpen}
-        supiska={selectedSupiska}
       />
     </div>
   );
