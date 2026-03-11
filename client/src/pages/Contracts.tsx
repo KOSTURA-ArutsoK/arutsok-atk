@@ -3109,6 +3109,18 @@ export default function Contracts() {
                 {showActions && (
                   <TableCell className="text-right py-1">
                     <div className="flex items-center justify-end gap-0.5 flex-nowrap">
+                      {contract.lifecyclePhase === 7 && (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="h-7 px-2 border-cyan-500 text-cyan-500 hover:bg-cyan-500/10 hover:text-cyan-400"
+                          onClick={(e) => { e.stopPropagation(); openEdit(contract); }}
+                          data-testid={`button-fix-intervention-${contract.id}`}
+                        >
+                          <Pencil className="w-3 h-3 mr-1" />
+                          <span className="text-[11px]">Opraviť intervenciu</span>
+                        </Button>
+                      )}
                       {contract.lifecyclePhase === 8 && (
                         <Button
                           size="sm"
