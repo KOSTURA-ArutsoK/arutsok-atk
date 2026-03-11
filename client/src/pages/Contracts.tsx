@@ -3043,6 +3043,18 @@ export default function Contracts() {
                 {showActions && (
                   <TableCell className="text-right py-1">
                     <div className="flex items-center justify-end gap-0.5 flex-nowrap">
+                      {contract.lifecyclePhase === 8 && (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="h-7 px-2 border-orange-500 text-orange-500 hover:bg-orange-500/10 hover:text-orange-400"
+                          onClick={(e) => { e.stopPropagation(); navigate(`/contracts/${contract.id}/edit`); }}
+                          data-testid={`button-internal-intervention-${contract.id}`}
+                        >
+                          <AlertTriangle className="w-3 h-3 mr-1" />
+                          <span className="text-[11px]">Interná intervencia</span>
+                        </Button>
+                      )}
                       <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => openView(contract)} data-testid={`button-view-contract-${contract.id}`}>
                         <Eye className="w-3.5 h-3.5" />
                       </Button>
