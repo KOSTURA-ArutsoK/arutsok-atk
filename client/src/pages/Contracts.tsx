@@ -3453,7 +3453,7 @@ export default function Contracts() {
           <div className="space-y-2">
 
             <div className="space-y-1">
-              <label className="text-xs font-medium">Partner</label>
+              <label className="text-xs font-medium">Vyberte partnera</label>
               <Select value={preSelectPartnerId} onValueChange={(v) => { setPreSelectPartnerId(v); setPreSelectProductId(""); setTimeout(() => refProductTrigger.current?.focus(), 50); }}>
                 <SelectTrigger data-testid="select-preselect-partner">
                   <SelectValue placeholder="Vyberte partnera" />
@@ -3467,7 +3467,7 @@ export default function Contracts() {
             </div>
 
             <div className="space-y-1">
-              <label className="text-xs font-medium">Produkt z katalogu</label>
+              <label className="text-xs font-medium">Vyberte produkt</label>
               <Select value={preSelectProductId} onValueChange={(v) => { setPreSelectProductId(v); setTimeout(() => { const ref = preSelectNumberType === "proposal" ? refNumberToggleProposal : refNumberToggleContract; ref.current?.focus(); }, 50); }} disabled={!preSelectPartnerId}>
                 <SelectTrigger ref={refProductTrigger} data-testid="select-preselect-product">
                   <SelectValue placeholder={preSelectPartnerId ? "Vyberte produkt (volitelne)" : "Najprv vyberte partnera"} />
