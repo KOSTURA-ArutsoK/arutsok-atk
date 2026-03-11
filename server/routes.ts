@@ -3578,12 +3578,12 @@ export async function registerRoutes(
 
       const validContracts: any[] = [];
       for (const cid of contractIds) {
-        const [contract] = await db.select().from(contracts).where(and(eq(contracts.id, Number(cid)), eq(contracts.lifecyclePhase, 6)));
+        const [contract] = await db.select().from(contracts).where(and(eq(contracts.id, Number(cid)), eq(contracts.lifecyclePhase, 8)));
         if (!contract) continue;
         validContracts.push(contract);
       }
       if (validContracts.length === 0) {
-        return res.status(400).json({ message: "Žiadne kontrakty v správnej fáze (6)" });
+        return res.status(400).json({ message: "Žiadne kontrakty v správnej fáze (8)" });
       }
 
       const supId = await storage.generateSupiskaId();
@@ -3602,7 +3602,7 @@ export async function registerRoutes(
       for (let i = 0; i < validContracts.length; i++) {
         const contract = validContracts[i];
         await db.update(contracts).set({
-          lifecyclePhase: 8,
+          lifecyclePhase: 9,
           lockedBySupiskaId: newSupiska.id,
           updatedAt: now,
         }).where(eq(contracts.id, contract.id));
@@ -3614,12 +3614,12 @@ export async function registerRoutes(
 
         await db.insert(contractLifecycleHistory).values({
           contractId: contract.id,
-          phase: 8,
-          phaseName: LIFECYCLE_PHASES[8] || "Pripravené na odoslanie",
+          phase: 9,
+          phaseName: LIFECYCLE_PHASES[9] || "Odoslanie obchodnému partnerovi",
           changedByUserId: appUser?.id || null,
           note: `Zaradené do súpisky č. ${seqNum} (poradie: ${i + 1})`,
         });
-        await logLifecycleStatusChange(contract.id, contract.statusId, 8, appUser?.id || null);
+        await logLifecycleStatusChange(contract.id, contract.statusId, 9, appUser?.id || null);
       }
 
       await logAudit(req, {

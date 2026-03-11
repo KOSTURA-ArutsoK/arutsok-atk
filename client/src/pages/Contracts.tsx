@@ -2617,6 +2617,9 @@ export default function Contracts() {
       invalidateContractCaches();
       queryClient.invalidateQueries({ queryKey: ["/api/supisky/by-phase"] });
       queryClient.invalidateQueries({ queryKey: ["/api/supisky/by-phase", 8] });
+      queryClient.invalidateQueries({ queryKey: ["/api/supisky/by-phase", 9] });
+      queryClient.invalidateQueries({ queryKey: ["/api/contracts/by-phase", 8] });
+      queryClient.invalidateQueries({ queryKey: ["/api/contracts/by-phase", 9] });
       toast({ title: "Súpiska vytvorená", description: `Súpiska č. ${data.sequenceNumber} s ${data.moved} kontraktmi` });
       setRerouteSelectedIds([]);
     },
@@ -4149,7 +4152,7 @@ export default function Contracts() {
                   <div className="flex items-center gap-3 p-3 border-b flex-wrap">
                     {phaseDef && (() => { const I = phaseDef.icon; return <I className={`w-4 h-4 ${phaseDef.color} shrink-0`} />; })()}
                     <p className="text-xs text-muted-foreground flex-1">{phaseLabels[phaseId]}</p>
-                    {phaseId === 6 && rerouteSelectedIds.length > 0 && activeFolder === 6 && (
+                    {phaseId === 8 && rerouteSelectedIds.length > 0 && activeFolder === 8 && (
                       <div className="flex items-center gap-2">
                         <span className="text-xs text-muted-foreground">Vybraných: <span className="font-bold text-foreground">{rerouteSelectedIds.length}/25</span></span>
                         <Button size="sm" className="bg-green-600 hover:bg-green-700 text-white" onClick={() => createProcessingSupiskaMutation.mutate(rerouteSelectedIds)} disabled={createProcessingSupiskaMutation.isPending} data-testid="button-create-supiska">
@@ -4211,10 +4214,25 @@ export default function Contracts() {
                         );
                       })()
                     ) : isGroupedPhase ? (
-                      supiskyForPhase.length === 0 ? (
-                        <p className="text-sm text-muted-foreground text-center py-8" data-testid={`text-no-phase-${phaseId}`}>Žiadne kontrakty v tejto fáze</p>
-                      ) : (
+                      (() => {
+                        const supiskaContractIds = new Set(supiskyForPhase.flatMap((s: any) => (s.contracts || []).map((c: any) => c.id)));
+                        const looseContracts = phaseId === 8 ? phaseContracts.filter(c => !supiskaContractIds.has(c.id) && !c.lockedBySupiskaId) : [];
+                        const hasContent = supiskyForPhase.length > 0 || looseContracts.length > 0;
+                        if (!hasContent) return (
+                          <p className="text-sm text-muted-foreground text-center py-8" data-testid={`text-no-phase-${phaseId}`}>Žiadne kontrakty v tejto fáze</p>
+                        );
+                        return (
                         <div className="divide-y">
+                          {looseContracts.length > 0 && (
+                            <div>
+                              <div className="flex items-center gap-3 p-3 border-b bg-emerald-500/5">
+                                <ListChecks className="w-4 h-4 text-emerald-500 shrink-0" />
+                                <span className="text-sm font-medium flex-1">Nezaradené kontrakty</span>
+                                <Badge variant="outline" className="text-xs">{looseContracts.length} {looseContracts.length === 1 ? "zmluva" : looseContracts.length < 5 ? "zmluvy" : "zmluv"}</Badge>
+                              </div>
+                              {renderContractTable(looseContracts, { showStatus: true, showRegistration: true, showActions: true, showRerouteCheckbox: true })}
+                            </div>
+                          )}
                           {supiskyForPhase.map((sup: any) => {
                             const isSupExpanded = expandedSprievodky.has(sup.id + 100000);
                             return (
@@ -4336,7 +4354,8 @@ export default function Contracts() {
                             );
                           })}
                         </div>
-                      )
+                        );
+                      })()
                     ) : (
                       <>
                         {phaseContracts.length === 0 ? (
