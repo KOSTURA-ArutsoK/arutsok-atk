@@ -2229,7 +2229,8 @@ export default function Contracts() {
   const refBirthNumberInput = useRef<HTMLInputElement>(null);
   const [importDialogOpen, setImportDialogOpen] = useState(false);
   const [importFile, setImportFile] = useState<File | null>(null);
-  const [importResult, setImportResult] = useState<{ total: number; success: number; errors: number; created?: number; updated?: number; warnings?: number; duplicityWarnings?: any[]; details: any[] } | null>(null);
+  const [importResult, setImportResult] = useState<{ total: number; success: number; errors: number; created?: number; updated?: number; warnings?: number; incomplete?: number; duplicityWarnings?: any[]; details: any[] } | null>(null);
+  const [importSummaryOpen, setImportSummaryOpen] = useState(false);
   const [importLoading, setImportLoading] = useState(false);
   const importFileRef = useRef<HTMLInputElement>(null);
 
@@ -2901,11 +2902,10 @@ export default function Contracts() {
         return;
       }
       setImportResult(data);
+      setImportDialogOpen(false);
+      setImportFile(null);
+      setImportSummaryOpen(true);
       queryClient.invalidateQueries({ queryKey: ["/api/contracts"] });
-      toast({
-        title: "Import dokonceny",
-        description: `Uspesne: ${data.success} z ${data.total}`,
-      });
     } catch (err: any) {
       toast({ title: "Chyba", description: err.message || "Neznama chyba", variant: "destructive" });
     }
@@ -3415,6 +3415,60 @@ export default function Contracts() {
         </AlertDialogFooter>
       </AlertDialogContent>
     </AlertDialog>
+
+    <Dialog open={importSummaryOpen} onOpenChange={(open) => {
+      setImportSummaryOpen(open);
+      if (!open) setImportResult(null);
+    }}>
+      <DialogContent size="sm">
+        <DialogHeader>
+          <DialogTitle data-testid="text-import-summary-title">Výsledok importu</DialogTitle>
+        </DialogHeader>
+        {importResult && (
+          <div className="space-y-4">
+            <div className="flex items-center gap-4 justify-center flex-wrap">
+              <div className="text-center px-4 py-2 rounded border border-green-500/30 bg-green-500/5">
+                <p className="text-2xl font-bold text-green-500" data-testid="text-summary-ok">{(importResult.success || 0) - (importResult.incomplete || 0)}</p>
+                <p className="text-[11px] text-muted-foreground">Úspešne importovaných</p>
+              </div>
+              {(importResult.incomplete || 0) > 0 && (
+                <div className="text-center px-4 py-2 rounded border border-red-500/30 bg-red-500/5">
+                  <p className="text-2xl font-bold text-red-500" data-testid="text-summary-incomplete">{importResult.incomplete}</p>
+                  <p className="text-[11px] text-muted-foreground">Vyžaduje opravu</p>
+                </div>
+              )}
+              {(importResult.errors || 0) > 0 && (
+                <div className="text-center px-4 py-2 rounded border border-destructive/30 bg-destructive/5">
+                  <p className="text-2xl font-bold text-destructive" data-testid="text-summary-errors">{importResult.errors}</p>
+                  <p className="text-[11px] text-muted-foreground">Neimportovaných</p>
+                </div>
+              )}
+            </div>
+
+            {(importResult.incomplete || 0) > 0 && (
+              <div className="border border-red-500/30 rounded p-3 bg-red-500/5 text-justify">
+                <p className="text-xs text-red-400 flex items-center gap-1 mb-1">
+                  <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
+                  <span className="font-semibold">Neúplné zmluvy sú zvýraznené červenou</span>
+                </p>
+                <p className="text-[11px] text-muted-foreground">Doplňte chýbajúce údaje priamo v zozname. Kým nebudú všetky povinné polia vyplnené, zmluva nemôže ísť na sprievodku.</p>
+              </div>
+            )}
+
+            <p className="text-xs text-muted-foreground text-center">
+              Celkom spracovaných: {importResult.total}
+              {(importResult.created || 0) > 0 && <> · Nových klientov: {importResult.created}</>}
+              {(importResult.updated || 0) > 0 && <> · Aktualizovaných: {importResult.updated}</>}
+            </p>
+          </div>
+        )}
+        <DialogFooter>
+          <Button onClick={() => { setImportSummaryOpen(false); setImportResult(null); }} data-testid="button-import-summary-close">
+            Rozumiem
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
     </>
   );
 
