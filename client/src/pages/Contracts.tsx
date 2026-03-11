@@ -3495,6 +3495,7 @@ export default function Contracts() {
                 ];
                 const activeIdx = numOpts.findIndex(o => o.val === preSelectNumberType);
                 const handleNumKey = (e: React.KeyboardEvent, idx: number) => {
+                  if (e.key === "Enter") { e.preventDefault(); setTimeout(() => refNumberInput.current?.focus(), 50); return; }
                   let next = -1;
                   if (e.key === "ArrowRight" || e.key === "ArrowDown") { e.preventDefault(); next = (idx + 1) % 3; }
                   else if (e.key === "ArrowLeft" || e.key === "ArrowUp") { e.preventDefault(); next = (idx + 2) % 3; }
