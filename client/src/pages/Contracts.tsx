@@ -2217,6 +2217,7 @@ export default function Contracts() {
   const [preSelectBusinessName, setPreSelectBusinessName] = useState("");
   const [preSelectBirthNumber, setPreSelectBirthNumber] = useState("");
   const [preSelectShowNameFields, setPreSelectShowNameFields] = useState(false);
+  const [preSelectEditingContractId, setPreSelectEditingContractId] = useState<number | null>(null);
   const refProductTrigger = useRef<HTMLButtonElement>(null);
   const refStep1Next = useRef<HTMLButtonElement>(null);
   const refSearchInput = useRef<HTMLInputElement>(null);
@@ -3046,7 +3047,7 @@ export default function Contracts() {
             const isIncomplete = !!(contract as any).incompleteData;
             const incompleteReason = (contract as any).incompleteDataReason || "";
             return (
-              <TableRow key={contract.id} data-testid={`row-evidencia-${contract.id}`} className={isIncomplete ? "bg-red-500/8 hover:bg-red-500/15 border-l-2 border-l-red-500" : ""} onRowClick={() => { if (checkboxOnly && showRerouteCheckbox) { toggleRerouteSelect(contract.id); } else if (checkboxOnly && showCheckbox) { if (!isIncomplete) toggleSelect(contract.id); } else if (!checkboxOnly) { openEdit(contract); } }}>
+              <TableRow key={contract.id} data-testid={`row-evidencia-${contract.id}`} className={isIncomplete ? "bg-red-500/8 hover:bg-red-500/15 border-l-2 border-l-red-500" : ""} onRowClick={() => { if (checkboxOnly && showRerouteCheckbox) { toggleRerouteSelect(contract.id); } else if (checkboxOnly && showCheckbox) { if (!isIncomplete) toggleSelect(contract.id); } else if (!checkboxOnly) { if (isIncomplete) { openIncompleteEdit(contract); } else { openEdit(contract); } } }}>
                 {showCheckbox && (
                   <TableCell>
                     {isIncomplete ? (
@@ -3566,9 +3567,16 @@ export default function Contracts() {
         if (preSelectNumberValue2.trim()) contractData.contractNumber = preSelectNumberValue2.trim();
       }
 
-      await apiRequest("POST", "/api/contracts", contractData);
+      if (preSelectEditingContractId) {
+        contractData.incompleteData = false;
+        contractData.incompleteDataReason = null;
+        await apiRequest("PATCH", `/api/contracts/${preSelectEditingContractId}`, contractData);
+        toast({ title: "Úspech", description: "Zmluva bola doplnená" });
+      } else {
+        await apiRequest("POST", "/api/contracts", contractData);
+        toast({ title: "Úspech", description: "Zmluva zapísaná" });
+      }
       queryClient.invalidateQueries({ queryKey: ["/api/contracts"] });
-      toast({ title: "Uspech", description: "Zmluva zapisana" });
 
       setPreSelectOpen(false);
       setPreSelectStep(1);
@@ -3589,6 +3597,7 @@ export default function Contracts() {
       setPreSelectBusinessName("");
       setPreSelectBirthNumber("");
       setPreSelectShowNameFields(false);
+      setPreSelectEditingContractId(null);
     } catch (err: any) {
       toast({ title: "Chyba", description: err.message || "Nepodarilo sa zapisat zmluvu", variant: "destructive" });
     } finally {
@@ -3605,6 +3614,7 @@ export default function Contracts() {
     setPreSelectClientTypeId("");
     setPreSelectNumberType("proposal");
     setPreSelectNumberValue("");
+    setPreSelectNumberValue2("");
     setPreSelectTitleBefore("");
     setPreSelectFirstName("");
     setPreSelectLastName("");
@@ -3613,6 +3623,62 @@ export default function Contracts() {
     setPreSelectSubjectType("person");
     setPreSelectIco("");
     setPreSelectBusinessName("");
+    setPreSelectBirthNumber("");
+    setPreSelectShowNameFields(false);
+    setPreSelectEditingContractId(null);
+    setPreSelectOpen(true);
+  };
+
+  const openIncompleteEdit = (contract: Contract) => {
+    setPreSelectEditingContractId(contract.id);
+    setPreSelectStep(1);
+    setPreSelectSaving(false);
+    setPreSelectShowNameFields(false);
+
+    setPreSelectPartnerId(contract.partnerId ? String(contract.partnerId) : "");
+    setPreSelectProductId(contract.productId ? String(contract.productId) : "");
+
+    const hasProposal = !!(contract.proposalNumber || "").trim();
+    const hasContract = !!(contract.contractNumber || "").trim();
+    if (hasProposal && hasContract) {
+      setPreSelectNumberType("both");
+      setPreSelectNumberValue(contract.proposalNumber || "");
+      setPreSelectNumberValue2(contract.contractNumber || "");
+    } else if (hasContract) {
+      setPreSelectNumberType("contract");
+      setPreSelectNumberValue(contract.contractNumber || "");
+      setPreSelectNumberValue2("");
+    } else {
+      setPreSelectNumberType("proposal");
+      setPreSelectNumberValue(contract.proposalNumber || "");
+      setPreSelectNumberValue2("");
+    }
+
+    const sub = subjects?.find(s => s.id === contract.subjectId);
+    if (sub) {
+      setPreSelectSubjectId(String(sub.id));
+      setPreSelectSubjectType(sub.type as "person" | "company" | "szco");
+      setPreSelectFirstName(sub.firstName || "");
+      setPreSelectLastName(sub.lastName || "");
+      setPreSelectTitleBefore(sub.titleBefore || "");
+      setPreSelectTitleAfter(sub.titleAfter || "");
+      setPreSelectBirthNumber(sub.birthNumber || "");
+      setPreSelectBusinessName(sub.companyName || "");
+      setPreSelectIco((sub.details as any)?.ico || "");
+    } else {
+      setPreSelectSubjectId("");
+      setPreSelectSubjectType("person");
+      setPreSelectFirstName("");
+      setPreSelectLastName("");
+      setPreSelectTitleBefore("");
+      setPreSelectTitleAfter("");
+      setPreSelectBirthNumber("");
+      setPreSelectBusinessName("");
+      setPreSelectIco("");
+    }
+
+    setPreSelectSubjectSearch("");
+    setPreSelectClientTypeId("");
     setPreSelectOpen(true);
   };
 
@@ -3634,11 +3700,15 @@ export default function Contracts() {
   })();
 
   const preSelectDialog = (
-    <Dialog open={preSelectOpen} onOpenChange={(open) => { setPreSelectOpen(open); if (!open) { setPreSelectStep(1); setPreSelectClientTypeId(""); setPreSelectNumberType("proposal"); setPreSelectNumberValue(""); setPreSelectNumberValue2(""); setPreSelectTitleBefore(""); setPreSelectFirstName(""); setPreSelectLastName(""); setPreSelectTitleAfter(""); setPreSelectSaving(false); setPreSelectSubjectType("person"); setPreSelectIco(""); setPreSelectBusinessName(""); setPreSelectBirthNumber(""); setPreSelectShowNameFields(false); } }}>
+    <Dialog open={preSelectOpen} onOpenChange={(open) => { setPreSelectOpen(open); if (!open) { setPreSelectStep(1); setPreSelectClientTypeId(""); setPreSelectNumberType("proposal"); setPreSelectNumberValue(""); setPreSelectNumberValue2(""); setPreSelectTitleBefore(""); setPreSelectFirstName(""); setPreSelectLastName(""); setPreSelectTitleAfter(""); setPreSelectSaving(false); setPreSelectSubjectType("person"); setPreSelectIco(""); setPreSelectBusinessName(""); setPreSelectBirthNumber(""); setPreSelectShowNameFields(false); setPreSelectEditingContractId(null); } }}>
       <DialogContent size="xl" onCloseAutoFocus={(e) => e.preventDefault()} data-testid="dialog-pre-select-contract">
         <DialogHeader className="px-6 pt-6 pb-2">
           <DialogTitle data-testid="text-preselect-title">
-            {preSelectStep === 1 ? "Krok 1: Vyber partnera a produktu" : "Krok 2: Vyber klienta (subjektu)"}
+            {preSelectEditingContractId ? (
+              preSelectStep === 1 ? "Doplniť zmluvu — Krok 1: Partner a produkt" : "Doplniť zmluvu — Krok 2: Klient"
+            ) : (
+              preSelectStep === 1 ? "Krok 1: Vyber partnera a produktu" : "Krok 2: Vyber klienta (subjektu)"
+            )}
           </DialogTitle>
         </DialogHeader>
 
@@ -4058,7 +4128,7 @@ export default function Contracts() {
                 Spat
               </Button>
               <Button ref={refStep2Confirm} tabIndex={0} onClick={handlePreSelectConfirm} disabled={!preSelectIsValid || preSelectSaving} data-testid="button-preselect-confirm">
-                {preSelectSaving ? "Zapisujem..." : "Zapisat zmluvu"}
+                {preSelectSaving ? "Zapisujem..." : preSelectEditingContractId ? "Uložiť zmeny" : "Zapísať zmluvu"}
               </Button>
             </div>
           </div>

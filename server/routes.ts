@@ -3215,6 +3215,40 @@ export async function registerRoutes(
     }
   });
 
+  app.patch("/api/contracts/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const contractId = Number(req.params.id);
+      const [contract] = await db.select().from(contracts).where(eq(contracts.id, contractId));
+      if (!contract) return res.status(404).json({ message: "Zmluva nenájdená" });
+
+      if (!isAdmin(req.appUser)) {
+        const isOwner = contract.uploadedByUserId === req.appUser?.id;
+        if (!isOwner) {
+          return res.status(403).json({ message: "Nemáte oprávnenie upraviť túto zmluvu" });
+        }
+      }
+
+      const allowedFields = [
+        "partnerId", "productId", "sectorProductId", "subjectId",
+        "proposalNumber", "contractNumber", "lifecyclePhase",
+        "incompleteData", "incompleteDataReason",
+      ];
+      const updateData: Record<string, any> = { updatedAt: new Date() };
+      for (const field of allowedFields) {
+        if (req.body[field] !== undefined) {
+          updateData[field] = req.body[field];
+        }
+      }
+
+      await db.update(contracts).set(updateData).where(eq(contracts.id, contractId));
+      const [updated] = await db.select().from(contracts).where(eq(contracts.id, contractId));
+      res.json(updated);
+    } catch (err: any) {
+      console.error("PATCH /api/contracts/:id error:", err);
+      res.status(500).json({ message: err.message || "Chyba pri aktualizácii zmluvy" });
+    }
+  });
+
   // === CONTRACT LIFECYCLE PHASE CHANGE ===
   app.patch("/api/contracts/:id/lifecycle-phase", isAuthenticated, async (req: any, res) => {
     try {
