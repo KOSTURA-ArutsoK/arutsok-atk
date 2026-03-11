@@ -3678,50 +3678,60 @@ export async function registerRoutes(
       const supiska = await storage.getSupiska(supiskaId);
       if (!supiska) return res.status(404).json({ message: "Súpiska nenájdená" });
       if ((supiska as any).supiskaType !== "processing") return res.status(400).json({ message: "Súpiska nie je typu spracovanie" });
-      if (supiska.status !== "Odoslana") return res.status(409).json({ message: "Súpiska musí byť najprv odoslaná" });
+      if (supiska.status !== "Odoslana" && supiska.status !== "Odpocet") return res.status(409).json({ message: "Súpiska musí byť najprv odoslaná" });
 
       const appUser = req.appUser;
-      const now = new Date();
 
       await storage.updateSupiska(supiskaId, {
-        receivedByPartnerAt: receiveDate,
-        status: "Prijata",
+        receivedByPartnerAt: new Date(),
+        status: "Odpocet",
       } as any);
 
-      const links = await storage.getSupiskaContracts(supiskaId);
-      const contractIdsOnSupiska = links.map(l => l.contractId);
-      for (const cid of contractIdsOnSupiska) {
-        const [contract] = await db.select().from(contracts).where(and(eq(contracts.id, cid), or(eq(contracts.lifecyclePhase, 9), eq(contracts.lifecyclePhase, 10))));
-        if (!contract) continue;
-        await db.update(contracts).set({
-          lifecyclePhase: 0,
-          receivedByPartnerAt: receiveDate,
-          updatedAt: now,
-        }).where(eq(contracts.id, cid));
-        await db.insert(contractLifecycleHistory).values({
-          contractId: cid,
-          phase: 0,
-          phaseName: "Vyradené zo spracovania papierových zmluv – prijaté obchodným partnerom",
-          changedByUserId: appUser?.id || null,
-          note: `Prijaté obchodným partnerom: ${receiveDate.toISOString()}. Zmluva vyradená zo spracovania papierových zmluv.`,
-        });
-        await logLifecycleStatusChange(cid, contract.statusId, 0, appUser?.id || null);
-      }
-
       await logAudit(req, {
-        action: "RECEIVE",
+        action: "RECEIVE_COUNTDOWN_START",
         module: "processing_supiska",
         entityId: supiskaId,
         entityName: supiska.name,
-        newData: { receivedAt: receiveDate.toISOString(), contractCount: contractIdsOnSupiska.length },
+        newData: { receivedAt: receiveDate.toISOString(), countdownStart: new Date().toISOString() },
       });
 
-      res.json({ received: contractIdsOnSupiska.length, supiskaId });
+      res.json({ supiskaId, countdownStart: new Date().toISOString() });
     } catch (err: any) {
       console.error("Supiska receive error:", err);
       res.status(500).json({ message: err?.message || "Internal error" });
     }
   });
+
+  async function finalizeSupiskaReceive(supiskaId: number) {
+    const supiska = await storage.getSupiska(supiskaId);
+    if (!supiska || supiska.status !== "Odpocet") return 0;
+
+    const now = new Date();
+    await storage.updateSupiska(supiskaId, { status: "Prijata" } as any);
+
+    const links = await storage.getSupiskaContracts(supiskaId);
+    const contractIdsOnSupiska = links.map(l => l.contractId);
+    let finalized = 0;
+    for (const cid of contractIdsOnSupiska) {
+      const [contract] = await db.select().from(contracts).where(and(eq(contracts.id, cid), or(eq(contracts.lifecyclePhase, 9), eq(contracts.lifecyclePhase, 10))));
+      if (!contract) continue;
+      await db.update(contracts).set({
+        lifecyclePhase: 0,
+        receivedByPartnerAt: supiska.receivedByPartnerAt || now,
+        updatedAt: now,
+      }).where(eq(contracts.id, cid));
+      await db.insert(contractLifecycleHistory).values({
+        contractId: cid,
+        phase: 0,
+        phaseName: "Vyradené zo spracovania papierových zmluv – prijaté obchodným partnerom",
+        changedByUserId: null,
+        note: `Prijaté obchodným partnerom (automaticky po 24h odpočte). Zmluva vyradená zo spracovania.`,
+      });
+      await logLifecycleStatusChange(cid, contract.statusId, 0, null);
+      finalized++;
+    }
+    return finalized;
+  }
 
   app.get("/api/supisky/by-phase/:phase", isAuthenticated, async (req: any, res) => {
     try {
@@ -3736,7 +3746,7 @@ export async function registerRoutes(
         const allProcessing = await db.select().from(supisky).where(
           and(
             eq((supisky as any).supiskaType, "processing"),
-            eq(supisky.status, "Odoslana"),
+            or(eq(supisky.status, "Odoslana"), eq(supisky.status, "Odpocet")),
             stateFilter,
             companyFilter,
           )
@@ -16873,6 +16883,33 @@ export async function registerRoutes(
       console.error("[CRON] Lifecycle auto-archive error:", err);
     }
   }, 60 * 60 * 1000);
+
+  // === CRON: Supiska 24h countdown finalization ===
+  setInterval(async () => {
+    try {
+      if (await isMigrationModeOn()) return;
+      const odpocetSupisky = await db.select().from(supisky).where(
+        and(
+          eq((supisky as any).supiskaType, "processing"),
+          eq(supisky.status, "Odpocet"),
+        )
+      );
+      let finalizedCount = 0;
+      const now = new Date();
+      for (const sup of odpocetSupisky) {
+        if (!sup.receivedByPartnerAt) continue;
+        const elapsed = now.getTime() - new Date(sup.receivedByPartnerAt).getTime();
+        if (elapsed >= 24 * 60 * 60 * 1000) {
+          const count = await finalizeSupiskaReceive(sup.id);
+          finalizedCount += count;
+          console.log(`[CRON] Supiska ${sup.name} (id=${sup.id}) finalized after 24h countdown: ${count} contracts`);
+        }
+      }
+      if (finalizedCount > 0) console.log(`[CRON] Supiska 24h countdown: finalized ${finalizedCount} contracts total`);
+    } catch (err) {
+      console.error("[CRON] Supiska 24h countdown error:", err);
+    }
+  }, 5 * 60 * 1000);
 
   // === CRON: Dynamic permanent delete + 24h pre-deletion notification ===
   setInterval(async () => {

@@ -1756,6 +1756,42 @@ function DeleteContractDialog({
 
 type FolderDef = { id: number; label: string; icon: ComponentType<{ className?: string }>; color: string; bgColor: string; count: number; tooltip?: string };
 
+function SupiskaCountdownButton({ receivedAt, onEdit, supiskaId }: { receivedAt: string | Date; onEdit: (e: React.MouseEvent) => void; supiskaId: number }) {
+  const [remaining, setRemaining] = useState("");
+
+  useEffect(() => {
+    function update() {
+      const start = new Date(receivedAt).getTime();
+      const end = start + 24 * 60 * 60 * 1000;
+      const now = Date.now();
+      const diff = end - now;
+      if (diff <= 0) {
+        setRemaining("00:00:00");
+        return;
+      }
+      const h = Math.floor(diff / 3600000);
+      const m = Math.floor((diff % 3600000) / 60000);
+      const s = Math.floor((diff % 60000) / 1000);
+      setRemaining(`${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`);
+    }
+    update();
+    const interval = setInterval(update, 1000);
+    return () => clearInterval(interval);
+  }, [receivedAt]);
+
+  return (
+    <Button
+      size="sm"
+      variant="default"
+      className="bg-red-700 hover:bg-red-800 text-yellow-300 font-mono font-bold"
+      onClick={onEdit}
+      data-testid={`button-countdown-supiska-${supiskaId}`}
+    >
+      <Award className="w-3 h-3 mr-1 text-yellow-300" />{remaining}
+    </Button>
+  );
+}
+
 function WorkflowDiagram({ folderDefs, row2FolderDefs, activeFolder, onFolderClick }: { folderDefs: FolderDef[]; row2FolderDefs: FolderDef[]; activeFolder: number; onFolderClick: (id: number) => void }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [paths, setPaths] = useState<string[]>([]);
@@ -2611,7 +2647,7 @@ export default function Contracts() {
       invalidateContractCaches();
       queryClient.invalidateQueries({ queryKey: ["/api/supisky/by-phase", 9] });
       queryClient.invalidateQueries({ queryKey: ["/api/supisky/by-phase", 10] });
-      toast({ title: "Prijatie potvrdené" });
+      toast({ title: "24h odpočet spustený", description: "Sprievodka bude finalizovaná po 24 hodinách" });
     },
     onError: () => toast({ title: "Chyba", description: "Nepodarilo sa potvrdiť prijatie", variant: "destructive" }),
   });
@@ -4217,7 +4253,7 @@ export default function Contracts() {
                                       <Printer className="w-3 h-3 mr-1" />Vytlačiť súpisku
                                     </Button>
                                   )}
-                                  {phaseId === 10 && sup.status !== "Prijata" && (
+                                  {phaseId === 10 && sup.status === "Odoslana" && (
                                     <Button
                                       size="sm"
                                       variant="default"
@@ -4227,6 +4263,13 @@ export default function Contracts() {
                                     >
                                       <Award className="w-3 h-3 mr-1" />Potvrdiť prijatie
                                     </Button>
+                                  )}
+                                  {phaseId === 10 && sup.status === "Odpocet" && sup.receivedByPartnerAt && (
+                                    <SupiskaCountdownButton
+                                      receivedAt={sup.receivedByPartnerAt}
+                                      onEdit={(e) => { e.stopPropagation(); setReceiveSuopiskaId(sup.id); setReceiveDate(""); setReceiveDialogOpen(true); }}
+                                      supiskaId={sup.id}
+                                    />
                                   )}
                                 </div>
                                 <div style={{ display: isSupExpanded ? 'block' : 'none' }}>
