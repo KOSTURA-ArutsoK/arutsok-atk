@@ -2193,7 +2193,8 @@ export default function Contracts() {
   const [preSelectSubjectId, setPreSelectSubjectId] = useState<string>("");
   const [preSelectClientTypeId, setPreSelectClientTypeId] = useState<string>("");
   const [clientTypeSelectOpen, setClientTypeSelectOpen] = useState(false);
-  const [preSelectNumberType, setPreSelectNumberType] = useState<"proposal" | "contract">("proposal");
+  const [preSelectNumberType, setPreSelectNumberType] = useState<"proposal" | "contract" | "both">("proposal");
+  const [preSelectNumberValue2, setPreSelectNumberValue2] = useState("");
   const [preSelectNumberValue, setPreSelectNumberValue] = useState("");
   const [preSelectTitleBefore, setPreSelectTitleBefore] = useState("");
   const [preSelectFirstName, setPreSelectFirstName] = useState("");
@@ -3359,12 +3360,13 @@ export default function Contracts() {
       };
       if (preSelectPartnerId) contractData.partnerId = parseInt(preSelectPartnerId);
       if (preSelectProductId) contractData.productId = parseInt(preSelectProductId);
-      if (preSelectNumberValue.trim()) {
-        if (preSelectNumberType === "proposal") {
-          contractData.proposalNumber = preSelectNumberValue.trim();
-        } else {
-          contractData.contractNumber = preSelectNumberValue.trim();
-        }
+      if (preSelectNumberType === "proposal" && preSelectNumberValue.trim()) {
+        contractData.proposalNumber = preSelectNumberValue.trim();
+      } else if (preSelectNumberType === "contract" && preSelectNumberValue.trim()) {
+        contractData.contractNumber = preSelectNumberValue.trim();
+      } else if (preSelectNumberType === "both") {
+        if (preSelectNumberValue.trim()) contractData.proposalNumber = preSelectNumberValue.trim();
+        if (preSelectNumberValue2.trim()) contractData.contractNumber = preSelectNumberValue2.trim();
       }
 
       await apiRequest("POST", "/api/contracts", contractData);
@@ -3380,6 +3382,7 @@ export default function Contracts() {
       setPreSelectClientTypeId("");
       setPreSelectNumberType("proposal");
       setPreSelectNumberValue("");
+      setPreSelectNumberValue2("");
       setPreSelectTitleBefore("");
       setPreSelectFirstName("");
       setPreSelectLastName("");
@@ -3434,7 +3437,7 @@ export default function Contracts() {
   })();
 
   const preSelectDialog = (
-    <Dialog open={preSelectOpen} onOpenChange={(open) => { setPreSelectOpen(open); if (!open) { setPreSelectStep(1); setPreSelectClientTypeId(""); setPreSelectNumberType("proposal"); setPreSelectNumberValue(""); setPreSelectTitleBefore(""); setPreSelectFirstName(""); setPreSelectLastName(""); setPreSelectTitleAfter(""); setPreSelectSaving(false); setPreSelectSubjectType("person"); setPreSelectIco(""); setPreSelectBusinessName(""); setPreSelectBirthNumber(""); setPreSelectShowNameFields(false); } }}>
+    <Dialog open={preSelectOpen} onOpenChange={(open) => { setPreSelectOpen(open); if (!open) { setPreSelectStep(1); setPreSelectClientTypeId(""); setPreSelectNumberType("proposal"); setPreSelectNumberValue(""); setPreSelectNumberValue2(""); setPreSelectTitleBefore(""); setPreSelectFirstName(""); setPreSelectLastName(""); setPreSelectTitleAfter(""); setPreSelectSaving(false); setPreSelectSubjectType("person"); setPreSelectIco(""); setPreSelectBusinessName(""); setPreSelectBirthNumber(""); setPreSelectShowNameFields(false); } }}>
       <DialogContent size="xl" onCloseAutoFocus={(e) => e.preventDefault()} data-testid="dialog-pre-select-contract">
         <DialogHeader className="px-6 pt-6 pb-2">
           <DialogTitle data-testid="text-preselect-title">
@@ -3483,50 +3486,80 @@ export default function Contracts() {
             </div>
 
             <div className="space-y-1">
-              <label className="text-xs font-medium">Typ cisla</label>
+              <label className="text-xs font-medium">Typ čísla</label>
               <div className="flex border rounded-md overflow-hidden" data-testid="toggle-number-type">
                 <button
                   ref={refNumberToggleProposal}
                   type="button"
                   className={`flex-1 px-3 py-2 text-sm font-medium transition-colors ${preSelectNumberType === "proposal" ? "bg-primary text-primary-foreground" : "bg-muted/50 text-muted-foreground hover:bg-muted"}`}
                   onClick={() => setPreSelectNumberType("proposal")}
-                  onKeyDown={(e) => {
-                    if (e.key === "ArrowRight") { e.preventDefault(); setPreSelectNumberType("contract"); refNumberToggleContract.current?.focus(); }
-                    else if (e.key === "Enter") { e.preventDefault(); setTimeout(() => refNumberInput.current?.focus(), 50); }
-                  }}
                   data-testid="toggle-number-type-proposal"
                 >
-                  Cislo navrhu zmluvy
+                  Číslo návrhu zmluvy
                 </button>
                 <button
                   ref={refNumberToggleContract}
                   type="button"
                   className={`flex-1 px-3 py-2 text-sm font-medium transition-colors ${preSelectNumberType === "contract" ? "bg-primary text-primary-foreground" : "bg-muted/50 text-muted-foreground hover:bg-muted"}`}
                   onClick={() => setPreSelectNumberType("contract")}
-                  onKeyDown={(e) => {
-                    if (e.key === "ArrowLeft") { e.preventDefault(); setPreSelectNumberType("proposal"); refNumberToggleProposal.current?.focus(); }
-                    else if (e.key === "Enter") { e.preventDefault(); setTimeout(() => refNumberInput.current?.focus(), 50); }
-                  }}
                   data-testid="toggle-number-type-contract"
                 >
-                  Cislo zmluvy
+                  Číslo zmluvy
+                </button>
+                <button
+                  type="button"
+                  className={`flex-1 px-3 py-2 text-sm font-medium transition-colors ${preSelectNumberType === "both" ? "bg-primary text-primary-foreground" : "bg-muted/50 text-muted-foreground hover:bg-muted"}`}
+                  onClick={() => setPreSelectNumberType("both")}
+                  data-testid="toggle-number-type-both"
+                >
+                  Obe
                 </button>
               </div>
             </div>
 
-            <div className="space-y-1">
-              <label className="text-xs font-medium">{preSelectNumberType === "proposal" ? "Cislo navrhu zmluvy" : "Cislo zmluvy"}</label>
-              <Input
-                ref={refNumberInput}
-                value={preSelectNumberValue}
-                onChange={(e) => setPreSelectNumberValue(e.target.value)}
-                placeholder={preSelectNumberType === "proposal" ? "Zadajte cislo navrhu..." : "Zadajte cislo zmluvy..."}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") { e.preventDefault(); refStep1Next.current?.focus(); }
-                }}
-                data-testid="input-preselect-number"
-              />
-            </div>
+            {preSelectNumberType === "both" ? (
+              <div className="space-y-2">
+                <div className="space-y-1">
+                  <label className="text-xs font-medium">Číslo návrhu zmluvy</label>
+                  <Input
+                    ref={refNumberInput}
+                    value={preSelectNumberValue}
+                    onChange={(e) => setPreSelectNumberValue(e.target.value)}
+                    placeholder="Zadajte číslo návrhu..."
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") { e.preventDefault(); refStep1Next.current?.focus(); }
+                    }}
+                    data-testid="input-preselect-proposal-number"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs font-medium">Číslo zmluvy</label>
+                  <Input
+                    value={preSelectNumberValue2}
+                    onChange={(e) => setPreSelectNumberValue2(e.target.value)}
+                    placeholder="Zadajte číslo zmluvy..."
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") { e.preventDefault(); refStep1Next.current?.focus(); }
+                    }}
+                    data-testid="input-preselect-contract-number"
+                  />
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-1">
+                <label className="text-xs font-medium">{preSelectNumberType === "proposal" ? "Číslo návrhu zmluvy" : "Číslo zmluvy"}</label>
+                <Input
+                  ref={refNumberInput}
+                  value={preSelectNumberValue}
+                  onChange={(e) => setPreSelectNumberValue(e.target.value)}
+                  placeholder={preSelectNumberType === "proposal" ? "Zadajte číslo návrhu..." : "Zadajte číslo zmluvy..."}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") { e.preventDefault(); refStep1Next.current?.focus(); }
+                  }}
+                  data-testid="input-preselect-number"
+                />
+              </div>
+            )}
 
             <div className="flex justify-end gap-2">
               <Button ref={refStep1Next} onClick={handlePreSelectStep1Next} disabled={!preSelectPartnerId} data-testid="button-preselect-next">
