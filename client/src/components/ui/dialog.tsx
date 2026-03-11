@@ -36,12 +36,12 @@ interface DialogContentProps extends React.ComponentPropsWithoutRef<typeof Dialo
 }
 
 const SIZE_CLASSES: Record<DialogSize, string> = {
-  sm: "max-w-[500px] h-[600px]",
-  md: "max-w-[600px] h-[600px]",
-  lg: "max-w-[800px] h-[600px]",
-  xl: "sm:max-w-[95vw] max-w-[95vw] h-[85vh]",
+  sm: "max-w-[500px] w-[90%] h-[600px]",
+  md: "max-w-[600px] w-[90%] h-[600px]",
+  lg: "max-w-[800px] w-[90%] h-[600px]",
+  xl: "sm:max-w-[95vw] max-w-[95vw] w-[90%] h-[85vh]",
   full: "max-w-[100vw] w-[100vw] h-[95vh] rounded-none",
-  auto: "max-w-[500px] h-[600px]",
+  auto: "max-w-[500px] w-[90%] h-[600px]",
 };
 
 const FOOTER_DISPLAY_NAME = "DialogFooter";
@@ -157,7 +157,7 @@ const DialogContent = React.forwardRef<
         )}
         {...props}
       >
-        <div className={cn("flex-1 min-h-0 overflow-y-auto px-6", hasFooter && "pb-0")}>
+        <div className={cn("flex-1 min-h-0 overflow-y-auto px-6 text-justify", hasFooter && "pb-0")}>
           {otherChildren}
         </div>
 
@@ -179,7 +179,7 @@ const DialogHeader = ({
 }: React.HTMLAttributes<HTMLDivElement>) => (
   <div
     className={cn(
-      "flex flex-col space-y-1.5 text-center sm:text-left sticky top-0 z-10 bg-background pt-6 pb-4 -mx-6 px-6 border-b border-border/60",
+      "flex flex-col space-y-1.5 text-center sm:text-left sm:text-justify sticky top-0 z-10 bg-background pt-6 pb-4 -mx-6 px-6 border-b border-border/60",
       className
     )}
     {...props}
