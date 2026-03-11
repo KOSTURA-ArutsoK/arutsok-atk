@@ -3560,6 +3560,52 @@ export async function registerRoutes(
     }
   });
 
+  app.post("/api/supisky/:id/move-to-phase9", isAuthenticated, async (req: any, res) => {
+    try {
+      const supiskaId = Number(req.params.id);
+      const supiska = await storage.getSupiska(supiskaId);
+      if (!supiska) return res.status(404).json({ message: "Súpiska nenájdená" });
+      if ((supiska as any).supiskaType !== "processing") return res.status(400).json({ message: "Súpiska nie je typu spracovanie" });
+
+      const appUser = req.appUser;
+      const now = new Date();
+
+      const links = await storage.getSupiskaContracts(supiskaId);
+      const contractIdsOnSupiska = links.map(l => l.contractId);
+      let moved = 0;
+      for (const cid of contractIdsOnSupiska) {
+        const [contract] = await db.select().from(contracts).where(and(eq(contracts.id, cid), eq(contracts.lifecyclePhase, 8)));
+        if (!contract) continue;
+        await db.update(contracts).set({
+          lifecyclePhase: 9,
+          updatedAt: now,
+        }).where(eq(contracts.id, cid));
+        await db.insert(contractLifecycleHistory).values({
+          contractId: cid,
+          phase: 9,
+          phaseName: LIFECYCLE_PHASES[9] || "Odoslané obch. partnerovi",
+          changedByUserId: appUser?.id || null,
+          note: `Presunuté na odoslanie obchodnému partnerovi`,
+        });
+        await logLifecycleStatusChange(cid, contract.statusId, 9, appUser?.id || null);
+        moved++;
+      }
+
+      await logAudit(req, {
+        action: "MOVE_TO_PHASE9",
+        module: "processing_supiska",
+        entityId: supiskaId,
+        entityName: supiska.name,
+        newData: { contractCount: moved },
+      });
+
+      res.json({ moved, supiskaId });
+    } catch (err: any) {
+      console.error("Move to phase 9 error:", err);
+      res.status(500).json({ message: err?.message || "Internal error" });
+    }
+  });
+
   app.post("/api/supisky/:id/dispatch", isAuthenticated, async (req: any, res) => {
     try {
       const supiskaId = Number(req.params.id);
@@ -3774,6 +3820,7 @@ export async function registerRoutes(
         if (!supiska || (supiska as any).supiskaType !== "processing") continue;
         if (stateFilter && supiska.stateId !== appUser.activeStateId) continue;
         if (companyFilter && supiska.companyId !== appUser.activeCompanyId) continue;
+        if (phase === 9 && (supiska.status === "Odoslana" || supiska.status === "Odpocet" || supiska.status === "Prijata")) continue;
 
         const supiskaLinks = await storage.getSupiskaContracts(sid);
         const cids = supiskaLinks.map(l => l.contractId);

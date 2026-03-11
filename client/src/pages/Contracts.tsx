@@ -2624,6 +2624,20 @@ export default function Contracts() {
     onError: () => toast({ title: "Chyba", description: "Nepodarilo sa vytvoriť súpisku", variant: "destructive" }),
   });
 
+  const moveToPhase9Mutation = useMutation({
+    mutationFn: async (supiskaId: number) => {
+      const res = await apiRequest("POST", `/api/supisky/${supiskaId}/move-to-phase9`);
+      return res.json();
+    },
+    onSuccess: () => {
+      invalidateContractCaches();
+      queryClient.invalidateQueries({ queryKey: ["/api/supisky/by-phase", 8] });
+      queryClient.invalidateQueries({ queryKey: ["/api/supisky/by-phase", 9] });
+      toast({ title: "Presunuté", description: "Súpiska bola presunutá na odoslanie obchodnému partnerovi" });
+    },
+    onError: () => toast({ title: "Chyba", description: "Nepodarilo sa presunúť súpisku", variant: "destructive" }),
+  });
+
   const dispatchSupiskaMutation = useMutation({
     mutationFn: async ({ supiskaId, dispatchMethod, dispatchedAt }: { supiskaId: number; dispatchMethod: string; dispatchedAt: string }) => {
       const res = await apiRequest("POST", `/api/supisky/${supiskaId}/dispatch`, { dispatchMethod, dispatchedAt });
@@ -2633,7 +2647,8 @@ export default function Contracts() {
       invalidateContractCaches();
       queryClient.invalidateQueries({ queryKey: ["/api/supisky/by-phase", 8] });
       queryClient.invalidateQueries({ queryKey: ["/api/supisky/by-phase", 9] });
-      toast({ title: "Odoslané partnerovi" });
+      queryClient.invalidateQueries({ queryKey: ["/api/supisky/by-phase", 10] });
+      toast({ title: "Odoslané obchodnému partnerovi" });
     },
     onError: () => toast({ title: "Chyba", description: "Nepodarilo sa odoslať súpisku", variant: "destructive" }),
   });
@@ -4228,8 +4243,18 @@ export default function Contracts() {
                                   <ListChecks className="w-4 h-4 text-muted-foreground shrink-0" />
                                   <span className="text-sm font-medium flex-1" data-testid={`text-supiska-name-${sup.id}`}>{sup.name}</span>
                                   <Badge variant="outline" className="text-xs">{sup.contracts?.length || 0} kontraktov</Badge>
-                                  {(phaseId === 8 || phaseId === 9 || phaseId === 10) && sup.status === "Odoslana" && (
-                                    <Badge variant="outline" className="text-indigo-400 border-indigo-400/30">Odoslaná</Badge>
+                                  {phaseId === 8 && (
+                                    <Button
+                                      size="sm"
+                                      variant="default"
+                                      className="bg-emerald-600 hover:bg-emerald-700 text-white"
+                                      onClick={(e) => { e.stopPropagation(); moveToPhase9Mutation.mutate(sup.id); }}
+                                      disabled={moveToPhase9Mutation.isPending}
+                                      data-testid={`button-move-phase9-${sup.id}`}
+                                    >
+                                      {moveToPhase9Mutation.isPending ? <Loader2 className="w-3 h-3 mr-1 animate-spin" /> : <ArrowRight className="w-3 h-3 mr-1" />}
+                                      Presunúť na odoslanie
+                                    </Button>
                                   )}
                                   {phaseId === 9 && (
                                     <>
@@ -4242,17 +4267,15 @@ export default function Contracts() {
                                       >
                                         <Printer className="w-3 h-3 mr-1" />Vytlačiť súpisku
                                       </Button>
-                                      {sup.status !== "Odoslana" && sup.status !== "Prijata" && sup.status !== "Odpocet" && (
-                                        <Button
-                                          size="sm"
-                                          variant="default"
-                                          className="bg-indigo-600 hover:bg-indigo-700 text-white"
-                                          onClick={(e) => { e.stopPropagation(); setDispatchSuopiskaId(sup.id); setDispatchMethod(""); setDispatchDate(""); setDispatchDialogOpen(true); }}
-                                          data-testid={`button-dispatch-supiska-${sup.id}`}
-                                        >
-                                          <Send className="w-3 h-3 mr-1" />Odoslať obchodnému partnerovi
-                                        </Button>
-                                      )}
+                                      <Button
+                                        size="sm"
+                                        variant="default"
+                                        className="bg-indigo-600 hover:bg-indigo-700 text-white"
+                                        onClick={(e) => { e.stopPropagation(); setDispatchSuopiskaId(sup.id); setDispatchMethod(""); setDispatchDate(""); setDispatchDialogOpen(true); }}
+                                        data-testid={`button-dispatch-supiska-${sup.id}`}
+                                      >
+                                        <Send className="w-3 h-3 mr-1" />Odoslať obchodnému partnerovi
+                                      </Button>
                                     </>
                                   )}
                                   {phaseId === 10 && sup.status === "Odoslana" && (
