@@ -3488,35 +3488,33 @@ export default function Contracts() {
             <div className="space-y-1.5">
               <label className="text-xs font-medium">Typ čísla</label>
               {(() => {
-                const numOpts: Array<{val: "proposal"|"contract"|"both", label: string, icon: typeof FileText, color: string}> = [
-                  {val:"proposal", label:"Číslo návrhu", icon: FileText, color:"blue"},
-                  {val:"contract", label:"Číslo zmluvy", icon: FileCheck, color:"emerald"},
-                  {val:"both", label:"Návrh + Zmluva", icon: Files, color:"amber"},
+                const numOpts: Array<{val: "proposal"|"contract"|"both", label: string, icon: typeof FileText}> = [
+                  {val:"proposal", label:"Číslo návrhu", icon: FileText},
+                  {val:"contract", label:"Číslo zmluvy", icon: FileCheck},
+                  {val:"both", label:"Návrh + Zmluva", icon: Files},
                 ];
+                const activeIdx = numOpts.findIndex(o => o.val === preSelectNumberType);
                 const handleNumKey = (e: React.KeyboardEvent, idx: number) => {
-                  const btns = e.currentTarget.parentElement?.querySelectorAll('button[role="radio"]');
-                  if (e.key === "ArrowRight" || e.key === "ArrowDown") {
-                    e.preventDefault(); const next = (idx+1)%3; setPreSelectNumberType(numOpts[next].val);
+                  let next = -1;
+                  if (e.key === "ArrowRight" || e.key === "ArrowDown") { e.preventDefault(); next = (idx + 1) % 3; }
+                  else if (e.key === "ArrowLeft" || e.key === "ArrowUp") { e.preventDefault(); next = (idx + 2) % 3; }
+                  if (next >= 0) {
+                    setPreSelectNumberType(numOpts[next].val);
+                    const btns = (e.currentTarget.closest('[role="radiogroup"]') as HTMLElement)?.querySelectorAll('button[role="radio"]');
                     (btns?.[next] as HTMLElement)?.focus();
-                  } else if (e.key === "ArrowLeft" || e.key === "ArrowUp") {
-                    e.preventDefault(); const prev = (idx+2)%3; setPreSelectNumberType(numOpts[prev].val);
-                    (btns?.[prev] as HTMLElement)?.focus();
                   }
                 };
                 return (
-                  <div className="flex items-stretch gap-0 p-1 bg-muted/40 rounded-lg border border-border" role="radiogroup" data-testid="toggle-number-type">
+                  <div className="relative w-full flex p-1 bg-muted/50 rounded-lg border border-border/80" role="radiogroup" aria-label="Typ čísla" data-testid="toggle-number-type">
+                    <div className="absolute top-1 bottom-1 rounded-md bg-background shadow-md border border-border/60 transition-all duration-200 ease-out" style={{ width: `calc((100% - 8px) / 3)`, left: `calc(4px + ${activeIdx} * (100% - 8px) / 3)` }} />
                     {numOpts.map((opt, idx) => {
                       const Icon = opt.icon;
                       const isActive = preSelectNumberType === opt.val;
-                      const colorMap: Record<string,string> = {blue:"bg-blue-500/15 text-blue-400 ring-1 ring-blue-500/40 shadow-sm", emerald:"bg-emerald-500/15 text-emerald-400 ring-1 ring-emerald-500/40 shadow-sm", amber:"bg-amber-500/15 text-amber-400 ring-1 ring-amber-500/40 shadow-sm"};
                       return (
-                        <span key={opt.val} className="contents">
-                          {idx > 0 && <div className="w-px self-stretch my-1 bg-border/60" />}
-                          <button ref={idx===0?refNumberToggleProposal:idx===1?refNumberToggleContract:undefined} type="button" role="radio" aria-checked={isActive} tabIndex={isActive?0:-1}
-                            className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-2 text-xs font-semibold rounded-md transition-all outline-none focus-visible:ring-2 focus-visible:ring-primary ${isActive ? colorMap[opt.color] : "text-muted-foreground hover:text-foreground hover:bg-muted/60"}`}
-                            onClick={() => setPreSelectNumberType(opt.val)} onKeyDown={(e) => handleNumKey(e, idx)} data-testid={`toggle-number-type-${opt.val === "both" ? "both" : opt.val}`}
-                          ><Icon className="w-3.5 h-3.5" />{opt.label}</button>
-                        </span>
+                        <button key={opt.val} ref={idx===0?refNumberToggleProposal:idx===1?refNumberToggleContract:undefined} type="button" role="radio" aria-checked={isActive} tabIndex={isActive?0:-1}
+                          className={`relative z-10 flex-1 flex items-center justify-center gap-1.5 px-3 py-2 text-xs font-semibold rounded-md transition-all duration-150 outline-none focus-visible:ring-2 focus-visible:ring-primary/50 ${isActive ? "text-foreground scale-[1.02]" : "text-muted-foreground hover:text-foreground/80"}`}
+                          onClick={() => setPreSelectNumberType(opt.val)} onKeyDown={(e) => handleNumKey(e, idx)} data-testid={`toggle-number-type-${opt.val}`}
+                        ><Icon className="w-3.5 h-3.5" />{opt.label}</button>
                       );
                     })}
                   </div>
@@ -3583,39 +3581,37 @@ export default function Contracts() {
               <div className="space-y-1.5">
                 <label className="text-xs font-medium">Typ subjektu</label>
                 {(() => {
-                  const subOpts: Array<{val: "person"|"szco"|"company", label: string, icon: typeof User, color: string}> = [
-                    {val:"person", label:"Fyzická osoba", icon: User, color:"blue"},
-                    {val:"szco", label:"SZČO", icon: Briefcase, color:"amber"},
-                    {val:"company", label:"Právnická osoba", icon: Building2, color:"purple"},
+                  const subOpts: Array<{val: "person"|"szco"|"company", label: string, icon: typeof User}> = [
+                    {val:"person", label:"Fyzická osoba", icon: User},
+                    {val:"szco", label:"SZČO", icon: Briefcase},
+                    {val:"company", label:"Právnická osoba", icon: Building2},
                   ];
+                  const activeSubIdx = subOpts.findIndex(o => o.val === preSelectSubjectType);
                   const handleSubKey = (e: React.KeyboardEvent, idx: number) => {
-                    let targetIdx = -1;
-                    if (e.key === "ArrowRight" || e.key === "ArrowDown") { e.preventDefault(); targetIdx = (idx+1)%3; }
-                    else if (e.key === "ArrowLeft" || e.key === "ArrowUp") { e.preventDefault(); targetIdx = (idx+2)%3; }
-                    if (targetIdx >= 0) {
-                      const next = subOpts[targetIdx].val;
-                      setPreSelectSubjectType(next);
-                      if (next === "person") { setPreSelectBusinessName(""); setPreSelectIco(""); }
+                    let next = -1;
+                    if (e.key === "ArrowRight" || e.key === "ArrowDown") { e.preventDefault(); next = (idx+1)%3; }
+                    else if (e.key === "ArrowLeft" || e.key === "ArrowUp") { e.preventDefault(); next = (idx+2)%3; }
+                    if (next >= 0) {
+                      const val = subOpts[next].val;
+                      setPreSelectSubjectType(val);
+                      if (val === "person") { setPreSelectBusinessName(""); setPreSelectIco(""); }
                       setPreSelectShowNameFields(false); setPreSelectBirthNumber("");
-                      const btns = e.currentTarget.parentElement?.querySelectorAll('button[role="radio"]');
-                      (btns?.[targetIdx] as HTMLElement)?.focus();
+                      const btns = (e.currentTarget.closest('[role="radiogroup"]') as HTMLElement)?.querySelectorAll('button[role="radio"]');
+                      (btns?.[next] as HTMLElement)?.focus();
                     }
                   };
-                  const colorMap: Record<string,string> = {blue:"bg-blue-500/15 text-blue-400 ring-1 ring-blue-500/40 shadow-sm", amber:"bg-amber-500/15 text-amber-400 ring-1 ring-amber-500/40 shadow-sm", purple:"bg-purple-500/15 text-purple-400 ring-1 ring-purple-500/40 shadow-sm"};
                   return (
-                    <div className="flex items-stretch gap-0 p-1 bg-muted/40 rounded-lg border border-border" role="radiogroup" data-testid="toggle-subject-type">
+                    <div className="relative w-full flex p-1 bg-muted/50 rounded-lg border border-border/80" role="radiogroup" aria-label="Typ subjektu" data-testid="toggle-subject-type">
+                      <div className="absolute top-1 bottom-1 rounded-md bg-background shadow-md border border-border/60 transition-all duration-200 ease-out" style={{ width: `calc((100% - 8px) / 3)`, left: `calc(4px + ${activeSubIdx} * (100% - 8px) / 3)` }} />
                       {subOpts.map((opt, idx) => {
                         const Icon = opt.icon;
                         const isActive = preSelectSubjectType === opt.val;
                         return (
-                          <span key={opt.val} className="contents">
-                            {idx > 0 && <div className="w-px self-stretch my-1 bg-border/60" />}
-                            <button type="button" role="radio" aria-checked={isActive} tabIndex={isActive?0:-1}
-                              className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-2 text-xs font-semibold rounded-md transition-all outline-none focus-visible:ring-2 focus-visible:ring-primary ${isActive ? colorMap[opt.color] : "text-muted-foreground hover:text-foreground hover:bg-muted/60"}`}
-                              onClick={() => { setPreSelectSubjectType(opt.val); if (opt.val === "person") { setPreSelectBusinessName(""); setPreSelectIco(""); } setPreSelectShowNameFields(false); setPreSelectBirthNumber(""); }}
-                              onKeyDown={(e) => handleSubKey(e, idx)} data-testid={`toggle-subject-type-${opt.val === "person" ? "fo" : opt.val === "szco" ? "szco" : "po"}`}
-                            ><Icon className="w-3.5 h-3.5" />{opt.label}</button>
-                          </span>
+                          <button key={opt.val} type="button" role="radio" aria-checked={isActive} tabIndex={isActive?0:-1}
+                            className={`relative z-10 flex-1 flex items-center justify-center gap-1.5 px-3 py-2 text-xs font-semibold rounded-md transition-all duration-150 outline-none focus-visible:ring-2 focus-visible:ring-primary/50 ${isActive ? "text-foreground scale-[1.02]" : "text-muted-foreground hover:text-foreground/80"}`}
+                            onClick={() => { setPreSelectSubjectType(opt.val); if (opt.val === "person") { setPreSelectBusinessName(""); setPreSelectIco(""); } setPreSelectShowNameFields(false); setPreSelectBirthNumber(""); }}
+                            onKeyDown={(e) => handleSubKey(e, idx)} data-testid={`toggle-subject-type-${opt.val === "person" ? "fo" : opt.val === "szco" ? "szco" : "po"}`}
+                          ><Icon className="w-3.5 h-3.5" />{opt.label}</button>
                         );
                       })}
                     </div>
