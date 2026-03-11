@@ -11,7 +11,7 @@ import type { SmartColumnDef } from "@/hooks/use-smart-filter";
 import { SmartFilterBar } from "@/components/smart-filter-bar";
 import { useLocation } from "wouter";
 import type { Contract, ContractStatus, ContractTemplate, ContractInventory, Subject, Partner, Product, MyCompany, Sector, Section, SectorProduct, ClientGroup, ClientType, AppUser, ContractAcquirer } from "@shared/schema";
-import { Plus, Pencil, Trash2, Eye, FileText, Loader2, Lock, LayoutGrid, Send, Upload, Inbox, CheckCircle2, ChevronDown, ChevronRight, Printer, Search, Archive, AlertTriangle, Calendar, XCircle, MessageSquare, Paperclip, X, Users, Check, Award, Percent, History, ListChecks, ArrowRight, ArrowUpRight, ArrowUp, Clock, Ghost, Ban, HelpCircle, ScanLine } from "lucide-react";
+import { Plus, Pencil, Trash2, Eye, FileText, FileCheck, Files, Loader2, Lock, LayoutGrid, Send, Upload, Inbox, CheckCircle2, ChevronDown, ChevronRight, Printer, Search, Archive, AlertTriangle, Calendar, XCircle, MessageSquare, Paperclip, X, Users, User, Check, Award, Percent, History, ListChecks, ArrowRight, ArrowUpRight, ArrowUp, Clock, Ghost, Ban, HelpCircle, ScanLine, Briefcase, Building2 } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ActivityTimeline } from "@/components/activity-timeline";
 import { cn } from "@/lib/utils";
@@ -3487,32 +3487,32 @@ export default function Contracts() {
 
             <div className="space-y-1">
               <label className="text-xs font-medium">Typ čísla</label>
-              <div className="flex border rounded-md overflow-hidden" data-testid="toggle-number-type">
+              <div className="inline-flex items-center gap-1 p-1 bg-muted/30 rounded-lg border border-border/50 w-full" data-testid="toggle-number-type">
                 <button
                   ref={refNumberToggleProposal}
                   type="button"
-                  className={`flex-1 px-3 py-2 text-sm font-medium transition-colors ${preSelectNumberType === "proposal" ? "bg-primary text-primary-foreground" : "bg-muted/50 text-muted-foreground hover:bg-muted"}`}
+                  className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md transition-all ${preSelectNumberType === "proposal" ? "bg-background text-foreground shadow-sm border border-border/80" : "text-muted-foreground hover:text-foreground hover:bg-background/50"}`}
                   onClick={() => setPreSelectNumberType("proposal")}
                   data-testid="toggle-number-type-proposal"
                 >
-                  Číslo návrhu zmluvy
+                  <FileText className="w-3.5 h-3.5" />Číslo návrhu
                 </button>
                 <button
                   ref={refNumberToggleContract}
                   type="button"
-                  className={`flex-1 px-3 py-2 text-sm font-medium transition-colors ${preSelectNumberType === "contract" ? "bg-primary text-primary-foreground" : "bg-muted/50 text-muted-foreground hover:bg-muted"}`}
+                  className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md transition-all ${preSelectNumberType === "contract" ? "bg-background text-foreground shadow-sm border border-border/80" : "text-muted-foreground hover:text-foreground hover:bg-background/50"}`}
                   onClick={() => setPreSelectNumberType("contract")}
                   data-testid="toggle-number-type-contract"
                 >
-                  Číslo zmluvy
+                  <FileCheck className="w-3.5 h-3.5" />Číslo zmluvy
                 </button>
                 <button
                   type="button"
-                  className={`flex-1 px-3 py-2 text-sm font-medium transition-colors ${preSelectNumberType === "both" ? "bg-primary text-primary-foreground" : "bg-muted/50 text-muted-foreground hover:bg-muted"}`}
+                  className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md transition-all ${preSelectNumberType === "both" ? "bg-background text-foreground shadow-sm border border-border/80" : "text-muted-foreground hover:text-foreground hover:bg-background/50"}`}
                   onClick={() => setPreSelectNumberType("both")}
                   data-testid="toggle-number-type-both"
                 >
-                  Číslo návrh aj číslo zmluvy
+                  <Files className="w-3.5 h-3.5" />Návrh + Zmluva
                 </button>
               </div>
             </div>
@@ -3575,10 +3575,10 @@ export default function Contracts() {
             {!preSelectSubjectId && (
               <div className="space-y-1">
                 <label className="text-xs font-medium">Typ subjektu</label>
-                <div className="flex border rounded-md overflow-hidden" data-testid="toggle-subject-type">
-                  <button type="button" className={`flex-1 px-3 py-2 text-sm font-medium transition-colors ${preSelectSubjectType === "person" ? "bg-primary text-primary-foreground" : "bg-muted/50 text-muted-foreground hover:bg-muted"}`} onClick={() => { setPreSelectSubjectType("person"); setPreSelectBusinessName(""); setPreSelectIco(""); setPreSelectShowNameFields(false); setPreSelectBirthNumber(""); }} data-testid="toggle-subject-type-fo">FO</button>
-                  <button type="button" className={`flex-1 px-3 py-2 text-sm font-medium transition-colors ${preSelectSubjectType === "szco" ? "bg-primary text-primary-foreground" : "bg-muted/50 text-muted-foreground hover:bg-muted"}`} onClick={() => { setPreSelectSubjectType("szco"); setPreSelectShowNameFields(false); setPreSelectBirthNumber(""); }} data-testid="toggle-subject-type-szco">SZČO</button>
-                  <button type="button" className={`flex-1 px-3 py-2 text-sm font-medium transition-colors ${preSelectSubjectType === "company" ? "bg-primary text-primary-foreground" : "bg-muted/50 text-muted-foreground hover:bg-muted"}`} onClick={() => { setPreSelectSubjectType("company"); setPreSelectShowNameFields(false); setPreSelectBirthNumber(""); }} data-testid="toggle-subject-type-po">PO</button>
+                <div className="inline-flex items-center gap-1 p-1 bg-muted/30 rounded-lg border border-border/50 w-full" data-testid="toggle-subject-type">
+                  <button type="button" className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md transition-all ${preSelectSubjectType === "person" ? "bg-background text-foreground shadow-sm border border-border/80" : "text-muted-foreground hover:text-foreground hover:bg-background/50"}`} onClick={() => { setPreSelectSubjectType("person"); setPreSelectBusinessName(""); setPreSelectIco(""); setPreSelectShowNameFields(false); setPreSelectBirthNumber(""); }} data-testid="toggle-subject-type-fo"><User className="w-3.5 h-3.5" />Fyzická osoba</button>
+                  <button type="button" className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md transition-all ${preSelectSubjectType === "szco" ? "bg-background text-foreground shadow-sm border border-border/80" : "text-muted-foreground hover:text-foreground hover:bg-background/50"}`} onClick={() => { setPreSelectSubjectType("szco"); setPreSelectShowNameFields(false); setPreSelectBirthNumber(""); }} data-testid="toggle-subject-type-szco"><Briefcase className="w-3.5 h-3.5" />SZČO</button>
+                  <button type="button" className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md transition-all ${preSelectSubjectType === "company" ? "bg-background text-foreground shadow-sm border border-border/80" : "text-muted-foreground hover:text-foreground hover:bg-background/50"}`} onClick={() => { setPreSelectSubjectType("company"); setPreSelectShowNameFields(false); setPreSelectBirthNumber(""); }} data-testid="toggle-subject-type-po"><Building2 className="w-3.5 h-3.5" />Právnická osoba</button>
                 </div>
               </div>
             )}
