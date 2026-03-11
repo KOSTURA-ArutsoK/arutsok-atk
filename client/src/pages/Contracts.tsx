@@ -3512,7 +3512,7 @@ export default function Contracts() {
                   onClick={() => setPreSelectNumberType("both")}
                   data-testid="toggle-number-type-both"
                 >
-                  Obe
+                  Návrh + Zmluva
                 </button>
               </div>
             </div>
