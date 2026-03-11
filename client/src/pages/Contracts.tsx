@@ -27,8 +27,19 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogFooter,
   DialogScrollContent,
 } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import {
   Table,
   TableBody,
@@ -2808,7 +2819,8 @@ export default function Contracts() {
   }
 
   async function toggleSelectAll() {
-    if (selectedIds.length === activeContracts.length && activeContracts.length === contractsTotal) {
+    const selectableContracts = activeContracts.filter(c => !(c as any).incompleteData);
+    if (selectedIds.length === selectableContracts.length && selectableContracts.length > 0) {
       setSelectedIds([]);
     } else if (hasMoreContracts) {
       try {
@@ -2821,11 +2833,11 @@ export default function Contracts() {
           setContractPages(allData.data);
           setContractsTotal(allData.total);
           setContractsOffset(allData.total);
-          setSelectedIds(allData.data.filter((c: Contract) => !c.isDeleted).map((c: Contract) => c.id));
+          setSelectedIds(allData.data.filter((c: any) => !c.isDeleted && !c.incompleteData).map((c: Contract) => c.id));
         }
       } catch {}
     } else {
-      setSelectedIds(activeContracts.map(c => c.id));
+      setSelectedIds(selectableContracts.map(c => c.id));
     }
   }
 
@@ -2993,15 +3005,18 @@ export default function Contracts() {
       <Table stickyHeader>
         <TableHeader>
           <TableRow>
-            {showCheckbox && (
+            {showCheckbox && (() => {
+              const selectableCount = list.filter(c => !(c as any).incompleteData).length;
+              return (
               <TableHead className="w-[40px]">
                 <Checkbox
-                  checked={selectedIds.length === list.length && list.length > 0}
+                  checked={selectedIds.length === selectableCount && selectableCount > 0}
                   onCheckedChange={toggleSelectAll}
                   data-testid="checkbox-select-all"
                 />
               </TableHead>
-            )}
+              );
+            })()}
             {showRerouteCheckbox && (
               <TableHead resizable={false} style={{ width: 40, minWidth: 40, maxWidth: 40, padding: '0 8px' }}>
                 <Checkbox
@@ -3028,15 +3043,30 @@ export default function Contracts() {
             const sub = subjects?.find(s => s.id === contract.subjectId);
             const subjectType = sub?.type === "person" ? "FO" : sub?.type === "szco" ? "SZČO" : sub?.type === "company" ? "PO" : "—";
             const subjectFullName = sub ? [sub.titleBefore, sub.firstName, sub.lastName, sub.titleAfter].filter(Boolean).join(" ") || sub.companyName || "—" : "—";
+            const isIncomplete = !!(contract as any).incompleteData;
+            const incompleteReason = (contract as any).incompleteDataReason || "";
             return (
-              <TableRow key={contract.id} data-testid={`row-evidencia-${contract.id}`} onRowClick={() => { if (checkboxOnly && showRerouteCheckbox) { toggleRerouteSelect(contract.id); } else if (checkboxOnly && showCheckbox) { toggleSelect(contract.id); } else if (!checkboxOnly) { openEdit(contract); } }}>
+              <TableRow key={contract.id} data-testid={`row-evidencia-${contract.id}`} className={isIncomplete ? "bg-red-500/8 hover:bg-red-500/15 border-l-2 border-l-red-500" : ""} onRowClick={() => { if (checkboxOnly && showRerouteCheckbox) { toggleRerouteSelect(contract.id); } else if (checkboxOnly && showCheckbox) { if (!isIncomplete) toggleSelect(contract.id); } else if (!checkboxOnly) { openEdit(contract); } }}>
                 {showCheckbox && (
                   <TableCell>
-                    <Checkbox
-                      checked={selectedIds.includes(contract.id)}
-                      onCheckedChange={() => toggleSelect(contract.id)}
-                      data-testid={`checkbox-contract-${contract.id}`}
-                    />
+                    {isIncomplete ? (
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <span className="inline-flex"><Checkbox disabled checked={false} data-testid={`checkbox-contract-${contract.id}`} /></span>
+                        </TooltipTrigger>
+                        <TooltipContent side="right" className="max-w-[250px] text-xs">
+                          <p className="font-semibold text-red-400 mb-0.5">Neúplná zmluva</p>
+                          <p>{incompleteReason}</p>
+                          <p className="mt-0.5 text-muted-foreground">Doplňte chýbajúce údaje pred zaradením na sprievodku.</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    ) : (
+                      <Checkbox
+                        checked={selectedIds.includes(contract.id)}
+                        onCheckedChange={() => toggleSelect(contract.id)}
+                        data-testid={`checkbox-contract-${contract.id}`}
+                      />
+                    )}
                   </TableCell>
                 )}
                 {showRerouteCheckbox && (
@@ -3071,7 +3101,22 @@ export default function Contracts() {
                 <TableCell className="text-sm py-1">
                   <Badge variant="outline" className={`text-[10px] ${subjectType === "FO" ? "border-blue-500/50 text-blue-400" : subjectType === "SZČO" ? "border-amber-500/50 text-amber-400" : subjectType === "PO" ? "border-purple-500/50 text-purple-400" : "border-muted text-muted-foreground"}`}>{subjectType}</Badge>
                 </TableCell>
-                <TableCell className="text-sm py-1" data-testid={`text-subject-name-${contract.id}`}>{subjectFullName}</TableCell>
+                <TableCell className="text-sm py-1" data-testid={`text-subject-name-${contract.id}`}>
+                  <span className="flex items-center gap-1">
+                    {subjectFullName}
+                    {isIncomplete && (
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <AlertTriangle className="w-3.5 h-3.5 text-red-500 shrink-0" />
+                        </TooltipTrigger>
+                        <TooltipContent className="max-w-[250px] text-xs">
+                          <p className="font-semibold text-red-400">Neúplné údaje</p>
+                          <p>{incompleteReason}</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    )}
+                  </span>
+                </TableCell>
                 {showTimer && <TableCell className="py-1" data-testid={`text-contract-timer-${contract.id}`}>
                   {(() => {
                     const c = contract as any;
@@ -3147,26 +3192,71 @@ export default function Contracts() {
     );
   }
 
+  const [importConfirmOpen, setImportConfirmOpen] = useState(false);
+
   const importDialog = (
+    <>
     <Dialog open={importDialogOpen} onOpenChange={(open) => {
       setImportDialogOpen(open);
       if (!open) { setImportFile(null); setImportResult(null); }
     }}>
-      <DialogContent size="md">
+      <DialogContent size="lg">
         <DialogHeader>
           <DialogTitle data-testid="text-import-title">Hromadný import zmlúv</DialogTitle>
         </DialogHeader>
-        <div className="space-y-4">
-          <div className="space-y-2">
-            <p className="text-sm text-muted-foreground">
-              Nahrajte Excel (.xlsx) alebo CSV súbor s údajmi o zmluvách a klientoch. Systém automaticky:
-            </p>
-            <ul className="text-xs text-muted-foreground list-disc pl-4 space-y-0.5">
-              <li>Podľa RČ/IČO nájde existujúceho klienta a aktualizuje ho, alebo vytvorí nového</li>
-              <li>Namapuje dáta do 30 kategórií klienta podľa nastavených pravidiel</li>
-              <li>Skontroluje duplicitné ŠPZ a VIN naprieč klientmi</li>
-              <li>Zmluvy bez dátumu storna nechá na manuálne posúdenie</li>
+        <DialogScrollContent>
+        <div className="space-y-3 text-justify">
+          <p className="text-xs text-muted-foreground">
+            Nahrajte Excel (.xlsx) alebo CSV súbor. Poradie stĺpcov musí byť identické s tabuľkou nižšie — systém stĺpce neprehadzuje (mapovanie 1:1).
+          </p>
+
+          <div className="space-y-1">
+            <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Pravidlá importu</p>
+            <ul className="text-[11px] text-muted-foreground list-disc pl-4 space-y-0.5">
+              <li>Zmluva sa <span className="font-semibold text-foreground">vždy nahrá</span> — ak chýbajú povinné údaje, riadok bude zvýraznený červenou a zmluva nebude môcť ísť na sprievodku</li>
+              <li>Nepovinné polia — prázdna bunka = null, import pokračuje bez varovania</li>
+              <li>Každý importovaný riadok dostane auditný záznam</li>
             </ul>
+          </div>
+
+          <div className="border rounded overflow-hidden">
+            <table className="w-full text-[11px]">
+              <thead>
+                <tr className="bg-muted/50">
+                  <th className="text-left px-2 py-1 border-b font-medium">Stĺpec</th>
+                  <th className="text-left px-2 py-1 border-b font-medium">Názov v Exceli</th>
+                  <th className="text-center px-2 py-1 border-b font-medium w-[60px]">Povinné</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr className="border-b bg-muted/20"><td colSpan={3} className="px-2 py-0.5 text-[10px] font-semibold text-muted-foreground uppercase">Krok 1 — Partner a produkt</td></tr>
+                <tr className="border-b"><td className="px-2 py-0.5 font-mono">A</td><td className="px-2 py-0.5">partner</td><td className="px-2 py-0.5 text-center text-red-400">*</td></tr>
+                <tr className="border-b bg-muted/10"><td className="px-2 py-0.5 font-mono">B</td><td className="px-2 py-0.5">produkt</td><td className="px-2 py-0.5 text-center text-red-400">*</td></tr>
+                <tr className="border-b"><td className="px-2 py-0.5 font-mono">C</td><td className="px-2 py-0.5">cislo_navrhu</td><td className="px-2 py-0.5 text-center">—</td></tr>
+                <tr className="border-b bg-muted/10"><td className="px-2 py-0.5 font-mono">D</td><td className="px-2 py-0.5">cislo_zmluvy</td><td className="px-2 py-0.5 text-center">—</td></tr>
+                <tr className="border-b bg-muted/20"><td colSpan={3} className="px-2 py-0.5 text-[10px] font-semibold text-muted-foreground uppercase">Krok 2 — Klient (subjekt)</td></tr>
+                <tr className="border-b"><td className="px-2 py-0.5 font-mono">E</td><td className="px-2 py-0.5">typ_subjektu</td><td className="px-2 py-0.5 text-center text-red-400">*</td></tr>
+                <tr className="border-b bg-muted/10"><td className="px-2 py-0.5 font-mono">F</td><td className="px-2 py-0.5">rc_ico</td><td className="px-2 py-0.5 text-center text-amber-400">**</td></tr>
+                <tr className="border-b"><td className="px-2 py-0.5 font-mono">G</td><td className="px-2 py-0.5">nazov_firmy</td><td className="px-2 py-0.5 text-center text-amber-400">**</td></tr>
+                <tr className="border-b bg-muted/10"><td className="px-2 py-0.5 font-mono">H</td><td className="px-2 py-0.5">titul_pred</td><td className="px-2 py-0.5 text-center">—</td></tr>
+                <tr className="border-b"><td className="px-2 py-0.5 font-mono">I</td><td className="px-2 py-0.5">meno</td><td className="px-2 py-0.5 text-center text-amber-400">**</td></tr>
+                <tr className="border-b bg-muted/10"><td className="px-2 py-0.5 font-mono">J</td><td className="px-2 py-0.5">priezvisko</td><td className="px-2 py-0.5 text-center text-amber-400">**</td></tr>
+                <tr><td className="px-2 py-0.5 font-mono">K</td><td className="px-2 py-0.5">titul_za</td><td className="px-2 py-0.5 text-center">—</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div className="text-[10px] text-muted-foreground space-y-0.5">
+            <p><span className="text-red-400 font-semibold">*</span> = vždy povinné &nbsp; <span className="text-amber-400 font-semibold">**</span> = povinné podľa typu subjektu</p>
+            <p>Stĺpec <span className="font-mono font-semibold">rc_ico</span>: RČ (9-10 číslic) alebo IČO (8 číslic) — systém rozozná automaticky podľa dĺžky a typu subjektu.</p>
+            <p><span className="font-semibold">FO</span>: rc_ico, meno, priezvisko &nbsp; <span className="font-semibold">PO</span>: rc_ico (IČO), nazov_firmy &nbsp; <span className="font-semibold">SZČO</span>: rc_ico, nazov_firmy, meno, priezvisko</p>
+          </div>
+
+          <div className="bg-muted/30 rounded px-2 py-1.5 font-mono text-[10px] text-muted-foreground">
+            <span className="text-foreground/60">Ukážka:</span> Allianz | PZP Auto | | | person | 850101/1234 | | | Ján | Novák |
+          </div>
+
+          <div className="space-y-2">
             <input
               ref={importFileRef}
               type="file"
@@ -3179,15 +3269,16 @@ export default function Contracts() {
               }}
             />
             <div className="flex items-center gap-2">
-              <Button variant="outline" onClick={() => importFileRef.current?.click()} data-testid="button-choose-file">
-                <Upload className="w-4 h-4 mr-1" />
+              <Button variant="outline" size="sm" onClick={() => importFileRef.current?.click()} data-testid="button-choose-file">
+                <Upload className="w-3.5 h-3.5 mr-1" />
                 Vybrať súbor
               </Button>
-              <span className="text-sm text-muted-foreground truncate max-w-[250px]" data-testid="text-selected-file">
+              <span className="text-xs text-muted-foreground truncate max-w-[250px]" data-testid="text-selected-file">
                 {importFile ? importFile.name : "Žiadny súbor"}
               </span>
             </div>
           </div>
+
           {importResult && (
             <div className="space-y-3 p-3 rounded-md border">
               <div className="flex items-center gap-4 flex-wrap">
@@ -3207,6 +3298,12 @@ export default function Contracts() {
                     <p className="text-[10px] text-muted-foreground">Aktualizovaných</p>
                   </div>
                 )}
+                {(importResult.incomplete || 0) > 0 && (
+                  <div className="text-center">
+                    <p className="text-xl font-bold text-orange-500" data-testid="text-import-incomplete">{importResult.incomplete}</p>
+                    <p className="text-[10px] text-muted-foreground">Neúplných</p>
+                  </div>
+                )}
                 {importResult.errors > 0 && (
                   <div className="text-center">
                     <p className="text-xl font-bold text-destructive" data-testid="text-import-errors">{importResult.errors}</p>
@@ -3220,6 +3317,20 @@ export default function Contracts() {
                   </div>
                 )}
               </div>
+
+              {importResult.details?.some((d: any) => d.incompleteFields?.length > 0) && (
+                <div className="border border-orange-500/30 rounded p-2 bg-orange-500/5">
+                  <p className="text-xs font-medium text-orange-500 mb-1 flex items-center gap-1">
+                    <AlertTriangle className="w-3 h-3" />
+                    Neúplné zmluvy — vyžadujú doplnenie ({importResult.incomplete})
+                  </p>
+                  <div className="max-h-[100px] overflow-y-auto text-xs space-y-0.5">
+                    {importResult.details.filter((d: any) => d.incompleteFields?.length > 0).map((d: any, i: number) => (
+                      <p key={i} className="text-orange-400">Riadok {d.row}: chýba {d.incompleteFields.join(", ")}</p>
+                    ))}
+                  </div>
+                </div>
+              )}
 
               {importResult.duplicityWarnings && importResult.duplicityWarnings.length > 0 && (
                 <div className="border border-yellow-500/30 rounded p-2 bg-yellow-500/5">
@@ -3264,18 +3375,46 @@ export default function Contracts() {
               )}
             </div>
           )}
-          <div className="flex justify-end gap-2">
-            <Button variant="outline" onClick={() => setImportDialogOpen(false)} data-testid="button-import-cancel">
-              Zavrieť
-            </Button>
-            <Button onClick={handleExcelImport} disabled={!importFile || importLoading} data-testid="button-import-submit">
-              {importLoading && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
-              Importovať
-            </Button>
-          </div>
         </div>
+        </DialogScrollContent>
+        <DialogFooter>
+          <Button variant="outline" onClick={() => setImportDialogOpen(false)} data-testid="button-import-cancel">
+            Zavrieť
+          </Button>
+          <Button onClick={() => setImportConfirmOpen(true)} disabled={!importFile || importLoading} data-testid="button-import-submit">
+            {importLoading && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+            Importovať
+          </Button>
+        </DialogFooter>
       </DialogContent>
     </Dialog>
+
+    <AlertDialog open={importConfirmOpen} onOpenChange={setImportConfirmOpen}>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>Potvrdiť hromadný import</AlertDialogTitle>
+          <AlertDialogDescription className="text-justify">
+            Hromadný import môže upraviť citlivé dáta (RČ/IČO, osobné údaje). Potvrdením súhlasíte s vytvorením auditného záznamu pre každý importovaný riadok.
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel data-testid="button-import-confirm-cancel">Zrušiť</AlertDialogCancel>
+          <AlertDialogAction data-testid="button-import-confirm-ok" onClick={() => {
+            setImportConfirmOpen(false);
+            fetch("/api/click-log", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ module: "BULK_IMPORT_CONFIRM", action: "CONFIRM_IMPORT" }),
+              credentials: "include",
+            }).catch(() => {});
+            handleExcelImport();
+          }}>
+            Potvrdiť import
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+    </>
   );
 
   const preSelectFilteredProducts = (() => {

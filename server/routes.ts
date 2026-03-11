@@ -5048,6 +5048,10 @@ export async function registerRoutes(
 
   app.post("/api/contracts/import-excel", isAuthenticated, upload.single("file"), async (req: any, res) => {
     try {
+      const appUser = req.appUser;
+      if (!appUser || !isAdmin(appUser)) {
+        return res.status(403).json({ message: "Nedostatočné oprávnenia pre hromadný import" });
+      }
       const file = req.file;
       if (!file) return res.status(400).json({ message: "Nebol nahratý žiadny súbor" });
 
@@ -5100,6 +5104,9 @@ export async function registerRoutes(
         if (s.uid) uidMap.set(s.uid, s);
       }
 
+      const allPartners = await storage.getPartners();
+      const allProducts = await storage.getProducts();
+
       const allPanelParams = await db.select().from(panelParameters).where(isNotNull(panelParameters.targetCategoryCode));
       const categoryMappings = new Map<string, string>();
       for (const pp of allPanelParams) {
@@ -5112,9 +5119,9 @@ export async function registerRoutes(
       const vinSpzTracker = new Map<string, { uid: string; subjectId: number; row: number }>();
       const duplicityWarnings: { row: number; field: string; value: string; existingUid: string; newUid: string }[] = [];
 
-      const results: { row: number; status: string; action?: string; contractId?: number; subjectId?: number; warnings?: string[]; error?: string }[] = [];
-      const appUser = req.appUser;
+      const results: { row: number; status: string; action?: string; contractId?: number; subjectId?: number; warnings?: string[]; error?: string; incompleteFields?: string[] }[] = [];
       const batchId = req.body?.batchId || `IMPORT-${Date.now()}`;
+      let incompleteCount = 0;
 
       for (let i = 0; i < rawRows.length; i++) {
         const rowData = rawRows[i];
@@ -5122,13 +5129,60 @@ export async function registerRoutes(
         const rowWarnings: string[] = [];
 
         try {
+          const partnerName = rowData["partner"] || rowData["partner_name"] || null;
+          const productName = rowData["produkt"] || rowData["product"] || rowData["product_name"] || null;
+          const typSubjektu = rowData["typ_subjektu"] || rowData["typ"] || rowData["subject_type"] || null;
+          const rcIcoRaw = rowData["rc_ico"] || rowData["rodne_cislo"] || rowData["rc"] || rowData["ico"] || rowData["birth_number"] || null;
+
+          let resolvedPartnerId: number | null = null;
+          if (partnerName) {
+            const pLower = partnerName.toLowerCase();
+            const found = allPartners.find(p => p.name.toLowerCase() === pLower || (p.code && p.code.toLowerCase() === pLower));
+            if (found) resolvedPartnerId = found.id;
+          }
+
+          let resolvedProductId: number | null = null;
+          if (productName) {
+            const prLower = productName.toLowerCase();
+            const found = allProducts.find(p =>
+              (p.name.toLowerCase() === prLower || (p.displayName && p.displayName.toLowerCase() === prLower) || (p.code && p.code.toLowerCase() === prLower)) &&
+              (!resolvedPartnerId || p.partnerId === resolvedPartnerId)
+            );
+            if (found) resolvedProductId = found.id;
+          }
+
+          let subjectType: "person" | "szco" | "company" = "person";
+          if (typSubjektu) {
+            const tLower = typSubjektu.toLowerCase().trim();
+            if (tLower === "po" || tLower === "company" || tLower === "firma" || tLower === "pravnicka_osoba") subjectType = "company";
+            else if (tLower === "szco" || tLower === "szčo" || tLower === "zivnostnik") subjectType = "szco";
+            else subjectType = "person";
+          }
+
+          let rc: string | null = null;
+          let ico: string | null = null;
+          if (rcIcoRaw) {
+            const cleaned = rcIcoRaw.replace(/[\/\s-]/g, "");
+            if (subjectType === "company") {
+              if (cleaned.length === 8 && /^\d+$/.test(cleaned)) ico = rcIcoRaw;
+              else rowWarnings.push(`IČO "${rcIcoRaw}" nemá správny formát (8 číslic)`);
+            } else if (subjectType === "person") {
+              if ((cleaned.length === 9 || cleaned.length === 10) && /^\d+$/.test(cleaned)) rc = rcIcoRaw;
+              else rowWarnings.push(`RČ "${rcIcoRaw}" nemá správny formát (9-10 číslic)`);
+            } else if (subjectType === "szco") {
+              if (cleaned.length === 8 && /^\d+$/.test(cleaned)) ico = rcIcoRaw;
+              else if ((cleaned.length === 9 || cleaned.length === 10) && /^\d+$/.test(cleaned)) rc = rcIcoRaw;
+              else rowWarnings.push(`RČ/IČO "${rcIcoRaw}" nemá správny formát`);
+            }
+          }
+
           const klientUidVal = rowData["klient_uid"] || rowData["klientuid"] || rowData["klient"] || rowData["klient_id"] || null;
           const ziskatelUidVal = rowData["ziskatel_uid"] || rowData["ziskateluid"] || rowData["ziskatel"] || rowData["ziskatel_id"] || null;
           const specialistaUidVal = rowData["specialista_uid"] || rowData["specialistauid"] || rowData["specialista"] || rowData["specialista_id"] || null;
           const zakonnyZastupcaUidVal = rowData["zakonny_zastupca_uid"] || rowData["zakonny_zastupca_id"] || rowData["zastupca"] || rowData["zastupca_id"] || null;
           const konatelUidVal = rowData["konatel_uid"] || rowData["konateluid"] || rowData["konatel"] || rowData["konatel_id"] || null;
           const szcoUidVal = rowData["szco_uid"] || rowData["szcouid"] || rowData["szco"] || rowData["szco_id"] || null;
-          const szcoIcoVal = rowData["szco_ico"] || rowData["ico"] || rowData["szco_ico_number"] || null;
+          const szcoIcoVal = rowData["szco_ico"] || rowData["szco_ico_number"] || null;
           const szcoRcVal = rowData["szco_rc"] || rowData["szco_rodne_cislo"] || rowData["szco_rodnecislo"] || null;
 
           let subjectId: number | null = null;
@@ -5140,11 +5194,11 @@ export async function registerRoutes(
             subjectAction = "matched";
           }
 
-          const rc = rowData["rodne_cislo"] || rowData["rc"] || rowData["birth_number"] || null;
-          const ico = rowData["ico"] || rowData["ic_organizacie"] || null;
           const firstName = rowData["meno"] || rowData["first_name"] || null;
           const lastName = rowData["priezvisko"] || rowData["last_name"] || null;
           const companyName = rowData["nazov_firmy"] || rowData["company_name"] || null;
+          const titleBefore = rowData["titul_pred"] || rowData["title_before"] || null;
+          const titleAfter = rowData["titul_za"] || rowData["title_after"] || null;
           const email = rowData["email"] || null;
           const phone = rowData["telefon"] || rowData["phone"] || null;
 
@@ -5189,12 +5243,13 @@ export async function registerRoutes(
           }
           if (!subjectId && (firstName || companyName)) {
             try {
-              const isCompany = !!companyName && !firstName;
               const newSubject = await storage.createSubject({
-                type: isCompany ? "company" : "person",
+                type: subjectType,
                 firstName: firstName || null,
                 lastName: lastName || null,
                 companyName: companyName || null,
+                titleBefore: titleBefore || null,
+                titleAfter: titleAfter || null,
                 email: email || null,
                 phone: phone || null,
                 birthNumber: rc ? encryptField(rc) : null,
@@ -5296,17 +5351,28 @@ export async function registerRoutes(
 
           const nextGlobalNumber = await storage.getNextCounterValue("contract_global_number");
 
-          const telefon = rowData["telefon"] || rowData["phone"] || rowData["tel"] || null;
           const missingFields: string[] = [];
-          if (!spz) missingFields.push("ŠPZ");
-          if (!telefon) missingFields.push("Telefón");
+          if (!resolvedPartnerId) missingFields.push("Partner");
+          if (!resolvedProductId) missingFields.push("Produkt");
+          if (subjectType === "person" || subjectType === "szco") {
+            if (!rc) missingFields.push("Rodné číslo");
+            if (!firstName) missingFields.push("Meno");
+            if (!lastName) missingFields.push("Priezvisko");
+          }
+          if (subjectType === "company" || subjectType === "szco") {
+            if (!ico) missingFields.push("IČO");
+            if (!companyName) missingFields.push("Názov firmy");
+          }
           const isIncomplete = missingFields.length > 0;
+          if (isIncomplete) incompleteCount++;
 
           const contractData: any = {
             contractNumber: rowData["cislo_zmluvy"] || rowData["contract_number"] || null,
             proposalNumber: rowData["cislo_navrhu"] || rowData["proposal_number"] || null,
             kik: rowData["kik"] || null,
             subjectId,
+            partnerId: resolvedPartnerId,
+            productId: resolvedProductId,
             klientUid: klientUidVal,
             ziskatelUid: ziskatelUidVal,
             specialistaUid: specialistaUidVal,
@@ -5374,6 +5440,14 @@ export async function registerRoutes(
             }
           }
 
+          await logAudit(req, {
+            action: "BULK_IMPORT_ROW",
+            module: "zmluvy",
+            entityId: created.id,
+            entityName: `Import riadok ${rowNum}: kontrakt #${created.id}`,
+            newData: { row: rowNum, contractId: created.id, subjectId, partnerId: resolvedPartnerId, productId: resolvedProductId, subjectType, incompleteData: isIncomplete, incompleteFields: missingFields },
+          });
+
           results.push({
             row: rowNum,
             status: "ok",
@@ -5381,6 +5455,7 @@ export async function registerRoutes(
             contractId: created.id,
             subjectId: subjectId || undefined,
             warnings: rowWarnings.length > 0 ? rowWarnings : undefined,
+            incompleteFields: isIncomplete ? missingFields : undefined,
           });
         } catch (rowErr: any) {
           results.push({ row: rowNum, status: "error", error: rowErr.message || "Neznáma chyba" });
@@ -5418,6 +5493,7 @@ export async function registerRoutes(
         created: createdCount,
         updated: updatedCount,
         warnings: warningCount,
+        incomplete: incompleteCount,
         duplicityWarnings,
         details: results,
       });
