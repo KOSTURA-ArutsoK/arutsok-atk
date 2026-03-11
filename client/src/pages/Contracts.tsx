@@ -4141,11 +4141,10 @@ export default function Contracts() {
                           <FileText className="w-4 h-4 text-amber-500 shrink-0" />
                           <span className="text-sm font-medium flex-1" data-testid={`text-sprievodka-name-${group.inventoryId}`}>
                             {group.inventory?.name || `Sprievodka ${group.inventoryId}`}
-                            {group.inventory?.logisticOperationDate && (
-                              <span className="ml-2 text-xs text-muted-foreground font-normal">
-                                ({formatDateSlovak(group.inventory.logisticOperationDate)})
-                              </span>
-                            )}
+                            <span className="ml-2 text-[10px] text-muted-foreground font-normal">
+                              {group.inventory?.createdAt && (<>Vytvorená: {formatDateSlovak(group.inventory.createdAt)}</>)}
+                              {(group.inventory as any)?.dispatchedAt && (<> · Odoslaná: {formatDateSlovak((group.inventory as any).dispatchedAt)}</>)}
+                            </span>
                           </span>
                           <Badge variant="outline" data-testid={`badge-sprievodka-count-${group.inventoryId}`}>
                             {group.contracts.length} {group.contracts.length === 1 ? "zmluva" : group.contracts.length < 5 ? "zmluvy" : "zmluv"}

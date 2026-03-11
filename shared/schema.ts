@@ -762,6 +762,7 @@ export const contractInventories = pgTable("contract_inventories", {
   isClosed: boolean("is_closed").default(false),
   isAccepted: boolean("is_accepted").default(false),
   isDispatched: boolean("is_dispatched").default(false),
+  dispatchedAt: timestamp("dispatched_at"),
   logisticOperationDate: timestamp("logistic_operation_date"),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),

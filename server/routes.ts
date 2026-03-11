@@ -4508,12 +4508,13 @@ export async function registerRoutes(
         return res.status(404).json({ message: "Sprievodka nenajdena" });
       }
       const seqNum = await storage.getNextCounterValue("sprievodka_sequence");
+      const dispatchedAt = new Date();
       await storage.updateContractInventory(inventoryId, { 
         sequenceNumber: seqNum, 
         name: `Odovzdávací protokol - Sprievodka č. ${seqNum}`,
-        isDispatched: true 
+        isDispatched: true,
+        dispatchedAt,
       } as any);
-      const dispatchedAt = new Date();
       await storage.bulkAssignContractsToInventory(inventoryId, validContractIds, dispatchedAt);
       await logAudit(req, {
         action: "CREATE",
