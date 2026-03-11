@@ -2176,7 +2176,6 @@ export default function Contracts() {
   const [rerouteDialogOpen, setRerouteDialogOpen] = useState(false);
   const [rerouteSource, setRerouteSource] = useState<"neprijate" | "archiv" | "spracovanie" | null>(null);
 
-  const [acceptedSprievodkaIds, setAcceptedSprievodkaIds] = useState<Record<number, Set<number>>>({});
   const [expandedSprievodky, setExpandedSprievodky] = useState<Set<number>>(new Set());
   const [bulkDateDialogOpen, setBulkDateDialogOpen] = useState(false);
   const [bulkDateTarget, setBulkDateTarget] = useState<{ type: "inventory" | "template"; id: number; name: string } | null>(null);
@@ -2460,18 +2459,6 @@ export default function Contracts() {
       setSprievodkaDialogOpen(false);
     },
     onError: () => toast({ title: "Chyba", description: "Nepodarilo sa odoslat zmluvy", variant: "destructive" }),
-  });
-
-  const acceptMutation = useMutation({
-    mutationFn: async ({ inventoryId, contractIds }: { inventoryId: number; contractIds: number[] }) => {
-      await apiRequest("POST", `/api/contract-inventories/${inventoryId}/accept`, { contractIds });
-    },
-    onSuccess: () => {
-      invalidateContractCaches();
-      toast({ title: "Uspech", description: "Zmluvy schvalene a prijate do systemu" });
-      setAcceptedSprievodkaIds({});
-    },
-    onError: () => toast({ title: "Chyba", description: "Nepodarilo sa schvalit zmluvy", variant: "destructive" }),
   });
 
   const approveSprievodkaMutation = useMutation({
@@ -2775,24 +2762,6 @@ export default function Contracts() {
     }
   }
 
-  function toggleAcceptContract(inventoryId: number, contractId: number) {
-    setAcceptedSprievodkaIds(prev => {
-      const set = new Set(prev[inventoryId] || []);
-      if (set.has(contractId)) set.delete(contractId);
-      else set.add(contractId);
-      return { ...prev, [inventoryId]: set };
-    });
-  }
-
-  function toggleAcceptAll(inventoryId: number, contractsInGroup: Contract[]) {
-    setAcceptedSprievodkaIds(prev => {
-      const current = prev[inventoryId] || new Set();
-      if (current.size === contractsInGroup.length) {
-        return { ...prev, [inventoryId]: new Set() };
-      }
-      return { ...prev, [inventoryId]: new Set(contractsInGroup.map(c => c.id)) };
-    });
-  }
 
   function toggleSprievodkaExpanded(id: number) {
     setExpandedSprievodky(prev => {
@@ -2811,14 +2780,6 @@ export default function Contracts() {
     });
   }
 
-  function handleAccept(inventoryId: number) {
-    const ids = acceptedSprievodkaIds[inventoryId];
-    if (!ids || ids.size === 0) {
-      toast({ title: "Chyba", description: "Vyberte zmluvy na schvalenie", variant: "destructive" });
-      return;
-    }
-    acceptMutation.mutate({ inventoryId, contractIds: Array.from(ids) });
-  }
 
   function getSubjectDisplayName(subjectId: number | null) {
     if (!subjectId) return "-";
@@ -2895,7 +2856,6 @@ export default function Contracts() {
   }
 
   const isDispatching = dispatchMutation.isPending;
-  const isAccepting = acceptMutation.isPending;
 
   const activeAccepted = acceptedContracts?.filter(c => !c.isDeleted) || [];
 
@@ -3882,8 +3842,6 @@ export default function Contracts() {
                 <div className="divide-y">
                   {dispatchedBySprievodka.map(group => {
                     const isExpanded = expandedSprievodky.has(group.inventoryId);
-                    const checkedIds = acceptedSprievodkaIds[group.inventoryId] || new Set();
-                    const allChecked = checkedIds.size === group.contracts.length && group.contracts.length > 0;
 
                     return (
                       <div key={group.inventoryId} data-testid={`sprievodka-group-${group.inventoryId}`}>
@@ -3934,21 +3892,12 @@ export default function Contracts() {
                             {approveSprievodkaMutation.isPending ? <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" /> : <Send className="w-3.5 h-3.5 mr-1.5" />}
                             Schváliť a odoslať sprievodku do centrály
                           </Button>
-                          <span id={`accept-btn-wrapper-${group.inventoryId}`} style={{ display: checkedIds.size > 0 ? 'inline' : 'none' }}>
-                            <Button size="sm" onClick={(e) => { e.stopPropagation(); handleAccept(group.inventoryId); }} disabled={isAccepting} data-testid={`button-accept-${group.inventoryId}`}>
-                              {isAccepting ? <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" /> : <CheckCircle2 className="w-3.5 h-3.5 mr-1.5" />}
-                              Schváliť a prijať ({checkedIds.size})
-                            </Button>
-                          </span>
                         </div>
                         <div id={`expanded-wrapper-${group.inventoryId}`} style={{ display: isExpanded ? 'block' : 'none' }}>
                           <div className="border-t">
                             <Table>
                               <TableHeader>
                                 <TableRow>
-                                  <TableHead className="w-[40px]">
-                                    <Checkbox checked={allChecked} onCheckedChange={() => toggleAcceptAll(group.inventoryId, group.contracts)} data-testid={`checkbox-accept-all-${group.inventoryId}`} />
-                                  </TableHead>
                                   <TableHead className="w-[40px] text-center">#</TableHead>
                                   {sprievodkaColumnVisibility.isVisible("contractNumber") && <TableHead>Cislo zmluvy</TableHead>}
                                   {sprievodkaColumnVisibility.isVisible("proposalNumber") && <TableHead>Cislo navrhu</TableHead>}
@@ -3963,10 +3912,7 @@ export default function Contracts() {
                               </TableHeader>
                               <TableBody>
                                 {group.contracts.map(contract => (
-                                  <TableRow key={contract.id} data-testid={`row-cakajuce-${contract.id}`} onRowClick={() => toggleAcceptContract(group.inventoryId, contract.id)}>
-                                    <TableCell>
-                                      <Checkbox checked={checkedIds.has(contract.id)} onCheckedChange={() => toggleAcceptContract(group.inventoryId, contract.id)} data-testid={`checkbox-accept-${contract.id}`} />
-                                    </TableCell>
+                                  <TableRow key={contract.id} data-testid={`row-cakajuce-${contract.id}`}>
                                     <TableCell className="text-center text-xs text-muted-foreground">
                                       <InlineSortOrderEdit contractId={contract.id} currentOrder={contract.sortOrderInInventory} />
                                     </TableCell>
