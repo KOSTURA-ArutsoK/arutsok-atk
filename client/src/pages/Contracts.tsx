@@ -4189,7 +4189,7 @@ export default function Contracts() {
                                   {(phaseId === 8 || phaseId === 9 || phaseId === 10) && sup.status === "Odoslana" && (
                                     <Badge variant="outline" className="text-indigo-400 border-indigo-400/30">Odoslaná</Badge>
                                   )}
-                                  {(phaseId === 9 || phaseId === 10) && sup.status === "Odoslana" && sup.status !== "Prijata" && (
+                                  {phaseId === 10 && sup.status === "Odoslana" && sup.status !== "Prijata" && (
                                     <Button
                                       size="sm"
                                       variant="default"
@@ -4200,7 +4200,7 @@ export default function Contracts() {
                                       <Award className="w-3 h-3 mr-1" />Potvrdiť prijatie
                                     </Button>
                                   )}
-                                  {(phaseId === 9 || phaseId === 10) && sup.status === "Prijata" && (
+                                  {phaseId === 10 && sup.status === "Prijata" && (
                                     <Badge variant="outline" className="text-purple-400 border-purple-400/30" data-testid={`badge-received-supiska-${sup.id}`}>
                                       <Award className="w-3 h-3 mr-1" />Prijatá
                                     </Badge>

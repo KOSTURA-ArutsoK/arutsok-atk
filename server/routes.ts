@@ -3647,18 +3647,18 @@ export async function registerRoutes(
         const [contract] = await db.select().from(contracts).where(and(eq(contracts.id, cid), or(eq(contracts.lifecyclePhase, 9), eq(contracts.lifecyclePhase, 10))));
         if (!contract) continue;
         await db.update(contracts).set({
-          lifecyclePhase: 10,
+          lifecyclePhase: 0,
           receivedByPartnerAt: receiveDate,
           updatedAt: now,
         }).where(eq(contracts.id, cid));
         await db.insert(contractLifecycleHistory).values({
           contractId: cid,
-          phase: 10,
-          phaseName: LIFECYCLE_PHASES[10] || "Prijaté obch. partnerom",
+          phase: 0,
+          phaseName: "Vyradené zo spracovania – prijaté partnerom",
           changedByUserId: appUser?.id || null,
-          note: `Prijaté partnerom: ${receiveDate.toISOString()}`,
+          note: `Prijaté partnerom: ${receiveDate.toISOString()}. Zmluva vyradená z procesu spracovania.`,
         });
-        await logLifecycleStatusChange(cid, contract.statusId, 10, appUser?.id || null);
+        await logLifecycleStatusChange(cid, contract.statusId, 0, appUser?.id || null);
       }
 
       await logAudit(req, {
