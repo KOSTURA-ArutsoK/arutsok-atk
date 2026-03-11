@@ -1,4 +1,5 @@
 import { useState, useRef, useCallback, useEffect } from "react";
+import DOMPurify from "dompurify";
 import { useMyCompanies, useCreateMyCompany, useUpdateMyCompany, useDeleteMyCompany } from "@/hooks/use-companies";
 import { useStates } from "@/hooks/use-hierarchy";
 import { Plus, Building2, Pencil, Trash2, Eye, Upload, FileText, X, Download, Clock, MapPin, FileCheck, Image } from "lucide-react";
@@ -736,7 +737,7 @@ function CompanyDetailDialog({
             {company.notes ? (
               <div
                 className="prose prose-sm dark:prose-invert max-w-none p-3 rounded-md border border-border"
-                dangerouslySetInnerHTML={{ __html: company.notes }}
+                dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(company.notes) }}
                 data-testid="text-detail-notes"
               />
             ) : (

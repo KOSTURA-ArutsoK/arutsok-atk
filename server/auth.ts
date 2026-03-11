@@ -2,6 +2,7 @@ import session from "express-session";
 import connectPg from "connect-pg-simple";
 import type { Express, RequestHandler } from "express";
 import bcrypt from "bcryptjs";
+import rateLimit from "express-rate-limit";
 import { db } from "./db";
 import { appUsers, subjects, auditLogs } from "@shared/schema";
 import { eq, and, isNull } from "drizzle-orm";
@@ -37,7 +38,7 @@ export function getSession() {
     cookie: {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
-      sameSite: "lax",
+      sameSite: "strict",
       maxAge: sessionTtlMs,
     },
   });
@@ -57,7 +58,16 @@ export async function setupAuth(app: Express) {
 
   await seedAdminPassword();
 
-  app.post("/api/login", async (req, res) => {
+  const loginLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000,
+    max: 5,
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: { message: "Príliš veľa pokusov o prihlásenie. Skúste to znova o 15 minút." },
+    validate: { xForwardedForHeader: false },
+  });
+
+  app.post("/api/login", loginLimiter, async (req, res) => {
     try {
       const { email, password } = req.body;
       if (!email || !password) {
@@ -156,7 +166,7 @@ export async function setupAuth(app: Express) {
     }
   });
 
-  app.post("/api/login/select-subject", async (req, res) => {
+  app.post("/api/login/select-subject", loginLimiter, async (req, res) => {
     try {
       if (!req.session.userId) {
         return res.status(401).json({ message: "Neautorizovaný prístup" });
@@ -214,7 +224,7 @@ export async function setupAuth(app: Express) {
     }
   });
 
-  app.post("/api/login/verify-phone", async (req, res) => {
+  app.post("/api/login/verify-phone", loginLimiter, async (req, res) => {
     try {
       if (!req.session.userId) {
         return res.status(401).json({ message: "Neautorizovaný prístup" });

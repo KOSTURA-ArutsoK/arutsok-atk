@@ -23,7 +23,7 @@ The system utilizes a modern full-stack architecture built for data integrity, s
 - **Temporal Validity**: Implemented using `validFrom`, `validTo`, `isActive` fields, complemented by hourly archiving cron jobs.
 - **Role-Based Access Control (RBAC)**: Supports admin/user roles with specific checks (`isAdmin()`) and granular permissions via `permission_groups`.
 - **UI/UX & Interaction**: Includes a Holding Context Bubble, dynamic dialog sizing, smart filter bar, row-click navigation, Tiptap rich text editing, dual document management, drag & drop reordering, consistent status indicators, and Web Speech API integration.
-- **Security & Workflow**: Features a two-phase idle timeout with auto-logout, an archive module with password-protected restore, a processing time protocol, and IP locking for restricted users.
+- **Security & Workflow**: Features a two-phase idle timeout with auto-logout, an archive module with password-protected restore, a processing time protocol, IP locking for restricted users, login rate limiting (express-rate-limit, 5 attempts/15 min on all login endpoints), file upload type validation (extension+MIME whitelist), XSS sanitization (DOMPurify), and SameSite=strict session cookies.
 - **Context Security Policy (STRICT)**: Prevents automatic bypass of context overlay if multiple options exist. Requires explicit user selection with audit trail for sensitive field access.
 - **Navigation Structure**: Organized into collapsible sections for `Štruktúra` (Sectors, Subjects, Subject Profile), `Moje úlohy`, dynamic `Odkazy` (Links), `Zmluvy` (Contracts, Processing), `Reporty`, `Analytika`, and `Holding Dashboard`.
 - **Dátová linka (OCR Module)**: Integrates Azure AI Document Intelligence for document processing. Supports bulk PDF upload, background processing, split-screen validation, and synonym confirmation.
@@ -73,3 +73,5 @@ The system utilizes a modern full-stack architecture built for data integrity, s
 - **pdfkit**: Server-side PDF generation.
 - **qrcode**: QR code generation.
 - **@azure/ai-form-recognizer**: Azure AI Document Intelligence SDK.
+- **express-rate-limit**: Login brute-force protection.
+- **dompurify**: XSS sanitization for HTML content rendering.

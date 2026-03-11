@@ -1,4 +1,5 @@
 import { useState, useRef, useCallback, useEffect } from "react";
+import DOMPurify from "dompurify";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { formatDateSlovak, canCreateRecords, canEditRecords, canDeleteRecords } from "@/lib/utils";
@@ -726,7 +727,7 @@ function ProductDetailDialog({
           {product.notes && (
             <div>
               <span className="text-xs text-muted-foreground">Poznamky</span>
-              <div className="text-sm mt-1 prose prose-sm dark:prose-invert max-w-none" dangerouslySetInnerHTML={{ __html: product.notes }} data-testid="text-detail-notes" />
+              <div className="text-sm mt-1 prose prose-sm dark:prose-invert max-w-none" dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(product.notes) }} data-testid="text-detail-notes" />
             </div>
           )}
 

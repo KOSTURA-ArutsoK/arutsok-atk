@@ -317,9 +317,36 @@ const uploadStorage = multer.diskStorage({
   },
 });
 
+const ALLOWED_FILE_TYPES: Record<string, Set<string>> = {
+  ".jpg":  new Set(["image/jpeg"]),
+  ".jpeg": new Set(["image/jpeg"]),
+  ".png":  new Set(["image/png"]),
+  ".gif":  new Set(["image/gif"]),
+  ".webp": new Set(["image/webp"]),
+  ".bmp":  new Set(["image/bmp"]),
+  ".pdf":  new Set(["application/pdf"]),
+  ".doc":  new Set(["application/msword"]),
+  ".docx": new Set(["application/vnd.openxmlformats-officedocument.wordprocessingml.document"]),
+  ".xls":  new Set(["application/vnd.ms-excel"]),
+  ".xlsx": new Set(["application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"]),
+  ".csv":  new Set(["text/csv", "application/vnd.ms-excel", "text/plain"]),
+  ".json": new Set(["application/json", "text/plain"]),
+  ".ppt":  new Set(["application/vnd.ms-powerpoint"]),
+  ".pptx": new Set(["application/vnd.openxmlformats-officedocument.presentationml.presentation"]),
+};
+
 const upload = multer({
   storage: uploadStorage,
   limits: { fileSize: 50 * 1024 * 1024 },
+  fileFilter: (_req, file, cb) => {
+    const ext = path.extname(file.originalname).toLowerCase();
+    const allowedMimes = ALLOWED_FILE_TYPES[ext];
+    if (allowedMimes && allowedMimes.has(file.mimetype)) {
+      cb(null, true);
+    } else {
+      cb(new Error(`Nepovolený typ súboru: ${ext} (${file.mimetype})`));
+    }
+  },
 });
 
 export async function registerRoutes(
@@ -1715,7 +1742,7 @@ export async function registerRoutes(
     return "active";
   }
 
-  app.get(api.subjects.get.path, async (req: any, res) => {
+  app.get(api.subjects.get.path, isAuthenticated, async (req: any, res) => {
     const subjectId = Number(req.params.id);
     if (req.appUser?.permissionGroupId) {
       const [pg] = await db.select().from(permissionGroups).where(eq(permissionGroups.id, req.appUser.permissionGroupId));
@@ -1877,7 +1904,7 @@ export async function registerRoutes(
     }
   });
 
-  app.post(api.subjects.create.path, async (req: any, res) => {
+  app.post(api.subjects.create.path, isAuthenticated, async (req: any, res) => {
     try {
       const input = api.subjects.create.input.parse(req.body);
 
@@ -1937,7 +1964,7 @@ export async function registerRoutes(
     }
   });
 
-  app.put(api.subjects.update.path, async (req: any, res) => {
+  app.put(api.subjects.update.path, isAuthenticated, async (req: any, res) => {
     try {
       const appUser = req.appUser;
       if (!appUser) return res.status(401).json({ message: "Unauthorized" });
@@ -2143,7 +2170,7 @@ export async function registerRoutes(
     }
   });
 
-  app.post(api.subjects.archive.path, async (req, res) => {
+  app.post(api.subjects.archive.path, isAuthenticated, async (req, res) => {
     try {
       await storage.archiveSubject(Number(req.params.id), req.body.reason);
       await logAudit(req, { action: "ARCHIVE", module: "subjekty", entityId: Number(req.params.id) });
@@ -2647,6 +2674,12 @@ export async function registerRoutes(
     if (!["official", "work", "logos", "amendments", "profiles", "flags", "status-change-docs", "generated-docs"].includes(section)) return res.status(400).json({ message: "Invalid section" });
     const filePath = path.join(UPLOADS_DIR, section, filename);
     if (!fs.existsSync(filePath)) return res.status(404).json({ message: "File not found" });
+    res.setHeader("X-Content-Type-Options", "nosniff");
+    const ext = path.extname(filename).toLowerCase();
+    const inlineTypes = new Set([".jpg", ".jpeg", ".png", ".gif", ".webp", ".bmp", ".pdf"]);
+    if (!inlineTypes.has(ext)) {
+      res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
+    }
     res.sendFile(filePath);
   });
 
