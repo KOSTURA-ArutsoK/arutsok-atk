@@ -2703,21 +2703,12 @@ export default function Contracts() {
   };
 
   function toggleRerouteSelect(id: number) {
-    if (activeFolder === 6) {
+    if (activeFolder === 8) {
       setRerouteSelectedIds(prev => {
         if (prev.includes(id)) return prev.filter(x => x !== id);
         if (prev.length >= 25) {
-          toast({ title: "Limit dosiahnutý", description: "Na jednu sprievodku je možné zaradiť maximálne 25 zmlúv.", variant: "destructive" });
+          toast({ title: "Limit dosiahnutý", description: "Na jednu súpisku je možné zaradiť maximálne 25 zmlúv.", variant: "destructive" });
           return prev;
-        }
-        const clickedContract = phase6Contracts.find(c => c.id === id);
-        if (!clickedContract) return prev;
-        if (prev.length > 0) {
-          const firstSelected = phase6Contracts.find(c => c.id === prev[0]);
-          if (firstSelected && (firstSelected.partnerId !== clickedContract.partnerId || firstSelected.productId !== clickedContract.productId)) {
-            toast({ title: "Iný partner alebo produkt", description: "Na jednu sprievodku je možné zaradiť len zmluvy od jedného partnera a z jedného produktu.", variant: "destructive" });
-            return prev;
-          }
         }
         return [...prev, id];
       });
@@ -2730,13 +2721,13 @@ export default function Contracts() {
   }
 
   function toggleRerouteSelectAll(list: Contract[]) {
-    if (activeFolder === 6) {
+    if (activeFolder === 8) {
       if (rerouteSelectedIds.length > 0) {
         setRerouteSelectedIds([]);
       } else {
         const limited = list.slice(0, 25);
         if (list.length > 25) {
-          toast({ title: "Limit dosiahnutý", description: `Vybraných prvých 25 z ${list.length} zmlúv. Na jednu sprievodku je možné zaradiť maximálne 25 zmlúv.`, variant: "destructive" });
+          toast({ title: "Limit dosiahnutý", description: `Vybraných prvých 25 z ${list.length} zmlúv. Na jednu súpisku je možné zaradiť maximálne 25 zmlúv.`, variant: "destructive" });
         }
         setRerouteSelectedIds(limited.map(c => c.id));
       }
