@@ -3654,9 +3654,9 @@ export async function registerRoutes(
         await db.insert(contractLifecycleHistory).values({
           contractId: cid,
           phase: 0,
-          phaseName: "Vyradené zo spracovania – prijaté partnerom",
+          phaseName: "Vyradené zo spracovania papierových zmluv – prijaté obchodným partnerom",
           changedByUserId: appUser?.id || null,
-          note: `Prijaté partnerom: ${receiveDate.toISOString()}. Zmluva vyradená z procesu spracovania.`,
+          note: `Prijaté obchodným partnerom: ${receiveDate.toISOString()}. Zmluva vyradená zo spracovania papierových zmluv.`,
         });
         await logLifecycleStatusChange(cid, contract.statusId, 0, appUser?.id || null);
       }
