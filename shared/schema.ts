@@ -830,6 +830,8 @@ export const contracts = pgTable("contracts", {
   isStamped: boolean("is_stamped").default(false),
   receivedByPartnerAt: timestamp("received_by_partner_at"),
   sentToPartnerAt: timestamp("sent_to_partner_at"),
+  ocrDataAssigned: boolean("ocr_data_assigned").default(false),
+  scansUploaded: boolean("scans_uploaded").default(false),
   incompleteData: boolean("incomplete_data").default(false),
   incompleteDataReason: text("incomplete_data_reason"),
   importedAt: timestamp("imported_at"),

@@ -3567,6 +3567,134 @@ export async function registerRoutes(
     }
   });
 
+  app.post("/api/contracts/assign-ocr-data", isAuthenticated, async (req: any, res) => {
+    try {
+      const { contractIds } = req.body;
+      if (!Array.isArray(contractIds) || contractIds.length === 0) {
+        return res.status(400).json({ message: "Žiadne kontrakty" });
+      }
+      const appUser = req.appUser;
+      const now = new Date();
+      const results: any[] = [];
+
+      for (const cid of contractIds) {
+        const [contract] = await db.select().from(contracts).where(and(eq(contracts.id, Number(cid)), eq(contracts.lifecyclePhase, 6)));
+        if (!contract) continue;
+
+        const alreadyHasScans = contract.scansUploaded === true;
+        const shouldAutoMove = alreadyHasScans;
+
+        const updateData: Record<string, any> = {
+          ocrDataAssigned: true,
+          updatedAt: now,
+        };
+
+        if (shouldAutoMove) {
+          updateData.lifecyclePhase = 8;
+        }
+
+        const [updated] = await db.update(contracts).set(updateData).where(eq(contracts.id, Number(cid))).returning();
+
+        if (shouldAutoMove) {
+          await db.insert(contractLifecycleHistory).values({
+            contractId: Number(cid),
+            phase: 8,
+            phaseName: LIFECYCLE_PHASES[8] || "SPRACOVANIE KONTRAKTOV",
+            changedByUserId: appUser?.id || null,
+            note: "Automatický presun - OCR dáta aj skeny priradené",
+          });
+        }
+
+        results.push({ id: cid, ocrDataAssigned: true, scansUploaded: alreadyHasScans, movedToPhase8: shouldAutoMove });
+      }
+
+      res.json({ updated: results.length, results });
+    } catch (err: any) {
+      console.error("Assign OCR data error:", err);
+      res.status(500).json({ message: err?.message || "Internal error" });
+    }
+  });
+
+  app.post("/api/contracts/assign-scans", isAuthenticated, async (req: any, res) => {
+    try {
+      const { contractIds } = req.body;
+      if (!Array.isArray(contractIds) || contractIds.length === 0) {
+        return res.status(400).json({ message: "Žiadne kontrakty" });
+      }
+      const appUser = req.appUser;
+      const now = new Date();
+      const results: any[] = [];
+
+      for (const cid of contractIds) {
+        const [contract] = await db.select().from(contracts).where(and(eq(contracts.id, Number(cid)), eq(contracts.lifecyclePhase, 6)));
+        if (!contract) continue;
+
+        const alreadyHasOcr = contract.ocrDataAssigned === true;
+        const shouldAutoMove = alreadyHasOcr;
+
+        const updateData: Record<string, any> = {
+          scansUploaded: true,
+          updatedAt: now,
+        };
+
+        if (shouldAutoMove) {
+          updateData.lifecyclePhase = 8;
+        }
+
+        const [updated] = await db.update(contracts).set(updateData).where(eq(contracts.id, Number(cid))).returning();
+
+        if (shouldAutoMove) {
+          await db.insert(contractLifecycleHistory).values({
+            contractId: Number(cid),
+            phase: 8,
+            phaseName: LIFECYCLE_PHASES[8] || "SPRACOVANIE KONTRAKTOV",
+            changedByUserId: appUser?.id || null,
+            note: "Automatický presun - OCR dáta aj skeny priradené",
+          });
+        }
+
+        results.push({ id: cid, ocrDataAssigned: alreadyHasOcr, scansUploaded: true, movedToPhase8: shouldAutoMove });
+      }
+
+      res.json({ updated: results.length, results });
+    } catch (err: any) {
+      console.error("Assign scans error:", err);
+      res.status(500).json({ message: err?.message || "Internal error" });
+    }
+  });
+
+  app.post("/api/contracts/manual-complete-phase6", isAuthenticated, async (req: any, res) => {
+    try {
+      const { contractId } = req.body;
+      if (!contractId) return res.status(400).json({ message: "Chýba ID kontraktu" });
+      const appUser = req.appUser;
+      const now = new Date();
+
+      const [contract] = await db.select().from(contracts).where(and(eq(contracts.id, Number(contractId)), eq(contracts.lifecyclePhase, 6)));
+      if (!contract) return res.status(404).json({ message: "Kontrakt nenájdený vo fáze 6" });
+
+      const [updated] = await db.update(contracts).set({
+        ocrDataAssigned: true,
+        scansUploaded: true,
+        lifecyclePhase: 8,
+        updatedAt: now,
+      }).where(eq(contracts.id, Number(contractId))).returning();
+
+      await db.insert(contractLifecycleHistory).values({
+        contractId: Number(contractId),
+        phase: 8,
+        phaseName: LIFECYCLE_PHASES[8] || "SPRACOVANIE KONTRAKTOV",
+        changedByUserId: appUser?.id || null,
+        note: "Manuálne dokončenie - presun do spracovania",
+      });
+
+      res.json({ success: true, contract: updated });
+    } catch (err: any) {
+      console.error("Manual complete phase6 error:", err);
+      res.status(500).json({ message: err?.message || "Internal error" });
+    }
+  });
+
   app.post("/api/contracts/create-processing-supiska", isAuthenticated, async (req: any, res) => {
     try {
       const { contractIds } = req.body;

@@ -11,7 +11,7 @@ import type { SmartColumnDef } from "@/hooks/use-smart-filter";
 import { SmartFilterBar } from "@/components/smart-filter-bar";
 import { useLocation } from "wouter";
 import type { Contract, ContractStatus, ContractTemplate, ContractInventory, Subject, Partner, Product, MyCompany, Sector, Section, SectorProduct, ClientGroup, ClientType, AppUser, ContractAcquirer } from "@shared/schema";
-import { Plus, Pencil, Trash2, Eye, FileText, Loader2, Lock, LayoutGrid, Send, Upload, Inbox, CheckCircle2, ChevronDown, ChevronRight, Printer, Search, Archive, AlertTriangle, Calendar, XCircle, MessageSquare, Paperclip, X, Users, Check, Award, Percent, History, ListChecks, ArrowRight, ArrowUpRight, ArrowUp, Clock, Ghost, Ban, HelpCircle } from "lucide-react";
+import { Plus, Pencil, Trash2, Eye, FileText, Loader2, Lock, LayoutGrid, Send, Upload, Inbox, CheckCircle2, ChevronDown, ChevronRight, Printer, Search, Archive, AlertTriangle, Calendar, XCircle, MessageSquare, Paperclip, X, Users, Check, Award, Percent, History, ListChecks, ArrowRight, ArrowUpRight, ArrowUp, Clock, Ghost, Ban, HelpCircle, ScanLine } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ActivityTimeline } from "@/components/activity-timeline";
 import { cn } from "@/lib/utils";
@@ -2626,6 +2626,52 @@ export default function Contracts() {
     onError: () => toast({ title: "Chyba", description: "Nepodarilo sa vytvoriť súpisku", variant: "destructive" }),
   });
 
+  const assignOcrDataMutation = useMutation({
+    mutationFn: async (contractIds: number[]) => {
+      const res = await apiRequest("POST", "/api/contracts/assign-ocr-data", { contractIds });
+      return res.json();
+    },
+    onSuccess: (data: any) => {
+      invalidateContractCaches();
+      queryClient.invalidateQueries({ queryKey: ["/api/contracts/by-phase", 6] });
+      queryClient.invalidateQueries({ queryKey: ["/api/contracts/by-phase", 8] });
+      const moved = data.results?.filter((r: any) => r.movedToPhase8).length || 0;
+      toast({ title: "Dátová linka priradená", description: `Priradené OCR dáta k ${data.updated} kontraktom${moved > 0 ? `. ${moved} presunutých do SPRACOVANIE` : ""}` });
+      setRerouteSelectedIds([]);
+    },
+    onError: () => toast({ title: "Chyba", description: "Nepodarilo sa priradiť OCR dáta", variant: "destructive" }),
+  });
+
+  const assignScansMutation = useMutation({
+    mutationFn: async (contractIds: number[]) => {
+      const res = await apiRequest("POST", "/api/contracts/assign-scans", { contractIds });
+      return res.json();
+    },
+    onSuccess: (data: any) => {
+      invalidateContractCaches();
+      queryClient.invalidateQueries({ queryKey: ["/api/contracts/by-phase", 6] });
+      queryClient.invalidateQueries({ queryKey: ["/api/contracts/by-phase", 8] });
+      const moved = data.results?.filter((r: any) => r.movedToPhase8).length || 0;
+      toast({ title: "Skeny priradené", description: `Priradené skeny k ${data.updated} kontraktom${moved > 0 ? `. ${moved} presunutých do SPRACOVANIE` : ""}` });
+      setRerouteSelectedIds([]);
+    },
+    onError: () => toast({ title: "Chyba", description: "Nepodarilo sa priradiť skeny", variant: "destructive" }),
+  });
+
+  const manualCompletePhase6Mutation = useMutation({
+    mutationFn: async (contractId: number) => {
+      const res = await apiRequest("POST", "/api/contracts/manual-complete-phase6", { contractId });
+      return res.json();
+    },
+    onSuccess: () => {
+      invalidateContractCaches();
+      queryClient.invalidateQueries({ queryKey: ["/api/contracts/by-phase", 6] });
+      queryClient.invalidateQueries({ queryKey: ["/api/contracts/by-phase", 8] });
+      toast({ title: "Manuálne dokončené", description: "Kontrakt presunutý do SPRACOVANIE KONTRAKTOV" });
+    },
+    onError: () => toast({ title: "Chyba", description: "Nepodarilo sa dokončiť manuálne", variant: "destructive" }),
+  });
+
   const moveToPhase9Mutation = useMutation({
     mutationFn: async (supiskaId: number) => {
       const res = await apiRequest("POST", `/api/supisky/${supiskaId}/move-to-phase9`);
@@ -2910,7 +2956,7 @@ export default function Contracts() {
     { id: 3, label: "Neprijaté zmluvy – výhrady", icon: XCircle, color: "text-red-500", bgColor: "bg-red-500/15", count: activeRejected.length, tooltip: "Zmluvy, ktoré boli vrátené s výhradami od obchodného partnera alebo centrály. Vyžadujú opravu a opätovné odoslanie." },
     { id: 4, label: "Archív zmlúv (s výhradami)", icon: Archive, color: "text-zinc-400", bgColor: "bg-zinc-400/15", count: activeArchived.length, tooltip: "Archivované zmluvy s výhradami, ktoré neboli opravené alebo boli trvalo zamietnuté." },
     { id: 7, label: "Interné intervencie", icon: AlertTriangle, color: "text-orange-500", bgColor: "bg-orange-500/15", count: phase7Contracts.length, tooltip: "Zmluvy vyžadujúce interný zásah — napr. chýbajúce dokumenty, nezrovnalosti v údajoch alebo eskalácia." },
-    { id: 10, label: "Potvrdiť prijatie obch. partnerom", icon: Award, color: "text-red-500", bgColor: "bg-red-500/15", count: phase10Supisky.length, tooltip: "Sprievodky odoslané obchodnému partnerovi — čakajú na potvrdenie prijatia." },
+    { id: 10, label: "🏆 Potvrdiť prijatie obch. partnerom", icon: Award, color: "text-yellow-500", bgColor: "bg-yellow-500/15", count: phase10Supisky.length, tooltip: "Sprievodky odoslané obchodnému partnerovi — čakajú na potvrdenie prijatia." },
   ];
 
   const row2FolderDefs: FolderDef[] = [
@@ -4152,6 +4198,19 @@ export default function Contracts() {
                         </Button>
                       </div>
                     )}
+                    {phaseId === 6 && rerouteSelectedIds.length > 0 && activeFolder === 6 && (
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="text-xs text-muted-foreground">Vybraných: <span className="font-bold text-foreground">{rerouteSelectedIds.length}</span></span>
+                        <Button size="sm" className="bg-cyan-600 hover:bg-cyan-700 text-white" onClick={() => assignOcrDataMutation.mutate(rerouteSelectedIds)} disabled={assignOcrDataMutation.isPending} data-testid="button-assign-ocr">
+                          {assignOcrDataMutation.isPending ? <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" /> : <ScanLine className="w-3.5 h-3.5 mr-1.5" />}
+                          Priradiť ku skenom — dátová linka
+                        </Button>
+                        <Button size="sm" className="bg-purple-600 hover:bg-purple-700 text-white" onClick={() => assignScansMutation.mutate(rerouteSelectedIds)} disabled={assignScansMutation.isPending} data-testid="button-assign-scans">
+                          {assignScansMutation.isPending ? <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" /> : <Upload className="w-3.5 h-3.5 mr-1.5" />}
+                          Manuálne nahrať skeny
+                        </Button>
+                      </div>
+                    )}
                     {phaseId === 7 && rerouteSelectedIds.length > 0 && activeFolder === 7 && (
                       <div className="flex items-center gap-2">
                         <span className="text-xs text-muted-foreground">Vybraných: <span className="font-bold text-foreground">{rerouteSelectedIds.length}</span></span>
@@ -4195,7 +4254,70 @@ export default function Contracts() {
                                   </div>
                                   <div style={{ display: isGroupExpanded ? 'block' : 'none' }}>
                                     <div className="border-t">
-                                      {renderContractTable(groupContracts, { showStatus: true, showRegistration: true, showActions: true })}
+                                      <table className="w-full text-xs">
+                                        <thead>
+                                          <tr className="border-b bg-muted/30">
+                                            <th className="p-2 w-8">
+                                              <Checkbox
+                                                checked={groupContracts.every(c => rerouteSelectedIds.includes(c.id)) && groupContracts.length > 0}
+                                                onCheckedChange={() => {
+                                                  const allSelected = groupContracts.every(c => rerouteSelectedIds.includes(c.id));
+                                                  if (allSelected) {
+                                                    setRerouteSelectedIds(prev => prev.filter(id => !groupContracts.find(c => c.id === id)));
+                                                  } else {
+                                                    setRerouteSelectedIds(prev => [...new Set([...prev, ...groupContracts.map(c => c.id)])]);
+                                                  }
+                                                }}
+                                                data-testid={`checkbox-group-select-all-${groupName.replace(/\s/g, '-')}`}
+                                              />
+                                            </th>
+                                            <th className="p-2 text-left font-medium text-muted-foreground">Č. zmluvy</th>
+                                            <th className="p-2 text-left font-medium text-muted-foreground">Klient</th>
+                                            <th className="p-2 text-left font-medium text-muted-foreground">Stav</th>
+                                            <th className="p-2 text-center font-medium text-muted-foreground">OCR</th>
+                                            <th className="p-2 text-center font-medium text-muted-foreground">Skeny</th>
+                                            <th className="p-2 text-right font-medium text-muted-foreground">Akcie</th>
+                                          </tr>
+                                        </thead>
+                                        <tbody>
+                                          {groupContracts.map(contract => {
+                                            const hasOcr = (contract as any).ocrDataAssigned === true;
+                                            const hasScans = (contract as any).scansUploaded === true;
+                                            const isPartial = hasOcr || hasScans;
+                                            const rowBg = isPartial ? "bg-orange-500/10" : "";
+                                            const clientName = contract.klientUid || "—";
+                                            return (
+                                              <tr key={contract.id} className={`border-b hover:bg-muted/20 ${rowBg}`} data-testid={`row-phase6-contract-${contract.id}`}>
+                                                <td className="p-2">
+                                                  <Checkbox
+                                                    checked={rerouteSelectedIds.includes(contract.id)}
+                                                    onCheckedChange={() => toggleRerouteSelect(contract.id)}
+                                                    data-testid={`checkbox-phase6-${contract.id}`}
+                                                  />
+                                                </td>
+                                                <td className="p-2 font-mono">{contract.contractNumber || contract.proposalNumber || `#${contract.id}`}</td>
+                                                <td className="p-2">{clientName}</td>
+                                                <td className="p-2">
+                                                  {contract.statusId ? <Badge variant="outline" className="text-xs">Stav {contract.statusId}</Badge> : <span className="text-muted-foreground">—</span>}
+                                                </td>
+                                                <td className="p-2 text-center">
+                                                  {hasOcr ? <Check className="w-4 h-4 text-green-500 inline" /> : <span className="text-muted-foreground">—</span>}
+                                                </td>
+                                                <td className="p-2 text-center">
+                                                  {hasScans ? <Check className="w-4 h-4 text-green-500 inline" /> : <span className="text-muted-foreground">—</span>}
+                                                </td>
+                                                <td className="p-2 text-right">
+                                                  {!hasOcr && !hasScans && (
+                                                    <Button size="sm" variant="ghost" className="h-6 text-xs px-2" onClick={() => manualCompletePhase6Mutation.mutate(contract.id)} disabled={manualCompletePhase6Mutation.isPending} data-testid={`button-manual-complete-${contract.id}`}>
+                                                      <Upload className="w-3 h-3 mr-1" />Manuálne nahrať
+                                                    </Button>
+                                                  )}
+                                                </td>
+                                              </tr>
+                                            );
+                                          })}
+                                        </tbody>
+                                      </table>
                                     </div>
                                   </div>
                                 </div>
