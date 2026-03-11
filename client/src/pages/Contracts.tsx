@@ -2979,8 +2979,8 @@ export default function Contracts() {
     );
   }
 
-  function renderContractTable(list: Contract[], options?: { showCheckbox?: boolean; showOrder?: boolean; showStatus?: boolean; showRegistration?: boolean; showActions?: boolean; showTimer?: boolean; showRerouteCheckbox?: boolean; checkboxOnly?: boolean; sortState?: { sortKey: string | null; sortDirection: "asc" | "desc" | null; requestSort: (key: string) => void } }) {
-    const { showCheckbox, showOrder, showStatus, showRegistration, showActions = true, showTimer, showRerouteCheckbox, checkboxOnly, sortState } = options || {};
+  function renderContractTable(list: Contract[], options?: { showCheckbox?: boolean; showOrder?: boolean; showStatus?: boolean; showRegistration?: boolean; showActions?: boolean; showTimer?: boolean; showRerouteCheckbox?: boolean; checkboxOnly?: boolean; hideContractNumbers?: boolean; sortState?: { sortKey: string | null; sortDirection: "asc" | "desc" | null; requestSort: (key: string) => void } }) {
+    const { showCheckbox, showOrder, showStatus, showRegistration, showActions = true, showTimer, showRerouteCheckbox, checkboxOnly, hideContractNumbers, sortState } = options || {};
     const sk = sortState?.sortKey ?? null;
     const sd = sortState?.sortDirection ?? null;
     const rs = sortState?.requestSort;
@@ -3008,11 +3008,11 @@ export default function Contracts() {
               </TableHead>
             )}
             {showOrder && <TableHead className="w-[40px] text-center">#</TableHead>}
-            <TableHead sortKey="contractNumber" sortDirection={sk === "contractNumber" ? sd : null} onSort={rs}>Číslo kontraktu</TableHead>
+            {!hideContractNumbers && <TableHead sortKey="contractNumber" sortDirection={sk === "contractNumber" ? sd : null} onSort={rs}>Číslo kontraktu</TableHead>}
             <TableHead sortKey="partnerId" sortDirection={sk === "partnerId" ? sd : null} onSort={rs}>Partner</TableHead>
             <TableHead sortKey="productId" sortDirection={sk === "productId" ? sd : null} onSort={rs}>Produkt</TableHead>
             <TableHead sortKey="proposalNumber" sortDirection={sk === "proposalNumber" ? sd : null} onSort={rs}>Číslo návrhu zmluvy</TableHead>
-            <TableHead>Číslo zmluvy</TableHead>
+            {!hideContractNumbers && <TableHead>Číslo zmluvy</TableHead>}
             <TableHead>Typ subjektu</TableHead>
             <TableHead sortKey="subjectId" sortDirection={sk === "subjectId" ? sd : null} onSort={rs}>Subjekt</TableHead>
             {showTimer && <TableHead>Zostáva dní</TableHead>}
@@ -3049,19 +3049,21 @@ export default function Contracts() {
                     {selectedIds.includes(contract.id) ? selectedIds.indexOf(contract.id) + 1 : ""}
                   </TableCell>
                 )}
-                <TableCell className="font-mono text-sm font-bold text-blue-500 py-1" data-testid={`text-contract-number-${contract.id}`}>
-                  <span className="flex items-center gap-1">
-                    <Lock className="w-3 h-3 text-amber-500 shrink-0" style={{ display: contract.isLocked ? 'block' : 'none' }} />
-                    {contract.contractNumber || "—"}
-                    {(contract as any).isFirstContract && (
-                      <span className="inline-flex items-center px-1.5 py-0.5 rounded border border-red-500/40 text-red-400 text-[10px] font-semibold whitespace-nowrap" data-testid={`badge-first-contract-${contract.id}`}>1. ZMLUVA</span>
-                    )}
-                  </span>
-                </TableCell>
+                {!hideContractNumbers && (
+                  <TableCell className="font-mono text-sm font-bold text-blue-500 py-1" data-testid={`text-contract-number-${contract.id}`}>
+                    <span className="flex items-center gap-1">
+                      <Lock className="w-3 h-3 text-amber-500 shrink-0" style={{ display: contract.isLocked ? 'block' : 'none' }} />
+                      {contract.contractNumber || "—"}
+                      {(contract as any).isFirstContract && (
+                        <span className="inline-flex items-center px-1.5 py-0.5 rounded border border-red-500/40 text-red-400 text-[10px] font-semibold whitespace-nowrap" data-testid={`badge-first-contract-${contract.id}`}>1. ZMLUVA</span>
+                      )}
+                    </span>
+                  </TableCell>
+                )}
                 <TableCell className="text-sm py-1">{getPartnerName(contract)}</TableCell>
                 <TableCell className="text-sm py-1">{getProductName(contract)}</TableCell>
                 <TableCell className="text-sm font-mono py-1" data-testid={`text-contract-proposal-${contract.id}`}>{contract.proposalNumber || "—"}</TableCell>
-                <TableCell className="text-sm font-mono py-1" data-testid={`text-contract-insurancenumber-${contract.id}`}>{contract.insuranceContractNumber || "—"}</TableCell>
+                {!hideContractNumbers && <TableCell className="text-sm font-mono py-1" data-testid={`text-contract-insurancenumber-${contract.id}`}>{contract.insuranceContractNumber || "—"}</TableCell>}
                 <TableCell className="text-sm py-1">
                   <Badge variant="outline" className={`text-[10px] ${subjectType === "FO" ? "border-blue-500/50 text-blue-400" : subjectType === "SZČO" ? "border-amber-500/50 text-amber-400" : subjectType === "PO" ? "border-purple-500/50 text-purple-400" : "border-muted text-muted-foreground"}`}>{subjectType}</Badge>
                 </TableCell>
@@ -3884,7 +3886,7 @@ export default function Contracts() {
                 <p className="text-sm text-muted-foreground text-center py-8" data-testid="text-no-nahravanie">Ziadne zmluvy na nahravanie</p>
               ) : (
                 <>
-                  {renderContractTable(sortedNahravanie, { showCheckbox: true, showOrder: true, checkboxOnly: true, sortState: { sortKey: skNahr, sortDirection: sdNahr, requestSort: rsNahr } })}
+                  {renderContractTable(sortedNahravanie, { showCheckbox: true, showOrder: true, checkboxOnly: true, hideContractNumbers: true, sortState: { sortKey: skNahr, sortDirection: sdNahr, requestSort: rsNahr } })}
                   {hasMoreContracts && (
                     <div className="flex items-center justify-center py-4 border-t">
                       <Button variant="outline" size="sm" onClick={loadMoreContracts} disabled={isLoadingMore} data-testid="button-load-more">
