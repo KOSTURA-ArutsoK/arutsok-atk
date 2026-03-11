@@ -3008,23 +3008,21 @@ export default function Contracts() {
               </TableHead>
             )}
             {showOrder && <TableHead className="w-[40px] text-center">#</TableHead>}
-            {evidenciaColumnVisibility.isVisible("contractNumber") && <TableHead sortKey="contractNumber" sortDirection={sk === "contractNumber" ? sd : null} onSort={rs}>Cislo zmluvy</TableHead>}
-            {showStatus && evidenciaColumnVisibility.isVisible("status") && <TableHead style={{ minWidth: 140 }}>Stav</TableHead>}
+            <TableHead sortKey="contractNumber" sortDirection={sk === "contractNumber" ? sd : null} onSort={rs}>Číslo kontraktu</TableHead>
+            <TableHead sortKey="partnerId" sortDirection={sk === "partnerId" ? sd : null} onSort={rs}>Partner</TableHead>
+            <TableHead sortKey="productId" sortDirection={sk === "productId" ? sd : null} onSort={rs}>Produkt</TableHead>
+            <TableHead sortKey="proposalNumber" sortDirection={sk === "proposalNumber" ? sd : null} onSort={rs}>Číslo návrhu zmluvy</TableHead>
+            <TableHead>Typ subjektu</TableHead>
+            <TableHead sortKey="subjectId" sortDirection={sk === "subjectId" ? sd : null} onSort={rs}>Subjekt</TableHead>
             {showTimer && <TableHead>Zostáva dní</TableHead>}
-            {evidenciaColumnVisibility.isVisible("proposalNumber") && <TableHead sortKey="proposalNumber" sortDirection={sk === "proposalNumber" ? sd : null} onSort={rs}>Cislo navrhu</TableHead>}
-            {showRegistration && evidenciaColumnVisibility.isVisible("globalNumber") && <TableHead sortKey="globalNumber" sortDirection={sk === "globalNumber" ? sd : null} onSort={rs}>Poradove cislo</TableHead>}
-            {evidenciaColumnVisibility.isVisible("partnerId") && <TableHead sortKey="partnerId" sortDirection={sk === "partnerId" ? sd : null} onSort={rs}>Partner</TableHead>}
-            {evidenciaColumnVisibility.isVisible("subjectId") && <TableHead sortKey="subjectId" sortDirection={sk === "subjectId" ? sd : null} onSort={rs}>Klient</TableHead>}
-            {evidenciaColumnVisibility.isVisible("productId") && <TableHead sortKey="productId" sortDirection={sk === "productId" ? sd : null} onSort={rs}>Produkt</TableHead>}
-            {evidenciaColumnVisibility.isVisible("annualPremium") && <TableHead sortKey="annualPremium" sortDirection={sk === "annualPremium" ? sd : null} onSort={rs}>Rocne poistne</TableHead>}
-            {evidenciaColumnVisibility.isVisible("signedDate") && <TableHead sortKey="signedDate" sortDirection={sk === "signedDate" ? sd : null} onSort={rs}>Vytvorenie zmluvy</TableHead>}
-            {evidenciaColumnVisibility.isVisible("premiumAmount") && <TableHead sortKey="premiumAmount" sortDirection={sk === "premiumAmount" ? sd : null} onSort={rs}>Lehotne poistne</TableHead>}
             {showActions && <TableHead className="text-right">Akcie</TableHead>}
           </TableRow>
         </TableHeader>
         <TableBody>
           {list.map(contract => {
-            const status = statuses?.find(s => s.id === contract.statusId);
+            const sub = subjects?.find(s => s.id === contract.subjectId);
+            const subjectType = sub?.type === "person" ? "FO" : sub?.type === "szco" ? "SZČO" : sub?.type === "company" ? "PO" : "—";
+            const subjectFullName = sub ? [sub.titleBefore, sub.firstName, sub.lastName, sub.titleAfter].filter(Boolean).join(" ") || sub.companyName || "—" : "—";
             return (
               <TableRow key={contract.id} data-testid={`row-evidencia-${contract.id}`} onRowClick={() => { if (checkboxOnly && showRerouteCheckbox) { toggleRerouteSelect(contract.id); } else if (checkboxOnly && showCheckbox) { toggleSelect(contract.id); } else if (!checkboxOnly) { openEdit(contract); } }}>
                 {showCheckbox && (
@@ -3050,29 +3048,22 @@ export default function Contracts() {
                     {selectedIds.includes(contract.id) ? selectedIds.indexOf(contract.id) + 1 : ""}
                   </TableCell>
                 )}
-                {evidenciaColumnVisibility.isVisible("contractNumber") && <TableCell className="font-mono text-sm font-bold text-blue-500 py-1" data-testid={`text-contract-number-${contract.id}`}>
+                <TableCell className="font-mono text-sm font-bold text-blue-500 py-1" data-testid={`text-contract-number-${contract.id}`}>
                   <span className="flex items-center gap-1">
                     <Lock className="w-3 h-3 text-amber-500 shrink-0" style={{ display: contract.isLocked ? 'block' : 'none' }} />
-                    {contract.contractNumber || "-"}
+                    {contract.contractNumber || "—"}
                     {(contract as any).isFirstContract && (
                       <span className="inline-flex items-center px-1.5 py-0.5 rounded border border-red-500/40 text-red-400 text-[10px] font-semibold whitespace-nowrap" data-testid={`badge-first-contract-${contract.id}`}>1. ZMLUVA</span>
                     )}
                   </span>
-                </TableCell>}
-                {showStatus && evidenciaColumnVisibility.isVisible("status") && (
-                  <TableCell className="py-1" data-testid={`text-contract-status-${contract.id}`} style={{ minWidth: 140 }}>
-                    <div className="flex items-center justify-center gap-1.5">
-                      {status ? (
-                        <span
-                          className="inline-flex items-center justify-center px-2.5 py-0.5 rounded-md border text-[11px] font-medium leading-tight text-center whitespace-normal"
-                          style={{ borderColor: getSmartStatusColor(status.color, contract.expiryDate), color: getSmartStatusColor(status.color, contract.expiryDate), backgroundColor: `${getSmartStatusColor(status.color, contract.expiryDate)}15`, wordBreak: 'normal', overflowWrap: 'break-word' }}
-                        >{status.name}</span>
-                      ) : "-"}
-                      <MessageSquare className="w-3.5 h-3.5 text-blue-400 shrink-0" data-testid={`icon-note-${contract.id}`} style={{ display: statusChangeMeta?.[contract.id]?.hasNote ? 'block' : 'none' }} />
-                      <Paperclip className="w-3.5 h-3.5 text-amber-400 shrink-0" data-testid={`icon-docs-${contract.id}`} style={{ display: statusChangeMeta?.[contract.id]?.hasDocs ? 'block' : 'none' }} />
-                    </div>
-                  </TableCell>
-                )}
+                </TableCell>
+                <TableCell className="text-sm py-1">{getPartnerName(contract)}</TableCell>
+                <TableCell className="text-sm py-1">{getProductName(contract)}</TableCell>
+                <TableCell className="text-sm font-mono py-1" data-testid={`text-contract-proposal-${contract.id}`}>{contract.proposalNumber || "—"}</TableCell>
+                <TableCell className="text-sm py-1">
+                  <Badge variant="outline" className={`text-[10px] ${subjectType === "FO" ? "border-blue-500/50 text-blue-400" : subjectType === "SZČO" ? "border-amber-500/50 text-amber-400" : subjectType === "PO" ? "border-purple-500/50 text-purple-400" : "border-muted text-muted-foreground"}`}>{subjectType}</Badge>
+                </TableCell>
+                <TableCell className="text-sm py-1" data-testid={`text-subject-name-${contract.id}`}>{subjectFullName}</TableCell>
                 {showTimer && <TableCell className="py-1" data-testid={`text-contract-timer-${contract.id}`}>
                   {(() => {
                     const c = contract as any;
@@ -3090,22 +3081,6 @@ export default function Contracts() {
                     );
                   })()}
                 </TableCell>}
-                {evidenciaColumnVisibility.isVisible("proposalNumber") && <TableCell className="text-sm font-mono py-1" data-testid={`text-contract-proposal-${contract.id}`}>{contract.proposalNumber || "-"}</TableCell>}
-                {showRegistration && evidenciaColumnVisibility.isVisible("globalNumber") && (
-                  <TableCell className="font-mono text-sm py-1" data-testid={`text-contract-registration-${contract.id}`}>
-                    {contract.globalNumber ? (
-                      <span className="font-semibold">{contract.globalNumber}</span>
-                    ) : (
-                      <Badge variant="outline" className="text-xs text-amber-500 border-amber-500/50">V procese</Badge>
-                    )}
-                  </TableCell>
-                )}
-                {evidenciaColumnVisibility.isVisible("partnerId") && <TableCell className="text-sm py-1">{getPartnerName(contract)}</TableCell>}
-                {evidenciaColumnVisibility.isVisible("subjectId") && <TableCell className="text-sm py-1">{getSubjectDisplay(contract.subjectId)}</TableCell>}
-                {evidenciaColumnVisibility.isVisible("productId") && <TableCell className="text-sm py-1">{getProductName(contract)}</TableCell>}
-                {evidenciaColumnVisibility.isVisible("annualPremium") && <TableCell className="text-sm font-mono py-1">{formatAmount(contract.annualPremium, contract.currency)}</TableCell>}
-                {evidenciaColumnVisibility.isVisible("signedDate") && <TableCell className="text-sm py-1">{formatDate(contract.signedDate)}</TableCell>}
-                {evidenciaColumnVisibility.isVisible("premiumAmount") && <TableCell className="text-sm font-mono py-1">{formatAmount(contract.premiumAmount, contract.currency)}</TableCell>}
                 {showActions && (
                   <TableCell className="text-right py-1">
                     <div className="flex items-center justify-end gap-0.5 flex-nowrap">
@@ -4283,9 +4258,12 @@ export default function Contracts() {
                                                 data-testid={`checkbox-group-select-all-${groupName.replace(/\s/g, '-')}`}
                                               />
                                             </th>
-                                            <th className="p-2 text-left font-medium text-muted-foreground">Č. zmluvy</th>
-                                            <th className="p-2 text-left font-medium text-muted-foreground">Klient</th>
-                                            <th className="p-2 text-left font-medium text-muted-foreground">Stav</th>
+                                            <th className="p-2 text-left font-medium text-muted-foreground">Číslo kontraktu</th>
+                                            <th className="p-2 text-left font-medium text-muted-foreground">Partner</th>
+                                            <th className="p-2 text-left font-medium text-muted-foreground">Produkt</th>
+                                            <th className="p-2 text-left font-medium text-muted-foreground">Číslo návrhu zmluvy</th>
+                                            <th className="p-2 text-left font-medium text-muted-foreground">Typ subjektu</th>
+                                            <th className="p-2 text-left font-medium text-muted-foreground">Subjekt</th>
                                             <th className="p-2 text-center font-medium text-muted-foreground">OCR</th>
                                             <th className="p-2 text-center font-medium text-muted-foreground">Skeny</th>
                                             <th className="p-2 text-right font-medium text-muted-foreground">Akcie</th>
@@ -4297,7 +4275,9 @@ export default function Contracts() {
                                             const hasScans = (contract as any).scansUploaded === true;
                                             const isPartial = hasOcr || hasScans;
                                             const rowBg = isPartial ? "bg-orange-500/10" : "";
-                                            const clientName = contract.klientUid || "—";
+                                            const sub6 = subjects?.find(s => s.id === contract.subjectId);
+                                            const subType6 = sub6?.type === "person" ? "FO" : sub6?.type === "szco" ? "SZČO" : sub6?.type === "company" ? "PO" : "—";
+                                            const subName6 = sub6 ? [sub6.titleBefore, sub6.firstName, sub6.lastName, sub6.titleAfter].filter(Boolean).join(" ") || sub6.companyName || "—" : "—";
                                             return (
                                               <tr key={contract.id} className={`border-b hover:bg-muted/20 ${rowBg}`} data-testid={`row-phase6-contract-${contract.id}`}>
                                                 <td className="p-2">
@@ -4307,11 +4287,14 @@ export default function Contracts() {
                                                     data-testid={`checkbox-phase6-${contract.id}`}
                                                   />
                                                 </td>
-                                                <td className="p-2 font-mono">{contract.contractNumber || contract.proposalNumber || `#${contract.id}`}</td>
-                                                <td className="p-2">{clientName}</td>
+                                                <td className="p-2 font-mono text-blue-500 font-bold">{contract.contractNumber || "—"}</td>
+                                                <td className="p-2">{getPartnerName(contract)}</td>
+                                                <td className="p-2">{getProductName(contract)}</td>
+                                                <td className="p-2 font-mono">{contract.proposalNumber || "—"}</td>
                                                 <td className="p-2">
-                                                  {contract.statusId ? <Badge variant="outline" className="text-xs">Stav {contract.statusId}</Badge> : <span className="text-muted-foreground">—</span>}
+                                                  <Badge variant="outline" className={`text-[10px] ${subType6 === "FO" ? "border-blue-500/50 text-blue-400" : subType6 === "SZČO" ? "border-amber-500/50 text-amber-400" : subType6 === "PO" ? "border-purple-500/50 text-purple-400" : "border-muted text-muted-foreground"}`}>{subType6}</Badge>
                                                 </td>
+                                                <td className="p-2">{subName6}</td>
                                                 <td className="p-2 text-center">
                                                   {hasOcr ? <Check className="w-4 h-4 text-green-500 inline" /> : <span className="text-muted-foreground">—</span>}
                                                 </td>
