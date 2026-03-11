@@ -362,7 +362,7 @@ export async function registerRoutes(
     5: "Prijaté do centrály",
     6: "Kontrakt v spracovaní",
     7: "Interné intervencie ku zmluve",
-    8: "SPRACOVANIE KONTRAKTOV",
+    8: "Manuálna kontrola kontraktov",
     9: "Odoslané obch. partnerovi",
     10: "Prijaté obch. partnerom",
   };
@@ -3535,7 +3535,7 @@ export async function registerRoutes(
 
       const [contract] = await db.select().from(contracts).where(and(...conditions));
       if (!contract) return res.status(404).json({ message: "Kontrakt nenájdený" });
-      if (contract.lifecyclePhase !== 8) return res.status(400).json({ message: "Kontrakt nie je vo fáze SPRACOVANIE KONTRAKTOV" });
+      if (contract.lifecyclePhase !== 8) return res.status(400).json({ message: "Kontrakt nie je vo fáze Manuálna kontrola kontraktov" });
 
       const [updated] = await db.update(contracts)
         .set({ lifecyclePhase: 7, updatedAt: now })
@@ -3547,7 +3547,7 @@ export async function registerRoutes(
         phase: 7,
         phaseName: LIFECYCLE_PHASES[7] || "Interné intervencie",
         changedByUserId: appUser?.id || null,
-        note: "Presun do interných intervencií zo SPRACOVANIE KONTRAKTOV",
+        note: "Presun do interných intervencií zo Manuálna kontrola kontraktov",
       });
       await logLifecycleStatusChange(contractId, contract.statusId, 7, appUser?.id || null);
 
@@ -3599,7 +3599,7 @@ export async function registerRoutes(
           await db.insert(contractLifecycleHistory).values({
             contractId: Number(cid),
             phase: 8,
-            phaseName: LIFECYCLE_PHASES[8] || "SPRACOVANIE KONTRAKTOV",
+            phaseName: LIFECYCLE_PHASES[8] || "Manuálna kontrola kontraktov",
             changedByUserId: appUser?.id || null,
             note: "Automatický presun - OCR dáta aj skeny priradené",
           });
@@ -3647,7 +3647,7 @@ export async function registerRoutes(
           await db.insert(contractLifecycleHistory).values({
             contractId: Number(cid),
             phase: 8,
-            phaseName: LIFECYCLE_PHASES[8] || "SPRACOVANIE KONTRAKTOV",
+            phaseName: LIFECYCLE_PHASES[8] || "Manuálna kontrola kontraktov",
             changedByUserId: appUser?.id || null,
             note: "Automatický presun - OCR dáta aj skeny priradené",
           });
@@ -3683,7 +3683,7 @@ export async function registerRoutes(
       await db.insert(contractLifecycleHistory).values({
         contractId: Number(contractId),
         phase: 8,
-        phaseName: LIFECYCLE_PHASES[8] || "SPRACOVANIE KONTRAKTOV",
+        phaseName: LIFECYCLE_PHASES[8] || "Manuálna kontrola kontraktov",
         changedByUserId: appUser?.id || null,
         note: "Manuálne dokončenie - presun do spracovania",
       });
@@ -3899,7 +3899,7 @@ export async function registerRoutes(
         phase: 8,
         phaseName: LIFECYCLE_PHASES[8] || "Pripravené na odoslanie",
         changedByUserId: appUser?.id || null,
-        note: `Vyradená zo súpisky "${supiska.name}" a vrátená do SPRACOVANIE KONTRAKTOV`,
+        note: `Vyradená zo súpisky "${supiska.name}" a vrátená do Manuálna kontrola kontraktov`,
       });
 
       await logAudit(req, {
