@@ -335,7 +335,7 @@ export async function registerRoutes(
     5: "Prijaté do centrály",
     6: "Kontrakt v spracovaní",
     7: "Interné intervencie ku zmluve",
-    8: "Pripravené na odoslanie",
+    8: "SPRACOVANIE KONTRAKTOV",
     9: "Odoslané obch. partnerovi",
     10: "Prijaté obch. partnerom",
   };
@@ -3648,7 +3648,7 @@ export async function registerRoutes(
         phase: 8,
         phaseName: LIFECYCLE_PHASES[8] || "Pripravené na odoslanie",
         changedByUserId: appUser?.id || null,
-        note: `Vyradená zo súpisky "${supiska.name}" a vrátená do Pripravené na odoslanie`,
+        note: `Vyradená zo súpisky "${supiska.name}" a vrátená do SPRACOVANIE KONTRAKTOV`,
       });
 
       await logAudit(req, {

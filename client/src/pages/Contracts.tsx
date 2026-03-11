@@ -2625,7 +2625,7 @@ export default function Contracts() {
       invalidateContractCaches();
       queryClient.invalidateQueries({ queryKey: ["/api/supisky/by-phase", 8] });
       queryClient.invalidateQueries({ queryKey: ["/api/supisky/by-phase", 9] });
-      toast({ title: "Zmluva vyradená", description: "Zmluva bola vrátená do Pripravené na odoslanie" });
+      toast({ title: "Zmluva vyradená", description: "Zmluva bola vrátená do SPRACOVANIE KONTRAKTOV" });
       setRemoveFromSupiskaConfirm(null);
     },
     onError: () => { toast({ title: "Chyba", description: "Nepodarilo sa vyradiť zmluvu zo súpisky", variant: "destructive" }); setRemoveFromSupiskaConfirm(null); },
@@ -2644,7 +2644,7 @@ export default function Contracts() {
   const REROUTE_CONFIG: Record<string, { targetPhase: number; targetLabel: string }> = {
     neprijate: { targetPhase: 2, targetLabel: "Odoslané na sprievodke (pôvodné ID)" },
     archiv: { targetPhase: 6, targetLabel: "Roztriedenie kontraktov" },
-    spracovanie: { targetPhase: 8, targetLabel: "Pripravené na odoslanie" },
+    spracovanie: { targetPhase: 8, targetLabel: "SPRACOVANIE KONTRAKTOV" },
     intervencia: { targetPhase: 6, targetLabel: "Roztriedenie kontraktov" },
     dokoncit: { targetPhase: 0, targetLabel: "Dokončené – vypadnutie zo spracovania" },
   };
@@ -2886,7 +2886,7 @@ export default function Contracts() {
     { id: 2, label: "Odoslať sprievodku do centrály", icon: Send, color: "text-blue-500", bgColor: "bg-blue-500/15", count: activeDispatched.length, tooltip: "Zmluvy zaradené do sprievodky a odoslané do centrály spoločnosti na spracovanie." },
     { id: 5, label: "Odoslané sprievodky a prijatie do centrály", icon: CheckCircle2, color: "text-green-500", bgColor: "bg-green-500/15", count: activeAccepted.length, tooltip: "Zmluvy prijaté centrálou partnera. Čakajú na spracovanie a evidenciu v systéme partnera." },
     { id: 6, label: "Roztriedenie kontraktov", icon: LayoutGrid, color: "text-cyan-500", bgColor: "bg-cyan-500/15", count: phase6Contracts.length, tooltip: "Zmluvy aktívne spracovávané centrálou — kontrola údajov, validácia dokumentov a evidencia." },
-    { id: 8, label: "Pripravené na odoslanie", icon: ListChecks, color: "text-emerald-500", bgColor: "bg-emerald-500/15", count: phase8Contracts.length, tooltip: "Zmluvy kompletne spracované a pripravené na odoslanie späť obchodnému partnerovi." },
+    { id: 8, label: "SPRACOVANIE KONTRAKTOV", icon: ListChecks, color: "text-emerald-500", bgColor: "bg-emerald-500/15", count: phase8Contracts.length, tooltip: "Zmluvy kompletne spracované a pripravené na odoslanie späť obchodnému partnerovi." },
     { id: 9, label: "Odoslať obchodnému partnerovi", icon: Send, color: "text-indigo-500", bgColor: "bg-indigo-500/15", count: phase9Supisky.reduce((sum: number, s: any) => sum + (s.contracts?.length || 0), 0) || phase9Contracts.length, tooltip: "Zmluvy fyzicky odoslané obchodnému partnerovi. Čakajú na potvrdenie doručenia a prijatia." },
   ];
 
@@ -4459,7 +4459,7 @@ export default function Contracts() {
               <p className="text-sm text-muted-foreground">
                 Naozaj chcete vyradiť zmluvu <span className="font-bold text-foreground">{removeFromSupiskaConfirm?.contractNumber}</span> zo súpisky <span className="font-bold text-foreground">{removeFromSupiskaConfirm?.supName}</span>?
               </p>
-              <p className="text-sm text-amber-500">Zmluva bude vrátená do fázy „Pripravené na odoslanie".</p>
+              <p className="text-sm text-amber-500">Zmluva bude vrátená do fázy „SPRACOVANIE KONTRAKTOV".</p>
               <div className="flex items-center justify-end gap-3 flex-wrap">
                 <Button variant="outline" onClick={() => setRemoveFromSupiskaConfirm(null)} data-testid="button-remove-supiska-cancel">Zrušiť</Button>
                 <Button
