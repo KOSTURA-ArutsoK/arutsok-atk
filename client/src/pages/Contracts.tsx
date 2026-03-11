@@ -2914,7 +2914,10 @@ export default function Contracts() {
 
   function getProductName(contract: Contract) {
     const spMatch = allSectorProducts?.find(p => p.id === contract.sectorProductId);
-    return spMatch ? `${spMatch.name}${spMatch.abbreviation ? ` (${spMatch.abbreviation})` : ''}` : "-";
+    if (spMatch) return `${spMatch.name}${spMatch.abbreviation ? ` (${spMatch.abbreviation})` : ''}`;
+    const prodMatch = products?.find(p => p.id === contract.productId);
+    if (prodMatch) return prodMatch.name || "—";
+    return "—";
   }
 
   function getPartnerName(contract: Contract) {
