@@ -2420,7 +2420,6 @@ export default function Contracts() {
 
   function invalidateContractCaches() {
     setContractPages([]);
-    setContractsTotal(0);
     setContractsOffset(0);
     queryClient.invalidateQueries({ queryKey: ["/api/contracts"] });
     queryClient.invalidateQueries({ queryKey: ["/api/contracts/dispatched"] });
