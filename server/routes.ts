@@ -4368,8 +4368,11 @@ export async function registerRoutes(
       if (!Array.isArray(contractIds) || contractIds.length === 0) {
         return res.status(400).json({ message: "Ziadne zmluvy na odoslanie" });
       }
-      const inventory = await storage.getContractInventories();
-      const target = inventory.find(i => i.id === inventoryId);
+      const validContractIds = contractIds.map(Number).filter(id => Number.isInteger(id) && id > 0);
+      if (validContractIds.length === 0) {
+        return res.status(400).json({ message: "Neplatne ID zmluv" });
+      }
+      const target = await storage.getContractInventoryById(inventoryId);
       if (!target) {
         return res.status(404).json({ message: "Sprievodka nenajdena" });
       }
@@ -4379,24 +4382,19 @@ export async function registerRoutes(
         name: `Odovzdávací protokol - Sprievodka č. ${seqNum}`,
         isDispatched: true 
       } as any);
-      for (let i = 0; i < contractIds.length; i++) {
-        const updateData: any = { 
-          inventoryId, 
-          sortOrderInInventory: i + 1,
-          dispatchedAt: new Date(),
-        };
-        await storage.updateContract(Number(contractIds[i]), updateData);
-      }
+      const dispatchedAt = new Date();
+      await storage.bulkAssignContractsToInventory(inventoryId, validContractIds, dispatchedAt);
       await logAudit(req, {
         action: "CREATE",
         module: "sprievodka_dispatch",
         entityId: inventoryId,
         entityName: `Sprievodka c. ${seqNum}`,
-        newData: { contractIds, sequenceNumber: seqNum },
+        newData: { contractIds: validContractIds, sequenceNumber: seqNum },
       });
-      res.json({ success: true, dispatchedCount: contractIds.length, sequenceNumber: seqNum });
-    } catch (err) {
-      res.status(500).json({ message: "Internal error" });
+      res.json({ success: true, dispatchedCount: validContractIds.length, sequenceNumber: seqNum });
+    } catch (err: any) {
+      console.error("[DISPATCH ERROR]", err?.message || err, err?.stack);
+      res.status(500).json({ message: "Chyba pri odosielani zmluv" });
     }
   });
 
@@ -4408,8 +4406,7 @@ export async function registerRoutes(
       if (!Array.isArray(contractIds) || contractIds.length === 0) {
         return res.status(400).json({ message: "Ziadne zmluvy na prijatie" });
       }
-      const inventory = await storage.getContractInventories();
-      const target = inventory.find(i => i.id === inventoryId);
+      const target = await storage.getContractInventoryById(inventoryId);
       if (!target) {
         return res.status(404).json({ message: "Sprievodka nenajdena" });
       }

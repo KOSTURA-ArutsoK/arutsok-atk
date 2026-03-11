@@ -384,10 +384,12 @@ export interface IStorage {
 
   // Contract Inventories
   getContractInventories(stateId?: number): Promise<ContractInventory[]>;
+  getContractInventoryById(id: number): Promise<ContractInventory | undefined>;
   createContractInventory(data: InsertContractInventory): Promise<ContractInventory>;
   updateContractInventory(id: number, data: Partial<InsertContractInventory>): Promise<ContractInventory>;
   deleteContractInventory(id: number): Promise<void>;
   reorderContractInventories(items: { id: number; sortOrder: number }[]): Promise<void>;
+  bulkAssignContractsToInventory(inventoryId: number, contractIds: number[], dispatchedAt: Date): Promise<void>;
 
   // Contracts
   getContracts(filters?: { stateId?: number; statusId?: number; inventoryId?: number; templateId?: number; includeDeleted?: boolean; unprocessed?: boolean; dispatched?: boolean; companyId?: number; limit?: number; offset?: number }): Promise<Contract[]>;
@@ -2582,6 +2584,12 @@ export class DatabaseStorage implements IStorage {
     return await db.select().from(contractInventories).where(isNull(contractInventories.deletedAt)).orderBy(contractInventories.sortOrder);
   }
 
+  async getContractInventoryById(id: number): Promise<ContractInventory | undefined> {
+    const [inventory] = await db.select().from(contractInventories)
+      .where(and(eq(contractInventories.id, id), isNull(contractInventories.deletedAt)));
+    return inventory;
+  }
+
   async createContractInventory(data: InsertContractInventory): Promise<ContractInventory> {
     const [created] = await db.insert(contractInventories).values(data).returning();
     return created;
@@ -2599,6 +2607,29 @@ export class DatabaseStorage implements IStorage {
   async reorderContractInventories(items: { id: number; sortOrder: number }[]): Promise<void> {
     for (const item of items) {
       await db.update(contractInventories).set({ sortOrder: item.sortOrder }).where(eq(contractInventories.id, item.id));
+    }
+  }
+
+  async bulkAssignContractsToInventory(inventoryId: number, contractIds: number[], dispatchedAt: Date): Promise<void> {
+    if (contractIds.length === 0) return;
+    const validIds = contractIds.filter(id => Number.isInteger(id) && id > 0);
+    if (validIds.length === 0) return;
+    const uniqueIds = [...new Set(validIds)];
+    const BATCH_SIZE = 50;
+    for (let i = 0; i < uniqueIds.length; i += BATCH_SIZE) {
+      const batch = uniqueIds.slice(i, i + BATCH_SIZE);
+      const caseFragments = batch.map((id, batchIdx) => {
+        const sortOrder = i + batchIdx + 1;
+        return sql`WHEN ${contracts.id} = ${id} THEN ${sortOrder}`;
+      });
+      await db.update(contracts)
+        .set({
+          inventoryId,
+          dispatchedAt,
+          updatedAt: new Date(),
+          sortOrderInInventory: sql`CASE ${sql.join(caseFragments, sql` `)} END`,
+        } as any)
+        .where(inArray(contracts.id, batch));
     }
   }
 
