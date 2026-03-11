@@ -21,7 +21,7 @@ const DialogOverlay = React.forwardRef<
   <DialogPrimitive.Overlay
     ref={ref}
     className={cn(
-      "fixed inset-0 z-50 bg-black/80 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0",
+      "fixed inset-0 z-50 bg-black/50 backdrop-blur-[2px] data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0",
       className
     )}
     {...props}
@@ -36,12 +36,12 @@ interface DialogContentProps extends React.ComponentPropsWithoutRef<typeof Dialo
 }
 
 const SIZE_CLASSES: Record<DialogSize, string> = {
-  sm: "max-w-[500px] w-[90%] h-[600px]",
-  md: "max-w-[600px] w-[90%] h-[600px]",
-  lg: "max-w-[800px] w-[90%] h-[600px]",
-  xl: "sm:max-w-[95vw] max-w-[95vw] w-[90%] h-[85vh]",
+  sm: "max-w-[500px] w-[90%]",
+  md: "max-w-[600px] w-[90%]",
+  lg: "max-w-[800px] w-[90%]",
+  xl: "sm:max-w-[95vw] max-w-[95vw] w-[90%] max-h-[85vh]",
   full: "max-w-[100vw] w-[100vw] h-[95vh] rounded-none",
-  auto: "max-w-[500px] w-[90%] h-[600px]",
+  auto: "max-w-[500px] w-[90%]",
 };
 
 const FOOTER_DISPLAY_NAME = "DialogFooter";
@@ -151,19 +151,19 @@ const DialogContent = React.forwardRef<
           }
         }}
         className={cn(
-          "fixed left-[50%] top-12 z-50 w-full translate-x-[-50%] border bg-background shadow-lg duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[state=closed]:slide-out-to-left-1/2 data-[state=closed]:slide-out-to-top-[5%] data-[state=open]:slide-in-from-left-1/2 data-[state=open]:slide-in-from-top-[5%] sm:rounded-lg flex flex-col overflow-hidden",
+          "fixed left-[50%] top-12 z-50 w-full translate-x-[-50%] max-h-[85vh] border bg-background shadow-lg duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[state=closed]:slide-out-to-left-1/2 data-[state=closed]:slide-out-to-top-[5%] data-[state=open]:slide-in-from-left-1/2 data-[state=open]:slide-in-from-top-[5%] sm:rounded-lg flex flex-col overflow-hidden text-justify",
           SIZE_CLASSES[computedSize],
           className
         )}
         {...props}
       >
-        <div className={cn("flex-1 min-h-0 overflow-y-auto px-6 text-justify", hasFooter && "pb-0")}>
+        <div className={cn("flex-1 min-h-0 overflow-y-auto px-5", hasFooter && "pb-0")}>
           {otherChildren}
         </div>
 
         {hasFooter && footerChildren}
 
-        <DialogPrimitive.Close className="absolute right-4 top-4 rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none data-[state=open]:bg-accent data-[state=open]:text-muted-foreground z-20">
+        <DialogPrimitive.Close className="absolute right-3 top-3 rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none data-[state=open]:bg-accent data-[state=open]:text-muted-foreground z-20">
           <X className="h-4 w-4" />
           <span className="sr-only">Close</span>
         </DialogPrimitive.Close>
@@ -179,7 +179,7 @@ const DialogHeader = ({
 }: React.HTMLAttributes<HTMLDivElement>) => (
   <div
     className={cn(
-      "flex flex-col space-y-1.5 text-center sm:text-left sm:text-justify sticky top-0 z-10 bg-background pt-6 pb-4 -mx-6 px-6 border-b border-border/60",
+      "flex flex-col space-y-1.5 text-center sm:text-justify sticky top-0 z-10 bg-background pt-5 pb-3 -mx-5 px-5 border-b border-border/60",
       className
     )}
     {...props}
@@ -193,7 +193,7 @@ const DialogFooter = ({
 }: React.HTMLAttributes<HTMLDivElement>) => (
   <div
     className={cn(
-      "shrink-0 h-[64px] flex items-center justify-between sm:justify-end sm:space-x-2 px-6 bg-background border-t border-border/60",
+      "shrink-0 flex items-center justify-between sm:justify-end sm:space-x-2 px-5 py-3 bg-background border-t border-border/60",
       className
     )}
     {...props}
@@ -233,7 +233,7 @@ const DialogScrollContent = ({
   ...props
 }: React.HTMLAttributes<HTMLDivElement>) => (
   <div
-    className={cn("py-4", className)}
+    className={cn("py-3", className)}
     {...props}
   />
 )
