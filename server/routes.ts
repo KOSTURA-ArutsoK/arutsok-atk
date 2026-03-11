@@ -3926,6 +3926,9 @@ export async function registerRoutes(
       if (isNaN(receiveDate.getTime())) {
         return res.status(400).json({ message: "Neplatný dátum prijatia" });
       }
+      if (receiveDate > new Date()) {
+        return res.status(400).json({ message: "Dátum a čas prijatia nesmie byť v budúcnosti" });
+      }
       const supiska = await storage.getSupiska(supiskaId);
       if (!supiska) return res.status(404).json({ message: "Súpiska nenájdená" });
       if ((supiska as any).supiskaType !== "processing") return res.status(400).json({ message: "Súpiska nie je typu spracovanie" });

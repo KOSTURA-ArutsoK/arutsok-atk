@@ -4608,12 +4608,15 @@ export default function Contracts() {
             <div className="space-y-4">
               <div className="space-y-2">
                 <Label>Dátum a čas prijatia</Label>
-                <Input type="datetime-local" value={receiveDate} onChange={e => setReceiveDate(e.target.value)} data-testid="input-receive-date" />
+                <Input type="datetime-local" value={receiveDate} max={new Date().toISOString().slice(0, 16)} onChange={e => setReceiveDate(e.target.value)} data-testid="input-receive-date" />
+                {receiveDate && new Date(receiveDate) > new Date() && (
+                  <p className="text-xs text-red-500" data-testid="text-receive-date-future">Dátum a čas prijatia nesmie byť v budúcnosti</p>
+                )}
               </div>
               <div className="flex items-center justify-end gap-3 flex-wrap">
                 <Button variant="outline" onClick={() => setReceiveDialogOpen(false)} data-testid="button-receive-cancel">Zrušiť</Button>
                 <Button
-                  disabled={!receiveDate || receiveSupiskaMutation.isPending}
+                  disabled={!receiveDate || new Date(receiveDate) > new Date() || receiveSupiskaMutation.isPending}
                   onClick={() => {
                     if (receiveSuopiskaId && receiveDate) {
                       receiveSupiskaMutation.mutate({ supiskaId: receiveSuopiskaId, receivedAt: receiveDate });
