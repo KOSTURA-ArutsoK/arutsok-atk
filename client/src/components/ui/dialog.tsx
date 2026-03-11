@@ -36,12 +36,12 @@ interface DialogContentProps extends React.ComponentPropsWithoutRef<typeof Dialo
 }
 
 const SIZE_CLASSES: Record<DialogSize, string> = {
-  sm: "sm:max-w-[40vw] max-w-[95vw] max-h-[85vh] overflow-y-auto",
-  md: "sm:max-w-[60vw] max-w-[95vw] max-h-[85vh] overflow-y-auto",
-  lg: "sm:max-w-[80vw] max-w-[95vw] max-h-[85vh] overflow-y-auto",
-  xl: "sm:max-w-[95vw] sm:max-h-[90vh] max-w-[95vw] max-h-[90vh]",
-  full: "max-w-[100vw] max-h-[100vh] w-[100vw] h-[100vh] rounded-none",
-  auto: "sm:max-w-[700px] max-w-[95vw] max-h-[85vh] overflow-y-auto",
+  sm: "sm:max-w-[40vw] max-w-[95vw] h-[85vh]",
+  md: "sm:max-w-[60vw] max-w-[95vw] h-[85vh]",
+  lg: "sm:max-w-[80vw] max-w-[95vw] h-[85vh]",
+  xl: "sm:max-w-[95vw] max-w-[95vw] h-[90vh]",
+  full: "max-w-[100vw] w-[100vw] h-[95vh] rounded-none",
+  auto: "sm:max-w-[700px] max-w-[95vw] h-[85vh]",
 };
 
 const DialogContent = React.forwardRef<
@@ -50,6 +50,19 @@ const DialogContent = React.forwardRef<
 >(({ className, children, size = "auto", ...props }, ref) => {
   const contentRef = React.useRef<HTMLDivElement | null>(null);
   const [computedSize, setComputedSize] = React.useState<DialogSize>(size);
+
+  React.useEffect(() => {
+    const timer = setTimeout(() => {
+      const titleEl = contentRef.current?.querySelector('[data-testid*="dialog-title"], [data-testid*="title"], h2, h3');
+      const dialogLabel = titleEl?.textContent?.trim() || "Neznámy dialóg";
+      fetch("/api/click-log", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ buttonLabel: `Dialog otvorený: ${dialogLabel}`, module: "DIALOG_OPEN" }),
+      }).catch(() => {});
+    }, 100);
+    return () => clearTimeout(timer);
+  }, []);
 
   const setRefs = React.useCallback((node: HTMLDivElement | null) => {
     contentRef.current = node;
@@ -100,8 +113,6 @@ const DialogContent = React.forwardRef<
     return () => window.removeEventListener("resize", handleResize);
   }, [size, children, computeAutoSize]);
 
-  const isXlOrFull = computedSize === "xl" || computedSize === "full";
-
   return (
     <DialogPortal>
       <DialogOverlay />
@@ -121,30 +132,17 @@ const DialogContent = React.forwardRef<
           }
         }}
         className={cn(
-          "fixed left-[50%] top-[50%] z-50 grid w-full translate-x-[-50%] translate-y-[-50%] gap-4 border bg-background shadow-lg duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[state=closed]:slide-out-to-left-1/2 data-[state=closed]:slide-out-to-top-[48%] data-[state=open]:slide-in-from-left-1/2 data-[state=open]:slide-in-from-top-[48%] sm:rounded-lg",
-          isXlOrFull ? "p-0 flex flex-col" : "p-6",
+          "fixed left-[50%] top-[5vh] z-50 w-full translate-x-[-50%] border bg-background shadow-lg duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[state=closed]:slide-out-to-left-1/2 data-[state=closed]:slide-out-to-top-[5%] data-[state=open]:slide-in-from-left-1/2 data-[state=open]:slide-in-from-top-[5%] sm:rounded-lg overflow-y-auto px-6",
           SIZE_CLASSES[computedSize],
           className
         )}
         {...props}
       >
-        {isXlOrFull ? (
-          <>
-            {children}
-            <DialogPrimitive.Close className="absolute right-4 top-4 rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none data-[state=open]:bg-accent data-[state=open]:text-muted-foreground z-10">
-              <X className="h-4 w-4" />
-              <span className="sr-only">Close</span>
-            </DialogPrimitive.Close>
-          </>
-        ) : (
-          <>
-            {children}
-            <DialogPrimitive.Close className="absolute right-4 top-4 rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none data-[state=open]:bg-accent data-[state=open]:text-muted-foreground">
-              <X className="h-4 w-4" />
-              <span className="sr-only">Close</span>
-            </DialogPrimitive.Close>
-          </>
-        )}
+        {children}
+        <DialogPrimitive.Close className="absolute right-4 top-4 rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none data-[state=open]:bg-accent data-[state=open]:text-muted-foreground z-20">
+          <X className="h-4 w-4" />
+          <span className="sr-only">Close</span>
+        </DialogPrimitive.Close>
       </DialogPrimitive.Content>
     </DialogPortal>
   );
@@ -157,7 +155,7 @@ const DialogHeader = ({
 }: React.HTMLAttributes<HTMLDivElement>) => (
   <div
     className={cn(
-      "flex flex-col space-y-1.5 text-center sm:text-left",
+      "flex flex-col space-y-1.5 text-center sm:text-left sticky top-0 z-10 bg-background pt-6 pb-4 -mx-6 px-6 border-b border-border/60",
       className
     )}
     {...props}
@@ -171,7 +169,7 @@ const DialogFooter = ({
 }: React.HTMLAttributes<HTMLDivElement>) => (
   <div
     className={cn(
-      "flex flex-col-reverse sm:flex-row sm:justify-end sm:space-x-2",
+      "flex flex-col-reverse sm:flex-row sm:justify-between sm:space-x-2 sticky bottom-0 z-10 bg-background -mx-6 px-6 py-4 border-t border-border/60 mt-auto",
       className
     )}
     {...props}
@@ -211,7 +209,7 @@ const DialogScrollContent = ({
   ...props
 }: React.HTMLAttributes<HTMLDivElement>) => (
   <div
-    className={cn("flex-1 overflow-y-auto p-6", className)}
+    className={cn("flex-1 min-h-0 overflow-y-auto py-4", className)}
     {...props}
   />
 )
