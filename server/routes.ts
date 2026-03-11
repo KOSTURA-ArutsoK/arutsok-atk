@@ -5113,11 +5113,23 @@ export async function registerRoutes(
         const sheet = workbook.worksheets[0];
         if (!sheet) return res.status(400).json({ message: "Excel neobsahuje žiadny hárok" });
 
+        const KNOWN_IMPORT_HEADERS = new Set(["partner", "produkt", "cislo_navrhu", "cislo_zmluvy", "typ_subjektu", "rc_ico", "nazov_firmy", "titul_pred", "meno", "priezvisko", "titul_za", "partner_name", "product", "product_name", "rodne_cislo", "rc", "ico", "birth_number", "typ", "subject_type", "first_name", "last_name", "company_name", "title_before", "title_after"]);
+
         sheet.getRow(1).eachCell((cell, colNumber) => {
           headers[colNumber] = String(cell.value || "").trim().toLowerCase();
         });
 
-        for (let rowNum = 2; rowNum <= sheet.rowCount; rowNum++) {
+        const firstRowLooksLikeHeader = headers.filter(Boolean).some(h => KNOWN_IMPORT_HEADERS.has(h));
+        const dataStartRow = firstRowLooksLikeHeader ? 2 : 1;
+
+        if (!firstRowLooksLikeHeader) {
+          headers = [];
+          for (let ci = 1; ci <= 11; ci++) {
+            headers[ci] = `col_${ci}`;
+          }
+        }
+
+        for (let rowNum = dataStartRow; rowNum <= sheet.rowCount; rowNum++) {
           const row = sheet.getRow(rowNum);
           const rowData: Record<string, string> = {};
           let hasData = false;
@@ -5131,6 +5143,30 @@ export async function registerRoutes(
           });
           if (hasData) rawRows.push(rowData);
         }
+      }
+
+      const POSITIONAL_COLUMNS = ["partner", "produkt", "cislo_navrhu", "cislo_zmluvy", "typ_subjektu", "rc_ico", "nazov_firmy", "titul_pred", "meno", "priezvisko", "titul_za"];
+      const knownHeaders = new Set(POSITIONAL_COLUMNS);
+      const hasRecognizedHeaders = headers.some(h => knownHeaders.has(h));
+
+      if (!hasRecognizedHeaders && rawRows.length > 0) {
+        const remapped: Record<string, string>[] = [];
+        for (const row of rawRows) {
+          const newRow: Record<string, string> = {};
+          const vals = Object.values(row);
+          for (let ci = 0; ci < POSITIONAL_COLUMNS.length && ci < vals.length; ci++) {
+            newRow[POSITIONAL_COLUMNS[ci]] = vals[ci] || "";
+          }
+          for (const [k, v] of Object.entries(row)) {
+            if (!POSITIONAL_COLUMNS.includes(k)) {
+              newRow[k] = v;
+            }
+          }
+          remapped.push(newRow);
+        }
+        rawRows.length = 0;
+        rawRows.push(...remapped);
+        console.log("[IMPORT] Pozičné mapovanie použité — hlavičky neboli rozpoznané. Prvý riadok:", headers.join(", "));
       }
 
       const allSubjects = await storage.getSubjects();
