@@ -11,7 +11,7 @@ import { SmartFilterBar } from "@/components/smart-filter-bar";
 import { useColumnVisibility, type ColumnDef } from "@/hooks/use-column-visibility";
 import { ColumnManager } from "@/components/column-manager";
 import type { Supiska, Contract } from "@shared/schema";
-import { Plus, Pencil, Trash2, Loader2, Send, Undo2, FileSpreadsheet, FileDown, Lock, Unlock, X } from "lucide-react";
+import { Plus, Pencil, Loader2, Send, Undo2, FileSpreadsheet, FileDown, Lock, Unlock, X } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -568,14 +568,6 @@ export default function SupiskyPage() {
     queryKey: ["/api/supisky"],
   });
 
-  const deleteMutation = useMutation({
-    mutationFn: (id: number) => apiRequest("DELETE", `/api/supisky/${id}`),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/supisky"] });
-      toast({ title: "Uspech", description: "Supiska vymazana" });
-    },
-    onError: () => toast({ title: "Chyba", description: "Nepodarilo sa vymazat supisku", variant: "destructive" }),
-  });
 
   const tableFilter = useSmartFilter(supisky, SUPISKY_FILTER_COLUMNS, "supisky");
   const { sortedData: sortedSupisky, sortKey: sortKeyMain, sortDirection: sortDirMain, requestSort: requestSortMain } = useTableSort(tableFilter.filteredData);
@@ -652,24 +644,6 @@ export default function SupiskyPage() {
                         >
                           <Pencil className="w-4 h-4" />
                         </Button>
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                if (confirm("Naozaj chcete vymazat tuto supisku?")) {
-                                  deleteMutation.mutate(s.id);
-                                }
-                              }}
-                              data-testid={`button-delete-${s.id}`}
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </Button>
-                          </TooltipTrigger>
-                          <TooltipContent>Zmazať prázdny záznam</TooltipContent>
-                        </Tooltip>
                       </div>
                     </TableCell>
                   </TableRow>
