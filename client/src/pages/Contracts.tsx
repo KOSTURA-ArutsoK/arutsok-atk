@@ -2766,9 +2766,23 @@ export default function Contracts() {
     });
   }
 
-  function toggleSelectAll() {
-    if (selectedIds.length === activeContracts.length) {
+  async function toggleSelectAll() {
+    if (selectedIds.length === activeContracts.length && activeContracts.length === contractsTotal) {
       setSelectedIds([]);
+    } else if (hasMoreContracts) {
+      try {
+        const params = new URLSearchParams(contractsFilterParams);
+        params.set("limit", String(contractsTotal));
+        params.set("offset", "0");
+        const res = await fetch(`/api/contracts?${params.toString()}`, { credentials: "include" });
+        if (res.ok) {
+          const allData = await res.json();
+          setContractPages(allData.data);
+          setContractsTotal(allData.total);
+          setContractsOffset(allData.total);
+          setSelectedIds(allData.data.filter((c: Contract) => !c.isDeleted).map((c: Contract) => c.id));
+        }
+      } catch {}
     } else {
       setSelectedIds(activeContracts.map(c => c.id));
     }
@@ -2898,7 +2912,7 @@ export default function Contracts() {
   const activeRejected = rejectedContracts?.filter(c => !c.isDeleted) || [];
 
   const folderDefs: FolderDef[] = [
-    { id: 1, label: "Nahratie a vytvorenie sprievodky", icon: Inbox, color: "text-amber-500", bgColor: "bg-amber-500/15", count: activeContracts.length, tooltip: "Zmluva bola nahratá do systému a čaká na zaradenie do sprievodky a odoslanie na centrálu partnera." },
+    { id: 1, label: "Nahratie a vytvorenie sprievodky", icon: Inbox, color: "text-amber-500", bgColor: "bg-amber-500/15", count: contractsTotal || activeContracts.length, tooltip: "Zmluva bola nahratá do systému a čaká na zaradenie do sprievodky a odoslanie na centrálu partnera." },
     { id: 3, label: "Neprijaté zmluvy – výhrady", icon: XCircle, color: "text-red-500", bgColor: "bg-red-500/15", count: activeRejected.length, tooltip: "Zmluvy, ktoré boli vrátené s výhradami od obchodného partnera alebo centrály. Vyžadujú opravu a opätovné odoslanie." },
     { id: 4, label: "Archív zmlúv (s výhradami)", icon: Archive, color: "text-zinc-400", bgColor: "bg-zinc-400/15", count: activeArchived.length, tooltip: "Archivované zmluvy s výhradami, ktoré neboli opravené alebo boli trvalo zamietnuté." },
     { id: 7, label: "Interné intervencie", icon: AlertTriangle, color: "text-orange-500", bgColor: "bg-orange-500/15", count: phase7Contracts.length, tooltip: "Zmluvy vyžadujúce interný zásah — napr. chýbajúce dokumenty, nezrovnalosti v údajoch alebo eskalácia." },
