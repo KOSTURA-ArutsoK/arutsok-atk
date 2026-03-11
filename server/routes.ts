@@ -3620,6 +3620,53 @@ export async function registerRoutes(
     }
   });
 
+  app.post("/api/supisky/:supiskaId/remove-contract/:contractId", isAuthenticated, async (req: any, res) => {
+    try {
+      const supiskaId = Number(req.params.supiskaId);
+      const contractId = Number(req.params.contractId);
+      const appUser = req.appUser;
+      const now = new Date();
+
+      const supiska = await storage.getSupiska(supiskaId);
+      if (!supiska) return res.status(404).json({ message: "Súpiska nenájdená" });
+
+      const [contract] = await db.select().from(contracts).where(eq(contracts.id, contractId));
+      if (!contract) return res.status(404).json({ message: "Zmluva nenájdená" });
+
+      await db.delete(supiskaContracts).where(
+        and(eq(supiskaContracts.supiskaId, supiskaId), eq(supiskaContracts.contractId, contractId))
+      );
+
+      await db.update(contracts).set({
+        lifecyclePhase: 8,
+        sentToPartnerAt: null,
+        updatedAt: now,
+      }).where(eq(contracts.id, contractId));
+
+      await db.insert(contractLifecycleHistory).values({
+        contractId,
+        phase: 8,
+        phaseName: LIFECYCLE_PHASES[8] || "Pripravené na odoslanie",
+        changedByUserId: appUser?.id || null,
+        note: `Vyradená zo súpisky "${supiska.name}" a vrátená do Pripravené na odoslanie`,
+      });
+
+      await logAudit(req, {
+        action: "REMOVE_FROM_SUPISKA",
+        module: "processing_supiska",
+        entityId: contractId,
+        entityName: contract.contractNumber || contract.proposalNumber || `ID ${contractId}`,
+        oldData: { supiskaId, lifecyclePhase: contract.lifecyclePhase },
+        newData: { lifecyclePhase: 8 },
+      });
+
+      res.json({ success: true, contractId, supiskaId });
+    } catch (err: any) {
+      console.error("Remove contract from supiska error:", err);
+      res.status(500).json({ message: err?.message || "Internal error" });
+    }
+  });
+
   app.post("/api/supisky/:id/receive", isAuthenticated, async (req: any, res) => {
     try {
       const supiskaId = Number(req.params.id);

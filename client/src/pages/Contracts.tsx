@@ -2616,6 +2616,21 @@ export default function Contracts() {
     onError: () => toast({ title: "Chyba", description: "Nepodarilo sa potvrdiť prijatie", variant: "destructive" }),
   });
 
+  const removeFromSupiskaMutation = useMutation({
+    mutationFn: async ({ supiskaId, contractId }: { supiskaId: number; contractId: number }) => {
+      const res = await apiRequest("POST", `/api/supisky/${supiskaId}/remove-contract/${contractId}`);
+      return res.json();
+    },
+    onSuccess: () => {
+      invalidateContractCaches();
+      queryClient.invalidateQueries({ queryKey: ["/api/supisky/by-phase", 8] });
+      queryClient.invalidateQueries({ queryKey: ["/api/supisky/by-phase", 9] });
+      toast({ title: "Zmluva vyradená", description: "Zmluva bola vrátená do Pripravené na odoslanie" });
+      setRemoveFromSupiskaConfirm(null);
+    },
+    onError: () => { toast({ title: "Chyba", description: "Nepodarilo sa vyradiť zmluvu zo súpisky", variant: "destructive" }); setRemoveFromSupiskaConfirm(null); },
+  });
+
   const [dispatchDialogOpen, setDispatchDialogOpen] = useState(false);
   const [dispatchSuopiskaId, setDispatchSuopiskaId] = useState<number | null>(null);
   const [dispatchMethod, setDispatchMethod] = useState("");
@@ -2623,6 +2638,8 @@ export default function Contracts() {
   const [receiveDialogOpen, setReceiveDialogOpen] = useState(false);
   const [receiveSuopiskaId, setReceiveSuopiskaId] = useState<number | null>(null);
   const [receiveDate, setReceiveDate] = useState("");
+  const [removeFromSupiskaConfirm, setRemoveFromSupiskaConfirm] = useState<{ contractId: number; contractNumber: string; supiskaId: number; supName: string } | null>(null);
+  const [printedSprievodkyIds, setPrintedSprievodkyIds] = useState<Set<number>>(new Set());
 
   const REROUTE_CONFIG: Record<string, { targetPhase: number; targetLabel: string }> = {
     neprijate: { targetPhase: 2, targetLabel: "Odoslané na sprievodke (pôvodné ID)" },
@@ -4189,6 +4206,17 @@ export default function Contracts() {
                                   {(phaseId === 8 || phaseId === 9 || phaseId === 10) && sup.status === "Odoslana" && (
                                     <Badge variant="outline" className="text-indigo-400 border-indigo-400/30">Odoslaná</Badge>
                                   )}
+                                  {phaseId === 9 && (
+                                    <Button
+                                      size="sm"
+                                      variant="outline"
+                                      className={`${!printedSprievodkyIds.has(sup.id) ? "animate-pulse border-amber-500 text-amber-500 hover:bg-amber-500/10" : "border-green-500 text-green-500"}`}
+                                      onClick={(e) => { e.stopPropagation(); setPrintedSprievodkyIds(prev => new Set([...prev, sup.id])); window.print(); }}
+                                      data-testid={`button-print-supiska-phase9-${sup.id}`}
+                                    >
+                                      <Printer className="w-3 h-3 mr-1" />Vytlačiť súpisku
+                                    </Button>
+                                  )}
                                   {phaseId === 10 && sup.status === "Odoslana" && sup.status !== "Prijata" && (
                                     <Button
                                       size="sm"
@@ -4214,7 +4242,47 @@ export default function Contracts() {
                                       {sup.receivedByPartnerAt && <span>Prijaté: <span className="font-medium text-foreground">{formatDateSlovak(sup.receivedByPartnerAt)}</span></span>}
                                     </div>
                                   )}
-                                  {sup.contracts && sup.contracts.length > 0 && renderContractTable(sup.contracts, { showStatus: true, showRegistration: true, showActions: true })}
+                                  {sup.contracts && sup.contracts.length > 0 && (
+                                    phaseId === 9 ? (
+                                      <Table>
+                                        <TableHeader>
+                                          <TableRow>
+                                            <TableHead resizable={false} style={{ width: 40, minWidth: 40, maxWidth: 40, padding: '0 8px' }}></TableHead>
+                                            {evidenciaColumnVisibility.isVisible("contractNumber") && <TableHead>Číslo zmluvy</TableHead>}
+                                            {evidenciaColumnVisibility.isVisible("proposalNumber") && <TableHead>Číslo návrhu</TableHead>}
+                                            {evidenciaColumnVisibility.isVisible("subjectId") && <TableHead>Klient</TableHead>}
+                                            {evidenciaColumnVisibility.isVisible("partnerId") && <TableHead>Partner</TableHead>}
+                                            {evidenciaColumnVisibility.isVisible("productId") && <TableHead>Produkt</TableHead>}
+                                          </TableRow>
+                                        </TableHeader>
+                                        <TableBody>
+                                          {sup.contracts.map((contract: Contract) => (
+                                            <TableRow key={contract.id} data-testid={`row-phase9-${contract.id}`}>
+                                              <TableCell style={{ width: 40, minWidth: 40, maxWidth: 40, padding: '0 8px' }} onClick={e => e.stopPropagation()}>
+                                                <Checkbox
+                                                  checked={true}
+                                                  onCheckedChange={() => {
+                                                    setRemoveFromSupiskaConfirm({
+                                                      contractId: contract.id,
+                                                      contractNumber: contract.contractNumber || contract.proposalNumber || `ID ${contract.id}`,
+                                                      supiskaId: sup.id,
+                                                      supName: sup.name,
+                                                    });
+                                                  }}
+                                                  data-testid={`checkbox-phase9-${contract.id}`}
+                                                />
+                                              </TableCell>
+                                              {evidenciaColumnVisibility.isVisible("contractNumber") && <TableCell className="font-mono text-sm">{contract.contractNumber || "-"}</TableCell>}
+                                              {evidenciaColumnVisibility.isVisible("proposalNumber") && <TableCell className="text-sm font-mono">{contract.proposalNumber || "-"}</TableCell>}
+                                              {evidenciaColumnVisibility.isVisible("subjectId") && <TableCell className="text-sm">{getSubjectDisplay(contract.subjectId)}</TableCell>}
+                                              {evidenciaColumnVisibility.isVisible("partnerId") && <TableCell className="text-sm">{getPartnerName(contract)}</TableCell>}
+                                              {evidenciaColumnVisibility.isVisible("productId") && <TableCell className="text-sm">{getProductName(contract)}</TableCell>}
+                                            </TableRow>
+                                          ))}
+                                        </TableBody>
+                                      </Table>
+                                    ) : renderContractTable(sup.contracts, { showStatus: true, showRegistration: true, showActions: true })
+                                  )}
                                 </div>
                               </div>
                             );
@@ -4376,6 +4444,36 @@ export default function Contracts() {
                 >
                   {receiveSupiskaMutation.isPending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Award className="w-4 h-4 mr-2" />}
                   Potvrdiť prijatie
+                </Button>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
+
+        <Dialog open={!!removeFromSupiskaConfirm} onOpenChange={(o) => { if (!o) setRemoveFromSupiskaConfirm(null); }}>
+          <DialogContent size="sm">
+            <DialogHeader>
+              <DialogTitle data-testid="text-remove-from-supiska-title">Vyradiť zmluvu zo súpisky?</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4">
+              <p className="text-sm text-muted-foreground">
+                Naozaj chcete vyradiť zmluvu <span className="font-bold text-foreground">{removeFromSupiskaConfirm?.contractNumber}</span> zo súpisky <span className="font-bold text-foreground">{removeFromSupiskaConfirm?.supName}</span>?
+              </p>
+              <p className="text-sm text-amber-500">Zmluva bude vrátená do fázy „Pripravené na odoslanie".</p>
+              <div className="flex items-center justify-end gap-3 flex-wrap">
+                <Button variant="outline" onClick={() => setRemoveFromSupiskaConfirm(null)} data-testid="button-remove-supiska-cancel">Zrušiť</Button>
+                <Button
+                  variant="destructive"
+                  disabled={removeFromSupiskaMutation.isPending}
+                  onClick={() => {
+                    if (removeFromSupiskaConfirm) {
+                      removeFromSupiskaMutation.mutate({ supiskaId: removeFromSupiskaConfirm.supiskaId, contractId: removeFromSupiskaConfirm.contractId });
+                    }
+                  }}
+                  data-testid="button-remove-supiska-confirm"
+                >
+                  {removeFromSupiskaMutation.isPending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <XCircle className="w-4 h-4 mr-2" />}
+                  Vyradiť zo súpisky
                 </Button>
               </div>
             </div>
