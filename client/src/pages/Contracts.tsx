@@ -3201,64 +3201,49 @@ export default function Contracts() {
       setImportDialogOpen(open);
       if (!open) { setImportFile(null); setImportResult(null); }
     }}>
-      <DialogContent size="lg">
+      <DialogContent size="md">
         <DialogHeader>
           <DialogTitle data-testid="text-import-title">Hromadný import zmlúv</DialogTitle>
         </DialogHeader>
         <DialogScrollContent>
-        <div className="space-y-3 text-justify">
+        <div className="space-y-2 text-justify">
           <p className="text-xs text-muted-foreground">
-            Nahrajte Excel (.xlsx) alebo CSV súbor. Poradie stĺpcov musí byť identické s tabuľkou nižšie — systém stĺpce neprehadzuje (mapovanie 1:1).
+            Nahrajte Excel (.xlsx) alebo CSV súbor so stĺpcami A–K. Mapovanie 1:1 — systém stĺpce neprehadzuje.
           </p>
 
-          <div className="space-y-1">
-            <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Pravidlá importu</p>
-            <ul className="text-[11px] text-muted-foreground list-disc pl-4 space-y-0.5">
-              <li>Zmluva sa <span className="font-semibold text-foreground">vždy nahrá</span> — ak chýbajú povinné údaje, riadok bude zvýraznený červenou a zmluva nebude môcť ísť na sprievodku</li>
-              <li>Nepovinné polia — prázdna bunka = null, import pokračuje bez varovania</li>
-              <li>Každý importovaný riadok dostane auditný záznam</li>
-            </ul>
-          </div>
-
           <div className="border rounded overflow-hidden">
-            <table className="w-full text-[11px]">
-              <thead>
-                <tr className="bg-muted/50">
-                  <th className="text-left px-2 py-1 border-b font-medium">Stĺpec</th>
-                  <th className="text-left px-2 py-1 border-b font-medium">Názov v Exceli</th>
-                  <th className="text-center px-2 py-1 border-b font-medium w-[60px]">Povinné</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr className="border-b bg-muted/20"><td colSpan={3} className="px-2 py-0.5 text-[10px] font-semibold text-muted-foreground uppercase">Krok 1 — Partner a produkt</td></tr>
-                <tr className="border-b"><td className="px-2 py-0.5 font-mono">A</td><td className="px-2 py-0.5">partner</td><td className="px-2 py-0.5 text-center text-red-400">*</td></tr>
-                <tr className="border-b bg-muted/10"><td className="px-2 py-0.5 font-mono">B</td><td className="px-2 py-0.5">produkt</td><td className="px-2 py-0.5 text-center text-red-400">*</td></tr>
-                <tr className="border-b"><td className="px-2 py-0.5 font-mono">C</td><td className="px-2 py-0.5">cislo_navrhu</td><td className="px-2 py-0.5 text-center text-amber-400">***</td></tr>
-                <tr className="border-b bg-muted/10"><td className="px-2 py-0.5 font-mono">D</td><td className="px-2 py-0.5">cislo_zmluvy</td><td className="px-2 py-0.5 text-center text-amber-400">***</td></tr>
-                <tr className="border-b bg-muted/20"><td colSpan={3} className="px-2 py-0.5 text-[10px] font-semibold text-muted-foreground uppercase">Krok 2 — Klient (subjekt)</td></tr>
-                <tr className="border-b"><td className="px-2 py-0.5 font-mono">E</td><td className="px-2 py-0.5">typ_subjektu</td><td className="px-2 py-0.5 text-center text-red-400">*</td></tr>
-                <tr className="border-b bg-muted/10"><td className="px-2 py-0.5 font-mono">F</td><td className="px-2 py-0.5">rc_ico</td><td className="px-2 py-0.5 text-center text-amber-400">**</td></tr>
-                <tr className="border-b"><td className="px-2 py-0.5 font-mono">G</td><td className="px-2 py-0.5">nazov_firmy</td><td className="px-2 py-0.5 text-center text-amber-400">**</td></tr>
-                <tr className="border-b bg-muted/10"><td className="px-2 py-0.5 font-mono">H</td><td className="px-2 py-0.5">titul_pred</td><td className="px-2 py-0.5 text-center">—</td></tr>
-                <tr className="border-b"><td className="px-2 py-0.5 font-mono">I</td><td className="px-2 py-0.5">meno</td><td className="px-2 py-0.5 text-center text-amber-400">**</td></tr>
-                <tr className="border-b bg-muted/10"><td className="px-2 py-0.5 font-mono">J</td><td className="px-2 py-0.5">priezvisko</td><td className="px-2 py-0.5 text-center text-amber-400">**</td></tr>
-                <tr><td className="px-2 py-0.5 font-mono">K</td><td className="px-2 py-0.5">titul_za</td><td className="px-2 py-0.5 text-center">—</td></tr>
-              </tbody>
-            </table>
+            <div className="bg-muted/50 px-2 py-0.5 text-[10px] font-medium border-b flex">
+              <span className="w-[55%]">Partner & produkt</span>
+              <span className="w-[45%]">Klient (subjekt)</span>
+            </div>
+            <div className="flex text-[10px]">
+              <div className="w-[55%] border-r">
+                <div className="flex border-b px-1.5 py-px"><span className="font-mono w-5">A</span><span>partner</span><span className="ml-auto text-red-400">*</span></div>
+                <div className="flex border-b px-1.5 py-px bg-muted/10"><span className="font-mono w-5">B</span><span>produkt</span><span className="ml-auto text-red-400">*</span></div>
+                <div className="flex border-b px-1.5 py-px"><span className="font-mono w-5">C</span><span>cislo_navrhu</span><span className="ml-auto text-amber-400">***</span></div>
+                <div className="flex px-1.5 py-px bg-muted/10"><span className="font-mono w-5">D</span><span>cislo_zmluvy</span><span className="ml-auto text-amber-400">***</span></div>
+              </div>
+              <div className="w-[45%]">
+                <div className="flex border-b px-1.5 py-px"><span className="font-mono w-5">E</span><span>typ_subjektu</span><span className="ml-auto text-red-400">*</span></div>
+                <div className="flex border-b px-1.5 py-px bg-muted/10"><span className="font-mono w-5">F</span><span>rc_ico</span><span className="ml-auto text-amber-400">**</span></div>
+                <div className="flex border-b px-1.5 py-px"><span className="font-mono w-5">G</span><span>nazov_firmy</span><span className="ml-auto text-amber-400">**</span></div>
+                <div className="flex border-b px-1.5 py-px bg-muted/10"><span className="font-mono w-5">H</span><span>titul_pred</span><span className="ml-auto text-muted-foreground">—</span></div>
+                <div className="flex border-b px-1.5 py-px"><span className="font-mono w-5">I</span><span>meno</span><span className="ml-auto text-amber-400">**</span></div>
+                <div className="flex border-b px-1.5 py-px bg-muted/10"><span className="font-mono w-5">J</span><span>priezvisko</span><span className="ml-auto text-amber-400">**</span></div>
+                <div className="flex px-1.5 py-px"><span className="font-mono w-5">K</span><span>titul_za</span><span className="ml-auto text-muted-foreground">—</span></div>
+              </div>
+            </div>
           </div>
 
-          <div className="text-[10px] text-muted-foreground space-y-0.5">
-            <p><span className="text-red-400 font-semibold">*</span> = vždy povinné &nbsp; <span className="text-amber-400 font-semibold">**</span> = povinné podľa typu subjektu &nbsp; <span className="text-amber-400 font-semibold">***</span> = aspoň jedno z C/D musí byť vyplnené</p>
-            <p>Stĺpec <span className="font-mono font-semibold">rc_ico</span>: RČ (9-10 číslic) alebo IČO (8 číslic) — systém rozozná automaticky podľa dĺžky a typu subjektu.</p>
-            <p><span className="font-semibold">FO</span>: rc_ico, meno, priezvisko &nbsp; <span className="font-semibold">PO</span>: rc_ico (IČO), nazov_firmy &nbsp; <span className="font-semibold">SZČO</span>: rc_ico, nazov_firmy, meno, priezvisko</p>
-            <p className="text-amber-400">Stĺpec C alebo D musí byť vyplnený — bez čísla návrhu alebo zmluvy nie je možné identifikovať zmluvu pri skenovaní.</p>
+          <div className="text-[9px] text-muted-foreground leading-tight">
+            <span className="text-red-400 font-semibold">*</span> povinné &nbsp; <span className="text-amber-400 font-semibold">**</span> podľa typu &nbsp; <span className="text-amber-400 font-semibold">***</span> aspoň C alebo D &nbsp;·&nbsp; <span className="font-semibold">FO</span>: rc_ico+meno+priezvisko &nbsp; <span className="font-semibold">PO</span>: ico+firma &nbsp; <span className="font-semibold">SZČO</span>: rc_ico+firma+meno+priezvisko
           </div>
 
-          <div className="bg-muted/30 rounded px-2 py-1.5 font-mono text-[10px] text-muted-foreground">
+          <div className="bg-muted/30 rounded px-2 py-1 font-mono text-[9px] text-muted-foreground">
             <span className="text-foreground/60">Ukážka:</span> Allianz | PZP Auto | N-2024-001 | | person | 850101/1234 | | | Ján | Novák |
           </div>
 
-          <div className="space-y-2">
+          <div className="flex items-center gap-2">
             <input
               ref={importFileRef}
               type="file"
@@ -3270,113 +3255,15 @@ export default function Contracts() {
                 if (f) { setImportFile(f); setImportResult(null); }
               }}
             />
-            <div className="flex items-center gap-2">
-              <Button variant="outline" size="sm" onClick={() => importFileRef.current?.click()} data-testid="button-choose-file">
-                <Upload className="w-3.5 h-3.5 mr-1" />
-                Vybrať súbor
-              </Button>
-              <span className="text-xs text-muted-foreground truncate max-w-[250px]" data-testid="text-selected-file">
-                {importFile ? importFile.name : "Žiadny súbor"}
-              </span>
-            </div>
+            <Button variant="outline" size="sm" onClick={() => importFileRef.current?.click()} data-testid="button-choose-file">
+              <Upload className="w-3.5 h-3.5 mr-1" />
+              Vybrať súbor
+            </Button>
+            <span className="text-xs text-muted-foreground truncate max-w-[250px]" data-testid="text-selected-file">
+              {importFile ? importFile.name : "Žiadny súbor"}
+            </span>
           </div>
 
-          {importResult && (
-            <div className="space-y-3 p-3 rounded-md border">
-              <div className="flex items-center gap-4 flex-wrap">
-                <div className="text-center">
-                  <p className="text-xl font-bold text-green-500" data-testid="text-import-success">{importResult.success}</p>
-                  <p className="text-[10px] text-muted-foreground">Úspešných</p>
-                </div>
-                {(importResult.created || 0) > 0 && (
-                  <div className="text-center">
-                    <p className="text-xl font-bold text-blue-500" data-testid="text-import-created">{importResult.created}</p>
-                    <p className="text-[10px] text-muted-foreground">Nových klientov</p>
-                  </div>
-                )}
-                {(importResult.updated || 0) > 0 && (
-                  <div className="text-center">
-                    <p className="text-xl font-bold text-amber-500" data-testid="text-import-updated">{importResult.updated}</p>
-                    <p className="text-[10px] text-muted-foreground">Aktualizovaných</p>
-                  </div>
-                )}
-                {(importResult.incomplete || 0) > 0 && (
-                  <div className="text-center">
-                    <p className="text-xl font-bold text-orange-500" data-testid="text-import-incomplete">{importResult.incomplete}</p>
-                    <p className="text-[10px] text-muted-foreground">Neúplných</p>
-                  </div>
-                )}
-                {importResult.errors > 0 && (
-                  <div className="text-center">
-                    <p className="text-xl font-bold text-destructive" data-testid="text-import-errors">{importResult.errors}</p>
-                    <p className="text-[10px] text-muted-foreground">Chýb</p>
-                  </div>
-                )}
-                {(importResult.warnings || 0) > 0 && (
-                  <div className="text-center">
-                    <p className="text-xl font-bold text-yellow-500" data-testid="text-import-warnings">{importResult.warnings}</p>
-                    <p className="text-[10px] text-muted-foreground">Varovaní</p>
-                  </div>
-                )}
-              </div>
-
-              {importResult.details?.some((d: any) => d.incompleteFields?.length > 0) && (
-                <div className="border border-orange-500/30 rounded p-2 bg-orange-500/5">
-                  <p className="text-xs font-medium text-orange-500 mb-1 flex items-center gap-1">
-                    <AlertTriangle className="w-3 h-3" />
-                    Neúplné zmluvy — vyžadujú doplnenie ({importResult.incomplete})
-                  </p>
-                  <div className="max-h-[100px] overflow-y-auto text-xs space-y-0.5">
-                    {importResult.details.filter((d: any) => d.incompleteFields?.length > 0).map((d: any, i: number) => (
-                      <p key={i} className="text-orange-400">Riadok {d.row}: chýba {d.incompleteFields.join(", ")}</p>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {importResult.duplicityWarnings && importResult.duplicityWarnings.length > 0 && (
-                <div className="border border-yellow-500/30 rounded p-2 bg-yellow-500/5">
-                  <p className="text-xs font-medium text-yellow-600 mb-1 flex items-center gap-1">
-                    <AlertTriangle className="w-3 h-3" />
-                    Potenciálne konflikty majetku ({importResult.duplicityWarnings.length})
-                  </p>
-                  <div className="max-h-[100px] overflow-y-auto text-xs space-y-0.5">
-                    {importResult.duplicityWarnings.map((dw: any, i: number) => (
-                      <p key={i} className="text-yellow-700">
-                        Riadok {dw.row}: {dw.field} {dw.value} — UID {dw.existingUid} ↔ {dw.newUid}
-                      </p>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {importResult.errors > 0 && (
-                <div className="border border-destructive/30 rounded p-2 bg-destructive/5">
-                  <p className="text-xs font-medium text-destructive mb-1">Chyby:</p>
-                  <div className="max-h-[100px] overflow-y-auto text-xs space-y-0.5">
-                    {importResult.details?.filter((d: any) => d.error).map((d: any, i: number) => (
-                      <p key={i} className="text-destructive">Riadok {d.row}: {d.error}</p>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {importResult.details?.some((d: any) => d.warnings?.length > 0) && (
-                <div className="border border-amber-500/30 rounded p-2 bg-amber-500/5">
-                  <p className="text-xs font-medium text-amber-600 mb-1">Varovania:</p>
-                  <div className="max-h-[100px] overflow-y-auto text-xs space-y-0.5">
-                    {importResult.details.filter((d: any) => d.warnings?.length > 0).map((d: any, i: number) => (
-                      <div key={i}>
-                        {d.warnings.map((w: string, wi: number) => (
-                          <p key={wi} className="text-amber-600">Riadok {d.row}: {w}</p>
-                        ))}
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
         </div>
         </DialogScrollContent>
         <DialogFooter>
