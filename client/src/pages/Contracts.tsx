@@ -4236,7 +4236,7 @@ export default function Contracts() {
                                       onClick={(e) => { e.stopPropagation(); setDispatchSuopiskaId(sup.id); setDispatchMethod(""); setDispatchDate(""); setDispatchDialogOpen(true); }}
                                       data-testid={`button-dispatch-supiska-${sup.id}`}
                                     >
-                                      <Send className="w-3 h-3 mr-1" />Odoslať partnerovi
+                                      <Send className="w-3 h-3 mr-1" />Odoslať obchodnému partnerovi
                                     </Button>
                                   )}
                                   {(phaseId === 8 || phaseId === 9 || phaseId === 10) && sup.status === "Odoslana" && (
