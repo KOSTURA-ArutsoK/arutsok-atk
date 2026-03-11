@@ -4217,7 +4217,7 @@ export default function Contracts() {
                                       <Printer className="w-3 h-3 mr-1" />Vytlačiť súpisku
                                     </Button>
                                   )}
-                                  {phaseId === 10 && sup.status === "Odoslana" && sup.status !== "Prijata" && (
+                                  {phaseId === 10 && sup.status !== "Prijata" && (
                                     <Button
                                       size="sm"
                                       variant="default"
@@ -4227,11 +4227,6 @@ export default function Contracts() {
                                     >
                                       <Award className="w-3 h-3 mr-1" />Potvrdiť prijatie
                                     </Button>
-                                  )}
-                                  {phaseId === 10 && sup.status === "Prijata" && (
-                                    <Badge variant="outline" className="text-purple-400 border-purple-400/30" data-testid={`badge-received-supiska-${sup.id}`}>
-                                      <Award className="w-3 h-3 mr-1" />Prijatá
-                                    </Badge>
                                   )}
                                 </div>
                                 <div style={{ display: isSupExpanded ? 'block' : 'none' }}>
