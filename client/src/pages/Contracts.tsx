@@ -3232,8 +3232,8 @@ export default function Contracts() {
                 <tr className="border-b bg-muted/20"><td colSpan={3} className="px-2 py-0.5 text-[10px] font-semibold text-muted-foreground uppercase">Krok 1 — Partner a produkt</td></tr>
                 <tr className="border-b"><td className="px-2 py-0.5 font-mono">A</td><td className="px-2 py-0.5">partner</td><td className="px-2 py-0.5 text-center text-red-400">*</td></tr>
                 <tr className="border-b bg-muted/10"><td className="px-2 py-0.5 font-mono">B</td><td className="px-2 py-0.5">produkt</td><td className="px-2 py-0.5 text-center text-red-400">*</td></tr>
-                <tr className="border-b"><td className="px-2 py-0.5 font-mono">C</td><td className="px-2 py-0.5">cislo_navrhu</td><td className="px-2 py-0.5 text-center">—</td></tr>
-                <tr className="border-b bg-muted/10"><td className="px-2 py-0.5 font-mono">D</td><td className="px-2 py-0.5">cislo_zmluvy</td><td className="px-2 py-0.5 text-center">—</td></tr>
+                <tr className="border-b"><td className="px-2 py-0.5 font-mono">C</td><td className="px-2 py-0.5">cislo_navrhu</td><td className="px-2 py-0.5 text-center text-amber-400">***</td></tr>
+                <tr className="border-b bg-muted/10"><td className="px-2 py-0.5 font-mono">D</td><td className="px-2 py-0.5">cislo_zmluvy</td><td className="px-2 py-0.5 text-center text-amber-400">***</td></tr>
                 <tr className="border-b bg-muted/20"><td colSpan={3} className="px-2 py-0.5 text-[10px] font-semibold text-muted-foreground uppercase">Krok 2 — Klient (subjekt)</td></tr>
                 <tr className="border-b"><td className="px-2 py-0.5 font-mono">E</td><td className="px-2 py-0.5">typ_subjektu</td><td className="px-2 py-0.5 text-center text-red-400">*</td></tr>
                 <tr className="border-b bg-muted/10"><td className="px-2 py-0.5 font-mono">F</td><td className="px-2 py-0.5">rc_ico</td><td className="px-2 py-0.5 text-center text-amber-400">**</td></tr>
@@ -3247,13 +3247,14 @@ export default function Contracts() {
           </div>
 
           <div className="text-[10px] text-muted-foreground space-y-0.5">
-            <p><span className="text-red-400 font-semibold">*</span> = vždy povinné &nbsp; <span className="text-amber-400 font-semibold">**</span> = povinné podľa typu subjektu</p>
+            <p><span className="text-red-400 font-semibold">*</span> = vždy povinné &nbsp; <span className="text-amber-400 font-semibold">**</span> = povinné podľa typu subjektu &nbsp; <span className="text-amber-400 font-semibold">***</span> = aspoň jedno z C/D musí byť vyplnené</p>
             <p>Stĺpec <span className="font-mono font-semibold">rc_ico</span>: RČ (9-10 číslic) alebo IČO (8 číslic) — systém rozozná automaticky podľa dĺžky a typu subjektu.</p>
             <p><span className="font-semibold">FO</span>: rc_ico, meno, priezvisko &nbsp; <span className="font-semibold">PO</span>: rc_ico (IČO), nazov_firmy &nbsp; <span className="font-semibold">SZČO</span>: rc_ico, nazov_firmy, meno, priezvisko</p>
+            <p className="text-amber-400">Stĺpec C alebo D musí byť vyplnený — bez čísla návrhu alebo zmluvy nie je možné identifikovať zmluvu pri skenovaní.</p>
           </div>
 
           <div className="bg-muted/30 rounded px-2 py-1.5 font-mono text-[10px] text-muted-foreground">
-            <span className="text-foreground/60">Ukážka:</span> Allianz | PZP Auto | | | person | 850101/1234 | | | Ján | Novák |
+            <span className="text-foreground/60">Ukážka:</span> Allianz | PZP Auto | N-2024-001 | | person | 850101/1234 | | | Ján | Novák |
           </div>
 
           <div className="space-y-2">

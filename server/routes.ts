@@ -5352,9 +5352,13 @@ export async function registerRoutes(
 
           const nextGlobalNumber = await storage.getNextCounterValue("contract_global_number");
 
+          const cisloNavrhu = rowData["cislo_navrhu"] || rowData["proposal_number"] || null;
+          const cisloZmluvy = rowData["cislo_zmluvy"] || rowData["contract_number"] || null;
+
           const missingFields: string[] = [];
           if (!resolvedPartnerId) missingFields.push("Partner");
           if (!resolvedProductId) missingFields.push("Produkt");
+          if (!cisloNavrhu && !cisloZmluvy) missingFields.push("Číslo návrhu alebo číslo zmluvy");
           if (subjectType === "person" || subjectType === "szco") {
             if (!rc) missingFields.push("Rodné číslo");
             if (!firstName) missingFields.push("Meno");
@@ -5368,8 +5372,8 @@ export async function registerRoutes(
           if (isIncomplete) incompleteCount++;
 
           const contractData: any = {
-            contractNumber: rowData["cislo_zmluvy"] || rowData["contract_number"] || null,
-            proposalNumber: rowData["cislo_navrhu"] || rowData["proposal_number"] || null,
+            contractNumber: cisloZmluvy,
+            proposalNumber: cisloNavrhu,
             kik: rowData["kik"] || null,
             subjectId,
             partnerId: resolvedPartnerId,
