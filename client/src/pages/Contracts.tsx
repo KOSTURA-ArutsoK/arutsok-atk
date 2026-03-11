@@ -3487,40 +3487,37 @@ export default function Contracts() {
 
             <div className="space-y-1.5">
               <label className="text-xs font-medium">Typ čísla</label>
-              <div className="flex p-1 bg-muted/40 rounded-lg border border-border" role="radiogroup" data-testid="toggle-number-type" onKeyDown={(e) => { const opts: Array<"proposal"|"contract"|"both"> = ["proposal","contract","both"]; const i = opts.indexOf(preSelectNumberType); if (e.key === "ArrowRight" || e.key === "ArrowDown") { e.preventDefault(); setPreSelectNumberType(opts[(i+1)%3]); } else if (e.key === "ArrowLeft" || e.key === "ArrowUp") { e.preventDefault(); setPreSelectNumberType(opts[(i+2)%3]); } }} tabIndex={0}>
-                <button
-                  ref={refNumberToggleProposal}
-                  type="button"
-                  role="radio"
-                  aria-checked={preSelectNumberType === "proposal"}
-                  className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-2 text-xs font-semibold rounded-md transition-all ${preSelectNumberType === "proposal" ? "bg-blue-500/15 text-blue-400 shadow-sm ring-1 ring-blue-500/40" : "text-muted-foreground hover:text-foreground hover:bg-muted/60"}`}
-                  onClick={() => setPreSelectNumberType("proposal")}
-                  data-testid="toggle-number-type-proposal"
-                >
-                  <FileText className="w-3.5 h-3.5" />Číslo návrhu
-                </button>
-                <button
-                  ref={refNumberToggleContract}
-                  type="button"
-                  role="radio"
-                  aria-checked={preSelectNumberType === "contract"}
-                  className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-2 text-xs font-semibold rounded-md transition-all ${preSelectNumberType === "contract" ? "bg-emerald-500/15 text-emerald-400 shadow-sm ring-1 ring-emerald-500/40" : "text-muted-foreground hover:text-foreground hover:bg-muted/60"}`}
-                  onClick={() => setPreSelectNumberType("contract")}
-                  data-testid="toggle-number-type-contract"
-                >
-                  <FileCheck className="w-3.5 h-3.5" />Číslo zmluvy
-                </button>
-                <button
-                  type="button"
-                  role="radio"
-                  aria-checked={preSelectNumberType === "both"}
-                  className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-2 text-xs font-semibold rounded-md transition-all ${preSelectNumberType === "both" ? "bg-amber-500/15 text-amber-400 shadow-sm ring-1 ring-amber-500/40" : "text-muted-foreground hover:text-foreground hover:bg-muted/60"}`}
-                  onClick={() => setPreSelectNumberType("both")}
-                  data-testid="toggle-number-type-both"
-                >
-                  <Files className="w-3.5 h-3.5" />Návrh + Zmluva
-                </button>
-              </div>
+              {(() => {
+                const numOpts: Array<{val: "proposal"|"contract"|"both", label: string, icon: typeof FileText, color: string}> = [
+                  {val:"proposal", label:"Číslo návrhu", icon: FileText, color:"blue"},
+                  {val:"contract", label:"Číslo zmluvy", icon: FileCheck, color:"emerald"},
+                  {val:"both", label:"Návrh + Zmluva", icon: Files, color:"amber"},
+                ];
+                const handleNumKey = (e: React.KeyboardEvent, idx: number) => {
+                  if (e.key === "ArrowRight" || e.key === "ArrowDown") {
+                    e.preventDefault(); const next = (idx+1)%3; setPreSelectNumberType(numOpts[next].val);
+                    (e.currentTarget.parentElement?.children[next] as HTMLElement)?.focus();
+                  } else if (e.key === "ArrowLeft" || e.key === "ArrowUp") {
+                    e.preventDefault(); const prev = (idx+2)%3; setPreSelectNumberType(numOpts[prev].val);
+                    (e.currentTarget.parentElement?.children[prev] as HTMLElement)?.focus();
+                  }
+                };
+                return (
+                  <div className="flex p-1 bg-muted/40 rounded-lg border border-border" role="radiogroup" data-testid="toggle-number-type">
+                    {numOpts.map((opt, idx) => {
+                      const Icon = opt.icon;
+                      const isActive = preSelectNumberType === opt.val;
+                      const colorMap: Record<string,string> = {blue:"bg-blue-500/15 text-blue-400 ring-1 ring-blue-500/40 shadow-sm", emerald:"bg-emerald-500/15 text-emerald-400 ring-1 ring-emerald-500/40 shadow-sm", amber:"bg-amber-500/15 text-amber-400 ring-1 ring-amber-500/40 shadow-sm"};
+                      return (
+                        <button key={opt.val} ref={idx===0?refNumberToggleProposal:idx===1?refNumberToggleContract:undefined} type="button" role="radio" aria-checked={isActive} tabIndex={isActive?0:-1}
+                          className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-2 text-xs font-semibold rounded-md transition-all outline-none focus-visible:ring-2 focus-visible:ring-primary ${isActive ? colorMap[opt.color] : "text-muted-foreground hover:text-foreground hover:bg-muted/60"}`}
+                          onClick={() => setPreSelectNumberType(opt.val)} onKeyDown={(e) => handleNumKey(e, idx)} data-testid={`toggle-number-type-${opt.val === "both" ? "both" : opt.val}`}
+                        ><Icon className="w-3.5 h-3.5" />{opt.label}</button>
+                      );
+                    })}
+                  </div>
+                );
+              })()}
             </div>
 
             {preSelectNumberType === "both" ? (
@@ -3581,11 +3578,41 @@ export default function Contracts() {
             {!preSelectSubjectId && (
               <div className="space-y-1.5">
                 <label className="text-xs font-medium">Typ subjektu</label>
-                <div className="flex p-1 bg-muted/40 rounded-lg border border-border" role="radiogroup" data-testid="toggle-subject-type" onKeyDown={(e) => { const opts: Array<"person"|"szco"|"company"> = ["person","szco","company"]; const i = opts.indexOf(preSelectSubjectType); if (e.key === "ArrowRight" || e.key === "ArrowDown") { e.preventDefault(); const next = opts[(i+1)%3]; setPreSelectSubjectType(next); if (next !== "person") { setPreSelectShowNameFields(false); setPreSelectBirthNumber(""); } if (next === "person") { setPreSelectBusinessName(""); setPreSelectIco(""); } } else if (e.key === "ArrowLeft" || e.key === "ArrowUp") { e.preventDefault(); const prev = opts[(i+2)%3]; setPreSelectSubjectType(prev); if (prev !== "person") { setPreSelectShowNameFields(false); setPreSelectBirthNumber(""); } if (prev === "person") { setPreSelectBusinessName(""); setPreSelectIco(""); } } }} tabIndex={0}>
-                  <button type="button" role="radio" aria-checked={preSelectSubjectType === "person"} className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-2 text-xs font-semibold rounded-md transition-all ${preSelectSubjectType === "person" ? "bg-blue-500/15 text-blue-400 shadow-sm ring-1 ring-blue-500/40" : "text-muted-foreground hover:text-foreground hover:bg-muted/60"}`} onClick={() => { setPreSelectSubjectType("person"); setPreSelectBusinessName(""); setPreSelectIco(""); setPreSelectShowNameFields(false); setPreSelectBirthNumber(""); }} data-testid="toggle-subject-type-fo"><User className="w-3.5 h-3.5" />Fyzická osoba</button>
-                  <button type="button" role="radio" aria-checked={preSelectSubjectType === "szco"} className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-2 text-xs font-semibold rounded-md transition-all ${preSelectSubjectType === "szco" ? "bg-amber-500/15 text-amber-400 shadow-sm ring-1 ring-amber-500/40" : "text-muted-foreground hover:text-foreground hover:bg-muted/60"}`} onClick={() => { setPreSelectSubjectType("szco"); setPreSelectShowNameFields(false); setPreSelectBirthNumber(""); }} data-testid="toggle-subject-type-szco"><Briefcase className="w-3.5 h-3.5" />SZČO</button>
-                  <button type="button" role="radio" aria-checked={preSelectSubjectType === "company"} className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-2 text-xs font-semibold rounded-md transition-all ${preSelectSubjectType === "company" ? "bg-purple-500/15 text-purple-400 shadow-sm ring-1 ring-purple-500/40" : "text-muted-foreground hover:text-foreground hover:bg-muted/60"}`} onClick={() => { setPreSelectSubjectType("company"); setPreSelectShowNameFields(false); setPreSelectBirthNumber(""); }} data-testid="toggle-subject-type-po"><Building2 className="w-3.5 h-3.5" />Právnická osoba</button>
-                </div>
+                {(() => {
+                  const subOpts: Array<{val: "person"|"szco"|"company", label: string, icon: typeof User, color: string}> = [
+                    {val:"person", label:"Fyzická osoba", icon: User, color:"blue"},
+                    {val:"szco", label:"SZČO", icon: Briefcase, color:"amber"},
+                    {val:"company", label:"Právnická osoba", icon: Building2, color:"purple"},
+                  ];
+                  const handleSubKey = (e: React.KeyboardEvent, idx: number) => {
+                    let targetIdx = -1;
+                    if (e.key === "ArrowRight" || e.key === "ArrowDown") { e.preventDefault(); targetIdx = (idx+1)%3; }
+                    else if (e.key === "ArrowLeft" || e.key === "ArrowUp") { e.preventDefault(); targetIdx = (idx+2)%3; }
+                    if (targetIdx >= 0) {
+                      const next = subOpts[targetIdx].val;
+                      setPreSelectSubjectType(next);
+                      if (next === "person") { setPreSelectBusinessName(""); setPreSelectIco(""); }
+                      setPreSelectShowNameFields(false); setPreSelectBirthNumber("");
+                      (e.currentTarget.parentElement?.children[targetIdx] as HTMLElement)?.focus();
+                    }
+                  };
+                  const colorMap: Record<string,string> = {blue:"bg-blue-500/15 text-blue-400 ring-1 ring-blue-500/40 shadow-sm", amber:"bg-amber-500/15 text-amber-400 ring-1 ring-amber-500/40 shadow-sm", purple:"bg-purple-500/15 text-purple-400 ring-1 ring-purple-500/40 shadow-sm"};
+                  return (
+                    <div className="flex p-1 bg-muted/40 rounded-lg border border-border" role="radiogroup" data-testid="toggle-subject-type">
+                      {subOpts.map((opt, idx) => {
+                        const Icon = opt.icon;
+                        const isActive = preSelectSubjectType === opt.val;
+                        return (
+                          <button key={opt.val} type="button" role="radio" aria-checked={isActive} tabIndex={isActive?0:-1}
+                            className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-2 text-xs font-semibold rounded-md transition-all outline-none focus-visible:ring-2 focus-visible:ring-primary ${isActive ? colorMap[opt.color] : "text-muted-foreground hover:text-foreground hover:bg-muted/60"}`}
+                            onClick={() => { setPreSelectSubjectType(opt.val); if (opt.val === "person") { setPreSelectBusinessName(""); setPreSelectIco(""); } setPreSelectShowNameFields(false); setPreSelectBirthNumber(""); }}
+                            onKeyDown={(e) => handleSubKey(e, idx)} data-testid={`toggle-subject-type-${opt.val === "person" ? "fo" : opt.val === "szco" ? "szco" : "po"}`}
+                          ><Icon className="w-3.5 h-3.5" />{opt.label}</button>
+                        );
+                      })}
+                    </div>
+                  );
+                })()}
               </div>
             )}
 
