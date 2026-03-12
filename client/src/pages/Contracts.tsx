@@ -3050,10 +3050,10 @@ export default function Contracts() {
             const isRowSelected = selectedIds.includes(contract.id);
             const rowClass = isRowSelected ? "bg-blue-500/20 hover:bg-blue-500/25 border-l-2 border-l-blue-500" : isIncomplete ? "bg-red-500/15 hover:bg-red-500/20 border-l-2 border-l-red-500" : (needsNameConfirm && !isIncomplete) ? "bg-orange-500/8 hover:bg-orange-500/15 border-l-2 border-l-orange-500" : "";
             return (
-              <TableRow key={contract.id} data-testid={`row-evidencia-${contract.id}`} className={rowClass} onRowClick={() => { if (needsNameConfirm && !checkboxOnly) { setNameConfirmContract(contract); setNameConfirmOpen(true); return; } if (checkboxOnly && showRerouteCheckbox) { toggleRerouteSelect(contract.id); } else if (checkboxOnly && showCheckbox) { if (earlyPhase) { toggleSelect(contract.id); } else if (!isIncomplete) { toggleSelect(contract.id); } } else if (!checkboxOnly) { if (earlyPhase || isIncomplete) { openIncompleteEdit(contract); } else { openEdit(contract); } } }}>
+              <TableRow key={contract.id} data-testid={`row-evidencia-${contract.id}`} className={rowClass} onRowClick={() => { if (needsNameConfirm && !checkboxOnly) { setNameConfirmContract(contract); setNameConfirmOpen(true); return; } if (checkboxOnly && showRerouteCheckbox) { toggleRerouteSelect(contract.id); } else if (checkboxOnly && showCheckbox) { if (earlyPhase && isIncomplete) { openIncompleteEdit(contract); } else if (earlyPhase && !isIncomplete) { toggleSelect(contract.id); } else if (!isIncomplete) { toggleSelect(contract.id); } } else if (!checkboxOnly) { if (earlyPhase || isIncomplete) { openIncompleteEdit(contract); } else { openEdit(contract); } } }}>
                 {showCheckbox && (
                   <TableCell>
-                    {isIncomplete && !earlyPhase ? (
+                    {isIncomplete ? (
                       <Tooltip>
                         <TooltipTrigger asChild>
                           <span className="inline-flex"><Checkbox disabled checked={false} data-testid={`checkbox-contract-${contract.id}`} /></span>
