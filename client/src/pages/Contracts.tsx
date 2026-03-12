@@ -869,9 +869,16 @@ function ContractFormDialog({
               </div>
             </div>
 
-            <p className="text-xs text-destructive font-medium" style={{ visibility: rewardTotalPercentage > 100 ? 'visible' : 'hidden' }}>
-              Sucet percent presiahol 100%. Upravte hodnoty.
-            </p>
+            {(specialistUid || recommenders.length > 0) && (
+              <div className={`rounded-md p-2 ${rewardTotalPercentage === 100 ? 'bg-emerald-500/10 border border-emerald-500/30' : 'bg-destructive/10 border border-destructive/30'}`}>
+                <p className={`text-xs font-medium ${rewardTotalPercentage === 100 ? 'text-emerald-600' : 'text-destructive'}`} data-testid="text-reward-status">
+                  {rewardTotalPercentage === 100
+                    ? `Celkový súčet odmien je 100,00 % - Uloženie je povolené.`
+                    : `Celkový súčet odmien nie je 100,00 % (${rewardTotalPercentage.toFixed(2).replace(".", ",")} %) - Uloženie je zablokované.`
+                  }
+                </p>
+              </div>
+            )}
 
             <div className="space-y-3">
               <div className="border rounded-md p-3 space-y-2" data-testid="panel-specialist-reward">
@@ -884,11 +891,17 @@ function ContractFormDialog({
                     <label className="text-xs text-muted-foreground">UID specialistu</label>
                     <div className="relative">
                       <Input
-                        placeholder="Zadajte UID alebo hladajte..."
+                        placeholder="UID alebo meno..."
                         value={specialistUid}
                         onChange={e => {
                           setSpecialistUid(e.target.value);
                           setRewardSearchSpecialist(e.target.value);
+                        }}
+                        onBlur={e => {
+                          const val = e.target.value.trim();
+                          if (val && /^\d+$/.test(val.replace(/\s/g, ''))) {
+                            setSpecialistUid(expandUid(val));
+                          }
                         }}
                         className="font-mono text-sm"
                         data-testid="input-specialist-uid"
@@ -972,11 +985,17 @@ function ContractFormDialog({
                       <label className="text-xs text-muted-foreground">UID odporucitela</label>
                       <div className="relative">
                         <Input
-                          placeholder="Zadajte UID alebo hladajte..."
+                          placeholder="UID alebo meno..."
                           value={newRecommenderUid}
                           onChange={e => {
                             setNewRecommenderUid(e.target.value);
                             setRewardSearchRecommender(e.target.value);
+                          }}
+                          onBlur={e => {
+                            const val = e.target.value.trim();
+                            if (val && /^\d+$/.test(val.replace(/\s/g, ''))) {
+                              setNewRecommenderUid(expandUid(val));
+                            }
                           }}
                           className="font-mono text-sm"
                           data-testid="input-new-recommender-uid"
@@ -3534,9 +3553,16 @@ export default function Contracts() {
                 </div>
               </div>
 
-              <p className="text-xs text-destructive font-medium" style={{ visibility: importRewardTotal > 100 ? 'visible' : 'hidden' }}>
-                Sucet percent presiahol 100%. Upravte hodnoty.
-              </p>
+              {(importSpecialistUid || importRecommenders.length > 0) && (
+                <div className={`rounded-md p-2 ${importRewardTotal === 100 ? 'bg-emerald-500/10 border border-emerald-500/30' : 'bg-destructive/10 border border-destructive/30'}`}>
+                  <p className={`text-xs font-medium ${importRewardTotal === 100 ? 'text-emerald-600' : 'text-destructive'}`} data-testid="text-import-reward-status">
+                    {importRewardTotal === 100
+                      ? `Celkový súčet odmien je 100,00 % - Uloženie je povolené.`
+                      : `Celkový súčet odmien nie je 100,00 % (${importRewardTotal.toFixed(2).replace(".", ",")} %) - Uloženie je zablokované.`
+                    }
+                  </p>
+                </div>
+              )}
 
               <div className="grid grid-cols-2 gap-3">
                 <div className="border rounded-md p-3 space-y-2" data-testid="panel-import-specialist">
@@ -3814,7 +3840,7 @@ export default function Contracts() {
               <Button variant="outline" onClick={handleImportRewardSkip} disabled={importRewardSaving} data-testid="button-import-skip-rewards">
                 Preskočiť
               </Button>
-              <Button onClick={handleImportRewardSave} disabled={importRewardSaving || importRewardTotal > 100 || (!importSpecialistUid && importRecommenders.length === 0)} data-testid="button-import-save-rewards">
+              <Button onClick={handleImportRewardSave} disabled={importRewardSaving || importRewardTotal !== 100 || (!importSpecialistUid && importRecommenders.length === 0)} data-testid="button-import-save-rewards">
                 {importRewardSaving && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
                 Uložiť odmeny
               </Button>
@@ -4859,9 +4885,16 @@ export default function Contracts() {
                 </div>
               </div>
 
-              <p className="text-xs text-destructive font-medium" style={{ visibility: preSelectRewardTotal > 100 ? 'visible' : 'hidden' }}>
-                Sucet percent presiahol 100%. Upravte hodnoty.
-              </p>
+              {(preSelectSpecialistUid || preSelectRecommenders.length > 0) && (
+                <div className={`rounded-md p-2 ${preSelectRewardTotal === 100 ? 'bg-emerald-500/10 border border-emerald-500/30' : 'bg-destructive/10 border border-destructive/30'}`}>
+                  <p className={`text-xs font-medium ${preSelectRewardTotal === 100 ? 'text-emerald-600' : 'text-destructive'}`} data-testid="text-preselect-reward-status">
+                    {preSelectRewardTotal === 100
+                      ? `Celkový súčet odmien je 100,00 % - Uloženie je povolené.`
+                      : `Celkový súčet odmien nie je 100,00 % (${preSelectRewardTotal.toFixed(2).replace(".", ",")} %) - Uloženie je zablokované.`
+                    }
+                  </p>
+                </div>
+              )}
 
               <div className="grid grid-cols-2 gap-3">
                 <div className="border rounded-md p-3 space-y-2" data-testid="panel-preselect-specialist">
@@ -5132,7 +5165,7 @@ export default function Contracts() {
                 }} disabled={preSelectSaving} data-testid="button-preselect-skip-rewards">
                   {preSelectSaving ? "Zapisujem..." : "Preskočiť"}
                 </Button>
-                <Button onClick={handlePreSelectConfirm} disabled={preSelectSaving || preSelectRewardTotal > 100} data-testid="button-preselect-confirm-rewards">
+                <Button onClick={handlePreSelectConfirm} disabled={preSelectSaving || (preSelectRewardTotal !== 100 && (preSelectSpecialistUid || preSelectRecommenders.length > 0))} data-testid="button-preselect-confirm-rewards">
                   {preSelectSaving ? "Zapisujem..." : preSelectEditingContractId ? "Uložiť zmeny" : "Zapísať zmluvu"}
                 </Button>
               </div>
