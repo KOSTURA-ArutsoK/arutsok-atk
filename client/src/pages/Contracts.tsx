@@ -4733,6 +4733,9 @@ export default function Contracts() {
                         if (firstRow) firstRow.focus();
                       } else if (preSelectSubjectSearch.trim() && preSelectFilteredSubjects.length === 0) {
                         setPreSelectShowNameFields(true);
+                        if ((preSelectSubjectType === "szco" || preSelectSubjectType === "company") && /^\d+$/.test(preSelectSubjectSearch.trim())) {
+                          setPreSelectIco(preSelectSubjectSearch.trim());
+                        }
                         setTimeout(() => {
                           if (preSelectSubjectType === "szco" || preSelectSubjectType === "company") {
                             const el = document.querySelector('[data-testid="input-preselect-business-name"]') as HTMLElement;
@@ -4832,7 +4835,7 @@ export default function Contracts() {
                         </div>
                         <div className="flex items-center gap-3 text-xs text-muted-foreground">
                           <span className="font-mono">{formatUid(s.uid)}</span>
-                          <span style={{ display: identifier ? 'inline' : 'none' }}>{s.type === "company" ? "ICO" : "RC"}: {identifier}</span>
+                          <span style={{ display: identifier ? 'inline' : 'none' }}>{s.type === "company" || s.type === "szco" ? "ICO" : "RC"}: {identifier}</span>
                         </div>
                       </div>
                     </div>
