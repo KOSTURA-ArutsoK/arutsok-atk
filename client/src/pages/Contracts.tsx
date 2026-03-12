@@ -3551,14 +3551,14 @@ export default function Contracts() {
             <span className="text-red-400 font-semibold">*</span> povinne &nbsp; <span className="text-amber-400 font-semibold">**</span> podla typu &nbsp; <span className="text-amber-400 font-semibold">***</span> aspon C alebo D &nbsp;·&nbsp; <span className="font-semibold">FO</span>: rc_ico+meno+priezvisko &nbsp; <span className="font-semibold">PO</span>: ico+firma &nbsp; <span className="font-semibold">SZCO</span>: rc_ico+firma+meno+priezvisko
           </div>
 
-          <div className="bg-destructive/10 border border-destructive/30 rounded px-3 py-2 space-y-2">
+          <div className="bg-amber-500/10 border border-amber-500/30 rounded px-3 py-2 space-y-2">
             <div className="flex items-start gap-2">
-              <span className="text-destructive font-bold text-xs mt-px">1.</span>
-              <p className="text-[11px] text-destructive leading-snug">Ak nie su zadani odporucitelia, specialista bude automaticky pridany ako odporucitel s 0%.</p>
+              <span className="text-red-500 font-bold text-xs mt-px">1.</span>
+              <p className="text-[11px] text-red-500 leading-snug">Ak nie su zadani odporucitelia, specialista bude automaticky pridany ako odporucitel s 0%.</p>
             </div>
             <div className="flex items-start gap-2">
-              <span className="text-destructive font-bold text-xs mt-px">2.</span>
-              <p className="text-[11px] text-destructive leading-snug">Ak specialista nema 100% a odporucitel nie je vypisany, zmluva bude nahrata ale oznacena ako chybna.</p>
+              <span className="text-red-500 font-bold text-xs mt-px">2.</span>
+              <p className="text-[11px] text-red-500 leading-snug">Ak specialista nema 100% a odporucitel nie je vypisany, zmluva bude nahrata ale oznacena ako chybna.</p>
             </div>
           </div>
 
