@@ -4365,11 +4365,20 @@ export default function Contracts() {
             <p className="text-sm text-muted-foreground">
               Zmluva bola úspešne zapísaná. Teraz môžete nahrať dokumenty (PDF, obrázky, skeny občianskeho preukazu a pod.).
             </p>
-            <div className="flex flex-wrap gap-2 text-[11px] text-muted-foreground" data-testid="text-contract-doc-limits">
-              <span className="px-1.5 py-0.5 rounded bg-muted/50 border border-border">Max. {MAX_DOCS_PER_CONTRACT} súborov/zmluva (95 dok. + 5 videí)</span>
-              <span className="px-1.5 py-0.5 rounded bg-muted/50 border border-border">Max. {MAX_BATCH_FILES} súborov/dávka</span>
-              {userCanUploadVideo && <span className="px-1.5 py-0.5 rounded bg-muted/50 border border-border">Video povolené</span>}
-            </div>
+            {(() => {
+              const allContracts = contractsPage?.data || [];
+              const targetContract = preSelectCreatedContractId ? allContracts.find((c: any) => c.id === preSelectCreatedContractId) : null;
+              const existingDocsCount = targetContract && Array.isArray(targetContract.documents) ? targetContract.documents.length : 0;
+              const remainingSlots = MAX_DOCS_PER_CONTRACT - existingDocsCount;
+              return (
+                <div className="flex flex-wrap gap-2 text-[11px] text-muted-foreground" data-testid="text-contract-doc-limits">
+                  <span className="px-1.5 py-0.5 rounded bg-muted/50 border border-border">Aktuálne: {existingDocsCount}/{MAX_DOCS_PER_CONTRACT} dok. (zostáva {remainingSlots})</span>
+                  <span className="px-1.5 py-0.5 rounded bg-muted/50 border border-border">Max. {MAX_BATCH_FILES} súborov/dávka</span>
+                  <span className="px-1.5 py-0.5 rounded bg-muted/50 border border-border">95 dok. + 5 videí</span>
+                  {userCanUploadVideo && <span className="px-1.5 py-0.5 rounded bg-emerald-500/10 border border-emerald-500/30 text-emerald-400">Video povolené</span>}
+                </div>
+              );
+            })()}
 
             <input
               ref={refFileInput}
