@@ -2462,6 +2462,7 @@ export default function Contracts() {
   const { data: partners } = useQuery<Partner[]>({ queryKey: ["/api/partners"] });
   const { data: products } = useQuery<Product[]>({ queryKey: ["/api/products"] });
   const { data: allSectorProducts } = useQuery<SectorProduct[]>({ queryKey: ["/api/sector-products"] });
+  const { data: appUsersAll } = useQuery<AppUser[]>({ queryKey: ["/api/app-users"] });
   const { data: companies } = useQuery<MyCompany[]>({ queryKey: ["/api/my-companies"] });
   const { data: templates } = useQuery<ContractTemplate[]>({
     queryKey: ["/api/contract-templates"],
