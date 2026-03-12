@@ -157,7 +157,7 @@ const DialogContent = React.forwardRef<
         )}
         {...props}
       >
-        <div className={cn("flex-1 min-h-0 overflow-y-auto px-5", hasFooter && "pb-0")}>
+        <div className={cn("flex-1 min-h-0 overflow-y-auto px-6", hasFooter ? "pb-4" : "pb-6")}>
           {otherChildren}
         </div>
 
@@ -179,7 +179,7 @@ const DialogHeader = ({
 }: React.HTMLAttributes<HTMLDivElement>) => (
   <div
     className={cn(
-      "flex flex-col space-y-1.5 text-center sm:text-justify sticky top-0 z-10 bg-background pt-5 pb-3 -mx-5 px-5 border-b border-border/60",
+      "flex flex-col space-y-1.5 text-center sm:text-justify sticky top-0 z-10 bg-background pt-5 pb-3 -mx-6 px-6 border-b border-border/60",
       className
     )}
     {...props}
@@ -193,7 +193,7 @@ const DialogFooter = ({
 }: React.HTMLAttributes<HTMLDivElement>) => (
   <div
     className={cn(
-      "shrink-0 flex items-center justify-between sm:justify-end sm:space-x-2 px-5 py-3 bg-background border-t border-border/60",
+      "shrink-0 flex items-center justify-between sm:justify-end sm:space-x-2 px-6 pt-4 pb-6 bg-background border-t border-border/60",
       className
     )}
     {...props}
