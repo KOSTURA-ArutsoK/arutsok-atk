@@ -3033,7 +3033,6 @@ export default function Contracts() {
             {!earlyPhase && !hideContractNumbers && <TableHead>Číslo zmluvy</TableHead>}
             <TableHead>Typ subjektu</TableHead>
             <TableHead sortKey="subjectId" sortDirection={sk === "subjectId" ? sd : null} onSort={rs}>Subjekt</TableHead>
-            {earlyPhase && <TableHead>RČ / IČO</TableHead>}
             {showTimer && <TableHead>Zostáva dní</TableHead>}
             {showActions && <TableHead className="text-right">Akcie</TableHead>}
           </TableRow>
@@ -3128,8 +3127,12 @@ export default function Contracts() {
                   <Badge variant="outline" className={`text-[10px] ${subjectType === "FO" ? "border-blue-500/50 text-blue-400" : subjectType === "SZČO" ? "border-amber-500/50 text-amber-400" : subjectType === "PO" ? "border-purple-500/50 text-purple-400" : "border-muted text-muted-foreground"}`}>{subjectType}</Badge>
                 </TableCell>
                 <TableCell className="text-sm py-1" data-testid={`text-subject-name-${contract.id}`}>
-                  <span className="flex items-center gap-1">
-                    {subjectFullName}
+                  <span className="flex items-center gap-1 flex-wrap">
+                    <span>{subjectFullName}</span>
+                    {earlyPhase && (() => {
+                      const rcIco = sub ? (sub.type === "person" ? sub.birthNumber : sub.type === "szco" ? ((contract as any).szcoIco || sub.birthNumber) : (sub as any).ico) : null;
+                      return rcIco ? <span className="text-[10px] font-mono text-muted-foreground" data-testid={`text-subject-rcico-${contract.id}`}>{rcIco}</span> : null;
+                    })()}
                     {isIncomplete && (fieldMissing("meno") || fieldMissing("priezvisko") || fieldMissing("rodné") || fieldMissing("ičo") || fieldMissing("názov firmy")) && (
                       <Tooltip>
                         <TooltipTrigger asChild>
@@ -3157,16 +3160,6 @@ export default function Contracts() {
                     )}
                   </span>
                 </TableCell>
-                {earlyPhase && (
-                  <TableCell className="text-sm font-mono py-1" data-testid={`text-subject-rcico-${contract.id}`}>
-                    {(() => {
-                      if (!sub) return "—";
-                      if (sub.type === "person") return sub.birthNumber || "—";
-                      if (sub.type === "szco") return (contract as any).szcoIco || sub.birthNumber || "—";
-                      return (sub as any).ico || "—";
-                    })()}
-                  </TableCell>
-                )}
                 {showTimer && <TableCell className="py-1" data-testid={`text-contract-timer-${contract.id}`}>
                   {(() => {
                     const c = contract as any;
@@ -4345,7 +4338,6 @@ export default function Contracts() {
                                   {sprievodkaColumnVisibility.isVisible("contractNumber") && <TableHead>Číslo zmluvy</TableHead>}
                                   <TableHead>Typ subjektu</TableHead>
                                   {sprievodkaColumnVisibility.isVisible("subjectId") && <TableHead>Klient</TableHead>}
-                                  <TableHead>RČ / IČO</TableHead>
                                   <TableHead className="text-right">Akcie</TableHead>
                                 </TableRow>
                               </TableHeader>
@@ -4371,16 +4363,16 @@ export default function Contracts() {
                                         return <Badge variant="outline" className={`text-[10px] ${st === "FO" ? "border-blue-500/50 text-blue-400" : st === "SZČO" ? "border-amber-500/50 text-amber-400" : st === "PO" ? "border-purple-500/50 text-purple-400" : "border-muted text-muted-foreground"}`}>{st}</Badge>;
                                       })()}
                                     </TableCell>
-                                    {sprievodkaColumnVisibility.isVisible("subjectId") && <TableCell className="text-sm">{getSubjectDisplay(contract.subjectId)}</TableCell>}
-                                    <TableCell className="text-sm font-mono">
-                                      {(() => {
-                                        const sub2 = subjects?.find(s => s.id === contract.subjectId);
-                                        if (!sub2) return "—";
-                                        if (sub2.type === "person") return sub2.birthNumber || "—";
-                                        if (sub2.type === "szco") return (contract as any).szcoIco || sub2.birthNumber || "—";
-                                        return (sub2 as any).ico || "—";
-                                      })()}
-                                    </TableCell>
+                                    {sprievodkaColumnVisibility.isVisible("subjectId") && <TableCell className="text-sm">
+                                      <span className="flex items-center gap-1 flex-wrap">
+                                        <span>{getSubjectDisplay(contract.subjectId)}</span>
+                                        {(() => {
+                                          const sub2 = subjects?.find(s => s.id === contract.subjectId);
+                                          const rcIco = sub2 ? (sub2.type === "person" ? sub2.birthNumber : sub2.type === "szco" ? ((contract as any).szcoIco || sub2.birthNumber) : (sub2 as any).ico) : null;
+                                          return rcIco ? <span className="text-[10px] font-mono text-muted-foreground">{rcIco}</span> : null;
+                                        })()}
+                                      </span>
+                                    </TableCell>}
                                     <TableCell className="text-right">
                                       <Button size="icon" variant="ghost" onClick={() => openView(contract)} data-testid={`button-view-dispatched-${contract.id}`}>
                                         <Eye className="w-4 h-4" />
