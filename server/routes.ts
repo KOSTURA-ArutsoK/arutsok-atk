@@ -5382,7 +5382,7 @@ export async function registerRoutes(
         const sheet = workbook.worksheets[0];
         if (!sheet) return res.status(400).json({ message: "Excel neobsahuje žiadny hárok" });
 
-        const KNOWN_IMPORT_HEADERS = new Set(["partner", "produkt", "cislo_navrhu", "cislo_zmluvy", "typ_subjektu", "rc_ico", "nazov_firmy", "titul_pred", "meno", "priezvisko", "titul_za", "partner_name", "product", "product_name", "rodne_cislo", "rc", "ico", "birth_number", "typ", "subject_type", "first_name", "last_name", "company_name", "title_before", "title_after"]);
+        const KNOWN_IMPORT_HEADERS = new Set(["partner", "produkt", "cislo_navrhu", "cislo_zmluvy", "typ_subjektu", "rc_ico", "nazov_firmy", "titul_pred", "meno", "priezvisko", "titul_za", "partner_name", "product", "product_name", "rodne_cislo", "rc", "ico", "birth_number", "typ", "subject_type", "first_name", "last_name", "company_name", "title_before", "title_after", "specialista", "specialista_podiel", "specialist", "specialist_percentage", "odporucitel", "odporucitel_podiel", "recommender", "recommender_percentage"]);
 
         const headerRow = sheet.getRow(1);
         const colCount = headerRow.cellCount || sheet.columnCount || 11;
@@ -5499,6 +5499,11 @@ export async function registerRoutes(
           const cisloNavrhu = rowData["cislo_navrhu"] || rowData["proposal_number"] || null;
           const cisloZmluvy = rowData["cislo_zmluvy"] || rowData["contract_number"] || null;
 
+          const specialistaUid = rowData["specialista"] || rowData["specialist"] || null;
+          const specialistaPodiel = rowData["specialista_podiel"] || rowData["specialist_percentage"] || null;
+          const odporucitelUid = rowData["odporucitel"] || rowData["recommender"] || null;
+          const odporucitelPodiel = rowData["odporucitel_podiel"] || rowData["recommender_percentage"] || null;
+
           let rc: string | null = null;
           let ico: string | null = null;
           if (rcIcoRaw) {
@@ -5587,12 +5592,48 @@ export async function registerRoutes(
 
           const created = await storage.createContract(contractData);
 
+          if (specialistaUid || odporucitelUid) {
+            const distributions: { contractId: number; type: string; uid: string; percentage: string; sortOrder: number }[] = [];
+            if (specialistaUid) {
+              distributions.push({
+                contractId: created.id,
+                type: "specialist",
+                uid: specialistaUid.trim(),
+                percentage: specialistaPodiel ? String(parseFloat(specialistaPodiel) || 0) : "0",
+                sortOrder: 0,
+              });
+              if (!odporucitelUid) {
+                distributions.push({
+                  contractId: created.id,
+                  type: "recommender",
+                  uid: specialistaUid.trim(),
+                  percentage: "0",
+                  sortOrder: 1,
+                });
+              }
+            }
+            if (odporucitelUid) {
+              distributions.push({
+                contractId: created.id,
+                type: "recommender",
+                uid: odporucitelUid.trim(),
+                percentage: odporucitelPodiel ? String(parseFloat(odporucitelPodiel) || 0) : "0",
+                sortOrder: specialistaUid ? 1 : 0,
+              });
+            }
+            try {
+              await storage.saveContractRewardDistributions(created.id, distributions);
+            } catch (rewardErr: any) {
+              console.error(`[IMPORT] Chyba pri ukladaní odmien pre riadok ${rowNum}:`, rewardErr.message);
+            }
+          }
+
           await logAudit(req, {
             action: "BULK_IMPORT_ROW",
             module: "zmluvy",
             entityId: created.id,
             entityName: `Import riadok ${rowNum}: kontrakt #${created.id}`,
-            newData: { row: rowNum, contractId: created.id, partnerId: resolvedPartnerId, productId: resolvedProductId, subjectId: resolvedSubjectId },
+            newData: { row: rowNum, contractId: created.id, partnerId: resolvedPartnerId, productId: resolvedProductId, subjectId: resolvedSubjectId, specialistaUid, odporucitelUid },
           });
 
           if (isIncomplete) incompleteCount++;
