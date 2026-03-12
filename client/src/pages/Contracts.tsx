@@ -2534,8 +2534,12 @@ export default function Contracts() {
     const subj = (subjects || []).find(s => (s.uid || "").replace(/\s/g, "") === normalizedUid && !s.deletedAt);
     if (subj) {
       if (subj.type === "fo") {
-        const parts = [subj.firstName, subj.lastName].filter(Boolean);
-        return { found: true, label: parts.join(" ") || "Bez mena" };
+        const det = (subj.details || {}) as Record<string, unknown>;
+        const titleBefore = (det.titleBefore as string) || "";
+        const titleAfter = (det.titleAfter as string) || "";
+        const parts = [titleBefore, subj.firstName, subj.lastName].filter(Boolean);
+        const full = titleAfter ? `${parts.join(" ")}, ${titleAfter}` : parts.join(" ");
+        return { found: true, label: full || "Bez mena" };
       }
       return { found: true, label: subj.companyName || "Bez nazvu" };
     }
@@ -3507,25 +3511,23 @@ export default function Contracts() {
         {importStep === 1 && (
         <div className="space-y-2 text-justify">
           <p className="text-xs text-muted-foreground">
-            Nahrajte Excel (.xlsx) alebo CSV súbor so stĺpcami A–K. Mapovanie 1:1 — systém stĺpce neprehadzuje.
+            Nahrajte Excel (.xlsx) alebo CSV súbor so stĺpcami A–Q. Mapovanie 1:1 — systém stĺpce neprehadzuje.
           </p>
 
           <div className="border rounded overflow-hidden">
-            <div className="bg-muted/50 px-2 py-0.5 text-[10px] font-medium border-b flex">
-              <span className="w-[30%]">Partner & produkt</span>
-              <span className="w-[25%]">Zmluva</span>
-              <span className="w-[45%]">Klient (subjekt)</span>
+            <div className="bg-muted/50 px-2 py-0.5 text-[10px] font-medium border-b grid grid-cols-3">
+              <span>Krok 1: Partner & zmluva</span>
+              <span>Krok 2: Klient (subjekt)</span>
+              <span>Krok 3: Ziskatel</span>
             </div>
-            <div className="flex text-[10px]">
-              <div className="w-[30%] border-r">
+            <div className="grid grid-cols-3 text-[10px]">
+              <div className="border-r">
                 <div className="flex border-b px-1.5 py-px"><span className="font-mono w-5">A</span><span>partner</span><span className="ml-auto text-red-400">*</span></div>
-                <div className="flex px-1.5 py-px bg-muted/10"><span className="font-mono w-5">B</span><span>produkt</span><span className="ml-auto text-red-400">*</span></div>
-              </div>
-              <div className="w-[25%] border-r">
+                <div className="flex border-b px-1.5 py-px bg-muted/10"><span className="font-mono w-5">B</span><span>produkt</span><span className="ml-auto text-red-400">*</span></div>
                 <div className="flex border-b px-1.5 py-px"><span className="font-mono w-5">C</span><span>cislo_navrhu</span><span className="ml-auto text-amber-400">***</span></div>
                 <div className="flex px-1.5 py-px bg-muted/10"><span className="font-mono w-5">D</span><span>cislo_zmluvy</span><span className="ml-auto text-amber-400">***</span></div>
               </div>
-              <div className="w-[45%]">
+              <div className="border-r">
                 <div className="flex border-b px-1.5 py-px"><span className="font-mono w-5">E</span><span>typ_subjektu</span><span className="ml-auto text-red-400">*</span></div>
                 <div className="flex border-b px-1.5 py-px bg-muted/10"><span className="font-mono w-5">F</span><span>rc_ico</span><span className="ml-auto text-amber-400">**</span></div>
                 <div className="flex border-b px-1.5 py-px"><span className="font-mono w-5">G</span><span>nazov_firmy</span><span className="ml-auto text-amber-400">**</span></div>
@@ -3533,6 +3535,14 @@ export default function Contracts() {
                 <div className="flex border-b px-1.5 py-px"><span className="font-mono w-5">I</span><span>meno</span><span className="ml-auto text-amber-400">**</span></div>
                 <div className="flex border-b px-1.5 py-px bg-muted/10"><span className="font-mono w-5">J</span><span>priezvisko</span><span className="ml-auto text-amber-400">**</span></div>
                 <div className="flex px-1.5 py-px"><span className="font-mono w-5">K</span><span>titul_za</span><span className="ml-auto text-muted-foreground">—</span></div>
+              </div>
+              <div>
+                <div className="flex border-b px-1.5 py-px"><span className="font-mono w-5">L</span><span>specialista_uid</span><span className="ml-auto text-red-400">*</span></div>
+                <div className="flex border-b px-1.5 py-px bg-muted/10"><span className="font-mono w-5">M</span><span>specialista_%</span><span className="ml-auto text-red-400">*</span></div>
+                <div className="flex border-b px-1.5 py-px"><span className="font-mono w-5">N</span><span>odporucitel1_uid</span><span className="ml-auto text-muted-foreground">—</span></div>
+                <div className="flex border-b px-1.5 py-px bg-muted/10"><span className="font-mono w-5">O</span><span>odporucitel1_%</span><span className="ml-auto text-muted-foreground">—</span></div>
+                <div className="flex border-b px-1.5 py-px"><span className="font-mono w-5">P</span><span>odporucitel2_uid</span><span className="ml-auto text-muted-foreground">—</span></div>
+                <div className="flex px-1.5 py-px bg-muted/10"><span className="font-mono w-5">Q</span><span>odporucitel2_%</span><span className="ml-auto text-muted-foreground">—</span></div>
               </div>
             </div>
           </div>
@@ -3542,7 +3552,7 @@ export default function Contracts() {
           </div>
 
           <div className="bg-muted/30 rounded px-2 py-1 font-mono text-[9px] text-muted-foreground">
-            <span className="text-foreground/60">Ukážka:</span> Allianz | PZP Auto | N-2024-001 | | person | 850101/1234 | | | Ján | Novák |
+            <span className="text-foreground/60">Ukážka:</span> Allianz | PZP Auto | N-2024-001 | | person | 850101/1234 | | | Jan | Novak | | 421000000000002 | 100 | | |
           </div>
 
           <div className="flex items-center gap-2">
@@ -3572,7 +3582,7 @@ export default function Contracts() {
         {importStep === 2 && (
           <div className="space-y-4">
             <p className="text-sm text-muted-foreground">
-              Priradenie získateľov a rozdelenie odmien pre všetkých {importCreatedIds.length} importovaných zmlúv. Tento krok je voliteľný — môžete ho preskočiť.
+              Priradenie získateľov a rozdelenie odmien pre všetkých {importCreatedIds.length} importovaných zmlúv.
             </p>
 
             <div className="space-y-3 border rounded-md p-4" data-testid="section-import-reward-distributions">
@@ -3859,11 +3869,12 @@ export default function Contracts() {
 
                   <div className="space-y-1" data-testid="list-import-recommenders">
                     {importRecommenders.map((rec, idx) => {
-                      const user = (appUsersAll || []).find(u => u.uid === rec.uid);
+                      const lookup = lookupSubjectByUid(rec.uid);
                       return (
                         <div key={`${rec.uid}-${idx}`} className="flex items-center gap-2 px-2 py-1 border rounded-md bg-muted/30 text-xs" data-testid={`row-import-recommender-${idx}`}>
                           <Users className="w-3 h-3 text-primary flex-shrink-0" />
-                          <span className="font-medium truncate">{user ? `${user.firstName || ""} ${user.lastName || ""}`.trim() || user.username : formatUid(rec.uid)}</span>
+                          <span className="font-mono text-[10px] text-muted-foreground flex-shrink-0">{formatUid(rec.uid)}</span>
+                          <span className={`font-medium truncate ${lookup.found ? 'text-emerald-500' : 'text-destructive'}`}>{lookup.label}</span>
                           <div className="flex items-center gap-1 ml-auto flex-shrink-0">
                             <Input
                               type="number"
@@ -3929,10 +3940,7 @@ export default function Contracts() {
           )}
           {importStep === 2 && (
             <>
-              <Button variant="outline" onClick={handleImportRewardSkip} disabled={importRewardSaving} data-testid="button-import-skip-rewards">
-                Preskočiť
-              </Button>
-              <Button onClick={handleImportRewardSave} disabled={importRewardSaving || importRewardTotal !== 100 || (!importSpecialistUid && importRecommenders.length === 0)} data-testid="button-import-save-rewards">
+              <Button onClick={handleImportRewardSave} disabled={importRewardSaving || importRewardTotal !== 100 || !importSpecialistUid || importRecommenders.some(r => !lookupSubjectByUid(r.uid).found) || !lookupSubjectByUid(importSpecialistUid).found} data-testid="button-import-save-rewards">
                 {importRewardSaving && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
                 Uložiť odmeny
               </Button>
@@ -4958,7 +4966,7 @@ export default function Contracts() {
         {preSelectStep === 3 && (
           <div className="space-y-4">
             <p className="text-sm text-muted-foreground">
-              Priradenie získateľov a rozdelenie odmien za zmluvu. Tento krok je voliteľný — môžete ho preskočiť.
+              Priradenie získateľov a rozdelenie odmien za zmluvu.
             </p>
 
             <div className="space-y-3 border rounded-md p-4" data-testid="section-preselect-reward-distributions">
@@ -5245,11 +5253,12 @@ export default function Contracts() {
 
                   <div className="space-y-1" data-testid="list-preselect-recommenders">
                     {preSelectRecommenders.map((rec, idx) => {
-                      const user = (appUsersAll || []).find(u => u.uid === rec.uid);
+                      const lookup = lookupSubjectByUid(rec.uid);
                       return (
                         <div key={`${rec.uid}-${idx}`} className="flex items-center gap-2 px-2 py-1 border rounded-md bg-muted/30 text-xs" data-testid={`row-preselect-recommender-${idx}`}>
                           <Users className="w-3 h-3 text-primary flex-shrink-0" />
-                          <span className="font-medium truncate">{user ? `${user.firstName || ""} ${user.lastName || ""}`.trim() || user.username : formatUid(rec.uid)}</span>
+                          <span className="font-mono text-[10px] text-muted-foreground flex-shrink-0">{formatUid(rec.uid)}</span>
+                          <span className={`font-medium truncate ${lookup.found ? 'text-emerald-500' : 'text-destructive'}`}>{lookup.label}</span>
                           <div className="flex items-center gap-1 ml-auto flex-shrink-0">
                             <Input
                               type="number"
@@ -5302,19 +5311,9 @@ export default function Contracts() {
               <Button variant="outline" onClick={() => setPreSelectStep(2)} data-testid="button-preselect-step3-back">
                 Spat
               </Button>
-              <div className="flex gap-2">
-                <Button variant="outline" onClick={() => {
-                  setPreSelectSpecialistUid("");
-                  setPreSelectSpecialistPercentage("");
-                  setPreSelectRecommenders([]);
-                  handlePreSelectConfirm();
-                }} disabled={preSelectSaving} data-testid="button-preselect-skip-rewards">
-                  {preSelectSaving ? "Zapisujem..." : "Preskočiť"}
-                </Button>
-                <Button onClick={handlePreSelectConfirm} disabled={preSelectSaving || (preSelectRewardTotal !== 100 && (preSelectSpecialistUid || preSelectRecommenders.length > 0))} data-testid="button-preselect-confirm-rewards">
-                  {preSelectSaving ? "Zapisujem..." : preSelectEditingContractId ? "Uložiť zmeny" : "Zapísať zmluvu"}
-                </Button>
-              </div>
+              <Button onClick={handlePreSelectConfirm} disabled={preSelectSaving || preSelectRewardTotal !== 100 || !preSelectSpecialistUid || !lookupSubjectByUid(preSelectSpecialistUid).found || preSelectRecommenders.some(r => !lookupSubjectByUid(r.uid).found)} data-testid="button-preselect-confirm-rewards">
+                {preSelectSaving ? "Zapisujem..." : preSelectEditingContractId ? "Uložiť zmeny" : "Zapísať zmluvu"}
+              </Button>
             </div>
           </div>
         )}
