@@ -3514,27 +3514,32 @@ export default function Contracts() {
 
         {importStep === 2 && (
           <div className="space-y-4">
-            <div className="flex items-center justify-between flex-wrap gap-2">
-              <div className="flex items-center gap-2">
-                <Award className="w-4 h-4 text-primary" />
-                <span className="text-sm font-semibold">Rozdelenie odmien</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <Badge variant={importRewardTotal > 100 ? "destructive" : importRewardTotal === 100 ? "default" : "outline"} className="text-[10px] font-mono" data-testid="badge-import-reward-total">
-                  {importRewardTotal}% / 100%
-                </Badge>
-                <span className="text-[10px] text-muted-foreground" style={{ visibility: importRewardRemaining > 0 && importRewardTotal <= 100 ? 'visible' : 'hidden' }}>
-                  Zostava: {importRewardRemaining}%
-                </span>
-              </div>
-            </div>
-
-            <p className="text-xs text-destructive font-medium" style={{ visibility: importRewardTotal > 100 ? 'visible' : 'hidden' }}>
-              Sucet percent presiahol 100%. Upravte hodnoty.
+            <p className="text-sm text-muted-foreground">
+              Priradenie získateľov a rozdelenie odmien pre všetkých {importCreatedIds.length} importovaných zmlúv. Tento krok je voliteľný — môžete ho preskočiť.
             </p>
 
-            <div className="space-y-3">
-              <div className="border rounded-md p-3 space-y-2" data-testid="panel-import-specialist">
+            <div className="space-y-3 border rounded-md p-4" data-testid="section-import-reward-distributions">
+              <div className="flex items-center justify-between gap-2 flex-wrap">
+                <div className="flex items-center gap-2">
+                  <Users className="w-4 h-4 text-primary" />
+                  <span className="text-sm font-semibold">Získatelia a odmeny</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Badge variant={importRewardTotal > 100 ? "destructive" : importRewardTotal === 100 ? "default" : "outline"} className="text-[10px] font-mono" data-testid="badge-import-reward-total">
+                    {importRewardTotal}% / 100%
+                  </Badge>
+                  <span className="text-[10px] text-muted-foreground" style={{ visibility: importRewardRemaining > 0 && importRewardTotal <= 100 ? 'visible' : 'hidden' }}>
+                    Zostava: {importRewardRemaining}%
+                  </span>
+                </div>
+              </div>
+
+              <p className="text-xs text-destructive font-medium" style={{ visibility: importRewardTotal > 100 ? 'visible' : 'hidden' }}>
+                Sucet percent presiahol 100%. Upravte hodnoty.
+              </p>
+
+              <div className="space-y-3">
+                <div className="border rounded-md p-3 space-y-2" data-testid="panel-import-specialist">
                 <div className="flex items-center gap-2">
                   <Award className="w-3.5 h-3.5 text-primary" />
                   <span className="text-xs font-semibold uppercase tracking-wide">Specialista</span>
@@ -3774,6 +3779,7 @@ export default function Contracts() {
                   </div>
                 </div>
               </div>
+            </div>
             </div>
           </div>
         )}
