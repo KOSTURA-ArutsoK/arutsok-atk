@@ -5245,12 +5245,6 @@ export async function registerRoutes(
         console.log("[IMPORT] Pozičné mapovanie použité — hlavičky neboli rozpoznané. Prvý riadok:", headers.join(", "));
       }
 
-      const allSubjects = await storage.getSubjects();
-      const uidMap = new Map<string, typeof allSubjects[0]>();
-      for (const s of allSubjects) {
-        if (s.uid) uidMap.set(s.uid, s);
-      }
-
       const allPartners = await storage.getPartners();
       const allProducts = await storage.getProducts();
 
@@ -5372,154 +5366,47 @@ export async function registerRoutes(
           const szcoIcoVal = rowData["szco_ico"] || rowData["szco_ico_number"] || null;
           const szcoRcVal = rowData["szco_rc"] || rowData["szco_rodne_cislo"] || rowData["szco_rodnecislo"] || null;
 
-          let subjectId: number | null = null;
-          let subjectAction: "matched" | "updated" | "created" = "matched";
           let needsManualVerification = false;
-
-          if (klientUidVal && uidMap.has(klientUidVal)) {
-            subjectId = uidMap.get(klientUidVal)!.id;
-            subjectAction = "matched";
-          }
 
           const email = rowData["email"] || null;
           const phone = rowData["telefon"] || rowData["phone"] || null;
 
-          if (!subjectId && rc) {
-            const existing = allSubjects.find(s => {
-              if (!s.birthNumber) return false;
-              const decrypted = decryptField(s.birthNumber);
-              return decrypted !== null && decrypted === rc;
-            });
-            if (existing) {
-              subjectId = existing.id;
-              subjectAction = "updated";
-              const updates: any = {};
-              if (firstName && firstName !== existing.firstName) updates.firstName = firstName;
-              if (lastName && lastName !== existing.lastName) updates.lastName = lastName;
-              if (email && email !== existing.email) updates.email = email;
-              if (phone && phone !== existing.phone) updates.phone = phone;
-              if (Object.keys(updates).length > 0) {
-                updates.changeReason = "Automatická aktualizácia z importu zmlúv";
-                await storage.updateSubject(existing.id, updates);
-              }
-            }
-          }
-          if (!subjectId && ico) {
-            const existing = allSubjects.find(s => {
-              const details = s.details as any;
-              return details?.ico === ico || details?.dynamicFields?.ico === ico;
-            });
-            if (existing) {
-              subjectId = existing.id;
-              subjectAction = "updated";
-              const updates: any = {};
-              if (firstName && firstName !== existing.firstName) updates.firstName = firstName;
-              if (lastName && lastName !== existing.lastName) updates.lastName = lastName;
-              if (email && email !== existing.email) updates.email = email;
-              if (phone && phone !== existing.phone) updates.phone = phone;
-              if (Object.keys(updates).length > 0) {
-                updates.changeReason = "Automatická aktualizácia z importu zmlúv";
-                await storage.updateSubject(existing.id, updates);
-              }
-            }
-          }
-          if (!subjectId && (firstName || companyName)) {
-            try {
-              const newSubject = await storage.createSubject({
-                type: subjectType,
-                firstName: firstName || null,
-                lastName: lastName || null,
-                companyName: companyName || null,
-                titleBefore: titleBefore || null,
-                titleAfter: titleAfter || null,
-                email: email || null,
-                phone: phone || null,
-                birthNumber: rc ? encryptField(rc) : null,
-                stateId: appUser?.activeStateId || null,
-                myCompanyId: appUser?.activeCompanyId || null,
-                details: ico ? { dynamicFields: { ico } } : {},
-              } as any);
-              subjectId = newSubject.id;
-              subjectAction = "created";
-              allSubjects.push(newSubject);
-              if (newSubject.uid) uidMap.set(newSubject.uid, newSubject);
-            } catch (createErr) {
-              console.error("Import: Failed to create subject:", createErr);
-            }
-          }
-
-          let resolvedSzcoUid = szcoUidVal;
-          if (!szcoUidVal && (szcoIcoVal || szcoRcVal)) {
-            let szcoSubject: typeof allSubjects[0] | undefined;
-            if (szcoIcoVal) {
-              szcoSubject = allSubjects.find(s => {
-                const details = s.details as any;
-                return details?.ico === szcoIcoVal;
-              });
-            }
-            if (!szcoSubject && szcoRcVal) {
-              szcoSubject = allSubjects.find(s => {
-                if (!s.birthNumber) return false;
-                const decrypted = decryptField(s.birthNumber);
-                return decrypted !== null && decrypted === szcoRcVal;
-              });
-            }
-            if (!szcoSubject) {
-              const szcoName = rowData["szco_meno"] || rowData["szco_name"] || null;
-              const szcoCity = rowData["szco_mesto"] || rowData["szco_city"] || null;
-              if (szcoName && szcoCity) {
-                szcoSubject = allSubjects.find(s => {
-                  const fullName = `${s.firstName || ''} ${s.lastName || ''}`.trim().toLowerCase();
-                  return fullName === szcoName.toLowerCase() && (s.city || '').toLowerCase() === szcoCity.toLowerCase();
-                });
-                if (szcoSubject) needsManualVerification = true;
-              }
-            }
-            if (szcoSubject) {
-              resolvedSzcoUid = szcoSubject.uid;
-            }
-          }
+          const importedRawData: Record<string, string | null> = {
+            subjectType,
+            firstName,
+            lastName,
+            companyName,
+            titleBefore,
+            titleAfter,
+            birthNumber: rc,
+            ico,
+            email,
+            phone,
+          };
 
           const spz = rowData["spz"] || rowData["ecv"] || rowData["licence_plate"] || null;
           const vin = rowData["vin"] || rowData["vin_cislo"] || null;
-          const currentSubjectUid = subjectId ? (allSubjects.find(s => s.id === subjectId)?.uid || `ID:${subjectId}`) : "neznámy";
+          if (spz) importedRawData["spz"] = spz;
+          if (vin) importedRawData["vin"] = vin;
 
           if (spz) {
             const spzUpper = spz.toUpperCase();
             const existingSpz = vinSpzTracker.get(`spz:${spzUpper}`);
-            if (existingSpz && existingSpz.subjectId !== subjectId) {
-              duplicityWarnings.push({ row: rowNum, field: "ŠPZ", value: spzUpper, existingUid: existingSpz.uid, newUid: currentSubjectUid });
-              rowWarnings.push(`Potenciálny konflikt majetku: ŠPZ ${spzUpper} je priradené aj k UID ${existingSpz.uid}`);
-            } else {
-              const dbDuplicates = await storage.checkDuplicates({ spz: spzUpper });
-              const conflicting = dbDuplicates.filter(s => s.id !== subjectId);
-              if (conflicting.length > 0) {
-                for (const c of conflicting) {
-                  duplicityWarnings.push({ row: rowNum, field: "ŠPZ", value: spzUpper, existingUid: c.uid || `ID:${c.id}`, newUid: currentSubjectUid });
-                  rowWarnings.push(`Potenciálny konflikt majetku: ŠPZ ${spzUpper} je priradené aj k UID ${c.uid || c.id}`);
-                }
-              }
+            if (existingSpz) {
+              duplicityWarnings.push({ row: rowNum, field: "ŠPZ", value: spzUpper, existingUid: existingSpz.uid, newUid: `riadok ${rowNum}` });
+              rowWarnings.push(`Duplicitná ŠPZ ${spzUpper} v riadku ${existingSpz.row}`);
             }
-            vinSpzTracker.set(`spz:${spzUpper}`, { uid: currentSubjectUid, subjectId: subjectId || 0, row: rowNum });
+            vinSpzTracker.set(`spz:${spzUpper}`, { uid: `riadok ${rowNum}`, subjectId: 0, row: rowNum });
           }
 
           if (vin) {
             const vinUpper = vin.toUpperCase();
             const existingVin = vinSpzTracker.get(`vin:${vinUpper}`);
-            if (existingVin && existingVin.subjectId !== subjectId) {
-              duplicityWarnings.push({ row: rowNum, field: "VIN", value: vinUpper, existingUid: existingVin.uid, newUid: currentSubjectUid });
-              rowWarnings.push(`Potenciálny konflikt majetku: VIN ${vinUpper} je priradené aj k UID ${existingVin.uid}`);
-            } else {
-              const dbDuplicates = await storage.checkDuplicates({ vin: vinUpper });
-              const conflicting = dbDuplicates.filter(s => s.id !== subjectId);
-              if (conflicting.length > 0) {
-                for (const c of conflicting) {
-                  duplicityWarnings.push({ row: rowNum, field: "VIN", value: vinUpper, existingUid: c.uid || `ID:${c.id}`, newUid: currentSubjectUid });
-                  rowWarnings.push(`Potenciálny konflikt majetku: VIN ${vinUpper} je priradené aj k UID ${c.uid || c.id}`);
-                }
-              }
+            if (existingVin) {
+              duplicityWarnings.push({ row: rowNum, field: "VIN", value: vinUpper, existingUid: existingVin.uid, newUid: `riadok ${rowNum}` });
+              rowWarnings.push(`Duplicitný VIN ${vinUpper} v riadku ${existingVin.row}`);
             }
-            vinSpzTracker.set(`vin:${vinUpper}`, { uid: currentSubjectUid, subjectId: subjectId || 0, row: rowNum });
+            vinSpzTracker.set(`vin:${vinUpper}`, { uid: `riadok ${rowNum}`, subjectId: 0, row: rowNum });
           }
 
           const stornoDate = rowData["datum_storna"] || rowData["storno_date"] || rowData["datum_ukoncenia"] || null;
@@ -5544,7 +5431,7 @@ export async function registerRoutes(
             contractNumber: cisloZmluvy,
             proposalNumber: cisloNavrhu,
             kik: rowData["kik"] || null,
-            subjectId,
+            subjectId: null,
             partnerId: resolvedPartnerId,
             productId: resolvedProductId,
             klientUid: klientUidVal,
@@ -5552,7 +5439,7 @@ export async function registerRoutes(
             specialistaUid: specialistaUidVal,
             zakonnyZastupcaUid: zakonnyZastupcaUidVal,
             konatelUid: konatelUidVal,
-            szcoUid: resolvedSzcoUid,
+            szcoUid: szcoUidVal,
             szcoRodneCislo: szcoRcVal ? encryptField(szcoRcVal) : null,
             szcoIco: szcoIcoVal,
             needsManualVerification,
@@ -5569,6 +5456,7 @@ export async function registerRoutes(
             incompleteDataReason: isIncomplete ? `Chýba: ${missingFields.join(", ")}` : null,
             importedAt: new Date(),
             importBatchId: batchId,
+            importedRawData,
           };
 
           const created = await storage.createContract(contractData);
@@ -5582,44 +5470,12 @@ export async function registerRoutes(
             });
           }
 
-          if (subjectId) {
-            const dynUpdates: Record<string, string> = {};
-            for (const [headerKey, value] of Object.entries(rowData)) {
-              if (!value) continue;
-              if (categoryMappings.has(headerKey)) {
-                dynUpdates[categoryMappings.get(headerKey)!] = value;
-              }
-            }
-            if (spz) dynUpdates["spz"] = spz;
-            if (vin) dynUpdates["vin"] = vin;
-
-            if (Object.keys(dynUpdates).length > 0) {
-              try {
-                const subject = await storage.getSubject(subjectId);
-                if (subject) {
-                  const existingDetails = (subject.details || {}) as Record<string, any>;
-                  const existingDynamic = existingDetails.dynamicFields || {};
-                  await storage.updateSubject(subjectId, {
-                    details: {
-                      ...existingDetails,
-                      dynamicFields: { ...existingDynamic, ...dynUpdates },
-                    },
-                    changeReason: "Automatické mapovanie dát z importu zmlúv do kategórií klienta",
-                  });
-                }
-              } catch (mapErr) {
-                console.error("Import category mapping error:", mapErr);
-                rowWarnings.push("Nepodarilo sa namapovať dáta do kategórií klienta");
-              }
-            }
-          }
-
           await logAudit(req, {
             action: "BULK_IMPORT_ROW",
             module: "zmluvy",
             entityId: created.id,
             entityName: `Import riadok ${rowNum}: kontrakt #${created.id}`,
-            newData: { row: rowNum, contractId: created.id, subjectId, partnerId: resolvedPartnerId, productId: resolvedProductId, subjectType, incompleteData: isIncomplete, incompleteFields: missingFields },
+            newData: { row: rowNum, contractId: created.id, partnerId: resolvedPartnerId, productId: resolvedProductId, subjectType, incompleteData: isIncomplete, incompleteFields: missingFields, rawData: importedRawData },
           });
 
           if (isIncomplete) {
@@ -5629,9 +5485,8 @@ export async function registerRoutes(
           results.push({
             row: rowNum,
             status: isIncomplete ? "incomplete" : "ok",
-            action: subjectAction,
+            action: "imported",
             contractId: created.id,
-            subjectId: subjectId || undefined,
             warnings: rowWarnings.length > 0 ? rowWarnings : undefined,
             incompleteFields: isIncomplete ? missingFields : undefined,
           });

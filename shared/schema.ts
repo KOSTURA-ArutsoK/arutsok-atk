@@ -838,6 +838,7 @@ export const contracts = pgTable("contracts", {
   incompleteDataReason: text("incomplete_data_reason"),
   importedAt: timestamp("imported_at"),
   importBatchId: text("import_batch_id"),
+  importedRawData: jsonb("imported_raw_data").$type<Record<string, string | null>>(),
   isFirstContract: boolean("is_first_contract").default(false),
   commissionRedirectedToUserId: integer("commission_redirected_to_user_id"),
   commissionRedirectedToName: text("commission_redirected_to_name"),
