@@ -3708,6 +3708,9 @@ export default function Contracts() {
                           onKeyDown={e => {
                             if (e.key === 'Enter') {
                               e.preventDefault();
+                              if (parseFloat(importSpecialistPercentage) === 100) {
+                                return;
+                              }
                               setImportAddingRecommender(true);
                               setImportNewRecommenderUid("");
                               setImportNewRecommenderPercentage("");
@@ -5092,6 +5095,9 @@ export default function Contracts() {
                           onKeyDown={e => {
                             if (e.key === 'Enter') {
                               e.preventDefault();
+                              if (parseFloat(preSelectSpecialistPercentage) === 100) {
+                                return;
+                              }
                               setPreSelectAddingRecommender(true);
                               setPreSelectNewRecommenderUid("");
                               setPreSelectNewRecommenderPercentage("");
