@@ -4521,7 +4521,7 @@ export default function Contracts() {
                         </div>
                         <div style={{ display: isExpanded ? 'block' : 'none' }}>
                           <div className="border-t">
-                            {renderContractTable(group.contracts, { showStatus: true, showRegistration: true, showActions: true, showRerouteCheckbox: true, checkboxOnly: true, earlyPhase: true })}
+                            {renderContractTable(group.contracts, { showStatus: true, showRegistration: true, showActions: true, showRerouteCheckbox: true, checkboxOnly: true })}
                           </div>
                         </div>
                       </div>
