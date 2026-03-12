@@ -31,6 +31,7 @@ drizzle/
 uploads/
 tmp/
 /tmp/
+.clamav/
 
 *.log
 npm-debug.log*

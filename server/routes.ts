@@ -19,6 +19,7 @@ import fs from "fs";
 import crypto from "crypto";
 import { encryptField, decryptField } from "./crypto";
 import { detectAmbiguousName } from "./name-parser";
+import { scanUploadedFile, scanMultipleFiles, sanitizeExcelWorkbook, checkClamAvStatus } from "./services/file-security";
 
 function stripBallast(str: string): string {
   return str.replace(/[\s\-\+\(\)\/\.]/g, "");
@@ -888,6 +889,8 @@ export async function registerRoutes(
       if (!state) return res.status(404).json({ message: "State not found" });
       const file = req.file;
       if (!file) return res.status(400).json({ message: "No file uploaded" });
+      const secScan = await scanUploadedFile(file.path, file.originalname, file.mimetype);
+      if (!secScan.safe) return res.status(400).json({ message: `⚠️ Bezpečnostná chyba: ${secScan.reason}` });
       if (state.flagUrl) {
         await storage.addStateFlagHistory(id, state.flagUrl);
       }
@@ -1070,6 +1073,19 @@ export async function registerRoutes(
       console.error("Audit logs error:", err);
       res.status(500).json({ message: "Internal error" });
     }
+  });
+
+  app.get("/api/security-status", isAuthenticated, async (req: any, res) => {
+    if (!isAdmin(req.appUser)) return res.status(403).json({ message: "Nedostatočné oprávnenia" });
+    const clamStatus = checkClamAvStatus();
+    res.json({
+      layers: {
+        magicBytes: { active: true, description: "Validácia vnútornej štruktúry súborov (Magic Bytes)" },
+        clamav: { active: clamStatus.available, description: "ClamAV antivírusový skener", dbPath: clamStatus.dbPath },
+        excelSanitization: { active: true, description: "Izolácia a sanitizácia Excel súborov (No-Execution Policy)" },
+        extensionBlacklist: { active: true, description: "Blokovanie nebezpečných prípon (.exe, .bat, .cmd...)" },
+      },
+    });
   });
 
   app.get("/api/audit-logs/users", isAuthenticated, async (_req, res) => {
@@ -1469,6 +1485,8 @@ export async function registerRoutes(
 
       let fileEntry = null;
       if (req.file) {
+        const secScan = await scanUploadedFile(req.file.path, req.file.originalname, req.file.mimetype);
+        if (!secScan.safe) return res.status(400).json({ message: `⚠️ Bezpečnostná chyba: ${secScan.reason}` });
         fileEntry = {
           name: req.file.originalname,
           url: `/api/files/amendments/${req.file.filename}`,
@@ -1528,6 +1546,8 @@ export async function registerRoutes(
         fs.unlinkSync(file.path);
         return res.status(400).json({ message: "Only .jpg and .png formats are allowed" });
       }
+      const secScan = await scanUploadedFile(file.path, file.originalname, file.mimetype);
+      if (!secScan.safe) return res.status(400).json({ message: `⚠️ Bezpečnostná chyba: ${secScan.reason}` });
 
       const photoUrl = `/api/files/profiles/${file.filename}`;
       const profile = await storage.upsertUserProfile({
@@ -2654,6 +2674,8 @@ export async function registerRoutes(
 
       const file = req.file;
       if (!file) return res.status(400).json({ message: "No file uploaded" });
+      const secScan = await scanUploadedFile(file.path, file.originalname, file.mimetype);
+      if (!secScan.safe) return res.status(400).json({ message: `⚠️ Bezpečnostná chyba: ${secScan.reason}` });
 
       if (section === "logos") {
         const logoEntry = {
@@ -2984,6 +3006,8 @@ export async function registerRoutes(
 
       const docs: any[] = [];
       if (req.files && Array.isArray(req.files)) {
+        const multiScan = await scanMultipleFiles(req.files);
+        if (!multiScan.safe) return res.status(400).json({ message: `⚠️ Bezpečnostná chyba: Súbor "${multiScan.failedFile}" bol vyhodnotený ako rizikový a bol odstránený. ${multiScan.reason}` });
         for (const file of req.files) {
           let fileHash = fileHashes[file.originalname] || "";
           if (!fileHash) {
@@ -3385,6 +3409,13 @@ export async function registerRoutes(
             },
           });
           return res.status(429).json({ message: `Denný limit nahrávania (500 MB / 24h) bol prekročený. Skúste neskôr.` });
+        }
+      }
+
+      if (req.files && Array.isArray(req.files) && req.files.length > 0) {
+        const multiScan = await scanMultipleFiles(req.files);
+        if (!multiScan.safe) {
+          return res.status(400).json({ message: `⚠️ Bezpečnostná chyba: Súbor "${multiScan.failedFile}" bol vyhodnotený ako rizikový a bol odstránený. ${multiScan.reason}` });
         }
       }
 
@@ -4583,6 +4614,8 @@ export async function registerRoutes(
     try {
       const file = req.file;
       if (!file) return res.status(400).json({ message: "No file uploaded" });
+      const secScan = await scanUploadedFile(file.path, file.originalname, file.mimetype);
+      if (!secScan.safe) return res.status(400).json({ message: `⚠️ Bezpečnostná chyba: ${secScan.reason}` });
       const fileUrl = `/api/files/official/${file.filename}`;
       const updated = await storage.updateContractTemplate(Number(req.params.id), {
         fileUrl,
@@ -5367,6 +5400,8 @@ export async function registerRoutes(
       }
       const file = req.file;
       if (!file) return res.status(400).json({ message: "Nebol nahratý žiadny súbor" });
+      const secScan = await scanUploadedFile(file.path, file.originalname, file.mimetype);
+      if (!secScan.safe) return res.status(400).json({ message: `⚠️ Bezpečnostná chyba: ${secScan.reason}` });
 
       const fileName = file.originalname || "import";
       const isCSV = /\.csv$/i.test(fileName);
@@ -5388,6 +5423,7 @@ export async function registerRoutes(
       } else {
         const workbook = new ExcelJS.Workbook();
         await workbook.xlsx.readFile(file.path);
+        sanitizeExcelWorkbook(workbook);
         const sheet = workbook.worksheets[0];
         if (!sheet) return res.status(400).json({ message: "Excel neobsahuje žiadny hárok" });
 
@@ -8968,9 +9004,12 @@ export async function registerRoutes(
     try {
       const file = req.file;
       if (!file) return res.status(400).json({ message: "Žiadny súbor nebol nahraný" });
+      const secScan = await scanUploadedFile(file.path, file.originalname, file.mimetype);
+      if (!secScan.safe) return res.status(400).json({ message: `⚠️ Bezpečnostná chyba: ${secScan.reason}` });
 
       const workbook = new ExcelJS.Workbook();
       await workbook.xlsx.readFile(file.path);
+      sanitizeExcelWorkbook(workbook);
       const worksheet = workbook.worksheets[0];
       if (!worksheet) return res.status(400).json({ message: "Excel súbor neobsahuje žiadny hárok" });
 
@@ -12042,6 +12081,8 @@ export async function registerRoutes(
       const subjectId = Number(req.params.id);
       const file = req.file;
       if (!file) return res.status(400).json({ message: "Ziaden subor nebol nahrany" });
+      const secScan = await scanUploadedFile(file.path, file.originalname, file.mimetype);
+      if (!secScan.safe) return res.status(400).json({ message: `⚠️ Bezpečnostná chyba: ${secScan.reason}` });
 
       const source = req.body.source || "manual";
       const sourceDocumentId = req.body.sourceDocumentId || null;
@@ -12140,6 +12181,8 @@ export async function registerRoutes(
       const subjectId = Number(req.params.id);
       const file = req.file;
       if (!file) return res.status(400).json({ message: "Ziaden subor nebol nahrany" });
+      const secScan = await scanUploadedFile(file.path, file.originalname, file.mimetype);
+      if (!secScan.safe) return res.status(400).json({ message: `⚠️ Bezpečnostná chyba: ${secScan.reason}` });
 
       const documentType = req.body.documentType || "id_card";
       const sourceDocumentId = req.body.sourceDocumentId || null;
@@ -12920,6 +12963,8 @@ export async function registerRoutes(
     try {
       const files = req.files as Express.Multer.File[];
       if (!files || files.length === 0) return res.status(400).json({ message: "Žiadne súbory" });
+      const multiScan = await scanMultipleFiles(files);
+      if (!multiScan.safe) return res.status(400).json({ message: `⚠️ Bezpečnostná chyba: Súbor "${multiScan.failedFile}" bol vyhodnotený ako rizikový a bol odstránený. ${multiScan.reason}` });
 
       const appUser = req.appUser;
       const jobs = [];
