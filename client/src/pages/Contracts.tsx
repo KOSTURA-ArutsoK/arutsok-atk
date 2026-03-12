@@ -2191,7 +2191,7 @@ export default function Contracts() {
   const [searchQuery, setSearchQuery] = useState("");
   const [duplicateModal, setDuplicateModal] = useState<{ open: boolean; subjectName?: string }>({ open: false });
   const [preSelectOpen, setPreSelectOpen] = useState(false);
-  const [preSelectStep, setPreSelectStep] = useState<1 | 2>(1);
+  const [preSelectStep, setPreSelectStep] = useState<1 | 2 | 3>(1);
   const [preSelectPartnerId, setPreSelectPartnerId] = useState<string>("");
   const [preSelectProductId, setPreSelectProductId] = useState<string>("");
   const [preSelectSubjectSearch, setPreSelectSubjectSearch] = useState("");
@@ -2212,6 +2212,10 @@ export default function Contracts() {
   const [preSelectBirthNumber, setPreSelectBirthNumber] = useState("");
   const [preSelectShowNameFields, setPreSelectShowNameFields] = useState(false);
   const [preSelectEditingContractId, setPreSelectEditingContractId] = useState<number | null>(null);
+  const [preSelectFiles, setPreSelectFiles] = useState<File[]>([]);
+  const [preSelectCreatedContractId, setPreSelectCreatedContractId] = useState<number | null>(null);
+  const [preSelectUploading, setPreSelectUploading] = useState(false);
+  const refFileInput = useRef<HTMLInputElement>(null);
   const refProductTrigger = useRef<HTMLButtonElement>(null);
   const refStep1Next = useRef<HTMLButtonElement>(null);
   const refSearchInput = useRef<HTMLInputElement>(null);
@@ -3591,6 +3595,57 @@ export default function Contracts() {
     setPreSelectShowNameFields(false);
   };
 
+  const resetPreSelectDialog = () => {
+    setPreSelectOpen(false);
+    setPreSelectStep(1);
+    setPreSelectPartnerId("");
+    setPreSelectProductId("");
+    setPreSelectSubjectSearch("");
+    setPreSelectSubjectId("");
+    setPreSelectClientTypeId("");
+    setPreSelectNumberType("proposal");
+    setPreSelectNumberValue("");
+    setPreSelectNumberValue2("");
+    setPreSelectTitleBefore("");
+    setPreSelectFirstName("");
+    setPreSelectLastName("");
+    setPreSelectTitleAfter("");
+    setPreSelectSubjectType("person");
+    setPreSelectIco("");
+    setPreSelectBusinessName("");
+    setPreSelectBirthNumber("");
+    setPreSelectShowNameFields(false);
+    setPreSelectEditingContractId(null);
+    setPreSelectFiles([]);
+    setPreSelectCreatedContractId(null);
+    setPreSelectUploading(false);
+  };
+
+  const handlePreSelectUploadAndFinish = async () => {
+    if (!preSelectCreatedContractId) { resetPreSelectDialog(); return; }
+    if (preSelectFiles.length === 0) { resetPreSelectDialog(); return; }
+    setPreSelectUploading(true);
+    try {
+      const formData = new FormData();
+      preSelectFiles.forEach(f => formData.append("documents", f));
+      await fetch(`/api/contracts/${preSelectCreatedContractId}/upload-documents`, {
+        method: "POST",
+        body: formData,
+        credentials: "include",
+      });
+      queryClient.invalidateQueries({ queryKey: ["/api/contracts"] });
+      toast({ title: "Úspech", description: `${preSelectFiles.length} dokument(ov) nahraných` });
+    } catch (err: any) {
+      toast({ title: "Chyba", description: err.message || "Nepodarilo sa nahrať dokumenty", variant: "destructive" });
+    } finally {
+      resetPreSelectDialog();
+    }
+  };
+
+  const handlePreSelectSkipUpload = () => {
+    resetPreSelectDialog();
+  };
+
   const preSelectIsValid = (() => {
     if (preSelectSubjectId) return true;
     if (preSelectSubjectType === "person") return !!(preSelectFirstName.trim() && preSelectLastName.trim());
@@ -3646,37 +3701,24 @@ export default function Contracts() {
         if (preSelectNumberValue2.trim()) contractData.contractNumber = preSelectNumberValue2.trim();
       }
 
+      let savedContractId: number | null = null;
       if (preSelectEditingContractId) {
         contractData.incompleteData = false;
         contractData.incompleteDataReason = null;
         await apiRequest("PATCH", `/api/contracts/${preSelectEditingContractId}`, contractData);
+        savedContractId = preSelectEditingContractId;
         toast({ title: "Úspech", description: "Zmluva bola doplnená" });
       } else {
-        await apiRequest("POST", "/api/contracts", contractData);
+        const createRes = await apiRequest("POST", "/api/contracts", contractData);
+        const created = await createRes.json();
+        savedContractId = created.id;
         toast({ title: "Úspech", description: "Zmluva zapísaná" });
       }
       queryClient.invalidateQueries({ queryKey: ["/api/contracts"] });
 
-      setPreSelectOpen(false);
-      setPreSelectStep(1);
-      setPreSelectPartnerId("");
-      setPreSelectProductId("");
-      setPreSelectSubjectSearch("");
-      setPreSelectSubjectId("");
-      setPreSelectClientTypeId("");
-      setPreSelectNumberType("proposal");
-      setPreSelectNumberValue("");
-      setPreSelectNumberValue2("");
-      setPreSelectTitleBefore("");
-      setPreSelectFirstName("");
-      setPreSelectLastName("");
-      setPreSelectTitleAfter("");
-      setPreSelectSubjectType("person");
-      setPreSelectIco("");
-      setPreSelectBusinessName("");
-      setPreSelectBirthNumber("");
-      setPreSelectShowNameFields(false);
-      setPreSelectEditingContractId(null);
+      setPreSelectCreatedContractId(savedContractId);
+      setPreSelectStep(3);
+      setPreSelectSaving(false);
     } catch (err: any) {
       toast({ title: "Chyba", description: err.message || "Nepodarilo sa zapisat zmluvu", variant: "destructive" });
     } finally {
@@ -3779,11 +3821,11 @@ export default function Contracts() {
   })();
 
   const preSelectDialog = (
-    <Dialog open={preSelectOpen} onOpenChange={(open) => { setPreSelectOpen(open); if (!open) { setPreSelectStep(1); setPreSelectClientTypeId(""); setPreSelectNumberType("proposal"); setPreSelectNumberValue(""); setPreSelectNumberValue2(""); setPreSelectTitleBefore(""); setPreSelectFirstName(""); setPreSelectLastName(""); setPreSelectTitleAfter(""); setPreSelectSaving(false); setPreSelectSubjectType("person"); setPreSelectIco(""); setPreSelectBusinessName(""); setPreSelectBirthNumber(""); setPreSelectShowNameFields(false); setPreSelectEditingContractId(null); } }}>
+    <Dialog open={preSelectOpen} onOpenChange={(open) => { if (!open) resetPreSelectDialog(); else setPreSelectOpen(true); }}>
       <DialogContent size="xl" onCloseAutoFocus={(e) => e.preventDefault()} data-testid="dialog-pre-select-contract">
         <DialogHeader className="px-6 pt-6 pb-2">
           <DialogTitle data-testid="text-preselect-title">
-            {preSelectEditingContractId ? (
+            {preSelectStep === 3 ? "Krok 3: Nahrať dokumenty" : preSelectEditingContractId ? (
               preSelectStep === 1 ? "Doplniť zmluvu — Krok 1: Partner a produkt" : "Doplniť zmluvu — Krok 2: Klient"
             ) : (
               preSelectStep === 1 ? "Krok 1: Vyber partnera a produktu" : "Krok 2: Vyber klienta (subjektu)"
@@ -3793,9 +3835,11 @@ export default function Contracts() {
 
         <DialogScrollContent>
         <div className="flex items-center gap-2 mb-2">
-          <div className={`flex items-center justify-center w-7 h-7 rounded-full text-xs font-bold ${preSelectStep === 1 ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"}`} data-testid="step-indicator-1">1</div>
+          <div className={`flex items-center justify-center w-7 h-7 rounded-full text-xs font-bold ${preSelectStep === 1 ? "bg-primary text-primary-foreground" : preSelectStep > 1 ? "bg-green-600 text-white" : "bg-muted text-muted-foreground"}`} data-testid="step-indicator-1">1</div>
           <div className="flex-1 h-px bg-border" />
-          <div className={`flex items-center justify-center w-7 h-7 rounded-full text-xs font-bold ${preSelectStep === 2 ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"}`} data-testid="step-indicator-2">2</div>
+          <div className={`flex items-center justify-center w-7 h-7 rounded-full text-xs font-bold ${preSelectStep === 2 ? "bg-primary text-primary-foreground" : preSelectStep > 2 ? "bg-green-600 text-white" : "bg-muted text-muted-foreground"}`} data-testid="step-indicator-2">2</div>
+          <div className="flex-1 h-px bg-border" />
+          <div className={`flex items-center justify-center w-7 h-7 rounded-full text-xs font-bold ${preSelectStep === 3 ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"}`} data-testid="step-indicator-3">3</div>
         </div>
 
         <div style={{ display: preSelectStep === 1 ? 'block' : 'none' }}>
@@ -4216,6 +4260,84 @@ export default function Contracts() {
             </div>
           </div>
         </div>
+
+        {preSelectStep === 3 && (
+          <div className="space-y-4">
+            <p className="text-sm text-muted-foreground">
+              Zmluva bola úspešne zapísaná. Teraz môžete nahrať dokumenty (PDF, obrázky, skeny občianskeho preukazu a pod.).
+            </p>
+
+            <input
+              ref={refFileInput}
+              type="file"
+              multiple
+              accept=".pdf,.jpg,.jpeg,.png,.webp,.tiff,.tif,.bmp"
+              className="hidden"
+              onChange={(e) => {
+                if (e.target.files) {
+                  setPreSelectFiles(prev => [...prev, ...Array.from(e.target.files!)]);
+                }
+                e.target.value = "";
+              }}
+              data-testid="input-preselect-file-upload"
+            />
+
+            <div
+              className="border-2 border-dashed border-border rounded-md p-6 text-center cursor-pointer hover:border-primary/50 transition-colors"
+              onClick={() => refFileInput.current?.click()}
+              onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); }}
+              onDrop={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                if (e.dataTransfer.files) {
+                  setPreSelectFiles(prev => [...prev, ...Array.from(e.dataTransfer.files)]);
+                }
+              }}
+              data-testid="dropzone-preselect-upload"
+            >
+              <div className="flex flex-col items-center gap-2">
+                <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="text-muted-foreground"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                <p className="text-sm font-medium">Kliknite alebo pretiahnite súbory sem</p>
+                <p className="text-xs text-muted-foreground">PDF, JPG, PNG, WebP, TIFF, BMP</p>
+              </div>
+            </div>
+
+            {preSelectFiles.length > 0 && (
+              <div className="space-y-1">
+                <p className="text-xs font-medium">{preSelectFiles.length} súbor(ov) vybraných:</p>
+                <div className="max-h-32 overflow-y-auto space-y-1">
+                  {preSelectFiles.map((f, idx) => (
+                    <div key={idx} className="flex items-center justify-between text-xs bg-muted/50 rounded px-2 py-1">
+                      <span className="truncate flex-1 mr-2">{f.name}</span>
+                      <span className="text-muted-foreground whitespace-nowrap mr-2">{(f.size / 1024).toFixed(0)} KB</span>
+                      <button
+                        type="button"
+                        className="text-destructive hover:text-destructive/80"
+                        onClick={() => setPreSelectFiles(prev => prev.filter((_, i) => i !== idx))}
+                        data-testid={`button-remove-file-${idx}`}
+                      >
+                        ✕
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            <div className="flex justify-between gap-2">
+              <Button variant="outline" onClick={handlePreSelectSkipUpload} data-testid="button-preselect-skip-upload">
+                Preskočiť
+              </Button>
+              <Button
+                onClick={handlePreSelectUploadAndFinish}
+                disabled={preSelectFiles.length === 0 || preSelectUploading}
+                data-testid="button-preselect-upload-confirm"
+              >
+                {preSelectUploading ? "Nahrávam..." : `Nahrať ${preSelectFiles.length} dokument(ov)`}
+              </Button>
+            </div>
+          </div>
+        )}
 
         </DialogScrollContent>
       </DialogContent>

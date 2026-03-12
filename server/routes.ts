@@ -5,6 +5,7 @@ import { api } from "@shared/routes";
 import { setupAuth, isAuthenticated } from "./auth";
 import { z } from "zod";
 import { continents, states, myCompanies, appUsers, clientTypes, clientSubGroups, clientGroupMembers, productFolderAssignments, folderPanels, panelParameters, userClientGroupMemberships, clientGroups, permissionGroups, insertCareerLevelSchema, insertProductPointRateSchema, careerLevels, importLogs, commissions, contracts, contractStatuses, contractStatusChangeLogs, clientDataTabs, clientDataCategories, subjects, subjectPointsLog, subjectFieldHistory, subjectCollaborators, clientMarketingConsents, clientDocumentHistory, contractAcquirers, contractPasswords, contractRewardDistributions, contractParameterValues, subjectArchive, auditLogs, globalCounters, subjectPhotos, activityEvents, subjectParamSections, subjectParameters, subjectTemplates, subjectTemplateParams, commissionCalculationLogs, parameterSynonyms, dataConflictAlerts, transactionDedupLog, relationRoleTypes, subjectRelations, maturityAlerts, inheritancePrompts, guardianshipArchive, households, householdMembers, householdAssets, privacyBlocks, accessConsentLog, maturityEvents, addressGroups, addressGroupMembers, companySubjectRoles, notificationQueue, batchJobs, subjectObjects, objectDataSources, sectors, sections, sectorProducts, parameters, panels, productPanels, contractFolders, fieldLayoutConfigs, sectorCategoryMapping, suggestedRelations, statusEvidence, contractLifecycleHistory, systemNotifications, partners, products, contractInventories, contractTemplates, redListAlerts, subjectAddresses, divisions, companyDivisions, insertDivisionSchema, ocrProcessingJobs, networkLinks, guarantorTransferRequests, nbsReportStatuses, nbsPartnerReports, supisky, supiskaContracts, lifecyclePhaseConfigs } from "@shared/schema";
+import type { DocEntry } from "@shared/schema";
 import { notifyObjectionCreated, notifyPreDeletion, getProductDaysLimits } from "./email";
 import { seedSubjectParameters, seedAssetPanels, seedEventAndEntityPanels } from "./seed-subject-params";
 import sharp from "sharp";
@@ -3265,6 +3266,50 @@ export async function registerRoutes(
     } catch (err: any) {
       console.error("PATCH /api/contracts/:id error:", err);
       res.status(500).json({ message: err.message || "Chyba pri aktualizácii zmluvy" });
+    }
+  });
+
+  app.post("/api/contracts/:id/upload-documents", isAuthenticated, (req, _res, next) => {
+    (req as any)._uploadSection = "contract-docs";
+    next();
+  }, upload.array("documents", 20), async (req: any, res) => {
+    try {
+      const contractId = Number(req.params.id);
+      const contract = await storage.getContract(contractId);
+      if (!contract) return res.status(404).json({ message: "Zmluva nenájdená" });
+
+      const existingDocs: DocEntry[] = (contract.documents as DocEntry[]) || [];
+      const newDocs: DocEntry[] = [];
+
+      if (req.files && Array.isArray(req.files)) {
+        for (const file of req.files) {
+          newDocs.push({
+            name: file.originalname,
+            url: `/api/files/${file.filename}`,
+            uploadedAt: new Date().toISOString(),
+            fileSize: file.size,
+          });
+        }
+      }
+
+      const allDocs = [...existingDocs, ...newDocs];
+      await db.update(contracts).set({
+        documents: allDocs,
+        updatedAt: new Date(),
+      }).where(eq(contracts.id, contractId));
+
+      await logAudit(req, {
+        action: "CONTRACT_UPLOAD_DOCUMENTS",
+        module: "zmluvy",
+        entityId: contractId,
+        entityName: contract.contractNumber || contract.proposalNumber || `ID ${contractId}`,
+        newData: { addedDocuments: newDocs.length, totalDocuments: allDocs.length },
+      });
+
+      res.json({ success: true, documents: allDocs, added: newDocs.length });
+    } catch (err: any) {
+      console.error("POST /api/contracts/:id/upload-documents error:", err);
+      res.status(500).json({ message: err.message || "Chyba pri nahrávaní dokumentov" });
     }
   });
 
