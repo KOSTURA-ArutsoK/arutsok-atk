@@ -1,7 +1,7 @@
 import { useState, useRef, useCallback, useEffect, useMemo, type ComponentType } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import { formatDateSlovak, formatUid, getDateSemaphore, getDateSemaphoreClasses, canCreateRecords, canDeleteRecords, canEditRecords, isAdmin } from "@/lib/utils";
+import { formatDateSlovak, formatUid, expandUid, getDateSemaphore, getDateSemaphoreClasses, canCreateRecords, canDeleteRecords, canEditRecords, isAdmin } from "@/lib/utils";
 import { useAppUser } from "@/hooks/use-app-user";
 import { useStates } from "@/hooks/use-hierarchy";
 import { useToast } from "@/hooks/use-toast";
@@ -3555,6 +3555,12 @@ export default function Contracts() {
                             setImportSpecialistUid(e.target.value);
                             setImportRewardSearchSpecialist(e.target.value);
                           }}
+                          onBlur={e => {
+                            const val = e.target.value.trim();
+                            if (val && /^\d+$/.test(val.replace(/\s/g, ''))) {
+                              setImportSpecialistUid(expandUid(val));
+                            }
+                          }}
                           className="font-mono text-sm"
                           data-testid="input-import-specialist-uid"
                         />
@@ -3643,6 +3649,12 @@ export default function Contracts() {
                             onChange={e => {
                               setImportNewRecommenderUid(e.target.value);
                               setImportRewardSearchRecommender(e.target.value);
+                            }}
+                            onBlur={e => {
+                              const val = e.target.value.trim();
+                              if (val && /^\d+$/.test(val.replace(/\s/g, ''))) {
+                                setImportNewRecommenderUid(expandUid(val));
+                              }
                             }}
                             className="font-mono text-sm"
                             data-testid="input-import-new-recommender-uid"
@@ -4868,6 +4880,12 @@ export default function Contracts() {
                             setPreSelectSpecialistUid(e.target.value);
                             setPreSelectRewardSearchSpecialist(e.target.value);
                           }}
+                          onBlur={e => {
+                            const val = e.target.value.trim();
+                            if (val && /^\d+$/.test(val.replace(/\s/g, ''))) {
+                              setPreSelectSpecialistUid(expandUid(val));
+                            }
+                          }}
                           className="font-mono text-sm"
                           data-testid="input-preselect-specialist-uid"
                         />
@@ -4956,6 +4974,12 @@ export default function Contracts() {
                             onChange={e => {
                               setPreSelectNewRecommenderUid(e.target.value);
                               setPreSelectRewardSearchRecommender(e.target.value);
+                            }}
+                            onBlur={e => {
+                              const val = e.target.value.trim();
+                              if (val && /^\d+$/.test(val.replace(/\s/g, ''))) {
+                                setPreSelectNewRecommenderUid(expandUid(val));
+                              }
                             }}
                             className="font-mono text-sm"
                             data-testid="input-preselect-new-recommender-uid"

@@ -50,6 +50,28 @@ export const formatUid = (uid: string | null | undefined): string => {
   return groups.join(' ');
 };
 
+export const expandUid = (input: string, prefix: string = "421"): string => {
+  if (!input || !input.trim()) return "";
+  const digits = input.replace(/\D/g, '');
+  if (!digits.length) return input;
+  const prefixDigits = prefix.replace(/\D/g, '') || "421";
+  const totalLen = 15;
+  let full: string;
+  if (digits.length >= totalLen) {
+    full = digits.slice(0, totalLen);
+  } else if (digits.startsWith(prefixDigits) && digits.length > prefixDigits.length) {
+    full = digits.padStart(totalLen, '0');
+  } else {
+    const suffixLen = totalLen - prefixDigits.length;
+    full = prefixDigits + digits.padStart(suffixLen, '0');
+  }
+  const groups: string[] = [];
+  for (let i = 0; i < full.length; i += 3) {
+    groups.push(full.slice(i, i + 3));
+  }
+  return groups.join(' ');
+};
+
 export type DateSemaphoreStatus = "expired" | "warning" | "ok" | null;
 
 export function getDateSemaphore(dateValue: string | Date | null | undefined): DateSemaphoreStatus {
