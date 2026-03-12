@@ -3807,8 +3807,6 @@ export default function Contracts() {
 
       let savedContractId: number | null = null;
       if (preSelectEditingContractId) {
-        contractData.incompleteData = false;
-        contractData.incompleteDataReason = null;
         await apiRequest("PATCH", `/api/contracts/${preSelectEditingContractId}`, contractData);
         savedContractId = preSelectEditingContractId;
         toast({ title: "Úspech", description: "Zmluva bola doplnená" });

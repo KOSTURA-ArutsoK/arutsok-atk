@@ -3266,12 +3266,30 @@ export async function registerRoutes(
         }
       }
 
-      const wasIncomplete = contract.incompleteData === true;
-      const nowComplete = req.body.incompleteData === false;
-      if (wasIncomplete && nowComplete) {
-        updateData.lifecyclePhase = 1;
+      const mergedPartnerId = updateData.partnerId !== undefined ? updateData.partnerId : contract.partnerId;
+      const mergedProductId = updateData.productId !== undefined ? updateData.productId : contract.productId;
+      const mergedProposalNumber = updateData.proposalNumber !== undefined ? updateData.proposalNumber : contract.proposalNumber;
+      const mergedContractNumber = updateData.contractNumber !== undefined ? updateData.contractNumber : contract.contractNumber;
+      const mergedSubjectId = updateData.subjectId !== undefined ? updateData.subjectId : contract.subjectId;
+
+      const patchMissing: string[] = [];
+      if (!mergedPartnerId) patchMissing.push("Partner");
+      if (!mergedProductId) patchMissing.push("Produkt");
+      if (!mergedProposalNumber && !mergedContractNumber) patchMissing.push("Číslo návrhu alebo číslo zmluvy");
+      if (!mergedSubjectId) patchMissing.push("Klient");
+
+      if (patchMissing.length > 0) {
+        updateData.incompleteData = true;
+        updateData.incompleteDataReason = `Chýba: ${patchMissing.join(", ")}`;
+      } else {
         updateData.incompleteData = false;
         updateData.incompleteDataReason = null;
+      }
+
+      const wasIncomplete = contract.incompleteData === true;
+      const nowComplete = updateData.incompleteData === false;
+      if (wasIncomplete && nowComplete) {
+        if (!updateData.lifecyclePhase) updateData.lifecyclePhase = 1;
 
         const userName = req.appUser?.username || req.appUser?.firstName || "neznámy";
         await logAudit(req, {
@@ -3280,7 +3298,7 @@ export async function registerRoutes(
           entityId: contractId,
           entityName: `Neúplné dáta manuálne doplnené používateľom ${userName}`,
           oldData: { incompleteData: true, incompleteDataReason: contract.incompleteDataReason, lifecyclePhase: contract.lifecyclePhase },
-          newData: { incompleteData: false, incompleteDataReason: null, lifecyclePhase: 1 },
+          newData: { incompleteData: false, incompleteDataReason: null, lifecyclePhase: updateData.lifecyclePhase },
         });
       }
 
@@ -3303,7 +3321,7 @@ export async function registerRoutes(
           return res.status(413).json({ message: `Súbor je príliš veľký. Maximálny limit je 25 MB.` });
         }
         if (err.code === "LIMIT_UNEXPECTED_FILE") {
-          return res.status(400).json({ message: `Maximálny počet súborov v jednej dávke je 10.` });
+          return res.status(400).json({ message: `Maximálny počet súborov v jednej dávke je 25.` });
         }
         return res.status(400).json({ message: err.message || "Chyba pri nahrávaní súboru" });
       }
@@ -5170,6 +5188,19 @@ export async function registerRoutes(
       }
       const nextGlobalNumber = await storage.getNextCounterValue("contract_global_number");
       createData.globalNumber = nextGlobalNumber;
+
+      const incompleteMissing: string[] = [];
+      if (!createData.partnerId) incompleteMissing.push("Partner");
+      if (!createData.productId) incompleteMissing.push("Produkt");
+      if (!createData.proposalNumber && !createData.contractNumber) incompleteMissing.push("Číslo návrhu alebo číslo zmluvy");
+      if (!createData.subjectId) incompleteMissing.push("Klient");
+      if (incompleteMissing.length > 0) {
+        createData.incompleteData = true;
+        createData.incompleteDataReason = `Chýba: ${incompleteMissing.join(", ")}`;
+      } else {
+        createData.incompleteData = false;
+        createData.incompleteDataReason = null;
+      }
 
       const migrationOn = await isMigrationModeOn();
       if (migrationOn && migrationDates && appUser?.role === "superadmin") {
