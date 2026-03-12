@@ -5257,9 +5257,6 @@ export async function registerRoutes(
         }
       }
 
-      const vinSpzTracker = new Map<string, { uid: string; subjectId: number; row: number }>();
-      const duplicityWarnings: { row: number; field: string; value: string; existingUid: string; newUid: string }[] = [];
-
       const results: { row: number; status: string; action?: string; contractId?: number; subjectId?: number; warnings?: string[]; error?: string; incompleteFields?: string[] }[] = [];
       const batchId = req.body?.batchId || `IMPORT-${Date.now()}`;
       let incompleteCount = 0;
@@ -5389,26 +5386,6 @@ export async function registerRoutes(
           if (spz) importedRawData["spz"] = spz;
           if (vin) importedRawData["vin"] = vin;
 
-          if (spz) {
-            const spzUpper = spz.toUpperCase();
-            const existingSpz = vinSpzTracker.get(`spz:${spzUpper}`);
-            if (existingSpz) {
-              duplicityWarnings.push({ row: rowNum, field: "ŠPZ", value: spzUpper, existingUid: existingSpz.uid, newUid: `riadok ${rowNum}` });
-              rowWarnings.push(`Duplicitná ŠPZ ${spzUpper} v riadku ${existingSpz.row}`);
-            }
-            vinSpzTracker.set(`spz:${spzUpper}`, { uid: `riadok ${rowNum}`, subjectId: 0, row: rowNum });
-          }
-
-          if (vin) {
-            const vinUpper = vin.toUpperCase();
-            const existingVin = vinSpzTracker.get(`vin:${vinUpper}`);
-            if (existingVin) {
-              duplicityWarnings.push({ row: rowNum, field: "VIN", value: vinUpper, existingUid: existingVin.uid, newUid: `riadok ${rowNum}` });
-              rowWarnings.push(`Duplicitný VIN ${vinUpper} v riadku ${existingVin.row}`);
-            }
-            vinSpzTracker.set(`vin:${vinUpper}`, { uid: `riadok ${rowNum}`, subjectId: 0, row: rowNum });
-          }
-
           const stornoDate = rowData["datum_storna"] || rowData["storno_date"] || rowData["datum_ukoncenia"] || null;
           let contractStatusId: number | null = null;
           let pendingBonusMalus = false;
@@ -5495,41 +5472,27 @@ export async function registerRoutes(
         }
       }
 
-      if (duplicityWarnings.length > 0) {
-        for (const dw of duplicityWarnings) {
-          await logAudit(req, {
-            action: "DUPLICITY_WARNING",
-            module: "import-zmluv",
-            entityName: `Potenciálny konflikt majetku: ${dw.field} ${dw.value}`,
-            newData: { row: dw.row, field: dw.field, value: dw.value, existingUid: dw.existingUid, newUid: dw.newUid },
-          });
-        }
-      }
-
       const successCount = results.filter(r => r.status === "ok").length;
       const savedIncompleteCount = results.filter(r => r.status === "incomplete").length;
       const errorCount = results.filter(r => r.status === "error").length;
-      const createdCount = results.filter(r => r.action === "created").length;
-      const updatedCount = results.filter(r => r.action === "updated").length;
+      const importedCount = results.filter(r => r.action === "imported").length;
       const warningCount = results.filter(r => r.warnings && r.warnings.length > 0).length;
 
       await logAudit(req, {
         action: "IMPORT",
         module: "zmluvy",
-        entityName: `Import ${fileName}: ${successCount} úspešných, ${savedIncompleteCount} neúplných (uložených), ${createdCount} nových subjektov, ${updatedCount} aktualizovaných, ${errorCount} chýb, ${nameConfirmationNeeded} sporných mien, ${duplicityWarnings.length} duplicitných varovaní`,
-        newData: { successCount, savedIncompleteCount, errorCount, createdCount, updatedCount, nameConfirmationNeeded, duplicityWarnings: duplicityWarnings.length },
+        entityName: `Import ${fileName}: ${successCount} úspešných, ${savedIncompleteCount} neúplných (uložených), ${importedCount} importovaných, ${errorCount} chýb, ${nameConfirmationNeeded} sporných mien`,
+        newData: { successCount, savedIncompleteCount, errorCount, importedCount, nameConfirmationNeeded },
       });
 
       res.json({
         total: results.length,
         success: successCount,
         errors: errorCount,
-        created: createdCount,
-        updated: updatedCount,
+        imported: importedCount,
         warnings: warningCount,
         incomplete: incompleteCount,
         nameConfirmationNeeded,
-        duplicityWarnings,
         details: results,
       });
     } catch (err: any) {
