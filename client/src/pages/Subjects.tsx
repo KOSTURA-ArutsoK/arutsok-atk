@@ -1807,6 +1807,13 @@ function InitialRegistrationModal({
   );
 }
 
+const INVALID_TITLE_VALUES = ["pán", "pan", "pani", "páni", "pán.", "pan.", "pani.", "mr", "mr.", "mrs", "mrs.", "ms", "ms.", "slecna", "slečna", "sir"];
+
+function capitalizeFirst(val: string): string {
+  if (!val) return val;
+  return val.charAt(0).toUpperCase() + val.slice(1);
+}
+
 function DynamicFieldInput({ field, dynamicValues, setDynamicValues, hasError, disabled, subjectId }: {
   field: StaticField;
   dynamicValues: Record<string, string>;
@@ -1815,11 +1822,26 @@ function DynamicFieldInput({ field, dynamicValues, setDynamicValues, hasError, d
   disabled?: boolean;
   subjectId?: number;
 }) {
+  const [nameWarning, setNameWarning] = useState<string | null>(null);
+
+  const isNameField = field.fieldKey === "meno" || field.fieldKey === "priezvisko";
+  const isTitleField = field.fieldKey === "titul_pred" || field.fieldKey === "titul_za";
+
+  const titleError = useMemo(() => {
+    if (!isTitleField) return null;
+    const val = (dynamicValues[field.fieldKey] || "").trim().toLowerCase();
+    if (!val) return null;
+    if (INVALID_TITLE_VALUES.includes(val)) {
+      return `"${dynamicValues[field.fieldKey]}" nie je platny akademicky titul`;
+    }
+    return null;
+  }, [isTitleField, dynamicValues[field.fieldKey], field.fieldKey]);
+
   const numberFieldValidity = useMemo(() => {
     return isNumberFieldWithExpiredPair(field.fieldKey, dynamicValues);
   }, [field.fieldKey, dynamicValues]);
   const isExpiredNumber = numberFieldValidity?.status === "expired";
-  const errorBorder = hasError ? "border-red-500 ring-1 ring-red-500" : isExpiredNumber ? "border-red-500/60 bg-red-500/10 ring-1 ring-red-500/30" : "";
+  const errorBorder = hasError ? "border-red-500 ring-1 ring-red-500" : isExpiredNumber ? "border-red-500/60 bg-red-500/10 ring-1 ring-red-500/30" : titleError ? "border-red-500 ring-1 ring-red-500" : "";
   return (
     <div className="space-y-1">
       <div className="flex items-center gap-1">
@@ -1956,6 +1978,33 @@ function DynamicFieldInput({ field, dynamicValues, setDynamicValues, hasError, d
           className={`font-mono ${errorBorder}`}
           data-testid={`input-dynamic-${field.fieldKey}`}
         />
+      ) : isNameField ? (
+        <Input
+          value={dynamicValues[field.fieldKey] || ""}
+          onChange={e => {
+            const raw = e.target.value;
+            if (raw.length > 0 && raw.charAt(0) !== raw.charAt(0).toUpperCase()) {
+              const corrected = capitalizeFirst(raw);
+              setDynamicValues(prev => ({ ...prev, [field.fieldKey]: corrected }));
+              const fieldLabel = field.fieldKey === "meno" ? "Meno" : "Priezvisko";
+              setNameWarning(`${fieldLabel} opravene: "${raw}" → "${corrected}"`);
+            } else {
+              setDynamicValues(prev => ({ ...prev, [field.fieldKey]: raw }));
+              setNameWarning(null);
+            }
+          }}
+          onBlur={() => {
+            const val = dynamicValues[field.fieldKey] || "";
+            if (val.length > 0 && val.charAt(0) !== val.charAt(0).toUpperCase()) {
+              const corrected = capitalizeFirst(val);
+              setDynamicValues(prev => ({ ...prev, [field.fieldKey]: corrected }));
+              const fieldLabel = field.fieldKey === "meno" ? "Meno" : "Priezvisko";
+              setNameWarning(`${fieldLabel} opravene: "${val}" → "${corrected}"`);
+            }
+          }}
+          className={cn(errorBorder, nameWarning && "border-amber-500")}
+          data-testid={`input-dynamic-${field.fieldKey}`}
+        />
       ) : (
         <Input
           value={dynamicValues[field.fieldKey] || ""}
@@ -1963,6 +2012,12 @@ function DynamicFieldInput({ field, dynamicValues, setDynamicValues, hasError, d
           className={errorBorder}
           data-testid={`input-dynamic-${field.fieldKey}`}
         />
+      )}
+      {nameWarning && isNameField && (
+        <p className="text-[10px] text-red-500 leading-tight">{nameWarning}</p>
+      )}
+      {titleError && isTitleField && (
+        <p className="text-[10px] text-red-500 leading-tight">{titleError}</p>
       )}
     </div>
   );
@@ -2352,17 +2407,29 @@ function FullPageEditor({
                   <Label className="text-xs text-muted-foreground">Meno *</Label>
                   <Input
                     value={szcoFoData.firstName}
-                    onChange={e => { setSzcoFoData(prev => ({ ...prev, firstName: e.target.value })); }}
+                    onChange={e => {
+                      const raw = e.target.value;
+                      setSzcoFoData(prev => ({ ...prev, firstName: capitalizeFirst(raw) }));
+                    }}
                     data-testid="input-szco-firstname"
                   />
+                  {szcoFoData.firstName && szcoFoData.firstName !== szcoFoData.firstName.charAt(0).toUpperCase() + szcoFoData.firstName.slice(1) && (
+                    <p className="text-[10px] text-red-500">Meno opravene na velke zaciatocne pismeno</p>
+                  )}
                 </div>
                 <div className="space-y-1 flex-1 min-w-[150px]">
                   <Label className="text-xs text-muted-foreground">Priezvisko *</Label>
                   <Input
                     value={szcoFoData.lastName}
-                    onChange={e => { setSzcoFoData(prev => ({ ...prev, lastName: e.target.value })); }}
+                    onChange={e => {
+                      const raw = e.target.value;
+                      setSzcoFoData(prev => ({ ...prev, lastName: capitalizeFirst(raw) }));
+                    }}
                     data-testid="input-szco-lastname"
                   />
+                  {szcoFoData.lastName && szcoFoData.lastName !== szcoFoData.lastName.charAt(0).toUpperCase() + szcoFoData.lastName.slice(1) && (
+                    <p className="text-[10px] text-red-500">Priezvisko opravene na velke zaciatocne pismeno</p>
+                  )}
                 </div>
                 <div className="space-y-1 w-[180px] min-w-[140px]">
                   <Label className="text-xs text-muted-foreground">Rodné číslo</Label>
