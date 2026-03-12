@@ -121,14 +121,11 @@ const CONTRACTS_EVIDENCIA_COLUMNS: ColumnDef[] = [
 ];
 
 const CONTRACTS_SPRIEVODKA_COLUMNS: ColumnDef[] = [
-  { key: "contractNumber", label: "Cislo zmluvy" },
-  { key: "proposalNumber", label: "Cislo navrhu" },
-  { key: "subjectId", label: "Klient" },
   { key: "partnerId", label: "Partner" },
   { key: "productId", label: "Produkt" },
-  { key: "annualPremium", label: "Rocne poistne" },
-  { key: "signedDate", label: "Vytvorenie zmluvy" },
-  { key: "premiumAmount", label: "Lehotne poistne" },
+  { key: "proposalNumber", label: "Číslo návrhu" },
+  { key: "contractNumber", label: "Číslo zmluvy" },
+  { key: "subjectId", label: "Klient" },
 ];
 
 const MAIN_FILTER_COLUMNS: SmartColumnDef[] = [
@@ -157,14 +154,11 @@ const EVIDENCIA_FILTER_COLUMNS: SmartColumnDef[] = [
 ];
 
 const SPRIEVODKA_FILTER_COLUMNS: SmartColumnDef[] = [
-  { key: "contractNumber", label: "Cislo zmluvy", type: "text" },
-  { key: "proposalNumber", label: "Cislo navrhu", type: "text" },
-  { key: "subjectId", label: "Klient", type: "number" },
   { key: "partnerId", label: "Partner", type: "number" },
   { key: "productId", label: "Produkt", type: "number" },
-  { key: "annualPremium", label: "Rocne poistne", type: "number" },
-  { key: "signedDate", label: "Vytvorenie zmluvy", type: "date" },
-  { key: "premiumAmount", label: "Lehotne poistne", type: "number" },
+  { key: "proposalNumber", label: "Číslo návrhu", type: "text" },
+  { key: "contractNumber", label: "Číslo zmluvy", type: "text" },
+  { key: "subjectId", label: "Klient", type: "number" },
 ];
 
 function InlineSortOrderEdit({ contractId, currentOrder }: { contractId: number; currentOrder: number | null }) {
@@ -2999,8 +2993,8 @@ export default function Contracts() {
     );
   }
 
-  function renderContractTable(list: Contract[], options?: { showCheckbox?: boolean; showOrder?: boolean; showStatus?: boolean; showRegistration?: boolean; showActions?: boolean; showTimer?: boolean; showRerouteCheckbox?: boolean; checkboxOnly?: boolean; hideContractNumbers?: boolean; sortState?: { sortKey: string | null; sortDirection: "asc" | "desc" | null; requestSort: (key: string) => void } }) {
-    const { showCheckbox, showOrder, showStatus, showRegistration, showActions = true, showTimer, showRerouteCheckbox, checkboxOnly, hideContractNumbers, sortState } = options || {};
+  function renderContractTable(list: Contract[], options?: { showCheckbox?: boolean; showOrder?: boolean; showStatus?: boolean; showRegistration?: boolean; showActions?: boolean; showTimer?: boolean; showRerouteCheckbox?: boolean; checkboxOnly?: boolean; hideContractNumbers?: boolean; earlyPhase?: boolean; sortState?: { sortKey: string | null; sortDirection: "asc" | "desc" | null; requestSort: (key: string) => void } }) {
+    const { showCheckbox, showOrder, showStatus, showRegistration, showActions = true, showTimer, showRerouteCheckbox, checkboxOnly, hideContractNumbers, earlyPhase, sortState } = options || {};
     const sk = sortState?.sortKey ?? null;
     const sd = sortState?.sortDirection ?? null;
     const rs = sortState?.requestSort;
@@ -3031,13 +3025,15 @@ export default function Contracts() {
               </TableHead>
             )}
             {showOrder && <TableHead className="w-[40px] text-center">#</TableHead>}
-            {!hideContractNumbers && <TableHead sortKey="contractNumber" sortDirection={sk === "contractNumber" ? sd : null} onSort={rs}>Číslo kontraktu</TableHead>}
+            {!hideContractNumbers && !earlyPhase && <TableHead sortKey="contractNumber" sortDirection={sk === "contractNumber" ? sd : null} onSort={rs}>Číslo kontraktu</TableHead>}
             <TableHead sortKey="partnerId" sortDirection={sk === "partnerId" ? sd : null} onSort={rs}>Partner</TableHead>
             <TableHead sortKey="productId" sortDirection={sk === "productId" ? sd : null} onSort={rs}>Produkt</TableHead>
             <TableHead sortKey="proposalNumber" sortDirection={sk === "proposalNumber" ? sd : null} onSort={rs}>Číslo návrhu zmluvy</TableHead>
-            {!hideContractNumbers && <TableHead>Číslo zmluvy</TableHead>}
+            {earlyPhase && <TableHead>Číslo zmluvy</TableHead>}
+            {!earlyPhase && !hideContractNumbers && <TableHead>Číslo zmluvy</TableHead>}
             <TableHead>Typ subjektu</TableHead>
             <TableHead sortKey="subjectId" sortDirection={sk === "subjectId" ? sd : null} onSort={rs}>Subjekt</TableHead>
+            {earlyPhase && <TableHead>RČ / IČO</TableHead>}
             {showTimer && <TableHead>Zostáva dní</TableHead>}
             {showActions && <TableHead className="text-right">Akcie</TableHead>}
           </TableRow>
@@ -3091,7 +3087,7 @@ export default function Contracts() {
                     {selectedIds.includes(contract.id) ? selectedIds.indexOf(contract.id) + 1 : ""}
                   </TableCell>
                 )}
-                {!hideContractNumbers && (
+                {!hideContractNumbers && !earlyPhase && (
                   <TableCell className="font-mono text-sm font-bold text-blue-500 py-1" data-testid={`text-contract-number-${contract.id}`}>
                     <span className="flex items-center gap-1">
                       <Lock className="w-3 h-3 text-amber-500 shrink-0" style={{ display: contract.isLocked ? 'block' : 'none' }} />
@@ -3126,7 +3122,8 @@ export default function Contracts() {
                     )}
                   </span>
                 </TableCell>
-                {!hideContractNumbers && <TableCell className="text-sm font-mono py-1" data-testid={`text-contract-insurancenumber-${contract.id}`}>{contract.insuranceContractNumber || "—"}</TableCell>}
+                {earlyPhase && <TableCell className="text-sm font-mono py-1" data-testid={`text-contract-insurancenumber-${contract.id}`}>{contract.insuranceContractNumber || "—"}</TableCell>}
+                {!earlyPhase && !hideContractNumbers && <TableCell className="text-sm font-mono py-1" data-testid={`text-contract-insurancenumber-${contract.id}`}>{contract.insuranceContractNumber || "—"}</TableCell>}
                 <TableCell className="text-sm py-1">
                   <Badge variant="outline" className={`text-[10px] ${subjectType === "FO" ? "border-blue-500/50 text-blue-400" : subjectType === "SZČO" ? "border-amber-500/50 text-amber-400" : subjectType === "PO" ? "border-purple-500/50 text-purple-400" : "border-muted text-muted-foreground"}`}>{subjectType}</Badge>
                 </TableCell>
@@ -3160,6 +3157,16 @@ export default function Contracts() {
                     )}
                   </span>
                 </TableCell>
+                {earlyPhase && (
+                  <TableCell className="text-sm font-mono py-1" data-testid={`text-subject-rcico-${contract.id}`}>
+                    {(() => {
+                      if (!sub) return "—";
+                      if (sub.type === "person") return sub.birthNumber || "—";
+                      if (sub.type === "szco") return (contract as any).szcoIco || sub.birthNumber || "—";
+                      return (sub as any).ico || "—";
+                    })()}
+                  </TableCell>
+                )}
                 {showTimer && <TableCell className="py-1" data-testid={`text-contract-timer-${contract.id}`}>
                   {(() => {
                     const c = contract as any;
@@ -4250,7 +4257,7 @@ export default function Contracts() {
                 <p className="text-sm text-muted-foreground text-center py-8" data-testid="text-no-nahravanie">Ziadne zmluvy na nahravanie</p>
               ) : (
                 <>
-                  {renderContractTable(sortedNahravanie, { showCheckbox: true, showOrder: true, checkboxOnly: true, hideContractNumbers: true, sortState: { sortKey: skNahr, sortDirection: sdNahr, requestSort: rsNahr } })}
+                  {renderContractTable(sortedNahravanie, { showCheckbox: true, showOrder: true, checkboxOnly: true, earlyPhase: true, sortState: { sortKey: skNahr, sortDirection: sdNahr, requestSort: rsNahr } })}
                   {hasMoreContracts && (
                     <div className="flex items-center justify-center py-4 border-t">
                       <Button variant="outline" size="sm" onClick={loadMoreContracts} disabled={isLoadingMore} data-testid="button-load-more">
@@ -4332,14 +4339,13 @@ export default function Contracts() {
                               <TableHeader>
                                 <TableRow>
                                   <TableHead className="w-[40px] text-center">#</TableHead>
-                                  {sprievodkaColumnVisibility.isVisible("contractNumber") && <TableHead>Cislo zmluvy</TableHead>}
-                                  {sprievodkaColumnVisibility.isVisible("proposalNumber") && <TableHead>Cislo navrhu</TableHead>}
-                                  {sprievodkaColumnVisibility.isVisible("subjectId") && <TableHead>Klient</TableHead>}
                                   {sprievodkaColumnVisibility.isVisible("partnerId") && <TableHead>Partner</TableHead>}
                                   {sprievodkaColumnVisibility.isVisible("productId") && <TableHead>Produkt</TableHead>}
-                                  {sprievodkaColumnVisibility.isVisible("annualPremium") && <TableHead>Rocne poistne</TableHead>}
-                                  {sprievodkaColumnVisibility.isVisible("signedDate") && <TableHead>Vytvorenie zmluvy</TableHead>}
-                                  {sprievodkaColumnVisibility.isVisible("premiumAmount") && <TableHead>Lehotne poistne</TableHead>}
+                                  {sprievodkaColumnVisibility.isVisible("proposalNumber") && <TableHead>Číslo návrhu</TableHead>}
+                                  {sprievodkaColumnVisibility.isVisible("contractNumber") && <TableHead>Číslo zmluvy</TableHead>}
+                                  <TableHead>Typ subjektu</TableHead>
+                                  {sprievodkaColumnVisibility.isVisible("subjectId") && <TableHead>Klient</TableHead>}
+                                  <TableHead>RČ / IČO</TableHead>
                                   <TableHead className="text-right">Akcie</TableHead>
                                 </TableRow>
                               </TableHeader>
@@ -4349,19 +4355,32 @@ export default function Contracts() {
                                     <TableCell className="text-center text-xs text-muted-foreground">
                                       <InlineSortOrderEdit contractId={contract.id} currentOrder={contract.sortOrderInInventory} />
                                     </TableCell>
+                                    {sprievodkaColumnVisibility.isVisible("partnerId") && <TableCell className="text-sm">{getPartnerName(contract)}</TableCell>}
+                                    {sprievodkaColumnVisibility.isVisible("productId") && <TableCell className="text-sm">{getProductName(contract)}</TableCell>}
+                                    {sprievodkaColumnVisibility.isVisible("proposalNumber") && <TableCell className="text-sm font-mono">{contract.proposalNumber || "-"}</TableCell>}
                                     {sprievodkaColumnVisibility.isVisible("contractNumber") && <TableCell className="font-mono text-sm" data-testid={`text-dispatched-number-${contract.id}`}>
                                       <span className="flex items-center gap-1">
                                         <Lock className="w-3 h-3 text-amber-500 shrink-0" style={{ display: contract.isLocked ? 'block' : 'none' }} />
                                         {contract.contractNumber || "-"}
                                       </span>
                                     </TableCell>}
-                                    {sprievodkaColumnVisibility.isVisible("proposalNumber") && <TableCell className="text-sm font-mono">{contract.proposalNumber || "-"}</TableCell>}
+                                    <TableCell className="text-sm">
+                                      {(() => {
+                                        const sub2 = subjects?.find(s => s.id === contract.subjectId);
+                                        const st = sub2?.type === "person" ? "FO" : sub2?.type === "szco" ? "SZČO" : sub2?.type === "company" ? "PO" : "—";
+                                        return <Badge variant="outline" className={`text-[10px] ${st === "FO" ? "border-blue-500/50 text-blue-400" : st === "SZČO" ? "border-amber-500/50 text-amber-400" : st === "PO" ? "border-purple-500/50 text-purple-400" : "border-muted text-muted-foreground"}`}>{st}</Badge>;
+                                      })()}
+                                    </TableCell>
                                     {sprievodkaColumnVisibility.isVisible("subjectId") && <TableCell className="text-sm">{getSubjectDisplay(contract.subjectId)}</TableCell>}
-                                    {sprievodkaColumnVisibility.isVisible("partnerId") && <TableCell className="text-sm">{getPartnerName(contract)}</TableCell>}
-                                    {sprievodkaColumnVisibility.isVisible("productId") && <TableCell className="text-sm">{getProductName(contract)}</TableCell>}
-                                    {sprievodkaColumnVisibility.isVisible("annualPremium") && <TableCell className="text-sm font-mono">{formatAmount(contract.annualPremium, contract.currency)}</TableCell>}
-                                    {sprievodkaColumnVisibility.isVisible("signedDate") && <TableCell className="text-sm">{formatDate(contract.signedDate)}</TableCell>}
-                                    {sprievodkaColumnVisibility.isVisible("premiumAmount") && <TableCell className="text-sm font-mono">{formatAmount(contract.premiumAmount, contract.currency)}</TableCell>}
+                                    <TableCell className="text-sm font-mono">
+                                      {(() => {
+                                        const sub2 = subjects?.find(s => s.id === contract.subjectId);
+                                        if (!sub2) return "—";
+                                        if (sub2.type === "person") return sub2.birthNumber || "—";
+                                        if (sub2.type === "szco") return (contract as any).szcoIco || sub2.birthNumber || "—";
+                                        return (sub2 as any).ico || "—";
+                                      })()}
+                                    </TableCell>
                                     <TableCell className="text-right">
                                       <Button size="icon" variant="ghost" onClick={() => openView(contract)} data-testid={`button-view-dispatched-${contract.id}`}>
                                         <Eye className="w-4 h-4" />
@@ -4510,7 +4529,7 @@ export default function Contracts() {
                         </div>
                         <div style={{ display: isExpanded ? 'block' : 'none' }}>
                           <div className="border-t">
-                            {renderContractTable(group.contracts, { showStatus: true, showRegistration: true, showActions: true, showRerouteCheckbox: true, checkboxOnly: true })}
+                            {renderContractTable(group.contracts, { showStatus: true, showRegistration: true, showActions: true, showRerouteCheckbox: true, checkboxOnly: true, earlyPhase: true })}
                           </div>
                         </div>
                       </div>
