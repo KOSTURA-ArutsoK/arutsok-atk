@@ -3297,7 +3297,7 @@ export async function registerRoutes(
     (req as any)._uploadSection = "contract-docs";
     next();
   }, (req: any, res: any, next: any) => {
-    contractDocsUpload.array("documents", 10)(req, res, (err: any) => {
+    contractDocsUpload.array("documents", 25)(req, res, (err: any) => {
       if (err) {
         if (err.code === "LIMIT_FILE_SIZE") {
           return res.status(413).json({ message: `Súbor je príliš veľký. Maximálny limit je 25 MB.` });

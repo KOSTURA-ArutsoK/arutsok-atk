@@ -2215,10 +2215,11 @@ export default function Contracts() {
   const [preSelectFiles, setPreSelectFiles] = useState<File[]>([]);
   const [preSelectCreatedContractId, setPreSelectCreatedContractId] = useState<number | null>(null);
   const [preSelectUploading, setPreSelectUploading] = useState(false);
+  const [preSelectUploadedCount, setPreSelectUploadedCount] = useState(0);
   const [preSelectFileError, setPreSelectFileError] = useState<string | null>(null);
   const MAX_FILE_SIZE = 25 * 1024 * 1024;
   const MAX_BATCH_SIZE = 100 * 1024 * 1024;
-  const MAX_BATCH_FILES = 10;
+  const MAX_BATCH_FILES = 25;
   const MAX_DOCS_PER_CONTRACT = 100;
   const MAX_VIDEOS_PER_CONTRACT = 5;
   const VIDEO_EXTENSIONS = new Set([".mp4", ".mov", ".avi", ".mkv", ".webm"]);
@@ -3661,6 +3662,7 @@ export default function Contracts() {
     setPreSelectCreatedContractId(null);
     setPreSelectUploading(false);
     setPreSelectFileError(null);
+    setPreSelectUploadedCount(0);
   };
 
   const getFileExt = (name: string) => {
@@ -3733,8 +3735,11 @@ export default function Contracts() {
         throw new Error(errData.message || "Nepodarilo sa nahrať dokumenty");
       }
       queryClient.invalidateQueries({ queryKey: ["/api/contracts"] });
+      setPreSelectUploadedCount(prev => prev + preSelectFiles.length);
       toast({ title: "Úspech", description: `${preSelectFiles.length} dokument(ov) nahraných` });
-      resetPreSelectDialog();
+      setPreSelectFiles([]);
+      setPreSelectFileError(null);
+      setPreSelectUploading(false);
     } catch (err: any) {
       setPreSelectUploading(false);
       toast({ title: "Chyba", description: err.message || "Nepodarilo sa nahrať dokumenty", variant: "destructive" });
@@ -4126,7 +4131,46 @@ export default function Contracts() {
                     setPreSelectSubjectId("");
                   }}
                   onKeyDown={(e) => {
-                    if (e.key === "Tab" && preSelectSubjectSearch.trim() && preSelectFilteredSubjects.length > 0) {
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                      if (preSelectSubjectSearch.trim() && preSelectFilteredSubjects.length === 1) {
+                        const s = preSelectFilteredSubjects[0];
+                        setPreSelectSubjectId(s.id.toString());
+                        setPreSelectSubjectType(s.type as "person" | "company" | "szco");
+                        setPreSelectTitleBefore((s as any).titleBefore || "");
+                        setPreSelectFirstName(s.firstName || "");
+                        setPreSelectLastName(s.lastName || "");
+                        setPreSelectTitleAfter((s as any).titleAfter || "");
+                        setPreSelectBusinessName(s.companyName || "");
+                        setPreSelectIco((s.details as any)?.ico || "");
+                        setPreSelectBirthNumber(s.birthNumber || "");
+                        setPreSelectShowNameFields(true);
+                        setTimeout(() => {
+                          const sType = s.type as string;
+                          if (sType === "szco" || sType === "company") {
+                            const el = document.querySelector('[data-testid="input-preselect-business-name"]') as HTMLElement;
+                            if (el) { el.focus(); return; }
+                          }
+                          const el = document.querySelector('[data-testid="input-preselect-title-before"]') as HTMLElement;
+                          if (el) { el.focus(); return; }
+                          refStep2Confirm.current?.focus();
+                        }, 80);
+                      } else if (preSelectSubjectSearch.trim() && preSelectFilteredSubjects.length > 1) {
+                        const firstRow = document.querySelector('[data-testid^="row-preselect-subject-"]') as HTMLElement;
+                        if (firstRow) firstRow.focus();
+                      } else if (!preSelectSubjectSearch.trim() || preSelectFilteredSubjects.length === 0) {
+                        setPreSelectShowNameFields(true);
+                        setTimeout(() => {
+                          if (preSelectSubjectType === "szco" || preSelectSubjectType === "company") {
+                            const el = document.querySelector('[data-testid="input-preselect-business-name"]') as HTMLElement;
+                            if (el) { el.focus(); return; }
+                          }
+                          const el = document.querySelector('[data-testid="input-preselect-title-before"]') as HTMLElement;
+                          if (el) { el.focus(); return; }
+                          refStep2Confirm.current?.focus();
+                        }, 80);
+                      }
+                    } else if (e.key === "Tab" && preSelectSubjectSearch.trim() && preSelectFilteredSubjects.length > 0) {
                       e.preventDefault();
                       const firstRow = document.querySelector('[data-testid^="row-preselect-subject-"]') as HTMLElement;
                       if (firstRow) firstRow.focus();
@@ -4368,7 +4412,8 @@ export default function Contracts() {
             {(() => {
               const allContracts = contractsPage?.data || [];
               const targetContract = preSelectCreatedContractId ? allContracts.find((c: any) => c.id === preSelectCreatedContractId) : null;
-              const existingDocsCount = targetContract && Array.isArray(targetContract.documents) ? targetContract.documents.length : 0;
+              const dbDocsCount = targetContract && Array.isArray(targetContract.documents) ? targetContract.documents.length : 0;
+              const existingDocsCount = Math.max(dbDocsCount, preSelectUploadedCount);
               const remainingSlots = MAX_DOCS_PER_CONTRACT - existingDocsCount;
               return (
                 <div className="flex flex-wrap gap-2 text-[11px] text-muted-foreground" data-testid="text-contract-doc-limits">
