@@ -5296,8 +5296,9 @@ export async function registerRoutes(
           let subjectType: "person" | "szco" | "company" = "person";
           if (typSubjektu) {
             const tLower = typSubjektu.toLowerCase().trim();
-            if (tLower === "po" || tLower === "company" || tLower === "firma" || tLower === "pravnicka_osoba") subjectType = "company";
-            else if (tLower === "szco" || tLower === "szčo" || tLower === "zivnostnik") subjectType = "szco";
+            if (["po", "company", "firma", "pravnicka_osoba", "právnická osoba", "právnická", "pravnicka", "p.o.", "p.o"].includes(tLower)) subjectType = "company";
+            else if (["szco", "szčo", "živnostník", "zivnostnik", "s.z.č.o.", "s.z.c.o.", "szč.o.", "szc.o."].includes(tLower)) subjectType = "szco";
+            else if (["fo", "person", "fyzická osoba", "fyzicka_osoba", "fyzicka osoba", "fyzická", "fyzicka", "f.o.", "f.o", "fyz"].includes(tLower)) subjectType = "person";
             else subjectType = "person";
           }
 
