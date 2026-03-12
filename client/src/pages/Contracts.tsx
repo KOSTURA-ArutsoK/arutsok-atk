@@ -2523,6 +2523,25 @@ export default function Contracts() {
   });
   const { data: allStates } = useStates();
 
+  const lookupSubjectByUid = (uid: string): { found: boolean; label: string } => {
+    if (!uid.trim()) return { found: false, label: "" };
+    const normalizedUid = uid.replace(/\s/g, "");
+    const user = (appUsersAll || []).find(u => (u.uid || "").replace(/\s/g, "") === normalizedUid);
+    if (user) {
+      const parts = [user.firstName, user.lastName].filter(Boolean);
+      return { found: true, label: parts.join(" ") || user.username || "Bez mena" };
+    }
+    const subj = (subjects || []).find(s => (s.uid || "").replace(/\s/g, "") === normalizedUid && !s.deletedAt);
+    if (subj) {
+      if (subj.type === "fo") {
+        const parts = [subj.firstName, subj.lastName].filter(Boolean);
+        return { found: true, label: parts.join(" ") || "Bez mena" };
+      }
+      return { found: true, label: subj.companyName || "Bez nazvu" };
+    }
+    return { found: false, label: "Subjekt nenajdeny" };
+  };
+
   const allContractIds = [
     ...(contracts?.map(c => c.id) || []),
     ...(dispatchedContracts?.map(c => c.id) || []),
@@ -3569,25 +3588,24 @@ export default function Contracts() {
                 </div>
               </div>
 
-              {(importSpecialistUid || importRecommenders.length > 0) && (
-                <div className={`rounded-md p-2 ${importRewardTotal === 100 ? 'bg-emerald-500/10 border border-emerald-500/30' : 'bg-destructive/10 border border-destructive/30'}`}>
-                  <p className={`text-xs font-medium ${importRewardTotal === 100 ? 'text-emerald-600' : 'text-destructive'}`} data-testid="text-import-reward-status">
-                    {importRewardTotal === 100
-                      ? `Celkový súčet odmien je 100,00 % - Uloženie je povolené.`
-                      : `Celkový súčet odmien nie je 100,00 % (${importRewardTotal.toFixed(2).replace(".", ",")} %) - Uloženie je zablokované.`
-                    }
-                  </p>
-                </div>
-              )}
+              <div className={`rounded-md p-2 ${importRewardTotal === 100 ? 'bg-emerald-500/10 border border-emerald-500/30' : 'bg-destructive/10 border border-destructive/30'}`}>
+                <p className={`text-xs font-medium ${importRewardTotal === 100 ? 'text-emerald-600' : 'text-destructive'}`} data-testid="text-import-reward-status">
+                  {importRewardTotal === 100
+                    ? `Celkovy sucet odmien je 100,00 % - Ulozenie je povolene.`
+                    : `Celkovy sucet odmien nie je 100,00 % (${importRewardTotal.toFixed(2).replace(".", ",")} %) - Ulozenie je zablokovane.`
+                  }
+                </p>
+              </div>
 
               <div className="grid grid-cols-2 gap-3">
                 <div className="border rounded-md p-3 space-y-2" data-testid="panel-import-specialist">
                   <div className="flex items-center gap-2">
                     <Award className="w-3.5 h-3.5 text-primary" />
-                    <span className="text-xs font-semibold uppercase tracking-wide">Specialista</span>
+                    <span className="text-xs font-semibold uppercase tracking-wide">Odmena pre specialistu</span>
                   </div>
-                  <div className="space-y-2">
-                    <div className="space-y-1">
+                  <p className="text-[10px] text-muted-foreground">Osoba zodpovedna za spravnost zmluvy</p>
+                  <div className="flex items-start gap-2">
+                    <div className="flex-1 space-y-1">
                       <label className="text-xs text-muted-foreground">UID specialistu</label>
                       <div className="relative">
                         <Input
@@ -3645,8 +3663,13 @@ export default function Contracts() {
                           );
                         })()}
                       </div>
+                      {(() => {
+                        const lookup = lookupSubjectByUid(importSpecialistUid);
+                        if (!lookup.label) return null;
+                        return <p className={`text-[11px] mt-0.5 font-medium ${lookup.found ? 'text-emerald-500' : 'text-destructive'}`} data-testid="text-import-specialist-lookup">{lookup.label}</p>;
+                      })()}
                     </div>
-                    <div className="space-y-1">
+                    <div className="w-[100px] space-y-1">
                       <label className="text-xs text-muted-foreground">Podiel (%)</label>
                       <div className="relative">
                         <Input
@@ -3707,8 +3730,8 @@ export default function Contracts() {
                   </div>
 
                   <div className="border rounded-md p-2 space-y-2" style={{ display: importAddingRecommender ? 'block' : 'none' }} data-testid="panel-import-add-recommender">
-                    <div className="space-y-2">
-                      <div className="space-y-1">
+                    <div className="flex items-start gap-2">
+                      <div className="flex-1 space-y-1">
                         <label className="text-xs text-muted-foreground">UID odporucitela</label>
                         <div className="relative">
                           <Input
@@ -3766,8 +3789,13 @@ export default function Contracts() {
                             );
                           })()}
                         </div>
+                        {(() => {
+                          const lookup = lookupSubjectByUid(importNewRecommenderUid);
+                          if (!lookup.label) return null;
+                          return <p className={`text-[11px] mt-0.5 font-medium ${lookup.found ? 'text-emerald-500' : 'text-destructive'}`} data-testid="text-import-recommender-lookup">{lookup.label}</p>;
+                        })()}
                       </div>
-                      <div className="space-y-1">
+                      <div className="w-[100px] space-y-1">
                         <label className="text-xs text-muted-foreground">Podiel (%)</label>
                         <div className="relative">
                           <Input
@@ -4946,25 +4974,24 @@ export default function Contracts() {
                 </div>
               </div>
 
-              {(preSelectSpecialistUid || preSelectRecommenders.length > 0) && (
-                <div className={`rounded-md p-2 ${preSelectRewardTotal === 100 ? 'bg-emerald-500/10 border border-emerald-500/30' : 'bg-destructive/10 border border-destructive/30'}`}>
-                  <p className={`text-xs font-medium ${preSelectRewardTotal === 100 ? 'text-emerald-600' : 'text-destructive'}`} data-testid="text-preselect-reward-status">
-                    {preSelectRewardTotal === 100
-                      ? `Celkový súčet odmien je 100,00 % - Uloženie je povolené.`
-                      : `Celkový súčet odmien nie je 100,00 % (${preSelectRewardTotal.toFixed(2).replace(".", ",")} %) - Uloženie je zablokované.`
-                    }
-                  </p>
-                </div>
-              )}
+              <div className={`rounded-md p-2 ${preSelectRewardTotal === 100 ? 'bg-emerald-500/10 border border-emerald-500/30' : 'bg-destructive/10 border border-destructive/30'}`}>
+                <p className={`text-xs font-medium ${preSelectRewardTotal === 100 ? 'text-emerald-600' : 'text-destructive'}`} data-testid="text-preselect-reward-status">
+                  {preSelectRewardTotal === 100
+                    ? `Celkovy sucet odmien je 100,00 % - Ulozenie je povolene.`
+                    : `Celkovy sucet odmien nie je 100,00 % (${preSelectRewardTotal.toFixed(2).replace(".", ",")} %) - Ulozenie je zablokovane.`
+                  }
+                </p>
+              </div>
 
               <div className="grid grid-cols-2 gap-3">
                 <div className="border rounded-md p-3 space-y-2" data-testid="panel-preselect-specialist">
                   <div className="flex items-center gap-2">
                     <Award className="w-3.5 h-3.5 text-primary" />
-                    <span className="text-xs font-semibold uppercase tracking-wide">Specialista</span>
+                    <span className="text-xs font-semibold uppercase tracking-wide">Odmena pre specialistu</span>
                   </div>
-                  <div className="space-y-2">
-                    <div className="space-y-1">
+                  <p className="text-[10px] text-muted-foreground">Osoba zodpovedna za spravnost zmluvy</p>
+                  <div className="flex items-start gap-2">
+                    <div className="flex-1 space-y-1">
                       <label className="text-xs text-muted-foreground">UID specialistu</label>
                       <div className="relative">
                         <Input
@@ -5022,8 +5049,13 @@ export default function Contracts() {
                           );
                         })()}
                       </div>
+                      {(() => {
+                        const lookup = lookupSubjectByUid(preSelectSpecialistUid);
+                        if (!lookup.label) return null;
+                        return <p className={`text-[11px] mt-0.5 font-medium ${lookup.found ? 'text-emerald-500' : 'text-destructive'}`} data-testid="text-preselect-specialist-lookup">{lookup.label}</p>;
+                      })()}
                     </div>
-                    <div className="space-y-1">
+                    <div className="w-[100px] space-y-1">
                       <label className="text-xs text-muted-foreground">Podiel (%)</label>
                       <div className="relative">
                         <Input
@@ -5084,8 +5116,8 @@ export default function Contracts() {
                   </div>
 
                   <div className="border rounded-md p-2 space-y-2" style={{ display: preSelectAddingRecommender ? 'block' : 'none' }} data-testid="panel-preselect-add-recommender">
-                    <div className="space-y-2">
-                      <div className="space-y-1">
+                    <div className="flex items-start gap-2">
+                      <div className="flex-1 space-y-1">
                         <label className="text-xs text-muted-foreground">UID odporucitela</label>
                         <div className="relative">
                           <Input
@@ -5143,8 +5175,13 @@ export default function Contracts() {
                             );
                           })()}
                         </div>
+                        {(() => {
+                          const lookup = lookupSubjectByUid(preSelectNewRecommenderUid);
+                          if (!lookup.label) return null;
+                          return <p className={`text-[11px] mt-0.5 font-medium ${lookup.found ? 'text-emerald-500' : 'text-destructive'}`} data-testid="text-preselect-recommender-lookup">{lookup.label}</p>;
+                        })()}
                       </div>
-                      <div className="space-y-1">
+                      <div className="w-[100px] space-y-1">
                         <label className="text-xs text-muted-foreground">Podiel (%)</label>
                         <div className="relative">
                           <Input
