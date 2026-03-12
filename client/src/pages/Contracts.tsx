@@ -2407,13 +2407,19 @@ export default function Contracts() {
 
   const contractsFilterKey = JSON.stringify(contractsFilterParams);
 
+  const contractsFilterKeyRef = useRef(contractsFilterKey);
+  const [contractsResetCounter, setContractsResetCounter] = useState(0);
   useEffect(() => {
-    setContractPages([]);
-    setContractsTotal(0);
-    setContractsOffset(0);
+    if (contractsFilterKeyRef.current !== contractsFilterKey) {
+      contractsFilterKeyRef.current = contractsFilterKey;
+      setContractPages([]);
+      setContractsTotal(0);
+      setContractsOffset(0);
+      setContractsResetCounter(c => c + 1);
+    }
   }, [contractsFilterKey]);
 
-  const contractsQueryKey = ["/api/contracts", contractsFilterParams, contractsOffset];
+  const contractsQueryKey = ["/api/contracts", contractsFilterKey, contractsOffset];
 
   const { data: contractsPage, isLoading: isLoadingContracts, isFetching: isFetchingContracts } = useQuery<{ data: Contract[]; total: number; limit: number; offset: number }>({
     queryKey: contractsQueryKey,
@@ -2439,7 +2445,7 @@ export default function Contracts() {
         return [...prev, ...newContracts];
       });
     }
-  }, [contractsPage, contractsOffset]);
+  }, [contractsPage, contractsOffset, contractsResetCounter]);
 
   const isLoading = isLoadingContracts && contractsOffset === 0;
   const isLoadingMore = isFetchingContracts && contractsOffset > 0;
