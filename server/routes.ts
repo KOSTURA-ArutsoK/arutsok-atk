@@ -335,16 +335,32 @@ const ALLOWED_FILE_TYPES: Record<string, Set<string>> = {
   ".json": new Set(["application/json", "text/plain"]),
   ".ppt":  new Set(["application/vnd.ms-powerpoint"]),
   ".pptx": new Set(["application/vnd.openxmlformats-officedocument.presentationml.presentation"]),
+  ".mp4":  new Set(["video/mp4"]),
+  ".mov":  new Set(["video/quicktime"]),
+  ".avi":  new Set(["video/x-msvideo"]),
+  ".mkv":  new Set(["video/x-matroska"]),
+  ".webm": new Set(["video/webm"]),
 };
+
+const VIDEO_EXTENSIONS = new Set([".mp4", ".mov", ".avi", ".mkv", ".webm"]);
+
+function canUploadVideo(appUser: any): boolean {
+  if (!appUser) return false;
+  return isAdmin(appUser) || appUser.role === 'agent';
+}
 
 const fileFilterFn = (_req: any, file: Express.Multer.File, cb: multer.FileFilterCallback) => {
   const ext = path.extname(file.originalname).toLowerCase();
   const allowedMimes = ALLOWED_FILE_TYPES[ext];
-  if (allowedMimes && allowedMimes.has(file.mimetype)) {
-    cb(null, true);
-  } else {
+  if (!allowedMimes || !allowedMimes.has(file.mimetype)) {
     cb(new Error(`Nepovolený typ súboru: ${ext} (${file.mimetype})`));
+    return;
   }
+  if (VIDEO_EXTENSIONS.has(ext) && !canUploadVideo((_req as any).appUser)) {
+    cb(new Error(`Nahrávanie video súborov (${ext}) je povolené iba pre administrátorov a agentov.`));
+    return;
+  }
+  cb(null, true);
 };
 
 const upload = multer({
@@ -3281,10 +3297,13 @@ export async function registerRoutes(
     (req as any)._uploadSection = "contract-docs";
     next();
   }, (req: any, res: any, next: any) => {
-    contractDocsUpload.array("documents", 20)(req, res, (err: any) => {
+    contractDocsUpload.array("documents", 10)(req, res, (err: any) => {
       if (err) {
         if (err.code === "LIMIT_FILE_SIZE") {
           return res.status(413).json({ message: `Súbor je príliš veľký. Maximálny limit je 25 MB.` });
+        }
+        if (err.code === "LIMIT_UNEXPECTED_FILE") {
+          return res.status(400).json({ message: `Maximálny počet súborov v jednej dávke je 10.` });
         }
         return res.status(400).json({ message: err.message || "Chyba pri nahrávaní súboru" });
       }
@@ -3293,13 +3312,61 @@ export async function registerRoutes(
   }, async (req: any, res) => {
     try {
       const MAX_BATCH_SIZE = 100 * 1024 * 1024;
+      const MAX_DAILY_QUOTA = 500 * 1024 * 1024;
+      const MAX_DOCS_PER_CONTRACT = 100;
+      const MAX_VIDEOS_PER_CONTRACT = 5;
+
+      const cleanupFiles = () => {
+        if (req.files && Array.isArray(req.files)) {
+          for (const f of req.files) fs.unlink(f.path, () => {});
+        }
+      };
+
       if (req.files && Array.isArray(req.files)) {
         const totalSize = req.files.reduce((sum: number, f: any) => sum + f.size, 0);
         if (totalSize > MAX_BATCH_SIZE) {
-          for (const f of req.files) {
-            fs.unlink(f.path, () => {});
-          }
+          cleanupFiles();
           return res.status(413).json({ message: `Celková veľkosť dávky presahuje 100 MB. Nahrajte menej súborov naraz.` });
+        }
+      }
+
+      const userId = req.appUser?.id;
+      if (userId) {
+        const since24h = new Date(Date.now() - 24 * 60 * 60 * 1000);
+        const recentUploads = await db.select({
+          newData: auditLogs.newData,
+        }).from(auditLogs).where(
+          and(
+            eq(auditLogs.userId, userId),
+            eq(auditLogs.action, "CONTRACT_UPLOAD_DOCUMENTS"),
+            gte(auditLogs.createdAt, since24h)
+          )
+        );
+
+        let totalUploadedBytes = 0;
+        for (const log of recentUploads) {
+          const nd = log.newData as any;
+          if (nd?.totalBytesAdded) {
+            totalUploadedBytes += nd.totalBytesAdded;
+          }
+        }
+
+        const currentBatchSize = req.files && Array.isArray(req.files)
+          ? req.files.reduce((sum: number, f: any) => sum + f.size, 0)
+          : 0;
+
+        if (totalUploadedBytes + currentBatchSize > MAX_DAILY_QUOTA) {
+          cleanupFiles();
+          await logAudit(req, {
+            action: "UPLOAD_QUOTA_EXCEEDED",
+            module: "zmluvy",
+            newData: {
+              dailyUsedBytes: totalUploadedBytes,
+              attemptedBytes: currentBatchSize,
+              dailyLimitBytes: MAX_DAILY_QUOTA,
+            },
+          });
+          return res.status(429).json({ message: `Denný limit nahrávania (500 MB / 24h) bol prekročený. Skúste neskôr.` });
         }
       }
 
@@ -3308,17 +3375,38 @@ export async function registerRoutes(
       if (!contract) return res.status(404).json({ message: "Zmluva nenájdená" });
 
       const existingDocs: DocEntry[] = (contract.documents as DocEntry[]) || [];
-      const newDocs: DocEntry[] = [];
+      const newFiles = (req.files && Array.isArray(req.files)) ? req.files : [];
 
-      if (req.files && Array.isArray(req.files)) {
-        for (const file of req.files) {
-          newDocs.push({
-            name: file.originalname,
-            url: `/api/files/${file.filename}`,
-            uploadedAt: new Date().toISOString(),
-            fileSize: file.size,
-          });
-        }
+      const existingVideoCount = existingDocs.filter(d => {
+        const ext = path.extname(d.name).toLowerCase();
+        return VIDEO_EXTENSIONS.has(ext);
+      }).length;
+      const newVideoCount = newFiles.filter((f: any) => {
+        const ext = path.extname(f.originalname).toLowerCase();
+        return VIDEO_EXTENSIONS.has(ext);
+      }).length;
+      const existingNonVideoCount = existingDocs.length - existingVideoCount;
+      const newNonVideoCount = newFiles.length - newVideoCount;
+
+      if (existingVideoCount + newVideoCount > MAX_VIDEOS_PER_CONTRACT) {
+        cleanupFiles();
+        return res.status(400).json({ message: `Maximálny počet video súborov na zmluvu je ${MAX_VIDEOS_PER_CONTRACT}. Aktuálne: ${existingVideoCount}, nových: ${newVideoCount}.` });
+      }
+      if (existingDocs.length + newFiles.length > MAX_DOCS_PER_CONTRACT) {
+        cleanupFiles();
+        return res.status(400).json({ message: `Maximálny počet dokumentov na zmluvu je ${MAX_DOCS_PER_CONTRACT}. Aktuálne: ${existingDocs.length}, nových: ${newFiles.length}.` });
+      }
+
+      const newDocs: DocEntry[] = [];
+      let totalBytesAdded = 0;
+      for (const file of newFiles) {
+        newDocs.push({
+          name: file.originalname,
+          url: `/api/files/${file.filename}`,
+          uploadedAt: new Date().toISOString(),
+          fileSize: file.size,
+        });
+        totalBytesAdded += file.size;
       }
 
       const allDocs = [...existingDocs, ...newDocs];
@@ -3332,7 +3420,7 @@ export async function registerRoutes(
         module: "zmluvy",
         entityId: contractId,
         entityName: contract.contractNumber || contract.proposalNumber || `ID ${contractId}`,
-        newData: { addedDocuments: newDocs.length, totalDocuments: allDocs.length },
+        newData: { addedDocuments: newDocs.length, totalDocuments: allDocs.length, totalBytesAdded },
       });
 
       res.json({ success: true, documents: allDocs, added: newDocs.length });

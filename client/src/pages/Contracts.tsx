@@ -1,7 +1,7 @@
 import { useState, useRef, useCallback, useEffect, useMemo, type ComponentType } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import { formatDateSlovak, formatUid, getDateSemaphore, getDateSemaphoreClasses, canCreateRecords, canDeleteRecords, canEditRecords } from "@/lib/utils";
+import { formatDateSlovak, formatUid, getDateSemaphore, getDateSemaphoreClasses, canCreateRecords, canDeleteRecords, canEditRecords, isAdmin } from "@/lib/utils";
 import { useAppUser } from "@/hooks/use-app-user";
 import { useStates } from "@/hooks/use-hierarchy";
 import { useToast } from "@/hooks/use-toast";
@@ -11,7 +11,7 @@ import type { SmartColumnDef } from "@/hooks/use-smart-filter";
 import { SmartFilterBar } from "@/components/smart-filter-bar";
 import { useLocation } from "wouter";
 import type { Contract, ContractStatus, ContractTemplate, ContractInventory, Subject, Partner, Product, MyCompany, Sector, Section, SectorProduct, ClientGroup, ClientType, AppUser, ContractAcquirer } from "@shared/schema";
-import { Plus, Pencil, Trash2, Eye, FileText, FileCheck, Files, Loader2, Lock, LayoutGrid, Send, Upload, Inbox, CheckCircle2, ChevronDown, ChevronRight, Printer, Search, Archive, AlertTriangle, Calendar, XCircle, MessageSquare, Paperclip, X, Users, User, Check, Award, Percent, History, ListChecks, ArrowRight, ArrowUpRight, ArrowUp, Clock, Ghost, Ban, HelpCircle, ScanLine, Briefcase, Building2, ArrowLeftRight } from "lucide-react";
+import { Plus, Pencil, Trash2, Eye, FileText, FileCheck, Files, Loader2, Lock, LayoutGrid, Send, Upload, Inbox, CheckCircle2, ChevronDown, ChevronRight, Printer, Search, Archive, AlertTriangle, Calendar, XCircle, MessageSquare, Paperclip, X, Users, User, Check, Award, Percent, History, ListChecks, ArrowRight, ArrowUpRight, ArrowUp, Clock, Ghost, Ban, HelpCircle, ScanLine, Briefcase, Building2, ArrowLeftRight, Info } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ActivityTimeline } from "@/components/activity-timeline";
 import { cn } from "@/lib/utils";
@@ -2218,6 +2218,11 @@ export default function Contracts() {
   const [preSelectFileError, setPreSelectFileError] = useState<string | null>(null);
   const MAX_FILE_SIZE = 25 * 1024 * 1024;
   const MAX_BATCH_SIZE = 100 * 1024 * 1024;
+  const MAX_BATCH_FILES = 10;
+  const MAX_DOCS_PER_CONTRACT = 100;
+  const MAX_VIDEOS_PER_CONTRACT = 5;
+  const VIDEO_EXTENSIONS = new Set([".mp4", ".mov", ".avi", ".mkv", ".webm"]);
+  const userCanUploadVideo = appUser && (isAdmin(appUser) || appUser.role === 'agent');
   const refFileInput = useRef<HTMLInputElement>(null);
   const refProductTrigger = useRef<HTMLButtonElement>(null);
   const refStep1Next = useRef<HTMLButtonElement>(null);
@@ -3227,16 +3232,28 @@ export default function Contracts() {
                 </TableCell>
                 {Array.isArray(contract.documents) && contract.documents.length > 0 && (
                   <TableCell className="py-1 text-center" data-testid={`text-docs-count-${contract.id}`}>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded border border-emerald-500/40 bg-emerald-500/10 text-emerald-400 text-[11px] font-semibold whitespace-nowrap">
-                          🗂️ {contract.documents.length}
-                        </span>
-                      </TooltipTrigger>
-                      <TooltipContent className="text-xs">
-                        {contract.documents.length} {contract.documents.length === 1 ? "nahraný dokument" : contract.documents.length < 5 ? "nahrané dokumenty" : "nahraných dokumentov"}
-                      </TooltipContent>
-                    </Tooltip>
+                    <span className="inline-flex items-center gap-1">
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded border border-emerald-500/40 bg-emerald-500/10 text-emerald-400 text-[11px] font-semibold whitespace-nowrap">
+                            🗂️ {contract.documents.length}
+                          </span>
+                        </TooltipTrigger>
+                        <TooltipContent className="text-xs">
+                          {contract.documents.length} {contract.documents.length === 1 ? "nahraný dokument" : contract.documents.length < 5 ? "nahrané dokumenty" : "nahraných dokumentov"}
+                        </TooltipContent>
+                      </Tooltip>
+                      {contract.documents.length >= 30 && (
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Info className="w-3.5 h-3.5 text-blue-400 shrink-0" data-testid={`icon-high-docs-${contract.id}`} />
+                          </TooltipTrigger>
+                          <TooltipContent className="text-xs max-w-[220px]">
+                            Táto zmluva obsahuje vysoký počet dokumentov. Skontrolujte, či nie sú duplicitné.
+                          </TooltipContent>
+                        </Tooltip>
+                      )}
+                    </span>
                   </TableCell>
                 )}
                 {Array.isArray(contract.documents) && contract.documents.length === 0 && (
@@ -3648,6 +3665,20 @@ export default function Contracts() {
 
   const validateAndAddFiles = (newFiles: File[]) => {
     setPreSelectFileError(null);
+
+    const getFileExt = (name: string) => {
+      const dot = name.lastIndexOf(".");
+      return dot >= 0 ? name.substring(dot).toLowerCase() : "";
+    };
+
+    if (!userCanUploadVideo) {
+      const videoFiles = newFiles.filter(f => VIDEO_EXTENSIONS.has(getFileExt(f.name)));
+      if (videoFiles.length > 0) {
+        setPreSelectFileError(`Nahrávanie video súborov nie je povolené pre váš typ účtu.`);
+        newFiles = newFiles.filter(f => !VIDEO_EXTENSIONS.has(getFileExt(f.name)));
+      }
+    }
+
     const tooLarge = newFiles.filter(f => f.size > MAX_FILE_SIZE);
     if (tooLarge.length > 0) {
       setPreSelectFileError(`Súbor "${tooLarge[0].name}" je príliš veľký. Maximálny limit je 25 MB.`);
@@ -3656,6 +3687,10 @@ export default function Contracts() {
     if (newFiles.length === 0) return;
     setPreSelectFiles(prev => {
       const combined = [...prev, ...newFiles];
+      if (combined.length > MAX_BATCH_FILES) {
+        setPreSelectFileError(`Maximálny počet súborov v jednej dávke je ${MAX_BATCH_FILES}. Nadbytočné súbory boli odstránené.`);
+        return combined.slice(0, MAX_BATCH_FILES);
+      }
       const totalSize = combined.reduce((sum, f) => sum + f.size, 0);
       if (totalSize > MAX_BATCH_SIZE) {
         setPreSelectFileError(`Celková veľkosť dávky presahuje 100 MB. Odstráňte niektoré súbory.`);
@@ -4324,7 +4359,7 @@ export default function Contracts() {
               ref={refFileInput}
               type="file"
               multiple
-              accept=".pdf,.jpg,.jpeg,.png,.webp,.tiff,.tif,.bmp"
+              accept={userCanUploadVideo ? ".pdf,.jpg,.jpeg,.png,.webp,.tiff,.tif,.bmp,.mp4,.mov,.avi,.mkv,.webm" : ".pdf,.jpg,.jpeg,.png,.webp,.tiff,.tif,.bmp"}
               className="hidden"
               onChange={(e) => {
                 if (e.target.files) {
@@ -4351,7 +4386,9 @@ export default function Contracts() {
               <div className="flex flex-col items-center gap-2">
                 <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="text-muted-foreground"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
                 <p className="text-sm font-medium">Kliknite alebo pretiahnite súbory sem</p>
-                <p className="text-xs text-muted-foreground">PDF, JPG, PNG, WebP, TIFF, BMP (max. 25 MB/súbor)</p>
+                <p className="text-xs text-muted-foreground">
+                  {userCanUploadVideo ? "PDF, JPG, PNG, WebP, TIFF, BMP, MP4, MOV, AVI, MKV, WebM" : "PDF, JPG, PNG, WebP, TIFF, BMP"} (max. 25 MB/súbor, max. {MAX_BATCH_FILES} súborov/dávka)
+                </p>
               </div>
             </div>
 
@@ -4364,7 +4401,7 @@ export default function Contracts() {
 
             {preSelectFiles.length > 0 && (
               <div className="space-y-1">
-                <p className="text-xs font-medium">{preSelectFiles.length} súbor(ov) vybraných ({(preSelectFiles.reduce((s, f) => s + f.size, 0) / (1024 * 1024)).toFixed(1)} MB z max. 100 MB):</p>
+                <p className="text-xs font-medium">{preSelectFiles.length}/{MAX_BATCH_FILES} súbor(ov) vybraných ({(preSelectFiles.reduce((s, f) => s + f.size, 0) / (1024 * 1024)).toFixed(1)} MB z max. 100 MB):</p>
                 <div className="max-h-32 overflow-y-auto space-y-1">
                   {preSelectFiles.map((f, idx) => (
                     <div key={idx} className="flex items-center justify-between text-xs bg-muted/50 rounded px-2 py-1">
@@ -5502,16 +5539,28 @@ export default function Contracts() {
                       </TableCell>}
                       <TableCell className="py-1 text-center" data-testid={`text-docs-count-${contract.id}`}>
                         {Array.isArray(contract.documents) && contract.documents.length > 0 ? (
-                          <Tooltip>
-                            <TooltipTrigger asChild>
-                              <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded border border-emerald-500/40 bg-emerald-500/10 text-emerald-400 text-[11px] font-semibold whitespace-nowrap">
-                                🗂️ {contract.documents.length}
-                              </span>
-                            </TooltipTrigger>
-                            <TooltipContent className="text-xs">
-                              {contract.documents.length} {contract.documents.length === 1 ? "nahraný dokument" : contract.documents.length < 5 ? "nahrané dokumenty" : "nahraných dokumentov"}
-                            </TooltipContent>
-                          </Tooltip>
+                          <span className="inline-flex items-center gap-1">
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded border border-emerald-500/40 bg-emerald-500/10 text-emerald-400 text-[11px] font-semibold whitespace-nowrap">
+                                  🗂️ {contract.documents.length}
+                                </span>
+                              </TooltipTrigger>
+                              <TooltipContent className="text-xs">
+                                {contract.documents.length} {contract.documents.length === 1 ? "nahraný dokument" : contract.documents.length < 5 ? "nahrané dokumenty" : "nahraných dokumentov"}
+                              </TooltipContent>
+                            </Tooltip>
+                            {contract.documents.length >= 30 && (
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <Info className="w-3.5 h-3.5 text-blue-400 shrink-0" data-testid={`icon-high-docs-${contract.id}`} />
+                                </TooltipTrigger>
+                                <TooltipContent className="text-xs max-w-[220px]">
+                                  Táto zmluva obsahuje vysoký počet dokumentov. Skontrolujte, či nie sú duplicitné.
+                                </TooltipContent>
+                              </Tooltip>
+                            )}
+                          </span>
                         ) : null}
                       </TableCell>
                       <TableCell className="text-right py-1">
