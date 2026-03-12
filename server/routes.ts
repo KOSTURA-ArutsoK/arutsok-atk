@@ -5185,9 +5185,13 @@ export async function registerRoutes(
 
         const KNOWN_IMPORT_HEADERS = new Set(["partner", "produkt", "cislo_navrhu", "cislo_zmluvy", "typ_subjektu", "rc_ico", "nazov_firmy", "titul_pred", "meno", "priezvisko", "titul_za", "partner_name", "product", "product_name", "rodne_cislo", "rc", "ico", "birth_number", "typ", "subject_type", "first_name", "last_name", "company_name", "title_before", "title_after"]);
 
-        sheet.getRow(1).eachCell((cell, colNumber) => {
-          headers[colNumber] = String(cell.value || "").trim().toLowerCase();
-        });
+        const headerRow = sheet.getRow(1);
+        const colCount = headerRow.cellCount || sheet.columnCount || 11;
+        for (let ci = 1; ci <= Math.max(colCount, 11); ci++) {
+          const cell = headerRow.getCell(ci);
+          const val = String(cell.value ?? "").trim().toLowerCase();
+          if (val) headers[ci] = val;
+        }
 
         const firstRowLooksLikeHeader = headers.filter(Boolean).some(h => KNOWN_IMPORT_HEADERS.has(h));
         const dataStartRow = firstRowLooksLikeHeader ? 2 : 1;
@@ -5199,18 +5203,20 @@ export async function registerRoutes(
           }
         }
 
+        const maxCol = Math.max(...Object.keys(headers).map(Number).filter(n => !isNaN(n)), 0);
         for (let rowNum = dataStartRow; rowNum <= sheet.rowCount; rowNum++) {
           const row = sheet.getRow(rowNum);
           const rowData: Record<string, string> = {};
           let hasData = false;
-          row.eachCell((cell, colNumber) => {
-            const header = headers[colNumber];
+          for (let colNum = 1; colNum <= maxCol; colNum++) {
+            const header = headers[colNum];
             if (header) {
-              const val = String(cell.value || "").trim();
+              const cell = row.getCell(colNum);
+              const val = String(cell.value ?? "").trim();
               rowData[header] = val;
               if (val) hasData = true;
             }
-          });
+          }
           if (hasData) rawRows.push(rowData);
         }
       }
