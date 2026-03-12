@@ -17248,17 +17248,29 @@ export async function registerRoutes(
         const objDate = new Date(contract.objectionEnteredAt!);
 
         if (objDate < deleteCutoff) {
+          await db.update(contracts).set({
+            isDeleted: true,
+            deletedAt: new Date(),
+            deletedBy: "ArutsoK System",
+            subjectId: null,
+            importedRawData: null,
+            notes: null,
+            documents: [],
+            checkedDocuments: [],
+            dynamicPanelValues: {},
+            updatedAt: new Date(),
+          }).where(eq(contracts.id, contract.id));
+
           await db.insert(auditLogs).values({
             username: "ArutsoK System",
-            action: "LIFECYCLE_PERMANENT_DELETE",
+            action: "LIFECYCLE_ARCHIVE_CLEANUP",
             module: "zmluvy",
             entityId: contract.id,
             entityName: contract.contractNumber || contract.proposalNumber || `ID ${contract.id}`,
-            oldData: contract,
-            newData: null,
+            oldData: { lifecyclePhase: 4, objectionEnteredAt: contract.objectionEnteredAt },
+            newData: { isDeleted: true, dataCleared: true, reason: `Lehota ${totalDays} dní uplynula` },
           });
 
-          await db.delete(contracts).where(eq(contracts.id, contract.id));
           deleteCount++;
         } else if (objDate < notifyCutoff && objDate >= deleteCutoff) {
           const alreadyNotified = await db.select({ id: systemNotifications.id })
@@ -17281,7 +17293,7 @@ export async function registerRoutes(
         );
       }
 
-      if (deleteCount > 0) console.log(`[CRON] Lifecycle permanent delete: ${deleteCount} contracts permanently deleted (dynamic limits)`);
+      if (deleteCount > 0) console.log(`[CRON] Lifecycle archive cleanup: ${deleteCount} contracts soft-deleted + data cleared (dynamic limits)`);
     } catch (err) {
       console.error("[CRON] Lifecycle permanent delete error:", err);
     }
