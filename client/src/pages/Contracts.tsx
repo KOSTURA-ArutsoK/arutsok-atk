@@ -3093,6 +3093,7 @@ export default function Contracts() {
             {!earlyPhase && !hideContractNumbers && <TableHead>Číslo zmluvy</TableHead>}
             <TableHead>Typ subjektu</TableHead>
             <TableHead sortKey="subjectId" sortDirection={sk === "subjectId" ? sd : null} onSort={rs}>Subjekt</TableHead>
+            <TableHead className="text-center w-[60px]">📎</TableHead>
             {showTimer && <TableHead>Zostáva dní</TableHead>}
             {showActions && <TableHead className="text-right">Akcie</TableHead>}
           </TableRow>
@@ -3221,6 +3222,26 @@ export default function Contracts() {
                     )}
                   </span>
                 </TableCell>
+                {Array.isArray(contract.documents) && contract.documents.length > 0 && (
+                  <TableCell className="py-1 text-center" data-testid={`text-docs-count-${contract.id}`}>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded border border-emerald-500/40 bg-emerald-500/10 text-emerald-400 text-[11px] font-semibold whitespace-nowrap">
+                          📎 {contract.documents.length}
+                        </span>
+                      </TooltipTrigger>
+                      <TooltipContent className="text-xs">
+                        {contract.documents.length} {contract.documents.length === 1 ? "nahraný dokument" : contract.documents.length < 5 ? "nahrané dokumenty" : "nahraných dokumentov"}
+                      </TooltipContent>
+                    </Tooltip>
+                  </TableCell>
+                )}
+                {Array.isArray(contract.documents) && contract.documents.length === 0 && (
+                  <TableCell className="py-1" />
+                )}
+                {!Array.isArray(contract.documents) && (
+                  <TableCell className="py-1" />
+                )}
                 {showTimer && <TableCell className="py-1" data-testid={`text-contract-timer-${contract.id}`}>
                   {(() => {
                     const c = contract as any;
@@ -5359,6 +5380,7 @@ export default function Contracts() {
                   {columnVisibility.isVisible("signedDate") && <TableHead sortKey="signedDate" sortDirection={skMain === "signedDate" ? sdMain : null} onSort={rsMain}>Vytvorenie zmluvy</TableHead>}
                   {columnVisibility.isVisible("premiumAmount") && <TableHead sortKey="premiumAmount" sortDirection={skMain === "premiumAmount" ? sdMain : null} onSort={rsMain}>Lehotne poistne</TableHead>}
                   {columnVisibility.isVisible("freshness") && <TableHead>Čerstvosť</TableHead>}
+                  <TableHead className="text-center w-[60px]">📎</TableHead>
                   <TableHead className="text-right">Akcie</TableHead>
                 </TableRow>
               </TableHeader>
@@ -5432,6 +5454,20 @@ export default function Contracts() {
                           <TooltipContent>Posledná aktualizácia: {freshness.label} dozadu</TooltipContent>
                         </Tooltip>
                       </TableCell>}
+                      <TableCell className="py-1 text-center" data-testid={`text-docs-count-${contract.id}`}>
+                        {Array.isArray(contract.documents) && contract.documents.length > 0 ? (
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded border border-emerald-500/40 bg-emerald-500/10 text-emerald-400 text-[11px] font-semibold whitespace-nowrap">
+                                📎 {contract.documents.length}
+                              </span>
+                            </TooltipTrigger>
+                            <TooltipContent className="text-xs">
+                              {contract.documents.length} {contract.documents.length === 1 ? "nahraný dokument" : contract.documents.length < 5 ? "nahrané dokumenty" : "nahraných dokumentov"}
+                            </TooltipContent>
+                          </Tooltip>
+                        ) : null}
+                      </TableCell>
                       <TableCell className="text-right py-1">
                         <div className="flex items-center justify-end gap-0.5 flex-nowrap">
                           <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => openView(contract)} data-testid={`button-view-contract-${contract.id}`}>
