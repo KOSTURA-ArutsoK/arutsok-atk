@@ -3512,13 +3512,16 @@ export default function Contracts() {
 
           <div className="border rounded overflow-hidden">
             <div className="bg-muted/50 px-2 py-0.5 text-[10px] font-medium border-b flex">
-              <span className="w-[55%]">Partner & produkt</span>
+              <span className="w-[30%]">Partner & produkt</span>
+              <span className="w-[25%]">Zmluva</span>
               <span className="w-[45%]">Klient (subjekt)</span>
             </div>
             <div className="flex text-[10px]">
-              <div className="w-[55%] border-r">
+              <div className="w-[30%] border-r">
                 <div className="flex border-b px-1.5 py-px"><span className="font-mono w-5">A</span><span>partner</span><span className="ml-auto text-red-400">*</span></div>
-                <div className="flex border-b px-1.5 py-px bg-muted/10"><span className="font-mono w-5">B</span><span>produkt</span><span className="ml-auto text-red-400">*</span></div>
+                <div className="flex px-1.5 py-px bg-muted/10"><span className="font-mono w-5">B</span><span>produkt</span><span className="ml-auto text-red-400">*</span></div>
+              </div>
+              <div className="w-[25%] border-r">
                 <div className="flex border-b px-1.5 py-px"><span className="font-mono w-5">C</span><span>cislo_navrhu</span><span className="ml-auto text-amber-400">***</span></div>
                 <div className="flex px-1.5 py-px bg-muted/10"><span className="font-mono w-5">D</span><span>cislo_zmluvy</span><span className="ml-auto text-amber-400">***</span></div>
               </div>
