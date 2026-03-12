@@ -3663,13 +3663,13 @@ export default function Contracts() {
     setPreSelectFileError(null);
   };
 
+  const getFileExt = (name: string) => {
+    const dot = name.lastIndexOf(".");
+    return dot >= 0 ? name.substring(dot).toLowerCase() : "";
+  };
+
   const validateAndAddFiles = (newFiles: File[]) => {
     setPreSelectFileError(null);
-
-    const getFileExt = (name: string) => {
-      const dot = name.lastIndexOf(".");
-      return dot >= 0 ? name.substring(dot).toLowerCase() : "";
-    };
 
     if (!userCanUploadVideo) {
       const videoFiles = newFiles.filter(f => VIDEO_EXTENSIONS.has(getFileExt(f.name)));
@@ -3690,6 +3690,17 @@ export default function Contracts() {
       if (combined.length > MAX_BATCH_FILES) {
         setPreSelectFileError(`Maximálny počet súborov v jednej dávke je ${MAX_BATCH_FILES}. Nadbytočné súbory boli odstránené.`);
         return combined.slice(0, MAX_BATCH_FILES);
+      }
+      const videoCount = combined.filter(f => VIDEO_EXTENSIONS.has(getFileExt(f.name))).length;
+      if (videoCount > MAX_VIDEOS_PER_CONTRACT) {
+        setPreSelectFileError(`Maximálny počet video súborov na zmluvu je ${MAX_VIDEOS_PER_CONTRACT}. Máte ich ${videoCount}.`);
+      }
+      const nonVideoCount = combined.length - videoCount;
+      if (nonVideoCount > 95) {
+        setPreSelectFileError(`Maximálny počet dokumentov (bez videí) na zmluvu je 95. Máte ich ${nonVideoCount}.`);
+      }
+      if (combined.length > MAX_DOCS_PER_CONTRACT) {
+        setPreSelectFileError(`Maximálny celkový počet súborov na zmluvu je ${MAX_DOCS_PER_CONTRACT}. Máte ich ${combined.length}.`);
       }
       const totalSize = combined.reduce((sum, f) => sum + f.size, 0);
       if (totalSize > MAX_BATCH_SIZE) {
@@ -4354,6 +4365,11 @@ export default function Contracts() {
             <p className="text-sm text-muted-foreground">
               Zmluva bola úspešne zapísaná. Teraz môžete nahrať dokumenty (PDF, obrázky, skeny občianskeho preukazu a pod.).
             </p>
+            <div className="flex flex-wrap gap-2 text-[11px] text-muted-foreground" data-testid="text-contract-doc-limits">
+              <span className="px-1.5 py-0.5 rounded bg-muted/50 border border-border">Max. {MAX_DOCS_PER_CONTRACT} súborov/zmluva (95 dok. + 5 videí)</span>
+              <span className="px-1.5 py-0.5 rounded bg-muted/50 border border-border">Max. {MAX_BATCH_FILES} súborov/dávka</span>
+              {userCanUploadVideo && <span className="px-1.5 py-0.5 rounded bg-muted/50 border border-border">Video povolené</span>}
+            </div>
 
             <input
               ref={refFileInput}
@@ -4434,7 +4450,7 @@ export default function Contracts() {
               </Button>
               <Button
                 onClick={handlePreSelectUploadAndFinish}
-                disabled={preSelectFiles.length === 0 || preSelectUploading || preSelectFiles.reduce((s, f) => s + f.size, 0) > MAX_BATCH_SIZE}
+                disabled={preSelectFiles.length === 0 || preSelectUploading || preSelectFiles.reduce((s, f) => s + f.size, 0) > MAX_BATCH_SIZE || preSelectFiles.length > MAX_BATCH_FILES || preSelectFiles.filter(f => VIDEO_EXTENSIONS.has(getFileExt(f.name))).length > MAX_VIDEOS_PER_CONTRACT || preSelectFiles.length > MAX_DOCS_PER_CONTRACT}
                 data-testid="button-preselect-upload-confirm"
               >
                 {preSelectUploading ? "Nahrávam..." : `Nahrať ${preSelectFiles.length} dokument(ov)`}

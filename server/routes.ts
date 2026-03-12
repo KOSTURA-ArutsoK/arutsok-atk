@@ -3388,13 +3388,19 @@ export async function registerRoutes(
       const existingNonVideoCount = existingDocs.length - existingVideoCount;
       const newNonVideoCount = newFiles.length - newVideoCount;
 
+      const MAX_NON_VIDEOS_PER_CONTRACT = 95;
+
       if (existingVideoCount + newVideoCount > MAX_VIDEOS_PER_CONTRACT) {
         cleanupFiles();
         return res.status(400).json({ message: `Maximálny počet video súborov na zmluvu je ${MAX_VIDEOS_PER_CONTRACT}. Aktuálne: ${existingVideoCount}, nových: ${newVideoCount}.` });
       }
+      if (existingNonVideoCount + newNonVideoCount > MAX_NON_VIDEOS_PER_CONTRACT) {
+        cleanupFiles();
+        return res.status(400).json({ message: `Maximálny počet dokumentov (bez videí) na zmluvu je ${MAX_NON_VIDEOS_PER_CONTRACT}. Aktuálne: ${existingNonVideoCount}, nových: ${newNonVideoCount}.` });
+      }
       if (existingDocs.length + newFiles.length > MAX_DOCS_PER_CONTRACT) {
         cleanupFiles();
-        return res.status(400).json({ message: `Maximálny počet dokumentov na zmluvu je ${MAX_DOCS_PER_CONTRACT}. Aktuálne: ${existingDocs.length}, nových: ${newFiles.length}.` });
+        return res.status(400).json({ message: `Maximálny celkový počet súborov na zmluvu je ${MAX_DOCS_PER_CONTRACT}. Aktuálne: ${existingDocs.length}, nových: ${newFiles.length}.` });
       }
 
       const newDocs: DocEntry[] = [];
