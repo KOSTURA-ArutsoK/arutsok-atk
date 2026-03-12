@@ -2222,6 +2222,62 @@ export default function Contracts() {
   const refTitleBeforeInput = useRef<HTMLInputElement>(null);
   const refIcoInput = useRef<HTMLInputElement>(null);
   const refBirthNumberInput = useRef<HTMLInputElement>(null);
+  const refFirstNameInput = useRef<HTMLInputElement>(null);
+  const refLastNameInput = useRef<HTMLInputElement>(null);
+  const refTitleAfterInput = useRef<HTMLInputElement>(null);
+  const refBusinessNameInput = useRef<HTMLInputElement>(null);
+
+  const getEmptyRequiredFields = (step: number): string[] => {
+    const missing: string[] = [];
+    if (step === 1) {
+      if (!preSelectPartnerId) missing.push("partner");
+      if (!preSelectNumberValue.trim()) missing.push("number");
+      if (preSelectNumberType === "both" && !preSelectNumberValue2.trim()) missing.push("number2");
+    } else if (step === 2) {
+      if (preSelectSubjectType === "company" || preSelectSubjectType === "szco") {
+        if (!preSelectBusinessName.trim()) missing.push("business-name");
+      }
+      if (preSelectSubjectType === "person" || preSelectSubjectType === "szco") {
+        if (!preSelectFirstName.trim()) missing.push("first-name");
+        if (!preSelectLastName.trim()) missing.push("last-name");
+      }
+    }
+    return missing;
+  };
+
+  const focusNextEmptyRequired = (currentFieldId: string) => {
+    const step = preSelectStep;
+    const emptyFields = getEmptyRequiredFields(step);
+    if (emptyFields.length === 0) {
+      if (step === 1) refStep1Next.current?.focus();
+      else refStep2Confirm.current?.focus();
+      return;
+    }
+    const currentIdx = emptyFields.indexOf(currentFieldId);
+    const nextIdx = currentIdx >= 0 ? (currentIdx + 1) % emptyFields.length : 0;
+    const nextField = emptyFields[nextIdx >= emptyFields.length ? 0 : nextIdx];
+    const refMap: Record<string, React.RefObject<any> | string> = {
+      "partner": "select-preselect-partner",
+      "number": refNumberInput,
+      "number2": "input-preselect-contract-number",
+      "business-name": refBusinessNameInput,
+      "first-name": refFirstNameInput,
+      "last-name": refLastNameInput,
+    };
+    const ref = refMap[nextField];
+    if (!ref) { if (step === 1) refStep1Next.current?.focus(); else refStep2Confirm.current?.focus(); return; }
+    if (typeof ref === "string") {
+      setTimeout(() => { const el = document.querySelector(`[data-testid="${ref}"]`) as HTMLElement; if (el) el.focus(); }, 50);
+    } else {
+      setTimeout(() => ref.current?.focus(), 50);
+    }
+  };
+
+  const isFieldMissing = (fieldId: string): boolean => {
+    const emptyFields = getEmptyRequiredFields(preSelectStep);
+    return emptyFields.includes(fieldId);
+  };
+
   const [importDialogOpen, setImportDialogOpen] = useState(false);
   const [importFile, setImportFile] = useState<File | null>(null);
   const [importResult, setImportResult] = useState<{ total: number; success: number; errors: number; created?: number; updated?: number; warnings?: number; incomplete?: number; nameConfirmationNeeded?: number; duplicityWarnings?: any[]; details: any[] } | null>(null);
@@ -3748,7 +3804,7 @@ export default function Contracts() {
             <div className="space-y-1">
               <label className="text-xs font-medium">Vyberte partnera</label>
               <Select value={preSelectPartnerId} onValueChange={(v) => { setPreSelectPartnerId(v); setPreSelectProductId(""); setTimeout(() => refProductTrigger.current?.focus(), 50); }}>
-                <SelectTrigger data-testid="select-preselect-partner">
+                <SelectTrigger className={isFieldMissing("partner") ? "border-red-500 ring-red-500/30" : ""} data-testid="select-preselect-partner">
                   <SelectValue placeholder="Vyberte partnera" />
                 </SelectTrigger>
                 <SelectContent>
@@ -3822,8 +3878,9 @@ export default function Contracts() {
                     value={preSelectNumberValue}
                     onChange={(e) => setPreSelectNumberValue(e.target.value)}
                     placeholder="Zadajte číslo návrhu..."
+                    className={isFieldMissing("number") ? "border-red-500 ring-red-500/30" : ""}
                     onKeyDown={(e) => {
-                      if (e.key === "Enter") { e.preventDefault(); refStep1Next.current?.focus(); }
+                      if (e.key === "Enter") { e.preventDefault(); focusNextEmptyRequired("number"); }
                     }}
                     data-testid="input-preselect-proposal-number"
                   />
@@ -3834,8 +3891,9 @@ export default function Contracts() {
                     value={preSelectNumberValue2}
                     onChange={(e) => setPreSelectNumberValue2(e.target.value)}
                     placeholder="Zadajte číslo zmluvy..."
+                    className={isFieldMissing("number2") ? "border-red-500 ring-red-500/30" : ""}
                     onKeyDown={(e) => {
-                      if (e.key === "Enter") { e.preventDefault(); refStep1Next.current?.focus(); }
+                      if (e.key === "Enter") { e.preventDefault(); focusNextEmptyRequired("number2"); }
                     }}
                     data-testid="input-preselect-contract-number"
                   />
@@ -3849,8 +3907,9 @@ export default function Contracts() {
                   value={preSelectNumberValue}
                   onChange={(e) => setPreSelectNumberValue(e.target.value)}
                   placeholder={preSelectNumberType === "proposal" ? "Zadajte číslo návrhu..." : "Zadajte číslo zmluvy..."}
+                  className={isFieldMissing("number") ? "border-red-500 ring-red-500/30" : ""}
                   onKeyDown={(e) => {
-                    if (e.key === "Enter") { e.preventDefault(); refStep1Next.current?.focus(); }
+                    if (e.key === "Enter") { e.preventDefault(); focusNextEmptyRequired("number"); }
                   }}
                   data-testid="input-preselect-number"
                 />
@@ -4031,15 +4090,16 @@ export default function Contracts() {
                 <div className="space-y-1">
                   <label className="text-xs font-medium">{preSelectSubjectType === "szco" ? "Nazov zivnosti" : "Nazov spolocnosti"} *</label>
                   <Input
+                    ref={refBusinessNameInput}
                     value={preSelectBusinessName}
                     onChange={(e) => setPreSelectBusinessName(e.target.value)}
                     placeholder={preSelectSubjectType === "szco" ? "Nazov zivnosti" : "Nazov spolocnosti"}
                     readOnly={!!preSelectSubjectId}
+                    className={isFieldMissing("business-name") ? "border-red-500 ring-red-500/30" : ""}
                     onKeyDown={(e) => {
                       if (e.key === "Enter") {
                         e.preventDefault();
-                        const el = document.querySelector('[data-testid="input-preselect-ico"]') as HTMLElement;
-                        if (el) el.focus();
+                        focusNextEmptyRequired("business-name");
                       }
                     }}
                     data-testid="input-preselect-business-name"
@@ -4057,7 +4117,7 @@ export default function Contracts() {
                       if (e.key === "Enter") {
                         e.preventDefault();
                         setPreSelectShowNameFields(true);
-                        setTimeout(() => refTitleBeforeInput.current?.focus(), 50);
+                        setTimeout(() => focusNextEmptyRequired("ico"), 50);
                       }
                     }}
                     data-testid="input-preselect-ico"
@@ -4080,8 +4140,7 @@ export default function Contracts() {
                     onKeyDown={(e) => {
                       if (e.key === "Enter") {
                         e.preventDefault();
-                        const el = document.querySelector('[data-testid="input-preselect-first-name"]') as HTMLElement;
-                        if (el) el.focus();
+                        focusNextEmptyRequired("title-before");
                       }
                     }}
                     data-testid="input-preselect-title-before"
@@ -4090,15 +4149,16 @@ export default function Contracts() {
                 <div className="space-y-1">
                   <label className="text-xs font-medium">Meno {(preSelectSubjectType === "person" || preSelectSubjectType === "szco") && "*"}</label>
                   <Input
+                    ref={refFirstNameInput}
                     value={preSelectFirstName}
                     onChange={(e) => setPreSelectFirstName(e.target.value)}
                     placeholder="Meno"
                     readOnly={!!preSelectSubjectId}
+                    className={isFieldMissing("first-name") ? "border-red-500 ring-red-500/30" : ""}
                     onKeyDown={(e) => {
                       if (e.key === "Enter") {
                         e.preventDefault();
-                        const el = document.querySelector('[data-testid="input-preselect-last-name"]') as HTMLElement;
-                        if (el) el.focus();
+                        focusNextEmptyRequired("first-name");
                       }
                     }}
                     data-testid="input-preselect-first-name"
@@ -4107,15 +4167,16 @@ export default function Contracts() {
                 <div className="space-y-1">
                   <label className="text-xs font-medium">Priezvisko {(preSelectSubjectType === "person" || preSelectSubjectType === "szco") && "*"}</label>
                   <Input
+                    ref={refLastNameInput}
                     value={preSelectLastName}
                     onChange={(e) => setPreSelectLastName(e.target.value)}
                     placeholder="Priezvisko"
                     readOnly={!!preSelectSubjectId}
+                    className={isFieldMissing("last-name") ? "border-red-500 ring-red-500/30" : ""}
                     onKeyDown={(e) => {
                       if (e.key === "Enter") {
                         e.preventDefault();
-                        const el = document.querySelector('[data-testid="input-preselect-title-after"]') as HTMLElement;
-                        if (el) el.focus();
+                        focusNextEmptyRequired("last-name");
                       }
                     }}
                     data-testid="input-preselect-last-name"
@@ -4124,6 +4185,7 @@ export default function Contracts() {
                 <div className="space-y-1">
                   <label className="text-xs font-medium">Titul za menom</label>
                   <Input
+                    ref={refTitleAfterInput}
                     value={preSelectTitleAfter}
                     onChange={(e) => setPreSelectTitleAfter(e.target.value)}
                     placeholder="napr. PhD."
@@ -4131,7 +4193,7 @@ export default function Contracts() {
                     onKeyDown={(e) => {
                       if (e.key === "Enter") {
                         e.preventDefault();
-                        refStep2Confirm.current?.focus();
+                        focusNextEmptyRequired("title-after");
                       }
                     }}
                     data-testid="input-preselect-title-after"
