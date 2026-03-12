@@ -2277,6 +2277,22 @@ export default function Contracts() {
   const refLastNameInput = useRef<HTMLInputElement>(null);
   const refTitleAfterInput = useRef<HTMLInputElement>(null);
   const refBusinessNameInput = useRef<HTMLInputElement>(null);
+  const refPreSelectSpecialistUid = useRef<HTMLInputElement>(null);
+  const refPreSelectSpecialistPct = useRef<HTMLInputElement>(null);
+  const refImportSpecialistUid = useRef<HTMLInputElement>(null);
+  const refImportSpecialistPct = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (preSelectStep === 3) {
+      setTimeout(() => refPreSelectSpecialistUid.current?.focus(), 100);
+    }
+  }, [preSelectStep]);
+
+  useEffect(() => {
+    if (importStep === 2) {
+      setTimeout(() => refImportSpecialistUid.current?.focus(), 100);
+    }
+  }, [importStep]);
 
   const getEmptyRequiredFields = (step: number): string[] => {
     const missing: string[] = [];
@@ -3575,6 +3591,7 @@ export default function Contracts() {
                       <label className="text-xs text-muted-foreground">UID specialistu</label>
                       <div className="relative">
                         <Input
+                          ref={refImportSpecialistUid}
                           placeholder="UID alebo meno..."
                           value={importSpecialistUid}
                           onChange={e => {
@@ -3585,6 +3602,17 @@ export default function Contracts() {
                             const val = e.target.value.trim();
                             if (val && /^\d+$/.test(val.replace(/\s/g, ''))) {
                               setImportSpecialistUid(expandUid(val));
+                            }
+                          }}
+                          onKeyDown={e => {
+                            if (e.key === 'Enter') {
+                              e.preventDefault();
+                              const val = e.currentTarget.value.trim();
+                              if (val && /^\d+$/.test(val.replace(/\s/g, ''))) {
+                                setImportSpecialistUid(expandUid(val));
+                              }
+                              setImportRewardSearchSpecialist("");
+                              refImportSpecialistPct.current?.focus();
                             }
                           }}
                           className="font-mono text-sm"
@@ -3622,6 +3650,7 @@ export default function Contracts() {
                       <label className="text-xs text-muted-foreground">Podiel (%)</label>
                       <div className="relative">
                         <Input
+                          ref={refImportSpecialistPct}
                           type="number"
                           min="0"
                           max="100"
@@ -3629,6 +3658,19 @@ export default function Contracts() {
                           placeholder="0"
                           value={importSpecialistPercentage}
                           onChange={e => setImportSpecialistPercentage(e.target.value)}
+                          onKeyDown={e => {
+                            if (e.key === 'Enter') {
+                              e.preventDefault();
+                              setImportAddingRecommender(true);
+                              setImportNewRecommenderUid("");
+                              setImportNewRecommenderPercentage("");
+                              setImportRewardSearchRecommender("");
+                              setTimeout(() => {
+                                const el = document.querySelector('[data-testid="input-import-new-recommender-uid"]') as HTMLInputElement;
+                                el?.focus();
+                              }, 100);
+                            }
+                          }}
                           className="pr-8 font-mono text-sm"
                           data-testid="input-import-specialist-percentage"
                         />
@@ -3682,6 +3724,18 @@ export default function Contracts() {
                                 setImportNewRecommenderUid(expandUid(val));
                               }
                             }}
+                            onKeyDown={e => {
+                              if (e.key === 'Enter') {
+                                e.preventDefault();
+                                const val = e.currentTarget.value.trim();
+                                if (val && /^\d+$/.test(val.replace(/\s/g, ''))) {
+                                  setImportNewRecommenderUid(expandUid(val));
+                                }
+                                setImportRewardSearchRecommender("");
+                                const pctEl = document.querySelector('[data-testid="input-import-new-recommender-percentage"]') as HTMLInputElement;
+                                pctEl?.focus();
+                              }
+                            }}
                             className="font-mono text-sm"
                             data-testid="input-import-new-recommender-uid"
                           />
@@ -3724,6 +3778,13 @@ export default function Contracts() {
                             placeholder="0"
                             value={importNewRecommenderPercentage}
                             onChange={e => setImportNewRecommenderPercentage(e.target.value)}
+                            onKeyDown={e => {
+                              if (e.key === 'Enter') {
+                                e.preventDefault();
+                                const btn = document.querySelector('[data-testid="button-import-confirm-recommender"]') as HTMLButtonElement;
+                                btn?.click();
+                              }
+                            }}
                             className="pr-8 font-mono text-sm"
                             data-testid="input-import-new-recommender-percentage"
                           />
@@ -4907,6 +4968,7 @@ export default function Contracts() {
                       <label className="text-xs text-muted-foreground">UID specialistu</label>
                       <div className="relative">
                         <Input
+                          ref={refPreSelectSpecialistUid}
                           placeholder="UID alebo meno..."
                           value={preSelectSpecialistUid}
                           onChange={e => {
@@ -4917,6 +4979,17 @@ export default function Contracts() {
                             const val = e.target.value.trim();
                             if (val && /^\d+$/.test(val.replace(/\s/g, ''))) {
                               setPreSelectSpecialistUid(expandUid(val));
+                            }
+                          }}
+                          onKeyDown={e => {
+                            if (e.key === 'Enter') {
+                              e.preventDefault();
+                              const val = e.currentTarget.value.trim();
+                              if (val && /^\d+$/.test(val.replace(/\s/g, ''))) {
+                                setPreSelectSpecialistUid(expandUid(val));
+                              }
+                              setPreSelectRewardSearchSpecialist("");
+                              refPreSelectSpecialistPct.current?.focus();
                             }
                           }}
                           className="font-mono text-sm"
@@ -4954,6 +5027,7 @@ export default function Contracts() {
                       <label className="text-xs text-muted-foreground">Podiel (%)</label>
                       <div className="relative">
                         <Input
+                          ref={refPreSelectSpecialistPct}
                           type="number"
                           min="0"
                           max="100"
@@ -4961,6 +5035,19 @@ export default function Contracts() {
                           placeholder="0"
                           value={preSelectSpecialistPercentage}
                           onChange={e => setPreSelectSpecialistPercentage(e.target.value)}
+                          onKeyDown={e => {
+                            if (e.key === 'Enter') {
+                              e.preventDefault();
+                              setPreSelectAddingRecommender(true);
+                              setPreSelectNewRecommenderUid("");
+                              setPreSelectNewRecommenderPercentage("");
+                              setPreSelectRewardSearchRecommender("");
+                              setTimeout(() => {
+                                const el = document.querySelector('[data-testid="input-preselect-new-recommender-uid"]') as HTMLInputElement;
+                                el?.focus();
+                              }, 100);
+                            }
+                          }}
                           className="pr-8 font-mono text-sm"
                           data-testid="input-preselect-specialist-percentage"
                         />
@@ -5014,6 +5101,18 @@ export default function Contracts() {
                                 setPreSelectNewRecommenderUid(expandUid(val));
                               }
                             }}
+                            onKeyDown={e => {
+                              if (e.key === 'Enter') {
+                                e.preventDefault();
+                                const val = e.currentTarget.value.trim();
+                                if (val && /^\d+$/.test(val.replace(/\s/g, ''))) {
+                                  setPreSelectNewRecommenderUid(expandUid(val));
+                                }
+                                setPreSelectRewardSearchRecommender("");
+                                const pctEl = document.querySelector('[data-testid="input-preselect-new-recommender-percentage"]') as HTMLInputElement;
+                                pctEl?.focus();
+                              }
+                            }}
                             className="font-mono text-sm"
                             data-testid="input-preselect-new-recommender-uid"
                           />
@@ -5056,6 +5155,13 @@ export default function Contracts() {
                             placeholder="0"
                             value={preSelectNewRecommenderPercentage}
                             onChange={e => setPreSelectNewRecommenderPercentage(e.target.value)}
+                            onKeyDown={e => {
+                              if (e.key === 'Enter') {
+                                e.preventDefault();
+                                const btn = document.querySelector('[data-testid="button-preselect-confirm-recommender"]') as HTMLButtonElement;
+                                btn?.click();
+                              }
+                            }}
                             className="pr-8 font-mono text-sm"
                             data-testid="input-preselect-new-recommender-percentage"
                           />
