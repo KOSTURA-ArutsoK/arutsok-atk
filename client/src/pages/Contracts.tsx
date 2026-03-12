@@ -2217,6 +2217,25 @@ export default function Contracts() {
   const [preSelectUploading, setPreSelectUploading] = useState(false);
   const [preSelectUploadedCount, setPreSelectUploadedCount] = useState(0);
   const [preSelectFileError, setPreSelectFileError] = useState<string | null>(null);
+  const [preSelectSpecialistUid, setPreSelectSpecialistUid] = useState("");
+  const [preSelectSpecialistPercentage, setPreSelectSpecialistPercentage] = useState("");
+  const [preSelectRecommenders, setPreSelectRecommenders] = useState<{ uid: string; percentage: string }[]>([]);
+  const [preSelectRewardSearchSpecialist, setPreSelectRewardSearchSpecialist] = useState("");
+  const [preSelectRewardSearchRecommender, setPreSelectRewardSearchRecommender] = useState("");
+  const [preSelectAddingRecommender, setPreSelectAddingRecommender] = useState(false);
+  const [preSelectNewRecommenderUid, setPreSelectNewRecommenderUid] = useState("");
+  const [preSelectNewRecommenderPercentage, setPreSelectNewRecommenderPercentage] = useState("");
+
+  const preSelectRewardTotal = useMemo(() => {
+    const specPct = parseFloat(preSelectSpecialistPercentage) || 0;
+    const recPct = preSelectRecommenders.reduce((sum, r) => sum + (parseFloat(r.percentage) || 0), 0);
+    return specPct + recPct;
+  }, [preSelectSpecialistPercentage, preSelectRecommenders]);
+
+  const preSelectRewardRemaining = useMemo(() => {
+    return Math.max(0, 100 - preSelectRewardTotal);
+  }, [preSelectRewardTotal]);
+
   const MAX_FILE_SIZE = 25 * 1024 * 1024;
   const MAX_BATCH_SIZE = 100 * 1024 * 1024;
   const MAX_BATCH_FILES = 25;
@@ -3663,14 +3682,14 @@ export default function Contracts() {
     setPreSelectUploading(false);
     setPreSelectFileError(null);
     setPreSelectUploadedCount(0);
-    setSpecialistUid("");
-    setSpecialistPercentage("");
-    setRecommenders([]);
-    setRewardSearchSpecialist("");
-    setRewardSearchRecommender("");
-    setAddingRecommender(false);
-    setNewRecommenderUid("");
-    setNewRecommenderPercentage("");
+    setPreSelectSpecialistUid("");
+    setPreSelectSpecialistPercentage("");
+    setPreSelectRecommenders([]);
+    setPreSelectRewardSearchSpecialist("");
+    setPreSelectRewardSearchRecommender("");
+    setPreSelectAddingRecommender(false);
+    setPreSelectNewRecommenderUid("");
+    setPreSelectNewRecommenderPercentage("");
   };
 
   const getFileExt = (name: string) => {
@@ -3826,8 +3845,20 @@ export default function Contracts() {
       }
       queryClient.invalidateQueries({ queryKey: ["/api/contracts"] });
 
-      if (savedContractId) {
-        await saveRewardDistributions(savedContractId);
+      if (savedContractId && (preSelectSpecialistUid || preSelectRecommenders.length > 0)) {
+        const distributions: { type: string; uid: string; percentage: string; sortOrder: number }[] = [];
+        if (preSelectSpecialistUid) {
+          distributions.push({ type: "specialist", uid: preSelectSpecialistUid, percentage: preSelectSpecialistPercentage || "0", sortOrder: 0 });
+          if (preSelectRecommenders.length === 0) {
+            distributions.push({ type: "recommender", uid: preSelectSpecialistUid, percentage: "0", sortOrder: 1 });
+          }
+        }
+        preSelectRecommenders.forEach((r, i) => {
+          distributions.push({ type: "recommender", uid: r.uid, percentage: r.percentage || "0", sortOrder: i + 1 });
+        });
+        try {
+          await apiRequest("POST", `/api/contracts/${savedContractId}/reward-distributions`, { distributions });
+        } catch {}
       }
 
       setPreSelectCreatedContractId(savedContractId);
@@ -3861,14 +3892,14 @@ export default function Contracts() {
     setPreSelectBirthNumber("");
     setPreSelectShowNameFields(false);
     setPreSelectEditingContractId(null);
-    setSpecialistUid("");
-    setSpecialistPercentage("");
-    setRecommenders([]);
-    setRewardSearchSpecialist("");
-    setRewardSearchRecommender("");
-    setAddingRecommender(false);
-    setNewRecommenderUid("");
-    setNewRecommenderPercentage("");
+    setPreSelectSpecialistUid("");
+    setPreSelectSpecialistPercentage("");
+    setPreSelectRecommenders([]);
+    setPreSelectRewardSearchSpecialist("");
+    setPreSelectRewardSearchRecommender("");
+    setPreSelectAddingRecommender(false);
+    setPreSelectNewRecommenderUid("");
+    setPreSelectNewRecommenderPercentage("");
     setPreSelectOpen(true);
   };
 
@@ -4437,16 +4468,16 @@ export default function Contracts() {
                   <span className="text-sm font-semibold">Získatelia a odmeny</span>
                 </div>
                 <div className="flex items-center gap-2">
-                  <Badge variant={rewardTotalPercentage > 100 ? "destructive" : rewardTotalPercentage === 100 ? "default" : "outline"} className="text-[10px] font-mono" data-testid="badge-preselect-reward-total">
-                    {rewardTotalPercentage}% / 100%
+                  <Badge variant={preSelectRewardTotal > 100 ? "destructive" : preSelectRewardTotal === 100 ? "default" : "outline"} className="text-[10px] font-mono" data-testid="badge-preselect-reward-total">
+                    {preSelectRewardTotal}% / 100%
                   </Badge>
-                  <span className="text-[10px] text-muted-foreground" style={{ visibility: rewardPercentageRemaining > 0 && rewardTotalPercentage <= 100 ? 'visible' : 'hidden' }}>
-                    Zostava: {rewardPercentageRemaining}%
+                  <span className="text-[10px] text-muted-foreground" style={{ visibility: preSelectRewardRemaining > 0 && preSelectRewardTotal <= 100 ? 'visible' : 'hidden' }}>
+                    Zostava: {preSelectRewardRemaining}%
                   </span>
                 </div>
               </div>
 
-              <p className="text-xs text-destructive font-medium" style={{ visibility: rewardTotalPercentage > 100 ? 'visible' : 'hidden' }}>
+              <p className="text-xs text-destructive font-medium" style={{ visibility: preSelectRewardTotal > 100 ? 'visible' : 'hidden' }}>
                 Sucet percent presiahol 100%. Upravte hodnoty.
               </p>
 
@@ -4462,16 +4493,16 @@ export default function Contracts() {
                       <div className="relative">
                         <Input
                           placeholder="Zadajte UID alebo hladajte..."
-                          value={specialistUid}
+                          value={preSelectSpecialistUid}
                           onChange={e => {
-                            setSpecialistUid(e.target.value);
-                            setRewardSearchSpecialist(e.target.value);
+                            setPreSelectSpecialistUid(e.target.value);
+                            setPreSelectRewardSearchSpecialist(e.target.value);
                           }}
                           className="font-mono text-sm"
                           data-testid="input-preselect-specialist-uid"
                         />
                         {(() => {
-                          const searchLower = rewardSearchSpecialist.toLowerCase().trim();
+                          const searchLower = preSelectRewardSearchSpecialist.toLowerCase().trim();
                           const filtered = searchLower && searchLower.length >= 2
                             ? (appUsersAll || []).filter(u =>
                                 (`${u.firstName || ""} ${u.lastName || ""} ${u.username || ""} ${u.uid || ""}`.toLowerCase().includes(searchLower))
@@ -4484,8 +4515,8 @@ export default function Contracts() {
                                   key={u.id}
                                   className="flex items-center gap-2 px-3 py-1.5 cursor-pointer hover-elevate text-sm"
                                   onClick={() => {
-                                    setSpecialistUid(u.uid || "");
-                                    setRewardSearchSpecialist("");
+                                    setPreSelectSpecialistUid(u.uid || "");
+                                    setPreSelectRewardSearchSpecialist("");
                                   }}
                                   data-testid={`row-preselect-specialist-${u.id}`}
                                 >
@@ -4507,8 +4538,8 @@ export default function Contracts() {
                           max="100"
                           step="0.01"
                           placeholder="0"
-                          value={specialistPercentage}
-                          onChange={e => setSpecialistPercentage(e.target.value)}
+                          value={preSelectSpecialistPercentage}
+                          onChange={e => setPreSelectSpecialistPercentage(e.target.value)}
                           className="pr-8 font-mono text-sm"
                           data-testid="input-preselect-specialist-percentage"
                         />
@@ -4526,16 +4557,16 @@ export default function Contracts() {
                     <div className="flex items-center gap-2">
                       <Users className="w-3.5 h-3.5 text-primary" />
                       <span className="text-xs font-semibold uppercase tracking-wide">Odporucitelia</span>
-                      <Badge variant="outline" className="text-[10px]">{recommenders.length}</Badge>
+                      <Badge variant="outline" className="text-[10px]">{preSelectRecommenders.length}</Badge>
                     </div>
                     <Button
                       size="sm"
                       variant="outline"
                       onClick={() => {
-                        setAddingRecommender(true);
-                        setNewRecommenderUid("");
-                        setNewRecommenderPercentage("");
-                        setRewardSearchRecommender("");
+                        setPreSelectAddingRecommender(true);
+                        setPreSelectNewRecommenderUid("");
+                        setPreSelectNewRecommenderPercentage("");
+                        setPreSelectRewardSearchRecommender("");
                       }}
                       data-testid="button-preselect-add-recommender"
                     >
@@ -4543,23 +4574,23 @@ export default function Contracts() {
                     </Button>
                   </div>
 
-                  <div className="border rounded-md p-2 space-y-2" style={{ display: addingRecommender ? 'block' : 'none' }} data-testid="panel-preselect-add-recommender">
+                  <div className="border rounded-md p-2 space-y-2" style={{ display: preSelectAddingRecommender ? 'block' : 'none' }} data-testid="panel-preselect-add-recommender">
                     <div className="grid grid-cols-2 gap-2">
                       <div className="space-y-1">
                         <label className="text-xs text-muted-foreground">UID odporucitela</label>
                         <div className="relative">
                           <Input
                             placeholder="Zadajte UID alebo hladajte..."
-                            value={newRecommenderUid}
+                            value={preSelectNewRecommenderUid}
                             onChange={e => {
-                              setNewRecommenderUid(e.target.value);
-                              setRewardSearchRecommender(e.target.value);
+                              setPreSelectNewRecommenderUid(e.target.value);
+                              setPreSelectRewardSearchRecommender(e.target.value);
                             }}
                             className="font-mono text-sm"
                             data-testid="input-preselect-new-recommender-uid"
                           />
                           {(() => {
-                            const searchLower = rewardSearchRecommender.toLowerCase().trim();
+                            const searchLower = preSelectRewardSearchRecommender.toLowerCase().trim();
                             const filtered = searchLower && searchLower.length >= 2
                               ? (appUsersAll || []).filter(u =>
                                   (`${u.firstName || ""} ${u.lastName || ""} ${u.username || ""} ${u.uid || ""}`.toLowerCase().includes(searchLower))
@@ -4572,8 +4603,8 @@ export default function Contracts() {
                                     key={u.id}
                                     className="flex items-center gap-2 px-3 py-1.5 cursor-pointer hover-elevate text-sm"
                                     onClick={() => {
-                                      setNewRecommenderUid(u.uid || "");
-                                      setRewardSearchRecommender("");
+                                      setPreSelectNewRecommenderUid(u.uid || "");
+                                      setPreSelectRewardSearchRecommender("");
                                     }}
                                     data-testid={`row-preselect-recommender-${u.id}`}
                                   >
@@ -4595,8 +4626,8 @@ export default function Contracts() {
                             max="100"
                             step="0.01"
                             placeholder="0"
-                            value={newRecommenderPercentage}
-                            onChange={e => setNewRecommenderPercentage(e.target.value)}
+                            value={preSelectNewRecommenderPercentage}
+                            onChange={e => setPreSelectNewRecommenderPercentage(e.target.value)}
                             className="pr-8 font-mono text-sm"
                             data-testid="input-preselect-new-recommender-percentage"
                           />
@@ -4608,7 +4639,7 @@ export default function Contracts() {
                       <Button
                         size="sm"
                         variant="ghost"
-                        onClick={() => setAddingRecommender(false)}
+                        onClick={() => setPreSelectAddingRecommender(false)}
                         data-testid="button-preselect-cancel-recommender"
                       >
                         Zrusit
@@ -4616,20 +4647,20 @@ export default function Contracts() {
                       <Button
                         size="sm"
                         onClick={() => {
-                          if (!newRecommenderUid.trim()) {
+                          if (!preSelectNewRecommenderUid.trim()) {
                             toast({ title: "Chyba", description: "Zadajte UID odporucitela", variant: "destructive" });
                             return;
                           }
-                          const newTotal = rewardTotalPercentage + (parseFloat(newRecommenderPercentage) || 0);
+                          const newTotal = preSelectRewardTotal + (parseFloat(preSelectNewRecommenderPercentage) || 0);
                           if (newTotal > 100) {
                             toast({ title: "Chyba", description: `Sucet percent by presahoval 100% (${newTotal.toFixed(2)}%)`, variant: "destructive" });
                             return;
                           }
-                          setRecommenders(prev => [...prev, { uid: newRecommenderUid.trim(), percentage: newRecommenderPercentage || "0" }]);
-                          setNewRecommenderUid("");
-                          setNewRecommenderPercentage("");
-                          setRewardSearchRecommender("");
-                          setAddingRecommender(false);
+                          setPreSelectRecommenders(prev => [...prev, { uid: preSelectNewRecommenderUid.trim(), percentage: preSelectNewRecommenderPercentage || "0" }]);
+                          setPreSelectNewRecommenderUid("");
+                          setPreSelectNewRecommenderPercentage("");
+                          setPreSelectRewardSearchRecommender("");
+                          setPreSelectAddingRecommender(false);
                         }}
                         data-testid="button-preselect-confirm-recommender"
                       >
@@ -4639,7 +4670,7 @@ export default function Contracts() {
                   </div>
 
                   <div className="space-y-1" data-testid="list-preselect-recommenders">
-                    {recommenders.map((rec, idx) => {
+                    {preSelectRecommenders.map((rec, idx) => {
                       const user = (appUsersAll || []).find(u => u.uid === rec.uid);
                       return (
                         <div key={`${rec.uid}-${idx}`} className="flex items-center gap-2 px-3 py-1.5 border rounded-md bg-muted/30" data-testid={`row-preselect-recommender-${idx}`}>
@@ -4655,7 +4686,7 @@ export default function Contracts() {
                               value={rec.percentage}
                               onChange={e => {
                                 const val = e.target.value;
-                                setRecommenders(prev => prev.map((r, i) => i === idx ? { ...r, percentage: val } : r));
+                                setPreSelectRecommenders(prev => prev.map((r, i) => i === idx ? { ...r, percentage: val } : r));
                               }}
                               className="w-20 h-7 text-xs font-mono text-right"
                               data-testid={`input-preselect-recommender-percentage-${idx}`}
@@ -4665,7 +4696,7 @@ export default function Contracts() {
                           <Button
                             size="icon"
                             variant="ghost"
-                            onClick={() => setRecommenders(prev => prev.filter((_, i) => i !== idx))}
+                            onClick={() => setPreSelectRecommenders(prev => prev.filter((_, i) => i !== idx))}
                             data-testid={`button-preselect-remove-recommender-${idx}`}
                           >
                             <X className="w-3.5 h-3.5" />
@@ -4673,16 +4704,16 @@ export default function Contracts() {
                         </div>
                       );
                     })}
-                    <div style={{ display: recommenders.length === 0 && specialistUid ? 'block' : 'none' }}>
+                    <div style={{ display: preSelectRecommenders.length === 0 && preSelectSpecialistUid ? 'block' : 'none' }}>
                       <div className="flex items-center gap-2 px-3 py-1.5 border rounded-md bg-muted/20 border-dashed" data-testid="row-preselect-autofill-recommender">
                         <Users className="w-3.5 h-3.5 text-muted-foreground flex-shrink-0" />
                         <span className="text-sm text-muted-foreground italic">
                           {(() => {
-                            const user = (appUsersAll || []).find(u => u.uid === specialistUid);
-                            return user ? `${user.firstName || ""} ${user.lastName || ""}`.trim() || user.username : specialistUid;
+                            const user = (appUsersAll || []).find(u => u.uid === preSelectSpecialistUid);
+                            return user ? `${user.firstName || ""} ${user.lastName || ""}`.trim() || user.username : preSelectSpecialistUid;
                           })()}
                         </span>
-                        <span className="text-xs text-muted-foreground font-mono">{specialistUid}</span>
+                        <span className="text-xs text-muted-foreground font-mono">{preSelectSpecialistUid}</span>
                         <span className="text-[10px] text-muted-foreground ml-auto">0% (auto)</span>
                       </div>
                       <p className="text-[10px] text-muted-foreground mt-1">
@@ -4700,14 +4731,14 @@ export default function Contracts() {
               </Button>
               <div className="flex gap-2">
                 <Button variant="outline" onClick={() => {
-                  setSpecialistUid("");
-                  setSpecialistPercentage("");
-                  setRecommenders([]);
+                  setPreSelectSpecialistUid("");
+                  setPreSelectSpecialistPercentage("");
+                  setPreSelectRecommenders([]);
                   handlePreSelectConfirm();
                 }} disabled={preSelectSaving} data-testid="button-preselect-skip-rewards">
                   {preSelectSaving ? "Zapisujem..." : "Preskočiť"}
                 </Button>
-                <Button onClick={handlePreSelectConfirm} disabled={preSelectSaving || rewardTotalPercentage > 100} data-testid="button-preselect-confirm-rewards">
+                <Button onClick={handlePreSelectConfirm} disabled={preSelectSaving || preSelectRewardTotal > 100} data-testid="button-preselect-confirm-rewards">
                   {preSelectSaving ? "Zapisujem..." : preSelectEditingContractId ? "Uložiť zmeny" : "Zapísať zmluvu"}
                 </Button>
               </div>
