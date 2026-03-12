@@ -3093,7 +3093,7 @@ export default function Contracts() {
             {!earlyPhase && !hideContractNumbers && <TableHead>Číslo zmluvy</TableHead>}
             <TableHead>Typ subjektu</TableHead>
             <TableHead sortKey="subjectId" sortDirection={sk === "subjectId" ? sd : null} onSort={rs}>Subjekt</TableHead>
-            <TableHead className="text-center w-[60px]">📎</TableHead>
+            <TableHead className="text-center w-[60px]">🗂️</TableHead>
             {showTimer && <TableHead>Zostáva dní</TableHead>}
             {showActions && <TableHead className="text-right">Akcie</TableHead>}
           </TableRow>
@@ -3227,7 +3227,7 @@ export default function Contracts() {
                     <Tooltip>
                       <TooltipTrigger asChild>
                         <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded border border-emerald-500/40 bg-emerald-500/10 text-emerald-400 text-[11px] font-semibold whitespace-nowrap">
-                          📎 {contract.documents.length}
+                          🗂️ {contract.documents.length}
                         </span>
                       </TooltipTrigger>
                       <TooltipContent className="text-xs">
@@ -5380,7 +5380,7 @@ export default function Contracts() {
                   {columnVisibility.isVisible("signedDate") && <TableHead sortKey="signedDate" sortDirection={skMain === "signedDate" ? sdMain : null} onSort={rsMain}>Vytvorenie zmluvy</TableHead>}
                   {columnVisibility.isVisible("premiumAmount") && <TableHead sortKey="premiumAmount" sortDirection={skMain === "premiumAmount" ? sdMain : null} onSort={rsMain}>Lehotne poistne</TableHead>}
                   {columnVisibility.isVisible("freshness") && <TableHead>Čerstvosť</TableHead>}
-                  <TableHead className="text-center w-[60px]">📎</TableHead>
+                  <TableHead className="text-center w-[60px]">🗂️</TableHead>
                   <TableHead className="text-right">Akcie</TableHead>
                 </TableRow>
               </TableHeader>
@@ -5459,7 +5459,7 @@ export default function Contracts() {
                           <Tooltip>
                             <TooltipTrigger asChild>
                               <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded border border-emerald-500/40 bg-emerald-500/10 text-emerald-400 text-[11px] font-semibold whitespace-nowrap">
-                                📎 {contract.documents.length}
+                                🗂️ {contract.documents.length}
                               </span>
                             </TooltipTrigger>
                             <TooltipContent className="text-xs">
