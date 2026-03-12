@@ -2319,6 +2319,25 @@ export default function Contracts() {
   const [nameConfirmOpen, setNameConfirmOpen] = useState(false);
   const [nameConfirmContract, setNameConfirmContract] = useState<any>(null);
   const [nameConfirmLoading, setNameConfirmLoading] = useState(false);
+  const [importStep, setImportStep] = useState<1 | 2>(1);
+  const [importCreatedIds, setImportCreatedIds] = useState<number[]>([]);
+  const [importSpecialistUid, setImportSpecialistUid] = useState("");
+  const [importSpecialistPercentage, setImportSpecialistPercentage] = useState("");
+  const [importRecommenders, setImportRecommenders] = useState<{ uid: string; percentage: string }[]>([]);
+  const [importRewardSearchSpecialist, setImportRewardSearchSpecialist] = useState("");
+  const [importRewardSearchRecommender, setImportRewardSearchRecommender] = useState("");
+  const [importAddingRecommender, setImportAddingRecommender] = useState(false);
+  const [importNewRecommenderUid, setImportNewRecommenderUid] = useState("");
+  const [importNewRecommenderPercentage, setImportNewRecommenderPercentage] = useState("");
+  const [importRewardSaving, setImportRewardSaving] = useState(false);
+
+  const importRewardTotal = useMemo(() => {
+    let total = parseFloat(importSpecialistPercentage) || 0;
+    importRecommenders.forEach(r => { total += parseFloat(r.percentage) || 0; });
+    return total;
+  }, [importSpecialistPercentage, importRecommenders]);
+
+  const importRewardRemaining = useMemo(() => Math.max(0, 100 - importRewardTotal), [importRewardTotal]);
 
   const { data: statuses } = useQuery<ContractStatus[]>({
     queryKey: ["/api/contract-statuses"],
@@ -2989,10 +3008,17 @@ export default function Contracts() {
         return;
       }
       setImportResult(data);
-      setImportDialogOpen(false);
-      setImportFile(null);
-      setImportSummaryOpen(true);
       queryClient.invalidateQueries({ queryKey: ["/api/contracts"] });
+      const createdIds = (data.details || []).filter((d: any) => d.contractId && (d.status === "ok" || d.status === "incomplete")).map((d: any) => d.contractId as number);
+      setImportCreatedIds(createdIds);
+      if (createdIds.length > 0) {
+        setImportStep(2);
+        setImportFile(null);
+      } else {
+        setImportDialogOpen(false);
+        setImportFile(null);
+        setImportSummaryOpen(true);
+      }
     } catch (err: any) {
       toast({ title: "Chyba", description: err.message || "Neznama chyba", variant: "destructive" });
     }
@@ -3360,17 +3386,71 @@ export default function Contracts() {
 
   const [importConfirmOpen, setImportConfirmOpen] = useState(false);
 
+  async function handleImportRewardSave() {
+    if (importCreatedIds.length === 0) return;
+    setImportRewardSaving(true);
+    try {
+      const distributions: { type: string; uid: string; percentage: string; sortOrder: number }[] = [];
+      if (importSpecialistUid) {
+        distributions.push({ type: "specialist", uid: importSpecialistUid, percentage: importSpecialistPercentage || "0", sortOrder: 0 });
+        if (importRecommenders.length === 0) {
+          distributions.push({ type: "recommender", uid: importSpecialistUid, percentage: "0", sortOrder: 1 });
+        }
+      }
+      importRecommenders.forEach((r, i) => {
+        distributions.push({ type: "recommender", uid: r.uid, percentage: r.percentage || "0", sortOrder: i + 1 });
+      });
+      if (distributions.length > 0) {
+        let savedCount = 0;
+        for (const cid of importCreatedIds) {
+          try {
+            await apiRequest("POST", `/api/contracts/${cid}/reward-distributions`, { distributions });
+            savedCount++;
+          } catch {}
+        }
+        toast({ title: "Úspech", description: `Odmeny uložené pre ${savedCount} z ${importCreatedIds.length} zmlúv` });
+      }
+    } catch (err: any) {
+      toast({ title: "Chyba", description: err.message || "Chyba pri ukladaní odmien", variant: "destructive" });
+    }
+    setImportRewardSaving(false);
+    setImportDialogOpen(false);
+    setImportStep(1);
+    setImportSpecialistUid("");
+    setImportSpecialistPercentage("");
+    setImportRecommenders([]);
+    setImportSummaryOpen(true);
+  }
+
+  function handleImportRewardSkip() {
+    setImportDialogOpen(false);
+    setImportStep(1);
+    setImportSpecialistUid("");
+    setImportSpecialistPercentage("");
+    setImportRecommenders([]);
+    setImportSummaryOpen(true);
+  }
+
   const importDialog = (
     <>
     <Dialog open={importDialogOpen} onOpenChange={(open) => {
       setImportDialogOpen(open);
-      if (!open) { setImportFile(null); setImportResult(null); }
+      if (!open) { setImportFile(null); setImportResult(null); setImportStep(1); setImportSpecialistUid(""); setImportSpecialistPercentage(""); setImportRecommenders([]); }
     }}>
       <DialogContent size="md">
         <DialogHeader>
-          <DialogTitle data-testid="text-import-title">Hromadný import zmlúv</DialogTitle>
+          <DialogTitle data-testid="text-import-title">
+            {importStep === 1 ? "Hromadný import zmlúv" : `Získatelia + Rozdelenie odmien (${importCreatedIds.length} zmlúv)`}
+          </DialogTitle>
+          {importStep === 2 && (
+            <p className="text-xs text-muted-foreground">
+              Krok 2 z 2 — Priradte špecialistu a odporúčateľov pre všetkých {importCreatedIds.length} importovaných zmlúv.
+            </p>
+          )}
         </DialogHeader>
         <DialogScrollContent>
+
+        {importStep === 1 && (
         <div className="space-y-2 text-justify">
           <p className="text-xs text-muted-foreground">
             Nahrajte Excel (.xlsx) alebo CSV súbor so stĺpcami A–K. Mapovanie 1:1 — systém stĺpce neprehadzuje.
@@ -3430,15 +3510,298 @@ export default function Contracts() {
           </div>
 
         </div>
+        )}
+
+        {importStep === 2 && (
+          <div className="space-y-4">
+            <div className="flex items-center justify-between flex-wrap gap-2">
+              <div className="flex items-center gap-2">
+                <Award className="w-4 h-4 text-primary" />
+                <span className="text-sm font-semibold">Rozdelenie odmien</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <Badge variant={importRewardTotal > 100 ? "destructive" : importRewardTotal === 100 ? "default" : "outline"} className="text-[10px] font-mono" data-testid="badge-import-reward-total">
+                  {importRewardTotal}% / 100%
+                </Badge>
+                <span className="text-[10px] text-muted-foreground" style={{ visibility: importRewardRemaining > 0 && importRewardTotal <= 100 ? 'visible' : 'hidden' }}>
+                  Zostava: {importRewardRemaining}%
+                </span>
+              </div>
+            </div>
+
+            <p className="text-xs text-destructive font-medium" style={{ visibility: importRewardTotal > 100 ? 'visible' : 'hidden' }}>
+              Sucet percent presiahol 100%. Upravte hodnoty.
+            </p>
+
+            <div className="space-y-3">
+              <div className="border rounded-md p-3 space-y-2" data-testid="panel-import-specialist">
+                <div className="flex items-center gap-2">
+                  <Award className="w-3.5 h-3.5 text-primary" />
+                  <span className="text-xs font-semibold uppercase tracking-wide">Specialista</span>
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <div className="space-y-1">
+                    <label className="text-xs text-muted-foreground">UID specialistu</label>
+                    <div className="relative">
+                      <Input
+                        placeholder="Zadajte UID alebo hladajte..."
+                        value={importSpecialistUid}
+                        onChange={e => {
+                          setImportSpecialistUid(e.target.value);
+                          setImportRewardSearchSpecialist(e.target.value);
+                        }}
+                        className="font-mono text-sm"
+                        data-testid="input-import-specialist-uid"
+                      />
+                      {(() => {
+                        const searchLower = importRewardSearchSpecialist.toLowerCase().trim();
+                        const filtered = searchLower && searchLower.length >= 2
+                          ? (appUsersAll || []).filter(u =>
+                              (`${u.firstName || ""} ${u.lastName || ""} ${u.username || ""} ${u.uid || ""}`.toLowerCase().includes(searchLower))
+                            )
+                          : [];
+                        return (
+                          <div className="absolute top-full left-0 right-0 z-50 border rounded-md bg-popover max-h-[120px] overflow-y-auto" style={{ display: filtered.length > 0 ? 'block' : 'none' }} data-testid="list-import-specialist-suggestions">
+                            {filtered.slice(0, 8).map(u => (
+                              <div
+                                key={u.id}
+                                className="flex items-center gap-2 px-3 py-1.5 cursor-pointer hover-elevate text-sm"
+                                onClick={() => {
+                                  setImportSpecialistUid(u.uid || "");
+                                  setImportRewardSearchSpecialist("");
+                                }}
+                                data-testid={`row-import-specialist-${u.id}`}
+                              >
+                                <span className="font-medium text-xs">{u.firstName || ""} {u.lastName || ""}</span>
+                                <span className="text-xs text-muted-foreground font-mono ml-auto">{formatUid(u.uid)}</span>
+                              </div>
+                            ))}
+                          </div>
+                        );
+                      })()}
+                    </div>
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-xs text-muted-foreground">Podiel (%)</label>
+                    <div className="relative">
+                      <Input
+                        type="number"
+                        min="0"
+                        max="100"
+                        step="0.01"
+                        placeholder="0"
+                        value={importSpecialistPercentage}
+                        onChange={e => setImportSpecialistPercentage(e.target.value)}
+                        className="pr-8 font-mono text-sm"
+                        data-testid="input-import-specialist-percentage"
+                      />
+                      <Percent className="absolute right-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+                    </div>
+                  </div>
+                </div>
+                <p className="text-[10px] text-muted-foreground">
+                  Ak nie su zadani odporucitelia, specialista bude automaticky pridany ako odporucitel s 0%.
+                </p>
+              </div>
+
+              <div className="border rounded-md p-3 space-y-2" data-testid="panel-import-recommenders">
+                <div className="flex items-center justify-between gap-2 flex-wrap">
+                  <div className="flex items-center gap-2">
+                    <Users className="w-3.5 h-3.5 text-primary" />
+                    <span className="text-xs font-semibold uppercase tracking-wide">Odporucitelia</span>
+                    <Badge variant="outline" className="text-[10px]">{importRecommenders.length}</Badge>
+                  </div>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => {
+                      setImportAddingRecommender(true);
+                      setImportNewRecommenderUid("");
+                      setImportNewRecommenderPercentage("");
+                      setImportRewardSearchRecommender("");
+                    }}
+                    data-testid="button-import-add-recommender"
+                  >
+                    <Plus className="w-3.5 h-3.5 mr-1" /> Pridat odporucitela
+                  </Button>
+                </div>
+
+                <div className="border rounded-md p-2 space-y-2" style={{ display: importAddingRecommender ? 'block' : 'none' }} data-testid="panel-import-add-recommender">
+                  <div className="grid grid-cols-2 gap-2">
+                    <div className="space-y-1">
+                      <label className="text-xs text-muted-foreground">UID odporucitela</label>
+                      <div className="relative">
+                        <Input
+                          placeholder="Zadajte UID alebo hladajte..."
+                          value={importNewRecommenderUid}
+                          onChange={e => {
+                            setImportNewRecommenderUid(e.target.value);
+                            setImportRewardSearchRecommender(e.target.value);
+                          }}
+                          className="font-mono text-sm"
+                          data-testid="input-import-new-recommender-uid"
+                        />
+                        {(() => {
+                          const searchLower = importRewardSearchRecommender.toLowerCase().trim();
+                          const filtered = searchLower && searchLower.length >= 2
+                            ? (appUsersAll || []).filter(u =>
+                                (`${u.firstName || ""} ${u.lastName || ""} ${u.username || ""} ${u.uid || ""}`.toLowerCase().includes(searchLower))
+                              )
+                            : [];
+                          return (
+                            <div className="absolute top-full left-0 right-0 z-50 border rounded-md bg-popover max-h-[120px] overflow-y-auto" style={{ display: filtered.length > 0 ? 'block' : 'none' }} data-testid="list-import-recommender-suggestions">
+                              {filtered.slice(0, 8).map(u => (
+                                <div
+                                  key={u.id}
+                                  className="flex items-center gap-2 px-3 py-1.5 cursor-pointer hover-elevate text-sm"
+                                  onClick={() => {
+                                    setImportNewRecommenderUid(u.uid || "");
+                                    setImportRewardSearchRecommender("");
+                                  }}
+                                  data-testid={`row-import-recommender-${u.id}`}
+                                >
+                                  <span className="font-medium text-xs">{u.firstName || ""} {u.lastName || ""}</span>
+                                  <span className="text-xs text-muted-foreground font-mono ml-auto">{formatUid(u.uid)}</span>
+                                </div>
+                              ))}
+                            </div>
+                          );
+                        })()}
+                      </div>
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-xs text-muted-foreground">Podiel (%)</label>
+                      <div className="relative">
+                        <Input
+                          type="number"
+                          min="0"
+                          max="100"
+                          step="0.01"
+                          placeholder="0"
+                          value={importNewRecommenderPercentage}
+                          onChange={e => setImportNewRecommenderPercentage(e.target.value)}
+                          className="pr-8 font-mono text-sm"
+                          data-testid="input-import-new-recommender-percentage"
+                        />
+                        <Percent className="absolute right-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+                      </div>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2 justify-end">
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => setImportAddingRecommender(false)}
+                      data-testid="button-import-cancel-recommender"
+                    >
+                      Zrusit
+                    </Button>
+                    <Button
+                      size="sm"
+                      onClick={() => {
+                        if (!importNewRecommenderUid.trim()) {
+                          toast({ title: "Chyba", description: "Zadajte UID odporucitela", variant: "destructive" });
+                          return;
+                        }
+                        const newTotal = importRewardTotal + (parseFloat(importNewRecommenderPercentage) || 0);
+                        if (newTotal > 100) {
+                          toast({ title: "Chyba", description: `Sucet percent by presahoval 100% (${newTotal.toFixed(2)}%)`, variant: "destructive" });
+                          return;
+                        }
+                        setImportRecommenders(prev => [...prev, { uid: importNewRecommenderUid.trim(), percentage: importNewRecommenderPercentage || "0" }]);
+                        setImportNewRecommenderUid("");
+                        setImportNewRecommenderPercentage("");
+                        setImportRewardSearchRecommender("");
+                        setImportAddingRecommender(false);
+                      }}
+                      data-testid="button-import-confirm-recommender"
+                    >
+                      <Check className="w-3.5 h-3.5 mr-1" /> Potvrdit
+                    </Button>
+                  </div>
+                </div>
+
+                <div className="space-y-1" data-testid="list-import-recommenders">
+                  {importRecommenders.map((rec, idx) => {
+                    const user = (appUsersAll || []).find(u => u.uid === rec.uid);
+                    return (
+                      <div key={`${rec.uid}-${idx}`} className="flex items-center gap-2 px-3 py-1.5 border rounded-md bg-muted/30" data-testid={`row-import-recommender-${idx}`}>
+                        <Users className="w-3.5 h-3.5 text-primary flex-shrink-0" />
+                        <span className="text-sm font-medium">{user ? `${user.firstName || ""} ${user.lastName || ""}`.trim() || user.username : formatUid(rec.uid)}</span>
+                        <span className="text-xs text-muted-foreground font-mono">{formatUid(rec.uid)}</span>
+                        <div className="flex items-center gap-1 ml-auto">
+                          <Input
+                            type="number"
+                            min="0"
+                            max="100"
+                            step="0.01"
+                            value={rec.percentage}
+                            onChange={e => {
+                              const val = e.target.value;
+                              setImportRecommenders(prev => prev.map((r, i) => i === idx ? { ...r, percentage: val } : r));
+                            }}
+                            className="w-20 h-7 text-xs font-mono text-right"
+                            data-testid={`input-import-recommender-percentage-${idx}`}
+                          />
+                          <span className="text-xs text-muted-foreground">%</span>
+                        </div>
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          onClick={() => setImportRecommenders(prev => prev.filter((_, i) => i !== idx))}
+                          data-testid={`button-import-remove-recommender-${idx}`}
+                        >
+                          <X className="w-3.5 h-3.5" />
+                        </Button>
+                      </div>
+                    );
+                  })}
+                  <div style={{ display: importRecommenders.length === 0 && importSpecialistUid ? 'block' : 'none' }}>
+                    <div className="flex items-center gap-2 px-3 py-1.5 border rounded-md bg-muted/20 border-dashed" data-testid="row-import-autofill-recommender">
+                      <Users className="w-3.5 h-3.5 text-muted-foreground flex-shrink-0" />
+                      <span className="text-sm text-muted-foreground italic">
+                        {(() => {
+                          const user = (appUsersAll || []).find(u => u.uid === importSpecialistUid);
+                          return user ? `${user.firstName || ""} ${user.lastName || ""}`.trim() || user.username : importSpecialistUid;
+                        })()}
+                      </span>
+                      <span className="text-xs text-muted-foreground font-mono">{importSpecialistUid}</span>
+                      <span className="text-[10px] text-muted-foreground ml-auto">0% (auto)</span>
+                    </div>
+                    <p className="text-[10px] text-muted-foreground mt-1">
+                      Specialista bude automaticky pridany ako odporucitel s 0% pri ulozeni.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
         </DialogScrollContent>
         <DialogFooter>
-          <Button variant="outline" onClick={() => setImportDialogOpen(false)} data-testid="button-import-cancel">
-            Zavrieť
-          </Button>
-          <Button onClick={() => setImportConfirmOpen(true)} disabled={!importFile || importLoading} data-testid="button-import-submit">
-            {importLoading && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
-            Importovať
-          </Button>
+          {importStep === 1 && (
+            <>
+              <Button variant="outline" onClick={() => setImportDialogOpen(false)} data-testid="button-import-cancel">
+                Zavrieť
+              </Button>
+              <Button onClick={() => setImportConfirmOpen(true)} disabled={!importFile || importLoading} data-testid="button-import-submit">
+                {importLoading && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+                Importovať
+              </Button>
+            </>
+          )}
+          {importStep === 2 && (
+            <>
+              <Button variant="outline" onClick={handleImportRewardSkip} disabled={importRewardSaving} data-testid="button-import-skip-rewards">
+                Preskočiť
+              </Button>
+              <Button onClick={handleImportRewardSave} disabled={importRewardSaving || importRewardTotal > 100 || (!importSpecialistUid && importRecommenders.length === 0)} data-testid="button-import-save-rewards">
+                {importRewardSaving && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+                Uložiť odmeny
+              </Button>
+            </>
+          )}
         </DialogFooter>
       </DialogContent>
     </Dialog>
