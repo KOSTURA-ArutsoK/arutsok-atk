@@ -5189,10 +5189,19 @@ export async function registerRoutes(
       const nextGlobalNumber = await storage.getNextCounterValue("contract_global_number");
       createData.globalNumber = nextGlobalNumber;
 
+      if (createData.proposalNumber && /^-/.test(String(createData.proposalNumber).trim())) {
+        createData.needsManualVerification = true;
+      }
+      if (createData.contractNumber && /^-/.test(String(createData.contractNumber).trim())) {
+        createData.needsManualVerification = true;
+      }
+
       const incompleteMissing: string[] = [];
       if (!createData.partnerId) incompleteMissing.push("Partner");
       if (!createData.productId) incompleteMissing.push("Produkt");
       if (!createData.proposalNumber && !createData.contractNumber) incompleteMissing.push("Číslo návrhu alebo číslo zmluvy");
+      if (createData.proposalNumber && /^-/.test(String(createData.proposalNumber).trim())) incompleteMissing.push("Záporné číslo návrhu");
+      if (createData.contractNumber && /^-/.test(String(createData.contractNumber).trim())) incompleteMissing.push("Záporné číslo zmluvy");
       if (!createData.subjectId) incompleteMissing.push("Klient");
       if (incompleteMissing.length > 0) {
         createData.incompleteData = true;

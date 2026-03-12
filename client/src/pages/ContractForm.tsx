@@ -1575,6 +1575,14 @@ export default function ContractForm() {
   }
 
   function handleSubmit() {
+    if (proposalNumber && /^-/.test(proposalNumber.trim())) {
+      toast({ title: "Chyba", description: "Cislo navrhu nemoze byt zaporne", variant: "destructive" });
+      return;
+    }
+    if (contractNumber && /^-/.test(contractNumber.trim())) {
+      toast({ title: "Chyba", description: "Cislo zmluvy nemoze byt zaporne", variant: "destructive" });
+      return;
+    }
     const rewardTotal = getRewardTotalPercentage();
     if (rewardTotal > 100) {
       toast({ title: "Chyba", description: `Celkovy sucet odmien je ${rewardTotal}%, nesmie presiahnuť 100 %`, variant: "destructive" });
@@ -1770,10 +1778,26 @@ export default function ContractForm() {
                   <Input value={existingContract?.globalNumber?.toString() || "Pridelene pri ulozeni"} readOnly className="bg-muted/50 cursor-default" data-testid="input-contract-global-number" />
                 </CompactField>
                 <CompactField label={`Cislo navrhu${isFieldRequired("proposalNumber") ? " *" : ""}`}>
-                  <Input value={proposalNumber} onChange={e => setProposalNumber(e.target.value)} data-testid="input-contract-proposal" />
+                  <Input
+                    value={proposalNumber}
+                    onChange={e => setProposalNumber(e.target.value)}
+                    className={proposalNumber && /^-/.test(proposalNumber.trim()) ? "border-red-500 ring-1 ring-red-500" : ""}
+                    data-testid="input-contract-proposal"
+                  />
+                  {proposalNumber && /^-/.test(proposalNumber.trim()) && (
+                    <p className="text-[10px] text-red-500 mt-0.5">Cislo navrhu nemoze byt zaporne</p>
+                  )}
                 </CompactField>
                 <CompactField label="Cislo zmluvy">
-                  <Input value={contractNumber} onChange={e => setContractNumber(e.target.value)} data-testid="input-contract-number" />
+                  <Input
+                    value={contractNumber}
+                    onChange={e => setContractNumber(e.target.value)}
+                    className={contractNumber && /^-/.test(contractNumber.trim()) ? "border-red-500 ring-1 ring-red-500" : ""}
+                    data-testid="input-contract-number"
+                  />
+                  {contractNumber && /^-/.test(contractNumber.trim()) && (
+                    <p className="text-[10px] text-red-500 mt-0.5">Cislo zmluvy nemoze byt zaporne</p>
+                  )}
                 </CompactField>
               </div>
 
