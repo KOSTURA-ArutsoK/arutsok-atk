@@ -3707,10 +3707,10 @@ export default function Contracts() {
 
   const preSelectFilteredSubjects = (() => {
     if (!subjects) return [];
-    const active = subjects;
-    if (!preSelectSubjectSearch.trim()) return active;
+    const byType = subjects.filter(s => s.type === preSelectSubjectType);
+    if (!preSelectSubjectSearch.trim()) return byType;
     const q = preSelectSubjectSearch.toLowerCase().trim();
-    return active.filter(s => {
+    return byType.filter(s => {
       const fullName = s.type === "company"
         ? (s.companyName || "")
         : s.type === "szco"
@@ -3868,8 +3868,7 @@ export default function Contracts() {
         <div style={{ display: preSelectStep === 2 ? 'block' : 'none' }}>
           <div className="space-y-2">
 
-            {!preSelectSubjectId && (
-              <div className="space-y-1.5">
+            <div className="space-y-1.5">
                 <label className="text-xs font-medium">Typ subjektu</label>
                 {(() => {
                   const subOpts: Array<{val: "person"|"szco"|"company", label: string, icon: typeof User}> = [
@@ -3910,7 +3909,6 @@ export default function Contracts() {
                   );
                 })()}
               </div>
-            )}
 
             <div className="space-y-1">
               <label className="text-xs font-medium">Vyhladavanie</label>
