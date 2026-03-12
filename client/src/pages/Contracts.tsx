@@ -2191,7 +2191,7 @@ export default function Contracts() {
   const [searchQuery, setSearchQuery] = useState("");
   const [duplicateModal, setDuplicateModal] = useState<{ open: boolean; subjectName?: string }>({ open: false });
   const [preSelectOpen, setPreSelectOpen] = useState(false);
-  const [preSelectStep, setPreSelectStep] = useState<1 | 2 | 3>(1);
+  const [preSelectStep, setPreSelectStep] = useState<1 | 2 | 3 | 4>(1);
   const [preSelectPartnerId, setPreSelectPartnerId] = useState<string>("");
   const [preSelectProductId, setPreSelectProductId] = useState<string>("");
   const [preSelectSubjectSearch, setPreSelectSubjectSearch] = useState("");
@@ -3663,6 +3663,14 @@ export default function Contracts() {
     setPreSelectUploading(false);
     setPreSelectFileError(null);
     setPreSelectUploadedCount(0);
+    setSpecialistUid("");
+    setSpecialistPercentage("");
+    setRecommenders([]);
+    setRewardSearchSpecialist("");
+    setRewardSearchRecommender("");
+    setAddingRecommender(false);
+    setNewRecommenderUid("");
+    setNewRecommenderPercentage("");
   };
 
   const getFileExt = (name: string) => {
@@ -3818,8 +3826,12 @@ export default function Contracts() {
       }
       queryClient.invalidateQueries({ queryKey: ["/api/contracts"] });
 
+      if (savedContractId) {
+        await saveRewardDistributions(savedContractId);
+      }
+
       setPreSelectCreatedContractId(savedContractId);
-      setPreSelectStep(3);
+      setPreSelectStep(4);
       setPreSelectSaving(false);
     } catch (err: any) {
       toast({ title: "Chyba", description: err.message || "Nepodarilo sa zapisat zmluvu", variant: "destructive" });
@@ -3849,6 +3861,14 @@ export default function Contracts() {
     setPreSelectBirthNumber("");
     setPreSelectShowNameFields(false);
     setPreSelectEditingContractId(null);
+    setSpecialistUid("");
+    setSpecialistPercentage("");
+    setRecommenders([]);
+    setRewardSearchSpecialist("");
+    setRewardSearchRecommender("");
+    setAddingRecommender(false);
+    setNewRecommenderUid("");
+    setNewRecommenderPercentage("");
     setPreSelectOpen(true);
   };
 
@@ -3927,7 +3947,7 @@ export default function Contracts() {
       <DialogContent size="xl" onCloseAutoFocus={(e) => e.preventDefault()} data-testid="dialog-pre-select-contract">
         <DialogHeader className="px-6 pt-6 pb-2">
           <DialogTitle data-testid="text-preselect-title">
-            {preSelectStep === 3 ? "Krok 3: Nahrať dokumenty" : preSelectEditingContractId ? (
+            {preSelectStep === 4 ? "Krok 4: Nahrať dokumenty" : preSelectStep === 3 ? (preSelectEditingContractId ? "Doplniť zmluvu — Krok 3: Získatelia" : "Krok 3: Získatelia a rozdelenie odmien") : preSelectEditingContractId ? (
               preSelectStep === 1 ? "Doplniť zmluvu — Krok 1: Partner a produkt" : "Doplniť zmluvu — Krok 2: Klient"
             ) : (
               preSelectStep === 1 ? "Krok 1: Vyber partnera a produktu" : "Krok 2: Vyber klienta (subjektu)"
@@ -3941,7 +3961,9 @@ export default function Contracts() {
           <div className="flex-1 h-px bg-border" />
           <div className={`flex items-center justify-center w-7 h-7 rounded-full text-xs font-bold ${preSelectStep === 2 ? "bg-primary text-primary-foreground" : preSelectStep > 2 ? "bg-green-600 text-white" : "bg-muted text-muted-foreground"}`} data-testid="step-indicator-2">2</div>
           <div className="flex-1 h-px bg-border" />
-          <div className={`flex items-center justify-center w-7 h-7 rounded-full text-xs font-bold ${preSelectStep === 3 ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"}`} data-testid="step-indicator-3">3</div>
+          <div className={`flex items-center justify-center w-7 h-7 rounded-full text-xs font-bold ${preSelectStep === 3 ? "bg-primary text-primary-foreground" : preSelectStep > 3 ? "bg-green-600 text-white" : "bg-muted text-muted-foreground"}`} data-testid="step-indicator-3">3</div>
+          <div className="flex-1 h-px bg-border" />
+          <div className={`flex items-center justify-center w-7 h-7 rounded-full text-xs font-bold ${preSelectStep === 4 ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"}`} data-testid="step-indicator-4">4</div>
         </div>
 
         <div style={{ display: preSelectStep === 1 ? 'block' : 'none' }}>
@@ -4395,14 +4417,305 @@ export default function Contracts() {
               <Button variant="outline" tabIndex={2} onClick={handlePreSelectStep2Back} data-testid="button-preselect-back">
                 Spat
               </Button>
-              <Button ref={refStep2Confirm} tabIndex={0} onClick={handlePreSelectConfirm} disabled={!preSelectIsValid || preSelectSaving} data-testid="button-preselect-confirm">
-                {preSelectSaving ? "Zapisujem..." : preSelectEditingContractId ? "Uložiť zmeny" : "Zapísať zmluvu"}
+              <Button ref={refStep2Confirm} tabIndex={0} onClick={() => { if (preSelectIsValid) setPreSelectStep(3); }} disabled={!preSelectIsValid} data-testid="button-preselect-step2-next">
+                Dalej
               </Button>
             </div>
           </div>
         </div>
 
         {preSelectStep === 3 && (
+          <div className="space-y-4">
+            <p className="text-sm text-muted-foreground">
+              Priradenie získateľov a rozdelenie odmien za zmluvu. Tento krok je voliteľný — môžete ho preskočiť.
+            </p>
+
+            <div className="space-y-3 border rounded-md p-4" data-testid="section-preselect-reward-distributions">
+              <div className="flex items-center justify-between gap-2 flex-wrap">
+                <div className="flex items-center gap-2">
+                  <Users className="w-4 h-4 text-primary" />
+                  <span className="text-sm font-semibold">Získatelia a odmeny</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Badge variant={rewardTotalPercentage > 100 ? "destructive" : rewardTotalPercentage === 100 ? "default" : "outline"} className="text-[10px] font-mono" data-testid="badge-preselect-reward-total">
+                    {rewardTotalPercentage}% / 100%
+                  </Badge>
+                  <span className="text-[10px] text-muted-foreground" style={{ visibility: rewardPercentageRemaining > 0 && rewardTotalPercentage <= 100 ? 'visible' : 'hidden' }}>
+                    Zostava: {rewardPercentageRemaining}%
+                  </span>
+                </div>
+              </div>
+
+              <p className="text-xs text-destructive font-medium" style={{ visibility: rewardTotalPercentage > 100 ? 'visible' : 'hidden' }}>
+                Sucet percent presiahol 100%. Upravte hodnoty.
+              </p>
+
+              <div className="space-y-3">
+                <div className="border rounded-md p-3 space-y-2" data-testid="panel-preselect-specialist">
+                  <div className="flex items-center gap-2">
+                    <Award className="w-3.5 h-3.5 text-primary" />
+                    <span className="text-xs font-semibold uppercase tracking-wide">Specialista</span>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div className="space-y-1">
+                      <label className="text-xs text-muted-foreground">UID specialistu</label>
+                      <div className="relative">
+                        <Input
+                          placeholder="Zadajte UID alebo hladajte..."
+                          value={specialistUid}
+                          onChange={e => {
+                            setSpecialistUid(e.target.value);
+                            setRewardSearchSpecialist(e.target.value);
+                          }}
+                          className="font-mono text-sm"
+                          data-testid="input-preselect-specialist-uid"
+                        />
+                        {(() => {
+                          const searchLower = rewardSearchSpecialist.toLowerCase().trim();
+                          const filtered = searchLower && searchLower.length >= 2
+                            ? (appUsersAll || []).filter(u =>
+                                (`${u.firstName || ""} ${u.lastName || ""} ${u.username || ""} ${u.uid || ""}`.toLowerCase().includes(searchLower))
+                              )
+                            : [];
+                          return (
+                            <div className="absolute top-full left-0 right-0 z-50 border rounded-md bg-popover max-h-[120px] overflow-y-auto" style={{ display: filtered.length > 0 ? 'block' : 'none' }} data-testid="list-preselect-specialist-suggestions">
+                              {filtered.slice(0, 8).map(u => (
+                                <div
+                                  key={u.id}
+                                  className="flex items-center gap-2 px-3 py-1.5 cursor-pointer hover-elevate text-sm"
+                                  onClick={() => {
+                                    setSpecialistUid(u.uid || "");
+                                    setRewardSearchSpecialist("");
+                                  }}
+                                  data-testid={`row-preselect-specialist-${u.id}`}
+                                >
+                                  <span className="font-medium text-xs">{u.firstName || ""} {u.lastName || ""}</span>
+                                  <span className="text-xs text-muted-foreground font-mono ml-auto">{formatUid(u.uid)}</span>
+                                </div>
+                              ))}
+                            </div>
+                          );
+                        })()}
+                      </div>
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-xs text-muted-foreground">Podiel (%)</label>
+                      <div className="relative">
+                        <Input
+                          type="number"
+                          min="0"
+                          max="100"
+                          step="0.01"
+                          placeholder="0"
+                          value={specialistPercentage}
+                          onChange={e => setSpecialistPercentage(e.target.value)}
+                          className="pr-8 font-mono text-sm"
+                          data-testid="input-preselect-specialist-percentage"
+                        />
+                        <Percent className="absolute right-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+                      </div>
+                    </div>
+                  </div>
+                  <p className="text-[10px] text-muted-foreground">
+                    Ak nie su zadani odporucitelia, specialista bude automaticky pridany ako odporucitel s 0%.
+                  </p>
+                </div>
+
+                <div className="border rounded-md p-3 space-y-2" data-testid="panel-preselect-recommenders">
+                  <div className="flex items-center justify-between gap-2 flex-wrap">
+                    <div className="flex items-center gap-2">
+                      <Users className="w-3.5 h-3.5 text-primary" />
+                      <span className="text-xs font-semibold uppercase tracking-wide">Odporucitelia</span>
+                      <Badge variant="outline" className="text-[10px]">{recommenders.length}</Badge>
+                    </div>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => {
+                        setAddingRecommender(true);
+                        setNewRecommenderUid("");
+                        setNewRecommenderPercentage("");
+                        setRewardSearchRecommender("");
+                      }}
+                      data-testid="button-preselect-add-recommender"
+                    >
+                      <Plus className="w-3.5 h-3.5 mr-1" /> Pridat odporucitela
+                    </Button>
+                  </div>
+
+                  <div className="border rounded-md p-2 space-y-2" style={{ display: addingRecommender ? 'block' : 'none' }} data-testid="panel-preselect-add-recommender">
+                    <div className="grid grid-cols-2 gap-2">
+                      <div className="space-y-1">
+                        <label className="text-xs text-muted-foreground">UID odporucitela</label>
+                        <div className="relative">
+                          <Input
+                            placeholder="Zadajte UID alebo hladajte..."
+                            value={newRecommenderUid}
+                            onChange={e => {
+                              setNewRecommenderUid(e.target.value);
+                              setRewardSearchRecommender(e.target.value);
+                            }}
+                            className="font-mono text-sm"
+                            data-testid="input-preselect-new-recommender-uid"
+                          />
+                          {(() => {
+                            const searchLower = rewardSearchRecommender.toLowerCase().trim();
+                            const filtered = searchLower && searchLower.length >= 2
+                              ? (appUsersAll || []).filter(u =>
+                                  (`${u.firstName || ""} ${u.lastName || ""} ${u.username || ""} ${u.uid || ""}`.toLowerCase().includes(searchLower))
+                                )
+                              : [];
+                            return (
+                              <div className="absolute top-full left-0 right-0 z-50 border rounded-md bg-popover max-h-[120px] overflow-y-auto" style={{ display: filtered.length > 0 ? 'block' : 'none' }} data-testid="list-preselect-recommender-suggestions">
+                                {filtered.slice(0, 8).map(u => (
+                                  <div
+                                    key={u.id}
+                                    className="flex items-center gap-2 px-3 py-1.5 cursor-pointer hover-elevate text-sm"
+                                    onClick={() => {
+                                      setNewRecommenderUid(u.uid || "");
+                                      setRewardSearchRecommender("");
+                                    }}
+                                    data-testid={`row-preselect-recommender-${u.id}`}
+                                  >
+                                    <span className="font-medium text-xs">{u.firstName || ""} {u.lastName || ""}</span>
+                                    <span className="text-xs text-muted-foreground font-mono ml-auto">{formatUid(u.uid)}</span>
+                                  </div>
+                                ))}
+                              </div>
+                            );
+                          })()}
+                        </div>
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-xs text-muted-foreground">Podiel (%)</label>
+                        <div className="relative">
+                          <Input
+                            type="number"
+                            min="0"
+                            max="100"
+                            step="0.01"
+                            placeholder="0"
+                            value={newRecommenderPercentage}
+                            onChange={e => setNewRecommenderPercentage(e.target.value)}
+                            className="pr-8 font-mono text-sm"
+                            data-testid="input-preselect-new-recommender-percentage"
+                          />
+                          <Percent className="absolute right-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+                        </div>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2 justify-end">
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => setAddingRecommender(false)}
+                        data-testid="button-preselect-cancel-recommender"
+                      >
+                        Zrusit
+                      </Button>
+                      <Button
+                        size="sm"
+                        onClick={() => {
+                          if (!newRecommenderUid.trim()) {
+                            toast({ title: "Chyba", description: "Zadajte UID odporucitela", variant: "destructive" });
+                            return;
+                          }
+                          const newTotal = rewardTotalPercentage + (parseFloat(newRecommenderPercentage) || 0);
+                          if (newTotal > 100) {
+                            toast({ title: "Chyba", description: `Sucet percent by presahoval 100% (${newTotal.toFixed(2)}%)`, variant: "destructive" });
+                            return;
+                          }
+                          setRecommenders(prev => [...prev, { uid: newRecommenderUid.trim(), percentage: newRecommenderPercentage || "0" }]);
+                          setNewRecommenderUid("");
+                          setNewRecommenderPercentage("");
+                          setRewardSearchRecommender("");
+                          setAddingRecommender(false);
+                        }}
+                        data-testid="button-preselect-confirm-recommender"
+                      >
+                        <Check className="w-3.5 h-3.5 mr-1" /> Potvrdit
+                      </Button>
+                    </div>
+                  </div>
+
+                  <div className="space-y-1" data-testid="list-preselect-recommenders">
+                    {recommenders.map((rec, idx) => {
+                      const user = (appUsersAll || []).find(u => u.uid === rec.uid);
+                      return (
+                        <div key={`${rec.uid}-${idx}`} className="flex items-center gap-2 px-3 py-1.5 border rounded-md bg-muted/30" data-testid={`row-preselect-recommender-${idx}`}>
+                          <Users className="w-3.5 h-3.5 text-primary flex-shrink-0" />
+                          <span className="text-sm font-medium">{user ? `${user.firstName || ""} ${user.lastName || ""}`.trim() || user.username : formatUid(rec.uid)}</span>
+                          <span className="text-xs text-muted-foreground font-mono">{formatUid(rec.uid)}</span>
+                          <div className="flex items-center gap-1 ml-auto">
+                            <Input
+                              type="number"
+                              min="0"
+                              max="100"
+                              step="0.01"
+                              value={rec.percentage}
+                              onChange={e => {
+                                const val = e.target.value;
+                                setRecommenders(prev => prev.map((r, i) => i === idx ? { ...r, percentage: val } : r));
+                              }}
+                              className="w-20 h-7 text-xs font-mono text-right"
+                              data-testid={`input-preselect-recommender-percentage-${idx}`}
+                            />
+                            <span className="text-xs text-muted-foreground">%</span>
+                          </div>
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            onClick={() => setRecommenders(prev => prev.filter((_, i) => i !== idx))}
+                            data-testid={`button-preselect-remove-recommender-${idx}`}
+                          >
+                            <X className="w-3.5 h-3.5" />
+                          </Button>
+                        </div>
+                      );
+                    })}
+                    <div style={{ display: recommenders.length === 0 && specialistUid ? 'block' : 'none' }}>
+                      <div className="flex items-center gap-2 px-3 py-1.5 border rounded-md bg-muted/20 border-dashed" data-testid="row-preselect-autofill-recommender">
+                        <Users className="w-3.5 h-3.5 text-muted-foreground flex-shrink-0" />
+                        <span className="text-sm text-muted-foreground italic">
+                          {(() => {
+                            const user = (appUsersAll || []).find(u => u.uid === specialistUid);
+                            return user ? `${user.firstName || ""} ${user.lastName || ""}`.trim() || user.username : specialistUid;
+                          })()}
+                        </span>
+                        <span className="text-xs text-muted-foreground font-mono">{specialistUid}</span>
+                        <span className="text-[10px] text-muted-foreground ml-auto">0% (auto)</span>
+                      </div>
+                      <p className="text-[10px] text-muted-foreground mt-1">
+                        Specialista bude automaticky pridany ako odporucitel s 0% pri ulozeni.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex justify-between gap-2">
+              <Button variant="outline" onClick={() => setPreSelectStep(2)} data-testid="button-preselect-step3-back">
+                Spat
+              </Button>
+              <div className="flex gap-2">
+                <Button variant="outline" onClick={() => {
+                  setSpecialistUid("");
+                  setSpecialistPercentage("");
+                  setRecommenders([]);
+                  handlePreSelectConfirm();
+                }} disabled={preSelectSaving} data-testid="button-preselect-skip-rewards">
+                  {preSelectSaving ? "Zapisujem..." : "Preskočiť"}
+                </Button>
+                <Button onClick={handlePreSelectConfirm} disabled={preSelectSaving || rewardTotalPercentage > 100} data-testid="button-preselect-confirm-rewards">
+                  {preSelectSaving ? "Zapisujem..." : preSelectEditingContractId ? "Uložiť zmeny" : "Zapísať zmluvu"}
+                </Button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {preSelectStep === 4 && (
           <div className="space-y-4">
             <p className="text-sm text-muted-foreground">
               Zmluva bola úspešne zapísaná. Teraz môžete nahrať dokumenty (PDF, obrázky, skeny občianskeho preukazu a pod.).
