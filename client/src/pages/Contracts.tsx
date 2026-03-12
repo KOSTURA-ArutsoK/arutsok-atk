@@ -2215,6 +2215,9 @@ export default function Contracts() {
   const [preSelectFiles, setPreSelectFiles] = useState<File[]>([]);
   const [preSelectCreatedContractId, setPreSelectCreatedContractId] = useState<number | null>(null);
   const [preSelectUploading, setPreSelectUploading] = useState(false);
+  const [preSelectFileError, setPreSelectFileError] = useState<string | null>(null);
+  const MAX_FILE_SIZE = 25 * 1024 * 1024;
+  const MAX_BATCH_SIZE = 100 * 1024 * 1024;
   const refFileInput = useRef<HTMLInputElement>(null);
   const refProductTrigger = useRef<HTMLButtonElement>(null);
   const refStep1Next = useRef<HTMLButtonElement>(null);
@@ -3640,26 +3643,55 @@ export default function Contracts() {
     setPreSelectFiles([]);
     setPreSelectCreatedContractId(null);
     setPreSelectUploading(false);
+    setPreSelectFileError(null);
+  };
+
+  const validateAndAddFiles = (newFiles: File[]) => {
+    setPreSelectFileError(null);
+    const tooLarge = newFiles.filter(f => f.size > MAX_FILE_SIZE);
+    if (tooLarge.length > 0) {
+      setPreSelectFileError(`Súbor "${tooLarge[0].name}" je príliš veľký. Maximálny limit je 25 MB.`);
+      newFiles = newFiles.filter(f => f.size <= MAX_FILE_SIZE);
+    }
+    if (newFiles.length === 0) return;
+    setPreSelectFiles(prev => {
+      const combined = [...prev, ...newFiles];
+      const totalSize = combined.reduce((sum, f) => sum + f.size, 0);
+      if (totalSize > MAX_BATCH_SIZE) {
+        setPreSelectFileError(`Celková veľkosť dávky presahuje 100 MB. Odstráňte niektoré súbory.`);
+      }
+      return combined;
+    });
   };
 
   const handlePreSelectUploadAndFinish = async () => {
     if (!preSelectCreatedContractId) { resetPreSelectDialog(); return; }
     if (preSelectFiles.length === 0) { resetPreSelectDialog(); return; }
+    const totalSize = preSelectFiles.reduce((sum, f) => sum + f.size, 0);
+    if (totalSize > MAX_BATCH_SIZE) {
+      setPreSelectFileError("Celková veľkosť dávky presahuje 100 MB. Odstráňte niektoré súbory.");
+      return;
+    }
     setPreSelectUploading(true);
+    setPreSelectFileError(null);
     try {
       const formData = new FormData();
       preSelectFiles.forEach(f => formData.append("documents", f));
-      await fetch(`/api/contracts/${preSelectCreatedContractId}/upload-documents`, {
+      const resp = await fetch(`/api/contracts/${preSelectCreatedContractId}/upload-documents`, {
         method: "POST",
         body: formData,
         credentials: "include",
       });
+      if (!resp.ok) {
+        const errData = await resp.json().catch(() => ({}));
+        throw new Error(errData.message || "Nepodarilo sa nahrať dokumenty");
+      }
       queryClient.invalidateQueries({ queryKey: ["/api/contracts"] });
       toast({ title: "Úspech", description: `${preSelectFiles.length} dokument(ov) nahraných` });
-    } catch (err: any) {
-      toast({ title: "Chyba", description: err.message || "Nepodarilo sa nahrať dokumenty", variant: "destructive" });
-    } finally {
       resetPreSelectDialog();
+    } catch (err: any) {
+      setPreSelectUploading(false);
+      toast({ title: "Chyba", description: err.message || "Nepodarilo sa nahrať dokumenty", variant: "destructive" });
     }
   };
 
@@ -4296,7 +4328,7 @@ export default function Contracts() {
               className="hidden"
               onChange={(e) => {
                 if (e.target.files) {
-                  setPreSelectFiles(prev => [...prev, ...Array.from(e.target.files!)]);
+                  validateAndAddFiles(Array.from(e.target.files));
                 }
                 e.target.value = "";
               }}
@@ -4311,7 +4343,7 @@ export default function Contracts() {
                 e.preventDefault();
                 e.stopPropagation();
                 if (e.dataTransfer.files) {
-                  setPreSelectFiles(prev => [...prev, ...Array.from(e.dataTransfer.files)]);
+                  validateAndAddFiles(Array.from(e.dataTransfer.files));
                 }
               }}
               data-testid="dropzone-preselect-upload"
@@ -4319,13 +4351,20 @@ export default function Contracts() {
               <div className="flex flex-col items-center gap-2">
                 <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="text-muted-foreground"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
                 <p className="text-sm font-medium">Kliknite alebo pretiahnite súbory sem</p>
-                <p className="text-xs text-muted-foreground">PDF, JPG, PNG, WebP, TIFF, BMP</p>
+                <p className="text-xs text-muted-foreground">PDF, JPG, PNG, WebP, TIFF, BMP (max. 25 MB/súbor)</p>
               </div>
             </div>
 
+            {preSelectFileError && (
+              <div className="flex items-center gap-2 p-3 rounded border border-red-500/50 bg-red-500/10 text-red-400 text-sm" data-testid="text-preselect-file-error">
+                <AlertTriangle className="w-4 h-4 shrink-0" />
+                <span>{preSelectFileError}</span>
+              </div>
+            )}
+
             {preSelectFiles.length > 0 && (
               <div className="space-y-1">
-                <p className="text-xs font-medium">{preSelectFiles.length} súbor(ov) vybraných:</p>
+                <p className="text-xs font-medium">{preSelectFiles.length} súbor(ov) vybraných ({(preSelectFiles.reduce((s, f) => s + f.size, 0) / (1024 * 1024)).toFixed(1)} MB z max. 100 MB):</p>
                 <div className="max-h-32 overflow-y-auto space-y-1">
                   {preSelectFiles.map((f, idx) => (
                     <div key={idx} className="flex items-center justify-between text-xs bg-muted/50 rounded px-2 py-1">
@@ -4334,7 +4373,7 @@ export default function Contracts() {
                       <button
                         type="button"
                         className="text-destructive hover:text-destructive/80"
-                        onClick={() => setPreSelectFiles(prev => prev.filter((_, i) => i !== idx))}
+                        onClick={() => { setPreSelectFiles(prev => prev.filter((_, i) => i !== idx)); setPreSelectFileError(null); }}
                         data-testid={`button-remove-file-${idx}`}
                       >
                         ✕
@@ -4351,7 +4390,7 @@ export default function Contracts() {
               </Button>
               <Button
                 onClick={handlePreSelectUploadAndFinish}
-                disabled={preSelectFiles.length === 0 || preSelectUploading}
+                disabled={preSelectFiles.length === 0 || preSelectUploading || preSelectFiles.reduce((s, f) => s + f.size, 0) > MAX_BATCH_SIZE}
                 data-testid="button-preselect-upload-confirm"
               >
                 {preSelectUploading ? "Nahrávam..." : `Nahrať ${preSelectFiles.length} dokument(ov)`}

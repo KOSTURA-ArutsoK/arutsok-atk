@@ -337,18 +337,26 @@ const ALLOWED_FILE_TYPES: Record<string, Set<string>> = {
   ".pptx": new Set(["application/vnd.openxmlformats-officedocument.presentationml.presentation"]),
 };
 
+const fileFilterFn = (_req: any, file: Express.Multer.File, cb: multer.FileFilterCallback) => {
+  const ext = path.extname(file.originalname).toLowerCase();
+  const allowedMimes = ALLOWED_FILE_TYPES[ext];
+  if (allowedMimes && allowedMimes.has(file.mimetype)) {
+    cb(null, true);
+  } else {
+    cb(new Error(`Nepovolený typ súboru: ${ext} (${file.mimetype})`));
+  }
+};
+
 const upload = multer({
   storage: uploadStorage,
   limits: { fileSize: 50 * 1024 * 1024 },
-  fileFilter: (_req, file, cb) => {
-    const ext = path.extname(file.originalname).toLowerCase();
-    const allowedMimes = ALLOWED_FILE_TYPES[ext];
-    if (allowedMimes && allowedMimes.has(file.mimetype)) {
-      cb(null, true);
-    } else {
-      cb(new Error(`Nepovolený typ súboru: ${ext} (${file.mimetype})`));
-    }
-  },
+  fileFilter: fileFilterFn,
+});
+
+const contractDocsUpload = multer({
+  storage: uploadStorage,
+  limits: { fileSize: 25 * 1024 * 1024 },
+  fileFilter: fileFilterFn,
 });
 
 export async function registerRoutes(
@@ -3272,8 +3280,29 @@ export async function registerRoutes(
   app.post("/api/contracts/:id/upload-documents", isAuthenticated, (req, _res, next) => {
     (req as any)._uploadSection = "contract-docs";
     next();
-  }, upload.array("documents", 20), async (req: any, res) => {
+  }, (req: any, res: any, next: any) => {
+    contractDocsUpload.array("documents", 20)(req, res, (err: any) => {
+      if (err) {
+        if (err.code === "LIMIT_FILE_SIZE") {
+          return res.status(413).json({ message: `Súbor je príliš veľký. Maximálny limit je 25 MB.` });
+        }
+        return res.status(400).json({ message: err.message || "Chyba pri nahrávaní súboru" });
+      }
+      next();
+    });
+  }, async (req: any, res) => {
     try {
+      const MAX_BATCH_SIZE = 100 * 1024 * 1024;
+      if (req.files && Array.isArray(req.files)) {
+        const totalSize = req.files.reduce((sum: number, f: any) => sum + f.size, 0);
+        if (totalSize > MAX_BATCH_SIZE) {
+          for (const f of req.files) {
+            fs.unlink(f.path, () => {});
+          }
+          return res.status(413).json({ message: `Celková veľkosť dávky presahuje 100 MB. Nahrajte menej súborov naraz.` });
+        }
+      }
+
       const contractId = Number(req.params.id);
       const contract = await storage.getContract(contractId);
       if (!contract) return res.status(404).json({ message: "Zmluva nenájdená" });
