@@ -5248,7 +5248,7 @@ export async function registerRoutes(
       const allPartners = await storage.getPartners();
       const allProducts = await storage.getProducts();
 
-      const results: { row: number; status: string; action?: string; contractId?: number; warnings?: string[]; error?: string; incompleteFields?: string[] }[] = [];
+      const results: { row: number; status: string; action?: string; contractId?: number; subjectId?: number; warnings?: string[]; error?: string; incompleteFields?: string[] }[] = [];
       const batchId = req.body?.batchId || `IMPORT-${Date.now()}`;
       let incompleteCount = 0;
 
@@ -5300,10 +5300,46 @@ export async function registerRoutes(
           const cisloNavrhu = rowData["cislo_navrhu"] || rowData["proposal_number"] || null;
           const cisloZmluvy = rowData["cislo_zmluvy"] || rowData["contract_number"] || null;
 
+          let rc: string | null = null;
+          let ico: string | null = null;
+          if (rcIcoRaw) {
+            const cleaned = rcIcoRaw.replace(/[\/\s-]/g, "");
+            if (subjectType === "company") {
+              ico = rcIcoRaw;
+            } else if (subjectType === "szco") {
+              if (cleaned.length === 8 && /^\d+$/.test(cleaned)) ico = rcIcoRaw;
+              else rc = rcIcoRaw;
+            } else {
+              rc = rcIcoRaw;
+            }
+          }
+
+          let resolvedSubjectId: number | null = null;
+          if (rc || ico) {
+            const dupCheck = await storage.checkDuplicateSubject({
+              birthNumber: rc || undefined,
+              ico: ico || undefined,
+            });
+            if (dupCheck) {
+              resolvedSubjectId = dupCheck.id;
+            }
+          }
+
           const missingFields: string[] = [];
           if (!resolvedPartnerId) missingFields.push("Partner");
           if (!resolvedProductId) missingFields.push("Produkt");
           if (!cisloNavrhu && !cisloZmluvy) missingFields.push("Číslo návrhu alebo číslo zmluvy");
+          if (!resolvedSubjectId) {
+            if (subjectType === "person" || subjectType === "szco") {
+              if (!rc) missingFields.push("Rodné číslo");
+              if (!firstName) missingFields.push("Meno");
+              if (!lastName) missingFields.push("Priezvisko");
+            }
+            if (subjectType === "company" || subjectType === "szco") {
+              if (!ico) missingFields.push("IČO");
+              if (!companyName) missingFields.push("Názov firmy");
+            }
+          }
           const isIncomplete = missingFields.length > 0;
 
           const importedRawData: Record<string, string | null> = {
@@ -5313,8 +5349,8 @@ export async function registerRoutes(
             companyName,
             titleBefore,
             titleAfter,
-            birthNumber: rcIcoRaw,
-            ico: rcIcoRaw,
+            birthNumber: rc,
+            ico,
             email,
             phone,
           };
@@ -5332,7 +5368,7 @@ export async function registerRoutes(
             contractNumber: cisloZmluvy,
             proposalNumber: cisloNavrhu,
             kik: rowData["kik"] || null,
-            subjectId: null,
+            subjectId: resolvedSubjectId,
             partnerId: resolvedPartnerId,
             productId: resolvedProductId,
             premiumAmount: rowData["lehotne_poistne"] || rowData["premium"] ? parseInt(rowData["lehotne_poistne"] || rowData["premium"]) : null,
@@ -5357,7 +5393,7 @@ export async function registerRoutes(
             module: "zmluvy",
             entityId: created.id,
             entityName: `Import riadok ${rowNum}: kontrakt #${created.id}`,
-            newData: { row: rowNum, contractId: created.id, partnerId: resolvedPartnerId, productId: resolvedProductId },
+            newData: { row: rowNum, contractId: created.id, partnerId: resolvedPartnerId, productId: resolvedProductId, subjectId: resolvedSubjectId },
           });
 
           if (isIncomplete) incompleteCount++;
@@ -5367,6 +5403,7 @@ export async function registerRoutes(
             status: isIncomplete ? "incomplete" : "ok",
             action: "imported",
             contractId: created.id,
+            subjectId: resolvedSubjectId || undefined,
             incompleteFields: isIncomplete ? missingFields : undefined,
           });
         } catch (rowErr: any) {
