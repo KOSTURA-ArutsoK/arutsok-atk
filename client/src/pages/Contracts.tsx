@@ -3548,7 +3548,7 @@ export default function Contracts() {
           </div>
 
           <div className="text-[9px] text-muted-foreground leading-tight">
-            <span className="text-red-400 font-semibold">*</span> povinne &nbsp; <span className="text-amber-400 font-semibold">**</span> podla typu &nbsp; <span className="text-amber-400 font-semibold">***</span> aspon C alebo D &nbsp;·&nbsp; <span className="font-semibold">FO</span>: rc_ico+meno+priezvisko &nbsp; <span className="font-semibold">PO</span>: ico+firma &nbsp; <span className="font-semibold">SZCO</span>: rc_ico+firma+meno+priezvisko
+            <span className="text-red-400 font-semibold">*</span> povinne &nbsp; <span className="text-amber-400 font-semibold">**</span> podla typu &nbsp; <span className="text-amber-400 font-semibold">***</span> bud C alebo D &nbsp;·&nbsp; <span className="font-semibold">FO</span>: rc_ico+meno+priezvisko &nbsp; <span className="font-semibold">PO</span>: ico+firma &nbsp; <span className="font-semibold">SZCO</span>: rc_ico+firma+meno+priezvisko
           </div>
 
           <div className="bg-amber-500/10 border border-amber-500/30 rounded px-3 py-2 space-y-2">
