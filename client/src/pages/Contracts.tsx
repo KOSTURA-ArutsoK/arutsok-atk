@@ -3548,11 +3548,16 @@ export default function Contracts() {
           </div>
 
           <div className="text-[9px] text-muted-foreground leading-tight">
-            <span className="text-red-400 font-semibold">*</span> povinné &nbsp; <span className="text-amber-400 font-semibold">**</span> podľa typu &nbsp; <span className="text-amber-400 font-semibold">***</span> aspoň C alebo D &nbsp;·&nbsp; <span className="font-semibold">FO</span>: rc_ico+meno+priezvisko &nbsp; <span className="font-semibold">PO</span>: ico+firma &nbsp; <span className="font-semibold">SZČO</span>: rc_ico+firma+meno+priezvisko
+            <span className="text-red-400 font-semibold">*</span> povinne &nbsp; <span className="text-amber-400 font-semibold">**</span> podla typu &nbsp; <span className="text-amber-400 font-semibold">***</span> aspon C alebo D &nbsp;·&nbsp; <span className="font-semibold">FO</span>: rc_ico+meno+priezvisko &nbsp; <span className="font-semibold">PO</span>: ico+firma &nbsp; <span className="font-semibold">SZCO</span>: rc_ico+firma+meno+priezvisko
+          </div>
+
+          <div className="bg-amber-500/10 border border-amber-500/30 rounded px-2 py-1.5 text-[10px] text-amber-300 space-y-1">
+            <p>Ak nie su zadani odporucitelia, specialista bude automaticky pridany ako odporucitel s 0%.</p>
+            <p>Ak specialista nema 100% a odporucitel nie je vypisany, zmluva bude nahrata ale oznacena ako chybna.</p>
           </div>
 
           <div className="bg-muted/30 rounded px-2 py-1 font-mono text-[9px] text-muted-foreground">
-            <span className="text-foreground/60">Ukážka:</span> Allianz | PZP Auto | N-2024-001 | | person | 850101/1234 | | | Jan | Novak | | 421000000000002 | 100 | | |
+            <span className="text-foreground/60">Ukazka:</span> Allianz | PZP Auto | N-2024-001 | | person | 850101/1234 | | | Jan | Novak | | 421000000000002 | 100 | | |
           </div>
 
           <div className="flex items-center gap-2">
