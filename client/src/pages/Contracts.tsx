@@ -3050,7 +3050,9 @@ export default function Contracts() {
             const isIncomplete = !!(contract as any).incompleteData;
             const incompleteReason = (contract as any).incompleteDataReason || "";
             const needsNameConfirm = !!(contract as any).needsManualVerification;
-            const rowClass = isIncomplete ? "bg-red-500/8 hover:bg-red-500/15 border-l-2 border-l-red-500" : needsNameConfirm ? "bg-orange-500/8 hover:bg-orange-500/15 border-l-2 border-l-orange-500" : "";
+            const incompleteFields = isIncomplete ? (incompleteReason.replace(/^Chýba:\s*/, "").split(",").map((f: string) => f.trim().toLowerCase())) : [];
+            const fieldMissing = (field: string) => incompleteFields.some((f: string) => f.includes(field));
+            const rowClass = isIncomplete ? "bg-red-500/15 hover:bg-red-500/20 border-l-2 border-l-red-500" : (needsNameConfirm && !isIncomplete) ? "bg-orange-500/8 hover:bg-orange-500/15 border-l-2 border-l-orange-500" : "";
             return (
               <TableRow key={contract.id} data-testid={`row-evidencia-${contract.id}`} className={rowClass} onRowClick={() => { if (needsNameConfirm && !checkboxOnly) { setNameConfirmContract(contract); setNameConfirmOpen(true); return; } if (checkboxOnly && showRerouteCheckbox) { toggleRerouteSelect(contract.id); } else if (checkboxOnly && showCheckbox) { if (!isIncomplete) toggleSelect(contract.id); } else if (!checkboxOnly) { if (isIncomplete) { openIncompleteEdit(contract); } else { openEdit(contract); } } }}>
                 {showCheckbox && (
@@ -3100,9 +3102,30 @@ export default function Contracts() {
                     </span>
                   </TableCell>
                 )}
-                <TableCell className="text-sm py-1">{getPartnerName(contract)}</TableCell>
-                <TableCell className="text-sm py-1">{getProductName(contract)}</TableCell>
-                <TableCell className="text-sm font-mono py-1" data-testid={`text-contract-proposal-${contract.id}`}>{contract.proposalNumber || "—"}</TableCell>
+                <TableCell className="text-sm py-1">
+                  <span className="flex items-center gap-1">
+                    {getPartnerName(contract)}
+                    {isIncomplete && fieldMissing("partner") && (
+                      <Tooltip><TooltipTrigger asChild><AlertTriangle className="w-3.5 h-3.5 text-red-500 shrink-0" /></TooltipTrigger><TooltipContent className="text-xs">Chýba Partner</TooltipContent></Tooltip>
+                    )}
+                  </span>
+                </TableCell>
+                <TableCell className="text-sm py-1">
+                  <span className="flex items-center gap-1">
+                    {getProductName(contract)}
+                    {isIncomplete && fieldMissing("produkt") && (
+                      <Tooltip><TooltipTrigger asChild><AlertTriangle className="w-3.5 h-3.5 text-red-500 shrink-0" /></TooltipTrigger><TooltipContent className="text-xs">Chýba Produkt</TooltipContent></Tooltip>
+                    )}
+                  </span>
+                </TableCell>
+                <TableCell className="text-sm font-mono py-1" data-testid={`text-contract-proposal-${contract.id}`}>
+                  <span className="flex items-center gap-1">
+                    {contract.proposalNumber || "—"}
+                    {isIncomplete && fieldMissing("číslo") && (
+                      <Tooltip><TooltipTrigger asChild><AlertTriangle className="w-3.5 h-3.5 text-red-500 shrink-0" /></TooltipTrigger><TooltipContent className="text-xs">Chýba číslo návrhu/zmluvy</TooltipContent></Tooltip>
+                    )}
+                  </span>
+                </TableCell>
                 {!hideContractNumbers && <TableCell className="text-sm font-mono py-1" data-testid={`text-contract-insurancenumber-${contract.id}`}>{contract.insuranceContractNumber || "—"}</TableCell>}
                 <TableCell className="text-sm py-1">
                   <Badge variant="outline" className={`text-[10px] ${subjectType === "FO" ? "border-blue-500/50 text-blue-400" : subjectType === "SZČO" ? "border-amber-500/50 text-amber-400" : subjectType === "PO" ? "border-purple-500/50 text-purple-400" : "border-muted text-muted-foreground"}`}>{subjectType}</Badge>
@@ -3110,18 +3133,18 @@ export default function Contracts() {
                 <TableCell className="text-sm py-1" data-testid={`text-subject-name-${contract.id}`}>
                   <span className="flex items-center gap-1">
                     {subjectFullName}
-                    {isIncomplete && (
+                    {isIncomplete && (fieldMissing("meno") || fieldMissing("priezvisko") || fieldMissing("rodné") || fieldMissing("ičo") || fieldMissing("názov firmy")) && (
                       <Tooltip>
                         <TooltipTrigger asChild>
                           <AlertTriangle className="w-3.5 h-3.5 text-red-500 shrink-0" />
                         </TooltipTrigger>
                         <TooltipContent className="max-w-[250px] text-xs">
-                          <p className="font-semibold text-red-400">Neúplné údaje</p>
-                          <p>{incompleteReason}</p>
+                          <p className="font-semibold text-red-400">Neúplné údaje subjektu</p>
+                          <p>{incompleteFields.filter((f: string) => f.includes("meno") || f.includes("priezvisko") || f.includes("rodné") || f.includes("ičo") || f.includes("názov firmy")).join(", ")}</p>
                         </TooltipContent>
                       </Tooltip>
                     )}
-                    {needsNameConfirm && (
+                    {needsNameConfirm && !isIncomplete && (
                       <Tooltip>
                         <TooltipTrigger asChild>
                           <span className="inline-flex items-center px-1.5 py-0.5 rounded border border-orange-500/40 bg-orange-500/10 text-orange-400 text-[10px] font-semibold whitespace-nowrap cursor-pointer" data-testid={`badge-name-confirm-${contract.id}`}>

@@ -3241,6 +3241,24 @@ export async function registerRoutes(
         }
       }
 
+      const wasIncomplete = contract.incompleteData === true;
+      const nowComplete = req.body.incompleteData === false;
+      if (wasIncomplete && nowComplete) {
+        updateData.lifecyclePhase = 1;
+        updateData.incompleteData = false;
+        updateData.incompleteDataReason = null;
+
+        const userName = req.appUser?.username || req.appUser?.firstName || "neznámy";
+        await logAudit(req, {
+          action: "INCOMPLETE_DATA_RESOLVED",
+          module: "zmluvy",
+          entityId: contractId,
+          entityName: `Neúplné dáta manuálne doplnené používateľom ${userName}`,
+          oldData: { incompleteData: true, incompleteDataReason: contract.incompleteDataReason, lifecyclePhase: contract.lifecyclePhase },
+          newData: { incompleteData: false, incompleteDataReason: null, lifecyclePhase: 1 },
+        });
+      }
+
       await db.update(contracts).set(updateData).where(eq(contracts.id, contractId));
       const [updated] = await db.select().from(contracts).where(eq(contracts.id, contractId));
       res.json(updated);
@@ -5310,11 +5328,12 @@ export async function registerRoutes(
           const cisloZmluvy = rowData["cislo_zmluvy"] || rowData["contract_number"] || null;
 
           const missingFields: string[] = [];
-          if (!resolvedPartnerId) missingFields.push("Partner");
-          if (!resolvedProductId) missingFields.push("Produkt");
+          const criticalMissing: string[] = [];
+          if (!resolvedPartnerId) { missingFields.push("Partner"); criticalMissing.push("Partner"); }
+          if (!resolvedProductId) { missingFields.push("Produkt"); criticalMissing.push("Produkt"); }
           if (!cisloNavrhu && !cisloZmluvy) missingFields.push("Číslo návrhu alebo číslo zmluvy");
           if (subjectType === "person" || subjectType === "szco") {
-            if (!rc) missingFields.push("Rodné číslo");
+            if (!rc) { missingFields.push("Rodné číslo"); criticalMissing.push("Rodné číslo"); }
             if (!firstName) missingFields.push("Meno");
             if (!lastName) missingFields.push("Priezvisko");
           }
@@ -5324,12 +5343,14 @@ export async function registerRoutes(
           }
           const isIncomplete = missingFields.length > 0;
 
-          if (isIncomplete) {
+          const klientUidPrelim = rowData["klient_uid"] || rowData["klientuid"] || rowData["klient"] || rowData["klient_id"] || null;
+          const hasSubjectIdentifier = !!(rc || ico || klientUidPrelim || firstName || lastName || companyName);
+          if (!hasSubjectIdentifier) {
             incompleteCount++;
             results.push({
               row: rowNum,
               status: "error",
-              error: `Chýba: ${missingFields.join(", ")}`,
+              error: `Žiadne identifikačné údaje subjektu (meno, priezvisko, RČ, IČO, UID)`,
               incompleteFields: missingFields,
             });
             continue;
@@ -5537,8 +5558,8 @@ export async function registerRoutes(
             statusId: contractStatusId,
             globalNumber: nextGlobalNumber,
             uploadedByUserId: appUser?.id || null,
-            incompleteData: false,
-            incompleteDataReason: null,
+            incompleteData: isIncomplete,
+            incompleteDataReason: isIncomplete ? `Chýba: ${missingFields.join(", ")}` : null,
             importedAt: new Date(),
             importBatchId: batchId,
           };
@@ -5594,9 +5615,13 @@ export async function registerRoutes(
             newData: { row: rowNum, contractId: created.id, subjectId, partnerId: resolvedPartnerId, productId: resolvedProductId, subjectType, incompleteData: isIncomplete, incompleteFields: missingFields },
           });
 
+          if (isIncomplete) {
+            incompleteCount++;
+          }
+
           results.push({
             row: rowNum,
-            status: "ok",
+            status: isIncomplete ? "incomplete" : "ok",
             action: subjectAction,
             contractId: created.id,
             subjectId: subjectId || undefined,
@@ -5620,6 +5645,7 @@ export async function registerRoutes(
       }
 
       const successCount = results.filter(r => r.status === "ok").length;
+      const savedIncompleteCount = results.filter(r => r.status === "incomplete").length;
       const errorCount = results.filter(r => r.status === "error").length;
       const createdCount = results.filter(r => r.action === "created").length;
       const updatedCount = results.filter(r => r.action === "updated").length;
@@ -5628,8 +5654,8 @@ export async function registerRoutes(
       await logAudit(req, {
         action: "IMPORT",
         module: "zmluvy",
-        entityName: `Import ${fileName}: ${successCount} úspešných, ${createdCount} nových subjektov, ${updatedCount} aktualizovaných, ${errorCount} chýb, ${nameConfirmationNeeded} sporných mien, ${duplicityWarnings.length} duplicitných varovaní`,
-        newData: { successCount, errorCount, createdCount, updatedCount, nameConfirmationNeeded, duplicityWarnings: duplicityWarnings.length },
+        entityName: `Import ${fileName}: ${successCount} úspešných, ${savedIncompleteCount} neúplných (uložených), ${createdCount} nových subjektov, ${updatedCount} aktualizovaných, ${errorCount} chýb, ${nameConfirmationNeeded} sporných mien, ${duplicityWarnings.length} duplicitných varovaní`,
+        newData: { successCount, savedIncompleteCount, errorCount, createdCount, updatedCount, nameConfirmationNeeded, duplicityWarnings: duplicityWarnings.length },
       });
 
       res.json({
