@@ -2288,12 +2288,6 @@ export default function Contracts() {
     }
   }, [preSelectStep]);
 
-  useEffect(() => {
-    if (importStep === 2) {
-      setTimeout(() => refImportSpecialistUid.current?.focus(), 100);
-    }
-  }, [importStep]);
-
   const getEmptyRequiredFields = (step: number): string[] => {
     const missing: string[] = [];
     if (step === 1) {
@@ -2365,6 +2359,12 @@ export default function Contracts() {
   const [importNewRecommenderUid, setImportNewRecommenderUid] = useState("");
   const [importNewRecommenderPercentage, setImportNewRecommenderPercentage] = useState("");
   const [importRewardSaving, setImportRewardSaving] = useState(false);
+
+  useEffect(() => {
+    if (importStep === 2) {
+      setTimeout(() => refImportSpecialistUid.current?.focus(), 100);
+    }
+  }, [importStep]);
 
   const importRewardTotal = useMemo(() => {
     let total = parseFloat(importSpecialistPercentage) || 0;
