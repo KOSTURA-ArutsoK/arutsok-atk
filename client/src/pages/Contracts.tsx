@@ -4373,7 +4373,14 @@ export default function Contracts() {
                       <button
                         type="button"
                         className="text-destructive hover:text-destructive/80"
-                        onClick={() => { setPreSelectFiles(prev => prev.filter((_, i) => i !== idx)); setPreSelectFileError(null); }}
+                        onClick={() => {
+                          setPreSelectFiles(prev => {
+                            const updated = prev.filter((_, i) => i !== idx);
+                            const totalSize = updated.reduce((s, f) => s + f.size, 0);
+                            if (totalSize <= MAX_BATCH_SIZE) setPreSelectFileError(null);
+                            return updated;
+                          });
+                        }}
                         data-testid={`button-remove-file-${idx}`}
                       >
                         ✕
