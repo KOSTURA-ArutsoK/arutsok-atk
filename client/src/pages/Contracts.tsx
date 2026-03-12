@@ -3538,132 +3538,44 @@ export default function Contracts() {
                 Sucet percent presiahol 100%. Upravte hodnoty.
               </p>
 
-              <div className="space-y-3">
+              <div className="grid grid-cols-2 gap-3">
                 <div className="border rounded-md p-3 space-y-2" data-testid="panel-import-specialist">
-                <div className="flex items-center gap-2">
-                  <Award className="w-3.5 h-3.5 text-primary" />
-                  <span className="text-xs font-semibold uppercase tracking-wide">Specialista</span>
-                </div>
-                <div className="grid grid-cols-2 gap-2">
-                  <div className="space-y-1">
-                    <label className="text-xs text-muted-foreground">UID specialistu</label>
-                    <div className="relative">
-                      <Input
-                        placeholder="Zadajte UID alebo hladajte..."
-                        value={importSpecialistUid}
-                        onChange={e => {
-                          setImportSpecialistUid(e.target.value);
-                          setImportRewardSearchSpecialist(e.target.value);
-                        }}
-                        className="font-mono text-sm"
-                        data-testid="input-import-specialist-uid"
-                      />
-                      {(() => {
-                        const searchLower = importRewardSearchSpecialist.toLowerCase().trim();
-                        const filtered = searchLower && searchLower.length >= 2
-                          ? (appUsersAll || []).filter(u =>
-                              (`${u.firstName || ""} ${u.lastName || ""} ${u.username || ""} ${u.uid || ""}`.toLowerCase().includes(searchLower))
-                            )
-                          : [];
-                        return (
-                          <div className="absolute top-full left-0 right-0 z-50 border rounded-md bg-popover max-h-[120px] overflow-y-auto" style={{ display: filtered.length > 0 ? 'block' : 'none' }} data-testid="list-import-specialist-suggestions">
-                            {filtered.slice(0, 8).map(u => (
-                              <div
-                                key={u.id}
-                                className="flex items-center gap-2 px-3 py-1.5 cursor-pointer hover-elevate text-sm"
-                                onClick={() => {
-                                  setImportSpecialistUid(u.uid || "");
-                                  setImportRewardSearchSpecialist("");
-                                }}
-                                data-testid={`row-import-specialist-${u.id}`}
-                              >
-                                <span className="font-medium text-xs">{u.firstName || ""} {u.lastName || ""}</span>
-                                <span className="text-xs text-muted-foreground font-mono ml-auto">{formatUid(u.uid)}</span>
-                              </div>
-                            ))}
-                          </div>
-                        );
-                      })()}
-                    </div>
-                  </div>
-                  <div className="space-y-1">
-                    <label className="text-xs text-muted-foreground">Podiel (%)</label>
-                    <div className="relative">
-                      <Input
-                        type="number"
-                        min="0"
-                        max="100"
-                        step="0.01"
-                        placeholder="0"
-                        value={importSpecialistPercentage}
-                        onChange={e => setImportSpecialistPercentage(e.target.value)}
-                        className="pr-8 font-mono text-sm"
-                        data-testid="input-import-specialist-percentage"
-                      />
-                      <Percent className="absolute right-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
-                    </div>
-                  </div>
-                </div>
-                <p className="text-[10px] text-muted-foreground">
-                  Ak nie su zadani odporucitelia, specialista bude automaticky pridany ako odporucitel s 0%.
-                </p>
-              </div>
-
-              <div className="border rounded-md p-3 space-y-2" data-testid="panel-import-recommenders">
-                <div className="flex items-center justify-between gap-2 flex-wrap">
                   <div className="flex items-center gap-2">
-                    <Users className="w-3.5 h-3.5 text-primary" />
-                    <span className="text-xs font-semibold uppercase tracking-wide">Odporucitelia</span>
-                    <Badge variant="outline" className="text-[10px]">{importRecommenders.length}</Badge>
+                    <Award className="w-3.5 h-3.5 text-primary" />
+                    <span className="text-xs font-semibold uppercase tracking-wide">Specialista</span>
                   </div>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => {
-                      setImportAddingRecommender(true);
-                      setImportNewRecommenderUid("");
-                      setImportNewRecommenderPercentage("");
-                      setImportRewardSearchRecommender("");
-                    }}
-                    data-testid="button-import-add-recommender"
-                  >
-                    <Plus className="w-3.5 h-3.5 mr-1" /> Pridat odporucitela
-                  </Button>
-                </div>
-
-                <div className="border rounded-md p-2 space-y-2" style={{ display: importAddingRecommender ? 'block' : 'none' }} data-testid="panel-import-add-recommender">
-                  <div className="grid grid-cols-2 gap-2">
+                  <div className="space-y-2">
                     <div className="space-y-1">
-                      <label className="text-xs text-muted-foreground">UID odporucitela</label>
+                      <label className="text-xs text-muted-foreground">UID specialistu</label>
                       <div className="relative">
                         <Input
-                          placeholder="Zadajte UID alebo hladajte..."
-                          value={importNewRecommenderUid}
+                          placeholder="UID alebo meno..."
+                          value={importSpecialistUid}
                           onChange={e => {
-                            setImportNewRecommenderUid(e.target.value);
-                            setImportRewardSearchRecommender(e.target.value);
+                            setImportSpecialistUid(e.target.value);
+                            setImportRewardSearchSpecialist(e.target.value);
                           }}
                           className="font-mono text-sm"
-                          data-testid="input-import-new-recommender-uid"
+                          data-testid="input-import-specialist-uid"
                         />
                         {(() => {
-                          const searchLower = importRewardSearchRecommender.toLowerCase().trim();
+                          const searchLower = importRewardSearchSpecialist.toLowerCase().trim();
                           const filtered = searchLower && searchLower.length >= 2
                             ? (appUsersAll || []).filter(u =>
                                 (`${u.firstName || ""} ${u.lastName || ""} ${u.username || ""} ${u.uid || ""}`.toLowerCase().includes(searchLower))
                               )
                             : [];
                           return (
-                            <div className="absolute top-full left-0 right-0 z-50 border rounded-md bg-popover max-h-[120px] overflow-y-auto" style={{ display: filtered.length > 0 ? 'block' : 'none' }} data-testid="list-import-recommender-suggestions">
+                            <div className="absolute top-full left-0 right-0 z-50 border rounded-md bg-popover max-h-[120px] overflow-y-auto" style={{ display: filtered.length > 0 ? 'block' : 'none' }} data-testid="list-import-specialist-suggestions">
                               {filtered.slice(0, 8).map(u => (
                                 <div
                                   key={u.id}
                                   className="flex items-center gap-2 px-3 py-1.5 cursor-pointer hover-elevate text-sm"
                                   onClick={() => {
-                                    setImportNewRecommenderUid(u.uid || "");
-                                    setImportRewardSearchRecommender("");
+                                    setImportSpecialistUid(u.uid || "");
+                                    setImportRewardSearchSpecialist("");
                                   }}
-                                  data-testid={`row-import-recommender-${u.id}`}
+                                  data-testid={`row-import-specialist-${u.id}`}
                                 >
                                   <span className="font-medium text-xs">{u.firstName || ""} {u.lastName || ""}</span>
                                   <span className="text-xs text-muted-foreground font-mono ml-auto">{formatUid(u.uid)}</span>
@@ -3683,103 +3595,191 @@ export default function Contracts() {
                           max="100"
                           step="0.01"
                           placeholder="0"
-                          value={importNewRecommenderPercentage}
-                          onChange={e => setImportNewRecommenderPercentage(e.target.value)}
+                          value={importSpecialistPercentage}
+                          onChange={e => setImportSpecialistPercentage(e.target.value)}
                           className="pr-8 font-mono text-sm"
-                          data-testid="input-import-new-recommender-percentage"
+                          data-testid="input-import-specialist-percentage"
                         />
                         <Percent className="absolute right-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
                       </div>
                     </div>
                   </div>
-                  <div className="flex items-center gap-2 justify-end">
+                  <p className="text-[10px] text-muted-foreground">
+                    Ak nie su zadani odporucitelia, specialista bude automaticky pridany ako odporucitel s 0%.
+                  </p>
+                </div>
+
+                <div className="border rounded-md p-3 space-y-2" data-testid="panel-import-recommenders">
+                  <div className="flex items-center justify-between gap-2 flex-wrap">
+                    <div className="flex items-center gap-2">
+                      <Users className="w-3.5 h-3.5 text-primary" />
+                      <span className="text-xs font-semibold uppercase tracking-wide">Odporucitelia</span>
+                      <Badge variant="outline" className="text-[10px]">{importRecommenders.length}</Badge>
+                    </div>
                     <Button
                       size="sm"
-                      variant="ghost"
-                      onClick={() => setImportAddingRecommender(false)}
-                      data-testid="button-import-cancel-recommender"
-                    >
-                      Zrusit
-                    </Button>
-                    <Button
-                      size="sm"
+                      variant="outline"
+                      className="h-7 text-[11px] px-2"
                       onClick={() => {
-                        if (!importNewRecommenderUid.trim()) {
-                          toast({ title: "Chyba", description: "Zadajte UID odporucitela", variant: "destructive" });
-                          return;
-                        }
-                        const newTotal = importRewardTotal + (parseFloat(importNewRecommenderPercentage) || 0);
-                        if (newTotal > 100) {
-                          toast({ title: "Chyba", description: `Sucet percent by presahoval 100% (${newTotal.toFixed(2)}%)`, variant: "destructive" });
-                          return;
-                        }
-                        setImportRecommenders(prev => [...prev, { uid: importNewRecommenderUid.trim(), percentage: importNewRecommenderPercentage || "0" }]);
+                        setImportAddingRecommender(true);
                         setImportNewRecommenderUid("");
                         setImportNewRecommenderPercentage("");
                         setImportRewardSearchRecommender("");
-                        setImportAddingRecommender(false);
                       }}
-                      data-testid="button-import-confirm-recommender"
+                      data-testid="button-import-add-recommender"
                     >
-                      <Check className="w-3.5 h-3.5 mr-1" /> Potvrdit
+                      <Plus className="w-3 h-3 mr-1" /> Pridat
                     </Button>
                   </div>
-                </div>
 
-                <div className="space-y-1" data-testid="list-import-recommenders">
-                  {importRecommenders.map((rec, idx) => {
-                    const user = (appUsersAll || []).find(u => u.uid === rec.uid);
-                    return (
-                      <div key={`${rec.uid}-${idx}`} className="flex items-center gap-2 px-3 py-1.5 border rounded-md bg-muted/30" data-testid={`row-import-recommender-${idx}`}>
-                        <Users className="w-3.5 h-3.5 text-primary flex-shrink-0" />
-                        <span className="text-sm font-medium">{user ? `${user.firstName || ""} ${user.lastName || ""}`.trim() || user.username : formatUid(rec.uid)}</span>
-                        <span className="text-xs text-muted-foreground font-mono">{formatUid(rec.uid)}</span>
-                        <div className="flex items-center gap-1 ml-auto">
+                  <div className="border rounded-md p-2 space-y-2" style={{ display: importAddingRecommender ? 'block' : 'none' }} data-testid="panel-import-add-recommender">
+                    <div className="space-y-2">
+                      <div className="space-y-1">
+                        <label className="text-xs text-muted-foreground">UID odporucitela</label>
+                        <div className="relative">
+                          <Input
+                            placeholder="UID alebo meno..."
+                            value={importNewRecommenderUid}
+                            onChange={e => {
+                              setImportNewRecommenderUid(e.target.value);
+                              setImportRewardSearchRecommender(e.target.value);
+                            }}
+                            className="font-mono text-sm"
+                            data-testid="input-import-new-recommender-uid"
+                          />
+                          {(() => {
+                            const searchLower = importRewardSearchRecommender.toLowerCase().trim();
+                            const filtered = searchLower && searchLower.length >= 2
+                              ? (appUsersAll || []).filter(u =>
+                                  (`${u.firstName || ""} ${u.lastName || ""} ${u.username || ""} ${u.uid || ""}`.toLowerCase().includes(searchLower))
+                                )
+                              : [];
+                            return (
+                              <div className="absolute top-full left-0 right-0 z-50 border rounded-md bg-popover max-h-[120px] overflow-y-auto" style={{ display: filtered.length > 0 ? 'block' : 'none' }} data-testid="list-import-recommender-suggestions">
+                                {filtered.slice(0, 8).map(u => (
+                                  <div
+                                    key={u.id}
+                                    className="flex items-center gap-2 px-3 py-1.5 cursor-pointer hover-elevate text-sm"
+                                    onClick={() => {
+                                      setImportNewRecommenderUid(u.uid || "");
+                                      setImportRewardSearchRecommender("");
+                                    }}
+                                    data-testid={`row-import-recommender-${u.id}`}
+                                  >
+                                    <span className="font-medium text-xs">{u.firstName || ""} {u.lastName || ""}</span>
+                                    <span className="text-xs text-muted-foreground font-mono ml-auto">{formatUid(u.uid)}</span>
+                                  </div>
+                                ))}
+                              </div>
+                            );
+                          })()}
+                        </div>
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-xs text-muted-foreground">Podiel (%)</label>
+                        <div className="relative">
                           <Input
                             type="number"
                             min="0"
                             max="100"
                             step="0.01"
-                            value={rec.percentage}
-                            onChange={e => {
-                              const val = e.target.value;
-                              setImportRecommenders(prev => prev.map((r, i) => i === idx ? { ...r, percentage: val } : r));
-                            }}
-                            className="w-20 h-7 text-xs font-mono text-right"
-                            data-testid={`input-import-recommender-percentage-${idx}`}
+                            placeholder="0"
+                            value={importNewRecommenderPercentage}
+                            onChange={e => setImportNewRecommenderPercentage(e.target.value)}
+                            className="pr-8 font-mono text-sm"
+                            data-testid="input-import-new-recommender-percentage"
                           />
-                          <span className="text-xs text-muted-foreground">%</span>
+                          <Percent className="absolute right-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
                         </div>
-                        <Button
-                          size="icon"
-                          variant="ghost"
-                          onClick={() => setImportRecommenders(prev => prev.filter((_, i) => i !== idx))}
-                          data-testid={`button-import-remove-recommender-${idx}`}
-                        >
-                          <X className="w-3.5 h-3.5" />
-                        </Button>
                       </div>
-                    );
-                  })}
-                  <div style={{ display: importRecommenders.length === 0 && importSpecialistUid ? 'block' : 'none' }}>
-                    <div className="flex items-center gap-2 px-3 py-1.5 border rounded-md bg-muted/20 border-dashed" data-testid="row-import-autofill-recommender">
-                      <Users className="w-3.5 h-3.5 text-muted-foreground flex-shrink-0" />
-                      <span className="text-sm text-muted-foreground italic">
-                        {(() => {
-                          const user = (appUsersAll || []).find(u => u.uid === importSpecialistUid);
-                          return user ? `${user.firstName || ""} ${user.lastName || ""}`.trim() || user.username : importSpecialistUid;
-                        })()}
-                      </span>
-                      <span className="text-xs text-muted-foreground font-mono">{importSpecialistUid}</span>
-                      <span className="text-[10px] text-muted-foreground ml-auto">0% (auto)</span>
                     </div>
-                    <p className="text-[10px] text-muted-foreground mt-1">
-                      Specialista bude automaticky pridany ako odporucitel s 0% pri ulozeni.
-                    </p>
+                    <div className="flex items-center gap-2 justify-end">
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => setImportAddingRecommender(false)}
+                        data-testid="button-import-cancel-recommender"
+                      >
+                        Zrusit
+                      </Button>
+                      <Button
+                        size="sm"
+                        onClick={() => {
+                          if (!importNewRecommenderUid.trim()) {
+                            toast({ title: "Chyba", description: "Zadajte UID odporucitela", variant: "destructive" });
+                            return;
+                          }
+                          const newTotal = importRewardTotal + (parseFloat(importNewRecommenderPercentage) || 0);
+                          if (newTotal > 100) {
+                            toast({ title: "Chyba", description: `Sucet percent by presahoval 100% (${newTotal.toFixed(2)}%)`, variant: "destructive" });
+                            return;
+                          }
+                          setImportRecommenders(prev => [...prev, { uid: importNewRecommenderUid.trim(), percentage: importNewRecommenderPercentage || "0" }]);
+                          setImportNewRecommenderUid("");
+                          setImportNewRecommenderPercentage("");
+                          setImportRewardSearchRecommender("");
+                          setImportAddingRecommender(false);
+                        }}
+                        data-testid="button-import-confirm-recommender"
+                      >
+                        <Check className="w-3.5 h-3.5 mr-1" /> Potvrdit
+                      </Button>
+                    </div>
+                  </div>
+
+                  <div className="space-y-1" data-testid="list-import-recommenders">
+                    {importRecommenders.map((rec, idx) => {
+                      const user = (appUsersAll || []).find(u => u.uid === rec.uid);
+                      return (
+                        <div key={`${rec.uid}-${idx}`} className="flex items-center gap-2 px-2 py-1 border rounded-md bg-muted/30 text-xs" data-testid={`row-import-recommender-${idx}`}>
+                          <Users className="w-3 h-3 text-primary flex-shrink-0" />
+                          <span className="font-medium truncate">{user ? `${user.firstName || ""} ${user.lastName || ""}`.trim() || user.username : formatUid(rec.uid)}</span>
+                          <div className="flex items-center gap-1 ml-auto flex-shrink-0">
+                            <Input
+                              type="number"
+                              min="0"
+                              max="100"
+                              step="0.01"
+                              value={rec.percentage}
+                              onChange={e => {
+                                const val = e.target.value;
+                                setImportRecommenders(prev => prev.map((r, i) => i === idx ? { ...r, percentage: val } : r));
+                              }}
+                              className="w-16 h-6 text-[11px] font-mono text-right"
+                              data-testid={`input-import-recommender-percentage-${idx}`}
+                            />
+                            <span className="text-[10px] text-muted-foreground">%</span>
+                          </div>
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            className="h-6 w-6"
+                            onClick={() => setImportRecommenders(prev => prev.filter((_, i) => i !== idx))}
+                            data-testid={`button-import-remove-recommender-${idx}`}
+                          >
+                            <X className="w-3 h-3" />
+                          </Button>
+                        </div>
+                      );
+                    })}
+                    <div style={{ display: importRecommenders.length === 0 && importSpecialistUid ? 'block' : 'none' }}>
+                      <div className="flex items-center gap-2 px-2 py-1 border rounded-md bg-muted/20 border-dashed text-xs" data-testid="row-import-autofill-recommender">
+                        <Users className="w-3 h-3 text-muted-foreground flex-shrink-0" />
+                        <span className="text-muted-foreground italic truncate">
+                          {(() => {
+                            const user = (appUsersAll || []).find(u => u.uid === importSpecialistUid);
+                            return user ? `${user.firstName || ""} ${user.lastName || ""}`.trim() || user.username : importSpecialistUid;
+                          })()}
+                        </span>
+                        <span className="text-[10px] text-muted-foreground ml-auto flex-shrink-0">0% (auto)</span>
+                      </div>
+                      <p className="text-[10px] text-muted-foreground mt-1">
+                        Specialista bude automaticky pridany ako odporucitel s 0% pri ulozeni.
+                      </p>
+                    </div>
                   </div>
                 </div>
               </div>
-            </div>
             </div>
           </div>
         )}
@@ -4851,18 +4851,18 @@ export default function Contracts() {
                 Sucet percent presiahol 100%. Upravte hodnoty.
               </p>
 
-              <div className="space-y-3">
+              <div className="grid grid-cols-2 gap-3">
                 <div className="border rounded-md p-3 space-y-2" data-testid="panel-preselect-specialist">
                   <div className="flex items-center gap-2">
                     <Award className="w-3.5 h-3.5 text-primary" />
                     <span className="text-xs font-semibold uppercase tracking-wide">Specialista</span>
                   </div>
-                  <div className="grid grid-cols-2 gap-2">
+                  <div className="space-y-2">
                     <div className="space-y-1">
                       <label className="text-xs text-muted-foreground">UID specialistu</label>
                       <div className="relative">
                         <Input
-                          placeholder="Zadajte UID alebo hladajte..."
+                          placeholder="UID alebo meno..."
                           value={preSelectSpecialistUid}
                           onChange={e => {
                             setPreSelectSpecialistUid(e.target.value);
@@ -4932,6 +4932,7 @@ export default function Contracts() {
                     <Button
                       size="sm"
                       variant="outline"
+                      className="h-7 text-[11px] px-2"
                       onClick={() => {
                         setPreSelectAddingRecommender(true);
                         setPreSelectNewRecommenderUid("");
@@ -4940,17 +4941,17 @@ export default function Contracts() {
                       }}
                       data-testid="button-preselect-add-recommender"
                     >
-                      <Plus className="w-3.5 h-3.5 mr-1" /> Pridat odporucitela
+                      <Plus className="w-3 h-3 mr-1" /> Pridat
                     </Button>
                   </div>
 
                   <div className="border rounded-md p-2 space-y-2" style={{ display: preSelectAddingRecommender ? 'block' : 'none' }} data-testid="panel-preselect-add-recommender">
-                    <div className="grid grid-cols-2 gap-2">
+                    <div className="space-y-2">
                       <div className="space-y-1">
                         <label className="text-xs text-muted-foreground">UID odporucitela</label>
                         <div className="relative">
                           <Input
-                            placeholder="Zadajte UID alebo hladajte..."
+                            placeholder="UID alebo meno..."
                             value={preSelectNewRecommenderUid}
                             onChange={e => {
                               setPreSelectNewRecommenderUid(e.target.value);
@@ -5043,11 +5044,10 @@ export default function Contracts() {
                     {preSelectRecommenders.map((rec, idx) => {
                       const user = (appUsersAll || []).find(u => u.uid === rec.uid);
                       return (
-                        <div key={`${rec.uid}-${idx}`} className="flex items-center gap-2 px-3 py-1.5 border rounded-md bg-muted/30" data-testid={`row-preselect-recommender-${idx}`}>
-                          <Users className="w-3.5 h-3.5 text-primary flex-shrink-0" />
-                          <span className="text-sm font-medium">{user ? `${user.firstName || ""} ${user.lastName || ""}`.trim() || user.username : formatUid(rec.uid)}</span>
-                          <span className="text-xs text-muted-foreground font-mono">{formatUid(rec.uid)}</span>
-                          <div className="flex items-center gap-1 ml-auto">
+                        <div key={`${rec.uid}-${idx}`} className="flex items-center gap-2 px-2 py-1 border rounded-md bg-muted/30 text-xs" data-testid={`row-preselect-recommender-${idx}`}>
+                          <Users className="w-3 h-3 text-primary flex-shrink-0" />
+                          <span className="font-medium truncate">{user ? `${user.firstName || ""} ${user.lastName || ""}`.trim() || user.username : formatUid(rec.uid)}</span>
+                          <div className="flex items-center gap-1 ml-auto flex-shrink-0">
                             <Input
                               type="number"
                               min="0"
@@ -5058,33 +5058,33 @@ export default function Contracts() {
                                 const val = e.target.value;
                                 setPreSelectRecommenders(prev => prev.map((r, i) => i === idx ? { ...r, percentage: val } : r));
                               }}
-                              className="w-20 h-7 text-xs font-mono text-right"
+                              className="w-16 h-6 text-[11px] font-mono text-right"
                               data-testid={`input-preselect-recommender-percentage-${idx}`}
                             />
-                            <span className="text-xs text-muted-foreground">%</span>
+                            <span className="text-[10px] text-muted-foreground">%</span>
                           </div>
                           <Button
                             size="icon"
                             variant="ghost"
+                            className="h-6 w-6"
                             onClick={() => setPreSelectRecommenders(prev => prev.filter((_, i) => i !== idx))}
                             data-testid={`button-preselect-remove-recommender-${idx}`}
                           >
-                            <X className="w-3.5 h-3.5" />
+                            <X className="w-3 h-3" />
                           </Button>
                         </div>
                       );
                     })}
                     <div style={{ display: preSelectRecommenders.length === 0 && preSelectSpecialistUid ? 'block' : 'none' }}>
-                      <div className="flex items-center gap-2 px-3 py-1.5 border rounded-md bg-muted/20 border-dashed" data-testid="row-preselect-autofill-recommender">
-                        <Users className="w-3.5 h-3.5 text-muted-foreground flex-shrink-0" />
-                        <span className="text-sm text-muted-foreground italic">
+                      <div className="flex items-center gap-2 px-2 py-1 border rounded-md bg-muted/20 border-dashed text-xs" data-testid="row-preselect-autofill-recommender">
+                        <Users className="w-3 h-3 text-muted-foreground flex-shrink-0" />
+                        <span className="text-muted-foreground italic truncate">
                           {(() => {
                             const user = (appUsersAll || []).find(u => u.uid === preSelectSpecialistUid);
                             return user ? `${user.firstName || ""} ${user.lastName || ""}`.trim() || user.username : preSelectSpecialistUid;
                           })()}
                         </span>
-                        <span className="text-xs text-muted-foreground font-mono">{preSelectSpecialistUid}</span>
-                        <span className="text-[10px] text-muted-foreground ml-auto">0% (auto)</span>
+                        <span className="text-[10px] text-muted-foreground ml-auto flex-shrink-0">0% (auto)</span>
                       </div>
                       <p className="text-[10px] text-muted-foreground mt-1">
                         Specialista bude automaticky pridany ako odporucitel s 0% pri ulozeni.
