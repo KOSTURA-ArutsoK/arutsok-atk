@@ -5408,15 +5408,56 @@ export async function registerRoutes(
       let headers: string[] = [];
       const rawRows: Record<string, string>[] = [];
 
+      const POSITIONAL_COLUMNS = ["partner", "produkt", "cislo_navrhu", "cislo_zmluvy", "typ_subjektu", "rc_ico", "nazov_firmy", "titul_pred", "meno", "priezvisko", "titul_za"];
+
+      const HEADER_ALIASES: Record<string, string> = {
+        "cislo navrhu": "cislo_navrhu", "cislo_navrhu": "cislo_navrhu", "proposal_number": "cislo_navrhu", "č. návrhu": "cislo_navrhu", "číslo návrhu": "cislo_navrhu", "cislo navrhu": "cislo_navrhu",
+        "cislo zmluvy": "cislo_zmluvy", "cislo_zmluvy": "cislo_zmluvy", "contract_number": "cislo_zmluvy", "č. zmluvy": "cislo_zmluvy", "číslo zmluvy": "cislo_zmluvy",
+        "partner": "partner", "partner_name": "partner",
+        "produkt": "produkt", "product": "produkt", "product_name": "produkt",
+        "typ subjektu": "typ_subjektu", "typ_subjektu": "typ_subjektu", "subject_type": "typ_subjektu", "typ": "typ_subjektu",
+        "rc ico": "rc_ico", "rc_ico": "rc_ico", "rodne cislo": "rc_ico", "rodné číslo": "rc_ico", "rodne_cislo": "rc_ico", "rc": "rc_ico", "ico": "rc_ico", "ičo": "rc_ico", "birth_number": "rc_ico",
+        "nazov firmy": "nazov_firmy", "nazov_firmy": "nazov_firmy", "názov firmy": "nazov_firmy", "company_name": "nazov_firmy", "firma": "nazov_firmy",
+        "titul pred": "titul_pred", "titul_pred": "titul_pred", "title_before": "titul_pred", "titul pred menom": "titul_pred",
+        "meno": "meno", "first_name": "meno", "krstne meno": "meno", "krstné meno": "meno",
+        "priezvisko": "priezvisko", "last_name": "priezvisko",
+        "titul za": "titul_za", "titul_za": "titul_za", "title_after": "titul_za", "titul za menom": "titul_za",
+        "specialista": "specialista", "specialist": "specialista",
+        "specialista podiel": "specialista_podiel", "specialista_podiel": "specialista_podiel", "specialist_percentage": "specialista_podiel",
+        "odporucitel": "odporucitel", "recommender": "odporucitel",
+        "odporucitel podiel": "odporucitel_podiel", "odporucitel_podiel": "odporucitel_podiel", "recommender_percentage": "odporucitel_podiel",
+      };
+
+      function removeDiacritics(str: string): string {
+        return str.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+      }
+
+      function normalizeHeader(raw: string): string {
+        const trimmed = raw.trim().toLowerCase();
+        if (HEADER_ALIASES[trimmed]) return HEADER_ALIASES[trimmed];
+        const noDiac = removeDiacritics(trimmed);
+        if (HEADER_ALIASES[noDiac]) return HEADER_ALIASES[noDiac];
+        const underscored = noDiac.replace(/\s+/g, "_");
+        if (HEADER_ALIASES[underscored]) return HEADER_ALIASES[underscored];
+        return underscored;
+      }
+
+      const KNOWN_IMPORT_HEADERS = new Set([...POSITIONAL_COLUMNS, ...Object.values(HEADER_ALIASES), "specialista", "specialista_podiel", "odporucitel", "odporucitel_podiel"]);
+
       if (isCSV) {
         const csvContent = fs.readFileSync(file.path, "utf-8");
         const records = csvParse(csvContent, { columns: true, skip_empty_lines: true, delimiter: [";", ",", "\t"], relax_column_count: true });
         if (records.length === 0) return res.status(400).json({ message: "CSV neobsahuje žiadne dáta" });
-        headers = Object.keys(records[0] as Record<string, unknown>).map((h: string) => h.trim().toLowerCase());
+        const rawCsvHeaders = Object.keys(records[0] as Record<string, unknown>);
+        const headerMap: Record<string, string> = {};
+        for (const h of rawCsvHeaders) {
+          headerMap[h] = normalizeHeader(h);
+        }
+        headers = Object.values(headerMap);
         for (const rec of records) {
           const rowData: Record<string, string> = {};
           for (const [k, v] of Object.entries(rec as Record<string, unknown>)) {
-            rowData[k.trim().toLowerCase()] = String(v || "").trim();
+            rowData[headerMap[k] || normalizeHeader(k)] = String(v || "").trim();
           }
           rawRows.push(rowData);
         }
@@ -5427,23 +5468,40 @@ export async function registerRoutes(
         const sheet = workbook.worksheets[0];
         if (!sheet) return res.status(400).json({ message: "Excel neobsahuje žiadny hárok" });
 
-        const KNOWN_IMPORT_HEADERS = new Set(["partner", "produkt", "cislo_navrhu", "cislo_zmluvy", "typ_subjektu", "rc_ico", "nazov_firmy", "titul_pred", "meno", "priezvisko", "titul_za", "partner_name", "product", "product_name", "rodne_cislo", "rc", "ico", "birth_number", "typ", "subject_type", "first_name", "last_name", "company_name", "title_before", "title_after", "specialista", "specialista_podiel", "specialist", "specialist_percentage", "odporucitel", "odporucitel_podiel", "recommender", "recommender_percentage"]);
-
         const headerRow = sheet.getRow(1);
         const colCount = headerRow.cellCount || sheet.columnCount || 11;
+        const rawHeaderValues: string[] = [];
         for (let ci = 1; ci <= Math.max(colCount, 11); ci++) {
           const cell = headerRow.getCell(ci);
-          const val = String(cell.value ?? "").trim().toLowerCase();
-          if (val) headers[ci] = val;
+          const val = String(cell.value ?? "").trim();
+          if (val) {
+            const normalized = normalizeHeader(val);
+            headers[ci] = normalized;
+            rawHeaderValues.push(`${val} → ${normalized}`);
+          }
         }
 
-        const firstRowLooksLikeHeader = headers.filter(Boolean).some(h => KNOWN_IMPORT_HEADERS.has(h));
+        const recognizedCount = headers.filter(h => h && KNOWN_IMPORT_HEADERS.has(h)).length;
+        const totalNonEmpty = headers.filter(Boolean).length;
+        const recognitionRatio = totalNonEmpty > 0 ? recognizedCount / totalNonEmpty : 0;
+        const firstRowLooksLikeHeader = recognitionRatio >= 0.5;
+
+        console.log(`[IMPORT] Header analýza: ${recognizedCount}/${totalNonEmpty} hlavičiek rozpoznaných (${(recognitionRatio * 100).toFixed(0)}% z detekovaných). Mód: ${firstRowLooksLikeHeader ? "HEADER" : "POZIČNÝ"}`);
+        if (rawHeaderValues.length > 0) {
+          console.log(`[IMPORT] Mapovanie hlavičiek: ${rawHeaderValues.join(", ")}`);
+        }
+
         const dataStartRow = firstRowLooksLikeHeader ? 2 : 1;
 
         if (!firstRowLooksLikeHeader) {
           headers = [];
           for (let ci = 1; ci <= 11; ci++) {
             headers[ci] = `col_${ci}`;
+          }
+        } else {
+          const unrecognized = headers.filter(h => h && !KNOWN_IMPORT_HEADERS.has(h));
+          if (unrecognized.length > 0) {
+            console.log(`[IMPORT] Nerozpoznané hlavičky (budú zachované ako custom stĺpce): ${unrecognized.join(", ")}`);
           }
         }
 
@@ -5465,11 +5523,12 @@ export async function registerRoutes(
         }
       }
 
-      const POSITIONAL_COLUMNS = ["partner", "produkt", "cislo_navrhu", "cislo_zmluvy", "typ_subjektu", "rc_ico", "nazov_firmy", "titul_pred", "meno", "priezvisko", "titul_za"];
       const knownHeaders = new Set(POSITIONAL_COLUMNS);
-      const hasRecognizedHeaders = headers.some(h => knownHeaders.has(h));
+      const recognizedHeaderCount = headers.filter(h => knownHeaders.has(h)).length;
+      const totalHeaderCount = headers.filter(Boolean).length;
+      const usePositionalFallback = totalHeaderCount === 0 || (recognizedHeaderCount / totalHeaderCount) < 0.5;
 
-      if (!hasRecognizedHeaders && rawRows.length > 0) {
+      if (usePositionalFallback && rawRows.length > 0) {
         const remapped: Record<string, string>[] = [];
         for (const row of rawRows) {
           const newRow: Record<string, string> = {};
@@ -5486,7 +5545,9 @@ export async function registerRoutes(
         }
         rawRows.length = 0;
         rawRows.push(...remapped);
-        console.log("[IMPORT] Pozičné mapovanie použité — hlavičky neboli rozpoznané. Prvý riadok:", headers.join(", "));
+        console.log("[IMPORT] Pozičné mapovanie použité — menej ako 50% hlavičiek rozpoznaných. Rozpoznané:", recognizedHeaderCount, "z", totalHeaderCount, ". Pôvodné hlavičky:", headers.filter(Boolean).join(", "));
+      } else if (rawRows.length > 0) {
+        console.log("[IMPORT] Header mód použitý. Rozpoznané hlavičky:", headers.filter(h => h && knownHeaders.has(h)).join(", "));
       }
 
       const allPartners = await storage.getPartners();
