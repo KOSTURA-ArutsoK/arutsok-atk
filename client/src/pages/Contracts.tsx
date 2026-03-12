@@ -4158,7 +4158,7 @@ export default function Contracts() {
                       } else if (preSelectSubjectSearch.trim() && preSelectFilteredSubjects.length > 1) {
                         const firstRow = document.querySelector('[data-testid^="row-preselect-subject-"]') as HTMLElement;
                         if (firstRow) firstRow.focus();
-                      } else if (!preSelectSubjectSearch.trim() || preSelectFilteredSubjects.length === 0) {
+                      } else if (preSelectSubjectSearch.trim() && preSelectFilteredSubjects.length === 0) {
                         setPreSelectShowNameFields(true);
                         setTimeout(() => {
                           if (preSelectSubjectType === "szco" || preSelectSubjectType === "company") {
