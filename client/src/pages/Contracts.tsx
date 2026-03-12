@@ -4353,7 +4353,7 @@ export default function Contracts() {
                                     {sprievodkaColumnVisibility.isVisible("contractNumber") && <TableCell className="font-mono text-sm" data-testid={`text-dispatched-number-${contract.id}`}>
                                       <span className="flex items-center gap-1">
                                         <Lock className="w-3 h-3 text-amber-500 shrink-0" style={{ display: contract.isLocked ? 'block' : 'none' }} />
-                                        {contract.contractNumber || "-"}
+                                        {contract.insuranceContractNumber || "-"}
                                       </span>
                                     </TableCell>}
                                     <TableCell className="text-sm">
