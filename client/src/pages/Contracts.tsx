@@ -3047,12 +3047,13 @@ export default function Contracts() {
             const needsNameConfirm = !!(contract as any).needsManualVerification;
             const incompleteFields = isIncomplete ? (incompleteReason.replace(/^Chýba:\s*/, "").split(",").map((f: string) => f.trim().toLowerCase())) : [];
             const fieldMissing = (field: string) => incompleteFields.some((f: string) => f.includes(field));
-            const rowClass = isIncomplete ? "bg-red-500/15 hover:bg-red-500/20 border-l-2 border-l-red-500" : (needsNameConfirm && !isIncomplete) ? "bg-orange-500/8 hover:bg-orange-500/15 border-l-2 border-l-orange-500" : "";
+            const isRowSelected = selectedIds.includes(contract.id);
+            const rowClass = isRowSelected ? "bg-blue-500/20 hover:bg-blue-500/25 border-l-2 border-l-blue-500" : isIncomplete ? "bg-red-500/15 hover:bg-red-500/20 border-l-2 border-l-red-500" : (needsNameConfirm && !isIncomplete) ? "bg-orange-500/8 hover:bg-orange-500/15 border-l-2 border-l-orange-500" : "";
             return (
-              <TableRow key={contract.id} data-testid={`row-evidencia-${contract.id}`} className={rowClass} onRowClick={() => { if (needsNameConfirm && !checkboxOnly) { setNameConfirmContract(contract); setNameConfirmOpen(true); return; } if (checkboxOnly && showRerouteCheckbox) { toggleRerouteSelect(contract.id); } else if (checkboxOnly && showCheckbox) { if (earlyPhase) { openIncompleteEdit(contract); } else if (!isIncomplete) { toggleSelect(contract.id); } } else if (!checkboxOnly) { if (earlyPhase || isIncomplete) { openIncompleteEdit(contract); } else { openEdit(contract); } } }}>
+              <TableRow key={contract.id} data-testid={`row-evidencia-${contract.id}`} className={rowClass} onRowClick={() => { if (needsNameConfirm && !checkboxOnly) { setNameConfirmContract(contract); setNameConfirmOpen(true); return; } if (checkboxOnly && showRerouteCheckbox) { toggleRerouteSelect(contract.id); } else if (checkboxOnly && showCheckbox) { if (earlyPhase) { toggleSelect(contract.id); } else if (!isIncomplete) { toggleSelect(contract.id); } } else if (!checkboxOnly) { if (earlyPhase || isIncomplete) { openIncompleteEdit(contract); } else { openEdit(contract); } } }}>
                 {showCheckbox && (
                   <TableCell>
-                    {isIncomplete ? (
+                    {isIncomplete && !earlyPhase ? (
                       <Tooltip>
                         <TooltipTrigger asChild>
                           <span className="inline-flex"><Checkbox disabled checked={false} data-testid={`checkbox-contract-${contract.id}`} /></span>
@@ -3205,7 +3206,7 @@ export default function Contracts() {
                           <span className="text-[11px]">Interná intervencia</span>
                         </Button>
                       )}
-                      <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => earlyPhase ? openIncompleteEdit(contract) : openView(contract)} data-testid={`button-view-contract-${contract.id}`}>
+                      <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => openView(contract)} data-testid={`button-view-contract-${contract.id}`}>
                         <Eye className="w-3.5 h-3.5" />
                       </Button>
                       {canEditRecords(appUser) && (
