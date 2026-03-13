@@ -1613,7 +1613,7 @@ function InitialRegistrationModal({
   const [duplicateChecked, setDuplicateChecked] = useState(false);
   const [rcError, setRcError] = useState<string | null>(null);
   const [icoError, setIcoError] = useState<string | null>(null);
-  const [aresLookup, setAresLookup] = useState<{ name?: string; street?: string; streetNumber?: string; zip?: string; city?: string; legalForm?: string; dic?: string; found: boolean; message?: string } | null>(null);
+  const [aresLookup, setAresLookup] = useState<{ name?: string; street?: string; streetNumber?: string; zip?: string; city?: string; legalForm?: string; dic?: string; source?: string; directors?: string[]; found: boolean; message?: string } | null>(null);
   const [aresLoading, setAresLoading] = useState(false);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const baseInputRef = useRef<HTMLInputElement>(null);
@@ -1699,17 +1699,18 @@ function InitialRegistrationModal({
       performDuplicateCheck(baseValue, selectedClientType?.baseParameter);
       setAresLoading(true);
       const normalizedIco = icoResult.normalized || digitsOnly;
-      fetch(`/api/lookup/ico/${encodeURIComponent(normalizedIco)}`, { credentials: "include" })
+      const lookupType = selectedType.toLowerCase().includes("szco") ? "szco" : "company";
+      fetch(`/api/lookup/ico/${encodeURIComponent(normalizedIco)}?type=${lookupType}`, { credentials: "include" })
         .then(r => r.json())
         .then(data => {
           if (data.found) {
             setAresLookup(data);
           } else {
-            setAresLookup({ found: false, message: data.message || "Firma nenájdená" });
+            setAresLookup({ found: false, message: data.message || "Subjekt nenájdený v štátnych registroch" });
           }
         })
         .catch(() => {
-          setAresLookup({ found: false, message: "Chyba pri vyhľadávaní v ARES" });
+          setAresLookup({ found: false, message: "Chyba pri vyhľadávaní v registroch" });
         })
         .finally(() => setAresLoading(false));
     } else {
@@ -1802,7 +1803,7 @@ function InitialRegistrationModal({
                 <div className="flex items-center gap-2 justify-between">
                   <div className="flex items-center gap-2">
                     <Building2 className="w-4 h-4 text-blue-400 shrink-0" />
-                    <span className="text-xs font-semibold text-blue-400">ARES Register</span>
+                    <span className="text-xs font-semibold text-blue-400">{aresLookup.source === "ORSR" ? "Obchodný register SR" : aresLookup.source === "ZRSR" ? "Živnostenský register SR" : "ARES Register"}</span>
                   </div>
                   <Button
                     type="button"
@@ -2281,7 +2282,7 @@ function FullPageEditor({
   const [szcoFoLoading, setSzcoFoLoading] = useState(false);
   const [szcoFoRcError, setSzcoFoRcError] = useState<string | null>(null);
   const [szcoIcoError, setSzcoIcoError] = useState<string | null>(null);
-  const [szcoAresLookup, setSzcoAresLookup] = useState<{ name?: string; street?: string; streetNumber?: string; zip?: string; city?: string; legalForm?: string; dic?: string; found: boolean; message?: string } | null>(null);
+  const [szcoAresLookup, setSzcoAresLookup] = useState<{ name?: string; street?: string; streetNumber?: string; zip?: string; city?: string; legalForm?: string; dic?: string; source?: string; directors?: string[]; found: boolean; message?: string } | null>(null);
   const [szcoAresLoading, setSzcoAresLoading] = useState(false);
 
   const [dynamicValues, setDynamicValuesRaw] = useState<Record<string, string>>(() => {
@@ -2602,7 +2603,7 @@ function FullPageEditor({
                       setSzcoIcoError(null);
                       if (result.normalized) setSzcoData(prev => ({ ...prev, ico: result.normalized! }));
                       setSzcoAresLoading(true);
-                      fetch(`/api/lookup/ico/${encodeURIComponent(result.normalized || val)}`, { credentials: "include" })
+                      fetch(`/api/lookup/ico/${encodeURIComponent(result.normalized || val)}?type=szco`, { credentials: "include" })
                         .then(r => r.json())
                         .then(data => {
                           if (data.found) {
@@ -2611,7 +2612,7 @@ function FullPageEditor({
                             setSzcoAresLookup({ found: false, message: data.message });
                           }
                         })
-                        .catch(() => setSzcoAresLookup({ found: false, message: "Chyba ARES" }))
+                        .catch(() => setSzcoAresLookup({ found: false, message: "Chyba registrov" }))
                         .finally(() => setSzcoAresLoading(false));
                     }}
                     className={szcoIcoError ? "border-red-500 focus-visible:ring-red-500 font-mono" : "font-mono"}
@@ -2657,7 +2658,7 @@ function FullPageEditor({
                 <div className="bg-blue-500/10 border border-blue-500/30 rounded-md p-3 space-y-2" data-testid="szco-ares-lookup-result">
                   <div className="flex items-center gap-2">
                     <Building2 className="w-4 h-4 text-blue-400 shrink-0" />
-                    <span className="text-xs font-semibold text-blue-400">ARES Register</span>
+                    <span className="text-xs font-semibold text-blue-400">{szcoAresLookup.source === "ORSR" ? "Obchodný register SR" : szcoAresLookup.source === "ZRSR" ? "Živnostenský register SR" : "ARES Register"}</span>
                   </div>
                   {szcoAresLookup.name && <p className="text-sm font-medium">{szcoAresLookup.name}</p>}
                   {(szcoAresLookup.street || szcoAresLookup.city) && (

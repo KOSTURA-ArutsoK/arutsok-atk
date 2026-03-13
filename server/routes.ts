@@ -7128,70 +7128,13 @@ export async function registerRoutes(
   app.get("/api/lookup/ico/:ico", isAuthenticated, async (req, res) => {
     try {
       const { ico } = req.params;
-      const icoResult = validateSlovakICO(ico);
-      if (!icoResult.valid) {
-        return res.status(400).json({ valid: false, error: icoResult.error });
+      const type = (req.query.type as string) || undefined;
+      const { lookupByIco } = await import("./sk-registry-lookup");
+      const result = await lookupByIco(ico, type);
+      if (!result.valid) {
+        return res.status(400).json({ valid: false, error: result.message });
       }
-      const normalized = icoResult.normalized || ico;
-      try {
-        const controller = new AbortController();
-        const timeout = setTimeout(() => controller.abort(), 5000);
-        const aresResp = await fetch(`https://ares.gov.cz/ekonomicke-subjekty-v-be/rest/ekonomicke-subjekty/${encodeURIComponent(normalized)}`, {
-          signal: controller.signal,
-          headers: { "Accept": "application/json" },
-        });
-        clearTimeout(timeout);
-        if (!aresResp.ok) {
-          if (aresResp.status === 404) {
-            return res.json({ valid: true, normalized, found: false, message: "Firma nenájdená v registri ARES" });
-          }
-          return res.json({ valid: true, normalized, found: false, message: `ARES vrátil chybu (${aresResp.status})` });
-        }
-        const aresData = await aresResp.json();
-        const name = aresData.obchodniJmeno || aresData.nazev || null;
-        const sidlo = aresData.sidlo || {};
-        const street = sidlo.nazevUlice || sidlo.nazevObce || "";
-        const streetNumber = [sidlo.cisloDomovni, sidlo.cisloOrientacni].filter(Boolean).join("/");
-        const zip = sidlo.psc ? String(sidlo.psc) : "";
-        const city = sidlo.nazevObce || sidlo.nazevMestskeCasti || "";
-        const legalFormCode = aresData.pravniForma;
-        const legalFormMap: Record<string, string> = {
-          "101": "Fyzická osoba podnikajúca",
-          "112": "Spoločnosť s ručením obmedzeným",
-          "111": "Verejná obchodná spoločnosť",
-          "113": "Spoločnosť komanditná",
-          "121": "Akciová spoločnosť",
-          "141": "Všeobecne prospešná spoločnosť",
-          "205": "Družstvo",
-          "301": "Štátny podnik",
-          "331": "Príspevková organizácia",
-          "421": "Zahraničná osoba",
-          "701": "Občianske združenie",
-          "711": "Politická strana",
-          "721": "Cirkevná organizácia",
-          "745": "Nadácia",
-          "801": "Spoločenstvo vlastníkov jednotiek",
-        };
-        const legalForm = legalFormMap[String(legalFormCode)] || (legalFormCode ? `Kód ${legalFormCode}` : "");
-        const dic = aresData.dic || null;
-        res.json({
-          valid: true,
-          normalized,
-          found: true,
-          name,
-          street,
-          streetNumber,
-          zip,
-          city,
-          legalForm,
-          dic,
-        });
-      } catch (fetchErr: any) {
-        if (fetchErr.name === "AbortError") {
-          return res.json({ valid: true, normalized, found: false, message: "ARES nedostupný (timeout)" });
-        }
-        return res.json({ valid: true, normalized, found: false, message: "Chyba pri komunikácii s ARES" });
-      }
+      res.json(result);
     } catch (err) {
       res.status(500).json({ message: "Internal error" });
     }
