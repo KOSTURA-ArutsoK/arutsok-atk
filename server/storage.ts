@@ -4558,7 +4558,7 @@ export class DatabaseStorage implements IStorage {
     const maxLen = Math.max(normalizedExtracted.length, normalizedRegistry.length);
     const similarity = maxLen > 0 ? ((maxLen - dist) / maxLen) * 100 : 0;
 
-    if (!isSubstring && similarity < 70) return null;
+    if (!isSubstring || similarity < 70) return null;
 
     const existing = await db.select().from(parameterSynonyms)
       .where(and(
@@ -4567,7 +4567,14 @@ export class DatabaseStorage implements IStorage {
       ));
 
     if (existing.length > 0) {
-      return existing[0];
+      const current = existing[0];
+      const newCount = (current.confirmationCount || 0) + 1;
+      const newStatus = newCount >= 5 ? "confirmed" : "learning";
+      const [updated] = await db.update(parameterSynonyms)
+        .set({ confirmationCount: newCount, status: newStatus })
+        .where(eq(parameterSynonyms.id, current.id))
+        .returning();
+      return updated;
     }
 
     const [created] = await db.insert(parameterSynonyms).values({
