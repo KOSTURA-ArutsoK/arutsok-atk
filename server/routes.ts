@@ -10103,6 +10103,19 @@ export async function registerRoutes(
         };
       }
 
+      const patchIco = (updates.details as any)?.ico || (updates.details as any)?.dynamicFields?.ico || (updates.details as any)?.dynamicFields?.zi_ico;
+      if (patchIco && (existing.type === "company" || existing.type === "szco" || existing.type === "organization")) {
+        const icoResult = validateSlovakICO(patchIco);
+        if (!icoResult.valid) {
+          return res.status(400).json({ message: `Neplatné IČO: ${icoResult.error}` });
+        }
+        if (icoResult.normalized && updates.details && typeof updates.details === 'object') {
+          if ((updates.details as any).ico) (updates.details as any).ico = icoResult.normalized;
+          if ((updates.details as any)?.dynamicFields?.ico) (updates.details as any).dynamicFields.ico = icoResult.normalized;
+          if ((updates.details as any)?.dynamicFields?.zi_ico) (updates.details as any).dynamicFields.zi_ico = icoResult.normalized;
+        }
+      }
+
       if (changeReason) updates.changeReason = changeReason;
 
       const appUser = req.appUser;
