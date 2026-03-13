@@ -5416,7 +5416,7 @@ export async function registerRoutes(
         "partner": "partner", "partner_name": "partner",
         "produkt": "produkt", "product": "produkt", "product_name": "produkt",
         "typ subjektu": "typ_subjektu", "typ_subjektu": "typ_subjektu", "subject_type": "typ_subjektu", "typ": "typ_subjektu",
-        "rc ico": "rc_ico", "rc_ico": "rc_ico", "rodne cislo": "rc_ico", "rodné číslo": "rc_ico", "rodne_cislo": "rc_ico", "rc": "rc_ico", "ico": "rc_ico", "ičo": "rc_ico", "birth_number": "rc_ico",
+        "rc ico": "rc_ico", "rc_ico": "rc_ico", "rc / ico": "rc_ico", "rc_/_ico": "rc_ico", "rc/ico": "rc_ico", "rodne cislo": "rc_ico", "rodné číslo": "rc_ico", "rodne_cislo": "rc_ico", "rc": "rc_ico", "ico": "rc_ico", "ičo": "rc_ico", "birth_number": "rc_ico",
         "nazov firmy": "nazov_firmy", "nazov_firmy": "nazov_firmy", "názov firmy": "nazov_firmy", "company_name": "nazov_firmy", "firma": "nazov_firmy",
         "titul pred": "titul_pred", "titul_pred": "titul_pred", "title_before": "titul_pred", "titul pred menom": "titul_pred",
         "meno": "meno", "first_name": "meno", "krstne meno": "meno", "krstné meno": "meno",
