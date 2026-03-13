@@ -327,7 +327,7 @@ export default function BulkImport() {
           </div>
         )}
 
-        {step === "validation" && validationResults && (
+        {step === "validation" && validationResults && parsedData && (
           <div className="space-y-4">
             <Card>
               <CardContent className="p-3">
@@ -335,18 +335,15 @@ export default function BulkImport() {
                   <Table>
                     <TableHeader className="sticky top-0 bg-card z-10">
                       <TableRow>
-                        <TableHead className="text-xs w-10">#</TableHead>
-                        <TableHead className="text-xs w-10">Stav</TableHead>
-                        <TableHead className="text-xs">Č. zmluvy</TableHead>
-                        <TableHead className="text-xs">Subjekt</TableHead>
-                        <TableHead className="text-xs w-14">Typ</TableHead>
-                        <TableHead className="text-xs">Stav zmluvy</TableHead>
-                        <TableHead className="text-xs">Špecialist</TableHead>
-                        <TableHead className="text-xs">Odporúčateľ</TableHead>
-                        <TableHead className="text-xs">Sprostredkovateľ</TableHead>
-                        <TableHead className="text-xs text-right">Provízia</TableHead>
-                        <TableHead className="text-xs">Poznámka</TableHead>
-                        <TableHead className="text-xs w-10"></TableHead>
+                        <TableHead className="text-xs w-8 sticky left-0 bg-card z-20">#</TableHead>
+                        <TableHead className="text-xs w-8 sticky left-8 bg-card z-20">!</TableHead>
+                        <TableHead className="text-xs whitespace-nowrap bg-card/90 border-r border-border">Subjekt</TableHead>
+                        <TableHead className="text-xs w-12 whitespace-nowrap bg-card/90">Typ</TableHead>
+                        <TableHead className="text-xs whitespace-nowrap bg-card/90 border-r border-border">✓ Stav zmluvy</TableHead>
+                        {parsedData.headers.map(h => (
+                          <TableHead key={h} className="text-xs whitespace-nowrap">{h}</TableHead>
+                        ))}
+                        <TableHead className="text-xs w-8"></TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -354,9 +351,7 @@ export default function BulkImport() {
                         const hasErrors = row.errors.length > 0;
                         const hasWarnings = row.warnings.length > 0;
                         const isExpanded = expandedRow === i;
-                        const unmappedKeys = parsedData ? parsedData.headers.filter(h =>
-                          !Object.values(mapping).includes(h)
-                        ) : [];
+                        const totalCols = 6 + parsedData.headers.length;
 
                         return (
                           <TableRow
@@ -364,8 +359,8 @@ export default function BulkImport() {
                             className={hasErrors ? "bg-destructive/5" : hasWarnings ? "bg-yellow-500/5" : ""}
                             data-testid={`row-validation-${i}`}
                           >
-                            <TableCell className="text-xs text-muted-foreground">{i + 1}</TableCell>
-                            <TableCell>
+                            <TableCell className="text-xs text-muted-foreground sticky left-0 bg-inherit">{i + 1}</TableCell>
+                            <TableCell className="sticky left-8 bg-inherit">
                               {hasErrors ? (
                                 <XCircle className="w-4 h-4 text-destructive" data-testid={`icon-error-${i}`} />
                               ) : hasWarnings ? (
@@ -374,36 +369,29 @@ export default function BulkImport() {
                                 <Check className="w-4 h-4 text-green-500" data-testid={`icon-ok-${i}`} />
                               )}
                             </TableCell>
-                            <TableCell className="text-xs font-mono">{row.contractNumber || "-"}</TableCell>
-                            <TableCell className="text-xs max-w-[140px] truncate" title={row.subjectName || ""}>
-                              {row.subjectName || <span className="text-muted-foreground">—</span>}
+                            <TableCell className="text-xs max-w-[140px] truncate border-r border-border" title={row.subjectName || ""}>
+                              {row.subjectName || <span className="text-muted-foreground/40">—</span>}
                             </TableCell>
                             <TableCell className="text-xs">
                               {row.subjectType ? (
                                 <span className="font-mono text-muted-foreground">{SUBJECT_TYPE_LABELS[row.subjectType] || row.subjectType}</span>
-                              ) : <span className="text-muted-foreground">—</span>}
+                              ) : <span className="text-muted-foreground/40">—</span>}
                             </TableCell>
-                            <TableCell className="text-xs">
+                            <TableCell className="text-xs border-r border-border">
                               {row.statusId && row.statusColor ? (
                                 <div className="flex items-center gap-1">
                                   <div className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: row.statusColor }} />
                                   <span>{row.statusName}</span>
                                 </div>
-                              ) : (
-                                <span className="text-muted-foreground">{row.statusName || "-"}</span>
-                              )}
+                              ) : row.statusName ? (
+                                <span className="text-destructive text-[10px]">{row.statusName} ✗</span>
+                              ) : <span className="text-muted-foreground/40">—</span>}
                             </TableCell>
-                            <TableCell className="text-xs font-mono text-muted-foreground truncate max-w-[110px]" title={row.specialistaStr || ""}>
-                              {row.specialistaStr || <span className="text-muted-foreground/40">—</span>}
-                            </TableCell>
-                            <TableCell className="text-xs font-mono text-muted-foreground truncate max-w-[110px]" title={row.odporucitelStr || ""}>
-                              {row.odporucitelStr || <span className="text-muted-foreground/40">—</span>}
-                            </TableCell>
-                            <TableCell className="text-xs">{row.agentName || "-"}</TableCell>
-                            <TableCell className="text-xs text-right font-mono">
-                              {row.commissionAmount ? `${row.commissionAmount.toFixed(2)} €` : "-"}
-                            </TableCell>
-                            <TableCell className="text-xs max-w-[150px] truncate">{row.note || "-"}</TableCell>
+                            {parsedData.headers.map(h => (
+                              <TableCell key={h} className="text-xs max-w-[160px] truncate" title={String(row.originalData[h] ?? "")}>
+                                {row.originalData[h] != null && row.originalData[h] !== "" ? String(row.originalData[h]) : <span className="text-muted-foreground/30">—</span>}
+                              </TableCell>
+                            ))}
                             <TableCell>
                               <Button
                                 size="icon"
@@ -415,7 +403,7 @@ export default function BulkImport() {
                               </Button>
                             </TableCell>
                             {isExpanded && (
-                              <TableCell colSpan={12} className="p-0">
+                              <TableCell colSpan={totalCols} className="p-0">
                                 <div className="p-3 bg-muted/50 border-t space-y-2">
                                   {row.errors.length > 0 && (
                                     <div className="space-y-1">
@@ -435,21 +423,6 @@ export default function BulkImport() {
                                           {w}
                                         </div>
                                       ))}
-                                    </div>
-                                  )}
-                                  {unmappedKeys.length > 0 && (
-                                    <div className="space-y-1">
-                                      <p className="text-xs font-medium text-muted-foreground flex items-center gap-1">
-                                        <Info className="w-3 h-3" /> Nenamapované stĺpce:
-                                      </p>
-                                      <div className="grid grid-cols-2 sm:grid-cols-3 gap-1">
-                                        {unmappedKeys.map(k => (
-                                          <div key={k} className="text-xs">
-                                            <span className="text-muted-foreground">{k}:</span>{" "}
-                                            <span>{row.originalData[k] || "-"}</span>
-                                          </div>
-                                        ))}
-                                      </div>
                                     </div>
                                   )}
                                 </div>
