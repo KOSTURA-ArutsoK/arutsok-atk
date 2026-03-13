@@ -5491,7 +5491,19 @@ export async function registerRoutes(
           console.log(`[IMPORT] Mapovanie hlavičiek: ${rawHeaderValues.join(", ")}`);
         }
 
-        const dataStartRow = firstRowLooksLikeHeader ? 2 : 1;
+        let dataStartRow = firstRowLooksLikeHeader ? 2 : 1;
+
+        if (firstRowLooksLikeHeader && sheet.rowCount >= 3) {
+          const row2 = sheet.getRow(2);
+          const row2A = String(row2.getCell(1).value ?? "").trim();
+          const row2B = String(row2.getCell(2).value ?? "").trim();
+          const row3 = sheet.getRow(3);
+          const row3A = String(row3.getCell(1).value ?? "").trim();
+          if ((row2A === "Allianz" && row2B === "PZP Auto") || (row3A === "Generali")) {
+            dataStartRow = 4;
+            console.log("[IMPORT] Detekované vzorové riadky zo šablóny — preskakujem riadky 2 a 3");
+          }
+        }
 
         if (!firstRowLooksLikeHeader) {
           headers = [];
@@ -5548,6 +5560,10 @@ export async function registerRoutes(
         console.log("[IMPORT] Pozičné mapovanie použité — menej ako 50% hlavičiek rozpoznaných. Rozpoznané:", recognizedHeaderCount, "z", totalHeaderCount, ". Pôvodné hlavičky:", headers.filter(Boolean).join(", "));
       } else if (rawRows.length > 0) {
         console.log("[IMPORT] Header mód použitý. Rozpoznané hlavičky:", headers.filter(h => h && knownHeaders.has(h)).join(", "));
+      }
+
+      if (rawRows.length === 0) {
+        return res.status(400).json({ message: "Súbor neobsahuje žiadne dáta na import. Pridajte riadky od riadku 4 (pod vzorové riadky)." });
       }
 
       const allPartners = await storage.getPartners();
@@ -9125,20 +9141,58 @@ export async function registerRoutes(
         }
       }
 
-      sheet.addRow({
+      const exRow2 = sheet.addRow({
         partner: "Allianz", produkt: "PZP Auto", cislo_navrhu: "N-2024-001", cislo_zmluvy: "",
         typ_subjektu: "person", rc_ico: "850101/1234", nazov_firmy: "", titul_pred: "",
         meno: "Ján", priezvisko: "Novák", titul_za: "",
         specialista_uid: "421000000001", specialista_pct: "100",
         odporucitel1_uid: "", odporucitel1_pct: "", odporucitel2_uid: "", odporucitel2_pct: "",
       });
-      sheet.addRow({
+      const exRow3 = sheet.addRow({
         partner: "Generali", produkt: "Životné poistenie", cislo_navrhu: "", cislo_zmluvy: "Z-2024-050",
         typ_subjektu: "company", rc_ico: "12345678", nazov_firmy: "Firma s.r.o.", titul_pred: "",
         meno: "", priezvisko: "", titul_za: "",
         specialista_uid: "421000000002", specialista_pct: "70",
         odporucitel1_uid: "421000000003", odporucitel1_pct: "30", odporucitel2_uid: "", odporucitel2_pct: "",
       });
+
+      const yellowFill: ExcelJS.Fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFFFF3CD" } };
+      for (const exRow of [exRow2, exRow3]) {
+        exRow.fill = yellowFill;
+        exRow.font = { italic: true, color: { argb: "FF6B5B00" } };
+        for (let c = 1; c <= 17; c++) {
+          exRow.getCell(c).fill = yellowFill;
+        }
+      }
+
+      sheet.protect("", {
+        selectLockedCells: true,
+        selectUnlockedCells: true,
+        formatCells: false,
+        formatColumns: false,
+        formatRows: false,
+        insertColumns: false,
+        insertRows: true,
+        insertHyperlinks: false,
+        deleteColumns: false,
+        deleteRows: false,
+        sort: false,
+        autoFilter: false,
+      });
+
+      for (let r = 1; r <= 3; r++) {
+        const row = sheet.getRow(r);
+        for (let c = 1; c <= 17; c++) {
+          row.getCell(c).protection = { locked: true };
+        }
+      }
+
+      for (let r = 4; r <= 1000; r++) {
+        const row = sheet.getRow(r);
+        for (let c = 1; c <= 17; c++) {
+          row.getCell(c).protection = { locked: false };
+        }
+      }
 
       res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
       res.setHeader("Content-Disposition", "attachment; filename=sablona_import_zmluv.xlsx");
