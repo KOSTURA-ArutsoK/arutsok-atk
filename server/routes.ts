@@ -5555,6 +5555,7 @@ export async function registerRoutes(
         "odporucitel podiel": "odporucitel_podiel", "odporucitel_podiel": "odporucitel_podiel", "recommender_percentage": "odporucitel_podiel", "odporucitel1_%": "odporucitel_podiel", "odporucitel1_pct": "odporucitel_podiel", "o: odporucitel 1 %": "odporucitel_podiel", "o: odporúčateľ 1 %": "odporucitel_podiel", "odporucatel 1 %": "odporucitel_podiel", "odporucatel_1_%": "odporucitel_podiel",
         "odporucitel2_uid": "odporucitel2", "odporucitel2 uid": "odporucitel2", "odporucatel 2 uid": "odporucitel2", "odporucatel_2_uid": "odporucitel2", "p: odporucitel 2 uid": "odporucitel2", "p: odporúčateľ 2 uid": "odporucitel2",
         "odporucitel2_%": "odporucitel2_podiel", "odporucitel2_pct": "odporucitel2_podiel", "odporucitel2_podiel": "odporucitel2_podiel", "q: odporucitel 2 %": "odporucitel2_podiel", "q: odporúčateľ 2 %": "odporucitel2_podiel", "odporucatel 2 %": "odporucitel2_podiel", "odporucatel_2_%": "odporucitel2_podiel",
+        "typ zmluvy": "typ_zmluvy", "typ_zmluvy": "typ_zmluvy", "type_of_contract": "typ_zmluvy", "contract_type": "typ_zmluvy", "r: typ zmluvy": "typ_zmluvy",
       };
 
       function removeDiacritics(str: string): string {
@@ -5575,7 +5576,7 @@ export async function registerRoutes(
         return underscored;
       }
 
-      const KNOWN_IMPORT_HEADERS = new Set([...POSITIONAL_COLUMNS, ...Object.values(HEADER_ALIASES), "specialista", "specialista_podiel", "odporucitel", "odporucitel_podiel", "odporucitel2", "odporucitel2_podiel"]);
+      const KNOWN_IMPORT_HEADERS = new Set([...POSITIONAL_COLUMNS, ...Object.values(HEADER_ALIASES), "specialista", "specialista_podiel", "odporucitel", "odporucitel_podiel", "odporucitel2", "odporucitel2_podiel", "typ_zmluvy"]);
 
       if (isCSV) {
         const csvContent = fs.readFileSync(file.path, "utf-8");
@@ -5785,6 +5786,14 @@ export async function registerRoutes(
 
           const cisloNavrhu = rowData["cislo_navrhu"] || rowData["proposal_number"] || null;
           const cisloZmluvy = rowData["cislo_zmluvy"] || rowData["contract_number"] || null;
+          const VALID_CONTRACT_TYPES: Record<string, string> = {
+            "nova": "Nova", "nová": "Nova", "nová zmluva": "Nova", "nova zmluva": "Nova", "n": "Nova",
+            "prestupova": "Prestupova", "prestupová": "Prestupova", "prestupová zmluva": "Prestupova", "prestupova zmluva": "Prestupova", "p": "Prestupova", "prestup": "Prestupova",
+            "zmenova": "Zmenova", "zmenová": "Zmenova", "zmenová zmluva": "Zmenova", "zmenova zmluva": "Zmenova", "z": "Zmenova", "zmena": "Zmenova",
+          };
+          const rawTypZmluvy = (rowData["typ_zmluvy"] || rowData["contract_type"] || "").trim();
+          const normalizedTyp = rawTypZmluvy.toLowerCase().replace(/[\u0300-\u036f]/g, "").normalize ? rawTypZmluvy.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "") : rawTypZmluvy.toLowerCase();
+          const resolvedContractType = VALID_CONTRACT_TYPES[normalizedTyp] || (rawTypZmluvy ? null : null);
 
           // Duplicate check — skip row if contract/proposal number already exists
           const pnTrim = cisloNavrhu?.trim();
@@ -5881,6 +5890,9 @@ export async function registerRoutes(
           if (icoValidationError) {
             missingFields.push(`Neplatné IČO: ${icoValidationError}`);
           }
+          if (!resolvedContractType) {
+            missingFields.push("Chýba typ zmluvy");
+          }
           const isIncomplete = missingFields.length > 0;
 
           const importedRawData: Record<string, string | null> = {
@@ -5910,6 +5922,7 @@ export async function registerRoutes(
           const contractData: any = {
             contractNumber: cisloZmluvy,
             proposalNumber: cisloNavrhu,
+            contractType: resolvedContractType || "Nova",
             kik: rowData["kik"] || null,
             subjectId: resolvedSubjectId,
             partnerId: resolvedPartnerId,
@@ -9523,15 +9536,16 @@ export async function registerRoutes(
         { header: "O: Odporúčateľ 1 %", key: "odporucitel1_pct", width: 18 },
         { header: "P: Odporúčateľ 2 UID", key: "odporucitel2_uid", width: 22 },
         { header: "Q: Odporúčateľ 2 %", key: "odporucitel2_pct", width: 18 },
+        { header: "R: Typ zmluvy", key: "typ_zmluvy", width: 20 },
       ];
 
       const headerRow = sheet.getRow(1);
       headerRow.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF2D3748" } };
       headerRow.font = { bold: true, color: { argb: "FFFFFFFF" } };
 
-      for (let i = 1; i <= 17; i++) {
+      for (let i = 1; i <= 18; i++) {
         const cell = headerRow.getCell(i);
-        if ([1, 2, 5, 12, 13].includes(i)) {
+        if ([1, 2, 5, 12, 13, 18].includes(i)) {
           cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF991B1B" } };
           cell.font = { bold: true, color: { argb: "FFFFFFFF" } };
         }
@@ -9544,6 +9558,7 @@ export async function registerRoutes(
           meno: "Ján", priezvisko: "Novák", titul_za: "",
           specialista_uid: "421000000001", specialista_pct: "100",
           odporucitel1_uid: "", odporucitel1_pct: "", odporucitel2_uid: "", odporucitel2_pct: "",
+          typ_zmluvy: "Nova",
         },
         {
           partner: "Generali", produkt: "Životné poistenie", cislo_navrhu: "N-2024-002", cislo_zmluvy: "",
@@ -9551,6 +9566,7 @@ export async function registerRoutes(
           meno: "Peter", priezvisko: "Horváth", titul_za: "",
           specialista_uid: "421000000002", specialista_pct: "70",
           odporucitel1_uid: "421000000003", odporucitel1_pct: "30", odporucitel2_uid: "", odporucitel2_pct: "",
+          typ_zmluvy: "Prestupova",
         },
         {
           partner: "ČSOB", produkt: "Podnikateľské poistenie", cislo_navrhu: "", cislo_zmluvy: "Z-2024-050",
@@ -9558,6 +9574,7 @@ export async function registerRoutes(
           meno: "", priezvisko: "", titul_za: "",
           specialista_uid: "421000000001", specialista_pct: "80",
           odporucitel1_uid: "421000000004", odporucitel1_pct: "20", odporucitel2_uid: "", odporucitel2_pct: "",
+          typ_zmluvy: "Zmenova",
         },
         {
           partner: "Uniqa", produkt: "Poistenie zodpovednosti", cislo_navrhu: "N-2024-003", cislo_zmluvy: "",
@@ -9565,6 +9582,7 @@ export async function registerRoutes(
           meno: "", priezvisko: "", titul_za: "",
           specialista_uid: "421000000002", specialista_pct: "100",
           odporucitel1_uid: "", odporucitel1_pct: "", odporucitel2_uid: "", odporucitel2_pct: "",
+          typ_zmluvy: "Nova",
         },
       ];
 
@@ -9574,7 +9592,7 @@ export async function registerRoutes(
       for (const rowData of exampleRows) {
         const exRow = sheet.addRow(rowData);
         exRow.font = yellowFont;
-        for (let c = 1; c <= 17; c++) {
+        for (let c = 1; c <= 18; c++) {
           exRow.getCell(c).fill = yellowFill;
         }
       }
@@ -9598,16 +9616,37 @@ export async function registerRoutes(
 
       for (let r = 1; r <= 5; r++) {
         const row = sheet.getRow(r);
-        for (let c = 1; c <= 17; c++) {
+        for (let c = 1; c <= 18; c++) {
           row.getCell(c).protection = { locked: true };
         }
       }
 
+      sheet.getColumn(18).eachCell({ includeEmpty: false }, (cell, rowNumber) => {
+        if (rowNumber >= 6) {
+          cell.dataValidation = {
+            type: "list",
+            allowBlank: true,
+            formulae: ['"Nova,Prestupova,Zmenova"'],
+            showErrorMessage: true,
+            errorTitle: "Neplatný typ zmluvy",
+            error: "Zadajte: Nova, Prestupova alebo Zmenova",
+          };
+        }
+      });
+
       for (let r = 6; r <= 1100; r++) {
         const row = sheet.getRow(r);
-        for (let c = 1; c <= 17; c++) {
+        for (let c = 1; c <= 18; c++) {
           row.getCell(c).protection = { locked: false };
         }
+        row.getCell(18).dataValidation = {
+          type: "list",
+          allowBlank: true,
+          formulae: ['"Nova,Prestupova,Zmenova"'],
+          showErrorMessage: true,
+          errorTitle: "Neplatný typ zmluvy",
+          error: "Zadajte: Nova, Prestupova alebo Zmenova",
+        };
       }
 
       res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");

@@ -358,6 +358,7 @@ function ContractFormDialog({
   const [contractSectorId, setContractSectorId] = useState<string>("");
   const [contractSectionId, setContractSectionId] = useState<string>("");
   const [contractNumber, setContractNumber] = useState("");
+  const [contractType, setContractType] = useState<string>("Nova");
   const [subjectId, setSubjectId] = useState<string>("");
   const [partnerId, setPartnerId] = useState<string>("");
   const [sectorProductId, setSectorProductIdRaw] = useState<string>("");
@@ -546,6 +547,7 @@ function ContractFormDialog({
         setCommissionAmount(editingContract.commissionAmount?.toString() || "");
         setCurrency(editingContract.currency || "EUR");
         setNotes(editingContract.notes || "");
+        setContractType((editingContract as any).contractType || "Nova");
         setMigReceivedByCentral(editingContract.receivedByCentralAt ? new Date(editingContract.receivedByCentralAt).toISOString().split("T")[0] : "");
         setMigSentToPartner(editingContract.sentToPartnerAt ? new Date(editingContract.sentToPartnerAt).toISOString().split("T")[0] : "");
         setMigReceivedByPartner(editingContract.receivedByPartnerAt ? new Date(editingContract.receivedByPartnerAt).toISOString().split("T")[0] : "");
@@ -597,6 +599,7 @@ function ContractFormDialog({
         setCommissionAmount("");
         setCurrency("EUR");
         setNotes("");
+        setContractType("Nova");
         setMigReceivedByCentral("");
         setMigSentToPartner("");
         setMigReceivedByPartner("");
@@ -664,6 +667,7 @@ function ContractFormDialog({
     }
     const payload = {
       contractNumber,
+      contractType,
       clientGroupId: clientGroupId ? parseInt(clientGroupId) : null,
       identifierType: identifierType || null,
       identifierValue: identifierValue || null,
@@ -849,6 +853,19 @@ function ContractFormDialog({
                   {partners?.filter(p => !p.isDeleted).map(p => (
                     <SelectItem key={p.id} value={p.id.toString()}>{p.name}</SelectItem>
                   ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Typ zmluvy *</label>
+              <Select value={contractType} onValueChange={setContractType}>
+                <SelectTrigger data-testid="select-contract-type">
+                  <SelectValue placeholder="Vyberte typ zmluvy" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Nova">🟢 Nová zmluva</SelectItem>
+                  <SelectItem value="Prestupova">🔵 Prestupová zmluva</SelectItem>
+                  <SelectItem value="Zmenova">🟡 Zmenová zmluva</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -2227,6 +2244,7 @@ export default function Contracts() {
   const [duplicateModal, setDuplicateModal] = useState<{ open: boolean; subjectName?: string }>({ open: false });
   const [preSelectOpen, setPreSelectOpen] = useState(false);
   const [preSelectStep, setPreSelectStep] = useState<1 | 2 | 3 | 4>(1);
+  const [preSelectContractType, setPreSelectContractType] = useState<string>("Nova");
   const [preSelectPartnerId, setPreSelectPartnerId] = useState<string>("");
   const [preSelectProductId, setPreSelectProductId] = useState<string>("");
   const [preSelectSubjectSearch, setPreSelectSubjectSearch] = useState("");
@@ -3355,9 +3373,18 @@ export default function Contracts() {
                 )}
                 {!hideContractNumbers && !earlyPhase && (
                   <TableCell className="font-mono text-sm font-bold text-blue-500 py-1" data-testid={`text-contract-number-${contract.id}`}>
-                    <span className="flex items-center gap-1">
+                    <span className="flex items-center gap-1 flex-wrap">
                       <Lock className="w-3 h-3 text-amber-500 shrink-0" style={{ display: contract.isLocked ? 'block' : 'none' }} />
                       {contract.contractNumber || "—"}
+                      {(contract as any).contractType === "Nova" && (
+                        <span className="inline-flex items-center px-1 py-0.5 rounded text-[10px] font-bold bg-green-500/15 text-green-400 border border-green-500/30 whitespace-nowrap" data-testid={`badge-contract-type-${contract.id}`}>🟢 N</span>
+                      )}
+                      {(contract as any).contractType === "Prestupova" && (
+                        <span className="inline-flex items-center px-1 py-0.5 rounded text-[10px] font-bold bg-blue-500/15 text-blue-400 border border-blue-500/30 whitespace-nowrap" data-testid={`badge-contract-type-${contract.id}`}>🔵 P</span>
+                      )}
+                      {(contract as any).contractType === "Zmenova" && (
+                        <span className="inline-flex items-center px-1 py-0.5 rounded text-[10px] font-bold bg-yellow-500/15 text-yellow-400 border border-yellow-500/30 whitespace-nowrap" data-testid={`badge-contract-type-${contract.id}`}>🟡 Z</span>
+                      )}
                       {(contract as any).isFirstContract && (
                         <span className="inline-flex items-center px-1.5 py-0.5 rounded border border-red-500/40 text-red-400 text-[10px] font-semibold whitespace-nowrap" data-testid={`badge-first-contract-${contract.id}`}>1. ZMLUVA</span>
                       )}
@@ -3696,7 +3723,7 @@ export default function Contracts() {
           </div>
 
           <div className="bg-muted/30 rounded px-2 py-1 font-mono text-[9px] text-muted-foreground">
-            <span className="text-foreground/60">Ukazka:</span> Allianz | PZP Auto | N-2024-001 | | person | 850101/1234 | | | Jan | Novak | | 421000000000002 | 100 | | |
+            <span className="text-foreground/60">Ukazka:</span> Allianz | PZP Auto | N-2024-001 | | person | 850101/1234 | | | Jan | Novak | | 421000000000002 | 100 | | | Nova
           </div>
 
           <div className="flex items-center gap-2 flex-wrap">
@@ -4474,6 +4501,7 @@ export default function Contracts() {
   const resetPreSelectDialog = () => {
     setPreSelectOpen(false);
     setPreSelectStep(1);
+    setPreSelectContractType("Nova");
     setPreSelectPartnerId("");
     setPreSelectProductId("");
     setPreSelectSubjectSearch("");
@@ -4640,6 +4668,7 @@ export default function Contracts() {
       const contractData: Record<string, any> = {
         subjectId: finalSubjectId,
         lifecyclePhase: 1,
+        contractType: preSelectContractType || "Nova",
       };
       if (preSelectPartnerId) contractData.partnerId = parseInt(preSelectPartnerId);
       if (preSelectProductId) contractData.productId = parseInt(preSelectProductId);
@@ -4909,6 +4938,20 @@ export default function Contracts() {
                       {p.name} {p.code ? `(${p.code})` : ""}
                     </SelectItem>
                   ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-1">
+              <label className="text-xs font-medium">Typ zmluvy *</label>
+              <Select value={preSelectContractType} onValueChange={setPreSelectContractType}>
+                <SelectTrigger data-testid="select-preselect-contract-type">
+                  <SelectValue placeholder="Vyberte typ zmluvy" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Nova">🟢 Nová zmluva</SelectItem>
+                  <SelectItem value="Prestupova">🔵 Prestupová zmluva</SelectItem>
+                  <SelectItem value="Zmenova">🟡 Zmenová zmluva</SelectItem>
                 </SelectContent>
               </Select>
             </div>
