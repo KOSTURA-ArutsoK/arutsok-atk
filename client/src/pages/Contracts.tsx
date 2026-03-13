@@ -1379,7 +1379,7 @@ function ContractFormDialog({
 
           <div className="grid grid-cols-4 gap-4">
             <div className="space-y-2">
-              <label className="text-sm font-medium">Datum podpisu</label>
+              <label className="text-sm font-medium">Dátum uzatvorenia</label>
               <Input type="date" value={signedDate} onChange={e => setSignedDate(e.target.value)} data-testid="input-contract-signed-date" />
             </div>
             <div className="space-y-2">
@@ -1688,7 +1688,7 @@ function ContractDetailDialog({
 
               <div className="grid grid-cols-4 gap-4">
                 <div>
-                  <span className="text-xs text-muted-foreground">Datum podpisu</span>
+                  <span className="text-xs text-muted-foreground">Dátum uzatvorenia</span>
                   <p className="text-sm" data-testid="text-detail-signed-date">{formatDate(contract.signedDate)}</p>
                 </div>
                 <div>

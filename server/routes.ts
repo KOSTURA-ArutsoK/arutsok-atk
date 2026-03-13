@@ -5535,7 +5535,7 @@ export async function registerRoutes(
       let headers: string[] = [];
       const rawRows: Record<string, string>[] = [];
 
-      const POSITIONAL_COLUMNS = ["partner", "produkt", "typ_zmluvy", "cislo_navrhu", "cislo_zmluvy", "typ_subjektu", "rc_ico", "nazov_firmy", "titul_pred", "meno", "priezvisko", "titul_za"];
+      const POSITIONAL_COLUMNS = ["partner", "produkt", "typ_zmluvy", "datum_uzatvorenia", "cislo_navrhu", "cislo_zmluvy", "typ_subjektu", "rc_ico", "nazov_firmy", "titul_pred", "meno", "priezvisko", "titul_za"];
 
       const HEADER_ALIASES: Record<string, string> = {
         "cislo navrhu": "cislo_navrhu", "cislo_navrhu": "cislo_navrhu", "proposal_number": "cislo_navrhu", "č. návrhu": "cislo_navrhu", "číslo návrhu": "cislo_navrhu", "cislo navrhu": "cislo_navrhu",
@@ -5556,6 +5556,8 @@ export async function registerRoutes(
         "odporucitel2_uid": "odporucitel2", "odporucitel2 uid": "odporucitel2", "odporucatel 2 uid": "odporucitel2", "odporucatel_2_uid": "odporucitel2", "q: odporucitel 2 uid": "odporucitel2", "q: odporúčateľ 2 uid": "odporucitel2",
         "odporucitel2_%": "odporucitel2_podiel", "odporucitel2_pct": "odporucitel2_podiel", "odporucitel2_podiel": "odporucitel2_podiel", "r: odporucitel 2 %": "odporucitel2_podiel", "r: odporúčateľ 2 %": "odporucitel2_podiel", "odporucatel 2 %": "odporucitel2_podiel", "odporucatel_2_%": "odporucitel2_podiel",
         "typ zmluvy": "typ_zmluvy", "typ_zmluvy": "typ_zmluvy", "type_of_contract": "typ_zmluvy", "contract_type": "typ_zmluvy", "c: typ zmluvy": "typ_zmluvy",
+        "datum uzatvorenia": "datum_uzatvorenia", "datum_uzatvorenia": "datum_uzatvorenia", "dátum uzatvorenia": "datum_uzatvorenia", "d: dátum uzatvorenia": "datum_uzatvorenia", "d: datum uzatvorenia": "datum_uzatvorenia",
+        "datum podpisu": "datum_uzatvorenia", "datum_podpisu": "datum_uzatvorenia", "dátum podpisu": "datum_uzatvorenia", "signed_date": "datum_uzatvorenia", "signing_date": "datum_uzatvorenia",
       };
 
       function removeDiacritics(str: string): string {
@@ -5603,9 +5605,9 @@ export async function registerRoutes(
         if (!sheet) return res.status(400).json({ message: "Excel neobsahuje žiadny hárok" });
 
         const headerRow = sheet.getRow(1);
-        const colCount = headerRow.cellCount || sheet.columnCount || 17;
+        const colCount = headerRow.cellCount || sheet.columnCount || 18;
         const rawHeaderValues: string[] = [];
-        for (let ci = 1; ci <= Math.max(colCount, 17); ci++) {
+        for (let ci = 1; ci <= Math.max(colCount, 18); ci++) {
           const cell = headerRow.getCell(ci);
           const val = String(cell.value ?? "").trim();
           if (val) {
@@ -5786,6 +5788,19 @@ export async function registerRoutes(
 
           const cisloNavrhu = rowData["cislo_navrhu"] || rowData["proposal_number"] || null;
           const cisloZmluvy = rowData["cislo_zmluvy"] || rowData["contract_number"] || null;
+
+          const datumUzatvoreniaRaw = rowData["datum_uzatvorenia"] || rowData["datum_podpisu"] || rowData["signed_date"] || null;
+          let parsedSignedDate: Date | null = null;
+          if (datumUzatvoreniaRaw) {
+            const normalized = datumUzatvoreniaRaw.trim();
+            const skMatch = normalized.match(/^(\d{1,2})\.(\d{1,2})\.(\d{4})$/);
+            if (skMatch) parsedSignedDate = new Date(+skMatch[3], +skMatch[2] - 1, +skMatch[1]);
+            else parsedSignedDate = new Date(normalized);
+            if (isNaN(parsedSignedDate.getTime())) parsedSignedDate = null;
+          }
+          const futureDateWarning = parsedSignedDate && parsedSignedDate > new Date()
+            ? "Dátum uzatvorenia je v budúcnosti — zmluva nemôže byť uzatvorená vopred"
+            : null;
           const VALID_CONTRACT_TYPES: Record<string, string> = {
             "nova": "Nova", "nová": "Nova", "nová zmluva": "Nova", "nova zmluva": "Nova", "n": "Nova",
             "prestupova": "Prestupova", "prestupová": "Prestupova", "prestupová zmluva": "Prestupova", "prestupova zmluva": "Prestupova", "p": "Prestupova", "prestup": "Prestupova",
@@ -5937,10 +5952,14 @@ export async function registerRoutes(
             uploadedByUserId: appUser?.id || null,
             incompleteData: isIncomplete,
             incompleteDataReason: isIncomplete ? `Chýba: ${missingFields.join(", ")}` : null,
+            signedDate: parsedSignedDate || null,
             importedAt: new Date(),
             importBatchId: batchId,
             importedRawData,
           };
+
+          const warnings: string[] = [];
+          if (futureDateWarning) warnings.push(futureDateWarning);
 
           const created = await storage.createContract(contractData);
 
@@ -6012,9 +6031,11 @@ export async function registerRoutes(
             icoCritical: !!icoValidationError,
             icoValidationError: icoValidationError || undefined,
             hasDistributions,
+            warnings: warnings.length > 0 ? warnings : undefined,
             rawData: {
               partner: partnerName,
               produkt: productName,
+              datum_uzatvorenia: datumUzatvoreniaRaw,
               cislo_navrhu: cisloNavrhu,
               cislo_zmluvy: cisloZmluvy,
               typ_subjektu: typSubjektu,
@@ -6584,7 +6605,7 @@ export async function registerRoutes(
         { header: "Produkt", key: "product", width: 25 },
         { header: "Cislo zmluvy", key: "contractNumber", width: 20 },
         { header: "Suma poistneho", key: "premiumAmount", width: 18 },
-        { header: "Datum podpisu", key: "signatureDate", width: 18 },
+        { header: "Dátum uzatvorenia", key: "signatureDate", width: 18 },
       ];
       sheet.getRow(1).font = { bold: true };
 
@@ -6628,7 +6649,7 @@ export async function registerRoutes(
       const partnersData = await storage.getPartners();
       const productsData = await storage.getProducts();
 
-      const headers = ["Cislo kontraktu", "Meno klienta", "Partner", "Produkt", "Cislo zmluvy", "Suma poistneho", "Datum podpisu"];
+      const headers = ["Cislo kontraktu", "Meno klienta", "Partner", "Produkt", "Cislo zmluvy", "Suma poistneho", "Dátum uzatvorenia"];
       const rows = contractList.map(c => {
         const subject = subjects.find(s => s.id === c.subjectId);
         const partner = partnersData.find(p => p.id === c.partnerId);
@@ -9522,30 +9543,31 @@ export async function registerRoutes(
         { header: "A: Partner", key: "partner", width: 22 },
         { header: "B: Produkt", key: "produkt", width: 22 },
         { header: "C: Typ zmluvy", key: "typ_zmluvy", width: 20 },
-        { header: "D: Návrh zmluvy / zmluva o budúcej zmluve", key: "cislo_navrhu", width: 42 },
-        { header: "E: Číslo zmluvy", key: "cislo_zmluvy", width: 18 },
-        { header: "F: Typ subjektu", key: "typ_subjektu", width: 18 },
-        { header: "G: RČ / IČO", key: "rc_ico", width: 18 },
-        { header: "H: Názov firmy", key: "nazov_firmy", width: 24 },
-        { header: "I: Titul pred", key: "titul_pred", width: 14 },
-        { header: "J: Meno", key: "meno", width: 18 },
-        { header: "K: Priezvisko", key: "priezvisko", width: 18 },
-        { header: "L: Titul za", key: "titul_za", width: 14 },
-        { header: "M: Špecialista UID", key: "specialista_uid", width: 22 },
-        { header: "N: Špecialista %", key: "specialista_pct", width: 16 },
-        { header: "O: Odporúčateľ 1 UID", key: "odporucitel1_uid", width: 22 },
-        { header: "P: Odporúčateľ 1 %", key: "odporucitel1_pct", width: 18 },
-        { header: "Q: Odporúčateľ 2 UID", key: "odporucitel2_uid", width: 22 },
-        { header: "R: Odporúčateľ 2 %", key: "odporucitel2_pct", width: 18 },
+        { header: "D: Dátum uzatvorenia", key: "datum_uzatvorenia", width: 20 },
+        { header: "E: Návrh zmluvy / zmluva o budúcej zmluve", key: "cislo_navrhu", width: 42 },
+        { header: "F: Číslo zmluvy", key: "cislo_zmluvy", width: 18 },
+        { header: "G: Typ subjektu", key: "typ_subjektu", width: 18 },
+        { header: "H: RČ / IČO", key: "rc_ico", width: 18 },
+        { header: "I: Názov firmy", key: "nazov_firmy", width: 24 },
+        { header: "J: Titul pred", key: "titul_pred", width: 14 },
+        { header: "K: Meno", key: "meno", width: 18 },
+        { header: "L: Priezvisko", key: "priezvisko", width: 18 },
+        { header: "M: Titul za", key: "titul_za", width: 14 },
+        { header: "N: Špecialista UID", key: "specialista_uid", width: 22 },
+        { header: "O: Špecialista %", key: "specialista_pct", width: 16 },
+        { header: "P: Odporúčateľ 1 UID", key: "odporucitel1_uid", width: 22 },
+        { header: "Q: Odporúčateľ 1 %", key: "odporucitel1_pct", width: 18 },
+        { header: "R: Odporúčateľ 2 UID", key: "odporucitel2_uid", width: 22 },
+        { header: "S: Odporúčateľ 2 %", key: "odporucitel2_pct", width: 18 },
       ];
 
       const headerRow = sheet.getRow(1);
       headerRow.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF2D3748" } };
       headerRow.font = { bold: true, color: { argb: "FFFFFFFF" } };
 
-      for (let i = 1; i <= 18; i++) {
+      for (let i = 1; i <= 19; i++) {
         const cell = headerRow.getCell(i);
-        if ([1, 2, 3, 6, 13, 14].includes(i)) {
+        if ([1, 2, 3, 4, 7, 14, 15].includes(i)) {
           cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF991B1B" } };
           cell.font = { bold: true, color: { argb: "FFFFFFFF" } };
         }
@@ -9553,7 +9575,7 @@ export async function registerRoutes(
 
       const exampleRows = [
         {
-          partner: "Allianz", produkt: "PZP Auto", cislo_navrhu: "N-2024-001", cislo_zmluvy: "",
+          partner: "Allianz", produkt: "PZP Auto", datum_uzatvorenia: "10.03.2026", cislo_navrhu: "N-2024-001", cislo_zmluvy: "",
           typ_subjektu: "person", rc_ico: "850101/1234", nazov_firmy: "", titul_pred: "Ing.",
           meno: "Ján", priezvisko: "Novák", titul_za: "",
           specialista_uid: "421000000001", specialista_pct: "100",
@@ -9561,7 +9583,7 @@ export async function registerRoutes(
           typ_zmluvy: "Nova",
         },
         {
-          partner: "Generali", produkt: "Životné poistenie", cislo_navrhu: "N-2024-002", cislo_zmluvy: "",
+          partner: "Generali", produkt: "Životné poistenie", datum_uzatvorenia: "05.02.2026", cislo_navrhu: "N-2024-002", cislo_zmluvy: "",
           typ_subjektu: "szco", rc_ico: "900515/4567", nazov_firmy: "Peter Horváth - stolárstvo", titul_pred: "",
           meno: "Peter", priezvisko: "Horváth", titul_za: "",
           specialista_uid: "421000000002", specialista_pct: "70",
@@ -9569,7 +9591,7 @@ export async function registerRoutes(
           typ_zmluvy: "Prestupova",
         },
         {
-          partner: "ČSOB", produkt: "Podnikateľské poistenie", cislo_navrhu: "", cislo_zmluvy: "Z-2024-050",
+          partner: "ČSOB", produkt: "Podnikateľské poistenie", datum_uzatvorenia: "15.01.2026", cislo_navrhu: "", cislo_zmluvy: "Z-2024-050",
           typ_subjektu: "company", rc_ico: "12345678", nazov_firmy: "ABC Trading s.r.o.", titul_pred: "",
           meno: "", priezvisko: "", titul_za: "",
           specialista_uid: "421000000001", specialista_pct: "80",
@@ -9577,7 +9599,7 @@ export async function registerRoutes(
           typ_zmluvy: "Zmenova",
         },
         {
-          partner: "Uniqa", produkt: "Poistenie zodpovednosti", cislo_navrhu: "N-2024-003", cislo_zmluvy: "",
+          partner: "Uniqa", produkt: "Poistenie zodpovednosti", datum_uzatvorenia: "28.12.2025", cislo_navrhu: "N-2024-003", cislo_zmluvy: "",
           typ_subjektu: "organization", rc_ico: "31234567", nazov_firmy: "Nadácia Dobré srdce", titul_pred: "",
           meno: "", priezvisko: "", titul_za: "",
           specialista_uid: "421000000002", specialista_pct: "100",
@@ -9592,7 +9614,7 @@ export async function registerRoutes(
       for (const rowData of exampleRows) {
         const exRow = sheet.addRow(rowData);
         exRow.font = yellowFont;
-        for (let c = 1; c <= 18; c++) {
+        for (let c = 1; c <= 19; c++) {
           exRow.getCell(c).fill = yellowFill;
         }
       }
@@ -9616,7 +9638,7 @@ export async function registerRoutes(
 
       for (let r = 1; r <= 5; r++) {
         const row = sheet.getRow(r);
-        for (let c = 1; c <= 18; c++) {
+        for (let c = 1; c <= 19; c++) {
           row.getCell(c).protection = { locked: true };
         }
       }
@@ -9636,7 +9658,7 @@ export async function registerRoutes(
 
       for (let r = 6; r <= 1100; r++) {
         const row = sheet.getRow(r);
-        for (let c = 1; c <= 18; c++) {
+        for (let c = 1; c <= 19; c++) {
           row.getCell(c).protection = { locked: false };
         }
         row.getCell(3).dataValidation = {
@@ -13895,6 +13917,44 @@ export async function registerRoutes(
         }
       } catch (regErr) {
         console.error("[REGISTRY AUDIT ERROR]", regErr);
+      }
+
+      try {
+        const DATE_CONFLICT_KEYS = ["podpis", "uzatvor", "sign", "datum_podpisu", "datum_uzatvorenia", "signed_date"];
+        const dateFields = results.filter((r: any) => r.matchedValue && r.fieldKey && DATE_CONFLICT_KEYS.some(k => r.fieldKey.toLowerCase().includes(k)));
+        if (dateFields.length > 0) {
+          const navrhuField = results.find((r: any) => r.fieldKey && (r.fieldKey.toLowerCase().includes("navrh") || r.fieldKey.toLowerCase().includes("cislo_navrhu")));
+          const zmluvaField = results.find((r: any) => r.fieldKey && (r.fieldKey.toLowerCase().includes("cislo_zmluvy") || r.fieldKey.toLowerCase() === "cislo_zmluvy"));
+          let matchedContract: any = null;
+          if (navrhuField?.matchedValue) {
+            const [mc] = await db.select().from(contracts).where(eq(contracts.proposalNumber, navrhuField.matchedValue.trim())).limit(1);
+            matchedContract = mc;
+          }
+          if (!matchedContract && zmluvaField?.matchedValue) {
+            const [mc] = await db.select().from(contracts).where(eq(contracts.contractNumber, zmluvaField.matchedValue.trim())).limit(1);
+            matchedContract = mc;
+          }
+          if (!matchedContract && job.subjectId) {
+            const [mc] = await db.select().from(contracts).where(eq(contracts.subjectId, job.subjectId)).orderBy(desc(contracts.createdAt)).limit(1);
+            matchedContract = mc;
+          }
+          if (matchedContract?.signedDate) {
+            const contractDate = new Date(matchedContract.signedDate);
+            const contractDateSk = contractDate.toLocaleDateString("sk-SK");
+            const contractDateIso = contractDate.toISOString().split("T")[0];
+            for (const df of dateFields) {
+              const ocrDateStr = df.matchedValue.trim();
+              let ocrDateNorm = ocrDateStr;
+              const skM = ocrDateStr.match(/^(\d{1,2})\.(\d{1,2})\.(\d{4})$/);
+              if (skM) ocrDateNorm = `${skM[3]}-${skM[2].padStart(2,"0")}-${skM[1].padStart(2,"0")}`;
+              if (ocrDateNorm !== contractDateIso && ocrDateStr !== contractDateSk) {
+                df.dateConflict = { ocrDate: ocrDateStr, contractDate: contractDateSk };
+              }
+            }
+          }
+        }
+      } catch (dateErr: any) {
+        console.error("[OCR DATE CONFLICT AUDIT ERROR]", dateErr.message);
       }
 
       await db.update(ocrProcessingJobs).set({
@@ -18619,6 +18679,44 @@ export async function registerRoutes(
           }
         } catch (regErrW: any) {
           console.error("[OCR WORKER] Registry audit error:", regErrW.message);
+        }
+
+        try {
+          const DATE_CONFLICT_KEYS_W = ["podpis", "uzatvor", "sign", "datum_podpisu", "datum_uzatvorenia", "signed_date"];
+          const dateFieldsW = results.filter((r: any) => r.matchedValue && r.fieldKey && DATE_CONFLICT_KEYS_W.some(k => r.fieldKey.toLowerCase().includes(k)));
+          if (dateFieldsW.length > 0) {
+            const navrhuFieldW = results.find((r: any) => r.fieldKey && (r.fieldKey.toLowerCase().includes("navrh") || r.fieldKey.toLowerCase().includes("cislo_navrhu")));
+            const zmluvaFieldW = results.find((r: any) => r.fieldKey && (r.fieldKey.toLowerCase().includes("cislo_zmluvy") || r.fieldKey.toLowerCase() === "cislo_zmluvy"));
+            let matchedContractW: any = null;
+            if (navrhuFieldW?.matchedValue) {
+              const [mc] = await db.select().from(contracts).where(eq(contracts.proposalNumber, navrhuFieldW.matchedValue.trim())).limit(1);
+              matchedContractW = mc;
+            }
+            if (!matchedContractW && zmluvaFieldW?.matchedValue) {
+              const [mc] = await db.select().from(contracts).where(eq(contracts.contractNumber, zmluvaFieldW.matchedValue.trim())).limit(1);
+              matchedContractW = mc;
+            }
+            if (!matchedContractW && nextJob.subjectId) {
+              const [mc] = await db.select().from(contracts).where(eq(contracts.subjectId, nextJob.subjectId)).orderBy(desc(contracts.createdAt)).limit(1);
+              matchedContractW = mc;
+            }
+            if (matchedContractW?.signedDate) {
+              const contractDateW = new Date(matchedContractW.signedDate);
+              const contractDateSkW = contractDateW.toLocaleDateString("sk-SK");
+              const contractDateIsoW = contractDateW.toISOString().split("T")[0];
+              for (const df of dateFieldsW) {
+                const ocrDateStrW = df.matchedValue.trim();
+                let ocrDateNormW = ocrDateStrW;
+                const skMW = ocrDateStrW.match(/^(\d{1,2})\.(\d{1,2})\.(\d{4})$/);
+                if (skMW) ocrDateNormW = `${skMW[3]}-${skMW[2].padStart(2,"0")}-${skMW[1].padStart(2,"0")}`;
+                if (ocrDateNormW !== contractDateIsoW && ocrDateStrW !== contractDateSkW) {
+                  df.dateConflict = { ocrDate: ocrDateStrW, contractDate: contractDateSkW };
+                }
+              }
+            }
+          }
+        } catch (dateErrW: any) {
+          console.error("[OCR WORKER] Date conflict audit error:", dateErrW.message);
         }
 
         await db.update(ocrProcessingJobs).set({

@@ -40,7 +40,7 @@ const COLUMNS: ColumnDef[] = [
   { key: "rate_value", label: "Sadzba" },
   { key: "calculated_commission", label: "Provzia" },
   { key: "points_earned", label: "Body" },
-  { key: "signed_date", label: "Datum podpisu" },
+  { key: "signed_date", label: "Dátum uzatvorenia" },
 ];
 
 const FILTER_COLUMNS: SmartColumnDef[] = [
@@ -54,7 +54,7 @@ const FILTER_COLUMNS: SmartColumnDef[] = [
   { key: "rate_value", label: "Sadzba", type: "number" },
   { key: "calculated_commission", label: "Provzia", type: "number" },
   { key: "points_earned", label: "Body", type: "number" },
-  { key: "signed_date", label: "Datum podpisu", type: "date" },
+  { key: "signed_date", label: "Dátum uzatvorenia", type: "date" },
 ];
 
 export default function Provizie() {
@@ -204,7 +204,7 @@ export default function Provizie() {
                   {columnVisibility.isVisible("rate_value") && <TableHead className="text-right" sortKey="rate_value" sortDirection={sortKey === "rate_value" ? sortDirection : null} onSort={requestSort}>Sadzba</TableHead>}
                   {columnVisibility.isVisible("calculated_commission") && <TableHead className="text-right" sortKey="calculated_commission" sortDirection={sortKey === "calculated_commission" ? sortDirection : null} onSort={requestSort}>Provzia</TableHead>}
                   {columnVisibility.isVisible("points_earned") && <TableHead className="text-right" sortKey="points_earned" sortDirection={sortKey === "points_earned" ? sortDirection : null} onSort={requestSort}>Body</TableHead>}
-                  {columnVisibility.isVisible("signed_date") && <TableHead sortKey="signed_date" sortDirection={sortKey === "signed_date" ? sortDirection : null} onSort={requestSort}>Datum podpisu</TableHead>}
+                  {columnVisibility.isVisible("signed_date") && <TableHead sortKey="signed_date" sortDirection={sortKey === "signed_date" ? sortDirection : null} onSort={requestSort}>Dátum uzatvorenia</TableHead>}
                 </TableRow>
               </TableHeader>
               <TableBody>

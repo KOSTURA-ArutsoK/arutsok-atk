@@ -58,6 +58,10 @@ interface ExtractedField {
     registryValue: string;
     source: string;
   };
+  dateConflict?: {
+    ocrDate: string;
+    contractDate: string;
+  };
 }
 
 function getStatusIcon(status: string) {
@@ -506,6 +510,24 @@ function JobDetailView({ job, onConfirm, confirmPending }: { job: OcrJob; onConf
                           <div>
                             <span className="text-muted-foreground">V registri:</span>
                             <div className="font-medium text-orange-300">{field.registryConflict.registryValue}</div>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                    {field.dateConflict && (
+                      <div className="mt-1.5 p-2 rounded border border-orange-500/40 bg-orange-500/10" data-testid={`date-conflict-${field.fieldKey}`}>
+                        <div className="flex items-center gap-1.5 text-orange-400 text-[11px] font-semibold mb-1">
+                          <AlertTriangle className="h-3 w-3" />
+                          Rozpor v dátume
+                        </div>
+                        <div className="grid grid-cols-2 gap-2 text-[10px]">
+                          <div>
+                            <span className="text-muted-foreground">OCR dátum:</span>
+                            <div className="font-medium text-foreground">{field.dateConflict.ocrDate}</div>
+                          </div>
+                          <div>
+                            <span className="text-muted-foreground">Na zmluve:</span>
+                            <div className="font-medium text-orange-300">{field.dateConflict.contractDate}</div>
                           </div>
                         </div>
                       </div>
