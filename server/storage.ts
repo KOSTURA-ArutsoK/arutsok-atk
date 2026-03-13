@@ -4566,7 +4566,13 @@ export class DatabaseStorage implements IStorage {
     const existing = allForParam.find(s => (s.synonym || "").trim().toLowerCase() === normalizedSynonym);
 
     if (existing) {
-      return existing;
+      const newCount = (existing.confirmationCount || 0) + 1;
+      const newStatus = newCount >= 5 ? "confirmed" : "learning";
+      const [updated] = await db.update(parameterSynonyms)
+        .set({ confirmationCount: newCount, status: newStatus })
+        .where(eq(parameterSynonyms.id, existing.id))
+        .returning();
+      return updated;
     }
 
     const [created] = await db.insert(parameterSynonyms).values({
