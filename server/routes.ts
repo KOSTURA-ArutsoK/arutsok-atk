@@ -9074,12 +9074,71 @@ export async function registerRoutes(
         { header: "Poznámka", key: "note", width: 30 },
       ];
       const headerRow = sheet.getRow(1);
-      headerRow.font = { bold: true };
       headerRow.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF2D3748" } };
       headerRow.font = { bold: true, color: { argb: "FFFFFFFF" } };
 
       sheet.addRow({ contractNumber: "1001", status: "Aktívna", agent: "Ján Novák", commission: 150.50, note: "Príklad" });
       sheet.addRow({ contractNumber: "1002", status: "Čaká na schválenie", agent: "Peter Horváth", commission: 200, note: "" });
+
+      res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+      res.setHeader("Content-Disposition", "attachment; filename=sablona_import_stavov.xlsx");
+      await workbook.xlsx.write(res);
+      res.end();
+    } catch (err: any) {
+      res.status(500).json({ message: err?.message || "Chyba pri generovaní šablóny" });
+    }
+  });
+
+  app.get("/api/contracts/import-template", isAuthenticated, async (req: any, res) => {
+    try {
+      const workbook = new ExcelJS.Workbook();
+      const sheet = workbook.addWorksheet("Import zmlúv");
+      sheet.columns = [
+        { header: "A: partner", key: "partner", width: 20 },
+        { header: "B: produkt", key: "produkt", width: 20 },
+        { header: "C: cislo_navrhu", key: "cislo_navrhu", width: 18 },
+        { header: "D: cislo_zmluvy", key: "cislo_zmluvy", width: 18 },
+        { header: "E: typ_subjektu", key: "typ_subjektu", width: 15 },
+        { header: "F: rc_ico", key: "rc_ico", width: 18 },
+        { header: "G: nazov_firmy", key: "nazov_firmy", width: 22 },
+        { header: "H: titul_pred", key: "titul_pred", width: 12 },
+        { header: "I: meno", key: "meno", width: 18 },
+        { header: "J: priezvisko", key: "priezvisko", width: 18 },
+        { header: "K: titul_za", key: "titul_za", width: 12 },
+        { header: "L: specialista_uid", key: "specialista_uid", width: 20 },
+        { header: "M: specialista_%", key: "specialista_pct", width: 16 },
+        { header: "N: odporucitel1_uid", key: "odporucitel1_uid", width: 20 },
+        { header: "O: odporucitel1_%", key: "odporucitel1_pct", width: 16 },
+        { header: "P: odporucitel2_uid", key: "odporucitel2_uid", width: 20 },
+        { header: "Q: odporucitel2_%", key: "odporucitel2_pct", width: 16 },
+      ];
+
+      const headerRow = sheet.getRow(1);
+      headerRow.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF2D3748" } };
+      headerRow.font = { bold: true, color: { argb: "FFFFFFFF" } };
+
+      for (let i = 1; i <= 17; i++) {
+        const cell = headerRow.getCell(i);
+        if ([1, 2, 5, 12, 13].includes(i)) {
+          cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF991B1B" } };
+          cell.font = { bold: true, color: { argb: "FFFFFFFF" } };
+        }
+      }
+
+      sheet.addRow({
+        partner: "Allianz", produkt: "PZP Auto", cislo_navrhu: "N-2024-001", cislo_zmluvy: "",
+        typ_subjektu: "person", rc_ico: "850101/1234", nazov_firmy: "", titul_pred: "",
+        meno: "Ján", priezvisko: "Novák", titul_za: "",
+        specialista_uid: "421000000001", specialista_pct: "100",
+        odporucitel1_uid: "", odporucitel1_pct: "", odporucitel2_uid: "", odporucitel2_pct: "",
+      });
+      sheet.addRow({
+        partner: "Generali", produkt: "Životné poistenie", cislo_navrhu: "", cislo_zmluvy: "Z-2024-050",
+        typ_subjektu: "company", rc_ico: "12345678", nazov_firmy: "Firma s.r.o.", titul_pred: "",
+        meno: "", priezvisko: "", titul_za: "",
+        specialista_uid: "421000000002", specialista_pct: "70",
+        odporucitel1_uid: "421000000003", odporucitel1_pct: "30", odporucitel2_uid: "", odporucitel2_pct: "",
+      });
 
       res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
       res.setHeader("Content-Disposition", "attachment; filename=sablona_import_zmluv.xlsx");

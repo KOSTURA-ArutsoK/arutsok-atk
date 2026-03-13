@@ -11,7 +11,7 @@ import type { SmartColumnDef } from "@/hooks/use-smart-filter";
 import { SmartFilterBar } from "@/components/smart-filter-bar";
 import { useLocation, useSearch } from "wouter";
 import type { Contract, ContractStatus, ContractTemplate, ContractInventory, Subject, Partner, Product, MyCompany, Sector, Section, SectorProduct, ClientGroup, ClientType, AppUser, ContractAcquirer } from "@shared/schema";
-import { Plus, Pencil, Trash2, Eye, FileText, FileCheck, Files, Loader2, Lock, LayoutGrid, Send, Upload, Inbox, CheckCircle2, ChevronDown, ChevronRight, Printer, Search, Archive, AlertTriangle, Calendar, XCircle, MessageSquare, Paperclip, X, Users, User, Check, Award, Percent, History, ListChecks, ArrowRight, ArrowUpRight, ArrowUp, Clock, Ghost, Ban, HelpCircle, ScanLine, Briefcase, Building2, ArrowLeftRight, Info } from "lucide-react";
+import { Plus, Pencil, Trash2, Eye, FileText, FileCheck, Files, Loader2, Lock, LayoutGrid, Send, Upload, Inbox, CheckCircle2, ChevronDown, ChevronRight, Printer, Search, Archive, AlertTriangle, Calendar, XCircle, MessageSquare, Paperclip, X, Users, User, Check, Award, Percent, History, ListChecks, ArrowRight, ArrowUpRight, ArrowUp, Clock, Ghost, Ban, HelpCircle, ScanLine, Briefcase, Building2, ArrowLeftRight, Info, Download } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ActivityTimeline } from "@/components/activity-timeline";
 import { cn } from "@/lib/utils";
@@ -3610,7 +3610,7 @@ export default function Contracts() {
             <span className="text-foreground/60">Ukazka:</span> Allianz | PZP Auto | N-2024-001 | | person | 850101/1234 | | | Jan | Novak | | 421000000000002 | 100 | | |
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
             <input
               ref={importFileRef}
               type="file"
@@ -3625,6 +3625,20 @@ export default function Contracts() {
             <Button variant="outline" size="sm" onClick={() => importFileRef.current?.click()} data-testid="button-choose-file">
               <Upload className="w-3.5 h-3.5 mr-1" />
               Vybrať súbor
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                const a = document.createElement("a");
+                a.href = "/api/contracts/import-template";
+                a.download = "sablona_import_zmluv.xlsx";
+                a.click();
+              }}
+              data-testid="button-download-template"
+            >
+              <Download className="w-3.5 h-3.5 mr-1" />
+              Stiahnuť šablónu
             </Button>
             <span className="text-xs text-muted-foreground truncate max-w-[250px]" data-testid="text-selected-file">
               {importFile ? importFile.name : "Žiadny súbor"}
