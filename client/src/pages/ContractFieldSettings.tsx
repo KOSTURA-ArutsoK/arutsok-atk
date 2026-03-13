@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { NAVRH_LABEL_FULL } from "@/lib/utils";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -31,7 +32,7 @@ const FIELD_SETTINGS_COLUMNS: ColumnDef[] = [
 ];
 
 const CONTRACT_FIELDS = [
-  { key: "proposalNumber", label: "Cislo navrhu" },
+  { key: "proposalNumber", label: NAVRH_LABEL_FULL },
   { key: "globalNumber", label: "Cislo kontraktu" },
   { key: "signingPlace", label: "Miesto podpisu" },
   { key: "contractType", label: "Typ zmluvy" },

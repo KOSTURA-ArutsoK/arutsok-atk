@@ -5,6 +5,9 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
 }
 
+export const NAVRH_LABEL_FULL = "Návrh zmluvy / zmluva o budúcej zmluve";
+export const NAVRH_LABEL_SHORT = "Návrh zmluvy \u2026";
+
 export const formatDateSlovak = (date: string | Date | null | undefined): string => {
   if (!date) return '-';
   const d = new Date(date);

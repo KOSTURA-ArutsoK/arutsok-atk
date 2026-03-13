@@ -9522,7 +9522,7 @@ export async function registerRoutes(
         { header: "A: Partner", key: "partner", width: 22 },
         { header: "B: Produkt", key: "produkt", width: 22 },
         { header: "C: Typ zmluvy", key: "typ_zmluvy", width: 20 },
-        { header: "D: Číslo návrhu", key: "cislo_navrhu", width: 18 },
+        { header: "D: Návrh zmluvy / zmluva o budúcej zmluve", key: "cislo_navrhu", width: 42 },
         { header: "E: Číslo zmluvy", key: "cislo_zmluvy", width: 18 },
         { header: "F: Typ subjektu", key: "typ_subjektu", width: 18 },
         { header: "G: RČ / IČO", key: "rc_ico", width: 18 },

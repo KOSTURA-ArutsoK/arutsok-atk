@@ -1,7 +1,7 @@
 import { useState, useRef, useCallback, useEffect, useMemo } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import { formatDateTimeSlovak, formatDateSlovak, formatPhone, formatUid, getDateSemaphore, getDateSemaphoreClasses } from "@/lib/utils";
+import { formatDateTimeSlovak, formatDateSlovak, formatPhone, formatUid, getDateSemaphore, getDateSemaphoreClasses, NAVRH_LABEL_FULL, NAVRH_LABEL_SHORT } from "@/lib/utils";
 import { useAppUser } from "@/hooks/use-app-user";
 import { useStates } from "@/hooks/use-hierarchy";
 import { useToast } from "@/hooks/use-toast";
@@ -1576,7 +1576,7 @@ export default function ContractForm() {
 
   function handleSubmit() {
     if (proposalNumber && /^-/.test(proposalNumber.trim())) {
-      toast({ title: "Chyba", description: "Cislo navrhu nemoze byt zaporne", variant: "destructive" });
+      toast({ title: "Chyba", description: `${NAVRH_LABEL_FULL} nesmie byť záporné`, variant: "destructive" });
       return;
     }
     if (contractNumber && /^-/.test(contractNumber.trim())) {
@@ -1777,7 +1777,7 @@ export default function ContractForm() {
                 <CompactField label="Cislo kontraktu">
                   <Input value={existingContract?.globalNumber?.toString() || "Pridelene pri ulozeni"} readOnly className="bg-muted/50 cursor-default" data-testid="input-contract-global-number" />
                 </CompactField>
-                <CompactField label={`Cislo navrhu${isFieldRequired("proposalNumber") ? " *" : ""}`}>
+                <CompactField label={`${NAVRH_LABEL_SHORT}${isFieldRequired("proposalNumber") ? " *" : ""}`}>
                   <Input
                     value={proposalNumber}
                     onChange={e => setProposalNumber(e.target.value)}
@@ -1785,7 +1785,7 @@ export default function ContractForm() {
                     data-testid="input-contract-proposal"
                   />
                   {proposalNumber && /^-/.test(proposalNumber.trim()) && (
-                    <p className="text-[10px] text-red-500 mt-0.5">Cislo navrhu nemoze byt zaporne</p>
+                    <p className="text-[10px] text-red-500 mt-0.5">{NAVRH_LABEL_FULL} nesmie byť záporné</p>
                   )}
                 </CompactField>
                 <CompactField label="Cislo zmluvy">
@@ -2619,7 +2619,7 @@ export default function ContractForm() {
                               {existingContract?.globalNumber?.toString() || "Pridelené pri uložení"}
                             </div>
                           </CompactField>
-                          <CompactField label={`Číslo návrhu${isFieldRequired("proposalNumber") ? " *" : ""}`}>
+                          <CompactField label={`${NAVRH_LABEL_FULL}${isFieldRequired("proposalNumber") ? " *" : ""}`}>
                             <div className="flex items-center h-9 px-3 border rounded-md bg-muted/50 text-sm cursor-default" data-testid="summary-proposal">
                               {proposalNumber}
                             </div>
@@ -2736,7 +2736,7 @@ export default function ContractForm() {
                               {existingContract?.globalNumber?.toString() || "Pridelené pri uložení"}
                             </div>
                           </CompactField>
-                          <CompactField label={`Číslo návrhu${isFieldRequired("proposalNumber") ? " *" : ""}`}>
+                          <CompactField label={`${NAVRH_LABEL_FULL}${isFieldRequired("proposalNumber") ? " *" : ""}`}>
                             <div className="flex items-center h-9 px-3 border rounded-md bg-muted/50 text-sm cursor-default" data-testid="udaje-proposal">
                               {proposalNumber}
                             </div>

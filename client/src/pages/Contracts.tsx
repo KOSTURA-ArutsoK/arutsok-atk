@@ -1,7 +1,7 @@
 import { useState, useRef, useCallback, useEffect, useMemo, type ComponentType } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import { formatDateSlovak, formatUid, expandUid, getDateSemaphore, getDateSemaphoreClasses, canCreateRecords, canDeleteRecords, canEditRecords, isAdmin } from "@/lib/utils";
+import { formatDateSlovak, formatUid, expandUid, getDateSemaphore, getDateSemaphoreClasses, canCreateRecords, canDeleteRecords, canEditRecords, isAdmin, NAVRH_LABEL_FULL, NAVRH_LABEL_SHORT } from "@/lib/utils";
 import { useAppUser } from "@/hooks/use-app-user";
 import { useStates } from "@/hooks/use-hierarchy";
 import { useToast } from "@/hooks/use-toast";
@@ -78,7 +78,7 @@ const LIFECYCLE_PHASE_NAMES: Record<number, string> = {
 
 const CONTRACTS_COLUMNS: ColumnDef[] = [
   { key: "contractNumber", label: "Cislo zmluvy" },
-  { key: "proposalNumber", label: "Cislo navrhu" },
+  { key: "proposalNumber", label: NAVRH_LABEL_SHORT },
   { key: "globalNumber", label: "Poradove cislo" },
   { key: "subjectId", label: "Klient" },
   { key: "partnerId", label: "Partner" },
@@ -110,7 +110,7 @@ function getSmartStatusColor(statusColor: string | undefined, expiryDate: string
 
 const CONTRACTS_EVIDENCIA_COLUMNS: ColumnDef[] = [
   { key: "contractNumber", label: "Cislo zmluvy" },
-  { key: "proposalNumber", label: "Cislo navrhu" },
+  { key: "proposalNumber", label: NAVRH_LABEL_SHORT },
   { key: "globalNumber", label: "Poradove cislo" },
   { key: "subjectId", label: "Klient" },
   { key: "partnerId", label: "Partner" },
@@ -124,14 +124,14 @@ const CONTRACTS_EVIDENCIA_COLUMNS: ColumnDef[] = [
 const CONTRACTS_SPRIEVODKA_COLUMNS: ColumnDef[] = [
   { key: "partnerId", label: "Partner" },
   { key: "productId", label: "Produkt" },
-  { key: "proposalNumber", label: "Číslo návrhu" },
+  { key: "proposalNumber", label: NAVRH_LABEL_SHORT },
   { key: "contractNumber", label: "Číslo zmluvy" },
   { key: "subjectId", label: "Klient" },
 ];
 
 const MAIN_FILTER_COLUMNS: SmartColumnDef[] = [
   { key: "contractNumber", label: "Cislo zmluvy", type: "text" },
-  { key: "proposalNumber", label: "Cislo navrhu", type: "text" },
+  { key: "proposalNumber", label: NAVRH_LABEL_SHORT, type: "text" },
   { key: "globalNumber", label: "Poradove cislo", type: "number" },
   { key: "subjectId", label: "Klient", type: "number" },
   { key: "partnerId", label: "Partner", type: "number" },
@@ -144,7 +144,7 @@ const MAIN_FILTER_COLUMNS: SmartColumnDef[] = [
 
 const EVIDENCIA_FILTER_COLUMNS: SmartColumnDef[] = [
   { key: "contractNumber", label: "Cislo zmluvy", type: "text" },
-  { key: "proposalNumber", label: "Cislo navrhu", type: "text" },
+  { key: "proposalNumber", label: NAVRH_LABEL_SHORT, type: "text" },
   { key: "globalNumber", label: "Poradove cislo", type: "number" },
   { key: "subjectId", label: "Klient", type: "number" },
   { key: "partnerId", label: "Partner", type: "number" },
@@ -157,7 +157,7 @@ const EVIDENCIA_FILTER_COLUMNS: SmartColumnDef[] = [
 const SPRIEVODKA_FILTER_COLUMNS: SmartColumnDef[] = [
   { key: "partnerId", label: "Partner", type: "number" },
   { key: "productId", label: "Produkt", type: "number" },
-  { key: "proposalNumber", label: "Číslo návrhu", type: "text" },
+  { key: "proposalNumber", label: NAVRH_LABEL_SHORT, type: "text" },
   { key: "contractNumber", label: "Číslo zmluvy", type: "text" },
   { key: "subjectId", label: "Klient", type: "number" },
 ];
@@ -3285,7 +3285,7 @@ export default function Contracts() {
             {!hideContractNumbers && !earlyPhase && <TableHead sortKey="contractNumber" sortDirection={sk === "contractNumber" ? sd : null} onSort={rs}>Číslo kontraktu</TableHead>}
             <TableHead sortKey="partnerId" sortDirection={sk === "partnerId" ? sd : null} onSort={rs}>Partner</TableHead>
             <TableHead sortKey="productId" sortDirection={sk === "productId" ? sd : null} onSort={rs}>Produkt</TableHead>
-            <TableHead sortKey="proposalNumber" sortDirection={sk === "proposalNumber" ? sd : null} onSort={rs}>Číslo návrhu zmluvy</TableHead>
+            <TableHead sortKey="proposalNumber" sortDirection={sk === "proposalNumber" ? sd : null} onSort={rs} title={NAVRH_LABEL_FULL}>{NAVRH_LABEL_SHORT}</TableHead>
             {earlyPhase && <TableHead className="whitespace-nowrap text-xs">D: Číslo zmluvy</TableHead>}
             {!earlyPhase && !hideContractNumbers && <TableHead>Číslo zmluvy</TableHead>}
             <TableHead className="whitespace-nowrap text-xs">{earlyPhase ? "E: " : ""}Typ subjektu</TableHead>
@@ -4990,7 +4990,7 @@ export default function Contracts() {
               <label className="text-xs font-medium">Typ čísla</label>
               {(() => {
                 const numOpts: Array<{val: "proposal"|"contract"|"both", label: string, icon: typeof FileText}> = [
-                  {val:"proposal", label:"Číslo návrhu", icon: FileText},
+                  {val:"proposal", label:NAVRH_LABEL_SHORT, icon: FileText},
                   {val:"contract", label:"Číslo zmluvy", icon: FileCheck},
                   {val:"both", label:"Návrh + Zmluva", icon: Files},
                 ];
@@ -5027,7 +5027,7 @@ export default function Contracts() {
             {preSelectNumberType === "both" ? (
               <div className="space-y-2">
                 <div className="space-y-1">
-                  <label className="text-xs font-medium">Číslo návrhu zmluvy</label>
+                  <label className="text-xs font-medium">{NAVRH_LABEL_FULL}</label>
                   <Input
                     ref={refNumberInput}
                     value={preSelectNumberValue}
@@ -5056,7 +5056,7 @@ export default function Contracts() {
               </div>
             ) : (
               <div className="space-y-1">
-                <label className="text-xs font-medium">{preSelectNumberType === "proposal" ? "Číslo návrhu zmluvy" : "Číslo zmluvy"}</label>
+                <label className="text-xs font-medium">{preSelectNumberType === "proposal" ? NAVRH_LABEL_FULL : "Číslo zmluvy"}</label>
                 <Input
                   ref={refNumberInput}
                   value={preSelectNumberValue}
@@ -6057,7 +6057,7 @@ export default function Contracts() {
               <div className="flex gap-2">
                 <Input
                   className="h-8 text-sm font-mono"
-                  placeholder={quickFixNumberType === "contract" ? "Číslo zmluvy" : "Číslo návrhu"}
+                  placeholder={quickFixNumberType === "contract" ? "Číslo zmluvy" : NAVRH_LABEL_SHORT}
                   value={quickFixNumberValue}
                   onChange={e => setQuickFixNumberValue(e.target.value)}
                   data-testid="input-qf-number1"
@@ -6282,7 +6282,7 @@ export default function Contracts() {
                                   <TableHead className="w-[40px] text-center">#</TableHead>
                                   {sprievodkaColumnVisibility.isVisible("partnerId") && <TableHead>Partner</TableHead>}
                                   {sprievodkaColumnVisibility.isVisible("productId") && <TableHead>Produkt</TableHead>}
-                                  {sprievodkaColumnVisibility.isVisible("proposalNumber") && <TableHead>Číslo návrhu</TableHead>}
+                                  {sprievodkaColumnVisibility.isVisible("proposalNumber") && <TableHead title={NAVRH_LABEL_FULL}>{NAVRH_LABEL_SHORT}</TableHead>}
                                   {sprievodkaColumnVisibility.isVisible("contractNumber") && <TableHead>Číslo zmluvy</TableHead>}
                                   <TableHead>Typ subjektu</TableHead>
                                   {sprievodkaColumnVisibility.isVisible("subjectId") && <TableHead>Klient</TableHead>}
@@ -6602,7 +6602,7 @@ export default function Contracts() {
                                             <th className="p-2 text-left font-medium text-muted-foreground">Číslo kontraktu</th>
                                             <th className="p-2 text-left font-medium text-muted-foreground">Partner</th>
                                             <th className="p-2 text-left font-medium text-muted-foreground">Produkt</th>
-                                            <th className="p-2 text-left font-medium text-muted-foreground">Číslo návrhu zmluvy</th>
+                                            <th className="p-2 text-left font-medium text-muted-foreground" title={NAVRH_LABEL_FULL}>{NAVRH_LABEL_SHORT}</th>
                                             <th className="p-2 text-left font-medium text-muted-foreground">Číslo zmluvy</th>
                                             <th className="p-2 text-left font-medium text-muted-foreground">Typ subjektu</th>
                                             <th className="p-2 text-left font-medium text-muted-foreground">Subjekt</th>
@@ -6764,7 +6764,7 @@ export default function Contracts() {
                                           <TableRow>
                                             <TableHead resizable={false} style={{ width: 40, minWidth: 40, maxWidth: 40, padding: '0 8px' }}></TableHead>
                                             {evidenciaColumnVisibility.isVisible("contractNumber") && <TableHead>Číslo zmluvy</TableHead>}
-                                            {evidenciaColumnVisibility.isVisible("proposalNumber") && <TableHead>Číslo návrhu</TableHead>}
+                                            {evidenciaColumnVisibility.isVisible("proposalNumber") && <TableHead title={NAVRH_LABEL_FULL}>{NAVRH_LABEL_SHORT}</TableHead>}
                                             {evidenciaColumnVisibility.isVisible("subjectId") && <TableHead>Klient</TableHead>}
                                             {evidenciaColumnVisibility.isVisible("partnerId") && <TableHead>Partner</TableHead>}
                                             {evidenciaColumnVisibility.isVisible("productId") && <TableHead>Produkt</TableHead>}
@@ -7144,7 +7144,7 @@ export default function Contracts() {
                 <TableRow>
                   {columnVisibility.isVisible("contractNumber") && <TableHead sortKey="contractNumber" sortDirection={skMain === "contractNumber" ? sdMain : null} onSort={rsMain}>Cislo zmluvy</TableHead>}
                   {columnVisibility.isVisible("status") && <TableHead style={{ minWidth: 140 }}>Stav</TableHead>}
-                  {columnVisibility.isVisible("proposalNumber") && <TableHead sortKey="proposalNumber" sortDirection={skMain === "proposalNumber" ? sdMain : null} onSort={rsMain}>Cislo navrhu</TableHead>}
+                  {columnVisibility.isVisible("proposalNumber") && <TableHead sortKey="proposalNumber" sortDirection={skMain === "proposalNumber" ? sdMain : null} onSort={rsMain} title={NAVRH_LABEL_FULL}>{NAVRH_LABEL_SHORT}</TableHead>}
                   {columnVisibility.isVisible("globalNumber") && <TableHead sortKey="globalNumber" sortDirection={skMain === "globalNumber" ? sdMain : null} onSort={rsMain}>Poradove cislo</TableHead>}
                   {columnVisibility.isVisible("partnerId") && <TableHead sortKey="partnerId" sortDirection={skMain === "partnerId" ? sdMain : null} onSort={rsMain}>Partner</TableHead>}
                   {columnVisibility.isVisible("subjectId") && <TableHead sortKey="subjectId" sortDirection={skMain === "subjectId" ? sdMain : null} onSort={rsMain}>Klient</TableHead>}
